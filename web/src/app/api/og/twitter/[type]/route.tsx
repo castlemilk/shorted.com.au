@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { type NextRequest } from "next/server";
 import { getServerShortsApiUrl } from "~/app/actions/config";
 
+import type { JSX } from "react";
+
 // Twitter in-stream image recommendation: 16:9, 1200x675 minimum.
 const WIDTH = 1200;
 const HEIGHT = 675;

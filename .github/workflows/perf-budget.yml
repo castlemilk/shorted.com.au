@@ -81,9 +81,10 @@ jobs:
       - name: Stock and ownership routes are ISR
         run: node scripts/route-kinds.mjs
 
-      # Chart-code gate (blocking): only the chart tabs load the chart with the
-      # page; the Overview's first-load chunks are every other tab's.
-      - name: Only the chart tabs load the chart
+      # Chart-code gate (blocking): no stock tab loads the chart with its page
+      # (the Overview's first-load chunks are every tab's), and each chart route
+      # loads it through its client loader.
+      - name: Chart code loads through the client loaders
         run: node scripts/stock-chart-chunks.mjs
 
       - name: Upload bundle report

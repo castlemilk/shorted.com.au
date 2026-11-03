@@ -5,9 +5,9 @@ export const dynamic = "force-dynamic";
 export default async function UnsubscribePage({
   searchParams,
 }: {
-  searchParams: { t?: string };
+  searchParams: Promise<{ t?: string }>;
 }) {
-  const token = searchParams.t ?? "";
+  const token = (await searchParams).t ?? "";
   return (
     <main className="container mx-auto max-w-xl px-4 py-24 text-center">
       <UnsubscribeConfirm token={token} />

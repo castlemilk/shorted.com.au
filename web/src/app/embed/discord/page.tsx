@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import { activityLaunchState } from "~/@/lib/discord/activity";
+import { activityLaunchState, discordPlatform } from "~/@/lib/discord/activity";
 
 const fallback = (
   <div className="h-[100dvh] w-full p-2">
@@ -20,10 +20,11 @@ const DiscordActivity = dynamic(
 );
 
 function DiscordActivityInner() {
-  const launch = activityLaunchState(useSearchParams());
+  const params = useSearchParams();
+  const launch = activityLaunchState(params);
   return (
     <div className="h-[100dvh] w-full overflow-auto">
-      <DiscordActivity launch={launch} />
+      <DiscordActivity launch={launch} platform={discordPlatform(params)} />
     </div>
   );
 }

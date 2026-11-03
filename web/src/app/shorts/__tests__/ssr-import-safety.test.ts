@@ -33,15 +33,19 @@
  * profile and stats cards); they left with those cards, and the layout now
  * renders StockHeader, a server component with no client retry twin, so the
  * layout has no entry at all. The allowlist is pinned, so it can only shrink;
- * each entry is a risk, not a fix. Loading the last one through
- * nextDynamic(..., { ssr: false }) is a separate change to shared UI, to be
- * reproduced under `next start` first.
+ * each entry is a risk, not a fix. Loading the last one through a client
+ * loader (a "use client" module that holds the next/dynamic(..., { ssr: false })
+ * call) is a separate change to shared UI, to be reproduced under `next start`
+ * first.
  *
- * The charts are islands, not allowlist entries. Each is on the tab it is
- * about: the Short interest page loads StockChartPanel through
- * nextDynamic(..., { ssr: false }), the Overview through the client module
- * stock-chart-panel-lazy, which does the same in the browser, and the layout
- * loads none (CONNECT_ISLANDS below).
+ * The islands are not allowlist entries either. Each is a "use client" loader
+ * module that holds the next/dynamic(..., { ssr: false }) call for its island,
+ * and a stock server file imports the loader, never the island and never
+ * next/dynamic (Next 15 refuses ssr: false in a server component). The loaders
+ * are listed in CONNECT_ISLANDS below. The Overview and Short interest share one
+ * loader for the panel, stock-chart-panel-lazy, which starts the panel's download
+ * in the browser on those two tabs; Strategy has its own chart loader; the layout
+ * loads none.
  */
 
 import { describe, it, expect, afterAll } from "@jest/globals";
@@ -180,10 +184,44 @@ interface ModuleInfo {
   client: boolean;
   /** "use server": a client module that imports it gets a reference, and none of its code. */
   serverActions: boolean;
-  /** The @connectrpc/* packages it imports statically. */
+  /** The @connectrpc/* packages it imports at runtime. */
   connect: string[];
-  /** The repo files it imports statically; packages and files that are not there are left out. */
+  /** The repo files it imports statically, type-only imports included; packages and files that are not there are left out. */
   local: string[];
+  /** The repo files it imports at runtime: what evaluating the module evaluates. */
+  evaluated: string[];
+}
+
+/**
+ * The modules a file imports only as types. `import type` and `export type` are
+ * erased by the compiler, so they never evaluate the module they name. A module
+ * the file also imports as a value is not in the set.
+ */
+function typeOnlySpecifiers(source: string): Set<string> {
+  const sf = ts.createSourceFile(
+    "module.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TSX,
+  );
+  const typeOnly = new Set<string>();
+  const valued = new Set<string>();
+  for (const statement of sf.statements) {
+    let specifier: ts.Expression | undefined;
+    let isTypeOnly = false;
+    if (ts.isImportDeclaration(statement)) {
+      specifier = statement.moduleSpecifier;
+      isTypeOnly = statement.importClause?.isTypeOnly ?? false;
+    } else if (ts.isExportDeclaration(statement)) {
+      specifier = statement.moduleSpecifier;
+      isTypeOnly = statement.isTypeOnly;
+    }
+    if (specifier && ts.isStringLiteral(specifier)) {
+      (isTypeOnly ? typeOnly : valued).add(specifier.text);
+    }
+  }
+  return new Set([...typeOnly].filter((name) => !valued.has(name)));
 }
 
 const moduleInfos = new Map<string, ModuleInfo>();
@@ -194,20 +232,28 @@ function moduleInfo(file: string): ModuleInfo {
     const source = readSource(file);
     const directives = directivesOf(source);
     const statics = importRefs(source).filter((ref) => !ref.dynamic);
+    const typeOnly = typeOnlySpecifiers(source);
+    const evaluated = statics.filter((ref) => !typeOnly.has(ref.specifier));
     info = {
       client: directives.includes("use client"),
       serverActions: directives.includes("use server"),
-      connect: statics
+      connect: evaluated
         .map((ref) => ref.specifier)
         .filter((specifier) => specifier.startsWith("@connectrpc/")),
       local: statics.flatMap((ref) => resolveLocal(ref.specifier, file) ?? []),
+      evaluated: evaluated.flatMap(
+        (ref) => resolveLocal(ref.specifier, file) ?? [],
+      ),
     };
     moduleInfos.set(file, info);
   }
   return info;
 }
 
-/** The first chain of static imports from `start` to an @connectrpc package: the files, then the package. */
+/**
+ * The first chain of runtime imports from `start` to an @connectrpc package: the
+ * files, then the package. A type-only import is erased, so it is no link.
+ */
 function connectChain(start: string): string[] | null {
   const seen = new Set<string>();
   const walk = (file: string): string[] | null => {
@@ -216,7 +262,7 @@ function connectChain(start: string): string[] | null {
     const info = moduleInfo(file);
     const [pkg] = info.connect;
     if (pkg) return [file, pkg];
-    for (const dep of info.local) {
+    for (const dep of info.evaluated) {
       if (moduleInfo(dep).serverActions) continue;
       const rest = walk(dep);
       if (rest) return [file, ...rest];
@@ -256,7 +302,7 @@ function clientModulesReachingConnect(entry: string): ClientConnect[] {
       if (chain) found.push({ client: file, chain });
       return;
     }
-    info.local.forEach(visit);
+    info.evaluated.forEach(visit);
   };
   visit(entry);
   return found;
@@ -337,36 +383,227 @@ function nextDynamicLoads(source: string): DynamicLoad[] {
 }
 
 /**
- * Every client island a stock server file loads through next/dynamic, by the
- * file that owns it. Each is client-only (ssr: false) because it reaches
- * Connect-RPC, directly or through hooks and helpers. The test below compares
- * what each file loads with this table, both ways; it does not check that
- * reason, which the walk further down checks for everything imported
- * statically. A server file loads an island with
- * nextDynamic(() => import(…), { ssr: false }), never with a static import. A
- * page that gains an island lists it here, and the test fails until it does.
+ * Every call to next/dynamic in a file, whatever it loads: the specifier when
+ * the call is handed a dynamic import, and whether its options carry ssr: false.
+ * The repo-wide check reads these, so a call with no import (a wrapper) counts.
+ */
+function nextDynamicCalls(source: string): {
+  specifier: string | null;
+  ssrFalse: boolean;
+}[] {
+  const code = withoutComments(source);
+  const local = /\bimport\s+(\w+)\s+from\s*["']next\/dynamic["']/.exec(
+    code,
+  )?.[1];
+  if (!local) return [];
+  return callArguments(code, local).map((args) => ({
+    specifier: /\bimport\s*\(\s*["']([^"']+)["']/.exec(args)?.[1] ?? null,
+    ssrFalse: /\bssr\s*:\s*false\b/.test(args),
+  }));
+}
+
+/**
+ * The client loaders each stock server file imports, by the file that imports
+ * them. An island is client-only (ssr: false) because it reaches Connect-RPC,
+ * directly or through hooks and helpers. A loader is a "use client" module that
+ * holds the next/dynamic(() => import(…), { ssr: false }) call for its island,
+ * and a server file imports the loader, never the island and never next/dynamic.
+ * The tests below compare what each file imports with this table, both ways,
+ * check each loader, and check that no tab's loader reaches another tab. A page
+ * that gains an island lists its loader here, and the test fails until it does.
  */
 const CONNECT_ISLANDS: Record<string, string[]> = {
-  // The layout loads none: the charts moved onto the tabs they are about. The
-  // Overview's chart is the client module stock-chart-panel-lazy's island
-  // (its own test below), so the Overview page loads none itself.
+  // The Overview and Short interest share the chart's loader, which starts the
+  // panel's download in the browser on both tabs (its own test below). The
+  // layout imports no loader of its own: the charts moved onto the tabs they are
+  // about.
+  "page.tsx": ["~/@/components/charts/stock-chart-panel-lazy"],
   "short-interest/page.tsx": [
-    "~/@/components/charts/StockChartPanel",
-    "~/@/components/company/peer-comparison-table",
-    "~/@/components/company/stock-signals",
-    "~/@/components/company/stock-verdict",
+    "~/@/components/charts/stock-chart-panel-lazy",
+    "~/@/components/company/peer-comparison-table-loader",
+    "~/@/components/company/stock-signals-loader",
+    "~/@/components/company/stock-verdict-loader",
   ],
-  "strategy/page.tsx": ["~/@/components/strategy/strategy-levels-chart"],
+  "strategy/page.tsx": ["~/@/components/strategy/strategy-levels-chart-loader"],
   "financials/page.tsx": [
-    "~/@/components/company/company-tax-card",
-    "~/@/components/company/dividend-history",
+    "~/@/components/company/company-tax-card-loader",
+    "~/@/components/company/dividend-history-loader",
   ],
   "company/page.tsx": [
-    "~/@/components/company/director-trades-table",
-    "~/@/components/company/stock-connections",
+    "~/@/components/company/director-trades-table-loader",
+    "~/@/components/company/stock-connections-loader",
   ],
-  "news/page.tsx": ["~/@/components/company/event-timeline"],
+  "news/page.tsx": ["~/@/components/company/event-timeline-loader"],
 };
+
+/** The table's specifiers are all ~/ paths, so any file in the stock segment resolves them. */
+const FROM_STOCK = path.join(STOCK_DIR, "page.tsx");
+
+/** A repo module's file. The table and the loaders name real files, so one that does not resolve fails the suite. */
+function mustResolve(specifier: string, fromFile: string): string {
+  const file = resolveLocal(specifier, fromFile);
+  if (!file) throw new Error(`does not resolve to a repo file: ${specifier}`);
+  return file;
+}
+
+/** Each loader module once, as the specifiers the table names. */
+const LOADER_SPECIFIERS = [...new Set(Object.values(CONNECT_ISLANDS).flat())];
+
+/** Which stock server files import each loader, keyed by the loader's file. */
+const LOADER_OWNERS = new Map<string, string[]>();
+for (const [owner, specifiers] of Object.entries(CONNECT_ISLANDS)) {
+  for (const specifier of specifiers) {
+    const loader = mustResolve(specifier, path.join(STOCK_DIR, owner));
+    LOADER_OWNERS.set(loader, [...(LOADER_OWNERS.get(loader) ?? []), owner]);
+  }
+}
+
+/** The islands: what each loader hands to next/dynamic, as files. */
+const ISLAND_FILES = [...LOADER_OWNERS.keys()].flatMap((loader) =>
+  nextDynamicLoads(readSource(loader)).map((load) =>
+    mustResolve(load.specifier, loader),
+  ),
+);
+
+/**
+ * The repo files a file reaches through static imports, client and server
+ * alike, transitively. A dynamic import is a lazy boundary and is not followed.
+ * A client module's static imports are part of the same client bundle, so they
+ * count: the Overview's chunk lists are what the other tabs inherit.
+ */
+function staticReach(file: string): Set<string> {
+  const reached = new Set<string>();
+  const walk = (current: string): void => {
+    for (const dep of moduleInfo(current).local) {
+      if (!reached.has(dep)) {
+        reached.add(dep);
+        walk(dep);
+      }
+    }
+  };
+  walk(file);
+  return reached;
+}
+
+/** `typeof window` compared with "undefined" under one of `ops`, in either order. */
+function isWindowTypeofTest(
+  node: ts.Expression,
+  ops: readonly ts.SyntaxKind[],
+): boolean {
+  if (!ts.isBinaryExpression(node) || !ops.includes(node.operatorToken.kind)) {
+    return false;
+  }
+  const isWindowTypeof = (e: ts.Expression) =>
+    ts.isTypeOfExpression(e) &&
+    ts.isIdentifier(e.expression) &&
+    e.expression.text === "window";
+  const isUndefined = (e: ts.Expression) =>
+    ts.isStringLiteral(e) && e.text === "undefined";
+  return (
+    (isWindowTypeof(node.left) && isUndefined(node.right)) ||
+    (isUndefined(node.left) && isWindowTypeof(node.right))
+  );
+}
+
+const NOT_UNDEFINED = [
+  ts.SyntaxKind.ExclamationEqualsEqualsToken,
+  ts.SyntaxKind.ExclamationEqualsToken,
+];
+const IS_UNDEFINED = [
+  ts.SyntaxKind.EqualsEqualsEqualsToken,
+  ts.SyntaxKind.EqualsEqualsToken,
+];
+
+/** Whether the code runs in the browser whenever `node` is true. */
+function runsInBrowserWhenTrue(node: ts.Expression): boolean {
+  if (ts.isParenthesizedExpression(node)) {
+    return runsInBrowserWhenTrue(node.expression);
+  }
+  if (isWindowTypeofTest(node, NOT_UNDEFINED)) return true;
+  if (ts.isBinaryExpression(node)) {
+    const op = node.operatorToken.kind;
+    if (op === ts.SyntaxKind.AmpersandAmpersandToken) {
+      return runsInBrowserWhenTrue(node.left) || runsInBrowserWhenTrue(node.right);
+    }
+    if (op === ts.SyntaxKind.BarBarToken) {
+      return runsInBrowserWhenTrue(node.left) && runsInBrowserWhenTrue(node.right);
+    }
+  }
+  return false;
+}
+
+/** Whether the code runs in the browser whenever `node` is false, as an else branch does. */
+function runsInBrowserWhenFalse(node: ts.Expression): boolean {
+  if (ts.isParenthesizedExpression(node)) {
+    return runsInBrowserWhenFalse(node.expression);
+  }
+  if (isWindowTypeofTest(node, IS_UNDEFINED)) return true;
+  if (ts.isBinaryExpression(node)) {
+    const op = node.operatorToken.kind;
+    if (op === ts.SyntaxKind.BarBarToken) {
+      return runsInBrowserWhenFalse(node.left) || runsInBrowserWhenFalse(node.right);
+    }
+    if (op === ts.SyntaxKind.AmpersandAmpersandToken) {
+      return runsInBrowserWhenFalse(node.left) && runsInBrowserWhenFalse(node.right);
+    }
+  }
+  return false;
+}
+
+/**
+ * The import() calls a module runs when it is evaluated: not inside a
+ * next/dynamic call (a lazy boundary), and not in a branch that runs on the
+ * server. A preload starts a download, and on the server it would evaluate an
+ * island's Connect-RPC code during SSR, so every preload sits in a branch that
+ * runs only in the browser: the then-branch of `typeof window !== "undefined"`,
+ * or the else-branch of `typeof window === "undefined"`.
+ */
+function unguardedImports(source: string): string[] {
+  const sf = ts.createSourceFile(
+    "loader.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const found: string[] = [];
+  const visit = (node: ts.Node, guarded: boolean, lazy: boolean): void => {
+    if (
+      ts.isIfStatement(node) &&
+      node.expression.getText(sf).includes("typeof window")
+    ) {
+      visit(node.expression, guarded, lazy);
+      visit(
+        node.thenStatement,
+        guarded || runsInBrowserWhenTrue(node.expression),
+        lazy,
+      );
+      if (node.elseStatement) {
+        visit(
+          node.elseStatement,
+          guarded || runsInBrowserWhenFalse(node.expression),
+          lazy,
+        );
+      }
+      return;
+    }
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      !guarded &&
+      !lazy
+    ) {
+      found.push(node.arguments[0]?.getText(sf) ?? "");
+    }
+    const isDynamicCall =
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "dynamic";
+    ts.forEachChild(node, (child) => visit(child, guarded, lazy || isDynamicCall));
+  };
+  visit(sf, false, false);
+  return found;
+}
 
 /**
  * The client modules that reach @connectrpc by static imports from a stock
@@ -389,9 +626,9 @@ const CONNECT_ISLANDS: Record<string, string[]> = {
  * ("Element type is invalid ... got: undefined", the SSR failure CLAUDE.md
  * describes for @connectrpc). It is an island now (CONNECT_ISLANDS above).
  *
- * Moving the one that is left behind nextDynamic(..., { ssr: false }) is a
- * rendering change to a live tab, so it is a decision for the owner of that
- * tab, not for this guard.
+ * Moving the one that is left behind into a client loader, with its own
+ * next/dynamic(..., { ssr: false }) call, is a rendering change to a live tab,
+ * so it is a decision for the owner of that tab, not for this guard.
  */
 const KNOWN_CLIENT_CONNECT: Record<string, string[]> = {
   "page.tsx": ["~/@/components/ui/company-info-with-retry"],
@@ -429,18 +666,28 @@ describe("/shorts SSR Import Safety", () => {
       expect(content.trimStart()).toMatch(/^["']use client["']/);
     });
 
-    it("/shorts/page.tsx must use dynamic import for TopShortsClient (ssr: false)", () => {
+    it("/shorts/page.tsx imports TopShortsClient through its client loader, which holds the ssr: false import", () => {
       const filePath = path.join(WEB_SRC, "src/app/shorts/page.tsx");
       const content = fs.readFileSync(filePath, "utf-8");
 
-      // Must NOT have a static import of TopShortsClient
-      expect(content).not.toMatch(
-        /^import\s+\{?\s*TopShortsClient\s*\}?\s+from/m,
+      // Must NOT import the dashboard itself, statically or dynamically
+      expect(content).not.toMatch(/["']\.\/components\/top-shorts-client["']/);
+      // Must import it from the loader
+      expect(content).toMatch(
+        /from\s+["']\.\/components\/top-shorts-client-loader["']/,
       );
 
-      // Must have a dynamic import with ssr: false
-      expect(content).toMatch(/ssr:\s*false/);
-      expect(content).toMatch(/top-shorts-client/);
+      // The loader is the use-client module that holds the ssr: false import
+      const loader = readSource(
+        path.join(
+          WEB_SRC,
+          "src/app/shorts/components/top-shorts-client-loader.tsx",
+        ),
+      );
+      expect(loader.trimStart()).toMatch(/^["']use client["']/);
+      expect(nextDynamicLoads(loader)).toEqual([
+        { specifier: "./top-shorts-client", ssrFalse: true },
+      ]);
     });
   });
 
@@ -470,6 +717,134 @@ describe("/shorts SSR Import Safety", () => {
       }
 
       expect(violations).toEqual([]);
+    });
+  });
+
+  describe("no server module calls next/dynamic with ssr: false", () => {
+    /**
+     * Non-test source files under src that call next/dynamic with ssr: false and
+     * carry no "use client" directive: a server component may not do that.
+     */
+    function serverSsrFalseCalls(dir: string = SRC_DIR): string[] {
+      const found: string[] = [];
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== "__tests__") {
+            found.push(...serverSsrFalseCalls(full));
+          }
+        } else if (
+          /\.tsx?$/.test(entry.name) &&
+          !/\.(test|spec)\.tsx?$/.test(entry.name) &&
+          !entry.name.endsWith(".d.ts")
+        ) {
+          const source = readSource(full);
+          if (
+            !directivesOf(source).includes("use client") &&
+            nextDynamicCalls(source).some((call) => call.ssrFalse)
+          ) {
+            found.push(fromSrc(full));
+          }
+        }
+      }
+      return found.sort();
+    }
+
+    it("every ssr: false island is called from a use client module (Next 15 refuses it in a server component)", () => {
+      expect(serverSsrFalseCalls()).toEqual([]);
+    });
+  });
+
+  describe("every client loader under src, not only the stock tabs'", () => {
+    /** Every non-test source file under a directory, as absolute paths. */
+    function sourceFilesUnder(dir: string = SRC_DIR): string[] {
+      const found: string[] = [];
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== "__tests__") found.push(...sourceFilesUnder(full));
+        } else if (
+          /\.tsx?$/.test(entry.name) &&
+          !/\.(test|spec)\.tsx?$/.test(entry.name) &&
+          !entry.name.endsWith(".d.ts")
+        ) {
+          found.push(full);
+        }
+      }
+      return found.sort();
+    }
+
+    // A loader is a module whose job is to hold next/dynamic(..., { ssr: false })
+    // for an island: the *-loader.tsx files, chart-loaders.tsx (the MDX charts)
+    // and stock-chart-panel-lazy.tsx. The root layout's loaders run during SSR of
+    // every route, and the others during their page's, so each gets the checks
+    // the stock tabs' loaders get above, wherever it sits. Another "use client"
+    // module can hold an ssr: false call for a piece of its own and import its
+    // own client code statically (chat-thread.tsx, the dashboards page): that is
+    // an island, not a loader, and the walk below covers what rendering reaches.
+    const loaders = sourceFilesUnder().filter((file) =>
+      /(?:-loader|\/chart-loaders|\/stock-chart-panel-lazy)\.tsx$/.test(file),
+    );
+    const cases = loaders.map((file) => [fromSrc(file), file] as const);
+
+    it("finds the loaders of the root layout, the pages and the stock tabs", () => {
+      expect(loaders.map(fromSrc)).toEqual(
+        expect.arrayContaining([
+          "@/components/chat/chat-sidebar-loader.tsx",
+          "@/components/billing/past-due-banner-loader.tsx",
+          "@/components/ui/breaking-news-banner-loader.tsx",
+          "@/components/layouts/dashboard-sidebar-loader.tsx",
+          "@/components/charts/stock-chart-panel-lazy.tsx",
+          "@/components/news/mdx/chart-loaders.tsx",
+          "@/components/strategy/strategy-levels-chart-loader.tsx",
+          "app/chat/chat-page-content-loader.tsx",
+          "app/shorts/components/top-shorts-client-loader.tsx",
+        ]),
+      );
+    });
+
+    it.each(cases)(
+      "%s is a use client module whose next/dynamic calls all hold ssr: false",
+      (_name, file) => {
+        const source = readSource(file);
+        expect(directivesOf(source)).toContain("use client");
+        for (const call of nextDynamicCalls(source)) {
+          expect(call.ssrFalse).toBe(true);
+        }
+      },
+    );
+
+    it.each(cases)(
+      "%s starts no download on the server: every preload sits in a browser-only branch",
+      (_name, file) => {
+        expect(unguardedImports(readSource(file))).toEqual([]);
+      },
+    );
+
+    it.each(cases)(
+      "%s reaches no @connectrpc package through its static imports",
+      (_name, file) => {
+        expect(connectChain(file)).toBeNull();
+      },
+    );
+  });
+
+  describe("what server rendering evaluates: the root layout, the pages and the MDX registry", () => {
+    // Server rendering evaluates every client module these files reach through
+    // static imports, so none of them may reach @connectrpc on that path: that is
+    // the import chain behind the 500 CLAUDE.md records. An island behind a
+    // loader is a dynamic import, which this walk does not follow.
+    it.each([
+      "app/layout.tsx",
+      "app/page.tsx",
+      "app/chat/page.tsx",
+      "app/shorts/page.tsx",
+      "@/components/layouts/dashboard-layout.tsx",
+      "@/components/news/mdx/registry.tsx",
+    ])("%s reaches @connectrpc through no client module", (root) => {
+      expect(
+        clientModulesReachingConnect(path.join(SRC_DIR, root)).map(describeChain),
+      ).toEqual([]);
     });
   });
 
@@ -506,34 +881,27 @@ describe("/shorts SSR Import Safety", () => {
     );
 
     it.each(files)(
-      "%s loads everything it hands to next/dynamic with ssr: false",
+      "%s calls next/dynamic nowhere: its islands come from client loaders",
       (_name, file) => {
-        expect(
-          nextDynamicLoads(readSource(file))
-            .filter((load) => !load.ssrFalse)
-            .map((load) => load.specifier),
-        ).toEqual([]);
+        expect(nextDynamicCalls(readSource(file))).toEqual([]);
       },
     );
 
     it.each(files)(
-      "%s loads exactly its islands through next/dynamic, and imports none statically",
+      "%s imports exactly its client loaders, and no island directly",
       (name, file) => {
         // Files, not the strings that name them: `~/@/x`, `@/x` and a relative
-        // path are one island.
-        const islands = (CONNECT_ISLANDS[name] ?? []).map((specifier) =>
-          targetOf(specifier, file),
+        // path are one loader.
+        const loaders = (CONNECT_ISLANDS[name] ?? []).map((specifier) =>
+          mustResolve(specifier, file),
         );
-        const source = readSource(file);
-        expect(
-          nextDynamicLoads(source)
-            .map((load) => targetOf(load.specifier, file))
-            .sort(),
-        ).toEqual([...islands].sort());
-        const statics = importRefs(source)
+        const statics = importRefs(readSource(file))
           .filter((ref) => !ref.dynamic)
-          .map((ref) => targetOf(ref.specifier, file));
-        for (const island of islands) {
+          .flatMap((ref) => resolveLocal(ref.specifier, file) ?? []);
+        expect(statics.filter((target) => LOADER_OWNERS.has(target)).sort()).toEqual(
+          [...loaders].sort(),
+        );
+        for (const island of ISLAND_FILES) {
           expect(statics).not.toContain(island);
         }
       },
@@ -581,9 +949,134 @@ describe("/shorts SSR Import Safety", () => {
         { specifier: "@/components/charts/StockChartPanel.tsx", ssrFalse: true },
       ]);
     });
+
+    describe("the client loaders", () => {
+      it.each(LOADER_SPECIFIERS)(
+        "%s is a use client module whose next/dynamic calls hold ssr: false, each for a client-only island",
+        (specifier) => {
+          const loader = mustResolve(specifier, FROM_STOCK);
+          const source = readSource(loader);
+          expect(directivesOf(source)).toContain("use client");
+          const loads = nextDynamicLoads(source);
+          expect(loads.length).toBeGreaterThan(0);
+          for (const load of loads) {
+            expect(load.ssrFalse).toBe(true);
+            const island = mustResolve(load.specifier, loader);
+            expect(directivesOf(readSource(island))).toContain("use client");
+          }
+        },
+      );
+
+      it.each(LOADER_SPECIFIERS)(
+        "%s starts no download on the server: its preload sits under a typeof window check",
+        (specifier) => {
+          const loader = mustResolve(specifier, FROM_STOCK);
+          expect(unguardedImports(readSource(loader))).toEqual([]);
+        },
+      );
+
+      it.each(files)(
+        "%s reaches the client loaders it owns, and no other tab's",
+        (name, file) => {
+          const reached = staticReach(file);
+          const owned = [...LOADER_OWNERS]
+            .filter(([, owners]) => owners.includes(name))
+            .map(([loader]) => fromSrc(loader))
+            .sort();
+          const reachedLoaders = [...LOADER_OWNERS.keys()]
+            .filter((loader) => reached.has(loader))
+            .map(fromSrc)
+            .sort();
+          expect(reachedLoaders).toEqual(owned);
+        },
+      );
+
+      it("the Overview and Short interest load their chart through the same client module", () => {
+        const lazy = fromSrc(
+          mustResolve("~/@/components/charts/stock-chart-panel-lazy", FROM_STOCK),
+        );
+        for (const tab of ["page.tsx", "short-interest/page.tsx"]) {
+          const file = path.join(STOCK_DIR, tab);
+          expect(
+            importRefs(readSource(file))
+              .filter((ref) => !ref.dynamic)
+              .map((ref) => targetOf(ref.specifier, file)),
+          ).toContain(lazy);
+        }
+      });
+    });
   });
 
   describe("the boundary's own readers", () => {
+    describe("nextDynamicCalls and unguardedImports", () => {
+      it("sees a next/dynamic call with or without an import, and its ssr: false, not one in a comment", () => {
+        expect(
+          nextDynamicCalls(`
+            import dynamic from "next/dynamic";
+            const A = dynamic(() => import("./a"), { ssr: false });
+            const B = dynamic(() => import("./b"), { loading: () => null });
+            const C = dynamic(wrapped, { ssr: false });
+            // dynamic(() => import("./hidden"), { ssr: false });
+          `),
+        ).toEqual([
+          { specifier: "./a", ssrFalse: true },
+          { specifier: "./b", ssrFalse: false },
+          { specifier: null, ssrFalse: true },
+        ]);
+      });
+
+      it("reads no call in a file that does not import next/dynamic", () => {
+        expect(
+          nextDynamicCalls(`const dynamic = (x) => x; dynamic({ ssr: false });`),
+        ).toEqual([]);
+      });
+
+      it("finds a preload that runs at evaluation or on the server, not one in a browser-only branch or inside a dynamic call", () => {
+        expect(unguardedImports(`void import("./preload");`)).toEqual([
+          '"./preload"',
+        ]);
+        expect(
+          unguardedImports(
+            `if (typeof window !== "undefined") { void import("./guarded"); }`,
+          ),
+        ).toEqual([]);
+        expect(
+          unguardedImports(
+            `const L = dynamic(() => import("./lazy"), { ssr: false });`,
+          ),
+        ).toEqual([]);
+        // The inverted guard: `=== "undefined"` holds on the server, so its
+        // then-branch runs there, and its else-branch runs in the browser.
+        expect(
+          unguardedImports(
+            `if (typeof window === "undefined") { void import("./server"); }`,
+          ),
+        ).toEqual(['"./server"']);
+        expect(
+          unguardedImports(
+            `if (typeof window === "undefined") { } else { void import("./browser"); }`,
+          ),
+        ).toEqual([]);
+        expect(
+          unguardedImports(
+            `if (typeof window !== "undefined") { } else { void import("./server"); }`,
+          ),
+        ).toEqual(['"./server"']);
+        // A conjunction runs only in the browser when one side does; a
+        // disjunction only when both sides do.
+        expect(
+          unguardedImports(
+            `if (typeof window !== "undefined" && ready) { void import("./both"); }`,
+          ),
+        ).toEqual([]);
+        expect(
+          unguardedImports(
+            `if (typeof window !== "undefined" || other) { void import("./either"); }`,
+          ),
+        ).toEqual(['"./either"']);
+      });
+    });
+
     describe("importRefs", () => {
       it("sees every way a file imports a module, and which of them are dynamic", () => {
         const refs = importRefs(`
@@ -809,6 +1302,17 @@ describe("/shorts SSR Import Safety", () => {
             chain: ["page.tsx", "api.ts", "@connectrpc/connect"],
           },
         ]);
+      });
+
+      it("does not follow a type-only import: the compiler erases it, so nothing is evaluated", () => {
+        const at = graph({
+          "page.tsx": `import type { Props } from "./island";\nimport { load } from "./loader";`,
+          "loader.tsx": `import type { Props } from "./island";`,
+          "island.tsx": `"use client";\nimport { api } from "./api";`,
+          "api.ts": `import { createClient } from "@connectrpc/connect";`,
+        });
+        expect(clientModulesReachingConnect(at("page.tsx"))).toEqual([]);
+        expect(connectChain(at("loader.tsx"))).toBeNull();
       });
 
       it("passes a client module that does not reach Connect", () => {

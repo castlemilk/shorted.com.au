@@ -1,3 +1,5 @@
+import { siteConfig } from "~/@/config/site";
+import { chartShareUrl } from "~/@/lib/embed/snippet";
 import { parseEmbedChartParams } from "~/app/embed/chart/params";
 import { parseCustomId, type ChartState } from "./custom-id";
 
@@ -63,4 +65,46 @@ export function activityLaunchState(params: ParamSource): ActivityLaunch {
 export function discordClientIdFromHost(hostname: string): string | null {
   const match = /^(\d{15,22})\.discordsays\.com$/.exec(hostname);
   return match?.[1] ?? null;
+}
+
+/**
+ * The platform Discord launched the Activity on: "mobile" or "desktop". Null
+ * outside a Discord launch, and for a value Discord does not send.
+ */
+export function discordPlatform(
+  params: ParamSource,
+): "mobile" | "desktop" | null {
+  if (!isDiscordLaunch(params)) return null;
+  const platform = params.get("platform");
+  return platform === "mobile" || platform === "desktop" ? platform : null;
+}
+
+/**
+ * Whether this page is running inside Discord: it is served from Discord's
+ * proxy host, or it carries the launch parameters Discord adds to it. Anywhere
+ * else a link opens in a plain tab, as it always did.
+ */
+export function inDiscordFrame(location: {
+  hostname: string;
+  search: string;
+}): boolean {
+  return (
+    discordClientIdFromHost(location.hostname) !== null ||
+    isDiscordLaunch(new URLSearchParams(location.search))
+  );
+}
+
+/**
+ * Where the Activity's "Sign in on Shorted" opens: the sign-in page, returning
+ * to the chart's share page turned sideways, so the reader lands on the chart
+ * they were reading. The callback is a relative path, which the sign-in page
+ * follows on whatever origin it is opened from (safeAuthCallbackUrl checks a
+ * callback against that origin).
+ */
+export function activitySignInUrl(state: ChartState): string {
+  const share = new URL(chartShareUrl(state.code, state.view, state.period));
+  share.searchParams.set("landscape", "1");
+  const callbackUrl = share.pathname + share.search;
+  const query = new URLSearchParams({ callbackUrl }).toString();
+  return `${siteConfig.url}/signin?${query}`;
 }

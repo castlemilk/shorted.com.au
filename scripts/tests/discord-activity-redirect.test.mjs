@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import vm from "node:vm";
 
 import {
   DISCORD_ACTIVITY_PATH,
   discordActivityRedirect,
+  discordActivityUrlScript,
 } from "../../web/src/config/discord-activity.mjs";
 
 // Like stock-tab-redirects.test.mjs: imports only the dependency-free module,
@@ -68,4 +70,92 @@ test("the Activity page sits where third-party framing is allowed", () => {
   );
   assert.match(embedHeaders, /"frame-ancestors \*"/);
   assert.match(nextConfigSource, /source: "\/\(\(\?!embed\)\.\*\)"/);
+});
+
+// The browser half. Runs the script the root layout puts in <head> against a
+// document at `href`, and returns each address it wrote.
+function addressesWritten(href) {
+  const url = new URL(href);
+  const written = [];
+  vm.runInNewContext(discordActivityUrlScript(), {
+    URLSearchParams,
+    location: { pathname: url.pathname, search: url.search, hash: url.hash },
+    history: {
+      state: null,
+      replaceState(_state, _title, next) {
+        written.push(next);
+      },
+    },
+  });
+  return written;
+}
+
+test("the browser moves Discord's launch of `/` to the Activity page, keeping query and hash", () => {
+  // The address a browser behind Discord's proxy holds: still `/`, with the query
+  // the server redirected on.
+  assert.deepEqual(
+    addressesWritten(
+      "https://1234.discordsays.com/?frame_id=f&instance_id=i&platform=desktop&custom_id=activity%3ABHP%3Acombined%3A6m#top",
+    ),
+    [
+      "/embed/discord?frame_id=f&instance_id=i&platform=desktop&custom_id=activity%3ABHP%3Acombined%3A6m#top",
+    ],
+  );
+});
+
+test("the browser leaves every other address alone", () => {
+  for (const href of [
+    "https://1234.discordsays.com/",
+    "https://shorted.com.au/?frame_id=f",
+    "https://shorted.com.au/?instance_id=i",
+    "https://shorted.com.au/?frame_id=&instance_id=i",
+    "https://shorted.com.au/?frame_id=f&instance_id=",
+    "https://shorted.com.au/top?frame_id=f&instance_id=i",
+    "https://shorted.com.au/embed/discord?frame_id=f&instance_id=i",
+  ]) {
+    assert.deepEqual(addressesWritten(href), [], href);
+  }
+});
+
+test("a repeated launch parameter counts as present, as it does for Next's redirect", () => {
+  assert.deepEqual(
+    addressesWritten(
+      "https://shorted.com.au/?frame_id=&frame_id=&instance_id=i",
+    ),
+    ["/embed/discord?frame_id=&frame_id=&instance_id=i"],
+  );
+});
+
+test("without a history API the script does nothing and does not throw", () => {
+  assert.doesNotThrow(() =>
+    vm.runInNewContext(discordActivityUrlScript(), {
+      URLSearchParams,
+      location: {
+        pathname: "/",
+        search: "?frame_id=f&instance_id=i",
+        hash: "",
+      },
+    }),
+  );
+});
+
+test("the root layout renders the script in <head>, before the body's RSC payload", () => {
+  const layout = readFileSync(
+    new URL("../../web/src/app/layout.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    layout,
+    /import \{ discordActivityUrlScript \} from "~\/config\/discord-activity\.mjs";/,
+  );
+  const head = layout.slice(
+    layout.indexOf("<head>"),
+    layout.indexOf("</head>"),
+  );
+  // Prettier can break the element over lines, so allow any whitespace.
+  const tag =
+    /<script\s+dangerouslySetInnerHTML=\{\{\s*__html:\s*discordActivityUrlScript\(\)\s*\}\}\s*\/>/;
+  assert.match(head, tag);
+  // The body pushes the RSC payload hydration reads, so the script must come first.
+  assert.ok(layout.search(tag) < layout.indexOf("<body"));
 });

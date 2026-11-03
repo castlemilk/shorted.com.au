@@ -73,8 +73,7 @@ export async function MdxTakeBody({ body, citations, layoutImages }: MdxTakeBody
 
   let content: React.ReactElement;
   try {
-    // Lazy import so a registry-level failure (e.g. next/dynamic ssr:false
-    // restrictions in server components) is caught and falls back too.
+    // Lazy import so a failure to load the registry is caught and falls back too.
     const { MDX_COMPONENTS } = await import("./mdx/registry");
     const compiled = await compileMDX({
       source: processed,

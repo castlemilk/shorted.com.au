@@ -5,7 +5,8 @@
  *
  * No "use client" and no Connect imports, on purpose. The panel itself is a
  * client-only island (Connect-RPC and the market-data hooks), so a page can
- * only reach it through `next/dynamic` with `ssr: false`; everything the page
+ * only reach it through its client loader (`next/dynamic` with `ssr: false`);
+ * everything the page
  * needs on the server lives here instead, where importing it costs the route
  * nothing and cannot drag Connect into a server bundle.
  */

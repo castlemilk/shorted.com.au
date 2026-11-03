@@ -2,11 +2,13 @@ import { IBM_Plex_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "~/styles/globals.css";
 import { criticalCSS } from "~/styles/critical-css";
+import { discordActivityUrlScript } from "~/config/discord-activity.mjs";
 
-import dynamic from "next/dynamic";
 import { cn } from "../@/lib/utils";
 import { type Viewport } from "next";
 import { ThemeProvider } from "~/@/components/providers";
+import { PastDueBanner } from "~/@/components/billing/past-due-banner-loader";
+import { ChatSidebar } from "~/@/components/chat/chat-sidebar-loader";
 import { ThemeSwitcher } from "~/@/components/theme-switcher";
 import { ConditionalHeader } from "./conditional-header";
 import { ConditionalFooter } from "./conditional-footer";
@@ -24,17 +26,10 @@ import { CloudflareWebAnalytics } from "~/@/components/cloudflare-web-analytics"
 import { CloudflareJsDetections } from "~/@/components/cloudflare-js-detections";
 import { JsonLd } from "~/@/components/seo/json-ld";
 
-// Client-only: uses Connect-RPC streaming which breaks SSR
-// Client-only, like the chat sidebar: it calls the billing actions.
-const PastDueBanner = dynamic(
-  () => import("~/@/components/billing/past-due-banner").then((mod) => ({ default: mod.PastDueBanner })),
-  { ssr: false },
-);
-
-const ChatSidebar = dynamic(
-  () => import("~/@/components/chat/chat-sidebar").then((mod) => ({ default: mod.ChatSidebar })),
-  { ssr: false },
-);
+// Client-only islands, each loaded through its "use client" loader (ssr: false),
+// because a server component may not call next/dynamic with ssr: false. The
+// past-due banner calls the billing actions; the chat sidebar streams over
+// Connect-RPC, which breaks SSR.
 
 // IBM Plex Mono - Primary monospace for terminal aesthetic
 // Weights audited 2026-07: 400/500/600/700 in active use; 300 had 3 usages
@@ -179,6 +174,15 @@ export default function RootLayout({
   return (
     <html lang="en-AU" className={`${fontMono.variable} ${fontSerif.variable}`} suppressHydrationWarning>
       <head>
+        {/* Discord Activity (config/discord-activity.mjs). Discord's proxy follows
+            the server redirect, so the address is still "/" when the Activity
+            hydrates. This moves it to the page the server rendered. It must stay a
+            static inline script in the head: the proxy nonces inline scripts, so one
+            created at runtime is blocked, and the RSC payload is pushed from the
+            body, after this runs. */}
+        <script
+          dangerouslySetInnerHTML={{ __html: discordActivityUrlScript() }}
+        />
         {/* Inline critical CSS to prevent render-blocking */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />
         {/* Pre-paint session sniff: mark html.anon when no next-auth cookie is

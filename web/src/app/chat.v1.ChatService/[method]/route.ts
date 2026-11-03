@@ -13,13 +13,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     method?: string;
-  };
+  }>;
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const method = context.params.method ?? "";
+  const method = (await context.params).method ?? "";
   if (!ALLOWED_CHAT_METHODS.has(method)) {
     return chatErrorResponse(
       404,

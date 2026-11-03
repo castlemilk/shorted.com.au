@@ -726,7 +726,7 @@ history, `"<CODE>:short-interest"`), always client-only (`ssr: false`).
 Strategy keeps its own levels chart; Financials, Company, News and Community
 have none. The visitor's settings survive a tab switch in `chart-prefs.ts`, a
 client-only module store: the period is kept per stock and shared by both chart
-tabs, the view, SMA 20 and divergence per `prefsKey`. It lives until a reload
+tabs, the view, indicators and divergence per `prefsKey`. It lives until a reload
 and writes nothing to storage; a panel with no `prefsKey` (the dashboard, the
 stories) is plain local state.
 
@@ -738,20 +738,25 @@ Overview's mapping downloads all of the Overview's first-load chunks. A
 `nextDynamic` in a server page is bundled into that list: Financials and
 Community downloaded the Overview's chart that way (227 KiB of JS for BHP). A
 route group does not stop it (Next strips the group from the manifest's group
-name). So Short interest loads the panel with `nextDynamic(..., { ssr: false })`
-in its page, and the Overview through `StockChartPanelLazy`
-(`components/charts/stock-chart-panel-lazy.tsx`), a `"use client"` module whose
-`next/dynamic` is a real `import()`: the chart is a chunk of its own, in no list
-another tab inherits. The module starts that download as it runs, so the
-Overview's chart lands when it did as a first-load chunk, but only when the
-path is the Overview: a tab that loads the Overview's page chunk runs every
-Overview client module, and the unguarded `import()` put the chart back on
-Financials and Community. `web/scripts/stock-chart-chunks.mjs`
+name). So the Overview and Short interest load the panel through
+`StockChartPanelLazy` (`components/charts/stock-chart-panel-lazy.tsx`), and
+Strategy loads its levels chart through
+`components/strategy/strategy-levels-chart-loader.tsx`. Each is a `"use client"`
+module whose `next/dynamic` is a real `import()`: the chart is a chunk of its
+own, in no list another tab inherits. A server page may not call
+`next/dynamic` with `ssr: false` (Next 15 refuses it), so the charts come
+through these client modules. The panel's module starts that download as it
+runs, so the chart lands when it did as a first-load chunk, but only when the
+path is the Overview or Short interest: a tab that loads the Overview's page
+chunk runs every Overview client module, and the unguarded `import()` put the
+chart back on Financials and Community. `web/scripts/stock-chart-chunks.mjs`
 (`npm run routes:charts` after `next build`; `task test:bundle` and
-`perf-budget.yml` run it) fails when a client module in the manifest of the
-Overview or of a tab without a chart maps to a chunk carrying the chart's code
-(`data-chart-capture`). It cannot see an `import()` started at runtime; the
-download check in `web/e2e/stock-tabs.spec.ts` can (no workflow runs it).
+`perf-budget.yml` run it) fails when any stock tab's client manifest maps a
+module to a chunk carrying the chart's code (`data-chart-capture`), when a chart
+route's manifest stops mapping its loader, or when the loader's import in
+`.next/react-loadable-manifest.json` stops listing that chunk. It cannot see an
+`import()` started at runtime; the download check in
+`web/e2e/stock-tabs.spec.ts` can (no workflow runs it).
 
 The chart box is sized by CSS, `h-[360px] sm:h-[420px]`
 (`CHART_BOX_HEIGHT_CLASS`), and `StockChart` takes its height from its parent
@@ -760,8 +765,9 @@ dynamic import's `loading` fallback and as the first block of both chart tabs'
 `loading.tsx`, so the placeholder and the chart are the same size. The controls
 stack below `xl`: one 40px row above the plot (the view control and the embed
 button), then the period and the toggles beneath it. From `xl` they sit in one
-row, which needs about 960px of panel; every narrower window gets the stacked
-form.
+row, which needs about 975px of panel (at a 1280px window beside the signed-in
+sidebar the toggles row scrolls about 15px, see **Indicators** below); every
+narrower window gets the stacked form.
 
 `StockChart` takes `readout?: "strip" | "tooltip"`, default `"strip"`. The
 strip is a fixed-height band above the plot, so nothing covers the plot: 28px
@@ -815,6 +821,26 @@ in button stays on every page. The Strategy tab's `RegimeBanner` takes
 `compact` below `sm` (the pill, the as-of date and the verdict, without the
 four readouts and the ladder); on `/picks` it is unchanged.
 
+**Indicators.** The toggles row holds an **Indicators** trigger in every view:
+an icon below `sm`, the word from `sm`, and a count badge when any are on. From
+`xl` the one row needs about
+975px (at a 1280px window beside the signed-in sidebar the toggles row scrolls
+about 15px, as it was built to). The menu is a panel inside the chart box, CSS
+positioned (`indicator-menu.tsx`): the base set for everyone, the advanced set
+(SMA 200, Bollinger Bands, RSI, MACD, the 90-day short average) behind a session.
+An overlay draws on its series' own axis and widens the value axis
+(`indicatorsInDomain`); the legend sits inside the plot's top left
+(`indicatorLegend`), its width estimated from its labels at `AXIS_CHAR_PX`
+(6.1px a character) and never measured, as the axis labels are. At most one panel shows, under the time axis (it used to
+overlap the labels' bottom 8px). An indicator whose lookback is more than a tenth of the window on screen (sessions for price, calendar days for short interest) fetches the first longer period that covers it, once, through that period's own query keys (`planWarmup`): 1M with SMA 50 fetches 6M, 2Y with SMA 200 fetches MAX, and SMA 20 at 1Y fetches nothing. Short interest never warms up from MAX, which is weekly buckets. A longer history this chart has already loaded, its own visible series included, serves the indicator when it covers the lookback, and nothing is fetched (`useIndicatorHistory`). That history lasts only while the chart stays mounted: a remount (a stock-page tab switch, or leaving a stock and returning to it in the Activity) asks for the longer history again, and TanStack's cache may answer from memory. Each indicator waits for its own history
+(`readyIndicators` with `history.waiting`), and a waiting panel is drawn empty
+(`buildChartView` `pending`), so the plot keeps its height. The menu follows the
+view the chart is drawn as (`resolveChartView`: a Combined chart with one series
+is that series' view), and a selected indicator the series is too short for says
+so ("Not enough history") and is not counted in the trigger. The StockChartEmbed
+follows the same rules. `ChatSidebar` and both environment banners read
+`isChromelessRoute`, as the header does.
+
 ### Landmines
 
 - **Every tab page exports `revalidate`, `dynamicParams = true` and an EMPTY
@@ -841,11 +867,13 @@ four readouts and the ladder); on `/picks` it is unchanged.
   - `web/src/app/shorts/__tests__/ssr-import-safety.test.ts` (Jest) walks
     static imports from the layout, the data loader and every tab page, and
     fails when a `"use client"` module on the way reaches `@connectrpc` (the
-    SSR failure under Known Issues). Client widgets load through
-    `nextDynamic(() => import(...), { ssr: false })` and are listed in the
-    test's `CONNECT_ISLANDS`. The Overview's chart is the one exception: a test
-    of its own requires that the page has no `nextDynamic` and loads it through
-    the client module `stock-chart-panel-lazy.tsx`. The walk's allowlist, `KNOWN_CLIENT_CONNECT`, holds only
+    SSR failure under Known Issues). Client widgets load through a `"use client"`
+    loader (`*-loader.tsx`) that holds `nextDynamic(() => import(...), { ssr: false })`:
+    the page imports the loader, and the loader is listed in the test's
+    `CONNECT_ISLANDS`. A server module never calls `next/dynamic` with
+    `ssr: false`, and a test checks that across `src`. The two chart tabs share
+    one loader, `stock-chart-panel-lazy.tsx`, and a test checks that no tab's
+    loader is reachable from another tab. The walk's allowlist, `KNOWN_CLIENT_CONNECT`, holds only
     the pre-existing `company-info-with-retry` fallback (on the Overview) and
     can only shrink. The layout's two twins, `company-profile-with-retry` and
     `company-stats-with-retry`, were deleted with the cards they served, and
@@ -1550,6 +1578,7 @@ because chat apps show HTML as text (a WBT snippet pasted into Discord,
 | Chart share page `/chart/<CODE>?view=&period=` | `app/chart/[code]/` (noindex, follow; no site chrome; params and fallbacks are `/embed/chart`'s, `app/embed/chart/params.ts`) |
 | Its card `/chart/<CODE>/image` | `app/chart/[code]/image/route.tsx` + `lib/og/chart-image.ts` (geometry) + `lib/og/chart-card.tsx`: the chart itself, 1200x630, never a 500 |
 | Landscape mode | `StockChartEmbed` `allowLandscape`: on a portrait phone the box is turned 90deg with CSS (`portrait:` variants), because rotation lock cannot be overridden and iOS has no orientation lock API |
+| Indicators | `components/charts/chart-indicators.ts` (registry, base and advanced sets, warm-up plan), `chart-indicator-math.ts`, `indicator-layout.ts`, `indicator-menu.tsx`, `use-indicator-history.ts`. `StockChartEmbed` `indicators`: the share page `unlock: "session"`, the Discord Activity `unlock: "never"` (its sign-in is `onSignIn`, which opens outside Discord), `/embed/chart` none (the prop is omitted: no menu, no legend, no extra query) |
 
 ### Landmines
 
@@ -1568,6 +1597,25 @@ because chat apps show HTML as text (a WBT snippet pasted into Discord,
   `localPoint`), which includes the CSS rotation. A pointer path that uses
   `getBoundingClientRect` or `clientX` arithmetic would break scrubbing in
   landscape.
+- **Nothing that positions with floating-ui may render inside the landscape
+  box.** Radix Popover, DropdownMenu and Tooltip place themselves from
+  `getBoundingClientRect`, which a rotated containing block breaks; a portal is
+  unrotated and sits under the box's `z-[60]`. So the indicator menu is
+  CSS-positioned inside the chart box and turns with it, and the Activity's
+  search is an upright dialog at `z-[70]`.
+- **The landscape box hears Escape on `window`, after every other listener,
+  and ignores an Escape already handled (`defaultPrevented`).** Every handler
+  that takes an Escape calls `preventDefault` (Radix does; the indicator menu
+  does when the Escape comes from inside it, where focus is); one that does not
+  leaves landscape on the same press. The host can hold the choice itself
+  (`StockChartEmbed` `landscape`, controlled): the chart then only reports
+  the toggle and Escape, and the host answers by changing it.
+- **`chart-indicators.ts` imports only types from `chart-views.ts` and stays
+  free of `"use client"`.** Server code (the share page's metadata, the bot's
+  messages) reaches it through `chart-views.ts`, so a value import back is a
+  module cycle. `indicator-menu.tsx` and `use-indicator-history.ts` are client
+  modules imported only by `StockChartPanel` and `StockChartEmbed`, which are
+  dynamic islands (`ssr-import-safety.test.ts` does not follow them).
 
 ## Discord bot (slash commands, live charts, Activity)
 
@@ -1609,9 +1657,24 @@ it in place, and an **Interactive** button (`"activity": true`, on since
   opens the server's default stock.
 - **The Activity loads `/`.** Discord's proxy (`<app id>.discordsays.com`,
   root mapping `shorted.com.au`) always opens the root with `frame_id` and
-  `instance_id`; `src/config/discord-activity.mjs` redirects exactly those
-  requests to `/embed/discord` (frameable). Inside it only same-origin requests
-  work, so it uses relative rewrites and opens links through the SDK.
+  `instance_id`, and `src/config/discord-activity.mjs` redirects those requests
+  to `/embed/discord` (frameable). The proxy follows that redirect on the
+  server, so the browser's address stays `/`. Next 14.2's router takes its
+  initial URL from `window.location`, so every `usePathname()` check (the
+  header, the footer, the corner credit, the banners) reads `/` and the page
+  hydrates as the homepage: the site chrome renders and hydration fails (React
+  #418 and #423). The root layout's inline `discordActivityUrlScript`, in
+  `<head>`, moves the address to `/embed/discord` before the router reads it.
+  Keep it a static inline script in `<head>`: the proxy adds a nonce to every
+  inline script in the page, so a script created at runtime is blocked, and
+  next/script, a `type="module"` script, an effect or the body can each run
+  after the router has read the address. Its guards are
+  `scripts/tests/discord-activity-redirect.test.mjs` (the placement, and the
+  script run in a VM), `web/src/config/__tests__/discord-activity-url.test.ts`
+  (it moves only what the server redirects) and the proxy case in
+  `web/e2e/chart-surfaces.spec.ts` (it runs against `next dev`; no workflow runs
+  it). Inside the Activity only same-origin requests work, so it uses relative
+  rewrites and opens links through the SDK.
 - **`/api/discord/` is in the Cloudflare SBFM skip** (Discord is an automated
   client); the signature check is what keeps the route closed. So is the
   Activity: Discord's proxy fetches it from Discord's servers, and SBFM served
@@ -1640,13 +1703,38 @@ it in place, and an **Interactive** button (`"activity": true`, on since
   re-reads the grant from it; nothing the browser sends picks the scope.
 - **Nothing in the Activity may navigate the frame.** Discord's mobile webview
   follows a plain link in place and loaded the whole site inside the Activity
-  (2026-10-29): the embed layout's corner credit is off on `/embed/discord`
-  (`app/embed/embed-brand-link.tsx`), and links go out through
-  `openExternalLink`.
+  (2026-10-29). The embed layout's corner credit is off on `/embed/discord`
+  (`app/embed/embed-brand-link.tsx`), but that check reads `usePathname()`, so it
+  holds only once the address fix above has run: without it the credit shows
+  inside Discord. Links go out through `openExternalLink`. `openOutside` never calls `window.open` inside Discord
+  (`inDiscordFrame`): it waits up to 3 seconds for the SDK, with the pressed control `aria-busy` meanwhile (Open on Shorted, or the menu's sign-in; see the in-flight rule below), and otherwise shows the address as text to
+  copy, drawn in the chart's box (`chartOverlay`, an `absolute z-40` child that turns
+  with a landscape chart; the announcement is an always-mounted `sr-only`
+  status region in the Activity). An SDK that connects after the wait does not open the link afterwards. A later open that goes out clears the address, and so does a stock switch. A command Discord never answers releases the
+  in-flight guard after 10 seconds (`LINK_SETTLE_MS`). While a link is in flight (`linkInFlight`) a press on any control does nothing. `opening` names the control that asked (`"open"`, `"sign-in"` or `"link"`), and only that control shows busy: the menu's sign-in button does so through `IndicatorSignIn.busy` (set from `signInBusy`), and it takes no press while busy. A stock switch releases the guard, clears the address and bumps `generation`, so a link that settles after it reports nothing, while one whose SDK answered in time still goes out.
+  The link interceptor is on from mount, not once the handshake has finished,
+  and it catches `auxclick` for a middle click only (a right click keeps its
+  menu). The Activity renders no `<a>` at all (a test and the e2e spec both
+  count them): search and **Open on Shorted** are buttons in the chart's header
+  row (`headerActions`), and the advanced indicators' sign-in is `onSignIn`,
+  not a link.
+- **The Activity reads the screen once, and then the choice is its own.** A
+  phone's own launch (`platform=mobile`) on a portrait phone starts turned
+  sideways; the Activity holds that in its state (`landscapePref`, passed as the
+  controlled `landscape`), outside the keyed chart, so every stock switch keeps
+  it. It is never read again: a search's on-screen keyboard can reshape the
+  screen mid-switch, and a re-read would turn the new chart upright. A frame's
+  shape says nothing of the device (the `/discord/settings` preview is a portrait
+  frame on a phone, and a desktop window can be narrow).
+- **Search returns focus to its button however the dialog closes.** The Search
+  button carries `aria-haspopup="dialog"` and `aria-expanded`; the dialog's
+  `onCloseAutoFocus` puts focus back on it (`returnFocusTo`), since Radix would
+  return focus to a chart a pick has just replaced.
 - **Discord's in-app browser does not rotate.** **Open on Shorted** links to
   the share page with `landscape=1`, which opens the chart turned sideways on a
   phone held upright (`StockChartEmbed` `startLandscape`); only the bot's link
-  carries it.
+  carries it, and so does the Activity's sign-in hand-off (`activitySignInUrl`),
+  which returns to the same share page turned sideways.
 
 ## Twitter / X Automation
 

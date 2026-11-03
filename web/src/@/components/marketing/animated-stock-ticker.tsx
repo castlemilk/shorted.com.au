@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSpring, animated } from "react-spring";
+import { useSpring, animated } from "@react-spring/web";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "~/@/lib/utils";
 import { getTopStocksForDisplay, type StockDisplayData } from "~/app/actions/client/get-display-stocks";

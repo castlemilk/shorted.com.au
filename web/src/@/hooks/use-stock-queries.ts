@@ -60,11 +60,15 @@ export function useStockQuote(code: string) {
 /**
  * Hook for fetching historical market data (prices)
  */
-export function useHistoricalData(code: string, period: string) {
+export function useHistoricalData(
+  code: string,
+  period: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: queryKeys.market.historical(code, period),
     queryFn: () => getHistoricalData(code, period),
-    enabled: !!code && !!period,
+    enabled: (options.enabled ?? true) && !!code && !!period,
     staleTime: DAILY_STALE, // daily end-of-day prices
   });
 }
@@ -97,11 +101,15 @@ export function useMultipleHistoricalData(codes: string[], period: string) {
 /**
  * Hook for fetching short position time series data
  */
-export function useShortTimeSeries(code: string, period: string) {
+export function useShortTimeSeries(
+  code: string,
+  period: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: queryKeys.stock.timeSeries(code, period),
     queryFn: () => fetchStockDataClient(code, period),
-    enabled: !!code && !!period,
+    enabled: (options.enabled ?? true) && !!code && !!period,
     staleTime: DAILY_STALE, // daily (ASIC T+4)
   });
 }

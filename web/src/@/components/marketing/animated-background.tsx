@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 
 export function AnimatedBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number>(undefined);
   const particlesRef = useRef<Array<{
     x: number;
     y: number;

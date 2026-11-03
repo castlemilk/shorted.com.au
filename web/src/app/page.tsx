@@ -1,5 +1,4 @@
 import { type Metadata } from "next";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { FileText, ChevronRight } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
@@ -9,6 +8,7 @@ import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { Suspense } from "react";
 import { HomeContent } from "./home-content";
 import { TopShortsFallback } from "./top-shorts-fallback";
+import { BreakingNewsBanner } from "~/@/components/ui/breaking-news-banner-loader";
 import {
   AsicDataFreshness,
   latestAsicDataDate,
@@ -19,11 +19,6 @@ import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
 import { TimeSeriesDataSchema, IndustryTreeMapSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
 import type { ViewMode } from "~/gen/shorts/v1alpha1/market_pb";
 
-// Dynamic import to avoid SSR issues — component imports @connectrpc/connect
-const BreakingNewsBanner = dynamic(
-  () => import("~/@/components/ui/breaking-news-banner").then((m) => m.BreakingNewsBanner),
-  { ssr: false }
-);
 import {
   DatasetStructuredData,
   EnhancedOrganizationSchema,

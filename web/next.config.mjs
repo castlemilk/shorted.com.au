@@ -121,6 +121,16 @@ const config = {
         ],
       },
       {
+        // The chart share page (/chart/CODE) is noindex in its metadata too.
+        // The header is what a crawler reads without rendering the page, and
+        // it still holds on Next 15, where a dynamic page can stream its
+        // metadata past </head>. `:code` is one path segment, so the card at
+        // /chart/CODE/image is outside this rule: unfurlers fetch that one and
+        // it carries no robots header.
+        source: "/chart/:code",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, follow" }],
+      },
+      {
         // HSTS for every path. All subdomains (api, www) are HTTPS via
         // Cloudflare; preload directive included but hstspreload.org
         // submission is a separate manual step.

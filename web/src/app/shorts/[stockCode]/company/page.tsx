@@ -1,9 +1,7 @@
-import nextDynamic from "next/dynamic";
 import { type Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
-import { DirectorTradesSkeleton } from "~/@/components/company/director-trades-skeleton";
 import {
   DIRECTOR_TRADES_LIMIT,
   DirectorTradesView,
@@ -26,20 +24,16 @@ import { loadStockOrFail } from "../stock-page-data";
 import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 
 // Client islands that import @connectrpc/connect: client-only, as the chart
-// panels on the Overview and Short interest tabs are. The directors table is
-// the FALLBACK: the page reads the trades itself and draws them on the server
-// (DirectorTradesView), and hands the section to this island only when that
-// read comes back empty-handed. It holds its place with the card it draws
-// while it loads (DirectorTradesSkeleton, a module with no Connect in it), so
-// it does not pop in after the page and shift what is below it.
-const DirectorTradesTable = nextDynamic(
-  () => import("~/@/components/company/director-trades-table").then((m) => m.DirectorTradesTable),
-  { ssr: false, loading: () => <DirectorTradesSkeleton /> },
-);
-const StockConnections = nextDynamic(
-  () => import("~/@/components/company/stock-connections").then((m) => m.StockConnections),
-  { ssr: false },
-);
+// panels on the Overview and Short interest tabs are. Each is imported from its
+// "use client" loader, which holds the next/dynamic with ssr: false (a server
+// component may not call it). The directors table is the FALLBACK: the page
+// reads the trades itself and draws them on the server (DirectorTradesView),
+// and hands the section to this island only when that read comes back
+// empty-handed. Its loader holds the card's place while it loads
+// (DirectorTradesSkeleton, a module with no Connect in it), so it does not pop
+// in after the page and shift what is below it.
+import { DirectorTradesTable } from "~/@/components/company/director-trades-table-loader";
+import { StockConnections } from "~/@/components/company/stock-connections-loader";
 
 // On-demand ISR: the empty generateStaticParams is what makes the segment
 // statically optimisable; without it revalidate is inert (see the overview).

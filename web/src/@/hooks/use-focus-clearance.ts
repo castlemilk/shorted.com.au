@@ -94,7 +94,7 @@ function scrollToClear(bar: HTMLElement, control: Element, fallbackTop: number):
  * region, so the browser keeps scrolling to try), and it reaches no further
  * than a control the browser was already going to scroll.
  */
-export function useFocusClearance(bar: RefObject<HTMLElement>, fallbackTop: number): void {
+export function useFocusClearance(bar: RefObject<HTMLElement | null>, fallbackTop: number): void {
   useEffect(() => {
     const onFocusIn = (event: FocusEvent) => {
       const el = bar.current;

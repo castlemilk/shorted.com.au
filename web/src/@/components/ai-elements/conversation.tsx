@@ -25,8 +25,10 @@ function prefersReducedMotion(): boolean {
 }
 
 interface StickToBottom {
-  scrollerRef: RefObject<HTMLDivElement>;
-  contentRef: RefObject<HTMLDivElement>;
+  // Readonly, so a DOM ref prop takes these on @types/react 18 (RefObject<T>)
+  // and 19 (RefObject<T | null>).
+  scrollerRef: Readonly<RefObject<HTMLDivElement | null>>;
+  contentRef: Readonly<RefObject<HTMLDivElement | null>>;
   /** True while new content is followed, which is what hides the jump button. */
   isFollowing: boolean;
   onScroll: () => void;

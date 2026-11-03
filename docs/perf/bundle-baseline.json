@@ -1,23 +1,23 @@
 {
-  "capturedAt": "2026-11-03T01:34:59.558Z",
-  "gitRef": null,
+  "capturedAt": "2026-11-02T23:26:09.391Z",
+  "gitRef": "bbff5b4c9+uncommitted-pr1",
   "unit": "kB (Next First Load JS, raw)",
-  "sharedByAllKB": 96.2,
+  "sharedByAllKB": 96.5,
   "routes": {
     "/": {
-      "firstLoadKB": 171
+      "firstLoadKB": 136
     },
     "/_not-found": {
-      "firstLoadKB": 96.4
+      "firstLoadKB": 96.7
     },
     "/about": {
-      "firstLoadKB": 122
+      "firstLoadKB": 123
     },
     "/about/opengraph-image": {
       "firstLoadKB": 0
     },
     "/admin": {
-      "firstLoadKB": 150
+      "firstLoadKB": 151
     },
     "/admin/broadcasts": {
       "firstLoadKB": 108
@@ -26,22 +26,22 @@
       "firstLoadKB": 144
     },
     "/admin/register/politicians": {
-      "firstLoadKB": 108
+      "firstLoadKB": 109
     },
     "/admin/register/politicians/[slug]": {
       "firstLoadKB": 137
     },
     "/admin/register/securities": {
-      "firstLoadKB": 124
+      "firstLoadKB": 125
     },
     "/admin/takes": {
-      "firstLoadKB": 103
+      "firstLoadKB": 104
     },
     "/admin/takes/[slug]": {
-      "firstLoadKB": 590
+      "firstLoadKB": 591
     },
     "/alerts": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
     },
     "/alerts/unsubscribe": {
       "firstLoadKB": 106
@@ -107,7 +107,7 @@
       "firstLoadKB": 0
     },
     "/api/docs": {
-      "firstLoadKB": 96.4
+      "firstLoadKB": 96.7
     },
     "/api/email/img": {
       "firstLoadKB": 0
@@ -182,16 +182,16 @@
       "firstLoadKB": 0
     },
     "/authors": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/authors/[slug]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/authors/[slug]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/battlegrounds": {
-      "firstLoadKB": 202
+      "firstLoadKB": 203
     },
     "/battlegrounds/opengraph-image": {
       "firstLoadKB": 0
@@ -203,7 +203,7 @@
       "firstLoadKB": 110
     },
     "/blog/[slug]": {
-      "firstLoadKB": 120
+      "firstLoadKB": 121
     },
     "/blog/[slug]/llm": {
       "firstLoadKB": 0
@@ -224,16 +224,16 @@
       "firstLoadKB": 0
     },
     "/chat": {
-      "firstLoadKB": 231
+      "firstLoadKB": 97.8
     },
     "/chat.v1.ChatService/[method]": {
       "firstLoadKB": 0
     },
     "/compare": {
-      "firstLoadKB": 104
+      "firstLoadKB": 105
     },
     "/compare/[pair]": {
-      "firstLoadKB": 104
+      "firstLoadKB": 105
     },
     "/compare/[pair]/opengraph-image": {
       "firstLoadKB": 0
@@ -242,34 +242,34 @@
       "firstLoadKB": 0
     },
     "/dashboards": {
-      "firstLoadKB": 272
+      "firstLoadKB": 273
     },
     "/data": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/data/opengraph-image": {
       "firstLoadKB": 0
     },
     "/design-system": {
-      "firstLoadKB": 132
+      "firstLoadKB": 105
     },
     "/developer": {
       "firstLoadKB": 121
     },
     "/directory": {
-      "firstLoadKB": 139
+      "firstLoadKB": 111
     },
     "/directory/[letter]": {
-      "firstLoadKB": 139
+      "firstLoadKB": 111
     },
     "/directory/opengraph-image": {
       "firstLoadKB": 0
     },
     "/disclaimer": {
-      "firstLoadKB": 104
+      "firstLoadKB": 105
     },
     "/discord/settings": {
-      "firstLoadKB": 131
+      "firstLoadKB": 128
     },
     "/discord/settings/open": {
       "firstLoadKB": 0
@@ -287,13 +287,13 @@
       "firstLoadKB": 116
     },
     "/docs/api/clients/[language]": {
-      "firstLoadKB": 103
-    },
-    "/docs/discord": {
       "firstLoadKB": 104
     },
+    "/docs/discord": {
+      "firstLoadKB": 105
+    },
     "/docs/llm-context": {
-      "firstLoadKB": 103
+      "firstLoadKB": 104
     },
     "/docs/llm-context-raw": {
       "firstLoadKB": 0
@@ -305,13 +305,13 @@
       "firstLoadKB": 607
     },
     "/economy": {
-      "firstLoadKB": 134
+      "firstLoadKB": 105
     },
     "/economy/[state]": {
-      "firstLoadKB": 134
+      "firstLoadKB": 106
     },
     "/economy/[state]/[topic]": {
-      "firstLoadKB": 134
+      "firstLoadKB": 106
     },
     "/economy/[state]/[topic]/opengraph-image": {
       "firstLoadKB": 0
@@ -323,22 +323,22 @@
       "firstLoadKB": 0
     },
     "/embed/bank-basket": {
-      "firstLoadKB": 97.9
+      "firstLoadKB": 98.2
     },
     "/embed/chart": {
-      "firstLoadKB": 107
+      "firstLoadKB": 104
     },
     "/embed/discord": {
-      "firstLoadKB": 108
+      "firstLoadKB": 105
     },
     "/embed/top-shorts": {
-      "firstLoadKB": 176
+      "firstLoadKB": 177
     },
     "/embed/treemap": {
-      "firstLoadKB": 97.8
+      "firstLoadKB": 98.1
     },
     "/faq": {
-      "firstLoadKB": 139
+      "firstLoadKB": 120
     },
     "/faq/opengraph-image": {
       "firstLoadKB": 0
@@ -353,10 +353,10 @@
       "firstLoadKB": 0
     },
     "/glossary": {
-      "firstLoadKB": 132
+      "firstLoadKB": 105
     },
     "/glossary/[term]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/glossary/[term]/opengraph-image": {
       "firstLoadKB": 0
@@ -365,22 +365,22 @@
       "firstLoadKB": 0
     },
     "/housing": {
-      "firstLoadKB": 134
+      "firstLoadKB": 105
     },
     "/housing/[state]": {
-      "firstLoadKB": 162
+      "firstLoadKB": 141
     },
     "/housing/[state]/[suburb]": {
-      "firstLoadKB": 161
+      "firstLoadKB": 141
     },
     "/housing/[state]/[suburb]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/housing/[state]/council": {
-      "firstLoadKB": 145
+      "firstLoadKB": 117
     },
     "/housing/[state]/council/[slug]": {
-      "firstLoadKB": 134
+      "firstLoadKB": 106
     },
     "/housing/[state]/council/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -389,16 +389,16 @@
       "firstLoadKB": 0
     },
     "/housing/calculators": {
-      "firstLoadKB": 135
+      "firstLoadKB": 100
     },
     "/housing/calculators/opengraph-image": {
       "firstLoadKB": 0
     },
     "/housing/capitals": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/housing/capitals/[slug]": {
-      "firstLoadKB": 134
+      "firstLoadKB": 106
     },
     "/housing/capitals/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -407,19 +407,19 @@
       "firstLoadKB": 0
     },
     "/housing/drops": {
-      "firstLoadKB": 96.4
+      "firstLoadKB": 96.7
     },
     "/housing/opengraph-image": {
       "firstLoadKB": 0
     },
     "/housing/property/[addressKey]": {
-      "firstLoadKB": 161
+      "firstLoadKB": 141
     },
     "/housing/rankings": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/housing/rankings/[slug]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/housing/rankings/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -428,16 +428,16 @@
       "firstLoadKB": 0
     },
     "/industry": {
-      "firstLoadKB": 137
+      "firstLoadKB": 110
     },
     "/industry-intelligence": {
-      "firstLoadKB": 155
+      "firstLoadKB": 140
     },
     "/industry-intelligence/opengraph-image": {
       "firstLoadKB": 0
     },
     "/industry/[slug]": {
-      "firstLoadKB": 138
+      "firstLoadKB": 111
     },
     "/industry/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -446,10 +446,10 @@
       "firstLoadKB": 0
     },
     "/insider-trading": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/insider-trading/[stockCode]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/insider-trading/[stockCode]/opengraph-image": {
       "firstLoadKB": 0
@@ -458,10 +458,10 @@
       "firstLoadKB": 0
     },
     "/learn": {
-      "firstLoadKB": 132
+      "firstLoadKB": 105
     },
     "/learn/[slug]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/learn/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -470,10 +470,10 @@
       "firstLoadKB": 0
     },
     "/market": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/market/[date]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/market/[date]/opengraph-image": {
       "firstLoadKB": 0
@@ -482,7 +482,7 @@
       "firstLoadKB": 0
     },
     "/methodology": {
-      "firstLoadKB": 104
+      "firstLoadKB": 105
     },
     "/methodology/opengraph-image": {
       "firstLoadKB": 0
@@ -491,10 +491,10 @@
       "firstLoadKB": 119
     },
     "/news": {
-      "firstLoadKB": 139
+      "firstLoadKB": 112
     },
     "/news/[slug]": {
-      "firstLoadKB": 308
+      "firstLoadKB": 158
     },
     "/news/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -509,37 +509,22 @@
       "firstLoadKB": 0
     },
     "/ownership": {
-      "firstLoadKB": 136
+      "firstLoadKB": 114
     },
     "/ownership/[slug]": {
-      "firstLoadKB": 136
+      "firstLoadKB": 115
     },
     "/ownership/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/ownership/notices": {
-      "firstLoadKB": 147
-    },
-    "/ownership/notices/opengraph-image": {
       "firstLoadKB": 0
     },
     "/ownership/opengraph-image": {
       "firstLoadKB": 0
     },
-    "/ownership/stocks": {
-      "firstLoadKB": 144
-    },
-    "/ownership/stocks/[code]": {
-      "firstLoadKB": 136
-    },
-    "/ownership/stocks/[code]/opengraph-image": {
-      "firstLoadKB": 0
-    },
     "/picks": {
-      "firstLoadKB": 139
+      "firstLoadKB": 111
     },
     "/picks/[strategy]": {
-      "firstLoadKB": 144
+      "firstLoadKB": 124
     },
     "/picks/[strategy]/opengraph-image": {
       "firstLoadKB": 0
@@ -548,28 +533,28 @@
       "firstLoadKB": 0
     },
     "/politicians": {
-      "firstLoadKB": 150
+      "firstLoadKB": 129
     },
     "/politicians/[slug]": {
-      "firstLoadKB": 158
+      "firstLoadKB": 138
     },
     "/politicians/[slug]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/politicians/changes": {
-      "firstLoadKB": 142
+      "firstLoadKB": 122
     },
     "/politicians/changes/opengraph-image": {
       "firstLoadKB": 0
     },
     "/politicians/compare": {
-      "firstLoadKB": 133
+      "firstLoadKB": 105
     },
     "/politicians/compare/opengraph-image": {
       "firstLoadKB": 0
     },
     "/politicians/donations": {
-      "firstLoadKB": 139
+      "firstLoadKB": 118
     },
     "/politicians/donations/opengraph-image": {
       "firstLoadKB": 0
@@ -578,7 +563,7 @@
       "firstLoadKB": 0
     },
     "/politicians/short-interest": {
-      "firstLoadKB": 132
+      "firstLoadKB": 105
     },
     "/politicians/short-interest/opengraph-image": {
       "firstLoadKB": 0
@@ -593,7 +578,7 @@
       "firstLoadKB": 0
     },
     "/price-drops": {
-      "firstLoadKB": 135
+      "firstLoadKB": 114
     },
     "/price-drops/opengraph-image": {
       "firstLoadKB": 0
@@ -602,7 +587,7 @@
       "firstLoadKB": 127
     },
     "/privacy": {
-      "firstLoadKB": 111
+      "firstLoadKB": 112
     },
     "/pulse": {
       "firstLoadKB": 127
@@ -611,10 +596,10 @@
       "firstLoadKB": 124
     },
     "/reports": {
-      "firstLoadKB": 139
+      "firstLoadKB": 111
     },
     "/reports/monthly/[slug]": {
-      "firstLoadKB": 139
+      "firstLoadKB": 111
     },
     "/reports/monthly/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -623,16 +608,16 @@
       "firstLoadKB": 0
     },
     "/reports/weekly": {
-      "firstLoadKB": 139
+      "firstLoadKB": 111
     },
     "/reports/weekly/[slug]": {
-      "firstLoadKB": 140
+      "firstLoadKB": 112
     },
     "/reports/weekly/[slug]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/reports/yearly/[slug]": {
-      "firstLoadKB": 139
+      "firstLoadKB": 111
     },
     "/reports/yearly/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -644,10 +629,10 @@
       "firstLoadKB": 0
     },
     "/scans": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/scans/[slug]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/scans/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -662,16 +647,16 @@
       "firstLoadKB": 0
     },
     "/search": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/seasonality": {
-      "firstLoadKB": 104
+      "firstLoadKB": 105
     },
     "/seasonality/opengraph-image": {
       "firstLoadKB": 0
     },
     "/shorts": {
-      "firstLoadKB": 191
+      "firstLoadKB": 105
     },
     "/shorts/[stockCode]": {
       "firstLoadKB": 210
@@ -680,31 +665,31 @@
       "firstLoadKB": 122
     },
     "/shorts/[stockCode]/community/[threadId]": {
-      "firstLoadKB": 119
+      "firstLoadKB": 120
     },
     "/shorts/[stockCode]/company": {
-      "firstLoadKB": 181
+      "firstLoadKB": 140
     },
     "/shorts/[stockCode]/financials": {
-      "firstLoadKB": 206
+      "firstLoadKB": 124
     },
     "/shorts/[stockCode]/news": {
-      "firstLoadKB": 169
+      "firstLoadKB": 112
     },
     "/shorts/[stockCode]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/shorts/[stockCode]/short-interest": {
-      "firstLoadKB": 282
+      "firstLoadKB": 113
     },
     "/shorts/[stockCode]/strategy": {
-      "firstLoadKB": 240
+      "firstLoadKB": 106
     },
     "/shorts/opengraph-image": {
       "firstLoadKB": 0
     },
     "/signin": {
-      "firstLoadKB": 166
+      "firstLoadKB": 167
     },
     "/signup": {
       "firstLoadKB": 164
@@ -731,28 +716,28 @@
       "firstLoadKB": 0
     },
     "/statistics": {
-      "firstLoadKB": 136
+      "firstLoadKB": 115
     },
     "/statistics/opengraph-image": {
       "firstLoadKB": 0
     },
     "/stocks": {
-      "firstLoadKB": 210
+      "firstLoadKB": 192
     },
     "/subscribe/success": {
-      "firstLoadKB": 108
+      "firstLoadKB": 109
     },
     "/technology": {
       "firstLoadKB": 119
     },
     "/terms": {
-      "firstLoadKB": 104
+      "firstLoadKB": 105
     },
     "/themes": {
-      "firstLoadKB": 133
+      "firstLoadKB": 106
     },
     "/themes/[slug]": {
-      "firstLoadKB": 134
+      "firstLoadKB": 106
     },
     "/themes/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -767,7 +752,7 @@
       "firstLoadKB": 0
     },
     "/unsubscribe": {
-      "firstLoadKB": 97.1
+      "firstLoadKB": 97.5
     }
   }
 }
