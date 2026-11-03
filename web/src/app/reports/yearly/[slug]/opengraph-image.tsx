@@ -2,7 +2,7 @@
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { getServerShortsApiUrl } from "~/app/actions/config";
+import { marketByDateShared } from "~/app/actions/market-by-date";
 
 export const maxDuration = 15;
 
@@ -13,8 +13,11 @@ export const size = {
 };
 export const contentType = "image/png";
 
-// Self-healing cache: regenerate daily so a transient fetch failure doesn't
-// freeze a broken image for a year via Next.js's default immutable cache.
+// Rendered per request: the route is dynamic, so `revalidate` holds nothing.
+// The data read is shared for a day (marketByDateShared), and a failed or empty
+// answer is not held, so the origin asks again on the next request. Downstream
+// caches are a separate matter: ImageResponse sends an immutable, one-year
+// Cache-Control, so a CDN or crawler may keep an image rendered without data.
 export const revalidate = 86400;
 
 let cachedBg: string | null = null;
@@ -68,24 +71,8 @@ async function getTopStockForDate(
   date: string,
 ): Promise<{ code: string; name: string; percentageShorted: number } | null> {
   try {
-    const apiUrl = getServerShortsApiUrl();
-    const res = await fetch(
-      `${apiUrl}/shorts.v1alpha1.ShortedStocksService/GetMarketByDate`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Connect-Protocol-Version": "1", "User-Agent": "shorted-og/1.0" },
-        body: JSON.stringify({ date, limit: 1, offset: 0 }),
-        next: { revalidate: 86400 },
-      },
-    );
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      stocks?: Array<{
-        productCode?: string;
-        name?: string;
-        percentageShorted?: number;
-      }>;
-    };
+    // One answer per date, shared for a day (marketByDateShared).
+    const data = await marketByDateShared(date);
     const top = data.stocks?.[0];
     if (!top) return null;
     return {

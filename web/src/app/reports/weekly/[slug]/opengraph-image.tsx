@@ -2,7 +2,7 @@
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { getServerShortsApiUrl } from "~/app/actions/config";
+import { marketByDateShared } from "~/app/actions/market-by-date";
 import { resolveWeeklySlugParam } from "~/@/lib/reports/weekly-slug";
 
 export const maxDuration = 15;
@@ -14,8 +14,11 @@ export const size = {
 };
 export const contentType = "image/png";
 
-// Self-healing cache: regenerate daily so a transient fetch failure doesn't
-// freeze a broken image for a year via Next.js's default immutable cache.
+// Rendered per request: the route is dynamic, so `revalidate` holds nothing.
+// The data read is shared for a day (marketByDateShared), and a failed or empty
+// answer is not held, so the origin asks again on the next request. Downstream
+// caches are a separate matter: ImageResponse sends an immutable, one-year
+// Cache-Control, so a CDN or crawler may keep an image rendered without data.
 export const revalidate = 86400;
 
 let cachedBg: string | null = null;
@@ -75,31 +78,14 @@ function getWeekEndDate(year: number, week: number): string {
 async function getTopStockForDate(
   date: string,
 ): Promise<{ code: string; name: string; percentageShorted: number } | null> {
-  const apiUrl = getServerShortsApiUrl();
-
   // ASIC data is T+4, weekends/holidays return empty. Follow `previousDate`
   // up to 5 hops back so the OG always renders real data.
   let cursor: string | undefined = date;
   for (let hops = 0; hops < 5 && cursor; hops++) {
     try {
-      const res = await fetch(
-        `${apiUrl}/shorts.v1alpha1.ShortedStocksService/GetMarketByDate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Connect-Protocol-Version": "1", "User-Agent": "shorted-og/1.0" },
-          body: JSON.stringify({ date: cursor, limit: 1, offset: 0 }),
-          next: { revalidate: 86400 },
-        },
-      );
-      if (!res.ok) return null;
-      const data = (await res.json()) as {
-        stocks?: Array<{
-          productCode?: string;
-          name?: string;
-          percentageShorted?: number;
-        }>;
-        previousDate?: string;
-      };
+      // One answer per date, shared for a day (marketByDateShared): every
+      // image and request for that date reads the same entry.
+      const data = await marketByDateShared(cursor);
       const top = data.stocks?.[0];
       if (top) {
         return {

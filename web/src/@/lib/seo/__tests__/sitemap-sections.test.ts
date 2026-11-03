@@ -66,11 +66,8 @@ jest.mock("@connectrpc/connect", () => ({
   }),
 }));
 
-jest.mock("~/app/actions/config", () => ({
-  skipForBuild: () => false,
-  getServerShortsApiUrl: () => "https://api.example.test",
-  buildApiUrl: (base: string, path: string) => `${base}${path}`,
-  serverFetchWithUserAgent: async (input: string) => {
+jest.mock("~/app/actions/config", () => {
+  const serverFetch = async (input: string) => {
     const url = String(input);
     if (url.includes("GetTopShorts")) {
       return {
@@ -89,7 +86,25 @@ jest.mock("~/app/actions/config", () => ({
       };
     }
     return { ok: false, status: 404, json: async () => ({}) };
-  },
+  };
+  return {
+    skipForBuild: () => false,
+    getServerShortsApiUrl: () => "https://api.example.test",
+    buildApiUrl: (base: string, path: string) => `${base}${path}`,
+    serverFetchWithUserAgent: serverFetch,
+    // The sitemap's plain-JSON reads go through sharedRead and this fetch.
+    serverFetchOutsideNextCache: serverFetch,
+  };
+});
+
+// sharedRead is pass-through here: this file tests the sitemap's content. The
+// shared entry has its own tests (shared-read.test.ts).
+jest.mock("~/app/actions/shared-read", () => ({
+  sharedRead: (
+    _keyParts: unknown,
+    _revalidate: unknown,
+    read: () => Promise<unknown>,
+  ) => read(),
 }));
 
 jest.mock("~/app/actions/reports/getReportData", () => ({

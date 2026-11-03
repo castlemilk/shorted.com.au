@@ -2090,15 +2090,23 @@ The Vercel project Root Directory is set to `web/`. When deploying via CLI, depl
   "proxy") stays strict and passes on `next dev` and `next start`. Any other
   third-party head script placed ahead of the address script is still a
   hydration mismatch (see the Discord landmine).
-- **Connect POSTs stay out of Next's data cache.** Next 15 hashes byte bodies, so
-  a `next: { revalidate, tags }` option on a Connect POST would store the response
-  for the whole revalidate window, and an empty response (a cold materialized view,
-  the kill switch) would then be served to every caller. Next 14 never stored
-  these. `serverFetchWithUserAgent` (config.ts) sends a byte-body POST around the
-  patched fetch and registers the route's revalidate and tags through
-  `unstable_cache` (`applyConnectRoutePolicy`). The route keeps its policy, and
-  nothing is stored. Do not add a static `next/cache` import to config.ts: client
-  components import that module, and the policy helper only runs on the server.
+- **A `next` option on a POST stays out of Next's data cache.** Next 15 keys byte
+  and string bodies alike, so a `next: { revalidate, tags }` option on any non-GET
+  request would store the response for the whole revalidate window, and an empty
+  response (a cold materialized view, the kill switch) would then be served to
+  every caller. Next 14 never stored a Connect byte body. `serverFetchWithUserAgent`
+  (config.ts) sends every non-GET request that carries `next` around the patched
+  fetch and registers the route's revalidate and tags through `unstable_cache`
+  (`applyRoutePolicy`). The route keeps its window, and nothing is stored, so a
+  read that many renders or requests share does not dedupe here. Those take
+  `sharedRead` (actions/shared-read.ts): one `unstable_cache` entry for the
+  window that throws on an empty answer, so only a good one is held. Today that
+  is the short-interest rank list (`getShortRank.ts`), the industry treemaps
+  (`getIndustryData.ts`, read by the force-dynamic /industry page), the report OG
+  images' GetMarketByDate reads (`market-by-date.ts`, one day) and the sitemaps'
+  GetTopShorts and treemap reads (`sitemap-sections.ts`, one hour). Do not add a
+  static `next/cache` import to config.ts: client components import that module,
+  and the policy helper only runs on the server.
 - **Metadata on dynamic pages.** `htmlLimitedBots: /.*/` (next.config.mjs)
   resolves metadata before the shell for every request, as Next 14 did. Without
   it, Next 15 streams title, canonical and robots after the shell, and on dynamic

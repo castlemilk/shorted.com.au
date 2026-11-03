@@ -12,10 +12,9 @@ export const revalidate = 3600;
 
 // ISR-safe fetch: inside a revalidate-cached route a no-store fetch throws
 // "Dynamic server usage", and serverFetchWithUserAgent forces no-store on
-// POSTs at Vercel runtime unless an explicit cache/next option is given.
-// Must be a plain-JSON POST (string body), NOT the connect transport — Next
-// cannot build a data-cache key for connect's streamed request bodies
-// ("Failed to generate cache key" 500s the route).
+// POSTs at Vercel runtime unless an explicit cache/next option is given. The
+// option is applied to the route (see applyRoutePolicy), so each regeneration
+// asks the API again rather than reading back a stored answer.
 const feedFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, {
     ...init,

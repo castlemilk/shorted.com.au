@@ -1,6 +1,11 @@
 "use server";
 
-import { SHORTS_API_URL, serverFetchWithUserAgent, skipForBuild } from "../config";
+import {
+  SHORTS_API_URL,
+  serverFetchOutsideNextCache,
+  skipForBuild,
+} from "../config";
+import { sharedRead } from "../shared-read";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS } from "~/@/lib/kv-cache";
 import { industryLabel } from "~/@/lib/industry-placeholder";
@@ -8,6 +13,10 @@ import { createSlug } from "~/@/lib/industry-slug";
 
 // ViewMode enum values - using constants to avoid protobuf-es SSR issues
 const VIEW_MODE_CURRENT_CHANGE = 0;
+
+// Both treemap reads below were `next: { revalidate: 1800 }` POSTs. The window
+// now lives in one shared entry (shared-read.ts), which holds only good answers.
+const TREEMAP_REVALIDATE_SECONDS = 1800;
 
 // API response types for industry treemap
 interface TreeMapStock {
@@ -50,6 +59,46 @@ interface IndustryStocksResult {
 
 // Build-phase-only data-fetch skip — shared helper (see actions/config.ts).
 
+/**
+ * One GetIndustryTreeMap answer for a period, shared by every caller in the
+ * window (sharedRead). The industries index is force-dynamic, so without a
+ * shared entry each page view would call the API while the KV layer is down:
+ * the data cache used to hold this answer. An empty or failed answer throws,
+ * so it is not held.
+ */
+function treeMapFor(period: "max" | "3m"): Promise<TreeMapResponse> {
+  return sharedRead(
+    ["industry-treemap", period, "50", "current", "v1"],
+    TREEMAP_REVALIDATE_SECONDS,
+    async () => {
+      const fetchResponse = await serverFetchOutsideNextCache(
+        `${SHORTS_API_URL}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            period,
+            limit: 50,
+            viewMode: VIEW_MODE_CURRENT_CHANGE,
+          }),
+        },
+      );
+      if (!fetchResponse.ok) {
+        throw new Error(
+          `GetIndustryTreeMap ${period}: API returned ${fetchResponse.status}`,
+        );
+      }
+      const response = (await fetchResponse.json()) as TreeMapResponse;
+      if (!response.stocks || response.stocks.length === 0) {
+        throw new Error(
+          `GetIndustryTreeMap ${period}: API returned no industry rows`,
+        );
+      }
+      return response;
+    },
+  );
+}
+
 // Get aggregated industry statistics using IndustryTreeMap endpoint
 export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
   if (skipForBuild()) {
@@ -63,34 +112,9 @@ export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
       cacheKey,
       async () => {
         try {
-          const baseUrl = SHORTS_API_URL;
-
-          const fetchResponse = await serverFetchWithUserAgent(
-            `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                period: "max",
-                limit: 50,
-                viewMode: VIEW_MODE_CURRENT_CHANGE,
-              }),
-              // Explicit cache mode: without it serverFetchWithUserAgent
-              // forces no-store on POSTs at Vercel runtime, which THROWS
-              // ("Dynamic server usage") inside ISR routes like
-              // /industry-intelligence — the catch below then returned []
-              // and the page degraded to an all-"Other" grouping.
-              next: { revalidate: 1800 },
-            },
-          );
-
-          if (!fetchResponse.ok) {
-            throw new Error(
-              `getIndustryData: API returned ${fetchResponse.status}`,
-            );
-          }
-
-          const response = (await fetchResponse.json()) as TreeMapResponse;
+          // Held in one shared entry (treeMapFor), so a KV outage costs one
+          // call per window rather than one per page view.
+          const response = await treeMapFor("max");
 
           // Group stocks by industry
           const industryMap = new Map<
@@ -172,38 +196,11 @@ export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
 // cache() dedupes within a render; one Redis key serves every slug.
 const fetchTreeMap3m = cache(async (): Promise<TreeMapResponse> => {
   const cacheKey = `${CACHE_KEYS.industryTreeMap("3m", 50, "current")}:raw:v1`;
+  // Never cache emptiness: treeMapFor throws on an empty answer, so a degraded
+  // backend response cannot pin every industry empty for the TTL.
   return await getOrSetCached(
     cacheKey,
-    async () => {
-      const fetchResponse = await serverFetchWithUserAgent(
-        `${SHORTS_API_URL}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            period: "3m",
-            limit: 50,
-            viewMode: VIEW_MODE_CURRENT_CHANGE,
-          }),
-          // ISR-safe cache mode (see the max-window fetch above).
-          next: { revalidate: 1800 },
-        },
-      );
-
-      if (!fetchResponse.ok) {
-        throw new Error(
-          `fetchTreeMap3m: API returned ${fetchResponse.status}`,
-        );
-      }
-
-      const response = (await fetchResponse.json()) as TreeMapResponse;
-      if (!response.stocks || response.stocks.length === 0) {
-        // Never cache emptiness — a degraded backend response would pin
-        // every industry empty for the TTL.
-        throw new Error("fetchTreeMap3m: API returned no stocks");
-      }
-      return response;
-    },
+    () => treeMapFor("3m"),
     3600, // 1 hour cache
   );
 });
