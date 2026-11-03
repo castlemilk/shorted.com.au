@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-11-03T03:22:16.341Z",
-  "gitRef": "c620b26e6+next15",
+  "capturedAt": "2026-11-03T06:07:43.899Z",
+  "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 112,
   "routes": {
@@ -242,7 +242,7 @@
       "firstLoadKB": 112
     },
     "/dashboards": {
-      "firstLoadKB": 257
+      "firstLoadKB": 258
     },
     "/data": {
       "firstLoadKB": 118
@@ -491,7 +491,7 @@
       "firstLoadKB": 131
     },
     "/news": {
-      "firstLoadKB": 123
+      "firstLoadKB": 124
     },
     "/news/[slug]": {
       "firstLoadKB": 171
@@ -509,15 +509,30 @@
       "firstLoadKB": 112
     },
     "/ownership": {
-      "firstLoadKB": 126
+      "firstLoadKB": 127
     },
     "/ownership/[slug]": {
-      "firstLoadKB": 127
+      "firstLoadKB": 128
     },
     "/ownership/[slug]/opengraph-image": {
       "firstLoadKB": 112
     },
+    "/ownership/notices": {
+      "firstLoadKB": 138
+    },
+    "/ownership/notices/opengraph-image": {
+      "firstLoadKB": 112
+    },
     "/ownership/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/ownership/stocks": {
+      "firstLoadKB": 136
+    },
+    "/ownership/stocks/[code]": {
+      "firstLoadKB": 128
+    },
+    "/ownership/stocks/[code]/opengraph-image": {
       "firstLoadKB": 112
     },
     "/picks": {
@@ -674,7 +689,7 @@
       "firstLoadKB": 137
     },
     "/shorts/[stockCode]/news": {
-      "firstLoadKB": 123
+      "firstLoadKB": 124
     },
     "/shorts/[stockCode]/opengraph-image": {
       "firstLoadKB": 112
