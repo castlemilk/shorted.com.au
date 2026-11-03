@@ -165,6 +165,11 @@ function isoDay(date: Date): string {
 export function periodWindow(period: ChartPeriod, to: string): DateWindow {
   const months = PERIOD_MONTHS[period];
   if (months === null) return { to };
+  return monthsBefore(months, to);
+}
+
+/** `(to - months, to]`, a month end clamped as periodWindow describes. */
+function monthsBefore(months: number, to: string): DateWindow {
   const [y, m, d] = to.split("-").map(Number);
   const target = new Date(Date.UTC(y!, m! - 1 - months, 1));
   const lastDay = new Date(
@@ -181,15 +186,26 @@ export function dayBefore(day: string): string {
 }
 
 /**
+ * The live price read (market-data's GetHistoricalPrices) caps MAX at ten
+ * years; short positions on MAX are all of them, back to 2010.
+ */
+const PRICE_MAX_MONTHS = 120;
+
+/**
  * Each series' window for a period on an anchored chart: prices to the day
- * before the posting day, short positions to the newest report it showed.
+ * before the posting day, short positions to the newest report it showed,
+ * each reaching back as far as the live chart's does.
  */
 export function anchoredWindows(
   period: ChartPeriod,
   anchor: ChartAnchor,
 ): { prices: DateWindow; shorts: DateWindow } {
+  const priceEnd = dayBefore(anchor.day);
   return {
-    prices: periodWindow(period, dayBefore(anchor.day)),
+    prices:
+      period === "max"
+        ? monthsBefore(PRICE_MAX_MONTHS, priceEnd)
+        : periodWindow(period, priceEnd),
     shorts: periodWindow(period, anchor.shorts),
   };
 }

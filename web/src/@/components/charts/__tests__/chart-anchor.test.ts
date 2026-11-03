@@ -131,9 +131,14 @@ describe("periodWindow", () => {
       prices: { from: "2026-10-04", to: "2026-11-03" },
       shorts: { from: "2026-09-29", to: "2026-10-28" },
     });
+    // MAX: prices reach back ten years, as the live price read does; short
+    // positions have no start.
     expect(
       anchoredWindows("max", { day: "2026-03-01", shorts: "2026-02-23" }),
-    ).toEqual({ prices: { to: "2026-02-28" }, shorts: { to: "2026-02-23" } });
+    ).toEqual({
+      prices: { from: "2016-02-29", to: "2026-02-28" },
+      shorts: { to: "2026-02-23" },
+    });
   });
 
   it.each([
