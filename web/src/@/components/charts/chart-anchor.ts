@@ -8,16 +8,26 @@ import { CHART_PERIOD_PHRASE, type ChartPeriod } from "./chart-views";
  *
  * Two dates, because the two series end at different days: ASIC publishes
  * short positions four trading days late, so a chart posted on 4 Nov shows
- * prices to 3 or 4 Nov and short positions to 29 Oct. Reports for 30 Oct to
- * 3 Nov arrive in the following days, and a chart that kept only the posting
- * day would draw them on its next redraw, and print a different latest short
+ * prices to 3 Nov and short positions to 28 Oct. Reports for 29 Oct to 3 Nov
+ * arrive in the following days, and a chart that kept only the posting day
+ * would draw them on its next redraw, and print a different latest short
  * position from the one posted.
+ *
+ * Prices end the day BEFORE the posting day. A day's close is loaded around
+ * 9pm Sydney, so a chart posted at 10am showed prices to the day before, and
+ * one that ended on the posting day would gain that close on its next redraw
+ * and print a different price. The first drawing and every redraw read the
+ * same window, so they are the same picture; the cost is that a chart posted
+ * late in the evening leaves out that day's close.
  *
  * Pure and browser-safe: the Discord bot, the chart card, the share page and
  * the Activity all read it.
  */
 export interface ChartAnchor {
-  /** The day the chart was posted (Sydney), YYYY-MM-DD. Prices end here. */
+  /**
+   * The day the chart was posted (Sydney), YYYY-MM-DD. Prices end the day
+   * before (see above).
+   */
   day: string;
   /**
    * The newest ASIC report the chart showed, YYYY-MM-DD, never after `day`.
@@ -164,13 +174,22 @@ export function periodWindow(period: ChartPeriod, to: string): DateWindow {
   return { from: isoDay(target), to };
 }
 
-/** Each series' window for a period on an anchored chart. */
+/** The calendar day before `day`, YYYY-MM-DD. */
+export function dayBefore(day: string): string {
+  const [y, m, d] = day.split("-").map(Number);
+  return isoDay(new Date(Date.UTC(y!, m! - 1, d! - 1)));
+}
+
+/**
+ * Each series' window for a period on an anchored chart: prices to the day
+ * before the posting day, short positions to the newest report it showed.
+ */
 export function anchoredWindows(
   period: ChartPeriod,
   anchor: ChartAnchor,
 ): { prices: DateWindow; shorts: DateWindow } {
   return {
-    prices: periodWindow(period, anchor.day),
+    prices: periodWindow(period, dayBefore(anchor.day)),
     shorts: periodWindow(period, anchor.shorts),
   };
 }

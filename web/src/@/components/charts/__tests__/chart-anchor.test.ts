@@ -3,6 +3,7 @@ import {
   chartPeriodPhrase,
   anchoredWindows,
   compactDay,
+  dayBefore,
   expandDay,
   formatAnchorDay,
   isIsoDay,
@@ -123,13 +124,25 @@ describe("periodWindow", () => {
     expect(periodWindow("max", "2026-11-04")).toEqual({ to: "2026-11-04" });
   });
 
-  it("ends each series on its own day", () => {
+  it("ends prices the day before posting, shorts on the newest report", () => {
     expect(
-      anchoredWindows("1m", { day: "2026-11-04", shorts: "2026-10-29" }),
+      anchoredWindows("1m", { day: "2026-11-04", shorts: "2026-10-28" }),
     ).toEqual({
-      prices: { from: "2026-10-05", to: "2026-11-04" },
-      shorts: { from: "2026-09-30", to: "2026-10-29" },
+      prices: { from: "2026-10-04", to: "2026-11-03" },
+      shorts: { from: "2026-09-29", to: "2026-10-28" },
     });
+    expect(
+      anchoredWindows("max", { day: "2026-03-01", shorts: "2026-02-23" }),
+    ).toEqual({ prices: { to: "2026-02-28" }, shorts: { to: "2026-02-23" } });
+  });
+
+  it.each([
+    ["2026-11-04", "2026-11-03"],
+    ["2026-03-01", "2026-02-28"],
+    ["2024-03-01", "2024-02-29"],
+    ["2026-01-01", "2025-12-31"],
+  ])("dayBefore(%s) is %s", (day, before) => {
+    expect(dayBefore(day)).toBe(before);
   });
 });
 
