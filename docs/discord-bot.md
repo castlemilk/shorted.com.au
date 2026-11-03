@@ -75,8 +75,8 @@ one, privately.
 
 Under every chart are two rows of buttons: the periods, then the views, an
 **Open on Shorted** link (the chart's share page) and **Interactive** (the
-Activity, below). A press redraws the message for everyone; pressing the
-highlighted one redraws it with the latest figures. **Open on Shorted** carries
+Activity, below). A press redraws the message for everyone, inside the window
+the chart was posted with (see "Charts kept as posted" below). **Open on Shorted** carries
 `landscape=1`: Discord's in-app browser keeps to portrait whatever the phone
 does, so on a phone held upright the share page opens with the chart turned
 sideways (its landscape mode, `StockChartEmbed` `startLandscape`); anywhere
@@ -94,6 +94,7 @@ or for one person:
 | Chart | short interest, price, combined | short interest |
 | Period | 1M, 3M, 6M, 1Y, Max (the message's buttons) | 1Y |
 | Commands open | a chart message, or the interactive chart (the Activity) | a chart message |
+| Buttons | keep the chart as posted, or redraw with the latest figures | keep the chart as posted |
 
 **Layers.** A server's settings apply to everyone in it; a person's own apply
 in DMs and group DMs, and in servers with none of their own; the built-ins fill
@@ -146,6 +147,42 @@ message instead; an unknown stock is answered privately, as ever.
 Lookups that fail are answered privately (ephemeral), never posted to the
 channel. Every message sets `allowed_mentions: { parse: [] }`, so a search for
 "@everyone" pings no one.
+
+## Charts kept as posted
+
+A chart message is **kept as posted** by default: its window ends on the day it
+was posted, and its figures stay the ones posted, so a press on a period or
+view button does not move the chart to today. Settings → **Buttons** switches a
+server or a person to **Redraw with the latest figures**, the old behaviour, for
+new messages. Set in `/settings` with `asPosted` (`settings.ts`, default
+`true`); the settings page and `/settings` show it under "Buttons".
+
+- **The window.** The posting day is the Sydney calendar day (`sydneyDay`).
+  Prices end there. Short positions end at the newest ASIC report the chart
+  showed, never after the posting day, since ASIC publishes four trading days
+  late. The footer says so: "As posted 4 Nov 2026", and "short positions as of
+  29 Oct 2026" on the short and combined views.
+- **The ids.** An anchored chart's buttons and Interactive button carry both
+  dates in their `custom_id` (`chart:p:BHP:short:3m:20261104:20261029`,
+  `activity:BHP:short:3m:20261104:20261029`; `chart-anchor.ts`, `custom-id.ts`).
+  The forms without dates are live and still work: every message posted before
+  this change has them, and so does a server that turns the setting off. Never
+  change what a form means.
+- **The figures.** A press on an anchored message does not read the stock. The
+  title, readings and fields are copied from the embed the button is on
+  (`interaction.message`, `copiedFigures` in `messages.ts`), so the figures above
+  the chart are the ones posted, and only the card is drawn again, for the new
+  view or period. A message with no usable embed falls back to a read, still
+  inside the anchor's window.
+- **The card and share link.** The card (`/chart/<CODE>/image`) and the share
+  page (`/chart/<CODE>`) take `asof=YYYY-MM-DD` (the posting day) and
+  `shorts=YYYY-MM-DD` (the short report's date, left out when it is the posting
+  day), and the Activity takes the same pair from its launch.
+- **Interactive mode.** Commands that open the Activity stay live whatever the
+  setting says: the Activity has its own window. A command that is too slow to
+  launch and posts its chart message instead follows the setting. The
+  **Interactive** button on an anchored message opens the Activity pinned to
+  that window.
 
 ## How it works
 

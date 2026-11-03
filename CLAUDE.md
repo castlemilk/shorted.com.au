@@ -1668,6 +1668,10 @@ it in place, and an **Interactive** button (`"activity": true`, on since
 
 - **Buttons carry their chart in `custom_id`** (`chart:p:BHP:short:3m`); old
   messages keep sending what they were posted with. Add kinds, never change one.
+- **Kept-as-posted charts add a posting day and report date to the `custom_id`**
+  (`chart:p:BHP:short:3m:20261104:20261029`). A press copies the figures from
+  `interaction.message` and never re-reads the stock; the forms without dates
+  stay live, and a form's meaning never changes.
 - **A chart message uploads its card** (`lib/discord/chart-card.ts`) as
   `attachment://<CODE>-<view>-<period>.png` in the deferred webhook edit; an
   interaction's HTTP response is JSON and cannot. The card's URL made Discord's
