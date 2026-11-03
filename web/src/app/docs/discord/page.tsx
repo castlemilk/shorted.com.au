@@ -203,8 +203,9 @@ export default function DiscordDocsPage() {
           <ul>
             <li>
               <strong>Periods and views</strong> redraw the chart. The
-              highlighted one is what is on screen; pressing it again redraws
-              with the latest figures.
+              highlighted one is what is on screen. A chart keeps the window and
+              figures it was posted with, unless the server has set its buttons
+              to redraw with the latest figures.
             </li>
             <li>
               <strong>Open on Shorted</strong> opens the full interactive chart
@@ -247,6 +248,11 @@ export default function DiscordDocsPage() {
               It answers privately with a link to a page where you pick the
               settings and see the chart they make. The link works for 30
               minutes, for whoever has it, so keep it to yourself.
+            </li>
+            <li>
+              <strong>Buttons</strong>: keep the chart as posted (the default),
+              so a redraw stays inside the window the chart was posted with, or
+              redraw with the latest figures.
             </li>
             <li>
               Anything typed in a command still wins:{" "}

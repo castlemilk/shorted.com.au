@@ -51,7 +51,8 @@ export async function saveDiscordSettings(input: unknown): Promise<SaveResult> {
     parsed.code === undefined ||
     parsed.view === undefined ||
     parsed.period === undefined ||
-    parsed.interactive === undefined
+    parsed.interactive === undefined ||
+    parsed.asPosted === undefined
   ) {
     return {
       ok: false,

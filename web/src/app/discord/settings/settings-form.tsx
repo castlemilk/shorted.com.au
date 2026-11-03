@@ -22,6 +22,7 @@ import {
   ASK_FOR_STOCK,
   buildChartMessage,
   notice,
+  postedAnchor,
   type StockHit,
   type StockSummary,
 } from "~/@/lib/discord/messages";
@@ -77,7 +78,8 @@ export function sameSettings(a: DiscordSettings, b: DiscordSettings): boolean {
     a.code === b.code &&
     a.view === b.view &&
     a.period === b.period &&
-    a.interactive === b.interactive
+    a.interactive === b.interactive &&
+    a.asPosted === b.asPosted
   );
 }
 
@@ -410,16 +412,22 @@ function Preview({
 }) {
   const code = settings.code ?? SAMPLE_CODE;
   const summary = useStockSummary(code);
-  const state = { code, view: settings.view, period: settings.period };
+  const now = new Date();
+  // The Activity a command opens is live (commands with the interactive chart
+  // stay live), so its frame is built from the plain state.
+  const live = { code, view: settings.view, period: settings.period };
+  const state = settings.asPosted
+    ? { ...live, anchor: postedAnchor(summary ?? { asOf: null }, now) }
+    : live;
   const interactive = settings.interactive && activityEnabled;
   const command = settings.code ? "/chart" : `/chart ${SAMPLE_CODE}`;
   const payload = buildChartMessage({
     summary: summary ?? { code, name: settings.code ? name : undefined },
     state,
     activity: activityEnabled,
-    now: new Date(),
+    now,
   });
-  const activitySrc = `/embed/discord?${new URLSearchParams(state).toString()}`;
+  const activitySrc = `/embed/discord?${new URLSearchParams(live).toString()}`;
 
   return (
     <div className="overflow-hidden rounded-lg border bg-[#313338]">
@@ -515,6 +523,18 @@ export function DiscordSettingsForm({
     label: v.label,
     hint: VIEW_HINTS[v.id],
   }));
+  const buttonChoices: Choice<"posted" | "latest">[] = [
+    {
+      id: "posted",
+      label: "Keep the chart as posted",
+      hint: "The window ends on the day it was posted, and its figures stay as posted.",
+    },
+    {
+      id: "latest",
+      label: "Redraw with the latest figures",
+      hint: "Each press redraws it with today's readings and a window ending today.",
+    },
+  ];
   const modeChoices: Choice<"message" | "interactive">[] = [
     {
       id: "message",
@@ -601,6 +621,19 @@ export function DiscordSettingsForm({
             value={values.period}
             onChange={(period) => change({ period })}
             className="grid-cols-5 [&_label]:items-center [&_label]:px-0"
+          />
+        </Section>
+
+        <Section
+          legend="Buttons"
+          description="Buttons on a chart redraw it inside the window it was posted with, and its figures stay as posted."
+        >
+          <ChoiceGroup
+            name="buttons"
+            choices={buttonChoices}
+            value={values.asPosted ? "posted" : "latest"}
+            onChange={(buttons) => change({ asPosted: buttons === "posted" })}
+            className="sm:grid-cols-2"
           />
         </Section>
 

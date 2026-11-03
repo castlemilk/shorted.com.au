@@ -53,6 +53,7 @@ const VALID = {
   view: "combined",
   period: "6m",
   interactive: true,
+  asPosted: false,
 };
 
 describe("Discord settings actions", () => {
@@ -84,11 +85,18 @@ describe("Discord settings actions", () => {
           view: "combined",
           period: "6m",
           interactive: true,
+          asPosted: false,
         },
       });
       expect(put).toHaveBeenCalledWith(
         { kind: "guild", id: GUILD },
-        { code: "PLS", view: "combined", period: "6m", interactive: true },
+        {
+          code: "PLS",
+          view: "combined",
+          period: "6m",
+          interactive: true,
+          asPosted: false,
+        },
         USER,
       );
     });
@@ -117,6 +125,11 @@ describe("Discord settings actions", () => {
 
     it.each([
       ["a missing field", { code: "PLS", view: "short", period: "1y" }],
+      ["a missing button setting", { ...VALID, asPosted: undefined }],
+      [
+        "a button setting that is not a yes or no",
+        { ...VALID, asPosted: "posted" },
+      ],
       ["an unknown view", { ...VALID, view: "candles" }],
       ["a period with no button", { ...VALID, period: "2y" }],
       ["a code that is not one", { ...VALID, code: "not a code" }],

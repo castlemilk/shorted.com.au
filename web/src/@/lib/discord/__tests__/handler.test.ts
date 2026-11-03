@@ -9,7 +9,7 @@ import {
   type InteractionResponse,
   type MessagePayload,
 } from "../api";
-import { chartCustomId, activityCustomId } from "../custom-id";
+import { activityCustomId, chartCustomId, parseCustomId } from "../custom-id";
 import type { DiscordData } from "../data";
 import { handleInteraction, type HandlerDeps } from "../handler";
 import type { StockHit, StockSummary } from "../messages";
@@ -69,6 +69,12 @@ interface Setup {
   settingsDelayMs?: number;
   /** Whether settings links can be signed. */
   canSign?: boolean;
+  /**
+   * Charts are kept as posted by default (the real default), not the live
+   * charts most of this file checks: a stored layer without `asPosted` is
+   * live unless this is set.
+   */
+  anchored?: boolean;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -81,6 +87,7 @@ function setup({
   settings = {},
   settingsDelayMs = 0,
   canSign = true,
+  anchored = false,
 }: Setup = {}) {
   const rest = fakeRest();
   const background: Promise<unknown>[] = [];
@@ -88,7 +95,9 @@ function setup({
   const settingsStore: jest.Mocked<SettingsStore> = {
     get: jest.fn(async (scope) => {
       if (settingsDelayMs) await sleep(settingsDelayMs);
-      return settings[scopeKey(scope)] ?? null;
+      const stored = settings[scopeKey(scope)];
+      if (anchored) return stored ?? null;
+      return { asPosted: false, ...stored };
     }),
     put: jest.fn(async () => undefined),
   };
@@ -132,7 +141,14 @@ function setup({
   };
 }
 
-const base = { id: "1", application_id: "app-1", token: "tok-1" };
+// Someone in a DM, so the settings read has a scope (a person's). Most tests
+// are about the chart, not whose it is.
+const base = {
+  id: "1",
+  application_id: "app-1",
+  token: "tok-1",
+  user: { id: "1290000000000000009" },
+};
 
 function command(
   name: string,
@@ -916,5 +932,269 @@ describe("/settings", () => {
     await settle();
     expect(rest.deleteOriginal).not.toHaveBeenCalled();
     expect(rest.editOriginal).toHaveBeenCalledTimes(1);
+  });
+});
+
+const DAY = "2026-10-19";
+const SHORTS = "2026-10-15";
+const ANCHOR = { day: DAY, shorts: SHORTS };
+/** BHP's latest short report is four trading days behind the posting day. */
+const BHP_AS_OF = new Date("2026-10-15T00:00:00Z");
+
+function dataAsOf(asOf: Date | null = BHP_AS_OF): jest.Mocked<DiscordData> {
+  return fakeData({
+    stockSummary: jest.fn(async (code: string) =>
+      STOCKS[code] ? { ...STOCKS[code], asOf } : null,
+    ),
+  });
+}
+
+describe("charts kept as posted", () => {
+  it("are on by default: a new chart posts anchored ids and draws its card for the anchor", async () => {
+    const t = setup({ anchored: true, data: dataAsOf() });
+    const message = await deliveredChart(
+      t,
+      await t.handle(command("stock", { code: "BHP" })),
+    );
+    expect(t.renderChart).toHaveBeenCalledWith({
+      code: "BHP",
+      view: "short",
+      period: "1y",
+      anchor: ANCHOR,
+    });
+    expect(message.files![0]!.name).toBe("BHP-short-1y.png");
+    expect(message.embeds![0]!.footer!.text).toBe(
+      "Source: ASIC short position reports, short positions as of 15 Oct 2026 · As posted 19 Oct 2026 · shorted.com.au",
+    );
+    const ids = message.components!.flatMap((row) =>
+      row.components.flatMap((c) => (c.custom_id ? [c.custom_id] : [])),
+    );
+    // The period and view buttons (the Interactive one is off here).
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) {
+      const parsed = parseCustomId(id);
+      expect(parsed?.kind === "chart" || parsed?.kind === "activity").toBe(
+        true,
+      );
+      expect(parsed).toMatchObject({ state: { code: "BHP", anchor: ANCHOR } });
+    }
+  });
+
+  it("are live when the server turns the setting off", async () => {
+    const t = setup({
+      anchored: true,
+      data: dataAsOf(),
+      settings: { [`guild:${GUILD}`]: { asPosted: false } },
+    });
+    const message = await deliveredChart(
+      t,
+      await t.handle(inServer(command("stock", { code: "BHP" }))),
+    );
+    expect(t.renderChart).toHaveBeenCalledWith({
+      code: "BHP",
+      view: "short",
+      period: "1y",
+    });
+    expect(message.embeds![0]!.footer!.text).not.toContain("As posted");
+    const periods = message.components![0]!.components.map((c) =>
+      parseCustomId(c.custom_id),
+    );
+    expect(periods).toContainEqual({
+      kind: "chart",
+      state: { code: "BHP", view: "short", period: "3m" },
+    });
+  });
+
+  it("date the short positions by the report, never after the posting day", async () => {
+    const t = setup({
+      anchored: true,
+      data: dataAsOf(new Date("2026-10-30T00:00:00Z")),
+    });
+    await deliveredChart(t, await t.handle(command("stock", { code: "BHP" })));
+    expect(t.renderChart).toHaveBeenCalledWith(
+      expect.objectContaining({ anchor: { day: DAY, shorts: DAY } }),
+    );
+  });
+
+  it("keep the anchor through a button press, with figures copied from the message", async () => {
+    const data = dataAsOf();
+    const t = setup({ anchored: true, data });
+    const posted = {
+      title: "BHP · BHP Group",
+      description: "**0.81%** of shares reported short · ▲ +0.12 pp in 30 days",
+      fields: [
+        { name: "Days to cover", value: "2.0", inline: true },
+        { name: "Industry", value: "Materials", inline: true },
+      ],
+    };
+    const message = await deliveredChart(
+      t,
+      await t.handle({
+        ...component(
+          chartCustomId("period", {
+            code: "BHP",
+            view: "short",
+            period: "3m",
+            anchor: ANCHOR,
+          }),
+        ),
+        message: { id: "9", embeds: [posted] },
+      }),
+      InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+    );
+    // The stock is not read again: the figures are the message's own.
+    expect(data.stockSummary).not.toHaveBeenCalled();
+    const embed = message.embeds![0]!;
+    expect(embed.title).toBe(posted.title);
+    expect(embed.description).toBe(posted.description);
+    expect(embed.fields).toEqual([
+      { name: "Days to cover", value: "2.0", inline: true },
+      { name: "Industry", value: "Materials", inline: true },
+    ]);
+    expect(embed.footer!.text).toBe(
+      "Source: ASIC short position reports, short positions as of 15 Oct 2026 · As posted 19 Oct 2026 · shorted.com.au",
+    );
+    expect(t.renderChart).toHaveBeenCalledWith({
+      code: "BHP",
+      view: "short",
+      period: "3m",
+      anchor: ANCHOR,
+    });
+    // Neighbours keep the anchor, so their cards are the anchored ones.
+    expect(t.warmCharts).toHaveBeenCalledWith({
+      code: "BHP",
+      view: "short",
+      period: "3m",
+      anchor: ANCHOR,
+    });
+    const ids = message.components!.flatMap((row) =>
+      row.components.flatMap((c) => (c.custom_id ? [c.custom_id] : [])),
+    );
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) {
+      const parsed = parseCustomId(id);
+      expect(parsed && "state" in parsed && parsed.state.anchor).toEqual(
+        ANCHOR,
+      );
+    }
+  });
+
+  it("change only the view on a press, footer and card for the new view", async () => {
+    const t = setup({ anchored: true });
+    const message = await deliveredChart(
+      t,
+      await t.handle({
+        ...component(
+          chartCustomId("view", {
+            code: "BHP",
+            view: "price",
+            period: "1y",
+            anchor: ANCHOR,
+          }),
+        ),
+        message: {
+          embeds: [{ title: "BHP · BHP Group", description: "x", fields: [] }],
+        },
+      }),
+      InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+    );
+    expect(message.embeds![0]!.footer!.text).toBe(
+      "Source: end-of-day ASX prices · As posted 19 Oct 2026 · shorted.com.au",
+    );
+    expect(t.renderChart).toHaveBeenCalledWith({
+      code: "BHP",
+      view: "price",
+      period: "1y",
+      anchor: ANCHOR,
+    });
+  });
+
+  it("read the stock, still inside the anchor, when the message has no usable embed", async () => {
+    const data = dataAsOf();
+    const t = setup({ anchored: true, data });
+    const message = await deliveredChart(
+      t,
+      await t.handle({
+        ...component(
+          chartCustomId("period", {
+            code: "BHP",
+            view: "short",
+            period: "6m",
+            anchor: ANCHOR,
+          }),
+        ),
+        message: { embeds: [{ fields: "nope" as unknown as [] }] },
+      }),
+      InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+    );
+    expect(data.stockSummary).toHaveBeenCalledWith("BHP");
+    expect(message.embeds![0]!.title).toBe("BHP · BHP Group");
+    expect(message.embeds![0]!.footer!.text).toContain("As posted 19 Oct 2026");
+  });
+
+  it("keep a press on a live chart live, whatever the setting says", async () => {
+    const data = dataAsOf();
+    const t = setup({ anchored: true, data });
+    await deliveredChart(
+      t,
+      await t.handle({
+        ...component(
+          chartCustomId("period", { code: "BHP", view: "short", period: "3m" }),
+        ),
+        message: { embeds: [{ title: "ignored" }] },
+      }),
+      InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+    );
+    expect(data.stockSummary).toHaveBeenCalledWith("BHP");
+    expect(t.renderChart).toHaveBeenCalledWith({
+      code: "BHP",
+      view: "short",
+      period: "3m",
+    });
+  });
+
+  it("hand the anchor to the Activity the Interactive button opens", async () => {
+    const { handle, launches } = setup({
+      anchored: true,
+      activityEnabled: true,
+    });
+    const id = activityCustomId({
+      code: "CBA",
+      view: "combined",
+      period: "6m",
+      anchor: ANCHOR,
+    });
+    expect(
+      await handle({ ...component(id), channel_id: "1290000000000000003" }),
+    ).toEqual({ type: InteractionResponseType.LAUNCH_ACTIVITY });
+    expect(launches).toEqual([
+      [
+        "1290000000000000003",
+        { code: "CBA", view: "combined", period: "6m", anchor: ANCHOR },
+      ],
+    ]);
+  });
+
+  it("keep a command's Activity live, whatever the setting says", async () => {
+    const { handle, launches } = setup({
+      anchored: true,
+      activityEnabled: true,
+      settings: { [`guild:${GUILD}`]: { interactive: true } },
+    });
+    await handle(inServer(command("stock", { code: "BHP" })));
+    expect(launches).toEqual([
+      [CHANNEL, { code: "BHP", view: "short", period: "1y" }],
+    ]);
+  });
+
+  it("show the setting in /settings", async () => {
+    const { handle } = setup({ anchored: true });
+    const message = messageOf(
+      await handle(inServer(command("settings"), MANAGE_GUILD)),
+    );
+    const buttons = message.embeds![0]!.fields!.find(
+      (f) => f.name === "Buttons",
+    );
+    expect(buttons!.value).toBe("Keep the chart as posted");
   });
 });
