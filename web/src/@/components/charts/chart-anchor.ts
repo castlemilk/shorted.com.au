@@ -1,4 +1,4 @@
-import type { ChartPeriod } from "./chart-views";
+import { CHART_PERIOD_PHRASE, type ChartPeriod } from "./chart-views";
 
 /**
  * A chart pinned to the day it was posted, so it shows the same window and
@@ -173,4 +173,26 @@ export function anchoredWindows(
     prices: periodWindow(period, anchor.day),
     shorts: periodWindow(period, anchor.shorts),
   };
+}
+
+const PERIOD_SPAN: Record<ChartPeriod, string> = {
+  "1m": "1 month",
+  "3m": "3 months",
+  "6m": "6 months",
+  "1y": "1 year",
+  "2y": "2 years",
+  max: "all history",
+};
+
+/**
+ * A chart's period in words: "past 3 months" live, and "3 months to 4 Nov
+ * 2026" kept as posted, where "past" would be wrong a week later.
+ */
+export function chartPeriodPhrase(
+  period: ChartPeriod,
+  anchor?: ChartAnchor | null,
+): string {
+  return anchor
+    ? `${PERIOD_SPAN[period]} to ${formatAnchorDay(anchor.day)}`
+    : CHART_PERIOD_PHRASE[period];
 }

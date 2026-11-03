@@ -1,5 +1,6 @@
 import {
   anchorQuery,
+  chartPeriodPhrase,
   anchoredWindows,
   compactDay,
   expandDay,
@@ -129,5 +130,17 @@ describe("periodWindow", () => {
       prices: { from: "2026-10-05", to: "2026-11-04" },
       shorts: { from: "2026-09-30", to: "2026-10-29" },
     });
+  });
+});
+
+describe("chartPeriodPhrase", () => {
+  it("is the live phrase without an anchor", () => {
+    expect(chartPeriodPhrase("3m")).toBe("past 3 months");
+  });
+
+  it("names the posting day with one", () => {
+    const anchor = { day: "2026-11-04", shorts: "2026-10-29" };
+    expect(chartPeriodPhrase("3m", anchor)).toBe("3 months to 4 Nov 2026");
+    expect(chartPeriodPhrase("max", anchor)).toBe("all history to 4 Nov 2026");
   });
 });
