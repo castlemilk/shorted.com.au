@@ -2,7 +2,7 @@ import { IBM_Plex_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "~/styles/globals.css";
 import { criticalCSS } from "~/styles/critical-css";
-import { discordActivityUrlScript } from "~/config/discord-activity.mjs";
+import { discordActivityHeadScript } from "~/config/discord-activity.mjs";
 
 import { cn } from "../@/lib/utils";
 import { type Viewport } from "next";
@@ -180,14 +180,16 @@ export default function RootLayout({
       <head>
         {/* Discord Activity (config/discord-activity.mjs). Discord's proxy follows
             the server redirect, so the address is still "/" when the Activity
-            hydrates. This moves it to the page the server rendered. It must stay a
-            static inline script in the head: the proxy nonces inline scripts, so one
-            created at runtime is blocked, and the RSC payload is pushed from the
-            body, after this runs. */}
+            hydrates. This moves it to the page the server rendered. On a
+            discordsays.com host it first removes the whitespace text the proxy
+            wraps its own head script in, which React 19 rejects during hydration.
+            It must stay a static inline script in the head: the proxy nonces inline
+            scripts, so one created at runtime is blocked, and the RSC payload is
+            pushed from the body, after this runs. */}
         {/* Discord's proxy adds its own script before this one; the content is static, so the attribute warning hides nothing real. */}
         <script
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: discordActivityUrlScript() }}
+          dangerouslySetInnerHTML={{ __html: discordActivityHeadScript() }}
         />
         {/* Inline critical CSS to prevent render-blocking */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />

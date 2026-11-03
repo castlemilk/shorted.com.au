@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { test, expect, type Page } from "./helpers/test";
@@ -26,7 +27,14 @@ import { cloudflareTestingBypassHeadersFor } from "./helpers/cloudflare-testing-
  * TF_VAR_rate_limit_testing_bypass_secret, that one variable from the repo-root .env, clears
  * the edge for localhost (helpers/test.ts). The API still caps an anonymous address at 30
  * calls a minute, so a refused call is waited out (waitOutRateLimit, as in stock-tabs).
- * Screenshots go to test-results/chart-surfaces/. Never point BASE_URL at production.
+ * The Discord proxy cases also run against production React, the build that failed in
+ * production: `next build`, then `SKIP_ENV_VALIDATION=1 next start -p 3102` (the env check
+ * stops `next start` in a checkout without web/.env.local), then
+ * BASE_URL=http://localhost:3102 with -g "behind Discord's proxy". Playwright clears its
+ * default output folder (test-results/) on every run, so keep other scratch files out of it
+ * (--output).
+ * Screenshots go to test-results/chart-surfaces/. Never point BASE_URL at production
+ * (a local production build is fine).
  */
 
 // The windows the surfaces are checked at: a phone held upright (where the Activity and the
@@ -215,52 +223,139 @@ test.describe("the Discord Activity launched on a phone", () => {
   });
 });
 
-// Discord's proxy loads the site root with the launch parameters and follows the server
-// redirect itself, so the browser's address stays `/` while the Activity page's HTML
-// arrives. route.fetch() follows that redirect the way the proxy does, and fulfilling it
-// keeps the address the page asked for. Without the script that moves the address, in the
-// root layout's <head> (src/config/discord-activity.mjs), the site chrome renders and
+// Discord's proxy serves the Activity from https://<client_id>.discordsays.com and follows
+// the server redirect itself, so the browser's address stays `/` while the Activity page's
+// HTML arrives. This case plays the proxy on the local server (behindDiscordProxy). The page's
+// origin is the proxy's host, over https as in production, so the head script's host check
+// (src/config/discord-activity.mjs) runs as it does there, and every request that origin makes
+// is fetched from the server here. Without the head script the site chrome renders and
 // hydration fails, so this check fails without it.
 //
-// The proxy also puts its own inline script in <head>, after the first preload. This is the
-// one it adds (it does nothing unless the page is framed). React must hydrate a document with
-// that extra element and report no error, so withProxyHeadScript inserts it into the HTML.
+// Two more things the proxy does to the document are played (withProxyDocument). It puts its
+// own script in <head>, wrapped in newlines, right after the first preload. It also gives every
+// inline script a nonce, under a policy with no 'unsafe-inline' (proxyPolicy), so the head
+// script must be a static, nonced script in <head>, as the comment on that script in
+// src/config/discord-activity.mjs says.
+//
+// The script is a stand-in. Discord's own script is not copied into the repo: it is their code,
+// and it changes. The stand-in does nothing. Discord's script also replaces RTCPeerConnection,
+// WebTransport and ServiceWorkerContainer.prototype.register, framed or not, and nothing this
+// case checks depends on that. What the case needs from the script is its place in <head>, the
+// newlines around it and its nonce.
 const DISCORD_PROXY_HEAD_SCRIPT =
   '<script type="text/javascript">(function(){ if (window.parent === window) return; })();</script>';
 
-/** The HTML with DISCORD_PROXY_HEAD_SCRIPT right after the first <link rel="preload" as="script"> in <head>. */
-function withProxyHeadScript(html: string): string {
+/**
+ * The document the proxy serves: the stand-in right after the first <link rel="preload"
+ * as="script"> in <head>, with a newline before and after it, and the nonce on every inline
+ * script. A script tag with a src is external, so it gets no nonce.
+ */
+function withProxyDocument(html: string, nonce: string): string {
   const preload = /<link\b(?=[^>]*\brel="preload")(?=[^>]*\bas="script")[^>]*>/.exec(html);
   if (!preload || html.indexOf("</head>") < preload.index) {
     throw new Error('the Activity HTML has no <link rel="preload" as="script"> in its <head>');
   }
   const at = preload.index + preload[0].length;
-  return html.slice(0, at) + DISCORD_PROXY_HEAD_SCRIPT + html.slice(at);
+  const placed = `${html.slice(0, at)}\n${DISCORD_PROXY_HEAD_SCRIPT}\n${html.slice(at)}`;
+  return placed.replace(/<script\b(?![^>]*\ssrc=)/gi, `<script nonce="${nonce}"`);
 }
 
-async function behindDiscordProxy(page: Page): Promise<void> {
+// The host the proxy serves the Activity from: `<client_id>.discordsays.com`, the id 15 to 22
+// digits (src/@/lib/discord/activity.ts reads it from the hostname). It is served over https.
+const DISCORD_PROXY_HOST = "1561906774955659336.discordsays.com";
+const DISCORD_PROXY_ORIGIN = `https://${DISCORD_PROXY_HOST}`;
+
+/**
+ * The Content-Security-Policy Discord's proxy served with the Activity document, as it was
+ * captured on 2026-11-03. The nonce goes on script-src; the rest is copied as the proxy sent it.
+ */
+function proxyPolicy(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'unsafe-eval' 'nonce-${nonce}' blob:`,
+    "style-src 'self' 'unsafe-inline' blob:",
+    "img-src 'self' blob: data: https://cdn.discordapp.com https://media.discordapp.net https://cdn-b1.discordapp.com https://cdn-b2.discordapp.com https://media-b1.discordapp.net https://media-b2.discordapp.net https://*.cdn.discordapp.com https://*.media.discordapp.net",
+    "font-src 'self' data:",
+    `connect-src ${DISCORD_PROXY_ORIGIN}/ wss://${DISCORD_PROXY_HOST}/ https://discord.com https://canary.discord.com https://ptb.discord.com https://cdn.discordapp.com https://media.discordapp.net https://cdn-b1.discordapp.com https://cdn-b2.discordapp.com https://media-b1.discordapp.net https://media-b2.discordapp.net https://*.cdn.discordapp.com https://*.media.discordapp.net data: blob:`,
+    "media-src 'self' blob: data:",
+    `frame-src ${DISCORD_PROXY_ORIGIN}/ wss://${DISCORD_PROXY_HOST}/ https://discord.com/embeds/video-frame https://canary.discord.com/embeds/video-frame https://ptb.discord.com/embeds/video-frame`,
+    `child-src ${DISCORD_PROXY_ORIGIN}/ wss://${DISCORD_PROXY_HOST}/ blob:`,
+    `worker-src ${DISCORD_PROXY_ORIGIN}/ wss://${DISCORD_PROXY_HOST}/ blob:`,
+  ].join("; ");
+}
+
+/**
+ * Plays Discord's proxy for the Activity's origin. Every request that origin makes is fetched
+ * from the server at `baseURL`, with the same path and query, and its response is fulfilled
+ * under the origin's address. The document also gets withProxyDocument and the proxy's policy,
+ * and its address stays the page's own (`/`), as the proxy keeps it. Origin and Referer name the
+ * server, as the browser
+ * would send them to it, so Next's same-origin checks see what they would see there. The testing
+ * bypass header goes to the server, which is this machine (testing-bypass-scope.mjs). A refused
+ * call (429) is waited out and asked again, as waitOutRateLimit does for the API, which this
+ * route takes over for the proxy's origin.
+ */
+async function behindDiscordProxy(page: Page, baseURL: string): Promise<void> {
+  const local = new URL(baseURL);
   await page.route(
-    (url) => url.pathname === "/" && url.searchParams.has("frame_id"),
+    (url) => url.hostname === DISCORD_PROXY_HOST,
     async (route) => {
       try {
-        // This route runs before the fixture's, so it sends the trusted-test header itself.
         const request = route.request();
-        const response = await route.fetch({
-          headers: {
-            ...request.headers(),
-            ...cloudflareTestingBypassHeadersFor(request.url()),
-          },
-        });
-        // The body is replaced, so the headers that described the original go: its length, and
-        // its encoding (response.text() is already decoded). The length is set for the new body.
-        const headers = response.headers();
-        delete headers["content-length"];
-        delete headers["content-encoding"];
-        delete headers["transfer-encoding"];
-        const body = withProxyHeadScript(await response.text());
+        const target = new URL(request.url());
+        target.protocol = local.protocol;
+        target.host = local.host;
+        // This route runs before the fixture's, so it sends the trusted-test header itself.
+        const headers: Record<string, string> = {
+          ...request.headers(),
+          ...cloudflareTestingBypassHeadersFor(target.href),
+        };
+        delete headers.host;
+        for (const name of ["origin", "referer"]) {
+          const value = headers[name];
+          if (value) headers[name] = value.split(DISCORD_PROXY_ORIGIN).join(local.origin);
+        }
+        // page.request fetches from the local server whatever the scheme of the proxy's request.
+        // route.fetch can only override a request with a URL of the same scheme, and the proxy's
+        // origin is https.
+        const send = () =>
+          page.request.fetch(target.href, {
+            method: request.method(),
+            headers,
+            data: request.postDataBuffer() ?? undefined,
+          });
+        let response = await send();
+        for (let retry = 0; response.status() === 429 && retry < 3; retry++) {
+          const seconds = Number(response.headers()["retry-after"]);
+          await new Promise((resolve) =>
+            setTimeout(resolve, (seconds > 0 ? seconds : 20) * 1000 + 250),
+          );
+          response = await send();
+        }
+        // The body is replaced, so the headers that described the original go: its length, its
+        // encoding (the body is already decoded), its cookies, which would otherwise be set for
+        // the proxy's origin by the server here, and its policy, which the proxy sends itself.
+        const fulfilled: Record<string, string> = { ...response.headers() };
+        for (const name of [
+          "content-length",
+          "content-encoding",
+          "transfer-encoding",
+          "set-cookie",
+          "content-security-policy",
+        ]) {
+          delete fulfilled[name];
+        }
+        let body: string | Buffer;
+        if (request.resourceType() === "document") {
+          const nonce = randomBytes(16).toString("base64");
+          body = withProxyDocument(await response.text(), nonce);
+          fulfilled["content-security-policy"] = proxyPolicy(nonce);
+        } else {
+          body = await response.body();
+        }
         await route.fulfill({
           status: response.status(),
-          headers: { ...headers, "content-length": String(Buffer.byteLength(body)) },
+          headers: { ...fulfilled, "content-length": String(Buffer.byteLength(body)) },
           body,
         });
       } catch (error) {
@@ -272,9 +367,9 @@ async function behindDiscordProxy(page: Page): Promise<void> {
 }
 
 /**
- * Records every uncaught page error, and every console error that React reports for a
- * hydration mismatch (#418 and #423 in production; the words in development, where React
- * prints them in full). Listen before the first load.
+ * Records every uncaught page error, and every console error that names a hydration mismatch.
+ * Production React reports a mismatch (#418 or #423) as an uncaught page error, so that is where
+ * the case sees it. Development prints the words in a console error. Listen before the first load.
  */
 function recordHydrationProblems(page: Page): { pageErrors: string[]; hydration: string[] } {
   const problems = { pageErrors: [] as string[], hydration: [] as string[] };
@@ -300,13 +395,14 @@ for (const [device, viewport, platform] of [
 
     test("keeps the Activity's address, renders no site chrome, opens the chart it was launched on, and hydrates past Discord's head script", async ({
       page,
+      baseURL,
     }) => {
       test.setTimeout(120_000);
-      await waitOutRateLimit(page);
-      await behindDiscordProxy(page);
+      const local = baseURL ?? "http://localhost:3020";
+      await behindDiscordProxy(page, local);
       const problems = recordHydrationProblems(page);
       // The proxy's route holds the navigation while a cold dev server compiles the Activity.
-      await page.goto(launchPath(platform), LOADED);
+      await page.goto(DISCORD_PROXY_ORIGIN + launchPath(platform), LOADED);
 
       // The router reads the Activity's address, not the homepage's.
       await expect(page).toHaveURL(
@@ -324,6 +420,8 @@ for (const [device, viewport, platform] of [
       expect(await page.evaluate(() => document.head.innerHTML)).toContain(
         "window.parent === window",
       );
+      // Without the sweep, the newlines are a hydration mismatch (React #418): an uncaught page
+      // error. The head's text is not counted here, since React's recovery also removes it.
       expect(problems.pageErrors).toEqual([]);
       expect(problems.hydration).toEqual([]);
       await shot(page, `activity-proxy-${device}`);

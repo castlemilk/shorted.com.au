@@ -1581,8 +1581,12 @@ it in place, and an **Interactive** button (`"activity": true`, on since
   reads it before the first render), so every `usePathname()` check (the
   header, the footer, the corner credit, the banners) reads `/` and the page
   hydrates as the homepage: the site chrome renders and hydration fails (React
-  #418 and #423). The root layout's inline `discordActivityUrlScript`, in
+  #418 and #423). The root layout's inline `discordActivityHeadScript`, in
   `<head>`, moves the address to `/embed/discord` before the router reads it.
+  The proxy also wraps the script it adds to `<head>` in newlines, and React 19
+  rejects those injected text nodes during hydration (production #418), so on a
+  `.discordsays.com` host the same script removes whitespace-only text from
+  `<head>` before the page hydrates.
   Keep it a static inline script in `<head>`: the proxy adds a nonce to every
   inline script in the page, so a script created at runtime is blocked, and
   next/script, a `type="module"` script, an effect or the body can each run
@@ -1591,14 +1595,16 @@ it in place, and an **Interactive** button (`"activity": true`, on since
   recoverable "A tree hydrated but some attributes ... didn't match" for the
   head's script element, and the Activity still renders. Placed after this
   script, React logs nothing (measured against `next dev` on 2026-11-03). The
-  proxy case in `chart-surfaces.spec.ts` injects the first placement, so it
-  fails as of that date. Its guards are
+  proxy case in `chart-surfaces.spec.ts` injects the proxy's real placement,
+  newlines included. It passes on a production build with the sweep, and with
+  the sweep disabled it fails with #418 (checked 2026-11-03). Its guards are
   `scripts/tests/discord-activity-redirect.test.mjs` (the placement, and the
   script run in a VM), `web/src/config/__tests__/discord-activity-url.test.ts`
   (it moves only what the server redirects) and the proxy case in
-  `web/e2e/chart-surfaces.spec.ts` (it runs against `next dev`; no workflow runs
-  it). Inside the Activity only same-origin requests work, so it uses relative
-  rewrites and opens links through the SDK.
+  `web/e2e/chart-surfaces.spec.ts` (it runs against a local server and was
+  proved on `next start`; no workflow runs it). Inside the Activity only
+  same-origin requests work, so it uses relative rewrites and opens links
+  through the SDK.
 - **`/api/discord/` is in the Cloudflare SBFM skip** (Discord is an automated
   client); the signature check is what keeps the route closed. So is the
   Activity: Discord's proxy fetches it from Discord's servers, and SBFM served
