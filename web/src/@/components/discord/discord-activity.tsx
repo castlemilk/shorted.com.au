@@ -536,6 +536,7 @@ function ActivityChart({
                 code: chart.stockCode,
                 view: chart.view,
                 period: chart.period,
+                ...(chart.anchor ? { anchor: chart.anchor } : {}),
               }),
               "sign-in",
             ),

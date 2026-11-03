@@ -86,6 +86,8 @@ export interface EmbedIndicatorOptions {
     stockCode: string;
     view: ChartViewId;
     period: ChartPeriod;
+    /** Set while the chart is shown as posted, so the sign-in returns to it. */
+    anchor?: ChartAnchor;
   }) => void;
   /** The picks to start from, for a host that keeps them across a stock switch. */
   initial?: readonly ChartIndicatorId[];
@@ -294,7 +296,7 @@ export function StockChartEmbed({
   // Each indicator waits for its own history (useIndicatorHistory). One that waits is
   // held back, and a panel among them keeps its place, empty, until it lands. An
   // indicator that has its history is drawn even while another one still loads.
-  const history = useIndicatorHistory(stockCode, period, visible);
+  const history = useIndicatorHistory(stockCode, period, visible, pinned);
   const drawn = useMemo(
     () =>
       readyIndicators(
@@ -372,7 +374,13 @@ export function StockChartEmbed({
   const onSignIn = indicators?.onSignIn;
   const signIn: IndicatorSignIn = onSignIn
     ? {
-        onClick: () => onSignIn({ stockCode, view, period }),
+        onClick: () =>
+          onSignIn({
+            stockCode,
+            view,
+            period,
+            ...(pinned ? { anchor: pinned } : {}),
+          }),
         busy: indicators?.signInBusy,
       }
     : { callbackUrl: sharePath };
