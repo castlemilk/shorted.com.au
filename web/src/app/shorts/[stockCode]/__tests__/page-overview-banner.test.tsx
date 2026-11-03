@@ -38,8 +38,8 @@ jest.mock("~/app/actions/getStockDetails", () => ({
 }));
 jest.mock("~/@/components/themes/theme-chips", () => ({ StockThemeChips: () => null }));
 // The real gate and the real banner (the shared jest setup stubs the banner).
-// The real SignIn is a form whose action is a server action, which React 18
-// cannot render in jsdom, so it is a stand-in.
+// The real SignIn is a form whose action is a server action, so it is a
+// stand-in.
 jest.mock("~/@/components/ui/login-prompt-banner", () =>
   jest.requireActual("~/@/components/ui/login-prompt-banner"),
 );

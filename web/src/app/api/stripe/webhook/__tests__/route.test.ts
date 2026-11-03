@@ -6,7 +6,7 @@ import { notifyOperator, sendResendEmail } from "~/@/lib/operator-notify";
 import { SubscriptionStatus } from "~/gen/shorts/v1alpha1/billing_pb";
 
 jest.mock("next/headers", () => ({
-  headers: () => new Headers({ "stripe-signature": "t=1,v1=test" }),
+  headers: async () => new Headers({ "stripe-signature": "t=1,v1=test" }),
 }));
 
 jest.mock("~/lib/stripe", () => ({

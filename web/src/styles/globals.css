@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@source "../../node_modules/streamdown/dist/*.js";
 /* Font is loaded via Next.js font optimization - no need for CSS import */
 
 @layer base {
@@ -74,7 +73,8 @@
     --phosphor-blur: 0px;
 
     /* Font stack with retro character */
-    --font-sans: "IBM Plex Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+    /* No IBM Plex Mono: see layout.tsx (the face was never drawn in production). */
+    --font-sans: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
     --font-display: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
   }
 

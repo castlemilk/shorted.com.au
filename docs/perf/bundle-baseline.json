@@ -1,758 +1,758 @@
 {
-  "capturedAt": "2026-11-02T23:26:09.391Z",
-  "gitRef": "bbff5b4c9+uncommitted-pr1",
+  "capturedAt": "2026-11-03T03:22:16.341Z",
+  "gitRef": "c620b26e6+next15",
   "unit": "kB (Next First Load JS, raw)",
-  "sharedByAllKB": 96.5,
+  "sharedByAllKB": 112,
   "routes": {
     "/": {
-      "firstLoadKB": 136
+      "firstLoadKB": 147
     },
     "/_not-found": {
-      "firstLoadKB": 96.7
+      "firstLoadKB": 112
     },
     "/about": {
-      "firstLoadKB": 123
+      "firstLoadKB": 134
     },
     "/about/opengraph-image": {
-      "firstLoadKB": 0
+      "firstLoadKB": 112
     },
     "/admin": {
-      "firstLoadKB": 151
+      "firstLoadKB": 166
     },
     "/admin/broadcasts": {
-      "firstLoadKB": 108
+      "firstLoadKB": 124
     },
     "/admin/enrichments": {
-      "firstLoadKB": 144
+      "firstLoadKB": 156
     },
     "/admin/register/politicians": {
-      "firstLoadKB": 109
+      "firstLoadKB": 120
     },
     "/admin/register/politicians/[slug]": {
-      "firstLoadKB": 137
+      "firstLoadKB": 149
     },
     "/admin/register/securities": {
-      "firstLoadKB": 125
+      "firstLoadKB": 140
     },
     "/admin/takes": {
-      "firstLoadKB": 104
+      "firstLoadKB": 115
     },
     "/admin/takes/[slug]": {
-      "firstLoadKB": 591
+      "firstLoadKB": 601
     },
     "/alerts": {
-      "firstLoadKB": 133
-    },
-    "/alerts/unsubscribe": {
-      "firstLoadKB": 106
-    },
-    "/api/about/statistics": {
-      "firstLoadKB": 0
-    },
-    "/api/about/warm-cache": {
-      "firstLoadKB": 0
-    },
-    "/api/admin/flush-cache": {
-      "firstLoadKB": 0
-    },
-    "/api/admin/regen-hero": {
-      "firstLoadKB": 0
-    },
-    "/api/agent/api-catalog": {
-      "firstLoadKB": 0
-    },
-    "/api/agent/mcp-server-card": {
-      "firstLoadKB": 0
-    },
-    "/api/alerts/unsubscribe": {
-      "firstLoadKB": 0
-    },
-    "/api/auth/[...nextauth]": {
-      "firstLoadKB": 0
-    },
-    "/api/chat": {
-      "firstLoadKB": 0
-    },
-    "/api/community/[stockCode]/pulse": {
-      "firstLoadKB": 0
-    },
-    "/api/community/[stockCode]/pulse/[pulseId]/replies": {
-      "firstLoadKB": 0
-    },
-    "/api/community/[stockCode]/summary": {
-      "firstLoadKB": 0
-    },
-    "/api/community/[stockCode]/threads": {
-      "firstLoadKB": 0
-    },
-    "/api/community/[stockCode]/threads/[threadId]": {
-      "firstLoadKB": 0
-    },
-    "/api/community/[stockCode]/threads/[threadId]/comments": {
-      "firstLoadKB": 0
-    },
-    "/api/community/reports": {
-      "firstLoadKB": 0
-    },
-    "/api/community/votes": {
-      "firstLoadKB": 0
-    },
-    "/api/discord/activity": {
-      "firstLoadKB": 0
-    },
-    "/api/discord/activity/launch": {
-      "firstLoadKB": 0
-    },
-    "/api/discord/interactions": {
-      "firstLoadKB": 0
-    },
-    "/api/docs": {
-      "firstLoadKB": 96.7
-    },
-    "/api/email/img": {
-      "firstLoadKB": 0
-    },
-    "/api/health": {
-      "firstLoadKB": 0
-    },
-    "/api/homepage/warm-cache": {
-      "firstLoadKB": 0
-    },
-    "/api/internal/admin-check": {
-      "firstLoadKB": 0
-    },
-    "/api/internal/admin-users": {
-      "firstLoadKB": 0
-    },
-    "/api/internal/billing": {
-      "firstLoadKB": 0
-    },
-    "/api/internal/paid-probe": {
-      "firstLoadKB": 0
-    },
-    "/api/market-data/correlations": {
-      "firstLoadKB": 0
-    },
-    "/api/market-data/historical": {
-      "firstLoadKB": 0
-    },
-    "/api/market-data/multiple-quotes": {
-      "firstLoadKB": 0
-    },
-    "/api/mcp/[transport]": {
-      "firstLoadKB": 0
-    },
-    "/api/og/twitter/[type]": {
-      "firstLoadKB": 0
-    },
-    "/api/pages/warm-cache": {
-      "firstLoadKB": 0
-    },
-    "/api/revalidate": {
-      "firstLoadKB": 0
-    },
-    "/api/search/stocks": {
-      "firstLoadKB": 0
-    },
-    "/api/static-pages/warm-cache": {
-      "firstLoadKB": 0
-    },
-    "/api/stocks/multiple": {
-      "firstLoadKB": 0
-    },
-    "/api/stripe/checkout": {
-      "firstLoadKB": 0
-    },
-    "/api/stripe/portal": {
-      "firstLoadKB": 0
-    },
-    "/api/stripe/reconcile": {
-      "firstLoadKB": 0
-    },
-    "/api/stripe/webhook": {
-      "firstLoadKB": 0
-    },
-    "/api/unsubscribe": {
-      "firstLoadKB": 0
-    },
-    "/api/version": {
-      "firstLoadKB": 0
-    },
-    "/api/warm-pages": {
-      "firstLoadKB": 0
-    },
-    "/authors": {
-      "firstLoadKB": 106
-    },
-    "/authors/[slug]": {
-      "firstLoadKB": 106
-    },
-    "/authors/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/battlegrounds": {
-      "firstLoadKB": 203
-    },
-    "/battlegrounds/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/billing/portal": {
-      "firstLoadKB": 0
-    },
-    "/blog": {
-      "firstLoadKB": 110
-    },
-    "/blog/[slug]": {
-      "firstLoadKB": 121
-    },
-    "/blog/[slug]/llm": {
-      "firstLoadKB": 0
-    },
-    "/blog/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/blog/category/[category]": {
-      "firstLoadKB": 110
-    },
-    "/blog/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/chart/[code]": {
-      "firstLoadKB": 112
-    },
-    "/chart/[code]/image": {
-      "firstLoadKB": 0
-    },
-    "/chat": {
-      "firstLoadKB": 97.8
-    },
-    "/chat.v1.ChatService/[method]": {
-      "firstLoadKB": 0
-    },
-    "/compare": {
-      "firstLoadKB": 105
-    },
-    "/compare/[pair]": {
-      "firstLoadKB": 105
-    },
-    "/compare/[pair]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/compare/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/dashboards": {
-      "firstLoadKB": 273
-    },
-    "/data": {
-      "firstLoadKB": 106
-    },
-    "/data/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/design-system": {
-      "firstLoadKB": 105
-    },
-    "/developer": {
-      "firstLoadKB": 121
-    },
-    "/directory": {
-      "firstLoadKB": 111
-    },
-    "/directory/[letter]": {
-      "firstLoadKB": 111
-    },
-    "/directory/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/disclaimer": {
-      "firstLoadKB": 105
-    },
-    "/discord/settings": {
-      "firstLoadKB": 128
-    },
-    "/discord/settings/open": {
-      "firstLoadKB": 0
-    },
-    "/docs/api": {
-      "firstLoadKB": 126
-    },
-    "/docs/api-reference": {
-      "firstLoadKB": 0
-    },
-    "/docs/api.md": {
-      "firstLoadKB": 0
-    },
-    "/docs/api/[endpoint]": {
-      "firstLoadKB": 116
-    },
-    "/docs/api/clients/[language]": {
-      "firstLoadKB": 104
-    },
-    "/docs/discord": {
-      "firstLoadKB": 105
-    },
-    "/docs/llm-context": {
-      "firstLoadKB": 104
-    },
-    "/docs/llm-context-raw": {
-      "firstLoadKB": 0
-    },
-    "/docs/mcp.md": {
-      "firstLoadKB": 0
-    },
-    "/e2e-chat-render": {
-      "firstLoadKB": 607
-    },
-    "/economy": {
-      "firstLoadKB": 105
-    },
-    "/economy/[state]": {
-      "firstLoadKB": 106
-    },
-    "/economy/[state]/[topic]": {
-      "firstLoadKB": 106
-    },
-    "/economy/[state]/[topic]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/economy/[state]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/economy/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/embed/bank-basket": {
-      "firstLoadKB": 98.2
-    },
-    "/embed/chart": {
-      "firstLoadKB": 104
-    },
-    "/embed/discord": {
-      "firstLoadKB": 105
-    },
-    "/embed/top-shorts": {
-      "firstLoadKB": 177
-    },
-    "/embed/treemap": {
-      "firstLoadKB": 98.1
-    },
-    "/faq": {
-      "firstLoadKB": 120
-    },
-    "/faq/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/features/the-widow-maker": {
-      "firstLoadKB": 105
-    },
-    "/features/the-widow-maker/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/feed.xml": {
-      "firstLoadKB": 0
-    },
-    "/glossary": {
-      "firstLoadKB": 105
-    },
-    "/glossary/[term]": {
-      "firstLoadKB": 106
-    },
-    "/glossary/[term]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/glossary/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/housing": {
-      "firstLoadKB": 105
-    },
-    "/housing/[state]": {
-      "firstLoadKB": 141
-    },
-    "/housing/[state]/[suburb]": {
-      "firstLoadKB": 141
-    },
-    "/housing/[state]/[suburb]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/housing/[state]/council": {
-      "firstLoadKB": 117
-    },
-    "/housing/[state]/council/[slug]": {
-      "firstLoadKB": 106
-    },
-    "/housing/[state]/council/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/housing/[state]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/housing/calculators": {
-      "firstLoadKB": 100
-    },
-    "/housing/calculators/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/housing/capitals": {
-      "firstLoadKB": 106
-    },
-    "/housing/capitals/[slug]": {
-      "firstLoadKB": 106
-    },
-    "/housing/capitals/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/housing/capitals/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/housing/drops": {
-      "firstLoadKB": 96.7
-    },
-    "/housing/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/housing/property/[addressKey]": {
-      "firstLoadKB": 141
-    },
-    "/housing/rankings": {
-      "firstLoadKB": 106
-    },
-    "/housing/rankings/[slug]": {
-      "firstLoadKB": 106
-    },
-    "/housing/rankings/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/housing/rankings/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/industry": {
-      "firstLoadKB": 110
-    },
-    "/industry-intelligence": {
-      "firstLoadKB": 140
-    },
-    "/industry-intelligence/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/industry/[slug]": {
-      "firstLoadKB": 111
-    },
-    "/industry/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/industry/[slug]/twitter-image": {
-      "firstLoadKB": 0
-    },
-    "/insider-trading": {
-      "firstLoadKB": 106
-    },
-    "/insider-trading/[stockCode]": {
-      "firstLoadKB": 106
-    },
-    "/insider-trading/[stockCode]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/insider-trading/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/learn": {
-      "firstLoadKB": 105
-    },
-    "/learn/[slug]": {
-      "firstLoadKB": 106
-    },
-    "/learn/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/learn/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/market": {
-      "firstLoadKB": 106
-    },
-    "/market/[date]": {
-      "firstLoadKB": 106
-    },
-    "/market/[date]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/market/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/methodology": {
-      "firstLoadKB": 105
-    },
-    "/methodology/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/metrics": {
-      "firstLoadKB": 119
-    },
-    "/news": {
-      "firstLoadKB": 112
-    },
-    "/news/[slug]": {
-      "firstLoadKB": 158
-    },
-    "/news/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/news/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/oauth/authorize": {
-      "firstLoadKB": 119
-    },
-    "/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/ownership": {
-      "firstLoadKB": 114
-    },
-    "/ownership/[slug]": {
-      "firstLoadKB": 115
-    },
-    "/ownership/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/ownership/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/picks": {
-      "firstLoadKB": 111
-    },
-    "/picks/[strategy]": {
-      "firstLoadKB": 124
-    },
-    "/picks/[strategy]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/picks/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/politicians": {
-      "firstLoadKB": 129
-    },
-    "/politicians/[slug]": {
-      "firstLoadKB": 138
-    },
-    "/politicians/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/politicians/changes": {
-      "firstLoadKB": 122
-    },
-    "/politicians/changes/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/politicians/compare": {
-      "firstLoadKB": 105
-    },
-    "/politicians/compare/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/politicians/donations": {
-      "firstLoadKB": 118
-    },
-    "/politicians/donations/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/politicians/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/politicians/short-interest": {
-      "firstLoadKB": 105
-    },
-    "/politicians/short-interest/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/portfolio": {
       "firstLoadKB": 144
     },
-    "/press": {
-      "firstLoadKB": 119
+    "/alerts/unsubscribe": {
+      "firstLoadKB": 118
     },
-    "/press/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/price-drops": {
-      "firstLoadKB": 114
-    },
-    "/price-drops/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/pricing": {
-      "firstLoadKB": 127
-    },
-    "/privacy": {
+    "/api/about/statistics": {
       "firstLoadKB": 112
     },
-    "/pulse": {
-      "firstLoadKB": 127
-    },
-    "/rate-limit": {
-      "firstLoadKB": 124
-    },
-    "/reports": {
-      "firstLoadKB": 111
-    },
-    "/reports/monthly/[slug]": {
-      "firstLoadKB": 111
-    },
-    "/reports/monthly/[slug]/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/reports/opengraph-image": {
-      "firstLoadKB": 0
-    },
-    "/reports/weekly": {
-      "firstLoadKB": 111
-    },
-    "/reports/weekly/[slug]": {
+    "/api/about/warm-cache": {
       "firstLoadKB": 112
     },
-    "/reports/weekly/[slug]/opengraph-image": {
-      "firstLoadKB": 0
+    "/api/admin/flush-cache": {
+      "firstLoadKB": 112
     },
-    "/reports/yearly/[slug]": {
-      "firstLoadKB": 111
+    "/api/admin/regen-hero": {
+      "firstLoadKB": 112
     },
-    "/reports/yearly/[slug]/opengraph-image": {
-      "firstLoadKB": 0
+    "/api/agent/api-catalog": {
+      "firstLoadKB": 112
     },
-    "/roadmap": {
-      "firstLoadKB": 111
+    "/api/agent/mcp-server-card": {
+      "firstLoadKB": 112
     },
-    "/robots.txt": {
-      "firstLoadKB": 0
+    "/api/alerts/unsubscribe": {
+      "firstLoadKB": 112
     },
-    "/scans": {
-      "firstLoadKB": 106
+    "/api/auth/[...nextauth]": {
+      "firstLoadKB": 112
     },
-    "/scans/[slug]": {
-      "firstLoadKB": 106
+    "/api/chat": {
+      "firstLoadKB": 112
     },
-    "/scans/[slug]/opengraph-image": {
-      "firstLoadKB": 0
+    "/api/community/[stockCode]/pulse": {
+      "firstLoadKB": 112
     },
-    "/scans/opengraph-image": {
-      "firstLoadKB": 0
+    "/api/community/[stockCode]/pulse/[pulseId]/replies": {
+      "firstLoadKB": 112
     },
-    "/screener": {
-      "firstLoadKB": 238
+    "/api/community/[stockCode]/summary": {
+      "firstLoadKB": 112
     },
-    "/screener/opengraph-image": {
-      "firstLoadKB": 0
+    "/api/community/[stockCode]/threads": {
+      "firstLoadKB": 112
     },
-    "/search": {
-      "firstLoadKB": 106
+    "/api/community/[stockCode]/threads/[threadId]": {
+      "firstLoadKB": 112
     },
-    "/seasonality": {
-      "firstLoadKB": 105
+    "/api/community/[stockCode]/threads/[threadId]/comments": {
+      "firstLoadKB": 112
     },
-    "/seasonality/opengraph-image": {
-      "firstLoadKB": 0
+    "/api/community/reports": {
+      "firstLoadKB": 112
     },
-    "/shorts": {
-      "firstLoadKB": 105
+    "/api/community/votes": {
+      "firstLoadKB": 112
     },
-    "/shorts/[stockCode]": {
-      "firstLoadKB": 210
+    "/api/discord/activity": {
+      "firstLoadKB": 112
     },
-    "/shorts/[stockCode]/community": {
+    "/api/discord/activity/launch": {
+      "firstLoadKB": 112
+    },
+    "/api/discord/interactions": {
+      "firstLoadKB": 112
+    },
+    "/api/docs": {
+      "firstLoadKB": 112
+    },
+    "/api/email/img": {
+      "firstLoadKB": 112
+    },
+    "/api/health": {
+      "firstLoadKB": 112
+    },
+    "/api/homepage/warm-cache": {
+      "firstLoadKB": 112
+    },
+    "/api/internal/admin-check": {
+      "firstLoadKB": 112
+    },
+    "/api/internal/admin-users": {
+      "firstLoadKB": 112
+    },
+    "/api/internal/billing": {
+      "firstLoadKB": 112
+    },
+    "/api/internal/paid-probe": {
+      "firstLoadKB": 112
+    },
+    "/api/market-data/correlations": {
+      "firstLoadKB": 112
+    },
+    "/api/market-data/historical": {
+      "firstLoadKB": 112
+    },
+    "/api/market-data/multiple-quotes": {
+      "firstLoadKB": 112
+    },
+    "/api/mcp/[transport]": {
+      "firstLoadKB": 112
+    },
+    "/api/og/twitter/[type]": {
+      "firstLoadKB": 112
+    },
+    "/api/pages/warm-cache": {
+      "firstLoadKB": 112
+    },
+    "/api/revalidate": {
+      "firstLoadKB": 112
+    },
+    "/api/search/stocks": {
+      "firstLoadKB": 112
+    },
+    "/api/static-pages/warm-cache": {
+      "firstLoadKB": 112
+    },
+    "/api/stocks/multiple": {
+      "firstLoadKB": 112
+    },
+    "/api/stripe/checkout": {
+      "firstLoadKB": 112
+    },
+    "/api/stripe/portal": {
+      "firstLoadKB": 112
+    },
+    "/api/stripe/reconcile": {
+      "firstLoadKB": 112
+    },
+    "/api/stripe/webhook": {
+      "firstLoadKB": 112
+    },
+    "/api/unsubscribe": {
+      "firstLoadKB": 112
+    },
+    "/api/version": {
+      "firstLoadKB": 112
+    },
+    "/api/warm-pages": {
+      "firstLoadKB": 112
+    },
+    "/authors": {
+      "firstLoadKB": 118
+    },
+    "/authors/[slug]": {
+      "firstLoadKB": 118
+    },
+    "/authors/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/battlegrounds": {
+      "firstLoadKB": 188
+    },
+    "/battlegrounds/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/billing/portal": {
+      "firstLoadKB": 112
+    },
+    "/blog": {
       "firstLoadKB": 122
     },
-    "/shorts/[stockCode]/community/[threadId]": {
-      "firstLoadKB": 120
+    "/blog/[slug]": {
+      "firstLoadKB": 133
     },
-    "/shorts/[stockCode]/company": {
-      "firstLoadKB": 140
-    },
-    "/shorts/[stockCode]/financials": {
-      "firstLoadKB": 124
-    },
-    "/shorts/[stockCode]/news": {
+    "/blog/[slug]/llm": {
       "firstLoadKB": 112
     },
-    "/shorts/[stockCode]/opengraph-image": {
-      "firstLoadKB": 0
+    "/blog/[slug]/opengraph-image": {
+      "firstLoadKB": 112
     },
-    "/shorts/[stockCode]/short-interest": {
+    "/blog/category/[category]": {
+      "firstLoadKB": 122
+    },
+    "/blog/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/chart/[code]": {
+      "firstLoadKB": 124
+    },
+    "/chart/[code]/image": {
+      "firstLoadKB": 112
+    },
+    "/chat": {
       "firstLoadKB": 113
     },
-    "/shorts/[stockCode]/strategy": {
-      "firstLoadKB": 106
+    "/chat.v1.ChatService/[method]": {
+      "firstLoadKB": 112
     },
-    "/shorts/opengraph-image": {
-      "firstLoadKB": 0
+    "/compare": {
+      "firstLoadKB": 116
     },
-    "/signin": {
-      "firstLoadKB": 167
+    "/compare/[pair]": {
+      "firstLoadKB": 116
     },
-    "/signup": {
-      "firstLoadKB": 164
+    "/compare/[pair]/opengraph-image": {
+      "firstLoadKB": 112
     },
-    "/sitemap-core.xml": {
-      "firstLoadKB": 0
+    "/compare/opengraph-image": {
+      "firstLoadKB": 112
     },
-    "/sitemap-housing.xml": {
-      "firstLoadKB": 0
+    "/dashboards": {
+      "firstLoadKB": 257
     },
-    "/sitemap-ownership.xml": {
-      "firstLoadKB": 0
+    "/data": {
+      "firstLoadKB": 118
     },
-    "/sitemap-politicians.xml": {
-      "firstLoadKB": 0
+    "/data/opengraph-image": {
+      "firstLoadKB": 112
     },
-    "/sitemap-reports.xml": {
-      "firstLoadKB": 0
+    "/design-system": {
+      "firstLoadKB": 116
     },
-    "/sitemap-shorts.xml": {
-      "firstLoadKB": 0
+    "/developer": {
+      "firstLoadKB": 136
     },
-    "/sitemap.xml": {
-      "firstLoadKB": 0
+    "/directory": {
+      "firstLoadKB": 123
     },
-    "/statistics": {
+    "/directory/[letter]": {
+      "firstLoadKB": 123
+    },
+    "/directory/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/disclaimer": {
+      "firstLoadKB": 116
+    },
+    "/discord/settings": {
+      "firstLoadKB": 140
+    },
+    "/discord/settings/open": {
+      "firstLoadKB": 112
+    },
+    "/docs/api": {
+      "firstLoadKB": 137
+    },
+    "/docs/api-reference": {
+      "firstLoadKB": 112
+    },
+    "/docs/api.md": {
+      "firstLoadKB": 112
+    },
+    "/docs/api/[endpoint]": {
+      "firstLoadKB": 132
+    },
+    "/docs/api/clients/[language]": {
       "firstLoadKB": 115
     },
-    "/statistics/opengraph-image": {
-      "firstLoadKB": 0
+    "/docs/discord": {
+      "firstLoadKB": 116
     },
-    "/stocks": {
-      "firstLoadKB": 192
+    "/docs/llm-context": {
+      "firstLoadKB": 115
     },
-    "/subscribe/success": {
-      "firstLoadKB": 109
+    "/docs/llm-context-raw": {
+      "firstLoadKB": 112
     },
-    "/technology": {
-      "firstLoadKB": 119
+    "/docs/mcp.md": {
+      "firstLoadKB": 112
     },
-    "/terms": {
-      "firstLoadKB": 105
+    "/e2e-chat-render": {
+      "firstLoadKB": 618
     },
-    "/themes": {
-      "firstLoadKB": 106
+    "/economy": {
+      "firstLoadKB": 117
     },
-    "/themes/[slug]": {
-      "firstLoadKB": 106
+    "/economy/[state]": {
+      "firstLoadKB": 118
     },
-    "/themes/[slug]/opengraph-image": {
-      "firstLoadKB": 0
+    "/economy/[state]/[topic]": {
+      "firstLoadKB": 118
     },
-    "/themes/opengraph-image": {
-      "firstLoadKB": 0
+    "/economy/[state]/[topic]/opengraph-image": {
+      "firstLoadKB": 112
     },
-    "/top": {
+    "/economy/[state]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/economy/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/embed/bank-basket": {
+      "firstLoadKB": 113
+    },
+    "/embed/chart": {
+      "firstLoadKB": 120
+    },
+    "/embed/discord": {
+      "firstLoadKB": 120
+    },
+    "/embed/top-shorts": {
+      "firstLoadKB": 160
+    },
+    "/embed/treemap": {
+      "firstLoadKB": 113
+    },
+    "/faq": {
+      "firstLoadKB": 132
+    },
+    "/faq/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/features/the-widow-maker": {
+      "firstLoadKB": 117
+    },
+    "/features/the-widow-maker/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/feed.xml": {
+      "firstLoadKB": 112
+    },
+    "/glossary": {
+      "firstLoadKB": 116
+    },
+    "/glossary/[term]": {
+      "firstLoadKB": 118
+    },
+    "/glossary/[term]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/glossary/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/housing": {
+      "firstLoadKB": 117
+    },
+    "/housing/[state]": {
+      "firstLoadKB": 153
+    },
+    "/housing/[state]/[suburb]": {
+      "firstLoadKB": 153
+    },
+    "/housing/[state]/[suburb]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/housing/[state]/council": {
+      "firstLoadKB": 129
+    },
+    "/housing/[state]/council/[slug]": {
+      "firstLoadKB": 118
+    },
+    "/housing/[state]/council/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/housing/[state]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/housing/calculators": {
+      "firstLoadKB": 115
+    },
+    "/housing/calculators/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/housing/capitals": {
+      "firstLoadKB": 118
+    },
+    "/housing/capitals/[slug]": {
+      "firstLoadKB": 118
+    },
+    "/housing/capitals/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/housing/capitals/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/housing/drops": {
+      "firstLoadKB": 112
+    },
+    "/housing/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/housing/property/[addressKey]": {
+      "firstLoadKB": 152
+    },
+    "/housing/rankings": {
+      "firstLoadKB": 118
+    },
+    "/housing/rankings/[slug]": {
+      "firstLoadKB": 118
+    },
+    "/housing/rankings/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/housing/rankings/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/industry": {
+      "firstLoadKB": 122
+    },
+    "/industry-intelligence": {
+      "firstLoadKB": 153
+    },
+    "/industry-intelligence/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/industry/[slug]": {
+      "firstLoadKB": 123
+    },
+    "/industry/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/industry/[slug]/twitter-image": {
+      "firstLoadKB": 112
+    },
+    "/insider-trading": {
+      "firstLoadKB": 118
+    },
+    "/insider-trading/[stockCode]": {
+      "firstLoadKB": 118
+    },
+    "/insider-trading/[stockCode]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/insider-trading/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/learn": {
+      "firstLoadKB": 116
+    },
+    "/learn/[slug]": {
+      "firstLoadKB": 118
+    },
+    "/learn/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/learn/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/market": {
+      "firstLoadKB": 118
+    },
+    "/market/[date]": {
+      "firstLoadKB": 118
+    },
+    "/market/[date]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/market/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/methodology": {
+      "firstLoadKB": 116
+    },
+    "/methodology/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/metrics": {
+      "firstLoadKB": 131
+    },
+    "/news": {
+      "firstLoadKB": 123
+    },
+    "/news/[slug]": {
+      "firstLoadKB": 171
+    },
+    "/news/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/news/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/oauth/authorize": {
+      "firstLoadKB": 134
+    },
+    "/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/ownership": {
+      "firstLoadKB": 126
+    },
+    "/ownership/[slug]": {
+      "firstLoadKB": 127
+    },
+    "/ownership/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/ownership/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/picks": {
+      "firstLoadKB": 123
+    },
+    "/picks/[strategy]": {
+      "firstLoadKB": 135
+    },
+    "/picks/[strategy]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/picks/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/politicians": {
+      "firstLoadKB": 141
+    },
+    "/politicians/[slug]": {
+      "firstLoadKB": 150
+    },
+    "/politicians/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/politicians/changes": {
+      "firstLoadKB": 133
+    },
+    "/politicians/changes/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/politicians/compare": {
+      "firstLoadKB": 117
+    },
+    "/politicians/compare/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/politicians/donations": {
+      "firstLoadKB": 130
+    },
+    "/politicians/donations/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/politicians/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/politicians/short-interest": {
+      "firstLoadKB": 116
+    },
+    "/politicians/short-interest/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/portfolio": {
       "firstLoadKB": 159
     },
+    "/press": {
+      "firstLoadKB": 131
+    },
+    "/press/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/price-drops": {
+      "firstLoadKB": 126
+    },
+    "/price-drops/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/pricing": {
+      "firstLoadKB": 138
+    },
+    "/privacy": {
+      "firstLoadKB": 123
+    },
+    "/pulse": {
+      "firstLoadKB": 138
+    },
+    "/rate-limit": {
+      "firstLoadKB": 135
+    },
+    "/reports": {
+      "firstLoadKB": 123
+    },
+    "/reports/monthly/[slug]": {
+      "firstLoadKB": 123
+    },
+    "/reports/monthly/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/reports/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/reports/weekly": {
+      "firstLoadKB": 123
+    },
+    "/reports/weekly/[slug]": {
+      "firstLoadKB": 124
+    },
+    "/reports/weekly/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/reports/yearly/[slug]": {
+      "firstLoadKB": 123
+    },
+    "/reports/yearly/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/roadmap": {
+      "firstLoadKB": 127
+    },
+    "/robots.txt": {
+      "firstLoadKB": 112
+    },
+    "/scans": {
+      "firstLoadKB": 118
+    },
+    "/scans/[slug]": {
+      "firstLoadKB": 118
+    },
+    "/scans/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/scans/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/screener": {
+      "firstLoadKB": 222
+    },
+    "/screener/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/search": {
+      "firstLoadKB": 118
+    },
+    "/seasonality": {
+      "firstLoadKB": 116
+    },
+    "/seasonality/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/shorts": {
+      "firstLoadKB": 116
+    },
+    "/shorts/[stockCode]": {
+      "firstLoadKB": 193
+    },
+    "/shorts/[stockCode]/community": {
+      "firstLoadKB": 133
+    },
+    "/shorts/[stockCode]/community/[threadId]": {
+      "firstLoadKB": 131
+    },
+    "/shorts/[stockCode]/company": {
+      "firstLoadKB": 152
+    },
+    "/shorts/[stockCode]/financials": {
+      "firstLoadKB": 137
+    },
+    "/shorts/[stockCode]/news": {
+      "firstLoadKB": 123
+    },
+    "/shorts/[stockCode]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/shorts/[stockCode]/short-interest": {
+      "firstLoadKB": 125
+    },
+    "/shorts/[stockCode]/strategy": {
+      "firstLoadKB": 118
+    },
+    "/shorts/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/signin": {
+      "firstLoadKB": 178
+    },
+    "/signup": {
+      "firstLoadKB": 175
+    },
+    "/sitemap-core.xml": {
+      "firstLoadKB": 112
+    },
+    "/sitemap-housing.xml": {
+      "firstLoadKB": 112
+    },
+    "/sitemap-ownership.xml": {
+      "firstLoadKB": 112
+    },
+    "/sitemap-politicians.xml": {
+      "firstLoadKB": 112
+    },
+    "/sitemap-reports.xml": {
+      "firstLoadKB": 112
+    },
+    "/sitemap-shorts.xml": {
+      "firstLoadKB": 112
+    },
+    "/sitemap.xml": {
+      "firstLoadKB": 112
+    },
+    "/statistics": {
+      "firstLoadKB": 127
+    },
+    "/statistics/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/stocks": {
+      "firstLoadKB": 203
+    },
+    "/subscribe/success": {
+      "firstLoadKB": 120
+    },
+    "/technology": {
+      "firstLoadKB": 131
+    },
+    "/terms": {
+      "firstLoadKB": 120
+    },
+    "/themes": {
+      "firstLoadKB": 118
+    },
+    "/themes/[slug]": {
+      "firstLoadKB": 118
+    },
+    "/themes/[slug]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/themes/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/top": {
+      "firstLoadKB": 171
+    },
     "/top/opengraph-image": {
-      "firstLoadKB": 0
+      "firstLoadKB": 112
     },
     "/unsubscribe": {
-      "firstLoadKB": 97.5
+      "firstLoadKB": 113
     }
   }
 }

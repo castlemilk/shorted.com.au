@@ -11,7 +11,8 @@ import {
 const getEconomicSeries = jest.fn();
 const bailOnEmptyRender = jest.fn();
 
-// React 18.3's react-dom has no preload (Next bundles a canary that does).
+// The page calls react-dom's preload during render. This keeps that call from
+// writing a <link> into jsdom's document head.
 jest.mock("react-dom", () => ({
   ...jest.requireActual("react-dom"),
   preload: jest.fn(),

@@ -14,9 +14,10 @@ dashboard widgets, chrome, and UI primitives.
   `/iframe.html?id=<id>&viewMode=story`, waits for render
   (`#storybook-root` non-empty, no error display, `document.fonts.ready`, a
   short settle), then asserts `toHaveScreenshot(<id>.png)`.
-- Determinism: the config sets `animations: "disabled"`, `reducedMotion:
-  "reduce"`, fixed viewport (1280×800), `deviceScaleFactor: 1`, and
-  `colorScheme: "light"`. The spec also injects a stylesheet that hard-freezes
+- Determinism: `toHaveScreenshot` sets `animations: "disabled"`, and the config
+  sets a fixed viewport (1280×800), `deviceScaleFactor: 1` and
+  `colorScheme: "light"`. It does not set `reducedMotion` (its comment says no
+  storied component responds to `prefers-reduced-motion`). The spec also injects a stylesheet that hard-freezes
   all `animation`/`transition` and hides the text caret so `animate-pulse`
   skeletons and chart transitions don't flicker between runs.
 - Tolerance: `maxDiffPixelRatio: 0.01`. Do not weaken this globally — tag a

@@ -2,7 +2,6 @@
  * Centralized configuration for server actions
  * Uses environment variables with fallbacks for different environments
  */
-import { unstable_cache } from "next/cache";
 
 export function normalizeApiBaseUrl(
   value: string | undefined,
@@ -55,7 +54,7 @@ let warnedUnshortened = false;
  * (1-24h).
  *
  * It must NOT opt the render out of the cache. This used to call
- * unstable_noStore(), and on a route prerendered as static Next 14 turns that
+ * unstable_noStore(), and on a route prerendered as static Next turns that
  * into a DynamicServerError at runtime ("Page changed from static to dynamic",
  * digest DYNAMIC_SERVER_USAGE): a background regeneration merely kept the old
  * page, but every BLOCKING render — no cached entry yet, or the first request
@@ -79,7 +78,11 @@ let warnedUnshortened = false;
 export async function bailOnEmptyRender(): Promise<void> {
   if (skipForBuild()) return;
   try {
-    await unstable_cache(async () => true, ["empty-render-revalidate"], {
+    // Loaded on demand, not imported at the top: client components import this
+    // module (screenStocks.ts and its callers), and a static import would ship
+    // next/cache's server code to every browser (about 40 kB gzipped).
+    const nextCache = await import("next/cache");
+    await nextCache.unstable_cache(async () => true, ["empty-render-revalidate"], {
       revalidate: EMPTY_RENDER_REVALIDATE_SECONDS,
     })();
   } catch (err) {
@@ -260,6 +263,65 @@ function getUnpatchedFetch(): typeof fetch | null {
 }
 
 /**
+ * A unary Connect request body is a byte array: connect-web encodes the message
+ * to a Uint8Array in both the binary and the JSON format (serialization.js).
+ */
+function isByteBody(body: BodyInit | null | undefined): boolean {
+  return body instanceof ArrayBuffer || ArrayBuffer.isView(body);
+}
+
+let warnedConnectRoutePolicy = false;
+
+/**
+ * Route policy for a `next: { revalidate, tags }` option on a Connect POST.
+ *
+ * Next 14 read a byte body's `.keys()` as FormData, failed to build a cache
+ * key, and so never stored these responses. The option still did its job: the
+ * route took the revalidate and the tags. Next 15 hashes byte bodies, so the
+ * same option would store every response in the data cache for `revalidate`
+ * seconds, and one empty response (a cold materialized view, the kill switch)
+ * would be served to every caller in that window. bailOnEmptyRender's 60 s
+ * retry would read the same entry.
+ *
+ * So a byte-body POST skips the patched fetch (serverFetchOutsideNextCache's
+ * path) and this helper registers the route policy instead. unstable_cache
+ * applies its revalidate and tags to the render, as the fetch did, and stores
+ * only a no-op `true`. Outside a Next render (tests, scripts) there is no
+ * route to shape: the call throws and is caught below, with one warning per
+ * process. Browsers never run it, because next/cache is server-only.
+ */
+async function applyConnectRoutePolicy(next: unknown): Promise<void> {
+  if (typeof window !== "undefined") return;
+  // A `next` that is not an object (null, a string) carries no policy. Reading
+  // a property of null here would reject the whole Connect call.
+  if (typeof next !== "object" || next === null) return;
+  const policy = next as { revalidate?: unknown; tags?: unknown };
+  const revalidate =
+    typeof policy.revalidate === "number" && policy.revalidate > 0
+      ? policy.revalidate
+      : undefined;
+  const tags = Array.isArray(policy.tags)
+    ? policy.tags.filter((tag): tag is string => typeof tag === "string")
+    : [];
+  if (revalidate === undefined && tags.length === 0) return;
+  try {
+    const nextCache = await import("next/cache");
+    await nextCache.unstable_cache(
+      async () => true,
+      ["connect-route-policy", String(revalidate ?? ""), ...tags],
+      { revalidate, tags: tags.length > 0 ? tags : undefined },
+    )();
+  } catch (err) {
+    // Not inside a Next render (or the cache is unavailable): the route keeps
+    // its own revalidate. Say so once, as bailOnEmptyRender does.
+    if (!warnedConnectRoutePolicy) {
+      warnedConnectRoutePolicy = true;
+      console.warn("[config] could not register a Connect route policy:", err);
+    }
+  }
+}
+
+/**
  * Fetch for connect transports whose RESULTS are cached at the
  * unstable_cache layer (getStock/getStockDetails/getStockData, stock
  * headlines, industry-intelligence snapshot, statistics, scans).
@@ -267,11 +329,15 @@ function getUnpatchedFetch(): typeof fetch | null {
  * Next's patched fetch is pure hazard for these calls — there is no safe
  * option for a streamed connect POST inside a statically-generated render:
  *  - `cache: "no-store"` (what serverFetchWithUserAgent forces at Vercel
- *    runtime) throws DynamicServerError during static/ISR generation, even
- *    inside unstable_cache callbacks — this 500'd the on-demand ISR stock
- *    pages until every transport moved off the patched fetch;
- *  - default options make Next try to key the streamed POST body for the
- *    data cache ("Failed to generate cache key").
+ *    runtime) threw DynamicServerError during static/ISR generation, even
+ *    inside unstable_cache callbacks, on Next 14.2. This 500'd the on-demand
+ *    ISR stock pages until every transport moved off the patched fetch. Next
+ *    15.5.28 no longer throws there: a fetch inside unstable_cache is treated
+ *    as force-no-store and marks no dynamic scope (dynamic-rendering.js);
+ *  - default options make Next store the POST response in its data cache.
+ *    Next 14 could not key a byte body and stored nothing; Next 15 keys it, so
+ *    an empty response (a cold materialized view, the kill switch) would be
+ *    served to every caller until it expired.
  * Bypassing the patch is correct because unstable_cache provides the
  * caching; the network call itself must be plain and uninstrumented.
  */
@@ -321,7 +387,7 @@ function warnMissingSsrBypassSecret(): void {
   );
 }
 
-export const serverFetchWithUserAgent: typeof fetch = (input, init) => {
+export const serverFetchWithUserAgent: typeof fetch = async (input, init) => {
   const headers = new Headers();
   const copyHeaders = (source?: HeadersInit) => {
     if (!source) return;
@@ -390,24 +456,6 @@ export const serverFetchWithUserAgent: typeof fetch = (input, init) => {
       })
     | undefined;
 
-  // serverFetchOutsideNextCache marker: skip Next's patched fetch entirely
-  // (see its doc comment). Strip the marker before dispatch. When the
-  // original fetch can't be resolved (Next internals changed), fall through
-  // to the guarded path below rather than dispatching an unguarded POST
-  // through the patch.
-  if (initWithNext?.__shortedBypassNextFetchPatch) {
-    const { __shortedBypassNextFetchPatch: _ignored, ...cleanInit } =
-      initWithNext;
-    const unpatched = getUnpatchedFetch();
-    if (unpatched) {
-      return unpatched(normalizeFetchInput(input), {
-        ...cleanInit,
-        headers,
-      });
-    }
-    init = cleanInit as RequestInit;
-  }
-
   const method =
     init?.method ??
     (typeof input === "object" &&
@@ -417,6 +465,57 @@ export const serverFetchWithUserAgent: typeof fetch = (input, init) => {
       ? input.method
       : request?.method) ??
     "GET";
+
+  // A `next` policy on a Connect POST (byte body) keeps the response out of
+  // Next's data cache and applies the policy to the route instead. See
+  // applyConnectRoutePolicy. The policy starts here and runs beside the
+  // request, not ahead of it, so the route's cache read adds no latency to the
+  // call. Both settle before the response returns.
+  const isGetOrHead =
+    method.toUpperCase() === "GET" || method.toUpperCase() === "HEAD";
+  const connectPolicy =
+    !isGetOrHead && isByteBody(init?.body) ? initWithNext?.next : undefined;
+  const routePolicyApplied =
+    connectPolicy !== undefined
+      ? applyConnectRoutePolicy(connectPolicy)
+      : undefined;
+
+  // Skip Next's patched fetch entirely for the serverFetchOutsideNextCache
+  // marker and for a byte-body policy (see its doc comment). Strip the marker
+  // before dispatch. When the original fetch can't be resolved (Next internals
+  // changed), fall through to the guarded path below rather than dispatching
+  // an unguarded POST through the patch.
+  if (
+    Boolean(initWithNext?.__shortedBypassNextFetchPatch) ||
+    connectPolicy !== undefined
+  ) {
+    const { __shortedBypassNextFetchPatch: _ignored, ...cleanInit } =
+      (initWithNext ?? {}) as RequestInit & {
+        next?: unknown;
+        __shortedBypassNextFetchPatch?: boolean;
+      };
+    const unpatched = getUnpatchedFetch();
+    if (unpatched) {
+      // The native fetch takes no `next` option.
+      const nativeInit: RequestInit & { next?: unknown } = { ...cleanInit };
+      delete nativeInit.next;
+      try {
+        return await unpatched(normalizeFetchInput(input), {
+          ...nativeInit,
+          headers,
+        });
+      } finally {
+        // Settle the policy even when the request rejects, so a failed call
+        // never leaves the route without it.
+        await routePolicyApplied;
+      }
+    }
+    init = cleanInit as RequestInit;
+  }
+  // The guarded fallback below dispatches through the patch, so the policy
+  // must be on the route before it goes out.
+  if (routePolicyApplied) await routePolicyApplied;
+
   const shouldDisableFetchCache =
     isVercelRuntimeExecution() &&
     method.toUpperCase() !== "GET" &&

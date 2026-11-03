@@ -26,8 +26,8 @@ interface LayoutProps {
  * a 16px gap beneath it. What a tab shows beyond that is the tab's own, its
  * chart included: the layout renders and loads none.
  *
- * What a tab LOADS is another matter. Next 14 merges the Overview page's
- * client manifest into every tab's, so the Overview's first-load chunks are
+ * What a tab LOADS is another matter. Next merges the Overview page's client
+ * manifest into every tab's (checked on 15.5.28), so the Overview's first-load chunks are
  * what any tab may inherit (a route group would not change that: Next strips
  * it from the manifest's group name). So no tab loads a chart with its page.
  * The Overview, Short interest and Strategy each fetch their chart once the

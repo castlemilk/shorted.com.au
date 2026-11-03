@@ -15,6 +15,7 @@ import { Badge } from "~/@/components/ui/badge";
 import { SentimentBadge } from "~/@/components/ui/sentiment-badge";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import {
+  type LucideIcon,
   Megaphone,
   ArrowLeftRight,
   Newspaper,
@@ -35,7 +36,7 @@ type EventType = "announcement" | "director_trade" | "news" | "short_spike";
 
 const EVENT_CONFIG: Record<
   EventType,
-  { icon: React.ElementType; color: string; dotColor: string; label: string }
+  { icon: LucideIcon; color: string; dotColor: string; label: string }
 > = {
   announcement: {
     icon: Megaphone,

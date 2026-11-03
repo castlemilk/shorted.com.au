@@ -13,9 +13,11 @@ import { withRetryAndNotFound } from "./withRetry";
 // Measured 2026-10-21: 4.4 s on the request after a purge, then STALE on every
 // request with a frozen `age`, so the server-rendered rows never refreshed.
 // Tagged `shorts-data` so the daily sync's revalidation busts it with every
-// other ASIC-derived read. Next generally cannot key a streamed Connect POST
-// body ("Failed to generate cache key", benign): the point is that the
-// regeneration completes.
+// other ASIC-derived read. The POST body is a byte array, so
+// serverFetchWithUserAgent keeps the response out of Next's data cache and
+// applies this revalidate and these tags to the route (applyConnectRoutePolicy,
+// config.ts). Nothing is stored, so an empty response is not served from cache
+// for the whole revalidate window.
 const isrBattlegroundsFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, {
     ...init,

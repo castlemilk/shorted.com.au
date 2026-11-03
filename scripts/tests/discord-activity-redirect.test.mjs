@@ -152,9 +152,10 @@ test("the root layout renders the script in <head>, before the body's RSC payloa
     layout.indexOf("<head>"),
     layout.indexOf("</head>"),
   );
-  // Prettier can break the element over lines, so allow any whitespace.
+  // Prettier can break the element over lines, so allow any whitespace, and
+  // bare boolean attributes (suppressHydrationWarning) before the content.
   const tag =
-    /<script\s+dangerouslySetInnerHTML=\{\{\s*__html:\s*discordActivityUrlScript\(\)\s*\}\}\s*\/>/;
+    /<script(?:\s+[A-Za-z]+)*\s+dangerouslySetInnerHTML=\{\{\s*__html:\s*discordActivityUrlScript\(\)\s*\}\}\s*\/>/;
   assert.match(head, tag);
   // The body pushes the RSC payload hydration reads, so the script must come first.
   assert.ok(layout.search(tag) < layout.indexOf("<body"));

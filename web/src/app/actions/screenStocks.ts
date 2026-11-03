@@ -17,12 +17,13 @@ const SCREENER_ISR_REVALIDATE_SECONDS = 3600;
 // That made every /stocks regeneration fail — the route could only ever serve
 // its KV/route-cache entry, so a frozen cache pinned it stale (prod logs
 // 2026-08-21). Passing `next` is the sanctioned fix (see
-// createIsrTopShortsClient in getTopShorts.ts, isrHousingFetch in
-// getHousing.ts): Next usually cannot key a streamed Connect POST body, so it
-// logs a benign "Failed to generate cache key" and skips the data cache — the
-// point is that the regeneration COMPLETES instead of throwing. The `next`
-// option is inert in the browser, so the client callers (screener page,
-// screener widget, /embed/top-shorts) are unaffected.
+// createIsrTopShortsClient in getTopShorts.ts and isrEconomyFetch in
+// getEconomy.ts). The POST body is a byte array, so serverFetchWithUserAgent
+// keeps the response out of Next's data cache and applies the `next` policy to
+// the route instead (applyConnectRoutePolicy, config.ts). The regeneration
+// COMPLETES instead of throwing. The `next` option is inert in the browser, so
+// the client callers (screener page, screener widget, /embed/top-shorts) are
+// unaffected.
 const isrScreenerFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, {
     ...init,
