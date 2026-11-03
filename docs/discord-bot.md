@@ -94,7 +94,7 @@ or for one person:
 | Chart | short interest, price, combined | short interest |
 | Period | 1M, 3M, 6M, 1Y, Max (the message's buttons) | 1Y |
 | Commands open | a chart message, or the interactive chart (the Activity) | a chart message |
-| Buttons | keep the chart as posted, or redraw with the latest figures | keep the chart as posted |
+| Buttons | keep the chart as posted, or redraw with the latest figures (charts posted from then on) | keep the chart as posted |
 
 **Layers.** A server's settings apply to everyone in it; a person's own apply
 in DMs and group DMs, and in servers with none of their own; the built-ins fill
@@ -153,31 +153,48 @@ channel. Every message sets `allowed_mentions: { parse: [] }`, so a search for
 A chart message is **kept as posted** by default: its window ends on the day it
 was posted, and its figures stay the ones posted, so a press on a period or
 view button does not move the chart to today. Settings → **Buttons** switches a
-server or a person to **Redraw with the latest figures**, the old behaviour, for
-new messages. Set in `/settings` with `asPosted` (`settings.ts`, default
-`true`); the settings page and `/settings` show it under "Buttons".
+server or a person to **Redraw with the latest figures**, the old behaviour.
+The setting applies to charts posted from then on: a chart already posted keeps
+how it was posted, and a press never reads the setting. It is stored as
+`asPosted` (`settings.ts`, default `true`) and shown under "Buttons" in
+`/settings` and on the settings page.
 
-- **The window.** The posting day is the Sydney calendar day (`sydneyDay`).
-  Prices end there. Short positions end at the newest ASIC report the chart
-  showed, never after the posting day, since ASIC publishes four trading days
-  late. The footer says so: "As posted 4 Nov 2026", and "short positions as of
-  29 Oct 2026" on the short and combined views.
-- **The ids.** An anchored chart's buttons and Interactive button carry both
-  dates in their `custom_id` (`chart:p:BHP:short:3m:20261104:20261029`,
-  `activity:BHP:short:3m:20261104:20261029`; `chart-anchor.ts`, `custom-id.ts`).
-  The forms without dates are live and still work: every message posted before
-  this change has them, and so does a server that turns the setting off. Never
-  change what a form means.
+- **Three dates.** Each series ends on its own day, so an anchor records three
+  (`anchor` in `chart-anchor.ts`). `day` is the posting day (the Sydney calendar
+  day, `sydneyDay`), which the chart is labelled with. `shorts` is the newest
+  ASIC report the chart showed, never after `day`: ASIC publishes four trading
+  days late, so a chart posted on 4 Nov shows short positions to 28 Oct.
+  `prices` is the newest close the chart drew, never after `day`. Prices end
+  there, and the period is counted back from it. The footer prints the posting
+  day and, on the short and combined views, the report date.
+- **Posting.** A new message's card is drawn up to the posting day, and the card
+  reports the newest close it read (the image route's `x-chart-prices-through`
+  header, or the in-process loader's `pricesThrough`). The message then records
+  that close. A card that reports no close, or one that is not a real day on or
+  before the posting day, records the day before the posting day instead.
+- **Live when the report date is unknown.** A chart whose stock has no readable
+  report date is posted live, as every chart was before anchors existed: live
+  ids, a live footer, no "As posted". Its anchor is never set to the posting
+  day.
+- **The ids and links.** An anchored chart's buttons and Interactive button
+  carry all three dates in their `custom_id`
+  (`chart:p:BHP:short:3m:20261104:20261028:20261103`,
+  `activity:BHP:short:3m:20261104:20261028:20261103`; `custom-id.ts`). The card
+  and share page take `asof=` (the posting day), `shorts=` and `prices=`, each
+  left out when it is the posting day. The card's cache key (`v`) is the posting
+  day, so a pinned card is drawn once and stays cached instead of being redrawn
+  each day someone presses an old message. The forms without dates are live and
+  still work: every message posted before anchors existed has them. Never change
+  what a form means.
 - **The figures.** A press on an anchored message does not read the stock. The
   title, readings and fields are copied from the embed the button is on
   (`interaction.message`, `copiedFigures` in `messages.ts`), so the figures above
-  the chart are the ones posted, and only the card is drawn again, for the new
-  view or period. A message with no usable embed falls back to a read, still
-  inside the anchor's window.
-- **The card and share link.** The card (`/chart/<CODE>/image`) and the share
-  page (`/chart/<CODE>`) take `asof=YYYY-MM-DD` (the posting day) and
-  `shorts=YYYY-MM-DD` (the short report's date, left out when it is the posting
-  day), and the Activity takes the same pair from its launch.
+  the chart are the ones posted. Only the card is drawn again, for the new view
+  or period, with the anchor the message carries. A press whose message has no
+  embed (embeds suppressed, say) is answered privately and the message is left as
+  it is, rather than printing today's figures under a chart posted with others.
+- **Corrections.** A correction ASIC or the price vendor makes inside the window
+  can still show on a redraw. The figures above the chart never change.
 - **Interactive mode.** Commands that open the Activity stay live whatever the
   setting says: the Activity has its own window. A command that is too slow to
   launch and posts its chart message instead follows the setting. The
