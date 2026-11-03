@@ -2146,11 +2146,19 @@ The Vercel project Root Directory is set to `web/`. When deploying via CLI, depl
   Next 14 kept it until the next deploy. The suburb OG image
   (`housing/[state]/[suburb]`) has an empty `generateStaticParams`, so it is
   on-demand ISR: a miss, then cached, instead of a render on every request.
-- **Typeface.** IBM Plex Mono is declared in layout.tsx but not preloaded, and no
-  stylesheet names it. Next 14 hashed its family name, so the stack never matched
-  it, and every page drew the JetBrains Mono / system monospace face. Next 15 keeps
-  the name, so the upgrade keeps the old look by leaving Plex out of the stack.
-  Putting Plex back changes every page's typeface, which is a product decision.
+- **Typeface.** IBM Plex Mono is the app face (DESIGN.md), set through
+  `--font-plex-mono`. next/font puts that variable on `<html>` and preloads the four
+  latin files (weights 400 to 700, 40,360 bytes), with `adjustFontFallback: false`, so
+  no generated Arial face draws the triangles and arrows Plex lacks. The `--font-sans`
+  stacks in globals.css and critical-css.ts read the variable, with the literal name
+  as the fallback. Plex sets 6.00px a character at 10px (`AXIS_CHAR_PX` is 6.1). Without
+  the web font the stack reaches SF Mono on macOS, at 6.18px. First-load layout shift
+  in Chromium through the e2e fixture, read 8 s after load, with the font files delayed
+  1.5 s and undelayed in brackets: the stock page 0.002 at 1280px and 0.000 at 390px
+  [0.002 and 0.001]; the homepage 0.043 at 1280px, where the swap lands at 1.5 s, and
+  0.000 at 390px [0.001 and 0.001]; /picks 0.000 at both widths [0.001 and 0.001]. Every
+  case is under the 0.1 "good" line. WebKit exposes no layout-shift entries, so these
+  are Chromium's figures. Windows and Linux are not measured.
 - **next-auth beta.32 Edge warnings are expected.** `next build` prints "Compiled
   with warnings" for the middleware: `next-auth/jwt` pulls in `jose` 6, whose
   `deflate.js` calls CompressionStream and DecompressionStream, which the Edge

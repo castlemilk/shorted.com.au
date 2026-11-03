@@ -31,21 +31,16 @@ import { JsonLd } from "~/@/components/seo/json-ld";
 // past-due banner calls the billing actions; the chat sidebar streams over
 // Connect-RPC, which breaks SSR.
 
-// IBM Plex Mono is declared here but no stylesheet names it, so it is not
-// preloaded. Next 14 hashed the family name, which the critical CSS and
-// globals.css stack ('IBM Plex Mono') never matched, so visitors saw the
-// JetBrains Mono / system monospace fallback and the preloaded files were never
-// drawn. Next 15 keeps the name, so the stack no longer names Plex and the look
-// is unchanged. Adopting Plex changes every page's typeface: that is a product
-// decision (CLAUDE.md, React 19 / Next 15). If it is taken, restore the name in
-// critical-css.ts and globals.css, set preload back to true, and re-measure CLS
-// with a throttled font. Weights audited 2026-07: 400/500/600/700.
+// IBM Plex Mono is the app face (DESIGN.md): next/font sets it as --font-plex-mono on
+// <html>, preloaded, and the --font-sans stacks read it. adjustFontFallback is off: its
+// Arial face drew the triangles and arrows Plex lacks at about twice their width.
 const fontMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-plex-mono",
   weight: ["400", "500", "600", "700"],
   display: "swap",
-  preload: false,
+  preload: true,
+  adjustFontFallback: false,
   fallback: ["JetBrains Mono", "Fira Code", "ui-monospace", "monospace"],
 });
 

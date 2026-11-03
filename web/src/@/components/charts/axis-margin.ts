@@ -12,8 +12,12 @@
  * The margin sets the width of the plot, so it has to be known before there is
  * a plot to measure. It is estimated from the labels' characters instead, and
  * never from the DOM. The estimate is only as good as the face, so it is a
- * constant for one: the tick labels are the 10px mono face (IBM Plex Mono, and
- * the mono faces the stack falls back to, set 0.6em a character: 6px).
+ * constant for one: the tick labels are the 10px mono face, IBM Plex Mono, which
+ * sets 0.6em a character (6.00px, measured in WebKit). The fallback before Plex
+ * loads is SF Mono on macOS, at 0.618em (6.18px), so a label of seven or more
+ * characters can run up to 0.8px past its margin in that state only. The constant
+ * stays at 6.1: 6.2 would widen every axis of seven or more characters by a pixel
+ * once Plex has loaded.
  */
 
 /** Ticks asked of a full-size value axis. */

@@ -72,9 +72,12 @@
     --scanline-opacity: 0.03;
     --phosphor-blur: 0px;
 
-    /* Font stack with retro character */
-    /* No IBM Plex Mono: see layout.tsx (the face was never drawn in production). */
-    --font-sans: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+    /* IBM Plex Mono is the app face. The stack reads next/font's variable, not the
+       family name (next/font hashed that name in Next 14). The variable is set on
+       <html>, which is :root, so var() resolves here (layout.tsx). The literal name
+       is var()'s fallback: a var() with no fallback to an undefined property makes
+       the value invalid, and Storybook and the unit tests have no next/font class. */
+    --font-sans: var(--font-plex-mono, "IBM Plex Mono"), "JetBrains Mono", "Fira Code", ui-monospace, monospace;
     --font-display: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
   }
 
