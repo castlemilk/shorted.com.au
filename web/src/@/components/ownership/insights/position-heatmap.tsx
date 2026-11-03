@@ -174,6 +174,7 @@ export function PositionHeatmap({ heatmap, measure, bucket, focusSector, selecte
             : "Colour: net change in voting power the bucket's notices state, percentage points summed over notices."
         }
         naText={measure === "funds" ? "n/a: no newer file that bucket" : undefined}
+        naOnly={measure === "funds" && heatmap.rows.every((r) => r.cells.every((c) => c.fundFlow == null))}
         formatValue={measure === "funds" ? (v) => formatSignedAud(v) : undefined}
       />
       {measure === "disclosed" ? (

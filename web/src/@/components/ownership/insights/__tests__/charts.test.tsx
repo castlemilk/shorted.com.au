@@ -92,6 +92,12 @@ describe("MarketMap", () => {
     expect(container.innerHTML).not.toMatch(MARKET_COLOURS);
   });
 
+  it("keys only n/a when no tile in view states a change", () => {
+    renderMap({ stocks: STOCKS.map((s) => ({ ...s, fundChangePct: null })), remainders: [] });
+    expect(screen.getByText("n/a: no fund compared")).toBeInTheDocument();
+    expect(screen.queryByText("no change")).toBeNull();
+  });
+
   it("says when nothing in the view has a size", () => {
     renderMap({ stocks: [], remainders: [] });
     expect(screen.getByText(/No index fund file on record holds a stock in this view/)).toBeInTheDocument();

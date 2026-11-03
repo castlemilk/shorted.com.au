@@ -60,6 +60,7 @@ export function ChangeLegend({
   title,
   naText,
   formatValue,
+  naOnly = false,
 }: {
   measure: InsightMeasure;
   domain: number;
@@ -67,6 +68,8 @@ export function ChangeLegend({
   naText?: string;
   /** A custom printer for each step's bound (the heatmap's AUD flows). */
   formatValue?: (value: number) => string;
+  /** No figure in view states a change: the steps would key nothing, so only n/a is shown. */
+  naOnly?: boolean;
 }) {
   const label = (bin: DivergingBin) => {
     if (!formatValue) return binText(bin, domain, measure);
@@ -80,7 +83,7 @@ export function ChangeLegend({
     <div className="space-y-1.5">
       <p className="text-[11px] text-muted-foreground">{title}</p>
       <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-        {BINS.map((bin) => (
+        {(naOnly ? [] : BINS).map((bin) => (
           <li key={bin} className="inline-flex items-center gap-1.5">
             <span aria-hidden className={cn("inline-block h-3 w-3 rounded-sm", BIN_STYLES[bin].swatch)} />
             <span className="tabular-nums">{label(bin)}</span>

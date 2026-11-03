@@ -318,6 +318,7 @@ export function MarketMap({
         domain={domain}
         title={`${sizeTitle}. ${colourTitle}.`}
         naText={measure === "funds" ? "n/a: no fund compared" : undefined}
+        naOnly={measure === "funds" && layout.tiles.length > 0 && layout.tiles.every((t) => t.change == null)}
       />
     </div>
   );
