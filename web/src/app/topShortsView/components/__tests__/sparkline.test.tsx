@@ -14,7 +14,7 @@ jest.mock("~/@/components/ui/skeleton", () => ({
 }));
 
 // Mock ParentSize to provide consistent dimensions
-jest.mock("@visx/responsive", () => ({
+jest.mock("@/components/charts/parent-size", () => ({
   ParentSize: ({
     children,
   }: {

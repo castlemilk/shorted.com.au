@@ -9,18 +9,18 @@ import React, {
   useCallback,
 } from "react";
 import { scaleTime, scaleLinear } from "@visx/scale";
-import { Brush } from "@visx/brush";
-import { type Bounds } from "@visx/brush/lib/types";
 import {
+  Brush,
   type BaseBrushState,
+  type BrushHandleRenderProps,
+  type BrushProps as VisxBrushProps,
+  type Bounds,
   type UpdateBrush,
-} from "@visx/brush/lib/BaseBrush";
-import type BaseBrush from "@visx/brush/lib/BaseBrush";
+} from "@visx/brush";
 import { PatternLines } from "@visx/pattern";
 import { Group } from "@visx/group";
 import { LinearGradient } from "@visx/gradient";
 import { max, extent, bisector } from "@visx/vendor/d3-array";
-import { type BrushHandleRenderProps } from "@visx/brush/lib/BrushHandle";
 import AreaChart from "./areaChart";
 import {
   type TimeSeriesData,
@@ -39,6 +39,9 @@ import { localPoint } from "@visx/event";
 import { Line } from "@visx/shape";
 import { timeFormat } from "@visx/vendor/d3-time-format";
 import useWindowSize from "@/hooks/use-window-size";
+
+/** The BaseBrush instance behind `Brush`'s innerRef. visx 4 exports the class from no package root. */
+type BaseBrush = NonNullable<NonNullable<VisxBrushProps["innerRef"]>["current"]>;
 
 type TooltipData = TimeSeriesPoint | null | undefined;
 // Initialize some variables

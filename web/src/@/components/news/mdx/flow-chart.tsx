@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ParentSize } from "@visx/responsive";
+import { ParentSize } from "@/components/charts/parent-size";
 import { sankey as d3Sankey, sankeyLinkHorizontal } from "d3-sankey";
 import { localPoint } from "@visx/event";
 import type { SankeyGraph, SankeyNodeMinimal, SankeyLinkMinimal } from "d3-sankey";

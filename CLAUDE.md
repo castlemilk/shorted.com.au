@@ -2096,6 +2096,28 @@ The Vercel project Root Directory is set to `web/`. When deploying via CLI, depl
   token whose header says `zip` (Auth.js never writes one), and only after the
   token's tag verifies, which needs `NEXTAUTH_SECRET`. A new Edge warning that
   does not point at that module is a real one.
+- **visx 4 (2026-11).** Every `@visx/*` package is `^4.0.0` (the first release
+  that takes React 19; 3.x caps React at 18), and the packages must match each
+  other. Three rules come with it:
+  - **Measure charts with `ParentSize` from `@/components/charts/parent-size`,
+    never from `@visx/responsive`.** visx 4's `ParentSize` puts its children in
+    an absolutely positioned, overflow-hidden box, so a wrapper whose height
+    comes from its content (a chart drawn at a fixed height, a treemap sized
+    from its width) collapses to 0px, and a tooltip near an edge is clipped.
+    The local one is visx 3's layout on visx 4's `useParentSize` (same 300 ms
+    debounce with a leading call, 0 x 0 until the first measurement).
+  - **No deep `lib/` imports.** visx 4's `exports` map refuses
+    `@visx/brush/lib/BaseBrush` and `@visx/responsive/lib/...` at runtime
+    (`ERR_PACKAGE_PATH_NOT_EXPORTED`), and `tsc` still passes because it resolves
+    the files. Import types from the package root (`BrushProps`, `UpdateBrush`,
+    `Bounds`, `BrushHandleRenderProps`). The `BaseBrush` class is exported by no
+    root, so its ref type is `NonNullable<NonNullable<BrushProps["innerRef"]>["current"]>`.
+  - **Declare every visx package the app imports.** `@visx/event` and
+    `@visx/grid` are direct dependencies (they had been reached only through
+    other visx packages, `@visx/grid` only through `@visx/xychart`, now removed).
+    Do not add `@visx/xychart` back: it is unused. Path data comes from d3-shape
+    3 (vendored in `@visx/vendor`), which rounds coordinates to three decimals:
+    sub-pixel, not a visual change.
 
 ## Debugging
 

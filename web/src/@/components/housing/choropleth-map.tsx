@@ -8,7 +8,7 @@ import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Feature, Geometry } from "geojson";
 import { gestureCss, gestureIsIdentity } from "@/lib/housing/map-gesture";
-import { ParentSize } from "@visx/responsive";
+import { ParentSize } from "@/components/charts/parent-size";
 
 /** Fill for a feature: hatch sentinel when no data, else the colour scale. */
 export function featureFill(

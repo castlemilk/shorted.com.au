@@ -7,8 +7,8 @@
  * rich tooltip).
  *
  * Visx learnings encoded here (apply to other chart widgets):
- * - The widget sizes its <svg> from @visx/responsive's ParentSize, which
- *   measures the nearest sized ancestor. withGridCell provides explicit
+ * - The widget sizes its <svg> from the local ParentSize (charts/parent-size),
+ *   which measures the nearest sized ancestor. withGridCell provides explicit
  *   pixel dimensions; without it the chart renders 0×0. Treemaps need
  *   room for the squarified layout, so Default uses withGridCell("large").
  * - The hover tooltip (TreemapTooltip) renders via

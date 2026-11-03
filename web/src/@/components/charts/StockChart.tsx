@@ -10,13 +10,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ParentSize } from "@visx/responsive";
+import { ParentSize } from "@/components/charts/parent-size";
 import { Group } from "@visx/group";
 import { scaleLinear, scaleTime } from "@visx/scale";
-import { Brush } from "@visx/brush";
-import type BaseBrush from "@visx/brush/lib/BaseBrush";
-import type { UpdateBrush } from "@visx/brush/lib/BaseBrush";
-import type { Bounds } from "@visx/brush/lib/types";
+import { Brush, type BrushProps, type Bounds, type UpdateBrush } from "@visx/brush";
 import { Line, AreaClosed } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
 import { localPoint } from "@visx/event";
@@ -74,6 +71,9 @@ import type {
   SeriesIndicator,
   StockChartProps,
 } from "./types";
+
+/** The BaseBrush instance behind `Brush`'s innerRef. visx 4 exports the class from no package root. */
+type BaseBrush = NonNullable<NonNullable<BrushProps["innerRef"]>["current"]>;
 
 export interface HandleBrushClearAndReset {
   clear: () => void;
