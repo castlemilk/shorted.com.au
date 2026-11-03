@@ -14,7 +14,9 @@ import {
   fetchStockClient,
   fetchStockDataClient,
   fetchStockDetailsClient,
+  fetchStockPricesClient,
   fetchTopShortsClient,
+  type ClientDateWindow,
 } from "@/lib/client-api";
 import type { TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 
@@ -58,16 +60,22 @@ export function useStockQuote(code: string) {
 }
 
 /**
- * Hook for fetching historical market data (prices)
+ * Hook for fetching historical market data (prices). With a `window` (a chart
+ * kept as posted) the prices are that date range, from the stock service; the
+ * live chart's query is unchanged.
  */
 export function useHistoricalData(
   code: string,
   period: string,
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; window?: ClientDateWindow } = {},
 ) {
+  const window = options.window;
   return useQuery({
-    queryKey: queryKeys.market.historical(code, period),
-    queryFn: () => getHistoricalData(code, period),
+    queryKey: queryKeys.market.historical(code, period, window),
+    queryFn: async () =>
+      window
+        ? ((await fetchStockPricesClient(code.toUpperCase(), window)) ?? [])
+        : getHistoricalData(code, period),
     enabled: (options.enabled ?? true) && !!code && !!period,
     staleTime: DAILY_STALE, // daily end-of-day prices
   });
@@ -104,11 +112,12 @@ export function useMultipleHistoricalData(codes: string[], period: string) {
 export function useShortTimeSeries(
   code: string,
   period: string,
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; window?: ClientDateWindow } = {},
 ) {
+  const window = options.window;
   return useQuery({
-    queryKey: queryKeys.stock.timeSeries(code, period),
-    queryFn: () => fetchStockDataClient(code, period),
+    queryKey: queryKeys.stock.timeSeries(code, period, window),
+    queryFn: () => fetchStockDataClient(code, period, window),
     enabled: (options.enabled ?? true) && !!code && !!period,
     staleTime: DAILY_STALE, // daily (ASIC T+4)
   });

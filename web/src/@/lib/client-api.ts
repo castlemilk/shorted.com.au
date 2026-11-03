@@ -12,6 +12,16 @@ import {
   type TimeSeriesData,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { formatPeriodForAPI } from "~/lib/period-utils";
+import type { HistoricalDataPoint } from "@/lib/stock-data-service";
+
+/**
+ * A date range, YYYY-MM-DD, inclusive; no `from` runs from the first data and
+ * no `to` runs to the newest. A chart kept as posted asks for one.
+ */
+export interface ClientDateWindow {
+  from?: string;
+  to?: string;
+}
 
 // Client-side API calls (not using React cache) for use in interactive components like tooltips
 // These should only be called from client components
@@ -107,6 +117,7 @@ export async function fetchStockClient(
 export async function fetchStockDataClient(
   productCode: string,
   period = "1m",
+  window?: ClientDateWindow,
 ): Promise<TimeSeriesData | undefined> {
   // Validate product code before making API call to avoid 400 errors
   if (!productCode || !isValidProductCode(productCode)) {
@@ -116,10 +127,13 @@ export async function fetchStockDataClient(
   try {
     const transport = getTransport();
     const client = createClient(StockService, transport);
-    const response = await client.getStockData({
-      productCode,
-      period,
-    });
+    // With a window the request names the dates; `period` still picks the
+    // bucketing. Without one the request is the live chart's, unchanged.
+    const response = await client.getStockData(
+      window
+        ? { productCode, period, from: window.from ?? "", to: window.to ?? "" }
+        : { productCode, period },
+    );
     return response;
   } catch (error) {
     // Only log non-validation errors to avoid console spam
@@ -129,6 +143,49 @@ export async function fetchStockDataClient(
       !errorMessage.includes("not_found")
     ) {
       console.error(`Error fetching stock data for ${productCode}:`, error);
+    }
+    return undefined;
+  }
+}
+
+/**
+ * Fetch end-of-day prices for a date range on the client side, as the
+ * historical-data shape the charts read. The live chart's prices come from the
+ * market-data service, which takes only a period; a chart kept as posted needs
+ * its window, so it reads them here. An empty `from` or `to` is left open.
+ */
+export async function fetchStockPricesClient(
+  productCode: string,
+  window: ClientDateWindow,
+): Promise<HistoricalDataPoint[] | undefined> {
+  if (!productCode || !isValidProductCode(productCode)) {
+    return undefined;
+  }
+
+  try {
+    const transport = getTransport();
+    const client = createClient(StockService, transport);
+    const response = await client.getStockPrices({
+      productCode,
+      from: window.from ?? "",
+      to: window.to ?? "",
+    });
+    return response.points.map((p) => ({
+      date: p.date,
+      open: p.open,
+      high: p.high,
+      low: p.low,
+      close: p.close,
+      volume: Number(p.volume),
+      adjustedClose: p.adjustedClose,
+    }));
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (
+      !errorMessage.includes("invalid_argument") &&
+      !errorMessage.includes("not_found")
+    ) {
+      console.error(`Error fetching stock prices for ${productCode}:`, error);
     }
     return undefined;
   }
