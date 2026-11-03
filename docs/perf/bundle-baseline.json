@@ -1,17 +1,17 @@
 {
-  "capturedAt": "2026-11-03T11:09:48.589Z",
+  "capturedAt": "2026-11-03T14:20:50.123Z",
   "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 112,
   "routes": {
     "/": {
-      "firstLoadKB": 147
+      "firstLoadKB": 148
     },
     "/_not-found": {
       "firstLoadKB": 112
     },
     "/about": {
-      "firstLoadKB": 134
+      "firstLoadKB": 135
     },
     "/about/opengraph-image": {
       "firstLoadKB": 112
@@ -230,10 +230,10 @@
       "firstLoadKB": 112
     },
     "/compare": {
-      "firstLoadKB": 116
+      "firstLoadKB": 117
     },
     "/compare/[pair]": {
-      "firstLoadKB": 116
+      "firstLoadKB": 117
     },
     "/compare/[pair]/opengraph-image": {
       "firstLoadKB": 112
@@ -266,7 +266,7 @@
       "firstLoadKB": 112
     },
     "/disclaimer": {
-      "firstLoadKB": 116
+      "firstLoadKB": 117
     },
     "/discord/settings": {
       "firstLoadKB": 140
@@ -284,13 +284,13 @@
       "firstLoadKB": 112
     },
     "/docs/api/[endpoint]": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
     },
     "/docs/api/clients/[language]": {
       "firstLoadKB": 115
     },
     "/docs/discord": {
-      "firstLoadKB": 116
+      "firstLoadKB": 117
     },
     "/docs/llm-context": {
       "firstLoadKB": 115
@@ -326,7 +326,7 @@
       "firstLoadKB": 113
     },
     "/embed/chart": {
-      "firstLoadKB": 120
+      "firstLoadKB": 119
     },
     "/embed/discord": {
       "firstLoadKB": 120
@@ -338,7 +338,7 @@
       "firstLoadKB": 113
     },
     "/faq": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
     },
     "/faq/opengraph-image": {
       "firstLoadKB": 112
@@ -413,7 +413,7 @@
       "firstLoadKB": 112
     },
     "/housing/property/[addressKey]": {
-      "firstLoadKB": 152
+      "firstLoadKB": 153
     },
     "/housing/rankings": {
       "firstLoadKB": 118
@@ -482,7 +482,7 @@
       "firstLoadKB": 112
     },
     "/methodology": {
-      "firstLoadKB": 116
+      "firstLoadKB": 117
     },
     "/methodology/opengraph-image": {
       "firstLoadKB": 112
@@ -509,7 +509,7 @@
       "firstLoadKB": 112
     },
     "/ownership": {
-      "firstLoadKB": 179
+      "firstLoadKB": 177
     },
     "/ownership/[slug]": {
       "firstLoadKB": 128
@@ -518,7 +518,7 @@
       "firstLoadKB": 112
     },
     "/ownership/notices": {
-      "firstLoadKB": 140
+      "firstLoadKB": 141
     },
     "/ownership/notices/opengraph-image": {
       "firstLoadKB": 112
@@ -527,7 +527,7 @@
       "firstLoadKB": 112
     },
     "/ownership/stocks": {
-      "firstLoadKB": 137
+      "firstLoadKB": 138
     },
     "/ownership/stocks/[code]": {
       "firstLoadKB": 128
@@ -563,7 +563,7 @@
       "firstLoadKB": 112
     },
     "/politicians/compare": {
-      "firstLoadKB": 117
+      "firstLoadKB": 116
     },
     "/politicians/compare/opengraph-image": {
       "firstLoadKB": 112
@@ -599,13 +599,13 @@
       "firstLoadKB": 112
     },
     "/pricing": {
-      "firstLoadKB": 138
+      "firstLoadKB": 139
     },
     "/privacy": {
       "firstLoadKB": 123
     },
     "/pulse": {
-      "firstLoadKB": 138
+      "firstLoadKB": 139
     },
     "/rate-limit": {
       "firstLoadKB": 135
@@ -614,7 +614,7 @@
       "firstLoadKB": 123
     },
     "/reports/monthly/[slug]": {
-      "firstLoadKB": 123
+      "firstLoadKB": 124
     },
     "/reports/monthly/[slug]/opengraph-image": {
       "firstLoadKB": 112
@@ -623,7 +623,7 @@
       "firstLoadKB": 112
     },
     "/reports/weekly": {
-      "firstLoadKB": 123
+      "firstLoadKB": 124
     },
     "/reports/weekly/[slug]": {
       "firstLoadKB": 124
@@ -632,13 +632,13 @@
       "firstLoadKB": 112
     },
     "/reports/yearly/[slug]": {
-      "firstLoadKB": 123
+      "firstLoadKB": 124
     },
     "/reports/yearly/[slug]/opengraph-image": {
       "firstLoadKB": 112
     },
     "/roadmap": {
-      "firstLoadKB": 127
+      "firstLoadKB": 126
     },
     "/robots.txt": {
       "firstLoadKB": 112
@@ -665,7 +665,7 @@
       "firstLoadKB": 118
     },
     "/seasonality": {
-      "firstLoadKB": 116
+      "firstLoadKB": 117
     },
     "/seasonality/opengraph-image": {
       "firstLoadKB": 112
@@ -674,10 +674,10 @@
       "firstLoadKB": 116
     },
     "/shorts/[stockCode]": {
-      "firstLoadKB": 193
+      "firstLoadKB": 194
     },
     "/shorts/[stockCode]/community": {
-      "firstLoadKB": 133
+      "firstLoadKB": 134
     },
     "/shorts/[stockCode]/community/[threadId]": {
       "firstLoadKB": 131
@@ -737,13 +737,13 @@
       "firstLoadKB": 112
     },
     "/stocks": {
-      "firstLoadKB": 203
+      "firstLoadKB": 202
     },
     "/subscribe/success": {
       "firstLoadKB": 120
     },
     "/technology": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/terms": {
       "firstLoadKB": 120
@@ -767,7 +767,7 @@
       "firstLoadKB": 112
     },
     "/unsubscribe": {
-      "firstLoadKB": 113
+      "firstLoadKB": 112
     }
   }
 }
