@@ -17,11 +17,11 @@ import { CHART_PERIOD_PHRASE, type ChartPeriod } from "./chart-views";
  *    previous day's close yet.
  *  - `day`, the day it was posted, which the chart is labelled with.
  *
- * A chart drawn before the dates are known (the first drawing of a new post)
- * reads everything up to `day`; the bot then records the newest short report
- * and close that drawing used, and every redraw ends there. A correction ASIC
- * or the price vendor makes later inside the window still shows; the figures
- * the bot printed above the chart never change (they are copied).
+ * The bot reads both dates before it draws a new post's card (the stock's
+ * newest report, and its newest close on or before the day), so the first
+ * drawing and every redraw read the same windows. A correction ASIC or the
+ * price vendor makes later inside the window still shows; the figures the
+ * bot printed above the chart never change (they are copied).
  *
  * Pure and browser-safe: the Discord bot, the chart card, the share page and
  * the Activity all read it.
@@ -36,7 +36,7 @@ export interface ChartAnchor {
   shorts: string;
   /**
    * The newest close the chart drew, YYYY-MM-DD, never after `day`. The
-   * price series ends here, and the period is counted back from it.
+   * price series ends here.
    */
   prices: string;
 }
@@ -218,25 +218,28 @@ const PRICE_MAX_MONTHS = 120;
 
 /**
  * Each series' window for a period on an anchored chart. The period is
- * counted back from the newest close, and both series start there, so the
- * two share one time axis; prices end on the newest close and short
- * positions on the newest report. A stock ASIC stopped reporting months ago
- * therefore draws no short series, as the live chart does, rather than a
- * short window of its own that stretches the axis back to its last report.
+ * counted back from the later of the newest close and the newest report,
+ * and both series start there, so the two share one time axis; prices end
+ * on the newest close and short positions on the newest report. A series
+ * whose data stopped before the period starts (a stock ASIC stopped
+ * reporting, or one suspended from trading) is empty, as on the live chart,
+ * rather than a window of its own that stretches the axis back to its last
+ * point.
  */
 export function anchoredWindows(
   period: ChartPeriod,
   anchor: ChartAnchor,
 ): { prices: DateWindow; shorts: DateWindow } {
-  const span = periodWindow(period, anchor.prices);
+  const end = anchor.prices > anchor.shorts ? anchor.prices : anchor.shorts;
+  const span = periodWindow(period, end);
+  const upTo = (to: string): DateWindow =>
+    span.from ? { from: span.from, to } : { to };
   return {
     prices:
       period === "max"
-        ? monthsBefore(PRICE_MAX_MONTHS, anchor.prices)
-        : span,
-    shorts: span.from
-      ? { from: span.from, to: anchor.shorts }
-      : { to: anchor.shorts },
+        ? { from: monthsBefore(PRICE_MAX_MONTHS, end).from, to: anchor.prices }
+        : upTo(anchor.prices),
+    shorts: upTo(anchor.shorts),
   };
 }
 

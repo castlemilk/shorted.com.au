@@ -12,6 +12,7 @@ import { getStockData } from "~/app/actions/getStockData";
 import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import {
   anchoredWindows,
+  isIsoDay,
   isSettledAnchor,
   sydneyDay,
   type ChartAnchor,
@@ -147,6 +148,46 @@ function readAnchoredPrices(
     ["chart-image", "anchored-prices", code, range.from ?? "", range.to],
     { tags: [`chart-anchored:${code}`], revalidate },
   )();
+}
+
+/** How long the newest close on or before a day is trusted. */
+const NEWEST_CLOSE_SECONDS = 900;
+
+/**
+ * The stock's newest close on or before `day` (YYYY-MM-DD), or null when it
+ * has none or the read failed. The Discord bot reads it before it draws a new
+ * kept post, records it as the anchor's `prices`, and draws the card for that
+ * anchor, so the posted card and every redraw read the same windows. Two
+ * points are asked for: thinning keeps the first and the last, and the last
+ * is the newest. A failure throws inside the cache, so it is never stored.
+ */
+export async function getNewestClose(
+  code: string,
+  day: string,
+): Promise<string | null> {
+  try {
+    return await unstable_cache(
+      async () => {
+        const response = await stockClient().getStockPrices({
+          productCode: code,
+          to: day,
+          maxPoints: 2,
+        });
+        const newest = response.points
+          .map((p) => p.date)
+          .filter((d) => isIsoDay(d) && d <= day)
+          .sort()
+          .pop();
+        if (!newest) throw new Error("no close on or before the day");
+        return newest;
+      },
+      ["chart-image", "newest-close", code, day],
+      { tags: [`chart-anchored:${code}`], revalidate: NEWEST_CLOSE_SECONDS },
+    )();
+  } catch (err) {
+    console.error(`[chart-image] newest close failed for ${code} ${day}:`, err);
+    return null;
+  }
 }
 
 /**

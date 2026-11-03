@@ -158,6 +158,21 @@ describe("periodWindow", () => {
     expect(shorts).toEqual({ from: "2026-08-04", to: "2025-10-15" });
   });
 
+  it("counts back from the newest report when the prices stopped earlier", () => {
+    // Suspended since March: the axis still ends on the newest report, so a
+    // month is a month, and the price window is empty, as on the live chart.
+    expect(
+      anchoredWindows("1m", {
+        day: "2026-11-04",
+        shorts: "2026-10-28",
+        prices: "2026-03-10",
+      }),
+    ).toEqual({
+      prices: { from: "2026-09-29", to: "2026-03-10" },
+      shorts: { from: "2026-09-29", to: "2026-10-28" },
+    });
+  });
+
   it("reaches prices back ten years on MAX, and short positions to the start", () => {
     expect(
       anchoredWindows("max", {
