@@ -72,6 +72,7 @@ describe("DiscordSettingsForm", () => {
       code: "PLS",
       name: "Pilbara Minerals",
       asOf: "2026-10-20T00:00:00.000Z",
+      newestClose: "2026-10-19",
     });
     renderForm({ code: "PLS", asPosted: true });
     await waitFor(() =>
@@ -82,6 +83,18 @@ describe("DiscordSettingsForm", () => {
     expect(
       screen.getByRole("radio", { name: /^Keep the chart as posted/ }),
     ).toBeChecked();
+  });
+
+  it("previews a chart whose close is unknown live, as the bot posts it", async () => {
+    mockPreview.mockResolvedValue({
+      code: "PLS",
+      name: "Pilbara Minerals",
+      asOf: "2026-10-20T00:00:00.000Z",
+      newestClose: null,
+    });
+    renderForm({ code: "PLS", asPosted: true });
+    await waitFor(() => expect(mockPreview).toHaveBeenCalled());
+    expect(chartCard().getAttribute("src")).not.toMatch(/asof=/);
   });
 
   it("previews a chart without its report date live, as the bot posts it", () => {

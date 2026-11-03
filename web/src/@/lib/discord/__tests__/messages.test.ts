@@ -12,7 +12,6 @@ import {
   escapeMarkdown,
   formatChange,
   openOnShortedUrl,
-  acceptPricesThrough,
   postedAnchor,
   toAutocompleteChoices,
   type StockSummary,
@@ -411,46 +410,51 @@ describe("charts kept as posted", () => {
   it("dates a posting by Sydney's calendar day, and never after it", () => {
     // 19 Oct 23:30 UTC is 20 Oct in Sydney; a report dated 20 Oct is that day.
     expect(
-      postedAnchor({ asOf: new Date("2026-10-19T14:00:00Z") }, NOW),
+      postedAnchor(
+        { asOf: new Date("2026-10-19T14:00:00Z") },
+        NOW,
+        "2026-10-19",
+      ),
     ).toEqual({
       day: "2026-10-20",
       shorts: "2026-10-20",
-      prices: "2026-10-20",
+      prices: "2026-10-19",
     });
     expect(
-      postedAnchor({ asOf: new Date("2026-10-14T00:00:00Z") }, NOW),
+      postedAnchor(
+        { asOf: new Date("2026-10-14T00:00:00Z") },
+        NOW,
+        "2026-10-19",
+      ),
     ).toEqual({
       day: "2026-10-20",
       shorts: "2026-10-14",
-      prices: "2026-10-20",
+      prices: "2026-10-19",
     });
   });
 
-  it("is no anchor at all without the report date, so the chart is live", () => {
-    expect(postedAnchor({ asOf: null }, NOW)).toBeNull();
-    expect(postedAnchor({}, NOW)).toBeNull();
-  });
-});
-
-describe("acceptPricesThrough", () => {
-  it("keeps a real day on or before the posting day", () => {
-    expect(acceptPricesThrough("2026-11-03", "2026-11-04")).toBe("2026-11-03");
-    expect(acceptPricesThrough("2026-11-04", "2026-11-04")).toBe("2026-11-04");
+  it("is no anchor when the report date is unknown, so the chart is live", () => {
+    expect(postedAnchor({ asOf: null }, NOW, "2026-10-19")).toBeNull();
+    expect(postedAnchor({}, NOW, "2026-10-19")).toBeNull();
   });
 
-  it.each([
-    ["after the day", "2026-11-05"],
-    ["not a date", "2026-11-3"],
-    ["an impossible date", "2026-02-30"],
-    ["text", "<script>"],
-    ["empty", ""],
-    ["missing", null],
-  ])("refuses %s", (_label, value) => {
-    expect(acceptPricesThrough(value, "2026-11-04")).toBeUndefined();
+  it("is no anchor when the newest close is unknown, so the chart is live", () => {
+    expect(
+      postedAnchor({ asOf: new Date("2026-10-14T00:00:00Z") }, NOW, null),
+    ).toBeNull();
+    expect(
+      postedAnchor({ asOf: new Date("2026-10-14T00:00:00Z") }, NOW, undefined),
+    ).toBeNull();
+    expect(
+      postedAnchor({ asOf: new Date("2026-10-14T00:00:00Z") }, NOW, ""),
+    ).toBeNull();
   });
 
-  it("refuses everything for a live chart, which has no day to check against", () => {
-    expect(acceptPricesThrough("2026-11-03", undefined)).toBeUndefined();
+  it("is no anchor for a close that is not a real day on or before the posting day", () => {
+    const asOf = { asOf: new Date("2026-10-14T00:00:00Z") };
+    expect(postedAnchor(asOf, NOW, "2026-10-21")).toBeNull();
+    expect(postedAnchor(asOf, NOW, "2026-02-30")).toBeNull();
+    expect(postedAnchor(asOf, NOW, "yesterday")).toBeNull();
   });
 });
 

@@ -4,7 +4,7 @@ import {
 } from "~/app/actions/config";
 import { DISCORD_PERIODS, DISCORD_VIEWS } from "./commands";
 import type { ChartState } from "./custom-id";
-import { acceptPricesThrough, chartCardUrl } from "./messages";
+import { chartCardUrl } from "./messages";
 
 /**
  * A chart message's card as PNG bytes, uploaded with the message
@@ -39,16 +39,6 @@ const READ_TIMEOUT_MS = 5000;
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
-/** The image route's answer for an anchored chart: the newest close it drew. */
-const PRICES_THROUGH_HEADER = "x-chart-prices-through";
-
-/** A card as PNG, and for an anchored chart the newest close the card drew. */
-export interface RenderedCard {
-  png: Uint8Array;
-  /** YYYY-MM-DD, on or before the anchor's day; absent when none was reported. */
-  pricesThrough?: string;
-}
-
 function isPng(bytes: Uint8Array): boolean {
   return PNG_SIGNATURE.every((b, i) => bytes[i] === b);
 }
@@ -68,16 +58,12 @@ function firstPartyHeaders(): Record<string, string> | null {
     : null;
 }
 
-/**
- * The route's card, or null when it fails, times out or is partial. `day` is
- * the anchored chart's posting day, against which the reported close is checked.
- */
+/** The route's card, or null when it fails, times out or is partial. */
 async function fetchCard(
   url: string,
   headers: Record<string, string>,
   timeoutMs: number,
-  day?: string,
-): Promise<RenderedCard | null> {
+): Promise<Uint8Array | null> {
   const response = await fetch(url, {
     headers,
     cache: "no-store",
@@ -91,14 +77,7 @@ async function fetchCard(
     return null;
   }
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if (!isPng(bytes)) return null;
-  return {
-    png: bytes,
-    pricesThrough: acceptPricesThrough(
-      response.headers.get(PRICES_THROUGH_HEADER),
-      day,
-    ),
-  };
+  return isPng(bytes) ? bytes : null;
 }
 
 /**
@@ -107,7 +86,7 @@ async function fetchCard(
  */
 export async function renderChartCard(
   state: ChartState,
-): Promise<RenderedCard | null> {
+): Promise<Uint8Array | null> {
   try {
     const [{ ImageResponse }, { loadChartCard }, { OG_SIZE }] =
       await Promise.all([
@@ -115,16 +94,10 @@ export async function renderChartCard(
         import("~/app/chart/[code]/image/load-card"),
         import("~/@/lib/og/card"),
       ]);
-    const { card, complete, pricesThrough } = await loadChartCard(
-      state,
-      READ_TIMEOUT_MS,
-    );
+    const { card, complete } = await loadChartCard(state, READ_TIMEOUT_MS);
     if (!complete) return null;
     const response = new ImageResponse(card, OG_SIZE);
-    return {
-      png: new Uint8Array(await response.arrayBuffer()),
-      pricesThrough: acceptPricesThrough(pricesThrough, state.anchor?.day),
-    };
+    return new Uint8Array(await response.arrayBuffer());
   } catch (error) {
     console.error(`[discord] chart card for ${state.code} failed:`, error);
     return null;
@@ -135,7 +108,7 @@ export async function renderChartCard(
 export async function chartCard(
   state: ChartState,
   now: Date,
-): Promise<RenderedCard | null> {
+): Promise<Uint8Array | null> {
   const headers = firstPartyHeaders();
   if (headers) {
     try {
@@ -143,7 +116,6 @@ export async function chartCard(
         chartCardUrl(state, now),
         headers,
         FETCH_TIMEOUT_MS,
-        state.anchor?.day,
       );
       if (fetched) return fetched;
     } catch (error) {

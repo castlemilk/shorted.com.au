@@ -11,6 +11,7 @@ const put = jest.fn();
 const get = jest.fn();
 const stockSummary = jest.fn();
 const search = jest.fn();
+const newestClose = jest.fn();
 
 jest.mock("next/headers", () => ({
   cookies: async () => ({
@@ -30,6 +31,8 @@ jest.mock("~/@/lib/discord/data", () => ({
   discordData: {
     stockSummary: (code: string) => stockSummary(code) as unknown,
     search: (q: string, limit: number) => search(q, limit) as unknown,
+    newestClose: (code: string, day: string) =>
+      newestClose(code, day) as unknown,
   },
 }));
 
@@ -68,6 +71,7 @@ describe("Discord settings actions", () => {
       .mockReset()
       .mockResolvedValue({ code: "PLS", name: "Pilbara" });
     search.mockReset().mockResolvedValue([{ code: "PLS", name: "Pilbara" }]);
+    newestClose.mockReset().mockResolvedValue(null);
     jest.spyOn(console, "error").mockImplementation(() => undefined);
   });
   afterAll(() => {
@@ -113,9 +117,21 @@ describe("Discord settings actions", () => {
       expect(result).toMatchObject({ ok: true, settings: { asPosted: false } });
       expect(get).toHaveBeenCalledWith(
         { kind: "guild", id: GUILD },
-        { fresh: true },
+        { fresh: true, strict: true },
       );
       expect(put.mock.calls[0][1]).toMatchObject({ asPosted: false });
+    });
+
+    it("refuses a page without the setting when the stored read fails, rather than saving the default over it", async () => {
+      get.mockRejectedValue(new Error("firestore unavailable"));
+      const { asPosted: _omitted, ...withoutButtons } = VALID;
+      const result = await saveDiscordSettings(withoutButtons);
+      expect(result).toEqual({
+        ok: false,
+        error:
+          "Some of these settings are not valid. Reload the page and try again.",
+      });
+      expect(put).not.toHaveBeenCalled();
     });
 
     it("defaults to charts kept as posted when nothing is stored", async () => {
@@ -206,11 +222,15 @@ describe("Discord settings actions", () => {
         code: "PLS",
         asOf: new Date("2026-10-20T00:00:00Z"),
       });
+      newestClose.mockResolvedValue("2026-10-17");
       await expect(previewStock("asx:pls")).resolves.toEqual({
         code: "PLS",
         asOf: "2026-10-20T00:00:00.000Z",
+        newestClose: "2026-10-17",
       });
       expect(stockSummary).toHaveBeenCalledWith("PLS");
+      // The close a chart posted today would read, as the bot reads it.
+      expect(newestClose).toHaveBeenCalledWith("PLS", expect.any(String));
     });
 
     it("reads nothing for a bad code or without a grant", async () => {

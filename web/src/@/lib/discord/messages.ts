@@ -188,35 +188,26 @@ function stockFields(s: StockSummary): NonNullable<Embed["fields"]> {
 }
 
 /**
- * The anchor a new message is posted with, or null when the stock's report
- * date is unknown: such a chart is live, as every chart was before anchors.
- * The day is the posting day (Sydney), prices are drawn up to it, and the
- * report is the newest ASIC report the stock has, never after the day. The
- * card records the newest close it actually drew (handler.ts), so this is
- * the first draft of the anchor, not the final one.
+ * The anchor a new message is posted with, decided before its card is drawn:
+ * the day (Sydney), the newest ASIC report (never after the day) and the
+ * newest close the bot read on or before the day. Null when either date is
+ * unknown, and the chart is then live, as every chart was before anchors: a
+ * kept chart is never anchored to a guessed date.
  */
 export function postedAnchor(
   summary: { asOf?: Date | null },
   now: Date,
+  newestClose: string | null | undefined,
 ): ChartAnchor | null {
-  if (!summary.asOf) return null;
+  if (!summary.asOf || !isIsoDay(newestClose)) return null;
   const day = sydneyDay(now);
+  if (newestClose > day) return null;
   const shorts = sydneyDay(summary.asOf);
-  return { day, shorts: shorts < day ? shorts : day, prices: day };
-}
-
-/**
- * A date a card reports back (the image route's header, or the in-process
- * loader), kept only when it is a real day on or before the posting day. The
- * header is network data, so nothing else is trusted. Undefined for a live
- * chart, which has no day to check against.
- */
-export function acceptPricesThrough(
-  value: string | null | undefined,
-  day: string | undefined,
-): string | undefined {
-  if (!day || !isIsoDay(value) || value > day) return undefined;
-  return value;
+  return {
+    day,
+    shorts: shorts < day ? shorts : day,
+    prices: newestClose,
+  };
 }
 
 /**

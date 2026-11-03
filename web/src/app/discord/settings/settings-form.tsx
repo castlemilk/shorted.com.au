@@ -96,20 +96,30 @@ function useMinutesLeft(expiresAt: number): number | null {
   return left;
 }
 
-function toSummary(preview: PreviewSummary): StockSummary {
-  return { ...preview, asOf: preview.asOf ? new Date(preview.asOf) : null };
+/** A preview's readings: the stock's summary and the newest close a post would use. */
+interface Readings {
+  summary: StockSummary;
+  newestClose: string | null;
+}
+
+function toReadings(preview: PreviewSummary): Readings {
+  const { asOf, newestClose, ...rest } = preview;
+  return {
+    summary: { ...rest, asOf: asOf ? new Date(asOf) : null },
+    newestClose,
+  };
 }
 
 /** The readings for the preview's stock, fetched once per stock. */
-function useStockSummary(code: string): StockSummary | null {
-  const [summaries, setSummaries] = useState<Record<string, StockSummary>>({});
+function useReadings(code: string): Readings | null {
+  const [summaries, setSummaries] = useState<Record<string, Readings>>({});
   useEffect(() => {
     if (summaries[code]) return;
     let live = true;
     previewStock(code)
       .then((preview) => {
         if (live && preview) {
-          setSummaries((all) => ({ ...all, [code]: toSummary(preview) }));
+          setSummaries((all) => ({ ...all, [code]: toReadings(preview) }));
         }
       })
       .catch(() => undefined);
@@ -411,14 +421,15 @@ function Preview({
   activityEnabled: boolean;
 }) {
   const code = settings.code ?? SAMPLE_CODE;
-  const summary = useStockSummary(code);
+  const readings = useReadings(code);
+  const summary = readings?.summary ?? null;
   const now = new Date();
   // The Activity a command opens is live (commands with the interactive chart
   // stay live), so its frame is built from the plain state. A chart without
   // its report date is live too, as the bot posts it.
   const live = { code, view: settings.view, period: settings.period };
   const anchor = settings.asPosted
-    ? postedAnchor(summary ?? { asOf: null }, now)
+    ? postedAnchor(summary ?? { asOf: null }, now, readings?.newestClose)
     : null;
   const state = anchor ? { ...live, anchor } : live;
   const interactive = settings.interactive && activityEnabled;

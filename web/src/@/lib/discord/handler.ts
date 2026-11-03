@@ -15,10 +15,9 @@ import {
   isCommandName,
 } from "./commands";
 import {
-  daysBefore,
+  sydneyDay,
   type ChartAnchor,
 } from "~/@/components/charts/chart-anchor";
-import type { RenderedCard } from "./chart-card";
 import { normalizeCode, parseCustomId, type ChartState } from "./custom-id";
 import type { DiscordData } from "./data";
 import {
@@ -28,7 +27,6 @@ import {
   buildHelpMessage,
   buildSearchMessage,
   buildSettingsMessage,
-  acceptPricesThrough,
   buildTopMessage,
   copiedFigures,
   notice,
@@ -85,10 +83,10 @@ export interface HandlerDeps {
   /** The signed settings page for a grant, or null when links cannot be signed. */
   settingsUrl: (grant: SettingsGrant) => string | null;
   /**
-   * A chart's card as PNG, with the newest close it drew when it is anchored,
-   * or null when it cannot be drawn whole (chart-card.ts).
+   * A chart's card as PNG, or null when it cannot be drawn whole
+   * (chart-card.ts).
    */
-  renderChart: (state: ChartState) => Promise<RenderedCard | null>;
+  renderChart: (state: ChartState) => Promise<Uint8Array | null>;
   /**
    * Has the cards one press away from a posted chart drawn ahead of the press
    * (chart-card.ts). Run in the background; nothing waits on it.
@@ -256,7 +254,7 @@ async function resolveStock(
 async function drawCard(
   state: ChartState,
   deps: HandlerDeps,
-): Promise<RenderedCard | null> {
+): Promise<Uint8Array | null> {
   try {
     const drawn = await within(
       deps.renderChart(state).catch(() => null),
@@ -284,10 +282,10 @@ async function chartMessage(
   summary: StockSummary,
   state: ChartState,
   deps: HandlerDeps,
-  early?: { code: string; card: Promise<RenderedCard | null> },
+  early?: { code: string; card: Promise<Uint8Array | null> },
 ): Promise<MessagePayload> {
   const target = { ...state, code: summary.code };
-  const drawn = await (early?.code === summary.code
+  const card = await (early?.code === summary.code
     ? early.card
     : drawCard(target, deps));
   warmNeighbours(target, deps);
@@ -296,51 +294,52 @@ async function chartMessage(
     state: target,
     activity: deps.activityEnabled,
     now: deps.now(),
-    card: drawn?.png ?? null,
+    card,
   });
 }
 
 /**
- * A new chart message kept as posted. Its card is drawn for the anchor the
- * stock's report date gives: everything up to the posting day. The card then
- * reports the newest close it drew, and the message records that close, so
- * every redraw ends where this drawing did. Without a report date the chart is
- * live (postedAnchor). Without a card, the close is the day before the posting
- * day, which the card would have shown.
+ * A close read started ahead of the stock, for the code that was typed on
+ * the day it was read. It is reused only when both still match.
+ */
+interface EarlyClose {
+  code: string;
+  day: string;
+  read: Promise<string | null>;
+}
+
+/**
+ * A new chart message kept as posted. The bot reads the stock's newest close
+ * before it draws, so the card is drawn for the anchor the message will carry:
+ * the same windows every redraw reads. When the report date or the close is
+ * unknown the chart is posted live (postedAnchor), never anchored to a guess.
  */
 async function postedMessage(
   summary: StockSummary,
   view: ChartState["view"],
   period: ChartState["period"],
   deps: HandlerDeps,
+  early?: EarlyClose,
 ): Promise<MessagePayload> {
-  const first = postedAnchor(summary, deps.now());
-  if (!first) {
+  const now = deps.now();
+  const day = sydneyDay(now);
+  const close =
+    early?.code === summary.code && early.day === day
+      ? await early.read
+      : await deps.data.newestClose(summary.code, day);
+  const anchor = postedAnchor(summary, now, close);
+  if (!anchor) {
     return chartMessage(summary, { code: summary.code, view, period }, deps);
   }
-  const drawn = await drawCard(
-    { code: summary.code, view, period, anchor: first },
-    deps,
-  );
-  const anchor: ChartAnchor = {
-    ...first,
-    prices:
-      acceptPricesThrough(drawn?.pricesThrough, first.day) ??
-      daysBefore(first.day, 1),
-  };
-  const state: PostedState = {
-    code: summary.code,
-    view,
-    period,
-    anchor,
-  };
+  const state: PostedState = { code: summary.code, view, period, anchor };
+  const card = await drawCard(state, deps);
   warmNeighbours(state, deps);
   return buildChartMessage({
     summary,
     state,
     activity: deps.activityEnabled,
-    now: deps.now(),
-    card: drawn?.png ?? null,
+    now,
+    card,
   });
 }
 
@@ -373,9 +372,15 @@ function newChart(
   posted = false,
 ): ChartReply {
   const code = normalizeCode(input);
-  const early =
+  // The card or the close is read now, beside the stock read.
+  const day = sydneyDay(deps.now());
+  const earlyCard =
     code && !posted
       ? { code, card: drawCard({ code, view, period }, deps) }
+      : undefined;
+  const earlyClose: EarlyClose | undefined =
+    code && posted
+      ? { code, day, read: deps.data.newestClose(code, day) }
       : undefined;
   return {
     kind: "chart",
@@ -384,8 +389,8 @@ function newChart(
     summary,
     draw: (s) =>
       posted
-        ? postedMessage(s, view, period, deps)
-        : chartMessage(s, { code: s.code, view, period }, deps, early),
+        ? postedMessage(s, view, period, deps, earlyClose)
+        : chartMessage(s, { code: s.code, view, period }, deps, earlyCard),
     missing: notFound(input),
   };
 }
@@ -621,14 +626,14 @@ function postedRedraw(
   if (!figures) {
     return privately("component_chart", AS_POSTED_UNAVAILABLE);
   }
-  const work = drawCard(state, deps).then((drawn) => {
+  const work = drawCard(state, deps).then((card) => {
     warmNeighbours(state, deps);
     return buildCopiedChartMessage({
       figures,
       state,
       activity: deps.activityEnabled,
       now: deps.now(),
-      card: drawn?.png ?? null,
+      card,
     });
   });
   return withData("component_chart", "update", work, { defer: true });
