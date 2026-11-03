@@ -173,7 +173,10 @@ export async function getNewestClose(
           to: day,
           maxPoints: 2,
         });
+        // A NULL close comes back as 0: that session has no price, so it is no
+        // newest close (the card and the live path skip such points too).
         const newest = response.points
+          .filter((p) => p.close > 0)
           .map((p) => p.date)
           .filter((d) => isIsoDay(d) && d <= day)
           .sort()

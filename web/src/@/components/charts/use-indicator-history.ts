@@ -138,7 +138,9 @@ export function useIndicatorHistory(
   // What is kept for this stock. It is read during render and set when a longer
   // history lands, so the value used is never a render behind. A new stock starts
   // again.
-  const keepKey = anchor ? `${code}@${anchor.day}/${anchor.shorts}` : code;
+  const keepKey = anchor
+    ? `${code}@${anchor.day}/${anchor.shorts}/${anchor.prices}`
+    : code;
   const [kept, setKept] = useState<Kept>({ key: keepKey });
   const current: Kept = kept.key === keepKey ? kept : { key: keepKey };
   const heldPricePeriod = current.price?.period;

@@ -41,16 +41,18 @@ function isEmptyRange(range: ClientDateWindow): boolean {
 }
 
 /**
- * A connect error that means "no answer", not "try again": the stock is not
- * there, or the request was refused as malformed. Anything else (a 429, a
- * dropped connection, a 5xx) is transient and must reject, so the caller's
- * retry runs and an empty answer is not cached in its place.
+ * A connect error that is permanent: the request itself was refused as
+ * malformed, so asking again changes nothing. Only InvalidArgument qualifies.
+ * NotFound does not: the shorts API answers it for a database error as well as
+ * for an unknown stock (services/shorts/.../service.go), so it may be transient,
+ * and it rejects so the query retries rather than caching an empty series. An
+ * unknown stock is answered with 200 and no points, which is an empty answer.
  */
-function isNoAnswer(error: unknown): boolean {
+function isPermanent(error: unknown): boolean {
   const code = (error as { code?: unknown } | null)?.code;
-  if (code === 3 || code === 5) return true; // Connect's InvalidArgument, NotFound
+  if (code === 3) return true; // Connect's InvalidArgument
   const message = error instanceof Error ? error.message : String(error);
-  return message.includes("invalid_argument") || message.includes("not_found");
+  return message.includes("invalid_argument");
 }
 
 // Client-side API calls (not using React cache) for use in interactive components like tooltips
@@ -198,7 +200,7 @@ export async function fetchStockDataWindowClient(
       to: range.to ?? "",
     });
   } catch (error) {
-    if (isNoAnswer(error)) return empty();
+    if (isPermanent(error)) return empty();
     throw error;
   }
 }
@@ -226,17 +228,21 @@ export async function fetchStockPricesClient(
       from: range.from ?? "",
       to: range.to ?? "",
     });
-    return response.points.map((p) => ({
-      date: p.date,
-      open: p.open,
-      high: p.high,
-      low: p.low,
-      close: p.close,
-      volume: Number(p.volume),
-      adjustedClose: p.adjustedClose,
-    }));
+    // GetStockPrices fills a NULL close with 0: that session has no price, and
+    // a chart would plot it as $0. The card and the live path skip it too.
+    return response.points
+      .filter((p) => p.close > 0)
+      .map((p) => ({
+        date: p.date,
+        open: p.open,
+        high: p.high,
+        low: p.low,
+        close: p.close,
+        volume: Number(p.volume),
+        adjustedClose: p.adjustedClose,
+      }));
   } catch (error) {
-    if (isNoAnswer(error)) return [];
+    if (isPermanent(error)) return [];
     throw error;
   }
 }

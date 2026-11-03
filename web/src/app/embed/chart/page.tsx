@@ -43,7 +43,7 @@ function EmbedChartInner() {
     <div className="h-[100dvh] w-full overflow-auto">
       <StockChartEmbed
         // Remount on a param change so the period state resets with the URL.
-        key={`${code}:${view}:${period}:${anchor?.day ?? ""}:${anchor?.shorts ?? ""}`}
+        key={`${code}:${view}:${period}:${anchor?.day ?? ""}:${anchor?.shorts ?? ""}:${anchor?.prices ?? ""}`}
         stockCode={code}
         defaultView={view}
         defaultPeriod={period}
