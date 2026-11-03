@@ -55,7 +55,11 @@ jest.mock("~/app/actions/config", () => ({
   buildApiUrl: (base: string, path: string) => `${base}${path}`,
 }));
 
-import { getChartPrices, getChartShorts } from "../chart-data";
+import {
+  getChartPrices,
+  getChartShorts,
+  getNewestClose,
+} from "../chart-data";
 import {
   anchoredWindows,
   type ChartAnchor,
@@ -244,3 +248,59 @@ describe("anchored chart readers: cache lifetime", () => {
     expect(mockCacheOptions[0]!.opts.revalidate).toBe(3600);
   });
 });
+
+describe("getNewestClose", () => {
+  it("asks GetStockPrices for the two sessions up to the day, the newest last", async () => {
+    mockGetStockPrices.mockResolvedValue({ points: [{ date: "2026-11-03", close: 9 }] });
+    await getNewestClose("BHP", "2026-11-04");
+    expect(mockGetStockPrices).toHaveBeenCalledWith({
+      productCode: "BHP",
+      to: "2026-11-04",
+      maxPoints: 2,
+    });
+  });
+
+  it("answers the newest date that is not after the day", async () => {
+    mockGetStockPrices.mockResolvedValue({
+      points: [
+        { date: "2026-11-02", close: 8 },
+        { date: "2026-11-03", close: 9 },
+        { date: "2026-11-05", close: 11 },
+      ],
+    });
+    expect(await getNewestClose("BHP", "2026-11-04")).toBe("2026-11-03");
+  });
+
+  it("skips a session whose close is NULL (0), since it has no price", async () => {
+    mockGetStockPrices.mockResolvedValue({
+      points: [
+        { date: "2026-11-02", close: 8 },
+        { date: "2026-11-03", close: 0 },
+      ],
+    });
+    expect(await getNewestClose("BHP", "2026-11-04")).toBe("2026-11-02");
+  });
+
+  it("answers null when there are no points", async () => {
+    mockGetStockPrices.mockResolvedValue({ points: [] });
+    expect(await getNewestClose("BHP", "2026-11-04")).toBeNull();
+  });
+
+  it("answers null on a failed read, and asks again next time rather than store it", async () => {
+    mockGetStockPrices
+      .mockRejectedValueOnce(new Error("upstream"))
+      .mockResolvedValueOnce({ points: [{ date: "2026-11-03", close: 9 }] });
+    expect(await getNewestClose("BHP", "2026-11-04")).toBeNull();
+    expect(mockStore.size).toBe(0);
+    expect(await getNewestClose("BHP", "2026-11-04")).toBe("2026-11-03");
+    expect(mockGetStockPrices).toHaveBeenCalledTimes(2);
+  });
+
+  it("caches a newest close per day, so a redraw reads it without the API", async () => {
+    mockGetStockPrices.mockResolvedValue({ points: [{ date: "2026-11-03", close: 9 }] });
+    await getNewestClose("BHP", "2026-11-04");
+    await getNewestClose("BHP", "2026-11-04");
+    expect(mockGetStockPrices).toHaveBeenCalledTimes(1);
+  });
+});
+

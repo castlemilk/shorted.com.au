@@ -82,8 +82,23 @@ describe("fetchStockDataWindowClient", () => {
     expect(mockGetStockData).not.toHaveBeenCalled();
   });
 
-  it("answers empty for a stock the API does not know", async () => {
-    mockGetStockData.mockRejectedValue(connectError(NOT_FOUND, "not_found"));
+  it("answers empty for a stock the API does not know: it answers 200 with no points", async () => {
+    // The shorts API answers an unknown stock with an empty success, not an error.
+    mockGetStockData.mockResolvedValue({ points: [] });
+    const result = await fetchStockDataWindowClient("BHP", "1M", { to: "2026-10-28" });
+    expect(result.points).toEqual([]);
+  });
+
+  it("rejects on NotFound, which the API also answers for a database error, so the query retries", async () => {
+    const error = connectError(NOT_FOUND, "not_found");
+    mockGetStockData.mockRejectedValue(error);
+    await expect(
+      fetchStockDataWindowClient("BHP", "1M", { to: "2026-10-28" }),
+    ).rejects.toBe(error);
+  });
+
+  it("answers empty for an InvalidArgument, which is permanent", async () => {
+    mockGetStockData.mockRejectedValue(connectError(INVALID_ARGUMENT, "invalid_argument"));
     const result = await fetchStockDataWindowClient("BHP", "1M", { to: "2026-10-28" });
     expect(result.points).toEqual([]);
   });
@@ -150,11 +165,27 @@ describe("fetchStockPricesClient", () => {
     expect(mockGetStockPrices).not.toHaveBeenCalled();
   });
 
-  it("answers [] for a code the API does not know, and for an invalid argument", async () => {
-    mockGetStockPrices.mockRejectedValueOnce(connectError(NOT_FOUND, "not_found"));
-    expect(await fetchStockPricesClient("BHP", { to: "2026-11-03" })).toEqual([]);
+  it("answers [] for an invalid argument, which is permanent", async () => {
     mockGetStockPrices.mockRejectedValueOnce(connectError(INVALID_ARGUMENT, "invalid_argument"));
     expect(await fetchStockPricesClient("BHP", { to: "2026-11-03" })).toEqual([]);
+  });
+
+  it("rejects on NotFound, so the query retries rather than caching an empty series", async () => {
+    const error = connectError(NOT_FOUND, "not_found");
+    mockGetStockPrices.mockRejectedValue(error);
+    await expect(fetchStockPricesClient("BHP", { to: "2026-11-03" })).rejects.toBe(error);
+  });
+
+  it("drops a session whose close is NULL (0): it has no price to plot", async () => {
+    mockGetStockPrices.mockResolvedValue({
+      points: [
+        { date: "2026-11-02", open: 1, high: 1, low: 1, close: 0, adjustedClose: 0, volume: BigInt(0) },
+        { date: "2026-11-03", open: 1, high: 1, low: 1, close: 10.5, adjustedClose: 10.4, volume: BigInt(7) },
+      ],
+    });
+    const rows = await fetchStockPricesClient("BHP", { to: "2026-11-03" });
+    expect(rows.map((r) => r.date)).toEqual(["2026-11-03"]);
+    expect(rows.every((r) => r.close > 0)).toBe(true);
   });
 
   it("rejects on a transient failure: an empty answer is never returned for it", async () => {

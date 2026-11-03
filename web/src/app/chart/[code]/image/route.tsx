@@ -57,8 +57,7 @@ export async function GET(
     get: (k) => (k === "code" ? rawCode : req.nextUrl.searchParams.get(k)),
   });
 
-  const { card, complete, resolved, pricesThrough, shortsThrough } =
-    await loadChartCard(
+  const { card, complete, resolved } = await loadChartCard(
     { code, view, period, anchor },
     READ_TIMEOUT_MS,
   );
@@ -76,9 +75,6 @@ export async function GET(
       // The Discord bot uploads this card with its messages, and draws its own
       // rather than upload one missing a series (lib/discord/chart-card.ts).
       "x-chart-card": complete ? "complete" : "partial",
-      // The newest dates the card drew, for the bot's button ids (load-card.tsx).
-      ...(pricesThrough ? { "x-chart-prices-through": pricesThrough } : {}),
-      ...(shortsThrough ? { "x-chart-shorts-through": shortsThrough } : {}),
     },
   });
 }

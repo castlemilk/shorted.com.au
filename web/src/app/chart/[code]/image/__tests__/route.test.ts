@@ -20,10 +20,11 @@ jest.mock("~/app/actions/getStock", () => ({
   getStock: (code: string) => mockGetStock(code),
 }));
 const mockLogo = jest.fn();
+const mockSiteLogo = jest.fn();
 jest.mock("~/@/lib/og/card", () => ({
   OG_SIZE: { width: 1200, height: 630 },
   NO_LOGO: { src: "", aspect: 1 },
-  getOgLogo: async () => "logo.png",
+  getOgLogo: () => mockSiteLogo(),
   getCompanyLogo: (url: string | undefined) => mockLogo(url),
 }));
 jest.mock("~/@/lib/og/chart-card", () => ({ OgChartCard: () => null }));
@@ -62,6 +63,7 @@ beforeEach(() => {
   mockPrices.mockReset().mockResolvedValue(points("2026-11-02", "2026-11-03"));
   mockGetStock.mockReset().mockResolvedValue(WITH_LOGO);
   mockLogo.mockReset().mockResolvedValue({ src: "data:image/png;base64,AA", aspect: 1 });
+  mockSiteLogo.mockReset().mockResolvedValue("data:image/png;base64,SITE");
   // 10:00 on 4 Nov 2026 in Sydney.
   jest.useFakeTimers({ now: new Date("2026-11-03T23:00:00Z") });
 });
@@ -99,6 +101,12 @@ describe("GET /chart/[code]/image: the cache policy the loader decides", () => {
     expect(last().options.headers["cache-control"]).toBe(CACHE_COMPLETE);
   });
 
+  it("does not hold a settled card for a month when the site logo did not load", async () => {
+    mockSiteLogo.mockResolvedValue("");
+    await request(SETTLED_QUERY);
+    expect(last().options.headers["cache-control"]).toBe(CACHE_COMPLETE);
+  });
+
   it("does not hold a settled card for a month when the logo read threw", async () => {
     mockLogo.mockRejectedValue(new Error("network"));
     await request(SETTLED_QUERY);
@@ -128,36 +136,9 @@ describe("GET /chart/[code]/image: the cache policy the loader decides", () => {
   });
 });
 
-describe("GET /chart/[code]/image: the dates the card read", () => {
-  it("sends the newest close and the newest short report of an anchored card", async () => {
-    await request(RECENT_QUERY);
-    expect(last().options.headers["x-chart-prices-through"]).toBe("2026-11-03");
-    expect(last().options.headers["x-chart-shorts-through"]).toBe("2026-10-28");
-  });
-
-  it("sends the dates for a short-view card too, since the bot needs both", async () => {
-    await request("view=short&asof=2026-11-04&prices=2026-11-03&shorts=2026-10-28");
-    expect(last().options.headers["x-chart-prices-through"]).toBe("2026-11-03");
-    expect(last().options.headers["x-chart-shorts-through"]).toBe("2026-10-28");
-  });
-
-  it("omits a date whose read came back empty", async () => {
-    mockPrices.mockResolvedValue([]);
-    await request(RECENT_QUERY);
-    expect(last().options.headers).not.toHaveProperty("x-chart-prices-through");
-    expect(last().options.headers["x-chart-shorts-through"]).toBe("2026-10-28");
-  });
-
-  it("sends no dates for a live card", async () => {
-    await request("view=combined&period=1m");
-    expect(last().options.headers).not.toHaveProperty("x-chart-prices-through");
-    expect(last().options.headers).not.toHaveProperty("x-chart-shorts-through");
-  });
-});
-
 describe("GET /chart/[code]/image: what the anchor selects", () => {
   it("reads the anchored windows for an anchored card and the live ones otherwise", async () => {
-    await request(RECENT_QUERY);
+    await request("view=combined&period=3m&asof=2026-11-04&prices=2026-11-03&shorts=2026-10-28");
     expect(mockShorts.mock.calls[0]![2]).toEqual({
       day: "2026-11-04",
       prices: "2026-11-03",
@@ -165,6 +146,17 @@ describe("GET /chart/[code]/image: what the anchor selects", () => {
     });
     await request("view=combined&period=3m");
     expect(mockShorts.mock.calls[1]![2]).toBeUndefined();
+  });
+
+  it("reads only the prices for a price-view card, and only the shorts for a short-view one", async () => {
+    await request("view=price&asof=2026-11-04&prices=2026-11-03&shorts=2026-10-28");
+    expect(mockShorts).not.toHaveBeenCalled();
+    expect(mockPrices).toHaveBeenCalledTimes(1);
+    mockShorts.mockClear();
+    mockPrices.mockClear();
+    await request("view=short&asof=2026-11-04&prices=2026-11-03&shorts=2026-10-28");
+    expect(mockPrices).not.toHaveBeenCalled();
+    expect(mockShorts).toHaveBeenCalledTimes(1);
   });
 
   it("draws the period as posted for an anchored card", async () => {
