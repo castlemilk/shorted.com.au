@@ -321,6 +321,24 @@ describe("loadNoticeFeed", () => {
     expect(mockRequestNotices).toHaveBeenCalledTimes(1);
   });
 
+  it("forwards the industry and the dates, and sends no window or activity beside them", async () => {
+    await loadNoticeFeed({ industry: "Energy", since: "2026-08-01", until: "2026-10-31" });
+
+    expect(mockRequestNotices).toHaveBeenCalledWith({
+      windowDays: 0,
+      event: "",
+      kind: "",
+      stockCode: "",
+      industry: "Energy",
+      since: "2026-08-01",
+      until: "2026-10-31",
+      institutionSlug: "",
+      cursor: "",
+      limit: 50,
+      includeActivity: false,
+    });
+  });
+
   it("sends the clamped query, rounding a window up and capping the page as the API does", async () => {
     const page = await loadNoticeFeed({ windowDays: 45, limit: 5000 });
 
@@ -329,6 +347,9 @@ describe("loadNoticeFeed", () => {
       event: "",
       kind: "",
       stockCode: "",
+      industry: "",
+      since: "",
+      until: "",
       institutionSlug: "",
       cursor: "",
       limit: 100,

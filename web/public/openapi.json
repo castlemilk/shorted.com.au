@@ -2440,6 +2440,92 @@
         "title": "FinancialYearOption",
         "type": "object"
       },
+      "shorts.v1alpha1.FlowChange": {
+        "additionalProperties": false,
+        "description": "The window's change in disclosed exposure of one holder kind in one industry,\n split by direction. exposure_aud is a magnitude: the direction carries the\n sign, so a down row is a fall of that size. Like the positions, it sums only\n the notices whose stock has a positive market cap.",
+        "properties": {
+          "direction": {
+            "description": "up or down. (proto string)",
+            "title": "direction",
+            "type": "string"
+          },
+          "exposureAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "exposure_aud",
+            "type": "number"
+          },
+          "hasExposure": {
+            "description": "(proto bool)",
+            "title": "has_exposure",
+            "type": "boolean"
+          },
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "kind": {
+            "description": "(proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "notices": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "notices",
+            "type": "integer"
+          }
+        },
+        "title": "FlowChange",
+        "type": "object"
+      },
+      "shorts.v1alpha1.FlowPosition": {
+        "additionalProperties": false,
+        "description": "Disclosed exposure of one holder kind in one industry, estimated: the sum of\n each current interest's voting power over 100, times the stock's market cap.\n The sum covers only the interests whose stock has a positive market cap, and\n has_exposure is set when one does; the rest are not counted in it.",
+        "properties": {
+          "exposureAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "exposure_aud",
+            "type": "number"
+          },
+          "hasExposure": {
+            "description": "(proto bool)",
+            "title": "has_exposure",
+            "type": "boolean"
+          },
+          "holdings": {
+            "description": "Interests counted in the cell. (proto int32)",
+            "format": "int32",
+            "title": "holdings",
+            "type": "integer"
+          },
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "kind": {
+            "description": "(proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "largestCode": {
+            "description": "The cell's largest interest by voting power. (proto string)",
+            "title": "largest_code",
+            "type": "string"
+          },
+          "largestPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "largest_pct",
+            "type": "number"
+          }
+        },
+        "title": "FlowPosition",
+        "type": "object"
+      },
       "shorts.v1alpha1.FundHolding": {
         "additionalProperties": false,
         "description": "One stock in one fund's holdings file.",
@@ -2535,6 +2621,159 @@
           }
         },
         "title": "FundHolding",
+        "type": "object"
+      },
+      "shorts.v1alpha1.FundPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "asAt": {
+            "description": "(proto string)",
+            "title": "as_at",
+            "type": "string"
+          },
+          "hasValue": {
+            "description": "(proto bool)",
+            "title": "has_value",
+            "type": "boolean"
+          },
+          "hasWeight": {
+            "description": "(proto bool)",
+            "title": "has_weight",
+            "type": "boolean"
+          },
+          "valueAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "value_aud",
+            "type": "number"
+          },
+          "weightPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "weight_pct",
+            "type": "number"
+          }
+        },
+        "title": "FundPoint",
+        "type": "object"
+      },
+      "shorts.v1alpha1.FundPositionChange": {
+        "additionalProperties": false,
+        "description": "One stock's weight across the funds that hold it on both dates, the funds its\n delta sums: weight to less weight from is the delta. A new or dropped stock\n sums the funds on the one date it has and has no delta. A stock held on both\n dates only by different funds (one on each date) compares no fund with itself,\n so it is in no list.",
+        "properties": {
+          "companyName": {
+            "description": "(proto string)",
+            "title": "company_name",
+            "type": "string"
+          },
+          "deltaPp": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "delta_pp",
+            "type": "number"
+          },
+          "funds": {
+            "description": "Funds holding it on either date. (proto int32)",
+            "format": "int32",
+            "title": "funds",
+            "type": "integer"
+          },
+          "hasDelta": {
+            "description": "(proto bool)",
+            "title": "has_delta",
+            "type": "boolean"
+          },
+          "hasValueFrom": {
+            "description": "(proto bool)",
+            "title": "has_value_from",
+            "type": "boolean"
+          },
+          "hasValueTo": {
+            "description": "(proto bool)",
+            "title": "has_value_to",
+            "type": "boolean"
+          },
+          "hasWeightFrom": {
+            "description": "(proto bool)",
+            "title": "has_weight_from",
+            "type": "boolean"
+          },
+          "hasWeightTo": {
+            "description": "(proto bool)",
+            "title": "has_weight_to",
+            "type": "boolean"
+          },
+          "state": {
+            "description": "current, new or dropped. (proto string)",
+            "title": "state",
+            "type": "string"
+          },
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          },
+          "valueFromAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "value_from_aud",
+            "type": "number"
+          },
+          "valueToAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "value_to_aud",
+            "type": "number"
+          },
+          "weightFromPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "weight_from_pct",
+            "type": "number"
+          },
+          "weightToPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "weight_to_pct",
+            "type": "number"
+          }
+        },
+        "title": "FundPositionChange",
+        "type": "object"
+      },
+      "shorts.v1alpha1.FundSeries": {
+        "additionalProperties": false,
+        "properties": {
+          "fundName": {
+            "description": "(proto string)",
+            "title": "fund_name",
+            "type": "string"
+          },
+          "institutionName": {
+            "description": "(proto string)",
+            "title": "institution_name",
+            "type": "string"
+          },
+          "institutionSlug": {
+            "description": "(proto string)",
+            "title": "institution_slug",
+            "type": "string"
+          },
+          "points": {
+            "description": "Oldest first, one a snapshot. (proto shorts.v1alpha1.FundPoint)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundPoint"
+            },
+            "title": "points",
+            "type": "array"
+          },
+          "sourceKind": {
+            "description": "etf or super_phd. (proto string)",
+            "title": "source_kind",
+            "type": "string"
+          }
+        },
+        "title": "FundSeries",
         "type": "object"
       },
       "shorts.v1alpha1.FundamentalsCoverage": {
@@ -4348,6 +4587,152 @@
         "title": "GetMarketNewsResponse",
         "type": "object"
       },
+      "shorts.v1alpha1.GetOwnershipActivityRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "weeks": {
+            "description": "1 to 52 weeks; 0 means 52. Negative is InvalidArgument. (proto int32)",
+            "format": "int32",
+            "title": "weeks",
+            "type": "integer"
+          }
+        },
+        "title": "GetOwnershipActivityRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetOwnershipActivityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "asOf": {
+            "description": "(proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
+          "fromWeek": {
+            "description": "The first and last Mondays of the weeks served, YYYY-MM-DD. The last week\n is the newest notice's. (proto string)",
+            "title": "from_week",
+            "type": "string"
+          },
+          "rows": {
+            "description": "Every industry of the register, every week in the range, gap-filled with\n zero counts: a week with no notice reads 0, and has_net_pp is false. (proto shorts.v1alpha1.IndustryWeek)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.IndustryWeek"
+            },
+            "title": "rows",
+            "type": "array"
+          },
+          "toWeek": {
+            "description": "(proto string)",
+            "title": "to_week",
+            "type": "string"
+          }
+        },
+        "title": "GetOwnershipActivityResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetOwnershipFlowsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "The window of change, as GetOwnershipMapRequest. The positions are the\n current holdings and do not depend on it. (proto string)",
+            "title": "from",
+            "type": "string"
+          },
+          "to": {
+            "description": "(proto string)",
+            "title": "to",
+            "type": "string"
+          }
+        },
+        "title": "GetOwnershipFlowsRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetOwnershipFlowsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "asOf": {
+            "description": "(proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
+          "changes": {
+            "description": "(proto shorts.v1alpha1.FlowChange)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FlowChange"
+            },
+            "title": "changes",
+            "type": "array"
+          },
+          "from": {
+            "description": "(proto string)",
+            "title": "from",
+            "type": "string"
+          },
+          "positions": {
+            "description": "(proto shorts.v1alpha1.FlowPosition)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FlowPosition"
+            },
+            "title": "positions",
+            "type": "array"
+          },
+          "to": {
+            "description": "(proto string)",
+            "title": "to",
+            "type": "string"
+          }
+        },
+        "title": "GetOwnershipFlowsResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetOwnershipMapRequest": {
+        "additionalProperties": false,
+        "description": "The desk's map request. The dates are YYYY-MM-DD, inclusive. Empty means the\n default: the 91 days ending at the newest notice read. A span over 366 days\n is InvalidArgument.",
+        "properties": {
+          "from": {
+            "description": "(proto string)",
+            "title": "from",
+            "type": "string"
+          },
+          "to": {
+            "description": "(proto string)",
+            "title": "to",
+            "type": "string"
+          }
+        },
+        "title": "GetOwnershipMapRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetOwnershipMapResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "asOf": {
+            "description": "(proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
+          "from": {
+            "description": "(proto string)",
+            "title": "from",
+            "type": "string"
+          },
+          "stocks": {
+            "description": "(proto shorts.v1alpha1.MapStock)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.MapStock"
+            },
+            "title": "stocks",
+            "type": "array"
+          },
+          "to": {
+            "description": "(proto string)",
+            "title": "to",
+            "type": "string"
+          }
+        },
+        "title": "GetOwnershipMapResponse",
+        "type": "object"
+      },
       "shorts.v1alpha1.GetOwnershipOverviewRequest": {
         "additionalProperties": false,
         "title": "GetOwnershipOverviewRequest",
@@ -5608,6 +5993,38 @@
           }
         },
         "title": "GetStockFinancialHighlightsResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetStockFundSeriesRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          }
+        },
+        "title": "GetStockFundSeriesRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetStockFundSeriesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "funds": {
+            "description": "(proto shorts.v1alpha1.FundSeries)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundSeries"
+            },
+            "title": "funds",
+            "type": "array"
+          },
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          }
+        },
+        "title": "GetStockFundSeriesResponse",
         "type": "object"
       },
       "shorts.v1alpha1.GetStockFundamentalsRequest": {
@@ -7118,6 +7535,71 @@
         "title": "IndustryTotal",
         "type": "object"
       },
+      "shorts.v1alpha1.IndustryWeek": {
+        "additionalProperties": false,
+        "description": "One industry's notices in one ISO week, and the net change in disclosed\n voting power they state.",
+        "properties": {
+          "became": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "became",
+            "type": "integer"
+          },
+          "ceased": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "ceased",
+            "type": "integer"
+          },
+          "changed": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "changed",
+            "type": "integer"
+          },
+          "decreased": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "decreased",
+            "type": "integer"
+          },
+          "hasNetPp": {
+            "description": "(proto bool)",
+            "title": "has_net_pp",
+            "type": "boolean"
+          },
+          "increased": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "increased",
+            "type": "integer"
+          },
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "netPp": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "net_pp",
+            "type": "number"
+          },
+          "nz": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "nz",
+            "type": "integer"
+          },
+          "weekStart": {
+            "description": "The Monday that starts the week, YYYY-MM-DD. (proto string)",
+            "title": "week_start",
+            "type": "string"
+          }
+        },
+        "title": "IndustryWeek",
+        "type": "object"
+      },
       "shorts.v1alpha1.InlineImage": {
         "additionalProperties": false,
         "description": "Inline image embedded in a Take body.",
@@ -7787,6 +8269,62 @@
           }
         },
         "title": "ListEditorialTakesResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListFundPositionChangesRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "YYYY-MM-DD. Each side is the newest snapshot at or before it, per fund. Empty\n means the two newest snapshot dates. The date range must not be inverted. (proto string)",
+            "title": "from",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Per direction: up to this many of the largest rises and the largest falls,\n and up to this many new and dropped stocks each. 0 means 10; above 50 is 50. (proto int32)",
+            "format": "int32",
+            "title": "limit",
+            "type": "integer"
+          },
+          "to": {
+            "description": "(proto string)",
+            "title": "to",
+            "type": "string"
+          }
+        },
+        "title": "ListFundPositionChangesRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListFundPositionChangesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "The dates used: the newest snapshot at or before each request date, and the\n first snapshot for a from date before them all. (proto string)",
+            "title": "from",
+            "type": "string"
+          },
+          "rows": {
+            "description": "Rises (largest first), then falls (largest first), then new, then dropped. (proto shorts.v1alpha1.FundPositionChange)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundPositionChange"
+            },
+            "title": "rows",
+            "type": "array"
+          },
+          "snapshotDates": {
+            "description": "Every distinct snapshot date across the tracked funds, oldest first. (proto string)",
+            "items": {
+              "type": "string"
+            },
+            "title": "snapshot_dates",
+            "type": "array"
+          },
+          "to": {
+            "description": "(proto string)",
+            "title": "to",
+            "type": "string"
+          }
+        },
+        "title": "ListFundPositionChangesResponse",
         "type": "object"
       },
       "shorts.v1alpha1.ListHousingRegionsRequest": {
@@ -8711,9 +9249,14 @@
             "type": "string"
           },
           "includeActivity": {
-            "description": "Also compute the window's counts, weekly buckets and largest moves\n (windows of at most 90 days; omitted above that). Only the first page\n (cursor \"\"): a page after a cursor never carries it. (proto bool)",
+            "description": "Also compute the window's counts, weekly buckets and largest moves\n (windows of at most 90 days; omitted above that, and with since or until). Only\n the first page (cursor \"\"): a page after a cursor never carries it. (proto bool)",
             "title": "include_activity",
             "type": "boolean"
+          },
+          "industry": {
+            "description": "\"\" or an industry, matched exactly as the register's industries are. \"\" is\n no filter, so the stocks with no industry on record cannot be filtered to. (proto string)",
+            "title": "industry",
+            "type": "string"
           },
           "institutionSlug": {
             "description": "\"\" or a registry slug: that holder's notices, as its institution page reads\n them. Holders off the map cannot be filtered. (proto string)",
@@ -8731,9 +9274,19 @@
             "title": "limit",
             "type": "integer"
           },
+          "since": {
+            "description": "\"\" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates\n are the window: window_days is ignored when since or until is named, and the\n response echoes 0. With no until the span runs to today; with no since it\n starts 365 days before until. A span over 366 days is InvalidArgument, as is\n an invalid date. (proto string)",
+            "title": "since",
+            "type": "string"
+          },
           "stockCode": {
             "description": "\"\" or an ASX code (1 to 6 uppercase alphanumerics). (proto string)",
             "title": "stock_code",
+            "type": "string"
+          },
+          "until": {
+            "description": "\"\" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as\n InvalidArgument when it is before since (see since for the span). (proto string)",
+            "title": "until",
             "type": "string"
           },
           "windowDays": {
@@ -9032,6 +9585,97 @@
           }
         },
         "title": "ListTopDonorsResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.MapStock": {
+        "additionalProperties": false,
+        "description": "One stock on the map. The figures are what the notices disclose, each\n interest counted once: not a share of the company.",
+        "properties": {
+          "companyName": {
+            "description": "(proto string)",
+            "title": "company_name",
+            "type": "string"
+          },
+          "disclosedPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "disclosed_pct",
+            "type": "number"
+          },
+          "flowPp": {
+            "description": "Net change in disclosed voting power across the notices released in the\n window, in percentage points. A ceased notice counts its previous figure\n as a fall. Unknown when no notice in the window states a figure. (proto double)",
+            "format": "double",
+            "title": "flow_pp",
+            "type": "number"
+          },
+          "hasFlowPp": {
+            "description": "(proto bool)",
+            "title": "has_flow_pp",
+            "type": "boolean"
+          },
+          "hasIndexPct": {
+            "description": "(proto bool)",
+            "title": "has_index_pct",
+            "type": "boolean"
+          },
+          "hasMarketCap": {
+            "description": "(proto bool)",
+            "title": "has_market_cap",
+            "type": "boolean"
+          },
+          "hasShortPct": {
+            "description": "(proto bool)",
+            "title": "has_short_pct",
+            "type": "boolean"
+          },
+          "hedgePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "hedge_pct",
+            "type": "number"
+          },
+          "indexPct": {
+            "description": "Shares held by the index funds tracked, over shares on issue. (proto double)",
+            "format": "double",
+            "title": "index_pct",
+            "type": "number"
+          },
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "institutionalPct": {
+            "description": "The investor kinds' share of the disclosure (banks and brokers excluded). (proto double)",
+            "format": "double",
+            "title": "institutional_pct",
+            "type": "number"
+          },
+          "marketCap": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "market_cap",
+            "type": "number"
+          },
+          "notices": {
+            "description": "Notices released in the window. (proto int32)",
+            "format": "int32",
+            "title": "notices",
+            "type": "integer"
+          },
+          "shortPct": {
+            "description": "ASIC's latest reported short position, over shares on issue. (proto double)",
+            "format": "double",
+            "title": "short_pct",
+            "type": "number"
+          },
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          }
+        },
+        "title": "MapStock",
         "type": "object"
       },
       "shorts.v1alpha1.MarketRegime": {
@@ -17977,6 +18621,183 @@
         ]
       }
     },
+    "/shorts.v1alpha1.OwnershipService/GetOwnershipActivity": {
+      "post": {
+        "description": "The desk's movement: each industry's notices by week, and the net change\n in disclosed voting power that week.",
+        "operationId": "OwnershipService_GetOwnershipActivity",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetOwnershipActivityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetOwnershipActivityResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetOwnershipActivity",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.OwnershipService/GetOwnershipFlows": {
+      "post": {
+        "description": "The desk's flows: disclosed exposure by holder kind and industry, and the\n net change in it over a window.",
+        "operationId": "OwnershipService_GetOwnershipFlows",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetOwnershipFlowsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetOwnershipFlowsResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetOwnershipFlows",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.OwnershipService/GetOwnershipMap": {
+      "post": {
+        "description": "The desk's map: every stock with a current substantial holder, what its\n notices disclose, and how that moved over a window.",
+        "operationId": "OwnershipService_GetOwnershipMap",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetOwnershipMapRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetOwnershipMapResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetOwnershipMap",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
     "/shorts.v1alpha1.OwnershipService/GetOwnershipOverview": {
       "post": {
         "description": "The map and the aggregated view: institutions by kind, the most crowded\n registers, stocks crowded both long and short, the latest notices, super\n funds' consensus holdings and the stocks most owned by index funds.",
@@ -18036,6 +18857,65 @@
         ]
       }
     },
+    "/shorts.v1alpha1.OwnershipService/GetStockFundSeries": {
+      "post": {
+        "description": "One stock's weight and value in each tracked fund, at every snapshot.",
+        "operationId": "OwnershipService_GetStockFundSeries",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetStockFundSeriesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetStockFundSeriesResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetStockFundSeries",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
     "/shorts.v1alpha1.OwnershipService/GetStockOwnership": {
       "post": {
         "description": "Who holds one stock: its substantial holders, their notices, and the index\n funds and super fund options that hold it.",
@@ -18090,6 +18970,65 @@
           }
         },
         "summary": "GetStockOwnership",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.OwnershipService/ListFundPositionChanges": {
+      "post": {
+        "description": "The index fund positions: the change in each stock's weight across the\n tracked funds between two snapshot dates.",
+        "operationId": "OwnershipService_ListFundPositionChanges",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.ListFundPositionChangesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.ListFundPositionChangesResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "ListFundPositionChanges",
         "tags": [
           "shorts.v1alpha1.OwnershipService"
         ]

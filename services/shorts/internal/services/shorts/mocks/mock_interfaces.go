@@ -2635,6 +2635,20 @@ func (mr *MockCacheMockRecorder) GetOrSetWithTTL(key, ttl, computeFn any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrSetWithTTL", reflect.TypeOf((*MockCache)(nil).GetOrSetWithTTL), key, ttl, computeFn)
 }
 
+// GetOwnershipMapKey mocks base method.
+func (m *MockCache) GetOwnershipMapKey(generation int64) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnershipMapKey", generation)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetOwnershipMapKey indicates an expected call of GetOwnershipMapKey.
+func (mr *MockCacheMockRecorder) GetOwnershipMapKey(generation any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnershipMapKey", reflect.TypeOf((*MockCache)(nil).GetOwnershipMapKey), generation)
+}
+
 // GetPeerComparisonKey mocks base method.
 func (m *MockCache) GetPeerComparisonKey(stockCode string, limit int32) string {
 	m.ctrl.T.Helper()

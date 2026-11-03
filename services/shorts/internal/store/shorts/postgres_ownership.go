@@ -374,17 +374,19 @@ func (s *postgresStore) LatestShortPositions(ctx context.Context) (map[string]Sh
 	return out, err
 }
 
-// marketCapSQL reads company-metadata.market_cap whatever its type: a bigint
-// locally, text in production, where a missing value is an empty string and a
-// bare ::float8 cast fails the whole read (22P02). Anything that is not a
+// marketCapSQL reads a company-metadata market cap column whatever its type: a
+// bigint locally, text in production, where a missing value is an empty string
+// and a bare ::float8 cast fails the whole read (22P02). Anything that is not a
 // number reads as NULL, an unknown market cap.
-const marketCapSQL = `CASE WHEN btrim(market_cap::text) ~ '^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$'
-		THEN btrim(market_cap::text)::float8 END`
+func marketCapSQL(col string) string {
+	return `CASE WHEN btrim(` + col + `::text) ~ '^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$'
+		THEN btrim(` + col + `::text)::float8 END`
+}
 
 func (s *postgresStore) OwnershipCompanies(ctx context.Context) (map[string]OwnershipCompany, error) {
 	out := map[string]OwnershipCompany{}
 	err := ownershipRead(ctx, s, "OwnershipCompanies", `
-		SELECT stock_code, COALESCE(company_name, ''), COALESCE(industry, ''), `+marketCapSQL+`
+		SELECT stock_code, COALESCE(company_name, ''), COALESCE(industry, ''), `+marketCapSQL("market_cap")+`
 		FROM "company-metadata"`, nil,
 		func(r pgx.Rows) error {
 			var code string
@@ -404,14 +406,17 @@ func (s *postgresStore) OwnershipCompanies(ctx context.Context) (map[string]Owne
 // noticeEventSQL is the same rule for the feed's filter and activity: a pg test
 // selects both for every notice and compares them.
 
-// NoticeFilter narrows the notices feed. Empty fields do not filter. Since is
-// the first release date in the window, YYYY-MM-DD, and empty for no date
-// clause. HolderKey is one holder's key: a registry slug is its institution's
-// notices, keyed as the institution page keys them.
+// NoticeFilter narrows the notices feed. Empty fields do not filter. Since and
+// Until are release dates, YYYY-MM-DD, inclusive at both ends; empty for no date
+// clause. Industry is the stock's industry as company-metadata states it.
+// HolderKey is one holder's key: a registry slug is its institution's notices,
+// keyed as the institution page keys them.
 type NoticeFilter struct {
 	Since     string
+	Until     string
 	Event     string
 	Kind      string
+	Industry  string
 	StockCode string
 	HolderKey string
 }
@@ -477,9 +482,17 @@ func noticeWhere(f NoticeFilter, args []any) (string, []any) {
 		args = append(args, f.Event)
 		fmt.Fprintf(&b, " AND %s = $%d", noticeEventSQL, len(args))
 	}
+	if f.Until != "" {
+		args = append(args, f.Until)
+		fmt.Fprintf(&b, " AND h.announced_on <= $%d::date", len(args))
+	}
 	if f.Kind != "" {
 		args = append(args, f.Kind)
 		fmt.Fprintf(&b, " AND %s = $%d", holderKindSQL, len(args))
+	}
+	if f.Industry != "" {
+		args = append(args, f.Industry)
+		fmt.Fprintf(&b, " AND h.stock_code IN (SELECT stock_code FROM \"company-metadata\" WHERE industry = $%d)", len(args))
 	}
 	if f.StockCode != "" {
 		args = append(args, f.StockCode)
@@ -491,6 +504,14 @@ func noticeWhere(f NoticeFilter, args []any) (string, []any) {
 	}
 	return b.String(), args
 }
+
+// noticeDeltaSQL is the change in voting power a notice states, in percentage points,
+// over alias h. The tests read the same rule in Go (noticeDelta), so the two agree.
+const noticeDeltaSQL = `CASE
+		WHEN h.ceased OR h.form = '605' THEN -(h.previous_pct::float8)
+		WHEN h.previous_pct IS NULL THEN h.present_pct::float8
+		WHEN h.present_pct IS NULL THEN NULL
+		ELSE h.present_pct::float8 - h.previous_pct::float8 END`
 
 func scanSubstantialNotice(r pgx.Rows, row *SubstantialNoticeRow) error {
 	return r.Scan(&row.StockCode, &row.HolderKey, &row.HolderName, &row.InstitutionSlug, &row.Kind, &row.Form,
@@ -607,6 +628,258 @@ func (s *postgresStore) noticeMoves(ctx context.Context, f NoticeFilter, event, 
 		func(r pgx.Rows) error {
 			var row SubstantialNoticeRow
 			if err := scanSubstantialNotice(r, &row); err != nil {
+				return err
+			}
+			out = append(out, row)
+			return nil
+		})
+	return out, err
+}
+
+// The desk (migration 000137, spec section 13). These reads are the desk's
+// instruments: the window's change per stock, its change by kind and industry,
+// each industry's notices by week, the index fund snapshots and a stock's fund
+// series. The notices reads run over the table, bounded by their dates; the
+// fund reads run over the snapshot tables. All of them go through ownershipRead,
+// so a schema without 000137 reads empty.
+
+// OwnershipDeskStore is the desk's read surface. The server finds it by type
+// assertion on the same store, so a store without it answers the desk rpcs empty.
+type OwnershipDeskStore interface {
+	NoticeFlowByStock(ctx context.Context, from, until string) (map[string]NoticeFlow, error)
+	NoticeChangesByKindIndustry(ctx context.Context, from, until string) ([]NoticeChangeRow, error)
+	NoticeWeeklyByIndustry(ctx context.Context, from, until string) ([]IndustryWeekRow, error)
+	FundSnapshotDates(ctx context.Context) ([]string, error)
+	FundPositionPairs(ctx context.Context, from, until string) ([]FundPositionPair, error)
+	StockFundSeries(ctx context.Context, stockCode string) ([]FundSeriesRow, error)
+}
+
+var _ OwnershipDeskStore = (*postgresStore)(nil)
+
+// NoticeFlow is one stock's notices released in a window: how many, and the net
+// change in disclosed voting power they state (Has is false when none states a
+// figure).
+type NoticeFlow struct {
+	Notices int
+	Net     float64
+	Has     bool
+}
+
+// NoticeChangeRow is one holder kind's change in one industry over a window, in
+// one direction: the notices that moved and the estimated exposure they moved
+// (the change over 100, times the market cap; HasExposure is false when no
+// notice's stock has a market cap).
+type NoticeChangeRow struct {
+	Kind, Industry string
+	Up             bool
+	ExposureAUD    float64
+	HasExposure    bool
+	Notices        int
+}
+
+// IndustryWeekRow is one industry's notices in one ISO week, by event, and the
+// net change in disclosed voting power they state (NetPP is nil when none does).
+type IndustryWeekRow struct {
+	Industry, WeekStart                               string
+	Became, Increased, Decreased, Changed, Ceased, NZ int
+	NetPP                                             *float64
+}
+
+// FundPositionPair is one stock's holding in one fund, on the two snapshot dates
+// being compared. The fund is compared only when it has a snapshot at or before
+// each date, and each side is that fund's newest snapshot at or before the date.
+type FundPositionPair struct {
+	InstitutionSlug, FundName, StockCode, SecurityName string
+	InFrom, InTo                                       bool
+	FromWeight, FromValue, ToWeight, ToValue           *float64
+}
+
+// FundSeriesRow is one fund's holding of a stock at one snapshot.
+type FundSeriesRow struct {
+	InstitutionSlug, FundName, SourceKind, AsAt string
+	Weight, Value                               *float64
+}
+
+// fundSourceKinds are the tracked funds: index funds' files and super fund
+// options' disclosures.
+const fundSourceKinds = `('etf', 'super_phd')`
+
+// NoticeFlowByStock is every stock's notices released in [from, until] and the
+// net change they state, one whole-window aggregate.
+func (s *postgresStore) NoticeFlowByStock(ctx context.Context, from, until string) (map[string]NoticeFlow, error) {
+	out := map[string]NoticeFlow{}
+	err := ownershipRead(ctx, s, "NoticeFlowByStock", `
+		SELECT x.stock_code, count(*), COALESCE(sum(x.delta), 0)::float8, count(x.delta)
+		FROM (
+			SELECT h.stock_code, `+noticeDeltaSQL+` AS delta
+			FROM substantial_holder_notices h
+			WHERE h.announced_on BETWEEN $1::date AND $2::date
+		) x
+		GROUP BY x.stock_code`, []any{from, until},
+		func(r pgx.Rows) error {
+			var code string
+			var f NoticeFlow
+			var known int
+			if err := r.Scan(&code, &f.Notices, &f.Net, &known); err != nil {
+				return err
+			}
+			f.Has = known > 0
+			out[code] = f
+			return nil
+		})
+	return out, err
+}
+
+// NoticeChangesByKindIndustry is the window's moves by holder kind and industry,
+// split by direction. A notice that states no change is in none of them. The
+// exposure is the change over 100 times the stock's market cap, guarded like the
+// register's own market cap. A stock with no positive market cap adds no exposure,
+// and its notice is not counted in the capped count.
+func (s *postgresStore) NoticeChangesByKindIndustry(ctx context.Context, from, until string) ([]NoticeChangeRow, error) {
+	var out []NoticeChangeRow
+	err := ownershipRead(ctx, s, "NoticeChangesByKindIndustry", `
+		SELECT x.kind, x.industry, (x.delta > 0), sum(x.delta / 100 * x.market_cap) FILTER (WHERE x.market_cap > 0),
+		       count(x.market_cap) FILTER (WHERE x.market_cap > 0), count(*)
+		FROM (
+			SELECT `+holderKindSQL+` AS kind, COALESCE(cm.industry, '') AS industry,
+			       `+noticeDeltaSQL+` AS delta, `+marketCapSQL("cm.market_cap")+` AS market_cap
+			FROM substantial_holder_notices h
+			LEFT JOIN ownership_institutions i ON i.slug = h.institution_slug
+			LEFT JOIN "company-metadata" cm ON cm.stock_code = h.stock_code
+			WHERE h.announced_on BETWEEN $1::date AND $2::date
+		) x
+		WHERE x.delta IS NOT NULL AND x.delta <> 0
+		GROUP BY x.kind, x.industry, (x.delta > 0)
+		ORDER BY x.kind, x.industry`, []any{from, until},
+		func(r pgx.Rows) error {
+			var row NoticeChangeRow
+			var exposure *float64
+			var withCap int
+			if err := r.Scan(&row.Kind, &row.Industry, &row.Up, &exposure, &withCap, &row.Notices); err != nil {
+				return err
+			}
+			if exposure != nil {
+				row.ExposureAUD = *exposure
+			}
+			row.HasExposure = withCap > 0
+			out = append(out, row)
+			return nil
+		})
+	return out, err
+}
+
+// NoticeWeeklyByIndustry is each industry's notices released in [from, until] by
+// ISO week, one aggregate. A week with no notice in an industry has no row; the
+// service fills the gaps.
+func (s *postgresStore) NoticeWeeklyByIndustry(ctx context.Context, from, until string) ([]IndustryWeekRow, error) {
+	var out []IndustryWeekRow
+	err := ownershipRead(ctx, s, "NoticeWeeklyByIndustry", `
+		SELECT ev.industry, ev.week_start::text,
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventBecame+`'),
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventIncreased+`'),
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventDecreased+`'),
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventChanged+`'),
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventCeased+`'),
+		       count(*) FILTER (WHERE ev.notice_event = '`+EventNZ+`'),
+		       sum(ev.delta)::float8
+		FROM (
+			SELECT COALESCE(cm.industry, '') AS industry, date_trunc('week', h.announced_on::timestamp)::date AS week_start,
+			       `+noticeEventSQL+` AS notice_event, `+noticeDeltaSQL+` AS delta
+			FROM substantial_holder_notices h
+			LEFT JOIN "company-metadata" cm ON cm.stock_code = h.stock_code
+			WHERE h.announced_on BETWEEN $1::date AND $2::date
+		) ev
+		GROUP BY ev.industry, ev.week_start
+		ORDER BY ev.week_start, ev.industry`, []any{from, until},
+		func(r pgx.Rows) error {
+			var w IndustryWeekRow
+			if err := r.Scan(&w.Industry, &w.WeekStart, &w.Became, &w.Increased, &w.Decreased, &w.Changed,
+				&w.Ceased, &w.NZ, &w.NetPP); err != nil {
+				return err
+			}
+			out = append(out, w)
+			return nil
+		})
+	return out, err
+}
+
+// FundSnapshotDates is every distinct file date across the tracked funds, oldest
+// first.
+func (s *postgresStore) FundSnapshotDates(ctx context.Context) ([]string, error) {
+	var out []string
+	err := ownershipRead(ctx, s, "FundSnapshotDates", `
+		SELECT DISTINCT as_at::text FROM fund_holding_snapshots
+		WHERE source_kind IN `+fundSourceKinds+`
+		ORDER BY 1`, nil,
+		func(r pgx.Rows) error {
+			var d string
+			if err := r.Scan(&d); err != nil {
+				return err
+			}
+			out = append(out, d)
+			return nil
+		})
+	return out, err
+}
+
+// FundPositionPairs is every holding of the funds that have a snapshot at or
+// before both dates, on each side: the fund's newest snapshot at or before the
+// date. A fund with no snapshot at or before one of the dates is not compared.
+func (s *postgresStore) FundPositionPairs(ctx context.Context, from, until string) ([]FundPositionPair, error) {
+	var out []FundPositionPair
+	err := ownershipRead(ctx, s, "FundPositionPairs", `
+		WITH sf AS (
+			SELECT DISTINCT ON (institution_slug, fund_name) id, institution_slug, fund_name
+			FROM fund_holding_snapshots
+			WHERE as_at <= $1::date AND source_kind IN `+fundSourceKinds+`
+			ORDER BY institution_slug, fund_name, as_at DESC, id DESC
+		), st AS (
+			SELECT DISTINCT ON (institution_slug, fund_name) id, institution_slug, fund_name
+			FROM fund_holding_snapshots
+			WHERE as_at <= $2::date AND source_kind IN `+fundSourceKinds+`
+			ORDER BY institution_slug, fund_name, as_at DESC, id DESC
+		), common AS (
+			SELECT sf.id AS from_id, st.id AS to_id, sf.institution_slug, sf.fund_name
+			FROM sf JOIN st ON st.institution_slug = sf.institution_slug AND st.fund_name = sf.fund_name
+		), fa AS (
+			SELECT c.institution_slug, c.fund_name, h.stock_code, h.security_name, h.weight_pct, h.value_aud
+			FROM common c JOIN fund_holdings h ON h.snapshot_id = c.from_id
+		), fb AS (
+			SELECT c.institution_slug, c.fund_name, h.stock_code, h.security_name, h.weight_pct, h.value_aud
+			FROM common c JOIN fund_holdings h ON h.snapshot_id = c.to_id
+		)
+		SELECT COALESCE(fa.institution_slug, fb.institution_slug), COALESCE(fa.fund_name, fb.fund_name),
+		       COALESCE(fa.stock_code, fb.stock_code), COALESCE(fb.security_name, fa.security_name, ''),
+		       fa.stock_code IS NOT NULL, fa.weight_pct::float8, fa.value_aud::float8,
+		       fb.stock_code IS NOT NULL, fb.weight_pct::float8, fb.value_aud::float8
+		FROM fa FULL JOIN fb
+		  ON fa.institution_slug = fb.institution_slug AND fa.fund_name = fb.fund_name AND fa.stock_code = fb.stock_code`,
+		[]any{from, until},
+		func(r pgx.Rows) error {
+			var p FundPositionPair
+			if err := r.Scan(&p.InstitutionSlug, &p.FundName, &p.StockCode, &p.SecurityName,
+				&p.InFrom, &p.FromWeight, &p.FromValue, &p.InTo, &p.ToWeight, &p.ToValue); err != nil {
+				return err
+			}
+			out = append(out, p)
+			return nil
+		})
+	return out, err
+}
+
+// StockFundSeries is one stock's holding in every tracked fund at each snapshot,
+// grouped by fund and oldest first.
+func (s *postgresStore) StockFundSeries(ctx context.Context, stockCode string) ([]FundSeriesRow, error) {
+	var out []FundSeriesRow
+	err := ownershipRead(ctx, s, "StockFundSeries", `
+		SELECT f.institution_slug, f.fund_name, f.source_kind, f.as_at::text, h.weight_pct::float8, h.value_aud::float8
+		FROM fund_holding_snapshots f
+		JOIN fund_holdings h ON h.snapshot_id = f.id
+		WHERE h.stock_code = $1 AND f.source_kind IN `+fundSourceKinds+`
+		ORDER BY f.institution_slug, f.fund_name, f.as_at`, []any{stockCode},
+		func(r pgx.Rows) error {
+			var row FundSeriesRow
+			if err := r.Scan(&row.InstitutionSlug, &row.FundName, &row.SourceKind, &row.AsAt, &row.Weight, &row.Value); err != nil {
 				return err
 			}
 			out = append(out, row)

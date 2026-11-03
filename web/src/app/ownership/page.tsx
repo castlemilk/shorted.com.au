@@ -45,7 +45,21 @@ import {
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getOwnershipOverview, listInstitutions } from "~/app/actions/getOwnership";
-import type { OwnershipInstitution } from "~/gen/shorts/v1alpha1/ownership_pb";
+import {
+  loadFundPositionChanges,
+  loadOwnershipActivity,
+  loadOwnershipFlows,
+  loadOwnershipMap,
+  loadStockFundSeries,
+  loadStockPanel,
+} from "~/app/actions/ownershipDesk";
+import { FundPositions } from "~/@/components/ownership/desk/fund-positions";
+import { MovementHeatmap } from "~/@/components/ownership/desk/movement-heatmap";
+import { OwnershipFlows } from "~/@/components/ownership/desk/ownership-flows";
+import { OwnershipMap } from "~/@/components/ownership/desk/ownership-map";
+import type {
+  OwnershipInstitution,
+} from "~/gen/shorts/v1alpha1/ownership_pb";
 import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/ownership";
@@ -133,20 +147,38 @@ function sizeOf(inst: OwnershipInstitution): string {
   return "";
 }
 
+/** A ticker's shape: the panel's loader takes a code from the client, so it is checked before a read. */
+
 export default async function OwnershipPage() {
-  const [overview, directory] = await Promise.all([getOwnershipOverview(), listInstitutions("", "", 200, 0)]);
+  // The desk's instruments read the default view here, so the HTML carries it. Each
+  // island reads the URL itself under its own Suspense (spec 13.1).
+  const [overview, directory, map, flows, activity, funds] = await Promise.all([
+    getOwnershipOverview(),
+    listInstitutions("", "", 200, 0),
+    loadOwnershipMap({}),
+    loadOwnershipFlows({}),
+    loadOwnershipActivity({}),
+    loadFundPositionChanges({}),
+  ]);
   // Nothing to show: a failed read, or a database the first `shorted
   // ownership` run has not filled yet. The page says so instead of drawing
   // empty tables, and its cache is shortened so the data shows once it lands.
+  // A failed instrument read, or a failed directory read, shortens the cache
+  // the same way; the section itself says it is an outage.
   const empty = !overview || (overview.noticesParsed === 0 && overview.superFunds === 0);
-  if (empty) await bailOnEmptyRender();
+  const deskOk = map.ok && flows.ok && activity.ok && funds.ok;
+  // listInstitutions answers undefined on any failure: that is an outage, never an empty registry.
+  const directoryOk = directory !== undefined;
+  if (empty || !deskOk || !directoryOk) await bailOnEmptyRender();
+
 
   const kinds = [...(overview?.kinds ?? [])].sort((a, b) => kindRank(a.kind) - kindRank(b.kind));
   const institutions = directory?.institutions ?? [];
+  // Every kind keeps its group, even an empty one, so each flow link lands on its own anchor.
   const byKind = KIND_ORDER.map((kind) => ({
     kind,
     members: institutions.filter((i) => i.kind === kind),
-  })).filter((g) => g.members.length > 0);
+  }));
   const asOf = overview?.asOf ?? "";
   const etfs = overview?.etfs ?? 0;
   const lics = overview?.lics ?? 0;
@@ -269,6 +301,33 @@ export default async function OwnershipPage() {
             <p className={lede}>{ledeText}</p>
           </header>
           <OwnershipPlate items={plate} />
+
+          <section className="space-y-3" aria-labelledby="desk-map">
+            <h2 id="desk-map" className={sectionTitle}>
+              Market map
+            </h2>
+            <OwnershipMap initial={map} loadMap={loadOwnershipMap} loadPanel={loadStockPanel} basePath="/ownership" />
+          </section>
+
+          <div className="grid gap-10 lg:grid-cols-2">
+            <section className="space-y-3" aria-labelledby="desk-flows">
+              <h2 id="desk-flows" className={sectionTitle}>
+                Flows
+              </h2>
+              <OwnershipFlows initial={flows} loadFlows={loadOwnershipFlows} basePath="/ownership" />
+            </section>
+            <section className="space-y-3" aria-labelledby="desk-movement">
+              <h2 id="desk-movement" className={sectionTitle}>
+                Movement
+              </h2>
+              <MovementHeatmap initial={activity} loadActivity={loadOwnershipActivity} basePath="/ownership" />
+            </section>
+          </div>
+
+          {/* The instrument draws its own heading, "Index fund positions", in both its states. */}
+          <section className="space-y-3" aria-label="Index fund positions">
+            <FundPositions initial={funds} loadPositions={loadFundPositionChanges} loadSeries={loadStockFundSeries} />
+          </section>
 
           <section aria-label="Coverage" id="coverage" className="scroll-mt-20">
             <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border md:grid-cols-4">
@@ -473,28 +532,44 @@ export default async function OwnershipPage() {
             <h2 id="directory" className={sectionTitle}>
               Institutions on the map
             </h2>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {byKind.map((group) => (
-                <div key={group.kind} className="space-y-2">
-                  <h3 className="text-sm font-semibold">
-                    {kindInfo(group.kind).plural}{" "}
-                    <span className="font-normal text-muted-foreground">({group.members.length})</span>
-                  </h3>
-                  <ul className="space-y-1 text-sm">
-                    {group.members.map((inst) => (
-                      <li key={inst.slug} className="flex justify-between gap-3">
-                        <InstitutionLink inst={inst} />
-                        <span className="shrink-0 tabular-nums text-muted-foreground">
-                          {inst.substantialPositions > 0
-                            ? `${inst.substantialPositions} stake${inst.substantialPositions === 1 ? "" : "s"}`
-                            : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
+            {directory === undefined ? (
+              <>
+                <p className="max-w-[70ch] text-sm">
+                  The institution list could not be read just now. Nothing here is missing from the register: this is
+                  our end.
+                </p>
+                {/* The anchors stay, empty, so a link to one kind still lands in this section. */}
+                {KIND_ORDER.map((kind) => (
+                  <span key={kind} id={`directory-${kind}`} aria-hidden="true" className="block scroll-mt-20" />
+                ))}
+              </>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {byKind.map((group) => (
+                  <div key={group.kind} id={`directory-${group.kind}`} className="scroll-mt-20 space-y-2">
+                    <h3 className="text-sm font-semibold">
+                      {kindInfo(group.kind).plural}{" "}
+                      <span className="font-normal text-muted-foreground">({group.members.length})</span>
+                    </h3>
+                    {group.members.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">None listed.</p>
+                    ) : null}
+                    <ul className="space-y-1 text-sm">
+                      {group.members.map((inst) => (
+                        <li key={inst.slug} className="flex justify-between gap-3">
+                          <InstitutionLink inst={inst} />
+                          <span className="shrink-0 tabular-nums text-muted-foreground">
+                            {inst.substantialPositions > 0
+                              ? `${inst.substantialPositions} stake${inst.substantialPositions === 1 ? "" : "s"}`
+                              : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="space-y-3" aria-labelledby="sources">

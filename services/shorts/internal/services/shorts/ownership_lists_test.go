@@ -33,6 +33,9 @@ func noticeFeedRows(rows []shortsstore.SubstantialNoticeRow, f shortsstore.Notic
 		if f.Event != "" && n.Event() != f.Event {
 			continue
 		}
+		if f.Until != "" && n.AnnouncedOn > f.Until {
+			continue
+		}
 		if f.Kind != "" && n.Kind != f.Kind {
 			continue
 		}
@@ -55,6 +58,7 @@ func noticeFeedRows(rows []shortsstore.SubstantialNoticeRow, f shortsstore.Notic
 
 func (f *fakeOwnershipStore) SubstantialNoticesPage(_ context.Context, filter shortsstore.NoticeFilter, cursorDate, cursorURL string, limit int) ([]shortsstore.SubstantialNoticeRow, error) {
 	f.read("SubstantialNoticesPage")
+	f.lastNoticeFilter = filter
 	var out []shortsstore.SubstantialNoticeRow
 	for _, n := range noticeFeedRows(f.notices, filter) {
 		// Only rows before the cursor in the descending order: (announced_on,
@@ -393,6 +397,11 @@ func TestListSubstantialNoticesRejectsBadInput(t *testing.T) {
 		{"a kind outside the holder kinds", &shortsv1alpha1.ListSubstantialNoticesRequest{Kind: "trust"}},
 		{"a stock code with a hyphen", &shortsv1alpha1.ListSubstantialNoticesRequest{StockCode: "BH-P"}},
 		{"a stock code of seven characters", &shortsv1alpha1.ListSubstantialNoticesRequest{StockCode: "TOOLONG7"}},
+		{"a since that is not a date", &shortsv1alpha1.ListSubstantialNoticesRequest{Since: "2026-02-30"}},
+		{"an until before since", &shortsv1alpha1.ListSubstantialNoticesRequest{Since: "2026-10-20", Until: "2026-10-01"}},
+		{"a since 367 days before today", &shortsv1alpha1.ListSubstantialNoticesRequest{Since: "2025-10-31"}},
+		{"a since and until 367 days apart", &shortsv1alpha1.ListSubstantialNoticesRequest{Since: "2025-10-31", Until: "2026-11-02"}},
+		{"a negative window beside dates", &shortsv1alpha1.ListSubstantialNoticesRequest{WindowDays: -1, Since: "2026-10-01"}},
 		{"an institution outside the registry", &shortsv1alpha1.ListSubstantialNoticesRequest{InstitutionSlug: "nobody"}},
 		{"a cursor without its bar", &shortsv1alpha1.ListSubstantialNoticesRequest{Cursor: "2026-10-16"}},
 		{"a cursor with an empty URL", &shortsv1alpha1.ListSubstantialNoticesRequest{Cursor: "2026-10-16|"}},
@@ -939,4 +948,66 @@ func TestClampBoundaries(t *testing.T) {
 	assert.Equal(t, 10.0, snapShortPct(math.Inf(1)))
 	assert.Equal(t, pageDefaultLimit, pageLimit(0))
 	assert.Equal(t, pageMaxLimit, pageLimit(1000))
+}
+
+func TestListSubstantialNoticesNarrowsByIndustryAndDates(t *testing.T) {
+	// The industry and the dates reach the store as the filter. A narrowed query
+	// is read through, since the first-page cache does not key on them, and it
+	// carries no activity: its weeks would not cover the rows the dates keep.
+	s, store := noticeTestServer(t, feedNotices())
+	ctx := context.Background()
+	req := &shortsv1alpha1.ListSubstantialNoticesRequest{
+		Industry: " Materials ", Since: "2026-10-01", Until: "2026-10-20", IncludeActivity: true,
+	}
+	resp, err := s.ListSubstantialNotices(ctx, connect.NewRequest(req))
+	require.NoError(t, err)
+	assert.Equal(t, shortsstore.NoticeFilter{Since: "2026-10-01", Until: "2026-10-20", Industry: "Materials"},
+		store.lastNoticeFilter)
+	assert.Nil(t, resp.Msg.Activity, "a query with its own dates carries no activity")
+	_, err = s.ListSubstantialNotices(ctx, connect.NewRequest(req))
+	require.NoError(t, err)
+	assert.Equal(t, 2, store.readCount("SubstantialNoticesPage"), "a narrowed query is read through every time")
+
+	// The dates are the window: a window_days beside them is ignored, and the
+	// response echoes 0. This is a heatmap cell's week, which a 30-day window
+	// would have cut to nothing.
+	resp, err = s.ListSubstantialNotices(ctx, connect.NewRequest(&shortsv1alpha1.ListSubstantialNoticesRequest{
+		WindowDays: 30, Since: "2026-03-02", Until: "2026-03-08"}))
+	require.NoError(t, err)
+	assert.Equal(t, shortsstore.NoticeFilter{Since: "2026-03-02", Until: "2026-03-08"}, store.lastNoticeFilter)
+	assert.Equal(t, int32(0), resp.Msg.WindowDays)
+}
+
+func TestNamedDatesReplaceTheWindowAndSpan(t *testing.T) {
+	s, store := noticeTestServer(t, feedNotices())
+	ctx := context.Background()
+	today := ownershipTestNow.UTC()
+	read := func(req *shortsv1alpha1.ListSubstantialNoticesRequest) shortsstore.NoticeFilter {
+		t.Helper()
+		_, err := s.ListSubstantialNotices(ctx, connect.NewRequest(req))
+		require.NoError(t, err)
+		return store.lastNoticeFilter
+	}
+
+	// A since with no until runs to today, and no window applies beside it.
+	assert.Equal(t, shortsstore.NoticeFilter{Since: "2026-09-01"},
+		read(&shortsv1alpha1.ListSubstantialNoticesRequest{WindowDays: 7, Since: "2026-09-01"}))
+
+	// An until with no since starts 365 days before it, the span a desk window
+	// allows at most (366 days inclusive).
+	assert.Equal(t, shortsstore.NoticeFilter{Since: "2025-10-20", Until: "2026-10-20"},
+		read(&shortsv1alpha1.ListSubstantialNoticesRequest{Until: "2026-10-20"}))
+
+	// A span of exactly the cap (366 days apart) is served; one day more is not.
+	edge := today.AddDate(0, 0, -deskMaxSpanDays).Format(time.DateOnly)
+	assert.Equal(t, edge, read(&shortsv1alpha1.ListSubstantialNoticesRequest{Since: edge}).Since)
+	_, err := s.ListSubstantialNotices(ctx, connect.NewRequest(&shortsv1alpha1.ListSubstantialNoticesRequest{
+		Since: today.AddDate(0, 0, -(deskMaxSpanDays + 1)).Format(time.DateOnly)}))
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err), "a span over the cap is refused")
+
+	// Dated queries are read through and carry no activity.
+	resp, err := s.ListSubstantialNotices(ctx, connect.NewRequest(&shortsv1alpha1.ListSubstantialNoticesRequest{
+		WindowDays: 30, Since: "2026-10-01", IncludeActivity: true}))
+	require.NoError(t, err)
+	assert.Nil(t, resp.Msg.Activity)
 }

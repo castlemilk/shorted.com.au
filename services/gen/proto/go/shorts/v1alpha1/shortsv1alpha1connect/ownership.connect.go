@@ -51,17 +51,37 @@ const (
 	// OwnershipServiceListStockRegistersProcedure is the fully-qualified name of the OwnershipService's
 	// ListStockRegisters RPC.
 	OwnershipServiceListStockRegistersProcedure = "/shorts.v1alpha1.OwnershipService/ListStockRegisters"
+	// OwnershipServiceGetOwnershipMapProcedure is the fully-qualified name of the OwnershipService's
+	// GetOwnershipMap RPC.
+	OwnershipServiceGetOwnershipMapProcedure = "/shorts.v1alpha1.OwnershipService/GetOwnershipMap"
+	// OwnershipServiceGetOwnershipFlowsProcedure is the fully-qualified name of the OwnershipService's
+	// GetOwnershipFlows RPC.
+	OwnershipServiceGetOwnershipFlowsProcedure = "/shorts.v1alpha1.OwnershipService/GetOwnershipFlows"
+	// OwnershipServiceGetOwnershipActivityProcedure is the fully-qualified name of the
+	// OwnershipService's GetOwnershipActivity RPC.
+	OwnershipServiceGetOwnershipActivityProcedure = "/shorts.v1alpha1.OwnershipService/GetOwnershipActivity"
+	// OwnershipServiceListFundPositionChangesProcedure is the fully-qualified name of the
+	// OwnershipService's ListFundPositionChanges RPC.
+	OwnershipServiceListFundPositionChangesProcedure = "/shorts.v1alpha1.OwnershipService/ListFundPositionChanges"
+	// OwnershipServiceGetStockFundSeriesProcedure is the fully-qualified name of the OwnershipService's
+	// GetStockFundSeries RPC.
+	OwnershipServiceGetStockFundSeriesProcedure = "/shorts.v1alpha1.OwnershipService/GetStockFundSeries"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	ownershipServiceServiceDescriptor                      = v1alpha1.File_shorts_v1alpha1_ownership_proto.Services().ByName("OwnershipService")
-	ownershipServiceGetOwnershipOverviewMethodDescriptor   = ownershipServiceServiceDescriptor.Methods().ByName("GetOwnershipOverview")
-	ownershipServiceListInstitutionsMethodDescriptor       = ownershipServiceServiceDescriptor.Methods().ByName("ListInstitutions")
-	ownershipServiceGetInstitutionMethodDescriptor         = ownershipServiceServiceDescriptor.Methods().ByName("GetInstitution")
-	ownershipServiceGetStockOwnershipMethodDescriptor      = ownershipServiceServiceDescriptor.Methods().ByName("GetStockOwnership")
-	ownershipServiceListSubstantialNoticesMethodDescriptor = ownershipServiceServiceDescriptor.Methods().ByName("ListSubstantialNotices")
-	ownershipServiceListStockRegistersMethodDescriptor     = ownershipServiceServiceDescriptor.Methods().ByName("ListStockRegisters")
+	ownershipServiceServiceDescriptor                       = v1alpha1.File_shorts_v1alpha1_ownership_proto.Services().ByName("OwnershipService")
+	ownershipServiceGetOwnershipOverviewMethodDescriptor    = ownershipServiceServiceDescriptor.Methods().ByName("GetOwnershipOverview")
+	ownershipServiceListInstitutionsMethodDescriptor        = ownershipServiceServiceDescriptor.Methods().ByName("ListInstitutions")
+	ownershipServiceGetInstitutionMethodDescriptor          = ownershipServiceServiceDescriptor.Methods().ByName("GetInstitution")
+	ownershipServiceGetStockOwnershipMethodDescriptor       = ownershipServiceServiceDescriptor.Methods().ByName("GetStockOwnership")
+	ownershipServiceListSubstantialNoticesMethodDescriptor  = ownershipServiceServiceDescriptor.Methods().ByName("ListSubstantialNotices")
+	ownershipServiceListStockRegistersMethodDescriptor      = ownershipServiceServiceDescriptor.Methods().ByName("ListStockRegisters")
+	ownershipServiceGetOwnershipMapMethodDescriptor         = ownershipServiceServiceDescriptor.Methods().ByName("GetOwnershipMap")
+	ownershipServiceGetOwnershipFlowsMethodDescriptor       = ownershipServiceServiceDescriptor.Methods().ByName("GetOwnershipFlows")
+	ownershipServiceGetOwnershipActivityMethodDescriptor    = ownershipServiceServiceDescriptor.Methods().ByName("GetOwnershipActivity")
+	ownershipServiceListFundPositionChangesMethodDescriptor = ownershipServiceServiceDescriptor.Methods().ByName("ListFundPositionChanges")
+	ownershipServiceGetStockFundSeriesMethodDescriptor      = ownershipServiceServiceDescriptor.Methods().ByName("GetStockFundSeries")
 )
 
 // OwnershipServiceClient is a client for the shorts.v1alpha1.OwnershipService service.
@@ -88,6 +108,20 @@ type OwnershipServiceClient interface {
 	// not a share of the company), the investors, banks and index funds among its
 	// holders, and its short interest.
 	ListStockRegisters(context.Context, *connect.Request[v1alpha1.ListStockRegistersRequest]) (*connect.Response[v1alpha1.ListStockRegistersResponse], error)
+	// The desk's map: every stock with a current substantial holder, what its
+	// notices disclose, and how that moved over a window.
+	GetOwnershipMap(context.Context, *connect.Request[v1alpha1.GetOwnershipMapRequest]) (*connect.Response[v1alpha1.GetOwnershipMapResponse], error)
+	// The desk's flows: disclosed exposure by holder kind and industry, and the
+	// net change in it over a window.
+	GetOwnershipFlows(context.Context, *connect.Request[v1alpha1.GetOwnershipFlowsRequest]) (*connect.Response[v1alpha1.GetOwnershipFlowsResponse], error)
+	// The desk's movement: each industry's notices by week, and the net change
+	// in disclosed voting power that week.
+	GetOwnershipActivity(context.Context, *connect.Request[v1alpha1.GetOwnershipActivityRequest]) (*connect.Response[v1alpha1.GetOwnershipActivityResponse], error)
+	// The index fund positions: the change in each stock's weight across the
+	// tracked funds between two snapshot dates.
+	ListFundPositionChanges(context.Context, *connect.Request[v1alpha1.ListFundPositionChangesRequest]) (*connect.Response[v1alpha1.ListFundPositionChangesResponse], error)
+	// One stock's weight and value in each tracked fund, at every snapshot.
+	GetStockFundSeries(context.Context, *connect.Request[v1alpha1.GetStockFundSeriesRequest]) (*connect.Response[v1alpha1.GetStockFundSeriesResponse], error)
 }
 
 // NewOwnershipServiceClient constructs a client for the shorts.v1alpha1.OwnershipService service.
@@ -136,17 +170,52 @@ func NewOwnershipServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(ownershipServiceListStockRegistersMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getOwnershipMap: connect.NewClient[v1alpha1.GetOwnershipMapRequest, v1alpha1.GetOwnershipMapResponse](
+			httpClient,
+			baseURL+OwnershipServiceGetOwnershipMapProcedure,
+			connect.WithSchema(ownershipServiceGetOwnershipMapMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getOwnershipFlows: connect.NewClient[v1alpha1.GetOwnershipFlowsRequest, v1alpha1.GetOwnershipFlowsResponse](
+			httpClient,
+			baseURL+OwnershipServiceGetOwnershipFlowsProcedure,
+			connect.WithSchema(ownershipServiceGetOwnershipFlowsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getOwnershipActivity: connect.NewClient[v1alpha1.GetOwnershipActivityRequest, v1alpha1.GetOwnershipActivityResponse](
+			httpClient,
+			baseURL+OwnershipServiceGetOwnershipActivityProcedure,
+			connect.WithSchema(ownershipServiceGetOwnershipActivityMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listFundPositionChanges: connect.NewClient[v1alpha1.ListFundPositionChangesRequest, v1alpha1.ListFundPositionChangesResponse](
+			httpClient,
+			baseURL+OwnershipServiceListFundPositionChangesProcedure,
+			connect.WithSchema(ownershipServiceListFundPositionChangesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getStockFundSeries: connect.NewClient[v1alpha1.GetStockFundSeriesRequest, v1alpha1.GetStockFundSeriesResponse](
+			httpClient,
+			baseURL+OwnershipServiceGetStockFundSeriesProcedure,
+			connect.WithSchema(ownershipServiceGetStockFundSeriesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // ownershipServiceClient implements OwnershipServiceClient.
 type ownershipServiceClient struct {
-	getOwnershipOverview   *connect.Client[v1alpha1.GetOwnershipOverviewRequest, v1alpha1.GetOwnershipOverviewResponse]
-	listInstitutions       *connect.Client[v1alpha1.ListInstitutionsRequest, v1alpha1.ListInstitutionsResponse]
-	getInstitution         *connect.Client[v1alpha1.GetInstitutionRequest, v1alpha1.GetInstitutionResponse]
-	getStockOwnership      *connect.Client[v1alpha1.GetStockOwnershipRequest, v1alpha1.GetStockOwnershipResponse]
-	listSubstantialNotices *connect.Client[v1alpha1.ListSubstantialNoticesRequest, v1alpha1.ListSubstantialNoticesResponse]
-	listStockRegisters     *connect.Client[v1alpha1.ListStockRegistersRequest, v1alpha1.ListStockRegistersResponse]
+	getOwnershipOverview    *connect.Client[v1alpha1.GetOwnershipOverviewRequest, v1alpha1.GetOwnershipOverviewResponse]
+	listInstitutions        *connect.Client[v1alpha1.ListInstitutionsRequest, v1alpha1.ListInstitutionsResponse]
+	getInstitution          *connect.Client[v1alpha1.GetInstitutionRequest, v1alpha1.GetInstitutionResponse]
+	getStockOwnership       *connect.Client[v1alpha1.GetStockOwnershipRequest, v1alpha1.GetStockOwnershipResponse]
+	listSubstantialNotices  *connect.Client[v1alpha1.ListSubstantialNoticesRequest, v1alpha1.ListSubstantialNoticesResponse]
+	listStockRegisters      *connect.Client[v1alpha1.ListStockRegistersRequest, v1alpha1.ListStockRegistersResponse]
+	getOwnershipMap         *connect.Client[v1alpha1.GetOwnershipMapRequest, v1alpha1.GetOwnershipMapResponse]
+	getOwnershipFlows       *connect.Client[v1alpha1.GetOwnershipFlowsRequest, v1alpha1.GetOwnershipFlowsResponse]
+	getOwnershipActivity    *connect.Client[v1alpha1.GetOwnershipActivityRequest, v1alpha1.GetOwnershipActivityResponse]
+	listFundPositionChanges *connect.Client[v1alpha1.ListFundPositionChangesRequest, v1alpha1.ListFundPositionChangesResponse]
+	getStockFundSeries      *connect.Client[v1alpha1.GetStockFundSeriesRequest, v1alpha1.GetStockFundSeriesResponse]
 }
 
 // GetOwnershipOverview calls shorts.v1alpha1.OwnershipService.GetOwnershipOverview.
@@ -179,6 +248,31 @@ func (c *ownershipServiceClient) ListStockRegisters(ctx context.Context, req *co
 	return c.listStockRegisters.CallUnary(ctx, req)
 }
 
+// GetOwnershipMap calls shorts.v1alpha1.OwnershipService.GetOwnershipMap.
+func (c *ownershipServiceClient) GetOwnershipMap(ctx context.Context, req *connect.Request[v1alpha1.GetOwnershipMapRequest]) (*connect.Response[v1alpha1.GetOwnershipMapResponse], error) {
+	return c.getOwnershipMap.CallUnary(ctx, req)
+}
+
+// GetOwnershipFlows calls shorts.v1alpha1.OwnershipService.GetOwnershipFlows.
+func (c *ownershipServiceClient) GetOwnershipFlows(ctx context.Context, req *connect.Request[v1alpha1.GetOwnershipFlowsRequest]) (*connect.Response[v1alpha1.GetOwnershipFlowsResponse], error) {
+	return c.getOwnershipFlows.CallUnary(ctx, req)
+}
+
+// GetOwnershipActivity calls shorts.v1alpha1.OwnershipService.GetOwnershipActivity.
+func (c *ownershipServiceClient) GetOwnershipActivity(ctx context.Context, req *connect.Request[v1alpha1.GetOwnershipActivityRequest]) (*connect.Response[v1alpha1.GetOwnershipActivityResponse], error) {
+	return c.getOwnershipActivity.CallUnary(ctx, req)
+}
+
+// ListFundPositionChanges calls shorts.v1alpha1.OwnershipService.ListFundPositionChanges.
+func (c *ownershipServiceClient) ListFundPositionChanges(ctx context.Context, req *connect.Request[v1alpha1.ListFundPositionChangesRequest]) (*connect.Response[v1alpha1.ListFundPositionChangesResponse], error) {
+	return c.listFundPositionChanges.CallUnary(ctx, req)
+}
+
+// GetStockFundSeries calls shorts.v1alpha1.OwnershipService.GetStockFundSeries.
+func (c *ownershipServiceClient) GetStockFundSeries(ctx context.Context, req *connect.Request[v1alpha1.GetStockFundSeriesRequest]) (*connect.Response[v1alpha1.GetStockFundSeriesResponse], error) {
+	return c.getStockFundSeries.CallUnary(ctx, req)
+}
+
 // OwnershipServiceHandler is an implementation of the shorts.v1alpha1.OwnershipService service.
 type OwnershipServiceHandler interface {
 	// The map and the aggregated view: institutions by kind, the most crowded
@@ -203,6 +297,20 @@ type OwnershipServiceHandler interface {
 	// not a share of the company), the investors, banks and index funds among its
 	// holders, and its short interest.
 	ListStockRegisters(context.Context, *connect.Request[v1alpha1.ListStockRegistersRequest]) (*connect.Response[v1alpha1.ListStockRegistersResponse], error)
+	// The desk's map: every stock with a current substantial holder, what its
+	// notices disclose, and how that moved over a window.
+	GetOwnershipMap(context.Context, *connect.Request[v1alpha1.GetOwnershipMapRequest]) (*connect.Response[v1alpha1.GetOwnershipMapResponse], error)
+	// The desk's flows: disclosed exposure by holder kind and industry, and the
+	// net change in it over a window.
+	GetOwnershipFlows(context.Context, *connect.Request[v1alpha1.GetOwnershipFlowsRequest]) (*connect.Response[v1alpha1.GetOwnershipFlowsResponse], error)
+	// The desk's movement: each industry's notices by week, and the net change
+	// in disclosed voting power that week.
+	GetOwnershipActivity(context.Context, *connect.Request[v1alpha1.GetOwnershipActivityRequest]) (*connect.Response[v1alpha1.GetOwnershipActivityResponse], error)
+	// The index fund positions: the change in each stock's weight across the
+	// tracked funds between two snapshot dates.
+	ListFundPositionChanges(context.Context, *connect.Request[v1alpha1.ListFundPositionChangesRequest]) (*connect.Response[v1alpha1.ListFundPositionChangesResponse], error)
+	// One stock's weight and value in each tracked fund, at every snapshot.
+	GetStockFundSeries(context.Context, *connect.Request[v1alpha1.GetStockFundSeriesRequest]) (*connect.Response[v1alpha1.GetStockFundSeriesResponse], error)
 }
 
 // NewOwnershipServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -247,6 +355,36 @@ func NewOwnershipServiceHandler(svc OwnershipServiceHandler, opts ...connect.Han
 		connect.WithSchema(ownershipServiceListStockRegistersMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	ownershipServiceGetOwnershipMapHandler := connect.NewUnaryHandler(
+		OwnershipServiceGetOwnershipMapProcedure,
+		svc.GetOwnershipMap,
+		connect.WithSchema(ownershipServiceGetOwnershipMapMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	ownershipServiceGetOwnershipFlowsHandler := connect.NewUnaryHandler(
+		OwnershipServiceGetOwnershipFlowsProcedure,
+		svc.GetOwnershipFlows,
+		connect.WithSchema(ownershipServiceGetOwnershipFlowsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	ownershipServiceGetOwnershipActivityHandler := connect.NewUnaryHandler(
+		OwnershipServiceGetOwnershipActivityProcedure,
+		svc.GetOwnershipActivity,
+		connect.WithSchema(ownershipServiceGetOwnershipActivityMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	ownershipServiceListFundPositionChangesHandler := connect.NewUnaryHandler(
+		OwnershipServiceListFundPositionChangesProcedure,
+		svc.ListFundPositionChanges,
+		connect.WithSchema(ownershipServiceListFundPositionChangesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	ownershipServiceGetStockFundSeriesHandler := connect.NewUnaryHandler(
+		OwnershipServiceGetStockFundSeriesProcedure,
+		svc.GetStockFundSeries,
+		connect.WithSchema(ownershipServiceGetStockFundSeriesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.OwnershipService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case OwnershipServiceGetOwnershipOverviewProcedure:
@@ -261,6 +399,16 @@ func NewOwnershipServiceHandler(svc OwnershipServiceHandler, opts ...connect.Han
 			ownershipServiceListSubstantialNoticesHandler.ServeHTTP(w, r)
 		case OwnershipServiceListStockRegistersProcedure:
 			ownershipServiceListStockRegistersHandler.ServeHTTP(w, r)
+		case OwnershipServiceGetOwnershipMapProcedure:
+			ownershipServiceGetOwnershipMapHandler.ServeHTTP(w, r)
+		case OwnershipServiceGetOwnershipFlowsProcedure:
+			ownershipServiceGetOwnershipFlowsHandler.ServeHTTP(w, r)
+		case OwnershipServiceGetOwnershipActivityProcedure:
+			ownershipServiceGetOwnershipActivityHandler.ServeHTTP(w, r)
+		case OwnershipServiceListFundPositionChangesProcedure:
+			ownershipServiceListFundPositionChangesHandler.ServeHTTP(w, r)
+		case OwnershipServiceGetStockFundSeriesProcedure:
+			ownershipServiceGetStockFundSeriesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -292,4 +440,24 @@ func (UnimplementedOwnershipServiceHandler) ListSubstantialNotices(context.Conte
 
 func (UnimplementedOwnershipServiceHandler) ListStockRegisters(context.Context, *connect.Request[v1alpha1.ListStockRegistersRequest]) (*connect.Response[v1alpha1.ListStockRegistersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.OwnershipService.ListStockRegisters is not implemented"))
+}
+
+func (UnimplementedOwnershipServiceHandler) GetOwnershipMap(context.Context, *connect.Request[v1alpha1.GetOwnershipMapRequest]) (*connect.Response[v1alpha1.GetOwnershipMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.OwnershipService.GetOwnershipMap is not implemented"))
+}
+
+func (UnimplementedOwnershipServiceHandler) GetOwnershipFlows(context.Context, *connect.Request[v1alpha1.GetOwnershipFlowsRequest]) (*connect.Response[v1alpha1.GetOwnershipFlowsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.OwnershipService.GetOwnershipFlows is not implemented"))
+}
+
+func (UnimplementedOwnershipServiceHandler) GetOwnershipActivity(context.Context, *connect.Request[v1alpha1.GetOwnershipActivityRequest]) (*connect.Response[v1alpha1.GetOwnershipActivityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.OwnershipService.GetOwnershipActivity is not implemented"))
+}
+
+func (UnimplementedOwnershipServiceHandler) ListFundPositionChanges(context.Context, *connect.Request[v1alpha1.ListFundPositionChangesRequest]) (*connect.Response[v1alpha1.ListFundPositionChangesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.OwnershipService.ListFundPositionChanges is not implemented"))
+}
+
+func (UnimplementedOwnershipServiceHandler) GetStockFundSeries(context.Context, *connect.Request[v1alpha1.GetStockFundSeriesRequest]) (*connect.Response[v1alpha1.GetStockFundSeriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.OwnershipService.GetStockFundSeries is not implemented"))
 }

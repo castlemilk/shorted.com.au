@@ -346,6 +346,8 @@ type fakeOwnershipStore struct {
 	notices  []shortsstore.SubstantialNoticeRow
 	counts   map[string]int
 	attempts []shortsstore.AttemptOutcomeRow
+	// lastNoticeFilter is the filter of the last SubstantialNoticesPage read.
+	lastNoticeFilter shortsstore.NoticeFilter
 
 	mu    sync.Mutex
 	reads map[string]int

@@ -33,6 +33,9 @@ private static final long serialVersionUID = 0L;
     stockCode_ = "";
     institutionSlug_ = "";
     cursor_ = "";
+    industry_ = "";
+    since_ = "";
+    until_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -327,8 +330,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Also compute the window's counts, weekly buckets and largest moves
-   * (windows of at most 90 days; omitted above that). Only the first page
-   * (cursor ""): a page after a cursor never carries it.
+   * (windows of at most 90 days; omitted above that, and with since or until). Only
+   * the first page (cursor ""): a page after a cursor never carries it.
    * </pre>
    *
    * <code>bool include_activity = 8 [json_name = "includeActivity"];</code>
@@ -337,6 +340,159 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public boolean getIncludeActivity() {
     return includeActivity_;
+  }
+
+  public static final int INDUSTRY_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object industry_ = "";
+  /**
+   * <pre>
+   * "" or an industry, matched exactly as the register's industries are. "" is
+   * no filter, so the stocks with no industry on record cannot be filtered to.
+   * </pre>
+   *
+   * <code>string industry = 9 [json_name = "industry"];</code>
+   * @return The industry.
+   */
+  @java.lang.Override
+  public java.lang.String getIndustry() {
+    java.lang.Object ref = industry_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      industry_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * "" or an industry, matched exactly as the register's industries are. "" is
+   * no filter, so the stocks with no industry on record cannot be filtered to.
+   * </pre>
+   *
+   * <code>string industry = 9 [json_name = "industry"];</code>
+   * @return The bytes for industry.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getIndustryBytes() {
+    java.lang.Object ref = industry_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      industry_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SINCE_FIELD_NUMBER = 10;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object since_ = "";
+  /**
+   * <pre>
+   * "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates
+   * are the window: window_days is ignored when since or until is named, and the
+   * response echoes 0. With no until the span runs to today; with no since it
+   * starts 365 days before until. A span over 366 days is InvalidArgument, as is
+   * an invalid date.
+   * </pre>
+   *
+   * <code>string since = 10 [json_name = "since"];</code>
+   * @return The since.
+   */
+  @java.lang.Override
+  public java.lang.String getSince() {
+    java.lang.Object ref = since_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      since_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates
+   * are the window: window_days is ignored when since or until is named, and the
+   * response echoes 0. With no until the span runs to today; with no since it
+   * starts 365 days before until. A span over 366 days is InvalidArgument, as is
+   * an invalid date.
+   * </pre>
+   *
+   * <code>string since = 10 [json_name = "since"];</code>
+   * @return The bytes for since.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getSinceBytes() {
+    java.lang.Object ref = since_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      since_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int UNTIL_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object until_ = "";
+  /**
+   * <pre>
+   * "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as
+   * InvalidArgument when it is before since (see since for the span).
+   * </pre>
+   *
+   * <code>string until = 11 [json_name = "until"];</code>
+   * @return The until.
+   */
+  @java.lang.Override
+  public java.lang.String getUntil() {
+    java.lang.Object ref = until_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      until_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as
+   * InvalidArgument when it is before since (see since for the span).
+   * </pre>
+   *
+   * <code>string until = 11 [json_name = "until"];</code>
+   * @return The bytes for until.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getUntilBytes() {
+    java.lang.Object ref = until_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      until_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
   }
 
   private byte memoizedIsInitialized = -1;
@@ -377,6 +533,15 @@ private static final long serialVersionUID = 0L;
     if (includeActivity_ != false) {
       output.writeBool(8, includeActivity_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industry_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 9, industry_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(since_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 10, since_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(until_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, until_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -407,6 +572,15 @@ private static final long serialVersionUID = 0L;
     if (includeActivity_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(8, includeActivity_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industry_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(9, industry_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(since_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(10, since_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(until_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, until_);
     }
     return size;
   }
@@ -448,6 +622,12 @@ private static final long serialVersionUID = 0L;
         != other.getLimit()) return false;
     if (getIncludeActivity()
         != other.getIncludeActivity()) return false;
+    if (!getIndustry()
+        .equals(other.getIndustry())) return false;
+    if (!getSince()
+        .equals(other.getSince())) return false;
+    if (!getUntil()
+        .equals(other.getUntil())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -476,6 +656,12 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + INCLUDE_ACTIVITY_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getIncludeActivity());
+    hash = (37 * hash) + INDUSTRY_FIELD_NUMBER;
+    hash = (53 * hash) + getIndustry().hashCode();
+    hash = (37 * hash) + SINCE_FIELD_NUMBER;
+    hash = (53 * hash) + getSince().hashCode();
+    hash = (37 * hash) + UNTIL_FIELD_NUMBER;
+    hash = (53 * hash) + getUntil().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -615,6 +801,9 @@ private static final long serialVersionUID = 0L;
       cursor_ = "";
       limit_ = 0;
       includeActivity_ = false;
+      industry_ = "";
+      since_ = "";
+      until_ = "";
       return this;
     }
 
@@ -672,6 +861,15 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000080) != 0)) {
         result.includeActivity_ = includeActivity_;
       }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.industry_ = industry_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.since_ = since_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.until_ = until_;
+      }
     }
 
     @java.lang.Override
@@ -719,6 +917,21 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getIncludeActivity() != false) {
         setIncludeActivity(other.getIncludeActivity());
+      }
+      if (!other.getIndustry().isEmpty()) {
+        industry_ = other.industry_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      if (!other.getSince().isEmpty()) {
+        since_ = other.since_;
+        bitField0_ |= 0x00000200;
+        onChanged();
+      }
+      if (!other.getUntil().isEmpty()) {
+        until_ = other.until_;
+        bitField0_ |= 0x00000400;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -786,6 +999,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000080;
               break;
             } // case 64
+            case 74: {
+              industry_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
+            case 82: {
+              since_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 82
+            case 90: {
+              until_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1366,8 +1594,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Also compute the window's counts, weekly buckets and largest moves
-     * (windows of at most 90 days; omitted above that). Only the first page
-     * (cursor ""): a page after a cursor never carries it.
+     * (windows of at most 90 days; omitted above that, and with since or until). Only
+     * the first page (cursor ""): a page after a cursor never carries it.
      * </pre>
      *
      * <code>bool include_activity = 8 [json_name = "includeActivity"];</code>
@@ -1380,8 +1608,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Also compute the window's counts, weekly buckets and largest moves
-     * (windows of at most 90 days; omitted above that). Only the first page
-     * (cursor ""): a page after a cursor never carries it.
+     * (windows of at most 90 days; omitted above that, and with since or until). Only
+     * the first page (cursor ""): a page after a cursor never carries it.
      * </pre>
      *
      * <code>bool include_activity = 8 [json_name = "includeActivity"];</code>
@@ -1398,8 +1626,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Also compute the window's counts, weekly buckets and largest moves
-     * (windows of at most 90 days; omitted above that). Only the first page
-     * (cursor ""): a page after a cursor never carries it.
+     * (windows of at most 90 days; omitted above that, and with since or until). Only
+     * the first page (cursor ""): a page after a cursor never carries it.
      * </pre>
      *
      * <code>bool include_activity = 8 [json_name = "includeActivity"];</code>
@@ -1408,6 +1636,312 @@ private static final long serialVersionUID = 0L;
     public Builder clearIncludeActivity() {
       bitField0_ = (bitField0_ & ~0x00000080);
       includeActivity_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object industry_ = "";
+    /**
+     * <pre>
+     * "" or an industry, matched exactly as the register's industries are. "" is
+     * no filter, so the stocks with no industry on record cannot be filtered to.
+     * </pre>
+     *
+     * <code>string industry = 9 [json_name = "industry"];</code>
+     * @return The industry.
+     */
+    public java.lang.String getIndustry() {
+      java.lang.Object ref = industry_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        industry_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "" or an industry, matched exactly as the register's industries are. "" is
+     * no filter, so the stocks with no industry on record cannot be filtered to.
+     * </pre>
+     *
+     * <code>string industry = 9 [json_name = "industry"];</code>
+     * @return The bytes for industry.
+     */
+    public com.google.protobuf.ByteString
+        getIndustryBytes() {
+      java.lang.Object ref = industry_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        industry_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "" or an industry, matched exactly as the register's industries are. "" is
+     * no filter, so the stocks with no industry on record cannot be filtered to.
+     * </pre>
+     *
+     * <code>string industry = 9 [json_name = "industry"];</code>
+     * @param value The industry to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndustry(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      industry_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "" or an industry, matched exactly as the register's industries are. "" is
+     * no filter, so the stocks with no industry on record cannot be filtered to.
+     * </pre>
+     *
+     * <code>string industry = 9 [json_name = "industry"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIndustry() {
+      industry_ = getDefaultInstance().getIndustry();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "" or an industry, matched exactly as the register's industries are. "" is
+     * no filter, so the stocks with no industry on record cannot be filtered to.
+     * </pre>
+     *
+     * <code>string industry = 9 [json_name = "industry"];</code>
+     * @param value The bytes for industry to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndustryBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      industry_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object since_ = "";
+    /**
+     * <pre>
+     * "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates
+     * are the window: window_days is ignored when since or until is named, and the
+     * response echoes 0. With no until the span runs to today; with no since it
+     * starts 365 days before until. A span over 366 days is InvalidArgument, as is
+     * an invalid date.
+     * </pre>
+     *
+     * <code>string since = 10 [json_name = "since"];</code>
+     * @return The since.
+     */
+    public java.lang.String getSince() {
+      java.lang.Object ref = since_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        since_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates
+     * are the window: window_days is ignored when since or until is named, and the
+     * response echoes 0. With no until the span runs to today; with no since it
+     * starts 365 days before until. A span over 366 days is InvalidArgument, as is
+     * an invalid date.
+     * </pre>
+     *
+     * <code>string since = 10 [json_name = "since"];</code>
+     * @return The bytes for since.
+     */
+    public com.google.protobuf.ByteString
+        getSinceBytes() {
+      java.lang.Object ref = since_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        since_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates
+     * are the window: window_days is ignored when since or until is named, and the
+     * response echoes 0. With no until the span runs to today; with no since it
+     * starts 365 days before until. A span over 366 days is InvalidArgument, as is
+     * an invalid date.
+     * </pre>
+     *
+     * <code>string since = 10 [json_name = "since"];</code>
+     * @param value The since to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSince(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      since_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates
+     * are the window: window_days is ignored when since or until is named, and the
+     * response echoes 0. With no until the span runs to today; with no since it
+     * starts 365 days before until. A span over 366 days is InvalidArgument, as is
+     * an invalid date.
+     * </pre>
+     *
+     * <code>string since = 10 [json_name = "since"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSince() {
+      since_ = getDefaultInstance().getSince();
+      bitField0_ = (bitField0_ & ~0x00000200);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates
+     * are the window: window_days is ignored when since or until is named, and the
+     * response echoes 0. With no until the span runs to today; with no since it
+     * starts 365 days before until. A span over 366 days is InvalidArgument, as is
+     * an invalid date.
+     * </pre>
+     *
+     * <code>string since = 10 [json_name = "since"];</code>
+     * @param value The bytes for since to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSinceBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      since_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object until_ = "";
+    /**
+     * <pre>
+     * "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as
+     * InvalidArgument when it is before since (see since for the span).
+     * </pre>
+     *
+     * <code>string until = 11 [json_name = "until"];</code>
+     * @return The until.
+     */
+    public java.lang.String getUntil() {
+      java.lang.Object ref = until_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        until_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as
+     * InvalidArgument when it is before since (see since for the span).
+     * </pre>
+     *
+     * <code>string until = 11 [json_name = "until"];</code>
+     * @return The bytes for until.
+     */
+    public com.google.protobuf.ByteString
+        getUntilBytes() {
+      java.lang.Object ref = until_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        until_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as
+     * InvalidArgument when it is before since (see since for the span).
+     * </pre>
+     *
+     * <code>string until = 11 [json_name = "until"];</code>
+     * @param value The until to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUntil(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      until_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as
+     * InvalidArgument when it is before since (see since for the span).
+     * </pre>
+     *
+     * <code>string until = 11 [json_name = "until"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearUntil() {
+      until_ = getDefaultInstance().getUntil();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as
+     * InvalidArgument when it is before since (see since for the span).
+     * </pre>
+     *
+     * <code>string until = 11 [json_name = "until"];</code>
+     * @param value The bytes for until to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUntilBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      until_ = value;
+      bitField0_ |= 0x00000400;
       onChanged();
       return this;
     }

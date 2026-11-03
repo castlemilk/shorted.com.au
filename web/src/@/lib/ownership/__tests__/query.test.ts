@@ -58,11 +58,25 @@ interface Clamps {
     sort: StringPair[];
     query: Array<{ in: string; code?: string; name?: string; rejected?: boolean }>;
   };
+  desk: {
+    noticeDates: Array<{
+      windowDays?: number;
+      since?: string;
+      until?: string;
+      resolvedSince?: string;
+      resolvedUntil?: string;
+      window: number;
+      rejected?: boolean;
+    }>;
+  };
 }
 
 const CLAMPS = JSON.parse(
   readFileSync(resolve(__dirname, "..", "__fixtures__", "clamps.json"), "utf8"),
 ) as Clamps;
+
+/** The day the Go test reads the clock as (ownershipTestNow, 2026-11-02 UTC). */
+const TODAY = "2026-11-02";
 
 /** The clamped query, or a failure that carries the refusal. */
 function served<T>(result: ClampResult<T>): T {
@@ -240,6 +254,9 @@ describe("clamp defaults", () => {
       event: "",
       kind: "",
       stockCode: "",
+      industry: "",
+      since: "",
+      until: "",
       institutionSlug: "",
       cursor: "",
       limit: 50,
@@ -565,6 +582,130 @@ describe("the notice link codec", () => {
 
   it("does not throw on a malformed link", () => {
     expect(() => parseNoticeParams(params("window=%ZZ&holder=%E0%A4%A&stock=%%"))).not.toThrow();
+  });
+});
+
+describe("the feed's industry and dates", () => {
+  const AT = { today: TODAY };
+
+  it("takes the place of the window with a named date: the API reads its own span", () => {
+    expect(served(clampNoticeQuery({ since: "2026-08-01", until: "2026-10-31" }, AT))).toMatchObject({
+      windowDays: 0,
+      since: "2026-08-01",
+      until: "2026-10-31",
+    });
+  });
+
+  it("refuses an inverted pair, an impossible date and a span 367 days apart (366 is served)", () => {
+    for (const input of [
+      { since: "2026-10-31", until: "2026-08-01" },
+      { since: "2026-02-30" },
+      { until: "2026-13-01" },
+      { since: "2025-10-29", until: "2026-10-31" },
+    ]) {
+      expect(clampNoticeQuery(input, AT).ok).toBe(false);
+    }
+    expect(clampNoticeQuery({ since: "2025-10-31", until: "2026-10-31" }, AT).ok).toBe(true);
+    expect(clampNoticeQuery({ since: "2025-10-30", until: "2026-10-31" }, AT).ok).toBe(true);
+  });
+
+  it("lets one date stand as an open end", () => {
+    expect(served(clampNoticeQuery({ since: "2026-08-01" }, AT))).toMatchObject({ since: "2026-08-01", until: "" });
+    expect(served(clampNoticeQuery({ until: "2026-08-01" }, AT))).toMatchObject({ since: "", until: "2026-08-01" });
+  });
+
+  it("runs a lone since to today, so one more than 366 days back is refused and a since after today too", () => {
+    expect(clampNoticeQuery({ since: "2025-10-31" }, AT).ok).toBe(false);
+    expect(served(clampNoticeQuery({ since: "2025-11-01" }, AT))).toMatchObject({ since: "2025-11-01", until: "" });
+    expect(clampNoticeQuery({ since: "2026-11-10" }, AT).ok).toBe(false);
+  });
+
+  it("reads a lone date against today when a link is parsed too, as the API would", () => {
+    expect(parseNoticeParams(new URLSearchParams("since=2025-10-31&stock=BHP"), AT)).toMatchObject({
+      windowDays: 30,
+      since: "",
+      stockCode: "BHP",
+    });
+    expect(parseNoticeParams(new URLSearchParams("since=2025-11-01"), AT)).toMatchObject({
+      windowDays: 0,
+      since: "2025-11-01",
+    });
+  });
+
+  it("keeps a lone date a link names when no day is given, so a browser clock never decides the open end", () => {
+    // Far beyond 366 days back from any clock: the server clamp, which reads the UTC day, refuses it.
+    expect(parseNoticeParams(new URLSearchParams("since=2020-01-01&stock=BHP"))).toMatchObject({
+      since: "2020-01-01",
+      until: "",
+      stockCode: "BHP",
+    });
+    expect(parseNoticeParams(new URLSearchParams("until=2020-01-01"))).toMatchObject({
+      since: "",
+      until: "2020-01-01",
+    });
+    // A pair is still judged without a clock: inverted or over the span, it is no window.
+    expect(parseNoticeParams(new URLSearchParams("since=2026-10-31&until=2026-08-01"))).toMatchObject({
+      since: "",
+      until: "",
+    });
+    expect(parseNoticeParams(new URLSearchParams("since=2020-01-01&until=2026-08-01"))).toMatchObject({
+      since: "",
+      until: "",
+    });
+    expect(clampNoticeQuery({ since: "2020-01-01" }, { openEnds: "deferred" }).ok).toBe(true);
+    expect(clampNoticeQuery({ since: "2020-01-01" }, AT).ok).toBe(false);
+  });
+
+  // clamps.json desk.noticeDates: the feed's date rule, row by row, against the API's answer.
+  for (const c of CLAMPS.desk.noticeDates) {
+    const name = JSON.stringify({ windowDays: c.windowDays, since: c.since, until: c.until });
+    it(`${c.rejected ? "refuses" : "serves"} ${name} as the API does`, () => {
+      const result = clampNoticeQuery({ windowDays: c.windowDays, since: c.since, until: c.until }, AT);
+      if (c.rejected) {
+        expect(result.ok).toBe(false);
+        return;
+      }
+      expect(served(result)).toMatchObject({ windowDays: c.window, since: c.since ?? "", until: c.until ?? "" });
+    });
+  }
+
+  it("trims the industry and refuses one that is not text", () => {
+    expect(served(clampNoticeQuery({ industry: "  Materials " })).industry).toBe("Materials");
+    expect(clampNoticeQuery({ industry: 3 }).ok).toBe(false);
+  });
+
+  it("bounds the industry as the desk bounds a sector: 64 characters, no control character", () => {
+    expect(clampNoticeQuery({ industry: "a".repeat(64) }).ok).toBe(true);
+    expect(clampNoticeQuery({ industry: "a".repeat(65) }).ok).toBe(false);
+    expect(clampNoticeQuery({ industry: `Ener${String.fromCharCode(9)}gy` }).ok).toBe(false);
+    expect(parseNoticeParams(new URLSearchParams(`industry=${"a".repeat(65)}&stock=BHP`))).toMatchObject({
+      industry: "",
+      stockCode: "BHP",
+    });
+  });
+
+  it("reads a dated link without its window, and writes it back with the dates and industry", () => {
+    const query = parseNoticeParams(
+      new URLSearchParams("window=28&since=2026-08-01&until=2026-10-31&industry=Energy"),
+    );
+    expect(query).toMatchObject({ windowDays: 0, since: "2026-08-01", until: "2026-10-31", industry: "Energy" });
+    expect(serialiseNoticeParams(query).toString()).toBe(
+      "since=2026-08-01&until=2026-10-31&industry=Energy",
+    );
+  });
+
+  it("reads a date pair the API would refuse as no window, and keeps the other parameters", () => {
+    expect(parseNoticeParams(new URLSearchParams("since=2026-10-31&until=2026-08-01&stock=BHP"))).toMatchObject({
+      windowDays: 30,
+      since: "",
+      until: "",
+      stockCode: "BHP",
+    });
+  });
+
+  it("is not the default view once a date or an industry is named", () => {
+    expect(isDefaultNoticeQuery(served(clampNoticeQuery({ since: "2026-08-01" }, { today: TODAY })))).toBe(false);
+    expect(isDefaultNoticeQuery(served(clampNoticeQuery({ industry: "Energy" })))).toBe(false);
   });
 });
 

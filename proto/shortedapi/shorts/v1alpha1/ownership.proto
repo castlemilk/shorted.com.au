@@ -62,6 +62,35 @@ service OwnershipService {
   rpc ListStockRegisters (ListStockRegistersRequest) returns (ListStockRegistersResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // The desk's map: every stock with a current substantial holder, what its
+  // notices disclose, and how that moved over a window.
+  rpc GetOwnershipMap (GetOwnershipMapRequest) returns (GetOwnershipMapResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // The desk's flows: disclosed exposure by holder kind and industry, and the
+  // net change in it over a window.
+  rpc GetOwnershipFlows (GetOwnershipFlowsRequest) returns (GetOwnershipFlowsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // The desk's movement: each industry's notices by week, and the net change
+  // in disclosed voting power that week.
+  rpc GetOwnershipActivity (GetOwnershipActivityRequest) returns (GetOwnershipActivityResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // The index fund positions: the change in each stock's weight across the
+  // tracked funds between two snapshot dates.
+  rpc ListFundPositionChanges (ListFundPositionChangesRequest) returns (ListFundPositionChangesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // One stock's weight and value in each tracked fund, at every snapshot.
+  rpc GetStockFundSeries (GetStockFundSeriesRequest) returns (GetStockFundSeriesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }
 
 message OwnershipInstitution {
@@ -361,9 +390,21 @@ message ListSubstantialNoticesRequest {
   // 0 means 50; above 100 is 100.
   int32 limit = 7;
   // Also compute the window's counts, weekly buckets and largest moves
-  // (windows of at most 90 days; omitted above that). Only the first page
-  // (cursor ""): a page after a cursor never carries it.
+  // (windows of at most 90 days; omitted above that, and with since or until). Only
+  // the first page (cursor ""): a page after a cursor never carries it.
   bool include_activity = 8;
+  // "" or an industry, matched exactly as the register's industries are. "" is
+  // no filter, so the stocks with no industry on record cannot be filtered to.
+  string industry = 9;
+  // "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates
+  // are the window: window_days is ignored when since or until is named, and the
+  // response echoes 0. With no until the span runs to today; with no since it
+  // starts 365 days before until. A span over 366 days is InvalidArgument, as is
+  // an invalid date.
+  string since = 10;
+  // "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as
+  // InvalidArgument when it is before since (see since for the span).
+  string until = 11;
 }
 
 // One ISO week of notices, by event.
@@ -445,4 +486,195 @@ message ListStockRegistersResponse {
   // The distinct industries, sorted, for the filter.
   repeated IndustryCount industries = 4;
   string as_of = 5;
+}
+
+// The desk's map request. The dates are YYYY-MM-DD, inclusive. Empty means the
+// default: the 91 days ending at the newest notice read. A span over 366 days
+// is InvalidArgument.
+message GetOwnershipMapRequest {
+  string from = 1;
+  string to = 2;
+}
+
+// One stock on the map. The figures are what the notices disclose, each
+// interest counted once: not a share of the company.
+message MapStock {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  double market_cap = 4;
+  bool has_market_cap = 5;
+  double disclosed_pct = 6;
+  // The investor kinds' share of the disclosure (banks and brokers excluded).
+  double institutional_pct = 7;
+  double hedge_pct = 8;
+  // Shares held by the index funds tracked, over shares on issue.
+  double index_pct = 9;
+  bool has_index_pct = 10;
+  // ASIC's latest reported short position, over shares on issue.
+  double short_pct = 11;
+  bool has_short_pct = 12;
+  // Net change in disclosed voting power across the notices released in the
+  // window, in percentage points. A ceased notice counts its previous figure
+  // as a fall. Unknown when no notice in the window states a figure.
+  double flow_pp = 13;
+  bool has_flow_pp = 14;
+  // Notices released in the window.
+  int32 notices = 15;
+}
+
+message GetOwnershipMapResponse {
+  string from = 1;
+  string to = 2;
+  repeated MapStock stocks = 3;
+  string as_of = 4;
+}
+
+message GetOwnershipFlowsRequest {
+  // The window of change, as GetOwnershipMapRequest. The positions are the
+  // current holdings and do not depend on it.
+  string from = 1;
+  string to = 2;
+}
+
+// Disclosed exposure of one holder kind in one industry, estimated: the sum of
+// each current interest's voting power over 100, times the stock's market cap.
+// The sum covers only the interests whose stock has a positive market cap, and
+// has_exposure is set when one does; the rest are not counted in it.
+message FlowPosition {
+  string kind = 1;
+  string industry = 2;
+  double exposure_aud = 3;
+  bool has_exposure = 4;
+  // Interests counted in the cell.
+  int32 holdings = 5;
+  // The cell's largest interest by voting power.
+  string largest_code = 6;
+  double largest_pct = 7;
+}
+
+// The window's change in disclosed exposure of one holder kind in one industry,
+// split by direction. exposure_aud is a magnitude: the direction carries the
+// sign, so a down row is a fall of that size. Like the positions, it sums only
+// the notices whose stock has a positive market cap.
+message FlowChange {
+  string kind = 1;
+  string industry = 2;
+  // up or down.
+  string direction = 3;
+  double exposure_aud = 4;
+  bool has_exposure = 5;
+  int32 notices = 6;
+}
+
+message GetOwnershipFlowsResponse {
+  string from = 1;
+  string to = 2;
+  repeated FlowPosition positions = 3;
+  repeated FlowChange changes = 4;
+  string as_of = 5;
+}
+
+message GetOwnershipActivityRequest {
+  // 1 to 52 weeks; 0 means 52. Negative is InvalidArgument.
+  int32 weeks = 1;
+}
+
+// One industry's notices in one ISO week, and the net change in disclosed
+// voting power they state.
+message IndustryWeek {
+  string industry = 1;
+  // The Monday that starts the week, YYYY-MM-DD.
+  string week_start = 2;
+  int32 became = 3;
+  int32 increased = 4;
+  int32 decreased = 5;
+  int32 changed = 6;
+  int32 ceased = 7;
+  int32 nz = 8;
+  double net_pp = 9;
+  bool has_net_pp = 10;
+}
+
+message GetOwnershipActivityResponse {
+  // The first and last Mondays of the weeks served, YYYY-MM-DD. The last week
+  // is the newest notice's.
+  string from_week = 1;
+  string to_week = 2;
+  // Every industry of the register, every week in the range, gap-filled with
+  // zero counts: a week with no notice reads 0, and has_net_pp is false.
+  repeated IndustryWeek rows = 3;
+  string as_of = 4;
+}
+
+message ListFundPositionChangesRequest {
+  // YYYY-MM-DD. Each side is the newest snapshot at or before it, per fund. Empty
+  // means the two newest snapshot dates. The date range must not be inverted.
+  string from = 1;
+  string to = 2;
+  // Per direction: up to this many of the largest rises and the largest falls,
+  // and up to this many new and dropped stocks each. 0 means 10; above 50 is 50.
+  int32 limit = 3;
+}
+
+// One stock's weight across the funds that hold it on both dates, the funds its
+// delta sums: weight to less weight from is the delta. A new or dropped stock
+// sums the funds on the one date it has and has no delta. A stock held on both
+// dates only by different funds (one on each date) compares no fund with itself,
+// so it is in no list.
+message FundPositionChange {
+  string stock_code = 1;
+  string company_name = 2;
+  double weight_from_pct = 3;
+  bool has_weight_from = 4;
+  double weight_to_pct = 5;
+  bool has_weight_to = 6;
+  double delta_pp = 7;
+  bool has_delta = 8;
+  double value_from_aud = 9;
+  bool has_value_from = 10;
+  double value_to_aud = 11;
+  bool has_value_to = 12;
+  // Funds holding it on either date.
+  int32 funds = 13;
+  // current, new or dropped.
+  string state = 14;
+}
+
+message ListFundPositionChangesResponse {
+  // Every distinct snapshot date across the tracked funds, oldest first.
+  repeated string snapshot_dates = 1;
+  // The dates used: the newest snapshot at or before each request date, and the
+  // first snapshot for a from date before them all.
+  string from = 2;
+  string to = 3;
+  // Rises (largest first), then falls (largest first), then new, then dropped.
+  repeated FundPositionChange rows = 4;
+}
+
+message GetStockFundSeriesRequest {
+  string stock_code = 1;
+}
+
+message FundPoint {
+  string as_at = 1;
+  double weight_pct = 2;
+  bool has_weight = 3;
+  double value_aud = 4;
+  bool has_value = 5;
+}
+
+message FundSeries {
+  string institution_slug = 1;
+  string institution_name = 2;
+  string fund_name = 3;
+  // etf or super_phd.
+  string source_kind = 4;
+  // Oldest first, one a snapshot.
+  repeated FundPoint points = 5;
+}
+
+message GetStockFundSeriesResponse {
+  string stock_code = 1;
+  repeated FundSeries funds = 2;
 }

@@ -1025,6 +1025,55 @@ service ShortedStocksService {
     };
   }
 
+  // The desk's map: every stock with a current substantial holder, what its
+  // notices disclose, and how that moved over a window.
+  rpc GetOwnershipMap (GetOwnershipMapRequest) returns (GetOwnershipMapResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Ownership Map",
+      description: "Every ASX stock with a current substantial holder, drawn for a treemap: its market cap, what its notices disclose (each interest counted once, not a share of the company), the investor, hedge fund and index fund shares, its short interest, and the net change in disclosed voting power across the notices released in a window (default: the 91 days to the newest notice)."
+    };
+  }
+
+  // The desk's flows: disclosed exposure by holder kind and industry, and the
+  // net change in it over a window.
+  rpc GetOwnershipFlows (GetOwnershipFlowsRequest) returns (GetOwnershipFlowsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Ownership Flows",
+      description: "Disclosed exposure by holder kind and industry, estimated as voting power times market cap, for current holdings; and the same by direction for the notices released in a window."
+    };
+  }
+
+  // The desk's movement: each industry's notices by week, and the net change
+  // in disclosed voting power that week.
+  rpc GetOwnershipActivity (GetOwnershipActivityRequest) returns (GetOwnershipActivityResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Ownership Activity",
+      description: "Each industry's substantial holding notices by ISO week, for up to 52 weeks to the newest notice, with the net change in disclosed voting power each week. Weeks with no notice are included with zero counts."
+    };
+  }
+
+  // The index fund positions: the change in each stock's weight across the
+  // tracked funds between two snapshot dates.
+  rpc ListFundPositionChanges (ListFundPositionChangesRequest) returns (ListFundPositionChangesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Fund Position Changes",
+      description: "The change in each stock's weight across the tracked index funds and super fund options between two snapshot dates: the largest rises and falls, and the stocks new or dropped between them. A weight is the fund's, not a share of the company."
+    };
+  }
+
+  // One stock's weight and value in each tracked fund, at every snapshot.
+  rpc GetStockFundSeries (GetStockFundSeriesRequest) returns (GetStockFundSeriesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock Fund Series",
+      description: "One stock's weight and value in each tracked index fund and super fund option, at each file date."
+    };
+  }
+
   // ==================== Registers of Interests ====================
   // Mirrored from PoliticiansService for external API back-compat. The parity
   // test walks the proto registry and fails if a domain rpc is missing here, or

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -403,4 +404,234 @@ func TestOwnershipNoticeFeedAgainstPostgres(t *testing.T) {
 		}
 		assert.Equal(t, []string{"2026-08-31", "2026-10-05", "2026-10-12", "2026-10-19"}, weeks)
 	})
+}
+
+// The desk's reads against Postgres (spec section 13): the window's change per
+// stock, by kind and industry and by week, the feed's industry and release-date
+// filters, and the index fund snapshots. The notices' change is read twice, by
+// the SQL and by Delta, so the two cannot drift. It runs on the same disposable
+// server as the reads above.
+func TestOwnershipDeskAgainstPostgres(t *testing.T) {
+	adminURL := os.Getenv("SHORTS_TEST_POSTGRES_URL")
+	if adminURL == "" {
+		t.Skip("SHORTS_TEST_POSTGRES_URL not set; skipping the real-Postgres desk test")
+	}
+	for _, shared := range []string{"supabase", "pooler", ":6543"} {
+		if strings.Contains(adminURL, shared) {
+			t.Fatalf("refusing a shared or pooled database (%q): this test creates and drops databases", shared)
+		}
+	}
+	ctx := context.Background()
+	pool := fundamentalsTestDatabase(t, ctx, adminURL)
+	s := &postgresStore{db: pool}
+	exec := func(sql string) {
+		t.Helper()
+		_, err := pool.Exec(ctx, sql)
+		require.NoError(t, err)
+	}
+	exec(ownershipTestBaseSchema)
+
+	t.Run("without 000137 the desk reads are empty, never an error", func(t *testing.T) {
+		flows, err := s.NoticeFlowByStock(ctx, "2026-07-18", "2026-10-16")
+		require.NoError(t, err)
+		assert.Empty(t, flows)
+		dates, err := s.FundSnapshotDates(ctx)
+		require.NoError(t, err)
+		assert.Empty(t, dates)
+		weeks, err := s.NoticeWeeklyByIndustry(ctx, "2026-07-13", "2026-10-16")
+		require.NoError(t, err)
+		assert.Empty(t, weeks)
+	})
+
+	migration, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "migrations", "000137_add_ownership.up.sql"))
+	require.NoError(t, err)
+	exec(string(migration))
+	exec(ownershipDeskSeed)
+
+	const from, until = "2026-07-18", "2026-10-16"
+
+	t.Run("the window's change per stock: a ceased notice falls, a 603 rises, an equal 604 is nothing", func(t *testing.T) {
+		flows, err := s.NoticeFlowByStock(ctx, from, until)
+		require.NoError(t, err)
+		assert.Equal(t, NoticeFlow{Notices: 2, Net: -3, Has: true}, flowOf(flows, "BHP"), "+1 and -4")
+		assert.Equal(t, NoticeFlow{Notices: 2, Net: 8, Has: true}, flowOf(flows, "PLS"), "+5 from a 603 and +3 from an nz with no previous figure")
+		assert.Equal(t, NoticeFlow{Notices: 1, Net: 0, Has: true}, flowOf(flows, "CBA"), "an equal 604 states no change")
+		assert.Equal(t, NoticeFlow{Notices: 1, Net: 0, Has: false}, flowOf(flows, "ZIP"), "a 604 with no figures states none")
+		_, outside := flows["ZIP"]
+		assert.True(t, outside, "ZIP's June notice is outside the window, so only its in-window notice counts")
+
+		// The Go mirror of the SQL, read notice by notice, gives the same sums.
+		notices, err := s.SubstantialNoticesPage(ctx, NoticeFilter{Since: from, Until: until}, "", "", 100)
+		require.NoError(t, err)
+		sums := map[string]float64{}
+		for _, n := range notices {
+			if d, ok := noticeDelta(n); ok {
+				sums[n.StockCode] += d
+			}
+		}
+		for code, f := range flows {
+			if f.Has {
+				assert.InDelta(t, f.Net, sums[code], 1e-9, "the Go Delta and the SQL agree for %s", code)
+			}
+		}
+	})
+
+	t.Run("the window's change by kind and industry, split by direction, in exposure", func(t *testing.T) {
+		rows, err := s.NoticeChangesByKindIndustry(ctx, from, until)
+		require.NoError(t, err)
+		require.Len(t, rows, 3)
+		byKey := map[string]NoticeChangeRow{}
+		for _, r := range rows {
+			byKey[r.Kind+"|"+r.Industry+"|"+strconv.FormatBool(r.Up)] = r
+		}
+		superUp := byKey["super_fund|Materials|true"]
+		assert.Equal(t, 2, superUp.Notices, "d1 and d4 rise")
+		assert.True(t, superUp.HasExposure)
+		assert.InDelta(t, 1.0/100*2e11+3.0/100*3e9, superUp.ExposureAUD, 1, "each change over 100, times its stock's market cap")
+		hedgeDown := byKey["hedge_fund|Materials|false"]
+		assert.Equal(t, 1, hedgeDown.Notices)
+		assert.InDelta(t, -4.0/100*2e11, hedgeDown.ExposureAUD, 1)
+		hedgeUp := byKey["hedge_fund|Materials|true"]
+		assert.InDelta(t, 5.0/100*3e9, hedgeUp.ExposureAUD, 1)
+	})
+
+	t.Run("each industry's notices by week, with the net change they state", func(t *testing.T) {
+		weeks, err := s.NoticeWeeklyByIndustry(ctx, from, until)
+		require.NoError(t, err)
+		byKey := map[string]IndustryWeekRow{}
+		for _, w := range weeks {
+			byKey[w.Industry+"|"+w.WeekStart] = w
+		}
+		require.Len(t, weeks, 4)
+		first := byKey["Materials|2026-09-28"]
+		assert.Equal(t, 1, first.Became)
+		assert.Equal(t, 1, first.Increased)
+		assert.Equal(t, 1, first.NZ)
+		require.NotNil(t, first.NetPP)
+		assert.InDelta(t, 9, *first.NetPP, 1e-9, "+1, +5 and +3")
+		second := byKey["Materials|2026-10-05"]
+		assert.Equal(t, 1, second.Ceased)
+		require.NotNil(t, second.NetPP)
+		assert.InDelta(t, -4, *second.NetPP, 1e-9)
+		banks := byKey["Banks|2026-10-05"]
+		assert.Equal(t, 1, banks.Changed)
+		require.NotNil(t, banks.NetPP, "an equal 604 states a figure, a zero change")
+		assert.InDelta(t, 0, *banks.NetPP, 1e-9)
+		fs := byKey["Financial Services|2026-10-05"]
+		assert.Equal(t, 1, fs.Changed)
+		assert.Nil(t, fs.NetPP, "a 604 with no figures has no net")
+	})
+
+	t.Run("the feed filters by industry and an inclusive release date", func(t *testing.T) {
+		materials, err := s.SubstantialNoticesPage(ctx, NoticeFilter{Industry: "Materials", Until: "2026-10-04"}, "", "", 50)
+		require.NoError(t, err)
+		var urls []string
+		for _, n := range materials {
+			urls = append(urls, n.AnnouncementURL)
+		}
+		assert.ElementsMatch(t, []string{"d1", "d3", "d4"}, urls, "BHP and PLS through 4 October")
+		count, err := s.CountSubstantialNotices(ctx, NoticeFilter{Industry: "Materials", Until: "2026-10-04"})
+		require.NoError(t, err)
+		assert.Equal(t, 3, count)
+		inclusive, err := s.CountSubstantialNotices(ctx, NoticeFilter{Industry: "Materials", Until: "2026-10-05"})
+		require.NoError(t, err)
+		assert.Equal(t, 4, inclusive, "until is inclusive: BHP's 5 October notice is in")
+	})
+
+	t.Run("the snapshot dates, and the fund pairs on two of them", func(t *testing.T) {
+		dates, err := s.FundSnapshotDates(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"2026-06-30", "2026-09-30", "2026-10-15"}, dates)
+
+		pairs, err := s.FundPositionPairs(ctx, "2026-09-30", "2026-10-15")
+		require.NoError(t, err)
+		byKey := map[string]FundPositionPair{}
+		for _, p := range pairs {
+			byKey[p.StockCode+"|"+p.InstitutionSlug] = p
+		}
+		require.Len(t, pairs, 4, "IOZ has no file on 30 September, so it is not compared")
+		zip := byKey["ZIP|vanguard"]
+		assert.True(t, zip.InFrom && zip.InTo)
+		require.NotNil(t, zip.FromWeight)
+		require.NotNil(t, zip.ToWeight)
+		assert.InDelta(t, 0.1, *zip.FromWeight, 1e-9)
+		assert.InDelta(t, 0.2, *zip.ToWeight, 1e-9)
+		wbc := byKey["WBC|vanguard"]
+		assert.True(t, wbc.InFrom)
+		assert.False(t, wbc.InTo, "held on 30 September, gone by 15 October")
+		pls := byKey["PLS|vanguard"]
+		assert.False(t, pls.InFrom)
+		assert.True(t, pls.InTo)
+		bhp := byKey["BHP|hostplus"]
+		assert.True(t, bhp.InFrom && bhp.InTo, "Balanced's newest file at or before each date is the June one")
+	})
+
+	t.Run("one stock's weight in each fund, at each file, grouped by fund", func(t *testing.T) {
+		series, err := s.StockFundSeries(ctx, "BHP")
+		require.NoError(t, err)
+		require.Len(t, series, 2)
+		assert.Equal(t, "blackrock", series[0].InstitutionSlug, "ordered by institution")
+		assert.Equal(t, "2026-10-15", series[0].AsAt)
+		assert.Equal(t, "hostplus", series[1].InstitutionSlug)
+		assert.Equal(t, "super_phd", series[1].SourceKind)
+		require.NotNil(t, series[1].Weight)
+		assert.InDelta(t, 0.7, *series[1].Weight, 1e-9)
+	})
+}
+
+func flowOf(flows map[string]NoticeFlow, code string) NoticeFlow {
+	return flows[code]
+}
+
+// ownershipDeskSeed is the desk's notices, a stock and an institution set, and
+// the fund snapshots the desk's pairs and series read.
+const ownershipDeskSeed = `
+INSERT INTO "company-metadata" VALUES ('BHP', 'BHP Group Limited', 'Materials', 200000000000),
+	('PLS', 'PLS Group', 'Materials', 3000000000), ('CBA', 'Commonwealth Bank of Australia', 'Banks', 250000000000),
+	('ZIP', 'Zip Co Limited', 'Financial Services', 1500000000);
+INSERT INTO ownership_institutions (slug, name, kind) VALUES
+	('aaa-super', 'Aaa Super', 'super_fund'), ('ccc-hedge', 'Ccc Hedge', 'hedge_fund');
+INSERT INTO substantial_holder_notices (announcement_url, stock_code, form, holder_name, holder_key, institution_slug,
+	event_date, announced_on, previous_pct, present_pct, present_votes, ceased, parser_version) VALUES
+	('d1', 'BHP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-02', 5, 6, NULL, false, 1),
+	('d2', 'BHP', '605', 'Ccc Hedge', 'ccc-hedge', 'ccc-hedge', '2026-10-01', '2026-10-05', 4, NULL, NULL, true, 1),
+	('d3', 'PLS', '603', 'Ccc Hedge', 'ccc-hedge', 'ccc-hedge', NULL, '2026-10-03', NULL, 5, NULL, false, 1),
+	('d4', 'PLS', 'nz', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-04', NULL, 3, NULL, false, 1),
+	('d5', 'ZIP', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-06-01', 6, 5.5, NULL, false, 1),
+	('d6', 'CBA', '604', 'Aaa Super', 'aaa-super', 'aaa-super', NULL, '2026-10-06', 5, 5, NULL, false, 1),
+	('d7', 'ZIP', '604', 'Ccc Hedge', 'ccc-hedge', 'ccc-hedge', NULL, '2026-10-07', NULL, NULL, NULL, false, 1);
+INSERT INTO fund_holding_snapshots (id, institution_slug, fund_name, fund_code, source_kind, source_url, as_at) VALUES
+	(1, 'vanguard', 'VAS', 'VAS', 'etf', 'x', '2026-09-30'),
+	(2, 'vanguard', 'VAS', 'VAS', 'etf', 'x', '2026-10-15'),
+	(3, 'hostplus', 'Balanced', NULL, 'super_phd', 'x', '2026-06-30'),
+	(4, 'blackrock', 'IOZ', 'IOZ', 'etf', 'x', '2026-10-15');
+INSERT INTO fund_holdings (snapshot_id, stock_code, security_name, units, value_aud, weight_pct, match_method) VALUES
+	(1, 'ZIP', 'ZIP CO', 1000, 1500, 0.1, 'ticker'),
+	(1, 'WBC', 'WESTPAC', 500, 4000000000, 0.4, 'ticker'),
+	(2, 'ZIP', 'ZIP CO', 2000, 3000, 0.2, 'ticker'),
+	(2, 'PLS', 'PLS GROUP', 9000, 900000000, 0.3, 'ticker'),
+	(3, 'BHP', 'BHP GROUP', 26000000, 1400000000, 0.7, 'ticker'),
+	(4, 'BHP', 'BHP GROUP', 1800000, 1000000000, 0.9, 'ticker');
+`
+
+// noticeDelta is the change in voting power a notice states, in percentage points,
+// as noticeDeltaSQL decides it. ok is false when the notice states no change. A
+// ceased notice counts its previous figure as a fall; a notice with no previous
+// figure counts its present figure as a rise (a 603); otherwise the difference.
+func noticeDelta(r SubstantialNoticeRow) (float64, bool) {
+	switch {
+	case r.Ceased || r.Form == "605":
+		if r.PreviousPct == nil {
+			return 0, false
+		}
+		return -*r.PreviousPct, true
+	case r.PreviousPct == nil:
+		if r.PresentPct == nil {
+			return 0, false
+		}
+		return *r.PresentPct, true
+	case r.PresentPct == nil:
+		return 0, false
+	}
+	return *r.PresentPct - *r.PreviousPct, true
 }

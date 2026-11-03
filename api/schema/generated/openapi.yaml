@@ -2185,6 +2185,120 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetInstitutionResponse'
+  /shorts.v1alpha1.OwnershipService/GetOwnershipActivity:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: GetOwnershipActivity
+      description: |-
+        The desk's movement: each industry's notices by week, and the net change
+         in disclosed voting power that week.
+      operationId: OwnershipService_GetOwnershipActivity
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetOwnershipActivityRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetOwnershipActivityResponse'
+  /shorts.v1alpha1.OwnershipService/GetOwnershipFlows:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: GetOwnershipFlows
+      description: |-
+        The desk's flows: disclosed exposure by holder kind and industry, and the
+         net change in it over a window.
+      operationId: OwnershipService_GetOwnershipFlows
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetOwnershipFlowsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetOwnershipFlowsResponse'
+  /shorts.v1alpha1.OwnershipService/GetOwnershipMap:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: GetOwnershipMap
+      description: |-
+        The desk's map: every stock with a current substantial holder, what its
+         notices disclose, and how that moved over a window.
+      operationId: OwnershipService_GetOwnershipMap
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetOwnershipMapRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetOwnershipMapResponse'
   /shorts.v1alpha1.OwnershipService/GetOwnershipOverview:
     post:
       tags:
@@ -2224,6 +2338,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetOwnershipOverviewResponse'
+  /shorts.v1alpha1.OwnershipService/GetStockFundSeries:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: GetStockFundSeries
+      description: One stock's weight and value in each tracked fund, at every snapshot.
+      operationId: OwnershipService_GetStockFundSeries
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStockFundSeriesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetStockFundSeriesResponse'
   /shorts.v1alpha1.OwnershipService/GetStockOwnership:
     post:
       tags:
@@ -2262,6 +2412,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStockOwnershipResponse'
+  /shorts.v1alpha1.OwnershipService/ListFundPositionChanges:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: ListFundPositionChanges
+      description: |-
+        The index fund positions: the change in each stock's weight across the
+         tracked funds between two snapshot dates.
+      operationId: OwnershipService_ListFundPositionChanges
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListFundPositionChangesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListFundPositionChangesResponse'
   /shorts.v1alpha1.OwnershipService/ListInstitutions:
     post:
       tags:
@@ -6339,6 +6527,83 @@ components:
       title: FinancialYearOption
       additionalProperties: false
       description: FinancialYearOption is one selectable year, with how much is in it.
+    shorts.v1alpha1.FlowChange:
+      type: object
+      properties:
+        kind:
+          type: string
+          title: kind
+          description: (proto string)
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        direction:
+          type: string
+          title: direction
+          description: up or down. (proto string)
+        exposureAud:
+          type: number
+          title: exposure_aud
+          format: double
+          description: (proto double)
+        hasExposure:
+          type: boolean
+          title: has_exposure
+          description: (proto bool)
+        notices:
+          type: integer
+          title: notices
+          format: int32
+          description: (proto int32)
+      title: FlowChange
+      additionalProperties: false
+      description: |-
+        The window's change in disclosed exposure of one holder kind in one industry,
+         split by direction. exposure_aud is a magnitude: the direction carries the
+         sign, so a down row is a fall of that size. Like the positions, it sums only
+         the notices whose stock has a positive market cap.
+    shorts.v1alpha1.FlowPosition:
+      type: object
+      properties:
+        kind:
+          type: string
+          title: kind
+          description: (proto string)
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        exposureAud:
+          type: number
+          title: exposure_aud
+          format: double
+          description: (proto double)
+        hasExposure:
+          type: boolean
+          title: has_exposure
+          description: (proto bool)
+        holdings:
+          type: integer
+          title: holdings
+          format: int32
+          description: Interests counted in the cell. (proto int32)
+        largestCode:
+          type: string
+          title: largest_code
+          description: The cell's largest interest by voting power. (proto string)
+        largestPct:
+          type: number
+          title: largest_pct
+          format: double
+          description: (proto double)
+      title: FlowPosition
+      additionalProperties: false
+      description: |-
+        Disclosed exposure of one holder kind in one industry, estimated: the sum of
+         each current interest's voting power over 100, times the stock's market cap.
+         The sum covers only the interests whose stock has a positive market cap, and
+         has_exposure is set when one does; the rest are not counted in it.
     shorts.v1alpha1.FundHolding:
       type: object
       properties:
@@ -6417,6 +6682,133 @@ components:
       title: FundHolding
       additionalProperties: false
       description: One stock in one fund's holdings file.
+    shorts.v1alpha1.FundPoint:
+      type: object
+      properties:
+        asAt:
+          type: string
+          title: as_at
+          description: (proto string)
+        weightPct:
+          type: number
+          title: weight_pct
+          format: double
+          description: (proto double)
+        hasWeight:
+          type: boolean
+          title: has_weight
+          description: (proto bool)
+        valueAud:
+          type: number
+          title: value_aud
+          format: double
+          description: (proto double)
+        hasValue:
+          type: boolean
+          title: has_value
+          description: (proto bool)
+      title: FundPoint
+      additionalProperties: false
+    shorts.v1alpha1.FundPositionChange:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        weightFromPct:
+          type: number
+          title: weight_from_pct
+          format: double
+          description: (proto double)
+        hasWeightFrom:
+          type: boolean
+          title: has_weight_from
+          description: (proto bool)
+        weightToPct:
+          type: number
+          title: weight_to_pct
+          format: double
+          description: (proto double)
+        hasWeightTo:
+          type: boolean
+          title: has_weight_to
+          description: (proto bool)
+        deltaPp:
+          type: number
+          title: delta_pp
+          format: double
+          description: (proto double)
+        hasDelta:
+          type: boolean
+          title: has_delta
+          description: (proto bool)
+        valueFromAud:
+          type: number
+          title: value_from_aud
+          format: double
+          description: (proto double)
+        hasValueFrom:
+          type: boolean
+          title: has_value_from
+          description: (proto bool)
+        valueToAud:
+          type: number
+          title: value_to_aud
+          format: double
+          description: (proto double)
+        hasValueTo:
+          type: boolean
+          title: has_value_to
+          description: (proto bool)
+        funds:
+          type: integer
+          title: funds
+          format: int32
+          description: Funds holding it on either date. (proto int32)
+        state:
+          type: string
+          title: state
+          description: current, new or dropped. (proto string)
+      title: FundPositionChange
+      additionalProperties: false
+      description: |-
+        One stock's weight across the funds that hold it on both dates, the funds its
+         delta sums: weight to less weight from is the delta. A new or dropped stock
+         sums the funds on the one date it has and has no delta. A stock held on both
+         dates only by different funds (one on each date) compares no fund with itself,
+         so it is in no list.
+    shorts.v1alpha1.FundSeries:
+      type: object
+      properties:
+        institutionSlug:
+          type: string
+          title: institution_slug
+          description: (proto string)
+        institutionName:
+          type: string
+          title: institution_name
+          description: (proto string)
+        fundName:
+          type: string
+          title: fund_name
+          description: (proto string)
+        sourceKind:
+          type: string
+          title: source_kind
+          description: etf or super_phd. (proto string)
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundPoint'
+          title: points
+          description: Oldest first, one a snapshot. (proto shorts.v1alpha1.FundPoint)
+      title: FundSeries
+      additionalProperties: false
     shorts.v1alpha1.FundamentalsCoverage:
       type: object
       properties:
@@ -7985,6 +8377,127 @@ components:
       title: GetMySubscriptionResponse
       additionalProperties: false
       description: Response for GetMySubscription RPC
+    shorts.v1alpha1.GetOwnershipActivityRequest:
+      type: object
+      properties:
+        weeks:
+          type: integer
+          title: weeks
+          format: int32
+          description: 1 to 52 weeks; 0 means 52. Negative is InvalidArgument. (proto int32)
+      title: GetOwnershipActivityRequest
+      additionalProperties: false
+    shorts.v1alpha1.GetOwnershipActivityResponse:
+      type: object
+      properties:
+        fromWeek:
+          type: string
+          title: from_week
+          description: |-
+            The first and last Mondays of the weeks served, YYYY-MM-DD. The last week
+             is the newest notice's. (proto string)
+        toWeek:
+          type: string
+          title: to_week
+          description: (proto string)
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.IndustryWeek'
+          title: rows
+          description: |-
+            Every industry of the register, every week in the range, gap-filled with
+             zero counts: a week with no notice reads 0, and has_net_pp is false. (proto shorts.v1alpha1.IndustryWeek)
+        asOf:
+          type: string
+          title: as_of
+          description: (proto string)
+      title: GetOwnershipActivityResponse
+      additionalProperties: false
+    shorts.v1alpha1.GetOwnershipFlowsRequest:
+      type: object
+      properties:
+        from:
+          type: string
+          title: from
+          description: |-
+            The window of change, as GetOwnershipMapRequest. The positions are the
+             current holdings and do not depend on it. (proto string)
+        to:
+          type: string
+          title: to
+          description: (proto string)
+      title: GetOwnershipFlowsRequest
+      additionalProperties: false
+    shorts.v1alpha1.GetOwnershipFlowsResponse:
+      type: object
+      properties:
+        from:
+          type: string
+          title: from
+          description: (proto string)
+        to:
+          type: string
+          title: to
+          description: (proto string)
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FlowPosition'
+          title: positions
+          description: (proto shorts.v1alpha1.FlowPosition)
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FlowChange'
+          title: changes
+          description: (proto shorts.v1alpha1.FlowChange)
+        asOf:
+          type: string
+          title: as_of
+          description: (proto string)
+      title: GetOwnershipFlowsResponse
+      additionalProperties: false
+    shorts.v1alpha1.GetOwnershipMapRequest:
+      type: object
+      properties:
+        from:
+          type: string
+          title: from
+          description: (proto string)
+        to:
+          type: string
+          title: to
+          description: (proto string)
+      title: GetOwnershipMapRequest
+      additionalProperties: false
+      description: |-
+        The desk's map request. The dates are YYYY-MM-DD, inclusive. Empty means the
+         default: the 91 days ending at the newest notice read. A span over 366 days
+         is InvalidArgument.
+    shorts.v1alpha1.GetOwnershipMapResponse:
+      type: object
+      properties:
+        from:
+          type: string
+          title: from
+          description: (proto string)
+        to:
+          type: string
+          title: to
+          description: (proto string)
+        stocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.MapStock'
+          title: stocks
+          description: (proto shorts.v1alpha1.MapStock)
+        asOf:
+          type: string
+          title: as_of
+          description: (proto string)
+      title: GetOwnershipMapResponse
+      additionalProperties: false
     shorts.v1alpha1.GetOwnershipOverviewRequest:
       type: object
       title: GetOwnershipOverviewRequest
@@ -9095,6 +9608,30 @@ components:
           description: (proto shorts.v1alpha1.StockFinancialHighlights)
           $ref: '#/components/schemas/shorts.v1alpha1.StockFinancialHighlights'
       title: HighlightsEntry
+      additionalProperties: false
+    shorts.v1alpha1.GetStockFundSeriesRequest:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+      title: GetStockFundSeriesRequest
+      additionalProperties: false
+    shorts.v1alpha1.GetStockFundSeriesResponse:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        funds:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundSeries'
+          title: funds
+          description: (proto shorts.v1alpha1.FundSeries)
+      title: GetStockFundSeriesResponse
       additionalProperties: false
     shorts.v1alpha1.GetStockFundamentalsRequest:
       type: object
@@ -10462,6 +10999,61 @@ components:
           description: (proto int32)
       title: IndustryTotal
       additionalProperties: false
+    shorts.v1alpha1.IndustryWeek:
+      type: object
+      properties:
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        weekStart:
+          type: string
+          title: week_start
+          description: The Monday that starts the week, YYYY-MM-DD. (proto string)
+        became:
+          type: integer
+          title: became
+          format: int32
+          description: (proto int32)
+        increased:
+          type: integer
+          title: increased
+          format: int32
+          description: (proto int32)
+        decreased:
+          type: integer
+          title: decreased
+          format: int32
+          description: (proto int32)
+        changed:
+          type: integer
+          title: changed
+          format: int32
+          description: (proto int32)
+        ceased:
+          type: integer
+          title: ceased
+          format: int32
+          description: (proto int32)
+        nz:
+          type: integer
+          title: nz
+          format: int32
+          description: (proto int32)
+        netPp:
+          type: number
+          title: net_pp
+          format: double
+          description: (proto double)
+        hasNetPp:
+          type: boolean
+          title: has_net_pp
+          description: (proto bool)
+      title: IndustryWeek
+      additionalProperties: false
+      description: |-
+        One industry's notices in one ISO week, and the net change in disclosed
+         voting power they state.
     shorts.v1alpha1.InlineImage:
       type: object
       properties:
@@ -11112,6 +11704,55 @@ components:
           format: int32
           description: (proto int32)
       title: ListEditorialTakesResponse
+      additionalProperties: false
+    shorts.v1alpha1.ListFundPositionChangesRequest:
+      type: object
+      properties:
+        from:
+          type: string
+          title: from
+          description: |-
+            YYYY-MM-DD. Each side is the newest snapshot at or before it, per fund. Empty
+             means the two newest snapshot dates. The date range must not be inverted. (proto string)
+        to:
+          type: string
+          title: to
+          description: (proto string)
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: |-
+            Per direction: up to this many of the largest rises and the largest falls,
+             and up to this many new and dropped stocks each. 0 means 10; above 50 is 50. (proto int32)
+      title: ListFundPositionChangesRequest
+      additionalProperties: false
+    shorts.v1alpha1.ListFundPositionChangesResponse:
+      type: object
+      properties:
+        snapshotDates:
+          type: array
+          items:
+            type: string
+          title: snapshot_dates
+          description: Every distinct snapshot date across the tracked funds, oldest first. (proto string)
+        from:
+          type: string
+          title: from
+          description: |-
+            The dates used: the newest snapshot at or before each request date, and the
+             first snapshot for a from date before them all. (proto string)
+        to:
+          type: string
+          title: to
+          description: (proto string)
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundPositionChange'
+          title: rows
+          description: Rises (largest first), then falls (largest first), then new, then dropped. (proto shorts.v1alpha1.FundPositionChange)
+      title: ListFundPositionChangesResponse
       additionalProperties: false
     shorts.v1alpha1.ListHousingRegionsRequest:
       type: object
@@ -11878,8 +12519,29 @@ components:
           title: include_activity
           description: |-
             Also compute the window's counts, weekly buckets and largest moves
-             (windows of at most 90 days; omitted above that). Only the first page
-             (cursor ""): a page after a cursor never carries it. (proto bool)
+             (windows of at most 90 days; omitted above that, and with since or until). Only
+             the first page (cursor ""): a page after a cursor never carries it. (proto bool)
+        industry:
+          type: string
+          title: industry
+          description: |-
+            "" or an industry, matched exactly as the register's industries are. "" is
+             no filter, so the stocks with no industry on record cannot be filtered to. (proto string)
+        since:
+          type: string
+          title: since
+          description: |-
+            "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates
+             are the window: window_days is ignored when since or until is named, and the
+             response echoes 0. With no until the span runs to today; with no since it
+             starts 365 days before until. A span over 366 days is InvalidArgument, as is
+             an invalid date. (proto string)
+        until:
+          type: string
+          title: until
+          description: |-
+            "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as
+             InvalidArgument when it is before since (see since for the span). (proto string)
       title: ListSubstantialNoticesRequest
       additionalProperties: false
     shorts.v1alpha1.ListSubstantialNoticesResponse:
@@ -12143,6 +12805,85 @@ components:
           description: (proto shorts.v1alpha1.EditorialTake)
       title: ListTweetPublishQueueResponse
       additionalProperties: false
+    shorts.v1alpha1.MapStock:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        marketCap:
+          type: number
+          title: market_cap
+          format: double
+          description: (proto double)
+        hasMarketCap:
+          type: boolean
+          title: has_market_cap
+          description: (proto bool)
+        disclosedPct:
+          type: number
+          title: disclosed_pct
+          format: double
+          description: (proto double)
+        institutionalPct:
+          type: number
+          title: institutional_pct
+          format: double
+          description: The investor kinds' share of the disclosure (banks and brokers excluded). (proto double)
+        hedgePct:
+          type: number
+          title: hedge_pct
+          format: double
+          description: (proto double)
+        indexPct:
+          type: number
+          title: index_pct
+          format: double
+          description: Shares held by the index funds tracked, over shares on issue. (proto double)
+        hasIndexPct:
+          type: boolean
+          title: has_index_pct
+          description: (proto bool)
+        shortPct:
+          type: number
+          title: short_pct
+          format: double
+          description: ASIC's latest reported short position, over shares on issue. (proto double)
+        hasShortPct:
+          type: boolean
+          title: has_short_pct
+          description: (proto bool)
+        flowPp:
+          type: number
+          title: flow_pp
+          format: double
+          description: |-
+            Net change in disclosed voting power across the notices released in the
+             window, in percentage points. A ceased notice counts its previous figure
+             as a fall. Unknown when no notice in the window states a figure. (proto double)
+        hasFlowPp:
+          type: boolean
+          title: has_flow_pp
+          description: (proto bool)
+        notices:
+          type: integer
+          title: notices
+          format: int32
+          description: Notices released in the window. (proto int32)
+      title: MapStock
+      additionalProperties: false
+      description: |-
+        One stock on the map. The figures are what the notices disclose, each
+         interest counted once: not a share of the company.
     shorts.v1alpha1.MarkTakeTweetPublishedRequest:
       type: object
       properties:

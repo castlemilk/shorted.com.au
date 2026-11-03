@@ -75,6 +75,7 @@ import { NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
 import { NOTICE_EVENT_LABELS, noticeEventLabel } from "~/@/lib/ownership/events";
 import { KIND_ORDER, kindInfo, registerHref } from "~/@/lib/ownership/kinds";
 import {
+  DEFAULT_NOTICE_WINDOW,
   NOTICE_EVENTS,
   NOTICE_WINDOW_ALL,
   parseNoticeParams,
@@ -88,6 +89,7 @@ import {
   POLITICS_SELECT_CLASS,
 } from "~/@/lib/politics/control-classes";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 
 /* ------------------------------------------------------------------ shapes */
@@ -172,7 +174,7 @@ const INPUT_CLASS =
 const CODE_MAX = 6;
 
 /** The link's own parameters for this feed. Anything else in the link is left alone. */
-const FEED_PARAMS = ["window", "event", "kind", "stock", "holder"] as const;
+const FEED_PARAMS = ["window", "event", "kind", "stock", "holder", "industry", "since", "until"] as const;
 
 /** feed.outage (section 7): a request that did not answer is never an empty feed. */
 const FEED_OUTAGE_COPY =
@@ -196,8 +198,24 @@ function stockFromText(text: string): string {
 
 function filtersActive(query: NoticeQuery): boolean {
   return (
-    query.event !== "" || query.kind !== "" || query.stockCode !== "" || query.institutionSlug !== ""
+    query.event !== "" ||
+    query.kind !== "" ||
+    query.stockCode !== "" ||
+    query.institutionSlug !== "" ||
+    query.industry !== "" ||
+    query.since !== "" ||
+    query.until !== ""
   );
+}
+
+/**
+ * The brushed dates as the chip names them: a range is "from to", a side left out is named alone. The
+ * link's dates are what the feed runs, so the chip shows exactly those.
+ */
+function datesLabel(since: string, until: string): string {
+  if (since !== "" && until !== "") return `${since} to ${until}`;
+  if (since !== "") return `From ${since}`;
+  return `Until ${until}`;
 }
 
 /**
@@ -447,24 +465,57 @@ function NoticeFeedView({
   /** A chip's link: the controls as they stand, with this one value changed and the first page asked for. */
   const chip = (patch: Partial<NoticeQuery>) =>
     hrefWith(basePath, serialiseNoticeParams({ ...controls, ...patch, cursor: "" }));
+  // A date range is the window while it is set, so the window chips give way to it. Clearing it
+  // returns the feed to the default window, not to the all-notices window a dated query carries.
+  const dated = controls.since !== "" || controls.until !== "";
+  const datesText = datesLabel(controls.since, controls.until);
+  // A placeholder industry in a link is named as the record names it: n/a would say the chip holds nothing.
+  const industryText = `Industry: ${industryLabel(controls.industry) || controls.industry}`;
 
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <div className="space-y-1.5">
-          <span id={`${id}-window`} className={FIELD_LABEL}>
-            Window
-          </span>
-          <div role="group" aria-labelledby={`${id}-window`} className="flex flex-wrap gap-1.5">
-            {WINDOW_OPTIONS.map((option) => (
-              <FilterChip
-                key={option.days}
-                href={chip({ windowDays: option.days })}
-                active={controls.windowDays === option.days}
-                label={option.label}
-              />
-            ))}
+        <div className="flex flex-wrap gap-x-6 gap-y-3">
+          <div className="space-y-1.5">
+            <span id={`${id}-window`} className={FIELD_LABEL}>
+              Window
+            </span>
+            <div role="group" aria-labelledby={`${id}-window`} className="flex flex-wrap gap-1.5">
+              {dated
+                ? null
+                : WINDOW_OPTIONS.map((option) => (
+                    <FilterChip
+                      key={option.days}
+                      href={chip({ windowDays: option.days })}
+                      active={controls.windowDays === option.days}
+                      label={option.label}
+                    />
+                  ))}
+              {dated ? (
+                <FilterChip
+                  href={chip({ since: "", until: "", windowDays: DEFAULT_NOTICE_WINDOW })}
+                  active={false}
+                  label={datesText}
+                  clearName={`${datesText}, clear dates`}
+                />
+              ) : null}
+            </div>
           </div>
+          {controls.industry !== "" ? (
+            <div className="space-y-1.5">
+              <span id={`${id}-filters`} className={FIELD_LABEL}>
+                Filters
+              </span>
+              <div role="group" aria-labelledby={`${id}-filters`} className="flex flex-wrap gap-1.5">
+                <FilterChip
+                  href={chip({ industry: "" })}
+                  active={false}
+                  label={industryText}
+                  clearName={`${industryText}, clear filter`}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-1.5">

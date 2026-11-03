@@ -926,6 +926,65 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetIns
   -d '{}'
 ```
 
+#### `POST /shorts.v1alpha1.OwnershipService/GetOwnershipActivity`
+
+The desk's movement: each industry's notices by week, and the net change
+ in disclosed voting power that week.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `weeks` | integer (int32) | no | 1 to 52 weeks; 0 means 52. Negative is InvalidArgument. (proto int32) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetOwnershipActivity' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/GetOwnershipFlows`
+
+The desk's flows: disclosed exposure by holder kind and industry, and the
+ net change in it over a window.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `from` | string | no | The window of change, as GetOwnershipMapRequest. The positions are the current holdings and do not depend on it. (proto string) |
+| `to` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetOwnershipFlows' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/GetOwnershipMap`
+
+The desk's map: every stock with a current substantial holder, what its
+ notices disclose, and how that moved over a window.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `from` | string | no | (proto string) |
+| `to` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetOwnershipMap' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.OwnershipService/GetOwnershipOverview`
 
 The map and the aggregated view: institutions by kind, the most crowded
@@ -936,6 +995,24 @@ Request body: an empty JSON object, `{}`.
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetOwnershipOverview' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/GetStockFundSeries`
+
+One stock's weight and value in each tracked fund, at every snapshot.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `stockCode` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetStockFundSeries' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
@@ -955,6 +1032,27 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetStockOwnership' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/ListFundPositionChanges`
+
+The index fund positions: the change in each stock's weight across the
+ tracked funds between two snapshot dates.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `from` | string | no | YYYY-MM-DD. Each side is the newest snapshot at or before it, per fund. Empty means the two newest snapshot dates. The date range must not be inverted. (proto string) |
+| `limit` | integer (int32) | no | Per direction: up to this many of the largest rises and the largest falls, and up to this many new and dropped stocks each. 0 means 10; above 50 is 50. (proto int32) |
+| `to` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/ListFundPositionChanges' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
@@ -1024,11 +1122,14 @@ Request body fields:
 | --- | --- | --- | --- |
 | `cursor` | string | no | "" for the first page, else the previous page's next_cursor. (proto string) |
 | `event` | string | no | "" or one of became, increased, decreased, changed, ceased, nz. (proto string) |
-| `includeActivity` | boolean | no | Also compute the window's counts, weekly buckets and largest moves (windows of at most 90 days; omitted above that). Only the first page (cursor ""): a page after a cursor never carries it. (proto bool) |
+| `includeActivity` | boolean | no | Also compute the window's counts, weekly buckets and largest moves (windows of at most 90 days; omitted above that, and with since or until). Only the first page (cursor ""): a page after a cursor never carries it. (proto bool) |
+| `industry` | string | no | "" or an industry, matched exactly as the register's industries are. "" is no filter, so the stocks with no industry on record cannot be filtered to. (proto string) |
 | `institutionSlug` | string | no | "" or a registry slug: that holder's notices, as its institution page reads them. Holders off the map cannot be filtered. (proto string) |
 | `kind` | string | no | "" or a holder kind: an institution kind, corporate or unclassified. (proto string) |
 | `limit` | integer (int32) | no | 0 means 50; above 100 is 100. (proto int32) |
+| `since` | string | no | "" or YYYY-MM-DD: notices released on or after it, inclusive. Named dates are the window: window_days is ignored when since or until is named, and the response echoes 0. With no until the span runs to today; with no since it starts 365 days before until. A span over 366 days is InvalidArgument, as is an invalid date. (proto string) |
 | `stockCode` | string | no | "" or an ASX code (1 to 6 uppercase alphanumerics). (proto string) |
+| `until` | string | no | "" or YYYY-MM-DD: notices released on or before it, inclusive. Refused as InvalidArgument when it is before since (see since for the span). (proto string) |
 | `windowDays` | integer (int32) | no | 7, 30, 90 or 365; 0 means every notice read (no date clause). Another positive value rounds UP to the next served window, and one above 365 is 0; the response echoes the window used. A negative value is invalid. (proto int32) |
 
 ```bash

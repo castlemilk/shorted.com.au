@@ -191,6 +191,16 @@ export const CACHE_KEYS = {
   // empty, and a deploy does not flush KV, so it is served for up to OWNERSHIP_TTL.
   ownershipNotices: () => `cache:ownership:notices:v1`,
   ownershipRegisters: () => `cache:ownership:registers:v1`,
+  // The desk's default views (ownershipDesk.ts), and nothing else: the map and the
+  // flows at the default window with no dates, the activity at 52 weeks, and the
+  // index fund window at its two newest snapshots. A window chip, a brushed date or
+  // a zoomed sector is a live read, so no key stands for a visitor's choice. Same
+  // rule as the explorer's keys: the API's answer as proto JSON, mapped again on
+  // every read, and a version bump only for a change of meaning.
+  ownershipDeskMap: () => `cache:ownership:desk-map:v1`,
+  ownershipDeskFlows: () => `cache:ownership:desk-flows:v1`,
+  ownershipDeskActivity: () => `cache:ownership:desk-activity:v1`,
+  ownershipDeskFunds: () => `cache:ownership:desk-funds:v1`,
   // --- Registers of Members'/Senators' Interests ---
   parliamentOverview: () => `cache:politicians:overview`,
   politicianList: (chamber: string, state: string, party: string, query: string, limit: number, offset: number) =>

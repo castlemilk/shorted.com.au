@@ -34,9 +34,20 @@ describe("ownership cache keys", () => {
     expect(CACHE_KEYS.ownershipRegisters()).toBe("cache:ownership:registers:v1");
   });
 
-  it("takes no argument for either explorer key, so no filter value can ever become a key", () => {
+  it("pins the v1 keys of the desk's four default views", () => {
+    expect(CACHE_KEYS.ownershipDeskMap()).toBe("cache:ownership:desk-map:v1");
+    expect(CACHE_KEYS.ownershipDeskFlows()).toBe("cache:ownership:desk-flows:v1");
+    expect(CACHE_KEYS.ownershipDeskActivity()).toBe("cache:ownership:desk-activity:v1");
+    expect(CACHE_KEYS.ownershipDeskFunds()).toBe("cache:ownership:desk-funds:v1");
+  });
+
+  it("takes no argument for any explorer or desk key, so no filter value can ever become a key", () => {
     expect(CACHE_KEYS.ownershipNotices).toHaveLength(0);
     expect(CACHE_KEYS.ownershipRegisters).toHaveLength(0);
+    expect(CACHE_KEYS.ownershipDeskMap).toHaveLength(0);
+    expect(CACHE_KEYS.ownershipDeskFlows).toHaveLength(0);
+    expect(CACHE_KEYS.ownershipDeskActivity).toHaveLength(0);
+    expect(CACHE_KEYS.ownershipDeskFunds).toHaveLength(0);
   });
 
   it("keeps every ownership key under the prefix the flush reaches", () => {
@@ -48,6 +59,10 @@ describe("ownership cache keys", () => {
       CACHE_KEYS.stockOwnership("BHP"),
       CACHE_KEYS.ownershipNotices(),
       CACHE_KEYS.ownershipRegisters(),
+      CACHE_KEYS.ownershipDeskMap(),
+      CACHE_KEYS.ownershipDeskFlows(),
+      CACHE_KEYS.ownershipDeskActivity(),
+      CACHE_KEYS.ownershipDeskFunds(),
     ];
     for (const key of keys) {
       expect(key.startsWith("cache:ownership:")).toBe(true);

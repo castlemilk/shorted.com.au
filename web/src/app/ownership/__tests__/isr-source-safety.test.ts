@@ -274,6 +274,61 @@ describe("ownership ISR source safety", () => {
     );
   });
 
+  // The hub's desk (spec 13.7) is drawn by islands and loaders outside app/ownership, so the
+  // page-level scan above does not reach them. A read of searchParams, cookies() or headers() in
+  // any of them would turn the hub dynamic for every visitor, so they are held to the same list.
+  describe("the desk the hub draws", () => {
+    const APP_DIR = path.resolve(OWNERSHIP_DIR, "..");
+    const DESK_DIR = path.resolve(APP_DIR, "..", "@", "components", "ownership", "desk");
+    const DESK_LOADER = path.join(APP_DIR, "actions", "ownershipDesk.ts");
+    const desk = [...sourceFiles(DESK_DIR), DESK_LOADER].map(
+      (file) => [path.relative(APP_DIR, file).split(path.sep).join("/"), file] as const,
+    );
+
+    it("finds the desk's islands, its static drawings, the stock panel and the loaders", () => {
+      expect(desk.map(([name]) => name)).toEqual(
+        expect.arrayContaining([
+          "../@/components/ownership/desk/ownership-map.tsx",
+          "../@/components/ownership/desk/ownership-flows.tsx",
+          "../@/components/ownership/desk/movement-heatmap.tsx",
+          "../@/components/ownership/desk/fund-positions.tsx",
+          "../@/components/ownership/desk/stock-panel.tsx",
+          "actions/ownershipDesk.ts",
+        ]),
+      );
+    });
+
+    // Every island reads the URL itself (spec 13.1): useSearchParams under its own Suspense, with
+    // the server's default view as the fallback, so the static prerender takes the fallback and
+    // the URL read never reaches the page. Those two reads are the only ones the desk may make.
+    const URL_READS = ["searchParams", "useSearchParams"];
+    const requestTimeReads = (file: string) =>
+      dynamicReads(read(file), file).filter((name) => !URL_READS.includes(name));
+
+    it.each(desk)("%s reads no dynamic API and does not opt out of the cache", (_name, file) => {
+      expect(requestTimeReads(file)).toEqual([]);
+    });
+
+    // Each island wraps its live part in a Suspense whose fallback is the default view, so the
+    // static prerender draws the view and the URL read sits under that boundary (spec 13.1).
+    it("wraps each island's live part in a Suspense with the default view as its fallback", () => {
+      const islands = ["ownership-map.tsx", "ownership-flows.tsx", "movement-heatmap.tsx", "fund-positions.tsx"];
+      for (const island of islands) {
+        const code = withoutComments(read(path.join(DESK_DIR, island)), island);
+        expect({ island, boundary: /<Suspense\s+fallback=\{/.test(code) }).toEqual({ island, boundary: true });
+      }
+    });
+
+    it("reads the URL only from client islands", () => {
+      const urlReaders = desk.filter(([, file]) => dynamicReads(read(file), file).some((name) => URL_READS.includes(name)));
+      expect(urlReaders.length).toBeGreaterThan(0);
+      const notIslands = urlReaders
+        .filter(([, file]) => !/^["']use client["']/.test(withoutComments(read(file), file).trimStart()))
+        .map(([name]) => name);
+      expect(notIslands).toEqual([]);
+    });
+  });
+
   describe("the scan's own readers", () => {
     describe("withoutComments", () => {
       it("blanks every kind of comment and keeps every offset", () => {

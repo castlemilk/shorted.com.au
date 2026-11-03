@@ -475,6 +475,66 @@ describe("notice feed explorer", () => {
     expect(screen.queryByText(/No notices read match/)).toBeNull();
   });
 
+  it("reads the industry and the dates from the link, and asks the server for them", () => {
+    jest.useFakeTimers();
+    mockSearchParams = new URLSearchParams("industry=Energy&since=2026-08-01&until=2026-10-31");
+    loadPage.mockReturnValue(new Promise(() => undefined));
+    renderFeed();
+    expect(loadPage).toHaveBeenCalledTimes(1);
+    expect(loadPage).toHaveBeenCalledWith(
+      expect.objectContaining({ industry: "Energy", since: "2026-08-01", until: "2026-10-31", windowDays: 0 }),
+    );
+  });
+
+  it("hides the window chips while a date range is set, and shows the range as a chip that clears it", () => {
+    jest.useFakeTimers();
+    mockSearchParams = new URLSearchParams("since=2026-08-01&until=2026-10-31");
+    loadPage.mockReturnValue(new Promise(() => undefined));
+    renderFeed(feedPage({ query: { ...defaultNoticeQuery(), windowDays: 0, since: "2026-08-01", until: "2026-10-31" } }));
+    expect(within(group("Window")).queryByRole("link", { name: "Last 7 days" })).toBeNull();
+    const dates = within(group("Window")).getByRole("link", { name: "2026-08-01 to 2026-10-31, clear dates" });
+    expect(dates).toHaveTextContent("2026-08-01 to 2026-10-31");
+    expect(dates).not.toHaveAttribute("aria-current");
+    expect(dates).toHaveAttribute("href", BASE);
+  });
+
+  it("names a range with one side alone as from or until", () => {
+    jest.useFakeTimers();
+    mockSearchParams = new URLSearchParams("since=2026-08-01");
+    loadPage.mockReturnValue(new Promise(() => undefined));
+    renderFeed(feedPage({ query: { ...defaultNoticeQuery(), windowDays: 0, since: "2026-08-01" } }));
+    expect(within(group("Window")).getByRole("link", { name: /^From 2026-08-01, clear dates$/ })).toBeInTheDocument();
+  });
+
+  it("keeps the window chips beside an industry chip, which clears only the industry and keeps the stock", () => {
+    jest.useFakeTimers();
+    mockSearchParams = new URLSearchParams("industry=Energy&stock=BHP");
+    loadPage.mockReturnValue(new Promise(() => undefined));
+    renderFeed(feedPage({ query: { ...defaultNoticeQuery(), industry: "Energy", stockCode: "BHP" } }));
+    expect(within(group("Window")).getByRole("link", { name: "Last 7 days" })).toHaveAttribute(
+      "href",
+      `${BASE}?window=7&stock=BHP&industry=Energy`,
+    );
+    const industry = within(group("Filters")).getByRole("link", { name: "Industry: Energy, clear filter" });
+    expect(industry).toHaveAttribute("href", `${BASE}?stock=BHP`);
+    expect(industry).not.toHaveAttribute("aria-current");
+  });
+
+  // A filter change rewrites the feed's own parameters in the link, once each, and leaves a foreign one alone.
+  it("writes the industry and the dates into the link once each on a filter change, and keeps utm_source", () => {
+    window.history.replaceState(null, "", `${BASE}?utm_source=newsletter`);
+    mockSearchParams = new URLSearchParams("industry=Energy&since=2026-08-01&until=2026-10-31&utm_source=newsletter");
+    loadPage.mockReturnValue(new Promise(() => undefined));
+    renderFeed(feedPage({ query: { ...defaultNoticeQuery(), windowDays: 0, industry: "Energy", since: "2026-08-01", until: "2026-10-31" } }));
+    fireEvent.change(select("holder"), { target: { value: "alpha-super" } });
+    const written = new URLSearchParams(window.location.search);
+    expect(written.get("utm_source")).toBe("newsletter");
+    expect(written.getAll("industry")).toEqual(["Energy"]);
+    expect(written.getAll("since")).toEqual(["2026-08-01"]);
+    expect(written.getAll("until")).toEqual(["2026-10-31"]);
+    expect(written.get("holder")).toBe("alpha-super");
+  });
+
   it("keeps a parameter the feed does not own when a filter changes", () => {
     window.history.replaceState(null, "", `${BASE}?utm_source=newsletter`);
     loadPage.mockReturnValue(new Promise(() => undefined));

@@ -543,6 +543,12 @@ func (c *MemoryCache) GetStockOwnershipKey(stockCode string, generation int64) s
 	return c.generateKey("stock_ownership", stockCode, generation)
 }
 
+// GetOwnershipMapKey builds a cache key for the desk map's default window's
+// notice totals, read beside the universe of the given generation.
+func (c *MemoryCache) GetOwnershipMapKey(generation int64) string {
+	return c.generateKey("ownership_map", generation)
+}
+
 // ListSubstantialNoticesKey builds a cache key for the notices feed's first
 // page's read, beside the universe of the given generation. It names every
 // clamped input the read depends on, so two requests that clamp to the same
