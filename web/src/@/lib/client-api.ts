@@ -23,6 +23,36 @@ export interface ClientDateWindow {
   to?: string;
 }
 
+/**
+ * The codes a windowed read accepts: the chart share page's and the bot's rule
+ * (2 to 6 letters or digits), not the live reads' 3 to 4.
+ */
+const WINDOWED_CODE_RE = /^[A-Za-z0-9]{2,6}$/;
+
+/** A window that cannot hold a session (from after to): nothing to ask for. */
+function isEmptyRange(range: ClientDateWindow): boolean {
+  return (
+    range.from !== undefined &&
+    range.to !== undefined &&
+    range.from !== "" &&
+    range.to !== "" &&
+    range.from > range.to
+  );
+}
+
+/**
+ * A connect error that means "no answer", not "try again": the stock is not
+ * there, or the request was refused as malformed. Anything else (a 429, a
+ * dropped connection, a 5xx) is transient and must reject, so the caller's
+ * retry runs and an empty answer is not cached in its place.
+ */
+function isNoAnswer(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === 3 || code === 5) return true; // Connect's InvalidArgument, NotFound
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("invalid_argument") || message.includes("not_found");
+}
+
 // Client-side API calls (not using React cache) for use in interactive components like tooltips
 // These should only be called from client components
 
@@ -117,7 +147,6 @@ export async function fetchStockClient(
 export async function fetchStockDataClient(
   productCode: string,
   period = "1m",
-  window?: ClientDateWindow,
 ): Promise<TimeSeriesData | undefined> {
   // Validate product code before making API call to avoid 400 errors
   if (!productCode || !isValidProductCode(productCode)) {
@@ -127,13 +156,10 @@ export async function fetchStockDataClient(
   try {
     const transport = getTransport();
     const client = createClient(StockService, transport);
-    // With a window the request names the dates; `period` still picks the
-    // bucketing. Without one the request is the live chart's, unchanged.
-    const response = await client.getStockData(
-      window
-        ? { productCode, period, from: window.from ?? "", to: window.to ?? "" }
-        : { productCode, period },
-    );
+    const response = await client.getStockData({
+      productCode,
+      period,
+    });
     return response;
   } catch (error) {
     // Only log non-validation errors to avoid console spam
@@ -149,26 +175,56 @@ export async function fetchStockDataClient(
 }
 
 /**
+ * Fetch a windowed short series (a chart kept as posted). `period` still picks
+ * the bucketing. Answers an empty series for a window that cannot hold a
+ * session and for a code or stock the API does not know; a transient failure
+ * rejects, so the query retries rather than caching nothing.
+ */
+export async function fetchStockDataWindowClient(
+  productCode: string,
+  period: string,
+  range: ClientDateWindow,
+): Promise<TimeSeriesData> {
+  // The chart reads only `points`; an empty series is the same shape with none.
+  const empty = () => ({ points: [] }) as unknown as TimeSeriesData;
+  if (!WINDOWED_CODE_RE.test(productCode) || isEmptyRange(range)) return empty();
+
+  try {
+    const client = createClient(StockService, getTransport());
+    return await client.getStockData({
+      productCode,
+      period,
+      from: range.from ?? "",
+      to: range.to ?? "",
+    });
+  } catch (error) {
+    if (isNoAnswer(error)) return empty();
+    throw error;
+  }
+}
+
+/**
  * Fetch end-of-day prices for a date range on the client side, as the
  * historical-data shape the charts read. The live chart's prices come from the
  * market-data service, which takes only a period; a chart kept as posted needs
  * its window, so it reads them here. An empty `from` or `to` is left open.
+ *
+ * Answers [] for a window that cannot hold a session and for a code or stock
+ * the API does not know. A transient failure rejects, so the query retries and
+ * an empty answer is never cached in its place.
  */
 export async function fetchStockPricesClient(
   productCode: string,
-  window: ClientDateWindow,
-): Promise<HistoricalDataPoint[] | undefined> {
-  if (!productCode || !isValidProductCode(productCode)) {
-    return undefined;
-  }
+  range: ClientDateWindow,
+): Promise<HistoricalDataPoint[]> {
+  if (!WINDOWED_CODE_RE.test(productCode) || isEmptyRange(range)) return [];
 
   try {
-    const transport = getTransport();
-    const client = createClient(StockService, transport);
+    const client = createClient(StockService, getTransport());
     const response = await client.getStockPrices({
       productCode,
-      from: window.from ?? "",
-      to: window.to ?? "",
+      from: range.from ?? "",
+      to: range.to ?? "",
     });
     return response.points.map((p) => ({
       date: p.date,
@@ -180,14 +236,8 @@ export async function fetchStockPricesClient(
       adjustedClose: p.adjustedClose,
     }));
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (
-      !errorMessage.includes("invalid_argument") &&
-      !errorMessage.includes("not_found")
-    ) {
-      console.error(`Error fetching stock prices for ${productCode}:`, error);
-    }
-    return undefined;
+    if (isNoAnswer(error)) return [];
+    throw error;
   }
 }
 

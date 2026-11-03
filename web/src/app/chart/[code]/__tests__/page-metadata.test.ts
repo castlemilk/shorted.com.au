@@ -86,6 +86,13 @@ describe("chart share page metadata, kept as posted", () => {
     asof: "2026-11-04",
     shorts: "2026-10-29",
   };
+  // Today (Sydney) is 4 Nov, so a chart posted that day is not in the future.
+  beforeEach(() => {
+    jest.useFakeTimers({ now: new Date("2026-11-04T02:00:00Z") });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
 
   it("names the period as posted, and drops the daily promise", async () => {
     const m = await generateMetadata(props("WBT", pinned));
@@ -107,6 +114,13 @@ describe("chart share page metadata, kept as posted", () => {
     expect(og.images[0]!.url).toContain("asof=2026-11-04");
     const tw = m.twitter as { images: { url: string }[] };
     expect(tw.images[0]!.url).toBe(og.images[0]!.url);
+  });
+
+  it("is live for a chart dated after today", async () => {
+    const m = await generateMetadata(
+      props("WBT", { view: "combined", period: "3m", asof: "2026-11-05" }),
+    );
+    expect(m.title).toBe("WBT share price and short interest chart, past 3 months");
   });
 
   it("keeps a live page's title, description and links unchanged", async () => {

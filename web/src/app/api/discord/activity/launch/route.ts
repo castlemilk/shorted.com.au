@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { parseChartAnchor } from "~/@/components/charts/chart-anchor";
+import {
+  parseChartAnchor,
+  sydneyDay,
+} from "~/@/components/charts/chart-anchor";
 import { DEFAULT_EMBED_CODE } from "~/app/embed/chart/params";
 import type { LaunchAnswer } from "~/@/lib/discord/activity";
 import type { ChartState } from "~/@/lib/discord/custom-id";
@@ -33,11 +36,14 @@ const NO_STORE = { "Cache-Control": "no-store" };
  * dropped (the chart is then live) rather than passed on.
  */
 function checkedState(state: ChartState): ChartState {
-  const anchor = parseChartAnchor({
-    day: state.anchor?.day,
-    shorts: state.anchor?.shorts,
-    prices: state.anchor?.prices,
-  });
+  const anchor = parseChartAnchor(
+    {
+      day: state.anchor?.day,
+      shorts: state.anchor?.shorts,
+      prices: state.anchor?.prices,
+    },
+    sydneyDay(new Date()),
+  );
   return {
     code: state.code,
     view: state.view,

@@ -2,9 +2,12 @@ import { ImageResponse } from "next/og";
 import { type NextRequest } from "next/server";
 
 import { parseEmbedChartParams } from "~/app/embed/chart/params";
+import {
+  isSettledAnchor,
+  sydneyDay,
+} from "~/@/components/charts/chart-anchor";
 import { OG_SIZE } from "~/@/lib/og/card";
 import { loadChartCard } from "./load-card";
-import { isSettledAnchor } from "./chart-data";
 
 export const maxDuration = 15;
 
@@ -14,9 +17,9 @@ const READ_TIMEOUT_MS = 8000;
 const CACHE_COMPLETE =
   "public, max-age=3600, s-maxage=21600, stale-while-revalidate=86400";
 /**
- * A complete card of a settled chart kept as posted (its anchor is at least two
- * days old, see isSettledAnchor): its figures can no longer change, so it is
- * cached for a month at the CDN.
+ * A complete, resolved card of a settled chart kept as posted (see
+ * isSettledAnchor; the name and the logo both read): its figures can no longer
+ * change, so it is cached for a month at the CDN.
  */
 const CACHE_SETTLED =
   "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=86400";
@@ -54,13 +57,16 @@ export async function GET(
     get: (k) => (k === "code" ? rawCode : req.nextUrl.searchParams.get(k)),
   });
 
-  const { card, complete } = await loadChartCard(
+  const { card, complete, resolved, pricesThrough, shortsThrough } =
+    await loadChartCard(
     { code, view, period, anchor },
     READ_TIMEOUT_MS,
   );
+  const settled =
+    anchor !== undefined && isSettledAnchor(anchor, sydneyDay(new Date()));
   const cacheControl = !complete
     ? CACHE_INCOMPLETE
-    : isSettledAnchor(anchor, new Date())
+    : settled && resolved
       ? CACHE_SETTLED
       : CACHE_COMPLETE;
   return new ImageResponse(card, {
@@ -70,6 +76,9 @@ export async function GET(
       // The Discord bot uploads this card with its messages, and draws its own
       // rather than upload one missing a series (lib/discord/chart-card.ts).
       "x-chart-card": complete ? "complete" : "partial",
+      // The newest dates the card drew, for the bot's button ids (load-card.tsx).
+      ...(pricesThrough ? { "x-chart-prices-through": pricesThrough } : {}),
+      ...(shortsThrough ? { "x-chart-shorts-through": shortsThrough } : {}),
     },
   });
 }

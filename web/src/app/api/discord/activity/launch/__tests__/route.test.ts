@@ -95,7 +95,7 @@ describe("GET /api/discord/activity/launch: a recalled chart kept as posted", ()
       code: "WBT",
       view: "combined",
       period: "3m",
-      anchor: { day: "2026-11-04", shorts: "2026-10-29" },
+      anchor: { day: "2026-11-04", shorts: "2026-10-29", prices: "2026-11-03" },
     });
     expect(await (await ask(`channel=${CHANNEL}`)).json()).toEqual({
       source: "command",
@@ -103,7 +103,7 @@ describe("GET /api/discord/activity/launch: a recalled chart kept as posted", ()
         code: "WBT",
         view: "combined",
         period: "3m",
-        anchor: { day: "2026-11-04", shorts: "2026-10-29" },
+        anchor: { day: "2026-11-04", shorts: "2026-10-29", prices: "2026-11-03" },
       },
     });
   });
@@ -131,15 +131,35 @@ describe("GET /api/discord/activity/launch: a recalled chart kept as posted", ()
     expect(body.state).toEqual({ code: "WBT", view: "price", period: "1y" });
   });
 
-  it("pulls a shorts day after the posting day back to it", async () => {
+  it("pulls a shorts or prices day after the posting day back to it", async () => {
     recallLaunch.mockResolvedValue({
       code: "WBT",
       view: "short",
       period: "1m",
-      anchor: { day: "2026-11-04", shorts: "2026-11-09" },
+      anchor: { day: "2026-11-04", shorts: "2026-11-09", prices: "2026-11-09" },
     });
     const body = await (await ask(`channel=${CHANNEL}`)).json();
-    expect(body.state.anchor).toEqual({ day: "2026-11-04", shorts: "2026-11-04" });
+    expect(body.state.anchor).toEqual({
+      day: "2026-11-04",
+      shorts: "2026-11-04",
+      prices: "2026-11-04",
+    });
+  });
+
+  it("drops an anchor dated after today (Sydney), leaving a live chart", async () => {
+    jest.useFakeTimers({ now: new Date("2026-11-03T23:00:00Z") });
+    try {
+      recallLaunch.mockResolvedValue({
+        code: "WBT",
+        view: "combined",
+        period: "3m",
+        anchor: { day: "2026-11-05", shorts: "2026-11-05", prices: "2026-11-05" },
+      });
+      const body = await (await ask(`channel=${CHANNEL}`)).json();
+      expect(body.state).toEqual({ code: "WBT", view: "combined", period: "3m" });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

@@ -1,21 +1,36 @@
 /**
- * The card's readers for a chart kept as posted: each series asks the stock
- * service for its anchored window, through the first-party transport, and maps
- * the answer as the live readers do. A failed or empty read is [] and is never
- * cached.
+ * The card's readers for a chart kept as posted. Each series asks the stock
+ * service for its anchored window through the first-party transport, and maps
+ * the answer as the live readers do.
+ *
+ * The data cache is a fake that stores a value only when the loader resolves,
+ * as Next's does. So the failure tests can tell that a failed or empty read is
+ * asked again next time, rather than the mock passing every call through.
  */
+const mockStore = new Map<string, unknown>();
+const mockCacheOptions: Array<{ keys: unknown[]; opts: { revalidate: number } }> = [];
 const mockGetStockData = jest.fn();
 const mockGetStockPrices = jest.fn();
 const mockGetStockDataLive = jest.fn();
-const mockCache = jest.fn();
-const mockTransport = jest.fn();
 
 jest.mock("next/cache", () => ({
-  unstable_cache: (fn: () => unknown, keys: unknown[], opts: unknown) => {
-    mockCache(keys, opts);
-    return fn;
+  unstable_cache: (
+    fn: () => Promise<unknown>,
+    keys: unknown[],
+    opts: { revalidate: number },
+  ) => {
+    mockCacheOptions.push({ keys, opts });
+    const key = JSON.stringify(keys);
+    return async () => {
+      if (mockStore.has(key)) return mockStore.get(key);
+      // A rejection is not stored: the next call runs the loader again.
+      const value = await fn();
+      mockStore.set(key, value);
+      return value;
+    };
   },
 }));
+const mockTransport = jest.fn();
 jest.mock("@connectrpc/connect-web", () => ({
   createConnectTransport: (opts: unknown) => {
     mockTransport(opts);
@@ -40,22 +55,26 @@ jest.mock("~/app/actions/config", () => ({
   buildApiUrl: (base: string, path: string) => `${base}${path}`,
 }));
 
+import { getChartPrices, getChartShorts } from "../chart-data";
 import {
-  getChartPrices,
-  getChartShorts,
-  isSettledAnchor,
-} from "../chart-data";
-import type { ChartAnchor } from "~/@/components/charts/chart-anchor";
+  anchoredWindows,
+  type ChartAnchor,
+} from "~/@/components/charts/chart-anchor";
 
-const anchor: ChartAnchor = { day: "2026-11-04", shorts: "2026-10-29" };
+const anchor: ChartAnchor = {
+  day: "2026-11-04",
+  prices: "2026-11-03",
+  shorts: "2026-10-28",
+};
 const DAY = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
 
 beforeEach(() => {
+  mockStore.clear();
+  mockCacheOptions.length = 0;
+  mockTransport.mockReset();
   mockGetStockData.mockReset();
   mockGetStockPrices.mockReset();
   mockGetStockDataLive.mockReset();
-  mockCache.mockReset();
-  mockTransport.mockReset();
   jest.spyOn(console, "error").mockImplementation(() => undefined);
 });
 
@@ -63,32 +82,47 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe("anchored chart readers", () => {
-  it("requests the short series for the window ending on the newest report", async () => {
+describe("anchored chart readers: windows", () => {
+  it("asks the short series for the shorts window of the anchor", async () => {
     mockGetStockData.mockResolvedValue({ points: [] });
-    await getChartShorts("BHP", "3m", anchor).catch(() => undefined);
+    await getChartShorts("BHP", "3m", anchor);
+    const w = anchoredWindows("3m", anchor).shorts;
     expect(mockGetStockData).toHaveBeenCalledWith({
       productCode: "BHP",
       period: "3M",
-      from: "2026-07-30",
-      to: "2026-10-29",
+      from: w.from,
+      to: w.to,
     });
   });
 
-  it("requests the prices for the window ending the day before posting", async () => {
+  it("asks the prices for the prices window, which ends on the newest close", async () => {
     mockGetStockPrices.mockResolvedValue({ points: [] });
     await getChartPrices("BHP", "3m", anchor);
+    const w = anchoredWindows("3m", anchor).prices;
     expect(mockGetStockPrices).toHaveBeenCalledWith({
       productCode: "BHP",
-      from: "2026-08-04",
+      from: w.from,
+      to: w.to,
+    });
+    expect(w.to).toBe("2026-11-03");
+  });
+
+  it("asks ten years back for MAX prices, as the live chart does", async () => {
+    mockGetStockPrices.mockResolvedValue({ points: [] });
+    await getChartPrices("BHP", "max", anchor);
+    const w = anchoredWindows("max", anchor).prices;
+    expect(mockGetStockPrices).toHaveBeenCalledWith({
+      productCode: "BHP",
+      from: w.from,
       to: "2026-11-03",
     });
+    // Ten years back from the newest close, the first day after that date.
+    expect(w.from).toBe("2016-11-04");
   });
 
   it("goes through the first-party fetcher on the shorts API origin", async () => {
     mockGetStockPrices.mockResolvedValue({ points: [{ date: "2026-11-03", close: 1 }] });
     await getChartPrices("BHP", "1m", anchor);
-    // The config's first-party fetcher (a wrapper here, since the mock is hoisted).
     expect(mockTransport).toHaveBeenCalledWith(
       expect.objectContaining({
         fetch: expect.any(Function),
@@ -97,16 +131,32 @@ describe("anchored chart readers", () => {
     );
   });
 
+  it("does not ask the API for a window that cannot hold a session", async () => {
+    // The shorts window reaches back from the anchor's shorts day ("2026-01-05")
+    // to a later start: from is after to.
+    const stale: ChartAnchor = {
+      day: "2026-11-04",
+      prices: "2026-11-03",
+      shorts: "2026-01-05",
+    };
+    expect(anchoredWindows("1m", stale).shorts.from! > stale.shorts).toBe(true);
+    expect(await getChartShorts("WBT", "1m", stale)).toEqual([]);
+    expect(mockGetStockData).not.toHaveBeenCalled();
+  });
+
+});
+
+describe("anchored chart readers: mapping", () => {
   it("maps the short points as the live reader does", async () => {
     mockGetStockData.mockResolvedValue({
       points: [
-        { timestamp: "2026-10-28T00:00:00Z", shortPosition: 3.5 },
-        { timestamp: "2026-10-29T00:00:00Z", shortPosition: 3.6 },
+        { timestamp: "2026-10-27T00:00:00Z", shortPosition: 3.5 },
+        { timestamp: "2026-10-28T00:00:00Z", shortPosition: 3.6 },
       ],
     });
     expect(await getChartShorts("BHP", "1m", anchor)).toEqual([
-      { t: DAY("2026-10-28"), v: 3.5 },
-      { t: DAY("2026-10-29"), v: 3.6 },
+      { t: DAY("2026-10-27"), v: 3.5 },
+      { t: DAY("2026-10-28"), v: 3.6 },
     ]);
   });
 
@@ -123,48 +173,74 @@ describe("anchored chart readers", () => {
       { t: DAY("2026-11-03"), v: 10.5 },
     ]);
   });
+});
 
-  it("answers [] when the read fails, and never caches the failure", async () => {
-    mockGetStockPrices.mockRejectedValue(new Error("upstream"));
+describe("anchored chart readers: failures are never cached", () => {
+  it("answers [] on a failed read, and asks the API again on the next call", async () => {
+    mockGetStockPrices
+      .mockRejectedValueOnce(new Error("upstream"))
+      .mockResolvedValueOnce({ points: [{ date: "2026-11-03", close: 9 }] });
+
     expect(await getChartPrices("BHP", "1m", anchor)).toEqual([]);
-    expect(mockCache).toHaveBeenCalled();
+    expect(mockStore.size).toBe(0);
+
+    expect(await getChartPrices("BHP", "1m", anchor)).toEqual([
+      { t: DAY("2026-11-03"), v: 9 },
+    ]);
+    expect(mockGetStockPrices).toHaveBeenCalledTimes(2);
   });
 
-  it("answers [] for an empty window, which is not cached either", async () => {
-    mockGetStockData.mockResolvedValue({ points: [] });
+  it("answers [] on an empty window, and asks again rather than store it", async () => {
+    mockGetStockData
+      .mockResolvedValueOnce({ points: [] })
+      .mockResolvedValueOnce({ points: [{ timestamp: "2026-10-28T00:00:00Z", shortPosition: 2 }] });
+
     expect(await getChartShorts("BHP", "1m", anchor)).toEqual([]);
+    expect(await getChartShorts("BHP", "1m", anchor)).toEqual([
+      { t: DAY("2026-10-28"), v: 2 },
+    ]);
+    expect(mockGetStockData).toHaveBeenCalledTimes(2);
   });
 
-  it("keys its cache on every parameter of the window", async () => {
+  it("serves a read that answered points from the cache, without the API", async () => {
+    mockGetStockPrices.mockResolvedValue({ points: [{ date: "2026-11-03", close: 9 }] });
+    await getChartPrices("BHP", "1m", anchor);
+    await getChartPrices("BHP", "1m", anchor);
+    expect(mockGetStockPrices).toHaveBeenCalledTimes(1);
+  });
+
+  it("keys the cache on every parameter of the window", async () => {
     mockGetStockPrices.mockResolvedValue({ points: [{ date: "2026-11-03", close: 1 }] });
     await getChartPrices("BHP", "3m", anchor);
-    const [keys] = mockCache.mock.calls[0]!;
-    expect(keys).toEqual(expect.arrayContaining(["BHP", "2026-08-04", "2026-11-03"]));
-  });
-
-  it("keeps the live reader for a chart with no anchor", async () => {
-    mockGetStockDataLive.mockResolvedValue({ points: [] });
-    await getChartShorts("BHP", "1m");
-    expect(mockGetStockDataLive).toHaveBeenCalledWith("BHP", "1m");
-    expect(mockGetStockData).not.toHaveBeenCalled();
+    const w = anchoredWindows("3m", anchor).prices;
+    const keys = mockCacheOptions[0]!.keys;
+    expect(keys).toEqual(expect.arrayContaining(["BHP", w.from, w.to]));
   });
 });
 
-describe("isSettledAnchor", () => {
-  // 10:00 on 4 Nov 2026 in Sydney (AEDT, UTC+11).
-  const now = new Date("2026-11-03T23:00:00Z");
-
-  it("is settled from two days before today in Sydney", () => {
-    expect(isSettledAnchor({ day: "2026-11-02", shorts: "2026-10-29" }, now)).toBe(true);
+describe("anchored chart readers: cache lifetime", () => {
+  // 10:00 on 4 Nov 2026 in Sydney.
+  beforeEach(() => {
+    jest.useFakeTimers({ now: new Date("2026-11-03T23:00:00Z") });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
-  it("is not settled for yesterday or today", () => {
-    expect(isSettledAnchor({ day: "2026-11-03", shorts: "2026-10-29" }, now)).toBe(false);
-    expect(isSettledAnchor({ day: "2026-11-04", shorts: "2026-11-04" }, now)).toBe(false);
+  it("holds a settled anchor's data for seven days", async () => {
+    mockGetStockPrices.mockResolvedValue({ points: [{ date: "2026-09-01", close: 1 }] });
+    const settled: ChartAnchor = {
+      day: "2026-09-01",
+      prices: "2026-09-01",
+      shorts: "2026-08-20",
+    };
+    await getChartPrices("BHP", "1m", settled);
+    expect(mockCacheOptions[0]!.opts.revalidate).toBe(7 * 86400);
   });
 
-  it("is not settled without an anchor", () => {
-    expect(isSettledAnchor(undefined, now)).toBe(false);
-    expect(isSettledAnchor(null, now)).toBe(false);
+  it("re-reads a chart still gaining figures hourly", async () => {
+    mockGetStockPrices.mockResolvedValue({ points: [{ date: "2026-11-03", close: 1 }] });
+    await getChartPrices("BHP", "1m", anchor);
+    expect(mockCacheOptions[0]!.opts.revalidate).toBe(3600);
   });
 });
