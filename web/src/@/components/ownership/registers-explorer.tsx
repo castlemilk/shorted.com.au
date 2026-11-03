@@ -46,6 +46,7 @@ import {
   type RegistersQuery,
 } from "~/@/lib/ownership/query";
 import { POLITICS_PAGER_BUTTON_CLASS, POLITICS_SELECT_CLASS } from "~/@/lib/politics/control-classes";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 
 /* ------------------------------------------------------------------ shapes */
@@ -198,15 +199,19 @@ function RegistersView({ state, basePath, onShortChange, onPage }: RegistersView
           </span>
           <div role="group" aria-labelledby={`${id}-industry`} className="flex flex-wrap gap-1.5">
             <FilterChip href={chip({ industry: "" })} active={controls.industry === ""} label="All industries" />
-            {page.industries.map((entry) => (
-              <FilterChip
-                key={entry.industry}
-                href={chip({ industry: entry.industry })}
-                active={controls.industry === entry.industry}
-                label={entry.industry}
-                count={entry.stocks}
-              />
-            ))}
+            {/* ASX's placeholder industries ("Not Applic", "Class Pend") are no filter a reader
+                would ask for: their stocks stay in the list under "All industries" with n/a. */}
+            {page.industries
+              .filter((entry) => industryLabel(entry.industry) !== "")
+              .map((entry) => (
+                <FilterChip
+                  key={entry.industry}
+                  href={chip({ industry: entry.industry })}
+                  active={controls.industry === entry.industry}
+                  label={industryLabel(entry.industry)}
+                  count={entry.stocks}
+                />
+              ))}
           </div>
         </div>
 

@@ -174,6 +174,20 @@ describe("registers explorer", () => {
     );
   });
 
+  it("draws no chip for an ASX placeholder industry, which names no industry a reader would ask for", () => {
+    renderRegisters(
+      registersPage({
+        industries: [
+          { industry: "Materials", stocks: 12 },
+          { industry: "Not Applic", stocks: 42 },
+          { industry: "Class Pend", stocks: 3 },
+        ],
+      }),
+    );
+    const industries = within(group("Industry")).getAllByRole("link");
+    expect(industries.map((chip) => chip.textContent)).toEqual(["All industries", "Materials12"]);
+  });
+
   it("draws the other and unclassified kinds as an outline in their chips, as the disclosed bar draws them", () => {
     renderRegisters();
     const swatchOf = (name: string) => within(group("Kind")).getByRole("link", { name }).querySelector("span");
