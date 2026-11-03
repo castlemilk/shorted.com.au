@@ -345,6 +345,10 @@ function SectorShape({
   const zoom = handlers !== undefined && !zoomed && width >= 24 && height >= 24 ? handlers : undefined;
   const showText = width >= 72;
   const bandWidth = Math.min(width, sectorNameWidth(label));
+  // The name is cut to its box: "Equity Real Estate Investment Trusts (REITs)" once ran over three
+  // sectors to its right. The full name stays in the title and the zoom's label.
+  const fitChars = Math.floor((width - 8) / 6.6);
+  const printed = label.length > fitChars ? `${label.slice(0, Math.max(1, fitChars - 1))}…` : label;
   const bandHeight = Math.min(SECTOR_BAND, height);
   return (
     <g data-sector={sector.sector}>
@@ -400,7 +404,7 @@ function SectorShape({
               className="pointer-events-none hidden font-mono sm:inline"
               fill="hsl(var(--foreground))"
             >
-              {label}
+              {printed}
             </text>
           ) : null}
         </g>
@@ -412,7 +416,7 @@ function SectorShape({
           className="pointer-events-none hidden font-mono sm:inline"
           fill="hsl(var(--foreground))"
         >
-          {label}
+          {printed}
         </text>
       ) : null}
     </g>

@@ -24,6 +24,8 @@ export interface LensScale {
   /** The low and high ends of the scale, in the lens's own units (percentage points for a share). */
   lo: number;
   hi: number;
+  /** True when `hi` is the 98th percentile rather than the largest figure: the figures above it read full. */
+  capped?: boolean;
 }
 
 /** The theme's paper, the ground every fill is mixed into. */
@@ -44,18 +46,36 @@ const SHORT = seriesColor("short");
 export function lensScale(lens: DeskLens, values: readonly (number | null)[]): LensScale {
   const figures = values.filter((v): v is number => v !== null && Number.isFinite(v));
   if (lens === "flow") {
-    const reach = figures.reduce((max, v) => Math.max(max, Math.abs(v)), 0);
+    const { top: reach, capped } = scaleTop(figures.map((v) => Math.abs(v)));
     return reach > 0
-      ? { lens, mode: "diverging", lo: -reach, hi: reach }
+      ? { lens, mode: "diverging", lo: -reach, hi: reach, capped }
       : { lens, mode: "diverging", lo: -1, hi: 1 };
   }
-  const top = figures.reduce((max, v) => Math.max(max, v), 0);
+  const { top, capped } = scaleTop(figures);
   return {
     lens,
     mode: lens === "short" ? "short" : "sequential",
     lo: 0,
     hi: top > 0 ? top : 1,
+    capped,
   };
+}
+
+/** The fewest figures a scale is capped over: a short list keeps its largest figure as its top. */
+const CAP_FROM = 20;
+
+/**
+ * The top of a scale: the largest figure, or the 98th percentile once there are
+ * CAP_FROM figures. One register summing to 242% (notices that overlap) once set
+ * the whole market's scale, so every ordinary cell read as the paper; the few
+ * figures above the cap read full, and the legend says "and above".
+ */
+function scaleTop(figures: readonly number[]): { top: number; capped: boolean } {
+  const max = figures.reduce((m, v) => Math.max(m, v), 0);
+  if (figures.length < CAP_FROM) return { top: max, capped: false };
+  const sorted = [...figures].sort((a, b) => a - b);
+  const p98 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.98))] ?? max;
+  return p98 > 0 && p98 < max ? { top: p98, capped: true } : { top: max, capped: false };
 }
 
 /** The strength of a fill as a whole percentage of the colour, 0 to 100. */
