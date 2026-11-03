@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { AlertTriangle, Clock, LogIn, RefreshCw, TrendingUp } from "lucide-react";
+import { TriangleAlert, Clock, LogIn, RefreshCw, TrendingUp } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Button } from "~/@/components/ui/button";
 import { Card } from "~/@/components/ui/card";
@@ -148,7 +148,7 @@ export function RateLimitError({
   if (compact) {
     return (
       <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
-        <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+        <TriangleAlert className="h-5 w-5 flex-shrink-0" />
         <div className="flex-1 text-sm">
           <span className="font-medium">Rate limit exceeded.</span>
           {countdown !== null && countdown > 0 && (
@@ -198,7 +198,7 @@ export function RateLimitError({
       <div className="bg-primary p-6 text-primary-foreground">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-foreground/20">
-            <AlertTriangle className="h-6 w-6" />
+            <TriangleAlert className="h-6 w-6" />
           </div>
           <div>
             <h3 className="text-lg font-semibold">
@@ -363,7 +363,7 @@ export function RateLimitWarning({
 
   return (
     <div className="flex items-center gap-2 rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-      <AlertTriangle className="h-3 w-3" />
+      <TriangleAlert className="h-3 w-3" />
       <span>
         {remaining} request{remaining !== 1 ? "s" : ""} remaining this minute
       </span>

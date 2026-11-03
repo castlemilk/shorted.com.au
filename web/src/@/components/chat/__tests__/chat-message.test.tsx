@@ -19,11 +19,11 @@ jest.mock("lucide-react", () => {
     ChevronDown: Icon,
     ChevronRight: Icon,
     ExternalLink: Icon,
-    Loader2: Icon,
+    LoaderCircle: Icon,
     Link2: Icon,
     Activity: Icon,
     ArrowUpRight: Icon,
-    BarChart3: Icon,
+    ChartColumn: Icon,
     Building2: Icon,
   };
 });

@@ -31,8 +31,8 @@ import {
   TrendingUp,
   DollarSign,
   Target,
-  BarChart3,
-  Loader2,
+  ChartColumn,
+  LoaderCircle,
 } from "lucide-react";
 import { StockAutocomplete } from "~/@/components/ui/stock-autocomplete";
 import {
@@ -357,7 +357,7 @@ export function PortfolioClient({ initialHoldings }: PortfolioClientProps) {
               >
                 {saving ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                     Adding...
                   </>
                 ) : (
@@ -420,7 +420,7 @@ export function PortfolioClient({ initialHoldings }: PortfolioClientProps) {
                     </>
                   )}
                 </div>
-                <BarChart3 className="h-8 w-8 text-muted-foreground" />
+                <ChartColumn className="h-8 w-8 text-muted-foreground" />
               </div>
             </Card>
 

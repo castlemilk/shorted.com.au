@@ -14,8 +14,8 @@ import {
   Plus,
   X,
   Search,
-  Loader2,
-  BarChart3,
+  LoaderCircle,
+  ChartColumn,
 } from "lucide-react";
 import ParentSize from "@visx/responsive/lib/components/ParentSize";
 import Link from "next/link";
@@ -338,7 +338,7 @@ export function MarketWatchlistWidget({
                 autoComplete="off"
               />
               {searchLoading ? (
-                <Loader2 className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                <LoaderCircle className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
               ) : searchQuery ? (
                 <button
                   type="button"
@@ -438,7 +438,7 @@ export function MarketWatchlistWidget({
         <div className="p-3 space-y-2">
           {watchlist.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-50" />
+              <ChartColumn className="h-10 w-10 mx-auto mb-3 opacity-50" />
               <p className="text-sm font-medium">No stocks in watchlist</p>
               <p className="text-xs mt-1">
                 Click + to search and add stocks

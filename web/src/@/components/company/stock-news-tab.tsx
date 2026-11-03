@@ -20,7 +20,7 @@ import { Skeleton } from "~/@/components/ui/skeleton";
 import { formatRelativeTime } from "~/@/lib/relative-time";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
-import { AlertTriangle, Newspaper, RefreshCw } from "lucide-react";
+import { TriangleAlert, Newspaper, RefreshCw } from "lucide-react";
 
 function newsClient() {
   const transport = createConnectTransport({ baseUrl: "" });
@@ -146,7 +146,7 @@ export function NewsFeedRow({ article }: { article: NewsArticle }) {
           {showSentiment && <SentimentBadge sentiment={article.sentiment} />}
           {article.isPriceSensitive && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-              <AlertTriangle className="h-3 w-3" />
+              <TriangleAlert className="h-3 w-3" />
               Price sensitive
             </span>
           )}
@@ -284,7 +284,7 @@ export function StockNewsTab({
           <FeedSkeleton />
         ) : feed.isError ? (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
-            <AlertTriangle
+            <TriangleAlert
               className="h-5 w-5 text-muted-foreground"
               aria-hidden
             />

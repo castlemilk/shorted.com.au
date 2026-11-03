@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { AlertTriangle, Check, Loader2, Search, X } from "lucide-react";
+import { TriangleAlert, Check, LoaderCircle, Search, X } from "lucide-react";
 
 import {
   shortFmt,
@@ -349,7 +349,7 @@ function StockPicker({
           className="flex h-10 w-full rounded-md border border-input bg-background py-2 pl-9 pr-9 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
         {loading && (
-          <Loader2
+          <LoaderCircle
             aria-hidden
             className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
           />
@@ -535,7 +535,7 @@ export function DiscordSettingsForm({
   if (expired) {
     statusLine = (
       <span className="flex items-center gap-2">
-        <AlertTriangle aria-hidden className="h-4 w-4 shrink-0 text-accent" />
+        <TriangleAlert aria-hidden className="h-4 w-4 shrink-0 text-accent" />
         {EXPIRED_MESSAGE}
       </span>
     );
@@ -544,7 +544,7 @@ export function DiscordSettingsForm({
   } else if (status.kind === "error") {
     statusLine = (
       <span className="flex items-center gap-2">
-        <AlertTriangle aria-hidden className="h-4 w-4 shrink-0 text-accent" />
+        <TriangleAlert aria-hidden className="h-4 w-4 shrink-0 text-accent" />
         {status.message}
       </span>
     );
@@ -652,7 +652,10 @@ export function DiscordSettingsForm({
               disabled={!dirty || saving || expired}
             >
               {saving && (
-                <Loader2 aria-hidden className="mr-2 h-4 w-4 animate-spin" />
+                <LoaderCircle
+                  aria-hidden
+                  className="mr-2 h-4 w-4 animate-spin"
+                />
               )}
               Save settings
             </Button>

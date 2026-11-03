@@ -10,7 +10,7 @@ import {
 import {
   TrendingDown,
   TrendingUp,
-  BarChart3,
+  ChartColumn,
   ArrowLeft,
   Calendar,
 } from "lucide-react";
@@ -508,7 +508,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
         {Object.keys(financialHighlights).length > 0 && (
           <section>
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
+              <ChartColumn className="h-5 w-5 text-primary" />
               Financial Snapshot
             </h2>
             <p className="text-sm text-muted-foreground mb-3">

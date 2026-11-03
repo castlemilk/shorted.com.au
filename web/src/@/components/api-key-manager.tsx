@@ -18,7 +18,7 @@ import {
   Check,
   Eye,
   EyeOff,
-  AlertTriangle,
+  TriangleAlert,
   Shield,
   Terminal,
 } from "lucide-react";
@@ -172,7 +172,7 @@ export function ApiKeyManager() {
         <CardContent className="space-y-4">
           {error && (
             <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
+              <TriangleAlert className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
@@ -181,7 +181,7 @@ export function ApiKeyManager() {
           {token ? (
             <div className="space-y-4">
               <Alert>
-                <AlertTriangle className="h-4 w-4" />
+                <TriangleAlert className="h-4 w-4" />
                 <AlertTitle>Save your token</AlertTitle>
                 <AlertDescription>
                   This token will only be shown once. Copy it now and store it

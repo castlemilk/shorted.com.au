@@ -28,7 +28,7 @@ import { WidgetPicker } from "~/@/components/dashboard/widget-picker";
 import { DashboardSwitcher } from "~/@/components/dashboard/dashboard-switcher";
 import { SaveStatusIndicator } from "~/@/components/dashboard/save-status-indicator";
 import { Button } from "~/@/components/ui/button";
-import { Plus, Edit2, Save, Undo2, Redo2 } from "lucide-react";
+import { Plus, Pen, Save, Undo2, Redo2 } from "lucide-react";
 import {
   type WidgetConfig,
   type DashboardConfig,
@@ -38,7 +38,7 @@ import { widgetRegistry } from "~/@/lib/widget-registry";
 import { v4 as uuidv4 } from "uuid";
 import { dashboardService } from "~/@/lib/dashboard-service";
 import { useToast } from "~/@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { useAutoSave } from "~/@/hooks/use-auto-save";
 import { useUndoRedo } from "~/@/hooks/use-undo-redo";
@@ -560,7 +560,7 @@ export default function Dashboards() {
 
           {/* Loading indicator */}
           <div className="flex items-center justify-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <LoaderCircle className="h-4 w-4 animate-spin" />
             <span className="text-sm">Loading dashboard...</span>
           </div>
         </div>
@@ -664,7 +664,7 @@ export default function Dashboards() {
                   </>
                 ) : (
                   <>
-                    <Edit2 className="mr-2 h-4 w-4" />
+                    <Pen className="mr-2 h-4 w-4" />
                     Edit
                   </>
                 )}

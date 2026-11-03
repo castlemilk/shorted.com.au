@@ -23,7 +23,7 @@ import { Badge } from "~/@/components/ui/badge";
 import { Switch } from "~/@/components/ui/switch";
 import { Checkbox } from "~/@/components/ui/checkbox";
 import { Button } from "~/@/components/ui/button";
-import { X, Search, Loader2 } from "lucide-react";
+import { X, Search, LoaderCircle } from "lucide-react";
 import { searchStocksClient } from "~/app/actions/searchStocks";
 import debounce from "lodash/debounce";
 import { industryLabel } from "~/@/lib/industry-placeholder";
@@ -228,7 +228,7 @@ export function StockSearchField({
               autoComplete="off"
             />
             {searchLoading ? (
-              <Loader2 className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+              <LoaderCircle className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
             ) : searchQuery ? (
               <button
                 type="button"

@@ -8,7 +8,7 @@ import {
   ChevronRight,
   ChevronLeft,
   TrendingDown,
-  BarChart3,
+  ChartColumn,
   Building2,
   ArrowLeft,
 } from "lucide-react";
@@ -238,7 +238,7 @@ export default async function MarketDatePage({ params }: PageProps) {
           <StatCard
             label="Securities Displayed"
             value={data.stocks.length.toString()}
-            icon={<BarChart3 className="h-4 w-4" />}
+            icon={<ChartColumn className="h-4 w-4" />}
             color="rust"
             subtext={`Of ${totalSecurities.toLocaleString()} reported securities`}
           />

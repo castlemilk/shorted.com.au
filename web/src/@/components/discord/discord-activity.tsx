@@ -13,7 +13,7 @@ import {
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import * as Dialog from "@radix-ui/react-dialog";
-import { ExternalLink, Loader2, Search, X } from "lucide-react";
+import { ExternalLink, LoaderCircle, Search, X } from "lucide-react";
 import type { DiscordSDK } from "@discord/embedded-app-sdk";
 
 import {
@@ -228,7 +228,7 @@ function StockSearch({ onPick }: { onPick: (code: string) => void }) {
         }}
       />
       {loading && (
-        <Loader2
+        <LoaderCircle
           aria-hidden
           className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
         />
@@ -497,7 +497,10 @@ function ActivityChart({
               className={EMBED_CONTROL_BUTTON}
             >
               {opening === "open" ? (
-                <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+                <LoaderCircle
+                  aria-hidden
+                  className="h-3.5 w-3.5 animate-spin"
+                />
               ) : (
                 <ExternalLink aria-hidden className="h-3.5 w-3.5" />
               )}

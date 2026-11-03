@@ -7,7 +7,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  AlertCircle,
+  CircleAlert,
   ArrowUpRight,
   Building2,
   Clock3,
@@ -373,7 +373,7 @@ export function AlertsWorkspace({
 
           <div className="rounded-md border border-border/60 bg-background/60 p-4">
             <div className="flex items-start gap-3">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <div className="min-w-0">
                 <div className="text-sm font-medium">Alert summary</div>
                 <div className="mt-1 break-words text-sm leading-6 text-muted-foreground">

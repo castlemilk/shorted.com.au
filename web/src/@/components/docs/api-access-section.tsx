@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { SubscriptionGate } from "./subscription-gate";
 import { TokenGenerator } from "./token-generator";
 import type { SubscriptionInfo } from "~/app/actions/subscription";
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 
 interface ApiAccessSectionProps {
   checkoutTier?: "premium" | "api_access";
@@ -34,7 +34,7 @@ export function ApiAccessSection({ checkoutTier = "api_access" }: ApiAccessSecti
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }

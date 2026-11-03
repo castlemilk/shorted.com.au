@@ -7,13 +7,13 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Filter,
+  Funnel,
   X,
   ChevronDown,
   ChevronUp,
   Search,
   Download,
-  FileJson,
+  FileBraces,
   FileText,
   Printer,
 } from "lucide-react";
@@ -583,7 +583,7 @@ export function ScreenerPageClient() {
             onClick={() => setShowFilters(!showFilters)}
             className="gap-1.5"
           >
-            <Filter className="h-3.5 w-3.5" />
+            <Funnel className="h-3.5 w-3.5" />
             Filters
             {showFilters ? (
               <ChevronUp className="h-3 w-3" />
@@ -702,7 +702,7 @@ export function ScreenerPageClient() {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8">
-                    <Filter className="h-3 w-3" />
+                    <Funnel className="h-3 w-3" />
                     Industry
                     {filters.industries.length > 0 && (
                       <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
@@ -820,7 +820,7 @@ export function ScreenerPageClient() {
                           downloadJSON(results, `screener-${today}.json`);
                         }}
                       >
-                        <FileJson className="h-3.5 w-3.5 mr-2" />
+                        <FileBraces className="h-3.5 w-3.5 mr-2" />
                         JSON
                       </DropdownMenuItem>
                       <DropdownMenuItem

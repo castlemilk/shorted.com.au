@@ -9,7 +9,7 @@ import { Button } from '~/@/components/ui/button';
 import { Input } from '~/@/components/ui/input';
 import type { ParsedEndpoint } from '~/lib/openapi/types';
 import { CodeBlock } from './code-block';
-import { Loader2, Play } from 'lucide-react';
+import { LoaderCircle, Play } from 'lucide-react';
 import { FALLBACK_API_BASE_URL } from '~/lib/openapi/api-base-url';
 
 interface TryItPanelProps {
@@ -83,7 +83,7 @@ export function TryItPanel({ endpoint, baseUrl: baseUrlProp }: TryItPanelProps) 
           disabled={loading}
           className="gap-2"
         >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+          {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
           Send
         </Button>
       </div>

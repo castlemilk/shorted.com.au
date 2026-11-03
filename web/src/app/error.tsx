@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { TriangleAlert, RefreshCw, House } from 'lucide-react'
 import { Button } from '~/@/components/ui/button'
 import { RateLimitNotice } from '~/@/components/rate-limit/rate-limit-notice'
 import { isRateLimitError, parseRateLimitInfo } from '~/@/lib/retry'
@@ -46,7 +46,7 @@ export default function Error({
       <div className="max-w-md text-center">
         <div className="mb-6 flex justify-center">
           <div className="rounded-full bg-destructive/10 p-4">
-            <AlertTriangle className="h-12 w-12 text-destructive" />
+            <TriangleAlert className="h-12 w-12 text-destructive" />
           </div>
         </div>
 
@@ -80,7 +80,7 @@ export default function Error({
           </Button>
           <Button variant="outline" asChild>
             <a href="/">
-              <Home className="mr-2 h-4 w-4" />
+              <House className="mr-2 h-4 w-4" />
               Go home
             </a>
           </Button>

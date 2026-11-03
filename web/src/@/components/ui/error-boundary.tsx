@@ -1,7 +1,7 @@
 "use client";
 
 import React, { Component, type ReactNode } from "react";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { CircleAlert, RefreshCw } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
 import { Card } from "~/@/components/ui/card";
 import { RateLimitNotice } from "~/@/components/rate-limit/rate-limit-notice";
@@ -90,7 +90,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <Card className="p-6 m-4">
           <div className="flex flex-col items-center justify-center space-y-4 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive" />
+            <CircleAlert className="h-12 w-12 text-destructive" />
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">Something went wrong</h3>
               <p className="text-sm text-muted-foreground">
@@ -137,7 +137,7 @@ export function WidgetErrorBoundary({
     <ErrorBoundary
       fallback={
         <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-          <AlertCircle className="mb-2 h-8 w-8 text-muted-foreground" />
+          <CircleAlert className="mb-2 h-8 w-8 text-muted-foreground" />
           <p className="text-sm font-medium">Error loading {widgetName}</p>
           <p className="text-xs text-muted-foreground mt-1">
             Please try refreshing the page

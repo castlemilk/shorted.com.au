@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { X, GitPullRequest, AlertTriangle } from "lucide-react";
+import { X, GitPullRequest, TriangleAlert } from "lucide-react";
 import {
   config,
   getPreviewPRNumber,
@@ -92,7 +92,7 @@ export function DevelopmentBanner() {
     <div className="bg-primary/10 border-b border-primary/25">
       <div className="container mx-auto px-4 py-1">
         <div className="flex items-center gap-2 text-xs text-foreground">
-          <AlertTriangle className="h-3 w-3" />
+          <TriangleAlert className="h-3 w-3" />
           <span>Development Mode</span>
           <span className="text-primary">•</span>
           <span className="font-mono text-primary">

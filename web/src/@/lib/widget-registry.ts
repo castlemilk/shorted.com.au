@@ -7,12 +7,12 @@ import {
 } from "@/types/dashboard";
 import {
   TrendingUp,
-  BarChart3,
-  LineChart,
-  PieChart,
+  ChartColumn,
+  ChartLine,
+  ChartPie,
   Briefcase,
   Eye,
-  Grid3X3,
+  Grid3x3,
   Activity,
   ListFilter,
   Newspaper,
@@ -100,7 +100,7 @@ class WidgetRegistry {
       type: WidgetType.INDUSTRY_TREEMAP,
       component: {} as ComponentType<WidgetProps>,
       defaultLayout: { w: 6, h: 8, minW: 4, minH: 6 },
-      icon: Grid3X3,
+      icon: Grid3x3,
       category: WidgetCategory.ANALYSIS,
       configSchema: {
         type: "object",
@@ -128,7 +128,7 @@ class WidgetRegistry {
       type: WidgetType.STOCK_CHART,
       component: {} as ComponentType<WidgetProps>,
       defaultLayout: { w: 8, h: 6, minW: 4, minH: 4 },
-      icon: LineChart,
+      icon: ChartLine,
       category: WidgetCategory.MARKET_DATA,
       configSchema: {
         type: "object",
@@ -217,7 +217,7 @@ class WidgetRegistry {
       type: WidgetType.SECTOR_PERFORMANCE,
       component: {} as ComponentType<WidgetProps>,
       defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
-      icon: PieChart,
+      icon: ChartPie,
       category: WidgetCategory.MARKET_DATA,
       configSchema: {
         type: "object",
@@ -307,7 +307,7 @@ class WidgetRegistry {
       type: WidgetType.CORRELATION_MATRIX,
       component: {} as ComponentType<WidgetProps>,
       defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
-      icon: BarChart3,
+      icon: ChartColumn,
       category: WidgetCategory.ANALYSIS,
       configSchema: {
         type: "object",

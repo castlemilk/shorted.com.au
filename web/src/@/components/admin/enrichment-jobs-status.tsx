@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { listEnrichmentJobs } from "~/app/actions/listEnrichmentJobs";
 import { EnrichmentJobStatus, type EnrichmentJob } from "~/gen/shorts/v1alpha1/enrichment_pb";
-import { RefreshCw, Loader2, Play } from "lucide-react";
+import { RefreshCw, LoaderCircle, Play } from "lucide-react";
 import { processQueuedJobsAction } from "~/app/actions/processQueuedJobs";
 
 function getStatusLabel(status: EnrichmentJobStatus) {
@@ -328,7 +328,7 @@ export function EnrichmentJobsStatus() {
           <CardDescription>Loading...</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <LoaderCircle className="h-8 w-8 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -461,7 +461,7 @@ export function EnrichmentJobsStatus() {
               className="h-4 w-full flex justify-center py-2"
             >
               {activeState.isLoadingMore && (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
               )}
             </div>
           </div>
@@ -504,7 +504,7 @@ export function EnrichmentJobsStatus() {
               className="h-4 w-full flex justify-center py-4"
             >
               {completedState.isLoadingMore && (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
               )}
               {!completedState.hasMore && completedState.jobs.length > 0 && (
                 <span className="text-[10px] text-muted-foreground italic">
@@ -557,7 +557,7 @@ export function EnrichmentJobsStatus() {
                 className="h-4 w-full flex justify-center py-4"
               >
                 {failedState.isLoadingMore && (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <LoaderCircle className="h-4 w-4 animate-spin text-muted-foreground" />
                 )}
                 {!failedState.hasMore && failedState.jobs.length > 0 && (
                   <span className="text-[10px] text-muted-foreground italic">

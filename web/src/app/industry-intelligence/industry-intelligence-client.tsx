@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { AlertCircle, ArrowUpRight } from "lucide-react";
+import { CircleAlert, ArrowUpRight } from "lucide-react";
 
 import { IndustrySignalPanel } from "~/@/components/industry/industry-signal-panel";
 import {
@@ -267,7 +267,7 @@ export function IndustryIntelligenceClient({
               href={`/alerts?industry=${selectedStory.industry.slug}`}
               prefetch={false}
             >
-              <AlertCircle className="mr-2 h-4 w-4" aria-hidden="true" />
+              <CircleAlert className="mr-2 h-4 w-4" aria-hidden="true" />
               Create alert
             </Link>
           </Button>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
-import { Search, X, Loader2, TrendingDown, ArrowRight, LogIn } from "lucide-react";
+import { Search, X, LoaderCircle, TrendingDown, ArrowRight, LogIn } from "lucide-react";
 import { cn } from "~/@/lib/utils";
 import { normalizedLogoUrl } from "~/@/lib/logo";
 import { industryLabel } from "~/@/lib/industry-placeholder";
@@ -414,7 +414,7 @@ export function NavSearchInput() {
         {query && (
           <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex">
             {loading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
             ) : (
               <button
                 type="button"
@@ -591,7 +591,7 @@ function ResultsContent({
   if (loading && results.length === 0) {
     return (
       <div className="flex items-center justify-center py-8 gap-2.5 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <LoaderCircle className="h-4 w-4 animate-spin" />
         <span className="text-sm">Searching...</span>
       </div>
     );

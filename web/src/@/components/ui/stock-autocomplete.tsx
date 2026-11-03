@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Input } from "~/@/components/ui/input";
-import { Loader2, Search } from "lucide-react";
+import { LoaderCircle, Search } from "lucide-react";
 import { cn } from "~/@/lib/utils";
 import debounce from "lodash/debounce";
 
@@ -183,7 +183,7 @@ export function StockAutocomplete({
           autoComplete="off"
         />
         {loading && (
-          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+          <LoaderCircle className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
         )}
       </div>
 

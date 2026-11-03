@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, AlertTriangle, Clock } from "lucide-react";
+import { X, TriangleAlert, Clock } from "lucide-react";
 
 export interface Toast {
   id: string;
@@ -80,7 +80,7 @@ export function Toaster() {
       case "warning":
         return <Clock className="h-5 w-5 text-amber-500" />;
       case "destructive":
-        return <AlertTriangle className="h-5 w-5 text-red-500" />;
+        return <TriangleAlert className="h-5 w-5 text-red-500" />;
       default:
         return null;
     }

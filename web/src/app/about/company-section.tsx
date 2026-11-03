@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   Building2,
-  Code2,
+  CodeXml,
   ExternalLink,
   Globe,
   Linkedin,
@@ -207,7 +207,7 @@ export function CompanySection() {
           {/* Tech stack */}
           <div className="mt-12 bg-card rounded-2xl border p-6">
             <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Code2 className="w-5 h-5 text-primary" />
+              <CodeXml className="w-5 h-5 text-primary" />
               Tech Stack
             </h3>
             <div className="flex flex-wrap gap-2">

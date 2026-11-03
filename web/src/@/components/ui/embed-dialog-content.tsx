@@ -1,7 +1,7 @@
 "use client";
 
 import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Code2, Copy, Download, FileCode, Share2 } from "lucide-react";
+import { Check, CodeXml, Copy, Download, FileCode, Share2 } from "lucide-react";
 
 import { cn } from "~/@/lib/utils";
 import { embedNoun, type EmbedTarget } from "~/@/lib/embed/snippet";
@@ -72,7 +72,7 @@ function ChannelIcon({ id }: { id: ShareChannelId }) {
   if (isBrandGlyphId(id)) return <BrandGlyph id={id} />;
   if (id === "markdown")
     return <FileCode aria-hidden className="h-3.5 w-3.5" />;
-  return <Code2 aria-hidden className="h-3.5 w-3.5" />;
+  return <CodeXml aria-hidden className="h-3.5 w-3.5" />;
 }
 
 /** A labelled copy button that says when it worked. */

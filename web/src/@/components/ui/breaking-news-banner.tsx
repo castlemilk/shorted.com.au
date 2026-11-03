@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
-import { AlertTriangle, ExternalLink } from "lucide-react";
+import { TriangleAlert, ExternalLink } from "lucide-react";
 import { NewsSourceBadge } from "~/@/components/ui/news-source-badge";
 import Link from "next/link";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
@@ -33,7 +33,7 @@ export function BreakingNewsBanner() {
     <div className="container mx-auto px-4 pb-4">
       <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-lg p-3">
         <div className="flex items-center gap-2 mb-2">
-          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <TriangleAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
             Price Sensitive
           </span>

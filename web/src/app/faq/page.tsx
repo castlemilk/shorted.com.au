@@ -2,11 +2,11 @@ import { type Metadata } from "next";
 import { pageTitle } from "~/@/lib/typography";
 import Link from "next/link";
 import {
-  HelpCircle,
+  CircleQuestionMark,
   ExternalLink,
   BookOpen,
   TrendingDown,
-  BarChart3,
+  ChartColumn,
   Shield,
   Clock,
   Users,
@@ -170,7 +170,7 @@ const faqCategories = [
   {
     id: "interpreting",
     title: "Interpreting Short Data",
-    icon: BarChart3,
+    icon: ChartColumn,
     description: "How to analyze short position information",
     faqs: [
       {
@@ -314,7 +314,7 @@ export default function FAQPage() {
         <section className="relative border-b border-border/40 pb-8">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-3 bg-primary/10 rounded-lg">
-              <HelpCircle className="h-8 w-8 text-primary" />
+              <CircleQuestionMark className="h-8 w-8 text-primary" />
             </div>
             <div>
               <h1 className={pageTitle}>
