@@ -280,7 +280,7 @@ test("only a JSON body reaches a cache tier", () => {
 
 test("a non-JSON request to an allowlisted read passes through every tier uncached", async () => {
   const path = `${SHORTS}/GetTopShorts`;
-  // Two binary request bodies, each a varint-encoded `limit` field.
+  // Two distinct binary request bodies.
   const bodies = [new Uint8Array([0x10, 0xc8, 0x01]), new Uint8Array([0x10, 0xc9, 0x01])];
 
   await withEdge(jsonOrigin, async ({ send, state }) => {
