@@ -4,7 +4,7 @@
  * Structural guard for the sitemap index restructure (August 2026).
  *
  * /sitemap.xml is a sitemapindex over the SITEMAP_CHILDREN. The invariants
- * that matter — and that no runtime check can recover from once broken — are:
+ * that matter, and that no runtime check can recover from once broken, are:
  *
  *  1. every child produces URLs (an empty child is a silently vanished section)
  *  2. no URL appears in TWO children (duplicate <loc> across a sitemap set)
@@ -56,7 +56,7 @@ jest.mock("@connectrpc/connect", () => ({
         salCode: `${stateCode}${i}`,
         salName: `Suburb ${stateCode} ${i}`,
         postcode: `${2000 + i}`,
-        // Half priced, half unpriced — exercises both lastmod branches.
+        // Half priced, half unpriced, exercises both lastmod branches.
         latestMedianPrice: i % 2 === 0 ? 1_000_000 : 0,
         population: 5_000,
         latestPeriod:
@@ -151,6 +151,21 @@ const loadStockRegisters = jest.fn();
 jest.mock("~/app/actions/ownershipExplorer", () => ({
   loadStockRegisters: (...args: unknown[]) => loadStockRegisters(...args),
 }));
+// The fund list, read once, as the sitemap reads it: the key, the file date and the holdings.
+const fundsFixture = [
+  { key: "asx:VAS", ticker: "VAS", name: "Vanguard Australian Shares Index ETF", asAt: "2026-10-20", holdings: 300 },
+  {
+    key: "vanguard/Vanguard Australian Shares Index Fund",
+    ticker: "VAN",
+    name: "Vanguard Australian Shares Index Fund",
+    asAt: "2026-09-30",
+    holdings: 290,
+  },
+];
+const loadFunds = jest.fn();
+jest.mock("~/app/actions/ownershipFunds", () => ({
+  loadFunds: (...args: unknown[]) => loadFunds(...args),
+}));
 // The institution page's metadata is read below; its layout never renders.
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({ DashboardLayout: () => null }));
 
@@ -172,14 +187,17 @@ const pageOf = (rows: Array<Record<string, string>>, { limit = 50, offset = 0 }:
   rows: rows.slice(offset, offset + limit),
   asOf: "2026-10-20",
 });
-// The institution pages only: /ownership/<slug>, not the hub, the explorer's two
-// pages (/ownership/notices, /ownership/stocks) or a register (/ownership/stocks/<code>).
+// The institution pages only: /ownership/<slug>, not the hub, the explorer's and the workspace's
+// static pages (/ownership/notices, /ownership/stocks, /ownership/map, ...), a register
+// (/ownership/stocks/<code>) or a fund (/ownership/funds/<key>).
 const isInstitutionUrl = (url: string) =>
-  /\/ownership\/[^/]+$/.test(url) && !/\/ownership\/(notices|stocks)$/.test(url);
+  /\/ownership\/[^/]+$/.test(url) &&
+  !/\/ownership\/(notices|stocks|map|connections|activity|funds|holders|changes)$/.test(url);
 beforeEach(() => {
   getOwnershipOverview.mockResolvedValue({ asOf: "2026-10-20", noticesParsed: 6367 });
   listInstitutions.mockResolvedValue({ institutions: institutionsFixture, total: institutionsFixture.length });
   loadStockRegisters.mockImplementation(async (query) => pageOf(registerRowsFixture, query));
+  loadFunds.mockResolvedValue({ ok: true, error: "", funds: fundsFixture });
 });
 
 jest.mock("~/lib/openapi/parser", () => ({
@@ -615,8 +633,52 @@ describe("sitemap children", () => {
       { url: "https://shorted.com.au/ownership" },
       { url: "https://shorted.com.au/ownership/notices" },
       { url: "https://shorted.com.au/ownership/stocks" },
+      { url: "https://shorted.com.au/ownership/map" },
+      { url: "https://shorted.com.au/ownership/connections" },
+      { url: "https://shorted.com.au/ownership/activity" },
+      { url: "https://shorted.com.au/ownership/funds" },
+      { url: "https://shorted.com.au/ownership/holders" },
+      { url: "https://shorted.com.au/ownership/changes" },
+      // The fund list answers, so the funds are listed, each with its own file date.
+      { url: "https://shorted.com.au/ownership/funds/asx%3AVAS", lastModified: "2026-10-20T00:00:00.000Z" },
+      {
+        url: "https://shorted.com.au/ownership/funds/vanguard%2FVanguard%20Australian%20Shares%20Index%20Fund",
+        lastModified: "2026-09-30T00:00:00.000Z",
+      },
     ]);
     expect(logged).toHaveBeenCalledWith("Failed to fetch the register list for sitemap: a page was not answered.");
+    logged.mockRestore();
+  });
+
+  it("lists every explorer and workspace page, and each tracked fund at its own file date", async () => {
+    loadFunds.mockClear();
+    const ownership = await buildOwnershipSitemap();
+    const urls = ownership.map((e) => e.url);
+    for (const path of ["notices", "stocks", "map", "connections", "activity", "funds", "holders", "changes"]) {
+      expect(urls).toContain(`https://shorted.com.au/ownership/${path}`);
+    }
+    const funds = ownership.filter((e) => e.url.startsWith("https://shorted.com.au/ownership/funds/"));
+    expect(funds).toEqual([
+      {
+        url: "https://shorted.com.au/ownership/funds/asx%3AVAS",
+        lastModified: "2026-10-20T00:00:00.000Z",
+      },
+      {
+        url: "https://shorted.com.au/ownership/funds/vanguard%2FVanguard%20Australian%20Shares%20Index%20Fund",
+        lastModified: "2026-09-30T00:00:00.000Z",
+      },
+    ]);
+    // Only the list is read for the fund pages, never a portfolio per fund.
+    expect(loadFunds).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops the fund pages, and keeps the rest, while the fund list is not answered", async () => {
+    loadFunds.mockResolvedValue({ ok: false, error: "", funds: [] });
+    const logged = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const ownership = await buildOwnershipSitemap();
+    expect(ownership.some((e) => e.url.includes("/ownership/funds/asx"))).toBe(false);
+    expect(ownership.map((e) => e.url)).toContain("https://shorted.com.au/ownership/map");
+    expect(logged).toHaveBeenCalledWith("Failed to fetch the fund list for sitemap: the list was not answered.");
     logged.mockRestore();
   });
 

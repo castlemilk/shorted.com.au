@@ -2,8 +2,8 @@
  * `/signin` and `/signup` must stay out of the index.
  *
  * Why this exists: measured 2026-08-31 with a full 200-page crawl (OpenSEO
- * site audit), both routes shipped `index, follow` and — because neither had a
- * layout of its own — inherited the ROOT `alternates.canonical`, so every
+ * site audit), both routes shipped `index, follow` and, because neither had a
+ * layout of its own, inherited the ROOT `alternates.canonical`, so every
  * variant declared `https://shorted.com.au` as its canonical URL.
  *
  * That matters because `intel-lock.tsx` renders a sign-in CTA on every locked
@@ -11,7 +11,7 @@
  * near-identical crawlable URLs (one per stock page, plus housing/politician/
  * economy variants). The crawler spent 7 of its 200-page budget on
  * `/signin?callbackUrl=%2Fshorts%2F*` before reaching real content. This site
- * has already lost a crawl budget to junk paths once — see
+ * has already lost a crawl budget to junk paths once, see
  * `robots.txt/__tests__/robots-rpc-disallow.test.ts`, where 56.7% of Googlebot
  * hits went to Connect-RPC endpoints.
  *

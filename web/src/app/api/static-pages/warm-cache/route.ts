@@ -9,10 +9,10 @@ export const dynamic = "force-dynamic";
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const SHELL_MARKER = 'data-isr-shell="empty"';
-// Six at a time: the shell list (17 pages today) reads in three batches, 6, 6 and 5.
+// Eight at a time: the shell list (23 pages today) reads in three batches, 8, 8 and 7.
 // The price-drops page's 60 s allowance makes the worst case 60 + 30 + 30 = 120 s,
 // under this handler's 150 s maxDuration and the 145 s its release callers allow.
-const CONCURRENCY = 6;
+const CONCURRENCY = 8;
 
 // Builds deliberately skip live data and prerender empty shells. A deployment
 // explicitly invalidates and primes them. The hourly repair only invalidates

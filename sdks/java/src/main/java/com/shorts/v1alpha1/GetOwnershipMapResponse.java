@@ -32,6 +32,12 @@ private static final long serialVersionUID = 0L;
     to_ = "";
     stocks_ = java.util.Collections.emptyList();
     asOf_ = "";
+    startFilesFrom_ = "";
+    startFilesTo_ = "";
+    endFilesFrom_ = "";
+    endFilesTo_ = "";
+    fundFrom_ = "";
+    fundTo_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -210,6 +216,281 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int FUNDS_COMPARED_FIELD_NUMBER = 5;
+  private int fundsCompared_ = 0;
+  /**
+   * <pre>
+   * Index funds compared in the window: each with a file at its start (or
+   * inside the window) and a newer file at the end. Zero when the window holds
+   * one file per fund, in which case every fund change is unknown.
+   * </pre>
+   *
+   * <code>int32 funds_compared = 5 [json_name = "fundsCompared"];</code>
+   * @return The fundsCompared.
+   */
+  @java.lang.Override
+  public int getFundsCompared() {
+    return fundsCompared_;
+  }
+
+  public static final int START_FILES_FROM_FIELD_NUMBER = 6;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object startFilesFrom_ = "";
+  /**
+   * <pre>
+   * The as-at range of the start files the comparison reads.
+   * </pre>
+   *
+   * <code>string start_files_from = 6 [json_name = "startFilesFrom"];</code>
+   * @return The startFilesFrom.
+   */
+  @java.lang.Override
+  public java.lang.String getStartFilesFrom() {
+    java.lang.Object ref = startFilesFrom_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      startFilesFrom_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The as-at range of the start files the comparison reads.
+   * </pre>
+   *
+   * <code>string start_files_from = 6 [json_name = "startFilesFrom"];</code>
+   * @return The bytes for startFilesFrom.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getStartFilesFromBytes() {
+    java.lang.Object ref = startFilesFrom_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      startFilesFrom_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int START_FILES_TO_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object startFilesTo_ = "";
+  /**
+   * <code>string start_files_to = 7 [json_name = "startFilesTo"];</code>
+   * @return The startFilesTo.
+   */
+  @java.lang.Override
+  public java.lang.String getStartFilesTo() {
+    java.lang.Object ref = startFilesTo_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      startFilesTo_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string start_files_to = 7 [json_name = "startFilesTo"];</code>
+   * @return The bytes for startFilesTo.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getStartFilesToBytes() {
+    java.lang.Object ref = startFilesTo_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      startFilesTo_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int END_FILES_FROM_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object endFilesFrom_ = "";
+  /**
+   * <pre>
+   * The as-at range of the end files the comparison reads.
+   * </pre>
+   *
+   * <code>string end_files_from = 8 [json_name = "endFilesFrom"];</code>
+   * @return The endFilesFrom.
+   */
+  @java.lang.Override
+  public java.lang.String getEndFilesFrom() {
+    java.lang.Object ref = endFilesFrom_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      endFilesFrom_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The as-at range of the end files the comparison reads.
+   * </pre>
+   *
+   * <code>string end_files_from = 8 [json_name = "endFilesFrom"];</code>
+   * @return The bytes for endFilesFrom.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getEndFilesFromBytes() {
+    java.lang.Object ref = endFilesFrom_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      endFilesFrom_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int END_FILES_TO_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object endFilesTo_ = "";
+  /**
+   * <code>string end_files_to = 9 [json_name = "endFilesTo"];</code>
+   * @return The endFilesTo.
+   */
+  @java.lang.Override
+  public java.lang.String getEndFilesTo() {
+    java.lang.Object ref = endFilesTo_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      endFilesTo_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string end_files_to = 9 [json_name = "endFilesTo"];</code>
+   * @return The bytes for endFilesTo.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getEndFilesToBytes() {
+    java.lang.Object ref = endFilesTo_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      endFilesTo_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int FUND_FROM_FIELD_NUMBER = 10;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object fundFrom_ = "";
+  /**
+   * <pre>
+   * The index funds' window the fund figures compare, as served.
+   * </pre>
+   *
+   * <code>string fund_from = 10 [json_name = "fundFrom"];</code>
+   * @return The fundFrom.
+   */
+  @java.lang.Override
+  public java.lang.String getFundFrom() {
+    java.lang.Object ref = fundFrom_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      fundFrom_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The index funds' window the fund figures compare, as served.
+   * </pre>
+   *
+   * <code>string fund_from = 10 [json_name = "fundFrom"];</code>
+   * @return The bytes for fundFrom.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getFundFromBytes() {
+    java.lang.Object ref = fundFrom_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      fundFrom_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int FUND_TO_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object fundTo_ = "";
+  /**
+   * <code>string fund_to = 11 [json_name = "fundTo"];</code>
+   * @return The fundTo.
+   */
+  @java.lang.Override
+  public java.lang.String getFundTo() {
+    java.lang.Object ref = fundTo_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      fundTo_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string fund_to = 11 [json_name = "fundTo"];</code>
+   * @return The bytes for fundTo.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getFundToBytes() {
+    java.lang.Object ref = fundTo_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      fundTo_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -236,6 +517,27 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 4, asOf_);
     }
+    if (fundsCompared_ != 0) {
+      output.writeInt32(5, fundsCompared_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(startFilesFrom_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 6, startFilesFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(startFilesTo_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, startFilesTo_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(endFilesFrom_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 8, endFilesFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(endFilesTo_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 9, endFilesTo_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundFrom_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 10, fundFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundTo_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, fundTo_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -257,6 +559,28 @@ private static final long serialVersionUID = 0L;
         }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(4, asOf_);
+    }
+    if (fundsCompared_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(5, fundsCompared_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(startFilesFrom_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(6, startFilesFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(startFilesTo_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, startFilesTo_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(endFilesFrom_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(8, endFilesFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(endFilesTo_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(9, endFilesTo_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundFrom_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(10, fundFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundTo_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, fundTo_);
     }
     return size;
   }
@@ -290,6 +614,20 @@ private static final long serialVersionUID = 0L;
         .equals(other.getStocksList())) return false;
     if (!getAsOf()
         .equals(other.getAsOf())) return false;
+    if (getFundsCompared()
+        != other.getFundsCompared()) return false;
+    if (!getStartFilesFrom()
+        .equals(other.getStartFilesFrom())) return false;
+    if (!getStartFilesTo()
+        .equals(other.getStartFilesTo())) return false;
+    if (!getEndFilesFrom()
+        .equals(other.getEndFilesFrom())) return false;
+    if (!getEndFilesTo()
+        .equals(other.getEndFilesTo())) return false;
+    if (!getFundFrom()
+        .equals(other.getFundFrom())) return false;
+    if (!getFundTo()
+        .equals(other.getFundTo())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -311,6 +649,20 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + AS_OF_FIELD_NUMBER;
     hash = (53 * hash) + getAsOf().hashCode();
+    hash = (37 * hash) + FUNDS_COMPARED_FIELD_NUMBER;
+    hash = (53 * hash) + getFundsCompared();
+    hash = (37 * hash) + START_FILES_FROM_FIELD_NUMBER;
+    hash = (53 * hash) + getStartFilesFrom().hashCode();
+    hash = (37 * hash) + START_FILES_TO_FIELD_NUMBER;
+    hash = (53 * hash) + getStartFilesTo().hashCode();
+    hash = (37 * hash) + END_FILES_FROM_FIELD_NUMBER;
+    hash = (53 * hash) + getEndFilesFrom().hashCode();
+    hash = (37 * hash) + END_FILES_TO_FIELD_NUMBER;
+    hash = (53 * hash) + getEndFilesTo().hashCode();
+    hash = (37 * hash) + FUND_FROM_FIELD_NUMBER;
+    hash = (53 * hash) + getFundFrom().hashCode();
+    hash = (37 * hash) + FUND_TO_FIELD_NUMBER;
+    hash = (53 * hash) + getFundTo().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -452,6 +804,13 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00000004);
       asOf_ = "";
+      fundsCompared_ = 0;
+      startFilesFrom_ = "";
+      startFilesTo_ = "";
+      endFilesFrom_ = "";
+      endFilesTo_ = "";
+      fundFrom_ = "";
+      fundTo_ = "";
       return this;
     }
 
@@ -506,6 +865,27 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.asOf_ = asOf_;
+      }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.fundsCompared_ = fundsCompared_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.startFilesFrom_ = startFilesFrom_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.startFilesTo_ = startFilesTo_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.endFilesFrom_ = endFilesFrom_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.endFilesTo_ = endFilesTo_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.fundFrom_ = fundFrom_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.fundTo_ = fundTo_;
       }
     }
 
@@ -562,6 +942,39 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000008;
         onChanged();
       }
+      if (other.getFundsCompared() != 0) {
+        setFundsCompared(other.getFundsCompared());
+      }
+      if (!other.getStartFilesFrom().isEmpty()) {
+        startFilesFrom_ = other.startFilesFrom_;
+        bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      if (!other.getStartFilesTo().isEmpty()) {
+        startFilesTo_ = other.startFilesTo_;
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      if (!other.getEndFilesFrom().isEmpty()) {
+        endFilesFrom_ = other.endFilesFrom_;
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (!other.getEndFilesTo().isEmpty()) {
+        endFilesTo_ = other.endFilesTo_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      if (!other.getFundFrom().isEmpty()) {
+        fundFrom_ = other.fundFrom_;
+        bitField0_ |= 0x00000200;
+        onChanged();
+      }
+      if (!other.getFundTo().isEmpty()) {
+        fundTo_ = other.fundTo_;
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -616,6 +1029,41 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 34
+            case 40: {
+              fundsCompared_ = input.readInt32();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 40
+            case 50: {
+              startFilesFrom_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 50
+            case 58: {
+              startFilesTo_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
+            case 66: {
+              endFilesFrom_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 74: {
+              endFilesTo_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
+            case 82: {
+              fundFrom_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 82
+            case 90: {
+              fundTo_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1085,6 +1533,548 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       asOf_ = value;
       bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+
+    private int fundsCompared_ ;
+    /**
+     * <pre>
+     * Index funds compared in the window: each with a file at its start (or
+     * inside the window) and a newer file at the end. Zero when the window holds
+     * one file per fund, in which case every fund change is unknown.
+     * </pre>
+     *
+     * <code>int32 funds_compared = 5 [json_name = "fundsCompared"];</code>
+     * @return The fundsCompared.
+     */
+    @java.lang.Override
+    public int getFundsCompared() {
+      return fundsCompared_;
+    }
+    /**
+     * <pre>
+     * Index funds compared in the window: each with a file at its start (or
+     * inside the window) and a newer file at the end. Zero when the window holds
+     * one file per fund, in which case every fund change is unknown.
+     * </pre>
+     *
+     * <code>int32 funds_compared = 5 [json_name = "fundsCompared"];</code>
+     * @param value The fundsCompared to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundsCompared(int value) {
+
+      fundsCompared_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Index funds compared in the window: each with a file at its start (or
+     * inside the window) and a newer file at the end. Zero when the window holds
+     * one file per fund, in which case every fund change is unknown.
+     * </pre>
+     *
+     * <code>int32 funds_compared = 5 [json_name = "fundsCompared"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundsCompared() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      fundsCompared_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object startFilesFrom_ = "";
+    /**
+     * <pre>
+     * The as-at range of the start files the comparison reads.
+     * </pre>
+     *
+     * <code>string start_files_from = 6 [json_name = "startFilesFrom"];</code>
+     * @return The startFilesFrom.
+     */
+    public java.lang.String getStartFilesFrom() {
+      java.lang.Object ref = startFilesFrom_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        startFilesFrom_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The as-at range of the start files the comparison reads.
+     * </pre>
+     *
+     * <code>string start_files_from = 6 [json_name = "startFilesFrom"];</code>
+     * @return The bytes for startFilesFrom.
+     */
+    public com.google.protobuf.ByteString
+        getStartFilesFromBytes() {
+      java.lang.Object ref = startFilesFrom_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        startFilesFrom_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The as-at range of the start files the comparison reads.
+     * </pre>
+     *
+     * <code>string start_files_from = 6 [json_name = "startFilesFrom"];</code>
+     * @param value The startFilesFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStartFilesFrom(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      startFilesFrom_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The as-at range of the start files the comparison reads.
+     * </pre>
+     *
+     * <code>string start_files_from = 6 [json_name = "startFilesFrom"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStartFilesFrom() {
+      startFilesFrom_ = getDefaultInstance().getStartFilesFrom();
+      bitField0_ = (bitField0_ & ~0x00000020);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The as-at range of the start files the comparison reads.
+     * </pre>
+     *
+     * <code>string start_files_from = 6 [json_name = "startFilesFrom"];</code>
+     * @param value The bytes for startFilesFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStartFilesFromBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      startFilesFrom_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object startFilesTo_ = "";
+    /**
+     * <code>string start_files_to = 7 [json_name = "startFilesTo"];</code>
+     * @return The startFilesTo.
+     */
+    public java.lang.String getStartFilesTo() {
+      java.lang.Object ref = startFilesTo_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        startFilesTo_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string start_files_to = 7 [json_name = "startFilesTo"];</code>
+     * @return The bytes for startFilesTo.
+     */
+    public com.google.protobuf.ByteString
+        getStartFilesToBytes() {
+      java.lang.Object ref = startFilesTo_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        startFilesTo_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string start_files_to = 7 [json_name = "startFilesTo"];</code>
+     * @param value The startFilesTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStartFilesTo(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      startFilesTo_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string start_files_to = 7 [json_name = "startFilesTo"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStartFilesTo() {
+      startFilesTo_ = getDefaultInstance().getStartFilesTo();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string start_files_to = 7 [json_name = "startFilesTo"];</code>
+     * @param value The bytes for startFilesTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStartFilesToBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      startFilesTo_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object endFilesFrom_ = "";
+    /**
+     * <pre>
+     * The as-at range of the end files the comparison reads.
+     * </pre>
+     *
+     * <code>string end_files_from = 8 [json_name = "endFilesFrom"];</code>
+     * @return The endFilesFrom.
+     */
+    public java.lang.String getEndFilesFrom() {
+      java.lang.Object ref = endFilesFrom_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        endFilesFrom_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The as-at range of the end files the comparison reads.
+     * </pre>
+     *
+     * <code>string end_files_from = 8 [json_name = "endFilesFrom"];</code>
+     * @return The bytes for endFilesFrom.
+     */
+    public com.google.protobuf.ByteString
+        getEndFilesFromBytes() {
+      java.lang.Object ref = endFilesFrom_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        endFilesFrom_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The as-at range of the end files the comparison reads.
+     * </pre>
+     *
+     * <code>string end_files_from = 8 [json_name = "endFilesFrom"];</code>
+     * @param value The endFilesFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndFilesFrom(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      endFilesFrom_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The as-at range of the end files the comparison reads.
+     * </pre>
+     *
+     * <code>string end_files_from = 8 [json_name = "endFilesFrom"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEndFilesFrom() {
+      endFilesFrom_ = getDefaultInstance().getEndFilesFrom();
+      bitField0_ = (bitField0_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The as-at range of the end files the comparison reads.
+     * </pre>
+     *
+     * <code>string end_files_from = 8 [json_name = "endFilesFrom"];</code>
+     * @param value The bytes for endFilesFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndFilesFromBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      endFilesFrom_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object endFilesTo_ = "";
+    /**
+     * <code>string end_files_to = 9 [json_name = "endFilesTo"];</code>
+     * @return The endFilesTo.
+     */
+    public java.lang.String getEndFilesTo() {
+      java.lang.Object ref = endFilesTo_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        endFilesTo_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string end_files_to = 9 [json_name = "endFilesTo"];</code>
+     * @return The bytes for endFilesTo.
+     */
+    public com.google.protobuf.ByteString
+        getEndFilesToBytes() {
+      java.lang.Object ref = endFilesTo_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        endFilesTo_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string end_files_to = 9 [json_name = "endFilesTo"];</code>
+     * @param value The endFilesTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndFilesTo(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      endFilesTo_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string end_files_to = 9 [json_name = "endFilesTo"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEndFilesTo() {
+      endFilesTo_ = getDefaultInstance().getEndFilesTo();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string end_files_to = 9 [json_name = "endFilesTo"];</code>
+     * @param value The bytes for endFilesTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndFilesToBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      endFilesTo_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object fundFrom_ = "";
+    /**
+     * <pre>
+     * The index funds' window the fund figures compare, as served.
+     * </pre>
+     *
+     * <code>string fund_from = 10 [json_name = "fundFrom"];</code>
+     * @return The fundFrom.
+     */
+    public java.lang.String getFundFrom() {
+      java.lang.Object ref = fundFrom_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        fundFrom_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The index funds' window the fund figures compare, as served.
+     * </pre>
+     *
+     * <code>string fund_from = 10 [json_name = "fundFrom"];</code>
+     * @return The bytes for fundFrom.
+     */
+    public com.google.protobuf.ByteString
+        getFundFromBytes() {
+      java.lang.Object ref = fundFrom_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        fundFrom_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The index funds' window the fund figures compare, as served.
+     * </pre>
+     *
+     * <code>string fund_from = 10 [json_name = "fundFrom"];</code>
+     * @param value The fundFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundFrom(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      fundFrom_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The index funds' window the fund figures compare, as served.
+     * </pre>
+     *
+     * <code>string fund_from = 10 [json_name = "fundFrom"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundFrom() {
+      fundFrom_ = getDefaultInstance().getFundFrom();
+      bitField0_ = (bitField0_ & ~0x00000200);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The index funds' window the fund figures compare, as served.
+     * </pre>
+     *
+     * <code>string fund_from = 10 [json_name = "fundFrom"];</code>
+     * @param value The bytes for fundFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundFromBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      fundFrom_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object fundTo_ = "";
+    /**
+     * <code>string fund_to = 11 [json_name = "fundTo"];</code>
+     * @return The fundTo.
+     */
+    public java.lang.String getFundTo() {
+      java.lang.Object ref = fundTo_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        fundTo_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string fund_to = 11 [json_name = "fundTo"];</code>
+     * @return The bytes for fundTo.
+     */
+    public com.google.protobuf.ByteString
+        getFundToBytes() {
+      java.lang.Object ref = fundTo_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        fundTo_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string fund_to = 11 [json_name = "fundTo"];</code>
+     * @param value The fundTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundTo(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      fundTo_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string fund_to = 11 [json_name = "fundTo"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundTo() {
+      fundTo_ = getDefaultInstance().getFundTo();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string fund_to = 11 [json_name = "fundTo"];</code>
+     * @param value The bytes for fundTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundToBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      fundTo_ = value;
+      bitField0_ |= 0x00000400;
       onChanged();
       return this;
     }

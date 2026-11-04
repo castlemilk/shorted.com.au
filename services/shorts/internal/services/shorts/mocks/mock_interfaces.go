@@ -2635,6 +2635,20 @@ func (mr *MockCacheMockRecorder) GetOrSetWithTTL(key, ttl, computeFn any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrSetWithTTL", reflect.TypeOf((*MockCache)(nil).GetOrSetWithTTL), key, ttl, computeFn)
 }
 
+// GetOwnershipFundsKey mocks base method.
+func (m *MockCache) GetOwnershipFundsKey(generation int64) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnershipFundsKey", generation)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetOwnershipFundsKey indicates an expected call of GetOwnershipFundsKey.
+func (mr *MockCacheMockRecorder) GetOwnershipFundsKey(generation any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnershipFundsKey", reflect.TypeOf((*MockCache)(nil).GetOwnershipFundsKey), generation)
+}
+
 // GetOwnershipMapKey mocks base method.
 func (m *MockCache) GetOwnershipMapKey(generation int64) string {
 	m.ctrl.T.Helper()

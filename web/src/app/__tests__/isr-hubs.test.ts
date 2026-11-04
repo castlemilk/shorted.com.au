@@ -35,8 +35,8 @@ const HUBS = [
   "statistics/page.tsx",
   // Its ?price=&state= prefill is read in the browser (calculator-prefill.tsx).
   "housing/calculators/page.tsx",
-  // The ownership section: the hub, its two dynamic pages, and the two static pages the
-  // explorer adds (the notice feed and the register list). The register's data module
+  // The ownership section: the hub, its dynamic pages (institution, register, fund), and the
+  // static pages the explorer and the workspace add. The register's data module
   // (stocks/[code]/register-data.ts) is outside this check;
   // app/ownership/__tests__/isr-source-safety.test.ts reads it.
   "ownership/page.tsx",
@@ -44,8 +44,14 @@ const HUBS = [
   "ownership/stocks/[code]/page.tsx",
   "ownership/notices/page.tsx",
   "ownership/stocks/page.tsx",
-  // The insights explorer: static, its island reads the link (insights-explorer.tsx).
-  "ownership/insights/page.tsx",
+  // The workspace (spec 14.3): six static pages and the fund page, each with its own revalidate.
+  "ownership/funds/[fund]/page.tsx",
+  "ownership/map/page.tsx",
+  "ownership/connections/page.tsx",
+  "ownership/activity/page.tsx",
+  "ownership/funds/page.tsx",
+  "ownership/holders/page.tsx",
+  "ownership/changes/page.tsx",
 ];
 
 /**

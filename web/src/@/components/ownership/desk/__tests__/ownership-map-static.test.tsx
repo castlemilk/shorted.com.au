@@ -2,7 +2,6 @@ import { render, screen, within } from "@testing-library/react";
 
 import type { OwnershipMapPage } from "~/app/actions/ownershipDesk";
 import { layoutMap, type MapCell, type MapStockRow } from "../map-layout";
-import { lensScale } from "../desk-scales";
 import { DEFAULT_DESK_STATE } from "../desk-state";
 import { mapCaption } from "../lens-legend";
 import {
@@ -18,6 +17,7 @@ import {
   zoomPose,
   zoomStyle,
 } from "../ownership-map-static";
+import { lensScale } from "../desk-scales";
 
 function stock(overrides: Partial<MapStockRow> & { code: string }): MapStockRow {
   return {
@@ -120,11 +120,10 @@ describe("zoomPose and zoomStyle", () => {
 });
 
 describe("labelColourFor", () => {
-  it("uses the background on a strong fill and the foreground on a weak one", () => {
-    const scale = lensScale("disclosed", [10, 40]);
-    expect(labelColourFor(40, scale)).toBe("hsl(var(--background))");
-    expect(labelColourFor(5, scale)).toBe("hsl(var(--foreground))");
-    expect(labelColourFor(null, scale)).toBe("hsl(var(--foreground))");
+  it("is paper on the deepest step and ink on the pale ones (spec 14.9)", () => {
+    const scale = lensScale("disclosed", [10]);
+    expect(labelColourFor(1, scale)).toBe("hsl(var(--foreground))");
+    expect(labelColourFor(10, scale)).toBe("hsl(var(--background))");
   });
 });
 
@@ -159,14 +158,25 @@ describe("OwnershipMapStatic", () => {
     expect(container.querySelector(`g[data-code="CBA"] title`)?.textContent).toContain("CBA");
   });
 
-  it("prints the caption, the provenance and the window chips with their links", () => {
+  it("prints the caption, the provenance and the window as one select, drawn disabled on the server", () => {
     render(<OwnershipMapStatic initial={page()} />);
     expect(screen.getByText(mapCaption("disclosed"))).toBeInTheDocument();
     expect(screen.getByText("2026-10-12").closest("time")).toHaveAttribute("dateTime", "2026-10-12");
-    const chip = screen.getByRole("link", { name: "28 days" });
-    expect(chip).toHaveAttribute("href", "/ownership?window=28");
-    expect(chip).toHaveAttribute("rel", "nofollow");
-    expect(screen.getByRole("link", { name: "Short interest" })).toHaveAttribute("href", "/ownership?lens=short");
+    // The window is one labelled select with four options, not four links (spec 14.9).
+    const window = screen.getByRole("combobox", { name: "Window" });
+    expect(window).toBeDisabled();
+    expect(Array.from((window as HTMLSelectElement).options).map((option) => option.textContent)).toEqual([
+      "28 days",
+      "91 days",
+      "182 days",
+      "364 days",
+    ]);
+    expect(window).toHaveValue("91");
+    expect(screen.queryByRole("link", { name: "28 days" })).toBeNull();
+    // The Colour control is a labelled select: drawn disabled on the server, a live control once the island mounts.
+    const colour = screen.getByRole("combobox", { name: "Colour" });
+    expect(colour).toBeDisabled();
+    expect(screen.getByRole("option", { name: "Short interest" })).toBeInTheDocument();
   });
 
   it("says no stock is on the map for an empty universe, and draws no map for an empty answer", () => {
@@ -207,7 +217,7 @@ describe("OwnershipMapStatic", () => {
       />,
     );
     expect(document.body.textContent).toContain("released from 2026-08-01 to 2026-10-31");
-    expect(screen.getByRole("link", { name: "91 days" })).not.toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("combobox", { name: "Window" })).toHaveValue("brushed");
   });
 
   it("states the basis of each lens's figures, and never the disclosed wording for a fund file or a short position", () => {
@@ -268,5 +278,70 @@ describe("the drawing's labels and the phone's way into a sector", () => {
     const labels = Array.from(container.querySelectorAll("svg text"));
     expect(labels.length).toBeGreaterThan(0);
     for (const label of labels) expect(label).toHaveClass("hidden", "sm:inline");
+  });
+});
+
+describe("the coverage line's fund comparison (spec 14.10)", () => {
+  const FUND_PAGE = {
+    fundsCompared: 2,
+    startFilesFrom: "2026-06-30",
+    startFilesTo: "2026-07-31",
+    endFilesFrom: "2026-10-30",
+    endFilesTo: "2026-10-30",
+  };
+
+  function drawn(overrides: Partial<OwnershipMapPage>) {
+    return render(
+      <OwnershipMapView
+        page={page({ ...FUND_PAGE, ...overrides })}
+        desk={DEFAULT_DESK_STATE}
+        status="idle"
+        slow={false}
+        basePath="/ownership/map"
+      />,
+    );
+  }
+
+  it("states the funds compared and the files each side reads, from the answer the view draws", () => {
+    drawn({});
+    expect(screen.getByText(/2 funds compared, files 2026-06-30 to 2026-07-31 against 2026-10-30/)).toBeInTheDocument();
+  });
+
+  it("says one file per fund, and every change n/a, when the window compares no fund", () => {
+    drawn({ fundsCompared: 0 });
+    expect(screen.getByText("One file per fund: changes n/a")).toBeInTheDocument();
+    expect(screen.queryByText(/funds compared/)).toBeNull();
+  });
+
+  it("states one fund in the singular, with its single-date files", () => {
+    drawn({ fundsCompared: 1, startFilesFrom: "2026-06-30", startFilesTo: "2026-06-30" });
+    expect(screen.getByText(/1 fund compared, files 2026-06-30 against 2026-10-30/)).toBeInTheDocument();
+  });
+
+  it("says no index fund file is in the window when no tracked fund has a file there", () => {
+    drawn({ fundsCompared: 0, startFilesFrom: "", startFilesTo: "", endFilesFrom: "", endFilesTo: "" });
+    expect(screen.getByText("No index fund file in the window")).toBeInTheDocument();
+    expect(screen.queryByText("One file per fund: changes n/a")).toBeNull();
+  });
+
+  it("marks the held comparison while a read is in flight, as the hatched changes are", () => {
+    const { container } = render(
+      <OwnershipMapView
+        page={page(FUND_PAGE)}
+        desk={DEFAULT_DESK_STATE}
+        status="loading"
+        slow={false}
+        basePath="/ownership/map"
+      />,
+    );
+    const line = screen.getByText(/^Updating · 2 funds compared, files 2026-06-30 to 2026-07-31/);
+    expect(line).toHaveAttribute("data-stale", "true");
+    expect(container.querySelector("[data-stale='true']")).toBe(line);
+  });
+
+  it("leaves the comparison unmarked once the answer is the one drawn", () => {
+    drawn({});
+    const line = screen.getByText(/^2 funds compared, files/);
+    expect(line).not.toHaveAttribute("data-stale");
   });
 });

@@ -36,6 +36,8 @@ private static final long serialVersionUID = 0L;
   private GetOwnershipMapRequest() {
     from_ = "";
     to_ = "";
+    fundFrom_ = "";
+    fundTo_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -134,6 +136,96 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int FUND_FROM_FIELD_NUMBER = 3;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object fundFrom_ = "";
+  /**
+   * <pre>
+   * The index funds' window, when it is not the notice window: the snapshot
+   * dates the fund figures compare, at most 366 days apart. Empty takes from and
+   * to (the notice window), and one empty bound is filled as the desk fills it.
+   * </pre>
+   *
+   * <code>string fund_from = 3 [json_name = "fundFrom"];</code>
+   * @return The fundFrom.
+   */
+  @java.lang.Override
+  public java.lang.String getFundFrom() {
+    java.lang.Object ref = fundFrom_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      fundFrom_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The index funds' window, when it is not the notice window: the snapshot
+   * dates the fund figures compare, at most 366 days apart. Empty takes from and
+   * to (the notice window), and one empty bound is filled as the desk fills it.
+   * </pre>
+   *
+   * <code>string fund_from = 3 [json_name = "fundFrom"];</code>
+   * @return The bytes for fundFrom.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getFundFromBytes() {
+    java.lang.Object ref = fundFrom_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      fundFrom_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int FUND_TO_FIELD_NUMBER = 4;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object fundTo_ = "";
+  /**
+   * <code>string fund_to = 4 [json_name = "fundTo"];</code>
+   * @return The fundTo.
+   */
+  @java.lang.Override
+  public java.lang.String getFundTo() {
+    java.lang.Object ref = fundTo_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      fundTo_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string fund_to = 4 [json_name = "fundTo"];</code>
+   * @return The bytes for fundTo.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getFundToBytes() {
+    java.lang.Object ref = fundTo_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      fundTo_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -154,6 +246,12 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(to_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 2, to_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundFrom_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 3, fundFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundTo_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 4, fundTo_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -163,6 +261,12 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(to_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(2, to_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundFrom_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(3, fundFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundTo_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, fundTo_);
     }
     return size;
   }
@@ -192,6 +296,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getFrom())) return false;
     if (!getTo()
         .equals(other.getTo())) return false;
+    if (!getFundFrom()
+        .equals(other.getFundFrom())) return false;
+    if (!getFundTo()
+        .equals(other.getFundTo())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -207,6 +315,10 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getFrom().hashCode();
     hash = (37 * hash) + TO_FIELD_NUMBER;
     hash = (53 * hash) + getTo().hashCode();
+    hash = (37 * hash) + FUND_FROM_FIELD_NUMBER;
+    hash = (53 * hash) + getFundFrom().hashCode();
+    hash = (37 * hash) + FUND_TO_FIELD_NUMBER;
+    hash = (53 * hash) + getFundTo().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -346,6 +458,8 @@ private static final long serialVersionUID = 0L;
       bitField0_ = 0;
       from_ = "";
       to_ = "";
+      fundFrom_ = "";
+      fundTo_ = "";
       return this;
     }
 
@@ -385,6 +499,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000002) != 0)) {
         result.to_ = to_;
       }
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.fundFrom_ = fundFrom_;
+      }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.fundTo_ = fundTo_;
+      }
     }
 
     @java.lang.Override
@@ -407,6 +527,16 @@ private static final long serialVersionUID = 0L;
       if (!other.getTo().isEmpty()) {
         to_ = other.to_;
         bitField0_ |= 0x00000002;
+        onChanged();
+      }
+      if (!other.getFundFrom().isEmpty()) {
+        fundFrom_ = other.fundFrom_;
+        bitField0_ |= 0x00000004;
+        onChanged();
+      }
+      if (!other.getFundTo().isEmpty()) {
+        fundTo_ = other.fundTo_;
+        bitField0_ |= 0x00000008;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -445,6 +575,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 18
+            case 26: {
+              fundFrom_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000004;
+              break;
+            } // case 26
+            case 34: {
+              fundTo_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 34
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -602,6 +742,180 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       to_ = value;
       bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object fundFrom_ = "";
+    /**
+     * <pre>
+     * The index funds' window, when it is not the notice window: the snapshot
+     * dates the fund figures compare, at most 366 days apart. Empty takes from and
+     * to (the notice window), and one empty bound is filled as the desk fills it.
+     * </pre>
+     *
+     * <code>string fund_from = 3 [json_name = "fundFrom"];</code>
+     * @return The fundFrom.
+     */
+    public java.lang.String getFundFrom() {
+      java.lang.Object ref = fundFrom_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        fundFrom_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The index funds' window, when it is not the notice window: the snapshot
+     * dates the fund figures compare, at most 366 days apart. Empty takes from and
+     * to (the notice window), and one empty bound is filled as the desk fills it.
+     * </pre>
+     *
+     * <code>string fund_from = 3 [json_name = "fundFrom"];</code>
+     * @return The bytes for fundFrom.
+     */
+    public com.google.protobuf.ByteString
+        getFundFromBytes() {
+      java.lang.Object ref = fundFrom_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        fundFrom_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The index funds' window, when it is not the notice window: the snapshot
+     * dates the fund figures compare, at most 366 days apart. Empty takes from and
+     * to (the notice window), and one empty bound is filled as the desk fills it.
+     * </pre>
+     *
+     * <code>string fund_from = 3 [json_name = "fundFrom"];</code>
+     * @param value The fundFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundFrom(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      fundFrom_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The index funds' window, when it is not the notice window: the snapshot
+     * dates the fund figures compare, at most 366 days apart. Empty takes from and
+     * to (the notice window), and one empty bound is filled as the desk fills it.
+     * </pre>
+     *
+     * <code>string fund_from = 3 [json_name = "fundFrom"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundFrom() {
+      fundFrom_ = getDefaultInstance().getFundFrom();
+      bitField0_ = (bitField0_ & ~0x00000004);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The index funds' window, when it is not the notice window: the snapshot
+     * dates the fund figures compare, at most 366 days apart. Empty takes from and
+     * to (the notice window), and one empty bound is filled as the desk fills it.
+     * </pre>
+     *
+     * <code>string fund_from = 3 [json_name = "fundFrom"];</code>
+     * @param value The bytes for fundFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundFromBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      fundFrom_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object fundTo_ = "";
+    /**
+     * <code>string fund_to = 4 [json_name = "fundTo"];</code>
+     * @return The fundTo.
+     */
+    public java.lang.String getFundTo() {
+      java.lang.Object ref = fundTo_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        fundTo_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string fund_to = 4 [json_name = "fundTo"];</code>
+     * @return The bytes for fundTo.
+     */
+    public com.google.protobuf.ByteString
+        getFundToBytes() {
+      java.lang.Object ref = fundTo_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        fundTo_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string fund_to = 4 [json_name = "fundTo"];</code>
+     * @param value The fundTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundTo(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      fundTo_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string fund_to = 4 [json_name = "fundTo"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundTo() {
+      fundTo_ = getDefaultInstance().getFundTo();
+      bitField0_ = (bitField0_ & ~0x00000008);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string fund_to = 4 [json_name = "fundTo"];</code>
+     * @param value The bytes for fundTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundToBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      fundTo_ = value;
+      bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }

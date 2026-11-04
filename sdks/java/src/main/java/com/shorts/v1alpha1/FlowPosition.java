@@ -38,6 +38,7 @@ private static final long serialVersionUID = 0L;
     kind_ = "";
     industry_ = "";
     largestCode_ = "";
+    topHolders_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -231,6 +232,72 @@ private static final long serialVersionUID = 0L;
     return largestPct_;
   }
 
+  public static final int TOP_HOLDERS_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.FlowHolder> topHolders_;
+  /**
+   * <pre>
+   * The cell's largest holders by estimated exposure, at most ten, largest
+   * first (unknown exposures last, then by holdings).
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.FlowHolder> getTopHoldersList() {
+    return topHolders_;
+  }
+  /**
+   * <pre>
+   * The cell's largest holders by estimated exposure, at most ten, largest
+   * first (unknown exposures last, then by holdings).
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.FlowHolderOrBuilder> 
+      getTopHoldersOrBuilderList() {
+    return topHolders_;
+  }
+  /**
+   * <pre>
+   * The cell's largest holders by estimated exposure, at most ten, largest
+   * first (unknown exposures last, then by holdings).
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+   */
+  @java.lang.Override
+  public int getTopHoldersCount() {
+    return topHolders_.size();
+  }
+  /**
+   * <pre>
+   * The cell's largest holders by estimated exposure, at most ten, largest
+   * first (unknown exposures last, then by holdings).
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.FlowHolder getTopHolders(int index) {
+    return topHolders_.get(index);
+  }
+  /**
+   * <pre>
+   * The cell's largest holders by estimated exposure, at most ten, largest
+   * first (unknown exposures last, then by holdings).
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.FlowHolderOrBuilder getTopHoldersOrBuilder(
+      int index) {
+    return topHolders_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -266,6 +333,9 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(largestPct_) != 0) {
       output.writeDouble(7, largestPct_);
     }
+    for (int i = 0; i < topHolders_.size(); i++) {
+      output.writeMessage(8, topHolders_.get(i));
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -295,6 +365,15 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(7, largestPct_);
     }
+
+        {
+          final int count = topHolders_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(topHolders_.get(i));
+          }
+          size += 1 * count;
+        }
     return size;
   }
   @java.lang.Override
@@ -335,6 +414,8 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getLargestPct())
         != java.lang.Double.doubleToLongBits(
             other.getLargestPct())) return false;
+    if (!getTopHoldersList()
+        .equals(other.getTopHoldersList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -363,6 +444,10 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + LARGEST_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getLargestPct()));
+    if (getTopHoldersCount() > 0) {
+      hash = (37 * hash) + TOP_HOLDERS_FIELD_NUMBER;
+      hash = (53 * hash) + getTopHoldersList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -508,6 +593,13 @@ private static final long serialVersionUID = 0L;
       holdings_ = 0;
       largestCode_ = "";
       largestPct_ = 0D;
+      if (topHoldersBuilder_ == null) {
+        topHolders_ = java.util.Collections.emptyList();
+      } else {
+        topHolders_ = null;
+        topHoldersBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000080);
       return this;
     }
 
@@ -534,9 +626,22 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.shorts.v1alpha1.FlowPosition buildPartial() {
       com.shorts.v1alpha1.FlowPosition result = new com.shorts.v1alpha1.FlowPosition(this);
+      buildPartialRepeatedFields(result);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
+    }
+
+    private void buildPartialRepeatedFields(com.shorts.v1alpha1.FlowPosition result) {
+      if (topHoldersBuilder_ == null) {
+        if (((bitField0_ & 0x00000080) != 0)) {
+          topHolders_ = java.util.Collections.unmodifiableList(topHolders_);
+          bitField0_ = (bitField0_ & ~0x00000080);
+        }
+        result.topHolders_ = topHolders_;
+      } else {
+        result.topHolders_ = topHoldersBuilder_.build();
+      }
     }
 
     private void buildPartial0(com.shorts.v1alpha1.FlowPosition result) {
@@ -603,6 +708,32 @@ private static final long serialVersionUID = 0L;
       if (java.lang.Double.doubleToRawLongBits(other.getLargestPct()) != 0) {
         setLargestPct(other.getLargestPct());
       }
+      if (topHoldersBuilder_ == null) {
+        if (!other.topHolders_.isEmpty()) {
+          if (topHolders_.isEmpty()) {
+            topHolders_ = other.topHolders_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+          } else {
+            ensureTopHoldersIsMutable();
+            topHolders_.addAll(other.topHolders_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.topHolders_.isEmpty()) {
+          if (topHoldersBuilder_.isEmpty()) {
+            topHoldersBuilder_.dispose();
+            topHoldersBuilder_ = null;
+            topHolders_ = other.topHolders_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+            topHoldersBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetTopHoldersFieldBuilder() : null;
+          } else {
+            topHoldersBuilder_.addAllMessages(other.topHolders_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -664,6 +795,19 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 57
+            case 66: {
+              com.shorts.v1alpha1.FlowHolder m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.FlowHolder.parser(),
+                      extensionRegistry);
+              if (topHoldersBuilder_ == null) {
+                ensureTopHoldersIsMutable();
+                topHolders_.add(m);
+              } else {
+                topHoldersBuilder_.addMessage(m);
+              }
+              break;
+            } // case 66
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1055,6 +1199,336 @@ private static final long serialVersionUID = 0L;
       largestPct_ = 0D;
       onChanged();
       return this;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.FlowHolder> topHolders_ =
+      java.util.Collections.emptyList();
+    private void ensureTopHoldersIsMutable() {
+      if (!((bitField0_ & 0x00000080) != 0)) {
+        topHolders_ = new java.util.ArrayList<com.shorts.v1alpha1.FlowHolder>(topHolders_);
+        bitField0_ |= 0x00000080;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.FlowHolder, com.shorts.v1alpha1.FlowHolder.Builder, com.shorts.v1alpha1.FlowHolderOrBuilder> topHoldersBuilder_;
+
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.FlowHolder> getTopHoldersList() {
+      if (topHoldersBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(topHolders_);
+      } else {
+        return topHoldersBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public int getTopHoldersCount() {
+      if (topHoldersBuilder_ == null) {
+        return topHolders_.size();
+      } else {
+        return topHoldersBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public com.shorts.v1alpha1.FlowHolder getTopHolders(int index) {
+      if (topHoldersBuilder_ == null) {
+        return topHolders_.get(index);
+      } else {
+        return topHoldersBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public Builder setTopHolders(
+        int index, com.shorts.v1alpha1.FlowHolder value) {
+      if (topHoldersBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTopHoldersIsMutable();
+        topHolders_.set(index, value);
+        onChanged();
+      } else {
+        topHoldersBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public Builder setTopHolders(
+        int index, com.shorts.v1alpha1.FlowHolder.Builder builderForValue) {
+      if (topHoldersBuilder_ == null) {
+        ensureTopHoldersIsMutable();
+        topHolders_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        topHoldersBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public Builder addTopHolders(com.shorts.v1alpha1.FlowHolder value) {
+      if (topHoldersBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTopHoldersIsMutable();
+        topHolders_.add(value);
+        onChanged();
+      } else {
+        topHoldersBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public Builder addTopHolders(
+        int index, com.shorts.v1alpha1.FlowHolder value) {
+      if (topHoldersBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTopHoldersIsMutable();
+        topHolders_.add(index, value);
+        onChanged();
+      } else {
+        topHoldersBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public Builder addTopHolders(
+        com.shorts.v1alpha1.FlowHolder.Builder builderForValue) {
+      if (topHoldersBuilder_ == null) {
+        ensureTopHoldersIsMutable();
+        topHolders_.add(builderForValue.build());
+        onChanged();
+      } else {
+        topHoldersBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public Builder addTopHolders(
+        int index, com.shorts.v1alpha1.FlowHolder.Builder builderForValue) {
+      if (topHoldersBuilder_ == null) {
+        ensureTopHoldersIsMutable();
+        topHolders_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        topHoldersBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public Builder addAllTopHolders(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.FlowHolder> values) {
+      if (topHoldersBuilder_ == null) {
+        ensureTopHoldersIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, topHolders_);
+        onChanged();
+      } else {
+        topHoldersBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public Builder clearTopHolders() {
+      if (topHoldersBuilder_ == null) {
+        topHolders_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000080);
+        onChanged();
+      } else {
+        topHoldersBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public Builder removeTopHolders(int index) {
+      if (topHoldersBuilder_ == null) {
+        ensureTopHoldersIsMutable();
+        topHolders_.remove(index);
+        onChanged();
+      } else {
+        topHoldersBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public com.shorts.v1alpha1.FlowHolder.Builder getTopHoldersBuilder(
+        int index) {
+      return internalGetTopHoldersFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public com.shorts.v1alpha1.FlowHolderOrBuilder getTopHoldersOrBuilder(
+        int index) {
+      if (topHoldersBuilder_ == null) {
+        return topHolders_.get(index);  } else {
+        return topHoldersBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.FlowHolderOrBuilder> 
+         getTopHoldersOrBuilderList() {
+      if (topHoldersBuilder_ != null) {
+        return topHoldersBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(topHolders_);
+      }
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public com.shorts.v1alpha1.FlowHolder.Builder addTopHoldersBuilder() {
+      return internalGetTopHoldersFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.FlowHolder.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public com.shorts.v1alpha1.FlowHolder.Builder addTopHoldersBuilder(
+        int index) {
+      return internalGetTopHoldersFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.FlowHolder.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The cell's largest holders by estimated exposure, at most ten, largest
+     * first (unknown exposures last, then by holdings).
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.FlowHolder.Builder> 
+         getTopHoldersBuilderList() {
+      return internalGetTopHoldersFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.FlowHolder, com.shorts.v1alpha1.FlowHolder.Builder, com.shorts.v1alpha1.FlowHolderOrBuilder> 
+        internalGetTopHoldersFieldBuilder() {
+      if (topHoldersBuilder_ == null) {
+        topHoldersBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.FlowHolder, com.shorts.v1alpha1.FlowHolder.Builder, com.shorts.v1alpha1.FlowHolderOrBuilder>(
+                topHolders_,
+                ((bitField0_ & 0x00000080) != 0),
+                getParentForChildren(),
+                isClean());
+        topHolders_ = null;
+      }
+      return topHoldersBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.FlowPosition)

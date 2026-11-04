@@ -132,6 +132,32 @@ private static final long serialVersionUID = 0L;
     return hasValue_;
   }
 
+  public static final int UNITS_FIELD_NUMBER = 6;
+  private double units_ = 0D;
+  /**
+   * <pre>
+   * The fund's shares in the stock at this file.
+   * </pre>
+   *
+   * <code>double units = 6 [json_name = "units"];</code>
+   * @return The units.
+   */
+  @java.lang.Override
+  public double getUnits() {
+    return units_;
+  }
+
+  public static final int HAS_UNITS_FIELD_NUMBER = 7;
+  private boolean hasUnits_ = false;
+  /**
+   * <code>bool has_units = 7 [json_name = "hasUnits"];</code>
+   * @return The hasUnits.
+   */
+  @java.lang.Override
+  public boolean getHasUnits() {
+    return hasUnits_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -161,6 +187,12 @@ private static final long serialVersionUID = 0L;
     if (hasValue_ != false) {
       output.writeBool(5, hasValue_);
     }
+    if (java.lang.Double.doubleToRawLongBits(units_) != 0) {
+      output.writeDouble(6, units_);
+    }
+    if (hasUnits_ != false) {
+      output.writeBool(7, hasUnits_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -183,6 +215,14 @@ private static final long serialVersionUID = 0L;
     if (hasValue_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(5, hasValue_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(units_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(6, units_);
+    }
+    if (hasUnits_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(7, hasUnits_);
     }
     return size;
   }
@@ -220,6 +260,11 @@ private static final long serialVersionUID = 0L;
             other.getValueAud())) return false;
     if (getHasValue()
         != other.getHasValue()) return false;
+    if (java.lang.Double.doubleToLongBits(getUnits())
+        != java.lang.Double.doubleToLongBits(
+            other.getUnits())) return false;
+    if (getHasUnits()
+        != other.getHasUnits()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -245,6 +290,12 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_VALUE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasValue());
+    hash = (37 * hash) + UNITS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getUnits()));
+    hash = (37 * hash) + HAS_UNITS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasUnits());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -381,6 +432,8 @@ private static final long serialVersionUID = 0L;
       hasWeight_ = false;
       valueAud_ = 0D;
       hasValue_ = false;
+      units_ = 0D;
+      hasUnits_ = false;
       return this;
     }
 
@@ -429,6 +482,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.hasValue_ = hasValue_;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.units_ = units_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.hasUnits_ = hasUnits_;
+      }
     }
 
     @java.lang.Override
@@ -459,6 +518,12 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasValue() != false) {
         setHasValue(other.getHasValue());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getUnits()) != 0) {
+        setUnits(other.getUnits());
+      }
+      if (other.getHasUnits() != false) {
+        setHasUnits(other.getHasUnits());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -511,6 +576,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 40
+            case 49: {
+              units_ = input.readDouble();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 49
+            case 56: {
+              hasUnits_ = input.readBool();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 56
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -724,6 +799,82 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasValue() {
       bitField0_ = (bitField0_ & ~0x00000010);
       hasValue_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double units_ ;
+    /**
+     * <pre>
+     * The fund's shares in the stock at this file.
+     * </pre>
+     *
+     * <code>double units = 6 [json_name = "units"];</code>
+     * @return The units.
+     */
+    @java.lang.Override
+    public double getUnits() {
+      return units_;
+    }
+    /**
+     * <pre>
+     * The fund's shares in the stock at this file.
+     * </pre>
+     *
+     * <code>double units = 6 [json_name = "units"];</code>
+     * @param value The units to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUnits(double value) {
+
+      units_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The fund's shares in the stock at this file.
+     * </pre>
+     *
+     * <code>double units = 6 [json_name = "units"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearUnits() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      units_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasUnits_ ;
+    /**
+     * <code>bool has_units = 7 [json_name = "hasUnits"];</code>
+     * @return The hasUnits.
+     */
+    @java.lang.Override
+    public boolean getHasUnits() {
+      return hasUnits_;
+    }
+    /**
+     * <code>bool has_units = 7 [json_name = "hasUnits"];</code>
+     * @param value The hasUnits to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasUnits(boolean value) {
+
+      hasUnits_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_units = 7 [json_name = "hasUnits"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasUnits() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      hasUnits_ = false;
       onChanged();
       return this;
     }

@@ -19,4 +19,26 @@ public interface GetOwnershipActivityRequestOrBuilder extends
    * @return The weeks.
    */
   int getWeeks();
+
+  /**
+   * <pre>
+   * A holder kind (super_fund, index_manager, ...), or "" for every kind. A kind
+   * outside the vocabulary is InvalidArgument.
+   * </pre>
+   *
+   * <code>string kind = 2 [json_name = "kind"];</code>
+   * @return The kind.
+   */
+  java.lang.String getKind();
+  /**
+   * <pre>
+   * A holder kind (super_fund, index_manager, ...), or "" for every kind. A kind
+   * outside the vocabulary is InvalidArgument.
+   * </pre>
+   *
+   * <code>string kind = 2 [json_name = "kind"];</code>
+   * @return The bytes for kind.
+   */
+  com.google.protobuf.ByteString
+      getKindBytes();
 }

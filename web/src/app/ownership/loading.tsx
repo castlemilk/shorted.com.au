@@ -3,8 +3,8 @@ import { MAP_HEIGHT, MAP_WIDTH } from "~/@/components/ownership/desk/ownership-m
 
 /**
  * The desk's skeleton, sized to the instruments it stands in for: the title and
- * lede, the plate, the map at its 1000 by 560 drawing with the window and lens
- * chips above it, the flows and the movement side by side from `lg` (the flows
+ * lede, the plate, the map (two columns) beside the flows from `lg`, then the
+ * movement (two columns) beneath, as the page lays them out (the flows
  * drawing is 600 by 400 from `sm`, 360 by 330 below; the movement is 18 px a
  * sector row, 22 px for its brush), then the index fund window. It draws inside
  * the same DashboardLayout the hub uses, so the sidebar stays put on a client
@@ -22,20 +22,17 @@ export default function OwnershipLoading() {
           </div>
           <div className="h-7 w-full max-w-[60rem] rounded-md bg-muted/40" />
 
-          <section className="space-y-4" aria-hidden="true">
-            <div className="flex flex-wrap gap-2">
-              <div className="h-7 w-72 max-w-full rounded-md bg-muted/40" />
+          <div className="grid gap-6 lg:grid-cols-3" aria-hidden="true">
+            <section className="min-w-0 space-y-4 lg:col-span-2">
+              <div className="h-7 w-64 max-w-full rounded-md bg-muted/40" />
               <div className="h-7 w-80 max-w-full rounded-md bg-muted/40" />
-            </div>
-            <div className="w-full rounded-md bg-muted/40" style={{ aspectRatio: `${MAP_WIDTH} / ${MAP_HEIGHT}` }} />
-          </section>
-
-          <div className="grid gap-10 lg:grid-cols-2" aria-hidden="true">
-            <section className="space-y-4">
+              <div className="w-full rounded-md bg-muted/40" style={{ aspectRatio: `${MAP_WIDTH} / ${MAP_HEIGHT}` }} />
+            </section>
+            <section className="min-w-0 space-y-4">
               <div className="h-7 w-64 max-w-full rounded-md bg-muted/40" />
               <div className="aspect-[360/330] w-full rounded-md bg-muted/40 sm:aspect-[600/400]" />
             </section>
-            <section className="space-y-4">
+            <section className="min-w-0 space-y-4 lg:col-span-2">
               <div className="h-7 w-64 max-w-full rounded-md bg-muted/40" />
               <div className="h-[13.5rem] w-full rounded-md bg-muted/40 sm:h-[16.5rem]" />
             </section>

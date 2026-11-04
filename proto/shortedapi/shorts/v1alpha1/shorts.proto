@@ -19,7 +19,6 @@ import "shorts/v1alpha1/industry.proto";
 import "shorts/v1alpha1/market.proto";
 import "shorts/v1alpha1/news.proto";
 import "shorts/v1alpha1/ownership.proto";
-import "shorts/v1alpha1/ownership_insights.proto";
 import "shorts/v1alpha1/politicians.proto";
 import "shorts/v1alpha1/reports.proto";
 import "shorts/v1alpha1/screener.proto";
@@ -1075,6 +1074,35 @@ service ShortedStocksService {
     };
   }
 
+  // The fund list: every tracked index fund and super fund option at its newest
+  // file, with its sector weights and ten largest holdings.
+  rpc ListFunds (ListFundsRequest) returns (ListFundsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Funds",
+      description: "Every tracked index fund and super fund option at its newest holdings file: its sector weights, its ten largest holdings and the file date. A weight is the fund's own, not a share of the company."
+    };
+  }
+
+  // One fund's holdings at one file date, with each holding's share of the
+  // company's shares on issue as at the file date.
+  rpc GetFundPortfolio (GetFundPortfolioRequest) returns (GetFundPortfolioResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Fund Portfolio",
+      description: "One tracked fund's holdings at a file date, by weight: the fund's weight, reported units and value, and the units as a share of the company's shares on issue at the file date when both are known."
+    };
+  }
+
+  // Two files of one fund compared holding by holding.
+  rpc CompareFundSnapshots (CompareFundSnapshotsRequest) returns (CompareFundSnapshotsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Compare Fund Snapshots",
+      description: "Two holdings files of one tracked fund compared: each holding's weight in each file, the change in percentage points, and the holdings new or dropped between them. Weight changes can reflect price moves; they are not a trade record."
+    };
+  }
+
   // ==================== Registers of Interests ====================
   // Mirrored from PoliticiansService for external API back-compat. The parity
   // test walks the proto registry and fails if a domain rpc is missing here, or
@@ -1244,18 +1272,6 @@ service ShortedStocksService {
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Politician Funding",
       description: "AEC returns that NAME one member: their annual member/senator returns and their election candidate returns including lodged nil returns, with the corpus coverage those figures sit inside. Money given to a party is never attributed to a member."
-    };
-  }
-  // ==================== Ownership insights ====================
-  // Mirrored from OwnershipInsightsService for external API back-compat; the
-  // parity test enforces the visibility match.
-
-  // The ownership register in one time window.
-  rpc GetOwnershipInsights (GetOwnershipInsightsRequest) returns (GetOwnershipInsightsResponse) {
-    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
-    option (gnostic.openapi.v3.operation) = {
-      summary: "Get Ownership Insights",
-      description: "The ASX ownership register in one time window: sectors and their stocks with the AUD value tracked index funds hold and the voting power substantial holders disclose, the money flow from institution kinds through institutions to sectors, the change in index fund positions and in disclosed voting power by sector and week or month, and the window's largest moves stated by notices. A fund's change compares each fund with its own earlier file. Disclosed values are voting power times market cap: an estimate of what the notices disclose, not a share of the company."
     };
   }
 }

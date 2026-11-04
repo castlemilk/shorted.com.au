@@ -10,10 +10,23 @@ import type {
 import { notFound } from "next/navigation";
 
 import { NotFoundError } from "~/app/actions/withRetry";
+import { bailOnEmptyRender } from "~/app/actions/config";
+import { loadOwnershipMap } from "~/app/actions/ownershipDesk";
 
 import InstitutionPage, { generateMetadata } from "./page";
 
 const getInstitutionOrNotFound = jest.fn();
+jest.mock("~/app/actions/ownershipDesk", () => ({
+  loadOwnershipMap: jest.fn(async () => ({ ok: true, error: "", from: "", to: "", asOf: "", stocks: [] })),
+}));
+jest.mock("~/app/actions/config", () => ({
+  bailOnEmptyRender: jest.fn(async () => undefined),
+}));
+jest.mock("~/app/actions/ownershipHolders", () => ({
+  loadHolderConnections: jest.fn(async () => ({ ok: false, error: "", holder: null, positions: [], capsOk: false })),
+  resolveHolderInspector: jest.fn(async () => null),
+}));
+
 
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   DashboardLayout: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -179,6 +192,25 @@ describe("InstitutionPage", () => {
       expect(a.querySelector("use")).toHaveAttribute("href", "#ownership-external-link");
     }
     expect(container.querySelector("svg.lucide-external-link")).toBeNull();
+  });
+
+  it("does not bail when the market map cannot be read: the connections pane says so, and the page caches as usual", async () => {
+    jest.mocked(bailOnEmptyRender).mockClear();
+    jest.mocked(loadOwnershipMap).mockResolvedValueOnce({ ok: false, error: "", from: "", to: "", asOf: "", stocks: [] });
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 2 }));
+    render(await InstitutionPage(params("vanguard")));
+    expect(bailOnEmptyRender).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Vanguard’s disclosed connections" })).toBeInTheDocument();
+    expect(screen.getByText(/Market caps could not be read just now/)).toBeInTheDocument();
+  });
+
+  it("draws the holder's connections map beside the page, with its inspector in the rail", async () => {
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 2 }));
+    render(await InstitutionPage(params("vanguard")));
+
+    expect(screen.getByRole("heading", { name: "Vanguard’s disclosed connections" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Selected holder" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /P00/ })).toBeInTheDocument();
   });
 
   it("says so when there is no current stake, and still draws the holdings files", async () => {

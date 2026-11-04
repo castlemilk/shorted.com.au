@@ -45,4 +45,20 @@ public interface FundPointOrBuilder extends
    * @return The hasValue.
    */
   boolean getHasValue();
+
+  /**
+   * <pre>
+   * The fund's shares in the stock at this file.
+   * </pre>
+   *
+   * <code>double units = 6 [json_name = "units"];</code>
+   * @return The units.
+   */
+  double getUnits();
+
+  /**
+   * <code>bool has_units = 7 [json_name = "hasUnits"];</code>
+   * @return The hasUnits.
+   */
+  boolean getHasUnits();
 }

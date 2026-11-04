@@ -59,10 +59,9 @@ type ShortsServer struct {
 	// shared by every ownership rpc (ownership_universe.go). Set exactly when
 	// ownershipStore is.
 	ownershipUniverse *ownershipUniverseHolder
-	// ownershipInsights holds the insights base and window answers of the
-	// universe's current generation (ownership_insights.go). Set exactly when
-	// ownershipStore is.
-	ownershipInsights *ownershipInsightsHolder
+	// ownershipFundFlow holds the index fund file index of the universe's current
+	// generation (ownership_fund_flow.go). Set exactly when ownershipStore is.
+	ownershipFundFlow *fundFlowHolder
 	// oauthStore backs the OAuth authorization server (clients, codes,
 	// refresh tokens — migration 000116). Nil when no Postgres pool is
 	// reachable, in which case the grant endpoint reports
@@ -196,7 +195,7 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	}
 	if ownershipStore != nil {
 		srv.ownershipUniverse = newServerOwnershipUniverse(srv)
-		srv.ownershipInsights = &ownershipInsightsHolder{}
+		srv.ownershipFundFlow = &fundFlowHolder{}
 	}
 	return srv, nil
 }

@@ -29,6 +29,15 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import type { OwnershipActivityPage } from "~/app/actions/ownershipDesk";
+import { SourceControl } from "./source-control";
+import { KIND_ORDER, kindSelectLabel } from "~/@/lib/ownership/kinds";
+import { parseSelection, serializeSelection } from "~/@/components/ownership/workspace/selection";
+import { ViewDisclosure } from "../workspace/view-disclosure";
+import { TOOLBAR_ROW_CLASS, ToolbarSelect, type ToolbarFold } from "../workspace/toolbar";
+import { writeWindowInPlace } from "../workspace/window-select";
+
+/** The island's phone fold of the toolbar (spec 14.9): the client disclosure around the row. */
+const toolbarFold: ToolbarFold = (row) => <ViewDisclosure>{row}</ViewDisclosure>;
 import { isIsoDate, shiftDate, type DeskWindow } from "./desk-state";
 import {
   DESK_DEFAULT_WINDOW_STATE,
@@ -40,9 +49,16 @@ import {
 import {
   HEAT_FULL_CELL,
   MovementHeatmapView,
+  type HeatMeasure,
   selectedWeekRange,
   weekList,
+  weekTotals,
 } from "./movement-heatmap-static";
+
+/** The parameters that name the window: a selection's `sel` is not one of them. */
+export function windowParamsKey(params: URLSearchParams): string {
+  return ["window", "since", "until"].map((key) => params.get(key) ?? "").join("|");
+}
 
 /** One week's column in the brush, in the grid's own units: the desktop cell width. */
 const WEEK_UNITS = HEAT_FULL_CELL;
@@ -58,7 +74,13 @@ export interface MovementHeatmapProps {
    * it again, so the chips and the brush redraw from the loader's page; the grid keeps
    * the page it has until the new one arrives.
    */
-  loadActivity?: (input: { weeks?: number }) => Promise<OwnershipActivityPage>;
+  loadActivity?: (input: { weeks?: number; kind?: string }) => Promise<OwnershipActivityPage>;
+  /**
+   * `full` is the Activity page: the Notice count | Voting power change switch and the
+   * Holder type control are drawn above the grid, and a cell selects for the inspector.
+   * `compact` is the Overview's pane: the grid, as it is.
+   */
+  variant?: "compact" | "full";
 }
 
 /**
@@ -125,6 +147,8 @@ export function weeksUnderBrush(bounds: Pick<Bounds, "x0" | "x1">, count: number
 
 interface WeekBrushProps {
   count: number;
+  /** The notices released in each week, drawn as bars under the handles (spec 14.3). */
+  totals: readonly number[];
   /** The committed window's weeks, which set the handles. Changing them remounts the brush. */
   first: number;
   last: number;
@@ -139,8 +163,9 @@ interface WeekBrushProps {
  * nothing reads the drag until the release commits it. The brush is keyed by the
  * committed span, so a committed change (a chip, or the release of a drag) re-seats it.
  */
-function WeekBrush({ count, first, last, seat, onCommit }: WeekBrushProps) {
+function WeekBrush({ count, totals, first, last, seat, onCommit }: WeekBrushProps) {
   const width = Math.max(count, 1) * WEEK_UNITS;
+  const peak = Math.max(1, ...totals);
   const xScale = useMemo(() => scaleLinear<number>({ domain: [0, Math.max(count, 1)], range: [0, width] }), [count, width]);
   const yScale = useMemo(() => scaleLinear<number>({ domain: [0, 1], range: [BRUSH_HEIGHT, 0] }), []);
   const initialBrushPosition = useMemo(
@@ -152,9 +177,7 @@ function WeekBrush({ count, first, last, seat, onCommit }: WeekBrushProps) {
   );
   return (
     <div aria-hidden="true" className="hidden grid-cols-[7.5rem_minmax(0,1fr)] gap-x-2 sm:grid">
-      <span className="self-center text-[11px] leading-tight text-muted-foreground">
-        Drag the handles to set the window
-      </span>
+      <span className="self-center text-[11px] leading-tight text-muted-foreground">Adjust the period</span>
       <svg
         aria-hidden="true"
         focusable="false"
@@ -163,6 +186,18 @@ function WeekBrush({ count, first, last, seat, onCommit }: WeekBrushProps) {
         className="block w-full select-none"
         style={{ height: BRUSH_HEIGHT }}
       >
+        {totals.map((notices, index) =>
+          notices > 0 ? (
+            <rect
+              key={index}
+              x={index * WEEK_UNITS + 1}
+              width={WEEK_UNITS - 2}
+              y={BRUSH_HEIGHT - Math.max(2, (notices / peak) * (BRUSH_HEIGHT - 2))}
+              height={Math.max(2, (notices / peak) * (BRUSH_HEIGHT - 2))}
+              className="fill-muted-foreground/40"
+            />
+          ) : null,
+        )}
         <Brush
           key={`${first}-${last}-${seat}`}
           xScale={xScale}
@@ -193,7 +228,8 @@ function WeekBrush({ count, first, last, seat, onCommit }: WeekBrushProps) {
 }
 
 /** The island's live half: reads the link, draws the window and commits the brush. */
-function LiveMovementHeatmap({ initial, basePath, loadActivity }: MovementHeatmapProps) {
+function LiveMovementHeatmap({ initial, basePath, loadActivity, variant }: MovementHeatmapProps) {
+  const workspace = variant === "full";
   const searchParams = useSearchParams();
   const search = searchParams?.toString() ?? "";
   const params = useMemo(() => new URLSearchParams(search), [search]);
@@ -201,21 +237,90 @@ function LiveMovementHeatmap({ initial, basePath, loadActivity }: MovementHeatma
   // The page the grid draws: the server's default view until a link moves the window,
   // then the loader's page for it. A failed read keeps the page on screen.
   const [page, setPage] = useState(initial);
-  const askedFor = useRef(search);
   const [seat, setSeat] = useState(0);
-  useEffect(() => {
-    if (askedFor.current === search || loadActivity === undefined) return;
-    askedFor.current = search;
-    let live = true;
-    void loadActivity({}).then((next) => {
-      if (live && next.ok) setPage(next);
+  // The workspace's controls: the measure of each cell and the holder kind the grid counts (the API's own filter).
+  // The measure is a link parameter too (`measure=pp`), so the inspector's switch and a reload keep it.
+  // Derived from the link, so a switch written in place (the inspector's, the control's) draws at once.
+  const measure: HeatMeasure = workspace ? (params.get("measure") === "pp" ? "pp" : "count") : "pp";
+  // The holder type starts as the selected cell's (spec 14.7), so a link to a cell shows the kind it counts.
+  const selectedKind = useMemo(() => {
+    const selection = parseSelection(params.get("sel") ?? "");
+    return selection?.kind === "cell" ? (selection.holderKind ?? "") : "";
+  }, [params]);
+  const [kind, setKind] = useState(() => (workspace ? selectedKind : ""));
+  const kindRef = useRef(kind);
+  // The window the loader is asked for. A selection (`sel`) or any other link write leaves it
+  // unchanged, so only a window move asks again.
+  const windowKey = windowParamsKey(params);
+  const askedWindow = useRef(windowKey);
+  // ONE sequence for every ask: an answer applies only if no later ask has started, so an
+  // older "All holders" answer can never overwrite the kind the select names.
+  const sequence = useRef(0);
+  const ask = (nextKind: string) => {
+    if (loadActivity === undefined) return;
+    const id = ++sequence.current;
+    void loadActivity(nextKind === "" ? {} : { kind: nextKind }).then((answer) => {
+      if (id === sequence.current && answer.ok) setPage(answer);
     });
-    return () => {
-      live = false;
-    };
-  }, [search, loadActivity]);
+  };
+  useEffect(() => {
+    if (askedWindow.current === windowKey) return;
+    askedWindow.current = windowKey;
+    ask(kindRef.current);
+    // ask reads the loader and the sequence only; the window is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [windowKey, loadActivity]);
+  // A link that names a holder type (a cell's `sel` carries one) asks for that kind once on mount,
+  // so the grid draws the kind the inspector and the outline describe, not the all-holders page.
+  useEffect(() => {
+    if (workspace && selectedKind !== "") ask(selectedKind);
+    // Mount only: a later selection moves the kind through the select, never through the link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const chooseKind = (next: string) => {
+    setKind(next);
+    kindRef.current = next;
+    ask(next);
+  };
+  const onMeasureChange = (value: string) => {
+    const next: HeatMeasure = value === "count" ? "count" : "pp";
+    // The measure is written in place, as the selection is, so the inspector's switch can name it.
+    const writer = new URLSearchParams(window.location.search);
+    if (next === "pp") writer.set("measure", "pp");
+    else writer.delete("measure");
+    const url = new URL(window.location.href);
+    url.search = writer.toString();
+    window.history.replaceState(null, "", url);
+  };
+  const onCellSelect = (sector: string, weekStart: string) => {
+    // The cell is the grid's holder type as the grid counts it (spec 14.7): "" is every kind.
+    const holderKind = kindRef.current === "" ? undefined : kindRef.current;
+    const writer = new URLSearchParams(window.location.search);
+    writer.set("sel", serializeSelection({ kind: "cell", sector, date: weekStart, holderKind }));
+    const url = new URL(window.location.href);
+    url.search = writer.toString();
+    window.history.replaceState(null, "", url);
+  };
+  const controls = workspace ? (
+    <>
+      <SourceControl />
+      <ToolbarSelect label="Measure" value={measure} onChange={onMeasureChange}>
+        <option value="count">Notice count</option>
+        <option value="pp">Voting power change</option>
+      </ToolbarSelect>
+      <ToolbarSelect label="Holder type" value={kind} onChange={chooseKind}>
+        <option value="">All holders</option>
+        {KIND_ORDER.map((option) => (
+          <option key={option} value={option}>
+            {kindSelectLabel(option)}
+          </option>
+        ))}
+      </ToolbarSelect>
+    </>
+  ) : undefined;
   const weeks = useMemo(() => weekList(page.fromWeek, page.toWeek), [page.fromWeek, page.toWeek]);
   const span = useMemo(() => selectedWeekRange(committed, page.asOf, weeks), [committed, page.asOf, weeks]);
+  const totals = useMemo(() => weekTotals(page.rows, weeks), [page.rows, weeks]);
 
   const onCommit = (first: number, last: number) => {
     const next = brushCommit(first, last, committed, weeks, page.asOf, committed.window);
@@ -235,10 +340,18 @@ function LiveMovementHeatmap({ initial, basePath, loadActivity }: MovementHeatma
       state={committed}
       basePath={basePath}
       params={params}
+      controls={controls}
+      toolbarFold={toolbarFold}
+      onWindowChange={writeWindowInPlace}
+      measure={measure}
+      workspace={workspace}
+      kind={workspace ? kind : ""}
+      onCellSelect={onCellSelect}
       brush={
         span !== null ? (
           <WeekBrush
             count={weeks.length}
+            totals={totals}
             first={span.first}
             last={span.last}
             seat={seat}
@@ -263,6 +376,12 @@ export function MovementHeatmap(props: MovementHeatmapProps) {
           state={DESK_DEFAULT_WINDOW_STATE}
           basePath={props.basePath}
           params={new URLSearchParams()}
+          measure={props.variant === "full" ? "count" : "pp"}
+          workspace={props.variant === "full"}
+          controls={
+            // The real row is one control high from sm (spec 14.9); the placeholder reserves that height.
+            props.variant === "full" ? <div aria-hidden="true" className={TOOLBAR_ROW_CLASS} /> : undefined
+          }
           brush={<div aria-hidden="true" className="hidden sm:block" style={{ height: BRUSH_HEIGHT }} />}
         />
       }

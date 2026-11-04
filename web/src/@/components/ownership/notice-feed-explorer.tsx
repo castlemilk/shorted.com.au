@@ -55,6 +55,8 @@ import {
 
 import type { loadNoticeFeed } from "~/app/actions/ownershipExplorer";
 import { ExternalLinkGlyph } from "./external-link-glyph";
+import { Toolbar, ToolbarSelect, type ToolbarFold } from "./workspace/toolbar";
+import { ViewDisclosure } from "./workspace/view-disclosure";
 import { NoticeMark } from "./notice-mark";
 import { NoticeWeekBars, type NoticeWeekBar } from "./notice-week-bars";
 import {
@@ -73,12 +75,12 @@ import {
 } from "~/@/components/ui/table";
 import { NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
 import { NOTICE_EVENT_LABELS, noticeEventLabel } from "~/@/lib/ownership/events";
-import { KIND_ORDER, kindInfo, registerHref } from "~/@/lib/ownership/kinds";
+import { KIND_ORDER, kindSelectLabel, registerHref, type OwnershipKind } from "~/@/lib/ownership/kinds";
 import {
-  DEFAULT_NOTICE_WINDOW,
   NOTICE_EVENTS,
   NOTICE_WINDOW_ALL,
   parseNoticeParams,
+  type NoticeEvent,
   serialiseNoticeParams,
   wantsActivity,
   type NoticeQuery,
@@ -86,7 +88,6 @@ import {
 import {
   POLITICS_FOCUS_RING,
   POLITICS_PAGER_BUTTON_CLASS,
-  POLITICS_SELECT_CLASS,
 } from "~/@/lib/politics/control-classes";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { industryLabel } from "~/@/lib/industry-placeholder";
@@ -157,18 +158,25 @@ export interface NoticeFeedExplorerProps {
 
 /* --------------------------------------------------------------- constants */
 
+/** The window select's options (spec 14.9): the days the feed serves, the register's whole when 0. */
 const WINDOW_OPTIONS: ReadonlyArray<{ days: number; label: string }> = [
-  { days: 7, label: "Last 7 days" },
-  { days: 30, label: "Last 30 days" },
-  { days: 90, label: "Last 90 days" },
-  { days: 365, label: "Last 365 days" },
-  { days: NOTICE_WINDOW_ALL, label: "All notices read" },
+  { days: 7, label: "7 days" },
+  { days: 30, label: "30 days" },
+  { days: 90, label: "90 days" },
+  { days: 365, label: "365 days" },
+  { days: NOTICE_WINDOW_ALL, label: "All notices" },
 ];
 
-const FIELD_LABEL = "text-[10px] uppercase tracking-wide text-muted-foreground";
+/** The value of the window select while a dated range is set: it names the range, and is not a window. */
+const DATES_OPTION = "dates";
+
+const FIELD_LABEL = "text-xs text-muted-foreground";
 const INPUT_CLASS =
-  "h-11 sm:h-8 w-full min-w-0 rounded-md border border-input bg-background px-2 text-xs uppercase " +
+  "h-8 w-20 min-w-0 rounded-sm border border-input bg-background px-2 font-mono text-xs uppercase text-foreground " +
   POLITICS_FOCUS_RING;
+
+/** The feed's toolbar fold below sm (spec 14.9): the one row under "Adjust view" on a phone. */
+const feedToolbarFold: ToolbarFold = (row) => <ViewDisclosure>{row}</ViewDisclosure>;
 
 /** An ASX code is one to six letters or digits. */
 const CODE_MAX = 6;
@@ -416,6 +424,8 @@ interface NoticeFeedViewProps {
   state: FeedState;
   holders: readonly NoticeHolderOption[];
   basePath: string;
+  /** The island's phone fold of the toolbar; absent in the server's fallback, where the row is drawn as it is. */
+  toolbarFold?: ToolbarFold;
   /** Absent in the server's fallback, where the holder select draws but does nothing until the island takes over. */
   onFilter?: (patch: Partial<NoticeQuery>) => void;
   onStockChange?: (text: string) => void;
@@ -428,6 +438,7 @@ function NoticeFeedView({
   state,
   holders,
   basePath,
+  toolbarFold,
   onFilter,
   onStockChange,
   onStockSubmit,
@@ -475,118 +486,106 @@ function NoticeFeedView({
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <div className="flex flex-wrap gap-x-6 gap-y-3">
-          <div className="space-y-1.5">
-            <span id={`${id}-window`} className={FIELD_LABEL}>
-              Window
-            </span>
-            <div role="group" aria-labelledby={`${id}-window`} className="flex flex-wrap gap-1.5">
-              {dated
-                ? null
-                : WINDOW_OPTIONS.map((option) => (
-                    <FilterChip
-                      key={option.days}
-                      href={chip({ windowDays: option.days })}
-                      active={controls.windowDays === option.days}
-                      label={option.label}
-                    />
-                  ))}
-              {dated ? (
-                <FilterChip
-                  href={chip({ since: "", until: "", windowDays: DEFAULT_NOTICE_WINDOW })}
-                  active={false}
-                  label={datesText}
-                  clearName={`${datesText}, clear dates`}
-                />
-              ) : null}
-            </div>
-          </div>
-          {controls.industry !== "" ? (
-            <div className="space-y-1.5">
-              <span id={`${id}-filters`} className={FIELD_LABEL}>
-                Filters
-              </span>
-              <div role="group" aria-labelledby={`${id}-filters`} className="flex flex-wrap gap-1.5">
-                <FilterChip
-                  href={chip({ industry: "" })}
-                  active={false}
-                  label={industryText}
-                  clearName={`${industryText}, clear filter`}
-                />
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="space-y-1.5">
-          <span id={`${id}-event`} className={FIELD_LABEL}>
-            Event
-          </span>
-          <div role="group" aria-labelledby={`${id}-event`} className="flex flex-wrap gap-1.5">
-            <FilterChip href={chip({ event: "" })} active={controls.event === ""} label="Any event" />
+        {/*
+          One toolbar row (spec 14.9): the window, the event, the kind, the holder and the stock, labelled.
+          Width (an estimate at IBM Plex Mono 12px, 7.2 px a character, against the 1016 px column at 1440):
+          window about 170, event about 206, kind about 170, holder about 190 (its select capped at 9rem),
+          stock about 116, with the gaps about 870 in all. Kind's names are the short ones (kindSelectLabel),
+          and the caps keep a long holder name from taking the row.
+        */}
+        <Toolbar fold={toolbarFold}>
+          <ToolbarSelect
+            label="Window"
+            value={dated ? DATES_OPTION : String(controls.windowDays)}
+            onChange={
+              onFilter === undefined
+                ? undefined
+                : (value) => {
+                    if (value === DATES_OPTION) return;
+                    onFilter({ windowDays: Number(value), since: "", until: "" });
+                  }
+            }
+          >
+            {dated ? <option value={DATES_OPTION}>Date range</option> : null}
+            {WINDOW_OPTIONS.map((option) => (
+              <option key={option.days} value={String(option.days)}>
+                {option.label}
+              </option>
+            ))}
+          </ToolbarSelect>
+          <ToolbarSelect
+            label="Event"
+            value={controls.event}
+            onChange={onFilter === undefined ? undefined : (value) => onFilter({ event: value as NoticeEvent | "" })}
+          >
+            <option value="">Any event</option>
             {NOTICE_EVENTS.map((event) => (
-              <FilterChip
-                key={event}
-                href={chip({ event })}
-                active={controls.event === event}
-                label={NOTICE_EVENT_LABELS[event]}
-              />
+              <option key={event} value={event}>
+                {NOTICE_EVENT_LABELS[event]}
+              </option>
             ))}
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <span id={`${id}-kind`} className={FIELD_LABEL}>
-            Kind
-          </span>
-          <div role="group" aria-labelledby={`${id}-kind`} className="flex flex-wrap gap-1.5">
-            <FilterChip href={chip({ kind: "" })} active={controls.kind === ""} label="Any kind" />
+          </ToolbarSelect>
+          <ToolbarSelect
+            label="Kind"
+            value={controls.kind}
+            className="max-w-[9rem]"
+            onChange={onFilter === undefined ? undefined : (value) => onFilter({ kind: value as OwnershipKind | "" })}
+          >
+            <option value="">Any kind</option>
             {KIND_ORDER.map((kind) => (
-              <FilterChip
-                key={kind}
-                href={chip({ kind })}
-                active={controls.kind === kind}
-                label={kindInfo(kind).label}
-                kind={kind}
-              />
+              <option key={kind} value={kind}>
+                {kindSelectLabel(kind)}
+              </option>
             ))}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1">
-            <span className={FIELD_LABEL}>Holder</span>
-            <select
-              id={`${id}-holder`}
-              className={POLITICS_SELECT_CLASS}
-              value={controls.institutionSlug}
-              onChange={(e) => onFilter?.({ institutionSlug: e.target.value })}
-            >
-              <option value="">Any holder</option>
-              {holderChoices.map((holder) => (
-                <option key={holder.slug} value={holder.slug}>
-                  {holder.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <form className="flex flex-col gap-1" onSubmit={onStockSubmit ?? ignoreSubmit}>
-            <label className={FIELD_LABEL} htmlFor={`${id}-stock`}>
-              Stock
+          </ToolbarSelect>
+          <ToolbarSelect
+            label="Holder"
+            value={controls.institutionSlug}
+            className="max-w-[9rem]"
+            onChange={onFilter === undefined ? undefined : (value) => onFilter({ institutionSlug: value })}
+          >
+            <option value="">Any holder</option>
+            {holderChoices.map((holder) => (
+              <option key={holder.slug} value={holder.slug}>
+                {holder.name}
+              </option>
+            ))}
+          </ToolbarSelect>
+          <form className="flex items-center gap-2" onSubmit={onStockSubmit ?? ignoreSubmit}>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className={FIELD_LABEL}>Stock</span>
+              <input
+                id={`${id}-stock`}
+                type="text"
+                value={state.stock}
+                onChange={(e) => onStockChange?.(e.target.value)}
+                placeholder="e.g. BHP"
+                autoComplete="off"
+                spellCheck={false}
+                className={INPUT_CLASS}
+              />
             </label>
-            <input
-              id={`${id}-stock`}
-              type="text"
-              value={state.stock}
-              onChange={(e) => onStockChange?.(e.target.value)}
-              placeholder="e.g. BHP"
-              autoComplete="off"
-              spellCheck={false}
-              className={INPUT_CLASS}
-            />
           </form>
-        </div>
+        </Toolbar>
+        {/* A dated range names its own dates here: the window select says only "Date range". */}
+        {dated ? <p className="text-xs text-muted-foreground">Dates: {datesText}</p> : null}
+
+        {controls.industry !== "" ? (
+          // A filter the link carries (a holder's or a sector's page) is named under the row, with its clear.
+          <div className="space-y-1.5">
+            <span id={`${id}-filters`} className={FIELD_LABEL}>
+              Filtered by
+            </span>
+            <div role="group" aria-labelledby={`${id}-filters`} className="flex flex-wrap gap-1.5">
+              <FilterChip
+                href={chip({ industry: "" })}
+                active={false}
+                label={industryText}
+                clearName={`${industryText}, clear filter`}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {showBars ? (
@@ -799,6 +798,7 @@ function LiveNoticeFeed({ initial, loadPage, holders, basePath }: NoticeFeedExpl
       state={state}
       holders={holders}
       basePath={basePath}
+      toolbarFold={feedToolbarFold}
       onFilter={onFilter}
       onStockChange={(text) => setState((s) => ({ ...s, stock: text }))}
       onStockSubmit={onStockSubmit}

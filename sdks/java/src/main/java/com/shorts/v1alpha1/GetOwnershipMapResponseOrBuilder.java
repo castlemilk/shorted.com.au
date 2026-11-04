@@ -69,4 +69,112 @@ public interface GetOwnershipMapResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getAsOfBytes();
+
+  /**
+   * <pre>
+   * Index funds compared in the window: each with a file at its start (or
+   * inside the window) and a newer file at the end. Zero when the window holds
+   * one file per fund, in which case every fund change is unknown.
+   * </pre>
+   *
+   * <code>int32 funds_compared = 5 [json_name = "fundsCompared"];</code>
+   * @return The fundsCompared.
+   */
+  int getFundsCompared();
+
+  /**
+   * <pre>
+   * The as-at range of the start files the comparison reads.
+   * </pre>
+   *
+   * <code>string start_files_from = 6 [json_name = "startFilesFrom"];</code>
+   * @return The startFilesFrom.
+   */
+  java.lang.String getStartFilesFrom();
+  /**
+   * <pre>
+   * The as-at range of the start files the comparison reads.
+   * </pre>
+   *
+   * <code>string start_files_from = 6 [json_name = "startFilesFrom"];</code>
+   * @return The bytes for startFilesFrom.
+   */
+  com.google.protobuf.ByteString
+      getStartFilesFromBytes();
+
+  /**
+   * <code>string start_files_to = 7 [json_name = "startFilesTo"];</code>
+   * @return The startFilesTo.
+   */
+  java.lang.String getStartFilesTo();
+  /**
+   * <code>string start_files_to = 7 [json_name = "startFilesTo"];</code>
+   * @return The bytes for startFilesTo.
+   */
+  com.google.protobuf.ByteString
+      getStartFilesToBytes();
+
+  /**
+   * <pre>
+   * The as-at range of the end files the comparison reads.
+   * </pre>
+   *
+   * <code>string end_files_from = 8 [json_name = "endFilesFrom"];</code>
+   * @return The endFilesFrom.
+   */
+  java.lang.String getEndFilesFrom();
+  /**
+   * <pre>
+   * The as-at range of the end files the comparison reads.
+   * </pre>
+   *
+   * <code>string end_files_from = 8 [json_name = "endFilesFrom"];</code>
+   * @return The bytes for endFilesFrom.
+   */
+  com.google.protobuf.ByteString
+      getEndFilesFromBytes();
+
+  /**
+   * <code>string end_files_to = 9 [json_name = "endFilesTo"];</code>
+   * @return The endFilesTo.
+   */
+  java.lang.String getEndFilesTo();
+  /**
+   * <code>string end_files_to = 9 [json_name = "endFilesTo"];</code>
+   * @return The bytes for endFilesTo.
+   */
+  com.google.protobuf.ByteString
+      getEndFilesToBytes();
+
+  /**
+   * <pre>
+   * The index funds' window the fund figures compare, as served.
+   * </pre>
+   *
+   * <code>string fund_from = 10 [json_name = "fundFrom"];</code>
+   * @return The fundFrom.
+   */
+  java.lang.String getFundFrom();
+  /**
+   * <pre>
+   * The index funds' window the fund figures compare, as served.
+   * </pre>
+   *
+   * <code>string fund_from = 10 [json_name = "fundFrom"];</code>
+   * @return The bytes for fundFrom.
+   */
+  com.google.protobuf.ByteString
+      getFundFromBytes();
+
+  /**
+   * <code>string fund_to = 11 [json_name = "fundTo"];</code>
+   * @return The fundTo.
+   */
+  java.lang.String getFundTo();
+  /**
+   * <code>string fund_to = 11 [json_name = "fundTo"];</code>
+   * @return The bytes for fundTo.
+   */
+  com.google.protobuf.ByteString
+      getFundToBytes();
 }

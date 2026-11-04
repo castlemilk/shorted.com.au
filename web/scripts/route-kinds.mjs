@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// ISR gate for the stock segment and the ownership pages: the two dynamic
-// ownership routes and the four static ones.
+// ISR gate for the stock segment and the ownership pages: the three dynamic
+// ownership routes and the nine static ones.
 //
 // Every route under /shorts/[stockCode] must be on-demand ISR: generated on
 // first request and served from the cache for `revalidate` seconds. A route
@@ -25,18 +25,18 @@
 // component imported from outside the segment is beyond both and needs a
 // request-level check.
 //
-// The ownership section has two dynamic routes, the institution page
-// /ownership/[slug] and the register /ownership/stocks/[code] (OWNERSHIP_ROUTES
-// below), under the same rule. Their reads are caught from source, in a file
-// under app/ownership, by
+// The ownership section has three dynamic routes, the institution page
+// /ownership/[slug], the register /ownership/stocks/[code] and the fund page
+// /ownership/funds/[fund] (OWNERSHIP_ROUTES below), under the same rule. Their reads are caught from
+// source, in a file under app/ownership, by
 //   web/src/app/ownership/__tests__/isr-source-safety.test.ts
 // A read in a module imported from outside that folder is beyond both, as for
 // the stock segment, and needs a request-level check.
 //
-// The four static ownership pages, the hub /ownership, the notice feed
-// /ownership/notices, the register list /ownership/stocks and the insights
-// explorer /ownership/insights
-// (OWNERSHIP_STATIC_ROUTES below), have no dynamic segment, so none is in
+// The nine static ownership pages, the hub /ownership, the notice feed
+// /ownership/notices, the register list /ownership/stocks and the six workspace
+// pages (map, connections, activity, funds, holders, changes; OWNERSHIP_STATIC_ROUTES
+// below), have no dynamic segment, so none is in
 // dynamicRoutes. Next writes an ISR page of that kind under `routes`, with its
 // revalidate in initialRevalidateSeconds: a number for an ISR page, false for
 // one with no revalidate. That entry is what this gate reads. A request-time
@@ -64,15 +64,26 @@ export const STOCK_ROUTES = [
   "/shorts/[stockCode]/community",
 ];
 
-// The two dynamic routes of the ownership section, the institution page and the
-// register. Both export generateStaticParams with dynamicParams on, so a slug or
-// code Next cannot prerender renders on its first request and is cached for its
-// revalidate, as the stock tabs are.
-export const OWNERSHIP_ROUTES = ["/ownership/[slug]", "/ownership/stocks/[code]"];
+// The three dynamic routes of the ownership section, the institution page, the
+// register and the fund page. All export generateStaticParams with dynamicParams
+// on, so a slug, code or fund Next cannot prerender renders on its first request
+// and is cached for its revalidate, as the stock tabs are.
+export const OWNERSHIP_ROUTES = ["/ownership/[slug]", "/ownership/stocks/[code]", "/ownership/funds/[fund]"];
 
-// The four static ownership pages. Each exports a revalidate and takes no
-// dynamic segment, so each is listed under `routes` (see the header).
-export const OWNERSHIP_STATIC_ROUTES = ["/ownership", "/ownership/notices", "/ownership/stocks", "/ownership/insights"];
+// The nine static ownership pages: the hub, the notice feed, the register list and
+// the six workspace pages. Each exports a revalidate and takes no dynamic segment, so
+// each is listed under `routes` (see the header).
+export const OWNERSHIP_STATIC_ROUTES = [
+  "/ownership",
+  "/ownership/notices",
+  "/ownership/stocks",
+  "/ownership/map",
+  "/ownership/connections",
+  "/ownership/activity",
+  "/ownership/funds",
+  "/ownership/holders",
+  "/ownership/changes",
+];
 
 export function missingIsrRoutes(manifest, expected = STOCK_ROUTES) {
   const dynamicRoutes = manifest?.dynamicRoutes ?? {};
@@ -124,7 +135,7 @@ function main(argv) {
     console.error("route-kinds: these ownership routes are NOT ISR (absent from prerender-manifest dynamicRoutes):");
     for (const r of missingOwnership) console.error(`  ${r}`);
     console.error(
-      "A page under /ownership/[slug] or /ownership/stocks/[code] has lost its generateStaticParams export, or sets " +
+      "A page under /ownership/[slug], /ownership/stocks/[code] or /ownership/funds/[fund] has lost its generateStaticParams export, or sets " +
         'revalidate = 0 or dynamic = "force-dynamic".',
     );
     console.error(
@@ -142,7 +153,7 @@ function main(argv) {
     );
     for (const r of missingStatic) console.error(`  ${r}`);
     console.error(
-      "A page at /ownership, /ownership/notices, /ownership/stocks or /ownership/insights has lost its `export const revalidate` " +
+      "A static page under /ownership (the hub, the notice feed, the register list or a workspace page) has lost its `export const revalidate` " +
         "(Next then builds it once and never regenerates it), or sets revalidate = 0 or " +
         'dynamic = "force-dynamic", or reads a request-time API during its build render ' +
         "(Next then renders it per request).",

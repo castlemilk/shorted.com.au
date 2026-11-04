@@ -33,6 +33,7 @@ import type {
   GetStockFundSeriesResponse,
   GetStockOwnershipResponse,
   ListFundPositionChangesResponse,
+  ListStockRegistersResponse,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
 import {
   GetOwnershipActivityResponseSchema,
@@ -40,18 +41,44 @@ import {
   GetOwnershipMapResponseSchema,
   ListFundPositionChangesResponseSchema,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
-import type { MapStockRow } from "~/@/components/ownership/desk/map-layout";
-import type { FlowChangeRow, FlowDirection, FlowPositionRow } from "~/@/components/ownership/desk/flows-layout";
+import type { InspectorContent, InspectorQuery } from "~/@/components/ownership/workspace/inspector-types";
+import {
+  SELECTION_KINDS,
+  parseSelection,
+  serializeSelection,
+  type Selection,
+} from "~/@/components/ownership/workspace/selection";
+import { cellInspectorContent } from "~/@/components/ownership/workspace/inspectors/cell-inspector";
+import {
+  connectionInspectorContent,
+  type ConnectionCompany,
+  type ConnectionSpan,
+} from "~/@/components/ownership/workspace/inspectors/connection-inspector";
+import { stockInspectorContent } from "~/@/components/ownership/workspace/inspectors/stock-inspector";
+import type { DeskLens } from "~/@/components/ownership/desk/desk-state";
+import { OTHER_SECTOR, type MapStockRow } from "~/@/components/ownership/desk/map-layout";
+import { FOLDED_SECTOR_LABEL } from "~/@/lib/ownership/kinds";
+import type {
+  FlowChangeRow,
+  FlowDirection,
+  FlowHolderRow,
+  FlowPositionRow,
+} from "~/@/components/ownership/desk/flows-layout";
 import type { FundChangeRow, FundChangeState } from "~/@/components/ownership/desk/fund-changes";
+import type { LargestMove } from "~/@/lib/ownership/largest-moves";
 import type { StockPanelPage } from "~/@/components/ownership/desk/stock-panel";
 import {
+  DEFAULT_DESK_LENS,
   DEFAULT_DESK_WINDOW,
+  DESK_LENSES,
   DESK_MAX_SPAN_DAYS,
   DESK_WINDOWS,
   dayGap,
   isIsoDate,
+  shiftDate,
   windowDates,
 } from "~/@/components/ownership/desk/desk-state";
+import { loadNoticeFeed } from "./ownershipExplorer";
 import { CACHE_KEYS } from "@/lib/kv-cache";
 import { skipForBuild } from "./config";
 import { cachedRead, ownershipClient, type ProtoSchema } from "./ownership-shared";
@@ -66,6 +93,9 @@ export interface DeskRangeInput {
   window?: number;
   since?: string;
   until?: string;
+  /** The index fund window the fund figures compare (spec 14.10): both snapshot dates, or neither (the notice window). */
+  fundFrom?: string;
+  fundTo?: string;
 }
 
 /** Connect's InvalidArgument (gRPC code 3). A constant, as withRetry.ts holds NotFound. */
@@ -80,6 +110,8 @@ const FUND_LIMIT_MAX = 50;
 const NOT_AN_OBJECT = "the query must be an object";
 /** The ticker shape the API accepts. */
 const STOCK_CODE = /^[A-Z0-9]{1,6}$/;
+/** A holder kind's shape (super_fund, index_manager ...). The API holds the vocabulary and refuses the rest. */
+const KIND_SHAPE = /^[a-z_]{1,32}$/;
 
 type Asked<T> = { kind: "answered"; response: T } | { kind: "refused"; reason: string };
 
@@ -115,21 +147,39 @@ function logRefusal(reason: string): string {
 }
 
 // withRetryAndNotFound answers undefined for every failure: that is this module's outage.
-const requestMap = withRetryAndNotFound((request: { from: string; to: string }) =>
+const requestMap = withRetryAndNotFound((request: { from: string; to: string; fundFrom: string; fundTo: string }) =>
   ask(() => ownershipClient().getOwnershipMap(request)),
 );
 const requestFlows = withRetryAndNotFound((request: { from: string; to: string }) =>
   ask(() => ownershipClient().getOwnershipFlows(request)),
 );
-const requestActivity = withRetryAndNotFound((request: { weeks: number }) =>
+const requestActivity = withRetryAndNotFound((request: { weeks: number; kind?: string }) =>
   ask(() => ownershipClient().getOwnershipActivity(request)),
 );
 const requestFundChanges = withRetryAndNotFound(
   (request: { from: string; to: string; limit: number }) =>
     ask(() => ownershipClient().listFundPositionChanges(request)),
 );
-const requestFundSeries = withRetryAndNotFound((request: { stockCode: string }) =>
+const requestFundSeries = withRetryAndNotFound((request: { stockCode: string; fundFrom?: string; fundTo?: string }) =>
   ask(() => ownershipClient().getStockFundSeries(request)),
+);
+// A connection's companies: the register filtered to one holder kind and one sector (spec 14.7).
+// The API's maximum, so the rail can rank the band's companies by the kind's own figure.
+const CONNECTION_REGISTER_LIMIT = 100;
+// Pages read at most: a sector's companies on one kind are read whole up to this many rows.
+const CONNECTION_REGISTER_PAGES = 5;
+const requestConnectionRegisters = withRetryAndNotFound(
+  (request: { kind: string; industry: string; offset: number }) =>
+    ask(() =>
+      ownershipClient().listStockRegisters({
+        sort: "disclosed",
+        ascending: false,
+        industry: request.industry,
+        kind: request.kind,
+        limit: CONNECTION_REGISTER_LIMIT,
+        offset: request.offset,
+      }),
+    ),
 );
 // The stock panel's register. Read per stock and never kept: KV holds the default views only.
 const requestStockOwnership = withRetryAndNotFound((request: { stockCode: string }) =>
@@ -151,7 +201,33 @@ export interface OwnershipMapPage {
   /** The newest notice release date read; "" when none. */
   asOf: string;
   stocks: MapStockRow[];
+  /**
+   * The index funds compared in the fund window (spec 14.10): each with a file at its start (or
+   * inside the window) and a newer one at the end. Zero when the window holds one file per fund,
+   * so every fund change is n/a.
+   */
+  fundsCompared: number;
+  /** The as-at range of the start files the comparison reads; "" when none. */
+  startFilesFrom: string;
+  startFilesTo: string;
+  /** The as-at range of the end files the comparison reads; "" when none. */
+  endFilesFrom: string;
+  endFilesTo: string;
+  /** The index fund window the figures compare, as the API served it (its snapshot dates); "" when none. */
+  fundFrom: string;
+  fundTo: string;
 }
+
+/** The fund comparison's fields of a map page that holds no answer: no fund is compared. */
+const NO_FUND_COMPARISON = {
+  fundsCompared: 0,
+  startFilesFrom: "",
+  startFilesTo: "",
+  endFilesFrom: "",
+  endFilesTo: "",
+  fundFrom: "",
+  fundTo: "",
+} as const;
 
 /** The flows for one window: the positions (current) and the window's changes. */
 export interface OwnershipFlowsPage {
@@ -186,6 +262,8 @@ export interface OwnershipActivityPage {
   toWeek: string;
   asOf: string;
   rows: IndustryWeekRow[];
+  /** The window's largest stated moves, ranked by the server (spec 14.10); empty when none or unread. */
+  largestMoves: LargestMove[];
 }
 
 /** The index fund window: the snapshot dates the tracked funds have, and the changes between two of them. */
@@ -203,22 +281,48 @@ export interface FundSeriesPoint {
   asAt: string;
   weightPct: number | null;
   valueAud: number | null;
+  /** The fund's shares in the stock at this file; null when the file states none (spec 14.10). */
+  units: number | null;
 }
 
-/** One tracked fund's weight in a stock, over its snapshots. */
+/**
+ * One index fund's own comparison of a stock over the fund window (spec 14.10): its file at the
+ * window's start (or its first file inside it) against its newest file at the end. Each figure is
+ * null where the files do not state it; a super option has none.
+ */
+export interface FundStockChange {
+  startDate: string | null;
+  startUnits: number | null;
+  endDate: string | null;
+  endUnits: number | null;
+  /** End shares less start shares. */
+  unitsChange: number | null;
+  /** That change valued at the end file's price, in AUD. */
+  changeValueAud: number | null;
+}
+
+/** One tracked fund's weight in a stock, over its snapshots, and its own change over the fund window. */
 export interface FundSeriesRow {
   institutionSlug: string;
   institutionName: string;
   fundName: string;
+  /** The ASX code the file names; "" for a super option (spec 14.7: label it with fundLabel). */
+  fundCode: string;
+  /** The fund's key, the one its page resolves under (fundHref). */
+  fundKey: string;
   /** etf or super_phd. */
   sourceKind: string;
   points: FundSeriesPoint[];
+  change: FundStockChange;
 }
 
 export interface StockFundSeriesPage {
   ok: boolean;
   error: string;
   stockCode: string;
+  /** The fund window the comparisons read, as served; "" when unknown. */
+  fundFrom: string;
+  fundTo: string;
   funds: FundSeriesRow[];
 }
 
@@ -231,10 +335,15 @@ export async function loadOwnershipMap(input: DeskRangeInput = {}): Promise<Owne
   if (!isQueryObject(input)) return refusedMap(NOT_AN_OBJECT);
   const range = await resolveRange(input);
   if (range.kind === "refused") return refusedMap(range.error);
-  if (range.kind === "empty") return { ok: true, error: "", from: "", to: "", asOf: "", stocks: [] };
+  // The fund window is its own pair of dates: a window named here is never the default view, so it is not kept.
+  const fund = checkFundDates((input.fundFrom ?? "").trim(), (input.fundTo ?? "").trim());
+  if ("error" in fund) return refusedMap(fund.error);
+  if (range.kind === "empty") {
+    return { ok: true, error: "", from: "", to: "", asOf: "", stocks: [], ...NO_FUND_COMPARISON };
+  }
   if (range.kind === "outage" || skipForBuild()) return mapPage(undefined);
-  const request = () => requestMap(range.dates);
-  if (range.dates.from !== "") return mapPage(await request());
+  const request = () => requestMap({ ...range.dates, fundFrom: fund.from, fundTo: fund.to });
+  if (range.dates.from !== "" || fund.from !== "" || fund.to !== "") return mapPage(await request());
   const asked = await cachedAsked(
     CACHE_KEYS.ownershipDeskMap(),
     GetOwnershipMapResponseSchema,
@@ -264,9 +373,14 @@ export async function loadOwnershipFlows(input: DeskRangeInput = {}): Promise<Ow
   return flowsPage(asked);
 }
 
-/** The movement over the last weeks. `loadOwnershipActivity({})` is the default view. Never throws. */
+/**
+ * The movement over the last weeks. `loadOwnershipActivity({})` is the default view.
+ * `kind` is a holder kind of the vocabulary (spec 14.3, Activity's Holder type); ""
+ * or left out is every kind. A kind outside the vocabulary is refused by the API.
+ * Never throws.
+ */
 export async function loadOwnershipActivity(
-  input: { weeks?: number } = {},
+  input: { weeks?: number; kind?: string } = {},
 ): Promise<OwnershipActivityPage> {
   if (!isQueryObject(input)) return refusedActivity(NOT_AN_OBJECT);
   const weeks = input.weeks;
@@ -274,9 +388,10 @@ export async function loadOwnershipActivity(
     typeof weeks === "number" && Number.isInteger(weeks) && weeks >= 1 && weeks <= ACTIVITY_WEEKS_DEFAULT
       ? weeks
       : ACTIVITY_WEEKS_DEFAULT;
+  const kind = typeof input.kind === "string" && KIND_SHAPE.test(input.kind) ? input.kind : "";
   if (skipForBuild()) return activityPage(undefined);
-  const request = () => requestActivity({ weeks: served });
-  if (served !== ACTIVITY_WEEKS_DEFAULT) return activityPage(await request());
+  const request = () => requestActivity(kind === "" ? { weeks: served } : { weeks: served, kind });
+  if (served !== ACTIVITY_WEEKS_DEFAULT || kind !== "") return activityPage(await request());
   const asked = await cachedAsked(
     CACHE_KEYS.ownershipDeskActivity(),
     GetOwnershipActivityResponseSchema,
@@ -313,15 +428,24 @@ export async function loadFundPositionChanges(
   return fundsPage(asked);
 }
 
-/** One stock's weight in every tracked fund that holds it. Never throws. */
+/**
+ * One stock's weight in every tracked fund that holds it, and each fund's change in the stock's
+ * shares over the fund window (spec 14.10). A window named by fundFrom and fundTo is sent; without
+ * one the API takes its own default. Never throws.
+ */
 export async function loadStockFundSeries(
-  input: { stockCode?: string } = {},
+  input: { stockCode?: string; fundFrom?: string; fundTo?: string } = {},
 ): Promise<StockFundSeriesPage> {
   if (!isQueryObject(input)) return refusedSeries(NOT_AN_OBJECT, "");
   const stockCode = typeof input.stockCode === "string" ? input.stockCode.trim().toUpperCase() : "";
   if (!STOCK_CODE.test(stockCode)) return refusedSeries("the stock code must be 1 to 6 letters or digits", "");
   if (skipForBuild()) return seriesPage(undefined, stockCode);
-  return seriesPage(await requestFundSeries({ stockCode }), stockCode);
+  const fundFrom = typeof input.fundFrom === "string" ? input.fundFrom.trim() : "";
+  const fundTo = typeof input.fundTo === "string" ? input.fundTo.trim() : "";
+  const request: { stockCode: string; fundFrom?: string; fundTo?: string } = { stockCode };
+  if (fundFrom !== "") request.fundFrom = fundFrom;
+  if (fundTo !== "") request.fundTo = fundTo;
+  return seriesPage(await requestFundSeries(request), stockCode);
 }
 
 /**
@@ -335,6 +459,227 @@ export async function loadStockPanel(code: string): Promise<StockPanelPage> {
   const stockCode = typeof code === "string" ? code.trim().toUpperCase() : "";
   if (!STOCK_CODE.test(stockCode) || skipForBuild()) return panelPage(stockCode, undefined);
   return panelPage(stockCode, await requestStockOwnership({ stockCode }));
+}
+
+/** The notices a cell's rail lists: the first page of its week. */
+const CELL_LIMIT = 50;
+
+/**
+ * The selection the workspace's inspector asks about, read as the codec reads it
+ * (a server action receives whatever the caller posts). A kind or key the codec
+ * would not write is no selection.
+ */
+function cleanInspectorSelection(input: unknown): Selection | null {
+  if (typeof input !== "object" || input === null) return null;
+  const kind = (input as { kind?: unknown }).kind;
+  if (typeof kind !== "string" || !(SELECTION_KINDS as readonly string[]).includes(kind)) return null;
+  return parseSelection(serializeSelection(input as Selection));
+}
+
+/**
+ * The companies on one connection: the register's current positions of the holder
+ * kind in the sector, each with the kind's own figure (spec 14.7). Null when the
+ * register could not be read; a refusal is an empty list with its total of zero.
+ */
+export async function loadConnectionCompanies(
+  holderKind: string,
+  sector: string,
+): Promise<{ companies: ConnectionCompany[]; total: number } | null> {
+  if (!KIND_SHAPE.test(holderKind) || sector === "") return null;
+  if (skipForBuild()) return null;
+  // Every page up to the cap, so the rail ranks the whole connection by exposure, not the first 100 by total.
+  const companies: ConnectionCompany[] = [];
+  let total = 0;
+  for (let page = 0; page < CONNECTION_REGISTER_PAGES; page += 1) {
+    const asked = await requestConnectionRegisters({
+      kind: holderKind,
+      industry: sector,
+      offset: page * CONNECTION_REGISTER_LIMIT,
+    });
+    if (asked === undefined) return null;
+    // The register refuses an industry it has no notice in (the API names its own industries), which a
+    // band drawn from fund holdings can still reach: nothing on record for this connection, not an outage.
+    if (asked.kind === "refused") {
+      logRefusal(asked.reason);
+      return { companies: [], total: 0 };
+    }
+    const answer: ListStockRegistersResponse = asked.response;
+    total = answer.total;
+    for (const stock of answer.stocks) {
+      const share = stock.byKind.find((entry) => entry.kind === holderKind);
+      companies.push({
+        code: stock.stockCode,
+        name: stock.companyName,
+        pct: share === undefined ? null : share.pct,
+        marketCap: stock.hasMarketCap ? stock.marketCap : null,
+        latestNotice: stock.latestNoticeDate,
+      });
+    }
+    if (answer.stocks.length < CONNECTION_REGISTER_LIMIT || companies.length >= total) break;
+  }
+  return { companies, total };
+}
+
+/**
+ * The inspector's content for one selection on the workspace (spec 14.1), as the
+ * plain contract the rail draws. A company reads the register and the fund series;
+ * a connection reads the register's companies on it (spec 14.7); a cell reads the
+ * notice feed for its filters, the holder kind included. A read that failed is
+ * thrown, so the rail says it could not load (an outage is never an empty record);
+ * a selection this loader does not serve, or one with nothing on record, is null.
+ * `lens` is the map's figure for a company (the disclosed notices by default).
+ */
+/** The link's parameters a page passes with a selection (spec 14.8); "" is unset. */
+const NO_INSPECTOR_QUERY: InspectorQuery = { lens: "", view: "", window: "", since: "", until: "", asAt: "" };
+
+/** The notices a connection's Change view lists: the window's first rows, the rest counted. */
+const CONNECTION_NOTICE_LIMIT = 10;
+
+/** The window a connection reads, from the link: a brushed pair, else the chips' days (clamped). */
+function connectionWindow(query: InspectorQuery): ConnectionSpan {
+  const days = Number(query.window);
+  const windowDays = (DESK_WINDOWS as readonly number[]).includes(days) ? days : DEFAULT_DESK_WINDOW;
+  if (isIsoDate(query.since) && isIsoDate(query.until)) {
+    return { window: String(windowDays), since: query.since, until: query.until };
+  }
+  return { window: String(windowDays), since: "", until: "" };
+}
+
+/**
+ * The index fund window a link names (spec 14.10): its two snapshot dates, both or neither. A
+ * date that is not one, or an inverted pair, is no window, so a fund's change is n/a.
+ */
+function fundDatesOf(query: InspectorQuery): { fundFrom: string; fundTo: string } {
+  const from = query.from ?? "";
+  const to = query.to ?? "";
+  if (!isIsoDate(from) || !isIsoDate(to) || from > to) return { fundFrom: "", fundTo: "" };
+  return { fundFrom: from, fundTo: to };
+}
+
+/**
+ * The notice window a link names, as dates, for the index fund window it shares when the link
+ * names no fund dates (spec 14.10). It is resolved as the map resolves its window, so a chip
+ * (28, 91, 182, 364 days) or a brushed pair gives the map's dates; the default window, or any
+ * window that cannot be dated, sends none and the API applies its own default, as the map does.
+ */
+async function linkNoticeDates(query: InspectorQuery): Promise<{ fundFrom: string; fundTo: string }> {
+  const span = connectionWindow(query);
+  const range = await resolveRange({ window: Number(span.window), since: span.since, until: span.until });
+  if (range.kind !== "range") return { fundFrom: "", fundTo: "" };
+  return { fundFrom: range.dates.from, fundTo: range.dates.to };
+}
+
+/**
+ * The largest holders of a connection's band, from the flows' current positions (spec 14.10).
+ * Null when the flows did not answer, so the rail draws no holders rather than an empty list.
+ */
+async function bandHolders(holderKind: string, sector: string): Promise<FlowHolderRow[] | null> {
+  const flows = await loadOwnershipFlows({});
+  if (!flows.ok) return null;
+  const band = flows.positions.find((position) => position.kind === holderKind && position.industry === sector);
+  return band?.topHolders ?? [];
+}
+
+export async function loadInspector(
+  selection: Selection,
+  query: InspectorQuery = NO_INSPECTOR_QUERY,
+): Promise<InspectorContent | null> {
+  const clean = cleanInspectorSelection(selection);
+  if (clean === null) return null;
+  // The lens is read from the link, and an unknown one is the default (spec 14.7).
+  const lens: DeskLens = (DESK_LENSES as readonly string[]).includes(query.lens)
+    ? (query.lens as DeskLens)
+    : DEFAULT_DESK_LENS;
+  switch (clean.kind) {
+    case "stock": {
+      // The map's fund window is the link's fund dates, or the notice window when the link names none
+      // (the map resolves that window to dates; see linkNoticeDates). The series reads the same window,
+      // so each fund's line compares the files the map compares.
+      const fund = fundDatesOf(query);
+      const fundWindow = fund.fundFrom !== "" ? fund : await linkNoticeDates(query);
+      const [panel, series] = await Promise.all([
+        loadStockPanel(clean.code),
+        loadStockFundSeries({ stockCode: clean.code, ...fundWindow }),
+      ]);
+      if (!panel.ok) throw new Error("the register could not be read");
+      return stockInspectorContent(panel, series.ok ? series : null, lens);
+    }
+    case "connection": {
+      // The folded tail is several sectors under one label: no register filter, so it is withheld like Other.
+      if (clean.sector === OTHER_SECTOR || clean.sector === FOLDED_SECTOR_LABEL) {
+        return connectionInspectorContent({ holderKind: clean.holderKind, sector: clean.sector, companies: null });
+      }
+      const span = connectionWindow(query);
+      const changes = query.view === "changes";
+      // The window as dates (spec 14.8): a brushed pair is the window as it stands (validated
+      // like any span); the chips' days are counted back from the newest notice, because the
+      // feed serves 7, 30, 90 and 365 days and rounds a day count up. The Change view lists
+      // those notices and fails with them; the Positions view links the same dates when
+      // they are known and keeps the chips' window when they are not.
+      const brushed = span.since !== "" && span.until !== "";
+      const answer: RangeAnswer = brushed
+        ? await resolveRange({ since: span.since, until: span.until })
+        : await datedWindow(Number(span.window));
+      if (changes && (answer.kind === "outage" || answer.kind === "refused")) {
+        throw new Error("the notices could not be read");
+      }
+      const range: RangeAnswer | null = changes || answer.kind === "range" ? answer : null;
+      const dated = range?.kind === "range" ? range.dates : null;
+      const noticeSpan: ConnectionSpan = dated ? { window: span.window, since: dated.from, until: dated.to } : span;
+      const [read, feed, holders] = await Promise.all([
+        loadConnectionCompanies(clean.holderKind, clean.sector),
+        changes && range?.kind !== "empty"
+          ? loadNoticeFeed({
+              since: dated?.from ?? "",
+              until: dated?.to ?? "",
+              industry: clean.sector,
+              kind: clean.holderKind,
+              includeActivity: false,
+              limit: CONNECTION_NOTICE_LIMIT,
+            })
+          : Promise.resolve(null),
+        bandHolders(clean.holderKind, clean.sector),
+      ]);
+      if (read === null) throw new Error("the registers could not be read");
+      if (feed !== null && !feed.ok) throw new Error("the notices could not be read");
+      return connectionInspectorContent({
+        holderKind: clean.holderKind,
+        sector: clean.sector,
+        companies: read.companies,
+        total: read.total,
+        view: changes ? "changes" : "positions",
+        span: noticeSpan,
+        holders,
+        notices:
+          feed === null
+            ? changes && range?.kind === "empty"
+              ? { rows: [], total: 0 }
+              : null
+            : {
+                rows: feed.rows.map((row) => ({ released: row.released, code: row.code, holder: row.holder })),
+                total: feed.total,
+              },
+      });
+    }
+    case "cell": {
+      // The Other row is the placeholder industry: the feed cannot filter to it, so its count is withheld.
+      if (clean.sector === OTHER_SECTOR) {
+        return cellInspectorContent({ sector: clean.sector, weekStart: clean.date, feed: null, kind: clean.holderKind });
+      }
+      const feed = await loadNoticeFeed({
+        industry: clean.sector,
+        since: clean.date,
+        until: shiftDate(clean.date, 6),
+        kind: clean.holderKind,
+        includeActivity: false,
+        limit: CELL_LIMIT,
+      });
+      if (!feed.ok) throw new Error("the notices could not be read");
+      return cellInspectorContent({ sector: clean.sector, weekStart: clean.date, feed, kind: clean.holderKind });
+    }
+    default:
+      return null;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -371,14 +716,22 @@ async function resolveRange(input: DeskRangeInput): Promise<RangeAnswer> {
       ? days
       : DEFAULT_DESK_WINDOW;
   if (window === DEFAULT_DESK_WINDOW) return { kind: "range", dates: NO_DATES };
+  return datedWindow(window);
+}
+
+/**
+ * A window of `days` as dates, counted back from the newest notice. The newest comes
+ * from the default activity, which the KV layer keeps: a chip never asks for a week
+ * of activity just to learn a date. The default window is dated too (the Connections
+ * Change view lists the window's own notices, and the feed rounds a day count up).
+ */
+async function datedWindow(days: number): Promise<RangeAnswer> {
   if (skipForBuild()) return { kind: "outage" };
-  // The newest notice comes from the default activity, which the KV layer keeps: a chip
-  // never asks for a week of activity just to learn a date.
   const newest = await loadOwnershipActivity();
   if (newest.error !== "") return { kind: "refused", error: newest.error };
   if (!newest.ok) return { kind: "outage" };
   if (newest.asOf === "") return { kind: "empty" };
-  const dates = windowDates(window, newest.asOf);
+  const dates = windowDates(days, newest.asOf);
   if (dates === null) return { kind: "outage" };
   return { kind: "range", dates };
 }
@@ -458,6 +811,7 @@ function panelPage(code: string, data: GetStockOwnershipResponse | undefined): S
     ok: true,
     code,
     companyName: summary.companyName,
+    industry: summary.industry,
     disclosed: summary.byKind.map((share) => ({ kind: share.kind, pct: share.pct, holders: share.holders })),
     disclosedPct: summary.disclosedPct,
     largest: [...data.holders]
@@ -498,7 +852,7 @@ function mapPage(asked: Asked<GetOwnershipMapResponse> | undefined): OwnershipMa
   if (asked?.kind === "refused") return refusedMap(`refused by the API: ${asked.reason}`);
   const response = asked?.response;
   if (response === undefined) {
-    return { ok: false, error: "", from: "", to: "", asOf: "", stocks: [] };
+    return { ok: false, error: "", from: "", to: "", asOf: "", stocks: [], ...NO_FUND_COMPARISON };
   }
   return {
     ok: true,
@@ -518,9 +872,19 @@ function mapPage(asked: Asked<GetOwnershipMapResponse> | undefined): OwnershipMa
         indexPct: stock.hasIndexPct ? stock.indexPct : null,
         shortPct: stock.hasShortPct ? stock.shortPct : null,
         flowPp: stock.hasFlowPp ? stock.flowPp : null,
+        fundValueAud: stock.hasFundValue ? stock.fundValueAud : null,
+        fundFlowAud: stock.hasFundFlow ? stock.fundFlowAud : null,
+        fundChangePct: stock.hasFundChange ? stock.fundChangePct : null,
         notices: stock.notices,
       }),
     ),
+    fundsCompared: response.fundsCompared,
+    startFilesFrom: response.startFilesFrom,
+    startFilesTo: response.startFilesTo,
+    endFilesFrom: response.endFilesFrom,
+    endFilesTo: response.endFilesTo,
+    fundFrom: response.fundFrom,
+    fundTo: response.fundTo,
   };
 }
 
@@ -548,6 +912,12 @@ function flowsPage(asked: Asked<GetOwnershipFlowsResponse> | undefined): Ownersh
         holdings: position.holdings,
         largestCode: position.largestCode,
         largestPct: position.largestPct,
+        topHolders: position.topHolders.map((holder) => ({
+          slug: holder.slug,
+          name: holder.name,
+          exposureAud: holder.hasExposure ? holder.exposureAud : null,
+          holdings: holder.holdings,
+        })),
       }),
     ),
     // A direction the page does not draw is dropped, not guessed into one of the two.
@@ -574,7 +944,7 @@ function activityPage(asked: Asked<GetOwnershipActivityResponse> | undefined): O
   if (asked?.kind === "refused") return refusedActivity(`refused by the API: ${asked.reason}`);
   const response = asked?.response;
   if (response === undefined) {
-    return { ok: false, error: "", fromWeek: "", toWeek: "", asOf: "", rows: [] };
+    return { ok: false, error: "", fromWeek: "", toWeek: "", asOf: "", rows: [], largestMoves: [] };
   }
   return {
     ok: true,
@@ -582,6 +952,15 @@ function activityPage(asked: Asked<GetOwnershipActivityResponse> | undefined): O
     fromWeek: response.fromWeek,
     toWeek: response.toWeek,
     asOf: response.asOf,
+    largestMoves: response.largestMoves.map(
+      (move): LargestMove => ({
+        code: move.stockCode,
+        holder: move.holderName,
+        url: move.announcementUrl,
+        released: move.announcedOn,
+        change: move.changePp,
+      }),
+    ),
     rows: response.rows.map(
       (row): IndustryWeekRow => ({
         industry: row.industry,
@@ -646,24 +1025,37 @@ function seriesPage(
 ): StockFundSeriesPage {
   if (asked?.kind === "refused") return refusedSeries(`refused by the API: ${asked.reason}`, stockCode);
   const response = asked?.response;
-  if (response === undefined) return { ok: false, error: "", stockCode, funds: [] };
+  if (response === undefined) return { ok: false, error: "", stockCode, fundFrom: "", fundTo: "", funds: [] };
   return {
     ok: true,
     error: "",
     stockCode: response.stockCode,
+    fundFrom: response.fundFrom,
+    fundTo: response.fundTo,
     funds: response.funds.map(
       (fund): FundSeriesRow => ({
         institutionSlug: fund.institutionSlug,
         institutionName: fund.institutionName,
         fundName: fund.fundName,
+        fundCode: fund.fundCode,
+        fundKey: fund.fundKey,
         sourceKind: fund.sourceKind,
         points: fund.points.map(
           (point): FundSeriesPoint => ({
             asAt: point.asAt,
             weightPct: point.hasWeight ? point.weightPct : null,
             valueAud: point.hasValue ? point.valueAud : null,
+            units: point.hasUnits ? point.units : null,
           }),
         ),
+        change: {
+          startDate: fund.hasStartDate ? fund.startDate : null,
+          startUnits: fund.hasStartUnits ? fund.startUnits : null,
+          endDate: fund.hasEndDate ? fund.endDate : null,
+          endUnits: fund.hasEndUnits ? fund.endUnits : null,
+          unitsChange: fund.hasUnitsChange ? fund.unitsChange : null,
+          changeValueAud: fund.hasChangeValueAud ? fund.changeValueAud : null,
+        },
       }),
     ),
   };

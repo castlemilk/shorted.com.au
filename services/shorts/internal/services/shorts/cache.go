@@ -549,6 +549,12 @@ func (c *MemoryCache) GetOwnershipMapKey(generation int64) string {
 	return c.generateKey("ownership_map", generation)
 }
 
+// GetOwnershipFundsKey builds a cache key for the fund list, read beside the
+// universe of the given generation.
+func (c *MemoryCache) GetOwnershipFundsKey(generation int64) string {
+	return c.generateKey("ownership_funds", generation)
+}
+
 // ListSubstantialNoticesKey builds a cache key for the notices feed's first
 // page's read, beside the universe of the given generation. It names every
 // clamped input the read depends on, so two requests that clamp to the same

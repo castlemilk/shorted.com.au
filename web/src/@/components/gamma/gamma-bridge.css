@@ -1,0 +1,112 @@
+/*
+ * The Gamma bridge: every --gamma-* token the vendored component blocks in
+ * gamma.css read, defined from the site's own tokens (web/src/styles/globals.css)
+ * so the components take the house theme, amber terminal in paper light and CRT
+ * dark. Nothing here is a Gamma colour: the durations, eases and display
+ * tracking are Gamma's, the shadows are the site's dark and warm ink.
+ *
+ * Both themes define every token. The test in __tests__/gamma-bridge.test.ts
+ * greps gamma.css for each var(--gamma-...) and fails if either block misses it.
+ *
+ * The site's `.dark` class is the dark theme (tailwind darkMode: ["class"]).
+ */
+
+:root {
+  /* Surfaces and ink */
+  --gamma-bg: hsl(var(--background));
+  --gamma-surface: hsl(var(--card));
+  --gamma-surface-2: hsl(var(--muted));
+  --gamma-ink: hsl(var(--foreground));
+  --gamma-muted: hsl(var(--muted-foreground));
+  --gamma-border: hsl(var(--border));
+  --gamma-hairline: 1px;
+
+  /* Accent is the site's primary amber */
+  --gamma-accent: hsl(var(--primary));
+  --gamma-accent-ink: hsl(var(--primary-foreground));
+  --gamma-accent-soft: hsl(var(--primary) / 0.12);
+  --gamma-selection: hsl(var(--primary) / 0.22);
+  --gamma-focus-ring: 0 0 0 3px hsl(var(--ring) / 0.35);
+
+  /* Status: red and green are the direction of a market number and never a
+     Gamma status (DESIGN.md; spec 13.1). KpiCard and the avatar presence read
+     success and danger for a change's direction, so a rise reads as the amber
+     accent and a fall as ink (spec 14.3). The test in __tests__ holds this. */
+  --gamma-danger: hsl(var(--foreground));
+  --gamma-danger-soft: hsl(var(--muted));
+  --gamma-success: hsl(var(--primary));
+  --gamma-success-soft: hsl(var(--primary) / 0.12);
+  --gamma-warning: #9a6200;
+  --gamma-warning-soft: #fff4dc;
+
+  /* Elevation: flat at rest, a warm ink shadow for floating panels */
+  --gamma-shadow-low: 0 1px 3px rgb(74 59 52 / 0.08);
+  --gamma-shadow-mid: 0 8px 28px rgb(74 59 52 / 0.1);
+  --gamma-shadow-high: 0 24px 64px rgb(74 59 52 / 0.16);
+
+  /* Type: the site's mono for UI and code, its serif for display */
+  --gamma-font-ui: var(--font-sans);
+  --gamma-font-code: var(--font-sans);
+  --gamma-font-display: var(--font-serif), Georgia, serif;
+  --gamma-tracking-display: -0.02em;
+
+  /* Radii from the site's radius */
+  --gamma-radius-small: calc(var(--radius) - 2px);
+  --gamma-radius-control: var(--radius);
+  --gamma-radius-button: var(--radius);
+  --gamma-radius-panel: calc(var(--radius) + 3px);
+  --gamma-radius-pill: 999px;
+
+  /* Motion: Gamma's durations and eases */
+  --gamma-duration-fast: 130ms;
+  --gamma-duration-base: 200ms;
+  --gamma-duration-slow: 360ms;
+  --gamma-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --gamma-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --gamma-ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dark {
+  --gamma-bg: hsl(var(--background));
+  --gamma-surface: hsl(var(--card));
+  --gamma-surface-2: hsl(var(--muted));
+  --gamma-ink: hsl(var(--foreground));
+  --gamma-muted: hsl(var(--muted-foreground));
+  --gamma-border: hsl(var(--border));
+  --gamma-hairline: 1px;
+
+  --gamma-accent: hsl(var(--primary));
+  --gamma-accent-ink: hsl(var(--primary-foreground));
+  --gamma-accent-soft: hsl(var(--primary) / 0.16);
+  --gamma-selection: hsl(var(--primary) / 0.3);
+  --gamma-focus-ring: 0 0 0 3px hsl(var(--ring) / 0.32);
+
+  --gamma-danger: hsl(var(--foreground));
+  --gamma-danger-soft: hsl(var(--muted));
+  --gamma-success: hsl(var(--primary));
+  --gamma-success-soft: hsl(var(--primary) / 0.16);
+  --gamma-warning: #f0bd5d;
+  --gamma-warning-soft: #3a2c12;
+
+  --gamma-shadow-low: 0 1px 3px rgb(0 0 0 / 0.35);
+  --gamma-shadow-mid: 0 10px 28px rgb(0 0 0 / 0.35);
+  --gamma-shadow-high: 0 28px 70px rgb(0 0 0 / 0.55);
+
+  --gamma-font-ui: var(--font-sans);
+  --gamma-font-code: var(--font-sans);
+  --gamma-font-display: var(--font-serif), Georgia, serif;
+  --gamma-tracking-display: -0.02em;
+
+  --gamma-radius-small: calc(var(--radius) - 2px);
+  --gamma-radius-control: var(--radius);
+  --gamma-radius-button: var(--radius);
+  --gamma-radius-panel: calc(var(--radius) + 3px);
+  --gamma-radius-pill: 999px;
+
+  --gamma-duration-fast: 130ms;
+  --gamma-duration-base: 200ms;
+  --gamma-duration-slow: 360ms;
+  --gamma-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --gamma-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --gamma-ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
+}

@@ -1,8 +1,10 @@
 /**
  * Editorial copy on the ownership surfaces: the register, the hub and its desk
  * (the map, the flows, the movement, the index fund window and the stock panel),
- * the notice feed and the register list, their components, the stock strip, the
- * explorer's and the desk's server actions that supply the rows the instruments
+ * the notice feed and the register list, the workspace (the map, connections,
+ * activity, funds, holders, changes and the fund page) and its inspectors, the
+ * stock strip, the Gamma components the workspace is built from, the explorer's,
+ * the desk's and the funds' server actions that supply the rows the instruments
  * and lists print, and the lib that feeds them.
  *
  * Section 7 of the ownership explorer spec ("Copy") bans an em dash and four
@@ -41,9 +43,12 @@ const SCANNED = [
   path.join(APP_DIR, "ownership"),
   path.join(SRC_DIR, "@", "components", "ownership"),
   path.join(SRC_DIR, "@", "components", "stocks", "register-strip.tsx"),
+  // The vendored Gamma components the workspace draws with: their labels print as copy.
+  path.join(SRC_DIR, "@", "components", "gamma"),
   path.join(APP_DIR, "actions", "ownershipExplorer.ts"),
   path.join(APP_DIR, "actions", "ownershipDesk.ts"),
-  path.join(APP_DIR, "actions", "ownershipInsights.ts"),
+  path.join(APP_DIR, "actions", "ownershipFunds.ts"),
+  path.join(APP_DIR, "actions", "ownershipHolders.ts"),
   path.join(SRC_DIR, "@", "lib", "ownership"),
 ];
 
@@ -175,8 +180,21 @@ describe("ownership editorial copy", () => {
         "@/components/ownership/desk/movement-heatmap-static.tsx",
         "@/components/ownership/desk/fund-positions-static.tsx",
         "app/ownership/loading.tsx",
+        "app/ownership/map/page.tsx",
+        "app/ownership/connections/page.tsx",
+        "app/ownership/activity/page.tsx",
+        "app/ownership/funds/page.tsx",
+        "app/ownership/funds/[fund]/page.tsx",
+        "app/ownership/holders/page.tsx",
+        "app/ownership/changes/page.tsx",
+        "@/components/ownership/workspace/inspector.tsx",
+        "@/components/ownership/funds/fund-model.ts",
+        "@/components/ownership/holders/holder-browser.tsx",
+        "@/components/gamma/DisclosureStack.tsx",
         "app/actions/ownershipExplorer.ts",
         "app/actions/ownershipDesk.ts",
+        "app/actions/ownershipFunds.ts",
+        "app/actions/ownershipHolders.ts",
         "@/lib/ownership/trace.ts",
       ]),
     );

@@ -7,6 +7,7 @@
  * category, not a direction (DESIGN.md, The Semantic Quarantine Rule).
  */
 
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 
 export type OwnershipKind =
@@ -99,6 +100,28 @@ export const KIND_INFO: Readonly<Record<OwnershipKind, KindInfo>> = {
     swatch: "bg-[#E5E1DC]",
   },
 };
+
+/**
+ * A kind's name in a toolbar select (spec 14.9): short enough that the row holds its selects on one
+ * line at 1440. The full names stay in the legend, the inspector and the page's prose.
+ */
+const KIND_SELECT_LABELS: Readonly<Record<OwnershipKind, string>> = {
+  super_fund: "Super funds",
+  index_manager: "Index managers",
+  active_manager: "Active managers",
+  hedge_fund: "Hedge funds",
+  bank_broker: "Banks, brokers",
+  sovereign_public: "Sovereign",
+  insurer: "Insurers",
+  private_equity: "Private equity",
+  corporate: "Companies",
+  other: "Other",
+  unclassified: "Unclassified",
+};
+
+export function kindSelectLabel(kind: string): string {
+  return KIND_SELECT_LABELS[kind as OwnershipKind] ?? KIND_SELECT_LABELS.unclassified;
+}
 
 /** Display order: who invests for others first, then strategic holders. */
 export const KIND_ORDER: readonly OwnershipKind[] = [
@@ -207,6 +230,15 @@ export function holderHref(slug: string | null | undefined, holderKey?: string):
   return institutionHref(slug) ?? (listed ? stockTabHref(listed, "company") : null);
 }
 
+/**
+ * A fund's page, keyed by the API's fund key (spec 14.7): the key is one path
+ * segment, encoded, so a super option's slash and spaces survive the route.
+ * Every inspector, page, link and the sitemap builds its fund URL here.
+ */
+export function fundHref(key: string): string {
+  return `/ownership/funds/${encodeURIComponent(key)}`;
+}
+
 /** A stock's ASX code as the register path takes it. */
 export const REGISTER_CODE_PATTERN = /^[A-Z0-9]{1,6}$/;
 
@@ -219,7 +251,7 @@ export function registerHref(code: string): string {
 }
 
 /** A fund's name with its ASX code in front, unless the name already carries it. */
-export function fundLabel(code: string | null | undefined, name: string): string {
+export function fundCodeAndName(code: string | null | undefined, name: string): string {
   if (!code || name.includes(`(${code})`) || name.startsWith(`${code} `)) return name;
   return `${code}, ${name}`;
 }
@@ -270,4 +302,63 @@ export function asAtRange(from: string, to: string): string {
   const last = dates.at(-1);
   if (first === undefined || last === undefined) return "as at n/a";
   return first === last ? `as at ${first}` : `as at ${first} to ${last}`;
+}
+
+/**
+ * A GICS industry group's short name for a chart's small labels (spec 14.9): a
+ * map band, a sankey node, a heatmap row, a fund column, an inspector line. The
+ * full name stays in the element's title. Keys are lower-case, as the API names
+ * them, and so are the placeholder industries (which read as "Other").
+ */
+const SHORT_SECTORS: Readonly<Record<string, string>> = {
+  "equity real estate investment trusts (reits)": "REITs",
+  "real estate investment trusts (reits)": "REITs",
+  "health care equipment & services": "Health care",
+  healthcare: "Health care",
+  "pharmaceuticals, biotechnology & life sciences": "Pharma & biotech",
+  "consumer discretionary distribution & retail": "Discretionary retail",
+  retail: "Discretionary retail",
+  "consumer staples distribution & retail": "Staples retail",
+  "commercial & professional services": "Professional services",
+  "technology hardware & equipment": "Tech hardware",
+  "semiconductors & semiconductor equipment": "Semiconductors",
+  "real estate management & development": "Real estate",
+  property: "Real estate",
+  "telecommunication services": "Telecoms",
+  telecom: "Telecoms",
+  "household & personal products": "Household products",
+  "consumer durables & apparel": "Durables & apparel",
+  "automobiles & components": "Automobiles",
+  "food, beverage & tobacco": "Food & beverage",
+  "food & bev": "Food & beverage",
+  "media & entertainment": "Media",
+  "software & services": "Software",
+  software: "Software",
+  technology: "Software",
+  "financial services": "Financial services",
+  "diversified financials": "Financial services",
+  "capital goods": "Capital goods",
+  industrials: "Capital goods",
+  "consumer services": "Consumer services",
+  materials: "Materials",
+  mining: "Materials",
+  energy: "Energy",
+  banks: "Banks",
+  insurance: "Insurance",
+  utilities: "Utilities",
+  transportation: "Transportation",
+  other: "Other",
+};
+
+/** The fold's bucket for every sector past the six largest (spec 14.9). */
+export const FOLDED_SECTOR_LABEL = "Other sectors";
+
+/**
+ * The short name of an industry. A placeholder or an empty industry is "Other";
+ * a name the table does not know is returned as the API states it, never cut.
+ */
+export function shortSector(industry: string | null | undefined): string {
+  const name = industryLabel(industry).trim();
+  if (name === "") return "Other";
+  return SHORT_SECTORS[name.toLowerCase()] ?? name;
 }

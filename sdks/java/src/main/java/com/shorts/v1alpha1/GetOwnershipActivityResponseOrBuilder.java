@@ -104,4 +104,68 @@ public interface GetOwnershipActivityResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getAsOfBytes();
+
+  /**
+   * <pre>
+   * The window's largest moves the notices state (spec 14.10): at most ten notices
+   * that state both their present and previous voting power and differ, ranked by
+   * the size of the change, then the newer date, then the stock code. A notice that
+   * does not state both figures (a cessation, a 605, or one with no previous figure)
+   * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.LargestMove> 
+      getLargestMovesList();
+  /**
+   * <pre>
+   * The window's largest moves the notices state (spec 14.10): at most ten notices
+   * that state both their present and previous voting power and differ, ranked by
+   * the size of the change, then the newer date, then the stock code. A notice that
+   * does not state both figures (a cessation, a 605, or one with no previous figure)
+   * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+   */
+  com.shorts.v1alpha1.LargestMove getLargestMoves(int index);
+  /**
+   * <pre>
+   * The window's largest moves the notices state (spec 14.10): at most ten notices
+   * that state both their present and previous voting power and differ, ranked by
+   * the size of the change, then the newer date, then the stock code. A notice that
+   * does not state both figures (a cessation, a 605, or one with no previous figure)
+   * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+   */
+  int getLargestMovesCount();
+  /**
+   * <pre>
+   * The window's largest moves the notices state (spec 14.10): at most ten notices
+   * that state both their present and previous voting power and differ, ranked by
+   * the size of the change, then the newer date, then the stock code. A notice that
+   * does not state both figures (a cessation, a 605, or one with no previous figure)
+   * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.LargestMoveOrBuilder> 
+      getLargestMovesOrBuilderList();
+  /**
+   * <pre>
+   * The window's largest moves the notices state (spec 14.10): at most ten notices
+   * that state both their present and previous voting power and differ, ranked by
+   * the size of the change, then the newer date, then the stock code. A notice that
+   * does not state both figures (a cessation, a 605, or one with no previous figure)
+   * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+   */
+  com.shorts.v1alpha1.LargestMoveOrBuilder getLargestMovesOrBuilder(
+      int index);
 }

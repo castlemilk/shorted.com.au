@@ -13,7 +13,7 @@ import {
   OwnershipSourceLines,
   type SourceLine,
 } from "~/@/components/ownership/ownership-provenance";
-import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
+import { lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { listInstitutions } from "~/app/actions/getOwnership";
 import { loadNoticeFeed } from "~/app/actions/ownershipExplorer";
@@ -115,7 +115,6 @@ export default async function NoticesPage() {
           <header className="space-y-1.5">
             <div className="flex flex-wrap items-baseline gap-x-3">
               <h1 className={pageTitle}>Substantial holding notices</h1>
-              <p className={eyebrow}>Ownership</p>
             </div>
             <p className={lede}>{LEDE}</p>
           </header>

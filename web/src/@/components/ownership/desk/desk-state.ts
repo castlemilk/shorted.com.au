@@ -1,3 +1,5 @@
+import { cleanSelection } from "../workspace/selection";
+
 /**
  * The desk's URL state on /ownership (spec 13.1): the window of change, the
  * map's lens, a zoomed sector, and the two snapshot dates of the index fund
@@ -30,6 +32,7 @@ export const DESK_LENSES = [
   "index",
   "short",
   "flow",
+  "index_flow",
 ] as const;
 export type DeskLens = (typeof DESK_LENSES)[number];
 export const DEFAULT_DESK_LENS: DeskLens = "disclosed";
@@ -64,6 +67,11 @@ export interface DeskState {
   /** The index fund window's two snapshot dates, YYYY-MM-DD; "" is none. */
   from: string;
   to: string;
+  /**
+   * The workspace selection (spec 14.1), in its link form `kind:key`; "" is none.
+   * Only a value `parseSelection` reads is kept (see workspace/selection.ts).
+   */
+  sel: string;
 }
 
 /** The window of change as the notice instruments read it: the chips' days, or a brushed pair. */
@@ -77,6 +85,7 @@ export const DEFAULT_DESK_STATE: DeskState = {
   sector: "",
   from: "",
   to: "",
+  sel: "",
 };
 
 /** The raw values a link or a page hands over, before any of them is trusted. */
@@ -88,6 +97,7 @@ export interface DeskStateInput {
   sector?: unknown;
   from?: unknown;
   to?: unknown;
+  sel?: unknown;
 }
 
 /** The two shapes a parameter arrives in: the browser's URLSearchParams, or Next's record. */
@@ -164,14 +174,16 @@ function cleanSector(value: unknown): string {
 }
 
 /**
- * The two dates of the index window, or both empty. One date alone is no window
- * and an inverted pair is none. The window of change is a separate parameter, so
+ * The two dates of the index window, or both empty. One date alone is no window,
+ * an inverted pair is none, and a pair the API would refuse (over DESK_MAX_SPAN_DAYS) is none. The window of change is a separate parameter, so
  * a pair of dates never replaces it.
  */
 function cleanDates(from: unknown, to: unknown): { from: string; to: string } {
   if (typeof from !== "string" || typeof to !== "string") return { from: "", to: "" };
   if (!isIsoDate(from) || !isIsoDate(to)) return { from: "", to: "" };
   if (from > to) return { from: "", to: "" };
+  // The API refuses a fund window longer than DESK_MAX_SPAN_DAYS (ownership_desk.go deskWindow).
+  if (dayGap(from, to) > DESK_MAX_SPAN_DAYS) return { from: "", to: "" };
   return { from, to };
 }
 
@@ -207,6 +219,7 @@ export function cleanDeskState(input: DeskStateInput): DeskState {
     sector: cleanSector(input.sector),
     from: dates.from,
     to: dates.to,
+    sel: cleanSelection(input.sel),
   };
 }
 
@@ -233,6 +246,7 @@ export function readDeskState(source: DeskParamSource): DeskState {
     sector: paramValue(source, "sector"),
     from: paramValue(source, "from"),
     to: paramValue(source, "to"),
+    sel: paramValue(source, "sel"),
   });
 }
 
@@ -254,11 +268,12 @@ export function writeDeskState(state: DeskState): string {
   }
   if (clean.lens !== DEFAULT_DESK_LENS) params.set("lens", clean.lens);
   if (clean.sector !== "") params.set("sector", clean.sector);
+  if (clean.sel !== "") params.set("sel", clean.sel);
   return params.toString();
 }
 
 /** The desk's own parameter names: writeDeskParams replaces these and leaves every other one alone. */
-const DESK_PARAM_NAMES = ["window", "since", "until", "from", "to", "lens", "sector"] as const;
+const DESK_PARAM_NAMES = ["window", "since", "until", "from", "to", "lens", "sector", "sel"] as const;
 
 /**
  * Writes a state into a link's parameters in place. The desk's names are replaced

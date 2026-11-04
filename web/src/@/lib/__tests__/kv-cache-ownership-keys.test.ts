@@ -34,10 +34,10 @@ describe("ownership cache keys", () => {
     expect(CACHE_KEYS.ownershipRegisters()).toBe("cache:ownership:registers:v1");
   });
 
-  it("pins the v1 keys of the desk's four default views", () => {
-    expect(CACHE_KEYS.ownershipDeskMap()).toBe("cache:ownership:desk-map:v1");
-    expect(CACHE_KEYS.ownershipDeskFlows()).toBe("cache:ownership:desk-flows:v1");
-    expect(CACHE_KEYS.ownershipDeskActivity()).toBe("cache:ownership:desk-activity:v1");
+  it("pins the keys of the desk's four default views (the map, the flows and the activity at v2 since spec 14.10 widened their rows)", () => {
+    expect(CACHE_KEYS.ownershipDeskMap()).toBe("cache:ownership:desk-map:v2");
+    expect(CACHE_KEYS.ownershipDeskFlows()).toBe("cache:ownership:desk-flows:v2");
+    expect(CACHE_KEYS.ownershipDeskActivity()).toBe("cache:ownership:desk-activity:v2");
     expect(CACHE_KEYS.ownershipDeskFunds()).toBe("cache:ownership:desk-funds:v1");
   });
 

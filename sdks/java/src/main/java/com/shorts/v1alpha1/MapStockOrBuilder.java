@@ -139,4 +139,63 @@ public interface MapStockOrBuilder extends
    * @return The notices.
    */
   int getNotices();
+
+  /**
+   * <pre>
+   * The index funds' holdings of the stock at the window's end, in AUD. Set
+   * when a tracked index fund holds it at that file.
+   * </pre>
+   *
+   * <code>double fund_value_aud = 16 [json_name = "fundValueAud"];</code>
+   * @return The fundValueAud.
+   */
+  double getFundValueAud();
+
+  /**
+   * <code>bool has_fund_value = 17 [json_name = "hasFundValue"];</code>
+   * @return The hasFundValue.
+   */
+  boolean getHasFundValue();
+
+  /**
+   * <pre>
+   * The change in shares the compared index funds hold, in AUD: each compared
+   * fund's change valued at its own later file's price (its start file's price
+   * when the position has left it), summed. A fund is compared when its file at
+   * the window's start (or its first file inside the window) and a newer one at
+   * the end are on record, and a fund is never new money by its first file. A
+   * fund whose file states the stock with no units on either side of the window
+   * (a value alone, or neither figure) is left out of this change and of its
+   * start, so that row counts only in fund_value_aud. So is a fund whose later
+   * file states shares with no value, which leaves it no price of its own. Each
+   * fund is decided on its own row: no other fund's row changes it.
+   * </pre>
+   *
+   * <code>double fund_flow_aud = 18 [json_name = "fundFlowAud"];</code>
+   * @return The fundFlowAud.
+   */
+  double getFundFlowAud();
+
+  /**
+   * <code>bool has_fund_flow = 19 [json_name = "hasFundFlow"];</code>
+   * @return The hasFundFlow.
+   */
+  boolean getHasFundFlow();
+
+  /**
+   * <pre>
+   * That change as a percentage of the same funds' starting shares, each valued at
+   * the same price as its change. Set when those starting shares are positive.
+   * </pre>
+   *
+   * <code>double fund_change_pct = 20 [json_name = "fundChangePct"];</code>
+   * @return The fundChangePct.
+   */
+  double getFundChangePct();
+
+  /**
+   * <code>bool has_fund_change = 21 [json_name = "hasFundChange"];</code>
+   * @return The hasFundChange.
+   */
+  boolean getHasFundChange();
 }

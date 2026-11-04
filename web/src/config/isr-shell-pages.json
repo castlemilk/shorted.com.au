@@ -16,5 +16,10 @@
   "/housing/act/council",
   "/ownership/notices",
   "/ownership/stocks",
-  "/ownership/insights"
+  "/ownership/map",
+  "/ownership/connections",
+  "/ownership/activity",
+  "/ownership/funds",
+  "/ownership/holders",
+  "/ownership/changes"
 ]

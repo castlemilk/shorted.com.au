@@ -64,6 +64,10 @@ jest.mock("~/@/components/ownership/desk/ownership-map", () => {
     },
   };
 });
+// The combobox reads the popover API on mount, which jsdom does not have: the toolbar is drawn as a stub here.
+jest.mock("~/@/components/gamma/SearchCombobox", () => ({
+  SearchCombobox: () => null,
+}));
 jest.mock("next/navigation", () => ({
   useSearchParams: () => {
     if (mockHoldSearchParams) throw new Promise(() => {});
@@ -113,7 +117,7 @@ describe("OwnershipPage", () => {
     getOwnershipOverview.mockResolvedValue(data);
     render(await OwnershipPage());
 
-    expect(screen.getByRole("heading", { level: 1, name: "Who owns the ASX" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "The ownership landscape" })).toBeInTheDocument();
     expect(screen.getByText(/Ownership data is not available yet/)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "The map" })).toBeNull();
     expect(screen.queryByRole("table")).toBeNull();
@@ -172,8 +176,9 @@ describe("OwnershipPage desk", () => {
   it("draws the instruments first, in the desk's order, with the record beneath them", async () => {
     render(await OwnershipPage());
 
-    const order = ["Market map", "Flows", "Movement", "Index fund positions", "The map", "Latest notices"];
-    const headings = order.map((name) => screen.getByRole("heading", { name }));
+    // Each pane's heading carries its open-in-page link, so the names are matched by their start.
+    const order = ["Market map", "Disclosed exposure", "Notice activity", "Index fund positions", "The map", "Latest notices"];
+    const headings = order.map((name) => screen.getByRole("heading", { name: new RegExp(`^${name}`) }));
     for (let i = 1; i < headings.length; i++) {
       expect(headings[i - 1].compareDocumentPosition(headings[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
@@ -232,7 +237,7 @@ describe("OwnershipPage desk", () => {
     render(await OwnershipPage());
 
     expect(bailOnEmptyRender).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("heading", { name: "Market map" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^Market map/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "The map" })).toBeInTheDocument();
   });
 });
@@ -391,7 +396,7 @@ describe("OwnershipPage coverage and sources", () => {
     getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
     const { container } = render(await OwnershipPage());
 
-    const notices = container.querySelector("section[aria-labelledby='notices']") as HTMLElement;
+    const notices = container.querySelector("details:has(#notices)") as HTMLElement;
     expect(within(notices).getByRole("link", { name: "All notices →" })).toHaveAttribute(
       "href",
       "/ownership/notices",

@@ -109,4 +109,178 @@ public interface FundSeriesOrBuilder extends
    */
   com.shorts.v1alpha1.FundPointOrBuilder getPointsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * The fund's ASX code (ticker) when its file names one; empty for a super option.
+   * </pre>
+   *
+   * <code>string fund_code = 6 [json_name = "fundCode"];</code>
+   * @return The fundCode.
+   */
+  java.lang.String getFundCode();
+  /**
+   * <pre>
+   * The fund's ASX code (ticker) when its file names one; empty for a super option.
+   * </pre>
+   *
+   * <code>string fund_code = 6 [json_name = "fundCode"];</code>
+   * @return The bytes for fundCode.
+   */
+  com.google.protobuf.ByteString
+      getFundCodeBytes();
+
+  /**
+   * <pre>
+   * The fund's key (spec 14.7): the registry key, or &lt;institution_slug&gt;/&lt;fund_name&gt;.
+   * </pre>
+   *
+   * <code>string fund_key = 7 [json_name = "fundKey"];</code>
+   * @return The fundKey.
+   */
+  java.lang.String getFundKey();
+  /**
+   * <pre>
+   * The fund's key (spec 14.7): the registry key, or &lt;institution_slug&gt;/&lt;fund_name&gt;.
+   * </pre>
+   *
+   * <code>string fund_key = 7 [json_name = "fundKey"];</code>
+   * @return The bytes for fundKey.
+   */
+  com.google.protobuf.ByteString
+      getFundKeyBytes();
+
+  /**
+   * <pre>
+   * The fund's own comparison of this stock over the request's fund window (spec
+   * 14.10): the fund is compared with itself, its file at the window's start (or
+   * its first file inside the window) against its newest file at the end, as the
+   * map's index fund change reads it. Only index funds (etf) are compared. A super
+   * option, or a fund whose only file is its end file, has no comparison: its start
+   * and change fields are unknown (has_ false), though its end figures are stated
+   * whenever it has an end file. A stock absent from a file holds zero shares
+   * there, so a stock that enters the fund inside the window is a change, not an
+   * unknown.
+   *
+   * The start file and its shares of the stock.
+   * </pre>
+   *
+   * <code>string start_date = 8 [json_name = "startDate"];</code>
+   * @return The startDate.
+   */
+  java.lang.String getStartDate();
+  /**
+   * <pre>
+   * The fund's own comparison of this stock over the request's fund window (spec
+   * 14.10): the fund is compared with itself, its file at the window's start (or
+   * its first file inside the window) against its newest file at the end, as the
+   * map's index fund change reads it. Only index funds (etf) are compared. A super
+   * option, or a fund whose only file is its end file, has no comparison: its start
+   * and change fields are unknown (has_ false), though its end figures are stated
+   * whenever it has an end file. A stock absent from a file holds zero shares
+   * there, so a stock that enters the fund inside the window is a change, not an
+   * unknown.
+   *
+   * The start file and its shares of the stock.
+   * </pre>
+   *
+   * <code>string start_date = 8 [json_name = "startDate"];</code>
+   * @return The bytes for startDate.
+   */
+  com.google.protobuf.ByteString
+      getStartDateBytes();
+
+  /**
+   * <code>bool has_start_date = 9 [json_name = "hasStartDate"];</code>
+   * @return The hasStartDate.
+   */
+  boolean getHasStartDate();
+
+  /**
+   * <code>double start_units = 10 [json_name = "startUnits"];</code>
+   * @return The startUnits.
+   */
+  double getStartUnits();
+
+  /**
+   * <code>bool has_start_units = 11 [json_name = "hasStartUnits"];</code>
+   * @return The hasStartUnits.
+   */
+  boolean getHasStartUnits();
+
+  /**
+   * <pre>
+   * The end file (the newest on or before the window's end) and its shares of the
+   * stock. Known whenever the fund has an end file, even with no comparison.
+   * </pre>
+   *
+   * <code>string end_date = 12 [json_name = "endDate"];</code>
+   * @return The endDate.
+   */
+  java.lang.String getEndDate();
+  /**
+   * <pre>
+   * The end file (the newest on or before the window's end) and its shares of the
+   * stock. Known whenever the fund has an end file, even with no comparison.
+   * </pre>
+   *
+   * <code>string end_date = 12 [json_name = "endDate"];</code>
+   * @return The bytes for endDate.
+   */
+  com.google.protobuf.ByteString
+      getEndDateBytes();
+
+  /**
+   * <code>bool has_end_date = 13 [json_name = "hasEndDate"];</code>
+   * @return The hasEndDate.
+   */
+  boolean getHasEndDate();
+
+  /**
+   * <code>double end_units = 14 [json_name = "endUnits"];</code>
+   * @return The endUnits.
+   */
+  double getEndUnits();
+
+  /**
+   * <code>bool has_end_units = 15 [json_name = "hasEndUnits"];</code>
+   * @return The hasEndUnits.
+   */
+  boolean getHasEndUnits();
+
+  /**
+   * <pre>
+   * End shares less start shares.
+   * </pre>
+   *
+   * <code>double units_change = 16 [json_name = "unitsChange"];</code>
+   * @return The unitsChange.
+   */
+  double getUnitsChange();
+
+  /**
+   * <code>bool has_units_change = 17 [json_name = "hasUnitsChange"];</code>
+   * @return The hasUnitsChange.
+   */
+  boolean getHasUnitsChange();
+
+  /**
+   * <pre>
+   * That change valued at this fund's own later file's price for the stock (its
+   * start file's when the stock has left the fund): the figure the map's
+   * fund_flow_aud sums over the compared funds. Unknown when the shares are not
+   * stated on both sides, or the fund's own rows give no price (a row that states
+   * units without a value, or a value without units).
+   * </pre>
+   *
+   * <code>double change_value_aud = 18 [json_name = "changeValueAud"];</code>
+   * @return The changeValueAud.
+   */
+  double getChangeValueAud();
+
+  /**
+   * <code>bool has_change_value_aud = 19 [json_name = "hasChangeValueAud"];</code>
+   * @return The hasChangeValueAud.
+   */
+  boolean getHasChangeValueAud();
 }

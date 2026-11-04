@@ -5,7 +5,7 @@
  * A title that brings its own brand renders it twice. The 2026-10-21 probe
  * found "ASX Short Selling Datasets | Open Data Hub | Shorted | Shorted"
  * (/data), "… Director Trades | Shorted | Shorted" (/insider-trading),
- * "Alerts — Shorted | Shorted" and the near-doubles "Press & Media Kit —
+ * "Alerts em dash Shorted | Shorted" and the near-doubles "Press & Media Kit em dash
  * Shorted.com.au | Shorted" and "Product Roadmap | Shorted Feature Development |
  * Shorted" (seo-review finding 12). A page whose title must lead with the brand,
  * or already ends with it, says so with `title: { absolute }` (the homepage and
@@ -16,7 +16,7 @@
  * returns. `title`, `title.default` and a same-file variable passed as either
  * are read with TypeScript's own parser, through ternaries and `??`; a template
  * placeholder `${siteConfig.name}` counts as the brand. A title fails when the
- * brand follows a separator (`| Shorted`, `— Shorted`, `- Shorted`, so a
+ * brand follows a separator (`| Shorted`, `em dash Shorted`, `- Shorted`, so a
  * mid-title "| Shorted API" too) or names the domain (`Shorted.com.au`).
  * `title.absolute` and `title.template` are exempt, and so are openGraph and
  * twitter titles: the template does not apply to them.
@@ -40,7 +40,7 @@ const APP_DIR = path.resolve(__dirname, "..");
 const KNOWN_OFFENDERS: Record<string, string> = {};
 
 /** The brand after a separator, or the domain. "Most Shorted ASX" is fine. */
-const BRAND = /(?:[|—–]|\s-)\s*Shorted\b|Shorted\.com\.au/;
+const BRAND = /(?:[|\u2014–]|\s-)\s*Shorted\b|Shorted\.com\.au/;
 
 /** Every page and layout under app/, tests excluded, as paths from app/. */
 function routeFiles(dir: string = APP_DIR): string[] {
@@ -235,10 +235,10 @@ describe("page titles", () => {
   // The scan has to recognise the shapes it exists to stop, or it passes on
   // nothing.
   it.each([
-    ['export const metadata = { title: "Alerts — Shorted" };', "an em-dash brand"],
+    ['export const metadata = { title: "Alerts \u2014 Shorted" };', "an em-dash brand"],
     ['export const metadata = { title: "ASX Insider Trading | Shorted" };', "a pipe brand"],
     ['export const metadata = { title: "Roadmap - Shorted" };', "a hyphen brand"],
-    ['export const metadata = { title: "Press & Media Kit — Shorted.com.au" };', "the domain"],
+    ['export const metadata = { title: "Press & Media Kit \u2014 Shorted.com.au" };', "the domain"],
     ['export const metadata = { title: "Product Roadmap | Shorted Feature Development" };', "a mid-title brand"],
     ["export const metadata = { title: `${name} | ${siteConfig.name}` };", "the brand placeholder"],
     ['export const metadata = { title: { default: "Docs | Shorted", template: "%s" } };', "title.default"],
@@ -247,7 +247,7 @@ describe("page titles", () => {
       "an early return",
     ],
     [
-      "export async function generateMetadata() { const title = `${a.name} — ${a.role} | Shorted`; return { title }; }",
+      "export async function generateMetadata() { const title = `${a.name} \u2014 ${a.role} | Shorted`; return { title }; }",
       "a shorthand title variable",
     ],
     [

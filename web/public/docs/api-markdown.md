@@ -905,33 +905,48 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.NewsService/ListEditori
   -d '{}'
 ```
 
-### shorts.v1alpha1.OwnershipInsightsService
+### shorts.v1alpha1.OwnershipService
 
-#### `POST /shorts.v1alpha1.OwnershipInsightsService/GetOwnershipInsights`
+#### `POST /shorts.v1alpha1.OwnershipService/CompareFundSnapshots`
 
-The register in one window: sectors and their stocks, the money flow from
- institution kinds through institutions to sectors, the position changes by
- sector and week or month, the window's largest stated moves, and the dates
- a window can take.
+Two files of one fund compared holding by holding: the weight change in
+ percentage points, and the holdings new or dropped between them.
 
 Request body fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `sector` | string | no | Optional focus: one sector (as the response names it). The response then lists every stock of the sector, the institutions whose funds moved in it, and the sector's moves only. (proto string) |
-| `stockCode` | string | no | Optional focus: one ASX code. The response then carries the stock's detail. (proto string) |
-| `windowFrom` | string | no | The window's first and last day, YYYY-MM-DD, inclusive. Empty: the default window, the 90 days to the newest date read. A window is clamped to the timeline, and a from after the to is refused. (proto string) |
-| `windowTo` | string | no | (proto string) |
+| `from` | string | no | YYYY-MM-DD. Each side is the fund's newest file at or before the date. An empty to is the newest file; an empty from is the file before to. A from after an explicit to is InvalidArgument. When both sides resolve to the same file there is nothing to compare: the response names that file on both sides and carries no rows. (proto string) |
+| `fundKey` | string | no | (proto string) |
+| `to` | string | no | (proto string) |
 
 ```bash
-curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipInsightsService/GetOwnershipInsights' \
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/CompareFundSnapshots' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{}'
 ```
 
-### shorts.v1alpha1.OwnershipService
+#### `POST /shorts.v1alpha1.OwnershipService/GetFundPortfolio`
+
+One fund's holdings at one file date: the file dates it has, each holding's
+ weight, units and value, and its share of the company's shares on issue.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `asAt` | string | no | YYYY-MM-DD. The newest file at or before it; empty is the newest file. (proto string) |
+| `fundKey` | string | no | A fund_key from ListFunds, or "<institution_slug>/<fund_name>". (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetFundPortfolio' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
 
 #### `POST /shorts.v1alpha1.OwnershipService/GetInstitution`
 
@@ -961,6 +976,7 @@ Request body fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
+| `kind` | string | no | A holder kind (super_fund, index_manager, ...), or "" for every kind. A kind outside the vocabulary is InvalidArgument. (proto string) |
 | `weeks` | integer (int32) | no | 1 to 52 weeks; 0 means 52. Negative is InvalidArgument. (proto int32) |
 
 ```bash
@@ -1001,6 +1017,8 @@ Request body fields:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `from` | string | no | (proto string) |
+| `fundFrom` | string | no | The index funds' window, when it is not the notice window: the snapshot dates the fund figures compare, at most 366 days apart. Empty takes from and to (the notice window), and one empty bound is filled as the desk fills it. (proto string) |
+| `fundTo` | string | no | (proto string) |
 | `to` | string | no | (proto string) |
 
 ```bash
@@ -1035,6 +1053,8 @@ Request body fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
+| `fundFrom` | string | no | The index funds' window the per-fund comparison reads (spec 14.10), as GetOwnershipMapRequest's fund window: YYYY-MM-DD, at most 366 days apart. Empty takes the default window (the 91 days ending at the newest notice), and one empty bound is filled as the desk fills it. (proto string) |
+| `fundTo` | string | no | (proto string) |
 | `stockCode` | string | no | (proto string) |
 
 ```bash
@@ -1079,6 +1099,21 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/ListFundPositionChanges' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/ListFunds`
+
+Every tracked fund (index funds and super fund options) at its newest file,
+ with its sector weights and ten largest holdings.
+
+Request body: an empty JSON object, `{}`.
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/ListFunds' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \

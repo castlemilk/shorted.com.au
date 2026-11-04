@@ -986,30 +986,67 @@ holders, the index fund and super option rows, the notices trail),
 `/ownership/notices` (the feed: every notice read, newest release first, with
 window, event, kind, stock and holder filters and the window's weekly bars)
 and `/ownership/stocks` (the registers list: eleven sorts, industry, kind,
-interest and short-position floors, a code or name query) and, on the
+interest and short-position floors, a code or name query), the workspace
+(`/ownership/map`, `/connections`, `/activity`, `/funds`, `/funds/[fund]`,
+`/holders`, `/changes`: one sub-nav, one toolbar row, one right-rail inspector
+driven by `?sel=`) and, on the
 stock page, the "Substantial holders" card on the Company tab (`#ownership`,
 the summary) and the one-line strip on the Overview, over `OwnershipService`
-(`ownership.proto`, 6 rpcs, all public, mirrored on `ShortedStocksService`).
+(`ownership.proto`, 14 rpcs, all public, mirrored on `ShortedStocksService`).
 Fed by `shorted ownership` (`services/jobs/README.md` "ownership"): a curated
 registry of ~145 institutions, APRA's super fund statistics, ASX's ETF/LIC
 report, 11 index funds' holdings files, 11 super funds' portfolio holdings
 disclosures, and every substantial holding notice PDF since 2024. Migration
 `000137_add_ownership` is in the deploy allowlist. Spec:
-`docs/superpowers/specs/2026-11-02-ownership-explorer-design.md` (stages 1 to 3 built: section 13 is the desk, 7.1 and 13.8 hold the decisions
-taken in review; the Short interest lending line, the register OG lanes and the
+`docs/superpowers/specs/2026-11-02-ownership-explorer-design.md` (stages 1 to 4 built: section 13 is the desk, 14 the workspace; 7.1, 13.8, 14.7,
+14.8 and 14.9 hold the decisions taken in review; the Short interest lending line, the register OG lanes and the
 e2e spec remain specified and unbuilt).
 
 | Piece | Where |
 |---|---|
 | Job, parser, registry | `services/jobs/internal/jobs/ownership/` (`notice.go` parser, fixtures in `testdata/notices/`; `registry.go` kinds, aliases, groups; `repair.go` the `-mode repair-placeholders` dry run) |
 | API | `services/shorts/internal/services/shorts/ownership.go` (handlers assemble every response from ONE cached universe, `ownership_universe.go`: built once per `ownershipTTL` from 11 statements, refreshed in the background two minutes ahead of expiry, never served past it; a stock's or an institution's notices and the feed's first page are the per-key statements, cached under the universe's generation; `ownership_lists.go` holds `ListSubstantialNotices` (a keyset cursor `YYYY-MM-DD|url`, windows rounded UP to 7/30/90/365, 0 = every notice read) and `ListStockRegisters` (in memory over the universe, never cached per query), with every clamp mirrored in `web/src/@/lib/ownership/__fixtures__/clamps.json`, which a Go test and the web test both read), `store/shorts/postgres_ownership.go` (a schema without 000137 reads empty, never a 500; `eventOf` classifies a notice's event ONCE here: ceased, then 603 became, then 604 increased / decreased / changed, then nz) |
-| Desk | The hub's instruments over one window of time, `components/ownership/desk/`: the map (`ownership-map.tsx`, a d3-hierarchy treemap of sectors and stocks, area = market cap, six lenses, a sector zoom and a stock panel), flows (`ownership-flows.tsx`, a d3-sankey from holder kinds to sectors by disclosed exposure, estimated, with a changes-in-the-window toggle), movement (`movement-heatmap.tsx`, sectors by week with a two-handle brush), index fund positions (`fund-positions.tsx`, a two-handle date slider over the funds' snapshot dates, the largest weight changes, per-fund series). Each has a `-static.tsx` twin the server renders from the pure layouts (`map-layout.ts`, `flows-layout.ts`, `fund-changes.ts`), one URL state (`desk-state.ts`: window, lens, sector, since/until, from/to) and loaders in `app/actions/ownershipDesk.ts` over five rpcs (`GetOwnershipMap`, `GetOwnershipFlows`, `GetOwnershipActivity`, `ListFundPositionChanges`, `GetStockFundSeries`; `ownership_desk.go`) |
+| Desk | The hub's instruments over one window of time, `components/ownership/desk/`: the map (`ownership-map.tsx`, a d3-hierarchy treemap of sectors and stocks, area = market cap, disclosed exposure or index fund holdings (Size), seven lenses (the last, index_flow, is the index fund change), a sector zoom and a stock panel), flows (`ownership-flows.tsx`, a d3-sankey from holder kinds to sectors by disclosed exposure, estimated, with a changes-in-the-window toggle), movement (`movement-heatmap.tsx`, sectors by week with a two-handle brush), index fund positions (`fund-positions.tsx`, a two-handle date slider over the funds' snapshot dates, the largest weight changes, per-fund series). Each has a `-static.tsx` twin the server renders from the pure layouts (`map-layout.ts`, `flows-layout.ts`, `fund-changes.ts`), one URL state (`desk-state.ts`: window, lens, sector, since/until, from/to) and loaders in `app/actions/ownershipDesk.ts` over five rpcs (`GetOwnershipMap`, `GetOwnershipFlows`, `GetOwnershipActivity`, `ListFundPositionChanges`, `GetStockFundSeries`; `ownership_desk.go`) |
+| Workspace | The instrument pages, `components/ownership/workspace/`: `workspace-page.tsx` (the shell: `ownership-nav.tsx` sub-nav from `nav.ts`, the content column, the rail), `inspector.tsx` (the right rail from lg, a `SideSheet` bottom sheet below it, the content a plain contract from `inspectors/*` built in pure functions and loaded by `loadInspector` in `app/actions/ownershipDesk.ts`), `selection.ts` (the `?sel=` grammar: `stock:PLS`, `holder:vanguard`, `connection:index_manager>Materials`, `cell:Materials@2026-10-26[:kind]`, `fund:asx:A200`, `holding:asx:A200/BHP`; 280 characters at most, parsed never trusted), `toolbar.tsx` (ONE row of labelled selects or segmented controls per page, folded under `view-disclosure.tsx` "Adjust view" below sm; `window-select.tsx` the shared Window select), the logos (`stock-logo-box.tsx` over `CompanyLogo`, `holder-logo.tsx` the favicon of the registry's website with a monogram fallback, `sector-icon.tsx` the landing page's `/assets/sectors-v2` images via `lib/sector-images.ts`). Funds: `components/ownership/funds/` (`fund-portfolio-map.tsx` a treemap whose cells select `holding:`, `fund-exposure-map.tsx` six sectors plus Other, `fund-changes-table.tsx` two snapshots compared, `expandable-row.tsx` the in-row chevron) over `ListFunds`, `GetFundPortfolio`, `CompareFundSnapshots` (`ownership_funds.go`) and `app/actions/ownershipFunds.ts`; `fundHref(key)` / `fundLabel` in `lib/ownership/kinds.ts`, which also holds `shortSector` (the short sector names every instrument prints, the full name in the title). Holders: `components/ownership/holders/` (`holder-browser.tsx` the twenty largest with Show all, `holder-connections-map.tsx` the tree, `holder-tree.ts`) over `app/actions/ownershipHolders.ts`. Vendored Gamma components live in `components/gamma/` with `gamma-bridge.css` mapping their tokens onto the house theme (standard ease only, no spring; the data table transitions colour and opacity, never width) |
 | Web | `app/ownership/` (the hub, `[slug]`, `stocks/[code]`, and the static ISR pages `notices/` and `stocks/`), `components/ownership/` (server components; the islands are `ownership-tables.tsx`, `notice-feed-explorer.tsx` and `registers-explorer.tsx`: the action as a prop, `useSearchParams` under their own Suspense, `history.replaceState`, no Connect; `notice-mark.tsx`, `notice-week-bars.tsx`, `register-rows-table.tsx` are the parts they draw), `app/actions/ownershipExplorer.ts` ("use server"; the one loader a page and its island share; KV only for each page's DEFAULT view), `lib/ownership/query.ts` (the clamps and the URL codec) and `events.ts` (reads `notice.event`, never re-derives it), `components/stocks/register-strip.tsx` (props only), `lib/ownership/` (`trace.ts` the lane geometry, `kinds.ts`, `rows.ts`, `age.ts`, `register-indexability.ts`), `app/actions/getOwnership.ts` (ISR tag `ownership` + KV last-good under the `v2` keys, flush `ownership`), `app/actions/getStockRegisterStrip.ts` (the Overview's read: `unstable_cache`, a 4 s abort, no KV, tagged by stock and never `ownership`) |
-| Guards | `app/ownership/__tests__/isr-source-safety.test.ts` (no `searchParams`, `cookies()`, `headers()`, `auth()` or `useSearchParams` under `app/ownership`), `app/__tests__/editorial-copy.test.ts` (no em dash, "of the voting power", "index ETF", "sold" in ownership copy), `scripts/route-kinds.mjs` `OWNERSHIP_ROUTES` (the two dynamic routes) and `OWNERSHIP_STATIC_ROUTES` (the hub, the feed, the registers list: each must keep a positive `initialRevalidateSeconds`), `components/ownership/__tests__/client-boundary.test.ts`, `app/api/static-pages/warm-cache/__tests__/budget.test.ts` (17 shell pages read six at a time fit the 145 s the callers allow) |
+| Guards | `app/ownership/__tests__/isr-source-safety.test.ts` (no `searchParams`, `cookies()`, `headers()`, `auth()` or `useSearchParams` under `app/ownership`), `app/__tests__/editorial-copy.test.ts` (no em dash, "of the voting power", "index ETF", "sold" in ownership copy), `scripts/route-kinds.mjs` `OWNERSHIP_ROUTES` (the two dynamic routes) and `OWNERSHIP_STATIC_ROUTES` (the hub, the feed, the registers list: each must keep a positive `initialRevalidateSeconds`), `components/ownership/__tests__/client-boundary.test.ts`, `app/api/static-pages/warm-cache/__tests__/budget.test.ts` (23 shell pages read eight at a time fit the 145 s the callers allow) |
 | MCP | `get_stock_ownership` (holders, by-kind sum, the 15 largest fund holdings, each fund named with its institution) and `get_institution_holdings` (slug or name; an ambiguous name lists the slugs), `services/shorts/internal/mcp/tools_ownership.go`. A stated 0.00% fund weight beside a real value is omitted (super disclosures state two places) |
 
 ### Landmines
 
+- **A workspace page is ISR, and its shell is in three lists.** Every page
+  under `app/ownership/` exports `revalidate` and reads no `searchParams`;
+  the selection, the window and the sorts live in `?sel=` and the desk
+  params read by islands under their own Suspense (`history.replaceState`).
+  A new page goes into `OWNERSHIP_STATIC_ROUTES` (`scripts/route-kinds.mjs`),
+  `src/config/isr-shell-pages.json` (the warm sweep) and
+  `lib/seo/sitemap-sections.ts`, or it is served cold after every deploy.
+- **The island's placeholder is the toolbar's height.** A server-rendered
+  toolbar row is one row from `sm` (`TOOLBAR_ROW_CLASS`); an island that
+  mounts a taller control shifts the drawing. Measured at 1440 on
+  2026-11-04: the map's row fits its 1016 px column with about 30 px to
+  spare, so a longer option label wraps it. Window is a select, never four
+  chips, on the instrument pages and the notices feed; the Overview's desk
+  toolbar keeps its chips.
+- **Every drawn element selects, through the same `?sel=`.** A map cell, a
+  sankey band, a heatmap cell, a fund treemap cell, a holder, a change row:
+  each writes the selection and the rail reads it. The folded "Other
+  sectors" band opens the tail instead. A heatmap cell is reached by
+  keyboard through the sr-only table, whose Select buttons show when
+  focused.
+- **A connection the register refuses is empty, not down.** The register
+  names its own industries; a band drawn from fund holdings can name a
+  sector with no notice in it, and `ListStockRegisters` answers
+  `invalid_argument`. `loadConnectionCompanies` reads that as zero companies
+  (logged), so the rail shows a real zero; only a transport failure is an
+  outage.
+- **The fund page decodes its segment** (`asx%3AVAS` and `asx:VAS` are one
+  key) and a fund the record does not hold draws its own not-found card
+  inside the workspace; `notFound()` is for an empty or malformed segment.
+- **Fundamentals of the house rules still bind here**: n/a never 0 (the
+  Overview's coverage tile prints n/a without an overview), kinds and
+  sectors are never market red or green, the one coloured figure in a rail
+  is a change's whole signed figure.
 - **A notice is withheld rather than guessed** (scans, annexure-only figures,
   a headline naming a company not on record, votes that do not fit ASIC's
   share count as at the notice's date). The overview reports read and
@@ -1122,34 +1159,12 @@ e2e spec remain specified and unbuilt).
   ANNEXURE 1") as `no_holder` unless the name resolves to a curated
   institution; `-mode repair-placeholders` removes rows stored before the gate.
 
-### Insights explorer (`/ownership/insights`)
+### Insights explorer (folded into the desk, spec 14.10)
 
-A market map (treemap: sector, then stock), a position heatmap (sector by
-week or month), a money flow (Sankey: kind, institution, sector) and a
-two-handle time window that drives all three, over
-`OwnershipInsightsService.GetOwnershipInsights` (`ownership_insights.proto`,
-its own service, mirrored on `ShortedStocksService`). Go:
-`ownership_insights.go` (one base per universe generation: the fund files'
-index and every notice; at most 64 window answers per generation) and
-`store/shorts/postgres_ownership_insights.go` (`OwnershipInsightsStore`, found
-by type assertion; reads files by id). Web: `app/ownership/insights/` (static
-ISR, the desk and a table per chart in the server HTML),
-`components/ownership/insights/` (the island `insights-explorer.tsx`; the
-charts load from `insights-charts-lazy.tsx`, `ssr: false`, and size with
-`use-element-size.ts`, no visx), `lib/ownership/insights/` (pure geometry and
-the link codec), `app/actions/ownershipInsights.ts` (KV for the default view
-only, `cache:ownership:insights:v1`).
-
-- **A fund change compares a fund with itself.** Its file at the window's start
-  (or its first file inside the window) against its newest file at the end;
-  shares are compared and valued at the later file's price. A window with one
-  file per fund states levels only, and every fund change is n/a, never 0.
-- **The notice change is what the notices state** (present less previous,
-  where both are stated), summed in percentage points. No past register is
-  rebuilt, for the Holder Lanes' reason.
-- **The change scale is rust to avocado**, three steps a side and a warm grey
-  midpoint, light and dark steps checked with the dataviz validator
-  (`lib/ownership/insights/scale.ts`); n/a is hatched, never the midpoint.
+- The insights explorer folded into the desk: the market map and money flow are `/ownership/map` (Size "Index fund holdings", the `index_flow` lens), the heatmap and window are `/ownership/activity`, "Largest moves" is the Activity rail, and the connection rail names its holders.
+- `/ownership/insights` answers 308 to the mapped desk link (`app/ownership/insights/route.ts`, built by `lib/ownership/insights-redirect.ts`); a bare request goes to `/ownership/map?lens=index_flow`.
+- `OwnershipInsightsService` was removed: it was public for one day and nothing else called it, so the desk reads `OwnershipService` only.
+- Spec: `docs/superpowers/specs/2026-11-02-ownership-explorer-design.md` 14.10.
 
 ## Weekly/Monthly/Yearly Reports
 

@@ -21,7 +21,7 @@ import {
   formatFundWeight,
   formatPointChange,
   formatVotingPower,
-  fundLabel,
+  fundCodeAndName,
   holderHref,
 } from "./kinds";
 
@@ -81,7 +81,7 @@ export interface FileHoldingRow {
 export function fileHoldingRow(h: FundHolding): FileHoldingRow {
   return {
     code: h.stockCode,
-    fund: fundLabel(h.fundCode, h.fundName),
+    fund: fundCodeAndName(h.fundCode, h.fundName),
     value: h.hasValue ? formatAmount(h.valueAud, "AUD") : "n/a",
     // The stock card's rule (StockOwnershipView): a super fund's stated 0.00
     // beside a real value is "<0.01%", never a holding of nothing.

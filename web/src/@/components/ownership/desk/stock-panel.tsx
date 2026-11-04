@@ -52,6 +52,8 @@ export interface StockPanelPage {
   ok: boolean;
   code: string;
   companyName: string;
+  /** The company's industry as the register names it (spec 14.8: the rail's subtitle); "" when none. */
+  industry?: string;
   /** The disclosed segments by kind, and their total, as the bar draws them. */
   disclosed: DisclosedSegment[];
   disclosedPct: number;

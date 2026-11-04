@@ -17,6 +17,18 @@ import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { getInstitutionOrNotFound } from "~/app/actions/getOwnership";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
+import { HolderConnectionsMap } from "~/@/components/ownership/holders/holder-connections-map";
+import {
+  connectionsPage,
+  holderFundRow,
+  holderInspectorContent,
+  holderRowFrom,
+  marketCapsOf,
+} from "~/@/components/ownership/holders/holder-tree";
+import { HolderInspector } from "~/@/components/ownership/workspace/inspectors/holder-inspector";
+import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { loadOwnershipMap } from "~/app/actions/ownershipDesk";
+import { loadHolderConnections, resolveHolderInspector } from "~/app/actions/ownershipHolders";
 import type { GetInstitutionResponse } from "~/gen/shorts/v1alpha1/ownership_pb";
 
 // On-demand ISR: rendered on first visit, cached for an hour. The empty
@@ -117,6 +129,16 @@ export default async function InstitutionPage({ params }: PageProps) {
   const inst = data?.institution;
   if (!data || !inst) notFound();
 
+  // The connections map and the inspector read the institution's own positions, joined to
+  // each stock's market cap from the desk's map. The map is a pane here, not the page's
+  // content: a map that cannot be read draws every width as a hairline and the pane says so
+  // (its outage line), and the page caches as usual (spec 14.7).
+  const desk = await loadOwnershipMap({});
+  const holder = holderRowFrom(inst);
+  const funds = data.funds.map(holderFundRow);
+  const connections = connectionsPage(holder, data.positions, desk.ok ? marketCapsOf(desk.stocks) : null, funds);
+  const inspector = holderInspectorContent(holder, connections.positions, null, connections.funds);
+
   const info = kindInfo(inst.kind);
   const etfs = data.funds.filter((f) => f.fundType === "etf");
   const superFunds = data.funds.filter((f) => f.fundType === "super_fund");
@@ -135,7 +157,17 @@ export default async function InstitutionPage({ params }: PageProps) {
   return (
     <DashboardLayout fullWidth>
       <BreadcrumbStructuredData items={crumbs} />
-      <div className="mx-auto w-full max-w-[100rem] space-y-10">
+      <WorkspacePage
+        inspector={
+          <HolderInspector
+            initial={inspector}
+            defaultKey={inst.slug}
+            fixedKey={inst.slug}
+            resolve={resolveHolderInspector}
+          />
+        }
+      >
+      <div className="space-y-10">
         <ExternalLinkSymbol />
         <Breadcrumbs items={crumbs} />
         <header className="space-y-1.5">
@@ -191,6 +223,13 @@ export default async function InstitutionPage({ params }: PageProps) {
           </dl>
         </section>
 
+        <HolderConnectionsMap
+          defaultKey={inst.slug}
+          fixedKey={inst.slug}
+          initial={connections}
+          loadConnections={loadHolderConnections}
+        />
+
         <section className="space-y-3" aria-labelledby="stakes">
           <h2 id="stakes" className={sectionTitle}>
             Substantial holdings
@@ -237,7 +276,7 @@ export default async function InstitutionPage({ params }: PageProps) {
             </h2>
             <ul className="grid gap-x-6 gap-y-1 text-sm md:grid-cols-2">
               {[...superFunds, ...etfs].map((f) => (
-                <li key={f.fundKey} className="flex justify-between gap-3">
+                <li key={f.fundKey} className="flex min-w-0 justify-between gap-3">
                   <span className="min-w-0 truncate">
                     {f.asxCode ? <span className="font-semibold">{f.asxCode} </span> : null}
                     {f.name}
@@ -287,6 +326,7 @@ export default async function InstitutionPage({ params }: PageProps) {
           </p>
         </section>
       </div>
+      </WorkspacePage>
     </DashboardLayout>
   );
 }

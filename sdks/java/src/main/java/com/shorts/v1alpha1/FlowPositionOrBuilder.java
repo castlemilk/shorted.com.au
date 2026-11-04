@@ -81,4 +81,53 @@ public interface FlowPositionOrBuilder extends
    * @return The largestPct.
    */
   double getLargestPct();
+
+  /**
+   * <pre>
+   * The cell's largest holders by estimated exposure, at most ten, largest
+   * first (unknown exposures last, then by holdings).
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.FlowHolder> 
+      getTopHoldersList();
+  /**
+   * <pre>
+   * The cell's largest holders by estimated exposure, at most ten, largest
+   * first (unknown exposures last, then by holdings).
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+   */
+  com.shorts.v1alpha1.FlowHolder getTopHolders(int index);
+  /**
+   * <pre>
+   * The cell's largest holders by estimated exposure, at most ten, largest
+   * first (unknown exposures last, then by holdings).
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+   */
+  int getTopHoldersCount();
+  /**
+   * <pre>
+   * The cell's largest holders by estimated exposure, at most ten, largest
+   * first (unknown exposures last, then by holdings).
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.FlowHolderOrBuilder> 
+      getTopHoldersOrBuilderList();
+  /**
+   * <pre>
+   * The cell's largest holders by estimated exposure, at most ten, largest
+   * first (unknown exposures last, then by holdings).
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.FlowHolder top_holders = 8 [json_name = "topHolders"];</code>
+   */
+  com.shorts.v1alpha1.FlowHolderOrBuilder getTopHoldersOrBuilder(
+      int index);
 }

@@ -3,8 +3,10 @@ package shorts
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -26,6 +28,8 @@ type deskStore struct {
 	snapshots []string
 	pairs     []shortsstore.FundPositionPair
 	series    []shortsstore.FundSeriesRow
+	// weeklyKinds is the kind each NoticeWeeklyByIndustry call was given, in order.
+	weeklyKinds []string
 }
 
 func (f *deskStore) inWindow(from, until string) []shortsstore.SubstantialNoticeRow {
@@ -85,9 +89,47 @@ func (f *deskStore) NoticeChangesByKindIndustry(_ context.Context, from, until s
 	return out, nil
 }
 
-func (f *deskStore) NoticeWeeklyByIndustry(context.Context, string, string) ([]shortsstore.IndustryWeekRow, error) {
+func (f *deskStore) NoticeWeeklyByIndustry(_ context.Context, _, _, kind string) ([]shortsstore.IndustryWeekRow, error) {
 	f.read("NoticeWeeklyByIndustry")
+	f.weeklyKinds = append(f.weeklyKinds, kind)
 	return f.weekly, nil
+}
+
+// NoticeLargestMoves mirrors the store's query: the window's notices that state
+// both figures and a difference, neither ceased nor Form 605, ranked by the size
+// of the change, the newer release, the stock code and the URL, at most limit.
+func (f *deskStore) NoticeLargestMoves(_ context.Context, from, until, kind string, limit int) ([]shortsstore.SubstantialNoticeRow, error) {
+	f.read("NoticeLargestMoves")
+	var out []shortsstore.SubstantialNoticeRow
+	for _, n := range f.inWindow(from, until) {
+		if kind != "" && n.Kind != kind {
+			continue
+		}
+		if n.Ceased || n.Form == "605" || n.PresentPct == nil || n.PreviousPct == nil || *n.PresentPct == *n.PreviousPct {
+			continue
+		}
+		out = append(out, n)
+	}
+	mag := func(n shortsstore.SubstantialNoticeRow) float64 {
+		return math.Abs(*n.PresentPct - *n.PreviousPct)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if mag(a) != mag(b) {
+			return mag(a) > mag(b)
+		}
+		if a.AnnouncedOn != b.AnnouncedOn {
+			return a.AnnouncedOn > b.AnnouncedOn
+		}
+		if a.StockCode != b.StockCode {
+			return a.StockCode < b.StockCode
+		}
+		return a.AnnouncementURL > b.AnnouncementURL
+	})
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 func (f *deskStore) FundSnapshotDates(context.Context) ([]string, error) {
@@ -275,7 +317,7 @@ func TestBuildOwnershipMapCarriesTheWindow(t *testing.T) {
 		"BHP": {Notices: 2, Net: -2.7, Has: true},
 		"PLS": {Notices: 1, Net: 6, Has: true},
 	}
-	out := buildOwnershipMap(u, "2026-07-18", "2026-10-16", flows)
+	out := buildOwnershipMap(u, "2026-07-18", "2026-10-16", "2026-07-18", "2026-10-16", flows, indexFundFigures{})
 	require.Len(t, out.Stocks, 4, "every stock with a current holder")
 	byCode := map[string]*shortsv1alpha1.MapStock{}
 	for _, m := range out.Stocks {
@@ -447,13 +489,36 @@ func TestBuildStockFundSeriesGroupsByFund(t *testing.T) {
 		{InstitutionSlug: "vanguard", FundName: "VAS", SourceKind: "etf", AsAt: "2026-09-30", Weight: new(0.5)},
 		{InstitutionSlug: "vanguard", FundName: "VAS", SourceKind: "etf", AsAt: "2026-10-15"},
 	}
-	out := buildStockFundSeries(u, "BHP", rows)
+	out := buildStockFundSeries(u, nil, "BHP", rows)
 	require.Len(t, out.Funds, 2)
 	assert.Equal(t, "Hostplus", out.Funds[0].InstitutionName)
+	assert.Equal(t, "hostplus/Balanced", out.Funds[0].FundKey, "no book: the alias key, which the fund page resolves")
+	assert.Empty(t, out.Funds[0].FundCode, "a super option names no ticker, so the page labels it by its name")
 	require.Len(t, out.Funds[1].Points, 2)
 	assert.True(t, out.Funds[1].Points[0].HasWeight)
 	assert.False(t, out.Funds[1].Points[1].HasWeight, "a snapshot with no weight is no weight, not zero")
 	assert.Equal(t, "2026-10-15", out.Funds[1].Points[1].AsAt)
+}
+
+func TestBuildStockFundSeriesNamesTheRegistryKey(t *testing.T) {
+	u := ownershipFixtureUniverse()
+	// A registry-matched ETF is keyed as its registry row (the key its fund page resolves under),
+	// and carries its ticker; the alias key is what a fund with no registry row keeps.
+	files := []shortsstore.FundFileRow{
+		{ID: 1, InstitutionSlug: "betashares", InstitutionName: "Betashares", FundName: "Betashares Australia 200 ETF",
+			FundCode: "A200", SourceKind: "etf", AsAt: "2026-09-30"},
+	}
+	registry := []shortsstore.OwnershipFundRow{{FundKey: "asx:A200", InstitutionSlug: "betashares", ASXCode: "A200"}}
+	book := buildFundBook(files, registry)
+	rows := []shortsstore.FundSeriesRow{
+		{InstitutionSlug: "betashares", FundName: "Betashares Australia 200 ETF", FundCode: "A200", SourceKind: "etf",
+			AsAt: "2026-09-30", Weight: new(0.5)},
+	}
+	out := buildStockFundSeries(u, book, "BHP", rows)
+	require.Len(t, out.Funds, 1)
+	assert.Equal(t, "asx:A200", out.Funds[0].FundKey)
+	assert.Equal(t, "A200", out.Funds[0].FundCode)
+	assert.Equal(t, "Betashares Australia 200 ETF", out.Funds[0].FundName)
 }
 
 func TestDeskMapCachesTheDefaultWindowOnly(t *testing.T) {
@@ -491,6 +556,20 @@ func TestDeskRpcsRefuseBadInput(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 	_, err = s.GetStockFundSeries(ctx, connect.NewRequest(&shortsv1alpha1.GetStockFundSeriesRequest{StockCode: "BH-P"}))
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+}
+
+func TestGetOwnershipActivityForwardsTheClampedKind(t *testing.T) {
+	store := deskTestStore(deskNotices())
+	s, _ := deskServer(store)
+	ctx := context.Background()
+
+	_, err := s.GetOwnershipActivity(ctx, connect.NewRequest(&shortsv1alpha1.GetOwnershipActivityRequest{Kind: " Super_Fund "}))
+	require.NoError(t, err)
+	_, err = s.GetOwnershipActivity(ctx, connect.NewRequest(&shortsv1alpha1.GetOwnershipActivityRequest{}))
+	require.NoError(t, err)
+	_, err = s.GetOwnershipActivity(ctx, connect.NewRequest(&shortsv1alpha1.GetOwnershipActivityRequest{Kind: "bogus"}))
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+	assert.Equal(t, []string{"super_fund", ""}, store.weeklyKinds, "the clamped kind reaches the store; a refused kind never does")
 }
 
 func TestDeskRpcsAnswerEmptyWithoutADeskStore(t *testing.T) {
