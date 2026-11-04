@@ -1,6 +1,7 @@
 package features
 
 import (
+	"math"
 	"time"
 
 	"cloud.google.com/go/civil"
@@ -58,11 +59,9 @@ func Regime(xjo []IndexBar, D civil.Date) engine.Regime {
 		out.SMA200 = &v
 	}
 
-	high52 := 0.0
+	high52 := math.Inf(-1)
 	for rank := 1; rank <= min(n, regimeHigh52Ranks); rank++ {
-		if rank == 1 || at(rank).high > high52 {
-			high52 = at(rank).high
-		}
+		high52 = math.Max(high52, at(rank).high)
 	}
 	if high52 > 0 {
 		v := min(0, (last-high52)/high52*100)

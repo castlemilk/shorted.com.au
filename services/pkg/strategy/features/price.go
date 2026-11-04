@@ -110,9 +110,9 @@ const (
 	sma200LagTo   = 221 // (the average as of 21 sessions ago)
 )
 
-// AsOf computes the price features of one stock at session D, from its bars
-// (any order is not allowed: ascending by date, unique dates) and the XJO
-// series. It is the exact port of mv_price_features evaluated at D instead of
+// AsOf computes the price features of one stock at session D, from its bars and
+// the XJO series. Both must be sorted ascending by date with unique dates; the
+// readers order them. AsOf is the exact port of mv_price_features evaluated at D instead of
 // CURRENT_DATE. Bars after D are ignored, so AsOf(bars[:i+1], d_i) equals
 // AsOf(bars, d_i). ok is false when the stock has fewer than min_sessions bars
 // in the window.
