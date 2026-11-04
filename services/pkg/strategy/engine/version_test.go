@@ -65,10 +65,10 @@ func cmpSemver(a, b [3]int) int {
 
 // TestEngineVersionBumpedWithGoldens holds Version to the engine goldens. The
 // history file records, for each engine version, the digest of the engine
-// goldens it shipped with. Versions must strictly increase and never repeat a
-// digest, and the newest line must be the current Version with the current
-// digest. So an output change without a higher Version fails, and so does a
-// bump that records no new digest or a digest recorded under an old version.
+// goldens it shipped with. Versions must strictly increase, and the newest line
+// must be the current Version with the current digest. So an output change
+// without a higher Version fails. A minor or major bump with no output change
+// is recorded with the unchanged digest, so the digest may repeat across lines.
 func TestEngineVersionBumpedWithGoldens(t *testing.T) {
 	if !strings.HasPrefix(Version, fmt.Sprintf("%d.", Major)) {
 		t.Fatalf("Version %q does not carry Major %d", Version, Major)
@@ -101,7 +101,6 @@ func TestEngineVersionBumpedWithGoldens(t *testing.T) {
 	}
 
 	var prev [3]int
-	seen := map[string]bool{}
 	for i, h := range hist {
 		v, ok := parseSemver(h.version)
 		if !ok {
@@ -110,10 +109,6 @@ func TestEngineVersionBumpedWithGoldens(t *testing.T) {
 		if i > 0 && cmpSemver(v, prev) <= 0 {
 			t.Errorf("version history entry %d: %s does not follow %s; versions must strictly increase", i+1, h.version, hist[i-1].version)
 		}
-		if seen[h.digest] {
-			t.Errorf("version history entry %d: digest %s is recorded twice", i+1, h.digest)
-		}
-		seen[h.digest] = true
 		prev = v
 	}
 
