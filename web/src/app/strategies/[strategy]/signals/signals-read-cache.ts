@@ -1,3 +1,5 @@
+"use client";
+
 // The signed-in Signals reads, held in this browser tab for a minute. A tab
 // switch, a strategy link or Back within the minute draws the list it already
 // has instead of paying for the same pages again.
@@ -5,7 +7,9 @@
 // The key carries the signed-in user's id, so a second account in the same tab
 // never reads the first one's list, and the session and rules version the page
 // is drawing, so a list from another snapshot is never reused. Only the signed-in
-// island reads this module; the server caches nothing per viewer.
+// island reads this module; the server caches nothing per viewer. The
+// directive makes a server-side import a client reference that throws when
+// called, so the cache cannot be reached from a server module by accident.
 
 import {
   getSignalsForViewer,
