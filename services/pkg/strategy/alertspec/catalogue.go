@@ -17,7 +17,8 @@ const (
 
 // Operators. The state operators read the value on the session; the transition
 // operators also need the previous session and are true only on the session
-// the value moves across the line (see evaluate.go).
+// the value moves across the line (see evaluate.go). Reaches is a state
+// operator: the held count is at least N on every session from the Nth on.
 const (
 	OpIs           = "is"
 	OpBecomes      = "becomes"

@@ -42,20 +42,37 @@ type SubjectResult struct {
 	// ExistingMatch marks an event raised on the first evaluation of a
 	// notify-existing alert, rather than a new transition.
 	ExistingMatch bool
-	// Skipped is true on the first session the subject has no usable data:
-	// an in-app skipped event is written, with SkipReason.
+	// SkipReason is set on every subject whose section is unknown on the
+	// session, including one whose side is waiting. Skipped is true only on
+	// the first such session, when an in-app skipped event is written.
 	Skipped    bool
 	SkipReason string
 	// State is the state to store (the default state means delete the row).
 	State State
 }
 
+// SideOutage is how much of one enabled side has data on the session.
+type SideOutage struct {
+	Side string
+	// Unknown counts the side's subjects whose section is unknown; Total counts
+	// every subject evaluated on the side.
+	Unknown int
+	Total   int
+	// Waiting is true when more than half of the side's subjects are unknown.
+	Waiting bool
+}
+
 // Result is the outcome of one alert on one session.
 type Result struct {
-	// Waiting is true when more than half of the alert's subjects have no
-	// data. Nothing fires, no state changes and no skipped events are written.
-	Waiting       bool
-	WaitingReason string
+	// Waiting is true when an enabled side has more than half of its subjects
+	// without data (see Sides). A waiting side fires nothing, writes no events
+	// and leaves its subjects' state alone. The other side is evaluated as
+	// usual, so a stale entry universe does not hold back the exits of tracked
+	// positions. On the first evaluation nothing is evaluated at all, because
+	// the baseline must cover every enabled side.
+	Waiting bool
+	// Sides holds one entry per enabled side, entry first.
+	Sides []SideOutage
 	// SetBaseline is true when this session is the alert's first evaluated
 	// session, so the caller sets baseline_as_of to it.
 	SetBaseline bool
@@ -63,9 +80,6 @@ type Result struct {
 	// Subjects on a disabled side are not evaluated and do not appear.
 	Subjects []SubjectResult
 }
-
-// WaitingReason is the copy an alert shows while it waits for data.
-const WaitingReason = "Waiting for data: more than half of the stocks have no data on this session"
 
 // Evaluate runs one alert over its subjects on one session. It is a pure
 // function of its inputs: the caller supplies the session ordinal, the
@@ -86,12 +100,25 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 	}
 	firstEval := !a.Baselined
 
+	// One outage count per enabled side, entry first.
+	var sides []SideOutage
+	sideIdx := map[string]int{}
+	for _, side := range []string{SideEntry, SideExit} {
+		sec, err := sectionOf(a.Spec, side)
+		if err != nil {
+			return Result{}, err
+		}
+		if sec.Enabled {
+			sideIdx[side] = len(sides)
+			sides = append(sides, SideOutage{Side: side})
+		}
+	}
+
 	type pending struct {
 		SubjectResult
 		skipReason string
 	}
 	var results []pending
-	unknown := 0
 	for _, sub := range subjects {
 		sec, err := sectionOf(a.Spec, sub.Side)
 		if err != nil {
@@ -106,31 +133,42 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 		}
 		v := combine(sec.Op, conds)
 		p := pending{SubjectResult: SubjectResult{Key: sub.Key, Side: sub.Side, Value: v, Conditions: conds, State: sub.State}}
+		so := &sides[sideIdx[sub.Side]]
+		so.Total++
 		if v == Unknown {
-			unknown++
+			so.Unknown++
 			p.skipReason = unknownReason(sec, conds)
 		}
 		results = append(results, p)
 	}
 
-	if n := len(results); n > 0 && 2*unknown > n {
-		out := make([]SubjectResult, n)
-		for i, r := range results {
-			out[i] = r.SubjectResult
-		}
-		return Result{Waiting: true, WaitingReason: WaitingReason, Subjects: out}, nil
+	waitingAny := false
+	for i := range sides {
+		s := &sides[i]
+		s.Waiting = s.Total > 0 && 2*s.Unknown > s.Total
+		waitingAny = waitingAny || s.Waiting
+	}
+	// The first evaluation is all or nothing: a baseline must cover every
+	// enabled side, so one waiting side holds the whole alert back.
+	holdAll := firstEval && waitingAny
+	frozen := func(side string) bool {
+		return holdAll || sides[sideIdx[side]].Waiting
 	}
 
 	out := make([]SubjectResult, len(results))
 	for i, p := range results {
 		r := p.SubjectResult
+		r.SkipReason = p.skipReason
 		s := r.State
+		if frozen(r.Side) {
+			out[i] = r
+			continue
+		}
 		if r.Value == Unknown {
 			if s.UnavailableSince == nil {
 				since := session
 				s.UnavailableSince = &since
 				r.Skipped = true
-				r.SkipReason = p.skipReason
 			}
 		} else {
 			s.UnavailableSince = nil
@@ -162,7 +200,12 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 		r.State = s
 		out[i] = r
 	}
-	return Result{SetBaseline: firstEval && len(out) > 0, Subjects: out}, nil
+	return Result{
+		Waiting:     waitingAny,
+		Sides:       sides,
+		SetBaseline: firstEval && !waitingAny && len(out) > 0,
+		Subjects:    out,
+	}, nil
 }
 
 func sectionOf(s Spec, side string) (Section, error) {
@@ -201,7 +244,10 @@ func unknownReason(sec Section, conds []Truth) string {
 //
 //	becomes X       -> is X            becomes_pass -> passes
 //	leaves X        -> is not X        crosses_above v -> is_at_least v
-//	crosses_below v -> is_at_most v    reaches N    -> is_at_least N
+//	crosses_below v -> is_at_most v
+//
+// reaches N is a state operator on every session (the held count is at least
+// N), so it has no transition reading and needs no previous session.
 //
 // Otherwise a transition needs the previous session as well: it is True only
 // on the session the value moves across the line, and Unknown when the
@@ -218,12 +264,19 @@ func evalCondition(c Condition, cur, prev *Observation, pos *Position, stateForm
 	return Unknown
 }
 
-// statusIs is True or False when the status is known, Unknown otherwise.
+// statusIs is True or False when the status is a ladder value the alert can
+// read (triggered, setup, or other for watch and none). A missing status, the
+// v1 ladder's unknown rung and any value outside the ladder are Unknown: none
+// of them says the stock is not triggered.
 func statusIs(o *Observation, want string) Truth {
-	if o == nil || o.Status == "" {
+	if o == nil {
 		return Unknown
 	}
-	return FromBool(o.Status == want)
+	switch o.Status {
+	case StatusTriggered, StatusSetup, StatusOther:
+		return FromBool(o.Status == want)
+	}
+	return Unknown
 }
 
 func evalStatus(c Condition, cur, prev *Observation, stateForm bool) Truth {
@@ -283,9 +336,15 @@ func finiteMetric(o *Observation, key string) (float64, bool) {
 // metricValue reads a condition's value on one session. The position metrics
 // are derived from the close and the tracked entry: the return since entry, the
 // close against the captured pivot in percent (0 is the pivot), and the
-// sessions held. isPrev selects the previous session's value, where the
-// sessions held is one less.
-func metricValue(c Condition, o *Observation, pos *Position, isPrev bool) (float64, bool) {
+// sessions held. The held count is a fact of the position, so it reads no
+// market data and needs no observation.
+func metricValue(c Condition, o *Observation, pos *Position) (float64, bool) {
+	if c.Metric == MetricSessionsHeld {
+		if pos == nil {
+			return 0, false
+		}
+		return float64(pos.SessionsHeld), true
+	}
 	if o == nil {
 		return 0, false
 	}
@@ -308,18 +367,6 @@ func metricValue(c Condition, o *Observation, pos *Position, isPrev bool) (float
 			return 0, false
 		}
 		return (cl/pos.EntryPrice - 1) * 100, true
-	case MetricSessionsHeld:
-		if pos == nil {
-			return 0, false
-		}
-		n := pos.SessionsHeld
-		if isPrev {
-			n--
-		}
-		if n < 0 {
-			n = 0
-		}
-		return float64(n), true
 	}
 	key := c.Metric
 	if c.Metric == MetricCloseVsSMA {
@@ -333,7 +380,7 @@ func evalMetric(c Condition, cur, prev *Observation, pos *Position, stateForm bo
 		return Unknown
 	}
 	v := *c.Value
-	x, okx := metricValue(c, cur, pos, false)
+	x, okx := metricValue(c, cur, pos)
 	cmp := func(ok bool, x float64, f func(float64) bool) Truth {
 		if !ok {
 			return Unknown
@@ -343,21 +390,21 @@ func evalMetric(c Condition, cur, prev *Observation, pos *Position, stateForm bo
 	atLeast := func(x float64) bool { return x >= v }
 	atMost := func(x float64) bool { return x <= v }
 	switch c.Op {
-	case OpIsAtLeast:
+	case OpIsAtLeast, OpReaches:
 		return cmp(okx, x, atLeast)
 	case OpIsAtMost:
 		return cmp(okx, x, atMost)
-	case OpCrossesAbove, OpReaches:
+	case OpCrossesAbove:
 		if stateForm {
 			return cmp(okx, x, atLeast)
 		}
-		y, oky := metricValue(c, prev, pos, true)
+		y, oky := metricValue(c, prev, pos)
 		return and(cmp(oky, y, func(p float64) bool { return p < v }), cmp(okx, x, atLeast))
 	case OpCrossesBelow:
 		if stateForm {
 			return cmp(okx, x, atMost)
 		}
-		y, oky := metricValue(c, prev, pos, true)
+		y, oky := metricValue(c, prev, pos)
 		return and(cmp(oky, y, func(p float64) bool { return p > v }), cmp(okx, x, atMost))
 	}
 	return Unknown

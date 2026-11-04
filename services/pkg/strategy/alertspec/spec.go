@@ -102,17 +102,22 @@ func DefaultEntry() Section {
 	}
 }
 
-// Stock statuses a condition can read. Every other ladder value is StatusOther.
+// Stock statuses a condition can read. The ladder's watch and none both read
+// as StatusOther. StatusUnknown is the v1 ladder's unknown rung, which a
+// condition reads as Unknown, not as a stock that is not triggered. A status
+// outside this list is also Unknown.
 const (
 	StatusTriggered = "triggered"
 	StatusSetup     = "setup"
 	StatusOther     = "other"
+	StatusUnknown   = "unknown"
 )
 
 // Observation is what the caller knows about one stock on one session. A zero
 // Observation is a session with no data at all.
 type Observation struct {
-	// Status is the ladder status on the session, or "" when unknown.
+	// Status is the pinned version's ladder status on the session (see the
+	// Status constants). "" and StatusUnknown are unknown.
 	Status string
 	// Rules holds each rule's outcome for the alert's pinned rule version,
 	// keyed by rule id: True for pass, False for fail. A missing id is unknown.
@@ -129,7 +134,10 @@ type Position struct {
 	// Pivot is the captured pivot, or nil when none was captured. Pivot-based
 	// exits are unknown without one.
 	Pivot *float64
-	// SessionsHeld counts the sessions held through the current session.
+	// SessionsHeld counts the trading sessions after the entry session: 0 on
+	// the entry session and N on the Nth session after it. The time stop of N
+	// sessions is "sessions held reaches N", which first reads True on the Nth
+	// session after the entry session, whether or not that session had data.
 	SessionsHeld int
 }
 

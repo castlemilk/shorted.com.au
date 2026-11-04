@@ -42,7 +42,7 @@ func run(t *testing.T, a Alert, days []day) (fired []Session, skipped []Session)
 			a.Baselined = true
 		}
 		if res.Waiting {
-			t.Fatalf("session %d: the companion keeps the alert out of outage: %s", session, res.WaitingReason)
+			t.Fatalf("session %d: the companion keeps the alert out of outage: %+v", session, res.Sides)
 		}
 		r := res.Subjects[0]
 		if r.Emit {
@@ -203,27 +203,32 @@ func TestUnknownLeavesTheStateAloneAndRecordsTheFirstSkip(t *testing.T) {
 
 func TestUnknownDoesNotReArmAStockThatIsDisarmed(t *testing.T) {
 	// Explicit states: the stock fired on session 1 and is disarmed. On session
-	// 2 it has no data. On session 3 it has data but no previous session, so
-	// "becomes" is unknown. Neither unknown may re-arm, and neither may fire.
-	spec := triggeredEntry(0)
-	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline, Baselined: true}
+	// 2 it has no data, which records the first unknown session and nothing
+	// else. On session 3 it has data but no previous session, so "becomes" is
+	// unknown. Neither unknown may re-arm, and neither may fire. A known
+	// companion keeps the entry side out of outage, so the stock's own unknown
+	// is what is being read.
+	a := Alert{Spec: triggeredEntry(0), FirstEval: FirstEvalBaseline, Baselined: true}
 	st := State{Last: true, Disarmed: true}
-	missing, err := Evaluate(a, 2, []Subject{{Key: "code:BHP", Side: SideEntry, State: st}})
+	companion := Subject{Key: "code:CMP", Side: SideEntry, Current: Observation{Status: StatusOther}, State: DefaultState()}
+	two := Session(2)
+	first := State{Last: true, Disarmed: true, UnavailableSince: &two}
+	missing, err := Evaluate(a, 2, []Subject{{Key: "code:BHP", Side: SideEntry, State: st}, companion})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := missing.Subjects[0]; got.Value != Unknown || got.State != st {
-		t.Fatalf("an unknown session changed the state: %+v", got)
+	if got := missing.Subjects[0]; got.Value != Unknown || got.Emit || !got.Skipped || !reflect.DeepEqual(got.State, first) {
+		t.Fatalf("the first unknown session: %+v", got)
 	}
-	back, err := Evaluate(a, 3, []Subject{{
-		Key: "code:BHP", Side: SideEntry, State: st,
-		Current: Observation{Status: StatusTriggered},
-	}})
+	back, err := Evaluate(a, 3, []Subject{
+		{Key: "code:BHP", Side: SideEntry, State: first, Current: Observation{Status: StatusTriggered}},
+		companion,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := back.Subjects[0]; got.Value != Unknown || got.Emit || got.State != st {
-		t.Fatalf("a held trigger with no previous session fired or re-armed: %+v", got)
+	if got := back.Subjects[0]; got.Value != Unknown || got.Emit || got.Skipped || !reflect.DeepEqual(got.State, first) {
+		t.Fatalf("a held trigger with no previous session fired, re-armed or re-skipped: %+v", got)
 	}
 }
 
@@ -231,7 +236,7 @@ func TestAlertLevelOutageWaitsAndWritesNothing(t *testing.T) {
 	a := Alert{Spec: triggeredEntry(0), FirstEval: FirstEvalBaseline, Baselined: true}
 	stateA := State{Last: false, Disarmed: true}
 	subjects := []Subject{
-		{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: stateA},
+		{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, Previous: &Observation{Status: StatusSetup}, State: stateA},
 		{Key: "code:BBB", Side: SideEntry, Current: Observation{}, State: DefaultState()},
 		{Key: "code:CCC", Side: SideEntry, Current: Observation{}, State: DefaultState()},
 	}
@@ -239,8 +244,11 @@ func TestAlertLevelOutageWaitsAndWritesNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !res.Waiting || res.WaitingReason != WaitingReason {
+	if !res.Waiting {
 		t.Fatalf("two of three without data must wait: %+v", res)
+	}
+	if want := []SideOutage{{Side: SideEntry, Unknown: 2, Total: 3, Waiting: true}}; !reflect.DeepEqual(res.Sides, want) {
+		t.Fatalf("sides %+v, want %+v", res.Sides, want)
 	}
 	if res.SetBaseline {
 		t.Fatal("a waiting alert must not set its baseline")
@@ -252,6 +260,126 @@ func TestAlertLevelOutageWaitsAndWritesNothing(t *testing.T) {
 	}
 	if res.Subjects[0].State != stateA {
 		t.Fatalf("a waiting alert must leave the state alone: %+v", res.Subjects[0].State)
+	}
+	if res.Subjects[1].SkipReason == "" || res.Subjects[2].SkipReason == "" {
+		t.Fatal("a waiting alert keeps each subject's reason for the missing input")
+	}
+}
+
+func TestFirstEvaluationWaitingWritesNothingAndSetsNoBaseline(t *testing.T) {
+	// Not yet baselined: the one waiting side holds the whole alert, so the
+	// known stock is not evaluated and the next session is still a first one.
+	a := Alert{Spec: triggeredEntry(0), FirstEval: FirstEvalNotifyExisting}
+	stateA := DefaultState()
+	subjects := []Subject{
+		{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: stateA},
+		{Key: "code:BBB", Side: SideEntry, Current: Observation{}, State: DefaultState()},
+		{Key: "code:CCC", Side: SideEntry, Current: Observation{}, State: DefaultState()},
+	}
+	res, err := Evaluate(a, 1, subjects)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Waiting || res.SetBaseline {
+		t.Fatalf("a first evaluation with most stocks without data waits and sets no baseline: %+v", res)
+	}
+	if r := res.Subjects[0]; r.Emit || r.ExistingMatch || r.State != stateA {
+		t.Fatalf("a waiting first evaluation evaluated the stock: %+v", r)
+	}
+	// The data comes back: the same call is now the first evaluation.
+	subjects[1].Current = Observation{Status: StatusSetup}
+	subjects[2].Current = Observation{Status: StatusSetup}
+	res, err = Evaluate(a, 2, subjects)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Waiting || !res.SetBaseline {
+		t.Fatalf("with data for every stock the first evaluation sets the baseline: %+v", res)
+	}
+	if r := res.Subjects[0]; !r.Emit || !r.ExistingMatch {
+		t.Fatalf("notify-existing reports the stock triggered on the first full evaluation: %+v", r)
+	}
+}
+
+// mixedSpec is a tracked-entry alert: the entry side fires when the status is
+// triggered, and the exit side fires when the close is at or under the pivot.
+func mixedSpec() Spec {
+	spec := entryOf(OpAll, Condition{Kind: KindStatus, Status: StatusTriggered, Op: OpIs})
+	spec.Exit = Section{Enabled: true, Op: OpAny, Conditions: []Condition{
+		{Kind: KindPosition, Metric: MetricCloseVsEntryPivot, Op: OpIsAtMost, Value: f(0)},
+	}}
+	spec.Cooldown = 0
+	return spec
+}
+
+func TestOneSidesOutageDoesNotHoldTheOtherSide(t *testing.T) {
+	a := Alert{Spec: mixedSpec(), FirstEval: FirstEvalBaseline, Baselined: true}
+	belowPivot := &Position{EntryPrice: 9, Pivot: f(10), SessionsHeld: 3}
+	noPivot := &Position{EntryPrice: 9, SessionsHeld: 3}
+
+	t.Run("entry side waits, exit still fires", func(t *testing.T) {
+		res, err := Evaluate(a, 9, []Subject{
+			{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
+			{Key: "code:BBB", Side: SideEntry, State: DefaultState()},
+			{Key: "code:CCC", Side: SideEntry, State: DefaultState()},
+			{Key: "entry:7", Side: SideExit, Position: belowPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !res.Waiting || res.Sides[0].Waiting != true || res.Sides[1].Waiting {
+			t.Fatalf("only the entry side waits: %+v", res.Sides)
+		}
+		if res.Subjects[0].Emit || res.Subjects[0].State != DefaultState() {
+			t.Fatalf("the waiting entry side fires nothing: %+v", res.Subjects[0])
+		}
+		if ex := res.Subjects[3]; !ex.Emit {
+			t.Fatalf("the exit side must keep watching its position: %+v", ex)
+		}
+	})
+
+	t.Run("exit side waits, entry still fires", func(t *testing.T) {
+		res, err := Evaluate(a, 9, []Subject{
+			{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
+			{Key: "entry:1", Side: SideExit, Position: noPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+			{Key: "entry:2", Side: SideExit, Position: noPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+			{Key: "entry:3", Side: SideExit, Position: belowPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !res.Waiting || res.Sides[0].Waiting || !res.Sides[1].Waiting {
+			t.Fatalf("only the exit side waits: %+v", res.Sides)
+		}
+		if ent := res.Subjects[0]; !ent.Emit {
+			t.Fatalf("the entry side must keep firing: %+v", ent)
+		}
+		if ex := res.Subjects[3]; ex.Emit {
+			t.Fatalf("the waiting exit side fires nothing, even for a known position: %+v", ex)
+		}
+	})
+}
+
+func TestEntryOutageIsCountedOnTheEntryScopeOnly(t *testing.T) {
+	// Two of three exits have no pivot. The entry side has data for both of
+	// its stocks, so the alert does not wait on the entry side at all.
+	a := Alert{Spec: mixedSpec(), FirstEval: FirstEvalBaseline, Baselined: true}
+	noPivot := &Position{EntryPrice: 9, SessionsHeld: 3}
+	res, err := Evaluate(a, 9, []Subject{
+		{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusSetup}, State: DefaultState()},
+		{Key: "code:BBB", Side: SideEntry, Current: Observation{Status: StatusSetup}, State: DefaultState()},
+		{Key: "entry:1", Side: SideExit, Position: noPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+		{Key: "entry:2", Side: SideExit, Position: noPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+		{Key: "entry:3", Side: SideExit, Position: &Position{EntryPrice: 9, Pivot: f(10), SessionsHeld: 3}, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Sides[0].Waiting || res.Sides[0].Total != 2 {
+		t.Fatalf("the entry side has data for every stock: %+v", res.Sides[0])
+	}
+	if !res.Sides[1].Waiting {
+		t.Fatalf("the exit side is mostly pivot-less: %+v", res.Sides[1])
 	}
 }
 
@@ -265,7 +393,7 @@ func TestExactlyHalfWithoutDataIsNotAnOutage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Waiting {
+	if res.Waiting || res.Sides[0].Waiting {
 		t.Fatal("one of two without data is half, not more than half")
 	}
 	if !res.Subjects[1].Skipped {

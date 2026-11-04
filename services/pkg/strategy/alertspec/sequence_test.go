@@ -12,10 +12,10 @@ type ten struct {
 	short  float64
 }
 
-// runTen evaluates an entry alert of two conditions (status becomes triggered
-// AND short position at least 5%) over a sequence, carrying state and baseline
-// as the daily job does. It returns the sessions that fired and the sessions
-// that were skipped.
+// runTen evaluates an entry alert over a sequence, carrying state and baseline
+// as the daily job does. The stock under test is "code:BHP"; a companion that
+// is always known keeps one missing day from being an outage. It returns the
+// sessions that fired and the sessions that were skipped.
 func runTen(t *testing.T, a Alert, seq []ten) (fired, skipped []Session) {
 	t.Helper()
 	state := DefaultState()
@@ -30,6 +30,7 @@ func runTen(t *testing.T, a Alert, seq []ten) (fired, skipped []Session) {
 		// never in outage and only the stock under test records its skips.
 		companionObs := Observation{Status: StatusOther, Metrics: map[string]float64{MetricShortPct: 0}}
 		companion := Subject{Key: "code:CMP", Side: SideEntry, Current: companionObs, Previous: &companionObs, State: DefaultState()}
+		wasBaselined := a.Baselined
 		res, err := Evaluate(a, session, []Subject{
 			{Key: "code:BHP", Side: SideEntry, Current: cur, Previous: prev, State: state},
 			companion,
@@ -37,13 +38,16 @@ func runTen(t *testing.T, a Alert, seq []ten) (fired, skipped []Session) {
 		if err != nil {
 			t.Fatalf("session %d: %v", session, err)
 		}
+		if res.Waiting {
+			t.Fatalf("session %d: unexpected outage: %+v", session, res.Sides)
+		}
 		if res.SetBaseline {
 			a.Baselined = true
 		}
-		if res.Waiting {
-			t.Fatalf("session %d: unexpected outage", session)
-		}
 		r := res.Subjects[0]
+		if r.ExistingMatch && wasBaselined {
+			t.Fatalf("session %d: an existing-match event after the baseline", session)
+		}
 		if r.Emit {
 			fired = append(fired, session)
 		}
@@ -111,5 +115,177 @@ func TestTenSessionsNotifyExistingThenTransitions(t *testing.T) {
 	}
 	if want := []Session{10}; !reflect.DeepEqual(skipped, want) {
 		t.Fatalf("skipped on %v, want %v", skipped, want)
+	}
+}
+
+func TestAStateConditionThroughAGapFiresOnce(t *testing.T) {
+	// A state operator (is at least 5) is true on 2, unknown on 3 and still
+	// true on 4: the stock stays armed-off through the gap and does not fire
+	// again. The reset on 5 re-arms it.
+	spec := entryOf(OpAll, Condition{Kind: KindMetric, Metric: MetricShortPct, Op: OpIsAtLeast, Value: f(5)})
+	spec.Cooldown = 0
+	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline}
+	seq := []ten{
+		{"", 4},  // 1: baseline, below
+		{"", 6},  // 2: qualifies: fires
+		{"", -1}, // 3: no data: the first skip, state kept
+		{"", 6},  // 4: still qualifies after the gap: no fire
+		{"", 4},  // 5: reset
+		{"", 6},  // 6: qualifies again: fires
+	}
+	fired, skipped := runTen(t, a, seq)
+	if want := []Session{2, 6}; !reflect.DeepEqual(fired, want) {
+		t.Fatalf("fired on %v, want %v", fired, want)
+	}
+	if want := []Session{3}; !reflect.DeepEqual(skipped, want) {
+		t.Fatalf("skipped on %v, want %v", skipped, want)
+	}
+}
+
+func TestACooldownDoesNotDeferAReQualification(t *testing.T) {
+	// The stock fires on 2 and its cooldown runs to 7. It drops out on 3 and
+	// re-qualifies on 4, inside the cooldown: that trigger is dropped, not
+	// deferred. It then stays qualified past the cooldown's end, which is not
+	// a new event (the stock never reset after 4). Only the reset on 11 and
+	// the re-qualification on 12 fire again.
+	spec := entryOf(OpAll, Condition{Kind: KindMetric, Metric: MetricShortPct, Op: OpIsAtLeast, Value: f(5)})
+	spec.Cooldown = 5
+	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline}
+	seq := []ten{
+		{"", 4}, {"", 6}, {"", 4}, {"", 6}, {"", 6}, {"", 6},
+		{"", 6}, {"", 6}, {"", 6}, {"", 6}, {"", 4}, {"", 6},
+	}
+	fired, skipped := runTen(t, a, seq)
+	if want := []Session{2, 12}; !reflect.DeepEqual(fired, want) {
+		t.Fatalf("fired on %v, want %v", fired, want)
+	}
+	if len(skipped) != 0 {
+		t.Fatalf("no session lacked data, skipped %v", skipped)
+	}
+}
+
+// runHeld runs one tracked position on the exit side, day by day.
+//
+// closes holds each session's close, a negative value meaning no close that
+// session. The position is held heldAtFirst sessions on the first session and
+// one more each session after it. The prior session's observation is passed
+// as Previous only when it had a close, which is how a halted or missing bar
+// reaches the next session.
+func runHeld(t *testing.T, a Alert, pos Position, heldAtFirst int, closes []float64) []Session {
+	t.Helper()
+	state := DefaultState()
+	var prev *Observation
+	var fired []Session
+	for i, c := range closes {
+		session := Session(i + 1)
+		p := pos
+		p.SessionsHeld = heldAtFirst + i
+		cur := Observation{Metrics: map[string]float64{}}
+		if c >= 0 {
+			cur.Metrics[MetricClose] = c
+		}
+		res, err := Evaluate(a, session, []Subject{{Key: "entry:7", Side: SideExit, Position: &p, Current: cur, Previous: prev, State: state}})
+		if err != nil {
+			t.Fatalf("session %d: %v", session, err)
+		}
+		if res.SetBaseline {
+			a.Baselined = true
+		}
+		r := res.Subjects[0]
+		if r.Emit {
+			fired = append(fired, session)
+		}
+		state = r.State
+		if c >= 0 {
+			cc := cur
+			prev = &cc
+		} else {
+			prev = nil
+		}
+	}
+	return fired
+}
+
+// closesAt returns n closes of 10.5 (above the pivot of 10), with the given
+// sessions (1-based) replaced by the listed values.
+func closesAt(n int, replace map[int]float64) []float64 {
+	out := make([]float64, n)
+	for i := range out {
+		out[i] = 10.5
+		if v, ok := replace[i+1]; ok {
+			out[i] = v
+		}
+	}
+	return out
+}
+
+func timeStopPosition() Position {
+	return Position{EntryPrice: 9, Pivot: f(10)}
+}
+
+func TestTimeStopFiresOnTheTwentiethSessionAfterEntry(t *testing.T) {
+	// The entry session is session 1 (held 0), so the twentieth session after
+	// it is session 21 (held 20). The time stop reads "reaches 20".
+	spec := exitOf(OpAll, Condition{Kind: KindPosition, Metric: MetricSessionsHeld, Op: OpReaches, Value: f(20)})
+	spec.Cooldown = 0
+	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline, Baselined: true}
+	fired := runHeld(t, a, timeStopPosition(), 0, closesAt(25, nil))
+	if want := []Session{21}; !reflect.DeepEqual(fired, want) {
+		t.Fatalf("time stop fired on %v, want %v", fired, want)
+	}
+}
+
+func TestTimeStopSurvivesAMissingBarAndAnOutage(t *testing.T) {
+	// The exit is ANY(close crosses below the pivot, held reaches 20). Session
+	// 19 has no bar (so session 20 has no previous close), and session 20 has
+	// no data at all (an alert-level outage for this single position). Neither
+	// may lose the time stop: it fires on 21, the twentieth session after entry.
+	spec := exitOf(OpAny,
+		Condition{Kind: KindPosition, Metric: MetricCloseVsEntryPivot, Op: OpCrossesBelow, Value: f(0)},
+		Condition{Kind: KindPosition, Metric: MetricSessionsHeld, Op: OpReaches, Value: f(20)},
+	)
+	spec.Cooldown = 0
+	cases := map[string]map[int]float64{
+		"missing bar on 19":        {19: -1},
+		"outage on 20":             {20: -1},
+		"missing 19 and outage 20": {19: -1, 20: -1},
+	}
+	for name, replace := range cases {
+		t.Run(name, func(t *testing.T) {
+			a := Alert{Spec: spec, FirstEval: FirstEvalBaseline, Baselined: true}
+			fired := runHeld(t, a, timeStopPosition(), 0, closesAt(25, replace))
+			if want := []Session{21}; !reflect.DeepEqual(fired, want) {
+				t.Fatalf("fired on %v, want %v", fired, want)
+			}
+		})
+	}
+}
+
+func TestTimeStopInAnAllGroupFiresWhenTheGroupReads(t *testing.T) {
+	// ALL(close at or under the pivot, held reaches 20). The close is above
+	// the pivot until 21 and under it from 22, so the group first reads True
+	// on 22, when the time stop has already passed.
+	spec := exitOf(OpAll,
+		Condition{Kind: KindPosition, Metric: MetricCloseVsEntryPivot, Op: OpIsAtMost, Value: f(0)},
+		Condition{Kind: KindPosition, Metric: MetricSessionsHeld, Op: OpReaches, Value: f(20)},
+	)
+	spec.Cooldown = 0
+	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline, Baselined: true}
+	closes := closesAt(25, map[int]float64{22: 9.9, 23: 9.9, 24: 9.9, 25: 9.9})
+	fired := runHeld(t, a, timeStopPosition(), 0, closes)
+	if want := []Session{22}; !reflect.DeepEqual(fired, want) {
+		t.Fatalf("fired on %v, want %v", fired, want)
+	}
+}
+
+func TestALatelyLinkedPositionReachesItsTimeStop(t *testing.T) {
+	// Linked five sessions after its entry (held 5 on the first session): the
+	// time stop of 10 is reached on the fifth session after linking, not never.
+	spec := exitOf(OpAll, Condition{Kind: KindPosition, Metric: MetricSessionsHeld, Op: OpReaches, Value: f(10)})
+	spec.Cooldown = 0
+	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline, Baselined: true}
+	fired := runHeld(t, a, timeStopPosition(), 5, closesAt(8, nil))
+	if want := []Session{6}; !reflect.DeepEqual(fired, want) {
+		t.Fatalf("late link fired on %v, want %v", fired, want)
 	}
 }
