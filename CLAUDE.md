@@ -581,6 +581,14 @@ valuation, stock page).
 | Rules versions | `services/pkg/strategy/spec` (`Registry`, `Live`, `RulesHash` = sha256 of the canonical JSON); served from code by `GetStrategyVersion` and `ListStrategyVersions` (canonical only; an unknown hash is NotFound). Every strategy, picks response and fit names its live version (`StrategyVersionRef`, `StrategyFit.version_hash`); the MCP tools print it as `rules_version`. The version chip sits in the strategy header and provenance line and links to `/strategies/changelog` (ISR, indexable, v0 with its known issues). Add a version by appending a `Registered` entry, never by editing a published one |
 | Strategy alert rule language (no DB, no clock): condition catalogue, validation, three-valued evaluation, arming and cooldown state machine, first-evaluation state forms | `services/pkg/strategy/alertspec/` (pure; sessions are caller-supplied ordinals; no caller yet, the alerts job and preview arrive in later PRs) |
 
+**Workspace sub-nav (`app/strategies/layout.tsx`).** The Explore / My strategies /
+Signals / Alerts bar is `WorkspaceSubNav` (`components/workspace/`, shared with the
+ownership workspace), rendered by the client island `components/strategies/strategies-sub-nav.tsx`
+from the registry `lib/strategies/workspace-nav.ts`. Only enabled tabs render: My
+strategies and Alerts ship later. Signals links to the last strategy viewed (localStorage
+in try/catch, default `crowded-short-breakout`). On a strategy's own routes the bar does
+not stick, so the profile tab bar is the one sticky bar. The layout reads no request data.
+
 **Profile shell (`/strategies/[strategy]`).** `[strategy]/layout.tsx` owns the
 params (`generateStaticParams`, `dynamicParams = false`, so an unknown slug is a
 routing 404) and renders the breadcrumbs, `components/strategies/strategy-header.tsx`
