@@ -320,6 +320,7 @@ func (s *postgresStore) LatestFundHoldings(ctx context.Context, f OwnershipFilte
 				&row.SecurityName, &row.Units, &row.Value, &row.Weight); err != nil {
 				return err
 			}
+			row.SecurityName = servedOwnershipName(row.StockCode, row.SecurityName)
 			out = append(out, row)
 			return nil
 		})
@@ -394,6 +395,7 @@ func (s *postgresStore) OwnershipCompanies(ctx context.Context) (map[string]Owne
 			if err := r.Scan(&code, &c.Name, &c.Industry, &c.MarketCap); err != nil {
 				return err
 			}
+			c.Name = servedOwnershipName(code, c.Name)
 			out[strings.ToUpper(strings.TrimSpace(code))] = c
 			return nil
 		})
@@ -896,6 +898,7 @@ func (s *postgresStore) FundPositionPairs(ctx context.Context, from, until strin
 				&p.InFrom, &p.FromWeight, &p.FromValue, &p.InTo, &p.ToWeight, &p.ToValue); err != nil {
 				return err
 			}
+			p.SecurityName = servedOwnershipName(p.StockCode, p.SecurityName)
 			out = append(out, p)
 			return nil
 		})
@@ -1036,6 +1039,7 @@ func (s *postgresStore) FundHoldingsOf(ctx context.Context, snapshotIDs []int64,
 				&d.Units, &d.Value, &d.Weight, &d.SharesIssued, &d.SharesAsAt); err != nil {
 				return err
 			}
+			d.SecurityName = servedOwnershipName(d.StockCode, d.SecurityName)
 			out = append(out, d)
 			return nil
 		})
@@ -1063,6 +1067,7 @@ func (s *postgresStore) FundCompareRows(ctx context.Context, fromID, toID int64)
 				&row.InFrom, &row.FromWeight, &row.FromValue, &row.InTo, &row.ToWeight, &row.ToValue); err != nil {
 				return err
 			}
+			row.SecurityName = servedOwnershipName(row.StockCode, row.SecurityName)
 			out = append(out, row)
 			return nil
 		})

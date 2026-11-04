@@ -129,6 +129,25 @@ describe("holder connections map (spec 14.3)", () => {
     expect(table).toHaveTextContent("n/a");
   });
 
+  it("prints each company's figure to two decimals on its node and in the table (backlog A4)", () => {
+    const precise = connectionsPage(
+      holder,
+      [raw("BHP", "Materials", 6.4321), raw("CBA", "Banks", 4.4321)],
+      new Map([
+        ["BHP", 200e9],
+        ["CBA", 150e9],
+      ]),
+    );
+    renderMap(precise);
+    const bhp = screen.getByRole("button", { name: /BHP/ });
+    expect(bhp).toHaveTextContent("6.43%");
+    expect(bhp).not.toHaveTextContent("6.4321%");
+    const table = screen.getByRole("table", { name: "Vanguard's disclosed connections, sector by sector" });
+    expect(table).toHaveTextContent("6.43%");
+    expect(table).toHaveTextContent("4.43%");
+    expect(table).not.toHaveTextContent("4.4321%");
+  });
+
   it("reads another holder's connections when the URL names one, and only once", async () => {
     mockSearch = "holder=regal";
     loadConnections.mockResolvedValueOnce(

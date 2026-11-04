@@ -212,3 +212,41 @@ describe("fund changes beneath the precision", () => {
     expect(formatValueChange(0.4)).not.toMatch(/^\+/);
   });
 });
+
+describe("FundPositionsView on the Overview (backlog B2)", () => {
+  const move = (code: string, delta: number) =>
+    row({ code, name: `${code} Ltd`, weightFrom: 5, weightTo: 5 + delta, delta, state: "current" });
+  const RISES = ["R0", "R1", "R2", "R3", "R4", "R5", "R6"].map((code, index) => move(code, 2 - index * 0.1));
+  const FALLS = ["F0", "F1", "F2", "F3", "F4", "F5", "F6"].map((code, index) => move(code, -(2 - index * 0.1)));
+  const compactPage = page({ rows: [...RISES, ...FALLS], snapshotDates: DATES, from: "2026-08-31", to: "2026-10-31" });
+
+  it("titles the pane as the link to the map's index lens, and states its range in one line", () => {
+    render(<FundPositionsView page={compactPage} variant="compact" />);
+    expect(screen.getByRole("link", { name: "Index fund positions" })).toHaveAttribute(
+      "href",
+      "/ownership/map?lens=index_flow",
+    );
+    expect(screen.getByText("From 2026-08-31 to 2026-10-31")).toBeInTheDocument();
+  });
+
+  it("draws the five largest rises beside the five largest falls, with no slider, no caption and no new or dropped list", () => {
+    const { container } = render(<FundPositionsView page={compactPage} variant="compact" />);
+    const items = Array.from(container.querySelectorAll("ul > li")).map((item) => item.textContent ?? "");
+    expect(items).toHaveLength(10);
+    expect(items.some((text) => text.includes("R4"))).toBe(true);
+    expect(items.some((text) => text.includes("R5"))).toBe(false);
+    expect(items.some((text) => text.includes("F4"))).toBe(true);
+    expect(items.some((text) => text.includes("F5"))).toBe(false);
+    expect(screen.queryByRole("slider")).toBeNull();
+    expect(screen.queryByText(FUND_POSITIONS_CAPTION)).toBeNull();
+    expect(screen.queryByRole("heading", { name: "New" })).toBeNull();
+  });
+
+  it("names a stock in place: each name is a button that reports its code, and the selected one is pressed", () => {
+    const onSelect = jest.fn();
+    render(<FundPositionsView page={compactPage} variant="compact" selectedCode="R0" onSelect={onSelect} />);
+    expect(screen.getByRole("button", { name: /R0/ })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: /R1/ }));
+    expect(onSelect).toHaveBeenCalledWith("R1");
+  });
+});

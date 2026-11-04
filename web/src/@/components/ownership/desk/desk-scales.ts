@@ -1,19 +1,22 @@
 /**
- * The desk's colour scales (spec 13.1). Every fill is a mix of a theme token with
- * the paper, so the two rooms read as the same instrument in light and dark: the
- * amber is the primary, the ink is the foreground, the paper is the background.
+ * The desk's colour scales (spec 13.1). Every fill is a theme token: the five
+ * stops of the ramp (`--desk-bin-0` to `-4`), the ink printed on each stop
+ * (`--desk-bin-ink-*`), the short lens's own five stops (`--desk-short-*`, with
+ * `--desk-short-ink-*`), and for a diverging lens the falls and rises
+ * (`--desk-fall-*`, `--desk-rise-*`, `--desk-div-ink-*`). The module names the
+ * stops; the theme decides their values, so the server and the island write the
+ * same strings and the two rooms read as one instrument (globals.css sets them).
  *
  * NEVER RED OR GREEN. A map lens is a share of the register, and a notice flow
  * is not a market direction, so a diverging lens runs ink to paper to amber. The
- * one exception is the short-interest lens, which takes the chart's short colour
- * (rust, chart-theme's seriesColor("short")), because it is the chart's own series.
+ * short-interest lens is the one lens in the chart's rust family (its own five
+ * stops, `--desk-short-*`, not the chart's series colour mixed at run time), so
+ * it reads as the short series without a mix in any reader.
  *
- * A PURE MODULE. The fills are CSS colour functions over custom properties, so a
- * server render and the island write the same strings, and the theme decides the
- * values. A missing figure has no fill: a caller hatches that cell.
+ * A PURE MODULE. No React state, no DOM, no fetch, and no import from the chart
+ * theme. A missing figure has no fill: a caller hatches that cell.
  */
 
-import { seriesColor } from "~/@/components/charts/chart-theme";
 import type { DeskLens } from "./desk-state";
 
 export type LensScaleMode = "sequential" | "diverging" | "short";
@@ -39,14 +42,27 @@ export interface LensScale {
   capped?: boolean;
 }
 
-/** The theme's paper, the ground every fill is mixed into. */
+/** The theme's paper, the ground every fill is set on and the zero of a diverging scale. */
 const PAPER = "hsl(var(--background))";
-/** Burnt amber in light, phosphor amber in dark: the primary is theme-split by lightness. */
-const AMBER = "hsl(var(--primary))";
-/** Chocolate ink in light, warm sand in dark: the foreground. */
+/** The foreground: the ink a label takes when no figure sits under it. */
 const INK = "hsl(var(--foreground))";
-/** The chart's short-interest colour, the one lens drawn in a market series' hue. */
-const SHORT = seriesColor("short");
+
+/**
+ * A diverging scale's fills from the fall's deepest bin to the rise's deepest. The
+ * middle bin spans zero on both sides, so it is the paper.
+ */
+const DIVERGING_FILL = [
+  "hsl(var(--desk-fall-2))",
+  "hsl(var(--desk-fall-1))",
+  PAPER,
+  "hsl(var(--desk-rise-1))",
+  "hsl(var(--desk-rise-2))",
+] as const;
+
+/** A bin index clamped to the five the scale draws. */
+function clampBin(bin: number): number {
+  return Math.min(BIN_COUNT - 1, Math.max(0, bin));
+}
 
 /**
  * The round step a scale's bins are drawn at: the smallest of 1, 2, 2.5, 5 times a
@@ -106,28 +122,18 @@ function scaleTop(figures: readonly number[]): { top: number; capped: boolean } 
   return p98 > 0 && p98 < max ? { top: p98, capped: true } : { top: max, capped: false };
 }
 
-/** The strength of a bin's colour as a whole percentage: the lightest bin is a fifth of the colour. */
-const BIN_STRENGTH = [20, 40, 60, 80, 100] as const;
 /**
- * A diverging scale's strengths from the fall's deepest bin to the rise's deepest. The
- * middle bin spans zero on both sides, so it is the paper; bins 1 and 3 mirror each other.
+ * The ink a label takes on a bin's fill: the ink token the theme sets for that stop
+ * (checked against its fill for WCAG AA at 11px, see globals.css). A null bin, a
+ * cell with no figure, takes the foreground. Every lens's stops are checked the
+ * same way (desk-ramp-contrast.test.ts), the short lens's included.
  */
-const DIVERGING_STRENGTH = [100, 50, 0, 50, 100] as const;
-
-/** The strength of one bin of a scale, as a whole percentage (the fill's colour share). */
-export function binStrength(bin: number, scale: LensScale): number {
-  return scale.mode === "diverging" ? (DIVERGING_STRENGTH[bin] ?? 0) : (BIN_STRENGTH[bin] ?? 100);
-}
-
-/** The ink-or-paper colour a label takes on a bin's fill: the paper on the two deepest steps, the ink elsewhere. */
 export function labelOnBin(bin: number | null, scale: LensScale): string {
   if (bin === null) return INK;
-  return binStrength(bin, scale) >= 80 ? PAPER : INK;
-}
-
-/** A colour at a strength over the paper, as a CSS colour function. Zero is the paper itself. */
-function mix(colour: string, percent: number): string {
-  return percent <= 0 ? PAPER : `color-mix(in srgb, ${colour} ${percent}%, ${PAPER})`;
+  const b = clampBin(bin);
+  if (scale.mode === "diverging") return `hsl(var(--desk-div-ink-${b}))`;
+  if (scale.mode === "short") return `hsl(var(--desk-short-ink-${b}))`;
+  return `hsl(var(--desk-bin-ink-${b}))`;
 }
 
 /**
@@ -148,12 +154,15 @@ export function binOf(value: number | null, scale: LensScale): number | null {
   return Math.min(BIN_COUNT - 1, Math.max(0, Math.floor(value / scale.step)));
 }
 
-/** A bin's fill: the figure's colour at the bin's strength, the paper for the middle of a diverging scale. */
+/**
+ * A bin's fill: the theme's stop for the bin. A diverging scale's middle bin is the
+ * paper; the short lens has its own rust stops (`--desk-short-*`).
+ */
 export function binFill(bin: number, scale: LensScale): string {
-  if (scale.mode === "diverging") {
-    return mix(bin < BIN_COUNT / 2 ? INK : AMBER, binStrength(bin, scale));
-  }
-  return mix(scale.mode === "short" ? SHORT : AMBER, binStrength(bin, scale));
+  const b = clampBin(bin);
+  if (scale.mode === "diverging") return DIVERGING_FILL[b] ?? PAPER;
+  if (scale.mode === "short") return `hsl(var(--desk-short-${b}))`;
+  return `hsl(var(--desk-bin-${b}))`;
 }
 
 /**
@@ -171,10 +180,10 @@ export function lensFill(value: number | null, scale: LensScale): string | null 
 /**
  * The fill of a change band's direction in the flows (spec 13.3): an increase in
  * amber, a decrease in ink. A band is a direction of a notice flow, not a market
- * move, so neither is red or green.
+ * move, so neither is red or green. The deepest stops of the diverging ramp.
  */
 export function directionFill(direction: "up" | "down"): string {
-  return direction === "up" ? mix(AMBER, 100) : mix(INK, 100);
+  return direction === "up" ? "hsl(var(--desk-rise-2))" : "hsl(var(--desk-fall-2))";
 }
 
 /**

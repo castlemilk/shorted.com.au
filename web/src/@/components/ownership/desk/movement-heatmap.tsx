@@ -35,10 +35,11 @@ import { parseSelection, serializeSelection } from "~/@/components/ownership/wor
 import { ViewDisclosure } from "../workspace/view-disclosure";
 import { TOOLBAR_ROW_CLASS, ToolbarSelect, type ToolbarFold } from "../workspace/toolbar";
 import { writeWindowInPlace } from "../workspace/window-select";
+import { SortControl, writeSortInPlace } from "../workspace/sort-control";
 
 /** The island's phone fold of the toolbar (spec 14.9): the client disclosure around the row. */
 const toolbarFold: ToolbarFold = (row) => <ViewDisclosure>{row}</ViewDisclosure>;
-import { isIsoDate, shiftDate, type DeskWindow } from "./desk-state";
+import { DEFAULT_DESK_SORT, isIsoDate, readDeskSort, shiftDate, type DeskSort, type DeskWindow } from "./desk-state";
 import {
   DESK_DEFAULT_WINDOW_STATE,
   chipForBrush,
@@ -81,6 +82,11 @@ export interface MovementHeatmapProps {
    * `compact` is the Overview's pane: the grid, as it is.
    */
   variant?: "compact" | "full";
+  /**
+   * The order the sectors are drawn in when the link names none (backlog C3). Absent is "largest"; the
+   * hub's compact pane passes "changed". A link that names a valid sort always wins.
+   */
+  sort?: DeskSort;
 }
 
 /**
@@ -228,11 +234,13 @@ function WeekBrush({ count, totals, first, last, seat, onCommit }: WeekBrushProp
 }
 
 /** The island's live half: reads the link, draws the window and commits the brush. */
-function LiveMovementHeatmap({ initial, basePath, loadActivity, variant }: MovementHeatmapProps) {
+function LiveMovementHeatmap({ initial, basePath, loadActivity, variant, sort: defaultSort }: MovementHeatmapProps) {
   const workspace = variant === "full";
   const searchParams = useSearchParams();
   const search = searchParams?.toString() ?? "";
   const params = useMemo(() => new URLSearchParams(search), [search]);
+  // The order the sectors are drawn in: the link's sort, else the instrument's own default (backlog C3).
+  const sort = readDeskSort(params, defaultSort ?? DEFAULT_DESK_SORT);
   const committed = useMemo(() => readNoticeWindow(params), [params]);
   // The page the grid draws: the server's default view until a link moves the window,
   // then the loader's page for it. A failed read keeps the page on screen.
@@ -241,7 +249,9 @@ function LiveMovementHeatmap({ initial, basePath, loadActivity, variant }: Movem
   // The workspace's controls: the measure of each cell and the holder kind the grid counts (the API's own filter).
   // The measure is a link parameter too (`measure=pp`), so the inspector's switch and a reload keep it.
   // Derived from the link, so a switch written in place (the inspector's, the control's) draws at once.
-  const measure: HeatMeasure = workspace ? (params.get("measure") === "pp" ? "pp" : "count") : "pp";
+  // The Overview's compact pane draws the count too: a few outlier net changes set the scale of the pp
+  // bins to about 200 pp, so nearly every cell read as the paper.
+  const measure: HeatMeasure = workspace && params.get("measure") === "pp" ? "pp" : "count";
   // The holder type starts as the selected cell's (spec 14.7), so a link to a cell shows the kind it counts.
   const selectedKind = useMemo(() => {
     const selection = parseSelection(params.get("sel") ?? "");
@@ -316,6 +326,7 @@ function LiveMovementHeatmap({ initial, basePath, loadActivity, variant }: Movem
           </option>
         ))}
       </ToolbarSelect>
+      <SortControl active={sort} onChange={writeSortInPlace} />
     </>
   ) : undefined;
   const weeks = useMemo(() => weekList(page.fromWeek, page.toWeek), [page.fromWeek, page.toWeek]);
@@ -345,10 +356,12 @@ function LiveMovementHeatmap({ initial, basePath, loadActivity, variant }: Movem
       onWindowChange={writeWindowInPlace}
       measure={measure}
       workspace={workspace}
+      compact={variant === "compact"}
+      sort={sort}
       kind={workspace ? kind : ""}
       onCellSelect={onCellSelect}
       brush={
-        span !== null ? (
+        variant !== "compact" && span !== null ? (
           <WeekBrush
             count={weeks.length}
             totals={totals}
@@ -376,13 +389,21 @@ export function MovementHeatmap(props: MovementHeatmapProps) {
           state={DESK_DEFAULT_WINDOW_STATE}
           basePath={props.basePath}
           params={new URLSearchParams()}
-          measure={props.variant === "full" ? "count" : "pp"}
+          measure="count"
           workspace={props.variant === "full"}
+          compact={props.variant === "compact"}
+          sort={props.sort ?? DEFAULT_DESK_SORT}
           controls={
             // The real row is one control high from sm (spec 14.9); the placeholder reserves that height.
-            props.variant === "full" ? <div aria-hidden="true" className={TOOLBAR_ROW_CLASS} /> : undefined
+            // The server's view draws the sort control disabled, in the place the island draws it (backlog C3).
+            props.variant === "full" ? (
+              <>
+                <div aria-hidden="true" className={TOOLBAR_ROW_CLASS} />
+                <SortControl active={props.sort ?? DEFAULT_DESK_SORT} />
+              </>
+            ) : undefined
           }
-          brush={<div aria-hidden="true" className="hidden sm:block" style={{ height: BRUSH_HEIGHT }} />}
+          brush={props.variant === "compact" ? null : <div aria-hidden="true" className="hidden sm:block" style={{ height: BRUSH_HEIGHT }} />}
         />
       }
     >

@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import OwnershipActivityPage, { metadata, revalidate } from "./page";
 
 const bailOnEmptyRender = jest.fn(async () => undefined);
@@ -116,5 +116,15 @@ describe("the activity page (spec 14.3)", () => {
   it("is not a shell when both reads answer", async () => {
     const { container } = render(await OwnershipActivityPage());
     expect(container.querySelector("[data-isr-shell='empty']")).toBeNull();
+  });
+
+  it("ends the main column with the closed method disclosure, its text in the HTML", async () => {
+    const { container } = render(await OwnershipActivityPage());
+    const method = container.querySelector("details#method") as HTMLElement | null;
+    expect(method).not.toBeNull();
+    expect(method).not.toHaveAttribute("open");
+    expect(within(method as HTMLElement).getByText("How these figures are read")).toBeInTheDocument();
+    expect(method?.textContent).toMatch(/what the notices disclose, not a share of the company/);
+    expect(method?.nextElementSibling).toBeNull();
   });
 });

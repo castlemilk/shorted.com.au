@@ -4,10 +4,18 @@ import { ScreenReaderTable } from "~/@/components/politicians/explorer/screen-re
 import { NOT_AVAILABLE, formatProseAmount } from "~/@/lib/fundamentals/format";
 import { parseSelection, serializeSelection } from "../workspace/selection";
 import { industryLabel } from "~/@/lib/industry-placeholder";
-import { FOLDED_SECTOR_LABEL, formatVotingPower, kindInfo, shortSector } from "~/@/lib/ownership/kinds";
+import { FOLDED_SECTOR_LABEL, formatVotingPower, kindInfo, kindShortLabel, shortSector } from "~/@/lib/ownership/kinds";
 import { cn } from "~/@/lib/utils";
 import type { FlowChangeRow, FlowLayout, FlowNode } from "./flows-layout";
-import { changeFlows, positionFlows } from "./flows-layout";
+import {
+  LABEL_GAP,
+  LABEL_LINE_EM,
+  changeFlows,
+  flowGutters,
+  labelLines,
+  positionFlows,
+  positive,
+} from "./flows-layout";
 import { OTHER_SECTOR, sectorOf } from "./map-layout";
 import type { OwnershipFlowsPage } from "~/app/actions/ownershipDesk";
 import { Toolbar, type ToolbarFold } from "../workspace/toolbar";
@@ -20,10 +28,12 @@ import { WindowSelect } from "../workspace/window-select";
 // PLAIN MODULE, so the server draws the default view (positions) into the HTML and
 // the island draws either mode for a window.
 //
-// COLOUR. A kind keeps its category colour (kinds.ts), so a position band takes
-// its kind's hue. A change band is ink or amber by direction: an increase is
-// amber, a decrease ink. Neither is red or green, because a notice flow is not a
-// market direction.
+// COLOUR. Bands and nodes are neutral ink, so the amber selection is the only
+// bright mark (DESIGN.md, One Bloom Rule). A holder node keeps its kind as a thin
+// category edge on the side its bands leave from (kinds.ts, backlog A3): the kind
+// names the band without competing with the selection. A change band is ink or
+// amber by direction: an increase is amber, a decrease ink. Neither is red or
+// green, because a notice flow is not a market direction.
 //
 // EVERY MARK IS A LINK, AND THE TABLE HAS THE SAME LINKS. A band opens the
 // registers filtered to its kind and industry; a kind opens the directory; a sector
@@ -33,21 +43,32 @@ import { WindowSelect } from "../workspace/window-select";
 
 export type FlowMode = "positions" | "changes";
 
-/** The desktop and phone drawings. The phone's gutters hold the labels at a size a phone reads. */
+/**
+ * The desktop and phone drawings. These are the FLOORS a layout starts from: each gutter
+ * widens to the labels it holds (flowGutters, spec B6). The phone's right label wraps to
+ * two lines before its gutter widens; the desktop's never wraps.
+ */
+/**
+ * The compact pane fills its fixed height from lg (backlog B2): the drawings' wrapper is a flex column and
+ * the full drawing takes `h-full` of it. Below lg the pane is its natural height.
+ */
+const COMPACT_FILL = "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col";
+
 export const FLOW_SIZES = {
-  phone: { width: 360, height: 330, left: 92, right: 96, font: 10.5, maxChars: 13 },
-  full: { width: 600, height: 400, left: 150, right: 150, font: 12, maxChars: 20 },
+  phone: { width: 360, height: 330, left: 92, right: 96, font: 10.5, wrapRight: true },
+  full: { width: 600, height: 400, left: 150, right: 150, font: 12, wrapRight: false },
 } as const;
 
 /** The caption the positions carry (spec 13.3), verbatim. */
 export const FLOW_POSITIONS_CAPTION =
   "Disclosed exposure, estimated: voting power x market cap, what the notices disclose; banks' and brokers' notices are often securities lending.";
 /**
- * The directory's group for one kind (spec 13.8: the hub gives each kind's group the
- * id `directory-<kind>`). A kind opens its own group, not the whole directory.
+ * The directory a kind node or a kind link goes to, with the kind in the query so the link states which
+ * kind it means (spec 13.3: the institution directory filtered to the kind). The holders page reads the
+ * query once it is wired to; until then the link still lands on the directory.
  */
 export function flowDirectoryHref(kind: string): string {
-  return `/ownership#directory-${kind}`;
+  return `/ownership/holders?kind=${encodeURIComponent(kind)}`;
 }
 const REGISTERS_PATH = "/ownership/stocks";
 export const FLOWS_LOADING = "Loading…";
@@ -62,13 +83,27 @@ export const FLOWS_OUTAGE =
 export const FLOW_SECTOR_KEEP = 6;
 
 /**
- * A kind's category colour: the hex its swatch names, or the ink when it names none.
- * The unclassified holders are muted ink, never the brightest node (spec 14.9).
+ * The width of a holder node's kind edge (backlog A3). The edge is drawn on the side the node's
+ * bands leave from, so the kind reads where the band starts and the node body stays neutral.
  */
-export function kindColour(kind: string): string {
-  if (kind === "unclassified") return "hsl(var(--muted-foreground))";
-  const hex = /#[0-9A-Fa-f]{6}/.exec(kindInfo(kind).swatch)?.[0];
-  return hex ?? "hsl(var(--foreground))";
+export const KIND_EDGE_WIDTH = 4;
+
+/**
+ * A holder node's kind edge as an SVG fill class, light and dark: the kind's own swatch pair, or
+ * the muted ink for the unclassified remainder (spec B6). A class, not a hex attribute, because
+ * the page's dark theme must switch the edge; the swatch's bg- class would paint a box, not a shape.
+ */
+export function kindEdgeClass(kind: string): string {
+  return kind === "unclassified" ? "fill-muted-foreground" : kindInfo(kind).fill;
+}
+
+/**
+ * The fill of a holder node's body: the band ink its sector nodes share, or the muted ink for the
+ * unclassified remainder, never the brightest node (spec 14.9, spec B6). The kind itself is the edge
+ * (kindEdgeClass).
+ */
+export function holderBodyFill(kind: string): string {
+  return kind === "unclassified" ? "hsl(var(--muted-foreground))" : "hsl(var(--foreground))";
 }
 
 /**
@@ -114,10 +149,16 @@ export function sectorOfNode(node: FlowNode): string {
   return node.key.slice("sector:".length);
 }
 
-/** Shortens a label to the room its gutter has. The full name is in the node's title. */
-export function shortenLabel(text: string, max: number): string {
-  const chars = [...text];
-  return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : text;
+/**
+ * The share of the normal band opacity the unclassified remainder draws at (spec B6). A
+ * multiplier, so the selected band keeps its lift over the unselected ones.
+ */
+export const UNCLASSIFIED_BAND_SHARE = 0.6;
+
+/** A band's fill opacity: about 15% when unselected, amber's 80% when selected, and 60% of either for the remainder. */
+export function bandFillOpacity(selected: boolean, kind: string): number {
+  const base = selected ? 0.8 : 0.15;
+  return kind === "unclassified" ? base * UNCLASSIFIED_BAND_SHARE : base;
 }
 
 /** The registers filtered to one kind and one industry: a band's link. */
@@ -164,25 +205,52 @@ export function changeBandTitle(row: FlowChangeRow, measure: FlowMeasure = "expo
   return `${kindInfo(row.kind).label}, ${direction} in ${sector}: ${formatProseAmount(row.exposureAud, "AUD")} change in disclosed exposure, estimated, across ${noun(row.notices, "notice", "notices")}`;
 }
 
-/** The layout a mode and a size draw. Positions and changes split their rows the same way. */
+/** A layout with the gutters it was drawn in: the labels sit beside them (spec B6). */
+export type SizedFlowLayout = FlowLayout & { left: number; right: number };
+
+/**
+ * The gutters a set of rows needs: sized from the short names of the kinds and sectors the
+ * drawing shows, the sectors as the drawing names them (spec B6). Only rows with an estimate
+ * are drawn, so only their labels count.
+ */
+function gutterFor(
+  rows: readonly { kind: string; industry: string; exposureAud: number | null }[],
+  size: (typeof FLOW_SIZES)[keyof typeof FLOW_SIZES],
+): { left: number; right: number } {
+  const drawn = rows.filter((row) => positive(row.exposureAud));
+  return flowGutters(
+    [...new Set(drawn.map((row) => kindShortLabel(row.kind)))],
+    [...new Set(drawn.map((row) => shortSector(sectorOf(row.industry))))],
+    size,
+  );
+}
+
+/**
+ * The layout a mode and a size draw. Positions and changes split their rows the same way.
+ * The gutters widen from the labels (flowGutters), so the layout's width is what is left
+ * between them; the drawing places its labels from the gutters it is given.
+ */
 export function flowLayout(
   page: OwnershipFlowsPage,
   mode: FlowMode,
   size: (typeof FLOW_SIZES)[keyof typeof FLOW_SIZES],
-): FlowLayout {
-  const inner = size.width - size.left - size.right;
+): SizedFlowLayout {
   if (mode === "positions") {
     const rows = [...page.positions].sort((a, b) => (b.exposureAud ?? 0) - (a.exposureAud ?? 0));
-    return positionFlows(rows, inner, size.height);
+    const gutters = gutterFor(rows, size);
+    return { ...positionFlows(rows, size.width - gutters.left - gutters.right, size.height), ...gutters };
   }
   const rows = [...page.changes].sort((a, b) => (b.exposureAud ?? 0) - (a.exposureAud ?? 0));
-  return changeFlows(rows, inner, size.height);
+  const gutters = gutterFor(rows, size);
+  return { ...changeFlows(rows, size.width - gutters.left - gutters.right, size.height), ...gutters };
 }
 
 interface DrawingProps {
   page: OwnershipFlowsPage;
   mode: FlowMode;
   variant: "phone" | "full";
+  /** The compact pane: the drawing takes the pane's height from lg, centred in its box. */
+  fill?: boolean;
   basePath: string;
   params: URLSearchParams;
   measure: FlowMeasure;
@@ -218,7 +286,7 @@ export function drillPage(page: OwnershipFlowsPage, drill: DrillPatch): Ownershi
  * short to hold its label carries it in its title only. The paths are the layout's,
  * moved right by the left gutter.
  */
-function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect, onDrill, onExpandTail }: DrawingProps) {
+function FlowsDrawing({ page, mode, variant, fill = false, basePath, params, measure, onSelect, onDrill, onExpandTail }: DrawingProps) {
   const size = FLOW_SIZES[variant];
   const layout = flowLayout(page, mode, size);
   if (layout.empty) return null;
@@ -227,7 +295,8 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
       viewBox={`0 0 ${size.width} ${size.height}`}
       focusable="false"
       aria-hidden="true"
-      className={cn("block h-auto w-full", variant === "phone" ? "sm:hidden" : "hidden sm:block")}
+      preserveAspectRatio={fill ? "xMidYMid meet" : undefined}
+      className={cn("block h-auto w-full", variant === "phone" ? "sm:hidden" : "hidden sm:block", fill && "lg:h-full")}
     >
       {layout.bands.map((item, index) => {
         const source = layout.nodes[item.source]!;
@@ -238,9 +307,9 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
         const foldedBand = sector === FOLDED_SECTOR_LABEL;
         const selected = !foldedBand && connectionIsSelected(params, kind, sector);
         // Unselected ribbons are neutral at about 15% in both modes; the selected band is amber (spec 14.9). A change's
-        // direction is named in its band's title, not in its colour.
+        // direction is named in its band's title, not in its colour. The remainder's bands are lighter still (spec B6).
         const fill = selected ? "hsl(var(--primary))" : "hsl(var(--foreground))";
-        const opacity = selected ? 0.8 : 0.15;
+        const opacity = bandFillOpacity(selected, kind);
         const title =
           mode === "positions"
             ? positionBandTitle(
@@ -288,7 +357,7 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
             data-selected={selected || undefined}
           >
             <path
-              transform={`translate(${size.left} 0)`}
+              transform={`translate(${layout.left} 0)`}
               d={item.path}
               fill={fill}
               fillOpacity={opacity}
@@ -301,12 +370,12 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
       })}
       {layout.nodes.map((node) => {
         const isHolder = node.kind === "holder";
-        const x = size.left + node.x0;
+        const x = layout.left + node.x0;
         const width = node.x1 - node.x0;
         const height = Math.max(node.y1 - node.y0, 0);
         const folded = !isHolder && sectorOfNode(node) === FOLDED_SECTOR_LABEL;
-        const label = isHolder ? kindInfo(kindOfNode(node)).label : shortSector(sectorOfNode(node));
-        // The title names the full group, the drawn label its short name (spec 14.9).
+        // The drawn label is the short name; the title names the full group (spec 14.9, spec B6).
+        const label = isHolder ? kindShortLabel(kindOfNode(node)) : shortSector(sectorOfNode(node));
         const fullLabel = isHolder ? kindInfo(kindOfNode(node)).label : sectorOfNode(node);
         const title =
           measure === "count"
@@ -321,9 +390,16 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
             ? sectorMapHref(sectorOfNode(node))
             : deskParamHref(basePath, params, { sector: sectorOfNode(node) });
         const drillTo: DrillPatch = isHolder ? { kind: kindOfNode(node) } : { sector: sectorOfNode(node) };
+        // The unclassified holders are a remainder: muted ink, drawn last (spec 14.9, spec B6).
+        const unclassified = isHolder && kindOfNode(node) === "unclassified";
         const textY = node.y0 + height / 2;
-        // Every drawn node is labelled (spec 14.9), a short node's label included: it sits on the node's middle.
-        const labelX = isHolder ? size.left - 6 : size.width - size.right + 6;
+        // A label takes the room its gutter leaves beside it, wrapped to two lines at a space when it is longer (spec B6).
+        const lines = labelLines(label, size.font, (isHolder ? layout.left : layout.right) - LABEL_GAP);
+        const lineHeight = size.font * LABEL_LINE_EM;
+        // The phone prints a label only where its node holds every line, so a short node keeps its title alone. The
+        // full drawing labels every node, a short node's label included, on the node's middle (spec 14.9).
+        const labelFits = variant === "full" || height >= lines.length * lineHeight;
+        const labelX = isHolder ? layout.left - LABEL_GAP : layout.left + layout.width + LABEL_GAP;
         return (
           <Link
             key={node.key}
@@ -350,25 +426,50 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
                     }
             }
           >
+            {/* The body is the band colour the sector nodes use, so both columns read as one instrument; the unclassified
+                remainder keeps its muted ink (spec B6). */}
             <rect
               x={x}
               y={node.y0}
               width={width}
               height={height}
-              fill={isHolder ? kindColour(kindOfNode(node)) : "hsl(var(--foreground))"}
+              fill={isHolder ? holderBodyFill(kindOfNode(node)) : "hsl(var(--foreground))"}
+              className={unclassified ? "fill-muted-foreground" : undefined}
             >
               <title>{title}</title>
             </rect>
-            <text
-              x={labelX}
-              y={textY}
-              dominantBaseline="middle"
-              textAnchor={isHolder ? "end" : "start"}
-              fontSize={size.font}
-              fill="hsl(var(--foreground))"
-            >
-              {shortenLabel(label, size.maxChars)}
-            </text>
+            {/* A holder's kind is a thin edge on the side its bands leave from, so the kind names the band without
+                competing with the selection (backlog A3). It takes no pointer: the body beneath carries the title, and
+                a pointer over the edge must read that title too, not fall through to nothing. */}
+            {isHolder ? (
+              <rect
+                x={x + width - KIND_EDGE_WIDTH}
+                y={node.y0}
+                width={KIND_EDGE_WIDTH}
+                height={height}
+                className={kindEdgeClass(kindOfNode(node))}
+                data-kind-edge={kindOfNode(node)}
+                pointerEvents="none"
+              />
+            ) : null}
+            {labelFits ? (
+              <text
+                x={labelX}
+                y={textY}
+                dominantBaseline="middle"
+                textAnchor={isHolder ? "end" : "start"}
+                fontSize={size.font}
+                fill={unclassified ? "currentColor" : "hsl(var(--foreground))"}
+                className={unclassified ? "text-muted-foreground" : undefined}
+              >
+                {lines.map((line, index) => (
+                  // Two lines are centred on the node's middle: the first rises by half a line, the second falls by it.
+                  <tspan key={index} x={labelX} dy={index === 0 ? -((lines.length - 1) * lineHeight) / 2 : lineHeight}>
+                    {index < lines.length - 1 ? `${line} ` : line}
+                  </tspan>
+                ))}
+              </text>
+            ) : null}
           </Link>
         );
       })}
@@ -563,6 +664,11 @@ export interface OwnershipFlowsViewProps {
   onExpandOther?: () => void;
   /** The window control beside the switch. The Overview's pane has none (spec 14.9): absent is shown. */
   windowControl?: boolean;
+  /**
+   * The Overview's pane (backlog B2): positions only, no toolbar, no caption, no tail toggle, and the drawing
+   * fills the pane's fixed height from lg. Its sr-only table is the record, as on every page.
+   */
+  compact?: boolean;
   /** The island's phone fold of the toolbar; absent on the server. */
   toolbarFold?: ToolbarFold;
   /** Writes the window in place (the Window select); absent on the server, where the select is drawn disabled. */
@@ -660,6 +766,7 @@ export function OwnershipFlowsView({
   onFoldOther,
   tailToggle = false,
   windowControl = true,
+  compact = false,
   toolbarFold,
   onWindowChange,
 }: OwnershipFlowsViewProps) {
@@ -680,34 +787,45 @@ export function OwnershipFlowsView({
     </>
   );
   return (
-    <div className="space-y-4" aria-busy={busy || undefined}>
-      {/* One toolbar row (spec 14.9): the source, the measure, the positions or change, the window and the
-          reset, labelled. The Overview's pane has no controls, so its row is the switch alone, unfolded. */}
-      <Toolbar fold={controls === undefined ? undefined : toolbarFold}>
-        {controls}
-        <div className="flex flex-wrap items-center gap-2">
-          {controls === undefined ? null : <span className="text-xs text-muted-foreground">Show</span>}
-          <ModeChips mode={mode} onModeChange={onModeChange} />
-        </div>
-        {windowControl ? <WindowSelect active={state} onWindowChange={onWindowChange} /> : null}
-      </Toolbar>
-      <p className="text-sm text-muted-foreground">
-        {mode === "positions" ? FLOW_POSITIONS_CAPTION : captionChanges}
-        {measure === "count" ? " Band widths are the number of interests, not their exposure." : null}
-      </p>
-      <p className="text-xs text-muted-foreground">
-        {page.asOf !== "" ? (
-          <>
-            Notices read to <time dateTime={page.asOf} className="tabular-nums">{page.asOf}</time>.
-          </>
-        ) : (
-          <>Notices read to {NOT_AVAILABLE}.</>
-        )}
-        {/* Always mounted: a status region announces the text that enters it, not one that appears with it. */}
-        <span role="status" className="ml-2">
+    <div className={cn("space-y-4", compact && COMPACT_FILL)} aria-busy={busy || undefined}>
+      {compact ? null : (
+        // One toolbar row (spec 14.9): the source, the measure, the positions or change, the window and the
+        // reset, labelled. The Overview's pane has no toolbar at all (backlog B2).
+        <Toolbar fold={controls === undefined ? undefined : toolbarFold}>
+          {controls}
+          <div className="flex flex-wrap items-center gap-2">
+            {controls === undefined ? null : <span className="text-xs text-muted-foreground">Show</span>}
+            <ModeChips mode={mode} onModeChange={onModeChange} />
+          </div>
+          {windowControl ? <WindowSelect active={state} onWindowChange={onWindowChange} /> : null}
+        </Toolbar>
+      )}
+      {compact ? null : (
+        <p className="text-sm text-muted-foreground">
+          {mode === "positions" ? FLOW_POSITIONS_CAPTION : captionChanges}
+          {measure === "count" ? " Band widths are the number of interests, not their exposure." : null}
+        </p>
+      )}
+      {compact ? (
+        // Always mounted: a status region announces the text that enters it, not one that appears with it.
+        <span role="status" className="sr-only">
           {busy ? FLOWS_LOADING : null}
         </span>
-      </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {page.asOf !== "" ? (
+            <>
+              Notices read to <time dateTime={page.asOf} className="tabular-nums">{page.asOf}</time>.
+            </>
+          ) : (
+            <>Notices read to {NOT_AVAILABLE}.</>
+          )}
+          {/* Always mounted: a status region announces the text that enters it, not one that appears with it. */}
+          <span role="status" className="ml-2">
+            {busy ? FLOWS_LOADING : null}
+          </span>
+        </p>
+      )}
       {empty ? (
         <p className="text-sm text-muted-foreground">
           {mode === "positions"
@@ -715,10 +833,10 @@ export function OwnershipFlowsView({
             : "No notice released in this window changed a holding with an estimate."}
         </p>
       ) : (
-        <div className="space-y-2">
-          <FlowsDrawing page={drawn} mode={mode} variant="phone" basePath={basePath} params={params} measure={measure} onSelect={onSelect} onDrill={onDrill} onExpandTail={onExpandOther} />
-          <FlowsDrawing page={drawn} mode={mode} variant="full" basePath={basePath} params={params} measure={measure} onSelect={onSelect} onDrill={onDrill} onExpandTail={onExpandOther} />
-          {mode === "positions" && measure === "exposure" ? (
+        <div className={cn("space-y-2", compact && COMPACT_FILL)}>
+          <FlowsDrawing page={drawn} mode={mode} variant="phone" basePath={basePath} params={params} measure={measure} onSelect={onSelect} onDrill={onDrill} onExpandTail={compact ? undefined : onExpandOther} />
+          <FlowsDrawing page={drawn} mode={mode} variant="full" fill={compact} basePath={basePath} params={params} measure={measure} onSelect={onSelect} onDrill={onDrill} onExpandTail={compact ? undefined : onExpandOther} />
+          {!compact && mode === "positions" && measure === "exposure" ? (
             <p className="text-[11px] text-muted-foreground">{RIBBON_LEGEND}</p>
           ) : null}
           {tailToggle && onExpandOther !== undefined ? (

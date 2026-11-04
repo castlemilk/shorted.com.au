@@ -100,7 +100,7 @@ describe("the index fund change lens (spec 14.10)", () => {
 
   it("is named in the colour control and the legend, and its caption says what it compares", () => {
     expect(LENS_LABELS.index_flow).toBe("Change in index fund shares");
-    expect(LENS_SELECT_LABELS.index_flow).toBe("Index fund shares");
+    expect(LENS_SELECT_LABELS.index_flow).toBe("Fund shares");
     expect(mapCaption("index_flow")).toMatch(/valued at the later file's price/);
   });
 });

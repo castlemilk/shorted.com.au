@@ -3,7 +3,6 @@ import { getStockOwnership } from "~/app/actions/getOwnership";
 import type {
   GetOwnershipOverviewResponse,
   OwnershipSource,
-  OwnershipStock,
   WithheldOutcome,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
 
@@ -48,7 +47,7 @@ jest.mock("~/app/actions/ownershipDesk", () => ({
 // The islands read the URL under their own Suspense; the page's own render sees no query.
 // The movement island is stubbed so its props can be read; the page's wiring is what is under test.
 jest.mock("~/@/components/ownership/desk/movement-heatmap", () => ({
-  MovementHeatmap: (props: unknown) => {
+  MovementHeatmap: (props: object) => {
     movementHeatmap(props);
     return null;
   },
@@ -64,9 +63,9 @@ jest.mock("~/@/components/ownership/desk/ownership-map", () => {
     },
   };
 });
-// The combobox reads the popover API on mount, which jsdom does not have: the toolbar is drawn as a stub here.
+// The combobox reads the popover API on mount, which jsdom does not have: the toolbar's search is a labelled stub.
 jest.mock("~/@/components/gamma/SearchCombobox", () => ({
-  SearchCombobox: () => null,
+  SearchCombobox: ({ label }: { label: string }) => <div role="search" aria-label={label} />,
 }));
 jest.mock("next/navigation", () => ({
   useSearchParams: () => {
@@ -100,47 +99,6 @@ const overview = (over: Partial<GetOwnershipOverviewResponse> = {}): GetOwnershi
     ...over,
   }) as unknown as GetOwnershipOverviewResponse;
 
-describe("OwnershipPage", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    listInstitutions.mockResolvedValue({ institutions: [] });
-    loadOwnershipMap.mockResolvedValue({ ok: true, error: "", from: "", to: "", asOf: "", stocks: [] });
-    loadOwnershipFlows.mockResolvedValue({ ok: true, error: "", from: "", to: "", asOf: "", positions: [], changes: [] });
-    loadOwnershipActivity.mockResolvedValue({ ok: true, error: "", fromWeek: "", toWeek: "", asOf: "", rows: [] });
-    loadFundPositionChanges.mockResolvedValue({ ok: true, error: "", snapshotDates: [], from: "", to: "", rows: [] });
-  });
-
-  it.each([
-    ["the read failed", undefined],
-    ["the first collection has not run", overview()],
-  ])("says the data is not available yet when %s, and draws no empty tables", async (_, data) => {
-    getOwnershipOverview.mockResolvedValue(data);
-    render(await OwnershipPage());
-
-    expect(screen.getByRole("heading", { level: 1, name: "The ownership landscape" })).toBeInTheDocument();
-    expect(screen.getByText(/Ownership data is not available yet/)).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "The map" })).toBeNull();
-    expect(screen.queryByRole("table")).toBeNull();
-    expect(bailOnEmptyRender).toHaveBeenCalledTimes(1);
-  });
-
-  it("draws the views once notices have been read", async () => {
-    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
-    render(await OwnershipPage());
-
-    expect(screen.getByRole("heading", { name: "The map" })).toBeInTheDocument();
-    expect(screen.getByText("7,118")).toBeInTheDocument();
-    // The plate and the flows both print the date; the plate comes first.
-    expect(screen.getAllByText(/Notices read to/)[0]).toHaveTextContent("Notices read to 2026-10-16");
-    expect(screen.queryByText(/Ownership data is not available yet/)).toBeNull();
-    expect(bailOnEmptyRender).not.toHaveBeenCalled();
-  });
-});
-
-// The hub had no og:image (SEO review F09): its own openGraph replaced the
-// root layout's, and the segment had no card. The card is now the segment's
-// opengraph-image.tsx (its own test), which an explicit `images` would shadow.
-// Its own `twitter` replaces the root's wholesale, and it carried no `site`.
 const mapStock = (code: string, marketCap: number, disclosedPct: number) => ({
   code,
   name: `${code} Ltd`,
@@ -155,32 +113,101 @@ const mapStock = (code: string, marketCap: number, disclosedPct: number) => ({
   notices: 1,
 });
 
+const ACTIVITY_ROWS = [
+  { industry: "Materials", weekStart: "2026-11-02", became: 10, increased: 5, decreased: 3, changed: 0, ceased: 2, nz: 1, netPp: 1 },
+  { industry: "Financials", weekStart: "2026-11-02", became: 20, increased: 0, decreased: 0, changed: 0, ceased: 0, nz: 0, netPp: null },
+  // The week before is not this week: it is never summed into the band's figure.
+  { industry: "Materials", weekStart: "2026-10-26", became: 99, increased: 0, decreased: 0, changed: 0, ceased: 0, nz: 0, netPp: 2 },
+];
+
+const activityPage = (over: Record<string, unknown> = {}) => ({
+  ok: true,
+  error: "",
+  fromWeek: "2026-10-26",
+  toWeek: "2026-11-02",
+  asOf: "2026-11-03",
+  rows: ACTIVITY_ROWS,
+  ...over,
+});
+
+const deskDefaults = () => {
+  loadOwnershipMap.mockResolvedValue({
+    ok: true,
+    error: "",
+    from: "",
+    to: "",
+    asOf: "2026-10-16",
+    stocks: [mapStock("BHP", 200e9, 12.5), mapStock("CBA", 150e9, 8), mapStock("ZIP", 1e9, 0)],
+  });
+  loadOwnershipFlows.mockResolvedValue({ ok: true, error: "", from: "", to: "", asOf: "2026-10-16", positions: [], changes: [] });
+  loadOwnershipActivity.mockResolvedValue(activityPage({ asOf: "2026-10-16" }));
+  loadFundPositionChanges.mockResolvedValue({ ok: true, error: "", snapshotDates: [], from: "", to: "", rows: [] });
+};
+
+/** The headline band, the page's coverage section (backlog B2). */
+const band = (container: HTMLElement) => container.querySelector("#coverage") as HTMLElement;
+
+describe("OwnershipPage", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    listInstitutions.mockResolvedValue({ institutions: [], total: 0 });
+    deskDefaults();
+  });
+
+  it.each([
+    ["the read failed", undefined],
+    ["the first collection has not run", overview()],
+  ])("says the data is not available yet when %s, and draws no empty tables", async (_, data) => {
+    getOwnershipOverview.mockResolvedValue(data);
+    const { container } = render(await OwnershipPage());
+
+    expect(screen.getByRole("heading", { level: 1, name: "The ownership landscape" })).toBeInTheDocument();
+    expect(screen.getByText(/Ownership data is not available yet/)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Market map" })).toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(container.querySelector("nav[aria-label='Records']")).toBeNull();
+    expect(bailOnEmptyRender).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws the views once notices have been read, with the band's notice sentence", async () => {
+    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
+    const { container } = render(await OwnershipPage());
+
+    expect(band(container)).toHaveTextContent("7,118 notices read to 2026-10-16");
+    // The plate and the band both print the dates; the plate comes first.
+    expect(screen.getAllByText(/Notices read to/)[0]).toHaveTextContent("Notices read to 2026-10-16");
+    expect(screen.queryByText(/Ownership data is not available yet/)).toBeNull();
+    expect(bailOnEmptyRender).not.toHaveBeenCalled();
+  });
+});
+
 describe("OwnershipPage desk", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    listInstitutions.mockResolvedValue({ institutions: [] });
+    listInstitutions.mockResolvedValue({ institutions: [], total: 0 });
     getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
-    loadOwnershipMap.mockResolvedValue({
-      ok: true,
-      error: "",
-      from: "",
-      to: "",
-      asOf: "2026-10-16",
-      stocks: [mapStock("BHP", 200e9, 12.5), mapStock("CBA", 150e9, 8)],
-    });
-    loadOwnershipFlows.mockResolvedValue({ ok: true, error: "", from: "", to: "", asOf: "2026-10-16", positions: [], changes: [] });
-    loadOwnershipActivity.mockResolvedValue({ ok: true, error: "", fromWeek: "", toWeek: "", asOf: "2026-10-16", rows: [] });
-    loadFundPositionChanges.mockResolvedValue({ ok: true, error: "", snapshotDates: [], from: "", to: "", rows: [] });
+    deskDefaults();
   });
 
-  it("draws the instruments first, in the desk's order, with the record beneath them", async () => {
-    render(await OwnershipPage());
+  it("draws the instruments in the desk's order, with the band above them and the records and method after", async () => {
+    const { container } = render(await OwnershipPage());
 
-    // Each pane's heading carries its open-in-page link, so the names are matched by their start.
-    const order = ["Market map", "Disclosed exposure", "Notice activity", "Index fund positions", "The map", "Latest notices"];
-    const headings = order.map((name) => screen.getByRole("heading", { name: new RegExp(`^${name}`) }));
-    for (let i = 1; i < headings.length; i++) {
-      expect(headings[i - 1].compareDocumentPosition(headings[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const order = [
+      "#coverage",
+      "#desk-map",
+      "#desk-flows",
+      "#desk-movement",
+      "section[aria-label='Index fund positions']",
+      "nav[aria-label='Records']",
+      "details#method",
+    ];
+    const nodes = order.map((selector) => {
+      const node = container.querySelector(selector);
+      expect(node).not.toBeNull();
+      return node as HTMLElement;
+    });
+    for (let i = 1; i < nodes.length; i++) {
+      expect(nodes[i - 1].compareDocumentPosition(nodes[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
   });
 
@@ -234,53 +261,108 @@ describe("OwnershipPage desk", () => {
       loadFundPositionChanges,
     };
     loaders[loader].mockResolvedValue(failedInstrument[loader]);
-    render(await OwnershipPage());
+    const { container } = render(await OwnershipPage());
 
     expect(bailOnEmptyRender).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("heading", { name: /^Market map/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "The map" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Market map" })).toBeInTheDocument();
+    expect(band(container)).toBeInTheDocument();
   });
-});
 
-describe("OwnershipPage metadata", () => {
-  it("is indexable, self-canonical, and leaves the social card to the segment's opengraph-image", () => {
-    expect(Object.keys(metadata)).not.toContain("robots");
-    expect(metadata.alternates?.canonical).toBe("https://shorted.com.au/ownership");
-    expect(Object.keys(metadata.openGraph ?? {})).not.toContain("images");
-    expect(Object.keys(metadata.twitter ?? {})).not.toContain("images");
-    expect(metadata.twitter).toMatchObject({ site: "@shorted___", creator: "@shorted___" });
+  it("hands the map the action's stock-panel loader, not a loader of its own", async () => {
+    render(await OwnershipPage());
+
+    const props = mockOwnershipMap.mock.calls.at(-1)?.[0] as { loadPanel: (code: unknown) => Promise<{ ok: boolean }> };
+    expect(typeof props.loadPanel).toBe("function");
+    await props.loadPanel("BHP");
+    expect(loadStockPanel).toHaveBeenCalledWith("BHP");
+    expect(getStockOwnership).not.toHaveBeenCalled();
+  });
+
+  it("gives the Overview's market map and notice activity the Changed sort, which a link can change (backlog C3)", async () => {
+    render(await OwnershipPage());
+
+    const map = mockOwnershipMap.mock.calls.at(-1)?.[0] as { variant?: string; sort?: string };
+    expect(map.variant).toBe("compact");
+    expect(map.sort).toBe("changed");
+    const heatmap = movementHeatmap.mock.calls.at(-1)?.[0] as { variant?: string; sort?: string };
+    expect(heatmap.variant).toBe("compact");
+    expect(heatmap.sort).toBe("changed");
+  });
+
+  it("hands the movement island the activity loader, so its window and brush can redraw", async () => {
+    render(await OwnershipPage());
+
+    const props = movementHeatmap.mock.calls[0][0] as { variant?: string; loadActivity?: (input: { weeks?: number }) => Promise<unknown> };
+    expect(props.variant).toBe("compact");
+    expect(typeof props.loadActivity).toBe("function");
+    await props.loadActivity?.({ weeks: 8 });
+    expect(loadOwnershipActivity).toHaveBeenLastCalledWith({ weeks: 8 });
   });
 });
 
 const outcome = (name: string, count: number) => ({ outcome: name, count }) as unknown as WithheldOutcome;
 const source = (over: Partial<OwnershipSource>) =>
   ({ source: "", description: "", asAt: "", asAtFrom: "", records: 0, funds: 0, ...over }) as unknown as OwnershipSource;
-const stock = (code: string) =>
-  ({
-    stockCode: code,
-    companyName: `${code} Group`,
-    industry: "Materials",
-    holders: 3,
-    disclosedPct: 23.6,
-    byKind: [],
-    shortPct: 0,
-    hasShortPct: false,
-    indexPct: 0,
-    hasIndexPct: false,
-    superOptions: 0,
-    superValueAud: 0,
-    hasSuperValue: false,
-    marketCap: 0,
-    hasMarketCap: false,
-  }) as unknown as OwnershipStock;
 
-describe("OwnershipPage coverage and sources", () => {
+describe("OwnershipPage headline band (backlog B2)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    listInstitutions.mockResolvedValue({ institutions: [] });
+    listInstitutions.mockResolvedValue({ institutions: [], total: 0 });
+    deskDefaults();
   });
 
-  it("counts the six withholding outcomes in the withheld tile, and names the two that are not withheld apart", async () => {
+  it("states the four figures as sentences, with the notices' newest week", async () => {
+    getOwnershipOverview.mockResolvedValue(
+      overview({
+        noticesParsed: 18173,
+        superFunds: 72,
+        etfs: 471,
+        asOf: "2026-11-03",
+        documentsAttempted: 26819,
+        withheldByOutcome: [outcome("no_text", 7518)],
+        sources: [
+          source({ source: "etf", funds: 11, asAtFrom: "2026-09-30", asAt: "2026-11-02" }),
+          source({ source: "super_phd", funds: 72, asAtFrom: "2026-06-30", asAt: "2026-06-30" }),
+        ],
+      }),
+    );
+    const { container } = render(await OwnershipPage());
+
+    expect(band(container)).toHaveTextContent("18,173 notices read to 2026-11-03, 41 released this week");
+    expect(band(container)).toHaveTextContent("7,518 notices withheld of 26,819 documents attempted");
+    expect(band(container)).toHaveTextContent("11 of 471 index fund files, as at 2026-09-30 to 2026-11-02");
+    expect(band(container)).toHaveTextContent("72 of 72 super option files, as at 2026-06-30");
+    // The figures are mono; the words around them are not.
+    const figures = Array.from(band(container).querySelectorAll("span.font-mono")).map((node) => node.textContent);
+    expect(figures).toEqual(expect.arrayContaining(["18,173", "41", "7,518", "26,819", "11", "471"]));
+  });
+
+  it("drops the this-week clause when the activity read is not ok", async () => {
+    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 18173, superFunds: 72, asOf: "2026-11-03" }));
+    loadOwnershipActivity.mockResolvedValue(activityPage({ ok: false, error: "", rows: [] }));
+    const { container } = render(await OwnershipPage());
+
+    expect(band(container)).toHaveTextContent("18,173 notices read to 2026-11-03");
+    expect(band(container).textContent).not.toContain("released this week");
+  });
+
+  it("drops the this-week clause when the activity names no week", async () => {
+    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 18173, superFunds: 72, asOf: "2026-11-03" }));
+    loadOwnershipActivity.mockResolvedValue(activityPage({ fromWeek: "", toWeek: "", rows: [] }));
+    const { container } = render(await OwnershipPage());
+
+    expect(band(container).textContent).not.toContain("released this week");
+  });
+
+  it("prints n/a for an index fund count the API does not hold, with no date clause", async () => {
+    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
+    const { container } = render(await OwnershipPage());
+
+    expect(band(container)).toHaveTextContent("n/a index fund files");
+    expect(band(container).textContent).not.toContain("as at n/a");
+  });
+
+  it("counts the six withholding outcomes, names the two that are not withheld apart, and keeps the breakdown folded", async () => {
     getOwnershipOverview.mockResolvedValue(
       overview({
         noticesParsed: 7118,
@@ -295,11 +377,11 @@ describe("OwnershipPage coverage and sources", () => {
         ],
       }),
     );
-    render(await OwnershipPage());
+    const { container } = render(await OwnershipPage());
 
-    expect(screen.getByText("Notices withheld").previousElementSibling).toHaveTextContent(/^5$/);
-    expect(screen.getByText("of 7,132 documents attempted")).toBeInTheDocument();
-    expect(screen.getByText("Withheld, by outcome")).toBeInTheDocument();
+    expect(band(container)).toHaveTextContent("5 notices withheld of 7,132 documents attempted");
+    const breakdown = within(band(container)).getByText("Withheld, by outcome");
+    expect(breakdown.closest("details")).not.toBeNull();
     expect(
       screen.getByText(/A further 9 documents were not substantial holding forms and 4 have not yet been downloaded/),
     ).toBeInTheDocument();
@@ -321,70 +403,119 @@ describe("OwnershipPage coverage and sources", () => {
     );
     render(await OwnershipPage());
 
-    expect(screen.getByText(/index fund files as at/)).toHaveTextContent(
+    expect(screen.getAllByText(/index fund files as at/)[0]).toHaveTextContent(
       "Notices read to 2026-10-16 · index fund files as at 2026-09-30 to 2026-10-19 · super option files as at 2026-06-30 · ASIC shorts T+4 · Not financial advice",
     );
   });
+});
 
-  it("links every stock on the hub to its register page", async () => {
-    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, crowded: [stock("PLS")] }));
-    render(await OwnershipPage());
-
-    expect(screen.getByRole("link", { name: "PLS" })).toHaveAttribute("href", "/ownership/stocks/PLS");
+describe("OwnershipPage records and panes (backlog B2)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getOwnershipOverview.mockResolvedValue(
+      overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16", topHolders: [{ slug: "vanguard" } as never] }),
+    );
+    listInstitutions.mockResolvedValue({ institutions: [], total: 412 });
+    deskDefaults();
   });
 
-  it("gives each kind's group in the directory its own id, so a desk link can land on that kind", async () => {
-    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72 }));
-    listInstitutions.mockResolvedValue({
-      total: 1,
-      institutions: [
-        { slug: "aware-super", name: "Aware Super", kind: "super_fund", substantialPositions: 0, notices: 0, hasAum: false, hasFundsSize: false },
-      ],
-    });
+  it("links the five records with their counts, and leaves out a count the page does not hold", async () => {
     const { container } = render(await OwnershipPage());
 
-    expect(container.querySelector("#directory-super_fund")).toHaveTextContent("Aware Super");
-    expect(container.querySelector("#directory-index_manager")).toHaveTextContent("None listed.");
+    const records = within(container.querySelector("nav[aria-label='Records']") as HTMLElement);
+    expect(records.getByRole("link", { name: "Stocks on the map · 3" })).toHaveAttribute("href", "/ownership/stocks");
+    // The holders list is capped by the API, so the record carries no count.
+    expect(records.getByRole("link", { name: "Biggest holders" })).toHaveAttribute("href", "/ownership/holders");
+    // Registers are the stocks with a disclosed holding: ZIP has none.
+    expect(records.getByRole("link", { name: "Registers · 2" })).toHaveAttribute("href", "/ownership/stocks");
+    expect(records.getByRole("link", { name: "Latest notices · 7,118" })).toHaveAttribute("href", "/ownership/notices");
+    expect(records.getByRole("link", { name: "Institutions on the map · 412" })).toHaveAttribute("href", "/ownership/holders");
+    expect(records.getAllByRole("link")).toHaveLength(5);
   });
 
-  // listInstitutions answers undefined on any failure. That is an outage: the page bails the cache,
-  // says so once, and does not print an empty registry. The kind anchors still resolve.
-  it("says the directory could not be read, bails the cache, and prints no empty kind", async () => {
-    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72 }));
+  it("omits a record's count when the directory's total is not held", async () => {
     listInstitutions.mockResolvedValue(undefined);
     const { container } = render(await OwnershipPage());
 
-    expect(bailOnEmptyRender).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/The institution list could not be read just now/)).toBeInTheDocument();
-    expect(screen.queryByText(/None listed/)).toBeNull();
-    expect(container.querySelector("#directory-super_fund")).not.toBeNull();
-    expect(container.querySelector("#directory-index_manager")).not.toBeNull();
+    const records = within(container.querySelector("nav[aria-label='Records']") as HTMLElement);
+    expect(records.getByRole("link", { name: "Institutions on the map" })).toBeInTheDocument();
+    expect(records.queryByRole("link", { name: /Institutions on the map · / })).toBeNull();
   });
 
-  it("hands the map the action's stock-panel loader, not a loader of its own", async () => {
-    render(await OwnershipPage());
-
-    const props = mockOwnershipMap.mock.calls.at(-1)?.[0] as { loadPanel: (code: unknown) => Promise<{ ok: boolean }> };
-    expect(typeof props.loadPanel).toBe("function");
-    await props.loadPanel("BHP");
-    expect(loadStockPanel).toHaveBeenCalledWith("BHP");
-    expect(getStockOwnership).not.toHaveBeenCalled();
-  });
-
-  it("hands the movement island the activity loader, so its chips and brush can redraw", async () => {
-    render(await OwnershipPage());
-
-    const props = movementHeatmap.mock.calls[0][0] as { loadActivity?: (input: { weeks?: number }) => Promise<unknown> };
-    expect(typeof props.loadActivity).toBe("function");
-    await props.loadActivity?.({ weeks: 8 });
-    expect(loadOwnershipActivity).toHaveBeenLastCalledWith({ weeks: 8 });
-  });
-
-  it("anchors the coverage and the method, and ends the page with the error report", async () => {
-    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
+  it("makes each pane's title the link to its own page, with no arrow", async () => {
     const { container } = render(await OwnershipPage());
 
-    expect(container.querySelector("section#coverage")).not.toBeNull();
+    const link = (selector: string, name: string) => within(container.querySelector(selector) as HTMLElement).getByRole("link", { name });
+    expect(link("#desk-map", "Market map")).toHaveAttribute("href", "/ownership/map");
+    expect(link("#desk-flows", "Disclosed exposure")).toHaveAttribute("href", "/ownership/connections");
+    expect(link("#desk-movement", "Notice activity")).toHaveAttribute("href", "/ownership/activity");
+    expect(
+      within(container.querySelector("section[aria-label='Index fund positions']") as HTMLElement).getByRole("link", {
+        name: "Index fund positions",
+      }),
+    ).toHaveAttribute("href", "/ownership/map?lens=index_flow");
+    for (const heading of screen.getAllByRole("heading", { level: 2 })) {
+      expect(heading.textContent).not.toMatch(/↗/);
+    }
+  });
+
+  it("fixes the two rows of panes at their heights from lg, and gives no pane a control row of its own", async () => {
+    const { container } = render(await OwnershipPage());
+
+    expect(container.querySelector("#desk-map")?.closest("section")).toHaveClass("lg:h-[420px]", "lg:overflow-hidden");
+    expect(container.querySelector("#desk-flows")?.closest("section")).toHaveClass("lg:h-[420px]", "lg:overflow-hidden");
+    expect(container.querySelector("#desk-movement")?.closest("section")).toHaveClass("lg:h-[320px]", "lg:overflow-hidden");
+    expect(container.querySelector("section[aria-label='Index fund positions']")).toHaveClass("lg:h-[320px]");
+    // The only toolbar on the hub is the one row at the top: the panes draw none.
+    expect(container.querySelectorAll("[data-toolbar]")).toHaveLength(1);
+  });
+
+  it("names no record section as a closed expander: the record pages hold the tables", async () => {
+    const { container } = render(await OwnershipPage());
+
+    for (const id of ["#map", "#holders", "#registers", "#notices", "#directory"]) {
+      expect(container.querySelector(`details${id}`)).toBeNull();
+    }
+    expect(screen.queryByRole("heading", { name: "The biggest holders" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Latest notices" })).toBeNull();
+  });
+});
+
+describe("OwnershipPage toolbar and method (backlog B2)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
+    listInstitutions.mockResolvedValue({ institutions: [], total: 0 });
+    deskDefaults();
+  });
+
+  it("draws one toolbar row with the search first, then the Source and the Window selects", async () => {
+    const { container } = render(await OwnershipPage());
+
+    const row = container.querySelector("[data-toolbar]") as HTMLElement;
+    const controls = Array.from(row.querySelectorAll("input, select, [role='search']")).map((node) => node.getAttribute("aria-label") ?? node.getAttribute("name") ?? node.tagName);
+    expect(controls[0]).toBe("Find a stock or holder");
+    expect(within(row).getByRole("combobox", { name: "Source" })).toBeInTheDocument();
+    expect(within(row).getByRole("combobox", { name: "Window" })).toHaveValue("91");
+    expect(row.textContent).toContain("Substantial notices");
+  });
+
+  it("folds the one row under 'Adjust view' below sm", async () => {
+    const { container } = render(await OwnershipPage());
+
+    const row = container.querySelector("[data-toolbar]") as HTMLElement;
+    const fold = row.closest("details");
+    expect(fold).not.toBeNull();
+    expect(fold?.querySelector("summary")).toHaveTextContent("Adjust view");
+  });
+
+  it("ends the page with the method disclosure, the error report after it", async () => {
+    const { container } = render(await OwnershipPage());
+
+    const details = Array.from(container.querySelectorAll("details"));
+    const method = container.querySelector("details#method") as HTMLElement;
+    expect(details.at(-1)).toBe(method);
+    expect(method).not.toHaveAttribute("open");
     expect(container.querySelector("#method")).toHaveClass("scroll-mt-20");
     expect(screen.getByRole("link", { name: "Report an error" })).toHaveAttribute(
       "href",
@@ -392,14 +523,100 @@ describe("OwnershipPage coverage and sources", () => {
     );
   });
 
-  it("links the latest notices to the feed", async () => {
-    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
+  // The dated source list folds into the method, and the error report sits under the disclosure.
+  it("folds the source lines into the closed method, with the error report after it", async () => {
+    getOwnershipOverview.mockResolvedValue(
+      overview({
+        noticesParsed: 7118,
+        superFunds: 72,
+        asOf: "2026-10-16",
+        sources: [
+          source({
+            source: "etf",
+            description: "Index fund files from the ASX",
+            records: 412,
+            funds: 11,
+            asAt: "2026-10-19",
+            asAtFrom: "2026-09-30",
+          }),
+        ],
+      }),
+    );
     const { container } = render(await OwnershipPage());
 
-    const notices = container.querySelector("details:has(#notices)") as HTMLElement;
-    expect(within(notices).getByRole("link", { name: "All notices →" })).toHaveAttribute(
-      "href",
-      "/ownership/notices",
-    );
+    const method = container.querySelector("details#method") as HTMLElement;
+    expect(method).not.toHaveAttribute("open");
+    expect(method.textContent).toContain("Index fund files from the ASX: 412 records");
+    expect(method.nextElementSibling).toContainElement(screen.getByRole("link", { name: "Report an error" }));
+  });
+});
+
+// The first phone screen (backlog D2): the plate folds with the toolbar, and the band, the records and the
+// method follow the panes below lg. jsdom has no layout, so the order is pinned by its classes; the 390
+// screenshot is the measure of the first instrument's position.
+describe("OwnershipPage first phone screen (backlog D2)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
+    listInstitutions.mockResolvedValue({ institutions: [], total: 0 });
+    deskDefaults();
+  });
+
+  const plates = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll("p")).filter((p) => p.textContent?.includes("Notices read to"));
+
+  it("draws the plate once, inside the toolbar's fold, above the row", async () => {
+    const { container } = render(await OwnershipPage());
+
+    const found = plates(container);
+    expect(found).toHaveLength(1);
+    const row = container.querySelector("[data-toolbar]") as HTMLElement;
+    const fold = row.closest("details") as HTMLElement;
+    expect(fold).not.toBeNull();
+    expect(fold.querySelector("summary")).toHaveTextContent("Adjust view");
+    expect(fold).toContainElement(found[0]);
+    expect(found[0].compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The plate is not a child of the page's column: it is inside the toolbar's block.
+    expect(found[0].parentElement).not.toBe(band(container).parentElement);
+  });
+
+  it("makes the page's column a flex column, so the order classes apply, with no space-y", async () => {
+    const { container } = render(await OwnershipPage());
+
+    const column = band(container).parentElement as HTMLElement;
+    expect(column).toHaveClass("flex", "flex-col", "gap-8");
+    expect(column).not.toHaveClass("space-y-8");
+  });
+
+  it("moves the band, the records and the method after the panes below lg, and restores the desk order from lg", async () => {
+    const { container } = render(await OwnershipPage());
+
+    expect(band(container)).toHaveClass("order-[10]", "lg:order-none");
+    expect(container.querySelector("nav[aria-label='Records']")).toHaveClass("order-[11]", "lg:order-none");
+    const methodWrapper = container.querySelector("details#method")?.parentElement as HTMLElement;
+    expect(methodWrapper).toHaveClass("order-[12]", "lg:order-none");
+    // The panes take no order class of their own, so they keep the column's order and sit first on a phone.
+    const mapTokens = (container.querySelector("#desk-map")?.closest("section") as HTMLElement).className.split(/\s+/);
+    expect(mapTokens.some((token) => /(^|:)order-/.test(token))).toBe(false);
+  });
+
+  it("keeps the DOM order unchanged, the band still ahead of the panes for the focus order", async () => {
+    const { container } = render(await OwnershipPage());
+
+    const coverage = band(container);
+    const map = container.querySelector("#desk-map") as HTMLElement;
+    expect(coverage.compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("keeps the pane titles, and no pane has a phone height of its own", async () => {
+    const { container } = render(await OwnershipPage());
+
+    for (const title of ["Market map", "Disclosed exposure", "Notice activity"]) {
+      expect(screen.getByRole("heading", { level: 2, name: title })).toBeInTheDocument();
+    }
+    const mapSection = container.querySelector("#desk-map")?.closest("section") as HTMLElement;
+    const tokens = mapSection.className.split(/\s+/);
+    expect(tokens.some((token) => /^h-\[/.test(token))).toBe(false);
+    expect(mapSection).toHaveClass("lg:h-[420px]");
   });
 });

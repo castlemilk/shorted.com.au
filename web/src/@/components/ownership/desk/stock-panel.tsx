@@ -21,8 +21,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { DisclosedBar, type DisclosedSegment } from "~/@/components/ownership/disclosed-bar";
 import { HolderName } from "~/@/components/ownership/ownership-parts";
-import { formatDate, formatPct, NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
-import { formLabel, formatVotingPower, kindInfo, registerHref } from "~/@/lib/ownership/kinds";
+import { formatDate, NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
+import { formLabel, formatHeadlinePct, kindInfo, registerHref } from "~/@/lib/ownership/kinds";
 import { defaultNoticeQuery, NOTICE_WINDOW_ALL, serialiseNoticeParams } from "~/@/lib/ownership/query";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { OUTAGE_AFTER_MS, LOADING_COPY } from "./ownership-map-static";
@@ -213,7 +213,7 @@ function PanelBody({ page, scaleMax }: { page: StockPanelPage; scaleMax: number 
                   <span className="block text-[11px] text-muted-foreground">{kindInfo(holder.kind).label}</span>
                 </span>
                 <span className="text-right tabular-nums">
-                  {formatVotingPower(holder.votingPowerPct)}
+                  {formatHeadlinePct(holder.votingPowerPct)}
                   <span className="block text-[11px] text-muted-foreground">
                     <DateText iso={holder.asAt} />
                   </span>
@@ -234,7 +234,7 @@ function PanelBody({ page, scaleMax }: { page: StockPanelPage; scaleMax: number 
             </span>
           ) : (
             <span>
-              {formatPct(page.index.pct, { digits: 2 })}
+              {formatHeadlinePct(page.index.pct)}
               {/* The qualifier sits under the figure: beside it, it wrapped the narrow column
                   into four lines (the visual pass of 2026-11-03). */}
               <span className="block text-[11px] text-muted-foreground">

@@ -5,8 +5,14 @@ import { NoticeFeedExplorer } from "~/@/components/ownership/notice-feed-explore
 import { ChangesInspector } from "~/@/components/ownership/funds/changes-inspector";
 import { FundChangesTable } from "~/@/components/ownership/funds/fund-changes-table";
 import { UrlTabs } from "~/@/components/ownership/funds/url-tabs";
-import { CHANGES_TAB_LABELS, defaultPair } from "~/@/components/ownership/funds/fund-model";
+import {
+  CHANGES_TAB_LABELS,
+  defaultCompareFund,
+  defaultPair,
+  orderFundsForCompare,
+} from "~/@/components/ownership/funds/fund-model";
 import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 import { lede, pageTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { listInstitutions } from "~/app/actions/getOwnership";
@@ -56,10 +62,16 @@ export default async function ChangesPage() {
     listInstitutions("", "", 200, 0),
   ]);
 
-  // The default fund is the first index fund (the largest by the API's own order), read
-  // with its two newest file dates. An empty registry leaves the table with no fund.
-  const options = funds.funds.map((fund) => ({ key: fund.key, ticker: fund.ticker, name: fund.name }));
-  const defaultFund = funds.funds.find((fund) => fund.sourceKind !== "super_phd") ?? funds.funds[0];
+  // The Fund select lists the funds with two file dates first (a fund with one is still listed,
+  // after them). The default is the first index fund with two files, read with its two newest
+  // file dates; an empty registry leaves the table with no fund.
+  const options = orderFundsForCompare(funds.funds).map((fund) => ({
+    key: fund.key,
+    ticker: fund.ticker,
+    name: fund.name,
+    snapshotCount: fund.snapshotCount ?? 0,
+  }));
+  const defaultFund = defaultCompareFund(funds.funds);
   let defaultDates: string[] = [];
   let comparison: FundComparison = EMPTY_COMPARISON;
   let datesFailed = false;
@@ -123,6 +135,7 @@ export default async function ChangesPage() {
               },
             ]}
           />
+          <MethodDisclosure />
         </div>
       </WorkspacePage>
     </DashboardLayout>

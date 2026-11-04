@@ -14,7 +14,7 @@ import { OwnershipMapStatic } from "../ownership-map-static";
 import { OwnershipFlowsStatic } from "../ownership-flows-static";
 import { MovementHeatmapView } from "../movement-heatmap-static";
 import { tickerSize, labelColourFor, figureSizeFor } from "../ownership-map-static";
-import { foldSectors, flowLayout, FLOW_SIZES, FLOW_SECTOR_KEEP, kindColour, OwnershipFlowsView } from "../ownership-flows-static";
+import { foldSectors, flowLayout, FLOW_SIZES, FLOW_SECTOR_KEEP, holderBodyFill, OwnershipFlowsView } from "../ownership-flows-static";
 import { FOLDED_SECTOR_LABEL, KIND_ORDER, kindSelectLabel } from "~/@/lib/ownership/kinds";
 import { Toolbar, TOOLBAR_COMBOBOX_ROW_CLASS } from "../../workspace/toolbar";
 import { WindowSelect } from "../../workspace/window-select";
@@ -82,10 +82,10 @@ describe("the map's ticker (spec 14.9)", () => {
     expect(figureSizeFor(tickerSize(200, 120))).toBeGreaterThan(11);
   });
 
-  it("is ink on the pale steps and the paper on the two deepest, so a full fill stays legible", () => {
+  it("takes each stop's own ink token, so a full fill stays legible in both themes", () => {
     const scale = lensScale("disclosed", [10]);
-    expect(labelColourFor(1, scale)).toBe("hsl(var(--foreground))");
-    expect(labelColourFor(10, scale)).toBe("hsl(var(--background))");
+    expect(labelColourFor(1, scale)).toBe("hsl(var(--desk-bin-ink-0))");
+    expect(labelColourFor(10, scale)).toBe("hsl(var(--desk-bin-ink-4))");
     expect(labelColourFor(null, scale)).toBe("hsl(var(--foreground))");
   });
 });
@@ -129,7 +129,7 @@ describe("the folded sankey (spec 14.9)", () => {
   });
 
   it("muted for unclassified holders, never the brightest node", () => {
-    expect(kindColour("unclassified")).toBe("hsl(var(--muted-foreground))");
+    expect(holderBodyFill("unclassified")).toBe("hsl(var(--muted-foreground))");
   });
 });
 

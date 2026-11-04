@@ -71,6 +71,14 @@ describe("the fund inspector (spec 14.3, Funds)", () => {
     expect(bars.items[1]!.share).toBeCloseTo(8.4 / 9.1, 6);
   });
 
+  it("prints the top-10 sum and each bar's weight at two decimals (spec A4)", () => {
+    const content = fundInspectorContent(FUND);
+    expect(content.rows).toContainEqual({ label: "In the top 10", value: "44.20%" });
+    const bars = content.sections?.[0];
+    if (bars?.kind !== "bars") throw new Error("expected bars");
+    expect(bars.items.map((bar) => bar.value)).toEqual(["9.10%", "8.40%", "4.50%"]);
+  });
+
   it("links to the portfolio and the source file, and only for a safe address", () => {
     const content = fundInspectorContent(FUND);
     expect(content.primary).toEqual({ label: "Open portfolio →", href: "/ownership/funds/A200" });
@@ -94,7 +102,7 @@ describe("the holding inspector (spec 14.3, Fund page)", () => {
     const content = holdingInspectorContent(HOLDING_INPUT);
     expect(content.heading).toBe("BHP in A200");
     expect(content.subtitle).toBe("BHP Group · Materials");
-    expect(content.figure).toEqual({ value: "8.4%", caption: "Weight in this fund" });
+    expect(content.figure).toEqual({ value: "8.40%", caption: "Weight in this fund" });
     expect(content.logo).toEqual({ kind: "stock", code: "BHP" });
   });
 

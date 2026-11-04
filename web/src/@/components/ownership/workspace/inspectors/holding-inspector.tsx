@@ -1,11 +1,8 @@
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
-import { shortSector } from "~/@/lib/ownership/kinds";
-import { registerHref } from "~/@/lib/ownership/kinds";
+import { formatHeadlinePct, formatPointChange, registerHref, shortSector } from "~/@/lib/ownership/kinds";
 import {
-  formatEstCompany,
   formatUnits,
-  formatWeight,
   type PortfolioHolding,
   fundLabel,
 } from "../../funds/fund-model";
@@ -23,7 +20,7 @@ export interface HoldingSeriesPoint {
 
 /** A series figure: a file that could not be read says so, never "n/a" as if the file had no holding. */
 function seriesFigure(point: HoldingSeriesPoint): string {
-  return point.read === false ? "Not read just now" : formatWeight(point.weightPct);
+  return point.read === false ? "Not read just now" : formatHeadlinePct(point.weightPct);
 }
 
 export interface HoldingInspectorInput {
@@ -46,6 +43,37 @@ export function weightMoveNote(series: readonly HoldingSeriesPoint[]): string | 
   const magnitude = Math.abs(delta).toFixed(1);
   if (magnitude === "0.0") return `0.0 percentage points vs ${prior.asAt}`;
   return `${delta > 0 ? "+" : "−"}${magnitude} percentage points vs ${prior.asAt}`;
+}
+
+/**
+ * The holding's reading (spec 14.1, backlog C1): its weight in the fund on the file date, and the change
+ * since the previous file that states one. The weight is the subject, so with no weight there is no reading.
+ * The change is printed only when the latest stated file is the one the page shows.
+ */
+export function holdingReading(input: HoldingInspectorInput): string | undefined {
+  const { fund, holding, series } = input;
+  if (holding.weightPct === null || !Number.isFinite(holding.weightPct)) return undefined;
+  const label = fundLabel(fund);
+  const head = [
+    `${holding.code} is ${formatHeadlinePct(holding.weightPct)}`,
+    label === "" ? "" : `of ${label}`,
+    fund.asAt === "" ? "" : `at ${fund.asAt}`,
+  ]
+    .filter((part) => part !== "")
+    .join(" ");
+  const stated = series.filter((point) => point.weightPct !== null && Number.isFinite(point.weightPct));
+  const latest = stated.at(-1);
+  const prior = stated.at(-2);
+  const move =
+    latest !== undefined &&
+    prior !== undefined &&
+    fund.asAt !== "" &&
+    latest.asAt === fund.asAt &&
+    latest.weightPct !== null &&
+    prior.weightPct !== null
+      ? `${formatPointChange(prior.weightPct, latest.weightPct)} since ${prior.asAt}`
+      : undefined;
+  return `${[head, move].filter((part) => part !== undefined).join(", ")}.`;
 }
 
 /**
@@ -94,9 +122,10 @@ export function holdingInspectorContent(input: HoldingInspectorInput): Inspector
   const move = weightMoveNote(series);
   return {
     heading: `${holding.code} in ${fundLabel(fund)}`,
+    reading: holdingReading(input),
     subtitle: `${holding.name} · ${shortSector(holding.industry)}`,
     logo: { kind: "stock", code: holding.code },
-    figure: { value: formatWeight(holding.weightPct, 1), caption: "Weight in this fund" },
+    figure: { value: formatHeadlinePct(holding.weightPct), caption: "Weight in this fund" },
     rows: [
       { label: "Reported shares", value: formatUnits(holding.units) },
       // The estimate divides the reported units by the shares on issue, so it is stated
@@ -105,7 +134,7 @@ export function holdingInspectorContent(input: HoldingInspectorInput): Inspector
         label: "Est. company shares held",
         value:
           holding.units !== null && holding.sharesOnIssue !== null
-            ? formatEstCompany(holding.estCompanyPct)
+            ? formatHeadlinePct(holding.estCompanyPct)
             : NOT_AVAILABLE,
       },
       { label: "Holdings", value: fund.asAt || NOT_AVAILABLE },

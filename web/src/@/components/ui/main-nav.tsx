@@ -15,6 +15,28 @@ import { Popover, PopoverContent, PopoverTrigger } from "~/@/components/ui/popov
 import { MobileNav } from "./mobile-nav";
 import { type NavItemWithGroup } from "./site-header";
 
+/**
+ * Whether the open page is `href` or sits inside it. "/" matches the home page
+ * only: every path starts with "/", so a prefix test would light Home on every
+ * page. A section stays lit on its own sub-pages ("/ownership/map") but not on
+ * a sibling that merely shares the prefix ("/ownershipx").
+ */
+export function isActivePath(pathname: string, href: string): boolean {
+  // An empty href is no destination at all. Every path starts with "", so the
+  // prefix test below would light the item on every page.
+  if (!href) return false;
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/*
+ * Active is a 2px amber underline on the label, never a fill (DESIGN.md,
+ * Navigation: "Active state carries Burnt Amber"). Every item carries the same
+ * bottom border, transparent when idle, so activating one moves nothing. Sage
+ * is --secondary's dark-mode value, so no header item carries the secondary
+ * fill at rest: hover tints it in light mode and the muted surface in dark mode.
+ */
+
 interface MainNavProps {
   items?: NavItemWithGroup[];
   modeToggle?: React.ReactNode;
@@ -36,7 +58,9 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
   );
 
   // Check if any secondary item is currently active
-  const isSecondaryActive = secondaryItems.some((i) => i.href && pathname === i.href);
+  const isSecondaryActive = secondaryItems.some(
+    (i) => !!i.href && isActivePath(pathname, i.href)
+  );
 
   return (
     // gap-2 below sm: the header must fit hamburger + logo + sign-in +
@@ -55,7 +79,7 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
 
       {items?.length ? (
         <nav className="hidden lg:flex min-w-0 items-center gap-0.5">
-          {/* Primary items — always visible */}
+          {/* Primary items; always visible */}
           {primaryItems.map((item, index) => (
             <NavLink
               key={index}
@@ -71,10 +95,10 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
               <PopoverTrigger asChild>
                 <button
                   className={cn(
-                    "px-2.5 xl:px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1",
+                    "px-2.5 xl:px-3 py-2 rounded-t-md text-sm font-medium transition-colors inline-flex items-center gap-1 border-b-2 hover:bg-secondary/50 dark:hover:bg-muted",
                     isSecondaryActive
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
                   )}
                 >
                   More
@@ -95,10 +119,10 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
                   {secondaryItems.map((item, index) => {
                     if (!item.href) return null;
                     const isLocked = item.requiresAuth && !session;
-                    const isActive = pathname === item.href;
+                    const isActive = !isLocked && isActivePath(pathname, item.href);
 
                     // Locked items bounce to signin on click, but the anchor
-                    // keeps the real destination — baking /signin?callbackUrl=
+                    // keeps the real destination; baking /signin?callbackUrl=
                     // into the href leaked sitewide internal link equity to a
                     // signin URL (crawlers read the signed-out SSR'd anchor).
                     return (
@@ -106,13 +130,12 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
                         key={index}
                         href={item.href}
                         prefetch={false}
+                        aria-current={isActive ? "page" : undefined}
                         className={cn(
                           "px-3 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2",
                           isLocked
                             ? "text-muted-foreground hover:text-foreground"
-                            : isActive
-                              ? "bg-secondary text-foreground"
-                              : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/50 dark:hover:bg-muted"
                         )}
                         onClick={(e) => {
                           setMoreOpen(false);
@@ -127,7 +150,18 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
                         }}
                         title={isLocked ? "Sign in to access" : undefined}
                       >
-                        {item.title}
+                        {/* The underline sits on the label, not the row, so the
+                            row keeps its rounded-lg and no fill. */}
+                        <span
+                          className={cn(
+                            "border-b-2",
+                            isActive
+                              ? "border-primary text-primary"
+                              : "border-transparent"
+                          )}
+                        >
+                          {item.title}
+                        </span>
                         {isLocked && (
                           <Lock className="h-3 w-3" aria-hidden="true" />
                         )}
@@ -168,15 +202,17 @@ function NavLink({
   const router = useRouter();
   if (!item.href) return null;
   const isLocked = item.requiresAuth && !session;
+  const isActive = !isLocked && isActivePath(pathname, item.href);
 
   // Locked items bounce to signin on click, but the anchor keeps the real
-  // destination — baking /signin?callbackUrl= into the href leaked sitewide
+  // destination; baking /signin?callbackUrl= into the href leaked sitewide
   // internal link equity to a signin URL (crawlers read the signed-out
   // SSR'd anchor).
   return (
     <Link
       href={item.href}
       prefetch={false}
+      aria-current={isActive ? "page" : undefined}
       onClick={(e) => {
         // Plain left-clicks only: modified clicks keep native
         // open-in-new-tab on the real destination.
@@ -186,12 +222,15 @@ function NavLink({
         }
       }}
       className={cn(
-        "px-2.5 xl:px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1.5 whitespace-nowrap",
+        "px-2.5 xl:px-3 py-2 rounded-t-md text-sm font-medium transition-colors inline-flex items-center gap-1.5 whitespace-nowrap border-b-2",
         isLocked
-          ? "text-muted-foreground hover:text-foreground"
-          : pathname === item.href
-            ? "bg-secondary text-foreground"
-            : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
+          ? "border-transparent text-muted-foreground hover:text-foreground"
+          : cn(
+              "hover:bg-secondary/50 dark:hover:bg-muted",
+              isActive
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            ),
         item.disabled && "cursor-not-allowed opacity-80"
       )}
       title={isLocked ? "Sign in to access" : undefined}

@@ -42,8 +42,9 @@ import {
   type PortfolioHolding,
 } from "~/@/components/ownership/funds/fund-model";
 import type { InspectorContent } from "~/@/components/ownership/workspace/inspector-types";
-import type { Selection } from "~/@/components/ownership/workspace/selection";
+import { compareSelection, type Selection } from "~/@/components/ownership/workspace/selection";
 import { changeInspectorContent } from "~/@/components/ownership/workspace/inspectors/change-inspector";
+import { compareInspectorContent } from "~/@/components/ownership/workspace/inspectors/compare-inspector";
 import { fundInspectorContent } from "~/@/components/ownership/workspace/inspectors/fund-inspector";
 import {
   absentHoldingContent,
@@ -166,17 +167,24 @@ export async function compareFundSnapshots(input: { fundKey?: string; from?: str
 /* ------------------------------------------------------------------ */
 
 /**
- * The inspector content for a fund or a holding of a fund (spec 14.1). A holding is
- * read from the file the page shows (`view.asAt`, "" for the newest), so a row of an
- * older snapshot resolves in that file. A holding the file does not state says so and
- * keeps its weight series; it is never "nothing on record" while the file is on record.
- * A holding's series is one portfolio read per recent file date, the newest eight.
+ * The inspector content for a fund, a holding of a fund (spec 14.1) or two funds compared (backlog C5). A holding
+ * is read from the file the page shows (`view.asAt`, "" for the newest), so a row of an older snapshot resolves
+ * in that file. A holding the file does not state says so and keeps its weight series; it is never "nothing on
+ * record" while the file is on record. A holding's series is one portfolio read per recent file date, the newest
+ * eight. A comparison reads the newest file of each fund; a fund the record does not hold makes it nothing on
+ * record, and a failed read of either is an outage note, never a comparison of one file against nothing.
  * Null when the selection names nothing on record; the note carries an outage. Never throws.
  */
 export async function resolveFundSelection(
   selection: Selection,
   view: { asAt?: string } = {},
 ): Promise<InspectorContent | null> {
+  // A posted selection is not trusted to be the shape the codec writes: the keys go through compareSelection, the
+  // same guard the inspector applies, so a malformed or self-comparing request answers null and never throws.
+  if (selection.kind === "compare") {
+    const compare = compareSelection((selection as { fundKeys?: unknown }).fundKeys);
+    return compare !== null && compare.kind === "compare" ? compareContent(compare.fundKeys) : null;
+  }
   if (selection.kind === "fund") {
     const page = await loadFunds();
     if (!page.ok) return outageContent();
@@ -197,6 +205,23 @@ export async function resolveFundSelection(
     return holdingInspectorContent({ fund: fundFacts, holding, series });
   }
   return null;
+}
+
+/**
+ * The comparison of two funds at their newest files (backlog C5). Both reads run together; a fund the record does
+ * not hold answers nothing on record, and a failed read of either is the outage note, so the rail never draws one
+ * fund's sectors against a missing fund. Never throws.
+ */
+async function compareContent(fundKeys: readonly string[]): Promise<InspectorContent | null> {
+  const [firstKey, secondKey] = fundKeys;
+  if (firstKey === undefined || secondKey === undefined) return null;
+  const [first, second] = await Promise.all([
+    loadFundPortfolio({ fundKey: firstKey }),
+    loadFundPortfolio({ fundKey: secondKey }),
+  ]);
+  if (first.missing || second.missing) return null;
+  if (first.fund === null || second.fund === null) return outageContent();
+  return compareInspectorContent(first.fund, second.fund);
 }
 
 /**
@@ -293,6 +318,11 @@ function fundRow(fund: FundSummary): FundRow {
     sectorWeights: fund.sectorWeights.map(sectorWeight),
     largest: fund.largest.map(topHolding),
     aumAud: fund.hasAumAud ? fund.aumAud : null,
+    // A count is always stated; an API that predates the field reads as no file on record.
+    snapshotCount: fund.snapshotCount ?? 0,
+    // The largest sector change is stated only with its has_ flag; without it, neither figure is read.
+    largestSectorChangePp: fund.hasLargestSectorChange ? fund.largestSectorChangePp : null,
+    largestSectorChangeSector: fund.hasLargestSectorChange ? fund.largestSectorChangeSector : "",
   };
 }
 

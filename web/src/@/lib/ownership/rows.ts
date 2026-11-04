@@ -25,14 +25,6 @@ import {
   holderHref,
 } from "./kinds";
 
-/**
- * Notices an institution page draws before "Show all": its newest, in the
- * server's order. Only the notices are bounded. The stakes and holdings-file
- * rows are what the page says an institution holds, so every one of them,
- * with its stock link, is in the HTML.
- */
-export const INSTITUTION_NOTICES_SHOWN = 25;
-
 /** One current substantial holding, on its holder's page. */
 export interface HoldingRow {
   code: string;

@@ -43,11 +43,14 @@ type OwnershipInstitution struct {
 	LatestNoticeDate     string `protobuf:"bytes,12,opt,name=latest_notice_date,json=latestNoticeDate,proto3" json:"latest_notice_date,omitempty"`
 	// Products linked to it in the fund registers (ETFs, LICs, super funds),
 	// with their combined size (FUM, market cap or total assets).
-	Funds         int32   `protobuf:"varint,13,opt,name=funds,proto3" json:"funds,omitempty"`
-	FundsSizeAud  float64 `protobuf:"fixed64,14,opt,name=funds_size_aud,json=fundsSizeAud,proto3" json:"funds_size_aud,omitempty"`
-	HasFundsSize  bool    `protobuf:"varint,15,opt,name=has_funds_size,json=hasFundsSize,proto3" json:"has_funds_size,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Funds        int32   `protobuf:"varint,13,opt,name=funds,proto3" json:"funds,omitempty"`
+	FundsSizeAud float64 `protobuf:"fixed64,14,opt,name=funds_size_aud,json=fundsSizeAud,proto3" json:"funds_size_aud,omitempty"`
+	HasFundsSize bool    `protobuf:"varint,15,opt,name=has_funds_size,json=hasFundsSize,proto3" json:"has_funds_size,omitempty"`
+	// The holder's current positions whose latest notice is a "became substantial"
+	// (Form 603) released in the last 91 days, the default window.
+	PositionsGained int32 `protobuf:"varint,16,opt,name=positions_gained,json=positionsGained,proto3" json:"positions_gained,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *OwnershipInstitution) Reset() {
@@ -183,6 +186,13 @@ func (x *OwnershipInstitution) GetHasFundsSize() bool {
 		return x.HasFundsSize
 	}
 	return false
+}
+
+func (x *OwnershipInstitution) GetPositionsGained() int32 {
+	if x != nil {
+		return x.PositionsGained
+	}
+	return 0
 }
 
 // A holder's current substantial holding in one stock: its latest notice,
@@ -4826,8 +4836,16 @@ type FundSummary struct {
 	Largest       []*FundTopHolding   `protobuf:"bytes,14,rep,name=largest,proto3" json:"largest,omitempty"`
 	AumAud        float64             `protobuf:"fixed64,15,opt,name=aum_aud,json=aumAud,proto3" json:"aum_aud,omitempty"`
 	HasAumAud     bool                `protobuf:"varint,16,opt,name=has_aum_aud,json=hasAumAud,proto3" json:"has_aum_aud,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// The number of file dates the fund has on record; a comparison needs two.
+	SnapshotCount int32 `protobuf:"varint,17,opt,name=snapshot_count,json=snapshotCount,proto3" json:"snapshot_count,omitempty"`
+	// The sector whose weight moved most between the fund's two newest files, and
+	// that move in percentage points, signed: the newer file less the older. has_ is
+	// false with fewer than two files, or when no sector is stated on both.
+	LargestSectorChangePp     float64 `protobuf:"fixed64,18,opt,name=largest_sector_change_pp,json=largestSectorChangePp,proto3" json:"largest_sector_change_pp,omitempty"`
+	HasLargestSectorChange    bool    `protobuf:"varint,19,opt,name=has_largest_sector_change,json=hasLargestSectorChange,proto3" json:"has_largest_sector_change,omitempty"`
+	LargestSectorChangeSector string  `protobuf:"bytes,20,opt,name=largest_sector_change_sector,json=largestSectorChangeSector,proto3" json:"largest_sector_change_sector,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *FundSummary) Reset() {
@@ -4970,6 +4988,34 @@ func (x *FundSummary) GetHasAumAud() bool {
 		return x.HasAumAud
 	}
 	return false
+}
+
+func (x *FundSummary) GetSnapshotCount() int32 {
+	if x != nil {
+		return x.SnapshotCount
+	}
+	return 0
+}
+
+func (x *FundSummary) GetLargestSectorChangePp() float64 {
+	if x != nil {
+		return x.LargestSectorChangePp
+	}
+	return 0
+}
+
+func (x *FundSummary) GetHasLargestSectorChange() bool {
+	if x != nil {
+		return x.HasLargestSectorChange
+	}
+	return false
+}
+
+func (x *FundSummary) GetLargestSectorChangeSector() string {
+	if x != nil {
+		return x.LargestSectorChangeSector
+	}
+	return ""
 }
 
 type ListFundsResponse struct {
@@ -5692,7 +5738,7 @@ var File_shorts_v1alpha1_ownership_proto protoreflect.FileDescriptor
 
 const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\n" +
-	"\x1fshorts/v1alpha1/ownership.proto\x12\x0fshorts.v1alpha1\x1a\x18options/v1/options.proto\"\xd5\x03\n" +
+	"\x1fshorts/v1alpha1/ownership.proto\x12\x0fshorts.v1alpha1\x1a\x18options/v1/options.proto\"\x80\x04\n" +
 	"\x14OwnershipInstitution\x12\x12\n" +
 	"\x04slug\x18\x01 \x01(\tR\x04slug\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -5709,7 +5755,8 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x12latest_notice_date\x18\f \x01(\tR\x10latestNoticeDate\x12\x14\n" +
 	"\x05funds\x18\r \x01(\x05R\x05funds\x12$\n" +
 	"\x0efunds_size_aud\x18\x0e \x01(\x01R\ffundsSizeAud\x12$\n" +
-	"\x0ehas_funds_size\x18\x0f \x01(\bR\fhasFundsSize\"\x95\x04\n" +
+	"\x0ehas_funds_size\x18\x0f \x01(\bR\fhasFundsSize\x12)\n" +
+	"\x10positions_gained\x18\x10 \x01(\x05R\x0fpositionsGained\"\x95\x04\n" +
 	"\x12SubstantialHolding\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +
@@ -6163,7 +6210,7 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
 	"weight_pct\x18\x03 \x01(\x01R\tweightPct\x12$\n" +
-	"\x0ehas_weight_pct\x18\x04 \x01(\bR\fhasWeightPct\"\xb2\x04\n" +
+	"\x0ehas_weight_pct\x18\x04 \x01(\bR\fhasWeightPct\"\x8e\x06\n" +
 	"\vFundSummary\x12\x19\n" +
 	"\bfund_key\x18\x01 \x01(\tR\afundKey\x12\x16\n" +
 	"\x06ticker\x18\x02 \x01(\tR\x06ticker\x12\x12\n" +
@@ -6183,7 +6230,11 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x0esector_weights\x18\r \x03(\v2!.shorts.v1alpha1.FundSectorWeightR\rsectorWeights\x129\n" +
 	"\alargest\x18\x0e \x03(\v2\x1f.shorts.v1alpha1.FundTopHoldingR\alargest\x12\x17\n" +
 	"\aaum_aud\x18\x0f \x01(\x01R\x06aumAud\x12\x1e\n" +
-	"\vhas_aum_aud\x18\x10 \x01(\bR\thasAumAud\"G\n" +
+	"\vhas_aum_aud\x18\x10 \x01(\bR\thasAumAud\x12%\n" +
+	"\x0esnapshot_count\x18\x11 \x01(\x05R\rsnapshotCount\x127\n" +
+	"\x18largest_sector_change_pp\x18\x12 \x01(\x01R\x15largestSectorChangePp\x129\n" +
+	"\x19has_largest_sector_change\x18\x13 \x01(\bR\x16hasLargestSectorChange\x12?\n" +
+	"\x1clargest_sector_change_sector\x18\x14 \x01(\tR\x19largestSectorChangeSector\"G\n" +
 	"\x11ListFundsResponse\x122\n" +
 	"\x05funds\x18\x01 \x03(\v2\x1c.shorts.v1alpha1.FundSummaryR\x05funds\"I\n" +
 	"\x17GetFundPortfolioRequest\x12\x19\n" +

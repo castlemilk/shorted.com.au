@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -183,18 +184,57 @@ func TestStockViewsCarryTheirDates(t *testing.T) {
 
 func TestBuildInstitutionList(t *testing.T) {
 	d := ownershipFixture()
-	all := buildInstitutionList(d, "", "", 200, 0)
+	all := buildInstitutionList(d, "", "", 200, 0, ownershipTestNow)
 	assert.EqualValues(t, 5, all.Total)
 	// Positions first, then assets: Hostplus has none but the largest AUM.
 	assert.Equal(t, "hostplus", all.Institutions[len(all.Institutions)-1].Slug)
-	hedge := buildInstitutionList(d, "hedge_fund", "", 200, 0)
+	hedge := buildInstitutionList(d, "hedge_fund", "", 200, 0, ownershipTestNow)
 	require.Len(t, hedge.Institutions, 1)
 	assert.Equal(t, "regal-partners", hedge.Institutions[0].Slug)
-	found := buildInstitutionList(d, "", "vang", 200, 0)
+	found := buildInstitutionList(d, "", "vang", 200, 0, ownershipTestNow)
 	require.Len(t, found.Institutions, 1)
-	paged := buildInstitutionList(d, "", "", 2, 4)
+	paged := buildInstitutionList(d, "", "", 2, 4, ownershipTestNow)
 	assert.Len(t, paged.Institutions, 1)
 	assert.EqualValues(t, 5, paged.Total)
+}
+
+// positions_gained counts a holder's current 603s released in the default window,
+// the 91 days ending at the newest notice. A 604 is a move, not a gain; a 603 from
+// before the window and a holding with no stated form count nothing; the window's
+// first day counts and the day before it does not.
+func TestPositionsGainedCountsBecameSubstantialInTheWindow(t *testing.T) {
+	d := &ownershipData{
+		institutions: []shortsstore.OwnershipInstitutionRow{
+			{Slug: "alpha", Name: "Alpha Capital", Kind: "hedge_fund"},
+			{Slug: "beta", Name: "Beta Super", Kind: "super_fund"},
+		},
+		holdings: []shortsstore.SubstantialHoldingRow{
+			{StockCode: "AAA", HolderKey: "alpha", InstitutionSlug: "alpha", Kind: "hedge_fund", Form: "603", AnnouncedOn: "2026-10-02"},
+			{StockCode: "BBB", HolderKey: "alpha", InstitutionSlug: "alpha", Kind: "hedge_fund", Form: "604", AnnouncedOn: "2026-10-05"},
+			{StockCode: "CCC", HolderKey: "alpha", InstitutionSlug: "alpha", Kind: "hedge_fund", Form: "603", AnnouncedOn: "2026-05-01"},
+			{StockCode: "FFF", HolderKey: "alpha", InstitutionSlug: "alpha", Kind: "hedge_fund", Form: "603", AnnouncedOn: "2026-07-18"},
+			{StockCode: "GGG", HolderKey: "alpha", InstitutionSlug: "alpha", Kind: "hedge_fund", Form: "603", AnnouncedOn: "2026-07-17"},
+			{StockCode: "DDD", HolderKey: "beta", InstitutionSlug: "beta", Kind: "super_fund", Form: "", AnnouncedOn: "2026-10-09"},
+			{StockCode: "EEE", HolderKey: "beta", InstitutionSlug: "beta", Kind: "super_fund", Form: "603", AnnouncedOn: "2026-10-12"},
+		},
+		stats: &shortsstore.NoticeStats{LatestAnnounced: "2026-10-16", PerHolder: map[string]shortsstore.HolderNoticeStats{}},
+	}
+	out := buildInstitutionList(d, "", "", 200, 0, ownershipTestNow)
+	byslug := map[string]*shortsv1alpha1.OwnershipInstitution{}
+	for _, i := range out.Institutions {
+		byslug[i.Slug] = i
+	}
+	require.Len(t, byslug, 2)
+	// Alpha: AAA and FFF are 603s in the window; BBB is a 604, CCC is too old, GGG
+	// is the day before the window.
+	assert.EqualValues(t, 5, byslug["alpha"].SubstantialPositions)
+	assert.EqualValues(t, 2, byslug["alpha"].PositionsGained)
+	// Beta: EEE is the one 603; DDD has no form.
+	assert.EqualValues(t, 2, byslug["beta"].SubstantialPositions)
+	assert.EqualValues(t, 1, byslug["beta"].PositionsGained)
+	for _, i := range out.Institutions {
+		assert.LessOrEqual(t, i.PositionsGained, i.SubstantialPositions, "gained never exceeds the positions held")
+	}
 }
 
 func TestBuildInstitutionAndStock(t *testing.T) {

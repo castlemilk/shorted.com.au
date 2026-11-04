@@ -20,14 +20,18 @@
 import { getInstitutionOrNotFound, listInstitutions } from "./getOwnership";
 import { NotFoundError } from "./withRetry";
 import { loadOwnershipMap } from "./ownershipDesk";
+import { loadNoticeFeed } from "./ownershipExplorer";
 import { isInstitutionSlug } from "~/@/lib/ownership/kinds";
 import { parseSelection } from "~/@/components/ownership/workspace/selection";
+import { readWeekNotices, weekWindow, type WeekNotices } from "~/@/components/ownership/workspace/week-strip";
+import { PAGE_MAX_LIMIT } from "~/@/lib/ownership/query";
 import {
   connectionsPage,
   holderFundRow,
   holderInspectorContent,
   holderRowFrom,
   marketCapsOf,
+  type DirectoryHolder,
   type HolderConnectionsPage,
   type HolderInspectorContent,
   type HoldersDirectoryPage,
@@ -36,14 +40,20 @@ import {
 /** The directory's page: every holder the register lists today, with room to spare. */
 const DIRECTORY_LIMIT = 200;
 
+/**
+ * The directory's page: the holder rows, each with the positions it gained in the window (backlog C3b, the
+ * "Changed" sort). The gained count is the register's, read from the same institution; 0 when the API omits it.
+ */
+export type HoldersDirectory = Omit<HoldersDirectoryPage, "holders"> & { holders: DirectoryHolder[] };
+
 /** The directory of holders, largest disclosed positions first, as the API orders it. */
-export async function loadHolders(): Promise<HoldersDirectoryPage> {
+export async function loadHolders(): Promise<HoldersDirectory> {
   const answer = await listInstitutions("", "", DIRECTORY_LIMIT, 0);
   if (answer === undefined) return { ok: false, error: "", holders: [], total: 0 };
   return {
     ok: true,
     error: "",
-    holders: answer.institutions.map(holderRowFrom),
+    holders: answer.institutions.map((inst) => ({ ...holderRowFrom(inst), positionsGained: inst.positionsGained ?? 0 })),
     total: answer.total,
   };
 }
@@ -65,10 +75,28 @@ async function readInstitution(key: string) {
 }
 
 /**
+ * A holder's notice dates over the strip's 26 weeks (backlog C6), or null when they cannot be read
+ * whole. The span ends on the map's as-of, the newest notice the market read; with no as-of there is
+ * no end to draw the weeks to, so there is no strip. The slug is checked here because this is a
+ * server action: a caller can name any key, and only a holder the register lists is read.
+ */
+export async function loadHolderWeekNotices(slug: string, asOf: string): Promise<WeekNotices | null> {
+  if (!isInstitutionSlug(slug)) return null;
+  const span = weekWindow(asOf);
+  if (span === null) return null;
+  return readWeekNotices(
+    loadNoticeFeed,
+    { institutionSlug: slug, since: span.since, until: span.until, limit: PAGE_MAX_LIMIT, includeActivity: false },
+    asOf,
+  );
+}
+
+/**
  * One holder's disclosed connections: its current substantial holdings, each with
  * the stock's market cap when the map holds one, and its index funds and super
  * options. When the map cannot be read the connections are still served, with
- * `capsOk` false and every width a hairline.
+ * `capsOk` false and every width a hairline. The holder's notice dates for its
+ * strip ride along (backlog C6), so the page's first render can draw the strip too.
  */
 export async function loadHolderConnections(key: string): Promise<HolderConnectionsPage> {
   const unknown = (error: string): HolderConnectionsPage => ({
@@ -85,7 +113,8 @@ export async function loadHolderConnections(key: string): Promise<HolderConnecti
   const inst = answer?.institution;
   if (!answer || !inst) return unknown("");
   const caps = map.ok ? marketCapsOf(map.stocks) : null;
-  return connectionsPage(holderRowFrom(inst), answer.positions, caps, answer.funds.map(holderFundRow));
+  const weekNotices = await loadHolderWeekNotices(key, map.ok ? map.asOf : "");
+  return { ...connectionsPage(holderRowFrom(inst), answer.positions, caps, answer.funds.map(holderFundRow)), weekNotices };
 }
 
 /**
@@ -95,5 +124,5 @@ export async function loadHolderConnections(key: string): Promise<HolderConnecti
 export async function resolveHolderInspector(key: string, selection: string): Promise<HolderInspectorContent | null> {
   const page = await loadHolderConnections(key);
   if (!page.ok || page.holder === null) return null;
-  return holderInspectorContent(page.holder, page.positions, parseSelection(selection), page.funds);
+  return holderInspectorContent(page.holder, page.positions, parseSelection(selection), page.funds, page.weekNotices ?? null);
 }
