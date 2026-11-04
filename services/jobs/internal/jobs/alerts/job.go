@@ -33,6 +33,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/entitlementcheck"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 	"github.com/castlemilk/shorted.com.au/services/pkg/alertevents"
@@ -366,6 +367,14 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 	return sum, nil
 }
 
+// alertsUserAgent is the job's marker on every entitlement lookup. The shorts API
+// exempts this prefix from the owner's per-user rate limit (alertsJobUserAgentPrefix),
+// so it must stay "shorted-alerts/".
+const alertsUserAgent = "shorted-alerts/1.0"
+
+// entitlement is the shared premium-feature answer for one owner; see entitlementcheck.
+type entitlement = entitlementcheck.Entitlement
+
 // entitlements asks the shorts API for the entitlement of each owner with a candidate
 // and an address. An answer counts only when the lookup succeeds. Any error, whether
 // the whole API is unreachable or one owner's answer failed, fails the run, so no
@@ -374,7 +383,7 @@ func (a *alertRun) execute(ctx context.Context) (sum summary, err error) {
 // watermarks stay, and the next run retries.
 func (a *alertRun) entitlements(ctx context.Context, cands []Candidate) (map[string]entitlement, error) {
 	ents := map[string]entitlement{}
-	checker := newEntitlementChecker(a.env.shortsAPIURL, a.env.internalSecret)
+	checker := entitlementcheck.NewChecker(a.env.shortsAPIURL, a.env.internalSecret, alertsUserAgent)
 	for _, c := range cands {
 		uid := c.Monitor.UserID
 		if c.Monitor.Email == "" {
@@ -383,7 +392,7 @@ func (a *alertRun) entitlements(ctx context.Context, cands []Candidate) (map[str
 		if _, ok := ents[uid]; ok {
 			continue
 		}
-		e, err := checker.check(ctx, uid)
+		e, err := checker.Check(ctx, uid)
 		if err != nil {
 			return nil, fmt.Errorf("entitlement lookup failed (%s)", lookupCode(err))
 		}
