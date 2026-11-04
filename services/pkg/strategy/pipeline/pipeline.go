@@ -120,7 +120,7 @@ func CandidateAt(code string, t civil.Date, in *Inputs, s spec.Spec) (engine.Can
 	return candidateAt(code, t, newIndex(in, s))
 }
 
-// candidateAt is CandidateAt over a built index. The checks run in 4.7's
+// candidateAt is CandidateAt over a built index. The checks run in a fixed
 // order: the bar on the session, the history, the instrument, the CA guard,
 // then the short-report membership.
 func candidateAt(code string, t civil.Date, idx *index) (engine.Candidate, *Ineligible) {
