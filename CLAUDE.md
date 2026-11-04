@@ -773,13 +773,18 @@ or Create-alert control renders: those capabilities stay off.
 - **Signed-in depth never enters a cache.** The Signals island reads a signed-in
   viewer's whole list through `app/actions/strategies/viewer.ts`
   (`getSignalsForViewer`, the private `GetViewerStrategyPicks`) once the session
-  is known: read once in rank order, paged to the reported total (the API caps a
-  page at 100), and sorted in the browser. That module imports no cache helper,
-  and its guard test reads the source. The Signals ISR page stays anonymous: its
-  HTML carries the top 10 rows and the sign-in prompt row, which also draws while
-  the session loads. The full list is drawn only when its snapshot (session and
-  rules version) matches the page's, so a refresh can refuse it briefly until the
-  page regenerates. Its transport, `app/actions/auth-transport.ts`
+  is known: the first page (100 rows, the API's cap) at mount. The whole list is
+  read only when the viewer searches, filters, sorts or draws past that page, in
+  rank order, and is sorted in the browser. A read is held in the tab for 60
+  seconds under the user id, session and rules version (`signals-read-cache.ts`,
+  browser memory only). A full read costs one call per 100 signals, and every
+  call is metered as the viewer's own browser access. That module imports no
+  cache helper, and its guard test reads the source. The Signals ISR page stays
+  anonymous: its HTML carries the top 10 rows and the sign-in prompt row, which
+  also draws while the session loads. Rows are drawn only when the read's
+  snapshot (session and rules version) matches the page's; a read whose page
+  differs stops there (`snapshot-mismatch`), so a refresh can refuse it briefly
+  until the page regenerates. Its transport, `app/actions/auth-transport.ts`
   (`createSignedInTransport(options)`), reads the session itself and derives the
   verified address from it: a caller passes options only. It fails closed in
   production without `INTERNAL_SERVICE_SECRET`; read-only calls send identity
