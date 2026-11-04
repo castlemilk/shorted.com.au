@@ -37,11 +37,16 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 		Regime:    marketRegimeProto(u.regime, engine.NeutralRegimeVerdict(u.regime)),
 		Fits:      []*shortsv1alpha1.StrategyFit{},
 	}
+	resp.SessionDate = u.asOf
 	if _, ok := u.index[code]; !ok {
+		resp.IneligibleReason = "not_in_universe"
 		return connect.NewResponse(resp), nil
 	}
 	resp.InUniverse = true
-	resp.PriceFeatures = priceFeaturesProto(&u.candidates[u.index[code]])
+	resp.Eligible = true
+	c := &u.candidates[u.index[code]]
+	resp.PriceFeatures = priceFeaturesProto(c)
+	resp.ShortReportDate, resp.ShortAvailableDate = shortDatesProto(c.ShortReportDate)
 
 	for _, st := range engine.Registry() {
 		eval, err := s.loadStrategyEvaluation(ctx, st)

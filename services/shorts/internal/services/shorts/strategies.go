@@ -8,6 +8,7 @@ import (
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 )
 
@@ -42,6 +43,9 @@ type strategyUniverse struct {
 	qualityCoverage int    // candidates with a quality row
 	rowsCount       int    // candidates with any fundamentals row
 	asOf            string // newest price date, YYYY-MM-DD ("" when empty)
+	// shortReportDate is the newest short report date across the universe
+	// (zero when no stock has one).
+	shortReportDate time.Time
 }
 
 // coverageFor is the count a strategy's coverage caveat quotes.
@@ -139,6 +143,16 @@ func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Reques
 		FundamentalsCoverageCount: int32(u.coverage),
 		FundamentalsRowsCount:     int32(u.rowsCount),
 		AsOf:                      u.asOf,
+		StatusCounts:              statusCounts(eval.picks),
+		SessionDate:               u.asOf,
+		ShortReportDate:           dateOrEmpty(u.shortReportDate),
+		UniverseLabel:             st.Metadata.Universe,
+	}
+	if thr, ok := u.env.RSQuantileThreshold(); ok {
+		resp.RsQuantileThreshold, resp.HasRsQuantileThreshold = thr, true
+	}
+	if !u.shortReportDate.IsZero() {
+		resp.ShortAvailableDate = dateOrEmpty(asxcalendar.AvailableFrom(u.shortReportDate))
 	}
 	for i := start; i < end; i++ {
 		resp.Picks = append(resp.Picks, strategyPickProto(&matching[i]))
@@ -210,6 +224,9 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 		}
 		for i := range cands {
 			u.index[strings.ToUpper(cands[i].StockCode)] = i
+			if d := cands[i].ShortReportDate; d != nil && d.After(u.shortReportDate) {
+				u.shortReportDate = *d
+			}
 		}
 		if latest := engine.LatestAsOf(cands); !latest.IsZero() {
 			u.asOf = latest.Format("2006-01-02")
@@ -243,6 +260,40 @@ func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st engine.Str
 	return v.(*strategyEvaluation), nil
 }
 
+// statusCounts counts a ranked list by status: the whole list the caller
+// filters and pages, never the filtered page.
+func statusCounts(picks []engine.Pick) *shortsv1alpha1.StatusCounts {
+	out := &shortsv1alpha1.StatusCounts{}
+	for i := range picks {
+		switch picks[i].Status {
+		case engine.StatusTriggered:
+			out.Triggered++
+		case engine.StatusSetup:
+			out.Setup++
+		case engine.StatusWatch:
+			out.Watch++
+		}
+	}
+	return out
+}
+
+// dateOrEmpty is a YYYY-MM-DD day, or "" for the zero time (absent).
+func dateOrEmpty(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format("2006-01-02")
+}
+
+// shortDatesProto returns a short position's report date and the date it
+// became public, both empty when the stock has no report.
+func shortDatesProto(report *time.Time) (reported, available string) {
+	if report == nil {
+		return "", ""
+	}
+	return dateOrEmpty(*report), dateOrEmpty(asxcalendar.AvailableFrom(*report))
+}
+
 func strategyIDList() string {
 	var ids []string
 	for _, st := range engine.Registry() {
@@ -255,12 +306,18 @@ func strategyProto(st engine.Strategy, caveats []string) *shortsv1alpha1.Strateg
 	rules := make([]*shortsv1alpha1.StrategyRule, 0, len(st.Rules))
 	for _, r := range st.Rules {
 		rules = append(rules, &shortsv1alpha1.StrategyRule{
-			Id:         r.ID,
-			Title:      r.Title,
-			RuleText:   r.RuleText,
-			Evaluation: r.Evaluation,
-			Core:       r.Core,
-			DataSource: r.DataSource,
+			Id:           r.ID,
+			Title:        r.Title,
+			RuleText:     r.RuleText,
+			Evaluation:   r.Evaluation,
+			Core:         r.Core,
+			DataSource:   r.DataSource,
+			Trigger:      r.Trigger,
+			Weight:       r.Weight,
+			Threshold:    r.Threshold,
+			HasThreshold: r.HasThreshold,
+			Unit:         r.Unit,
+			Comparator:   r.Comparator,
 		})
 	}
 	return &shortsv1alpha1.Strategy{
@@ -340,6 +397,16 @@ func strategyPickProto(p *engine.Pick) *shortsv1alpha1.StrategyPick {
 	if !c.AsOf.IsZero() {
 		out.AsOf = c.AsOf.Format("2006-01-02")
 	}
+	out.HasPctOff_52WHigh = c.PctOff52wHigh != nil
+	out.DaysToCover, out.HasDaysToCover = optional(c.DaysToCover)
+	out.Rs_6MPct, out.HasRs_6MPct = optional(c.RS6mPct)
+	out.Rs_6MPercentile, out.HasRs_6MPercentile = optional(p.RS6mPercentile)
+	out.DollarVolume_20D, out.HasDollarVolume_20D = optional(c.DollarVolume20d)
+	out.BreakoutDate = dateString(c.BreakoutDate)
+	out.ShortReportDate, out.ShortAvailableDate = shortDatesProto(c.ShortReportDate)
+	if c.ShortReportDate != nil {
+		out.ShortStatus = "reported"
+	}
 	if c.BaseLengthDays != nil {
 		out.BaseLengthDays = *c.BaseLengthDays
 	}
@@ -358,11 +425,15 @@ func ruleResultsProto(results []engine.RuleResult) []*shortsv1alpha1.RuleResult 
 	out := make([]*shortsv1alpha1.RuleResult, 0, len(results))
 	for _, r := range results {
 		out = append(out, &shortsv1alpha1.RuleResult{
-			RuleId:   r.RuleID,
-			Status:   string(r.Status),
-			Detail:   r.Detail,
-			Value:    r.Value,
-			HasValue: r.HasValue,
+			RuleId:       r.RuleID,
+			Status:       string(r.Status),
+			Detail:       r.Detail,
+			Value:        r.Value,
+			HasValue:     r.HasValue,
+			Reason:       r.Reason,
+			Proximity:    r.Proximity,
+			HasProximity: r.HasProximity,
+			Waiting:      r.Waiting,
 		})
 	}
 	return out
