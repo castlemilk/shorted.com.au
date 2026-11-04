@@ -806,6 +806,16 @@ They are in place so the chart and table code is reviewed once.
   keeps the ink above 4.5:1 in both themes; a `CoverageStrip` month row is the
   `columns` layout here rather than a separate primitive.
 
+- **Signed-in depth never enters a cache.** The Signals island reads a signed-in
+  viewer's whole list through `app/actions/strategies/viewer.ts`
+  (`getSignalsForViewer`, the private `GetViewerStrategyPicks`) once the session
+  is known. That module imports no `unstable_cache` and no KV helper, and the
+  Signals ISR page stays anonymous (the top 10 rows and the sign-in prompt).
+  Its transport, `app/actions/auth-transport.ts` (`createSignedInTransport`),
+  derives the verified address from the session itself and fails closed in
+  production without `INTERNAL_SERVICE_SECRET`; read-only calls send identity
+  only, with no address and no Firebase lookup.
+
 ## Stock page (one route per tab)
 
 `/shorts/[stockCode]` is a shared server `layout.tsx` (breadcrumbs, then
