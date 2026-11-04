@@ -117,6 +117,9 @@ const BUDGETS = {
     // The Signals tab (PR-06): the matrix and the evidence panel's chart, which
     // is a lazy chunk. The budget is the profile spec's figure, measured on build.
     "/strategies/[strategy]/signals": 150,
+    // The Rules tab (PR-13a): static parameter tables and the changelog, no client
+    // island. Measured first load on the production build: 115 kB.
+    "/strategies/[strategy]/rules": 130,
     "/screener": 250,
     "/dashboards": 280,
     // Known-heavy / non-public routes — guarded at current + headroom. These
