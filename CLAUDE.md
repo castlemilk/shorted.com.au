@@ -687,6 +687,26 @@ valuation, stock page).
   counts from the FIRST touch of the high (a flat base reads its full length).
   Both were defects found by applying the migration to a scratch Postgres; the
   window is 40 sessions, so a base is never longer than 40.
+- **Signal fields (PR-04a).** Each rule's definition (`threshold`, `unit`,
+  `comparator`, `has_threshold`) comes from `engine/thresholds.go`, typed out
+  again in `TestRegistryAnnotatesDefinitionFacts`; `rs_leader` has no threshold
+  (its cut-off is `rs_quantile_threshold`, in points), and neither do `base`,
+  `growth` or `eps_growth`, which pass on more than one condition. `rs_6m_percentile` is the
+  type-7 rank, so `>= 75` is exactly the top quartile (`TestRS6mPercentileAgreesWithTheRule`).
+  A rule's `unknown` says why: `no_fundamentals` for missing inputs,
+  `not_meaningful` for a ratio the data withholds (revenue <= 0, the ROE equity
+  guard). `status_counts` covers the whole list before any filter or paging.
+  The short report dates come from the row the short figure came from
+  (`strategyShortDatesQuery`, the view's own filters and figure, no age limit), so a stock
+  with no figure has no date and no `short_status`. `short_available_date` is
+  empty for a report dated before 2026, the holiday table's first year. The
+  universe fill reads `shorts`, so a failed read fails `GetStrategyPicks` and
+  `GetStockStrategyFit` (`ListStrategies` reads only the regime). `stale` is set
+  when the index has closed a session the prices have not reached, read from the
+  regime view and from the index's own series (`latestIndexSession`).
+  `ineligible_reason` is the spec's closed vocabulary: a stock outside the
+  universe reads `short_history`. Rule `value`s keep the API's precision; the
+  mapper rounds only the figures a cut-off reads, rounding down.
 
 ## Strategy chart primitives and returns kit (PR-17)
 
@@ -1014,20 +1034,6 @@ follows the same rules. `ChatSidebar` and both environment banners read
   Overview chart only after a visit to a chart tab. A visitor who lands on
   Strategy directly pays one extra request; the layout's chart used to fetch
   the prices first.
-- **Signal fields (PR-04a).** Each rule's definition (`threshold`, `unit`,
-  `comparator`, `has_threshold`) comes from `engine/thresholds.go`, typed out
-  again in `TestRegistryAnnotatesDefinitionFacts`; `rs_leader` has no threshold
-  (its cut-off is `rs_quantile_threshold`, in points). `rs_6m_percentile` is the
-  type-7 rank, so `>= 75` is exactly the top quartile (`TestRS6mPercentileAgreesWithTheRule`).
-  A rule's `unknown` says why: `no_fundamentals` for missing inputs,
-  `not_meaningful` for a ratio the data withholds (revenue <= 0, the ROE equity
-  guard). `status_counts` covers the whole list before any filter or paging.
-  The short report dates come from the row the short figure came from
-  (`strategyShortDatesQuery`, the view's own filters, no age limit), so a stock
-  with no figure has no date and no `short_status`. `short_available_date` is
-  empty for a report dated before 2026, the holiday table's first year. The
-  universe fill reads `shorts`, so a failed read fails every strategy RPC.
-  `stale` is set when the index has closed a session the prices have not reached.
 - **`PriceFeatures` on `GetStockStrategyFit`** carries `has_` flags; the web
   maps absent to `null` (`StockPriceFeatures`), never zero, and the fit's
   `unstable_cache` key is `v3` so no entry without the signal fields is read back
