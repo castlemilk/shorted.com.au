@@ -94,6 +94,14 @@ export interface OscillatorSpec {
   caption?: string;
   /** Additional lines on the same panel (e.g. STOCH %D, ADX +DI/-DI). */
   extraLines?: { values: (number | null)[]; color: string; dash?: string }[];
+  /**
+   * "area" fills the line down to the panel's zero (or its floor when zero is
+   * off the domain), draws the chart's regions in the panel, and labels its
+   * ticks: a drawdown. Default "line".
+   */
+  kind?: "line" | "area";
+  /** Suffix for the tick labels, e.g. "%". Default none. */
+  unit?: string;
 }
 
 export interface StockChartProps {

@@ -1452,6 +1452,7 @@ export function StockChartInner({
               width={innerW}
               height={oscH - 12}
               xScale={dateScale}
+              regions={regions}
             />
           </Group>
         )}
@@ -1691,6 +1692,7 @@ function OscillatorPanel({
   width,
   height,
   xScale,
+  regions,
 }: {
   oscillators: OscillatorSpec[];
   refIndices: number[];
@@ -1698,6 +1700,7 @@ function OscillatorPanel({
   width: number;
   height: number;
   xScale: ReturnType<typeof scaleTime<number>>;
+  regions: readonly ChartRegion[];
 }) {
   const osc = oscillators[0];
   if (!osc || !points.length) return null;
@@ -1708,9 +1711,54 @@ function OscillatorPanel({
   // Subsample the original-length oscillator values by the same original indices
   // used for the reference series (mirrors the indicator subsampling contract).
   const oscValues = refIndices.map((i) => osc.values[i] ?? null);
+  const isArea = osc.kind === "area";
+  // An area fills to zero, or to the floor of a domain that does not reach zero.
+  const baseline = domain[0] <= 0 && domain[1] >= 0 ? 0 : domain[0];
+  const yBase = yScale(baseline) ?? height;
+  const areaData = isArea
+    ? points.flatMap((p, i) => {
+        const v = oscValues[i];
+        return v == null ? [] : [{ t: p.t, v }];
+      })
+    : [];
+  // The tick labels: the reference levels, or the domain's ends for an area with none.
+  const ticks = osc.reference ?? (isArea ? [domain[0], domain[1]] : []);
   return (
     <g>
       <rect x={0} y={0} width={width} height={height} fill="hsl(var(--muted))" fillOpacity={0.25} rx={4} />
+      {isArea &&
+        regions.map((r, i) => {
+          const xa = xScale(r.start) ?? NaN;
+          const xb = xScale(r.end) ?? NaN;
+          const x = Math.max(0, Math.min(xa, xb));
+          const cw = Math.min(Math.max(xa, xb), width) - x;
+          if (!(cw > 0)) return null;
+          return (
+            <rect
+              key={`osc-region-${i}`}
+              data-chart-osc-region
+              x={x}
+              y={0}
+              width={cw}
+              height={height}
+              pointerEvents="none"
+              {...regionAttrs(r.tone)}
+            />
+          );
+        })}
+      {isArea && areaData.length > 1 && (
+        <AreaClosed<{ t: number; v: number }>
+          data={areaData}
+          x={(d) => xScale(new Date(d.t)) ?? 0}
+          y={(d) => yScale(d.v) ?? 0}
+          yScale={yScale}
+          y0={() => yBase}
+          fill={osc.color}
+          fillOpacity={0.18}
+          stroke="none"
+          data-chart-osc-area
+        />
+      )}
       {(osc.reference ?? []).map((lvl) => (
         <Line
           key={lvl}
@@ -1722,24 +1770,24 @@ function OscillatorPanel({
         />
       ))}
       {osc.caption && (
-        <>
-          <text x={4} y={10} fontSize={10} fill={chartTheme.axisLabel}>
-            {osc.caption}
-          </text>
-          {(osc.reference ?? []).map((lvl) => (
-            <text
-              key={`ref-${lvl}`}
-              x={width - 2}
-              y={(yScale(lvl) ?? 0) - 2}
-              textAnchor="end"
-              fontSize={9}
-              fill={chartTheme.axisLabel}
-            >
-              {lvl}
-            </text>
-          ))}
-        </>
+        <text x={4} y={10} fontSize={10} fill={chartTheme.axisLabel}>
+          {osc.caption}
+        </text>
       )}
+      {(osc.caption || isArea) &&
+        ticks.map((lvl) => (
+          <text
+            key={`ref-${lvl}`}
+            x={width - 2}
+            y={(yScale(lvl) ?? 0) - 2}
+            textAnchor="end"
+            fontSize={9}
+            fill={chartTheme.axisLabel}
+          >
+            {lvl}
+            {osc.unit ?? ""}
+          </text>
+        ))}
       {(osc.extraLines ?? []).map((ln, i) => (
         <IndicatorPath
           key={i}
