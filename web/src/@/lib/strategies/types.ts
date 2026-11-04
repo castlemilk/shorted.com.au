@@ -26,6 +26,16 @@ export interface StrategyRuleDef {
   core: boolean;
   /** "stock_fundamentals" | "stock_prices" | "index_prices" | "asic_shorts". */
   dataSource: string;
+  /** A trigger: a core rule a setup may still fail (the breakout, the new-high or leadership rule). */
+  trigger?: boolean;
+  /** Share of the score this rule carries, 0-1. */
+  weight?: number;
+  /** The number the rule tests, in `unit`; absent for a rule with no single number. */
+  threshold?: number;
+  /** "%", "x", "A$", "days", "points", "percentile" or empty. */
+  unit?: string;
+  /** ">=", "<=", "above" and the like. */
+  comparator?: string;
 }
 
 export interface StrategyMetadataDef {
@@ -67,6 +77,14 @@ export interface RuleResultRow {
   status: RuleStatus;
   /** Human-readable evidence, e.g. "Revenue +41% YoY". */
   detail: string;
+  /** The measured value the rule tested; absent when the rule has none. */
+  value?: number;
+  /** Why an unknown result could not be tested, e.g. "no_fundamentals". */
+  reason?: string;
+  /** For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far distance. */
+  proximity?: number;
+  /** True for a failing trigger on a setup row: the stock is waiting for it. */
+  waiting?: boolean;
 }
 
 /** A growth series: "annual" (FY), "half" (HY) or "ttm" (trailing 12 months). */
@@ -150,9 +168,69 @@ export interface PickRow {
    * business (StrategyPicksResult.fundamentalsRowsCount, fundamentalsHeld).
    */
   fundamentals?: PickFundamentalsView;
+  /** Percent below the 52-week high; 0 is at the high. Absent with no 52-week high yet. */
+  pctOff52wHigh?: number;
+  /** Short position over average daily volume, in days. */
+  daysToCover?: number;
+  /** Stock return minus the index return over 6 months, in points. */
+  rs6mPct?: number;
+  /** Share of the evaluated universe at or below this stock's rs_6m, 0-100. */
+  rs6mPercentile?: number;
+  /** Average daily turnover over 20 sessions, A$. */
+  dollarVolume20d?: number;
+  /** YYYY-MM-DD of the breakout session. */
+  breakoutDate?: string;
+  /** YYYY-MM-DD of the ASIC report the short figure came from. */
+  shortReportDate?: string;
+  /** YYYY-MM-DD the short report became public. */
+  shortAvailableDate?: string;
+  /** "reported" when the stock has a short position in ASIC's report; absent otherwise. */
+  shortStatus?: string;
+  /** YYYY-MM-DD of a corporate action that may have changed the share basis; absent until that check ships. */
+  caSuspectDate?: string;
 }
 
-export interface StrategyPicksResult {
+/** The count of picks in each status, over the whole ranked list. */
+export interface StatusCountsView {
+  triggered: number;
+  setup: number;
+  watch: number;
+  unknown: number;
+}
+
+/** The strategy rules version that produced a set of picks; empty until versioned rules ship. */
+export interface StrategyVersionDef {
+  strategyId: string;
+  label: string;
+  rulesHash: string;
+  engineVersion: string;
+  featureSet: string;
+  status: string;
+  liveFrom: string;
+  kind: string;
+  variantId: string;
+}
+
+/** The response-level signal fields of GetStrategyPicks. Absent when the API predates them. */
+export interface PicksSignals {
+  /** Picks by status over the whole ranked list, before any filter or page. */
+  statusCounts?: StatusCountsView;
+  /** YYYY-MM-DD of the session the picks are as at. */
+  sessionDate?: string;
+  /** YYYY-MM-DD of the newest ASIC report behind the short figures. */
+  shortReportDate?: string;
+  /** YYYY-MM-DD the newest short report became public. */
+  shortAvailableDate?: string;
+  /** True when the picks are older than the update schedule allows. */
+  stale?: boolean;
+  /** The universe's top-quartile cut-off of rs_6m_pct, which rs_leader reads. */
+  rsQuantileThreshold?: number;
+  /** The universe the picks were drawn from, as the strategy names it. */
+  universeLabel?: string;
+  version?: StrategyVersionDef;
+}
+
+export interface StrategyPicksResult extends PicksSignals {
   strategy: StrategyDef;
   regime: MarketRegimeView | null;
   /** At most 100 rows, ranked (status first, then score). */

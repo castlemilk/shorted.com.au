@@ -20,13 +20,17 @@
 import type {
   GrowthBasis,
   MarketRegimeView,
+  PicksSignals,
   PickFundamentalsView,
   PickRow,
   PickStatus,
   RegimeLabel,
   RuleResultRow,
   RuleStatus,
+  StatusCountsView,
   StrategyDef,
+  StrategyRuleDef,
+  StrategyVersionDef,
 } from "./types";
 
 /** A protojson double: a number, or "NaN" / "Infinity" / "-Infinity". */
@@ -39,6 +43,12 @@ export interface StrategyRuleInput {
   evaluation?: string;
   core?: boolean;
   dataSource?: string;
+  trigger?: boolean;
+  weight?: WireDouble;
+  threshold?: WireDouble;
+  hasThreshold?: boolean;
+  unit?: string;
+  comparator?: string;
 }
 
 export interface StrategyMetadataInput {
@@ -77,6 +87,31 @@ export interface RuleResultInput {
   ruleId?: string;
   status?: string;
   detail?: string;
+  value?: WireDouble;
+  hasValue?: boolean;
+  reason?: string;
+  proximity?: WireDouble;
+  hasProximity?: boolean;
+  waiting?: boolean;
+}
+
+export interface StatusCountsInput {
+  triggered?: number;
+  setup?: number;
+  watch?: number;
+  unknown?: number;
+}
+
+export interface StrategyVersionInput {
+  strategyId?: string;
+  label?: string;
+  rulesHash?: string;
+  engineVersion?: string;
+  featureSet?: string;
+  status?: string;
+  liveFrom?: string;
+  kind?: string;
+  variantId?: string;
 }
 
 export interface PickFundamentalsInput {
@@ -130,6 +165,21 @@ export interface StrategyPickInput {
   hasMarketCap?: boolean;
   hasClose?: boolean;
   fundamentals?: PickFundamentalsInput | null;
+  pctOff52wHigh?: WireDouble;
+  hasPctOff52wHigh?: boolean;
+  daysToCover?: WireDouble;
+  hasDaysToCover?: boolean;
+  rs6mPct?: WireDouble;
+  hasRs6mPct?: boolean;
+  rs6mPercentile?: WireDouble;
+  hasRs6mPercentile?: boolean;
+  dollarVolume20d?: WireDouble;
+  hasDollarVolume20d?: boolean;
+  breakoutDate?: string;
+  shortReportDate?: string;
+  shortAvailableDate?: string;
+  shortStatus?: string;
+  caSuspectDate?: string;
 }
 
 /** The GetStrategyPicks response fields the picker reads. */
@@ -137,6 +187,15 @@ export interface StrategyPicksResponseInput {
   strategy?: StrategyInput | null;
   regime?: MarketRegimeInput | null;
   picks?: readonly StrategyPickInput[];
+  statusCounts?: StatusCountsInput | null;
+  sessionDate?: string;
+  shortReportDate?: string;
+  shortAvailableDate?: string;
+  stale?: boolean;
+  rsQuantileThreshold?: WireDouble;
+  hasRsQuantileThreshold?: boolean;
+  universeLabel?: string;
+  version?: StrategyVersionInput | null;
   totalCount?: number;
   universeCount?: number;
   fundamentalsCoverageCount?: number;
@@ -211,6 +270,11 @@ function isoDate(value: unknown): string {
   return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : "";
 }
 
+/** A YYYY-MM-DD date, or null when the value is absent or not a date. */
+export function isoDateOrNull(value: unknown): string | null {
+  return isoDate(value) || null;
+}
+
 /** The one decimal every picker ratio prints; formatting it again is a no-op. */
 function oneDecimal(value: number): number {
   return Number(value.toFixed(1));
@@ -273,6 +337,7 @@ export function mapStrategy(strategy: StrategyInput): StrategyDef {
       evaluation: str(rule.evaluation),
       core: rule.core === true,
       dataSource: str(rule.dataSource),
+      ...mapRuleSignals(rule),
     })),
     metadata: metadata
       ? {
@@ -307,12 +372,122 @@ export function mapRegime(
   };
 }
 
-function mapRuleResult(result: RuleResultInput): RuleResultRow {
-  return {
+/** A rule's definition signals: the trigger flag, weight and the threshold it tests. */
+function mapRuleSignals(rule: StrategyRuleInput): Partial<StrategyRuleDef> {
+  const out: Partial<StrategyRuleDef> = {
+    trigger: rule.trigger === true,
+    weight: finiteOrNull(rule.weight) ?? 0,
+    unit: str(rule.unit),
+    comparator: str(rule.comparator),
+  };
+  const threshold = flagged(rule.threshold, rule.hasThreshold);
+  if (threshold !== null) out.threshold = threshold;
+  return out;
+}
+
+/**
+ * One rule result. The value, proximity and reason are present only when the
+ * API sends them, so a rule with no value has no value key, not a zero.
+ */
+export function mapRuleResult(result: RuleResultInput): RuleResultRow {
+  const row: RuleResultRow = {
     ruleId: str(result.ruleId),
     status: toRuleStatus(result.status),
     detail: str(result.detail),
   };
+  const value = flagged(result.value, result.hasValue);
+  if (value !== null) row.value = value;
+  const reason = str(result.reason).trim();
+  if (reason) row.reason = reason;
+  const proximity = flagged(result.proximity, result.hasProximity);
+  if (proximity !== null) row.proximity = proximity;
+  if (result.waiting === true) row.waiting = true;
+  return row;
+}
+
+/** A pick's signal fields, present only where the has_* flag or the value says so. */
+function mapPickSignals(pick: StrategyPickInput): Partial<PickRow> {
+  const out: Record<string, unknown> = {};
+  const numbers: Array<[keyof PickRow, number | null]> = [
+    ["pctOff52wHigh", flagged(pick.pctOff52wHigh, pick.hasPctOff52wHigh)],
+    ["daysToCover", flagged(pick.daysToCover, pick.hasDaysToCover)],
+    ["rs6mPct", flagged(pick.rs6mPct, pick.hasRs6mPct)],
+    ["rs6mPercentile", flagged(pick.rs6mPercentile, pick.hasRs6mPercentile)],
+    ["dollarVolume20d", flagged(pick.dollarVolume20d, pick.hasDollarVolume20d)],
+  ];
+  for (const [key, value] of numbers) {
+    if (value !== null) out[key] = value;
+  }
+  const dates: Array<[keyof PickRow, unknown]> = [
+    ["breakoutDate", pick.breakoutDate],
+    ["shortReportDate", pick.shortReportDate],
+    ["shortAvailableDate", pick.shortAvailableDate],
+    ["caSuspectDate", pick.caSuspectDate],
+  ];
+  for (const [key, value] of dates) {
+    const date = isoDateOrNull(value);
+    if (date !== null) out[key] = date;
+  }
+  const shortStatus = str(pick.shortStatus).trim();
+  if (shortStatus) out.shortStatus = shortStatus;
+  return out as Partial<PickRow>;
+}
+
+function mapStatusCounts(
+  input: StatusCountsInput | null | undefined,
+): StatusCountsView | null {
+  if (!input) return null;
+  return {
+    triggered: count(input.triggered),
+    setup: count(input.setup),
+    watch: count(input.watch),
+    unknown: count(input.unknown),
+  };
+}
+
+/** The rules version, or null when the API names none (empty until versioned rules ship). */
+function mapStrategyVersion(
+  input: StrategyVersionInput | null | undefined,
+): StrategyVersionDef | null {
+  if (!input) return null;
+  const version: StrategyVersionDef = {
+    strategyId: str(input.strategyId),
+    label: str(input.label),
+    rulesHash: str(input.rulesHash),
+    engineVersion: str(input.engineVersion),
+    featureSet: str(input.featureSet),
+    status: str(input.status),
+    liveFrom: str(input.liveFrom),
+    kind: str(input.kind),
+    variantId: str(input.variantId),
+  };
+  return version.label || version.rulesHash ? version : null;
+}
+
+/** The response-level signals; each present only when the API carries it. */
+function mapPicksSignals(response: StrategyPicksResponseInput): PicksSignals {
+  // stale is set only when the API says so: an absent flag is not a claim of
+  // freshness, because the API does not compute staleness yet.
+  const out: PicksSignals = {};
+  if (response.stale === true) out.stale = true;
+  const counts = mapStatusCounts(response.statusCounts);
+  if (counts) out.statusCounts = counts;
+  const sessionDate = isoDateOrNull(response.sessionDate);
+  if (sessionDate) out.sessionDate = sessionDate;
+  const shortReportDate = isoDateOrNull(response.shortReportDate);
+  if (shortReportDate) out.shortReportDate = shortReportDate;
+  const shortAvailableDate = isoDateOrNull(response.shortAvailableDate);
+  if (shortAvailableDate) out.shortAvailableDate = shortAvailableDate;
+  const threshold = flagged(
+    response.rsQuantileThreshold,
+    response.hasRsQuantileThreshold,
+  );
+  if (threshold !== null) out.rsQuantileThreshold = threshold;
+  const universeLabel = str(response.universeLabel).trim();
+  if (universeLabel) out.universeLabel = universeLabel;
+  const version = mapStrategyVersion(response.version);
+  if (version) out.version = version;
+  return out;
 }
 
 /** The ratios the row shows that the API can withhold as not meaningful. */
@@ -395,13 +570,14 @@ export function mapPick(pick: StrategyPickInput): PickRow {
     marketCap: pick.hasMarketCap === true ? positiveOrNull(pick.marketCap) : null,
     logoUrl: str(pick.logoUrl),
   };
+  Object.assign(row, mapPickSignals(pick));
   const fundamentals = mapPickFundamentals(pick.fundamentals);
   if (fundamentals) row.fundamentals = fundamentals;
   return row;
 }
 
 /** The rows and counts of one GetStrategyPicks response. */
-export interface MappedPicks {
+export interface MappedPicks extends PicksSignals {
   picks: PickRow[];
   totalCount: number;
   universeCount: number;
@@ -419,5 +595,6 @@ export function mapPicksResponse(response: StrategyPicksResponseInput): MappedPi
     fundamentalsCoverageCount: count(response.fundamentalsCoverageCount),
     fundamentalsRowsCount: count(response.fundamentalsRowsCount),
     asOf: str(response.asOf),
+    ...mapPicksSignals(response),
   };
 }
