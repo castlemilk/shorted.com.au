@@ -58,7 +58,7 @@ describe("strategy profile tabs", () => {
     expect(strategyTabLabel("backtest")).toBe("Backtest");
   });
 
-  it("builds an href for every strategy and every tab that resolves under app/strategies", () => {
+  it("builds each tab's href under its strategy's own URL and reads the tab back from it", () => {
     for (const slug of STRATEGY_SLUGS) {
       for (const tab of STRATEGY_TABS) {
         const href = strategyTabHref(slug, tab.id);

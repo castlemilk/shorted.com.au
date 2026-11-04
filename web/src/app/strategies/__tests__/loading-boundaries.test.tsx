@@ -3,11 +3,13 @@ import "@testing-library/jest-dom";
 import * as fs from "fs";
 import * as path from "path";
 import { render, screen } from "@testing-library/react";
+import { enabledStrategyTabs } from "~/@/lib/strategies/strategy-tabs";
 
 /**
- * Every page under the profile segment has a loading.tsx, and it is a labelled
+ * Every enabled tab of the profile has a loading.tsx, and it is a labelled
  * status region that is busy, so a cold visit announces that the tab is loading.
- * The boundaries are found on disk, so one added later is held to the same rule.
+ * The expected boundaries come from the tab registry, and the files are found on
+ * disk, so a tab enabled later without its boundary fails here.
  */
 const SEGMENT_DIR = path.resolve(__dirname, "../[strategy]");
 
@@ -22,8 +24,11 @@ function loadingFilesUnder(dir: string): string[] {
 const files = loadingFilesUnder(SEGMENT_DIR).sort();
 
 describe("the strategy profile's loading boundaries", () => {
-  it("has one for the Overview", () => {
-    expect(files).toEqual([path.join(SEGMENT_DIR, "loading.tsx")]);
+  it("has one for each enabled tab, and for no other", () => {
+    const expected = enabledStrategyTabs()
+      .map((tab) => path.join(SEGMENT_DIR, tab.segment, "loading.tsx"))
+      .sort();
+    expect(files).toEqual(expected);
   });
 
   it.each(
