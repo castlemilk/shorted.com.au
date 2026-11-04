@@ -129,6 +129,24 @@ const COUNTS: StatusCountsView = {
   unknown: 0,
 };
 
+/** The snapshot a viewer's read carries when it matches the page's own. */
+const SNAPSHOT = {
+  sessionDate: "2026-11-03",
+  asOf: "2026-11-03",
+  stale: false,
+  version: {
+    strategyId: "crowded-short-breakout",
+    label: "v1",
+    rulesHash: "3f9a1c2e0000",
+    engineVersion: "",
+    featureSet: "",
+    status: "",
+    liveFrom: "",
+    kind: "",
+    variantId: "",
+  },
+};
+
 function props(
   overrides: Partial<SignalsIslandProps> = {},
 ): SignalsIslandProps {
@@ -146,20 +164,11 @@ function props(
     counts: COUNTS,
     total: 71,
     asOf: "2026-11-03",
+    sessionDate: "2026-11-03",
     shortReportDate: "2026-10-28",
     shortAvailableDate: "2026-11-03",
     stale: false,
-    version: {
-      strategyId: "crowded-short-breakout",
-      label: "v1",
-      rulesHash: "3f9a1c2e0000",
-      engineVersion: "",
-      featureSet: "",
-      status: "",
-      liveFrom: "",
-      kind: "",
-      variantId: "",
-    },
+    version: SNAPSHOT.version,
     regime: null,
     universeLabel: "ASX ordinary shares",
     strategies: [
@@ -185,6 +194,14 @@ function signedInAs(name = "Trader") {
   });
 }
 
+function sessionLoading() {
+  mockUseSession.mockReturnValue({
+    data: null,
+    status: "loading",
+    update: jest.fn(),
+  });
+}
+
 /** The full list: the top ten plus two more, so the signed-in depth shows beyond row 10. */
 function fullListRows(): PickRow[] {
   return [
@@ -203,7 +220,7 @@ describe("SignalsIsland", () => {
     signedOut();
   });
 
-  it("draws the top rows, the status chips with their counts and the count line", () => {
+  it("draws the top rows, the status chips with their counts and the prompt row", () => {
     render(<SignalsIsland {...props()} />);
     expect(
       screen.getByRole("button", { name: /Triggered\s*5/ }),
@@ -211,8 +228,10 @@ describe("SignalsIsland", () => {
     expect(
       screen.getByRole("button", { name: /Setup\s*66/ }),
     ).toBeInTheDocument();
+    // Row 11 names every signal, so the count line above the table is not drawn.
+    expect(screen.queryByText(/Showing 10 of 71 signals/)).toBeNull();
     expect(
-      screen.getByText("Showing 10 of 71 signals: 5 triggered · 66 setup"),
+      screen.getByText(/to see all 71 signals \(5 triggered · 66 setup\)/),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
@@ -308,7 +327,7 @@ describe("SignalsIsland", () => {
       "/signin?callbackUrl=%2Fstrategies%2Fcrowded-short-breakout%2Fsignals",
     );
     expect(
-      screen.getByText(/to see all 71 signals \(5 triggered · 66 setup\)\./),
+      screen.getByText(/to see all 71 signals \(5 triggered · 66 setup\)$/),
     ).toBeInTheDocument();
     expect(mockGetSignalsForViewer).not.toHaveBeenCalled();
   });
@@ -336,9 +355,7 @@ describe("SignalsIsland", () => {
       "aria-pressed",
       "true",
     );
-    expect(
-      screen.getByText("Showing 10 of 71 signals: 5 triggered · 66 setup"),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "X7" })).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("combobox", { name: "Sort signals" }), {
       target: { value: "roe" },
@@ -361,6 +378,7 @@ describe("SignalsIsland", () => {
       rows: fullListRows(),
       totalCount: 12,
       statusCounts: { triggered: 1, setup: 10, watch: 1, unknown: 0 },
+      snapshot: SNAPSHOT,
     });
     render(<SignalsIsland {...props()} />);
     expect(
@@ -371,7 +389,6 @@ describe("SignalsIsland", () => {
     ).toBeInTheDocument();
     expect(mockGetSignalsForViewer).toHaveBeenCalledWith({
       strategyId: "crowded-short-breakout",
-      sortBy: "",
     });
     expect(screen.queryByRole("link", { name: "Sign in free" })).toBeNull();
     expect(
@@ -386,6 +403,7 @@ describe("SignalsIsland", () => {
       rows: fullListRows(),
       totalCount: 12,
       statusCounts: { triggered: 1, setup: 10, watch: 1, unknown: 0 },
+      snapshot: SNAPSHOT,
     });
     render(<SignalsIsland {...props()} />);
     await screen.findByRole("button", { name: "Y2" });
@@ -415,12 +433,118 @@ describe("SignalsIsland", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Sort signals" }), {
       target: { value: "roe" },
     });
-    await waitFor(() =>
-      expect(mockGetSignalsForViewer).toHaveBeenLastCalledWith({
-        strategyId: "crowded-short-breakout",
-        sortBy: "roe",
-      }),
+    expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(1);
+  });
+
+  it("sorts the whole list in the browser, without another read", async () => {
+    signedInAs();
+    const rows = fullListRows().map((row) =>
+      row.code === "Y2" ? { ...row, revenueYoyPct: 50 } : row,
     );
+    mockGetSignalsForViewer.mockResolvedValue({
+      ok: true,
+      rows,
+      totalCount: 12,
+      statusCounts: { triggered: 1, setup: 10, watch: 1, unknown: 0 },
+      snapshot: SNAPSHOT,
+    });
+    render(<SignalsIsland {...props()} />);
+    await screen.findByRole("button", { name: "Y2" });
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort signals" }), {
+      target: { value: "revenue_yoy" },
+    });
+    const codes = screen
+      .getAllByRole("button", { name: /^(TWE|WTC|X\d|Y\d)$/ })
+      .map((button) => button.textContent);
+    expect(codes[0]).toBe("Y2");
+    expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws the signed-in list a step at a time, with a show-more control", async () => {
+    signedInAs();
+    const rows = Array.from({ length: 120 }, (_, i) =>
+      pick(`R${i}`, "setup", true),
+    );
+    mockGetSignalsForViewer.mockResolvedValue({
+      ok: true,
+      rows,
+      totalCount: 120,
+      statusCounts: { triggered: 0, setup: 120, watch: 0, unknown: 0 },
+      snapshot: SNAPSHOT,
+    });
+    render(<SignalsIsland {...props()} />);
+    await screen.findByRole("button", { name: "R0" });
+    expect(screen.queryByRole("button", { name: "R60" })).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show 50 more · 70 left" }),
+    );
+    expect(screen.getByRole("button", { name: "R60" })).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show 20 more · 20 left" }),
+    );
+    expect(screen.getByRole("button", { name: "R110" })).toBeInTheDocument();
+  });
+
+  it("keeps the evidence column beside the table from the lg breakpoint", () => {
+    render(<SignalsIsland {...props()} />);
+    expect(document.getElementById("signals-evidence")).toHaveClass(
+      "lg:sticky",
+    );
+  });
+
+  it("shows the prompt row in the loading state and disables the controls", () => {
+    sessionLoading();
+    render(<SignalsIsland {...props()} />);
+    expect(
+      screen.getByRole("link", { name: "Sign in free" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("searchbox", { name: "Search stock" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("combobox", { name: "Sort signals" }),
+    ).toBeDisabled();
+    expect(mockGetSignalsForViewer).not.toHaveBeenCalled();
+  });
+
+  it("draws the top rows, not the full list, when the snapshot is another session", async () => {
+    signedInAs();
+    mockGetSignalsForViewer.mockResolvedValueOnce({
+      ok: true,
+      rows: fullListRows(),
+      totalCount: 12,
+      statusCounts: { triggered: 1, setup: 10, watch: 1, unknown: 0 },
+      snapshot: { ...SNAPSHOT, sessionDate: "2026-11-02" },
+    });
+    render(<SignalsIsland {...props()} />);
+    expect(
+      await screen.findByText(/from another session or rules version/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Y2" })).toBeNull();
+    expect(screen.getByRole("button", { name: "X7" })).toBeInTheDocument();
+  });
+
+  it("shows the sign-in prompt when the read reports a signed-out session", async () => {
+    signedInAs();
+    mockGetSignalsForViewer.mockResolvedValueOnce({
+      ok: false,
+      reason: "signed-out",
+    });
+    render(<SignalsIsland {...props()} />);
+    expect(
+      await screen.findByRole("link", { name: "Sign in free" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/temporarily|unavailable right now/)).toBeNull();
+  });
+
+  it("words a signed-in search before the full list arrives as a match count", () => {
+    signedInAs();
+    render(<SignalsIsland {...props()} />);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search stock" }), {
+      target: { value: "WTC" },
+    });
+    expect(screen.getByText(/1 match in the top 10/)).toBeInTheDocument();
+    expect(screen.queryByText(/all in the top/)).toBeNull();
   });
 
   it("words an empty filter for a signed-in viewer", async () => {
@@ -430,6 +554,8 @@ describe("SignalsIsland", () => {
       rows: Array.from({ length: 9 }, (_, i) => pick(`S${i}`, "setup", true)),
       totalCount: 9,
       statusCounts: { triggered: 0, setup: 9, watch: 0, unknown: 0 },
+
+      snapshot: SNAPSHOT,
     });
     render(<SignalsIsland {...props({ rows: [], total: 0, counts: null })} />);
     await screen.findByRole("button", { name: "S0" });

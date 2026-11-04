@@ -160,8 +160,8 @@ export function signInPromptCopy(
   const split = statusSplit(counts);
   const noun = total === 1 ? "signal" : "signals";
   return split
-    ? `Sign in free to see all ${total} ${noun} (${split}).`
-    : `Sign in free to see all ${total} ${noun}.`;
+    ? `Sign in free to see all ${total} ${noun} (${split})`
+    : `Sign in free to see all ${total} ${noun}`;
 }
 
 /** The status word a filter chip names, as the page prints it. */

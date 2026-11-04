@@ -109,9 +109,9 @@ describe("filter chips and the count line", () => {
 
   it("words the sign-in prompt with the whole list's size and split", () => {
     expect(signInPromptCopy(COUNTS, 71)).toBe(
-      "Sign in free to see all 71 signals (5 triggered · 66 setup).",
+      "Sign in free to see all 71 signals (5 triggered · 66 setup)",
     );
-    expect(signInPromptCopy(null, 1)).toBe("Sign in free to see all 1 signal.");
+    expect(signInPromptCopy(null, 1)).toBe("Sign in free to see all 1 signal");
   });
 
   it("filters rows by status, and 'all' takes every row", () => {

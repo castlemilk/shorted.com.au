@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { StrategyLevelsChart } from "~/@/components/strategy/strategy-levels-chart-loader";
 import { EvidencePanel } from "~/@/components/strategies/evidence-panel";
@@ -29,7 +29,11 @@ import {
   type SignalFilter,
   type SignalRule,
 } from "~/@/lib/strategies/signals";
-import { PICK_SORTS, type PickSortKey } from "~/@/lib/strategies/sort";
+import {
+  PICK_SORTS,
+  sortPickRows,
+  type PickSortKey,
+} from "~/@/lib/strategies/sort";
 import type {
   MarketRegimeView,
   PickRow,
@@ -43,6 +47,9 @@ import {
   type ViewerSignalsResult,
 } from "~/app/actions/strategies/viewer";
 
+/** Rows drawn per step for a signed-in viewer; the list is never drawn whole. */
+const SHOW_STEP = 50;
+
 /**
  * The Signals tab's client island: the strategy select, the status chips (their
  * counts from the API), the stock-by-rule matrix and the evidence panel for the
@@ -52,10 +59,12 @@ import {
  * Only the stock code is sent to the server: the evidence (the stock's fit and
  * its prices) comes from getSignalStockFit, the public read the stock page uses.
  *
- * A signed-in viewer gets the whole list (getSignalsForViewer), with filters,
- * a sort and a search over it. Anonymous visitors get the top rows and a
- * sign-in prompt: the last row, and the same prompt inline wherever they use a
- * filter, the sort or the search.
+ * A signed-in viewer gets the whole list (getSignalsForViewer), read once in
+ * rank order and sorted in the browser, with filters and a search over it.
+ * Anonymous visitors get the top rows and a sign-in prompt: the last row, and
+ * the same prompt inline wherever they use a filter, the sort or the search.
+ * While the session loads the controls are disabled and the prompt row keeps
+ * its place, so the ISR HTML and the first paint match.
  */
 export interface SignalsIslandProps {
   slug: string;
@@ -68,6 +77,8 @@ export interface SignalsIslandProps {
   counts: StatusCountsView | null;
   total: number;
   asOf: string;
+  /** YYYY-MM-DD of the session the picks are as at. */
+  sessionDate?: string;
   shortReportDate?: string;
   shortAvailableDate?: string;
   stale: boolean;
@@ -97,11 +108,8 @@ function QuerySignalsView(props: SignalsIslandProps) {
 
 type FitState = { code: string; fit: StockStrategyFit | null } | null;
 
-/** The full list as the viewer's read answered it, and the sort it was asked for. */
-type FullState = {
-  sortKey: PickSortKey | null;
-  result: ViewerSignalsResult;
-} | null;
+/** The full list as the viewer's read answered it, for the stock list it was read for. */
+type FullState = { slug: string; result: ViewerSignalsResult } | null;
 type FullList = Extract<ViewerSignalsResult, { ok: true }>;
 
 /** The sign-in link's lead words; the rest of the prompt copy follows them. */
@@ -144,10 +152,10 @@ function SignalsView({
   ...props
 }: SignalsIslandProps & { initialSelected: string | null }) {
   const { status } = useSession();
-  // "loading" until the session is known: the anonymous view is drawn meanwhile,
-  // without the sign-in prompt, so nothing flashes in either direction.
+  // "loading" until the session is known. The ISR HTML and the first paint are
+  // the anonymous view: the prompt row is drawn meanwhile, and the controls wait.
+  const pending = status === "loading";
   const signedIn = status === "authenticated";
-  const anonymous = status === "unauthenticated";
 
   const [filter, setFilter] = useState<SignalFilter>("all");
   const [selected, setSelected] = useState<string | null>(initialSelected);
@@ -156,51 +164,62 @@ function SignalsView({
   const [query, setQuery] = useState("");
   const [gated, setGated] = useState(false);
   const [full, setFull] = useState<FullState>(null);
+  const [shown, setShown] = useState(SHOW_STEP);
 
-  // Signed-in depth: the whole list, in the sort in force. Read per viewer, so it
-  // is fetched here, never rendered on the server.
+  // Signed-in depth: the whole list in rank order, read once per stock list. A
+  // sort is applied in the browser below, so it costs no read.
   useEffect(() => {
     if (!signedIn) return;
     let live = true;
-    getSignalsForViewer({ strategyId: props.slug, sortBy: sortKey ?? "" })
+    const slug = props.slug;
+    getSignalsForViewer({ strategyId: slug })
       .then((result) => {
-        if (live) setFull({ sortKey, result });
+        if (live) setFull({ slug, result });
       })
       .catch(() => {
-        if (live) {
-          setFull({ sortKey, result: { ok: false, reason: "unavailable" } });
-        }
+        if (live)
+          setFull({ slug, result: { ok: false, reason: "unavailable" } });
       });
     return () => {
       live = false;
     };
-  }, [signedIn, props.slug, sortKey]);
+  }, [signedIn, props.slug]);
 
-  const current = full && full.sortKey === sortKey ? full.result : null;
-  // While a new sort loads, the list in the previous order stays on screen.
-  const fullList: FullList | null = !signedIn
-    ? null
-    : current
-      ? current.ok
-        ? current
-        : null
-      : full?.result.ok
-        ? full.result
-        : null;
-  const pool = fullList ? fullList.rows : props.rows;
+  const loaded = full && full.slug === props.slug ? full.result : null;
+  // The full list is drawn only with the rule columns and provenance of this
+  // page: the same rules version and the same session.
+  const snapshotMatches = (snapshot: FullList["snapshot"]): boolean =>
+    snapshot.sessionDate === (props.sessionDate ?? "") &&
+    (snapshot.version?.rulesHash ?? "") === (props.version?.rulesHash ?? "");
+
+  let fullList: FullList | null = null;
+  let note: string | null = null;
+  let signedOutNow = false;
+  if (signedIn) {
+    if (loaded === null) {
+      note = "Loading the full list…";
+    } else if (!loaded.ok) {
+      if (loaded.reason === "signed-out") signedOutNow = true;
+      else
+        note = "The full list is unavailable right now; showing the top rows.";
+    } else if (!snapshotMatches(loaded.snapshot)) {
+      note =
+        "The full list is from another session or rules version; showing the top rows.";
+    } else {
+      fullList = loaded;
+    }
+  }
+
+  const pool = useMemo<PickRow[]>(() => {
+    if (!fullList) return props.rows;
+    return sortKey ? sortPickRows(fullList.rows, sortKey) : fullList.rows;
+    // fullList is a state-derived value: it changes only when its read lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullList, props.rows, sortKey]);
   const counts = fullList
     ? (fullList.statusCounts ?? props.counts)
     : props.counts;
   const total = fullList ? fullList.totalCount : props.total;
-  const note = !signedIn
-    ? null
-    : current === null
-      ? fullList
-        ? "Sorting…"
-        : "Loading the full list…"
-      : current.ok
-        ? null
-        : "The full list is unavailable right now; showing the top rows.";
 
   // Anonymous visitors who reach for a filter, the sort or the search see the
   // sign-in prompt instead; the top rows stay as they are.
@@ -218,12 +237,16 @@ function SignalsView({
       )
     : pool;
   const visible = searched.filter((row) => matchesFilter(row, filter));
+  const drawn = visible.slice(0, shown);
+  const hiddenCount = visible.length - drawn.length;
   const core = coreRules(props.rules);
   const rankingInputs = rankingInputsFor(props.slug);
   const chips = chipFilters(counts);
   const filtered = filter !== "all" || needle !== "";
+  // Row 11 of the anonymous view: the prompt names every signal, so it also
+  // stands in for the count line above the table.
   const footer =
-    anonymous && props.total > props.rows.length ? (
+    !signedIn && props.total > props.rows.length ? (
       <SignInPrompt
         slug={props.slug}
         counts={props.counts}
@@ -272,6 +295,25 @@ function SignalsView({
       window.history.replaceState(window.history.state, "", url);
     } catch {
       // The selection still holds on screen without the address bar.
+    }
+    // Below the lg breakpoint the evidence sits under the whole table: bring it
+    // into view. Above it the evidence column is sticky and already in view.
+    const narrow =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(max-width: 1023px)")?.matches === true;
+    if (narrow) {
+      document
+        .getElementById("signals-evidence")
+        ?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    }
+  }
+
+  function changeFilter(chip: SignalFilter) {
+    if (signedIn || chip === "all") {
+      setFilter(chip);
+      setShown(SHOW_STEP);
+    } else {
+      gate();
     }
   }
 
@@ -349,10 +391,8 @@ function SignalsView({
                       key={chip}
                       type="button"
                       aria-pressed={pressed}
-                      onClick={() => {
-                        if (chip !== "all" && !signedIn) gate();
-                        else setFilter(chip);
-                      }}
+                      disabled={pending}
+                      onClick={() => changeFilter(chip)}
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors",
                         pressed
@@ -373,18 +413,28 @@ function SignalsView({
                 aria-label="Search stock"
                 placeholder="Search stock (e.g. WTC, BHP)"
                 value={query}
+                disabled={pending}
                 onChange={(event) => {
-                  if (signedIn) setQuery(event.target.value);
-                  else gate();
+                  if (!signedIn) {
+                    gate();
+                    return;
+                  }
+                  setQuery(event.target.value);
+                  setShown(SHOW_STEP);
                 }}
                 className={cn(CONTROL, "w-44")}
               />
               <select
                 aria-label="Sort signals"
                 value={sortKey ?? ""}
+                disabled={pending}
                 onChange={(event) => {
-                  if (signedIn) setSortKey(sortKeyFrom(event.target.value));
-                  else gate();
+                  if (!signedIn) {
+                    gate();
+                    return;
+                  }
+                  setSortKey(sortKeyFrom(event.target.value));
+                  setShown(SHOW_STEP);
                 }}
                 className={CONTROL}
               >
@@ -397,7 +447,7 @@ function SignalsView({
               </select>
             </div>
 
-            {gated && !signedIn ? (
+            {(gated && !signedIn) || signedOutNow ? (
               <p
                 role="status"
                 data-signals-gate
@@ -418,25 +468,41 @@ function SignalsView({
                   : `No ${FILTER_LABELS[filter].toLowerCase()} stock in this list.`}
               </p>
             ) : (
-              <SignalsMatrix
-                rows={visible}
-                rules={core}
-                rankingInputs={rankingInputs}
-                selected={selectedCode}
-                onSelect={select}
-                caption={`${props.strategyName}: stocks by rule`}
-                footer={footer}
-              />
+              <>
+                <SignalsMatrix
+                  rows={drawn}
+                  rules={core}
+                  rankingInputs={rankingInputs}
+                  selected={selectedCode}
+                  onSelect={select}
+                  caption={`${props.strategyName}: stocks by rule`}
+                  footer={footer}
+                />
+                {hiddenCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShown((count) => count + SHOW_STEP)}
+                    className="self-center rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50"
+                  >
+                    Show {Math.min(SHOW_STEP, hiddenCount)} more · {hiddenCount}{" "}
+                    left
+                  </button>
+                ) : null}
+              </>
             )}
 
-            <p className="text-xs text-muted-foreground" data-signals-count>
-              {filtered
-                ? fullList
-                  ? `Showing ${visible.length} of ${total} signals`
-                  : `${visible.length} ${FILTER_LABELS[filter].toLowerCase()} in the top ${pool.length}`
-                : countLine(counts, pool.length, total)}
-              {note ? ` · ${note}` : ""}
-            </p>
+            {filtered || footer === null || note !== null ? (
+              <p className="text-xs text-muted-foreground" data-signals-count>
+                {filtered
+                  ? fullList
+                    ? `Showing ${visible.length} of ${total} signals`
+                    : needle && filter === "all"
+                      ? `${visible.length} ${visible.length === 1 ? "match" : "matches"} in the top ${pool.length}`
+                      : `${visible.length} ${FILTER_LABELS[filter].toLowerCase()} in the top ${pool.length}`
+                  : countLine(counts, pool.length, total)}
+                {note ? ` · ${note}` : ""}
+              </p>
+            ) : null}
 
             <p className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
               <span>
@@ -449,7 +515,10 @@ function SignalsView({
             </p>
           </div>
 
-          <div className="min-w-0">
+          <div
+            id="signals-evidence"
+            className="min-w-0 lg:sticky lg:top-24 lg:self-start"
+          >
             <EvidencePanel
               code={selectedCode ?? ""}
               name={listed?.name ?? ""}
