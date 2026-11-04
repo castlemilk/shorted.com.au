@@ -490,7 +490,7 @@ function mapStatusCounts(
   };
 }
 
-/** The rules version, or null when the API names none (empty until versioned rules ship). */
+/** The rules version, or null when the API names none. */
 function mapStrategyVersion(
   input: StrategyVersionInput | null | undefined,
 ): StrategyVersionDef | null {

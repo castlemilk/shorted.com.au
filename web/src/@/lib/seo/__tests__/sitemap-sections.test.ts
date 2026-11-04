@@ -370,7 +370,11 @@ describe("sitemap children", () => {
   // fetches, so they carry no lastmod rather than a borrowed one.
   it("lists the stock picker hub and every registry strategy without a fabricated lastmod", async () => {
     const core = await buildCoreSitemap();
-    const urls = ["/strategies", ...STRATEGY_SLUGS.map((slug) => `/strategies/${slug}`)];
+    const urls = [
+      "/strategies",
+      ...STRATEGY_SLUGS.map((slug) => `/strategies/${slug}`),
+      "/strategies/changelog",
+    ];
     for (const path of urls) {
       const entry = core.find((e) => e.url === `https://shorted.com.au${path}`);
       expect(entry).toBeDefined();
