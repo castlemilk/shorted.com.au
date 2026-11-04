@@ -291,6 +291,11 @@ func RunParity(parent context.Context, pool *pgxpool.Pool, refreshStart time.Tim
 		return Result{}, fmt.Errorf("begin parity transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
+	// The 000080 read sorts every shorts row; a role's default statement timeout
+	// must not cancel it, as the picks refresh's own transaction lifts its own.
+	if _, err := tx.Exec(ctx, `SET LOCAL statement_timeout = 0`); err != nil {
+		return Result{}, fmt.Errorf("lift the parity transaction's statement timeout: %w", err)
+	}
 
 	res, err = parityInTx(ctx, tx, refreshStart)
 	if err != nil {
