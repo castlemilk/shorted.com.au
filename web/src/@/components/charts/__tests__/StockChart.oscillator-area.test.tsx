@@ -1,6 +1,11 @@
 import { render } from "@testing-library/react";
 import { StockChartInner } from "../StockChart";
-import type { ChartPoint, ChartSeriesSpec, OscillatorSpec, StockChartProps } from "../types";
+import type {
+  ChartPoint,
+  ChartSeriesSpec,
+  OscillatorSpec,
+  StockChartProps,
+} from "../types";
 
 jest.mock("@visx/event", () => ({
   localPoint: (e: { clientX?: number; clientY?: number }) =>
@@ -13,9 +18,19 @@ const N = 10;
 const WIDTH = 700;
 const HEIGHT = 420;
 
-const pts: ChartPoint[] = Array.from({ length: N }, (_, i) => ({ t: T0 + i * DAY, v: 100 + i }));
+const pts: ChartPoint[] = Array.from({ length: N }, (_, i) => ({
+  t: T0 + i * DAY,
+  v: 100 + i,
+}));
 const SERIES: ChartSeriesSpec[] = [
-  { id: "strategy", label: "Strategy", color: "#123456", axis: "left", kind: "line", points: pts },
+  {
+    id: "strategy",
+    label: "Strategy",
+    color: "#123456",
+    axis: "left",
+    kind: "line",
+    points: pts,
+  },
 ];
 // Drawdown: zero at the top of the panel, falling to -30 by the trough.
 const DRAWDOWN: number[] = [0, -2, -5, -10, -18, -30, -22, -12, -6, -1];
@@ -45,7 +60,10 @@ function renderChart(props: Partial<StockChartProps> = {}) {
 
 /** The numbers of a path's `d`, as [x, y] pairs in order. */
 function pairs(d: string): number[][] {
-  return [...d.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  return [...d.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map((m) => [
+    Number(m[1]),
+    Number(m[2]),
+  ]);
 }
 
 describe("StockChart oscillator area", () => {
@@ -71,10 +89,12 @@ describe("StockChart oscillator area", () => {
 
   it("labels the domain's ticks with the unit", () => {
     const { container } = renderChart({ oscillators: [area()] });
-    const labels = [...container.querySelectorAll("[data-chart='oscillator'] text")].map(
-      (t) => t.textContent,
+    const labels = [
+      ...container.querySelectorAll("[data-chart='oscillator'] text"),
+    ].map((t) => t.textContent);
+    expect(labels).toEqual(
+      expect.arrayContaining(["-30%", "-20%", "-10%", "0%"]),
     );
-    expect(labels).toEqual(expect.arrayContaining(["-30%", "-20%", "-10%", "0%"]));
   });
 
   it("draws the chart's regions in the sub-panel as well as the plot", () => {
@@ -82,7 +102,9 @@ describe("StockChart oscillator area", () => {
       oscillators: [area()],
       regions: [{ start: T0 + 2 * DAY, end: T0 + 6 * DAY, tone: "live" }],
     });
-    expect(container.querySelectorAll("[data-chart-osc-region]")).toHaveLength(1);
+    expect(container.querySelectorAll("[data-chart-osc-region]")).toHaveLength(
+      1,
+    );
   });
 
   it("draws no sub-panel region for a line oscillator", () => {
@@ -90,6 +112,8 @@ describe("StockChart oscillator area", () => {
       oscillators: [{ ...area(), kind: "line" }],
       regions: [{ start: T0 + 2 * DAY, end: T0 + 6 * DAY, tone: "live" }],
     });
-    expect(container.querySelectorAll("[data-chart-osc-region]")).toHaveLength(0);
+    expect(container.querySelectorAll("[data-chart-osc-region]")).toHaveLength(
+      0,
+    );
   });
 });

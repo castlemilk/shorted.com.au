@@ -17,17 +17,33 @@ const points = (base: number): ChartPoint[] =>
   Array.from({ length: 12 }, (_, i) => ({ t: T0 + i * DAY, v: base + i }));
 
 const SERIES: ChartSeriesSpec[] = [
-  { id: "strategy", label: "Strategy", color: "#123456", axis: "left", kind: "line", points: points(100) },
+  {
+    id: "strategy",
+    label: "Strategy",
+    color: "#123456",
+    axis: "left",
+    kind: "line",
+    points: points(100),
+  },
 ];
 
 function renderChart(props: Partial<StockChartProps> = {}) {
-  return render(<StockChartInner width={WIDTH} height={HEIGHT} series={SERIES} {...props} />);
+  return render(
+    <StockChartInner
+      width={WIDTH}
+      height={HEIGHT}
+      series={SERIES}
+      {...props}
+    />,
+  );
 }
 
 describe("StockChart series dash", () => {
   it("draws a solid stroke when no dash is set", () => {
     const { container } = renderChart();
-    const path = container.querySelector('[data-series="strategy"] path:last-of-type');
+    const path = container.querySelector(
+      '[data-series="strategy"] path:last-of-type',
+    );
     expect(path?.getAttribute("stroke-dasharray")).toBeNull();
   });
 
@@ -35,7 +51,9 @@ describe("StockChart series dash", () => {
     const { container } = renderChart({
       series: [{ ...SERIES[0]!, id: "xjt", color: "#888888", dash: "4,3" }],
     });
-    const path = container.querySelector('[data-series="xjt"] path:last-of-type');
+    const path = container.querySelector(
+      '[data-series="xjt"] path:last-of-type',
+    );
     expect(path?.getAttribute("stroke-dasharray")).toBe("4,3");
   });
 });
@@ -60,7 +78,14 @@ describe("StockChart end labels", () => {
 describe("StockChart regions", () => {
   it("paints the live tone from a token, not a fixed colour", () => {
     const { container } = renderChart({
-      regions: [{ start: T0 + 2 * DAY, end: T0 + 8 * DAY, tone: "live", label: "Recorded" }],
+      regions: [
+        {
+          start: T0 + 2 * DAY,
+          end: T0 + 8 * DAY,
+          tone: "live",
+          label: "Recorded",
+        },
+      ],
     });
     const rect = container.querySelector("rect[style*='--primary']");
     expect(rect).not.toBeNull();
@@ -81,7 +106,13 @@ describe("StockChart level tags", () => {
     const { container } = renderChart({
       levels: [
         { axis: "left", value: 105, label: "Pivot 105", color: "#aa0000" },
-        { axis: "left", value: 103, label: "Last 103", color: "#00aa00", tag: true },
+        {
+          axis: "left",
+          value: 103,
+          label: "Last 103",
+          color: "#00aa00",
+          tag: true,
+        },
       ],
     });
     const tags = container.querySelectorAll("[data-chart-level-tag]");
@@ -91,7 +122,12 @@ describe("StockChart level tags", () => {
 });
 
 describe("StockChart events and annotations", () => {
-  const entry = { t: T0 + 3 * DAY, v: 103, tone: "entry" as const, label: "Entry" };
+  const entry = {
+    t: T0 + 3 * DAY,
+    v: 103,
+    tone: "entry" as const,
+    label: "Entry",
+  };
 
   it("draws no point mark unless a caller passes one", () => {
     const { container } = renderChart();
@@ -101,7 +137,9 @@ describe("StockChart events and annotations", () => {
   it("draws an event as a dot in its tone's token, with its label", () => {
     const { container } = renderChart({ events: [entry] });
     const mark = container.querySelector('[data-chart-mark="event"]');
-    expect(mark?.querySelector("circle")?.getAttribute("style")).toContain("--primary");
+    expect(mark?.querySelector("circle")?.getAttribute("style")).toContain(
+      "--primary",
+    );
     expect(mark?.querySelector("text")?.textContent).toBe("Entry");
   });
 

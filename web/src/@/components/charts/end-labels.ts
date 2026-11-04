@@ -32,7 +32,9 @@ export function layoutEndLabels(
   opts: { innerW: number; innerH: number },
 ): EndLabelGeometry[] {
   const { innerW, innerH } = opts;
-  const visible = items.filter((it) => Number.isFinite(it.y) && it.y >= 0 && it.y <= innerH);
+  const visible = items.filter(
+    (it) => Number.isFinite(it.y) && it.y >= 0 && it.y <= innerH,
+  );
   if (!visible.length) return [];
   const baselines = spreadLabels(
     visible.map((it) => it.y),

@@ -25,11 +25,18 @@ describe("layoutPointMarks", () => {
 
   it("puts a label to the right of its dot, above the dot", () => {
     const [mark] = layoutPointMarks([item({ label: "Exit" })], opts);
-    expect(mark).toMatchObject({ labelX: 56, labelY: 44, labelAnchor: "start" });
+    expect(mark).toMatchObject({
+      labelX: 56,
+      labelY: 44,
+      labelAnchor: "start",
+    });
   });
 
   it("moves a label to the dot's left where the right has no room", () => {
-    const [mark] = layoutPointMarks([item({ t: 190, label: "Exit date" })], opts);
+    const [mark] = layoutPointMarks(
+      [item({ t: 190, label: "Exit date" })],
+      opts,
+    );
     expect(mark).toMatchObject({ labelAnchor: "end", labelX: 184 });
   });
 
@@ -40,7 +47,10 @@ describe("layoutPointMarks", () => {
 
   it("keeps the kind of each mark", () => {
     const marks = layoutPointMarks(
-      [item({ kind: "event" }), item({ kind: "annotation", t: 80, label: "−18.6%" })],
+      [
+        item({ kind: "event" }),
+        item({ kind: "annotation", t: 80, label: "−18.6%" }),
+      ],
       opts,
     );
     expect(marks.map((m) => m.kind)).toEqual(["event", "annotation"]);
@@ -61,10 +71,10 @@ describe("layoutPointMarks", () => {
   });
 
   it("reads each mark against its own axis", () => {
-    const marks = layoutPointMarks(
-      [item({ axis: "right", v: 20 })],
-      { ...opts, yFor: (axis) => (v) => (axis === "right" ? 200 - v : 100 - v) },
-    );
+    const marks = layoutPointMarks([item({ axis: "right", v: 20 })], {
+      ...opts,
+      yFor: (axis) => (v) => (axis === "right" ? 200 - v : 100 - v),
+    });
     // On the right axis 20 sits at 180, off the 100px plot: dropped, not drawn on the edge.
     expect(marks).toHaveLength(0);
   });
