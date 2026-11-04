@@ -21,8 +21,21 @@ service StrategyService {
 
   // Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
   // score and a per-rule pass / fail / unknown breakdown for each stock.
+  //
+  // The answer is the same bytes to every HTTP caller. When the public depth
+  // limit is set, the rows are the top of the default ranking only, for every
+  // HTTP caller, API-token holders included: a bearer token does not lift it.
+  // Full depth comes from GetViewerStrategyPicks, which accepts a bearer token.
   rpc GetStrategyPicks (GetStrategyPicksRequest) returns (GetStrategyPicksResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // The same ranked picks as GetStrategyPicks, at the caller's full depth. It
+  // needs a signed-in caller (a bearer token, or the web's session) and is never
+  // clamped: the viewer field reports access "free" or "premium" and clamped
+  // false.
+  rpc GetViewerStrategyPicks (GetStrategyPicksRequest) returns (GetStrategyPicksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
   }
 
   // How one stock reads against every strategy: status, score, rank and the
@@ -200,7 +213,14 @@ message PickFundamentals {
 // Request for GetStrategyPicks.
 message GetStrategyPicksRequest {
   string strategy_id = 1;   // Required, e.g. "zanger-breakout".
-  int32 limit = 2;          // Default 20, max 100.
+  // Default 20, max 100. Under the public depth limit every HTTP caller, API
+  // tokens included, gets at most that many rows of the default ranking; a
+  // larger limit is clamped to it. GetViewerStrategyPicks is not clamped.
+  int32 limit = 2;
+  // Rows to skip. Under the public depth limit an offset other than 0 is
+  // refused with PermissionDenied (the X-Entitlement-Detail names
+  // full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks
+  // for the rows beyond the public depth.
   int32 offset = 3;
   string status = 4;        // Optional filter: "triggered" | "setup" | "watch".
   // Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
@@ -232,6 +252,17 @@ message GetStrategyPicksResponse {
   double rs_quantile_threshold = 16;      // The session's top-quartile cut-off of rs_6m_pct (rs_leader reads it).
   bool has_rs_quantile_threshold = 17;
   string universe_label = 18;             // The universe the picks were drawn from, as the strategy names it.
+  // Whose depth this answer is. A clamp is not an error: clamped is true when
+  // more rows exist than this access receives.
+  ViewerDepth viewer = 15;
+}
+
+// The depth the caller's access receives on a picks list.
+message ViewerDepth {
+  string access = 1;           // "anonymous" | "free" | "premium".
+  bool clamped = 2;            // More rows exist than this access returns.
+  string required_access = 3;  // The access that lifts the clamp ("free").
+  int32 limit = 4;             // Rows this access may receive; 0 means unlimited.
 }
 
 // The version of a strategy's rules that produced a set of picks.

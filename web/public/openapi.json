@@ -7277,13 +7277,13 @@
         "description": "Request for GetStrategyPicks.",
         "properties": {
           "limit": {
-            "description": "Default 20, max 100. (proto int32)",
+            "description": "Default 20, max 100. Under the public depth limit every HTTP caller, API\n tokens included, gets at most that many rows of the default ranking; a\n larger limit is clamped to it. GetViewerStrategyPicks is not clamped. (proto int32)",
             "format": "int32",
             "title": "limit",
             "type": "integer"
           },
           "offset": {
-            "description": "(proto int32)",
+            "description": "Rows to skip. Under the public depth limit an offset other than 0 is\n refused with PermissionDenied (the X-Entitlement-Detail names\n full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks\n for the rows beyond the public depth. (proto int32)",
             "format": "int32",
             "title": "offset",
             "type": "integer"
@@ -7408,6 +7408,11 @@
             "$ref": "#/components/schemas/shorts.v1alpha1.StrategyVersionRef",
             "description": "Empty until versioned rules ship. (proto shorts.v1alpha1.StrategyVersionRef)",
             "title": "version"
+          },
+          "viewer": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.ViewerDepth",
+            "description": "Whose depth this answer is. A clamp is not an error: clamped is true when\n more rows exist than this access receives. (proto shorts.v1alpha1.ViewerDepth)",
+            "title": "viewer"
           }
         },
         "title": "GetStrategyPicksResponse",
@@ -16227,6 +16232,35 @@
         "title": "ViewMode",
         "type": "string"
       },
+      "shorts.v1alpha1.ViewerDepth": {
+        "additionalProperties": false,
+        "description": "The depth the caller's access receives on a picks list.",
+        "properties": {
+          "access": {
+            "description": "\"anonymous\" | \"free\" | \"premium\". (proto string)",
+            "title": "access",
+            "type": "string"
+          },
+          "clamped": {
+            "description": "More rows exist than this access returns. (proto bool)",
+            "title": "clamped",
+            "type": "boolean"
+          },
+          "limit": {
+            "description": "Rows this access may receive; 0 means unlimited. (proto int32)",
+            "format": "int32",
+            "title": "limit",
+            "type": "integer"
+          },
+          "requiredAccess": {
+            "description": "The access that lifts the clamp (\"free\"). (proto string)",
+            "title": "required_access",
+            "type": "string"
+          }
+        },
+        "title": "ViewerDepth",
+        "type": "object"
+      },
       "shorts.v1alpha1.WeeklyEventCount": {
         "additionalProperties": false,
         "description": "WeeklyEventCount is one Monday-anchored week of DATED events. Undated\n lodgements have no point on a timeline and are excluded — never placed at a\n parliament's opening, which would fabricate a date.\n\n The series is CONTIGUOUS: every Monday from the window's start to the current\n week is present, weeks with no events included at zero, so a bar chart's gaps\n are real quiet weeks rather than missing buckets drawn adjacent.",
@@ -22846,7 +22880,7 @@
     },
     "/shorts.v1alpha1.StrategyService/GetStrategyPicks": {
       "post": {
-        "description": "Ranked picks for one strategy: status (triggered, setup, watch), a 0-100\n score and a per-rule pass / fail / unknown breakdown for each stock.",
+        "description": "The answer is the same bytes to every HTTP caller. When the public depth\n limit is set, the rows are the top of the default ranking only, for every\n HTTP caller, API-token holders included: a bearer token does not lift it.\n Full depth comes from GetViewerStrategyPicks, which accepts a bearer token.",
         "operationId": "StrategyService_GetStrategyPicks",
         "parameters": [
           {
@@ -22897,7 +22931,7 @@
             "description": "Error"
           }
         },
-        "summary": "GetStrategyPicks",
+        "summary": "Ranked picks for one strategy: status (triggered, setup, watch), a 0-100\n score and a per-rule pass / fail / unknown breakdown for each stock.",
         "tags": [
           "shorts.v1alpha1.StrategyService"
         ]

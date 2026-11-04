@@ -567,6 +567,47 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int VIEWER_FIELD_NUMBER = 15;
+  private com.shorts.v1alpha1.ViewerDepth viewer_;
+  /**
+   * <pre>
+   * Whose depth this answer is. A clamp is not an error: clamped is true when
+   * more rows exist than this access receives.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+   * @return Whether the viewer field is set.
+   */
+  @java.lang.Override
+  public boolean hasViewer() {
+    return ((bitField0_ & 0x00000010) != 0);
+  }
+  /**
+   * <pre>
+   * Whose depth this answer is. A clamp is not an error: clamped is true when
+   * more rows exist than this access receives.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+   * @return The viewer.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.ViewerDepth getViewer() {
+    return viewer_ == null ? com.shorts.v1alpha1.ViewerDepth.getDefaultInstance() : viewer_;
+  }
+  /**
+   * <pre>
+   * Whose depth this answer is. A clamp is not an error: clamped is true when
+   * more rows exist than this access receives.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.ViewerDepthOrBuilder getViewerOrBuilder() {
+    return viewer_ == null ? com.shorts.v1alpha1.ViewerDepth.getDefaultInstance() : viewer_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -622,6 +663,9 @@ private static final long serialVersionUID = 0L;
     }
     if (stale_ != false) {
       output.writeBool(14, stale_);
+    }
+    if (((bitField0_ & 0x00000010) != 0)) {
+      output.writeMessage(15, getViewer());
     }
     if (java.lang.Double.doubleToRawLongBits(rsQuantileThreshold_) != 0) {
       output.writeDouble(16, rsQuantileThreshold_);
@@ -692,6 +736,10 @@ private static final long serialVersionUID = 0L;
     if (stale_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(14, stale_);
+    }
+    if (((bitField0_ & 0x00000010) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(15, getViewer());
     }
     if (java.lang.Double.doubleToRawLongBits(rsQuantileThreshold_) != 0) {
       size += com.google.protobuf.CodedOutputStream
@@ -775,6 +823,11 @@ private static final long serialVersionUID = 0L;
         != other.getHasRsQuantileThreshold()) return false;
     if (!getUniverseLabel()
         .equals(other.getUniverseLabel())) return false;
+    if (hasViewer() != other.hasViewer()) return false;
+    if (hasViewer()) {
+      if (!getViewer()
+          .equals(other.getViewer())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -833,6 +886,10 @@ private static final long serialVersionUID = 0L;
         getHasRsQuantileThreshold());
     hash = (37 * hash) + UNIVERSE_LABEL_FIELD_NUMBER;
     hash = (53 * hash) + getUniverseLabel().hashCode();
+    if (hasViewer()) {
+      hash = (37 * hash) + VIEWER_FIELD_NUMBER;
+      hash = (53 * hash) + getViewer().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -972,6 +1029,7 @@ private static final long serialVersionUID = 0L;
         internalGetPicksFieldBuilder();
         internalGetStatusCountsFieldBuilder();
         internalGetVersionFieldBuilder();
+        internalGetViewerFieldBuilder();
       }
     }
     @java.lang.Override
@@ -1017,6 +1075,11 @@ private static final long serialVersionUID = 0L;
       rsQuantileThreshold_ = 0D;
       hasRsQuantileThreshold_ = false;
       universeLabel_ = "";
+      viewer_ = null;
+      if (viewerBuilder_ != null) {
+        viewerBuilder_.dispose();
+        viewerBuilder_ = null;
+      }
       return this;
     }
 
@@ -1124,6 +1187,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00010000) != 0)) {
         result.universeLabel_ = universeLabel_;
       }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.viewer_ = viewerBuilder_ == null
+            ? viewer_
+            : viewerBuilder_.build();
+        to_bitField0_ |= 0x00000010;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -1222,6 +1291,9 @@ private static final long serialVersionUID = 0L;
         universeLabel_ = other.universeLabel_;
         bitField0_ |= 0x00010000;
         onChanged();
+      }
+      if (other.hasViewer()) {
+        mergeViewer(other.getViewer());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1335,6 +1407,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00002000;
               break;
             } // case 112
+            case 122: {
+              input.readMessage(
+                  internalGetViewerFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00020000;
+              break;
+            } // case 122
             case 129: {
               rsQuantileThreshold_ = input.readDouble();
               bitField0_ |= 0x00004000;
@@ -2926,6 +3005,172 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00010000;
       onChanged();
       return this;
+    }
+
+    private com.shorts.v1alpha1.ViewerDepth viewer_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.ViewerDepth, com.shorts.v1alpha1.ViewerDepth.Builder, com.shorts.v1alpha1.ViewerDepthOrBuilder> viewerBuilder_;
+    /**
+     * <pre>
+     * Whose depth this answer is. A clamp is not an error: clamped is true when
+     * more rows exist than this access receives.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+     * @return Whether the viewer field is set.
+     */
+    public boolean hasViewer() {
+      return ((bitField0_ & 0x00020000) != 0);
+    }
+    /**
+     * <pre>
+     * Whose depth this answer is. A clamp is not an error: clamped is true when
+     * more rows exist than this access receives.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+     * @return The viewer.
+     */
+    public com.shorts.v1alpha1.ViewerDepth getViewer() {
+      if (viewerBuilder_ == null) {
+        return viewer_ == null ? com.shorts.v1alpha1.ViewerDepth.getDefaultInstance() : viewer_;
+      } else {
+        return viewerBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Whose depth this answer is. A clamp is not an error: clamped is true when
+     * more rows exist than this access receives.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+     */
+    public Builder setViewer(com.shorts.v1alpha1.ViewerDepth value) {
+      if (viewerBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        viewer_ = value;
+      } else {
+        viewerBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Whose depth this answer is. A clamp is not an error: clamped is true when
+     * more rows exist than this access receives.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+     */
+    public Builder setViewer(
+        com.shorts.v1alpha1.ViewerDepth.Builder builderForValue) {
+      if (viewerBuilder_ == null) {
+        viewer_ = builderForValue.build();
+      } else {
+        viewerBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Whose depth this answer is. A clamp is not an error: clamped is true when
+     * more rows exist than this access receives.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+     */
+    public Builder mergeViewer(com.shorts.v1alpha1.ViewerDepth value) {
+      if (viewerBuilder_ == null) {
+        if (((bitField0_ & 0x00020000) != 0) &&
+          viewer_ != null &&
+          viewer_ != com.shorts.v1alpha1.ViewerDepth.getDefaultInstance()) {
+          getViewerBuilder().mergeFrom(value);
+        } else {
+          viewer_ = value;
+        }
+      } else {
+        viewerBuilder_.mergeFrom(value);
+      }
+      if (viewer_ != null) {
+        bitField0_ |= 0x00020000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Whose depth this answer is. A clamp is not an error: clamped is true when
+     * more rows exist than this access receives.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+     */
+    public Builder clearViewer() {
+      bitField0_ = (bitField0_ & ~0x00020000);
+      viewer_ = null;
+      if (viewerBuilder_ != null) {
+        viewerBuilder_.dispose();
+        viewerBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Whose depth this answer is. A clamp is not an error: clamped is true when
+     * more rows exist than this access receives.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+     */
+    public com.shorts.v1alpha1.ViewerDepth.Builder getViewerBuilder() {
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return internalGetViewerFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Whose depth this answer is. A clamp is not an error: clamped is true when
+     * more rows exist than this access receives.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+     */
+    public com.shorts.v1alpha1.ViewerDepthOrBuilder getViewerOrBuilder() {
+      if (viewerBuilder_ != null) {
+        return viewerBuilder_.getMessageOrBuilder();
+      } else {
+        return viewer_ == null ?
+            com.shorts.v1alpha1.ViewerDepth.getDefaultInstance() : viewer_;
+      }
+    }
+    /**
+     * <pre>
+     * Whose depth this answer is. A clamp is not an error: clamped is true when
+     * more rows exist than this access receives.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.ViewerDepth, com.shorts.v1alpha1.ViewerDepth.Builder, com.shorts.v1alpha1.ViewerDepthOrBuilder> 
+        internalGetViewerFieldBuilder() {
+      if (viewerBuilder_ == null) {
+        viewerBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.ViewerDepth, com.shorts.v1alpha1.ViewerDepth.Builder, com.shorts.v1alpha1.ViewerDepthOrBuilder>(
+                getViewer(),
+                getParentForChildren(),
+                isClean());
+        viewer_ = null;
+      }
+      return viewerBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetStrategyPicksResponse)

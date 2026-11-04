@@ -2005,12 +2005,17 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetStoc
 Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
  score and a per-rule pass / fail / unknown breakdown for each stock.
 
+The answer is the same bytes to every HTTP caller. When the public depth
+ limit is set, the rows are the top of the default ranking only, for every
+ HTTP caller, API-token holders included: a bearer token does not lift it.
+ Full depth comes from GetViewerStrategyPicks, which accepts a bearer token.
+
 Request body fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `limit` | integer (int32) | no | Default 20, max 100. (proto int32) |
-| `offset` | integer (int32) | no | (proto int32) |
+| `limit` | integer (int32) | no | Default 20, max 100. Under the public depth limit every HTTP caller, API tokens included, gets at most that many rows of the default ranking; a larger limit is clamped to it. GetViewerStrategyPicks is not clamped. (proto int32) |
+| `offset` | integer (int32) | no | Rows to skip. Under the public depth limit an offset other than 0 is refused with PermissionDenied (the X-Entitlement-Detail names full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks for the rows beyond the public depth. (proto int32) |
 | `requireFundamentals` | boolean | no | Only stocks with a fundamentals row. (proto bool) |
 | `sortBy` | string | no | Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe", "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values sort last; growth above +500% or below -95% sorts after every measured value. rank keeps the strategy's own ranking whatever the order. (proto string) |
 | `status` | string | no | Optional filter: "triggered" \| "setup" \| "watch". (proto string) |

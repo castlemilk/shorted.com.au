@@ -85,58 +85,160 @@ func (s *ShortsServer) ListStrategies(ctx context.Context, req *connect.Request[
 	return connect.NewResponse(resp), nil
 }
 
-// GetStrategyPicks returns one strategy's ranked picks, filtered by status
-// (and, on request, to stocks with a fundamentals row), optionally sorted by a
-// fundamentals figure, and paged. Rank is always the evaluator's rank.
-func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error) {
-	id := strings.ToLower(strings.TrimSpace(req.Msg.StrategyId))
+// picksQuery is a validated GetStrategyPicks request. The public and the
+// private rpc share it, so the same request is refused the same way for every
+// caller.
+type picksQuery struct {
+	st                  engine.Strategy
+	status              string
+	sortBy              string
+	requireFundamentals bool
+	limit               int
+	offset              int
+}
+
+// picksDepth is how much of a ranked list one caller receives.
+type picksDepth struct {
+	access Access
+	// limit is how many top rows of the default ranking the caller may page.
+	// 0 is unlimited.
+	limit int
+}
+
+// parsePicksQuery validates a GetStrategyPicks request. It reads no depth, so
+// a refusal here is the same for every caller.
+func parsePicksQuery(msg *shortsv1alpha1.GetStrategyPicksRequest) (picksQuery, error) {
+	id := strings.ToLower(strings.TrimSpace(msg.StrategyId))
 	if id == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("strategy_id is required (one of %s)", strategyIDList()))
+		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("strategy_id is required (one of %s)", strategyIDList()))
 	}
 	st, ok := engine.Lookup(id)
 	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", req.Msg.StrategyId, strategyIDList()))
+		return picksQuery{}, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", msg.StrategyId, strategyIDList()))
 	}
-	status := strings.ToLower(strings.TrimSpace(req.Msg.Status))
+	status := strings.ToLower(strings.TrimSpace(msg.Status))
 	if status != "" && !engine.ValidPickStatus(status) {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("status must be one of triggered, setup or watch"))
+		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("status must be one of triggered, setup or watch"))
 	}
-	sortBy := strings.ToLower(strings.TrimSpace(req.Msg.SortBy))
+	sortBy := strings.ToLower(strings.TrimSpace(msg.SortBy))
 	if sortBy != "" && !engine.ValidSortBy(sortBy) {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("sort_by must be one of %s", strings.Join(engine.SortKeys(), ", ")))
+		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("sort_by must be one of %s", strings.Join(engine.SortKeys(), ", ")))
 	}
-	if req.Msg.Limit < 0 || req.Msg.Limit > strategyPicksMaxLimit {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be between 0 and %d", strategyPicksMaxLimit))
+	if msg.Limit < 0 || msg.Limit > strategyPicksMaxLimit {
+		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be between 0 and %d", strategyPicksMaxLimit))
 	}
-	if req.Msg.Offset < 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("offset must not be negative"))
+	if msg.Offset < 0 {
+		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("offset must not be negative"))
 	}
-	limit := int(req.Msg.Limit)
+	limit := int(msg.Limit)
 	if limit == 0 {
 		limit = strategyPicksDefaultLimit
 	}
+	return picksQuery{
+		st:                  st,
+		status:              status,
+		sortBy:              sortBy,
+		requireFundamentals: msg.RequireFundamentals,
+		limit:               limit,
+		offset:              int(msg.Offset),
+	}, nil
+}
 
-	s.logger.Debugf("strategy picks: strategy_id=%s status=%s sort_by=%s require_fundamentals=%v limit=%d offset=%d",
-		id, status, sortBy, req.Msg.RequireFundamentals, limit, req.Msg.Offset)
-
-	eval, err := s.loadStrategyEvaluation(ctx, st)
+// GetStrategyPicks returns one strategy's ranked picks, filtered by status
+// (and, on request, to stocks with a fundamentals row), optionally sorted by a
+// fundamentals figure, and paged. Rank is always the evaluator's rank.
+//
+// The answer is the same bytes to every HTTP caller. When the public depth
+// limit is set, only the top of the default ranking is served, and a page
+// past it is refused. Depth is read after the cached evaluation, never inside
+// its fill.
+func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error) {
+	q, err := parsePicksQuery(req.Msg)
 	if err != nil {
-		s.logger.Errorf("database error in GetStrategyPicks: strategy_id=%s err=%v", id, err)
+		return nil, err
+	}
+	s.logger.Debugf("strategy picks: strategy_id=%s status=%s sort_by=%s require_fundamentals=%v limit=%d offset=%d",
+		q.st.ID, q.status, q.sortBy, q.requireFundamentals, q.limit, q.offset)
+
+	eval, err := s.loadStrategyEvaluation(ctx, q.st)
+	if err != nil {
+		s.logger.Errorf("database error in GetStrategyPicks: strategy_id=%s err=%v", q.st.ID, err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to evaluate strategy"))
+	}
+
+	depth := s.publicPicksDepth(ctx)
+	if depth.limit > 0 && q.offset != 0 {
+		return nil, fullSignalListRefused(depth.access, depth.limit)
+	}
+	return connect.NewResponse(picksResponse(eval, q, depth)), nil
+}
+
+// GetViewerStrategyPicks is GetStrategyPicks at the caller's full depth. It
+// needs a verified identity and is never clamped.
+func (s *ShortsServer) GetViewerStrategyPicks(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error) {
+	access, err := privateAccess(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q, err := parsePicksQuery(req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	s.logger.Debugf("viewer strategy picks: strategy_id=%s access=%s status=%s sort_by=%s require_fundamentals=%v limit=%d offset=%d",
+		q.st.ID, access, q.status, q.sortBy, q.requireFundamentals, q.limit, q.offset)
+
+	eval, err := s.loadStrategyEvaluation(ctx, q.st)
+	if err != nil {
+		s.logger.Errorf("database error in GetViewerStrategyPicks: strategy_id=%s err=%v", q.st.ID, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to evaluate strategy"))
+	}
+	return connect.NewResponse(picksResponse(eval, q, picksDepth{access: access})), nil
+}
+
+// publicPicksDepth is the depth a public read gives its caller. An anonymous
+// caller gets the clamp when the flag is set; a verified MCP viewer does not.
+func (s *ShortsServer) publicPicksDepth(ctx context.Context) picksDepth {
+	access := publicDepth(ctx)
+	if access != AccessAnonymous {
+		return picksDepth{access: access}
+	}
+	return picksDepth{access: access, limit: s.config.StrategyPublicSignalsLimit}
+}
+
+// picksResponse builds one caller's answer from the cached evaluation. The
+// cached list is read-only: the clamp, the filter and the sort all work on
+// slices of it, never on the list itself.
+//
+// Under a clamp the rows come from the top of the default ranking only, and
+// the filter and sort apply within them. The counts and the total stay global,
+// since they reveal no names.
+func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *shortsv1alpha1.GetStrategyPicksResponse {
+	u := eval.universe
+	ranked := eval.picks
+	clamped := false
+	limit := q.limit
+	if depth.limit > 0 {
+		clamped = len(eval.picks) > depth.limit
+		if clamped {
+			ranked = ranked[:depth.limit]
+		}
+		limit = min(limit, depth.limit)
 	}
 
 	// Both steps leave the cached list untouched: the filter builds a new
 	// slice, and SortPicks sorts a copy (or returns its input unchanged for
 	// the default rank order, which is only ever read below).
-	matching := engine.SortPicks(filterPicks(eval.picks, status, req.Msg.RequireFundamentals), sortBy)
+	matching := engine.SortPicks(filterPicks(ranked, q.status, q.requireFundamentals), q.sortBy)
 	total := len(matching)
-	start := min(int(req.Msg.Offset), total)
-	end := min(start+limit, total)
+	if depth.limit > 0 {
+		total = len(filterPicks(eval.picks, q.status, q.requireFundamentals))
+	}
+	start := min(q.offset, len(matching))
+	end := min(start+limit, len(matching))
 
-	u := eval.universe
 	resp := &shortsv1alpha1.GetStrategyPicksResponse{
-		Strategy:                  strategyProto(st, st.CaveatsWithCoverage(u.coverageFor(st), len(u.candidates))),
-		Regime:                    marketRegimeProto(u.regime, st.RegimeVerdict(u.regime)),
+		Strategy:                  strategyProto(q.st, q.st.CaveatsWithCoverage(u.coverageFor(q.st), len(u.candidates))),
+		Regime:                    marketRegimeProto(u.regime, q.st.RegimeVerdict(u.regime)),
 		Picks:                     make([]*shortsv1alpha1.StrategyPick, 0, end-start),
 		TotalCount:                int32(total),
 		UniverseCount:             int32(len(u.candidates)),
@@ -146,8 +248,14 @@ func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Reques
 		StatusCounts:              statusCounts(eval.picks),
 		SessionDate:               u.asOf,
 		ShortReportDate:           dateOrEmpty(u.shortReportDate),
-		UniverseLabel:             st.Metadata.Universe,
+		UniverseLabel:             q.st.Metadata.Universe,
 		Stale:                     staleBehind(u.asOf, u.regime),
+		Viewer: &shortsv1alpha1.ViewerDepth{
+			Access:         depth.access.String(),
+			Clamped:        clamped,
+			RequiredAccess: AccessFree.String(),
+			Limit:          int32(depth.limit),
+		},
 	}
 	if thr, ok := u.env.RSQuantileThreshold(); ok {
 		resp.RsQuantileThreshold, resp.HasRsQuantileThreshold = thr, true
@@ -158,7 +266,7 @@ func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Reques
 	for i := start; i < end; i++ {
 		resp.Picks = append(resp.Picks, strategyPickProto(&matching[i]))
 	}
-	return connect.NewResponse(resp), nil
+	return resp
 }
 
 // filterPicks keeps the picks with the given status (all when "") and, when
