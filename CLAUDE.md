@@ -523,7 +523,7 @@ Stock screener with server-side filtering (`services/shorts/internal/services/sh
 
 ## Stock picker (`/strategies`, strategy-driven shortlists)
 
-The route lives in `web/src/app/strategies/` (moved from `app/picks` in PR-01). Every
+The route lives in `web/src/app/strategies/` (moved from `app/picks` by the URL move in `docs/feature/strategies/brief.md`). Every
 `/picks` URL answers 308 to `/strategies` through `web/src/config/strategy-redirects.mjs`.
 `components/picks/` and `public/picks-art/` keep their names: they are not routes.
 

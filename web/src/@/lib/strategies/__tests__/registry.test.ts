@@ -6,7 +6,7 @@ import {
 
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-// Segments that /strategies owns under a strategy URL (strategy workspace spec, 1.3).
+// Segments that /strategies owns under a strategy URL (docs/feature/strategies/brief.md).
 // A slug equal to one of them would collide with that route: the strategy
 // profile sits at /strategies/<slug>, so /strategies/signals or /strategies/my
 // would never reach its own page.
