@@ -626,9 +626,11 @@ that holds (`−5.7% < −5.0%` for a failing rule), never a false one. No Alert
 or Create-alert control renders: those capabilities stay off.
 
 **Rules tab (`/strategies/[strategy]/rules`).** The numbers the live rules
-version tests each stock with: one row per rule (role, weight as a share of the
-score, and its parameters from `GetStrategyVersion`), the universe and data
-policy, and this strategy's changelog entries. It is ISR, indexable, listed in
+version tests each stock with: one row per rule, with its role, its weight as a
+share of the score and its parameters all read from the live version
+(`GetStrategyVersion`: the role and weight from its canonical spec, the
+parameters from its parameter list) and its title from `ListStrategies`; the
+universe and data policy; and this strategy's changelog entries. It is ISR, indexable, listed in
 `isr-pages.json`, the sitemap and `STRATEGY_ROUTES`. It never repeats the rule
 wording (the Overview's `StrategyPanel` owns it), and it renders no Edit a copy
 control until the `variants` capability ships. The recipe lines wait for the
