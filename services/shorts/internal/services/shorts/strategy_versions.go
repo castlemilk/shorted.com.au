@@ -155,12 +155,26 @@ func policyLines(s spec.Spec) []string {
 	case "universe":
 		out = append(out, "Relative strength is ranked across the whole universe.")
 	}
+	if s.Data.Fundamentals == "live_snapshot" && requiresSource(s, "fundamentals") {
+		out = append(out, "Fundamentals are the latest reported as of the previous nightly pull, not point-in-time before November 2026.")
+	}
 	if s.Ladder.UnknownStatus {
 		out = append(out, "A pick is unknown when no core non-trigger rule fails and at least one core rule is unknown.")
 	} else {
 		out = append(out, "An unknown trigger rule reads as setup.")
 	}
 	return out
+}
+
+// requiresSource reports whether the spec names a data source among its
+// requirements.
+func requiresSource(s spec.Spec, source string) bool {
+	for _, r := range s.Requires {
+		if r.Source == source {
+			return true
+		}
+	}
+	return false
 }
 
 // GetStrategyVersion returns one published version of a strategy's rules. An

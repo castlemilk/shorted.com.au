@@ -149,3 +149,31 @@ func TestStrategyResponsesNameTheLiveVersion(t *testing.T) {
 		assert.Equal(t, liveVersion(st.Id).RulesHash, st.Version.RulesHash)
 	}
 }
+
+func TestPolicyLinesStateLiveSnapshotFundamentalsOnlyWhenRequired(t *testing.T) {
+	const sentence = "Fundamentals are the latest reported as of the previous nightly pull, not point-in-time before November 2026."
+	base := spec.Spec{Data: spec.DataPolicy{Fundamentals: "live_snapshot"}}
+
+	withReq := base
+	withReq.Requires = []spec.DataReq{{Source: "prices", From: "2015-10-01"}, {Source: "fundamentals", From: "computable_from"}}
+	assert.Contains(t, policyLines(withReq), sentence)
+
+	withoutReq := base
+	withoutReq.Requires = []spec.DataReq{{Source: "prices", From: "2015-10-01"}}
+	assert.NotContains(t, policyLines(withoutReq), sentence)
+
+	for _, st := range engine.Registry() {
+		live, ok := spec.Live(st.ID)
+		require.True(t, ok)
+		assert.Equal(t, requiresSource(live.Spec, "fundamentals"), contains(policyLines(live.Spec), sentence), st.ID)
+	}
+}
+
+func contains(lines []string, want string) bool {
+	for _, l := range lines {
+		if l == want {
+			return true
+		}
+	}
+	return false
+}
