@@ -334,8 +334,8 @@ func ptrFloat(v float64) *float64 { return &v }
 // every canonical comparison of a non-fundamentals strategy is total return.
 const windowFromMay2019 = "2019-05-01"
 
-// houseCosts is the house cost model (5.4): brokerage at 10 bps with a A$10
-// minimum per fill, and spread and impact by 20-session dollar volume.
+// houseCosts is the house cost model: brokerage at 10 bps with a A$10 minimum
+// per fill, and spread and impact by 20-session dollar volume.
 func houseCosts() Costs {
 	return Costs{
 		BrokerageBps:    10,

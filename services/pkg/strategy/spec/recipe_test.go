@@ -205,7 +205,7 @@ func TestR1RecipesCoverEveryStrategyOnce(t *testing.T) {
 }
 
 // TestR1ExitsMatchTheScreen states the exits, entries and windows of the five
-// r1 recipes as the recipe table gives them (5.3). In particular Zanger has no
+// r1 recipes as the recipe table gives them. In particular Zanger has no
 // time stop.
 func TestR1ExitsMatchTheScreen(t *testing.T) {
 	want := map[string]struct {
