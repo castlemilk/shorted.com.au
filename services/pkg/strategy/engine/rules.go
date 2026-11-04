@@ -574,7 +574,7 @@ func ruleROE(c *Candidate, _ *evalEnv) outcome {
 		// Inputs present but the ratio withheld by the equity guard is not
 		// meaningful for this balance sheet; missing inputs are missing data.
 		if !q.IsFinancial && q.NetIncome != nil && q.TotalEquity != nil && q.TotalAssets != nil &&
-			*q.TotalAssets > 0 && *q.TotalEquity > 0 && *q.TotalEquity < 0.1 * *q.TotalAssets {
+			*q.TotalAssets > 0 && *q.TotalEquity > 0 && *q.TotalEquity < 0.1**q.TotalAssets {
 			return unknownFor(ReasonNotMeaningful, detail)
 		}
 		return unknownFor(ReasonNoFundamentals, detail)
