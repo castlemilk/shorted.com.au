@@ -25,6 +25,10 @@ type Registered struct {
 	Changes []string
 	// KnownIssues lists what the version gets wrong, worded as defects.
 	KnownIssues []string
+	// Recipe is the execution recipe backtests of this version trade with, or
+	// nil while none is registered (v0 is never backtested). Its hash is stored
+	// apart from the rules hash, and it is not part of Spec.
+	Recipe *Recipe
 }
 
 // Registry returns every canonical version ever published, in publication
