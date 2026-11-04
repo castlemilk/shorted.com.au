@@ -1,11 +1,11 @@
 {
-  "capturedAt": "2026-11-04T02:51:36.588Z",
+  "capturedAt": "2026-11-04T15:11:49.143Z",
   "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 112,
   "routes": {
     "/": {
-      "firstLoadKB": 148
+      "firstLoadKB": 153
     },
     "/_not-found": {
       "firstLoadKB": 112
@@ -242,7 +242,7 @@
       "firstLoadKB": 112
     },
     "/dashboards": {
-      "firstLoadKB": 258
+      "firstLoadKB": 257
     },
     "/data": {
       "firstLoadKB": 118
@@ -269,7 +269,7 @@
       "firstLoadKB": 117
     },
     "/discord/settings": {
-      "firstLoadKB": 140
+      "firstLoadKB": 142
     },
     "/discord/settings/open": {
       "firstLoadKB": 112
@@ -326,10 +326,10 @@
       "firstLoadKB": 113
     },
     "/embed/chart": {
-      "firstLoadKB": 119
+      "firstLoadKB": 120
     },
     "/embed/discord": {
-      "firstLoadKB": 120
+      "firstLoadKB": 121
     },
     "/embed/top-shorts": {
       "firstLoadKB": 160
@@ -509,37 +509,40 @@
       "firstLoadKB": 112
     },
     "/ownership": {
-      "firstLoadKB": 204
+      "firstLoadKB": 215
     },
     "/ownership/[slug]": {
-      "firstLoadKB": 151
+      "firstLoadKB": 163
     },
     "/ownership/[slug]/opengraph-image": {
       "firstLoadKB": 112
     },
     "/ownership/activity": {
-      "firstLoadKB": 171
+      "firstLoadKB": 180
     },
     "/ownership/changes": {
-      "firstLoadKB": 161
+      "firstLoadKB": 173
     },
     "/ownership/connections": {
-      "firstLoadKB": 153
+      "firstLoadKB": 168
     },
     "/ownership/funds": {
-      "firstLoadKB": 149
+      "firstLoadKB": 162
     },
     "/ownership/funds/[fund]": {
-      "firstLoadKB": 156
+      "firstLoadKB": 169
     },
     "/ownership/holders": {
-      "firstLoadKB": 153
+      "firstLoadKB": 166
+    },
+    "/ownership/insights": {
+      "firstLoadKB": 112
     },
     "/ownership/map": {
-      "firstLoadKB": 163
+      "firstLoadKB": 178
     },
     "/ownership/notices": {
-      "firstLoadKB": 141
+      "firstLoadKB": 142
     },
     "/ownership/notices/opengraph-image": {
       "firstLoadKB": 112
@@ -548,10 +551,10 @@
       "firstLoadKB": 112
     },
     "/ownership/stocks": {
-      "firstLoadKB": 138
+      "firstLoadKB": 139
     },
     "/ownership/stocks/[code]": {
-      "firstLoadKB": 128
+      "firstLoadKB": 132
     },
     "/ownership/stocks/[code]/opengraph-image": {
       "firstLoadKB": 112
@@ -752,7 +755,7 @@
       "firstLoadKB": 112
     },
     "/statistics": {
-      "firstLoadKB": 127
+      "firstLoadKB": 132
     },
     "/statistics/opengraph-image": {
       "firstLoadKB": 112
@@ -782,7 +785,7 @@
       "firstLoadKB": 112
     },
     "/top": {
-      "firstLoadKB": 171
+      "firstLoadKB": 176
     },
     "/top/opengraph-image": {
       "firstLoadKB": 112
