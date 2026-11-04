@@ -18,7 +18,11 @@
  *   news        (GetNews*, GetAnnouncement*, GetMarketNews*)                          -> 300 (5min)
  *   default                                                   -> 60
  *
+ * Cached (allowlisted public reads only, see PUBLIC_READ_RPCS):
+ *   POST to an allowlisted /shorts.v1alpha1. or /marketdata.v1. method - hot -> Cache API -> KV
+ *
  * Pass-through (never cached):
+ *   Every other /shorts.v1alpha1. and /marketdata.v1. request       - origin, uncached
  *   /health, /healthz                              - health checks -> Shorts API
  *   gRPC/Connect streaming headers                    - pass-through to Shorts API
  *   /chat.v1.*                                     - streaming -> Chat Service
@@ -547,6 +551,9 @@ const worker = {
     // directly. After Cloudflare became the only origin path, this needed
     // to align with the actual gRPC path.
     if (path.includes("/marketdata.v1.")) {
+      if (!isCacheableRpc(request, path)) {
+        return withEdgeAnalytics(request, env, proxyWithHeaders(request, marketDataOrigin, "BYPASS", env), "market-data", 0, started);
+      }
       return withEdgeAnalytics(
         request,
         env,
@@ -559,6 +566,9 @@ const worker = {
 
     // --- 3. SHORTS API -> endpoint-aware caching with hot path ---
     if (path.includes("/shorts.v1alpha1.")) {
+      if (!isCacheableRpc(request, path)) {
+        return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS", env), "shorts", 0, started);
+      }
       const ttl = resolveShortsTtl(path, defaults);
       const cacheVersion = await getCacheVersion(env);
       let hotKey = null;
@@ -2816,19 +2826,14 @@ export function resolveShortsTtl(path, defaults) {
 
 /**
  * Build a cache key suffix for the in-memory hot cache.
- * For POST requests this hashes the request body so different request
- * parameters (e.g. productCode, period) get distinct cache entries.
- *
- * BUG FIX: previously this returned `path` for all POST requests, which
- * meant the first response cached for /GetStockData served every
- * subsequent call regardless of the stock code being requested. The
- * outer Cache API + KV layers correctly hash the body — only the
- * in-memory hot tier was poisoning across requests.
+ * Only allowlisted public reads reach this function (see isCacheableRpc).
+ * For POST requests the body is hashed with SHA-256, so distinct request
+ * parameters (e.g. productCode, period) always get distinct entries.
  */
 async function buildHotCacheKey(request, path, cacheVersion = DEFAULT_CACHE_VERSION) {
   if (request.method === "POST") {
     const bodyText = await request.clone().text();
-    const bodyHash = hashStringSync(bodyText);
+    const bodyHash = await hashString(bodyText);
     return `${cacheVersion}:${path}:${bodyHash}`;
   }
   return `${cacheVersion}:${path}`;
@@ -2841,6 +2846,11 @@ async function buildHotCacheKey(request, path, cacheVersion = DEFAULT_CACHE_VERS
  */
 async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl, cacheVersion) {
   const path = url.pathname;
+  // Only allowlisted, caller-invariant reads are stored on any tier. Every
+  // other request passes through to its origin, uncached.
+  if (!isCacheableRpc(request, path)) {
+    return proxyWithHeaders(request, origin, "BYPASS", env);
+  }
   let requestBody = undefined;
 
   try {
@@ -3041,38 +3051,21 @@ function cacheableResponseHeaders(originResp, cacheTtl, method) {
 }
 
 /**
- * Build a KV cache key for cacheable endpoints.
- * Uses the request body for deterministic hashing (matches prewarm.js keys).
- * Returns null if the endpoint is not KV-cacheable.
- *
- * Cacheable endpoints:
- *   - Shorts API: GetTopShorts, GetIndustryTreeMap, GetWeeklyReport,
- *                 GetAvailableDates, GetStock, GetNews, GetAnnouncement
- *   - Market Data: GetStockPrice, GetMultipleStockPrices, GetHistoricalPrices
+ * Build a KV cache key for KV-cacheable public reads (see isKvCacheableEndpoint).
+ * The key carries a SHA-256 hash of the request body text, so prewarm.js can
+ * derive the same key from the body it stores. Returns null otherwise.
  */
 export async function buildKvCacheKey(request, path, cacheVersion = DEFAULT_CACHE_VERSION) {
-  if (!/GetTopShorts|GetIndustryTreeMap|GetIndustryIntelligence|GetShortsTreeMap|GetWeeklyReport|GetAvailableDates|GetMarketByDate|GetStock$|GetStockDetails|GetStockData|GetStockNews|GetStockFinancialHighlights|GetNews|GetAnnouncement|GetMarketNews|GetStockPrice|GetMultipleStockPrices|GetHistoricalPrices/.test(path)) {
+  if (!isKvCacheableEndpoint(path)) {
     return null;
   }
   if (request.method === "POST") {
     const bodyText = await request.clone().text();
-    const bodyHash = hashStringSync(bodyText);
+    const bodyHash = await hashString(bodyText);
     const pathClean = path.replace(/\//g, "_").replace(/^_/, "");
     return `prewarm:${cacheVersion}:${pathClean}:${bodyHash}`;
   }
   return null;
-}
-
-/**
- * Deterministic hash without async crypto API (for KV key consistency).
- * Uses djb2 hash — fast and good enough for cache key determinism.
- */
-function hashStringSync(text) {
-  let hash = 5381;
-  for (let i = 0; i < text.length; i++) {
-    hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(36);
 }
 
 /**
@@ -3255,26 +3248,14 @@ function stampEdgeHeaders(resp, cacheStatus) {
 }
 
 /**
- * Build a deterministic cache key from the request.
- * For POST requests, incorporates a SHA-256 hash of the request body.
- *
- * NOTE: Auth is intentionally NOT included in the cache key for public read-only
- * endpoints (GetTopShorts, GetStock, GetIndustryTreeMap, etc.). These endpoints
- * return the same data regardless of the user's auth level. Including auth in
- * the cache key fragments the cache unnecessarily — every unauthenticated request
- * would populate its own cache entry for public data.
- *
- * Auth IS included for private endpoints (enrichment, admin, sync status).
+ * Build the Cache API key for an allowlisted public read. The key is versioned
+ * and, for POST, carries a SHA-256 hash of the body. It never carries a caller
+ * credential: only allowlisted reads reach this function, and those return the
+ * same bytes to every caller (see isCacheableRpc).
  */
 async function buildCacheKey(request, url, cacheVersion = DEFAULT_CACHE_VERSION) {
   const cacheUrl = new URL(url.toString());
-  const path = cacheUrl.pathname;
   cacheUrl.searchParams.set("_cv", cacheVersion);
-
-  // For public read endpoints, cache key does NOT include auth.
-  // This means unauthenticated and authenticated users share the same cache entry,
-  // which is correct — the data is identical.
-  const isPublicRead = isPublicReadEndpoint(path);
 
   if (request.method === "POST") {
     const body = await request.clone().text();
@@ -3282,29 +3263,79 @@ async function buildCacheKey(request, url, cacheVersion = DEFAULT_CACHE_VERSION)
     cacheUrl.searchParams.set("_bh", bodyHash);
   }
 
-  // Only include auth for private endpoints
-  if (!isPublicRead) {
-    const authHeader = request.headers.get("Authorization") || "anon";
-    const authHash = await hashString(authHeader);
-    cacheUrl.searchParams.set("_a", authHash.substring(0, 8));
-  }
-
   // Cache API only supports GET
   return new Request(cacheUrl.toString(), { method: "GET" });
 }
 
 /**
- * Determine if a path is a public read-only endpoint that should share
- * cache entries across all auth levels.
+ * The public reads the edge may store, by Connect service and method. Each is
+ * read-only and caller-invariant: the same request returns the same bytes to
+ * every caller, so one entry serves all of them. Anything not listed passes
+ * through uncached. A new entry needs a caller-invariance test first.
+ *
+ * Several services expose the same method (the legacy ShortedStocksService and
+ * the per-domain services share one server). Each pair is listed explicitly.
+ * GetNews, GetAnnouncement, GetSearch and GetShortsTreeMap are not in the
+ * current proto. They stay listed so that the set matches prewarm.js and the
+ * KV set, and a method that does not exist cannot return a response to cache.
  */
-function isPublicReadEndpoint(path) {
-  return (
-    /GetTopShorts|GetShortsTreeMap|GetWeeklyReport|GetMarketByDate|GetAvailableDates/.test(path) ||
-    /GetStock$|GetStockDetails|GetStockData|GetStockNews|GetStockFinancialHighlights/.test(path) ||
-    /GetNews|GetAnnouncement|GetMarketNews/.test(path) ||
-    /GetSearch|GetDirectorTrades|GetPeerComparison|GetDividendHistory/.test(path) ||
-    /marketdata\.v1\./.test(path)
-  );
+const PUBLIC_READ_RPCS = {
+  "shorts.v1alpha1.ShortedStocksService": [
+    "GetTopShorts", "GetIndustryTreeMap", "GetShortsTreeMap", "GetIndustryIntelligence",
+    "GetWeeklyReport", "GetMarketByDate", "GetAvailableDates",
+    "GetStock", "GetStockDetails", "GetStockData", "GetStockPrices", "GetStockNews",
+    "GetStockFinancialHighlights", "GetNews", "GetAnnouncement", "GetMarketNews",
+    "GetSearch", "GetDirectorTrades", "GetDividendHistory", "GetPeerComparison",
+  ],
+  "shorts.v1alpha1.StockService": [
+    "GetStock", "GetStockDetails", "GetStockData", "GetStockPrices",
+    "GetStockFinancialHighlights", "GetDirectorTrades", "GetDividendHistory", "GetPeerComparison",
+  ],
+  "shorts.v1alpha1.NewsService": ["GetStockNews", "GetMarketNews"],
+  "shorts.v1alpha1.MarketService": ["GetTopShorts", "GetIndustryTreeMap", "GetMarketByDate", "GetAvailableDates"],
+  "shorts.v1alpha1.ReportsService": ["GetWeeklyReport"],
+  "shorts.v1alpha1.IndustryIntelligenceService": ["GetIndustryIntelligence"],
+  "marketdata.v1.MarketDataService": [
+    "GetStockPrice", "GetHistoricalPrices", "GetMultipleStockPrices", "GetStockCorrelations",
+  ],
+};
+
+/** Methods whose responses are also stored in KV (prewarm.js writes these). */
+const KV_CACHEABLE_METHODS = new Set([
+  "GetTopShorts", "GetIndustryTreeMap", "GetIndustryIntelligence", "GetShortsTreeMap",
+  "GetWeeklyReport", "GetAvailableDates", "GetMarketByDate",
+  "GetStock", "GetStockDetails", "GetStockData", "GetStockPrices", "GetStockNews",
+  "GetStockFinancialHighlights", "GetNews", "GetAnnouncement", "GetMarketNews",
+  "GetStockPrice", "GetMultipleStockPrices", "GetHistoricalPrices",
+]);
+
+/** Every allowlisted full path, `/<package>.<Service>/<Method>`. */
+const PUBLIC_READ_PATHS = new Set(
+  Object.entries(PUBLIC_READ_RPCS).flatMap(([service, methods]) =>
+    methods.map((method) => `/${service}/${method}`)
+  )
+);
+
+/**
+ * True when the path is exactly an allowlisted public read. The match is on the
+ * whole path, so a longer or merely similar method name never matches.
+ */
+export function isPublicReadEndpoint(path) {
+  return PUBLIC_READ_PATHS.has(path);
+}
+
+/** True when an allowlisted public read is also stored in KV. */
+export function isKvCacheableEndpoint(path) {
+  if (!isPublicReadEndpoint(path)) return false;
+  return KV_CACHEABLE_METHODS.has(path.slice(path.lastIndexOf("/") + 1));
+}
+
+/**
+ * The single gate for every cache tier (hot, Cache API, KV): a POST to an
+ * allowlisted public read. Every other request passes through uncached.
+ */
+export function isCacheableRpc(request, path) {
+  return request.method === "POST" && isPublicReadEndpoint(path);
 }
 
 /**
