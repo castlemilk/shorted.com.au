@@ -137,6 +137,22 @@ func TestMissingSessionOnlyDelays(t *testing.T) {
 	}
 }
 
+// TestIndexHistoryBeforeASICIsNotAMismatch: an index history that starts years
+// before the first ASIC report is not a disagreement. Only index dates inside
+// the ASIC history that no report carries are counted.
+func TestIndexHistoryBeforeASICIsNotAMismatch(t *testing.T) {
+	asic := weekdays(t, "2026-02-23", "2026-03-20")
+	history := weekdays(t, "2026-01-05", "2026-03-20")
+	if got := New(history, asic, PublicationLagSessions).Mismatches(); got != (Mismatches{}) {
+		t.Errorf("mismatches = %+v, want none: the index starts before ASIC's history", got)
+	}
+	// An index date inside the ASIC history with no report is counted once.
+	gapInside := without(asic, mustDate(t, "2026-03-04"))
+	if got := New(asic, gapInside, PublicationLagSessions).Mismatches().IndexWithoutASIC; got != 1 {
+		t.Errorf("IndexWithoutASIC = %d, want 1 for the index-only 4 March", got)
+	}
+}
+
 func TestUsableAtTheDecisionClose(t *testing.T) {
 	asic := weekdays(t, "2026-02-23", "2026-03-20")
 	c := New(asic, asic, PublicationLagSessions)

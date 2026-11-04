@@ -47,8 +47,9 @@ type Mismatches struct {
 	// ASICWithoutIndex counts ASIC report dates on or before the newest report
 	// that no index bar carries.
 	ASICWithoutIndex int
-	// IndexWithoutASIC counts index bar dates before the newest ASIC report
-	// that no report carries.
+	// IndexWithoutASIC counts index bar dates from the oldest ASIC report up to
+	// the newest that no report carries. Dates before ASIC's history starts are
+	// not disagreements.
 	IndexWithoutASIC int
 }
 
@@ -58,6 +59,7 @@ type Calendar struct {
 	index       map[civil.Date]bool
 	asic        map[civil.Date]bool
 	hasReport   bool
+	firstReport civil.Date // oldest ASIC report date
 	lastReport  civil.Date // newest ASIC report date
 	hasIndex    bool
 	newestIndex civil.Date // newest index bar date
@@ -87,8 +89,12 @@ func New(indexDates, asicReportDates []civil.Date, lagSessions int) *Calendar {
 	for _, d := range asicReportDates {
 		c.asic[d] = true
 		if !c.hasReport || d.After(c.lastReport) {
-			c.lastReport, c.hasReport = d, true
+			c.lastReport = d
 		}
+		if !c.hasReport || d.Before(c.firstReport) {
+			c.firstReport = d
+		}
+		c.hasReport = true
 	}
 	if c.hasReport {
 		for d := range c.asic {
@@ -97,7 +103,7 @@ func New(indexDates, asicReportDates []civil.Date, lagSessions int) *Calendar {
 			}
 		}
 		for d := range c.index {
-			if d.Before(c.lastReport) && !c.asic[d] {
+			if !d.Before(c.firstReport) && d.Before(c.lastReport) && !c.asic[d] {
 				c.mismatches.IndexWithoutASIC++
 			}
 		}
