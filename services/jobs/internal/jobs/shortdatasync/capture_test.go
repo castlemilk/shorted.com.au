@@ -8,12 +8,54 @@ package shortdatasync
 // strategy_capture_pg_test.go against a live Postgres.
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 )
+
+// csvClient serves body for every request, so processFiles can download a fixture without the ASIC.
+func csvClient(body []byte) *http.Client {
+	return &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Status:     "200 OK",
+			Header:     http.Header{},
+			Body:       io.NopCloser(bytes.NewReader(body)),
+			Request:    r,
+		}, nil
+	})}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// loadedDB is a fake database whose recount reads the codes stored for the date.
+func loadedDB(stored []string) *fakeDB {
+	return &fakeDB{rowScan: func(sql string, _ []any, dest []any) error {
+		if !strings.Contains(sql, "array_agg") {
+			return errors.New("unexpected query: " + sql)
+		}
+		*dest[0].(*[]string) = stored
+		return nil
+	}}
+}
+
+// ingestWrites returns the (mode, last_mode) of each asic_report_ingests upsert the fake recorded.
+func ingestWrites(db *fakeDB) [][2]string {
+	var out [][2]string
+	for _, c := range db.calls {
+		if c.SQL == upsertIngestSQL {
+			out = append(out, [2]string{c.Args[4].(string), c.Args[5].(string)})
+		}
+	}
+	return out
+}
 
 // lastIngest returns the most recent ingest the fake recorded for a date.
 func lastIngest(t *testing.T, store *fakeReconcileStore, date string) fakeIngest {
@@ -220,6 +262,52 @@ func TestDistinctCodesKeepsFileOrder(t *testing.T) {
 	got := distinctCodes([]shortsRow{{ProductCode: "CBA"}, {ProductCode: "BHP"}, {ProductCode: "CBA"}})
 	if len(got) != 2 || got[0] != "CBA" || got[1] != "BHP" {
 		t.Fatalf("distinctCodes = %v", got)
+	}
+}
+
+// TestLoadRecordsItsIngestInTheModeItRanIn: processFiles records one ingest row per file it loads,
+// and the row carries the mode the caller passed, so the daily run and the poll are told apart.
+func TestLoadRecordsItsIngestInTheModeItRanIn(t *testing.T) {
+	for _, mode := range []string{modeDaily, modePoll} {
+		db := loadedDB([]string{"BHP", "CBA"})
+		n, err := processFiles(context.Background(), config{}, &pgStore{db: db}, csvClient(asicCSV("BHP", "CBA")),
+			files(20260203), time.Time{}, nil, mode)
+		if err != nil {
+			t.Fatalf("%s: processFiles: %v", mode, err)
+		}
+		if n != 2 {
+			t.Fatalf("%s: both rows land, got %d", mode, n)
+		}
+		writes := ingestWrites(db)
+		if len(writes) != 1 || writes[0] != [2]string{mode, mode} {
+			t.Fatalf("%s: one ingest row in that mode, got %v", mode, writes)
+		}
+	}
+}
+
+// TestDryRunLoadWritesNoIngest: a dry run parses and writes nothing, so it records no ingest either.
+func TestDryRunLoadWritesNoIngest(t *testing.T) {
+	db := loadedDB([]string{"BHP", "CBA"})
+	if _, err := processFiles(context.Background(), config{dryRun: true}, &pgStore{db: db}, csvClient(asicCSV("BHP", "CBA")),
+		files(20260203), time.Time{}, nil, modeDaily); err != nil {
+		t.Fatalf("processFiles: %v", err)
+	}
+	if len(db.calls) != 0 {
+		t.Fatalf("a dry run issues no write, got %+v", db.calls)
+	}
+}
+
+// TestFailedIngestDoesNotFailTheLoad: the ingest log is observational. A recount that errors is
+// logged, and the rows the load wrote still count.
+func TestFailedIngestDoesNotFailTheLoad(t *testing.T) {
+	db := &fakeDB{rowScan: func(string, []any, []any) error { return errors.New("relation asic_report_ingests does not exist") }}
+	n, err := processFiles(context.Background(), config{}, &pgStore{db: db}, csvClient(asicCSV("BHP", "CBA")),
+		files(20260203), time.Time{}, nil, modeDaily)
+	if err != nil {
+		t.Fatalf("an ingest error must not fail the load: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("the rows still land, got %d", n)
 	}
 }
 
