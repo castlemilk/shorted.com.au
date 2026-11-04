@@ -15,7 +15,7 @@ const TABS: readonly WorkspaceTab<"one" | "two">[] = [
   { id: "two", label: "Two", href: "/two" },
 ];
 
-describe("WorkspaceSubNav (spec 10.5)", () => {
+describe("WorkspaceSubNav", () => {
   beforeEach(() => prefetch.mockClear());
 
   it("names the group and marks only the active tab as the current page", () => {

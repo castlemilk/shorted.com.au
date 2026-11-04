@@ -22,7 +22,7 @@ function renderTray(overrides: Partial<SelectionTrayProps> = {}) {
   return onRemove;
 }
 
-describe("SelectionTray (spec 10.5)", () => {
+describe("SelectionTray", () => {
   it("draws nothing when no item is selected", () => {
     renderTray({ items: [] });
     expect(screen.queryByRole("region")).toBeNull();

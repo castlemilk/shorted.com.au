@@ -14,7 +14,7 @@ import {
 } from "../workspace-nav";
 import { STRATEGY_SLUGS } from "../registry";
 
-describe("strategies workspace nav (spec 1.4)", () => {
+describe("strategies workspace nav", () => {
   it("lists Explore, My strategies, Signals and Alerts, with only Explore and Signals enabled", () => {
     expect(STRATEGIES_TABS.map((tab) => [tab.id, tab.label, tab.enabled])).toEqual([
       ["explore", "Explore", true],

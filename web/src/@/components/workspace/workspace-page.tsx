@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * A workspace page (spec 14.1): the main column and the inspector's rail. From
+ * A workspace page (ownership explorer design, section 14.1): the main column and the inspector's rail. From
  * `lg` the page is a two-column grid, `minmax(0,1fr) 320px` with a 1 px rule
  * between; below `lg` the inspector is a sheet over the page, so its column has no
  * padding and takes no room (the rail is hidden by CSS, the sheet is a dialog).

@@ -22,7 +22,7 @@ export interface SelectionTrayProps {
 }
 
 /**
- * The selection tray (spec 14.1): a sticky strip at the foot of a list that names
+ * The selection tray (ownership explorer design, section 14.1): a sticky strip at the foot of a list that names
  * what is selected, with a chip per item to remove it. It draws nothing when no
  * item is selected. The caller owns the selection (its URL, its state) and the
  * limit, and a selection past `max` is flagged in development.

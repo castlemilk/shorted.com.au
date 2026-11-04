@@ -32,7 +32,7 @@ export interface WorkspaceSubNavProps<Id extends string = string> {
 }
 
 /**
- * A workspace's sub-navigation (spec 14.1), the bar under the site header. The
+ * A workspace's sub-navigation (ownership explorer design, section 14.1), the bar under the site header. The
  * caller says which tab is active and whether the bar sticks, so the registry and
  * the pathname rule stay with the workspace that owns them.
  *
