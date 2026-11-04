@@ -85,6 +85,13 @@ export const OWNERSHIP_STATIC_ROUTES = [
   "/ownership/changes",
 ];
 
+// The strategy profile: the one dynamic route /strategies/[strategy], whose
+// params the layout prerenders (generateStaticParams, dynamicParams = false).
+// It is a fixed list of registry slugs, so every slug is listed under
+// dynamicRoutes at build. Its page reads are checked from source by
+// web/src/app/strategies/__tests__/isr-source-safety.test.ts.
+export const STRATEGY_ROUTES = ["/strategies/[strategy]"];
+
 export function missingIsrRoutes(manifest, expected = STOCK_ROUTES) {
   const dynamicRoutes = manifest?.dynamicRoutes ?? {};
   return expected.filter((route) => !(route in dynamicRoutes));
@@ -165,6 +172,18 @@ function main(argv) {
     failed = true;
   } else {
     console.log(`route-kinds: ${OWNERSHIP_STATIC_ROUTES.length} static ownership routes are ISR.`);
+  }
+  const missingStrategy = missingIsrRoutes(manifest, STRATEGY_ROUTES);
+  if (missingStrategy.length) {
+    console.error("route-kinds: these strategy routes are NOT ISR (absent from prerender-manifest dynamicRoutes):");
+    for (const r of missingStrategy) console.error(`  ${r}`);
+    console.error(
+      "The strategy profile's layout has lost its generateStaticParams export or its dynamicParams = false, " +
+        'or a page under it sets revalidate = 0 or dynamic = "force-dynamic".',
+    );
+    failed = true;
+  } else {
+    console.log(`route-kinds: ${STRATEGY_ROUTES.length} strategy routes are ISR.`);
   }
   return failed ? 1 : 0;
 }
