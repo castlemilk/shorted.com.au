@@ -51,8 +51,6 @@ func barsFrom(t *testing.T, first string, n int) []Bar {
 	return out
 }
 
-func ptr(f float64) *float64 { return &f }
-
 // row is one ASIC row for code on the report date.
 func row(t *testing.T, code, date, product string, positions, issued float64, pct *float64) ASICRow {
 	t.Helper()

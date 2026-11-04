@@ -36,26 +36,6 @@ const (
 	ReasonNoVolume         = "no_volume"
 )
 
-// ShortReading is one stock's short-interest reading on one session. Dates are
-// nil when no report backs the reading, and Pct, Positions and DaysToCover are
-// nil whenever the status does not carry them. Reason names why the status is
-// unavailable or stale; DaysToCoverReason names why DaysToCover is unknown.
-// InReport says whether the code has a row in the report the reading reads, and
-// is nil when no report backs the reading; it is set on a stale reading that
-// names a report too, so a caller can tell a stale code that is listed from one
-// that is not.
-type ShortReading struct {
-	Status            string      `json:"status"`
-	ReportDate        *civil.Date `json:"report_date"`
-	AvailableDate     *civil.Date `json:"available_date"`
-	Pct               *float64    `json:"pct"`
-	Positions         *float64    `json:"positions"`
-	DaysToCover       *float64    `json:"days_to_cover"`
-	InReport          *bool       `json:"in_report,omitempty"`
-	Reason            string      `json:"reason,omitempty"`
-	DaysToCoverReason string      `json:"days_to_cover_reason,omitempty"`
-}
-
 type rowKey struct {
 	code string
 	date civil.Date
