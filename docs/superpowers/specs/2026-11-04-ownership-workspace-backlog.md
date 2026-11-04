@@ -205,3 +205,29 @@ A1, B1, B4 and A4 first (an afternoon each, visible at once). Then A2 and B6 tog
 and the sankey), then C1 (the reading line, the largest single gain in "insight"), C3, D1. B2 and
 D2 after B1 and D1. C2, C4, C5, C6, C7, B3, B5, A3 fill in behind. E1 and E2 are the ownership
 job's and can run in parallel with everything.
+
+## Status (2026-11-05)
+
+Built in five waves on `claude/ownership-workspace-backlog`, each item by one implementing agent under
+strict file ownership and one reviewing agent, every wave gated (Go, tsc, lint, Jest, the scripts tests)
+and measured against a local production build in both themes at 1440 and 390. The decisions taken are
+section 14.11 of the design spec. Measured heights at 1440x900 (`document.documentElement.scrollHeight`,
+the footer included), before and after:
+
+| Page | At the review | After |
+|---|---|---|
+| `/ownership` | 4,401 | 2,129 (one toolbar row; the four instruments by 1,100px; a Records row) |
+| `/ownership/map` | 2,568 | 1,763 (the map by 300px; the method folded) |
+| `/ownership/funds` | 1,932 | 1,638 (one toolbar row; 44px rows) |
+| `/ownership/vanguard` | 19,465 | 5,413 (ten rows per list; the connections tree is 1,750 of it; 3,000 was not reachable with any number of rows) |
+| `/ownership/map` at 390 | 2,616 (a chip column) | 2,215 (a two-column square treemap of sectors) |
+| `/ownership` at 390 | 5,460 | 3,843, the map the first screen's instrument |
+
+Every item landed: A1 to A4, B1 to B6, C1 to C7, D1, D2, E1, E2. Refinements of the decisions above,
+recorded in 14.11: the light ramp's top bin is one step deeper than Burnt Amber (AA at 11px); the
+institution page shows ten rows, not twenty; the phone map's minimum cell is 32 units, not 44; the hub's
+Window and Source are selects; the compact heatmap draws the count measure; the sort does not re-order the
+phone square; a comparison is the two keys in `?funds=` and shows in the lg rail only; the map's Colour
+option reads "Fund shares". E1's production repair (`shorted ownership -mode repair-placeholders
+-apply -dry-run=false`) is a hand run after the deploy, and E2's clean names reach the pages when the API
+deploys.
