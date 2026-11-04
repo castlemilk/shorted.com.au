@@ -32,9 +32,9 @@ export interface StrategyRuleDef {
   weight?: number;
   /** The number the rule tests, in `unit`; absent for a rule with no single number. */
   threshold?: number;
-  /** "%", "x", "A$", "days", "points", "percentile" or empty. */
+  /** "pct", "pp", "aud", "days", "x" or empty; the display symbol is the web's. */
   unit?: string;
-  /** ">=", "<=", "above" and the like. */
+  /** ">=", "<=" or ">". */
   comparator?: string;
 }
 

@@ -466,8 +466,8 @@ function mapStrategyVersion(
 
 /** The response-level signals; each present only when the API carries it. */
 function mapPicksSignals(response: StrategyPicksResponseInput): PicksSignals {
-  // stale is set only when the API says so: an absent flag is not a claim of
-  // freshness, because the API does not compute staleness yet.
+  // stale is set only when the API says so: the index has closed a session the
+  // prices have not reached. An absent flag is not a claim of freshness.
   const out: PicksSignals = {};
   if (response.stale === true) out.stale = true;
   const counts = mapStatusCounts(response.statusCounts);

@@ -385,13 +385,13 @@ describe("mapStrategy rule definitions", () => {
       id: "zanger-breakout",
       rules: [
         { id: "breakout", trigger: true, weight: 0.3, unit: "", comparator: "" },
-        { id: "rs_leader", trigger: true, weight: 0.1, threshold: 75, hasThreshold: true, unit: "percentile", comparator: ">=" },
+        { id: "growth", trigger: true, weight: 0.1, threshold: 15, hasThreshold: true, unit: "pct", comparator: ">=" },
         { id: "regime", weight: 0 },
       ],
     });
     expect(strategy.rules[0]).toMatchObject({ id: "breakout", trigger: true, weight: 0.3 });
     expect(strategy.rules[0]).not.toHaveProperty("threshold");
-    expect(strategy.rules[1]).toMatchObject({ threshold: 75, unit: "percentile", comparator: ">=" });
+    expect(strategy.rules[1]).toMatchObject({ threshold: 15, unit: "pct", comparator: ">=" });
     expect(strategy.rules[2]).toMatchObject({ trigger: false, weight: 0 });
     expect(strategy.rules[2]).not.toHaveProperty("threshold");
   });
