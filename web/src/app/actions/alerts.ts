@@ -109,8 +109,7 @@ export async function createAlertMonitor(
   try {
     // The address decides whether the saved alert is emailed. The transport reads it
     // once, so the result can tell the form whether to say so.
-    const { transport, email: address } =
-      await createSignedInTransport(session);
+    const { transport, email: address } = await createSignedInTransport();
     const client = createClient(AlertsService, transport);
     const response = await client.createAlertMonitor({
       scope:
@@ -162,7 +161,7 @@ export async function listAlertMonitors(): Promise<ListAlertMonitorsResult> {
   }
 
   try {
-    const { transport } = await createSignedInTransport(session);
+    const { transport } = await createSignedInTransport();
     const client = createClient(AlertsService, transport);
     const response = await client.listAlertMonitors({ limit: 50, offset: 0 });
     return {
@@ -191,7 +190,7 @@ export async function listAlertEvents(
   const limit = Math.min(Math.max(requested, 1), 100);
 
   try {
-    const { transport } = await createSignedInTransport(session);
+    const { transport } = await createSignedInTransport();
     const client = createClient(AlertsService, transport);
     const response = await client.listAlertEvents({
       limit,
@@ -228,7 +227,7 @@ export async function setAlertMonitorStatus(
   }
 
   try {
-    const { transport } = await createSignedInTransport(session);
+    const { transport } = await createSignedInTransport();
     const client = createClient(AlertsService, transport);
     const response = await client.updateAlertMonitorStatus({
       id: id.trim(),
@@ -256,7 +255,7 @@ export async function deleteAlertMonitor(
   }
 
   try {
-    const { transport } = await createSignedInTransport(session);
+    const { transport } = await createSignedInTransport();
     const client = createClient(AlertsService, transport);
     await client.deleteAlertMonitor({ id: id.trim() });
     return { ok: true };

@@ -1,9 +1,10 @@
 // The internal transport for a signed-in caller of the shorts API.
 //
 // Every private RPC a signed-in user reaches from a server action goes through
-// createSignedInTransport. It derives the identity and the verified-address flag
-// from the session itself: a caller passes the session from auth(), never an
-// address or a flag, so no action can assert a verification it did not check.
+// createSignedInTransport. It reads the session itself (auth()) and derives the
+// identity and the verified-address flag from that session: a caller passes
+// options only, never an address, a flag or a session object, so no action can
+// assert a verification it did not check.
 //
 // Only the alerts calls act on the address (the API stores and emails it only
 // when x-user-email-verified is "true"). Read-only calls ask for identity alone:
@@ -12,33 +13,18 @@
 import type { Transport } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 
+import { auth } from "~/server/auth";
 import { lookupAccountVerification } from "~/server/account-verification";
+import { internalServiceSecret } from "~/server/internal-service-secret";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 
-/** The fields of the next-auth session this module reads. */
-export interface SignedInSession {
+/** The fields of the signed-in session this module reads. */
+interface SignedInSession {
   user?: {
     id?: string;
     email?: string | null;
     emailVerified?: boolean;
   } | null;
-}
-
-/** The development secret the Go API accepts outside production. */
-const DEV_INTERNAL_SECRET = "dev-internal-secret";
-
-/**
- * The shared secret the API checks. Production fails closed: without
- * INTERNAL_SERVICE_SECRET there is no identity to send, so the call throws
- * instead of falling back to the development secret.
- */
-export function internalServiceSecret(): string {
-  const configured = process.env.INTERNAL_SERVICE_SECRET?.trim();
-  if (configured) return configured;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("INTERNAL_SERVICE_SECRET is not set");
-  }
-  return DEV_INTERNAL_SECRET;
 }
 
 /**
@@ -48,16 +34,19 @@ export function internalServiceSecret(): string {
  *
  * The session's flag is read once, at sign-in. An unverified session therefore asks
  * Firebase now, so a user who has clicked the link is not blocked until they sign
- * out. A failed lookup reads as unverified.
+ * out. A failed lookup reads as unverified: it returns "" and never asserts a
+ * verification.
  */
-export async function deliverableEmail(
-  session: SignedInSession | null,
-): Promise<string> {
-  if (session?.user?.emailVerified === true) return session.user.email ?? "";
-  const uid = session?.user?.id;
+async function deliverableEmail(session: SignedInSession): Promise<string> {
+  if (session.user?.emailVerified === true) return session.user.email ?? "";
+  const uid = session.user?.id;
   if (!uid) return "";
-  const account = await lookupAccountVerification(uid);
-  return account?.verified ? account.email : "";
+  try {
+    const account = await lookupAccountVerification(uid);
+    return account?.verified ? account.email : "";
+  } catch {
+    return "";
+  }
 }
 
 export interface SignedInTransportOptions {
@@ -75,16 +64,19 @@ export interface SignedInTransport {
 }
 
 /**
- * A transport that asserts the signed-in user's identity to the API. The caller
- * cannot choose the address or the flag: both come from the session and from
- * deliverableEmail.
+ * A transport that asserts the signed-in user's identity to the API, for the
+ * session of the current request. The only input is the options; the identity,
+ * the address and the verification flag all come from auth() and Firebase.
+ *
+ * Throws when there is no signed-in session, and when the internal secret is not
+ * configured outside development (the shared helper fails closed).
  */
 export async function createSignedInTransport(
-  session: SignedInSession | null,
   options: SignedInTransportOptions = {},
 ): Promise<SignedInTransport> {
+  const session = (await auth()) as SignedInSession | null;
   const userId = session?.user?.id;
-  if (!userId) {
+  if (!session || !userId) {
     throw new Error("createSignedInTransport needs a signed-in session");
   }
   const secret = internalServiceSecret();
