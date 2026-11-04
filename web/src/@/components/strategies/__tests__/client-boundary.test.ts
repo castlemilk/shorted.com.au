@@ -121,7 +121,7 @@ describe("strategy components stay server-safe, however indirectly", () => {
   // checks that), and they are the only ones.
   const CLIENT_KIT_FILES = ["strategies-sub-nav.tsx", "strategy-tab-nav.tsx"];
 
-  it("marks no kit file as a client component beyond the tab bar", () => {
+  it("marks no kit file as a client component beyond the two tab bars", () => {
     const clientFiles = KIT_FILES.filter((file) =>
       /^\s*["']use client["']/m.test(readFileSync(file, "utf8")),
     ).map((file) => relative(COMPONENT_DIR, file));
