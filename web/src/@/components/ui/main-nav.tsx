@@ -71,7 +71,7 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
               <PopoverTrigger asChild>
                 <button
                   className={cn(
-                    "px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1",
+                    "px-2.5 xl:px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1",
                     isSecondaryActive
                       ? "bg-secondary text-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
@@ -186,7 +186,7 @@ function NavLink({
         }
       }}
       className={cn(
-        "px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1.5 whitespace-nowrap",
+        "px-2.5 xl:px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1.5 whitespace-nowrap",
         isLocked
           ? "text-muted-foreground hover:text-foreground"
           : pathname === item.href

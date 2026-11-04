@@ -18,7 +18,8 @@ const items: NavItemWithGroup[] = [
   { title: "screener", href: "/screener", primary: true },
   // The stock picker moved from /picks; the old URLs 308 here (src/config/strategy-redirects.mjs).
   { title: "strategies", href: "/strategies", primary: true },
-  { title: "battlegrounds", href: "/battlegrounds", primary: true },
+  // Battlegrounds moved to More (OD-2 fallback): at 1024 px the primary row overflows under the header controls.
+  { title: "battlegrounds", href: "/battlegrounds" },
   { title: "housing", href: "/housing", primary: true },
   { title: "economy", href: "/economy", primary: true },
   // Visible with a lock when signed out — the intel workspace is the
