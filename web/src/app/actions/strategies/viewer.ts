@@ -6,9 +6,12 @@
 // test holds it to that). The Signals tab's ISR page stays anonymous; this action
 // is called from its island once the session says a user is signed in.
 //
-// The list is read once per strategy, in the evaluator's rank order, and the
-// island sorts it in the browser with the same comparator the API uses. A sort
-// change therefore costs no read.
+// A read is either the first page of the evaluator's rank order (the island's
+// mount) or the whole list (only when the viewer searches, filters, sorts or
+// draws past the first page). Every page of one read must come from the snapshot
+// the island is drawing; a page that differs ends the read, and the island does
+// not draw the rows. A full read costs one API call per 100 signals, so the
+// island asks for it only when it needs it.
 
 import { createClient } from "@connectrpc/connect";
 
@@ -30,8 +33,6 @@ const PAGE_LIMIT = 100;
  * it is reported as unavailable rather than shown cut short.
  */
 const MAX_PAGES = 50;
-/** Attempts when the pages of one read come from two different snapshots. */
-const MAX_SNAPSHOT_ATTEMPTS = 2;
 
 const STRATEGY_ID = /^[a-z0-9-]{1,64}$/;
 
@@ -54,22 +55,37 @@ export interface ViewerSnapshot {
 export type ViewerSignalsResult =
   | {
       ok: true;
-      /** Every pick in the list, in the evaluator's rank order. */
+      /** The rows read, in the evaluator's rank order: the first page or the whole list. */
       rows: PickRow[];
       /** Picks in the whole list. */
       totalCount: number;
       statusCounts: StatusCountsView | null;
       snapshot: ViewerSnapshot;
     }
-  | { ok: false; reason: "signed-out" | "unavailable" };
+  | {
+      ok: false;
+      reason: "signed-out" | "unavailable" | "snapshot-mismatch";
+    };
+
+export interface ViewerSignalsInput {
+  strategyId: string;
+  /**
+   * The session and rules version the page is drawing. When both are given, the
+   * read stops at the first page that is from another snapshot.
+   */
+  sessionDate?: string;
+  rulesHash?: string;
+  /** False (the default) reads the first page only; true reads the whole list. */
+  full?: boolean;
+}
 
 /**
- * One strategy's full signals list for the signed-in viewer, in rank order. An
- * anonymous caller gets "signed-out" without any call to the API.
+ * A strategy's signals list for the signed-in viewer, in rank order. An anonymous
+ * caller gets "signed-out" without any call to the API.
  */
-export async function getSignalsForViewer(input: {
-  strategyId: string;
-}): Promise<ViewerSignalsResult> {
+export async function getSignalsForViewer(
+  input: ViewerSignalsInput,
+): Promise<ViewerSignalsResult> {
   const strategyId =
     typeof input?.strategyId === "string" ? input.strategyId : "";
   if (!STRATEGY_ID.test(strategyId))
@@ -78,21 +94,26 @@ export async function getSignalsForViewer(input: {
   const session = await auth();
   if (!session?.user?.id) return { ok: false, reason: "signed-out" };
 
+  const expect =
+    typeof input.sessionDate === "string" && typeof input.rulesHash === "string"
+      ? { sessionDate: input.sessionDate, rulesHash: input.rulesHash }
+      : null;
+
   try {
     // Identity only: this read never sends the address or the verification flag.
     const { transport } = await createSignedInTransport({ withEmail: false });
     const client = createClient(StrategyService, transport);
 
-    for (let attempt = 0; attempt < MAX_SNAPSHOT_ATTEMPTS; attempt++) {
-      const list = await readAllPages(client, strategyId);
-      if (list === "truncated") {
-        console.warn(`[getSignalsForViewer] list longer than the read bound`);
-        return { ok: false, reason: "unavailable" };
-      }
-      if (list) return { ok: true, ...list };
-      // The pages came from two snapshots (a refresh landed mid-read): read again.
+    const list = await readPages(client, strategyId, {
+      full: input.full === true,
+      expect,
+    });
+    if (list === "truncated") {
+      console.warn(`[getSignalsForViewer] list longer than the read bound`);
+      return { ok: false, reason: "unavailable" };
     }
-    return { ok: false, reason: "unavailable" };
+    if (list === "mismatch") return { ok: false, reason: "snapshot-mismatch" };
+    return { ok: true, ...list };
   } catch (err) {
     console.warn(`[getSignalsForViewer] unavailable for ${strategyId}:`, err);
     return { ok: false, reason: "unavailable" };
@@ -113,13 +134,20 @@ type PagesClient = {
 type ViewerList = Omit<Extract<ViewerSignalsResult, { ok: true }>, "ok">;
 
 /**
- * Every page of one list, in rank order. Returns null when the pages disagree on
- * the snapshot, and "truncated" when the list is still going after MAX_PAGES.
+ * The first page of a list (`full` false), or every page of it (`full` true), in
+ * rank order. Returns "mismatch" as soon as a page is from another snapshot than
+ * `expect` or than the pages before it, and "truncated" when a full list is still
+ * going after MAX_PAGES. Each page is one metered call, so nothing is read past a
+ * mismatch and no page is read twice.
  */
-async function readAllPages(
+async function readPages(
   client: PagesClient,
   strategyId: string,
-): Promise<ViewerList | null | "truncated"> {
+  options: {
+    full: boolean;
+    expect: { sessionDate: string; rulesHash: string } | null;
+  },
+): Promise<ViewerList | "mismatch" | "truncated"> {
   const rows: PickRow[] = [];
   const seen = new Set<string>();
   // The offset the API pages by: the raw rows read so far, duplicates included.
@@ -127,8 +155,10 @@ async function readAllPages(
   let totalCount = 0;
   let statusCounts: StatusCountsView | null = null;
   let snapshot: ViewerSnapshot | null = null;
+  const pages = options.full ? MAX_PAGES : 1;
+  let done = false;
 
-  for (let page = 0; page < MAX_PAGES; page++) {
+  for (let page = 0; page < pages && !done; page++) {
     const mapped = mapPicksResponse(
       await client.getViewerStrategyPicks({
         strategyId,
@@ -140,8 +170,10 @@ async function readAllPages(
       }),
     );
     const current = snapshotOf(mapped);
+    if (options.expect && !matchesExpected(current, options.expect))
+      return "mismatch";
     if (snapshot === null) snapshot = current;
-    else if (!sameSnapshot(snapshot, current)) return null;
+    else if (!sameSnapshot(snapshot, current)) return "mismatch";
 
     totalCount = mapped.totalCount;
     statusCounts = mapped.statusCounts ?? null;
@@ -152,11 +184,24 @@ async function readAllPages(
       rows.push(row);
     }
     offset += mapped.picks.length;
-    if (mapped.picks.length === 0 || offset >= totalCount) {
-      return { rows, totalCount, statusCounts, snapshot };
-    }
+    // An empty page ends the list too, so a shrinking list cannot loop.
+    done = mapped.picks.length === 0 || offset >= totalCount;
   }
-  return "truncated";
+
+  if (!done && options.full) return "truncated";
+  // The loop has run at least once, so the first page set the snapshot.
+  if (snapshot === null) return "mismatch";
+  return { rows, totalCount, statusCounts, snapshot };
+}
+
+function matchesExpected(
+  snapshot: ViewerSnapshot,
+  expect: { sessionDate: string; rulesHash: string },
+): boolean {
+  return (
+    snapshot.sessionDate === expect.sessionDate &&
+    (snapshot.version?.rulesHash ?? "") === expect.rulesHash
+  );
 }
 
 function snapshotOf(mapped: MappedPicks): ViewerSnapshot {

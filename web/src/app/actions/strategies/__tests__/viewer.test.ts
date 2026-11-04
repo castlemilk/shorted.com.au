@@ -158,7 +158,7 @@ describe("getSignalsForViewer", () => {
     expect(mockClient.getViewerStrategyPicks).not.toHaveBeenCalled();
   });
 
-  it("reads the list once, in rank order, with identity and no address", async () => {
+  it("reads the first page only, in rank order, with identity and no address", async () => {
     serveList(3);
     const result = await getSignalsForViewer({
       strategyId: "crowded-short-breakout",
@@ -197,9 +197,21 @@ describe("getSignalsForViewer", () => {
     expect(mockLookupAccount).not.toHaveBeenCalled();
   });
 
-  it("pages until the whole list is read", async () => {
+  it("reads only the first page unless the whole list is asked for", async () => {
     serveList(150);
     const result = await getSignalsForViewer({ strategyId: "canslim" });
+
+    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ ok: true, totalCount: 150 });
+    expect(result.ok && result.rows).toHaveLength(100);
+  });
+
+  it("pages until the whole list is read", async () => {
+    serveList(150);
+    const result = await getSignalsForViewer({
+      strategyId: "canslim",
+      full: true,
+    });
 
     expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(2);
     expect(mockClient.getViewerStrategyPicks.mock.calls[1]![0]).toMatchObject({
@@ -214,6 +226,7 @@ describe("getSignalsForViewer", () => {
     serveList(1601);
     const result = await getSignalsForViewer({
       strategyId: "minervini-trend-template",
+      full: true,
     });
 
     expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(17);
@@ -230,7 +243,10 @@ describe("getSignalsForViewer", () => {
         picks: [wirePick(5, "C5"), wirePick(100, "C100")],
       })
       .mockResolvedValueOnce(page(102, 48, 150));
-    const result = await getSignalsForViewer({ strategyId: "canslim" });
+    const result = await getSignalsForViewer({
+      strategyId: "canslim",
+      full: true,
+    });
 
     expect(mockClient.getViewerStrategyPicks.mock.calls[1]![0]).toMatchObject({
       offset: 100,
@@ -241,34 +257,59 @@ describe("getSignalsForViewer", () => {
     expect(result.ok && result.rows).toHaveLength(149);
   });
 
-  it("reads again when the pages come from two snapshots, then answers", async () => {
+  it("answers snapshot-mismatch, with no further call, when a full read's pages differ", async () => {
     mockClient.getViewerStrategyPicks
       .mockResolvedValueOnce(page(0, 100, 150))
-      .mockResolvedValueOnce(page(100, 50, 150, { sessionDate: "2026-11-05" }))
-      .mockResolvedValueOnce(page(0, 100, 150, { sessionDate: "2026-11-05" }))
       .mockResolvedValueOnce(page(100, 50, 150, { sessionDate: "2026-11-05" }));
-    const result = await getSignalsForViewer({ strategyId: "canslim" });
-
-    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(4);
-    expect(result.ok && result.snapshot.sessionDate).toBe("2026-11-05");
-    expect(result.ok && result.rows).toHaveLength(150);
+    expect(
+      await getSignalsForViewer({ strategyId: "canslim", full: true }),
+    ).toEqual({ ok: false, reason: "snapshot-mismatch" });
+    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(2);
   });
 
-  it("answers unavailable when the pages never agree on a snapshot", async () => {
-    mockClient.getViewerStrategyPicks
-      .mockResolvedValueOnce(page(0, 100, 150))
-      .mockResolvedValueOnce(page(100, 50, 150, { sessionDate: "2026-11-05" }))
-      .mockResolvedValueOnce(page(0, 100, 150))
-      .mockResolvedValueOnce(page(100, 50, 150, { sessionDate: "2026-11-05" }));
-    expect(await getSignalsForViewer({ strategyId: "canslim" })).toEqual({
-      ok: false,
-      reason: "unavailable",
+  it("stops at the first page from another session than the page's own", async () => {
+    serveList(150, { sessionDate: "2026-11-05" });
+    expect(
+      await getSignalsForViewer({
+        strategyId: "canslim",
+        sessionDate: "2026-11-04",
+        rulesHash: "3f9a1c2e0000",
+        full: true,
+      }),
+    ).toEqual({ ok: false, reason: "snapshot-mismatch" });
+    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops at the first page from another rules version than the page's own", async () => {
+    serveList(150, { version: { ...SNAPSHOT.version, rulesHash: "ffff" } });
+    expect(
+      await getSignalsForViewer({
+        strategyId: "canslim",
+        sessionDate: "2026-11-04",
+        rulesHash: "3f9a1c2e0000",
+        full: true,
+      }),
+    ).toEqual({ ok: false, reason: "snapshot-mismatch" });
+    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a list the page's snapshot matches in full", async () => {
+    serveList(150);
+    const result = await getSignalsForViewer({
+      strategyId: "canslim",
+      sessionDate: "2026-11-04",
+      rulesHash: "3f9a1c2e0000",
+      full: true,
     });
+    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(2);
+    expect(result.ok && result.rows).toHaveLength(150);
   });
 
   it("answers unavailable, never a cut-short list, past the read bound", async () => {
     serveList(6000);
-    expect(await getSignalsForViewer({ strategyId: "canslim" })).toEqual({
+    expect(
+      await getSignalsForViewer({ strategyId: "canslim", full: true }),
+    ).toEqual({
       ok: false,
       reason: "unavailable",
     });
@@ -279,7 +320,10 @@ describe("getSignalsForViewer", () => {
     mockClient.getViewerStrategyPicks
       .mockResolvedValueOnce(page(0, 100, 500))
       .mockResolvedValueOnce(page(100, 0, 500));
-    const result = await getSignalsForViewer({ strategyId: "canslim" });
+    const result = await getSignalsForViewer({
+      strategyId: "canslim",
+      full: true,
+    });
     expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(2);
     expect(result.ok && result.rows).toHaveLength(100);
   });
