@@ -6,9 +6,11 @@
 // options only, never an address, a flag or a session object, so no action can
 // assert a verification it did not check.
 //
-// Only the alerts calls act on the address (the API stores and emails it only
-// when x-user-email-verified is "true"). Read-only calls ask for identity alone:
-// they send no address and no verification flag, and make no Firebase lookup.
+// The address is opt-in: only a caller that acts on it (the alerts calls) passes
+// { withEmail: true }. Every other caller, including a read-only one that is
+// added later, sends identity alone: no address, no verification flag, and no
+// Firebase lookup. The API logs the address it is sent, so a call that does not
+// need it must not carry it.
 
 import type { Transport } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
@@ -51,15 +53,16 @@ async function deliverableEmail(session: SignedInSession): Promise<string> {
 
 export interface SignedInTransportOptions {
   /**
-   * True (the default) for calls that act on the address, such as alerts. False
-   * for read-only calls: no address, no verification flag, no Firebase lookup.
+   * True for calls that act on the address, such as alerts: the verified address
+   * and its flag are sent. Anything else (the default, false) sends identity
+   * only: no address, no verification flag, no Firebase lookup.
    */
   withEmail?: boolean;
 }
 
 export interface SignedInTransport {
   transport: Transport;
-  /** The verified address the API may email, or "" when none or when withEmail is false. */
+  /** The verified address the API may email, or "" when none or when withEmail is not set. */
   email: string;
 }
 
@@ -80,7 +83,7 @@ export async function createSignedInTransport(
     throw new Error("createSignedInTransport needs a signed-in session");
   }
   const secret = internalServiceSecret();
-  const withEmail = options.withEmail !== false;
+  const withEmail = options.withEmail === true;
   const address = withEmail ? await deliverableEmail(session) : "";
 
   const transport = createConnectTransport({

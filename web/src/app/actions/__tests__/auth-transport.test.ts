@@ -79,7 +79,7 @@ describe("createSignedInTransport", () => {
   });
 
   it("asserts a verified address when the session says it is verified", async () => {
-    const { email } = await createSignedInTransport();
+    const { email } = await createSignedInTransport({ withEmail: true });
     expect(email).toBe("trader@example.com");
     const headers = await headersSentToTheAPI();
     expect(headers["x-user-email"]).toBe("trader@example.com");
@@ -95,7 +95,7 @@ describe("createSignedInTransport", () => {
       verified: false,
       hasPassword: true,
     });
-    const { email } = await createSignedInTransport();
+    const { email } = await createSignedInTransport({ withEmail: true });
     expect(email).toBe("");
     const headers = await headersSentToTheAPI();
     expect(headers["x-user-email"]).toBe("");
@@ -109,7 +109,7 @@ describe("createSignedInTransport", () => {
       verified: true,
       hasPassword: true,
     });
-    const { email } = await createSignedInTransport();
+    const { email } = await createSignedInTransport({ withEmail: true });
     expect(email).toBe("trader@example.com");
     expect((await headersSentToTheAPI())["x-user-email-verified"]).toBe("true");
   });
@@ -117,11 +117,22 @@ describe("createSignedInTransport", () => {
   it("reads a failed lookup as unverified, and asserts nothing", async () => {
     mockAuth.mockResolvedValue(SESSION_UNVERIFIED);
     mockLookupAccount.mockRejectedValueOnce(new Error("firebase down"));
-    const { email } = await createSignedInTransport();
+    const { email } = await createSignedInTransport({ withEmail: true });
     expect(email).toBe("");
     const headers = await headersSentToTheAPI();
     expect(headers["x-user-email"]).toBe("");
     expect(headers["x-user-email-verified"]).toBe("false");
+  });
+
+  it("sends identity alone by default, with no address, flag or lookup", async () => {
+    mockAuth.mockResolvedValue(SESSION_VERIFIED);
+    const { email } = await createSignedInTransport();
+    expect(email).toBe("");
+    const headers = await headersSentToTheAPI();
+    expect(headers["x-user-id"]).toBe("u1");
+    expect(headers).not.toHaveProperty("x-user-email");
+    expect(headers).not.toHaveProperty("x-user-email-verified");
+    expect(mockLookupAccount).not.toHaveBeenCalled();
   });
 
   it("sends identity alone for a read-only call, with no lookup", async () => {
