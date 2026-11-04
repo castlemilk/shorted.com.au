@@ -906,6 +906,7 @@ module "shorted_job_picks" {
     GCP_PROJECT                   = var.project_id
     PICKS_FUNDAMENTALS_BUDGET_MIN = "170"
     REVALIDATION_URL              = "https://shorted.com.au/api/revalidate"
+    STRATEGY_PARITY_SHADOW        = "on"
   }
 
   secret_env = {
