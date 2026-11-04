@@ -13,8 +13,8 @@
  *   Cloudflare's DDoS + WAF protect all frontend traffic at the proxy layer.
  *
  * Cache TTLs (from env, seconds):
- *   top_shorts  (GetTopShorts, GetShortsTreeMap, GetWeeklyReport, GetAvailableDates) -> 300 (5min)
- *   stock_data  (GetStock*, GetTimeSeries*, GetSearch, GetWatchlist, etc.)           -> 180 (3min)
+ *   top_shorts  (GetTopShorts, GetWeeklyReport, GetAvailableDates)                  -> 300 (5min)
+ *   stock_data  (GetStock*, GetDirectorTrades, GetPeerComparison, etc.)              -> 180 (3min)
  *   news        (GetNews*, GetAnnouncement*, GetMarketNews*)                          -> 300 (5min)
  *   default                                                   -> 60
  *
@@ -2812,13 +2812,13 @@ function isCacheableAnalyticsEvent(cacheStatus, cacheTtl) {
  * TTLs are safe and reduce unnecessary origin fetches.
  */
 export function resolveShortsTtl(path, defaults) {
-  if (/GetTopShorts|GetIndustryTreeMap|GetIndustryIntelligence|GetShortsTreeMap|GetWeeklyReport|GetMarketByDate|GetAvailableDates/.test(path)) {
+  if (/GetTopShorts|GetIndustryTreeMap|GetIndustryIntelligence|GetWeeklyReport|GetMarketByDate|GetAvailableDates/.test(path)) {
     return defaults.cacheTtlTopShorts; // 300s (5min) — safe for ASIC data
   }
   if (/GetNews|GetAnnouncement|GetMarketNews/.test(path)) {
     return defaults.cacheTtlNews; // 300s (5min)
   }
-  if (/GetStock|GetStockDetails|GetStockData|GetStockNews|GetSearch|GetWatchlist|GetDirectorTrades|GetPeerComparison|GetDividendHistory|GetStockFinancialHighlights/.test(path)) {
+  if (/GetStock|GetStockDetails|GetStockData|GetStockNews|GetDirectorTrades|GetPeerComparison|GetDividendHistory|GetStockFinancialHighlights/.test(path)) {
     return defaults.cacheTtlStockData; // 180s (3min) — balance freshness vs origin load
   }
   return defaults.cacheTtlDefault;
@@ -3268,21 +3268,22 @@ async function buildCacheKey(request, url, cacheVersion = DEFAULT_CACHE_VERSION)
  * The public reads the edge may store, by Connect service and method. Each is
  * read-only and caller-invariant: the same request returns the same bytes to
  * every caller, so one entry serves all of them. Anything not listed passes
- * through uncached. A new entry needs a caller-invariance test first.
+ * through uncached. A new entry needs a caller-invariance test first, and
+ * the reviewed set is pinned by the allowlist test in cache-identity.test.mjs.
  *
  * Several services expose the same method (the legacy ShortedStocksService and
  * the per-domain services share one server). Each pair is listed explicitly.
- * GetNews, GetAnnouncement, GetSearch and GetShortsTreeMap are not in the
- * current proto. They stay listed so that the set matches prewarm.js and the
- * KV set, and a method that does not exist cannot return a response to cache.
+ * GetNews and GetAnnouncement are called by prewarm.js and the /edge/v1 news
+ * routes, and the current protos define neither. Their entries stay until
+ * those callers do.
  */
 const PUBLIC_READ_RPCS = {
   "shorts.v1alpha1.ShortedStocksService": [
-    "GetTopShorts", "GetIndustryTreeMap", "GetShortsTreeMap", "GetIndustryIntelligence",
+    "GetTopShorts", "GetIndustryTreeMap", "GetIndustryIntelligence",
     "GetWeeklyReport", "GetMarketByDate", "GetAvailableDates",
     "GetStock", "GetStockDetails", "GetStockData", "GetStockPrices", "GetStockNews",
     "GetStockFinancialHighlights", "GetNews", "GetAnnouncement", "GetMarketNews",
-    "GetSearch", "GetDirectorTrades", "GetDividendHistory", "GetPeerComparison",
+    "GetDirectorTrades", "GetDividendHistory", "GetPeerComparison",
   ],
   "shorts.v1alpha1.StockService": [
     "GetStock", "GetStockDetails", "GetStockData", "GetStockPrices",
@@ -3299,7 +3300,7 @@ const PUBLIC_READ_RPCS = {
 
 /** Methods whose responses are also stored in KV (prewarm.js writes these). */
 const KV_CACHEABLE_METHODS = new Set([
-  "GetTopShorts", "GetIndustryTreeMap", "GetIndustryIntelligence", "GetShortsTreeMap",
+  "GetTopShorts", "GetIndustryTreeMap", "GetIndustryIntelligence",
   "GetWeeklyReport", "GetAvailableDates", "GetMarketByDate",
   "GetStock", "GetStockDetails", "GetStockData", "GetStockPrices", "GetStockNews",
   "GetStockFinancialHighlights", "GetNews", "GetAnnouncement", "GetMarketNews",
@@ -3319,6 +3320,11 @@ const PUBLIC_READ_PATHS = new Set(
  */
 export function isPublicReadEndpoint(path) {
   return PUBLIC_READ_PATHS.has(path);
+}
+
+/** Every allowlisted full path, sorted. Used by the allowlist test. */
+export function publicReadPaths() {
+  return [...PUBLIC_READ_PATHS].sort();
 }
 
 /** True when an allowlisted public read is also stored in KV. */
