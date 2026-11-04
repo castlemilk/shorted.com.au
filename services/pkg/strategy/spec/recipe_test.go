@@ -421,7 +421,7 @@ func TestRecipeLinesStateTheRules(t *testing.T) {
 		t.Errorf("flat-slippage spread %q is not labelled as a sensitivity", lines.Spread)
 	}
 	if !strings.Contains(lines.Spread, "Mockup costs (flat 10 + 5 bps per side) flatter small-cap breakouts") {
-		t.Errorf("flat-slippage spread %q lacks the mockup-costs label of 5.4", lines.Spread)
+		t.Errorf("flat-slippage spread %q lacks the mockup-costs label", lines.Spread)
 	}
 	for id, l := range byID {
 		if !strings.Contains(l.Dividends, "where the vendor has not adjusted them") {

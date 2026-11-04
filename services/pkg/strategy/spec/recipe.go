@@ -138,7 +138,7 @@ var statusOrder = []string{statusWatch, statusNone}
 
 // fundamentalsStrategies are the strategies whose rules read company statements.
 // Their backtest starts at computable_from, the first session those statements
-// are computable (5.15); the others start at a fixed date.
+// are computable, a date the backtest job derives; the others start at a fixed date.
 var fundamentalsStrategies = []string{StrategyZangerBreakout, StrategyCANSLIM, StrategyQualityCompounders}
 
 // firstTotalReturnDate is the first full month of XJT's total-return history. A
@@ -604,8 +604,8 @@ func audAmount(v float64) string {
 	return GroupThousands(FormatNumber(v))
 }
 
-// entryLine says when a signal buys. An entry is cancelled on an untraded session
-// (5.5), unlike an exit, which waits for the next traded one.
+// entryLine says when a signal buys. An entry is cancelled on an untraded session,
+// unlike an exit, which waits for the next traded session.
 func entryLine(r Recipe) string {
 	line := "Buys at the next session's open after the close on which a stock becomes triggered, when that session trades; otherwise the order is cancelled"
 	if r.Entry.Fresh == EntryFreshNewBreakout {
@@ -672,7 +672,7 @@ func brokerageLine(c Costs) string {
 
 func spreadLine(c Costs) string {
 	if c.FlatSlippageBps != nil {
-		// 5.4: the flat alternative is never shown without this label.
+		// The flat alternative is never printed without this label.
 		return fmt.Sprintf("Mockup costs (flat %s + %s bps per side) flatter small-cap breakouts. Flat slippage of %s bps per side replaces the spread tiers: this is a sensitivity, not the house model.",
 			FormatNumber(c.BrokerageBps), FormatNumber(*c.FlatSlippageBps), FormatNumber(*c.FlatSlippageBps))
 	}
