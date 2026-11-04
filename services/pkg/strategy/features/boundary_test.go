@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"cloud.google.com/go/civil"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 )
 
 // Inclusive and exact boundaries of the price features. Each test sits on the
@@ -131,5 +133,38 @@ func TestCalendarReturnToleranceIsTenDays(t *testing.T) {
 		if (ret != nil) != c.want {
 			t.Errorf("anchor %d days before the target: return known = %v, want %v", c.stale, ret != nil, c.want)
 		}
+	}
+}
+
+// A long history costs the window: AsOf on a 2,900-session history reads the
+// same features as on its last 400 days (the window is found by search).
+func TestAsOfOnALongHistoryEqualsTheWindow(t *testing.T) {
+	last := day(t, "2024-03-29")
+	long := series(last, 2900, func(i int) Bar {
+		c := 10 + float64(i%37)/10
+		return Bar{Open: c, High: c + 0.3, Low: c - 0.3, Close: c, AdjClose: c, Volume: float64(100 + i%11)}
+	})
+	short := long[len(long)-400:]
+	fs := v0FS1(t)
+	a, okA := AsOf(long, nil, last, fs)
+	b, okB := AsOf(short, nil, last, fs)
+	if okA != okB || a.Close != b.Close || a.SMA200 == nil || *a.SMA200 != *b.SMA200 || a.SessionsAvailable != b.SessionsAvailable {
+		t.Fatalf("long history: ok %v close %v sma200 %v; window: ok %v close %v", okA, a.Close, a.SMA200, okB, b.Close)
+	}
+}
+
+func BenchmarkAsOfLongHistory(b *testing.B) {
+	last := civil.Date{Year: 2024, Month: 3, Day: 29}
+	long := series(last, 2900, func(i int) Bar {
+		c := 10 + float64(i%37)/10
+		return Bar{Open: c, High: c + 0.3, Low: c - 0.3, Close: c, AdjClose: c, Volume: float64(100 + i%11)}
+	})
+	fs := spec.FeatureSpec{}
+	if reg, ok := spec.Live("zanger-breakout"); ok {
+		fs = reg.Spec.Features
+	}
+	b.ReportAllocs()
+	for range b.N {
+		_, _ = AsOf(long, nil, last, fs)
 	}
 }

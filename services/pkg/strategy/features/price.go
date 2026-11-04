@@ -2,6 +2,7 @@ package features
 
 import (
 	"math"
+	"sort"
 
 	"cloud.google.com/go/civil"
 
@@ -118,15 +119,21 @@ const (
 // in the window.
 //
 // The newest bar in the window (rank 1) is the feature date; it can be before D
-// when the stock did not trade on D. Calls are pure and allocate only the window.
+// when the stock did not trade on D. Calls are pure: they read the window
+// through a binary search and allocate only its points.
 func AsOf(bars []Bar, xjo []IndexBar, D civil.Date, p spec.FeatureSpec) (PriceFeatures, bool) {
 	f := readFS1(p)
 
+	// The window is the bars from its first session through D. Both ends are
+	// found by binary search on the sorted input, so a call with a long history
+	// costs the window, not the whole history.
 	from := windowStart(D, f.history)
-	w := make([]pt, 0, len(bars))
-	for i := range bars {
+	lo := sort.Search(len(bars), func(i int) bool { return !bars[i].Date.Before(from) })
+	hi := sort.Search(len(bars), func(i int) bool { return bars[i].Date.After(D) })
+	w := make([]pt, 0, max(hi-lo, 0))
+	for i := lo; i < hi; i++ {
 		b := &bars[i]
-		if b.Date.Before(from) || b.Date.After(D) || !validPrice(b.Close) {
+		if !validPrice(b.Close) {
 			continue
 		}
 		w = append(w, stockPoint(*b))
@@ -140,7 +147,7 @@ func AsOf(bars []Bar, xjo []IndexBar, D civil.Date, p spec.FeatureSpec) (PriceFe
 	at := func(rank int) *pt { return &w[n-rank] }
 
 	// breakoutAt is the views' is_breakout for the bar at rank r: a close above
-	// the highest high of the prior baseWindow bars, on at least 1.5x the
+	// the highest high of the prior breakout_prior_sessions bars, on at least 1.5x the
 	// average volume of the prior volume window. The prior windows stay inside
 	// the window (fewer bars before the first one means no breakout there).
 	breakoutAt := func(rank int) bool {
