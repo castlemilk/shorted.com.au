@@ -129,18 +129,15 @@ describe("StockChart oscillator area", () => {
     const mark = panel.querySelector("[data-chart-mark='annotation']");
     expect(mark).not.toBeNull();
     // The panel is 72px: -30 on a [-30, 0] domain sits on its bottom edge.
-    expect(Number(mark!.querySelector("circle")!.getAttribute("cy"))).toBeCloseTo(
-      72,
-      5,
-    );
+    expect(
+      Number(mark!.querySelector("circle")!.getAttribute("cy")),
+    ).toBeCloseTo(72, 5);
     expect(mark!.querySelector("text")!.textContent).toBe("−30.0%");
   });
 
   it("draws no callout on the panel when none is given", () => {
     const { container } = renderChart({ oscillators: [area()] });
-    expect(
-      container.querySelector("[data-chart-osc-annotations]"),
-    ).toBeNull();
+    expect(container.querySelector("[data-chart-osc-annotations]")).toBeNull();
   });
 
   it("draws no sub-panel region for a line oscillator", () => {

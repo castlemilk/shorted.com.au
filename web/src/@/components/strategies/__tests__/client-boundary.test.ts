@@ -72,7 +72,8 @@ function walk(root: string): Array<[string, string, string | null]> {
       if (match[1]) continue;
       specs.push(match[2]!);
     }
-    for (const match of source.matchAll(DYNAMIC_IMPORT_RE)) specs.push(match[1]!);
+    for (const match of source.matchAll(DYNAMIC_IMPORT_RE))
+      specs.push(match[1]!);
     for (const spec of specs) {
       const target = resolveLocal(spec, file);
       edges.push([file, spec, target]);
@@ -89,7 +90,8 @@ function violationsFrom(root: string): string[] {
   for (const [importer, spec, target] of walk(root)) {
     const forbidden =
       FORBIDDEN_PACKAGES.test(spec) ||
-      (target !== null && FORBIDDEN_LOCAL.some((dir) => target.startsWith(dir)));
+      (target !== null &&
+        FORBIDDEN_LOCAL.some((dir) => target.startsWith(dir)));
     if (forbidden) {
       violations.push(
         `${relative(SRC_DIR, root)}: ${relative(SRC_DIR, importer)} imports ${spec}`,
@@ -131,7 +133,9 @@ describe("strategy components stay server-safe, however indirectly", () => {
       .map(([, , target]) => (target ? relative(SRC_DIR, target) : ""))
       .filter(Boolean);
     expect(targets).toEqual(
-      expect.arrayContaining([join("@", "lib", "strategies", "returns-scale.ts")]),
+      expect.arrayContaining([
+        join("@", "lib", "strategies", "returns-scale.ts"),
+      ]),
     );
   });
 });

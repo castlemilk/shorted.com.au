@@ -179,8 +179,9 @@ export function ReturnsHeatmapTable({
     <div
       role="region"
       aria-label={caption}
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- A scroll region needs focus for arrow-key scrolling.
       tabIndex={0}
-      className="max-w-full overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="max-w-full overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       <table className="w-full border-collapse text-xs">
         <caption className="mb-2 text-left font-mono text-xs text-muted-foreground">
@@ -221,7 +222,8 @@ export function ReturnsHeatmapTable({
             let col = 0;
             const cells = row.cells.map((cell) => {
               const start = col;
-              const span = cell.state === "hatched" ? Math.max(1, cell.span ?? 1) : 1;
+              const span =
+                cell.state === "hatched" ? Math.max(1, cell.span ?? 1) : 1;
               col += span;
               const colKey = columns[start]?.key ?? `col-${start}`;
               return cell.state === "value" ? (

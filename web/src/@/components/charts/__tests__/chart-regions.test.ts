@@ -23,11 +23,15 @@ describe("regionPaint", () => {
 describe("regionLabelShown", () => {
   it("writes the live band's label on the band when it fits", () => {
     // 20 characters at 6px, plus 12px of padding, in a 200px band.
-    expect(regionLabelShown("live", "Recorded since 2026-01-01", 200)).toBe(true);
+    expect(regionLabelShown("live", "Recorded since 2026-01-01", 200)).toBe(
+      true,
+    );
   });
 
   it("leaves the label as a title only when the band is too narrow for it", () => {
-    expect(regionLabelShown("live", "Recorded since 2026-01-01", 100)).toBe(false);
+    expect(regionLabelShown("live", "Recorded since 2026-01-01", 100)).toBe(
+      false,
+    );
   });
 
   it("never writes a divergence band's label on it", () => {

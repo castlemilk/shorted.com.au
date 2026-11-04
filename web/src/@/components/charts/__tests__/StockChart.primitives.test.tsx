@@ -82,7 +82,9 @@ describe("StockChart end labels read what is drawn", () => {
   // The plot's left margin: the translate of the group that holds the plot.
   const plotLeft = (container: HTMLElement) => {
     const g = container.querySelector('g[transform^="translate("]');
-    const match = /translate\(([\d.]+)/.exec(g?.getAttribute("transform") ?? "");
+    const match = /translate\(([\d.]+)/.exec(
+      g?.getAttribute("transform") ?? "",
+    );
     return Number(match?.[1]);
   };
 
@@ -102,7 +104,9 @@ describe("StockChart end labels read what is drawn", () => {
       leftAxis: { side: "left", format: (v) => `$${v.toFixed(0)}` },
     });
     expect(labelText(container)).toBe("$111");
-    const plot = container.querySelector("[data-chart-capture]") as SVGRectElement;
+    const plot = container.querySelector(
+      "[data-chart-capture]",
+    ) as SVGRectElement;
     const innerW = Number(plot.getAttribute("width"));
     const left = plotLeft(container);
     // Drag across the first ~40% of the plot: the zoom ends a few sessions in.

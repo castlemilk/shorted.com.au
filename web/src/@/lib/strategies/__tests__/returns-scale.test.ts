@@ -282,7 +282,9 @@ describe("coverageKnown", () => {
 describe("the coverage hatch over a filled cell", () => {
   it("is stripes only: a transparent base, so the fill shows through", () => {
     // Comments are stripped by the CSS reader above, so this checks the declaration.
-    expect(CSS).toMatch(/\.hatch-on-fill\s*\{\s*background-color:\s*transparent;/);
+    expect(CSS).toMatch(
+      /\.hatch-on-fill\s*\{\s*background-color:\s*transparent;/,
+    );
     expect(CSS).not.toMatch(/\.hatch-on-fill[^}]*hsl\(var\(--muted\)/);
   });
 
@@ -297,7 +299,9 @@ describe("the coverage hatch over a filled cell", () => {
         for (const value of SAMPLES[scale]) {
           const fill = fillRgb(returnBin(value, scale)!, t);
           if (!fill) continue;
-          expect(contrast(ink, mix(paper, 60, fill))).toBeGreaterThanOrEqual(4.5);
+          expect(contrast(ink, mix(paper, 60, fill))).toBeGreaterThanOrEqual(
+            4.5,
+          );
         }
       }
     });

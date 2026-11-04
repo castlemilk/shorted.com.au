@@ -241,14 +241,20 @@ describe("ReturnsHeatmapTable cells that span or print", () => {
             key: "zanger",
             name: "Zanger",
             cells: [
-              { state: "hatched", label: "Not computable before FY2023", span: 3 },
+              {
+                state: "hatched",
+                label: "Not computable before FY2023",
+                span: 3,
+              },
               { state: "value", value: 4.2 },
             ],
           },
         ]}
       />,
     );
-    const merged = screen.getByText("Not computable before FY2023").closest("td")!;
+    const merged = screen
+      .getByText("Not computable before FY2023")
+      .closest("td")!;
     expect(merged.getAttribute("colspan")).toBe("3");
     const figure = screen.getByText("+4.2%").closest("td")!;
     expect(figure.getAttribute("data-col")).toBe("2022");
@@ -266,9 +272,9 @@ describe("ReturnsHeatmapTable cells that span or print", () => {
         ]}
       />,
     );
-    expect(container.querySelector("td[data-bin]")?.getAttribute("data-bin")).toBe(
-      "strong-up",
-    );
+    expect(
+      container.querySelector("td[data-bin]")?.getAttribute("data-bin"),
+    ).toBe("strong-up");
   });
 
   it("prints n/a, and no NaN, for a coverage figure that is not a number", () => {
@@ -298,9 +304,7 @@ describe("ReturnsHeatmapTable cells that span or print", () => {
         rowHeader="Strategy"
         scale="annual"
         columns={[{ key: "2019", label: "2019" }]}
-        rows={[
-          { key: "a", name: "A", cells: [{ state: "value", value: 1 }] },
-        ]}
+        rows={[{ key: "a", name: "A", cells: [{ state: "value", value: 1 }] }]}
         metricColumns={[{ key: "cagr", label: "CAGR" }]}
       />,
     );
@@ -317,7 +321,9 @@ describe("ReturnsHeatmapTable cells that span or print", () => {
         rows={[]}
       />,
     );
-    const region = screen.getByRole("region", { name: "Historical returns by year" });
+    const region = screen.getByRole("region", {
+      name: "Historical returns by year",
+    });
     expect(region.getAttribute("tabindex")).toBe("0");
   });
 });

@@ -118,7 +118,9 @@ export const COVERAGE_HATCH_BELOW = 0.8;
  * Whether a coverage figure is known: a finite number. Null, undefined and NaN
  * (protojson can carry NaN) are all unknown, and a component prints "n/a" for them.
  */
-export function coverageKnown(coverage: number | null | undefined): coverage is number {
+export function coverageKnown(
+  coverage: number | null | undefined,
+): coverage is number {
   return coverage != null && Number.isFinite(coverage);
 }
 

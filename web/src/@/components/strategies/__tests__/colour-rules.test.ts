@@ -67,17 +67,21 @@ describe("strategy components keep the market colours to direction", () => {
 });
 
 describe("the Tailwind market utilities", () => {
-  it.each(["text-red-600", "bg-green-500", "ring-emerald-400", "from-rose-300"])(
-    "bans %s",
-    (cls) => {
-      expect(cls.match(TAILWIND_MARKET)).not.toBeNull();
-    },
-  );
+  it.each([
+    "text-red-600",
+    "bg-green-500",
+    "ring-emerald-400",
+    "from-rose-300",
+  ])("bans %s", (cls) => {
+    expect(cls.match(TAILWIND_MARKET)).not.toBeNull();
+  });
 
-  it.each(["text-red-foreground", "text-muted-foreground", "bg-card", "text-semantic-red-text"])(
-    "allows %s",
-    (cls) => {
-      expect(cls.match(TAILWIND_MARKET)).toBeNull();
-    },
-  );
+  it.each([
+    "text-red-foreground",
+    "text-muted-foreground",
+    "bg-card",
+    "text-semantic-red-text",
+  ])("allows %s", (cls) => {
+    expect(cls.match(TAILWIND_MARKET)).toBeNull();
+  });
 });

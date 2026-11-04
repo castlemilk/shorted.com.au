@@ -82,7 +82,7 @@ export function spreadLabels(
   const top = opts.top ?? Number.NEGATIVE_INFINITY;
   const tagged = opts.tagged ?? [];
   const gap = (a: number, b: number) =>
-    tagged[a] || tagged[b] ? TAG_LABEL_SPACING : LABEL_SPACING;
+    tagged[a] === true || tagged[b] === true ? TAG_LABEL_SPACING : LABEL_SPACING;
   // Indices, top of the plot first.
   const order = ys.map((_, i) => i).sort((a, b) => ys[a]! - ys[b]!);
   const baselines = ys.map((y) => Math.max(y - LABEL_INSET, top));

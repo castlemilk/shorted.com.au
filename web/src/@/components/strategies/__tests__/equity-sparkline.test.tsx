@@ -24,7 +24,9 @@ describe("EquitySparkline", () => {
     expect(svg.tagName.toLowerCase()).toBe("svg");
     // jsdom cannot show a script that React never emits, so the check is on the
     // markup the server writes: the component renders with no script in it.
-    const html = renderToStaticMarkup(<EquitySparkline label="s" strategy={STRATEGY} />);
+    const html = renderToStaticMarkup(
+      <EquitySparkline label="s" strategy={STRATEGY} />,
+    );
     expect(html).toContain("<svg");
     expect(html).not.toContain("<script");
   });

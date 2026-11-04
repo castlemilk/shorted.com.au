@@ -44,7 +44,11 @@ function barOf(item: CoverageStripItem) {
  * hatched and its figure says so: a backtest that flatters on thin coverage
  * must show that where it is read.
  */
-export function CoverageStrip({ label, items, layout = "rows" }: CoverageStripProps) {
+export function CoverageStrip({
+  label,
+  items,
+  layout = "rows",
+}: CoverageStripProps) {
   if (layout === "columns") {
     return (
       <ol aria-label={label} className="flex h-6 items-end gap-px">
@@ -104,7 +108,9 @@ export function CoverageStrip({ label, items, layout = "rows" }: CoverageStripPr
             </span>
             <span className="text-right">
               {bar.pct === null ? NOT_AVAILABLE : `${bar.pct}%`}
-              {bar.hatched ? <span className="sr-only"> (under 80%)</span> : null}
+              {bar.hatched ? (
+                <span className="sr-only"> (under 80%)</span>
+              ) : null}
             </span>
           </li>
         );
