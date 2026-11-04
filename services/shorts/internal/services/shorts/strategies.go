@@ -148,10 +148,10 @@ func parsePicksQuery(msg *shortsv1alpha1.GetStrategyPicksRequest) (picksQuery, e
 // (and, on request, to stocks with a fundamentals row), optionally sorted by a
 // fundamentals figure, and paged. Rank is always the evaluator's rank.
 //
-// The answer is the same bytes to every HTTP caller. When the public depth
-// limit is set, only the top of the default ranking is served, and a page
-// past it is refused. Depth is read after the cached evaluation, never inside
-// its fill.
+// The answer is the same bytes to every HTTP caller, API tokens included.
+// When the public depth limit is set, only the top of the default ranking is
+// served, and any offset other than 0 is refused. Depth is read after the
+// cached evaluation, never inside its fill.
 func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error) {
 	q, err := parsePicksQuery(req.Msg)
 	if err != nil {
@@ -176,7 +176,7 @@ func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Reques
 // GetViewerStrategyPicks is GetStrategyPicks at the caller's full depth. It
 // needs a verified identity and is never clamped.
 func (s *ShortsServer) GetViewerStrategyPicks(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error) {
-	access, err := privateAccess(ctx)
+	access, _, err := privateAccess(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -215,11 +215,9 @@ func (s *ShortsServer) publicPicksDepth(ctx context.Context) picksDepth {
 func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *shortsv1alpha1.GetStrategyPicksResponse {
 	u := eval.universe
 	ranked := eval.picks
-	clamped := false
 	limit := q.limit
 	if depth.limit > 0 {
-		clamped = len(eval.picks) > depth.limit
-		if clamped {
+		if len(ranked) > depth.limit {
 			ranked = ranked[:depth.limit]
 		}
 		limit = min(limit, depth.limit)
@@ -230,8 +228,12 @@ func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *sh
 	// the default rank order, which is only ever read below).
 	matching := engine.SortPicks(filterPicks(ranked, q.status, q.requireFundamentals), q.sortBy)
 	total := len(matching)
+	// clamped says a row that matches this query exists beyond the depth, so
+	// a filter that the top of the list fully answers reads false.
+	clamped := false
 	if depth.limit > 0 {
 		total = len(filterPicks(eval.picks, q.status, q.requireFundamentals))
+		clamped = total > len(matching)
 	}
 	start := min(q.offset, len(matching))
 	end := min(start+limit, len(matching))

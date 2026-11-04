@@ -25,10 +25,19 @@ const vdClampLimit = 10
 
 // vdUniverse is spUniverse plus twelve more triggered stocks, so the ranked
 // list holds more rows than the clamp returns.
+//
+// RDY carries the largest market cap of the triggered rows. Equal scores keep
+// code order, so RDY ranks thirteenth, outside the default top ten, and a sort
+// by market cap would reach it if the sort ran before the clamp.
 func vdUniverse() []engine.Candidate {
 	out := spUniverse()
 	for i := range 12 {
 		out = append(out, spReady(fmt.Sprintf("RD%02d", i)))
+	}
+	for i := range out {
+		if out[i].StockCode == "RDY" {
+			out[i].MarketCap = new(float64(9e9))
+		}
 	}
 	return out
 }
@@ -50,6 +59,23 @@ func vdServer(t *testing.T, limit int) *ShortsServer {
 // vdClaims is a context as the interceptor leaves it for a verified caller.
 func vdClaims(uid, tier string, tierResolved bool) context.Context {
 	return context.WithValue(context.Background(), userKey, &Claims{UserID: uid, Tier: tier, TierResolved: tierResolved})
+}
+
+// vdWebSession is a context as the interceptor leaves it when the website,
+// holding the internal secret, calls for a signed-in user.
+func vdWebSession(uid string) context.Context {
+	return context.WithValue(context.Background(), userKey, &Claims{
+		UserID: uid, Tier: "premium", TierResolved: true,
+		AuthMethod: AuthMethodInternal, WebOnBehalf: true, IsBrowserAuth: true,
+	})
+}
+
+// vdFirebase is a context as the interceptor leaves it for a Firebase ID token.
+func vdFirebase(uid, tier string) context.Context {
+	return context.WithValue(context.Background(), userKey, &Claims{
+		UserID: uid, Tier: tier, TierResolved: true,
+		AuthMethod: AuthMethodFirebase, IsBrowserAuth: true,
+	})
 }
 
 // vdMCP is a context as the MCP server leaves it for a verified MCP viewer.
@@ -84,12 +110,41 @@ func vdPublic(t *testing.T, srv *ShortsServer, ctx context.Context, id string, l
 	return resp.Msg
 }
 
-// The public answer is the same bytes to every HTTP caller, whatever caller
-// warmed the caches first. Each kind starts a cold server, is served first,
-// and then an anonymous HTTP call must match a cold server's anonymous answer.
-func TestPublicStrategyRPCsAreCallerInvariant(t *testing.T) {
+// vdPublicRead is one public strategy read, called as a given context. Depth
+// is true for a read whose rows the clamp limits; the others carry no rows and
+// must answer the same bytes to every caller, the MCP viewer included.
+type vdPublicRead struct {
+	name  string
+	depth bool
+	call  func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message
+}
+
+func vdPublicReads() []vdPublicRead {
 	const id = engine.IDZangerBreakout
-	kinds := []struct {
+	return []vdPublicRead{
+		{"GetStrategyPicks", true, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			return vdPublic(t, srv, ctx, id, 0, 0)
+		}},
+		{"ListStrategies", false, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			resp, err := srv.ListStrategies(ctx, connect.NewRequest(&shortsv1alpha1.ListStrategiesRequest{}))
+			require.NoError(t, err)
+			return resp.Msg
+		}},
+		{"GetStockStrategyFit", false, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			resp, err := srv.GetStockStrategyFit(ctx, connect.NewRequest(&shortsv1alpha1.GetStockStrategyFitRequest{StockCode: "RDY"}))
+			require.NoError(t, err)
+			return resp.Msg
+		}},
+	}
+}
+
+// vdHTTPCallers are the caller kinds that reach a public rpc over HTTP. None of
+// them can set the in-process MCP viewer.
+func vdHTTPCallers() []struct {
+	name string
+	ctx  func() context.Context
+} {
+	return []struct {
 		name string
 		ctx  func() context.Context
 	}{
@@ -97,21 +152,48 @@ func TestPublicStrategyRPCsAreCallerInvariant(t *testing.T) {
 		{"free claims", func() context.Context { return vdClaims("free-user", "free", true) }},
 		{"premium claims", func() context.Context { return vdClaims("premium-user", "premium", true) }},
 		{"bearer identity with an unresolved tier", func() context.Context { return vdClaims("api-user", "premium", false) }},
-		{"mcp viewer", func() context.Context { return vdMCP("mcp-user") }},
+		{"web session", func() context.Context { return vdWebSession("web-user") }},
+		{"firebase premium", func() context.Context { return vdFirebase("fb-premium", "premium") }},
+		{"firebase free", func() context.Context { return vdFirebase("fb-free", "free") }},
 	}
+}
 
-	cold := vdPublic(t, vdServer(t, vdClampLimit), context.Background(), id, 0, 0)
-	want := vdBytes(t, cold)
-	require.Len(t, cold.Picks, vdClampLimit, "the anonymous answer is clamped to the public depth")
-	require.Equal(t, "anonymous", cold.Viewer.Access)
+// The public answer is the same bytes to every HTTP caller, whatever caller
+// warmed the caches first. For each public read, each kind starts a cold
+// server and is served first: its own answer must match the cold anonymous
+// answer, and so must the anonymous HTTP call that follows. The MCP viewer
+// is checked the same way on the reads that carry no rows, and its own answer
+// on the picks read is the one place depth may differ.
+func TestPublicStrategyRPCsAreCallerInvariant(t *testing.T) {
+	for _, read := range vdPublicReads() {
+		cold := read.call(t, vdServer(t, vdClampLimit), context.Background())
+		want := vdBytes(t, cold)
+		if read.depth {
+			require.Len(t, cold.(*shortsv1alpha1.GetStrategyPicksResponse).Picks, vdClampLimit, "the anonymous answer is clamped to the public depth")
+		}
 
-	for _, k := range kinds {
-		t.Run(k.name, func(t *testing.T) {
-			srv := vdServer(t, vdClampLimit)
-			_ = vdPublic(t, srv, k.ctx(), id, 0, 0)
-			got := vdPublic(t, srv, context.Background(), id, 0, 0)
-			assert.Equal(t, want, vdBytes(t, got), "anonymous HTTP answer after this caller kind")
-		})
+		kinds := vdHTTPCallers()
+		kinds = append(kinds, struct {
+			name string
+			ctx  func() context.Context
+		}{"mcp viewer", func() context.Context { return vdMCP("mcp-user") }})
+		for _, k := range kinds {
+			t.Run(read.name+"/"+k.name, func(t *testing.T) {
+				srv := vdServer(t, vdClampLimit)
+				first := read.call(t, srv, k.ctx())
+				isMCP := k.name == "mcp viewer"
+				if !(isMCP && read.depth) {
+					assert.Equal(t, want, vdBytes(t, first), "the caller's own answer")
+				}
+				if picks, ok := first.(*shortsv1alpha1.GetStrategyPicksResponse); ok && !isMCP {
+					assert.LessOrEqual(t, len(picks.Picks), vdClampLimit)
+					assert.Equal(t, "anonymous", picks.Viewer.Access)
+				}
+
+				got := read.call(t, srv, context.Background())
+				assert.Equal(t, want, vdBytes(t, got), "anonymous HTTP answer after this caller kind")
+			})
+		}
 	}
 }
 
@@ -132,7 +214,7 @@ func TestMCPDepthNeverReachesHTTP(t *testing.T) {
 
 	_, err := srv.GetStrategyPicks(context.Background(), vdPicksReq(id, 10, 1))
 	require.Error(t, err)
-	assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err), "an offset past the public depth is refused over HTTP")
+	assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err), "an offset other than 0 is refused over HTTP")
 }
 
 // Under the clamp every public page comes from the top of the default
@@ -222,7 +304,7 @@ func TestGetViewerStrategyPicks_ThreeAccessTable(t *testing.T) {
 }
 
 // A signed-in caller's bearer token does not lift the public clamp: the public
-// rpc answers the top ten to it, and refuses an offset past them, while the
+// rpc answers the top ten to it, and refuses any offset other than 0, while the
 // private rpc gives it the rest.
 func TestBearerTokenOnThePublicRPCIsClamped(t *testing.T) {
 	srv := vdServer(t, vdClampLimit)
@@ -243,7 +325,7 @@ func TestBearerTokenOnThePublicRPCIsClamped(t *testing.T) {
 	assert.Len(t, full.Msg.Picks, len(vdPublicFull(t, srv, id))-vdClampLimit, "the same token on the private rpc gets the rows beyond the public depth")
 }
 
-// The refusal for an offset past the clamp names the private rpc in
+// The refusal for an offset under the clamp names the private rpc in
 // X-Entitlement-Detail, and the detail parses as the documented JSON.
 func TestOffsetRefusalCarriesTheEntitlementDetail(t *testing.T) {
 	srv := vdServer(t, vdClampLimit)
@@ -282,6 +364,65 @@ func TestClampIsOffByDefault(t *testing.T) {
 
 	_, err := srv.GetStrategyPicks(context.Background(), vdPicksReq(id, 10, 5))
 	require.NoError(t, err, "no offset refusal without the clamp")
+}
+
+// viewer.clamped says a matching row was withheld, not merely that the list is
+// longer than the depth: a filter the top of the list answers in full reads
+// false, and a filter whose matching row ranks beyond the depth reads true.
+func TestClampedFollowsTheFilter(t *testing.T) {
+	const id = engine.IDZangerBreakout
+	tests := []struct {
+		name        string
+		limit       int
+		status      string
+		wantCount   int32
+		wantPicks   int
+		wantClamped bool
+	}{
+		// Thirteen triggered rows, the first ten inside the depth.
+		{"no filter, rows beyond the depth", vdClampLimit, "", 15, vdClampLimit, true},
+		{"triggered, rows beyond the depth", vdClampLimit, string(engine.StatusTriggered), 13, vdClampLimit, true},
+		// The setup row ranks fourteenth: outside the depth, so none is served
+		// and the one that exists is withheld.
+		{"setup, its only row beyond the depth", vdClampLimit, string(engine.StatusSetup), 1, 0, true},
+		// A depth that holds every triggered row answers the filter in full.
+		{"triggered, every matching row inside the depth", 13, string(engine.StatusTriggered), 13, 13, false},
+		{"flag off", 0, "", 15, 15, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := vdServer(t, tt.limit)
+			resp, err := srv.GetStrategyPicks(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{
+				StrategyId: id, Status: tt.status, Limit: 100,
+			}))
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantCount, resp.Msg.TotalCount, "total_count is global")
+			assert.Len(t, resp.Msg.Picks, tt.wantPicks)
+			assert.Equal(t, tt.wantClamped, resp.Msg.Viewer.Clamped)
+		})
+	}
+}
+
+// The sort runs after the clamp, so no sort key reaches past the depth. RDY has
+// the largest market cap but ranks outside the top ten, so a market cap sort
+// serves the top ten by rank, never RDY.
+func TestPublicSortCannotReachPastTheDepth(t *testing.T) {
+	srv := vdServer(t, vdClampLimit)
+	const id = engine.IDZangerBreakout
+
+	viewer, err := srv.GetViewerStrategyPicks(vdClaims("full-user", "free", true), connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{
+		StrategyId: id, SortBy: "market_cap", Limit: 100,
+	}))
+	require.NoError(t, err)
+	require.Equal(t, "RDY", vdCodes(viewer.Msg.Picks)[0], "the fixture sorts RDY first by market cap at full depth")
+
+	public, err := srv.GetStrategyPicks(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{
+		StrategyId: id, SortBy: "market_cap", Limit: 100,
+	}))
+	require.NoError(t, err)
+	assert.NotContains(t, vdCodes(public.Msg.Picks), "RDY")
+	assert.Len(t, public.Msg.Picks, vdClampLimit)
+	assert.True(t, public.Msg.Viewer.Clamped)
 }
 
 // The status counts and the totals are the whole list, whatever the depth, so

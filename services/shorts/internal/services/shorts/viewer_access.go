@@ -49,15 +49,19 @@ func (a Access) String() string {
 // Premium is read from the claims' tier, which the interceptor re-resolves
 // from the subscription store on every request, and only when that lookup
 // succeeded (TierResolved). Mutations re-check the entitlement themselves.
-func privateAccess(ctx context.Context) (Access, error) {
+//
+// The verified uid comes back with the access, so a handler resolves every
+// id it reads under the same identity it checked.
+func privateAccess(ctx context.Context) (Access, string, error) {
 	claims, ok := UserFromContext(ctx)
 	if !ok || claims == nil || strings.TrimSpace(claims.UserID) == "" {
-		return AccessAnonymous, connect.NewError(connect.CodeUnauthenticated, errors.New("sign in to read this"))
+		return AccessAnonymous, "", connect.NewError(connect.CodeUnauthenticated, errors.New("sign in to read this"))
 	}
+	uid := strings.TrimSpace(claims.UserID)
 	if claims.TierResolved && subscription.PremiumFeatureTier(claims.Tier) {
-		return AccessPremium, nil
+		return AccessPremium, uid, nil
 	}
-	return AccessFree, nil
+	return AccessFree, uid, nil
 }
 
 // publicDepth is the depth a public strategy read gives its caller.
