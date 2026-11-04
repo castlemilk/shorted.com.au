@@ -2,14 +2,15 @@ package alertspec
 
 // Truth is a three-valued (Kleene) logic value. Unknown is what a condition
 // reads when its data is missing for the session: it never counts as a match,
-// and it never counts as a miss either. The zero value is False, so a missing
-// state row reads as "not matching".
+// and it never counts as a miss either. Unknown is the zero value, so a Truth
+// that was never set (a missing rule outcome, an unset field) is unknown, not
+// a definite fail that would fire an exit.
 type Truth uint8
 
 const (
-	False Truth = iota
+	Unknown Truth = iota
+	False
 	True
-	Unknown
 )
 
 // FromBool lifts an ordinary boolean into Truth.

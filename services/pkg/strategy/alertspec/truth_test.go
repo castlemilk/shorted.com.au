@@ -33,7 +33,7 @@ func TestKleeneTables(t *testing.T) {
 	if and() != True || or() != False {
 		t.Errorf("empty and/or must be True/False")
 	}
-	if (Truth(0)) != False {
-		t.Errorf("the zero Truth must be False")
+	if (Truth(0)) != Unknown {
+		t.Errorf("the zero Truth must be Unknown")
 	}
 }
