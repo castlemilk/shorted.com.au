@@ -32,10 +32,12 @@ export function EquitySparkline({
 }: EquitySparklineProps) {
   const geometry = sparkline({ strategy, benchmark, liveFrom, width, height });
   if (!geometry.strategy) {
+    // The name says what the box is for and that it is empty, so a screen reader
+    // hears the same state a sighted reader sees (the text is hidden behind the role).
     return (
       <div
         role="img"
-        aria-label={label}
+        aria-label={`${label}: ${emptyLabel}`}
         className="hatch-empty flex h-14 items-center justify-center rounded-sm font-mono text-xs"
         style={{ color: "hsl(var(--foreground))" }}
       >

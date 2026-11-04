@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { EquitySparkline } from "../equity-sparkline";
 
 const DAY = 86_400_000;
@@ -11,7 +12,7 @@ const BENCHMARK = series([100, 102, 104, 106, 108]);
 
 describe("EquitySparkline", () => {
   it("is a labelled image: a server SVG with no script", () => {
-    const { container } = render(
+    render(
       <EquitySparkline
         label="Backtest, in-sample to 1 Jan 2026, then recorded"
         strategy={STRATEGY}
@@ -21,7 +22,11 @@ describe("EquitySparkline", () => {
       name: "Backtest, in-sample to 1 Jan 2026, then recorded",
     });
     expect(svg.tagName.toLowerCase()).toBe("svg");
-    expect(container.querySelector("script")).toBeNull();
+    // jsdom cannot show a script that React never emits, so the check is on the
+    // markup the server writes: the component renders with no script in it.
+    const html = renderToStaticMarkup(<EquitySparkline label="s" strategy={STRATEGY} />);
+    expect(html).toContain("<svg");
+    expect(html).not.toContain("<script");
   });
 
   it("draws the strategy solid in the primary token", () => {
@@ -71,12 +76,10 @@ describe("EquitySparkline", () => {
         emptyLabel="Run required"
       />,
     );
-    expect(screen.getByRole("img", { name: "No series" }).textContent).toBe(
-      "Run required",
-    );
+    // The name carries the empty state, so a screen reader hears what is shown.
+    const box = screen.getByRole("img", { name: "No series: Run required" });
+    expect(box.textContent).toBe("Run required");
     expect(container.querySelector("svg")).toBeNull();
-    expect(screen.getByRole("img", { name: "No series" }).className).toContain(
-      "hatch-empty",
-    );
+    expect(box.className).toContain("hatch-empty");
   });
 });
