@@ -4,8 +4,8 @@ import "cloud.google.com/go/civil"
 
 // Bar is one stock_prices row as the short-interest and corporate-action
 // features read it. Callers pass bars date ascending and already drop rows whose
-// close is not a usable price (the px filter of 4.2). Volume is the share count;
-// a NULL volume reads as zero.
+// close is not a usable price (the price filter the picker features apply).
+// Volume is the share count; a NULL volume reads as zero.
 type Bar struct {
 	Date     civil.Date
 	Open     float64
