@@ -1,0 +1,19 @@
+Form 603
+Form 603
+Corporations Act 2001
+Section 671B
+Notice of initial substantial holder
+To: | Company Name/Scheme: | MHC Group Limited
+ACN/ARSN: | 000 000 001
+1. Details of substantial holder
+Name | Eric Sondergaard Name
+The holder became a substantial holder on: | 25 September 2026
+The holder became aware on: | 25 September 2026
+2. Details of voting power
+The total number of votes attached to all the voting shares in the company or voting interests in the scheme that the substantial holder or an associate had a relevant interest in on the date the substantial holder became a substantial holder are as follows:
+Class of securities | Number of securities | Person's votes | Voting power (%)
+Fully paid ordinary shares | 35,500,000 | 35,500,000 | 6.2141%
+3. Details of relevant interests
+The nature of the relevant interest the substantial holder had in the following voting securities on the date the substantial holder became a substantial holder are as follows:
+Holder of relevant interest | Nature of relevant interest | Class and number of securities
+Eric Sondergaard | Registered holder | 35,500,000 Fully paid ordinary shares

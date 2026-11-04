@@ -38,6 +38,15 @@ export type DeskLens = (typeof DESK_LENSES)[number];
 export const DEFAULT_DESK_LENS: DeskLens = "disclosed";
 
 /**
+ * The order an instrument draws its rows or sectors in (spec 13.3, backlog C3). "largest" is the
+ * order the instrument has always drawn (by area, or by notices); "changed" orders by the net change
+ * the instrument can state, rises first on the heatmap and the biggest magnitude first on the map.
+ */
+export const DESK_SORTS = ["largest", "changed"] as const;
+export type DeskSort = (typeof DESK_SORTS)[number];
+export const DEFAULT_DESK_SORT: DeskSort = "largest";
+
+/**
  * The longest sector name a link may carry. Industries are a few words; a longer
  * value is not one, and the API matches it exactly, so it would only be refused.
  */
@@ -72,6 +81,8 @@ export interface DeskState {
    * Only a value `parseSelection` reads is kept (see workspace/selection.ts).
    */
   sel: string;
+  /** The order the change-measured instruments draw in; see DESK_SORTS. */
+  sort: DeskSort;
 }
 
 /** The window of change as the notice instruments read it: the chips' days, or a brushed pair. */
@@ -86,6 +97,7 @@ export const DEFAULT_DESK_STATE: DeskState = {
   from: "",
   to: "",
   sel: "",
+  sort: DEFAULT_DESK_SORT,
 };
 
 /** The raw values a link or a page hands over, before any of them is trusted. */
@@ -98,6 +110,7 @@ export interface DeskStateInput {
   from?: unknown;
   to?: unknown;
   sel?: unknown;
+  sort?: unknown;
 }
 
 /** The two shapes a parameter arrives in: the browser's URLSearchParams, or Next's record. */
@@ -161,6 +174,16 @@ function cleanWindow(value: unknown): DeskWindow {
   return isDeskWindow(days) ? days : DEFAULT_DESK_WINDOW;
 }
 
+/** Whether a value is one of the sorts the desk serves. */
+export function isDeskSort(value: unknown): value is DeskSort {
+  return typeof value === "string" && (DESK_SORTS as readonly string[]).includes(value);
+}
+
+/** The sort a link states: one of DESK_SORTS, or the default. A sort is never a number. */
+function cleanSort(value: unknown): DeskSort {
+  return isDeskSort(value) ? value : DEFAULT_DESK_SORT;
+}
+
 function cleanLens(value: unknown): DeskLens {
   return typeof value === "string" && isDeskLens(value) ? value : DEFAULT_DESK_LENS;
 }
@@ -220,6 +243,7 @@ export function cleanDeskState(input: DeskStateInput): DeskState {
     from: dates.from,
     to: dates.to,
     sel: cleanSelection(input.sel),
+    sort: cleanSort(input.sort),
   };
 }
 
@@ -247,7 +271,19 @@ export function readDeskState(source: DeskParamSource): DeskState {
     from: paramValue(source, "from"),
     to: paramValue(source, "to"),
     sel: paramValue(source, "sel"),
+    sort: paramValue(source, "sort"),
   });
+}
+
+/**
+ * The sort an instrument draws in, for a link that may name none. A link that names a
+ * valid sort gets it; a link that names none, or a value that is not a sort, gets
+ * `fallback`. The hub's compact panes pass "changed" here, so a bare link shows the movers
+ * while the full pages keep the default, and a link that names "largest" is honoured.
+ */
+export function readDeskSort(source: DeskParamSource, fallback: DeskSort = DEFAULT_DESK_SORT): DeskSort {
+  const raw = paramValue(source, "sort");
+  return isDeskSort(raw) ? raw : fallback;
 }
 
 /**
@@ -269,11 +305,12 @@ export function writeDeskState(state: DeskState): string {
   if (clean.lens !== DEFAULT_DESK_LENS) params.set("lens", clean.lens);
   if (clean.sector !== "") params.set("sector", clean.sector);
   if (clean.sel !== "") params.set("sel", clean.sel);
+  if (clean.sort !== DEFAULT_DESK_SORT) params.set("sort", clean.sort);
   return params.toString();
 }
 
 /** The desk's own parameter names: writeDeskParams replaces these and leaves every other one alone. */
-const DESK_PARAM_NAMES = ["window", "since", "until", "from", "to", "lens", "sector", "sel"] as const;
+const DESK_PARAM_NAMES = ["window", "since", "until", "from", "to", "lens", "sector", "sel", "sort"] as const;
 
 /**
  * Writes a state into a link's parameters in place. The desk's names are replaced

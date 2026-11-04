@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"regexp"
 	"sort"
 	"strings"
@@ -93,6 +94,14 @@ type fundEntry struct {
 }
 
 func (e *fundEntry) latest() shortsstore.FundFileRow { return e.files[len(e.files)-1] }
+
+// previous is the file before the newest, when the fund has one.
+func (e *fundEntry) previous() (shortsstore.FundFileRow, bool) {
+	if len(e.files) < 2 {
+		return shortsstore.FundFileRow{}, false
+	}
+	return e.files[len(e.files)-2], true
+}
 
 func (e *fundEntry) dates() []string {
 	out := make([]string, 0, len(e.files))
@@ -351,6 +360,9 @@ func fundSummaryProto(e *fundEntry, f shortsstore.FundFileRow, rows []shortsstor
 		InstitutionSlug: e.slug, InstitutionName: e.institutionName, SourceKind: f.SourceKind,
 		Pooled: fundPooled(e.slug, f.SourceKind), AsAt: f.AsAt, SourceUrl: f.SourceURL,
 		Holdings: int32(len(rows)), SectorWeights: fundSectorWeights(rows),
+		// Every file the fund has, the dates CompareFundSnapshots reads: a reader
+		// picks a fund that can be compared from this count.
+		SnapshotCount: int32(len(e.files)),
 	}
 	if out.Ticker == "" && e.registry != nil {
 		out.Ticker = e.registry.ASXCode
@@ -409,9 +421,14 @@ func (s *ShortsServer) readFundList(ctx context.Context, fs shortsstore.Ownershi
 	if len(book.funds) == 0 {
 		return out, nil
 	}
-	ids := make([]int64, 0, len(book.funds))
+	// The previous file is read too, for the largest sector change; a fund with one
+	// file reads none.
+	ids := make([]int64, 0, 2*len(book.funds))
 	for _, e := range book.funds {
 		ids = append(ids, e.latest().ID)
+		if prev, ok := e.previous(); ok {
+			ids = append(ids, prev.ID)
+		}
 	}
 	holdings, err := fs.FundHoldingsOf(ctx, ids, false)
 	if err != nil {
@@ -420,9 +437,76 @@ func (s *ShortsServer) readFundList(ctx context.Context, fs shortsstore.Ownershi
 	byFile := groupHoldings(holdings)
 	for _, e := range book.funds {
 		f := e.latest()
-		out.Funds = append(out.Funds, fundSummaryProto(e, f, byFile[f.ID]))
+		item := fundSummaryProto(e, f, byFile[f.ID])
+		if prev, ok := e.previous(); ok {
+			item.LargestSectorChangePp, item.LargestSectorChangeSector, item.HasLargestSectorChange =
+				fundLargestSectorChange(byFile[prev.ID], byFile[f.ID])
+		}
+		out.Funds = append(out.Funds, item)
 	}
 	return out, nil
+}
+
+// fundLargestSectorChange is the sector whose weight moved most between two files
+// of one fund, in percentage points, signed (the later file less the earlier). A
+// sector with no holding in a file weighs 0 there: the stored holdings are the
+// fund's, so a missing sector is a real zero. A sector whose weight is unstated on
+// either side is left out, never read as 0. Ties keep the sector name first. It
+// is withheld when either file has no holdings, since an empty file would read
+// every sector of the other as a full move.
+func fundLargestSectorChange(prev, latest []shortsstore.FundHoldingDetail) (float64, string, bool) {
+	if len(prev) == 0 || len(latest) == 0 {
+		return 0, "", false
+	}
+	was := sectorWeightsByName(fundSectorWeights(prev))
+	now := sectorWeightsByName(fundSectorWeights(latest))
+	names := make([]string, 0, len(was)+len(now))
+	seen := map[string]bool{}
+	for _, m := range []map[string]*shortsv1alpha1.FundSectorWeight{was, now} {
+		for name := range m {
+			if !seen[name] {
+				seen[name] = true
+				names = append(names, name)
+			}
+		}
+	}
+	sort.Strings(names)
+	var best float64
+	var bestSector string
+	found := false
+	for _, name := range names {
+		a, okA := sectorWeightKnown(was[name])
+		b, okB := sectorWeightKnown(now[name])
+		if !okA || !okB {
+			continue
+		}
+		if d := b - a; !found || math.Abs(d) > math.Abs(best) {
+			best, bestSector, found = d, name, true
+		}
+	}
+	return best, bestSector, found
+}
+
+// sectorWeightsByName indexes one file's sector weights by sector.
+func sectorWeightsByName(ws []*shortsv1alpha1.FundSectorWeight) map[string]*shortsv1alpha1.FundSectorWeight {
+	out := make(map[string]*shortsv1alpha1.FundSectorWeight, len(ws))
+	for _, w := range ws {
+		out[w.Industry] = w
+	}
+	return out
+}
+
+// sectorWeightKnown is a sector's weight in one file: 0 when the file holds no
+// such sector, the stated weight when it has one, and unknown (false) when its
+// holdings state no weight.
+func sectorWeightKnown(w *shortsv1alpha1.FundSectorWeight) (float64, bool) {
+	if w == nil {
+		return 0, true
+	}
+	if !w.HasWeightPct {
+		return 0, false
+	}
+	return w.WeightPct, true
 }
 
 // GetFundPortfolio is one fund's holdings at a file date: the newest file at or

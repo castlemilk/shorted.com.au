@@ -177,6 +177,18 @@ describe("loadFunds", () => {
     });
   });
 
+  it("reads the largest sector change with its has_ flag, and withholds both figures without it", async () => {
+    mockListFunds.mockResolvedValue({
+      funds: [
+        summary({ largestSectorChangePp: -2.5, hasLargestSectorChange: true, largestSectorChangeSector: "Banks" }),
+        summary({ fundKey: "asx:IOZ", ticker: "IOZ", largestSectorChangePp: 0, hasLargestSectorChange: false, largestSectorChangeSector: "" }),
+      ],
+    });
+    const page = await loadFunds();
+    expect(page.funds[0]).toMatchObject({ largestSectorChangePp: -2.5, largestSectorChangeSector: "Banks" });
+    expect(page.funds[1]).toMatchObject({ largestSectorChangePp: null, largestSectorChangeSector: "" });
+  });
+
   it("answers an outage as not ok, never as an empty fund list", async () => {
     mockListFunds.mockRejectedValue({ code: 14, message: "unavailable" });
     const page = await loadFunds();
@@ -269,6 +281,69 @@ describe("the inspector resolvers", () => {
     expect(content?.note).toBe("+0.3 percentage points vs 2026-09-30");
   });
 
+  describe("two funds compared (backlog C5)", () => {
+    const compared = (fundKey: string, asAt: string, sectors: Array<[string, number]>, codes: string[]) => ({
+      ...portfolio(asAt, codes.map((code) => holding(code))),
+      fundKey,
+      ticker: fundKey.slice(4),
+      name: `${fundKey.slice(4)} fund`,
+      sectorWeights: sectors.map(([industry, weightPct]) => ({ industry, weightPct, hasWeightPct: true })),
+    });
+
+    it("reads the newest file of each fund, and draws the two as one comparison", async () => {
+      mockGetFundPortfolio.mockImplementation(async (request: { fundKey: string }) =>
+        request.fundKey === "asx:A200"
+          ? compared("asx:A200", "2026-11-02", [["Materials", 12]], ["BHP", "RIO"])
+          : compared("asx:IOZ", "2026-10-31", [["Banks", 28]], ["CBA"]),
+      );
+      const content = await resolveFundSelection({ kind: "compare", fundKeys: ["asx:A200", "asx:IOZ"] });
+      expect(content?.heading).toBe("A200 vs IOZ");
+      expect(content?.subtitle).toBe("A200 at 2026-11-02 · IOZ at 2026-10-31");
+      expect(content?.primary?.href).toBe("/ownership/changes?fund=asx%3AA200");
+      expect(mockGetFundPortfolio).toHaveBeenCalledTimes(2);
+      expect(mockGetFundPortfolio).toHaveBeenCalledWith({ fundKey: "asx:A200", asAt: "" });
+      expect(mockGetFundPortfolio).toHaveBeenCalledWith({ fundKey: "asx:IOZ", asAt: "" });
+    });
+
+    it("answers a fund the record does not hold with nothing on record, never a half comparison", async () => {
+      mockGetFundPortfolio.mockImplementation(async (request: { fundKey: string }) => {
+        if (request.fundKey === "asx:ZZZ") throw Object.assign(new Error("not found"), { notFound: true });
+        return compared("asx:A200", "2026-11-02", [["Materials", 12]], ["BHP"]);
+      });
+      expect(await resolveFundSelection({ kind: "compare", fundKeys: ["asx:A200", "asx:ZZZ"] })).toBeNull();
+    });
+
+    it("answers a failed read of either fund with the outage note, and no sectors of the other", async () => {
+      mockGetFundPortfolio.mockImplementation(async (request: { fundKey: string }) => {
+        if (request.fundKey === "asx:IOZ") throw new Error("connection reset");
+        return compared("asx:A200", "2026-11-02", [["Materials", 12]], ["BHP"]);
+      });
+      const content = await resolveFundSelection({ kind: "compare", fundKeys: ["asx:A200", "asx:IOZ"] });
+      expect(content?.heading).toBe("Unavailable");
+      expect(content?.note).toContain("this is our end");
+      expect(content?.sections).toBeUndefined();
+    });
+
+    it("names no comparison for a selection with fewer than two keys", async () => {
+      mockGetFundPortfolio.mockClear();
+      expect(await resolveFundSelection({ kind: "compare", fundKeys: ["asx:A200"] })).toBeNull();
+      expect(mockGetFundPortfolio).not.toHaveBeenCalled();
+    });
+
+    it("answers a posted selection that is not the codec's shape with nothing, and never throws", async () => {
+      mockGetFundPortfolio.mockClear();
+      const malformed = [
+        { kind: "compare" },
+        { kind: "compare", fundKeys: "asx:A200" },
+        { kind: "compare", fundKeys: ["asx:A200", "asx:A200"] },
+      ] as unknown as Selection[];
+      for (const selection of malformed) {
+        await expect(resolveFundSelection(selection)).resolves.toBeNull();
+      }
+      expect(mockGetFundPortfolio).not.toHaveBeenCalled();
+    });
+  });
+
   it("answers an outage with a note, not with nothing on record", async () => {
     mockListFunds.mockRejectedValue(new Error("down"));
     const content = await resolveFundSelection(fundSel("asx:A200"));
@@ -323,7 +398,7 @@ describe("the API's fund keys", () => {
     const older = await resolveFundSelection(holdingSel("asx:A200", "CBA"), { asAt: "2026-09-30" });
     expect(mockGetFundPortfolio).toHaveBeenCalledWith({ fundKey: "asx:A200", asAt: "2026-09-30" });
     expect(older?.heading).toBe("CBA in A200");
-    expect(older?.figure?.value).toBe("6.2%");
+    expect(older?.figure?.value).toBe("6.20%");
     const newest = await resolveFundSelection(holdingSel("asx:A200", "CBA"));
     expect(newest?.heading).toBe("CBA in A200");
     expect(newest?.note).toBe("CBA is not reported in this file.");
@@ -351,7 +426,7 @@ describe("the API's fund keys", () => {
     const content = await resolveFundSelection(holdingSel(key, "BHP"));
     expect(mockGetFundPortfolio).toHaveBeenCalledWith({ fundKey: key, asAt: "" });
     expect(content?.heading).toBe("BHP in A200");
-    expect(content?.figure?.value).toBe("2.5%");
+    expect(content?.figure?.value).toBe("2.50%");
   });
 
   it("refuses an inverted pair of dates without a request, and says why in its error", async () => {

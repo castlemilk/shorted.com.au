@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { HolderInspector } from "../holder-inspector";
 import type { HolderInspectorContent } from "~/@/components/ownership/holders/holder-tree";
 import { fundHref } from "~/@/lib/ownership/kinds";
@@ -46,6 +46,45 @@ describe("holder inspector (spec 14.3)", () => {
     render(<HolderInspector initial={holderContent("Vanguard")} defaultKey="vanguard" resolve={resolve} />);
     expect(await screen.findByText("Materials")).toBeInTheDocument();
     expect(resolve).toHaveBeenCalledWith("vanguard", "stock:BHP");
+  });
+
+  it("leads the rail with its reading, under the heading and before the rows", () => {
+    const withReading = { ...holderContent("Vanguard"), reading: "172 positions, 14 new this quarter, largest in Banks." };
+    const { container } = render(
+      <HolderInspector initial={withReading} defaultKey="vanguard" resolve={jest.fn(async () => null)} />,
+    );
+    const reading = screen.getByText("172 positions, 14 new this quarter, largest in Banks.");
+    const heading = screen.getByRole("heading", { name: "Vanguard" });
+    const rows = screen.getByText("Disclosed positions");
+    expect(heading.compareDocumentPosition(reading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(reading.compareDocumentPosition(rows) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(reading.tagName).toBe("P");
+    expect(container.querySelectorAll("p.leading-snug")).toHaveLength(1);
+  });
+
+  it("draws no reading line when the holder carries none", () => {
+    const { container } = render(
+      <HolderInspector initial={holderContent("Vanguard")} defaultKey="vanguard" resolve={jest.fn(async () => null)} />,
+    );
+    expect(container.querySelector("p.leading-snug")).toBeNull();
+  });
+
+  it("draws a notices-by-week section as its strip, one link per week, and does not crash the rail", () => {
+    const weeks = Array.from({ length: 26 }, (_, index) => {
+      const day = new Date(Date.UTC(2026, 4, 4 + index * 7));
+      const weekStart = day.toISOString().slice(0, 10);
+      return { weekStart, count: index % 3, href: `/ownership/notices?holder=vanguard&since=${weekStart}` };
+    });
+    const withWeeks: HolderInspectorContent = {
+      ...holderContent("Vanguard"),
+      sections: [{ title: "Notices by week", kind: "weeks", weeks }],
+    };
+    render(<HolderInspector initial={withWeeks} defaultKey="vanguard" resolve={jest.fn(async () => null)} />);
+    const strip = screen.getByRole("group", { name: "Notices by week" });
+    const links = within(strip).getAllByRole("link");
+    expect(links).toHaveLength(26);
+    expect(links[0]).toHaveAttribute("href", weeks[0]?.href);
+    expect(links[25]).toHaveAttribute("href", weeks[25]?.href);
   });
 
   it("names the holder a page pins, whatever the URL says", async () => {

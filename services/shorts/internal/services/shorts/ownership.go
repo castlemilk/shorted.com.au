@@ -91,10 +91,10 @@ func (d *ownershipData) institutionBySlug() map[string]shortsstore.OwnershipInst
 }
 
 // institutionProto is one institution with its counts.
-func (d *ownershipData) institutionProto(i shortsstore.OwnershipInstitutionRow, positions map[string]int, funds map[string][2]float64) *shortsv1alpha1.OwnershipInstitution {
+func (d *ownershipData) institutionProto(i shortsstore.OwnershipInstitutionRow, positions, gained map[string]int, funds map[string][2]float64) *shortsv1alpha1.OwnershipInstitution {
 	out := &shortsv1alpha1.OwnershipInstitution{
 		Slug: i.Slug, Name: i.Name, Kind: i.Kind, Country: i.Country, Website: i.Website, Description: i.Description,
-		SubstantialPositions: int32(positions[i.Slug]),
+		SubstantialPositions: int32(positions[i.Slug]), PositionsGained: int32(gained[i.Slug]),
 	}
 	if i.AUM != nil {
 		out.AumAud, out.HasAum, out.AumAsAt = *i.AUM, true, i.AUMAsAt
@@ -115,6 +115,25 @@ func positionsByHolder(holdings []shortsstore.SubstantialHoldingRow) map[string]
 	out := map[string]int{}
 	for _, h := range holdings {
 		out[h.HolderKey]++
+	}
+	return out
+}
+
+// gainedByHolder counts each holder's current positions whose latest notice is a
+// 603 (became substantial) released in the default window: the 91 days ending at
+// the newest notice, the desk's rule. A holding whose form is not stated counts
+// nothing. The count is over the holdings as given, so a holder's positions_gained
+// never exceeds its substantial_positions.
+func gainedByHolder(holdings []shortsstore.SubstantialHoldingRow, newest string, today time.Time) map[string]int {
+	out := map[string]int{}
+	from, to, err := deskWindow("", "", newest, today)
+	if err != nil {
+		return out
+	}
+	for _, h := range holdings {
+		if h.Form == "603" && h.AnnouncedOn >= from && h.AnnouncedOn <= to {
+			out[h.HolderKey]++
+		}
 	}
 	return out
 }
@@ -464,6 +483,7 @@ func buildOwnershipOverview(u *ownershipUniverse) *shortsv1alpha1.GetOwnershipOv
 	d := u.data
 	views := u.views
 	positions := positionsByHolder(d.holdings)
+	gained := gainedByHolder(d.holdings, d.stats.LatestAnnounced, u.builtAt)
 	funds := fundsByInstitution(d.funds)
 	out := &shortsv1alpha1.GetOwnershipOverviewResponse{
 		NoticesParsed: int32(d.stats.Parsed), NoticesWithheld: int32(d.stats.Withheld), AsOf: d.stats.LatestAnnounced,
@@ -512,7 +532,7 @@ func buildOwnershipOverview(u *ownershipUniverse) *shortsv1alpha1.GetOwnershipOv
 
 	for _, i := range d.institutions {
 		if positions[i.Slug] > 0 {
-			out.TopHolders = append(out.TopHolders, d.institutionProto(i, positions, funds))
+			out.TopHolders = append(out.TopHolders, d.institutionProto(i, positions, gained, funds))
 		}
 	}
 	sort.Slice(out.TopHolders, func(i, j int) bool {
@@ -666,13 +686,15 @@ func (s *ShortsServer) ListInstitutions(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("list institutions: %w", err))
 	}
-	return connect.NewResponse(buildInstitutionList(u.data, kind, query, limit, offset)), nil
+	return connect.NewResponse(buildInstitutionList(u.data, kind, query, limit, offset, u.builtAt)), nil
 }
 
 // buildInstitutionList filters and pages the institutions: most current
-// substantial holdings first, then largest assets, then name.
-func buildInstitutionList(d *ownershipData, kind, query string, limit, offset int32) *shortsv1alpha1.ListInstitutionsResponse {
+// substantial holdings first, then largest assets, then name. today anchors the
+// window positions_gained counts.
+func buildInstitutionList(d *ownershipData, kind, query string, limit, offset int32, today time.Time) *shortsv1alpha1.ListInstitutionsResponse {
 	positions := positionsByHolder(d.holdings)
+	gained := gainedByHolder(d.holdings, d.stats.LatestAnnounced, today)
 	funds := fundsByInstitution(d.funds)
 	var all []*shortsv1alpha1.OwnershipInstitution
 	for _, i := range d.institutions {
@@ -682,7 +704,7 @@ func buildInstitutionList(d *ownershipData, kind, query string, limit, offset in
 		if query != "" && !strings.Contains(strings.ToLower(i.Name), query) && !strings.Contains(i.Slug, query) {
 			continue
 		}
-		all = append(all, d.institutionProto(i, positions, funds))
+		all = append(all, d.institutionProto(i, positions, gained, funds))
 	}
 	sort.Slice(all, func(a, b int) bool {
 		x, y := all[a], all[b]
@@ -743,7 +765,8 @@ func buildInstitution(u *ownershipUniverse, slug string, notices []shortsstore.S
 	}
 	held := u.holdingsByHolder[slug]
 	out.Institution = d.institutionProto(inst,
-		map[string]int{slug: len(held)}, fundsByInstitution(u.fundsByInstitution[slug]))
+		map[string]int{slug: len(held)}, gainedByHolder(held, d.stats.LatestAnnounced, u.builtAt),
+		fundsByInstitution(u.fundsByInstitution[slug]))
 	for _, h := range held {
 		out.Positions = append(out.Positions, d.holdingProto(h))
 	}

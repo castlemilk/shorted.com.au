@@ -172,3 +172,22 @@ describe("FundPositions moves", () => {
     await waitFor(() => expect(window.location.search).toBe(""));
   });
 });
+
+describe("FundPositions on the Overview (backlog B2)", () => {
+  it("draws the title link and no slider, and a name writes its selection in place with no series request", () => {
+    mockSearchParams = new URLSearchParams("");
+    window.history.replaceState(null, "", "/ownership");
+    const loadPositions = jest.fn(async () => page());
+    const loadSeries = jest.fn(async () => SERIES);
+    render(<FundPositions initial={page()} loadPositions={loadPositions} loadSeries={loadSeries} variant="compact" />);
+    expect(screen.getByRole("link", { name: "Index fund positions" })).toHaveAttribute(
+      "href",
+      "/ownership/map?lens=index_flow",
+    );
+    expect(screen.queryByRole("slider")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /BHP/ }));
+    expect(new URLSearchParams(window.location.search).get("sel")).toBe("stock:BHP");
+    expect(loadSeries).not.toHaveBeenCalled();
+    expect(loadPositions).not.toHaveBeenCalled();
+  });
+});

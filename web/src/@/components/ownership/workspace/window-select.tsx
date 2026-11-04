@@ -1,6 +1,6 @@
 /**
- * The window of change as one labelled select (spec 14.9): the map, connections, activity
- * and the notices feed share it (the Overview's desk toolbar keeps its window chips). It writes the same `window` link the chips wrote, and
+ * The window of change as one labelled select (spec 14.9): the Overview's toolbar (backlog B2 replaced its
+ * chips), the map, connections, activity and the notices feed share it. It writes the same `window` link the chips wrote, and
  * a brushed pair (`since`/`until`) is one extra option, "Brushed" (the dates are the caption's, so the
  * select keeps its width).
  *

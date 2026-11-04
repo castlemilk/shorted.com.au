@@ -195,13 +195,19 @@ const METHOD_P2 =
 const METHOD_P3 =
   "Index fund holdings are the funds' own holdings files (Vanguard's are the pooled fund behind each ETF); super fund holdings are each fund's portfolio holdings disclosure for one investment option, not the whole fund. Short interest is ASIC's daily short position report. Not financial advice.";
 
+/**
+ * The shared method, paragraph by paragraph. The method disclosure (workspace/method-disclosure.tsx)
+ * draws them with a lead sentence each, so the words are read from here and not restated.
+ */
+export const METHOD_PARAGRAPHS: readonly string[] = [METHOD_P1, METHOD_P2, METHOD_P3];
+
 /** Where the figures come from, and what they are not. */
 export function OwnershipMethodology({ className }: { className?: string }) {
   return (
     <div className={cn("space-y-2 text-xs text-muted-foreground", className)}>
-      <p>{METHOD_P1}</p>
-      <p>{METHOD_P2}</p>
-      <p>{METHOD_P3}</p>
+      {METHOD_PARAGRAPHS.map((paragraph) => (
+        <p key={paragraph.slice(0, 40)}>{paragraph}</p>
+      ))}
     </div>
   );
 }

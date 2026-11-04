@@ -2,20 +2,22 @@
  * Display formatting for ASX company names.
  *
  * Two shapes reach the UI:
- *  1. Backend-title-cased names — services/shorts/.../postgres.go
- *     `cleanCompanyName` lowercases the ASIC name then title-cases it, which
- *     destroys ticker acronyms: "BHP GROUP LIMITED" becomes "Bhp Group",
- *     "CSL LIMITED" becomes "Csl". (Root cause; fixing it there needs a
- *     backend deploy AND a re-sync of company-metadata.)
+ *  1. Names the old backend title-caser stored: "BHP GROUP LIMITED" became
+ *     "Bhp Group" and "CSL LIMITED" became "Csl", which destroys ticker
+ *     acronyms. The ownership rpcs clean names at the store read now: the Go
+ *     copies, services/shorts/internal/store/shorts/company_name.go and
+ *     services/market-data-sync/stocklist/company_name.go, are identical to
+ *     this formatter (ticker and plain-word tables included), so the API serves
+ *     "BHP Group". This formatter still repairs the rows stored that way.
  *  2. Raw ASIC / metadata names that are still SHOUTED ("BHP GROUP LIMITED").
  *
  * `formatCompanyName` repairs both at the display layer:
  *  - a word equal to the stock code (case-insensitive) always renders
- *    uppercase — "Bhp Group" + BHP → "BHP Group";
+ *    uppercase - "Bhp Group" + BHP → "BHP Group";
  *  - an all-caps source is title-cased, but 1-3 letter all-caps acronyms in
- *    that source keep their case — "BHP GROUP LIMITED" + BHP → "BHP Group";
+ *    that source keep their case - "BHP GROUP LIMITED" + BHP → "BHP Group";
  *  - trailing entity/security suffixes (LIMITED, LTD, ...) are dropped;
- *  - a mixed-case name is otherwise left alone — this never re-cases prose.
+ *  - a mixed-case name is otherwise left alone - this never re-cases prose.
  *
  * Pure and dependency-free, so it is safe in both server and client chains.
  */
@@ -32,7 +34,7 @@ const TRAILING_SUFFIX =
  * "FIDUCIAN GROUP LTD ORDINARY FULLY PAID", "LENDLEASE GROUP FPO/UNITS
  * STAPLED", "BLOCK INC CDI 1:1 NYSE", "FLETCHER BUILDING ORD FOR. EXEMPT NZX",
  * "GRAINCORP LIMITED A CLASS ORDINARY". Everything from the FIRST security-type
- * token onward is instrument metadata, never part of the company name — so cut
+ * token onward is instrument metadata, never part of the company name - so cut
  * there rather than trying to enumerate every trailing qualifier and venue.
  * Measured over 819 live ASIC names this takes the residual-descriptor rate
  * from 10.5% to 0%.
@@ -48,8 +50,25 @@ const TOKENS = /([^A-Za-z0-9]+)/;
 // Lowercased inside a title-cased name (never as the first word).
 const MINOR_WORDS = new Set(["of", "and", "the", "for", "in", "on", "de"]);
 
+// ASX tickers that stay capitals in any source: a word whose upper-case form is
+// here is written upper even in a mixed-case name ("Qbe Insurance Group" reads
+// "QBE Insurance Group"). RIO is deliberately absent: "Rio Tinto" is a word.
+// Mirrors companyTickerWords in services/shorts/internal/store/shorts/company_name.go.
+const TICKER_WORDS = new Set([
+  "BHP", "CSL", "NAB", "ANZ", "QBE", "AMP", "IAG", "CBA", "WBC", "S32", "REA", "ASX",
+]);
+
+// Short English words a shouted name uses that are not acronyms: "RED METAL
+// LIMITED" reads "Red Metal", while "NIB HOLDINGS" keeps its acronym. Mirrors
+// plainShortWords in the same Go file.
+const PLAIN_SHORT_WORDS = new Set([
+  "AIR", "ALL", "ARK", "BAY", "BIG", "FOX", "GAS", "HOT", "ICE", "JET", "KEY",
+  "LOW", "MAX", "NEW", "OIL", "OLD", "ONE", "RED", "SEA", "SKY", "SUN", "TOP",
+  "WAY",
+]);
+
 /**
- * Upper-case the first LETTER, not the first character — a token can start
+ * Upper-case the first LETTER, not the first character - a token can start
  * with a digit ("4DMEDICAL"), and capitalising position 0 there would leave
  * the whole word lowercase ("4dmedical" instead of "4Dmedical").
  */
@@ -84,7 +103,7 @@ export function formatCompanyName(
   let cleaned = name.trim();
   // Cut the instrument metadata tail first, so the entity-suffix strip below
   // sees a real trailing suffix ("SALUDA MEDICAL, INC. CDI USPROHEXCLQIB" →
-  // "SALUDA MEDICAL, INC." → "Saluda Medical"). Never cut to nothing — a name
+  // "SALUDA MEDICAL, INC." → "Saluda Medical"). Never cut to nothing - a name
   // that IS a security word (or starts with one) keeps its original form.
   const securityCut = cleaned.search(SECURITY_TYPE);
   if (securityCut > 0) {
@@ -108,7 +127,7 @@ export function formatCompanyName(
   }
   if (!cleaned) cleaned = name.trim();
 
-  // Re-case when the source carries NO case information of its own — either
+  // Re-case when the source carries NO case information of its own - either
   // SHOUTED ("BHP GROUP") or entirely lower-case ("4dmedical", which is what
   // the pre-fix backend title-caser stored for digit-leading names, since it
   // capitalised character 0 instead of the first letter). A genuinely
@@ -126,7 +145,7 @@ export function formatCompanyName(
       // A lone letter straight after an apostrophe is a possessive/contraction
       // suffix, never an acronym: "DOMINO'S" → "Domino's", not "Domino'S".
       // Applied even to a mixed-case source, because English never capitalises
-      // it — and "Domino'S" is exactly the shape already stored in
+      // it - and "Domino'S" is exactly the shape already stored in
       // company-metadata by the pre-fix backend title-caser.
       if (
         wordIndex > 0 &&
@@ -142,7 +161,9 @@ export function formatCompanyName(
       ) {
         return code;
       }
-      // A minor word mid-name is lower-case in English title case, always —
+      // A ticker that stays capitals in any source ("Rea Group" with REA).
+      if (TICKER_WORDS.has(token.toUpperCase())) return token.toUpperCase();
+      // A minor word mid-name is lower-case in English title case, always -
       // so this is applied to a mixed-case source too, repairing the rows the
       // old backend title-caser stored as "Bank Of Queensland" / "Bendigo And
       // Adelaide Bank". A LEADING minor word keeps its capital ("The A2 Milk").
@@ -158,7 +179,13 @@ export function formatCompanyName(
       // Short all-caps acronyms in a shouted source stay uppercase. Not
       // applied to a lower-case source, where a 3-letter token is far more
       // likely a word than an acronym.
-      if (isShouting && token.length <= 3) return token.toUpperCase();
+      if (
+        isShouting &&
+        token.length <= 3 &&
+        !PLAIN_SHORT_WORDS.has(token.toUpperCase())
+      ) {
+        return token.toUpperCase();
+      }
       return titleCaseWord(token);
     })
     .join("");
@@ -166,7 +193,7 @@ export function formatCompanyName(
 
 // Display name for every SEO-critical surface (title, og:title, h1, crawler
 // summary, schema) and the stock header. `stock.name` is the raw ASIC PRODUCT
-// string — SHOUTED, with a security-type descriptor — so it goes through the
+// string - SHOUTED, with a security-type descriptor - so it goes through the
 // shared formatter. Not the backend's `cleanCompanyName` (above), which is
 // what mangles the acronyms this repairs.
 export function cleanCompanyName(name: string, code: string): string {

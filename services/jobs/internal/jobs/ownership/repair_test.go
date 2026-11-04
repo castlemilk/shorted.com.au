@@ -3,6 +3,7 @@ package ownership
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -215,6 +216,7 @@ func TestRepairPlaceholdersPingsOnlyAfterARemoval(t *testing.T) {
 	apply := config{mode: modeRepairPlaceholders, apply: true}
 	cbaOnly := []storedNotice{{URL: "cba", StockCode: "CAR", HolderName: "Citigroup Global Markets Australia Pty Limited, as listed in Annexure A"}}
 	keptOnly := []storedNotice{{URL: "tail", StockCode: "MNO", HolderKey: "blackrock", HolderName: "SEE ANNEXURE A", Form: "605", Ceased: true}}
+	changeOnly := []storedNotice{{URL: "mhc", StockCode: "MHC", HolderName: "Eric Sondergaard", PreviousPct: pctOf(5.21), PresentPct: pctOf(78.21), AnnouncedOn: "2026-09-25", Form: "604"}}
 	for _, tc := range []struct {
 		name  string
 		rows  []storedNotice
@@ -229,6 +231,8 @@ func TestRepairPlaceholdersPingsOnlyAfterARemoval(t *testing.T) {
 		{"apply on a dry run", repairRows(), config{mode: modeRepairPlaceholders, dryRun: true, apply: true}, false, true, 0},
 		{"nothing matched", cbaOnly, apply, false, true, 0},
 		{"only kept rows", keptOnly, apply, false, true, 0},
+		{"implausible change", changeOnly, apply, false, true, 1},
+		{"implausible change, dry run", changeOnly, config{mode: modeRepairPlaceholders, dryRun: true}, false, true, 0},
 		{"removal failed", repairRows(), apply, true, true, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -268,6 +272,13 @@ func TestRepairAgreesWithGate(t *testing.T) {
 		{"Annexure A: BlackRock Inc.", false},
 		{"Refer Annexure A for Vanguard Group entities", false},
 		{"SEE ANNEXURE A (BlackRock Inc. and its subsidiaries)", false},
+		// The 2026-11 names: a label inside the value, and the notice's own sentence.
+		// A label after the value is cut by the parser, so the name is kept.
+		{"Eric Sondergaard Name-Holdings Pty Ltd", true},
+		{"This notice is given by", true},
+		{"This notice is given by Carma", true},
+		{"This notice is given by Carma Investments Pty Ltd", false},
+		{"Eric Sondergaard Name", false},
 	} {
 		_, outcome, detail := parseSubstantialNotice(placeholderNotice(tc.name), "")
 		if withheld := outcome == outcomeNoHolder; withheld != tc.withheld {
@@ -288,6 +299,114 @@ func TestRepairAgreesWithGate(t *testing.T) {
 			t.Errorf("repair on %q: %d removable (stored as %+v), want removable %v", tc.name, removable, row, tc.withheld)
 		}
 	}
+}
+
+// A stored name is judged as the parser stored it, before the label cut. The
+// two names the production rail printed are listed with the phrase that withholds
+// them, so the repair removes them and the next run stores the cleaned name.
+func TestPlaceholderRowsListsStoredLabelNames(t *testing.T) {
+	rows := []storedNotice{
+		{URL: "mhc", StockCode: "MHC", HolderKey: "name:eric sondergaard name", HolderName: "Eric Sondergaard Name", AnnouncedOn: "2026-09-25", Form: "603"},
+		{URL: "cma", StockCode: "CMA", HolderKey: "name:this notice is given by carma", HolderName: "This notice is given by Carma", AnnouncedOn: "2026-09-02", Form: "604"},
+	}
+	got := map[string]string{}
+	for _, p := range placeholderRows(rows) {
+		got[p.URL] = p.Reason
+	}
+	want := map[string]string{"mhc": `contains "name"`, "cma": `contains "this notice"`}
+	if !maps.Equal(got, want) {
+		t.Errorf("listed %v, want %v", got, want)
+	}
+}
+
+// pctOf is a stored percentage, for the rows a test builds.
+func pctOf(v float64) *float64 { return &v }
+
+// A stored 604 whose stated change is over 50 points is listed, in either
+// direction. A change of exactly 50, a change within 50, a row with no previous
+// figure, a 605 and an NZ notice are not change rows.
+func TestImplausibleChangeRows(t *testing.T) {
+	rows := []storedNotice{
+		{URL: "up", StockCode: "MHC", HolderName: "Eric Sondergaard", PreviousPct: pctOf(5.21), PresentPct: pctOf(78.21), AnnouncedOn: "2026-09-25", Form: "604"},
+		{URL: "down", StockCode: "CAR", HolderName: "Some Fund", PreviousPct: pctOf(60), PresentPct: pctOf(9), AnnouncedOn: "2026-09-02", Form: "604"},
+		{URL: "ok", StockCode: "ABC", HolderName: "Some Fund", PreviousPct: pctOf(5.2), PresentPct: pctOf(10.1), AnnouncedOn: "2026-09-02", Form: "604"},
+		{URL: "fifty", StockCode: "DEF", HolderName: "Some Fund", PreviousPct: pctOf(5), PresentPct: pctOf(55), AnnouncedOn: "2026-09-02", Form: "604"},
+		{URL: "noprev", StockCode: "GHI", HolderName: "Some Fund", PresentPct: pctOf(78.21), AnnouncedOn: "2026-09-02", Form: "604"},
+		{URL: "cease", StockCode: "JKL", HolderName: "Some Fund", PresentPct: pctOf(3), AnnouncedOn: "2026-09-02", Form: "605", Ceased: true},
+		{URL: "nz", StockCode: "MNO", HolderName: "Some Fund", PreviousPct: pctOf(60), PresentPct: pctOf(5.21), AnnouncedOn: "2026-09-02", Form: "nz"},
+	}
+	var got []string
+	for _, p := range implausibleChangeRows(rows) {
+		got = append(got, p.URL)
+		if p.Kept {
+			t.Errorf("%s is kept, but a change row is always removable", p.URL)
+		}
+	}
+	if want := []string{"up", "down"}; !slices.Equal(got, want) {
+		t.Errorf("change rows %v, want %v", got, want)
+	}
+}
+
+// -apply removes the change rows with the placeholder rows, in one transaction. A
+// row both rules withhold is removed once, under the change reason, and a change
+// row is removed even when its holder is keyed to an institution: a re-read would
+// withhold it on the row mismatch, so keeping it would keep a row no re-read can
+// store.
+func TestRepairPlaceholdersRemovesImplausibleChanges(t *testing.T) {
+	// A web tier to ping, so the one revalidation after the removal is observable.
+	t.Setenv("REVALIDATION_URL", "https://web.example/api/revalidate")
+	t.Setenv("REVALIDATION_SECRET", "test-secret")
+	rows := []storedNotice{
+		{URL: "both", StockCode: "SYR", HolderName: "SEE ANNEXURE 1", PreviousPct: pctOf(5.21), PresentPct: pctOf(78.21), AnnouncedOn: "2026-10-20", Form: "604"},
+		{URL: "ok", StockCode: "ABC", HolderName: "Some Fund", PreviousPct: pctOf(5.2), PresentPct: pctOf(10.1), AnnouncedOn: "2026-09-02", Form: "604"},
+		{URL: "mhc", StockCode: "MHC", HolderName: "Eric Sondergaard", PreviousPct: pctOf(5.21), PresentPct: pctOf(78.21), AnnouncedOn: "2026-09-25", Form: "604"},
+		{URL: "noprev", StockCode: "GHI", HolderName: "Some Fund", PresentPct: pctOf(78.21), AnnouncedOn: "2026-09-02", Form: "604"},
+		{URL: "kept-change", StockCode: "QRS", HolderKey: "blackrock", HolderName: "SEE ANNEXURE A", PreviousPct: pctOf(5.21), PresentPct: pctOf(78.21), AnnouncedOn: "2026-10-02", Form: "604"},
+	}
+	store := &fakeRepairStore{rows: rows}
+	var pings []platform.RevalidateRequest
+	if err := repairPlaceholders(context.Background(), store, config{mode: modeRepairPlaceholders, apply: true}, recordPings(&pings)); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"both", "mhc", "kept-change"}
+	if store.transactions != 1 {
+		t.Fatalf("%d removal transactions, want 1", store.transactions)
+	}
+	if !slices.Equal(store.deletedNotices, want) || !slices.Equal(store.deletedAttempts, want) {
+		t.Errorf("deleted notices %v and attempts %v, want %v in both", store.deletedNotices, store.deletedAttempts, want)
+	}
+	if len(pings) != 1 {
+		t.Errorf("%d pings, want 1", len(pings))
+	}
+}
+
+// The listing for a change row names both figures and the rule, at four places,
+// and carries no kept-row note.
+func TestImplausibleChangeLine(t *testing.T) {
+	line := placeholderLine(implausibleChangeRowFor(t, "mhc", pctOf(5.21), pctOf(78.21)))
+	for _, want := range []string{
+		`MHC "Eric Sondergaard" key=name:eric sondergaard form=604`,
+		`present=78.2100%`,
+		`(stated change of 73.0000 points, over 50, between previous 5.2100% and present 78.2100%: a re-read keeps it only when both figures are on one row)`,
+	} {
+		if !strings.Contains(line, want) {
+			t.Errorf("line %q does not contain %q", line, want)
+		}
+	}
+	if strings.Contains(line, "NOTE: keyed to institution") {
+		t.Errorf("a change row carries the kept-row note: %q", line)
+	}
+}
+
+// implausibleChangeRowFor returns the change row for one stored 604.
+func implausibleChangeRowFor(t *testing.T, url string, prev, pres *float64) placeholderRow {
+	t.Helper()
+	rows := implausibleChangeRows([]storedNotice{{URL: url, StockCode: "MHC", HolderName: "Eric Sondergaard",
+		HolderKey: "name:eric sondergaard", PreviousPct: prev, PresentPct: pres, AnnouncedOn: "2026-09-25", Form: "604"}})
+	if len(rows) != 1 {
+		t.Fatalf("%d change rows, want 1", len(rows))
+	}
+	return rows[0]
 }
 
 // The listing is one line per row, with the inputs an operator judges a row by.

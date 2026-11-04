@@ -32,6 +32,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { FundPositionChangesPage, StockFundSeriesPage } from "~/app/actions/ownershipDesk";
+import { parseSelection, serializeSelection } from "~/@/components/ownership/workspace/selection";
 import { readDeskState, writeDeskState } from "./desk-state";
 import { FUND_POSITIONS_OUTAGE, FundPositionsView, FundStockPanel } from "./fund-positions-static";
 
@@ -41,6 +42,11 @@ export interface FundPositionsProps {
   initial: FundPositionChangesPage;
   loadPositions: (input: { from: string; to: string }) => Promise<FundPositionChangesPage>;
   loadSeries: (input: { stockCode: string }) => Promise<StockFundSeriesPage>;
+  /**
+   * The Overview's pane (backlog B2): positions only, no slider. A name selects its stock in the link, and the
+   * page's inspector follows it; the pane reads no pair and asks for no series.
+   */
+  variant?: "compact" | "full";
 }
 
 /**
@@ -53,10 +59,40 @@ const SERIES_OUTAGE =
   "The fund files for this stock could not be read just now. Nothing here is missing from the register: this is our end.";
 
 export function FundPositions(props: FundPositionsProps) {
+  if (props.variant === "compact") return <CompactFundPositions initial={props.initial} />;
   return (
     <Suspense fallback={<FundPositionsView page={props.initial} />}>
       <LiveFundPositions {...props} />
     </Suspense>
+  );
+}
+
+/**
+ * The Overview's pane. The server draws the static view; the island reads the link once for the selected
+ * stock, and a name writes `sel` in place (the inspector reads it), with no request.
+ */
+function CompactFundPositions({ initial }: { initial: FundPositionChangesPage }) {
+  return (
+    <Suspense fallback={<FundPositionsView page={initial} variant="compact" />}>
+      <LiveCompactFundPositions initial={initial} />
+    </Suspense>
+  );
+}
+
+function LiveCompactFundPositions({ initial }: { initial: FundPositionChangesPage }) {
+  const searchParams = useSearchParams();
+  const selection = parseSelection(searchParams?.get("sel") ?? "");
+  return (
+    <FundPositionsView
+      page={initial}
+      variant="compact"
+      selectedCode={selection?.kind === "stock" ? selection.code : undefined}
+      onSelect={(code) => {
+        const url = new URL(window.location.href);
+        url.searchParams.set("sel", serializeSelection({ kind: "stock", code }));
+        window.history.replaceState(null, "", url);
+      }}
+    />
   );
 }
 

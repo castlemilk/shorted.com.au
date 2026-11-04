@@ -21,7 +21,7 @@ const COMPARISON: FundComparison = {
 
 function props(overrides: Partial<FundChangesTableProps> = {}): FundChangesTableProps {
   return {
-    funds: [{ key: "asx:A200", ticker: "A200", name: "A200 fund" }],
+    funds: [{ key: "asx:A200", ticker: "A200", name: "A200 fund", snapshotCount: 2 }],
     defaults: { fund: "asx:A200", from: "2026-09-30", to: "2026-10-31" },
     defaultDates: ["2026-09-30", "2026-10-31"],
     initial: COMPARISON,
@@ -77,14 +77,14 @@ describe("the fund change table (spec 14.3, Changes)", () => {
     renderTable("from=2026-08-31&to=2026-10-31");
     // The pair differs from the defaults, so the table reads it: wait for that read to land.
     await screen.findByRole("table");
-    const earlier = screen.getByRole("combobox", { name: "Earlier snapshot" });
+    const earlier = screen.getByRole("combobox", { name: /^Earlier/ });
     expect(earlier).toHaveValue("2026-08-31");
     expect(within(earlier).getByRole("option", { name: "2026-08-31" })).toBeInTheDocument();
   });
 
   it("filters the rows by the Show choice it makes, through the URL (spec 14.9: one toolbar row)", () => {
     const navigate = renderTable("");
-    fireEvent.change(screen.getByRole("combobox", { name: "Show changes" }), { target: { value: "decreases" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /^Show/ }), { target: { value: "decreases" } });
     expect(navigate).toHaveBeenCalledWith("/ownership/changes?filter=decreases");
   });
 
@@ -94,10 +94,11 @@ describe("the fund change table (spec 14.3, Changes)", () => {
     expect(screen.queryByRole("link", { name: "CBA" })).not.toBeInTheDocument();
   });
 
-  it("says the weights can move with prices, and that the figures are exact file dates", () => {
+  it("says the figures are exact file dates and that weights can move with prices, in one footnote", () => {
     renderTable("");
-    expect(screen.getByText("Weight changes can reflect price moves.")).toBeInTheDocument();
-    expect(screen.getByText("Exact file dates shown · Comparable holdings only")).toBeInTheDocument();
+    expect(
+      screen.getByText("Exact file dates shown · Comparable holdings only · Weight changes can reflect price moves."),
+    ).toBeInTheDocument();
   });
 
   it("offers a CSV export only while there are rows to export", () => {
@@ -126,8 +127,8 @@ describe("the fund change table (spec 14.3, Changes)", () => {
     const compare = jest.fn(async () => COMPARISON);
     renderTable("fund=asx:IOZ&from=2026-08-31&to=2026-09-30", {
       funds: [
-        { key: "asx:A200", ticker: "A200", name: "A200 fund" },
-        { key: "asx:IOZ", ticker: "IOZ", name: "IOZ fund" },
+        { key: "asx:A200", ticker: "A200", name: "A200 fund", snapshotCount: 2 },
+        { key: "asx:IOZ", ticker: "IOZ", name: "IOZ fund", snapshotCount: 2 },
       ],
       compare,
     });
@@ -137,10 +138,67 @@ describe("the fund change table (spec 14.3, Changes)", () => {
   });
 });
 
+describe("the change table's toolbar and caption (spec 14.3, B4)", () => {
+  const FUNDS = [
+    { key: "asx:IOZ", ticker: "IOZ", name: "iShares", snapshotCount: 3 },
+    { key: "asx:A200", ticker: "A200", name: "Betashares", snapshotCount: 2 },
+    { key: "asx:VAS", ticker: "VAS", name: "Vanguard", snapshotCount: 1 },
+  ];
+
+  it("lists the funds in the order given, each label with the one-file suffix where it applies", () => {
+    renderTable("", { funds: FUNDS, defaults: { fund: "asx:IOZ", from: "", to: "" }, defaultDates: [] });
+    const select = screen.getByRole("combobox", { name: /^Fund/ });
+    expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "IOZ · iShares",
+      "A200 · Betashares",
+      "VAS · Vanguard (one file)",
+    ]);
+  });
+
+  it("keeps the four selects and the export inside the one toolbar row, and the note outside it (spec 14.9)", () => {
+    renderTable("");
+    const rows = document.querySelectorAll("[data-toolbar]");
+    expect(rows).toHaveLength(1);
+    const row = rows[0] as HTMLElement;
+    for (const control of [
+      screen.getByRole("combobox", { name: /^Fund/ }),
+      screen.getByRole("combobox", { name: /^Earlier/ }),
+      screen.getByRole("combobox", { name: /^Later/ }),
+      screen.getByRole("combobox", { name: /^Show/ }),
+      screen.getByRole("button", { name: "Export CSV" }),
+    ]) {
+      expect(row).toContainElement(control);
+    }
+    // The note is the footnote: a paragraph of its own, not a row control that could wrap the row.
+    expect(row).not.toContainElement(screen.getByText(/^Exact file dates shown/));
+  });
+
+  it("names the comparison in the caption, with the count of holdings changed", () => {
+    renderTable("");
+    // The fixture's rows: CBA and BHP move, NEW is newly reported.
+    expect(
+      screen.getByText("A200, 2026-09-30 against 2026-10-31: 3 holdings changed. Reported snapshot change, not a trade record."),
+    ).toBeInTheDocument();
+  });
+
+  it("names the dates the comparison was read for, never the selects' pending values", async () => {
+    const compare = jest.fn(async () => COMPARISON);
+    renderTable("from=2026-08-31&to=2026-10-31", { compare });
+    await screen.findByRole("table");
+    expect(screen.getByText(/^A200, 2026-09-30 against 2026-10-31:/)).toBeInTheDocument();
+    expect(screen.queryByText(/2026-08-31 against/)).not.toBeInTheDocument();
+  });
+
+  it("is the bare note when the comparison could not be read", () => {
+    renderTable("", { initial: { ...COMPARISON, ok: false, rows: [] } });
+    expect(screen.getByText("Reported snapshot change, not a trade record.")).toBeInTheDocument();
+  });
+});
+
 describe("the change table's selection and dates (spec 14.3, Changes)", () => {
   it("clears the held selection when the earlier snapshot changes, so the rail never shows the old range", () => {
     const navigate = renderTable("sel=holding%3Aasx%3AA200%2FCBA&from=2026-09-30&to=2026-10-31");
-    fireEvent.change(screen.getByLabelText("Earlier snapshot"), { target: { value: "2026-09-30" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /^Earlier/ }), { target: { value: "2026-09-30" } });
     const href = navigate.mock.calls[0]?.[0] as string;
     expect(href).toContain("from=2026-09-30");
     expect(href).not.toContain("sel=");

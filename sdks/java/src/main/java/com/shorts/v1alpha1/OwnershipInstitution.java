@@ -469,6 +469,22 @@ private static final long serialVersionUID = 0L;
     return hasFundsSize_;
   }
 
+  public static final int POSITIONS_GAINED_FIELD_NUMBER = 16;
+  private int positionsGained_ = 0;
+  /**
+   * <pre>
+   * The holder's current positions whose latest notice is a "became substantial"
+   * (Form 603) released in the last 91 days, the default window.
+   * </pre>
+   *
+   * <code>int32 positions_gained = 16 [json_name = "positionsGained"];</code>
+   * @return The positionsGained.
+   */
+  @java.lang.Override
+  public int getPositionsGained() {
+    return positionsGained_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -528,6 +544,9 @@ private static final long serialVersionUID = 0L;
     if (hasFundsSize_ != false) {
       output.writeBool(15, hasFundsSize_);
     }
+    if (positionsGained_ != 0) {
+      output.writeInt32(16, positionsGained_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -583,6 +602,10 @@ private static final long serialVersionUID = 0L;
     if (hasFundsSize_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(15, hasFundsSize_);
+    }
+    if (positionsGained_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(16, positionsGained_);
     }
     return size;
   }
@@ -640,6 +663,8 @@ private static final long serialVersionUID = 0L;
             other.getFundsSizeAud())) return false;
     if (getHasFundsSize()
         != other.getHasFundsSize()) return false;
+    if (getPositionsGained()
+        != other.getPositionsGained()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -685,6 +710,8 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_FUNDS_SIZE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasFundsSize());
+    hash = (37 * hash) + POSITIONS_GAINED_FIELD_NUMBER;
+    hash = (53 * hash) + getPositionsGained();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -831,6 +858,7 @@ private static final long serialVersionUID = 0L;
       funds_ = 0;
       fundsSizeAud_ = 0D;
       hasFundsSize_ = false;
+      positionsGained_ = 0;
       return this;
     }
 
@@ -909,6 +937,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00004000) != 0)) {
         result.hasFundsSize_ = hasFundsSize_;
       }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.positionsGained_ = positionsGained_;
+      }
     }
 
     @java.lang.Override
@@ -983,6 +1014,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasFundsSize() != false) {
         setHasFundsSize(other.getHasFundsSize());
+      }
+      if (other.getPositionsGained() != 0) {
+        setPositionsGained(other.getPositionsGained());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1085,6 +1119,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00004000;
               break;
             } // case 120
+            case 128: {
+              positionsGained_ = input.readInt32();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 128
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1965,6 +2004,53 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasFundsSize() {
       bitField0_ = (bitField0_ & ~0x00004000);
       hasFundsSize_ = false;
+      onChanged();
+      return this;
+    }
+
+    private int positionsGained_ ;
+    /**
+     * <pre>
+     * The holder's current positions whose latest notice is a "became substantial"
+     * (Form 603) released in the last 91 days, the default window.
+     * </pre>
+     *
+     * <code>int32 positions_gained = 16 [json_name = "positionsGained"];</code>
+     * @return The positionsGained.
+     */
+    @java.lang.Override
+    public int getPositionsGained() {
+      return positionsGained_;
+    }
+    /**
+     * <pre>
+     * The holder's current positions whose latest notice is a "became substantial"
+     * (Form 603) released in the last 91 days, the default window.
+     * </pre>
+     *
+     * <code>int32 positions_gained = 16 [json_name = "positionsGained"];</code>
+     * @param value The positionsGained to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPositionsGained(int value) {
+
+      positionsGained_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The holder's current positions whose latest notice is a "became substantial"
+     * (Form 603) released in the last 91 days, the default window.
+     * </pre>
+     *
+     * <code>int32 positions_gained = 16 [json_name = "positionsGained"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPositionsGained() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      positionsGained_ = 0;
       onChanged();
       return this;
     }

@@ -1,19 +1,61 @@
 import {
   INVESTOR_KINDS,
   KIND_INFO,
+  KIND_ORDER,
   OUTCOME_COPY,
   REGISTER_CODE_PATTERN,
   RESERVED_SLUGS,
   WITHHOLDING_OUTCOMES,
   asAtRange,
   fundHref,
+  formatHeadlinePct,
+  formatVotingPower,
   holderHref,
   isInstitutionSlug,
   isPooledFile,
+  kindShortLabel,
   FOLDED_SECTOR_LABEL,
   registerHref,
   shortSector,
 } from "../kinds";
+import { formatSum } from "~/@/components/ownership/ownership-parts";
+
+describe("formatHeadlinePct (spec A4)", () => {
+  it("prints a headline at two decimals, where the notice states four", () => {
+    expect(formatHeadlinePct(19.4336)).toBe("19.43%");
+    expect(formatHeadlinePct(13.131)).toBe("13.13%");
+  });
+
+  it("pads a whole figure to two decimals", () => {
+    expect(formatHeadlinePct(5)).toBe("5.00%");
+  });
+
+  it("prints a measured zero as 0.00%, never as a missing figure", () => {
+    expect(formatHeadlinePct(0)).toBe("0.00%");
+  });
+
+  it("prints n/a for a figure the page does not hold: null, undefined, NaN and infinity", () => {
+    expect(formatHeadlinePct(null)).toBe("n/a");
+    expect(formatHeadlinePct(undefined)).toBe("n/a");
+    expect(formatHeadlinePct(Number.NaN)).toBe("n/a");
+    expect(formatHeadlinePct(Number.POSITIVE_INFINITY)).toBe("n/a");
+  });
+
+  it("takes a true minus for a negative figure, as the rest of the copy does", () => {
+    expect(formatHeadlinePct(-2.5)).toBe("−2.50%");
+  });
+
+  it("keeps the notice's own precision in formatVotingPower, which the headline does not use", () => {
+    expect(formatVotingPower(19.4336)).toBe("19.4336%");
+    expect(formatHeadlinePct(19.4336)).not.toBe(formatVotingPower(19.4336));
+  });
+
+  it("prints what formatSum prints, the pair the kinds.ts comment names", () => {
+    for (const v of [19.4336, 13.131, 5, 0, -2.5, null, undefined, Number.NaN]) {
+      expect(formatHeadlinePct(v)).toBe(formatSum(v));
+    }
+  });
+});
 
 describe("shortSector (spec 14.9)", () => {
   it("maps every GICS industry group the API names to a short label", () => {
@@ -51,6 +93,46 @@ describe("shortSector (spec 14.9)", () => {
 
   it("names the fold's bucket for every sector past the six largest", () => {
     expect(FOLDED_SECTOR_LABEL).toBe("Other sectors");
+  });
+});
+
+describe("kindShortLabel (spec B6)", () => {
+  it("names each kind by its short label, the names a sankey's gutter is sized from", () => {
+    expect(kindShortLabel("super_fund")).toBe("Super");
+    expect(kindShortLabel("index_manager")).toBe("Index");
+    expect(kindShortLabel("active_manager")).toBe("Active");
+    expect(kindShortLabel("hedge_fund")).toBe("Hedge");
+    expect(kindShortLabel("bank_broker")).toBe("Bank/broker");
+    expect(kindShortLabel("sovereign_public")).toBe("Sovereign");
+    expect(kindShortLabel("insurer")).toBe("Insurer");
+    expect(kindShortLabel("private_equity")).toBe("PE");
+    expect(kindShortLabel("corporate")).toBe("Listed co");
+    expect(kindShortLabel("other")).toBe("Other");
+    expect(kindShortLabel("unclassified")).toBe("Unclassified");
+  });
+
+  it("reads an unknown kind as Unclassified, and an inherited name as Unclassified too", () => {
+    expect(kindShortLabel("")).toBe("Unclassified");
+    expect(kindShortLabel("made_up_kind")).toBe("Unclassified");
+    expect(kindShortLabel("constructor")).toBe("Unclassified");
+    expect(kindShortLabel("toString")).toBe("Unclassified");
+  });
+
+  it("keeps every short name at twelve characters or fewer, unique, and free of an ellipsis", () => {
+    const shorts = Object.keys(KIND_INFO).map((kind) => kindShortLabel(kind));
+    for (const short of shorts) {
+      expect(short.length).toBeGreaterThan(0);
+      expect(short.length).toBeLessThanOrEqual(12);
+      expect(short).not.toContain("…");
+    }
+    expect(new Set(shorts).size).toBe(shorts.length);
+  });
+
+  it("names every kind with its own short label, never the full one", () => {
+    for (const [kind, info] of Object.entries(KIND_INFO)) {
+      expect(kindShortLabel(kind)).toBe(info.short);
+      expect(info.short.length).toBeLessThanOrEqual(info.label.length);
+    }
   });
 });
 
@@ -94,8 +176,28 @@ describe("ownership kinds", () => {
   });
 
   it("gives the two swatches that vanish on the dark page a dark pair", () => {
-    expect(KIND_INFO.corporate.swatch).toBe("bg-[#483932] dark:bg-[#B5A48C]");
-    expect(KIND_INFO.private_equity.swatch).toBe("bg-[#9E5210] dark:bg-[#C77A2A]");
+    expect(KIND_INFO.corporate.swatch).toBe("bg-[#483932] dark:bg-[#A49994]");
+    expect(KIND_INFO.private_equity.swatch).toBe("bg-[#7E5C44] dark:bg-[#A98260]");
+  });
+
+  it("gives every kind a light and a dark swatch, so no kind keeps the light hex on the dark page", () => {
+    for (const info of Object.values(KIND_INFO)) {
+      expect(info.swatch).toMatch(/^bg-\[#[0-9A-F]{6}\] dark:bg-\[#[0-9A-F]{6}\]$/);
+    }
+  });
+
+  it("keeps each kind's SVG fill pair equal to its swatch, so a chart's mark and a box agree", () => {
+    for (const info of Object.values(KIND_INFO)) {
+      expect(info.fill).toBe(info.swatch.replace(/bg-/g, "fill-"));
+    }
+  });
+
+  it("keeps KIND_ORDER and KIND_INFO on the same kinds, so no kind is left out of the order, the table or the colour check", () => {
+    expect([...KIND_ORDER].sort()).toEqual(Object.keys(KIND_INFO).sort());
+  });
+
+  it("never gives the active manager the amber selection's own hex, which was its old swatch", () => {
+    expect(KIND_INFO.active_manager.swatch).not.toMatch(/FFA94D/i);
   });
 
   it("names every outcome, and withholds only the six that are withheld", () => {

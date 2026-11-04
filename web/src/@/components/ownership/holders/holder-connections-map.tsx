@@ -7,7 +7,7 @@ import { ScreenReaderTable } from "~/@/components/politicians/explorer/screen-re
 import { SectorIcon } from "~/@/components/ownership/workspace/sector-icon";
 import { StockLogoBox } from "~/@/components/ownership/workspace/stock-logo-box";
 import { parseSelection, type Selection } from "~/@/components/ownership/workspace/selection";
-import { formatVotingPower, kindInfo } from "~/@/lib/ownership/kinds";
+import { formatHeadlinePct, kindInfo } from "~/@/lib/ownership/kinds";
 import { sectionTitle } from "@/lib/typography";
 import { formatAmount } from "~/@/lib/fundamentals/format";
 import {
@@ -376,7 +376,7 @@ function SectorNode({
             <span className="font-mono text-sm font-semibold tabular-nums">{node.code}</span>
             {node.votingPowerPct !== null ? (
               <span className="ml-auto whitespace-nowrap font-mono text-[11px] tabular-nums text-muted-foreground">
-                {formatVotingPower(node.votingPowerPct)}
+                {formatHeadlinePct(node.votingPowerPct)}
               </span>
             ) : null}
           </button>
@@ -405,7 +405,7 @@ function SrConnectionsTable({ tree, name }: { tree: HolderTree | null; name: str
             <tr key={`${sector.label}:${company.code}`}>
               <td>{sector.label}</td>
               <td>{company.code}</td>
-              <td>{formatVotingPower(company.votingPowerPct)}</td>
+              <td>{formatHeadlinePct(company.votingPowerPct)}</td>
               <td>{company.exposureAud === null ? "n/a" : formatAmount(company.exposureAud, "AUD")}</td>
             </tr>
           )),

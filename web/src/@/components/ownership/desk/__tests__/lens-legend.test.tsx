@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 
-import { DeskChip, DeskLink, LensLegend, formatFlowPp, formatLensFigure } from "../lens-legend";
+import { DeskChip, DeskLink, LENS_SELECT_LABELS, LensLegend, formatFlowPp, formatLensFigure } from "../lens-legend";
 import { lensScale } from "../desk-scales";
 
 describe("formatFlowPp", () => {
@@ -17,6 +17,13 @@ describe("formatLensFigure", () => {
     expect(formatLensFigure("disclosed", 41.2)).toBe("41.20%");
     expect(formatLensFigure("index", null)).toBe("n/a");
     expect(formatLensFigure("flow", -2)).toBe("−2.00 pp");
+  });
+});
+
+describe("LENS_SELECT_LABELS", () => {
+  it("names the index fund lens \"Fund shares\" in the Colour select, so the toolbar row holds one line at 1440", () => {
+    expect(LENS_SELECT_LABELS.index_flow).toBe("Fund shares");
+    expect(LENS_SELECT_LABELS.index_flow.length).toBeLessThanOrEqual(LENS_SELECT_LABELS.flow.length);
   });
 });
 

@@ -16,7 +16,7 @@
  */
 
 import { sankey, sankeyJustify, sankeyLinkHorizontal, type SankeyNode } from "d3-sankey";
-import { kindInfo, kindRank } from "~/@/lib/ownership/kinds";
+import { FOLDED_SECTOR_LABEL, kindInfo, kindRank } from "~/@/lib/ownership/kinds";
 import { sectorOf } from "./map-layout";
 
 /** A holder kind's disclosed exposure in one industry, as the loader maps it. */
@@ -123,8 +123,30 @@ interface SankeyLinkDatum {
 const MAX_NODE_PADDING = 12;
 const NODE_WIDTH = 12;
 
-function positive(value: number | null): value is number {
+/** The kind a holder node names when it is the remainder: drawn last, whatever its size (spec B6). */
+const REMAINDER_KIND = "unclassified";
+
+export function positive(value: number | null): value is number {
   return value !== null && Number.isFinite(value) && value > 0;
+}
+
+/** The node keys a column ends with, whatever their size: the unclassified holders and the sectors' fold. */
+const REMAINDER_KEYS: ReadonlySet<string> = new Set([
+  `holder:${REMAINDER_KIND}`,
+  `sector:${FOLDED_SECTOR_LABEL}`,
+]);
+
+/**
+ * The columns' order: by exposure, largest first, with the remainders at the bottom whatever
+ * their size: the unclassified holders (what the map could not name, spec B6) and the
+ * "Other sectors" fold, which is what the drawing did not name. The order is fixed here, not
+ * left to d3's breadth relaxation: a column given a sort keeps it.
+ */
+function byExposureRemainderLast(a: GraphNode, b: GraphNode): number {
+  const remainderA = REMAINDER_KEYS.has(a.key);
+  const remainderB = REMAINDER_KEYS.has(b.key);
+  if (remainderA !== remainderB) return remainderA ? 1 : -1;
+  return (b.value ?? 0) - (a.value ?? 0) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
 }
 
 type GraphNode = SankeyNode<SankeyNodeDatum, SankeyLinkDatum>;
@@ -151,8 +173,8 @@ function buildFlow(bands: readonly RawBand[], width: number, height: number): Fl
     return nodes.length - 1;
   };
 
-  // Holders first, in the kind rank. d3-sankey then orders each column by breadth
-  // (no nodeSort is set), so the order the bands arrive in does not set the layout.
+  // Holders first, in the kind rank. The columns are then ordered by nodeSort, so the
+  // order the bands arrive in does not set the layout.
   const holderKinds = [...new Set(drawn.map((band) => band.kind))].sort(
     (a, b) => kindRank(a) - kindRank(b) || (a < b ? -1 : a > b ? 1 : 0),
   );
@@ -180,6 +202,7 @@ function buildFlow(bands: readonly RawBand[], width: number, height: number): Fl
     .nodeWidth(NODE_WIDTH)
     .nodePadding(nodePadding)
     .nodeAlign(sankeyJustify)
+    .nodeSort(byExposureRemainderLast)
     .extent([
       [0, 0],
       [width, height],
@@ -260,6 +283,94 @@ export function changeFlows(
     width,
     height,
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Labels: the gutters hold them, a phone wraps them (spec B6)         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A label's advance per character, as a share of its font size. The labels are mono,
+ * whose advance is about 0.60em; 0.62 keeps a little room for the face the browser
+ * falls back to.
+ */
+export const LABEL_CHAR_EM = 0.62;
+/** The clearance between a label and the column it names. */
+export const LABEL_GAP = 6;
+/** A label's line height, as a share of its font size. */
+export const LABEL_LINE_EM = 1.2;
+
+function charCount(text: string): number {
+  return [...text].length;
+}
+
+/** The width a label takes at a font size, from its characters (the labels are mono). */
+export function labelWidth(text: string, font: number): number {
+  return charCount(text) * LABEL_CHAR_EM * font;
+}
+
+/**
+ * A label split over two lines at the one space that leaves the wider line the
+ * narrower, or null when there is no space to break at. Neither line is cut.
+ */
+export function splitLabel(text: string): [string, string] | null {
+  const words = text.trim().split(/\s+/);
+  let best: [string, string] | null = null;
+  let bestLength = Number.POSITIVE_INFINITY;
+  for (let i = 1; i < words.length; i++) {
+    // A connective never opens the second line: "Durables &" / "apparel", not "Durables" / "& apparel".
+    if (words[i] === "&") continue;
+    const first = words.slice(0, i).join(" ");
+    const second = words.slice(i).join(" ");
+    const length = Math.max(charCount(first), charCount(second));
+    if (length < bestLength) {
+      best = [first, second];
+      bestLength = length;
+    }
+  }
+  return best;
+}
+
+/** The lines a label is drawn on in a room of `room` units: one when it fits, else two at a space. */
+export function labelLines(text: string, font: number, room: number): string[] {
+  if (labelWidth(text, font) <= room) return [text];
+  return splitLabel(text) ?? [text];
+}
+
+/** The narrowest a label can be drawn in: its width on one line, or the wider half of its best two-line split. */
+function narrowestLabel(text: string, font: number, wrap: boolean): number {
+  const whole = labelWidth(text, font);
+  if (!wrap) return whole;
+  const split = splitLabel(text);
+  return split === null ? whole : Math.min(whole, Math.max(labelWidth(split[0], font), labelWidth(split[1], font)));
+}
+
+/** The floor a gutter starts from, and whether its labels may wrap to two lines. */
+export interface FlowGutterFloor {
+  left: number;
+  right: number;
+  font: number;
+  /** The phone: a right label wraps before its gutter grows to hold it on one line. */
+  wrapRight: boolean;
+}
+
+/**
+ * The two gutters of a sankey, grown from the labels drawn in them (spec B6): each
+ * starts at the floor and widens to the widest label plus its clearance. A right label
+ * on a wrapping floor needs only its narrowest two-line width, so it wraps before it
+ * widens the gutter; a single word wider than the floor still widens it, never cut.
+ */
+export function flowGutters(
+  leftLabels: readonly string[],
+  rightLabels: readonly string[],
+  floor: FlowGutterFloor,
+): { left: number; right: number } {
+  const need = (labels: readonly string[], wrap: boolean) =>
+    labels.reduce((widest, text) => Math.max(widest, narrowestLabel(text, floor.font, wrap) + LABEL_GAP), 0);
+  return {
+    left: Math.max(floor.left, Math.ceil(need(leftLabels, false))),
+    right: Math.max(floor.right, Math.ceil(need(rightLabels, floor.wrapRight))),
+  };
 }
 
 /* ------------------------------------------------------------------ */

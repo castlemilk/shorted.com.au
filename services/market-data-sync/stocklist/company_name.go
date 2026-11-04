@@ -14,7 +14,7 @@ import (
 // code always renders uppercase. A mixed-case source keeps its casing.
 //
 // NOTE: services/shorts/internal/store/shorts/company_name.go is an identical
-// copy (separate Go module, no shared package) — change both together.
+// copy (separate Go module, no shared package) - change both together.
 // securityTypeRe marks where instrument metadata begins in the ASIC PRODUCT
 // field, which is `<company name> <security type> [qualifiers...]`:
 // "FIDUCIAN GROUP LTD ORDINARY FULLY PAID", "LENDLEASE GROUP FPO/UNITS
@@ -105,6 +105,10 @@ func cleanCompanyName(name, stockCode string) string {
 		switch {
 		case code != "" && upperToken == code && (isShouting || isAcronymLike(token)):
 			b.WriteString(code)
+		case companyTickerWords[upperToken]:
+			// A ticker that stays capitals in any source, so "Rea Group" with
+			// code REA reads "REA Group" as well as "REA GROUP" does.
+			b.WriteString(upperToken)
 		case wordIndex > 0 && isMinorWord(token):
 			// A minor word mid-name is lower-case in English title case,
 			// always -- applied to a mixed-case source too, repairing rows the
@@ -117,8 +121,9 @@ func cleanCompanyName(name, stockCode string) string {
 			// Milk"), not treated as a short acronym. (wordIndex == 0 here:
 			// mid-name minor words were handled above.)
 			b.WriteString(titleCaseWord(token))
-		case isShouting && len(token) <= 3:
-			// Short all-caps acronyms in a shouted source stay uppercase.
+		case isShouting && len(token) <= 3 && !plainShortWords[upperToken]:
+			// Short all-caps acronyms in a shouted source stay uppercase, except
+			// the short English words plainShortWords names.
 			b.WriteString(upperToken)
 		default:
 			b.WriteString(titleCaseWord(token))
@@ -165,6 +170,26 @@ func splitCompanyTokens(s string) []string {
 	return tokens
 }
 
+// companyTickerWords are ASX tickers that stay capitals whatever the source
+// does: a word whose upper-case form is here is written upper even in a
+// mixed-case name ("Qbe Insurance Group" reads "QBE Insurance Group"). RIO is
+// deliberately absent: "Rio Tinto" is a word, not an acronym.
+var companyTickerWords = map[string]bool{
+	"BHP": true, "CSL": true, "NAB": true, "ANZ": true, "QBE": true, "AMP": true,
+	"IAG": true, "CBA": true, "WBC": true, "S32": true, "REA": true, "ASX": true,
+}
+
+// plainShortWords are short English words a shouted name uses that are not
+// acronyms: "RED METAL LIMITED" reads "Red Metal", while "NIB HOLDINGS" keeps
+// its acronym. Without this list every shouted word of three letters or fewer
+// stays capitals.
+var plainShortWords = map[string]bool{
+	"AIR": true, "ALL": true, "ARK": true, "BAY": true, "BIG": true, "FOX": true,
+	"GAS": true, "HOT": true, "ICE": true, "JET": true, "KEY": true, "LOW": true,
+	"MAX": true, "NEW": true, "OIL": true, "OLD": true, "ONE": true, "RED": true,
+	"SEA": true, "SKY": true, "SUN": true, "TOP": true, "WAY": true,
+}
+
 // Lowercased inside a title-cased name (never as the first word).
 func isMinorWord(w string) bool {
 	switch strings.ToLower(w) {
@@ -175,13 +200,13 @@ func isMinorWord(w string) bool {
 }
 
 // isAcronymLike reports whether a word looks like a mangled acronym rather
-// than a real word: no vowel after the first letter ("Bhp", "Csl") — keeps
+// than a real word: no vowel after the first letter ("Bhp", "Csl") - keeps
 // the code-match rule from SHOUTING legitimate names like "Rio Tinto".
 func isAcronymLike(w string) bool {
 	return !strings.ContainsAny(w[1:], "aeiouAEIOU")
 }
 
-// titleCaseWord upper-cases the first LETTER, not the first character — a
+// titleCaseWord upper-cases the first LETTER, not the first character - a
 // token can start with a digit ("4DMEDICAL"), and capitalising position 0
 // there would leave the whole word lowercase ("4dmedical").
 func titleCaseWord(w string) string {
