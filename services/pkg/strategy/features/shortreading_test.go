@@ -1,0 +1,166 @@
+package features
+
+import (
+	"testing"
+
+	"cloud.google.com/go/civil"
+)
+
+// septemberReports returns the 22 weekdays of September 2026 with two ASIC rows
+// on each: OTH, which every test leaves alone, and the code under test, ABC,
+// reporting 5% on every date. Tests overwrite the rows they vary.
+func septemberReports(t *testing.T) (dates []civil.Date, rows []ASICRow) {
+	t.Helper()
+	dates = weekdaysFrom(t, "2026-09-01", 22)
+	for _, d := range dates {
+		rows = append(rows,
+			row(t, "OTH", d.String(), "OTHER GROUP ORDINARY", 1000, 10_000_000, ptr(1)),
+			row(t, "ABC", d.String(), "ABC GROUP ORDINARY", 500, 10_000_000, ptr(5)),
+		)
+	}
+	return dates, rows
+}
+
+// TestAbsentFromCompleteReportFails: a code missing from the newest usable
+// report, which is complete, reads absent. That is a failing reading for the
+// short rules, distinct from unknown, so the status must say absent and carry
+// the report's dates.
+func TestAbsentFromCompleteReportFails(t *testing.T) {
+	cal := testCalendar(t)
+	_, rows := septemberReports(t)
+	rows = append(rows, row(t, "GHOST", "2026-09-29", "GHOST GROUP ORDINARY", 900, 10_000_000, ptr(9)))
+	reports := NewReports(rows, nil)
+
+	asOf := mustDate(t, "2026-10-06") // 30 September is public from 6 October
+	got := ShortReadingV1("GHOST", asOf, cal, reports, nil, nil)
+	if got.Status != StatusAbsent {
+		t.Fatalf("status = %q, want %q (the newest complete report omits the code)", got.Status, StatusAbsent)
+	}
+	if got.ReportDate == nil || *got.ReportDate != mustDate(t, "2026-09-30") {
+		t.Errorf("report date = %v, want 2026-09-30", got.ReportDate)
+	}
+	if got.Pct != nil || got.Positions != nil {
+		t.Errorf("absent reading carries a value: pct=%v positions=%v", got.Pct, got.Positions)
+	}
+	if got.AvailableDate == nil || *got.AvailableDate != asOf {
+		t.Errorf("available date = %v, want 2026-10-06", got.AvailableDate)
+	}
+}
+
+// TestIncompleteNewestReportFallsBack: the newest usable report is partial, so
+// the reading falls back to the report before it. A partial report must never
+// supply a figure, even one the code really has in it.
+func TestIncompleteNewestReportFallsBack(t *testing.T) {
+	cal := testCalendar(t)
+	asOf := mustDate(t, "2026-10-06")
+
+	t.Run("recorded file rows", func(t *testing.T) {
+		_, rows := septemberReports(t)
+		// Replace the 30th's code row with a 9% figure, then record that the file
+		// had ten codes and only two reached shorts.
+		rows = replaceRow(t, rows, row(t, "ABC", "2026-09-30", "ABC GROUP ORDINARY", 900, 10_000_000, ptr(9)))
+		ingests := []ReportIngest{{ReportDate: mustDate(t, "2026-09-30"), FileRows: intPtr(10), LoadedRows: 2}}
+		reports := NewReports(rows, ingests)
+
+		got := ShortReadingV1("ABC", asOf, cal, reports, nil, nil)
+		assertFallbackToSeptember29(t, got)
+	})
+
+	t.Run("no recorded file rows, previous report has more rows", func(t *testing.T) {
+		_, rows := septemberReports(t)
+		// The 29th carries three rows. The 30th keeps only the code's own row, so
+		// 2 * 1 < 3 and the half rule marks it partial.
+		rows = removeRow(rows, "OTH", "2026-09-30")
+		rows = append(rows, row(t, "XTR", "2026-09-29", "XTRA GROUP ORDINARY", 1, 10_000_000, ptr(1)))
+		rows = replaceRow(t, rows, row(t, "ABC", "2026-09-30", "ABC GROUP ORDINARY", 900, 10_000_000, ptr(9)))
+		reports := NewReports(rows, nil)
+
+		got := ShortReadingV1("ABC", asOf, cal, reports, nil, nil)
+		assertFallbackToSeptember29(t, got)
+	})
+}
+
+func assertFallbackToSeptember29(t *testing.T, got ShortReading) {
+	t.Helper()
+	if got.Status != StatusReported {
+		t.Fatalf("status = %q, want %q", got.Status, StatusReported)
+	}
+	if got.ReportDate == nil || *got.ReportDate != mustDate(t, "2026-09-29") {
+		t.Errorf("report date = %v, want the 29th, the newest complete report", got.ReportDate)
+	}
+	if got.Pct == nil || *got.Pct != 5 {
+		t.Errorf("pct = %v, want 5 from the 29th; the partial 30th must not supply a figure", got.Pct)
+	}
+}
+
+func TestShortReadingV1Statuses(t *testing.T) {
+	cal := testCalendar(t)
+	asOf := mustDate(t, "2026-10-06")
+
+	t.Run("zero is a real zero", func(t *testing.T) {
+		_, rows := septemberReports(t)
+		rows = replaceRow(t, rows, row(t, "ABC", "2026-09-30", "ABC GROUP ORDINARY", 0, 10_000_000, ptr(0)))
+		got := ShortReadingV1("ABC", asOf, cal, NewReports(rows, nil), nil, nil)
+		if got.Status != StatusZero || got.Pct == nil || *got.Pct != 0 {
+			t.Errorf("status = %q pct = %v, want zero with pct 0", got.Status, got.Pct)
+		}
+	})
+
+	t.Run("a NULL percentage is unavailable, not zero", func(t *testing.T) {
+		_, rows := septemberReports(t)
+		rows = replaceRow(t, rows, row(t, "ABC", "2026-09-30", "ABC GROUP ORDINARY", 500, 10_000_000, nil))
+		got := ShortReadingV1("ABC", asOf, cal, NewReports(rows, nil), nil, nil)
+		if got.Status != StatusUnavailable || got.Reason != ReasonASICValueMissing {
+			t.Errorf("status = %q reason = %q, want unavailable with %s", got.Status, got.Reason, ReasonASICValueMissing)
+		}
+		if got.Pct != nil {
+			t.Errorf("unavailable reading carries pct %v", *got.Pct)
+		}
+	})
+
+	t.Run("no complete report within eight sessions is stale", func(t *testing.T) {
+		rows := []ASICRow{
+			row(t, "ABC", "2026-09-01", "ABC GROUP ORDINARY", 500, 10_000_000, ptr(5)),
+			row(t, "OTH", "2026-09-01", "OTHER GROUP ORDINARY", 1000, 10_000_000, ptr(1)),
+		}
+		got := ShortReadingV1("ABC", mustDate(t, "2026-09-25"), cal, NewReports(rows, nil), nil, nil)
+		if got.Status != StatusStale || got.Reason != ReasonASICReportStale {
+			t.Errorf("status = %q reason = %q, want stale", got.Status, got.Reason)
+		}
+		if got.ReportDate != nil || got.Pct != nil {
+			t.Errorf("stale reading names a report or a figure: %+v", got)
+		}
+	})
+}
+
+// TestShortReadingV0Filters: sf0 is the latest row with a positive percentage
+// that passes the v0 instrument filters, with no age limit. Each row here fails
+// one filter except the one dated 3 August.
+func TestShortReadingV0Filters(t *testing.T) {
+	cal := testCalendar(t)
+	rows := []ASICRow{
+		row(t, "XYZ", "2026-08-03", "XYZ GROUP ORDINARY", 2_000, 100_000_000, ptr(5)),
+		row(t, "XYZ", "2026-08-10", "XYZ GROUP ORDINARY", 0, 100_000_000, ptr(0)),
+		row(t, "XYZ", "2026-08-17", "XYZ ETF UNITS", 3_000, 100_000_000, ptr(7)),
+		row(t, "XYZ", "2026-08-24", "XYZ 4.5% NOTE", 4_000, 100_000_000, ptr(9)),
+		row(t, "XYZ", "2026-08-31", "XYZ GROUP ORDINARY", 5_000, 1_000, ptr(11)),
+	}
+	reports := NewReports(rows, nil)
+
+	t.Run("latest filtered row, no age limit", func(t *testing.T) {
+		got := ShortReadingV0("XYZ", mustDate(t, "2026-12-18"), cal, reports, nil)
+		if got.Status != StatusReported || got.ReportDate == nil || *got.ReportDate != mustDate(t, "2026-08-03") {
+			t.Fatalf("got %+v, want the 3 August ordinary row", got)
+		}
+		if got.Pct == nil || *got.Pct != 5 || got.Positions == nil || *got.Positions != 2_000 {
+			t.Errorf("pct/positions = %v/%v, want 5/2000", got.Pct, got.Positions)
+		}
+	})
+
+	t.Run("nothing on or before the decision date", func(t *testing.T) {
+		got := ShortReadingV0("XYZ", mustDate(t, "2026-07-31"), cal, reports, nil)
+		if got.Status != StatusNone {
+			t.Errorf("status = %q, want %q", got.Status, StatusNone)
+		}
+	})
+}
