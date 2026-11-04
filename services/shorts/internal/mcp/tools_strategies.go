@@ -167,7 +167,7 @@ func listStrategiesHandler(src DataSource) sdk.ToolHandlerFor[ListStrategiesInpu
 		// Projected: the proto also carries each strategy's description
 		// paragraphs, the author's rule text, our evaluation prose, caveats and
 		// sources — several KB per strategy, and the page at
-		// shorted.com.au/picks/{id} is the place to read them.
+		// shorted.com.au/strategies/{id} is the place to read them.
 		out := ListStrategiesOutput{
 			Strategies: []StrategySummary{},
 			Regime:     projectRegime(res.Msg.GetRegime()),
@@ -204,7 +204,7 @@ func listStrategiesHandler(src DataSource) sdk.ToolHandlerFor[ListStrategiesInpu
 				ids = append(ids, st.ID)
 			}
 			text = fmt.Sprintf("%d strategies: %s. %s Call get_strategy_picks with one of these ids for its ranked stocks. "+
-				"Full rules and method: https://shorted.com.au/picks. Not financial advice.",
+				"Full rules and method: https://shorted.com.au/strategies. Not financial advice.",
 				out.Count, strings.Join(ids, ", "), describeRegime(out.Regime))
 		}
 		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: text}}}, out, nil
@@ -598,6 +598,6 @@ func describePicks(out GetStrategyPicksOutput, status, sortBy string, st *shorts
 	if out.AsOf != "" {
 		b.WriteString(" Prices to " + out.AsOf + ".")
 	}
-	b.WriteString(" Method: https://shorted.com.au/picks/" + out.Strategy.ID + ". Not financial advice.")
+	b.WriteString(" Method: https://shorted.com.au/strategies/" + out.Strategy.ID + ". Not financial advice.")
 	return b.String()
 }

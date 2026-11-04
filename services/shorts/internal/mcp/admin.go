@@ -443,7 +443,7 @@ func runPicksJobTool() AdminTool {
 			Name:  t.Name,
 			Title: "Run the stock picker data job",
 			Description: "Start one execution of the shorted-picks Cloud Run job (`shorted picks -mode <mode>`), the data layer behind " +
-				"https://shorted.com.au/picks and the public list_strategies / get_strategy_picks / get_stock_fundamentals tools. " +
+				"https://shorted.com.au/strategies and the public list_strategies / get_strategy_picks / get_stock_fundamentals tools. " +
 				"Use it to build or top up fundamentals coverage without waiting for the nightly 15:00 UTC schedule. " +
 				"Writes to stock_fundamentals and refreshes materialized views; refuses to start while another picks run is in flight. " +
 				"Poll picks_job_status with the returned execution_name.",
