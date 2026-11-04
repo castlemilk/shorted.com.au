@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"unicode/utf8"
 )
 
 // pgStore is the job's Postgres side.
@@ -143,11 +144,19 @@ func (s *pgStore) RecordAttempt(ctx context.Context, a noticeAttempt, parserVers
 	return err
 }
 
+// truncate keeps the first n bytes of s as valid UTF-8: a PDF's text layer can
+// carry bytes Postgres refuses (0xff, SQLSTATE 22021), and a byte cut can split a
+// rune. Invalid bytes are dropped, and the cut lands on a rune boundary.
 func truncate(s string, n int) string {
+	s = strings.ToValidUTF8(s, "")
 	if len(s) <= n {
 		return s
 	}
-	return s[:n]
+	cut := n
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
 }
 
 // SyncRegistry upserts the curated institutions. AUM columns belong to the
