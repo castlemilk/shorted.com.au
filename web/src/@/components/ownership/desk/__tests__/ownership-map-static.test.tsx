@@ -280,3 +280,68 @@ describe("the drawing's labels and the phone's way into a sector", () => {
     for (const label of labels) expect(label).toHaveClass("hidden", "sm:inline");
   });
 });
+
+describe("the coverage line's fund comparison (spec 14.10)", () => {
+  const FUND_PAGE = {
+    fundsCompared: 2,
+    startFilesFrom: "2026-06-30",
+    startFilesTo: "2026-07-31",
+    endFilesFrom: "2026-10-30",
+    endFilesTo: "2026-10-30",
+  };
+
+  function drawn(overrides: Partial<OwnershipMapPage>) {
+    return render(
+      <OwnershipMapView
+        page={page({ ...FUND_PAGE, ...overrides })}
+        desk={DEFAULT_DESK_STATE}
+        status="idle"
+        slow={false}
+        basePath="/ownership/map"
+      />,
+    );
+  }
+
+  it("states the funds compared and the files each side reads, from the answer the view draws", () => {
+    drawn({});
+    expect(screen.getByText(/2 funds compared, files 2026-06-30 to 2026-07-31 against 2026-10-30/)).toBeInTheDocument();
+  });
+
+  it("says one file per fund, and every change n/a, when the window compares no fund", () => {
+    drawn({ fundsCompared: 0 });
+    expect(screen.getByText("One file per fund: changes n/a")).toBeInTheDocument();
+    expect(screen.queryByText(/funds compared/)).toBeNull();
+  });
+
+  it("states one fund in the singular, with its single-date files", () => {
+    drawn({ fundsCompared: 1, startFilesFrom: "2026-06-30", startFilesTo: "2026-06-30" });
+    expect(screen.getByText(/1 fund compared, files 2026-06-30 against 2026-10-30/)).toBeInTheDocument();
+  });
+
+  it("says no index fund file is in the window when no tracked fund has a file there", () => {
+    drawn({ fundsCompared: 0, startFilesFrom: "", startFilesTo: "", endFilesFrom: "", endFilesTo: "" });
+    expect(screen.getByText("No index fund file in the window")).toBeInTheDocument();
+    expect(screen.queryByText("One file per fund: changes n/a")).toBeNull();
+  });
+
+  it("marks the held comparison while a read is in flight, as the hatched changes are", () => {
+    const { container } = render(
+      <OwnershipMapView
+        page={page(FUND_PAGE)}
+        desk={DEFAULT_DESK_STATE}
+        status="loading"
+        slow={false}
+        basePath="/ownership/map"
+      />,
+    );
+    const line = screen.getByText(/^Updating · 2 funds compared, files 2026-06-30 to 2026-07-31/);
+    expect(line).toHaveAttribute("data-stale", "true");
+    expect(container.querySelector("[data-stale='true']")).toBe(line);
+  });
+
+  it("leaves the comparison unmarked once the answer is the one drawn", () => {
+    drawn({});
+    const line = screen.getByText(/^2 funds compared, files/);
+    expect(line).not.toHaveAttribute("data-stale");
+  });
+});

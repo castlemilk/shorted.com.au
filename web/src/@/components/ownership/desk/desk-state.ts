@@ -32,6 +32,7 @@ export const DESK_LENSES = [
   "index",
   "short",
   "flow",
+  "index_flow",
 ] as const;
 export type DeskLens = (typeof DESK_LENSES)[number];
 export const DEFAULT_DESK_LENS: DeskLens = "disclosed";
@@ -173,14 +174,16 @@ function cleanSector(value: unknown): string {
 }
 
 /**
- * The two dates of the index window, or both empty. One date alone is no window
- * and an inverted pair is none. The window of change is a separate parameter, so
+ * The two dates of the index window, or both empty. One date alone is no window,
+ * an inverted pair is none, and a pair the API would refuse (over DESK_MAX_SPAN_DAYS) is none. The window of change is a separate parameter, so
  * a pair of dates never replaces it.
  */
 function cleanDates(from: unknown, to: unknown): { from: string; to: string } {
   if (typeof from !== "string" || typeof to !== "string") return { from: "", to: "" };
   if (!isIsoDate(from) || !isIsoDate(to)) return { from: "", to: "" };
   if (from > to) return { from: "", to: "" };
+  // The API refuses a fund window longer than DESK_MAX_SPAN_DAYS (ownership_desk.go deskWindow).
+  if (dayGap(from, to) > DESK_MAX_SPAN_DAYS) return { from: "", to: "" };
   return { from, to };
 }
 

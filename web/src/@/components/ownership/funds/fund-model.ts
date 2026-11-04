@@ -410,6 +410,9 @@ export function holdingsTreemap(
         indexPct: null,
         shortPct: null,
         flowPp: null,
+        fundValueAud: null,
+        fundFlowAud: null,
+        fundChangePct: null,
         notices: 0,
       };
     });

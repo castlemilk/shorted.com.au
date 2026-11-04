@@ -34,6 +34,24 @@ describe("LensLegend", () => {
     expect(screen.getByText("0.00%")).toBeInTheDocument();
     expect(screen.getByText("8.00% and above")).toBeInTheDocument();
   });
+
+  it("states the caption beneath the scale, outside its image, when one is given (the index flow's files, spec 14.10)", () => {
+    render(
+      <LensLegend
+        lens="index_flow"
+        scale={lensScale("index_flow", [-2, 1])}
+        caption="2 funds compared, files 2026-06-30 to 2026-07-31 against 2026-10-30"
+      />,
+    );
+    const caption = screen.getByText("2 funds compared, files 2026-06-30 to 2026-07-31 against 2026-10-30");
+    expect(caption.closest("[role='img']")).toBeNull();
+    expect(screen.getByRole("img", { name: /Change in index fund shares, five steps/ })).toBeInTheDocument();
+  });
+
+  it("draws no caption without one", () => {
+    const { container } = render(<LensLegend lens="flow" scale={lensScale("flow", [-2, 1])} />);
+    expect(container.querySelectorAll("p")).toHaveLength(0);
+  });
 });
 
 describe("DeskChip and DeskLink", () => {

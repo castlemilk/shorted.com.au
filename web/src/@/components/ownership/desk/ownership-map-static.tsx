@@ -34,6 +34,7 @@ import {
 import { binOf, labelOnBin, lensFill, lensScale, type LensScale } from "./desk-scales";
 import { shortSector } from "~/@/lib/ownership/kinds";
 import { DEFAULT_DESK_LENS, DEFAULT_DESK_STATE, type DeskState } from "./desk-state";
+import { fundComparisonLine } from "./fund-comparison";
 import {
   DESK_DEFAULT_WINDOW_STATE,
   WindowPhrase,
@@ -59,7 +60,7 @@ import { WindowSelect } from "../workspace/window-select";
  * A stock with no market cap takes the universe's median, as the layout does. A stock with
  * no interest keeps a sliver of area, so it is drawn and named.
  */
-export type MapSize = "market_cap" | "disclosed";
+export type MapSize = "market_cap" | "disclosed" | "index_fund";
 /** The area of a stock with no interest, as a share of the smallest stock that has one (spec 14.7). */
 export const DISCLOSED_AREA_FLOOR = 0.05;
 
@@ -70,7 +71,17 @@ function medianOf(values: readonly number[]): number {
   return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
+/**
+ * The stocks a Size draws. The index fund size draws only the stocks a tracked fund holds
+ * (their AUD holding is the area); a stock with none is not drawn at that size, and the
+ * map's coverage line says how many were left out (`undrawnAtSize`).
+ */
 export function sizedRows(rows: readonly MapStockRow[], size: MapSize | undefined): readonly MapStockRow[] {
+  if (size === "index_fund") {
+    return rows.flatMap((row) =>
+      row.fundValueAud !== null && row.fundValueAud > 0 ? [{ ...row, marketCap: row.fundValueAud }] : [],
+    );
+  }
   if (size !== "disclosed") return rows;
   const caps = rows.flatMap((row) => (row.marketCap !== null && row.marketCap > 0 ? [row.marketCap] : []));
   const median = medianOf(caps);
@@ -82,6 +93,12 @@ export function sizedRows(rows: readonly MapStockRow[], size: MapSize | undefine
   const positive = exposures.filter((exposure) => exposure > 0);
   const floor = positive.length > 0 ? Math.min(...positive) * DISCLOSED_AREA_FLOOR : 1;
   return rows.map((row, index) => ({ ...row, marketCap: exposures[index]! > 0 ? exposures[index]! : floor }));
+}
+
+/** The stocks the index fund Size leaves out: no tracked fund holds them, so they have no area to draw. */
+export function undrawnAtSize(rows: readonly MapStockRow[], size: MapSize | undefined): number {
+  if (size !== "index_fund") return 0;
+  return rows.filter((row) => row.fundValueAud === null || !(row.fundValueAud > 0)).length;
 }
 
 /** The stocks whose area is estimated from the median, as the Size chosen draws them (spec 13.8). */
@@ -108,6 +125,11 @@ export const MAP_OUTAGE_COPY =
 
 /** The map holds no stock: the universe is empty, so no window can be read onto it. */
 export const MAP_EMPTY_COPY = "No stock is on the map just now.";
+
+/** The coverage line of the index fund Size: how many stocks it leaves out, and that no fund holds them. */
+export function undrawnAtSizeCopy(undrawn: number, total: number): string {
+  return `Index fund holdings: ${undrawn.toLocaleString("en-AU")} of ${total.toLocaleString("en-AU")} stocks are not drawn at this size, because no tracked index fund holds them.`;
+}
 
 /** A lens that no stock on the map has a figure for: the legend has no scale to print. */
 export const NO_FIGURE_COPY = "No stock on the map has a figure for this colour.";
@@ -264,10 +286,13 @@ const FIGURE_MIN_HEIGHT = 56;
 const MARKET_CAP_AREA = "Area is market cap; a stock with no market cap takes the median and is marked estimated.";
 const EXPOSURE_AREA =
   "Area is estimated disclosed exposure, the disclosed share of market cap; a stock with no market cap takes the median and is marked estimated.";
+const FUND_AREA =
+  "Area is the holding of the tracked index funds, in AUD at the window's end file; a stock no tracked fund holds is not drawn at this size.";
 
 /** The map's caption for the Size chosen: the caption's area sentence follows the size (spec 13.8). */
 function areaCaption(lens: DeskState["lens"], size: MapSize | undefined): string {
   const caption = mapCaption(lens);
+  if (size === "index_fund") return caption.replace(MARKET_CAP_AREA, FUND_AREA);
   return size === "disclosed" ? caption.replace(MARKET_CAP_AREA, EXPOSURE_AREA) : caption;
 }
 
@@ -275,9 +300,11 @@ function cellTitle(cell: MapCell, lens: DeskState["lens"], size: MapSize = "mark
   const estimate =
     size === "disclosed"
       ? " Estimated disclosed exposure: the disclosed share of market cap."
-      : cell.areaEstimated
-        ? " Market cap estimated from the median."
-        : "";
+      : size === "index_fund"
+        ? " Held by the tracked index funds, in AUD."
+        : cell.areaEstimated
+          ? " Market cap estimated from the median."
+          : "";
   return `${cell.code}, ${cell.name}, ${cell.sector}. ${LENS_LABELS[lens]}: ${formatLensFigure(lens, cell.value)}.${estimate}`;
 }
 
@@ -727,7 +754,12 @@ export function OwnershipMapView({
   // belong to the window it was read for, so they are hatched and n/a until a new read lands.
   const stale = page.ok && status !== "idle";
   const held = page.ok ? page.stocks : [];
-  const rows = stale ? held.map((stock) => ({ ...stock, flowPp: null })) : held;
+  // A held answer's changes belong to the window it was read for, so a new window hatches them too.
+  const rows = stale ? held.map((stock) => ({ ...stock, flowPp: null, fundChangePct: null })) : held;
+  const undrawn = undrawnAtSize(rows, size);
+  const fundLine = fundComparisonLine(page);
+  // The comparison's line, marked while a read is in flight: it describes the answer the island holds.
+  const fundCaption = fundLine === null ? undefined : stale ? `Updating · ${fundLine}` : fundLine;
   const loading = status === "loading" && rows.length === 0;
   const empty = status === "idle" && page.ok && page.stocks.length === 0;
   const busy = status === "loading";
@@ -799,9 +831,22 @@ export function OwnershipMapView({
         </p>
       )}
 
+      {compact || undrawn === 0 ? null : (
+        <p className="text-[11px] text-muted-foreground">{undrawnAtSizeCopy(undrawn, rows.length)}</p>
+      )}
+
+      {compact || fundCaption === undefined ? null : (
+        // The fund comparison the island's answer draws (spec 14.10): the files it reads, or that it reads none.
+        // While a read is in flight the held comparison is marked as the hatched changes are.
+        <p data-stale={stale ? "true" : undefined} className={cn("text-[11px] text-muted-foreground", stale && "opacity-60")}>
+          {fundCaption}
+        </p>
+      )}
+
       {rows.length > 0 ? (
         figured ? (
-          <LensLegend lens={desk.lens} scale={scale} />
+          // The index flow's legend states the files it compares (spec 14.10).
+          <LensLegend lens={desk.lens} scale={scale} caption={desk.lens === "index_flow" ? fundCaption : undefined} />
         ) : (
           <p className="text-[11px] text-muted-foreground">{NO_FIGURE_COPY}</p>
         )

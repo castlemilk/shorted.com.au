@@ -5,7 +5,6 @@ import OwnershipMapPage, { metadata, revalidate } from "./page";
 
 const bailOnEmptyRender = jest.fn(async () => undefined);
 const loadOwnershipMap = jest.fn();
-const loadFundPositionChanges = jest.fn();
 const ownershipMapProps = jest.fn();
 
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
@@ -16,7 +15,6 @@ jest.mock("~/app/actions/config", () => ({
 }));
 jest.mock("~/app/actions/ownershipDesk", () => ({
   loadOwnershipMap: (...args: unknown[]) => loadOwnershipMap(...args),
-  loadFundPositionChanges: (...args: unknown[]) => loadFundPositionChanges(...args),
   loadStockPanel: jest.fn(),
   loadInspector: jest.fn(),
 }));
@@ -30,12 +28,24 @@ jest.mock("~/@/components/ownership/workspace/inspector", () => ({
   Inspector: () => <aside aria-label="Inspector" />,
 }));
 
-const MAP_OK = { ok: true, error: "", from: "", to: "", asOf: "2026-10-30", stocks: [] };
+// The map's own answer carries the fund comparison (spec 14.10): two funds, files 2026-09-01 against 2026-10-30.
+const MAP_OK = {
+  ok: true,
+  error: "",
+  from: "",
+  to: "",
+  asOf: "2026-10-30",
+  stocks: [],
+  fundsCompared: 2,
+  startFilesFrom: "2026-09-01",
+  startFilesTo: "2026-09-01",
+  endFilesFrom: "2026-10-30",
+  endFilesTo: "2026-10-30",
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
   loadOwnershipMap.mockResolvedValue(MAP_OK);
-  loadFundPositionChanges.mockResolvedValue({ ok: true, error: "", snapshotDates: ["2026-09-01", "2026-10-30"], from: "", to: "", rows: [] });
 });
 
 describe("the market map page (spec 14.3)", () => {
@@ -55,15 +65,23 @@ describe("the market map page (spec 14.3)", () => {
     expect(typeof props.loadMap).toBe("function");
   });
 
-  it("dates the coverage line by the index fund files it spans", async () => {
+  it("leaves the fund comparison to the map, which draws it from the answer it holds, not the default window", async () => {
+    loadOwnershipMap.mockResolvedValue({ ...MAP_OK, fundsCompared: 2 });
     render(await OwnershipMapPage());
-    expect(screen.getByText(/Fund files: 2026-09-01 to 2026-10-30/)).toBeInTheDocument();
+    expect(screen.queryByText(/funds compared/)).toBeNull();
+    expect(screen.getByText(/Default window · Latest available/)).toBeInTheDocument();
   });
 
-  it("says the fund files are n/a, never zero, when none is tracked", async () => {
-    loadFundPositionChanges.mockResolvedValue({ ok: true, error: "", snapshotDates: [], from: "", to: "", rows: [] });
-    render(await OwnershipMapPage());
-    expect(screen.getByText(/Fund files: n\/a/)).toBeInTheDocument();
+  it("keeps the method in the sources section, which the insights page's paragraphs now sit in", async () => {
+    const { container } = render(await OwnershipMapPage());
+    const section = container.querySelector("section[aria-labelledby='sources']");
+    expect(section).not.toBeNull();
+    expect(section?.textContent).toMatch(/valued at its own later file's price .* so a price move is not a position move/);
+    expect(section?.textContent).toMatch(/A notice is dated by the day ASX released it/);
+    expect(section?.querySelector('a[href="/ownership/activity"]')?.textContent).toBe("sector heatmap on Activity");
+    expect(section?.textContent).toMatch(/its file at the window's start \(or its first file inside the window\)/);
+    expect(section?.textContent).toMatch(/what the notices disclose, not a share of the company/);
+    expect(screen.getByRole("heading", { name: "Sources and method" })).toBeInTheDocument();
   });
 
   it("bails the cache, and draws no map, when the market cannot be read", async () => {

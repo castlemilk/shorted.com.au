@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ISR gate for the stock segment and the ownership pages: the three dynamic
-// ownership routes and the ten static ones.
+// ownership routes and the nine static ones.
 //
 // Every route under /shorts/[stockCode] must be on-demand ISR: generated on
 // first request and served from the cache for `revalidate` seconds. A route
@@ -33,10 +33,10 @@
 // A read in a module imported from outside that folder is beyond both, as for
 // the stock segment, and needs a request-level check.
 //
-// The ten static ownership pages, the hub /ownership, the notice feed
-// /ownership/notices, the register list /ownership/stocks, the insights
-// explorer /ownership/insights and the six workspace pages (map, connections,
-// activity, funds, holders, changes; OWNERSHIP_STATIC_ROUTES below), have no dynamic segment, so none is in
+// The nine static ownership pages, the hub /ownership, the notice feed
+// /ownership/notices, the register list /ownership/stocks and the six workspace
+// pages (map, connections, activity, funds, holders, changes; OWNERSHIP_STATIC_ROUTES
+// below), have no dynamic segment, so none is in
 // dynamicRoutes. Next writes an ISR page of that kind under `routes`, with its
 // revalidate in initialRevalidateSeconds: a number for an ISR page, false for
 // one with no revalidate. That entry is what this gate reads. A request-time
@@ -70,14 +70,13 @@ export const STOCK_ROUTES = [
 // and is cached for its revalidate, as the stock tabs are.
 export const OWNERSHIP_ROUTES = ["/ownership/[slug]", "/ownership/stocks/[code]", "/ownership/funds/[fund]"];
 
-// The ten static ownership pages: the hub, the notice feed, the register list, the
-// insights explorer and the six workspace pages. Each exports a revalidate and takes
-// no dynamic segment, so each is listed under `routes` (see the header).
+// The nine static ownership pages: the hub, the notice feed, the register list and
+// the six workspace pages. Each exports a revalidate and takes no dynamic segment, so
+// each is listed under `routes` (see the header).
 export const OWNERSHIP_STATIC_ROUTES = [
   "/ownership",
   "/ownership/notices",
   "/ownership/stocks",
-  "/ownership/insights",
   "/ownership/map",
   "/ownership/connections",
   "/ownership/activity",
@@ -154,7 +153,7 @@ function main(argv) {
     );
     for (const r of missingStatic) console.error(`  ${r}`);
     console.error(
-      "A static page under /ownership (the hub, the notice feed, the register list, the insights explorer or a workspace page) has lost its `export const revalidate` " +
+      "A static page under /ownership (the hub, the notice feed, the register list or a workspace page) has lost its `export const revalidate` " +
         "(Next then builds it once and never regenerates it), or sets revalidate = 0 or " +
         'dynamic = "force-dynamic", or reads a request-time API during its build render ' +
         "(Next then renders it per request).",

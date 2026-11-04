@@ -245,7 +245,7 @@ test("the static failure hint names the static ownership pages, both outcomes an
   assert.match(result.stdout, new RegExp(`${EXPECTED.length} stock routes are ISR`));
   assert.match(result.stdout, new RegExp(`${OWNERSHIP_ROUTES.length} ownership routes are ISR`));
   assert.ok(
-    result.stderr.includes("under /ownership (the hub, the notice feed, the register list, the insights explorer or a workspace page)"),
+    result.stderr.includes("under /ownership (the hub, the notice feed, the register list or a workspace page)"),
     "the static failure hint does not name the static ownership pages",
   );
   // Each outcome is matched to its own cause, so a swap of the two parentheticals fails here.
@@ -298,4 +298,13 @@ test("the CI workflow and the npm script run it after the bundle budget", () => 
   assert.ok(workflow.indexOf("route-kinds.mjs") > workflow.indexOf("bundle-budget.mjs"), "route kinds runs after the bundle budget");
   const pkg = JSON.parse(readFileSync(new URL("../../web/package.json", import.meta.url), "utf8"));
   assert.equal(pkg.scripts["routes:kinds"], "node scripts/route-kinds.mjs");
+});
+
+// The insights explorer is retired (spec 14.10): its route is a redirect handler, not a page, so the
+// static list (which needs a revalidate per page) no longer names it, and nothing under it is left
+// for the gate to check. The list has the nine static pages.
+test("the retired insights route is not a static ownership page, and the list has nine", () => {
+  assert.equal(OWNERSHIP_STATIC_ROUTES.includes("/ownership/insights"), false);
+  assert.equal(OWNERSHIP_STATIC_ROUTES.length, 9);
+  assert.equal(existsSync(new URL("../../web/src/app/ownership/insights/page.tsx", import.meta.url)), false);
 });

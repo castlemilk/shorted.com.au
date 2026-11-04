@@ -5,6 +5,9 @@ import { MovementHeatmap } from "~/@/components/ownership/desk/movement-heatmap"
 import { Inspector } from "~/@/components/ownership/workspace/inspector";
 import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
 import { lede, pageTitle } from "@/lib/typography";
+import { formatFlowPp } from "~/@/components/ownership/desk/lens-legend";
+import { inclusiveDays, largestMoveLines } from "~/@/lib/ownership/largest-moves";
+import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { loadInspector, loadOwnershipActivity } from "~/app/actions/ownershipDesk";
 
@@ -27,10 +30,29 @@ export default async function OwnershipActivityPage() {
   const activity = await loadOwnershipActivity({});
   // A failed read is an outage, never an empty grid: the cache is not kept with it.
   if (!activity.ok) await bailOnEmptyRender();
+  // The rail's empty state lists the window's largest moves (spec 14.10), read with the page's activity:
+  // the server ranks them over the same weeks, every holder type (the page never narrows its read). The
+  // window runs from the first week's Monday to the newest notice's date. An unread activity draws no block.
+  const largestMoves = activity.ok
+    ? {
+        windowDays: inclusiveDays(activity.fromWeek, activity.asOf),
+        from: activity.fromWeek,
+        to: activity.asOf,
+        lines: largestMoveLines(activity.largestMoves, formatFlowPp, safeExternalHref),
+      }
+    : null;
 
   return (
     <DashboardLayout fullWidth>
-      <WorkspacePage inspector={<Inspector resolve={loadInspector} emptyText="Select a cell to inspect the notices behind it." />}>
+      <WorkspacePage
+        inspector={
+          <Inspector
+            resolve={loadInspector}
+            emptyText="Select a cell to inspect the notices behind it."
+            largestMoves={largestMoves}
+          />
+        }
+      >
         <div className="mx-auto w-full max-w-[100rem] space-y-6">
           {/* The build's render and an outage are the same shell: the sweep re-primes it (spec 14.7). */}
           {!activity.ok ? <span hidden data-isr-shell="empty" /> : null}

@@ -29,7 +29,7 @@ var File_shorts_v1alpha1_shorts_proto protoreflect.FileDescriptor
 
 const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
-	"\x1cshorts/v1alpha1/shorts.proto\x12\x0fshorts.v1alpha1\x1a\x1cgoogle/api/annotations.proto\x1a$gnostic/openapi/v3/annotations.proto\x1a\x17google/api/client.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cstocks/v1alpha1/stocks.proto\x1a\x18options/v1/options.proto\x1a\x1cshorts/v1alpha1/alerts.proto\x1a\x1dshorts/v1alpha1/billing.proto\x1a\x1dshorts/v1alpha1/economy.proto\x1a shorts/v1alpha1/enrichment.proto\x1a\x1dshorts/v1alpha1/housing.proto\x1a\x1eshorts/v1alpha1/industry.proto\x1a\x1cshorts/v1alpha1/market.proto\x1a\x1ashorts/v1alpha1/news.proto\x1a\x1fshorts/v1alpha1/ownership.proto\x1a(shorts/v1alpha1/ownership_insights.proto\x1a!shorts/v1alpha1/politicians.proto\x1a\x1dshorts/v1alpha1/reports.proto\x1a\x1eshorts/v1alpha1/screener.proto\x1a\x1cshorts/v1alpha1/search.proto\x1a\x1bshorts/v1alpha1/stock.proto\x1a shorts/v1alpha1/strategies.proto2\x89\x8a\x02\n" +
+	"\x1cshorts/v1alpha1/shorts.proto\x12\x0fshorts.v1alpha1\x1a\x1cgoogle/api/annotations.proto\x1a$gnostic/openapi/v3/annotations.proto\x1a\x17google/api/client.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cstocks/v1alpha1/stocks.proto\x1a\x18options/v1/options.proto\x1a\x1cshorts/v1alpha1/alerts.proto\x1a\x1dshorts/v1alpha1/billing.proto\x1a\x1dshorts/v1alpha1/economy.proto\x1a shorts/v1alpha1/enrichment.proto\x1a\x1dshorts/v1alpha1/housing.proto\x1a\x1eshorts/v1alpha1/industry.proto\x1a\x1cshorts/v1alpha1/market.proto\x1a\x1ashorts/v1alpha1/news.proto\x1a\x1fshorts/v1alpha1/ownership.proto\x1a!shorts/v1alpha1/politicians.proto\x1a\x1dshorts/v1alpha1/reports.proto\x1a\x1eshorts/v1alpha1/screener.proto\x1a\x1cshorts/v1alpha1/search.proto\x1a\x1bshorts/v1alpha1/stock.proto\x1a shorts/v1alpha1/strategies.proto2\xb8\x84\x02\n" +
 	"\x14ShortedStocksService\x12\x86\x03\n" +
 	"\fGetTopShorts\x12$.shorts.v1alpha1.GetTopShortsRequest\x1a%.shorts.v1alpha1.GetTopShortsResponse\"\xa8\x02\xdaA\x13period,limit,offset\xbaG\x8a\x02\x12\x0eGet Top Shorts\x1ajRetrieve the top shorted stocks on the ASX for a given time period. Supports pagination and custom limits.B\x8b\x01\x12X\n" +
 	"\x03200\x12Q\n" +
@@ -198,8 +198,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x14GetDonationsOverview\x12,.shorts.v1alpha1.GetDonationsOverviewRequest\x1a-.shorts.v1alpha1.GetDonationsOverviewResponse\"\x8a\x02\xbaG\x82\x02\x12\x16Get Donations Overview\x1a\xe7\x01Party-group funding rollups from AEC annual returns for one financial year, with the available years, corpus counts, and the right-censoring and 2027 reform notes every surface must render. Amounts are in cents, verbatim as lodged.\x80\xb5\x18\x01\x12\xda\x02\n" +
 	"\rListTopDonors\x12%.shorts.v1alpha1.ListTopDonorsRequest\x1a&.shorts.v1alpha1.ListTopDonorsResponse\"\xf9\x01\xbaG\xf1\x01\x12\x0fList Top Donors\x1a\xdd\x01Payers named in itemised AEC receipts into party branches for one financial year, with the source's receipt-type split (a conference fee is not a donation) and an ASX code only where an exact or curated name match exists.\x80\xb5\x18\x01\x12\xde\x02\n" +
 	"\x10ListPartyFunding\x12(.shorts.v1alpha1.ListPartyFundingRequest\x1a).shorts.v1alpha1.ListPartyFundingResponse\"\xf4\x01\xbaG\xec\x01\x12\x12List Party Funding\x1a\xd5\x01One party group's AEC funding series by financial year, plus that year's top payers and listed-company payers. Rows from FY2027 are the reformed scheme and must not be charted continuously with what precedes them.\x80\xb5\x18\x01\x12\x8c\x03\n" +
-	"\x14GetPoliticianFunding\x12,.shorts.v1alpha1.GetPoliticianFundingRequest\x1a-.shorts.v1alpha1.GetPoliticianFundingResponse\"\x96\x02\xbaG\x8e\x02\x12\x16Get Politician Funding\x1a\xf3\x01AEC returns that NAME one member: their annual member/senator returns and their election candidate returns including lodged nil returns, with the corpus coverage those figures sit inside. Money given to a party is never attributed to a member.\x80\xb5\x18\x01\x12\xce\x05\n" +
-	"\x14GetOwnershipInsights\x12,.shorts.v1alpha1.GetOwnershipInsightsRequest\x1a-.shorts.v1alpha1.GetOwnershipInsightsResponse\"\xd8\x04\xbaG\xd0\x04\x12\x16Get Ownership Insights\x1a\xb5\x04The ASX ownership register in one time window: sectors and their stocks with the AUD value tracked index funds hold and the voting power substantial holders disclose, the money flow from institution kinds through institutions to sectors, the change in index fund positions and in disclosed voting power by sector and week or month, and the window's largest moves stated by notices. A fund's change compares each fund with its own earlier file. Disclosed values are voting power times market cap: an estimate of what the notices disclose, not a share of the company.\x80\xb5\x18\x01\x1a\x15\xcaA\x12api.shorted.com.auB\xa0\x03\xbaG\xc2\x01\x12\x7f\n" +
+	"\x14GetPoliticianFunding\x12,.shorts.v1alpha1.GetPoliticianFundingRequest\x1a-.shorts.v1alpha1.GetPoliticianFundingResponse\"\x96\x02\xbaG\x8e\x02\x12\x16Get Politician Funding\x1a\xf3\x01AEC returns that NAME one member: their annual member/senator returns and their election candidate returns including lodged nil returns, with the corpus coverage those figures sit inside. Money given to a party is never attributed to a member.\x80\xb5\x18\x01\x1a\x15\xcaA\x12api.shorted.com.auB\xa0\x03\xbaG\xc2\x01\x12\x7f\n" +
 	"\vShorted API\x12\rShorted API's\"(\x12\x0eshorted.com.au\x1a\x16support@shorted.com.au*3\n" +
 	"\x13Proprietary license\x12\x1chttps://shorted.com.au/terms2\x02v1\x1a\x1c\n" +
 	"\x1ahttps://api.shorted.com.au*!:\x1f\n" +
@@ -326,124 +325,122 @@ var file_shorts_v1alpha1_shorts_proto_goTypes = []any{
 	(*ListTopDonorsRequest)(nil),                    // 113: shorts.v1alpha1.ListTopDonorsRequest
 	(*ListPartyFundingRequest)(nil),                 // 114: shorts.v1alpha1.ListPartyFundingRequest
 	(*GetPoliticianFundingRequest)(nil),             // 115: shorts.v1alpha1.GetPoliticianFundingRequest
-	(*GetOwnershipInsightsRequest)(nil),             // 116: shorts.v1alpha1.GetOwnershipInsightsRequest
-	(*GetTopShortsResponse)(nil),                    // 117: shorts.v1alpha1.GetTopShortsResponse
-	(*v1alpha1.IndustryTreeMap)(nil),                // 118: stocks.v1alpha1.IndustryTreeMap
-	(*v1alpha1.Stock)(nil),                          // 119: stocks.v1alpha1.Stock
-	(*v1alpha1.StockDetails)(nil),                   // 120: stocks.v1alpha1.StockDetails
-	(*v1alpha1.TimeSeriesData)(nil),                 // 121: stocks.v1alpha1.TimeSeriesData
-	(*GetStockPricesResponse)(nil),                  // 122: shorts.v1alpha1.GetStockPricesResponse
-	(*GetMarketByDateResponse)(nil),                 // 123: shorts.v1alpha1.GetMarketByDateResponse
-	(*GetIndexSeriesResponse)(nil),                  // 124: shorts.v1alpha1.GetIndexSeriesResponse
-	(*ListIndicesResponse)(nil),                     // 125: shorts.v1alpha1.ListIndicesResponse
-	(*GetAvailableDatesResponse)(nil),               // 126: shorts.v1alpha1.GetAvailableDatesResponse
-	(*SearchStocksResponse)(nil),                    // 127: shorts.v1alpha1.SearchStocksResponse
-	(*GetSyncStatusResponse)(nil),                   // 128: shorts.v1alpha1.GetSyncStatusResponse
-	(*MintTokenResponse)(nil),                       // 129: shorts.v1alpha1.MintTokenResponse
-	(*SyncKeyMetricsResponse)(nil),                  // 130: shorts.v1alpha1.SyncKeyMetricsResponse
-	(*EnrichStockResponse)(nil),                     // 131: shorts.v1alpha1.EnrichStockResponse
-	(*GetTopStocksForEnrichmentResponse)(nil),       // 132: shorts.v1alpha1.GetTopStocksForEnrichmentResponse
-	(*ListPendingEnrichmentsResponse)(nil),          // 133: shorts.v1alpha1.ListPendingEnrichmentsResponse
-	(*GetPendingEnrichmentResponse)(nil),            // 134: shorts.v1alpha1.GetPendingEnrichmentResponse
-	(*ReviewEnrichmentResponse)(nil),                // 135: shorts.v1alpha1.ReviewEnrichmentResponse
-	(*GetEnrichmentJobStatusResponse)(nil),          // 136: shorts.v1alpha1.GetEnrichmentJobStatusResponse
-	(*ListEnrichmentJobsResponse)(nil),              // 137: shorts.v1alpha1.ListEnrichmentJobsResponse
-	(*HandleStripeCheckoutCompletedResponse)(nil),   // 138: shorts.v1alpha1.HandleStripeCheckoutCompletedResponse
-	(*HandleStripeSubscriptionUpdatedResponse)(nil), // 139: shorts.v1alpha1.HandleStripeSubscriptionUpdatedResponse
-	(*GetMySubscriptionResponse)(nil),               // 140: shorts.v1alpha1.GetMySubscriptionResponse
-	(*CreateAlertMonitorResponse)(nil),              // 141: shorts.v1alpha1.CreateAlertMonitorResponse
-	(*ListAlertMonitorsResponse)(nil),               // 142: shorts.v1alpha1.ListAlertMonitorsResponse
-	(*ListAlertEventsResponse)(nil),                 // 143: shorts.v1alpha1.ListAlertEventsResponse
-	(*UpdateAlertMonitorStatusResponse)(nil),        // 144: shorts.v1alpha1.UpdateAlertMonitorStatusResponse
-	(*DeleteAlertMonitorResponse)(nil),              // 145: shorts.v1alpha1.DeleteAlertMonitorResponse
-	(*PauseAlertMonitorByTokenResponse)(nil),        // 146: shorts.v1alpha1.PauseAlertMonitorByTokenResponse
-	(*GetWeeklyReportResponse)(nil),                 // 147: shorts.v1alpha1.GetWeeklyReportResponse
-	(*ListReportsResponse)(nil),                     // 148: shorts.v1alpha1.ListReportsResponse
-	(*GetStockFinancialHighlightsResponse)(nil),     // 149: shorts.v1alpha1.GetStockFinancialHighlightsResponse
-	(*GetStockNewsResponse)(nil),                    // 150: shorts.v1alpha1.GetStockNewsResponse
-	(*GetRelatedNewsResponse)(nil),                  // 151: shorts.v1alpha1.GetRelatedNewsResponse
-	(*GetMarketNewsResponse)(nil),                   // 152: shorts.v1alpha1.GetMarketNewsResponse
-	(*GetEditorialTakeResponse)(nil),                // 153: shorts.v1alpha1.GetEditorialTakeResponse
-	(*ListEditorialTakesResponse)(nil),              // 154: shorts.v1alpha1.ListEditorialTakesResponse
-	(*ListEditorialTakesAdminResponse)(nil),         // 155: shorts.v1alpha1.ListEditorialTakesAdminResponse
-	(*PublishEditorialTakeResponse)(nil),            // 156: shorts.v1alpha1.PublishEditorialTakeResponse
-	(*UpdateEditorialTakeResponse)(nil),             // 157: shorts.v1alpha1.UpdateEditorialTakeResponse
-	(*DeleteEditorialTakeResponse)(nil),             // 158: shorts.v1alpha1.DeleteEditorialTakeResponse
-	(*MarkTakeTweetPublishedResponse)(nil),          // 159: shorts.v1alpha1.MarkTakeTweetPublishedResponse
-	(*ListTweetPublishQueueResponse)(nil),           // 160: shorts.v1alpha1.ListTweetPublishQueueResponse
-	(*GetDirectorTradesResponse)(nil),               // 161: shorts.v1alpha1.GetDirectorTradesResponse
-	(*GetDividendHistoryResponse)(nil),              // 162: shorts.v1alpha1.GetDividendHistoryResponse
-	(*GetPeerComparisonResponse)(nil),               // 163: shorts.v1alpha1.GetPeerComparisonResponse
-	(*ScreenStocksResponse)(nil),                    // 164: shorts.v1alpha1.ScreenStocksResponse
-	(*GetBattlegroundStocksResponse)(nil),           // 165: shorts.v1alpha1.GetBattlegroundStocksResponse
-	(*GetStockVerdictResponse)(nil),                 // 166: shorts.v1alpha1.GetStockVerdictResponse
-	(*GetShortCampaignScoreboardResponse)(nil),      // 167: shorts.v1alpha1.GetShortCampaignScoreboardResponse
-	(*GetStockGraphResponse)(nil),                   // 168: shorts.v1alpha1.GetStockGraphResponse
-	(*GetEventTimelineResponse)(nil),                // 169: shorts.v1alpha1.GetEventTimelineResponse
-	(*GetStockSignalsResponse)(nil),                 // 170: shorts.v1alpha1.GetStockSignalsResponse
-	(*GetHousingOverviewResponse)(nil),              // 171: shorts.v1alpha1.GetHousingOverviewResponse
-	(*GetHousePriceSeriesResponse)(nil),             // 172: shorts.v1alpha1.GetHousePriceSeriesResponse
-	(*ListStateSuburbsResponse)(nil),                // 173: shorts.v1alpha1.ListStateSuburbsResponse
-	(*GetSuburbIndexResponse)(nil),                  // 174: shorts.v1alpha1.GetSuburbIndexResponse
-	(*GetSuburbMetricColumnsResponse)(nil),          // 175: shorts.v1alpha1.GetSuburbMetricColumnsResponse
-	(*FilterSuburbsResponse)(nil),                   // 176: shorts.v1alpha1.FilterSuburbsResponse
-	(*GetSuburbProfileResponse)(nil),                // 177: shorts.v1alpha1.GetSuburbProfileResponse
-	(*ListHousingRegionsResponse)(nil),              // 178: shorts.v1alpha1.ListHousingRegionsResponse
-	(*ListSuburbPriceDropsResponse)(nil),            // 179: shorts.v1alpha1.ListSuburbPriceDropsResponse
-	(*ListSuburbDropListingsResponse)(nil),          // 180: shorts.v1alpha1.ListSuburbDropListingsResponse
-	(*GetPropertyHistoryResponse)(nil),              // 181: shorts.v1alpha1.GetPropertyHistoryResponse
-	(*ListAddressPriceDropsResponse)(nil),           // 182: shorts.v1alpha1.ListAddressPriceDropsResponse
-	(*GetPriceDropsOverviewResponse)(nil),           // 183: shorts.v1alpha1.GetPriceDropsOverviewResponse
-	(*ListAgencyPriceStatsResponse)(nil),            // 184: shorts.v1alpha1.ListAgencyPriceStatsResponse
-	(*GetDropIndexSeriesResponse)(nil),              // 185: shorts.v1alpha1.GetDropIndexSeriesResponse
-	(*ListCouncilsResponse)(nil),                    // 186: shorts.v1alpha1.ListCouncilsResponse
-	(*GetCouncilProfileResponse)(nil),               // 187: shorts.v1alpha1.GetCouncilProfileResponse
-	(*ListEconomicSeriesResponse)(nil),              // 188: shorts.v1alpha1.ListEconomicSeriesResponse
-	(*GetEconomicSeriesResponse)(nil),               // 189: shorts.v1alpha1.GetEconomicSeriesResponse
-	(*ListSeriesCorrelationsResponse)(nil),          // 190: shorts.v1alpha1.ListSeriesCorrelationsResponse
-	(*ListStateCompaniesResponse)(nil),              // 191: shorts.v1alpha1.ListStateCompaniesResponse
-	(*GetStateCompanyAggregatesResponse)(nil),       // 192: shorts.v1alpha1.GetStateCompanyAggregatesResponse
-	(*GetCompanyTaxProfileResponse)(nil),            // 193: shorts.v1alpha1.GetCompanyTaxProfileResponse
-	(*GetIndustryIntelligenceResponse)(nil),         // 194: shorts.v1alpha1.GetIndustryIntelligenceResponse
-	(*GetStockFundamentalsResponse)(nil),            // 195: shorts.v1alpha1.GetStockFundamentalsResponse
-	(*ListStrategiesResponse)(nil),                  // 196: shorts.v1alpha1.ListStrategiesResponse
-	(*GetStrategyPicksResponse)(nil),                // 197: shorts.v1alpha1.GetStrategyPicksResponse
-	(*GetStockStrategyFitResponse)(nil),             // 198: shorts.v1alpha1.GetStockStrategyFitResponse
-	(*GetOwnershipOverviewResponse)(nil),            // 199: shorts.v1alpha1.GetOwnershipOverviewResponse
-	(*ListInstitutionsResponse)(nil),                // 200: shorts.v1alpha1.ListInstitutionsResponse
-	(*GetInstitutionResponse)(nil),                  // 201: shorts.v1alpha1.GetInstitutionResponse
-	(*GetStockOwnershipResponse)(nil),               // 202: shorts.v1alpha1.GetStockOwnershipResponse
-	(*ListSubstantialNoticesResponse)(nil),          // 203: shorts.v1alpha1.ListSubstantialNoticesResponse
-	(*ListStockRegistersResponse)(nil),              // 204: shorts.v1alpha1.ListStockRegistersResponse
-	(*GetOwnershipMapResponse)(nil),                 // 205: shorts.v1alpha1.GetOwnershipMapResponse
-	(*GetOwnershipFlowsResponse)(nil),               // 206: shorts.v1alpha1.GetOwnershipFlowsResponse
-	(*GetOwnershipActivityResponse)(nil),            // 207: shorts.v1alpha1.GetOwnershipActivityResponse
-	(*ListFundPositionChangesResponse)(nil),         // 208: shorts.v1alpha1.ListFundPositionChangesResponse
-	(*GetStockFundSeriesResponse)(nil),              // 209: shorts.v1alpha1.GetStockFundSeriesResponse
-	(*ListFundsResponse)(nil),                       // 210: shorts.v1alpha1.ListFundsResponse
-	(*GetFundPortfolioResponse)(nil),                // 211: shorts.v1alpha1.GetFundPortfolioResponse
-	(*CompareFundSnapshotsResponse)(nil),            // 212: shorts.v1alpha1.CompareFundSnapshotsResponse
-	(*GetParliamentOverviewResponse)(nil),           // 213: shorts.v1alpha1.GetParliamentOverviewResponse
-	(*ListPoliticiansResponse)(nil),                 // 214: shorts.v1alpha1.ListPoliticiansResponse
-	(*GetPoliticianResponse)(nil),                   // 215: shorts.v1alpha1.GetPoliticianResponse
-	(*ListStockPoliticiansResponse)(nil),            // 216: shorts.v1alpha1.ListStockPoliticiansResponse
-	(*ListPoliticianStocksResponse)(nil),            // 217: shorts.v1alpha1.ListPoliticianStocksResponse
-	(*ListSuburbPoliticiansResponse)(nil),           // 218: shorts.v1alpha1.ListSuburbPoliticiansResponse
-	(*ListStatePoliticianHoldingsResponse)(nil),     // 219: shorts.v1alpha1.ListStatePoliticianHoldingsResponse
-	(*ListRegisterChangesResponse)(nil),             // 220: shorts.v1alpha1.ListRegisterChangesResponse
-	(*ListShortInterestOverlapResponse)(nil),        // 221: shorts.v1alpha1.ListShortInterestOverlapResponse
-	(*GetPoliticianAnalyticsResponse)(nil),          // 222: shorts.v1alpha1.GetPoliticianAnalyticsResponse
-	(*GetRegisterExplorerResponse)(nil),             // 223: shorts.v1alpha1.GetRegisterExplorerResponse
-	(*ListPoliticianSummariesResponse)(nil),         // 224: shorts.v1alpha1.ListPoliticianSummariesResponse
-	(*GetPoliticianExplorerProfileResponse)(nil),    // 225: shorts.v1alpha1.GetPoliticianExplorerProfileResponse
-	(*ComparePoliticiansResponse)(nil),              // 226: shorts.v1alpha1.ComparePoliticiansResponse
-	(*GetRegisterActivityResponse)(nil),             // 227: shorts.v1alpha1.GetRegisterActivityResponse
-	(*ListDistinctiveHoldingsResponse)(nil),         // 228: shorts.v1alpha1.ListDistinctiveHoldingsResponse
-	(*GetDonationsOverviewResponse)(nil),            // 229: shorts.v1alpha1.GetDonationsOverviewResponse
-	(*ListTopDonorsResponse)(nil),                   // 230: shorts.v1alpha1.ListTopDonorsResponse
-	(*ListPartyFundingResponse)(nil),                // 231: shorts.v1alpha1.ListPartyFundingResponse
-	(*GetPoliticianFundingResponse)(nil),            // 232: shorts.v1alpha1.GetPoliticianFundingResponse
-	(*GetOwnershipInsightsResponse)(nil),            // 233: shorts.v1alpha1.GetOwnershipInsightsResponse
+	(*GetTopShortsResponse)(nil),                    // 116: shorts.v1alpha1.GetTopShortsResponse
+	(*v1alpha1.IndustryTreeMap)(nil),                // 117: stocks.v1alpha1.IndustryTreeMap
+	(*v1alpha1.Stock)(nil),                          // 118: stocks.v1alpha1.Stock
+	(*v1alpha1.StockDetails)(nil),                   // 119: stocks.v1alpha1.StockDetails
+	(*v1alpha1.TimeSeriesData)(nil),                 // 120: stocks.v1alpha1.TimeSeriesData
+	(*GetStockPricesResponse)(nil),                  // 121: shorts.v1alpha1.GetStockPricesResponse
+	(*GetMarketByDateResponse)(nil),                 // 122: shorts.v1alpha1.GetMarketByDateResponse
+	(*GetIndexSeriesResponse)(nil),                  // 123: shorts.v1alpha1.GetIndexSeriesResponse
+	(*ListIndicesResponse)(nil),                     // 124: shorts.v1alpha1.ListIndicesResponse
+	(*GetAvailableDatesResponse)(nil),               // 125: shorts.v1alpha1.GetAvailableDatesResponse
+	(*SearchStocksResponse)(nil),                    // 126: shorts.v1alpha1.SearchStocksResponse
+	(*GetSyncStatusResponse)(nil),                   // 127: shorts.v1alpha1.GetSyncStatusResponse
+	(*MintTokenResponse)(nil),                       // 128: shorts.v1alpha1.MintTokenResponse
+	(*SyncKeyMetricsResponse)(nil),                  // 129: shorts.v1alpha1.SyncKeyMetricsResponse
+	(*EnrichStockResponse)(nil),                     // 130: shorts.v1alpha1.EnrichStockResponse
+	(*GetTopStocksForEnrichmentResponse)(nil),       // 131: shorts.v1alpha1.GetTopStocksForEnrichmentResponse
+	(*ListPendingEnrichmentsResponse)(nil),          // 132: shorts.v1alpha1.ListPendingEnrichmentsResponse
+	(*GetPendingEnrichmentResponse)(nil),            // 133: shorts.v1alpha1.GetPendingEnrichmentResponse
+	(*ReviewEnrichmentResponse)(nil),                // 134: shorts.v1alpha1.ReviewEnrichmentResponse
+	(*GetEnrichmentJobStatusResponse)(nil),          // 135: shorts.v1alpha1.GetEnrichmentJobStatusResponse
+	(*ListEnrichmentJobsResponse)(nil),              // 136: shorts.v1alpha1.ListEnrichmentJobsResponse
+	(*HandleStripeCheckoutCompletedResponse)(nil),   // 137: shorts.v1alpha1.HandleStripeCheckoutCompletedResponse
+	(*HandleStripeSubscriptionUpdatedResponse)(nil), // 138: shorts.v1alpha1.HandleStripeSubscriptionUpdatedResponse
+	(*GetMySubscriptionResponse)(nil),               // 139: shorts.v1alpha1.GetMySubscriptionResponse
+	(*CreateAlertMonitorResponse)(nil),              // 140: shorts.v1alpha1.CreateAlertMonitorResponse
+	(*ListAlertMonitorsResponse)(nil),               // 141: shorts.v1alpha1.ListAlertMonitorsResponse
+	(*ListAlertEventsResponse)(nil),                 // 142: shorts.v1alpha1.ListAlertEventsResponse
+	(*UpdateAlertMonitorStatusResponse)(nil),        // 143: shorts.v1alpha1.UpdateAlertMonitorStatusResponse
+	(*DeleteAlertMonitorResponse)(nil),              // 144: shorts.v1alpha1.DeleteAlertMonitorResponse
+	(*PauseAlertMonitorByTokenResponse)(nil),        // 145: shorts.v1alpha1.PauseAlertMonitorByTokenResponse
+	(*GetWeeklyReportResponse)(nil),                 // 146: shorts.v1alpha1.GetWeeklyReportResponse
+	(*ListReportsResponse)(nil),                     // 147: shorts.v1alpha1.ListReportsResponse
+	(*GetStockFinancialHighlightsResponse)(nil),     // 148: shorts.v1alpha1.GetStockFinancialHighlightsResponse
+	(*GetStockNewsResponse)(nil),                    // 149: shorts.v1alpha1.GetStockNewsResponse
+	(*GetRelatedNewsResponse)(nil),                  // 150: shorts.v1alpha1.GetRelatedNewsResponse
+	(*GetMarketNewsResponse)(nil),                   // 151: shorts.v1alpha1.GetMarketNewsResponse
+	(*GetEditorialTakeResponse)(nil),                // 152: shorts.v1alpha1.GetEditorialTakeResponse
+	(*ListEditorialTakesResponse)(nil),              // 153: shorts.v1alpha1.ListEditorialTakesResponse
+	(*ListEditorialTakesAdminResponse)(nil),         // 154: shorts.v1alpha1.ListEditorialTakesAdminResponse
+	(*PublishEditorialTakeResponse)(nil),            // 155: shorts.v1alpha1.PublishEditorialTakeResponse
+	(*UpdateEditorialTakeResponse)(nil),             // 156: shorts.v1alpha1.UpdateEditorialTakeResponse
+	(*DeleteEditorialTakeResponse)(nil),             // 157: shorts.v1alpha1.DeleteEditorialTakeResponse
+	(*MarkTakeTweetPublishedResponse)(nil),          // 158: shorts.v1alpha1.MarkTakeTweetPublishedResponse
+	(*ListTweetPublishQueueResponse)(nil),           // 159: shorts.v1alpha1.ListTweetPublishQueueResponse
+	(*GetDirectorTradesResponse)(nil),               // 160: shorts.v1alpha1.GetDirectorTradesResponse
+	(*GetDividendHistoryResponse)(nil),              // 161: shorts.v1alpha1.GetDividendHistoryResponse
+	(*GetPeerComparisonResponse)(nil),               // 162: shorts.v1alpha1.GetPeerComparisonResponse
+	(*ScreenStocksResponse)(nil),                    // 163: shorts.v1alpha1.ScreenStocksResponse
+	(*GetBattlegroundStocksResponse)(nil),           // 164: shorts.v1alpha1.GetBattlegroundStocksResponse
+	(*GetStockVerdictResponse)(nil),                 // 165: shorts.v1alpha1.GetStockVerdictResponse
+	(*GetShortCampaignScoreboardResponse)(nil),      // 166: shorts.v1alpha1.GetShortCampaignScoreboardResponse
+	(*GetStockGraphResponse)(nil),                   // 167: shorts.v1alpha1.GetStockGraphResponse
+	(*GetEventTimelineResponse)(nil),                // 168: shorts.v1alpha1.GetEventTimelineResponse
+	(*GetStockSignalsResponse)(nil),                 // 169: shorts.v1alpha1.GetStockSignalsResponse
+	(*GetHousingOverviewResponse)(nil),              // 170: shorts.v1alpha1.GetHousingOverviewResponse
+	(*GetHousePriceSeriesResponse)(nil),             // 171: shorts.v1alpha1.GetHousePriceSeriesResponse
+	(*ListStateSuburbsResponse)(nil),                // 172: shorts.v1alpha1.ListStateSuburbsResponse
+	(*GetSuburbIndexResponse)(nil),                  // 173: shorts.v1alpha1.GetSuburbIndexResponse
+	(*GetSuburbMetricColumnsResponse)(nil),          // 174: shorts.v1alpha1.GetSuburbMetricColumnsResponse
+	(*FilterSuburbsResponse)(nil),                   // 175: shorts.v1alpha1.FilterSuburbsResponse
+	(*GetSuburbProfileResponse)(nil),                // 176: shorts.v1alpha1.GetSuburbProfileResponse
+	(*ListHousingRegionsResponse)(nil),              // 177: shorts.v1alpha1.ListHousingRegionsResponse
+	(*ListSuburbPriceDropsResponse)(nil),            // 178: shorts.v1alpha1.ListSuburbPriceDropsResponse
+	(*ListSuburbDropListingsResponse)(nil),          // 179: shorts.v1alpha1.ListSuburbDropListingsResponse
+	(*GetPropertyHistoryResponse)(nil),              // 180: shorts.v1alpha1.GetPropertyHistoryResponse
+	(*ListAddressPriceDropsResponse)(nil),           // 181: shorts.v1alpha1.ListAddressPriceDropsResponse
+	(*GetPriceDropsOverviewResponse)(nil),           // 182: shorts.v1alpha1.GetPriceDropsOverviewResponse
+	(*ListAgencyPriceStatsResponse)(nil),            // 183: shorts.v1alpha1.ListAgencyPriceStatsResponse
+	(*GetDropIndexSeriesResponse)(nil),              // 184: shorts.v1alpha1.GetDropIndexSeriesResponse
+	(*ListCouncilsResponse)(nil),                    // 185: shorts.v1alpha1.ListCouncilsResponse
+	(*GetCouncilProfileResponse)(nil),               // 186: shorts.v1alpha1.GetCouncilProfileResponse
+	(*ListEconomicSeriesResponse)(nil),              // 187: shorts.v1alpha1.ListEconomicSeriesResponse
+	(*GetEconomicSeriesResponse)(nil),               // 188: shorts.v1alpha1.GetEconomicSeriesResponse
+	(*ListSeriesCorrelationsResponse)(nil),          // 189: shorts.v1alpha1.ListSeriesCorrelationsResponse
+	(*ListStateCompaniesResponse)(nil),              // 190: shorts.v1alpha1.ListStateCompaniesResponse
+	(*GetStateCompanyAggregatesResponse)(nil),       // 191: shorts.v1alpha1.GetStateCompanyAggregatesResponse
+	(*GetCompanyTaxProfileResponse)(nil),            // 192: shorts.v1alpha1.GetCompanyTaxProfileResponse
+	(*GetIndustryIntelligenceResponse)(nil),         // 193: shorts.v1alpha1.GetIndustryIntelligenceResponse
+	(*GetStockFundamentalsResponse)(nil),            // 194: shorts.v1alpha1.GetStockFundamentalsResponse
+	(*ListStrategiesResponse)(nil),                  // 195: shorts.v1alpha1.ListStrategiesResponse
+	(*GetStrategyPicksResponse)(nil),                // 196: shorts.v1alpha1.GetStrategyPicksResponse
+	(*GetStockStrategyFitResponse)(nil),             // 197: shorts.v1alpha1.GetStockStrategyFitResponse
+	(*GetOwnershipOverviewResponse)(nil),            // 198: shorts.v1alpha1.GetOwnershipOverviewResponse
+	(*ListInstitutionsResponse)(nil),                // 199: shorts.v1alpha1.ListInstitutionsResponse
+	(*GetInstitutionResponse)(nil),                  // 200: shorts.v1alpha1.GetInstitutionResponse
+	(*GetStockOwnershipResponse)(nil),               // 201: shorts.v1alpha1.GetStockOwnershipResponse
+	(*ListSubstantialNoticesResponse)(nil),          // 202: shorts.v1alpha1.ListSubstantialNoticesResponse
+	(*ListStockRegistersResponse)(nil),              // 203: shorts.v1alpha1.ListStockRegistersResponse
+	(*GetOwnershipMapResponse)(nil),                 // 204: shorts.v1alpha1.GetOwnershipMapResponse
+	(*GetOwnershipFlowsResponse)(nil),               // 205: shorts.v1alpha1.GetOwnershipFlowsResponse
+	(*GetOwnershipActivityResponse)(nil),            // 206: shorts.v1alpha1.GetOwnershipActivityResponse
+	(*ListFundPositionChangesResponse)(nil),         // 207: shorts.v1alpha1.ListFundPositionChangesResponse
+	(*GetStockFundSeriesResponse)(nil),              // 208: shorts.v1alpha1.GetStockFundSeriesResponse
+	(*ListFundsResponse)(nil),                       // 209: shorts.v1alpha1.ListFundsResponse
+	(*GetFundPortfolioResponse)(nil),                // 210: shorts.v1alpha1.GetFundPortfolioResponse
+	(*CompareFundSnapshotsResponse)(nil),            // 211: shorts.v1alpha1.CompareFundSnapshotsResponse
+	(*GetParliamentOverviewResponse)(nil),           // 212: shorts.v1alpha1.GetParliamentOverviewResponse
+	(*ListPoliticiansResponse)(nil),                 // 213: shorts.v1alpha1.ListPoliticiansResponse
+	(*GetPoliticianResponse)(nil),                   // 214: shorts.v1alpha1.GetPoliticianResponse
+	(*ListStockPoliticiansResponse)(nil),            // 215: shorts.v1alpha1.ListStockPoliticiansResponse
+	(*ListPoliticianStocksResponse)(nil),            // 216: shorts.v1alpha1.ListPoliticianStocksResponse
+	(*ListSuburbPoliticiansResponse)(nil),           // 217: shorts.v1alpha1.ListSuburbPoliticiansResponse
+	(*ListStatePoliticianHoldingsResponse)(nil),     // 218: shorts.v1alpha1.ListStatePoliticianHoldingsResponse
+	(*ListRegisterChangesResponse)(nil),             // 219: shorts.v1alpha1.ListRegisterChangesResponse
+	(*ListShortInterestOverlapResponse)(nil),        // 220: shorts.v1alpha1.ListShortInterestOverlapResponse
+	(*GetPoliticianAnalyticsResponse)(nil),          // 221: shorts.v1alpha1.GetPoliticianAnalyticsResponse
+	(*GetRegisterExplorerResponse)(nil),             // 222: shorts.v1alpha1.GetRegisterExplorerResponse
+	(*ListPoliticianSummariesResponse)(nil),         // 223: shorts.v1alpha1.ListPoliticianSummariesResponse
+	(*GetPoliticianExplorerProfileResponse)(nil),    // 224: shorts.v1alpha1.GetPoliticianExplorerProfileResponse
+	(*ComparePoliticiansResponse)(nil),              // 225: shorts.v1alpha1.ComparePoliticiansResponse
+	(*GetRegisterActivityResponse)(nil),             // 226: shorts.v1alpha1.GetRegisterActivityResponse
+	(*ListDistinctiveHoldingsResponse)(nil),         // 227: shorts.v1alpha1.ListDistinctiveHoldingsResponse
+	(*GetDonationsOverviewResponse)(nil),            // 228: shorts.v1alpha1.GetDonationsOverviewResponse
+	(*ListTopDonorsResponse)(nil),                   // 229: shorts.v1alpha1.ListTopDonorsResponse
+	(*ListPartyFundingResponse)(nil),                // 230: shorts.v1alpha1.ListPartyFundingResponse
+	(*GetPoliticianFundingResponse)(nil),            // 231: shorts.v1alpha1.GetPoliticianFundingResponse
 }
 var file_shorts_v1alpha1_shorts_proto_depIdxs = []int32{
 	0,   // 0: shorts.v1alpha1.ShortedStocksService.GetTopShorts:input_type -> shorts.v1alpha1.GetTopShortsRequest
@@ -562,126 +559,124 @@ var file_shorts_v1alpha1_shorts_proto_depIdxs = []int32{
 	113, // 113: shorts.v1alpha1.ShortedStocksService.ListTopDonors:input_type -> shorts.v1alpha1.ListTopDonorsRequest
 	114, // 114: shorts.v1alpha1.ShortedStocksService.ListPartyFunding:input_type -> shorts.v1alpha1.ListPartyFundingRequest
 	115, // 115: shorts.v1alpha1.ShortedStocksService.GetPoliticianFunding:input_type -> shorts.v1alpha1.GetPoliticianFundingRequest
-	116, // 116: shorts.v1alpha1.ShortedStocksService.GetOwnershipInsights:input_type -> shorts.v1alpha1.GetOwnershipInsightsRequest
-	117, // 117: shorts.v1alpha1.ShortedStocksService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
-	118, // 118: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
-	119, // 119: shorts.v1alpha1.ShortedStocksService.GetStock:output_type -> stocks.v1alpha1.Stock
-	120, // 120: shorts.v1alpha1.ShortedStocksService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
-	121, // 121: shorts.v1alpha1.ShortedStocksService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
-	122, // 122: shorts.v1alpha1.ShortedStocksService.GetStockPrices:output_type -> shorts.v1alpha1.GetStockPricesResponse
-	123, // 123: shorts.v1alpha1.ShortedStocksService.GetMarketByDate:output_type -> shorts.v1alpha1.GetMarketByDateResponse
-	124, // 124: shorts.v1alpha1.ShortedStocksService.GetIndexSeries:output_type -> shorts.v1alpha1.GetIndexSeriesResponse
-	125, // 125: shorts.v1alpha1.ShortedStocksService.ListIndices:output_type -> shorts.v1alpha1.ListIndicesResponse
-	126, // 126: shorts.v1alpha1.ShortedStocksService.GetAvailableDates:output_type -> shorts.v1alpha1.GetAvailableDatesResponse
-	127, // 127: shorts.v1alpha1.ShortedStocksService.SearchStocks:output_type -> shorts.v1alpha1.SearchStocksResponse
-	128, // 128: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
-	129, // 129: shorts.v1alpha1.ShortedStocksService.MintToken:output_type -> shorts.v1alpha1.MintTokenResponse
-	130, // 130: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:output_type -> shorts.v1alpha1.SyncKeyMetricsResponse
-	131, // 131: shorts.v1alpha1.ShortedStocksService.EnrichStock:output_type -> shorts.v1alpha1.EnrichStockResponse
-	132, // 132: shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment:output_type -> shorts.v1alpha1.GetTopStocksForEnrichmentResponse
-	133, // 133: shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments:output_type -> shorts.v1alpha1.ListPendingEnrichmentsResponse
-	134, // 134: shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment:output_type -> shorts.v1alpha1.GetPendingEnrichmentResponse
-	135, // 135: shorts.v1alpha1.ShortedStocksService.ReviewEnrichment:output_type -> shorts.v1alpha1.ReviewEnrichmentResponse
-	136, // 136: shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus:output_type -> shorts.v1alpha1.GetEnrichmentJobStatusResponse
-	137, // 137: shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs:output_type -> shorts.v1alpha1.ListEnrichmentJobsResponse
-	138, // 138: shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted:output_type -> shorts.v1alpha1.HandleStripeCheckoutCompletedResponse
-	139, // 139: shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated:output_type -> shorts.v1alpha1.HandleStripeSubscriptionUpdatedResponse
-	140, // 140: shorts.v1alpha1.ShortedStocksService.GetMySubscription:output_type -> shorts.v1alpha1.GetMySubscriptionResponse
-	141, // 141: shorts.v1alpha1.ShortedStocksService.CreateAlertMonitor:output_type -> shorts.v1alpha1.CreateAlertMonitorResponse
-	142, // 142: shorts.v1alpha1.ShortedStocksService.ListAlertMonitors:output_type -> shorts.v1alpha1.ListAlertMonitorsResponse
-	143, // 143: shorts.v1alpha1.ShortedStocksService.ListAlertEvents:output_type -> shorts.v1alpha1.ListAlertEventsResponse
-	144, // 144: shorts.v1alpha1.ShortedStocksService.UpdateAlertMonitorStatus:output_type -> shorts.v1alpha1.UpdateAlertMonitorStatusResponse
-	145, // 145: shorts.v1alpha1.ShortedStocksService.DeleteAlertMonitor:output_type -> shorts.v1alpha1.DeleteAlertMonitorResponse
-	146, // 146: shorts.v1alpha1.ShortedStocksService.PauseAlertMonitorByToken:output_type -> shorts.v1alpha1.PauseAlertMonitorByTokenResponse
-	147, // 147: shorts.v1alpha1.ShortedStocksService.GetWeeklyReport:output_type -> shorts.v1alpha1.GetWeeklyReportResponse
-	148, // 148: shorts.v1alpha1.ShortedStocksService.ListReports:output_type -> shorts.v1alpha1.ListReportsResponse
-	149, // 149: shorts.v1alpha1.ShortedStocksService.GetStockFinancialHighlights:output_type -> shorts.v1alpha1.GetStockFinancialHighlightsResponse
-	150, // 150: shorts.v1alpha1.ShortedStocksService.GetStockNews:output_type -> shorts.v1alpha1.GetStockNewsResponse
-	151, // 151: shorts.v1alpha1.ShortedStocksService.GetRelatedNews:output_type -> shorts.v1alpha1.GetRelatedNewsResponse
-	152, // 152: shorts.v1alpha1.ShortedStocksService.GetMarketNews:output_type -> shorts.v1alpha1.GetMarketNewsResponse
-	153, // 153: shorts.v1alpha1.ShortedStocksService.GetEditorialTake:output_type -> shorts.v1alpha1.GetEditorialTakeResponse
-	154, // 154: shorts.v1alpha1.ShortedStocksService.ListEditorialTakes:output_type -> shorts.v1alpha1.ListEditorialTakesResponse
-	155, // 155: shorts.v1alpha1.ShortedStocksService.ListEditorialTakesAdmin:output_type -> shorts.v1alpha1.ListEditorialTakesAdminResponse
-	156, // 156: shorts.v1alpha1.ShortedStocksService.PublishEditorialTake:output_type -> shorts.v1alpha1.PublishEditorialTakeResponse
-	157, // 157: shorts.v1alpha1.ShortedStocksService.UpdateEditorialTake:output_type -> shorts.v1alpha1.UpdateEditorialTakeResponse
-	158, // 158: shorts.v1alpha1.ShortedStocksService.DeleteEditorialTake:output_type -> shorts.v1alpha1.DeleteEditorialTakeResponse
-	159, // 159: shorts.v1alpha1.ShortedStocksService.MarkTakeTweetPublished:output_type -> shorts.v1alpha1.MarkTakeTweetPublishedResponse
-	160, // 160: shorts.v1alpha1.ShortedStocksService.ListTweetPublishQueue:output_type -> shorts.v1alpha1.ListTweetPublishQueueResponse
-	161, // 161: shorts.v1alpha1.ShortedStocksService.GetDirectorTrades:output_type -> shorts.v1alpha1.GetDirectorTradesResponse
-	162, // 162: shorts.v1alpha1.ShortedStocksService.GetDividendHistory:output_type -> shorts.v1alpha1.GetDividendHistoryResponse
-	163, // 163: shorts.v1alpha1.ShortedStocksService.GetPeerComparison:output_type -> shorts.v1alpha1.GetPeerComparisonResponse
-	164, // 164: shorts.v1alpha1.ShortedStocksService.ScreenStocks:output_type -> shorts.v1alpha1.ScreenStocksResponse
-	165, // 165: shorts.v1alpha1.ShortedStocksService.GetBattlegroundStocks:output_type -> shorts.v1alpha1.GetBattlegroundStocksResponse
-	166, // 166: shorts.v1alpha1.ShortedStocksService.GetStockVerdict:output_type -> shorts.v1alpha1.GetStockVerdictResponse
-	167, // 167: shorts.v1alpha1.ShortedStocksService.GetShortCampaignScoreboard:output_type -> shorts.v1alpha1.GetShortCampaignScoreboardResponse
-	168, // 168: shorts.v1alpha1.ShortedStocksService.GetStockGraph:output_type -> shorts.v1alpha1.GetStockGraphResponse
-	169, // 169: shorts.v1alpha1.ShortedStocksService.GetEventTimeline:output_type -> shorts.v1alpha1.GetEventTimelineResponse
-	170, // 170: shorts.v1alpha1.ShortedStocksService.GetStockSignals:output_type -> shorts.v1alpha1.GetStockSignalsResponse
-	171, // 171: shorts.v1alpha1.ShortedStocksService.GetHousingOverview:output_type -> shorts.v1alpha1.GetHousingOverviewResponse
-	172, // 172: shorts.v1alpha1.ShortedStocksService.GetHousePriceSeries:output_type -> shorts.v1alpha1.GetHousePriceSeriesResponse
-	173, // 173: shorts.v1alpha1.ShortedStocksService.ListStateSuburbs:output_type -> shorts.v1alpha1.ListStateSuburbsResponse
-	174, // 174: shorts.v1alpha1.ShortedStocksService.GetSuburbIndex:output_type -> shorts.v1alpha1.GetSuburbIndexResponse
-	175, // 175: shorts.v1alpha1.ShortedStocksService.GetSuburbMetricColumns:output_type -> shorts.v1alpha1.GetSuburbMetricColumnsResponse
-	176, // 176: shorts.v1alpha1.ShortedStocksService.FilterSuburbs:output_type -> shorts.v1alpha1.FilterSuburbsResponse
-	177, // 177: shorts.v1alpha1.ShortedStocksService.GetSuburbProfile:output_type -> shorts.v1alpha1.GetSuburbProfileResponse
-	178, // 178: shorts.v1alpha1.ShortedStocksService.ListHousingRegions:output_type -> shorts.v1alpha1.ListHousingRegionsResponse
-	179, // 179: shorts.v1alpha1.ShortedStocksService.ListSuburbPriceDrops:output_type -> shorts.v1alpha1.ListSuburbPriceDropsResponse
-	180, // 180: shorts.v1alpha1.ShortedStocksService.ListSuburbDropListings:output_type -> shorts.v1alpha1.ListSuburbDropListingsResponse
-	181, // 181: shorts.v1alpha1.ShortedStocksService.GetPropertyHistory:output_type -> shorts.v1alpha1.GetPropertyHistoryResponse
-	182, // 182: shorts.v1alpha1.ShortedStocksService.ListAddressPriceDrops:output_type -> shorts.v1alpha1.ListAddressPriceDropsResponse
-	183, // 183: shorts.v1alpha1.ShortedStocksService.GetPriceDropsOverview:output_type -> shorts.v1alpha1.GetPriceDropsOverviewResponse
-	184, // 184: shorts.v1alpha1.ShortedStocksService.ListAgencyPriceStats:output_type -> shorts.v1alpha1.ListAgencyPriceStatsResponse
-	185, // 185: shorts.v1alpha1.ShortedStocksService.GetDropIndexSeries:output_type -> shorts.v1alpha1.GetDropIndexSeriesResponse
-	186, // 186: shorts.v1alpha1.ShortedStocksService.ListCouncils:output_type -> shorts.v1alpha1.ListCouncilsResponse
-	187, // 187: shorts.v1alpha1.ShortedStocksService.GetCouncilProfile:output_type -> shorts.v1alpha1.GetCouncilProfileResponse
-	188, // 188: shorts.v1alpha1.ShortedStocksService.ListEconomicSeries:output_type -> shorts.v1alpha1.ListEconomicSeriesResponse
-	189, // 189: shorts.v1alpha1.ShortedStocksService.GetEconomicSeries:output_type -> shorts.v1alpha1.GetEconomicSeriesResponse
-	190, // 190: shorts.v1alpha1.ShortedStocksService.ListSeriesCorrelations:output_type -> shorts.v1alpha1.ListSeriesCorrelationsResponse
-	191, // 191: shorts.v1alpha1.ShortedStocksService.ListStateCompanies:output_type -> shorts.v1alpha1.ListStateCompaniesResponse
-	192, // 192: shorts.v1alpha1.ShortedStocksService.GetStateCompanyAggregates:output_type -> shorts.v1alpha1.GetStateCompanyAggregatesResponse
-	193, // 193: shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile:output_type -> shorts.v1alpha1.GetCompanyTaxProfileResponse
-	194, // 194: shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence:output_type -> shorts.v1alpha1.GetIndustryIntelligenceResponse
-	195, // 195: shorts.v1alpha1.ShortedStocksService.GetStockFundamentals:output_type -> shorts.v1alpha1.GetStockFundamentalsResponse
-	196, // 196: shorts.v1alpha1.ShortedStocksService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
-	197, // 197: shorts.v1alpha1.ShortedStocksService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
-	198, // 198: shorts.v1alpha1.ShortedStocksService.GetStockStrategyFit:output_type -> shorts.v1alpha1.GetStockStrategyFitResponse
-	199, // 199: shorts.v1alpha1.ShortedStocksService.GetOwnershipOverview:output_type -> shorts.v1alpha1.GetOwnershipOverviewResponse
-	200, // 200: shorts.v1alpha1.ShortedStocksService.ListInstitutions:output_type -> shorts.v1alpha1.ListInstitutionsResponse
-	201, // 201: shorts.v1alpha1.ShortedStocksService.GetInstitution:output_type -> shorts.v1alpha1.GetInstitutionResponse
-	202, // 202: shorts.v1alpha1.ShortedStocksService.GetStockOwnership:output_type -> shorts.v1alpha1.GetStockOwnershipResponse
-	203, // 203: shorts.v1alpha1.ShortedStocksService.ListSubstantialNotices:output_type -> shorts.v1alpha1.ListSubstantialNoticesResponse
-	204, // 204: shorts.v1alpha1.ShortedStocksService.ListStockRegisters:output_type -> shorts.v1alpha1.ListStockRegistersResponse
-	205, // 205: shorts.v1alpha1.ShortedStocksService.GetOwnershipMap:output_type -> shorts.v1alpha1.GetOwnershipMapResponse
-	206, // 206: shorts.v1alpha1.ShortedStocksService.GetOwnershipFlows:output_type -> shorts.v1alpha1.GetOwnershipFlowsResponse
-	207, // 207: shorts.v1alpha1.ShortedStocksService.GetOwnershipActivity:output_type -> shorts.v1alpha1.GetOwnershipActivityResponse
-	208, // 208: shorts.v1alpha1.ShortedStocksService.ListFundPositionChanges:output_type -> shorts.v1alpha1.ListFundPositionChangesResponse
-	209, // 209: shorts.v1alpha1.ShortedStocksService.GetStockFundSeries:output_type -> shorts.v1alpha1.GetStockFundSeriesResponse
-	210, // 210: shorts.v1alpha1.ShortedStocksService.ListFunds:output_type -> shorts.v1alpha1.ListFundsResponse
-	211, // 211: shorts.v1alpha1.ShortedStocksService.GetFundPortfolio:output_type -> shorts.v1alpha1.GetFundPortfolioResponse
-	212, // 212: shorts.v1alpha1.ShortedStocksService.CompareFundSnapshots:output_type -> shorts.v1alpha1.CompareFundSnapshotsResponse
-	213, // 213: shorts.v1alpha1.ShortedStocksService.GetParliamentOverview:output_type -> shorts.v1alpha1.GetParliamentOverviewResponse
-	214, // 214: shorts.v1alpha1.ShortedStocksService.ListPoliticians:output_type -> shorts.v1alpha1.ListPoliticiansResponse
-	215, // 215: shorts.v1alpha1.ShortedStocksService.GetPolitician:output_type -> shorts.v1alpha1.GetPoliticianResponse
-	216, // 216: shorts.v1alpha1.ShortedStocksService.ListStockPoliticians:output_type -> shorts.v1alpha1.ListStockPoliticiansResponse
-	217, // 217: shorts.v1alpha1.ShortedStocksService.ListPoliticianStocks:output_type -> shorts.v1alpha1.ListPoliticianStocksResponse
-	218, // 218: shorts.v1alpha1.ShortedStocksService.ListSuburbPoliticians:output_type -> shorts.v1alpha1.ListSuburbPoliticiansResponse
-	219, // 219: shorts.v1alpha1.ShortedStocksService.ListStatePoliticianHoldings:output_type -> shorts.v1alpha1.ListStatePoliticianHoldingsResponse
-	220, // 220: shorts.v1alpha1.ShortedStocksService.ListRegisterChanges:output_type -> shorts.v1alpha1.ListRegisterChangesResponse
-	221, // 221: shorts.v1alpha1.ShortedStocksService.ListShortInterestOverlap:output_type -> shorts.v1alpha1.ListShortInterestOverlapResponse
-	222, // 222: shorts.v1alpha1.ShortedStocksService.GetPoliticianAnalytics:output_type -> shorts.v1alpha1.GetPoliticianAnalyticsResponse
-	223, // 223: shorts.v1alpha1.ShortedStocksService.GetRegisterExplorer:output_type -> shorts.v1alpha1.GetRegisterExplorerResponse
-	224, // 224: shorts.v1alpha1.ShortedStocksService.ListPoliticianSummaries:output_type -> shorts.v1alpha1.ListPoliticianSummariesResponse
-	225, // 225: shorts.v1alpha1.ShortedStocksService.GetPoliticianExplorerProfile:output_type -> shorts.v1alpha1.GetPoliticianExplorerProfileResponse
-	226, // 226: shorts.v1alpha1.ShortedStocksService.ComparePoliticians:output_type -> shorts.v1alpha1.ComparePoliticiansResponse
-	227, // 227: shorts.v1alpha1.ShortedStocksService.GetRegisterActivity:output_type -> shorts.v1alpha1.GetRegisterActivityResponse
-	228, // 228: shorts.v1alpha1.ShortedStocksService.ListDistinctiveHoldings:output_type -> shorts.v1alpha1.ListDistinctiveHoldingsResponse
-	229, // 229: shorts.v1alpha1.ShortedStocksService.GetDonationsOverview:output_type -> shorts.v1alpha1.GetDonationsOverviewResponse
-	230, // 230: shorts.v1alpha1.ShortedStocksService.ListTopDonors:output_type -> shorts.v1alpha1.ListTopDonorsResponse
-	231, // 231: shorts.v1alpha1.ShortedStocksService.ListPartyFunding:output_type -> shorts.v1alpha1.ListPartyFundingResponse
-	232, // 232: shorts.v1alpha1.ShortedStocksService.GetPoliticianFunding:output_type -> shorts.v1alpha1.GetPoliticianFundingResponse
-	233, // 233: shorts.v1alpha1.ShortedStocksService.GetOwnershipInsights:output_type -> shorts.v1alpha1.GetOwnershipInsightsResponse
-	117, // [117:234] is the sub-list for method output_type
-	0,   // [0:117] is the sub-list for method input_type
+	116, // 116: shorts.v1alpha1.ShortedStocksService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
+	117, // 117: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
+	118, // 118: shorts.v1alpha1.ShortedStocksService.GetStock:output_type -> stocks.v1alpha1.Stock
+	119, // 119: shorts.v1alpha1.ShortedStocksService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
+	120, // 120: shorts.v1alpha1.ShortedStocksService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
+	121, // 121: shorts.v1alpha1.ShortedStocksService.GetStockPrices:output_type -> shorts.v1alpha1.GetStockPricesResponse
+	122, // 122: shorts.v1alpha1.ShortedStocksService.GetMarketByDate:output_type -> shorts.v1alpha1.GetMarketByDateResponse
+	123, // 123: shorts.v1alpha1.ShortedStocksService.GetIndexSeries:output_type -> shorts.v1alpha1.GetIndexSeriesResponse
+	124, // 124: shorts.v1alpha1.ShortedStocksService.ListIndices:output_type -> shorts.v1alpha1.ListIndicesResponse
+	125, // 125: shorts.v1alpha1.ShortedStocksService.GetAvailableDates:output_type -> shorts.v1alpha1.GetAvailableDatesResponse
+	126, // 126: shorts.v1alpha1.ShortedStocksService.SearchStocks:output_type -> shorts.v1alpha1.SearchStocksResponse
+	127, // 127: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
+	128, // 128: shorts.v1alpha1.ShortedStocksService.MintToken:output_type -> shorts.v1alpha1.MintTokenResponse
+	129, // 129: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:output_type -> shorts.v1alpha1.SyncKeyMetricsResponse
+	130, // 130: shorts.v1alpha1.ShortedStocksService.EnrichStock:output_type -> shorts.v1alpha1.EnrichStockResponse
+	131, // 131: shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment:output_type -> shorts.v1alpha1.GetTopStocksForEnrichmentResponse
+	132, // 132: shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments:output_type -> shorts.v1alpha1.ListPendingEnrichmentsResponse
+	133, // 133: shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment:output_type -> shorts.v1alpha1.GetPendingEnrichmentResponse
+	134, // 134: shorts.v1alpha1.ShortedStocksService.ReviewEnrichment:output_type -> shorts.v1alpha1.ReviewEnrichmentResponse
+	135, // 135: shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus:output_type -> shorts.v1alpha1.GetEnrichmentJobStatusResponse
+	136, // 136: shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs:output_type -> shorts.v1alpha1.ListEnrichmentJobsResponse
+	137, // 137: shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted:output_type -> shorts.v1alpha1.HandleStripeCheckoutCompletedResponse
+	138, // 138: shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated:output_type -> shorts.v1alpha1.HandleStripeSubscriptionUpdatedResponse
+	139, // 139: shorts.v1alpha1.ShortedStocksService.GetMySubscription:output_type -> shorts.v1alpha1.GetMySubscriptionResponse
+	140, // 140: shorts.v1alpha1.ShortedStocksService.CreateAlertMonitor:output_type -> shorts.v1alpha1.CreateAlertMonitorResponse
+	141, // 141: shorts.v1alpha1.ShortedStocksService.ListAlertMonitors:output_type -> shorts.v1alpha1.ListAlertMonitorsResponse
+	142, // 142: shorts.v1alpha1.ShortedStocksService.ListAlertEvents:output_type -> shorts.v1alpha1.ListAlertEventsResponse
+	143, // 143: shorts.v1alpha1.ShortedStocksService.UpdateAlertMonitorStatus:output_type -> shorts.v1alpha1.UpdateAlertMonitorStatusResponse
+	144, // 144: shorts.v1alpha1.ShortedStocksService.DeleteAlertMonitor:output_type -> shorts.v1alpha1.DeleteAlertMonitorResponse
+	145, // 145: shorts.v1alpha1.ShortedStocksService.PauseAlertMonitorByToken:output_type -> shorts.v1alpha1.PauseAlertMonitorByTokenResponse
+	146, // 146: shorts.v1alpha1.ShortedStocksService.GetWeeklyReport:output_type -> shorts.v1alpha1.GetWeeklyReportResponse
+	147, // 147: shorts.v1alpha1.ShortedStocksService.ListReports:output_type -> shorts.v1alpha1.ListReportsResponse
+	148, // 148: shorts.v1alpha1.ShortedStocksService.GetStockFinancialHighlights:output_type -> shorts.v1alpha1.GetStockFinancialHighlightsResponse
+	149, // 149: shorts.v1alpha1.ShortedStocksService.GetStockNews:output_type -> shorts.v1alpha1.GetStockNewsResponse
+	150, // 150: shorts.v1alpha1.ShortedStocksService.GetRelatedNews:output_type -> shorts.v1alpha1.GetRelatedNewsResponse
+	151, // 151: shorts.v1alpha1.ShortedStocksService.GetMarketNews:output_type -> shorts.v1alpha1.GetMarketNewsResponse
+	152, // 152: shorts.v1alpha1.ShortedStocksService.GetEditorialTake:output_type -> shorts.v1alpha1.GetEditorialTakeResponse
+	153, // 153: shorts.v1alpha1.ShortedStocksService.ListEditorialTakes:output_type -> shorts.v1alpha1.ListEditorialTakesResponse
+	154, // 154: shorts.v1alpha1.ShortedStocksService.ListEditorialTakesAdmin:output_type -> shorts.v1alpha1.ListEditorialTakesAdminResponse
+	155, // 155: shorts.v1alpha1.ShortedStocksService.PublishEditorialTake:output_type -> shorts.v1alpha1.PublishEditorialTakeResponse
+	156, // 156: shorts.v1alpha1.ShortedStocksService.UpdateEditorialTake:output_type -> shorts.v1alpha1.UpdateEditorialTakeResponse
+	157, // 157: shorts.v1alpha1.ShortedStocksService.DeleteEditorialTake:output_type -> shorts.v1alpha1.DeleteEditorialTakeResponse
+	158, // 158: shorts.v1alpha1.ShortedStocksService.MarkTakeTweetPublished:output_type -> shorts.v1alpha1.MarkTakeTweetPublishedResponse
+	159, // 159: shorts.v1alpha1.ShortedStocksService.ListTweetPublishQueue:output_type -> shorts.v1alpha1.ListTweetPublishQueueResponse
+	160, // 160: shorts.v1alpha1.ShortedStocksService.GetDirectorTrades:output_type -> shorts.v1alpha1.GetDirectorTradesResponse
+	161, // 161: shorts.v1alpha1.ShortedStocksService.GetDividendHistory:output_type -> shorts.v1alpha1.GetDividendHistoryResponse
+	162, // 162: shorts.v1alpha1.ShortedStocksService.GetPeerComparison:output_type -> shorts.v1alpha1.GetPeerComparisonResponse
+	163, // 163: shorts.v1alpha1.ShortedStocksService.ScreenStocks:output_type -> shorts.v1alpha1.ScreenStocksResponse
+	164, // 164: shorts.v1alpha1.ShortedStocksService.GetBattlegroundStocks:output_type -> shorts.v1alpha1.GetBattlegroundStocksResponse
+	165, // 165: shorts.v1alpha1.ShortedStocksService.GetStockVerdict:output_type -> shorts.v1alpha1.GetStockVerdictResponse
+	166, // 166: shorts.v1alpha1.ShortedStocksService.GetShortCampaignScoreboard:output_type -> shorts.v1alpha1.GetShortCampaignScoreboardResponse
+	167, // 167: shorts.v1alpha1.ShortedStocksService.GetStockGraph:output_type -> shorts.v1alpha1.GetStockGraphResponse
+	168, // 168: shorts.v1alpha1.ShortedStocksService.GetEventTimeline:output_type -> shorts.v1alpha1.GetEventTimelineResponse
+	169, // 169: shorts.v1alpha1.ShortedStocksService.GetStockSignals:output_type -> shorts.v1alpha1.GetStockSignalsResponse
+	170, // 170: shorts.v1alpha1.ShortedStocksService.GetHousingOverview:output_type -> shorts.v1alpha1.GetHousingOverviewResponse
+	171, // 171: shorts.v1alpha1.ShortedStocksService.GetHousePriceSeries:output_type -> shorts.v1alpha1.GetHousePriceSeriesResponse
+	172, // 172: shorts.v1alpha1.ShortedStocksService.ListStateSuburbs:output_type -> shorts.v1alpha1.ListStateSuburbsResponse
+	173, // 173: shorts.v1alpha1.ShortedStocksService.GetSuburbIndex:output_type -> shorts.v1alpha1.GetSuburbIndexResponse
+	174, // 174: shorts.v1alpha1.ShortedStocksService.GetSuburbMetricColumns:output_type -> shorts.v1alpha1.GetSuburbMetricColumnsResponse
+	175, // 175: shorts.v1alpha1.ShortedStocksService.FilterSuburbs:output_type -> shorts.v1alpha1.FilterSuburbsResponse
+	176, // 176: shorts.v1alpha1.ShortedStocksService.GetSuburbProfile:output_type -> shorts.v1alpha1.GetSuburbProfileResponse
+	177, // 177: shorts.v1alpha1.ShortedStocksService.ListHousingRegions:output_type -> shorts.v1alpha1.ListHousingRegionsResponse
+	178, // 178: shorts.v1alpha1.ShortedStocksService.ListSuburbPriceDrops:output_type -> shorts.v1alpha1.ListSuburbPriceDropsResponse
+	179, // 179: shorts.v1alpha1.ShortedStocksService.ListSuburbDropListings:output_type -> shorts.v1alpha1.ListSuburbDropListingsResponse
+	180, // 180: shorts.v1alpha1.ShortedStocksService.GetPropertyHistory:output_type -> shorts.v1alpha1.GetPropertyHistoryResponse
+	181, // 181: shorts.v1alpha1.ShortedStocksService.ListAddressPriceDrops:output_type -> shorts.v1alpha1.ListAddressPriceDropsResponse
+	182, // 182: shorts.v1alpha1.ShortedStocksService.GetPriceDropsOverview:output_type -> shorts.v1alpha1.GetPriceDropsOverviewResponse
+	183, // 183: shorts.v1alpha1.ShortedStocksService.ListAgencyPriceStats:output_type -> shorts.v1alpha1.ListAgencyPriceStatsResponse
+	184, // 184: shorts.v1alpha1.ShortedStocksService.GetDropIndexSeries:output_type -> shorts.v1alpha1.GetDropIndexSeriesResponse
+	185, // 185: shorts.v1alpha1.ShortedStocksService.ListCouncils:output_type -> shorts.v1alpha1.ListCouncilsResponse
+	186, // 186: shorts.v1alpha1.ShortedStocksService.GetCouncilProfile:output_type -> shorts.v1alpha1.GetCouncilProfileResponse
+	187, // 187: shorts.v1alpha1.ShortedStocksService.ListEconomicSeries:output_type -> shorts.v1alpha1.ListEconomicSeriesResponse
+	188, // 188: shorts.v1alpha1.ShortedStocksService.GetEconomicSeries:output_type -> shorts.v1alpha1.GetEconomicSeriesResponse
+	189, // 189: shorts.v1alpha1.ShortedStocksService.ListSeriesCorrelations:output_type -> shorts.v1alpha1.ListSeriesCorrelationsResponse
+	190, // 190: shorts.v1alpha1.ShortedStocksService.ListStateCompanies:output_type -> shorts.v1alpha1.ListStateCompaniesResponse
+	191, // 191: shorts.v1alpha1.ShortedStocksService.GetStateCompanyAggregates:output_type -> shorts.v1alpha1.GetStateCompanyAggregatesResponse
+	192, // 192: shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile:output_type -> shorts.v1alpha1.GetCompanyTaxProfileResponse
+	193, // 193: shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence:output_type -> shorts.v1alpha1.GetIndustryIntelligenceResponse
+	194, // 194: shorts.v1alpha1.ShortedStocksService.GetStockFundamentals:output_type -> shorts.v1alpha1.GetStockFundamentalsResponse
+	195, // 195: shorts.v1alpha1.ShortedStocksService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
+	196, // 196: shorts.v1alpha1.ShortedStocksService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
+	197, // 197: shorts.v1alpha1.ShortedStocksService.GetStockStrategyFit:output_type -> shorts.v1alpha1.GetStockStrategyFitResponse
+	198, // 198: shorts.v1alpha1.ShortedStocksService.GetOwnershipOverview:output_type -> shorts.v1alpha1.GetOwnershipOverviewResponse
+	199, // 199: shorts.v1alpha1.ShortedStocksService.ListInstitutions:output_type -> shorts.v1alpha1.ListInstitutionsResponse
+	200, // 200: shorts.v1alpha1.ShortedStocksService.GetInstitution:output_type -> shorts.v1alpha1.GetInstitutionResponse
+	201, // 201: shorts.v1alpha1.ShortedStocksService.GetStockOwnership:output_type -> shorts.v1alpha1.GetStockOwnershipResponse
+	202, // 202: shorts.v1alpha1.ShortedStocksService.ListSubstantialNotices:output_type -> shorts.v1alpha1.ListSubstantialNoticesResponse
+	203, // 203: shorts.v1alpha1.ShortedStocksService.ListStockRegisters:output_type -> shorts.v1alpha1.ListStockRegistersResponse
+	204, // 204: shorts.v1alpha1.ShortedStocksService.GetOwnershipMap:output_type -> shorts.v1alpha1.GetOwnershipMapResponse
+	205, // 205: shorts.v1alpha1.ShortedStocksService.GetOwnershipFlows:output_type -> shorts.v1alpha1.GetOwnershipFlowsResponse
+	206, // 206: shorts.v1alpha1.ShortedStocksService.GetOwnershipActivity:output_type -> shorts.v1alpha1.GetOwnershipActivityResponse
+	207, // 207: shorts.v1alpha1.ShortedStocksService.ListFundPositionChanges:output_type -> shorts.v1alpha1.ListFundPositionChangesResponse
+	208, // 208: shorts.v1alpha1.ShortedStocksService.GetStockFundSeries:output_type -> shorts.v1alpha1.GetStockFundSeriesResponse
+	209, // 209: shorts.v1alpha1.ShortedStocksService.ListFunds:output_type -> shorts.v1alpha1.ListFundsResponse
+	210, // 210: shorts.v1alpha1.ShortedStocksService.GetFundPortfolio:output_type -> shorts.v1alpha1.GetFundPortfolioResponse
+	211, // 211: shorts.v1alpha1.ShortedStocksService.CompareFundSnapshots:output_type -> shorts.v1alpha1.CompareFundSnapshotsResponse
+	212, // 212: shorts.v1alpha1.ShortedStocksService.GetParliamentOverview:output_type -> shorts.v1alpha1.GetParliamentOverviewResponse
+	213, // 213: shorts.v1alpha1.ShortedStocksService.ListPoliticians:output_type -> shorts.v1alpha1.ListPoliticiansResponse
+	214, // 214: shorts.v1alpha1.ShortedStocksService.GetPolitician:output_type -> shorts.v1alpha1.GetPoliticianResponse
+	215, // 215: shorts.v1alpha1.ShortedStocksService.ListStockPoliticians:output_type -> shorts.v1alpha1.ListStockPoliticiansResponse
+	216, // 216: shorts.v1alpha1.ShortedStocksService.ListPoliticianStocks:output_type -> shorts.v1alpha1.ListPoliticianStocksResponse
+	217, // 217: shorts.v1alpha1.ShortedStocksService.ListSuburbPoliticians:output_type -> shorts.v1alpha1.ListSuburbPoliticiansResponse
+	218, // 218: shorts.v1alpha1.ShortedStocksService.ListStatePoliticianHoldings:output_type -> shorts.v1alpha1.ListStatePoliticianHoldingsResponse
+	219, // 219: shorts.v1alpha1.ShortedStocksService.ListRegisterChanges:output_type -> shorts.v1alpha1.ListRegisterChangesResponse
+	220, // 220: shorts.v1alpha1.ShortedStocksService.ListShortInterestOverlap:output_type -> shorts.v1alpha1.ListShortInterestOverlapResponse
+	221, // 221: shorts.v1alpha1.ShortedStocksService.GetPoliticianAnalytics:output_type -> shorts.v1alpha1.GetPoliticianAnalyticsResponse
+	222, // 222: shorts.v1alpha1.ShortedStocksService.GetRegisterExplorer:output_type -> shorts.v1alpha1.GetRegisterExplorerResponse
+	223, // 223: shorts.v1alpha1.ShortedStocksService.ListPoliticianSummaries:output_type -> shorts.v1alpha1.ListPoliticianSummariesResponse
+	224, // 224: shorts.v1alpha1.ShortedStocksService.GetPoliticianExplorerProfile:output_type -> shorts.v1alpha1.GetPoliticianExplorerProfileResponse
+	225, // 225: shorts.v1alpha1.ShortedStocksService.ComparePoliticians:output_type -> shorts.v1alpha1.ComparePoliticiansResponse
+	226, // 226: shorts.v1alpha1.ShortedStocksService.GetRegisterActivity:output_type -> shorts.v1alpha1.GetRegisterActivityResponse
+	227, // 227: shorts.v1alpha1.ShortedStocksService.ListDistinctiveHoldings:output_type -> shorts.v1alpha1.ListDistinctiveHoldingsResponse
+	228, // 228: shorts.v1alpha1.ShortedStocksService.GetDonationsOverview:output_type -> shorts.v1alpha1.GetDonationsOverviewResponse
+	229, // 229: shorts.v1alpha1.ShortedStocksService.ListTopDonors:output_type -> shorts.v1alpha1.ListTopDonorsResponse
+	230, // 230: shorts.v1alpha1.ShortedStocksService.ListPartyFunding:output_type -> shorts.v1alpha1.ListPartyFundingResponse
+	231, // 231: shorts.v1alpha1.ShortedStocksService.GetPoliticianFunding:output_type -> shorts.v1alpha1.GetPoliticianFundingResponse
+	116, // [116:232] is the sub-list for method output_type
+	0,   // [0:116] is the sub-list for method input_type
 	0,   // [0:0] is the sub-list for extension type_name
 	0,   // [0:0] is the sub-list for extension extendee
 	0,   // [0:0] is the sub-list for field type_name
@@ -701,7 +696,6 @@ func file_shorts_v1alpha1_shorts_proto_init() {
 	file_shorts_v1alpha1_market_proto_init()
 	file_shorts_v1alpha1_news_proto_init()
 	file_shorts_v1alpha1_ownership_proto_init()
-	file_shorts_v1alpha1_ownership_insights_proto_init()
 	file_shorts_v1alpha1_politicians_proto_init()
 	file_shorts_v1alpha1_reports_proto_init()
 	file_shorts_v1alpha1_screener_proto_init()

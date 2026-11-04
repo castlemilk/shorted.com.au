@@ -32,6 +32,7 @@ private static final long serialVersionUID = 0L;
     toWeek_ = "";
     rows_ = java.util.Collections.emptyList();
     asOf_ = "";
+    largestMoves_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -245,6 +246,87 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int LARGEST_MOVES_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.LargestMove> largestMoves_;
+  /**
+   * <pre>
+   * The window's largest moves the notices state (spec 14.10): at most ten notices
+   * that state both their present and previous voting power and differ, ranked by
+   * the size of the change, then the newer date, then the stock code. A notice that
+   * does not state both figures (a cessation, a 605, or one with no previous figure)
+   * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.LargestMove> getLargestMovesList() {
+    return largestMoves_;
+  }
+  /**
+   * <pre>
+   * The window's largest moves the notices state (spec 14.10): at most ten notices
+   * that state both their present and previous voting power and differ, ranked by
+   * the size of the change, then the newer date, then the stock code. A notice that
+   * does not state both figures (a cessation, a 605, or one with no previous figure)
+   * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.LargestMoveOrBuilder> 
+      getLargestMovesOrBuilderList() {
+    return largestMoves_;
+  }
+  /**
+   * <pre>
+   * The window's largest moves the notices state (spec 14.10): at most ten notices
+   * that state both their present and previous voting power and differ, ranked by
+   * the size of the change, then the newer date, then the stock code. A notice that
+   * does not state both figures (a cessation, a 605, or one with no previous figure)
+   * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+   */
+  @java.lang.Override
+  public int getLargestMovesCount() {
+    return largestMoves_.size();
+  }
+  /**
+   * <pre>
+   * The window's largest moves the notices state (spec 14.10): at most ten notices
+   * that state both their present and previous voting power and differ, ranked by
+   * the size of the change, then the newer date, then the stock code. A notice that
+   * does not state both figures (a cessation, a 605, or one with no previous figure)
+   * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.LargestMove getLargestMoves(int index) {
+    return largestMoves_.get(index);
+  }
+  /**
+   * <pre>
+   * The window's largest moves the notices state (spec 14.10): at most ten notices
+   * that state both their present and previous voting power and differ, ranked by
+   * the size of the change, then the newer date, then the stock code. A notice that
+   * does not state both figures (a cessation, a 605, or one with no previous figure)
+   * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.LargestMoveOrBuilder getLargestMovesOrBuilder(
+      int index) {
+    return largestMoves_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -271,6 +353,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 4, asOf_);
     }
+    for (int i = 0; i < largestMoves_.size(); i++) {
+      output.writeMessage(5, largestMoves_.get(i));
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -293,6 +378,15 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(4, asOf_);
     }
+
+        {
+          final int count = largestMoves_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(largestMoves_.get(i));
+          }
+          size += 1 * count;
+        }
     return size;
   }
   @java.lang.Override
@@ -325,6 +419,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getRowsList())) return false;
     if (!getAsOf()
         .equals(other.getAsOf())) return false;
+    if (!getLargestMovesList()
+        .equals(other.getLargestMovesList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -346,6 +442,10 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + AS_OF_FIELD_NUMBER;
     hash = (53 * hash) + getAsOf().hashCode();
+    if (getLargestMovesCount() > 0) {
+      hash = (37 * hash) + LARGEST_MOVES_FIELD_NUMBER;
+      hash = (53 * hash) + getLargestMovesList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -487,6 +587,13 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00000004);
       asOf_ = "";
+      if (largestMovesBuilder_ == null) {
+        largestMoves_ = java.util.Collections.emptyList();
+      } else {
+        largestMoves_ = null;
+        largestMovesBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000010);
       return this;
     }
 
@@ -528,6 +635,15 @@ private static final long serialVersionUID = 0L;
         result.rows_ = rows_;
       } else {
         result.rows_ = rowsBuilder_.build();
+      }
+      if (largestMovesBuilder_ == null) {
+        if (((bitField0_ & 0x00000010) != 0)) {
+          largestMoves_ = java.util.Collections.unmodifiableList(largestMoves_);
+          bitField0_ = (bitField0_ & ~0x00000010);
+        }
+        result.largestMoves_ = largestMoves_;
+      } else {
+        result.largestMoves_ = largestMovesBuilder_.build();
       }
     }
 
@@ -597,6 +713,32 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000008;
         onChanged();
       }
+      if (largestMovesBuilder_ == null) {
+        if (!other.largestMoves_.isEmpty()) {
+          if (largestMoves_.isEmpty()) {
+            largestMoves_ = other.largestMoves_;
+            bitField0_ = (bitField0_ & ~0x00000010);
+          } else {
+            ensureLargestMovesIsMutable();
+            largestMoves_.addAll(other.largestMoves_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.largestMoves_.isEmpty()) {
+          if (largestMovesBuilder_.isEmpty()) {
+            largestMovesBuilder_.dispose();
+            largestMovesBuilder_ = null;
+            largestMoves_ = other.largestMoves_;
+            bitField0_ = (bitField0_ & ~0x00000010);
+            largestMovesBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetLargestMovesFieldBuilder() : null;
+          } else {
+            largestMovesBuilder_.addAllMessages(other.largestMoves_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -651,6 +793,19 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 34
+            case 42: {
+              com.shorts.v1alpha1.LargestMove m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.LargestMove.parser(),
+                      extensionRegistry);
+              if (largestMovesBuilder_ == null) {
+                ensureLargestMovesIsMutable();
+                largestMoves_.add(m);
+              } else {
+                largestMovesBuilder_.addMessage(m);
+              }
+              break;
+            } // case 42
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1237,6 +1392,390 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00000008;
       onChanged();
       return this;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.LargestMove> largestMoves_ =
+      java.util.Collections.emptyList();
+    private void ensureLargestMovesIsMutable() {
+      if (!((bitField0_ & 0x00000010) != 0)) {
+        largestMoves_ = new java.util.ArrayList<com.shorts.v1alpha1.LargestMove>(largestMoves_);
+        bitField0_ |= 0x00000010;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.LargestMove, com.shorts.v1alpha1.LargestMove.Builder, com.shorts.v1alpha1.LargestMoveOrBuilder> largestMovesBuilder_;
+
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.LargestMove> getLargestMovesList() {
+      if (largestMovesBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(largestMoves_);
+      } else {
+        return largestMovesBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public int getLargestMovesCount() {
+      if (largestMovesBuilder_ == null) {
+        return largestMoves_.size();
+      } else {
+        return largestMovesBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public com.shorts.v1alpha1.LargestMove getLargestMoves(int index) {
+      if (largestMovesBuilder_ == null) {
+        return largestMoves_.get(index);
+      } else {
+        return largestMovesBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public Builder setLargestMoves(
+        int index, com.shorts.v1alpha1.LargestMove value) {
+      if (largestMovesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureLargestMovesIsMutable();
+        largestMoves_.set(index, value);
+        onChanged();
+      } else {
+        largestMovesBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public Builder setLargestMoves(
+        int index, com.shorts.v1alpha1.LargestMove.Builder builderForValue) {
+      if (largestMovesBuilder_ == null) {
+        ensureLargestMovesIsMutable();
+        largestMoves_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        largestMovesBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public Builder addLargestMoves(com.shorts.v1alpha1.LargestMove value) {
+      if (largestMovesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureLargestMovesIsMutable();
+        largestMoves_.add(value);
+        onChanged();
+      } else {
+        largestMovesBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public Builder addLargestMoves(
+        int index, com.shorts.v1alpha1.LargestMove value) {
+      if (largestMovesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureLargestMovesIsMutable();
+        largestMoves_.add(index, value);
+        onChanged();
+      } else {
+        largestMovesBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public Builder addLargestMoves(
+        com.shorts.v1alpha1.LargestMove.Builder builderForValue) {
+      if (largestMovesBuilder_ == null) {
+        ensureLargestMovesIsMutable();
+        largestMoves_.add(builderForValue.build());
+        onChanged();
+      } else {
+        largestMovesBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public Builder addLargestMoves(
+        int index, com.shorts.v1alpha1.LargestMove.Builder builderForValue) {
+      if (largestMovesBuilder_ == null) {
+        ensureLargestMovesIsMutable();
+        largestMoves_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        largestMovesBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public Builder addAllLargestMoves(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.LargestMove> values) {
+      if (largestMovesBuilder_ == null) {
+        ensureLargestMovesIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, largestMoves_);
+        onChanged();
+      } else {
+        largestMovesBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public Builder clearLargestMoves() {
+      if (largestMovesBuilder_ == null) {
+        largestMoves_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000010);
+        onChanged();
+      } else {
+        largestMovesBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public Builder removeLargestMoves(int index) {
+      if (largestMovesBuilder_ == null) {
+        ensureLargestMovesIsMutable();
+        largestMoves_.remove(index);
+        onChanged();
+      } else {
+        largestMovesBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public com.shorts.v1alpha1.LargestMove.Builder getLargestMovesBuilder(
+        int index) {
+      return internalGetLargestMovesFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public com.shorts.v1alpha1.LargestMoveOrBuilder getLargestMovesOrBuilder(
+        int index) {
+      if (largestMovesBuilder_ == null) {
+        return largestMoves_.get(index);  } else {
+        return largestMovesBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.LargestMoveOrBuilder> 
+         getLargestMovesOrBuilderList() {
+      if (largestMovesBuilder_ != null) {
+        return largestMovesBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(largestMoves_);
+      }
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public com.shorts.v1alpha1.LargestMove.Builder addLargestMovesBuilder() {
+      return internalGetLargestMovesFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.LargestMove.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public com.shorts.v1alpha1.LargestMove.Builder addLargestMovesBuilder(
+        int index) {
+      return internalGetLargestMovesFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.LargestMove.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The window's largest moves the notices state (spec 14.10): at most ten notices
+     * that state both their present and previous voting power and differ, ranked by
+     * the size of the change, then the newer date, then the stock code. A notice that
+     * does not state both figures (a cessation, a 605, or one with no previous figure)
+     * is never ranked. Filtered by the request's kind, over the same weeks as rows.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LargestMove largest_moves = 5 [json_name = "largestMoves"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.LargestMove.Builder> 
+         getLargestMovesBuilderList() {
+      return internalGetLargestMovesFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.LargestMove, com.shorts.v1alpha1.LargestMove.Builder, com.shorts.v1alpha1.LargestMoveOrBuilder> 
+        internalGetLargestMovesFieldBuilder() {
+      if (largestMovesBuilder_ == null) {
+        largestMovesBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.LargestMove, com.shorts.v1alpha1.LargestMove.Builder, com.shorts.v1alpha1.LargestMoveOrBuilder>(
+                largestMoves_,
+                ((bitField0_ & 0x00000010) != 0),
+                getParentForChildren(),
+                isClean());
+        largestMoves_ = null;
+      }
+      return largestMovesBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetOwnershipActivityResponse)

@@ -395,6 +395,41 @@ func TestOwnershipNoticeFeedAgainstPostgres(t *testing.T) {
 		assert.Equal(t, []string{"d2", "n03", "d1"}, falls, "the falls, largest first")
 	})
 
+	t.Run("the largest moves: both figures stated, ranked by size, then date, code and URL", func(t *testing.T) {
+		moves, err := s.NoticeLargestMoves(ctx, "2026-10-01", "2026-10-31", "", 10)
+		require.NoError(t, err)
+		var urls []string
+		for _, m := range moves {
+			urls = append(urls, m.AnnouncementURL)
+		}
+		// Size 6, 5, then the two 4s: r4 before d2 by URL, as the same date and code tie.
+		// Then 3, the 2s (r2 by its later date before n03), and the 1s (r1 before d1 by
+		// URL, then n02 by its earlier date). Not ranked: n01, n06, n09, x|y and n07 (no
+		// change or a figure missing), n04 (a 605 and a cessation), n05 (no previous figure).
+		assert.Equal(t, []string{"r6", "r5", "r4", "d2", "r3", "r2", "n03", "r1", "d1", "n02"}, urls)
+
+		capped, err := s.NoticeLargestMoves(ctx, "2026-10-01", "2026-10-31", "", 3)
+		require.NoError(t, err)
+		require.Len(t, capped, 3, "the limit caps the ranking")
+		assert.Equal(t, "r6", capped[0].AnnouncementURL)
+
+		byKind, err := s.NoticeLargestMoves(ctx, "2026-10-01", "2026-10-31", "super_fund", 10)
+		require.NoError(t, err)
+		for _, m := range byKind {
+			assert.Equal(t, "Aaa Super", m.HolderName, "a kind keeps the holders of that kind only")
+		}
+		assert.NotEmpty(t, byKind)
+
+		inWindow, err := s.NoticeLargestMoves(ctx, "2026-10-14", "2026-10-31", "", 10)
+		require.NoError(t, err)
+		var late []string
+		for _, m := range inWindow {
+			late = append(late, m.AnnouncementURL)
+		}
+		assert.NotContains(t, late, "n03", "released 13 October, before the window's start")
+		assert.NotContains(t, late, "n02")
+	})
+
 	t.Run("a whole-register window keeps September's week", func(t *testing.T) {
 		act, err := s.NoticeActivity(ctx, NoticeFilter{})
 		require.NoError(t, err)

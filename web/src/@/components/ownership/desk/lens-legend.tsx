@@ -34,6 +34,8 @@ const LENS_BASIS: Readonly<Record<DeskLens, string>> = {
   flow: "What the notices disclose, each interest counted once; not a share of the company.",
   index: "Index fund holdings files; a weight is the fund's, of shares on issue, not a share of the company.",
   short: "ASIC short position report, published T+4; a short position is of shares on issue.",
+  index_flow:
+    "Index fund holdings files: each fund's shares at its start and end files, valued at the later file's price; a change is not a share of the company.",
 };
 
 /** The map's caption for one colour (spec 13.8): the area, the lens's own basis and the hatch. */
@@ -50,6 +52,7 @@ export const LENS_SELECT_LABELS: Readonly<Record<DeskLens, string>> = {
   index: "Index funds",
   short: "Short interest",
   flow: "Net change, pp",
+  index_flow: "Index fund shares",
 };
 
 export const LENS_LABELS: Readonly<Record<DeskLens, string>> = {
@@ -59,6 +62,7 @@ export const LENS_LABELS: Readonly<Record<DeskLens, string>> = {
   index: "Index funds, of shares on issue",
   short: "Short interest",
   flow: "Net change in disclosed voting power, pp",
+  index_flow: "Change in index fund shares",
 };
 
 /**
@@ -72,9 +76,21 @@ export function formatFlowPp(pp: number | null | undefined): string {
   return `${pp > 0 ? "+" : "−"}${Math.abs(pp).toFixed(2)} pp`;
 }
 
-/** A lens's figure as text: a share, or a flow in percentage points. */
+/**
+ * A change in index fund shares, as a percentage of the funds' starting shares: "+1.20%",
+ * "−0.31%". A change that rounds to zero is "0.00%", a measured zero; a figure the page
+ * does not hold is "n/a".
+ */
+export function formatFundChangePct(pct: number | null | undefined): string {
+  if (pct == null || !Number.isFinite(pct)) return NOT_AVAILABLE;
+  if (Math.abs(pct) < 0.005) return "0.00%";
+  return `${pct > 0 ? "+" : "−"}${Math.abs(pct).toFixed(2)}%`;
+}
+
+/** A lens's figure as text: a share, a flow in percentage points, or an index fund change in percent. */
 export function formatLensFigure(lens: DeskLens, value: number | null | undefined): string {
   if (lens === "flow") return formatFlowPp(value);
+  if (lens === "index_flow") return formatFundChangePct(value);
   return formatPct(value, { digits: 2 });
 }
 
@@ -176,6 +192,7 @@ export function LensLegend({
   scale,
   name = LENS_LABELS[lens],
   format,
+  caption,
 }: {
   lens: DeskLens;
   scale: LensScale;
@@ -183,26 +200,31 @@ export function LensLegend({
   name?: string;
   /** How an edge prints; a lens's own figure by default. */
   format?: (edge: number) => string;
+  /** A line under the scale, such as the files a comparison reads (spec 14.10). */
+  caption?: string;
 }) {
   const labels = legendLabels(lens, scale, format);
   return (
-    <div
-      role="img"
-      aria-label={`${name}, five steps: ${labels.join("; ")}`}
-      className="grid max-w-xl grid-cols-5 gap-x-1 text-[11px] tabular-nums text-muted-foreground"
-    >
-      {labels.map((label, bin) => (
-        <div key={bin} className="min-w-0">
-          <span
-            aria-hidden="true"
-            className="block h-2.5 rounded-[1px] border border-muted-foreground"
-            style={{ background: lensFill(legendFigure(scale, bin), scale) ?? "transparent" }}
-          />
-          <span aria-hidden="true" className="mt-1 block leading-tight">
-            {label}
-          </span>
-        </div>
-      ))}
+    <div className="space-y-1">
+      <div
+        role="img"
+        aria-label={`${name}, five steps: ${labels.join("; ")}`}
+        className="grid max-w-xl grid-cols-5 gap-x-1 text-[11px] tabular-nums text-muted-foreground"
+      >
+        {labels.map((label, bin) => (
+          <div key={bin} className="min-w-0">
+            <span
+              aria-hidden="true"
+              className="block h-2.5 rounded-[1px] border border-muted-foreground"
+              style={{ background: lensFill(legendFigure(scale, bin), scale) ?? "transparent" }}
+            />
+            <span aria-hidden="true" className="mt-1 block leading-tight">
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
+      {caption ? <p className="max-w-xl text-[11px] text-muted-foreground">{caption}</p> : null}
     </div>
   );
 }

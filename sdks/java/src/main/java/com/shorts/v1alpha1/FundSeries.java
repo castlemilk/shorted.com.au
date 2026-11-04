@@ -35,6 +35,8 @@ private static final long serialVersionUID = 0L;
     points_ = java.util.Collections.emptyList();
     fundCode_ = "";
     fundKey_ = "";
+    startDate_ = "";
+    endDate_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -374,6 +376,244 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int START_DATE_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object startDate_ = "";
+  /**
+   * <pre>
+   * The fund's own comparison of this stock over the request's fund window (spec
+   * 14.10): the fund is compared with itself, its file at the window's start (or
+   * its first file inside the window) against its newest file at the end, as the
+   * map's index fund change reads it. Only index funds (etf) are compared. A super
+   * option, or a fund whose only file is its end file, has no comparison: its start
+   * and change fields are unknown (has_ false), though its end figures are stated
+   * whenever it has an end file. A stock absent from a file holds zero shares
+   * there, so a stock that enters the fund inside the window is a change, not an
+   * unknown.
+   *
+   * The start file and its shares of the stock.
+   * </pre>
+   *
+   * <code>string start_date = 8 [json_name = "startDate"];</code>
+   * @return The startDate.
+   */
+  @java.lang.Override
+  public java.lang.String getStartDate() {
+    java.lang.Object ref = startDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      startDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The fund's own comparison of this stock over the request's fund window (spec
+   * 14.10): the fund is compared with itself, its file at the window's start (or
+   * its first file inside the window) against its newest file at the end, as the
+   * map's index fund change reads it. Only index funds (etf) are compared. A super
+   * option, or a fund whose only file is its end file, has no comparison: its start
+   * and change fields are unknown (has_ false), though its end figures are stated
+   * whenever it has an end file. A stock absent from a file holds zero shares
+   * there, so a stock that enters the fund inside the window is a change, not an
+   * unknown.
+   *
+   * The start file and its shares of the stock.
+   * </pre>
+   *
+   * <code>string start_date = 8 [json_name = "startDate"];</code>
+   * @return The bytes for startDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getStartDateBytes() {
+    java.lang.Object ref = startDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      startDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int HAS_START_DATE_FIELD_NUMBER = 9;
+  private boolean hasStartDate_ = false;
+  /**
+   * <code>bool has_start_date = 9 [json_name = "hasStartDate"];</code>
+   * @return The hasStartDate.
+   */
+  @java.lang.Override
+  public boolean getHasStartDate() {
+    return hasStartDate_;
+  }
+
+  public static final int START_UNITS_FIELD_NUMBER = 10;
+  private double startUnits_ = 0D;
+  /**
+   * <code>double start_units = 10 [json_name = "startUnits"];</code>
+   * @return The startUnits.
+   */
+  @java.lang.Override
+  public double getStartUnits() {
+    return startUnits_;
+  }
+
+  public static final int HAS_START_UNITS_FIELD_NUMBER = 11;
+  private boolean hasStartUnits_ = false;
+  /**
+   * <code>bool has_start_units = 11 [json_name = "hasStartUnits"];</code>
+   * @return The hasStartUnits.
+   */
+  @java.lang.Override
+  public boolean getHasStartUnits() {
+    return hasStartUnits_;
+  }
+
+  public static final int END_DATE_FIELD_NUMBER = 12;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object endDate_ = "";
+  /**
+   * <pre>
+   * The end file (the newest on or before the window's end) and its shares of the
+   * stock. Known whenever the fund has an end file, even with no comparison.
+   * </pre>
+   *
+   * <code>string end_date = 12 [json_name = "endDate"];</code>
+   * @return The endDate.
+   */
+  @java.lang.Override
+  public java.lang.String getEndDate() {
+    java.lang.Object ref = endDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      endDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The end file (the newest on or before the window's end) and its shares of the
+   * stock. Known whenever the fund has an end file, even with no comparison.
+   * </pre>
+   *
+   * <code>string end_date = 12 [json_name = "endDate"];</code>
+   * @return The bytes for endDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getEndDateBytes() {
+    java.lang.Object ref = endDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      endDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int HAS_END_DATE_FIELD_NUMBER = 13;
+  private boolean hasEndDate_ = false;
+  /**
+   * <code>bool has_end_date = 13 [json_name = "hasEndDate"];</code>
+   * @return The hasEndDate.
+   */
+  @java.lang.Override
+  public boolean getHasEndDate() {
+    return hasEndDate_;
+  }
+
+  public static final int END_UNITS_FIELD_NUMBER = 14;
+  private double endUnits_ = 0D;
+  /**
+   * <code>double end_units = 14 [json_name = "endUnits"];</code>
+   * @return The endUnits.
+   */
+  @java.lang.Override
+  public double getEndUnits() {
+    return endUnits_;
+  }
+
+  public static final int HAS_END_UNITS_FIELD_NUMBER = 15;
+  private boolean hasEndUnits_ = false;
+  /**
+   * <code>bool has_end_units = 15 [json_name = "hasEndUnits"];</code>
+   * @return The hasEndUnits.
+   */
+  @java.lang.Override
+  public boolean getHasEndUnits() {
+    return hasEndUnits_;
+  }
+
+  public static final int UNITS_CHANGE_FIELD_NUMBER = 16;
+  private double unitsChange_ = 0D;
+  /**
+   * <pre>
+   * End shares less start shares.
+   * </pre>
+   *
+   * <code>double units_change = 16 [json_name = "unitsChange"];</code>
+   * @return The unitsChange.
+   */
+  @java.lang.Override
+  public double getUnitsChange() {
+    return unitsChange_;
+  }
+
+  public static final int HAS_UNITS_CHANGE_FIELD_NUMBER = 17;
+  private boolean hasUnitsChange_ = false;
+  /**
+   * <code>bool has_units_change = 17 [json_name = "hasUnitsChange"];</code>
+   * @return The hasUnitsChange.
+   */
+  @java.lang.Override
+  public boolean getHasUnitsChange() {
+    return hasUnitsChange_;
+  }
+
+  public static final int CHANGE_VALUE_AUD_FIELD_NUMBER = 18;
+  private double changeValueAud_ = 0D;
+  /**
+   * <pre>
+   * That change valued at this fund's own later file's price for the stock (its
+   * start file's when the stock has left the fund): the figure the map's
+   * fund_flow_aud sums over the compared funds. Unknown when the shares are not
+   * stated on both sides, or the fund's own rows give no price (a row that states
+   * units without a value, or a value without units).
+   * </pre>
+   *
+   * <code>double change_value_aud = 18 [json_name = "changeValueAud"];</code>
+   * @return The changeValueAud.
+   */
+  @java.lang.Override
+  public double getChangeValueAud() {
+    return changeValueAud_;
+  }
+
+  public static final int HAS_CHANGE_VALUE_AUD_FIELD_NUMBER = 19;
+  private boolean hasChangeValueAud_ = false;
+  /**
+   * <code>bool has_change_value_aud = 19 [json_name = "hasChangeValueAud"];</code>
+   * @return The hasChangeValueAud.
+   */
+  @java.lang.Override
+  public boolean getHasChangeValueAud() {
+    return hasChangeValueAud_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -409,6 +649,42 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundKey_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 7, fundKey_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(startDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 8, startDate_);
+    }
+    if (hasStartDate_ != false) {
+      output.writeBool(9, hasStartDate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(startUnits_) != 0) {
+      output.writeDouble(10, startUnits_);
+    }
+    if (hasStartUnits_ != false) {
+      output.writeBool(11, hasStartUnits_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(endDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 12, endDate_);
+    }
+    if (hasEndDate_ != false) {
+      output.writeBool(13, hasEndDate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(endUnits_) != 0) {
+      output.writeDouble(14, endUnits_);
+    }
+    if (hasEndUnits_ != false) {
+      output.writeBool(15, hasEndUnits_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(unitsChange_) != 0) {
+      output.writeDouble(16, unitsChange_);
+    }
+    if (hasUnitsChange_ != false) {
+      output.writeBool(17, hasUnitsChange_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(changeValueAud_) != 0) {
+      output.writeDouble(18, changeValueAud_);
+    }
+    if (hasChangeValueAud_ != false) {
+      output.writeBool(19, hasChangeValueAud_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -439,6 +715,52 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundKey_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(7, fundKey_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(startDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(8, startDate_);
+    }
+    if (hasStartDate_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(9, hasStartDate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(startUnits_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(10, startUnits_);
+    }
+    if (hasStartUnits_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(11, hasStartUnits_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(endDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(12, endDate_);
+    }
+    if (hasEndDate_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(13, hasEndDate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(endUnits_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(14, endUnits_);
+    }
+    if (hasEndUnits_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(15, hasEndUnits_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(unitsChange_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(16, unitsChange_);
+    }
+    if (hasUnitsChange_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(17, hasUnitsChange_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(changeValueAud_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(18, changeValueAud_);
+    }
+    if (hasChangeValueAud_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(19, hasChangeValueAud_);
     }
     return size;
   }
@@ -478,6 +800,34 @@ private static final long serialVersionUID = 0L;
         .equals(other.getFundCode())) return false;
     if (!getFundKey()
         .equals(other.getFundKey())) return false;
+    if (!getStartDate()
+        .equals(other.getStartDate())) return false;
+    if (getHasStartDate()
+        != other.getHasStartDate()) return false;
+    if (java.lang.Double.doubleToLongBits(getStartUnits())
+        != java.lang.Double.doubleToLongBits(
+            other.getStartUnits())) return false;
+    if (getHasStartUnits()
+        != other.getHasStartUnits()) return false;
+    if (!getEndDate()
+        .equals(other.getEndDate())) return false;
+    if (getHasEndDate()
+        != other.getHasEndDate()) return false;
+    if (java.lang.Double.doubleToLongBits(getEndUnits())
+        != java.lang.Double.doubleToLongBits(
+            other.getEndUnits())) return false;
+    if (getHasEndUnits()
+        != other.getHasEndUnits()) return false;
+    if (java.lang.Double.doubleToLongBits(getUnitsChange())
+        != java.lang.Double.doubleToLongBits(
+            other.getUnitsChange())) return false;
+    if (getHasUnitsChange()
+        != other.getHasUnitsChange()) return false;
+    if (java.lang.Double.doubleToLongBits(getChangeValueAud())
+        != java.lang.Double.doubleToLongBits(
+            other.getChangeValueAud())) return false;
+    if (getHasChangeValueAud()
+        != other.getHasChangeValueAud()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -505,6 +855,40 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getFundCode().hashCode();
     hash = (37 * hash) + FUND_KEY_FIELD_NUMBER;
     hash = (53 * hash) + getFundKey().hashCode();
+    hash = (37 * hash) + START_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getStartDate().hashCode();
+    hash = (37 * hash) + HAS_START_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasStartDate());
+    hash = (37 * hash) + START_UNITS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getStartUnits()));
+    hash = (37 * hash) + HAS_START_UNITS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasStartUnits());
+    hash = (37 * hash) + END_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getEndDate().hashCode();
+    hash = (37 * hash) + HAS_END_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasEndDate());
+    hash = (37 * hash) + END_UNITS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getEndUnits()));
+    hash = (37 * hash) + HAS_END_UNITS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasEndUnits());
+    hash = (37 * hash) + UNITS_CHANGE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getUnitsChange()));
+    hash = (37 * hash) + HAS_UNITS_CHANGE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasUnitsChange());
+    hash = (37 * hash) + CHANGE_VALUE_AUD_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getChangeValueAud()));
+    hash = (37 * hash) + HAS_CHANGE_VALUE_AUD_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasChangeValueAud());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -649,6 +1033,18 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00000010);
       fundCode_ = "";
       fundKey_ = "";
+      startDate_ = "";
+      hasStartDate_ = false;
+      startUnits_ = 0D;
+      hasStartUnits_ = false;
+      endDate_ = "";
+      hasEndDate_ = false;
+      endUnits_ = 0D;
+      hasEndUnits_ = false;
+      unitsChange_ = 0D;
+      hasUnitsChange_ = false;
+      changeValueAud_ = 0D;
+      hasChangeValueAud_ = false;
       return this;
     }
 
@@ -712,6 +1108,42 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.fundKey_ = fundKey_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.startDate_ = startDate_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.hasStartDate_ = hasStartDate_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.startUnits_ = startUnits_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.hasStartUnits_ = hasStartUnits_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.endDate_ = endDate_;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.hasEndDate_ = hasEndDate_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.endUnits_ = endUnits_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.hasEndUnits_ = hasEndUnits_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.unitsChange_ = unitsChange_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.hasUnitsChange_ = hasUnitsChange_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.changeValueAud_ = changeValueAud_;
+      }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.hasChangeValueAud_ = hasChangeValueAud_;
       }
     }
 
@@ -783,6 +1215,46 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000040;
         onChanged();
       }
+      if (!other.getStartDate().isEmpty()) {
+        startDate_ = other.startDate_;
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (other.getHasStartDate() != false) {
+        setHasStartDate(other.getHasStartDate());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getStartUnits()) != 0) {
+        setStartUnits(other.getStartUnits());
+      }
+      if (other.getHasStartUnits() != false) {
+        setHasStartUnits(other.getHasStartUnits());
+      }
+      if (!other.getEndDate().isEmpty()) {
+        endDate_ = other.endDate_;
+        bitField0_ |= 0x00000800;
+        onChanged();
+      }
+      if (other.getHasEndDate() != false) {
+        setHasEndDate(other.getHasEndDate());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getEndUnits()) != 0) {
+        setEndUnits(other.getEndUnits());
+      }
+      if (other.getHasEndUnits() != false) {
+        setHasEndUnits(other.getHasEndUnits());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getUnitsChange()) != 0) {
+        setUnitsChange(other.getUnitsChange());
+      }
+      if (other.getHasUnitsChange() != false) {
+        setHasUnitsChange(other.getHasUnitsChange());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getChangeValueAud()) != 0) {
+        setChangeValueAud(other.getChangeValueAud());
+      }
+      if (other.getHasChangeValueAud() != false) {
+        setHasChangeValueAud(other.getHasChangeValueAud());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -852,6 +1324,66 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 58
+            case 66: {
+              startDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 72: {
+              hasStartDate_ = input.readBool();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 72
+            case 81: {
+              startUnits_ = input.readDouble();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 81
+            case 88: {
+              hasStartUnits_ = input.readBool();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 88
+            case 98: {
+              endDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
+            case 104: {
+              hasEndDate_ = input.readBool();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 104
+            case 113: {
+              endUnits_ = input.readDouble();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 113
+            case 120: {
+              hasEndUnits_ = input.readBool();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 120
+            case 129: {
+              unitsChange_ = input.readDouble();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 129
+            case 136: {
+              hasUnitsChange_ = input.readBool();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 136
+            case 145: {
+              changeValueAud_ = input.readDouble();
+              bitField0_ |= 0x00020000;
+              break;
+            } // case 145
+            case 152: {
+              hasChangeValueAud_ = input.readBool();
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 152
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1669,6 +2201,601 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       fundKey_ = value;
       bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object startDate_ = "";
+    /**
+     * <pre>
+     * The fund's own comparison of this stock over the request's fund window (spec
+     * 14.10): the fund is compared with itself, its file at the window's start (or
+     * its first file inside the window) against its newest file at the end, as the
+     * map's index fund change reads it. Only index funds (etf) are compared. A super
+     * option, or a fund whose only file is its end file, has no comparison: its start
+     * and change fields are unknown (has_ false), though its end figures are stated
+     * whenever it has an end file. A stock absent from a file holds zero shares
+     * there, so a stock that enters the fund inside the window is a change, not an
+     * unknown.
+     *
+     * The start file and its shares of the stock.
+     * </pre>
+     *
+     * <code>string start_date = 8 [json_name = "startDate"];</code>
+     * @return The startDate.
+     */
+    public java.lang.String getStartDate() {
+      java.lang.Object ref = startDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        startDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The fund's own comparison of this stock over the request's fund window (spec
+     * 14.10): the fund is compared with itself, its file at the window's start (or
+     * its first file inside the window) against its newest file at the end, as the
+     * map's index fund change reads it. Only index funds (etf) are compared. A super
+     * option, or a fund whose only file is its end file, has no comparison: its start
+     * and change fields are unknown (has_ false), though its end figures are stated
+     * whenever it has an end file. A stock absent from a file holds zero shares
+     * there, so a stock that enters the fund inside the window is a change, not an
+     * unknown.
+     *
+     * The start file and its shares of the stock.
+     * </pre>
+     *
+     * <code>string start_date = 8 [json_name = "startDate"];</code>
+     * @return The bytes for startDate.
+     */
+    public com.google.protobuf.ByteString
+        getStartDateBytes() {
+      java.lang.Object ref = startDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        startDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The fund's own comparison of this stock over the request's fund window (spec
+     * 14.10): the fund is compared with itself, its file at the window's start (or
+     * its first file inside the window) against its newest file at the end, as the
+     * map's index fund change reads it. Only index funds (etf) are compared. A super
+     * option, or a fund whose only file is its end file, has no comparison: its start
+     * and change fields are unknown (has_ false), though its end figures are stated
+     * whenever it has an end file. A stock absent from a file holds zero shares
+     * there, so a stock that enters the fund inside the window is a change, not an
+     * unknown.
+     *
+     * The start file and its shares of the stock.
+     * </pre>
+     *
+     * <code>string start_date = 8 [json_name = "startDate"];</code>
+     * @param value The startDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStartDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      startDate_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The fund's own comparison of this stock over the request's fund window (spec
+     * 14.10): the fund is compared with itself, its file at the window's start (or
+     * its first file inside the window) against its newest file at the end, as the
+     * map's index fund change reads it. Only index funds (etf) are compared. A super
+     * option, or a fund whose only file is its end file, has no comparison: its start
+     * and change fields are unknown (has_ false), though its end figures are stated
+     * whenever it has an end file. A stock absent from a file holds zero shares
+     * there, so a stock that enters the fund inside the window is a change, not an
+     * unknown.
+     *
+     * The start file and its shares of the stock.
+     * </pre>
+     *
+     * <code>string start_date = 8 [json_name = "startDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStartDate() {
+      startDate_ = getDefaultInstance().getStartDate();
+      bitField0_ = (bitField0_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The fund's own comparison of this stock over the request's fund window (spec
+     * 14.10): the fund is compared with itself, its file at the window's start (or
+     * its first file inside the window) against its newest file at the end, as the
+     * map's index fund change reads it. Only index funds (etf) are compared. A super
+     * option, or a fund whose only file is its end file, has no comparison: its start
+     * and change fields are unknown (has_ false), though its end figures are stated
+     * whenever it has an end file. A stock absent from a file holds zero shares
+     * there, so a stock that enters the fund inside the window is a change, not an
+     * unknown.
+     *
+     * The start file and its shares of the stock.
+     * </pre>
+     *
+     * <code>string start_date = 8 [json_name = "startDate"];</code>
+     * @param value The bytes for startDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStartDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      startDate_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasStartDate_ ;
+    /**
+     * <code>bool has_start_date = 9 [json_name = "hasStartDate"];</code>
+     * @return The hasStartDate.
+     */
+    @java.lang.Override
+    public boolean getHasStartDate() {
+      return hasStartDate_;
+    }
+    /**
+     * <code>bool has_start_date = 9 [json_name = "hasStartDate"];</code>
+     * @param value The hasStartDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasStartDate(boolean value) {
+
+      hasStartDate_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_start_date = 9 [json_name = "hasStartDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasStartDate() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      hasStartDate_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double startUnits_ ;
+    /**
+     * <code>double start_units = 10 [json_name = "startUnits"];</code>
+     * @return The startUnits.
+     */
+    @java.lang.Override
+    public double getStartUnits() {
+      return startUnits_;
+    }
+    /**
+     * <code>double start_units = 10 [json_name = "startUnits"];</code>
+     * @param value The startUnits to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStartUnits(double value) {
+
+      startUnits_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double start_units = 10 [json_name = "startUnits"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStartUnits() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      startUnits_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasStartUnits_ ;
+    /**
+     * <code>bool has_start_units = 11 [json_name = "hasStartUnits"];</code>
+     * @return The hasStartUnits.
+     */
+    @java.lang.Override
+    public boolean getHasStartUnits() {
+      return hasStartUnits_;
+    }
+    /**
+     * <code>bool has_start_units = 11 [json_name = "hasStartUnits"];</code>
+     * @param value The hasStartUnits to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasStartUnits(boolean value) {
+
+      hasStartUnits_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_start_units = 11 [json_name = "hasStartUnits"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasStartUnits() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      hasStartUnits_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object endDate_ = "";
+    /**
+     * <pre>
+     * The end file (the newest on or before the window's end) and its shares of the
+     * stock. Known whenever the fund has an end file, even with no comparison.
+     * </pre>
+     *
+     * <code>string end_date = 12 [json_name = "endDate"];</code>
+     * @return The endDate.
+     */
+    public java.lang.String getEndDate() {
+      java.lang.Object ref = endDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        endDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The end file (the newest on or before the window's end) and its shares of the
+     * stock. Known whenever the fund has an end file, even with no comparison.
+     * </pre>
+     *
+     * <code>string end_date = 12 [json_name = "endDate"];</code>
+     * @return The bytes for endDate.
+     */
+    public com.google.protobuf.ByteString
+        getEndDateBytes() {
+      java.lang.Object ref = endDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        endDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The end file (the newest on or before the window's end) and its shares of the
+     * stock. Known whenever the fund has an end file, even with no comparison.
+     * </pre>
+     *
+     * <code>string end_date = 12 [json_name = "endDate"];</code>
+     * @param value The endDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      endDate_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The end file (the newest on or before the window's end) and its shares of the
+     * stock. Known whenever the fund has an end file, even with no comparison.
+     * </pre>
+     *
+     * <code>string end_date = 12 [json_name = "endDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEndDate() {
+      endDate_ = getDefaultInstance().getEndDate();
+      bitField0_ = (bitField0_ & ~0x00000800);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The end file (the newest on or before the window's end) and its shares of the
+     * stock. Known whenever the fund has an end file, even with no comparison.
+     * </pre>
+     *
+     * <code>string end_date = 12 [json_name = "endDate"];</code>
+     * @param value The bytes for endDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      endDate_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasEndDate_ ;
+    /**
+     * <code>bool has_end_date = 13 [json_name = "hasEndDate"];</code>
+     * @return The hasEndDate.
+     */
+    @java.lang.Override
+    public boolean getHasEndDate() {
+      return hasEndDate_;
+    }
+    /**
+     * <code>bool has_end_date = 13 [json_name = "hasEndDate"];</code>
+     * @param value The hasEndDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasEndDate(boolean value) {
+
+      hasEndDate_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_end_date = 13 [json_name = "hasEndDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasEndDate() {
+      bitField0_ = (bitField0_ & ~0x00001000);
+      hasEndDate_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double endUnits_ ;
+    /**
+     * <code>double end_units = 14 [json_name = "endUnits"];</code>
+     * @return The endUnits.
+     */
+    @java.lang.Override
+    public double getEndUnits() {
+      return endUnits_;
+    }
+    /**
+     * <code>double end_units = 14 [json_name = "endUnits"];</code>
+     * @param value The endUnits to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEndUnits(double value) {
+
+      endUnits_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double end_units = 14 [json_name = "endUnits"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEndUnits() {
+      bitField0_ = (bitField0_ & ~0x00002000);
+      endUnits_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasEndUnits_ ;
+    /**
+     * <code>bool has_end_units = 15 [json_name = "hasEndUnits"];</code>
+     * @return The hasEndUnits.
+     */
+    @java.lang.Override
+    public boolean getHasEndUnits() {
+      return hasEndUnits_;
+    }
+    /**
+     * <code>bool has_end_units = 15 [json_name = "hasEndUnits"];</code>
+     * @param value The hasEndUnits to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasEndUnits(boolean value) {
+
+      hasEndUnits_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_end_units = 15 [json_name = "hasEndUnits"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasEndUnits() {
+      bitField0_ = (bitField0_ & ~0x00004000);
+      hasEndUnits_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double unitsChange_ ;
+    /**
+     * <pre>
+     * End shares less start shares.
+     * </pre>
+     *
+     * <code>double units_change = 16 [json_name = "unitsChange"];</code>
+     * @return The unitsChange.
+     */
+    @java.lang.Override
+    public double getUnitsChange() {
+      return unitsChange_;
+    }
+    /**
+     * <pre>
+     * End shares less start shares.
+     * </pre>
+     *
+     * <code>double units_change = 16 [json_name = "unitsChange"];</code>
+     * @param value The unitsChange to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUnitsChange(double value) {
+
+      unitsChange_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * End shares less start shares.
+     * </pre>
+     *
+     * <code>double units_change = 16 [json_name = "unitsChange"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearUnitsChange() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      unitsChange_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasUnitsChange_ ;
+    /**
+     * <code>bool has_units_change = 17 [json_name = "hasUnitsChange"];</code>
+     * @return The hasUnitsChange.
+     */
+    @java.lang.Override
+    public boolean getHasUnitsChange() {
+      return hasUnitsChange_;
+    }
+    /**
+     * <code>bool has_units_change = 17 [json_name = "hasUnitsChange"];</code>
+     * @param value The hasUnitsChange to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasUnitsChange(boolean value) {
+
+      hasUnitsChange_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_units_change = 17 [json_name = "hasUnitsChange"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasUnitsChange() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      hasUnitsChange_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double changeValueAud_ ;
+    /**
+     * <pre>
+     * That change valued at this fund's own later file's price for the stock (its
+     * start file's when the stock has left the fund): the figure the map's
+     * fund_flow_aud sums over the compared funds. Unknown when the shares are not
+     * stated on both sides, or the fund's own rows give no price (a row that states
+     * units without a value, or a value without units).
+     * </pre>
+     *
+     * <code>double change_value_aud = 18 [json_name = "changeValueAud"];</code>
+     * @return The changeValueAud.
+     */
+    @java.lang.Override
+    public double getChangeValueAud() {
+      return changeValueAud_;
+    }
+    /**
+     * <pre>
+     * That change valued at this fund's own later file's price for the stock (its
+     * start file's when the stock has left the fund): the figure the map's
+     * fund_flow_aud sums over the compared funds. Unknown when the shares are not
+     * stated on both sides, or the fund's own rows give no price (a row that states
+     * units without a value, or a value without units).
+     * </pre>
+     *
+     * <code>double change_value_aud = 18 [json_name = "changeValueAud"];</code>
+     * @param value The changeValueAud to set.
+     * @return This builder for chaining.
+     */
+    public Builder setChangeValueAud(double value) {
+
+      changeValueAud_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * That change valued at this fund's own later file's price for the stock (its
+     * start file's when the stock has left the fund): the figure the map's
+     * fund_flow_aud sums over the compared funds. Unknown when the shares are not
+     * stated on both sides, or the fund's own rows give no price (a row that states
+     * units without a value, or a value without units).
+     * </pre>
+     *
+     * <code>double change_value_aud = 18 [json_name = "changeValueAud"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearChangeValueAud() {
+      bitField0_ = (bitField0_ & ~0x00020000);
+      changeValueAud_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasChangeValueAud_ ;
+    /**
+     * <code>bool has_change_value_aud = 19 [json_name = "hasChangeValueAud"];</code>
+     * @return The hasChangeValueAud.
+     */
+    @java.lang.Override
+    public boolean getHasChangeValueAud() {
+      return hasChangeValueAud_;
+    }
+    /**
+     * <code>bool has_change_value_aud = 19 [json_name = "hasChangeValueAud"];</code>
+     * @param value The hasChangeValueAud to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasChangeValueAud(boolean value) {
+
+      hasChangeValueAud_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_change_value_aud = 19 [json_name = "hasChangeValueAud"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasChangeValueAud() {
+      bitField0_ = (bitField0_ & ~0x00040000);
+      hasChangeValueAud_ = false;
       onChanged();
       return this;
     }

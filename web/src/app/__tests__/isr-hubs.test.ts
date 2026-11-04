@@ -52,8 +52,6 @@ const HUBS = [
   "ownership/funds/page.tsx",
   "ownership/holders/page.tsx",
   "ownership/changes/page.tsx",
-  // The insights explorer: static, its island reads the link (insights-explorer.tsx).
-  "ownership/insights/page.tsx",
 ];
 
 /**

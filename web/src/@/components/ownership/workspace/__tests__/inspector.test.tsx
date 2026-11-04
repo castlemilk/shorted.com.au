@@ -107,7 +107,7 @@ describe("workspace inspector (spec 14.1)", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "BHP Group" })).toBeInTheDocument());
     expect(resolve).toHaveBeenCalledWith(
       { kind: "stock", code: "BHP" },
-      { lens: "", view: "", window: "", since: "", until: "", asAt: "" },
+      { lens: "", view: "", window: "", since: "", until: "", asAt: "", from: "", to: "" },
     );
     expect(screen.getByText("Selected company", { selector: "p" })).toBeInTheDocument();
     expect(screen.getByText("12.4%")).toHaveClass("tabular-nums");

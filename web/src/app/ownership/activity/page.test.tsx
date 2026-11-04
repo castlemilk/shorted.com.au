@@ -6,6 +6,7 @@ import OwnershipActivityPage, { metadata, revalidate } from "./page";
 const bailOnEmptyRender = jest.fn(async () => undefined);
 const loadOwnershipActivity = jest.fn();
 const movementProps = jest.fn();
+const inspectorProps = jest.fn();
 
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   DashboardLayout: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -24,10 +25,36 @@ jest.mock("~/@/components/ownership/desk/movement-heatmap", () => ({
   },
 }));
 jest.mock("~/@/components/ownership/workspace/inspector", () => ({
-  Inspector: () => <aside aria-label="Inspector" />,
+  Inspector: (props: unknown) => {
+    inspectorProps(props);
+    return <aside aria-label="Inspector" />;
+  },
 }));
 
-const ACTIVITY_OK = { ok: true, error: "", fromWeek: "2025-11-03", toWeek: "2026-10-26", asOf: "2026-10-30", rows: [] };
+const ACTIVITY_OK = {
+  ok: true,
+  error: "",
+  fromWeek: "2025-11-03",
+  toWeek: "2026-10-26",
+  asOf: "2026-10-30",
+  rows: [],
+  largestMoves: [
+    {
+      released: "2026-10-28",
+      code: "BHP",
+      holder: "Vanguard",
+      url: "https://www.asx.com.au/asxpdf/20261028/pdf/bhp.pdf",
+      change: 1.2,
+    },
+    {
+      released: "2026-10-20",
+      code: "RIO",
+      holder: "BlackRock",
+      url: "javascript:alert(1)",
+      change: -2.5,
+    },
+  ],
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -59,5 +86,35 @@ describe("the activity page (spec 14.3)", () => {
 
   it("has a canonical URL of its own", () => {
     expect(metadata.alternates).toEqual({ canonical: "https://shorted.com.au/ownership/activity" });
+  });
+
+  it("hands the inspector the window's largest moves, each with its change, date and safe notice link", async () => {
+    render(await OwnershipActivityPage());
+    const props = inspectorProps.mock.calls[0]?.[0] as { largestMoves?: { windowDays: number; from: string; to: string; lines: { label: string; value: string; href: string }[] } | null };
+    expect(props.largestMoves?.windowDays).toBe(362);
+    expect(props.largestMoves?.from).toBe("2025-11-03");
+    expect(props.largestMoves?.to).toBe("2026-10-30");
+    expect(props.largestMoves?.lines).toEqual([
+      { label: "BHP · Vanguard", value: "+1.20 pp · 2026-10-28", href: "https://www.asx.com.au/asxpdf/20261028/pdf/bhp.pdf" },
+      { label: "RIO · BlackRock", value: "−2.50 pp · 2026-10-20", href: "" },
+    ]);
+  });
+
+  it("draws no largest moves when the activity did not answer, rather than an empty list", async () => {
+    loadOwnershipActivity.mockResolvedValue({ ...ACTIVITY_OK, ok: false });
+    render(await OwnershipActivityPage());
+    const props = inspectorProps.mock.calls[0]?.[0] as { largestMoves?: unknown };
+    expect(props.largestMoves).toBeNull();
+  });
+
+  it("is a shell when the activity did not answer, so the sweep re-primes the page", async () => {
+    loadOwnershipActivity.mockResolvedValue({ ...ACTIVITY_OK, ok: false });
+    const { container } = render(await OwnershipActivityPage());
+    expect(container.querySelector("[data-isr-shell='empty']")).not.toBeNull();
+  });
+
+  it("is not a shell when both reads answer", async () => {
+    const { container } = render(await OwnershipActivityPage());
+    expect(container.querySelector("[data-isr-shell='empty']")).toBeNull();
   });
 });

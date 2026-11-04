@@ -68,7 +68,8 @@ export function niceStep(raw: number): number {
  */
 export function lensScale(lens: DeskLens, values: readonly (number | null)[]): LensScale {
   const figures = values.filter((v): v is number => v !== null && Number.isFinite(v));
-  if (lens === "flow") {
+  // The two changes diverge around zero: a notice's net change and an index fund's change in shares.
+  if (lens === "flow" || lens === "index_flow") {
     const { top: reach, capped } = scaleTop(figures.map((v) => Math.abs(v)));
     if (reach > 0) {
       const step = niceStep(reach / 2);

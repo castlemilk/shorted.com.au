@@ -49,7 +49,6 @@ const SCANNED = [
   path.join(APP_DIR, "actions", "ownershipDesk.ts"),
   path.join(APP_DIR, "actions", "ownershipFunds.ts"),
   path.join(APP_DIR, "actions", "ownershipHolders.ts"),
-  path.join(APP_DIR, "actions", "ownershipInsights.ts"),
   path.join(SRC_DIR, "@", "lib", "ownership"),
 ];
 

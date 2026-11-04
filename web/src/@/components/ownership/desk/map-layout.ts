@@ -35,6 +35,15 @@ export interface MapStockRow {
   indexPct: number | null;
   shortPct: number | null;
   flowPp: number | null;
+  /** The tracked index funds' holdings of the stock at the window's end, in AUD; null when none holds it. */
+  fundValueAud: number | null;
+  /** The change in the index funds' holdings of the stock in AUD, valued at the end file's price; null when none is compared. */
+  fundFlowAud: number | null;
+  /**
+   * The change in the index funds' shares across the fund window, as a percentage of
+   * their starting shares; null when no fund is compared or the stock is in none of them.
+   */
+  fundChangePct: number | null;
   notices: number;
 }
 
@@ -102,6 +111,8 @@ export function lensFigure(stock: MapStockRow, lens: DeskLens): number | null {
       return stock.shortPct;
     case "flow":
       return stock.flowPp;
+    case "index_flow":
+      return stock.fundChangePct;
   }
 }
 

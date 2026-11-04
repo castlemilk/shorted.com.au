@@ -115,10 +115,30 @@ function windowKey(window: NoticeWindow): string {
 }
 
 const DEFAULT_WINDOW_KEY = windowKey(DESK_DEFAULT_WINDOW_STATE);
+/** The server's default answer: the default window with no fund window (both are asked by runKey). */
+const DEFAULT_RUN_KEY = runKey(DESK_DEFAULT_WINDOW_STATE, { from: "", to: "" });
 
-/** The loader's input for a window: the brushed pair when there is one, else the days. */
-function loaderInput(window: NoticeWindow): DeskRangeInput {
-  return window.since !== "" ? { since: window.since, until: window.until } : { window: window.window };
+/** The index fund window the link names (spec 14.10): both snapshot dates, or neither. */
+interface FundDates {
+  from: string;
+  to: string;
+}
+
+/**
+ * The key a request is asked under: the notice window and the fund window, so a link that moves
+ * either one is asked again.
+ */
+function runKey(window: NoticeWindow, fund: FundDates): string {
+  return `${windowKey(window)}|${fund.from}|${fund.to}`;
+}
+
+/**
+ * The loader's input for a window: the brushed pair when there is one, else the days; and the fund
+ * window when the link names one, so the map compares the same files the inspector reads.
+ */
+function loaderInput(window: NoticeWindow, fund: FundDates): DeskRangeInput {
+  const notices = window.since !== "" ? { since: window.since, until: window.until } : { window: window.window };
+  return fund.from !== "" && fund.to !== "" ? { ...notices, fundFrom: fund.from, fundTo: fund.to } : notices;
 }
 
 /**
@@ -154,6 +174,11 @@ function zoomPoseFor(stocks: readonly MapStockRow[], prev: DeskState, next: Desk
     return box ? zoomPose(box, "out") : null;
   }
   return null;
+}
+
+/** The Size a control's value names; anything else is the market cap, the default area. */
+export function mapSizeOf(value: string): MapSize {
+  return value === "disclosed" || value === "index_fund" ? value : "market_cap";
 }
 
 /** A cell's code as an SVG attribute selector can take it: the API's own shape, no quotes or brackets. */
@@ -196,12 +221,12 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant
   const sequence = useRef(0);
   const slowTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // The window the screen holds an answer for. Null while there is none, so the effect asks again.
-  const askedWindow = useRef<string | null>(initial.ok ? DEFAULT_WINDOW_KEY : null);
+  const askedWindow = useRef<string | null>(initial.ok ? DEFAULT_RUN_KEY : null);
   const root = useRef<HTMLDivElement>(null);
 
   const run = useCallback(
-    (window: NoticeWindow) => {
-      const key = windowKey(window);
+    (window: NoticeWindow, fund: FundDates) => {
+      const key = runKey(window, fund);
       const ticket = (sequence.current += 1);
       clearTimeout(slowTimer.current);
       slowTimer.current = setTimeout(() => {
@@ -213,7 +238,7 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant
         clearTimeout(slowTimer.current);
         setState(update);
       };
-      loadMap(loaderInput(window)).then(
+      loadMap(loaderInput(window, fund)).then(
         (result) => {
           if (sequence.current === ticket) askedWindow.current = result.ok ? key : null;
           settle((s) =>
@@ -248,10 +273,11 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant
 
   // The link's window of change, asked once per value the screen does not hold.
   useEffect(() => {
-    if (askedWindow.current === windowKey(state.notice)) return;
-    askedWindow.current = windowKey(state.notice);
-    run(state.notice);
-  }, [state.notice, run]);
+    const fund = { from: state.controls.from, to: state.controls.to };
+    if (askedWindow.current === runKey(state.notice, fund)) return;
+    askedWindow.current = runKey(state.notice, fund);
+    run(state.notice, fund);
+  }, [state.notice, state.controls.from, state.controls.to, run]);
 
   // A move of the link (back, forward, a hand-edited address) takes the link's state.
   useEffect(() => {
@@ -445,13 +471,14 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant
         />
       </div>
       <SourceSelect
-        value={state.controls.lens === "index" ? "index" : "notices"}
+        value={state.controls.lens === "index" || state.controls.lens === "index_flow" ? "index" : "notices"}
         indexAvailable
         onChange={(value) => commit({ lens: value === "index" ? "index" : "disclosed" })}
       />
-      <ToolbarSelect label="Size" value={size} onChange={(value) => setSize(value === "disclosed" ? "disclosed" : "market_cap")}>
+      <ToolbarSelect label="Size" value={size} onChange={(value) => setSize(mapSizeOf(value))}>
         <option value="market_cap">Market cap</option>
         <option value="disclosed">Disclosed exposure</option>
+        <option value="index_fund">Index fund holdings</option>
       </ToolbarSelect>
     </>
   ) : undefined;

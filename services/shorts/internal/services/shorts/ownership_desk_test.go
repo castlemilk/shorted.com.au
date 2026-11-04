@@ -3,8 +3,10 @@ package shorts
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -91,6 +93,43 @@ func (f *deskStore) NoticeWeeklyByIndustry(_ context.Context, _, _, kind string)
 	f.read("NoticeWeeklyByIndustry")
 	f.weeklyKinds = append(f.weeklyKinds, kind)
 	return f.weekly, nil
+}
+
+// NoticeLargestMoves mirrors the store's query: the window's notices that state
+// both figures and a difference, neither ceased nor Form 605, ranked by the size
+// of the change, the newer release, the stock code and the URL, at most limit.
+func (f *deskStore) NoticeLargestMoves(_ context.Context, from, until, kind string, limit int) ([]shortsstore.SubstantialNoticeRow, error) {
+	f.read("NoticeLargestMoves")
+	var out []shortsstore.SubstantialNoticeRow
+	for _, n := range f.inWindow(from, until) {
+		if kind != "" && n.Kind != kind {
+			continue
+		}
+		if n.Ceased || n.Form == "605" || n.PresentPct == nil || n.PreviousPct == nil || *n.PresentPct == *n.PreviousPct {
+			continue
+		}
+		out = append(out, n)
+	}
+	mag := func(n shortsstore.SubstantialNoticeRow) float64 {
+		return math.Abs(*n.PresentPct - *n.PreviousPct)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if mag(a) != mag(b) {
+			return mag(a) > mag(b)
+		}
+		if a.AnnouncedOn != b.AnnouncedOn {
+			return a.AnnouncedOn > b.AnnouncedOn
+		}
+		if a.StockCode != b.StockCode {
+			return a.StockCode < b.StockCode
+		}
+		return a.AnnouncementURL > b.AnnouncementURL
+	})
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 func (f *deskStore) FundSnapshotDates(context.Context) ([]string, error) {
@@ -278,7 +317,7 @@ func TestBuildOwnershipMapCarriesTheWindow(t *testing.T) {
 		"BHP": {Notices: 2, Net: -2.7, Has: true},
 		"PLS": {Notices: 1, Net: 6, Has: true},
 	}
-	out := buildOwnershipMap(u, "2026-07-18", "2026-10-16", flows)
+	out := buildOwnershipMap(u, "2026-07-18", "2026-10-16", "2026-07-18", "2026-10-16", flows, indexFundFigures{})
 	require.Len(t, out.Stocks, 4, "every stock with a current holder")
 	byCode := map[string]*shortsv1alpha1.MapStock{}
 	for _, m := range out.Stocks {

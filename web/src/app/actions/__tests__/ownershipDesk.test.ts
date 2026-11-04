@@ -90,9 +90,9 @@ import {
 const originalEnv = process.env;
 
 const UNAVAILABLE = { code: 14, message: "unavailable" };
-const MAP_KEY = "cache:ownership:desk-map:v1";
-const FLOWS_KEY = "cache:ownership:desk-flows:v1";
-const ACTIVITY_KEY = "cache:ownership:desk-activity:v1";
+const MAP_KEY = "cache:ownership:desk-map:v2";
+const FLOWS_KEY = "cache:ownership:desk-flows:v2";
+const ACTIVITY_KEY = "cache:ownership:desk-activity:v2";
 const FUNDS_KEY = "cache:ownership:desk-funds:v1";
 
 function mapStock(overrides: Record<string, unknown> = {}) {
@@ -298,7 +298,7 @@ describe("loadOwnershipMap", () => {
     const page = await loadOwnershipMap({});
     expect(page.ok).toBe(true);
     expect(page.error).toBe("");
-    expect(mockGetOwnershipMap).toHaveBeenCalledWith({ from: "", to: "" });
+    expect(mockGetOwnershipMap).toHaveBeenCalledWith({ from: "", to: "", fundFrom: "", fundTo: "" });
     expect(page.from).toBe("2026-08-02");
     expect(page.to).toBe("2026-10-31");
     expect(page.asOf).toBe("2026-10-31");
@@ -319,9 +319,43 @@ describe("loadOwnershipMap", () => {
         indexPct: 3.4,
         shortPct: null,
         flowPp: null,
+        fundValueAud: null,
+        fundFlowAud: null,
+        fundChangePct: null,
         notices: 4,
       },
     ]);
+  });
+
+  it("maps the index fund figures with their flags, and the fund comparison's files", async () => {
+    mockGetOwnershipMap.mockResolvedValue(
+      mapResponse({
+        fundsCompared: 2,
+        startFilesFrom: "2026-08-03",
+        startFilesTo: "2026-08-10",
+        endFilesFrom: "2026-10-30",
+        endFilesTo: "2026-10-31",
+        stocks: [
+          mapStock({ hasFundValue: true, fundValueAud: 5e8, hasFundChange: true, fundChangePct: 1.25 }),
+          mapStock({ stockCode: "CBA", hasFundValue: false, fundValueAud: 0, hasFundChange: false, fundChangePct: 0 }),
+        ],
+      }),
+    );
+    const page = await loadOwnershipMap({ since: "2026-01-01", until: "2026-01-31" });
+    expect(page.fundsCompared).toBe(2);
+    expect(page.startFilesFrom).toBe("2026-08-03");
+    expect(page.startFilesTo).toBe("2026-08-10");
+    expect(page.endFilesFrom).toBe("2026-10-30");
+    expect(page.endFilesTo).toBe("2026-10-31");
+    expect(page.stocks[0]).toMatchObject({ fundValueAud: 5e8, fundChangePct: 1.25 });
+    // A stock with no flag is null, never the zero the wire carries.
+    expect(page.stocks[1]).toMatchObject({ fundValueAud: null, fundChangePct: null });
+  });
+
+  it("states no fund comparison on an outage: zero funds, every file range empty", async () => {
+    mockGetOwnershipMap.mockRejectedValue(new Error("unavailable"));
+    const page = await withOutage(() => loadOwnershipMap({ since: "2026-01-01", until: "2026-01-31" }));
+    expect(page).toMatchObject({ ok: false, fundsCompared: 0, startFilesFrom: "", endFilesTo: "" });
   });
 
   it("reads the default view from KV and makes no request", async () => {
@@ -357,14 +391,14 @@ describe("loadOwnershipMap", () => {
     // The newest notice comes from the default activity (52 weeks, KV-kept), not a one-week probe.
     expect(mockGetOwnershipActivity).toHaveBeenCalledWith({ weeks: 52 });
     expect(mockGetOwnershipActivity).not.toHaveBeenCalledWith({ weeks: 1 });
-    expect(mockGetOwnershipMap).toHaveBeenCalledWith({ from: "2026-10-04", to: "2026-10-31" });
+    expect(mockGetOwnershipMap).toHaveBeenCalledWith({ from: "2026-10-04", to: "2026-10-31", fundFrom: "", fundTo: "" });
     expect(mockGetCached).not.toHaveBeenCalledWith(MAP_KEY);
   });
 
   it("falls back to the default window for a window the desk does not serve", async () => {
     await loadOwnershipMap({ window: 7 });
     expect(mockGetOwnershipActivity).not.toHaveBeenCalled();
-    expect(mockGetOwnershipMap).toHaveBeenCalledWith({ from: "", to: "" });
+    expect(mockGetOwnershipMap).toHaveBeenCalledWith({ from: "", to: "", fundFrom: "", fundTo: "" });
   });
 
   it("answers an empty register for a chosen window with no rows, never the API's default span", async () => {
@@ -394,14 +428,14 @@ describe("loadOwnershipMap", () => {
   it("measures the span as the API does: 366 days apart is served, 367 is refused", async () => {
     // clamps.json desk.noticeDates: 2025-10-19 to 2026-10-20 is 366 days apart (367 days, both ends in).
     expect((await loadOwnershipMap({ since: "2025-10-19", until: "2026-10-20" })).error).toBe("");
-    expect(mockGetOwnershipMap).toHaveBeenCalledWith({ from: "2025-10-19", to: "2026-10-20" });
+    expect(mockGetOwnershipMap).toHaveBeenCalledWith({ from: "2025-10-19", to: "2026-10-20", fundFrom: "", fundTo: "" });
     expect((await loadOwnershipMap({ since: "2025-10-14", until: "2026-10-16" })).error).toMatch(/366 days/);
     expect(mockGetOwnershipMap).toHaveBeenCalledTimes(1);
   });
 
   it("serves a brushed pair of dates as a live read", async () => {
     await loadOwnershipMap({ since: "2026-01-01", until: "2026-01-31" });
-    expect(mockGetOwnershipMap).toHaveBeenCalledWith({ from: "2026-01-01", to: "2026-01-31" });
+    expect(mockGetOwnershipMap).toHaveBeenCalledWith({ from: "2026-01-01", to: "2026-01-31", fundFrom: "", fundTo: "" });
     expect(mockGetCached).not.toHaveBeenCalled();
   });
 
@@ -434,6 +468,7 @@ describe("loadOwnershipFlows", () => {
         holdings: 4,
         largestCode: "BHP",
         largestPct: 9.2,
+        topHolders: [],
       },
     ]);
     expect(page.changes).toEqual([
@@ -550,10 +585,58 @@ describe("loadStockFundSeries", () => {
     expect(mockGetStockFundSeries).toHaveBeenCalledWith({ stockCode: "BHP" });
     expect(page.ok).toBe(true);
     expect(page.funds[0]!.points).toEqual([
-      { asAt: "2026-09-30", weightPct: 3.1, valueAud: 1e8 },
-      { asAt: "2026-10-31", weightPct: null, valueAud: null },
+      { asAt: "2026-09-30", weightPct: 3.1, valueAud: 1e8, units: null },
+      { asAt: "2026-10-31", weightPct: null, valueAud: null, units: null },
     ]);
     expect(mockSetCached).not.toHaveBeenCalled();
+  });
+
+  it("maps a file's shares as units, and null when the file states none", async () => {
+    mockGetStockFundSeries.mockResolvedValue(
+      seriesResponse({
+        funds: [
+          {
+            institutionSlug: "vanguard",
+            institutionName: "Vanguard",
+            fundName: "Vanguard Australian Shares Index",
+            sourceKind: "etf",
+            points: [
+              { asAt: "2026-09-30", units: 1_250_000, hasUnits: true },
+              { asAt: "2026-10-31", units: 0, hasUnits: false },
+            ],
+          },
+        ],
+      }),
+    );
+    const page = await loadStockFundSeries({ stockCode: "BHP" });
+    expect(page.funds[0]!.points.map((point) => point.units)).toEqual([1_250_000, null]);
+  });
+
+  it("maps a band's largest holders from the flows, with their exposure and holdings", async () => {
+    mockGetOwnershipFlows.mockResolvedValue(
+      flowsResponse({
+        positions: [
+          {
+            kind: "super_fund",
+            industry: "Materials",
+            exposureAud: 3_000_000_000,
+            hasExposure: true,
+            holdings: 4,
+            largestCode: "BHP",
+            largestPct: 9.2,
+            topHolders: [
+              { slug: "aware", name: "Aware Super", exposureAud: 4e8, hasExposure: true, holdings: 2, hasInstitution: true },
+              { slug: "", name: "Unlisted fund", exposureAud: 0, hasExposure: false, holdings: 1, hasInstitution: false },
+            ],
+          },
+        ],
+      }),
+    );
+    const page = await loadOwnershipFlows({});
+    expect(page.positions[0]!.topHolders).toEqual([
+      { slug: "aware", name: "Aware Super", exposureAud: 4e8, holdings: 2 },
+      { slug: "", name: "Unlisted fund", exposureAud: null, holdings: 1 },
+    ]);
   });
 
   it("refuses a code the API would refuse, without a request", async () => {
@@ -568,6 +651,100 @@ describe("loadStockFundSeries", () => {
     const page = await withOutage(() => loadStockFundSeries({ stockCode: "BHP" }));
     expect(page.ok).toBe(false);
     expect(page.funds).toEqual([]);
+  });
+});
+
+describe("loadStockFundSeries fund window and comparisons (spec 14.10)", () => {
+  it("sends the fund window it is given, and maps each fund's own change with its unknown figures as null", async () => {
+    mockGetStockFundSeries.mockResolvedValue(
+      seriesResponse({
+        fundFrom: "2026-08-03",
+        fundTo: "2026-10-31",
+        funds: [
+          {
+            institutionSlug: "vanguard",
+            institutionName: "Vanguard",
+            fundName: "VAS",
+            fundCode: "VAS",
+            fundKey: "asx:VAS",
+            sourceKind: "etf",
+            points: [],
+            hasStartDate: true,
+            startDate: "2026-08-31",
+            hasStartUnits: true,
+            startUnits: 100e6,
+            hasEndDate: true,
+            endDate: "2026-10-31",
+            hasEndUnits: true,
+            endUnits: 110e6,
+            hasUnitsChange: true,
+            unitsChange: 10e6,
+            hasChangeValueAud: true,
+            changeValueAud: 4e8,
+          },
+          { institutionSlug: "blackrock", institutionName: "BlackRock", fundName: "IOZ", fundCode: "IOZ", sourceKind: "etf", points: [] },
+        ],
+      }),
+    );
+    const page = await loadStockFundSeries({ stockCode: "BHP", fundFrom: " 2026-08-03 ", fundTo: "2026-10-31" });
+    expect(mockGetStockFundSeries).toHaveBeenCalledWith({ stockCode: "BHP", fundFrom: "2026-08-03", fundTo: "2026-10-31" });
+    expect(page).toMatchObject({ fundFrom: "2026-08-03", fundTo: "2026-10-31" });
+    expect(page.funds[0]!.change).toEqual({
+      startDate: "2026-08-31",
+      startUnits: 100e6,
+      endDate: "2026-10-31",
+      endUnits: 110e6,
+      unitsChange: 10e6,
+      changeValueAud: 4e8,
+    });
+    expect(page.funds[1]!.change).toEqual({
+      startDate: null,
+      startUnits: null,
+      endDate: null,
+      endUnits: null,
+      unitsChange: null,
+      changeValueAud: null,
+    });
+  });
+
+  it("sends no window when none is named, so the API takes its own default", async () => {
+    await loadStockFundSeries({ stockCode: "BHP", fundFrom: "", fundTo: "" });
+    expect(mockGetStockFundSeries).toHaveBeenLastCalledWith({ stockCode: "BHP" });
+  });
+});
+
+describe("loadOwnershipActivity largest moves (spec 14.10)", () => {
+  it("maps the moves the server ranked, with their change, release date and notice", async () => {
+    mockGetOwnershipActivity.mockResolvedValue(
+      activityResponse({
+        largestMoves: [
+          {
+            stockCode: "BHP",
+            companyName: "BHP Group",
+            holderName: "Vanguard",
+            holderSlug: "vanguard",
+            hasInstitution: true,
+            previousPct: 5,
+            presentPct: 6.2,
+            changePp: 1.2,
+            event: "increased",
+            announcedOn: "2026-10-28",
+            announcementUrl: "https://www.asx.com.au/bhp.pdf",
+          },
+        ],
+      }),
+    );
+    const page = await loadOwnershipActivity({});
+    expect(page.largestMoves).toEqual([
+      { code: "BHP", holder: "Vanguard", url: "https://www.asx.com.au/bhp.pdf", released: "2026-10-28", change: 1.2 },
+    ]);
+  });
+
+  it("is empty, not a guess, when the activity did not answer", async () => {
+    mockGetOwnershipActivity.mockRejectedValue(UNAVAILABLE);
+    const page = await withOutage(() => loadOwnershipActivity({}));
+    expect(page.ok).toBe(false);
+    expect(page.largestMoves).toEqual([]);
   });
 });
 
@@ -738,6 +915,57 @@ describe("loadInspector (spec 14.1 resolvers)", () => {
     expect(mockLoadNoticeFeed).toHaveBeenCalledWith(expect.objectContaining({ kind: "super_fund", industry: "Materials" }));
   });
 });
+
+describe("loadInspector stock fund window (spec 14.10)", () => {
+  const load = async () => (await import("../ownershipDesk")).loadInspector;
+
+  it("reads each fund's comparison over the dates the map gets for the link's chip window", async () => {
+    const loadInspector = await load();
+    const { loadOwnershipMap } = await import("../ownershipDesk");
+    mockGetStockOwnership.mockResolvedValue(stockPanelFixture());
+    // The map resolves a 364-day chip to dates counted back from the newest notice.
+    await loadOwnershipMap({ window: 364 });
+    const mapWindow = mockGetOwnershipMap.mock.calls[0]?.[0] as { from: string; to: string };
+    expect(mapWindow.from).not.toBe("");
+
+    await loadInspector({ kind: "stock", code: "BHP" } as never, { ...NO_QUERY_FIXTURE, window: "364" });
+    expect(mockGetStockFundSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ stockCode: "BHP", fundFrom: mapWindow.from, fundTo: mapWindow.to }),
+    );
+  });
+
+  it("sends the link's own fund dates ahead of the notice window", async () => {
+    const loadInspector = await load();
+    mockGetStockOwnership.mockResolvedValue(stockPanelFixture());
+    await loadInspector({ kind: "stock", code: "BHP" } as never, {
+      ...NO_QUERY_FIXTURE,
+      window: "364",
+      from: "2026-08-03",
+      to: "2026-10-31",
+    });
+    expect(mockGetStockFundSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ stockCode: "BHP", fundFrom: "2026-08-03", fundTo: "2026-10-31" }),
+    );
+  });
+
+  it("leaves the window to the API for the default chip, as the map does", async () => {
+    const loadInspector = await load();
+    mockGetStockOwnership.mockResolvedValue(stockPanelFixture());
+    await loadInspector({ kind: "stock", code: "BHP" } as never, { ...NO_QUERY_FIXTURE, window: "91" });
+    const request = mockGetStockFundSeries.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(request.stockCode).toBe("BHP");
+    expect(request).not.toHaveProperty("fundFrom");
+    expect(request).not.toHaveProperty("fundTo");
+  });
+});
+
+function stockPanelFixture() {
+  return create(GetStockOwnershipResponseSchema, {
+    summary: { stockCode: "BHP", companyName: "BHP Group", industry: "Materials", disclosedPct: 14.1 },
+  });
+}
+
+const NO_QUERY_FIXTURE = { lens: "", view: "", window: "", since: "", until: "", asAt: "", from: "", to: "" };
 
 describe("loadInspector connections read the registers (spec 14.7)", () => {
   const load = async () => (await import("../ownershipDesk")).loadInspector;

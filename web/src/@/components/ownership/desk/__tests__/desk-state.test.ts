@@ -84,8 +84,10 @@ describe("desk state codec", () => {
     expect(readDeskState(new URLSearchParams("from=2026-02-30&to=2026-03-01")).from).toBe("");
   });
 
-  it("takes a fund pair of any span, since snapshot history is not bounded by a year", () => {
-    expect(readDeskState(new URLSearchParams("from=2024-01-01&to=2026-10-31")).from).toBe("2024-01-01");
+  it("takes a fund pair up to the served 366 days, and reads a longer pair as no window, as the API refuses it", () => {
+    expect(readDeskState(new URLSearchParams("from=2025-10-31&to=2026-10-31")).from).toBe("2025-10-31");
+    expect(readDeskState(new URLSearchParams("from=2025-10-29&to=2026-10-31")).from).toBe("");
+    expect(readDeskState(new URLSearchParams("from=2024-01-01&to=2026-10-31")).to).toBe("");
   });
 
   it("round-trips every state the codec can hold", () => {

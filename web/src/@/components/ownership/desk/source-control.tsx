@@ -26,11 +26,12 @@ export function SourceSelect({
       label="Source"
       value={value}
       onChange={onChange === undefined ? undefined : (next) => onChange(next === "index" ? "index" : "notices")}
-      className="max-w-[12rem]"
+      className="max-w-[9rem]"
     >
-      <option value="notices">Substantial notices</option>
+      {/* Short option names keep each instrument's toolbar on one row at 1440 (spec 14.9). */}
+      <option value="notices">Notices</option>
       <option value="index" disabled={!indexAvailable} title={indexAvailable ? undefined : INDEX_SOURCE_TITLE}>
-        Index fund holdings
+        Index funds
       </option>
     </ToolbarSelect>
   );

@@ -15,6 +15,7 @@ import type {
   InspectorQuery,
   InspectorResolver,
   InspectorSection,
+  LargestMovesBlock,
 } from "./inspector-types";
 import { SectorIcon } from "./sector-icon";
 import { StockLogoBox } from "./stock-logo-box";
@@ -34,6 +35,11 @@ export interface InspectorProps {
   resolve: InspectorResolver;
   /** The line shown with nothing selected, as the wireframe states it for the page. */
   emptyText: string;
+  /**
+   * The empty rail's list beneath the line, when the page has one (the Activity page's largest
+   * moves, spec 14.10). Absent or null draws the line alone.
+   */
+  largestMoves?: LargestMovesBlock | null;
 }
 
 /**
@@ -48,17 +54,17 @@ export interface InspectorProps {
  */
 export function Inspector(props: InspectorProps) {
   return (
-    <Suspense fallback={<InspectorFallback emptyText={props.emptyText} />}>
+    <Suspense fallback={<InspectorFallback emptyText={props.emptyText} largestMoves={props.largestMoves} />}>
       <InspectorBody {...props} />
     </Suspense>
   );
 }
 
 /** The empty rail, drawn while the URL is read. Nothing is selected yet, so nothing loads. */
-export function InspectorFallback({ emptyText }: { emptyText: string }) {
+export function InspectorFallback({ emptyText, largestMoves }: { emptyText: string; largestMoves?: LargestMovesBlock | null }) {
   return (
     <InspectorAside label="Inspector">
-      <EmptyPrompt emptyText={emptyText} />
+      <EmptyPrompt emptyText={emptyText} largestMoves={largestMoves} />
     </InspectorAside>
   );
 }
@@ -67,16 +73,58 @@ export function InspectorFallback({ emptyText }: { emptyText: string }) {
  * The prompt an empty rail shows: its kicker and the prompt, centred in the rail's height (spec 14.9).
  * The fallback and the island draw this one markup, so the rail does not change when the link is read.
  */
-function EmptyPrompt({ emptyText }: { emptyText: string }) {
+function EmptyPrompt({ emptyText, largestMoves }: { emptyText: string; largestMoves?: LargestMovesBlock | null }) {
   return (
     <div className="flex h-full flex-col justify-center gap-2">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Inspector</p>
       <p className="text-muted-foreground">{emptyText}</p>
+      {largestMoves ? <LargestMoves block={largestMoves} /> : null}
     </div>
   );
 }
 
-function InspectorBody({ resolve, emptyText }: InspectorProps) {
+/**
+ * "Largest moves in the window" (spec 14.10): the notices that state the largest change, each
+ * with its change and a link to the notice. An empty list says no notice states a change, so
+ * the heading is never drawn over nothing.
+ */
+function LargestMoves({ block }: { block: LargestMovesBlock }) {
+  return (
+    <section aria-labelledby="largest-moves" className="mt-4 space-y-2">
+      <h2 id="largest-moves" className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+        Largest moves, every holder type, last {block.windowDays} days
+      </h2>
+      {block.from !== "" ? (
+        <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          Notices released {block.from} to {block.to}
+        </p>
+      ) : null}
+      {block.lines.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {block.from !== "" ? `No notice from ${block.from} to ${block.to} states a change.` : `No notice in the last ${block.windowDays} days states a change.`}
+        </p>
+      ) : (
+        <ol className="space-y-2 text-sm">
+          {/* Two lines per move: the company and holder, then the change and its date, so the holder's name is never cut for the figure. */}
+          {block.lines.map((line, index) => (
+            <li key={`${index}:${line.label}`} className="flex min-w-0 flex-col gap-0.5">
+              {line.href ? (
+                <a href={line.href} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate underline underline-offset-4" title={line.label}>
+                  {line.label}
+                </a>
+              ) : (
+                <span className="min-w-0 truncate" title={line.label}>{line.label}</span>
+              )}
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">{line.value}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const params = useSearchParams();
@@ -92,13 +140,15 @@ function InspectorBody({ resolve, emptyText }: InspectorProps) {
       since: params?.get("since") ?? "",
       until: params?.get("until") ?? "",
       asAt: params?.get("as") ?? "",
+      from: params?.get("from") ?? "",
+      to: params?.get("to") ?? "",
     }),
     [params],
   );
   const selectionKey = selection ? serializeSelection(selection) : "";
   // The request is keyed on the selection and the parameters it reads, never the object identity.
   const key = selection
-    ? `${selectionKey}|${query.lens}|${query.view}|${query.window}|${query.since}|${query.until}|${query.asAt}`
+    ? `${selectionKey}|${query.lens}|${query.view}|${query.window}|${query.since}|${query.until}|${query.asAt}|${query.from}|${query.to}`
     : "";
   const clearHref = clearedHref(pathname, search);
   const mobile = useIsMobile();
@@ -153,6 +203,7 @@ function InspectorBody({ resolve, emptyText }: InspectorProps) {
       failed={failed}
       content={content}
       emptyText={emptyText}
+      largestMoves={largestMoves}
       clearHref={clearHref}
       kicker={kicker}
       name={inSheet ? null : (content?.heading ?? null)}
@@ -187,6 +238,7 @@ function InspectorBodyContent({
   failed,
   content,
   emptyText,
+  largestMoves,
   clearHref,
   kicker,
   name,
@@ -198,6 +250,7 @@ function InspectorBodyContent({
   failed: boolean;
   content: InspectorContent | null;
   emptyText: string;
+  largestMoves?: LargestMovesBlock | null;
   clearHref: string;
   /** The kind of thing selected, in small caps (spec 14.1). */
   kicker: string | null;
@@ -208,7 +261,7 @@ function InspectorBodyContent({
   onRetry: () => void;
 }) {
   // The prompt sits with its kicker, vertically centred in the rail's height (spec 14.9).
-  if (selection === null) return <EmptyPrompt emptyText={emptyText} />;
+  if (selection === null) return <EmptyPrompt emptyText={emptyText} largestMoves={largestMoves} />;
   if (loading) return <InspectorLoading />;
   if (failed) {
     return (
@@ -381,6 +434,7 @@ function InspectorSectionView({ section }: { section: InspectorSection }) {
                 )}
                 <span className="shrink-0 text-right font-mono tabular-nums">{bar.value}</span>
               </div>
+              {bar.detail ? <p className="text-xs text-muted-foreground">{bar.detail}</p> : null}
               <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-muted">
                 <div className="h-full rounded-full bg-primary" style={{ width: `${barPercent(bar.share)}%` }} />
               </div>

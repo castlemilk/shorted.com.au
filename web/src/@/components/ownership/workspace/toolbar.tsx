@@ -26,7 +26,7 @@ export const TOOLBAR_COMBOBOX_ROW_CLASS = "h-5 sm:h-11";
 
 export function Toolbar({ children, fold }: { children: ReactNode; fold?: ToolbarFold }) {
   const row = (
-    <div data-toolbar="" className="flex flex-wrap items-end gap-x-3 gap-y-3">
+    <div data-toolbar="" className="flex flex-wrap items-center gap-x-3 gap-y-3">
       {children}
     </div>
   );

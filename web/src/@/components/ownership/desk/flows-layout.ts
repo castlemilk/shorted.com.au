@@ -28,6 +28,17 @@ export interface FlowPositionRow {
   holdings: number;
   largestCode: string;
   largestPct: number;
+  /** The band's largest holders, at most ten, largest first (spec 14.10). */
+  topHolders: FlowHolderRow[];
+}
+
+/** One holder of a band: its page's slug, its name, its estimated exposure and its holdings. */
+export interface FlowHolderRow {
+  slug: string;
+  name: string;
+  /** Null when the holder's exposure cannot be estimated (a company with no market cap). */
+  exposureAud: number | null;
+  holdings: number;
 }
 
 /** A change in one kind's exposure in one industry, split by direction. */

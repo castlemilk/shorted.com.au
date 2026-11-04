@@ -19,7 +19,6 @@ import "shorts/v1alpha1/industry.proto";
 import "shorts/v1alpha1/market.proto";
 import "shorts/v1alpha1/news.proto";
 import "shorts/v1alpha1/ownership.proto";
-import "shorts/v1alpha1/ownership_insights.proto";
 import "shorts/v1alpha1/politicians.proto";
 import "shorts/v1alpha1/reports.proto";
 import "shorts/v1alpha1/screener.proto";
@@ -1273,18 +1272,6 @@ service ShortedStocksService {
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Politician Funding",
       description: "AEC returns that NAME one member: their annual member/senator returns and their election candidate returns including lodged nil returns, with the corpus coverage those figures sit inside. Money given to a party is never attributed to a member."
-    };
-  }
-  // ==================== Ownership insights ====================
-  // Mirrored from OwnershipInsightsService for external API back-compat; the
-  // parity test enforces the visibility match.
-
-  // The ownership register in one time window.
-  rpc GetOwnershipInsights (GetOwnershipInsightsRequest) returns (GetOwnershipInsightsResponse) {
-    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
-    option (gnostic.openapi.v3.operation) = {
-      summary: "Get Ownership Insights",
-      description: "The ASX ownership register in one time window: sectors and their stocks with the AUD value tracked index funds hold and the voting power substantial holders disclose, the money flow from institution kinds through institutions to sectors, the change in index fund positions and in disclosed voting power by sector and week or month, and the window's largest moves stated by notices. A fund's change compares each fund with its own earlier file. Disclosed values are voting power times market cap: an estimate of what the notices disclose, not a share of the company."
     };
   }
 }

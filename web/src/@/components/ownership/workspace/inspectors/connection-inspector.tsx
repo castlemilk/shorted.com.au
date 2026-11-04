@@ -11,7 +11,7 @@
 
 import { OTHER_SECTOR } from "~/@/components/ownership/desk/map-layout";
 import { formatAmount, NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
-import { FOLDED_SECTOR_LABEL, formatVotingPower, kindInfo, registerHref, shortSector } from "~/@/lib/ownership/kinds";
+import { FOLDED_SECTOR_LABEL, formatVotingPower, holderHref, kindInfo, registerHref, shortSector } from "~/@/lib/ownership/kinds";
 import type { InspectorContent, InspectorLink, InspectorSection } from "../inspector-types";
 
 /** The companies the rail draws: the ten largest, as the band's own list is. */
@@ -59,6 +59,18 @@ export interface ConnectionNotice {
   holder: string;
 }
 
+/** One holder of the band, as the flows name it (spec 14.10): its page's slug, exposure and holdings. */
+export interface BandHolder {
+  slug: string;
+  name: string;
+  /** The holder's estimated exposure in the band; null when it cannot be estimated. */
+  exposureAud: number | null;
+  holdings: number;
+}
+
+/** The holders the rail lists: at most this many, as the band names them. */
+export const HOLDER_LIMIT = 10;
+
 /** The notices feed for one connection: the holder kind and the sector, over the link's window. */
 export function connectionNoticesHref(
   holderKind: string,
@@ -95,6 +107,7 @@ export function connectionInspectorContent({
   view = "positions",
   span = { window: "91", since: "", until: "" },
   notices = null,
+  holders = null,
 }: {
   holderKind: string;
   sector: string;
@@ -106,6 +119,8 @@ export function connectionInspectorContent({
   span?: ConnectionSpan;
   /** The window's notices for this kind and sector, read for the Change view; null when unread. */
   notices?: { rows: readonly ConnectionNotice[]; total: number } | null;
+  /** The band's largest holders from the flows; null when they were not read (no section is drawn). */
+  holders?: readonly BandHolder[] | null;
 }): InspectorContent {
   const holder = kindInfo(holderKind).plural;
   // The folded tail (spec 14.9) is several sectors, not one industry: it names no register filter, so nothing links to one.
@@ -179,6 +194,23 @@ export function connectionInspectorContent({
             : formatAmount(estimatedExposure(company), "AUD")
           : formatVotingPower(company.pct),
         share: largest > 0 ? measure(company) / largest : 0,
+      })),
+    });
+  }
+
+  // The band's holders, largest exposure first, each named by its page (spec 14.10).
+  if (holders && holders.length > 0) {
+    const listedHolders = holders.slice(0, HOLDER_LIMIT);
+    const largestExposure = Math.max(0, ...listedHolders.map((holder) => holder.exposureAud ?? 0));
+    sections.push({
+      title: "Holders on this connection",
+      kind: "bars",
+      items: listedHolders.map((holder) => ({
+        label: holder.name,
+        href: holderHref(holder.slug) ?? undefined,
+        value: formatAmount(holder.exposureAud, "AUD"),
+        detail: `${holder.holdings} ${holder.holdings === 1 ? "holding" : "holdings"}`,
+        share: largestExposure > 0 && holder.exposureAud !== null ? holder.exposureAud / largestExposure : 0,
       })),
     });
   }

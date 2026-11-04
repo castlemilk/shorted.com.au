@@ -327,6 +327,95 @@ private static final long serialVersionUID = 0L;
     return notices_;
   }
 
+  public static final int FUND_VALUE_AUD_FIELD_NUMBER = 16;
+  private double fundValueAud_ = 0D;
+  /**
+   * <pre>
+   * The index funds' holdings of the stock at the window's end, in AUD. Set
+   * when a tracked index fund holds it at that file.
+   * </pre>
+   *
+   * <code>double fund_value_aud = 16 [json_name = "fundValueAud"];</code>
+   * @return The fundValueAud.
+   */
+  @java.lang.Override
+  public double getFundValueAud() {
+    return fundValueAud_;
+  }
+
+  public static final int HAS_FUND_VALUE_FIELD_NUMBER = 17;
+  private boolean hasFundValue_ = false;
+  /**
+   * <code>bool has_fund_value = 17 [json_name = "hasFundValue"];</code>
+   * @return The hasFundValue.
+   */
+  @java.lang.Override
+  public boolean getHasFundValue() {
+    return hasFundValue_;
+  }
+
+  public static final int FUND_FLOW_AUD_FIELD_NUMBER = 18;
+  private double fundFlowAud_ = 0D;
+  /**
+   * <pre>
+   * The change in shares the compared index funds hold, in AUD: each compared
+   * fund's change valued at its own later file's price (its start file's price
+   * when the position has left it), summed. A fund is compared when its file at
+   * the window's start (or its first file inside the window) and a newer one at
+   * the end are on record, and a fund is never new money by its first file. A
+   * fund whose file states the stock with no units on either side of the window
+   * (a value alone, or neither figure) is left out of this change and of its
+   * start, so that row counts only in fund_value_aud. So is a fund whose later
+   * file states shares with no value, which leaves it no price of its own. Each
+   * fund is decided on its own row: no other fund's row changes it.
+   * </pre>
+   *
+   * <code>double fund_flow_aud = 18 [json_name = "fundFlowAud"];</code>
+   * @return The fundFlowAud.
+   */
+  @java.lang.Override
+  public double getFundFlowAud() {
+    return fundFlowAud_;
+  }
+
+  public static final int HAS_FUND_FLOW_FIELD_NUMBER = 19;
+  private boolean hasFundFlow_ = false;
+  /**
+   * <code>bool has_fund_flow = 19 [json_name = "hasFundFlow"];</code>
+   * @return The hasFundFlow.
+   */
+  @java.lang.Override
+  public boolean getHasFundFlow() {
+    return hasFundFlow_;
+  }
+
+  public static final int FUND_CHANGE_PCT_FIELD_NUMBER = 20;
+  private double fundChangePct_ = 0D;
+  /**
+   * <pre>
+   * That change as a percentage of the same funds' starting shares, each valued at
+   * the same price as its change. Set when those starting shares are positive.
+   * </pre>
+   *
+   * <code>double fund_change_pct = 20 [json_name = "fundChangePct"];</code>
+   * @return The fundChangePct.
+   */
+  @java.lang.Override
+  public double getFundChangePct() {
+    return fundChangePct_;
+  }
+
+  public static final int HAS_FUND_CHANGE_FIELD_NUMBER = 21;
+  private boolean hasFundChange_ = false;
+  /**
+   * <code>bool has_fund_change = 21 [json_name = "hasFundChange"];</code>
+   * @return The hasFundChange.
+   */
+  @java.lang.Override
+  public boolean getHasFundChange() {
+    return hasFundChange_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -385,6 +474,24 @@ private static final long serialVersionUID = 0L;
     }
     if (notices_ != 0) {
       output.writeInt32(15, notices_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(fundValueAud_) != 0) {
+      output.writeDouble(16, fundValueAud_);
+    }
+    if (hasFundValue_ != false) {
+      output.writeBool(17, hasFundValue_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(fundFlowAud_) != 0) {
+      output.writeDouble(18, fundFlowAud_);
+    }
+    if (hasFundFlow_ != false) {
+      output.writeBool(19, hasFundFlow_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(fundChangePct_) != 0) {
+      output.writeDouble(20, fundChangePct_);
+    }
+    if (hasFundChange_ != false) {
+      output.writeBool(21, hasFundChange_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -447,6 +554,30 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(15, notices_);
     }
+    if (java.lang.Double.doubleToRawLongBits(fundValueAud_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(16, fundValueAud_);
+    }
+    if (hasFundValue_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(17, hasFundValue_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(fundFlowAud_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(18, fundFlowAud_);
+    }
+    if (hasFundFlow_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(19, hasFundFlow_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(fundChangePct_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(20, fundChangePct_);
+    }
+    if (hasFundChange_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(21, hasFundChange_);
+    }
     return size;
   }
   @java.lang.Override
@@ -508,6 +639,21 @@ private static final long serialVersionUID = 0L;
         != other.getHasFlowPp()) return false;
     if (getNotices()
         != other.getNotices()) return false;
+    if (java.lang.Double.doubleToLongBits(getFundValueAud())
+        != java.lang.Double.doubleToLongBits(
+            other.getFundValueAud())) return false;
+    if (getHasFundValue()
+        != other.getHasFundValue()) return false;
+    if (java.lang.Double.doubleToLongBits(getFundFlowAud())
+        != java.lang.Double.doubleToLongBits(
+            other.getFundFlowAud())) return false;
+    if (getHasFundFlow()
+        != other.getHasFundFlow()) return false;
+    if (java.lang.Double.doubleToLongBits(getFundChangePct())
+        != java.lang.Double.doubleToLongBits(
+            other.getFundChangePct())) return false;
+    if (getHasFundChange()
+        != other.getHasFundChange()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -560,6 +706,24 @@ private static final long serialVersionUID = 0L;
         getHasFlowPp());
     hash = (37 * hash) + NOTICES_FIELD_NUMBER;
     hash = (53 * hash) + getNotices();
+    hash = (37 * hash) + FUND_VALUE_AUD_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getFundValueAud()));
+    hash = (37 * hash) + HAS_FUND_VALUE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasFundValue());
+    hash = (37 * hash) + FUND_FLOW_AUD_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getFundFlowAud()));
+    hash = (37 * hash) + HAS_FUND_FLOW_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasFundFlow());
+    hash = (37 * hash) + FUND_CHANGE_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getFundChangePct()));
+    hash = (37 * hash) + HAS_FUND_CHANGE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasFundChange());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -711,6 +875,12 @@ private static final long serialVersionUID = 0L;
       flowPp_ = 0D;
       hasFlowPp_ = false;
       notices_ = 0;
+      fundValueAud_ = 0D;
+      hasFundValue_ = false;
+      fundFlowAud_ = 0D;
+      hasFundFlow_ = false;
+      fundChangePct_ = 0D;
+      hasFundChange_ = false;
       return this;
     }
 
@@ -789,6 +959,24 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00004000) != 0)) {
         result.notices_ = notices_;
       }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.fundValueAud_ = fundValueAud_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.hasFundValue_ = hasFundValue_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.fundFlowAud_ = fundFlowAud_;
+      }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.hasFundFlow_ = hasFundFlow_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.fundChangePct_ = fundChangePct_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.hasFundChange_ = hasFundChange_;
+      }
     }
 
     @java.lang.Override
@@ -853,6 +1041,24 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getNotices() != 0) {
         setNotices(other.getNotices());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getFundValueAud()) != 0) {
+        setFundValueAud(other.getFundValueAud());
+      }
+      if (other.getHasFundValue() != false) {
+        setHasFundValue(other.getHasFundValue());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getFundFlowAud()) != 0) {
+        setFundFlowAud(other.getFundFlowAud());
+      }
+      if (other.getHasFundFlow() != false) {
+        setHasFundFlow(other.getHasFundFlow());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getFundChangePct()) != 0) {
+        setFundChangePct(other.getFundChangePct());
+      }
+      if (other.getHasFundChange() != false) {
+        setHasFundChange(other.getHasFundChange());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -955,6 +1161,36 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00004000;
               break;
             } // case 120
+            case 129: {
+              fundValueAud_ = input.readDouble();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 129
+            case 136: {
+              hasFundValue_ = input.readBool();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 136
+            case 145: {
+              fundFlowAud_ = input.readDouble();
+              bitField0_ |= 0x00020000;
+              break;
+            } // case 145
+            case 152: {
+              hasFundFlow_ = input.readBool();
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 152
+            case 161: {
+              fundChangePct_ = input.readDouble();
+              bitField0_ |= 0x00080000;
+              break;
+            } // case 161
+            case 168: {
+              hasFundChange_ = input.readBool();
+              bitField0_ |= 0x00100000;
+              break;
+            } // case 168
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1634,6 +1870,267 @@ private static final long serialVersionUID = 0L;
     public Builder clearNotices() {
       bitField0_ = (bitField0_ & ~0x00004000);
       notices_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private double fundValueAud_ ;
+    /**
+     * <pre>
+     * The index funds' holdings of the stock at the window's end, in AUD. Set
+     * when a tracked index fund holds it at that file.
+     * </pre>
+     *
+     * <code>double fund_value_aud = 16 [json_name = "fundValueAud"];</code>
+     * @return The fundValueAud.
+     */
+    @java.lang.Override
+    public double getFundValueAud() {
+      return fundValueAud_;
+    }
+    /**
+     * <pre>
+     * The index funds' holdings of the stock at the window's end, in AUD. Set
+     * when a tracked index fund holds it at that file.
+     * </pre>
+     *
+     * <code>double fund_value_aud = 16 [json_name = "fundValueAud"];</code>
+     * @param value The fundValueAud to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundValueAud(double value) {
+
+      fundValueAud_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The index funds' holdings of the stock at the window's end, in AUD. Set
+     * when a tracked index fund holds it at that file.
+     * </pre>
+     *
+     * <code>double fund_value_aud = 16 [json_name = "fundValueAud"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundValueAud() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      fundValueAud_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasFundValue_ ;
+    /**
+     * <code>bool has_fund_value = 17 [json_name = "hasFundValue"];</code>
+     * @return The hasFundValue.
+     */
+    @java.lang.Override
+    public boolean getHasFundValue() {
+      return hasFundValue_;
+    }
+    /**
+     * <code>bool has_fund_value = 17 [json_name = "hasFundValue"];</code>
+     * @param value The hasFundValue to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasFundValue(boolean value) {
+
+      hasFundValue_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_fund_value = 17 [json_name = "hasFundValue"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasFundValue() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      hasFundValue_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double fundFlowAud_ ;
+    /**
+     * <pre>
+     * The change in shares the compared index funds hold, in AUD: each compared
+     * fund's change valued at its own later file's price (its start file's price
+     * when the position has left it), summed. A fund is compared when its file at
+     * the window's start (or its first file inside the window) and a newer one at
+     * the end are on record, and a fund is never new money by its first file. A
+     * fund whose file states the stock with no units on either side of the window
+     * (a value alone, or neither figure) is left out of this change and of its
+     * start, so that row counts only in fund_value_aud. So is a fund whose later
+     * file states shares with no value, which leaves it no price of its own. Each
+     * fund is decided on its own row: no other fund's row changes it.
+     * </pre>
+     *
+     * <code>double fund_flow_aud = 18 [json_name = "fundFlowAud"];</code>
+     * @return The fundFlowAud.
+     */
+    @java.lang.Override
+    public double getFundFlowAud() {
+      return fundFlowAud_;
+    }
+    /**
+     * <pre>
+     * The change in shares the compared index funds hold, in AUD: each compared
+     * fund's change valued at its own later file's price (its start file's price
+     * when the position has left it), summed. A fund is compared when its file at
+     * the window's start (or its first file inside the window) and a newer one at
+     * the end are on record, and a fund is never new money by its first file. A
+     * fund whose file states the stock with no units on either side of the window
+     * (a value alone, or neither figure) is left out of this change and of its
+     * start, so that row counts only in fund_value_aud. So is a fund whose later
+     * file states shares with no value, which leaves it no price of its own. Each
+     * fund is decided on its own row: no other fund's row changes it.
+     * </pre>
+     *
+     * <code>double fund_flow_aud = 18 [json_name = "fundFlowAud"];</code>
+     * @param value The fundFlowAud to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundFlowAud(double value) {
+
+      fundFlowAud_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The change in shares the compared index funds hold, in AUD: each compared
+     * fund's change valued at its own later file's price (its start file's price
+     * when the position has left it), summed. A fund is compared when its file at
+     * the window's start (or its first file inside the window) and a newer one at
+     * the end are on record, and a fund is never new money by its first file. A
+     * fund whose file states the stock with no units on either side of the window
+     * (a value alone, or neither figure) is left out of this change and of its
+     * start, so that row counts only in fund_value_aud. So is a fund whose later
+     * file states shares with no value, which leaves it no price of its own. Each
+     * fund is decided on its own row: no other fund's row changes it.
+     * </pre>
+     *
+     * <code>double fund_flow_aud = 18 [json_name = "fundFlowAud"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundFlowAud() {
+      bitField0_ = (bitField0_ & ~0x00020000);
+      fundFlowAud_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasFundFlow_ ;
+    /**
+     * <code>bool has_fund_flow = 19 [json_name = "hasFundFlow"];</code>
+     * @return The hasFundFlow.
+     */
+    @java.lang.Override
+    public boolean getHasFundFlow() {
+      return hasFundFlow_;
+    }
+    /**
+     * <code>bool has_fund_flow = 19 [json_name = "hasFundFlow"];</code>
+     * @param value The hasFundFlow to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasFundFlow(boolean value) {
+
+      hasFundFlow_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_fund_flow = 19 [json_name = "hasFundFlow"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasFundFlow() {
+      bitField0_ = (bitField0_ & ~0x00040000);
+      hasFundFlow_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double fundChangePct_ ;
+    /**
+     * <pre>
+     * That change as a percentage of the same funds' starting shares, each valued at
+     * the same price as its change. Set when those starting shares are positive.
+     * </pre>
+     *
+     * <code>double fund_change_pct = 20 [json_name = "fundChangePct"];</code>
+     * @return The fundChangePct.
+     */
+    @java.lang.Override
+    public double getFundChangePct() {
+      return fundChangePct_;
+    }
+    /**
+     * <pre>
+     * That change as a percentage of the same funds' starting shares, each valued at
+     * the same price as its change. Set when those starting shares are positive.
+     * </pre>
+     *
+     * <code>double fund_change_pct = 20 [json_name = "fundChangePct"];</code>
+     * @param value The fundChangePct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundChangePct(double value) {
+
+      fundChangePct_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * That change as a percentage of the same funds' starting shares, each valued at
+     * the same price as its change. Set when those starting shares are positive.
+     * </pre>
+     *
+     * <code>double fund_change_pct = 20 [json_name = "fundChangePct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundChangePct() {
+      bitField0_ = (bitField0_ & ~0x00080000);
+      fundChangePct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasFundChange_ ;
+    /**
+     * <code>bool has_fund_change = 21 [json_name = "hasFundChange"];</code>
+     * @return The hasFundChange.
+     */
+    @java.lang.Override
+    public boolean getHasFundChange() {
+      return hasFundChange_;
+    }
+    /**
+     * <code>bool has_fund_change = 21 [json_name = "hasFundChange"];</code>
+     * @param value The hasFundChange to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasFundChange(boolean value) {
+
+      hasFundChange_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_fund_change = 21 [json_name = "hasFundChange"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasFundChange() {
+      bitField0_ = (bitField0_ & ~0x00100000);
+      hasFundChange_ = false;
       onChanged();
       return this;
     }

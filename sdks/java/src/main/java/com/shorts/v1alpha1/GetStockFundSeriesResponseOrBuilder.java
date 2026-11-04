@@ -45,4 +45,36 @@ public interface GetStockFundSeriesResponseOrBuilder extends
    */
   com.shorts.v1alpha1.FundSeriesOrBuilder getFundsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * The fund window the per-fund comparisons read, as served.
+   * </pre>
+   *
+   * <code>string fund_from = 3 [json_name = "fundFrom"];</code>
+   * @return The fundFrom.
+   */
+  java.lang.String getFundFrom();
+  /**
+   * <pre>
+   * The fund window the per-fund comparisons read, as served.
+   * </pre>
+   *
+   * <code>string fund_from = 3 [json_name = "fundFrom"];</code>
+   * @return The bytes for fundFrom.
+   */
+  com.google.protobuf.ByteString
+      getFundFromBytes();
+
+  /**
+   * <code>string fund_to = 4 [json_name = "fundTo"];</code>
+   * @return The fundTo.
+   */
+  java.lang.String getFundTo();
+  /**
+   * <code>string fund_to = 4 [json_name = "fundTo"];</code>
+   * @return The bytes for fundTo.
+   */
+  com.google.protobuf.ByteString
+      getFundToBytes();
 }

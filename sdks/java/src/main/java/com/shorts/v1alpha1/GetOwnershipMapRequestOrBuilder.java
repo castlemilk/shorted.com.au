@@ -33,4 +33,40 @@ public interface GetOwnershipMapRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getToBytes();
+
+  /**
+   * <pre>
+   * The index funds' window, when it is not the notice window: the snapshot
+   * dates the fund figures compare, at most 366 days apart. Empty takes from and
+   * to (the notice window), and one empty bound is filled as the desk fills it.
+   * </pre>
+   *
+   * <code>string fund_from = 3 [json_name = "fundFrom"];</code>
+   * @return The fundFrom.
+   */
+  java.lang.String getFundFrom();
+  /**
+   * <pre>
+   * The index funds' window, when it is not the notice window: the snapshot
+   * dates the fund figures compare, at most 366 days apart. Empty takes from and
+   * to (the notice window), and one empty bound is filled as the desk fills it.
+   * </pre>
+   *
+   * <code>string fund_from = 3 [json_name = "fundFrom"];</code>
+   * @return The bytes for fundFrom.
+   */
+  com.google.protobuf.ByteString
+      getFundFromBytes();
+
+  /**
+   * <code>string fund_to = 4 [json_name = "fundTo"];</code>
+   * @return The fundTo.
+   */
+  java.lang.String getFundTo();
+  /**
+   * <code>string fund_to = 4 [json_name = "fundTo"];</code>
+   * @return The bytes for fundTo.
+   */
+  com.google.protobuf.ByteString
+      getFundToBytes();
 }

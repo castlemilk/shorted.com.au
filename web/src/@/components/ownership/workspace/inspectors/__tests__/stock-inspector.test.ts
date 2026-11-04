@@ -1,10 +1,20 @@
 /// <reference types="jest" />
 
 import type { StockFundSeriesPage } from "~/app/actions/ownershipDesk";
+import { formatAmount } from "~/@/lib/fundamentals/format";
 import type { StockPanelPage } from "../../../desk/stock-panel";
 import { latestFundWeight, stockInspectorContent, stockNoticesHref } from "../stock-inspector";
 
 const EM_DASH = String.fromCharCode(0x2014);
+
+const NO_CHANGE = {
+  startDate: null,
+  startUnits: null,
+  endDate: null,
+  endUnits: null,
+  unitsChange: null,
+  changeValueAud: null,
+};
 
 function panel(overrides: Partial<StockPanelPage> = {}): StockPanelPage {
   return {
@@ -31,6 +41,8 @@ const series: StockFundSeriesPage = {
   ok: true,
   error: "",
   stockCode: "PLS",
+  fundFrom: "2026-09-30",
+  fundTo: "2026-10-30",
   funds: [
     {
       institutionSlug: "ishares",
@@ -43,6 +55,7 @@ const series: StockFundSeriesPage = {
         { asAt: "2026-09-30", weightPct: 2.5, valueAud: null },
         { asAt: "2026-10-30", weightPct: 3.2, valueAud: null },
       ],
+      change: NO_CHANGE,
     },
     {
       institutionSlug: "betashares",
@@ -52,6 +65,7 @@ const series: StockFundSeriesPage = {
       fundKey: "asx:A200",
       sourceKind: "etf",
       points: [{ asAt: "2026-10-30", weightPct: null, valueAud: null }],
+      change: NO_CHANGE,
     },
   ],
 };
@@ -73,6 +87,32 @@ describe("stockInspectorContent (spec 14.3, Market map)", () => {
     );
   });
 
+  it("prints a super option's stated value from its newest point, with no comparison to read it from", () => {
+    const superSeries: StockFundSeriesPage = {
+      ...series,
+      funds: [
+        {
+          institutionSlug: "hostplus",
+          institutionName: "Hostplus",
+          fundName: "Balanced Growth",
+          fundCode: "",
+          fundKey: "hostplus/Balanced Growth",
+          sourceKind: "super_phd",
+          points: [
+            { asAt: "2025-12-31", weightPct: 1.2, valueAud: 90_000_000 },
+            { asAt: "2026-06-30", weightPct: 1.5, valueAud: 120_000_000 },
+          ],
+          change: NO_CHANGE,
+        },
+      ],
+    };
+    const content = stockInspectorContent(panel(), superSeries);
+    const section = content?.sections?.find((s) => s.title === "Fund contributions");
+    if (section?.kind !== "bars") throw new Error("expected bars");
+    expect(section.items[0]?.detail).toContain("Value $120.0M");
+    expect(section.items[0]?.detail).toContain("n/a");
+  });
+
   it("labels a super option by its name, never by an empty ticker, with its institution as the row's title", () => {
     const superSeries: StockFundSeriesPage = {
       ...series,
@@ -85,6 +125,7 @@ describe("stockInspectorContent (spec 14.3, Market map)", () => {
           fundKey: "hostplus/Balanced Growth",
           sourceKind: "super_phd",
           points: [{ asAt: "2026-06-30", weightPct: 1.5, valueAud: null }],
+          change: NO_CHANGE,
         },
       ],
     };
@@ -93,6 +134,7 @@ describe("stockInspectorContent (spec 14.3, Market map)", () => {
     if (section?.kind !== "bars") throw new Error("expected bars");
     expect(section.items[0]?.label).toBe("Balanced Growth");
     expect(section.items[0]?.title).toBe("Hostplus");
+    expect(section.items[0]?.detail).toBe("Value n/a · n/a");
   });
 
   it("draws the index lens's figure and caption, with the disclosed figure beside it", () => {
@@ -101,7 +143,7 @@ describe("stockInspectorContent (spec 14.3, Market map)", () => {
     expect(content?.rows).toEqual([{ label: "Disclosed by notices", value: "20.00%" }]);
   });
 
-    it("prints n/a, never zero, when no holder is disclosed", () => {
+  it("prints n/a, never zero, when no holder is disclosed", () => {
     expect(stockInspectorContent(panel({ disclosedPct: 0, largest: [] }), null)?.figure?.value).toBe("n/a");
   });
 
@@ -149,5 +191,87 @@ describe("latestFundWeight", () => {
       ]),
     ).toEqual({ pct: 2, asAt: "2026-10-01" });
     expect(latestFundWeight([])).toBeNull();
+  });
+});
+
+describe("the By kind section (spec 14.10)", () => {
+  it("draws the panel's disclosed segments as bars against the largest, labelled by kind and counted by holders", () => {
+    const content = stockInspectorContent(
+      panel({
+        disclosed: [
+          { kind: "hedge_fund", pct: 10, holders: 1 },
+          { kind: "super_fund", pct: 5, holders: 2 },
+        ],
+      }),
+      null,
+    );
+    const section = content?.sections?.find((s) => s.title === "By kind");
+    if (section?.kind !== "bars") throw new Error("expected bars");
+    expect(section.items.map((b) => b.share)).toEqual([1, 0.5]);
+    expect(section.items[1]?.detail).toBe("2 holders");
+    expect(section.items[0]?.detail).toBe("1 holder");
+  });
+
+  it("draws no By kind section when the panel discloses no segment", () => {
+    const content = stockInspectorContent(panel({ disclosed: [] }), null);
+    expect(content?.sections?.find((s) => s.title === "By kind")).toBeUndefined();
+  });
+});
+
+describe("the fund contributions' change (spec 14.10)", () => {
+  const withChange = (change: Partial<StockFundSeriesPage["funds"][number]["change"]>, points = series.funds[0]!.points) => ({
+    ...series,
+    funds: [{ ...series.funds[0]!, points, change: { ...NO_CHANGE, ...change } }],
+  });
+
+  it("prints the fund's value at its end file and its change in shares from its start file", () => {
+    const content = stockInspectorContent(
+      panel(),
+      withChange(
+        { startDate: "2026-09-30", startUnits: 1_000_000, endDate: "2026-10-30", endUnits: 1_400_000, unitsChange: 400_000, changeValueAud: 1e7 },
+        [
+          { asAt: "2026-09-30", weightPct: 2.5, valueAud: 5e7, units: 1_000_000 },
+          { asAt: "2026-10-30", weightPct: 3.2, valueAud: 6e7, units: 1_400_000 },
+        ],
+      ),
+    );
+    const funds = content?.sections?.find((s) => s.title === "Fund contributions");
+    if (funds?.kind !== "bars") throw new Error("expected bars");
+    expect(funds.items[0]?.detail).toBe(`Value ${formatAmount(6e7, "AUD")} · +400,000 shares since 2026-09-30`);
+  });
+
+  it("prints n/a for a change the comparison does not state, never a figure the map did not compare", () => {
+    const content = stockInspectorContent(panel(), withChange({ endDate: "2026-10-30", endUnits: 1_400_000 }));
+    const funds = content?.sections?.find((s) => s.title === "Fund contributions");
+    if (funds?.kind !== "bars") throw new Error("expected bars");
+    expect(funds.items[0]?.detail).toBe("Value n/a · n/a");
+  });
+
+  it("prints A$0 for a position that has left the fund by its end file, beside its stated change", () => {
+    const content = stockInspectorContent(
+      panel(),
+      withChange(
+        { startDate: "2026-09-30", startUnits: 250_000, endDate: "2026-10-30", endUnits: 0, unitsChange: -250_000, changeValueAud: -1e7 },
+        [{ asAt: "2026-09-30", weightPct: 2.5, valueAud: 1e7, units: 250_000 }],
+      ),
+    );
+    const funds = content?.sections?.find((s) => s.title === "Fund contributions");
+    if (funds?.kind !== "bars") throw new Error("expected bars");
+    expect(funds.items[0]?.detail).toBe(`Value ${formatAmount(0, "AUD")} · −250,000 shares since 2026-09-30`);
+  });
+
+  it("values the end file the comparison names, not the fund's newest file", () => {
+    const points = [
+      { asAt: "2026-09-30", weightPct: 2.5, valueAud: 6e7, units: 1_400_000 },
+      { asAt: "2026-10-30", weightPct: 3.2, valueAud: 9e7, units: 1_500_000 },
+    ];
+    const content = stockInspectorContent(
+      panel(),
+      withChange({ startDate: "2026-09-01", endDate: "2026-09-30", endUnits: 1_400_000, unitsChange: 1, startUnits: 1_399_999 }, points),
+    );
+    const funds = content?.sections?.find((s) => s.title === "Fund contributions");
+    if (funds?.kind !== "bars") throw new Error("expected bars");
+    expect(funds.items[0]?.detail).toContain(formatAmount(6e7, "AUD"));
+    expect(funds.items[0]?.detail).not.toContain(formatAmount(9e7, "AUD"));
   });
 });

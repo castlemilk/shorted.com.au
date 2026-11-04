@@ -649,6 +649,7 @@ type OwnershipDeskStore interface {
 	NoticeFlowByStock(ctx context.Context, from, until string) (map[string]NoticeFlow, error)
 	NoticeChangesByKindIndustry(ctx context.Context, from, until string) ([]NoticeChangeRow, error)
 	NoticeWeeklyByIndustry(ctx context.Context, from, until, kind string) ([]IndustryWeekRow, error)
+	NoticeLargestMoves(ctx context.Context, from, until, kind string, limit int) ([]SubstantialNoticeRow, error)
 	FundSnapshotDates(ctx context.Context) ([]string, error)
 	FundPositionPairs(ctx context.Context, from, until string) ([]FundPositionPair, error)
 	StockFundSeries(ctx context.Context, stockCode string) ([]FundSeriesRow, error)
@@ -694,10 +695,11 @@ type FundPositionPair struct {
 	FromWeight, FromValue, ToWeight, ToValue           *float64
 }
 
-// FundSeriesRow is one fund's holding of a stock at one snapshot.
+// FundSeriesRow is one fund's holding of a stock at one snapshot. Units is nil
+// when the file states none.
 type FundSeriesRow struct {
 	InstitutionSlug, FundName, FundCode, SourceKind, AsAt string
-	Weight, Value                                         *float64
+	Weight, Value, Units                                  *float64
 }
 
 // fundSourceKinds are the tracked funds: index funds' files and super fund
@@ -806,6 +808,36 @@ func (s *postgresStore) NoticeWeeklyByIndustry(ctx context.Context, from, until,
 	return out, err
 }
 
+// NoticeLargestMoves is the window's notices that state a change in voting power
+// (spec 14.10): both figures stated, neither a cessation nor a Form 605, and a
+// difference. Ranked by the size of the change, then the newer release, then the
+// stock code, then the announcement URL; at most limit. A kind other than ""
+// counts only holders of that kind. The desk's Go rule (buildLargestMoves) keeps
+// the same filter.
+func (s *postgresStore) NoticeLargestMoves(ctx context.Context, from, until, kind string, limit int) ([]SubstantialNoticeRow, error) {
+	where, args := noticeWhere(NoticeFilter{Since: from, Until: until, Kind: kind}, nil)
+	args = append(args, limit)
+	var out []SubstantialNoticeRow
+	err := ownershipRead(ctx, s, "NoticeLargestMoves", `
+		SELECT `+noticeColumns+`
+		`+noticeFrom+`
+		WHERE h.present_pct IS NOT NULL AND h.previous_pct IS NOT NULL
+		  AND NOT h.ceased AND h.form <> '605'
+		  AND h.present_pct <> h.previous_pct`+where+`
+		ORDER BY abs(h.present_pct - h.previous_pct) DESC, h.announced_on DESC,
+		         h.stock_code, h.announcement_url DESC
+		LIMIT $`+strconv.Itoa(len(args)), args,
+		func(r pgx.Rows) error {
+			var row SubstantialNoticeRow
+			if err := scanSubstantialNotice(r, &row); err != nil {
+				return err
+			}
+			out = append(out, row)
+			return nil
+		})
+	return out, err
+}
+
 // FundSnapshotDates is every distinct file date across the tracked funds, oldest
 // first.
 func (s *postgresStore) FundSnapshotDates(ctx context.Context) ([]string, error) {
@@ -875,14 +907,14 @@ func (s *postgresStore) FundPositionPairs(ctx context.Context, from, until strin
 func (s *postgresStore) StockFundSeries(ctx context.Context, stockCode string) ([]FundSeriesRow, error) {
 	var out []FundSeriesRow
 	err := ownershipRead(ctx, s, "StockFundSeries", `
-		SELECT f.institution_slug, f.fund_name, COALESCE(f.fund_code, ''), f.source_kind, f.as_at::text, h.weight_pct::float8, h.value_aud::float8
+		SELECT f.institution_slug, f.fund_name, COALESCE(f.fund_code, ''), f.source_kind, f.as_at::text, h.weight_pct::float8, h.value_aud::float8, h.units::float8
 		FROM fund_holding_snapshots f
 		JOIN fund_holdings h ON h.snapshot_id = f.id
 		WHERE h.stock_code = $1 AND f.source_kind IN `+fundSourceKinds+`
 		ORDER BY f.institution_slug, f.fund_name, f.as_at`, []any{stockCode},
 		func(r pgx.Rows) error {
 			var row FundSeriesRow
-			if err := r.Scan(&row.InstitutionSlug, &row.FundName, &row.FundCode, &row.SourceKind, &row.AsAt, &row.Weight, &row.Value); err != nil {
+			if err := r.Scan(&row.InstitutionSlug, &row.FundName, &row.FundCode, &row.SourceKind, &row.AsAt, &row.Weight, &row.Value, &row.Units); err != nil {
 				return err
 			}
 			out = append(out, row)
@@ -983,7 +1015,7 @@ func (s *postgresStore) FundHoldingsOf(ctx context.Context, snapshotIDs []int64,
 			FROM shorts x
 			WHERE x."PRODUCT_CODE" = h.stock_code
 			  AND x."DATE" < (f.as_at + 1)
-			  AND x."DATE" >= (f.as_at - `+strconv.Itoa(fundSharesMaxDays)+`)
+			  AND x."DATE" >= (f.as_at - ` + strconv.Itoa(fundSharesMaxDays) + `)
 			ORDER BY x."DATE" DESC
 			LIMIT 1
 		) sh ON true`

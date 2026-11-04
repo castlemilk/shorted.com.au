@@ -512,6 +512,11 @@ message ListStockRegistersResponse {
 message GetOwnershipMapRequest {
   string from = 1;
   string to = 2;
+  // The index funds' window, when it is not the notice window: the snapshot
+  // dates the fund figures compare, at most 366 days apart. Empty takes from and
+  // to (the notice window), and one empty bound is filled as the desk fills it.
+  string fund_from = 3;
+  string fund_to = 4;
 }
 
 // One stock on the map. The figures are what the notices disclose, each
@@ -539,6 +544,26 @@ message MapStock {
   bool has_flow_pp = 14;
   // Notices released in the window.
   int32 notices = 15;
+  // The index funds' holdings of the stock at the window's end, in AUD. Set
+  // when a tracked index fund holds it at that file.
+  double fund_value_aud = 16;
+  bool has_fund_value = 17;
+  // The change in shares the compared index funds hold, in AUD: each compared
+  // fund's change valued at its own later file's price (its start file's price
+  // when the position has left it), summed. A fund is compared when its file at
+  // the window's start (or its first file inside the window) and a newer one at
+  // the end are on record, and a fund is never new money by its first file. A
+  // fund whose file states the stock with no units on either side of the window
+  // (a value alone, or neither figure) is left out of this change and of its
+  // start, so that row counts only in fund_value_aud. So is a fund whose later
+  // file states shares with no value, which leaves it no price of its own. Each
+  // fund is decided on its own row: no other fund's row changes it.
+  double fund_flow_aud = 18;
+  bool has_fund_flow = 19;
+  // That change as a percentage of the same funds' starting shares, each valued at
+  // the same price as its change. Set when those starting shares are positive.
+  double fund_change_pct = 20;
+  bool has_fund_change = 21;
 }
 
 message GetOwnershipMapResponse {
@@ -546,6 +571,19 @@ message GetOwnershipMapResponse {
   string to = 2;
   repeated MapStock stocks = 3;
   string as_of = 4;
+  // Index funds compared in the window: each with a file at its start (or
+  // inside the window) and a newer file at the end. Zero when the window holds
+  // one file per fund, in which case every fund change is unknown.
+  int32 funds_compared = 5;
+  // The as-at range of the start files the comparison reads.
+  string start_files_from = 6;
+  string start_files_to = 7;
+  // The as-at range of the end files the comparison reads.
+  string end_files_from = 8;
+  string end_files_to = 9;
+  // The index funds' window the fund figures compare, as served.
+  string fund_from = 10;
+  string fund_to = 11;
 }
 
 message GetOwnershipFlowsRequest {
@@ -569,6 +607,23 @@ message FlowPosition {
   // The cell's largest interest by voting power.
   string largest_code = 6;
   double largest_pct = 7;
+  // The cell's largest holders by estimated exposure, at most ten, largest
+  // first (unknown exposures last, then by holdings).
+  repeated FlowHolder top_holders = 8;
+}
+
+// One holder in a position cell: an institution, or a holder with no institution
+// page, which carries its holder key in slug.
+message FlowHolder {
+  string slug = 1;
+  string name = 2;
+  double exposure_aud = 3;
+  bool has_exposure = 4;
+  // The holder's interests counted in the cell.
+  int32 holdings = 5;
+  // Whether slug is an institution's slug. False means slug is the holder key
+  // of a holder with no institution page.
+  bool has_institution = 6;
 }
 
 // The window's change in disclosed exposure of one holder kind in one industry,
@@ -626,6 +681,34 @@ message GetOwnershipActivityResponse {
   // zero counts: a week with no notice reads 0, and has_net_pp is false.
   repeated IndustryWeek rows = 3;
   string as_of = 4;
+  // The window's largest moves the notices state (spec 14.10): at most ten notices
+  // that state both their present and previous voting power and differ, ranked by
+  // the size of the change, then the newer date, then the stock code. A notice that
+  // does not state both figures (a cessation, a 605, or one with no previous figure)
+  // is never ranked. Filtered by the request's kind, over the same weeks as rows.
+  repeated LargestMove largest_moves = 5;
+}
+
+// One notice's stated change in disclosed voting power, in percentage points.
+message LargestMove {
+  string stock_code = 1;
+  string company_name = 2;
+  // The holder's institution name and slug when it has an institution page
+  // (has_institution); otherwise its holder name, with the holder key in the slug.
+  string holder_name = 3;
+  string holder_slug = 4;
+  bool has_institution = 5;
+  // The voting power the notice states before and after the change.
+  double previous_pct = 6;
+  double present_pct = 7;
+  // present_pct less previous_pct: a rise is positive, a fall negative.
+  double change_pp = 8;
+  // increased or decreased.
+  string event = 9;
+  // The date ASX released the notice, YYYY-MM-DD.
+  string announced_on = 10;
+  // The notice's PDF on ASX.
+  string announcement_url = 11;
 }
 
 message ListFundPositionChangesRequest {
@@ -675,6 +758,12 @@ message ListFundPositionChangesResponse {
 
 message GetStockFundSeriesRequest {
   string stock_code = 1;
+  // The index funds' window the per-fund comparison reads (spec 14.10), as
+  // GetOwnershipMapRequest's fund window: YYYY-MM-DD, at most 366 days apart.
+  // Empty takes the default window (the 91 days ending at the newest notice), and
+  // one empty bound is filled as the desk fills it.
+  string fund_from = 2;
+  string fund_to = 3;
 }
 
 message FundPoint {
@@ -683,6 +772,9 @@ message FundPoint {
   bool has_weight = 3;
   double value_aud = 4;
   bool has_value = 5;
+  // The fund's shares in the stock at this file.
+  double units = 6;
+  bool has_units = 7;
 }
 
 message FundSeries {
@@ -697,11 +789,45 @@ message FundSeries {
   string fund_code = 6;
   // The fund's key (spec 14.7): the registry key, or <institution_slug>/<fund_name>.
   string fund_key = 7;
+  // The fund's own comparison of this stock over the request's fund window (spec
+  // 14.10): the fund is compared with itself, its file at the window's start (or
+  // its first file inside the window) against its newest file at the end, as the
+  // map's index fund change reads it. Only index funds (etf) are compared. A super
+  // option, or a fund whose only file is its end file, has no comparison: its start
+  // and change fields are unknown (has_ false), though its end figures are stated
+  // whenever it has an end file. A stock absent from a file holds zero shares
+  // there, so a stock that enters the fund inside the window is a change, not an
+  // unknown.
+  //
+  // The start file and its shares of the stock.
+  string start_date = 8;
+  bool has_start_date = 9;
+  double start_units = 10;
+  bool has_start_units = 11;
+  // The end file (the newest on or before the window's end) and its shares of the
+  // stock. Known whenever the fund has an end file, even with no comparison.
+  string end_date = 12;
+  bool has_end_date = 13;
+  double end_units = 14;
+  bool has_end_units = 15;
+  // End shares less start shares.
+  double units_change = 16;
+  bool has_units_change = 17;
+  // That change valued at this fund's own later file's price for the stock (its
+  // start file's when the stock has left the fund): the figure the map's
+  // fund_flow_aud sums over the compared funds. Unknown when the shares are not
+  // stated on both sides, or the fund's own rows give no price (a row that states
+  // units without a value, or a value without units).
+  double change_value_aud = 18;
+  bool has_change_value_aud = 19;
 }
 
 message GetStockFundSeriesResponse {
   string stock_code = 1;
   repeated FundSeries funds = 2;
+  // The fund window the per-fund comparisons read, as served.
+  string fund_from = 3;
+  string fund_to = 4;
 }
 
 message ListFundsRequest {}

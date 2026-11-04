@@ -24,6 +24,8 @@ export interface InspectorBar {
   title?: string;
   /** The bar's label is a link when set, e.g. a company row to its register page (spec 14.8). */
   href?: string;
+  /** A second line under the bar, e.g. a fund's shares beside its weight (spec 14.10). */
+  detail?: string;
 }
 
 /**
@@ -115,6 +117,32 @@ export interface InspectorQuery {
   until: string;
   /** The fund page's file date (`as`): a holding resolves in the file the page shows. */
   asAt: string;
+  /**
+   * The index fund window's two snapshot dates (`from`, `to`, spec 13.1): a fund's change
+   * in shares is read between them. Optional, so a link without them is still a query.
+   */
+  from?: string;
+  to?: string;
+}
+
+/** One notice of the Activity rail's "Largest moves in the window" (spec 14.10), already printed. */
+export interface LargestMoveLine {
+  /** The company and the holder, as the line names them. */
+  label: string;
+  /** The stated change with its true minus and its unit, e.g. "+1.14 pp". */
+  value: string;
+  /** The notice on ASX; "" when it is not a safe link, and the line is text. */
+  href: string;
+}
+
+/** The Activity rail's empty state, the window's largest moves (spec 14.10). */
+export interface LargestMovesBlock {
+  /** The window the notices were read over, in days. */
+  windowDays: number;
+  /** The first and last release dates of the window, YYYY-MM-DD; "" when not read. */
+  from: string;
+  to: string;
+  lines: LargestMoveLine[];
 }
 
 /** A page's resolver: a server action from the page, given the selection and the link's parameters. */

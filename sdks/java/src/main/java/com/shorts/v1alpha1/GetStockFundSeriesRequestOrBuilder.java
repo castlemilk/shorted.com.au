@@ -21,4 +21,42 @@ public interface GetStockFundSeriesRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getStockCodeBytes();
+
+  /**
+   * <pre>
+   * The index funds' window the per-fund comparison reads (spec 14.10), as
+   * GetOwnershipMapRequest's fund window: YYYY-MM-DD, at most 366 days apart.
+   * Empty takes the default window (the 91 days ending at the newest notice), and
+   * one empty bound is filled as the desk fills it.
+   * </pre>
+   *
+   * <code>string fund_from = 2 [json_name = "fundFrom"];</code>
+   * @return The fundFrom.
+   */
+  java.lang.String getFundFrom();
+  /**
+   * <pre>
+   * The index funds' window the per-fund comparison reads (spec 14.10), as
+   * GetOwnershipMapRequest's fund window: YYYY-MM-DD, at most 366 days apart.
+   * Empty takes the default window (the 91 days ending at the newest notice), and
+   * one empty bound is filled as the desk fills it.
+   * </pre>
+   *
+   * <code>string fund_from = 2 [json_name = "fundFrom"];</code>
+   * @return The bytes for fundFrom.
+   */
+  com.google.protobuf.ByteString
+      getFundFromBytes();
+
+  /**
+   * <code>string fund_to = 3 [json_name = "fundTo"];</code>
+   * @return The fundTo.
+   */
+  java.lang.String getFundTo();
+  /**
+   * <code>string fund_to = 3 [json_name = "fundTo"];</code>
+   * @return The bytes for fundTo.
+   */
+  com.google.protobuf.ByteString
+      getFundToBytes();
 }
