@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import StrategyChangelogPage, { metadata } from "./page";
 import type { StrategyVersionDetailView } from "~/@/lib/strategies/types";
 
-const getStrategyVersions = jest.fn();
+const listStrategyVersionsMock = jest.fn();
 const bailOnEmptyRender = jest.fn();
 
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
@@ -20,8 +20,8 @@ jest.mock("~/@/components/seo/enhanced-structured-data", () => ({
 jest.mock("~/app/actions/config", () => ({
   bailOnEmptyRender: () => bailOnEmptyRender(),
 }));
-jest.mock("~/app/actions/getStrategyVersions", () => ({
-  getStrategyVersions: () => getStrategyVersions(),
+jest.mock("~/app/actions/strategies/listStrategyVersions", () => ({
+  listStrategyVersions: () => listStrategyVersionsMock(),
 }));
 
 const HASH = "3f9a1c2e" + "0".repeat(56);
@@ -57,8 +57,13 @@ describe("StrategyChangelogPage", () => {
     expect(metadata.robots).toBeUndefined();
   });
 
+  it("titles itself without the brand, which the root template appends", () => {
+    expect(metadata.title).toBe("Strategy Rules Changelog");
+    expect(metadata.openGraph?.title).toBe("Strategy Rules Changelog | Shorted");
+  });
+
   it("lists each strategy's v0 with its hash, engine and known issues", async () => {
-    getStrategyVersions.mockResolvedValue([v0("zanger-breakout"), v0("canslim")]);
+    listStrategyVersionsMock.mockResolvedValue([v0("zanger-breakout"), v0("canslim")]);
     render(await StrategyChangelogPage());
 
     expect(screen.getByRole("heading", { level: 1, name: "Strategy Rules Changelog" })).toBeInTheDocument();
@@ -68,11 +73,14 @@ describe("StrategyChangelogPage", () => {
     expect(within(zanger).getByText("Live")).toBeInTheDocument();
     expect(within(zanger).getByText("An ETF or a listed investment company can trigger.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "CAN SLIM Strategy" })).toBeInTheDocument();
+    // A version chip's #<rules_hash> link lands on its own entry.
+    const entry = zanger.querySelector(`article[id="${HASH}"]`);
+    expect(entry).not.toBeNull();
     expect(bailOnEmptyRender).not.toHaveBeenCalled();
   });
 
   it("bails the render's cache lifetime and says so when the read fails", async () => {
-    getStrategyVersions.mockResolvedValue(null);
+    listStrategyVersionsMock.mockResolvedValue(null);
     render(await StrategyChangelogPage());
 
     expect(bailOnEmptyRender).toHaveBeenCalledTimes(1);

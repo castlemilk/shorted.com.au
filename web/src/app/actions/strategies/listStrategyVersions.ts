@@ -6,7 +6,7 @@ import {
   SHORTS_API_URL,
   serverFetchOutsideNextCache,
   skipForBuild,
-} from "./config";
+} from "../config";
 import { mapStrategyVersionDetail } from "~/@/lib/strategies/map";
 import type { StrategyVersionDetailView } from "~/@/lib/strategies/types";
 
@@ -28,7 +28,7 @@ async function fetchStrategyVersions(): Promise<StrategyVersionDetailView[]> {
   });
 }
 
-export async function getStrategyVersions(): Promise<
+export async function listStrategyVersions(): Promise<
   StrategyVersionDetailView[] | null
 > {
   if (skipForBuild()) return null;
@@ -45,7 +45,7 @@ export async function getStrategyVersions(): Promise<
       { tags: ["strategy-picks", "strategy-versions"], revalidate: 3600 },
     )();
   } catch (err) {
-    console.error("[getStrategyVersions] failed:", err);
+    console.error("[listStrategyVersions] failed:", err);
     return null;
   }
 }

@@ -10,7 +10,7 @@ import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-dat
 import { STRATEGIES, STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 import { versionFullText } from "~/@/lib/strategies/versions";
 import type { StrategyVersionDetailView } from "~/@/lib/strategies/types";
-import { getStrategyVersions } from "~/app/actions/getStrategyVersions";
+import { listStrategyVersions } from "~/app/actions/strategies/listStrategyVersions";
 import { bailOnEmptyRender } from "~/app/actions/config";
 
 const TITLE = "Strategy Rules Changelog";
@@ -19,7 +19,8 @@ const DESCRIPTION =
 const PAGE_URL = `${siteConfig.url}/strategies/changelog`;
 
 export const metadata: Metadata = {
-  title: `${TITLE} | ${siteConfig.name}`,
+  // The root layout's title template adds the brand; openGraph has none.
+  title: TITLE,
   description: DESCRIPTION,
   openGraph: {
     title: `${TITLE} | ${siteConfig.name}`,
@@ -56,7 +57,7 @@ function groupByStrategy(
 }
 
 export default async function StrategyChangelogPage() {
-  const versions = await getStrategyVersions();
+  const versions = await listStrategyVersions();
   // A failed read would bake the empty notice into the route cache for the
   // whole hour: shorten this render's lifetime instead.
   if (!versions) await bailOnEmptyRender();
@@ -80,9 +81,9 @@ export default async function StrategyChangelogPage() {
           <h1 className={cn(pageTitle, "leading-[1.1]")}>{TITLE}</h1>
           <p className={cn(lede, "max-w-3xl")}>
             Each strategy&rsquo;s rules are published as a version, identified
-            by a hash of its exact parameters. Picks, fits and alerts name the
-            version they were evaluated under. Known issues are listed here
-            until a later version fixes them.
+            by a hash of its exact parameters. Picks and stock fits name the
+            version they were evaluated under. Each version keeps the known
+            issues it shipped with.
           </p>
         </section>
 
@@ -109,7 +110,8 @@ export default async function StrategyChangelogPage() {
               {list.map((entry) => (
                 <article
                   key={entry.version.rulesHash}
-                  className="space-y-4 rounded-md border border-border/60 bg-card p-4 sm:p-6"
+                  id={entry.version.rulesHash}
+                  className="scroll-mt-24 space-y-4 rounded-md border border-border/60 bg-card p-4 sm:p-6"
                 >
                   <header className="space-y-1">
                     <h3 className="text-lg font-semibold">
