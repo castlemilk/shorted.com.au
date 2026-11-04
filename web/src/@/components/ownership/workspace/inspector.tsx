@@ -6,6 +6,7 @@ import { Fragment, Suspense, useEffect, useMemo, useRef, useState, type ReactNod
 import { SideSheet } from "~/@/components/gamma/SideSheet";
 import { Skeleton } from "~/@/components/gamma/Skeleton";
 import { WeightSeries, type WeightPoint } from "../funds/weight-series";
+import { parseFundKeys } from "../funds/fund-model";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { cn } from "@/lib/utils";
 import { HolderLogo } from "./holder-logo";
@@ -24,6 +25,7 @@ import { StockLogoBox } from "./stock-logo-box";
 import { WeekStrip } from "./week-strip-view";
 import { pushTrail, readTrail, trailHref, trailKey, writeTrail, type TrailStep, type TrailStorage } from "./trail";
 import {
+  compareSelection,
   parseSelection,
   sectorSelection,
   selectionHeading,
@@ -147,9 +149,19 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
   const search = params?.toString() ?? "";
   const raw = params?.get("sel") ?? "";
   const linked = useMemo(() => parseSelection(raw), [raw]);
-  // The zoomed sector (backlog C4) is the selection when the link names none: a selection wins over it.
+  // Two ticked funds (backlog C5) are the selection when the link names none: a comparison of exactly two funds.
+  // One key alone is no comparison, and a key the codec would not write (compareSelection) is none either.
+  const fundsRaw = params?.get("funds") ?? "";
+  const comparison = useMemo<Selection | null>(
+    () => (linked === null ? compareSelection(parseFundKeys(fundsRaw)) : null),
+    [linked, fundsRaw],
+  );
+  // The zoomed sector (backlog C4) is the selection when the link names none: a selection wins over both.
   const sector = zoomedSector(params?.get("sector"));
-  const selection = useMemo<Selection | null>(() => linked ?? sectorSelection(sector), [linked, sector]);
+  const selection = useMemo<Selection | null>(
+    () => linked ?? comparison ?? sectorSelection(sector),
+    [linked, comparison, sector],
+  );
   // The link's own parameters the resolver reads (spec 14.8): the lens, the Connections view and the window.
   const query = useMemo<InspectorQuery>(
     () => ({
@@ -169,8 +181,16 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
   const key = selection
     ? `${selectionKey}|${query.lens}|${query.view}|${query.window}|${query.since}|${query.until}|${query.asAt}|${query.from}|${query.to}`
     : "";
-  // Clear selection on a zoomed sector clears the zoom itself: the sector is the thing the rail shows.
-  const clearHref = linked === null && sector !== "" ? clearedSectorHref(pathname, search) : clearedHref(pathname, search);
+  // Clear selection on a comparison clears the ticked funds; on a zoomed sector it clears the zoom itself. Either
+  // leaves the rest of the link as it is, so a sector zoomed under a comparison is still the map's zoom.
+  const clearHref =
+    linked !== null
+      ? clearedHref(pathname, search)
+      : comparison !== null
+        ? clearedParamHref(pathname, search, "funds")
+        : sector !== ""
+          ? clearedParamHref(pathname, search, "sector")
+          : clearedHref(pathname, search);
   // The link that restores the page as it is now: the trail's current step is the one that matches it.
   const pageHref = trailHref(pathname, search);
   const mobile = useIsMobile();
@@ -248,11 +268,12 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
 
   if (mobile) {
     // The sheet's own title names the thing, so the body does not repeat the name. It opens on the link's own
-    // selection only: a zoomed sector is the map's state, and a sheet over it would hide the zoom the tap asked for.
+    // selection and on a comparison of two ticked funds, which has no other surface below lg. A zoomed sector stays
+    // closed: it is the map's state, and a sheet over it would hide the zoom the tap asked for.
     return (
       <SideSheet
         side="bottom"
-        open={linked !== null}
+        open={linked !== null || comparison !== null}
         onOpenChange={(open) => {
           if (!open) router.replace(clearHref, { scroll: false });
         }}
@@ -725,10 +746,10 @@ function clearedHref(pathname: string, search: string): string {
   return rest === "" ? pathname : `${pathname}?${rest}`;
 }
 
-/** The current URL with the zoomed sector cleared and every other parameter kept (backlog C4). */
-function clearedSectorHref(pathname: string, search: string): string {
+/** The current URL with one parameter cleared (the zoomed sector, backlog C4; the ticked funds, C5) and every other kept. */
+function clearedParamHref(pathname: string, search: string, name: string): string {
   const params = new URLSearchParams(search);
-  params.delete("sector");
+  params.delete(name);
   const rest = params.toString();
   return rest === "" ? pathname : `${pathname}?${rest}`;
 }

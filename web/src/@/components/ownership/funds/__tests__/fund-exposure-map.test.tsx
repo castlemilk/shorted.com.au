@@ -178,11 +178,12 @@ describe("the fund exposure map (spec 14.3, Funds)", () => {
     expect(screen.queryByText("Betashares")).not.toBeInTheDocument();
   });
 
-  it("prints a sector weight to one decimal, n/a where the fund states none", () => {
+  it("prints a sector weight to one decimal, and Other as a true 0.0% when the file lists nothing outside the columns", () => {
     renderView("");
     const row = screen.getByText("A200").closest("tr");
     expect(within(row!).getByText("30.0%")).toBeInTheDocument();
-    expect(within(row!).getByText("n/a")).toBeInTheDocument();
+    expect(within(row!).getByText("0.0%")).toBeInTheDocument();
+    expect(within(row!).queryByText("n/a")).not.toBeInTheDocument();
   });
 
   it("ticks a fund into the compare selection, through the URL", () => {
@@ -191,11 +192,18 @@ describe("the fund exposure map (spec 14.3, Funds)", () => {
     expect(navigate).toHaveBeenCalledWith("/ownership/funds?funds=asx%3AA200");
   });
 
-  it("disables a fourth tick once three are selected", () => {
-    renderView("funds=asx:A200,asx:IOZ,asx:VAS");
-    expect(screen.getByLabelText("Compare STW")).toBeDisabled();
-    expect(screen.getByLabelText("Compare A200")).toBeChecked();
+  it("caps the comparison at two: a third tick replaces the oldest ticked fund, and no box is disabled", () => {
+    const navigate = renderView("funds=asx:A200,asx:IOZ");
+    expect(screen.getByLabelText("Compare STW")).toBeEnabled();
+    fireEvent.click(screen.getByLabelText("Compare STW"));
+    expect(navigate).toHaveBeenCalledWith("/ownership/funds?funds=asx%3AIOZ%2Casx%3ASTW");
     expect(screen.getByLabelText("Compare A200")).toBeEnabled();
+  });
+
+  it("writes a tick past the cap in tick order, the newest last", () => {
+    const navigate = renderView("funds=asx:IOZ,asx:STW");
+    fireEvent.click(screen.getByLabelText("Compare VAS"));
+    expect(navigate).toHaveBeenCalledWith("/ownership/funds?funds=asx%3ASTW%2Casx%3AVAS");
   });
 
   it("draws the bottom bar with the selected funds and the link to compare them", () => {
@@ -267,9 +275,16 @@ describe("the fund exposure map's controls and expanders (spec 14.1, 14.3)", () 
     expect(screen.getAllByText("Top 10 holdings").length).toBeGreaterThan(0);
   });
 
-  it("says the comparison reads one fund when more than one is selected", () => {
+  it("says nothing of a one-fund reading once two are selected, and asks for one more tick with one", () => {
     renderView("funds=asx:A200,asx:IOZ");
-    expect(screen.getByText("The comparison reads one fund: A200.")).toBeInTheDocument();
+    expect(screen.queryByText(/reads one fund/)).toBeNull();
+    expect(screen.queryByText("Tick one more to compare them.")).toBeNull();
+  });
+
+  it("asks for one more tick when a single fund is selected", () => {
+    renderView("funds=asx:A200");
+    expect(screen.getByRole("region", { name: "Selected funds" })).toHaveTextContent("1 fund selected");
+    expect(screen.getByText("Tick one more to compare them.")).toBeInTheDocument();
   });
 });
 
@@ -368,9 +383,11 @@ describe("the fund exposure map's ramp (spec 13.1, backlog A2)", () => {
         ],
       }),
     ]);
-    // The default view shows five funds (the super option is filtered out). Each has an n/a Other cell, since every
-    // sector lies in a column, and the new fund's stated-null Materials cell is the sixth unstyled n/a.
-    expect(markup.match(/<td class="px-2 py-2 text-right tabular-nums">n\/a<\/td>/g)).toHaveLength(6);
+    // The default view shows five funds (the super option is filtered out). Every sector lies in a column, so each
+    // fund's Other is a true 0.0% (its file holds nothing outside them), and the only n/a left is the new fund's
+    // stated-null Materials cell, the one unstyled n/a.
+    expect(markup.match(/<td class="px-2 py-2 text-right tabular-nums">0\.0%<\/td>/g)).toHaveLength(5);
+    expect(markup.match(/<td class="px-2 py-2 text-right tabular-nums">n\/a<\/td>/g)).toHaveLength(1);
     expect(markup).not.toMatch(/<td[^>]*style="[^"]*"[^>]*>n\/a<\/td>/);
   });
 

@@ -7,6 +7,8 @@ import {
   cleanFundKey,
   cleanIsoDate,
   compareCaption,
+  compareChangesHref,
+  compareFunds,
   compareOptionLabel,
   defaultCompareFund,
   defaultPair,
@@ -29,6 +31,7 @@ import {
   statusLabel,
   toggleFundKey,
   type CompareRow,
+  type FundPortfolio,
   type FundRow,
   type PortfolioHolding,
 } from "../fund-model";
@@ -106,15 +109,26 @@ describe("fund sectors", () => {
     expect(sectorColumns(funds, 6)).toEqual(["Banks", "Materials", "Insurance"]);
   });
 
-  it("reads a fund's own weight in a column, and n/a where the file states none", () => {
+  it("reads a fund's own weight in a column, n/a where the file names the sector with no weight", () => {
     expect(sectorWeightOf(funds[0]!, "Banks")).toBe(30);
     expect(sectorWeightOf(funds[0]!, "Utilities")).toBeNull();
-    expect(sectorWeightOf(funds[0]!, "Energy")).toBeNull();
   });
 
-  it("folds every sector outside the columns into Other, and is n/a when none is stated", () => {
+  it("reads a sector its complete file does not name as a true 0, and n/a for a file with no holdings", () => {
+    expect(sectorWeightOf(funds[0]!, "Energy")).toBe(0);
+    expect(sectorWeightOf({ ...funds[0]!, holdings: 0 }, "Energy")).toBeNull();
+    expect(sectorWeightOf({ ...funds[0]!, holdings: 0 }, "Banks")).toBe(30);
+  });
+
+  it("folds every sector outside the columns into Other; a complete file with nothing outside reads 0, and n/a when it has no holdings", () => {
     expect(otherWeightOf(funds[1]!, ["Banks"])).toBe(5);
-    expect(otherWeightOf(fund({ key: "X", sectorWeights: [{ industry: "Banks", weightPct: 1 }] }), ["Banks"])).toBeNull();
+    expect(otherWeightOf(fund({ key: "X", sectorWeights: [{ industry: "Banks", weightPct: 1 }] }), ["Banks"])).toBe(0);
+    expect(otherWeightOf(fund({ key: "X", holdings: 0, sectorWeights: [{ industry: "Banks", weightPct: 1 }] }), ["Banks"])).toBeNull();
+  });
+
+  it("is n/a for Other when a sector outside the columns states no weight", () => {
+    const unstated = fund({ key: "Y", sectorWeights: [{ industry: "Banks", weightPct: 1 }, { industry: "Energy", weightPct: null }] });
+    expect(otherWeightOf(unstated, ["Banks"])).toBeNull();
   });
 
   it("gives the six sector tints in order, cycling, never a kind colour or red or green", () => {
@@ -134,23 +148,39 @@ describe("fund sectors", () => {
 
 describe("fund selection", () => {
   it("reads only valid, unique keys, at most the compare limit", () => {
-    expect(parseFundKeys("asx:A200,asx:IOZ,asx:A200,bad key,asx:VAS,asx:STW,asx:HVST")).toEqual(["asx:A200", "asx:IOZ", "asx:VAS"]);
+    expect(parseFundKeys("asx:A200,asx:IOZ,asx:A200,bad key,asx:VAS,asx:STW,asx:HVST")).toEqual(["asx:A200", "asx:IOZ"]);
+    expect(parseFundKeys("asx:A200,bad key,asx:IOZ")).toEqual(["asx:A200", "asx:IOZ"]);
     expect(parseFundKeys(null)).toEqual([]);
   });
 
   it("reads back a list of keys whose super option names hold a comma or a percent sign", () => {
-    const keys = ["aware/High Growth, Balanced", "asx:A200", "vanguard/Index 100% Fund"];
+    // Two keys, the most a comparison holds (FUND_COMPARE_MAX): a comma and a percent sign both survive the list.
+    const keys = ["aware/High Growth, Balanced", "vanguard/Index 100% Fund"];
     const written = serializeFundKeys(keys);
-    expect(written).toBe("aware/High Growth%2C Balanced,asx:A200,vanguard/Index 100%25 Fund");
+    expect(written).toBe("aware/High Growth%2C Balanced,vanguard/Index 100%25 Fund");
     expect(parseFundKeys(written)).toEqual(keys);
     expect(parseFundKeys("asx:A200,asx:IOZ")).toEqual(["asx:A200", "asx:IOZ"]);
-    expect(FUND_COMPARE_MAX).toBe(3);
+    expect(FUND_COMPARE_MAX).toBe(2);
   });
 
-  it("ticks and clears a fund, and never takes a fourth", () => {
+  it("ticks and clears a fund, keeping the tick order", () => {
     expect(toggleFundKey(["A200"], "IOZ")).toEqual(["A200", "IOZ"]);
     expect(toggleFundKey(["A200", "IOZ"], "A200")).toEqual(["IOZ"]);
-    expect(toggleFundKey(["A", "B", "C"], "D")).toEqual(["A", "B", "C"]);
+    expect(toggleFundKey([], "A200")).toEqual(["A200"]);
+  });
+
+  it("replaces the oldest ticked fund with a third tick, so the comparison is always the two ticked last (backlog C5)", () => {
+    expect(toggleFundKey(["A200", "IOZ"], "STW")).toEqual(["IOZ", "STW"]);
+    expect(toggleFundKey(["IOZ", "STW"], "VAS")).toEqual(["STW", "VAS"]);
+    expect(toggleFundKey(["A", "B", "C"], "D")).toEqual(["C", "D"]);
+    expect(toggleFundKey(["A", "B"], "C", 3)).toEqual(["A", "B", "C"]);
+  });
+
+  it("links a comparison to the Changes page on its first fund, the way the bar always has", () => {
+    expect(compareChangesHref("asx:A200")).toBe("/ownership/changes?fund=asx%3AA200");
+    expect(compareChangesHref("aware/High Growth, Balanced")).toBe(
+      "/ownership/changes?fund=aware%2FHigh%20Growth%2C%20Balanced",
+    );
   });
 
   it("cleans a key and a date, and refuses a shape that is not one", () => {
@@ -403,5 +433,90 @@ describe("the sector change's detail (backlog C3b)", () => {
   it("is empty when the fund states no change, never a dash or a zero", () => {
     expect(sectorChangeDetail({ largestSectorChangePp: null, largestSectorChangeSector: "" })).toBe("");
     expect(sectorChangeDetail({})).toBe("");
+  });
+});
+
+describe("comparing two fund files (backlog C5)", () => {
+  function held(code: string, weightPct: number | null, industry = "Materials"): PortfolioHolding {
+    return {
+      code,
+      name: `${code} Ltd`,
+      industry,
+      weightPct,
+      units: null,
+      valueAud: null,
+      sharesOnIssue: null,
+      estCompanyPct: null,
+      sharesOnIssueAsAt: "",
+    };
+  }
+
+  /** The two fields the diff reads, so a test states only what it compares. */
+  function file(
+    sectors: Array<[string, number | null]>,
+    holdings: PortfolioHolding[],
+  ): Pick<FundPortfolio, "sectorWeights" | "holdings"> {
+    return {
+      sectorWeights: sectors.map(([industry, weightPct]) => ({ industry, weightPct })),
+      holdings,
+    };
+  }
+
+  it("joins the sectors over the union of both files, with a true zero for a sector a complete file does not name", () => {
+    const first = file([["Banks", 30], ["Materials", 12]], [held("CBA", 30, "Banks")]);
+    const second = file([["Banks", 28], ["Health Care", 9]], [held("CSL", 9, "Health Care")]);
+    const diff = compareFunds(first, second);
+    const byName = Object.fromEntries(diff.sectors.map((row) => [row.industry, row]));
+    expect(Object.keys(byName).sort()).toEqual(["Banks", "Health Care", "Materials"]);
+    expect(byName.Materials).toEqual({ industry: "Materials", firstPct: 12, secondPct: 0, deltaPp: 12 });
+    expect(byName["Health Care"]).toEqual({ industry: "Health Care", firstPct: 0, secondPct: 9, deltaPp: -9 });
+  });
+
+  it("signs the difference first less second, and orders the sectors by the size of the difference", () => {
+    const first = file([["Banks", 30], ["Materials", 12], ["Energy", 5]], [held("CBA", 30, "Banks")]);
+    const second = file([["Banks", 25.8], ["Materials", 17.2], ["Energy", 5]], [held("BHP", 30, "Materials")]);
+    const diff = compareFunds(first, second);
+    // Materials differs by 5.2 points and Banks by 4.2: the larger size leads, whatever its sign.
+    expect(diff.sectors.map((row) => row.industry)).toEqual(["Materials", "Banks", "Energy"]);
+    expect(diff.sectors[0]?.deltaPp).toBeCloseTo(-5.2, 10);
+    expect(diff.sectors[1]?.deltaPp).toBeCloseTo(4.2, 10);
+    expect(diff.sectors[2]?.deltaPp).toBe(0);
+    expect(diff.largest?.industry).toBe("Materials");
+  });
+
+  it("states no difference from a figure one file does not state, and puts that sector last", () => {
+    const first = file([["Banks", null], ["Materials", 10]], [held("CBA", null, "Banks")]);
+    const second = file([["Banks", 20], ["Materials", 10]], [held("CBA", 20, "Banks")]);
+    const diff = compareFunds(first, second);
+    const banks = diff.sectors.find((row) => row.industry === "Banks");
+    expect(banks).toEqual({ industry: "Banks", firstPct: null, secondPct: 20, deltaPp: null });
+    expect(diff.sectors[diff.sectors.length - 1]?.industry).toBe("Banks");
+    expect(diff.largest?.industry).toBe("Materials");
+  });
+
+  it("reads an absent sector as unknown when the file lists no holdings, never as a zero", () => {
+    const empty = file([], []);
+    const named = file([["Banks", 40]], [held("CBA", 40, "Banks")]);
+    const diff = compareFunds(empty, named);
+    expect(diff.sectors).toEqual([{ industry: "Banks", firstPct: null, secondPct: 40, deltaPp: null }]);
+    expect(diff.largest).toBeNull();
+  });
+
+  it("lists the holdings only one fund holds, by code, the heaviest first and a holding with no weight last", () => {
+    const first = file([], [held("BHP", 8), held("RIO", 3), held("ZZZ", null), held("CBA", 10, "Banks")]);
+    const second = file([], [held("CBA", 9, "Banks"), held("CSL", 4, "Health Care"), held("WES", 6, "Industrials")]);
+    const diff = compareFunds(first, second);
+    expect(diff.onlyFirst.map((row) => row.code)).toEqual(["BHP", "RIO", "ZZZ"]);
+    expect(diff.onlySecond.map((row) => row.code)).toEqual(["WES", "CSL"]);
+    expect(diff.onlyFirst[0]).toEqual({ code: "BHP", name: "BHP Ltd", industry: "Materials", weightPct: 8 });
+  });
+
+  it("returns no difference and no only-in holding for two empty files, and an empty comparison of a file with itself", () => {
+    expect(compareFunds(file([], []), file([], []))).toEqual({ sectors: [], largest: null, onlyFirst: [], onlySecond: [] });
+    const same = file([["Banks", 20]], [held("CBA", 20, "Banks")]);
+    const self = compareFunds(same, same);
+    expect(self.sectors).toEqual([{ industry: "Banks", firstPct: 20, secondPct: 20, deltaPp: 0 }]);
+    expect(self.onlyFirst).toEqual([]);
+    expect(self.onlySecond).toEqual([]);
   });
 });

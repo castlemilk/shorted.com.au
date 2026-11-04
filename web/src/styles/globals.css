@@ -261,7 +261,20 @@
     background-position: center;
   }
 
-  .dark .banner-art {
+  /*
+ * A workspace toolbar's phone fold (components/ownership/workspace/view-disclosure.tsx,
+ * backlog D2): the HTML carries `open` so a desktop's first paint is the row, and below
+ * `sm` the content stays hidden until the island's effect has set the attribute and
+ * marked the element ready, so a phone's first paint is the closed fold and nothing
+ * jumps when the island mounts.
+ */
+@media (max-width: 639.98px) {
+  details.view-fold:not([data-ready]) > :not(summary) {
+    display: none;
+  }
+}
+
+.dark .banner-art {
     background-image: var(--banner-dark);
   }
 

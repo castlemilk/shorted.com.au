@@ -1,27 +1,32 @@
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 
 /**
- * The desk's skeleton, sized to the hub it stands in for (backlog B2): the title and lede, the plate,
- * one toolbar row, the headline band of four sentences, the two rows of panes (the map and the
- * disclosed exposure at a fixed 420px from lg; the notice activity and the index fund positions at
- * 320px), and the records line. It draws inside the same DashboardLayout the hub uses, so the sidebar
- * stays put on a client navigation, and each placeholder sits where its instrument will. The blocks
- * are static: a looping pulse is motion the desk does not need.
+ * The desk's skeleton, sized to the hub it stands in for (backlog B2, D2): the title and lede, the
+ * toolbar's fold (below `sm` one "Adjust view" summary line, the plate and the row behind it; from `sm`
+ * the fold shows its content, so the plate line sits above the row), the two rows of panes (the map and the disclosed exposure at a fixed 420px from lg; the notice
+ * activity and the index fund positions at 320px), the headline band of four sentences, and the
+ * records and method lines. Below lg the band, the records and the method follow the panes, as the
+ * hub's order classes put them, so the first phone screen holds the first pane. It draws inside the
+ * same DashboardLayout the hub uses, so the sidebar stays put on a client navigation, and each
+ * placeholder sits where its instrument will. The blocks are static: a looping pulse is motion the
+ * desk does not need.
  */
 export default function OwnershipLoading() {
   return (
     <div role="status" aria-busy="true" aria-label="Loading">
       <DashboardLayout fullWidth>
-        <div className="mx-auto w-full max-w-[100rem] space-y-8">
+        <div className="mx-auto flex w-full max-w-[100rem] flex-col gap-8">
           <div className="space-y-3">
             <div className="h-9 w-72 rounded-sm bg-muted/40" />
             <div className="h-7 w-full max-w-[60ch] rounded-sm bg-muted/40" />
           </div>
-          <div className="h-5 w-full max-w-[60rem] rounded-md bg-muted/40" />
 
-          <div className="h-11 w-full rounded-md bg-muted/40" aria-hidden="true" />
+          <div className="space-y-3" aria-hidden="true">
+            <div className="h-5 w-32 rounded-sm bg-muted/40 sm:h-7 sm:w-full sm:max-w-[60rem] sm:rounded-md" />
+            <div className="hidden h-11 w-full rounded-md bg-muted/40 sm:block" />
+          </div>
 
-          <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:grid-cols-4" aria-hidden="true">
+          <div className="order-[10] grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:order-none lg:grid-cols-4" aria-hidden="true">
             {[0, 1, 2, 3].map((cell) => (
               <div key={cell} className="h-16 bg-card p-3">
                 <div className="h-4 w-4/5 rounded-sm bg-muted/40" />
@@ -55,7 +60,8 @@ export default function OwnershipLoading() {
             </div>
           </div>
 
-          <div className="h-5 w-full max-w-[40rem] rounded-sm bg-muted/40" aria-hidden="true" />
+          <div className="order-[11] h-5 w-full max-w-[40rem] rounded-sm bg-muted/40 lg:order-none" aria-hidden="true" />
+          <div className="order-[12] h-5 w-48 max-w-full rounded-sm bg-muted/40 lg:order-none" aria-hidden="true" />
         </div>
       </DashboardLayout>
     </div>

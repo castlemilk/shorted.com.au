@@ -10,10 +10,15 @@
  *
  * The server draws the same row with its controls disabled, and the island reads the link under
  * its own Suspense boundary, so the first render is the fallback's and the row is drawn unfolded.
+ *
+ * The page's plate (its dates and the disclaimer) is passed in and drawn once, above the row. Below
+ * `sm` it is the first thing inside the fold, so a phone's first screen is the title, the fold and
+ * the first instrument (backlog D2); from `sm` the fold shows its content, so the plate reads above
+ * the row as it did before.
  */
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, type ReactNode } from "react";
 
 import { SearchCombobox, type SearchComboboxOption } from "~/@/components/gamma/SearchCombobox";
 import { serializeSelection } from "~/@/components/ownership/workspace/selection";
@@ -37,6 +42,8 @@ export interface DeskToolbarHolder {
 export interface DeskToolbarProps {
   stocks: readonly DeskToolbarStock[];
   holders: readonly DeskToolbarHolder[];
+  /** The page's plate, drawn once above the row and folded with it below `sm` (backlog D2). */
+  plate?: ReactNode;
 }
 
 /** The Source's two values: the notices (the map's disclosed lens) and the index fund files (its index lens). */
@@ -83,10 +90,10 @@ interface DeskToolbarRowProps extends DeskToolbarProps {
   fold?: ToolbarFold;
 }
 
-function DeskToolbarRow({ stocks, holders, params, lens, live, onPickHolder, fold }: DeskToolbarRowProps) {
+function DeskToolbarRow({ stocks, holders, plate, params, lens, live, onPickHolder, fold }: DeskToolbarRowProps) {
   const options = useMemo(() => findOptions(stocks, holders), [stocks, holders]);
-  return (
-    <Toolbar fold={fold}>
+  const row = (
+    <Toolbar>
       <div className="min-w-[16rem] flex-1 sm:max-w-md">
         <SearchCombobox
           label="Find a stock or holder"
@@ -118,6 +125,16 @@ function DeskToolbarRow({ stocks, holders, params, lens, live, onPickHolder, fol
       <WindowSelect active={readNoticeWindow(params)} onWindowChange={live ? writeWindowInPlace : undefined} />
     </Toolbar>
   );
+  // The plate and the row are one block, and the block is a plain block, not a flex column: the plate is an
+  // inline-flex pill, and as a flex item it would be stretched to the full width. The space is the plate's
+  // own gap from the row, and it applies only when a plate is drawn (space-y skips the first child).
+  const content = (
+    <div className="space-y-3">
+      {plate}
+      {row}
+    </div>
+  );
+  return <>{fold ? fold(content) : content}</>;
 }
 
 function LiveToolbar(props: DeskToolbarProps) {

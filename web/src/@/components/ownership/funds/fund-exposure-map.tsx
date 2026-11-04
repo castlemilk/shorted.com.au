@@ -19,7 +19,7 @@ import { shortSector } from "~/@/lib/ownership/kinds";
 import { withUrlState, type UrlState } from "./url-params";
 import { DEFAULT_DESK_SORT, readDeskState, type DeskSort } from "../desk/desk-state";
 import {
-  FUND_COMPARE_MAX,
+  compareChangesHref,
   fundKindLabel,
   formatWeight,
   orderFundsForSort,
@@ -86,7 +86,7 @@ export function fundMatches(fund: FundRow, query: string): boolean {
 
 /**
  * The fund exposure map (spec 14.3, Funds): one row per fund, a checkbox to compare
- * up to three, the weight of each of the six largest sectors and of the rest, each
+ * two (a third tick replaces the oldest, backlog C5), the weight of each of the six largest sectors and of the rest, each
  * cell tinted on one scale. A toggle shows the funds' ten largest positions
  * instead. The selection is `?funds=`, the type `?type=`, the view `?view=`, the
  * manager `?manager=`, the coverage `?coverage=`; a click on a fund selects it in
@@ -119,7 +119,6 @@ export function FundExposureMapView({
     sort,
   );
   const columns = sectorColumns(visible);
-  const full = selected.length >= FUND_COMPARE_MAX;
   const tickerOf = (key: string) => {
     const fund = funds.find((row) => row.key === key);
     return fund ? fundLabel(fund) : key;
@@ -270,7 +269,6 @@ export function FundExposureMapView({
                           type="checkbox"
                           aria-label={`Compare ${fundLabel(fund)}`}
                           checked={checked}
-                          disabled={!checked && full}
                           onChange={() => setSelected(toggleFundKey(selected, fund.key))}
                           className="h-4 w-4 accent-[hsl(var(--primary))]"
                         />
@@ -410,11 +408,9 @@ export function FundExposureMapView({
               </li>
             ))}
           </ul>
-          {selected.length > 1 ? (
-            <p className="text-xs text-muted-foreground">The comparison reads one fund: {tickerOf(selected[0] ?? "")}.</p>
-          ) : null}
+          {selected.length === 1 ? <p className="text-xs text-muted-foreground">Tick one more to compare them.</p> : null}
           <Link
-            href={`/ownership/changes?fund=${encodeURIComponent(selected[0] ?? "")}`}
+            href={compareChangesHref(selected[0] ?? "")}
             prefetch={false}
             className="ml-auto text-primary underline underline-offset-4"
           >

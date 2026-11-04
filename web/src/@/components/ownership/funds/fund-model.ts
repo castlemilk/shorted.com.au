@@ -15,8 +15,11 @@ import { layoutMap, sectorOf, type MapLayout, type MapStockRow } from "../desk/m
 import type { DeskSort } from "../desk/desk-state";
 import { isFundKey as isFundKeyGrammar } from "../workspace/selection";
 
-/** Up to this many funds can be compared at once (spec 14.3). */
-export const FUND_COMPARE_MAX = 3;
+/**
+ * Up to this many funds can be compared at once (spec 14.3, backlog C5). A third tick replaces the oldest
+ * ticked fund, so the comparison is always two funds, the two the reader ticked last.
+ */
+export const FUND_COMPARE_MAX = 2;
 /** The largest sectors a fund map shows as columns; the rest fold into Other. */
 export const SECTOR_COLUMN_COUNT = 6;
 /** An ISO calendar date, YYYY-MM-DD. The shape only; the loaders check the calendar. */
@@ -335,11 +338,22 @@ export function parseFundKeys(raw: string | null | undefined): string[] {
   return out;
 }
 
-/** The selection after a checkbox is ticked or cleared. A tick past the limit is ignored. */
+/**
+ * The selection after a checkbox is ticked or cleared. A tick past the limit replaces the oldest ticked fund,
+ * so the keys keep their tick order and the newest one is always last (backlog C5).
+ */
 export function toggleFundKey(keys: readonly string[], key: string, max: number = FUND_COMPARE_MAX): string[] {
   if (keys.includes(key)) return keys.filter((k) => k !== key);
-  if (keys.length >= max) return [...keys];
-  return [...keys, key];
+  const kept = keys.slice(Math.max(0, keys.length - max + 1));
+  return [...kept, key];
+}
+
+/**
+ * The Changes page a comparison links to: the fund it opens on (its first key). The bar and the inspector's
+ * compare share it, so the link reads the same wherever the comparison is named.
+ */
+export function compareChangesHref(firstKey: string): string {
+  return `/ownership/changes?fund=${encodeURIComponent(firstKey)}`;
 }
 
 /** The filter a change row passes. Coverage is a row in one file only. */
@@ -378,25 +392,42 @@ export function sectorColumns(funds: readonly FundRow[], count: number = SECTOR_
     .map(([industry]) => industry);
 }
 
-/** A fund's weight in one sector, or null when the file does not state it. */
-export function sectorWeightOf(fund: { sectorWeights: readonly FundSectorWeight[] }, industry: string): number | null {
+/**
+ * A fund's weight in one sector. A file names every sector its holdings sit in, so a sector it does not name is
+ * held by nothing: a true 0 when the file lists holdings at all, and n/a for a file with none (no file to read
+ * an absence from). A sector the file names with no weight is n/a.
+ */
+export function sectorWeightOf(
+  fund: { sectorWeights: readonly FundSectorWeight[]; holdings: number },
+  industry: string,
+): number | null {
   const hit = fund.sectorWeights.find((sector) => sector.industry === industry);
-  return hit?.weightPct ?? null;
+  if (hit !== undefined) return hit.weightPct;
+  return fund.holdings > 0 ? 0 : null;
 }
 
 /**
- * A fund's weight outside the given columns. Null when no sector outside them
- * states a weight, so an unknown Other is n/a and never a zero.
+ * A fund's weight outside the given columns. A sector outside them that states no weight leaves the sum unknown,
+ * so Other is n/a; with a sum, it is the sum; with no sector outside the columns at all, a file with holdings holds
+ * nothing there (a true 0), and a file with none is n/a.
  */
-export function otherWeightOf(fund: { sectorWeights: readonly FundSectorWeight[] }, columns: readonly string[]): number | null {
+export function otherWeightOf(
+  fund: { sectorWeights: readonly FundSectorWeight[]; holdings: number },
+  columns: readonly string[],
+): number | null {
   let sum = 0;
   let stated = false;
+  let outside = false;
   for (const sector of fund.sectorWeights) {
-    if (sector.weightPct === null || columns.includes(sector.industry)) continue;
+    if (columns.includes(sector.industry)) continue;
+    outside = true;
+    if (sector.weightPct === null) continue;
     sum += sector.weightPct;
     stated = true;
   }
-  return stated ? sum : null;
+  if (stated) return sum;
+  if (outside) return null;
+  return fund.holdings > 0 ? 0 : null;
 }
 
 /** A sector's name with its weight in the fund, "Materials (32%)"; the name alone when no weight is stated. */
@@ -623,6 +654,104 @@ export function changesCsv(rows: readonly CompareRow[]): string {
     );
   }
   return `${lines.join("\r\n")}\r\n`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Two funds compared (backlog C5)                                    */
+/* ------------------------------------------------------------------ */
+
+/** One sector of a comparison: each fund's weight and the difference, first less second, in percentage points. */
+export interface SectorDiff {
+  industry: string;
+  /** The first fund's weight; null when its file does not state it. */
+  firstPct: number | null;
+  /** The second fund's weight; null when its file does not state it. */
+  secondPct: number | null;
+  /** The difference, first less second; null unless both weights are stated (never a difference from a missing figure). */
+  deltaPp: number | null;
+}
+
+/** A holding one fund holds and the other does not, by code. */
+export interface OnlyHolding {
+  code: string;
+  name: string;
+  industry: string;
+  weightPct: number | null;
+}
+
+/** Two funds' files compared: the sectors they share and the holdings only one of them holds. */
+export interface FundsDiff {
+  /** Every sector either file names, the largest difference first; a sector with no difference last, by name. */
+  sectors: SectorDiff[];
+  /** The sector with the largest stated difference; null when no sector has both weights. */
+  largest: SectorDiff | null;
+  /** The holdings only the first fund holds, the heaviest first; a holding with no weight last, then by code. */
+  onlyFirst: OnlyHolding[];
+  /** The holdings only the second fund holds, in the same order. */
+  onlySecond: OnlyHolding[];
+}
+
+/**
+ * A fund file's view of one sector for a comparison. A file names each sector its holdings sit in, so a sector
+ * the file does not name holds nothing: a true 0, when the file lists holdings at all. A file with no holdings
+ * states no sectors either way, so an absent sector is unknown (null), never a zero.
+ */
+function sectorShareOf(fund: Pick<FundPortfolio, "sectorWeights" | "holdings">, industry: string): number | null {
+  const hit = fund.sectorWeights.find((sector) => sector.industry === industry);
+  if (hit !== undefined) return hit.weightPct;
+  return fund.holdings.length > 0 ? 0 : null;
+}
+
+/** The order the "only in" lists print: the heaviest weight first, a holding with no weight last, then by code. */
+function byOnlyWeight(a: OnlyHolding, b: OnlyHolding): number {
+  if (a.weightPct === null && b.weightPct === null) return compareText(a.code, b.code);
+  if (a.weightPct === null) return 1;
+  if (b.weightPct === null) return -1;
+  return b.weightPct - a.weightPct || compareText(a.code, b.code);
+}
+
+/**
+ * The pure diff of two fund files (backlog C5): the sector weights joined over the union of the sectors both
+ * files name, the difference per sector, and the holdings only one of them holds (by code). A difference is
+ * first less second, so a positive value is the first fund heavier. Nothing is invented: a figure one file does
+ * not state gives no difference, and a sector absent from a complete file is a true zero (sectorShareOf).
+ */
+export function compareFunds(
+  first: Pick<FundPortfolio, "sectorWeights" | "holdings">,
+  second: Pick<FundPortfolio, "sectorWeights" | "holdings">,
+): FundsDiff {
+  const industries = new Set<string>([
+    ...first.sectorWeights.map((sector) => sector.industry),
+    ...second.sectorWeights.map((sector) => sector.industry),
+  ]);
+  const sectors: SectorDiff[] = [...industries].map((industry) => {
+    const firstPct = sectorShareOf(first, industry);
+    const secondPct = sectorShareOf(second, industry);
+    return {
+      industry,
+      firstPct,
+      secondPct,
+      deltaPp: firstPct !== null && secondPct !== null ? firstPct - secondPct : null,
+    };
+  });
+  sectors.sort((a, b) => {
+    if (a.deltaPp === null && b.deltaPp === null) return compareText(a.industry, b.industry);
+    if (a.deltaPp === null) return 1;
+    if (b.deltaPp === null) return -1;
+    return Math.abs(b.deltaPp) - Math.abs(a.deltaPp) || compareText(a.industry, b.industry);
+  });
+  const largest = sectors.find((sector) => sector.deltaPp !== null) ?? null;
+  const codesSecond = new Set(second.holdings.map((holding) => holding.code));
+  const codesFirst = new Set(first.holdings.map((holding) => holding.code));
+  const onlyFirst = first.holdings
+    .filter((holding) => !codesSecond.has(holding.code))
+    .map((holding) => ({ code: holding.code, name: holding.name, industry: holding.industry, weightPct: holding.weightPct }))
+    .sort(byOnlyWeight);
+  const onlySecond = second.holdings
+    .filter((holding) => !codesFirst.has(holding.code))
+    .map((holding) => ({ code: holding.code, name: holding.name, industry: holding.industry, weightPct: holding.weightPct }))
+    .sort(byOnlyWeight);
+  return { sectors, largest, onlyFirst, onlySecond };
 }
 
 /* ------------------------------------------------------------------ */

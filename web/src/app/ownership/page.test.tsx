@@ -550,3 +550,73 @@ describe("OwnershipPage toolbar and method (backlog B2)", () => {
     expect(method.nextElementSibling).toContainElement(screen.getByRole("link", { name: "Report an error" }));
   });
 });
+
+// The first phone screen (backlog D2): the plate folds with the toolbar, and the band, the records and the
+// method follow the panes below lg. jsdom has no layout, so the order is pinned by its classes; the 390
+// screenshot is the measure of the first instrument's position.
+describe("OwnershipPage first phone screen (backlog D2)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
+    listInstitutions.mockResolvedValue({ institutions: [], total: 0 });
+    deskDefaults();
+  });
+
+  const plates = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll("p")).filter((p) => p.textContent?.includes("Notices read to"));
+
+  it("draws the plate once, inside the toolbar's fold, above the row", async () => {
+    const { container } = render(await OwnershipPage());
+
+    const found = plates(container);
+    expect(found).toHaveLength(1);
+    const row = container.querySelector("[data-toolbar]") as HTMLElement;
+    const fold = row.closest("details") as HTMLElement;
+    expect(fold).not.toBeNull();
+    expect(fold.querySelector("summary")).toHaveTextContent("Adjust view");
+    expect(fold).toContainElement(found[0]);
+    expect(found[0].compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The plate is not a child of the page's column: it is inside the toolbar's block.
+    expect(found[0].parentElement).not.toBe(band(container).parentElement);
+  });
+
+  it("makes the page's column a flex column, so the order classes apply, with no space-y", async () => {
+    const { container } = render(await OwnershipPage());
+
+    const column = band(container).parentElement as HTMLElement;
+    expect(column).toHaveClass("flex", "flex-col", "gap-8");
+    expect(column).not.toHaveClass("space-y-8");
+  });
+
+  it("moves the band, the records and the method after the panes below lg, and restores the desk order from lg", async () => {
+    const { container } = render(await OwnershipPage());
+
+    expect(band(container)).toHaveClass("order-[10]", "lg:order-none");
+    expect(container.querySelector("nav[aria-label='Records']")).toHaveClass("order-[11]", "lg:order-none");
+    const methodWrapper = container.querySelector("details#method")?.parentElement as HTMLElement;
+    expect(methodWrapper).toHaveClass("order-[12]", "lg:order-none");
+    // The panes take no order class of their own, so they keep the column's order and sit first on a phone.
+    const mapTokens = (container.querySelector("#desk-map")?.closest("section") as HTMLElement).className.split(/\s+/);
+    expect(mapTokens.some((token) => /(^|:)order-/.test(token))).toBe(false);
+  });
+
+  it("keeps the DOM order unchanged, the band still ahead of the panes for the focus order", async () => {
+    const { container } = render(await OwnershipPage());
+
+    const coverage = band(container);
+    const map = container.querySelector("#desk-map") as HTMLElement;
+    expect(coverage.compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("keeps the pane titles, and no pane has a phone height of its own", async () => {
+    const { container } = render(await OwnershipPage());
+
+    for (const title of ["Market map", "Disclosed exposure", "Notice activity"]) {
+      expect(screen.getByRole("heading", { level: 2, name: title })).toBeInTheDocument();
+    }
+    const mapSection = container.querySelector("#desk-map")?.closest("section") as HTMLElement;
+    const tokens = mapSection.className.split(/\s+/);
+    expect(tokens.some((token) => /^h-\[/.test(token))).toBe(false);
+    expect(mapSection).toHaveClass("lg:h-[420px]");
+  });
+});

@@ -34,87 +34,121 @@ interface KindInfo {
   short: string;
   /** One line on what the kind's substantial holdings usually are. */
   note: string;
-  /** Tailwind background for a bar segment or a swatch. */
+  /**
+   * Tailwind background for a bar segment or a swatch: the light hex, then the dark one. A kind's
+   * colour stays categorical, but it is capped below the amber selection in both themes: every
+   * kind's HSL chroma is at most 0.45, under the amber's (0.56 light, 0.70 dark), and no warm kind
+   * sits within 20 degrees of the amber's hue (28 to 32) unless its chroma is at most 0.30.
+   * kind-chroma.test.ts holds the cap and prints the table.
+   */
   swatch: string;
+  /**
+   * The same two hexes as SVG fill classes, for a mark a chart draws (the sankey's kind edge). A
+   * bg- class paints a box, never an SVG shape. kinds.test.ts keeps it equal to the swatch.
+   */
+  fill: string;
 }
 
 export const KIND_INFO: Readonly<Record<OwnershipKind, KindInfo>> = {
+  // Each swatch's HSL is noted beside it: the light hex, then the dark one.
   super_fund: {
     label: "Super fund",
     plural: "Super funds",
     short: "Super",
     note: "APRA-regulated superannuation trustees investing members' retirement savings.",
-    swatch: "bg-[#87A96B]",
+    // light hsl(93 26% 54%); dark hsl(93 18% 48%)
+    swatch: "bg-[#87A96B] dark:bg-[#789064]",
+    fill: "fill-[#87A96B] dark:fill-[#789064]",
   },
   index_manager: {
     label: "Index manager",
     plural: "Index managers",
     short: "Index",
     note: "Managers whose assets are mostly index funds and ETFs; their stakes track index weights.",
-    swatch: "bg-[#C9A66B]",
+    // light hsl(38 36% 64%); dark hsl(46 32% 46%), spread by lightness from the other dark kinds
+    swatch: "bg-[#C4AC82] dark:bg-[#9B8950]",
+    fill: "fill-[#C4AC82] dark:fill-[#9B8950]",
   },
   hedge_fund: {
     label: "Hedge fund",
     plural: "Hedge funds",
     short: "Hedge",
     note: "Long/short, event-driven and absolute-return managers.",
-    swatch: "bg-[#D16A47]",
+    // light hsl(15 30% 54%); dark hsl(15 32% 56%)
+    swatch: "bg-[#AD7867] dark:bg-[#B37D6B]",
+    fill: "fill-[#AD7867] dark:fill-[#B37D6B]",
   },
   active_manager: {
     label: "Active manager",
     plural: "Active managers",
     short: "Active",
     note: "Long-only active managers and listed investment companies.",
-    swatch: "bg-[#FFA94D]",
+    // A mustard, not the amber: its hue sits outside the amber's band. light hsl(54 40% 50%); dark hsl(54 45% 62%)
+    swatch: "bg-[#B3A84D] dark:bg-[#CAC172]",
+    fill: "fill-[#B3A84D] dark:fill-[#CAC172]",
   },
   bank_broker: {
     label: "Bank or broker",
     plural: "Banks and brokers",
     short: "Bank/broker",
     note: "Often securities lending: shares lent to, or held as collateral from, short sellers.",
-    swatch: "bg-[#72625A]",
+    // light hsl(20 12% 40%); dark hsl(18 10% 46%), white ink in both (monogramInkClass)
+    swatch: "bg-[#72625A] dark:bg-[#81716A]",
+    fill: "fill-[#72625A] dark:fill-[#81716A]",
   },
   sovereign_public: {
     label: "Sovereign or public fund",
     plural: "Sovereign and public funds",
     short: "Sovereign",
     note: "Sovereign wealth funds and public-sector investors.",
-    swatch: "bg-[#9AC082]",
+    // light hsl(97 33% 63%); dark hsl(98 14% 56%)
+    swatch: "bg-[#9AC082] dark:bg-[#8B9F7F]",
+    fill: "fill-[#9AC082] dark:fill-[#8B9F7F]",
   },
   insurer: {
     label: "Insurer",
     plural: "Insurers",
     short: "Insurer",
     note: "Life insurers.",
-    swatch: "bg-[#A39A75]",
+    // light hsl(48 20% 55%); dark hsl(51 15% 72%), the palest dark kind so it stays apart from the khaki group
+    swatch: "bg-[#A39A75] dark:bg-[#C2BFAD]",
+    fill: "fill-[#A39A75] dark:fill-[#C2BFAD]",
   },
   private_equity: {
     label: "Private equity",
     plural: "Private equity",
     short: "PE",
     note: "Private equity and infrastructure investors, often building a takeover stake.",
-    swatch: "bg-[#9E5210] dark:bg-[#C77A2A]",
+    // light hsl(25 30% 38%), white ink; dark hsl(28 30% 52%)
+    swatch: "bg-[#7E5C44] dark:bg-[#A98260]",
+    fill: "fill-[#7E5C44] dark:fill-[#A98260]",
   },
   corporate: {
     label: "Listed company",
     plural: "Listed companies",
     short: "Listed co",
     note: "Another ASX company: a strategic stake, a takeover bidder or a parent.",
-    swatch: "bg-[#483932] dark:bg-[#B5A48C]",
+    // light hsl(19 18% 24%), white ink; dark hsl(19 8% 61%), a warm grey apart from the khaki group
+    swatch: "bg-[#483932] dark:bg-[#A49994]",
+    fill: "fill-[#483932] dark:fill-[#A49994]",
   },
   other: {
     label: "Other",
     plural: "Other",
     short: "Other",
     note: "Institutions outside the categories above.",
-    swatch: "bg-[#E8DEB5]",
+    // light hsl(48 53% 81%); dark hsl(52 33% 68%): never the dark foreground's own sand, which reads as ink
+    swatch: "bg-[#E8DEB5] dark:bg-[#C8C193]",
+    fill: "fill-[#E8DEB5] dark:fill-[#C8C193]",
   },
   unclassified: {
     label: "Unclassified",
     plural: "Unclassified holders",
     short: "Unclassified",
     note: "Holders not on the curated map: families, founders, private companies, smaller managers.",
-    swatch: "bg-[#E5E1DC]",
+    // light hsl(33 15% 88%); dark hsl(48 20% 55%), the muted foreground
+    swatch: "bg-[#E5E1DC] dark:bg-[#A39A75]",
+    fill: "fill-[#E5E1DC] dark:fill-[#A39A75]",
   },
 };
 

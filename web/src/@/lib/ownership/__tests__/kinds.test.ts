@@ -1,6 +1,7 @@
 import {
   INVESTOR_KINDS,
   KIND_INFO,
+  KIND_ORDER,
   OUTCOME_COPY,
   REGISTER_CODE_PATTERN,
   RESERVED_SLUGS,
@@ -175,8 +176,28 @@ describe("ownership kinds", () => {
   });
 
   it("gives the two swatches that vanish on the dark page a dark pair", () => {
-    expect(KIND_INFO.corporate.swatch).toBe("bg-[#483932] dark:bg-[#B5A48C]");
-    expect(KIND_INFO.private_equity.swatch).toBe("bg-[#9E5210] dark:bg-[#C77A2A]");
+    expect(KIND_INFO.corporate.swatch).toBe("bg-[#483932] dark:bg-[#A49994]");
+    expect(KIND_INFO.private_equity.swatch).toBe("bg-[#7E5C44] dark:bg-[#A98260]");
+  });
+
+  it("gives every kind a light and a dark swatch, so no kind keeps the light hex on the dark page", () => {
+    for (const info of Object.values(KIND_INFO)) {
+      expect(info.swatch).toMatch(/^bg-\[#[0-9A-F]{6}\] dark:bg-\[#[0-9A-F]{6}\]$/);
+    }
+  });
+
+  it("keeps each kind's SVG fill pair equal to its swatch, so a chart's mark and a box agree", () => {
+    for (const info of Object.values(KIND_INFO)) {
+      expect(info.fill).toBe(info.swatch.replace(/bg-/g, "fill-"));
+    }
+  });
+
+  it("keeps KIND_ORDER and KIND_INFO on the same kinds, so no kind is left out of the order, the table or the colour check", () => {
+    expect([...KIND_ORDER].sort()).toEqual(Object.keys(KIND_INFO).sort());
+  });
+
+  it("never gives the active manager the amber selection's own hex, which was its old swatch", () => {
+    expect(KIND_INFO.active_manager.swatch).not.toMatch(/FFA94D/i);
   });
 
   it("names every outcome, and withholds only the six that are withheld", () => {

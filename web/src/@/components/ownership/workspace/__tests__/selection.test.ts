@@ -2,6 +2,7 @@
 
 import {
   cleanSelection,
+  compareSelection,
   isFundKey,
   parseSelection,
   sectorSelection,
@@ -163,5 +164,45 @@ describe("selection codec (spec 14.1)", () => {
 
   it("never names a company for a sector selection", () => {
     expect(selectionNamesStock({ kind: "sector", sector: "Materials" }, "BHP")).toBe(false);
+  });
+
+  describe("the internal compare kind (backlog C5)", () => {
+    const pair: Selection = { kind: "compare", fundKeys: ["asx:A200", "asx:IOZ"] };
+
+    it("writes two fund keys joined by a pipe, in tick order, and names them 'Compared funds'", () => {
+      expect(serializeSelection(pair)).toBe("compare:asx:A200|asx:IOZ");
+      expect(selectionHeading(pair)).toBe("Compared funds");
+    });
+
+    it("never reads the kind from a link: sel=compare:... is no selection, and cleanSelection drops it", () => {
+      expect(parseSelection("compare:asx:A200|asx:IOZ")).toBeNull();
+      expect(cleanSelection("compare:asx:A200|asx:IOZ")).toBe("");
+      expect(parseSelection("compare:asx:A200")).toBeNull();
+    });
+
+    it("builds a comparison only from two different fund keys the codec would write", () => {
+      expect(compareSelection(["asx:A200", "asx:IOZ"])).toEqual(pair);
+      expect(compareSelection(["aware/High Growth", "asx:A200"])).toEqual({
+        kind: "compare",
+        fundKeys: ["aware/High Growth", "asx:A200"],
+      });
+      expect(compareSelection(["asx:A200"])).toBeNull();
+      expect(compareSelection(["asx:A200", "asx:IOZ", "asx:VAS"])).toBeNull();
+      expect(compareSelection(["asx:A200", "asx:A200"])).toBeNull();
+      expect(compareSelection(["asx:A200", "A200"])).toBeNull();
+      expect(compareSelection(["asx:A200", 3])).toBeNull();
+      expect(compareSelection("asx:A200,asx:IOZ")).toBeNull();
+      expect(compareSelection(undefined)).toBeNull();
+    });
+
+    it("refuses a fund name holding the separator, which the compare key could not carry unambiguously", () => {
+      expect(compareSelection(["aware/Growth|Balanced", "asx:A200"])).toBeNull();
+      expect(compareSelection(["asx:A200", "aware/Growth|Balanced"])).toBeNull();
+      expect(isFundKey("aware/Growth|Balanced")).toBe(true);
+    });
+
+    it("names no company", () => {
+      expect(selectionNamesStock(pair, "A200")).toBe(false);
+    });
   });
 });

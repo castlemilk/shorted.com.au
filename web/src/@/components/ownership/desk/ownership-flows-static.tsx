@@ -28,10 +28,12 @@ import { WindowSelect } from "../workspace/window-select";
 // PLAIN MODULE, so the server draws the default view (positions) into the HTML and
 // the island draws either mode for a window.
 //
-// COLOUR. A kind keeps its category colour (kinds.ts), so a position band takes
-// its kind's hue. A change band is ink or amber by direction: an increase is
-// amber, a decrease ink. Neither is red or green, because a notice flow is not a
-// market direction.
+// COLOUR. Bands and nodes are neutral ink, so the amber selection is the only
+// bright mark (DESIGN.md, One Bloom Rule). A holder node keeps its kind as a thin
+// category edge on the side its bands leave from (kinds.ts, backlog A3): the kind
+// names the band without competing with the selection. A change band is ink or
+// amber by direction: an increase is amber, a decrease ink. Neither is red or
+// green, because a notice flow is not a market direction.
 //
 // EVERY MARK IS A LINK, AND THE TABLE HAS THE SAME LINKS. A band opens the
 // registers filtered to its kind and industry; a kind opens the directory; a sector
@@ -81,13 +83,27 @@ export const FLOWS_OUTAGE =
 export const FLOW_SECTOR_KEEP = 6;
 
 /**
- * A kind's category colour: the hex its swatch names, or the ink when it names none.
- * The unclassified holders are muted ink, never the brightest node (spec 14.9).
+ * The width of a holder node's kind edge (backlog A3). The edge is drawn on the side the node's
+ * bands leave from, so the kind reads where the band starts and the node body stays neutral.
  */
-export function kindColour(kind: string): string {
-  if (kind === "unclassified") return "hsl(var(--muted-foreground))";
-  const hex = /#[0-9A-Fa-f]{6}/.exec(kindInfo(kind).swatch)?.[0];
-  return hex ?? "hsl(var(--foreground))";
+export const KIND_EDGE_WIDTH = 4;
+
+/**
+ * A holder node's kind edge as an SVG fill class, light and dark: the kind's own swatch pair, or
+ * the muted ink for the unclassified remainder (spec B6). A class, not a hex attribute, because
+ * the page's dark theme must switch the edge; the swatch's bg- class would paint a box, not a shape.
+ */
+export function kindEdgeClass(kind: string): string {
+  return kind === "unclassified" ? "fill-muted-foreground" : kindInfo(kind).fill;
+}
+
+/**
+ * The fill of a holder node's body: the band ink its sector nodes share, or the muted ink for the
+ * unclassified remainder, never the brightest node (spec 14.9, spec B6). The kind itself is the edge
+ * (kindEdgeClass).
+ */
+export function holderBodyFill(kind: string): string {
+  return kind === "unclassified" ? "hsl(var(--muted-foreground))" : "hsl(var(--foreground))";
 }
 
 /**
@@ -410,16 +426,32 @@ function FlowsDrawing({ page, mode, variant, fill = false, basePath, params, mea
                     }
             }
           >
+            {/* The body is the band colour the sector nodes use, so both columns read as one instrument; the unclassified
+                remainder keeps its muted ink (spec B6). */}
             <rect
               x={x}
               y={node.y0}
               width={width}
               height={height}
-              fill={isHolder ? kindColour(kindOfNode(node)) : "hsl(var(--foreground))"}
+              fill={isHolder ? holderBodyFill(kindOfNode(node)) : "hsl(var(--foreground))"}
               className={unclassified ? "fill-muted-foreground" : undefined}
             >
               <title>{title}</title>
             </rect>
+            {/* A holder's kind is a thin edge on the side its bands leave from, so the kind names the band without
+                competing with the selection (backlog A3). It takes no pointer: the body beneath carries the title, and
+                a pointer over the edge must read that title too, not fall through to nothing. */}
+            {isHolder ? (
+              <rect
+                x={x + width - KIND_EDGE_WIDTH}
+                y={node.y0}
+                width={KIND_EDGE_WIDTH}
+                height={height}
+                className={kindEdgeClass(kindOfNode(node))}
+                data-kind-edge={kindOfNode(node)}
+                pointerEvents="none"
+              />
+            ) : null}
             {labelFits ? (
               <text
                 x={labelX}

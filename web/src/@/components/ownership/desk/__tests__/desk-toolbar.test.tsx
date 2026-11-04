@@ -11,9 +11,14 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { DeskToolbar } from "../desk-toolbar";
 
 let mockSearchParams = new URLSearchParams("");
+// While set, the island's URL read suspends, so only the server's fallback draws (the default view).
+let mockHoldSearchParams = false;
 const mockPush = jest.fn();
 jest.mock("next/navigation", () => ({
-  useSearchParams: () => mockSearchParams,
+  useSearchParams: () => {
+    if (mockHoldSearchParams) throw new Promise(() => {});
+    return mockSearchParams;
+  },
   useRouter: () => ({ replace: jest.fn(), push: mockPush, prefetch: jest.fn() }),
 }));
 
@@ -37,6 +42,7 @@ const HOLDERS = [{ slug: "vanguard", name: "Vanguard" }];
 describe("DeskToolbar (spec 14.3, Overview; backlog B2)", () => {
   beforeEach(() => {
     mockSearchParams = new URLSearchParams("");
+    mockHoldSearchParams = false;
     mockPush.mockClear();
     window.history.replaceState(null, "", "/ownership");
   });
@@ -92,5 +98,52 @@ describe("DeskToolbar (spec 14.3, Overview; backlog B2)", () => {
     expect(row.firstElementChild?.querySelector("button")).toHaveTextContent("Find a stock or holder: pick PLS");
     const fold = row.closest("details");
     expect(fold?.querySelector("summary")).toHaveTextContent("Adjust view");
+  });
+
+  describe("the plate slot (backlog D2)", () => {
+    const PLATE = <p data-testid="plate">Notices read to 2026-11-03 · Not financial advice</p>;
+
+    it("draws the plate once, as the first child of the fold's content, above the row", () => {
+      render(<DeskToolbar stocks={STOCKS} holders={HOLDERS} plate={PLATE} />);
+      const plate = screen.getByTestId("plate");
+      const row = document.querySelector("[data-toolbar]") as HTMLElement;
+      const fold = row.closest("details") as HTMLElement;
+
+      expect(document.querySelectorAll("[data-testid='plate']")).toHaveLength(1);
+      expect(fold.querySelector("summary")).toHaveTextContent("Adjust view");
+      // The fold's content is the block after the summary; the plate and the row share its first child.
+      const content = fold.querySelector("summary")?.nextElementSibling as HTMLElement;
+      expect(content.firstElementChild).toBe(plate.parentElement);
+      expect(plate.parentElement?.firstElementChild).toBe(plate);
+      expect(plate.parentElement).toContainElement(row);
+      // The block is a plain block with space-y, not a flex column: the plate is an inline-flex pill that a
+      // flex item would stretch to the full width (the bordered plate became a bar at every breakpoint).
+      expect(plate.parentElement).toHaveClass("space-y-3");
+      expect(plate.parentElement).not.toHaveClass("flex");
+      expect(plate.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("draws the plate above the row with no fold on the server's default view", () => {
+      mockHoldSearchParams = true;
+      try {
+        render(<DeskToolbar stocks={STOCKS} holders={HOLDERS} plate={PLATE} />);
+        const plate = screen.getByTestId("plate");
+        const row = document.querySelector("[data-toolbar]") as HTMLElement;
+
+        expect(document.querySelectorAll("[data-testid='plate']")).toHaveLength(1);
+        expect(row.closest("details")).toBeNull();
+        expect(plate.parentElement).toContainElement(row);
+        expect(plate.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      } finally {
+        mockHoldSearchParams = false;
+      }
+    });
+
+    it("draws no plate element when none is passed, and the row is unchanged", () => {
+      render(<DeskToolbar stocks={STOCKS} holders={HOLDERS} />);
+      const row = document.querySelector("[data-toolbar]") as HTMLElement;
+      expect(row.parentElement?.children).toHaveLength(1);
+      expect(row.closest("details")?.querySelector("summary")).toHaveTextContent("Adjust view");
+    });
   });
 });

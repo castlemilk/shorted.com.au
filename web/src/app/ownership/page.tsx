@@ -243,24 +243,29 @@ export default async function OwnershipPage() {
         <WorkspacePage
           inspector={<Inspector resolve={loadInspector} emptyText="Select a company to inspect its holding." />}
         >
-        <div className="mx-auto w-full max-w-[100rem] space-y-8">
+        {/* A flex column, not space-y, so the order classes below can move the band, the records and the
+            method after the panes on a phone (backlog D2). The DOM order is unchanged: the focus order
+            still runs the band first, and the order classes only change what a sighted reader sees. */}
+        <div className="mx-auto flex w-full max-w-[100rem] flex-col gap-8">
           {/* Kept by backlog B2 for the record links that use it; nothing on the hub references it today. */}
           <ExternalLinkSymbol />
           <header className="space-y-1.5">
             {title}
             <p className={lede}>{ledeText}</p>
           </header>
-          <OwnershipPlate items={plate} />
 
-          {/* One toolbar row (backlog B2): the search, the Source and the window. */}
+          {/* One toolbar row (backlog B2): the search, the Source and the window. The plate (backlog D2) is
+              drawn once inside it, so a phone's first screen is the title, this fold, and the first pane. */}
           <DeskToolbar
+            plate={<OwnershipPlate items={plate} />}
             stocks={map.ok ? map.stocks.map((stock) => ({ code: stock.code, name: stock.name })) : []}
             holders={institutions.map((institution) => ({ slug: institution.slug, name: institution.name }))}
           />
 
           {/* The headline band: four sentences, each a figure the record states (backlog B2). The coverage
-              id is the map's coverage line's target. */}
-          <section aria-label="Coverage" id="coverage" className="scroll-mt-20">
+              id is the map's coverage line's target. Below lg it follows the panes (order-[10]), so the
+              first instrument is in view under the title (backlog D2). */}
+          <section aria-label="Coverage" id="coverage" className="order-[10] scroll-mt-20 lg:order-none">
             <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:grid-cols-4">
               <div className="bg-card p-3 text-sm text-muted-foreground">
                 <Figure>{overview ? count(overview.noticesParsed) : NOT_AVAILABLE}</Figure> notices read
@@ -373,8 +378,9 @@ export default async function OwnershipPage() {
             </section>
           </div>
 
-          {/* The records, one row of links with their counts; the record pages hold the tables. */}
-          <nav aria-label="Records" className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          {/* The records, one row of links with their counts; the record pages hold the tables. Below lg
+              they follow the band (order-[11]), as the desk's order does. */}
+          <nav aria-label="Records" className="order-[11] flex flex-wrap items-center gap-x-6 gap-y-2 text-sm lg:order-none">
             {records.map((record) => (
               <Link
                 key={record.name}
@@ -387,7 +393,7 @@ export default async function OwnershipPage() {
             ))}
           </nav>
 
-          <div className="space-y-3">
+          <div className="order-[12] space-y-3 lg:order-none">
             {/* The dated source list is part of how the figures are read, so it folds with the method. */}
             <MethodDisclosure extra={[<OwnershipSourceLines key="sources" lines={sourceLines} />]} />
             <p className="text-xs text-muted-foreground">

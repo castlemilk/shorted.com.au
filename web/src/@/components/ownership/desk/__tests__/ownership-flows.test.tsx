@@ -22,11 +22,13 @@ import {
   connectionIsSelected,
   flowLayout,
   flowRegisterHref,
-  kindColour,
+  KIND_EDGE_WIDTH,
+  kindEdgeClass,
   positionBandTitle,
 } from "../ownership-flows-static";
 import { LABEL_GAP, labelWidth } from "../flows-layout";
 import { DESK_DEFAULT_WINDOW_STATE } from "../window-chips";
+import { kindInfo } from "~/@/lib/ownership/kinds";
 
 let mockSearchParams = new URLSearchParams("");
 jest.mock("next/navigation", () => ({
@@ -108,9 +110,10 @@ describe("the figures a band and a node state", () => {
     expect(flowRegisterHref("super_fund", "Other")).toBe("/ownership/stocks?kind=super_fund");
   });
 
-  it("colours a kind with its category swatch, and the remainder in muted ink", () => {
-    expect(kindColour("super_fund")).toBe("#87A96B");
-    expect(kindColour("unclassified")).toBe("hsl(var(--muted-foreground))");
+  it("draws a kind's edge with its swatch's SVG fill pair, light and dark, and the remainder in muted ink", () => {
+    expect(kindEdgeClass("super_fund")).toBe("fill-[#87A96B] dark:fill-[#789064]");
+    expect(kindEdgeClass("active_manager")).toBe("fill-[#B3A84D] dark:fill-[#CAC172]");
+    expect(kindEdgeClass("unclassified")).toBe("fill-muted-foreground");
   });
 });
 
@@ -243,6 +246,59 @@ describe("the drawn labels (spec B6)", () => {
     expect(bandFillOpacity(false, "unclassified")).toBeCloseTo(0.09, 6);
     expect(bandFillOpacity(true, "unclassified")).toBeCloseTo(0.48, 6);
     expect(bandFillOpacity(true, "unclassified")).toBeGreaterThan(bandFillOpacity(false, "unclassified"));
+  });
+});
+
+/** The body rect of the node a label names: a holder by its kind label, a sector by its name. */
+function bodyOf(svg: SVGSVGElement, label: string): SVGRectElement | undefined {
+  return Array.from(svg.querySelectorAll<SVGRectElement>("rect")).find((rect) =>
+    rect.querySelector("title")?.textContent?.startsWith(`${label}:`),
+  );
+}
+
+describe("the holder nodes (backlog A3)", () => {
+  it("draws each holder as a neutral body, the sector nodes' colour, with its kind on a 4-unit edge where its bands leave", () => {
+    const { container } = render(<OwnershipFlowsStatic page={LABEL_PAGE} state={DESK_DEFAULT_WINDOW_STATE} basePath="/ownership" />);
+    const { phone, full } = drawings(container);
+    for (const svg of [phone, full]) {
+      // One edge per holder kind and none on a sector: the edges name exactly the kinds drawn.
+      const edges = Array.from(svg.querySelectorAll<SVGRectElement>("rect[data-kind-edge]"));
+      expect(edges.map((edge) => edge.getAttribute("data-kind-edge")).sort()).toEqual([...ALL_KINDS].sort());
+      expect(KIND_EDGE_WIDTH).toBe(4);
+
+      for (const kind of ALL_KINDS) {
+        const body = bodyOf(svg, kindInfo(kind).label);
+        const edge = svg.querySelector<SVGRectElement>(`rect[data-kind-edge="${kind}"]`);
+        expect(body).toBeDefined();
+        expect(edge).not.toBeNull();
+
+        if (kind === "unclassified") {
+          // The remainder keeps its muted treatment in the body (spec B6).
+          expect(body!.getAttribute("fill")).toBe("hsl(var(--muted-foreground))");
+          expect(body!.getAttribute("class")).toContain("fill-muted-foreground");
+        } else {
+          expect(body!.getAttribute("fill")).toBe("hsl(var(--foreground))");
+          expect(body!.getAttribute("class")).toBeNull();
+        }
+
+        // The edge is KIND_EDGE_WIDTH wide, flush with the body's right side, and carries the kind's pair.
+        expect(edge!.getAttribute("width")).toBe(String(KIND_EDGE_WIDTH));
+        expect(Number(edge!.getAttribute("x"))).toBeCloseTo(
+          Number(body!.getAttribute("x")) + Number(body!.getAttribute("width")) - KIND_EDGE_WIDTH,
+          6,
+        );
+        expect(edge!.getAttribute("y")).toBe(body!.getAttribute("y"));
+        expect(edge!.getAttribute("height")).toBe(body!.getAttribute("height"));
+        expect(edge!.getAttribute("class")).toBe(kindEdgeClass(kind));
+        // The edge takes no pointer, so hover and click reach the body, whose title names the node.
+        expect(edge!.getAttribute("pointer-events")).toBe("none");
+      }
+
+      // A sector node is the neutral body alone, so the sector column reads as one instrument with the holders.
+      const sectorBody = bodyOf(svg, "Materials");
+      expect(sectorBody!.getAttribute("fill")).toBe("hsl(var(--foreground))");
+      expect(sectorBody!.getAttribute("class")).toBeNull();
+    }
   });
 });
 

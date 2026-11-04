@@ -733,3 +733,111 @@ describe("workspace inspector notices by week (backlog C6)", () => {
     expect(within(region).getByRole("group", { name: "Notices by week" })).toBeInTheDocument();
   });
 });
+
+describe("workspace inspector fund comparison (backlog C5)", () => {
+  const compareContent: InspectorContent = {
+    heading: "A200 vs IOZ",
+    subtitle: "A200 at 2026-11-02 · IOZ at 2026-10-31",
+    rows: [],
+    sections: [
+      {
+        title: "Sector weights, A200 / IOZ",
+        kind: "rows",
+        items: [{ label: "Materials", value: "12.00% / 0.00% (+12.00 pp)" }],
+      },
+    ],
+    primary: { label: "Compare portfolios →", href: "/ownership/changes?fund=asx%3AA200" },
+  };
+  const compareQuery = { lens: "", view: "", window: "", since: "", until: "", asAt: "", from: "", to: "" };
+
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(true);
+  });
+
+  it("resolves two ticked funds through the resolver when the link names no selection, and kicks it as the compared funds", async () => {
+    mockSearch = "funds=asx%3AA200%2Casx%3AIOZ";
+    const resolve = jest.fn(async () => compareContent);
+    render(<Inspector resolve={resolve} emptyText="Select a fund to inspect its portfolio." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "A200 vs IOZ" })).toBeInTheDocument());
+    expect(resolve).toHaveBeenCalledWith({ kind: "compare", fundKeys: ["asx:A200", "asx:IOZ"] }, compareQuery);
+    expect(screen.getByText("Compared funds", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Sector weights, A200 / IOZ" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Compare portfolios →" })).toHaveAttribute(
+      "href",
+      "/ownership/changes?fund=asx%3AA200",
+    );
+  });
+
+  it("is no comparison from one fund alone, so the empty prompt stays and nothing is resolved", () => {
+    mockSearch = "funds=asx%3AA200";
+    const resolve = jest.fn(async () => compareContent);
+    render(<Inspector resolve={resolve} emptyText="Select a fund to inspect its portfolio." />);
+    expect(screen.getByText("Select a fund to inspect its portfolio.")).toBeInTheDocument();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("is no comparison from a list that names one valid fund beside an invalid key", () => {
+    mockSearch = "funds=asx%3AA200%2Cnot%20a%20key";
+    const resolve = jest.fn(async () => compareContent);
+    render(<Inspector resolve={resolve} emptyText="Select a fund to inspect its portfolio." />);
+    expect(screen.getByText("Select a fund to inspect its portfolio.")).toBeInTheDocument();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("is no comparison of two keys the codec would not write, such as a fund name holding the separator", () => {
+    mockSearch = "funds=aware%2FGrowth%7CBalanced%2Casx%3AA200";
+    const resolve = jest.fn(async () => compareContent);
+    render(<Inspector resolve={resolve} emptyText="Select a fund to inspect its portfolio." />);
+    expect(screen.getByText("Select a fund to inspect its portfolio.")).toBeInTheDocument();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("lets a selection in sel win over the ticked funds", async () => {
+    mockSearch = "sel=stock%3ABHP&funds=asx%3AA200%2Casx%3AIOZ";
+    const resolve = jest.fn(async () => content);
+    render(<Inspector resolve={resolve} emptyText="Select a fund to inspect its portfolio." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "BHP Group" })).toBeInTheDocument());
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledWith({ kind: "stock", code: "BHP" }, expect.anything());
+  });
+
+  it("clears the ticked funds with Clear selection and keeps the rest of the link", async () => {
+    mockSearch = "funds=asx%3AA200%2Casx%3AIOZ&lens=flow&window=28";
+    render(<Inspector resolve={jest.fn(async () => compareContent)} emptyText="Select a fund." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "A200 vs IOZ" })).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Clear selection" })).toHaveAttribute("href", "/ownership/map?lens=flow&window=28");
+  });
+
+  it("keeps a zoomed sector under the comparison: clearing the funds leaves the zoom", async () => {
+    mockSearch = "sector=Materials&funds=asx%3AA200%2Casx%3AIOZ";
+    render(<Inspector resolve={jest.fn(async () => compareContent)} emptyText="Select a fund." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "A200 vs IOZ" })).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Clear selection" })).toHaveAttribute("href", "/ownership/map?sector=Materials");
+  });
+
+  it("opens the sheet below lg for ticked funds, since a comparison has no other surface there, and closing it clears the funds", async () => {
+    viewport(false);
+    mockSearch = "funds=asx%3AA200%2Casx%3AIOZ&lens=flow";
+    render(<Inspector resolve={jest.fn(async () => compareContent)} emptyText="Select a fund." />);
+    await waitFor(() => expect(document.querySelector("dialog")).not.toBeNull());
+    const dialog = document.querySelector("dialog") as HTMLDialogElement;
+    await waitFor(() => expect(dialog.hasAttribute("open")).toBe(true));
+    // The resolver answers after the sheet opens: wait for the comparison to draw, so its update lands inside the test.
+    await waitFor(() => expect(within(dialog).getByText("A200 vs IOZ")).toBeInTheDocument());
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear selection" }));
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith("/ownership/map?lens=flow", { scroll: false });
+  });
+
+  it("keeps the sheet shut below lg for a zoomed sector under no comparison", async () => {
+    viewport(false);
+    mockSearch = "sector=Materials";
+    render(<Inspector resolve={jest.fn(async () => compareContent)} emptyText="Select a fund." />);
+    await waitFor(() => expect(document.querySelector("dialog")).not.toBeNull());
+    expect((document.querySelector("dialog") as HTMLDialogElement).hasAttribute("open")).toBe(false);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+});
