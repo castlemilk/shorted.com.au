@@ -217,3 +217,45 @@ func TestNegativeLagPanics(t *testing.T) {
 	}()
 	New(nil, nil, -1)
 }
+
+// TestShiftedIndexDatesOnlyDelay pins a known defect in the stored index
+// history. Yahoo stamps each ASX bar with its 10:00 Sydney open, and the job
+// that stores it truncates that instant to a UTC day. Under daylight saving
+// (October to early April) the open falls on the previous UTC day, so every
+// index date reads one day early: Monday's bar is dated Sunday and Friday has
+// no bar at all. The calendar must read that as a missing session, never as an
+// early one. Here the index carries each session one day early and ASIC
+// carries the true dates; Friday 17 October 2025 is then not a session, and a
+// report for Monday 13 October is public on Monday 20 October, one session
+// after the true fourth session (Friday 17 October).
+func TestShiftedIndexDatesOnlyDelay(t *testing.T) {
+	asic := weekdays(t, "2025-10-06", "2025-10-31")
+	shifted := make([]civil.Date, 0, len(asic))
+	for _, d := range asic {
+		shifted = append(shifted, d.AddDays(-1))
+	}
+	trueCal := New(asic, asic, PublicationLagSessions)
+	shiftCal := New(shifted, asic, PublicationLagSessions)
+
+	report := mustDate(t, "2025-10-13")
+	truth, ok := trueCal.PublishedOn(report)
+	if !ok || truth != mustDate(t, "2025-10-17") {
+		t.Fatalf("true calendar PublishedOn(%s) = %s, %v; want 2025-10-17", report, truth, ok)
+	}
+	got, ok := shiftCal.PublishedOn(report)
+	if !ok {
+		t.Fatal("shifted calendar: no publication date")
+	}
+	if got != mustDate(t, "2025-10-20") {
+		t.Errorf("shifted PublishedOn(%s) = %s, want 2025-10-20", report, got)
+	}
+	if got.Before(truth) {
+		t.Errorf("shifted index dates made availability early: %s < %s", got, truth)
+	}
+	if shiftCal.IsSession(mustDate(t, "2025-10-17")) {
+		t.Error("a Friday with no index bar must not be a session")
+	}
+	if got := shiftCal.Mismatches().ASICWithoutIndex; got == 0 {
+		t.Error("shifted index dates must show up as ASIC dates without an index bar")
+	}
+}

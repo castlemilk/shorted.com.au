@@ -10,6 +10,11 @@
 // it delays availability by a session, which withholds a figure and never shows
 // one early.
 //
+// The index dates must be the exchange's session dates. Stored history dated
+// in UTC is one day early under daylight saving, which drops the Fridays; the
+// calendar then delays availability, but the stored dates should be fixed at
+// their source (see TestShiftedIndexDatesOnlyDelay).
+//
 // Past the newest ASIC report the holiday table decides, and past the newest
 // index bar the table alone does. The table is asxcalendar's, which is complete
 // for 2026 and 2027; the holiday coverage guard in that package covers later
