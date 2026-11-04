@@ -1,5 +1,3 @@
-//go:build testcontainers
-
 package shortdatasync
 
 import (
@@ -11,23 +9,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/testpostgres"
 )
 
-// Real-Postgres tests for migration 000154 (architecture 9.1): the vintage trigger and its baseline, the
-// replay guarantee, and the writer's SQL. They run against a disposable server: a URL in
-// SHORTDATASYNC_TEST_DATABASE_URL, or a container when SHORTDATASYNC_TESTCONTAINERS=1. Each test builds its
-// own DATABASE, not a schema: 000154's trigger function pins search_path to public, exactly as production
-// runs it, so a schema would not match the deploy. The database is dropped afterwards.
+// Real-Postgres tests for migration 000154: the vintage trigger and its baseline, the replay guarantee,
+// and the writer's SQL. They run against a disposable server: a URL in SHORTDATASYNC_TEST_DATABASE_URL,
+// or a container when SHORTDATASYNC_TESTCONTAINERS=1 (see testmain_test.go). Each test builds its own
+// DATABASE, not a schema: the trigger function pins search_path to public, exactly as production runs it,
+// so a schema would not match the deploy. The database is dropped afterwards.
 //
-//	SHORTDATASYNC_TESTCONTAINERS=1 GOWORK=off go test -tags=testcontainers ./internal/jobs/shortdatasync/ -run StrategyCapture -v
+// The suite runs through the deploy gate (make test-shortdatasync-pg, in run-tests beside the alerts
+// suite). Without a server the tests skip; SHORTDATASYNC_TESTCONTAINERS=1 without the testcontainers tag
+// fails loudly rather than skipping.
 //
-// Without a server the tests skip. Without the testcontainers tag the package does not link testcontainers.
-
-func TestMain(m *testing.M) { os.Exit(testpostgres.Main(m)) }
+//	cd services/jobs && SHORTDATASYNC_TESTCONTAINERS=1 GOWORK=off CGO_ENABLED=0 \
+//	    go test -tags=testcontainers -count=1 -run 'StrategyCapture|IngestWriter' ./internal/jobs/shortdatasync/
 
 const captureMigrationsDir = "../../../../migrations"
 
@@ -60,6 +60,9 @@ func captureDB(t *testing.T) *pgxpool.Pool {
 	cfg, err := pgxpool.ParseConfig(dsn)
 	require.NoError(t, err)
 	cfg.ConnConfig.Database = name
+	// Production's pool runs in simple protocol (platform.Connect), which the writer's statements and the
+	// migrations are written for. The suite runs the same way, so a statement that passes here passes there.
+	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)

@@ -782,6 +782,14 @@ test-alerts-e2e: test-integration-images
 	cd jobs && GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run TestAlertsE2E ./internal/jobs/alerts/
 
+# The strategy capture suite (migration 000154): the vintage trigger and its replay, and the ingest writer's
+# SQL, against a throwaway postgres:15 container. Gates the deploy beside test-alerts-e2e.
+.PHONY: test-shortdatasync-pg
+test-shortdatasync-pg: test-integration-images
+	@set -e; \
+	cd jobs && GOWORK=off CGO_ENABLED=0 SHORTDATASYNC_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run 'StrategyCapture|IngestWriter' ./internal/jobs/shortdatasync/
+
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench
 .PHONY: test-stack-up test-stack-down test-stack-status test-stack-logs

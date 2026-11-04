@@ -1976,6 +1976,15 @@ jobs:
           cd services
           make test-alerts-e2e
 
+      # The strategy capture suite (migration 000154): the vintage trigger, its replay and the ingest
+      # writer's SQL, against a real Postgres. It guards the table every stock_fundamentals write now also
+      # writes, so it gates the deploy like the alerts suite.
+      - name: Run strategy capture container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the strategy capture suite (postgres container)..."
+          cd services
+          make test-shortdatasync-pg
+
       # Workflow pins: the apply gate and the smoke ordering are asserted here,
       # and nothing else ran these tests in CI. The test imports `yaml`, a root
       # devDependency, so the runner installs the root packages first.
