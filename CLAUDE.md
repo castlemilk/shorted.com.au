@@ -625,6 +625,15 @@ because the panel is narrow on every breakpoint. Measures print the comparison
 that holds (`−5.7% < −5.0%` for a failing rule), never a false one. No Alert-me
 or Create-alert control renders: those capabilities stay off.
 
+**Rules tab (`/strategies/[strategy]/rules`).** The numbers the live rules
+version tests each stock with: one row per rule (role, weight as a share of the
+score, and its parameters from `GetStrategyVersion`), the universe and data
+policy, and this strategy's changelog entries. It is ISR, indexable, listed in
+`isr-pages.json`, the sitemap and `STRATEGY_ROUTES`. It never repeats the rule
+wording (the Overview's `StrategyPanel` owns it), and it renders no Edit a copy
+control until the `variants` capability ships. The recipe lines wait for the
+recipe fields on the wire (PR-12a).
+
 ### Landmines
 
 - **A view change needs its Go port and its parity fixtures moved together.** `features.AsOf` and `features.Regime` port 000130's `mv_price_features` and `mv_market_regime`, and the parity suite reads the view text from 000130 itself. Redefining either view in a new migration without the port fails the suite; changing the port without the view fails it too. Products that feed a comparison (dollar volume, the RS subtraction) carry an explicit `float64(...)`: arm64 fuses an unrounded `a*b+c` and amd64 does not, so the stored value would depend on GOARCH. The index tolerance is seven days at each end of the RS lookup.
