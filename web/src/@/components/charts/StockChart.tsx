@@ -24,7 +24,13 @@ import { volumeBarAt } from "./volume-bars";
 import { AXIS_NUM_TICKS, axisMargin } from "./axis-margin";
 import { useChartScales, valueAxisLabels } from "./use-chart-scales";
 import { normalizeToPercentChange } from "./indicators";
-import { layoutLevels } from "./chart-levels";
+import { LABEL_CHAR_PX, layoutLevels } from "./chart-levels";
+import {
+  ANNOTATION_FILL,
+  EVENT_FILL,
+  layoutPointMarks,
+  type PointMarkGeometry,
+} from "./chart-events";
 import {
   LEGEND_GAP_PX,
   LEGEND_HEADROOM_PX,
@@ -64,7 +70,9 @@ import {
 } from "./chart-tooltip";
 import { useCoarsePointer } from "~/@/hooks/use-coarse-pointer";
 import type {
+  ChartAnnotation,
   ChartBand,
+  ChartEvent,
   ChartLevel,
   ChartRegion,
   ChartMarker,
@@ -114,6 +122,9 @@ const NO_MARKERS: readonly ChartMarker[] = Object.freeze([]);
 const NO_INDICATORS: SeriesIndicator[] = [];
 const NO_OSCILLATORS: OscillatorSpec[] = [];
 const NO_END_LABELS: ReturnType<typeof layoutEndLabels> = [];
+const NO_EVENTS: readonly ChartEvent[] = Object.freeze([]);
+const NO_ANNOTATIONS: readonly ChartAnnotation[] = Object.freeze([]);
+const NO_POINT_MARKS: PointMarkGeometry[] = [];
 
 /** The rect attributes that paint a region's tone (chart-regions.ts). */
 function regionAttrs(tone: ChartRegion["tone"]) {
@@ -169,6 +180,8 @@ export function StockChartInner({
   levels = NO_LEVELS,
   bands = NO_BANDS,
   markers = NO_MARKERS,
+  events = NO_EVENTS,
+  annotations = NO_ANNOTATIONS,
   leftAxis,
   rightAxis,
   viewMode = "absolute",
@@ -470,6 +483,38 @@ export function StockChartInner({
     if (!items.length) return NO_END_LABELS;
     return layoutEndLabels(items, { innerW, innerH: mainH });
   }, [series, leftAxis, rightAxis, scaleForAxis, innerW, mainH]);
+
+  // Dots on the series (events) and value callouts (annotations): pure, clipped
+  // to the plot. Off (the shared empty list) unless a caller passes one.
+  const pointMarks = useMemo(() => {
+    if (!events.length && !annotations.length) return NO_POINT_MARKS;
+    return layoutPointMarks(
+      [
+        ...events.map((e) => ({
+          kind: "event" as const,
+          t: e.t,
+          v: e.v,
+          axis: e.axis ?? "left",
+          label: e.label,
+          fill: EVENT_FILL[e.tone],
+        })),
+        ...annotations.map((a) => ({
+          kind: "annotation" as const,
+          t: a.t,
+          v: a.v,
+          axis: a.axis ?? "left",
+          label: a.label,
+          fill: ANNOTATION_FILL,
+        })),
+      ],
+      {
+        x: (t) => dateScale(t) ?? NaN,
+        yFor: (axis) => (v) => scaleForAxis(axis)(v) ?? NaN,
+        innerW,
+        innerH: mainH,
+      },
+    );
+  }, [events, annotations, dateScale, scaleForAxis, innerW, mainH]);
 
   // Reference geometry (strategy levels): pure, clipped to the plot, recomputed
   // only when the scales change or a caller passes new arrays (an omitted prop is
@@ -1148,6 +1193,33 @@ export function StockChartInner({
               gradientId={`${gid}-grad-${i}`}
             />
           ))}
+          {pointMarks.length > 0 && (
+            <g data-chart="point-marks" pointerEvents="none">
+              {pointMarks.map((m, i) => (
+                <g key={`mark-${i}`} data-chart-mark={m.kind}>
+                  <circle
+                    cx={m.x}
+                    cy={m.y}
+                    r={3.5}
+                    style={{ fill: m.fill }}
+                    stroke="hsl(var(--background))"
+                    strokeWidth={1.5}
+                  />
+                  {m.label ? (
+                    <text
+                      x={m.labelX}
+                      y={m.labelY}
+                      textAnchor={m.labelAnchor}
+                      fontSize={10}
+                      fill={chartTheme.crosshair}
+                    >
+                      {m.label}
+                    </text>
+                  ) : null}
+                </g>
+              ))}
+            </g>
+          )}
           {endLabels.length > 0 && (
             <g data-chart="end-labels" pointerEvents="none">
               {endLabels.map((l) => (
@@ -1256,6 +1328,19 @@ export function StockChartInner({
                 strokeWidth={1}
                 strokeDasharray={l.dash}
               />
+              {l.tag ? (
+                <rect
+                  data-chart-level-tag
+                  x={l.labelX - l.label.length * LABEL_CHAR_PX - 3}
+                  y={l.labelY - 10}
+                  width={l.label.length * LABEL_CHAR_PX + 6}
+                  height={14}
+                  rx={2}
+                  style={{ fill: "hsl(var(--card))" }}
+                  stroke={l.color}
+                  strokeWidth={1}
+                />
+              ) : null}
               <text
                 x={l.labelX}
                 y={l.labelY}

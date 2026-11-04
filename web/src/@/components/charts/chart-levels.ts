@@ -1,6 +1,8 @@
 import type { ChartBand, ChartLevel, ChartMarker } from "./types";
 
 export interface LevelGeometry {
+  /** Boxed on a card-coloured tag (ChartLevel.tag). */
+  tag?: boolean;
   x1: number;
   x2: number;
   y: number;
@@ -37,7 +39,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 // The chart draws labels in 10 px type, about 6 px a character. Layout cannot
 // measure text, so a label's width is an estimate, enough to keep the label
 // inside the plot.
-const LABEL_CHAR_PX = 6;
+export const LABEL_CHAR_PX = 6;
 // A label sits this far from the line it names: above a level, beside a marker.
 export const LABEL_INSET = 4;
 // The closest two level labels' baselines may be: 10 px type and a pixel of air.
@@ -127,6 +129,7 @@ export function layoutLevels(opts: {
     label: level.label,
     color: level.color,
     dash: level.dash,
+    tag: level.tag,
   }));
 
   const bands: BandGeometry[] = [];

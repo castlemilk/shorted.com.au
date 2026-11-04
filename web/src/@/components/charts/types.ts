@@ -109,6 +109,10 @@ export interface StockChartProps {
   bands?: readonly ChartBand[];
   /** Vertical session markers (a breakout). */
   markers?: readonly ChartMarker[];
+  /** Dots on a series at a session (an entry, an exit). Off when absent. */
+  events?: readonly ChartEvent[];
+  /** Value callouts beside a point (a trough). Off when absent. */
+  annotations?: readonly ChartAnnotation[];
   leftAxis?: AxisSpec;
   rightAxis?: AxisSpec;
   viewMode?: "absolute" | "normalized"; // default "absolute"
@@ -163,6 +167,30 @@ export interface ChartLevel {
   dash?: string;
   from?: number; // epoch ms
   to?: number; // epoch ms
+  /** Box the label on a card-coloured tag, so a level reads as a price (a pivot, a last close). */
+  tag?: boolean;
+}
+
+/**
+ * A dot on a series at a point in time: a session the reader should see, such as
+ * an entry (amber) or an exit (clay rust). `neutral` is the foreground.
+ */
+export interface ChartEvent {
+  t: number; // epoch ms
+  v: number;
+  tone: "entry" | "exit" | "neutral";
+  label?: string;
+  /** Which axis `v` is read against. Default "left". */
+  axis?: "left" | "right";
+}
+
+/** A value callout beside a point, such as a drawdown's trough. */
+export interface ChartAnnotation {
+  t: number; // epoch ms
+  v: number;
+  label: string;
+  /** Which axis `v` is read against. Default "left". */
+  axis?: "left" | "right";
 }
 
 /** A shaded value band between `low` and `high` over a time span. */

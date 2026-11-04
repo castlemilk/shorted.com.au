@@ -75,3 +75,50 @@ describe("StockChart regions", () => {
     expect(container.querySelector('rect[fill="#ef4444"]')).not.toBeNull();
   });
 });
+
+describe("StockChart level tags", () => {
+  it("boxes a tagged level's label and leaves an untagged one unboxed", () => {
+    const { container } = renderChart({
+      levels: [
+        { axis: "left", value: 105, label: "Pivot 105", color: "#aa0000" },
+        { axis: "left", value: 103, label: "Last 103", color: "#00aa00", tag: true },
+      ],
+    });
+    const tags = container.querySelectorAll("[data-chart-level-tag]");
+    expect(tags).toHaveLength(1);
+    expect(tags[0]?.getAttribute("stroke")).toBe("#00aa00");
+  });
+});
+
+describe("StockChart events and annotations", () => {
+  const entry = { t: T0 + 3 * DAY, v: 103, tone: "entry" as const, label: "Entry" };
+
+  it("draws no point mark unless a caller passes one", () => {
+    const { container } = renderChart();
+    expect(container.querySelector('[data-chart="point-marks"]')).toBeNull();
+  });
+
+  it("draws an event as a dot in its tone's token, with its label", () => {
+    const { container } = renderChart({ events: [entry] });
+    const mark = container.querySelector('[data-chart-mark="event"]');
+    expect(mark?.querySelector("circle")?.getAttribute("style")).toContain("--primary");
+    expect(mark?.querySelector("text")?.textContent).toBe("Entry");
+  });
+
+  it("paints an exit in the clay rust token, not red", () => {
+    const { container } = renderChart({
+      events: [{ t: T0 + 5 * DAY, v: 105, tone: "exit" }],
+    });
+    const circle = container.querySelector('[data-chart-mark="event"] circle');
+    expect(circle?.getAttribute("style")).toContain("--accent");
+    expect(container.innerHTML).not.toMatch(/#ef4444|#22c55e/);
+  });
+
+  it("draws an annotation as a dot and its callout", () => {
+    const { container } = renderChart({
+      annotations: [{ t: T0 + 6 * DAY, v: 104, label: "−18.6%" }],
+    });
+    const mark = container.querySelector('[data-chart-mark="annotation"]');
+    expect(mark?.querySelector("text")?.textContent).toBe("−18.6%");
+  });
+});
