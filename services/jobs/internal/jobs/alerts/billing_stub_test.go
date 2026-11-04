@@ -26,11 +26,15 @@ type stubBilling struct {
 	// failUser answers one owner's lookups with a code, as a per-user failure does
 	// (an owner at their quota, say), until cleared.
 	failUser map[string]connect.Code
+	// lastUA is the User-Agent of the most recent lookup. The alerts job's marker is
+	// what the API's rate-limit exemption keys on, so a test pins it here.
+	lastUA string
 }
 
 func (s *stubBilling) GetMySubscription(_ context.Context, req *connect.Request[shortsv1alpha1.GetMySubscriptionRequest]) (*connect.Response[shortsv1alpha1.GetMySubscriptionResponse], error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.lastUA = req.Header().Get("User-Agent")
 	if req.Header().Get("x-internal-secret") != stubSecret {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("bad internal secret"))
 	}
@@ -88,4 +92,11 @@ func (s *stubBilling) setUnavailable(n int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.unavailable = n
+}
+
+// userAgent is the User-Agent of the most recent lookup, read under the lock.
+func (s *stubBilling) userAgent() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastUA
 }
