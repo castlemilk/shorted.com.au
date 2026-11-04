@@ -1,6 +1,7 @@
 package features
 
 import (
+	"math"
 	"testing"
 
 	"cloud.google.com/go/civil"
@@ -33,9 +34,10 @@ func TestRegimeLabels(t *testing.T) {
 		{"uptrend", 250, func(i int) float64 { return float64(i + 1) }, engine.RegimeUptrend},
 		// Falling: the close below the 200-session average.
 		{"downtrend", 250, func(i int) float64 { return float64(250 - i) }, engine.RegimeDowntrend},
-		// 100 sessions at 200, 99 at 100, then 160: the close is above the 200-day
-		// average (150.3) but below the 50-day one's lead (the 50-day is 102.2),
-		// so it is neutral: above the slow average, not in an uptrend.
+		// 100 sessions at 200, 99 at 100, then 160. The 50-session average is
+		// 101.2 and the 200-session average is 150.3. The close is above the
+		// 200-session average, but the 50 is below it, so the label is neutral:
+		// above the slow average and not an uptrend.
 		{"neutral", 200, func(i int) float64 {
 			switch {
 			case i < 100:
@@ -72,8 +74,8 @@ func TestRegimeIsUnknownWithoutTwoHundredSessions(t *testing.T) {
 	}
 }
 
-// Index bars after D, or unusable closes, do not move the regime at D.
-func TestRegimeIgnoresBarsAfterTheSessionAndUnusableCloses(t *testing.T) {
+// Index bars after D do not move the regime at D.
+func TestRegimeIgnoresBarsAfterTheSession(t *testing.T) {
 	last := day(t, "2024-09-30")
 	base := indexSeries(last, 250, func(i int) float64 { return float64(i + 1) })
 	want := Regime(base, last)
@@ -83,7 +85,41 @@ func TestRegimeIgnoresBarsAfterTheSessionAndUnusableCloses(t *testing.T) {
 		IndexBar{Date: last.AddDays(2), Close: -1},
 	)
 	if got := Regime(extended, last); !regimeEqual(got, want) {
-		t.Fatalf("regime read past D or a non-positive close:\n got %+v\nwant %+v", got, want)
+		t.Fatalf("regime read past D:\n got %+v\nwant %+v", got, want)
+	}
+}
+
+// Inside the window, an index close that is NULL, NaN, zero or infinite is not
+// a session, and a high that is not a finite positive number reads as the
+// close. The bad values are placed in the 52-week range and in the averages'
+// windows, where any of them would change the regime if it were read.
+func TestRegimeSkipsUnusableClosesAndHighsInsideTheWindow(t *testing.T) {
+	last := day(t, "2024-09-30")
+	junk := indexSeries(last, 250, func(i int) float64 { return float64(i + 1) })
+	junk[240].Close = math.NaN()
+	junk[230].Close = 0
+	junk[100].Close = math.Inf(1)
+	junk[200].High = math.Inf(1)
+	junk[150].High = math.NaN()
+	junk[60].High = -5
+
+	// The same series with the unusable sessions removed, and the bad highs
+	// replaced by their close: the regime must read the two identically.
+	var clean []IndexBar
+	for i, b := range junk {
+		switch i {
+		case 240, 230, 100:
+			continue
+		case 200, 150, 60:
+			b.High = b.Close
+		}
+		clean = append(clean, b)
+	}
+	if got, want := Regime(junk, last), Regime(clean, last); !regimeEqual(got, want) {
+		t.Fatalf("unusable index values moved the regime:\n got %+v\nwant %+v", got, want)
+	}
+	if got := Regime(junk, last); got.PctOff52wHigh == nil || math.IsNaN(*got.PctOff52wHigh) {
+		t.Fatalf("pct_off_52w_high = %v, want a finite value", got.PctOff52wHigh)
 	}
 }
 

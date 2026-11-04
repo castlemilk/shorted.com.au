@@ -479,6 +479,7 @@ func TestVolumeAverageMinimums(t *testing.T) {
 		wantAverage bool // 20 of the 50 before the newest
 	}{
 		{9, false, false},
+		{10, true, false},
 		{12, true, false},
 		{21, true, true},
 	}
