@@ -44,6 +44,11 @@ export interface StrategyLevelsChartProps {
   fits: StockStrategyFitRow[];
   priceFeatures: StockPriceFeatures | null;
   initialStrategyId?: string | null;
+  /**
+   * Hides the strategy toggle. The Signals tab's evidence panel is about one
+   * strategy, so it passes its fit alone and the chart draws that strategy.
+   */
+  hideSelector?: boolean;
 }
 
 export function StrategyLevelsChart({
@@ -51,11 +56,12 @@ export function StrategyLevelsChart({
   fits,
   priceFeatures,
   initialStrategyId,
+  hideSelector = false,
 }: StrategyLevelsChartProps) {
   const [selected, setSelected] = useState<string | null>(
     () => initialStrategyId ?? defaultStrategyId(fits),
   );
-  const { price, short, anyLoading, isError } = useStockChartData(
+  const { price, short, volume, anyLoading, isError } = useStockChartData(
     stockCode,
     PERIOD,
   );
@@ -132,28 +138,30 @@ export function StrategyLevelsChart({
 
   return (
     <div className="flex flex-col gap-3" data-strategy-chart={selected ?? ""}>
-      <div
-        className="flex flex-wrap items-center gap-1 rounded-md border p-0.5"
-        role="group"
-        aria-label="Strategy levels"
-      >
-        {fits.map((f) => (
-          <button
-            key={f.strategyId}
-            type="button"
-            onClick={() => setSelected(f.strategyId)}
-            aria-pressed={selected === f.strategyId}
-            className={cn(
-              "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-              selected === f.strategyId
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-            )}
-          >
-            {f.strategyName}
-          </button>
-        ))}
-      </div>
+      {hideSelector ? null : (
+        <div
+          className="flex flex-wrap items-center gap-1 rounded-md border p-0.5"
+          role="group"
+          aria-label="Strategy levels"
+        >
+          {fits.map((f) => (
+            <button
+              key={f.strategyId}
+              type="button"
+              onClick={() => setSelected(f.strategyId)}
+              aria-pressed={selected === f.strategyId}
+              className={cn(
+                "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                selected === f.strategyId
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              )}
+            >
+              {f.strategyName}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isError ? (
         <div className="flex h-[360px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
@@ -162,6 +170,7 @@ export function StrategyLevelsChart({
       ) : series.length ? (
         <StockChart
           series={series}
+          volume={volume}
           indicators={indicators}
           levels={levelSet.levels}
           bands={levelSet.bands}

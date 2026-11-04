@@ -1,3 +1,4 @@
+import { INDICATOR_COLORS } from "~/@/components/charts/chart-theme";
 import type {
   ChartBand,
   ChartLevel,
@@ -31,12 +32,15 @@ export interface LevelSet {
   smaPeriods: number[];
 }
 
+// The moving averages take the indicator tokens (the chart theme's own
+// INDICATOR_COLORS), never the signal red or green: those mean the direction of a
+// number, and a line's colour is not a direction.
 export const LEVEL_COLORS = {
   pivot: "#f59e0b",
   base: "#3b82f6",
-  sma50: "#22c55e",
+  sma50: INDICATOR_COLORS.sma50,
   sma150: "#a855f7",
-  sma200: "#ef4444",
+  sma200: INDICATOR_COLORS.sma200,
   range: "#94a3b8",
   breakout: "#f97316",
 } as const;
