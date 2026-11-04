@@ -4,16 +4,19 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
 // Rule prose is generated from a version's own parameters, so the text a
 // reader sees states the thresholds the version tests. A template names each
-// parameter as {key} (the value), {abs:key} (its magnitude) or {x100:key} (the
-// value times 100, for a fraction shown as a percentage). Values render with
-// %g.
+// parameter as {key} (the value), {abs:key} (its magnitude), {x100:key} (the
+// value times 100, for a fraction shown as a percentage) or {aud:key} (the
+// value with thousands separators, for dollar amounts). Values never print in
+// exponent form: a threshold of one million reads 1,000,000 under {aud:key}
+// and 1000000 under {key}, never 1e+06.
 
-var placeholder = regexp.MustCompile(`\{(abs:|x100:)?([a-z_0-9]+)\}`)
+var placeholder = regexp.MustCompile(`\{(abs:|x100:|aud:)?([a-z_0-9]+)\}`)
 
 // proseTemplates holds one template per rule id.
 var proseTemplates = map[string]string{
@@ -24,7 +27,7 @@ var proseTemplates = map[string]string{
 	"breakout":              "Pass when any of the last {window_sessions} sessions closed above the highest high of the {prior_sessions} sessions before it, on volume at least {volume_multiple} times the {volume_sessions}-session average.",
 	"regime":                "Read from the S&P/ASX 200: pass unless it trades below its {sma_slow}-day average, uptrend when it is above its {sma_fast}-day average and that average is above the {sma_slow}-day average.",
 	"rs":                    "Pass when the stock's {lookback_months}-month return beats the S&P/ASX 200's over the same period, so relative strength is above {min_points} points.",
-	"liquidity":             "Pass when the average daily turnover over the last {sessions} sessions is at least A${min_aud}.",
+	"liquidity":             "Pass when the average daily turnover over the last {sessions} sessions is at least A${aud:min_aud}.",
 	"near_high":             "Pass when the close is no more than {abs:max_off_pct}% below its 52-week high.",
 	"rs_leader":             "Pass when the stock's 6-month relative strength is at or above the {x100:quantile}th percentile of every stock evaluated that day.",
 	"trend_stack":           "Pass when the close is above the {sma_mid}-day average and the {sma_mid}-day average is above the {sma_slow}-day average.",
@@ -64,8 +67,10 @@ func RenderRule(r RuleSpec) (string, error) {
 			v = math.Abs(v)
 		case "x100:":
 			v = math.Round(v*100*1e9) / 1e9
+		case "aud:":
+			return GroupThousands(FormatNumber(v))
 		}
-		return fmt.Sprintf("%g", v)
+		return FormatNumber(v)
 	})
 	if len(missing) > 0 {
 		return "", fmt.Errorf("rule %q: template uses parameters the rule does not have: %s", r.ID, strings.Join(missing, ", "))
@@ -82,4 +87,32 @@ func ProseTemplateKeys(ruleID string) []string {
 		keys = append(keys, m[2])
 	}
 	return keys
+}
+
+// FormatNumber renders a parameter in plain decimal notation: the shortest
+// form that round-trips, never an exponent.
+func FormatNumber(v float64) string {
+	return strconv.FormatFloat(v, 'f', -1, 64)
+}
+
+// GroupThousands inserts a comma every three digits of the integer part of a
+// FormatNumber result, so dollar amounts read the way the rest of the product
+// writes them. It leaves the sign and any fraction as they are.
+func GroupThousands(s string) string {
+	sign := ""
+	if strings.HasPrefix(s, "-") {
+		sign, s = "-", s[1:]
+	}
+	intPart, frac := s, ""
+	if i := strings.IndexByte(s, '.'); i >= 0 {
+		intPart, frac = s[:i], s[i:]
+	}
+	var b strings.Builder
+	for i, c := range intPart {
+		if i > 0 && (len(intPart)-i)%3 == 0 {
+			b.WriteByte(',')
+		}
+		b.WriteRune(c)
+	}
+	return sign + b.String() + frac
 }

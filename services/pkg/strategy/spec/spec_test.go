@@ -1,20 +1,22 @@
 package spec
 
 import (
-	"bufio"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
 
 // TestSpecHashesArePinned holds the rules hash of every registered version to
 // the golden file. Changing a number, a rule, a weight or the layout changes a
-// hash, and the golden must change in the same commit, with a changelog entry
-// and an engine version bump (TestEngineVersionBumpedWithGoldens).
+// hash, and the golden must change in the same commit, with a changelog entry.
+// The engine version is not part of this: it changes only when the engine's
+// output does (engine.TestEngineVersionBumpedWithGoldens).
 func TestSpecHashesArePinned(t *testing.T) {
 	want := readGolden(t, filepath.Join("testdata", "spec_hashes.golden"))
 	var got []string
@@ -33,29 +35,24 @@ func TestSpecHashesArePinned(t *testing.T) {
 
 func readGolden(t *testing.T, path string) []string {
 	t.Helper()
-	f, err := os.Open(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("open golden: %v", err)
+		t.Fatalf("read golden: %v", err)
 	}
-	defer f.Close()
 	var lines []string
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 		lines = append(lines, line)
 	}
-	if err := sc.Err(); err != nil {
-		t.Fatalf("read golden: %v", err)
-	}
 	return lines
 }
 
 // TestCanonicalEncodingIsStable checks that the hash depends on the rules and
-// on nothing else: the label, the changelog, the known issues, the live flag
-// and the encoding's own run-to-run behaviour are outside it.
+// on nothing else: the label, the changelog, the known issues, the live flag and
+// the encoding's own run-to-run behaviour are outside it.
 func TestCanonicalEncodingIsStable(t *testing.T) {
 	base := Registry()[0]
 	h1, err := RulesHash(base.Spec)
@@ -165,6 +162,31 @@ func TestRegistryReturnsFreshCopies(t *testing.T) {
 	}
 }
 
+// TestRequiresCoverEveryRuleSource checks that each registered version lists,
+// in Requires, every data source its rules read, including the index behind the
+// relative-strength rules. Requires drives the "Not computable before" line, so
+// a missing source would hide the date a rule first has its inputs.
+func TestRequiresCoverEveryRuleSource(t *testing.T) {
+	for _, r := range Registry() {
+		have := map[string]bool{}
+		for _, q := range r.Spec.Requires {
+			have[q.Source] = true
+		}
+		for _, rule := range r.Spec.Rules {
+			for _, src := range ruleDefs[rule.ID].sources {
+				if !have[src] {
+					t.Errorf("%s: rule %s reads %s, which Requires does not list", r.Spec.StrategyID, rule.ID, src)
+				}
+			}
+		}
+	}
+	for _, id := range []string{"rs", "rs_leader"} {
+		if !contains(ruleDefs[id].sources, "index:XJO") {
+			t.Errorf("rule %s is relative to the index but its sources are %v", id, ruleDefs[id].sources)
+		}
+	}
+}
+
 // TestEvaluationProseStatesTheThresholds renders every rule of every
 // registered version and checks that each parameter the rule carries appears
 // in the text, so no threshold can be tested without being stated.
@@ -179,17 +201,22 @@ func TestEvaluationProseStatesTheThresholds(t *testing.T) {
 			if strings.Contains(text, "{") || strings.Contains(text, "}") {
 				t.Errorf("%s/%s: unrendered placeholder in %q", r.Spec.StrategyID, rule.ID, text)
 			}
+			if strings.Contains(text, "e+") {
+				t.Errorf("%s/%s: exponent form in %q", r.Spec.StrategyID, rule.ID, text)
+			}
 			keys := ProseTemplateKeys(rule.ID)
 			for key, v := range rule.Params {
 				if !contains(keys, key) {
 					t.Errorf("%s/%s: the template does not name parameter %q", r.Spec.StrategyID, rule.ID, key)
 					continue
 				}
-				// The value, its magnitude or its percentage form must appear.
+				// The value, its magnitude or its percentage form, plain or grouped.
 				forms := []string{
-					fmt.Sprintf("%g", v),
-					fmt.Sprintf("%g", math.Abs(v)),
-					fmt.Sprintf("%g", math.Round(v*100*1e9)/1e9),
+					FormatNumber(v),
+					FormatNumber(math.Abs(v)),
+					FormatNumber(math.Round(v*100*1e9) / 1e9),
+					GroupThousands(FormatNumber(v)),
+					GroupThousands(FormatNumber(math.Abs(v))),
 				}
 				found := false
 				for _, f := range forms {
@@ -210,8 +237,8 @@ func TestEvaluationProseStatesTheThresholds(t *testing.T) {
 	}
 }
 
-// TestProseRendersValues pins the rendering of the placeholder forms on one
-// rule, so a change to %g or to a form shows up here.
+// TestProseRendersValues pins the rendering of the placeholder forms, so a
+// change to a form, or a value printed in exponent form, shows up here.
 func TestProseRendersValues(t *testing.T) {
 	text, err := RenderRule(RuleSpec{ID: "near_high", Params: map[string]float64{"max_off_pct": -5}})
 	if err != nil {
@@ -230,71 +257,179 @@ func TestProseRendersValues(t *testing.T) {
 	if _, err := RenderRule(RuleSpec{ID: "growth", Params: map[string]float64{}}); err == nil {
 		t.Fatal("a template with a missing parameter rendered without error")
 	}
-}
 
-// fs1Literal ties one fs1 parameter to the SQL text it was taken from.
-type fs1Literal struct {
-	file  string
-	match *regexp.Regexp
-}
-
-// TestFS1ParamsMatchMigrationLiterals reads the fs1 parameters back from the
-// SQL they were ported from: migration 000130 for the price features and the
-// regime, and 000080 for days to cover. Each parameter must appear in its
-// migration with exactly its value, so a changed literal in either place fails.
-func TestFS1ParamsMatchMigrationLiterals(t *testing.T) {
-	const (
-		m130 = "000130_add_price_features.up.sql"
-		m080 = "000080_mv_logo_icons.up.sql"
-	)
-	literals := map[string]fs1Literal{
-		"history_calendar_days":     {m130, regexp.MustCompile(`CURRENT_DATE - 400\b`)},
-		"min_sessions":              {m130, regexp.MustCompile(`n_sessions\s*>=\s*60\b`)},
-		"agg_sessions":              {m130, regexp.MustCompile(`rn\s*<=\s*260\b`)},
-		"breakout_prior_sessions":   {m130, regexp.MustCompile(`ROWS BETWEEN 40 PRECEDING AND 1 PRECEDING`)},
-		"breakout_volume_sessions":  {m130, regexp.MustCompile(`ROWS BETWEEN 50 PRECEDING AND 1 PRECEDING`)},
-		"breakout_volume_min_n":     {m130, regexp.MustCompile(`prior50_n\s*>=\s*20\b`)},
-		"breakout_volume_multiple":  {m130, regexp.MustCompile(`s\.volume\s*>=\s*1\.5\s*\*\s*s\.prior50_avg_volume`)},
-		"breakout_window":           {m130, regexp.MustCompile(`r\.rn\s*<=\s*5\s+AND\s+r\.is_breakout`)},
-		"base_window":               {m130, regexp.MustCompile(`r\.anchor_rn \+ 40\b`)},
-		"touch_ratio":               {m130, regexp.MustCompile(`r\.high\s*>=\s*0\.98\s*\*\s*r\.pivot`)},
-		"high_low_sessions":         {m130, regexp.MustCompile(`r\.rn\s*<=\s*252\b`)},
-		"dv_sessions":               {m130, regexp.MustCompile(`avg\(r\.close \* r\.volume::float8\) FILTER \(WHERE r\.rn\s*<=\s*20\)`)},
-		"dv_min_n":                  {m130, regexp.MustCompile(`count\(\*\) FILTER \(WHERE r\.rn\s*<=\s*20\)\s*>=\s*10\b`)},
-		"avgvol_from":               {m130, regexp.MustCompile(`r\.rn BETWEEN 2 AND 51\)`)},
-		"avgvol_to":                 {m130, regexp.MustCompile(`r\.rn BETWEEN 2 AND 51\)`)},
-		"avgvol_min_n":              {m130, regexp.MustCompile(`count\(\*\) FILTER \(WHERE r\.rn BETWEEN 2 AND 51\)\s*>=\s*20\b`)},
-		"ret_anchor_tolerance_days": {m130, regexp.MustCompile(`INTERVAL '10 days'`)},
-		"rs_index_tolerance_days":   {m130, regexp.MustCompile(`r\.as_of - 7\b`)},
-		"dtc_window_days":           {m080, regexp.MustCompile(`CURRENT_DATE - '35 days'::interval\)`)},
-		"dtc_min_rows":              {m080, regexp.MustCompile(`HAVING \(count\(\*\) >= 5\)`)},
+	// Dollar thresholds at and above the scale the variants reach (3.6) print in
+	// plain decimal notation, grouped.
+	for _, tc := range []struct {
+		min  float64
+		want string
+	}{
+		{250000, "A$250,000."},
+		{1000000, "A$1,000,000."},
+		{2500000, "A$2,500,000."},
+		{10000000, "A$10,000,000."},
+	} {
+		text, err := RenderRule(RuleSpec{ID: "liquidity", Params: map[string]float64{"min_aud": tc.min, "sessions": 20}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasSuffix(text, tc.want) {
+			t.Errorf("min_aud %g rendered %q, want it to end %q", tc.min, text, tc.want)
+		}
 	}
+}
 
-	reg, ok := Live("zanger-breakout")
+func TestGroupThousands(t *testing.T) {
+	for in, want := range map[string]string{
+		"0":          "0",
+		"123":        "123",
+		"1234":       "1,234",
+		"-1234567.5": "-1,234,567.5",
+		"10000000":   "10,000,000",
+	} {
+		if got := GroupThousands(in); got != want {
+			t.Errorf("GroupThousands(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// fs1Literal is one place the migrations state fs1 parameters: a pattern whose
+// capture groups are the numbers, in the order of params. A place agrees when
+// every one of its numbers equals the spec's value.
+type fs1Literal struct {
+	file   string
+	match  *regexp.Regexp
+	params []string
+}
+
+const (
+	migrationPriceFeatures = "000130_add_price_features.up.sql"
+	migrationDaysToCover   = "000080_mv_logo_icons.up.sql"
+)
+
+// fs1Literals ties every fs1 parameter to the SQL it was ported from.
+var fs1Literals = []fs1Literal{
+	{migrationPriceFeatures, regexp.MustCompile(`sp\.date\s*>=\s*CURRENT_DATE - (\d+)\b`), []string{"history_calendar_days"}},
+	{migrationPriceFeatures, regexp.MustCompile(`r\.n_sessions\s*>=\s*(\d+)\s+AND\s+r\.rn\s*<=\s*(\d+)\b`), []string{"min_sessions", "agg_sessions"}},
+	{migrationPriceFeatures, regexp.MustCompile(`BETWEEN\s+(\d+)\s+PRECEDING\s+AND\s+1\s+PRECEDING\)\s+AS\s+prior40_high`), []string{"breakout_prior_sessions"}},
+	{migrationPriceFeatures, regexp.MustCompile(`BETWEEN\s+(\d+)\s+PRECEDING\s+AND\s+1\s+PRECEDING\)\s+AS\s+prior50_avg_volume`), []string{"breakout_volume_sessions"}},
+	{migrationPriceFeatures, regexp.MustCompile(`prior50_n\s*>=\s*(\d+)\b`), []string{"breakout_volume_min_n"}},
+	{migrationPriceFeatures, regexp.MustCompile(`s\.volume\s*>=\s*([0-9.]+)\s*\*\s*s\.prior50_avg_volume`), []string{"breakout_volume_multiple"}},
+	{migrationPriceFeatures, regexp.MustCompile(`r\.rn\s*<=\s*(\d+)\s+AND\s+r\.is_breakout`), []string{"breakout_window"}},
+	{migrationPriceFeatures, regexp.MustCompile(`r\.anchor_rn \+ (\d+)\b`), []string{"base_window"}},
+	{migrationPriceFeatures, regexp.MustCompile(`r\.high\s*>=\s*([0-9.]+)\s*\*\s*r\.pivot`), []string{"touch_ratio"}},
+	{migrationPriceFeatures, regexp.MustCompile(`\(WHERE r\.rn\s*<=\s*(\d+)\)\s+AS\s+high_52w`), []string{"high_low_sessions"}},
+	{migrationPriceFeatures, regexp.MustCompile(`count\(\*\) FILTER \(WHERE r\.rn\s*<=\s*(\d+)\)\s*>=\s*(\d+)\b`), []string{"dv_sessions", "dv_min_n"}},
+	{migrationPriceFeatures, regexp.MustCompile(`avg\(r\.close \* r\.volume::float8\) FILTER \(WHERE r\.rn\s*<=\s*(\d+)\)`), []string{"dv_sessions"}},
+	{migrationPriceFeatures, regexp.MustCompile(`count\(\*\) FILTER \(WHERE r\.rn BETWEEN (\d+) AND (\d+)\)\s*>=\s*(\d+)\b`), []string{"avgvol_from", "avgvol_to", "avgvol_min_n"}},
+	{migrationPriceFeatures, regexp.MustCompile(`INTERVAL '(\d+) days'`), []string{"ret_anchor_tolerance_days"}},
+	{migrationPriceFeatures, regexp.MustCompile(`r\.as_of - (\d+)\b`), []string{"rs_index_tolerance_days"}},
+	{migrationDaysToCover, regexp.MustCompile(`CURRENT_DATE - '(\d+) days'::interval\)`), []string{"dtc_window_days"}},
+	{migrationDaysToCover, regexp.MustCompile(`HAVING \(count\(\*\) >= (\d+)\)`), []string{"dtc_min_rows"}},
+}
+
+// fs1Mismatches returns, sorted, each fs1 parameter that no literal in the
+// migration text states with its value. A parameter no literal names at all is
+// reported too.
+func fs1Mismatches(params map[string]float64, sql map[string]string) []string {
+	agreed := map[string]bool{}
+	for _, lit := range fs1Literals {
+		for _, m := range lit.match.FindAllStringSubmatch(sql[lit.file], -1) {
+			ok := true
+			for i, key := range lit.params {
+				want, has := params[key]
+				got, err := strconv.ParseFloat(m[i+1], 64)
+				if !has || err != nil || got != want {
+					ok = false
+					break
+				}
+			}
+			if ok {
+				for _, key := range lit.params {
+					agreed[key] = true
+				}
+				break
+			}
+		}
+	}
+	var out []string
+	for key, v := range params {
+		if !agreed[key] {
+			out = append(out, fmt.Sprintf("%s = %g", key, v))
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func loadMigrations(t *testing.T) map[string]string {
+	t.Helper()
+	sql := map[string]string{}
+	for _, file := range []string{migrationPriceFeatures, migrationDaysToCover} {
+		b, err := os.ReadFile(filepath.Join("..", "..", "..", "migrations", file))
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		sql[file] = string(b)
+	}
+	return sql
+}
+
+// TestFS1ParamsMatchMigrationLiterals holds the fs1 parameters of the live
+// version to the SQL they were ported from: migration 000130 for the price
+// features and the regime, and 000080 for days to cover. A changed value on
+// either side fails.
+func TestFS1ParamsMatchMigrationLiterals(t *testing.T) {
+	live, ok := Live("zanger-breakout")
 	if !ok {
 		t.Fatal("no live version for zanger-breakout")
 	}
-	got := reg.Spec.Features.Params
-	if len(got) != len(literals) {
-		t.Fatalf("fs1 carries %d parameters, the literal table has %d", len(got), len(literals))
+	for _, key := range fs1Mismatches(live.Spec.Features.Params, loadMigrations(t)) {
+		t.Errorf("fs1 %s: no migration literal states this value", key)
 	}
-	src := map[string]string{}
-	for key, lit := range literals {
-		if _, ok := got[key]; !ok {
-			t.Errorf("fs1 is missing parameter %q", key)
-			continue
-		}
-		if _, ok := src[lit.file]; !ok {
-			b, err := os.ReadFile(filepath.Join("..", "..", "..", "migrations", lit.file))
-			if err != nil {
-				t.Fatalf("read %s: %v", lit.file, err)
-			}
-			src[lit.file] = string(b)
-		}
-		if !lit.match.MatchString(src[lit.file]) {
-			t.Errorf("parameter %q = %g: %s has no matching literal (pattern %s)", key, got[key], lit.file, lit.match)
+}
+
+// TestFS1LiteralsCatchAChangedValue shows that the check fails when a value
+// moves on the spec side, so the pass above means something.
+func TestFS1LiteralsCatchAChangedValue(t *testing.T) {
+	sql := loadMigrations(t)
+	live, _ := Live("zanger-breakout")
+	if got := fs1Mismatches(live.Spec.Features.Params, sql); len(got) != 0 {
+		t.Fatalf("the live fs1 parameters already disagree with the migrations: %v", got)
+	}
+	for _, tc := range []struct {
+		key string
+		val float64
+	}{
+		{"touch_ratio", 0.97},
+		{"history_calendar_days", 365},
+		{"min_sessions", 61},
+		{"dtc_window_days", 20},
+		{"avgvol_to", 50},
+	} {
+		params := copyParams(live.Spec.Features.Params)
+		params[tc.key] = tc.val
+		got := fs1Mismatches(params, sql)
+		// A literal that states several numbers together (a comparison and its
+		// window, say) fails as one, so the siblings may be listed too.
+		if !hasKeyPrefix(got, tc.key+" ") {
+			t.Errorf("%s = %g: mismatches %v, want %s listed", tc.key, tc.val, got, tc.key)
 		}
 	}
+	params := copyParams(live.Spec.Features.Params)
+	params["unlisted_param"] = 1
+	if got := fs1Mismatches(params, sql); !contains(got, "unlisted_param = 1") {
+		t.Errorf("a parameter no literal names was not reported: %v", got)
+	}
+}
+
+func hasKeyPrefix(list []string, prefix string) bool {
+	for _, v := range list {
+		if strings.HasPrefix(v, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func contains(list []string, s string) bool {
