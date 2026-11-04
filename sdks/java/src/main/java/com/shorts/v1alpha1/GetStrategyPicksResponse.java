@@ -264,7 +264,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Counts of every pick by status, over the whole ranked list before the
-   * status filter and paging.
+   * status filter, the fundamentals filter and paging.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -277,7 +277,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Counts of every pick by status, over the whole ranked list before the
-   * status filter and paging.
+   * status filter, the fundamentals filter and paging.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -290,7 +290,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Counts of every pick by status, over the whole ranked list before the
-   * status filter and paging.
+   * status filter, the fundamentals filter and paging.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -437,7 +437,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object shortAvailableDate_ = "";
   /**
    * <pre>
-   * When that report became public.
+   * When that report became public; empty for a report dated before 2026.
    * </pre>
    *
    * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
@@ -458,7 +458,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * When that report became public.
+   * When that report became public; empty for a report dated before 2026.
    * </pre>
    *
    * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
@@ -483,7 +483,7 @@ private static final long serialVersionUID = 0L;
   private boolean stale_ = false;
   /**
    * <pre>
-   * True when the picks are older than the update schedule allows.
+   * True when the index has closed a session the prices have not reached (the data is delayed).
    * </pre>
    *
    * <code>bool stale = 14 [json_name = "stale"];</code>
@@ -2123,7 +2123,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Counts of every pick by status, over the whole ranked list before the
-     * status filter and paging.
+     * status filter, the fundamentals filter and paging.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -2135,7 +2135,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Counts of every pick by status, over the whole ranked list before the
-     * status filter and paging.
+     * status filter, the fundamentals filter and paging.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -2151,7 +2151,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Counts of every pick by status, over the whole ranked list before the
-     * status filter and paging.
+     * status filter, the fundamentals filter and paging.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -2172,7 +2172,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Counts of every pick by status, over the whole ranked list before the
-     * status filter and paging.
+     * status filter, the fundamentals filter and paging.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -2191,7 +2191,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Counts of every pick by status, over the whole ranked list before the
-     * status filter and paging.
+     * status filter, the fundamentals filter and paging.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -2217,7 +2217,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Counts of every pick by status, over the whole ranked list before the
-     * status filter and paging.
+     * status filter, the fundamentals filter and paging.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -2235,7 +2235,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Counts of every pick by status, over the whole ranked list before the
-     * status filter and paging.
+     * status filter, the fundamentals filter and paging.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -2248,7 +2248,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Counts of every pick by status, over the whole ranked list before the
-     * status filter and paging.
+     * status filter, the fundamentals filter and paging.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -2264,7 +2264,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Counts of every pick by status, over the whole ranked list before the
-     * status filter and paging.
+     * status filter, the fundamentals filter and paging.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
@@ -2627,7 +2627,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object shortAvailableDate_ = "";
     /**
      * <pre>
-     * When that report became public.
+     * When that report became public; empty for a report dated before 2026.
      * </pre>
      *
      * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
@@ -2647,7 +2647,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * When that report became public.
+     * When that report became public; empty for a report dated before 2026.
      * </pre>
      *
      * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
@@ -2668,7 +2668,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * When that report became public.
+     * When that report became public; empty for a report dated before 2026.
      * </pre>
      *
      * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
@@ -2685,7 +2685,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * When that report became public.
+     * When that report became public; empty for a report dated before 2026.
      * </pre>
      *
      * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
@@ -2699,7 +2699,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * When that report became public.
+     * When that report became public; empty for a report dated before 2026.
      * </pre>
      *
      * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
@@ -2719,7 +2719,7 @@ private static final long serialVersionUID = 0L;
     private boolean stale_ ;
     /**
      * <pre>
-     * True when the picks are older than the update schedule allows.
+     * True when the index has closed a session the prices have not reached (the data is delayed).
      * </pre>
      *
      * <code>bool stale = 14 [json_name = "stale"];</code>
@@ -2731,7 +2731,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * True when the picks are older than the update schedule allows.
+     * True when the index has closed a session the prices have not reached (the data is delayed).
      * </pre>
      *
      * <code>bool stale = 14 [json_name = "stale"];</code>
@@ -2747,7 +2747,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * True when the picks are older than the update schedule allows.
+     * True when the index has closed a session the prices have not reached (the data is delayed).
      * </pre>
      *
      * <code>bool stale = 14 [json_name = "stale"];</code>

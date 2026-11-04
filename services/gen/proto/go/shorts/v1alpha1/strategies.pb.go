@@ -140,12 +140,12 @@ type StrategyRule struct {
 	Evaluation    string                 `protobuf:"bytes,4,opt,name=evaluation,proto3" json:"evaluation,omitempty"`                           // Exactly how we test it, with thresholds.
 	Core          bool                   `protobuf:"varint,5,opt,name=core,proto3" json:"core,omitempty"`                                      // Must pass for status "triggered".
 	DataSource    string                 `protobuf:"bytes,6,opt,name=data_source,json=dataSource,proto3" json:"data_source,omitempty"`         // "stock_fundamentals", "stock_prices", "index_prices" or "asic_shorts".
-	Trigger       bool                   `protobuf:"varint,7,opt,name=trigger,proto3" json:"trigger,omitempty"`                                // A trigger: a core rule a setup may still fail (the breakout, the new-high or leadership rule).
+	Trigger       bool                   `protobuf:"varint,7,opt,name=trigger,proto3" json:"trigger,omitempty"`                                // A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
 	Weight        float64                `protobuf:"fixed64,8,opt,name=weight,proto3" json:"weight,omitempty"`                                 // Share of the score this rule carries, 0-1; the weights of a strategy sum to 1.
 	Threshold     float64                `protobuf:"fixed64,9,opt,name=threshold,proto3" json:"threshold,omitempty"`                           // The number the rule tests, in unit. Meaningful only when has_threshold.
-	HasThreshold  bool                   `protobuf:"varint,10,opt,name=has_threshold,json=hasThreshold,proto3" json:"has_threshold,omitempty"` // False for a rule with no single number to test (the regime, the market trend).
-	Unit          string                 `protobuf:"bytes,11,opt,name=unit,proto3" json:"unit,omitempty"`                                      // "%", "x", "A$", "days", "points" or empty.
-	Comparator    string                 `protobuf:"bytes,12,opt,name=comparator,proto3" json:"comparator,omitempty"`                          // ">=", "<=", "above", "in top quartile" and the like.
+	HasThreshold  bool                   `protobuf:"varint,10,opt,name=has_threshold,json=hasThreshold,proto3" json:"has_threshold,omitempty"` // False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader).
+	Unit          string                 `protobuf:"bytes,11,opt,name=unit,proto3" json:"unit,omitempty"`                                      // "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+	Comparator    string                 `protobuf:"bytes,12,opt,name=comparator,proto3" json:"comparator,omitempty"`                          // ">=", "<=" or ">". Meaningful only when has_threshold.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -608,14 +608,14 @@ type StrategyPick struct {
 	HasDaysToCover      bool    `protobuf:"varint,29,opt,name=has_days_to_cover,json=hasDaysToCover,proto3" json:"has_days_to_cover,omitempty"`
 	Rs_6MPct            float64 `protobuf:"fixed64,30,opt,name=rs_6m_pct,json=rs6mPct,proto3" json:"rs_6m_pct,omitempty"` // Meaningful only when has_rs_6m_pct.
 	HasRs_6MPct         bool    `protobuf:"varint,31,opt,name=has_rs_6m_pct,json=hasRs6mPct,proto3" json:"has_rs_6m_pct,omitempty"`
-	Rs_6MPercentile     float64 `protobuf:"fixed64,32,opt,name=rs_6m_percentile,json=rs6mPercentile,proto3" json:"rs_6m_percentile,omitempty"` // Percentile of rs_6m_pct across the evaluated universe, 0-100.
+	Rs_6MPercentile     float64 `protobuf:"fixed64,32,opt,name=rs_6m_percentile,json=rs6mPercentile,proto3" json:"rs_6m_percentile,omitempty"` // Rank of rs_6m_pct across the evaluated universe on the quartile's own scale, 0-100 (75 or more is the top quartile).
 	HasRs_6MPercentile  bool    `protobuf:"varint,33,opt,name=has_rs_6m_percentile,json=hasRs6mPercentile,proto3" json:"has_rs_6m_percentile,omitempty"`
 	DollarVolume_20D    float64 `protobuf:"fixed64,34,opt,name=dollar_volume_20d,json=dollarVolume20d,proto3" json:"dollar_volume_20d,omitempty"` // Average daily turnover over 20 sessions, A$. Meaningful only when has_dollar_volume_20d.
 	HasDollarVolume_20D bool    `protobuf:"varint,35,opt,name=has_dollar_volume_20d,json=hasDollarVolume20d,proto3" json:"has_dollar_volume_20d,omitempty"`
 	BreakoutDate        string  `protobuf:"bytes,36,opt,name=breakout_date,json=breakoutDate,proto3" json:"breakout_date,omitempty"`                     // YYYY-MM-DD of the breakout session; empty when there was none.
-	ShortReportDate     string  `protobuf:"bytes,37,opt,name=short_report_date,json=shortReportDate,proto3" json:"short_report_date,omitempty"`          // YYYY-MM-DD of the ASIC report the short figure came from; empty when none.
-	ShortAvailableDate  string  `protobuf:"bytes,38,opt,name=short_available_date,json=shortAvailableDate,proto3" json:"short_available_date,omitempty"` // YYYY-MM-DD the report became public (short_report_date plus the publication lag).
-	ShortStatus         string  `protobuf:"bytes,39,opt,name=short_status,json=shortStatus,proto3" json:"short_status,omitempty"`                        // "reported" when a short position was reported; empty otherwise.
+	ShortReportDate     string  `protobuf:"bytes,37,opt,name=short_report_date,json=shortReportDate,proto3" json:"short_report_date,omitempty"`          // YYYY-MM-DD of the ASIC report the short figure came from; empty when there is no short figure.
+	ShortAvailableDate  string  `protobuf:"bytes,38,opt,name=short_available_date,json=shortAvailableDate,proto3" json:"short_available_date,omitempty"` // YYYY-MM-DD the report became public; empty with no report, or a report dated before 2026.
+	ShortStatus         string  `protobuf:"bytes,39,opt,name=short_status,json=shortStatus,proto3" json:"short_status,omitempty"`                        // "reported" when the stock has a short figure; empty otherwise.
 	// Meaningful only when has_pct_off_52w_high. pct_off_52w_high is 0 at the high,
 	// so a stock with no 52-week high yet must not read as "at the high".
 	HasPctOff_52WHigh bool   `protobuf:"varint,40,opt,name=has_pct_off_52w_high,json=hasPctOff52wHigh,proto3" json:"has_pct_off_52w_high,omitempty"`
@@ -1249,13 +1249,13 @@ type GetStrategyPicksResponse struct {
 	AsOf                      string                 `protobuf:"bytes,7,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`                                                                   // YYYY-MM-DD of the latest price in the universe.
 	FundamentalsRowsCount     int32                  `protobuf:"varint,8,opt,name=fundamentals_rows_count,json=fundamentalsRowsCount,proto3" json:"fundamentals_rows_count,omitempty"`             // Evaluated stocks with any reported fundamentals row.
 	// Counts of every pick by status, over the whole ranked list before the
-	// status filter and paging.
+	// status filter, the fundamentals filter and paging.
 	StatusCounts           *StatusCounts       `protobuf:"bytes,9,opt,name=status_counts,json=statusCounts,proto3" json:"status_counts,omitempty"`
 	Version                *StrategyVersionRef `protobuf:"bytes,10,opt,name=version,proto3" json:"version,omitempty"`                                                        // Empty until versioned rules ship.
 	SessionDate            string              `protobuf:"bytes,11,opt,name=session_date,json=sessionDate,proto3" json:"session_date,omitempty"`                             // YYYY-MM-DD of the session the picks are as at.
 	ShortReportDate        string              `protobuf:"bytes,12,opt,name=short_report_date,json=shortReportDate,proto3" json:"short_report_date,omitempty"`               // Newest ASIC report date behind the short figures; empty when none.
-	ShortAvailableDate     string              `protobuf:"bytes,13,opt,name=short_available_date,json=shortAvailableDate,proto3" json:"short_available_date,omitempty"`      // When that report became public.
-	Stale                  bool                `protobuf:"varint,14,opt,name=stale,proto3" json:"stale,omitempty"`                                                           // True when the picks are older than the update schedule allows.
+	ShortAvailableDate     string              `protobuf:"bytes,13,opt,name=short_available_date,json=shortAvailableDate,proto3" json:"short_available_date,omitempty"`      // When that report became public; empty for a report dated before 2026.
+	Stale                  bool                `protobuf:"varint,14,opt,name=stale,proto3" json:"stale,omitempty"`                                                           // True when the index has closed a session the prices have not reached (the data is delayed).
 	RsQuantileThreshold    float64             `protobuf:"fixed64,16,opt,name=rs_quantile_threshold,json=rsQuantileThreshold,proto3" json:"rs_quantile_threshold,omitempty"` // The session's top-quartile cut-off of rs_6m_pct (rs_leader reads it).
 	HasRsQuantileThreshold bool                `protobuf:"varint,17,opt,name=has_rs_quantile_threshold,json=hasRsQuantileThreshold,proto3" json:"has_rs_quantile_threshold,omitempty"`
 	UniverseLabel          string              `protobuf:"bytes,18,opt,name=universe_label,json=universeLabel,proto3" json:"universe_label,omitempty"` // The universe the picks were drawn from, as the strategy names it.
@@ -2027,8 +2027,8 @@ type GetStockStrategyFitResponse struct {
 	PriceFeatures      *PriceFeatures         `protobuf:"bytes,6,opt,name=price_features,json=priceFeatures,proto3" json:"price_features,omitempty"`                  // Set only when in_universe is true.
 	SessionDate        string                 `protobuf:"bytes,7,opt,name=session_date,json=sessionDate,proto3" json:"session_date,omitempty"`                        // YYYY-MM-DD of the session the readings are as at.
 	ShortReportDate    string                 `protobuf:"bytes,8,opt,name=short_report_date,json=shortReportDate,proto3" json:"short_report_date,omitempty"`          // Newest ASIC report date behind the short figures; empty when none.
-	ShortAvailableDate string                 `protobuf:"bytes,9,opt,name=short_available_date,json=shortAvailableDate,proto3" json:"short_available_date,omitempty"` // When that report became public.
-	Stale              bool                   `protobuf:"varint,10,opt,name=stale,proto3" json:"stale,omitempty"`                                                     // True when the readings are older than the update schedule allows.
+	ShortAvailableDate string                 `protobuf:"bytes,9,opt,name=short_available_date,json=shortAvailableDate,proto3" json:"short_available_date,omitempty"` // When that report became public; empty for a report dated before 2026.
+	Stale              bool                   `protobuf:"varint,10,opt,name=stale,proto3" json:"stale,omitempty"`                                                     // True when the index has closed a session the prices have not reached (the data is delayed).
 	Eligible           bool                   `protobuf:"varint,11,opt,name=eligible,proto3" json:"eligible,omitempty"`                                               // False when the stock cannot be read against the strategies at all.
 	IneligibleReason   string                 `protobuf:"bytes,12,opt,name=ineligible_reason,json=ineligibleReason,proto3" json:"ineligible_reason,omitempty"`        // Why not eligible, e.g. "not_in_universe"; empty when eligible.
 	unknownFields      protoimpl.UnknownFields

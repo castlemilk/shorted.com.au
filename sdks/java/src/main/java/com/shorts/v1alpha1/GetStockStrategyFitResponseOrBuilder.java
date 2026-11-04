@@ -176,7 +176,7 @@ public interface GetStockStrategyFitResponseOrBuilder extends
 
   /**
    * <pre>
-   * When that report became public.
+   * When that report became public; empty for a report dated before 2026.
    * </pre>
    *
    * <code>string short_available_date = 9 [json_name = "shortAvailableDate"];</code>
@@ -185,7 +185,7 @@ public interface GetStockStrategyFitResponseOrBuilder extends
   java.lang.String getShortAvailableDate();
   /**
    * <pre>
-   * When that report became public.
+   * When that report became public; empty for a report dated before 2026.
    * </pre>
    *
    * <code>string short_available_date = 9 [json_name = "shortAvailableDate"];</code>
@@ -196,7 +196,7 @@ public interface GetStockStrategyFitResponseOrBuilder extends
 
   /**
    * <pre>
-   * True when the readings are older than the update schedule allows.
+   * True when the index has closed a session the prices have not reached (the data is delayed).
    * </pre>
    *
    * <code>bool stale = 10 [json_name = "stale"];</code>

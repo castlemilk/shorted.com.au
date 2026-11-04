@@ -131,7 +131,7 @@ export type StrategyRule = Message<"shorts.v1alpha1.StrategyRule"> & {
   dataSource: string;
 
   /**
-   * A trigger: a core rule a setup may still fail (the breakout, the new-high or leadership rule).
+   * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
    *
    * @generated from field: bool trigger = 7;
    */
@@ -152,21 +152,21 @@ export type StrategyRule = Message<"shorts.v1alpha1.StrategyRule"> & {
   threshold: number;
 
   /**
-   * False for a rule with no single number to test (the regime, the market trend).
+   * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader).
    *
    * @generated from field: bool has_threshold = 10;
    */
   hasThreshold: boolean;
 
   /**
-   * "%", "x", "A$", "days", "points" or empty.
+   * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
    *
    * @generated from field: string unit = 11;
    */
   unit: string;
 
   /**
-   * ">=", "<=", "above", "in top quartile" and the like.
+   * ">=", "<=" or ">". Meaningful only when has_threshold.
    *
    * @generated from field: string comparator = 12;
    */
@@ -572,7 +572,7 @@ export type StrategyPick = Message<"shorts.v1alpha1.StrategyPick"> & {
   hasRs6mPct: boolean;
 
   /**
-   * Percentile of rs_6m_pct across the evaluated universe, 0-100.
+   * Rank of rs_6m_pct across the evaluated universe on the quartile's own scale, 0-100 (75 or more is the top quartile).
    *
    * @generated from field: double rs_6m_percentile = 32;
    */
@@ -603,21 +603,21 @@ export type StrategyPick = Message<"shorts.v1alpha1.StrategyPick"> & {
   breakoutDate: string;
 
   /**
-   * YYYY-MM-DD of the ASIC report the short figure came from; empty when none.
+   * YYYY-MM-DD of the ASIC report the short figure came from; empty when there is no short figure.
    *
    * @generated from field: string short_report_date = 37;
    */
   shortReportDate: string;
 
   /**
-   * YYYY-MM-DD the report became public (short_report_date plus the publication lag).
+   * YYYY-MM-DD the report became public; empty with no report, or a report dated before 2026.
    *
    * @generated from field: string short_available_date = 38;
    */
   shortAvailableDate: string;
 
   /**
-   * "reported" when a short position was reported; empty otherwise.
+   * "reported" when the stock has a short figure; empty otherwise.
    *
    * @generated from field: string short_status = 39;
    */
@@ -908,7 +908,7 @@ export type GetStrategyPicksResponse = Message<"shorts.v1alpha1.GetStrategyPicks
 
   /**
    * Counts of every pick by status, over the whole ranked list before the
-   * status filter and paging.
+   * status filter, the fundamentals filter and paging.
    *
    * @generated from field: shorts.v1alpha1.StatusCounts status_counts = 9;
    */
@@ -936,14 +936,14 @@ export type GetStrategyPicksResponse = Message<"shorts.v1alpha1.GetStrategyPicks
   shortReportDate: string;
 
   /**
-   * When that report became public.
+   * When that report became public; empty for a report dated before 2026.
    *
    * @generated from field: string short_available_date = 13;
    */
   shortAvailableDate: string;
 
   /**
-   * True when the picks are older than the update schedule allows.
+   * True when the index has closed a session the prices have not reached (the data is delayed).
    *
    * @generated from field: bool stale = 14;
    */
@@ -1393,14 +1393,14 @@ export type GetStockStrategyFitResponse = Message<"shorts.v1alpha1.GetStockStrat
   shortReportDate: string;
 
   /**
-   * When that report became public.
+   * When that report became public; empty for a report dated before 2026.
    *
    * @generated from field: string short_available_date = 9;
    */
   shortAvailableDate: string;
 
   /**
-   * True when the readings are older than the update schedule allows.
+   * True when the index has closed a session the prices have not reached (the data is delayed).
    *
    * @generated from field: bool stale = 10;
    */

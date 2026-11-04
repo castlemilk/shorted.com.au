@@ -114,7 +114,7 @@ public interface StrategyRuleOrBuilder extends
 
   /**
    * <pre>
-   * A trigger: a core rule a setup may still fail (the breakout, the new-high or leadership rule).
+   * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
    * </pre>
    *
    * <code>bool trigger = 7 [json_name = "trigger"];</code>
@@ -144,7 +144,7 @@ public interface StrategyRuleOrBuilder extends
 
   /**
    * <pre>
-   * False for a rule with no single number to test (the regime, the market trend).
+   * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader).
    * </pre>
    *
    * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>
@@ -154,7 +154,7 @@ public interface StrategyRuleOrBuilder extends
 
   /**
    * <pre>
-   * "%", "x", "A$", "days", "points" or empty.
+   * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
    * </pre>
    *
    * <code>string unit = 11 [json_name = "unit"];</code>
@@ -163,7 +163,7 @@ public interface StrategyRuleOrBuilder extends
   java.lang.String getUnit();
   /**
    * <pre>
-   * "%", "x", "A$", "days", "points" or empty.
+   * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
    * </pre>
    *
    * <code>string unit = 11 [json_name = "unit"];</code>
@@ -174,7 +174,7 @@ public interface StrategyRuleOrBuilder extends
 
   /**
    * <pre>
-   * "&gt;=", "&lt;=", "above", "in top quartile" and the like.
+   * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
    * </pre>
    *
    * <code>string comparator = 12 [json_name = "comparator"];</code>
@@ -183,7 +183,7 @@ public interface StrategyRuleOrBuilder extends
   java.lang.String getComparator();
   /**
    * <pre>
-   * "&gt;=", "&lt;=", "above", "in top quartile" and the like.
+   * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
    * </pre>
    *
    * <code>string comparator = 12 [json_name = "comparator"];</code>

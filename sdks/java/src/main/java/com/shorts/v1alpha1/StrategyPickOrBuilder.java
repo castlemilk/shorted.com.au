@@ -347,7 +347,7 @@ public interface StrategyPickOrBuilder extends
 
   /**
    * <pre>
-   * Percentile of rs_6m_pct across the evaluated universe, 0-100.
+   * Rank of rs_6m_pct across the evaluated universe on the quartile's own scale, 0-100 (75 or more is the top quartile).
    * </pre>
    *
    * <code>double rs_6m_percentile = 32 [json_name = "rs6mPercentile"];</code>
@@ -399,7 +399,7 @@ public interface StrategyPickOrBuilder extends
 
   /**
    * <pre>
-   * YYYY-MM-DD of the ASIC report the short figure came from; empty when none.
+   * YYYY-MM-DD of the ASIC report the short figure came from; empty when there is no short figure.
    * </pre>
    *
    * <code>string short_report_date = 37 [json_name = "shortReportDate"];</code>
@@ -408,7 +408,7 @@ public interface StrategyPickOrBuilder extends
   java.lang.String getShortReportDate();
   /**
    * <pre>
-   * YYYY-MM-DD of the ASIC report the short figure came from; empty when none.
+   * YYYY-MM-DD of the ASIC report the short figure came from; empty when there is no short figure.
    * </pre>
    *
    * <code>string short_report_date = 37 [json_name = "shortReportDate"];</code>
@@ -419,7 +419,7 @@ public interface StrategyPickOrBuilder extends
 
   /**
    * <pre>
-   * YYYY-MM-DD the report became public (short_report_date plus the publication lag).
+   * YYYY-MM-DD the report became public; empty with no report, or a report dated before 2026.
    * </pre>
    *
    * <code>string short_available_date = 38 [json_name = "shortAvailableDate"];</code>
@@ -428,7 +428,7 @@ public interface StrategyPickOrBuilder extends
   java.lang.String getShortAvailableDate();
   /**
    * <pre>
-   * YYYY-MM-DD the report became public (short_report_date plus the publication lag).
+   * YYYY-MM-DD the report became public; empty with no report, or a report dated before 2026.
    * </pre>
    *
    * <code>string short_available_date = 38 [json_name = "shortAvailableDate"];</code>
@@ -439,7 +439,7 @@ public interface StrategyPickOrBuilder extends
 
   /**
    * <pre>
-   * "reported" when a short position was reported; empty otherwise.
+   * "reported" when the stock has a short figure; empty otherwise.
    * </pre>
    *
    * <code>string short_status = 39 [json_name = "shortStatus"];</code>
@@ -448,7 +448,7 @@ public interface StrategyPickOrBuilder extends
   java.lang.String getShortStatus();
   /**
    * <pre>
-   * "reported" when a short position was reported; empty otherwise.
+   * "reported" when the stock has a short figure; empty otherwise.
    * </pre>
    *
    * <code>string short_status = 39 [json_name = "shortStatus"];</code>

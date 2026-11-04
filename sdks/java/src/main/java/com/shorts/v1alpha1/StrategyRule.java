@@ -305,7 +305,7 @@ private static final long serialVersionUID = 0L;
   private boolean trigger_ = false;
   /**
    * <pre>
-   * A trigger: a core rule a setup may still fail (the breakout, the new-high or leadership rule).
+   * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
    * </pre>
    *
    * <code>bool trigger = 7 [json_name = "trigger"];</code>
@@ -350,7 +350,7 @@ private static final long serialVersionUID = 0L;
   private boolean hasThreshold_ = false;
   /**
    * <pre>
-   * False for a rule with no single number to test (the regime, the market trend).
+   * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader).
    * </pre>
    *
    * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>
@@ -366,7 +366,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object unit_ = "";
   /**
    * <pre>
-   * "%", "x", "A$", "days", "points" or empty.
+   * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
    * </pre>
    *
    * <code>string unit = 11 [json_name = "unit"];</code>
@@ -387,7 +387,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * "%", "x", "A$", "days", "points" or empty.
+   * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
    * </pre>
    *
    * <code>string unit = 11 [json_name = "unit"];</code>
@@ -413,7 +413,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object comparator_ = "";
   /**
    * <pre>
-   * "&gt;=", "&lt;=", "above", "in top quartile" and the like.
+   * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
    * </pre>
    *
    * <code>string comparator = 12 [json_name = "comparator"];</code>
@@ -434,7 +434,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * "&gt;=", "&lt;=", "above", "in top quartile" and the like.
+   * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
    * </pre>
    *
    * <code>string comparator = 12 [json_name = "comparator"];</code>
@@ -1510,7 +1510,7 @@ private static final long serialVersionUID = 0L;
     private boolean trigger_ ;
     /**
      * <pre>
-     * A trigger: a core rule a setup may still fail (the breakout, the new-high or leadership rule).
+     * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
      * </pre>
      *
      * <code>bool trigger = 7 [json_name = "trigger"];</code>
@@ -1522,7 +1522,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * A trigger: a core rule a setup may still fail (the breakout, the new-high or leadership rule).
+     * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
      * </pre>
      *
      * <code>bool trigger = 7 [json_name = "trigger"];</code>
@@ -1538,7 +1538,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * A trigger: a core rule a setup may still fail (the breakout, the new-high or leadership rule).
+     * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
      * </pre>
      *
      * <code>bool trigger = 7 [json_name = "trigger"];</code>
@@ -1642,7 +1642,7 @@ private static final long serialVersionUID = 0L;
     private boolean hasThreshold_ ;
     /**
      * <pre>
-     * False for a rule with no single number to test (the regime, the market trend).
+     * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader).
      * </pre>
      *
      * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>
@@ -1654,7 +1654,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * False for a rule with no single number to test (the regime, the market trend).
+     * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader).
      * </pre>
      *
      * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>
@@ -1670,7 +1670,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * False for a rule with no single number to test (the regime, the market trend).
+     * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader).
      * </pre>
      *
      * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>
@@ -1686,7 +1686,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object unit_ = "";
     /**
      * <pre>
-     * "%", "x", "A$", "days", "points" or empty.
+     * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
      * </pre>
      *
      * <code>string unit = 11 [json_name = "unit"];</code>
@@ -1706,7 +1706,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "%", "x", "A$", "days", "points" or empty.
+     * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
      * </pre>
      *
      * <code>string unit = 11 [json_name = "unit"];</code>
@@ -1727,7 +1727,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "%", "x", "A$", "days", "points" or empty.
+     * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
      * </pre>
      *
      * <code>string unit = 11 [json_name = "unit"];</code>
@@ -1744,7 +1744,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "%", "x", "A$", "days", "points" or empty.
+     * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
      * </pre>
      *
      * <code>string unit = 11 [json_name = "unit"];</code>
@@ -1758,7 +1758,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "%", "x", "A$", "days", "points" or empty.
+     * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
      * </pre>
      *
      * <code>string unit = 11 [json_name = "unit"];</code>
@@ -1778,7 +1778,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object comparator_ = "";
     /**
      * <pre>
-     * "&gt;=", "&lt;=", "above", "in top quartile" and the like.
+     * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
      * </pre>
      *
      * <code>string comparator = 12 [json_name = "comparator"];</code>
@@ -1798,7 +1798,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "&gt;=", "&lt;=", "above", "in top quartile" and the like.
+     * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
      * </pre>
      *
      * <code>string comparator = 12 [json_name = "comparator"];</code>
@@ -1819,7 +1819,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "&gt;=", "&lt;=", "above", "in top quartile" and the like.
+     * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
      * </pre>
      *
      * <code>string comparator = 12 [json_name = "comparator"];</code>
@@ -1836,7 +1836,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "&gt;=", "&lt;=", "above", "in top quartile" and the like.
+     * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
      * </pre>
      *
      * <code>string comparator = 12 [json_name = "comparator"];</code>
@@ -1850,7 +1850,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "&gt;=", "&lt;=", "above", "in top quartile" and the like.
+     * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
      * </pre>
      *
      * <code>string comparator = 12 [json_name = "comparator"];</code>
