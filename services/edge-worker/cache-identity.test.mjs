@@ -447,8 +447,8 @@ function protoRpcVisibility(dir) {
 test("every allowlisted shorts read is a public method in the proto", () => {
   const visibility = protoRpcVisibility(fileURLToPath(new URL("../../proto/shortedapi/shorts/v1alpha1/", import.meta.url)));
   const shorts = publicReadPaths().filter((path) => path.startsWith("/shorts.v1alpha1."));
-  // Listed for prewarm.js and the /edge/v1 news routes; the current protos
-  // do not define them, so the origin cannot serve them yet.
+  // Listed for prewarm.js and the /edge/v1 news routes. The current protos
+  // do not define them.
   const undefinedInProto = ["/shorts.v1alpha1.ShortedStocksService/GetAnnouncement", "/shorts.v1alpha1.ShortedStocksService/GetNews"];
 
   for (const path of shorts) {
