@@ -1,17 +1,23 @@
 /**
- * ISR source safety for the strategy profile segment (app/strategies/[strategy]/**).
+ * ISR source safety for the strategies section (app/strategies/**): the
+ * profile segment [strategy]/ and the hub, its page and its OG image.
  *
- * The same reasoning as app/shorts/__tests__/isr-source-safety.test.ts: every
- * profile route keeps an empty or static param list, so Next renders nothing
- * at build and never observes a read of cookies(), headers(), searchParams or a
- * no-store fetch. The read would then fail per request. This test reads the
- * segment's own files and holds them to the rule from source.
+ * The profile prerenders its five registry slugs at build, and the hub is a
+ * static ISR page. A read of cookies(), headers(), searchParams or a no-store
+ * fetch makes a page per-request, and a build render does not always take the
+ * branch that reads one, so this test reads each file and holds it to the rule
+ * from source. The route gate (scripts/route-kinds.mjs) sees the rest.
  *
  * What it checks:
- *  1. No source file in the segment (tests excluded) reads a dynamic API or
+ *  1. No source file in the section (tests excluded) reads a dynamic API or
  *     opts out of the cache.
- *  2. The layout owns the params: generateStaticParams and dynamicParams = false.
- *  3. Every page in the segment exports a literal positive revalidate.
+ *  2. The profile's layout owns the params: generateStaticParams and
+ *     dynamicParams = false.
+ *  3. Every page in the section exports a literal positive revalidate.
+ *
+ * Excluded: my/, alerts/ and compare/. Those are per-request by design (the
+ * signed-in account, the alerts and a compare tray read the query string), so
+ * this scan does not apply to them.
  *
  * Comments do not count: they are blanked with TypeScript's own scanner before
  * the reads are searched for, so a comment that names cookies() to say it is
@@ -23,7 +29,9 @@ import * as fs from "fs";
 import * as path from "path";
 import * as ts from "typescript";
 
-const SEGMENT_DIR = path.resolve(__dirname, "../[strategy]");
+const STRATEGIES_DIR = path.resolve(__dirname, "..");
+const PROFILE_DIR = path.join(STRATEGIES_DIR, "[strategy]");
+const PER_REQUEST_DIRS = new Set(["__tests__", "my", "alerts", "compare"]);
 
 /** Everything that makes a page dynamic, or opts it out of the cache. */
 const DYNAMIC_READS: ReadonlyArray<{ read: string; pattern: RegExp }> = [
@@ -122,12 +130,13 @@ function namedExports(
   return exported;
 }
 
-function segmentSourceFiles(dir: string = SEGMENT_DIR): string[] {
+function segmentSourceFiles(dir: string = STRATEGIES_DIR): string[] {
   const found: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name !== "__tests__") found.push(...segmentSourceFiles(full));
+      if (!PER_REQUEST_DIRS.has(entry.name))
+        found.push(...segmentSourceFiles(full));
     } else if (
       /\.tsx?$/.test(entry.name) &&
       !/\.(test|spec)\.tsx?$/.test(entry.name)
@@ -140,17 +149,19 @@ function segmentSourceFiles(dir: string = SEGMENT_DIR): string[] {
 
 const read = (file: string): string => fs.readFileSync(file, "utf-8");
 const relative = (file: string): string =>
-  path.relative(SEGMENT_DIR, file).split(path.sep).join("/");
+  path.relative(STRATEGIES_DIR, file).split(path.sep).join("/");
 
 const files = segmentSourceFiles();
 const pages = files.filter((file) => path.basename(file) === "page.tsx");
 
-describe("strategy profile segment ISR source safety", () => {
-  it("finds the layout, the loading boundary and the Overview page", () => {
+describe("strategies section ISR source safety", () => {
+  it("finds the profile's layout, its loading boundary and Overview page, and the hub and its OG image", () => {
     expect(files.map(relative)).toEqual(
       expect.arrayContaining([
-        "layout.tsx",
-        "loading.tsx",
+        "[strategy]/layout.tsx",
+        "[strategy]/loading.tsx",
+        "[strategy]/page.tsx",
+        "[strategy]/opengraph-image.tsx",
         "page.tsx",
         "opengraph-image.tsx",
       ]),
@@ -166,7 +177,7 @@ describe("strategy profile segment ISR source safety", () => {
 
   it("owns the params in the layout, not in a page, with dynamicParams off", () => {
     const layout = namedExports(
-      read(path.join(SEGMENT_DIR, "layout.tsx")),
+      read(path.join(PROFILE_DIR, "layout.tsx")),
       "layout.tsx",
     );
     expect(layout.has("generateStaticParams")).toBe(true);
