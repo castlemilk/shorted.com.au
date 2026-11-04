@@ -1,4 +1,4 @@
 # Engine versions and the digest of the engine goldens each one shipped with
 # (engine/testdata/evaluate.golden). Versions strictly increase; append a line
 # only with a Version bump (TestEngineVersionBumpedWithGoldens).
-1.0.0 e730d00740cb6b6e43ea35f13821df7d1c2d2e5b12b543b6082ad91baf0e5cd8
+1.0.0 fe223627e9c78e226fef37699c403f1720dd33f2fbb362b39d0c3adfaa1c8c8c

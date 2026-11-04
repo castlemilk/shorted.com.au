@@ -21,6 +21,9 @@ var (
 	goldenAsOf      = *d("2026-09-25")
 	goldenUptrend   = Regime{IndexCode: "XJO", Label: RegimeUptrend, Close: new(float64(8800)), SMA50: new(float64(8600)), SMA200: new(float64(8200)), AsOf: d("2026-09-25")}
 	goldenDowntrend = Regime{IndexCode: "XJO", Label: RegimeDowntrend, Close: new(float64(8000)), SMA50: new(float64(8600)), SMA200: new(float64(8200)), AsOf: d("2026-09-25")}
+	// goldenNeutral is above its 200-day average without a rising 50-day stack,
+	// so the regime rule passes at its neutral strength.
+	goldenNeutral = Regime{IndexCode: "XJO", Label: RegimeNeutral, Close: new(float64(8300)), SMA50: new(float64(8400)), SMA200: new(float64(8200)), AsOf: d("2026-09-25")}
 )
 
 // goldenRegimes are the market regimes the golden renders every strategy in.
@@ -31,7 +34,7 @@ func goldenRegimes() []struct {
 	return []struct {
 		name   string
 		regime Regime
-	}{{"uptrend", goldenUptrend}, {"downtrend", goldenDowntrend}}
+	}{{"uptrend", goldenUptrend}, {"neutral", goldenNeutral}, {"downtrend", goldenDowntrend}}
 }
 
 // goldenStock is a stock that passes every price, liquidity, relative strength,
@@ -89,11 +92,13 @@ func goldenCandidates() []Candidate {
 		// Passes every rule of every strategy: the leader.
 		goldenStock("LDR"),
 		// Near misses: a 52-week-high distance just past 5% (near_high fails
-		// close to its line), a pivot not yet cleared on volume (breakout
-		// fails at the line), and a 6-month strength under the leader cut-off.
+		// close to its line), a close 2.9% under the pivot without the volume
+		// (breakout fails just short of its line), and a 6-month strength under
+		// the leader cut-off.
 		golden("NRM", func(c *Candidate) {
 			c.PctOff52wHigh = new(float64(-8))
 			c.BreakoutRecent = new(false)
+			c.BaseHigh = new(float64(103))
 			c.RS6mPct = new(float64(12))
 		}),
 		// Deep under the high (off_high passes with a small strength, near_high
@@ -107,10 +112,14 @@ func goldenCandidates() []Candidate {
 			c.Low52w = new(float64(85))
 		}),
 		// Revenue growth passes and EPS growth falls short: the EPS rules fail
-		// with a value while the stock stays a pick on its revenue.
+		// with a value while the stock stays a pick on its revenue. Its 6-month
+		// strength sits between the cut-off and the top of the universe, and
+		// its turnover between the floor and the full-marks level, so both
+		// rules pass with a graded strength.
 		golden("SLO", func(c *Candidate) {
 			c.Growth = &Growth{BasisPeriodType: "ttm", RevenueYoYPct: new(float64(40)), EPSYoYPct: new(float64(10))}
-			c.RS6mPct = new(float64(16))
+			c.RS6mPct = new(float64(22))
+			c.DollarVolume20d = new(float64(5_000_000))
 		}),
 		// Fails nearly every price and short rule with a value, and the
 		// relative strength rules with a value.
@@ -157,7 +166,7 @@ func goldenCandidates() []Candidate {
 		}),
 		// Quality compounders: every quality rule passes with a value.
 		golden("QLY", func(c *Candidate) {
-			c.SMA200 = new(float64(75))
+			c.SMA200 = new(float64(90))
 			c.Growth = &Growth{BasisPeriodType: "annual", RevenueYoYPct: new(float64(6)), LatestAnnualPeriodEnd: d("2026-06-30")}
 			c.Quality = goldenQuality()
 		}),
@@ -184,6 +193,11 @@ func goldenCandidates() []Candidate {
 			q.ROEPct = nil
 			q.NetDebt = new(float64(-2e8))
 			c.Quality = q
+		}),
+		// A swing from a loss to a profit with no growth figure: the growth
+		// rules pass on the turnaround alone, at its fixed strength.
+		golden("TRN", func(c *Candidate) {
+			c.Growth = &Growth{BasisPeriodType: "ttm", EPSLatest: new(0.12), EPSPrior: new(-0.05)}
 		}),
 		// Nothing but a price: every rule that needs more is unknown.
 		{StockCode: "NIL", Close: 1},
@@ -222,16 +236,30 @@ func renderEvaluateOutput() string {
 	return b.String()
 }
 
-// TestEvaluateGoldenReachesEveryRule holds the golden to its coverage: every
+// TestEvaluateGoldenReachesEveryRule holds the golden to its coverage. Every
 // rule id is rendered at least once as a pass and once as a fail that carries a
-// value. A rule that is never a pass, or never a failing value, has its
-// strength or proximity unpinned, and a change to it would not move the golden.
+// value. Each rule function is also called directly on every golden candidate:
+// a rule must pass once with a strength strictly between 0 and 1, and a
+// failing trigger rule must once carry a proximity strictly between 0 and 1.
+// A grade that sits at a clamp is not moved by a change to the grading, so it
+// does not count, and the golden would not notice that change.
 func TestEvaluateGoldenReachesEveryRule(t *testing.T) {
 	passed := map[string]bool{}
 	failedWithValue := map[string]bool{}
+	gradedPass := map[string]bool{}
+	gradedTrigger := map[string]bool{}
+
+	triggers := map[string]bool{}
+	for _, s := range Registry() {
+		for _, id := range s.TriggerRules {
+			triggers[id] = true
+		}
+	}
+
+	cands := goldenCandidates()
 	for _, s := range Registry() {
 		for _, reg := range goldenRegimes() {
-			for _, p := range Evaluate(s, goldenCandidates(), reg.regime) {
+			for _, p := range Evaluate(s, cands, reg.regime) {
 				for _, r := range p.Rules {
 					switch {
 					case r.Status == RulePass:
@@ -243,12 +271,33 @@ func TestEvaluateGoldenReachesEveryRule(t *testing.T) {
 			}
 		}
 	}
+	for _, reg := range goldenRegimes() {
+		env := NewEnv(cands, reg.regime)
+		for id, fn := range ruleFuncs {
+			for i := range cands {
+				out := fn(&cands[i], env)
+				if out.Status == RulePass && out.Strength > 0 && out.Strength < 1 {
+					gradedPass[id] = true
+				}
+				if out.Status == RuleFail && out.Proximity > 0 && out.Proximity < 1 {
+					gradedTrigger[id] = true
+				}
+			}
+		}
+	}
+
 	for id := range ruleFuncs {
 		if !passed[id] {
 			t.Errorf("rule %s never passes in the evaluate golden", id)
 		}
 		if !failedWithValue[id] {
 			t.Errorf("rule %s never fails with a value in the evaluate golden", id)
+		}
+		if !gradedPass[id] {
+			t.Errorf("rule %s never passes with a strength strictly between 0 and 1 in the evaluate golden", id)
+		}
+		if triggers[id] && !gradedTrigger[id] {
+			t.Errorf("trigger rule %s never fails with a proximity strictly between 0 and 1 in the evaluate golden", id)
 		}
 	}
 }
