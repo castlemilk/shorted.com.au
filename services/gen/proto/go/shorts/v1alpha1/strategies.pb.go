@@ -143,7 +143,7 @@ type StrategyRule struct {
 	Trigger       bool                   `protobuf:"varint,7,opt,name=trigger,proto3" json:"trigger,omitempty"`                                // A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
 	Weight        float64                `protobuf:"fixed64,8,opt,name=weight,proto3" json:"weight,omitempty"`                                 // Share of the score this rule carries, 0-1; the weights of a strategy sum to 1.
 	Threshold     float64                `protobuf:"fixed64,9,opt,name=threshold,proto3" json:"threshold,omitempty"`                           // The number the rule tests, in unit. Meaningful only when has_threshold.
-	HasThreshold  bool                   `protobuf:"varint,10,opt,name=has_threshold,json=hasThreshold,proto3" json:"has_threshold,omitempty"` // False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader).
+	HasThreshold  bool                   `protobuf:"varint,10,opt,name=has_threshold,json=hasThreshold,proto3" json:"has_threshold,omitempty"` // False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth).
 	Unit          string                 `protobuf:"bytes,11,opt,name=unit,proto3" json:"unit,omitempty"`                                      // "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
 	Comparator    string                 `protobuf:"bytes,12,opt,name=comparator,proto3" json:"comparator,omitempty"`                          // ">=", "<=" or ">". Meaningful only when has_threshold.
 	unknownFields protoimpl.UnknownFields

@@ -152,7 +152,7 @@ export type StrategyRule = Message<"shorts.v1alpha1.StrategyRule"> & {
   threshold: number;
 
   /**
-   * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader).
+   * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth).
    *
    * @generated from field: bool has_threshold = 10;
    */

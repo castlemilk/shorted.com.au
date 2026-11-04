@@ -35,11 +35,8 @@ func TestRegistryAnnotatesDefinitionFacts(t *testing.T) {
 		unit       string
 		comparator string
 	}{
-		RuleGrowth:              {growthMinPct, "pct", ">="},
-		RuleBase:                {baseMaxDepthPct, "pct", "<="},
 		RuleRS:                  {0, "pp", ">"},
 		RuleLiquidity:           {LiquidityFloorAUD, "aud", ">="},
-		RuleEPSGrowth:           {growthMinPct, "pct", ">="},
 		RuleRevenueGrowth:       {revenueGrowthMinPct, "pct", ">="},
 		RuleNearHigh:            {nearHighMaxOffPct, "pct", ">="},
 		RuleSMA200Rising:        {0, "pct", ">"},
@@ -56,9 +53,14 @@ func TestRegistryAnnotatesDefinitionFacts(t *testing.T) {
 		RuleRevenueNotShrinking: {revenueNotShrinkingMin, "pct", ">="},
 	}
 	// No single number to test: the regime, the trend shape, the breakout's
-	// pivot shape and rs_leader (its cut-off is in points, the response's
-	// rs_quantile_threshold, not in the rule's own unit).
-	noSingleNumber := map[string]bool{RuleBreakout: true, RuleRegime: true, RuleTrendStack: true, RuleRSLeader: true}
+	// pivot shape, rs_leader (its cut-off is in points, the response's
+	// rs_quantile_threshold, not in the rule's own unit), and the rules that
+	// pass on more than one condition (base; growth and the EPS rule, which
+	// also pass on a turnaround).
+	noSingleNumber := map[string]bool{
+		RuleBreakout: true, RuleRegime: true, RuleTrendStack: true, RuleRSLeader: true,
+		RuleBase: true, RuleGrowth: true, RuleEPSGrowth: true,
+	}
 	for _, s := range Registry() {
 		triggers := triggerRuleSet(s)
 		var weightSum float64
@@ -88,6 +90,51 @@ func TestRegistryAnnotatesDefinitionFacts(t *testing.T) {
 		if math.Abs(weightSum-1) > 1e-9 {
 			t.Errorf("%s: weights sum to %v, want 1", s.ID, weightSum)
 		}
+	}
+}
+
+// TestThresholdAgreesWithStatus: for every rule that publishes a threshold, a
+// pass or fail with a value agrees with comparing that value to the threshold.
+// A table entry that names a number the rule does not test fails here.
+func TestThresholdAgreesWithStatus(t *testing.T) {
+	compare := func(v float64, comparator string, threshold float64) bool {
+		switch comparator {
+		case ">=":
+			return v >= threshold-tolerance
+		case "<=":
+			return v <= threshold+tolerance
+		case ">":
+			return v > threshold
+		}
+		t.Fatalf("unknown comparator %q", comparator)
+		return false
+	}
+	cands := signalsUniverse()
+	checked := 0
+	for _, s := range Registry() {
+		thresholds := map[string]Rule{}
+		for _, r := range s.Rules {
+			if r.HasThreshold {
+				thresholds[r.ID] = r
+			}
+		}
+		for i := range cands {
+			p, _ := EvaluateOne(s, cands[i], NewEnv(cands, Regime{}))
+			for _, res := range p.Rules {
+				def, ok := thresholds[res.RuleID]
+				if !ok || !res.HasValue || res.Status == RuleUnknown {
+					continue
+				}
+				checked++
+				if got := compare(res.Value, def.Comparator, def.Threshold); got != (res.Status == RulePass) {
+					t.Errorf("%s/%s on %s: value %v %s %v is %v, but status is %s",
+						s.ID, res.RuleID, cands[i].StockCode, res.Value, def.Comparator, def.Threshold, got, res.Status)
+				}
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no threshold result was checked; the universe no longer exercises the table")
 	}
 }
 

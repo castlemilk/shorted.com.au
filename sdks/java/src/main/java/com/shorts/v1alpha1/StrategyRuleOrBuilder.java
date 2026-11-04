@@ -144,7 +144,7 @@ public interface StrategyRuleOrBuilder extends
 
   /**
    * <pre>
-   * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader).
+   * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth).
    * </pre>
    *
    * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>

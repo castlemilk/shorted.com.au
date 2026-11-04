@@ -17128,7 +17128,7 @@ components:
         hasThreshold:
           type: boolean
           title: has_threshold
-          description: False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader). (proto bool)
+          description: False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth). (proto bool)
         unit:
           type: string
           title: unit
