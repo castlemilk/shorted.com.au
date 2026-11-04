@@ -223,6 +223,35 @@ func TestDistinctCodesKeepsFileOrder(t *testing.T) {
 	}
 }
 
+// TestRecountTrimsLikeRowsOnDate: the recount and RowsOnDate both trim with strings.TrimSpace, so
+// a code padded with a tab or a non-breaking space counts as present, as a padded space does.
+func TestRecountTrimsLikeRowsOnDate(t *testing.T) {
+	got := countPresent(
+		[]string{"BHP", "WBT", "TAB", "PLS", "WBT"},
+		[]string{"BHP ", "WBT\t", "TAB ", "XYZ"},
+	)
+	if got != 3 {
+		t.Fatalf("countPresent = %d, want 3 (BHP, WBT and TAB present; PLS absent; WBT counted once)", got)
+	}
+}
+
+// TestUnparsedFileRecordsNullFileRows: a file that parsed to no codes records file_rows NULL, so
+// the report's completeness is unknown rather than complete (0 >= 0).
+func TestUnparsedFileRecordsNullFileRows(t *testing.T) {
+	db := &fakeDB{}
+	if err := (&pgStore{db: db}).RecordIngest(context.Background(), ingestRecord{
+		ReportDate: time.Date(2026, 2, 3, 0, 0, 0, 0, time.UTC), SourceFile: "x.csv", Mode: modeDaily,
+	}); err != nil {
+		t.Fatalf("RecordIngest: %v", err)
+	}
+	if len(db.calls) != 1 {
+		t.Fatalf("an unparsed file runs no recount, only the upsert: %+v", db.calls)
+	}
+	if fileRows, ok := db.calls[0].Args[1].(*int); !ok || fileRows != nil {
+		t.Fatalf("file_rows must be NULL for a file with no codes, got %#v", db.calls[0].Args[1])
+	}
+}
+
 // TestCaptureSQLNeverWritesShortsOrFirstObservation pins the statements' shape: the ingest upsert
 // keeps first_ingested_at and the first mode, the recount is read-only, and the revision insert
 // is a plain insert into its own table.
@@ -235,11 +264,11 @@ func TestCaptureSQLNeverWritesShortsOrFirstObservation(t *testing.T) {
 	if !containsSQL(upsertIngestSQL, "ON CONFLICT (report_date) DO UPDATE") {
 		t.Fatalf("the ingest upsert must conflict on the report date")
 	}
-	if containsSQL(loadedRowsSQL, "INSERT") || containsSQL(loadedRowsSQL, "UPDATE") || containsSQL(loadedRowsSQL, "DELETE") {
+	if containsSQL(loadedCodesSQL, "INSERT") || containsSQL(loadedCodesSQL, "UPDATE") || containsSQL(loadedCodesSQL, "DELETE") {
 		t.Fatalf("the recount must be read-only")
 	}
-	if !containsSQL(loadedRowsSQL, "COUNT(DISTINCT btrim(\"PRODUCT_CODE\"))") {
-		t.Fatalf("the recount counts distinct trimmed codes")
+	if !containsSQL(loadedCodesSQL, "array_agg(DISTINCT \"PRODUCT_CODE\")") {
+		t.Fatalf("the recount reads the distinct stored codes, trimmed in Go")
 	}
 	if containsSQL(insertRevisionSQL, "shorts ") && !containsSQL(insertRevisionSQL, "shorts_revisions") {
 		t.Fatalf("a revision is written to shorts_revisions only")

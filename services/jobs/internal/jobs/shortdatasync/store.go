@@ -101,15 +101,17 @@ type ingestRecord struct {
 	Mode       string
 }
 
-// loadedRowsSQL counts the file's codes that shorts holds for the date, after
-// the write. btrim matches a legacy padded row ("WBT ") as its code, so a padded
-// copy counts as present, as RowsOnDate counts it. COUNT(DISTINCT) keeps a padded
-// row and its trimmed twin from counting twice. The date range is the same
-// half-open day range rowsOnDateSQL uses, so the (DATE, PRODUCT_CODE) index serves it.
-const loadedRowsSQL = `
-        SELECT COUNT(DISTINCT btrim("PRODUCT_CODE"))
+// loadedCodesSQL reads the distinct product codes shorts holds for the date, after
+// the write. The codes come back as stored, padding and all: RecordIngest trims
+// them in Go with strings.TrimSpace, the same trim RowsOnDate applies, so a padded
+// legacy row ("WBT ") counts as its code under both readers. SQL trimming would
+// trim a narrower set of characters than Go does, and the two would disagree on
+// a non-space padding. The date range is the same half-open day range rowsOnDateSQL
+// uses, so the (DATE, PRODUCT_CODE) index serves it.
+const loadedCodesSQL = `
+        SELECT COALESCE(array_agg(DISTINCT "PRODUCT_CODE"), '{}')
         FROM shorts
-        WHERE "DATE" >= $1 AND "DATE" < $2 AND btrim("PRODUCT_CODE") = ANY($3)`
+        WHERE "DATE" >= $1 AND "DATE" < $2 AND "PRODUCT_CODE" IS NOT NULL`
 
 // upsertIngestSQL records one file. first_ingested_at and mode are the
 // observation that must survive a later load, so the update leaves them alone.
@@ -127,23 +129,64 @@ const upsertIngestSQL = `
 // number of distinct codes the file parsed. loaded_rows is recounted from shorts
 // here, never taken from the writer's own write count, so a row that failed to
 // write is not counted and a row written by an earlier run is. That recount is
-// the completeness fact (architecture 4.6, R23): loaded_rows >= file_rows.
+// the completeness fact: a report is complete when loaded_rows >= file_rows.
+//
+// A file that parsed to no codes records file_rows NULL, not 0. Zero is a
+// complete report by that rule, so a file whose every record failed to parse
+// (a format change, say) would read as complete and mark every code absent in a
+// strategy read. NULL leaves completeness unknown, which is the truth.
 func (s *pgStore) RecordIngest(ctx context.Context, rec ingestRecord) error {
 	day := truncateDay(rec.ReportDate)
+	var fileRows *int
 	loaded := 0
 	if len(rec.Codes) > 0 {
-		if err := s.db.QueryRow(ctx, loadedRowsSQL,
-			day, day.AddDate(0, 0, 1), rec.Codes,
-		).Scan(&loaded); err != nil {
+		n := len(distinctTrimmed(rec.Codes))
+		fileRows = &n
+		var stored []string
+		if err := s.db.QueryRow(ctx, loadedCodesSQL,
+			day, day.AddDate(0, 0, 1),
+		).Scan(&stored); err != nil {
 			return fmt.Errorf("ingest %s: count loaded rows: %w", day.Format("2006-01-02"), err)
 		}
+		loaded = countPresent(rec.Codes, stored)
 	}
 	if _, err := s.db.Exec(ctx, upsertIngestSQL,
-		day, len(rec.Codes), loaded, rec.SourceFile, rec.Mode, rec.Mode,
+		day, fileRows, loaded, rec.SourceFile, rec.Mode, rec.Mode,
 	); err != nil {
 		return fmt.Errorf("ingest %s: upsert: %w", day.Format("2006-01-02"), err)
 	}
 	return nil
+}
+
+// countPresent counts the distinct file codes that appear among the stored codes,
+// comparing both sides trimmed the way RowsOnDate trims them.
+func countPresent(fileCodes, stored []string) int {
+	have := make(map[string]struct{}, len(stored))
+	for _, c := range stored {
+		have[strings.TrimSpace(c)] = struct{}{}
+	}
+	n := 0
+	for _, c := range distinctTrimmed(fileCodes) {
+		if _, ok := have[c]; ok {
+			n++
+		}
+	}
+	return n
+}
+
+// distinctTrimmed returns the trimmed codes once each.
+func distinctTrimmed(codes []string) []string {
+	seen := make(map[string]struct{}, len(codes))
+	out := make([]string, 0, len(codes))
+	for _, c := range codes {
+		t := strings.TrimSpace(c)
+		if _, ok := seen[t]; ok {
+			continue
+		}
+		seen[t] = struct{}{}
+		out = append(out, t)
+	}
+	return out
 }
 
 // revisionRecord is one stored row that ASIC's current file changed: the stored

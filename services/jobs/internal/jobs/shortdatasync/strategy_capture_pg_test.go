@@ -246,12 +246,15 @@ func TestIngestWriterAgainstPostgres(t *testing.T) {
 	require.True(t, firstAt.Equal(firstAgain), "first_ingested_at is the first observation and is kept")
 	require.Equal(t, before+1, shortsRows(), "recording an ingest writes no shorts row beyond the repair itself")
 
-	// A file with no parsed codes records an empty, complete report.
+	// A file that parsed to no codes records file_rows NULL: its completeness is unknown, not complete.
 	require.NoError(t, store.RecordIngest(ctx, ingestRecord{ReportDate: day.AddDate(0, 0, 1), Mode: modeDaily}))
-	var emptyLoaded int
-	require.NoError(t, pool.QueryRow(ctx, `SELECT loaded_rows FROM asic_report_ingests WHERE report_date = $1`,
-		day.AddDate(0, 0, 1)).Scan(&emptyLoaded))
-	require.Equal(t, 0, emptyLoaded)
+	var emptyFileRows *int
+	var emptyComplete *bool
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT file_rows, loaded_rows >= file_rows FROM asic_report_ingests WHERE report_date = $1`,
+		day.AddDate(0, 0, 1)).Scan(&emptyFileRows, &emptyComplete))
+	require.Nil(t, emptyFileRows, "a file with no codes has no file_rows, so it is never complete")
+	require.Nil(t, emptyComplete, "loaded_rows >= NULL is NULL, not a pass")
 
 	// Revisions: one row, the stored values beside the file's, a NULL stored value kept as NULL.
 	old := 999.0
