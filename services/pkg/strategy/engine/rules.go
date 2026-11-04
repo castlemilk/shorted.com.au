@@ -444,6 +444,10 @@ func ruleRegime(_ *Candidate, env *evalEnv) outcome {
 // ruleRS (Zanger, crowded short): rs_3m_pct > 0.
 func ruleRS(c *Candidate, _ *evalEnv) outcome {
 	if c.RS3mPct == nil {
+		if c.Ret3mPct != nil {
+			// The stock's own return is measured; the index level is not.
+			return unknownFor(ReasonNoIndex, "No S&P/ASX 200 level near the window to measure 3-month relative strength against")
+		}
 		return unknownFor(ReasonNoPriceHistory, "Not enough history for 3-month relative strength")
 	}
 	rs := *c.RS3mPct
@@ -460,6 +464,12 @@ func ruleRS(c *Candidate, _ *evalEnv) outcome {
 // percentile of the evaluated universe.
 func ruleRSLeader(c *Candidate, env *evalEnv) outcome {
 	if c.RS6mPct == nil || !env.rs6m.ok {
+		// Without an index level no stock has a relative figure, so the
+		// quartile is missing too: the reason is the index whenever the stock
+		// has its own 6-month return.
+		if c.RS6mPct == nil && c.Ret6mPct != nil {
+			return unknownFor(ReasonNoIndex, "No S&P/ASX 200 level near the window to measure 6-month relative strength against")
+		}
 		return unknownFor(ReasonNoPriceHistory, "Not enough history for 6-month relative strength")
 	}
 	rs, q := *c.RS6mPct, env.rs6m
@@ -607,11 +617,14 @@ func ruleNetMargin(c *Candidate, _ *evalEnv) outcome {
 	if q == nil {
 		return unknownFor(ReasonNoFundamentals, noStatementsYet)
 	}
-	if q.Revenue != nil && *q.Revenue <= 0 {
-		return unknownFor(ReasonNotMeaningful, "Net margin is not meaningful: revenue is zero or negative")
-	}
-	if q.Revenue == nil {
-		return unknownFor(ReasonNoFundamentals, "No positive revenue figure to measure a margin against")
+	if q.Revenue == nil || *q.Revenue <= 0 {
+		// The detail is the one the rule has always carried; the reason says
+		// whether the revenue is missing or present but not a margin's base.
+		reason := ReasonNoFundamentals
+		if q.Revenue != nil {
+			reason = ReasonNotMeaningful
+		}
+		return unknownFor(reason, "No positive revenue figure to measure a margin against")
 	}
 	if q.NetMarginPct == nil {
 		return unknownFor(ReasonNoFundamentals, "No net profit figure for the same period")

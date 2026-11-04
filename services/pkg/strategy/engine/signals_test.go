@@ -109,6 +109,10 @@ func TestUnknownResultsCarryAReason(t *testing.T) {
 		{"net margin with no revenue", ruleNetMargin, Candidate{StockCode: "X", Quality: &Quality{}}, ReasonNoFundamentals},
 		{"net margin with zero revenue", ruleNetMargin, Candidate{StockCode: "X", Quality: &Quality{Revenue: new(0.0)}}, ReasonNotMeaningful},
 		{"net margin with negative revenue", ruleNetMargin, Candidate{StockCode: "X", Quality: &Quality{Revenue: new(-5.0)}}, ReasonNotMeaningful},
+		{"rs 3m with the index missing", ruleRS, Candidate{StockCode: "X", Ret3mPct: new(8.0)}, ReasonNoIndex},
+		{"rs 3m with no history", ruleRS, Candidate{StockCode: "X"}, ReasonNoPriceHistory},
+		{"rs leader with the index missing", ruleRSLeader, Candidate{StockCode: "X", Ret6mPct: new(8.0)}, ReasonNoIndex},
+		{"rs leader with no history", ruleRSLeader, Candidate{StockCode: "X"}, ReasonNoPriceHistory},
 		{"roe withheld by the equity guard", ruleROE, Candidate{StockCode: "X", Quality: &Quality{
 			NetIncome: new(10.0), TotalEquity: new(5.0), TotalEquityPrior: new(5.0),
 			TotalAssets: new(100.0), TotalAssetsPrior: new(100.0)}}, ReasonNotMeaningful},
@@ -129,6 +133,14 @@ func TestUnknownResultsCarryAReason(t *testing.T) {
 		out := c.fn(&c.c, &evalEnv{})
 		if out.Status != RuleUnknown || out.Reason != c.want {
 			t.Errorf("%s: status %s reason %q, want unknown %q", c.name, out.Status, out.Reason, c.want)
+		}
+	}
+	// The net margin copy is the one the rule has always carried, for a
+	// missing revenue and a non-positive one alike; only the reason differs.
+	for _, rev := range []*float64{nil, new(0.0)} {
+		out := ruleNetMargin(&Candidate{StockCode: "X", Quality: &Quality{Revenue: rev}}, &evalEnv{})
+		if out.Detail != "No positive revenue figure to measure a margin against" {
+			t.Errorf("net margin detail = %q, want the revenue copy the rule has always carried", out.Detail)
 		}
 	}
 	if out := ruleRegime(&Candidate{}, &evalEnv{}); out.Reason != ReasonNoIndex {
