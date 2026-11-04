@@ -16,7 +16,7 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
-	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	engine "github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	shorts "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	gomock "go.uber.org/mock/gomock"
 )
