@@ -2,11 +2,8 @@ import { type Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { cn } from "~/@/lib/utils";
-import { eyebrow, pageTitle, sectionTitle } from "~/@/lib/typography";
+import { sectionTitle } from "~/@/lib/typography";
 import { siteConfig } from "~/@/config/site";
-import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
-import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import {
   BreadcrumbListSchema,
   DatasetStructuredData,
@@ -15,18 +12,9 @@ import {
 import { RegimeBanner } from "~/@/components/picks/regime-banner";
 import { PicksProvenance } from "~/@/components/picks/picks-provenance";
 import { RuleLegend, type RuleColumn } from "~/@/components/picks/picks-table";
-import {
-  StrategyArtBand,
-  hasStrategyArt,
-} from "~/@/components/picks/strategy-art";
-import { StrategyBezel } from "~/@/components/picks/strategy-glyph";
 import { StrategyPanel } from "~/@/components/picks/strategy-panel";
 import { StrategySwitcher } from "~/@/components/picks/strategy-switcher";
-import {
-  STRATEGIES,
-  STRATEGY_SLUGS,
-  getStrategy,
-} from "~/@/lib/strategies/registry";
+import { STRATEGIES, getStrategy } from "~/@/lib/strategies/registry";
 import {
   STATUS_LABELS,
   countByStatus,
@@ -42,7 +30,7 @@ interface PageProps {
   params: Promise<{ strategy: string }>;
 }
 
-// Static ISR with prerendered params, the /themes/[slug] pattern: one cached
+// Static ISR (the params are prerendered by the layout), the /themes/[slug] pattern: one cached
 // API read per strategy per hour, shared with the /strategies hub. The cold-build
 // hazard (skipForBuild bakes an empty shell) is handled by bailOnEmptyRender()
 // below, and the post-promote sweep (config/isr-pages.json) refills it.
@@ -51,15 +39,13 @@ interface PageProps {
 // rendering and throws the ISR away. ?status= and ?sort= are read client-side
 // by PicksSortedView, under the <Suspense> boundary it owns.
 //
-// NOTE: no loading.tsx on this route, so notFound() yields a real HTTP 404.
+// The layout's generateStaticParams and dynamicParams = false answer an unknown
+// slug with the routing 404 before this page runs; the notFound() below is the
+// same answer for a slug the registry does not hold.
 export const revalidate = 3600;
 // A cold Cloud Run start evaluates the whole universe before it answers; the
 // default function budget must not 504 it.
 export const maxDuration = 60;
-
-export function generateStaticParams() {
-  return STRATEGY_SLUGS.map((strategy) => ({ strategy }));
-}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { strategy: slug } = await params;
@@ -129,10 +115,6 @@ export default async function StrategyPicksPage({ params }: PageProps) {
   const counts = countByStatus(rows, data?.totalCount ?? 0);
   const listRows = shortlist.slice(0, ITEM_LIST_LIMIT);
 
-  const breadcrumbItems = [
-    { label: "Strategies", href: "/strategies" },
-    { label: seo.h1, href: `/strategies/${seo.slug}` },
-  ];
   const breadcrumbsSchema = [
     { name: "Home", url: siteConfig.url },
     { name: "Strategies", url: `${siteConfig.url}/strategies` },
@@ -151,7 +133,7 @@ export default async function StrategyPicksPage({ params }: PageProps) {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <BreadcrumbListSchema items={breadcrumbsSchema} />
       <DatasetStructuredData
         datasetInfo={{
@@ -180,50 +162,19 @@ export default async function StrategyPicksPage({ params }: PageProps) {
       ) : null}
 
       <div className="space-y-8">
-        <div className="mb-4">
-          <Breadcrumbs items={breadcrumbItems} />
-        </div>
-
         <StrategySwitcher current={seo.slug} />
 
-        {/* The instrument's faceplate: its glyph lit in the bezel beside the
-            serif H1, the provenance nameplate under it. A 320ms phosphor
-            warm-up on load; the H1 is painted from the first frame. With
-            art (the strategy's generative scene, or baked brandbrain art)
-            the faceplate sits on it under a scrim, a bordered band like the
-            suburb banner; without any, the hairline-ruled header. */}
-        <section
-          data-scene-stage={hasStrategyArt(seo.slug) ? "" : undefined}
-          className={cn(
-            "motion-safe:animate-phosphor-warm",
-            hasStrategyArt(seo.slug)
-              ? "relative overflow-hidden rounded-lg border border-border/60 p-4 sm:p-6"
-              : "border-b border-border/40 pb-6",
-          )}
-        >
-          <StrategyArtBand slug={seo.slug} />
-          <div className="relative flex items-start gap-4 sm:gap-5">
-            <StrategyBezel slug={seo.slug} className="mt-1 text-primary" />
-            <div className="min-w-0">
-              <p className={cn(eyebrow, "mb-2 font-medium")}>
-                <Link href="/strategies" className="hover:text-foreground">
-                  Stock picker
-                </Link>
-                {strategy?.author ? <> · {strategy.author}</> : null}
-              </p>
-              <h1 className={cn(pageTitle, "leading-[1.1]")}>{seo.h1}</h1>
-            </div>
-          </div>
-          <p className="relative mt-3 max-w-3xl text-muted-foreground">{seo.dek}</p>
-          <div className="relative mt-3">
-            <PicksProvenance
-              asOf={data?.asOf ?? ""}
-              coverage={data?.fundamentalsCoverageCount ?? 0}
-              rowsCount={data?.fundamentalsRowsCount ?? 0}
-              universe={data?.universeCount ?? 0}
-            />
-          </div>
-        </section>
+        <div className="space-y-2">
+          {strategy?.author ? (
+            <p className="text-sm text-muted-foreground">By {strategy.author}</p>
+          ) : null}
+          <PicksProvenance
+            asOf={data?.asOf ?? ""}
+            coverage={data?.fundamentalsCoverageCount ?? 0}
+            rowsCount={data?.fundamentalsRowsCount ?? 0}
+            universe={data?.universeCount ?? 0}
+          />
+        </div>
 
         {data ? (
           <>
@@ -317,6 +268,6 @@ export default async function StrategyPicksPage({ params }: PageProps) {
           </ul>
         </section>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

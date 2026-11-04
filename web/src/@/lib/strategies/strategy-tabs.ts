@@ -5,7 +5,12 @@
 // A tab is listed here before its page ships, with `enabled: false`: the tab
 // bar renders only enabled tabs, so a tab appears in the UI in the same change
 // that adds its route. Overview is the canonical strategy URL.
-export type StrategyTabId = "overview" | "rules" | "backtest" | "signals" | "trades";
+export type StrategyTabId =
+  | "overview"
+  | "rules"
+  | "backtest"
+  | "signals"
+  | "trades";
 
 export interface StrategyTab {
   id: StrategyTabId;
@@ -31,7 +36,9 @@ export function enabledStrategyTabs(): readonly StrategyTab[] {
 
 export function strategyTabHref(slug: string, id: StrategyTabId): string {
   const tab = STRATEGY_TABS.find((t) => t.id === id);
-  return tab?.segment ? `/strategies/${slug}/${tab.segment}` : `/strategies/${slug}`;
+  return tab?.segment
+    ? `/strategies/${slug}/${tab.segment}`
+    : `/strategies/${slug}`;
 }
 
 /**
@@ -40,7 +47,7 @@ export function strategyTabHref(slug: string, id: StrategyTabId): string {
  */
 export function activeStrategyTab(pathname: string): StrategyTabId {
   const m = /^\/strategies\/[^/]+(?:\/([^/]+))?\/?$/.exec(pathname);
-  if (!m || !m[1]) return "overview";
+  if (!m?.[1]) return "overview";
   const tab = STRATEGY_TABS.find((t) => t.segment === m[1]);
   return tab ? tab.id : "overview";
 }

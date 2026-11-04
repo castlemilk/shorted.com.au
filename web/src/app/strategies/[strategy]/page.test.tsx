@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { isValidElement, Suspense, type ReactElement, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 
-import StrategyPicksPage, { generateMetadata, generateStaticParams } from "./page";
+import StrategyPicksPage, { generateMetadata } from "./page";
 import { PicksSortedView } from "./picks-sorted-view";
 import { PicksFilterView } from "~/@/components/picks/picks-filter-view";
 import { STRATEGY_SLUGS, getStrategy } from "~/@/lib/strategies/registry";
@@ -94,14 +94,6 @@ describe("StrategyPicksPage", () => {
     getStrategyPicks.mockResolvedValue(PICKS);
   });
 
-  it("prerenders every registry strategy", () => {
-    expect(generateStaticParams()).toEqual(
-      STRATEGY_SLUGS.map((strategy) => ({ strategy })),
-    );
-    expect(STRATEGY_SLUGS).toHaveLength(5);
-    expect(generateStaticParams()).toContainEqual({ strategy: "quality-compounders" });
-  });
-
   // DatasetStructuredData leaves dateModified out without a date (it used to
   // stamp the render time), so each caller must hand it the data's own.
   it("dates its Dataset from the picks' as-of date, and leaves it out without one", async () => {
@@ -135,17 +127,12 @@ describe("StrategyPicksPage", () => {
     expect(getStrategyPicks).not.toHaveBeenCalled();
   });
 
-  it("renders the header, provenance and regime verdict", async () => {
-    const seo = getStrategy("zanger-breakout")!;
+  it("renders the author, provenance and regime verdict (the faceplate is the layout's)", async () => {
     render(await StrategyPicksPage({ params: params("zanger-breakout") }));
 
     expect(getStrategyPicks).toHaveBeenCalledWith("zanger-breakout");
-    expect(
-      screen.getByRole("heading", { level: 1, name: seo.h1 }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(seo.dek)).toBeInTheDocument();
-    const kicker = screen.getByRole("link", { name: "Stock picker" }).closest("p");
-    expect(kicker).toHaveTextContent("Stock picker · Dan Zanger");
+    expect(screen.getByText("By Dan Zanger")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
 
     // Provenance line: price date, fundamentals coverage (stocks with any
     // fundamentals row, growth figures beside it), the ASIC lag, and the
@@ -400,11 +387,9 @@ describe("StrategyPicksPage", () => {
 
   it("renders the copy-only shell and bails the render when the read fails", async () => {
     getStrategyPicks.mockResolvedValue(null);
-    const seo = getStrategy("canslim")!;
 
     render(await StrategyPicksPage({ params: params("canslim") }));
 
-    expect(screen.getByRole("heading", { level: 1, name: seo.h1 })).toBeInTheDocument();
     expect(screen.getByText(/temporarily unavailable/)).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.queryByTestId("itemlist")).not.toBeInTheDocument();
