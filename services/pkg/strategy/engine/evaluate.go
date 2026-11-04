@@ -4,6 +4,8 @@ import (
 	"math"
 	"sort"
 	"time"
+
+	"cloud.google.com/go/civil"
 )
 
 // quartile is the top-quartile cut-off of one cross-sectional metric.
@@ -58,13 +60,7 @@ func (e *evalEnv) RSQuantileThreshold() (float64, bool) {
 // what the caller sees. NaN and Inf are ignored (the store already drops
 // them; this is belt and braces).
 func computeRS6mQuartile(cands []Candidate) quartile {
-	vals := make([]float64, 0, len(cands))
-	for i := range cands {
-		if v := cands[i].RS6mPct; v != nil && !math.IsNaN(*v) && !math.IsInf(*v, 0) {
-			vals = append(vals, *v)
-		}
-	}
-	return quantile(vals, rsLeaderQuantile)
+	return quantile(UniverseStatsOf(cands).RS6m, rsLeaderQuantile)
 }
 
 // quantile is the linear-interpolation quantile (the numpy / R type 7
@@ -94,9 +90,48 @@ func quantile(vals []float64, p float64) quartile {
 // there match the ones its row carries in the ranked list.
 type Env = evalEnv
 
-// NewEnv computes the evaluation environment of a universe.
+// UniverseStats is the cross-sectional part of an evaluated universe: what the
+// rules read from the other stocks, computed once per universe. The backtest
+// builds it from each session's eligible codes; the live path builds it from
+// the candidates it already holds (UniverseStatsOf).
+type UniverseStats struct {
+	Session civil.Date
+	RS6m    []float64 // rs_6m_pct of the version's eligible codes on Session, sorted ascending
+}
+
+// UniverseStatsOf reads the statistics of a built candidate slice: the finite
+// rs_6m_pct values in ascending order, and the newest price date.
+func UniverseStatsOf(cands []Candidate) UniverseStats {
+	vals := make([]float64, 0, len(cands))
+	for i := range cands {
+		if v := cands[i].RS6mPct; v != nil && isFinite(*v) {
+			vals = append(vals, *v)
+		}
+	}
+	sort.Float64s(vals)
+	var session civil.Date
+	if latest := LatestAsOf(cands); !latest.IsZero() {
+		session = civil.DateOf(latest)
+	}
+	return UniverseStats{Session: session, RS6m: vals}
+}
+
+// NewEnvFromStats computes the evaluation environment of a universe from its
+// statistics. Non-finite RS values are ignored, as they are everywhere else.
+func NewEnvFromStats(regime Regime, stats UniverseStats) *Env {
+	vals := make([]float64, 0, len(stats.RS6m))
+	for _, v := range stats.RS6m {
+		if isFinite(v) {
+			vals = append(vals, v)
+		}
+	}
+	return &evalEnv{regime: regime, rs6m: quantile(vals, rsLeaderQuantile)}
+}
+
+// NewEnv computes the evaluation environment of a universe. It is
+// NewEnvFromStats over the universe's own statistics.
 func NewEnv(cands []Candidate, regime Regime) *Env {
-	return &evalEnv{regime: regime, rs6m: computeRS6mQuartile(cands)}
+	return NewEnvFromStats(regime, UniverseStatsOf(cands))
 }
 
 // Regime returns the market regime the environment was built with.

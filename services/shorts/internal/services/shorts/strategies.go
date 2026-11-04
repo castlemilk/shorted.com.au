@@ -328,7 +328,7 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 		u := &strategyUniverse{
 			candidates:      cands,
 			index:           make(map[string]int, len(cands)),
-			env:             engine.NewEnv(cands, regime),
+			env:             engine.NewEnvFromStats(regime, engine.UniverseStatsOf(cands)),
 			regime:          regime,
 			coverage:        engine.FundamentalsCoverage(cands),
 			qualityCoverage: engine.QualityCoverage(cands),

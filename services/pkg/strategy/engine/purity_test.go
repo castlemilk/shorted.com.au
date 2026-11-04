@@ -83,6 +83,18 @@ var pureImports = map[string]bool{
 	"unicode/utf8":  true,
 }
 
+// pureModuleImport reports whether a non-standard-library import is allowed: the
+// civil date value type, and the strategy packages themselves (which are held to
+// this same rule). pgsource is the one package that does I/O and is never
+// imported by a pure package.
+func pureModuleImport(path string) bool {
+	if path == "cloud.google.com/go/civil" {
+		return true
+	}
+	const tree = "github.com/castlemilk/shorted.com.au/services/pkg/strategy/"
+	return strings.HasPrefix(path, tree) && !strings.HasPrefix(path, tree+"pgsource")
+}
+
 // forbiddenSelectors lists the selectors of an allowed package that break
 // purity: clock reads, timers and sleeps, time-zone loading and ambient
 // time.Local, and printing or scanning to or from the process's streams.
@@ -110,7 +122,9 @@ func purityViolations(file *ast.File) []string {
 			out = append(out, "unreadable import "+imp.Path.Value)
 			continue
 		}
-		if first := strings.SplitN(path, "/", 2)[0]; strings.Contains(first, ".") {
+		if pureModuleImport(path) {
+			// A pure value package or another package of this tree.
+		} else if first := strings.SplitN(path, "/", 2)[0]; strings.Contains(first, ".") {
 			out = append(out, "non-standard-library import "+path)
 		} else if !pureImports[path] {
 			out = append(out, "import "+path+" is outside the pure standard-library allowlist")

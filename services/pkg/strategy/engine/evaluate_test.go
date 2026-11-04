@@ -104,6 +104,43 @@ func TestRS6mQuartileIgnoresMissingAndNonFinite(t *testing.T) {
 	}
 }
 
+// NewEnv over a universe equals NewEnvFromStats over that universe's statistics,
+// and the picks evaluated against either environment are identical. The live
+// path builds its environment from statistics; the backtest builds it from the
+// session's eligible codes, so the two must agree on the same candidates.
+func TestNewEnvEqualsNewEnvFromStats(t *testing.T) {
+	cands := []Candidate{
+		{StockCode: "AAA", RS6mPct: new(float64(12)), Close: 10},
+		{StockCode: "BBB", RS6mPct: new(float64(-4)), Close: 8},
+		{StockCode: "CCC", Close: 5},
+		{StockCode: "DDD", RS6mPct: new(math.NaN()), Close: 7},
+		{StockCode: "EEE", RS6mPct: new(float64(31)), Close: 9},
+		{StockCode: "FFF", RS6mPct: new(float64(3)), Close: 6},
+		{StockCode: "GGG", RS6mPct: new(math.Inf(1)), Close: 4},
+		{StockCode: "HHH", RS6mPct: new(float64(18)), Close: 11},
+	}
+	fromCands := NewEnv(cands, uptrend)
+	fromStats := NewEnvFromStats(uptrend, UniverseStatsOf(cands))
+	if !reflect.DeepEqual(fromCands, fromStats) {
+		t.Fatalf("NewEnv = %+v, NewEnvFromStats = %+v; want equal", *fromCands, *fromStats)
+	}
+
+	// Statistics handed over unsorted, with non-finite values, give the same
+	// environment as the sorted finite ones.
+	rough := UniverseStats{RS6m: []float64{31, math.NaN(), 3, 18, math.Inf(-1), 12, -4}}
+	sorted := UniverseStats{RS6m: []float64{-4, 3, 12, 18, 31}}
+	if !reflect.DeepEqual(NewEnvFromStats(uptrend, rough), NewEnvFromStats(uptrend, sorted)) {
+		t.Fatal("NewEnvFromStats must ignore non-finite values and order-independent input")
+	}
+
+	s, _ := Lookup(IDMinerviniTrendTemplate)
+	a := EvaluateWithEnv(s, cands, fromCands)
+	b := EvaluateWithEnv(s, cands, fromStats)
+	if !reflect.DeepEqual(a, b) {
+		t.Fatal("picks evaluated against NewEnv and NewEnvFromStats differ")
+	}
+}
+
 // In a universe of four, only the top name clears the top-quartile cut-off.
 func TestEvaluateComputesTheQuartileOverTheEvaluatedUniverse(t *testing.T) {
 	s, _ := Lookup(IDMinerviniTrendTemplate)
