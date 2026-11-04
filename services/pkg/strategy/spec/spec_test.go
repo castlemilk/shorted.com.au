@@ -258,7 +258,7 @@ func TestProseRendersValues(t *testing.T) {
 		t.Fatal("a template with a missing parameter rendered without error")
 	}
 
-	// Dollar thresholds at and above the scale the variants reach (3.6) print in
+	// Dollar thresholds at and above the scale the variants reach print in
 	// plain decimal notation, grouped.
 	for _, tc := range []struct {
 		min  float64
@@ -316,7 +316,7 @@ var fs1Literals = []fs1Literal{
 	{migrationPriceFeatures, regexp.MustCompile(`prior50_n\s*>=\s*(\d+)\b`), []string{"breakout_volume_min_n"}},
 	{migrationPriceFeatures, regexp.MustCompile(`s\.volume\s*>=\s*([0-9.]+)\s*\*\s*s\.prior50_avg_volume`), []string{"breakout_volume_multiple"}},
 	{migrationPriceFeatures, regexp.MustCompile(`r\.rn\s*<=\s*(\d+)\s+AND\s+r\.is_breakout`), []string{"breakout_window"}},
-	{migrationPriceFeatures, regexp.MustCompile(`r\.anchor_rn \+ (\d+)\b`), []string{"base_window"}},
+	{migrationPriceFeatures, regexp.MustCompile(`r\.rn BETWEEN r\.anchor_rn \+ 1 AND r\.anchor_rn \+ (\d+)\b`), []string{"base_window"}},
 	{migrationPriceFeatures, regexp.MustCompile(`r\.high\s*>=\s*([0-9.]+)\s*\*\s*r\.pivot`), []string{"touch_ratio"}},
 	{migrationPriceFeatures, regexp.MustCompile(`\(WHERE r\.rn\s*<=\s*(\d+)\)\s+AS\s+high_52w`), []string{"high_low_sessions"}},
 	{migrationPriceFeatures, regexp.MustCompile(`count\(\*\) FILTER \(WHERE r\.rn\s*<=\s*(\d+)\)\s*>=\s*(\d+)\b`), []string{"dv_sessions", "dv_min_n"}},
@@ -324,31 +324,37 @@ var fs1Literals = []fs1Literal{
 	{migrationPriceFeatures, regexp.MustCompile(`count\(\*\) FILTER \(WHERE r\.rn BETWEEN (\d+) AND (\d+)\)\s*>=\s*(\d+)\b`), []string{"avgvol_from", "avgvol_to", "avgvol_min_n"}},
 	{migrationPriceFeatures, regexp.MustCompile(`INTERVAL '(\d+) days'`), []string{"ret_anchor_tolerance_days"}},
 	{migrationPriceFeatures, regexp.MustCompile(`r\.as_of - (\d+)\b`), []string{"rs_index_tolerance_days"}},
-	{migrationDaysToCover, regexp.MustCompile(`CURRENT_DATE - '(\d+) days'::interval\)`), []string{"dtc_window_days"}},
+	{migrationDaysToCover, regexp.MustCompile(`stock_prices\.date >= \(CURRENT_DATE - '(\d+) days'::interval\)\) AND \(stock_prices\.volume > 0\)`), []string{"dtc_window_days"}},
 	{migrationDaysToCover, regexp.MustCompile(`HAVING \(count\(\*\) >= (\d+)\)`), []string{"dtc_min_rows"}},
 }
 
 // fs1Mismatches returns, sorted, each fs1 parameter that no literal in the
-// migration text states with its value. A parameter no literal names at all is
-// reported too.
+// migration text states with its value. A literal states its parameters when it
+// matches at least once and every match carries the spec's values, so a pattern
+// that also matches an unrelated clause cannot pass on that clause's number. A
+// parameter no literal names at all is reported too.
 func fs1Mismatches(params map[string]float64, sql map[string]string) []string {
 	agreed := map[string]bool{}
 	for _, lit := range fs1Literals {
-		for _, m := range lit.match.FindAllStringSubmatch(sql[lit.file], -1) {
-			ok := true
+		matches := lit.match.FindAllStringSubmatch(sql[lit.file], -1)
+		if len(matches) == 0 {
+			continue
+		}
+		ok := true
+	matching:
+		for _, m := range matches {
 			for i, key := range lit.params {
 				want, has := params[key]
 				got, err := strconv.ParseFloat(m[i+1], 64)
 				if !has || err != nil || got != want {
 					ok = false
-					break
+					break matching
 				}
 			}
-			if ok {
-				for _, key := range lit.params {
-					agreed[key] = true
-				}
-				break
+		}
+		if ok {
+			for _, key := range lit.params {
+				agreed[key] = true
 			}
 		}
 	}
@@ -375,17 +381,86 @@ func loadMigrations(t *testing.T) map[string]string {
 	return sql
 }
 
-// TestFS1ParamsMatchMigrationLiterals holds the fs1 parameters of the live
-// version to the SQL they were ported from: migration 000130 for the price
-// features and the regime, and 000080 for days to cover. A changed value on
-// either side fails.
+// TestFS1ParamsMatchMigrationLiterals holds the fs1 parameters of every
+// registered version to the SQL they were ported from: migration 000130 for the
+// price features and the regime, and 000080 for days to cover. A changed value
+// on either side fails.
 func TestFS1ParamsMatchMigrationLiterals(t *testing.T) {
-	live, ok := Live("zanger-breakout")
-	if !ok {
-		t.Fatal("no live version for zanger-breakout")
+	sql := loadMigrations(t)
+	for _, r := range Registry() {
+		for _, key := range fs1Mismatches(r.Spec.Features.Params, sql) {
+			t.Errorf("%s %s: fs1 %s: no migration literal states this value", r.Spec.StrategyID, r.Label, key)
+		}
 	}
-	for _, key := range fs1Mismatches(live.Spec.Features.Params, loadMigrations(t)) {
-		t.Errorf("fs1 %s: no migration literal states this value", key)
+}
+
+// regimeLiterals ties the regime's averages to the SQL of mv_market_regime.
+var regimeLiterals = map[string]*regexp.Regexp{
+	"sma_fast": regexp.MustCompile(`<= (\d+)\) END\s+AS sma50\b`),
+	"sma_slow": regexp.MustCompile(`<= (\d+)\) END\s+AS sma200\b`),
+}
+
+// TestRegimeWindowsMatchMigrationLiterals holds each version's regime averages
+// to the windows of mv_market_regime in migration 000130.
+func TestRegimeWindowsMatchMigrationLiterals(t *testing.T) {
+	sql := loadMigrations(t)[migrationPriceFeatures]
+	for _, r := range Registry() {
+		want := map[string]int{"sma_fast": r.Spec.Regime.SMAFast, "sma_slow": r.Spec.Regime.SMASlow}
+		for key, re := range regimeLiterals {
+			matches := re.FindAllStringSubmatch(sql, -1)
+			if len(matches) == 0 {
+				t.Errorf("%s %s: no migration literal states the regime %s", r.Spec.StrategyID, r.Label, key)
+				continue
+			}
+			for _, m := range matches {
+				if got, _ := strconv.Atoi(m[1]); got != want[key] {
+					t.Errorf("%s %s: regime %s = %d, migration states %d", r.Spec.StrategyID, r.Label, key, want[key], got)
+				}
+			}
+		}
+	}
+}
+
+// strategyViewDefiners names the migration that defines each view the fs1
+// literals are read from. A later migration that redefines a view changes the
+// live behaviour, so TestStrategyViewsDefinedWhereTheLiteralsAre fails until
+// the literals are pointed at the new definition.
+var strategyViewDefiners = map[string]string{
+	"mv_price_features": migrationPriceFeatures,
+	"mv_market_regime":  migrationPriceFeatures,
+	"mv_screener_data":  migrationDaysToCover,
+}
+
+// TestStrategyViewsDefinedWhereTheLiteralsAre checks that the migration which
+// last creates each strategy view is the one the fs1 literals are read from.
+func TestStrategyViewsDefinedWhereTheLiteralsAre(t *testing.T) {
+	dir := filepath.Join("..", "..", "..", "migrations")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read migrations: %v", err)
+	}
+	var files []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".up.sql") {
+			files = append(files, e.Name())
+		}
+	}
+	sort.Strings(files) // zero-padded numbers: name order is publication order
+	for view, pinned := range strategyViewDefiners {
+		create := regexp.MustCompile(`(?i)CREATE\s+MATERIALIZED\s+VIEW\s+(IF\s+NOT\s+EXISTS\s+)?` + regexp.QuoteMeta(view) + `\b`)
+		last := ""
+		for _, f := range files {
+			b, err := os.ReadFile(filepath.Join(dir, f))
+			if err != nil {
+				t.Fatalf("read %s: %v", f, err)
+			}
+			if create.Match(b) {
+				last = f
+			}
+		}
+		if last != pinned {
+			t.Errorf("%s is last defined in %s, but the fs1 literals are read from %s", view, last, pinned)
+		}
 	}
 }
 
@@ -405,7 +480,9 @@ func TestFS1LiteralsCatchAChangedValue(t *testing.T) {
 		{"history_calendar_days", 365},
 		{"min_sessions", 61},
 		{"dtc_window_days", 20},
+		{"dtc_window_days", 90},
 		{"avgvol_to", 50},
+		{"base_window", 1},
 	} {
 		params := copyParams(live.Spec.Features.Params)
 		params[tc.key] = tc.val
@@ -420,6 +497,73 @@ func TestFS1LiteralsCatchAChangedValue(t *testing.T) {
 	params["unlisted_param"] = 1
 	if got := fs1Mismatches(params, sql); !contains(got, "unlisted_param = 1") {
 		t.Errorf("a parameter no literal names was not reported: %v", got)
+	}
+}
+
+// TestMirroredValuesAgree checks the values a version states twice: the rule
+// copy and the feature parameter (or the regime and its rule) that compute the
+// same quantity. Each pair must be equal, so one cannot drift from the other.
+func TestMirroredValuesAgree(t *testing.T) {
+	type pair struct {
+		what      string
+		got, want float64
+	}
+	for _, r := range Registry() {
+		sp := r.Spec
+		f := sp.Features.Params
+		name := sp.StrategyID + " " + r.Label
+		pairs := []pair{
+			{"universe min sessions vs min_sessions", float64(sp.Universe.MinSessions), f["min_sessions"]},
+			{"universe lookback days vs history_calendar_days", float64(sp.Universe.LookbackDays), f["history_calendar_days"]},
+		}
+		for _, rule := range sp.Rules {
+			p := rule.Params
+			switch rule.ID {
+			case "breakout":
+				pairs = append(pairs,
+					pair{"breakout window vs breakout_window", p["window_sessions"], f["breakout_window"]},
+					pair{"breakout prior sessions vs breakout_prior_sessions", p["prior_sessions"], f["breakout_prior_sessions"]},
+					pair{"breakout volume multiple vs breakout_volume_multiple", p["volume_multiple"], f["breakout_volume_multiple"]},
+					pair{"breakout volume sessions vs breakout_volume_sessions", p["volume_sessions"], f["breakout_volume_sessions"]},
+				)
+			case "base":
+				pairs = append(pairs, pair{"base window vs base_window", p["window_sessions"], f["base_window"]})
+			case "liquidity":
+				pairs = append(pairs, pair{"liquidity sessions vs dv_sessions", p["sessions"], f["dv_sessions"]})
+			case "regime":
+				pairs = append(pairs,
+					pair{"regime rule sma_fast vs the regime's SMAFast", p["sma_fast"], float64(sp.Regime.SMAFast)},
+					pair{"regime rule sma_slow vs the regime's SMASlow", p["sma_slow"], float64(sp.Regime.SMASlow)},
+				)
+			}
+		}
+		for _, pr := range pairs {
+			if pr.got != pr.want {
+				t.Errorf("%s: %s: %g and %g", name, pr.what, pr.got, pr.want)
+			}
+		}
+	}
+}
+
+// TestRegistryChangelogAndLabels holds every registered version to a changelog
+// entry and to labels that increase within its strategy. The hash golden is
+// only changed alongside a changelog entry, so an empty entry is a missing one.
+func TestRegistryChangelogAndLabels(t *testing.T) {
+	last := map[string]int{}
+	for _, r := range Registry() {
+		name := r.Spec.StrategyID + " " + r.Label
+		if len(r.Changes) == 0 {
+			t.Errorf("%s: no changelog entry", name)
+		}
+		n, err := strconv.Atoi(strings.TrimPrefix(r.Label, "v"))
+		if err != nil || !strings.HasPrefix(r.Label, "v") {
+			t.Errorf("%s: label %q is not v<number>", name, r.Label)
+			continue
+		}
+		if prev, seen := last[r.Spec.StrategyID]; seen && n <= prev {
+			t.Errorf("%s: label does not follow v%d", name, prev)
+		}
+		last[r.Spec.StrategyID] = n
 	}
 }
 
