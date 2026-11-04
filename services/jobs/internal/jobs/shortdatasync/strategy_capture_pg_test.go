@@ -258,12 +258,13 @@ func TestIngestWriterAgainstPostgres(t *testing.T) {
 
 	// Revisions: one row, the stored values beside the file's, a NULL stored value kept as NULL.
 	old := 999.0
-	n, err := store.InsertRevisions(ctx, []revisionRecord{{
+	revision := revisionRecord{
 		Date: day, Code: "BHP", OldPositions: &old, NewPositions: 1000, OldShares: nil, NewShares: 5000,
 		OldPercent: nil, NewPercent: 0.42,
-	}})
+	}
+	unwritten, err := store.InsertRevisions(ctx, []revisionRecord{revision})
 	require.NoError(t, err)
-	require.Equal(t, 1, n)
+	require.Empty(t, unwritten)
 	var oldPos *float64
 	var newPos, newPct float64
 	var oldShares *float64
@@ -275,4 +276,26 @@ func TestIngestWriterAgainstPostgres(t *testing.T) {
 	require.Equal(t, 1000.0, newPos)
 	require.Nil(t, oldShares, "a NULL stored value stays NULL")
 	require.Equal(t, 0.42, newPct)
+
+	// The row's own upsert failed after the revision landed, so the next run finds the same difference and
+	// writes the same revision again. It must not add a second row.
+	unwritten, err = store.InsertRevisions(ctx, []revisionRecord{revision})
+	require.NoError(t, err)
+	require.Empty(t, unwritten)
+	require.Equal(t, 1, revisionRows(t, pool, "BHP"), "a repeated revision is recorded once")
+
+	// A later, different change to the same code is a new revision, and a move back is too.
+	later := revisionRecord{Date: day, Code: "BHP", OldPositions: new(1000.0), NewPositions: 999, NewShares: 5000}
+	_, err = store.InsertRevisions(ctx, []revisionRecord{later, revision})
+	require.NoError(t, err)
+	require.Equal(t, 3, revisionRows(t, pool, "BHP"), "each change in order is kept, even a move back to an old value")
+}
+
+// revisionRows counts the shorts_revisions rows for one code.
+func revisionRows(t *testing.T, pool *pgxpool.Pool, code string) int {
+	t.Helper()
+	var n int
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM shorts_revisions WHERE product_code = $1`, code).Scan(&n))
+	return n
 }

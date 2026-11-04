@@ -85,7 +85,7 @@ type reconcileStore interface {
 	RowsOnDate(ctx context.Context, d time.Time) (map[string]storedRow, error)
 	UpsertRows(ctx context.Context, rows []shortsRow) (int, error)
 	RecordIngest(ctx context.Context, rec ingestRecord) error
-	InsertRevisions(ctx context.Context, revs []revisionRecord) (int, error)
+	InsertRevisions(ctx context.Context, revs []revisionRecord) ([]revisionRecord, error)
 }
 
 // fetchFunc returns one ASIC file's bytes.
@@ -349,12 +349,15 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 			continue
 		}
 		// The revisions are written before the rows they describe, from the
-		// stored values read above, so a revision row never has its new value
-		// without its old one.
+		// stored values read above. A changed row whose revision did not land
+		// is left out of this write: its stored value is the one ASIC replaced,
+		// and the next run finds it changed again and retries both.
 		if len(d.revised) > 0 {
-			if _, err := store.InsertRevisions(ctx, d.revised); err != nil {
+			unwritten, err := store.InsertRevisions(ctx, d.revised)
+			if err != nil {
 				return rep, err
 			}
+			write = withoutUnrevised(write, unwritten)
 		}
 		written, err := store.UpsertRows(ctx, write)
 		rep.RowsWritten += written
@@ -444,6 +447,26 @@ func diffDate(file []shortsRow, listed map[string]struct{}, have map[string]stor
 		}
 	}
 	return d
+}
+
+// withoutUnrevised drops from a write the changed rows whose revision did not land.
+// Missing rows never have a revision, so they are kept.
+func withoutUnrevised(write []shortsRow, unwritten []revisionRecord) []shortsRow {
+	if len(unwritten) == 0 {
+		return write
+	}
+	skip := make(map[string]struct{}, len(unwritten))
+	for _, u := range unwritten {
+		skip[u.Code] = struct{}{}
+	}
+	out := make([]shortsRow, 0, len(write))
+	for _, r := range write {
+		if _, ok := skip[r.ProductCode]; ok {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
 }
 
 // revisionOf pairs a changed row's stored values with the file's, for shorts_revisions.

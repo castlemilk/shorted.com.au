@@ -51,6 +51,8 @@ type fakeReconcileStore struct {
 	revisions []revisionRecord
 	// ingestErr makes RecordIngest fail, as a missing table would.
 	ingestErr error
+	// revisionErr names the codes whose revision insert fails.
+	revisionErr map[string]error
 }
 
 // fakeIngest is one asic_report_ingests write, with the loaded count it recounted.
@@ -88,13 +90,21 @@ func (f *fakeReconcileStore) RecordIngest(ctx context.Context, rec ingestRecord)
 	return nil
 }
 
-// InsertRevisions records each revision as given.
-func (f *fakeReconcileStore) InsertRevisions(ctx context.Context, revs []revisionRecord) (int, error) {
+// InsertRevisions records each revision as given, except the codes in revisionErr, which
+// it returns as unwritten, as a failed insert would.
+func (f *fakeReconcileStore) InsertRevisions(ctx context.Context, revs []revisionRecord) ([]revisionRecord, error) {
 	if err := ctx.Err(); err != nil {
-		return 0, err
+		return nil, err
 	}
-	f.revisions = append(f.revisions, revs...)
-	return len(revs), nil
+	var unwritten []revisionRecord
+	for _, r := range revs {
+		if _, failed := f.revisionErr[r.Code]; failed {
+			unwritten = append(unwritten, r)
+			continue
+		}
+		f.revisions = append(f.revisions, r)
+	}
+	return unwritten, nil
 }
 
 // holds stores codes with the values asicCSV would give them at the same

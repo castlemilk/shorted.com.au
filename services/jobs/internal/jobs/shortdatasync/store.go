@@ -199,22 +199,45 @@ type revisionRecord struct {
 }
 
 // insertRevisionSQL is one shorts_revisions row. It is written by the writer, not a
-// trigger: shorts holds about 2.1M rows and must not gain one (architecture 9.1).
+// trigger: shorts holds about 2.1M rows and must not gain one.
+//
+// It is idempotent against the latest revision the table holds for the same date
+// and code. When a revision landed but the row's own upsert then failed, the row
+// stays changed and the next run finds the same difference again; without this
+// guard that run would insert the same revision a second time. A revision equal to
+// the latest one is therefore skipped. An earlier revision with the same values
+// does not count, so a value that moves A to B and back to A and to B again still
+// records every move.
 const insertRevisionSQL = `
         INSERT INTO shorts_revisions (
             report_date, product_code,
             old_positions, new_positions, old_shares, new_shares, old_percent, new_percent)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+        SELECT $1::date, $2::text, $3::float8, $4::float8, $5::float8, $6::float8, $7::float8, $8::float8
+        WHERE NOT EXISTS (
+            SELECT 1 FROM (
+                SELECT old_positions, new_positions, old_shares, new_shares, old_percent, new_percent
+                FROM shorts_revisions
+                WHERE report_date = $1::date AND product_code = $2::text
+                ORDER BY id DESC
+                LIMIT 1) last
+            WHERE last.old_positions IS NOT DISTINCT FROM $3::float8
+              AND last.new_positions IS NOT DISTINCT FROM $4::float8
+              AND last.old_shares IS NOT DISTINCT FROM $5::float8
+              AND last.new_shares IS NOT DISTINCT FROM $6::float8
+              AND last.old_percent IS NOT DISTINCT FROM $7::float8
+              AND last.new_percent IS NOT DISTINCT FROM $8::float8)`
 
-// InsertRevisions records one row per revision and returns how many landed. It
-// is row-at-a-time in autocommit, like UpsertRows, so a row that fails is counted
-// and the rest are kept. Cancellation is respected between rows.
-func (s *pgStore) InsertRevisions(ctx context.Context, revs []revisionRecord) (int, error) {
-	written := 0
-	failed := 0
+// InsertRevisions records one row per revision. It is row-at-a-time in autocommit,
+// like UpsertRows, so a row that fails does not stop the rest. It returns the
+// revisions it could not write, and the caller keeps those rows out of the repair:
+// a row whose revision did not land is not overwritten, so ASIC's replaced value
+// is still stored when the next run comes back for it. Cancellation is respected
+// between rows and returned as an error.
+func (s *pgStore) InsertRevisions(ctx context.Context, revs []revisionRecord) ([]revisionRecord, error) {
+	var unwritten []revisionRecord
 	for _, r := range revs {
 		if err := ctx.Err(); err != nil {
-			return written, err
+			return unwritten, err
 		}
 		_, err := s.db.Exec(ctx, insertRevisionSQL,
 			truncateDay(r.Date), r.Code,
@@ -222,20 +245,18 @@ func (s *pgStore) InsertRevisions(ctx context.Context, revs []revisionRecord) (i
 		)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return written, err
+				return unwritten, err
 			}
-			if failed == 0 {
+			if len(unwritten) == 0 {
 				log.Printf("   revision insert error (first of batch): %v", err)
 			}
-			failed++
-			continue
+			unwritten = append(unwritten, r)
 		}
-		written++
 	}
-	if failed > 0 {
-		log.Printf("   ⚠️  %d revision row(s) failed to write", failed)
+	if len(unwritten) > 0 {
+		log.Printf("   ⚠️  %d revision row(s) failed to write; their rows are left as they were", len(unwritten))
 	}
-	return written, nil
+	return unwritten, nil
 }
 
 // LastShortsDate returns MAX("DATE") from shorts, and false when the table is

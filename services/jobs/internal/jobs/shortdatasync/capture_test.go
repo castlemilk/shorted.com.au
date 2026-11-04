@@ -223,6 +223,59 @@ func TestDistinctCodesKeepsFileOrder(t *testing.T) {
 	}
 }
 
+// TestUnrecordedRevisionLeavesItsRowAlone: when a changed row's revision cannot be written, the row
+// is not overwritten, so ASIC's replaced value stays stored for the next run to revise. The rest of
+// the file still lands.
+func TestUnrecordedRevisionLeavesItsRowAlone(t *testing.T) {
+	store := newFakeReconcileStore()
+	store.holds("2025-08-11", "BHP")
+	store.put("2025-08-11", storedRow{Code: "BPT", Short: new(float64(999)), Issue: new(float64(1000000)), Pct: new(0.0999)})
+	store.revisionErr = map[string]error{"BPT": errors.New("insert failed")}
+	// WBT is a missing row: it has no revision, so it lands.
+	rep, err := reconcileFiles(context.Background(), store, fetchFrom(map[int][]byte{20250811: asicCSV("BHP", "BPT", "WBT")}, nil), files(20250811), false)
+	if err != nil {
+		t.Fatalf("reconcileFiles: %v", err)
+	}
+	for _, w := range store.written() {
+		if w == "2025-08-11|BPT" {
+			t.Fatalf("BPT's revision did not land, so its row must not be overwritten: writes=%v", store.written())
+		}
+	}
+	if st := store.rows["2025-08-11"]["BPT"]; st.Short == nil || *st.Short != 999 {
+		t.Fatalf("the stored value stays until its revision is recorded: %+v", st)
+	}
+	if len(store.revisions) != 0 || rep.RowsWritten != 1 {
+		t.Fatalf("the unrecorded revision writes nothing and the missing row lands: revisions=%+v rep=%+v", store.revisions, rep)
+	}
+}
+
+// TestRevisionInsertKeepsGoingPastAFailedRow: one failed revision insert is returned as unwritten and
+// the rest are still written, so one bad row cannot strand the others.
+func TestRevisionInsertKeepsGoingPastAFailedRow(t *testing.T) {
+	db := &fakeDB{execErr: func(i int, _ string) error {
+		if i == 1 {
+			return errors.New("boom")
+		}
+		return nil
+	}}
+	day := time.Date(2025, 8, 11, 0, 0, 0, 0, time.UTC)
+	revs := []revisionRecord{
+		{Date: day, Code: "A", NewPositions: 1},
+		{Date: day, Code: "B", NewPositions: 2},
+		{Date: day, Code: "C", NewPositions: 3},
+	}
+	unwritten, err := (&pgStore{db: db}).InsertRevisions(context.Background(), revs)
+	if err != nil {
+		t.Fatalf("a failed row is not an error: %v", err)
+	}
+	if len(db.calls) != 3 {
+		t.Fatalf("every revision is attempted, got %d calls", len(db.calls))
+	}
+	if len(unwritten) != 1 || unwritten[0].Code != "B" {
+		t.Fatalf("only B is unwritten, got %+v", unwritten)
+	}
+}
+
 // TestRecountTrimsLikeRowsOnDate: the recount and RowsOnDate both trim with strings.TrimSpace, so
 // a code padded with a tab or a non-breaking space counts as present, as a padded space does.
 func TestRecountTrimsLikeRowsOnDate(t *testing.T) {
@@ -270,8 +323,13 @@ func TestCaptureSQLNeverWritesShortsOrFirstObservation(t *testing.T) {
 	if !containsSQL(loadedCodesSQL, "array_agg(DISTINCT \"PRODUCT_CODE\")") {
 		t.Fatalf("the recount reads the distinct stored codes, trimmed in Go")
 	}
-	if containsSQL(insertRevisionSQL, "shorts ") && !containsSQL(insertRevisionSQL, "shorts_revisions") {
-		t.Fatalf("a revision is written to shorts_revisions only")
+	if !strings.HasPrefix(collapseSpace(insertRevisionSQL), "INSERT INTO shorts_revisions (") {
+		t.Fatalf("a revision is inserted into shorts_revisions")
+	}
+	for _, forbidden := range []string{"INSERT INTO shorts (", "UPDATE shorts", "DELETE FROM shorts"} {
+		if containsSQL(insertRevisionSQL, forbidden) {
+			t.Fatalf("a revision must not write %q", forbidden)
+		}
 	}
 }
 
