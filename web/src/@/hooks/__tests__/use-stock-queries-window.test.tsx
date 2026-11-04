@@ -42,13 +42,18 @@ beforeEach(() => {
 });
 
 describe("windowed prices", () => {
-  it("is an error, not an empty success, when the read fails transiently", async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  it("is an error, not an empty success, once its retries are spent", async () => {
+    // The hook's own retry rule (retryWindowedRead) overrides the client's:
+    // three retries, then an error, never an empty success.
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, retryDelay: 0 } },
+    });
     mockPrices.mockRejectedValue(new Error("unavailable"));
     const { result } = renderHook(() => useHistoricalData("BHP", "3m", { window: range }), {
       wrapper: wrapperFor(client),
     });
     await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(mockPrices).toHaveBeenCalledTimes(4);
     expect(result.current.data).toBeUndefined();
   });
 
@@ -79,13 +84,18 @@ describe("windowed prices", () => {
 });
 
 describe("windowed shorts", () => {
-  it("is an error, not an empty success, when the read fails transiently", async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  it("is an error, not an empty success, once its retries are spent", async () => {
+    // The hook's own retry rule (retryWindowedRead) overrides the client's:
+    // three retries, then an error, never an empty success.
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, retryDelay: 0 } },
+    });
     mockWindowShorts.mockRejectedValue(new Error("unavailable"));
     const { result } = renderHook(() => useShortTimeSeries("BHP", "3m", { window: range }), {
       wrapper: wrapperFor(client),
     });
     await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(mockWindowShorts).toHaveBeenCalledTimes(4);
     expect(result.current.data).toBeUndefined();
   });
 
