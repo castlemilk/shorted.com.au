@@ -110,9 +110,20 @@ func TestUnknownResultsCarryAReason(t *testing.T) {
 		{"net margin with zero revenue", ruleNetMargin, Candidate{StockCode: "X", Quality: &Quality{Revenue: new(0.0)}}, ReasonNotMeaningful},
 		{"net margin with negative revenue", ruleNetMargin, Candidate{StockCode: "X", Quality: &Quality{Revenue: new(-5.0)}}, ReasonNotMeaningful},
 		{"roe withheld by the equity guard", ruleROE, Candidate{StockCode: "X", Quality: &Quality{
-			NetIncome: new(10.0), TotalEquity: new(5.0), TotalAssets: new(100.0)}}, ReasonNotMeaningful},
+			NetIncome: new(10.0), TotalEquity: new(5.0), TotalEquityPrior: new(5.0),
+			TotalAssets: new(100.0), TotalAssetsPrior: new(100.0)}}, ReasonNotMeaningful},
+		// Year-end equity is 10.2% of assets, but the average is 9.6% of 96.9:
+		// the view withholds the ratio, so the reason must say so.
+		{"roe withheld on average equity at year end above 10%", ruleROE, Candidate{StockCode: "X", Quality: &Quality{
+			NetIncome: new(10.0), TotalEquity: new(10.2), TotalEquityPrior: new(9.0),
+			TotalAssets: new(100.0), TotalAssetsPrior: new(93.8)}}, ReasonNotMeaningful},
+		{"roe with equity negative a year earlier", ruleROE, Candidate{StockCode: "X", Quality: &Quality{
+			NetIncome: new(10.0), TotalEquity: new(50.0), TotalEquityPrior: new(-5.0),
+			TotalAssets: new(100.0), TotalAssetsPrior: new(100.0)}}, ReasonNotMeaningful},
 		{"roe with missing net profit", ruleROE, Candidate{StockCode: "X", Quality: &Quality{
 			TotalEquity: new(50.0), TotalAssets: new(100.0)}}, ReasonNoFundamentals},
+		{"roe with no prior balance point", ruleROE, Candidate{StockCode: "X", Quality: &Quality{
+			NetIncome: new(10.0), TotalEquity: new(50.0), TotalAssets: new(100.0)}}, ReasonNoFundamentals},
 	}
 	for _, c := range cases {
 		out := c.fn(&c.c, &evalEnv{})

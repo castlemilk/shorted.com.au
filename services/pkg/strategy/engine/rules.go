@@ -556,10 +556,9 @@ func balanceCurrency(q *Quality) string {
 }
 
 // ruleROE: roe_pct >= 15. Fail below 15, or when total equity is zero or
-// negative; unknown when roe_pct is NULL for any other reason (an equity
-// point missing, or, for a company that is not a financial, average equity
-// under 10% of average assets, where the view withholds it as not
-// meaningful). A financial's ROE is computed without that guard
+// negative; unknown when roe_pct is NULL for any other reason, with the
+// reason roeWithheldReason gives (missing inputs, or a balance sheet the
+// ratio does not describe). A financial's ROE is computed without that guard
 // (ApplyQualityRules), so a bank is judged on its return like anyone else.
 func ruleROE(c *Candidate, _ *evalEnv) outcome {
 	q := c.Quality
@@ -571,13 +570,7 @@ func ruleROE(c *Candidate, _ *evalEnv) outcome {
 	}
 	if q.ROEPct == nil {
 		const detail = "Return on equity cannot be measured: it needs net profit, equity at both ends of the year and, outside banks, insurers and other financials, equity of at least 10% of total assets"
-		// Inputs present but the ratio withheld by the equity guard is not
-		// meaningful for this balance sheet; missing inputs are missing data.
-		if !q.IsFinancial && q.NetIncome != nil && q.TotalEquity != nil && q.TotalAssets != nil &&
-			*q.TotalAssets > 0 && *q.TotalEquity > 0 && *q.TotalEquity < 0.1**q.TotalAssets {
-			return unknownFor(ReasonNotMeaningful, detail)
-		}
-		return unknownFor(ReasonNoFundamentals, detail)
+		return unknownFor(roeWithheldReason(q), detail)
 	}
 	roe := *q.ROEPct
 	detail := withQualityBasis("Return on equity "+pctAbs(roe), q)
@@ -585,6 +578,27 @@ func ruleROE(c *Candidate, _ *evalEnv) outcome {
 		return pass(detail, roe, true, (roe-roeMinPct)/25) // 40% scores full marks
 	}
 	return fail(detail+", below the 15% threshold", roe, true)
+}
+
+// roeWithheldReason is why roe_pct is NULL, mirroring the view's guards on
+// the same balance points: a missing input, or total assets at or under zero
+// at either end, is missing data; a balance point of equity at or under zero
+// at the start of the year, or average equity under 10% of average assets for
+// a company that is not a financial, is a balance sheet the ratio does not
+// describe.
+func roeWithheldReason(q *Quality) string {
+	if q.NetIncome == nil || q.TotalEquity == nil || q.TotalEquityPrior == nil ||
+		q.TotalAssets == nil || q.TotalAssetsPrior == nil ||
+		*q.TotalAssets <= 0 || *q.TotalAssetsPrior <= 0 {
+		return ReasonNoFundamentals
+	}
+	if *q.TotalEquityPrior <= 0 {
+		return ReasonNotMeaningful
+	}
+	if !q.IsFinancial && *q.TotalEquity+*q.TotalEquityPrior < 0.1*(*q.TotalAssets+*q.TotalAssetsPrior) {
+		return ReasonNotMeaningful
+	}
+	return ReasonNoFundamentals
 }
 
 // ruleNetMargin: net profit / revenue >= 10%, on the flow row.

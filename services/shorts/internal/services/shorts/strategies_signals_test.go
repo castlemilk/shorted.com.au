@@ -141,14 +141,22 @@ func TestStrategyRuleDefinitionsCarryTheEngineThresholds(t *testing.T) {
 	}
 	assert.Positive(t, withThreshold)
 
-	zanger, _ := engine.Lookup(engine.IDZangerBreakout)
-	rsLeader := strategyProto(zanger, nil).Rules
-	for _, g := range rsLeader {
-		if g.Id == engine.RuleRSLeader {
-			assert.True(t, g.HasThreshold)
-			assert.Equal(t, 75.0, g.Threshold, "rs_leader tests the 75th percentile of the universe")
-			assert.Equal(t, "percentile", g.Unit)
+	// rs_leader's cut-off is the universe's quartile line, published as
+	// rs_quantile_threshold, so the rule itself carries no threshold.
+	for _, id := range []string{engine.IDCANSLIM, engine.IDMinerviniTrendTemplate} {
+		st, ok := engine.Lookup(id)
+		require.True(t, ok, id)
+		var sawRSLeader bool
+		for _, g := range strategyProto(st, nil).Rules {
+			if g.Id != engine.RuleRSLeader {
+				continue
+			}
+			sawRSLeader = true
+			assert.False(t, g.HasThreshold, id)
+			assert.Zero(t, g.Threshold, id)
+			assert.Empty(t, g.Unit, id)
 		}
+		assert.True(t, sawRSLeader, "%s has an rs_leader rule", id)
 	}
 }
 

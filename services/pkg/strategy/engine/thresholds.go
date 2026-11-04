@@ -12,7 +12,7 @@ type ruleThreshold struct {
 }
 
 // ruleThresholds is keyed by rule id. Units are the rule-spec words (pct, pp,
-// aud, days, x, percentile); the display symbols belong to the web.
+// aud, days, x); the display symbols belong to the web.
 //
 // rs_leader has no entry: its cut-off is the universe's 75th percentile of
 // rs_6m_pct in points (GetStrategyPicksResponse.rs_quantile_threshold), which is
