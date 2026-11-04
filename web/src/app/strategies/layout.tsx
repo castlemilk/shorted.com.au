@@ -7,6 +7,10 @@ import { StrategiesSubNav } from "~/@/components/strategies/strategies-sub-nav";
  *
  * Reads no searchParams, cookies, headers or auth(): the sub-nav is a client
  * island that reads the pathname itself, so every route beneath stays ISR.
+ *
+ * The Gamma stylesheets are not imported here yet: no strategies component
+ * renders a Gamma component. The first PR that does adds the gamma-bridge.css,
+ * gamma.css and DataTable.css imports to this layout and nowhere else.
  */
 export default function StrategiesLayout({ children }: { children: ReactNode }) {
   return (

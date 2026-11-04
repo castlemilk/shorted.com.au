@@ -592,14 +592,19 @@ the path, so the cached HTML is right without storage. The bar's accessible name
 strategy's own routes the bar does not stick, so the profile tab bar is the one sticky
 bar. Every enabled href is held to its page by `lib/strategies/__tests__/workspace-routes.test.ts`.
 The changelog's version anchors use `scroll-mt-[124px]`, which clears the sticky chrome.
-The layout reads no request data.
+The layout reads no request data. The bar marks the page's own tab
+`aria-current="page"` (`currentStrategiesTab`: Explore on `/strategies`, Signals on a signals page) and,
+when the page sits in a section rather than on a tab (a changelog or a profile under Explore),
+marks that section tab `aria-current="location"`; ownership passes no `currentTab`, so its markup is unchanged.
+The Gamma stylesheets are not imported by the layout yet: the first PR that renders a Gamma component
+on /strategies adds `gamma-bridge.css`, `gamma.css` and `DataTable.css` to `app/strategies/layout.tsx` and nowhere else.
 
 **Profile shell (`/strategies/[strategy]`).** `[strategy]/layout.tsx` owns the
 params (`generateStaticParams`, `dynamicParams = false`, so an unknown slug is a
 routing 404) and renders the breadcrumbs, `components/strategies/strategy-header.tsx`
 (registry-only, reads nothing) and `components/strategies/strategy-tab-nav.tsx`
-(one of the two client modules in that kit, with `strategies-sub-nav.tsx`: intent prefetch, `scroll={false}`,
-dock-on-switch). Tabs live in `lib/strategies/strategy-tabs.ts` and render only
+(the client tab bar: intent prefetch, `scroll={false}`, dock-on-switch; the kit's other client module,
+`strategies-sub-nav.tsx`, links with `scroll` and has no dock). Tabs live in `lib/strategies/strategy-tabs.ts` and render only
 when `enabled`; capability flags in `lib/strategies/capabilities.ts` are all off
 until their capability ships, so no Compare, Create alert or Alert-me control
 renders before then. The Overview page keeps `StrategyPanel`, the shortlist and
