@@ -64,6 +64,10 @@ type fakeDataSource struct {
 	gotInstitution     []*shortsv1alpha1.GetInstitutionRequest
 	gotListInstitution *shortsv1alpha1.ListInstitutionsRequest
 
+	// The in-process viewer each strategy read was called with.
+	gotStrategiesViewer    viewerRecord
+	gotStrategyPicksViewer viewerRecord
+
 	// Canned responses.
 	stock           *stocksv1alpha1.Stock
 	topShorts       *shortsv1alpha1.GetTopShortsResponse
@@ -261,8 +265,9 @@ func (f *fakeDataSource) GetStockFundamentals(_ context.Context, req *connect.Re
 	return connect.NewResponse(f.fundamentals), nil
 }
 
-func (f *fakeDataSource) ListStrategies(_ context.Context, req *connect.Request[shortsv1alpha1.ListStrategiesRequest]) (*connect.Response[shortsv1alpha1.ListStrategiesResponse], error) {
+func (f *fakeDataSource) ListStrategies(ctx context.Context, req *connect.Request[shortsv1alpha1.ListStrategiesRequest]) (*connect.Response[shortsv1alpha1.ListStrategiesResponse], error) {
 	f.gotStrategies = req.Msg
+	f.gotStrategiesViewer = recordViewer(ctx)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -273,8 +278,9 @@ func (f *fakeDataSource) ListStrategies(_ context.Context, req *connect.Request[
 // asks for the page it will publish, and a fake that returned every canned
 // pick regardless would let the payload budget measure a result no client can
 // receive.
-func (f *fakeDataSource) GetStrategyPicks(_ context.Context, req *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error) {
+func (f *fakeDataSource) GetStrategyPicks(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error) {
 	f.gotStrategyPicks = req.Msg
+	f.gotStrategyPicksViewer = recordViewer(ctx)
 	if f.err != nil {
 		return nil, f.err
 	}
