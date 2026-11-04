@@ -775,9 +775,12 @@ or Create-alert control renders: those capabilities stay off.
   (`getSignalsForViewer`, the private `GetViewerStrategyPicks`) once the session
   is known: the first page (100 rows, the API's cap) at mount. The whole list is
   read only when the viewer searches, filters, sorts or draws past that page, in
-  rank order, and is sorted in the browser. A read is held in the tab for 60
-  seconds under the user id, session and rules version (`signals-read-cache.ts`,
-  browser memory only). A full read costs one call per 100 signals, and every
+  rank order, and is sorted in the browser. The island asks for the whole list at
+  most once per mount for a slug and snapshot, so turning a filter, the search or
+  the sort off and on draws the list it holds; a failed read is asked again the
+  next time the viewer draws past the top rows. A read is also held in the tab
+  for 60 seconds under the user id, session and rules version
+  (`signals-read-cache.ts`, browser memory only). A full read costs one call per 100 signals, and every
   call is metered as the viewer's own browser access. That module imports no
   cache helper, and its guard test reads the source. The Signals ISR page stays
   anonymous: its HTML carries the top 10 rows and the sign-in prompt row, which
