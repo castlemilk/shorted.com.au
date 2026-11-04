@@ -696,6 +696,13 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         value = var.rate_limit_enabled ? "true" : "false"
       }
 
+      # Public strategy picks depth clamp (0 = off). Read by the public
+      # StrategyService reads only; see variables.tf.
+      env {
+        name  = "STRATEGY_PUBLIC_SIGNALS_LIMIT"
+        value = tostring(var.strategy_public_signals_limit)
+      }
+
       # The first-party marker, which MUST agree with the edge worker's bindings
       # of the same names. If the two layers disagree about what our own traffic
       # looks like, one of them meters our SSR fleet as anonymous.
