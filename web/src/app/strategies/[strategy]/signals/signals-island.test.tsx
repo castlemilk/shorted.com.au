@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useSession } from "next-auth/react";
 
 import type {
   PickRow,
@@ -7,6 +8,10 @@ import type {
 } from "~/@/lib/strategies/types";
 import type { SignalRule } from "~/@/lib/strategies/signals";
 import { SignalsIsland, type SignalsIslandProps } from "./signals-island";
+import { getSignalsForViewer } from "~/app/actions/strategies/viewer";
+
+const mockUseSession = useSession as unknown as jest.Mock;
+const mockGetSignalsForViewer = getSignalsForViewer as unknown as jest.Mock;
 
 let search = "";
 jest.mock("next/navigation", () => ({
@@ -21,6 +26,10 @@ jest.mock("next/navigation", () => ({
 // update the island outside act().
 jest.mock("~/app/actions/getSignalStockFit", () => ({
   getSignalStockFit: jest.fn(() => new Promise(() => {})),
+}));
+// The signed-in list is a server action; held pending unless a test answers it.
+jest.mock("~/app/actions/strategies/viewer", () => ({
+  getSignalsForViewer: jest.fn(() => new Promise(() => {})),
 }));
 // The chart is a client-only lazy module with its own data hooks; the island
 // is under test, so it is stubbed to a marker.
@@ -160,9 +169,38 @@ function props(
   };
 }
 
+function signedOut() {
+  mockUseSession.mockReturnValue({
+    data: null,
+    status: "unauthenticated",
+    update: jest.fn(),
+  });
+}
+
+function signedInAs(name = "Trader") {
+  mockUseSession.mockReturnValue({
+    data: { user: { id: "u1", name } },
+    status: "authenticated",
+    update: jest.fn(),
+  });
+}
+
+/** The full list: the top ten plus two more, so the signed-in depth shows beyond row 10. */
+function fullListRows(): PickRow[] {
+  return [
+    pick("TWE", "triggered", false),
+    pick("WTC", "setup", true),
+    ...Array.from({ length: 8 }, (_, i) => pick(`X${i}`, "setup", true)),
+    pick("Y1", "watch", true),
+    pick("Y2", "setup", true),
+  ];
+}
+
 describe("SignalsIsland", () => {
   beforeEach(() => {
     search = "";
+    mockGetSignalsForViewer.mockClear();
+    signedOut();
   });
 
   it("draws the top rows, the status chips with their counts and the count line", () => {
@@ -255,24 +293,172 @@ describe("SignalsIsland", () => {
 
   it("prints an empty state, and no evidence panel, for a valid list with no stock in it", () => {
     render(<SignalsIsland {...props({ rows: [], total: 0 })} />);
-    expect(screen.getByText(/meets Crowded-Short Breakout/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/meets Crowded-Short Breakout/),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
     expect(screen.queryByRole("link", { name: "Open stock →" })).toBeNull();
   });
 
-  it("words an empty filter for its own chip, and counts the rest of the list", () => {
-    const setups = Array.from({ length: 9 }, (_, i) => pick(`S${i}`, "setup", true));
-    render(<SignalsIsland {...props({ rows: setups })} />);
-    fireEvent.click(screen.getByRole("button", { name: /Triggered\s*5/ }));
+  it("shows the sign-in prompt as the last row when the list holds more than the top rows", () => {
+    render(<SignalsIsland {...props()} />);
+    const link = screen.getByRole("link", { name: "Sign in free" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/signin?callbackUrl=%2Fstrategies%2Fcrowded-short-breakout%2Fsignals",
+    );
     expect(
-      screen.getByText("No triggered stock in the top 9; the list holds 5 in all."),
+      screen.getByText(/to see all 71 signals \(5 triggered · 66 setup\)\./),
     ).toBeInTheDocument();
-    expect(screen.getByText("0 triggered in the top 9")).toBeInTheDocument();
+    expect(mockGetSignalsForViewer).not.toHaveBeenCalled();
+  });
+
+  it("omits the sign-in row when the whole list is already shown", () => {
+    render(
+      <SignalsIsland
+        {...props({
+          rows: props().rows.slice(0, 3),
+          total: 3,
+          counts: { triggered: 1, setup: 2, watch: 0, unknown: 0 },
+        })}
+      />,
+    );
+    expect(screen.queryByRole("link", { name: "Sign in free" })).toBeNull();
+  });
+
+  it("prompts an anonymous visitor who filters, sorts or searches, and keeps the top rows", () => {
+    render(<SignalsIsland {...props()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Triggered\s*5/ }));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Sign in free to see all 71 signals/,
+    );
+    expect(screen.getByRole("button", { name: /All\s*71/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      screen.getByText("Showing 10 of 71 signals: 5 triggered · 66 setup"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort signals" }), {
+      target: { value: "roe" },
+    });
+    expect(mockGetSignalsForViewer).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search stock" }), {
+      target: { value: "WTC" },
+    });
+    expect(screen.getByRole("searchbox", { name: "Search stock" })).toHaveValue(
+      "",
+    );
+    expect(mockGetSignalsForViewer).not.toHaveBeenCalled();
+  });
+
+  it("loads the full list for a signed-in viewer, past the top rows", async () => {
+    signedInAs();
+    mockGetSignalsForViewer.mockResolvedValueOnce({
+      ok: true,
+      rows: fullListRows(),
+      totalCount: 12,
+      statusCounts: { triggered: 1, setup: 10, watch: 1, unknown: 0 },
+    });
+    render(<SignalsIsland {...props()} />);
+    expect(
+      screen.getByText("Loading the full list…", { exact: false }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Y2" }),
+    ).toBeInTheDocument();
+    expect(mockGetSignalsForViewer).toHaveBeenCalledWith({
+      strategyId: "crowded-short-breakout",
+      sortBy: "",
+    });
+    expect(screen.queryByRole("link", { name: "Sign in free" })).toBeNull();
+    expect(
+      screen.getByText("12 signals: 1 triggered · 10 setup · 1 watch"),
+    ).toBeInTheDocument();
+  });
+
+  it("filters, searches and sorts the full list for a signed-in viewer", async () => {
+    signedInAs();
+    mockGetSignalsForViewer.mockResolvedValue({
+      ok: true,
+      rows: fullListRows(),
+      totalCount: 12,
+      statusCounts: { triggered: 1, setup: 10, watch: 1, unknown: 0 },
+    });
+    render(<SignalsIsland {...props()} />);
+    await screen.findByRole("button", { name: "Y2" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Watch\s*1/ }));
+    expect(screen.getByRole("button", { name: "Y1" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Y2" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /All\s*12/ }));
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search stock" }), {
+      target: { value: "x3" },
+    });
+    expect(screen.getByRole("button", { name: "X3" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "TWE" })).toBeNull();
+    expect(screen.getByText("Showing 1 of 12 signals")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search stock" }), {
+      target: { value: "nothing like this" },
+    });
+    expect(
+      screen.getByText("No stock matches that search."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search stock" }), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort signals" }), {
+      target: { value: "roe" },
+    });
+    await waitFor(() =>
+      expect(mockGetSignalsForViewer).toHaveBeenLastCalledWith({
+        strategyId: "crowded-short-breakout",
+        sortBy: "roe",
+      }),
+    );
+  });
+
+  it("words an empty filter for a signed-in viewer", async () => {
+    signedInAs();
+    mockGetSignalsForViewer.mockResolvedValueOnce({
+      ok: true,
+      rows: Array.from({ length: 9 }, (_, i) => pick(`S${i}`, "setup", true)),
+      totalCount: 9,
+      statusCounts: { triggered: 0, setup: 9, watch: 0, unknown: 0 },
+    });
+    render(<SignalsIsland {...props({ rows: [], total: 0, counts: null })} />);
+    await screen.findByRole("button", { name: "S0" });
+    fireEvent.click(screen.getByRole("button", { name: /Triggered\s*0/ }));
+    expect(
+      screen.getByText("No triggered stock in this list."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Showing 0 of 9 signals")).toBeInTheDocument();
+  });
+
+  it("keeps the top rows and says so when the full list is unavailable", async () => {
+    signedInAs();
+    mockGetSignalsForViewer.mockResolvedValueOnce({
+      ok: false,
+      reason: "unavailable",
+    });
+    render(<SignalsIsland {...props()} />);
+    expect(
+      await screen.findByText(
+        /The full list is unavailable right now; showing the top rows\./,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "X7" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Sign in free" })).toBeNull();
   });
 
   it("switches strategy with links, not a select that navigates on change", () => {
     render(<SignalsIsland {...props()} />);
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /strateg/i })).toBeNull();
     expect(
       screen.getByRole("link", { name: "Crowded-Short Breakout" }),
     ).toHaveAttribute("href", "/strategies/crowded-short-breakout/signals");

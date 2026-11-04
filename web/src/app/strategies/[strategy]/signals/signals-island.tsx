@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Suspense, useEffect, useState } from "react";
 
 import { StrategyLevelsChart } from "~/@/components/strategy/strategy-levels-chart-loader";
@@ -24,9 +25,11 @@ import {
   matchesFilter,
   parseSelection,
   rankingInputsFor,
+  signInPromptCopy,
   type SignalFilter,
   type SignalRule,
 } from "~/@/lib/strategies/signals";
+import { PICK_SORTS, type PickSortKey } from "~/@/lib/strategies/sort";
 import type {
   MarketRegimeView,
   PickRow,
@@ -35,6 +38,10 @@ import type {
 } from "~/@/lib/strategies/types";
 import type { StockStrategyFit } from "~/app/actions/getStockStrategyFit";
 import { getSignalStockFit } from "~/app/actions/getSignalStockFit";
+import {
+  getSignalsForViewer,
+  type ViewerSignalsResult,
+} from "~/app/actions/strategies/viewer";
 
 /**
  * The Signals tab's client island: the strategy select, the status chips (their
@@ -44,6 +51,11 @@ import { getSignalStockFit } from "~/app/actions/getSignalStockFit";
  *
  * Only the stock code is sent to the server: the evidence (the stock's fit and
  * its prices) comes from getSignalStockFit, the public read the stock page uses.
+ *
+ * A signed-in viewer gets the whole list (getSignalsForViewer), with filters,
+ * a sort and a search over it. Anonymous visitors get the top rows and a
+ * sign-in prompt: the last row, and the same prompt inline wherever they use a
+ * filter, the sort or the search.
  */
 export interface SignalsIslandProps {
   slug: string;
@@ -85,20 +97,139 @@ function QuerySignalsView(props: SignalsIslandProps) {
 
 type FitState = { code: string; fit: StockStrategyFit | null } | null;
 
+/** The full list as the viewer's read answered it, and the sort it was asked for. */
+type FullState = {
+  sortKey: PickSortKey | null;
+  result: ViewerSignalsResult;
+} | null;
+type FullList = Extract<ViewerSignalsResult, { ok: true }>;
+
+/** The sign-in link's lead words; the rest of the prompt copy follows them. */
+const SIGN_IN_LEAD = "Sign in free";
+
+function SignInPrompt({
+  slug,
+  counts,
+  total,
+}: {
+  slug: string;
+  counts: SignalsIslandProps["counts"];
+  total: number;
+}) {
+  const copy = signInPromptCopy(counts, total);
+  const callbackUrl = `/strategies/${slug}/signals`;
+  return (
+    <>
+      <Link
+        href={`/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+        prefetch={false}
+        className="font-medium text-foreground underline underline-offset-2 hover:no-underline"
+      >
+        {SIGN_IN_LEAD}
+      </Link>
+      {copy.slice(SIGN_IN_LEAD.length)}
+    </>
+  );
+}
+
+function sortKeyFrom(value: string): PickSortKey | null {
+  return PICK_SORTS.find((sort) => sort.key === value)?.key ?? null;
+}
+
+const CONTROL =
+  "h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 function SignalsView({
   initialSelected,
   ...props
 }: SignalsIslandProps & { initialSelected: string | null }) {
+  const { status } = useSession();
+  // "loading" until the session is known: the anonymous view is drawn meanwhile,
+  // without the sign-in prompt, so nothing flashes in either direction.
+  const signedIn = status === "authenticated";
+  const anonymous = status === "unauthenticated";
+
   const [filter, setFilter] = useState<SignalFilter>("all");
   const [selected, setSelected] = useState<string | null>(initialSelected);
   const [fitState, setFitState] = useState<FitState>(null);
+  const [sortKey, setSortKey] = useState<PickSortKey | null>(null);
+  const [query, setQuery] = useState("");
+  const [gated, setGated] = useState(false);
+  const [full, setFull] = useState<FullState>(null);
 
-  const rows = props.rows;
-  const selectedCode = selected ?? rows[0]?.code ?? null;
-  const visible = rows.filter((row) => matchesFilter(row, filter));
+  // Signed-in depth: the whole list, in the sort in force. Read per viewer, so it
+  // is fetched here, never rendered on the server.
+  useEffect(() => {
+    if (!signedIn) return;
+    let live = true;
+    getSignalsForViewer({ strategyId: props.slug, sortBy: sortKey ?? "" })
+      .then((result) => {
+        if (live) setFull({ sortKey, result });
+      })
+      .catch(() => {
+        if (live) {
+          setFull({ sortKey, result: { ok: false, reason: "unavailable" } });
+        }
+      });
+    return () => {
+      live = false;
+    };
+  }, [signedIn, props.slug, sortKey]);
+
+  const current = full && full.sortKey === sortKey ? full.result : null;
+  // While a new sort loads, the list in the previous order stays on screen.
+  const fullList: FullList | null = !signedIn
+    ? null
+    : current
+      ? current.ok
+        ? current
+        : null
+      : full?.result.ok
+        ? full.result
+        : null;
+  const pool = fullList ? fullList.rows : props.rows;
+  const counts = fullList
+    ? (fullList.statusCounts ?? props.counts)
+    : props.counts;
+  const total = fullList ? fullList.totalCount : props.total;
+  const note = !signedIn
+    ? null
+    : current === null
+      ? fullList
+        ? "Sorting…"
+        : "Loading the full list…"
+      : current.ok
+        ? null
+        : "The full list is unavailable right now; showing the top rows.";
+
+  // Anonymous visitors who reach for a filter, the sort or the search see the
+  // sign-in prompt instead; the top rows stay as they are.
+  function gate() {
+    setGated(true);
+  }
+
+  const selectedCode = selected ?? pool[0]?.code ?? null;
+  const needle = query.trim().toLowerCase();
+  const searched = needle
+    ? pool.filter(
+        (row) =>
+          row.code.toLowerCase().includes(needle) ||
+          row.name.toLowerCase().includes(needle),
+      )
+    : pool;
+  const visible = searched.filter((row) => matchesFilter(row, filter));
   const core = coreRules(props.rules);
   const rankingInputs = rankingInputsFor(props.slug);
-  const chips = chipFilters(props.counts);
+  const chips = chipFilters(counts);
+  const filtered = filter !== "all" || needle !== "";
+  const footer =
+    anonymous && props.total > props.rows.length ? (
+      <SignInPrompt
+        slug={props.slug}
+        counts={props.counts}
+        total={props.total}
+      />
+    ) : null;
 
   // The evidence reads the stock's fit: its prices for the chart, and its rules
   // when the list does not hold the stock. A fit for another code is ignored.
@@ -121,7 +252,7 @@ function SignalsView({
     fitState && selectedCode && fitState.code === selectedCode
       ? fitState.fit
       : undefined;
-  const listed = rows.find((row) => row.code === selectedCode) ?? null;
+  const listed = pool.find((row) => row.code === selectedCode) ?? null;
   const pick = listed ?? (fit ? pickFromStockFit(fit, props.slug) : null);
   const notice =
     pick === null
@@ -196,7 +327,7 @@ function SignalsView({
           Signals for this strategy are temporarily unavailable; they refresh
           automatically. Not financial advice.
         </section>
-      ) : rows.length === 0 ? (
+      ) : pool.length === 0 ? (
         <section className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground">
           No stock in the universe meets {props.strategyName}&apos;s rules in
           this session&apos;s data. Not financial advice.
@@ -204,44 +335,87 @@ function SignalsView({
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
           <div className="flex min-w-0 flex-col gap-3">
-            <div
-              role="group"
-              aria-label="Filter by status"
-              className="flex flex-wrap items-center gap-1 rounded-md border p-0.5"
-            >
-              {chips.map((chip) => {
-                const count = filterCount(chip, props.counts, props.total);
-                const pressed = filter === chip;
-                return (
-                  <button
-                    key={chip}
-                    type="button"
-                    aria-pressed={pressed}
-                    onClick={() => setFilter(chip)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors",
-                      pressed
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-                    )}
-                  >
-                    {FILTER_LABELS[chip]}
-                    {count !== null ? (
-                      <span className="tabular-nums opacity-80">{count}</span>
-                    ) : null}
-                  </button>
-                );
-              })}
+            <div className="flex flex-wrap items-center gap-2">
+              <div
+                role="group"
+                aria-label="Filter by status"
+                className="flex flex-wrap items-center gap-1 rounded-md border p-0.5"
+              >
+                {chips.map((chip) => {
+                  const count = filterCount(chip, counts, total);
+                  const pressed = filter === chip;
+                  return (
+                    <button
+                      key={chip}
+                      type="button"
+                      aria-pressed={pressed}
+                      onClick={() => {
+                        if (chip !== "all" && !signedIn) gate();
+                        else setFilter(chip);
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                        pressed
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                      )}
+                    >
+                      {FILTER_LABELS[chip]}
+                      {count !== null ? (
+                        <span className="tabular-nums opacity-80">{count}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type="search"
+                aria-label="Search stock"
+                placeholder="Search stock (e.g. WTC, BHP)"
+                value={query}
+                onChange={(event) => {
+                  if (signedIn) setQuery(event.target.value);
+                  else gate();
+                }}
+                className={cn(CONTROL, "w-44")}
+              />
+              <select
+                aria-label="Sort signals"
+                value={sortKey ?? ""}
+                onChange={(event) => {
+                  if (signedIn) setSortKey(sortKeyFrom(event.target.value));
+                  else gate();
+                }}
+                className={CONTROL}
+              >
+                <option value="">Rank order</option>
+                {PICK_SORTS.map((sort) => (
+                  <option key={sort.key} value={sort.key}>
+                    {sort.label}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {gated && !signedIn ? (
+              <p
+                role="status"
+                data-signals-gate
+                className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground"
+              >
+                <SignInPrompt
+                  slug={props.slug}
+                  counts={props.counts}
+                  total={props.total}
+                />
+              </p>
+            ) : null}
 
             {visible.length === 0 ? (
               <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-                No {FILTER_LABELS[filter].toLowerCase()} stock in the top{" "}
-                {rows.length}
-                {props.counts
-                  ? `; the list holds ${filterCount(filter, props.counts, props.total) ?? 0} in all`
-                  : ""}
-                .
+                {needle
+                  ? `No ${filter === "all" ? "" : `${FILTER_LABELS[filter].toLowerCase()} `}stock matches that search.`
+                  : `No ${FILTER_LABELS[filter].toLowerCase()} stock in this list.`}
               </p>
             ) : (
               <SignalsMatrix
@@ -251,13 +425,17 @@ function SignalsView({
                 selected={selectedCode}
                 onSelect={select}
                 caption={`${props.strategyName}: stocks by rule`}
+                footer={footer}
               />
             )}
 
             <p className="text-xs text-muted-foreground" data-signals-count>
-              {filter === "all"
-                ? countLine(props.counts, rows.length, props.total)
-                : `${visible.length} ${FILTER_LABELS[filter].toLowerCase()} in the top ${rows.length}`}
+              {filtered
+                ? fullList
+                  ? `Showing ${visible.length} of ${total} signals`
+                  : `${visible.length} ${FILTER_LABELS[filter].toLowerCase()} in the top ${pool.length}`
+                : countLine(counts, pool.length, total)}
+              {note ? ` · ${note}` : ""}
             </p>
 
             <p className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
