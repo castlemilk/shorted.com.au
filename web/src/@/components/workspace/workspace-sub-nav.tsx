@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
+import { useFocusClearance } from "~/@/hooks/use-focus-clearance";
 import { cn } from "~/@/lib/utils";
+
+// The workspace bar sticks under the site header, which is h-16 (64px) tall.
+const WORKSPACE_STICKY_TOP = 64;
 
 /** One tab of a workspace's sub-navigation: a page the group links to. */
 export interface WorkspaceTab<Id extends string = string> {
@@ -49,6 +53,7 @@ export function WorkspaceSubNav<Id extends string>({
 }: WorkspaceSubNavProps<Id>) {
   const router = useRouter();
   const prefetched = useRef<Set<string>>(new Set());
+  const navRef = useRef<HTMLElement>(null);
 
   const warm = (href: string, isActive: boolean) => {
     if (isActive || prefetched.current.has(href)) return;
@@ -56,8 +61,13 @@ export function WorkspaceSubNav<Id extends string>({
     router.prefetch(href);
   };
 
+  // Keeps a control the keyboard focuses from scrolling under the bar while it sticks. A
+  // non-sticky bar has no ref, so the hook has nothing to act on.
+  useFocusClearance(navRef, WORKSPACE_STICKY_TOP);
+
   return (
     <nav
+      ref={sticky ? navRef : undefined}
       aria-label={label ?? group}
       className={cn(sticky && "sticky top-16 z-30", "border-b border-border bg-background/95 backdrop-blur")}
     >
