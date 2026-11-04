@@ -361,3 +361,132 @@ func TestPivotlessPositionsRecordSkipsAndReachTheirTimeStop(t *testing.T) {
 		t.Fatalf("skipped %v, want %v", skipped, wantSkipped)
 	}
 }
+
+// feed is one subject's observation on one session of a multi-subject run.
+type feed struct {
+	key  string
+	side string
+	obs  Observation
+	pos  *Position
+}
+
+// runFeed evaluates an alert over n sessions with subjects supplied per
+// session, carrying each subject's state and previous observation as the daily
+// job does. It returns the sessions on which each key fired, and the session
+// the baseline was set on (zero when it never was).
+func runFeed(t *testing.T, a Alert, n int, feedAt func(Session) []feed) (fired map[string][]Session, baselineOn Session) {
+	t.Helper()
+	fired = map[string][]Session{}
+	states := map[string]State{}
+	prev := map[string]*Observation{}
+	for i := 0; i < n; i++ {
+		session := Session(i + 1)
+		var subs []Subject
+		for _, fd := range feedAt(session) {
+			o := fd.obs
+			subs = append(subs, Subject{Key: fd.key, Side: fd.side, Current: o, Previous: prev[fd.key], Position: fd.pos, State: stateOr(states, fd.key)})
+			cur := o
+			prev[fd.key] = &cur
+		}
+		res, err := Evaluate(a, session, subs)
+		if err != nil {
+			t.Fatalf("session %d: %v", session, err)
+		}
+		for _, r := range res.Subjects {
+			states[r.Key] = r.State
+			if r.Emit {
+				fired[r.Key] = append(fired[r.Key], session)
+			}
+		}
+		if res.SetBaseline {
+			a.Baselined = true
+			baselineOn = session
+		}
+	}
+	return fired, baselineOn
+}
+
+func stateOr(states map[string]State, key string) State {
+	if s, ok := states[key]; ok {
+		return s
+	}
+	return DefaultState()
+}
+
+func TestTimeStopBesideAWaitingEntrySideFiresOnItsSession(t *testing.T) {
+	// The entry stock reads unknown on sessions 1 to 25 (more than half of the
+	// side, so the side waits) and is at setup from 26. The tracked position was
+	// held 6 sessions when linked, so its time stop of 20 is reached on session
+	// 15. The exit fires there under either first-evaluation mode, not on 26 as
+	// an existing match, and the baseline is set on 26 when the entry side
+	// becomes known.
+	for _, mode := range []string{FirstEvalBaseline, FirstEvalNotifyExisting} {
+		t.Run(mode, func(t *testing.T) {
+			spec := exitOf(OpAny,
+				Condition{Kind: KindPosition, Metric: MetricCloseVsEntryPivot, Op: OpCrossesBelow, Value: f(0)},
+				Condition{Kind: KindPosition, Metric: MetricSessionsHeld, Op: OpReaches, Value: f(20)},
+			)
+			spec.Entry = entryOf(OpAll, Condition{Kind: KindStatus, Status: StatusTriggered, Op: OpIs}).Entry
+			spec.Cooldown = 0
+			a := Alert{Spec: spec, FirstEval: mode}
+			pos := Position{EntryPrice: 9, Pivot: f(10)}
+			fired, baselineOn := runFeed(t, a, 26, func(s Session) []feed {
+				st := StatusUnknown
+				if s >= 26 {
+					st = StatusSetup
+				}
+				p := pos
+				p.SessionsHeld = 5 + int(s)
+				return []feed{
+					{key: "code:BHP", side: SideEntry, obs: Observation{Status: st}},
+					{key: "entry:7", side: SideExit, obs: Observation{Metrics: map[string]float64{MetricClose: 10.5}}, pos: &p},
+				}
+			})
+			if want := []Session{15}; !reflect.DeepEqual(fired["entry:7"], want) {
+				t.Fatalf("time stop fired on %v, want %v", fired["entry:7"], want)
+			}
+			if baselineOn != 26 {
+				t.Fatalf("baseline set on %d, want 26", baselineOn)
+			}
+		})
+	}
+}
+
+func TestExitBesideAStockThatStaysUnknownFiresWithoutABaseline(t *testing.T) {
+	// Three stocks, two of them unknown throughout, so the entry side waits on
+	// every session and never sets a baseline. The tracked position closes under
+	// its pivot from session 5 (a transition, so it fires there) and reaches its
+	// time stop of 20 on session 21 after the close has dropped back under the
+	// pivot. The exit fires on both sessions.
+	spec := exitOf(OpAny,
+		Condition{Kind: KindPosition, Metric: MetricCloseVsEntryPivot, Op: OpCrossesBelow, Value: f(0)},
+		Condition{Kind: KindPosition, Metric: MetricSessionsHeld, Op: OpReaches, Value: f(20)},
+	)
+	spec.Entry = entryOf(OpAll, Condition{Kind: KindStatus, Status: StatusTriggered, Op: OpIs}).Entry
+	spec.Cooldown = 0
+	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline}
+	pos := Position{EntryPrice: 9, Pivot: f(10)}
+	fired, baselineOn := runFeed(t, a, 30, func(s Session) []feed {
+		close := 10.5
+		if s >= 5 {
+			close = 9.9
+		}
+		p := pos
+		p.SessionsHeld = int(s) - 1
+		return []feed{
+			{key: "code:AAA", side: SideEntry, obs: Observation{Status: StatusSetup}},
+			{key: "code:BBB", side: SideEntry, obs: Observation{Status: StatusUnknown}},
+			{key: "code:CCC", side: SideEntry, obs: Observation{Status: StatusUnknown}},
+			{key: "entry:7", side: SideExit, obs: Observation{Metrics: map[string]float64{MetricClose: close}}, pos: &p},
+		}
+	})
+	if want := []Session{5, 21}; !reflect.DeepEqual(fired["entry:7"], want) {
+		t.Fatalf("exit fired on %v, want %v", fired["entry:7"], want)
+	}
+	if baselineOn != 0 {
+		t.Fatalf("a stock that stays unknown sets no baseline, got %d", baselineOn)
+	}
+	if len(fired["code:AAA"])+len(fired["code:BBB"])+len(fired["code:CCC"]) != 0 {
+		t.Fatalf("the held entry side fires nothing: %+v", fired)
+	}
+}

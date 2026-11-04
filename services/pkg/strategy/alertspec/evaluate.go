@@ -74,9 +74,10 @@ type Result struct {
 	// without data (see Sides). A waiting side fires nothing, writes no events
 	// and leaves its subjects' state alone. The other side is evaluated as
 	// usual, so a stale entry universe does not hold back the exits of tracked
-	// positions. On the first evaluation nothing is evaluated while the
-	// baseline gate waits (see SetBaseline): the entry side decides it when
-	// enabled, and the exit side does otherwise.
+	// positions. On the first evaluation the baseline gate decides what waits
+	// (see SetBaseline): when the gate side waits, only the gate side is held,
+	// and the other side is evaluated in transition forms with normal arming,
+	// so a tracked position's exit is not lost behind a stale entry universe.
 	Waiting bool
 	// Sides holds one entry per enabled side, entry first.
 	Sides []SideOutage
@@ -99,7 +100,9 @@ type Result struct {
 // value leaves the subject's state alone, apart from recording the first
 // session it went unknown. The first evaluation takes every transition
 // operator in its state form, so a stock that is already in a state does not
-// read as a fresh event (see evalCondition).
+// read as a fresh event (see evalCondition). The exception is an exit side
+// evaluated while the entry side holds the first evaluation: it reads transition
+// forms, so its events are raised as they happen.
 func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 	if err := a.Spec.Validate(nil); err != nil {
 		return Result{}, fmt.Errorf("alertspec: invalid spec: %w", err)
@@ -109,8 +112,8 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 	}
 	firstEval := !a.Baselined
 
-	// One outage count per enabled side, entry first.
-	var sides []SideOutage
+	// The enabled sides, entry first, with their counts still zero.
+	var template []SideOutage
 	sideIdx := map[string]int{}
 	for _, side := range []string{SideEntry, SideExit} {
 		sec, err := sectionOf(a.Spec, side)
@@ -118,66 +121,89 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 			return Result{}, err
 		}
 		if sec.Enabled {
-			sideIdx[side] = len(sides)
-			sides = append(sides, SideOutage{Side: side})
+			sideIdx[side] = len(template)
+			template = append(template, SideOutage{Side: side})
 		}
+	}
+	// The baseline gate is the entry side when it is enabled, else the exit side.
+	gate := SideExit
+	if _, ok := sideIdx[SideEntry]; ok {
+		gate = SideEntry
 	}
 
 	type pending struct {
 		SubjectResult
 		skipReason string
 	}
-	var results []pending
-	for _, sub := range subjects {
-		sec, err := sectionOf(a.Spec, sub.Side)
+	// scan evaluates every subject on an enabled side and counts each side's
+	// outage. first reports whether a side reads its first-evaluation forms.
+	scan := func(first func(side string) bool) ([]pending, []SideOutage, error) {
+		sides := append([]SideOutage(nil), template...)
+		var results []pending
+		for _, sub := range subjects {
+			sec, err := sectionOf(a.Spec, sub.Side)
+			if err != nil {
+				return nil, nil, err
+			}
+			if !sec.Enabled {
+				continue
+			}
+			conds := make([]Truth, len(sec.Conditions))
+			for i, c := range sec.Conditions {
+				conds[i] = evalCondition(c, &sub.Current, sub.Previous, sub.Position, first(sub.Side))
+			}
+			v := combine(sec.Op, conds)
+			p := pending{SubjectResult: SubjectResult{Key: sub.Key, Side: sub.Side, Value: v, Conditions: conds, State: sub.State}}
+			so := &sides[sideIdx[sub.Side]]
+			if v == Unknown {
+				p.skipReason = unknownReason(sec, conds)
+			}
+			if v == Unknown && noPivotOnly(sec, conds, sub.Position) {
+				so.NoPivot++
+			} else {
+				so.Total++
+				if v == Unknown {
+					so.Unknown++
+				}
+			}
+			results = append(results, p)
+		}
+		for i := range sides {
+			sides[i].Waiting = sides[i].Total > 0 && 2*sides[i].Unknown > sides[i].Total
+		}
+		return results, sides, nil
+	}
+	// firstFor returns the first-evaluation reading per side. While the gate
+	// side holds the first evaluation, only the gate side reads it: the other
+	// side is evaluated as a baselined side, in transition forms.
+	firstFor := func(holding bool) func(string) bool {
+		return func(side string) bool { return firstEval && (!holding || side == gate) }
+	}
+
+	results, sides, err := scan(firstFor(false))
+	if err != nil {
+		return Result{}, err
+	}
+	// Only the gate side decides whether the first evaluation waits. An exit
+	// side waiting on its own, beside a known entry side, does not hold it.
+	holding := false
+	if i, ok := sideIdx[gate]; ok && firstEval {
+		holding = sides[i].Waiting
+	}
+	if holding {
+		results, sides, err = scan(firstFor(true))
 		if err != nil {
 			return Result{}, err
 		}
-		if !sec.Enabled {
-			continue
-		}
-		conds := make([]Truth, len(sec.Conditions))
-		for i, c := range sec.Conditions {
-			conds[i] = evalCondition(c, &sub.Current, sub.Previous, sub.Position, firstEval)
-		}
-		v := combine(sec.Op, conds)
-		p := pending{SubjectResult: SubjectResult{Key: sub.Key, Side: sub.Side, Value: v, Conditions: conds, State: sub.State}}
-		so := &sides[sideIdx[sub.Side]]
-		if v == Unknown {
-			p.skipReason = unknownReason(sec, conds)
-		}
-		if v == Unknown && noPivotOnly(sec, conds, sub.Position) {
-			so.NoPivot++
-		} else {
-			so.Total++
-			if v == Unknown {
-				so.Unknown++
-			}
-		}
-		results = append(results, p)
 	}
 
 	waitingAny := false
 	for i := range sides {
-		s := &sides[i]
-		s.Waiting = s.Total > 0 && 2*s.Unknown > s.Total
-		waitingAny = waitingAny || s.Waiting
+		waitingAny = waitingAny || sides[i].Waiting
 	}
-	// The baseline gate is the entry side when it is enabled, else the exit
-	// side. Only the gate side holds the first evaluation: a baseline is set
-	// from it, and an exit side waiting on its own does not stop the entry
-	// side from being baselined and evaluated.
-	gate := SideExit
-	if _, ok := sideIdx[SideEntry]; ok {
-		gate = SideEntry
-	}
-	baselineWaiting := false
-	if i, ok := sideIdx[gate]; ok {
-		baselineWaiting = sides[i].Waiting
-	}
-	holdAll := firstEval && baselineWaiting
+	firstOf := firstFor(holding)
 	frozen := func(side string) bool {
-		return holdAll || sides[sideIdx[side]].Waiting
+		return sides[sideIdx[side]].Waiting || (holding && side == gate)
 	}
 
 	out := make([]SubjectResult, len(results))
@@ -201,9 +227,11 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 				s.CooldownUntil = nil
 			}
 			switch {
-			case firstEval:
+			case firstOf(r.Side):
 				if r.Value == True {
-					if a.FirstEval == FirstEvalNotifyExisting {
+					// A subject that already raised its event on a session of
+					// the hold is disarmed, so the baseline does not raise it again.
+					if a.FirstEval == FirstEvalNotifyExisting && !s.Disarmed {
 						r.Emit = true
 						r.ExistingMatch = true
 					}
@@ -228,7 +256,7 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 	return Result{
 		Waiting:     waitingAny,
 		Sides:       sides,
-		SetBaseline: firstEval && !baselineWaiting && len(out) > 0,
+		SetBaseline: firstEval && !holding && len(out) > 0,
 		Subjects:    out,
 	}, nil
 }

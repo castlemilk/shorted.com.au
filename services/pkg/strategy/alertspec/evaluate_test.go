@@ -440,9 +440,11 @@ func TestFirstEvaluationIsGatedByTheEntrySide(t *testing.T) {
 	}
 }
 
-func TestFirstEvaluationWaitsOnAWaitingEntrySideBesideAKnownExit(t *testing.T) {
+func TestKnownExitFiresBesideAWaitingEntrySide(t *testing.T) {
 	// The mirror case: the entry side is mostly without data, the exit side is
-	// fully known. The gate is the entry side, so nothing is evaluated.
+	// fully known. The gate is the entry side, so only it is held: the entry
+	// side writes nothing and sets no baseline, while the known exit is
+	// evaluated as usual and its event fires.
 	a := Alert{Spec: mixedSpec(), FirstEval: FirstEvalBaseline}
 	belowPivot := &Position{EntryPrice: 9, Pivot: f(10)}
 	res, err := Evaluate(a, 1, []Subject{
@@ -461,9 +463,13 @@ func TestFirstEvaluationWaitsOnAWaitingEntrySideBesideAKnownExit(t *testing.T) {
 		t.Fatal("a waiting entry side sets no baseline, even with a known exit side")
 	}
 	for _, r := range res.Subjects {
-		if r.Emit || r.Skipped || r.State != DefaultState() {
-			t.Fatalf("%s: a first evaluation held by the entry side writes nothing: %+v", r.Key, r)
+		if r.Side == SideEntry && (r.Emit || r.Skipped || r.State != DefaultState()) {
+			t.Fatalf("%s: the held entry side writes nothing: %+v", r.Key, r)
 		}
+	}
+	ex := res.Subjects[3]
+	if !ex.Emit || ex.ExistingMatch || ex.State.Last != true || ex.State.Disarmed != true {
+		t.Fatalf("the known exit fires and is armed off its own transition: %+v", ex)
 	}
 }
 
