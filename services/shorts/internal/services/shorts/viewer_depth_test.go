@@ -78,6 +78,24 @@ func vdFirebase(uid, tier string) context.Context {
 	})
 }
 
+// vdToken is a context as the interceptor leaves it for a bespoke API token,
+// on the public branch and the private one alike: AuthMethod is "token" and
+// the api-user role is always present.
+func vdToken(uid, tier string, tierResolved bool) context.Context {
+	return context.WithValue(context.Background(), userKey, &Claims{
+		UserID: uid, Tier: tier, TierResolved: tierResolved,
+		AuthMethod: AuthMethodToken, Roles: []string{"api-user"},
+	})
+}
+
+// vdInternal is a context as the interceptor leaves it for a server caller
+// that holds the internal secret without acting for a web user.
+func vdInternal(uid string) context.Context {
+	return context.WithValue(context.Background(), userKey, &Claims{
+		UserID: uid, AuthMethod: AuthMethodInternal,
+	})
+}
+
 // vdMCP is a context as the MCP server leaves it for a verified MCP viewer.
 func vdMCP(uid string) context.Context {
 	return viewerctx.WithMCPUser(context.Background(), uid)
@@ -149,9 +167,10 @@ func vdHTTPCallers() []struct {
 		ctx  func() context.Context
 	}{
 		{"anonymous", func() context.Context { return context.Background() }},
-		{"free claims", func() context.Context { return vdClaims("free-user", "free", true) }},
-		{"premium claims", func() context.Context { return vdClaims("premium-user", "premium", true) }},
-		{"bearer identity with an unresolved tier", func() context.Context { return vdClaims("api-user", "premium", false) }},
+		{"api token free", func() context.Context { return vdToken("free-user", "free", true) }},
+		{"api token premium", func() context.Context { return vdToken("premium-user", "premium", true) }},
+		{"api token with an unresolved tier", func() context.Context { return vdToken("api-user", "premium", false) }},
+		{"internal secret", func() context.Context { return vdInternal("svc-user") }},
 		{"web session", func() context.Context { return vdWebSession("web-user") }},
 		{"firebase premium", func() context.Context { return vdFirebase("fb-premium", "premium") }},
 		{"firebase free", func() context.Context { return vdFirebase("fb-free", "free") }},
@@ -182,7 +201,7 @@ func TestPublicStrategyRPCsAreCallerInvariant(t *testing.T) {
 				srv := vdServer(t, vdClampLimit)
 				first := read.call(t, srv, k.ctx())
 				isMCP := k.name == "mcp viewer"
-				if !(isMCP && read.depth) {
+				if !isMCP || !read.depth {
 					assert.Equal(t, want, vdBytes(t, first), "the caller's own answer")
 				}
 				if picks, ok := first.(*shortsv1alpha1.GetStrategyPicksResponse); ok && !isMCP {
@@ -284,6 +303,8 @@ func TestGetViewerStrategyPicks_ThreeAccessTable(t *testing.T) {
 		{"free claims", vdClaims("free-user", "free", true), 0, "free"},
 		{"premium claims", vdClaims("premium-user", "premium", true), 0, "premium"},
 		{"premium tier not resolved by the store", vdClaims("api-user", "premium", false), 0, "free"},
+		{"api token premium", vdToken("premium-user", "premium", true), 0, "premium"},
+		{"api token premium tier not resolved by the store", vdToken("api-user", "premium", false), 0, "free"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -309,7 +330,7 @@ func TestGetViewerStrategyPicks_ThreeAccessTable(t *testing.T) {
 func TestBearerTokenOnThePublicRPCIsClamped(t *testing.T) {
 	srv := vdServer(t, vdClampLimit)
 	const id = engine.IDZangerBreakout
-	token := vdClaims("paying-api-user", "premium", true)
+	token := vdToken("paying-api-user", "premium", true)
 
 	resp := vdPublic(t, srv, token, id, 100, 0)
 	assert.Len(t, resp.Picks, vdClampLimit)
