@@ -84,11 +84,13 @@ var pureImports = map[string]bool{
 }
 
 // pureModuleImport reports whether a non-standard-library import is allowed: the
-// civil date value type, and the strategy packages themselves (which are held to
-// this same rule). pgsource is the one package that does I/O and is never
-// imported by a pure package.
+// civil date value type, the ASX holiday table (a pure time-only package), and
+// the strategy packages themselves (which are held to this same rule). pgsource
+// is the one package that does I/O and is never imported by a pure package.
 func pureModuleImport(path string) bool {
-	if path == "cloud.google.com/go/civil" {
+	switch path {
+	case "cloud.google.com/go/civil",
+		"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar":
 		return true
 	}
 	const tree = "github.com/castlemilk/shorted.com.au/services/pkg/strategy/"
