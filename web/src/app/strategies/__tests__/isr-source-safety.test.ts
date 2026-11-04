@@ -155,9 +155,10 @@ const files = segmentSourceFiles();
 const pages = files.filter((file) => path.basename(file) === "page.tsx");
 
 describe("strategies section ISR source safety", () => {
-  it("finds the profile's layout, its loading boundary and Overview page, and the hub and its OG image", () => {
+  it("finds the shared layout, the profile's layout, its loading boundary and Overview page, and the hub and its OG image", () => {
     expect(files.map(relative)).toEqual(
       expect.arrayContaining([
+        "layout.tsx",
         "[strategy]/layout.tsx",
         "[strategy]/loading.tsx",
         "[strategy]/page.tsx",
