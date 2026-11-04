@@ -143,3 +143,36 @@ func TestDaysToCoverV0MatchesSpecParams(t *testing.T) {
 		}
 	}
 }
+
+// TestUnpricedRowsSplitTheTwoDaysToCover: a row with volume but a close that is
+// not a price (000080 averages it, the price features drop it). sf0 counts the
+// row's volume, so five traded rows give a mean of 1,000 and 500 positions cover
+// in 0.5 days; four priced rows alone are below its minimum. sf1 skips the row,
+// so its 20 priced sessions at 1,000 give 5 days; counting the row as a session
+// would put a zero-volume bar in the window and report 5.26.
+func TestUnpricedRowsSplitTheTwoDaysToCover(t *testing.T) {
+	bars := barsFrom(t, "2026-09-01", 4)
+	unpriced := Bar{Date: mustDate(t, "2026-09-05"), Close: 0, High: 0, Low: 0, Volume: 1000}
+	bars = append(bars, unpriced)
+
+	asOf := mustDate(t, "2026-09-10")
+	if got, reason := DaysToCoverV0(bars, asOf, 500); reason != "" || got != 0.5 {
+		t.Errorf("DaysToCoverV0 with an unpriced traded row = %v (reason %q), want 0.5", got, reason)
+	}
+	if _, reason := DaysToCoverV0(bars[:4], asOf, 500); reason != ReasonNoVolume {
+		t.Errorf("DaysToCoverV0 without it: reason %q, want %q", reason, ReasonNoVolume)
+	}
+
+	window := barsFrom(t, "2026-08-01", 21)
+	for i := range window {
+		window[i].Volume = 1000
+	}
+	window[len(window)-2].Close = 0
+	window[len(window)-2].Volume = 0
+	window[len(window)-2].High, window[len(window)-2].Low = 0, 0
+	last := window[len(window)-1].Date
+	got, reason := DaysToCover(window, last, 5_000)
+	if reason != "" || math.Abs(got-5) > 1e-9 {
+		t.Errorf("DaysToCover = %v (reason %q), want 5: the unpriced zero-volume row is no session", got, reason)
+	}
+}

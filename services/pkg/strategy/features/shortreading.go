@@ -151,7 +151,8 @@ func finite(f float64) bool { return !math.IsNaN(f) && !math.IsInf(f, 0) }
 // the report's positions are then in pre-event shares while the volume is
 // post-event.
 //
-// bars are the code's bars ascending; suspects are the code's CASuspects.
+// bars are the code's stock_prices rows ascending and unfiltered (DaysToCover
+// drops the rows without a priced close); suspects are the code's CASuspects.
 func ShortReadingV1(code string, asOf civil.Date, cal *calendar.Calendar, reports *Reports, bars []Bar, suspects []CASuspect, maxAgeSessions int) ShortReading {
 	report, found := reports.latestUsable(asOf, cal)
 	if !found {
@@ -202,7 +203,8 @@ func ShortReadingV1(code string, asOf civil.Date, cal *calendar.Calendar, report
 // ShortReadingV0 is sf0, the reading v0's rules were calibrated on: the latest
 // row for the code, dated on or before asOf, with a positive percentage and
 // the instrument filters the v0 picker applied (ordinary shares only). It has
-// no age limit. Its days to cover follows DaysToCoverV0.
+// no age limit. Its days to cover follows DaysToCoverV0, so bars are the code's
+// stock_prices rows as stored, with no close filter.
 func ShortReadingV0(code string, asOf civil.Date, cal *calendar.Calendar, reports *Reports, bars []Bar) ShortReading {
 	rows := reports.byCode[code]
 	for i := len(rows) - 1; i >= 0; i-- {

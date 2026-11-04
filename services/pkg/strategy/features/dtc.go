@@ -21,17 +21,19 @@ const (
 )
 
 // DaysToCover is sf1's days to cover at asOf: the reported positions over the
-// mean daily volume of the last 20 bars up to asOf. A zero-volume bar is a
-// session with no trading, so it counts in the mean as zero rather than being
-// skipped; skipping it would overstate the volume a short position has to be
-// covered from. The value is unknown with fewer than 20 bars or fewer than 10
-// traded bars in the window. reason is empty when the value is known.
+// mean daily volume of the last 20 priced sessions up to asOf. bars is the
+// code's stock_prices rows, date ascending, unfiltered: a row whose close fails
+// validPrice is no session (the price features read it the same way), so it is
+// skipped and the window reaches back to the 20th priced bar. A zero-volume bar
+// is a session with no trading, so it counts in the mean as zero rather than
+// being skipped; skipping it would overstate the volume a short position has to
+// be covered from. The value is unknown with fewer than 20 priced bars or fewer
+// than 10 traded bars in the window. reason is empty when the value is known.
 func DaysToCover(bars []Bar, asOf civil.Date, positions float64) (value float64, reason string) {
-	window := barsUpTo(bars, asOf)
+	window := lastPricedBars(bars, asOf, dtcBars)
 	if len(window) < dtcBars {
 		return 0, ReasonNoVolume
 	}
-	window = window[len(window)-dtcBars:]
 	traded := 0
 	sum := 0.0
 	for _, b := range window {
@@ -52,6 +54,11 @@ func DaysToCover(bars []Bar, asOf civil.Date, positions float64) (value float64,
 // away from zero), and the result rounded to two places the way 000080's
 // numeric rounding does (see roundNumeric2). It is unknown with fewer than 5
 // traded sessions in the span.
+//
+// bars must be the code's stock_prices rows as stored, with no close filter:
+// 000080 averages every row with volume > 0 in the span, whatever its close, so
+// a row with a volume and an unusable close counts here. This is the one bar
+// function that does not drop unpriced rows.
 func DaysToCoverV0(bars []Bar, asOf civil.Date, positions float64) (value float64, reason string) {
 	from := asOf.AddDays(-dtcV0Days)
 	n := 0
@@ -131,12 +138,22 @@ func incrementDecimal(s string) string {
 	return "1" + string(b)
 }
 
-// barsUpTo returns the prefix of bars dated on or before asOf. bars must be
-// date ascending.
-func barsUpTo(bars []Bar, asOf civil.Date) []Bar {
+// lastPricedBars returns the last n bars dated on or before asOf whose close
+// passes validPrice, in date order. bars must be date ascending. It may return
+// fewer than n when the history holds fewer priced bars.
+func lastPricedBars(bars []Bar, asOf civil.Date, n int) []Bar {
 	end := len(bars)
 	for end > 0 && bars[end-1].Date.After(asOf) {
 		end--
 	}
-	return bars[:end]
+	var out []Bar
+	for i := end - 1; i >= 0 && len(out) < n; i-- {
+		if validPrice(bars[i].Close) {
+			out = append(out, bars[i])
+		}
+	}
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out
 }

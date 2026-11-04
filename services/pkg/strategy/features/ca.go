@@ -43,8 +43,11 @@ const (
 )
 
 // CASuspects returns the corporate-action suspects in bars, which must be date
-// ascending. asic is the code's own ASIC rows in any order, and upjumpFrom is
-// the first bar date after the last live re-sync (DataPolicy.ca_upjump_from).
+// ascending. bars is the code's stock_prices rows, unfiltered: a row whose close
+// fails validPrice is dropped first, and the move is measured between the priced
+// bars on either side of it, so a jump across an unpriced row is still seen.
+// asic is the code's own ASIC rows in any order, and upjumpFrom is the first bar
+// date after the last live re-sync (DataPolicy.ca_upjump_from).
 //
 // A bar with a move of at least 1.8 either way is a suspect when it has a
 // zero-volume bar, or an up-jump at or after upjumpFrom whose ratio is an
@@ -56,11 +59,14 @@ const (
 func CASuspects(bars []Bar, asic []ASICRow, cal *calendar.Calendar, upjumpFrom civil.Date) []CASuspect {
 	rows := usableShareRows(asic)
 	var out []CASuspect
-	for i := 1; i < len(bars); i++ {
-		prev, cur := bars[i-1], bars[i]
-		if !(prev.Close > 0) || !(cur.Close > 0) {
-			continue
+	priced := make([]Bar, 0, len(bars))
+	for _, b := range bars {
+		if validPrice(b.Close) {
+			priced = append(priced, b)
 		}
+	}
+	for i := 1; i < len(priced); i++ {
+		prev, cur := priced[i-1], priced[i]
 		ratio := cur.Close / prev.Close
 		logMove := math.Log(ratio)
 		if math.IsNaN(logMove) || math.Abs(logMove) < math.Log(caMoveFactor) {

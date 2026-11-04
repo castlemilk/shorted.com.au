@@ -195,3 +195,21 @@ func TestCACorroborationWindow(t *testing.T) {
 		t.Errorf("pair four sessions before the bar: suspects %+v, want none", got)
 	}
 }
+
+// TestCAJumpAcrossUnpricedRow: the move is measured between the priced bars on
+// either side of a row whose close is not a price. A doubling from 100 to 200
+// across the dropped row is an up-jump at an integer ratio after the re-sync
+// boundary, so it is a suspect on the bar that carries the new price.
+func TestCAJumpAcrossUnpricedRow(t *testing.T) {
+	bars := barsFrom(t, "2026-09-21", 10)
+	for i := range bars {
+		if i >= 6 {
+			bars[i].Close = 200
+		}
+	}
+	bars[5].Close = 0
+	got := suspectsOf(t, bars, nil)
+	if len(got) != 1 || got[0].Kind != CAUpjump || got[0].Date != bars[6].Date {
+		t.Fatalf("suspects = %+v, want one upjump on %v", got, bars[6].Date)
+	}
+}
