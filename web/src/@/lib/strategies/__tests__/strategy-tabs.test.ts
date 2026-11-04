@@ -18,8 +18,11 @@ describe("strategy profile tabs", () => {
     ]);
   });
 
-  it("renders only the Overview until the other tabs' pages ship", () => {
-    expect(enabledStrategyTabs().map((tab) => tab.id)).toEqual(["overview"]);
+  it("renders the tabs whose pages ship: the Overview and Signals", () => {
+    expect(enabledStrategyTabs().map((tab) => tab.id)).toEqual([
+      "overview",
+      "signals",
+    ]);
   });
 
   it("gives every tab a unique segment, Overview none", () => {
