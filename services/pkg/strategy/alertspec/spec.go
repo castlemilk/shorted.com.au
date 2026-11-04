@@ -125,12 +125,23 @@ type Observation struct {
 	Status string
 	// Rules holds each rule's outcome for the alert's pinned rule version,
 	// keyed by rule id: True for pass, False for fail. A missing id is unknown.
+	// The outcomes come from the full-universe evaluation of the session, never
+	// from a run limited to the alert's scope, so a rule reads the same whichever
+	// alert asks for it.
 	Rules map[string]Truth
 	// Metrics holds the numeric values by metric name (SMAKey for the moving
-	// averages). A missing or non-finite value is unknown. The position
+	// averages). A missing or non-finite value is unknown, except short_pct,
+	// which the caller fills in first (see MetricShortPct). The position
 	// metrics are derived here, from "close", and need no entry.
 	Metrics map[string]float64
 }
+
+// The caller maps a short-position row onto an Observation with the rule that
+// the daily job and the preview share. A code absent from a complete ASIC
+// report has a short position of 0, so its short_pct condition compares 0; it
+// is unknown only when the report itself is stale, and then the caller leaves
+// the metric out. A caller that treats an absent code as unknown would skip it
+// every session and hold the alert back.
 
 // Position is the tracked long entry an exit condition reads.
 type Position struct {

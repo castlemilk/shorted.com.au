@@ -35,6 +35,9 @@ const (
 
 // Metric names, as a condition's Metric field spells them.
 const (
+	// MetricShortPct is the short position as a percentage of shares on issue.
+	// A code absent from a complete ASIC report reads 0; only a stale report
+	// makes it unknown (see Observation).
 	MetricShortPct          = "short_pct"
 	MetricDaysToCover       = "days_to_cover"
 	MetricDollarVolume20d   = "dollar_volume_20d"
