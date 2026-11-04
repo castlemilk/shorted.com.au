@@ -72,7 +72,7 @@ type Fundamentals struct {
 	Blob json.RawMessage `json:"blob,omitempty"`
 }
 
-// FundamentalsBody is the fundamentals a feature row freezes (4.9): the growth
+// FundamentalsBody is the fundamentals a feature row freezes: the growth
 // row with its appended 000132 columns, the quality row and the valuation
 // inputs. It carries no provenance timestamp, so the same figures always
 // encode to the same bytes and hash to the same blob. Fundamentals.Blob is its

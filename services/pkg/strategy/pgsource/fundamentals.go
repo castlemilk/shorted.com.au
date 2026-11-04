@@ -49,7 +49,7 @@ func ListGrowth(ctx context.Context, db DB) (map[string]*engine.Growth, error) {
 }
 
 // Fundamentals is the live fundamentals of every stock with a growth or
-// quality row, one blob per code (4.9): the growth row with its appended
+// quality row, one blob per code: the growth row with its appended
 // columns applied, the quality row and the valuation inputs, with the
 // provenance timestamps left out of the body and kept out of the hash.
 func Fundamentals(ctx context.Context, db DB) (map[string]features.Fundamentals, error) {
