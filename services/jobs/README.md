@@ -27,6 +27,8 @@ services/jobs/
   internal/jobs/news/         `shorted news`       (was services/news-aggregator)
   internal/jobs/picks/        `shorted picks`      stock-picker data: full statements, filing
                               half-years + refresh_strategy_views() (new, not a port)
+  internal/jobs/strategies/   `shorted strategies`  strategy engine: `-mode parity`, the read-only
+                              comparison of the Go feature port with the views
   internal/jobs/ownership/    `shorted ownership`  who holds ASX stocks: substantial holder
                               notices, ETF + super fund holdings (new, not a port)
   internal/jobs/reportextract/`shorted report-extract concurrent|sequential`
@@ -885,9 +887,37 @@ procedure: `internal/jobs/shortdatasync/README.md`.
 **Schedule** (`module "shorted_job_picks"` in `terraform/environments/prod/main.tf`):
 `-mode refresh` weekdays 13:30 UTC, after the 10:00 UTC price sweep; `-mode
 all` daily 15:00 UTC. `timeout_seconds = 12600`, `max_retries = 1`, env
-`PICKS_FUNDAMENTALS_BUDGET_MIN = "170"` and `REVALIDATION_URL`, secrets
+`PICKS_FUNDAMENTALS_BUDGET_MIN = "170"`, `REVALIDATION_URL` and
+`STRATEGY_PARITY_SHADOW = "on"` (see "Parity shadow" below), secrets
 `DATABASE_URL` and `REVALIDATION_SECRET`. `PICKS_FUNDAMENTALS_MAX_CODES` is
 deliberately not set.
+
+**Parity shadow** (`STRATEGY_PARITY_SHADOW=on`, `services/jobs/internal/jobs/strategies`).
+After a successful live `-mode refresh`, the job runs the parity comparison
+and logs one line, `strategy_parity d=<D> codes=… only_view=… only_go=…
+mismatches=… fields=… examples=… conclusive=true`. It is log-only: a failure or
+panic is logged as `picks: strategy parity shadow failed`, and the picks exit
+code is unchanged. `-mode all` never runs it. A run is `conclusive=false
+inconclusive=<reason>` and counts for nothing when the newest price sweep row
+(`sync_status`, `environment`/`hostname` NULL, `checkpoint_stocks_total > 1`)
+is not `completed`, has no finish time, or finished after the refresh began
+(`no_sweep_row`, `sweep_<status>`, `sweep_unfinished`, `sweep_after_refresh`).
+The comparison reads inside one REPEATABLE READ, READ ONLY transaction and
+holds fs1 to `mv_price_features`, the regime to `mv_market_regime` (XJO) and
+sf0's days to cover to the `latest_shorts` and `avg_volume` CTEs of 000080
+(the rows of the last 60 days; codes whose newest qualifying row is older are
+in neither side). The CTE text is copied into `screener_ctes.go` because the
+image carries no migrations; `TestScreenerCTEsMatchMigration` holds it to 000080.
+
+By hand: `shorted strategies -mode parity` (read-only, needs `DATABASE_URL`).
+It uses its own start time as the refresh start, so it cannot see a sweep that
+finished after the views were last refreshed: trust the scheduled line for
+that. It exits 10 when a conclusive run disagrees.
+
+**Go-live check.** One full weekday of conclusive 13:30 UTC lines with
+`mismatches=0 only_view=0 only_go=0`, read with the admin MCP's
+`list_job_executions` and `get_job_execution`, and the picks exit code
+unchanged. Any mismatch is fixed before the daily snapshot job is built on it.
 
 **Run lease.** `-mode fundamentals`, `filings` and `all` claim the one
 `picks_run_lease` row (`name = 'picks'`, 4 hours, extended every 100 codes,

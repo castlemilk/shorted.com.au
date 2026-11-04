@@ -32,6 +32,10 @@
 //	                    fundamentals when this execution changed them).
 //	-mode all           fundamentals, then filings, then refresh.
 //
+// After a successful -mode refresh on a live run, STRATEGY_PARITY_SHADOW=on
+// adds a log-only parity comparison (strategies.RunParity). It never changes
+// the exit code, and -mode all does not run it.
+//
 // fundamentals, filings and all take the picks_run_lease row first, so two
 // executions never write at once; a run that finds it held logs the holder and
 // exits 0. refresh does not take it.

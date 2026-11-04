@@ -383,7 +383,7 @@ func parityInTx(ctx context.Context, tx pgx.Tx, refreshStart time.Time) (Result,
 }
 
 // readSweep reads the newest price-sweep row: the complement of the ASIC sync's
-// own rows, and of market-data serve's single-stock runs (4.2). nil when none.
+// own rows, and of market-data serve's single-stock runs. nil when there is none.
 func readSweep(ctx context.Context, tx pgx.Tx) (*sweepRow, error) {
 	var row sweepRow
 	err := tx.QueryRow(ctx, `
