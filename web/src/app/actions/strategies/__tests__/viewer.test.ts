@@ -92,9 +92,10 @@ describe("getSignalsForViewer", () => {
   });
 
   it("refuses a malformed strategy id or sort key without calling the API", async () => {
-    expect(
-      await getSignalsForViewer({ strategyId: "../etc/passwd" }),
-    ).toEqual({ ok: false, reason: "unavailable" });
+    expect(await getSignalsForViewer({ strategyId: "../etc/passwd" })).toEqual({
+      ok: false,
+      reason: "unavailable",
+    });
     expect(
       await getSignalsForViewer({
         strategyId: "canslim",
@@ -170,9 +171,10 @@ describe("getSignalsForViewer", () => {
     mockClient.getViewerStrategyPicks.mockRejectedValueOnce(new Error("boom"));
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      expect(
-        await getSignalsForViewer({ strategyId: "canslim" }),
-      ).toEqual({ ok: false, reason: "unavailable" });
+      expect(await getSignalsForViewer({ strategyId: "canslim" })).toEqual({
+        ok: false,
+        reason: "unavailable",
+      });
       expect(JSON.stringify(warn.mock.calls)).not.toContain(
         "trader@example.com",
       );
@@ -186,7 +188,10 @@ describe("viewer.ts keeps per-viewer data out of shared caches", () => {
   const source = readFileSync(join(__dirname, "..", "viewer.ts"), "utf8");
   const imports = source
     .split("\n")
-    .filter((line) => /^\s*(import|export .* from)\b/.test(line) || /from "/.test(line));
+    .filter(
+      (line) =>
+        /^\s*(import|export .* from)\b/.test(line) || /from "/.test(line),
+    );
 
   it("imports neither unstable_cache nor a KV or Redis helper", () => {
     const specs = imports.join("\n");

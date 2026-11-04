@@ -109,7 +109,8 @@ export async function createAlertMonitor(
   try {
     // The address decides whether the saved alert is emailed. The transport reads it
     // once, so the result can tell the form whether to say so.
-    const { transport, email: address } = await createSignedInTransport(session);
+    const { transport, email: address } =
+      await createSignedInTransport(session);
     const client = createClient(AlertsService, transport);
     const response = await client.createAlertMonitor({
       scope:

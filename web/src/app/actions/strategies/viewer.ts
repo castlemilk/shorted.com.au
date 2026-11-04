@@ -42,8 +42,10 @@ export async function getSignalsForViewer(input: {
   strategyId: string;
   sortBy?: PickSortKey | "";
 }): Promise<ViewerSignalsResult> {
-  const strategyId = typeof input?.strategyId === "string" ? input.strategyId : "";
-  if (!STRATEGY_ID.test(strategyId)) return { ok: false, reason: "unavailable" };
+  const strategyId =
+    typeof input?.strategyId === "string" ? input.strategyId : "";
+  if (!STRATEGY_ID.test(strategyId))
+    return { ok: false, reason: "unavailable" };
   const sortBy = input.sortBy ?? "";
   if (sortBy !== "" && !PICK_SORTS.some((sort) => sort.key === sortBy)) {
     return { ok: false, reason: "unavailable" };
