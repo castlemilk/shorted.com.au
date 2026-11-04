@@ -23,7 +23,7 @@ export interface StrategyTab {
 
 export const STRATEGY_TABS: readonly StrategyTab[] = [
   { id: "overview", label: "Overview", segment: "", enabled: true },
-  { id: "rules", label: "Rules", segment: "rules", enabled: false },
+  { id: "rules", label: "Rules", segment: "rules", enabled: true },
   { id: "backtest", label: "Backtest", segment: "backtest", enabled: false },
   { id: "signals", label: "Signals", segment: "signals", enabled: true },
   { id: "trades", label: "Trades", segment: "trades", enabled: false },

@@ -71,6 +71,7 @@ import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { SCAN_SLUGS } from "~/@/lib/scans/registry";
 import { THEME_SLUGS } from "~/@/lib/themes/registry";
 import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
+import { enabledStrategyTabs } from "~/@/lib/strategies/strategy-tabs";
 import {
   HOUSING_RANKINGS,
   HOUSING_RANKING_SLUGS,
@@ -398,6 +399,12 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     // fetch, and stamping the ASIC date on them would be a fabricated signal.
     { url: `${baseUrl}/strategies` },
     ...STRATEGY_SLUGS.map((slug) => ({ url: `${baseUrl}/strategies/${slug}` })),
+    // A profile tab is listed only once its page ships (its registry flag).
+    ...(enabledStrategyTabs().some((tab) => tab.id === "rules")
+      ? STRATEGY_SLUGS.map((slug) => ({
+          url: `${baseUrl}/strategies/${slug}/rules`,
+        }))
+      : []),
     { url: `${baseUrl}/strategies/changelog` },
     // /ownership lives in the ownership child, dated from its own data.
     // Open data hub + press kit, both citation surfaces we point journalists at.
