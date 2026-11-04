@@ -76,3 +76,38 @@ func TestDaysToCoverV0Rounding(t *testing.T) {
 		t.Errorf("4 traded rows: reason = %q, want %q", reason, ReasonNoVolume)
 	}
 }
+
+// TestDaysToCoverV0HalfCentRounding: a quotient at an exact half cent rounds
+// up as the database rounds it. 201 over a mean of 200 is 1.005, which is 1.01;
+// rounding the binary value gives 1.00. 57 over 200 is 0.285, which is 0.29.
+func TestDaysToCoverV0HalfCentRounding(t *testing.T) {
+	asOf := mustDate(t, "2026-09-30")
+	bars := barsFrom(t, "2026-09-01", 5)
+	for i := range bars {
+		bars[i].Volume = 200
+	}
+	tests := []struct {
+		positions float64
+		want      float64
+	}{
+		{201, 1.01},
+		{57, 0.29},
+		{1_005_000, 5_025},
+		{0, 0},
+	}
+	for _, tc := range tests {
+		got, reason := DaysToCoverV0(bars, asOf, tc.positions)
+		if reason != "" {
+			t.Fatalf("positions %v: unknown: %s", tc.positions, reason)
+		}
+		if got != tc.want {
+			t.Errorf("positions %v: DaysToCoverV0 = %v, want %v", tc.positions, got, tc.want)
+		}
+	}
+}
+
+func TestRoundNumeric2Negative(t *testing.T) {
+	if got := roundNumeric2(-1.005); got != -1.01 {
+		t.Errorf("roundNumeric2(-1.005) = %v, want -1.01 (half away from zero)", got)
+	}
+}

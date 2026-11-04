@@ -2,6 +2,8 @@ package features
 
 import (
 	"math"
+	"math/big"
+	"strconv"
 
 	"cloud.google.com/go/civil"
 )
@@ -47,8 +49,9 @@ func DaysToCover(bars []Bar, asOf civil.Date, positions float64) (value float64,
 // DaysToCoverV0 is sf0's days to cover: positions over the average daily volume
 // of traded sessions in the 35 calendar days up to asOf, with that average
 // rounded to a whole share count the way 000080's bigint cast rounds it (half
-// away from zero), and the result rounded to two places. It is unknown with
-// fewer than 5 traded sessions in the span.
+// away from zero), and the result rounded to two places the way 000080's
+// numeric rounding does (see roundNumeric2). It is unknown with fewer than 5
+// traded sessions in the span.
 func DaysToCoverV0(bars []Bar, asOf civil.Date, positions float64) (value float64, reason string) {
 	from := asOf.AddDays(-dtcV0Days)
 	n := 0
@@ -69,7 +72,33 @@ func DaysToCoverV0(bars []Bar, asOf civil.Date, positions float64) (value float6
 	if avg < 1 {
 		return 0, ReasonNoVolume
 	}
-	return math.Round(positions/avg*100) / 100, ""
+	return roundNumeric2(positions / avg), ""
+}
+
+// roundNumeric2 rounds q to two places as PostgreSQL rounds round(float8::numeric,
+// 2): the float is first written with 15 significant digits, then that decimal
+// is rounded half away from zero. Rounding the binary value directly differs at
+// exact half-cent quotients (201 over 200 is 1.01 in the database, and a binary
+// round gives 1.00), which is more than the parity tolerance.
+func roundNumeric2(q float64) float64 {
+	if !finite(q) {
+		return q
+	}
+	dec, ok := new(big.Rat).SetString(strconv.FormatFloat(q, 'g', 15, 64))
+	if !ok {
+		return math.Round(q*100) / 100
+	}
+	neg := dec.Sign() < 0
+	dec.Abs(dec)
+	// floor(x*100 + 1/2) for x >= 0, in integers: (2*100*num + den) / (2*den).
+	num := new(big.Int).Mul(dec.Num(), big.NewInt(200))
+	num.Add(num, dec.Denom())
+	cents := new(big.Int).Quo(num, new(big.Int).Mul(dec.Denom(), big.NewInt(2)))
+	v := float64(cents.Int64()) / 100
+	if neg {
+		return -v
+	}
+	return v
 }
 
 // barsUpTo returns the prefix of bars dated on or before asOf. bars must be
