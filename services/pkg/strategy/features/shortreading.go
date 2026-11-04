@@ -88,11 +88,17 @@ func NewReports(rows []ASICRow, ingests []ReportIngest) *Reports {
 	}
 	// The map above holds one row per code and date, so the counts and the
 	// per-code lists below do not depend on the order the rows arrived in.
+	// A row counts toward its report's size only with a finite percentage, the
+	// rows the alerts job loads, so the two jobs agree on which reports are partial.
+	seen := map[civil.Date]bool{}
 	for key, row := range r.rows {
-		if _, seen := r.count[key.date]; !seen {
+		if !seen[key.date] {
+			seen[key.date] = true
 			r.dates = append(r.dates, key.date)
 		}
-		r.count[key.date]++
+		if row.Percent != nil && finite(*row.Percent) {
+			r.count[key.date]++
+		}
 		r.byCode[key.code] = append(r.byCode[key.code], row)
 	}
 	sort.Slice(r.dates, func(i, j int) bool { return r.dates[i].Before(r.dates[j]) })

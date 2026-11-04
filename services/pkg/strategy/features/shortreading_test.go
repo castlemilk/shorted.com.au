@@ -80,6 +80,24 @@ func TestIncompleteNewestReportFallsBack(t *testing.T) {
 	})
 }
 
+// A NULL percentage is not a figure, so rows without one must not make a
+// partial report complete: the alerts job counts only the finite rows.
+func TestNullPercentRowsDoNotCompleteAReport(t *testing.T) {
+	cal := testCalendar(t)
+	asOf := mustDate(t, "2026-10-06")
+	_, rows := septemberReports(t)
+	rows = append(rows, row(t, "XTR", "2026-09-29", "XTRA GROUP ORDINARY", 1, 10_000_000, ptr(1)))
+	rows = removeRow(rows, "OTH", "2026-09-30")
+	rows = replaceRow(t, rows, row(t, "ABC", "2026-09-30", "ABC GROUP ORDINARY", 900, 10_000_000, ptr(9)))
+	for _, code := range []string{"N1", "N2", "N3"} {
+		rows = append(rows, row(t, code, "2026-09-30", code+" GROUP ORDINARY", 0, 10_000_000, nil))
+	}
+	reports := NewReports(rows, nil)
+
+	got := ShortReadingV1("ABC", asOf, cal, reports, nil, nil, StaleAfterSessions)
+	assertFallbackToSeptember29(t, got)
+}
+
 func assertFallbackToSeptember29(t *testing.T, got ShortReading) {
 	t.Helper()
 	if got.Status != StatusReported {
