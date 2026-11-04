@@ -44,6 +44,10 @@ export const LABEL_CHAR_PX = 6;
 export const LABEL_INSET = 4;
 // The closest two level labels' baselines may be: 10 px type and a pixel of air.
 export const LABEL_SPACING = 11;
+// The closest baselines of a label that sits in a tag box. The box runs 10 px
+// above its baseline and 4 px below it (14 px), so a tagged label needs 15 px
+// of baseline spacing or its box paints over the label beside it.
+export const TAG_LABEL_SPACING = 15;
 
 const labelWidth = (label: string) => label.length * LABEL_CHAR_PX;
 
@@ -55,26 +59,43 @@ const labelWidth = (label: string) => label.length * LABEL_CHAR_PX;
 const endLabelX = (end: number, width: number, innerW: number) =>
   Math.min(innerW, Math.max(end - LABEL_INSET, width));
 
+export interface SpreadOptions {
+  /** The highest baseline any label may take. Labels are pushed down to it. */
+  top?: number;
+  /** Per line, true when its label is in a tag box: that pair needs TAG_LABEL_SPACING. */
+  tagged?: readonly boolean[];
+}
+
 /**
  * Baselines for the labels of lines at `ys`, in the order given. Each sits 4 px
- * above its line unless that is within LABEL_SPACING of the label above it, in
- * which case it drops below that one. A stack that would run past the plot
- * floor is pulled back up to it. The lines themselves never move.
+ * above its line unless that is within the spacing of the label above it, in
+ * which case it drops below that one (11 px, or 15 px beside a tag box). A
+ * stack that would run past the plot floor is pulled back up to it, and a label
+ * is never higher than `top`, so the stack spreads down from the top instead of
+ * stacking on one baseline. The lines themselves never move.
  */
-export function spreadLabels(ys: number[], innerH: number): number[] {
+export function spreadLabels(
+  ys: number[],
+  innerH: number,
+  opts: SpreadOptions = {},
+): number[] {
+  const top = opts.top ?? Number.NEGATIVE_INFINITY;
+  const tagged = opts.tagged ?? [];
+  const gap = (a: number, b: number) =>
+    tagged[a] || tagged[b] ? TAG_LABEL_SPACING : LABEL_SPACING;
   // Indices, top of the plot first.
   const order = ys.map((_, i) => i).sort((a, b) => ys[a]! - ys[b]!);
-  const baselines = ys.map((y) => y - LABEL_INSET);
+  const baselines = ys.map((y) => Math.max(y - LABEL_INSET, top));
   for (let k = 1; k < order.length; k++) {
+    const above = order[k - 1]!;
     const i = order[k]!;
-    const above = baselines[order[k - 1]!]!;
-    baselines[i] = Math.max(baselines[i]!, above + LABEL_SPACING);
+    baselines[i] = Math.max(baselines[i]!, baselines[above]! + gap(above, i));
   }
   let lowest = innerH - LABEL_INSET; // the label of a line on the plot floor
   for (let k = order.length - 1; k >= 0; k--) {
     const i = order[k]!;
     baselines[i] = Math.min(baselines[i]!, lowest);
-    lowest = baselines[i]! - LABEL_SPACING;
+    if (k > 0) lowest = baselines[i]! - gap(order[k - 1]!, i);
   }
   return baselines;
 }
@@ -119,7 +140,9 @@ export function layoutLevels(opts: {
     visible.push({ level: l, x1: s[0], x2: s[1], y });
   }
   const ys = visible.map((v) => v.y);
-  const labelYs = spreadLabels(ys, innerH);
+  const labelYs = spreadLabels(ys, innerH, {
+    tagged: visible.map((v) => !!v.level.tag),
+  });
   const levels: LevelGeometry[] = visible.map(({ level, x1, x2, y }, i) => ({
     x1,
     x2,

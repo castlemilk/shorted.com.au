@@ -36,14 +36,17 @@ export function layoutEndLabels(
     (it) => Number.isFinite(it.y) && it.y >= 0 && it.y <= innerH,
   );
   if (!visible.length) return [];
+  // The top floor is inside the spread, so two labels at the top stack down
+  // from it rather than both being clamped onto one baseline.
   const baselines = spreadLabels(
     visible.map((it) => it.y),
     innerH,
+    { top: TOP_BASELINE },
   );
   return visible.map((it, i) => ({
     id: it.id,
     x: Math.max(0, innerW - LABEL_INSET),
-    y: Math.max(TOP_BASELINE, baselines[i]!),
+    y: baselines[i]!,
     text: it.text,
     color: it.color,
   }));

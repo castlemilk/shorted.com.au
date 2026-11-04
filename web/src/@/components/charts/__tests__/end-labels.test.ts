@@ -68,3 +68,14 @@ describe("layoutEndLabels", () => {
     expect(label).toMatchObject({ text: "$25,000", color: "#abcdef" });
   });
 });
+
+describe("layoutEndLabels at the top of the plot", () => {
+  it("stacks two labels at the top downward, never on one baseline", () => {
+    const [a, b] = layoutEndLabels([item("a", 0), item("b", 2)], {
+      innerW: 300,
+      innerH: 200,
+    });
+    expect(a!.y).toBeGreaterThanOrEqual(10);
+    expect(b!.y - a!.y).toBeGreaterThanOrEqual(11);
+  });
+});
