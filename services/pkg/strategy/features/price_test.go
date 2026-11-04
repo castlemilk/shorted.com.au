@@ -68,13 +68,6 @@ func wantPtr(t *testing.T, name string, got *float64, want float64) {
 	}
 }
 
-func wantNil(t *testing.T, name string, got *float64) {
-	t.Helper()
-	if got != nil {
-		t.Fatalf("%s = %v, want NULL", name, *got)
-	}
-}
-
 func TestAsOfNeedsSixtySessions(t *testing.T) {
 	last := day(t, "2024-06-03")
 	fs := v0FS1(t)
@@ -213,12 +206,12 @@ func TestAnchorIsTheEarliestBreakoutAndDateIsTheLatest(t *testing.T) {
 func TestBaseLowAndLengthReadTheSessionsAfterTheAnchor(t *testing.T) {
 	last := day(t, "2024-03-29")
 	bars := series(last, 60, func(i int) Bar {
-		switch {
-		case i == 59:
+		switch i {
+		case 59:
 			return Bar{Open: 10, High: 11, Low: 10, Close: 11, AdjClose: 11, Volume: 200}
-		case i == 30: // a dip inside the base window, an old session
+		case 30: // a dip inside the base window, an old session
 			return Bar{Open: 10, High: 10, Low: 9, Close: 9.5, AdjClose: 9.5, Volume: 100}
-		case i == 25: // a session well below the touch band; does not set the length
+		case 25: // a session well below the touch band; does not set the length
 			return Bar{Open: 9, High: 9, Low: 9, Close: 9, AdjClose: 9, Volume: 100}
 		}
 		return flatBar(10, 100)
