@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, Terminal, CodeXml, House, Info, FileText, LayoutDashboard, Briefcase, TrendingDown, Lock, Cpu, ChartColumn } from "lucide-react";
+import { Menu, Terminal, CodeXml, House, Info, FileText, LayoutDashboard, Briefcase, TrendingDown, Lock, Cpu, ChartColumn, Crosshair } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { siteConfig } from "~/@/config/site";
@@ -25,7 +25,8 @@ export function MobileNav({ items }: MobileNavProps) {
 
   const getIcon = (title: string) => {
     switch (title.toLowerCase()) {
-      case 'top shorted': return <TrendingDown className="h-4 w-4" />;
+      case 'most shorted': return <TrendingDown className="h-4 w-4" />;
+      case 'strategies': return <Crosshair className="h-4 w-4" />;
       case 'dashboard': return <LayoutDashboard className="h-4 w-4" />;
       case 'portfolio': return <Briefcase className="h-4 w-4" />;
       case 'about': return <Info className="h-4 w-4" />;
