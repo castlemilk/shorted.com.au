@@ -431,7 +431,7 @@ describe("SignalsIsland", () => {
     });
     expect(screen.getByRole("button", { name: "X3" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "TWE" })).toBeNull();
-    expect(screen.getByText("Showing 1 of 12 signals")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 1 match")).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("searchbox", { name: "Search stock" }), {
       target: { value: "nothing like this" },
@@ -500,9 +500,11 @@ describe("SignalsIsland", () => {
 
   it("keeps the evidence column beside the table from the lg breakpoint", () => {
     render(<SignalsIsland {...props()} />);
-    expect(document.getElementById("signals-evidence")).toHaveClass(
-      "lg:sticky",
-    );
+    const evidence = document.getElementById("signals-evidence");
+    expect(evidence).toHaveClass("lg:sticky");
+    // Clears the site header and the tab bar, and the whole card can be reached while stuck.
+    expect(evidence).toHaveClass("lg:top-[124px]", "scroll-mt-[124px]");
+    expect(evidence).toHaveClass("lg:overflow-y-auto");
   });
 
   it("shows the prompt row in the loading state and disables the controls", () => {
@@ -576,7 +578,7 @@ describe("SignalsIsland", () => {
     expect(
       screen.getByText("No triggered stock in this list."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Showing 0 of 9 signals")).toBeInTheDocument();
+    expect(screen.getByText("0 triggered signals")).toBeInTheDocument();
   });
 
   it("keeps the top rows and says so when the full list is unavailable", async () => {
@@ -668,7 +670,7 @@ describe("SignalsIsland", () => {
     expect(mockGetSignalsForViewer).toHaveBeenLastCalledWith(
       expect.objectContaining({ full: true }),
     );
-    expect(screen.getByText("Showing 1 of 120 signals")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 1 match")).toBeInTheDocument();
   });
 
   it("holds the read for a minute, so a remount draws it without another call", async () => {
@@ -764,6 +766,115 @@ describe("SignalsIsland", () => {
       await screen.findByText(/from another session or rules version/),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "R0" })).toBeInTheDocument();
+  });
+
+  it("counts the rows drawn, not the rows read, in a signed-in list", async () => {
+    signedInAs();
+    mockGetSignalsForViewer.mockResolvedValue({
+      ok: true,
+      rows: rankedRows(100),
+      totalCount: 120,
+      statusCounts: { triggered: 0, setup: 120, watch: 0, unknown: 0 },
+      snapshot: SNAPSHOT,
+    });
+    const { container } = render(<SignalsIsland {...props()} />);
+    await screen.findByRole("button", { name: "R0" });
+    expect(
+      container.querySelector("[data-signals-count]")?.textContent,
+    ).toMatch(/^Showing 50 of 120 signals/);
+    expect(
+      screen.getByRole("button", { name: "Show 50 more · 70 left" }),
+    ).toBeInTheDocument();
+  });
+
+  it("asks the whole list again after a failed read, when the viewer shows more", async () => {
+    signedInAs();
+    const counts = { triggered: 0, setup: 120, watch: 0, unknown: 0 };
+    mockGetSignalsForViewer
+      .mockResolvedValueOnce({
+        ok: true,
+        rows: rankedRows(100),
+        totalCount: 120,
+        statusCounts: counts,
+        snapshot: SNAPSHOT,
+      })
+      .mockResolvedValueOnce({ ok: false, reason: "unavailable" })
+      .mockResolvedValueOnce({
+        ok: true,
+        rows: rankedRows(120),
+        totalCount: 120,
+        statusCounts: counts,
+        snapshot: SNAPSHOT,
+      });
+    render(<SignalsIsland {...props()} />);
+    await screen.findByRole("button", { name: "R0" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show 50 more · 70 left" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show 20 more · 20 left" }),
+    );
+    expect(
+      await screen.findByText(
+        /The full list is unavailable right now; showing the top rows\./,
+      ),
+    ).toBeInTheDocument();
+    expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show 20 more · 20 left" }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "R110" }),
+    ).toBeInTheDocument();
+    expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(3);
+    expect(mockGetSignalsForViewer).toHaveBeenLastCalledWith(
+      expect.objectContaining({ full: true }),
+    );
+  });
+
+  it("words the anonymous prompt for the controls when the whole list is on screen", () => {
+    signedOut();
+    render(
+      <SignalsIsland
+        {...props({
+          rows: [
+            pick("A1", "triggered", false),
+            pick("A2", "setup", true),
+            pick("A3", "setup", true),
+          ],
+          total: 3,
+          counts: { triggered: 1, setup: 2, watch: 0, unknown: 0 },
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Triggered/ }));
+    expect(document.querySelector("[data-signals-gate]")?.textContent).toBe(
+      "Sign in free to filter, sort and search these signals.",
+    );
+    expect(screen.queryByText(/to see all 3 signals/)).toBeNull();
+  });
+
+  it("adds a Sorted by column for a sort the matrix does not show", async () => {
+    signedInAs();
+    mockGetSignalsForViewer.mockResolvedValue({
+      ok: true,
+      rows: rankedRows(3),
+      totalCount: 3,
+      statusCounts: { triggered: 0, setup: 3, watch: 0, unknown: 0 },
+      snapshot: SNAPSHOT,
+    });
+    render(<SignalsIsland {...props()} />);
+    await screen.findByRole("button", { name: "R0" });
+    expect(
+      screen.queryByRole("columnheader", { name: /Sorted by/ }),
+    ).toBeNull();
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort signals" }), {
+      target: { value: "pe" },
+    });
+    expect(
+      screen.getByRole("columnheader", { name: /Sorted by P\/E/ }),
+    ).toBeInTheDocument();
   });
 
   it("keeps the 25 KB payload budget for the ten anonymous rows", () => {

@@ -121,12 +121,17 @@ function SignInPrompt({
   slug,
   counts,
   total,
+  wholeOnScreen = false,
 }: {
   slug: string;
   counts: SignalsIslandProps["counts"];
   total: number;
+  /** True when every signal is already drawn: the prompt names the controls, not more rows. */
+  wholeOnScreen?: boolean;
 }) {
-  const copy = signInPromptCopy(counts, total);
+  const copy = wholeOnScreen
+    ? "Sign in free to filter, sort and search these signals."
+    : signInPromptCopy(counts, total);
   const callbackUrl = `/strategies/${slug}/signals`;
   return (
     <>
@@ -169,6 +174,8 @@ function SignalsView({
   const [head, setHead] = useState<ReadState>(null);
   const [deep, setDeep] = useState<ReadState>(null);
   const [shown, setShown] = useState(SHOW_STEP);
+  // Raised by the controls to ask for the whole list again after a failed read.
+  const [deepAttempt, setDeepAttempt] = useState(0);
 
   const needle = query.trim().toLowerCase();
   const sessionDate = props.sessionDate ?? "";
@@ -225,9 +232,10 @@ function SignalsView({
   // The whole list is asked for at most once per mount for a slug and snapshot.
   // Turning a filter, the search or the sort off and on again draws the list
   // already held, and a read still in flight is not asked for twice. A read
-  // that failed is asked again the next time the viewer draws past the top rows.
-  // The result is kept whether or not the controls still want it: deepRead
-  // checks the slug and snapshot it was read for before drawing it.
+  // that failed is asked again the next time the viewer shows more, filters,
+  // searches or sorts (retryDeep raises deepAttempt, the effect's only other
+  // trigger). The result is kept whether or not the controls still want it:
+  // deepRead checks the slug and snapshot it was read for before drawing it.
   const deepKey = `${props.slug}|${sessionDate}|${rulesHash}`;
   const deepAsked = useRef<string | null>(null);
 
@@ -253,11 +261,20 @@ function SignalsView({
         forget();
         setDeep({ slug, result: { ok: false, reason: "unavailable" } });
       });
-  }, [wantDeep, userId, props.slug, sessionDate, rulesHash, deepKey]);
+  }, [
+    wantDeep,
+    userId,
+    props.slug,
+    sessionDate,
+    rulesHash,
+    deepKey,
+    deepAttempt,
+  ]);
 
   const deepRead =
     signedIn && deep?.slug === props.slug ? settle(deep.result) : null;
   const deepOk = deepRead && deepRead.ok ? deepRead : null;
+  const deepFailed = deepRead !== null && !deepRead.ok;
   // The signed-in list drawn: the whole list once it has landed, else the first page.
   const list: FullList | null = deepOk ?? headOk;
 
@@ -295,6 +312,15 @@ function SignalsView({
     setGated(true);
   }
 
+  // A signed-in control that narrows or reorders a list read in part asks for
+  // the whole list again when its last read failed; the Show more control does
+  // the same. The read is cleared so the pane says it is loading.
+  function retryDeep() {
+    if (!deepFailed) return;
+    setDeep(null);
+    setDeepAttempt((count) => count + 1);
+  }
+
   const selectedCode = selected ?? pool[0]?.code ?? null;
   const searched = needle
     ? pool.filter(
@@ -312,6 +338,13 @@ function SignalsView({
       ? list.totalCount - pool.length
       : 0;
   const left = visible.length - drawn.length + unread;
+  // A count of matches, in the words the chips and the search use.
+  const matchNoun = (count: number) =>
+    needle
+      ? count === 1
+        ? "match"
+        : "matches"
+      : `${FILTER_LABELS[filter].toLowerCase()} ${count === 1 ? "signal" : "signals"}`;
   const core = coreRules(props.rules);
   const rankingInputs = rankingInputsFor(props.slug);
   const chips = chipFilters(counts);
@@ -370,19 +403,24 @@ function SignalsView({
       // The selection still holds on screen without the address bar.
     }
     // Below the lg breakpoint the evidence sits under the whole table: bring it
-    // into view. Above it the evidence column is sticky and already in view.
-    const narrow =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(max-width: 1023px)")?.matches === true;
+    // into view (its scroll margin clears the sticky bars). Above it the evidence
+    // column is sticky and already in view.
+    const media =
+      typeof window !== "undefined" ? window.matchMedia?.bind(window) : null;
+    const narrow = media?.("(max-width: 1023px)")?.matches === true;
     if (narrow) {
-      document
-        .getElementById("signals-evidence")
-        ?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+      const still =
+        media?.("(prefers-reduced-motion: reduce)")?.matches === true;
+      document.getElementById("signals-evidence")?.scrollIntoView?.({
+        block: "start",
+        behavior: still ? "auto" : "smooth",
+      });
     }
   }
 
   function changeFilter(chip: SignalFilter) {
     if (signedIn || chip === "all") {
+      retryDeep();
       setFilter(chip);
       setShown(SHOW_STEP);
     } else {
@@ -492,6 +530,7 @@ function SignalsView({
                     gate();
                     return;
                   }
+                  retryDeep();
                   setQuery(event.target.value);
                   setShown(SHOW_STEP);
                 }}
@@ -506,6 +545,7 @@ function SignalsView({
                     gate();
                     return;
                   }
+                  retryDeep();
                   setSortKey(sortKeyFrom(event.target.value));
                   setShown(SHOW_STEP);
                 }}
@@ -530,6 +570,7 @@ function SignalsView({
                   slug={props.slug}
                   counts={props.counts}
                   total={props.total}
+                  wholeOnScreen={props.total <= props.rows.length}
                 />
               </p>
             ) : null}
@@ -547,6 +588,7 @@ function SignalsView({
                   rules={core}
                   rankingInputs={rankingInputs}
                   selected={selectedCode}
+                  sortKey={sortKey}
                   onSelect={select}
                   caption={`${props.strategyName}: stocks by rule`}
                   footer={footer}
@@ -554,7 +596,10 @@ function SignalsView({
                 {left > 0 ? (
                   <button
                     type="button"
-                    onClick={() => setShown((count) => count + SHOW_STEP)}
+                    onClick={() => {
+                      retryDeep();
+                      setShown((count) => count + SHOW_STEP);
+                    }}
                     className="self-center rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50"
                   >
                     Show {Math.min(SHOW_STEP, left)} more · {left} left
@@ -567,11 +612,13 @@ function SignalsView({
               <p className="text-xs text-muted-foreground" data-signals-count>
                 {filtered
                   ? whole
-                    ? `Showing ${visible.length} of ${total} signals`
+                    ? visible.length === 0
+                      ? `0 ${matchNoun(0)}`
+                      : `Showing ${drawn.length} of ${visible.length} ${matchNoun(visible.length)}`
                     : needle && filter === "all"
                       ? `${visible.length} ${visible.length === 1 ? "match" : "matches"} in the top ${pool.length}`
                       : `${visible.length} ${FILTER_LABELS[filter].toLowerCase()} in the top ${pool.length}`
-                  : countLine(counts, pool.length, total)}
+                  : countLine(counts, drawn.length, total)}
                 {note ? ` · ${note}` : ""}
               </p>
             ) : null}
@@ -589,7 +636,7 @@ function SignalsView({
 
           <div
             id="signals-evidence"
-            className="min-w-0 lg:sticky lg:top-24 lg:self-start"
+            className="min-w-0 scroll-mt-[124px] lg:sticky lg:top-[124px] lg:max-h-[calc(100vh-140px)] lg:self-start lg:overflow-y-auto"
           >
             <EvidencePanel
               code={selectedCode ?? ""}
