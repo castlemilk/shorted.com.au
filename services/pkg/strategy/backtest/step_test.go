@@ -536,8 +536,8 @@ func TestKArtefactChangesOnlyItsOwnBar(t *testing.T) {
 	near(t, "multiplier after a clean bar", st.codeState("AAA").mult, 1, 1e-12)
 }
 
-// fixedPath is one scripted round trip, with no dividends and no cash
-// constraint, so every fill is the same whatever the costs.
+// fixedPath is one scripted round trip with one unadjusted cash dividend and no
+// cash constraint, so every fill is the same whatever the costs.
 func fixedPath(t *testing.T, multiplier float64) *State {
 	t.Helper()
 	cfg := testConfig()
@@ -573,8 +573,72 @@ func TestCostsOnAFixedFillPath(t *testing.T) {
 	if t1[0].Dividends <= 0 {
 		t.Fatal("the fixed path carries no cash dividend, so the gross and net gate is not exercised")
 	}
+	// The replay is only a cost comparison if both runs fill the same trade.
+	a, b := t1[0], t2[0]
+	if a.EntryDate != b.EntryDate || a.ExitDate != b.ExitDate || a.Qty != b.Qty ||
+		a.EntryFill != b.EntryFill || a.ExitFill != b.ExitFill || a.Dividends != b.Dividends {
+		t.Fatalf("costs changed the fill path: %+v against %+v", a, b)
+	}
+	if !(b.Fees > a.Fees) {
+		t.Fatalf("doubling costs did not raise the fees: %v against %v", b.Fees, a.Fees)
+	}
 	if !(two.Equity() <= one.Equity()) {
 		t.Fatalf("final equity at 2x costs %v above 1x %v", two.Equity(), one.Equity())
+	}
+}
+
+func TestExitFillsAtCloseOnZeroOpen(t *testing.T) {
+	// The pivot stop fires on session 3's close; session 4 opens at zero, so the
+	// exit fills at that session's close and is flagged.
+	cfg := testConfig()
+	cfg.ExitRules = []spec.ExitRule{{Kind: spec.ExitClosePivot}}
+	st := enter(t, cfg, mkBar(10, 10))
+	Step(st, sessionAt(3, codeAt("AAA", statusTriggered, mkBar(10, 9.5))))
+	Step(st, sessionAt(4, codeAt("AAA", statusTriggered, features.Bar{Open: 0, High: 9.8, Low: 9.8, Close: 9.8, AdjClose: 9.8, Volume: 1e6})))
+	trades := st.Finish()
+	if len(trades) != 1 {
+		t.Fatalf("trades %d, want one closed trade", len(trades))
+	}
+	tr := trades[0]
+	if tr.OpenAtEnd || tr.ExitDate != dayAt(4) {
+		t.Fatalf("exit on %v open-at-end %v, want a closed exit on session 4", tr.ExitDate, tr.OpenAtEnd)
+	}
+	near(t, "exit fill at the close", tr.ExitFill, 9.8, 1e-12)
+	if !hasFlag(tr.Flags, FlagFallbackClose) {
+		t.Fatalf("exit at a zero open not flagged fallback_close: %v", tr.Flags)
+	}
+}
+
+func TestSMA200ExitNeedsFiveClosesBelowTheLongAverage(t *testing.T) {
+	// Close 10 is above SMA50 (5) and below SMA200 (11). The 200-session rule
+	// counts consecutive closes below SMA200 and must not read SMA50: it fires on
+	// the fifth such close, session 7, and fills at session 8's open.
+	cfg := testConfig()
+	cfg.ExitRules = []spec.ExitRule{{Kind: spec.ExitCloseBelowSMA, SMA: 200, Sessions: 5}}
+	st := enter(t, cfg, mkBar(10, 10))
+	bar := func() CodeSession {
+		c := codeAt("AAA", statusTriggered, mkBar(10, 10))
+		c.SMA50, c.SMA200 = 5, 11
+		return c
+	}
+	for i := 3; i <= 6; i++ {
+		Step(st, sessionAt(i, bar()))
+		if _, queued := st.exits["AAA"]; queued {
+			t.Fatalf("exit queued after %d closes below SMA200, want five", i-2)
+		}
+	}
+	Step(st, sessionAt(7, bar()))
+	if px, queued := st.exits["AAA"]; !queued || px.reason != ReasonSMAStop {
+		t.Fatalf("no SMA200 exit queued on the fifth close below SMA200: %+v queued %v", px, queued)
+	}
+	Step(st, sessionAt(8, bar()))
+	trades := st.Finish()
+	if len(trades) != 1 || trades[0].ExitReason != ReasonSMAStop {
+		t.Fatalf("trades %+v, want one sma_stop exit", trades)
+	}
+	if trades[0].ExitSignalDate != dayAt(7) || trades[0].ExitDate != dayAt(8) {
+		t.Fatalf("exit signal %v filled %v, want signal session 7 and fill session 8",
+			trades[0].ExitSignalDate, trades[0].ExitDate)
 	}
 }
 
@@ -813,13 +877,37 @@ func TestClassifyBarTolerance(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			cur := features.Bar{Close: 10, AdjClose: 10 * math.Exp(tc.rk)}
+			// Both bars sit on the case's session, so they share its quantum.
+			prev := prev
+			prev.Date = tc.date
+			cur := features.Bar{Date: tc.date, Close: 10, AdjClose: 10 * math.Exp(tc.rk)}
 			b := ClassifyBar(prev, cur, true, tc.date, tc.from)
 			if b.TotalReturn != tc.totalReturn || b.Unadjusted != tc.unadjusted {
 				t.Fatalf("total return %v unadjusted %v, want %v and %v (rk %.5f tol %.5f)",
 					b.TotalReturn, b.Unadjusted, tc.totalReturn, tc.unadjusted, b.RK, b.Tol)
 			}
 		})
+	}
+}
+
+func TestFirstFourDecimalBarPricesThePreviousCentsRounding(t *testing.T) {
+	// The previous bar is cents-rounded (1.50 close, 1.47 adjusted); the first
+	// four-decimal bar carries its exact adjusted close. Its step of about +0.33%
+	// is the previous bar's rounding, not a vendor adjustment, so the bar is
+	// unadjusted and a cash dividend on it is credited. A tolerance taken from
+	// this bar's quantum alone (about 0.0011) would read it as an adjustment.
+	from := dayAt(10)
+	prev := features.Bar{Date: dayAt(9), Close: 1.5, AdjClose: 1.47}
+	cur := features.Bar{Date: from, Close: 1.5, AdjClose: 1.4749}
+	b := ClassifyBar(prev, cur, true, from, from)
+	if !b.Unadjusted {
+		t.Fatalf("the rounding step was read as a vendor adjustment (rk %.5f tol %.5f)", b.RK, b.Tol)
+	}
+	if !b.TotalReturn {
+		t.Fatalf("the rounding step fell outside total return (rk %.5f tol %.5f)", b.RK, b.Tol)
+	}
+	if b.Tol < 0.0075 {
+		t.Fatalf("tolerance %.5f ignores the previous bar's cents rounding", b.Tol)
 	}
 }
 

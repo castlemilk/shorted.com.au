@@ -138,4 +138,30 @@ func TestConfigOfCarriesTheRecipe(t *testing.T) {
 		t.Fatal("the config shares storage with the recipe")
 	}
 	near(t, "house fee", feeFor(cfg.Costs, 10000, 1e9), 10+5, 1e-9)
+
+	// The cost model is copied too: a tier edited in place, or the flat slippage
+	// changed through its pointer, leaves the recipe and its hash as they were.
+	flat := 5.0
+	r.Costs.FlatSlippageBps = &flat
+	before, err := spec.RecipeHash(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg = ConfigOf(r)
+	cfg.Costs.SpreadTiers[0].Bps = 99
+	*cfg.Costs.FlatSlippageBps = 99
+	if r.Costs.SpreadTiers[0].Bps == 99 || *r.Costs.FlatSlippageBps == 99 {
+		t.Fatal("the config's cost model shares storage with the recipe")
+	}
+	after, err := spec.RecipeHash(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after != before {
+		t.Fatalf("recipe hash changed from %s to %s after editing the copy", before, after)
+	}
+	r.Costs.SpreadTiers = nil
+	if ConfigOf(r).Costs.SpreadTiers != nil {
+		t.Fatal("a nil spread tier list must stay nil")
+	}
 }

@@ -41,7 +41,10 @@ func feeFor(c spec.Costs, notional, dv20 float64) float64 {
 	if notional <= 0 {
 		return 0
 	}
-	brokerage := math.Max(c.BrokerageBps/10000*notional, c.BrokerageMinAUD)
-	spread := spreadBps(c, dv20) / 10000 * notional
-	return c.Multiplier * (brokerage + spread)
+	// Each product is rounded to float64 before it is compared or summed: an
+	// arm64 build would otherwise fuse it into a multiply-add, and the fee and so
+	// the cash decisions it feeds would differ by GOARCH.
+	brokerage := math.Max(float64(c.BrokerageBps/10000*notional), c.BrokerageMinAUD)
+	spread := float64(spreadBps(c, dv20) / 10000 * notional)
+	return float64(c.Multiplier * (brokerage + spread))
 }

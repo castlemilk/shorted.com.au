@@ -51,6 +51,10 @@ func Quantum(date, price4dpFrom civil.Date) float64 {
 // ClassifyBar applies the per-bar rule to cur, given the previous loaded bar.
 // A bar with a non-positive close or adjusted close, against a previous bar that
 // exists, is price-return: the step cannot be measured, so it is not trusted.
+//
+// Each bar's rounding is priced at its own quantum, taken from its own date. The
+// first four-decimal session follows cents-rounded bars, so a single quantum
+// would leave the previous bar's cents error out of the tolerance.
 func ClassifyBar(prev, cur features.Bar, hasPrev bool, date, price4dpFrom civil.Date) BarBasis {
 	if !hasPrev {
 		return BarBasis{}
@@ -59,8 +63,11 @@ func ClassifyBar(prev, cur features.Bar, hasPrev bool, date, price4dpFrom civil.
 		return BarBasis{HasPrev: true}
 	}
 	q := Quantum(date, price4dpFrom)
+	qPrev := Quantum(prev.Date, price4dpFrom)
 	rk := math.Log((cur.AdjClose / cur.Close) / (prev.AdjClose / prev.Close))
-	tol := toleranceFloor + float64(q*(1/cur.AdjClose+1/cur.Close+1/prev.AdjClose+1/prev.Close))
+	tol := toleranceFloor +
+		float64(q*(1/cur.AdjClose+1/cur.Close)) +
+		float64(qPrev*(1/prev.AdjClose+1/prev.Close))
 	return BarBasis{
 		HasPrev:     true,
 		RK:          rk,

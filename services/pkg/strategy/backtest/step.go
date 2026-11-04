@@ -137,7 +137,7 @@ func ConfigOf(r spec.Recipe) Config {
 		WeightPct:         r.Sizing.WeightPct,
 		MaxPositions:      r.Sizing.MaxPositions,
 		CapacityPctDV20:   r.Sizing.CapacityPctDV20,
-		Costs:             r.Costs,
+		Costs:             copyCosts(r.Costs),
 		ExitRules:         append([]spec.ExitRule(nil), r.Exits...),
 		CooldownSessions:  r.CooldownSessions,
 		StaleExitSessions: r.StaleExitSessions,
@@ -148,6 +148,19 @@ func ConfigOf(r spec.Recipe) Config {
 		cfg.MaxAbovePivotPct = &limit
 	}
 	return cfg
+}
+
+// copyCosts copies the cost model's slice and pointer, so a change to the copy
+// reaches neither the recipe nor its hash. A nil field stays nil.
+func copyCosts(c spec.Costs) spec.Costs {
+	if c.SpreadTiers != nil {
+		c.SpreadTiers = append([]spec.SpreadTier{}, c.SpreadTiers...)
+	}
+	if c.FlatSlippageBps != nil {
+		flat := *c.FlatSlippageBps
+		c.FlatSlippageBps = &flat
+	}
+	return c
 }
 
 // Trade is one round trip. EntryPrice and ExitPrice are on the P&L basis (price
@@ -377,7 +390,7 @@ func Step(st *State, s Session) {
 		// total-return adjustment for that event, so stepping as well would count
 		// it twice when the vendor stored a small dividend as an adjustment.
 		if b.TotalReturn && !cashCredited(b, c) {
-			cs.mult *= math.Exp(b.RK)
+			cs.mult = float64(cs.mult * math.Exp(b.RK))
 		}
 		basis[code] = b
 	}
@@ -443,7 +456,7 @@ func (st *State) creditDividends(s Session, by map[string]*CodeSession, basis ma
 			continue
 		}
 		pos := st.positions[code]
-		amt := c.Dividend * pos.qty * st.codeState(code).mult
+		amt := float64(float64(c.Dividend*pos.qty) * st.codeState(code).mult)
 		pos.dividends += amt
 		st.dividendsDue += amt
 		st.event(s.Date, code, EventDividendCredit, "")
@@ -491,7 +504,7 @@ func (st *State) fillExits(s Session, by map[string]*CodeSession, basis map[stri
 		if b := basis[code]; b.HasPrev && !b.TotalReturn {
 			pos.flags[FlagPriceReturnOnly] = true
 		}
-		pl := raw * st.codeState(code).mult
+		pl := float64(raw * st.codeState(code).mult)
 		st.closePosition(s.Date, s.Index, pos, raw, pl, px.reason, px.signalDate, px.dv20)
 	}
 }
@@ -500,8 +513,8 @@ func (st *State) fillExits(s Session, by map[string]*CodeSession, basis map[stri
 // can pay for it and its minimum fee. Capacity caps the notional at a share of
 // the decision's DV20.
 func (st *State) sizeEntry(e pendingEntry) (notional float64, capped, ok bool) {
-	want := st.cfg.WeightPct / 100 * st.lastEquity
-	if capN := st.cfg.CapacityPctDV20 / 100 * e.dv20; capN < want {
+	want := float64(st.cfg.WeightPct / 100 * st.lastEquity)
+	if capN := float64(st.cfg.CapacityPctDV20 / 100 * e.dv20); capN < want {
 		want = capN
 		capped = true
 	}
@@ -534,7 +547,7 @@ func (st *State) fillEntries(s Session, by map[string]*CodeSession) {
 			st.event(s.Date, e.code, EventEntryCancelled, CancelUntraded)
 			continue
 		}
-		if limit := st.cfg.MaxAbovePivotPct; limit != nil && raw > e.pivot*(1+*limit/100) {
+		if limit := st.cfg.MaxAbovePivotPct; limit != nil && raw > float64(e.pivot*(1+*limit/100)) {
 			st.event(s.Date, e.code, EventEntryCancelled, CancelGap)
 			continue
 		}
@@ -544,7 +557,7 @@ func (st *State) fillEntries(s Session, by map[string]*CodeSession) {
 			continue
 		}
 		cs := st.codeState(e.code)
-		pl := raw * cs.mult
+		pl := float64(raw * cs.mult)
 		fee := feeFor(st.cfg.Costs, notional, e.dv20)
 		st.cash -= notional + fee
 		pos := &position{
@@ -599,7 +612,7 @@ func (st *State) markToMarket(s Session, by map[string]*CodeSession, basis map[s
 			cs.lastRaw, cs.lastPL = pos.preSuspect(c.CA.SuspectDate)
 		} else {
 			cs.lastRaw = c.Bar.Close
-			cs.lastPL = c.Bar.Close * cs.mult
+			cs.lastPL = float64(c.Bar.Close * cs.mult)
 			pos.marks = append(pos.marks, mark{date: s.Date, raw: cs.lastRaw, pl: cs.lastPL})
 		}
 		cs.lastPLDate = s.Date
@@ -615,7 +628,7 @@ func (st *State) markToMarket(s Session, by map[string]*CodeSession, basis map[s
 
 // accrueCash earns the session's cash rate on the cash held at the close.
 func (st *State) accrueCash(s Session) {
-	st.cash *= 1 + DailyRate(s.CashRate)
+	st.cash = float64(st.cash * (1 + DailyRate(s.CashRate)))
 }
 
 // decideExits evaluates the data exclusions and the recipe's exits on signal
@@ -686,7 +699,7 @@ func ruleFires(pos *position, i int, r spec.ExitRule, s Session, c *CodeSession)
 	case spec.ExitTimeStop:
 		return timeStopFires(r, pos, s), ReasonTimeStop
 	case spec.ExitStopLoss:
-		return consecutive(pos, i, 1, r.Pct > 0 && px <= pos.entryRaw*(1-r.Pct/100)), ReasonStopLoss
+		return consecutive(pos, i, 1, r.Pct > 0 && px <= float64(pos.entryRaw*(1-r.Pct/100))), ReasonStopLoss
 	case spec.ExitCloseBelowSMA:
 		sma := c.SMA50
 		if r.SMA == 200 {
@@ -781,7 +794,7 @@ func (st *State) openNotQueued() int {
 func (st *State) record(s Session) {
 	invested := 0.0
 	for _, code := range sortedKeys(st.positions) {
-		invested += st.positions[code].qty * st.codeState(code).lastPL
+		invested += float64(st.positions[code].qty * st.codeState(code).lastPL)
 	}
 	equity := st.cash + invested
 	exposure := 0.0
@@ -816,7 +829,10 @@ func (st *State) advance(s Session, by map[string]*CodeSession) {
 		c := by[code]
 		cs := st.codeState(code)
 		if c.Bar != nil {
+			// The bar is dated by the session it was loaded on, so its rounding is
+			// priced at that session's quantum.
 			cs.prev = *c.Bar
+			cs.prev.Date = s.Date
 			cs.hasPrev = true
 		}
 		cs.prevStatus = c.Status
@@ -829,7 +845,7 @@ func (st *State) advance(s Session, by map[string]*CodeSession) {
 // price on the signal basis), pays the exit fee, and records the trade. The code
 // starts its cooldown from this session.
 func (st *State) closePosition(date civil.Date, idx int, pos *position, raw, pl float64, reason string, signalDate civil.Date, dv20 float64) {
-	proceeds := pos.qty * pl
+	proceeds := float64(pos.qty * pl)
 	exitFee := feeFor(st.cfg.Costs, proceeds, dv20)
 	st.cash += proceeds - exitFee
 	st.trades = append(st.trades, pos.trade(date, idx, raw, pl, reason, signalDate, exitFee, false))
@@ -842,16 +858,17 @@ func (st *State) closePosition(date civil.Date, idx int, pos *position, raw, pl 
 }
 
 func (p *position) trade(date civil.Date, idx int, raw, pl float64, reason string, signalDate civil.Date, exitFee float64, open bool) Trade {
-	entry := p.qty * p.entryPL
+	entry := float64(p.qty * p.entryPL)
 	cost := entry + p.entryFee
-	proceeds := p.qty*pl - exitFee + p.dividends
+	exitProceeds := float64(p.qty * pl)
+	proceeds := exitProceeds - exitFee + p.dividends
 	net := 0.0
 	if cost > 0 {
 		net = proceeds/cost - 1
 	}
 	gross := 0.0
 	if entry > 0 {
-		gross = (p.qty*pl+p.dividends)/entry - 1
+		gross = (exitProceeds+p.dividends)/entry - 1
 	}
 	flags := make([]string, 0, len(p.flags))
 	for f := range p.flags {
