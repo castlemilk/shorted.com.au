@@ -12,6 +12,9 @@ const (
 	CAGRMinCalendarDays = 365
 	// SharpeMinReturns is the fewest daily returns a Sharpe ratio is shown for.
 	SharpeMinReturns = 126
+	// sharpeZeroSD is the excess-return spread below which a Sharpe ratio is not
+	// measurable. Real daily excess returns are orders of magnitude larger.
+	sharpeZeroSD = 1e-12
 )
 
 // Curve is a daily series of closing equity with its session dates.
@@ -156,8 +159,8 @@ type SharpeResult struct {
 	// SE is the Lo (2002) standard error of Annual under i.i.d. returns:
 	// sqrt((1 + SR_d^2/2)/n) x sqrt(252). It is zero unless Shown.
 	SE float64
-	// Shown is false below SharpeMinReturns returns, where the ratio is not
-	// reported ("n/m").
+	// Shown is false below SharpeMinReturns returns, and when the excess return
+	// has no spread (a 0/0 ratio), where the ratio is not reported ("n/m").
 	Shown bool
 	// RiskFreeNone is true when the cash series does not cover the window, so
 	// the excess is measured against zero.
@@ -182,14 +185,18 @@ func Sharpe(c Curve, rf []float64) SharpeResult {
 			excess[i] -= rf[i]
 		}
 	}
-	if sd := sampleStdev(excess); sd > 0 {
+	// A window with no spread in its excess return (an all-cash window, where the
+	// excess is zero up to rounding) has a 0/0 ratio, so it is not measured.
+	sd := sampleStdev(excess)
+	measurable := sd > sharpeZeroSD
+	if measurable {
 		res.Daily = mean(excess) / sd
 	}
 	res.Annual = res.Daily * math.Sqrt(TradingDaysPerYear)
-	res.Shown = len(r) >= SharpeMinReturns
+	res.Shown = len(r) >= SharpeMinReturns && measurable
 	if res.Shown {
 		n := float64(len(r))
-		half := float64(res.Daily*res.Daily) / 2
+		half := float64(float64(res.Daily*res.Daily) / 2)
 		res.SE = math.Sqrt((1+half)/n) * math.Sqrt(TradingDaysPerYear)
 	}
 	return res

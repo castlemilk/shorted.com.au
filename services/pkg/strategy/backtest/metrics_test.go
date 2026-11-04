@@ -165,6 +165,27 @@ func TestMetrics(t *testing.T) {
 		}
 	})
 
+	t.Run("Sharpe is not measured on an all-cash window", func(t *testing.T) {
+		// Cash alone compounds at the rate it earns, so the excess over cash is
+		// zero up to rounding: a 0/0 ratio, not a Sharpe of zero.
+		for name, rates := range map[string]func(i int) float64{
+			"constant rate": func(int) float64 { return 0.0435 },
+			"changing rate": func(i int) float64 { return 0.035 + 0.001*float64(i%7) },
+		} {
+			values := []float64{100000}
+			rf := make([]float64, 300)
+			for i := range rf {
+				d := DailyRate(rates(i))
+				rf[i] = d
+				values = append(values, values[len(values)-1]*(1+d))
+			}
+			got := Sharpe(curveOf(values...), rf)
+			if got.Shown || got.Annual != 0 || got.SE != 0 {
+				t.Fatalf("all cash at a %s: shown %v annual %v SE %v, want not measured", name, got.Shown, got.Annual, got.SE)
+			}
+		}
+	})
+
 	t.Run("Sharpe measures excess over cash", func(t *testing.T) {
 		// Returns alternate +2% and 0%. The cash series is a constant 4% a year,
 		// so each excess is the return less that day's rate. The ratio is taken
