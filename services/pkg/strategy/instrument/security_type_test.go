@@ -39,7 +39,7 @@ func TestClassifySecurityOnTheReportedInstruments(t *testing.T) {
 				t.Errorf("ClassifySecurity(%q, %q, %v) = %q, want %q",
 					tc.product, tc.code, tc.issued, got, tc.want)
 			}
-			if IsOrdinary(tc.product, tc.code, tc.issued) {
+			if got := ClassifySecurity(tc.product, tc.code, tc.issued); got == SecurityTypeOrdinary {
 				t.Error("must not be classified as an ordinary share line")
 			}
 		})
@@ -108,7 +108,7 @@ func TestInstrumentsOverOneHundredPercentAreNeverOrdinary(t *testing.T) {
 		if pct < 100 {
 			t.Fatalf("%s: fixture is not actually >= 100%% (%.2f)", c.code, pct)
 		}
-		if IsOrdinary(c.product, c.code, c.issued) {
+		if ClassifySecurity(c.product, c.code, c.issued) == SecurityTypeOrdinary {
 			t.Errorf("%s reports %.2f%% short yet classifies as an ordinary share", c.code, pct)
 		}
 	}

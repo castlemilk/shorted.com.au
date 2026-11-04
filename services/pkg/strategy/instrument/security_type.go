@@ -76,9 +76,3 @@ func ClassifySecurity(productName, productCode string, sharesOnIssue float64) Se
 	}
 	return SecurityTypeOrdinary
 }
-
-// IsOrdinary reports whether an instrument is an ordinary share line, i.e. one
-// whose short percentage is comparable with other ordinary shares.
-func IsOrdinary(productName, productCode string, sharesOnIssue float64) bool {
-	return ClassifySecurity(productName, productCode, sharesOnIssue) == SecurityTypeOrdinary
-}
