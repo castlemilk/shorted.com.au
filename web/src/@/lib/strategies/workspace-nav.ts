@@ -4,10 +4,11 @@
 //
 // A tab is listed before its page ships, with `enabled: false`: the bar renders
 // only enabled tabs, so a tab appears in the same change that adds its route.
-// Signals links to the last strategy the visitor viewed, so its href is resolved
-// per visitor (resolveStrategiesTab), never stored here.
+// Signals links to a strategy's signals page, resolved per visitor by
+// resolveStrategiesTabs (never stored here).
 import type { WorkspaceTab } from "~/@/components/workspace/workspace-sub-nav";
 import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
+import { strategyTabHref } from "~/@/lib/strategies/strategy-tabs";
 
 export type StrategiesTabId = "explore" | "my" | "signals" | "alerts";
 
@@ -16,7 +17,14 @@ export interface StrategiesTab extends WorkspaceTab<StrategiesTabId> {
   enabled: boolean;
 }
 
+/** The visible group name, shown on the bar's left. */
 export const STRATEGIES_GROUP = "Strategies";
+
+/**
+ * The bar's accessible name. The strategy profile's own tab bar and the Signals
+ * switcher are also named "Strategies", so the sub-nav takes a name of its own.
+ */
+export const STRATEGIES_LABEL = "Strategy workspace";
 
 /** The strategy Signals opens when the visitor has not viewed one yet. */
 export const DEFAULT_SIGNALS_STRATEGY = "crowded-short-breakout";
@@ -25,19 +33,32 @@ export const DEFAULT_SIGNALS_STRATEGY = "crowded-short-breakout";
 export const LAST_VIEWED_STRATEGY_KEY = "shorted.strategies.lastViewed";
 
 /**
- * First segments under /strategies that are not strategy slugs. A strategy slug
- * never equals one of these (the robots and sitemap tests hold that line).
+ * First segments under /strategies that are not strategy slugs. The one list
+ * the slug-collision test in registry.test.ts also reads: a strategy slug must
+ * never equal one of these, or its profile would shadow the route.
  */
-export const RESERVED_STRATEGY_SEGMENTS: readonly string[] = ["my", "alerts", "compare", "changelog"];
+export const RESERVED_STRATEGY_SEGMENTS: readonly string[] = [
+  "my",
+  "alerts",
+  "compare",
+  "changelog",
+  "signals",
+  "new",
+];
 
 /**
  * The tabs in display order. `href` is the static target; Signals is resolved
- * per visitor by resolveStrategiesTab. `enabled` follows the PR that ships each.
+ * per visitor by resolveStrategiesTabs. `enabled` follows the PR that ships each.
  */
 export const STRATEGIES_TABS: readonly StrategiesTab[] = [
   { id: "explore", label: "Explore", href: "/strategies", enabled: true },
   { id: "my", label: "My strategies", href: "/strategies/my", enabled: false },
-  { id: "signals", label: "Signals", href: `/strategies/${DEFAULT_SIGNALS_STRATEGY}/signals`, enabled: true },
+  {
+    id: "signals",
+    label: "Signals",
+    href: strategyTabHref(DEFAULT_SIGNALS_STRATEGY, "signals"),
+    enabled: true,
+  },
   { id: "alerts", label: "Alerts", href: "/strategies/alerts", enabled: false },
 ];
 
@@ -57,7 +78,7 @@ export function isStrategyProfilePath(pathname: string): boolean {
   return strategyFromPath(pathname) !== null;
 }
 
-/** The tab a pathname belongs to (spec 1.4): alerts, my, a strategy's signals, else explore. */
+/** The tab a pathname belongs to: alerts, my, a strategy's signals, else explore. */
 export function activeStrategiesTab(pathname: string): StrategiesTabId {
   const path = pathname.replace(/\/+$/, "") || "/";
   if (path === "/strategies/alerts" || path.startsWith("/strategies/alerts/")) return "alerts";
@@ -76,7 +97,7 @@ export function signalsStrategy(stored: string | null): string {
 export function resolveStrategiesTabs(lastViewed: string | null): WorkspaceTab<StrategiesTabId>[] {
   return STRATEGIES_TABS.filter((tab) => tab.enabled).map((tab) =>
     tab.id === "signals"
-      ? { id: tab.id, label: tab.label, href: `/strategies/${signalsStrategy(lastViewed)}/signals` }
+      ? { id: tab.id, label: tab.label, href: strategyTabHref(signalsStrategy(lastViewed), "signals") }
       : { id: tab.id, label: tab.label, href: tab.href },
   );
 }

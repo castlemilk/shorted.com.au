@@ -13,8 +13,14 @@ export interface WorkspaceTab<Id extends string = string> {
 }
 
 export interface WorkspaceSubNavProps<Id extends string = string> {
-  /** The group's name: the bar's label on the left and its accessible name. */
+  /** The group's name: the bar's label on the left and, unless `label` is given, its accessible name. */
   group: string;
+  /**
+   * The bar's accessible name when it differs from the visible group name. A page
+   * with its own in-page navigation under the same name gives the bar a distinct one,
+   * so screen readers can tell the two landmarks apart.
+   */
+  label?: string;
   tabs: readonly WorkspaceTab<Id>[];
   /** The tab the current page belongs to, or null when none does. */
   activeTab: Id | null;
@@ -34,7 +40,13 @@ export interface WorkspaceSubNavProps<Id extends string = string> {
  * prefetch would regenerate every ISR page the bar names. The bar takes its
  * router, so it is a client module.
  */
-export function WorkspaceSubNav<Id extends string>({ group, tabs, activeTab, sticky = true }: WorkspaceSubNavProps<Id>) {
+export function WorkspaceSubNav<Id extends string>({
+  group,
+  label,
+  tabs,
+  activeTab,
+  sticky = true,
+}: WorkspaceSubNavProps<Id>) {
   const router = useRouter();
   const prefetched = useRef<Set<string>>(new Set());
 
@@ -46,7 +58,7 @@ export function WorkspaceSubNav<Id extends string>({ group, tabs, activeTab, sti
 
   return (
     <nav
-      aria-label={group}
+      aria-label={label ?? group}
       className={cn(sticky && "sticky top-16 z-30", "border-b border-border bg-background/95 backdrop-blur")}
     >
       <div className="mx-auto flex max-w-[1400px] items-center gap-6 overflow-x-auto px-4 sm:px-8">

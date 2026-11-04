@@ -3,14 +3,14 @@ import {
   STRATEGY_SLUGS,
   getStrategy,
 } from "~/@/lib/strategies/registry";
+import { RESERVED_STRATEGY_SEGMENTS } from "~/@/lib/strategies/workspace-nav";
 
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-// Segments that /strategies owns under a strategy URL (docs/feature/strategies/brief.md).
-// A slug equal to one of them would collide with that route: the strategy
-// profile sits at /strategies/<slug>, so /strategies/signals or /strategies/my
-// would never reach its own page.
-const RESERVED_SEGMENTS = ["my", "alerts", "compare", "changelog", "signals", "new"];
+// Segments that /strategies owns under a strategy URL. The list lives with the
+// sub-nav (workspace-nav.ts), which reads it too. A slug equal to one of them
+// would collide with that route: the strategy profile sits at /strategies/<slug>,
+// so /strategies/signals or /strategies/my would never reach its own page.
 
 // The strategy ids, in display order: the four shipped at launch
 // (docs/plans/stock-picker.md §1) plus quality-compounders
@@ -38,7 +38,7 @@ const strategies = Object.values(STRATEGIES);
 describe("strategy SEO registry", () => {
   it("keeps every slug clear of the reserved /strategies segments", () => {
     for (const slug of STRATEGY_SLUGS) {
-      expect(RESERVED_SEGMENTS).not.toContain(slug);
+      expect(RESERVED_STRATEGY_SEGMENTS).not.toContain(slug);
     }
   });
 

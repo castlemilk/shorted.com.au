@@ -1,6 +1,7 @@
 /// <reference types="jest" />
 
 import { render, screen, waitFor } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { StrategiesSubNav } from "../strategies-sub-nav";
 import { LAST_VIEWED_STRATEGY_KEY } from "~/@/lib/strategies/workspace-nav";
 
@@ -14,7 +15,7 @@ function signalsHref(): string | null {
   return screen.getByRole("link", { name: "Signals" }).getAttribute("href");
 }
 
-describe("StrategiesSubNav (spec 1.4)", () => {
+describe("StrategiesSubNav", () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
@@ -44,11 +45,43 @@ describe("StrategiesSubNav (spec 1.4)", () => {
   it("keeps the bar sticky on the hub and not on a profile route", () => {
     mockPathname = "/strategies";
     const { unmount } = render(<StrategiesSubNav />);
-    expect(screen.getByRole("navigation", { name: "Strategies" }).className).toContain("sticky top-16");
+    expect(screen.getByRole("navigation", { name: "Strategy workspace" }).className).toContain("sticky top-16");
     unmount();
     mockPathname = "/strategies/canslim";
     render(<StrategiesSubNav />);
-    expect(screen.getByRole("navigation", { name: "Strategies" }).className).not.toContain("sticky");
+    expect(screen.getByRole("navigation", { name: "Strategy workspace" }).className).not.toContain("sticky");
+  });
+
+  it("names the bar apart from the in-page strategy switchers", () => {
+    mockPathname = "/strategies";
+    render(<StrategiesSubNav />);
+    expect(screen.getByRole("navigation", { name: "Strategy workspace" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Strategies" })).toBeNull();
+  });
+
+  // Effects do not run on the server, so this is the HTML the ISR cache holds.
+  describe("server render", () => {
+    function serverSignalsHref(): string | null {
+      const host = document.createElement("div");
+      host.innerHTML = renderToString(<StrategiesSubNav />);
+      return host.querySelector('a[href$="/signals"]')?.getAttribute("href") ?? null;
+    }
+
+    beforeEach(() => {
+      window.localStorage.setItem(LAST_VIEWED_STRATEGY_KEY, "canslim");
+    });
+
+    it("links Signals to the strategy the profile route is on, not the stored or default one", () => {
+      mockPathname = "/strategies/canslim/signals";
+      expect(serverSignalsHref()).toBe("/strategies/canslim/signals");
+      mockPathname = "/strategies/zanger-breakout";
+      expect(serverSignalsHref()).toBe("/strategies/zanger-breakout/signals");
+    });
+
+    it("never reads storage, so a hub page's Signals is the default until mounted", () => {
+      mockPathname = "/strategies";
+      expect(serverSignalsHref()).toBe("/strategies/crowded-short-breakout/signals");
+    });
   });
 
   it("still renders the bar when storage throws", async () => {

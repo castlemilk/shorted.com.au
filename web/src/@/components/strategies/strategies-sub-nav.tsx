@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { WorkspaceSubNav } from "~/@/components/workspace/workspace-sub-nav";
 import {
   STRATEGIES_GROUP,
+  STRATEGIES_LABEL,
   activeStrategiesTab,
   isStrategyProfilePath,
   readLastViewedStrategy,
@@ -16,25 +17,27 @@ import {
 /**
  * The strategy workspace's sub-navigation, rendered by app/strategies/layout.tsx.
  *
- * The pathname decides the active tab and whether the bar sticks. Viewing a
- * strategy records it, and Signals links to the last one recorded. The server
- * renders Signals for the default strategy; the stored one is read after mount,
- * so the first paint never depends on this visitor's storage.
+ * The pathname decides the active tab and whether the bar sticks. On a strategy's
+ * own route, Signals links to that strategy, which the server knows from the
+ * path, so the cached HTML is right without storage. Elsewhere Signals links to
+ * the last strategy recorded; that is read after mount, so the first paint never
+ * depends on this visitor's storage. Viewing a strategy records it.
  */
 export function StrategiesSubNav() {
   const pathname = usePathname() ?? "";
-  const [lastViewed, setLastViewed] = useState<string | null>(null);
+  const [stored, setStored] = useState<string | null>(null);
+  const viewing = strategyFromPath(pathname);
 
   useEffect(() => {
-    const viewing = strategyFromPath(pathname);
     if (viewing) rememberStrategy(viewing);
-    setLastViewed(viewing ?? readLastViewedStrategy());
-  }, [pathname]);
+    setStored(readLastViewedStrategy());
+  }, [viewing]);
 
   return (
     <WorkspaceSubNav
       group={STRATEGIES_GROUP}
-      tabs={resolveStrategiesTabs(lastViewed)}
+      label={STRATEGIES_LABEL}
+      tabs={resolveStrategiesTabs(viewing ?? stored)}
       activeTab={activeStrategiesTab(pathname)}
       sticky={!isStrategyProfilePath(pathname)}
     />
