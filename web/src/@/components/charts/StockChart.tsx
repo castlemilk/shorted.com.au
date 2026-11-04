@@ -1774,7 +1774,7 @@ function OscillatorPanel({
           {osc.caption}
         </text>
       )}
-      {(osc.caption || isArea) &&
+      {(Boolean(osc.caption) || isArea) &&
         ticks.map((lvl) => (
           <text
             key={`ref-${lvl}`}
