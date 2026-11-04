@@ -15,8 +15,8 @@ import (
 	"go.uber.org/mock/gomock"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/mocks"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 // Fundamentals coverage on the picker (docs/plans/fundamentals-coverage.md
@@ -25,25 +25,25 @@ import (
 
 // spQuality passes every quality compounders rule, with the 000132 extras the
 // store merges: a quality row, growth provenance and valuation inputs.
-func spQuality(code string, revenueYoY float64) strategies.Candidate {
+func spQuality(code string, revenueYoY float64) engine.Candidate {
 	c := spReady(code)
 	c.Close = 50
 	c.SMA200 = new(float64(45))
 	c.MarketCap = new(3e9) // the screener's figure
-	c.Growth = &strategies.Growth{
+	c.Growth = &engine.Growth{
 		RevenueYoYPct: new(revenueYoY), EPSYoYPct: new(float64(12)), BasisPeriodType: "ttm", RevenueBasisPeriodType: "ttm",
 		LatestPeriodEnd: dayPtr("2026-06-30"), LatestAnnualPeriodEnd: dayPtr("2026-06-30"),
 		RevenueLatestPeriodEnd: dayPtr("2026-06-30"), RevenueBasisSource: "vendor", EPSBasisSource: "filing",
 		NetIncomePositive: new(true), Currency: "AUD", FetchedAt: dayPtr("2026-09-01"),
 	}
-	c.Quality = &strategies.Quality{
+	c.Quality = &engine.Quality{
 		BasisPeriodType: "annual", BasisPeriodEnd: dayPtr("2026-06-30"), Currency: "AUD", BalanceCurrency: "AUD",
 		FetchedAt: dayPtr("2026-09-02"),
 		Revenue:   new(1e9), NetIncome: new(2e8), FreeCashFlow: new(1.9e8), EBITDA: new(3.5e8),
 		TotalEquity: new(1e9), TotalAssets: new(2e9), TotalDebt: new(4e8), NetDebt: new(3e8),
 		NetMarginPct: new(float64(20)), ROEPct: new(float64(21)), FCFMarginPct: new(float64(19)), FCFConversion: new(0.95), NetDebtToEBITDA: new(0.857),
 	}
-	c.ValuationInputs = &strategies.ValuationInputs{
+	c.ValuationInputs = &engine.ValuationInputs{
 		Shares: new(1e8), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: new(float64(1)),
 		EPSDiluted: new(float64(2)), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "AUD",
 	}
@@ -57,7 +57,7 @@ func dayPtr(s string) *time.Time {
 
 // qualityUniverse is spUniverse (RDY, SET, WAT, NIL) plus two quality
 // compounders and a bank with the same numbers.
-func qualityUniverse() []strategies.Candidate {
+func qualityUniverse() []engine.Candidate {
 	bank := spQuality("CBA", 5)
 	bank.Industry = "Banks"
 	return append(spUniverse(), spQuality("QAA", 4), spQuality("QBB", 30), bank)
@@ -89,14 +89,14 @@ func TestGetStrategyPicks_QualityCompoundersMapsPickFundamentals(t *testing.T) {
 	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(spUptrend(), nil)
 
 	resp, err := newTestServer(t, mockStore).GetStrategyPicks(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{
-		StrategyId: strategies.IDQualityCompounders, Limit: 100,
+		StrategyId: engine.IDQualityCompounders, Limit: 100,
 	}))
 	require.NoError(t, err)
 	msg := resp.Msg
 	assert.Equal(t, int32(7), msg.UniverseCount)
 	assert.Equal(t, int32(5), msg.FundamentalsRowsCount, "RDY, SET, QAA, QBB and CBA hold a fundamentals row; WAT and NIL do not")
 	assert.Equal(t, int32(5), msg.FundamentalsCoverageCount)
-	assert.Equal(t, strategies.QualityCoverageCaveat(3, 7), msg.Strategy.Caveats[0], "the quality strategy quotes statement coverage")
+	assert.Equal(t, engine.QualityCoverageCaveat(3, 7), msg.Strategy.Caveats[0], "the quality strategy quotes statement coverage")
 
 	byCode := map[string]*shortsv1alpha1.StrategyPick{}
 	for _, p := range msg.Picks {
@@ -133,7 +133,7 @@ func TestGetStrategyPicks_QualityCompoundersMapsPickFundamentals(t *testing.T) {
 	assert.Equal(t, "watch", cba.Status, "a financial ranks watch at most")
 	require.NotNil(t, cba.Fundamentals)
 	assert.True(t, cba.Fundamentals.IsFinancial)
-	assert.Equal(t, strategies.NotMeaningfulForFinancials(), cba.Fundamentals.NotMeaningful)
+	assert.Equal(t, engine.NotMeaningfulForFinancials(), cba.Fundamentals.NotMeaningful)
 	assert.False(t, cba.Fundamentals.HasFcfMarginPct, "not meaningful for a bank: withheld")
 	assert.False(t, cba.Fundamentals.HasNetDebtToEbitda)
 	assert.True(t, cba.Fundamentals.HasRoePct, "a bank's ROE is meaningful")
@@ -151,7 +151,7 @@ func TestGetStrategyPicks_SortsACopyKeepsRankAndRequiresFundamentals(t *testing.
 	srv := newTestServer(t, mockStore)
 	get := func(req *shortsv1alpha1.GetStrategyPicksRequest) *shortsv1alpha1.GetStrategyPicksResponse {
 		t.Helper()
-		req.StrategyId = strategies.IDZangerBreakout
+		req.StrategyId = engine.IDZangerBreakout
 		req.Limit = 100
 		resp, err := srv.GetStrategyPicks(context.Background(), connect.NewRequest(req))
 		require.NoError(t, err)
@@ -254,9 +254,9 @@ func TestGetStockStrategyFit_MatchesEveryStrategysRankedList(t *testing.T) {
 	assert.Equal(t, "2026-09-25", msg.AsOf)
 	assert.Equal(t, "uptrend", msg.Regime.Regime)
 	assert.True(t, strings.HasPrefix(msg.Regime.Verdict, "Uptrend: XJO"), "the fit covers every strategy, so the verdict is neutral: %q", msg.Regime.Verdict)
-	require.Len(t, msg.Fits, len(strategies.Registry()))
+	require.Len(t, msg.Fits, len(engine.Registry()))
 
-	for i, st := range strategies.Registry() {
+	for i, st := range engine.Registry() {
 		fit := msg.Fits[i]
 		assert.Equal(t, st.ID, fit.StrategyId)
 		assert.Equal(t, st.Name, fit.StrategyName)
@@ -287,7 +287,7 @@ func TestGetStockStrategyFit_MatchesEveryStrategysRankedList(t *testing.T) {
 		}
 	}
 	quality := msg.Fits[len(msg.Fits)-1]
-	assert.Equal(t, strategies.IDQualityCompounders, quality.StrategyId)
+	assert.Equal(t, engine.IDQualityCompounders, quality.StrategyId)
 	assert.Equal(t, "triggered", quality.Status)
 	assert.Greater(t, quality.Rank, int32(0))
 }
@@ -302,14 +302,14 @@ func TestGetStockStrategyFit_NonPicksAreEvaluatedWithStatusNone(t *testing.T) {
 	resp, err := newTestServer(t, mockStore).GetStockStrategyFit(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStockStrategyFitRequest{StockCode: "NIL"}))
 	require.NoError(t, err)
 	require.True(t, resp.Msg.InUniverse)
-	require.Len(t, resp.Msg.Fits, len(strategies.Registry()))
+	require.Len(t, resp.Msg.Fits, len(engine.Registry()))
 	for _, fit := range resp.Msg.Fits {
 		assert.Equal(t, "none", fit.Status, fit.StrategyId)
 		assert.Equal(t, int32(0), fit.Rank)
 		assert.Equal(t, float64(0), fit.Score)
 		assert.NotEmpty(t, fit.Rules, "a non-candidate still gets its rule results")
 		for _, r := range fit.Rules {
-			if r.RuleId != strategies.RuleRegime {
+			if r.RuleId != engine.RuleRegime {
 				assert.NotEqual(t, "pass", r.Status, "%s/%s", fit.StrategyId, r.RuleId)
 			}
 		}
@@ -349,11 +349,11 @@ func TestGetStockStrategyFit_ValidatesAndHidesStoreErrors(t *testing.T) {
 }
 
 func TestPickFundamentalsProto(t *testing.T) {
-	assert.Nil(t, pickFundamentalsProto(&strategies.Candidate{StockCode: "NIL"}), "no row: absent")
+	assert.Nil(t, pickFundamentalsProto(&engine.Candidate{StockCode: "NIL"}), "no row: absent")
 
 	// A growth row from before 000132: basis and period from the growth row,
 	// no provenance, no ratios.
-	old := &strategies.Candidate{Growth: &strategies.Growth{
+	old := &engine.Candidate{Growth: &engine.Growth{
 		RevenueYoYPct: new(float64(10)), LatestAnnualPeriodEnd: dayPtr("2026-06-30"),
 		EPSYoYPct: new(float64(5)), BasisPeriodType: "half", LatestPeriodEnd: dayPtr("2026-12-31"), HalfLatestPeriodEnd: dayPtr("2026-12-31"),
 		Currency: "USD",
@@ -368,15 +368,15 @@ func TestPickFundamentalsProto(t *testing.T) {
 	assert.Equal(t, "USD", f.Currency)
 	assert.False(t, f.HasRoePct || f.HasNetMarginPct || f.HasFcfMarginPct || f.HasNetDebtToEbitda || f.HasPeRatio)
 
-	half := &strategies.Candidate{Growth: &strategies.Growth{RevenueYoYPct: new(float64(10)), RevenueBasisPeriodType: "half", HalfLatestPeriodEnd: dayPtr("2026-12-31")}}
+	half := &engine.Candidate{Growth: &engine.Growth{RevenueYoYPct: new(float64(10)), RevenueBasisPeriodType: "half", HalfLatestPeriodEnd: dayPtr("2026-12-31")}}
 	assert.Equal(t, "2026-12-31", pickFundamentalsProto(half).RevenuePeriodEnd)
 
-	noGrowthFigures := &strategies.Candidate{Growth: &strategies.Growth{}}
+	noGrowthFigures := &engine.Candidate{Growth: &engine.Growth{}}
 	f = pickFundamentalsProto(noGrowthFigures)
 	assert.Equal(t, "", f.RevenueBasisPeriodType, "empty when no revenue growth")
 	assert.Equal(t, "", f.EpsBasisPeriodType, "empty when no EPS growth")
 
-	insurer := &strategies.Candidate{Industry: "Insurance", Quality: &strategies.Quality{Currency: "AUD"}}
+	insurer := &engine.Candidate{Industry: "Insurance", Quality: &engine.Quality{Currency: "AUD"}}
 	f = pickFundamentalsProto(insurer)
 	assert.True(t, f.IsFinancial)
 	assert.Equal(t, "AUD", f.Currency, "a quality row alone supplies the currency")

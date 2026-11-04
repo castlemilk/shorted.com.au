@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -153,7 +153,7 @@ const growthColumns = `
 	g.half_latest_period_end::date`
 
 // growthScanTargets returns the scan destinations matching growthColumns.
-func growthScanTargets(g *strategies.Growth) []any {
+func growthScanTargets(g *engine.Growth) []any {
 	return []any{
 		&g.BasisPeriodType,
 		&g.LatestPeriodEnd,
@@ -186,7 +186,7 @@ func growthScanTargets(g *strategies.Growth) []any {
 	}
 }
 
-func sanitiseGrowth(g *strategies.Growth) {
+func sanitiseGrowth(g *engine.Growth) {
 	finiteAll(
 		&g.RevenueLatest, &g.RevenuePrior, &g.RevenueYoYPct, &g.RevenueYoYPriorPct,
 		&g.EPSLatest, &g.EPSPrior, &g.EPSYoYPct, &g.EPSYoYPriorPct,
@@ -261,8 +261,8 @@ var strategyCandidatesQuery = `
 
 // candidateRow holds one scanned row of strategyCandidatesQuery.
 type candidateRow struct {
-	c         strategies.Candidate
-	g         strategies.Growth
+	c         engine.Candidate
+	g         engine.Growth
 	hasGrowth bool
 	// as_of and close are NOT NULL by construction of the view, but a NULL
 	// in one row must cost that row's numbers, not the whole universe.
@@ -298,11 +298,11 @@ func (r *candidateRow) targets() []any {
 // by stock code, so strategyCandidatesQuery keeps its 000129/000130 column
 // list and a database without 000132 still serves the whole universe, with
 // nil extras (plan fundamentals-coverage.md §5.3).
-func (s *postgresStore) ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error) {
+func (s *postgresStore) ListStrategyCandidates(ctx context.Context) ([]engine.Candidate, error) {
 	return listStrategyCandidates(ctx, s.db)
 }
 
-func listStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategies.Candidate, error) {
+func listStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]engine.Candidate, error) {
 	out, err := queryStrategyCandidates(ctx, db)
 	if err != nil || len(out) == 0 {
 		return out, err
@@ -315,7 +315,7 @@ func listStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategie
 	return out, nil
 }
 
-func queryStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategies.Candidate, error) {
+func queryStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]engine.Candidate, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
 
@@ -323,13 +323,13 @@ func queryStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategi
 	if err != nil {
 		if isUndefinedTable(err) {
 			logMissingRelationOnce("ListStrategyCandidates", err)
-			return []strategies.Candidate{}, nil
+			return []engine.Candidate{}, nil
 		}
 		return nil, fmt.Errorf("failed to query strategy candidates: %w", err)
 	}
 	defer rows.Close()
 
-	out := make([]strategies.Candidate, 0, 2048)
+	out := make([]engine.Candidate, 0, 2048)
 	for rows.Next() {
 		var (
 			row  candidateRow
@@ -355,14 +355,14 @@ func queryStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategi
 	if err := rows.Err(); err != nil {
 		if isUndefinedTable(err) {
 			logMissingRelationOnce("ListStrategyCandidates", err)
-			return []strategies.Candidate{}, nil
+			return []engine.Candidate{}, nil
 		}
 		return nil, fmt.Errorf("error iterating strategy candidates: %w", err)
 	}
 	return out, nil
 }
 
-func sanitiseCandidate(c *strategies.Candidate) {
+func sanitiseCandidate(c *engine.Candidate) {
 	if math.IsNaN(c.Close) || math.IsInf(c.Close, 0) {
 		c.Close = 0
 	}
@@ -394,12 +394,12 @@ const marketRegimeQuery = `
 // GetMarketRegime returns the mv_market_regime row for indexCode. A missing
 // row or relation yields a Regime with an empty Label (read as unknown by
 // every regime rule), never an error.
-func (s *postgresStore) GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error) {
+func (s *postgresStore) GetMarketRegime(ctx context.Context, indexCode string) (engine.Regime, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
 
 	code := strings.ToUpper(strings.TrimSpace(indexCode))
-	r := strategies.Regime{IndexCode: code}
+	r := engine.Regime{IndexCode: code}
 	err := s.db.QueryRow(ctx, marketRegimeQuery, code).Scan(
 		&r.IndexCode, &r.AsOf, &r.Close, &r.SMA50, &r.SMA200, &r.PctOff52wHigh, &r.Ret1mPct, &r.Ret3mPct, &r.Label,
 	)
@@ -408,12 +408,12 @@ func (s *postgresStore) GetMarketRegime(ctx context.Context, indexCode string) (
 		finiteAll(&r.Close, &r.SMA50, &r.SMA200, &r.PctOff52wHigh, &r.Ret1mPct, &r.Ret3mPct)
 		return r, nil
 	case errors.Is(err, pgx.ErrNoRows):
-		return strategies.Regime{IndexCode: code}, nil
+		return engine.Regime{IndexCode: code}, nil
 	case isUndefinedTable(err):
 		logMissingRelationOnce("GetMarketRegime", err)
-		return strategies.Regime{IndexCode: code}, nil
+		return engine.Regime{IndexCode: code}, nil
 	default:
-		return strategies.Regime{}, fmt.Errorf("failed to query market regime: %w", err)
+		return engine.Regime{}, fmt.Errorf("failed to query market regime: %w", err)
 	}
 }
 
@@ -619,11 +619,11 @@ var fundamentalsGrowthQuery = `
 
 // GetFundamentalsGrowth returns the mv_fundamentals_growth row for a stock,
 // or nil when there is none (or the view does not exist yet).
-func (s *postgresStore) GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error) {
+func (s *postgresStore) GetFundamentalsGrowth(ctx context.Context, code string) (*engine.Growth, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
 
-	var g strategies.Growth
+	var g engine.Growth
 	err := s.db.QueryRow(ctx, fundamentalsGrowthQuery, code).Scan(growthScanTargets(&g)...)
 	switch {
 	case err == nil:

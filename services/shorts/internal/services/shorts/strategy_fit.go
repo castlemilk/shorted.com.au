@@ -6,7 +6,7 @@ import (
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 )
 
 // GetStockStrategyFit returns how one stock reads against every strategy
@@ -15,7 +15,7 @@ import (
 // It reuses the cached universe and the cached ranked lists, so a pick's
 // status, score, rank and rule results here are exactly the ones its row
 // carries on /picks/<id>. A stock that is in the universe but is not a
-// strategy's pick is re-evaluated (strategies.EvaluateOne) against the SAME
+// strategy's pick is re-evaluated (engine.EvaluateOne) against the SAME
 // cached environment, the regime and the universe's rs_6m quartile, and
 // reported with status "none", score 0 and rank 0. A stock outside the
 // universe (no price features yet) gets no fits and in_universe false, a
@@ -34,7 +34,7 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 	resp := &shortsv1alpha1.GetStockStrategyFitResponse{
 		StockCode: code,
 		AsOf:      u.asOf,
-		Regime:    marketRegimeProto(u.regime, strategies.NeutralRegimeVerdict(u.regime)),
+		Regime:    marketRegimeProto(u.regime, engine.NeutralRegimeVerdict(u.regime)),
 		Fits:      []*shortsv1alpha1.StrategyFit{},
 	}
 	if _, ok := u.index[code]; !ok {
@@ -43,7 +43,7 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 	resp.InUniverse = true
 	resp.PriceFeatures = priceFeaturesProto(&u.candidates[u.index[code]])
 
-	for _, st := range strategies.Registry() {
+	for _, st := range engine.Registry() {
 		eval, err := s.loadStrategyEvaluation(ctx, st)
 		if err != nil {
 			s.logger.Errorf("database error in GetStockStrategyFit: stock_code=%s strategy_id=%s err=%v", code, st.ID, err)
@@ -68,8 +68,8 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 			if !ok {
 				eu, ci = u, u.index[code]
 			}
-			p, _ := strategies.EvaluateOne(st, eu.candidates[ci], eu.env)
-			fit.Status = string(strategies.StatusNone)
+			p, _ := engine.EvaluateOne(st, eu.candidates[ci], eu.env)
+			fit.Status = string(engine.StatusNone)
 			fit.Rules = ruleResultsProto(p.Rules)
 		}
 		resp.Fits = append(resp.Fits, fit)
@@ -80,7 +80,7 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 // priceFeaturesProto is the candidate's mv_price_features row as the fit
 // response's PriceFeatures: every nullable number with its has_ flag, dates
 // as ISO days, nothing coalesced to zero. nil for a nil candidate.
-func priceFeaturesProto(c *strategies.Candidate) *shortsv1alpha1.PriceFeatures {
+func priceFeaturesProto(c *engine.Candidate) *shortsv1alpha1.PriceFeatures {
 	if c == nil {
 		return nil
 	}

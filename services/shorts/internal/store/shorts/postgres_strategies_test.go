@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -63,7 +63,7 @@ func TestStrategyQueriesScanEveryColumn(t *testing.T) {
 	if got, want := len(selectList(t, strategyCandidatesQuery)), len(row.targets()); got != want {
 		t.Errorf("strategyCandidatesQuery selects %d columns, candidateRow scans %d", got, want)
 	}
-	var g strategies.Growth
+	var g engine.Growth
 	if got, want := len(selectList(t, fundamentalsGrowthQuery)), len(growthScanTargets(&g)); got != want {
 		t.Errorf("fundamentalsGrowthQuery selects %d columns, growthScanTargets scans %d", got, want)
 	}
@@ -213,12 +213,12 @@ func TestFiniteDropsNonFiniteValues(t *testing.T) {
 		t.Error("finite values pass through")
 	}
 
-	c := strategies.Candidate{Close: math.NaN(), SMA50: v(math.Inf(1)), ShortPct: v(7), MarketCap: v(math.NaN())}
+	c := engine.Candidate{Close: math.NaN(), SMA50: v(math.Inf(1)), ShortPct: v(7), MarketCap: v(math.NaN())}
 	sanitiseCandidate(&c)
 	if c.Close != 0 || c.SMA50 != nil || c.MarketCap != nil || c.ShortPct == nil {
 		t.Errorf("sanitiseCandidate: %+v", c)
 	}
-	g := strategies.Growth{RevenueYoYPct: v(math.Inf(1)), EPSYoYPct: v(12)}
+	g := engine.Growth{RevenueYoYPct: v(math.Inf(1)), EPSYoYPct: v(12)}
 	sanitiseGrowth(&g)
 	if g.RevenueYoYPct != nil || g.EPSYoYPct == nil {
 		t.Errorf("sanitiseGrowth: %+v", g)

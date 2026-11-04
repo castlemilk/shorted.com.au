@@ -1,4 +1,4 @@
-package strategies
+package engine
 
 // ruleWeights is the score recipe for every strategy, in one map (the
 // verdict.go pattern). Each strategy's weights sum to 1, and every rule the

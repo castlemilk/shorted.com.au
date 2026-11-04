@@ -1,4 +1,4 @@
-package strategies
+package engine
 
 // Trigger proximity: how close a stock that has not triggered is to doing so.
 //

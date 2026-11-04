@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -480,7 +480,7 @@ func TestMissingSchemaDetection(t *testing.T) {
 
 // FundamentalsExtras.ApplyToGrowth only copies from a real growth row.
 func TestApplyToGrowth(t *testing.T) {
-	g := &strategies.Growth{}
+	g := &engine.Growth{}
 	(&FundamentalsExtras{RevenueBasisSource: "filing"}).ApplyToGrowth(g)
 	if g.RevenueBasisSource != "" {
 		t.Error("no growth row: nothing to copy")

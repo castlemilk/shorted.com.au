@@ -7,8 +7,8 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 // StoreAdapter adapts the concrete store implementation to the ShortsStore interface
@@ -296,11 +296,11 @@ func (s *StoreAdapter) GetStockVerdictInputs(productCode string) (*shorts.Verdic
 	return s.store.GetStockVerdictInputs(productCode)
 }
 
-func (s *StoreAdapter) ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error) {
+func (s *StoreAdapter) ListStrategyCandidates(ctx context.Context) ([]engine.Candidate, error) {
 	return s.store.ListStrategyCandidates(ctx)
 }
 
-func (s *StoreAdapter) GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error) {
+func (s *StoreAdapter) GetMarketRegime(ctx context.Context, indexCode string) (engine.Regime, error) {
 	return s.store.GetMarketRegime(ctx, indexCode)
 }
 
@@ -308,7 +308,7 @@ func (s *StoreAdapter) GetStockFundamentals(ctx context.Context, code, periodTyp
 	return s.store.GetStockFundamentals(ctx, code, periodType, limit)
 }
 
-func (s *StoreAdapter) GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error) {
+func (s *StoreAdapter) GetFundamentalsGrowth(ctx context.Context, code string) (*engine.Growth, error) {
 	return s.store.GetFundamentalsGrowth(ctx, code)
 }
 

@@ -8,7 +8,7 @@ import (
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 )
 
 // Stock picker handlers (StrategyService; docs/plans/stock-picker.md §3 and
@@ -16,7 +16,7 @@ import (
 //
 // The universe (every candidate + the market regime) is read once per cache
 // fill, prepared once (the financials decision and valuation,
-// strategies.PrepareCandidates) and shared by all strategies; each strategy's
+// engine.PrepareCandidates) and shared by all strategies; each strategy's
 // FULL ranked pick list is evaluated once per fill and cached, then filtered,
 // sorted and paged in memory. Cached values are read-only: filtering and
 // sorting always work on copies. The inputs change once a day (after the
@@ -31,13 +31,13 @@ const (
 // strategyUniverse is one cache fill of the evaluator's inputs. Read-only once
 // cached.
 type strategyUniverse struct {
-	candidates []strategies.Candidate
+	candidates []engine.Candidate
 	// index maps an upper-case stock code to its candidates position.
 	index map[string]int
 	// env is the evaluation environment (regime + the universe's rs_6m
 	// quartile) every strategy and GetStockStrategyFit share.
-	env             *strategies.Env
-	regime          strategies.Regime
+	env             *engine.Env
+	regime          engine.Regime
 	coverage        int    // candidates with at least one growth figure
 	qualityCoverage int    // candidates with a quality row
 	rowsCount       int    // candidates with any fundamentals row
@@ -45,7 +45,7 @@ type strategyUniverse struct {
 }
 
 // coverageFor is the count a strategy's coverage caveat quotes.
-func (u *strategyUniverse) coverageFor(st strategies.Strategy) int {
+func (u *strategyUniverse) coverageFor(st engine.Strategy) int {
 	if st.UsesQualityRules() {
 		return u.qualityCoverage
 	}
@@ -54,7 +54,7 @@ func (u *strategyUniverse) coverageFor(st strategies.Strategy) int {
 
 // strategyEvaluation is one strategy's full ranked pick list, cached.
 type strategyEvaluation struct {
-	picks []strategies.Pick
+	picks []engine.Pick
 	// index maps an upper-case stock code to its picks position.
 	index    map[string]int
 	universe *strategyUniverse
@@ -67,13 +67,13 @@ func (s *ShortsServer) ListStrategies(ctx context.Context, req *connect.Request[
 	regime, err := s.loadMarketRegime(ctx)
 	if err != nil {
 		s.logger.Warnf("ListStrategies: market regime unavailable, serving it as unknown: %v", err)
-		regime = strategies.Regime{IndexCode: strategies.DefaultIndexCode}
+		regime = engine.Regime{IndexCode: engine.DefaultIndexCode}
 	}
 
-	registry := strategies.Registry()
+	registry := engine.Registry()
 	resp := &shortsv1alpha1.ListStrategiesResponse{
 		Strategies: make([]*shortsv1alpha1.Strategy, 0, len(registry)),
-		Regime:     marketRegimeProto(regime, strategies.NeutralRegimeVerdict(regime)),
+		Regime:     marketRegimeProto(regime, engine.NeutralRegimeVerdict(regime)),
 	}
 	for _, st := range registry {
 		resp.Strategies = append(resp.Strategies, strategyProto(st, st.CaveatsWithCoverage(0, -1)))
@@ -89,17 +89,17 @@ func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Reques
 	if id == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("strategy_id is required (one of %s)", strategyIDList()))
 	}
-	st, ok := strategies.Lookup(id)
+	st, ok := engine.Lookup(id)
 	if !ok {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", req.Msg.StrategyId, strategyIDList()))
 	}
 	status := strings.ToLower(strings.TrimSpace(req.Msg.Status))
-	if status != "" && !strategies.ValidPickStatus(status) {
+	if status != "" && !engine.ValidPickStatus(status) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("status must be one of triggered, setup or watch"))
 	}
 	sortBy := strings.ToLower(strings.TrimSpace(req.Msg.SortBy))
-	if sortBy != "" && !strategies.ValidSortBy(sortBy) {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("sort_by must be one of %s", strings.Join(strategies.SortKeys(), ", ")))
+	if sortBy != "" && !engine.ValidSortBy(sortBy) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("sort_by must be one of %s", strings.Join(engine.SortKeys(), ", ")))
 	}
 	if req.Msg.Limit < 0 || req.Msg.Limit > strategyPicksMaxLimit {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be between 0 and %d", strategyPicksMaxLimit))
@@ -124,7 +124,7 @@ func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Reques
 	// Both steps leave the cached list untouched: the filter builds a new
 	// slice, and SortPicks sorts a copy (or returns its input unchanged for
 	// the default rank order, which is only ever read below).
-	matching := strategies.SortPicks(filterPicks(eval.picks, status, req.Msg.RequireFundamentals), sortBy)
+	matching := engine.SortPicks(filterPicks(eval.picks, status, req.Msg.RequireFundamentals), sortBy)
 	total := len(matching)
 	start := min(int(req.Msg.Offset), total)
 	end := min(start+limit, total)
@@ -150,11 +150,11 @@ func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Reques
 // requireFundamentals, only stocks with a fundamentals row. With no filter it
 // returns picks itself; otherwise a new slice, never a view that could alias
 // the cache.
-func filterPicks(picks []strategies.Pick, status string, requireFundamentals bool) []strategies.Pick {
+func filterPicks(picks []engine.Pick, status string, requireFundamentals bool) []engine.Pick {
 	if status == "" && !requireFundamentals {
 		return picks
 	}
-	out := make([]strategies.Pick, 0, len(picks))
+	out := make([]engine.Pick, 0, len(picks))
 	for i := range picks {
 		p := &picks[i]
 		if status != "" && string(p.Status) != status {
@@ -169,18 +169,18 @@ func filterPicks(picks []strategies.Pick, status string, requireFundamentals boo
 }
 
 // loadMarketRegime returns the XJO regime, cached for strategyCacheTTL.
-func (s *ShortsServer) loadMarketRegime(ctx context.Context) (strategies.Regime, error) {
+func (s *ShortsServer) loadMarketRegime(ctx context.Context) (engine.Regime, error) {
 	// The fill outlives the request that triggered it (singleflight shares it
 	// with concurrent callers), so it must not inherit that request's
 	// cancellation. The store applies its own timeout.
 	fillCtx := context.WithoutCancel(ctx)
-	v, err := s.cache.GetOrSetWithTTL(s.cache.GetMarketRegimeKey(strategies.DefaultIndexCode), strategyCacheTTL, func() (any, error) {
-		return s.store.GetMarketRegime(fillCtx, strategies.DefaultIndexCode)
+	v, err := s.cache.GetOrSetWithTTL(s.cache.GetMarketRegimeKey(engine.DefaultIndexCode), strategyCacheTTL, func() (any, error) {
+		return s.store.GetMarketRegime(fillCtx, engine.DefaultIndexCode)
 	})
 	if err != nil {
-		return strategies.Regime{}, err
+		return engine.Regime{}, err
 	}
-	return v.(strategies.Regime), nil
+	return v.(engine.Regime), nil
 }
 
 // loadStrategyUniverse returns every candidate plus the regime, prepared and
@@ -198,20 +198,20 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 		}
 		// Once per fill, before any rule reads a candidate: the financials
 		// decision (withholding not-meaningful ratios) and valuation.
-		strategies.PrepareCandidates(cands)
+		engine.PrepareCandidates(cands)
 		u := &strategyUniverse{
 			candidates:      cands,
 			index:           make(map[string]int, len(cands)),
-			env:             strategies.NewEnv(cands, regime),
+			env:             engine.NewEnv(cands, regime),
 			regime:          regime,
-			coverage:        strategies.FundamentalsCoverage(cands),
-			qualityCoverage: strategies.QualityCoverage(cands),
-			rowsCount:       strategies.FundamentalsRows(cands),
+			coverage:        engine.FundamentalsCoverage(cands),
+			qualityCoverage: engine.QualityCoverage(cands),
+			rowsCount:       engine.FundamentalsRows(cands),
 		}
 		for i := range cands {
 			u.index[strings.ToUpper(cands[i].StockCode)] = i
 		}
-		if latest := strategies.LatestAsOf(cands); !latest.IsZero() {
+		if latest := engine.LatestAsOf(cands); !latest.IsZero() {
 			u.asOf = latest.Format("2006-01-02")
 		}
 		return u, nil
@@ -224,13 +224,13 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 
 // loadStrategyEvaluation returns one strategy's full ranked pick list,
 // evaluated once per cache fill against the universe's shared environment.
-func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st strategies.Strategy) (*strategyEvaluation, error) {
+func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st engine.Strategy) (*strategyEvaluation, error) {
 	v, err := s.cache.GetOrSetWithTTL(s.cache.GetStrategyPicksKey(st.ID), strategyCacheTTL, func() (any, error) {
 		u, err := s.loadStrategyUniverse(ctx)
 		if err != nil {
 			return nil, err
 		}
-		picks := strategies.EvaluateWithEnv(st, u.candidates, u.env)
+		picks := engine.EvaluateWithEnv(st, u.candidates, u.env)
 		index := make(map[string]int, len(picks))
 		for i := range picks {
 			index[strings.ToUpper(picks[i].Candidate.StockCode)] = i
@@ -245,13 +245,13 @@ func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st strategies
 
 func strategyIDList() string {
 	var ids []string
-	for _, st := range strategies.Registry() {
+	for _, st := range engine.Registry() {
 		ids = append(ids, st.ID)
 	}
 	return strings.Join(ids, ", ")
 }
 
-func strategyProto(st strategies.Strategy, caveats []string) *shortsv1alpha1.Strategy {
+func strategyProto(st engine.Strategy, caveats []string) *shortsv1alpha1.Strategy {
 	rules := make([]*shortsv1alpha1.StrategyRule, 0, len(st.Rules))
 	for _, r := range st.Rules {
 		rules = append(rules, &shortsv1alpha1.StrategyRule{
@@ -283,7 +283,7 @@ func strategyProto(st strategies.Strategy, caveats []string) *shortsv1alpha1.Str
 	}
 }
 
-func marketRegimeProto(r strategies.Regime, verdict string) *shortsv1alpha1.MarketRegime {
+func marketRegimeProto(r engine.Regime, verdict string) *shortsv1alpha1.MarketRegime {
 	out := &shortsv1alpha1.MarketRegime{
 		IndexCode:      r.IndexCode,
 		Regime:         r.Label,
@@ -294,7 +294,7 @@ func marketRegimeProto(r strategies.Regime, verdict string) *shortsv1alpha1.Mark
 		Verdict:        verdict,
 	}
 	if out.IndexCode == "" {
-		out.IndexCode = strategies.DefaultIndexCode
+		out.IndexCode = engine.DefaultIndexCode
 	}
 	if !r.Known() {
 		out.Regime = ""
@@ -305,7 +305,7 @@ func marketRegimeProto(r strategies.Regime, verdict string) *shortsv1alpha1.Mark
 	return out
 }
 
-func strategyPickProto(p *strategies.Pick) *shortsv1alpha1.StrategyPick {
+func strategyPickProto(p *engine.Pick) *shortsv1alpha1.StrategyPick {
 	c := &p.Candidate
 	marketCap := c.ResolvedMarketCap()
 	out := &shortsv1alpha1.StrategyPick{
@@ -354,7 +354,7 @@ func strategyPickProto(p *strategies.Pick) *shortsv1alpha1.StrategyPick {
 	return out
 }
 
-func ruleResultsProto(results []strategies.RuleResult) []*shortsv1alpha1.RuleResult {
+func ruleResultsProto(results []engine.RuleResult) []*shortsv1alpha1.RuleResult {
 	out := make([]*shortsv1alpha1.RuleResult, 0, len(results))
 	for _, r := range results {
 		out = append(out, &shortsv1alpha1.RuleResult{
@@ -373,7 +373,7 @@ func ruleResultsProto(results []strategies.RuleResult) []*shortsv1alpha1.RuleRes
 // fundamentals-coverage.md §5.2). nil when the stock has no fundamentals row.
 // The candidate is prepared (financials decided, valuation computed), so a
 // not-meaningful ratio is already absent here and named in not_meaningful.
-func pickFundamentalsProto(c *strategies.Candidate) *shortsv1alpha1.PickFundamentals {
+func pickFundamentalsProto(c *engine.Candidate) *shortsv1alpha1.PickFundamentals {
 	if !c.HasFundamentalsRow() {
 		return nil
 	}
@@ -409,7 +409,7 @@ func pickFundamentalsProto(c *strategies.Candidate) *shortsv1alpha1.PickFundamen
 		out.NetDebtToEbitda, out.HasNetDebtToEbitda = optional(q.NetDebtToEBITDA)
 	}
 	out.PeRatio, out.HasPeRatio = optional(c.Valuation.PERatio)
-	out.IsFinancial, _, out.NotMeaningful = strategies.FinancialFlags(c.Quality, c.Industry)
+	out.IsFinancial, _, out.NotMeaningful = engine.FinancialFlags(c.Quality, c.Industry)
 	if fetched != nil {
 		out.FetchedAt = fetched.UTC().Format(time.RFC3339)
 	}
@@ -418,7 +418,7 @@ func pickFundamentalsProto(c *strategies.Candidate) *shortsv1alpha1.PickFundamen
 
 // revenueBasisPeriodType is the series revenue growth used; a growth row from
 // before the half basis existed carries no type and was always annual.
-func revenueBasisPeriodType(g *strategies.Growth) string {
+func revenueBasisPeriodType(g *engine.Growth) string {
 	if g.RevenueBasisPeriodType == "" {
 		return "annual"
 	}
@@ -427,7 +427,7 @@ func revenueBasisPeriodType(g *strategies.Growth) string {
 
 // revenuePeriodEnd is the end of the latest period in the revenue pair: the
 // view's own column when 000132 supplies it, else the date the basis implies.
-func revenuePeriodEnd(g *strategies.Growth) *time.Time {
+func revenuePeriodEnd(g *engine.Growth) *time.Time {
 	if g.RevenueLatestPeriodEnd != nil {
 		return g.RevenueLatestPeriodEnd
 	}

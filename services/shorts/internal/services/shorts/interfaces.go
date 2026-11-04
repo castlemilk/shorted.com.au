@@ -6,8 +6,8 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 //go:generate mockgen -source=interfaces.go -destination=mocks/mock_interfaces.go -package=mocks
@@ -116,10 +116,10 @@ type ShortsStore interface {
 	GetStockVerdictInputs(productCode string) (*shortsstore.VerdictInputs, error)
 
 	// Stock picker methods (strategies.go, fundamentals.go)
-	ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error)
-	GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error)
+	ListStrategyCandidates(ctx context.Context) ([]engine.Candidate, error)
+	GetMarketRegime(ctx context.Context, indexCode string) (engine.Regime, error)
 	GetStockFundamentals(ctx context.Context, code, periodType string, limit int32) ([]shortsstore.FundamentalsPeriodRow, error)
-	GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error)
+	GetFundamentalsGrowth(ctx context.Context, code string) (*engine.Growth, error)
 	// Fundamentals coverage (fundamentals.go; plan fundamentals-coverage.md
 	// §5.3). nil, never an error, on a database without migration 000132.
 	GetFundamentalsExtras(ctx context.Context, code string) (*shortsstore.FundamentalsExtras, error)

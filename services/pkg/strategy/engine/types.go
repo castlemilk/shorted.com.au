@@ -15,7 +15,7 @@
 // Every rule resolves to pass, fail or unknown. Unknown means the data is
 // missing, never counts as a pass, and a stock cannot reach status
 // "triggered" with an unknown core rule.
-package strategies
+package engine
 
 import "time"
 

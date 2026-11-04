@@ -16,8 +16,8 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	shorts "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
-	strategies "github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -561,10 +561,10 @@ func (mr *MockShortsStoreMockRecorder) GetFundamentalsExtras(ctx, code any) *gom
 }
 
 // GetFundamentalsGrowth mocks base method.
-func (m *MockShortsStore) GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error) {
+func (m *MockShortsStore) GetFundamentalsGrowth(ctx context.Context, code string) (*engine.Growth, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFundamentalsGrowth", ctx, code)
-	ret0, _ := ret[0].(*strategies.Growth)
+	ret0, _ := ret[0].(*engine.Growth)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -728,10 +728,10 @@ func (mr *MockShortsStoreMockRecorder) GetMarketNews(limit, source, priceSensiti
 }
 
 // GetMarketRegime mocks base method.
-func (m *MockShortsStore) GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error) {
+func (m *MockShortsStore) GetMarketRegime(ctx context.Context, indexCode string) (engine.Regime, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMarketRegime", ctx, indexCode)
-	ret0, _ := ret[0].(strategies.Regime)
+	ret0, _ := ret[0].(engine.Regime)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1730,10 +1730,10 @@ func (mr *MockShortsStoreMockRecorder) ListStockPoliticians(stockCode, currentOn
 }
 
 // ListStrategyCandidates mocks base method.
-func (m *MockShortsStore) ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error) {
+func (m *MockShortsStore) ListStrategyCandidates(ctx context.Context) ([]engine.Candidate, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListStrategyCandidates", ctx)
-	ret0, _ := ret[0].([]strategies.Candidate)
+	ret0, _ := ret[0].([]engine.Candidate)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

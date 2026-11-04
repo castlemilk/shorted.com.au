@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -132,12 +132,12 @@ func TestFundamentalsReadsAgainstPostgres(t *testing.T) {
 		assert.False(t, cba.ValuationInputs.KFarFromOne)
 		assert.False(t, cba.ValuationInputs.FXConverted, "no sync row, whole-unit vendor figures")
 
-		strategies.PrepareCandidates(cands)
+		engine.PrepareCandidates(cands)
 		assert.True(t, cands[1].Quality.IsFinancial)
 		require.NotNil(t, cands[0].Valuation.MarketCap)
 		assert.InDelta(t, 45.1*5.07e9, *cands[0].Valuation.MarketCap, 1e3)
 		assert.Nil(t, cands[0].Valuation.PERatio, "BHP reports in USD")
-		assert.Equal(t, strategies.ValuationNoteNonAUD, cands[0].Valuation.Note)
+		assert.Equal(t, engine.ValuationNoteNonAUD, cands[0].Valuation.Note)
 		require.NotNil(t, cands[1].Valuation.PERatio)
 		assert.InDelta(t, 160/5.95, *cands[1].Valuation.PERatio, 1e-6)
 
@@ -202,11 +202,11 @@ func TestFundamentalsReadsAgainstPostgres(t *testing.T) {
 		cba = cands[1]
 		require.NotNil(t, cba.ValuationInputs)
 		assert.True(t, cba.ValuationInputs.FXConverted)
-		strategies.PrepareCandidates(cands)
+		engine.PrepareCandidates(cands)
 		assert.Nil(t, cands[1].Valuation.PERatio, "an FX-converted code gets no P/E")
 		assert.Nil(t, cands[1].Valuation.PriceToBook)
 		require.NotNil(t, cands[1].Valuation.MarketCap)
-		assert.Equal(t, strategies.ValuationNoteNonAUD, cands[1].Valuation.Note)
+		assert.Equal(t, engine.ValuationNoteNonAUD, cands[1].Valuation.Note)
 
 		// A code the job has not measured since 000132 (no sync row) whose
 		// vendor rows carry converted, fractional values is FX-converted, and
@@ -222,7 +222,7 @@ func TestFundamentalsReadsAgainstPostgres(t *testing.T) {
 		assert.Equal(t, int32(1), nzl.Valuation.KPeriods)
 		assert.False(t, nzl.Valuation.KConsistent)
 		assert.False(t, nzl.Valuation.KFarFromOne)
-		assert.Equal(t, strategies.ValuationNoteNoShares, strategies.Valuate(10, *tp("2026-09-25"), &nzl.Valuation, nil).Note)
+		assert.Equal(t, engine.ValuationNoteNoShares, engine.Valuate(10, *tp("2026-09-25"), &nzl.Valuation, nil).Note)
 
 		// A digest built from metrics that quote the few-shot example is flagged.
 		_, err = pool.Exec(ctx, `INSERT INTO financial_report_extractions (stock_code, report_url, report_title, report_date, metrics, digest, digest_confidence)
