@@ -25,6 +25,7 @@ import type {
   PickRow,
   PickStatus,
   RegimeLabel,
+  RuleParamView,
   RuleResultRow,
   RuleStatus,
   StatusCountsView,
@@ -74,8 +75,15 @@ export interface StrategyInput {
   version?: StrategyVersionInput | null;
 }
 
+export interface RuleParamInput {
+  ruleId?: string;
+  name?: string;
+  value?: WireDouble;
+}
+
 export interface StrategyVersionDetailInput {
   version?: StrategyVersionInput | null;
+  params?: readonly RuleParamInput[];
   policies?: readonly string[];
   changes?: readonly string[];
   knownIssues?: readonly string[];
@@ -385,6 +393,10 @@ export function mapStrategyVersionDetail(
   if (!version) return null;
   return {
     version,
+    params: (input.params ?? []).flatMap((param) => {
+      const mapped = mapRuleParam(param);
+      return mapped ? [mapped] : [];
+    }),
     policies: strings(input.policies),
     changes: strings(input.changes),
     knownIssues: strings(input.knownIssues),
@@ -488,6 +500,15 @@ function mapStatusCounts(
     watch: count(input.watch),
     unknown: count(input.unknown),
   };
+}
+
+/** One rule parameter, or null when it has no name or no finite value. */
+function mapRuleParam(input: RuleParamInput): RuleParamView | null {
+  const name = str(input.name);
+  // A protojson zero is absent, so finiteOrNull reads a missing value as 0.
+  const value = finiteOrNull(input.value);
+  if (!name || value === null) return null;
+  return { ruleId: str(input.ruleId), name, value };
 }
 
 /** The rules version, or null when the API names none. */

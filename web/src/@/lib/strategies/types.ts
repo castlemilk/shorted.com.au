@@ -61,9 +61,19 @@ export interface StrategyDef {
   version?: StrategyVersionDef;
 }
 
+/** One numeric parameter of one rule in a rules version (every rule's thresholds and weights). */
+export interface RuleParamView {
+  ruleId: string;
+  /** The parameter's key, e.g. "min_pct". */
+  name: string;
+  value: number;
+}
+
 /** One published rules version, as the changelog states it. */
 export interface StrategyVersionDetailView {
   version: StrategyVersionDef;
+  /** Every numeric parameter of every rule, in rule order. */
+  params: RuleParamView[];
   /** Universe and data policy, one sentence each. */
   policies: string[];
   /** What this version changed from the one before it. */

@@ -77,4 +77,23 @@ describe("version mapping", () => {
     );
     expect(mapStrategyVersionDetail({ policies: ["p"] })).toBeNull();
   });
+
+  it("maps every rule parameter, reading a protojson zero as zero and dropping an unnamed one", () => {
+    const entry = mapStrategyVersionDetail({
+      version: { strategyId: "canslim", label: "v0", rulesHash: HASH },
+      params: [
+        { ruleId: "short_interest", name: "min_pct", value: 5 },
+        { ruleId: "rs_leader", name: "quantile", value: 0.8 },
+        { ruleId: "growth", name: "min_pct" },
+        { ruleId: "growth", name: "", value: 1 },
+        { ruleId: "growth", name: "bad", value: "NaN" },
+      ],
+    });
+    expect(entry?.params).toEqual([
+      { ruleId: "short_interest", name: "min_pct", value: 5 },
+      { ruleId: "rs_leader", name: "quantile", value: 0.8 },
+      { ruleId: "growth", name: "min_pct", value: 0 },
+    ]);
+    expect(mapStrategyVersionDetail({ version: { label: "v0" } })?.params).toEqual([]);
+  });
 });
