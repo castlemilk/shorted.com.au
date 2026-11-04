@@ -19,6 +19,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/instrument"
 	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5"
@@ -1563,7 +1564,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 		// Filtered here rather than in SQL so there is ONE classifier: the
 		// rules live in Go, and the MVs' copy in migration 000043 is the thing
 		// that has to agree with it, not a second definition to maintain.
-		if ordinaryOnly && stock.SecurityType != string(SecurityTypeOrdinary) {
+		if ordinaryOnly && stock.SecurityType != string(instrument.SecurityTypeOrdinary) {
 			continue
 		}
 		stocks = append(stocks, stock)

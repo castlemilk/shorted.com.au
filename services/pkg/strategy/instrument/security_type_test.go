@@ -1,4 +1,4 @@
-package shorts
+package instrument
 
 import "testing"
 

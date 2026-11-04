@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/instrument"
 )
 
 // PanelRow is one (date, security) observation of the short-position panel.
@@ -111,7 +112,7 @@ func (s *postgresStore) StreamPanel(ctx context.Context, q PanelQuery, fn func(P
 		}
 		row.AvailableFrom = availableFrom.Format("2006-01-02")
 		row.SecurityType = string(ClassifySecurity(row.ProductName, row.ProductCode, row.TotalProductInIssue))
-		if q.OrdinaryOnly && row.SecurityType != string(SecurityTypeOrdinary) {
+		if q.OrdinaryOnly && row.SecurityType != string(instrument.SecurityTypeOrdinary) {
 			continue
 		}
 		if short != nil {
