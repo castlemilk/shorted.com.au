@@ -2,7 +2,10 @@ import { getLatestShortDate } from "~/app/actions/getLatestShortDate";
 import { getStock } from "~/app/actions/getStock";
 import { getTopShortsSummary } from "~/app/actions/getTopShorts";
 import { searchStocks } from "~/app/actions/searchStocks";
-import { withTimeout } from "~/app/chart/[code]/image/chart-data";
+import {
+  getNewestClose,
+  withTimeout,
+} from "~/app/chart/[code]/image/chart-data";
 import { getShortInterestDeltas } from "~/app/shorts/[stockCode]/short-interest-summary";
 import { formatCompanyName } from "~/@/lib/company-name";
 import { filterEligibleTopShorts } from "~/@/lib/top-shorts-filter";
@@ -24,6 +27,11 @@ export interface DiscordData {
   stockSummary(code: string): Promise<StockSummary | null>;
   search(query: string, limit: number): Promise<StockHit[]>;
   topShorts(count: number): Promise<StockHit[]>;
+  /**
+   * The newest close on or before `day` (YYYY-MM-DD), or null when there is
+   * none or the read is too slow. A kept chart is posted with it.
+   */
+  newestClose(code: string, day: string): Promise<string | null>;
 }
 
 /** Long enough for a cold cache, short of the function's maxDuration. */
@@ -52,6 +60,10 @@ export const discordData: DiscordData = {
       change30d: deltas?.change30d ?? null,
       asOf,
     };
+  },
+
+  async newestClose(code, day) {
+    return withTimeout(getNewestClose(code, day), READ_TIMEOUT_MS, null);
   },
 
   async search(query, limit) {

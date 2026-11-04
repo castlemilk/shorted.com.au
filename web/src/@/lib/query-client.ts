@@ -89,7 +89,7 @@ function calculateRetryDelay(
  *  - monthly → never retry. The quota does not refill until the month rolls
  *    over, so retries are pure waste and they delay the upgrade panel.
  */
-function shouldRetryQuery(
+export function shouldRetryQuery(
   failureCount: number,
   error: unknown
 ): boolean {

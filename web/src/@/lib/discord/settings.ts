@@ -31,6 +31,12 @@ export interface DiscordSettings {
   period: ChartPeriod;
   /** Commands open the interactive chart instead of posting a chart message. */
   interactive: boolean;
+  /**
+   * A chart keeps the window and the figures it was posted with, and its
+   * buttons redraw it inside that window. Off, its buttons redraw it with the
+   * latest figures. Messages posted before the setting existed stay live.
+   */
+  asPosted: boolean;
 }
 
 export const BUILT_IN_SETTINGS: DiscordSettings = {
@@ -38,6 +44,7 @@ export const BUILT_IN_SETTINGS: DiscordSettings = {
   view: DEFAULT_CHART_VIEW,
   period: DEFAULT_CHART_PERIOD,
   interactive: false,
+  asPosted: true,
 };
 
 export type SettingsScope =
@@ -71,6 +78,7 @@ export function parseSettings(raw: unknown): Partial<DiscordSettings> {
   if (isChartViewId(r.view)) out.view = r.view;
   if (isSettingsPeriod(r.period)) out.period = r.period;
   if (typeof r.interactive === "boolean") out.interactive = r.interactive;
+  if (typeof r.asPosted === "boolean") out.asPosted = r.asPosted;
   return out;
 }
 

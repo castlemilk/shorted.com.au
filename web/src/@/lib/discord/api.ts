@@ -71,7 +71,9 @@ export const InteractionContextType = {
 export const LIMITS = {
   embedTitle: 256,
   embedDescription: 4096,
+  embedFieldName: 256,
   embedFieldValue: 1024,
+  embedFields: 25,
   embedFooter: 2048,
   selectOptions: 25,
   selectOptionLabel: 100,
@@ -108,6 +110,11 @@ export interface Interaction {
   member?: { user?: DiscordUser; permissions?: string };
   /** In a DM or a group DM: who acted. */
   user?: DiscordUser;
+  /**
+   * On a message component: the message the button is on, with the embeds it
+   * was posted with. A chart kept as posted copies its figures from here.
+   */
+  message?: { id?: string; embeds?: Embed[] };
   locale?: string;
 }
 

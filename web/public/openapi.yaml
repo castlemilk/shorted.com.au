@@ -4534,6 +4534,109 @@ components:
           type: string
       title: GetOwnershipFlowsResponse
       type: object
+    shorts.v1alpha1.GetOwnershipInsightsRequest:
+      additionalProperties: false
+      properties:
+        sector:
+          description: |-
+            Optional focus: one sector (as the response names it). The response then
+             lists every stock of the sector, the institutions whose funds moved in it,
+             and the sector's moves only. (proto string)
+          title: sector
+          type: string
+        stockCode:
+          description: 'Optional focus: one ASX code. The response then carries the
+            stock''s detail. (proto string)'
+          title: stock_code
+          type: string
+        windowFrom:
+          description: |-
+            The window's first and last day, YYYY-MM-DD, inclusive. Empty: the default
+             window, the 90 days to the newest date read. A window is clamped to the
+             timeline, and a from after the to is refused. (proto string)
+          title: window_from
+          type: string
+        windowTo:
+          description: (proto string)
+          title: window_to
+          type: string
+      title: GetOwnershipInsightsRequest
+      type: object
+    shorts.v1alpha1.GetOwnershipInsightsResponse:
+      additionalProperties: false
+      properties:
+        flowDisclosed:
+          $ref: '#/components/schemas/shorts.v1alpha1.InsightFlow'
+          description: Disclosed stakes times market cap, as the newest notices read
+            state them. (proto shorts.v1alpha1.InsightFlow)
+          title: flow_disclosed
+        flowFunds:
+          $ref: '#/components/schemas/shorts.v1alpha1.InsightFlow'
+          description: Fund holdings (index funds and super options) at the window's
+            end. (proto shorts.v1alpha1.InsightFlow)
+          title: flow_funds
+        heatmap:
+          $ref: '#/components/schemas/shorts.v1alpha1.InsightHeatmap'
+          description: (proto shorts.v1alpha1.InsightHeatmap)
+          title: heatmap
+        moves:
+          description: |-
+            The window's largest stated moves (notices stating both figures), by the
+             size of the move, at most 20. (proto shorts.v1alpha1.SubstantialNotice)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SubstantialNotice'
+          title: moves
+          type: array
+        remainders:
+          description: (proto shorts.v1alpha1.InsightStockRemainder)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.InsightStockRemainder'
+          title: remainders
+          type: array
+        sectorInstitutions:
+          description: |-
+            When a sector is focused: its institutions' index fund and super option
+             movement, by the size of the flow. (proto shorts.v1alpha1.InsightInstitutionFlow)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.InsightInstitutionFlow'
+          title: sector_institutions
+          type: array
+        sectors:
+          description: Every sector, by index fund value, then disclosed value. (proto
+            shorts.v1alpha1.InsightSector)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.InsightSector'
+          title: sectors
+          type: array
+        stockDetail:
+          $ref: '#/components/schemas/shorts.v1alpha1.InsightStockDetail'
+          description: When a stock is focused and known. (proto shorts.v1alpha1.InsightStockDetail)
+          title: stock_detail
+        stocks:
+          description: |-
+            The largest stocks by either measure (every stock of the sector when one is
+             focused), and the rest of each sector. (proto shorts.v1alpha1.InsightStock)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.InsightStock'
+          title: stocks
+          type: array
+        stocksTotal:
+          description: Stocks before the cap. (proto int32)
+          format: int32
+          title: stocks_total
+          type: integer
+        timeline:
+          description: (proto shorts.v1alpha1.InsightTimelineMonth)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.InsightTimelineMonth'
+          title: timeline
+          type: array
+        window:
+          $ref: '#/components/schemas/shorts.v1alpha1.InsightWindow'
+          description: (proto shorts.v1alpha1.InsightWindow)
+          title: window
+      title: GetOwnershipInsightsResponse
+      type: object
     shorts.v1alpha1.GetOwnershipMapRequest:
       additionalProperties: false
       description: |-
@@ -7042,6 +7145,704 @@ components:
           title: url
           type: string
       title: InlineImage
+      type: object
+    shorts.v1alpha1.InsightBucket:
+      additionalProperties: false
+      properties:
+        end:
+          description: (proto string)
+          title: end
+          type: string
+        start:
+          description: First and last day, inclusive, clipped to the window. (proto
+            string)
+          title: start
+          type: string
+      title: InsightBucket
+      type: object
+    shorts.v1alpha1.InsightFlow:
+      additionalProperties: false
+      description: 'The money flow: institution kind to institution to sector.'
+      properties:
+        asAtFrom:
+          description: 'The as-at range of what it reads: fund files, or notices.
+            (proto string)'
+          title: as_at_from
+          type: string
+        asAtTo:
+          description: (proto string)
+          title: as_at_to
+          type: string
+        links:
+          description: (proto shorts.v1alpha1.InsightFlowLink)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.InsightFlowLink'
+          title: links
+          type: array
+        nodes:
+          description: (proto shorts.v1alpha1.InsightFlowNode)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.InsightFlowNode'
+          title: nodes
+          type: array
+        totalAud:
+          description: (proto double)
+          format: double
+          title: total_aud
+          type: number
+      title: InsightFlow
+      type: object
+    shorts.v1alpha1.InsightFlowLink:
+      additionalProperties: false
+      properties:
+        source:
+          description: Indexes into nodes. (proto int32)
+          format: int32
+          title: source
+          type: integer
+        target:
+          description: (proto int32)
+          format: int32
+          title: target
+          type: integer
+        valueAud:
+          description: (proto double)
+          format: double
+          title: value_aud
+          type: number
+      title: InsightFlowLink
+      type: object
+    shorts.v1alpha1.InsightFlowNode:
+      additionalProperties: false
+      description: |-
+        A Sankey node. Column 0 is an institution kind, 1 an institution (or "Other"),
+         2 a sector (or "Other sectors").
+      properties:
+        column:
+          description: (proto int32)
+          format: int32
+          title: column
+          type: integer
+        id:
+          description: (proto string)
+          title: id
+          type: string
+        kind:
+          description: The kind for column 0 and 1; "" for a sector. (proto string)
+          title: kind
+          type: string
+        label:
+          description: (proto string)
+          title: label
+          type: string
+        sector:
+          description: The sector for column 2. (proto string)
+          title: sector
+          type: string
+        slug:
+          description: The institution's registry slug, when it has a page. (proto
+            string)
+          title: slug
+          type: string
+        valueAud:
+          description: (proto double)
+          format: double
+          title: value_aud
+          type: number
+      title: InsightFlowNode
+      type: object
+    shorts.v1alpha1.InsightFundPosition:
+      additionalProperties: false
+      description: One fund file's position in the focused stock.
+      properties:
+        asAt:
+          description: The end file's date, and the start file's when the fund is
+            compared. (proto string)
+          title: as_at
+          type: string
+        fundCode:
+          description: (proto string)
+          title: fund_code
+          type: string
+        fundName:
+          description: (proto string)
+          title: fund_name
+          type: string
+        hasStartUnits:
+          description: (proto bool)
+          title: has_start_units
+          type: boolean
+        hasUnits:
+          description: (proto bool)
+          title: has_units
+          type: boolean
+        hasValue:
+          description: (proto bool)
+          title: has_value
+          type: boolean
+        institutionName:
+          description: (proto string)
+          title: institution_name
+          type: string
+        institutionSlug:
+          description: (proto string)
+          title: institution_slug
+          type: string
+        kind:
+          description: (proto string)
+          title: kind
+          type: string
+        sourceKind:
+          description: etf (an index fund) or super_phd (a super fund option). (proto
+            string)
+          title: source_kind
+          type: string
+        startAsAt:
+          description: (proto string)
+          title: start_as_at
+          type: string
+        startUnits:
+          description: (proto double)
+          format: double
+          title: start_units
+          type: number
+        units:
+          description: (proto double)
+          format: double
+          title: units
+          type: number
+        valueAud:
+          description: (proto double)
+          format: double
+          title: value_aud
+          type: number
+      title: InsightFundPosition
+      type: object
+    shorts.v1alpha1.InsightHeatCell:
+      additionalProperties: false
+      properties:
+        became:
+          description: (proto int32)
+          format: int32
+          title: became
+          type: integer
+        ceased:
+          description: (proto int32)
+          format: int32
+          title: ceased
+          type: integer
+        falls:
+          description: (proto int32)
+          format: int32
+          title: falls
+          type: integer
+        fundFlowAud:
+          description: |-
+            The change in shares the index funds hold over the bucket, valued at the
+             later file's price, AUD: each fund compared with its own earlier file. (proto double)
+          format: double
+          title: fund_flow_aud
+          type: number
+        fundsCompared:
+          description: (proto int32)
+          format: int32
+          title: funds_compared
+          type: integer
+        hasFundFlow:
+          description: (proto bool)
+          title: has_fund_flow
+          type: boolean
+        noticeNetPp:
+          description: |-
+            The net change in voting power the bucket's notices state, in percentage
+             points, and the notices behind it. (proto double)
+          format: double
+          title: notice_net_pp
+          type: number
+        notices:
+          description: (proto int32)
+          format: int32
+          title: notices
+          type: integer
+        rises:
+          description: (proto int32)
+          format: int32
+          title: rises
+          type: integer
+      title: InsightHeatCell
+      type: object
+    shorts.v1alpha1.InsightHeatRow:
+      additionalProperties: false
+      properties:
+        cells:
+          description: One cell per bucket, in bucket order. (proto shorts.v1alpha1.InsightHeatCell)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.InsightHeatCell'
+          title: cells
+          type: array
+        sector:
+          description: (proto string)
+          title: sector
+          type: string
+      title: InsightHeatRow
+      type: object
+    shorts.v1alpha1.InsightHeatmap:
+      additionalProperties: false
+      properties:
+        buckets:
+          description: (proto shorts.v1alpha1.InsightBucket)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.InsightBucket'
+          title: buckets
+          type: array
+        rows:
+          description: (proto shorts.v1alpha1.InsightHeatRow)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.InsightHeatRow'
+          title: rows
+          type: array
+      title: InsightHeatmap
+      type: object
+    shorts.v1alpha1.InsightInstitutionFlow:
+      additionalProperties: false
+      description: An institution's index fund or super option movement in the focused
+        sector.
+      properties:
+        flowAud:
+          description: (proto double)
+          format: double
+          title: flow_aud
+          type: number
+        hasFlow:
+          description: (proto bool)
+          title: has_flow
+          type: boolean
+        hasValue:
+          description: (proto bool)
+          title: has_value
+          type: boolean
+        institutionName:
+          description: (proto string)
+          title: institution_name
+          type: string
+        institutionSlug:
+          description: (proto string)
+          title: institution_slug
+          type: string
+        kind:
+          description: (proto string)
+          title: kind
+          type: string
+        valueAud:
+          description: (proto double)
+          format: double
+          title: value_aud
+          type: number
+      title: InsightInstitutionFlow
+      type: object
+    shorts.v1alpha1.InsightSector:
+      additionalProperties: false
+      description: One sector (the company's industry; "" for none or a placeholder).
+      properties:
+        became:
+          description: (proto int32)
+          format: int32
+          title: became
+          type: integer
+        ceased:
+          description: (proto int32)
+          format: int32
+          title: ceased
+          type: integer
+        disclosedValueAud:
+          description: |-
+            Disclosed voting power times market cap, summed over the sector's stocks
+             with a market cap. An estimate, not a share of the company. (proto double)
+          format: double
+          title: disclosed_value_aud
+          type: number
+        falls:
+          description: (proto int32)
+          format: int32
+          title: falls
+          type: integer
+        fundChangePct:
+          description: |-
+            That change as a percentage of the same funds' starting shares, valued at
+             the same price. (proto double)
+          format: double
+          title: fund_change_pct
+          type: number
+        fundFlowAud:
+          description: |-
+            The change in shares the compared index funds hold, valued at the end
+             file's price, AUD. (proto double)
+          format: double
+          title: fund_flow_aud
+          type: number
+        fundValueAud:
+          description: Index funds' holdings at the window's end, AUD. (proto double)
+          format: double
+          title: fund_value_aud
+          type: number
+        hasDisclosedValue:
+          description: (proto bool)
+          title: has_disclosed_value
+          type: boolean
+        hasFundChange:
+          description: (proto bool)
+          title: has_fund_change
+          type: boolean
+        hasFundFlow:
+          description: (proto bool)
+          title: has_fund_flow
+          type: boolean
+        hasFundValue:
+          description: (proto bool)
+          title: has_fund_value
+          type: boolean
+        hasSuperValue:
+          description: (proto bool)
+          title: has_super_value
+          type: boolean
+        interests:
+          description: Interests counted once across the sector's current registers.
+            (proto int32)
+          format: int32
+          title: interests
+          type: integer
+        investorInterests:
+          description: |-
+            Investors' interests (super funds, index and active managers, hedge funds,
+             sovereign funds and insurers) counted once: what crowded counts. Banks and
+             brokers, often securities lending, are not counted. (proto int32)
+          format: int32
+          title: investor_interests
+          type: integer
+        noticeNetPp:
+          description: |-
+            The net change in voting power the window's notices state, in percentage
+             points summed over notices, and the notices behind it. (proto double)
+          format: double
+          title: notice_net_pp
+          type: number
+        notices:
+          description: (proto int32)
+          format: int32
+          title: notices
+          type: integer
+        rises:
+          description: (proto int32)
+          format: int32
+          title: rises
+          type: integer
+        sector:
+          description: (proto string)
+          title: sector
+          type: string
+        stocks:
+          description: Stocks of the sector held by a tracked fund or with a current
+            holder. (proto int32)
+          format: int32
+          title: stocks
+          type: integer
+        superValueAud:
+          description: Super fund options' holdings at the window's end, AUD. (proto
+            double)
+          format: double
+          title: super_value_aud
+          type: number
+      title: InsightSector
+      type: object
+    shorts.v1alpha1.InsightStock:
+      additionalProperties: false
+      description: One stock in the window.
+      properties:
+        companyName:
+          description: (proto string)
+          title: company_name
+          type: string
+        disclosedPct:
+          description: |-
+            The current register: disclosed voting power (each interest counted once,
+             as the newest notices read state it) and the interests behind it. (proto double)
+          format: double
+          title: disclosed_pct
+          type: number
+        disclosedValueAud:
+          description: (proto double)
+          format: double
+          title: disclosed_value_aud
+          type: number
+        fundChangePct:
+          description: |-
+            The change in shares the compared index funds hold, in percent of their
+             starting shares, and valued at the end file's price, AUD. (proto double)
+          format: double
+          title: fund_change_pct
+          type: number
+        fundFlowAud:
+          description: (proto double)
+          format: double
+          title: fund_flow_aud
+          type: number
+        fundValueAud:
+          description: Index funds' holdings at the window's end, AUD, and the funds
+            holding it. (proto double)
+          format: double
+          title: fund_value_aud
+          type: number
+        funds:
+          description: (proto int32)
+          format: int32
+          title: funds
+          type: integer
+        hasDisclosedValue:
+          description: (proto bool)
+          title: has_disclosed_value
+          type: boolean
+        hasFundChange:
+          description: (proto bool)
+          title: has_fund_change
+          type: boolean
+        hasFundFlow:
+          description: (proto bool)
+          title: has_fund_flow
+          type: boolean
+        hasFundValue:
+          description: (proto bool)
+          title: has_fund_value
+          type: boolean
+        hasIndexPct:
+          description: (proto bool)
+          title: has_index_pct
+          type: boolean
+        hasMarketCap:
+          description: (proto bool)
+          title: has_market_cap
+          type: boolean
+        indexPct:
+          description: |-
+            Index funds' shares as a percentage of shares on issue (ASIC's latest
+             short position report states the issue), at the window's end. (proto double)
+          format: double
+          title: index_pct
+          type: number
+        interests:
+          description: (proto int32)
+          format: int32
+          title: interests
+          type: integer
+        marketCap:
+          description: (proto double)
+          format: double
+          title: market_cap
+          type: number
+        noticeNetPp:
+          description: The net change in voting power the window's notices state,
+            and the notices. (proto double)
+          format: double
+          title: notice_net_pp
+          type: number
+        notices:
+          description: (proto int32)
+          format: int32
+          title: notices
+          type: integer
+        sector:
+          description: (proto string)
+          title: sector
+          type: string
+        stockCode:
+          description: (proto string)
+          title: stock_code
+          type: string
+      title: InsightStock
+      type: object
+    shorts.v1alpha1.InsightStockDetail:
+      additionalProperties: false
+      description: The focused stock.
+      properties:
+        byKind:
+          description: (proto shorts.v1alpha1.KindShare)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.KindShare'
+          title: by_kind
+          type: array
+        companyName:
+          description: (proto string)
+          title: company_name
+          type: string
+        disclosedPct:
+          description: The current register by kind, each interest counted once. (proto
+            double)
+          format: double
+          title: disclosed_pct
+          type: number
+        funds:
+          description: Every fund file holding it at the window's end, by value. (proto
+            shorts.v1alpha1.InsightFundPosition)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.InsightFundPosition'
+          title: funds
+          type: array
+        holders:
+          description: (proto int32)
+          format: int32
+          title: holders
+          type: integer
+        latestNoticeDate:
+          description: (proto string)
+          title: latest_notice_date
+          type: string
+        notices:
+          description: The window's notices for it, newest first, at most 20. (proto
+            shorts.v1alpha1.SubstantialNotice)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SubstantialNotice'
+          title: notices
+          type: array
+        sector:
+          description: (proto string)
+          title: sector
+          type: string
+        stockCode:
+          description: (proto string)
+          title: stock_code
+          type: string
+      title: InsightStockDetail
+      type: object
+    shorts.v1alpha1.InsightStockRemainder:
+      additionalProperties: false
+      description: The rest of a sector past the stock cap, so the sector's tiles
+        still sum.
+      properties:
+        disclosedValueAud:
+          description: (proto double)
+          format: double
+          title: disclosed_value_aud
+          type: number
+        fundValueAud:
+          description: (proto double)
+          format: double
+          title: fund_value_aud
+          type: number
+        sector:
+          description: (proto string)
+          title: sector
+          type: string
+        stocks:
+          description: (proto int32)
+          format: int32
+          title: stocks
+          type: integer
+      title: InsightStockRemainder
+      type: object
+    shorts.v1alpha1.InsightTimelineMonth:
+      additionalProperties: false
+      description: 'One month of the timeline: what a window there can read.'
+      properties:
+        files:
+          description: (proto int32)
+          format: int32
+          title: files
+          type: integer
+        month:
+          description: YYYY-MM. (proto string)
+          title: month
+          type: string
+        notices:
+          description: (proto int32)
+          format: int32
+          title: notices
+          type: integer
+      title: InsightTimelineMonth
+      type: object
+    shorts.v1alpha1.InsightWindow:
+      additionalProperties: false
+      description: The window served and the dates a window can take.
+      properties:
+        bucket:
+          description: 'The heatmap''s bucket: "week" (Monday to Sunday) or "month".
+            (proto string)'
+          title: bucket
+          type: string
+        endFilesFrom:
+          description: (proto string)
+          title: end_files_from
+          type: string
+        endFilesTo:
+          description: (proto string)
+          title: end_files_to
+          type: string
+        from:
+          description: The window served, after the default and the clamp. (proto
+            string)
+          title: from
+          type: string
+        fundsAtEnd:
+          description: Funds (index funds and super options) with a file on or before
+            the end. (proto int32)
+          format: int32
+          title: funds_at_end
+          type: integer
+        fundsCompared:
+          description: |-
+            Index funds with a file at both ends of the window, the later one newer:
+             the funds a change compares. Zero when the window holds one file per fund. (proto int32)
+          format: int32
+          title: funds_compared
+          type: integer
+        noticesAsOf:
+          description: The newest notice release date read. (proto string)
+          title: notices_as_of
+          type: string
+        noticesFrom:
+          description: The oldest and newest notice date read (event date, else release
+            date). (proto string)
+          title: notices_from
+          type: string
+        noticesInWindow:
+          description: Notices dated inside the window. (proto int32)
+          format: int32
+          title: notices_in_window
+          type: integer
+        noticesTo:
+          description: (proto string)
+          title: notices_to
+          type: string
+        snapshotDates:
+          description: |-
+            Every distinct as-at date of a fund file (index funds and super options),
+             oldest first. (proto string)
+          items:
+            type: string
+          title: snapshot_dates
+          type: array
+        startFilesFrom:
+          description: The as-at range of the files each end of the window reads.
+            (proto string)
+          title: start_files_from
+          type: string
+        startFilesTo:
+          description: (proto string)
+          title: start_files_to
+          type: string
+        timelineFrom:
+          description: |-
+            The first and last day a window can reach: the oldest and newest date read
+             across fund files and notices. (proto string)
+          title: timeline_from
+          type: string
+        timelineTo:
+          description: (proto string)
+          title: timeline_to
+          type: string
+        to:
+          description: (proto string)
+          title: to
+          type: string
+      title: InsightWindow
       type: object
     shorts.v1alpha1.KindShare:
       additionalProperties: false
@@ -16080,6 +16881,46 @@ paths:
       summary: ListEditorialTakes
       tags:
       - shorts.v1alpha1.NewsService
+  /shorts.v1alpha1.OwnershipInsightsService/GetOwnershipInsights:
+    post:
+      description: |-
+        The register in one window: sectors and their stocks, the money flow from
+         institution kinds through institutions to sectors, the position changes by
+         sector and week or month, the window's largest stated moves, and the dates
+         a window can take.
+      operationId: OwnershipInsightsService_GetOwnershipInsights
+      parameters:
+      - in: header
+        name: Connect-Protocol-Version
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - in: header
+        name: Connect-Timeout-Ms
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetOwnershipInsightsRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetOwnershipInsightsResponse'
+          description: Success
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+          description: Error
+      summary: GetOwnershipInsights
+      tags:
+      - shorts.v1alpha1.OwnershipInsightsService
   /shorts.v1alpha1.OwnershipService/CompareFundSnapshots:
     post:
       description: |-

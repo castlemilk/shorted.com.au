@@ -2,6 +2,10 @@ import { ImageResponse } from "next/og";
 import { type NextRequest } from "next/server";
 
 import { parseEmbedChartParams } from "~/app/embed/chart/params";
+import {
+  isSettledAnchor,
+  sydneyDay,
+} from "~/@/components/charts/chart-anchor";
 import { OG_SIZE } from "~/@/lib/og/card";
 import { loadChartCard } from "./load-card";
 
@@ -12,6 +16,13 @@ const READ_TIMEOUT_MS = 8000;
 
 const CACHE_COMPLETE =
   "public, max-age=3600, s-maxage=21600, stale-while-revalidate=86400";
+/**
+ * A complete, resolved card of a settled chart kept as posted (see
+ * isSettledAnchor; the name and the logo both read): its figures can no longer
+ * change, so it is cached for a month at the CDN.
+ */
+const CACHE_SETTLED =
+  "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=86400";
 /**
  * A card missing a series it asked for (a read failed or timed out) is cached
  * for minutes, not hours, so one bad read does not pin a blank chart on every
@@ -42,18 +53,25 @@ export async function GET(
   { params }: { params: Promise<{ code: string }> },
 ) {
   const { code: rawCode } = await params;
-  const { code, view, period } = parseEmbedChartParams({
+  const { code, view, period, anchor } = parseEmbedChartParams({
     get: (k) => (k === "code" ? rawCode : req.nextUrl.searchParams.get(k)),
   });
 
-  const { card, complete } = await loadChartCard(
-    { code, view, period },
+  const { card, complete, resolved } = await loadChartCard(
+    { code, view, period, anchor },
     READ_TIMEOUT_MS,
   );
+  const settled =
+    anchor !== undefined && isSettledAnchor(anchor, sydneyDay(new Date()));
+  const cacheControl = !complete
+    ? CACHE_INCOMPLETE
+    : settled && resolved
+      ? CACHE_SETTLED
+      : CACHE_COMPLETE;
   return new ImageResponse(card, {
     ...OG_SIZE,
     headers: {
-      "cache-control": complete ? CACHE_COMPLETE : CACHE_INCOMPLETE,
+      "cache-control": cacheControl,
       // The Discord bot uploads this card with its messages, and draws its own
       // rather than upload one missing a series (lib/discord/chart-card.ts).
       "x-chart-card": complete ? "complete" : "partial",

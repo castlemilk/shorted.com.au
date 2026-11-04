@@ -8,6 +8,7 @@ import { StockChart } from "./StockChart";
 import { seriesColor } from "./chart-theme";
 import { useStockChartData } from "./use-stock-chart-data";
 import { chartShareUrl } from "@/lib/embed/snippet";
+import { formatAnchorDay, type ChartAnchor } from "./chart-anchor";
 import {
   CHART_PERIODS,
   CHART_VIEWS,
@@ -85,6 +86,8 @@ export interface EmbedIndicatorOptions {
     stockCode: string;
     view: ChartViewId;
     period: ChartPeriod;
+    /** Set while the chart is shown as posted, so the sign-in returns to it. */
+    anchor?: ChartAnchor;
   }) => void;
   /** The picks to start from, for a host that keeps them across a stock switch. */
   initial?: readonly ChartIndicatorId[];
@@ -154,6 +157,12 @@ export interface StockChartEmbedProps {
    * draws nothing extra, asks for no history and carries no legend.
    */
   indicators?: EmbedIndicatorOptions;
+  /**
+   * The chart as posted on `anchor.day`: its windows end on the anchor, so it shows
+   * the same figures whenever it is drawn. Given, a line says so and a reader can
+   * switch to the latest data and back; that switch is local, never a navigation.
+   */
+  anchor?: ChartAnchor | null;
 }
 
 function LegendSwatch({ color, label }: { color: string; label: string }) {
@@ -208,12 +217,17 @@ export function StockChartEmbed({
   indicators,
   landscape: landscapeProp,
   chartOverlay,
+  anchor,
 }: StockChartEmbedProps) {
   // Read as a boolean, not the options object: the hooks below depend on it, and
   // a host passes a new object each render.
   const offers = indicators !== undefined;
   const [period, setPeriod] = useState<ChartPeriod>(defaultPeriod);
   const [chosenView, setView] = useState<ChartViewId>(defaultView);
+  // A pinned chart starts as posted; the reader may switch to the latest data. The
+  // anchor is only ever read through `pinned`, so live means no anchor anywhere.
+  const [asPosted, setAsPosted] = useState(true);
+  const pinned = anchor && asPosted ? anchor : null;
   // Uncontrolled, the chart keeps its own choice. It starts turned when `startLandscape`
   // asks and the screen is a portrait phone, and the initializer reads the screen on the
   // first render, so the first frame is already sideways (no flash of upright). Given a
@@ -248,6 +262,7 @@ export function StockChartEmbed({
   const { short, price, volume, anyLoading, isError } = useStockChartData(
     stockCode,
     period,
+    pinned,
   );
   // The view the chart is drawn as, from the series that have arrived. The menu, the
   // selection and the history follow it, so a Combined chart with one series offers,
@@ -281,7 +296,7 @@ export function StockChartEmbed({
   // Each indicator waits for its own history (useIndicatorHistory). One that waits is
   // held back, and a panel among them keeps its place, empty, until it lands. An
   // indicator that has its history is drawn even while another one still loads.
-  const history = useIndicatorHistory(stockCode, period, visible);
+  const history = useIndicatorHistory(stockCode, period, visible, pinned);
   const drawn = useMemo(
     () =>
       readyIndicators(
@@ -352,14 +367,20 @@ export function StockChartEmbed({
   // A locked indicator's sign-in returns the reader to this chart's share page,
   // turned sideways if it is. A host that signs the visitor in itself gets the click.
   const sharePath = useMemo(() => {
-    const share = new URL(chartShareUrl(stockCode, view, period));
+    const share = new URL(chartShareUrl(stockCode, view, period, pinned));
     if (landscape) share.searchParams.set("landscape", "1");
     return share.pathname + share.search;
-  }, [stockCode, view, period, landscape]);
+  }, [stockCode, view, period, landscape, pinned]);
   const onSignIn = indicators?.onSignIn;
   const signIn: IndicatorSignIn = onSignIn
     ? {
-        onClick: () => onSignIn({ stockCode, view, period }),
+        onClick: () =>
+          onSignIn({
+            stockCode,
+            view,
+            period,
+            ...(pinned ? { anchor: pinned } : {}),
+          }),
         busy: indicators?.signInBusy,
       }
     : { callbackUrl: sharePath };
@@ -538,7 +559,7 @@ export function StockChartEmbed({
           )}
           {expandable && (
             <a
-              href={chartShareUrl(stockCode, view, period)}
+              href={chartShareUrl(stockCode, view, period, pinned)}
               target="_blank"
               rel="noopener"
               title="Open full screen"
@@ -552,6 +573,29 @@ export function StockChartEmbed({
           )}
         </div>
       </div>
+
+      {/* Rendered from the first frame whenever a chart is pinned, so the switch
+          between the two states moves nothing. A plain text button: inside the
+          Discord Activity a link would navigate the frame, and this does not. */}
+      {anchor && (
+        <div
+          data-as-posted={pinned ? "" : undefined}
+          className="flex min-h-8 flex-wrap items-center gap-x-3 text-xs text-muted-foreground"
+        >
+          <span>
+            {pinned
+              ? `As posted ${formatAnchorDay(anchor.day)}`
+              : "Showing latest data"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setAsPosted(!asPosted)}
+            className="inline-flex min-h-8 items-center underline underline-offset-2 transition-colors hover:text-foreground"
+          >
+            {pinned ? "Show latest" : "Show as posted"}
+          </button>
+        </div>
+      )}
 
       {/* The strip carries each series' dot and label, so this row is only for the
           tooltip, which has neither. */}

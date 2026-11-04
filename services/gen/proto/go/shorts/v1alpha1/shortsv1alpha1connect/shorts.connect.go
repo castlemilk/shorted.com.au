@@ -382,6 +382,9 @@ const (
 	// ShortedStocksServiceGetPoliticianFundingProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetPoliticianFunding RPC.
 	ShortedStocksServiceGetPoliticianFundingProcedure = "/shorts.v1alpha1.ShortedStocksService/GetPoliticianFunding"
+	// ShortedStocksServiceGetOwnershipInsightsProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetOwnershipInsights RPC.
+	ShortedStocksServiceGetOwnershipInsightsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetOwnershipInsights"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -503,6 +506,7 @@ var (
 	shortedStocksServiceListTopDonorsMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("ListTopDonors")
 	shortedStocksServiceListPartyFundingMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPartyFunding")
 	shortedStocksServiceGetPoliticianFundingMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPoliticianFunding")
+	shortedStocksServiceGetOwnershipInsightsMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetOwnershipInsights")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -748,6 +752,8 @@ type ShortedStocksServiceClient interface {
 	ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error)
 	// The funding returns that name one member.
 	GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error)
+	// The ownership register in one time window.
+	GetOwnershipInsights(context.Context, *connect.Request[v1alpha1.GetOwnershipInsightsRequest]) (*connect.Response[v1alpha1.GetOwnershipInsightsResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -1456,6 +1462,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetPoliticianFundingMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getOwnershipInsights: connect.NewClient[v1alpha1.GetOwnershipInsightsRequest, v1alpha1.GetOwnershipInsightsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetOwnershipInsightsProcedure,
+			connect.WithSchema(shortedStocksServiceGetOwnershipInsightsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1577,6 +1589,7 @@ type shortedStocksServiceClient struct {
 	listTopDonors                   *connect.Client[v1alpha1.ListTopDonorsRequest, v1alpha1.ListTopDonorsResponse]
 	listPartyFunding                *connect.Client[v1alpha1.ListPartyFundingRequest, v1alpha1.ListPartyFundingResponse]
 	getPoliticianFunding            *connect.Client[v1alpha1.GetPoliticianFundingRequest, v1alpha1.GetPoliticianFundingResponse]
+	getOwnershipInsights            *connect.Client[v1alpha1.GetOwnershipInsightsRequest, v1alpha1.GetOwnershipInsightsResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -2164,6 +2177,11 @@ func (c *shortedStocksServiceClient) GetPoliticianFunding(ctx context.Context, r
 	return c.getPoliticianFunding.CallUnary(ctx, req)
 }
 
+// GetOwnershipInsights calls shorts.v1alpha1.ShortedStocksService.GetOwnershipInsights.
+func (c *shortedStocksServiceClient) GetOwnershipInsights(ctx context.Context, req *connect.Request[v1alpha1.GetOwnershipInsightsRequest]) (*connect.Response[v1alpha1.GetOwnershipInsightsResponse], error) {
+	return c.getOwnershipInsights.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -2408,6 +2426,8 @@ type ShortedStocksServiceHandler interface {
 	ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error)
 	// The funding returns that name one member.
 	GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error)
+	// The ownership register in one time window.
+	GetOwnershipInsights(context.Context, *connect.Request[v1alpha1.GetOwnershipInsightsRequest]) (*connect.Response[v1alpha1.GetOwnershipInsightsResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -3112,6 +3132,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetPoliticianFundingMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetOwnershipInsightsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetOwnershipInsightsProcedure,
+		svc.GetOwnershipInsights,
+		connect.WithSchema(shortedStocksServiceGetOwnershipInsightsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -3346,6 +3372,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceListPartyFundingHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetPoliticianFundingProcedure:
 			shortedStocksServiceGetPoliticianFundingHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetOwnershipInsightsProcedure:
+			shortedStocksServiceGetOwnershipInsightsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -3817,4 +3845,8 @@ func (UnimplementedShortedStocksServiceHandler) ListPartyFunding(context.Context
 
 func (UnimplementedShortedStocksServiceHandler) GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetPoliticianFunding is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetOwnershipInsights(context.Context, *connect.Request[v1alpha1.GetOwnershipInsightsRequest]) (*connect.Response[v1alpha1.GetOwnershipInsightsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetOwnershipInsights is not implemented"))
 }

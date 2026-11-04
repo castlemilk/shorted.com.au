@@ -56,7 +56,7 @@ describe("shortSector (spec 14.9)", () => {
 
 describe("ownership kinds", () => {
   it("never lets an institution take a path the ownership section owns", () => {
-    expect(RESERVED_SLUGS).toEqual(["stocks", "notices"]);
+    expect(RESERVED_SLUGS).toEqual(["stocks", "notices", "insights"]);
     expect(isInstitutionSlug("stocks")).toBe(false);
     expect(isInstitutionSlug("notices")).toBe(false);
     expect(isInstitutionSlug("vanguard")).toBe(true);

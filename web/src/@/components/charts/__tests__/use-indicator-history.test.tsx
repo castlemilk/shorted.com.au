@@ -2,7 +2,11 @@ import { StrictMode, type ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getHistoricalData } from "@/lib/stock-data-service";
-import { fetchStockDataClient } from "@/lib/client-api";
+import {
+  fetchStockDataClient,
+  fetchStockDataWindowClient,
+  fetchStockPricesClient,
+} from "@/lib/client-api";
 import { useIndicatorHistory } from "../use-indicator-history";
 import {
   PRICE_SESSIONS,
@@ -24,6 +28,8 @@ jest.mock("@/lib/stock-data-service", () => ({
 jest.mock("@/lib/client-api", () => ({
   fetchStockClient: jest.fn(),
   fetchStockDataClient: jest.fn(),
+  fetchStockDataWindowClient: jest.fn(),
+  fetchStockPricesClient: jest.fn(),
   fetchStockDetailsClient: jest.fn(),
   fetchTopShortsClient: jest.fn(),
 }));
@@ -304,5 +310,86 @@ describe("useIndicatorHistory", () => {
     expect(shortPeriods()).toContain("6m");
     expect(result.current.short).toHaveLength(SHORT_DAYS["6m"]);
     expect(result.current.waiting).toEqual([]);
+  });
+
+  describe("on a chart kept as posted", () => {
+    const anchor = {
+      day: "2026-11-04",
+      shorts: "2026-10-28",
+      prices: "2026-11-03",
+    };
+
+    function renderAnchored(initial: {
+      period: ChartPeriod;
+      ids: ChartIndicatorId[];
+      anchor: typeof anchor | null;
+    }) {
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      );
+      const rendered = renderHook(
+        (props: typeof initial) =>
+          useIndicatorHistory("BHP", props.period, props.ids, props.anchor),
+        { wrapper, initialProps: initial },
+      );
+      return { ...rendered, client };
+    }
+
+    beforeEach(() => {
+      jest.mocked(fetchStockPricesClient).mockReset();
+      jest.mocked(fetchStockPricesClient).mockImplementation((async () =>
+        priceRows(PRICE_SESSIONS["2y"])) as never);
+      jest.mocked(fetchStockDataWindowClient).mockReset();
+      jest.mocked(fetchStockDataWindowClient).mockImplementation((async () =>
+        shortRows(SHORT_DAYS["1y"])) as never);
+    });
+
+    it("reads the visible series and the warm-up through the posted windows, never today's", async () => {
+      // SMA 50 on a 1y chart needs 2y: both end on the anchor.
+      const { result, client } = renderAnchored({
+        period: "1y",
+        ids: ["sma50"],
+        anchor,
+      });
+      await answered(client);
+      const windows = jest
+        .mocked(fetchStockPricesClient)
+        .mock.calls.map((call) => call[1]);
+      expect(windows).toEqual(
+        expect.arrayContaining([
+          { from: "2025-11-04", to: "2026-11-03" },
+          { from: "2024-11-04", to: "2026-11-03" },
+        ]),
+      );
+      // Prices never come from the live, period-only read.
+      expect(getHistoricalData).not.toHaveBeenCalled();
+      expect(result.current.price).toHaveLength(PRICE_SESSIONS["2y"]);
+      // Short history ends on the newest report shown, and never comes from
+      // the live, period-only read.
+      const shortCalls = jest.mocked(fetchStockDataWindowClient).mock.calls;
+      expect(shortCalls.length).toBeGreaterThan(0);
+      for (const call of shortCalls) {
+        expect(JSON.stringify(call)).toContain('"to":"2026-10-28"');
+      }
+      expect(fetchStockDataClient).not.toHaveBeenCalled();
+    });
+
+    it("starts again when the reader switches to the latest data", async () => {
+      const { result, rerender, client } = renderAnchored({
+        period: "1y",
+        ids: ["sma50"],
+        anchor,
+      });
+      await answered(client);
+      expect(result.current.price).toHaveLength(PRICE_SESSIONS["2y"]);
+
+      // Live: the posted history is not reused; the live 2y read is made.
+      rerender({ period: "1y", ids: ["sma50"], anchor: null });
+      await answered(client);
+      expect(getHistoricalData).toHaveBeenCalledWith("BHP", "2y");
+    });
   });
 });

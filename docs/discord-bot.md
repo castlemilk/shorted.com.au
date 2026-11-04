@@ -75,8 +75,8 @@ one, privately.
 
 Under every chart are two rows of buttons: the periods, then the views, an
 **Open on Shorted** link (the chart's share page) and **Interactive** (the
-Activity, below). A press redraws the message for everyone; pressing the
-highlighted one redraws it with the latest figures. **Open on Shorted** carries
+Activity, below). A press redraws the message for everyone, inside the window
+the chart was posted with (see "Charts kept as posted" below). **Open on Shorted** carries
 `landscape=1`: Discord's in-app browser keeps to portrait whatever the phone
 does, so on a phone held upright the share page opens with the chart turned
 sideways (its landscape mode, `StockChartEmbed` `startLandscape`); anywhere
@@ -94,11 +94,14 @@ or for one person:
 | Chart | short interest, price, combined | short interest |
 | Period | 1M, 3M, 6M, 1Y, Max (the message's buttons) | 1Y |
 | Commands open | a chart message, or the interactive chart (the Activity) | a chart message |
+| Buttons | keep the chart as posted, or redraw with the latest figures (charts posted from then on) | keep the chart as posted |
 
 **Layers.** A server's settings apply to everyone in it; a person's own apply
 in DMs and group DMs, and in servers with none of their own; the built-ins fill
 the rest. Anything typed in a command wins over all three
-(`/chart BHP view:price`). `settings.ts` resolves them field by field, and a
+(`/chart BHP view:price`). `settings.ts` resolves them field by field (a
+server's document saved before the Buttons choice existed counts as choosing
+the default, so a member's own choice never decides it there), and a
 read slower than 500ms (`SETTINGS_BUDGET_MS`) is not waited for: the built-ins
 stand in, and the read still fills the cache.
 
@@ -146,6 +149,69 @@ message instead; an unknown stock is answered privately, as ever.
 Lookups that fail are answered privately (ephemeral), never posted to the
 channel. Every message sets `allowed_mentions: { parse: [] }`, so a search for
 "@everyone" pings no one.
+
+## Charts kept as posted
+
+A chart message is **kept as posted** by default: its window ends on the day it
+was posted, and its figures stay the ones posted, so a press on a period or
+view button does not move the chart to today. Settings → **Buttons** switches a
+server or a person to **Redraw with the latest figures**, the old behaviour.
+The setting applies to charts posted from then on: a chart already posted keeps
+how it was posted, and a press never reads the setting. It is stored as
+`asPosted` (`settings.ts`, default `true`) and shown under "Buttons" in
+`/settings` and on the settings page.
+
+- **Three dates.** Each series ends on its own day, so an anchor records three
+  (`anchor` in `chart-anchor.ts`). `day` is the posting day (the Sydney calendar
+  day, `sydneyDay`), which the chart is labelled with. `shorts` is the newest
+  ASIC report, never after `day`: ASIC publishes four trading days late, so a
+  chart posted on 4 Nov shows short positions to 28 Oct. `prices` is the newest
+  close, never after `day`, and the period is counted back from the later of
+  the two dates. The footer prints the posting day and, on the short and
+  combined views, the report date.
+- **Posting.** Before it draws a new kept chart, the bot reads the stock's
+  newest report (the stock summary's `asOf`) and its newest close in the month
+  to the posting day (`newestClose` in `data.ts`, bounded to six seconds; a
+  session stored with a NULL close is skipped). The
+  anchor is decided from those two reads, and the card is drawn once, for that
+  anchor. The first card is therefore the card every redraw asks for, and the
+  highlighted button's press hits the same CDN entry. The close is read
+  beside the stock read where the code is typed, and read again only when the
+  typed code resolves to another stock; that later read gets 2.5 seconds
+  (`LATE_CLOSE_BUDGET_MS`), so the reply stays inside the route's 30-second
+  `maxDuration`.
+- **Live when a date is unknown.** A chart is posted live, as every chart was
+  before anchors existed, when the stock has no readable report date, a report
+  more than 60 days old (ASIC no longer reports it), or no close in the month
+  to the day (suspended, or the read is too slow). A URL carrying a `shorts` or
+  `prices` date further behind its `asof` than that reads it as the `asof` day,
+  so one stock can be drawn for a bounded number of anchors. Live means
+  live ids, a live footer, and no "As posted". Such a chart is never anchored to
+  a guessed date.
+- **The ids and links.** An anchored chart's buttons and Interactive button
+  carry all three dates in their `custom_id`
+  (`chart:p:BHP:short:3m:20261104:20261028:20261103`,
+  `activity:BHP:short:3m:20261104:20261028:20261103`; `custom-id.ts`). The card
+  and share page take `asof=` (the posting day), `shorts=` and `prices=`, each
+  left out when it is the posting day. The card's cache key (`v`) is the posting
+  day, so a pinned card is drawn once and stays cached instead of being redrawn
+  each day someone presses an old message. The forms without dates are live and
+  still work: every message posted before anchors existed has them. Never change
+  what a form means.
+- **The figures.** A press on an anchored message does not read the stock. The
+  title, readings and fields are copied from the embed the button is on
+  (`interaction.message`, `copiedFigures` in `messages.ts`), so the figures above
+  the chart are the ones posted. Only the card is drawn again, for the new view
+  or period, with the anchor the message carries. A press whose message has no
+  embed (embeds suppressed, say) is answered privately and the message is left as
+  it is, rather than printing today's figures under a chart posted with others.
+- **Corrections.** A correction ASIC or the price vendor makes inside the window
+  can still show on a redraw. The figures above the chart never change.
+- **Interactive mode.** Commands that open the Activity stay live whatever the
+  setting says: the Activity has its own window. A command that is too slow to
+  launch and posts its chart message instead follows the setting. The
+  **Interactive** button on an anchored message opens the Activity pinned to
+  that window.
 
 ## How it works
 

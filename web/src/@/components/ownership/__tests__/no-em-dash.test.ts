@@ -29,6 +29,8 @@ describe("the workspace copy (spec 14.9)", () => {
     const offenders = roots
       .flatMap((root) => filesUnder(root))
       .filter((path) => /\.(tsx?|css|md)$/.test(path))
+      // A test may hold the character to assert its absence; the rule is for shipped files.
+      .filter((path) => !/\.test\.tsx?$/.test(path) && !path.includes("__tests__"))
       .filter((path) => readFileSync(path, "utf8").includes(EM_DASH));
     expect(offenders).toEqual([]);
   });

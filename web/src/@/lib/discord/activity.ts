@@ -102,7 +102,9 @@ export function inDiscordFrame(location: {
  * callback against that origin).
  */
 export function activitySignInUrl(state: ChartState): string {
-  const share = new URL(chartShareUrl(state.code, state.view, state.period));
+  const share = new URL(
+    chartShareUrl(state.code, state.view, state.period, state.anchor),
+  );
   share.searchParams.set("landscape", "1");
   const callbackUrl = share.pathname + share.search;
   const query = new URLSearchParams({ callbackUrl }).toString();

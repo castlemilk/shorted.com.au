@@ -8,8 +8,10 @@ import {
 
 const cookieValue = jest.fn<string | undefined, []>();
 const put = jest.fn();
+const get = jest.fn();
 const stockSummary = jest.fn();
 const search = jest.fn();
+const newestClose = jest.fn();
 
 jest.mock("next/headers", () => ({
   cookies: async () => ({
@@ -21,6 +23,7 @@ jest.mock("next/headers", () => ({
 }));
 jest.mock("~/@/lib/discord/settings-store", () => ({
   firestoreSettingsStore: {
+    get: (...args: unknown[]) => get(...args) as unknown,
     put: (...args: unknown[]) => put(...args) as unknown,
   },
 }));
@@ -28,6 +31,8 @@ jest.mock("~/@/lib/discord/data", () => ({
   discordData: {
     stockSummary: (code: string) => stockSummary(code) as unknown,
     search: (q: string, limit: number) => search(q, limit) as unknown,
+    newestClose: (code: string, day: string) =>
+      newestClose(code, day) as unknown,
   },
 }));
 
@@ -53,6 +58,7 @@ const VALID = {
   view: "combined",
   period: "6m",
   interactive: true,
+  asPosted: false,
 };
 
 describe("Discord settings actions", () => {
@@ -60,10 +66,12 @@ describe("Discord settings actions", () => {
     process.env = { ...env, NEXTAUTH_SECRET: "test-secret" };
     cookieValue.mockReset().mockReturnValue(grantCookie());
     put.mockReset().mockResolvedValue(undefined);
+    get.mockReset().mockResolvedValue(null);
     stockSummary
       .mockReset()
       .mockResolvedValue({ code: "PLS", name: "Pilbara" });
     search.mockReset().mockResolvedValue([{ code: "PLS", name: "Pilbara" }]);
+    newestClose.mockReset().mockResolvedValue(null);
     jest.spyOn(console, "error").mockImplementation(() => undefined);
   });
   afterAll(() => {
@@ -84,13 +92,59 @@ describe("Discord settings actions", () => {
           view: "combined",
           period: "6m",
           interactive: true,
+          asPosted: false,
         },
       });
       expect(put).toHaveBeenCalledWith(
         { kind: "guild", id: GUILD },
-        { code: "PLS", view: "combined", period: "6m", interactive: true },
+        {
+          code: "PLS",
+          view: "combined",
+          period: "6m",
+          interactive: true,
+          asPosted: false,
+        },
         USER,
       );
+    });
+
+    it("keeps the stored Buttons setting for a page that predates it", async () => {
+      // The form loaded before the deploy sends no asPosted; the link lasts 30
+      // minutes, so the submission is saved, not refused.
+      get.mockResolvedValue({ asPosted: false });
+      const { asPosted: _omitted, ...withoutButtons } = VALID;
+      const result = await saveDiscordSettings(withoutButtons);
+      expect(result).toMatchObject({ ok: true, settings: { asPosted: false } });
+      expect(get).toHaveBeenCalledWith(
+        { kind: "guild", id: GUILD },
+        { fresh: true, strict: true },
+      );
+      expect(put.mock.calls[0][1]).toMatchObject({ asPosted: false });
+    });
+
+    it("refuses a page without the setting when the stored read fails, rather than saving the default over it", async () => {
+      get.mockRejectedValue(new Error("firestore unavailable"));
+      const { asPosted: _omitted, ...withoutButtons } = VALID;
+      const result = await saveDiscordSettings(withoutButtons);
+      expect(result).toEqual({
+        ok: false,
+        error:
+          "Some of these settings are not valid. Reload the page and try again.",
+      });
+      expect(put).not.toHaveBeenCalled();
+    });
+
+    it("defaults to charts kept as posted when nothing is stored", async () => {
+      const { asPosted: _omitted, ...withoutButtons } = VALID;
+      const result = await saveDiscordSettings(withoutButtons);
+      expect(result).toMatchObject({ ok: true, settings: { asPosted: true } });
+      expect(put.mock.calls[0][1]).toMatchObject({ asPosted: true });
+    });
+
+    it("saves an explicit Buttons setting without reading the stored one", async () => {
+      const result = await saveDiscordSettings({ ...VALID, asPosted: true });
+      expect(result).toMatchObject({ ok: true, settings: { asPosted: true } });
+      expect(get).not.toHaveBeenCalled();
     });
 
     it("saves no default stock without looking one up", async () => {
@@ -168,11 +222,15 @@ describe("Discord settings actions", () => {
         code: "PLS",
         asOf: new Date("2026-10-20T00:00:00Z"),
       });
+      newestClose.mockResolvedValue("2026-10-17");
       await expect(previewStock("asx:pls")).resolves.toEqual({
         code: "PLS",
         asOf: "2026-10-20T00:00:00.000Z",
+        newestClose: "2026-10-17",
       });
       expect(stockSummary).toHaveBeenCalledWith("PLS");
+      // The close a chart posted today would read, as the bot reads it.
+      expect(newestClose).toHaveBeenCalledWith("PLS", expect.any(String));
     });
 
     it("reads nothing for a bad code or without a grant", async () => {

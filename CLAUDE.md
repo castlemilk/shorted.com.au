@@ -1159,6 +1159,35 @@ e2e spec remain specified and unbuilt).
   ANNEXURE 1") as `no_holder` unless the name resolves to a curated
   institution; `-mode repair-placeholders` removes rows stored before the gate.
 
+### Insights explorer (`/ownership/insights`)
+
+A market map (treemap: sector, then stock), a position heatmap (sector by
+week or month), a money flow (Sankey: kind, institution, sector) and a
+two-handle time window that drives all three, over
+`OwnershipInsightsService.GetOwnershipInsights` (`ownership_insights.proto`,
+its own service, mirrored on `ShortedStocksService`). Go:
+`ownership_insights.go` (one base per universe generation: the fund files'
+index and every notice; at most 64 window answers per generation) and
+`store/shorts/postgres_ownership_insights.go` (`OwnershipInsightsStore`, found
+by type assertion; reads files by id). Web: `app/ownership/insights/` (static
+ISR, the desk and a table per chart in the server HTML),
+`components/ownership/insights/` (the island `insights-explorer.tsx`; the
+charts load from `insights-charts-lazy.tsx`, `ssr: false`, and size with
+`use-element-size.ts`, no visx), `lib/ownership/insights/` (pure geometry and
+the link codec), `app/actions/ownershipInsights.ts` (KV for the default view
+only, `cache:ownership:insights:v1`).
+
+- **A fund change compares a fund with itself.** Its file at the window's start
+  (or its first file inside the window) against its newest file at the end;
+  shares are compared and valued at the later file's price. A window with one
+  file per fund states levels only, and every fund change is n/a, never 0.
+- **The notice change is what the notices state** (present less previous,
+  where both are stated), summed in percentage points. No past register is
+  rebuilt, for the Holder Lanes' reason.
+- **The change scale is rust to avocado**, three steps a side and a warm grey
+  midpoint, light and dark steps checked with the dataviz validator
+  (`lib/ownership/insights/scale.ts`); n/a is hatched, never the midpoint.
+
 ## Weekly/Monthly/Yearly Reports
 
 LLM-generated short-selling reports at `/reports` (weekly `2026-W23`, monthly `2026-05`, yearly `2025` — one `weekly_reports` table, slug shape disambiguates).
@@ -1644,6 +1673,7 @@ because chat apps show HTML as text (a WBT snippet pasted into Discord,
 
 ### Landmines
 
+- **A chart as posted takes `?asof=&shorts=&prices=`.** `/chart/<CODE>`, `/chart/<CODE>/image`, `/embed/chart` and the Activity accept the three dates of an anchor (`chart-anchor.ts`: the posting day, the newest report and the newest close). A settled anchored card (posted 2+ days ago, report 8+ days old, complete with name and both logos) is cached 30 days at the CDN, and its data 7 days. Anything else uses the existing policies.
 - **`/chart/` must stay out of robots.txt; `/embed/` stays in it.** Twitterbot
   and Slackbot honour robots.txt, so a disallowed share link posts with no
   preview. The share page keeps itself out of the index with its noindex meta.
@@ -1705,6 +1735,13 @@ it in place, and an **Interactive** button (`"activity": true`, on since
 
 - **Buttons carry their chart in `custom_id`** (`chart:p:BHP:short:3m`); old
   messages keep sending what they were posted with. Add kinds, never change one.
+- **Kept-as-posted charts add three dates to the `custom_id`**: the posting day,
+  the newest short report and the newest close
+  (`chart:p:BHP:short:3m:20261104:20261028:20261103`). The bot reads the report
+  and the close before it draws a new post, and posts live when either is unknown.
+  A press copies the figures from `interaction.message` and never re-reads the
+  stock, and one with no embed is refused privately. The forms without dates stay
+  live, and a form's meaning never changes.
 - **A chart message uploads its card** (`lib/discord/chart-card.ts`) as
   `attachment://<CODE>-<view>-<period>.png` in the deferred webhook edit; an
   interaction's HTTP response is JSON and cannot. The card's URL made Discord's

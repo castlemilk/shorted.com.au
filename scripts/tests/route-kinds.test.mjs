@@ -245,7 +245,7 @@ test("the static failure hint names the static ownership pages, both outcomes an
   assert.match(result.stdout, new RegExp(`${EXPECTED.length} stock routes are ISR`));
   assert.match(result.stdout, new RegExp(`${OWNERSHIP_ROUTES.length} ownership routes are ISR`));
   assert.ok(
-    result.stderr.includes("under /ownership (the hub, the notice feed, the register list or a workspace page)"),
+    result.stderr.includes("under /ownership (the hub, the notice feed, the register list, the insights explorer or a workspace page)"),
     "the static failure hint does not name the static ownership pages",
   );
   // Each outcome is matched to its own cause, so a swap of the two parentheticals fails here.

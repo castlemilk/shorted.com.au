@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 
+import { sydneyDay } from "~/@/components/charts/chart-anchor";
 import { normalizeCode } from "~/@/lib/discord/custom-id";
 import { discordData } from "~/@/lib/discord/data";
 import type { StockHit, StockSummary } from "~/@/lib/discord/messages";
@@ -30,6 +31,9 @@ export type SaveResult =
 
 // A "use server" module exports async functions only, so the form keeps its
 // own copy of this line (settings-form.tsx).
+const RELOAD_MESSAGE =
+  "Some of these settings are not valid. Reload the page and try again.";
+
 const EXPIRED_MESSAGE =
   "This link has expired. Run /settings in Discord for a new one.";
 
@@ -53,13 +57,26 @@ export async function saveDiscordSettings(input: unknown): Promise<SaveResult> {
     parsed.period === undefined ||
     parsed.interactive === undefined
   ) {
-    return {
-      ok: false,
-      error:
-        "Some of these settings are not valid. Reload the page and try again.",
-    };
+    return { ok: false, error: RELOAD_MESSAGE };
   }
-  const settings = resolveSettings(parsed);
+  // A page loaded before the Buttons setting existed sends no asPosted, and
+  // links last 30 minutes, so such a submission is not refused: the stored
+  // value stands, else the default. The store's read is strict here: a failed
+  // read must not save the default over a stored value, so it refuses (the
+  // page then asks for a reload, which sends the field).
+  let asPosted = parsed.asPosted;
+  if (asPosted === undefined) {
+    try {
+      const stored = await firestoreSettingsStore.get(grant.scope, {
+        fresh: true,
+        strict: true,
+      });
+      asPosted = stored?.asPosted;
+    } catch {
+      return { ok: false, error: RELOAD_MESSAGE };
+    }
+  }
+  const settings = resolveSettings({ ...parsed, asPosted });
 
   // A default stock that does not exist would make every command without a
   // code answer "not found".
@@ -92,6 +109,8 @@ export async function searchDiscordStocks(query: unknown): Promise<StockHit[]> {
 /** A stock summary that crosses to the browser: the as-of date as ISO text. */
 export type PreviewSummary = Omit<StockSummary, "asOf"> & {
   asOf: string | null;
+  /** The newest close the bot would read for a chart posted today. */
+  newestClose: string | null;
 };
 
 /** The readings the preview's chart message carries, as the bot would post them. */
@@ -100,8 +119,16 @@ export async function previewStock(
 ): Promise<PreviewSummary | null> {
   const c = typeof code === "string" ? normalizeCode(code) : null;
   if (!c || !(await currentGrant())) return null;
-  const summary = await discordData.stockSummary(c);
+  const day = sydneyDay(new Date());
+  const [summary, newestClose] = await Promise.all([
+    discordData.stockSummary(c),
+    discordData.newestClose(c, day),
+  ]);
   return summary
-    ? { ...summary, asOf: summary.asOf ? summary.asOf.toISOString() : null }
+    ? {
+        ...summary,
+        asOf: summary.asOf ? summary.asOf.toISOString() : null,
+        newestClose,
+      }
     : null;
 }

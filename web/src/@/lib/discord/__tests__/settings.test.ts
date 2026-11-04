@@ -24,6 +24,7 @@ describe("parseSettings", () => {
         view: "combined",
         period: "6m",
         interactive: true,
+        asPosted: false,
         extra: "ignored",
       }),
     ).toEqual({
@@ -31,6 +32,7 @@ describe("parseSettings", () => {
       view: "combined",
       period: "6m",
       interactive: true,
+      asPosted: false,
     });
     expect(
       parseSettings({
@@ -38,8 +40,14 @@ describe("parseSettings", () => {
         view: "candles",
         period: "2y",
         interactive: "yes",
+        asPosted: "no",
       }),
     ).toEqual({});
+  });
+
+  it("reads the chart buttons' setting only as a boolean", () => {
+    expect(parseSettings({ asPosted: true })).toEqual({ asPosted: true });
+    expect(parseSettings({ asPosted: 0 })).toEqual({});
   });
 
   it("keeps an explicit 'no default stock'", () => {
@@ -70,6 +78,15 @@ describe("resolveSettings", () => {
 
   it("is the built-ins with nothing set", () => {
     expect(resolveSettings(null, undefined)).toEqual(BUILT_IN_SETTINGS);
+  });
+
+  it("keeps charts as posted unless a layer turns it off", () => {
+    expect(BUILT_IN_SETTINGS.asPosted).toBe(true);
+    // A document saved before the setting existed keeps the default.
+    expect(resolveSettings({ view: "price" }).asPosted).toBe(true);
+    expect(
+      resolveSettings({ asPosted: false }, { asPosted: true }).asPosted,
+    ).toBe(false);
   });
 
   it("lets a server clear the default stock a person set", () => {

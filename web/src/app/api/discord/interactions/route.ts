@@ -29,9 +29,10 @@ import { recordProductEvent } from "~/@/lib/product-events";
  * Node, not Edge: signature verification uses node:crypto, and the replies
  * are built from the same server actions (and caches) as the stock pages.
  * maxDuration bounds a deferred reply, which finishes in the background after
- * the response (waitUntil): a chart reads its stock (6s at most), fetches or
- * draws its card (9s at most) and uploads it, then has the CDN draw the cards
- * one press away.
+ * the response (waitUntil): a chart reads its stock (6s at most; a name is
+ * searched and read again, 6s each), a kept chart its newest close (beside the
+ * stock read, or 2.5s after it for a name), then fetches or draws its card (9s
+ * at most) and uploads it, and has the CDN draw the cards one press away.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

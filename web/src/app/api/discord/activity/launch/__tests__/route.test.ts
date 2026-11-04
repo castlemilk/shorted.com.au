@@ -83,3 +83,83 @@ describe("GET /api/discord/activity/launch", () => {
     expect(getSettings).not.toHaveBeenCalled();
   });
 });
+
+describe("GET /api/discord/activity/launch: a recalled chart kept as posted", () => {
+  beforeEach(() => {
+    recallLaunch.mockReset().mockResolvedValue(null);
+    getSettings.mockReset().mockResolvedValue(null);
+  });
+
+  it("passes a valid anchor through", async () => {
+    recallLaunch.mockResolvedValue({
+      code: "WBT",
+      view: "combined",
+      period: "3m",
+      anchor: { day: "2026-11-04", shorts: "2026-10-29", prices: "2026-11-03" },
+    });
+    expect(await (await ask(`channel=${CHANNEL}`)).json()).toEqual({
+      source: "command",
+      state: {
+        code: "WBT",
+        view: "combined",
+        period: "3m",
+        anchor: { day: "2026-11-04", shorts: "2026-10-29", prices: "2026-11-03" },
+      },
+    });
+  });
+
+  it("drops an anchor whose day is not a real day, leaving a live chart", async () => {
+    recallLaunch.mockResolvedValue({
+      code: "WBT",
+      view: "combined",
+      period: "3m",
+      anchor: { day: "2026-02-30", shorts: "2026-02-30" },
+    });
+    const body = await (await ask(`channel=${CHANNEL}`)).json();
+    expect(body.state).toEqual({ code: "WBT", view: "combined", period: "3m" });
+    expect(body.state).not.toHaveProperty("anchor");
+  });
+
+  it("drops an anchor that is not an object", async () => {
+    recallLaunch.mockResolvedValue({
+      code: "WBT",
+      view: "price",
+      period: "1y",
+      anchor: "2026-11-04",
+    });
+    const body = await (await ask(`channel=${CHANNEL}`)).json();
+    expect(body.state).toEqual({ code: "WBT", view: "price", period: "1y" });
+  });
+
+  it("pulls a shorts or prices day after the posting day back to it", async () => {
+    recallLaunch.mockResolvedValue({
+      code: "WBT",
+      view: "short",
+      period: "1m",
+      anchor: { day: "2026-11-04", shorts: "2026-11-09", prices: "2026-11-09" },
+    });
+    const body = await (await ask(`channel=${CHANNEL}`)).json();
+    expect(body.state.anchor).toEqual({
+      day: "2026-11-04",
+      shorts: "2026-11-04",
+      prices: "2026-11-04",
+    });
+  });
+
+  it("drops an anchor dated after today (Sydney), leaving a live chart", async () => {
+    jest.useFakeTimers({ now: new Date("2026-11-03T23:00:00Z") });
+    try {
+      recallLaunch.mockResolvedValue({
+        code: "WBT",
+        view: "combined",
+        period: "3m",
+        anchor: { day: "2026-11-05", shorts: "2026-11-05", prices: "2026-11-05" },
+      });
+      const body = await (await ask(`channel=${CHANNEL}`)).json();
+      expect(body.state).toEqual({ code: "WBT", view: "combined", period: "3m" });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+

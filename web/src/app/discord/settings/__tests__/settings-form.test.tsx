@@ -27,7 +27,9 @@ function renderForm(
   return render(
     <DiscordSettingsForm
       scope="guild"
-      initial={{ ...BUILT_IN_SETTINGS, ...initial }}
+      // Live charts unless a test asks for kept ones: the layout tests below
+      // predate the setting, and the kept ones have their own.
+      initial={{ ...BUILT_IN_SETTINGS, asPosted: false, ...initial }}
       initialName={options.initialName}
       expiresAt={soon()}
       activityEnabled={options.activityEnabled ?? true}
@@ -63,6 +65,58 @@ describe("DiscordSettingsForm", () => {
     expect(within(preview).getByText("Interactive")).toBeInTheDocument();
     expect(within(preview).getByText("Open on Shorted")).toBeInTheDocument();
     await waitFor(() => expect(mockPreview).toHaveBeenCalledWith("PLS"));
+  });
+
+  it("previews a chart kept as posted, once its report date is known", async () => {
+    mockPreview.mockResolvedValue({
+      code: "PLS",
+      name: "Pilbara Minerals",
+      asOf: "2026-10-20T00:00:00.000Z",
+      newestClose: "2026-10-19",
+    });
+    renderForm({ code: "PLS", asPosted: true });
+    await waitFor(() =>
+      expect(chartCard().getAttribute("src")).toMatch(
+        /[?&]asof=\d{4}-\d{2}-\d{2}/,
+      ),
+    );
+    expect(
+      screen.getByRole("radio", { name: /^Keep the chart as posted/ }),
+    ).toBeChecked();
+  });
+
+  it("previews a chart whose close is unknown live, as the bot posts it", async () => {
+    mockPreview.mockResolvedValue({
+      code: "PLS",
+      name: "Pilbara Minerals",
+      asOf: "2026-10-20T00:00:00.000Z",
+      newestClose: null,
+    });
+    renderForm({ code: "PLS", asPosted: true });
+    await waitFor(() => expect(mockPreview).toHaveBeenCalled());
+    expect(chartCard().getAttribute("src")).not.toMatch(/asof=/);
+  });
+
+  it("previews a chart without its report date live, as the bot posts it", () => {
+    renderForm({ code: "PLS", asPosted: true });
+    expect(chartCard().getAttribute("src")).not.toMatch(/asof=/);
+  });
+
+  it("switches the buttons to the latest figures, and saves that", async () => {
+    const user = userEvent.setup();
+    mockSave.mockResolvedValue({
+      ok: true,
+      settings: { ...BUILT_IN_SETTINGS, code: "PLS", asPosted: false },
+    });
+    renderForm({ code: "PLS", asPosted: true });
+    await user.click(
+      screen.getByRole("radio", { name: /^Redraw with the latest figures/ }),
+    );
+    expect(chartCard().getAttribute("src")).not.toMatch(/asof=/);
+    await user.click(screen.getByRole("button", { name: "Save settings" }));
+    expect(mockSave).toHaveBeenCalledWith(
+      expect.objectContaining({ asPosted: false }),
+    );
   });
 
   it("shows the readings once they arrive", async () => {
@@ -151,6 +205,7 @@ describe("DiscordSettingsForm", () => {
       ...BUILT_IN_SETTINGS,
       code: "PLS",
       period: "max" as const,
+      asPosted: false,
     };
     mockSave.mockResolvedValue({ ok: true, settings: saved });
     renderForm({ code: "PLS" });
@@ -185,6 +240,9 @@ describe("DiscordSettingsForm", () => {
     const user = userEvent.setup();
     renderForm({ code: "PLS", view: "price", interactive: true });
     await user.click(screen.getByRole("button", { name: "Use the defaults" }));
+    expect(
+      screen.getByRole("radio", { name: /^Keep the chart as posted/ }),
+    ).toBeChecked();
     expect(
       screen.getByRole("radio", { name: /^Short interest/ }),
     ).toBeChecked();

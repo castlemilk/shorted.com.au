@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 
 import { siteConfig } from "~/@/config/site";
 import { formatCompanyName } from "~/@/lib/company-name";
-import { CHART_PERIOD_PHRASE } from "~/@/components/charts/chart-views";
+import {
+  chartPeriodPhrase,
+  formatAnchorDay,
+} from "~/@/components/charts/chart-anchor";
 import {
   CHART_SOURCE,
   chartImageUrl,
@@ -46,18 +49,22 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { code: rawCode } = await params;
   if (!isChartCode(rawCode)) return { robots: NOINDEX };
-  const { code, view, period } = parseChartShareParams(
+  const { code, view, period, anchor } = parseChartShareParams(
     rawCode,
     await searchParams,
   );
   const company = await readCompany(code);
   const subject = chartSubject(view);
-  const when = CHART_PERIOD_PHRASE[period];
+  const when = chartPeriodPhrase(period, anchor);
   const title = `${code} ${subject} chart, ${when}`;
-  const description = `Interactive chart of ${company ? `${company} (ASX:${code})` : `ASX:${code}`} ${subject}, ${when}, from ${CHART_SOURCE[view]}. Updated daily.`;
-  const url = chartShareUrl(code, view, period);
+  // A pinned chart is the same picture for ever, so it does not promise a daily update.
+  const freshness = anchor
+    ? `The chart as posted on ${formatAnchorDay(anchor.day)}.`
+    : "Updated daily.";
+  const description = `Interactive chart of ${company ? `${company} (ASX:${code})` : `ASX:${code}`} ${subject}, ${when}, from ${CHART_SOURCE[view]}. ${freshness}`;
+  const url = chartShareUrl(code, view, period, anchor);
   const image = {
-    url: chartImageUrl(code, view, period),
+    url: chartImageUrl(code, view, period, anchor),
     width: 1200,
     height: 630,
     alt: `${code} ${subject} chart, ${when}`,
@@ -101,13 +108,14 @@ export default async function ChartSharePage({
   const { code: rawCode } = await params;
   if (!isChartCode(rawCode)) notFound();
   const query = await searchParams;
-  const { code, view, period } = parseChartShareParams(rawCode, query);
+  const { code, view, period, anchor } = parseChartShareParams(rawCode, query);
   const company = await readCompany(code);
   return (
     <ChartShareView
       code={code}
       view={view}
       period={period}
+      anchor={anchor ?? null}
       company={company}
       // The bot's "Open on Shorted" link (lib/discord/messages.ts).
       startLandscape={query.landscape === "1"}

@@ -11,6 +11,7 @@ import type {
   ChartPeriod,
   ChartViewId,
 } from "~/@/components/charts/chart-views";
+import type { ChartAnchor } from "~/@/components/charts/chart-anchor";
 
 const chartFallback = (
   <div className="h-full w-full p-2">
@@ -31,6 +32,8 @@ export interface ChartShareViewProps {
   code: string;
   view: ChartViewId;
   period: ChartPeriod;
+  /** The chart as posted on this day (`?asof=`), or null for the live chart. */
+  anchor?: ChartAnchor | null;
   company: string | null;
   /** Open turned sideways on a portrait phone (`?landscape=1`). */
   startLandscape?: boolean;
@@ -46,6 +49,7 @@ export function ChartShareView({
   code,
   view,
   period,
+  anchor = null,
   company,
   startLandscape = false,
 }: ChartShareViewProps) {
@@ -83,6 +87,7 @@ export function ChartShareView({
           stockCode={code}
           defaultView={view}
           defaultPeriod={period}
+          anchor={anchor}
           allowLandscape
           startLandscape={startLandscape}
           // A visitor with a session gets the advanced indicators; the sign-in
