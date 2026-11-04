@@ -704,8 +704,8 @@ valuation, stock page).
   `GetStockStrategyFit` (`ListStrategies` reads only the regime). `stale` is set
   when the index has closed a session the prices have not reached, read from the
   regime view and from the index's own series (`latestIndexSession`).
-  `ineligible_reason` is the spec's closed vocabulary: a stock outside the
-  universe reads `short_history`. Rule `value`s keep the API's precision; the
+  `ineligible_reason` is a closed vocabulary: a stock outside the universe
+  reads `short_history`. Rule `value`s keep the API's precision; the
   mapper rounds only the figures a cut-off reads, rounding down.
 
 ## Strategy chart primitives and returns kit (PR-17)
