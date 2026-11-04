@@ -1,0 +1,3 @@
+# Engine versions and the digest of the spec goldens each one shipped with.
+# Append a line whenever Version changes (TestEngineVersionBumpedWithGoldens).
+1.0.0 75ad62308b5ab8e1d42b1485b072ed0fe7930522d50354263386e975aed63626
