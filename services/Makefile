@@ -810,6 +810,16 @@ test-strategy-parity: test-integration-images
 	GOWORK=off CGO_ENABLED=0 FEATURES_PARITY_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run TestPriceFeaturesParity ./pkg/strategy/features/
 
+# The strategy reader suite (services/pkg/strategy/pgsource): the feature
+# pipeline's readers and the picker's metadata, dividend and cash-rate reads,
+# scanned against a real Postgres in the production table shapes. It gates
+# the deploy and task check beside the parity suite.
+.PHONY: test-pgsource-pg
+test-pgsource-pg: test-integration-images
+	@set -e; \
+	GOWORK=off CGO_ENABLED=0 PGSOURCE_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers ./pkg/strategy/pgsource/
+
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench
 .PHONY: test-stack-up test-stack-down test-stack-status test-stack-logs

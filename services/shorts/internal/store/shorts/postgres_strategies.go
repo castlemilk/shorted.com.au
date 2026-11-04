@@ -119,7 +119,6 @@ func finiteAll(vs ...**float64) {
 	}
 }
 
-// growthColumns selects every mv_fundamentals_growth column (plan §2.2) the
 // growthColumns is the mv_fundamentals_growth select list, owned by pgsource.
 const growthColumns = pgsource.GrowthColumns
 

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -371,6 +373,66 @@ func TestListStrategyShortDatesMergesByCode(t *testing.T) {
 		return nil, pgErr("57014")
 	}}); err == nil {
 		t.Error("a failing short dates read must fail the universe fill")
+	}
+}
+
+// With 000132 the extras merge onto the universe by code, through the store's
+// own universe read: the lower-case extras code matches BHP, the quality row
+// and the valuation inputs attach, and ZZZ, which has no extras, keeps none.
+func TestListStrategyCandidatesMergesExtras(t *testing.T) {
+	quality := &engine.Quality{BasisPeriodType: "annual", Currency: "USD", ROEPct: new(22.5), NetMarginPct: new(float64(20)), BalanceLagMonths: new(int32(0))}
+	extras := pgsource.FundamentalsExtras{
+		StockCode:              "bhp", // matched case-insensitively
+		HasGrowthRow:           true,
+		RevenueBasisSource:     "filing",
+		EPSBasisSource:         "vendor",
+		RevenueLatestPeriodEnd: tp("2026-06-30"),
+		RevenuePriorPeriodEnd:  tp("2025-06-30"),
+		Valuation: engine.ValuationInputs{
+			Shares:          new(5.07e9),
+			SharesPeriodEnd: tp("2026-06-30"),
+			MedianK:         new(1.0),
+			KPeriods:        4,
+			KConsistent:     true,
+			EPSCurrency:     "USD",
+		},
+	}
+	extrasFixture := pgsource.ExtrasRow(extras, quality)
+
+	db := &fakeDB{respond: func(sql string) ([][]any, error) {
+		switch {
+		case strings.Contains(sql, sqlExtras):
+			return [][]any{extrasFixture}, nil
+		case strings.Contains(sql, sqlCandidates):
+			return [][]any{fakeCandidateRow("BHP"), fakeCandidateRow("ZZZ")}, nil
+		case strings.Contains(sql, strategyShortDatesQuery):
+			return nil, nil
+		}
+		return nil, fmt.Errorf("unexpected query")
+	}}
+	cands, err := listStrategyCandidates(context.Background(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bhp, zzz := cands[0], cands[1]
+	if bhp.Quality == nil || *bhp.Quality.ROEPct != 22.5 || bhp.Quality.BalanceLagMonths == nil {
+		t.Errorf("BHP quality: %+v", bhp.Quality)
+	}
+	if bhp.Growth.RevenueBasisSource != "filing" || bhp.Growth.EPSBasisSource != "vendor" ||
+		!bhp.Growth.RevenueLatestPeriodEnd.Equal(*tp("2026-06-30")) || !bhp.Growth.RevenuePriorPeriodEnd.Equal(*tp("2025-06-30")) {
+		t.Errorf("BHP growth provenance: %+v", bhp.Growth)
+	}
+	if bhp.ValuationInputs == nil || *bhp.ValuationInputs.Shares != 5.07e9 || bhp.ValuationInputs.KPeriods != 4 {
+		t.Errorf("BHP valuation inputs: %+v", bhp.ValuationInputs)
+	}
+	if zzz.Quality != nil || zzz.ValuationInputs != nil {
+		t.Error("a stock without extras gets none")
+	}
+	// The candidates query keeps EXACTLY its 000129/000130 column list.
+	for _, q := range db.queries {
+		if strings.Contains(q, sqlCandidates) && strings.Contains(q, "mv_fundamentals_quality") {
+			t.Error("strategyCandidatesQuery must not read 000132 objects")
+		}
 	}
 }
 

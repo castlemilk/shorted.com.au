@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -347,6 +348,32 @@ func ListExtras(ctx context.Context, db DB) (map[string]*FundamentalsExtras, err
 		return nil, fmt.Errorf("failed to query fundamentals extras: %w", err)
 	}
 	return out, nil
+}
+
+// ExtrasRow returns one row of the universe extras read, in the column order
+// its scan targets take, built from a stock's extras and quality row (nil when
+// it has none). A caller that stands in for the database answers the read with
+// it, so a test of a store method can check the merge the method makes.
+func ExtrasRow(e FundamentalsExtras, q *engine.Quality) []any {
+	r := extrasRow{e: e}
+	if q != nil {
+		r.hasQuality = true
+		r.q = *q
+	}
+	targets := r.targets()
+	out := make([]any, len(targets))
+	for i, t := range targets {
+		v := reflect.ValueOf(t).Elem()
+		switch {
+		case v.Kind() == reflect.Pointer && v.IsNil():
+			out[i] = nil
+		case v.Kind() == reflect.Pointer:
+			out[i] = v.Elem().Interface()
+		default:
+			out[i] = v.Interface()
+		}
+	}
+	return out
 }
 
 // MergeExtras attaches each candidate's extras: the appended

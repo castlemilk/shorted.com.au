@@ -5,7 +5,8 @@ import (
 	"testing"
 )
 
-// first SELECT and the first top-level FROM of query.
+// selectList returns the select-list expressions of the query's first SELECT,
+// split at top-level commas, up to its first top-level FROM.
 func selectList(t *testing.T, query string) []string {
 	t.Helper()
 	upper := strings.ToUpper(query)
