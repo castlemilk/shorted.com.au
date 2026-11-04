@@ -577,6 +577,17 @@ valuation, stock page).
 | Picker web | `components/picks/`, `lib/strategies/`: the Score column is a `ScoreMeter` (a recessed hairline track with an amber fill the length of the score, md+), the Pivot cell prints the close against the pivot (`pctVsPivot`, muted, never red or green), and each hub row carries a `StatusTape` (one band divided triggered / setup / watch over the ranked rows) under its readouts; a native `<details>` row detail (ratios, basis, source, "Full financials": a followed link to the indexable `/shorts/<code>/financials`, prefetch off), `?status=` and `?sort=` via the `picks-sorted-view.tsx` island (both POST to the rewrite; the shortlist's rows stand in while it loads), coverage "fundamentals for N of M stocks (growth figures for K)" only when `fundamentals_rows_count` is reported. The desk (2026-10): five bespoke strategy glyphs as path data in `lib/strategies/glyphs.ts` drawn by `strategy-glyph.tsx` (non-scaling 1.5px stroke, 1.75px at 40px; the only 56px bezel on a view is the strategy page header, which engraves itself on load); the hub is ONE hairline-divided rack (`<ol>`), never a grid of identical cards; the regime banner carries an aria-hidden, text-free ladder (`ladderMarks`) whose legend is the four readouts; statuses are square lamps, rule outcomes round dots. Motion is `phosphor-warm`, `needle-settle` and `trace-draw`, all `motion-safe:`, and the strategy scenes' canvas loop (above), which is the only loop |
 | MCP | `list_strategies`, `get_strategy_picks` (`sort_by`), `get_stock_fundamentals` (`quality`, `coverage`); no new tool |
 
+**Profile shell (`/strategies/[strategy]`).** `[strategy]/layout.tsx` owns the
+params (`generateStaticParams`, `dynamicParams = false`, so an unknown slug is a
+routing 404) and renders the breadcrumbs, `components/strategies/strategy-header.tsx`
+(registry-only, reads nothing) and `components/strategies/strategy-tab-nav.tsx`
+(the one client module in that kit: intent prefetch, `scroll={false}`,
+dock-on-switch). Tabs live in `lib/strategies/strategy-tabs.ts` and render only
+when `enabled`; capability flags in `lib/strategies/capabilities.ts` are all off
+until their capability ships, so no Compare, Create alert or Alert-me control
+renders before then. The Overview page keeps `StrategyPanel`, the shortlist and
+the sorted view unchanged.
+
 ### Landmines
 
 - **Fundamentals are in the company's REPORTING currency** (BHP is USD) and
