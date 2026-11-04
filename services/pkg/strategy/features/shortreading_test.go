@@ -32,7 +32,7 @@ func TestAbsentFromCompleteReportFails(t *testing.T) {
 	reports := NewReports(rows, nil)
 
 	asOf := mustDate(t, "2026-10-06") // 30 September is public from 6 October
-	got := ShortReadingV1("GHOST", asOf, cal, reports, nil, nil)
+	got := ShortReadingV1("GHOST", asOf, cal, reports, nil, nil, StaleAfterSessions)
 	if got.Status != StatusAbsent {
 		t.Fatalf("status = %q, want %q (the newest complete report omits the code)", got.Status, StatusAbsent)
 	}
@@ -62,7 +62,7 @@ func TestIncompleteNewestReportFallsBack(t *testing.T) {
 		ingests := []ReportIngest{{ReportDate: mustDate(t, "2026-09-30"), FileRows: intPtr(10), LoadedRows: 2}}
 		reports := NewReports(rows, ingests)
 
-		got := ShortReadingV1("ABC", asOf, cal, reports, nil, nil)
+		got := ShortReadingV1("ABC", asOf, cal, reports, nil, nil, StaleAfterSessions)
 		assertFallbackToSeptember29(t, got)
 	})
 
@@ -75,7 +75,7 @@ func TestIncompleteNewestReportFallsBack(t *testing.T) {
 		rows = replaceRow(t, rows, row(t, "ABC", "2026-09-30", "ABC GROUP ORDINARY", 900, 10_000_000, ptr(9)))
 		reports := NewReports(rows, nil)
 
-		got := ShortReadingV1("ABC", asOf, cal, reports, nil, nil)
+		got := ShortReadingV1("ABC", asOf, cal, reports, nil, nil, StaleAfterSessions)
 		assertFallbackToSeptember29(t, got)
 	})
 }
@@ -100,7 +100,7 @@ func TestShortReadingV1Statuses(t *testing.T) {
 	t.Run("zero is a real zero", func(t *testing.T) {
 		_, rows := septemberReports(t)
 		rows = replaceRow(t, rows, row(t, "ABC", "2026-09-30", "ABC GROUP ORDINARY", 0, 10_000_000, ptr(0)))
-		got := ShortReadingV1("ABC", asOf, cal, NewReports(rows, nil), nil, nil)
+		got := ShortReadingV1("ABC", asOf, cal, NewReports(rows, nil), nil, nil, StaleAfterSessions)
 		if got.Status != StatusZero || got.Pct == nil || *got.Pct != 0 {
 			t.Errorf("status = %q pct = %v, want zero with pct 0", got.Status, got.Pct)
 		}
@@ -109,7 +109,7 @@ func TestShortReadingV1Statuses(t *testing.T) {
 	t.Run("a NULL percentage is unavailable, not zero", func(t *testing.T) {
 		_, rows := septemberReports(t)
 		rows = replaceRow(t, rows, row(t, "ABC", "2026-09-30", "ABC GROUP ORDINARY", 500, 10_000_000, nil))
-		got := ShortReadingV1("ABC", asOf, cal, NewReports(rows, nil), nil, nil)
+		got := ShortReadingV1("ABC", asOf, cal, NewReports(rows, nil), nil, nil, StaleAfterSessions)
 		if got.Status != StatusUnavailable || got.Reason != ReasonASICValueMissing {
 			t.Errorf("status = %q reason = %q, want unavailable with %s", got.Status, got.Reason, ReasonASICValueMissing)
 		}
@@ -118,17 +118,51 @@ func TestShortReadingV1Statuses(t *testing.T) {
 		}
 	})
 
-	t.Run("no complete report within eight sessions is stale", func(t *testing.T) {
+	t.Run("no complete report at all is stale without dates", func(t *testing.T) {
+		rows := []ASICRow{
+			row(t, "ABC", "2026-09-01", "ABC GROUP ORDINARY", 500, 10_000_000, ptr(5)),
+		}
+		// The file recorded ten codes and only one reached shorts: partial.
+		ingests := []ReportIngest{{ReportDate: mustDate(t, "2026-09-01"), FileRows: intPtr(10), LoadedRows: 1}}
+		got := ShortReadingV1("ABC", mustDate(t, "2026-09-25"), cal, NewReports(rows, ingests), nil, nil, StaleAfterSessions)
+		if got.Status != StatusStale || got.Reason != ReasonASICReportStale {
+			t.Errorf("status = %q reason = %q, want stale", got.Status, got.Reason)
+		}
+		if got.ReportDate != nil || got.Pct != nil || got.InReport != nil {
+			t.Errorf("stale reading with no report names one: %+v", got)
+		}
+	})
+
+	// The newest complete report is 17 sessions old at 25 September: stale, but
+	// its dates and whether the code is in it still come through, so a listed
+	// code keeps its universe membership with its short rules unknown.
+	t.Run("an old complete report is stale with its dates", func(t *testing.T) {
 		rows := []ASICRow{
 			row(t, "ABC", "2026-09-01", "ABC GROUP ORDINARY", 500, 10_000_000, ptr(5)),
 			row(t, "OTH", "2026-09-01", "OTHER GROUP ORDINARY", 1000, 10_000_000, ptr(1)),
 		}
-		got := ShortReadingV1("ABC", mustDate(t, "2026-09-25"), cal, NewReports(rows, nil), nil, nil)
+		reports := NewReports(rows, nil)
+		asOf := mustDate(t, "2026-09-25")
+		got := ShortReadingV1("ABC", asOf, cal, reports, nil, nil, StaleAfterSessions)
 		if got.Status != StatusStale || got.Reason != ReasonASICReportStale {
 			t.Errorf("status = %q reason = %q, want stale", got.Status, got.Reason)
 		}
-		if got.ReportDate != nil || got.Pct != nil {
-			t.Errorf("stale reading names a report or a figure: %+v", got)
+		if got.ReportDate == nil || *got.ReportDate != mustDate(t, "2026-09-01") {
+			t.Errorf("report date = %v, want 2026-09-01", got.ReportDate)
+		}
+		if got.AvailableDate == nil || *got.AvailableDate != mustDate(t, "2026-09-07") {
+			t.Errorf("available date = %v, want 2026-09-07", got.AvailableDate)
+		}
+		if got.InReport == nil || !*got.InReport {
+			t.Errorf("in report = %v, want true: ABC is in the 1 September report", got.InReport)
+		}
+		if got.Pct != nil || got.Positions != nil || got.DaysToCover != nil {
+			t.Errorf("stale reading carries a figure: %+v", got)
+		}
+
+		got = ShortReadingV1("GONE", asOf, cal, reports, nil, nil, StaleAfterSessions)
+		if got.InReport == nil || *got.InReport {
+			t.Errorf("GONE in report = %v, want false: the old report omits it", got.InReport)
 		}
 	})
 }

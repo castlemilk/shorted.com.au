@@ -10,8 +10,9 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/instrument"
 )
 
-// StaleAfterSessions is the age, in sessions, past which the newest complete
-// ASIC report no longer counts as current. A reading older than this is stale.
+// StaleAfterSessions is the v1 policy's max_report_age_sessions: the age, in
+// sessions, past which the newest complete ASIC report no longer counts as
+// current. It is passed to ShortReadingV1, so a sensitivity run can change it.
 const StaleAfterSessions = 8
 
 // Short-reading statuses. sf1 reports reported, zero, absent, unavailable or
@@ -39,6 +40,10 @@ const (
 // nil when no report backs the reading, and Pct, Positions and DaysToCover are
 // nil whenever the status does not carry them. Reason names why the status is
 // unavailable or stale; DaysToCoverReason names why DaysToCover is unknown.
+// InReport says whether the code has a row in the report the reading reads, and
+// is nil when no report backs the reading; it is set on a stale reading that
+// names a report too, so a caller can tell a stale code that is listed from one
+// that is not.
 type ShortReading struct {
 	Status            string      `json:"status"`
 	ReportDate        *civil.Date `json:"report_date"`
@@ -46,6 +51,7 @@ type ShortReading struct {
 	Pct               *float64    `json:"pct"`
 	Positions         *float64    `json:"positions"`
 	DaysToCover       *float64    `json:"days_to_cover"`
+	InReport          *bool       `json:"in_report,omitempty"`
 	Reason            string      `json:"reason,omitempty"`
 	DaysToCoverReason string      `json:"days_to_cover_reason,omitempty"`
 }
@@ -128,33 +134,40 @@ func (r *Reports) row(code string, date civil.Date) (ASICRow, bool) {
 	return row, ok
 }
 
+// latestUsable returns the newest complete report public at asOf, with no age
+// limit. A report that is public but partial is skipped, as is one not yet
+// public.
+func (r *Reports) latestUsable(asOf civil.Date, cal *calendar.Calendar) (civil.Date, bool) {
+	for i := len(r.dates) - 1; i >= 0; i-- {
+		d := r.dates[i]
+		if d.After(asOf) || !cal.Usable(d, asOf) || !r.Complete(d) {
+			continue
+		}
+		return d, true
+	}
+	return civil.Date{}, false
+}
+
+// finiteRow reports whether a row carries a percentage and positions that can
+// be encoded and divided: SQL NULL, NaN and infinities are not values.
+func finiteRow(row ASICRow) bool {
+	return row.Percent != nil && finite(*row.Percent) && finite(row.Positions)
+}
+
+func finite(f float64) bool { return !math.IsNaN(f) && !math.IsInf(f, 0) }
+
 // ShortReadingV1 is sf1, the reading the v1 rules use: the newest complete
-// report that was public at asOf. A report older than StaleAfterSessions, or no
-// complete report at all, leaves the reading stale. Days to cover is unknown
-// when a corporate-action suspect dated after the report was known by asOf,
-// because the report's positions are then in pre-event shares while the volume
-// is post-event.
+// report that was public at asOf (R*), with no age limit. R* more than
+// maxAgeSessions sessions old leaves the reading stale, with R*'s dates and
+// whether the code is in R* still set, so a caller can keep a listed code in
+// the universe with its short rules unknown. Days to cover is unknown when a
+// corporate-action suspect dated after the report was known by asOf, because
+// the report's positions are then in pre-event shares while the volume is
+// post-event.
 //
 // bars are the code's bars ascending; suspects are the code's CASuspects.
-func ShortReadingV1(code string, asOf civil.Date, cal *calendar.Calendar, reports *Reports, bars []Bar, suspects []CASuspect) ShortReading {
-	var (
-		report civil.Date
-		found  bool
-	)
-	for i := len(reports.dates) - 1; i >= 0; i-- {
-		d := reports.dates[i]
-		if d.After(asOf) {
-			continue
-		}
-		if cal.SessionsBetween(d, asOf) > StaleAfterSessions {
-			break
-		}
-		if !cal.Usable(d, asOf) || !reports.Complete(d) {
-			continue
-		}
-		report, found = d, true
-		break
-	}
+func ShortReadingV1(code string, asOf civil.Date, cal *calendar.Calendar, reports *Reports, bars []Bar, suspects []CASuspect, maxAgeSessions int) ShortReading {
+	report, found := reports.latestUsable(asOf, cal)
 	if !found {
 		return ShortReading{Status: StatusStale, Reason: ReasonASICReportStale}
 	}
@@ -163,11 +176,17 @@ func ShortReadingV1(code string, asOf civil.Date, cal *calendar.Calendar, report
 	reading := ShortReading{ReportDate: dateRef(report), AvailableDate: dateRef(available)}
 
 	row, present := reports.row(code, report)
+	reading.InReport = &present
+	if cal.SessionsBetween(report, asOf) > maxAgeSessions {
+		reading.Status = StatusStale
+		reading.Reason = ReasonASICReportStale
+		return reading
+	}
 	if !present {
 		reading.Status = StatusAbsent
 		return reading
 	}
-	if row.Percent == nil || math.IsNaN(*row.Percent) || *row.Percent < 0 {
+	if !finiteRow(row) || *row.Percent < 0 {
 		reading.Status = StatusUnavailable
 		reading.Reason = ReasonASICValueMissing
 		return reading
@@ -202,7 +221,7 @@ func ShortReadingV0(code string, asOf civil.Date, cal *calendar.Calendar, report
 	rows := reports.byCode[code]
 	for i := len(rows) - 1; i >= 0; i-- {
 		row := rows[i]
-		if row.ReportDate.After(asOf) || row.Percent == nil || math.IsNaN(*row.Percent) || *row.Percent <= 0 {
+		if row.ReportDate.After(asOf) || !finiteRow(row) || *row.Percent <= 0 {
 			continue
 		}
 		if instrument.ClassifySecurity(row.Product, row.Code, row.Issued) != instrument.SecurityTypeOrdinary {

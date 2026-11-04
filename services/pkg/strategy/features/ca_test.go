@@ -145,7 +145,7 @@ func TestCABasisChangeMakesDaysToCoverUnknown(t *testing.T) {
 	bars := barsFrom(t, "2026-09-09", 21)
 
 	known := []CASuspect{{Date: mustDate(t, "2026-10-01"), KnownAt: mustDate(t, "2026-10-02"), Kind: CACorroborated}}
-	got := ShortReadingV1("ABC", asOf, cal, reports, bars, known)
+	got := ShortReadingV1("ABC", asOf, cal, reports, bars, known, StaleAfterSessions)
 	if got.Status != StatusReported {
 		t.Fatalf("status = %q, want reported", got.Status)
 	}
@@ -154,7 +154,7 @@ func TestCABasisChangeMakesDaysToCoverUnknown(t *testing.T) {
 	}
 
 	later := []CASuspect{{Date: mustDate(t, "2026-10-01"), KnownAt: civil.Date{Year: 2026, Month: 10, Day: 7}, Kind: CACorroborated}}
-	got = ShortReadingV1("ABC", asOf, cal, reports, bars, later)
+	got = ShortReadingV1("ABC", asOf, cal, reports, bars, later, StaleAfterSessions)
 	if got.DaysToCover == nil || *got.DaysToCover != 0.5 {
 		t.Errorf("days to cover = %v (reason %q), want 0.5: 500 positions over a 1,000 mean", got.DaysToCover, got.DaysToCoverReason)
 	}
