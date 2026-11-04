@@ -1,6 +1,8 @@
 package spec
 
 import (
+	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -43,8 +45,6 @@ func testCosts() Costs {
 		Multiplier: 1,
 	}
 }
-
-func ptrFloat(v float64) *float64 { return &v }
 
 func TestRecipeValidAcceptsWellFormed(t *testing.T) {
 	if err := testRecipe().Validate(); err != nil {
@@ -158,5 +158,102 @@ func TestRecipeHashFollowsEveryField(t *testing.T) {
 	}
 	if other == base {
 		t.Fatal("changing a time stop did not change the recipe hash")
+	}
+}
+
+// TestRecipeHashesArePinned holds the recipe hash of every r1 recipe to the
+// golden file. A change to a recipe value or to the Recipe layout changes its
+// hash, and the golden moves only with a new recipe id.
+func TestRecipeHashesArePinned(t *testing.T) {
+	want := readGolden(t, filepath.Join("testdata", "recipe_hashes.golden"))
+	var got []string
+	for _, r := range R1Recipes() {
+		if err := r.Validate(); err != nil {
+			t.Fatalf("%s: %v", r.ID, err)
+		}
+		h, err := RecipeHash(r)
+		if err != nil {
+			t.Fatalf("%s: hash: %v", r.ID, err)
+		}
+		got = append(got, fmt.Sprintf("%s %s %s", r.StrategyID, r.ID, h))
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("recipe hashes do not match testdata/recipe_hashes.golden.\ncomputed:\n%s\ngolden:\n%s",
+			strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// TestR1RecipesCoverEveryStrategyOnce holds the r1 set to the canonical
+// strategies: one recipe each, every one well formed.
+func TestR1RecipesCoverEveryStrategyOnce(t *testing.T) {
+	seen := map[string]string{}
+	for _, r := range R1Recipes() {
+		if err := r.Validate(); err != nil {
+			t.Errorf("%s: %v", r.ID, err)
+		}
+		if prev, dup := seen[r.StrategyID]; dup {
+			t.Errorf("strategy %s has two r1 recipes: %s and %s", r.StrategyID, prev, r.ID)
+		}
+		seen[r.StrategyID] = r.ID
+	}
+	for _, id := range strategyOrder {
+		if _, ok := seen[id]; !ok {
+			t.Errorf("strategy %s has no r1 recipe", id)
+		}
+	}
+}
+
+// TestR1ExitsMatchTheScreen states the exits, entries and windows of the five
+// r1 recipes as the recipe table gives them (5.3). In particular Zanger has no
+// time stop.
+func TestR1ExitsMatchTheScreen(t *testing.T) {
+	want := map[string]struct {
+		fresh    string
+		maxAbove *float64
+		exits    []ExitRule
+		cooldown int
+		window   string
+	}{
+		RecipeCrowdedShortR1: {EntryFreshNewBreakout, ptrFloat(10), []ExitRule{{Kind: ExitClosePivot, Sessions: 1}, {Kind: ExitTimeStop, Sessions: 20}}, 10, "2019-05-01"},
+		RecipeMinerviniR1:    {EntryFreshAny, nil, []ExitRule{{Kind: ExitStopLoss, Pct: 8}, {Kind: ExitCloseBelowSMA, SMA: 50, Sessions: 1}, {Kind: ExitStatusFalls, Statuses: []string{"watch", "none"}, Sessions: 1}}, 10, "2019-05-01"},
+		RecipeZangerR1:       {EntryFreshNewBreakout, ptrFloat(5), []ExitRule{{Kind: ExitClosePivot, Sessions: 1}, {Kind: ExitStopLoss, Pct: 8}, {Kind: ExitCloseBelowSMA, SMA: 50, Sessions: 1}}, 10, WindowComputableFrom},
+		RecipeCANSLIMR1:      {EntryFreshAny, nil, []ExitRule{{Kind: ExitStopLoss, Pct: 8}, {Kind: ExitCloseBelowSMA, SMA: 50, Sessions: 1}, {Kind: ExitStatusFalls, Statuses: []string{"watch", "none"}, Sessions: 1}}, 10, WindowComputableFrom},
+		RecipeQualityR1:      {EntryFreshAny, nil, []ExitRule{{Kind: ExitCloseBelowSMA, SMA: 200, Sessions: 5}, {Kind: ExitStatusFalls, Statuses: []string{"watch", "none"}, Sessions: 5}}, 20, WindowComputableFrom},
+	}
+	got := R1Recipes()
+	if len(got) != len(want) {
+		t.Fatalf("r1 set has %d recipes, want %d", len(got), len(want))
+	}
+	for _, r := range got {
+		w, ok := want[r.ID]
+		if !ok {
+			t.Errorf("unexpected recipe %s", r.ID)
+			continue
+		}
+		if r.Entry.On != EntryOnBecomesTriggered || r.Entry.Fill != EntryFillNextOpenTraded {
+			t.Errorf("%s: entry %+v, want becomes_triggered filled at the next traded open", r.ID, r.Entry)
+		}
+		if r.Entry.Fresh != w.fresh {
+			t.Errorf("%s: fresh %q, want %q", r.ID, r.Entry.Fresh, w.fresh)
+		}
+		if (r.Entry.MaxAbovePivotPct == nil) != (w.maxAbove == nil) ||
+			(w.maxAbove != nil && *r.Entry.MaxAbovePivotPct != *w.maxAbove) {
+			t.Errorf("%s: max above pivot %v, want %v", r.ID, r.Entry.MaxAbovePivotPct, w.maxAbove)
+		}
+		if fmt.Sprint(r.Exits) != fmt.Sprint(w.exits) {
+			t.Errorf("%s: exits %+v, want %+v", r.ID, r.Exits, w.exits)
+		}
+		if r.CooldownSessions != w.cooldown {
+			t.Errorf("%s: cooldown %d, want %d", r.ID, r.CooldownSessions, w.cooldown)
+		}
+		if r.WindowStart != w.window {
+			t.Errorf("%s: window start %q, want %q", r.ID, r.WindowStart, w.window)
+		}
+		if r.Sizing.WeightPct != 10 || r.Sizing.MaxPositions != 10 || r.Sizing.CapacityPctDV20 != 5 {
+			t.Errorf("%s: sizing %+v, want 10%% x 10 positions, capacity 5%% of DV20", r.ID, r.Sizing)
+		}
+		if r.Costs.FlatSlippageBps != nil {
+			t.Errorf("%s: the house model must not use flat slippage", r.ID)
+		}
 	}
 }

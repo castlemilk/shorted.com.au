@@ -55,6 +55,13 @@ const (
 
 	statusWatch = "watch"
 	statusNone  = "none"
+
+	// The recipe ids of the r1 recipes.
+	RecipeCrowdedShortR1 = "csb-r1"
+	RecipeMinerviniR1    = "mtt-r1"
+	RecipeZangerR1       = "zb-r1"
+	RecipeCANSLIMR1      = "cs-r1"
+	RecipeQualityR1      = "qc-r1"
 )
 
 // Recipe is one execution recipe. Field order is the canonical encoding's
@@ -315,4 +322,134 @@ func RecipeHash(r Recipe) (string, error) {
 	}
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// ptrFloat returns a pointer to v, for the optional fields of a recipe.
+func ptrFloat(v float64) *float64 { return &v }
+
+// Shorted chose the r1 recipes to test each screen. They are not the authors'
+// trading rules, and the recipe lines say so (RecipePreface).
+
+// windowFromMay2019 is the first full month of XJT's total-return history, so
+// every canonical comparison of a non-fundamentals strategy is total return.
+const windowFromMay2019 = "2019-05-01"
+
+// houseCosts is the house cost model (5.4): brokerage at 10 bps with a A$10
+// minimum per fill, and spread and impact by 20-session dollar volume.
+func houseCosts() Costs {
+	return Costs{
+		BrokerageBps:    10,
+		BrokerageMinAUD: 10,
+		SpreadTiers: []SpreadTier{
+			{MinDV20AUD: 20000000, Bps: 5},
+			{MinDV20AUD: 5000000, Bps: 10},
+			{MinDV20AUD: 1000000, Bps: 25},
+			{MinDV20AUD: 250000, Bps: 50},
+			{MinDV20AUD: 0, Bps: 75},
+		},
+		Multiplier: 1,
+	}
+}
+
+// r1Recipe is the part of an r1 recipe the five share: sizing, costs, the
+// capital and the data policy. The entry, exits, cooldown and window differ.
+func r1Recipe(id, strategyID, reference, windowStart string, cooldown int) Recipe {
+	return Recipe{
+		Schema:            RecipeSchema,
+		ID:                id,
+		StrategyID:        strategyID,
+		Sizing:            Sizing{WeightPct: 10, MaxPositions: 10, CapacityPctDV20: 5, Rank: RankScoreDescCodeAsc},
+		Costs:             houseCosts(),
+		CooldownSessions:  cooldown,
+		StaleExitSessions: 20,
+		Capital:           100000,
+		Cash:              CashRBARate,
+		Returns:           ReturnsTotal,
+		Benchmark:         BenchmarkXJT,
+		Reference:         reference,
+		Delisting:         DelistingExitLast,
+		WindowStart:       windowStart,
+		Fundamentals:      FundamentalsStrict,
+	}
+}
+
+// R1Recipes returns the five r1 recipes, one per canonical strategy, in the
+// order of the recipe table. Every call returns fresh values.
+//
+// Once a recipe is published its values and the Recipe layout are frozen: a
+// change is a new recipe id, and TestRecipeHashesArePinned fails until the
+// golden moves with it.
+func R1Recipes() []Recipe {
+	return []Recipe{
+		crowdedShortR1(),
+		minerviniR1(),
+		zangerR1(),
+		canSLIMR1(),
+		qualityR1(),
+	}
+}
+
+// crowdedShortR1 enters the session after a breakout is new and skips a stock
+// that opens more than 10% over its pivot. It exits below the captured pivot or
+// after 20 sessions.
+func crowdedShortR1() Recipe {
+	r := r1Recipe(RecipeCrowdedShortR1, StrategyCrowdedShortBreakout, ReferenceCrowdedShorts, windowFromMay2019, 10)
+	r.Entry = EntryRule{On: EntryOnBecomesTriggered, Fresh: EntryFreshNewBreakout, Fill: EntryFillNextOpenTraded, MaxAbovePivotPct: ptrFloat(10)}
+	r.Exits = []ExitRule{{Kind: ExitClosePivot, Sessions: 1}, {Kind: ExitTimeStop, Sessions: 20}}
+	return r
+}
+
+// minerviniR1 buys the session a stock first passes the trend template. It
+// exits on an 8% stop, a close below the 50-day average or a status that falls
+// to watch or none.
+func minerviniR1() Recipe {
+	r := r1Recipe(RecipeMinerviniR1, StrategyMinerviniTrend, ReferenceLiquidOrdinary, windowFromMay2019, 10)
+	r.Entry = EntryRule{On: EntryOnBecomesTriggered, Fresh: EntryFreshAny, Fill: EntryFillNextOpenTraded}
+	r.Exits = []ExitRule{
+		{Kind: ExitStopLoss, Pct: 8},
+		{Kind: ExitCloseBelowSMA, SMA: 50, Sessions: 1},
+		{Kind: ExitStatusFalls, Statuses: []string{statusWatch, statusNone}, Sessions: 1},
+	}
+	return r
+}
+
+// zangerR1 enters a new breakout within 5% of its pivot. It has no time stop:
+// Zanger holds winners while they keep acting well, so it exits on the captured
+// pivot, an 8% stop or a close below the 50-day average.
+func zangerR1() Recipe {
+	r := r1Recipe(RecipeZangerR1, StrategyZangerBreakout, ReferenceLiquidOrdinary, WindowComputableFrom, 10)
+	r.Entry = EntryRule{On: EntryOnBecomesTriggered, Fresh: EntryFreshNewBreakout, Fill: EntryFillNextOpenTraded, MaxAbovePivotPct: ptrFloat(5)}
+	r.Exits = []ExitRule{
+		{Kind: ExitClosePivot, Sessions: 1},
+		{Kind: ExitStopLoss, Pct: 8},
+		{Kind: ExitCloseBelowSMA, SMA: 50, Sessions: 1},
+	}
+	return r
+}
+
+// canSLIMR1 enters the session after a stock becomes triggered. It exits on an
+// 8% stop, a close below the 50-day average or a status that falls to watch or
+// none.
+func canSLIMR1() Recipe {
+	r := r1Recipe(RecipeCANSLIMR1, StrategyCANSLIM, ReferenceLiquidOrdinary, WindowComputableFrom, 10)
+	r.Entry = EntryRule{On: EntryOnBecomesTriggered, Fresh: EntryFreshAny, Fill: EntryFillNextOpenTraded}
+	r.Exits = []ExitRule{
+		{Kind: ExitStopLoss, Pct: 8},
+		{Kind: ExitCloseBelowSMA, SMA: 50, Sessions: 1},
+		{Kind: ExitStatusFalls, Statuses: []string{statusWatch, statusNone}, Sessions: 1},
+	}
+	return r
+}
+
+// qualityR1 enters the session after a stock becomes triggered. It exits on five
+// consecutive closes below the 200-day average, or five consecutive sessions at
+// a status of watch or none. It waits 20 sessions before a re-entry.
+func qualityR1() Recipe {
+	r := r1Recipe(RecipeQualityR1, StrategyQualityCompounders, ReferenceLiquidOrdinary, WindowComputableFrom, 20)
+	r.Entry = EntryRule{On: EntryOnBecomesTriggered, Fresh: EntryFreshAny, Fill: EntryFillNextOpenTraded}
+	r.Exits = []ExitRule{
+		{Kind: ExitCloseBelowSMA, SMA: 200, Sessions: 5},
+		{Kind: ExitStatusFalls, Statuses: []string{statusWatch, statusNone}, Sessions: 5},
+	}
+	return r
 }
