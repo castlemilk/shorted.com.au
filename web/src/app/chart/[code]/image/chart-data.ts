@@ -11,7 +11,9 @@ import {
 import { getStockData } from "~/app/actions/getStockData";
 import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import {
+  ANCHOR_PRICES_MAX_LAG_DAYS,
   anchoredWindows,
+  daysBefore,
   isIsoDay,
   isSettledAnchor,
   sydneyDay,
@@ -154,12 +156,15 @@ function readAnchoredPrices(
 const NEWEST_CLOSE_SECONDS = 900;
 
 /**
- * The stock's newest close on or before `day` (YYYY-MM-DD), or null when it
- * has none or the read failed. The Discord bot reads it before it draws a new
- * kept post, records it as the anchor's `prices`, and draws the card for that
- * anchor, so the posted card and every redraw read the same windows. Two
- * points are asked for: thinning keeps the first and the last, and the last
- * is the newest. A failure throws inside the cache, so it is never stored.
+ * The stock's newest close in the 31 days up to `day` (YYYY-MM-DD), or null
+ * when it has none or the read failed. The Discord bot reads it before it
+ * draws a new kept post, records it as the anchor's `prices`, and draws the
+ * card for that anchor, so the posted card and every redraw read the same
+ * windows. A month is read rather than two thinned points: thinning keeps the
+ * first and the last session of all history, and when the last has no close
+ * (a NULL stored as 0) the first, years back, would have been taken. No close
+ * in the month (a suspended or unlisted code) is null, and the chart is then
+ * posted live. A failure throws inside the cache, so it is never stored.
  */
 export async function getNewestClose(
   code: string,
@@ -170,8 +175,8 @@ export async function getNewestClose(
       async () => {
         const response = await stockClient().getStockPrices({
           productCode: code,
+          from: daysBefore(day, ANCHOR_PRICES_MAX_LAG_DAYS),
           to: day,
-          maxPoints: 2,
         });
         // A NULL close comes back as 0: that session has no price, so it is no
         // newest close (the card and the live path skip such points too).
@@ -181,12 +186,12 @@ export async function getNewestClose(
           .filter((d) => isIsoDay(d) && d <= day)
           .sort()
           .pop();
-        if (!newest) throw new Error("no close on or before the day");
-        return newest;
+        // "" is "no close this month": cached like an answer, read as null.
+        return newest ?? "";
       },
       ["chart-image", "newest-close", code, day],
       { tags: [`chart-anchored:${code}`], revalidate: NEWEST_CLOSE_SECONDS },
-    )();
+    )() || null;
   } catch (err) {
     console.error(`[chart-image] newest close failed for ${code} ${day}:`, err);
     return null;

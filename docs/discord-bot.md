@@ -99,7 +99,9 @@ or for one person:
 **Layers.** A server's settings apply to everyone in it; a person's own apply
 in DMs and group DMs, and in servers with none of their own; the built-ins fill
 the rest. Anything typed in a command wins over all three
-(`/chart BHP view:price`). `settings.ts` resolves them field by field, and a
+(`/chart BHP view:price`). `settings.ts` resolves them field by field (a
+server's document saved before the Buttons choice existed counts as choosing
+the default, so a member's own choice never decides it there), and a
 read slower than 500ms (`SETTINGS_BUDGET_MS`) is not waited for: the built-ins
 stand in, and the read still fills the cache.
 
@@ -168,16 +170,22 @@ how it was posted, and a press never reads the setting. It is stored as
   the two dates. The footer prints the posting day and, on the short and
   combined views, the report date.
 - **Posting.** Before it draws a new kept chart, the bot reads the stock's
-  newest report (the stock summary's `asOf`) and its newest close on or before
-  the posting day (`newestClose` in `data.ts`, bounded to six seconds). The
+  newest report (the stock summary's `asOf`) and its newest close in the month
+  to the posting day (`newestClose` in `data.ts`, bounded to six seconds; a
+  session stored with a NULL close is skipped). The
   anchor is decided from those two reads, and the card is drawn once, for that
   anchor. The first card is therefore the card every redraw asks for, and the
   highlighted button's press hits the same CDN entry. The close is read
   beside the stock read where the code is typed, and read again only when the
-  typed code resolves to another stock.
+  typed code resolves to another stock; that later read gets 2.5 seconds
+  (`LATE_CLOSE_BUDGET_MS`), so the reply stays inside the route's 30-second
+  `maxDuration`.
 - **Live when a date is unknown.** A chart is posted live, as every chart was
-  before anchors existed, when the stock has no readable report date or no
-  newest close (none on or before the day, or the read is too slow). Live means
+  before anchors existed, when the stock has no readable report date, a report
+  more than 60 days old (ASIC no longer reports it), or no close in the month
+  to the day (suspended, or the read is too slow). A URL carrying a `shorts` or
+  `prices` date further behind its `asof` than that reads it as the `asof` day,
+  so one stock can be drawn for a bounded number of anchors. Live means
   live ids, a live footer, and no "As posted". Such a chart is never anchored to
   a guessed date.
 - **The ids and links.** An anchored chart's buttons and Interactive button

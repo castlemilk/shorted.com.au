@@ -55,6 +55,16 @@ export const ANCHOR_PRICES_PARAM = "prices";
 /** ASIC's daily reports start in 2010; an earlier "day" is a typo. */
 const EARLIEST_DAY = "2010-01-01";
 
+/**
+ * How far behind the day each date may be. The bot reads the newest close in
+ * the month to the day (getNewestClose), and a stock's newest report is a
+ * week behind it, or two around the new year. Anything further back is not a
+ * date the bot writes, so a URL carrying one is read as the day, and the
+ * number of anchors one stock can be drawn for stays bounded.
+ */
+export const ANCHOR_PRICES_MAX_LAG_DAYS = 31;
+export const ANCHOR_SHORTS_MAX_LAG_DAYS = 60;
+
 const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const COMPACT_DAY = /^(\d{4})(\d{2})(\d{2})$/;
 
@@ -81,9 +91,9 @@ export interface AnchorParts {
 /**
  * An anchor from its parts, or null when the day is missing, invalid, before
  * 2010, or (given `today`, Sydney) in the future: the chart is then live. A
- * missing or invalid `shorts` or `prices`, or one after the day, is the day
- * itself: everything up to the day, as a chart is drawn before its dates
- * are known.
+ * missing or invalid `shorts` or `prices`, one after the day, or one further
+ * behind it than its MAX_LAG_DAYS, is the day itself: everything up to the
+ * day.
  */
 export function parseChartAnchor(
   parts: AnchorParts,
@@ -92,11 +102,15 @@ export function parseChartAnchor(
   const d = parts.day?.trim();
   if (!isIsoDay(d) || d < EARLIEST_DAY) return null;
   if (today !== undefined && d > today) return null;
-  const upTo = (raw: string | null | undefined): string => {
+  const upTo = (raw: string | null | undefined, maxLag: number): string => {
     const v = raw?.trim();
-    return isIsoDay(v) && v >= EARLIEST_DAY && v <= d ? v : d;
+    return isIsoDay(v) && v >= daysBefore(d, maxLag) && v <= d ? v : d;
   };
-  return { day: d, shorts: upTo(parts.shorts), prices: upTo(parts.prices) };
+  return {
+    day: d,
+    shorts: upTo(parts.shorts, ANCHOR_SHORTS_MAX_LAG_DAYS),
+    prices: upTo(parts.prices, ANCHOR_PRICES_MAX_LAG_DAYS),
+  };
 }
 
 /**
@@ -190,8 +204,9 @@ function isoDay(date: Date): string {
  * The window a period covers when it ends on `to`: the day after the same
  * date `months` earlier, through `to`. That is the live chart's window, which
  * runs from just after (newest - interval) to the newest data, so a chart
- * drawn the day it is posted is the same picture anchored or not. A month
- * end clamps ("2026-03-31" less a month starts on 1 Mar, after 28 Feb).
+ * drawn the day it is posted covers the same span anchored or not (a kept
+ * chart's axis ends on the later of its two dates; see anchoredWindows). A
+ * month end clamps ("2026-03-31" less a month starts on 1 Mar, after 28 Feb).
  */
 export function periodWindow(period: ChartPeriod, to: string): DateWindow {
   const months = PERIOD_MONTHS[period];

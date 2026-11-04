@@ -11,7 +11,11 @@ import {
 } from "../api";
 import { activityCustomId, chartCustomId, parseCustomId } from "../custom-id";
 import type { DiscordData } from "../data";
-import { handleInteraction, type HandlerDeps } from "../handler";
+import {
+  LATE_CLOSE_BUDGET_MS,
+  handleInteraction,
+  type HandlerDeps,
+} from "../handler";
 import type { StockHit, StockSummary } from "../messages";
 import type { DiscordRest } from "../rest";
 import { scopeKey, type DiscordSettings } from "../settings";
@@ -1299,6 +1303,50 @@ describe("a new kept chart reads its close before it draws", () => {
     for (const parsed of idsOf(message)) {
       expect(parsed && "state" in parsed && parsed.state.anchor).toBeFalsy();
     }
+  });
+
+  it("posts live when a resolved code's close read misses its budget", async () => {
+    // A name that resolves to another code reads its close only after the
+    // stock read; a read that never answers must not hold the reply past the
+    // function's budget. It posts live once LATE_CLOSE_BUDGET_MS has passed.
+    const t = setup({
+      anchored: true,
+      data: fakeData({
+        stockSummary: dataAsOf().stockSummary,
+        newestClose: jest.fn((code: string) =>
+          code === "PLS" ? new Promise<string | null>(() => {}) : Promise.resolve(PRICES_NEWEST),
+        ),
+      }),
+    });
+    const started = Date.now();
+    const message = await deliveredChart(
+      t,
+      await t.handle(command("stock", { code: "PILB" })),
+    );
+    expect(Date.now() - started).toBeLessThan(LATE_CLOSE_BUDGET_MS + 2000);
+    expect(message.embeds![0]!.title).toBe("PLS · Pilbara Minerals");
+    expect(message.embeds![0]!.footer!.text).not.toContain("As posted");
+    for (const parsed of idsOf(message)) {
+      expect(parsed && "state" in parsed && parsed.state.anchor).toBeFalsy();
+    }
+  }, 10_000);
+
+  it("keeps a server's settings over a member's own when the server's predate the Buttons choice", async () => {
+    // The server saved its settings before asPosted existed; the member chose
+    // "latest" for themselves. In the server, the server's settings decide.
+    const t = setup({
+      anchored: true,
+      data: dataAsOf(),
+      settings: {
+        [`guild:${GUILD}`]: { view: "short", period: "1y" },
+        "user:1290000000000000009": { asPosted: false },
+      },
+    });
+    const message = await deliveredChart(
+      t,
+      await t.handle({ ...command("stock", { code: "BHP" }), guild_id: GUILD }),
+    );
+    expect(message.embeds![0]!.footer!.text).toContain("As posted");
   });
 
   it("is live when the report date is unknown, and never anchored to a guess", async () => {

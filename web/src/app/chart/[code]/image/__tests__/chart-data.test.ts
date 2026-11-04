@@ -250,13 +250,13 @@ describe("anchored chart readers: cache lifetime", () => {
 });
 
 describe("getNewestClose", () => {
-  it("asks GetStockPrices for the two sessions up to the day, the newest last", async () => {
+  it("asks GetStockPrices for the month up to the day, unthinned", async () => {
     mockGetStockPrices.mockResolvedValue({ points: [{ date: "2026-11-03", close: 9 }] });
     await getNewestClose("BHP", "2026-11-04");
     expect(mockGetStockPrices).toHaveBeenCalledWith({
       productCode: "BHP",
+      from: "2026-10-04",
       to: "2026-11-04",
-      maxPoints: 2,
     });
   });
 
@@ -281,9 +281,26 @@ describe("getNewestClose", () => {
     expect(await getNewestClose("BHP", "2026-11-04")).toBe("2026-11-02");
   });
 
-  it("answers null when there are no points", async () => {
+  it("never takes an old session when the newest has no close", async () => {
+    // The month's sessions, the last a NULL close: the one before it is the
+    // newest close. Two thinned points of all history would have been the
+    // stock's first session and this NULL one, and the first would be taken.
+    mockGetStockPrices.mockResolvedValue({
+      points: [
+        { date: "2026-10-30", close: 57.56 },
+        { date: "2026-11-02", close: 56.74 },
+        { date: "2026-11-03", close: 0 },
+      ],
+    });
+    expect(await getNewestClose("BHP", "2026-11-04")).toBe("2026-11-02");
+  });
+
+  it("answers null when there are no points, and keeps that answer", async () => {
     mockGetStockPrices.mockResolvedValue({ points: [] });
-    expect(await getNewestClose("BHP", "2026-11-04")).toBeNull();
+    expect(await getNewestClose("GOLD", "2026-11-04")).toBeNull();
+    expect(await getNewestClose("GOLD", "2026-11-04")).toBeNull();
+    // "No close this month" is an answer, not a failure: asked once.
+    expect(mockGetStockPrices).toHaveBeenCalledTimes(1);
   });
 
   it("answers null on a failed read, and asks again next time rather than store it", async () => {

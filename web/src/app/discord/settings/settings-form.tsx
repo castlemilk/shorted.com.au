@@ -639,7 +639,7 @@ export function DiscordSettingsForm({
 
         <Section
           legend="Buttons"
-          description="For charts posted from now on. Buttons on a chart redraw it inside the window it was posted with, and its figures stay as posted. Charts already posted keep how they were posted."
+          description="What the buttons under a chart do, for charts posted from now on. Charts already posted keep how they were posted."
         >
           <ChoiceGroup
             name="buttons"

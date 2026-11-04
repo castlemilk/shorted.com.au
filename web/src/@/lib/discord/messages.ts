@@ -3,6 +3,7 @@ import {
   chartPeriodPhrase,
   formatAnchorDay,
   isIsoDay,
+  parseChartAnchor,
   sydneyDay,
   type ChartAnchor,
 } from "~/@/components/charts/chart-anchor";
@@ -191,8 +192,10 @@ function stockFields(s: StockSummary): NonNullable<Embed["fields"]> {
  * The anchor a new message is posted with, decided before its card is drawn:
  * the day (Sydney), the newest ASIC report (never after the day) and the
  * newest close the bot read on or before the day. Null when either date is
- * unknown, and the chart is then live, as every chart was before anchors: a
- * kept chart is never anchored to a guessed date.
+ * unknown, or one the anchor rules would not keep (a report more than 60
+ * days old, say: a stock ASIC no longer reports): the chart is then live, as
+ * every chart was before anchors. A kept chart is never anchored to a
+ * guessed date, and its ids always parse back to exactly this anchor.
  */
 export function postedAnchor(
   summary: { asOf?: Date | null },
@@ -201,13 +204,19 @@ export function postedAnchor(
 ): ChartAnchor | null {
   if (!summary.asOf || !isIsoDay(newestClose)) return null;
   const day = sydneyDay(now);
-  if (newestClose > day) return null;
-  const shorts = sydneyDay(summary.asOf);
-  return {
+  const reported = sydneyDay(summary.asOf);
+  const wanted = {
     day,
-    shorts: shorts < day ? shorts : day,
+    shorts: reported < day ? reported : day,
     prices: newestClose,
   };
+  const kept = parseChartAnchor(wanted);
+  return kept &&
+    kept.day === wanted.day &&
+    kept.shorts === wanted.shorts &&
+    kept.prices === wanted.prices
+    ? kept
+    : null;
 }
 
 /**
@@ -585,7 +594,7 @@ export function buildHelpMessage({
     "`/settings` The stock, chart and period the bot opens with, for this server (Manage Server) or just you",
     "",
     "Start typing a company name in `code` to search as you go. With a default stock set, `code` can be left out.",
-    "The buttons under a chart redraw it in place for everyone in the channel: pick a period, or switch between short interest, price and both. A chart keeps the window and figures it was posted with. A server can switch its buttons to redraw with the latest figures in `/settings`, for charts posted from then on.",
+    "The buttons under a chart redraw it in place for everyone in the channel: pick a period, or switch between short interest, price and both. A chart's footer says which kind it is: one marked “As posted” keeps the window and figures it was posted with, and any other redraws with the latest figures. `/settings` chooses which kind new charts are.",
   ];
   if (activity) {
     lines.push(

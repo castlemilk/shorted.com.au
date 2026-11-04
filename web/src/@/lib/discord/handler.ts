@@ -122,6 +122,13 @@ export const SUMMARY_RETRY_MS = 400;
  */
 export const CARD_BUDGET_MS = 9000;
 
+/**
+ * The close read for a name that resolved to a code, which starts only once
+ * the stock is known. Three six-second reads, this and the card's nine
+ * seconds stay inside the interactions route's maxDuration of 30.
+ */
+export const LATE_CLOSE_BUDGET_MS = 2500;
+
 type Mode = "new" | "update";
 
 /** A chart kept as posted: the window and figures are pinned to its anchor. */
@@ -323,10 +330,17 @@ async function postedMessage(
 ): Promise<MessagePayload> {
   const now = deps.now();
   const day = sydneyDay(now);
+  // A typed code's close was read beside the stock. A name that resolved to a
+  // code reads it now, after a stock read and a search that may each have
+  // taken their six seconds: it gets what is left of the function's budget,
+  // and a miss posts the chart live.
   const close =
     early?.code === summary.code && early.day === day
       ? await early.read
-      : await deps.data.newestClose(summary.code, day);
+      : await within(
+          deps.data.newestClose(summary.code, day),
+          LATE_CLOSE_BUDGET_MS,
+        ).then((r) => (r.done ? r.value : null));
   const anchor = postedAnchor(summary, now, close);
   if (!anchor) {
     return chartMessage(summary, { code: summary.code, view, period }, deps);
@@ -451,13 +465,33 @@ function chartReply(
  * read that takes longer than SETTINGS_BUDGET_MS is not waited for: the
  * built-ins stand in, and the read still fills the cache for the next one.
  */
+/**
+ * A server's stored settings, with the Buttons choice filled from the
+ * built-ins when the document was saved before that choice existed. Settings
+ * layer per field, so without this a member's own choice would decide the
+ * Buttons of their charts in a server that has settings of its own; the docs
+ * say a person's settings apply only where a server has none.
+ */
+function serverDefaults(
+  scope: SettingsScope,
+  stored: Partial<DiscordSettings> | null,
+): Partial<DiscordSettings> | null {
+  if (scope.kind !== "guild" || !stored) return stored;
+  return stored.asPosted === undefined
+    ? { ...stored, asPosted: BUILT_IN_SETTINGS.asPosted }
+    : stored;
+}
+
 async function loadSettings(
   interaction: Interaction,
   deps: HandlerDeps,
 ): Promise<DiscordSettings> {
   const reads = Promise.all(
     settingsScopes(interaction).map((scope) =>
-      deps.settingsStore.get(scope).catch(() => null),
+      deps.settingsStore
+        .get(scope)
+        .catch(() => null)
+        .then((stored) => serverDefaults(scope, stored)),
     ),
   );
   const settled = await within(reads, SETTINGS_BUDGET_MS);

@@ -433,6 +433,14 @@ describe("charts kept as posted", () => {
     });
   });
 
+  it("is no anchor for a report the anchor rules would not keep, so the chart is live", () => {
+    // ASIC stopped reporting the stock months ago: its ids would not parse
+    // back to this anchor, so the chart is posted live.
+    expect(
+      postedAnchor({ asOf: new Date("2026-07-01T00:00:00Z") }, NOW, "2026-10-19"),
+    ).toBeNull();
+  });
+
   it("is no anchor when the report date is unknown, so the chart is live", () => {
     expect(postedAnchor({ asOf: null }, NOW, "2026-10-19")).toBeNull();
     expect(postedAnchor({}, NOW, "2026-10-19")).toBeNull();

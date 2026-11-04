@@ -57,6 +57,17 @@ describe("parseChartAnchor", () => {
     },
   );
 
+  it("reads a shorts or prices day too far behind the day as the day", () => {
+    // The bot never writes these: a close more than 31 days back, or a report
+    // more than 60, so a URL carrying one draws everything up to the day.
+    expect(
+      parseChartAnchor({ day, shorts: "2026-09-05", prices: "2026-10-04" }),
+    ).toEqual({ day, shorts: "2026-09-05", prices: "2026-10-04" });
+    expect(
+      parseChartAnchor({ day, shorts: "2026-09-04", prices: "2026-10-03" }),
+    ).toEqual({ day, shorts: day, prices: day });
+  });
+
   it("is live for a day after today", () => {
     expect(parseChartAnchor({ day: "2026-11-05" }, "2026-11-04")).toBeNull();
     expect(parseChartAnchor({ day }, "2026-11-04")?.day).toBe(day);
