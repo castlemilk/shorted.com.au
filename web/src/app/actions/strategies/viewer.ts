@@ -112,6 +112,7 @@ export async function getSignalsForViewer(
       console.warn(`[getSignalsForViewer] list longer than the read bound`);
       return { ok: false, reason: "unavailable" };
     }
+    if (list === "unavailable") return { ok: false, reason: "unavailable" };
     if (list === "mismatch") return { ok: false, reason: "snapshot-mismatch" };
     return { ok: true, ...list };
   } catch (err) {
@@ -133,12 +134,20 @@ type PagesClient = {
 
 type ViewerList = Omit<Extract<ViewerSignalsResult, { ok: true }>, "ok">;
 
+/** One attempt's answer: a list, or why it could not be drawn. */
+type Attempt = ViewerList | "mismatch" | "inconsistent" | "truncated";
+
 /**
  * The first page of a list (`full` false), or every page of it (`full` true), in
- * rank order. Returns "mismatch" as soon as a page is from another snapshot than
- * `expect` or than the pages before it, and "truncated" when a full list is still
- * going after MAX_PAGES. Each page is one metered call, so nothing is read past a
- * mismatch and no page is read twice.
+ * rank order. Returns "mismatch" when a page is from another snapshot than
+ * `expect` or than the first page, and "truncated" when a full list is longer
+ * than MAX_PAGES.
+ *
+ * A full list is only drawn when its pages add up: every page carries the same
+ * count, no code repeats, and the rows number the count. A page set that does
+ * not (the API re-ranked between two pages of one snapshot) is read again once
+ * from the start. A second inconsistent read answers "unavailable": a short
+ * list is never drawn as the whole list.
  */
 async function readPages(
   client: PagesClient,
@@ -147,51 +156,84 @@ async function readPages(
     full: boolean;
     expect: { sessionDate: string; rulesHash: string } | null;
   },
-): Promise<ViewerList | "mismatch" | "truncated"> {
+): Promise<ViewerList | "mismatch" | "truncated" | "unavailable"> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const result = await readAttempt(client, strategyId, options);
+    if (result !== "inconsistent") return result;
+  }
+  return "unavailable";
+}
+
+async function readAttempt(
+  client: PagesClient,
+  strategyId: string,
+  options: {
+    full: boolean;
+    expect: { sessionDate: string; rulesHash: string } | null;
+  },
+): Promise<Attempt> {
+  const first = await fetchPage(client, strategyId, 0);
+  const snapshot = snapshotOf(first);
+  if (options.expect && !matchesExpected(snapshot, options.expect))
+    return "mismatch";
+
+  const pages: MappedPicks[] = [first];
+  if (options.full) {
+    const needed = Math.ceil(first.totalCount / PAGE_LIMIT);
+    if (needed > MAX_PAGES) return "truncated";
+    // The pages after the first are read together, so a whole list takes one
+    // round trip rather than one per page: the server action that carries it
+    // holds the app's one-at-a-time action queue for that long.
+    const rest = await Promise.all(
+      Array.from({ length: Math.max(0, needed - 1) }, (_, i) =>
+        fetchPage(client, strategyId, (i + 1) * PAGE_LIMIT),
+      ),
+    );
+    pages.push(...rest);
+  }
+
   const rows: PickRow[] = [];
   const seen = new Set<string>();
-  // The offset the API pages by: the raw rows read so far, duplicates included.
-  let offset = 0;
-  let totalCount = 0;
-  let statusCounts: StatusCountsView | null = null;
-  let snapshot: ViewerSnapshot | null = null;
-  const pages = options.full ? MAX_PAGES : 1;
-  let done = false;
-
-  for (let page = 0; page < pages && !done; page++) {
-    const mapped = mapPicksResponse(
-      await client.getViewerStrategyPicks({
-        strategyId,
-        limit: PAGE_LIMIT,
-        offset,
-        status: "",
-        sortBy: "",
-        requireFundamentals: false,
-      }),
-    );
-    const current = snapshotOf(mapped);
-    if (options.expect && !matchesExpected(current, options.expect))
+  let inconsistent = false;
+  for (const [index, page] of pages.entries()) {
+    if (index > 0 && !sameSnapshot(snapshot, snapshotOf(page)))
       return "mismatch";
-    if (snapshot === null) snapshot = current;
-    else if (!sameSnapshot(snapshot, current)) return "mismatch";
-
-    totalCount = mapped.totalCount;
-    statusCounts = mapped.statusCounts ?? null;
-    for (const row of mapped.picks) {
-      // A row seen on an earlier page would be counted twice: keep the first.
-      if (seen.has(row.code)) continue;
+    if (page.totalCount !== first.totalCount) inconsistent = true;
+    for (const row of page.picks) {
+      if (seen.has(row.code)) {
+        inconsistent = true;
+        continue;
+      }
       seen.add(row.code);
       rows.push(row);
     }
-    offset += mapped.picks.length;
-    // An empty page ends the list too, so a shrinking list cannot loop.
-    done = mapped.picks.length === 0 || offset >= totalCount;
   }
+  if (options.full && rows.length !== first.totalCount) inconsistent = true;
+  if (inconsistent) return "inconsistent";
 
-  if (!done && options.full) return "truncated";
-  // The loop has run at least once, so the first page set the snapshot.
-  if (snapshot === null) return "mismatch";
-  return { rows, totalCount, statusCounts, snapshot };
+  return {
+    rows,
+    totalCount: first.totalCount,
+    statusCounts: first.statusCounts ?? null,
+    snapshot,
+  };
+}
+
+function fetchPage(
+  client: PagesClient,
+  strategyId: string,
+  offset: number,
+): Promise<MappedPicks> {
+  return client
+    .getViewerStrategyPicks({
+      strategyId,
+      limit: PAGE_LIMIT,
+      offset,
+      status: "",
+      sortBy: "",
+      requireFundamentals: false,
+    })
+    .then(mapPicksResponse);
 }
 
 function matchesExpected(

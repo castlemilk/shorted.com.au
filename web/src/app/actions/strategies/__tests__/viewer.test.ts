@@ -235,26 +235,45 @@ describe("getSignalsForViewer", () => {
     expect(result.ok && result.rows.at(-1)?.code).toBe("C1600");
   });
 
-  it("keeps the first copy of a code that a later page repeats", async () => {
-    mockClient.getViewerStrategyPicks
-      .mockResolvedValueOnce(page(0, 100, 150))
-      .mockResolvedValueOnce({
-        ...page(100, 0, 150),
-        picks: [wirePick(5, "C5"), wirePick(100, "C100")],
-      })
-      .mockResolvedValueOnce(page(102, 48, 150));
+  it("reads a list again once when its pages repeat a code, and draws it whole", async () => {
+    serveList(150);
+    const serve = mockClient.getViewerStrategyPicks.getMockImplementation()!;
+    let stitched = true;
+    mockClient.getViewerStrategyPicks.mockImplementation(async (request) => {
+      const reply = await serve(request);
+      if (stitched && request.offset === 100) {
+        // The second page repeats C5, which moved up after the first page was read.
+        stitched = false;
+        return {
+          ...reply,
+          picks: [wirePick(5, "C5"), ...reply.picks.slice(1)],
+        };
+      }
+      return reply;
+    });
     const result = await getSignalsForViewer({
       strategyId: "canslim",
       full: true,
     });
 
-    expect(mockClient.getViewerStrategyPicks.mock.calls[1]![0]).toMatchObject({
-      offset: 100,
+    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(4);
+    expect(result.ok && result.rows).toHaveLength(150);
+    expect(result.ok && new Set(result.rows.map((r) => r.code)).size).toBe(150);
+  });
+
+  it("answers unavailable, and never a short list, when a second read is inconsistent too", async () => {
+    serveList(150);
+    const serve = mockClient.getViewerStrategyPicks.getMockImplementation()!;
+    mockClient.getViewerStrategyPicks.mockImplementation(async (request) => {
+      const reply = await serve(request);
+      return request.offset === 100
+        ? { ...reply, picks: [wirePick(5, "C5"), ...reply.picks.slice(1)] }
+        : reply;
     });
-    expect(mockClient.getViewerStrategyPicks.mock.calls[2]![0]).toMatchObject({
-      offset: 102,
-    });
-    expect(result.ok && result.rows).toHaveLength(149);
+    expect(
+      await getSignalsForViewer({ strategyId: "canslim", full: true }),
+    ).toEqual({ ok: false, reason: "unavailable" });
+    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(4);
   });
 
   it("answers snapshot-mismatch, with no further call, when a full read's pages differ", async () => {
@@ -305,7 +324,7 @@ describe("getSignalsForViewer", () => {
     expect(result.ok && result.rows).toHaveLength(150);
   });
 
-  it("answers unavailable, never a cut-short list, past the read bound", async () => {
+  it("answers unavailable, never a cut-short list, past the read bound, after one page", async () => {
     serveList(6000);
     expect(
       await getSignalsForViewer({ strategyId: "canslim", full: true }),
@@ -313,19 +332,21 @@ describe("getSignalsForViewer", () => {
       ok: false,
       reason: "unavailable",
     });
-    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(50);
+    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(1);
   });
 
-  it("stops when a page comes back empty, so a shrinking list cannot loop", async () => {
-    mockClient.getViewerStrategyPicks
-      .mockResolvedValueOnce(page(0, 100, 500))
-      .mockResolvedValueOnce(page(100, 0, 500));
+  it("answers unavailable, and stops, when a list comes back short of its count", async () => {
+    mockClient.getViewerStrategyPicks.mockImplementation(
+      async (request: { offset: number }) =>
+        request.offset === 0 ? page(0, 100, 500) : page(request.offset, 0, 500),
+    );
     const result = await getSignalsForViewer({
       strategyId: "canslim",
       full: true,
     });
-    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(2);
-    expect(result.ok && result.rows).toHaveLength(100);
+    expect(result).toEqual({ ok: false, reason: "unavailable" });
+    // Two reads, each the first page and the four pages after it: bounded.
+    expect(mockClient.getViewerStrategyPicks).toHaveBeenCalledTimes(10);
   });
 
   it("reports unavailable, and logs no address, when the API fails", async () => {
