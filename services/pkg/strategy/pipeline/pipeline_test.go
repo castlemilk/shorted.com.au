@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
@@ -322,4 +323,22 @@ func codesOf(cs []engine.Candidate) []string {
 		out[i] = c.StockCode
 	}
 	return out
+}
+
+// TestIndexAgreesWithCandidateAt: the candidates an Index builds once are the
+// ones CandidateAt builds per call, on every code and session.
+func TestIndexAgreesWithCandidateAt(t *testing.T) {
+	in := inputsFor(120)
+	s := v1Spec(t)
+	x := NewIndex(in, s)
+	for _, code := range in.Codes {
+		for n := 0; n < 120; n += 7 {
+			d := day(n)
+			a, badA := CandidateAt(code, d, in, s)
+			b, badB := x.CandidateAt(code, d)
+			if !reflect.DeepEqual(a, b) || !reflect.DeepEqual(badA, badB) {
+				t.Fatalf("%s on %s: the index and CandidateAt disagree", code, d)
+			}
+		}
+	}
 }
