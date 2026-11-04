@@ -2028,6 +2028,27 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetStra
   -d '{}'
 ```
 
+#### `POST /shorts.v1alpha1.StrategyService/GetStrategyVersion`
+
+One published version of a strategy's rules: its parameters, what changed
+ from the version before, and its known issues. An empty version_hash is
+ the live version. Canonical versions only; an unknown hash is NotFound.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `strategyId` | string | no | Required, e.g. "zanger-breakout". (proto string) |
+| `versionHash` | string | no | rules_hash of a published version; empty for the live version. (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetStrategyVersion' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.StrategyService/ListStrategies`
 
 List every strategy with its rules, metadata, caveats and sources, plus
@@ -2037,6 +2058,25 @@ Request body: an empty JSON object, `{}`.
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/ListStrategies' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.StrategyService/ListStrategyVersions`
+
+Every published canonical version of a strategy (all strategies when
+ strategy_id is empty), in publication order: the rules changelog.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `strategyId` | string | no | Empty for every strategy's versions. (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/ListStrategyVersions' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \

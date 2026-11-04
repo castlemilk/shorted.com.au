@@ -156,7 +156,7 @@ public interface GetStrategyPicksResponseOrBuilder extends
 
   /**
    * <pre>
-   * Empty until versioned rules ship.
+   * The live rules version that produced these picks.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -165,7 +165,7 @@ public interface GetStrategyPicksResponseOrBuilder extends
   boolean hasVersion();
   /**
    * <pre>
-   * Empty until versioned rules ship.
+   * The live rules version that produced these picks.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -174,7 +174,7 @@ public interface GetStrategyPicksResponseOrBuilder extends
   com.shorts.v1alpha1.StrategyVersionRef getVersion();
   /**
    * <pre>
-   * Empty until versioned rules ship.
+   * The live rules version that produced these picks.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>

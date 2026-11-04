@@ -43,6 +43,19 @@ service StrategyService {
   rpc GetStockStrategyFit (GetStockStrategyFitRequest) returns (GetStockStrategyFitResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // One published version of a strategy's rules: its parameters, what changed
+  // from the version before, and its known issues. An empty version_hash is
+  // the live version. Canonical versions only; an unknown hash is NotFound.
+  rpc GetStrategyVersion (GetStrategyVersionRequest) returns (GetStrategyVersionResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Every published canonical version of a strategy (all strategies when
+  // strategy_id is empty), in publication order: the rules changelog.
+  rpc ListStrategyVersions (ListStrategyVersionsRequest) returns (ListStrategyVersionsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }
 
 // ==================== Strategy Messages ====================
@@ -58,6 +71,7 @@ message Strategy {
   StrategyMetadata metadata = 7;
   repeated string caveats = 8;                  // What our data cannot see.
   repeated string sources = 9;                  // Attribution lines.
+  StrategyVersionRef version = 10;              // The live rules version this definition is evaluated under.
 }
 
 // One rule of a strategy: the author's version and exactly how we test it.
@@ -243,7 +257,7 @@ message GetStrategyPicksResponse {
   // Counts of every pick by status, over the whole ranked list before the
   // status filter, the fundamentals filter and paging.
   StatusCounts status_counts = 9;
-  StrategyVersionRef version = 10;        // Empty until versioned rules ship.
+  StrategyVersionRef version = 10;        // The live rules version that produced these picks.
   string session_date = 11;               // YYYY-MM-DD of the session the picks are as at.
   string short_report_date = 12;          // Newest ASIC report date behind the short figures; empty when none.
   string short_available_date = 13;       // When that report became public; empty for a report dated before 2026.
@@ -299,6 +313,7 @@ message StrategyFit {
   int32 rank = 5;           // 1-based rank among the strategy's picks; 0 when status is "none".
   int32 total_count = 6;    // Picks the strategy has in total.
   repeated RuleResult rules = 7;
+  string version_hash = 8;  // rules_hash of the live version this reading was evaluated under.
 }
 
 // The price features the evaluator read for one stock (mv_price_features),
@@ -349,4 +364,45 @@ message ListStrategiesRequest {}
 message ListStrategiesResponse {
   repeated Strategy strategies = 1;
   MarketRegime regime = 2;   // Verdict is strategy-neutral here; GetStrategyPicks phrases it per strategy.
+}
+
+// Request for GetStrategyVersion.
+message GetStrategyVersionRequest {
+  string strategy_id = 1;    // Required, e.g. "zanger-breakout".
+  string version_hash = 2;   // rules_hash of a published version; empty for the live version.
+}
+
+// Response for GetStrategyVersion.
+message GetStrategyVersionResponse {
+  StrategyVersionDetail version = 1;
+}
+
+// Request for ListStrategyVersions.
+message ListStrategyVersionsRequest {
+  string strategy_id = 1;    // Empty for every strategy's versions.
+}
+
+// Response for ListStrategyVersions.
+message ListStrategyVersionsResponse {
+  repeated StrategyVersionDetail versions = 1;
+}
+
+// One published version of a strategy's rules, as the changelog states it.
+// Recipe and recipe_hash (4 and 5) arrive with the recipe schema.
+message StrategyVersionDetail {
+  StrategyVersionRef version = 1;
+  repeated RuleParam params = 2;    // Every numeric parameter of every rule, in rule order.
+  repeated string policies = 3;     // Universe and data policy, one rendered sentence each.
+  repeated string changes = 6;      // What this version changed from the one before it.
+  repeated string known_issues = 7; // What this version gets wrong, worded as defects.
+  string superseded_on = 8;         // YYYY-MM-DD the next version went live; empty while live.
+  string retired_on = 9;            // YYYY-MM-DD the version was retired; empty while it is still evaluated.
+  string canonical_json = 10;       // The hashed spec in canonical form, for audit.
+}
+
+// One numeric parameter of one rule in a version.
+message RuleParam {
+  string rule_id = 1;
+  string name = 2;     // The parameter's key, e.g. "min_pct".
+  double value = 3;
 }

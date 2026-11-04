@@ -470,6 +470,44 @@ private static final long serialVersionUID = 0L;
     return sources_.getByteString(index);
   }
 
+  public static final int VERSION_FIELD_NUMBER = 10;
+  private com.shorts.v1alpha1.StrategyVersionRef version_;
+  /**
+   * <pre>
+   * The live rules version this definition is evaluated under.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   * @return Whether the version field is set.
+   */
+  @java.lang.Override
+  public boolean hasVersion() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <pre>
+   * The live rules version this definition is evaluated under.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   * @return The version.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.StrategyVersionRef getVersion() {
+    return version_ == null ? com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+  }
+  /**
+   * <pre>
+   * The live rules version this definition is evaluated under.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.StrategyVersionRefOrBuilder getVersionOrBuilder() {
+    return version_ == null ? com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -510,6 +548,9 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < sources_.size(); i++) {
       com.google.protobuf.GeneratedMessage.writeString(output, 9, sources_.getRaw(i));
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(10, getVersion());
     }
     getUnknownFields().writeTo(output);
   }
@@ -564,6 +605,10 @@ private static final long serialVersionUID = 0L;
       size += dataSize;
       size += 1 * getSourcesList().size();
     }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(10, getVersion());
+    }
     return size;
   }
   @java.lang.Override
@@ -609,6 +654,11 @@ private static final long serialVersionUID = 0L;
         .equals(other.getCaveatsList())) return false;
     if (!getSourcesList()
         .equals(other.getSourcesList())) return false;
+    if (hasVersion() != other.hasVersion()) return false;
+    if (hasVersion()) {
+      if (!getVersion()
+          .equals(other.getVersion())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -647,6 +697,10 @@ private static final long serialVersionUID = 0L;
     if (getSourcesCount() > 0) {
       hash = (37 * hash) + SOURCES_FIELD_NUMBER;
       hash = (53 * hash) + getSourcesList().hashCode();
+    }
+    if (hasVersion()) {
+      hash = (37 * hash) + VERSION_FIELD_NUMBER;
+      hash = (53 * hash) + getVersion().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -784,6 +838,7 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
         internalGetRulesFieldBuilder();
         internalGetMetadataFieldBuilder();
+        internalGetVersionFieldBuilder();
       }
     }
     @java.lang.Override
@@ -812,6 +867,11 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.LazyStringArrayList.emptyList();
       sources_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
+      version_ = null;
+      if (versionBuilder_ != null) {
+        versionBuilder_.dispose();
+        versionBuilder_ = null;
+      }
       return this;
     }
 
@@ -888,6 +948,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000100) != 0)) {
         sources_.makeImmutable();
         result.sources_ = sources_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.version_ = versionBuilder_ == null
+            ? version_
+            : versionBuilder_.build();
+        to_bitField0_ |= 0x00000002;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -983,6 +1049,9 @@ private static final long serialVersionUID = 0L;
         }
         onChanged();
       }
+      if (other.hasVersion()) {
+        mergeVersion(other.getVersion());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1064,6 +1133,13 @@ private static final long serialVersionUID = 0L;
               sources_.add(input.readStringRequireUtf8());
               break;
             } // case 74
+            case 82: {
+              input.readMessage(
+                  internalGetVersionFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 82
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2229,6 +2305,163 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00000100;
       onChanged();
       return this;
+    }
+
+    private com.shorts.v1alpha1.StrategyVersionRef version_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.StrategyVersionRef, com.shorts.v1alpha1.StrategyVersionRef.Builder, com.shorts.v1alpha1.StrategyVersionRefOrBuilder> versionBuilder_;
+    /**
+     * <pre>
+     * The live rules version this definition is evaluated under.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     * @return Whether the version field is set.
+     */
+    public boolean hasVersion() {
+      return ((bitField0_ & 0x00000200) != 0);
+    }
+    /**
+     * <pre>
+     * The live rules version this definition is evaluated under.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     * @return The version.
+     */
+    public com.shorts.v1alpha1.StrategyVersionRef getVersion() {
+      if (versionBuilder_ == null) {
+        return version_ == null ? com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+      } else {
+        return versionBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * The live rules version this definition is evaluated under.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public Builder setVersion(com.shorts.v1alpha1.StrategyVersionRef value) {
+      if (versionBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        version_ = value;
+      } else {
+        versionBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The live rules version this definition is evaluated under.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public Builder setVersion(
+        com.shorts.v1alpha1.StrategyVersionRef.Builder builderForValue) {
+      if (versionBuilder_ == null) {
+        version_ = builderForValue.build();
+      } else {
+        versionBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The live rules version this definition is evaluated under.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public Builder mergeVersion(com.shorts.v1alpha1.StrategyVersionRef value) {
+      if (versionBuilder_ == null) {
+        if (((bitField0_ & 0x00000200) != 0) &&
+          version_ != null &&
+          version_ != com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance()) {
+          getVersionBuilder().mergeFrom(value);
+        } else {
+          version_ = value;
+        }
+      } else {
+        versionBuilder_.mergeFrom(value);
+      }
+      if (version_ != null) {
+        bitField0_ |= 0x00000200;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The live rules version this definition is evaluated under.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public Builder clearVersion() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      version_ = null;
+      if (versionBuilder_ != null) {
+        versionBuilder_.dispose();
+        versionBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The live rules version this definition is evaluated under.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public com.shorts.v1alpha1.StrategyVersionRef.Builder getVersionBuilder() {
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return internalGetVersionFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * The live rules version this definition is evaluated under.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public com.shorts.v1alpha1.StrategyVersionRefOrBuilder getVersionOrBuilder() {
+      if (versionBuilder_ != null) {
+        return versionBuilder_.getMessageOrBuilder();
+      } else {
+        return version_ == null ?
+            com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+      }
+    }
+    /**
+     * <pre>
+     * The live rules version this definition is evaluated under.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.StrategyVersionRef, com.shorts.v1alpha1.StrategyVersionRef.Builder, com.shorts.v1alpha1.StrategyVersionRefOrBuilder> 
+        internalGetVersionFieldBuilder() {
+      if (versionBuilder_ == null) {
+        versionBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.StrategyVersionRef, com.shorts.v1alpha1.StrategyVersionRef.Builder, com.shorts.v1alpha1.StrategyVersionRefOrBuilder>(
+                getVersion(),
+                getParentForChildren(),
+                isClean());
+        version_ = null;
+      }
+      return versionBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.Strategy)

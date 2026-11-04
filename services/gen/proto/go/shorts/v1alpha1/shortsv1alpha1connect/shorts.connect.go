@@ -283,6 +283,12 @@ const (
 	// ShortedStocksServiceGetStockStrategyFitProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetStockStrategyFit RPC.
 	ShortedStocksServiceGetStockStrategyFitProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockStrategyFit"
+	// ShortedStocksServiceGetStrategyVersionProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetStrategyVersion RPC.
+	ShortedStocksServiceGetStrategyVersionProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStrategyVersion"
+	// ShortedStocksServiceListStrategyVersionsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListStrategyVersions RPC.
+	ShortedStocksServiceListStrategyVersionsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListStrategyVersions"
 	// ShortedStocksServiceGetOwnershipOverviewProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetOwnershipOverview RPC.
 	ShortedStocksServiceGetOwnershipOverviewProcedure = "/shorts.v1alpha1.ShortedStocksService/GetOwnershipOverview"
@@ -473,6 +479,8 @@ var (
 	shortedStocksServiceGetStrategyPicksMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStrategyPicks")
 	shortedStocksServiceGetViewerStrategyPicksMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("GetViewerStrategyPicks")
 	shortedStocksServiceGetStockStrategyFitMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockStrategyFit")
+	shortedStocksServiceGetStrategyVersionMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStrategyVersion")
+	shortedStocksServiceListStrategyVersionsMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStrategyVersions")
 	shortedStocksServiceGetOwnershipOverviewMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetOwnershipOverview")
 	shortedStocksServiceListInstitutionsMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("ListInstitutions")
 	shortedStocksServiceGetInstitutionMethodDescriptor                  = shortedStocksServiceServiceDescriptor.Methods().ByName("GetInstitution")
@@ -686,6 +694,10 @@ type ShortedStocksServiceClient interface {
 	GetViewerStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error)
 	// How one stock reads against every strategy.
 	GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error)
+	// One published version of a strategy's rules, with its parameters, changes and known issues.
+	GetStrategyVersion(context.Context, *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error)
+	// Every published version of the strategies' rules, in publication order (the rules changelog).
+	ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error)
 	// The map of ASX investors and the aggregated ownership view.
 	GetOwnershipOverview(context.Context, *connect.Request[v1alpha1.GetOwnershipOverviewRequest]) (*connect.Response[v1alpha1.GetOwnershipOverviewResponse], error)
 	// List the institutions on the ownership map.
@@ -1271,6 +1283,18 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetStockStrategyFitMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getStrategyVersion: connect.NewClient[v1alpha1.GetStrategyVersionRequest, v1alpha1.GetStrategyVersionResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetStrategyVersionProcedure,
+			connect.WithSchema(shortedStocksServiceGetStrategyVersionMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listStrategyVersions: connect.NewClient[v1alpha1.ListStrategyVersionsRequest, v1alpha1.ListStrategyVersionsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListStrategyVersionsProcedure,
+			connect.WithSchema(shortedStocksServiceListStrategyVersionsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getOwnershipOverview: connect.NewClient[v1alpha1.GetOwnershipOverviewRequest, v1alpha1.GetOwnershipOverviewResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetOwnershipOverviewProcedure,
@@ -1563,6 +1587,8 @@ type shortedStocksServiceClient struct {
 	getStrategyPicks                *connect.Client[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse]
 	getViewerStrategyPicks          *connect.Client[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse]
 	getStockStrategyFit             *connect.Client[v1alpha1.GetStockStrategyFitRequest, v1alpha1.GetStockStrategyFitResponse]
+	getStrategyVersion              *connect.Client[v1alpha1.GetStrategyVersionRequest, v1alpha1.GetStrategyVersionResponse]
+	listStrategyVersions            *connect.Client[v1alpha1.ListStrategyVersionsRequest, v1alpha1.ListStrategyVersionsResponse]
 	getOwnershipOverview            *connect.Client[v1alpha1.GetOwnershipOverviewRequest, v1alpha1.GetOwnershipOverviewResponse]
 	listInstitutions                *connect.Client[v1alpha1.ListInstitutionsRequest, v1alpha1.ListInstitutionsResponse]
 	getInstitution                  *connect.Client[v1alpha1.GetInstitutionRequest, v1alpha1.GetInstitutionResponse]
@@ -2017,6 +2043,16 @@ func (c *shortedStocksServiceClient) GetStockStrategyFit(ctx context.Context, re
 	return c.getStockStrategyFit.CallUnary(ctx, req)
 }
 
+// GetStrategyVersion calls shorts.v1alpha1.ShortedStocksService.GetStrategyVersion.
+func (c *shortedStocksServiceClient) GetStrategyVersion(ctx context.Context, req *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error) {
+	return c.getStrategyVersion.CallUnary(ctx, req)
+}
+
+// ListStrategyVersions calls shorts.v1alpha1.ShortedStocksService.ListStrategyVersions.
+func (c *shortedStocksServiceClient) ListStrategyVersions(ctx context.Context, req *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error) {
+	return c.listStrategyVersions.CallUnary(ctx, req)
+}
+
 // GetOwnershipOverview calls shorts.v1alpha1.ShortedStocksService.GetOwnershipOverview.
 func (c *shortedStocksServiceClient) GetOwnershipOverview(ctx context.Context, req *connect.Request[v1alpha1.GetOwnershipOverviewRequest]) (*connect.Response[v1alpha1.GetOwnershipOverviewResponse], error) {
 	return c.getOwnershipOverview.CallUnary(ctx, req)
@@ -2367,6 +2403,10 @@ type ShortedStocksServiceHandler interface {
 	GetViewerStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error)
 	// How one stock reads against every strategy.
 	GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error)
+	// One published version of a strategy's rules, with its parameters, changes and known issues.
+	GetStrategyVersion(context.Context, *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error)
+	// Every published version of the strategies' rules, in publication order (the rules changelog).
+	ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error)
 	// The map of ASX investors and the aggregated ownership view.
 	GetOwnershipOverview(context.Context, *connect.Request[v1alpha1.GetOwnershipOverviewRequest]) (*connect.Response[v1alpha1.GetOwnershipOverviewResponse], error)
 	// List the institutions on the ownership map.
@@ -2948,6 +2988,18 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetStockStrategyFitMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetStrategyVersionHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetStrategyVersionProcedure,
+		svc.GetStrategyVersion,
+		connect.WithSchema(shortedStocksServiceGetStrategyVersionMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListStrategyVersionsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListStrategyVersionsProcedure,
+		svc.ListStrategyVersions,
+		connect.WithSchema(shortedStocksServiceListStrategyVersionsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceGetOwnershipOverviewHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetOwnershipOverviewProcedure,
 		svc.GetOwnershipOverview,
@@ -3320,6 +3372,10 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetViewerStrategyPicksHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetStockStrategyFitProcedure:
 			shortedStocksServiceGetStockStrategyFitHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetStrategyVersionProcedure:
+			shortedStocksServiceGetStrategyVersionHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListStrategyVersionsProcedure:
+			shortedStocksServiceListStrategyVersionsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetOwnershipOverviewProcedure:
 			shortedStocksServiceGetOwnershipOverviewHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListInstitutionsProcedure:
@@ -3727,6 +3783,14 @@ func (UnimplementedShortedStocksServiceHandler) GetViewerStrategyPicks(context.C
 
 func (UnimplementedShortedStocksServiceHandler) GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStockStrategyFit is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetStrategyVersion(context.Context, *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStrategyVersion is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListStrategyVersions is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetOwnershipOverview(context.Context, *connect.Request[v1alpha1.GetOwnershipOverviewRequest]) (*connect.Response[v1alpha1.GetOwnershipOverviewResponse], error) {
