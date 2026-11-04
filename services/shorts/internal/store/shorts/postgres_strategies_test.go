@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -220,9 +221,9 @@ func TestFiniteDropsNonFiniteValues(t *testing.T) {
 		t.Errorf("sanitiseCandidate: %+v", c)
 	}
 	g := engine.Growth{RevenueYoYPct: v(math.Inf(1)), EPSYoYPct: v(12)}
-	sanitiseGrowth(&g)
+	pgsource.SanitiseGrowth(&g)
 	if g.RevenueYoYPct != nil || g.EPSYoYPct == nil {
-		t.Errorf("sanitiseGrowth: %+v", g)
+		t.Errorf("SanitiseGrowth: %+v", g)
 	}
 }
 

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
-	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -375,126 +374,6 @@ func TestListStrategyShortDatesMergesByCode(t *testing.T) {
 	}
 }
 
-// With 000132 the extras merge onto the universe by code.
-func TestListStrategyCandidatesMergesExtras(t *testing.T) {
-	var er extrasRow
-	er.e.StockCode = "bhp" // matched case-insensitively
-	er.e.HasGrowthRow = true
-	er.e.RevenueBasisSource = "filing"
-	er.e.EPSBasisSource = "vendor"
-	er.e.RevenueLatestPeriodEnd = tp("2026-06-30")
-	er.e.RevenuePriorPeriodEnd = tp("2025-06-30")
-	er.hasQuality = true
-	er.q.BasisPeriodType = "annual"
-	er.q.Currency = "USD"
-	er.q.ROEPct = new(22.5)
-	er.q.NetMarginPct = new(float64(20))
-	er.q.StatementIsFinancial = false
-	lag := int32(0)
-	er.q.BalanceLagMonths = &lag
-	er.e.Valuation.Shares = new(5.07e9)
-	er.e.Valuation.SharesPeriodEnd = tp("2026-06-30")
-	er.e.Valuation.MedianK = new(1.0)
-	er.e.Valuation.KPeriods = 4
-	er.e.Valuation.KConsistent = true
-	er.e.Valuation.EPSCurrency = "USD"
-	extrasFixture := rowFrom(er.targets())
-
-	db := &fakeDB{respond: func(sql string) ([][]any, error) {
-		switch {
-		case strings.Contains(sql, sqlExtras):
-			return [][]any{extrasFixture}, nil
-		case strings.Contains(sql, sqlCandidates):
-			return [][]any{fakeCandidateRow("BHP"), fakeCandidateRow("ZZZ")}, nil
-		case strings.Contains(sql, strategyShortDatesQuery):
-			return nil, nil
-		}
-		return nil, fmt.Errorf("unexpected query")
-	}}
-	cands, err := listStrategyCandidates(context.Background(), db)
-	if err != nil {
-		t.Fatal(err)
-	}
-	bhp, zzz := cands[0], cands[1]
-	if bhp.Quality == nil || *bhp.Quality.ROEPct != 22.5 || bhp.Quality.BalanceLagMonths == nil {
-		t.Errorf("BHP quality: %+v", bhp.Quality)
-	}
-	if bhp.Growth.RevenueBasisSource != "filing" || bhp.Growth.EPSBasisSource != "vendor" ||
-		!bhp.Growth.RevenueLatestPeriodEnd.Equal(*tp("2026-06-30")) || !bhp.Growth.RevenuePriorPeriodEnd.Equal(*tp("2025-06-30")) {
-		t.Errorf("BHP growth provenance: %+v", bhp.Growth)
-	}
-	if bhp.ValuationInputs == nil || *bhp.ValuationInputs.Shares != 5.07e9 || bhp.ValuationInputs.KPeriods != 4 {
-		t.Errorf("BHP valuation inputs: %+v", bhp.ValuationInputs)
-	}
-	if zzz.Quality != nil || zzz.ValuationInputs != nil {
-		t.Error("a stock without extras gets none")
-	}
-	// The candidates query keeps EXACTLY its 000129/000130 column list.
-	for _, q := range db.queries {
-		if strings.Contains(q, sqlCandidates) && strings.Contains(q, "mv_fundamentals_quality") {
-			t.Error("strategyCandidatesQuery must not read 000132 objects")
-		}
-	}
-}
-
-func TestFundamentalsExtrasQueryShape(t *testing.T) {
-	var r extrasRow
-	if got, want := len(r.targets()), len(fundamentalsExtrasColumns); got != want {
-		t.Fatalf("targets %d != columns %d", got, want)
-	}
-	for _, q := range []string{fundamentalsExtrasUniverseQuery, fundamentalsExtrasSingleQuery} {
-		if got := len(selectList(t, q)); got != len(fundamentalsExtrasColumns) {
-			t.Errorf("extras query selects %d columns, scans %d", got, len(fundamentalsExtrasColumns))
-		}
-		for _, frag := range []string{
-			"LEFT JOIN mv_fundamentals_growth g", "LEFT JOIN mv_fundamentals_quality q", "LEFT JOIN stock_fundamentals_sync sy",
-			"sy.median_k", "sy.fx_converted", "f.source <> 'asx-filing-extraction'", "BETWEEN 0.8 AND 1.25",
-			"bool_or(v.kv > 0 AND (v.kv * 3 < 1 OR v.kv > 3)) AS any_far",
-			// Without a median, only a k outside [1/3, 3] contradicts the listing.
-			"COALESCE(kk.any_far, false)",
-			// fx_converted NULL is not "not converted": a fractional non-Markit
-			// vendor revenue or net income decides until the job has measured it.
-			"COALESCE(sy.fx_converted, kk.fractional, false)", "v.source <> 'markit-key-statistics'",
-			"abs(v.revenue - round(v.revenue)) > 0.001", "abs(v.net_income - round(v.net_income)) > 0.001",
-		} {
-			if !strings.Contains(q, frag) {
-				t.Errorf("extras query is missing %q", frag)
-			}
-		}
-	}
-	if strings.Contains(fundamentalsExtrasUniverseQuery, "$1") || !strings.Contains(fundamentalsExtrasSingleQuery, "$1::text") {
-		t.Error("only the single-stock read takes a code")
-	}
-	if !strings.Contains(fundamentalsExtrasSingleQuery, "FROM mv_price_features p") || !strings.Contains(fundamentalsExtrasSingleQuery, "FROM stock_prices s2") {
-		t.Error("the single-stock read must take the close from mv_price_features, else stock_prices")
-	}
-	if !strings.Contains(fundamentalsExtrasSingleQuery, "s2.date >= COALESCE((SELECT max(p2.as_of) FROM mv_price_features p2), CURRENT_DATE) - 45") {
-		t.Error("the stock_prices fallback must be bounded to recent sessions: a stale close is not a valuation")
-	}
-	// Every contract column of mv_fundamentals_quality (plan §2.7) is read.
-	for _, col := range []string{
-		"basis_period_type", "basis_period_end", "currency", "source", "fetched_at", "revenue", "gross_profit",
-		"operating_income", "ebitda", "normalized_ebitda", "ebit", "net_income", "operating_cash_flow",
-		"operating_cash_flow_derived", "free_cash_flow", "capital_expenditure", "dividends_paid", "interest_expense",
-		"shares_outstanding", "balance_period_end", "balance_period_type", "balance_currency", "balance_lag_months",
-		"total_assets", "total_assets_prior", "total_liabilities", "total_equity", "total_equity_prior",
-		"cash_and_equivalents", "total_debt", "capital_lease_obligations", "net_debt", "current_assets",
-		"current_liabilities", "gross_margin_pct", "operating_margin_pct", "net_margin_pct", "fcf_margin_pct",
-		"fcf_conversion", "roe_pct", "roa_pct", "net_debt_to_ebitda", "net_debt_to_equity", "current_ratio",
-		"interest_cover", "payout_ratio_pct", "statement_is_financial",
-	} {
-		if !strings.Contains(fundamentalsExtrasUniverseQuery, "q."+col) {
-			t.Errorf("extras query does not read mv_fundamentals_quality.%s", col)
-		}
-	}
-	// The four appended growth columns (plan §2.6).
-	for _, col := range []string{"revenue_basis_source", "eps_basis_source", "revenue_latest_period_end", "revenue_prior_period_end"} {
-		if !strings.Contains(fundamentalsExtrasUniverseQuery, "g."+col) {
-			t.Errorf("extras query does not read mv_fundamentals_growth.%s", col)
-		}
-	}
-}
-
 func TestBuildFundamentalsQueryExtended(t *testing.T) {
 	q, args := buildFundamentalsQueryExtended("BHP", "quarter", 40)
 	if got, want := len(selectList(t, q)), 14+len(fundamentalsExtendedColumns)+3; got != want {
@@ -542,21 +421,6 @@ func TestMissingSchemaDetection(t *testing.T) {
 	for range 3 {
 		logMissingSchemaOnce("TestMethod", errors.New("column does not exist"))
 	}
-}
-
-// FundamentalsExtras.ApplyToGrowth only copies from a real growth row.
-func TestApplyToGrowth(t *testing.T) {
-	g := &engine.Growth{}
-	(&FundamentalsExtras{RevenueBasisSource: "filing"}).ApplyToGrowth(g)
-	if g.RevenueBasisSource != "" {
-		t.Error("no growth row: nothing to copy")
-	}
-	(&FundamentalsExtras{HasGrowthRow: true, RevenueBasisSource: "filing"}).ApplyToGrowth(g)
-	if g.RevenueBasisSource != "filing" {
-		t.Error("copy")
-	}
-	(*FundamentalsExtras)(nil).ApplyToGrowth(g)
-	(&FundamentalsExtras{HasGrowthRow: true}).ApplyToGrowth(nil)
 }
 
 // The latest-filing candidates carry whether the digest's metrics quoted the

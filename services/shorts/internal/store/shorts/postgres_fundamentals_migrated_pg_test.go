@@ -829,21 +829,6 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 	})
 }
 
-// TestExtrasQualityRowNeedsAFlowBasis pins, without a database, what the
-// real-migration test above found: mv_fundamentals_quality has a row for an
-// EPS-only stock whose every column but stock_code is NULL, and the store
-// must not read that row as a quality row.
-func TestExtrasQualityRowNeedsAFlowBasis(t *testing.T) {
-	var r extrasRow
-	for _, c := range fundamentalsExtrasColumns {
-		if c.target(&r) == any(&r.hasQuality) {
-			assert.Equal(t, `(q.stock_code IS NOT NULL AND q.basis_period_end IS NOT NULL)`, c.expr)
-			return
-		}
-	}
-	t.Fatal("no extras column scans into hasQuality")
-}
-
 // ---------------------------------------------------------------- helpers
 
 type migratedDB struct {
