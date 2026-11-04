@@ -289,6 +289,65 @@ func (r *candidateRow) targets() []any {
 	return append(t, &c.CompanyName, &c.Industry, &c.LogoURL, &c.ShortPct, &c.DaysToCover, &c.MarketCap)
 }
 
+// strategyShortDatesQuery is the newest non-zero ASIC short position of each
+// stock within 400 days: the report a pick's short figure came from (4.6,
+// display-only). The ORDER BY matches idx_shorts_timeseries_full.
+const strategyShortDatesQuery = `
+	SELECT DISTINCT ON (s."PRODUCT_CODE")
+		s."PRODUCT_CODE"::text,
+		s."DATE"::date
+	FROM shorts s
+	WHERE s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+		AND s."DATE" >= now() - interval '400 days'
+	ORDER BY s."PRODUCT_CODE", s."DATE" DESC
+`
+
+// listStrategyShortDates returns each stock's newest non-zero short report
+// date, keyed by upper-case code. A missing shorts relation is an empty map.
+func listStrategyShortDates(ctx context.Context, db fundamentalsDB) (map[string]time.Time, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+
+	rows, err := db.Query(ctx, strategyShortDatesQuery)
+	if err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ListStrategyCandidates.shortDates", err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to query short report dates: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]time.Time{}
+	for rows.Next() {
+		var (
+			code string
+			day  time.Time
+		)
+		if err := rows.Scan(&code, &day); err != nil {
+			return nil, fmt.Errorf("failed to scan short report date: %w", err)
+		}
+		out[strings.ToUpper(code)] = day
+	}
+	if err := rows.Err(); err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ListStrategyCandidates.shortDates", err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error iterating short report dates: %w", err)
+	}
+	return out, nil
+}
+
+// mergeShortDates attaches each candidate's short report date by code.
+func mergeShortDates(cands []engine.Candidate, dates map[string]time.Time) {
+	for i := range cands {
+		if d, ok := dates[strings.ToUpper(cands[i].StockCode)]; ok {
+			d := d
+			cands[i].ShortReportDate = &d
+		}
+	}
+}
+
 // ListStrategyCandidates returns the evaluator's universe, one Candidate per
 // stock in mv_price_features, ordered by stock code. A missing relation
 // yields an empty universe, never an error.
@@ -312,6 +371,11 @@ func listStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]engine.Ca
 		return nil, err
 	}
 	mergeFundamentalsExtras(out, extras)
+	shortDates, err := listStrategyShortDates(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	mergeShortDates(out, shortDates)
 	return out, nil
 }
 

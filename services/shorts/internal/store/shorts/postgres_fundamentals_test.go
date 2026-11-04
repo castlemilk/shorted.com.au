@@ -183,6 +183,8 @@ func without000132(missingView string) func(sql string) ([][]any, error) {
 			return nil, pgErr(missingView)
 		case strings.Contains(sql, sqlCandidates):
 			return [][]any{fakeCandidateRow("BHP"), fakeCandidateRow("CBA")}, nil
+		case strings.Contains(sql, strategyShortDatesQuery):
+			return [][]any{{"BHP", *tp("2026-10-28")}}, nil
 		case strings.Contains(sql, sqlExtendedPeriods):
 			return nil, pgErr("42703")
 		case strings.Contains(sql, sqlPeriods):
@@ -311,6 +313,45 @@ func TestFundamentalsReadsReturnOtherErrors(t *testing.T) {
 	}
 }
 
+// The newest short report date merges onto each stock by code, and a schema
+// without the shorts relation leaves every stock without one.
+func TestListStrategyShortDatesMergesByCode(t *testing.T) {
+	db := &fakeDB{respond: func(sql string) ([][]any, error) {
+		switch {
+		case strings.Contains(sql, strategyShortDatesQuery):
+			return [][]any{{"bhp", *tp("2026-10-28")}}, nil
+		case strings.Contains(sql, sqlCandidates):
+			return [][]any{fakeCandidateRow("BHP"), fakeCandidateRow("ZZZ")}, nil
+		}
+		return nil, pgErr("42P01")
+	}}
+	cands, err := listStrategyCandidates(context.Background(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cands[0].ShortReportDate == nil || !cands[0].ShortReportDate.Equal(*tp("2026-10-28")) {
+		t.Errorf("BHP short report date = %v, want 2026-10-28", cands[0].ShortReportDate)
+	}
+	if cands[1].ShortReportDate != nil {
+		t.Errorf("ZZZ has no reported short position: %v", cands[1].ShortReportDate)
+	}
+
+	missing := &fakeDB{respond: func(sql string) ([][]any, error) {
+		if strings.Contains(sql, strategyShortDatesQuery) {
+			return nil, pgErr("42P01")
+		}
+		return [][]any{fakeCandidateRow("BHP")}, nil
+	}}
+	if dates, err := listStrategyShortDates(context.Background(), missing); err != nil || dates != nil {
+		t.Errorf("a missing shorts relation = %v, %v; want nil, nil", dates, err)
+	}
+	if _, err := listStrategyShortDates(context.Background(), &fakeDB{respond: func(string) ([][]any, error) {
+		return nil, pgErr("57014")
+	}}); err == nil {
+		t.Error("a failing short dates read must fail the universe fill")
+	}
+}
+
 // With 000132 the extras merge onto the universe by code.
 func TestListStrategyCandidatesMergesExtras(t *testing.T) {
 	var er extrasRow
@@ -342,6 +383,8 @@ func TestListStrategyCandidatesMergesExtras(t *testing.T) {
 			return [][]any{extrasFixture}, nil
 		case strings.Contains(sql, sqlCandidates):
 			return [][]any{fakeCandidateRow("BHP"), fakeCandidateRow("ZZZ")}, nil
+		case strings.Contains(sql, strategyShortDatesQuery):
+			return nil, nil
 		}
 		return nil, fmt.Errorf("unexpected query")
 	}}
