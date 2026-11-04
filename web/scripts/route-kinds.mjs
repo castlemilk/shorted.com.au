@@ -86,15 +86,16 @@ export const OWNERSHIP_STATIC_ROUTES = [
   "/ownership/changes",
 ];
 
-// The strategy profile: the one dynamic route /strategies/[strategy], whose
-// params the layout prerenders (generateStaticParams, dynamicParams = false).
-// The pattern is listed under dynamicRoutes; each prerendered slug is a static
-// page under `routes`. Next writes the pattern with `fallback: false` only while
+// The strategy profile and its Signals tab: the dynamic routes
+// /strategies/[strategy] and /strategies/[strategy]/signals, whose params the
+// layout prerenders (generateStaticParams, dynamicParams = false, inherited by
+// the child tab). Each pattern is listed under dynamicRoutes; each prerendered
+// slug is a static page under `routes`. Next writes the pattern with `fallback: false` only while
 // dynamicParams is false, so an unknown slug is a 404; without it the entry is
 // `fallback: null` and an unknown slug renders on demand, which is why the gate
 // reads the field and not only the entry. Its page reads are checked from source
 // by web/src/app/strategies/__tests__/isr-source-safety.test.ts.
-export const STRATEGY_ROUTES = ["/strategies/[strategy]"];
+export const STRATEGY_ROUTES = ["/strategies/[strategy]", "/strategies/[strategy]/signals"];
 
 // The strategies hub is a static ISR page with no dynamic segment, so the gate
 // reads its revalidate under `routes` as it does the ownership pages.
