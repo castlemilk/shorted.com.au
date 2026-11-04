@@ -216,7 +216,7 @@ public interface GetStockStrategyFitResponseOrBuilder extends
 
   /**
    * <pre>
-   * Why not eligible, e.g. "not_in_universe"; empty when eligible.
+   * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
    * </pre>
    *
    * <code>string ineligible_reason = 12 [json_name = "ineligibleReason"];</code>
@@ -225,7 +225,7 @@ public interface GetStockStrategyFitResponseOrBuilder extends
   java.lang.String getIneligibleReason();
   /**
    * <pre>
-   * Why not eligible, e.g. "not_in_universe"; empty when eligible.
+   * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
    * </pre>
    *
    * <code>string ineligible_reason = 12 [json_name = "ineligibleReason"];</code>

@@ -40,7 +40,9 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 	resp.SessionDate = u.asOf
 	resp.Stale = staleBehind(u.asOf, u.regime)
 	if _, ok := u.index[code]; !ok {
-		resp.IneligibleReason = "not_in_universe"
+		// A stock with no price features has fewer than 60 sessions in the last
+		// 400 days (mv_price_features), which is the spec's short_history.
+		resp.IneligibleReason = "short_history"
 		return connect.NewResponse(resp), nil
 	}
 	resp.InUniverse = true

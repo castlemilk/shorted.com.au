@@ -10789,7 +10789,7 @@ components:
         ineligibleReason:
           type: string
           title: ineligible_reason
-          description: Why not eligible, e.g. "not_in_universe"; empty when eligible. (proto string)
+          description: Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible. (proto string)
       title: GetStockStrategyFitResponse
       additionalProperties: false
       description: Response for GetStockStrategyFit.

@@ -397,7 +397,7 @@ func TestGetStockStrategyFit_CarriesEligibilityAndSessionAndShortDates(t *testin
 	require.NoError(t, err)
 	assert.False(t, out.Msg.InUniverse)
 	assert.False(t, out.Msg.Eligible)
-	assert.Equal(t, "not_in_universe", out.Msg.IneligibleReason)
+	assert.Equal(t, "short_history", out.Msg.IneligibleReason)
 	assert.Equal(t, "2026-09-25", out.Msg.SessionDate, "the session is the universe's, even for a stock outside it")
 	assert.Empty(t, out.Msg.ShortReportDate)
 	assert.Empty(t, out.Msg.ShortAvailableDate)

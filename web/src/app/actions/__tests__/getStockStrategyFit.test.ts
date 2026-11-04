@@ -239,11 +239,11 @@ describe("mapStockStrategyFit signal fields", () => {
     const fit = mapStockStrategyFit("ZZZ", {
       inUniverse: false,
       eligible: false,
-      ineligibleReason: "not_in_universe",
+      ineligibleReason: "short_history",
       sessionDate: "2026-09-25",
       fits: [],
     });
-    expect(fit).toMatchObject({ eligible: false, ineligibleReason: "not_in_universe", sessionDate: "2026-09-25" });
+    expect(fit).toMatchObject({ eligible: false, ineligibleReason: "short_history", sessionDate: "2026-09-25" });
     expect(fit.shortReportDate).toBeUndefined();
     expect(fit.shortAvailableDate).toBeUndefined();
   });

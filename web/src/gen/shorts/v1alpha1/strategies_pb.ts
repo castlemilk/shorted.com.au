@@ -1414,7 +1414,7 @@ export type GetStockStrategyFitResponse = Message<"shorts.v1alpha1.GetStockStrat
   eligible: boolean;
 
   /**
-   * Why not eligible, e.g. "not_in_universe"; empty when eligible.
+   * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
    *
    * @generated from field: string ineligible_reason = 12;
    */

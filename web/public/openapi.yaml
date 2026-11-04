@@ -6304,8 +6304,8 @@ components:
           title: in_universe
           type: boolean
         ineligibleReason:
-          description: Why not eligible, e.g. "not_in_universe"; empty when eligible.
-            (proto string)
+          description: Why not eligible, e.g. "short_history" (fewer than 60 sessions
+            in the last 400 days); empty when eligible. (proto string)
           title: ineligible_reason
           type: string
         priceFeatures:

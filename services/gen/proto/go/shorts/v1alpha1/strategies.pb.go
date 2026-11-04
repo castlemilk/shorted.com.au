@@ -2030,7 +2030,7 @@ type GetStockStrategyFitResponse struct {
 	ShortAvailableDate string                 `protobuf:"bytes,9,opt,name=short_available_date,json=shortAvailableDate,proto3" json:"short_available_date,omitempty"` // When that report became public; empty for a report dated before 2026.
 	Stale              bool                   `protobuf:"varint,10,opt,name=stale,proto3" json:"stale,omitempty"`                                                     // True when the index has closed a session the prices have not reached (the data is delayed).
 	Eligible           bool                   `protobuf:"varint,11,opt,name=eligible,proto3" json:"eligible,omitempty"`                                               // False when the stock cannot be read against the strategies at all.
-	IneligibleReason   string                 `protobuf:"bytes,12,opt,name=ineligible_reason,json=ineligibleReason,proto3" json:"ineligible_reason,omitempty"`        // Why not eligible, e.g. "not_in_universe"; empty when eligible.
+	IneligibleReason   string                 `protobuf:"bytes,12,opt,name=ineligible_reason,json=ineligibleReason,proto3" json:"ineligible_reason,omitempty"`        // Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }

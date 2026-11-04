@@ -309,7 +309,7 @@ message GetStockStrategyFitResponse {
   string short_available_date = 9;         // When that report became public; empty for a report dated before 2026.
   bool stale = 10;                         // True when the index has closed a session the prices have not reached (the data is delayed).
   bool eligible = 11;                      // False when the stock cannot be read against the strategies at all.
-  string ineligible_reason = 12;           // Why not eligible, e.g. "not_in_universe"; empty when eligible.
+  string ineligible_reason = 12;           // Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
 }
 
 // Request for ListStrategies.

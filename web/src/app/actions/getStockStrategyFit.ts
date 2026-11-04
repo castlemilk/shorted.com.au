@@ -116,7 +116,7 @@ export interface StockStrategyFit {
   regime: MarketRegimeView | null;
   /** Whether the stock can be read against the strategies at all. */
   eligible?: boolean;
-  /** Why it cannot, e.g. "not_in_universe"; absent when eligible. */
+  /** Why it cannot, e.g. "short_history"; absent when eligible. */
   ineligibleReason?: string;
   /** YYYY-MM-DD the readings are as at. */
   sessionDate?: string;
