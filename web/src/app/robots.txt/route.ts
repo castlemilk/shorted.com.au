@@ -18,11 +18,10 @@ const PRIVATE_PATHS = [
   "/chat/",
   "/metrics/",
   "/dashboards/",
-  // The strategy workspace's private pages (PR-01; they are static shells whose
-  // data arrives through server actions). Each path names the whole segment: a
-  // bare "/strategies/my" is safe only because no strategy slug starts with it
-  // (private-prefix.test.ts), and "/strategies/mine" would have swallowed
-  // /strategies/minervini-trend-template.
+  // Paths reserved for the strategy workspace's private pages, which are not
+  // built yet. Each path names the whole segment: a bare "/strategies/my" is
+  // safe only because no strategy slug starts with it (private-prefix.test.ts),
+  // and "/strategies/mine" would have swallowed /strategies/minervini-trend-template.
   "/strategies/my",
   "/strategies/alerts",
   "/strategies/compare",

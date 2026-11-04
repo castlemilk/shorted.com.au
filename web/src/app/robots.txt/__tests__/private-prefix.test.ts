@@ -4,16 +4,19 @@
  * would also block /strategies/minervini-trend-template, and it would do so
  * silently, with every other test green.
  *
- * Pinned here against the registry itself rather than a copied list, so a new
- * strategy slug that happens to start with a private segment fails this test.
+ * The check reads the Disallow lines of the GET() body, not a copy of
+ * route.ts's PRIVATE_PATHS, so a private path added there is tested as it is
+ * served. The set of strategy Disallows is pinned exactly: adding one (say
+ * "/strategies/c") must change this list on purpose, and then the prefix check
+ * runs against every registry slug.
  */
 import { GET } from "../route";
 import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 
-const PRIVATE_STRATEGY_PATHS = [
-  "/strategies/my",
+const EXPECTED_PRIVATE_STRATEGY_PATHS = [
   "/strategies/alerts",
   "/strategies/compare",
+  "/strategies/my",
 ];
 
 async function robotsBody(): Promise<string> {
@@ -29,31 +32,43 @@ function disallowLines(body: string): string[] {
 
 describe("robots.txt strategy private paths", () => {
   let body: string;
+  let disallows: string[];
 
   beforeAll(async () => {
     body = await robotsBody();
+    disallows = disallowLines(body);
   });
 
-  it("disallows each private strategy page in both groups", () => {
-    for (const path of PRIVATE_STRATEGY_PATHS) {
-      const occurrences = disallowLines(body).filter((p) => p === path).length;
+  it("disallows exactly the three private strategy paths", () => {
+    const strategyDisallows = [
+      ...new Set(disallows.filter((p) => p.startsWith("/strategies"))),
+    ].sort();
+    expect(strategyDisallows).toEqual(EXPECTED_PRIVATE_STRATEGY_PATHS);
+  });
+
+  it("each private strategy page is disallowed in both groups", () => {
+    for (const path of EXPECTED_PRIVATE_STRATEGY_PATHS) {
+      const occurrences = disallows.filter((p) => p === path).length;
       // The file has the User-Agent: * block and the AI-crawler block.
       expect(occurrences).toBeGreaterThanOrEqual(2);
     }
   });
 
-  it("never disallows /strategies/mine (it prefixes a real strategy slug)", () => {
-    expect(disallowLines(body)).not.toContain("/strategies/mine");
-    expect(body).not.toMatch(/^Disallow: \/strategies\/mine$/m);
-  });
-
-  it("no private strategy path is a prefix of any public /strategies/<slug> URL", () => {
-    for (const path of PRIVATE_STRATEGY_PATHS) {
+  it("no Disallow in the file is a prefix of any public /strategies/<slug> URL", () => {
+    expect(STRATEGY_SLUGS.length).toBeGreaterThan(0);
+    for (const path of [...new Set(disallows)]) {
       for (const slug of STRATEGY_SLUGS) {
         const publicUrl = `/strategies/${slug}`;
-        expect(publicUrl.startsWith(path)).toBe(false);
+        expect({ path, publicUrl, blocked: publicUrl.startsWith(path) }).toEqual(
+          { path, publicUrl, blocked: false },
+        );
       }
     }
+  });
+
+  it("never disallows /strategies/mine (it prefixes a real strategy slug)", () => {
+    expect(disallows).not.toContain("/strategies/mine");
+    expect(body).not.toMatch(/^Disallow: \/strategies\/mine$/m);
   });
 
   it("the public strategy paths stay allowed for AI crawlers", () => {
