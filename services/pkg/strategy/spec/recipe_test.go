@@ -411,6 +411,17 @@ func TestRecipeLinesStateTheRules(t *testing.T) {
 	if e := byID[RecipeMinerviniR1].Entry; !strings.Contains(e, note) {
 		t.Errorf("mtt-r1 entry %q lacks its entry note", e)
 	}
+	// The fresh-breakout condition governs the buy, so it must come before the
+	// cancellation sentence; after it, "only when ..." reads as a condition on
+	// cancelling the order.
+	const fresh = "only when its breakout date has never been traded in this code."
+	for _, id := range []string{RecipeCrowdedShortR1, RecipeZangerR1} {
+		e := byID[id].Entry
+		f, c := strings.Index(e, fresh), strings.Index(e, "cancelled")
+		if f < 0 || c < 0 || f > c {
+			t.Errorf("%s entry %q must state the fresh clause before the cancellation", id, e)
+		}
+	}
 	flat := testRecipe()
 	flat.Costs = Costs{BrokerageBps: 10, BrokerageMinAUD: 10, FlatSlippageBps: ptrFloat(5), Multiplier: 1}
 	lines, err := RenderRecipeLines(flat)

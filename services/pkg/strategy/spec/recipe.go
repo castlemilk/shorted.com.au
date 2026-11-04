@@ -607,11 +607,13 @@ func audAmount(v float64) string {
 // entryLine says when a signal buys. An entry is cancelled on an untraded session,
 // unlike an exit, which waits for the next traded session.
 func entryLine(r Recipe) string {
-	line := "Buys at the next session's open after the close on which a stock becomes triggered, when that session trades; otherwise the order is cancelled"
+	const buy = "Buys at the next session's open after the close on which a stock becomes triggered"
+	var line string
 	if r.Entry.Fresh == EntryFreshNewBreakout {
-		line += ", only when its breakout date has never been traded in this code"
+		line = buy + ", only when its breakout date has never been traded in this code. The order fills only if that session trades; otherwise it is cancelled."
+	} else {
+		line = buy + ", when that session trades; otherwise the order is cancelled."
 	}
-	line += "."
 	if r.Entry.MaxAbovePivotPct != nil {
 		line += " Skipped when that open is more than " + FormatNumber(*r.Entry.MaxAbovePivotPct) + "% above the captured pivot."
 	}

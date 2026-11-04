@@ -1,6 +1,6 @@
 ## csb-r1
 Execution recipe chosen by Shorted to test the screen; the author's own entries and exits differ.
-Buys at the next session's open after the close on which a stock becomes triggered, when that session trades; otherwise the order is cancelled, only when its breakout date has never been traded in this code. Skipped when that open is more than 10% above the captured pivot. After an exit, no re-entry for 10 sessions.
+Buys at the next session's open after the close on which a stock becomes triggered, only when its breakout date has never been traded in this code. The order fills only if that session trades; otherwise it is cancelled. Skipped when that open is more than 10% above the captured pivot. After an exit, no re-entry for 10 sessions.
 Exits at a close below the captured pivot.
 Time stop: exits at the next traded open after the close of session 20 after entry.
 Rules are checked at each close in the order listed; the first to hit exits, filled at the next traded open.
@@ -35,7 +35,7 @@ Idle cash earns the RBA cash rate.
 
 ## zb-r1
 Execution recipe chosen by Shorted to test the screen; the author's own entries and exits differ.
-Buys at the next session's open after the close on which a stock becomes triggered, when that session trades; otherwise the order is cancelled, only when its breakout date has never been traded in this code. Skipped when that open is more than 5% above the captured pivot. After an exit, no re-entry for 10 sessions.
+Buys at the next session's open after the close on which a stock becomes triggered, only when its breakout date has never been traded in this code. The order fills only if that session trades; otherwise it is cancelled. Skipped when that open is more than 5% above the captured pivot. After an exit, no re-entry for 10 sessions.
 Exits at a close below the captured pivot.
 Stop loss: exits at a close at or below 8% under the entry price.
 Exits at a close below the 50-day average.
