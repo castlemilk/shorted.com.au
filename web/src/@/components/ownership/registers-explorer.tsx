@@ -105,7 +105,7 @@ const SHORT_LABELS: Readonly<Record<number, string>> = {
   10: "10% or more",
 };
 
-const FIELD_LABEL = "text-[10px] uppercase tracking-wide text-muted-foreground";
+const FIELD_LABEL = "text-xs text-muted-foreground";
 
 /** The link's own parameters for this list. Anything else in the link is left alone. */
 const REGISTER_PARAMS = ["sort", "dir", "industry", "kind", "short", "q", "offset"] as const;

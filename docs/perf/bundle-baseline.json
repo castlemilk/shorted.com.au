@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-11-03T14:20:50.123Z",
+  "capturedAt": "2026-11-04T02:51:36.588Z",
   "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 112,
@@ -509,13 +509,34 @@
       "firstLoadKB": 112
     },
     "/ownership": {
-      "firstLoadKB": 177
+      "firstLoadKB": 204
     },
     "/ownership/[slug]": {
-      "firstLoadKB": 128
+      "firstLoadKB": 151
     },
     "/ownership/[slug]/opengraph-image": {
       "firstLoadKB": 112
+    },
+    "/ownership/activity": {
+      "firstLoadKB": 171
+    },
+    "/ownership/changes": {
+      "firstLoadKB": 161
+    },
+    "/ownership/connections": {
+      "firstLoadKB": 153
+    },
+    "/ownership/funds": {
+      "firstLoadKB": 149
+    },
+    "/ownership/funds/[fund]": {
+      "firstLoadKB": 156
+    },
+    "/ownership/holders": {
+      "firstLoadKB": 153
+    },
+    "/ownership/map": {
+      "firstLoadKB": 163
     },
     "/ownership/notices": {
       "firstLoadKB": 141

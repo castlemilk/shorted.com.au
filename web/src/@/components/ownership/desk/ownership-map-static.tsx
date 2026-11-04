@@ -15,6 +15,9 @@
 
 import { ScreenReaderTable } from "~/@/components/politicians/explorer/screen-reader-table";
 import type { CSSProperties, KeyboardEvent, ReactNode, Ref } from "react";
+import Link from "next/link";
+import { normalizedLogoUrl } from "@/lib/logo";
+import { SectorIcon } from "../workspace/sector-icon";
 
 import { NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
 import { cn } from "~/@/lib/utils";
@@ -22,29 +25,69 @@ import type { OwnershipMapPage } from "~/app/actions/ownershipDesk";
 import {
   layoutMap,
   lensFigure,
+  sectorOf,
   type MapCell,
   type MapLayout,
   type MapSector,
+  type MapStockRow,
 } from "./map-layout";
-import { lensFill, lensScale, type LensScale } from "./desk-scales";
+import { binOf, labelOnBin, lensFill, lensScale, type LensScale } from "./desk-scales";
+import { shortSector } from "~/@/lib/ownership/kinds";
 import { DEFAULT_DESK_LENS, DEFAULT_DESK_STATE, type DeskState } from "./desk-state";
 import {
   DESK_DEFAULT_WINDOW_STATE,
-  WindowChips,
   WindowPhrase,
   hrefWithParams,
-  noticeWindowHref,
   type NoticeWindow,
 } from "./window-chips";
 import {
-  DeskChip,
   DeskLink,
   LENS_LABELS,
-  LENS_ORDER,
   LensLegend,
+  LensSelect,
   formatLensFigure,
   mapCaption,
 } from "./lens-legend";
+import { Toolbar, type ToolbarFold } from "../workspace/toolbar";
+import { WindowSelect } from "../workspace/window-select";
+
+/**
+ * What a cell's area is (spec 14.3, Market map's Size): the market cap, or the estimated
+ * disclosed exposure, which is the disclosed share of the market cap. The layout sizes by
+ * market cap alone, so the exposure size passes the same layout rows with each stock's
+ * estimated exposure as its relative area (areas are relative, so only the ratios draw).
+ * A stock with no market cap takes the universe's median, as the layout does. A stock with
+ * no interest keeps a sliver of area, so it is drawn and named.
+ */
+export type MapSize = "market_cap" | "disclosed";
+/** The area of a stock with no interest, as a share of the smallest stock that has one (spec 14.7). */
+export const DISCLOSED_AREA_FLOOR = 0.05;
+
+function medianOf(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+}
+
+export function sizedRows(rows: readonly MapStockRow[], size: MapSize | undefined): readonly MapStockRow[] {
+  if (size !== "disclosed") return rows;
+  const caps = rows.flatMap((row) => (row.marketCap !== null && row.marketCap > 0 ? [row.marketCap] : []));
+  const median = medianOf(caps);
+  const exposures = rows.map((row) => {
+    const cap = row.marketCap !== null && row.marketCap > 0 ? row.marketCap : median;
+    return (row.disclosedPct / 100) * cap;
+  });
+  // The floor scales with the data: AUD exposures run to 1e11, so a fixed sliver vanishes.
+  const positive = exposures.filter((exposure) => exposure > 0);
+  const floor = positive.length > 0 ? Math.min(...positive) * DISCLOSED_AREA_FLOOR : 1;
+  return rows.map((row, index) => ({ ...row, marketCap: exposures[index]! > 0 ? exposures[index]! : floor }));
+}
+
+/** The stocks whose area is estimated from the median, as the Size chosen draws them (spec 13.8). */
+export function estimatedAreaCodes(rows: readonly MapStockRow[]): Set<string> {
+  return new Set(rows.filter((row) => row.marketCap === null || !(row.marketCap > 0)).map((row) => row.code));
+}
 
 /** The drawing's coordinate space. The SVG scales to its box; the layout never sees a pixel. */
 export const MAP_WIDTH = 1000;
@@ -75,8 +118,6 @@ export function sectorEmptyCopy(sector: string): string {
 }
 
 
-const WINDOW_LABEL = "Window of change";
-const LENS_GROUP_LABEL = "Colour by";
 
 /** The desk parameters a chip or a crumb writes: the lens and the zoomed sector. */
 export type DeskPatch = Pick<Partial<DeskState>, "lens" | "sector">;
@@ -104,20 +145,26 @@ export function deskHref(basePath: string, current: URLSearchParams, patch: Desk
   return hrefWithParams(basePath, patchDeskParams(current, patch));
 }
 
-/** The label colour for a cell's fill: the page's own background on a strong fill, the foreground on a weak one. */
+/**
+ * A cell's label colour (spec 14.9): the ink on the paper and the light steps, the paper
+ * on the two deepest steps (the ink is lost on a full fill of ink or amber). A hatched
+ * cell has no bin, so it keeps the ink.
+ */
 export function labelColourFor(value: number | null, scale: LensScale): string {
-  if (value === null || !Number.isFinite(value)) return "hsl(var(--foreground))";
-  const span = scale.hi - scale.lo;
-  const reach = Math.max(Math.abs(scale.lo), Math.abs(scale.hi));
-  const t =
-    scale.mode === "diverging"
-      ? reach > 0
-        ? Math.abs(value) / reach
-        : 0
-      : span > 0
-        ? (value - scale.lo) / span
-        : 1;
-  return t > 0.55 ? "hsl(var(--background))" : "hsl(var(--foreground))";
+  return labelOnBin(binOf(value, scale), scale);
+}
+
+/**
+ * A cell's ticker size, from the cell (spec 14.9): the code is display type, clamped to
+ * 12 to 64 px, and never wider than a fifth of the cell or taller than a quarter of it.
+ */
+export function tickerSize(width: number, height: number): number {
+  return Math.min(64, Math.max(12, Math.min(width / 5, height / 4)));
+}
+
+/** A cell's figure size, from its ticker (spec 14.9): about half the code, 11 to 28 px. */
+export function figureSizeFor(ticker: number): number {
+  return Math.min(28, Math.max(11, Math.round(ticker * 0.45)));
 }
 
 /** The arrow keys' move: the nearest cell in the arrow's direction, preferring one in the same row or column. */
@@ -206,8 +253,31 @@ export interface MapHandlers {
 
 const ARROWS = new Set(["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"]);
 
-function cellTitle(cell: MapCell, lens: DeskState["lens"]): string {
-  const estimate = cell.areaEstimated ? " Market cap estimated from the median." : "";
+/** The logo's box and the cell it needs (spec 14.2), and the figure's cell (spec 14.3). */
+const LOGO_MIN_SIZE = 16;
+const LOGO_MAX_SIZE = 40;
+const LOGO_MIN_WIDTH = 72;
+const LOGO_MIN_HEIGHT = 48;
+const FIGURE_MIN_WIDTH = 96;
+const FIGURE_MIN_HEIGHT = 56;
+
+const MARKET_CAP_AREA = "Area is market cap; a stock with no market cap takes the median and is marked estimated.";
+const EXPOSURE_AREA =
+  "Area is estimated disclosed exposure, the disclosed share of market cap; a stock with no market cap takes the median and is marked estimated.";
+
+/** The map's caption for the Size chosen: the caption's area sentence follows the size (spec 13.8). */
+function areaCaption(lens: DeskState["lens"], size: MapSize | undefined): string {
+  const caption = mapCaption(lens);
+  return size === "disclosed" ? caption.replace(MARKET_CAP_AREA, EXPOSURE_AREA) : caption;
+}
+
+function cellTitle(cell: MapCell, lens: DeskState["lens"], size: MapSize = "market_cap"): string {
+  const estimate =
+    size === "disclosed"
+      ? " Estimated disclosed exposure: the disclosed share of market cap."
+      : cell.areaEstimated
+        ? " Market cap estimated from the median."
+        : "";
   return `${cell.code}, ${cell.name}, ${cell.sector}. ${LENS_LABELS[lens]}: ${formatLensFigure(lens, cell.value)}.${estimate}`;
 }
 
@@ -219,7 +289,7 @@ const SECTOR_BAND = 20;
 
 /** A sector name's width, estimated from its characters: the labels are never measured. */
 function sectorNameWidth(name: string): number {
-  return name.length * 6.6 + 8;
+  return shortSector(name).length * 6.6 + 8;
 }
 
 /** The cells whose label a sector's name would print over: the top row of every named sector. */
@@ -246,9 +316,11 @@ function CellShape({
   focused,
   banded,
   handlers,
+  size,
 }: {
   cell: MapCell;
   lens: DeskState["lens"];
+  size?: MapSize;
   scale: LensScale;
   selected: boolean;
   focused: boolean;
@@ -259,13 +331,27 @@ function CellShape({
   const width = cell.x1 - cell.x0;
   const height = cell.y1 - cell.y0;
   const fill = cell.hatched ? `url(#${HATCH_ID})` : (lensFill(cell.value, scale) ?? `url(#${HATCH_ID})`);
-  const title = cellTitle(cell, lens);
+  const title = cellTitle(cell, lens, size);
   // Below sm the labels are not printed: a 4 px code is no label, and the title and the table carry it.
   // Under a sector's name band the label starts below the band (a cell that fills its sector once
   // lost its code altogether); a cell too short to hold both prints none.
   const bandOffset = banded ? SECTOR_BAND : 0;
   const showLabel = width >= 40 && height >= 22 + bandOffset;
-  const fontSize = Math.min(12, (height - bandOffset) * 0.3);
+  const fontSize = tickerSize(width, height - bandOffset);
+  // The code's baseline; the figure sits beneath it, top left, so both read as one stacked label.
+  const codeY = cell.y0 + bandOffset + fontSize + 2;
+  // The figure scales with the ticker (about half of it, 11 to 28 px), so a large cell's figure reads beside its code.
+  const figureSize = figureSizeFor(fontSize);
+  const figureY = codeY + figureSize + 4;
+  // The stock's logo from 72 x 48, top left, before the code (spec 14.2); a logo that fails is blank.
+  const showLogo = width >= LOGO_MIN_WIDTH && height >= LOGO_MIN_HEIGHT && showLabel;
+  // The logo scales with the ticker (about four fifths of it), so a large cell's logo is not a speck beside its code.
+  const logoSize = Math.min(LOGO_MAX_SIZE, Math.max(LOGO_MIN_SIZE, Math.round(fontSize * 0.8)));
+  const labelX = cell.x0 + (showLogo ? logoSize + 12 : 4);
+  const ink = labelColourFor(cell.value, scale);
+  // The figure under the code from 96 x 56, in the lens's own words (spec 14.3, Market map).
+  const showFigure =
+    width >= FIGURE_MIN_WIDTH && height >= FIGURE_MIN_HEIGHT && cell.value !== null && showLabel && figureY <= cell.y1 - 4;
   const interactive = handlers !== undefined;
   const interaction = interactive
     ? {
@@ -308,15 +394,38 @@ function CellShape({
         stroke={selected ? "hsl(var(--foreground))" : "hsl(var(--background))"}
         strokeWidth={selected ? 2.5 : 1}
       />
+      {showLogo ? (
+        <image
+          href={normalizedLogoUrl(cell.code)}
+          x={cell.x0 + 4}
+          y={cell.y0 + bandOffset + 4}
+          width={logoSize}
+          height={logoSize}
+          preserveAspectRatio="xMidYMid meet"
+          aria-hidden="true"
+          className="pointer-events-none hidden sm:inline"
+        />
+      ) : null}
       {showLabel ? (
         <text
-          x={cell.x0 + 4}
-          y={cell.y0 + bandOffset + fontSize + 3}
+          x={labelX}
+          y={codeY}
           fontSize={fontSize}
-          fill={labelColourFor(cell.value, scale)}
-          className="pointer-events-none hidden font-mono tabular-nums sm:inline"
+          fill={ink}
+          className="pointer-events-none hidden font-mono font-semibold tabular-nums sm:inline"
         >
           {cell.code}
+        </text>
+      ) : null}
+      {showFigure ? (
+        <text
+          x={labelX}
+          y={figureY}
+          fontSize={figureSize}
+          fill={ink}
+          className="pointer-events-none hidden font-mono tabular-nums sm:inline"
+        >
+          {formatLensFigure(lens, cell.value)}
         </text>
       ) : null}
     </g>
@@ -344,11 +453,15 @@ function SectorShape({
   const label = sector.sector;
   const zoom = handlers !== undefined && !zoomed && width >= 24 && height >= 24 ? handlers : undefined;
   const showText = width >= 72;
-  const bandWidth = Math.min(width, sectorNameWidth(label));
+  // The sector's icon leads its name from 120 px wide (spec 14.2); the name follows it.
+  const iconOffset = width >= SECTOR_ICON_MIN_WIDTH ? SECTOR_ICON_SIZE + 6 : 0;
+  const bandWidth = Math.min(width, sectorNameWidth(label) + iconOffset);
   // The name is cut to its box: "Equity Real Estate Investment Trusts (REITs)" once ran over three
   // sectors to its right. The full name stays in the title and the zoom's label.
-  const fitChars = Math.floor((width - 8) / 6.6);
-  const printed = label.length > fitChars ? `${label.slice(0, Math.max(1, fitChars - 1))}…` : label;
+  // The band prints the short name (spec 14.9); the title and the zoom's label keep the full one.
+  const short = shortSector(label);
+  const fitChars = Math.floor((width - 8 - iconOffset) / 6.6);
+  const printed = short.length > fitChars ? `${short.slice(0, Math.max(1, fitChars - 1))}…` : short;
   const bandHeight = Math.min(SECTOR_BAND, height);
   return (
     <g data-sector={sector.sector}>
@@ -398,7 +511,7 @@ function SectorShape({
           />
           {showText ? (
             <text
-              x={sector.x0 + 4}
+              x={sector.x0 + 4 + iconOffset}
               y={sector.y0 + 13}
               fontSize={11}
               className="pointer-events-none hidden font-mono sm:inline"
@@ -407,19 +520,34 @@ function SectorShape({
               {printed}
             </text>
           ) : null}
+          {iconOffset > 0 ? <SectorBandIcon x={sector.x0 + 4} y={sector.y0 + 2} industry={label} /> : null}
         </g>
       ) : showText ? (
-        <text
-          x={sector.x0 + 4}
-          y={sector.y0 + 13}
-          fontSize={11}
-          className="pointer-events-none hidden font-mono sm:inline"
-          fill="hsl(var(--foreground))"
-        >
-          {printed}
-        </text>
+        <g>
+          <text
+            x={sector.x0 + 4 + iconOffset}
+            y={sector.y0 + 13}
+            fontSize={11}
+            className="pointer-events-none hidden font-mono sm:inline"
+            fill="hsl(var(--foreground))"
+          >
+            {printed}
+          </text>
+          {iconOffset > 0 ? <SectorBandIcon x={sector.x0 + 4} y={sector.y0 + 2} industry={label} /> : null}
+        </g>
       ) : null}
     </g>
+  );
+}
+
+/** A sector's icon in its band, drawn in a foreign object so the sprite's own markup is used. */
+export const SECTOR_ICON_SIZE = 16;
+export const SECTOR_ICON_MIN_WIDTH = 120;
+function SectorBandIcon({ x, y, industry }: { x: number; y: number; industry: string }) {
+  return (
+    <foreignObject x={x} y={y} width={SECTOR_ICON_SIZE} height={SECTOR_ICON_SIZE} className="pointer-events-none hidden overflow-visible sm:block">
+      <SectorIcon industry={industry} size={SECTOR_ICON_SIZE} />
+    </foreignObject>
   );
 }
 
@@ -432,9 +560,11 @@ export function DeskMapFigure({
   focusCode,
   handlers,
   groupStyle,
+  size,
 }: {
   layout: MapLayout;
   lens: DeskState["lens"];
+  size?: MapSize;
   scale: LensScale;
   selected?: string;
   focusCode?: string;
@@ -467,6 +597,7 @@ export function DeskMapFigure({
             key={cell.code}
             cell={cell}
             lens={lens}
+            size={size}
             scale={scale}
             selected={cell.code === selected}
             focused={handlers !== undefined && cell.code === roving}
@@ -542,6 +673,22 @@ export interface OwnershipMapViewProps {
   onRootKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
   /** A chip or crumb the island takes: it receives the patch to the desk's state. */
   onPick?: (patch: DeskPatch) => void;
+  /**
+   * `full` (the market map page) carries the window, the colour, the size and the
+   * zoom controls; `compact` (the Overview's pane) is the drawing, its legend and
+   * the table, with the page's record link beneath. Absent is `full`.
+   */
+  variant?: "compact" | "full";
+  /** The area measure the layout draws; absent is the market cap. */
+  size?: MapSize;
+  /** The island's own controls (the Source, Size and Colour set), drawn in the chip row. */
+  controls?: ReactNode;
+  /** The selected stock's code, so its sector can be zoomed to. */
+  selectedCode?: string;
+  /** The island's phone fold of the toolbar; absent on the server, where the row is drawn as it is. */
+  toolbarFold?: ToolbarFold;
+  /** Writes the window in place (the Window select). Absent on the server, where the select is drawn disabled. */
+  onWindowChange?: (next: NoticeWindow) => void;
 }
 
 /**
@@ -566,7 +713,14 @@ export function OwnershipMapView({
   rootRef,
   onRootKeyDown,
   onPick,
+  variant = "full",
+  size,
+  controls,
+  selectedCode = "",
+  toolbarFold,
+  onWindowChange,
 }: OwnershipMapViewProps) {
+  const compact = variant === "compact";
   const failed = status === "error" || (status === "idle" && !page.ok);
   // A read in flight or one that failed keeps the last good answer on the screen, so a
   // failed window does not take the whole map with it. Its flow and its notice counts
@@ -577,12 +731,18 @@ export function OwnershipMapView({
   const loading = status === "loading" && rows.length === 0;
   const empty = status === "idle" && page.ok && page.stocks.length === 0;
   const busy = status === "loading";
-  const layout = layoutMap(rows, {
+  const sized = layoutMap(sizedRows(rows, size), {
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
     lens: desk.lens,
     sector: desk.sector,
   });
+  // The exposure size replaces each area, so the estimate flag is read from the market caps here.
+  const estimated = size === "disclosed" ? estimatedAreaCodes(rows) : null;
+  const layout =
+    estimated === null
+      ? sized
+      : { ...sized, cells: sized.cells.map((cell) => ({ ...cell, areaEstimated: estimated.has(cell.code) })) };
   const scale = lensScale(desk.lens, rows.map((stock) => lensFigure(stock, desk.lens)));
   const figured = rows.some((stock) => {
     const figure = lensFigure(stock, desk.lens);
@@ -603,35 +763,41 @@ export function OwnershipMapView({
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[10px] uppercase tracking-wide text-muted-foreground">{WINDOW_LABEL}</span>
-          <WindowChips
-            label={WINDOW_LABEL}
-            active={notice}
-            hrefFor={(next) => noticeWindowHref(basePath, params, next)}
-          />
+      {compact ? null : (
+        // One toolbar row (spec 14.9): the search and the sources from the island, then the
+        // colour and the window, labelled, under one "Adjust view" disclosure below sm.
+        <Toolbar fold={toolbarFold}>
+          {controls}
+          <LensSelect lens={desk.lens} onPick={onPick ? (lens) => onPick({ lens }) : undefined} />
+          <WindowSelect active={notice} onWindowChange={onWindowChange} />
+        </Toolbar>
+      )}
+      {compact || rows.length === 0 ? null : (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          {selectedCode !== "" && (sectorOfCode(rows, selectedCode) ?? "") !== "" && desk.sector === "" ? (
+            <DeskLink
+              {...chip({ sector: sectorOfCode(rows, selectedCode) ?? "" })}
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              {`Zoom to ${sectorOfCode(rows, selectedCode)}`}
+            </DeskLink>
+          ) : null}
+          {desk.sector !== "" ? (
+            <DeskLink {...chip({ sector: "" })} className="text-primary underline-offset-4 hover:underline">
+              Reset zoom
+            </DeskLink>
+          ) : null}
+          <Link href="/ownership/stocks" prefetch={false} className="text-primary underline-offset-4 hover:underline">
+            View as list
+          </Link>
         </div>
-        <div role="group" aria-label={LENS_GROUP_LABEL} className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[10px] uppercase tracking-wide text-muted-foreground">{LENS_GROUP_LABEL}</span>
-          {LENS_ORDER.map((lens) => {
-            const picked = chip({ lens });
-            return (
-              <DeskChip
-                key={lens}
-                href={picked.href}
-                onPick={picked.onPick}
-                active={desk.lens === lens}
-                label={LENS_LABELS[lens]}
-              />
-            );
-          })}
-        </div>
-      </div>
+      )}
 
-      <p className="text-[11px] text-muted-foreground">
-        The net change and the notice counts cover the notices released <WindowPhrase state={notice} asOf={page.asOf} />.
-      </p>
+      {compact ? null : (
+        <p className="text-[11px] text-muted-foreground">
+          The net change and the notice counts cover the notices released <WindowPhrase state={notice} asOf={page.asOf} />.
+        </p>
+      )}
 
       {rows.length > 0 ? (
         figured ? (
@@ -641,6 +807,7 @@ export function OwnershipMapView({
         )
       ) : null}
 
+      {compact ? null : (
       <nav aria-label="Map location" className="text-[11px] text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-1">
           <li>
@@ -661,8 +828,9 @@ export function OwnershipMapView({
           ) : null}
         </ol>
       </nav>
+      )}
 
-      {rows.length > 0 && !unknownSector && desk.sector === "" ? (
+      {!compact && rows.length > 0 && !unknownSector && desk.sector === "" ? (
         // The phone's way into a sector: the drawing's name is not printed below sm, and a
         // sector's box is too small to press with a thumb. Each chip is a link, so it is a stop.
         // From sm the chips are visually hidden but stay in the tab order, and show when focused.
@@ -697,6 +865,7 @@ export function OwnershipMapView({
                 focusCode={focusCode}
                 handlers={handlers}
                 groupStyle={groupStyle}
+                size={size}
               />
               {overlay}
             </div>
@@ -721,7 +890,7 @@ export function OwnershipMapView({
           {rows.length > 0 && !unknownSector ? (
             <>
               <DeskMapTable layout={layout} lens={desk.lens} noticesKnown={!stale} />
-              <p className="mt-2 text-[11px] text-muted-foreground">{mapCaption(desk.lens)}</p>
+              <p className="mt-2 text-[11px] text-muted-foreground">{areaCaption(desk.lens, size)}</p>
             </>
           ) : null}
         </div>
@@ -729,6 +898,12 @@ export function OwnershipMapView({
       </div>
     </div>
   );
+}
+
+/** The sector a stock on the map is in, by its code; null when it is not on the map. */
+function sectorOfCode(rows: readonly { code: string; industry: string }[], code: string): string | null {
+  const stock = rows.find((row) => row.code === code);
+  return stock === undefined ? null : sectorOf(stock.industry);
 }
 
 /**
@@ -739,12 +914,18 @@ export function OwnershipMapView({
 export function OwnershipMapStatic({
   initial,
   basePath = "/ownership",
+  variant,
+  controls,
 }: {
   initial: OwnershipMapPage;
   basePath?: string;
+  variant?: "compact" | "full";
+  controls?: ReactNode;
 }) {
   return (
     <OwnershipMapView
+      variant={variant}
+      controls={controls}
       page={initial}
       desk={DEFAULT_DESK_STATE}
       notice={DESK_DEFAULT_WINDOW_STATE}

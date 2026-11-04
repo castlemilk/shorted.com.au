@@ -15,6 +15,7 @@ import {
   HEAT_FULL_CELL,
   HEAT_PHONE_WEEKS,
   MovementHeatmapStatic,
+  cellFigure,
   cellTitle,
   heatFeedHref,
   heatReach,
@@ -252,7 +253,8 @@ describe("MovementHeatmapStatic", () => {
     const { container } = render(
       <MovementHeatmapStatic page={PAGE} state={DEFAULT} basePath="/ownership" />,
     );
-    expect(screen.getByRole("group", { name: "Window of change" })).toBeInTheDocument();
+    // The window is one labelled select, drawn disabled on the server (spec 14.9).
+    expect(screen.getByRole("combobox", { name: "Window" })).toBeDisabled();
     const table = screen.getByRole("table", { name: "Movement by sector and week" });
     const rows = within(table).getAllByRole("row");
     // The header row and one row per sector and week with notices: Materials twice, Financials and Other once.
@@ -323,22 +325,68 @@ describe("MovementHeatmap island", () => {
     expect(screen.queryByText("could not be read just now")).toBeNull();
   });
 
-  it("draws the window the link names, with its chip marked and the brush beside the grid", () => {
+  it("draws the window the link names as the selected option, and the brush beside the grid", () => {
     mockSearchParams = new URLSearchParams("window=28");
-    render(<MovementHeatmap initial={PAGE} basePath="/ownership" />);
-    const group = screen.getByRole("group", { name: "Window of change" });
-    expect(within(group).getByRole("link", { name: "28 days" })).toHaveAttribute("aria-current", "true");
-    expect(screen.getByText("Drag the handles to set the window")).toBeInTheDocument();
+    render(<MovementHeatmap initial={PAGE} basePath="/ownership" variant="full" />);
+    expect(screen.getByRole("combobox", { name: "Window" })).toHaveValue("28");
+    expect(screen.getByText("Adjust the period")).toBeInTheDocument();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it("draws the brushed window as no chip, and its table names the dates", () => {
+  it("draws the brushed window as the brushed option, and its table names the dates", () => {
     mockSearchParams = new URLSearchParams("since=2026-10-12&until=2026-10-31");
-    render(<MovementHeatmap initial={PAGE} basePath="/ownership" />);
-    const group = screen.getByRole("group", { name: "Window of change" });
-    for (const chip of within(group).getAllByRole("link")) {
-      expect(chip).not.toHaveAttribute("aria-current");
-    }
+    render(<MovementHeatmap initial={PAGE} basePath="/ownership" variant="full" />);
+    expect(screen.getByRole("combobox", { name: "Window" })).toHaveValue("brushed");
     expect(screen.getByRole("table", { name: "Movement by sector and week" })).toBeInTheDocument();
+  });
+});
+
+const EN_DASH = String.fromCharCode(0x2013);
+const TRUE_MINUS = String.fromCharCode(0x2212);
+
+describe("the grid's figures and the compact pane (spec 14.3, 14.7)", () => {
+  it("prints no figures and no window chips on the Overview's compact pane", () => {
+    mockSearchParams = new URLSearchParams();
+    render(<MovementHeatmap initial={PAGE} basePath="/ownership" />);
+    expect(screen.queryByRole("combobox", { name: "Window" })).toBeNull();
+    expect(document.querySelector("span.text-\\[9px\\]")).toBeNull();
+  });
+
+  it("prints the workspace's figures in the cells, as HTML text, over a short window", () => {
+    const { container } = render(<MovementHeatmapStatic page={PAGE} state={DEFAULT} basePath="/ownership" />);
+    const figures = Array.from(container.querySelectorAll("span.text-center.font-mono")).map((node) => node.textContent);
+    expect(figures).toContain("+1.2");
+    expect(figures).toContain(EN_DASH);
+    expect(container.querySelector("svg text")).toBeNull();
+  });
+
+  it("prints a zero week as a dash and a net under a tenth as the dash, never +0.0", () => {
+    expect(cellFigure({ weekStart: "2026-11-02", notices: 1, netPp: 0.03 } as never, "pp")).toBe(EN_DASH);
+    expect(cellFigure({ weekStart: "2026-11-02", notices: 1, netPp: -0.04 } as never, "pp")).toBe(EN_DASH);
+    expect(cellFigure({ weekStart: "2026-11-02", notices: 1, netPp: -0.3 } as never, "pp")).toBe(`${TRUE_MINUS}0.3`);
+  });
+});
+
+describe("MovementHeatmap workspace (spec 14.7)", () => {
+  it("asks for the holder type a cell link names, so the grid draws the kind the outline describes", async () => {
+    mockSearchParams = new URLSearchParams("sel=cell:Materials@2026-10-26:hedge_fund");
+    const loadActivity = jest.fn(async () => PAGE);
+    render(<MovementHeatmap initial={PAGE} basePath="/ownership/activity" variant="full" loadActivity={loadActivity} />);
+    expect(loadActivity).toHaveBeenCalledWith({ kind: "hedge_fund" });
+    expect(screen.getByLabelText("Holder type")).toHaveValue("hedge_fund");
+  });
+
+  it("does not ask when the link names no holder type", () => {
+    mockSearchParams = new URLSearchParams("sel=cell:Materials@2026-10-26");
+    const loadActivity = jest.fn(async () => PAGE);
+    render(<MovementHeatmap initial={PAGE} basePath="/ownership/activity" variant="full" loadActivity={loadActivity} />);
+    expect(loadActivity).not.toHaveBeenCalled();
+  });
+
+  it("names the brush 'Adjust the period' and prints the window's week dates over the figures", () => {
+    mockSearchParams = new URLSearchParams("");
+    render(<MovementHeatmap initial={PAGE} basePath="/ownership/activity" variant="full" />);
+    expect(screen.getByText("Adjust the period")).toBeInTheDocument();
+    expect(screen.getAllByText("2 Nov").length).toBeGreaterThan(0);
   });
 });

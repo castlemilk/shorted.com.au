@@ -648,7 +648,7 @@ func (s *postgresStore) noticeMoves(ctx context.Context, f NoticeFilter, event, 
 type OwnershipDeskStore interface {
 	NoticeFlowByStock(ctx context.Context, from, until string) (map[string]NoticeFlow, error)
 	NoticeChangesByKindIndustry(ctx context.Context, from, until string) ([]NoticeChangeRow, error)
-	NoticeWeeklyByIndustry(ctx context.Context, from, until string) ([]IndustryWeekRow, error)
+	NoticeWeeklyByIndustry(ctx context.Context, from, until, kind string) ([]IndustryWeekRow, error)
 	FundSnapshotDates(ctx context.Context) ([]string, error)
 	FundPositionPairs(ctx context.Context, from, until string) ([]FundPositionPair, error)
 	StockFundSeries(ctx context.Context, stockCode string) ([]FundSeriesRow, error)
@@ -696,8 +696,8 @@ type FundPositionPair struct {
 
 // FundSeriesRow is one fund's holding of a stock at one snapshot.
 type FundSeriesRow struct {
-	InstitutionSlug, FundName, SourceKind, AsAt string
-	Weight, Value                               *float64
+	InstitutionSlug, FundName, FundCode, SourceKind, AsAt string
+	Weight, Value                                         *float64
 }
 
 // fundSourceKinds are the tracked funds: index funds' files and super fund
@@ -769,9 +769,10 @@ func (s *postgresStore) NoticeChangesByKindIndustry(ctx context.Context, from, u
 }
 
 // NoticeWeeklyByIndustry is each industry's notices released in [from, until] by
-// ISO week, one aggregate. A week with no notice in an industry has no row; the
-// service fills the gaps.
-func (s *postgresStore) NoticeWeeklyByIndustry(ctx context.Context, from, until string) ([]IndustryWeekRow, error) {
+// ISO week, one aggregate. A kind other than "" counts only the notices of holders
+// of that kind. A week with no notice in an industry has no row; the service fills
+// the gaps.
+func (s *postgresStore) NoticeWeeklyByIndustry(ctx context.Context, from, until, kind string) ([]IndustryWeekRow, error) {
 	var out []IndustryWeekRow
 	err := ownershipRead(ctx, s, "NoticeWeeklyByIndustry", `
 		SELECT ev.industry, ev.week_start::text,
@@ -787,10 +788,12 @@ func (s *postgresStore) NoticeWeeklyByIndustry(ctx context.Context, from, until 
 			       `+noticeEventSQL+` AS notice_event, `+noticeDeltaSQL+` AS delta
 			FROM substantial_holder_notices h
 			LEFT JOIN "company-metadata" cm ON cm.stock_code = h.stock_code
+			LEFT JOIN ownership_institutions i ON i.slug = h.institution_slug
 			WHERE h.announced_on BETWEEN $1::date AND $2::date
+			  AND ($3 = '' OR `+holderKindSQL+` = $3)
 		) ev
 		GROUP BY ev.industry, ev.week_start
-		ORDER BY ev.week_start, ev.industry`, []any{from, until},
+		ORDER BY ev.week_start, ev.industry`, []any{from, until, kind},
 		func(r pgx.Rows) error {
 			var w IndustryWeekRow
 			if err := r.Scan(&w.Industry, &w.WeekStart, &w.Became, &w.Increased, &w.Decreased, &w.Changed,
@@ -872,14 +875,160 @@ func (s *postgresStore) FundPositionPairs(ctx context.Context, from, until strin
 func (s *postgresStore) StockFundSeries(ctx context.Context, stockCode string) ([]FundSeriesRow, error) {
 	var out []FundSeriesRow
 	err := ownershipRead(ctx, s, "StockFundSeries", `
-		SELECT f.institution_slug, f.fund_name, f.source_kind, f.as_at::text, h.weight_pct::float8, h.value_aud::float8
+		SELECT f.institution_slug, f.fund_name, COALESCE(f.fund_code, ''), f.source_kind, f.as_at::text, h.weight_pct::float8, h.value_aud::float8
 		FROM fund_holding_snapshots f
 		JOIN fund_holdings h ON h.snapshot_id = f.id
 		WHERE h.stock_code = $1 AND f.source_kind IN `+fundSourceKinds+`
 		ORDER BY f.institution_slug, f.fund_name, f.as_at`, []any{stockCode},
 		func(r pgx.Rows) error {
 			var row FundSeriesRow
-			if err := r.Scan(&row.InstitutionSlug, &row.FundName, &row.SourceKind, &row.AsAt, &row.Weight, &row.Value); err != nil {
+			if err := r.Scan(&row.InstitutionSlug, &row.FundName, &row.FundCode, &row.SourceKind, &row.AsAt, &row.Weight, &row.Value); err != nil {
+				return err
+			}
+			out = append(out, row)
+			return nil
+		})
+	return out, err
+}
+
+// The fund explorer's reads (ListFunds, GetFundPortfolio, CompareFundSnapshots).
+// Every file is a fund_holding_snapshots row; a fund is one (institution, fund
+// name) pair across its files. The registry row (ownership_funds) is matched in
+// the service, by institution and ASX code, so these reads stay one statement
+// each. The shares on issue are ASIC's as at the file date, the newest short
+// report line on or before it.
+
+// OwnershipFundStore is the fund explorer's read surface. The server finds it by
+// type assertion on the same store, so a store without it answers the fund rpcs
+// empty.
+type OwnershipFundStore interface {
+	FundFiles(ctx context.Context) ([]FundFileRow, error)
+	FundHoldingsOf(ctx context.Context, snapshotIDs []int64, withShares bool) ([]FundHoldingDetail, error)
+	FundCompareRows(ctx context.Context, fromID, toID int64) ([]FundCompareRow, error)
+}
+
+var _ OwnershipFundStore = (*postgresStore)(nil)
+
+// FundFileRow is one holdings file of a tracked fund: its snapshot, the
+// institution's name, the file's date and where it was read from.
+type FundFileRow struct {
+	ID                                         int64
+	InstitutionSlug, InstitutionName, FundName string
+	FundCode, SourceKind, SourceURL, AsAt      string
+}
+
+// fundSharesMaxDays is how old the ASIC report behind a shares-on-issue figure may
+// be, in days before the file date. Older than this, the figure is withheld rather
+// than estimated from a stale count.
+const fundSharesMaxDays = 30
+
+// FundHoldingDetail is one holding in one file: its weight, units and value as
+// the file states them, its company's industry, and (when asked) the shares on
+// issue ASIC reports, with the date of that report (SharesAsAt, "" when there is
+// no figure). SecurityName is the company's name from company-metadata, else the
+// file's own name for the holding.
+type FundHoldingDetail struct {
+	SnapshotID                         int64
+	StockCode, SecurityName, Industry  string
+	Units, Value, Weight, SharesIssued *float64
+	SharesAsAt                         string
+}
+
+// FundCompareRow is one stock across two files of one fund: held in the earlier
+// file (InFrom), the later (InTo), or both, with each side's weight and value.
+// SecurityName is as in FundHoldingDetail.
+type FundCompareRow struct {
+	StockCode, SecurityName, Industry string
+	InFrom, InTo                      bool
+	FromWeight, FromValue             *float64
+	ToWeight, ToValue                 *float64
+}
+
+// FundFiles is every holdings file of every tracked fund, oldest first.
+func (s *postgresStore) FundFiles(ctx context.Context) ([]FundFileRow, error) {
+	var out []FundFileRow
+	err := ownershipRead(ctx, s, "FundFiles", `
+		SELECT f.id, f.institution_slug, COALESCE(i.name, f.institution_slug), f.fund_name,
+		       COALESCE(f.fund_code, ''), f.source_kind, f.source_url, f.as_at::text
+		FROM fund_holding_snapshots f
+		LEFT JOIN ownership_institutions i ON i.slug = f.institution_slug
+		WHERE f.source_kind IN `+fundSourceKinds+`
+		ORDER BY f.institution_slug, f.fund_name, f.as_at, f.id`, nil,
+		func(r pgx.Rows) error {
+			var row FundFileRow
+			if err := r.Scan(&row.ID, &row.InstitutionSlug, &row.InstitutionName, &row.FundName,
+				&row.FundCode, &row.SourceKind, &row.SourceURL, &row.AsAt); err != nil {
+				return err
+			}
+			out = append(out, row)
+			return nil
+		})
+	return out, err
+}
+
+// FundHoldingsOf is every holding of the given files. With withShares, each
+// holding carries ASIC's shares on issue from the newest report on or before its
+// file's date and no older than fundSharesMaxDays before it (nil when there is
+// none), with that report's date.
+func (s *postgresStore) FundHoldingsOf(ctx context.Context, snapshotIDs []int64, withShares bool) ([]FundHoldingDetail, error) {
+	if len(snapshotIDs) == 0 {
+		return nil, nil
+	}
+	shares := `NULL::float8, ''::text`
+	join := ``
+	if withShares {
+		shares = `sh.issued::float8, COALESCE(sh.as_at, '')`
+		join = `LEFT JOIN LATERAL (
+			SELECT x."TOTAL_PRODUCT_IN_ISSUE" AS issued, x."DATE"::date::text AS as_at
+			FROM shorts x
+			WHERE x."PRODUCT_CODE" = h.stock_code
+			  AND x."DATE" < (f.as_at + 1)
+			  AND x."DATE" >= (f.as_at - `+strconv.Itoa(fundSharesMaxDays)+`)
+			ORDER BY x."DATE" DESC
+			LIMIT 1
+		) sh ON true`
+	}
+	var out []FundHoldingDetail
+	err := ownershipRead(ctx, s, "FundHoldingsOf", `
+		SELECT h.snapshot_id, h.stock_code, COALESCE(NULLIF(cm.company_name, ''), NULLIF(h.security_name, ''), ''),
+		       COALESCE(cm.industry, ''), h.units::float8, h.value_aud::float8, h.weight_pct::float8, `+shares+`
+		FROM fund_holdings h
+		JOIN fund_holding_snapshots f ON f.id = h.snapshot_id
+		LEFT JOIN "company-metadata" cm ON cm.stock_code = h.stock_code
+		`+join+`
+		WHERE h.snapshot_id = ANY($1::bigint[])
+		ORDER BY h.snapshot_id, h.weight_pct DESC NULLS LAST, h.stock_code`, []any{snapshotIDs},
+		func(r pgx.Rows) error {
+			var d FundHoldingDetail
+			if err := r.Scan(&d.SnapshotID, &d.StockCode, &d.SecurityName, &d.Industry,
+				&d.Units, &d.Value, &d.Weight, &d.SharesIssued, &d.SharesAsAt); err != nil {
+				return err
+			}
+			out = append(out, d)
+			return nil
+		})
+	return out, err
+}
+
+// FundCompareRows is every holding in either of two files of one fund, a full
+// join on the stock code.
+func (s *postgresStore) FundCompareRows(ctx context.Context, fromID, toID int64) ([]FundCompareRow, error) {
+	var out []FundCompareRow
+	err := ownershipRead(ctx, s, "FundCompareRows", `
+		WITH a AS (SELECT stock_code, security_name, weight_pct, value_aud FROM fund_holdings WHERE snapshot_id = $1),
+		     b AS (SELECT stock_code, security_name, weight_pct, value_aud FROM fund_holdings WHERE snapshot_id = $2)
+		SELECT COALESCE(a.stock_code, b.stock_code),
+		       COALESCE(NULLIF(cm.company_name, ''), NULLIF(b.security_name, ''), NULLIF(a.security_name, ''), ''),
+		       COALESCE(cm.industry, ''),
+		       a.stock_code IS NOT NULL, a.weight_pct::float8, a.value_aud::float8,
+		       b.stock_code IS NOT NULL, b.weight_pct::float8, b.value_aud::float8
+		FROM a FULL JOIN b ON b.stock_code = a.stock_code
+		LEFT JOIN "company-metadata" cm ON cm.stock_code = COALESCE(a.stock_code, b.stock_code)`,
+		[]any{fromID, toID},
+		func(r pgx.Rows) error {
+			var row FundCompareRow
+			if err := r.Scan(&row.StockCode, &row.SecurityName, &row.Industry,
+				&row.InFrom, &row.FromWeight, &row.FromValue, &row.InTo, &row.ToWeight, &row.ToValue); err != nil {
 				return err
 			}
 			out = append(out, row)

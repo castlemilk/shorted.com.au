@@ -907,6 +907,47 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.NewsService/ListEditori
 
 ### shorts.v1alpha1.OwnershipService
 
+#### `POST /shorts.v1alpha1.OwnershipService/CompareFundSnapshots`
+
+Two files of one fund compared holding by holding: the weight change in
+ percentage points, and the holdings new or dropped between them.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `from` | string | no | YYYY-MM-DD. Each side is the fund's newest file at or before the date. An empty to is the newest file; an empty from is the file before to. A from after an explicit to is InvalidArgument. When both sides resolve to the same file there is nothing to compare: the response names that file on both sides and carries no rows. (proto string) |
+| `fundKey` | string | no | (proto string) |
+| `to` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/CompareFundSnapshots' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/GetFundPortfolio`
+
+One fund's holdings at one file date: the file dates it has, each holding's
+ weight, units and value, and its share of the company's shares on issue.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `asAt` | string | no | YYYY-MM-DD. The newest file at or before it; empty is the newest file. (proto string) |
+| `fundKey` | string | no | A fund_key from ListFunds, or "<institution_slug>/<fund_name>". (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetFundPortfolio' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.OwnershipService/GetInstitution`
 
 One institution: its current substantial holdings, its notices, its funds
@@ -935,6 +976,7 @@ Request body fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
+| `kind` | string | no | A holder kind (super_fund, index_manager, ...), or "" for every kind. A kind outside the vocabulary is InvalidArgument. (proto string) |
 | `weeks` | integer (int32) | no | 1 to 52 weeks; 0 means 52. Negative is InvalidArgument. (proto int32) |
 
 ```bash
@@ -1053,6 +1095,21 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/ListFundPositionChanges' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/ListFunds`
+
+Every tracked fund (index funds and super fund options) at its newest file,
+ with its sector weights and ten largest holdings.
+
+Request body: an empty JSON object, `{}`.
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/ListFunds' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \

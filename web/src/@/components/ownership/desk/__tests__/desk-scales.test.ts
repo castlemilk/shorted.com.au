@@ -6,7 +6,7 @@
  * green except nothing at all: the short lens takes the chart's rust.
  */
 
-import { directionFill, lensFill, lensScale, netFill } from "../desk-scales";
+import { BIN_COUNT, binFill, binOf, countScale, directionFill, labelOnBin, lensFill, lensScale, netFill, netScale, niceStep } from "../desk-scales";
 
 const SIGNAL_COLOURS = [
   "#EF4444",
@@ -29,7 +29,8 @@ function noSignalColour(fill: string | null): void {
 describe("lens scales", () => {
   it("starts a share at zero and runs to the largest figure", () => {
     const scale = lensScale("disclosed", [4, 12, null, 9]);
-    expect(scale).toEqual({ lens: "disclosed", mode: "sequential", lo: 0, hi: 12, capped: false });
+    // Five round bins of 2.5 reach the largest figure: the top is 12.5, never a continuous 12.
+    expect(scale).toEqual({ lens: "disclosed", mode: "sequential", lo: 0, hi: 12.5, step: 2.5, capped: false });
   });
 
   it("gives an empty share scale a unit top, so a zero still has a fill", () => {
@@ -38,8 +39,8 @@ describe("lens scales", () => {
   });
 
   it("diverges a flow symmetrically around zero, whichever way the figures lean", () => {
-    expect(lensScale("flow", [2, -5, 1])).toEqual({ lens: "flow", mode: "diverging", lo: -5, hi: 5, capped: false });
-    expect(lensScale("flow", [0, null])).toEqual({ lens: "flow", mode: "diverging", lo: -1, hi: 1 });
+    expect(lensScale("flow", [2, -5, 1])).toEqual({ lens: "flow", mode: "diverging", lo: -5, hi: 5, step: 2.5, capped: false });
+    expect(lensScale("flow", [0, null])).toEqual({ lens: "flow", mode: "diverging", lo: -2, hi: 2, step: 1 });
   });
 
   it("gives the short lens its own mode, drawn in the chart's short colour", () => {
@@ -65,7 +66,8 @@ describe("lens fills", () => {
 
   it("grows a sequential fill with its figure, never past the scale", () => {
     const scale = lensScale("institutional", [10]);
-    expect(lensFill(5, scale)).toContain("50%");
+    // Ten is the top: the bins are two wide, so five falls in the third (60%) and forty in the top (100%).
+    expect(lensFill(5, scale)).toContain("60%");
     expect(lensFill(40, scale)).toContain("100%");
   });
 
@@ -119,9 +121,103 @@ describe("the scale's cap", () => {
     expect(capped.hi).toBeGreaterThanOrEqual(97);
     const few = lensScale("disclosed", [1, 2, 242]);
     expect(few.capped).toBe(false);
-    expect(few.hi).toBe(242);
+    expect(few.hi).toBeGreaterThanOrEqual(242);
     const flow = lensScale("flow", many.map((v) => (v % 2 ? v : -v)));
     expect(flow.capped).toBe(true);
     expect(flow.lo).toBe(-flow.hi);
+  });
+});
+
+describe("five quantised bins (spec 14.9)", () => {
+  it("rounds the bin width to 1, 2, 2.5, 5 or 10 times a power of ten", () => {
+    expect(niceStep(0.7)).toBe(1);
+    expect(niceStep(2.4)).toBe(2.5);
+    expect(niceStep(3.1)).toBe(5);
+    expect(niceStep(48.4)).toBe(50);
+    expect(niceStep(0)).toBe(1);
+  });
+
+  it("draws every lens in exactly five bins, the top of the scale on the fifth", () => {
+    for (const lens of ["disclosed", "institutional", "hedge", "index", "short"] as const) {
+      const scale = lensScale(lens, [1, 4, 9, 13]);
+      expect(scale.hi).toBeCloseTo(scale.step * BIN_COUNT, 10);
+      // The scale's top sits in the fifth bin, its foot in the first.
+      expect(binOf(scale.hi - 0.001, scale)).toBe(BIN_COUNT - 1);
+      expect(binOf(0, scale)).toBe(0);
+      const bins = [1, 4, 9, 13].map((value) => binOf(value, scale));
+      expect(new Set(bins).size).toBeGreaterThan(1);
+    }
+  });
+
+  it("puts a figure in the bin its round threshold names, and never outside the five", () => {
+    const scale = lensScale("disclosed", [10]);
+    expect(scale.step).toBe(2);
+    expect(binOf(1.9, scale)).toBe(0);
+    expect(binOf(2, scale)).toBe(1);
+    expect(binOf(9.9, scale)).toBe(4);
+    expect(binOf(500, scale)).toBe(4);
+    expect(binOf(null, scale)).toBeNull();
+  });
+
+  it("gives the diverging scale five bins symmetric about zero: a fall and a rise of one size in mirrored bins", () => {
+    // Step 2: below -4 and -4 to -2 (falls), -2 to 2 (the paper), 2 to 4 and 4 and above (rises).
+    const scale = lensScale("flow", [-4, 4]);
+    expect(binOf(-5, scale)).toBe(0);
+    expect(binOf(-4, scale)).toBe(0);
+    expect(binOf(-3, scale)).toBe(1);
+    expect(binOf(-1, scale)).toBe(2);
+    expect(binOf(1, scale)).toBe(2);
+    expect(binOf(3, scale)).toBe(3);
+    expect(binOf(4, scale)).toBe(4);
+    expect(binOf(0, scale)).toBe(2);
+    const mirror = (bin: number | null) => (bin === 0 ? 4 : bin === 1 ? 3 : bin === 3 ? 1 : bin === 4 ? 0 : bin);
+    for (const size of [0.5, 1, 1.5, 2, 3, 4, 5]) {
+      expect(binOf(size, scale)).toBe(mirror(binOf(-size, scale)));
+    }
+  });
+
+  it("draws a rise and a fall of one size at one strength, the centre bin as the paper", () => {
+    const scale = lensScale("flow", [-4, 4]);
+    expect(binFill(binOf(-3, scale)!, scale)).toContain("50%");
+    expect(binFill(binOf(3, scale)!, scale)).toContain("50%");
+    expect(binFill(binOf(-4, scale)!, scale)).toContain("100%");
+    expect(binFill(binOf(4, scale)!, scale)).toContain("100%");
+    expect(binFill(binOf(0.5, scale)!, scale)).toBe("hsl(var(--background))");
+    expect(binFill(binOf(-0.5, scale)!, scale)).toBe("hsl(var(--background))");
+  });
+
+  it("uses the deepest bin for every figure above a capped top", () => {
+    const many = Array.from({ length: 99 }, (_, i) => i + 1).concat([242]);
+    const capped = lensScale("disclosed", many);
+    expect(binOf(242, capped)).toBe(BIN_COUNT - 1);
+  });
+});
+
+describe("the heatmap's count scale and label ink (spec 14.9)", () => {
+  it("draws a count in five whole-notice bins, the top bin at the most notices in one week", () => {
+    const scale = countScale(12);
+    expect(scale).toEqual({ lens: "disclosed", mode: "sequential", lo: 0, hi: 15, step: 3 });
+    expect(binOf(1, scale)).toBe(0);
+    expect(binOf(3, scale)).toBe(1);
+    expect(binOf(12, scale)).toBe(4);
+    expect(Number.isInteger(scale.step)).toBe(true);
+  });
+
+  it("keeps a one-notice scale whole, even when the most in a week is one", () => {
+    expect(countScale(1).step).toBe(1);
+    expect(countScale(0).step).toBe(1);
+  });
+
+  it("takes the paper ink on the two deepest steps and the ink elsewhere", () => {
+    const scale = netScale(4);
+    expect(labelOnBin(binOf(-4, scale), scale)).toBe("hsl(var(--background))");
+    expect(labelOnBin(binOf(4, scale), scale)).toBe("hsl(var(--background))");
+    expect(labelOnBin(binOf(0.5, scale), scale)).toBe("hsl(var(--foreground))");
+    expect(labelOnBin(null, scale)).toBe("hsl(var(--foreground))");
+  });
+
+  it("gives the net-change scale the same five symmetric bins as the flow lens", () => {
+    expect(netFill(-4, 4)).toBe(lensFill(-4, lensScale("flow", [-4, 4])));
+    expect(netFill(4, 4)).toBe(lensFill(4, lensScale("flow", [-4, 4])));
   });
 });

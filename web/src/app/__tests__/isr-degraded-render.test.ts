@@ -37,6 +37,7 @@ const getEditorialTakeOrNotFound = jest.fn();
 const getScanResults = jest.fn();
 const getInstitutionOrNotFound = jest.fn();
 const getStockOwnership = jest.fn();
+const loadOwnershipMap = jest.fn();
 const bailOnEmptyRender = jest.fn();
 
 const NOT_FOUND = "NEXT_NOT_FOUND";
@@ -77,6 +78,11 @@ jest.mock("~/app/actions/getOwnership", () => ({
   getInstitution: (...args: unknown[]) => getInstitutionOrNotFound(...args),
   getInstitutionOrNotFound: (...args: unknown[]) => getInstitutionOrNotFound(...args),
   getStockOwnership: (...args: unknown[]) => getStockOwnership(...args),
+}));
+// The institution page reads the market map through the desk's loader as a pane. Its mock answers an
+// ok map for the healthy render, and the failing-map case below sets the other answer.
+jest.mock("~/app/actions/ownershipDesk", () => ({
+  loadOwnershipMap: (...args: unknown[]) => loadOwnershipMap(...args),
 }));
 // The pages are called, not rendered, so their components never run; these
 // keep the imports out of jsdom.
@@ -182,6 +188,8 @@ const REGISTER = {
   sharesOnIssue: 0,
   hasSharesOnIssue: false,
 };
+
+const DESK_MAP_OK = { ok: true, error: "", from: "", to: "", asOf: "", stocks: [] };
 
 /** A register that knows nothing of the code: no holder, row, notice, name or short figure. */
 const UNKNOWN_REGISTER = {
@@ -323,6 +331,7 @@ describe("a failed read in a dynamic page that ISR could cache", () => {
     getScanResults.mockResolvedValue({ asOfDate: "2026-10-15", rows: [], totalCount: 0 });
     getInstitutionOrNotFound.mockResolvedValue(INSTITUTION);
     getStockOwnership.mockResolvedValue(REGISTER);
+    loadOwnershipMap.mockResolvedValue(DESK_MAP_OK);
   });
   afterEach(() => jest.restoreAllMocks());
 
@@ -351,6 +360,21 @@ describe("a failed read in a dynamic page that ISR could cache", () => {
   it("lists only pages it checks", () => {
     const checked = new Set(CASES.map(({ page }) => page));
     expect(Object.keys(PER_REQUEST).filter((page) => !checked.has(page))).toEqual([]);
+  });
+});
+
+// A failed market map is a pane's outage line on the institution page (spec 14.7), not a reason to
+// cap the render: the page answers and caches as usual, so the cap must not run.
+describe("the institution page when the market map cannot be read", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getInstitutionOrNotFound.mockResolvedValue(INSTITUTION);
+    loadOwnershipMap.mockResolvedValue({ ...DESK_MAP_OK, ok: false, error: "map unavailable" });
+  });
+
+  it("renders without capping the page, so the pane's outage line is what a regeneration caches", async () => {
+    await expect(ownershipPage.default({ params: Promise.resolve({ slug: "vanguard" }) })).resolves.toBeTruthy();
+    expect(bailOnEmptyRender).not.toHaveBeenCalled();
   });
 });
 

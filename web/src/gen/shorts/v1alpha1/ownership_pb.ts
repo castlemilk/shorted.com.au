@@ -11,7 +11,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/ownership.proto.
  */
 export const file_shorts_v1alpha1_ownership: GenFile = /*@__PURE__*/
-  fileDesc("Ch9zaG9ydHMvdjFhbHBoYTEvb3duZXJzaGlwLnByb3RvEg9zaG9ydHMudjFhbHBoYTEitwIKFE93bmVyc2hpcEluc3RpdHV0aW9uEgwKBHNsdWcYASABKAkSDAoEbmFtZRgCIAEoCRIMCgRraW5kGAMgASgJEg8KB2NvdW50cnkYBCABKAkSDwoHd2Vic2l0ZRgFIAEoCRITCgtkZXNjcmlwdGlvbhgGIAEoCRIPCgdhdW1fYXVkGAcgASgBEg8KB2hhc19hdW0YCCABKAgSEQoJYXVtX2FzX2F0GAkgASgJEh0KFXN1YnN0YW50aWFsX3Bvc2l0aW9ucxgKIAEoBRIPCgdub3RpY2VzGAsgASgFEhoKEmxhdGVzdF9ub3RpY2VfZGF0ZRgMIAEoCRINCgVmdW5kcxgNIAEoBRIWCg5mdW5kc19zaXplX2F1ZBgOIAEoARIWCg5oYXNfZnVuZHNfc2l6ZRgPIAEoCCLbAgoSU3Vic3RhbnRpYWxIb2xkaW5nEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhIKCmhvbGRlcl9rZXkYBCABKAkSEwoLaG9sZGVyX25hbWUYBSABKAkSGAoQaW5zdGl0dXRpb25fc2x1ZxgGIAEoCRIMCgRraW5kGAcgASgJEgwKBGZvcm0YCCABKAkSGAoQdm90aW5nX3Bvd2VyX3BjdBgJIAEoARIUCgxwcmV2aW91c19wY3QYCiABKAESFAoMaGFzX3ByZXZpb3VzGAsgASgIEg0KBXZvdGVzGAwgASgDEhEKCWhhc192b3RlcxgNIAEoCBISCgpldmVudF9kYXRlGA4gASgJEhQKDGFubm91bmNlZF9vbhgPIAEoCRIYChBhbm5vdW5jZW1lbnRfdXJsGBAgASgJItUCChFTdWJzdGFudGlhbE5vdGljZRISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRISCgpob2xkZXJfa2V5GAMgASgJEhMKC2hvbGRlcl9uYW1lGAQgASgJEhgKEGluc3RpdHV0aW9uX3NsdWcYBSABKAkSDAoEa2luZBgGIAEoCRIMCgRmb3JtGAcgASgJEhMKC3ByZXNlbnRfcGN0GAggASgBEhMKC2hhc19wcmVzZW50GAkgASgIEhQKDHByZXZpb3VzX3BjdBgKIAEoARIUCgxoYXNfcHJldmlvdXMYCyABKAgSDgoGY2Vhc2VkGAwgASgIEhIKCmV2ZW50X2RhdGUYDSABKAkSFAoMYW5ub3VuY2VkX29uGA4gASgJEhgKEGFubm91bmNlbWVudF91cmwYDyABKAkSDQoFZXZlbnQYECABKAki5QIKC0Z1bmRIb2xkaW5nEhgKEGluc3RpdHV0aW9uX3NsdWcYASABKAkSGAoQaW5zdGl0dXRpb25fbmFtZRgCIAEoCRIMCgRraW5kGAMgASgJEhEKCWZ1bmRfbmFtZRgEIAEoCRIRCglmdW5kX2NvZGUYBSABKAkSEwoLc291cmNlX2tpbmQYBiABKAkSDQoFYXNfYXQYByABKAkSEgoKc3RvY2tfY29kZRgIIAEoCRIUCgxjb21wYW55X25hbWUYCSABKAkSDQoFdW5pdHMYCiABKAESEQoJaGFzX3VuaXRzGAsgASgIEhEKCXZhbHVlX2F1ZBgMIAEoARIRCgloYXNfdmFsdWUYDSABKAgSEgoKd2VpZ2h0X3BjdBgOIAEoARISCgpoYXNfd2VpZ2h0GA8gASgIEhUKDXBjdF9vZl9pc3N1ZWQYECABKAESGQoRaGFzX3BjdF9vZl9pc3N1ZWQYESABKAgirwEKDU93bmVyc2hpcEZ1bmQSEAoIZnVuZF9rZXkYASABKAkSDAoEbmFtZRgCIAEoCRIRCglmdW5kX3R5cGUYAyABKAkSEAoIYXN4X2NvZGUYBCABKAkSFAoMbWFuYWdlcl9uYW1lGAUgASgJEhAKCGNhdGVnb3J5GAYgASgJEhAKCHNpemVfYXVkGAcgASgBEhAKCGhhc19zaXplGAggASgIEg0KBWFzX2F0GAkgASgJIjcKCUtpbmRTaGFyZRIMCgRraW5kGAEgASgJEgsKA3BjdBgCIAEoARIPCgdob2xkZXJzGAMgASgFIpABChRPd25lcnNoaXBLaW5kU3VtbWFyeRIMCgRraW5kGAEgASgJEhQKDGluc3RpdHV0aW9ucxgCIAEoBRIPCgdob2xkZXJzGAMgASgFEhEKCXBvc2l0aW9ucxgEIAEoBRIOCgZzdG9ja3MYBSABKAUSDwoHYXVtX2F1ZBgGIAEoARIPCgdoYXNfYXVtGAcgASgIIuIDCg5Pd25lcnNoaXBTdG9jaxISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRIPCgdob2xkZXJzGAQgASgFEhUKDWRpc2Nsb3NlZF9wY3QYBSABKAESKwoHYnlfa2luZBgGIAMoCzIaLnNob3J0cy52MWFscGhhMS5LaW5kU2hhcmUSEQoJc2hvcnRfcGN0GAcgASgBEhUKDWhhc19zaG9ydF9wY3QYCCABKAgSEQoJaW5kZXhfcGN0GAkgASgBEhUKDWhhc19pbmRleF9wY3QYCiABKAgSFQoNc3VwZXJfb3B0aW9ucxgLIAEoBRIXCg9zdXBlcl92YWx1ZV9hdWQYDCABKAESFwoPaGFzX3N1cGVyX3ZhbHVlGA0gASgIEhIKCm1hcmtldF9jYXAYDiABKAESFgoOaGFzX21hcmtldF9jYXAYDyABKAgSEwoLc2hvcnRfYXNfb2YYECABKAkSGAoQaW5kZXhfYXNfYXRfZnJvbRgRIAEoCRIWCg5pbmRleF9hc19hdF90bxgSIAEoCRITCgtpbmRleF9maWxlcxgTIAEoBRIaChJsYXRlc3Rfbm90aWNlX2RhdGUYFCABKAkieQoPT3duZXJzaGlwU291cmNlEg4KBnNvdXJjZRgBIAEoCRITCgtkZXNjcmlwdGlvbhgCIAEoCRINCgVhc19hdBgDIAEoCRIPCgdyZWNvcmRzGAQgASgFEg0KBWZ1bmRzGAUgASgFEhIKCmFzX2F0X2Zyb20YBiABKAkiMQoPV2l0aGhlbGRPdXRjb21lEg8KB291dGNvbWUYASABKAkSDQoFY291bnQYAiABKAUiHQobR2V0T3duZXJzaGlwT3ZlcnZpZXdSZXF1ZXN0IpwGChxHZXRPd25lcnNoaXBPdmVydmlld1Jlc3BvbnNlEjQKBWtpbmRzGAEgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEtpbmRTdW1tYXJ5EjoKC3RvcF9ob2xkZXJzGAIgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEjAKB2Nyb3dkZWQYAyADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSOgoRY3Jvd2RlZF9ib3RoX3dheXMYBCADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSMAoHbGVuZGluZxgFIAMoCzIfLnNob3J0cy52MWFscGhhMS5Pd25lcnNoaXBTdG9jaxIyCgZyZWNlbnQYBiADKAsyIi5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxOb3RpY2USOAoPc3VwZXJfY29uc2Vuc3VzGAcgAygLMh8uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcFN0b2NrEjAKB3Bhc3NpdmUYCCADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSMQoHc291cmNlcxgJIAMoCzIgLnNob3J0cy52MWFscGhhMS5Pd25lcnNoaXBTb3VyY2USFgoObm90aWNlc19wYXJzZWQYCiABKAUSGAoQbm90aWNlc193aXRoaGVsZBgLIAEoBRITCgtzdXBlcl9mdW5kcxgMIAEoBRIYChBzdXBlcl9hc3NldHNfYXVkGA0gASgBEgwKBGV0ZnMYDiABKAUSEwoLZXRmX2Z1bV9hdWQYDyABKAESDAoEbGljcxgQIAEoBRIaChJsaWNfbWFya2V0X2NhcF9hdWQYESABKAESDQoFYXNfb2YYEiABKAkSPQoTd2l0aGhlbGRfYnlfb3V0Y29tZRgTIAMoCzIgLnNob3J0cy52MWFscGhhMS5XaXRoaGVsZE91dGNvbWUSGwoTZG9jdW1lbnRzX2F0dGVtcHRlZBgUIAEoBSJVChdMaXN0SW5zdGl0dXRpb25zUmVxdWVzdBIMCgRraW5kGAEgASgJEg0KBXF1ZXJ5GAIgASgJEg0KBWxpbWl0GAMgASgFEg4KBm9mZnNldBgEIAEoBSJmChhMaXN0SW5zdGl0dXRpb25zUmVzcG9uc2USOwoMaW5zdGl0dXRpb25zGAEgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEg0KBXRvdGFsGAIgASgFIiUKFUdldEluc3RpdHV0aW9uUmVxdWVzdBIMCgRzbHVnGAEgASgJIsICChZHZXRJbnN0aXR1dGlvblJlc3BvbnNlEjoKC2luc3RpdHV0aW9uGAEgASgLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEjYKCXBvc2l0aW9ucxgCIAMoCzIjLnNob3J0cy52MWFscGhhMS5TdWJzdGFudGlhbEhvbGRpbmcSMwoHbm90aWNlcxgDIAMoCzIiLnNob3J0cy52MWFscGhhMS5TdWJzdGFudGlhbE5vdGljZRIzCg1mdW5kX2hvbGRpbmdzGAQgAygLMhwuc2hvcnRzLnYxYWxwaGExLkZ1bmRIb2xkaW5nEi0KBWZ1bmRzGAUgAygLMh4uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEZ1bmQSGwoTZnVuZF9ob2xkaW5nc190b3RhbBgGIAEoBSIuChhHZXRTdG9ja093bmVyc2hpcFJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCSLiAgoZR2V0U3RvY2tPd25lcnNoaXBSZXNwb25zZRIwCgdzdW1tYXJ5GAEgASgLMh8uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcFN0b2NrEjQKB2hvbGRlcnMYAiADKAsyIy5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxIb2xkaW5nEjMKB2hpc3RvcnkYAyADKAsyIi5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxOb3RpY2USMwoNZnVuZF9ob2xkaW5ncxgEIAMoCzIcLnNob3J0cy52MWFscGhhMS5GdW5kSG9sZGluZxIXCg9zaGFyZXNfb25faXNzdWUYBSABKAESGwoTaGFzX3NoYXJlc19vbl9pc3N1ZRgGIAEoCBIVCg1oaXN0b3J5X3RvdGFsGAcgASgFEhcKD3dpdGhoZWxkX2xpc3RlZBgIIAEoBRINCgVhc19vZhgJIAEoCSLoAQodTGlzdFN1YnN0YW50aWFsTm90aWNlc1JlcXVlc3QSEwoLd2luZG93X2RheXMYASABKAUSDQoFZXZlbnQYAiABKAkSDAoEa2luZBgDIAEoCRISCgpzdG9ja19jb2RlGAQgASgJEhgKEGluc3RpdHV0aW9uX3NsdWcYBSABKAkSDgoGY3Vyc29yGAYgASgJEg0KBWxpbWl0GAcgASgFEhgKEGluY2x1ZGVfYWN0aXZpdHkYCCABKAgSEAoIaW5kdXN0cnkYCSABKAkSDQoFc2luY2UYCiABKAkSDQoFdW50aWwYCyABKAkigwEKCk5vdGljZVdlZWsSEgoKd2Vla19zdGFydBgBIAEoCRIOCgZiZWNhbWUYAiABKAUSEQoJaW5jcmVhc2VkGAMgASgFEhEKCWRlY3JlYXNlZBgEIAEoBRIPCgdjaGFuZ2VkGAUgASgFEg4KBmNlYXNlZBgGIAEoBRIKCgJuehgHIAEoBSKVAgoOTm90aWNlQWN0aXZpdHkSDgoGYmVjYW1lGAEgASgFEhEKCWluY3JlYXNlZBgCIAEoBRIRCglkZWNyZWFzZWQYAyABKAUSDwoHY2hhbmdlZBgEIAEoBRIOCgZjZWFzZWQYBSABKAUSCgoCbnoYBiABKAUSKgoFd2Vla3MYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuTm90aWNlV2VlaxI5Cg1sYXJnZXN0X3Jpc2VzGAggAygLMiIuc2hvcnRzLnYxYWxwaGExLlN1YnN0YW50aWFsTm90aWNlEjkKDWxhcmdlc3RfZmFsbHMYCSADKAsyIi5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxOb3RpY2Ui0AEKHkxpc3RTdWJzdGFudGlhbE5vdGljZXNSZXNwb25zZRIzCgdub3RpY2VzGAEgAygLMiIuc2hvcnRzLnYxYWxwaGExLlN1YnN0YW50aWFsTm90aWNlEhMKC25leHRfY3Vyc29yGAIgASgJEg0KBXRvdGFsGAMgASgFEhMKC3dpbmRvd19kYXlzGAQgASgFEg0KBWFzX29mGAUgASgJEjEKCGFjdGl2aXR5GAYgASgLMh8uc2hvcnRzLnYxYWxwaGExLk5vdGljZUFjdGl2aXR5IrgBChlMaXN0U3RvY2tSZWdpc3RlcnNSZXF1ZXN0EgwKBHNvcnQYASABKAkSEQoJYXNjZW5kaW5nGAIgASgIEhAKCGluZHVzdHJ5GAMgASgJEgwKBGtpbmQYBCABKAkSFQoNbWluX2ludGVyZXN0cxgFIAEoBRIVCg1taW5fc2hvcnRfcGN0GAYgASgBEg0KBXF1ZXJ5GAcgASgJEg0KBWxpbWl0GAggASgFEg4KBm9mZnNldBgJIAEoBSIxCg1JbmR1c3RyeUNvdW50EhAKCGluZHVzdHJ5GAEgASgJEg4KBnN0b2NrcxgCIAEoBSKxAQoaTGlzdFN0b2NrUmVnaXN0ZXJzUmVzcG9uc2USLwoGc3RvY2tzGAEgAygLMh8uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcFN0b2NrEg0KBXRvdGFsGAIgASgFEhAKCHVuaXZlcnNlGAMgASgFEjIKCmluZHVzdHJpZXMYBCADKAsyHi5zaG9ydHMudjFhbHBoYTEuSW5kdXN0cnlDb3VudBINCgVhc19vZhgFIAEoCSIyChZHZXRPd25lcnNoaXBNYXBSZXF1ZXN0EgwKBGZyb20YASABKAkSCgoCdG8YAiABKAkiwgIKCE1hcFN0b2NrEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhIKCm1hcmtldF9jYXAYBCABKAESFgoOaGFzX21hcmtldF9jYXAYBSABKAgSFQoNZGlzY2xvc2VkX3BjdBgGIAEoARIZChFpbnN0aXR1dGlvbmFsX3BjdBgHIAEoARIRCgloZWRnZV9wY3QYCCABKAESEQoJaW5kZXhfcGN0GAkgASgBEhUKDWhhc19pbmRleF9wY3QYCiABKAgSEQoJc2hvcnRfcGN0GAsgASgBEhUKDWhhc19zaG9ydF9wY3QYDCABKAgSDwoHZmxvd19wcBgNIAEoARITCgtoYXNfZmxvd19wcBgOIAEoCBIPCgdub3RpY2VzGA8gASgFIm0KF0dldE93bmVyc2hpcE1hcFJlc3BvbnNlEgwKBGZyb20YASABKAkSCgoCdG8YAiABKAkSKQoGc3RvY2tzGAMgAygLMhkuc2hvcnRzLnYxYWxwaGExLk1hcFN0b2NrEg0KBWFzX29mGAQgASgJIjQKGEdldE93bmVyc2hpcEZsb3dzUmVxdWVzdBIMCgRmcm9tGAEgASgJEgoKAnRvGAIgASgJIpcBCgxGbG93UG9zaXRpb24SDAoEa2luZBgBIAEoCRIQCghpbmR1c3RyeRgCIAEoCRIUCgxleHBvc3VyZV9hdWQYAyABKAESFAoMaGFzX2V4cG9zdXJlGAQgASgIEhAKCGhvbGRpbmdzGAUgASgFEhQKDGxhcmdlc3RfY29kZRgGIAEoCRITCgtsYXJnZXN0X3BjdBgHIAEoASJ8CgpGbG93Q2hhbmdlEgwKBGtpbmQYASABKAkSEAoIaW5kdXN0cnkYAiABKAkSEQoJZGlyZWN0aW9uGAMgASgJEhQKDGV4cG9zdXJlX2F1ZBgEIAEoARIUCgxoYXNfZXhwb3N1cmUYBSABKAgSDwoHbm90aWNlcxgGIAEoBSKkAQoZR2V0T3duZXJzaGlwRmxvd3NSZXNwb25zZRIMCgRmcm9tGAEgASgJEgoKAnRvGAIgASgJEjAKCXBvc2l0aW9ucxgDIAMoCzIdLnNob3J0cy52MWFscGhhMS5GbG93UG9zaXRpb24SLAoHY2hhbmdlcxgEIAMoCzIbLnNob3J0cy52MWFscGhhMS5GbG93Q2hhbmdlEg0KBWFzX29mGAUgASgJIiwKG0dldE93bmVyc2hpcEFjdGl2aXR5UmVxdWVzdBINCgV3ZWVrcxgBIAEoBSK7AQoMSW5kdXN0cnlXZWVrEhAKCGluZHVzdHJ5GAEgASgJEhIKCndlZWtfc3RhcnQYAiABKAkSDgoGYmVjYW1lGAMgASgFEhEKCWluY3JlYXNlZBgEIAEoBRIRCglkZWNyZWFzZWQYBSABKAUSDwoHY2hhbmdlZBgGIAEoBRIOCgZjZWFzZWQYByABKAUSCgoCbnoYCCABKAUSDgoGbmV0X3BwGAkgASgBEhIKCmhhc19uZXRfcHAYCiABKAgifgocR2V0T3duZXJzaGlwQWN0aXZpdHlSZXNwb25zZRIRCglmcm9tX3dlZWsYASABKAkSDwoHdG9fd2VlaxgCIAEoCRIrCgRyb3dzGAMgAygLMh0uc2hvcnRzLnYxYWxwaGExLkluZHVzdHJ5V2VlaxINCgVhc19vZhgEIAEoCSJJCh5MaXN0RnVuZFBvc2l0aW9uQ2hhbmdlc1JlcXVlc3QSDAoEZnJvbRgBIAEoCRIKCgJ0bxgCIAEoCRINCgVsaW1pdBgDIAEoBSK9AgoSRnVuZFBvc2l0aW9uQ2hhbmdlEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhcKD3dlaWdodF9mcm9tX3BjdBgDIAEoARIXCg9oYXNfd2VpZ2h0X2Zyb20YBCABKAgSFQoNd2VpZ2h0X3RvX3BjdBgFIAEoARIVCg1oYXNfd2VpZ2h0X3RvGAYgASgIEhAKCGRlbHRhX3BwGAcgASgBEhEKCWhhc19kZWx0YRgIIAEoCBIWCg52YWx1ZV9mcm9tX2F1ZBgJIAEoARIWCg5oYXNfdmFsdWVfZnJvbRgKIAEoCBIUCgx2YWx1ZV90b19hdWQYCyABKAESFAoMaGFzX3ZhbHVlX3RvGAwgASgIEg0KBWZ1bmRzGA0gASgFEg0KBXN0YXRlGA4gASgJIoYBCh9MaXN0RnVuZFBvc2l0aW9uQ2hhbmdlc1Jlc3BvbnNlEhYKDnNuYXBzaG90X2RhdGVzGAEgAygJEgwKBGZyb20YAiABKAkSCgoCdG8YAyABKAkSMQoEcm93cxgEIAMoCzIjLnNob3J0cy52MWFscGhhMS5GdW5kUG9zaXRpb25DaGFuZ2UiLwoZR2V0U3RvY2tGdW5kU2VyaWVzUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJImgKCUZ1bmRQb2ludBINCgVhc19hdBgBIAEoCRISCgp3ZWlnaHRfcGN0GAIgASgBEhIKCmhhc193ZWlnaHQYAyABKAgSEQoJdmFsdWVfYXVkGAQgASgBEhEKCWhhc192YWx1ZRgFIAEoCCKUAQoKRnVuZFNlcmllcxIYChBpbnN0aXR1dGlvbl9zbHVnGAEgASgJEhgKEGluc3RpdHV0aW9uX25hbWUYAiABKAkSEQoJZnVuZF9uYW1lGAMgASgJEhMKC3NvdXJjZV9raW5kGAQgASgJEioKBnBvaW50cxgFIAMoCzIaLnNob3J0cy52MWFscGhhMS5GdW5kUG9pbnQiXAoaR2V0U3RvY2tGdW5kU2VyaWVzUmVzcG9uc2USEgoKc3RvY2tfY29kZRgBIAEoCRIqCgVmdW5kcxgCIAMoCzIbLnNob3J0cy52MWFscGhhMS5GdW5kU2VyaWVzMqAKChBPd25lcnNoaXBTZXJ2aWNlEnkKFEdldE93bmVyc2hpcE92ZXJ2aWV3Eiwuc2hvcnRzLnYxYWxwaGExLkdldE93bmVyc2hpcE92ZXJ2aWV3UmVxdWVzdBotLnNob3J0cy52MWFscGhhMS5HZXRPd25lcnNoaXBPdmVydmlld1Jlc3BvbnNlIgSAtRgBEm0KEExpc3RJbnN0aXR1dGlvbnMSKC5zaG9ydHMudjFhbHBoYTEuTGlzdEluc3RpdHV0aW9uc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuTGlzdEluc3RpdHV0aW9uc1Jlc3BvbnNlIgSAtRgBEmcKDkdldEluc3RpdHV0aW9uEiYuc2hvcnRzLnYxYWxwaGExLkdldEluc3RpdHV0aW9uUmVxdWVzdBonLnNob3J0cy52MWFscGhhMS5HZXRJbnN0aXR1dGlvblJlc3BvbnNlIgSAtRgBEnAKEUdldFN0b2NrT3duZXJzaGlwEikuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrT3duZXJzaGlwUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja093bmVyc2hpcFJlc3BvbnNlIgSAtRgBEn8KFkxpc3RTdWJzdGFudGlhbE5vdGljZXMSLi5zaG9ydHMudjFhbHBoYTEuTGlzdFN1YnN0YW50aWFsTm90aWNlc1JlcXVlc3QaLy5zaG9ydHMudjFhbHBoYTEuTGlzdFN1YnN0YW50aWFsTm90aWNlc1Jlc3BvbnNlIgSAtRgBEnMKEkxpc3RTdG9ja1JlZ2lzdGVycxIqLnNob3J0cy52MWFscGhhMS5MaXN0U3RvY2tSZWdpc3RlcnNSZXF1ZXN0Gisuc2hvcnRzLnYxYWxwaGExLkxpc3RTdG9ja1JlZ2lzdGVyc1Jlc3BvbnNlIgSAtRgBEmoKD0dldE93bmVyc2hpcE1hcBInLnNob3J0cy52MWFscGhhMS5HZXRPd25lcnNoaXBNYXBSZXF1ZXN0Giguc2hvcnRzLnYxYWxwaGExLkdldE93bmVyc2hpcE1hcFJlc3BvbnNlIgSAtRgBEnAKEUdldE93bmVyc2hpcEZsb3dzEikuc2hvcnRzLnYxYWxwaGExLkdldE93bmVyc2hpcEZsb3dzUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXRPd25lcnNoaXBGbG93c1Jlc3BvbnNlIgSAtRgBEnkKFEdldE93bmVyc2hpcEFjdGl2aXR5Eiwuc2hvcnRzLnYxYWxwaGExLkdldE93bmVyc2hpcEFjdGl2aXR5UmVxdWVzdBotLnNob3J0cy52MWFscGhhMS5HZXRPd25lcnNoaXBBY3Rpdml0eVJlc3BvbnNlIgSAtRgBEoIBChdMaXN0RnVuZFBvc2l0aW9uQ2hhbmdlcxIvLnNob3J0cy52MWFscGhhMS5MaXN0RnVuZFBvc2l0aW9uQ2hhbmdlc1JlcXVlc3QaMC5zaG9ydHMudjFhbHBoYTEuTGlzdEZ1bmRQb3NpdGlvbkNoYW5nZXNSZXNwb25zZSIEgLUYARJzChJHZXRTdG9ja0Z1bmRTZXJpZXMSKi5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGdW5kU2VyaWVzUmVxdWVzdBorLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0Z1bmRTZXJpZXNSZXNwb25zZSIEgLUYAULdAQoTY29tLnNob3J0cy52MWFscGhhMUIOT3duZXJzaGlwUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_options_v1_options]);
+  fileDesc("Ch9zaG9ydHMvdjFhbHBoYTEvb3duZXJzaGlwLnByb3RvEg9zaG9ydHMudjFhbHBoYTEitwIKFE93bmVyc2hpcEluc3RpdHV0aW9uEgwKBHNsdWcYASABKAkSDAoEbmFtZRgCIAEoCRIMCgRraW5kGAMgASgJEg8KB2NvdW50cnkYBCABKAkSDwoHd2Vic2l0ZRgFIAEoCRITCgtkZXNjcmlwdGlvbhgGIAEoCRIPCgdhdW1fYXVkGAcgASgBEg8KB2hhc19hdW0YCCABKAgSEQoJYXVtX2FzX2F0GAkgASgJEh0KFXN1YnN0YW50aWFsX3Bvc2l0aW9ucxgKIAEoBRIPCgdub3RpY2VzGAsgASgFEhoKEmxhdGVzdF9ub3RpY2VfZGF0ZRgMIAEoCRINCgVmdW5kcxgNIAEoBRIWCg5mdW5kc19zaXplX2F1ZBgOIAEoARIWCg5oYXNfZnVuZHNfc2l6ZRgPIAEoCCLbAgoSU3Vic3RhbnRpYWxIb2xkaW5nEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhIKCmhvbGRlcl9rZXkYBCABKAkSEwoLaG9sZGVyX25hbWUYBSABKAkSGAoQaW5zdGl0dXRpb25fc2x1ZxgGIAEoCRIMCgRraW5kGAcgASgJEgwKBGZvcm0YCCABKAkSGAoQdm90aW5nX3Bvd2VyX3BjdBgJIAEoARIUCgxwcmV2aW91c19wY3QYCiABKAESFAoMaGFzX3ByZXZpb3VzGAsgASgIEg0KBXZvdGVzGAwgASgDEhEKCWhhc192b3RlcxgNIAEoCBISCgpldmVudF9kYXRlGA4gASgJEhQKDGFubm91bmNlZF9vbhgPIAEoCRIYChBhbm5vdW5jZW1lbnRfdXJsGBAgASgJItUCChFTdWJzdGFudGlhbE5vdGljZRISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRISCgpob2xkZXJfa2V5GAMgASgJEhMKC2hvbGRlcl9uYW1lGAQgASgJEhgKEGluc3RpdHV0aW9uX3NsdWcYBSABKAkSDAoEa2luZBgGIAEoCRIMCgRmb3JtGAcgASgJEhMKC3ByZXNlbnRfcGN0GAggASgBEhMKC2hhc19wcmVzZW50GAkgASgIEhQKDHByZXZpb3VzX3BjdBgKIAEoARIUCgxoYXNfcHJldmlvdXMYCyABKAgSDgoGY2Vhc2VkGAwgASgIEhIKCmV2ZW50X2RhdGUYDSABKAkSFAoMYW5ub3VuY2VkX29uGA4gASgJEhgKEGFubm91bmNlbWVudF91cmwYDyABKAkSDQoFZXZlbnQYECABKAki5QIKC0Z1bmRIb2xkaW5nEhgKEGluc3RpdHV0aW9uX3NsdWcYASABKAkSGAoQaW5zdGl0dXRpb25fbmFtZRgCIAEoCRIMCgRraW5kGAMgASgJEhEKCWZ1bmRfbmFtZRgEIAEoCRIRCglmdW5kX2NvZGUYBSABKAkSEwoLc291cmNlX2tpbmQYBiABKAkSDQoFYXNfYXQYByABKAkSEgoKc3RvY2tfY29kZRgIIAEoCRIUCgxjb21wYW55X25hbWUYCSABKAkSDQoFdW5pdHMYCiABKAESEQoJaGFzX3VuaXRzGAsgASgIEhEKCXZhbHVlX2F1ZBgMIAEoARIRCgloYXNfdmFsdWUYDSABKAgSEgoKd2VpZ2h0X3BjdBgOIAEoARISCgpoYXNfd2VpZ2h0GA8gASgIEhUKDXBjdF9vZl9pc3N1ZWQYECABKAESGQoRaGFzX3BjdF9vZl9pc3N1ZWQYESABKAgirwEKDU93bmVyc2hpcEZ1bmQSEAoIZnVuZF9rZXkYASABKAkSDAoEbmFtZRgCIAEoCRIRCglmdW5kX3R5cGUYAyABKAkSEAoIYXN4X2NvZGUYBCABKAkSFAoMbWFuYWdlcl9uYW1lGAUgASgJEhAKCGNhdGVnb3J5GAYgASgJEhAKCHNpemVfYXVkGAcgASgBEhAKCGhhc19zaXplGAggASgIEg0KBWFzX2F0GAkgASgJIjcKCUtpbmRTaGFyZRIMCgRraW5kGAEgASgJEgsKA3BjdBgCIAEoARIPCgdob2xkZXJzGAMgASgFIpABChRPd25lcnNoaXBLaW5kU3VtbWFyeRIMCgRraW5kGAEgASgJEhQKDGluc3RpdHV0aW9ucxgCIAEoBRIPCgdob2xkZXJzGAMgASgFEhEKCXBvc2l0aW9ucxgEIAEoBRIOCgZzdG9ja3MYBSABKAUSDwoHYXVtX2F1ZBgGIAEoARIPCgdoYXNfYXVtGAcgASgIIuIDCg5Pd25lcnNoaXBTdG9jaxISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRIPCgdob2xkZXJzGAQgASgFEhUKDWRpc2Nsb3NlZF9wY3QYBSABKAESKwoHYnlfa2luZBgGIAMoCzIaLnNob3J0cy52MWFscGhhMS5LaW5kU2hhcmUSEQoJc2hvcnRfcGN0GAcgASgBEhUKDWhhc19zaG9ydF9wY3QYCCABKAgSEQoJaW5kZXhfcGN0GAkgASgBEhUKDWhhc19pbmRleF9wY3QYCiABKAgSFQoNc3VwZXJfb3B0aW9ucxgLIAEoBRIXCg9zdXBlcl92YWx1ZV9hdWQYDCABKAESFwoPaGFzX3N1cGVyX3ZhbHVlGA0gASgIEhIKCm1hcmtldF9jYXAYDiABKAESFgoOaGFzX21hcmtldF9jYXAYDyABKAgSEwoLc2hvcnRfYXNfb2YYECABKAkSGAoQaW5kZXhfYXNfYXRfZnJvbRgRIAEoCRIWCg5pbmRleF9hc19hdF90bxgSIAEoCRITCgtpbmRleF9maWxlcxgTIAEoBRIaChJsYXRlc3Rfbm90aWNlX2RhdGUYFCABKAkieQoPT3duZXJzaGlwU291cmNlEg4KBnNvdXJjZRgBIAEoCRITCgtkZXNjcmlwdGlvbhgCIAEoCRINCgVhc19hdBgDIAEoCRIPCgdyZWNvcmRzGAQgASgFEg0KBWZ1bmRzGAUgASgFEhIKCmFzX2F0X2Zyb20YBiABKAkiMQoPV2l0aGhlbGRPdXRjb21lEg8KB291dGNvbWUYASABKAkSDQoFY291bnQYAiABKAUiHQobR2V0T3duZXJzaGlwT3ZlcnZpZXdSZXF1ZXN0IpwGChxHZXRPd25lcnNoaXBPdmVydmlld1Jlc3BvbnNlEjQKBWtpbmRzGAEgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEtpbmRTdW1tYXJ5EjoKC3RvcF9ob2xkZXJzGAIgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEjAKB2Nyb3dkZWQYAyADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSOgoRY3Jvd2RlZF9ib3RoX3dheXMYBCADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSMAoHbGVuZGluZxgFIAMoCzIfLnNob3J0cy52MWFscGhhMS5Pd25lcnNoaXBTdG9jaxIyCgZyZWNlbnQYBiADKAsyIi5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxOb3RpY2USOAoPc3VwZXJfY29uc2Vuc3VzGAcgAygLMh8uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcFN0b2NrEjAKB3Bhc3NpdmUYCCADKAsyHy5zaG9ydHMudjFhbHBoYTEuT3duZXJzaGlwU3RvY2sSMQoHc291cmNlcxgJIAMoCzIgLnNob3J0cy52MWFscGhhMS5Pd25lcnNoaXBTb3VyY2USFgoObm90aWNlc19wYXJzZWQYCiABKAUSGAoQbm90aWNlc193aXRoaGVsZBgLIAEoBRITCgtzdXBlcl9mdW5kcxgMIAEoBRIYChBzdXBlcl9hc3NldHNfYXVkGA0gASgBEgwKBGV0ZnMYDiABKAUSEwoLZXRmX2Z1bV9hdWQYDyABKAESDAoEbGljcxgQIAEoBRIaChJsaWNfbWFya2V0X2NhcF9hdWQYESABKAESDQoFYXNfb2YYEiABKAkSPQoTd2l0aGhlbGRfYnlfb3V0Y29tZRgTIAMoCzIgLnNob3J0cy52MWFscGhhMS5XaXRoaGVsZE91dGNvbWUSGwoTZG9jdW1lbnRzX2F0dGVtcHRlZBgUIAEoBSJVChdMaXN0SW5zdGl0dXRpb25zUmVxdWVzdBIMCgRraW5kGAEgASgJEg0KBXF1ZXJ5GAIgASgJEg0KBWxpbWl0GAMgASgFEg4KBm9mZnNldBgEIAEoBSJmChhMaXN0SW5zdGl0dXRpb25zUmVzcG9uc2USOwoMaW5zdGl0dXRpb25zGAEgAygLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEg0KBXRvdGFsGAIgASgFIiUKFUdldEluc3RpdHV0aW9uUmVxdWVzdBIMCgRzbHVnGAEgASgJIsICChZHZXRJbnN0aXR1dGlvblJlc3BvbnNlEjoKC2luc3RpdHV0aW9uGAEgASgLMiUuc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEluc3RpdHV0aW9uEjYKCXBvc2l0aW9ucxgCIAMoCzIjLnNob3J0cy52MWFscGhhMS5TdWJzdGFudGlhbEhvbGRpbmcSMwoHbm90aWNlcxgDIAMoCzIiLnNob3J0cy52MWFscGhhMS5TdWJzdGFudGlhbE5vdGljZRIzCg1mdW5kX2hvbGRpbmdzGAQgAygLMhwuc2hvcnRzLnYxYWxwaGExLkZ1bmRIb2xkaW5nEi0KBWZ1bmRzGAUgAygLMh4uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcEZ1bmQSGwoTZnVuZF9ob2xkaW5nc190b3RhbBgGIAEoBSIuChhHZXRTdG9ja093bmVyc2hpcFJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCSLiAgoZR2V0U3RvY2tPd25lcnNoaXBSZXNwb25zZRIwCgdzdW1tYXJ5GAEgASgLMh8uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcFN0b2NrEjQKB2hvbGRlcnMYAiADKAsyIy5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxIb2xkaW5nEjMKB2hpc3RvcnkYAyADKAsyIi5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxOb3RpY2USMwoNZnVuZF9ob2xkaW5ncxgEIAMoCzIcLnNob3J0cy52MWFscGhhMS5GdW5kSG9sZGluZxIXCg9zaGFyZXNfb25faXNzdWUYBSABKAESGwoTaGFzX3NoYXJlc19vbl9pc3N1ZRgGIAEoCBIVCg1oaXN0b3J5X3RvdGFsGAcgASgFEhcKD3dpdGhoZWxkX2xpc3RlZBgIIAEoBRINCgVhc19vZhgJIAEoCSLoAQodTGlzdFN1YnN0YW50aWFsTm90aWNlc1JlcXVlc3QSEwoLd2luZG93X2RheXMYASABKAUSDQoFZXZlbnQYAiABKAkSDAoEa2luZBgDIAEoCRISCgpzdG9ja19jb2RlGAQgASgJEhgKEGluc3RpdHV0aW9uX3NsdWcYBSABKAkSDgoGY3Vyc29yGAYgASgJEg0KBWxpbWl0GAcgASgFEhgKEGluY2x1ZGVfYWN0aXZpdHkYCCABKAgSEAoIaW5kdXN0cnkYCSABKAkSDQoFc2luY2UYCiABKAkSDQoFdW50aWwYCyABKAkigwEKCk5vdGljZVdlZWsSEgoKd2Vla19zdGFydBgBIAEoCRIOCgZiZWNhbWUYAiABKAUSEQoJaW5jcmVhc2VkGAMgASgFEhEKCWRlY3JlYXNlZBgEIAEoBRIPCgdjaGFuZ2VkGAUgASgFEg4KBmNlYXNlZBgGIAEoBRIKCgJuehgHIAEoBSKVAgoOTm90aWNlQWN0aXZpdHkSDgoGYmVjYW1lGAEgASgFEhEKCWluY3JlYXNlZBgCIAEoBRIRCglkZWNyZWFzZWQYAyABKAUSDwoHY2hhbmdlZBgEIAEoBRIOCgZjZWFzZWQYBSABKAUSCgoCbnoYBiABKAUSKgoFd2Vla3MYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuTm90aWNlV2VlaxI5Cg1sYXJnZXN0X3Jpc2VzGAggAygLMiIuc2hvcnRzLnYxYWxwaGExLlN1YnN0YW50aWFsTm90aWNlEjkKDWxhcmdlc3RfZmFsbHMYCSADKAsyIi5zaG9ydHMudjFhbHBoYTEuU3Vic3RhbnRpYWxOb3RpY2Ui0AEKHkxpc3RTdWJzdGFudGlhbE5vdGljZXNSZXNwb25zZRIzCgdub3RpY2VzGAEgAygLMiIuc2hvcnRzLnYxYWxwaGExLlN1YnN0YW50aWFsTm90aWNlEhMKC25leHRfY3Vyc29yGAIgASgJEg0KBXRvdGFsGAMgASgFEhMKC3dpbmRvd19kYXlzGAQgASgFEg0KBWFzX29mGAUgASgJEjEKCGFjdGl2aXR5GAYgASgLMh8uc2hvcnRzLnYxYWxwaGExLk5vdGljZUFjdGl2aXR5IrgBChlMaXN0U3RvY2tSZWdpc3RlcnNSZXF1ZXN0EgwKBHNvcnQYASABKAkSEQoJYXNjZW5kaW5nGAIgASgIEhAKCGluZHVzdHJ5GAMgASgJEgwKBGtpbmQYBCABKAkSFQoNbWluX2ludGVyZXN0cxgFIAEoBRIVCg1taW5fc2hvcnRfcGN0GAYgASgBEg0KBXF1ZXJ5GAcgASgJEg0KBWxpbWl0GAggASgFEg4KBm9mZnNldBgJIAEoBSIxCg1JbmR1c3RyeUNvdW50EhAKCGluZHVzdHJ5GAEgASgJEg4KBnN0b2NrcxgCIAEoBSKxAQoaTGlzdFN0b2NrUmVnaXN0ZXJzUmVzcG9uc2USLwoGc3RvY2tzGAEgAygLMh8uc2hvcnRzLnYxYWxwaGExLk93bmVyc2hpcFN0b2NrEg0KBXRvdGFsGAIgASgFEhAKCHVuaXZlcnNlGAMgASgFEjIKCmluZHVzdHJpZXMYBCADKAsyHi5zaG9ydHMudjFhbHBoYTEuSW5kdXN0cnlDb3VudBINCgVhc19vZhgFIAEoCSIyChZHZXRPd25lcnNoaXBNYXBSZXF1ZXN0EgwKBGZyb20YASABKAkSCgoCdG8YAiABKAkiwgIKCE1hcFN0b2NrEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhIKCm1hcmtldF9jYXAYBCABKAESFgoOaGFzX21hcmtldF9jYXAYBSABKAgSFQoNZGlzY2xvc2VkX3BjdBgGIAEoARIZChFpbnN0aXR1dGlvbmFsX3BjdBgHIAEoARIRCgloZWRnZV9wY3QYCCABKAESEQoJaW5kZXhfcGN0GAkgASgBEhUKDWhhc19pbmRleF9wY3QYCiABKAgSEQoJc2hvcnRfcGN0GAsgASgBEhUKDWhhc19zaG9ydF9wY3QYDCABKAgSDwoHZmxvd19wcBgNIAEoARITCgtoYXNfZmxvd19wcBgOIAEoCBIPCgdub3RpY2VzGA8gASgFIm0KF0dldE93bmVyc2hpcE1hcFJlc3BvbnNlEgwKBGZyb20YASABKAkSCgoCdG8YAiABKAkSKQoGc3RvY2tzGAMgAygLMhkuc2hvcnRzLnYxYWxwaGExLk1hcFN0b2NrEg0KBWFzX29mGAQgASgJIjQKGEdldE93bmVyc2hpcEZsb3dzUmVxdWVzdBIMCgRmcm9tGAEgASgJEgoKAnRvGAIgASgJIpcBCgxGbG93UG9zaXRpb24SDAoEa2luZBgBIAEoCRIQCghpbmR1c3RyeRgCIAEoCRIUCgxleHBvc3VyZV9hdWQYAyABKAESFAoMaGFzX2V4cG9zdXJlGAQgASgIEhAKCGhvbGRpbmdzGAUgASgFEhQKDGxhcmdlc3RfY29kZRgGIAEoCRITCgtsYXJnZXN0X3BjdBgHIAEoASJ8CgpGbG93Q2hhbmdlEgwKBGtpbmQYASABKAkSEAoIaW5kdXN0cnkYAiABKAkSEQoJZGlyZWN0aW9uGAMgASgJEhQKDGV4cG9zdXJlX2F1ZBgEIAEoARIUCgxoYXNfZXhwb3N1cmUYBSABKAgSDwoHbm90aWNlcxgGIAEoBSKkAQoZR2V0T3duZXJzaGlwRmxvd3NSZXNwb25zZRIMCgRmcm9tGAEgASgJEgoKAnRvGAIgASgJEjAKCXBvc2l0aW9ucxgDIAMoCzIdLnNob3J0cy52MWFscGhhMS5GbG93UG9zaXRpb24SLAoHY2hhbmdlcxgEIAMoCzIbLnNob3J0cy52MWFscGhhMS5GbG93Q2hhbmdlEg0KBWFzX29mGAUgASgJIjoKG0dldE93bmVyc2hpcEFjdGl2aXR5UmVxdWVzdBINCgV3ZWVrcxgBIAEoBRIMCgRraW5kGAIgASgJIrsBCgxJbmR1c3RyeVdlZWsSEAoIaW5kdXN0cnkYASABKAkSEgoKd2Vla19zdGFydBgCIAEoCRIOCgZiZWNhbWUYAyABKAUSEQoJaW5jcmVhc2VkGAQgASgFEhEKCWRlY3JlYXNlZBgFIAEoBRIPCgdjaGFuZ2VkGAYgASgFEg4KBmNlYXNlZBgHIAEoBRIKCgJuehgIIAEoBRIOCgZuZXRfcHAYCSABKAESEgoKaGFzX25ldF9wcBgKIAEoCCJ+ChxHZXRPd25lcnNoaXBBY3Rpdml0eVJlc3BvbnNlEhEKCWZyb21fd2VlaxgBIAEoCRIPCgd0b193ZWVrGAIgASgJEisKBHJvd3MYAyADKAsyHS5zaG9ydHMudjFhbHBoYTEuSW5kdXN0cnlXZWVrEg0KBWFzX29mGAQgASgJIkkKHkxpc3RGdW5kUG9zaXRpb25DaGFuZ2VzUmVxdWVzdBIMCgRmcm9tGAEgASgJEgoKAnRvGAIgASgJEg0KBWxpbWl0GAMgASgFIr0CChJGdW5kUG9zaXRpb25DaGFuZ2USEgoKc3RvY2tfY29kZRgBIAEoCRIUCgxjb21wYW55X25hbWUYAiABKAkSFwoPd2VpZ2h0X2Zyb21fcGN0GAMgASgBEhcKD2hhc193ZWlnaHRfZnJvbRgEIAEoCBIVCg13ZWlnaHRfdG9fcGN0GAUgASgBEhUKDWhhc193ZWlnaHRfdG8YBiABKAgSEAoIZGVsdGFfcHAYByABKAESEQoJaGFzX2RlbHRhGAggASgIEhYKDnZhbHVlX2Zyb21fYXVkGAkgASgBEhYKDmhhc192YWx1ZV9mcm9tGAogASgIEhQKDHZhbHVlX3RvX2F1ZBgLIAEoARIUCgxoYXNfdmFsdWVfdG8YDCABKAgSDQoFZnVuZHMYDSABKAUSDQoFc3RhdGUYDiABKAkihgEKH0xpc3RGdW5kUG9zaXRpb25DaGFuZ2VzUmVzcG9uc2USFgoOc25hcHNob3RfZGF0ZXMYASADKAkSDAoEZnJvbRgCIAEoCRIKCgJ0bxgDIAEoCRIxCgRyb3dzGAQgAygLMiMuc2hvcnRzLnYxYWxwaGExLkZ1bmRQb3NpdGlvbkNoYW5nZSIvChlHZXRTdG9ja0Z1bmRTZXJpZXNSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkiaAoJRnVuZFBvaW50Eg0KBWFzX2F0GAEgASgJEhIKCndlaWdodF9wY3QYAiABKAESEgoKaGFzX3dlaWdodBgDIAEoCBIRCgl2YWx1ZV9hdWQYBCABKAESEQoJaGFzX3ZhbHVlGAUgASgIIrkBCgpGdW5kU2VyaWVzEhgKEGluc3RpdHV0aW9uX3NsdWcYASABKAkSGAoQaW5zdGl0dXRpb25fbmFtZRgCIAEoCRIRCglmdW5kX25hbWUYAyABKAkSEwoLc291cmNlX2tpbmQYBCABKAkSKgoGcG9pbnRzGAUgAygLMhouc2hvcnRzLnYxYWxwaGExLkZ1bmRQb2ludBIRCglmdW5kX2NvZGUYBiABKAkSEAoIZnVuZF9rZXkYByABKAkiXAoaR2V0U3RvY2tGdW5kU2VyaWVzUmVzcG9uc2USEgoKc3RvY2tfY29kZRgBIAEoCRIqCgVmdW5kcxgCIAMoCzIbLnNob3J0cy52MWFscGhhMS5GdW5kU2VyaWVzIhIKEExpc3RGdW5kc1JlcXVlc3QiUAoQRnVuZFNlY3RvcldlaWdodBIQCghpbmR1c3RyeRgBIAEoCRISCgp3ZWlnaHRfcGN0GAIgASgBEhYKDmhhc193ZWlnaHRfcGN0GAMgASgIIlgKDkZ1bmRUb3BIb2xkaW5nEgwKBGNvZGUYASABKAkSDAoEbmFtZRgCIAEoCRISCgp3ZWlnaHRfcGN0GAMgASgBEhYKDmhhc193ZWlnaHRfcGN0GAQgASgIIogDCgtGdW5kU3VtbWFyeRIQCghmdW5kX2tleRgBIAEoCRIOCgZ0aWNrZXIYAiABKAkSDAoEbmFtZRgDIAEoCRIYChBpbnN0aXR1dGlvbl9zbHVnGAQgASgJEhgKEGluc3RpdHV0aW9uX25hbWUYBSABKAkSEwoLc291cmNlX2tpbmQYBiABKAkSDgoGcG9vbGVkGAcgASgIEg0KBWFzX2F0GAggASgJEhIKCnNvdXJjZV91cmwYCSABKAkSEAoIaG9sZGluZ3MYCiABKAUSEQoJdG9wMTBfcGN0GAsgASgBEhUKDWhhc190b3AxMF9wY3QYDCABKAgSOQoOc2VjdG9yX3dlaWdodHMYDSADKAsyIS5zaG9ydHMudjFhbHBoYTEuRnVuZFNlY3RvcldlaWdodBIwCgdsYXJnZXN0GA4gAygLMh8uc2hvcnRzLnYxYWxwaGExLkZ1bmRUb3BIb2xkaW5nEg8KB2F1bV9hdWQYDyABKAESEwoLaGFzX2F1bV9hdWQYECABKAgiQAoRTGlzdEZ1bmRzUmVzcG9uc2USKwoFZnVuZHMYASADKAsyHC5zaG9ydHMudjFhbHBoYTEuRnVuZFN1bW1hcnkiOgoXR2V0RnVuZFBvcnRmb2xpb1JlcXVlc3QSEAoIZnVuZF9rZXkYASABKAkSDQoFYXNfYXQYAiABKAkixwIKFEZ1bmRQb3J0Zm9saW9Ib2xkaW5nEgwKBGNvZGUYASABKAkSDAoEbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRISCgp3ZWlnaHRfcGN0GAQgASgBEhYKDmhhc193ZWlnaHRfcGN0GAUgASgIEg0KBXVuaXRzGAYgASgBEhEKCWhhc191bml0cxgHIAEoCBIRCgl2YWx1ZV9hdWQYCCABKAESFQoNaGFzX3ZhbHVlX2F1ZBgJIAEoCBIXCg9zaGFyZXNfb25faXNzdWUYCiABKAESGwoTaGFzX3NoYXJlc19vbl9pc3N1ZRgLIAEoCBIXCg9lc3RfY29tcGFueV9wY3QYDCABKAESGwoTaGFzX2VzdF9jb21wYW55X3BjdBgNIAEoCBIdChVzaGFyZXNfb25faXNzdWVfYXNfYXQYDiABKAkilAMKGEdldEZ1bmRQb3J0Zm9saW9SZXNwb25zZRIQCghmdW5kX2tleRgBIAEoCRIOCgZ0aWNrZXIYAiABKAkSDAoEbmFtZRgDIAEoCRIYChBpbnN0aXR1dGlvbl9zbHVnGAQgASgJEhgKEGluc3RpdHV0aW9uX25hbWUYBSABKAkSEwoLc291cmNlX2tpbmQYBiABKAkSDgoGcG9vbGVkGAcgASgIEg0KBWFzX2F0GAggASgJEhIKCnNvdXJjZV91cmwYCSABKAkSFgoOc25hcHNob3RfZGF0ZXMYCiADKAkSNwoIaG9sZGluZ3MYCyADKAsyJS5zaG9ydHMudjFhbHBoYTEuRnVuZFBvcnRmb2xpb0hvbGRpbmcSFgoOaG9sZGluZ3NfdG90YWwYDCABKAUSEQoJdG9wMTBfcGN0GA0gASgBEhUKDWhhc190b3AxMF9wY3QYDiABKAgSOQoOc2VjdG9yX3dlaWdodHMYDyADKAsyIS5zaG9ydHMudjFhbHBoYTEuRnVuZFNlY3RvcldlaWdodCJJChtDb21wYXJlRnVuZFNuYXBzaG90c1JlcXVlc3QSEAoIZnVuZF9rZXkYASABKAkSDAoEZnJvbRgCIAEoCRIKCgJ0bxgDIAEoCSLGAgoSRnVuZFNuYXBzaG90Q2hhbmdlEgwKBGNvZGUYASABKAkSDAoEbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRIXCg93ZWlnaHRfZnJvbV9wY3QYBCABKAESGwoTaGFzX3dlaWdodF9mcm9tX3BjdBgFIAEoCBIVCg13ZWlnaHRfdG9fcGN0GAYgASgBEhkKEWhhc193ZWlnaHRfdG9fcGN0GAcgASgIEhAKCGRlbHRhX3BwGAggASgBEhQKDGhhc19kZWx0YV9wcBgJIAEoCBIWCg52YWx1ZV9mcm9tX2F1ZBgKIAEoARIaChJoYXNfdmFsdWVfZnJvbV9hdWQYCyABKAgSFAoMdmFsdWVfdG9fYXVkGAwgASgBEhgKEGhhc192YWx1ZV90b19hdWQYDSABKAgSDgoGc3RhdHVzGA4gASgJIqsBChxDb21wYXJlRnVuZFNuYXBzaG90c1Jlc3BvbnNlEgwKBGZyb20YASABKAkSCgoCdG8YAiABKAkSEwoLc291cmNlX2Zyb20YAyABKAkSEQoJc291cmNlX3RvGAQgASgJEjEKBHJvd3MYBSADKAsyIy5zaG9ydHMudjFhbHBoYTEuRnVuZFNuYXBzaG90Q2hhbmdlEhYKDnNuYXBzaG90X2RhdGVzGAYgAygJMuQMChBPd25lcnNoaXBTZXJ2aWNlEnkKFEdldE93bmVyc2hpcE92ZXJ2aWV3Eiwuc2hvcnRzLnYxYWxwaGExLkdldE93bmVyc2hpcE92ZXJ2aWV3UmVxdWVzdBotLnNob3J0cy52MWFscGhhMS5HZXRPd25lcnNoaXBPdmVydmlld1Jlc3BvbnNlIgSAtRgBEm0KEExpc3RJbnN0aXR1dGlvbnMSKC5zaG9ydHMudjFhbHBoYTEuTGlzdEluc3RpdHV0aW9uc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuTGlzdEluc3RpdHV0aW9uc1Jlc3BvbnNlIgSAtRgBEmcKDkdldEluc3RpdHV0aW9uEiYuc2hvcnRzLnYxYWxwaGExLkdldEluc3RpdHV0aW9uUmVxdWVzdBonLnNob3J0cy52MWFscGhhMS5HZXRJbnN0aXR1dGlvblJlc3BvbnNlIgSAtRgBEnAKEUdldFN0b2NrT3duZXJzaGlwEikuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrT3duZXJzaGlwUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja093bmVyc2hpcFJlc3BvbnNlIgSAtRgBEn8KFkxpc3RTdWJzdGFudGlhbE5vdGljZXMSLi5zaG9ydHMudjFhbHBoYTEuTGlzdFN1YnN0YW50aWFsTm90aWNlc1JlcXVlc3QaLy5zaG9ydHMudjFhbHBoYTEuTGlzdFN1YnN0YW50aWFsTm90aWNlc1Jlc3BvbnNlIgSAtRgBEnMKEkxpc3RTdG9ja1JlZ2lzdGVycxIqLnNob3J0cy52MWFscGhhMS5MaXN0U3RvY2tSZWdpc3RlcnNSZXF1ZXN0Gisuc2hvcnRzLnYxYWxwaGExLkxpc3RTdG9ja1JlZ2lzdGVyc1Jlc3BvbnNlIgSAtRgBEmoKD0dldE93bmVyc2hpcE1hcBInLnNob3J0cy52MWFscGhhMS5HZXRPd25lcnNoaXBNYXBSZXF1ZXN0Giguc2hvcnRzLnYxYWxwaGExLkdldE93bmVyc2hpcE1hcFJlc3BvbnNlIgSAtRgBEnAKEUdldE93bmVyc2hpcEZsb3dzEikuc2hvcnRzLnYxYWxwaGExLkdldE93bmVyc2hpcEZsb3dzUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXRPd25lcnNoaXBGbG93c1Jlc3BvbnNlIgSAtRgBEnkKFEdldE93bmVyc2hpcEFjdGl2aXR5Eiwuc2hvcnRzLnYxYWxwaGExLkdldE93bmVyc2hpcEFjdGl2aXR5UmVxdWVzdBotLnNob3J0cy52MWFscGhhMS5HZXRPd25lcnNoaXBBY3Rpdml0eVJlc3BvbnNlIgSAtRgBEoIBChdMaXN0RnVuZFBvc2l0aW9uQ2hhbmdlcxIvLnNob3J0cy52MWFscGhhMS5MaXN0RnVuZFBvc2l0aW9uQ2hhbmdlc1JlcXVlc3QaMC5zaG9ydHMudjFhbHBoYTEuTGlzdEZ1bmRQb3NpdGlvbkNoYW5nZXNSZXNwb25zZSIEgLUYARJzChJHZXRTdG9ja0Z1bmRTZXJpZXMSKi5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGdW5kU2VyaWVzUmVxdWVzdBorLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0Z1bmRTZXJpZXNSZXNwb25zZSIEgLUYARJYCglMaXN0RnVuZHMSIS5zaG9ydHMudjFhbHBoYTEuTGlzdEZ1bmRzUmVxdWVzdBoiLnNob3J0cy52MWFscGhhMS5MaXN0RnVuZHNSZXNwb25zZSIEgLUYARJtChBHZXRGdW5kUG9ydGZvbGlvEiguc2hvcnRzLnYxYWxwaGExLkdldEZ1bmRQb3J0Zm9saW9SZXF1ZXN0Gikuc2hvcnRzLnYxYWxwaGExLkdldEZ1bmRQb3J0Zm9saW9SZXNwb25zZSIEgLUYARJ5ChRDb21wYXJlRnVuZFNuYXBzaG90cxIsLnNob3J0cy52MWFscGhhMS5Db21wYXJlRnVuZFNuYXBzaG90c1JlcXVlc3QaLS5zaG9ydHMudjFhbHBoYTEuQ29tcGFyZUZ1bmRTbmFwc2hvdHNSZXNwb25zZSIEgLUYAULdAQoTY29tLnNob3J0cy52MWFscGhhMUIOT3duZXJzaGlwUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_options_v1_options]);
 
 /**
  * @generated from message shorts.v1alpha1.OwnershipInstitution
@@ -1861,6 +1861,14 @@ export type GetOwnershipActivityRequest = Message<"shorts.v1alpha1.GetOwnershipA
    * @generated from field: int32 weeks = 1;
    */
   weeks: number;
+
+  /**
+   * A holder kind (super_fund, index_manager, ...), or "" for every kind. A kind
+   * outside the vocabulary is InvalidArgument.
+   *
+   * @generated from field: string kind = 2;
+   */
+  kind: string;
 };
 
 /**
@@ -2225,6 +2233,20 @@ export type FundSeries = Message<"shorts.v1alpha1.FundSeries"> & {
    * @generated from field: repeated shorts.v1alpha1.FundPoint points = 5;
    */
   points: FundPoint[];
+
+  /**
+   * The fund's ASX code (ticker) when its file names one; empty for a super option.
+   *
+   * @generated from field: string fund_code = 6;
+   */
+  fundCode: string;
+
+  /**
+   * The fund's key (spec 14.7): the registry key, or <institution_slug>/<fund_name>.
+   *
+   * @generated from field: string fund_key = 7;
+   */
+  fundKey: string;
 };
 
 /**
@@ -2255,6 +2277,589 @@ export type GetStockFundSeriesResponse = Message<"shorts.v1alpha1.GetStockFundSe
  */
 export const GetStockFundSeriesResponseSchema: GenMessage<GetStockFundSeriesResponse> = /*@__PURE__*/
   messageDesc(file_shorts_v1alpha1_ownership, 41);
+
+/**
+ * @generated from message shorts.v1alpha1.ListFundsRequest
+ */
+export type ListFundsRequest = Message<"shorts.v1alpha1.ListFundsRequest"> & {
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListFundsRequest.
+ * Use `create(ListFundsRequestSchema)` to create a new message.
+ */
+export const ListFundsRequestSchema: GenMessage<ListFundsRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 42);
+
+/**
+ * One sector's share of a fund's holdings. The industry is company-metadata's,
+ * with a placeholder industry read as "Other".
+ *
+ * @generated from message shorts.v1alpha1.FundSectorWeight
+ */
+export type FundSectorWeight = Message<"shorts.v1alpha1.FundSectorWeight"> & {
+  /**
+   * @generated from field: string industry = 1;
+   */
+  industry: string;
+
+  /**
+   * @generated from field: double weight_pct = 2;
+   */
+  weightPct: number;
+
+  /**
+   * @generated from field: bool has_weight_pct = 3;
+   */
+  hasWeightPct: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.FundSectorWeight.
+ * Use `create(FundSectorWeightSchema)` to create a new message.
+ */
+export const FundSectorWeightSchema: GenMessage<FundSectorWeight> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 43);
+
+/**
+ * One of a fund's ten largest holdings, by weight.
+ *
+ * @generated from message shorts.v1alpha1.FundTopHolding
+ */
+export type FundTopHolding = Message<"shorts.v1alpha1.FundTopHolding"> & {
+  /**
+   * @generated from field: string code = 1;
+   */
+  code: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: double weight_pct = 3;
+   */
+  weightPct: number;
+
+  /**
+   * @generated from field: bool has_weight_pct = 4;
+   */
+  hasWeightPct: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.FundTopHolding.
+ * Use `create(FundTopHoldingSchema)` to create a new message.
+ */
+export const FundTopHoldingSchema: GenMessage<FundTopHolding> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 44);
+
+/**
+ * A tracked fund at one file date.
+ *
+ * @generated from message shorts.v1alpha1.FundSummary
+ */
+export type FundSummary = Message<"shorts.v1alpha1.FundSummary"> & {
+  /**
+   * The registry key (abn:<ABN> or asx:<CODE>) when the file has a registry row,
+   * else "<institution_slug>/<fund_name>".
+   *
+   * @generated from field: string fund_key = 1;
+   */
+  fundKey: string;
+
+  /**
+   * @generated from field: string ticker = 2;
+   */
+  ticker: string;
+
+  /**
+   * @generated from field: string name = 3;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string institution_slug = 4;
+   */
+  institutionSlug: string;
+
+  /**
+   * @generated from field: string institution_name = 5;
+   */
+  institutionName: string;
+
+  /**
+   * etf or super_phd.
+   *
+   * @generated from field: string source_kind = 6;
+   */
+  sourceKind: string;
+
+  /**
+   * Vanguard's ETF files hold the pooled wholesale fund behind each ETF, not the
+   * ETF alone.
+   *
+   * @generated from field: bool pooled = 7;
+   */
+  pooled: boolean;
+
+  /**
+   * The file date the figures are read from, YYYY-MM-DD.
+   *
+   * @generated from field: string as_at = 8;
+   */
+  asAt: string;
+
+  /**
+   * @generated from field: string source_url = 9;
+   */
+  sourceUrl: string;
+
+  /**
+   * Equity holdings stored for the file: the lines matched to an ASX code, not
+   * every line of the vendor's file.
+   *
+   * @generated from field: int32 holdings = 10;
+   */
+  holdings: number;
+
+  /**
+   * The weights of the ten largest holdings, summed. Known only when every one
+   * of them states a weight: a partial sum is withheld.
+   *
+   * @generated from field: double top10_pct = 11;
+   */
+  top10Pct: number;
+
+  /**
+   * @generated from field: bool has_top10_pct = 12;
+   */
+  hasTop10Pct: boolean;
+
+  /**
+   * @generated from field: repeated shorts.v1alpha1.FundSectorWeight sector_weights = 13;
+   */
+  sectorWeights: FundSectorWeight[];
+
+  /**
+   * @generated from field: repeated shorts.v1alpha1.FundTopHolding largest = 14;
+   */
+  largest: FundTopHolding[];
+
+  /**
+   * @generated from field: double aum_aud = 15;
+   */
+  aumAud: number;
+
+  /**
+   * @generated from field: bool has_aum_aud = 16;
+   */
+  hasAumAud: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.FundSummary.
+ * Use `create(FundSummarySchema)` to create a new message.
+ */
+export const FundSummarySchema: GenMessage<FundSummary> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 45);
+
+/**
+ * @generated from message shorts.v1alpha1.ListFundsResponse
+ */
+export type ListFundsResponse = Message<"shorts.v1alpha1.ListFundsResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.FundSummary funds = 1;
+   */
+  funds: FundSummary[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListFundsResponse.
+ * Use `create(ListFundsResponseSchema)` to create a new message.
+ */
+export const ListFundsResponseSchema: GenMessage<ListFundsResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 46);
+
+/**
+ * @generated from message shorts.v1alpha1.GetFundPortfolioRequest
+ */
+export type GetFundPortfolioRequest = Message<"shorts.v1alpha1.GetFundPortfolioRequest"> & {
+  /**
+   * A fund_key from ListFunds, or "<institution_slug>/<fund_name>".
+   *
+   * @generated from field: string fund_key = 1;
+   */
+  fundKey: string;
+
+  /**
+   * YYYY-MM-DD. The newest file at or before it; empty is the newest file.
+   *
+   * @generated from field: string as_at = 2;
+   */
+  asAt: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetFundPortfolioRequest.
+ * Use `create(GetFundPortfolioRequestSchema)` to create a new message.
+ */
+export const GetFundPortfolioRequestSchema: GenMessage<GetFundPortfolioRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 47);
+
+/**
+ * One holding in one fund's file. The shares on issue are ASIC's, from the report
+ * named by shares_on_issue_as_at (not necessarily the file date); est_company_pct
+ * is units over those shares, in percent, only when both are known.
+ *
+ * @generated from message shorts.v1alpha1.FundPortfolioHolding
+ */
+export type FundPortfolioHolding = Message<"shorts.v1alpha1.FundPortfolioHolding"> & {
+  /**
+   * @generated from field: string code = 1;
+   */
+  code: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string industry = 3;
+   */
+  industry: string;
+
+  /**
+   * @generated from field: double weight_pct = 4;
+   */
+  weightPct: number;
+
+  /**
+   * @generated from field: bool has_weight_pct = 5;
+   */
+  hasWeightPct: boolean;
+
+  /**
+   * @generated from field: double units = 6;
+   */
+  units: number;
+
+  /**
+   * @generated from field: bool has_units = 7;
+   */
+  hasUnits: boolean;
+
+  /**
+   * @generated from field: double value_aud = 8;
+   */
+  valueAud: number;
+
+  /**
+   * @generated from field: bool has_value_aud = 9;
+   */
+  hasValueAud: boolean;
+
+  /**
+   * @generated from field: double shares_on_issue = 10;
+   */
+  sharesOnIssue: number;
+
+  /**
+   * @generated from field: bool has_shares_on_issue = 11;
+   */
+  hasSharesOnIssue: boolean;
+
+  /**
+   * @generated from field: double est_company_pct = 12;
+   */
+  estCompanyPct: number;
+
+  /**
+   * @generated from field: bool has_est_company_pct = 13;
+   */
+  hasEstCompanyPct: boolean;
+
+  /**
+   * The date of the ASIC report the shares on issue come from, YYYY-MM-DD: the
+   * newest on or before the file date, and no older than 30 days before it.
+   * "" when there is no shares figure.
+   *
+   * @generated from field: string shares_on_issue_as_at = 14;
+   */
+  sharesOnIssueAsAt: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.FundPortfolioHolding.
+ * Use `create(FundPortfolioHoldingSchema)` to create a new message.
+ */
+export const FundPortfolioHoldingSchema: GenMessage<FundPortfolioHolding> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 48);
+
+/**
+ * @generated from message shorts.v1alpha1.GetFundPortfolioResponse
+ */
+export type GetFundPortfolioResponse = Message<"shorts.v1alpha1.GetFundPortfolioResponse"> & {
+  /**
+   * @generated from field: string fund_key = 1;
+   */
+  fundKey: string;
+
+  /**
+   * @generated from field: string ticker = 2;
+   */
+  ticker: string;
+
+  /**
+   * @generated from field: string name = 3;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string institution_slug = 4;
+   */
+  institutionSlug: string;
+
+  /**
+   * @generated from field: string institution_name = 5;
+   */
+  institutionName: string;
+
+  /**
+   * @generated from field: string source_kind = 6;
+   */
+  sourceKind: string;
+
+  /**
+   * @generated from field: bool pooled = 7;
+   */
+  pooled: boolean;
+
+  /**
+   * The file the holdings are read from.
+   *
+   * @generated from field: string as_at = 8;
+   */
+  asAt: string;
+
+  /**
+   * @generated from field: string source_url = 9;
+   */
+  sourceUrl: string;
+
+  /**
+   * Every file date this fund has, oldest first.
+   *
+   * @generated from field: repeated string snapshot_dates = 10;
+   */
+  snapshotDates: string[];
+
+  /**
+   * Ordered by weight, largest first.
+   *
+   * @generated from field: repeated shorts.v1alpha1.FundPortfolioHolding holdings = 11;
+   */
+  holdings: FundPortfolioHolding[];
+
+  /**
+   * The equity holdings stored for the file (the lines matched to an ASX code).
+   *
+   * @generated from field: int32 holdings_total = 12;
+   */
+  holdingsTotal: number;
+
+  /**
+   * The ten largest weights, summed; known only when every one of them states a
+   * weight.
+   *
+   * @generated from field: double top10_pct = 13;
+   */
+  top10Pct: number;
+
+  /**
+   * @generated from field: bool has_top10_pct = 14;
+   */
+  hasTop10Pct: boolean;
+
+  /**
+   * @generated from field: repeated shorts.v1alpha1.FundSectorWeight sector_weights = 15;
+   */
+  sectorWeights: FundSectorWeight[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetFundPortfolioResponse.
+ * Use `create(GetFundPortfolioResponseSchema)` to create a new message.
+ */
+export const GetFundPortfolioResponseSchema: GenMessage<GetFundPortfolioResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 49);
+
+/**
+ * @generated from message shorts.v1alpha1.CompareFundSnapshotsRequest
+ */
+export type CompareFundSnapshotsRequest = Message<"shorts.v1alpha1.CompareFundSnapshotsRequest"> & {
+  /**
+   * @generated from field: string fund_key = 1;
+   */
+  fundKey: string;
+
+  /**
+   * YYYY-MM-DD. Each side is the fund's newest file at or before the date. An
+   * empty to is the newest file; an empty from is the file before to. A from
+   * after an explicit to is InvalidArgument. When both sides resolve to the same
+   * file there is nothing to compare: the response names that file on both sides
+   * and carries no rows.
+   *
+   * @generated from field: string from = 2;
+   */
+  from: string;
+
+  /**
+   * @generated from field: string to = 3;
+   */
+  to: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.CompareFundSnapshotsRequest.
+ * Use `create(CompareFundSnapshotsRequestSchema)` to create a new message.
+ */
+export const CompareFundSnapshotsRequestSchema: GenMessage<CompareFundSnapshotsRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 50);
+
+/**
+ * One holding across two files of one fund. continuing is held on both,
+ * new only on the later file, dropped only on the earlier one.
+ *
+ * @generated from message shorts.v1alpha1.FundSnapshotChange
+ */
+export type FundSnapshotChange = Message<"shorts.v1alpha1.FundSnapshotChange"> & {
+  /**
+   * @generated from field: string code = 1;
+   */
+  code: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string industry = 3;
+   */
+  industry: string;
+
+  /**
+   * @generated from field: double weight_from_pct = 4;
+   */
+  weightFromPct: number;
+
+  /**
+   * @generated from field: bool has_weight_from_pct = 5;
+   */
+  hasWeightFromPct: boolean;
+
+  /**
+   * @generated from field: double weight_to_pct = 6;
+   */
+  weightToPct: number;
+
+  /**
+   * @generated from field: bool has_weight_to_pct = 7;
+   */
+  hasWeightToPct: boolean;
+
+  /**
+   * @generated from field: double delta_pp = 8;
+   */
+  deltaPp: number;
+
+  /**
+   * @generated from field: bool has_delta_pp = 9;
+   */
+  hasDeltaPp: boolean;
+
+  /**
+   * @generated from field: double value_from_aud = 10;
+   */
+  valueFromAud: number;
+
+  /**
+   * @generated from field: bool has_value_from_aud = 11;
+   */
+  hasValueFromAud: boolean;
+
+  /**
+   * @generated from field: double value_to_aud = 12;
+   */
+  valueToAud: number;
+
+  /**
+   * @generated from field: bool has_value_to_aud = 13;
+   */
+  hasValueToAud: boolean;
+
+  /**
+   * @generated from field: string status = 14;
+   */
+  status: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.FundSnapshotChange.
+ * Use `create(FundSnapshotChangeSchema)` to create a new message.
+ */
+export const FundSnapshotChangeSchema: GenMessage<FundSnapshotChange> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 51);
+
+/**
+ * @generated from message shorts.v1alpha1.CompareFundSnapshotsResponse
+ */
+export type CompareFundSnapshotsResponse = Message<"shorts.v1alpha1.CompareFundSnapshotsResponse"> & {
+  /**
+   * The file dates used.
+   *
+   * @generated from field: string from = 1;
+   */
+  from: string;
+
+  /**
+   * @generated from field: string to = 2;
+   */
+  to: string;
+
+  /**
+   * @generated from field: string source_from = 3;
+   */
+  sourceFrom: string;
+
+  /**
+   * @generated from field: string source_to = 4;
+   */
+  sourceTo: string;
+
+  /**
+   * Continuing holdings by |delta| (largest first), then new, then dropped, each
+   * by weight.
+   *
+   * @generated from field: repeated shorts.v1alpha1.FundSnapshotChange rows = 5;
+   */
+  rows: FundSnapshotChange[];
+
+  /**
+   * @generated from field: repeated string snapshot_dates = 6;
+   */
+  snapshotDates: string[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.CompareFundSnapshotsResponse.
+ * Use `create(CompareFundSnapshotsResponseSchema)` to create a new message.
+ */
+export const CompareFundSnapshotsResponseSchema: GenMessage<CompareFundSnapshotsResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_ownership, 52);
 
 /**
  * OwnershipService: who holds ASX stocks.
@@ -2400,6 +3005,39 @@ export const OwnershipService: GenService<{
     methodKind: "unary";
     input: typeof GetStockFundSeriesRequestSchema;
     output: typeof GetStockFundSeriesResponseSchema;
+  },
+  /**
+   * Every tracked fund (index funds and super fund options) at its newest file,
+   * with its sector weights and ten largest holdings.
+   *
+   * @generated from rpc shorts.v1alpha1.OwnershipService.ListFunds
+   */
+  listFunds: {
+    methodKind: "unary";
+    input: typeof ListFundsRequestSchema;
+    output: typeof ListFundsResponseSchema;
+  },
+  /**
+   * One fund's holdings at one file date: the file dates it has, each holding's
+   * weight, units and value, and its share of the company's shares on issue.
+   *
+   * @generated from rpc shorts.v1alpha1.OwnershipService.GetFundPortfolio
+   */
+  getFundPortfolio: {
+    methodKind: "unary";
+    input: typeof GetFundPortfolioRequestSchema;
+    output: typeof GetFundPortfolioResponseSchema;
+  },
+  /**
+   * Two files of one fund compared holding by holding: the weight change in
+   * percentage points, and the holdings new or dropped between them.
+   *
+   * @generated from rpc shorts.v1alpha1.OwnershipService.CompareFundSnapshots
+   */
+  compareFundSnapshots: {
+    methodKind: "unary";
+    input: typeof CompareFundSnapshotsRequestSchema;
+    output: typeof CompareFundSnapshotsResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_shorts_v1alpha1_ownership, 0);

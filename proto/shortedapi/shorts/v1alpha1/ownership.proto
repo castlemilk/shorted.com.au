@@ -91,6 +91,24 @@ service OwnershipService {
   rpc GetStockFundSeries (GetStockFundSeriesRequest) returns (GetStockFundSeriesResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // Every tracked fund (index funds and super fund options) at its newest file,
+  // with its sector weights and ten largest holdings.
+  rpc ListFunds (ListFundsRequest) returns (ListFundsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // One fund's holdings at one file date: the file dates it has, each holding's
+  // weight, units and value, and its share of the company's shares on issue.
+  rpc GetFundPortfolio (GetFundPortfolioRequest) returns (GetFundPortfolioResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Two files of one fund compared holding by holding: the weight change in
+  // percentage points, and the holdings new or dropped between them.
+  rpc CompareFundSnapshots (CompareFundSnapshotsRequest) returns (CompareFundSnapshotsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }
 
 message OwnershipInstitution {
@@ -578,6 +596,9 @@ message GetOwnershipFlowsResponse {
 message GetOwnershipActivityRequest {
   // 1 to 52 weeks; 0 means 52. Negative is InvalidArgument.
   int32 weeks = 1;
+  // A holder kind (super_fund, index_manager, ...), or "" for every kind. A kind
+  // outside the vocabulary is InvalidArgument.
+  string kind = 2;
 }
 
 // One industry's notices in one ISO week, and the net change in disclosed
@@ -672,9 +693,161 @@ message FundSeries {
   string source_kind = 4;
   // Oldest first, one a snapshot.
   repeated FundPoint points = 5;
+  // The fund's ASX code (ticker) when its file names one; empty for a super option.
+  string fund_code = 6;
+  // The fund's key (spec 14.7): the registry key, or <institution_slug>/<fund_name>.
+  string fund_key = 7;
 }
 
 message GetStockFundSeriesResponse {
   string stock_code = 1;
   repeated FundSeries funds = 2;
+}
+
+message ListFundsRequest {}
+
+// One sector's share of a fund's holdings. The industry is company-metadata's,
+// with a placeholder industry read as "Other".
+message FundSectorWeight {
+  string industry = 1;
+  double weight_pct = 2;
+  bool has_weight_pct = 3;
+}
+
+// One of a fund's ten largest holdings, by weight.
+message FundTopHolding {
+  string code = 1;
+  string name = 2;
+  double weight_pct = 3;
+  bool has_weight_pct = 4;
+}
+
+// A tracked fund at one file date.
+message FundSummary {
+  // The registry key (abn:<ABN> or asx:<CODE>) when the file has a registry row,
+  // else "<institution_slug>/<fund_name>".
+  string fund_key = 1;
+  string ticker = 2;
+  string name = 3;
+  string institution_slug = 4;
+  string institution_name = 5;
+  // etf or super_phd.
+  string source_kind = 6;
+  // Vanguard's ETF files hold the pooled wholesale fund behind each ETF, not the
+  // ETF alone.
+  bool pooled = 7;
+  // The file date the figures are read from, YYYY-MM-DD.
+  string as_at = 8;
+  string source_url = 9;
+  // Equity holdings stored for the file: the lines matched to an ASX code, not
+  // every line of the vendor's file.
+  int32 holdings = 10;
+  // The weights of the ten largest holdings, summed. Known only when every one
+  // of them states a weight: a partial sum is withheld.
+  double top10_pct = 11;
+  bool has_top10_pct = 12;
+  repeated FundSectorWeight sector_weights = 13;
+  repeated FundTopHolding largest = 14;
+  double aum_aud = 15;
+  bool has_aum_aud = 16;
+}
+
+message ListFundsResponse {
+  repeated FundSummary funds = 1;
+}
+
+message GetFundPortfolioRequest {
+  // A fund_key from ListFunds, or "<institution_slug>/<fund_name>".
+  string fund_key = 1;
+  // YYYY-MM-DD. The newest file at or before it; empty is the newest file.
+  string as_at = 2;
+}
+
+// One holding in one fund's file. The shares on issue are ASIC's, from the report
+// named by shares_on_issue_as_at (not necessarily the file date); est_company_pct
+// is units over those shares, in percent, only when both are known.
+message FundPortfolioHolding {
+  string code = 1;
+  string name = 2;
+  string industry = 3;
+  double weight_pct = 4;
+  bool has_weight_pct = 5;
+  double units = 6;
+  bool has_units = 7;
+  double value_aud = 8;
+  bool has_value_aud = 9;
+  double shares_on_issue = 10;
+  bool has_shares_on_issue = 11;
+  double est_company_pct = 12;
+  bool has_est_company_pct = 13;
+  // The date of the ASIC report the shares on issue come from, YYYY-MM-DD: the
+  // newest on or before the file date, and no older than 30 days before it.
+  // "" when there is no shares figure.
+  string shares_on_issue_as_at = 14;
+}
+
+message GetFundPortfolioResponse {
+  string fund_key = 1;
+  string ticker = 2;
+  string name = 3;
+  string institution_slug = 4;
+  string institution_name = 5;
+  string source_kind = 6;
+  bool pooled = 7;
+  // The file the holdings are read from.
+  string as_at = 8;
+  string source_url = 9;
+  // Every file date this fund has, oldest first.
+  repeated string snapshot_dates = 10;
+  // Ordered by weight, largest first.
+  repeated FundPortfolioHolding holdings = 11;
+  // The equity holdings stored for the file (the lines matched to an ASX code).
+  int32 holdings_total = 12;
+  // The ten largest weights, summed; known only when every one of them states a
+  // weight.
+  double top10_pct = 13;
+  bool has_top10_pct = 14;
+  repeated FundSectorWeight sector_weights = 15;
+}
+
+message CompareFundSnapshotsRequest {
+  string fund_key = 1;
+  // YYYY-MM-DD. Each side is the fund's newest file at or before the date. An
+  // empty to is the newest file; an empty from is the file before to. A from
+  // after an explicit to is InvalidArgument. When both sides resolve to the same
+  // file there is nothing to compare: the response names that file on both sides
+  // and carries no rows.
+  string from = 2;
+  string to = 3;
+}
+
+// One holding across two files of one fund. continuing is held on both,
+// new only on the later file, dropped only on the earlier one.
+message FundSnapshotChange {
+  string code = 1;
+  string name = 2;
+  string industry = 3;
+  double weight_from_pct = 4;
+  bool has_weight_from_pct = 5;
+  double weight_to_pct = 6;
+  bool has_weight_to_pct = 7;
+  double delta_pp = 8;
+  bool has_delta_pp = 9;
+  double value_from_aud = 10;
+  bool has_value_from_aud = 11;
+  double value_to_aud = 12;
+  bool has_value_to_aud = 13;
+  string status = 14;
+}
+
+message CompareFundSnapshotsResponse {
+  // The file dates used.
+  string from = 1;
+  string to = 2;
+  string source_from = 3;
+  string source_to = 4;
+  // Continuing holdings by |delta| (largest first), then new, then dropped, each
+  // by weight.
+  repeated FundSnapshotChange rows = 5;
+  repeated string snapshot_dates = 6;
 }

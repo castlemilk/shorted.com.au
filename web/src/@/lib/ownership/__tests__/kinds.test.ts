@@ -6,11 +6,53 @@ import {
   RESERVED_SLUGS,
   WITHHOLDING_OUTCOMES,
   asAtRange,
+  fundHref,
   holderHref,
   isInstitutionSlug,
   isPooledFile,
+  FOLDED_SECTOR_LABEL,
   registerHref,
+  shortSector,
 } from "../kinds";
+
+describe("shortSector (spec 14.9)", () => {
+  it("maps every GICS industry group the API names to a short label", () => {
+    const names = [
+      "Materials", "Energy", "Software & Services", "Financial Services",
+      "Health Care Equipment & Services", "Pharmaceuticals, Biotechnology & Life Sciences",
+      "Capital Goods", "Commercial & Professional Services", "Media & Entertainment",
+      "Food, Beverage & Tobacco", "Consumer Discretionary Distribution & Retail", "Consumer Services",
+      "Equity Real Estate Investment Trusts (REITs)", "Technology Hardware & Equipment", "Transportation",
+      "Real Estate Management & Development", "Utilities", "Telecommunication Services",
+      "Consumer Durables & Apparel", "Banks", "Household & Personal Products", "Insurance",
+      "Automobiles & Components", "Consumer Staples Distribution & Retail",
+      "Semiconductors & Semiconductor Equipment",
+    ];
+    // Every name is known: none falls through to the API's own (long) name.
+    expect(names.every((name) => shortSector(name).length < name.length || name.length <= 24)).toBe(true);
+    for (const name of names) {
+      const short = shortSector(name);
+      expect(short).not.toBe("");
+      expect(short.length).toBeLessThanOrEqual(24);
+    }
+    expect(shortSector("Equity Real Estate Investment Trusts (REITs)")).toBe("REITs");
+    expect(shortSector("Pharmaceuticals, Biotechnology & Life Sciences")).toBe("Pharma & biotech");
+    expect(shortSector("Consumer Discretionary Distribution & Retail")).toBe("Discretionary retail");
+    expect(shortSector("Consumer Staples Distribution & Retail")).toBe("Staples retail");
+    expect(shortSector("Telecommunication Services")).toBe("Telecoms");
+  });
+
+  it("reads a placeholder or empty industry as Other, and keeps an unknown name as the API states it", () => {
+    expect(shortSector("")).toBe("Other");
+    expect(shortSector(null)).toBe("Other");
+    expect(shortSector("Not Applic")).toBe("Other");
+    expect(shortSector("Quantum Widgets")).toBe("Quantum Widgets");
+  });
+
+  it("names the fold's bucket for every sector past the six largest", () => {
+    expect(FOLDED_SECTOR_LABEL).toBe("Other sectors");
+  });
+});
 
 describe("ownership kinds", () => {
   it("never lets an institution take a path the ownership section owns", () => {
@@ -98,5 +140,13 @@ describe("ownership kinds", () => {
     expect(asAtRange("2026-09-30", "2026-10-31")).toBe("as at 2026-09-30 to 2026-10-31");
     expect(asAtRange("", "2026-10-31")).toBe("as at 2026-10-31");
     expect(asAtRange("", "")).toBe("as at n/a");
+  });
+});
+
+describe("fundHref (spec 14.7)", () => {
+  it("encodes the API's fund key as one path segment", () => {
+    expect(fundHref("asx:A200")).toBe("/ownership/funds/asx%3AA200");
+    expect(fundHref("abn:12345678901")).toBe("/ownership/funds/abn%3A12345678901");
+    expect(fundHref("aware/High Growth")).toBe("/ownership/funds/aware%2FHigh%20Growth");
   });
 });

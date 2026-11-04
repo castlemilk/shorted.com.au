@@ -10,11 +10,11 @@
  * sitemapindex over six children (see SITEMAP_CHILDREN in ./sitemap-xml), and
  * each child fetches ONLY the data its own section needs.
  *
- * RENDERING SEMANTICS — DO NOT "OPTIMISE" THIS TO ISR
+ * RENDERING SEMANTICS, DO NOT "OPTIMISE" THIS TO ISR
  * ---------------------------------------------------
  * Every child route that fetches data is `force-dynamic`. The build runs with
  * SKIP_STATIC_GENERATION=1, so a prerender only ever contains the 20-stock
- * fallback — with ISR that degenerate copy would serve for up to an hour after
+ * fallback, with ISR that degenerate copy would serve for up to an hour after
  * EVERY deploy (GSC "discovered - not indexed" regression, July 2026).
  * Freshness is an hour, shared. The top-shorts list (sitemap-shorts) and the
  * industry tree (sitemap-core) are each one shared entry for an hour
@@ -27,8 +27,8 @@
  * LASTMOD POLICY
  * --------------
  * Before August 2026 a single `latestDataDate` constant (the newest ASIC data
- * date) was stamped on nearly every URL — housing, economy, politicians,
- * directory, everything — so every lastmod in the document was byte-identical
+ * date) was stamped on nearly every URL, housing, economy, politicians,
+ * directory, everything, so every lastmod in the document was byte-identical
  * and carried zero information. Google discards lastmod wholesale when it
  * looks like a build constant. The rule now:
  *
@@ -47,6 +47,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { siteConfig } from "~/@/config/site";
 import { getAllPosts } from "~/@/lib/api";
+import { fundHref } from "~/@/lib/ownership/kinds";
 import {
   BLOG_CATEGORY_SLUGS,
   blogCategoryPath,
@@ -189,7 +190,7 @@ function connectTransport() {
 }
 
 // Educational articles for the sitemap. Must cover every slug in articlesData
-// (web/src/app/learn/[slug]/page.tsx) — three real pages had silently drifted
+// (web/src/app/learn/[slug]/page.tsx), three real pages had silently drifted
 // out of this list (asic-short-selling-regulations, how-to-view-asic-short-
 // positions, covered-short-selling-australia).
 const learnArticles = [
@@ -291,7 +292,7 @@ async function getAllStockCodes(): Promise<string[]> {
 
     // Only list URLs the page itself indexes (see stock-indexability): named
     // stocks at/above the shared short-interest floor and with a code the
-    // /shorts/[code] route serves (1-4 alnum — longer codes like govt bonds
+    // /shorts/[code] route serves (1-4 alnum, longer codes like govt bonds
     // GSB*, warrants XCLW*, preference shares GSBW30/BENPH/MQGPD 404). This
     // guarantees the sitemap never advertises a noindexed URL.
     const qualified = (data.timeSeries || [])
@@ -331,7 +332,7 @@ async function getMarketDates(): Promise<string[]> {
 
 /**
  * The honest lastmod for every ASIC-derived page: the newest data date, NOT the
- * render time. `undefined` when the RPC fails — better no signal than a fake one.
+ * render time. `undefined` when the RPC fails, better no signal than a fake one.
  */
 function latestDataDateOf(marketDates: string[]): string | undefined {
   const first = marketDates[0];
@@ -346,7 +347,7 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
 
   // Static marketing/documentation pages: no reliable change signal, so no
   // lastModified (omitting is valid and better than a fabricated date).
-  // NOTE: /developer is deliberately absent — it is an auth-gated dashboard
+  // NOTE: /developer is deliberately absent, it is an auth-gated dashboard
   // stub that renders a spinner for anonymous crawlers.
   const staticRoutes: SitemapEntry[] = [
     { url: baseUrl, lastModified: latestDataDate },
@@ -370,14 +371,14 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     ...PUBLISHED_ECONOMY_TOPIC_PAIRS.map(({ state, topic }) => ({
       url: `${baseUrl}/economy/${state}/${topic}`,
     })),
-    // Squeeze radar — "short squeeze asx" is a winnable SERP with weak incumbents.
+    // Squeeze radar, "short squeeze asx" is a winnable SERP with weak incumbents.
     { url: `${baseUrl}/battlegrounds`, lastModified: latestDataDate },
-    // Aggregate market statistics — the citable "$X.XB shorted" page.
+    // Aggregate market statistics, the citable "$X.XB shorted" page.
     { url: `${baseUrl}/statistics`, lastModified: latestDataDate },
     { url: `${baseUrl}/top`, lastModified: latestDataDate },
-    // Screener (query-param presets excluded — not indexable).
+    // Screener (query-param presets excluded, not indexable).
     { url: `${baseUrl}/screener`, lastModified: latestDataDate },
-    // Fixed short-interest scans (slugs come from the registry — single source
+    // Fixed short-interest scans (slugs come from the registry, single source
     // of truth, no hand-list drift).
     { url: `${baseUrl}/scans`, lastModified: latestDataDate },
     ...SCAN_SLUGS.map((slug) => ({
@@ -398,7 +399,7 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     { url: `${baseUrl}/picks` },
     ...STRATEGY_SLUGS.map((slug) => ({ url: `${baseUrl}/picks/${slug}` })),
     // /ownership lives in the ownership child, dated from its own data.
-    // Open data hub + press kit — both citation surfaces we point journalists at.
+    // Open data hub + press kit, both citation surfaces we point journalists at.
     { url: `${baseUrl}/data`, lastModified: latestDataDate },
     { url: `${baseUrl}/press` },
     { url: `${baseUrl}/faq` },
@@ -488,7 +489,7 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     ...learnArticles.map((slug) => ({ url: `${baseUrl}/learn/${slug}` })),
   ];
 
-  // Authors hub + per-author profile pages — E-E-A-T signal (static).
+  // Authors hub + per-author profile pages, E-E-A-T signal (static).
   const { getAllAuthorSlugs } = await import("~/@/data/authors");
   const authorRoutes: SitemapEntry[] = [
     { url: `${baseUrl}/authors` },
@@ -498,7 +499,7 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
   // Documentation for LLMs and developers: the /docs/api index and the client
   // guides. The per-endpoint pages (/docs/api/<method>--<path>, one per spec
   // operation) are deliberately NOT listed. They are reference stubs titled by
-  // RPC name ("GetInstitution — Ownership API"); each names its own canonical,
+  // RPC name ("GetInstitution, Ownership API"); each names its own canonical,
   // and the sidebar on every docs page links all of them, so crawlers find them
   // without the sitemap. Listing them put 87 thin URLs in sitemap-core
   // (SEO review 2026-10-21), two of them parser artefacts
@@ -534,7 +535,7 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
             : undefined,
       }));
     } catch {
-      // ignore — Take pages will appear in the next regeneration
+      // ignore, Take pages will appear in the next regeneration
     }
   }
 
@@ -668,7 +669,7 @@ export { weeklyLastMod, monthlyLastMod, yearlyLastMod };
 /**
  * Published reports ONLY (ListReports, headline-gated in getReportsList).
  * Slugs used to be derived from the calendar (last 52 weeks), which advertised
- * URLs for weeks the generator never published — a sitemapped soft-404 whenever
+ * URLs for weeks the generator never published, a sitemapped soft-404 whenever
  * the pipeline stalls (2026-W26..W28, July 2026). Requested PER TYPE: a
  * combined most-recent-first request hits the backend row cap and silently
  * truncates the oldest type as the archive grows. On RPC failure only the
@@ -710,7 +711,7 @@ export async function buildReportsSitemap(): Promise<SitemapEntry[]> {
     })),
   ];
 
-  // The archive indexes change when the newest report lands — not on render.
+  // The archive indexes change when the newest report lands, not on render.
   const index: SitemapEntry = {
     url: `${baseUrl}/reports`,
     lastModified: newestLastMod(reports.map((r) => r.lastModified)),
@@ -733,7 +734,7 @@ export async function buildReportsSitemap(): Promise<SitemapEntry[]> {
  * shared action previously helped blow the function time limit).
  *
  * lastmod comes from each suburb's own `latestPeriod` (the Valuer-General
- * period the median price is from) — a real per-URL signal. Suburbs with no
+ * period the median price is from), a real per-URL signal. Suburbs with no
  * price feed (QLD/WA/ACT/TAS/NT) get no lastmod rather than a borrowed one.
  */
 export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
@@ -747,7 +748,7 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
   type SuburbUrl = { state: string; suburb: string; lastModified?: string };
   const perStateEntries = new Map<string, SuburbUrl[]>();
   // /price-drops' lastmod is the refresh of the view its headline figures come
-  // from (as_of, migration 000124) — the same instant the page's Dataset
+  // from (as_of, migration 000124), the same instant the page's Dataset
   // JSON-LD reports as dateModified. Unknown stays bare, never render time.
   let priceDropsLastMod: string | undefined;
 
@@ -772,7 +773,7 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
             // ONE gate, shared with the page's robots meta, so the sitemap can
             // never advertise a URL the page marks noindex. The old
             // `latestMedianPrice > 0` filter excluded every suburb in QLD, WA,
-            // ACT, TAS and NT — states with no ingested Valuer-General feed —
+            // ACT, TAS and NT, states with no ingested Valuer-General feed ,
             // regardless of how much Census and amenity content the page had.
             .filter((s) =>
               isSuburbSitemapEligible({
@@ -873,10 +874,10 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
         ),
       };
     }),
-    // Calculators are static tools with no data date — no fabricated lastmod.
+    // Calculators are static tools with no data date, no fabricated lastmod.
     { url: `${baseUrl}/housing/calculators` },
     { url: `${baseUrl}/price-drops`, lastModified: priceDropsLastMod },
-    // NOTE: /housing/suburbs is deliberately NOT listed — next.config.mjs 301s
+    // NOTE: /housing/suburbs is deliberately NOT listed, next.config.mjs 301s
     // it to /housing (the hub page was deprecated 2026-06-29); sitemapping it
     // would advertise a permanent redirect.
     ...housingStateSlugs.map((slug) => ({
@@ -917,7 +918,7 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
  *
  * THE HUB URLS ARE GATED ON THE REGISTER ACTUALLY BEING ON (§6.3 open item 2).
  * POLITICIAN_INTERESTS_ENABLED is a takedown switch: with it off the rpcs
- * return empty by design, but the routes still render — so a sitemap that
+ * return empty by design, but the routes still render, so a sitemap that
  * advertises them unconditionally hands a crawler empty pages about named
  * individuals during exactly the period someone flipped the switch to stop
  * publishing them. The gate is the DATA, not a second copy of the env var.
@@ -1018,8 +1019,49 @@ async function registerPageEntries(): Promise<SitemapEntry[]> {
 }
 
 /**
- * /ownership, the two explorer pages, the institution pages the page itself indexes
- * and the register pages.
+ * The static pages of the explorer and the workspace (spec 14.3): the notice feed, the
+ * register list and the six workspace pages. Listed whatever the reads do, as the hub is.
+ */
+const STATIC_OWNERSHIP_PAGES = [
+  "/ownership/notices",
+  "/ownership/stocks",
+  "/ownership/map",
+  "/ownership/connections",
+  "/ownership/activity",
+  "/ownership/funds",
+  "/ownership/holders",
+  "/ownership/changes",
+];
+
+/**
+ * The fund pages: every tracked fund at its newest file (index funds and super options).
+ * The fund page sets no robots key, so each is indexable, and its lastmod is the file's
+ * own date. A failed list drops the fund pages from this build, as the register list
+ * does: an outage is not a takedown.
+ */
+async function fundPageEntries(): Promise<SitemapEntry[]> {
+  try {
+    const { loadFunds } = await import("~/app/actions/ownershipFunds");
+    const page = await loadFunds();
+    if (!page.ok) {
+      console.error("Failed to fetch the fund list for sitemap: the list was not answered.");
+      return [];
+    }
+    return dedupeEntries(
+      page.funds.map((fund) => ({
+        url: `${baseUrl}${fundHref(fund.key)}`,
+        lastModified: noticeDateLastMod(fund.asAt),
+      })),
+    );
+  } catch (error) {
+    console.error("Failed to fetch fund pages for sitemap:", error);
+    return [];
+  }
+}
+
+/**
+ * /ownership, the explorer and workspace pages, the institution pages the page itself
+ * indexes, the register pages and the fund pages.
  *
  * The SAME predicate as the page's robots tag (institutionIsIndexable),
  * applied to what ListInstitutions carries: the stake count, not the holdings
@@ -1037,19 +1079,17 @@ async function registerPageEntries(): Promise<SitemapEntry[]> {
  */
 export async function buildOwnershipSitemap(): Promise<SitemapEntry[]> {
   const hub: SitemapEntry = { url: `${baseUrl}/ownership` };
-  // The two explorer pages are static, so they are listed whatever the reads do.
-  const explorer: SitemapEntry[] = [
-    { url: `${baseUrl}/ownership/notices` },
-    { url: `${baseUrl}/ownership/stocks` },
-  ];
+  // The explorer and workspace pages are static, so they are listed whatever the reads do.
+  const explorer: SitemapEntry[] = STATIC_OWNERSHIP_PAGES.map((path) => ({ url: `${baseUrl}${path}` }));
   if (skipForBuild()) return [hub, ...explorer];
 
   try {
     const { getOwnershipOverview, listInstitutions } = await import("~/app/actions/getOwnership");
-    const [overview, directory, registers] = await Promise.all([
+    const [overview, directory, registers, funds] = await Promise.all([
       getOwnershipOverview(),
       listInstitutions("", "", 200, 0),
       registerPageEntries(),
+      fundPageEntries(),
     ]);
     const institutions: SitemapEntry[] = (directory?.institutions ?? [])
       .filter((inst) => inst.slug && institutionIsIndexable(inst))
@@ -1064,6 +1104,7 @@ export async function buildOwnershipSitemap(): Promise<SitemapEntry[]> {
       ...explorer.map((entry) => ({ ...entry, lastModified: asOf })),
       ...institutions,
       ...registers,
+      ...funds,
     ];
   } catch (error) {
     console.error("Failed to fetch ownership institutions for sitemap:", error);

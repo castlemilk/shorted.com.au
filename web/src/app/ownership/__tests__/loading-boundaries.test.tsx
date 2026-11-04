@@ -30,6 +30,16 @@ const NOTICES_LOADING = path.join(OWNERSHIP_DIR, "notices", "loading.tsx");
 const REGISTERS_LOADING = path.join(OWNERSHIP_DIR, "stocks", "loading.tsx");
 // The institution page: a segment's loading.tsx wraps it, so it has its own skeleton.
 const INSTITUTION_LOADING = path.join(OWNERSHIP_DIR, "[slug]", "loading.tsx");
+// The workspace (spec 14.3): the six pages the nav reaches, and the fund page under Funds.
+const WORKSPACE_LOADINGS = [
+  ["the market map", path.join(OWNERSHIP_DIR, "map", "loading.tsx")],
+  ["the connections", path.join(OWNERSHIP_DIR, "connections", "loading.tsx")],
+  ["the activity", path.join(OWNERSHIP_DIR, "activity", "loading.tsx")],
+  ["the funds", path.join(OWNERSHIP_DIR, "funds", "loading.tsx")],
+  ["the fund page", path.join(OWNERSHIP_DIR, "funds", "[fund]", "loading.tsx")],
+  ["the holders", path.join(OWNERSHIP_DIR, "holders", "loading.tsx")],
+  ["the changes", path.join(OWNERSHIP_DIR, "changes", "loading.tsx")],
+] as const;
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const loadingAt = (file: string) => (require(file) as { default: () => React.ReactElement }).default;
@@ -57,6 +67,10 @@ describe("the ownership loading boundaries", () => {
     expect(files).toContain(INSTITUTION_LOADING);
   });
 
+  it.each(WORKSPACE_LOADINGS)("has one for %s", (_name, file) => {
+    expect(files).toContain(file);
+  });
+
   it.each(files.map((file) => [path.relative(OWNERSHIP_DIR, file), file] as const))(
     "%s is a labelled status region that is busy, and is the root",
     (_name, file) => {
@@ -78,6 +92,12 @@ describe("the ownership loading boundaries", () => {
     ["the register list", REGISTERS_LOADING],
     ["the institution page", INSTITUTION_LOADING],
   ])("draws %s's skeleton inside the layout, so the sidebar stays put", (_name, file) => {
+    const Loading = loadingAt(file);
+    render(<Loading />);
+    expect(screen.getByRole("status")).toContainElement(screen.getByTestId("dashboard-layout"));
+  });
+
+  it.each(WORKSPACE_LOADINGS)("draws %s's skeleton inside the layout, so the sidebar stays put", (_name, file) => {
     const Loading = loadingAt(file);
     render(<Loading />);
     expect(screen.getByRole("status")).toContainElement(screen.getByTestId("dashboard-layout"));

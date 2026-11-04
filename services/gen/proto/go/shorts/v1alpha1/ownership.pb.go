@@ -3272,7 +3272,10 @@ func (x *GetOwnershipFlowsResponse) GetAsOf() string {
 type GetOwnershipActivityRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 1 to 52 weeks; 0 means 52. Negative is InvalidArgument.
-	Weeks         int32 `protobuf:"varint,1,opt,name=weeks,proto3" json:"weeks,omitempty"`
+	Weeks int32 `protobuf:"varint,1,opt,name=weeks,proto3" json:"weeks,omitempty"`
+	// A holder kind (super_fund, index_manager, ...), or "" for every kind. A kind
+	// outside the vocabulary is InvalidArgument.
+	Kind          string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3312,6 +3315,13 @@ func (x *GetOwnershipActivityRequest) GetWeeks() int32 {
 		return x.Weeks
 	}
 	return 0
+}
+
+func (x *GetOwnershipActivityRequest) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
 }
 
 // One industry's notices in one ISO week, and the net change in disclosed
@@ -3924,7 +3934,11 @@ type FundSeries struct {
 	// etf or super_phd.
 	SourceKind string `protobuf:"bytes,4,opt,name=source_kind,json=sourceKind,proto3" json:"source_kind,omitempty"`
 	// Oldest first, one a snapshot.
-	Points        []*FundPoint `protobuf:"bytes,5,rep,name=points,proto3" json:"points,omitempty"`
+	Points []*FundPoint `protobuf:"bytes,5,rep,name=points,proto3" json:"points,omitempty"`
+	// The fund's ASX code (ticker) when its file names one; empty for a super option.
+	FundCode string `protobuf:"bytes,6,opt,name=fund_code,json=fundCode,proto3" json:"fund_code,omitempty"`
+	// The fund's key (spec 14.7): the registry key, or <institution_slug>/<fund_name>.
+	FundKey       string `protobuf:"bytes,7,opt,name=fund_key,json=fundKey,proto3" json:"fund_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3994,6 +4008,20 @@ func (x *FundSeries) GetPoints() []*FundPoint {
 	return nil
 }
 
+func (x *FundSeries) GetFundCode() string {
+	if x != nil {
+		return x.FundCode
+	}
+	return ""
+}
+
+func (x *FundSeries) GetFundKey() string {
+	if x != nil {
+		return x.FundKey
+	}
+	return ""
+}
+
 type GetStockFundSeriesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	StockCode     string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
@@ -4042,6 +4070,1064 @@ func (x *GetStockFundSeriesResponse) GetStockCode() string {
 func (x *GetStockFundSeriesResponse) GetFunds() []*FundSeries {
 	if x != nil {
 		return x.Funds
+	}
+	return nil
+}
+
+type ListFundsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFundsRequest) Reset() {
+	*x = ListFundsRequest{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFundsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFundsRequest) ProtoMessage() {}
+
+func (x *ListFundsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFundsRequest.ProtoReflect.Descriptor instead.
+func (*ListFundsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{42}
+}
+
+// One sector's share of a fund's holdings. The industry is company-metadata's,
+// with a placeholder industry read as "Other".
+type FundSectorWeight struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Industry      string                 `protobuf:"bytes,1,opt,name=industry,proto3" json:"industry,omitempty"`
+	WeightPct     float64                `protobuf:"fixed64,2,opt,name=weight_pct,json=weightPct,proto3" json:"weight_pct,omitempty"`
+	HasWeightPct  bool                   `protobuf:"varint,3,opt,name=has_weight_pct,json=hasWeightPct,proto3" json:"has_weight_pct,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FundSectorWeight) Reset() {
+	*x = FundSectorWeight{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FundSectorWeight) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FundSectorWeight) ProtoMessage() {}
+
+func (x *FundSectorWeight) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FundSectorWeight.ProtoReflect.Descriptor instead.
+func (*FundSectorWeight) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *FundSectorWeight) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *FundSectorWeight) GetWeightPct() float64 {
+	if x != nil {
+		return x.WeightPct
+	}
+	return 0
+}
+
+func (x *FundSectorWeight) GetHasWeightPct() bool {
+	if x != nil {
+		return x.HasWeightPct
+	}
+	return false
+}
+
+// One of a fund's ten largest holdings, by weight.
+type FundTopHolding struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	WeightPct     float64                `protobuf:"fixed64,3,opt,name=weight_pct,json=weightPct,proto3" json:"weight_pct,omitempty"`
+	HasWeightPct  bool                   `protobuf:"varint,4,opt,name=has_weight_pct,json=hasWeightPct,proto3" json:"has_weight_pct,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FundTopHolding) Reset() {
+	*x = FundTopHolding{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FundTopHolding) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FundTopHolding) ProtoMessage() {}
+
+func (x *FundTopHolding) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FundTopHolding.ProtoReflect.Descriptor instead.
+func (*FundTopHolding) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *FundTopHolding) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *FundTopHolding) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *FundTopHolding) GetWeightPct() float64 {
+	if x != nil {
+		return x.WeightPct
+	}
+	return 0
+}
+
+func (x *FundTopHolding) GetHasWeightPct() bool {
+	if x != nil {
+		return x.HasWeightPct
+	}
+	return false
+}
+
+// A tracked fund at one file date.
+type FundSummary struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The registry key (abn:<ABN> or asx:<CODE>) when the file has a registry row,
+	// else "<institution_slug>/<fund_name>".
+	FundKey         string `protobuf:"bytes,1,opt,name=fund_key,json=fundKey,proto3" json:"fund_key,omitempty"`
+	Ticker          string `protobuf:"bytes,2,opt,name=ticker,proto3" json:"ticker,omitempty"`
+	Name            string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	InstitutionSlug string `protobuf:"bytes,4,opt,name=institution_slug,json=institutionSlug,proto3" json:"institution_slug,omitempty"`
+	InstitutionName string `protobuf:"bytes,5,opt,name=institution_name,json=institutionName,proto3" json:"institution_name,omitempty"`
+	// etf or super_phd.
+	SourceKind string `protobuf:"bytes,6,opt,name=source_kind,json=sourceKind,proto3" json:"source_kind,omitempty"`
+	// Vanguard's ETF files hold the pooled wholesale fund behind each ETF, not the
+	// ETF alone.
+	Pooled bool `protobuf:"varint,7,opt,name=pooled,proto3" json:"pooled,omitempty"`
+	// The file date the figures are read from, YYYY-MM-DD.
+	AsAt      string `protobuf:"bytes,8,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	SourceUrl string `protobuf:"bytes,9,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`
+	// Equity holdings stored for the file: the lines matched to an ASX code, not
+	// every line of the vendor's file.
+	Holdings int32 `protobuf:"varint,10,opt,name=holdings,proto3" json:"holdings,omitempty"`
+	// The weights of the ten largest holdings, summed. Known only when every one
+	// of them states a weight: a partial sum is withheld.
+	Top10Pct      float64             `protobuf:"fixed64,11,opt,name=top10_pct,json=top10Pct,proto3" json:"top10_pct,omitempty"`
+	HasTop10Pct   bool                `protobuf:"varint,12,opt,name=has_top10_pct,json=hasTop10Pct,proto3" json:"has_top10_pct,omitempty"`
+	SectorWeights []*FundSectorWeight `protobuf:"bytes,13,rep,name=sector_weights,json=sectorWeights,proto3" json:"sector_weights,omitempty"`
+	Largest       []*FundTopHolding   `protobuf:"bytes,14,rep,name=largest,proto3" json:"largest,omitempty"`
+	AumAud        float64             `protobuf:"fixed64,15,opt,name=aum_aud,json=aumAud,proto3" json:"aum_aud,omitempty"`
+	HasAumAud     bool                `protobuf:"varint,16,opt,name=has_aum_aud,json=hasAumAud,proto3" json:"has_aum_aud,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FundSummary) Reset() {
+	*x = FundSummary{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FundSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FundSummary) ProtoMessage() {}
+
+func (x *FundSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FundSummary.ProtoReflect.Descriptor instead.
+func (*FundSummary) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *FundSummary) GetFundKey() string {
+	if x != nil {
+		return x.FundKey
+	}
+	return ""
+}
+
+func (x *FundSummary) GetTicker() string {
+	if x != nil {
+		return x.Ticker
+	}
+	return ""
+}
+
+func (x *FundSummary) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *FundSummary) GetInstitutionSlug() string {
+	if x != nil {
+		return x.InstitutionSlug
+	}
+	return ""
+}
+
+func (x *FundSummary) GetInstitutionName() string {
+	if x != nil {
+		return x.InstitutionName
+	}
+	return ""
+}
+
+func (x *FundSummary) GetSourceKind() string {
+	if x != nil {
+		return x.SourceKind
+	}
+	return ""
+}
+
+func (x *FundSummary) GetPooled() bool {
+	if x != nil {
+		return x.Pooled
+	}
+	return false
+}
+
+func (x *FundSummary) GetAsAt() string {
+	if x != nil {
+		return x.AsAt
+	}
+	return ""
+}
+
+func (x *FundSummary) GetSourceUrl() string {
+	if x != nil {
+		return x.SourceUrl
+	}
+	return ""
+}
+
+func (x *FundSummary) GetHoldings() int32 {
+	if x != nil {
+		return x.Holdings
+	}
+	return 0
+}
+
+func (x *FundSummary) GetTop10Pct() float64 {
+	if x != nil {
+		return x.Top10Pct
+	}
+	return 0
+}
+
+func (x *FundSummary) GetHasTop10Pct() bool {
+	if x != nil {
+		return x.HasTop10Pct
+	}
+	return false
+}
+
+func (x *FundSummary) GetSectorWeights() []*FundSectorWeight {
+	if x != nil {
+		return x.SectorWeights
+	}
+	return nil
+}
+
+func (x *FundSummary) GetLargest() []*FundTopHolding {
+	if x != nil {
+		return x.Largest
+	}
+	return nil
+}
+
+func (x *FundSummary) GetAumAud() float64 {
+	if x != nil {
+		return x.AumAud
+	}
+	return 0
+}
+
+func (x *FundSummary) GetHasAumAud() bool {
+	if x != nil {
+		return x.HasAumAud
+	}
+	return false
+}
+
+type ListFundsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Funds         []*FundSummary         `protobuf:"bytes,1,rep,name=funds,proto3" json:"funds,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFundsResponse) Reset() {
+	*x = ListFundsResponse{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFundsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFundsResponse) ProtoMessage() {}
+
+func (x *ListFundsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFundsResponse.ProtoReflect.Descriptor instead.
+func (*ListFundsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *ListFundsResponse) GetFunds() []*FundSummary {
+	if x != nil {
+		return x.Funds
+	}
+	return nil
+}
+
+type GetFundPortfolioRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// A fund_key from ListFunds, or "<institution_slug>/<fund_name>".
+	FundKey string `protobuf:"bytes,1,opt,name=fund_key,json=fundKey,proto3" json:"fund_key,omitempty"`
+	// YYYY-MM-DD. The newest file at or before it; empty is the newest file.
+	AsAt          string `protobuf:"bytes,2,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFundPortfolioRequest) Reset() {
+	*x = GetFundPortfolioRequest{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFundPortfolioRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFundPortfolioRequest) ProtoMessage() {}
+
+func (x *GetFundPortfolioRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFundPortfolioRequest.ProtoReflect.Descriptor instead.
+func (*GetFundPortfolioRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *GetFundPortfolioRequest) GetFundKey() string {
+	if x != nil {
+		return x.FundKey
+	}
+	return ""
+}
+
+func (x *GetFundPortfolioRequest) GetAsAt() string {
+	if x != nil {
+		return x.AsAt
+	}
+	return ""
+}
+
+// One holding in one fund's file. The shares on issue are ASIC's, from the report
+// named by shares_on_issue_as_at (not necessarily the file date); est_company_pct
+// is units over those shares, in percent, only when both are known.
+type FundPortfolioHolding struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Code             string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Name             string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Industry         string                 `protobuf:"bytes,3,opt,name=industry,proto3" json:"industry,omitempty"`
+	WeightPct        float64                `protobuf:"fixed64,4,opt,name=weight_pct,json=weightPct,proto3" json:"weight_pct,omitempty"`
+	HasWeightPct     bool                   `protobuf:"varint,5,opt,name=has_weight_pct,json=hasWeightPct,proto3" json:"has_weight_pct,omitempty"`
+	Units            float64                `protobuf:"fixed64,6,opt,name=units,proto3" json:"units,omitempty"`
+	HasUnits         bool                   `protobuf:"varint,7,opt,name=has_units,json=hasUnits,proto3" json:"has_units,omitempty"`
+	ValueAud         float64                `protobuf:"fixed64,8,opt,name=value_aud,json=valueAud,proto3" json:"value_aud,omitempty"`
+	HasValueAud      bool                   `protobuf:"varint,9,opt,name=has_value_aud,json=hasValueAud,proto3" json:"has_value_aud,omitempty"`
+	SharesOnIssue    float64                `protobuf:"fixed64,10,opt,name=shares_on_issue,json=sharesOnIssue,proto3" json:"shares_on_issue,omitempty"`
+	HasSharesOnIssue bool                   `protobuf:"varint,11,opt,name=has_shares_on_issue,json=hasSharesOnIssue,proto3" json:"has_shares_on_issue,omitempty"`
+	EstCompanyPct    float64                `protobuf:"fixed64,12,opt,name=est_company_pct,json=estCompanyPct,proto3" json:"est_company_pct,omitempty"`
+	HasEstCompanyPct bool                   `protobuf:"varint,13,opt,name=has_est_company_pct,json=hasEstCompanyPct,proto3" json:"has_est_company_pct,omitempty"`
+	// The date of the ASIC report the shares on issue come from, YYYY-MM-DD: the
+	// newest on or before the file date, and no older than 30 days before it.
+	// "" when there is no shares figure.
+	SharesOnIssueAsAt string `protobuf:"bytes,14,opt,name=shares_on_issue_as_at,json=sharesOnIssueAsAt,proto3" json:"shares_on_issue_as_at,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *FundPortfolioHolding) Reset() {
+	*x = FundPortfolioHolding{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FundPortfolioHolding) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FundPortfolioHolding) ProtoMessage() {}
+
+func (x *FundPortfolioHolding) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FundPortfolioHolding.ProtoReflect.Descriptor instead.
+func (*FundPortfolioHolding) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *FundPortfolioHolding) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *FundPortfolioHolding) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *FundPortfolioHolding) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *FundPortfolioHolding) GetWeightPct() float64 {
+	if x != nil {
+		return x.WeightPct
+	}
+	return 0
+}
+
+func (x *FundPortfolioHolding) GetHasWeightPct() bool {
+	if x != nil {
+		return x.HasWeightPct
+	}
+	return false
+}
+
+func (x *FundPortfolioHolding) GetUnits() float64 {
+	if x != nil {
+		return x.Units
+	}
+	return 0
+}
+
+func (x *FundPortfolioHolding) GetHasUnits() bool {
+	if x != nil {
+		return x.HasUnits
+	}
+	return false
+}
+
+func (x *FundPortfolioHolding) GetValueAud() float64 {
+	if x != nil {
+		return x.ValueAud
+	}
+	return 0
+}
+
+func (x *FundPortfolioHolding) GetHasValueAud() bool {
+	if x != nil {
+		return x.HasValueAud
+	}
+	return false
+}
+
+func (x *FundPortfolioHolding) GetSharesOnIssue() float64 {
+	if x != nil {
+		return x.SharesOnIssue
+	}
+	return 0
+}
+
+func (x *FundPortfolioHolding) GetHasSharesOnIssue() bool {
+	if x != nil {
+		return x.HasSharesOnIssue
+	}
+	return false
+}
+
+func (x *FundPortfolioHolding) GetEstCompanyPct() float64 {
+	if x != nil {
+		return x.EstCompanyPct
+	}
+	return 0
+}
+
+func (x *FundPortfolioHolding) GetHasEstCompanyPct() bool {
+	if x != nil {
+		return x.HasEstCompanyPct
+	}
+	return false
+}
+
+func (x *FundPortfolioHolding) GetSharesOnIssueAsAt() string {
+	if x != nil {
+		return x.SharesOnIssueAsAt
+	}
+	return ""
+}
+
+type GetFundPortfolioResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	FundKey         string                 `protobuf:"bytes,1,opt,name=fund_key,json=fundKey,proto3" json:"fund_key,omitempty"`
+	Ticker          string                 `protobuf:"bytes,2,opt,name=ticker,proto3" json:"ticker,omitempty"`
+	Name            string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	InstitutionSlug string                 `protobuf:"bytes,4,opt,name=institution_slug,json=institutionSlug,proto3" json:"institution_slug,omitempty"`
+	InstitutionName string                 `protobuf:"bytes,5,opt,name=institution_name,json=institutionName,proto3" json:"institution_name,omitempty"`
+	SourceKind      string                 `protobuf:"bytes,6,opt,name=source_kind,json=sourceKind,proto3" json:"source_kind,omitempty"`
+	Pooled          bool                   `protobuf:"varint,7,opt,name=pooled,proto3" json:"pooled,omitempty"`
+	// The file the holdings are read from.
+	AsAt      string `protobuf:"bytes,8,opt,name=as_at,json=asAt,proto3" json:"as_at,omitempty"`
+	SourceUrl string `protobuf:"bytes,9,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`
+	// Every file date this fund has, oldest first.
+	SnapshotDates []string `protobuf:"bytes,10,rep,name=snapshot_dates,json=snapshotDates,proto3" json:"snapshot_dates,omitempty"`
+	// Ordered by weight, largest first.
+	Holdings []*FundPortfolioHolding `protobuf:"bytes,11,rep,name=holdings,proto3" json:"holdings,omitempty"`
+	// The equity holdings stored for the file (the lines matched to an ASX code).
+	HoldingsTotal int32 `protobuf:"varint,12,opt,name=holdings_total,json=holdingsTotal,proto3" json:"holdings_total,omitempty"`
+	// The ten largest weights, summed; known only when every one of them states a
+	// weight.
+	Top10Pct      float64             `protobuf:"fixed64,13,opt,name=top10_pct,json=top10Pct,proto3" json:"top10_pct,omitempty"`
+	HasTop10Pct   bool                `protobuf:"varint,14,opt,name=has_top10_pct,json=hasTop10Pct,proto3" json:"has_top10_pct,omitempty"`
+	SectorWeights []*FundSectorWeight `protobuf:"bytes,15,rep,name=sector_weights,json=sectorWeights,proto3" json:"sector_weights,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFundPortfolioResponse) Reset() {
+	*x = GetFundPortfolioResponse{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFundPortfolioResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFundPortfolioResponse) ProtoMessage() {}
+
+func (x *GetFundPortfolioResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFundPortfolioResponse.ProtoReflect.Descriptor instead.
+func (*GetFundPortfolioResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *GetFundPortfolioResponse) GetFundKey() string {
+	if x != nil {
+		return x.FundKey
+	}
+	return ""
+}
+
+func (x *GetFundPortfolioResponse) GetTicker() string {
+	if x != nil {
+		return x.Ticker
+	}
+	return ""
+}
+
+func (x *GetFundPortfolioResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *GetFundPortfolioResponse) GetInstitutionSlug() string {
+	if x != nil {
+		return x.InstitutionSlug
+	}
+	return ""
+}
+
+func (x *GetFundPortfolioResponse) GetInstitutionName() string {
+	if x != nil {
+		return x.InstitutionName
+	}
+	return ""
+}
+
+func (x *GetFundPortfolioResponse) GetSourceKind() string {
+	if x != nil {
+		return x.SourceKind
+	}
+	return ""
+}
+
+func (x *GetFundPortfolioResponse) GetPooled() bool {
+	if x != nil {
+		return x.Pooled
+	}
+	return false
+}
+
+func (x *GetFundPortfolioResponse) GetAsAt() string {
+	if x != nil {
+		return x.AsAt
+	}
+	return ""
+}
+
+func (x *GetFundPortfolioResponse) GetSourceUrl() string {
+	if x != nil {
+		return x.SourceUrl
+	}
+	return ""
+}
+
+func (x *GetFundPortfolioResponse) GetSnapshotDates() []string {
+	if x != nil {
+		return x.SnapshotDates
+	}
+	return nil
+}
+
+func (x *GetFundPortfolioResponse) GetHoldings() []*FundPortfolioHolding {
+	if x != nil {
+		return x.Holdings
+	}
+	return nil
+}
+
+func (x *GetFundPortfolioResponse) GetHoldingsTotal() int32 {
+	if x != nil {
+		return x.HoldingsTotal
+	}
+	return 0
+}
+
+func (x *GetFundPortfolioResponse) GetTop10Pct() float64 {
+	if x != nil {
+		return x.Top10Pct
+	}
+	return 0
+}
+
+func (x *GetFundPortfolioResponse) GetHasTop10Pct() bool {
+	if x != nil {
+		return x.HasTop10Pct
+	}
+	return false
+}
+
+func (x *GetFundPortfolioResponse) GetSectorWeights() []*FundSectorWeight {
+	if x != nil {
+		return x.SectorWeights
+	}
+	return nil
+}
+
+type CompareFundSnapshotsRequest struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	FundKey string                 `protobuf:"bytes,1,opt,name=fund_key,json=fundKey,proto3" json:"fund_key,omitempty"`
+	// YYYY-MM-DD. Each side is the fund's newest file at or before the date. An
+	// empty to is the newest file; an empty from is the file before to. A from
+	// after an explicit to is InvalidArgument. When both sides resolve to the same
+	// file there is nothing to compare: the response names that file on both sides
+	// and carries no rows.
+	From          string `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	To            string `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompareFundSnapshotsRequest) Reset() {
+	*x = CompareFundSnapshotsRequest{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompareFundSnapshotsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompareFundSnapshotsRequest) ProtoMessage() {}
+
+func (x *CompareFundSnapshotsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompareFundSnapshotsRequest.ProtoReflect.Descriptor instead.
+func (*CompareFundSnapshotsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *CompareFundSnapshotsRequest) GetFundKey() string {
+	if x != nil {
+		return x.FundKey
+	}
+	return ""
+}
+
+func (x *CompareFundSnapshotsRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *CompareFundSnapshotsRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+// One holding across two files of one fund. continuing is held on both,
+// new only on the later file, dropped only on the earlier one.
+type FundSnapshotChange struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Code             string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Name             string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Industry         string                 `protobuf:"bytes,3,opt,name=industry,proto3" json:"industry,omitempty"`
+	WeightFromPct    float64                `protobuf:"fixed64,4,opt,name=weight_from_pct,json=weightFromPct,proto3" json:"weight_from_pct,omitempty"`
+	HasWeightFromPct bool                   `protobuf:"varint,5,opt,name=has_weight_from_pct,json=hasWeightFromPct,proto3" json:"has_weight_from_pct,omitempty"`
+	WeightToPct      float64                `protobuf:"fixed64,6,opt,name=weight_to_pct,json=weightToPct,proto3" json:"weight_to_pct,omitempty"`
+	HasWeightToPct   bool                   `protobuf:"varint,7,opt,name=has_weight_to_pct,json=hasWeightToPct,proto3" json:"has_weight_to_pct,omitempty"`
+	DeltaPp          float64                `protobuf:"fixed64,8,opt,name=delta_pp,json=deltaPp,proto3" json:"delta_pp,omitempty"`
+	HasDeltaPp       bool                   `protobuf:"varint,9,opt,name=has_delta_pp,json=hasDeltaPp,proto3" json:"has_delta_pp,omitempty"`
+	ValueFromAud     float64                `protobuf:"fixed64,10,opt,name=value_from_aud,json=valueFromAud,proto3" json:"value_from_aud,omitempty"`
+	HasValueFromAud  bool                   `protobuf:"varint,11,opt,name=has_value_from_aud,json=hasValueFromAud,proto3" json:"has_value_from_aud,omitempty"`
+	ValueToAud       float64                `protobuf:"fixed64,12,opt,name=value_to_aud,json=valueToAud,proto3" json:"value_to_aud,omitempty"`
+	HasValueToAud    bool                   `protobuf:"varint,13,opt,name=has_value_to_aud,json=hasValueToAud,proto3" json:"has_value_to_aud,omitempty"`
+	Status           string                 `protobuf:"bytes,14,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *FundSnapshotChange) Reset() {
+	*x = FundSnapshotChange{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FundSnapshotChange) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FundSnapshotChange) ProtoMessage() {}
+
+func (x *FundSnapshotChange) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FundSnapshotChange.ProtoReflect.Descriptor instead.
+func (*FundSnapshotChange) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *FundSnapshotChange) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *FundSnapshotChange) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *FundSnapshotChange) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *FundSnapshotChange) GetWeightFromPct() float64 {
+	if x != nil {
+		return x.WeightFromPct
+	}
+	return 0
+}
+
+func (x *FundSnapshotChange) GetHasWeightFromPct() bool {
+	if x != nil {
+		return x.HasWeightFromPct
+	}
+	return false
+}
+
+func (x *FundSnapshotChange) GetWeightToPct() float64 {
+	if x != nil {
+		return x.WeightToPct
+	}
+	return 0
+}
+
+func (x *FundSnapshotChange) GetHasWeightToPct() bool {
+	if x != nil {
+		return x.HasWeightToPct
+	}
+	return false
+}
+
+func (x *FundSnapshotChange) GetDeltaPp() float64 {
+	if x != nil {
+		return x.DeltaPp
+	}
+	return 0
+}
+
+func (x *FundSnapshotChange) GetHasDeltaPp() bool {
+	if x != nil {
+		return x.HasDeltaPp
+	}
+	return false
+}
+
+func (x *FundSnapshotChange) GetValueFromAud() float64 {
+	if x != nil {
+		return x.ValueFromAud
+	}
+	return 0
+}
+
+func (x *FundSnapshotChange) GetHasValueFromAud() bool {
+	if x != nil {
+		return x.HasValueFromAud
+	}
+	return false
+}
+
+func (x *FundSnapshotChange) GetValueToAud() float64 {
+	if x != nil {
+		return x.ValueToAud
+	}
+	return 0
+}
+
+func (x *FundSnapshotChange) GetHasValueToAud() bool {
+	if x != nil {
+		return x.HasValueToAud
+	}
+	return false
+}
+
+func (x *FundSnapshotChange) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type CompareFundSnapshotsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The file dates used.
+	From       string `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
+	To         string `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	SourceFrom string `protobuf:"bytes,3,opt,name=source_from,json=sourceFrom,proto3" json:"source_from,omitempty"`
+	SourceTo   string `protobuf:"bytes,4,opt,name=source_to,json=sourceTo,proto3" json:"source_to,omitempty"`
+	// Continuing holdings by |delta| (largest first), then new, then dropped, each
+	// by weight.
+	Rows          []*FundSnapshotChange `protobuf:"bytes,5,rep,name=rows,proto3" json:"rows,omitempty"`
+	SnapshotDates []string              `protobuf:"bytes,6,rep,name=snapshot_dates,json=snapshotDates,proto3" json:"snapshot_dates,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompareFundSnapshotsResponse) Reset() {
+	*x = CompareFundSnapshotsResponse{}
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompareFundSnapshotsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompareFundSnapshotsResponse) ProtoMessage() {}
+
+func (x *CompareFundSnapshotsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_ownership_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompareFundSnapshotsResponse.ProtoReflect.Descriptor instead.
+func (*CompareFundSnapshotsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_ownership_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *CompareFundSnapshotsResponse) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *CompareFundSnapshotsResponse) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+func (x *CompareFundSnapshotsResponse) GetSourceFrom() string {
+	if x != nil {
+		return x.SourceFrom
+	}
+	return ""
+}
+
+func (x *CompareFundSnapshotsResponse) GetSourceTo() string {
+	if x != nil {
+		return x.SourceTo
+	}
+	return ""
+}
+
+func (x *CompareFundSnapshotsResponse) GetRows() []*FundSnapshotChange {
+	if x != nil {
+		return x.Rows
+	}
+	return nil
+}
+
+func (x *CompareFundSnapshotsResponse) GetSnapshotDates() []string {
+	if x != nil {
+		return x.SnapshotDates
 	}
 	return nil
 }
@@ -4367,9 +5453,10 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x02to\x18\x02 \x01(\tR\x02to\x12;\n" +
 	"\tpositions\x18\x03 \x03(\v2\x1d.shorts.v1alpha1.FlowPositionR\tpositions\x125\n" +
 	"\achanges\x18\x04 \x03(\v2\x1b.shorts.v1alpha1.FlowChangeR\achanges\x12\x13\n" +
-	"\x05as_of\x18\x05 \x01(\tR\x04asOf\"3\n" +
+	"\x05as_of\x18\x05 \x01(\tR\x04asOf\"G\n" +
 	"\x1bGetOwnershipActivityRequest\x12\x14\n" +
-	"\x05weeks\x18\x01 \x01(\x05R\x05weeks\"\x94\x02\n" +
+	"\x05weeks\x18\x01 \x01(\x05R\x05weeks\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\"\x94\x02\n" +
 	"\fIndustryWeek\x12\x1a\n" +
 	"\bindustry\x18\x01 \x01(\tR\bindustry\x12\x1d\n" +
 	"\n" +
@@ -4427,7 +5514,7 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\n" +
 	"has_weight\x18\x03 \x01(\bR\thasWeight\x12\x1b\n" +
 	"\tvalue_aud\x18\x04 \x01(\x01R\bvalueAud\x12\x1b\n" +
-	"\thas_value\x18\x05 \x01(\bR\bhasValue\"\xd4\x01\n" +
+	"\thas_value\x18\x05 \x01(\bR\bhasValue\"\x8c\x02\n" +
 	"\n" +
 	"FundSeries\x12)\n" +
 	"\x10institution_slug\x18\x01 \x01(\tR\x0finstitutionSlug\x12)\n" +
@@ -4435,12 +5522,116 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\tfund_name\x18\x03 \x01(\tR\bfundName\x12\x1f\n" +
 	"\vsource_kind\x18\x04 \x01(\tR\n" +
 	"sourceKind\x122\n" +
-	"\x06points\x18\x05 \x03(\v2\x1a.shorts.v1alpha1.FundPointR\x06points\"n\n" +
+	"\x06points\x18\x05 \x03(\v2\x1a.shorts.v1alpha1.FundPointR\x06points\x12\x1b\n" +
+	"\tfund_code\x18\x06 \x01(\tR\bfundCode\x12\x19\n" +
+	"\bfund_key\x18\a \x01(\tR\afundKey\"n\n" +
 	"\x1aGetStockFundSeriesResponse\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x121\n" +
-	"\x05funds\x18\x02 \x03(\v2\x1b.shorts.v1alpha1.FundSeriesR\x05funds2\xa0\n" +
+	"\x05funds\x18\x02 \x03(\v2\x1b.shorts.v1alpha1.FundSeriesR\x05funds\"\x12\n" +
+	"\x10ListFundsRequest\"s\n" +
+	"\x10FundSectorWeight\x12\x1a\n" +
+	"\bindustry\x18\x01 \x01(\tR\bindustry\x12\x1d\n" +
 	"\n" +
+	"weight_pct\x18\x02 \x01(\x01R\tweightPct\x12$\n" +
+	"\x0ehas_weight_pct\x18\x03 \x01(\bR\fhasWeightPct\"}\n" +
+	"\x0eFundTopHolding\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"weight_pct\x18\x03 \x01(\x01R\tweightPct\x12$\n" +
+	"\x0ehas_weight_pct\x18\x04 \x01(\bR\fhasWeightPct\"\xb2\x04\n" +
+	"\vFundSummary\x12\x19\n" +
+	"\bfund_key\x18\x01 \x01(\tR\afundKey\x12\x16\n" +
+	"\x06ticker\x18\x02 \x01(\tR\x06ticker\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12)\n" +
+	"\x10institution_slug\x18\x04 \x01(\tR\x0finstitutionSlug\x12)\n" +
+	"\x10institution_name\x18\x05 \x01(\tR\x0finstitutionName\x12\x1f\n" +
+	"\vsource_kind\x18\x06 \x01(\tR\n" +
+	"sourceKind\x12\x16\n" +
+	"\x06pooled\x18\a \x01(\bR\x06pooled\x12\x13\n" +
+	"\x05as_at\x18\b \x01(\tR\x04asAt\x12\x1d\n" +
+	"\n" +
+	"source_url\x18\t \x01(\tR\tsourceUrl\x12\x1a\n" +
+	"\bholdings\x18\n" +
+	" \x01(\x05R\bholdings\x12\x1b\n" +
+	"\ttop10_pct\x18\v \x01(\x01R\btop10Pct\x12\"\n" +
+	"\rhas_top10_pct\x18\f \x01(\bR\vhasTop10Pct\x12H\n" +
+	"\x0esector_weights\x18\r \x03(\v2!.shorts.v1alpha1.FundSectorWeightR\rsectorWeights\x129\n" +
+	"\alargest\x18\x0e \x03(\v2\x1f.shorts.v1alpha1.FundTopHoldingR\alargest\x12\x17\n" +
+	"\aaum_aud\x18\x0f \x01(\x01R\x06aumAud\x12\x1e\n" +
+	"\vhas_aum_aud\x18\x10 \x01(\bR\thasAumAud\"G\n" +
+	"\x11ListFundsResponse\x122\n" +
+	"\x05funds\x18\x01 \x03(\v2\x1c.shorts.v1alpha1.FundSummaryR\x05funds\"I\n" +
+	"\x17GetFundPortfolioRequest\x12\x19\n" +
+	"\bfund_key\x18\x01 \x01(\tR\afundKey\x12\x13\n" +
+	"\x05as_at\x18\x02 \x01(\tR\x04asAt\"\xf3\x03\n" +
+	"\x14FundPortfolioHolding\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bindustry\x18\x03 \x01(\tR\bindustry\x12\x1d\n" +
+	"\n" +
+	"weight_pct\x18\x04 \x01(\x01R\tweightPct\x12$\n" +
+	"\x0ehas_weight_pct\x18\x05 \x01(\bR\fhasWeightPct\x12\x14\n" +
+	"\x05units\x18\x06 \x01(\x01R\x05units\x12\x1b\n" +
+	"\thas_units\x18\a \x01(\bR\bhasUnits\x12\x1b\n" +
+	"\tvalue_aud\x18\b \x01(\x01R\bvalueAud\x12\"\n" +
+	"\rhas_value_aud\x18\t \x01(\bR\vhasValueAud\x12&\n" +
+	"\x0fshares_on_issue\x18\n" +
+	" \x01(\x01R\rsharesOnIssue\x12-\n" +
+	"\x13has_shares_on_issue\x18\v \x01(\bR\x10hasSharesOnIssue\x12&\n" +
+	"\x0fest_company_pct\x18\f \x01(\x01R\restCompanyPct\x12-\n" +
+	"\x13has_est_company_pct\x18\r \x01(\bR\x10hasEstCompanyPct\x120\n" +
+	"\x15shares_on_issue_as_at\x18\x0e \x01(\tR\x11sharesOnIssueAsAt\"\xc0\x04\n" +
+	"\x18GetFundPortfolioResponse\x12\x19\n" +
+	"\bfund_key\x18\x01 \x01(\tR\afundKey\x12\x16\n" +
+	"\x06ticker\x18\x02 \x01(\tR\x06ticker\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12)\n" +
+	"\x10institution_slug\x18\x04 \x01(\tR\x0finstitutionSlug\x12)\n" +
+	"\x10institution_name\x18\x05 \x01(\tR\x0finstitutionName\x12\x1f\n" +
+	"\vsource_kind\x18\x06 \x01(\tR\n" +
+	"sourceKind\x12\x16\n" +
+	"\x06pooled\x18\a \x01(\bR\x06pooled\x12\x13\n" +
+	"\x05as_at\x18\b \x01(\tR\x04asAt\x12\x1d\n" +
+	"\n" +
+	"source_url\x18\t \x01(\tR\tsourceUrl\x12%\n" +
+	"\x0esnapshot_dates\x18\n" +
+	" \x03(\tR\rsnapshotDates\x12A\n" +
+	"\bholdings\x18\v \x03(\v2%.shorts.v1alpha1.FundPortfolioHoldingR\bholdings\x12%\n" +
+	"\x0eholdings_total\x18\f \x01(\x05R\rholdingsTotal\x12\x1b\n" +
+	"\ttop10_pct\x18\r \x01(\x01R\btop10Pct\x12\"\n" +
+	"\rhas_top10_pct\x18\x0e \x01(\bR\vhasTop10Pct\x12H\n" +
+	"\x0esector_weights\x18\x0f \x03(\v2!.shorts.v1alpha1.FundSectorWeightR\rsectorWeights\"\\\n" +
+	"\x1bCompareFundSnapshotsRequest\x12\x19\n" +
+	"\bfund_key\x18\x01 \x01(\tR\afundKey\x12\x12\n" +
+	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x03 \x01(\tR\x02to\"\xf1\x03\n" +
+	"\x12FundSnapshotChange\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bindustry\x18\x03 \x01(\tR\bindustry\x12&\n" +
+	"\x0fweight_from_pct\x18\x04 \x01(\x01R\rweightFromPct\x12-\n" +
+	"\x13has_weight_from_pct\x18\x05 \x01(\bR\x10hasWeightFromPct\x12\"\n" +
+	"\rweight_to_pct\x18\x06 \x01(\x01R\vweightToPct\x12)\n" +
+	"\x11has_weight_to_pct\x18\a \x01(\bR\x0ehasWeightToPct\x12\x19\n" +
+	"\bdelta_pp\x18\b \x01(\x01R\adeltaPp\x12 \n" +
+	"\fhas_delta_pp\x18\t \x01(\bR\n" +
+	"hasDeltaPp\x12$\n" +
+	"\x0evalue_from_aud\x18\n" +
+	" \x01(\x01R\fvalueFromAud\x12+\n" +
+	"\x12has_value_from_aud\x18\v \x01(\bR\x0fhasValueFromAud\x12 \n" +
+	"\fvalue_to_aud\x18\f \x01(\x01R\n" +
+	"valueToAud\x12'\n" +
+	"\x10has_value_to_aud\x18\r \x01(\bR\rhasValueToAud\x12\x16\n" +
+	"\x06status\x18\x0e \x01(\tR\x06status\"\xe0\x01\n" +
+	"\x1cCompareFundSnapshotsResponse\x12\x12\n" +
+	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x02 \x01(\tR\x02to\x12\x1f\n" +
+	"\vsource_from\x18\x03 \x01(\tR\n" +
+	"sourceFrom\x12\x1b\n" +
+	"\tsource_to\x18\x04 \x01(\tR\bsourceTo\x127\n" +
+	"\x04rows\x18\x05 \x03(\v2#.shorts.v1alpha1.FundSnapshotChangeR\x04rows\x12%\n" +
+	"\x0esnapshot_dates\x18\x06 \x03(\tR\rsnapshotDates2\xe4\f\n" +
 	"\x10OwnershipService\x12y\n" +
 	"\x14GetOwnershipOverview\x12,.shorts.v1alpha1.GetOwnershipOverviewRequest\x1a-.shorts.v1alpha1.GetOwnershipOverviewResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
 	"\x10ListInstitutions\x12(.shorts.v1alpha1.ListInstitutionsRequest\x1a).shorts.v1alpha1.ListInstitutionsResponse\"\x04\x80\xb5\x18\x01\x12g\n" +
@@ -4452,7 +5643,10 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x11GetOwnershipFlows\x12).shorts.v1alpha1.GetOwnershipFlowsRequest\x1a*.shorts.v1alpha1.GetOwnershipFlowsResponse\"\x04\x80\xb5\x18\x01\x12y\n" +
 	"\x14GetOwnershipActivity\x12,.shorts.v1alpha1.GetOwnershipActivityRequest\x1a-.shorts.v1alpha1.GetOwnershipActivityResponse\"\x04\x80\xb5\x18\x01\x12\x82\x01\n" +
 	"\x17ListFundPositionChanges\x12/.shorts.v1alpha1.ListFundPositionChangesRequest\x1a0.shorts.v1alpha1.ListFundPositionChangesResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
-	"\x12GetStockFundSeries\x12*.shorts.v1alpha1.GetStockFundSeriesRequest\x1a+.shorts.v1alpha1.GetStockFundSeriesResponse\"\x04\x80\xb5\x18\x01B\xdd\x01\n" +
+	"\x12GetStockFundSeries\x12*.shorts.v1alpha1.GetStockFundSeriesRequest\x1a+.shorts.v1alpha1.GetStockFundSeriesResponse\"\x04\x80\xb5\x18\x01\x12X\n" +
+	"\tListFunds\x12!.shorts.v1alpha1.ListFundsRequest\x1a\".shorts.v1alpha1.ListFundsResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
+	"\x10GetFundPortfolio\x12(.shorts.v1alpha1.GetFundPortfolioRequest\x1a).shorts.v1alpha1.GetFundPortfolioResponse\"\x04\x80\xb5\x18\x01\x12y\n" +
+	"\x14CompareFundSnapshots\x12,.shorts.v1alpha1.CompareFundSnapshotsRequest\x1a-.shorts.v1alpha1.CompareFundSnapshotsResponse\"\x04\x80\xb5\x18\x01B\xdd\x01\n" +
 	"\x13com.shorts.v1alpha1B\x0eOwnershipProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
@@ -4467,7 +5661,7 @@ func file_shorts_v1alpha1_ownership_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_ownership_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_ownership_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
+var file_shorts_v1alpha1_ownership_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
 var file_shorts_v1alpha1_ownership_proto_goTypes = []any{
 	(*OwnershipInstitution)(nil),            // 0: shorts.v1alpha1.OwnershipInstitution
 	(*SubstantialHolding)(nil),              // 1: shorts.v1alpha1.SubstantialHolding
@@ -4511,6 +5705,17 @@ var file_shorts_v1alpha1_ownership_proto_goTypes = []any{
 	(*FundPoint)(nil),                       // 39: shorts.v1alpha1.FundPoint
 	(*FundSeries)(nil),                      // 40: shorts.v1alpha1.FundSeries
 	(*GetStockFundSeriesResponse)(nil),      // 41: shorts.v1alpha1.GetStockFundSeriesResponse
+	(*ListFundsRequest)(nil),                // 42: shorts.v1alpha1.ListFundsRequest
+	(*FundSectorWeight)(nil),                // 43: shorts.v1alpha1.FundSectorWeight
+	(*FundTopHolding)(nil),                  // 44: shorts.v1alpha1.FundTopHolding
+	(*FundSummary)(nil),                     // 45: shorts.v1alpha1.FundSummary
+	(*ListFundsResponse)(nil),               // 46: shorts.v1alpha1.ListFundsResponse
+	(*GetFundPortfolioRequest)(nil),         // 47: shorts.v1alpha1.GetFundPortfolioRequest
+	(*FundPortfolioHolding)(nil),            // 48: shorts.v1alpha1.FundPortfolioHolding
+	(*GetFundPortfolioResponse)(nil),        // 49: shorts.v1alpha1.GetFundPortfolioResponse
+	(*CompareFundSnapshotsRequest)(nil),     // 50: shorts.v1alpha1.CompareFundSnapshotsRequest
+	(*FundSnapshotChange)(nil),              // 51: shorts.v1alpha1.FundSnapshotChange
+	(*CompareFundSnapshotsResponse)(nil),    // 52: shorts.v1alpha1.CompareFundSnapshotsResponse
 }
 var file_shorts_v1alpha1_ownership_proto_depIdxs = []int32{
 	5,  // 0: shorts.v1alpha1.OwnershipStock.by_kind:type_name -> shorts.v1alpha1.KindShare
@@ -4548,33 +5753,45 @@ var file_shorts_v1alpha1_ownership_proto_depIdxs = []int32{
 	36, // 32: shorts.v1alpha1.ListFundPositionChangesResponse.rows:type_name -> shorts.v1alpha1.FundPositionChange
 	39, // 33: shorts.v1alpha1.FundSeries.points:type_name -> shorts.v1alpha1.FundPoint
 	40, // 34: shorts.v1alpha1.GetStockFundSeriesResponse.funds:type_name -> shorts.v1alpha1.FundSeries
-	10, // 35: shorts.v1alpha1.OwnershipService.GetOwnershipOverview:input_type -> shorts.v1alpha1.GetOwnershipOverviewRequest
-	12, // 36: shorts.v1alpha1.OwnershipService.ListInstitutions:input_type -> shorts.v1alpha1.ListInstitutionsRequest
-	14, // 37: shorts.v1alpha1.OwnershipService.GetInstitution:input_type -> shorts.v1alpha1.GetInstitutionRequest
-	16, // 38: shorts.v1alpha1.OwnershipService.GetStockOwnership:input_type -> shorts.v1alpha1.GetStockOwnershipRequest
-	18, // 39: shorts.v1alpha1.OwnershipService.ListSubstantialNotices:input_type -> shorts.v1alpha1.ListSubstantialNoticesRequest
-	22, // 40: shorts.v1alpha1.OwnershipService.ListStockRegisters:input_type -> shorts.v1alpha1.ListStockRegistersRequest
-	25, // 41: shorts.v1alpha1.OwnershipService.GetOwnershipMap:input_type -> shorts.v1alpha1.GetOwnershipMapRequest
-	28, // 42: shorts.v1alpha1.OwnershipService.GetOwnershipFlows:input_type -> shorts.v1alpha1.GetOwnershipFlowsRequest
-	32, // 43: shorts.v1alpha1.OwnershipService.GetOwnershipActivity:input_type -> shorts.v1alpha1.GetOwnershipActivityRequest
-	35, // 44: shorts.v1alpha1.OwnershipService.ListFundPositionChanges:input_type -> shorts.v1alpha1.ListFundPositionChangesRequest
-	38, // 45: shorts.v1alpha1.OwnershipService.GetStockFundSeries:input_type -> shorts.v1alpha1.GetStockFundSeriesRequest
-	11, // 46: shorts.v1alpha1.OwnershipService.GetOwnershipOverview:output_type -> shorts.v1alpha1.GetOwnershipOverviewResponse
-	13, // 47: shorts.v1alpha1.OwnershipService.ListInstitutions:output_type -> shorts.v1alpha1.ListInstitutionsResponse
-	15, // 48: shorts.v1alpha1.OwnershipService.GetInstitution:output_type -> shorts.v1alpha1.GetInstitutionResponse
-	17, // 49: shorts.v1alpha1.OwnershipService.GetStockOwnership:output_type -> shorts.v1alpha1.GetStockOwnershipResponse
-	21, // 50: shorts.v1alpha1.OwnershipService.ListSubstantialNotices:output_type -> shorts.v1alpha1.ListSubstantialNoticesResponse
-	24, // 51: shorts.v1alpha1.OwnershipService.ListStockRegisters:output_type -> shorts.v1alpha1.ListStockRegistersResponse
-	27, // 52: shorts.v1alpha1.OwnershipService.GetOwnershipMap:output_type -> shorts.v1alpha1.GetOwnershipMapResponse
-	31, // 53: shorts.v1alpha1.OwnershipService.GetOwnershipFlows:output_type -> shorts.v1alpha1.GetOwnershipFlowsResponse
-	34, // 54: shorts.v1alpha1.OwnershipService.GetOwnershipActivity:output_type -> shorts.v1alpha1.GetOwnershipActivityResponse
-	37, // 55: shorts.v1alpha1.OwnershipService.ListFundPositionChanges:output_type -> shorts.v1alpha1.ListFundPositionChangesResponse
-	41, // 56: shorts.v1alpha1.OwnershipService.GetStockFundSeries:output_type -> shorts.v1alpha1.GetStockFundSeriesResponse
-	46, // [46:57] is the sub-list for method output_type
-	35, // [35:46] is the sub-list for method input_type
-	35, // [35:35] is the sub-list for extension type_name
-	35, // [35:35] is the sub-list for extension extendee
-	0,  // [0:35] is the sub-list for field type_name
+	43, // 35: shorts.v1alpha1.FundSummary.sector_weights:type_name -> shorts.v1alpha1.FundSectorWeight
+	44, // 36: shorts.v1alpha1.FundSummary.largest:type_name -> shorts.v1alpha1.FundTopHolding
+	45, // 37: shorts.v1alpha1.ListFundsResponse.funds:type_name -> shorts.v1alpha1.FundSummary
+	48, // 38: shorts.v1alpha1.GetFundPortfolioResponse.holdings:type_name -> shorts.v1alpha1.FundPortfolioHolding
+	43, // 39: shorts.v1alpha1.GetFundPortfolioResponse.sector_weights:type_name -> shorts.v1alpha1.FundSectorWeight
+	51, // 40: shorts.v1alpha1.CompareFundSnapshotsResponse.rows:type_name -> shorts.v1alpha1.FundSnapshotChange
+	10, // 41: shorts.v1alpha1.OwnershipService.GetOwnershipOverview:input_type -> shorts.v1alpha1.GetOwnershipOverviewRequest
+	12, // 42: shorts.v1alpha1.OwnershipService.ListInstitutions:input_type -> shorts.v1alpha1.ListInstitutionsRequest
+	14, // 43: shorts.v1alpha1.OwnershipService.GetInstitution:input_type -> shorts.v1alpha1.GetInstitutionRequest
+	16, // 44: shorts.v1alpha1.OwnershipService.GetStockOwnership:input_type -> shorts.v1alpha1.GetStockOwnershipRequest
+	18, // 45: shorts.v1alpha1.OwnershipService.ListSubstantialNotices:input_type -> shorts.v1alpha1.ListSubstantialNoticesRequest
+	22, // 46: shorts.v1alpha1.OwnershipService.ListStockRegisters:input_type -> shorts.v1alpha1.ListStockRegistersRequest
+	25, // 47: shorts.v1alpha1.OwnershipService.GetOwnershipMap:input_type -> shorts.v1alpha1.GetOwnershipMapRequest
+	28, // 48: shorts.v1alpha1.OwnershipService.GetOwnershipFlows:input_type -> shorts.v1alpha1.GetOwnershipFlowsRequest
+	32, // 49: shorts.v1alpha1.OwnershipService.GetOwnershipActivity:input_type -> shorts.v1alpha1.GetOwnershipActivityRequest
+	35, // 50: shorts.v1alpha1.OwnershipService.ListFundPositionChanges:input_type -> shorts.v1alpha1.ListFundPositionChangesRequest
+	38, // 51: shorts.v1alpha1.OwnershipService.GetStockFundSeries:input_type -> shorts.v1alpha1.GetStockFundSeriesRequest
+	42, // 52: shorts.v1alpha1.OwnershipService.ListFunds:input_type -> shorts.v1alpha1.ListFundsRequest
+	47, // 53: shorts.v1alpha1.OwnershipService.GetFundPortfolio:input_type -> shorts.v1alpha1.GetFundPortfolioRequest
+	50, // 54: shorts.v1alpha1.OwnershipService.CompareFundSnapshots:input_type -> shorts.v1alpha1.CompareFundSnapshotsRequest
+	11, // 55: shorts.v1alpha1.OwnershipService.GetOwnershipOverview:output_type -> shorts.v1alpha1.GetOwnershipOverviewResponse
+	13, // 56: shorts.v1alpha1.OwnershipService.ListInstitutions:output_type -> shorts.v1alpha1.ListInstitutionsResponse
+	15, // 57: shorts.v1alpha1.OwnershipService.GetInstitution:output_type -> shorts.v1alpha1.GetInstitutionResponse
+	17, // 58: shorts.v1alpha1.OwnershipService.GetStockOwnership:output_type -> shorts.v1alpha1.GetStockOwnershipResponse
+	21, // 59: shorts.v1alpha1.OwnershipService.ListSubstantialNotices:output_type -> shorts.v1alpha1.ListSubstantialNoticesResponse
+	24, // 60: shorts.v1alpha1.OwnershipService.ListStockRegisters:output_type -> shorts.v1alpha1.ListStockRegistersResponse
+	27, // 61: shorts.v1alpha1.OwnershipService.GetOwnershipMap:output_type -> shorts.v1alpha1.GetOwnershipMapResponse
+	31, // 62: shorts.v1alpha1.OwnershipService.GetOwnershipFlows:output_type -> shorts.v1alpha1.GetOwnershipFlowsResponse
+	34, // 63: shorts.v1alpha1.OwnershipService.GetOwnershipActivity:output_type -> shorts.v1alpha1.GetOwnershipActivityResponse
+	37, // 64: shorts.v1alpha1.OwnershipService.ListFundPositionChanges:output_type -> shorts.v1alpha1.ListFundPositionChangesResponse
+	41, // 65: shorts.v1alpha1.OwnershipService.GetStockFundSeries:output_type -> shorts.v1alpha1.GetStockFundSeriesResponse
+	46, // 66: shorts.v1alpha1.OwnershipService.ListFunds:output_type -> shorts.v1alpha1.ListFundsResponse
+	49, // 67: shorts.v1alpha1.OwnershipService.GetFundPortfolio:output_type -> shorts.v1alpha1.GetFundPortfolioResponse
+	52, // 68: shorts.v1alpha1.OwnershipService.CompareFundSnapshots:output_type -> shorts.v1alpha1.CompareFundSnapshotsResponse
+	55, // [55:69] is the sub-list for method output_type
+	41, // [41:55] is the sub-list for method input_type
+	41, // [41:41] is the sub-list for extension type_name
+	41, // [41:41] is the sub-list for extension extendee
+	0,  // [0:41] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_ownership_proto_init() }
@@ -4588,7 +5805,7 @@ func file_shorts_v1alpha1_ownership_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_ownership_proto_rawDesc), len(file_shorts_v1alpha1_ownership_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   42,
+			NumMessages:   53,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

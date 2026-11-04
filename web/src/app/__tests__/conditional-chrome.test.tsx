@@ -48,7 +48,7 @@ function chromeOn(pathname: string) {
 
 // The OAuth flow renders without site chrome. A consent screen is a decision,
 // and a nav bar full of links beside it is an invitation to wander off
-// mid-authorisation — which is why Google, GitHub and Slack all render theirs
+// mid-authorisation, which is why Google, GitHub and Slack all render theirs
 // bare. It is also a layout dependency: the success screen uses min-h-screen,
 // which is only correct while nothing else contributes height.
 describe("site chrome on the OAuth flow", () => {

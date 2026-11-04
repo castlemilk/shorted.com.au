@@ -140,5 +140,63 @@
       { "in": 51, "out": 50 },
       { "in": -1, "rejected": true }
     ]
+  },
+  "fund": {
+    "_about": "The fund explorer's clamps (spec section 14.4). A fund_key is a registry key (asx:<CODE> or abn:<ABN>; the prefix is read in any case and written in lower case, an ASX code in upper case) or <institution_slug>/<fund_name> (the slug in lower case, the name exact and at most 200 characters with no control character). Anything else is refused by shape, never guessed at. snapshotDate is the optional as_at or to date, YYYY-MM-DD, empty for the newest file. activityKind is the holder kind a movement reads; empty is every kind. The Go test reads this section.",
+    "fundKey": {
+      "valid": [
+        "asx:A200",
+        "ASX:a200",
+        "abn:12345678901",
+        "vanguard/Vanguard Australian Shares Index"
+      ],
+      "invalid": [
+        "",
+        "A200",
+        "asx:",
+        "abn:1234",
+        "ABN:1234567890123",
+        "Vanguard/",
+        "/Vanguard Australian Shares",
+        "bad slug/VAS",
+        "vanguard/ VAS",
+        "vanguard/VAS\u0007",
+        "vanguard/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    },
+    "normalised": [
+      {
+        "in": "ASX:a200",
+        "out": "asx:A200"
+      },
+      {
+        "in": " Vanguard/VAS ",
+        "out": "vanguard/VAS"
+      }
+    ],
+    "snapshotDate": {
+      "valid": [
+        "",
+        "2026-10-16"
+      ],
+      "invalid": [
+        "16-10-2026",
+        "2026-02-30"
+      ]
+    },
+    "activityKind": [
+      {
+        "in": "",
+        "out": ""
+      },
+      {
+        "in": " Index_Manager ",
+        "out": "index_manager"
+      },
+      {
+        "in": "bogus",
+        "rejected": true
+      }
+    ]
   }
 }

@@ -20,17 +20,20 @@
  * stock with no figure for the lens is hatched, never painted as zero.
  */
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import type { DeskRangeInput, loadOwnershipMap, OwnershipMapPage } from "~/app/actions/ownershipDesk";
-import { layoutMap, type MapStockRow } from "./map-layout";
+import { layoutMap, sectorOf, type MapStockRow } from "./map-layout";
+import { SearchCombobox, type SearchComboboxOption } from "~/@/components/gamma/SearchCombobox";
 import { readDeskState, writeDeskState, type DeskState } from "./desk-state";
 import { formatLensFigure, LENS_LABELS } from "./lens-legend";
 import {
   MAP_HEIGHT,
   MAP_WIDTH,
   OUTAGE_AFTER_MS,
+  sizedRows,
+  type MapSize,
   OwnershipMapStatic,
   OwnershipMapView,
   nextCellIndex,
@@ -41,11 +44,18 @@ import {
   type MapHandlers,
 } from "./ownership-map-static";
 import { StockPanel, type StockPanelPage } from "./stock-panel";
+import { ViewDisclosure } from "../workspace/view-disclosure";
+import { TOOLBAR_COMBOBOX_ROW_CLASS, ToolbarSelect, type ToolbarFold } from "../workspace/toolbar";
+import { writeWindowInPlace } from "../workspace/window-select";
+import { SourceSelect } from "./source-control";
 import {
   DESK_DEFAULT_WINDOW_STATE,
   readNoticeWindow,
   type NoticeWindow,
 } from "./window-chips";
+
+/** The island's phone fold of the workspace toolbar (spec 14.9): the client disclosure around the row. */
+const mapToolbarFold: ToolbarFold = (row) => <ViewDisclosure>{row}</ViewDisclosure>;
 
 export interface OwnershipMapProps {
   /** The default view the server rendered: the loader's answer to the default window. */
@@ -56,6 +66,17 @@ export interface OwnershipMapProps {
   loadPanel: (code: string) => Promise<StockPanelPage>;
   /** The page's own path, which the chips link to. */
   basePath?: string;
+  /**
+   * `full` is the market map page; `compact` is the Overview's pane. Either one is
+   * a workspace instrument: a click writes the selection (`?sel=stock:CODE`) for the
+   * inspector to read, and draws no panel. Absent is the hub's panel, as before.
+   */
+  variant?: "compact" | "full";
+}
+
+/** The stock a `?sel=` names, or "" when it names none (the workspace's selection is read here). */
+function stockOfSelection(raw: string): string {
+  return raw.startsWith("stock:") && CODE_SHAPE.test(raw.slice("stock:".length)) ? raw.slice("stock:".length) : "";
 }
 
 type Status = "idle" | "loading" | "error";
@@ -121,9 +142,9 @@ function reducedMotion(): boolean {
  * The zoom's start pose for a change of sector, from the whole market's layout.
  * The sector's boxes do not depend on the lens, so either lens gives them.
  */
-function zoomPoseFor(stocks: readonly MapStockRow[], prev: DeskState, next: DeskState): string | null {
+function zoomPoseFor(stocks: readonly MapStockRow[], prev: DeskState, next: DeskState, size?: MapSize): string | null {
   if (prev.sector === next.sector || reducedMotion()) return null;
-  const whole = layoutMap(stocks, { width: MAP_WIDTH, height: MAP_HEIGHT, lens: next.lens });
+  const whole = layoutMap(sizedRows(stocks, size), { width: MAP_WIDTH, height: MAP_HEIGHT, lens: next.lens });
   if (next.sector !== "" && prev.sector === "") {
     const box = whole.sectors.find((sector) => sector.sector === next.sector);
     return box ? zoomPose(box, "in") : null;
@@ -138,12 +159,20 @@ function zoomPoseFor(stocks: readonly MapStockRow[], prev: DeskState, next: Desk
 /** A cell's code as an SVG attribute selector can take it: the API's own shape, no quotes or brackets. */
 const CODE_SHAPE = /^[A-Z0-9]{1,6}$/;
 
-function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership" }: OwnershipMapProps) {
+function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant }: OwnershipMapProps) {
+  const workspace = variant !== undefined;
+  const compact = variant === "compact";
+  const router = useRouter();
   const searchParams = useSearchParams();
   const search = searchParams?.toString() ?? "";
   const params = useMemo(() => new URLSearchParams(search), [search]);
+  // In the workspace the selection is the link's: a clear, or a selection made by another
+  // instrument on the page, moves the outline and the zoom with it.
+  const linkedCode = workspace ? stockOfSelection(params.get("sel") ?? "") : "";
   const [state, setState] = useState<MapState>(() => {
-    const controls = readDeskState(params);
+    // The compact pane never zooms (spec 14.7): a sector in a link is not applied to it.
+    const read = readDeskState(params);
+    const controls = compact ? { ...read, sector: "" } : read;
     const notice = readNoticeWindow(params);
     return {
       page: initial,
@@ -161,6 +190,8 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership" }: Owner
   });
   // Handlers arrive after mount, so the first render has the server's markup.
   const [mounted, setMounted] = useState(false);
+  // The market cap is the default area (spec 13.2); the disclosed size is the workspace's Size control.
+  const [size, setSize] = useState<MapSize>("market_cap");
 
   const sequence = useRef(0);
   const slowTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -224,14 +255,15 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership" }: Owner
 
   // A move of the link (back, forward, a hand-edited address) takes the link's state.
   useEffect(() => {
-    const controls = readDeskState(params);
+    const read = readDeskState(params);
+    const controls = compact ? { ...read, sector: "" } : read;
     const notice = readNoticeWindow(params);
     setState((s) =>
       keyOf(s.controls) === keyOf(controls) && windowKey(s.notice) === windowKey(notice)
         ? s
         : { ...s, controls, notice },
     );
-  }, [params]);
+  }, [params, compact]);
 
   // One frame at the start pose, then the transition to none. Cancelled if the pose moves on.
   useEffect(() => {
@@ -254,7 +286,7 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership" }: Owner
     const next = patchDeskParams(new URLSearchParams(window.location.search), patch);
     setState((s) => {
       const controls = { ...s.controls, ...patch };
-      return { ...s, controls, pose: zoomPoseFor(s.page.stocks, s.controls, controls) };
+      return { ...s, controls, pose: zoomPoseFor(s.page.stocks, s.controls, controls, size) };
     });
     writeLink(next);
   };
@@ -264,24 +296,53 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership" }: Owner
     root.current?.querySelector<SVGGElement>(`g[data-code="${code}"]`)?.focus();
   };
 
+  const selectedCode = workspace ? linkedCode : state.selected;
+
   const select = (code: string) => {
-    setState((s) => ({ ...s, selected: code, focusCode: code }));
+    if (!workspace) {
+      setState((s) => ({ ...s, selected: code, focusCode: code }));
+      return;
+    }
+    // The workspace selection: the inspector and the outline read it from the link, so the click writes it there.
+    setState((s) => ({ ...s, focusCode: code }));
+    const next = new URLSearchParams(window.location.search);
+    next.set("sel", `stock:${code}`);
+    writeLink(next);
   };
 
   const closePanel = () => {
-    const code = state.selected;
-    setState((s) => ({ ...s, selected: "" }));
+    const code = selectedCode;
+    if (!workspace) {
+      setState((s) => ({ ...s, selected: "" }));
+    } else {
+      const next = new URLSearchParams(window.location.search);
+      if (stockOfSelection(next.get("sel") ?? "") !== "") next.delete("sel");
+      writeLink(next);
+    }
     focusCell(code);
   };
 
   // A held answer is drawn for the window it was read for, so the figures the keys move
   // over are the ones on the screen, the hatched flow included.
-  const layout = layoutMap(state.page.ok ? state.page.stocks : [], {
+  const layout = layoutMap(sizedRows(state.page.ok ? state.page.stocks : [], size), {
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
     lens: state.controls.lens,
     sector: state.controls.sector,
   });
+
+  // The workspace's Find: every stock by its code, and every sector the map names (spec 14.3).
+  const findOptions = useMemo<SearchComboboxOption[]>(() => {
+    const sectors = [...new Set(state.page.ok ? state.page.stocks.map((stock) => sectorOf(stock.industry)) : [])].sort();
+    return [
+      ...(state.page.ok ? state.page.stocks : []).map((stock) => ({
+        value: `stock:${stock.code}`,
+        label: `${stock.code}, ${stock.name}`,
+        keywords: [stock.name],
+      })),
+      ...sectors.map((sector) => ({ value: `sector:${sector}`, label: sector, description: "Sector" })),
+    ];
+  }, [state.page]);
 
   const handlers: MapHandlers | undefined = mounted
     ? {
@@ -293,8 +354,9 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership" }: Owner
           }
           if (key === "z") {
             // The cell's sector, from the whole market: a zoom out of a zoom is the crumb's and Escape's.
+            // The compact pane does not zoom (spec 14.7): its sector bands open the full map instead.
             const cell = layout.cells.find((c) => c.code === code);
-            if (cell && state.controls.sector === "") commit({ sector: cell.sector });
+            if (!compact && cell && state.controls.sector === "") commit({ sector: cell.sector });
             return;
           }
           const index = layout.cells.findIndex((cell) => cell.code === code);
@@ -306,7 +368,13 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership" }: Owner
           }
         },
         onCellHover: (code) => setState((s) => (s.hovered === code ? s : { ...s, hovered: code })),
-        onSectorZoom: (sector) => commit({ sector }),
+        onSectorZoom: (sector) => {
+          if (compact) {
+            router.push(`/ownership/map?${new URLSearchParams({ sector }).toString()}`);
+            return;
+          }
+          commit({ sector });
+        },
       }
     : undefined;
 
@@ -314,13 +382,13 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership" }: Owner
     if (event.key !== "Escape") return;
     // Escape inside the panel closes the panel the reader is in, not the zoom behind it.
     const inPanel = event.target instanceof Element && event.target.closest("aside") !== null;
-    if (inPanel && state.selected !== "") {
+    if (inPanel && selectedCode !== "") {
       event.preventDefault();
       closePanel();
     } else if (state.controls.sector !== "") {
       event.preventDefault();
       commit({ sector: "" });
-    } else if (state.selected !== "") {
+    } else if (selectedCode !== "") {
       event.preventDefault();
       closePanel();
     }
@@ -349,26 +417,61 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership" }: Owner
 
   const scaleMax = state.page.stocks.reduce((max, stock) => Math.max(max, stock.disclosedPct), 0);
   const panel =
-    state.selected !== "" ? (
+    !workspace && selectedCode !== "" ? (
       <StockPanel
-        key={state.selected}
-        code={state.selected}
+        key={selectedCode}
+        code={selectedCode}
         loadPanel={loadPanel}
         scaleMax={scaleMax > 0 ? scaleMax : 1}
         onClose={closePanel}
       />
     ) : undefined;
 
+  // The workspace's controls: the source (the notices or the index fund files, which are two
+  // lenses of the same map) and the size of each cell.
+  const controlsNode = workspace ? (
+    <>
+      <div className="min-w-[11rem] flex-1 sm:max-w-[16rem]">
+        <SearchCombobox
+          label="Find company or sector"
+          placeholder="Find company or sector"
+          options={findOptions}
+          clearable
+          onValueChange={(value) => {
+            if (value === null) return;
+            if (value.startsWith("sector:")) commit({ sector: value.slice("sector:".length) });
+            else if (value.startsWith("stock:")) select(value.slice("stock:".length));
+          }}
+        />
+      </div>
+      <SourceSelect
+        value={state.controls.lens === "index" ? "index" : "notices"}
+        indexAvailable
+        onChange={(value) => commit({ lens: value === "index" ? "index" : "disclosed" })}
+      />
+      <ToolbarSelect label="Size" value={size} onChange={(value) => setSize(value === "disclosed" ? "disclosed" : "market_cap")}>
+        <option value="market_cap">Market cap</option>
+        <option value="disclosed">Disclosed exposure</option>
+      </ToolbarSelect>
+    </>
+  ) : undefined;
+
   return (
     <OwnershipMapView
+      toolbarFold={mapToolbarFold}
+      variant={variant}
+      size={size}
+      controls={controlsNode}
+      selectedCode={selectedCode}
       page={state.page}
       desk={state.controls}
       notice={state.notice}
+      onWindowChange={writeWindowInPlace}
       params={params}
       status={state.status}
       slow={state.slow}
       basePath={basePath}
-      selected={state.selected === "" ? undefined : state.selected}
+      selected={selectedCode === "" ? undefined : selectedCode}
       focusCode={mounted && state.focusCode !== "" ? state.focusCode : undefined}
       handlers={handlers}
       groupStyle={zoomStyle(state.pose)}
@@ -387,7 +490,17 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership" }: Owner
  */
 export function OwnershipMap(props: OwnershipMapProps) {
   return (
-    <Suspense fallback={<OwnershipMapStatic initial={props.initial} basePath={props.basePath} />}>
+    <Suspense
+      fallback={
+        <OwnershipMapStatic
+          initial={props.initial}
+          basePath={props.basePath}
+          variant={props.variant}
+          // The full page's controls row is reserved, so the island mounting does not shift the drawing.
+          controls={props.variant === "full" ? <div aria-hidden="true" className={TOOLBAR_COMBOBOX_ROW_CLASS} /> : undefined}
+        />
+      }
+    >
       <LiveMap {...props} />
     </Suspense>
   );

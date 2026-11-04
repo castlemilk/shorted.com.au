@@ -1,0 +1,1536 @@
+/* The Data table block of the Gamma library (library.css), moved out of gamma.css (spec 14.7).
+   Only a page that draws DataTable imports this file, so the other workspace pages do not load its rules. */
+/* Data table */
+.data-table {
+  width: 100%;
+  min-width: 0;
+  font-family: var(--gamma-font-ui);
+  color: var(--gamma-ink);
+}
+.spectrum-block {
+  width: 100%;
+  min-width: 0;
+}
+.spectrum-table *,
+.spectrum-table *::before,
+.spectrum-table *::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: var(--gamma-border);
+}
+:where(.spectrum-table) :is(h3, p, ul) {
+  margin: 0;
+}
+:where(.spectrum-table) ul {
+  padding: 0;
+  list-style: none;
+}
+:where(.spectrum-table) button,
+:where(.spectrum-table) input {
+  font: inherit;
+  color: inherit;
+}
+:where(.spectrum-table) button {
+  cursor: pointer;
+  background-color: transparent;
+  touch-action: manipulation;
+}
+.spectrum-table button:disabled {
+  cursor: default;
+}
+.spectrum-table :is(button, input, [tabindex]):focus-visible {
+  outline: var(--gamma-hairline) solid var(--gamma-accent);
+  outline-offset: 3px;
+  box-shadow: var(--gamma-focus-ring);
+}
+.spectrum-table input {
+  caret-color: var(--gamma-accent);
+}
+.spectrum-table ::selection {
+  background: var(--gamma-selection);
+}
+.spectrum-table table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-indent: 0;
+}
+.spectrum-table th {
+  font-weight: 500;
+}
+.spectrum-table [class*="overflow"] {
+  overscroll-behavior: contain;
+  scrollbar-color: var(--gamma-border) var(--gamma-bg);
+  scrollbar-width: thin;
+}
+.spectrum-table .spectrum-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: var(--gamma-radius-pill);
+  background: var(--gamma-accent-soft);
+  color: var(--gamma-ink);
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+@keyframes gamma-table-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spectrum-table *,
+  .spectrum-table *::before,
+  .spectrum-table *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+@layer properties;
+:where(.spectrum-table).pointer-events-auto,
+:where(.spectrum-table) .pointer-events-auto {
+  pointer-events: auto;
+}
+:where(.spectrum-table).pointer-events-none,
+:where(.spectrum-table) .pointer-events-none {
+  pointer-events: none;
+}
+:where(.spectrum-table).visible,
+:where(.spectrum-table) .visible {
+  visibility: visible;
+}
+:where(.spectrum-table).sr-only,
+:where(.spectrum-table) .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border-width: 0;
+}
+:where(.spectrum-table).absolute,
+:where(.spectrum-table) .absolute {
+  position: absolute;
+}
+:where(.spectrum-table).fixed,
+:where(.spectrum-table) .fixed {
+  position: fixed;
+}
+:where(.spectrum-table).relative,
+:where(.spectrum-table) .relative {
+  position: relative;
+}
+:where(.spectrum-table).sticky,
+:where(.spectrum-table) .sticky {
+  position: sticky;
+}
+:where(.spectrum-table).inset-0,
+:where(.spectrum-table) .inset-0 {
+  inset: 0px;
+}
+:where(.spectrum-table).inset-\[1px\],
+:where(.spectrum-table) .inset-\[1px\] {
+  inset: 1px;
+}
+:where(.spectrum-table).inset-x-0,
+:where(.spectrum-table) .inset-x-0 {
+  inset-inline: 0px;
+}
+:where(.spectrum-table).inset-y-0,
+:where(.spectrum-table) .inset-y-0 {
+  inset-block: 0px;
+}
+:where(.spectrum-table).start-0\.5,
+:where(.spectrum-table) .start-0\.5 {
+  inset-inline-start: calc(0.25rem * 0.5);
+}
+:where(.spectrum-table).start-2\.5,
+:where(.spectrum-table) .start-2\.5 {
+  inset-inline-start: calc(0.25rem * 2.5);
+}
+:where(.spectrum-table).end-0,
+:where(.spectrum-table) .end-0 {
+  inset-inline-end: calc(0.25rem * 0);
+}
+:where(.spectrum-table).end-1,
+:where(.spectrum-table) .end-1 {
+  inset-inline-end: calc(0.25rem * 1);
+}
+:where(.spectrum-table).top-0,
+:where(.spectrum-table) .top-0 {
+  top: 0px;
+}
+:where(.spectrum-table).top-0\.5,
+:where(.spectrum-table) .top-0\.5 {
+  top: calc(0.25rem * 0.5);
+}
+:where(.spectrum-table).bottom-4,
+:where(.spectrum-table) .bottom-4 {
+  bottom: calc(0.25rem * 4);
+}
+:where(.spectrum-table).z-1,
+:where(.spectrum-table) .z-1 {
+  z-index: 1;
+}
+:where(.spectrum-table).z-10,
+:where(.spectrum-table) .z-10 {
+  z-index: 10;
+}
+:where(.spectrum-table).-mx-1,
+:where(.spectrum-table) .-mx-1 {
+  margin-inline: calc(0.25rem * -1);
+}
+:where(.spectrum-table).-mx-1\.5,
+:where(.spectrum-table) .-mx-1\.5 {
+  margin-inline: calc(0.25rem * -1.5);
+}
+:where(.spectrum-table).my-auto,
+:where(.spectrum-table) .my-auto {
+  margin-block: auto;
+}
+:where(.spectrum-table).ms-2,
+:where(.spectrum-table) .ms-2 {
+  margin-inline-start: calc(0.25rem * 2);
+}
+:where(.spectrum-table).ms-\[7px\],
+:where(.spectrum-table) .ms-\[7px\] {
+  margin-inline-start: 7px;
+}
+:where(.spectrum-table).ms-auto,
+:where(.spectrum-table) .ms-auto {
+  margin-inline-start: auto;
+}
+:where(.spectrum-table).mt-3,
+:where(.spectrum-table) .mt-3 {
+  margin-top: calc(0.25rem * 3);
+}
+:where(.spectrum-table).mb-2,
+:where(.spectrum-table) .mb-2 {
+  margin-bottom: calc(0.25rem * 2);
+}
+:where(.spectrum-table).block,
+:where(.spectrum-table) .block {
+  display: block;
+}
+:where(.spectrum-table).flex,
+:where(.spectrum-table) .flex {
+  display: flex;
+}
+:where(.spectrum-table).grid,
+:where(.spectrum-table) .grid {
+  display: grid;
+}
+:where(.spectrum-table).hidden,
+:where(.spectrum-table) .hidden {
+  display: none;
+}
+:where(.spectrum-table).inline-block,
+:where(.spectrum-table) .inline-block {
+  display: inline-block;
+}
+:where(.spectrum-table).inline-flex,
+:where(.spectrum-table) .inline-flex {
+  display: inline-flex;
+}
+:where(.spectrum-table).size-1\.5,
+:where(.spectrum-table) .size-1\.5 {
+  width: calc(0.25rem * 1.5);
+  height: calc(0.25rem * 1.5);
+}
+:where(.spectrum-table).size-3\.5,
+:where(.spectrum-table) .size-3\.5 {
+  width: calc(0.25rem * 3.5);
+  height: calc(0.25rem * 3.5);
+}
+:where(.spectrum-table).size-4,
+:where(.spectrum-table) .size-4 {
+  width: calc(0.25rem * 4);
+  height: calc(0.25rem * 4);
+}
+:where(.spectrum-table).size-7,
+:where(.spectrum-table) .size-7 {
+  width: calc(0.25rem * 7);
+  height: calc(0.25rem * 7);
+}
+:where(.spectrum-table).size-8,
+:where(.spectrum-table) .size-8 {
+  width: calc(0.25rem * 8);
+  height: calc(0.25rem * 8);
+}
+:where(.spectrum-table).size-\[18px\],
+:where(.spectrum-table) .size-\[18px\] {
+  width: 18px;
+  height: 18px;
+}
+:where(.spectrum-table).size-full,
+:where(.spectrum-table) .size-full {
+  width: 100%;
+  height: 100%;
+}
+:where(.spectrum-table).h-1\.5,
+:where(.spectrum-table) .h-1\.5 {
+  height: calc(0.25rem * 1.5);
+}
+:where(.spectrum-table).h-3,
+:where(.spectrum-table) .h-3 {
+  height: calc(0.25rem * 3);
+}
+:where(.spectrum-table).h-4,
+:where(.spectrum-table) .h-4 {
+  height: calc(0.25rem * 4);
+}
+:where(.spectrum-table).h-5,
+:where(.spectrum-table) .h-5 {
+  height: calc(0.25rem * 5);
+}
+:where(.spectrum-table).h-7,
+:where(.spectrum-table) .h-7 {
+  height: calc(0.25rem * 7);
+}
+:where(.spectrum-table).h-9,
+:where(.spectrum-table) .h-9 {
+  height: calc(0.25rem * 9);
+}
+:where(.spectrum-table).h-11,
+:where(.spectrum-table) .h-11 {
+  height: calc(0.25rem * 11);
+}
+:where(.spectrum-table).h-12,
+:where(.spectrum-table) .h-12 {
+  height: calc(0.25rem * 12);
+}
+:where(.spectrum-table).h-\[1\.25em\],
+:where(.spectrum-table) .h-\[1\.25em\] {
+  height: 1.25em;
+}
+:where(.spectrum-table).h-\[2\.2px\],
+:where(.spectrum-table) .h-\[2\.2px\] {
+  height: 2.2px;
+}
+:where(.spectrum-table).h-full,
+:where(.spectrum-table) .h-full {
+  height: 100%;
+}
+:where(.spectrum-table).w-2,
+:where(.spectrum-table) .w-2 {
+  width: calc(0.25rem * 2);
+}
+:where(.spectrum-table).w-8,
+:where(.spectrum-table) .w-8 {
+  width: calc(0.25rem * 8);
+}
+:where(.spectrum-table).w-9,
+:where(.spectrum-table) .w-9 {
+  width: calc(0.25rem * 9);
+}
+:where(.spectrum-table).w-10,
+:where(.spectrum-table) .w-10 {
+  width: calc(0.25rem * 10);
+}
+:where(.spectrum-table).w-12,
+:where(.spectrum-table) .w-12 {
+  width: calc(0.25rem * 12);
+}
+:where(.spectrum-table).w-16,
+:where(.spectrum-table) .w-16 {
+  width: calc(0.25rem * 16);
+}
+:where(.spectrum-table).w-\[9px\],
+:where(.spectrum-table) .w-\[9px\] {
+  width: 9px;
+}
+:where(.spectrum-table).w-full,
+:where(.spectrum-table) .w-full {
+  width: 100%;
+}
+:where(.spectrum-table).w-px,
+:where(.spectrum-table) .w-px {
+  width: 1px;
+}
+:where(.spectrum-table).max-w-72,
+:where(.spectrum-table) .max-w-72 {
+  max-width: calc(0.25rem * 72);
+}
+:where(.spectrum-table).max-w-\[calc\(100\%\+0\.5rem\)\],
+:where(.spectrum-table) .max-w-\[calc\(100\%\+0\.5rem\)\] {
+  max-width: calc(100% + 0.5rem);
+}
+:where(.spectrum-table).max-w-full,
+:where(.spectrum-table) .max-w-full {
+  max-width: 100%;
+}
+:where(.spectrum-table).min-w-0,
+:where(.spectrum-table) .min-w-0 {
+  min-width: 0px;
+}
+:where(.spectrum-table).shrink-0,
+:where(.spectrum-table) .shrink-0 {
+  flex-shrink: 0;
+}
+:where(.spectrum-table).border-collapse,
+:where(.spectrum-table) .border-collapse {
+  border-collapse: collapse;
+}
+:where(.spectrum-table).origin-left,
+:where(.spectrum-table) .origin-left {
+  transform-origin: 0;
+}
+:where(.spectrum-table).translate-x-1\/2,
+:where(.spectrum-table) .translate-x-1\/2 {
+  --tw-translate-x: calc(1 / 2 * 100%);
+  translate: var(--tw-translate-x) var(--tw-translate-y);
+}
+:where(.spectrum-table).scale-75,
+:where(.spectrum-table) .scale-75 {
+  --tw-scale-x: 75%;
+  --tw-scale-y: 75%;
+  --tw-scale-z: 75%;
+  scale: var(--tw-scale-x) var(--tw-scale-y);
+}
+:where(.spectrum-table).scale-100,
+:where(.spectrum-table) .scale-100 {
+  --tw-scale-x: 100%;
+  --tw-scale-y: 100%;
+  --tw-scale-z: 100%;
+  scale: var(--tw-scale-x) var(--tw-scale-y);
+}
+:where(.spectrum-table).-rotate-90,
+:where(.spectrum-table) .-rotate-90 {
+  rotate: calc(90deg * -1);
+}
+:where(.spectrum-table).rotate-90,
+:where(.spectrum-table) .rotate-90 {
+  rotate: 90deg;
+}
+:where(.spectrum-table).animate-pulse,
+:where(.spectrum-table) .animate-pulse {
+  animation: gamma-table-pulse 2s var(--gamma-ease-standard) infinite;
+}
+:where(.spectrum-table).cursor-col-resize,
+:where(.spectrum-table) .cursor-col-resize {
+  cursor: col-resize;
+}
+:where(.spectrum-table).cursor-pointer,
+:where(.spectrum-table) .cursor-pointer {
+  cursor: pointer;
+}
+:where(.spectrum-table).touch-none,
+:where(.spectrum-table) .touch-none {
+  touch-action: none;
+}
+:where(.spectrum-table).appearance-none,
+:where(.spectrum-table) .appearance-none {
+  appearance: none;
+}
+:where(.spectrum-table).flex-col,
+:where(.spectrum-table) .flex-col {
+  flex-direction: column;
+}
+:where(.spectrum-table).flex-row-reverse,
+:where(.spectrum-table) .flex-row-reverse {
+  flex-direction: row-reverse;
+}
+:where(.spectrum-table).flex-wrap,
+:where(.spectrum-table) .flex-wrap {
+  flex-wrap: wrap;
+}
+:where(.spectrum-table).place-items-center,
+:where(.spectrum-table) .place-items-center {
+  place-items: center;
+}
+:where(.spectrum-table).items-baseline,
+:where(.spectrum-table) .items-baseline {
+  align-items: baseline;
+}
+:where(.spectrum-table).items-center,
+:where(.spectrum-table) .items-center {
+  align-items: center;
+}
+:where(.spectrum-table).justify-between,
+:where(.spectrum-table) .justify-between {
+  justify-content: space-between;
+}
+:where(.spectrum-table).justify-center,
+:where(.spectrum-table) .justify-center {
+  justify-content: center;
+}
+:where(.spectrum-table).justify-end,
+:where(.spectrum-table) .justify-end {
+  justify-content: flex-end;
+}
+:where(.spectrum-table).gap-1,
+:where(.spectrum-table) .gap-1 {
+  gap: 0.25rem;
+}
+:where(.spectrum-table).gap-1\.5,
+:where(.spectrum-table) .gap-1\.5 {
+  gap: calc(0.25rem * 1.5);
+}
+:where(.spectrum-table).gap-2,
+:where(.spectrum-table) .gap-2 {
+  gap: calc(0.25rem * 2);
+}
+:where(.spectrum-table).gap-2\.5,
+:where(.spectrum-table) .gap-2\.5 {
+  gap: calc(0.25rem * 2.5);
+}
+:where(.spectrum-table).gap-3,
+:where(.spectrum-table) .gap-3 {
+  gap: calc(0.25rem * 3);
+}
+:where(.spectrum-table).gap-4,
+:where(.spectrum-table) .gap-4 {
+  gap: calc(0.25rem * 4);
+}
+:where(.spectrum-table).gap-x-1\.5,
+:where(.spectrum-table) .gap-x-1\.5 {
+  column-gap: calc(0.25rem * 1.5);
+}
+:where(.spectrum-table).gap-x-4,
+:where(.spectrum-table) .gap-x-4 {
+  column-gap: calc(0.25rem * 4);
+}
+:where(.spectrum-table).gap-y-1,
+:where(.spectrum-table) .gap-y-1 {
+  row-gap: 0.25rem;
+}
+:where(.spectrum-table).gap-y-2,
+:where(.spectrum-table) .gap-y-2 {
+  row-gap: calc(0.25rem * 2);
+}
+:where(.spectrum-table).truncate,
+:where(.spectrum-table) .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where(.spectrum-table).overflow-auto,
+:where(.spectrum-table) .overflow-auto {
+  overflow: auto;
+}
+:where(.spectrum-table).overflow-hidden,
+:where(.spectrum-table) .overflow-hidden {
+  overflow: hidden;
+}
+:where(.spectrum-table).overscroll-x-contain,
+:where(.spectrum-table) .overscroll-x-contain {
+  overscroll-behavior-x: contain;
+}
+:where(.spectrum-table).rounded-full,
+:where(.spectrum-table) .rounded-full {
+  border-radius: var(--gamma-radius-pill);
+}
+:where(.spectrum-table).rounded-gamma-control,
+:where(.spectrum-table) .rounded-gamma-control {
+  border-radius: var(--gamma-radius-control);
+}
+:where(.spectrum-table).border,
+:where(.spectrum-table) .border {
+  border-style: var(--tw-border-style);
+  border-width: 1px;
+}
+:where(.spectrum-table).border-s,
+:where(.spectrum-table) .border-s {
+  border-inline-start-style: var(--tw-border-style);
+  border-inline-start-width: 1px;
+}
+:where(.spectrum-table).border-t,
+:where(.spectrum-table) .border-t {
+  border-top-style: var(--tw-border-style);
+  border-top-width: 1px;
+}
+:where(.spectrum-table).border-b,
+:where(.spectrum-table) .border-b {
+  border-bottom-style: var(--tw-border-style);
+  border-bottom-width: 1px;
+}
+:where(.spectrum-table).border-gamma-border,
+:where(.spectrum-table) .border-gamma-border {
+  border-color: var(--gamma-border);
+}
+:where(.spectrum-table).bg-current,
+:where(.spectrum-table) .bg-current {
+  background-color: currentcolor;
+}
+:where(.spectrum-table).bg-gamma-bg,
+:where(.spectrum-table) .bg-gamma-bg {
+  background-color: var(--gamma-bg);
+}
+:where(.spectrum-table).bg-gamma-danger-soft,
+:where(.spectrum-table) .bg-gamma-danger-soft {
+  background-color: var(--gamma-danger-soft);
+}
+:where(.spectrum-table).bg-gamma-ink,
+:where(.spectrum-table) .bg-gamma-ink {
+  background-color: var(--gamma-ink);
+}
+:where(.spectrum-table).bg-gamma-success-soft,
+:where(.spectrum-table) .bg-gamma-success-soft {
+  background-color: var(--gamma-success-soft);
+}
+:where(.spectrum-table).bg-gamma-surface,
+:where(.spectrum-table) .bg-gamma-surface {
+  background-color: var(--gamma-surface);
+}
+:where(.spectrum-table).bg-gamma-surface-2,
+:where(.spectrum-table) .bg-gamma-surface-2 {
+  background-color: var(--gamma-surface-2);
+}
+:where(.spectrum-table).bg-gamma-warning-soft,
+:where(.spectrum-table) .bg-gamma-warning-soft {
+  background-color: var(--gamma-warning-soft);
+}
+:where(.spectrum-table).bg-transparent,
+:where(.spectrum-table) .bg-transparent {
+  background-color: transparent;
+}
+:where(.spectrum-table).p-0,
+:where(.spectrum-table) .p-0 {
+  padding: 0px;
+}
+:where(.spectrum-table).p-1,
+:where(.spectrum-table) .p-1 {
+  padding: 0.25rem;
+}
+:where(.spectrum-table).px-0,
+:where(.spectrum-table) .px-0 {
+  padding-inline: 0px;
+}
+:where(.spectrum-table).px-1,
+:where(.spectrum-table) .px-1 {
+  padding-inline: 0.25rem;
+}
+:where(.spectrum-table).px-1\.5,
+:where(.spectrum-table) .px-1\.5 {
+  padding-inline: calc(0.25rem * 1.5);
+}
+:where(.spectrum-table).px-2,
+:where(.spectrum-table) .px-2 {
+  padding-inline: calc(0.25rem * 2);
+}
+:where(.spectrum-table).px-2\.5,
+:where(.spectrum-table) .px-2\.5 {
+  padding-inline: calc(0.25rem * 2.5);
+}
+:where(.spectrum-table).px-3,
+:where(.spectrum-table) .px-3 {
+  padding-inline: calc(0.25rem * 3);
+}
+:where(.spectrum-table).px-4,
+:where(.spectrum-table) .px-4 {
+  padding-inline: calc(0.25rem * 4);
+}
+:where(.spectrum-table).px-5,
+:where(.spectrum-table) .px-5 {
+  padding-inline: calc(0.25rem * 5);
+}
+:where(.spectrum-table).px-6,
+:where(.spectrum-table) .px-6 {
+  padding-inline: calc(0.25rem * 6);
+}
+:where(.spectrum-table).py-0\.5,
+:where(.spectrum-table) .py-0\.5 {
+  padding-block: calc(0.25rem * 0.5);
+}
+:where(.spectrum-table).py-1,
+:where(.spectrum-table) .py-1 {
+  padding-block: 0.25rem;
+}
+:where(.spectrum-table).py-1\.5,
+:where(.spectrum-table) .py-1\.5 {
+  padding-block: calc(0.25rem * 1.5);
+}
+:where(.spectrum-table).py-2,
+:where(.spectrum-table) .py-2 {
+  padding-block: calc(0.25rem * 2);
+}
+:where(.spectrum-table).py-2\.5,
+:where(.spectrum-table) .py-2\.5 {
+  padding-block: calc(0.25rem * 2.5);
+}
+:where(.spectrum-table).py-3,
+:where(.spectrum-table) .py-3 {
+  padding-block: calc(0.25rem * 3);
+}
+:where(.spectrum-table).py-4,
+:where(.spectrum-table) .py-4 {
+  padding-block: calc(0.25rem * 4);
+}
+:where(.spectrum-table).py-16,
+:where(.spectrum-table) .py-16 {
+  padding-block: calc(0.25rem * 16);
+}
+:where(.spectrum-table).ps-2,
+:where(.spectrum-table) .ps-2 {
+  padding-inline-start: calc(0.25rem * 2);
+}
+:where(.spectrum-table).ps-3,
+:where(.spectrum-table) .ps-3 {
+  padding-inline-start: calc(0.25rem * 3);
+}
+:where(.spectrum-table).ps-8,
+:where(.spectrum-table) .ps-8 {
+  padding-inline-start: calc(0.25rem * 8);
+}
+:where(.spectrum-table).pe-0,
+:where(.spectrum-table) .pe-0 {
+  padding-inline-end: 0px;
+}
+:where(.spectrum-table).pe-1,
+:where(.spectrum-table) .pe-1 {
+  padding-inline-end: 0.25rem;
+}
+:where(.spectrum-table).pe-2,
+:where(.spectrum-table) .pe-2 {
+  padding-inline-end: calc(0.25rem * 2);
+}
+:where(.spectrum-table).pe-8,
+:where(.spectrum-table) .pe-8 {
+  padding-inline-end: calc(0.25rem * 8);
+}
+:where(.spectrum-table).pt-0,
+:where(.spectrum-table) .pt-0 {
+  padding-top: 0px;
+}
+:where(.spectrum-table).text-center,
+:where(.spectrum-table) .text-center {
+  text-align: center;
+}
+:where(.spectrum-table).text-end,
+:where(.spectrum-table) .text-end {
+  text-align: end;
+}
+:where(.spectrum-table).text-start,
+:where(.spectrum-table) .text-start {
+  text-align: start;
+}
+:where(.spectrum-table).font-gamma-code,
+:where(.spectrum-table) .font-gamma-code {
+  font-family: var(--gamma-font-code);
+}
+:where(.spectrum-table).text-base,
+:where(.spectrum-table) .text-base {
+  font-size: 1rem;
+  line-height: var(--tw-leading, 1.5rem);
+}
+:where(.spectrum-table).text-sm,
+:where(.spectrum-table) .text-sm {
+  font-size: 0.875rem;
+  line-height: var(--tw-leading, 1.25rem);
+}
+:where(.spectrum-table).text-xs,
+:where(.spectrum-table) .text-xs {
+  font-size: 0.75rem;
+  line-height: var(--tw-leading, 1rem);
+}
+:where(.spectrum-table).text-\[13px\],
+:where(.spectrum-table) .text-\[13px\] {
+  font-size: 13px;
+}
+:where(.spectrum-table).font-medium,
+:where(.spectrum-table) .font-medium {
+  --tw-font-weight: 500;
+  font-weight: 500;
+}
+:where(.spectrum-table).font-normal,
+:where(.spectrum-table) .font-normal {
+  --tw-font-weight: 400;
+  font-weight: 400;
+}
+:where(.spectrum-table).whitespace-nowrap,
+:where(.spectrum-table) .whitespace-nowrap {
+  white-space: nowrap;
+}
+:where(.spectrum-table).text-gamma-bg,
+:where(.spectrum-table) .text-gamma-bg {
+  color: var(--gamma-bg);
+}
+:where(.spectrum-table).text-gamma-danger,
+:where(.spectrum-table) .text-gamma-danger {
+  color: var(--gamma-danger);
+}
+:where(.spectrum-table).text-gamma-ink,
+:where(.spectrum-table) .text-gamma-ink {
+  color: var(--gamma-ink);
+}
+:where(.spectrum-table).text-gamma-muted,
+:where(.spectrum-table) .text-gamma-muted {
+  color: var(--gamma-muted);
+}
+:where(.spectrum-table).text-gamma-success,
+:where(.spectrum-table) .text-gamma-success {
+  color: var(--gamma-success);
+}
+:where(.spectrum-table).text-gamma-warning,
+:where(.spectrum-table) .text-gamma-warning {
+  color: var(--gamma-warning);
+}
+:where(.spectrum-table).capitalize,
+:where(.spectrum-table) .capitalize {
+  text-transform: capitalize;
+}
+:where(.spectrum-table).tabular-nums,
+:where(.spectrum-table) .tabular-nums {
+  --tw-numeric-spacing: tabular-nums;
+  font-variant-numeric: var(--tw-ordinal,) var(--tw-slashed-zero,)
+    var(--tw-numeric-figure,) var(--tw-numeric-spacing,)
+    var(--tw-numeric-fraction,);
+}
+:where(.spectrum-table).underline,
+:where(.spectrum-table) .underline {
+  text-decoration-line: underline;
+}
+:where(.spectrum-table).underline-offset-2,
+:where(.spectrum-table) .underline-offset-2 {
+  text-underline-offset: 2px;
+}
+:where(.spectrum-table).opacity-0,
+:where(.spectrum-table) .opacity-0 {
+  opacity: 0%;
+}
+:where(.spectrum-table).opacity-20,
+:where(.spectrum-table) .opacity-20 {
+  opacity: 20%;
+}
+:where(.spectrum-table).opacity-60,
+:where(.spectrum-table) .opacity-60 {
+  opacity: 60%;
+}
+:where(.spectrum-table).opacity-100,
+:where(.spectrum-table) .opacity-100 {
+  opacity: 100%;
+}
+:where(.spectrum-table).shadow-gamma-low,
+:where(.spectrum-table) .shadow-gamma-low {
+  --tw-shadow: var(--gamma-shadow-low);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+}
+:where(.spectrum-table).shadow-gamma-mid,
+:where(.spectrum-table) .shadow-gamma-mid {
+  --tw-shadow: var(--gamma-shadow-mid);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+}
+:where(.spectrum-table).ring-1,
+:where(.spectrum-table) .ring-1 {
+  --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0
+    calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+}
+:where(.spectrum-table).ring-gamma-accent\/8,
+:where(.spectrum-table) .ring-gamma-accent\/8 {
+  --tw-ring-color: var(--gamma-accent);
+  @supports (color: color-mix(in lab, red, red)) {
+    --tw-ring-color: color-mix(in oklab, var(--gamma-accent) 8%, transparent);
+  }
+}
+:where(.spectrum-table).ring-gamma-accent\/15,
+:where(.spectrum-table) .ring-gamma-accent\/15 {
+  --tw-ring-color: var(--gamma-accent);
+  @supports (color: color-mix(in lab, red, red)) {
+    --tw-ring-color: color-mix(in oklab, var(--gamma-accent) 15%, transparent);
+  }
+}
+:where(.spectrum-table).ring-gamma-accent\/20,
+:where(.spectrum-table) .ring-gamma-accent\/20 {
+  --tw-ring-color: var(--gamma-accent);
+  @supports (color: color-mix(in lab, red, red)) {
+    --tw-ring-color: color-mix(in oklab, var(--gamma-accent) 20%, transparent);
+  }
+}
+:where(.spectrum-table).ring-gamma-danger\/20,
+:where(.spectrum-table) .ring-gamma-danger\/20 {
+  --tw-ring-color: var(--gamma-danger);
+  @supports (color: color-mix(in lab, red, red)) {
+    --tw-ring-color: color-mix(in oklab, var(--gamma-danger) 20%, transparent);
+  }
+}
+:where(.spectrum-table).ring-gamma-success\/20,
+:where(.spectrum-table) .ring-gamma-success\/20 {
+  --tw-ring-color: var(--gamma-success);
+  @supports (color: color-mix(in lab, red, red)) {
+    --tw-ring-color: color-mix(in oklab, var(--gamma-success) 20%, transparent);
+  }
+}
+:where(.spectrum-table).ring-gamma-warning\/20,
+:where(.spectrum-table) .ring-gamma-warning\/20 {
+  --tw-ring-color: var(--gamma-warning);
+  @supports (color: color-mix(in lab, red, red)) {
+    --tw-ring-color: color-mix(in oklab, var(--gamma-warning) 20%, transparent);
+  }
+}
+:where(.spectrum-table).outline-hidden,
+:where(.spectrum-table) .outline-hidden {
+  --tw-outline-style: none;
+  outline-style: none;
+  @media (forced-colors: active) {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+}
+:where(.spectrum-table).transition-\[border-color\],
+:where(.spectrum-table) .transition-\[border-color\] {
+  transition-property: border-color;
+  transition-timing-function: var(--tw-ease, var(--gamma-ease-standard));
+  transition-duration: var(--tw-duration, var(--gamma-duration-fast));
+}
+:where(.spectrum-table).transition-\[color\,opacity\],
+:where(.spectrum-table) .transition-\[color\,opacity\] {
+  transition-property: color, opacity;
+  transition-timing-function: var(--tw-ease, var(--gamma-ease-standard));
+  transition-duration: var(--tw-duration, var(--gamma-duration-fast));
+}
+:where(.spectrum-table).transition-\[opacity\,scale\],
+:where(.spectrum-table) .transition-\[opacity\,scale\] {
+  transition-property: opacity;
+  transition-timing-function: var(--tw-ease, var(--gamma-ease-standard));
+  transition-duration: var(--tw-duration, var(--gamma-duration-fast));
+}
+:where(
+  .spectrum-table
+).transition-\[color\,background-color\,opacity\,border-color\],
+:where(.spectrum-table)
+  .transition-\[color\,background-color\,opacity\,border-color\] {
+  transition-property:
+    color, background-color, opacity, border-color;
+  transition-timing-function: var(--tw-ease, var(--gamma-ease-standard));
+  transition-duration: var(--tw-duration, var(--gamma-duration-fast));
+}
+:where(.spectrum-table).transition-colors,
+:where(.spectrum-table) .transition-colors {
+  transition-property:
+    color, background-color, border-color, outline-color, text-decoration-color,
+    fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to;
+  transition-timing-function: var(--tw-ease, var(--gamma-ease-standard));
+  transition-duration: var(--tw-duration, var(--gamma-duration-fast));
+}
+:where(.spectrum-table).transition-opacity,
+:where(.spectrum-table) .transition-opacity {
+  transition-property: opacity;
+  transition-timing-function: var(--tw-ease, var(--gamma-ease-standard));
+  transition-duration: var(--tw-duration, var(--gamma-duration-fast));
+}
+:where(.spectrum-table).duration-100,
+:where(.spectrum-table) .duration-100 {
+  --tw-duration: 100ms;
+  transition-duration: 100ms;
+}
+:where(.spectrum-table).duration-150,
+:where(.spectrum-table) .duration-150 {
+  --tw-duration: 150ms;
+  transition-duration: 150ms;
+}
+:where(.spectrum-table).duration-300,
+:where(.spectrum-table) .duration-300 {
+  --tw-duration: 300ms;
+  transition-duration: 300ms;
+}
+:where(.spectrum-table).ease-gamma-standard,
+:where(.spectrum-table) .ease-gamma-standard {
+  --tw-ease: var(--gamma-ease-standard);
+  transition-timing-function: var(--gamma-ease-standard);
+}
+:where(.spectrum-table).ease-out,
+:where(.spectrum-table) .ease-out {
+  --tw-ease: var(--gamma-ease-standard);
+  transition-timing-function: var(--gamma-ease-standard);
+}
+:where(.spectrum-table).ring-inset,
+:where(.spectrum-table) .ring-inset {
+  --tw-ring-inset: inset;
+}
+:where(.spectrum-table).group-focus-within\/row\:opacity-100:is(
+    :where(.group\/row):focus-within *
+  ),
+:where(.spectrum-table)
+  .group-focus-within\/row\:opacity-100:is(:where(.group\/row):focus-within *) {
+  opacity: 100%;
+}
+:where(.spectrum-table).group-focus-within\/search\:text-gamma-ink:is(
+    :where(.group\/search):focus-within *
+  ),
+:where(.spectrum-table)
+  .group-focus-within\/search\:text-gamma-ink:is(
+    :where(.group\/search):focus-within *
+  ) {
+  color: var(--gamma-ink);
+}
+@media (hover: hover) {
+  :where(.spectrum-table).group-hover\/page\:-translate-x-px:is(
+      :where(.group\/page):hover *
+    ),
+  :where(.spectrum-table)
+    .group-hover\/page\:-translate-x-px:is(:where(.group\/page):hover *) {
+    --tw-translate-x: -1px;
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+  :where(.spectrum-table).group-hover\/page\:translate-x-px:is(
+      :where(.group\/page):hover *
+    ),
+  :where(.spectrum-table)
+    .group-hover\/page\:translate-x-px:is(:where(.group\/page):hover *) {
+    --tw-translate-x: 1px;
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+  :where(.spectrum-table).group-hover\/row\:bg-gamma-ink\/\[0\.025\]:is(
+      :where(.group\/row):hover *
+    ),
+  :where(.spectrum-table)
+    .group-hover\/row\:bg-gamma-ink\/\[0\.025\]:is(
+      :where(.group\/row):hover *
+    ) {
+    background-color: var(--gamma-ink);
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    :where(.spectrum-table).group-hover\/row\:bg-gamma-ink\/\[0\.025\]:is(
+        :where(.group\/row):hover *
+      ),
+    :where(.spectrum-table)
+      .group-hover\/row\:bg-gamma-ink\/\[0\.025\]:is(
+        :where(.group\/row):hover *
+      ) {
+      background-color: color-mix(in oklab, var(--gamma-ink) 2.5%, transparent);
+    }
+  }
+  :where(.spectrum-table).group-hover\/row\:opacity-100:is(
+      :where(.group\/row):hover *
+    ),
+  :where(.spectrum-table)
+    .group-hover\/row\:opacity-100:is(:where(.group\/row):hover *) {
+    opacity: 100%;
+  }
+  :where(.spectrum-table).group-hover\/sort\:scale-100:is(
+      :where(.group\/sort):hover *
+    ),
+  :where(.spectrum-table)
+    .group-hover\/sort\:scale-100:is(:where(.group\/sort):hover *) {
+    --tw-scale-x: 100%;
+    --tw-scale-y: 100%;
+    --tw-scale-z: 100%;
+    scale: var(--tw-scale-x) var(--tw-scale-y);
+  }
+  :where(.spectrum-table).group-hover\/sort\:opacity-40:is(
+      :where(.group\/sort):hover *
+    ),
+  :where(.spectrum-table)
+    .group-hover\/sort\:opacity-40:is(:where(.group\/sort):hover *) {
+    opacity: 40%;
+  }
+}
+:where(.spectrum-table).group-focus-visible\/sort\:scale-100:is(
+    :where(.group\/sort):focus-visible *
+  ),
+:where(.spectrum-table)
+  .group-focus-visible\/sort\:scale-100:is(
+    :where(.group\/sort):focus-visible *
+  ) {
+  --tw-scale-x: 100%;
+  --tw-scale-y: 100%;
+  --tw-scale-z: 100%;
+  scale: var(--tw-scale-x) var(--tw-scale-y);
+}
+:where(.spectrum-table).group-focus-visible\/sort\:opacity-40:is(
+    :where(.group\/sort):focus-visible *
+  ),
+:where(.spectrum-table)
+  .group-focus-visible\/sort\:opacity-40:is(
+    :where(.group\/sort):focus-visible *
+  ) {
+  opacity: 40%;
+}
+:where(.spectrum-table).peer-focus-visible\:ring-1:is(
+    :where(.peer):focus-visible ~ *
+  ),
+:where(.spectrum-table)
+  .peer-focus-visible\:ring-1:is(:where(.peer):focus-visible ~ *) {
+  --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0
+    calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+}
+:where(.spectrum-table).peer-focus-visible\:ring-gamma-accent:is(
+    :where(.peer):focus-visible ~ *
+  ),
+:where(.spectrum-table)
+  .peer-focus-visible\:ring-gamma-accent:is(:where(.peer):focus-visible ~ *) {
+  --tw-ring-color: var(--gamma-accent);
+}
+:where(.spectrum-table).placeholder\:text-gamma-muted::placeholder,
+:where(.spectrum-table) .placeholder\:text-gamma-muted::placeholder {
+  color: var(--gamma-muted);
+}
+:where(.spectrum-table).before\:absolute::before,
+:where(.spectrum-table) .before\:absolute::before {
+  content: var(--tw-content);
+  position: absolute;
+}
+:where(.spectrum-table).before\:inset-y-1\.5::before,
+:where(.spectrum-table) .before\:inset-y-1\.5::before {
+  content: var(--tw-content);
+  inset-block: calc(0.25rem * 1.5);
+}
+:where(.spectrum-table).before\:left-1\/2::before,
+:where(.spectrum-table) .before\:left-1\/2::before {
+  content: var(--tw-content);
+  left: calc(1 / 2 * 100%);
+}
+:where(.spectrum-table).before\:w-px::before,
+:where(.spectrum-table) .before\:w-px::before {
+  content: var(--tw-content);
+  width: 1px;
+}
+:where(.spectrum-table).before\:-translate-x-1\/2::before,
+:where(.spectrum-table) .before\:-translate-x-1\/2::before {
+  content: var(--tw-content);
+  --tw-translate-x: calc(calc(1 / 2 * 100%) * -1);
+  translate: var(--tw-translate-x) var(--tw-translate-y);
+}
+:where(.spectrum-table).before\:bg-gamma-ink::before,
+:where(.spectrum-table) .before\:bg-gamma-ink::before {
+  content: var(--tw-content);
+  background-color: var(--gamma-ink);
+}
+:where(.spectrum-table).before\:opacity-0::before,
+:where(.spectrum-table) .before\:opacity-0::before {
+  content: var(--tw-content);
+  opacity: 0%;
+}
+:where(.spectrum-table).before\:opacity-100::before,
+:where(.spectrum-table) .before\:opacity-100::before {
+  content: var(--tw-content);
+  opacity: 100%;
+}
+:where(.spectrum-table).before\:transition-opacity::before,
+:where(.spectrum-table) .before\:transition-opacity::before {
+  content: var(--tw-content);
+  transition-property: opacity;
+  transition-timing-function: var(--tw-ease, var(--gamma-ease-standard));
+  transition-duration: var(--tw-duration, var(--gamma-duration-fast));
+}
+:where(.spectrum-table).before\:duration-100::before,
+:where(.spectrum-table) .before\:duration-100::before {
+  content: var(--tw-content);
+  --tw-duration: 100ms;
+  transition-duration: 100ms;
+}
+:where(.spectrum-table).before\:content-\[\'\'\]::before,
+:where(.spectrum-table) .before\:content-\[\'\'\]::before {
+  --tw-content: "";
+  content: var(--tw-content);
+}
+:where(.spectrum-table).first\:border-s-0:first-child,
+:where(.spectrum-table) .first\:border-s-0:first-child {
+  border-inline-start-style: var(--tw-border-style);
+  border-inline-start-width: 0px;
+}
+@media (hover: hover) {
+  :where(.spectrum-table).hover\:border-gamma-border:hover,
+  :where(.spectrum-table) .hover\:border-gamma-border:hover {
+    border-color: var(--gamma-border);
+  }
+  :where(.spectrum-table).hover\:bg-gamma-bg\/10:hover,
+  :where(.spectrum-table) .hover\:bg-gamma-bg\/10:hover {
+    background-color: var(--gamma-bg);
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    :where(.spectrum-table).hover\:bg-gamma-bg\/10:hover,
+    :where(.spectrum-table) .hover\:bg-gamma-bg\/10:hover {
+      background-color: color-mix(in oklab, var(--gamma-bg) 10%, transparent);
+    }
+  }
+  :where(.spectrum-table).hover\:bg-gamma-ink\/\[0\.04\]:hover,
+  :where(.spectrum-table) .hover\:bg-gamma-ink\/\[0\.04\]:hover {
+    background-color: var(--gamma-ink);
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    :where(.spectrum-table).hover\:bg-gamma-ink\/\[0\.04\]:hover,
+    :where(.spectrum-table) .hover\:bg-gamma-ink\/\[0\.04\]:hover {
+      background-color: color-mix(in oklab, var(--gamma-ink) 4%, transparent);
+    }
+  }
+  :where(.spectrum-table).hover\:bg-gamma-surface:hover,
+  :where(.spectrum-table) .hover\:bg-gamma-surface:hover {
+    background-color: var(--gamma-surface);
+  }
+  :where(.spectrum-table).hover\:bg-gamma-surface-2:hover,
+  :where(.spectrum-table) .hover\:bg-gamma-surface-2:hover {
+    background-color: var(--gamma-surface-2);
+  }
+  :where(.spectrum-table).hover\:text-gamma-ink:hover,
+  :where(.spectrum-table) .hover\:text-gamma-ink:hover {
+    color: var(--gamma-ink);
+  }
+  :where(.spectrum-table).hover\:text-gamma-muted:hover,
+  :where(.spectrum-table) .hover\:text-gamma-muted:hover {
+    color: var(--gamma-muted);
+  }
+  :where(.spectrum-table).hover\:opacity-100:hover,
+  :where(.spectrum-table) .hover\:opacity-100:hover {
+    opacity: 100%;
+  }
+  :where(.spectrum-table).hover\:before\:opacity-20:hover::before,
+  :where(.spectrum-table) .hover\:before\:opacity-20:hover::before {
+    content: var(--tw-content);
+    opacity: 20%;
+  }
+}
+:where(.spectrum-table).focus\:border-gamma-border:focus,
+:where(.spectrum-table) .focus\:border-gamma-border:focus {
+  border-color: var(--gamma-border);
+}
+:where(.spectrum-table).focus-visible\:ring-1:focus-visible,
+:where(.spectrum-table) .focus-visible\:ring-1:focus-visible {
+  --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0
+    calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+}
+:where(.spectrum-table).focus-visible\:ring-current:focus-visible,
+:where(.spectrum-table) .focus-visible\:ring-current:focus-visible {
+  --tw-ring-color: currentcolor;
+}
+:where(.spectrum-table).focus-visible\:ring-gamma-accent:focus-visible,
+:where(.spectrum-table) .focus-visible\:ring-gamma-accent:focus-visible {
+  --tw-ring-color: var(--gamma-accent);
+}
+:where(.spectrum-table).focus-visible\:ring-offset-2:focus-visible,
+:where(.spectrum-table) .focus-visible\:ring-offset-2:focus-visible {
+  --tw-ring-offset-width: 2px;
+  --tw-ring-offset-shadow: var(--tw-ring-inset,) 0 0 0
+    var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+}
+:where(.spectrum-table).focus-visible\:outline-hidden:focus-visible,
+:where(.spectrum-table) .focus-visible\:outline-hidden:focus-visible {
+  --tw-outline-style: none;
+  outline-style: none;
+  @media (forced-colors: active) {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+}
+:where(
+    .spectrum-table
+  ).focus-visible\:before\:opacity-100:focus-visible::before,
+:where(.spectrum-table)
+  .focus-visible\:before\:opacity-100:focus-visible::before {
+  content: var(--tw-content);
+  opacity: 100%;
+}
+:where(.spectrum-table).active\:scale-\[0\.96\]:active,
+:where(.spectrum-table) .active\:scale-\[0\.96\]:active {
+  scale: 0.96;
+}
+:where(.spectrum-table).disabled\:pointer-events-none:disabled,
+:where(.spectrum-table) .disabled\:pointer-events-none:disabled {
+  pointer-events: none;
+}
+:where(.spectrum-table).disabled\:opacity-40:disabled,
+:where(.spectrum-table) .disabled\:opacity-40:disabled {
+  opacity: 40%;
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.spectrum-table).motion-reduce\:animate-none,
+  :where(.spectrum-table) .motion-reduce\:animate-none {
+    animation: none;
+  }
+}
+@media (width >= 40rem) {
+  :where(.spectrum-table).sm\:inline,
+  :where(.spectrum-table) .sm\:inline {
+    display: inline;
+  }
+  :where(.spectrum-table).sm\:table-cell,
+  :where(.spectrum-table) .sm\:table-cell {
+    display: table-cell;
+  }
+  :where(.spectrum-table).sm\:w-56,
+  :where(.spectrum-table) .sm\:w-56 {
+    width: calc(0.25rem * 56);
+  }
+  :where(.spectrum-table).sm\:text-sm,
+  :where(.spectrum-table) .sm\:text-sm {
+    font-size: 0.875rem;
+    line-height: var(--tw-leading, 1.25rem);
+  }
+  :where(.spectrum-table).sm\:focus-within\:w-72:focus-within,
+  :where(.spectrum-table) .sm\:focus-within\:w-72:focus-within {
+    width: calc(0.25rem * 72);
+  }
+}
+@media (width >= 48rem) {
+  :where(.spectrum-table).md\:table-cell,
+  :where(.spectrum-table) .md\:table-cell {
+    display: table-cell;
+  }
+}
+@media (width >= 64rem) {
+  :where(.spectrum-table).lg\:table-cell,
+  :where(.spectrum-table) .lg\:table-cell {
+    display: table-cell;
+  }
+}
+:where(.spectrum-table).rtl\:origin-right:where(
+    :dir(rtl),
+    [dir="rtl"],
+    [dir="rtl"] *
+  ),
+:where(.spectrum-table)
+  .rtl\:origin-right:where(:dir(rtl), [dir="rtl"], [dir="rtl"] *) {
+  transform-origin: 100%;
+}
+:where(.spectrum-table).rtl\:-rotate-90:where(
+    :dir(rtl),
+    [dir="rtl"],
+    [dir="rtl"] *
+  ),
+:where(.spectrum-table)
+  .rtl\:-rotate-90:where(:dir(rtl), [dir="rtl"], [dir="rtl"] *) {
+  rotate: calc(90deg * -1);
+}
+:where(.spectrum-table).rtl\:rotate-90:where(
+    :dir(rtl),
+    [dir="rtl"],
+    [dir="rtl"] *
+  ),
+:where(.spectrum-table)
+  .rtl\:rotate-90:where(:dir(rtl), [dir="rtl"], [dir="rtl"] *) {
+  rotate: 90deg;
+}
+@media (hover: hover) {
+  :where(.spectrum-table).rtl\:group-hover\/page\:-translate-x-px:where(
+      :dir(rtl),
+      [dir="rtl"],
+      [dir="rtl"] *
+    ):is(:where(.group\/page):hover *),
+  :where(.spectrum-table)
+    .rtl\:group-hover\/page\:-translate-x-px:where(
+      :dir(rtl),
+      [dir="rtl"],
+      [dir="rtl"] *
+    ):is(:where(.group\/page):hover *) {
+    --tw-translate-x: -1px;
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+  :where(.spectrum-table).rtl\:group-hover\/page\:translate-x-px:where(
+      :dir(rtl),
+      [dir="rtl"],
+      [dir="rtl"] *
+    ):is(:where(.group\/page):hover *),
+  :where(.spectrum-table)
+    .rtl\:group-hover\/page\:translate-x-px:where(
+      :dir(rtl),
+      [dir="rtl"],
+      [dir="rtl"] *
+    ):is(:where(.group\/page):hover *) {
+    --tw-translate-x: 1px;
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+}
+:where(
+    .spectrum-table
+  ).\[\&\:\:-webkit-search-cancel-button\]\:hidden::-webkit-search-cancel-button,
+:where(.spectrum-table)
+  .\[\&\:\:-webkit-search-cancel-button\]\:hidden::-webkit-search-cancel-button {
+  display: none;
+}
+@media (hover: hover) {
+  :where(.spectrum-table).\[\@media\(hover\:hover\)\]\:opacity-0,
+  :where(.spectrum-table) .\[\@media\(hover\:hover\)\]\:opacity-0 {
+    opacity: 0%;
+  }
+}
+@property --tw-translate-x {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
+}
+@property --tw-translate-y {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
+}
+@property --tw-translate-z {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
+}
+@property --tw-scale-x {
+  syntax: "*";
+  inherits: false;
+  initial-value: 1;
+}
+@property --tw-scale-y {
+  syntax: "*";
+  inherits: false;
+  initial-value: 1;
+}
+@property --tw-scale-z {
+  syntax: "*";
+  inherits: false;
+  initial-value: 1;
+}
+@property --tw-border-style {
+  syntax: "*";
+  inherits: false;
+  initial-value: solid;
+}
+@property --tw-font-weight {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-ordinal {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-slashed-zero {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-numeric-figure {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-numeric-spacing {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-numeric-fraction {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 transparent;
+}
+@property --tw-shadow-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-shadow-alpha {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+@property --tw-inset-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 transparent;
+}
+@property --tw-inset-shadow-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-inset-shadow-alpha {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+@property --tw-ring-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-ring-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 transparent;
+}
+@property --tw-inset-ring-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-inset-ring-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 transparent;
+}
+@property --tw-ring-inset {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-ring-offset-width {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --tw-ring-offset-color {
+  syntax: "*";
+  inherits: false;
+  initial-value: transparent;
+}
+@property --tw-ring-offset-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 transparent;
+}
+@property --tw-duration {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-ease {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-content {
+  syntax: "*";
+  initial-value: "";
+  inherits: false;
+}
+@layer properties {
+  @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or
+    ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
+    :where(.spectrum-table),
+    :where(.spectrum-table) *,
+    :where(.spectrum-table)::before,
+    :where(.spectrum-table) ::before,
+    :where(.spectrum-table)::after,
+    :where(.spectrum-table) ::after,
+    :where(.spectrum-table)::backdrop,
+    :where(.spectrum-table) ::backdrop {
+      --tw-translate-x: 0;
+      --tw-translate-y: 0;
+      --tw-translate-z: 0;
+      --tw-scale-x: 1;
+      --tw-scale-y: 1;
+      --tw-scale-z: 1;
+      --tw-border-style: solid;
+      --tw-font-weight: initial;
+      --tw-ordinal: initial;
+      --tw-slashed-zero: initial;
+      --tw-numeric-figure: initial;
+      --tw-numeric-spacing: initial;
+      --tw-numeric-fraction: initial;
+      --tw-shadow: 0 0 transparent;
+      --tw-shadow-color: initial;
+      --tw-shadow-alpha: 100%;
+      --tw-inset-shadow: 0 0 transparent;
+      --tw-inset-shadow-color: initial;
+      --tw-inset-shadow-alpha: 100%;
+      --tw-ring-color: initial;
+      --tw-ring-shadow: 0 0 transparent;
+      --tw-inset-ring-color: initial;
+      --tw-inset-ring-shadow: 0 0 transparent;
+      --tw-ring-inset: initial;
+      --tw-ring-offset-width: 0px;
+      --tw-ring-offset-color: transparent;
+      --tw-ring-offset-shadow: 0 0 transparent;
+      --tw-duration: initial;
+      --tw-ease: initial;
+      --tw-content: "";
+    }
+  }
+}

@@ -232,3 +232,43 @@ describe("the brushed pair against clamps.json", () => {
     });
   }
 });
+
+describe("desk state codec: the workspace selection (spec 14.1)", () => {
+  it("writes sel only when a selection is set, and reads it back", () => {
+    expect(writeDeskState({ ...DEFAULT_DESK_STATE, sel: "stock:BHP" })).toBe("sel=stock%3ABHP");
+    expect(readDeskState(new URLSearchParams("sel=stock%3ABHP")).sel).toBe("stock:BHP");
+  });
+
+  it("drops a selection the codec does not read, one parameter at a time", () => {
+    const state = readDeskState(new URLSearchParams("sel=planet%3AMARS&window=28"));
+    expect(state).toEqual({ ...DEFAULT_DESK_STATE, window: 28 });
+  });
+
+  it("writeDeskParams replaces sel with the state's value, and keeps every other parameter", () => {
+    const params = new URLSearchParams("sel=stock%3ABHP&utm=1");
+    writeDeskParams(params, { ...DEFAULT_DESK_STATE, lens: "flow" });
+    expect(params.get("sel")).toBeNull();
+    expect(params.get("utm")).toBe("1");
+    expect(params.get("lens")).toBe("flow");
+  });
+
+  it("keeps another island's selection through a notice-window write", () => {
+    const chips = new URLSearchParams("sel=stock%3ABHP&lens=flow");
+    writeNoticeWindow(chips, { window: 28, since: "", until: "" });
+    expect(chips.get("sel")).toBe("stock:BHP");
+    expect(chips.get("window")).toBe("28");
+    expect(chips.get("lens")).toBe("flow");
+
+    const brush = new URLSearchParams("sel=stock%3ABHP");
+    writeNoticeWindow(brush, { window: 91, since: "2026-01-01", until: "2026-02-01" });
+    expect(brush.get("sel")).toBe("stock:BHP");
+    expect(brush.get("since")).toBe("2026-01-01");
+  });
+
+  it("keeps a holding selection through a fund-window write", () => {
+    const link = new URLSearchParams("sel=holding%3Aasx%3AA200%2FBHP");
+    const next = writeDeskState({ ...readDeskState(link), from: "2026-01-01", to: "2026-02-01" });
+    expect(readDeskState(new URLSearchParams(next)).sel).toBe("holding:asx:A200/BHP");
+    expect(readDeskState(new URLSearchParams(next)).from).toBe("2026-01-01");
+  });
+});

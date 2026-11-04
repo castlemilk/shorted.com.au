@@ -109,4 +109,44 @@ public interface FundSeriesOrBuilder extends
    */
   com.shorts.v1alpha1.FundPointOrBuilder getPointsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * The fund's ASX code (ticker) when its file names one; empty for a super option.
+   * </pre>
+   *
+   * <code>string fund_code = 6 [json_name = "fundCode"];</code>
+   * @return The fundCode.
+   */
+  java.lang.String getFundCode();
+  /**
+   * <pre>
+   * The fund's ASX code (ticker) when its file names one; empty for a super option.
+   * </pre>
+   *
+   * <code>string fund_code = 6 [json_name = "fundCode"];</code>
+   * @return The bytes for fundCode.
+   */
+  com.google.protobuf.ByteString
+      getFundCodeBytes();
+
+  /**
+   * <pre>
+   * The fund's key (spec 14.7): the registry key, or &lt;institution_slug&gt;/&lt;fund_name&gt;.
+   * </pre>
+   *
+   * <code>string fund_key = 7 [json_name = "fundKey"];</code>
+   * @return The fundKey.
+   */
+  java.lang.String getFundKey();
+  /**
+   * <pre>
+   * The fund's key (spec 14.7): the registry key, or &lt;institution_slug&gt;/&lt;fund_name&gt;.
+   * </pre>
+   *
+   * <code>string fund_key = 7 [json_name = "fundKey"];</code>
+   * @return The bytes for fundKey.
+   */
+  com.google.protobuf.ByteString
+      getFundKeyBytes();
 }

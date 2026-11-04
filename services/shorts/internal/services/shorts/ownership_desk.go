@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -286,8 +287,23 @@ func buildOwnershipFlows(u *ownershipUniverse, from, to string, changes []shorts
 	return out
 }
 
+// deskActivityKind clamps the movement's holder kind: "" is every kind, and any
+// other value is a holder kind of the vocabulary (case and surrounding space are
+// not significant). Anything else is refused.
+func deskActivityKind(kind string) (string, error) {
+	k := lowerTrim(kind)
+	if k == "" {
+		return "", nil
+	}
+	if !slices.Contains(holderKinds, k) {
+		return "", fmt.Errorf("kind %q is not a holder kind", kind)
+	}
+	return k, nil
+}
+
 // GetOwnershipActivity is each industry's notices by ISO week, for up to 52 weeks
-// to the newest notice, gap-filled.
+// to the newest notice, gap-filled. A kind counts only the notices of holders of
+// that kind.
 func (s *ShortsServer) GetOwnershipActivity(
 	ctx context.Context,
 	req *connect.Request[shortsv1alpha1.GetOwnershipActivityRequest],
@@ -300,13 +316,17 @@ func (s *ShortsServer) GetOwnershipActivity(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	kind, err := deskActivityKind(req.Msg.Kind)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	u, err := s.ownershipUniverse.get(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("ownership activity: %w", err))
 	}
 	anchor := deskAnchor(u.data.stats.LatestAnnounced, s.ownershipUniverse.now())
 	first := mondayOf(anchor).AddDate(0, 0, -7*(weeks-1))
-	rows, err := ds.NoticeWeeklyByIndustry(ctx, first.Format(time.DateOnly), anchor.Format(time.DateOnly))
+	rows, err := ds.NoticeWeeklyByIndustry(ctx, first.Format(time.DateOnly), anchor.Format(time.DateOnly), kind)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("ownership activity: %w", err))
 	}
@@ -613,12 +633,20 @@ func (s *ShortsServer) GetStockFundSeries(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("stock fund series: %w", err))
 	}
-	return connect.NewResponse(buildStockFundSeries(u, code, rows)), nil
+	// The fund keys come from the same book ListFunds reads, so a series names the
+	// key its fund page resolves under (spec 14.7). A store without the fund reads
+	// keeps the alias key (institution slash name), which the page also resolves, and
+	// so does a book that cannot be read: the series is served, never a 500 for it.
+	var book *fundBook
+	if fs := s.fundStore(); fs != nil {
+		book = s.cachedFundBook(ctx, fs, u.generation, u.ttlRemaining())
+	}
+	return connect.NewResponse(buildStockFundSeries(u, book, code, rows)), nil
 }
 
 // buildStockFundSeries groups the rows by fund. The rows arrive grouped and oldest
-// first, so each fund's points are one run.
-func buildStockFundSeries(u *ownershipUniverse, code string, rows []shortsstore.FundSeriesRow) *shortsv1alpha1.GetStockFundSeriesResponse {
+// first, so each fund's points are one run. A nil book names each fund by its alias.
+func buildStockFundSeries(u *ownershipUniverse, book *fundBook, code string, rows []shortsstore.FundSeriesRow) *shortsv1alpha1.GetStockFundSeriesResponse {
 	out := &shortsv1alpha1.GetStockFundSeriesResponse{StockCode: code}
 	insts := u.data.institutionBySlug()
 	var cur *shortsv1alpha1.FundSeries
@@ -630,8 +658,15 @@ func buildStockFundSeries(u *ownershipUniverse, code string, rows []shortsstore.
 			if name == "" {
 				name = r.InstitutionSlug
 			}
+			fundKey := r.InstitutionSlug + "/" + r.FundName
+			if book != nil {
+				if e, ok := book.byKey[fundKey]; ok {
+					fundKey = e.key
+				}
+			}
 			cur = &shortsv1alpha1.FundSeries{
 				InstitutionSlug: r.InstitutionSlug, InstitutionName: name, FundName: r.FundName, SourceKind: r.SourceKind,
+				FundCode: r.FundCode, FundKey: fundKey,
 			}
 			out.Funds = append(out.Funds, cur)
 			key = k

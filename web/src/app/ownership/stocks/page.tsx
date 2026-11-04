@@ -13,7 +13,7 @@ import {
 } from "~/@/components/ownership/ownership-provenance";
 import { RegistersExplorer } from "~/@/components/ownership/registers-explorer";
 import { asAtRange } from "~/@/lib/ownership/kinds";
-import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
+import { lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getOwnershipOverview } from "~/app/actions/getOwnership";
 import { loadStockRegisters } from "~/app/actions/ownershipExplorer";
@@ -156,7 +156,6 @@ export default async function RegistersPage() {
           <header className="space-y-1.5">
             <div className="flex flex-wrap items-baseline gap-x-3">
               <h1 className={pageTitle}>Registers by stock</h1>
-              <p className={eyebrow}>Ownership</p>
             </div>
             <p className={lede}>{LEDE}</p>
           </header>

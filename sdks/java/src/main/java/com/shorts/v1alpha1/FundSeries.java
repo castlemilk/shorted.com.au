@@ -33,6 +33,8 @@ private static final long serialVersionUID = 0L;
     fundName_ = "";
     sourceKind_ = "";
     points_ = java.util.Collections.emptyList();
+    fundCode_ = "";
+    fundKey_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -278,6 +280,100 @@ private static final long serialVersionUID = 0L;
     return points_.get(index);
   }
 
+  public static final int FUND_CODE_FIELD_NUMBER = 6;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object fundCode_ = "";
+  /**
+   * <pre>
+   * The fund's ASX code (ticker) when its file names one; empty for a super option.
+   * </pre>
+   *
+   * <code>string fund_code = 6 [json_name = "fundCode"];</code>
+   * @return The fundCode.
+   */
+  @java.lang.Override
+  public java.lang.String getFundCode() {
+    java.lang.Object ref = fundCode_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      fundCode_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The fund's ASX code (ticker) when its file names one; empty for a super option.
+   * </pre>
+   *
+   * <code>string fund_code = 6 [json_name = "fundCode"];</code>
+   * @return The bytes for fundCode.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getFundCodeBytes() {
+    java.lang.Object ref = fundCode_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      fundCode_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int FUND_KEY_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object fundKey_ = "";
+  /**
+   * <pre>
+   * The fund's key (spec 14.7): the registry key, or &lt;institution_slug&gt;/&lt;fund_name&gt;.
+   * </pre>
+   *
+   * <code>string fund_key = 7 [json_name = "fundKey"];</code>
+   * @return The fundKey.
+   */
+  @java.lang.Override
+  public java.lang.String getFundKey() {
+    java.lang.Object ref = fundKey_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      fundKey_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The fund's key (spec 14.7): the registry key, or &lt;institution_slug&gt;/&lt;fund_name&gt;.
+   * </pre>
+   *
+   * <code>string fund_key = 7 [json_name = "fundKey"];</code>
+   * @return The bytes for fundKey.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getFundKeyBytes() {
+    java.lang.Object ref = fundKey_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      fundKey_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -307,6 +403,12 @@ private static final long serialVersionUID = 0L;
     for (int i = 0; i < points_.size(); i++) {
       output.writeMessage(5, points_.get(i));
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundCode_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 6, fundCode_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundKey_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, fundKey_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -332,6 +434,12 @@ private static final long serialVersionUID = 0L;
           }
           size += 1 * count;
         }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundCode_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(6, fundCode_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundKey_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, fundKey_);
+    }
     return size;
   }
   @java.lang.Override
@@ -366,6 +474,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getSourceKind())) return false;
     if (!getPointsList()
         .equals(other.getPointsList())) return false;
+    if (!getFundCode()
+        .equals(other.getFundCode())) return false;
+    if (!getFundKey()
+        .equals(other.getFundKey())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -389,6 +501,10 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + POINTS_FIELD_NUMBER;
       hash = (53 * hash) + getPointsList().hashCode();
     }
+    hash = (37 * hash) + FUND_CODE_FIELD_NUMBER;
+    hash = (53 * hash) + getFundCode().hashCode();
+    hash = (37 * hash) + FUND_KEY_FIELD_NUMBER;
+    hash = (53 * hash) + getFundKey().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -531,6 +647,8 @@ private static final long serialVersionUID = 0L;
         pointsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000010);
+      fundCode_ = "";
+      fundKey_ = "";
       return this;
     }
 
@@ -588,6 +706,12 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.sourceKind_ = sourceKind_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.fundCode_ = fundCode_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.fundKey_ = fundKey_;
       }
     }
 
@@ -649,6 +773,16 @@ private static final long serialVersionUID = 0L;
           }
         }
       }
+      if (!other.getFundCode().isEmpty()) {
+        fundCode_ = other.fundCode_;
+        bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      if (!other.getFundKey().isEmpty()) {
+        fundKey_ = other.fundKey_;
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -708,6 +842,16 @@ private static final long serialVersionUID = 0L;
               }
               break;
             } // case 42
+            case 50: {
+              fundCode_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 50
+            case 58: {
+              fundKey_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1343,6 +1487,190 @@ private static final long serialVersionUID = 0L;
         points_ = null;
       }
       return pointsBuilder_;
+    }
+
+    private java.lang.Object fundCode_ = "";
+    /**
+     * <pre>
+     * The fund's ASX code (ticker) when its file names one; empty for a super option.
+     * </pre>
+     *
+     * <code>string fund_code = 6 [json_name = "fundCode"];</code>
+     * @return The fundCode.
+     */
+    public java.lang.String getFundCode() {
+      java.lang.Object ref = fundCode_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        fundCode_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The fund's ASX code (ticker) when its file names one; empty for a super option.
+     * </pre>
+     *
+     * <code>string fund_code = 6 [json_name = "fundCode"];</code>
+     * @return The bytes for fundCode.
+     */
+    public com.google.protobuf.ByteString
+        getFundCodeBytes() {
+      java.lang.Object ref = fundCode_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        fundCode_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The fund's ASX code (ticker) when its file names one; empty for a super option.
+     * </pre>
+     *
+     * <code>string fund_code = 6 [json_name = "fundCode"];</code>
+     * @param value The fundCode to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundCode(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      fundCode_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The fund's ASX code (ticker) when its file names one; empty for a super option.
+     * </pre>
+     *
+     * <code>string fund_code = 6 [json_name = "fundCode"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundCode() {
+      fundCode_ = getDefaultInstance().getFundCode();
+      bitField0_ = (bitField0_ & ~0x00000020);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The fund's ASX code (ticker) when its file names one; empty for a super option.
+     * </pre>
+     *
+     * <code>string fund_code = 6 [json_name = "fundCode"];</code>
+     * @param value The bytes for fundCode to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundCodeBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      fundCode_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object fundKey_ = "";
+    /**
+     * <pre>
+     * The fund's key (spec 14.7): the registry key, or &lt;institution_slug&gt;/&lt;fund_name&gt;.
+     * </pre>
+     *
+     * <code>string fund_key = 7 [json_name = "fundKey"];</code>
+     * @return The fundKey.
+     */
+    public java.lang.String getFundKey() {
+      java.lang.Object ref = fundKey_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        fundKey_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The fund's key (spec 14.7): the registry key, or &lt;institution_slug&gt;/&lt;fund_name&gt;.
+     * </pre>
+     *
+     * <code>string fund_key = 7 [json_name = "fundKey"];</code>
+     * @return The bytes for fundKey.
+     */
+    public com.google.protobuf.ByteString
+        getFundKeyBytes() {
+      java.lang.Object ref = fundKey_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        fundKey_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The fund's key (spec 14.7): the registry key, or &lt;institution_slug&gt;/&lt;fund_name&gt;.
+     * </pre>
+     *
+     * <code>string fund_key = 7 [json_name = "fundKey"];</code>
+     * @param value The fundKey to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundKey(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      fundKey_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The fund's key (spec 14.7): the registry key, or &lt;institution_slug&gt;/&lt;fund_name&gt;.
+     * </pre>
+     *
+     * <code>string fund_key = 7 [json_name = "fundKey"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundKey() {
+      fundKey_ = getDefaultInstance().getFundKey();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The fund's key (spec 14.7): the registry key, or &lt;institution_slug&gt;/&lt;fund_name&gt;.
+     * </pre>
+     *
+     * <code>string fund_key = 7 [json_name = "fundKey"];</code>
+     * @param value The bytes for fundKey to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundKeyBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      fundKey_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.FundSeries)

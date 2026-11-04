@@ -17,7 +17,7 @@ import {
   formLabel,
   formatPointChange,
   formatVotingPower,
-  fundLabel,
+  fundCodeAndName,
   holderHref,
   institutionHref,
   kindInfo,
@@ -94,11 +94,11 @@ describe("ownership vocabulary", () => {
   });
 
   it("names a fund with its code once", () => {
-    expect(fundLabel("VAS", "Vanguard Australian Shares Index Fund (VAS)")).toBe(
+    expect(fundCodeAndName("VAS", "Vanguard Australian Shares Index Fund (VAS)")).toBe(
       "Vanguard Australian Shares Index Fund (VAS)",
     );
-    expect(fundLabel("IOZ", "iShares Core S&P/ASX 200 ETF")).toBe("IOZ, iShares Core S&P/ASX 200 ETF");
-    expect(fundLabel("", "Balanced")).toBe("Balanced");
+    expect(fundCodeAndName("IOZ", "iShares Core S&P/ASX 200 ETF")).toBe("IOZ, iShares Core S&P/ASX 200 ETF");
+    expect(fundCodeAndName("", "Balanced")).toBe("Balanced");
   });
 
   it("links only institutions on the map", () => {

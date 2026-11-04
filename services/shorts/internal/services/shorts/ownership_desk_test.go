@@ -26,6 +26,8 @@ type deskStore struct {
 	snapshots []string
 	pairs     []shortsstore.FundPositionPair
 	series    []shortsstore.FundSeriesRow
+	// weeklyKinds is the kind each NoticeWeeklyByIndustry call was given, in order.
+	weeklyKinds []string
 }
 
 func (f *deskStore) inWindow(from, until string) []shortsstore.SubstantialNoticeRow {
@@ -85,8 +87,9 @@ func (f *deskStore) NoticeChangesByKindIndustry(_ context.Context, from, until s
 	return out, nil
 }
 
-func (f *deskStore) NoticeWeeklyByIndustry(context.Context, string, string) ([]shortsstore.IndustryWeekRow, error) {
+func (f *deskStore) NoticeWeeklyByIndustry(_ context.Context, _, _, kind string) ([]shortsstore.IndustryWeekRow, error) {
 	f.read("NoticeWeeklyByIndustry")
+	f.weeklyKinds = append(f.weeklyKinds, kind)
 	return f.weekly, nil
 }
 
@@ -447,13 +450,36 @@ func TestBuildStockFundSeriesGroupsByFund(t *testing.T) {
 		{InstitutionSlug: "vanguard", FundName: "VAS", SourceKind: "etf", AsAt: "2026-09-30", Weight: new(0.5)},
 		{InstitutionSlug: "vanguard", FundName: "VAS", SourceKind: "etf", AsAt: "2026-10-15"},
 	}
-	out := buildStockFundSeries(u, "BHP", rows)
+	out := buildStockFundSeries(u, nil, "BHP", rows)
 	require.Len(t, out.Funds, 2)
 	assert.Equal(t, "Hostplus", out.Funds[0].InstitutionName)
+	assert.Equal(t, "hostplus/Balanced", out.Funds[0].FundKey, "no book: the alias key, which the fund page resolves")
+	assert.Empty(t, out.Funds[0].FundCode, "a super option names no ticker, so the page labels it by its name")
 	require.Len(t, out.Funds[1].Points, 2)
 	assert.True(t, out.Funds[1].Points[0].HasWeight)
 	assert.False(t, out.Funds[1].Points[1].HasWeight, "a snapshot with no weight is no weight, not zero")
 	assert.Equal(t, "2026-10-15", out.Funds[1].Points[1].AsAt)
+}
+
+func TestBuildStockFundSeriesNamesTheRegistryKey(t *testing.T) {
+	u := ownershipFixtureUniverse()
+	// A registry-matched ETF is keyed as its registry row (the key its fund page resolves under),
+	// and carries its ticker; the alias key is what a fund with no registry row keeps.
+	files := []shortsstore.FundFileRow{
+		{ID: 1, InstitutionSlug: "betashares", InstitutionName: "Betashares", FundName: "Betashares Australia 200 ETF",
+			FundCode: "A200", SourceKind: "etf", AsAt: "2026-09-30"},
+	}
+	registry := []shortsstore.OwnershipFundRow{{FundKey: "asx:A200", InstitutionSlug: "betashares", ASXCode: "A200"}}
+	book := buildFundBook(files, registry)
+	rows := []shortsstore.FundSeriesRow{
+		{InstitutionSlug: "betashares", FundName: "Betashares Australia 200 ETF", FundCode: "A200", SourceKind: "etf",
+			AsAt: "2026-09-30", Weight: new(0.5)},
+	}
+	out := buildStockFundSeries(u, book, "BHP", rows)
+	require.Len(t, out.Funds, 1)
+	assert.Equal(t, "asx:A200", out.Funds[0].FundKey)
+	assert.Equal(t, "A200", out.Funds[0].FundCode)
+	assert.Equal(t, "Betashares Australia 200 ETF", out.Funds[0].FundName)
 }
 
 func TestDeskMapCachesTheDefaultWindowOnly(t *testing.T) {
@@ -491,6 +517,20 @@ func TestDeskRpcsRefuseBadInput(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 	_, err = s.GetStockFundSeries(ctx, connect.NewRequest(&shortsv1alpha1.GetStockFundSeriesRequest{StockCode: "BH-P"}))
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+}
+
+func TestGetOwnershipActivityForwardsTheClampedKind(t *testing.T) {
+	store := deskTestStore(deskNotices())
+	s, _ := deskServer(store)
+	ctx := context.Background()
+
+	_, err := s.GetOwnershipActivity(ctx, connect.NewRequest(&shortsv1alpha1.GetOwnershipActivityRequest{Kind: " Super_Fund "}))
+	require.NoError(t, err)
+	_, err = s.GetOwnershipActivity(ctx, connect.NewRequest(&shortsv1alpha1.GetOwnershipActivityRequest{}))
+	require.NoError(t, err)
+	_, err = s.GetOwnershipActivity(ctx, connect.NewRequest(&shortsv1alpha1.GetOwnershipActivityRequest{Kind: "bogus"}))
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+	assert.Equal(t, []string{"super_fund", ""}, store.weeklyKinds, "the clamped kind reaches the store; a refused kind never does")
 }
 
 func TestDeskRpcsAnswerEmptyWithoutADeskStore(t *testing.T) {

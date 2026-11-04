@@ -2147,6 +2147,82 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.UpdateEditorialTakeResponse'
+  /shorts.v1alpha1.OwnershipService/CompareFundSnapshots:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: CompareFundSnapshots
+      description: |-
+        Two files of one fund compared holding by holding: the weight change in
+         percentage points, and the holdings new or dropped between them.
+      operationId: OwnershipService_CompareFundSnapshots
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.CompareFundSnapshotsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.CompareFundSnapshotsResponse'
+  /shorts.v1alpha1.OwnershipService/GetFundPortfolio:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: GetFundPortfolio
+      description: |-
+        One fund's holdings at one file date: the file dates it has, each holding's
+         weight, units and value, and its share of the company's shares on issue.
+      operationId: OwnershipService_GetFundPortfolio
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetFundPortfolioRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetFundPortfolioResponse'
   /shorts.v1alpha1.OwnershipService/GetInstitution:
     post:
       tags:
@@ -2450,6 +2526,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.ListFundPositionChangesResponse'
+  /shorts.v1alpha1.OwnershipService/ListFunds:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: ListFunds
+      description: |-
+        Every tracked fund (index funds and super fund options) at its newest file,
+         with its sector weights and ten largest holdings.
+      operationId: OwnershipService_ListFunds
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListFundsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListFundsResponse'
   /shorts.v1alpha1.OwnershipService/ListInstitutions:
     post:
       tags:
@@ -4900,6 +5014,63 @@ components:
         One income year of ATO corporate-tax transparency data for an entity.
          has_taxable_income / has_tax_payable distinguish a genuine zero from
          "not reported" (the ATO leaves these blank; blank is meaningful, not zero).
+    shorts.v1alpha1.CompareFundSnapshotsRequest:
+      type: object
+      properties:
+        fundKey:
+          type: string
+          title: fund_key
+          description: (proto string)
+        from:
+          type: string
+          title: from
+          description: |-
+            YYYY-MM-DD. Each side is the fund's newest file at or before the date. An
+             empty to is the newest file; an empty from is the file before to. A from
+             after an explicit to is InvalidArgument. When both sides resolve to the same
+             file there is nothing to compare: the response names that file on both sides
+             and carries no rows. (proto string)
+        to:
+          type: string
+          title: to
+          description: (proto string)
+      title: CompareFundSnapshotsRequest
+      additionalProperties: false
+    shorts.v1alpha1.CompareFundSnapshotsResponse:
+      type: object
+      properties:
+        from:
+          type: string
+          title: from
+          description: The file dates used. (proto string)
+        to:
+          type: string
+          title: to
+          description: (proto string)
+        sourceFrom:
+          type: string
+          title: source_from
+          description: (proto string)
+        sourceTo:
+          type: string
+          title: source_to
+          description: (proto string)
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundSnapshotChange'
+          title: rows
+          description: |-
+            Continuing holdings by |delta| (largest first), then new, then dropped, each
+             by weight. (proto shorts.v1alpha1.FundSnapshotChange)
+        snapshotDates:
+          type: array
+          items:
+            type: string
+          title: snapshot_dates
+          description: (proto string)
+      title: CompareFundSnapshotsResponse
+      additionalProperties: false
     shorts.v1alpha1.ComparePoliticiansRequest:
       type: object
       properties:
@@ -6709,6 +6880,79 @@ components:
           description: (proto bool)
       title: FundPoint
       additionalProperties: false
+    shorts.v1alpha1.FundPortfolioHolding:
+      type: object
+      properties:
+        code:
+          type: string
+          title: code
+          description: (proto string)
+        name:
+          type: string
+          title: name
+          description: (proto string)
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        weightPct:
+          type: number
+          title: weight_pct
+          format: double
+          description: (proto double)
+        hasWeightPct:
+          type: boolean
+          title: has_weight_pct
+          description: (proto bool)
+        units:
+          type: number
+          title: units
+          format: double
+          description: (proto double)
+        hasUnits:
+          type: boolean
+          title: has_units
+          description: (proto bool)
+        valueAud:
+          type: number
+          title: value_aud
+          format: double
+          description: (proto double)
+        hasValueAud:
+          type: boolean
+          title: has_value_aud
+          description: (proto bool)
+        sharesOnIssue:
+          type: number
+          title: shares_on_issue
+          format: double
+          description: (proto double)
+        hasSharesOnIssue:
+          type: boolean
+          title: has_shares_on_issue
+          description: (proto bool)
+        estCompanyPct:
+          type: number
+          title: est_company_pct
+          format: double
+          description: (proto double)
+        hasEstCompanyPct:
+          type: boolean
+          title: has_est_company_pct
+          description: (proto bool)
+        sharesOnIssueAsAt:
+          type: string
+          title: shares_on_issue_as_at
+          description: |-
+            The date of the ASIC report the shares on issue come from, YYYY-MM-DD: the
+             newest on or before the file date, and no older than 30 days before it.
+             "" when there is no shares figure. (proto string)
+      title: FundPortfolioHolding
+      additionalProperties: false
+      description: |-
+        One holding in one fund's file. The shares on issue are ASIC's, from the report
+         named by shares_on_issue_as_at (not necessarily the file date); est_company_pct
+         is units over those shares, in percent, only when both are known.
     shorts.v1alpha1.FundPositionChange:
       type: object
       properties:
@@ -6782,6 +7026,27 @@ components:
          sums the funds on the one date it has and has no delta. A stock held on both
          dates only by different funds (one on each date) compares no fund with itself,
          so it is in no list.
+    shorts.v1alpha1.FundSectorWeight:
+      type: object
+      properties:
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        weightPct:
+          type: number
+          title: weight_pct
+          format: double
+          description: (proto double)
+        hasWeightPct:
+          type: boolean
+          title: has_weight_pct
+          description: (proto bool)
+      title: FundSectorWeight
+      additionalProperties: false
+      description: |-
+        One sector's share of a fund's holdings. The industry is company-metadata's,
+         with a placeholder industry read as "Other".
     shorts.v1alpha1.FundSeries:
       type: object
       properties:
@@ -6807,8 +7072,193 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.FundPoint'
           title: points
           description: Oldest first, one a snapshot. (proto shorts.v1alpha1.FundPoint)
+        fundCode:
+          type: string
+          title: fund_code
+          description: The fund's ASX code (ticker) when its file names one; empty for a super option. (proto string)
+        fundKey:
+          type: string
+          title: fund_key
+          description: 'The fund''s key (spec 14.7): the registry key, or <institution_slug>/<fund_name>. (proto string)'
       title: FundSeries
       additionalProperties: false
+    shorts.v1alpha1.FundSnapshotChange:
+      type: object
+      properties:
+        code:
+          type: string
+          title: code
+          description: (proto string)
+        name:
+          type: string
+          title: name
+          description: (proto string)
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        weightFromPct:
+          type: number
+          title: weight_from_pct
+          format: double
+          description: (proto double)
+        hasWeightFromPct:
+          type: boolean
+          title: has_weight_from_pct
+          description: (proto bool)
+        weightToPct:
+          type: number
+          title: weight_to_pct
+          format: double
+          description: (proto double)
+        hasWeightToPct:
+          type: boolean
+          title: has_weight_to_pct
+          description: (proto bool)
+        deltaPp:
+          type: number
+          title: delta_pp
+          format: double
+          description: (proto double)
+        hasDeltaPp:
+          type: boolean
+          title: has_delta_pp
+          description: (proto bool)
+        valueFromAud:
+          type: number
+          title: value_from_aud
+          format: double
+          description: (proto double)
+        hasValueFromAud:
+          type: boolean
+          title: has_value_from_aud
+          description: (proto bool)
+        valueToAud:
+          type: number
+          title: value_to_aud
+          format: double
+          description: (proto double)
+        hasValueToAud:
+          type: boolean
+          title: has_value_to_aud
+          description: (proto bool)
+        status:
+          type: string
+          title: status
+          description: (proto string)
+      title: FundSnapshotChange
+      additionalProperties: false
+      description: |-
+        One holding across two files of one fund. continuing is held on both,
+         new only on the later file, dropped only on the earlier one.
+    shorts.v1alpha1.FundSummary:
+      type: object
+      properties:
+        fundKey:
+          type: string
+          title: fund_key
+          description: |-
+            The registry key (abn:<ABN> or asx:<CODE>) when the file has a registry row,
+             else "<institution_slug>/<fund_name>". (proto string)
+        ticker:
+          type: string
+          title: ticker
+          description: (proto string)
+        name:
+          type: string
+          title: name
+          description: (proto string)
+        institutionSlug:
+          type: string
+          title: institution_slug
+          description: (proto string)
+        institutionName:
+          type: string
+          title: institution_name
+          description: (proto string)
+        sourceKind:
+          type: string
+          title: source_kind
+          description: etf or super_phd. (proto string)
+        pooled:
+          type: boolean
+          title: pooled
+          description: |-
+            Vanguard's ETF files hold the pooled wholesale fund behind each ETF, not the
+             ETF alone. (proto bool)
+        asAt:
+          type: string
+          title: as_at
+          description: The file date the figures are read from, YYYY-MM-DD. (proto string)
+        sourceUrl:
+          type: string
+          title: source_url
+          description: (proto string)
+        holdings:
+          type: integer
+          title: holdings
+          format: int32
+          description: |-
+            Equity holdings stored for the file: the lines matched to an ASX code, not
+             every line of the vendor's file. (proto int32)
+        top10Pct:
+          type: number
+          title: top10_pct
+          format: double
+          description: |-
+            The weights of the ten largest holdings, summed. Known only when every one
+             of them states a weight: a partial sum is withheld. (proto double)
+        hasTop10Pct:
+          type: boolean
+          title: has_top10_pct
+          description: (proto bool)
+        sectorWeights:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundSectorWeight'
+          title: sector_weights
+          description: (proto shorts.v1alpha1.FundSectorWeight)
+        largest:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundTopHolding'
+          title: largest
+          description: (proto shorts.v1alpha1.FundTopHolding)
+        aumAud:
+          type: number
+          title: aum_aud
+          format: double
+          description: (proto double)
+        hasAumAud:
+          type: boolean
+          title: has_aum_aud
+          description: (proto bool)
+      title: FundSummary
+      additionalProperties: false
+      description: A tracked fund at one file date.
+    shorts.v1alpha1.FundTopHolding:
+      type: object
+      properties:
+        code:
+          type: string
+          title: code
+          description: (proto string)
+        name:
+          type: string
+          title: name
+          description: (proto string)
+        weightPct:
+          type: number
+          title: weight_pct
+          format: double
+          description: (proto double)
+        hasWeightPct:
+          type: boolean
+          title: has_weight_pct
+          description: (proto bool)
+      title: FundTopHolding
+      additionalProperties: false
+      description: One of a fund's ten largest holdings, by weight.
     shorts.v1alpha1.FundamentalsCoverage:
       type: object
       properties:
@@ -7930,6 +8380,94 @@ components:
       title: GetEventTimelineResponse
       additionalProperties: false
       description: Response for GetEventTimeline RPC
+    shorts.v1alpha1.GetFundPortfolioRequest:
+      type: object
+      properties:
+        fundKey:
+          type: string
+          title: fund_key
+          description: A fund_key from ListFunds, or "<institution_slug>/<fund_name>". (proto string)
+        asAt:
+          type: string
+          title: as_at
+          description: YYYY-MM-DD. The newest file at or before it; empty is the newest file. (proto string)
+      title: GetFundPortfolioRequest
+      additionalProperties: false
+    shorts.v1alpha1.GetFundPortfolioResponse:
+      type: object
+      properties:
+        fundKey:
+          type: string
+          title: fund_key
+          description: (proto string)
+        ticker:
+          type: string
+          title: ticker
+          description: (proto string)
+        name:
+          type: string
+          title: name
+          description: (proto string)
+        institutionSlug:
+          type: string
+          title: institution_slug
+          description: (proto string)
+        institutionName:
+          type: string
+          title: institution_name
+          description: (proto string)
+        sourceKind:
+          type: string
+          title: source_kind
+          description: (proto string)
+        pooled:
+          type: boolean
+          title: pooled
+          description: (proto bool)
+        asAt:
+          type: string
+          title: as_at
+          description: The file the holdings are read from. (proto string)
+        sourceUrl:
+          type: string
+          title: source_url
+          description: (proto string)
+        snapshotDates:
+          type: array
+          items:
+            type: string
+          title: snapshot_dates
+          description: Every file date this fund has, oldest first. (proto string)
+        holdings:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundPortfolioHolding'
+          title: holdings
+          description: Ordered by weight, largest first. (proto shorts.v1alpha1.FundPortfolioHolding)
+        holdingsTotal:
+          type: integer
+          title: holdings_total
+          format: int32
+          description: The equity holdings stored for the file (the lines matched to an ASX code). (proto int32)
+        top10Pct:
+          type: number
+          title: top10_pct
+          format: double
+          description: |-
+            The ten largest weights, summed; known only when every one of them states a
+             weight. (proto double)
+        hasTop10Pct:
+          type: boolean
+          title: has_top10_pct
+          description: (proto bool)
+        sectorWeights:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundSectorWeight'
+          title: sector_weights
+          description: (proto shorts.v1alpha1.FundSectorWeight)
+      title: GetFundPortfolioResponse
+      additionalProperties: false
     shorts.v1alpha1.GetHousePriceSeriesRequest:
       type: object
       properties:
@@ -8385,6 +8923,12 @@ components:
           title: weeks
           format: int32
           description: 1 to 52 weeks; 0 means 52. Negative is InvalidArgument. (proto int32)
+        kind:
+          type: string
+          title: kind
+          description: |-
+            A holder kind (super_fund, index_manager, ...), or "" for every kind. A kind
+             outside the vocabulary is InvalidArgument. (proto string)
       title: GetOwnershipActivityRequest
       additionalProperties: false
     shorts.v1alpha1.GetOwnershipActivityResponse:
@@ -11753,6 +12297,21 @@ components:
           title: rows
           description: Rises (largest first), then falls (largest first), then new, then dropped. (proto shorts.v1alpha1.FundPositionChange)
       title: ListFundPositionChangesResponse
+      additionalProperties: false
+    shorts.v1alpha1.ListFundsRequest:
+      type: object
+      title: ListFundsRequest
+      additionalProperties: false
+    shorts.v1alpha1.ListFundsResponse:
+      type: object
+      properties:
+        funds:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundSummary'
+          title: funds
+          description: (proto shorts.v1alpha1.FundSummary)
+      title: ListFundsResponse
       additionalProperties: false
     shorts.v1alpha1.ListHousingRegionsRequest:
       type: object

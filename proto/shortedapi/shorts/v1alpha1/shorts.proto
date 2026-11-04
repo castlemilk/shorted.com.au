@@ -1074,6 +1074,35 @@ service ShortedStocksService {
     };
   }
 
+  // The fund list: every tracked index fund and super fund option at its newest
+  // file, with its sector weights and ten largest holdings.
+  rpc ListFunds (ListFundsRequest) returns (ListFundsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Funds",
+      description: "Every tracked index fund and super fund option at its newest holdings file: its sector weights, its ten largest holdings and the file date. A weight is the fund's own, not a share of the company."
+    };
+  }
+
+  // One fund's holdings at one file date, with each holding's share of the
+  // company's shares on issue as at the file date.
+  rpc GetFundPortfolio (GetFundPortfolioRequest) returns (GetFundPortfolioResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Fund Portfolio",
+      description: "One tracked fund's holdings at a file date, by weight: the fund's weight, reported units and value, and the units as a share of the company's shares on issue at the file date when both are known."
+    };
+  }
+
+  // Two files of one fund compared holding by holding.
+  rpc CompareFundSnapshots (CompareFundSnapshotsRequest) returns (CompareFundSnapshotsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Compare Fund Snapshots",
+      description: "Two holdings files of one tracked fund compared: each holding's weight in each file, the change in percentage points, and the holdings new or dropped between them. Weight changes can reflect price moves; they are not a trade record."
+    };
+  }
+
   // ==================== Registers of Interests ====================
   // Mirrored from PoliticiansService for external API back-compat. The parity
   // test walks the proto registry and fails if a domain rpc is missing here, or

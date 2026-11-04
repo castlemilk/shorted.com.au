@@ -25,12 +25,29 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import type { DeskRangeInput, OwnershipFlowsPage } from "~/app/actions/ownershipDesk";
-import { OwnershipFlowsView, type FlowMode } from "./ownership-flows-static";
+import { SourceControl } from "./source-control";
+import { ViewDisclosure } from "../workspace/view-disclosure";
+import { TOOLBAR_ROW_CLASS, ToolbarSelect, type ToolbarFold } from "../workspace/toolbar";
+import { writeWindowInPlace } from "../workspace/window-select";
+import {
+  OwnershipFlowsView,
+  drillPage,
+  largestConnections,
+  measurePage,
+  type DrillPatch,
+  type FlowMeasure,
+  type FlowMode,
+  type LargestChoice,
+} from "./ownership-flows-static";
+import { kindInfo } from "~/@/lib/ownership/kinds";
 import {
   DESK_DEFAULT_WINDOW_STATE,
   readNoticeWindow,
   type NoticeWindow,
 } from "./window-chips";
+
+/** The island's phone fold of the toolbar (spec 14.9): the client disclosure around the row. */
+const flowsToolbarFold: ToolbarFold = (row) => <ViewDisclosure>{row}</ViewDisclosure>;
 
 export interface OwnershipFlowsProps {
   /** The default view the server rendered: the newest notice window, positions and changes. */
@@ -39,6 +56,11 @@ export interface OwnershipFlowsProps {
   loadFlows: (input: DeskRangeInput) => Promise<OwnershipFlowsPage>;
   /** The path the window chips link to. */
   basePath: string;
+  /**
+   * `full` is the Connections page: Measure, Largest and Reset are
+   * drawn above the drawings. `compact` is the Overview's pane, drawn as it is.
+   */
+  variant?: "compact" | "full";
 }
 
 /** The window as one string, the key a request and a shown view are compared by. */
@@ -69,14 +91,41 @@ interface Shown {
   page: OwnershipFlowsPage;
 }
 
-function LiveOwnershipFlows({ initial, loadFlows, basePath }: OwnershipFlowsProps) {
+/** One crumb of the drilldown: its label, and the drill it returns to when pressed. */
+export interface DrillCrumb {
+  label: string;
+  patch: DrillPatch;
+}
+
+/**
+ * The breadcrumb of a drilldown (spec 14.3): "All holders / Index managers / Materials".
+ * Empty when nothing is drilled, so the drawing's first render has no crumb row.
+ */
+export function drillCrumbs(drill: DrillPatch): DrillCrumb[] {
+  const kind = drill.kind ?? "";
+  const sector = drill.sector ?? "";
+  if (kind === "" && sector === "") return [];
+  const crumbs: DrillCrumb[] = [{ label: "All holders", patch: {} }];
+  if (kind !== "") crumbs.push({ label: kindInfo(kind).plural, patch: { kind } });
+  if (sector !== "") crumbs.push({ label: sector, patch: { kind, sector } });
+  return crumbs;
+}
+
+function LiveOwnershipFlows({ initial, loadFlows, basePath, variant }: OwnershipFlowsProps) {
   const searchParams = useSearchParams();
   const search = searchParams?.toString() ?? "";
   const params = useMemo(() => new URLSearchParams(search), [search]);
   const state = useMemo(() => readNoticeWindow(params), [params]);
   const key = keyOf(state);
 
-  const [mode, setMode] = useState<FlowMode>("positions");
+  // The Positions | Change view is a link parameter (`view=changes`), so the inspector reads the window's notices for it.
+  const mode: FlowMode = params.get("view") === "changes" ? "changes" : "positions";
+  const [measure, setMeasure] = useState<FlowMeasure>("exposure");
+  const [largest, setLargest] = useState<LargestChoice>("all");
+  // The drilldown (spec 14.3, Connections): a holder kind, a sector, or both narrow the drawing to their bands.
+  const [drill, setDrill] = useState<DrillPatch>({});
+  // The folded tail of the sankey (spec 14.9): six sectors and "Other sectors" until Expand Other + opens it.
+  const [tailOpen, setTailOpen] = useState(false);
   const [shown, setShown] = useState<Shown>({ state: DESK_DEFAULT_WINDOW_STATE, page: initial });
   const [busy, setBusy] = useState(false);
   // The key of the window on the screen, the key being loaded, and the sequence of the newest request.
@@ -107,16 +156,100 @@ function LiveOwnershipFlows({ initial, loadFlows, basePath }: OwnershipFlowsProp
     loadFlows(inputFromKey(key)).then(settle, () => settle(OUTAGE_PAGE));
   }, [key, state, loadFlows]);
 
+  const reset = () => {
+    setMeasure("exposure");
+    setLargest("all");
+    setDrill({});
+    setTailOpen(false);
+  };
+  // A band selects in place: the link's sel is written with replaceState, which useSearchParams
+  // observes, so the inspector follows with no request (the map and the heatmap write the same way).
+  const onModeChange = (next: FlowMode) => {
+    const writer = new URLSearchParams(window.location.search);
+    if (next === "changes") writer.set("view", "changes");
+    else writer.delete("view");
+    const url = new URL(window.location.href);
+    url.search = writer.toString();
+    window.history.replaceState(null, "", url);
+  };
+  const onSelect = (sel: string) => {
+    const writer = new URLSearchParams(window.location.search);
+    writer.set("sel", sel);
+    const url = new URL(window.location.href);
+    url.search = writer.toString();
+    window.history.replaceState(null, "", url);
+  };
+  const crumbs = drillCrumbs(drill);
+  // The Connections page's controls: the measure of each band, how many bands are drawn, and the reset.
+  const controls =
+    variant === "full" ? (
+      <>
+        <SourceControl />
+        <ToolbarSelect label="Measure" value={measure} onChange={(value) => setMeasure(value === "count" ? "count" : "exposure")}>
+          <option value="exposure">Exposure</option>
+          <option value="count">Interests</option>
+        </ToolbarSelect>
+        <ToolbarSelect label="Largest" value={largest} onChange={(value) => setLargest(value as LargestChoice)}>
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="all">All</option>
+        </ToolbarSelect>
+        <button type="button" onClick={reset} className="text-xs text-primary underline-offset-4 hover:underline">
+          Reset
+        </button>
+      </>
+    ) : undefined;
   return (
-    <OwnershipFlowsView
-      page={shown.page}
-      mode={mode}
-      state={shown.state}
-      basePath={basePath}
-      params={params}
-      onModeChange={setMode}
-      busy={busy}
-    />
+    <>
+      {crumbs.length === 0 ? null : (
+        <nav aria-label="Drilldown" className="mb-3 text-[11px] text-muted-foreground">
+          <ol className="flex flex-wrap items-center gap-1">
+            {crumbs.map((crumb, index) => {
+              const last = index === crumbs.length - 1;
+              return (
+                <li key={crumb.label} className="flex items-center gap-1">
+                  {index > 0 ? <span aria-hidden="true">{">"}</span> : null}
+                  {last ? (
+                    <span aria-current="location" className="text-foreground">
+                      {crumb.label}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setDrill(crumb.patch)}
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      {crumb.label}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+      )}
+      <OwnershipFlowsView
+      toolbarFold={flowsToolbarFold}
+        onWindowChange={writeWindowInPlace}
+        page={largestConnections(measurePage(drillPage(shown.page, drill), measure), largest)}
+        mode={mode}
+        state={shown.state}
+        basePath={basePath}
+        params={params}
+        onModeChange={onModeChange}
+        busy={busy}
+        controls={controls}
+        measure={measure}
+        onSelect={onSelect}
+        expandOther={tailOpen}
+        onExpandOther={() => setTailOpen(true)}
+        onFoldOther={() => setTailOpen(false)}
+        tailToggle={variant === "full"}
+        windowControl={variant !== "compact"}
+        // The drilldown is the Connections page's; the Overview's pane keeps its links to the directories.
+        onDrill={variant === "full" ? (patch) => setDrill((current) => ({ ...current, ...patch })) : undefined}
+      />
+    </>
   );
 }
 
@@ -134,6 +267,9 @@ export function OwnershipFlows(props: OwnershipFlowsProps) {
           state={DESK_DEFAULT_WINDOW_STATE}
           basePath={props.basePath}
           params={new URLSearchParams()}
+          windowControl={props.variant !== "compact"}
+          // The full page's controls row is reserved, so the island mounting does not shift the drawing.
+          controls={props.variant === "full" ? <div aria-hidden="true" className={TOOLBAR_ROW_CLASS} /> : undefined}
         />
       }
     >

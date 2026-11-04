@@ -21,10 +21,18 @@ describe("formatLensFigure", () => {
 });
 
 describe("LensLegend", () => {
-  it("runs a diverging lens from its fall to its rise, both ends printed", () => {
+  it("draws five stepped bins with round thresholds, the top one reading and above", () => {
     render(<LensLegend lens="flow" scale={lensScale("flow", [-2, 1])} />);
-    expect(screen.getByRole("img", { name: "Net change in disclosed voting power, pp, from −2.00 pp to +2.00 pp" })).toBeInTheDocument();
-    expect(screen.getByText("−2.00 pp")).toBeInTheDocument();
+    const legend = screen.getByRole("img", { name: /Net change in disclosed voting power, pp, five steps/ });
+    expect(legend.querySelectorAll("span[aria-hidden='true'].block.h-2\\.5")).toHaveLength(5);
+    expect(screen.getByText("−2.00 pp and below")).toBeInTheDocument();
+    expect(screen.getByText("+2.00 pp and above")).toBeInTheDocument();
+  });
+
+  it("prints a sequential lens's five thresholds from zero", () => {
+    render(<LensLegend lens="disclosed" scale={lensScale("disclosed", [10])} />);
+    expect(screen.getByText("0.00%")).toBeInTheDocument();
+    expect(screen.getByText("8.00% and above")).toBeInTheDocument();
   });
 });
 

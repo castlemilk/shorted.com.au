@@ -71,11 +71,10 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-/** The holder select, by the end of its id: the island's ids are generated, so the suffix is the name. */
-function select(name: string): HTMLSelectElement {
-  const el = document.querySelector<HTMLSelectElement>(`select[id$="-${name}"]`);
-  if (!el) throw new Error(`no select ${name}`);
-  return el;
+/** The toolbar's select by its visible label (spec 14.9: one row of labelled selects). */
+const SELECT_LABELS = { window: "Window", event: "Event", kind: "Kind", holder: "Holder" } as const;
+function select(name: keyof typeof SELECT_LABELS): HTMLSelectElement {
+  return screen.getByRole("combobox", { name: SELECT_LABELS[name] }) as HTMLSelectElement;
 }
 
 function group(label: string): HTMLElement {
@@ -175,7 +174,7 @@ describe("notice feed explorer", () => {
     await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(1));
     expect(loadPage.mock.calls[0]![0]).toMatchObject({ event: "ceased", stockCode: "BHP", windowDays: 30, cursor: "" });
     expect(await within(feedTable()).findByText("Ceased")).toBeInTheDocument();
-    expect(within(group("Event")).getByRole("link", { name: "Ceased" })).toHaveAttribute("aria-current", "true");
+    expect(select("event")).toHaveValue("ceased");
     expect(screen.getByLabelText("Stock")).toHaveValue("BHP");
     expect(loadPage).toHaveBeenCalledTimes(1);
   });
@@ -273,7 +272,8 @@ describe("notice feed explorer", () => {
     );
     moveTo("window=all");
     expect(await screen.findByText("No notices read match these filters.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "All notices read" })).toHaveAttribute("aria-current", "true");
+    expect(select("window")).toHaveValue("0");
+    expect(within(select("window")).getByRole("option", { name: "All notices" })).toBeInTheDocument();
     expect(loadPage).toHaveBeenCalledWith(expect.objectContaining({ windowDays: 0 }));
   });
 
@@ -384,26 +384,28 @@ describe("notice feed explorer", () => {
     expect(names).toEqual(["Any holder", "Alpha Super", "Zeta Fund"]);
   });
 
-  it("draws the window, event and kind filters as links that keep the other filters", () => {
+  it("draws the window, event and kind as selects that keep the other filters when they change", () => {
     jest.useFakeTimers();
     mockSearchParams = new URLSearchParams("stock=BHP");
     loadPage.mockReturnValue(new Promise(() => undefined));
     renderFeed();
-    expect(within(group("Window")).getByRole("link", { name: "Last 7 days" })).toHaveAttribute(
-      "href",
-      `${BASE}?window=7&stock=BHP`,
-    );
-    const thirty = within(group("Window")).getByRole("link", { name: "Last 30 days" });
-    expect(thirty).toHaveAttribute("href", `${BASE}?stock=BHP`);
-    expect(thirty).toHaveAttribute("aria-current", "true");
-    expect(within(group("Event")).getByRole("link", { name: "Ceased" })).toHaveAttribute(
-      "href",
-      `${BASE}?event=ceased&stock=BHP`,
-    );
-    expect(within(group("Event")).getByRole("link", { name: "Any event" })).toHaveAttribute("aria-current", "true");
-    const kind = within(group("Kind")).getByRole("link", { name: "Super fund" });
-    expect(kind).toHaveAttribute("href", `${BASE}?kind=super_fund&stock=BHP`);
-    expect(kind).toHaveAttribute("rel", "nofollow");
+    expect(select("window")).toHaveValue("30");
+    expect(Array.from(select("window").options).map((option) => option.textContent)).toEqual([
+      "7 days",
+      "30 days",
+      "90 days",
+      "365 days",
+      "All notices",
+    ]);
+    expect(select("event")).toHaveValue("");
+    expect(within(select("event")).getByRole("option", { name: "Any event" })).toBeInTheDocument();
+    expect(within(select("kind")).getByRole("option", { name: "Super funds" })).toBeInTheDocument();
+    fireEvent.change(select("window"), { target: { value: "7" } });
+    expect(loadPage).toHaveBeenLastCalledWith(expect.objectContaining({ windowDays: 7, stockCode: "BHP", cursor: "" }));
+    fireEvent.change(select("event"), { target: { value: "ceased" } });
+    expect(loadPage).toHaveBeenLastCalledWith(expect.objectContaining({ event: "ceased", stockCode: "BHP", windowDays: 7 }));
+    fireEvent.change(select("kind"), { target: { value: "super_fund" } });
+    expect(loadPage).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "super_fund", event: "ceased", stockCode: "BHP" }));
   });
 
   it("draws no weekly counts for a window wider than the activity serves", async () => {
@@ -486,16 +488,18 @@ describe("notice feed explorer", () => {
     );
   });
 
-  it("hides the window chips while a date range is set, and shows the range as a chip that clears it", () => {
+  it("shows a date range as the window's selected option, and a window choice clears the range", () => {
     jest.useFakeTimers();
     mockSearchParams = new URLSearchParams("since=2026-08-01&until=2026-10-31");
     loadPage.mockReturnValue(new Promise(() => undefined));
     renderFeed(feedPage({ query: { ...defaultNoticeQuery(), windowDays: 0, since: "2026-08-01", until: "2026-10-31" } }));
-    expect(within(group("Window")).queryByRole("link", { name: "Last 7 days" })).toBeNull();
-    const dates = within(group("Window")).getByRole("link", { name: "2026-08-01 to 2026-10-31, clear dates" });
-    expect(dates).toHaveTextContent("2026-08-01 to 2026-10-31");
-    expect(dates).not.toHaveAttribute("aria-current");
-    expect(dates).toHaveAttribute("href", BASE);
+    expect(select("window")).toHaveValue("dates");
+    expect(within(select("window")).getByRole("option", { name: "Date range" })).toBeInTheDocument();
+    expect(screen.getByText("Dates: 2026-08-01 to 2026-10-31")).toBeInTheDocument();
+    fireEvent.change(select("window"), { target: { value: "90" } });
+    expect(loadPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ windowDays: 90, since: "", until: "" }),
+    );
   });
 
   it("names a range with one side alone as from or until", () => {
@@ -503,19 +507,17 @@ describe("notice feed explorer", () => {
     mockSearchParams = new URLSearchParams("since=2026-08-01");
     loadPage.mockReturnValue(new Promise(() => undefined));
     renderFeed(feedPage({ query: { ...defaultNoticeQuery(), windowDays: 0, since: "2026-08-01" } }));
-    expect(within(group("Window")).getByRole("link", { name: /^From 2026-08-01, clear dates$/ })).toBeInTheDocument();
+    expect(within(select("window")).getByRole("option", { name: "Date range" })).toBeInTheDocument();
+    expect(screen.getByText("Dates: From 2026-08-01")).toBeInTheDocument();
   });
 
-  it("keeps the window chips beside an industry chip, which clears only the industry and keeps the stock", () => {
+  it("keeps the window beside an industry filter, which clears only the industry and keeps the stock", () => {
     jest.useFakeTimers();
     mockSearchParams = new URLSearchParams("industry=Energy&stock=BHP");
     loadPage.mockReturnValue(new Promise(() => undefined));
     renderFeed(feedPage({ query: { ...defaultNoticeQuery(), industry: "Energy", stockCode: "BHP" } }));
-    expect(within(group("Window")).getByRole("link", { name: "Last 7 days" })).toHaveAttribute(
-      "href",
-      `${BASE}?window=7&stock=BHP&industry=Energy`,
-    );
-    const industry = within(group("Filters")).getByRole("link", { name: "Industry: Energy, clear filter" });
+    expect(select("window")).toHaveValue("30");
+    const industry = within(group("Filtered by")).getByRole("link", { name: "Industry: Energy, clear filter" });
     expect(industry).toHaveAttribute("href", `${BASE}?stock=BHP`);
     expect(industry).not.toHaveAttribute("aria-current");
   });
@@ -673,5 +675,39 @@ describe("notice feed explorer", () => {
     expect(within(table).getByText("5.12%")).toBeInTheDocument();
     expect(loadPage).toHaveBeenCalledWith(expect.objectContaining({ windowDays: 30, cursor: "" }));
     expect(table.closest("[aria-busy]")).toHaveAttribute("aria-busy", "false");
+  });
+});
+
+describe("the feed's toolbar (spec 14.9)", () => {
+  it("draws the window, event, kind, holder and stock as one labelled row, with no uppercase label", () => {
+    renderFeed();
+    const rows = document.querySelectorAll("[data-toolbar]");
+    expect(rows).toHaveLength(1);
+    const row = within(rows[0] as HTMLElement);
+    for (const name of ["Window", "Event", "Kind", "Holder"]) {
+      expect(row.getByRole("combobox", { name })).toBeInTheDocument();
+    }
+    expect(row.getByLabelText("Stock")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Window" })).toBeNull();
+    expect(screen.getByText("Window", { selector: "span" })).not.toHaveClass("uppercase");
+  });
+
+  it("names the kinds in short form and caps the kind and holder selects, so the row fits one line at 1440", () => {
+    // The row's width is an estimate (IBM Plex Mono 12px, 7.2 px a character, against the 1016 px column):
+    // the widest kind name is 15 characters ("Active managers"), and the holder and kind selects carry the 9rem cap.
+    renderFeed();
+    const row = within(document.querySelector("[data-toolbar]") as HTMLElement);
+    const kind = row.getByRole("combobox", { name: "Kind" }) as HTMLSelectElement;
+    for (const option of Array.from(kind.options)) expect(option.textContent!.length).toBeLessThanOrEqual(15);
+    expect(kind.className).toContain("max-w-[9rem]");
+    expect(row.getByRole("combobox", { name: "Holder" }).className).toContain("max-w-[9rem]");
+    expect(row.getByLabelText("Stock").className).toContain("w-20");
+  });
+
+  it("writes a date range as a caption, the window select saying only 'Date range'", () => {
+    mockSearchParams = new URLSearchParams("since=2026-08-01&until=2026-10-31");
+    renderFeed(feedPage({ query: { ...defaultNoticeQuery(), since: "2026-08-01", until: "2026-10-31" } }));
+    expect(select("window").options[0]).toHaveTextContent("Date range");
+    expect(screen.getByText("Dates: 2026-08-01 to 2026-10-31")).toBeInTheDocument();
   });
 });

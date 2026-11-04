@@ -438,7 +438,7 @@ func TestOwnershipDeskAgainstPostgres(t *testing.T) {
 		dates, err := s.FundSnapshotDates(ctx)
 		require.NoError(t, err)
 		assert.Empty(t, dates)
-		weeks, err := s.NoticeWeeklyByIndustry(ctx, "2026-07-13", "2026-10-16")
+		weeks, err := s.NoticeWeeklyByIndustry(ctx, "2026-07-13", "2026-10-16", "")
 		require.NoError(t, err)
 		assert.Empty(t, weeks)
 	})
@@ -496,7 +496,7 @@ func TestOwnershipDeskAgainstPostgres(t *testing.T) {
 	})
 
 	t.Run("each industry's notices by week, with the net change they state", func(t *testing.T) {
-		weeks, err := s.NoticeWeeklyByIndustry(ctx, from, until)
+		weeks, err := s.NoticeWeeklyByIndustry(ctx, from, until, "")
 		require.NoError(t, err)
 		byKey := map[string]IndustryWeekRow{}
 		for _, w := range weeks {
@@ -576,6 +576,108 @@ func TestOwnershipDeskAgainstPostgres(t *testing.T) {
 		assert.Equal(t, "super_phd", series[1].SourceKind)
 		require.NotNil(t, series[1].Weight)
 		assert.InDelta(t, 0.7, *series[1].Weight, 1e-9)
+	})
+
+	// The explorer's reads over the same fixture. ASIC's shares on issue come from
+	// the shorts table, so these rows are added here, after every desk assertion.
+	exec(`INSERT INTO shorts ("DATE", "PRODUCT", "PRODUCT_CODE", "REPORTED_SHORT_POSITIONS", "TOTAL_PRODUCT_IN_ISSUE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") VALUES
+		('2026-06-20', 'BHP GROUP', 'BHP', 1, 2000, 1),
+		('2026-10-14', 'BHP GROUP', 'BHP', 1, 1000, 1),
+		('2026-10-16', 'BHP GROUP', 'BHP', 1, 1100, 1),
+		('2026-06-01', 'WESTPAC', 'WBC', 1, 500, 1)`)
+
+	t.Run("the fund files, by institution then fund then date", func(t *testing.T) {
+		files, err := s.FundFiles(ctx)
+		require.NoError(t, err)
+		var ids []int64
+		for _, f := range files {
+			ids = append(ids, f.ID)
+		}
+		assert.Equal(t, []int64{4, 3, 1, 2}, ids, "blackrock IOZ, hostplus Balanced, then vanguard VAS on each date")
+		assert.Equal(t, "blackrock", files[0].InstitutionName, "an institution with no row reads its slug")
+		assert.Equal(t, "vanguard", files[2].InstitutionSlug)
+	})
+
+	t.Run("a holding is named by the company, else the file; shares come from the report on or before the file, within 30 days", func(t *testing.T) {
+		plain, err := s.FundHoldingsOf(ctx, []int64{1, 3, 4}, false)
+		require.NoError(t, err)
+		for _, h := range plain {
+			assert.Nil(t, h.SharesIssued, "shares are read only when asked")
+			assert.Empty(t, h.SharesAsAt)
+		}
+
+		rows, err := s.FundHoldingsOf(ctx, []int64{1, 3, 4}, true)
+		require.NoError(t, err)
+		byFile := map[string]FundHoldingDetail{}
+		for _, h := range rows {
+			byFile[strconv.FormatInt(h.SnapshotID, 10)+"|"+h.StockCode] = h
+		}
+		bhpSpring := byFile["3|BHP"]
+		assert.Equal(t, "BHP Group Limited", bhpSpring.SecurityName, "company-metadata's name, not the file's")
+		assert.Equal(t, "Materials", bhpSpring.Industry)
+		require.NotNil(t, bhpSpring.SharesIssued)
+		assert.InDelta(t, 2000, *bhpSpring.SharesIssued, 1e-9, "20 June is 10 days before the 30 June file")
+		assert.Equal(t, "2026-06-20", bhpSpring.SharesAsAt)
+
+		bhpAutumn := byFile["4|BHP"]
+		require.NotNil(t, bhpAutumn.SharesIssued)
+		assert.InDelta(t, 1000, *bhpAutumn.SharesIssued, 1e-9, "the 14 October report, not the 16 October one that follows the file")
+		assert.Equal(t, "2026-10-14", bhpAutumn.SharesAsAt)
+
+		wbc := byFile["1|WBC"]
+		assert.Equal(t, "WESTPAC", wbc.SecurityName, "not in company-metadata: the file's name")
+		assert.Nil(t, wbc.SharesIssued, "a report 121 days before the file is too old to use")
+		assert.Empty(t, wbc.SharesAsAt)
+
+		zip := byFile["1|ZIP"]
+		assert.Equal(t, "Zip Co Limited", zip.SecurityName)
+		assert.Nil(t, zip.SharesIssued, "no ASIC row at all is nil, not zero")
+	})
+
+	t.Run("two files compared by stock: continuing, new and dropped, with each side's name", func(t *testing.T) {
+		rows, err := s.FundCompareRows(ctx, 1, 2)
+		require.NoError(t, err)
+		byCode := map[string]FundCompareRow{}
+		for _, r := range rows {
+			byCode[r.StockCode] = r
+		}
+		require.Len(t, rows, 3)
+
+		zip := byCode["ZIP"]
+		assert.True(t, zip.InFrom && zip.InTo, "held on both dates")
+		assert.Equal(t, "Zip Co Limited", zip.SecurityName)
+		assert.Equal(t, "Financial Services", zip.Industry)
+		require.NotNil(t, zip.FromWeight)
+		require.NotNil(t, zip.ToWeight)
+		assert.InDelta(t, 0.1, *zip.FromWeight, 1e-9)
+		assert.InDelta(t, 0.2, *zip.ToWeight, 1e-9)
+
+		wbc := byCode["WBC"]
+		assert.True(t, wbc.InFrom && !wbc.InTo, "dropped: only on the earlier file")
+		assert.Equal(t, "WESTPAC", wbc.SecurityName, "no company-metadata row: the earlier file's name")
+		assert.Nil(t, wbc.ToWeight)
+
+		pls := byCode["PLS"]
+		assert.True(t, !pls.InFrom && pls.InTo, "new: only on the later file")
+		assert.Equal(t, "PLS Group", pls.SecurityName)
+		require.NotNil(t, pls.ToValue)
+		assert.InDelta(t, 9e8, *pls.ToValue, 1)
+	})
+
+	t.Run("a kind narrows the weekly activity to the notices of holders of that kind", func(t *testing.T) {
+		all, err := s.NoticeWeeklyByIndustry(ctx, from, until, "")
+		require.NoError(t, err)
+		supers, err := s.NoticeWeeklyByIndustry(ctx, from, until, "super_fund")
+		require.NoError(t, err)
+		require.Len(t, supers, 2, "Materials in the week of 28 September and Banks in the week of 5 October")
+		require.Less(t, len(supers), len(all))
+		byKey := map[string]IndustryWeekRow{}
+		for _, w := range supers {
+			byKey[w.Industry+"|"+w.WeekStart] = w
+		}
+		assert.Equal(t, 1, byKey["Materials|2026-09-28"].Increased, "BHP's rise by Aaa Super")
+		assert.Equal(t, 0, byKey["Materials|2026-09-28"].Became, "PLS's 603 is Ccc Hedge's, not a super fund's")
+		assert.Equal(t, 1, byKey["Banks|2026-10-05"].Changed)
 	})
 }
 

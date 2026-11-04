@@ -629,6 +629,71 @@
         "title": "CompanyTaxYear",
         "type": "object"
       },
+      "shorts.v1alpha1.CompareFundSnapshotsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "YYYY-MM-DD. Each side is the fund's newest file at or before the date. An\n empty to is the newest file; an empty from is the file before to. A from\n after an explicit to is InvalidArgument. When both sides resolve to the same\n file there is nothing to compare: the response names that file on both sides\n and carries no rows. (proto string)",
+            "title": "from",
+            "type": "string"
+          },
+          "fundKey": {
+            "description": "(proto string)",
+            "title": "fund_key",
+            "type": "string"
+          },
+          "to": {
+            "description": "(proto string)",
+            "title": "to",
+            "type": "string"
+          }
+        },
+        "title": "CompareFundSnapshotsRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CompareFundSnapshotsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "The file dates used. (proto string)",
+            "title": "from",
+            "type": "string"
+          },
+          "rows": {
+            "description": "Continuing holdings by |delta| (largest first), then new, then dropped, each\n by weight. (proto shorts.v1alpha1.FundSnapshotChange)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundSnapshotChange"
+            },
+            "title": "rows",
+            "type": "array"
+          },
+          "snapshotDates": {
+            "description": "(proto string)",
+            "items": {
+              "type": "string"
+            },
+            "title": "snapshot_dates",
+            "type": "array"
+          },
+          "sourceFrom": {
+            "description": "(proto string)",
+            "title": "source_from",
+            "type": "string"
+          },
+          "sourceTo": {
+            "description": "(proto string)",
+            "title": "source_to",
+            "type": "string"
+          },
+          "to": {
+            "description": "(proto string)",
+            "title": "to",
+            "type": "string"
+          }
+        },
+        "title": "CompareFundSnapshotsResponse",
+        "type": "object"
+      },
       "shorts.v1alpha1.ComparePoliticiansRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2657,6 +2722,89 @@
         "title": "FundPoint",
         "type": "object"
       },
+      "shorts.v1alpha1.FundPortfolioHolding": {
+        "additionalProperties": false,
+        "description": "One holding in one fund's file. The shares on issue are ASIC's, from the report\n named by shares_on_issue_as_at (not necessarily the file date); est_company_pct\n is units over those shares, in percent, only when both are known.",
+        "properties": {
+          "code": {
+            "description": "(proto string)",
+            "title": "code",
+            "type": "string"
+          },
+          "estCompanyPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "est_company_pct",
+            "type": "number"
+          },
+          "hasEstCompanyPct": {
+            "description": "(proto bool)",
+            "title": "has_est_company_pct",
+            "type": "boolean"
+          },
+          "hasSharesOnIssue": {
+            "description": "(proto bool)",
+            "title": "has_shares_on_issue",
+            "type": "boolean"
+          },
+          "hasUnits": {
+            "description": "(proto bool)",
+            "title": "has_units",
+            "type": "boolean"
+          },
+          "hasValueAud": {
+            "description": "(proto bool)",
+            "title": "has_value_aud",
+            "type": "boolean"
+          },
+          "hasWeightPct": {
+            "description": "(proto bool)",
+            "title": "has_weight_pct",
+            "type": "boolean"
+          },
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "name": {
+            "description": "(proto string)",
+            "title": "name",
+            "type": "string"
+          },
+          "sharesOnIssue": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "shares_on_issue",
+            "type": "number"
+          },
+          "sharesOnIssueAsAt": {
+            "description": "The date of the ASIC report the shares on issue come from, YYYY-MM-DD: the\n newest on or before the file date, and no older than 30 days before it.\n \"\" when there is no shares figure. (proto string)",
+            "title": "shares_on_issue_as_at",
+            "type": "string"
+          },
+          "units": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "units",
+            "type": "number"
+          },
+          "valueAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "value_aud",
+            "type": "number"
+          },
+          "weightPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "weight_pct",
+            "type": "number"
+          }
+        },
+        "title": "FundPortfolioHolding",
+        "type": "object"
+      },
       "shorts.v1alpha1.FundPositionChange": {
         "additionalProperties": false,
         "description": "One stock's weight across the funds that hold it on both dates, the funds its\n delta sums: weight to less weight from is the delta. A new or dropped stock\n sums the funds on the one date it has and has no delta. A stock held on both\n dates only by different funds (one on each date) compares no fund with itself,\n so it is in no list.",
@@ -2741,9 +2889,43 @@
         "title": "FundPositionChange",
         "type": "object"
       },
+      "shorts.v1alpha1.FundSectorWeight": {
+        "additionalProperties": false,
+        "description": "One sector's share of a fund's holdings. The industry is company-metadata's,\n with a placeholder industry read as \"Other\".",
+        "properties": {
+          "hasWeightPct": {
+            "description": "(proto bool)",
+            "title": "has_weight_pct",
+            "type": "boolean"
+          },
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "weightPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "weight_pct",
+            "type": "number"
+          }
+        },
+        "title": "FundSectorWeight",
+        "type": "object"
+      },
       "shorts.v1alpha1.FundSeries": {
         "additionalProperties": false,
         "properties": {
+          "fundCode": {
+            "description": "The fund's ASX code (ticker) when its file names one; empty for a super option. (proto string)",
+            "title": "fund_code",
+            "type": "string"
+          },
+          "fundKey": {
+            "description": "The fund's key (spec 14.7): the registry key, or \u003cinstitution_slug\u003e/\u003cfund_name\u003e. (proto string)",
+            "title": "fund_key",
+            "type": "string"
+          },
           "fundName": {
             "description": "(proto string)",
             "title": "fund_name",
@@ -2774,6 +2956,215 @@
           }
         },
         "title": "FundSeries",
+        "type": "object"
+      },
+      "shorts.v1alpha1.FundSnapshotChange": {
+        "additionalProperties": false,
+        "description": "One holding across two files of one fund. continuing is held on both,\n new only on the later file, dropped only on the earlier one.",
+        "properties": {
+          "code": {
+            "description": "(proto string)",
+            "title": "code",
+            "type": "string"
+          },
+          "deltaPp": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "delta_pp",
+            "type": "number"
+          },
+          "hasDeltaPp": {
+            "description": "(proto bool)",
+            "title": "has_delta_pp",
+            "type": "boolean"
+          },
+          "hasValueFromAud": {
+            "description": "(proto bool)",
+            "title": "has_value_from_aud",
+            "type": "boolean"
+          },
+          "hasValueToAud": {
+            "description": "(proto bool)",
+            "title": "has_value_to_aud",
+            "type": "boolean"
+          },
+          "hasWeightFromPct": {
+            "description": "(proto bool)",
+            "title": "has_weight_from_pct",
+            "type": "boolean"
+          },
+          "hasWeightToPct": {
+            "description": "(proto bool)",
+            "title": "has_weight_to_pct",
+            "type": "boolean"
+          },
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "name": {
+            "description": "(proto string)",
+            "title": "name",
+            "type": "string"
+          },
+          "status": {
+            "description": "(proto string)",
+            "title": "status",
+            "type": "string"
+          },
+          "valueFromAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "value_from_aud",
+            "type": "number"
+          },
+          "valueToAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "value_to_aud",
+            "type": "number"
+          },
+          "weightFromPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "weight_from_pct",
+            "type": "number"
+          },
+          "weightToPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "weight_to_pct",
+            "type": "number"
+          }
+        },
+        "title": "FundSnapshotChange",
+        "type": "object"
+      },
+      "shorts.v1alpha1.FundSummary": {
+        "additionalProperties": false,
+        "description": "A tracked fund at one file date.",
+        "properties": {
+          "asAt": {
+            "description": "The file date the figures are read from, YYYY-MM-DD. (proto string)",
+            "title": "as_at",
+            "type": "string"
+          },
+          "aumAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "aum_aud",
+            "type": "number"
+          },
+          "fundKey": {
+            "description": "The registry key (abn:\u003cABN\u003e or asx:\u003cCODE\u003e) when the file has a registry row,\n else \"\u003cinstitution_slug\u003e/\u003cfund_name\u003e\". (proto string)",
+            "title": "fund_key",
+            "type": "string"
+          },
+          "hasAumAud": {
+            "description": "(proto bool)",
+            "title": "has_aum_aud",
+            "type": "boolean"
+          },
+          "hasTop10Pct": {
+            "description": "(proto bool)",
+            "title": "has_top10_pct",
+            "type": "boolean"
+          },
+          "holdings": {
+            "description": "Equity holdings stored for the file: the lines matched to an ASX code, not\n every line of the vendor's file. (proto int32)",
+            "format": "int32",
+            "title": "holdings",
+            "type": "integer"
+          },
+          "institutionName": {
+            "description": "(proto string)",
+            "title": "institution_name",
+            "type": "string"
+          },
+          "institutionSlug": {
+            "description": "(proto string)",
+            "title": "institution_slug",
+            "type": "string"
+          },
+          "largest": {
+            "description": "(proto shorts.v1alpha1.FundTopHolding)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundTopHolding"
+            },
+            "title": "largest",
+            "type": "array"
+          },
+          "name": {
+            "description": "(proto string)",
+            "title": "name",
+            "type": "string"
+          },
+          "pooled": {
+            "description": "Vanguard's ETF files hold the pooled wholesale fund behind each ETF, not the\n ETF alone. (proto bool)",
+            "title": "pooled",
+            "type": "boolean"
+          },
+          "sectorWeights": {
+            "description": "(proto shorts.v1alpha1.FundSectorWeight)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundSectorWeight"
+            },
+            "title": "sector_weights",
+            "type": "array"
+          },
+          "sourceKind": {
+            "description": "etf or super_phd. (proto string)",
+            "title": "source_kind",
+            "type": "string"
+          },
+          "sourceUrl": {
+            "description": "(proto string)",
+            "title": "source_url",
+            "type": "string"
+          },
+          "ticker": {
+            "description": "(proto string)",
+            "title": "ticker",
+            "type": "string"
+          },
+          "top10Pct": {
+            "description": "The weights of the ten largest holdings, summed. Known only when every one\n of them states a weight: a partial sum is withheld. (proto double)",
+            "format": "double",
+            "title": "top10_pct",
+            "type": "number"
+          }
+        },
+        "title": "FundSummary",
+        "type": "object"
+      },
+      "shorts.v1alpha1.FundTopHolding": {
+        "additionalProperties": false,
+        "description": "One of a fund's ten largest holdings, by weight.",
+        "properties": {
+          "code": {
+            "description": "(proto string)",
+            "title": "code",
+            "type": "string"
+          },
+          "hasWeightPct": {
+            "description": "(proto bool)",
+            "title": "has_weight_pct",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "(proto string)",
+            "title": "name",
+            "type": "string"
+          },
+          "weightPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "weight_pct",
+            "type": "number"
+          }
+        },
+        "title": "FundTopHolding",
         "type": "object"
       },
       "shorts.v1alpha1.FundamentalsCoverage": {
@@ -4113,6 +4504,116 @@
         "title": "GetEventTimelineResponse",
         "type": "object"
       },
+      "shorts.v1alpha1.GetFundPortfolioRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "asAt": {
+            "description": "YYYY-MM-DD. The newest file at or before it; empty is the newest file. (proto string)",
+            "title": "as_at",
+            "type": "string"
+          },
+          "fundKey": {
+            "description": "A fund_key from ListFunds, or \"\u003cinstitution_slug\u003e/\u003cfund_name\u003e\". (proto string)",
+            "title": "fund_key",
+            "type": "string"
+          }
+        },
+        "title": "GetFundPortfolioRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetFundPortfolioResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "asAt": {
+            "description": "The file the holdings are read from. (proto string)",
+            "title": "as_at",
+            "type": "string"
+          },
+          "fundKey": {
+            "description": "(proto string)",
+            "title": "fund_key",
+            "type": "string"
+          },
+          "hasTop10Pct": {
+            "description": "(proto bool)",
+            "title": "has_top10_pct",
+            "type": "boolean"
+          },
+          "holdings": {
+            "description": "Ordered by weight, largest first. (proto shorts.v1alpha1.FundPortfolioHolding)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundPortfolioHolding"
+            },
+            "title": "holdings",
+            "type": "array"
+          },
+          "holdingsTotal": {
+            "description": "The equity holdings stored for the file (the lines matched to an ASX code). (proto int32)",
+            "format": "int32",
+            "title": "holdings_total",
+            "type": "integer"
+          },
+          "institutionName": {
+            "description": "(proto string)",
+            "title": "institution_name",
+            "type": "string"
+          },
+          "institutionSlug": {
+            "description": "(proto string)",
+            "title": "institution_slug",
+            "type": "string"
+          },
+          "name": {
+            "description": "(proto string)",
+            "title": "name",
+            "type": "string"
+          },
+          "pooled": {
+            "description": "(proto bool)",
+            "title": "pooled",
+            "type": "boolean"
+          },
+          "sectorWeights": {
+            "description": "(proto shorts.v1alpha1.FundSectorWeight)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundSectorWeight"
+            },
+            "title": "sector_weights",
+            "type": "array"
+          },
+          "snapshotDates": {
+            "description": "Every file date this fund has, oldest first. (proto string)",
+            "items": {
+              "type": "string"
+            },
+            "title": "snapshot_dates",
+            "type": "array"
+          },
+          "sourceKind": {
+            "description": "(proto string)",
+            "title": "source_kind",
+            "type": "string"
+          },
+          "sourceUrl": {
+            "description": "(proto string)",
+            "title": "source_url",
+            "type": "string"
+          },
+          "ticker": {
+            "description": "(proto string)",
+            "title": "ticker",
+            "type": "string"
+          },
+          "top10Pct": {
+            "description": "The ten largest weights, summed; known only when every one of them states a\n weight. (proto double)",
+            "format": "double",
+            "title": "top10_pct",
+            "type": "number"
+          }
+        },
+        "title": "GetFundPortfolioResponse",
+        "type": "object"
+      },
       "shorts.v1alpha1.GetHousePriceSeriesRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4590,6 +5091,11 @@
       "shorts.v1alpha1.GetOwnershipActivityRequest": {
         "additionalProperties": false,
         "properties": {
+          "kind": {
+            "description": "A holder kind (super_fund, index_manager, ...), or \"\" for every kind. A kind\n outside the vocabulary is InvalidArgument. (proto string)",
+            "title": "kind",
+            "type": "string"
+          },
           "weeks": {
             "description": "1 to 52 weeks; 0 means 52. Negative is InvalidArgument. (proto int32)",
             "format": "int32",
@@ -8325,6 +8831,26 @@
           }
         },
         "title": "ListFundPositionChangesResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListFundsRequest": {
+        "additionalProperties": false,
+        "title": "ListFundsRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListFundsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "funds": {
+            "description": "(proto shorts.v1alpha1.FundSummary)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundSummary"
+            },
+            "title": "funds",
+            "type": "array"
+          }
+        },
+        "title": "ListFundsResponse",
         "type": "object"
       },
       "shorts.v1alpha1.ListHousingRegionsRequest": {
@@ -18562,6 +19088,124 @@
         ]
       }
     },
+    "/shorts.v1alpha1.OwnershipService/CompareFundSnapshots": {
+      "post": {
+        "description": "Two files of one fund compared holding by holding: the weight change in\n percentage points, and the holdings new or dropped between them.",
+        "operationId": "OwnershipService_CompareFundSnapshots",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.CompareFundSnapshotsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.CompareFundSnapshotsResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "CompareFundSnapshots",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.OwnershipService/GetFundPortfolio": {
+      "post": {
+        "description": "One fund's holdings at one file date: the file dates it has, each holding's\n weight, units and value, and its share of the company's shares on issue.",
+        "operationId": "OwnershipService_GetFundPortfolio",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetFundPortfolioRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetFundPortfolioResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetFundPortfolio",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
     "/shorts.v1alpha1.OwnershipService/GetInstitution": {
       "post": {
         "description": "One institution: its current substantial holdings, its notices, its funds\n and what its holdings files hold.",
@@ -19029,6 +19673,65 @@
           }
         },
         "summary": "ListFundPositionChanges",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.OwnershipService/ListFunds": {
+      "post": {
+        "description": "Every tracked fund (index funds and super fund options) at its newest file,\n with its sector weights and ten largest holdings.",
+        "operationId": "OwnershipService_ListFunds",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.ListFundsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.ListFundsResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "ListFunds",
         "tags": [
           "shorts.v1alpha1.OwnershipService"
         ]

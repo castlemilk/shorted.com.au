@@ -9,8 +9,13 @@ import { HATCH_ID } from "../ownership-map-static";
 // The link the reader arrives with. The island reads it through useSearchParams; a
 // test that moves the link by hand (back or forward) changes this and re-renders.
 let mockSearchParams = new URLSearchParams("");
+// The combobox reads the popover API on mount, which jsdom does not have: the Find control is a stub here.
+jest.mock("~/@/components/gamma/SearchCombobox", () => ({
+  SearchCombobox: () => null,
+}));
 jest.mock("next/navigation", () => ({
   useSearchParams: () => mockSearchParams,
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), prefetch: jest.fn() }),
 }));
 
 function stock(overrides: Partial<MapStockRow> & { code: string }): MapStockRow {
@@ -77,6 +82,11 @@ beforeEach(() => {
   window.history.replaceState(null, "", "/ownership");
 });
 
+/** The Colour control of the workspace toolbar: a labelled select, one of the lenses by its key. */
+function pickLens(lens: string): void {
+  fireEvent.change(screen.getByRole("combobox", { name: "Colour" }), { target: { value: lens } });
+}
+
 describe("OwnershipMap island", () => {
   it("draws the default view without asking the server for it", () => {
     const loadMap = jest.fn();
@@ -135,23 +145,23 @@ describe("OwnershipMap island", () => {
   it("asks the server once for a new window of change when the link moves to it", async () => {
     const loadMap = jest.fn().mockResolvedValue(page({ asOf: "2026-10-01" }));
     const { rerender } = render(<OwnershipMap initial={page()} loadMap={loadMap} loadPanel={jest.fn()} />);
-    expect(screen.getByRole("link", { name: "28 days" })).toHaveAttribute("href", "/ownership?window=28");
-    // The window chips are links: the router moves the link, and the island reads it back.
+    expect(screen.getByRole("combobox", { name: "Window" })).toHaveValue("91");
+    // The Window select writes the link in place, and the island reads it back.
     mockSearchParams = new URLSearchParams("window=28");
     rerender(<OwnershipMap initial={page()} loadMap={loadMap} loadPanel={jest.fn()} />);
     expect(loadMap).toHaveBeenCalledTimes(1);
     expect(loadMap).toHaveBeenCalledWith({ window: 28 });
     await waitFor(() => expect(screen.getByText("2026-10-01").closest("time")).not.toBeNull());
-    expect(screen.getByRole("link", { name: "28 days" })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("combobox", { name: "Window" })).toHaveValue("28");
   });
 
   it("recolours by a lens with no server request, and hatches a stock with no figure for it", () => {
     const loadMap = jest.fn();
     const { container } = render(<OwnershipMap initial={page()} loadMap={loadMap} loadPanel={jest.fn()} />);
-    fireEvent.click(screen.getByRole("link", { name: "Short interest" }));
+    pickLens("short");
     expect(loadMap).not.toHaveBeenCalled();
     expect(window.location.search).toBe("?lens=short");
-    expect(screen.getByRole("img", { name: /^Short interest, from/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^Short interest, five steps/ })).toBeInTheDocument();
     expect(container.querySelector('g[data-code="CBA"] rect')?.getAttribute("fill")).toBe(`url(#${HATCH_ID})`);
   });
 
@@ -169,7 +179,7 @@ describe("OwnershipMap island", () => {
   it("hatches the flow and the notice counts while a window is not on the screen, and says so", async () => {
     const loadMap = jest.fn().mockResolvedValue(page({ ok: false, stocks: [] }));
     const { rerender, container } = render(<OwnershipMap initial={page()} loadMap={loadMap} loadPanel={jest.fn()} />);
-    fireEvent.click(screen.getByRole("link", { name: "Net change in disclosed voting power, pp" }));
+    pickLens("flow");
     expect(window.location.search).toBe("?lens=flow");
     mockSearchParams = new URLSearchParams("lens=flow&window=28");
     rerender(<OwnershipMap initial={page()} loadMap={loadMap} loadPanel={jest.fn()} />);
@@ -186,7 +196,7 @@ describe("OwnershipMap island", () => {
     await waitFor(() => expect(loadMap).toHaveBeenCalledTimes(1));
     expect(loadMap).toHaveBeenCalledWith({ since: "2026-08-01", until: "2026-10-31" });
     await waitFor(() => expect(screen.getByText("2026-11-01").closest("time")).not.toBeNull());
-    expect(screen.getByRole("link", { name: "91 days" })).not.toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("combobox", { name: "Window" })).toHaveValue("brushed");
     expect(document.body.textContent).toContain("from 2026-08-01 to 2026-10-31");
   });
 
@@ -196,7 +206,7 @@ describe("OwnershipMap island", () => {
     const loadMap = jest.fn().mockResolvedValue(page({ asOf: "2026-11-01" }));
     render(<OwnershipMap initial={page()} loadMap={loadMap} loadPanel={jest.fn()} />);
     await waitFor(() => expect(screen.getByText("2026-11-01").closest("time")).not.toBeNull());
-    fireEvent.click(screen.getByRole("link", { name: "Short interest" }));
+    pickLens("short");
     expect(window.location.search).toBe("?since=2026-08-01&until=2026-10-31&lens=short");
   });
 
@@ -259,7 +269,7 @@ describe("OwnershipMap island", () => {
     const { rerender } = render(<OwnershipMap initial={page()} loadMap={loadMap} loadPanel={jest.fn()} />);
     mockSearchParams = new URLSearchParams("lens=hedge");
     rerender(<OwnershipMap initial={page()} loadMap={loadMap} loadPanel={jest.fn()} />);
-    expect(screen.getByRole("link", { name: "Hedge funds" })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("combobox", { name: "Colour" })).toHaveValue("hedge");
     expect(loadMap).not.toHaveBeenCalled();
   });
 });

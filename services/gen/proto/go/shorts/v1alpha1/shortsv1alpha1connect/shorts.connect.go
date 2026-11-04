@@ -313,6 +313,15 @@ const (
 	// ShortedStocksServiceGetStockFundSeriesProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetStockFundSeries RPC.
 	ShortedStocksServiceGetStockFundSeriesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockFundSeries"
+	// ShortedStocksServiceListFundsProcedure is the fully-qualified name of the ShortedStocksService's
+	// ListFunds RPC.
+	ShortedStocksServiceListFundsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListFunds"
+	// ShortedStocksServiceGetFundPortfolioProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetFundPortfolio RPC.
+	ShortedStocksServiceGetFundPortfolioProcedure = "/shorts.v1alpha1.ShortedStocksService/GetFundPortfolio"
+	// ShortedStocksServiceCompareFundSnapshotsProcedure is the fully-qualified name of the
+	// ShortedStocksService's CompareFundSnapshots RPC.
+	ShortedStocksServiceCompareFundSnapshotsProcedure = "/shorts.v1alpha1.ShortedStocksService/CompareFundSnapshots"
 	// ShortedStocksServiceGetParliamentOverviewProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetParliamentOverview RPC.
 	ShortedStocksServiceGetParliamentOverviewProcedure = "/shorts.v1alpha1.ShortedStocksService/GetParliamentOverview"
@@ -471,6 +480,9 @@ var (
 	shortedStocksServiceGetOwnershipActivityMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetOwnershipActivity")
 	shortedStocksServiceListFundPositionChangesMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("ListFundPositionChanges")
 	shortedStocksServiceGetStockFundSeriesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockFundSeries")
+	shortedStocksServiceListFundsMethodDescriptor                       = shortedStocksServiceServiceDescriptor.Methods().ByName("ListFunds")
+	shortedStocksServiceGetFundPortfolioMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetFundPortfolio")
+	shortedStocksServiceCompareFundSnapshotsMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("CompareFundSnapshots")
 	shortedStocksServiceGetParliamentOverviewMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetParliamentOverview")
 	shortedStocksServiceListPoliticiansMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPoliticians")
 	shortedStocksServiceGetPoliticianMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPolitician")
@@ -687,6 +699,14 @@ type ShortedStocksServiceClient interface {
 	ListFundPositionChanges(context.Context, *connect.Request[v1alpha1.ListFundPositionChangesRequest]) (*connect.Response[v1alpha1.ListFundPositionChangesResponse], error)
 	// One stock's weight and value in each tracked fund, at every snapshot.
 	GetStockFundSeries(context.Context, *connect.Request[v1alpha1.GetStockFundSeriesRequest]) (*connect.Response[v1alpha1.GetStockFundSeriesResponse], error)
+	// The fund list: every tracked index fund and super fund option at its newest
+	// file, with its sector weights and ten largest holdings.
+	ListFunds(context.Context, *connect.Request[v1alpha1.ListFundsRequest]) (*connect.Response[v1alpha1.ListFundsResponse], error)
+	// One fund's holdings at one file date, with each holding's share of the
+	// company's shares on issue as at the file date.
+	GetFundPortfolio(context.Context, *connect.Request[v1alpha1.GetFundPortfolioRequest]) (*connect.Response[v1alpha1.GetFundPortfolioResponse], error)
+	// Two files of one fund compared holding by holding.
+	CompareFundSnapshots(context.Context, *connect.Request[v1alpha1.CompareFundSnapshotsRequest]) (*connect.Response[v1alpha1.CompareFundSnapshotsResponse], error)
 	// Parliament-wide register counts and the as-at date.
 	GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error)
 	// Browse/filter parliamentarians.
@@ -1298,6 +1318,24 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetStockFundSeriesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listFunds: connect.NewClient[v1alpha1.ListFundsRequest, v1alpha1.ListFundsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListFundsProcedure,
+			connect.WithSchema(shortedStocksServiceListFundsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getFundPortfolio: connect.NewClient[v1alpha1.GetFundPortfolioRequest, v1alpha1.GetFundPortfolioResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetFundPortfolioProcedure,
+			connect.WithSchema(shortedStocksServiceGetFundPortfolioMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		compareFundSnapshots: connect.NewClient[v1alpha1.CompareFundSnapshotsRequest, v1alpha1.CompareFundSnapshotsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceCompareFundSnapshotsProcedure,
+			connect.WithSchema(shortedStocksServiceCompareFundSnapshotsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getParliamentOverview: connect.NewClient[v1alpha1.GetParliamentOverviewRequest, v1alpha1.GetParliamentOverviewResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetParliamentOverviewProcedure,
@@ -1516,6 +1554,9 @@ type shortedStocksServiceClient struct {
 	getOwnershipActivity            *connect.Client[v1alpha1.GetOwnershipActivityRequest, v1alpha1.GetOwnershipActivityResponse]
 	listFundPositionChanges         *connect.Client[v1alpha1.ListFundPositionChangesRequest, v1alpha1.ListFundPositionChangesResponse]
 	getStockFundSeries              *connect.Client[v1alpha1.GetStockFundSeriesRequest, v1alpha1.GetStockFundSeriesResponse]
+	listFunds                       *connect.Client[v1alpha1.ListFundsRequest, v1alpha1.ListFundsResponse]
+	getFundPortfolio                *connect.Client[v1alpha1.GetFundPortfolioRequest, v1alpha1.GetFundPortfolioResponse]
+	compareFundSnapshots            *connect.Client[v1alpha1.CompareFundSnapshotsRequest, v1alpha1.CompareFundSnapshotsResponse]
 	getParliamentOverview           *connect.Client[v1alpha1.GetParliamentOverviewRequest, v1alpha1.GetParliamentOverviewResponse]
 	listPoliticians                 *connect.Client[v1alpha1.ListPoliticiansRequest, v1alpha1.ListPoliticiansResponse]
 	getPolitician                   *connect.Client[v1alpha1.GetPoliticianRequest, v1alpha1.GetPoliticianResponse]
@@ -2006,6 +2047,21 @@ func (c *shortedStocksServiceClient) GetStockFundSeries(ctx context.Context, req
 	return c.getStockFundSeries.CallUnary(ctx, req)
 }
 
+// ListFunds calls shorts.v1alpha1.ShortedStocksService.ListFunds.
+func (c *shortedStocksServiceClient) ListFunds(ctx context.Context, req *connect.Request[v1alpha1.ListFundsRequest]) (*connect.Response[v1alpha1.ListFundsResponse], error) {
+	return c.listFunds.CallUnary(ctx, req)
+}
+
+// GetFundPortfolio calls shorts.v1alpha1.ShortedStocksService.GetFundPortfolio.
+func (c *shortedStocksServiceClient) GetFundPortfolio(ctx context.Context, req *connect.Request[v1alpha1.GetFundPortfolioRequest]) (*connect.Response[v1alpha1.GetFundPortfolioResponse], error) {
+	return c.getFundPortfolio.CallUnary(ctx, req)
+}
+
+// CompareFundSnapshots calls shorts.v1alpha1.ShortedStocksService.CompareFundSnapshots.
+func (c *shortedStocksServiceClient) CompareFundSnapshots(ctx context.Context, req *connect.Request[v1alpha1.CompareFundSnapshotsRequest]) (*connect.Response[v1alpha1.CompareFundSnapshotsResponse], error) {
+	return c.compareFundSnapshots.CallUnary(ctx, req)
+}
+
 // GetParliamentOverview calls shorts.v1alpha1.ShortedStocksService.GetParliamentOverview.
 func (c *shortedStocksServiceClient) GetParliamentOverview(ctx context.Context, req *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error) {
 	return c.getParliamentOverview.CallUnary(ctx, req)
@@ -2303,6 +2359,14 @@ type ShortedStocksServiceHandler interface {
 	ListFundPositionChanges(context.Context, *connect.Request[v1alpha1.ListFundPositionChangesRequest]) (*connect.Response[v1alpha1.ListFundPositionChangesResponse], error)
 	// One stock's weight and value in each tracked fund, at every snapshot.
 	GetStockFundSeries(context.Context, *connect.Request[v1alpha1.GetStockFundSeriesRequest]) (*connect.Response[v1alpha1.GetStockFundSeriesResponse], error)
+	// The fund list: every tracked index fund and super fund option at its newest
+	// file, with its sector weights and ten largest holdings.
+	ListFunds(context.Context, *connect.Request[v1alpha1.ListFundsRequest]) (*connect.Response[v1alpha1.ListFundsResponse], error)
+	// One fund's holdings at one file date, with each holding's share of the
+	// company's shares on issue as at the file date.
+	GetFundPortfolio(context.Context, *connect.Request[v1alpha1.GetFundPortfolioRequest]) (*connect.Response[v1alpha1.GetFundPortfolioResponse], error)
+	// Two files of one fund compared holding by holding.
+	CompareFundSnapshots(context.Context, *connect.Request[v1alpha1.CompareFundSnapshotsRequest]) (*connect.Response[v1alpha1.CompareFundSnapshotsResponse], error)
 	// Parliament-wide register counts and the as-at date.
 	GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error)
 	// Browse/filter parliamentarians.
@@ -2910,6 +2974,24 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetStockFundSeriesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceListFundsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListFundsProcedure,
+		svc.ListFunds,
+		connect.WithSchema(shortedStocksServiceListFundsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetFundPortfolioHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetFundPortfolioProcedure,
+		svc.GetFundPortfolio,
+		connect.WithSchema(shortedStocksServiceGetFundPortfolioMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceCompareFundSnapshotsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceCompareFundSnapshotsProcedure,
+		svc.CompareFundSnapshots,
+		connect.WithSchema(shortedStocksServiceCompareFundSnapshotsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceGetParliamentOverviewHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetParliamentOverviewProcedure,
 		svc.GetParliamentOverview,
@@ -3218,6 +3300,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceListFundPositionChangesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetStockFundSeriesProcedure:
 			shortedStocksServiceGetStockFundSeriesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListFundsProcedure:
+			shortedStocksServiceListFundsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetFundPortfolioProcedure:
+			shortedStocksServiceGetFundPortfolioHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceCompareFundSnapshotsProcedure:
+			shortedStocksServiceCompareFundSnapshotsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetParliamentOverviewProcedure:
 			shortedStocksServiceGetParliamentOverviewHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListPoliticiansProcedure:
@@ -3637,6 +3725,18 @@ func (UnimplementedShortedStocksServiceHandler) ListFundPositionChanges(context.
 
 func (UnimplementedShortedStocksServiceHandler) GetStockFundSeries(context.Context, *connect.Request[v1alpha1.GetStockFundSeriesRequest]) (*connect.Response[v1alpha1.GetStockFundSeriesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStockFundSeries is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListFunds(context.Context, *connect.Request[v1alpha1.ListFundsRequest]) (*connect.Response[v1alpha1.ListFundsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListFunds is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetFundPortfolio(context.Context, *connect.Request[v1alpha1.GetFundPortfolioRequest]) (*connect.Response[v1alpha1.GetFundPortfolioResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetFundPortfolio is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) CompareFundSnapshots(context.Context, *connect.Request[v1alpha1.CompareFundSnapshotsRequest]) (*connect.Response[v1alpha1.CompareFundSnapshotsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.CompareFundSnapshots is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error) {

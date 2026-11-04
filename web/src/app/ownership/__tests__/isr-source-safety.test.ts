@@ -232,6 +232,8 @@ describe("ownership ISR source safety", () => {
           "stocks/[code]/register-data.ts",
           "stocks/[code]/loading.tsx",
           "stocks/[code]/opengraph-image.tsx",
+          "funds/[fund]/page.tsx",
+          "funds/[fund]/loading.tsx",
         ]),
       );
     });
@@ -240,9 +242,9 @@ describe("ownership ISR source safety", () => {
       expect(files.filter(([name]) => /__tests__|\.(test|spec)\./.test(name))).toEqual([]);
     });
 
-    it("holds the hub and both dynamic pages to the rule", () => {
+    it("holds the hub and the dynamic pages, the fund page included, to the rule", () => {
       expect(pages.map(([name]) => name)).toEqual(
-        expect.arrayContaining(["page.tsx", "[slug]/page.tsx", "stocks/[code]/page.tsx"]),
+        expect.arrayContaining(["page.tsx", "[slug]/page.tsx", "stocks/[code]/page.tsx", "funds/[fund]/page.tsx"]),
       );
     });
 
@@ -326,6 +328,54 @@ describe("ownership ISR source safety", () => {
         .filter(([, file]) => !/^["']use client["']/.test(withoutComments(read(file), file).trimStart()))
         .map(([name]) => name);
       expect(notIslands).toEqual([]);
+    });
+  });
+
+  // The workspace (spec 14.3) draws its pages from its inspectors, its islands, the vendored Gamma
+  // components and the funds' loaders, none of them under app/ownership. They are held to the desk's
+  // rule: no request-time read, and the URL is read only from a client module.
+  describe("the workspace the pages draw", () => {
+    const APP_DIR = path.resolve(OWNERSHIP_DIR, "..");
+    const COMPONENTS_DIR = path.resolve(APP_DIR, "..", "@", "components");
+    const WORKSPACE_FILES = [
+      ...sourceFiles(path.join(COMPONENTS_DIR, "ownership", "workspace")),
+      ...sourceFiles(path.join(COMPONENTS_DIR, "ownership", "funds")),
+      ...sourceFiles(path.join(COMPONENTS_DIR, "ownership", "holders")),
+      ...sourceFiles(path.join(COMPONENTS_DIR, "gamma")),
+      path.join(APP_DIR, "actions", "ownershipFunds.ts"),
+      path.join(APP_DIR, "actions", "ownershipHolders.ts"),
+    ].map((file) => [path.relative(APP_DIR, file).split(path.sep).join("/"), file] as const);
+
+    const URL_READS = ["searchParams", "useSearchParams"];
+    const requestTimeReads = (file: string) =>
+      dynamicReads(read(file), file).filter((name) => !URL_READS.includes(name));
+
+    it("finds the inspectors, the funds, the holders, the Gamma components and the funds loader", () => {
+      expect(WORKSPACE_FILES.map(([name]) => name)).toEqual(
+        expect.arrayContaining([
+          "../@/components/ownership/workspace/inspector.tsx",
+          "../@/components/ownership/workspace/ownership-nav.tsx",
+          "../@/components/ownership/funds/fund-model.ts",
+          "../@/components/ownership/holders/holder-browser.tsx",
+          "../@/components/gamma/DisclosureStack.tsx",
+          "actions/ownershipFunds.ts",
+          "actions/ownershipHolders.ts",
+        ]),
+      );
+    });
+
+    it.each(WORKSPACE_FILES)("%s reads no dynamic API and does not opt out of the cache", (_name, file) => {
+      expect(requestTimeReads(file)).toEqual([]);
+    });
+
+    it("reads the URL only from client modules", () => {
+      const urlReaders = WORKSPACE_FILES.filter(([, file]) =>
+        dynamicReads(read(file), file).some((name) => URL_READS.includes(name)),
+      );
+      const notClient = urlReaders
+        .filter(([, file]) => !/^["']use client["']/.test(withoutComments(read(file), file).trimStart()))
+        .map(([name]) => name);
+      expect(notClient).toEqual([]);
     });
   });
 
@@ -503,5 +553,28 @@ describe("ownership ISR source safety", () => {
         ]);
       });
     });
+  });
+});
+
+// A page in the shell re-prime (config/isr-shell-pages.json) is re-primed only when its HTML
+// carries data-isr-shell="empty" (warm-cache/route.ts readPage). A page without the marker
+// reports success while it serves the empty build render, so every /ownership page in the
+// list must draw the marker on its failed read path.
+describe("ownership shell pages draw the empty marker", () => {
+  const SHELL_LIST = path.resolve(OWNERSHIP_DIR, "..", "..", "config", "isr-shell-pages.json");
+  const shellPages = (JSON.parse(read(SHELL_LIST)) as string[]).filter((entry) =>
+    entry.startsWith("/ownership/"),
+  );
+
+  it("lists the ownership shell pages", () => {
+    expect(shellPages.length).toBeGreaterThan(0);
+  });
+
+  it.each(shellPages)("%s has a page.tsx that draws data-isr-shell=\"empty\"", (entry) => {
+    const file = path.join(OWNERSHIP_DIR, ...entry.replace(/^\/ownership\/?/, "").split("/"), "page.tsx");
+    expect(fs.existsSync(file)).toBe(true);
+    // Matched in the code, not a comment, and as a rendered element: a marker only mentioned in a
+    // comment or in a string would pass a plain substring check.
+    expect(withoutComments(read(file), file)).toMatch(/<span[^>]*data-isr-shell="empty"/);
   });
 });

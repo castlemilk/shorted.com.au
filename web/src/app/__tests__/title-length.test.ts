@@ -105,7 +105,7 @@ describe("templated titles", () => {
   });
 
   it("titles a monthly report by its series, and its social card by the headline", async () => {
-    const headline = "Uranium shorts hit the eject button — but burritos and lithium get leaned on";
+    const headline = "Uranium shorts hit the eject button, but burritos and lithium get leaned on";
     (getEnhancedWeeklyReportDataStrict as jest.Mock).mockResolvedValue({
       headline,
       summary: "Summary.",

@@ -1,3 +1,5 @@
+import { cleanSelection } from "../workspace/selection";
+
 /**
  * The desk's URL state on /ownership (spec 13.1): the window of change, the
  * map's lens, a zoomed sector, and the two snapshot dates of the index fund
@@ -64,6 +66,11 @@ export interface DeskState {
   /** The index fund window's two snapshot dates, YYYY-MM-DD; "" is none. */
   from: string;
   to: string;
+  /**
+   * The workspace selection (spec 14.1), in its link form `kind:key`; "" is none.
+   * Only a value `parseSelection` reads is kept (see workspace/selection.ts).
+   */
+  sel: string;
 }
 
 /** The window of change as the notice instruments read it: the chips' days, or a brushed pair. */
@@ -77,6 +84,7 @@ export const DEFAULT_DESK_STATE: DeskState = {
   sector: "",
   from: "",
   to: "",
+  sel: "",
 };
 
 /** The raw values a link or a page hands over, before any of them is trusted. */
@@ -88,6 +96,7 @@ export interface DeskStateInput {
   sector?: unknown;
   from?: unknown;
   to?: unknown;
+  sel?: unknown;
 }
 
 /** The two shapes a parameter arrives in: the browser's URLSearchParams, or Next's record. */
@@ -207,6 +216,7 @@ export function cleanDeskState(input: DeskStateInput): DeskState {
     sector: cleanSector(input.sector),
     from: dates.from,
     to: dates.to,
+    sel: cleanSelection(input.sel),
   };
 }
 
@@ -233,6 +243,7 @@ export function readDeskState(source: DeskParamSource): DeskState {
     sector: paramValue(source, "sector"),
     from: paramValue(source, "from"),
     to: paramValue(source, "to"),
+    sel: paramValue(source, "sel"),
   });
 }
 
@@ -254,11 +265,12 @@ export function writeDeskState(state: DeskState): string {
   }
   if (clean.lens !== DEFAULT_DESK_LENS) params.set("lens", clean.lens);
   if (clean.sector !== "") params.set("sector", clean.sector);
+  if (clean.sel !== "") params.set("sel", clean.sel);
   return params.toString();
 }
 
 /** The desk's own parameter names: writeDeskParams replaces these and leaves every other one alone. */
-const DESK_PARAM_NAMES = ["window", "since", "until", "from", "to", "lens", "sector"] as const;
+const DESK_PARAM_NAMES = ["window", "since", "until", "from", "to", "lens", "sector", "sel"] as const;
 
 /**
  * Writes a state into a link's parameters in place. The desk's names are replaced

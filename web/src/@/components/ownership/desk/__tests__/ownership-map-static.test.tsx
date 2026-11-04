@@ -2,7 +2,6 @@ import { render, screen, within } from "@testing-library/react";
 
 import type { OwnershipMapPage } from "~/app/actions/ownershipDesk";
 import { layoutMap, type MapCell, type MapStockRow } from "../map-layout";
-import { lensScale } from "../desk-scales";
 import { DEFAULT_DESK_STATE } from "../desk-state";
 import { mapCaption } from "../lens-legend";
 import {
@@ -18,6 +17,7 @@ import {
   zoomPose,
   zoomStyle,
 } from "../ownership-map-static";
+import { lensScale } from "../desk-scales";
 
 function stock(overrides: Partial<MapStockRow> & { code: string }): MapStockRow {
   return {
@@ -120,11 +120,10 @@ describe("zoomPose and zoomStyle", () => {
 });
 
 describe("labelColourFor", () => {
-  it("uses the background on a strong fill and the foreground on a weak one", () => {
-    const scale = lensScale("disclosed", [10, 40]);
-    expect(labelColourFor(40, scale)).toBe("hsl(var(--background))");
-    expect(labelColourFor(5, scale)).toBe("hsl(var(--foreground))");
-    expect(labelColourFor(null, scale)).toBe("hsl(var(--foreground))");
+  it("is paper on the deepest step and ink on the pale ones (spec 14.9)", () => {
+    const scale = lensScale("disclosed", [10]);
+    expect(labelColourFor(1, scale)).toBe("hsl(var(--foreground))");
+    expect(labelColourFor(10, scale)).toBe("hsl(var(--background))");
   });
 });
 
@@ -159,14 +158,25 @@ describe("OwnershipMapStatic", () => {
     expect(container.querySelector(`g[data-code="CBA"] title`)?.textContent).toContain("CBA");
   });
 
-  it("prints the caption, the provenance and the window chips with their links", () => {
+  it("prints the caption, the provenance and the window as one select, drawn disabled on the server", () => {
     render(<OwnershipMapStatic initial={page()} />);
     expect(screen.getByText(mapCaption("disclosed"))).toBeInTheDocument();
     expect(screen.getByText("2026-10-12").closest("time")).toHaveAttribute("dateTime", "2026-10-12");
-    const chip = screen.getByRole("link", { name: "28 days" });
-    expect(chip).toHaveAttribute("href", "/ownership?window=28");
-    expect(chip).toHaveAttribute("rel", "nofollow");
-    expect(screen.getByRole("link", { name: "Short interest" })).toHaveAttribute("href", "/ownership?lens=short");
+    // The window is one labelled select with four options, not four links (spec 14.9).
+    const window = screen.getByRole("combobox", { name: "Window" });
+    expect(window).toBeDisabled();
+    expect(Array.from((window as HTMLSelectElement).options).map((option) => option.textContent)).toEqual([
+      "28 days",
+      "91 days",
+      "182 days",
+      "364 days",
+    ]);
+    expect(window).toHaveValue("91");
+    expect(screen.queryByRole("link", { name: "28 days" })).toBeNull();
+    // The Colour control is a labelled select: drawn disabled on the server, a live control once the island mounts.
+    const colour = screen.getByRole("combobox", { name: "Colour" });
+    expect(colour).toBeDisabled();
+    expect(screen.getByRole("option", { name: "Short interest" })).toBeInTheDocument();
   });
 
   it("says no stock is on the map for an empty universe, and draws no map for an empty answer", () => {
@@ -207,7 +217,7 @@ describe("OwnershipMapStatic", () => {
       />,
     );
     expect(document.body.textContent).toContain("released from 2026-08-01 to 2026-10-31");
-    expect(screen.getByRole("link", { name: "91 days" })).not.toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("combobox", { name: "Window" })).toHaveValue("brushed");
   });
 
   it("states the basis of each lens's figures, and never the disclosed wording for a fund file or a short position", () => {

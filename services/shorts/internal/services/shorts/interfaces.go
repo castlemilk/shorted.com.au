@@ -312,6 +312,7 @@ type Cache interface {
 	GetInstitutionKey(slug string, generation int64) string
 	GetStockOwnershipKey(stockCode string, generation int64) string
 	GetOwnershipMapKey(generation int64) string
+	GetOwnershipFundsKey(generation int64) string
 	ListSubstantialNoticesKey(generation int64, windowDays int32, event, kind, stockCode, institutionSlug string, limit int32, includeActivity bool) string
 	GetCompanyTaxProfileKey(productCode string) string
 	GetIndustryIntelligenceKey(industry string, stockCode string, recordLimit int32) string

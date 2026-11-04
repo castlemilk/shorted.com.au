@@ -33,6 +33,7 @@ import type {
   GetStockFundSeriesResponse,
   GetStockOwnershipResponse,
   ListFundPositionChangesResponse,
+  ListStockRegistersResponse,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
 import {
   GetOwnershipActivityResponseSchema,
@@ -40,18 +41,38 @@ import {
   GetOwnershipMapResponseSchema,
   ListFundPositionChangesResponseSchema,
 } from "~/gen/shorts/v1alpha1/ownership_pb";
-import type { MapStockRow } from "~/@/components/ownership/desk/map-layout";
+import type { InspectorContent, InspectorQuery } from "~/@/components/ownership/workspace/inspector-types";
+import {
+  SELECTION_KINDS,
+  parseSelection,
+  serializeSelection,
+  type Selection,
+} from "~/@/components/ownership/workspace/selection";
+import { cellInspectorContent } from "~/@/components/ownership/workspace/inspectors/cell-inspector";
+import {
+  connectionInspectorContent,
+  type ConnectionCompany,
+  type ConnectionSpan,
+} from "~/@/components/ownership/workspace/inspectors/connection-inspector";
+import { stockInspectorContent } from "~/@/components/ownership/workspace/inspectors/stock-inspector";
+import type { DeskLens } from "~/@/components/ownership/desk/desk-state";
+import { OTHER_SECTOR, type MapStockRow } from "~/@/components/ownership/desk/map-layout";
+import { FOLDED_SECTOR_LABEL } from "~/@/lib/ownership/kinds";
 import type { FlowChangeRow, FlowDirection, FlowPositionRow } from "~/@/components/ownership/desk/flows-layout";
 import type { FundChangeRow, FundChangeState } from "~/@/components/ownership/desk/fund-changes";
 import type { StockPanelPage } from "~/@/components/ownership/desk/stock-panel";
 import {
+  DEFAULT_DESK_LENS,
   DEFAULT_DESK_WINDOW,
+  DESK_LENSES,
   DESK_MAX_SPAN_DAYS,
   DESK_WINDOWS,
   dayGap,
   isIsoDate,
+  shiftDate,
   windowDates,
 } from "~/@/components/ownership/desk/desk-state";
+import { loadNoticeFeed } from "./ownershipExplorer";
 import { CACHE_KEYS } from "@/lib/kv-cache";
 import { skipForBuild } from "./config";
 import { cachedRead, ownershipClient, type ProtoSchema } from "./ownership-shared";
@@ -80,6 +101,8 @@ const FUND_LIMIT_MAX = 50;
 const NOT_AN_OBJECT = "the query must be an object";
 /** The ticker shape the API accepts. */
 const STOCK_CODE = /^[A-Z0-9]{1,6}$/;
+/** A holder kind's shape (super_fund, index_manager ...). The API holds the vocabulary and refuses the rest. */
+const KIND_SHAPE = /^[a-z_]{1,32}$/;
 
 type Asked<T> = { kind: "answered"; response: T } | { kind: "refused"; reason: string };
 
@@ -121,7 +144,7 @@ const requestMap = withRetryAndNotFound((request: { from: string; to: string }) 
 const requestFlows = withRetryAndNotFound((request: { from: string; to: string }) =>
   ask(() => ownershipClient().getOwnershipFlows(request)),
 );
-const requestActivity = withRetryAndNotFound((request: { weeks: number }) =>
+const requestActivity = withRetryAndNotFound((request: { weeks: number; kind?: string }) =>
   ask(() => ownershipClient().getOwnershipActivity(request)),
 );
 const requestFundChanges = withRetryAndNotFound(
@@ -130,6 +153,24 @@ const requestFundChanges = withRetryAndNotFound(
 );
 const requestFundSeries = withRetryAndNotFound((request: { stockCode: string }) =>
   ask(() => ownershipClient().getStockFundSeries(request)),
+);
+// A connection's companies: the register filtered to one holder kind and one sector (spec 14.7).
+// The API's maximum, so the rail can rank the band's companies by the kind's own figure.
+const CONNECTION_REGISTER_LIMIT = 100;
+// Pages read at most: a sector's companies on one kind are read whole up to this many rows.
+const CONNECTION_REGISTER_PAGES = 5;
+const requestConnectionRegisters = withRetryAndNotFound(
+  (request: { kind: string; industry: string; offset: number }) =>
+    ask(() =>
+      ownershipClient().listStockRegisters({
+        sort: "disclosed",
+        ascending: false,
+        industry: request.industry,
+        kind: request.kind,
+        limit: CONNECTION_REGISTER_LIMIT,
+        offset: request.offset,
+      }),
+    ),
 );
 // The stock panel's register. Read per stock and never kept: KV holds the default views only.
 const requestStockOwnership = withRetryAndNotFound((request: { stockCode: string }) =>
@@ -210,6 +251,10 @@ export interface FundSeriesRow {
   institutionSlug: string;
   institutionName: string;
   fundName: string;
+  /** The ASX code the file names; "" for a super option (spec 14.7: label it with fundLabel). */
+  fundCode: string;
+  /** The fund's key, the one its page resolves under (fundHref). */
+  fundKey: string;
   /** etf or super_phd. */
   sourceKind: string;
   points: FundSeriesPoint[];
@@ -264,9 +309,14 @@ export async function loadOwnershipFlows(input: DeskRangeInput = {}): Promise<Ow
   return flowsPage(asked);
 }
 
-/** The movement over the last weeks. `loadOwnershipActivity({})` is the default view. Never throws. */
+/**
+ * The movement over the last weeks. `loadOwnershipActivity({})` is the default view.
+ * `kind` is a holder kind of the vocabulary (spec 14.3, Activity's Holder type); ""
+ * or left out is every kind. A kind outside the vocabulary is refused by the API.
+ * Never throws.
+ */
 export async function loadOwnershipActivity(
-  input: { weeks?: number } = {},
+  input: { weeks?: number; kind?: string } = {},
 ): Promise<OwnershipActivityPage> {
   if (!isQueryObject(input)) return refusedActivity(NOT_AN_OBJECT);
   const weeks = input.weeks;
@@ -274,9 +324,10 @@ export async function loadOwnershipActivity(
     typeof weeks === "number" && Number.isInteger(weeks) && weeks >= 1 && weeks <= ACTIVITY_WEEKS_DEFAULT
       ? weeks
       : ACTIVITY_WEEKS_DEFAULT;
+  const kind = typeof input.kind === "string" && KIND_SHAPE.test(input.kind) ? input.kind : "";
   if (skipForBuild()) return activityPage(undefined);
-  const request = () => requestActivity({ weeks: served });
-  if (served !== ACTIVITY_WEEKS_DEFAULT) return activityPage(await request());
+  const request = () => requestActivity(kind === "" ? { weeks: served } : { weeks: served, kind });
+  if (served !== ACTIVITY_WEEKS_DEFAULT || kind !== "") return activityPage(await request());
   const asked = await cachedAsked(
     CACHE_KEYS.ownershipDeskActivity(),
     GetOwnershipActivityResponseSchema,
@@ -337,6 +388,185 @@ export async function loadStockPanel(code: string): Promise<StockPanelPage> {
   return panelPage(stockCode, await requestStockOwnership({ stockCode }));
 }
 
+/** The notices a cell's rail lists: the first page of its week. */
+const CELL_LIMIT = 50;
+
+/**
+ * The selection the workspace's inspector asks about, read as the codec reads it
+ * (a server action receives whatever the caller posts). A kind or key the codec
+ * would not write is no selection.
+ */
+function cleanInspectorSelection(input: unknown): Selection | null {
+  if (typeof input !== "object" || input === null) return null;
+  const kind = (input as { kind?: unknown }).kind;
+  if (typeof kind !== "string" || !(SELECTION_KINDS as readonly string[]).includes(kind)) return null;
+  return parseSelection(serializeSelection(input as Selection));
+}
+
+/**
+ * The companies on one connection: the register's current positions of the holder
+ * kind in the sector, each with the kind's own figure (spec 14.7). Null when the
+ * register could not be read; a refusal is an empty list with its total of zero.
+ */
+export async function loadConnectionCompanies(
+  holderKind: string,
+  sector: string,
+): Promise<{ companies: ConnectionCompany[]; total: number } | null> {
+  if (!KIND_SHAPE.test(holderKind) || sector === "") return null;
+  if (skipForBuild()) return null;
+  // Every page up to the cap, so the rail ranks the whole connection by exposure, not the first 100 by total.
+  const companies: ConnectionCompany[] = [];
+  let total = 0;
+  for (let page = 0; page < CONNECTION_REGISTER_PAGES; page += 1) {
+    const asked = await requestConnectionRegisters({
+      kind: holderKind,
+      industry: sector,
+      offset: page * CONNECTION_REGISTER_LIMIT,
+    });
+    if (asked === undefined) return null;
+    // The register refuses an industry it has no notice in (the API names its own industries), which a
+    // band drawn from fund holdings can still reach: nothing on record for this connection, not an outage.
+    if (asked.kind === "refused") {
+      logRefusal(asked.reason);
+      return { companies: [], total: 0 };
+    }
+    const answer: ListStockRegistersResponse = asked.response;
+    total = answer.total;
+    for (const stock of answer.stocks) {
+      const share = stock.byKind.find((entry) => entry.kind === holderKind);
+      companies.push({
+        code: stock.stockCode,
+        name: stock.companyName,
+        pct: share === undefined ? null : share.pct,
+        marketCap: stock.hasMarketCap ? stock.marketCap : null,
+        latestNotice: stock.latestNoticeDate,
+      });
+    }
+    if (answer.stocks.length < CONNECTION_REGISTER_LIMIT || companies.length >= total) break;
+  }
+  return { companies, total };
+}
+
+/**
+ * The inspector's content for one selection on the workspace (spec 14.1), as the
+ * plain contract the rail draws. A company reads the register and the fund series;
+ * a connection reads the register's companies on it (spec 14.7); a cell reads the
+ * notice feed for its filters, the holder kind included. A read that failed is
+ * thrown, so the rail says it could not load (an outage is never an empty record);
+ * a selection this loader does not serve, or one with nothing on record, is null.
+ * `lens` is the map's figure for a company (the disclosed notices by default).
+ */
+/** The link's parameters a page passes with a selection (spec 14.8); "" is unset. */
+const NO_INSPECTOR_QUERY: InspectorQuery = { lens: "", view: "", window: "", since: "", until: "", asAt: "" };
+
+/** The notices a connection's Change view lists: the window's first rows, the rest counted. */
+const CONNECTION_NOTICE_LIMIT = 10;
+
+/** The window a connection reads, from the link: a brushed pair, else the chips' days (clamped). */
+function connectionWindow(query: InspectorQuery): ConnectionSpan {
+  const days = Number(query.window);
+  const windowDays = (DESK_WINDOWS as readonly number[]).includes(days) ? days : DEFAULT_DESK_WINDOW;
+  if (isIsoDate(query.since) && isIsoDate(query.until)) {
+    return { window: String(windowDays), since: query.since, until: query.until };
+  }
+  return { window: String(windowDays), since: "", until: "" };
+}
+
+export async function loadInspector(
+  selection: Selection,
+  query: InspectorQuery = NO_INSPECTOR_QUERY,
+): Promise<InspectorContent | null> {
+  const clean = cleanInspectorSelection(selection);
+  if (clean === null) return null;
+  // The lens is read from the link, and an unknown one is the default (spec 14.7).
+  const lens: DeskLens = (DESK_LENSES as readonly string[]).includes(query.lens)
+    ? (query.lens as DeskLens)
+    : DEFAULT_DESK_LENS;
+  switch (clean.kind) {
+    case "stock": {
+      const [panel, series] = await Promise.all([
+        loadStockPanel(clean.code),
+        loadStockFundSeries({ stockCode: clean.code }),
+      ]);
+      if (!panel.ok) throw new Error("the register could not be read");
+      return stockInspectorContent(panel, series.ok ? series : null, lens);
+    }
+    case "connection": {
+      // The folded tail is several sectors under one label: no register filter, so it is withheld like Other.
+      if (clean.sector === OTHER_SECTOR || clean.sector === FOLDED_SECTOR_LABEL) {
+        return connectionInspectorContent({ holderKind: clean.holderKind, sector: clean.sector, companies: null });
+      }
+      const span = connectionWindow(query);
+      const changes = query.view === "changes";
+      // The window as dates (spec 14.8): a brushed pair is the window as it stands (validated
+      // like any span); the chips' days are counted back from the newest notice, because the
+      // feed serves 7, 30, 90 and 365 days and rounds a day count up. The Change view lists
+      // those notices and fails with them; the Positions view links the same dates when
+      // they are known and keeps the chips' window when they are not.
+      const brushed = span.since !== "" && span.until !== "";
+      const answer: RangeAnswer = brushed
+        ? await resolveRange({ since: span.since, until: span.until })
+        : await datedWindow(Number(span.window));
+      if (changes && (answer.kind === "outage" || answer.kind === "refused")) {
+        throw new Error("the notices could not be read");
+      }
+      const range: RangeAnswer | null = changes || answer.kind === "range" ? answer : null;
+      const dated = range?.kind === "range" ? range.dates : null;
+      const noticeSpan: ConnectionSpan = dated ? { window: span.window, since: dated.from, until: dated.to } : span;
+      const [read, feed] = await Promise.all([
+        loadConnectionCompanies(clean.holderKind, clean.sector),
+        changes && range?.kind !== "empty"
+          ? loadNoticeFeed({
+              since: dated?.from ?? "",
+              until: dated?.to ?? "",
+              industry: clean.sector,
+              kind: clean.holderKind,
+              includeActivity: false,
+              limit: CONNECTION_NOTICE_LIMIT,
+            })
+          : Promise.resolve(null),
+      ]);
+      if (read === null) throw new Error("the registers could not be read");
+      if (feed !== null && !feed.ok) throw new Error("the notices could not be read");
+      return connectionInspectorContent({
+        holderKind: clean.holderKind,
+        sector: clean.sector,
+        companies: read.companies,
+        total: read.total,
+        view: changes ? "changes" : "positions",
+        span: noticeSpan,
+        notices:
+          feed === null
+            ? changes && range?.kind === "empty"
+              ? { rows: [], total: 0 }
+              : null
+            : {
+                rows: feed.rows.map((row) => ({ released: row.released, code: row.code, holder: row.holder })),
+                total: feed.total,
+              },
+      });
+    }
+    case "cell": {
+      // The Other row is the placeholder industry: the feed cannot filter to it, so its count is withheld.
+      if (clean.sector === OTHER_SECTOR) {
+        return cellInspectorContent({ sector: clean.sector, weekStart: clean.date, feed: null, kind: clean.holderKind });
+      }
+      const feed = await loadNoticeFeed({
+        industry: clean.sector,
+        since: clean.date,
+        until: shiftDate(clean.date, 6),
+        kind: clean.holderKind,
+        includeActivity: false,
+        limit: CELL_LIMIT,
+      });
+      if (!feed.ok) throw new Error("the notices could not be read");
+      return cellInspectorContent({ sector: clean.sector, weekStart: clean.date, feed, kind: clean.holderKind });
+    }
+    default:
+      return null;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Windows and clamps                                                 */
 /* ------------------------------------------------------------------ */
@@ -371,14 +601,22 @@ async function resolveRange(input: DeskRangeInput): Promise<RangeAnswer> {
       ? days
       : DEFAULT_DESK_WINDOW;
   if (window === DEFAULT_DESK_WINDOW) return { kind: "range", dates: NO_DATES };
+  return datedWindow(window);
+}
+
+/**
+ * A window of `days` as dates, counted back from the newest notice. The newest comes
+ * from the default activity, which the KV layer keeps: a chip never asks for a week
+ * of activity just to learn a date. The default window is dated too (the Connections
+ * Change view lists the window's own notices, and the feed rounds a day count up).
+ */
+async function datedWindow(days: number): Promise<RangeAnswer> {
   if (skipForBuild()) return { kind: "outage" };
-  // The newest notice comes from the default activity, which the KV layer keeps: a chip
-  // never asks for a week of activity just to learn a date.
   const newest = await loadOwnershipActivity();
   if (newest.error !== "") return { kind: "refused", error: newest.error };
   if (!newest.ok) return { kind: "outage" };
   if (newest.asOf === "") return { kind: "empty" };
-  const dates = windowDates(window, newest.asOf);
+  const dates = windowDates(days, newest.asOf);
   if (dates === null) return { kind: "outage" };
   return { kind: "range", dates };
 }
@@ -458,6 +696,7 @@ function panelPage(code: string, data: GetStockOwnershipResponse | undefined): S
     ok: true,
     code,
     companyName: summary.companyName,
+    industry: summary.industry,
     disclosed: summary.byKind.map((share) => ({ kind: share.kind, pct: share.pct, holders: share.holders })),
     disclosedPct: summary.disclosedPct,
     largest: [...data.holders]
@@ -656,6 +895,8 @@ function seriesPage(
         institutionSlug: fund.institutionSlug,
         institutionName: fund.institutionName,
         fundName: fund.fundName,
+        fundCode: fund.fundCode,
+        fundKey: fund.fundKey,
         sourceKind: fund.sourceKind,
         points: fund.points.map(
           (point): FundSeriesPoint => ({

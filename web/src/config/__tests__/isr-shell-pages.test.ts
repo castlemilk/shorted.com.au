@@ -6,7 +6,7 @@ import isrShellPages from "../isr-shell-pages.json";
 
 // The shell subset is the pages whose empty-at-build render is a user-visible
 // shell, so they need a RE-PRIME after the post-promote revalidate, not just an
-// invalidate. It used to be expressed as `isrPages.slice(0, 5)` — correct only
+// invalidate. It used to be expressed as `isrPages.slice(0, 5)`. That was correct only
 // while nobody reordered or prepended an entry in isr-pages.json, and nothing
 // pinned that. These tests make the coupling explicit instead of positional.
 
@@ -54,6 +54,12 @@ describe("isr-shell-pages.json", () => {
       "/housing/act/council",
       "/ownership/notices",
       "/ownership/stocks",
+      "/ownership/map",
+      "/ownership/connections",
+      "/ownership/activity",
+      "/ownership/funds",
+      "/ownership/holders",
+      "/ownership/changes",
     ]);
   });
 });
@@ -61,7 +67,7 @@ describe("isr-shell-pages.json", () => {
 // /themes/[slug] builds as a deliberately-empty static shell (skipForBuild)
 // that the post-promote sweep fills. A theme present in the registry but
 // missing from isr-pages.json ships every deploy as an empty page until its
-// first natural revalidation — exactly what happened on the feature's launch
+// first natural revalidation: exactly what happened on the feature's launch
 // deploy (2026-08-25). The slug list lives in the registry; this pins the
 // sweep inventory to it.
 describe("theme pages in the ISR sweep inventory", () => {
@@ -253,6 +259,24 @@ describe("the ownership hub in the ISR sweep inventory", () => {
 // Listing them in both sets lets the warm-cache repair re-prime them after a promote.
 describe("the ownership explorer pages in the sweep and the shell re-prime", () => {
   it.each(["/ownership/notices", "/ownership/stocks"])("lists %s in both sets", (page) => {
+    expect(isrPages).toContain(page);
+    expect(isrShellPages).toContain(page);
+  });
+});
+
+// The six workspace pages (spec 14.3) read through the desk's loaders, so their build renders are
+// shells. Each is listed in the post-promote sweep AND in the shell re-prime (spec 14.7): the warm
+// call reads the shell list eight at a time, so 23 shells take three batches, a worst case of
+// 120 s under the callers' 145 s (warm-cache/__tests__/budget.test.ts).
+describe("the workspace pages in the sweep and the shell re-prime", () => {
+  it.each([
+    "/ownership/map",
+    "/ownership/connections",
+    "/ownership/activity",
+    "/ownership/funds",
+    "/ownership/holders",
+    "/ownership/changes",
+  ])("lists %s in both sets", (page) => {
     expect(isrPages).toContain(page);
     expect(isrShellPages).toContain(page);
   });

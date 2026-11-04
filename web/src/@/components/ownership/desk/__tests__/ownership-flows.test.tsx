@@ -16,6 +16,7 @@ import {
   FLOW_POSITIONS_CAPTION,
   OwnershipFlowsStatic,
   changeBandTitle,
+  connectionIsSelected,
   flowRegisterHref,
   kindColour,
   positionBandTitle,
@@ -117,7 +118,11 @@ describe("OwnershipFlowsStatic", () => {
     const modes = screen.getByRole("group", { name: "What the bands show" });
     expect(within(modes).getByRole("button", { name: "Positions" })).toBeDisabled();
     expect(within(modes).getByRole("button", { name: "Positions" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("group", { name: "Window of change" })).toBeInTheDocument();
+    // The window is one labelled select with four options, drawn disabled on the server (spec 14.9).
+    const window = screen.getByRole("combobox", { name: "Window" });
+    expect(window).toBeDisabled();
+    expect(within(window).getAllByRole("option")).toHaveLength(4);
+    expect(screen.queryByRole("group", { name: "Window of change" })).toBeNull();
   });
 
   it("groups a placeholder industry under Other in the table, with the same zoom and register links as the drawing", () => {
@@ -130,7 +135,7 @@ describe("OwnershipFlowsStatic", () => {
     render(<OwnershipFlowsStatic page={page} state={DESK_DEFAULT_WINDOW_STATE} basePath="/ownership" />);
     const table = screen.getByRole("table", { name: TABLE_POSITIONS });
     expect(within(table).queryByRole("link", { name: "Not applicable" })).toBeNull();
-    expect(within(table).getByRole("link", { name: "Other" })).toHaveAttribute("href", "/ownership?sector=Other");
+    expect(within(table).getByRole("link", { name: "Other" })).toHaveAttribute("href", "/ownership/map?sector=Other");
     expect(within(table).getByRole("link", { name: "A$100.0M" })).toHaveAttribute(
       "href",
       "/ownership/stocks?kind=super_fund",
@@ -143,7 +148,7 @@ describe("OwnershipFlowsStatic", () => {
     );
     const titles = Array.from(container.querySelectorAll("title")).map((t) => t.textContent);
     expect(titles).toContain(
-      "Super fund in Materials: A$3.0B disclosed exposure, estimated, across 4 holdings; largest BHP at 9.20%",
+      "Super fund in Materials: A$3.0B disclosed exposure, estimated, across 4 holdings; largest BHP at 9.20%. Inspect underlying notices →",
     );
 
     const table = screen.getByRole("table", { name: TABLE_POSITIONS });
@@ -156,7 +161,7 @@ describe("OwnershipFlowsStatic", () => {
     // A sector zoom is a link that keeps the reader's window and writes the sector.
     expect(within(table).getAllByRole("link", { name: "Materials" })[0]).toHaveAttribute(
       "href",
-      "/ownership?sector=Materials",
+      "/ownership/map?sector=Materials",
     );
     expect(within(table).getByRole("cell", { name: "n/a" })).toBeInTheDocument();
   });
@@ -184,14 +189,18 @@ describe("OwnershipFlowsStatic", () => {
 describe("OwnershipFlows island", () => {
   it("switches between the positions and the window's changes, and says so in the caption", () => {
     const loadFlows = jest.fn<Promise<OwnershipFlowsPage>, [DeskRangeInput]>();
-    render(<OwnershipFlows initial={PAGE} loadFlows={loadFlows} basePath="/ownership" />);
+    const { rerender } = render(<OwnershipFlows initial={PAGE} loadFlows={loadFlows} basePath="/ownership" />);
     const modes = screen.getByRole("group", { name: "What the bands show" });
     expect(within(modes).getByRole("button", { name: "Positions" })).toHaveAttribute("aria-pressed", "true");
 
-    fireEvent.click(within(modes).getByRole("button", { name: "Changes in the window" }));
-    expect(within(modes).getByRole("button", { name: "Changes in the window" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(modes).getByRole("button", { name: "Changes" }));
+    // The mode is a link parameter (spec 14.8): the click writes view=changes in place, and the page reads it back.
+    expect(window.location.search).toContain("view=changes");
+    mockSearchParams = new URLSearchParams("view=changes");
+    rerender(<OwnershipFlows initial={PAGE} loadFlows={loadFlows} basePath="/ownership" />);
+    expect(within(modes).getByRole("button", { name: "Changes" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("table", { name: TABLE_CHANGES })).toBeInTheDocument();
-    expect(screen.getByText(/Increases are amber and decreases ink/)).toBeInTheDocument();
+    expect(screen.getByText(/Each band's title says whether its exposure rose or fell/)).toBeInTheDocument();
     expect(loadFlows).not.toHaveBeenCalled();
   });
 
@@ -255,5 +264,33 @@ describe("OwnershipFlows island", () => {
       await Promise.resolve();
     });
     expect(screen.getByRole("status")).toHaveTextContent(FLOWS_OUTAGE);
+  });
+});
+
+describe("the measure a band states", () => {
+  it("states a count of interests, never dollars, in count mode", () => {
+    expect(
+      positionBandTitle(
+        {
+          kind: "super_fund",
+          industry: "Materials",
+          exposureAud: 12,
+          holdings: 12,
+          largestCode: "",
+          largestPct: null,
+        },
+        "count",
+      ),
+    ).toBe("Super fund in Materials: 12 holdings disclosed");
+    expect(
+      changeBandTitle({ kind: "super_fund", industry: "Materials", direction: "up", exposureAud: 3, notices: 3 }, "count"),
+    ).toBe("Super fund, increases in Materials: 3 notices released");
+  });
+
+  it("names a connection the workspace selection holds, and only that one", () => {
+    const params = new URLSearchParams("sel=connection%3Asuper_fund%3EMaterials");
+    expect(connectionIsSelected(params, "super_fund", "Materials")).toBe(true);
+    expect(connectionIsSelected(params, "super_fund", "Energy")).toBe(false);
+    expect(connectionIsSelected(new URLSearchParams(""), "super_fund", "Materials")).toBe(false);
   });
 });
