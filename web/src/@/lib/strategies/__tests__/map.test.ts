@@ -359,6 +359,11 @@ describe("mapRuleResult", () => {
     expect(mapRuleResult({ ruleId: "r", status: "pass", value: "NaN", hasValue: true })).not.toHaveProperty("value");
   });
 
+  it("rounds proximity to two decimals and keeps a rule's value at the API's precision", () => {
+    expect(mapRuleResult({ ruleId: "breakout", status: "fail", proximity: 0.456789, hasProximity: true }).proximity).toBe(0.46);
+    expect(mapRuleResult({ ruleId: "near_high", status: "pass", value: -4.9996, hasValue: true }).value).toBe(-4.9996);
+  });
+
   it("carries proximity only when flagged, and never for a result without one", () => {
     const graded = mapRuleResult({ ruleId: "breakout", status: "fail", proximity: 0.4, hasProximity: true });
     expect(graded.proximity).toBe(0.4);
@@ -421,6 +426,16 @@ describe("mapPick signal fields", () => {
     expect(row).not.toHaveProperty("rs6mPct");
     expect(row).not.toHaveProperty("rs6mPercentile");
     expect(row).not.toHaveProperty("dollarVolume20d");
+  });
+
+  it("rounds the percentile and turnover down, so a figure under a cut-off never prints at it", () => {
+    const row = mapPick(
+      protoPick({ rs6mPercentile: 74.96, hasRs6mPercentile: true, dollarVolume20d: 249999.7, hasDollarVolume20d: true }),
+    );
+    expect(row.rs6mPercentile).toBe(74.9);
+    expect(row.dollarVolume20d).toBe(249999);
+    expect(mapPick(protoPick({ rs6mPercentile: 75, hasRs6mPercentile: true })).rs6mPercentile).toBe(75);
+    expect(mapPick(protoPick({ dollarVolume20d: 250000, hasDollarVolume20d: true })).dollarVolume20d).toBe(250000);
   });
 
   it("says a zero percent off the high is the high only with its flag", () => {

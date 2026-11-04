@@ -280,6 +280,16 @@ function oneDecimal(value: number): number {
   return Number(value.toFixed(1));
 }
 
+/**
+ * Rounds down to a display step. A figure read against a cut-off (the
+ * rs_leader percentile, the liquidity floor) must not print at the cut-off
+ * when it sits just under it, so the step never moves a value up.
+ */
+function floorTo(value: number, places: number): number {
+  const scale = 10 ** places;
+  return Math.floor(value * scale) / scale;
+}
+
 let sydneyParts: Intl.DateTimeFormat | null = null;
 
 /**
@@ -395,12 +405,14 @@ export function mapRuleResult(result: RuleResultInput): RuleResultRow {
     status: toRuleStatus(result.status),
     detail: str(result.detail),
   };
+  // The value keeps the API's precision: a threshold test is read from it,
+  // and a rounded value could print on the wrong side of its threshold.
   const value = flagged(result.value, result.hasValue);
   if (value !== null) row.value = value;
   const reason = str(result.reason).trim();
   if (reason) row.reason = reason;
   const proximity = flagged(result.proximity, result.hasProximity);
-  if (proximity !== null) row.proximity = proximity;
+  if (proximity !== null) row.proximity = Math.round(proximity * 100) / 100;
   if (result.waiting === true) row.waiting = true;
   return row;
 }
@@ -408,12 +420,16 @@ export function mapRuleResult(result: RuleResultInput): RuleResultRow {
 /** A pick's signal fields, present only where the has_* flag or the value says so. */
 function mapPickSignals(pick: StrategyPickInput): Partial<PickRow> {
   const out: Record<string, unknown> = {};
+  const percentile = flagged(pick.rs6mPercentile, pick.hasRs6mPercentile);
+  const turnover = flagged(pick.dollarVolume20d, pick.hasDollarVolume20d);
   const numbers: Array<[keyof PickRow, number | null]> = [
     ["pctOff52wHigh", flagged(pick.pctOff52wHigh, pick.hasPctOff52wHigh)],
     ["daysToCover", flagged(pick.daysToCover, pick.hasDaysToCover)],
     ["rs6mPct", flagged(pick.rs6mPct, pick.hasRs6mPct)],
-    ["rs6mPercentile", flagged(pick.rs6mPercentile, pick.hasRs6mPercentile)],
-    ["dollarVolume20d", flagged(pick.dollarVolume20d, pick.hasDollarVolume20d)],
+    // Top quartile is 75 or more: one decimal, rounded down, so 74.96 is not 75.0.
+    ["rs6mPercentile", percentile === null ? null : floorTo(percentile, 1)],
+    // The A$250k liquidity floor: whole dollars, rounded down.
+    ["dollarVolume20d", turnover === null ? null : floorTo(turnover, 0)],
   ];
   for (const [key, value] of numbers) {
     if (value !== null) out[key] = value;
