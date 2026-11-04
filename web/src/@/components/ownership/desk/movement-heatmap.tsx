@@ -345,10 +345,11 @@ function LiveMovementHeatmap({ initial, basePath, loadActivity, variant }: Movem
       onWindowChange={writeWindowInPlace}
       measure={measure}
       workspace={workspace}
+      compact={variant === "compact"}
       kind={workspace ? kind : ""}
       onCellSelect={onCellSelect}
       brush={
-        span !== null ? (
+        variant !== "compact" && span !== null ? (
           <WeekBrush
             count={weeks.length}
             totals={totals}
@@ -378,11 +379,12 @@ export function MovementHeatmap(props: MovementHeatmapProps) {
           params={new URLSearchParams()}
           measure={props.variant === "full" ? "count" : "pp"}
           workspace={props.variant === "full"}
+          compact={props.variant === "compact"}
           controls={
             // The real row is one control high from sm (spec 14.9); the placeholder reserves that height.
             props.variant === "full" ? <div aria-hidden="true" className={TOOLBAR_ROW_CLASS} /> : undefined
           }
-          brush={<div aria-hidden="true" className="hidden sm:block" style={{ height: BRUSH_HEIGHT }} />}
+          brush={props.variant === "compact" ? null : <div aria-hidden="true" className="hidden sm:block" style={{ height: BRUSH_HEIGHT }} />}
         />
       }
     >

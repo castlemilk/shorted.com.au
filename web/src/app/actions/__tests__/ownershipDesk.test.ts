@@ -19,6 +19,8 @@
  *   - THE ROWS ARE PLAIN. A null is a figure the API did not state, never a zero.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { create } from "@bufbuild/protobuf";
 
 const mockGetOwnershipMap = jest.fn();
@@ -897,9 +899,22 @@ describe("loadInspector (spec 14.1 resolvers)", () => {
       since: "2026-10-26",
       until: "2026-11-01",
       includeActivity: false,
-      limit: 50,
+      limit: 100,
     });
     expect(content?.heading).toBe("Materials");
+  });
+
+  it("reads a week up to the notice feed's own page size, so no larger limit is ever asked", async () => {
+    const loadInspector = await load();
+    mockLoadNoticeFeed.mockResolvedValue({ ok: true, rows: [], total: 0, nextCursor: "", weeks: [], query: {}, activityOk: true, error: "", asOf: "", activity: null });
+    await loadInspector({ kind: "cell", sector: "Materials", date: "2026-10-26", holderKind: "" } as never);
+    const sent = mockLoadNoticeFeed.mock.calls.at(-1)?.[0] as { limit: number };
+    // The API clamps a larger limit to its page size, so the web's limit is read from the Go constant
+    // rather than restated: a raise there must move this test with it.
+    const goSource = readFileSync(join(__dirname, "../../../../../services/shorts/internal/services/shorts/ownership_lists.go"), "utf8");
+    const pageMaxLimit = Number(/pageMaxLimit\s*=\s*(\d+)/.exec(goSource)?.[1]);
+    expect(Number.isFinite(pageMaxLimit)).toBe(true);
+    expect(sent.limit).toBe(pageMaxLimit);
   });
 
   it("throws, so the rail says it could not load, when the feed did not answer", async () => {

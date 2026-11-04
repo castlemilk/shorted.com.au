@@ -15,7 +15,13 @@ import {
   HEAT_FULL_CELL,
   HEAT_PHONE_WEEKS,
   MovementHeatmapStatic,
+  MovementHeatmapView,
+  HEAT_FOLDED_ROW,
+  HEAT_PANE_SECTORS,
   cellFigure,
+  foldHeatRows,
+  type HeatCell,
+  type HeatRow,
   cellTitle,
   heatFeedHref,
   heatReach,
@@ -405,5 +411,84 @@ describe("MovementHeatmap workspace (spec 14.7)", () => {
     render(<MovementHeatmap initial={PAGE} basePath="/ownership/activity" variant="full" />);
     expect(screen.getByText("Adjust the period")).toBeInTheDocument();
     expect(screen.getAllByText("2 Nov").length).toBeGreaterThan(0);
+  });
+});
+
+describe("the Overview's compact pane (backlog B2)", () => {
+  const LETTERS = "ABCDEFGHIJKLM".split("");
+  // Thirteen sectors with notices in the newest week: the eleven most active stay, the last two fold.
+  const BUSY: OwnershipActivityPage = {
+    ok: true,
+    error: "",
+    fromWeek: "2026-08-24",
+    toWeek: "2026-11-02",
+    asOf: "2026-11-03",
+    rows: LETTERS.map((letter, index) => row({ industry: `Sector ${letter}`, weekStart: "2026-11-02", became: 13 - index, netPp: 1 })),
+  };
+
+  it("draws the eleven most active sectors and one 'Other sectors' row that names no feed and selects nothing", () => {
+    const { container } = render(
+      <MovementHeatmapView page={BUSY} state={DESK_DEFAULT_WINDOW_STATE} basePath="/ownership" params={new URLSearchParams()} compact />,
+    );
+    const labels = Array.from(container.querySelectorAll("ol > li")).map((item) => item.textContent);
+    expect(labels).toContain("Other sectors");
+    expect(labels).toContain("Sector A");
+    expect(labels).not.toContain("Sector L");
+    expect(labels).not.toContain("Sector M");
+    const folded = screen.getAllByText("Other sectors").find((node) => node.tagName === "TH");
+    expect(folded?.closest("tr")?.querySelector("a")).toBeNull();
+    expect(folded?.closest("tr")).toHaveTextContent("3 notices");
+    expect(container.querySelector("[role='button'][data-sector='Other sectors']")).toBeNull();
+  });
+
+  it("draws the newest ten weeks, with no brush, no figures and no key of the hatch", () => {
+    const { container } = render(
+      <MovementHeatmapView page={BUSY} state={DESK_DEFAULT_WINDOW_STATE} basePath="/ownership" params={new URLSearchParams()} compact />,
+    );
+    expect(container.querySelector('svg[viewBox^="0 0 120 "]')).not.toBeNull();
+    expect(screen.queryByText("Adjust the period")).toBeNull();
+    expect(screen.queryByText("Notices with no figure stated")).toBeNull();
+    expect(container.querySelector("span.text-\\[11px\\]")).toBeNull();
+    // The pane has no control row of its own: the period and the window are the hub's toolbar.
+    expect(container.querySelector("[data-toolbar]")).toBeNull();
+  });
+});
+
+const heatCell = (weekStart: string, notices: number, netPp: number | null): HeatCell => ({
+  weekStart,
+  notices,
+  counts: { became: notices, increased: 0, decreased: 0, changed: 0, ceased: 0, nz: 0 },
+  netPp,
+});
+const heatRow = (sector: string, cells: HeatCell[]): HeatRow => ({
+  sector,
+  total: cells.reduce((sum, cell) => sum + cell.notices, 0),
+  cells,
+});
+
+describe("foldHeatRows (backlog B2)", () => {
+  const WEEKS = ["2026-10-26", "2026-11-02"];
+  const a = heatRow("A", [heatCell(WEEKS[0]!, 5, 1), heatCell(WEEKS[1]!, 2, 0.5)]);
+  const b = heatRow("B", [heatCell(WEEKS[0]!, 3, 1), heatCell(WEEKS[1]!, 1, 0.5)]);
+  const c = heatRow("C", [heatCell(WEEKS[0]!, 2, 2), heatCell(WEEKS[1]!, 1, null)]);
+  const d = heatRow("D", [heatCell(WEEKS[0]!, 0, null), heatCell(WEEKS[1]!, 1, 0.25)]);
+
+  it("keeps the rows as they are when there are no more than the rows to keep", () => {
+    expect(foldHeatRows([a, b], 2)).toEqual([a, b]);
+  });
+
+  it("sums the rest into one row, and states a week's net only where every folded notice states one", () => {
+    const folded = foldHeatRows([a, b, c, d], 2);
+    expect(folded.map((row) => row.sector)).toEqual(["A", "B", HEAT_FOLDED_ROW]);
+    const rest = folded[2]!;
+    expect(rest.total).toBe(c.total + d.total);
+    // The first week: C's two notices state +2 and D has none that week, so the sum is stated.
+    expect(rest.cells[0]).toMatchObject({ notices: 2, netPp: 2 });
+    // The second week: C's notice states no figure, so the folded week reads n/a, never a partial sum.
+    expect(rest.cells[1]).toMatchObject({ notices: 2, netPp: null });
+  });
+
+  it("keeps the compact pane's eleven sectors as its default", () => {
+    expect(HEAT_PANE_SECTORS).toBe(11);
   });
 });

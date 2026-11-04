@@ -46,14 +46,94 @@ function renderView(search: string, navigate = jest.fn()) {
 }
 
 describe("the fund exposure map (spec 14.3, Funds)", () => {
-  it("titles the map beside its view toggle, and keys the heat scale in a legend", () => {
+  it("keys the heat scale in a legend beneath the map", () => {
     renderView("");
-    const title = screen.getByRole("heading", { name: "Fund exposure map" });
-    const row = title.parentElement as HTMLElement;
-    expect(within(row).getByRole("radiogroup", { name: "Table view" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Fund exposure map" })).toBeInTheDocument();
     expect(screen.getByText("Cell colour and value = weight within that fund")).toBeInTheDocument();
     expect(screen.getByText("0%")).toBeInTheDocument();
     expect(screen.getByText("≥ 40%")).toBeInTheDocument();
+  });
+
+  it("puts the search and the four selects in the one toolbar row, labelled in sentence case", () => {
+    const { container } = render(
+      <FundExposureMapView funds={FUNDS} params={new URLSearchParams("")} pathname="/ownership/funds" navigate={jest.fn()} />,
+    );
+    const rows = container.querySelectorAll("[data-toolbar]");
+    expect(rows).toHaveLength(1);
+    const row = rows[0] as HTMLElement;
+    const search = screen.getByRole("searchbox", { name: "Find fund, code or manager" });
+    expect(search).toHaveAttribute("placeholder", "A200, Vanguard, Betashares");
+    expect(search).toHaveClass("h-8", "font-mono", "text-xs", "flex-1", "min-w-[10rem]", "max-w-[16rem]");
+    expect(search.closest("[data-toolbar]")).toBe(row);
+    for (const name of ["Manager", "Kind", "View", "Files"]) {
+      const select = screen.getByRole("combobox", { name });
+      expect(select.tagName).toBe("SELECT");
+      expect(select.closest("[data-toolbar]")).toBe(row);
+    }
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.queryByText("Fund type")).not.toBeInTheDocument();
+  });
+
+  it("offers the kinds, views and files under the names the toolbar prints", () => {
+    renderView("");
+    const optionsOf = (name: string) =>
+      Array.from((screen.getByRole("combobox", { name }) as HTMLSelectElement).options).map((option) => option.textContent);
+    expect(optionsOf("Kind")).toEqual(["Index funds", "Super options"]);
+    expect(optionsOf("View")).toEqual(["Sector weights", "Holdings"]);
+    expect(optionsOf("Files")).toEqual(["Available", "All tracked"]);
+    expect(optionsOf("Manager")).toEqual(["All managers", "Betashares", "State Street", "Vanguard", "iShares"]);
+  });
+
+  it("writes each select's parameter through the URL, and the default value writes none", () => {
+    const navigate = jest.fn();
+    render(<FundExposureMapView funds={FUNDS} params={new URLSearchParams("")} pathname="/ownership/funds" navigate={navigate} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Manager" }), { target: { value: "Vanguard" } });
+    expect(navigate).toHaveBeenLastCalledWith("/ownership/funds?manager=Vanguard");
+    fireEvent.change(screen.getByRole("combobox", { name: "Kind" }), { target: { value: "super" } });
+    expect(navigate).toHaveBeenLastCalledWith("/ownership/funds?type=super");
+    fireEvent.change(screen.getByRole("combobox", { name: "View" }), { target: { value: "holdings" } });
+    expect(navigate).toHaveBeenLastCalledWith("/ownership/funds?view=holdings");
+    fireEvent.change(screen.getByRole("combobox", { name: "Files" }), { target: { value: "all" } });
+    expect(navigate).toHaveBeenLastCalledWith("/ownership/funds?coverage=all");
+  });
+
+  it("writes no parameter when a select returns to its default", () => {
+    const navigate = jest.fn();
+    const params = new URLSearchParams("manager=Vanguard&type=super&view=holdings&coverage=all");
+    render(<FundExposureMapView funds={FUNDS} params={params} pathname="/ownership/funds" navigate={navigate} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Manager" }), { target: { value: "" } });
+    expect(navigate).toHaveBeenLastCalledWith("/ownership/funds?type=super&view=holdings&coverage=all");
+    fireEvent.change(screen.getByRole("combobox", { name: "Kind" }), { target: { value: "index" } });
+    expect(navigate).toHaveBeenLastCalledWith("/ownership/funds?manager=Vanguard&view=holdings&coverage=all");
+    fireEvent.change(screen.getByRole("combobox", { name: "View" }), { target: { value: "sectors" } });
+    expect(navigate).toHaveBeenLastCalledWith("/ownership/funds?manager=Vanguard&type=super&coverage=all");
+    fireEvent.change(screen.getByRole("combobox", { name: "Files" }), { target: { value: "files" } });
+    expect(navigate).toHaveBeenLastCalledWith("/ownership/funds?manager=Vanguard&type=super&view=holdings");
+  });
+
+  it("holds each fund's one line: logo, ticker, tag and manager, in a 44 px row", () => {
+    renderView("");
+    const link = screen.getByRole("link", { name: "A200 ETF Betashares" });
+    expect(link.tagName).toBe("A");
+    expect(link.className).toMatch(/\bflex\b/);
+    expect(link.className).toMatch(/\bitems-center\b/);
+    expect(link.className).toMatch(/\bwhitespace-nowrap\b/);
+    expect(link.querySelector("div")).toBeNull();
+    const manager = within(link).getByText("Betashares");
+    expect(manager).toHaveAttribute("title", "Betashares");
+    expect(manager.className).toMatch(/\btruncate\b/);
+    expect(manager.className).toMatch(/\btext-muted-foreground\b/);
+    expect(within(link).getByText("ETF")).toBeInTheDocument();
+    expect(within(link).getByText("A200").className).toMatch(/\btext-foreground\b/);
+    expect(link.closest("tr")).toHaveClass("h-11");
+  });
+
+  it("centres the chevron and the compare box in the 44 px row, as the row's own cells", () => {
+    renderView("");
+    const row = screen.getByRole("link", { name: "A200 ETF Betashares" }).closest("tr") as HTMLElement;
+    expect(row.className).toMatch(/\[&>td\]:align-middle/);
+    expect(within(row).getByRole("button", { name: "Show A200 sector weights and largest positions" })).toBeInTheDocument();
+    expect(within(row).getByLabelText("Compare A200")).toBeInTheDocument();
   });
 
   it("labels the fund column with its ticker and manager", () => {
@@ -138,12 +218,12 @@ describe("the fund exposure map (spec 14.3, Funds)", () => {
 
   it("selects a fund for the inspector through its link", () => {
     renderView("");
-    expect(screen.getByRole("link", { name: /^A200 .*Betashares$/ })).toHaveAttribute("href", "/ownership/funds?sel=fund%3Aasx%3AA200");
+    expect(screen.getByRole("link", { name: "A200 ETF Betashares" })).toHaveAttribute("href", "/ownership/funds?sel=fund%3Aasx%3AA200");
   });
 
   it("filters by the search across code, name and manager", () => {
     renderView("");
-    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "ishares" } });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Find fund, code or manager" }), { target: { value: "ishares" } });
     expect(screen.getByText("IOZ")).toBeInTheDocument();
     expect(screen.queryByText("A200")).not.toBeInTheDocument();
   });

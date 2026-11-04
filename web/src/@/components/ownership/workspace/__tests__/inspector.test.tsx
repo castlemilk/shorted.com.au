@@ -1,8 +1,10 @@
 /// <reference types="jest" />
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { barPercent, Inspector, InspectorFallback } from "../inspector";
 import type { InspectorContent } from "../inspector-types";
+import { serializeSelection } from "../selection";
+import { trailKey } from "../trail";
 
 let mockSearch = "";
 const mockReplace = jest.fn();
@@ -268,5 +270,229 @@ describe("workspace inspector reading (spec 14.1, backlog C1)", () => {
     const { container } = render(<Inspector resolve={jest.fn(async () => content)} emptyText="Select a company." />);
     await screen.findByRole("heading", { name: "BHP Group" });
     expect(container.querySelector("p.leading-snug")).toBeNull();
+  });
+});
+
+describe("workspace inspector trail (spec 14.1, backlog C2)", () => {
+  const PAGE_KEY = trailKey("/ownership/map");
+  const contents: Record<string, InspectorContent> = {
+    "stock:BHP": { heading: "BHP Group", rows: [{ label: "Holders", value: "14" }] },
+    "stock:CBA": { heading: "CBA", rows: [] },
+    "holder:state-street": { heading: "State Street", rows: [] },
+  };
+  const resolve = async (selection: Parameters<typeof serializeSelection>[0]) =>
+    contents[serializeSelection(selection)] ?? null;
+
+  /** A sessionStorage stand-in: a Map behind the Storage methods the rail calls. */
+  function fakeSessionStorage() {
+    const items = new Map<string, string>();
+    return {
+      items,
+      getItem: (key: string) => (items.has(key) ? (items.get(key) as string) : null),
+      setItem: (key: string, value: string) => {
+        items.set(key, String(value));
+      },
+      removeItem: (key: string) => {
+        items.delete(key);
+      },
+      clear: () => items.clear(),
+    };
+  }
+
+  let fake: ReturnType<typeof fakeSessionStorage>;
+  let original: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(true);
+    fake = fakeSessionStorage();
+    original = Object.getOwnPropertyDescriptor(window, "sessionStorage");
+    Object.defineProperty(window, "sessionStorage", { value: fake, configurable: true });
+  });
+
+  afterEach(() => {
+    if (original) Object.defineProperty(window, "sessionStorage", original);
+    else delete (window as { sessionStorage?: unknown }).sessionStorage;
+  });
+
+  /** The trail's text as the rail draws it, or null with no trail. */
+  function trailText(): string | null {
+    return screen.queryByRole("navigation", { name: "Trail" })?.textContent ?? null;
+  }
+
+  /**
+   * The trail is recorded in an effect, which runs after the heading is on screen, so a test
+   * waits on the trail itself rather than on the heading.
+   */
+  async function flushEffects() {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  /** The trail's steps as the rail draws them: the text of each step and whether it is a link. */
+  function trailSteps() {
+    const nav = screen.queryByRole("navigation", { name: "Trail" });
+    if (nav === null) return null;
+    return Array.from(nav.querySelectorAll("a, span[aria-current='step']")).map((el) => ({
+      label: el.textContent,
+      href: el.getAttribute("href"),
+      current: el.getAttribute("aria-current") === "step",
+    }));
+  }
+
+  it("records a zoomed sector, then a stock, then its holder, and draws the three as a trail", async () => {
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    mockSearch = "sector=Materials";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailSteps()).toEqual([{ label: "Materials", href: null, current: true }]));
+
+    mockSearch = "sector=Materials&sel=stock%3ABHP";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("Materials > BHP Group"));
+
+    mockSearch = "sector=Materials&sel=holder%3Astate-street";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "State Street" })).toBeInTheDocument());
+    await waitFor(() => expect(trailText()).toBe("Materials > BHP Group > State Street"));
+
+    const nav = screen.getByRole("navigation", { name: "Trail" });
+    expect(trailSteps()).toEqual([
+      { label: "Materials", href: "/ownership/map?sector=Materials", current: false },
+      { label: "BHP Group", href: "/ownership/map?sector=Materials&sel=stock%3ABHP", current: false },
+      { label: "State Street", href: null, current: true },
+    ]);
+    // The earlier steps are links with the scroll and prefetch the rail's other links use; the current one is text.
+    expect(screen.getByRole("link", { name: "BHP Group" })).toHaveAttribute("href", "/ownership/map?sector=Materials&sel=stock%3ABHP");
+    expect(screen.getByText("State Street", { selector: "span" })).toHaveAttribute("aria-current", "step");
+    expect(screen.queryByRole("link", { name: "State Street" })).toBeNull();
+  });
+
+  it("draws a trail of three after three resolved selections, with the earlier two linked", async () => {
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    for (const [search, heading] of [
+      ["sel=stock%3ABHP", "BHP Group"],
+      ["sel=stock%3ACBA", "CBA"],
+      ["sel=holder%3Astate-street", "State Street"],
+    ] as const) {
+      mockSearch = search;
+      rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+      await waitFor(() => expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument());
+    }
+    await waitFor(() => expect(trailText()).toBe("BHP Group > CBA > State Street"));
+    expect(trailSteps()).toEqual([
+      { label: "BHP Group", href: "/ownership/map?sel=stock%3ABHP", current: false },
+      { label: "CBA", href: "/ownership/map?sel=stock%3ACBA", current: false },
+      { label: "State Street", href: null, current: true },
+    ]);
+  });
+
+  it("keeps the trail in sessionStorage under the page's key, never in the link", async () => {
+    mockSearch = "sel=stock%3ABHP";
+    render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(fake.items.has(PAGE_KEY)).toBe(true));
+    const stored = JSON.parse(fake.items.get(PAGE_KEY) as string);
+    expect(stored).toEqual([{ label: "BHP Group", href: "/ownership/map?sel=stock%3ABHP" }]);
+  });
+
+  it("does not record a step for a selection with nothing on record", async () => {
+    mockSearch = "sel=fund%3Aasx%3AZZZ";
+    render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await screen.findByText("Nothing on record for this selection.");
+    expect(fake.items.has(PAGE_KEY)).toBe(false);
+    expect(screen.queryByRole("navigation", { name: "Trail" })).toBeNull();
+  });
+
+  it("keeps the trail when the selection is cleared, so the reader can walk back", async () => {
+    mockSearch = "sel=stock%3ABHP";
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await screen.findByRole("heading", { name: "BHP Group" });
+    mockSearch = "";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(screen.getByText("Click selects.")).toBeInTheDocument());
+    // The page is now the bare link, which is no step's link: every step stays a way back.
+    expect(trailSteps()).toEqual([{ label: "BHP Group", href: "/ownership/map?sel=stock%3ABHP", current: false }]);
+  });
+
+  it("keeps a zoomed sector's company and holder walkable when the selection is cleared on the sector", async () => {
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    mockSearch = "sector=Materials";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("Materials"));
+    mockSearch = "sector=Materials&sel=stock%3ABHP";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("Materials > BHP Group"));
+    // Clear selection lands on the sector's own link: the trail is not cut back to the sector.
+    mockSearch = "sector=Materials";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("Materials > BHP Group"));
+    await flushEffects();
+    expect(trailSteps()).toEqual([
+      { label: "Materials", href: null, current: true },
+      { label: "BHP Group", href: "/ownership/map?sector=Materials&sel=stock%3ABHP", current: false },
+    ]);
+    expect(screen.getByRole("link", { name: "BHP Group" })).toHaveAttribute(
+      "href",
+      "/ownership/map?sector=Materials&sel=stock%3ABHP",
+    );
+  });
+
+  it("cuts the trail back when an earlier step is walked to, and grows it again when walked forward", async () => {
+    mockSearch = "sel=stock%3ABHP";
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("BHP Group"));
+    mockSearch = "sel=stock%3ACBA";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("BHP Group > CBA"));
+
+    // The reader follows the BHP link: the page loads that selection and the trail is cut back to it.
+    mockSearch = "sel=stock%3ABHP";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("BHP Group"));
+
+    // Walking forward again does not grow it past the steps the reader has taken.
+    mockSearch = "sel=stock%3ACBA";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("BHP Group > CBA"));
+    await flushEffects();
+    expect(trailText()).toBe("BHP Group > CBA");
+  });
+
+  it("does not record a new step when only the lens changes on the same selection", async () => {
+    mockSearch = "sel=stock%3ABHP";
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("BHP Group"));
+    mockSearch = "sel=stock%3ABHP&lens=flow";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await screen.findByRole("heading", { name: "BHP Group" });
+    await flushEffects();
+    expect(trailText()).toBe("BHP Group");
+    expect(JSON.parse(fake.items.get(PAGE_KEY) as string)).toHaveLength(1);
+  });
+
+  it("draws a stored trail above the empty prompt when nothing is selected and no sector is zoomed", async () => {
+    fake.items.set(PAGE_KEY, JSON.stringify([{ label: "BHP Group", href: "/ownership/map?sel=stock%3ABHP" }]));
+    render(<Inspector resolve={resolve} emptyText="Click selects. Filter narrows the map." />);
+    const nav = await screen.findByRole("navigation", { name: "Trail" });
+    expect(nav.textContent).toBe("BHP Group");
+    // Nothing is selected on this page, so the stored step is a way back, not the current step.
+    expect(screen.getByRole("link", { name: "BHP Group" })).toHaveAttribute("href", "/ownership/map?sel=stock%3ABHP");
+    expect(screen.getByText("Click selects. Filter narrows the map.")).toBeInTheDocument();
+    expect(nav.compareDocumentPosition(screen.getByText("Click selects. Filter narrows the map.")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("reads a malformed stored trail as no trail at all", async () => {
+    fake.items.set(PAGE_KEY, "[not a trail");
+    render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await screen.findByText("Click selects.");
+    expect(screen.queryByRole("navigation", { name: "Trail" })).toBeNull();
+  });
+
+  it("serves the server's markup first: no trail before the stored one is read", () => {
+    fake.items.set(PAGE_KEY, JSON.stringify([{ label: "BHP Group", href: "/ownership/map?sel=stock%3ABHP" }]));
+    const { container } = render(<InspectorFallback emptyText="Click selects." />);
+    expect(container.querySelector('nav[aria-label="Trail"]')).toBeNull();
   });
 });

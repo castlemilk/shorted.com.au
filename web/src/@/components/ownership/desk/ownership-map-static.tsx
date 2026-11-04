@@ -116,6 +116,13 @@ export function estimatedAreaCodes(rows: readonly MapStockRow[]): Set<string> {
 export const MAP_WIDTH = 1000;
 export const MAP_HEIGHT = 560;
 
+/**
+ * The compact pane fills its fixed height from lg (backlog B2): each wrapper on the way to the drawing is
+ * a flex column that gives the rest of its height down, so the drawing's svg can take `h-full`. Below lg the
+ * pane is its natural height and nothing here applies.
+ */
+const COMPACT_FILL = "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col";
+
 /** The hatch every cell with no figure for the lens is drawn in. One map per page, so one id. */
 export const HATCH_ID = "ownership-desk-hatch";
 
@@ -594,6 +601,7 @@ export function DeskMapFigure({
   handlers,
   groupStyle,
   size,
+  fill = false,
 }: {
   layout: MapLayout;
   lens: DeskState["lens"];
@@ -603,6 +611,8 @@ export function DeskMapFigure({
   focusCode?: string;
   handlers?: MapHandlers;
   groupStyle?: CSSProperties;
+  /** The compact pane: the drawing takes the pane's height from lg, centred in its box. */
+  fill?: boolean;
 }) {
   // The roving stop is the focused cell while it is on this layout. A zoom to another
   // sector drops it, and then the first cell takes the stop, so the drawing stays reachable.
@@ -613,7 +623,8 @@ export function DeskMapFigure({
       role="group"
       aria-label={`Sectors and stocks, coloured by ${LENS_LABELS[lens]}`}
       viewBox={`0 0 ${layout.width} ${layout.height}`}
-      className="block h-auto w-full select-none"
+      preserveAspectRatio={fill ? "xMidYMid meet" : undefined}
+      className={cn("block w-full select-none", fill ? "h-auto lg:h-full" : "h-auto")}
     >
       <defs>
         <pattern id={HATCH_ID} width={6} height={6} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -1362,14 +1373,8 @@ export function OwnershipMapView({
   const stockNames = stockFold === undefined ? undefined : new Map(drawnRows.map((row) => [row.code, row.name] as const));
 
   return (
-    <div ref={rootRef} onKeyDown={onRootKeyDown} className="space-y-4">
-      {compact ? (
-        page.asOf !== "" ? (
-          <p className="text-xs text-muted-foreground">
-            Notices read to <time dateTime={page.asOf}>{page.asOf}</time>
-          </p>
-        ) : null
-      ) : (
+    <div ref={rootRef} onKeyDown={onRootKeyDown} className={cn("space-y-4", compact && COMPACT_FILL)}>
+      {compact ? null : (
         // The one coverage line above the toolbar and the drawing (backlog B1): the read-to date, the
         // window, the fund comparison it draws, and the link to what is covered.
         <CoverageLine
@@ -1471,12 +1476,20 @@ export function OwnershipMapView({
         </p>
       ) : null}
 
-      <div className={cn(panel !== undefined && "lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6")}>
-        <div className="min-w-0">
+      {/* With no panel this wrapper is the link between the view root and the drawing, so it carries the fill
+          chain too: a plain block would make the drawing's height:100% resolve to auto. */}
+      <div
+        className={cn(
+          panel !== undefined && "lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6",
+          compact && panel === undefined && COMPACT_FILL,
+        )}
+      >
+        <div className={cn("min-w-0", compact && COMPACT_FILL)}>
           {rows.length > 0 && !unknownSector ? (
-            <div aria-busy={busy} className={cn("relative", status !== "idle" && "opacity-60")}>
-              <div className="relative hidden sm:block">
+            <div aria-busy={busy} className={cn("relative", status !== "idle" && "opacity-60", compact && COMPACT_FILL)}>
+              <div className={cn("relative hidden sm:block", compact && COMPACT_FILL)}>
                 <DeskMapFigure
+                  fill={compact}
                   layout={layout}
                   lens={desk.lens}
                   scale={scale}
@@ -1571,7 +1584,7 @@ export function OwnershipMapView({
                         </div>
                       </details>
                     )}
-                    <p className="mt-2 text-xs text-muted-foreground">{PHONE_CAPTION}</p>
+                    {compact ? null : <p className="mt-2 text-xs text-muted-foreground">{PHONE_CAPTION}</p>}
                   </>
                 )}
               </div>
@@ -1597,7 +1610,7 @@ export function OwnershipMapView({
           {rows.length > 0 && !unknownSector ? (
             <>
               <DeskMapTable layout={layout} lens={desk.lens} noticesKnown={!stale} />
-              <p className="mt-2 text-[11px] text-muted-foreground">{areaCaption(desk.lens, size)}</p>
+              {compact ? null : <p className="mt-2 text-[11px] text-muted-foreground">{areaCaption(desk.lens, size)}</p>}
             </>
           ) : null}
         </div>

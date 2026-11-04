@@ -465,8 +465,12 @@ export async function loadStockPanel(code: string): Promise<StockPanelPage> {
   return panelPage(stockCode, await requestStockOwnership({ stockCode }));
 }
 
-/** The notices a cell's rail lists: the first page of its week. */
-const CELL_LIMIT = 50;
+/**
+ * The notices a cell's rail reads: the first page of its week. The notice feed serves at most
+ * 100 a page (pageMaxLimit in ownership_lists.go), so a larger limit would be served as 100 anyway;
+ * a week that is longer than this is read in part and the rail says so.
+ */
+const CELL_LIMIT = 100;
 
 /**
  * The selection the workspace's inspector asks about, read as the codec reads it

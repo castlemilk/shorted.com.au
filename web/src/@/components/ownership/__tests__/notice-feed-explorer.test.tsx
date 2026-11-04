@@ -45,7 +45,9 @@ function feedRow(overrides: Partial<NoticeFeedRow> = {}): NoticeFeedRow {
     holderHref: "/ownership/vanguard",
     votingPower: "5.12%",
     change: "",
+    changePp: null,
     url: "https://www.asx.com.au/notices/bhp-1.pdf",
+    holderKind: "",
     ...overrides,
   };
 }

@@ -12,6 +12,7 @@ import {
   orderFundsForCompare,
 } from "~/@/components/ownership/funds/fund-model";
 import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 import { lede, pageTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { listInstitutions } from "~/app/actions/getOwnership";
@@ -134,6 +135,7 @@ export default async function ChangesPage() {
               },
             ]}
           />
+          <MethodDisclosure />
         </div>
       </WorkspacePage>
     </DashboardLayout>

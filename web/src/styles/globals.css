@@ -85,7 +85,10 @@
        cell. Every ink clears WCAG AA (4.5:1) at the 11px figures, adjacent stops differ
        by at least 7 L*, and the first stop differs from the paper by at least 7 L*.
        desk-ramp-contrast.test.ts reads these tokens and checks those rules. The desk's
-       scales (desk/desk-scales.ts) name the stops; the theme decides their values. */
+       scales (desk/desk-scales.ts) name the stops; the theme decides their values.
+       The short-interest lens has its own five stops in the chart's rust family
+       (--desk-short-*), with the same AA and L* rules, so it is a ramp like the rest
+       and never a mix made at run time. */
     --desk-bin-0: 36 28% 88%;
     --desk-bin-1: 32 50% 78%;
     --desk-bin-2: 30 62% 64%;
@@ -106,6 +109,17 @@
     --desk-div-ink-2: 19 18% 24%;
     --desk-div-ink-3: 19 18% 24%;
     --desk-div-ink-4: 40 25% 97%;
+    /* The short-interest lens's five stops, the rust family from the paper to the deepest. */
+    --desk-short-0: 16 30% 89%;
+    --desk-short-1: 16 45% 78%;
+    --desk-short-2: 16 50% 70%;
+    --desk-short-3: 16 62% 38%;
+    --desk-short-4: 14 65% 28%;
+    --desk-short-ink-0: 19 18% 24%;
+    --desk-short-ink-1: 19 18% 24%;
+    --desk-short-ink-2: 19 18% 24%;
+    --desk-short-ink-3: 40 25% 97%;
+    --desk-short-ink-4: 40 25% 97%;
   }
 
   .dark {
@@ -184,6 +198,17 @@
     --desk-div-ink-2: 48 52% 81%;
     --desk-div-ink-3: 0 0% 5%;
     --desk-div-ink-4: 0 0% 5%;
+    /* The short-interest lens's five stops, dark: the rust family brightening with the figure. */
+    --desk-short-0: 16 14% 18%;
+    --desk-short-1: 16 35% 30%;
+    --desk-short-2: 16 55% 50%;
+    --desk-short-3: 17 66% 58%;
+    --desk-short-4: 19 75% 66%;
+    --desk-short-ink-0: 48 52% 81%;
+    --desk-short-ink-1: 48 52% 81%;
+    --desk-short-ink-2: 0 0% 5%;
+    --desk-short-ink-3: 0 0% 5%;
+    --desk-short-ink-4: 0 0% 5%;
   }
 }
 

@@ -1,7 +1,16 @@
 /// <reference types="jest" />
 
 import type { NoticeFeedPage, NoticeFeedRow } from "~/@/components/ownership/notice-feed-explorer";
-import { cellInspectorContent, cellNoticesHref, countWeek, measureSwitchHref, weekCountLine, cellReading } from "../cell-inspector";
+import {
+  cellInspectorContent,
+  cellNoticesHref,
+  countWeek,
+  holderKindRows,
+  largestMoves,
+  measureSwitchHref,
+  weekCountLine,
+  cellReading,
+} from "../cell-inspector";
 import { OTHER_SECTOR } from "~/@/components/ownership/desk/map-layout";
 
 function row(event: string, code = "BHP"): NoticeFeedRow {
@@ -14,6 +23,8 @@ function row(event: string, code = "BHP"): NoticeFeedRow {
     holderHref: null,
     votingPower: "5.00%",
     change: "",
+    changePp: null,
+    holderKind: "",
     url: `https://www.asx.com.au/${code}.pdf`,
   };
 }
@@ -52,7 +63,7 @@ describe("cell inspector (spec 14.3, Activity)", () => {
     expect(byKind.subtitle).toBe("Week of 26 Oct · Super funds");
     expect(content.figure?.value).toBe("14 notices");
     expect(content.primary).toEqual({ label: "View 14 notices →", href: cellNoticesHref("Materials", "2026-10-26") });
-    const list = content.sections?.[0];
+    const list = content.sections?.find((section) => section.title === "Selected week's notices");
     expect(list?.kind).toBe("list");
     expect(list?.title).toBe("Selected week's notices");
     if (list?.kind !== "list") throw new Error("expected a list");
@@ -124,7 +135,7 @@ describe("stored notice URLs (spec 14.7)", () => {
     if (list?.kind !== "list") throw new Error("expected the safe notice in a list");
     expect(list.items).toHaveLength(1);
     expect(list.items[0]?.href).toBe("https://www.asx.com.au/RIO.pdf");
-    const unlinked = content.sections?.find((section) => section.kind === "rows");
+    const unlinked = content.sections?.find((section) => section.title === "Notices without a usable link");
     if (unlinked?.kind !== "rows") throw new Error("expected the unsafe notice as a text row");
     expect(unlinked.items[0]?.label).toContain("BHP");
     expect(JSON.stringify(content)).not.toContain("javascript:");
@@ -218,5 +229,147 @@ describe("cellReading (spec 14.1, backlog C1)", () => {
   it("has no reading for Other, whose count is withheld, or for an unread week", () => {
     expect(cellReading({ sector: OTHER_SECTOR, weekStart: "2026-10-26", feed: feed(week) })).toBeUndefined();
     expect(cellReading({ sector: "Materials", weekStart: "2026-10-26", feed: null })).toBeUndefined();
+  });
+});
+
+/** A listed notice that states its change in points (or none, when null), with its release date and URL. */
+function move(code: string, changePp: number | null, extra: Partial<NoticeFeedRow> = {}): NoticeFeedRow {
+  return { ...row("changed", code), holder: `Fund ${code}`, changePp, ...extra };
+}
+
+describe("holder kind grouping (backlog C7)", () => {
+  it("counts the week's notices by holder kind in the vocabulary's order, leaving zero counts out", () => {
+    const rows = [
+      { ...row("became"), holderKind: "hedge_fund" },
+      { ...row("changed"), holderKind: "super_fund" },
+      { ...row("changed"), holderKind: "super_fund" },
+    ];
+    expect(holderKindRows(rows)).toEqual([
+      { label: "Super funds", value: "2 notices" },
+      { label: "Hedge funds", value: "1 notice" },
+    ]);
+  });
+
+  it("reads an empty or unknown kind as unclassified, in one row with the unclassified notices", () => {
+    const rows = [
+      { ...row("became"), holderKind: "" },
+      { ...row("became"), holderKind: "constructor" },
+      { ...row("changed"), holderKind: "unclassified" },
+    ];
+    expect(holderKindRows(rows)).toEqual([{ label: "Unclassified holders", value: "3 notices" }]);
+  });
+
+  it("is empty for a week with no notice", () => {
+    expect(holderKindRows([])).toEqual([]);
+  });
+
+  it("gives a kind-filtered cell its one row, under the plural of its kind", () => {
+    const rows = [
+      { ...row("became"), holderKind: "insurer" },
+      { ...row("changed"), holderKind: "insurer" },
+    ];
+    const content = cellInspectorContent({
+      sector: "Materials",
+      weekStart: "2026-10-26",
+      feed: feed(rows, 2),
+      kind: "insurer",
+    });
+    expect(content.sections?.[0]).toEqual({
+      title: "By holder type",
+      kind: "rows",
+      items: [{ label: "Insurers", value: "2 notices" }],
+    });
+  });
+
+  it("names the kind block as counting the listed notices on a partial page", () => {
+    const rows = [{ ...row("became"), holderKind: "hedge_fund" }];
+    const content = cellInspectorContent({ sector: "Materials", weekStart: "2026-10-26", feed: feed(rows, 4) });
+    expect(content.sections?.[0]).toEqual({
+      title: "By holder type of the listed notices",
+      kind: "rows",
+      items: [{ label: "Hedge funds", value: "1 notice" }],
+    });
+  });
+});
+
+describe("largest moves (backlog C7)", () => {
+  it("names ten at most, rises and falls alike, by their size", () => {
+    const rows = Array.from({ length: 12 }, (_, index) => move(`C${index}`, (index % 2 === 0 ? 1 : -1) * ((index + 1) / 10)));
+    const moves = largestMoves(rows);
+    expect(moves).toHaveLength(10);
+    expect(moves.map((item) => item.code)).toEqual(Array.from({ length: 10 }, (_, k) => `C${11 - k}`));
+  });
+
+  it("sorts an equal size with the newer notice first", () => {
+    const rows = [
+      move("A", 1, { released: "2026-10-20" }),
+      move("B", -1, { released: "2026-10-27" }),
+      move("C", 1, { released: "2026-10-25" }),
+    ];
+    expect(largestMoves(rows).map((item) => item.code)).toEqual(["B", "C", "A"]);
+  });
+
+  it("leaves out a row that does not state its change, in both points and any non-finite figure", () => {
+    const rows = [move("A", null), move("B", Number.NaN), move("C", 0.5)];
+    expect(largestMoves(rows).map((item) => item.code)).toEqual(["C"]);
+  });
+
+  it("leaves out a move of nothing, which would print as 0.00 pp", () => {
+    const rows = [move("A", 0), move("B", 0.004), move("C", -0.004), move("D", 0.5)];
+    expect(largestMoves(rows).map((item) => item.code)).toEqual(["D"]);
+  });
+
+  it("prints each change with a true minus and the release date, as a list item's label when its link is safe", () => {
+    const rows = [move("A", 2), move("B", -0.31)];
+    const content = cellInspectorContent({ sector: "Materials", weekStart: "2026-10-26", feed: feed(rows) });
+    const section = content.sections?.find((item) => item.title === "Largest moves");
+    if (section?.kind !== "list") throw new Error("expected the safe moves as a list");
+    expect(section.items.map((item) => item.label)).toEqual([
+      "A · Fund A · +2.00 pp · 2026-10-27",
+      "B · Fund B · −0.31 pp · 2026-10-27",
+    ]);
+    expect(section.items[0]?.external).toBe(true);
+  });
+
+  it("draws a move whose notice has no usable link as a row with its change as the value, never a link", () => {
+    const rows = [move("BHP", 2, { url: "javascript:alert(1)" }), move("RIO", -1)];
+    const content = cellInspectorContent({ sector: "Materials", weekStart: "2026-10-26", feed: feed(rows) });
+    const list = content.sections?.find((item) => item.title === "Largest moves");
+    if (list?.kind !== "list") throw new Error("expected the safe move as a list");
+    expect(list.items.map((item) => item.href)).toEqual(["https://www.asx.com.au/RIO.pdf"]);
+    const unlinked = content.sections?.find((item) => item.title === "Largest moves, without a usable link");
+    if (unlinked?.kind !== "rows") throw new Error("expected the unsafe move as a text row");
+    expect(unlinked.items).toEqual([{ label: "BHP · Fund BHP", value: "+2.00 pp · 2026-10-27" }]);
+    expect(JSON.stringify(content)).not.toContain("javascript:");
+  });
+
+  it("prints no moves section when no listed notice states its change", () => {
+    const rows = [row("became"), row("changed")];
+    const content = cellInspectorContent({ sector: "Materials", weekStart: "2026-10-26", feed: feed(rows) });
+    // The rows state no holder kind, so the kind block reads them as unclassified; no move is named.
+    expect(content.sections?.map((item) => item.title)).toEqual(["By holder type", "Selected week's notices"]);
+  });
+
+  it("titles the moves as of the listed notices on a partial page", () => {
+    const rows = [move("A", 2)];
+    const content = cellInspectorContent({ sector: "Materials", weekStart: "2026-10-26", feed: feed(rows, 5) });
+    expect(content.sections?.map((item) => item.title)).toContain("Largest moves of the listed notices");
+  });
+});
+
+describe("the cell's section order (backlog C7)", () => {
+  it("draws the holder kinds, then the largest moves, then the week's notices, with the reading first", () => {
+    const rows = [
+      { ...move("BHP", 1.5), event: "increased", holderKind: "super_fund" },
+      { ...move("RIO", -0.5), event: "decreased", holderKind: "hedge_fund" },
+    ];
+    const content = cellInspectorContent({ sector: "Materials", weekStart: "2026-10-26", feed: feed(rows) });
+    expect(content.sections?.map((item) => item.title)).toEqual([
+      "By holder type",
+      "Largest moves",
+      "Selected week's notices",
+    ]);
+    expect(content.reading).toBe("2 notices in the week of 26 Oct, 1 rise and 1 fall, net +1.00 pp.");
+    expect(content.primary?.label).toBe("View 2 notices →");
   });
 });

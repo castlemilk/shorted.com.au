@@ -40,6 +40,7 @@ const row = (over: Partial<NoticeFeedRow> = {}): NoticeFeedRow => ({
   votingPower: "5.12%",
   change: "",
   changePp: null,
+  holderKind: "",
   url: "https://www.asx.com.au/notices/bhp-1.pdf",
   ...over,
 });

@@ -9,7 +9,8 @@
  * The rules: every ink clears WCAG AA (4.5:1) over its fill at the 11px figures;
  * adjacent bins differ by at least 7 CIE L*; the first bin differs from the paper by
  * at least 7 L*; the bins rise in lightness in dark and fall in light; the light and
- * dark falls and rises each differ from the paper by at least 7 L*.
+ * dark falls and rises each differ from the paper by at least 7 L*. The short
+ * lens's five stops (`--desk-short-*`) are checked by the same rules.
  */
 
 import { readFileSync } from "node:fs";
@@ -95,13 +96,21 @@ interface Stop {
   ink: string;
 }
 
-/** The stops of a theme: the five bins, the diverging falls and rises, and the centre (the paper on the paper). */
-function stopsOf(theme: Theme): { bins: Stop[]; diverging: Stop[]; paper: [number, number, number] } {
+/**
+ * The stops of a theme: the five bins, the short lens's five rust stops, the diverging
+ * falls and rises, and the centre (the paper on the paper).
+ */
+function stopsOf(theme: Theme): { bins: Stop[]; short: Stop[]; diverging: Stop[]; paper: [number, number, number] } {
   const token = (name: string) => raw(theme, name);
   const bins = [0, 1, 2, 3, 4].map((bin) => ({
     name: `bin ${bin}`,
     fill: token(`--desk-bin-${bin}`),
     ink: token(`--desk-bin-ink-${bin}`),
+  }));
+  const short = [0, 1, 2, 3, 4].map((bin) => ({
+    name: `short ${bin}`,
+    fill: token(`--desk-short-${bin}`),
+    ink: token(`--desk-short-ink-${bin}`),
   }));
   const diverging: Stop[] = [
     { name: "fall 2 (deepest)", fill: token("--desk-fall-2"), ink: token("--desk-div-ink-0") },
@@ -110,17 +119,17 @@ function stopsOf(theme: Theme): { bins: Stop[]; diverging: Stop[]; paper: [numbe
     { name: "rise 1", fill: token("--desk-rise-1"), ink: token("--desk-div-ink-3") },
     { name: "rise 2 (deepest)", fill: token("--desk-rise-2"), ink: token("--desk-div-ink-4") },
   ];
-  return { bins, diverging, paper: hslToRgb(token("--background")) };
+  return { bins, short, diverging, paper: hslToRgb(token("--background")) };
 }
 
 const THEMES: readonly Theme[] = ["light", "dark"];
 
 describe.each(THEMES)("the desk ramp in the %s theme", (theme) => {
-  const { bins, diverging, paper } = stopsOf(theme);
+  const { bins, short, diverging, paper } = stopsOf(theme);
   const L = (triplet: string) => lightness(hslToRgb(triplet));
 
   // The table the test prints: one row per stop, with its ink, the ratio over it and its lightness.
-  const rows = [...bins, ...diverging].map((stop) => {
+  const rows = [...bins, ...short, ...diverging].map((stop) => {
     const fill = hslToRgb(stop.fill);
     const ink = hslToRgb(stop.ink);
     return {
@@ -135,7 +144,7 @@ describe.each(THEMES)("the desk ramp in the %s theme", (theme) => {
   console.table(rows);
 
   it("sets every stop, its ink and the paper as tokens the theme defines", () => {
-    for (const stop of [...bins, ...diverging]) {
+    for (const stop of [...bins, ...short, ...diverging]) {
       hslToRgb(stop.fill);
       hslToRgb(stop.ink);
     }
@@ -145,12 +154,6 @@ describe.each(THEMES)("the desk ramp in the %s theme", (theme) => {
 
   it("holds every bin's ink at WCAG AA (4.5:1) over the bin's fill", () => {
     for (const stop of bins) {
-      expect(contrast(hslToRgb(stop.ink), hslToRgb(stop.fill))).toBeGreaterThanOrEqual(4.5);
-    }
-  });
-
-  it("holds every diverging stop's ink at WCAG AA, the falls, the rises and the paper centre", () => {
-    for (const stop of diverging) {
       expect(contrast(hslToRgb(stop.ink), hslToRgb(stop.fill))).toBeGreaterThanOrEqual(4.5);
     }
   });
@@ -171,6 +174,37 @@ describe.each(THEMES)("the desk ramp in the %s theme", (theme) => {
     for (let bin = 1; bin < lightnesses.length; bin += 1) {
       if (theme === "dark") expect(lightnesses[bin]!).toBeGreaterThan(lightnesses[bin - 1]!);
       else expect(lightnesses[bin]!).toBeLessThan(lightnesses[bin - 1]!);
+    }
+  });
+
+  it("holds every short-lens stop's ink at WCAG AA over the stop's fill", () => {
+    for (const stop of short) {
+      expect(contrast(hslToRgb(stop.ink), hslToRgb(stop.fill))).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("tells adjacent short-lens stops apart by at least 7 L*", () => {
+    for (let stop = 1; stop < short.length; stop += 1) {
+      const gap = Math.abs(L(short[stop]!.fill) - L(short[stop - 1]!.fill));
+      expect(gap).toBeGreaterThanOrEqual(7);
+    }
+  });
+
+  it("tells the first short-lens stop apart from the paper by at least 7 L*", () => {
+    expect(Math.abs(L(short[0]!.fill) - lightness(paper))).toBeGreaterThanOrEqual(7);
+  });
+
+  it("steps the short-lens stops monotonically in lightness: rising in dark, falling in light", () => {
+    const lightnesses = short.map((stop) => L(stop.fill));
+    for (let stop = 1; stop < lightnesses.length; stop += 1) {
+      if (theme === "dark") expect(lightnesses[stop]!).toBeGreaterThan(lightnesses[stop - 1]!);
+      else expect(lightnesses[stop]!).toBeLessThan(lightnesses[stop - 1]!);
+    }
+  });
+
+  it("holds every diverging stop's ink at WCAG AA, the falls, the rises and the paper centre", () => {
+    for (const stop of diverging) {
+      expect(contrast(hslToRgb(stop.ink), hslToRgb(stop.fill))).toBeGreaterThanOrEqual(4.5);
     }
   });
 

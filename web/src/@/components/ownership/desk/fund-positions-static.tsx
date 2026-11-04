@@ -8,6 +8,7 @@
 // held on one of the two dates only sits in its own list, New or Dropped, and
 // shows its one weight. It is never a change from zero.
 
+import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import type { FundPositionChangesPage, FundSeriesRow } from "~/app/actions/ownershipDesk";
@@ -35,6 +36,9 @@ const LIST_LIMIT = 10;
  */
 const MOVE_FLOOR_PP = 0.005;
 
+/** The rows the compact pane draws in each list (backlog B2). */
+export const COMPACT_ROWS = 5;
+
 /** The line a read that did not answer prints in place of the window (spec 13.5). */
 export const FUND_POSITIONS_OUTAGE =
   "The index fund files could not be read just now. Nothing here is missing from the register: this is our end.";
@@ -59,6 +63,11 @@ export interface FundPositionsViewProps {
   status?: ReactNode;
   /** The open stock's panel, drawn beside the lists from `lg`. */
   panel?: ReactNode;
+  /**
+   * `compact` is the Overview's pane (backlog B2): the title links to the map's index lens, the lists are the
+   * five largest rises beside the five largest falls, with no date slider and no caption. Absent is the full instrument.
+   */
+  variant?: "compact" | "full";
 }
 
 /** The changes between the two dates, in the four lists the instrument draws. */
@@ -100,7 +109,17 @@ export function FundPositionsView({
   onSelect,
   status,
   panel,
+  variant = "full",
 }: FundPositionsViewProps) {
+  const compact = variant === "compact";
+  // The pane's title is the link to the map's index lens on the Overview, and the instrument's own title otherwise.
+  const heading = compact ? (
+    <Link href="/ownership/map?lens=index_flow" prefetch={false} className="underline-offset-4 hover:underline">
+      Index fund positions
+    </Link>
+  ) : (
+    "Index fund positions"
+  );
   const statusLine = (
     <div role="status" aria-live="polite" className="min-h-[1.25rem] text-sm text-muted-foreground">
       {status}
@@ -111,7 +130,7 @@ export function FundPositionsView({
   if (!page.ok) {
     return (
       <section className="space-y-4">
-        <h2 className={sectionTitle}>Index fund positions</h2>
+        <h2 className={sectionTitle}>{heading}</h2>
         <p className="text-sm text-muted-foreground">{page.error || FUND_POSITIONS_OUTAGE}</p>
         {statusLine}
       </section>
@@ -128,9 +147,9 @@ export function FundPositionsView({
 
   return (
     <section className="space-y-4">
-      <h2 className={sectionTitle}>Index fund positions</h2>
+      <h2 className={sectionTitle}>{heading}</h2>
 
-      {hasRange ? (
+      {hasRange && !compact ? (
         <DateSlider
           dates={page.snapshotDates}
           from={shown.from}
@@ -138,42 +157,66 @@ export function FundPositionsView({
           label="Snapshot dates of the index fund window"
           onChange={onRange}
         />
-      ) : (
+      ) : hasRange ? null : (
         <p className="text-sm text-muted-foreground">
           {page.snapshotDates.length === 1 ? ONE_FILE_DATE : NO_FILE_DATE}
         </p>
       )}
       {hasRange ? <p className="text-sm tabular-nums">{rangeText}</p> : null}
 
-      {statusLine}
+      {compact ? null : statusLine}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="space-y-6">
+      {compact ? (
+        <div className="grid gap-6 sm:grid-cols-2">
           {empty && hasRange ? (
-            <p className="text-sm text-muted-foreground">No stock&apos;s weight moved between these two dates.</p>
+            <p className="text-sm text-muted-foreground sm:col-span-2">No stock&apos;s weight moved between these two dates.</p>
           ) : null}
           <ChangeList
+            compact
             title="Rises in weight"
-            rows={lists.rises}
+            rows={lists.rises.slice(0, COMPACT_ROWS)}
             reach={reach}
             selectedCode={selectedCode}
             onSelect={onSelect}
           />
           <ChangeList
+            compact
             title="Falls in weight"
-            rows={lists.falls}
+            rows={lists.falls.slice(0, COMPACT_ROWS)}
             reach={reach}
             selectedCode={selectedCode}
             onSelect={onSelect}
           />
-          <HeldOnlyList title="New" rows={lists.added} selectedCode={selectedCode} onSelect={onSelect} />
-          <HeldOnlyList title="Dropped" rows={lists.dropped} selectedCode={selectedCode} onSelect={onSelect} />
         </div>
-        {/* The column is reserved once a stock is chosen, so its panel arrives without moving the lists. */}
-        {selectedCode !== undefined || panel ? <aside className="min-w-0 space-y-3">{panel}</aside> : null}
-      </div>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="space-y-6">
+            {empty && hasRange ? (
+              <p className="text-sm text-muted-foreground">No stock&apos;s weight moved between these two dates.</p>
+            ) : null}
+            <ChangeList
+              title="Rises in weight"
+              rows={lists.rises}
+              reach={reach}
+              selectedCode={selectedCode}
+              onSelect={onSelect}
+            />
+            <ChangeList
+              title="Falls in weight"
+              rows={lists.falls}
+              reach={reach}
+              selectedCode={selectedCode}
+              onSelect={onSelect}
+            />
+            <HeldOnlyList title="New" rows={lists.added} selectedCode={selectedCode} onSelect={onSelect} />
+            <HeldOnlyList title="Dropped" rows={lists.dropped} selectedCode={selectedCode} onSelect={onSelect} />
+          </div>
+          {/* The column is reserved once a stock is chosen, so its panel arrives without moving the lists. */}
+          {selectedCode !== undefined || panel ? <aside className="min-w-0 space-y-3">{panel}</aside> : null}
+        </div>
+      )}
 
-      <p className="text-[11px] text-muted-foreground">{FUND_POSITIONS_CAPTION}</p>
+      {compact ? null : <p className="text-[11px] text-muted-foreground">{FUND_POSITIONS_CAPTION}</p>}
 
       <ScreenReaderTable ariaLabel="Index fund weight changes between the two dates">
         <caption>Index fund weight changes between the two dates, as the lists above show them.</caption>
@@ -214,19 +257,27 @@ interface ChangeListProps {
   reach: number;
   selectedCode?: string;
   onSelect?: (code: string) => void;
+  /** The Overview's pane: no AUD column. */
+  compact?: boolean;
 }
 
 /** One diverging list: the rises or the falls, each row a bar from the centre line. */
-function ChangeList({ title, rows, reach, selectedCode, onSelect }: ChangeListProps) {
+function ChangeList({ title, rows, reach, selectedCode, onSelect, compact = false }: ChangeListProps) {
   if (rows.length === 0) return null;
+  // The compact pane has no AUD column: its row is the name, the bar and the change.
+  const rowGrid = compact
+    ? "grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_3.5rem]"
+    : "grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_4.5rem_5.5rem]";
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-3 border-b border-border pb-1">
-        <h3 className="text-xs uppercase tracking-wider text-muted-foreground">{title}</h3>
-        <p className="text-[11px] text-muted-foreground">
-          <span className="sr-only">Change in weight, percentage points. </span>
-          <span className="tabular-nums">AUD change, estimated</span>
-        </p>
+        <h3 className="text-xs text-muted-foreground">{title}</h3>
+        {compact ? null : (
+          <p className="text-[11px] text-muted-foreground">
+            <span className="sr-only">Change in weight, percentage points. </span>
+            <span className="tabular-nums">AUD change, estimated</span>
+          </p>
+        )}
       </div>
       <ul className="space-y-1.5">
         {rows.map((row) => {
@@ -239,16 +290,18 @@ function ChangeList({ title, rows, reach, selectedCode, onSelect }: ChangeListPr
             ...(rise ? { left: "50%" } : { right: "50%" }),
           };
           return (
-            <li key={row.code} className="grid grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_4.5rem_5.5rem] items-center gap-x-3 text-sm">
+            <li key={row.code} className={cn("grid items-center gap-x-3 text-sm", rowGrid)}>
               <StockName row={row} selected={row.code === selectedCode} onSelect={onSelect} />
               <div className="relative h-3" aria-hidden="true">
                 <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
                 <div className="absolute inset-y-0 rounded-[2px]" style={bar} />
               </div>
               <span className="text-right tabular-nums">{formatPointChange(0, delta)}</span>
-              <span className="text-right text-xs tabular-nums text-muted-foreground">
-                {formatValueChange(valueChange(row))}
-              </span>
+              {compact ? null : (
+                <span className="text-right text-xs tabular-nums text-muted-foreground">
+                  {formatValueChange(valueChange(row))}
+                </span>
+              )}
             </li>
           );
         })}
@@ -271,7 +324,7 @@ function HeldOnlyList({ title, rows, selectedCode, onSelect }: HeldOnlyListProps
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-3 border-b border-border pb-1">
-        <h3 className="text-xs uppercase tracking-wider text-muted-foreground">{title}</h3>
+        <h3 className="text-xs text-muted-foreground">{title}</h3>
         <p className="text-[11px] text-muted-foreground">
           {isNew ? "Weight on the later date" : "Weight on the earlier date"}
           <span className="ml-3 tabular-nums">AUD value, estimated</span>

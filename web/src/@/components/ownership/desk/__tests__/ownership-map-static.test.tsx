@@ -426,7 +426,7 @@ describe("the map's one coverage line (backlog B1)", () => {
     expect(screen.getAllByText(/2 funds compared, files 2026-06-30 against 2026-10-30/)).toHaveLength(1);
   });
 
-  it("keeps the compact pane as it was: its read-to line, and its legend repeats the fund comparison", () => {
+  it("gives the compact pane no read-to line or caption, and its legend repeats the fund comparison", () => {
     const withFlow = STOCKS.map((stock, index) => ({ ...stock, fundChangePct: index + 1 }));
     const { container } = render(
       <OwnershipMapView
@@ -438,7 +438,8 @@ describe("the map's one coverage line (backlog B1)", () => {
         basePath="/ownership"
       />,
     );
-    expect(container.textContent).toContain("Notices read to 2026-11-01");
+    expect(container.textContent).not.toContain("Notices read to");
+    expect(container.textContent).not.toContain(PHONE_CAPTION);
     expect(container.textContent).not.toContain("Coverage");
     expect(screen.getAllByText(/2 funds compared, files 2026-06-30 against 2026-10-30/)).toHaveLength(1);
   });
@@ -645,5 +646,36 @@ describe("foldDetail", () => {
     );
     expect(foldDetail(["Energy", "Utilities"])).toBe("Energy, Utilities");
     expect(foldDetail([])).toBe("");
+  });
+});
+
+describe("the compact pane fills its fixed height from lg (backlog B2)", () => {
+  it("gives the drawing the pane's height from lg, centred in its box, with its viewBox kept", () => {
+    const { container } = render(<OwnershipMapStatic initial={page()} variant="compact" />);
+    const drawing = container.querySelector('svg[role="group"]');
+    expect(drawing).toHaveClass("h-auto", "lg:h-full");
+    expect(drawing).toHaveAttribute("preserveAspectRatio", "xMidYMid meet");
+    expect(drawing).toHaveAttribute("viewBox", `0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`);
+    // The drawing's lg:h-full resolves only if every box between it and the view root fills the pane:
+    // each one must be a flex column that grows and may shrink. A plain block anywhere in the chain
+    // makes the height auto, and the drawing falls back to its aspect ratio.
+    const chain: Element[] = [];
+    let node: Element | null = drawing?.parentElement ?? null;
+    while (node !== null && !node.classList.contains("space-y-4")) {
+      chain.push(node);
+      node = node.parentElement;
+    }
+    expect(node).not.toBeNull();
+    expect(chain.length).toBeGreaterThan(0);
+    for (const el of [...chain, node as Element]) {
+      expect(el).toHaveClass("lg:flex-1", "lg:min-h-0");
+    }
+  });
+
+  it("keeps the full map's drawing at its own aspect ratio", () => {
+    const { container } = render(<OwnershipMapStatic initial={page()} variant="full" />);
+    const drawing = container.querySelector('svg[role="group"]');
+    expect(drawing).toHaveClass("h-auto");
+    expect(drawing).not.toHaveClass("lg:h-full");
   });
 });

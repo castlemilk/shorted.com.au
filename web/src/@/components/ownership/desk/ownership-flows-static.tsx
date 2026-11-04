@@ -46,6 +46,12 @@ export type FlowMode = "positions" | "changes";
  * widens to the labels it holds (flowGutters, spec B6). The phone's right label wraps to
  * two lines before its gutter widens; the desktop's never wraps.
  */
+/**
+ * The compact pane fills its fixed height from lg (backlog B2): the drawings' wrapper is a flex column and
+ * the full drawing takes `h-full` of it. Below lg the pane is its natural height.
+ */
+const COMPACT_FILL = "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col";
+
 export const FLOW_SIZES = {
   phone: { width: 360, height: 330, left: 92, right: 96, font: 10.5, wrapRight: true },
   full: { width: 600, height: 400, left: 150, right: 150, font: 12, wrapRight: false },
@@ -55,11 +61,12 @@ export const FLOW_SIZES = {
 export const FLOW_POSITIONS_CAPTION =
   "Disclosed exposure, estimated: voting power x market cap, what the notices disclose; banks' and brokers' notices are often securities lending.";
 /**
- * The directory's group for one kind (spec 13.8: the hub gives each kind's group the
- * id `directory-<kind>`). A kind opens its own group, not the whole directory.
+ * The directory a kind node or a kind link goes to, with the kind in the query so the link states which
+ * kind it means (spec 13.3: the institution directory filtered to the kind). The holders page reads the
+ * query once it is wired to; until then the link still lands on the directory.
  */
 export function flowDirectoryHref(kind: string): string {
-  return `/ownership#directory-${kind}`;
+  return `/ownership/holders?kind=${encodeURIComponent(kind)}`;
 }
 const REGISTERS_PATH = "/ownership/stocks";
 export const FLOWS_LOADING = "Loading…";
@@ -226,6 +233,8 @@ interface DrawingProps {
   page: OwnershipFlowsPage;
   mode: FlowMode;
   variant: "phone" | "full";
+  /** The compact pane: the drawing takes the pane's height from lg, centred in its box. */
+  fill?: boolean;
   basePath: string;
   params: URLSearchParams;
   measure: FlowMeasure;
@@ -261,7 +270,7 @@ export function drillPage(page: OwnershipFlowsPage, drill: DrillPatch): Ownershi
  * short to hold its label carries it in its title only. The paths are the layout's,
  * moved right by the left gutter.
  */
-function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect, onDrill, onExpandTail }: DrawingProps) {
+function FlowsDrawing({ page, mode, variant, fill = false, basePath, params, measure, onSelect, onDrill, onExpandTail }: DrawingProps) {
   const size = FLOW_SIZES[variant];
   const layout = flowLayout(page, mode, size);
   if (layout.empty) return null;
@@ -270,7 +279,8 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
       viewBox={`0 0 ${size.width} ${size.height}`}
       focusable="false"
       aria-hidden="true"
-      className={cn("block h-auto w-full", variant === "phone" ? "sm:hidden" : "hidden sm:block")}
+      preserveAspectRatio={fill ? "xMidYMid meet" : undefined}
+      className={cn("block h-auto w-full", variant === "phone" ? "sm:hidden" : "hidden sm:block", fill && "lg:h-full")}
     >
       {layout.bands.map((item, index) => {
         const source = layout.nodes[item.source]!;
@@ -622,6 +632,11 @@ export interface OwnershipFlowsViewProps {
   onExpandOther?: () => void;
   /** The window control beside the switch. The Overview's pane has none (spec 14.9): absent is shown. */
   windowControl?: boolean;
+  /**
+   * The Overview's pane (backlog B2): positions only, no toolbar, no caption, no tail toggle, and the drawing
+   * fills the pane's fixed height from lg. Its sr-only table is the record, as on every page.
+   */
+  compact?: boolean;
   /** The island's phone fold of the toolbar; absent on the server. */
   toolbarFold?: ToolbarFold;
   /** Writes the window in place (the Window select); absent on the server, where the select is drawn disabled. */
@@ -719,6 +734,7 @@ export function OwnershipFlowsView({
   onFoldOther,
   tailToggle = false,
   windowControl = true,
+  compact = false,
   toolbarFold,
   onWindowChange,
 }: OwnershipFlowsViewProps) {
@@ -739,34 +755,45 @@ export function OwnershipFlowsView({
     </>
   );
   return (
-    <div className="space-y-4" aria-busy={busy || undefined}>
-      {/* One toolbar row (spec 14.9): the source, the measure, the positions or change, the window and the
-          reset, labelled. The Overview's pane has no controls, so its row is the switch alone, unfolded. */}
-      <Toolbar fold={controls === undefined ? undefined : toolbarFold}>
-        {controls}
-        <div className="flex flex-wrap items-center gap-2">
-          {controls === undefined ? null : <span className="text-xs text-muted-foreground">Show</span>}
-          <ModeChips mode={mode} onModeChange={onModeChange} />
-        </div>
-        {windowControl ? <WindowSelect active={state} onWindowChange={onWindowChange} /> : null}
-      </Toolbar>
-      <p className="text-sm text-muted-foreground">
-        {mode === "positions" ? FLOW_POSITIONS_CAPTION : captionChanges}
-        {measure === "count" ? " Band widths are the number of interests, not their exposure." : null}
-      </p>
-      <p className="text-xs text-muted-foreground">
-        {page.asOf !== "" ? (
-          <>
-            Notices read to <time dateTime={page.asOf} className="tabular-nums">{page.asOf}</time>.
-          </>
-        ) : (
-          <>Notices read to {NOT_AVAILABLE}.</>
-        )}
-        {/* Always mounted: a status region announces the text that enters it, not one that appears with it. */}
-        <span role="status" className="ml-2">
+    <div className={cn("space-y-4", compact && COMPACT_FILL)} aria-busy={busy || undefined}>
+      {compact ? null : (
+        // One toolbar row (spec 14.9): the source, the measure, the positions or change, the window and the
+        // reset, labelled. The Overview's pane has no toolbar at all (backlog B2).
+        <Toolbar fold={controls === undefined ? undefined : toolbarFold}>
+          {controls}
+          <div className="flex flex-wrap items-center gap-2">
+            {controls === undefined ? null : <span className="text-xs text-muted-foreground">Show</span>}
+            <ModeChips mode={mode} onModeChange={onModeChange} />
+          </div>
+          {windowControl ? <WindowSelect active={state} onWindowChange={onWindowChange} /> : null}
+        </Toolbar>
+      )}
+      {compact ? null : (
+        <p className="text-sm text-muted-foreground">
+          {mode === "positions" ? FLOW_POSITIONS_CAPTION : captionChanges}
+          {measure === "count" ? " Band widths are the number of interests, not their exposure." : null}
+        </p>
+      )}
+      {compact ? (
+        // Always mounted: a status region announces the text that enters it, not one that appears with it.
+        <span role="status" className="sr-only">
           {busy ? FLOWS_LOADING : null}
         </span>
-      </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {page.asOf !== "" ? (
+            <>
+              Notices read to <time dateTime={page.asOf} className="tabular-nums">{page.asOf}</time>.
+            </>
+          ) : (
+            <>Notices read to {NOT_AVAILABLE}.</>
+          )}
+          {/* Always mounted: a status region announces the text that enters it, not one that appears with it. */}
+          <span role="status" className="ml-2">
+            {busy ? FLOWS_LOADING : null}
+          </span>
+        </p>
+      )}
       {empty ? (
         <p className="text-sm text-muted-foreground">
           {mode === "positions"
@@ -774,10 +801,10 @@ export function OwnershipFlowsView({
             : "No notice released in this window changed a holding with an estimate."}
         </p>
       ) : (
-        <div className="space-y-2">
-          <FlowsDrawing page={drawn} mode={mode} variant="phone" basePath={basePath} params={params} measure={measure} onSelect={onSelect} onDrill={onDrill} onExpandTail={onExpandOther} />
-          <FlowsDrawing page={drawn} mode={mode} variant="full" basePath={basePath} params={params} measure={measure} onSelect={onSelect} onDrill={onDrill} onExpandTail={onExpandOther} />
-          {mode === "positions" && measure === "exposure" ? (
+        <div className={cn("space-y-2", compact && COMPACT_FILL)}>
+          <FlowsDrawing page={drawn} mode={mode} variant="phone" basePath={basePath} params={params} measure={measure} onSelect={onSelect} onDrill={onDrill} onExpandTail={compact ? undefined : onExpandOther} />
+          <FlowsDrawing page={drawn} mode={mode} variant="full" fill={compact} basePath={basePath} params={params} measure={measure} onSelect={onSelect} onDrill={onDrill} onExpandTail={compact ? undefined : onExpandOther} />
+          {!compact && mode === "positions" && measure === "exposure" ? (
             <p className="text-[11px] text-muted-foreground">{RIBBON_LEGEND}</p>
           ) : null}
           {tailToggle && onExpandOther !== undefined ? (

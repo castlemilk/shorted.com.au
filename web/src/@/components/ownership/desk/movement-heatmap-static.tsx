@@ -42,6 +42,13 @@ const PHONE_CELL = 10;
 export const HEAT_FIGURE_MAX_WEEKS = 26;
 /** The Overview's compact pane: the newest weeks it draws (spec 14.3). */
 export const HEAT_PANE_WEEKS = 10;
+/**
+ * The Overview's compact pane: the sectors it names before the rest fold into one row. Eleven sectors and the
+ * folded row make twelve rows, which with the legend fit the pane's fixed 320px from lg (backlog B2).
+ */
+export const HEAT_PANE_SECTORS = 11;
+/** The compact pane's folded row: every sector past the most active. Never linked, never selected. */
+export const HEAT_FOLDED_ROW = "Other sectors";
 /** The desktop grid's cell width, in its own units. The brush reads the same width. */
 export const HEAT_FULL_CELL = 12;
 const FULL_CELL = HEAT_FULL_CELL;
@@ -73,6 +80,41 @@ export interface HeatRow {
   total: number;
   /** One cell per displayed week, oldest first. */
   cells: HeatCell[];
+}
+
+/**
+ * The compact pane's rows: the `keep` sectors with the most notices in the window (the rows arrive in that
+ * order), and the rest summed into one row. A folded week's net is stated only when every notice the week
+ * folds states a figure, as heatRows states it for a sector: a partial sum would read as a change.
+ */
+export function foldHeatRows(rows: readonly HeatRow[], keep: number): HeatRow[] {
+  if (rows.length <= keep) return [...rows];
+  const head = rows.slice(0, keep);
+  const tail = rows.slice(keep);
+  const first = tail[0];
+  if (first === undefined) return [...rows];
+  const cells: HeatCell[] = first.cells.map((base, index) => {
+    const parts = tail
+      .map((row) => row.cells[index])
+      .filter((cell): cell is HeatCell => cell !== undefined && cell.notices > 0);
+    const counts: Record<HeatEvent, number> = { became: 0, increased: 0, decreased: 0, changed: 0, ceased: 0, nz: 0 };
+    let net = 0;
+    let stated = true;
+    for (const cell of parts) {
+      for (const event of Object.keys(counts) as HeatEvent[]) counts[event] += cell.counts[event];
+      if (cell.netPp === null) stated = false;
+      else net += cell.netPp;
+    }
+    const notices = parts.reduce((sum, cell) => sum + cell.notices, 0);
+    return { weekStart: base.weekStart, notices, counts, netPp: notices > 0 && stated ? net : null };
+  });
+  const total = tail.reduce((sum, row) => sum + row.total, 0);
+  return [...head, { sector: HEAT_FOLDED_ROW, total, cells }];
+}
+
+/** A row's label: the short sector name, or the folded row's own name. */
+export function heatRowLabel(sector: string): string {
+  return sector === HEAT_FOLDED_ROW ? HEAT_FOLDED_ROW : shortSector(sector);
 }
 
 /** The inclusive index range of the weeks a window covers. */
@@ -354,7 +396,7 @@ function HeatGrid({
             className="flex items-center truncate text-[11px] leading-none text-muted-foreground"
             style={{ height: HEAT_ROW_PX }}
           >
-            {shortSector(row.sector)}
+            {heatRowLabel(row.sector)}
           </li>
         ))}
       </ol>
@@ -400,10 +442,13 @@ function HeatGrid({
                 // The phone grid is a picture: the sr-only table carries every link, so
                 // a cell links only on the desktop grid. The placeholder group has no
                 // sector to filter the feed by, so its cells never link.
-                const linked = variant === "full" && row.sector !== OTHER_SECTOR;
+                const linked = variant === "full" && row.sector !== OTHER_SECTOR && row.sector !== HEAT_FOLDED_ROW;
                 // A workspace cell selects (spec 14.9): a click or Enter writes its sel, and the feed
                 // link is the inspector's and the table's, not the drawing's.
-                const select = onCellSelect === undefined || variant !== "full" ? null : () => onCellSelect(row.sector, item.weekStart);
+                const select =
+                  onCellSelect === undefined || variant !== "full" || row.sector === HEAT_FOLDED_ROW
+                    ? null
+                    : () => onCellSelect(row.sector, item.weekStart);
                 return (
                   <g key={item.weekStart}>
                     {select !== null ? (
@@ -535,7 +580,7 @@ export function HeatTable({
               <time dateTime={item.weekStart}>{item.weekStart}</time>
             </td>
             <td>
-              {row.sector === OTHER_SECTOR ? (
+              {row.sector === OTHER_SECTOR || row.sector === HEAT_FOLDED_ROW ? (
                 noticeWord(item.notices)
               ) : (
                 <Link href={heatFeedHref(row.sector, item.weekStart, kind)} prefetch={false} rel="nofollow">
@@ -544,7 +589,9 @@ export function HeatTable({
               )}
             </td>
             <td>{item.netPp === null ? NOT_AVAILABLE : formatPointChange(0, item.netPp)}</td>
-            {onCellSelect === undefined ? null : (
+            {onCellSelect === undefined ? null : row.sector === HEAT_FOLDED_ROW ? (
+              <td />
+            ) : (
               <td>
                 <button
                   type="button"
@@ -592,6 +639,8 @@ export interface MovementHeatmapViewProps {
   onCellSelect?: (sector: string, weekStart: string) => void;
   /** The holder type the grid counts; "" for every kind (spec 14.7). */
   kind?: string;
+  /** The Overview's compact pane (backlog B2): its most active sectors and a folded row, no legend caption. */
+  compact?: boolean;
   /**
    * The Activity page (spec 14.3). Off, this is the Overview's compact pane: no window chips,
    * no caption and no figures, as the wireframe draws it.
@@ -615,6 +664,7 @@ export function MovementHeatmapView({
   onCellSelect,
   workspace = false,
   kind = "",
+  compact = false,
   toolbarFold,
   onWindowChange,
 }: MovementHeatmapViewProps) {
@@ -635,12 +685,14 @@ export function MovementHeatmapView({
   // The Overview's pane is the newest ten weeks (spec 14.3); the workspace draws every week it holds.
   const weeks = workspace ? allWeeks : allWeeks.slice(-HEAT_PANE_WEEKS);
   const range = selectedWeekRange(state, page.asOf, weeks);
-  const phoneRows = heatRows(page.rows, weeks, range);
+  // The compact pane names its most active sectors and folds the rest into one row (backlog B2).
+  const paneRows = (list: HeatRow[]) => (compact ? foldHeatRows(list, HEAT_PANE_SECTORS) : list);
+  const phoneRows = paneRows(heatRows(page.rows, weeks, range));
   // The workspace's desktop grid draws the window's own weeks, 13 columns at the default 91 days, so its
   // figures print in the cells (spec 14.3). The brush below still spans every week.
   const shownWeeks = workspace && range !== null ? weeks.slice(range.first, range.last + 1) : weeks;
   const shownRange = selectedWeekRange(state, page.asOf, shownWeeks);
-  const rows = heatRows(page.rows, shownWeeks, shownRange);
+  const rows = paneRows(heatRows(page.rows, shownWeeks, shownRange));
   const reach = heatReach([...phoneRows, ...rows]);
   const countReach = [...phoneRows, ...rows].reduce(
     (most, row) => row.cells.reduce((m, c) => Math.max(m, c.notices), most),
@@ -710,6 +762,7 @@ export function MovementHeatmapView({
           ) : (
             <div className="space-y-2 pt-1">
               <LensLegend lens="flow" scale={netScale(reach)} />
+              {compact ? null : (
               <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
               <li className="inline-flex items-center gap-1.5">
                 <span
@@ -723,6 +776,7 @@ export function MovementHeatmapView({
                 Notices with no figure stated
               </li>
               </ul>
+              )}
             </div>
           )}
         </div>

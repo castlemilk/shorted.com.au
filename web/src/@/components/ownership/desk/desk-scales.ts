@@ -1,23 +1,22 @@
 /**
  * The desk's colour scales (spec 13.1). Every fill is a theme token: the five
  * stops of the ramp (`--desk-bin-0` to `-4`), the ink printed on each stop
- * (`--desk-bin-ink-*`), and for a diverging lens the falls and rises
+ * (`--desk-bin-ink-*`), the short lens's own five stops (`--desk-short-*`, with
+ * `--desk-short-ink-*`), and for a diverging lens the falls and rises
  * (`--desk-fall-*`, `--desk-rise-*`, `--desk-div-ink-*`). The module names the
  * stops; the theme decides their values, so the server and the island write the
  * same strings and the two rooms read as one instrument (globals.css sets them).
  *
  * NEVER RED OR GREEN. A map lens is a share of the register, and a notice flow
  * is not a market direction, so a diverging lens runs ink to paper to amber. The
- * one exception is the short-interest lens, which takes the chart's short colour
- * (rust, chart-theme's seriesColor("short")), because it is the chart's own series.
- * It is the only fill that is a mix at run time: the rust at its bin's strength
- * over the paper.
+ * short-interest lens is the one lens in the chart's rust family (its own five
+ * stops, `--desk-short-*`, not the chart's series colour mixed at run time), so
+ * it reads as the short series without a mix in any reader.
  *
- * A PURE MODULE. No React state, no DOM, no fetch. A missing figure has no fill:
- * a caller hatches that cell.
+ * A PURE MODULE. No React state, no DOM, no fetch, and no import from the chart
+ * theme. A missing figure has no fill: a caller hatches that cell.
  */
 
-import { seriesColor } from "~/@/components/charts/chart-theme";
 import type { DeskLens } from "./desk-state";
 
 export type LensScaleMode = "sequential" | "diverging" | "short";
@@ -47,8 +46,6 @@ export interface LensScale {
 const PAPER = "hsl(var(--background))";
 /** The foreground: the ink a label takes when no figure sits under it. */
 const INK = "hsl(var(--foreground))";
-/** The chart's short-interest colour, the one lens drawn in a market series' hue. */
-const SHORT = seriesColor("short");
 
 /**
  * A diverging scale's fills from the fall's deepest bin to the rise's deepest. The
@@ -126,38 +123,17 @@ function scaleTop(figures: readonly number[]): { top: number; capped: boolean } 
 }
 
 /**
- * The short lens's strengths, as a whole percentage of the rust mixed into the
- * paper: the lightest bin is a fifth of the colour. The short lens is the spec's one
- * exception to the ramp (13.1), so its fills keep this mix.
- */
-const BIN_STRENGTH = [20, 40, 60, 80, 100] as const;
-/**
- * A diverging scale's strengths from the fall's deepest bin to the rise's deepest. The
- * middle bin spans zero on both sides, so it is the paper; bins 1 and 3 mirror each other.
- */
-const DIVERGING_STRENGTH = [100, 50, 0, 50, 100] as const;
-
-/** The strength of one bin of a scale, as a whole percentage (the fill's colour share). */
-export function binStrength(bin: number, scale: LensScale): number {
-  return scale.mode === "diverging" ? (DIVERGING_STRENGTH[bin] ?? 0) : (BIN_STRENGTH[bin] ?? 100);
-}
-
-/**
  * The ink a label takes on a bin's fill: the ink token the theme sets for that stop
  * (checked against its fill for WCAG AA at 11px, see globals.css). A null bin, a
- * cell with no figure, takes the foreground. The short lens's fills are rust mixes,
- * not ramp stops, so the AA check does not cover them: its top bins miss 4.5:1 with
- * these inks (desk-ramp-contrast.test.ts does not test the short lens).
+ * cell with no figure, takes the foreground. Every lens's stops are checked the
+ * same way (desk-ramp-contrast.test.ts), the short lens's included.
  */
 export function labelOnBin(bin: number | null, scale: LensScale): string {
   if (bin === null) return INK;
   const b = clampBin(bin);
-  return scale.mode === "diverging" ? `hsl(var(--desk-div-ink-${b}))` : `hsl(var(--desk-bin-ink-${b}))`;
-}
-
-/** A colour at a strength over the paper, as a CSS colour function. Zero is the paper itself. */
-function mix(colour: string, percent: number): string {
-  return percent <= 0 ? PAPER : `color-mix(in srgb, ${colour} ${percent}%, ${PAPER})`;
+  if (scale.mode === "diverging") return `hsl(var(--desk-div-ink-${b}))`;
+  if (scale.mode === "short") return `hsl(var(--desk-short-ink-${b}))`;
+  return `hsl(var(--desk-bin-ink-${b}))`;
 }
 
 /**
@@ -180,12 +156,12 @@ export function binOf(value: number | null, scale: LensScale): number | null {
 
 /**
  * A bin's fill: the theme's stop for the bin. A diverging scale's middle bin is the
- * paper; the short lens mixes the chart's rust into the paper at the bin's strength.
+ * paper; the short lens has its own rust stops (`--desk-short-*`).
  */
 export function binFill(bin: number, scale: LensScale): string {
   const b = clampBin(bin);
   if (scale.mode === "diverging") return DIVERGING_FILL[b] ?? PAPER;
-  if (scale.mode === "short") return mix(SHORT, binStrength(b, scale));
+  if (scale.mode === "short") return `hsl(var(--desk-short-${b}))`;
   return `hsl(var(--desk-bin-${b}))`;
 }
 

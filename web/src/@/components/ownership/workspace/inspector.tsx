@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SideSheet } from "~/@/components/gamma/SideSheet";
 import { Skeleton } from "~/@/components/gamma/Skeleton";
 import { WeightSeries, type WeightPoint } from "../funds/weight-series";
@@ -17,8 +17,11 @@ import type {
   InspectorSection,
   LargestMovesBlock,
 } from "./inspector-types";
+import { shortSector } from "~/@/lib/ownership/kinds";
+import { zoomedSector } from "./nav";
 import { SectorIcon } from "./sector-icon";
 import { StockLogoBox } from "./stock-logo-box";
+import { pushTrail, readTrail, trailHref, trailKey, writeTrail, type TrailStep, type TrailStorage } from "./trail";
 import {
   parseSelection,
   selectionHeading,
@@ -73,9 +76,20 @@ export function InspectorFallback({ emptyText, largestMoves }: { emptyText: stri
  * The prompt an empty rail shows: its kicker and the prompt, centred in the rail's height (spec 14.9).
  * The fallback and the island draw this one markup, so the rail does not change when the link is read.
  */
-function EmptyPrompt({ emptyText, largestMoves }: { emptyText: string; largestMoves?: LargestMovesBlock | null }) {
+function EmptyPrompt({
+  emptyText,
+  largestMoves,
+  trail,
+  currentHref,
+}: {
+  emptyText: string;
+  largestMoves?: LargestMovesBlock | null;
+  trail?: TrailStep[];
+  currentHref?: string;
+}) {
   return (
     <div className="flex h-full flex-col justify-center gap-2">
+      {trail && trail.length > 0 ? <TrailNav steps={trail} currentHref={currentHref ?? null} /> : null}
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Inspector</p>
       <p className="text-muted-foreground">{emptyText}</p>
       {largestMoves ? <LargestMoves block={largestMoves} /> : null}
@@ -151,6 +165,8 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
     ? `${selectionKey}|${query.lens}|${query.view}|${query.window}|${query.since}|${query.until}|${query.asAt}|${query.from}|${query.to}`
     : "";
   const clearHref = clearedHref(pathname, search);
+  // The link that restores the page as it is now: the trail's current step is the one that matches it.
+  const pageHref = trailHref(pathname, search);
   const mobile = useIsMobile();
 
   // The resolver changes identity on each server render; the request is keyed on
@@ -189,6 +205,16 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
   const failed = current?.failed ?? false;
   const kicker = selection ? selectionHeading(selection) : null;
   // The aside is named by its kind alone until the thing's name arrives.
+  const sector = zoomedSector(params?.get("sector"));
+  const trail = useInspectorTrail({
+    pathname,
+    href: pageHref,
+    hasSelection: selection !== null,
+    selectionKey,
+    selectionKind: selection ? selectionHeading(selection) : "",
+    sector,
+    heading: content?.heading ?? null,
+  });
   const label = content && kicker ? `${kicker} ${content.heading}` : (kicker ?? "Inspector");
   const retry = () => {
     setLoaded(null);
@@ -209,6 +235,8 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
       name={inSheet ? null : (content?.heading ?? null)}
       clearLink={!inSheet}
       onRetry={retry}
+      trail={trail}
+      currentHref={pageHref}
     />
   );
 
@@ -244,6 +272,8 @@ function InspectorBodyContent({
   name,
   clearLink,
   onRetry,
+  trail,
+  currentHref,
 }: {
   selection: Selection | null;
   loading: boolean;
@@ -259,13 +289,28 @@ function InspectorBodyContent({
   /** False in the sheet, whose close button is the same action. */
   clearLink: boolean;
   onRetry: () => void;
+  /** The page's trail (backlog C2), drawn above everything in the rail. */
+  trail: TrailStep[];
+  /** The link that restores the page as it is now; the trail's step with this link is the current one. */
+  currentHref: string;
 }) {
+  const trailNav = trail.length > 0 ? <TrailNav steps={trail} currentHref={currentHref} /> : null;
   // The prompt sits with its kicker, vertically centred in the rail's height (spec 14.9).
-  if (selection === null) return <EmptyPrompt emptyText={emptyText} largestMoves={largestMoves} />;
-  if (loading) return <InspectorLoading />;
+  if (selection === null) {
+    return <EmptyPrompt emptyText={emptyText} largestMoves={largestMoves} trail={trail} currentHref={currentHref} />;
+  }
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        {trailNav}
+        <InspectorLoading />
+      </div>
+    );
+  }
   if (failed) {
     return (
       <div className="space-y-4">
+        {trailNav}
         <p className="text-muted-foreground">Could not load this selection.</p>
         <div className="flex items-center gap-4 text-sm">
           <button type="button" onClick={onRetry} className="underline underline-offset-4">
@@ -281,6 +326,7 @@ function InspectorBodyContent({
   if (content === null) {
     return (
       <div className="space-y-4">
+        {trailNav}
         <p className="text-muted-foreground">Nothing on record for this selection.</p>
         <Link href={clearHref} prefetch={false} scroll={false} className="text-sm underline underline-offset-4">
           Clear selection
@@ -294,6 +340,7 @@ function InspectorBodyContent({
   const sections = content.sections ?? [];
   return (
     <div className="space-y-5">
+      {trailNav}
       {kicker !== null || hasName || hasLogo || content.subtitle ? (
         <header className="space-y-2">
           {kicker !== null ? (
@@ -515,6 +562,123 @@ function InspectorLoading() {
       <Skeleton height={12} width="80%" />
     </div>
   );
+}
+
+/**
+ * The trail (spec 14.1, backlog C2): the steps the reader has taken on this page, each as a link
+ * that restores it, except the step that matches the page as it is now, which is the current one
+ * in the foreground. Mono and small, with " > " between steps. After "Clear selection" the trail
+ * is kept and no step is current, so every step stays a way back.
+ */
+function TrailNav({ steps, currentHref }: { steps: TrailStep[]; currentHref: string | null }) {
+  return (
+    <nav aria-label="Trail" className="font-mono text-xs text-muted-foreground">
+      <p className="break-words leading-relaxed">
+        {steps.map((step, index) => {
+          const current = step.href === currentHref;
+          return (
+            <Fragment key={`${index}:${step.href}`}>
+              {index > 0 ? " > " : null}
+              {current ? (
+                <span aria-current="step" className="text-foreground">
+                  {step.label}
+                </span>
+              ) : (
+                <Link
+                  href={step.href}
+                  prefetch={false}
+                  scroll={false}
+                  className="inline-flex min-h-[24px] items-center underline underline-offset-4 hover:text-foreground"
+                >
+                  {step.label}
+                </Link>
+              )}
+            </Fragment>
+          );
+        })}
+      </p>
+    </nav>
+  );
+}
+
+/** The browser's sessionStorage, or null where it is absent or refused (a privacy mode that throws). */
+function sessionStore(): TrailStorage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The page's trail, kept in sessionStorage under the page's path (backlog C2). The stored trail is
+ * read after mount, so the server and the first paint carry none. A step is recorded once per
+ * selection: when a selection's content arrives, or, with no selection, when a sector is zoomed.
+ * A change of the lens or the window on the same selection is not a new step.
+ */
+function useInspectorTrail({
+  pathname,
+  href,
+  hasSelection,
+  selectionKey,
+  selectionKind,
+  sector,
+  heading,
+}: {
+  pathname: string;
+  /** The link that restores the page as it is now. */
+  href: string;
+  hasSelection: boolean;
+  selectionKey: string;
+  /** The kind of thing selected, named when the content has no heading to take its place. */
+  selectionKind: string;
+  sector: string;
+  /** The resolved content's heading; null while the selection loads or when it failed. */
+  heading: string | null;
+}): TrailStep[] {
+  const key = trailKey(pathname);
+  const [store, setStore] = useState<{ key: string; steps: TrailStep[] } | null>(null);
+  const hrefRef = useRef(href);
+  hrefRef.current = href;
+  const recorded = useRef<{ key: string; id: string } | null>(null);
+
+  // Read after mount: the first render is the server's, with no trail.
+  useEffect(() => {
+    setStore({ key, steps: readTrail(sessionStore(), key) });
+  }, [key]);
+
+  useEffect(() => {
+    let label: string;
+    let id: string;
+    if (hasSelection) {
+      // A failed or still loading selection is not a step yet.
+      if (heading === null) return;
+      label = heading.trim() === "" ? selectionKind : heading;
+      id = `sel:${selectionKey}`;
+    } else if (sector !== "") {
+      label = shortSector(sector);
+      id = `sector:${sector}`;
+    } else {
+      return;
+    }
+    if (recorded.current !== null && recorded.current.key === key && recorded.current.id === id) return;
+    recorded.current = { key, id };
+    const storage = sessionStore();
+    const step: TrailStep = { label, href: hrefRef.current };
+    // The write is idempotent (the same trail under the same key), so a second run of this updater is harmless.
+    setStore((prev) => {
+      const base = prev !== null && prev.key === key ? prev.steps : readTrail(storage, key);
+      // Clear selection on a zoomed sector lands on that sector's own link. That is the reader's place
+      // returning, not a new step: the trail after it (the company, the holder) stays walkable.
+      if (!hasSelection && base.some((existing) => existing.href === step.href)) return { key, steps: base };
+      const steps = pushTrail(base, step);
+      writeTrail(storage, key, steps);
+      return { key, steps };
+    });
+  }, [key, hasSelection, selectionKey, selectionKind, sector, heading]);
+
+  return store !== null && store.key === key ? store.steps : [];
 }
 
 /**

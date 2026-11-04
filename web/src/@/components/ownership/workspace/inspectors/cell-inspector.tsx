@@ -13,7 +13,7 @@ import { shiftDate } from "~/@/components/ownership/desk/desk-state";
 import { OTHER_SECTOR } from "~/@/components/ownership/desk/map-layout";
 import { noticeEventLabel } from "~/@/lib/ownership/events";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
-import { kindInfo } from "~/@/lib/ownership/kinds";
+import { KIND_ORDER, formatPointChange, kindInfo } from "~/@/lib/ownership/kinds";
 import { serializeSelection } from "../selection";
 import type { InspectorContent, InspectorLink, InspectorRow, InspectorSection } from "../inspector-types";
 import { windowNetText } from "./window-net";
@@ -125,6 +125,103 @@ function weekSections(notices: InspectorLink[], unlinked: InspectorRow[]): Inspe
 }
 
 /**
+ * A holder kind as the cell groups it: one of the vocabulary's kinds, or "unclassified" for an empty
+ * or unknown one. The list is a fixed set, so a name that is not in it (even "constructor") is unclassified.
+ */
+function groupKind(kind: string): string {
+  return (KIND_ORDER as readonly string[]).includes(kind) ? kind : "unclassified";
+}
+
+/**
+ * The week's notices counted by holder kind, in the vocabulary's display order, zero counts left out
+ * (backlog C7). A kind-filtered cell has one row: the feed is asked for that kind alone.
+ */
+export function holderKindRows(rows: readonly NoticeFeedRow[]): InspectorRow[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const group = groupKind(row.holderKind);
+    counts.set(group, (counts.get(group) ?? 0) + 1);
+  }
+  const out: InspectorRow[] = [];
+  for (const kind of KIND_ORDER) {
+    const count = counts.get(kind) ?? 0;
+    if (count === 0) continue;
+    out.push({ label: kindInfo(kind).plural, value: `${count} ${count === 1 ? "notice" : "notices"}` });
+  }
+  return out;
+}
+
+/** How many of the largest moves the cell names (backlog C7). */
+const MOVES_LIMIT = 10;
+
+/** A listed notice that states its change in points: both of its figures are stated. */
+type MoveRow = NoticeFeedRow & { changePp: number };
+
+/**
+ * The cell's largest moves: the rows that state their change, by its size (the larger of a rise or a fall),
+ * the newer first on a tie. A row that states only one of its figures has no change and is not a move.
+ */
+export function largestMoves(rows: readonly NoticeFeedRow[]): MoveRow[] {
+  return rows
+    // A change under half a hundredth of a point prints as 0.00 pp: a move of nothing is not a largest move.
+    .filter(
+      (row): row is MoveRow =>
+        typeof row.changePp === "number" && Number.isFinite(row.changePp) && Math.abs(row.changePp) >= 0.005,
+    )
+    .sort(
+      (a, b) =>
+        Math.abs(b.changePp) - Math.abs(a.changePp) ||
+        b.released.localeCompare(a.released) ||
+        a.code.localeCompare(b.code),
+    )
+    .slice(0, MOVES_LIMIT);
+}
+
+/**
+ * The moves as sections. A move whose notice has a safe link is a list item; one without is a row, as
+ * the week's notices are. A list item has no value of its own, so its change and date go in its label.
+ */
+function moveSections(moves: MoveRow[], suffix: string): InspectorSection[] {
+  const linked: InspectorLink[] = [];
+  const unlinked: InspectorRow[] = [];
+  for (const row of moves) {
+    const change = formatPointChange(0, row.changePp);
+    const href = safeExternalHref(row.url);
+    if (href === undefined) {
+      unlinked.push({ label: `${row.code} · ${row.holder}`, value: `${change} · ${row.released}` });
+    } else {
+      linked.push({ label: `${row.code} · ${row.holder} · ${change} · ${row.released}`, href, external: true });
+    }
+  }
+  const sections: InspectorSection[] = [];
+  if (linked.length > 0) sections.push({ title: `Largest moves${suffix}`, kind: "list", items: linked });
+  if (unlinked.length > 0) {
+    sections.push({ title: `Largest moves${suffix}, without a usable link`, kind: "rows", items: unlinked });
+  }
+  return sections;
+}
+
+/**
+ * The cell's sections in the order a reader needs them (backlog C7): who moved the sector, by holder kind,
+ * then the largest moves, then the week's notices. Every block counts the rows listed, so a partial page
+ * says so in its titles.
+ */
+function cellSections(
+  rows: readonly NoticeFeedRow[],
+  partial: boolean,
+  notices: InspectorLink[],
+  unlinked: InspectorRow[],
+): InspectorSection[] | undefined {
+  const suffix = partial ? " of the listed notices" : "";
+  const sections: InspectorSection[] = [];
+  const kinds = holderKindRows(rows);
+  if (kinds.length > 0) sections.push({ title: `By holder type${suffix}`, kind: "rows", items: kinds });
+  sections.push(...moveSections(largestMoves(rows), suffix));
+  sections.push(...(weekSections(notices, unlinked) ?? []));
+  return sections.length > 0 ? sections : undefined;
+}
+
+/**
  * The cell's rail. The count is the feed's total for the week (the rows are the
  * first page of it, so the list says how many are shown beside the total).
  *
@@ -179,7 +276,7 @@ export function cellInspectorContent({
     reading: cellReading({ sector, weekStart, feed, kind }),
     figure: { value: `${total} ${total === 1 ? "notice" : "notices"}`, caption: "Notices released this week" },
     rows: [{ label: partial ? "Events in the listed notices" : "Events", value: weekCountLine(counts) }],
-    sections: weekSections(notices, unlinked),
+    sections: cellSections(feed.rows, partial, notices, unlinked),
     note:
       feed.rows.length < total
         ? `The first ${feed.rows.length} of ${total} notices are listed; the feed has the rest.`

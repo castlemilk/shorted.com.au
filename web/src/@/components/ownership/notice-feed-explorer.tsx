@@ -114,6 +114,8 @@ export interface NoticeFeedRow {
   changePp: number | null;
   /** The notice on ASX. */
   url: string;
+  /** The holder's registry kind (backlog C7), "" when the API states none. */
+  holderKind: string;
 }
 
 /** One answer from the feed: the query the server ran, and its rows. */

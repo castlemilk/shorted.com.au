@@ -486,6 +486,7 @@ describe("loadNoticeFeed", () => {
         companyName: "BHP Group",
         holder: "BlackRock Investment Management",
         holderHref: "/ownership/blackrock",
+        holderKind: "index_manager",
         votingPower: "9.10%",
         change: "",
         changePp: null,
@@ -498,6 +499,7 @@ describe("loadNoticeFeed", () => {
         companyName: "BHP Group",
         holder: "Swift TV",
         holderHref: "/shorts/SFR/company",
+        holderKind: "corporate",
         votingPower: "under 5%",
         change: "",
         changePp: null,
@@ -510,6 +512,7 @@ describe("loadNoticeFeed", () => {
         companyName: "BHP Group",
         holder: "MUFG Securities",
         holderHref: null,
+        holderKind: "bank_broker",
         votingPower: "6.14%",
         change: "+1.14 pp",
         changePp: 6.14 - 5,
@@ -522,6 +525,7 @@ describe("loadNoticeFeed", () => {
         companyName: "BHP Group",
         holder: "Unnamed holder",
         holderHref: null,
+        holderKind: "other",
         votingPower: "5.01%",
         change: "",
         changePp: null,
@@ -545,6 +549,19 @@ describe("loadNoticeFeed", () => {
     const page = await loadNoticeFeed({});
 
     expect(page.rows.map((row) => row.changePp)).toEqual([-1.5, null, null]);
+  });
+
+  it("carries the holder's registry kind on each row, and the empty string where the API states none", async () => {
+    mockRequestNotices.mockResolvedValue(
+      feedResponse({
+        notices: [notice({ kind: "hedge_fund" }), notice({ kind: "" })],
+        total: 2,
+      }),
+    );
+
+    const page = await loadNoticeFeed({});
+
+    expect(page.rows.map((row) => row.holderKind)).toEqual(["hedge_fund", ""]);
   });
 
   it("passes an event this build does not know through as the API sent it", async () => {
@@ -604,6 +621,7 @@ describe("loadNoticeFeed", () => {
           companyName: "BHP Group",
           holder: "MUFG Securities",
           holderHref: null,
+          holderKind: "bank_broker",
           votingPower: "6.14%",
           change: "+1.14 pp",
           changePp: 6.14 - 5,

@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { SegmentedControl } from "~/@/components/gamma/SegmentedControl";
 import { cn } from "@/lib/utils";
 import { sectionTitle } from "@/lib/typography";
 import { NOT_AVAILABLE, formatPct } from "~/@/lib/fundamentals/format";
 import { industryLabel } from "~/@/lib/industry-placeholder";
 import { binFill, binOf, labelOnBin, lensFill, type LensScale } from "../desk/desk-scales";
 import { HolderLogo } from "../workspace/holder-logo";
-import { Toolbar } from "../workspace/toolbar";
+import { TOOLBAR_SELECT_CLASS, Toolbar, ToolbarSelect } from "../workspace/toolbar";
 import { ViewDisclosure } from "../workspace/view-disclosure";
 import { SectorIcon } from "../workspace/sector-icon";
 import { StockLogoBox } from "../workspace/stock-logo-box";
@@ -42,7 +41,11 @@ const LEGEND_COPY = "Cell colour and value = weight within that fund";
 /** The page header's status line (spec 14.7); the page prints it beside its title. */
 export const FUND_STATUS_COPY = "Tracked portfolios only · Snapshot dates vary";
 
-const TYPE_OPTIONS = [
+/**
+ * The toolbar's selects (spec 14.9, backlog B3). Each option's label is its visible text; the
+ * value is what the URL carries, and the default value is the one that writes no parameter.
+ */
+const KIND_OPTIONS = [
   { value: "index", label: "Index funds" },
   { value: "super", label: "Super options" },
 ] as const;
@@ -50,10 +53,16 @@ const VIEW_OPTIONS = [
   { value: "sectors", label: "Sector weights" },
   { value: "holdings", label: "Holdings" },
 ] as const;
-const COVERAGE_OPTIONS = [
-  { value: "files", label: "Files available" },
+const FILES_OPTIONS = [
+  { value: "files", label: "Available" },
   { value: "all", label: "All tracked" },
 ] as const;
+
+/**
+ * A fund row's height (backlog B3): one line of logo, ticker, tag and manager, centred in 44 px.
+ * The chevron's cell is top-aligned by the shared expander, so the row centres its cells itself.
+ */
+const FUND_ROW_CLASS = "h-11 [&>td]:align-middle";
 
 export interface FundExposureMapProps {
   funds: readonly FundRow[];
@@ -113,52 +122,71 @@ export function FundExposureMapView({
     <div className="space-y-4">
       <h2 className={sectionTitle}>Fund exposure map</h2>
 
-      {/* One toolbar row (spec 14.9): the search, the labelled filters and the table view, under "Adjust view" below sm. */}
+      {/*
+        One toolbar row (spec 14.9, backlog B3): the search, then four labelled selects, under "Adjust view"
+        below sm. Each select writes the same parameter the segmented controls wrote before.
+      */}
       <Toolbar fold={(row) => <ViewDisclosure>{row}</ViewDisclosure>}>
-        <label className="flex min-w-[14rem] flex-1 flex-col gap-1 font-mono text-xs text-muted-foreground">
-          Search fund, code or manager
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="A200, Vanguard, Betashares"
-            className="h-10 rounded-md border border-input bg-background px-3 font-mono text-sm text-foreground"
-          />
-        </label>
-        <label className="flex flex-col gap-1 font-mono text-xs text-muted-foreground">
-          Manager
-          <select
-            aria-label="Manager"
-            value={manager}
-            onChange={(event) => navigate(patchHref(pathname, params, { manager: event.target.value || null }))}
-            className="h-10 min-w-[11rem] rounded-md border border-input bg-background px-2 font-mono text-sm text-foreground"
-          >
-            <option value="">All managers</option>
-            {managers.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <SegmentedControl
-          label="Fund type"
-          options={TYPE_OPTIONS.map((option) => ({ ...option }))}
+        {/*
+          The search takes the row's spare width. Its 10 rem basis is what makes the row break before the
+          selects overflow: with the Manager select at its 12 rem cap (the super managers' longest name) the
+          controls use about 953 px of the 1016 px column at 1440, so the search grows into the rest and the
+          placeholder shows whole; a fixed width would push Files onto a second line.
+        */}
+        <input
+          type="search"
+          aria-label="Find fund, code or manager"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="A200, Vanguard, Betashares"
+          className={cn(TOOLBAR_SELECT_CLASS, "min-w-[10rem] max-w-[16rem] flex-1 placeholder:text-muted-foreground")}
+        />
+        <ToolbarSelect
+          label="Manager"
+          value={manager}
+          onChange={(value) => navigate(patchHref(pathname, params, { manager: value || null }))}
+          className="max-w-[12rem] truncate"
+        >
+          <option value="">All managers</option>
+          {managers.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </ToolbarSelect>
+        <ToolbarSelect
+          label="Kind"
           value={type}
           onChange={(value) => navigate(patchHref(pathname, params, { type: value === "index" ? null : value }))}
-        />
-        <SegmentedControl
-          label="Table view"
-          options={VIEW_OPTIONS.map((option) => ({ ...option }))}
+        >
+          {KIND_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </ToolbarSelect>
+        <ToolbarSelect
+          label="View"
           value={view}
           onChange={(value) => navigate(patchHref(pathname, params, { view: value === "sectors" ? null : value }))}
-        />
-        <SegmentedControl
-          label="Coverage"
-          options={COVERAGE_OPTIONS.map((option) => ({ ...option }))}
+        >
+          {VIEW_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </ToolbarSelect>
+        <ToolbarSelect
+          label="Files"
           value={coverage}
           onChange={(value) => navigate(patchHref(pathname, params, { coverage: value === "files" ? null : value }))}
-        />
+        >
+          {FILES_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </ToolbarSelect>
       </Toolbar>
 
       {visible.length === 0 ? (
@@ -202,7 +230,7 @@ export function FundExposureMapView({
                       label={`${fundLabel(fund)} sector weights and largest positions`}
                       colSpan={5 + columns.length}
                       current={current}
-                      className={cn(current && "bg-muted/40 outline outline-1 -outline-offset-1 outline-primary")}
+                      className={cn(FUND_ROW_CLASS, current && "bg-muted/40 outline outline-1 -outline-offset-1 outline-primary")}
                       detail={
                         <div className="grid gap-6 md:grid-cols-2">
                         <FigureList
@@ -234,20 +262,22 @@ export function FundExposureMapView({
                         />
                       </td>
                       <td className="px-2 py-2">
+                        {/*
+                          One line: the logo box (fixed at 20 px, so it never shifts), the ticker, the ETF or
+                          Pooled tag, then the manager, which truncates with its full name in the title.
+                        */}
                         <Link
                           href={patchHref(pathname, params, { sel: `fund:${fund.key}` })}
                           scroll={false}
                           prefetch={false}
-                          className="flex flex-col rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex min-w-0 items-center gap-2 whitespace-nowrap rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          <span className="flex items-center gap-2">
-                            <span className="font-semibold">{fundLabel(fund)}</span>
-                            <span className="rounded-[var(--radius)] border border-border px-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                              {fundKindLabel(fund)}
-                            </span>
+                          <HolderLogo name={fund.institutionName} kind="" holderKey={fund.institutionSlug} size={20} />
+                          <span className="shrink-0 font-semibold text-foreground">{fundLabel(fund)}</span>
+                          <span className="shrink-0 rounded-[var(--radius)] border border-border px-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                            {fundKindLabel(fund)}
                           </span>
-                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <HolderLogo name={fund.institutionName} kind="" holderKey={fund.institutionSlug} size={20} />
+                          <span className="min-w-0 max-w-[10rem] truncate text-xs text-muted-foreground" title={fund.institutionName}>
                             {fund.institutionName}
                           </span>
                         </Link>

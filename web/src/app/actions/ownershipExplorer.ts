@@ -444,6 +444,8 @@ function feedRow(notice: SubstantialNotice): NoticeFeedRow {
     change: row.change,
     changePp: notice.hasPresent && notice.hasPrevious ? notice.presentPct - notice.previousPct : null,
     url: row.url,
+    // The holder's registry kind, as the notice carries it; "" when the API states none.
+    holderKind: notice.kind,
   };
 }
 

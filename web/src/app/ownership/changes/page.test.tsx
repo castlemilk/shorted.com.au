@@ -122,6 +122,17 @@ describe("the changes page (spec 14.3, static ISR)", () => {
     expect(select).toHaveValue("asx:IOZ");
   });
 
+  // B1 folded the method on the institution and holder pages; the Changes page ends
+  // its main column with the same disclosure, so its figures are read the same way.
+  it("ends its main column with the shared method disclosure", async () => {
+    mockLoadFunds.mockResolvedValue({ ok: true, error: "", funds: [] });
+    const { container } = render(await ChangesPage());
+
+    const method = container.querySelector<HTMLElement>("details#method")!;
+    expect(method.querySelector("summary")).toHaveTextContent("How these figures are read");
+    expect(method.parentElement!.lastElementChild).toBe(method);
+  });
+
   it("bails an outage of the funds read rather than caching an empty comparison", async () => {
     mockLoadFunds.mockResolvedValue({ ok: false, error: "", funds: [] });
     render(await ChangesPage());

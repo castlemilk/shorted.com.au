@@ -16,6 +16,7 @@ import {
   FLOW_POSITIONS_CAPTION,
   FLOW_SIZES,
   OwnershipFlowsStatic,
+  OwnershipFlowsView,
   bandFillOpacity,
   changeBandTitle,
   connectionIsSelected,
@@ -287,7 +288,7 @@ describe("OwnershipFlowsStatic", () => {
 
     const table = screen.getByRole("table", { name: TABLE_POSITIONS });
     expect(within(table).getAllByRole("row")).toHaveLength(4);
-    expect(within(table).getByRole("link", { name: "Super fund" })).toHaveAttribute("href", "/ownership#directory-super_fund");
+    expect(within(table).getByRole("link", { name: "Super fund" })).toHaveAttribute("href", "/ownership/holders?kind=super_fund");
     expect(within(table).getByRole("link", { name: "A$3.0B" })).toHaveAttribute(
       "href",
       "/ownership/stocks?industry=Materials&kind=super_fund",
@@ -426,5 +427,26 @@ describe("the measure a band states", () => {
     expect(connectionIsSelected(params, "super_fund", "Materials")).toBe(true);
     expect(connectionIsSelected(params, "super_fund", "Energy")).toBe(false);
     expect(connectionIsSelected(new URLSearchParams(""), "super_fund", "Materials")).toBe(false);
+  });
+});
+
+describe("the Overview's compact sankey (backlog B2)", () => {
+  it("draws the positions alone: no toolbar, caption, tail toggle or date line, and the drawing fills the pane from lg", () => {
+    const { container } = render(
+      <OwnershipFlowsView
+        page={PAGE}
+        mode="positions"
+        state={DESK_DEFAULT_WINDOW_STATE}
+        basePath="/ownership"
+        params={new URLSearchParams()}
+        compact
+      />,
+    );
+    expect(screen.queryByRole("group", { name: "What the bands show" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Window" })).toBeNull();
+    expect(screen.queryByText(FLOW_POSITIONS_CAPTION)).toBeNull();
+    expect(screen.queryByText(/Notices read to/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Expand Other +" })).toBeNull();
+    expect(container.querySelector('svg[class~="lg:h-full"]')).not.toBeNull();
   });
 });

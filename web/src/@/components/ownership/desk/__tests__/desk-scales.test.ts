@@ -3,8 +3,12 @@
 /**
  * The desk's colour scales (spec 13.1). Every fill is a theme token (a stop of the
  * ramp, globals.css), a figure with no value has no fill, and nothing on the desk is
- * red or green except nothing at all: the short lens takes the chart's rust.
+ * red or green. The short lens has its own rust stops (`--desk-short-*`), so no
+ * fill is a mix made at run time.
  */
+
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import { BIN_COUNT, binFill, binOf, countScale, directionFill, labelOnBin, lensFill, lensScale, netFill, netScale, niceStep } from "../desk-scales";
 
@@ -21,6 +25,8 @@ const SIGNAL_COLOURS = [
 
 /** A ramp fill is a theme token and nothing else: no literal colour, no mix. */
 const RAMP_TOKEN = /^hsl\(var\(--desk-[a-z0-9-]+\)\)$/;
+/** The short lens's stops: the theme's rust family, and no other fill. */
+const SHORT_TOKEN = /^hsl\(var\(--desk-short-[0-4]\)\)$/;
 
 function noSignalColour(fill: string | null): void {
   expect(fill).not.toBeNull();
@@ -46,10 +52,10 @@ describe("lens scales", () => {
     expect(lensScale("flow", [0, null])).toEqual({ lens: "flow", mode: "diverging", lo: -2, hi: 2, step: 1 });
   });
 
-  it("gives the short lens its own mode, drawn in the chart's short colour", () => {
+  it("gives the short lens its own mode, drawn from its own rust stops", () => {
     expect(lensScale("short", [3]).mode).toBe("short");
     const fill = lensFill(3, lensScale("short", [3]));
-    expect(fill).toContain("#D16A47");
+    expect(fill).toBe("hsl(var(--desk-short-3))");
     noSignalColour(fill);
   });
 });
@@ -107,6 +113,10 @@ describe("lens fills", () => {
       if (bin === 2) expect(binFill(bin, diverging)).toBe("hsl(var(--background))");
       else expect(binFill(bin, diverging)).toMatch(RAMP_TOKEN);
     }
+    const short = lensScale("short", [10]);
+    for (let bin = 0; bin < BIN_COUNT; bin += 1) {
+      expect(binFill(bin, short)).toMatch(SHORT_TOKEN);
+    }
   });
 });
 
@@ -129,9 +139,12 @@ describe("the ink of each bin (labelOnBin)", () => {
     expect(labelOnBin(binOf(4, scale), scale)).toBe("hsl(var(--desk-div-ink-4))");
   });
 
-  it("gives the short lens the sequential ink tokens, as the spec's one exception keeps its own fill", () => {
+  it("gives the short lens its own ink token for each of its stops", () => {
     const scale = lensScale("short", [10]);
-    expect(labelOnBin(4, scale)).toBe("hsl(var(--desk-bin-ink-4))");
+    for (let bin = 0; bin < BIN_COUNT; bin += 1) {
+      expect(labelOnBin(bin, scale)).toBe(`hsl(var(--desk-short-ink-${bin}))`);
+    }
+    expect(labelOnBin(null, scale)).toBe("hsl(var(--foreground))");
   });
 });
 
@@ -232,11 +245,20 @@ describe("five quantised bins (spec 14.9)", () => {
     expect(binOf(242, capped)).toBe(BIN_COUNT - 1);
   });
 
-  it("mixes the short lens's rust into the paper at each bin's strength, the one exception to the ramp", () => {
+  it("fills the short lens from its five rust stops in order, never a mix into the paper", () => {
     const scale = lensScale("short", [10]);
-    expect(binFill(0, scale)).toBe("color-mix(in srgb, #D16A47 20%, hsl(var(--background)))");
-    expect(binFill(2, scale)).toBe("color-mix(in srgb, #D16A47 60%, hsl(var(--background)))");
-    expect(binFill(4, scale)).toBe("color-mix(in srgb, #D16A47 100%, hsl(var(--background)))");
+    expect(binFill(0, scale)).toBe("hsl(var(--desk-short-0))");
+    expect(binFill(2, scale)).toBe("hsl(var(--desk-short-2))");
+    expect(binFill(4, scale)).toBe("hsl(var(--desk-short-4))");
+    for (let bin = 0; bin < BIN_COUNT; bin += 1) {
+      expect(binFill(bin, scale)).not.toContain("color-mix");
+    }
+  });
+
+  it("keeps the module pure: no mix, and no import from the chart theme", () => {
+    const source = readFileSync(path.join(__dirname, "../desk-scales.ts"), "utf8");
+    expect(source).not.toContain("color-mix");
+    expect(source).not.toMatch(/from\s+["'][^"']*chart-theme["']/);
   });
 });
 
