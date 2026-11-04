@@ -103,6 +103,27 @@ describe("stock picker pages in the ISR sweep inventory", () => {
     const all = new Set(isrPages as string[]);
     expect(all.has("/strategies/changelog")).toBe(true);
   });
+
+  // Every enabled profile tab with its own route (Rules, Signals) builds as the
+  // same empty shell, so each one must be in the sweep for every strategy.
+  it("covers every enabled profile tab's route for every strategy", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { STRATEGY_SLUGS } = require("~/@/lib/strategies/registry") as {
+      STRATEGY_SLUGS: string[];
+    };
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { enabledStrategyTabs } = require("~/@/lib/strategies/strategy-tabs") as {
+      enabledStrategyTabs: () => ReadonlyArray<{ segment: string }>;
+    };
+    const all = new Set(isrPages as string[]);
+    const routes = STRATEGY_SLUGS.flatMap((slug) =>
+      enabledStrategyTabs()
+        .filter((tab) => tab.segment !== "")
+        .map((tab) => `/strategies/${slug}/${tab.segment}`),
+    );
+    expect(routes).toContain("/strategies/canslim/rules");
+    expect(routes.filter((route) => !all.has(route))).toEqual([]);
+  });
 });
 
 // Housing ranking pages deliberately skip their live state read at build time
