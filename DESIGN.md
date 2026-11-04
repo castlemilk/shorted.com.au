@@ -153,6 +153,8 @@ A single warm hue family carries the entire system, with olive and rust as suppo
 
 **The Semantic Quarantine Rule.** True red and green mean *direction of a number* and nothing else. Never use them for brand accent, decoration, generic success/error styling, or any surface that isn't reporting a market movement. Everything else warms to rust or olive.
 
+**Returns tokens** (`--returns-ink`, `--returns-paper`, `lib/strategies/returns-scale.ts`). A returns heatmap cell is the market signal mixed over the returns paper, with ink text on top. The paper is the page's light sand in the dark theme, the one inversion of the page's own tokens, so the near-black ink stays readable on every fill. The fill caps at 60% red and 80% green. A coverage hatch inside a filled cell is stripes only (`.hatch-on-fill`), never a muted base, so the ink keeps 4.5:1. Neither token is a market colour: they are a tint of the signal, read as direction.
+
 ## 3. Typography
 
 **Display Font:** Newsreader (variable 200–800, with Georgia fallback)

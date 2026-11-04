@@ -648,6 +648,41 @@ valuation, stock page).
   Both were defects found by applying the migration to a scratch Postgres; the
   window is 40 sessions, so a base is never longer than 40.
 
+## Strategy chart primitives and returns kit (PR-17)
+
+Primitives only: no page uses them yet (PR-19 Backtest and PR-20 Explore do).
+They are in place so the chart and table code is reviewed once.
+
+- **`StockChart` extensions are default-off.** A chart with none of them renders
+  byte-identically. `StockChartInner` props and series fields: `series.dash`,
+  `series.endLabel` (read from the drawn points, so a zoom and the normalised
+  view are right), `regions` tone `"live"` (a token tint, its label written on
+  the band when it fits; `bearish`/`bullish` stay fixed hexes), `levels[].tag`
+  (a boxed label, spaced 15px), `events` (dots in the entry, exit and neutral
+  tokens), `annotations` (a plot callout), and `oscillators[].kind = "area"`
+  with `oscillators[].annotations` (a drawdown panel, with true-minus ticks and
+  its trough callout on the panel's own domain). Line oscillators keep their
+  output (Williams %R has negative levels).
+- **Returns kit**: `components/strategies/` holds `ReturnsHeatmapTable`
+  (server `<table>`, `span` merges columns, a bin is taken from the figure as
+  printed), `CoverageStrip` (`rows` or a `columns` month strip), and
+  `EquitySparkline`. The bins, fills and contrast live in
+  `lib/strategies/returns-scale.ts`. `.hatch-empty` (state), `.hatch-bar`
+  (a coverage bar under 80%) and `.hatch-on-fill` (the hatch inside a filled
+  cell) are the three hatch utilities in `styles/globals.css`.
+- **Guards**: `components/strategies/__tests__/colour-rules.test.ts` (no market
+  mark token, raw hex or Tailwind red/green utility in the kit) and
+  `client-boundary.test.ts` (the import walk reaches no `~/gen`, protobuf,
+  `@connectrpc` or server action, and no kit file is a client component).
+  `returns-scale.test.ts` checks the ink on every fill and on every filled
+  cell's stripes, in both themes, against the real tokens in `globals.css`.
+- **Recorded deviations from the spec (1.5 and 10.6-10.8)**: the StockChart
+  colours stay the existing hexes, so existing output is unchanged (the spec
+  asked for semantic tokens); the returns cells mix over `--returns-paper`
+  (a new token, light sand in dark) rather than `var(--background)`, which
+  keeps the ink above 4.5:1 in both themes; a `CoverageStrip` month row is the
+  `columns` layout here rather than a separate primitive.
+
 ## Stock page (one route per tab)
 
 `/shorts/[stockCode]` is a shared server `layout.tsx` (breadcrumbs, then
