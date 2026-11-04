@@ -7,6 +7,7 @@ import (
 
 	"cloud.google.com/go/civil"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/calendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/instrument"
@@ -192,27 +193,92 @@ func TestCandidateShortReadingIsPointInTime(t *testing.T) {
 	}
 }
 
-// A corroborated-or-known corporate action (here a zero-volume artefact a
-// price move coincides with) excludes the code under the v1 guard from its
-// known date on, and not before.
-func TestCorporateActionGuardExcludesFromTheKnownDate(t *testing.T) {
-	in := inputsFor(70)
-	bars := priceBars(70, 10, 1000)
-	for i := 50; i < 70; i++ {
-		bars[i].Close = 20 // a 2x move
-	}
-	bars[50].Volume = 0
-	in.Bars["AAA"] = bars
+// caGuardSpec is the v1 universe with the CA guard as its only check that can
+// exclude a code: the report and freshness checks are off.
+func caGuardSpec(t *testing.T) spec.Spec {
+	t.Helper()
 	s := v1Spec(t)
 	s.Universe.ASICReported = false
 	s.Universe.Freshness = "none"
 	s.Universe.CAGuard = true
+	return s
+}
 
-	if _, bad := CandidateAt("AAA", day(49), in, s); bad != nil && bad.Reason == ReasonCorporateActionGuard {
-		t.Fatal("the suspect is known from day 50, not before")
+// caInputs is AAA over 600 sessions at 10, moving on day caMoveDay to close
+// px with the given volume on that bar, with the given ASIC rows.
+const caMoveDay = 80
+
+func caInputs(px, volume float64, asic []features.ASICRow) *Inputs {
+	in := inputsFor(600)
+	bars := priceBars(600, 10, 1000)
+	for i := caMoveDay; i < len(bars); i++ {
+		bars[i] = features.Bar{Date: day(i), Open: px, High: px, Low: px, Close: px, AdjClose: px, Volume: 1000}
 	}
-	if _, bad := CandidateAt("AAA", day(69), in, s); bad == nil || bad.Reason != ReasonCorporateActionGuard {
-		t.Fatalf("day 69 = %+v, want the CA guard", bad)
+	bars[caMoveDay].Volume = volume
+	in.Bars["AAA"] = bars
+	in.ASIC = asic
+	return in
+}
+
+// sessionAfter is the date n sessions after from on cal.
+func sessionAfter(cal *calendar.Calendar, from civil.Date, n int) civil.Date {
+	d := from
+	for got := 0; got < n; {
+		d = d.AddDays(1)
+		if cal.IsSession(d) {
+			got++
+		}
+	}
+	return d
+}
+
+// TestCorporateActionGuardLastsCaGuardSessions covers the three kinds of
+// suspect. Each excludes the code from its known date, and the exclusion ends
+// caGuardSessions sessions after the bar, counted on the calendar: the code is
+// guarded on the 259th session after the bar and eligible on the 260th.
+func TestCorporateActionGuardLastsCaGuardSessions(t *testing.T) {
+	corroborating := []features.ASICRow{
+		asicOn("AAA", day(77), 10000000, 100000000), // 100m shares
+		asicOn("AAA", day(82), 20000000, 200000000), // 200m shares: a doubling bracketing the move
+	}
+	cases := []struct {
+		name  string
+		in    *Inputs
+		known func(t *testing.T, cal *calendar.Calendar) civil.Date // the first day the suspect may be used
+	}{
+		{"zero-volume bar", caInputs(20, 0, nil), func(*testing.T, *calendar.Calendar) civil.Date { return day(caMoveDay) }},
+		{"integer up-jump", caInputs(20, 1000, nil), func(*testing.T, *calendar.Calendar) civil.Date { return day(caMoveDay) }},
+		{"corroborated down-move", caInputs(5, 1000, corroborating), func(t *testing.T, cal *calendar.Calendar) civil.Date {
+			// The report dated day 82 is public at the lag-th session after it.
+			published, ok := cal.PublishedOn(day(82))
+			if !ok {
+				t.Fatal("no publication date for the corroborating report")
+			}
+			return published
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := caGuardSpec(t)
+			cal := newIndex(tc.in, s).cal
+			known := tc.known(t, cal)
+			bar := day(caMoveDay)
+
+			if _, bad := CandidateAt("AAA", known.AddDays(-1), tc.in, s); bad != nil {
+				t.Fatalf("the day before the suspect is known = %+v, want eligible", bad)
+			}
+			if _, bad := CandidateAt("AAA", known, tc.in, s); bad == nil || bad.Reason != ReasonCorporateActionGuard {
+				t.Fatalf("on the known date = %+v, want the corporate-action guard", bad)
+			}
+			if _, bad := CandidateAt("AAA", sessionAfter(cal, bar, caGuardSessions-1), tc.in, s); bad == nil || bad.Reason != ReasonCorporateActionGuard {
+				t.Fatalf("259 sessions after the bar = %+v, want the corporate-action guard", bad)
+			}
+			for _, n := range []int{caGuardSessions, caGuardSessions + 1} {
+				if _, bad := CandidateAt("AAA", sessionAfter(cal, bar, n), tc.in, s); bad != nil {
+					t.Fatalf("%d sessions after the bar = %+v, want eligible again", n, bad)
+				}
+			}
+		})
 	}
 }
 

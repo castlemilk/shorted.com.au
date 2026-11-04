@@ -150,7 +150,7 @@ func candidateAt(code string, t civil.Date, idx *index) (engine.Candidate, *Inel
 	}
 
 	known := features.KnownBy(idx.suspects[code], t)
-	if s.Universe.CAGuard && len(known) > 0 {
+	if s.Universe.CAGuard && caGuarded(idx.cal, known, t) {
 		return inel(ReasonCorporateActionGuard)
 	}
 
@@ -173,11 +173,32 @@ func candidateAt(code string, t civil.Date, idx *index) (engine.Candidate, *Inel
 	return c, nil
 }
 
+// caGuardSessions is how long a known corporate-action suspect keeps its code
+// out of the v1 universe: the code is ineligible from the suspect's known date
+// until this many sessions after the suspect's bar, and eligible again on that
+// session.
+const caGuardSessions = 260
+
+// caGuarded reports whether one of the known suspects still excludes the code
+// on session t. The window is counted from the suspect's bar, not from the day
+// it became known, so a suspect expires after caGuardSessions sessions however
+// far back the caller's bars reach.
+func caGuarded(cal *calendar.Calendar, known []features.CASuspect, t civil.Date) bool {
+	for _, s := range known {
+		if cal.SessionsBetween(s.Date, t) < caGuardSessions {
+			return true
+		}
+	}
+	return false
+}
+
 // BuildCandidates builds every eligible candidate on session D under the
 // version s, with the statistics the rules read across the universe. The
-// candidates are in Codes order and not yet prepared: the caller applies
-// engine.PrepareCandidates once it has the industry, which the rows do not
-// carry. Ineligible codes come back with their reason, in Codes order.
+// candidates are in Codes order and not yet prepared. The rows this package
+// reads do not carry the industry, the logo or the metadata market cap, so the
+// caller attaches them (pgsource.MergeMetadata) before engine.PrepareCandidates,
+// whose financials rule reads the industry. Ineligible codes come back with
+// their reason, in Codes order.
 func BuildCandidates(D civil.Date, in *Inputs, s spec.Spec) ([]engine.Candidate, engine.UniverseStats, []Ineligible) {
 	idx := newIndex(in, s)
 	var (
