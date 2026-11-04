@@ -199,6 +199,13 @@ func goldenCandidates() []Candidate {
 		golden("TRN", func(c *Candidate) {
 			c.Growth = &Growth{BasisPeriodType: "ttm", EPSLatest: new(0.12), EPSPrior: new(-0.05)}
 		}),
+		// A bank with the quality figures of a profitable company: the
+		// financials decision withholds cash conversion, so the rule reads
+		// unknown and the bank cannot pass the quality compounders.
+		golden("BNK", func(c *Candidate) {
+			c.Industry = "Banks"
+			c.Quality = goldenQuality()
+		}),
 		// Nothing but a price: every rule that needs more is unknown.
 		{StockCode: "NIL", Close: 1},
 	}
@@ -217,6 +224,10 @@ func golden(code string, edit func(*Candidate)) Candidate {
 // rounding noise does not.
 func renderEvaluateOutput() string {
 	cands := goldenCandidates()
+	// The live path applies PrepareCandidates to the universe before any rule
+	// reads it, so the golden does too: the financials decision and the
+	// valuation are part of what the engine outputs.
+	PrepareCandidates(cands)
 	var b strings.Builder
 	for _, s := range Registry() {
 		for _, reg := range goldenRegimes() {

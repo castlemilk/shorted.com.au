@@ -6,84 +6,91 @@
   regime pass value=7.31707
   rs pass value=12
   liquidity pass value=3e+07
-2 HOT triggered score=88.3
+2 BNK triggered score=88.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   rs pass value=12
   liquidity pass value=3e+07
-3 LDR triggered score=88.3
+3 HOT triggered score=88.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   rs pass value=12
   liquidity pass value=3e+07
-4 NDC triggered score=88.3
+4 LDR triggered score=88.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   rs pass value=12
   liquidity pass value=3e+07
-5 SHT triggered score=88.3
+5 NDC triggered score=88.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   rs pass value=12
   liquidity pass value=3e+07
-6 SLO triggered score=85.6
+6 SHT triggered score=88.3
+  growth pass value=50
+  base pass value=8
+  breakout pass value=2.04082
+  regime pass value=7.31707
+  rs pass value=12
+  liquidity pass value=3e+07
+7 SLO triggered score=85.6
   growth pass value=40
   base pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   rs pass value=12
   liquidity pass value=5e+06
-7 NRM setup score=70
+8 NRM setup score=70
   growth pass value=50
   base pass value=8
   breakout fail value=-2.91262
   regime pass value=7.31707
   rs pass value=12
   liquidity pass value=3e+07
-8 QFL watch score=70
+9 QFL watch score=70
   growth fail value=-5
   base pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   rs pass value=12
   liquidity pass value=3e+07
-9 QLY watch score=70
+10 QLY watch score=70
   growth fail value=6
   base pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   rs pass value=12
   liquidity pass value=3e+07
-10 QNL watch score=70
+11 QNL watch score=70
   growth fail value=6
   base pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   rs pass value=12
   liquidity pass value=3e+07
-11 DEEP watch score=69.5
+12 DEEP watch score=69.5
   growth pass value=50
   base fail value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   rs pass value=12
   liquidity pass value=3e+07
-12 WEK watch score=52.4
+13 WEK watch score=52.4
   growth fail value=12
   base pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   rs fail value=-3
   liquidity fail value=100000
-13 NSH watch score=46.4
+14 NSH watch score=46.4
   growth unknown
   base pass value=8
   breakout unknown
@@ -98,84 +105,91 @@
   regime pass value=1.21951
   rs pass value=12
   liquidity pass value=3e+07
-2 HOT triggered score=86.3
+2 BNK triggered score=86.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   rs pass value=12
   liquidity pass value=3e+07
-3 LDR triggered score=86.3
+3 HOT triggered score=86.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   rs pass value=12
   liquidity pass value=3e+07
-4 NDC triggered score=86.3
+4 LDR triggered score=86.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   rs pass value=12
   liquidity pass value=3e+07
-5 SHT triggered score=86.3
+5 NDC triggered score=86.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   rs pass value=12
   liquidity pass value=3e+07
-6 SLO triggered score=83.6
+6 SHT triggered score=86.3
+  growth pass value=50
+  base pass value=8
+  breakout pass value=2.04082
+  regime pass value=1.21951
+  rs pass value=12
+  liquidity pass value=3e+07
+7 SLO triggered score=83.6
   growth pass value=40
   base pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   rs pass value=12
   liquidity pass value=5e+06
-7 NRM setup score=68
+8 NRM setup score=68
   growth pass value=50
   base pass value=8
   breakout fail value=-2.91262
   regime pass value=1.21951
   rs pass value=12
   liquidity pass value=3e+07
-8 QFL watch score=68
+9 QFL watch score=68
   growth fail value=-5
   base pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   rs pass value=12
   liquidity pass value=3e+07
-9 QLY watch score=68
+10 QLY watch score=68
   growth fail value=6
   base pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   rs pass value=12
   liquidity pass value=3e+07
-10 QNL watch score=68
+11 QNL watch score=68
   growth fail value=6
   base pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   rs pass value=12
   liquidity pass value=3e+07
-11 DEEP watch score=67.5
+12 DEEP watch score=67.5
   growth pass value=50
   base fail value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   rs pass value=12
   liquidity pass value=3e+07
-12 WEK watch score=50.4
+13 WEK watch score=50.4
   growth fail value=12
   base pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   rs fail value=-3
   liquidity fail value=100000
-13 NSH watch score=44.4
+14 NSH watch score=44.4
   growth unknown
   base pass value=8
   breakout unknown
@@ -190,84 +204,91 @@
   regime fail value=-2.43902
   rs pass value=12
   liquidity pass value=3e+07
-2 HOT watch score=78.3
+2 BNK watch score=78.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   rs pass value=12
   liquidity pass value=3e+07
-3 LDR watch score=78.3
+3 HOT watch score=78.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   rs pass value=12
   liquidity pass value=3e+07
-4 NDC watch score=78.3
+4 LDR watch score=78.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   rs pass value=12
   liquidity pass value=3e+07
-5 SHT watch score=78.3
+5 NDC watch score=78.3
   growth pass value=50
   base pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   rs pass value=12
   liquidity pass value=3e+07
-6 SLO watch score=75.6
+6 SHT watch score=78.3
+  growth pass value=50
+  base pass value=8
+  breakout pass value=2.04082
+  regime fail value=-2.43902
+  rs pass value=12
+  liquidity pass value=3e+07
+7 SLO watch score=75.6
   growth pass value=40
   base pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   rs pass value=12
   liquidity pass value=5e+06
-7 NRM watch score=60
+8 NRM watch score=60
   growth pass value=50
   base pass value=8
   breakout fail value=-2.91262
   regime fail value=-2.43902
   rs pass value=12
   liquidity pass value=3e+07
-8 QFL watch score=60
+9 QFL watch score=60
   growth fail value=-5
   base pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   rs pass value=12
   liquidity pass value=3e+07
-9 QLY watch score=60
+10 QLY watch score=60
   growth fail value=6
   base pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   rs pass value=12
   liquidity pass value=3e+07
-10 QNL watch score=60
+11 QNL watch score=60
   growth fail value=6
   base pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   rs pass value=12
   liquidity pass value=3e+07
-11 DEEP watch score=59.5
+12 DEEP watch score=59.5
   growth pass value=50
   base fail value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   rs pass value=12
   liquidity pass value=3e+07
-12 WEK watch score=42.4
+13 WEK watch score=42.4
   growth fail value=12
   base pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   rs fail value=-3
   liquidity fail value=100000
-13 NSH watch score=36.4
+14 NSH watch score=36.4
   growth unknown
   base pass value=8
   breakout unknown
@@ -282,77 +303,84 @@
   rs_leader pass value=25
   regime pass value=7.31707
   liquidity pass value=3e+07
-2 LDR triggered score=73.1
+2 BNK triggered score=73.1
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high pass value=-4.76
   rs_leader pass value=20
   regime pass value=7.31707
   liquidity pass value=3e+07
-3 TRN triggered score=67.4
+3 LDR triggered score=73.1
+  eps_growth pass value=50
+  revenue_growth pass value=40
+  near_high pass value=-4.76
+  rs_leader pass value=20
+  regime pass value=7.31707
+  liquidity pass value=3e+07
+4 TRN triggered score=67.4
   eps_growth pass
   revenue_growth unknown
   near_high pass value=-4.76
   rs_leader pass value=20
   regime pass value=7.31707
   liquidity pass value=3e+07
-4 HOT setup score=63.3
+5 HOT setup score=63.3
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high pass value=-4.76
   rs_leader fail value=14
   regime pass value=7.31707
   liquidity pass value=3e+07
-5 NDC setup score=60.7
+6 NDC setup score=60.7
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high unknown
   rs_leader pass value=20
   regime pass value=7.31707
   liquidity pass value=3e+07
-6 NRM setup score=55
+7 NRM setup score=55
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high fail value=-8
   rs_leader fail value=12
   regime pass value=7.31707
   liquidity pass value=3e+07
-7 DEEP setup score=52.4
+8 DEEP setup score=52.4
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high fail value=-22
   rs_leader fail value=18
   regime pass value=7.31707
   liquidity pass value=3e+07
-8 SLO watch score=57.3
+9 SLO watch score=57.3
   eps_growth fail value=10
   revenue_growth pass value=40
   near_high pass value=-4.76
   rs_leader pass value=22
   regime pass value=7.31707
   liquidity pass value=5e+06
-9 QFL watch score=47.4
+10 QFL watch score=47.4
   eps_growth unknown
   revenue_growth fail value=-5
   near_high pass value=-4.76
   rs_leader pass value=20
   regime pass value=7.31707
   liquidity pass value=3e+07
-10 QLY watch score=47.4
+11 QLY watch score=47.4
   eps_growth unknown
   revenue_growth fail value=6
   near_high pass value=-4.76
   rs_leader pass value=20
   regime pass value=7.31707
   liquidity pass value=3e+07
-11 QNL watch score=47.4
+12 QNL watch score=47.4
   eps_growth unknown
   revenue_growth fail value=6
   near_high pass value=-4.76
   rs_leader pass value=20
   regime pass value=7.31707
   liquidity pass value=3e+07
-12 NSH watch score=35
+13 NSH watch score=35
   eps_growth unknown
   revenue_growth unknown
   near_high unknown
@@ -367,77 +395,84 @@
   rs_leader pass value=25
   regime pass value=1.21951
   liquidity pass value=3e+07
-2 LDR triggered score=71.1
+2 BNK triggered score=71.1
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high pass value=-4.76
   rs_leader pass value=20
   regime pass value=1.21951
   liquidity pass value=3e+07
-3 TRN triggered score=65.4
+3 LDR triggered score=71.1
+  eps_growth pass value=50
+  revenue_growth pass value=40
+  near_high pass value=-4.76
+  rs_leader pass value=20
+  regime pass value=1.21951
+  liquidity pass value=3e+07
+4 TRN triggered score=65.4
   eps_growth pass
   revenue_growth unknown
   near_high pass value=-4.76
   rs_leader pass value=20
   regime pass value=1.21951
   liquidity pass value=3e+07
-4 HOT setup score=61.3
+5 HOT setup score=61.3
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high pass value=-4.76
   rs_leader fail value=14
   regime pass value=1.21951
   liquidity pass value=3e+07
-5 NDC setup score=58.7
+6 NDC setup score=58.7
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high unknown
   rs_leader pass value=20
   regime pass value=1.21951
   liquidity pass value=3e+07
-6 NRM setup score=53
+7 NRM setup score=53
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high fail value=-8
   rs_leader fail value=12
   regime pass value=1.21951
   liquidity pass value=3e+07
-7 DEEP setup score=50.4
+8 DEEP setup score=50.4
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high fail value=-22
   rs_leader fail value=18
   regime pass value=1.21951
   liquidity pass value=3e+07
-8 SLO watch score=55.3
+9 SLO watch score=55.3
   eps_growth fail value=10
   revenue_growth pass value=40
   near_high pass value=-4.76
   rs_leader pass value=22
   regime pass value=1.21951
   liquidity pass value=5e+06
-9 QFL watch score=45.4
+10 QFL watch score=45.4
   eps_growth unknown
   revenue_growth fail value=-5
   near_high pass value=-4.76
   rs_leader pass value=20
   regime pass value=1.21951
   liquidity pass value=3e+07
-10 QLY watch score=45.4
+11 QLY watch score=45.4
   eps_growth unknown
   revenue_growth fail value=6
   near_high pass value=-4.76
   rs_leader pass value=20
   regime pass value=1.21951
   liquidity pass value=3e+07
-11 QNL watch score=45.4
+12 QNL watch score=45.4
   eps_growth unknown
   revenue_growth fail value=6
   near_high pass value=-4.76
   rs_leader pass value=20
   regime pass value=1.21951
   liquidity pass value=3e+07
-12 NSH watch score=33
+13 NSH watch score=33
   eps_growth unknown
   revenue_growth unknown
   near_high unknown
@@ -452,77 +487,84 @@
   rs_leader pass value=25
   regime fail value=-2.43902
   liquidity pass value=3e+07
-2 LDR watch score=63.1
+2 BNK watch score=63.1
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high pass value=-4.76
   rs_leader pass value=20
   regime fail value=-2.43902
   liquidity pass value=3e+07
-3 TRN watch score=57.4
+3 LDR watch score=63.1
+  eps_growth pass value=50
+  revenue_growth pass value=40
+  near_high pass value=-4.76
+  rs_leader pass value=20
+  regime fail value=-2.43902
+  liquidity pass value=3e+07
+4 TRN watch score=57.4
   eps_growth pass
   revenue_growth unknown
   near_high pass value=-4.76
   rs_leader pass value=20
   regime fail value=-2.43902
   liquidity pass value=3e+07
-4 HOT watch score=53.3
+5 HOT watch score=53.3
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high pass value=-4.76
   rs_leader fail value=14
   regime fail value=-2.43902
   liquidity pass value=3e+07
-5 NDC watch score=50.7
+6 NDC watch score=50.7
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high unknown
   rs_leader pass value=20
   regime fail value=-2.43902
   liquidity pass value=3e+07
-6 SLO watch score=47.3
+7 SLO watch score=47.3
   eps_growth fail value=10
   revenue_growth pass value=40
   near_high pass value=-4.76
   rs_leader pass value=22
   regime fail value=-2.43902
   liquidity pass value=5e+06
-7 NRM watch score=45
+8 NRM watch score=45
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high fail value=-8
   rs_leader fail value=12
   regime fail value=-2.43902
   liquidity pass value=3e+07
-8 DEEP watch score=42.4
+9 DEEP watch score=42.4
   eps_growth pass value=50
   revenue_growth pass value=40
   near_high fail value=-22
   rs_leader fail value=18
   regime fail value=-2.43902
   liquidity pass value=3e+07
-9 QFL watch score=37.4
+10 QFL watch score=37.4
   eps_growth unknown
   revenue_growth fail value=-5
   near_high pass value=-4.76
   rs_leader pass value=20
   regime fail value=-2.43902
   liquidity pass value=3e+07
-10 QLY watch score=37.4
+11 QLY watch score=37.4
   eps_growth unknown
   revenue_growth fail value=6
   near_high pass value=-4.76
   rs_leader pass value=20
   regime fail value=-2.43902
   liquidity pass value=3e+07
-11 QNL watch score=37.4
+12 QNL watch score=37.4
   eps_growth unknown
   revenue_growth fail value=6
   near_high pass value=-4.76
   rs_leader pass value=20
   regime fail value=-2.43902
   liquidity pass value=3e+07
-12 NSH watch score=25
+13 NSH watch score=25
   eps_growth unknown
   revenue_growth unknown
   near_high unknown
@@ -546,7 +588,7 @@
   rs_leader pass value=22
   above_sma50 pass value=11.1111
   liquidity pass value=5e+06
-3 LDR triggered score=82.3
+3 BNK triggered score=82.3
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -554,7 +596,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-4 QNL triggered score=82.3
+4 LDR triggered score=82.3
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -562,7 +604,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-5 TRN triggered score=82.3
+5 QNL triggered score=82.3
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -570,7 +612,15 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-6 HOT setup score=74.5
+6 TRN triggered score=82.3
+  trend_stack pass value=33.3333
+  sma200_rising pass value=4.16667
+  above_low pass value=66.6667
+  off_high pass value=-4.76
+  rs_leader pass value=20
+  above_sma50 pass value=11.1111
+  liquidity pass value=3e+07
+7 HOT setup score=74.5
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -578,7 +628,7 @@
   rs_leader fail value=14
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-7 NRM setup score=73.1
+8 NRM setup score=73.1
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -586,7 +636,7 @@
   rs_leader fail value=12
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-8 NDC setup score=68.4
+9 NDC setup score=68.4
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -594,7 +644,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-9 NSH setup score=68.4
+10 NSH setup score=68.4
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -602,7 +652,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-10 QFL watch score=65.9
+11 QFL watch score=65.9
   trend_stack fail value=-9.09091
   sma200_rising pass value=52.7778
   above_low pass value=66.6667
@@ -610,7 +660,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-11 QLY watch score=65.9
+12 QLY watch score=65.9
   trend_stack fail value=11.1111
   sma200_rising pass value=25
   above_low pass value=66.6667
@@ -618,7 +668,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-12 DEEP watch score=39.1
+13 DEEP watch score=39.1
   trend_stack fail value=33.3333
   sma200_rising pass value=4.16667
   above_low fail value=17.6471
@@ -626,7 +676,7 @@
   rs_leader fail value=18
   above_sma50 fail value=-4.7619
   liquidity pass value=3e+07
-13 WEK watch score=20.9
+14 WEK watch score=20.9
   trend_stack pass value=33.3333
   sma200_rising fail value=-6.25
   above_low fail value=11.1111
@@ -651,7 +701,7 @@
   rs_leader pass value=22
   above_sma50 pass value=11.1111
   liquidity pass value=5e+06
-3 LDR triggered score=82.3
+3 BNK triggered score=82.3
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -659,7 +709,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-4 QNL triggered score=82.3
+4 LDR triggered score=82.3
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -667,7 +717,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-5 TRN triggered score=82.3
+5 QNL triggered score=82.3
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -675,7 +725,15 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-6 HOT setup score=74.5
+6 TRN triggered score=82.3
+  trend_stack pass value=33.3333
+  sma200_rising pass value=4.16667
+  above_low pass value=66.6667
+  off_high pass value=-4.76
+  rs_leader pass value=20
+  above_sma50 pass value=11.1111
+  liquidity pass value=3e+07
+7 HOT setup score=74.5
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -683,7 +741,7 @@
   rs_leader fail value=14
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-7 NRM setup score=73.1
+8 NRM setup score=73.1
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -691,7 +749,7 @@
   rs_leader fail value=12
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-8 NDC setup score=68.4
+9 NDC setup score=68.4
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -699,7 +757,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-9 NSH setup score=68.4
+10 NSH setup score=68.4
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -707,7 +765,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-10 QFL watch score=65.9
+11 QFL watch score=65.9
   trend_stack fail value=-9.09091
   sma200_rising pass value=52.7778
   above_low pass value=66.6667
@@ -715,7 +773,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-11 QLY watch score=65.9
+12 QLY watch score=65.9
   trend_stack fail value=11.1111
   sma200_rising pass value=25
   above_low pass value=66.6667
@@ -723,7 +781,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-12 DEEP watch score=39.1
+13 DEEP watch score=39.1
   trend_stack fail value=33.3333
   sma200_rising pass value=4.16667
   above_low fail value=17.6471
@@ -731,7 +789,7 @@
   rs_leader fail value=18
   above_sma50 fail value=-4.7619
   liquidity pass value=3e+07
-13 WEK watch score=20.9
+14 WEK watch score=20.9
   trend_stack pass value=33.3333
   sma200_rising fail value=-6.25
   above_low fail value=11.1111
@@ -756,7 +814,7 @@
   rs_leader pass value=22
   above_sma50 pass value=11.1111
   liquidity pass value=5e+06
-3 LDR triggered score=82.3
+3 BNK triggered score=82.3
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -764,7 +822,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-4 QNL triggered score=82.3
+4 LDR triggered score=82.3
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -772,7 +830,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-5 TRN triggered score=82.3
+5 QNL triggered score=82.3
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -780,7 +838,15 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-6 HOT setup score=74.5
+6 TRN triggered score=82.3
+  trend_stack pass value=33.3333
+  sma200_rising pass value=4.16667
+  above_low pass value=66.6667
+  off_high pass value=-4.76
+  rs_leader pass value=20
+  above_sma50 pass value=11.1111
+  liquidity pass value=3e+07
+7 HOT setup score=74.5
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -788,7 +854,7 @@
   rs_leader fail value=14
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-7 NRM setup score=73.1
+8 NRM setup score=73.1
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -796,7 +862,7 @@
   rs_leader fail value=12
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-8 NDC setup score=68.4
+9 NDC setup score=68.4
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -804,7 +870,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-9 NSH setup score=68.4
+10 NSH setup score=68.4
   trend_stack pass value=33.3333
   sma200_rising pass value=4.16667
   above_low pass value=66.6667
@@ -812,7 +878,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-10 QFL watch score=65.9
+11 QFL watch score=65.9
   trend_stack fail value=-9.09091
   sma200_rising pass value=52.7778
   above_low pass value=66.6667
@@ -820,7 +886,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-11 QLY watch score=65.9
+12 QLY watch score=65.9
   trend_stack fail value=11.1111
   sma200_rising pass value=25
   above_low pass value=66.6667
@@ -828,7 +894,7 @@
   rs_leader pass value=20
   above_sma50 pass value=11.1111
   liquidity pass value=3e+07
-12 DEEP watch score=39.1
+13 DEEP watch score=39.1
   trend_stack fail value=33.3333
   sma200_rising pass value=4.16667
   above_low fail value=17.6471
@@ -836,7 +902,7 @@
   rs_leader fail value=18
   above_sma50 fail value=-4.7619
   liquidity pass value=3e+07
-13 WEK watch score=20.9
+14 WEK watch score=20.9
   trend_stack pass value=33.3333
   sma200_rising fail value=-6.25
   above_low fail value=11.1111
@@ -845,91 +911,98 @@
   above_sma50 fail value=-9.09091
   liquidity fail value=100000
 == crowded-short-breakout uptrend
-1 DEEP triggered score=84.8
+1 BNK triggered score=84.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   liquidity pass value=3e+07
   rs pass value=12
-2 LDR triggered score=84.8
+2 DEEP triggered score=84.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   liquidity pass value=3e+07
   rs pass value=12
-3 QFL triggered score=84.8
+3 LDR triggered score=84.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   liquidity pass value=3e+07
   rs pass value=12
-4 QLY triggered score=84.8
+4 QFL triggered score=84.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   liquidity pass value=3e+07
   rs pass value=12
-5 QNL triggered score=84.8
+5 QLY triggered score=84.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   liquidity pass value=3e+07
   rs pass value=12
-6 TRN triggered score=84.8
+6 QNL triggered score=84.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   liquidity pass value=3e+07
   rs pass value=12
-7 SHT triggered score=83.4
+7 TRN triggered score=84.8
+  short_interest pass value=9
+  days_to_cover pass value=8
+  breakout pass value=2.04082
+  regime pass value=7.31707
+  liquidity pass value=3e+07
+  rs pass value=12
+8 SHT triggered score=83.4
   short_interest pass value=7
   days_to_cover pass value=9
   breakout pass value=2.04082
   regime pass value=7.31707
   liquidity pass value=3e+07
   rs pass value=12
-8 SLO triggered score=83.4
+9 SLO triggered score=83.4
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=7.31707
   liquidity pass value=5e+06
   rs pass value=12
-9 HOT triggered score=80
+10 HOT triggered score=80
   short_interest pass value=15
   days_to_cover fail value=4.5
   breakout pass value=2.04082
   regime pass value=7.31707
   liquidity pass value=3e+07
   rs pass value=12
-10 NDC triggered score=71
+11 NDC triggered score=71
   short_interest pass value=6
   days_to_cover unknown
   breakout pass value=2.04082
   regime pass value=7.31707
   liquidity pass value=3e+07
   rs pass value=12
-11 NRM setup score=66.5
+12 NRM setup score=66.5
   short_interest pass value=9
   days_to_cover pass value=8
   breakout fail value=-2.91262
   regime pass value=7.31707
   liquidity pass value=3e+07
   rs pass value=12
-12 WEK watch score=33.6
+13 WEK watch score=33.6
   short_interest fail value=3
   days_to_cover fail value=2
   breakout pass value=2.04082
   regime pass value=7.31707
   liquidity fail value=100000
   rs fail value=-3
-13 NSH watch score=31.4
+14 NSH watch score=31.4
   short_interest fail
   days_to_cover fail
   breakout unknown
@@ -937,91 +1010,98 @@
   liquidity pass value=3e+07
   rs pass value=12
 == crowded-short-breakout neutral
-1 DEEP triggered score=82.8
+1 BNK triggered score=82.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   liquidity pass value=3e+07
   rs pass value=12
-2 LDR triggered score=82.8
+2 DEEP triggered score=82.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   liquidity pass value=3e+07
   rs pass value=12
-3 QFL triggered score=82.8
+3 LDR triggered score=82.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   liquidity pass value=3e+07
   rs pass value=12
-4 QLY triggered score=82.8
+4 QFL triggered score=82.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   liquidity pass value=3e+07
   rs pass value=12
-5 QNL triggered score=82.8
+5 QLY triggered score=82.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   liquidity pass value=3e+07
   rs pass value=12
-6 TRN triggered score=82.8
+6 QNL triggered score=82.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   liquidity pass value=3e+07
   rs pass value=12
-7 SHT triggered score=81.4
+7 TRN triggered score=82.8
+  short_interest pass value=9
+  days_to_cover pass value=8
+  breakout pass value=2.04082
+  regime pass value=1.21951
+  liquidity pass value=3e+07
+  rs pass value=12
+8 SHT triggered score=81.4
   short_interest pass value=7
   days_to_cover pass value=9
   breakout pass value=2.04082
   regime pass value=1.21951
   liquidity pass value=3e+07
   rs pass value=12
-8 SLO triggered score=81.4
+9 SLO triggered score=81.4
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime pass value=1.21951
   liquidity pass value=5e+06
   rs pass value=12
-9 HOT triggered score=78
+10 HOT triggered score=78
   short_interest pass value=15
   days_to_cover fail value=4.5
   breakout pass value=2.04082
   regime pass value=1.21951
   liquidity pass value=3e+07
   rs pass value=12
-10 NDC triggered score=69
+11 NDC triggered score=69
   short_interest pass value=6
   days_to_cover unknown
   breakout pass value=2.04082
   regime pass value=1.21951
   liquidity pass value=3e+07
   rs pass value=12
-11 NRM setup score=64.5
+12 NRM setup score=64.5
   short_interest pass value=9
   days_to_cover pass value=8
   breakout fail value=-2.91262
   regime pass value=1.21951
   liquidity pass value=3e+07
   rs pass value=12
-12 WEK watch score=31.6
+13 WEK watch score=31.6
   short_interest fail value=3
   days_to_cover fail value=2
   breakout pass value=2.04082
   regime pass value=1.21951
   liquidity fail value=100000
   rs fail value=-3
-13 NSH watch score=29.4
+14 NSH watch score=29.4
   short_interest fail
   days_to_cover fail
   breakout unknown
@@ -1029,91 +1109,98 @@
   liquidity pass value=3e+07
   rs pass value=12
 == crowded-short-breakout downtrend
-1 DEEP triggered score=74.8
+1 BNK triggered score=74.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   liquidity pass value=3e+07
   rs pass value=12
-2 LDR triggered score=74.8
+2 DEEP triggered score=74.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   liquidity pass value=3e+07
   rs pass value=12
-3 QFL triggered score=74.8
+3 LDR triggered score=74.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   liquidity pass value=3e+07
   rs pass value=12
-4 QLY triggered score=74.8
+4 QFL triggered score=74.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   liquidity pass value=3e+07
   rs pass value=12
-5 QNL triggered score=74.8
+5 QLY triggered score=74.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   liquidity pass value=3e+07
   rs pass value=12
-6 TRN triggered score=74.8
+6 QNL triggered score=74.8
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   liquidity pass value=3e+07
   rs pass value=12
-7 SHT triggered score=73.4
+7 TRN triggered score=74.8
+  short_interest pass value=9
+  days_to_cover pass value=8
+  breakout pass value=2.04082
+  regime fail value=-2.43902
+  liquidity pass value=3e+07
+  rs pass value=12
+8 SHT triggered score=73.4
   short_interest pass value=7
   days_to_cover pass value=9
   breakout pass value=2.04082
   regime fail value=-2.43902
   liquidity pass value=3e+07
   rs pass value=12
-8 SLO triggered score=73.4
+9 SLO triggered score=73.4
   short_interest pass value=9
   days_to_cover pass value=8
   breakout pass value=2.04082
   regime fail value=-2.43902
   liquidity pass value=5e+06
   rs pass value=12
-9 HOT triggered score=70
+10 HOT triggered score=70
   short_interest pass value=15
   days_to_cover fail value=4.5
   breakout pass value=2.04082
   regime fail value=-2.43902
   liquidity pass value=3e+07
   rs pass value=12
-10 NDC triggered score=61
+11 NDC triggered score=61
   short_interest pass value=6
   days_to_cover unknown
   breakout pass value=2.04082
   regime fail value=-2.43902
   liquidity pass value=3e+07
   rs pass value=12
-11 NRM setup score=56.5
+12 NRM setup score=56.5
   short_interest pass value=9
   days_to_cover pass value=8
   breakout fail value=-2.91262
   regime fail value=-2.43902
   liquidity pass value=3e+07
   rs pass value=12
-12 WEK watch score=23.6
+13 WEK watch score=23.6
   short_interest fail value=3
   days_to_cover fail value=2
   breakout pass value=2.04082
   regime fail value=-2.43902
   liquidity fail value=100000
   rs fail value=-3
-13 NSH watch score=21.4
+14 NSH watch score=21.4
   short_interest fail
   days_to_cover fail
   breakout unknown
@@ -1129,7 +1216,15 @@
   liquidity pass value=3e+07
   above_sma200 pass value=11.1111
   revenue_not_shrinking pass value=6
-2 QNL watch score=47.2
+2 BNK watch score=60.9
+  roe pass value=21
+  net_margin pass value=20
+  cash_conversion unknown
+  leverage unknown
+  liquidity pass value=3e+07
+  above_sma200 pass value=33.3333
+  revenue_not_shrinking pass value=40
+3 QNL watch score=47.2
   roe unknown
   net_margin fail value=-10
   cash_conversion fail
@@ -1137,7 +1232,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=6
-3 DEEP watch score=35
+4 DEEP watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1145,7 +1240,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-4 HOT watch score=35
+5 HOT watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1153,7 +1248,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-5 LDR watch score=35
+6 LDR watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1161,7 +1256,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-6 NDC watch score=35
+7 NDC watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1169,7 +1264,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-7 NRM watch score=35
+8 NRM watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1177,7 +1272,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-8 SHT watch score=35
+9 SHT watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1185,7 +1280,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-9 SLO watch score=33.6
+10 SLO watch score=33.6
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1193,7 +1288,7 @@
   liquidity pass value=5e+06
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-10 NSH watch score=25
+11 NSH watch score=25
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1201,7 +1296,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking unknown
-11 TRN watch score=25
+12 TRN watch score=25
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1209,7 +1304,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking unknown
-12 WEK watch score=23.4
+13 WEK watch score=23.4
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1217,7 +1312,7 @@
   liquidity fail value=100000
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=12
-13 QFL watch score=10.4
+14 QFL watch score=10.4
   roe fail value=9
   net_margin fail value=5
   cash_conversion fail value=0.5
@@ -1234,7 +1329,15 @@
   liquidity pass value=3e+07
   above_sma200 pass value=11.1111
   revenue_not_shrinking pass value=6
-2 QNL watch score=47.2
+2 BNK watch score=60.9
+  roe pass value=21
+  net_margin pass value=20
+  cash_conversion unknown
+  leverage unknown
+  liquidity pass value=3e+07
+  above_sma200 pass value=33.3333
+  revenue_not_shrinking pass value=40
+3 QNL watch score=47.2
   roe unknown
   net_margin fail value=-10
   cash_conversion fail
@@ -1242,7 +1345,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=6
-3 DEEP watch score=35
+4 DEEP watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1250,7 +1353,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-4 HOT watch score=35
+5 HOT watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1258,7 +1361,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-5 LDR watch score=35
+6 LDR watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1266,7 +1369,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-6 NDC watch score=35
+7 NDC watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1274,7 +1377,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-7 NRM watch score=35
+8 NRM watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1282,7 +1385,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-8 SHT watch score=35
+9 SHT watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1290,7 +1393,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-9 SLO watch score=33.6
+10 SLO watch score=33.6
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1298,7 +1401,7 @@
   liquidity pass value=5e+06
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-10 NSH watch score=25
+11 NSH watch score=25
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1306,7 +1409,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking unknown
-11 TRN watch score=25
+12 TRN watch score=25
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1314,7 +1417,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking unknown
-12 WEK watch score=23.4
+13 WEK watch score=23.4
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1322,7 +1425,7 @@
   liquidity fail value=100000
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=12
-13 QFL watch score=10.4
+14 QFL watch score=10.4
   roe fail value=9
   net_margin fail value=5
   cash_conversion fail value=0.5
@@ -1339,7 +1442,15 @@
   liquidity pass value=3e+07
   above_sma200 pass value=11.1111
   revenue_not_shrinking pass value=6
-2 QNL watch score=47.2
+2 BNK watch score=60.9
+  roe pass value=21
+  net_margin pass value=20
+  cash_conversion unknown
+  leverage unknown
+  liquidity pass value=3e+07
+  above_sma200 pass value=33.3333
+  revenue_not_shrinking pass value=40
+3 QNL watch score=47.2
   roe unknown
   net_margin fail value=-10
   cash_conversion fail
@@ -1347,7 +1458,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=6
-3 DEEP watch score=35
+4 DEEP watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1355,7 +1466,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-4 HOT watch score=35
+5 HOT watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1363,7 +1474,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-5 LDR watch score=35
+6 LDR watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1371,7 +1482,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-6 NDC watch score=35
+7 NDC watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1379,7 +1490,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-7 NRM watch score=35
+8 NRM watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1387,7 +1498,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-8 SHT watch score=35
+9 SHT watch score=35
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1395,7 +1506,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-9 SLO watch score=33.6
+10 SLO watch score=33.6
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1403,7 +1514,7 @@
   liquidity pass value=5e+06
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=40
-10 NSH watch score=25
+11 NSH watch score=25
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1411,7 +1522,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking unknown
-11 TRN watch score=25
+12 TRN watch score=25
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1419,7 +1530,7 @@
   liquidity pass value=3e+07
   above_sma200 pass value=33.3333
   revenue_not_shrinking unknown
-12 WEK watch score=23.4
+13 WEK watch score=23.4
   roe unknown
   net_margin unknown
   cash_conversion unknown
@@ -1427,7 +1538,7 @@
   liquidity fail value=100000
   above_sma200 pass value=33.3333
   revenue_not_shrinking pass value=12
-13 QFL watch score=10.4
+14 QFL watch score=10.4
   roe fail value=9
   net_margin fail value=5
   cash_conversion fail value=0.5
