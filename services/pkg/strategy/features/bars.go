@@ -149,3 +149,7 @@ func calendarReturn(pts []pt, asOf civil.Date, months, toleranceDays int, closeN
 	}
 	return nil, anchor, anchorClose, true
 }
+
+// Priced reports whether a stored close is a price the features read: positive
+// and within storage's ceiling. A NaN close is not priced.
+func Priced(close float64) bool { return validPrice(close) }
