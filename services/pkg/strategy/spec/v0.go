@@ -8,6 +8,8 @@ package spec
 
 // ruleDef is what a rule id means, independent of the strategy using it.
 type ruleDef struct {
+	// unit is the unit of the value the rule tests (pct, pp, aud, days, x,
+	// bool). A trigger rule's far distance is in the same unit.
 	unit    string
 	compare string
 	params  map[string]float64
@@ -25,19 +27,19 @@ var ruleDefs = map[string]ruleDef{
 	"eps_growth":            {"pct", ">=", map[string]float64{"min_pct": 25}, 0, []string{"fundamentals"}},
 	"revenue_growth":        {"pct", ">=", map[string]float64{"min_pct": 20}, 0, []string{"fundamentals"}},
 	"base":                  {"days", "within", map[string]float64{"min_sessions": 20, "max_depth_pct": 25, "window_sessions": 40}, 0, []string{"prices"}},
-	"breakout":              {"x", "bool", map[string]float64{"window_sessions": 5, "prior_sessions": 40, "volume_multiple": 1.5, "volume_sessions": 50}, 10, []string{"prices"}},
+	"breakout":              {"pct", "bool", map[string]float64{"window_sessions": 5, "prior_sessions": 40, "volume_multiple": 1.5, "volume_sessions": 50}, 10, []string{"prices"}},
 	"regime":                {"bool", "bool", map[string]float64{"sma_fast": 50, "sma_slow": 200}, 0, []string{"index:XJO"}},
 	"rs":                    {"pp", ">", map[string]float64{"lookback_months": 3, "min_points": 0}, 0, []string{"prices", "index:XJO"}},
 	"liquidity":             {"aud", ">=", map[string]float64{"min_aud": 250000, "sessions": 20}, 0, []string{"prices"}},
 	"near_high":             {"pct", ">=", map[string]float64{"max_off_pct": -5}, 15, []string{"prices"}},
-	"rs_leader":             {"percentile", ">=", map[string]float64{"quantile": 0.75}, 20, []string{"prices", "index:XJO"}},
+	"rs_leader":             {"pp", ">=", map[string]float64{"quantile": 0.75}, 20, []string{"prices", "index:XJO"}},
 	"trend_stack":           {"bool", "bool", map[string]float64{"sma_mid": 150, "sma_slow": 200}, 0, []string{"prices"}},
-	"sma200_rising":         {"bool", ">", map[string]float64{"sma_slow": 200, "lag_sessions": 21}, 0, []string{"prices"}},
+	"sma200_rising":         {"pct", ">", map[string]float64{"sma_slow": 200, "lag_sessions": 21}, 0, []string{"prices"}},
 	"above_low":             {"x", ">=", map[string]float64{"multiple": 1.3}, 0, []string{"prices"}},
 	"off_high":              {"pct", ">=", map[string]float64{"max_off_pct": -25}, 25, []string{"prices"}},
 	"above_sma50":           {"pct", ">", map[string]float64{"sma": 50}, 0, []string{"prices"}},
 	"short_interest":        {"pct", ">=", map[string]float64{"min_pct": 5}, 0, []string{"asic"}},
-	"days_to_cover":         {"days", ">=", map[string]float64{"min": 5}, 0, []string{"asic"}},
+	"days_to_cover":         {"days", ">=", map[string]float64{"min": 5}, 0, []string{"asic", "prices"}},
 	"roe":                   {"pct", ">=", map[string]float64{"min_pct": 15}, 0, []string{"fundamentals"}},
 	"net_margin":            {"pct", ">=", map[string]float64{"min_pct": 10}, 0, []string{"fundamentals"}},
 	"cash_conversion":       {"x", ">=", map[string]float64{"min": 0.8}, 0, []string{"fundamentals"}},
@@ -103,7 +105,9 @@ var v0Rules = map[string][]v0Rule{
 
 // fs1 holds the feature parameters of v0, which are the SQL literals of
 // migration 000130 (price features, regime) and 000080 (days to cover).
-// TestFS1ParamsMatchMigrationLiterals reads them back from the migrations.
+// TestFS1ParamsMatchMigrationLiterals reads them back from the migrations. The
+// dtc_ keys are the window of the DataPolicy.DTC policy named in v0; they sit
+// in fs1 because v0's days to cover is computed from the same migration set.
 var fs1 = map[string]float64{
 	"history_calendar_days":     400,
 	"min_sessions":              60,
@@ -201,6 +205,7 @@ func v0(strategyID string) Registered {
 		},
 		Changes: []string{
 			"Initial version: the rules the engine evaluated before rules versioning, recorded so their hash and known issues can be published.",
+			"Before publication, the units of breakout (pct), sma200_rising (pct) and rs_leader (pp) were set to the quantity each rule tests, and days_to_cover reads prices as well as ASIC data. Their hashes moved with the units.",
 		},
 		KnownIssues: v0KnownIssues(),
 	}

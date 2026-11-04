@@ -86,8 +86,8 @@ type RuleSpec struct {
 	Trigger bool               `json:"trigger"`
 	Weight  float64            `json:"weight"`
 	Params  map[string]float64 `json:"params"`
-	Far     float64            `json:"far,omitempty"` // proximity distance for trigger rules
-	Unit    string             `json:"unit"`          // pct|pp|aud|days|x|percentile|bool
+	Far     float64            `json:"far,omitempty"` // proximity distance for trigger rules, in Unit
+	Unit    string             `json:"unit"`          // unit of the tested value: pct|pp|aud|days|x|bool
 	Compare string             `json:"compare"`       // ">=" "<=" ">" "<" "bool" "within"
 }
 

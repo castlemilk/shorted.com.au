@@ -48,6 +48,35 @@ var expectedFar = map[string]float64{
 	"above_sma200": aboveSMA200FarPct,
 }
 
+// expectedUnits is the unit of the value each rule tests, as the spec states
+// it. The units are part of the hashed rules and are shown to the reader, so
+// each one is pinned: a rule's far distance is in the same unit.
+var expectedUnits = map[string]string{
+	"growth":                "pct",
+	"eps_growth":            "pct",
+	"revenue_growth":        "pct",
+	"base":                  "days",
+	"breakout":              "pct",
+	"regime":                "bool",
+	"rs":                    "pp",
+	"liquidity":             "aud",
+	"near_high":             "pct",
+	"rs_leader":             "pp",
+	"trend_stack":           "bool",
+	"sma200_rising":         "pct",
+	"above_low":             "x",
+	"off_high":              "pct",
+	"above_sma50":           "pct",
+	"short_interest":        "pct",
+	"days_to_cover":         "days",
+	"roe":                   "pct",
+	"net_margin":            "pct",
+	"cash_conversion":       "x",
+	"leverage":              "x",
+	"above_sma200":          "pct",
+	"revenue_not_shrinking": "pct",
+}
+
 // TestV0SpecMatchesCode pins the v0 registered spec to the engine: the same
 // strategies, rules in the same order with the same roles, weights, far
 // distances and parameters, and the same score shares, regime and ladder
@@ -110,6 +139,11 @@ func TestV0SpecMatchesCode(t *testing.T) {
 			}
 			if sr.Far != wantFar {
 				t.Errorf("%s/%s: far spec %v, engine %v", s.ID, r.ID, sr.Far, wantFar)
+			}
+			if wantUnit, ok := expectedUnits[r.ID]; !ok {
+				t.Errorf("%s/%s: no pinned unit", s.ID, r.ID)
+			} else if sr.Unit != wantUnit {
+				t.Errorf("%s/%s: unit spec %q, want %q", s.ID, r.ID, sr.Unit, wantUnit)
 			}
 			wantParams, ok := want[r.ID]
 			if !ok {
