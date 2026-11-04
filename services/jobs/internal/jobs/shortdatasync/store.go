@@ -85,6 +85,116 @@ func (s *pgStore) UpsertRows(ctx context.Context, rows []shortsRow) (int, error)
 	return written, nil
 }
 
+// The three ways the writer loads a file. They are the asic_report_ingests.mode values (000154).
+const (
+	modeDaily     = "daily"
+	modePoll      = "poll"
+	modeReconcile = "reconcile"
+)
+
+// ingestRecord is one ASIC report file as the writer has just left it: the date
+// it is for, the distinct product codes it parsed, and how it was loaded.
+type ingestRecord struct {
+	ReportDate time.Time
+	Codes      []string
+	SourceFile string
+	Mode       string
+}
+
+// loadedRowsSQL counts the file's codes that shorts holds for the date, after
+// the write. btrim matches a legacy padded row ("WBT ") as its code, so a padded
+// copy counts as present, as RowsOnDate counts it. COUNT(DISTINCT) keeps a padded
+// row and its trimmed twin from counting twice. The date range is the same
+// half-open day range rowsOnDateSQL uses, so the (DATE, PRODUCT_CODE) index serves it.
+const loadedRowsSQL = `
+        SELECT COUNT(DISTINCT btrim("PRODUCT_CODE"))
+        FROM shorts
+        WHERE "DATE" >= $1 AND "DATE" < $2 AND btrim("PRODUCT_CODE") = ANY($3)`
+
+// upsertIngestSQL records one file. first_ingested_at and mode are the
+// observation that must survive a later load, so the update leaves them alone.
+const upsertIngestSQL = `
+        INSERT INTO asic_report_ingests (report_date, file_rows, loaded_rows, source_file, mode, last_mode)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (report_date) DO UPDATE SET
+            last_ingested_at = now(),
+            file_rows        = EXCLUDED.file_rows,
+            loaded_rows      = EXCLUDED.loaded_rows,
+            source_file      = EXCLUDED.source_file,
+            last_mode        = EXCLUDED.last_mode`
+
+// RecordIngest upserts the report's asic_report_ingests row. file_rows is the
+// number of distinct codes the file parsed. loaded_rows is recounted from shorts
+// here, never taken from the writer's own write count, so a row that failed to
+// write is not counted and a row written by an earlier run is. That recount is
+// the completeness fact (architecture 4.6, R23): loaded_rows >= file_rows.
+func (s *pgStore) RecordIngest(ctx context.Context, rec ingestRecord) error {
+	day := truncateDay(rec.ReportDate)
+	loaded := 0
+	if len(rec.Codes) > 0 {
+		if err := s.db.QueryRow(ctx, loadedRowsSQL,
+			day, day.AddDate(0, 0, 1), rec.Codes,
+		).Scan(&loaded); err != nil {
+			return fmt.Errorf("ingest %s: count loaded rows: %w", day.Format("2006-01-02"), err)
+		}
+	}
+	if _, err := s.db.Exec(ctx, upsertIngestSQL,
+		day, len(rec.Codes), loaded, rec.SourceFile, rec.Mode, rec.Mode,
+	); err != nil {
+		return fmt.Errorf("ingest %s: upsert: %w", day.Format("2006-01-02"), err)
+	}
+	return nil
+}
+
+// revisionRecord is one stored row that ASIC's current file changed: the stored
+// values and the file's. A NULL stored value is a revision too: it is a repair.
+type revisionRecord struct {
+	Date                                time.Time
+	Code                                string
+	OldPositions, OldShares, OldPercent *float64
+	NewPositions, NewShares, NewPercent float64
+}
+
+// insertRevisionSQL is one shorts_revisions row. It is written by the writer, not a
+// trigger: shorts holds about 2.1M rows and must not gain one (architecture 9.1).
+const insertRevisionSQL = `
+        INSERT INTO shorts_revisions (
+            report_date, product_code,
+            old_positions, new_positions, old_shares, new_shares, old_percent, new_percent)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+
+// InsertRevisions records one row per revision and returns how many landed. It
+// is row-at-a-time in autocommit, like UpsertRows, so a row that fails is counted
+// and the rest are kept. Cancellation is respected between rows.
+func (s *pgStore) InsertRevisions(ctx context.Context, revs []revisionRecord) (int, error) {
+	written := 0
+	failed := 0
+	for _, r := range revs {
+		if err := ctx.Err(); err != nil {
+			return written, err
+		}
+		_, err := s.db.Exec(ctx, insertRevisionSQL,
+			truncateDay(r.Date), r.Code,
+			r.OldPositions, r.NewPositions, r.OldShares, r.NewShares, r.OldPercent, r.NewPercent,
+		)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return written, err
+			}
+			if failed == 0 {
+				log.Printf("   revision insert error (first of batch): %v", err)
+			}
+			failed++
+			continue
+		}
+		written++
+	}
+	if failed > 0 {
+		log.Printf("   ⚠️  %d revision row(s) failed to write", failed)
+	}
+	return written, nil
+}
+
 // LastShortsDate returns MAX("DATE") from shorts, and false when the table is
 // empty (the Python's initial-load branch).
 func (s *pgStore) LastShortsDate(ctx context.Context) (time.Time, bool, error) {

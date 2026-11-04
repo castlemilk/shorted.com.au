@@ -174,3 +174,102 @@ func TestStrategyCaptureFilingPurgeAgainstPostgres(t *testing.T) {
 	require.EqualValues(t, 5, tag.RowsAffected())
 	require.Equal(t, 5, countVintages(t, pool, "D"), "one D row per row the purge deletes")
 }
+
+// captureShorts creates the part of shorts the writer's capture SQL reads and writes: the columns and the
+// (DATE, PRODUCT_CODE) unique key the upsert conflicts on. It is not the production table, which holds
+// more columns and indexes, but the capture statements do not depend on those.
+func captureShorts(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		CREATE TABLE shorts (
+		    "DATE" timestamp, "PRODUCT" text, "PRODUCT_CODE" text,
+		    "REPORTED_SHORT_POSITIONS" double precision, "TOTAL_PRODUCT_IN_ISSUE" double precision,
+		    "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" double precision,
+		    UNIQUE ("DATE", "PRODUCT_CODE"))`)
+	require.NoError(t, err)
+}
+
+// TestIngestWriterAgainstPostgres runs the writer's own statements against a live table: the recount
+// counts a padded legacy row, the upsert keeps the first observation and the first mode, and the
+// revision insert writes the stored and file values.
+func TestIngestWriterAgainstPostgres(t *testing.T) {
+	pool := captureDB(t)
+	ctx := context.Background()
+	captureApply(t, pool, "000129_add_stock_fundamentals.up.sql")
+	captureApply(t, pool, "000154_strategy_capture.up.sql")
+	captureShorts(t, pool)
+	store := &pgStore{db: pool}
+
+	day := time.Date(2026, 2, 3, 0, 0, 0, 0, time.UTC)
+	// BHP and CBA are present; WBT is stored under a padded legacy code, which counts as present.
+	for _, code := range []string{"BHP", "CBA", "WBT "} {
+		_, err := pool.Exec(ctx, `INSERT INTO shorts ("DATE", "PRODUCT", "PRODUCT_CODE") VALUES ($1, 'x', $2)`, day, code)
+		require.NoError(t, err)
+	}
+	shortsRows := func() int {
+		var n int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM shorts`).Scan(&n))
+		return n
+	}
+	before := shortsRows()
+
+	// The daily load recorded four codes; PLS is not in shorts yet.
+	require.NoError(t, store.RecordIngest(ctx, ingestRecord{
+		ReportDate: day, Codes: []string{"BHP", "CBA", "WBT", "PLS"}, SourceFile: "a.csv", Mode: modeDaily,
+	}))
+	var fileRows, loaded int
+	var mode, lastMode string
+	var firstAt, lastAt time.Time
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT file_rows, loaded_rows, mode, last_mode, first_ingested_at, last_ingested_at
+		FROM asic_report_ingests WHERE report_date = $1`, day).
+		Scan(&fileRows, &loaded, &mode, &lastMode, &firstAt, &lastAt))
+	require.Equal(t, 4, fileRows)
+	require.Equal(t, 3, loaded, "PLS is absent and the padded WBT counts as present")
+	require.Equal(t, modeDaily, mode)
+	require.Equal(t, modeDaily, lastMode)
+
+	// Reconcile repairs PLS. Its recount is complete, its first observation and first mode are kept.
+	_, err := pool.Exec(ctx, `INSERT INTO shorts ("DATE", "PRODUCT", "PRODUCT_CODE") VALUES ($1, 'x', 'PLS')`, day)
+	require.NoError(t, err)
+	require.NoError(t, store.RecordIngest(ctx, ingestRecord{
+		ReportDate: day, Codes: []string{"BHP", "CBA", "WBT", "PLS"}, SourceFile: "a.csv", Mode: modeReconcile,
+	}))
+	var firstAgain time.Time
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT file_rows, loaded_rows, mode, last_mode, first_ingested_at, last_ingested_at
+		FROM asic_report_ingests WHERE report_date = $1`, day).
+		Scan(&fileRows, &loaded, &mode, &lastMode, &firstAgain, &lastAt))
+	require.Equal(t, 4, loaded, "the recount is complete once reconcile has written PLS")
+	require.Equal(t, modeDaily, mode, "the first mode is kept")
+	require.Equal(t, modeReconcile, lastMode, "the latest mode is recorded")
+	require.True(t, firstAt.Equal(firstAgain), "first_ingested_at is the first observation and is kept")
+	require.Equal(t, before+1, shortsRows(), "recording an ingest writes no shorts row beyond the repair itself")
+
+	// A file with no parsed codes records an empty, complete report.
+	require.NoError(t, store.RecordIngest(ctx, ingestRecord{ReportDate: day.AddDate(0, 0, 1), Mode: modeDaily}))
+	var emptyLoaded int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT loaded_rows FROM asic_report_ingests WHERE report_date = $1`,
+		day.AddDate(0, 0, 1)).Scan(&emptyLoaded))
+	require.Equal(t, 0, emptyLoaded)
+
+	// Revisions: one row, the stored values beside the file's, a NULL stored value kept as NULL.
+	old := 999.0
+	n, err := store.InsertRevisions(ctx, []revisionRecord{{
+		Date: day, Code: "BHP", OldPositions: &old, NewPositions: 1000, OldShares: nil, NewShares: 5000,
+		OldPercent: nil, NewPercent: 0.42,
+	}})
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+	var oldPos *float64
+	var newPos, newPct float64
+	var oldShares *float64
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT old_positions, new_positions, old_shares, new_percent
+		FROM shorts_revisions WHERE product_code = 'BHP'`).Scan(&oldPos, &newPos, &oldShares, &newPct))
+	require.NotNil(t, oldPos)
+	require.Equal(t, 999.0, *oldPos)
+	require.Equal(t, 1000.0, newPos)
+	require.Nil(t, oldShares, "a NULL stored value stays NULL")
+	require.Equal(t, 0.42, newPct)
+}

@@ -557,7 +557,7 @@ func runPoll(ctx context.Context, cfg config, store *pgStore, client *http.Clien
 	if err != nil {
 		return err
 	}
-	recordCount, err := processFiles(ctx, cfg, store, client, files, cutoffDate, nil)
+	recordCount, err := processFiles(ctx, cfg, store, client, files, cutoffDate, nil, modePoll)
 	if err != nil {
 		if rec != nil {
 			rec.Fail(ctx, truncateBytes([]byte(err.Error()), 1000))
@@ -703,7 +703,7 @@ func syncShorts(ctx context.Context, cfg config, store *pgStore, client *http.Cl
 		log.Printf("⚠️  No shorts data files to process")
 		return 0, nil
 	}
-	return processFiles(ctx, cfg, store, client, files, cutoffDate, sum)
+	return processFiles(ctx, cfg, store, client, files, cutoffDate, sum, modeDaily)
 }
 
 // validationScan is the `-stocks` window, and the ONE place the pipeline
@@ -796,7 +796,7 @@ func validationScan(
 	log.Printf("🔎 VALIDATION: %d file(s) over the last %d published ASIC date(s), %s → %s",
 		len(files), cfg.validateDays, win.From, win.To)
 
-	return processFiles(ctx, cfg, store, client, files, first, sum)
+	return processFiles(ctx, cfg, store, client, files, first, sum, modeDaily)
 }
 
 // setValidationCutoff records the window's lower bound in both the emitted
@@ -808,7 +808,9 @@ func setValidationCutoff(sum *shadowSummary, from time.Time) {
 }
 
 // processFiles downloads, parses and (on a write run) upserts the selected
-// files. `cutoffDate` bounds the shadow run's existing-key read.
+// files. `cutoffDate` bounds the shadow run's existing-key read. `mode` is the
+// run's name for each file (daily or poll), recorded in asic_report_ingests once
+// the file's rows are written.
 func processFiles(
 	ctx context.Context,
 	cfg config,
@@ -817,6 +819,7 @@ func processFiles(
 	files []asicFile,
 	cutoffDate time.Time,
 	sum *shadowSummary,
+	mode string,
 ) (int, error) {
 	var err error
 	var existing map[string]struct{}
@@ -905,6 +908,11 @@ func processFiles(
 			return total, err
 		}
 		log.Printf("  ✅ Inserted/Updated %d records", written)
+		// The file's date is the one parseFile already derived from its name, so this
+		// cannot fail for a file that parsed.
+		if obsDate, err := dateFromFileName(name); err == nil {
+			recordIngest(ctx, store, name, obsDate, rows, mode, cfg.dryRun)
+		}
 	}
 
 	if sum != nil {
