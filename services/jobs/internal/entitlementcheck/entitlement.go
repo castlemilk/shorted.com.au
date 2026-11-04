@@ -8,8 +8,12 @@
 // services/shorts/internal/services/shorts/subscriptions_entitlement_contract_test.go,
 // which reads this package's mapping in its comment.
 //
-// Side effects, both deliberate: each call is metered against that user's API
-// quota, and the job holds INTERNAL_SERVICE_SECRET, which opens the same
+// Side effects: a lookup is metered against the user's API quota unless the caller's
+// User-Agent carries a prefix the API exempts from that limit (today only
+// "shorted-alerts/", alertsJobUserAgentPrefix in
+// services/shorts/internal/services/shorts/middleware_connect.go). A new caller
+// registers its own prefix there before it uses the checker, or a lookup for an owner
+// at quota fails. The caller also holds INTERNAL_SERVICE_SECRET, which opens the same
 // internal-auth path that the namespace's DATABASE_URL already gives it access to.
 package entitlementcheck
 
