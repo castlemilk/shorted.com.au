@@ -57,16 +57,21 @@ caller-invariant, so one entry serves every caller. Every other request to
 `/shorts.v1alpha1.` or `/marketdata.v1.` passes through to its origin uncached,
 whatever headers it carries.
 
+- The request body must be JSON (`application/json`, parameters allowed). Any
+  other media type passes through uncached.
 - The list is matched on the full `/<package>.<Service>/<Method>` path, never on
   a substring.
 - A method joins the list only with a test showing that its response does not
-  depend on the caller. `cache-identity.test.mjs` pins the existing set.
-- Cache keys hash the request body with SHA-256. The hot, Cache API and KV keys
-  carry no caller credential.
+  depend on the caller. `cache-identity.test.mjs` pins the reviewed set, as a
+  literal checked against `publicReadPaths()`, and checks each shorts read
+  against its proto visibility annotation.
+- Cache keys hash the raw request body bytes with SHA-256. The hot, Cache API and
+  KV keys carry no caller credential.
 - `prewarm.js` writes KV under the same key that `buildKvCacheKey` reads. The two
   must change together, and `cache-identity.test.mjs` checks that they agree.
-- A change to a key format or to the list takes effect for every caller once the
-  cache version is bumped: `POST /api/cache/purge` with the purge secret.
+- The list and the key format take effect when the worker deploys. Bump the cache
+  version (`POST /api/cache/purge` with the purge secret) to drop entries stored
+  before a change.
 
 ---
 
