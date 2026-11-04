@@ -247,18 +247,24 @@ func TestShortDatesWithholdPublicationBeforeTheHolidayTable(t *testing.T) {
 }
 
 // The picks and the fit are stale when the index has closed a session the
-// prices have not reached, and never otherwise.
+// prices have not reached, read from the regime view or from the index's own
+// series, and never otherwise.
 func TestGetStrategyPicksAndFit_StaleOnlyWhenTheIndexIsAhead(t *testing.T) {
 	ahead := spUptrend()
 	later := spDate("2026-09-28")
 	ahead.AsOf = &later
+	// The views refreshed but the index series is a session ahead of them: a
+	// refresh that did not run after the load, or one that ran before it.
+	seriesAhead := spUptrend()
+	seriesAhead.LatestSession = &later
 	for _, tc := range []struct {
 		name   string
 		regime engine.Regime
 		stale  bool
 	}{
 		{"index at the price session", spUptrend(), false},
-		{"index ahead of the prices", ahead, true},
+		{"index view ahead of the prices", ahead, true},
+		{"index series ahead of the views", seriesAhead, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)

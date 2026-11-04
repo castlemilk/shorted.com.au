@@ -350,7 +350,7 @@ func TestListStrategyShortDatesMergesByCode(t *testing.T) {
 
 	// The date query reads the view's own filtered rows, keyed on its codes,
 	// with no age bound: a figure a year old keeps its date.
-	for _, want := range []string{"LATERAL", "mv_screener_data", "DEFERRED", "5000000"} {
+	for _, want := range []string{"LATERAL", "mv_screener_data", "DEFERRED", "5000000", "= sd.short_pct"} {
 		if !strings.Contains(strategyShortDatesQuery, want) {
 			t.Errorf("strategyShortDatesQuery lacks %q", want)
 		}

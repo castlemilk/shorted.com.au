@@ -324,6 +324,10 @@ type Regime struct {
 	Ret1mPct      *float64
 	Ret3mPct      *float64
 	Label         string // RegimeUptrend | RegimeNeutral | RegimeDowntrend | ""
+	// LatestSession is the newest session the index's own price series holds
+	// with a level, read live rather than from the view, so it can be newer
+	// than AsOf until the views refresh. Nil when the series has no session.
+	LatestSession *time.Time
 }
 
 // Known reports whether the regime row exists and carries a recognised label.

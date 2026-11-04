@@ -299,12 +299,20 @@ func shortDatesProto(report *time.Time) (reported, available string) {
 
 // staleBehind reports whether the market index has closed a session the
 // prices have not reached yet (the "data delayed" state): the picks or the
-// readings are then older than the market they are read against.
+// readings are then older than the market they are read against. The index's
+// own newest session counts, so a refresh that never ran is still reported;
+// the regime's date alone would agree with the prices, since both views move
+// together.
 func staleBehind(asOf string, regime engine.Regime) bool {
-	if asOf == "" || regime.AsOf == nil {
+	if asOf == "" {
 		return false
 	}
-	return regime.AsOf.Format("2006-01-02") > asOf
+	for _, day := range []*time.Time{regime.AsOf, regime.LatestSession} {
+		if day != nil && day.Format("2006-01-02") > asOf {
+			return true
+		}
+	}
+	return false
 }
 
 func strategyIDList() string {
