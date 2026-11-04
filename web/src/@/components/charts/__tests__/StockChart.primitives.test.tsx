@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { StockChartInner } from "../StockChart";
 import type { ChartPoint, ChartSeriesSpec, StockChartProps } from "../types";
 
@@ -72,6 +72,46 @@ describe("StockChart end labels", () => {
     const label = container.querySelector('[data-chart="end-labels"] text');
     expect(label?.textContent).toBe("$111");
     expect(label?.getAttribute("text-anchor")).toBe("end");
+  });
+});
+
+describe("StockChart end labels read what is drawn", () => {
+  const labelText = (container: HTMLElement) =>
+    container.querySelector('[data-chart="end-labels"] text')?.textContent;
+
+  // The plot's left margin: the translate of the group that holds the plot.
+  const plotLeft = (container: HTMLElement) => {
+    const g = container.querySelector('g[transform^="translate("]');
+    const match = /translate\(([\d.]+)/.exec(g?.getAttribute("transform") ?? "");
+    return Number(match?.[1]);
+  };
+
+  it("names the normalised value, a signed percent change, in the normalised view", () => {
+    const { container } = renderChart({
+      series: [{ ...SERIES[0]!, endLabel: true }],
+      viewMode: "normalized",
+      leftAxis: { side: "left", format: (v) => `$${v.toFixed(0)}` },
+    });
+    // 100 rises to 111: the line ends at +11.0% from its first point.
+    expect(labelText(container)).toBe("+11.0%");
+  });
+
+  it("names the last visible value after a drag zoom, not the last value of the series", () => {
+    const { container } = renderChart({
+      series: [{ ...SERIES[0]!, endLabel: true }],
+      leftAxis: { side: "left", format: (v) => `$${v.toFixed(0)}` },
+    });
+    expect(labelText(container)).toBe("$111");
+    const plot = container.querySelector("[data-chart-capture]") as SVGRectElement;
+    const innerW = Number(plot.getAttribute("width"));
+    const left = plotLeft(container);
+    // Drag across the first ~40% of the plot: the zoom ends a few sessions in.
+    fireEvent.mouseDown(plot, { clientX: left + innerW * 0.05, button: 0 });
+    fireEvent.mouseMove(plot, { clientX: left + innerW * 0.4 });
+    fireEvent.mouseUp(window, { clientX: left + innerW * 0.4 });
+    const zoomed = labelText(container);
+    expect(zoomed).not.toBe("$111");
+    expect(zoomed).toMatch(/^\$10\d$/);
   });
 });
 

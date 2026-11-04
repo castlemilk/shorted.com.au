@@ -142,6 +142,15 @@ const NO_VALUE_CHARS: Readonly<Record<string, number>> = Object.freeze({});
 const CHART_LABEL =
   "Chart. Use the left and right arrow keys to step through readings, Escape to release.";
 
+/**
+ * A normalised value (percent change since the first point on screen), signed
+ * with a true minus: "+11.0%", "−3.4%".
+ */
+function formatPercentChange(value: number): string {
+  const sign = value < 0 ? "−" : "+";
+  return `${sign}${Math.abs(value).toFixed(1)}%`;
+}
+
 function normalizePoints(points: ChartPoint[]): ChartPoint[] {
   if (!points.length) return points;
   const norm = normalizeToPercentChange(points.map((p) => p.v));
@@ -466,9 +475,12 @@ export function StockChartInner({
   }, [decVolume, mainH]);
 
   // The final value of each series that asks for an end label, placed at the
-  // plot's right edge. Off (the shared empty list) unless a series sets it.
+  // plot's right edge. It is read from what is drawn (renderSeries): the zoom,
+  // the decimation (which keeps the last point) and the normalised view are all
+  // applied, so the label names the value the line ends at. Off (the shared empty
+  // list) unless a series sets it.
   const endLabels = useMemo(() => {
-    const items = series
+    const items = renderSeries
       .filter((s) => s.endLabel && s.points.length > 0)
       .map((s) => {
         const last = s.points[s.points.length - 1]!.v;
@@ -476,13 +488,18 @@ export function StockChartInner({
         return {
           id: s.id,
           y: scaleForAxis(s.axis)(last) ?? NaN,
-          text: format ? format(last) : last.toLocaleString("en-AU", { maximumFractionDigits: 2 }),
+          text:
+            viewMode === "normalized"
+              ? formatPercentChange(last)
+              : format
+                ? format(last)
+                : last.toLocaleString("en-AU", { maximumFractionDigits: 2 }),
           color: s.color,
         };
       });
     if (!items.length) return NO_END_LABELS;
     return layoutEndLabels(items, { innerW, innerH: mainH });
-  }, [series, leftAxis, rightAxis, scaleForAxis, innerW, mainH]);
+  }, [renderSeries, leftAxis, rightAxis, scaleForAxis, innerW, mainH, viewMode]);
 
   // Dots on the series (events) and value callouts (annotations): pure, clipped
   // to the plot. Off (the shared empty list) unless a caller passes one.
