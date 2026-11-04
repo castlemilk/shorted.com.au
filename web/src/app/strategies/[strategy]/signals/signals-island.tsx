@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { StrategyLevelsChart } from "~/@/components/strategy/strategy-levels-chart-loader";
 import { EvidencePanel } from "~/@/components/strategies/evidence-panel";
@@ -222,10 +222,22 @@ function SignalsView({
       sortKey !== null ||
       shown > HEAD_ROWS);
 
+  // The whole list is asked for at most once per mount for a slug and snapshot.
+  // Turning a filter, the search or the sort off and on again draws the list
+  // already held, and a read still in flight is not asked for twice. A read
+  // that failed is asked again the next time the viewer draws past the top rows.
+  // The result is kept whether or not the controls still want it: deepRead
+  // checks the slug and snapshot it was read for before drawing it.
+  const deepKey = `${props.slug}|${sessionDate}|${rulesHash}`;
+  const deepAsked = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!wantDeep || userId === null) return;
-    let live = true;
+    if (!wantDeep || userId === null || deepAsked.current === deepKey) return;
+    deepAsked.current = deepKey;
     const slug = props.slug;
+    const forget = () => {
+      deepAsked.current = null;
+    };
     readSignalsOnce({
       userId,
       strategyId: slug,
@@ -234,16 +246,14 @@ function SignalsView({
       full: true,
     })
       .then((result) => {
-        if (live) setDeep({ slug, result });
+        if (!result.ok) forget();
+        setDeep({ slug, result });
       })
       .catch(() => {
-        if (live)
-          setDeep({ slug, result: { ok: false, reason: "unavailable" } });
+        forget();
+        setDeep({ slug, result: { ok: false, reason: "unavailable" } });
       });
-    return () => {
-      live = false;
-    };
-  }, [wantDeep, userId, props.slug, sessionDate, rulesHash]);
+  }, [wantDeep, userId, props.slug, sessionDate, rulesHash, deepKey]);
 
   const deepRead =
     signedIn && deep?.slug === props.slug ? settle(deep.result) : null;

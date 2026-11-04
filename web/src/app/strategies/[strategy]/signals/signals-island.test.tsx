@@ -689,6 +689,48 @@ describe("SignalsIsland", () => {
     expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(1);
   });
 
+  it("reads the whole list once per mount, however often a filter is turned on and off", async () => {
+    signedInAs();
+    let clock = Date.now();
+    const clockSpy = jest.spyOn(Date, "now").mockImplementation(() => clock);
+    try {
+      mockGetSignalsForViewer
+        .mockResolvedValueOnce({
+          ok: true,
+          rows: rankedRows(100),
+          totalCount: 120,
+          statusCounts: { triggered: 0, setup: 120, watch: 0, unknown: 0 },
+          snapshot: SNAPSHOT,
+        })
+        .mockResolvedValue({
+          ok: true,
+          rows: [pick("T1", "triggered", true), ...rankedRows(119)],
+          totalCount: 120,
+          statusCounts: { triggered: 1, setup: 119, watch: 0, unknown: 0 },
+          snapshot: SNAPSHOT,
+        });
+      render(<SignalsIsland {...props()} />);
+      await screen.findByRole("button", { name: "R0" });
+
+      fireEvent.click(screen.getByRole("button", { name: /^Triggered/ }));
+      expect(await screen.findByRole("button", { name: "T1" })).toBeVisible();
+      expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(2);
+
+      // Past the 60 s hold: a read the island still needs would be called again.
+      clock += 61_000;
+      fireEvent.click(screen.getByRole("button", { name: /^All/ }));
+      clock += 61_000;
+      fireEvent.click(screen.getByRole("button", { name: /^Triggered/ }));
+      expect(screen.getByRole("button", { name: "T1" })).toBeVisible();
+      expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(2);
+      expect(mockGetSignalsForViewer).toHaveBeenLastCalledWith(
+        expect.objectContaining({ full: true }),
+      );
+    } finally {
+      clockSpy.mockRestore();
+    }
+  });
+
   it("does not read the picks for a strategy whose read failed", () => {
     signedInAs();
     render(
