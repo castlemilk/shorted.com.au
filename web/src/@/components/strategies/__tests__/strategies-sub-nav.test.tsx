@@ -42,6 +42,17 @@ describe("StrategiesSubNav", () => {
     expect(window.localStorage.getItem(LAST_VIEWED_STRATEGY_KEY)).toBe("zanger-breakout");
   });
 
+  it("marks Explore as the section, not the page, on a changelog or a profile route", () => {
+    mockPathname = "/strategies/changelog";
+    const { unmount } = render(<StrategiesSubNav />);
+    expect(screen.getByRole("link", { name: "Explore" })).toHaveAttribute("aria-current", "location");
+    unmount();
+    mockPathname = "/strategies/canslim";
+    render(<StrategiesSubNav />);
+    expect(screen.getByRole("link", { name: "Explore" })).toHaveAttribute("aria-current", "location");
+    expect(screen.getByRole("link", { name: "Signals" })).not.toHaveAttribute("aria-current");
+  });
+
   it("keeps the bar sticky on the hub and not on a profile route", () => {
     mockPathname = "/strategies";
     const { unmount } = render(<StrategiesSubNav />);

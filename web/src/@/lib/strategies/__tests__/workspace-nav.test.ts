@@ -9,6 +9,7 @@ import {
   readLastViewedStrategy,
   rememberStrategy,
   resolveStrategiesTabs,
+  currentStrategiesTab,
   signalsStrategy,
   strategyFromPath,
 } from "../workspace-nav";
@@ -29,6 +30,16 @@ describe("strategies workspace nav", () => {
       { id: "explore", label: "Explore", href: "/strategies" },
       { id: "signals", label: "Signals", href: `/strategies/${DEFAULT_SIGNALS_STRATEGY}/signals` },
     ]);
+  });
+
+  it("names the tab whose own page a path is, and null for a page under a section", () => {
+    expect(currentStrategiesTab("/strategies")).toBe("explore");
+    expect(currentStrategiesTab("/strategies/my")).toBe("my");
+    expect(currentStrategiesTab("/strategies/alerts")).toBe("alerts");
+    expect(currentStrategiesTab("/strategies/canslim/signals")).toBe("signals");
+    expect(currentStrategiesTab("/strategies/canslim")).toBeNull();
+    expect(currentStrategiesTab("/strategies/changelog")).toBeNull();
+    expect(currentStrategiesTab("/strategies/signals/x/signals")).toBeNull();
   });
 
   it("points Signals at the last strategy viewed", () => {

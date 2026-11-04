@@ -25,6 +25,18 @@ describe("WorkspaceSubNav", () => {
     expect(screen.getByRole("link", { name: "One" })).not.toHaveAttribute("aria-current");
   });
 
+  it("marks a section tab as a location when another tab is the current page", () => {
+    render(<WorkspaceSubNav group="Group" tabs={TABS} activeTab="one" currentTab="two" />);
+    expect(screen.getByRole("link", { name: "Two" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "One" })).toHaveAttribute("aria-current", "location");
+  });
+
+  it("marks no tab as the page when the current page has no tab of its own", () => {
+    render(<WorkspaceSubNav group="Group" tabs={TABS} activeTab="one" currentTab={null} />);
+    expect(screen.getByRole("link", { name: "One" })).toHaveAttribute("aria-current", "location");
+    expect(screen.getByRole("link", { name: "Two" })).not.toHaveAttribute("aria-current");
+  });
+
   it("sticks under the site header by default, and not on a profile route", () => {
     const { unmount } = render(<WorkspaceSubNav group="Group" tabs={TABS} activeTab="one" />);
     expect(screen.getByRole("navigation", { name: "Group" }).className).toContain("sticky top-16 z-30");

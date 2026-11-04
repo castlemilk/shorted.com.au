@@ -7,6 +7,7 @@ import {
   STRATEGIES_GROUP,
   STRATEGIES_LABEL,
   activeStrategiesTab,
+  currentStrategiesTab,
   isStrategyProfilePath,
   readLastViewedStrategy,
   rememberStrategy,
@@ -39,6 +40,7 @@ export function StrategiesSubNav() {
       label={STRATEGIES_LABEL}
       tabs={resolveStrategiesTabs(viewing ?? stored)}
       activeTab={activeStrategiesTab(pathname)}
+      currentTab={currentStrategiesTab(pathname)}
       sticky={!isStrategyProfilePath(pathname)}
     />
   );

@@ -26,8 +26,15 @@ export interface WorkspaceSubNavProps<Id extends string = string> {
    */
   label?: string;
   tabs: readonly WorkspaceTab<Id>[];
-  /** The tab the current page belongs to, or null when none does. */
+  /** The tab the current page belongs to, or null when none does. It is highlighted. */
   activeTab: Id | null;
+  /**
+   * The tab whose href is the page itself, marked `aria-current="page"`. Defaults to
+   * `activeTab`. When it differs, `activeTab` is only the section the page sits in
+   * (a changelog under Explore, a profile under Explore), so that tab is marked
+   * `aria-current="location"` and the page's own link is named by the page's own bar.
+   */
+  currentTab?: Id | null;
   /**
    * Sticks under the site header at `top-16`. A profile route passes false, so its own
    * tab bar is the one sticky bar and this one scrolls away above it.
@@ -49,8 +56,10 @@ export function WorkspaceSubNav<Id extends string>({
   label,
   tabs,
   activeTab,
+  currentTab,
   sticky = true,
 }: WorkspaceSubNavProps<Id>) {
+  const current = currentTab === undefined ? activeTab : currentTab;
   const router = useRouter();
   const prefetched = useRef<Set<string>>(new Set());
   const navRef = useRef<HTMLElement>(null);
@@ -82,7 +91,7 @@ export function WorkspaceSubNav<Id extends string>({
                   href={tab.href}
                   prefetch={false}
                   scroll
-                  aria-current={isActive ? "page" : undefined}
+                  aria-current={tab.id === current ? "page" : isActive ? "location" : undefined}
                   onPointerEnter={() => warm(tab.href, isActive)}
                   onTouchStart={() => warm(tab.href, isActive)}
                   onFocus={() => warm(tab.href, isActive)}

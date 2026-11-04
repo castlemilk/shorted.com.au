@@ -21,8 +21,9 @@ export interface StrategiesTab extends WorkspaceTab<StrategiesTabId> {
 export const STRATEGIES_GROUP = "Strategies";
 
 /**
- * The bar's accessible name. The strategy profile's own tab bar and the Signals
- * switcher are also named "Strategies", so the sub-nav takes a name of its own.
+ * The bar's accessible name. The Overview's strategy switcher and the Signals
+ * switcher are also navigation landmarks named "Strategies", so the sub-nav takes
+ * a name of its own.
  */
 export const STRATEGIES_LABEL = "Strategy workspace";
 
@@ -86,6 +87,21 @@ export function activeStrategiesTab(pathname: string): StrategiesTabId {
   const m = /^\/strategies\/([^/]+)\/signals(?:\/|$)/.exec(path);
   if (m?.[1] && !RESERVED_STRATEGY_SEGMENTS.includes(m[1])) return "signals";
   return "explore";
+}
+
+/**
+ * The tab whose href is exactly this path, or null when the path is a page under a
+ * section rather than a tab's own page (a changelog, a strategy's profile). That tab
+ * is the one the sub-nav marks as the current page.
+ */
+export function currentStrategiesTab(pathname: string): StrategiesTabId | null {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  if (path === "/strategies") return "explore";
+  if (path === "/strategies/my") return "my";
+  if (path === "/strategies/alerts") return "alerts";
+  const m = /^\/strategies\/([^/]+)\/signals$/.exec(path);
+  if (m?.[1] && !RESERVED_STRATEGY_SEGMENTS.includes(m[1])) return "signals";
+  return null;
 }
 
 /** A stored slug, when it names a strategy the registry knows; otherwise the default. */
