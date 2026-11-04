@@ -54,6 +54,12 @@ export interface FundRow {
   sectorWeights: FundSectorWeight[];
   largest: FundTopHolding[];
   aumAud: number | null;
+  /**
+   * The file dates the fund has on record (ListFunds' snapshot_count). A comparison
+   * needs two. The loader always states it (0 when the API omits it); a fixture that
+   * predates the field reads as 0 too, so the field is optional in the type.
+   */
+  snapshotCount?: number;
 }
 
 /** One holding of one fund at one file date. */
@@ -472,6 +478,79 @@ export function defaultPair(dates: readonly string[]): { from: string; to: strin
   const sorted = [...dates].sort();
   if (sorted.length < 2) return { from: "", to: "" };
   return { from: sorted[sorted.length - 2]!, to: sorted[sorted.length - 1]! };
+}
+
+/* ------------------------------------------------------------------ */
+/* The comparison's fund picker and caption (spec 14.3, B4)           */
+/* ------------------------------------------------------------------ */
+
+/** The file dates a fund has on record; a fund that states none reads as 0. */
+function filesOf(fund: { snapshotCount?: number }): number {
+  return fund.snapshotCount !== undefined && Number.isFinite(fund.snapshotCount) ? fund.snapshotCount : 0;
+}
+
+/**
+ * The funds in the order the Fund select lists them: every fund with two file dates
+ * first, then the rest, each group in the API's own order. A fund with one file stays
+ * in the list (the record is the record); it is only listed after the comparable ones.
+ */
+export function orderFundsForCompare<T extends { snapshotCount?: number }>(funds: readonly T[]): T[] {
+  return [...funds.filter((fund) => filesOf(fund) >= 2), ...funds.filter((fund) => filesOf(fund) < 2)];
+}
+
+/**
+ * The fund the Changes page compares on arrival: the first index fund with two file
+ * dates, else the first fund of any kind with two, else the first fund. Undefined when
+ * the registry is empty.
+ */
+export function defaultCompareFund<T extends { sourceKind: string; snapshotCount?: number }>(
+  funds: readonly T[],
+): T | undefined {
+  return (
+    funds.find((fund) => fund.sourceKind !== "super_phd" && filesOf(fund) >= 2) ??
+    funds.find((fund) => filesOf(fund) >= 2) ??
+    funds[0]
+  );
+}
+
+/**
+ * A fund's label in the Fund select: "{TICKER} · {name}" (the name alone when it has no
+ * ticker), with " (one file)" after it when the fund has exactly one file date. A listed
+ * fund always has at least one file, so a count of 0 is a count the API did not state
+ * (protobuf-es reads an omitted field as 0): it earns no suffix, because the label must
+ * claim only what the record holds.
+ */
+export function compareOptionLabel(fund: { ticker: string; name: string; snapshotCount?: number }): string {
+  const base = fund.ticker.trim() !== "" ? `${fund.ticker} · ${fund.name}` : fund.name;
+  const oneFile = filesOf(fund) === 1;
+  return oneFile ? `${base} (one file)` : base;
+}
+
+const CAPTION_TAIL = "Reported snapshot change, not a trade record.";
+
+/**
+ * A comparison row counts as changed when its status is not continuing (a holding
+ * newly reported or no longer reported), or when its stated change rounds to 0.01 pp or
+ * more at two decimals, the precision the table prints.
+ */
+function rowChanged(row: CompareRow): boolean {
+  if (row.status !== "continuing") return true;
+  return row.deltaPp !== null && Number.isFinite(row.deltaPp) && Math.round(Math.abs(row.deltaPp) * 100) >= 1;
+}
+
+/**
+ * The caption under the table's title: the comparison's own summary, naming the two
+ * dates it compares (the ones it was read for, never the selects' pending values). With
+ * no comparison on screen it is the bare note on what the figures are. One file on both
+ * sides is no comparison either: the API answers it with no rows, and the caption must not
+ * read "no holding changed" as if a file had been compared with the same file.
+ */
+export function compareCaption(ticker: string, from: string, to: string, rows: readonly CompareRow[]): string {
+  if (from === "" || to === "" || from === to) return CAPTION_TAIL;
+  const changed = rows.filter(rowChanged).length;
+  const count =
+    changed === 0 ? "no holding changed" : changed === 1 ? "1 holding changed" : `${changed} holdings changed`;
+  return `${ticker}, ${from} against ${to}: ${count}. ${CAPTION_TAIL}`;
 }
 
 /** A cell of the CSV: a number to two decimals, or empty when it is not stated. */

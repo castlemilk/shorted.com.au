@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { HolderConnectionsPage, HolderRow, HoldersDirectoryPage } from "~/@/components/ownership/holders/holder-tree";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { loadHolderConnections, loadHolders, resolveHolderInspector } from "~/app/actions/ownershipHolders";
@@ -117,5 +117,15 @@ describe("holders page (spec 14.3)", () => {
     expect(loadHolderConnections).not.toHaveBeenCalled();
     expect(bailOnEmptyRender).toHaveBeenCalled();
     expect(container.querySelector('[data-isr-shell="empty"]')).not.toBeNull();
+  });
+
+  it("ends the main column with the closed method disclosure, its text in the HTML", async () => {
+    const { container } = render(await HoldersPage());
+    const method = container.querySelector("details#method") as HTMLElement | null;
+    expect(method).not.toBeNull();
+    expect(method).not.toHaveAttribute("open");
+    expect(within(method as HTMLElement).getByText("How these figures are read")).toBeInTheDocument();
+    expect(method?.textContent).toMatch(/what the notices disclose, not a share of the company/);
+    expect(method?.nextElementSibling).toBeNull();
   });
 });

@@ -1122,7 +1122,7 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
 | `phd` | 11 super funds' portfolio holdings disclosures (one option each, the default or balanced; semi-annual, `phdPeriod` = latest 30 Jun / 31 Dec at least 90 days ago, else the period before) | same |
 | `notices` | Substantial holding notices (Forms 603/604/605, NZ disclosures) selected from `asx_announcements` by headline, read from their PDFs | `substantial_holder_notices`, `substantial_holder_notice_attempts` |
 | `all` | all of the above, in that order (the scheduled run) | |
-| `repair-placeholders` | the stored notices (`substantial_holder_notices`), judged by the placeholder rule and listed one line each; no PDFs are read | with `-apply` and `-dry-run=false`, removes their rows and attempts in one transaction, so the next `notices` run reads them again (rows keyed to an institution are kept). Not in `all` |
+| `repair-placeholders` | the stored notices (`substantial_holder_notices`), judged by the placeholder rule and by the change rule (a 604 whose stated change is over 50 points) and listed one line each; no PDFs are read | with `-apply` and `-dry-run=false`, removes their rows and attempts in one transaction, so the next `notices` run reads them again (rows keyed to an institution are kept). Not in `all` |
 
 - **Hand runs write nothing.** `OWNERSHIP_DRY_RUN=false` (set on the scheduled
   job) or `-dry-run=false` is what writes.

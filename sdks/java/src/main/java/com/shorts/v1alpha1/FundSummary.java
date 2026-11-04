@@ -563,6 +563,21 @@ private static final long serialVersionUID = 0L;
     return hasAumAud_;
   }
 
+  public static final int SNAPSHOT_COUNT_FIELD_NUMBER = 17;
+  private int snapshotCount_ = 0;
+  /**
+   * <pre>
+   * The number of file dates the fund has on record; a comparison needs two.
+   * </pre>
+   *
+   * <code>int32 snapshot_count = 17 [json_name = "snapshotCount"];</code>
+   * @return The snapshotCount.
+   */
+  @java.lang.Override
+  public int getSnapshotCount() {
+    return snapshotCount_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -624,6 +639,9 @@ private static final long serialVersionUID = 0L;
     }
     if (hasAumAud_ != false) {
       output.writeBool(16, hasAumAud_);
+    }
+    if (snapshotCount_ != 0) {
+      output.writeInt32(17, snapshotCount_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -695,6 +713,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(16, hasAumAud_);
     }
+    if (snapshotCount_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(17, snapshotCount_);
+    }
     return size;
   }
   @java.lang.Override
@@ -753,6 +775,8 @@ private static final long serialVersionUID = 0L;
             other.getAumAud())) return false;
     if (getHasAumAud()
         != other.getHasAumAud()) return false;
+    if (getSnapshotCount()
+        != other.getSnapshotCount()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -805,6 +829,8 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_AUM_AUD_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasAumAud());
+    hash = (37 * hash) + SNAPSHOT_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getSnapshotCount();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -968,6 +994,7 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00002000);
       aumAud_ = 0D;
       hasAumAud_ = false;
+      snapshotCount_ = 0;
       return this;
     }
 
@@ -1064,6 +1091,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00008000) != 0)) {
         result.hasAumAud_ = hasAumAud_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.snapshotCount_ = snapshotCount_;
       }
     }
 
@@ -1189,6 +1219,9 @@ private static final long serialVersionUID = 0L;
       if (other.getHasAumAud() != false) {
         setHasAumAud(other.getHasAumAud());
       }
+      if (other.getSnapshotCount() != 0) {
+        setSnapshotCount(other.getSnapshotCount());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1311,6 +1344,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00008000;
               break;
             } // case 128
+            case 136: {
+              snapshotCount_ = input.readInt32();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 136
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2682,6 +2720,50 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasAumAud() {
       bitField0_ = (bitField0_ & ~0x00008000);
       hasAumAud_ = false;
+      onChanged();
+      return this;
+    }
+
+    private int snapshotCount_ ;
+    /**
+     * <pre>
+     * The number of file dates the fund has on record; a comparison needs two.
+     * </pre>
+     *
+     * <code>int32 snapshot_count = 17 [json_name = "snapshotCount"];</code>
+     * @return The snapshotCount.
+     */
+    @java.lang.Override
+    public int getSnapshotCount() {
+      return snapshotCount_;
+    }
+    /**
+     * <pre>
+     * The number of file dates the fund has on record; a comparison needs two.
+     * </pre>
+     *
+     * <code>int32 snapshot_count = 17 [json_name = "snapshotCount"];</code>
+     * @param value The snapshotCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSnapshotCount(int value) {
+
+      snapshotCount_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The number of file dates the fund has on record; a comparison needs two.
+     * </pre>
+     *
+     * <code>int32 snapshot_count = 17 [json_name = "snapshotCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSnapshotCount() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      snapshotCount_ = 0;
       onChanged();
       return this;
     }

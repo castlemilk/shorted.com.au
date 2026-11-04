@@ -4826,6 +4826,8 @@ type FundSummary struct {
 	Largest       []*FundTopHolding   `protobuf:"bytes,14,rep,name=largest,proto3" json:"largest,omitempty"`
 	AumAud        float64             `protobuf:"fixed64,15,opt,name=aum_aud,json=aumAud,proto3" json:"aum_aud,omitempty"`
 	HasAumAud     bool                `protobuf:"varint,16,opt,name=has_aum_aud,json=hasAumAud,proto3" json:"has_aum_aud,omitempty"`
+	// The number of file dates the fund has on record; a comparison needs two.
+	SnapshotCount int32 `protobuf:"varint,17,opt,name=snapshot_count,json=snapshotCount,proto3" json:"snapshot_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4970,6 +4972,13 @@ func (x *FundSummary) GetHasAumAud() bool {
 		return x.HasAumAud
 	}
 	return false
+}
+
+func (x *FundSummary) GetSnapshotCount() int32 {
+	if x != nil {
+		return x.SnapshotCount
+	}
+	return 0
 }
 
 type ListFundsResponse struct {
@@ -6163,7 +6172,7 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
 	"weight_pct\x18\x03 \x01(\x01R\tweightPct\x12$\n" +
-	"\x0ehas_weight_pct\x18\x04 \x01(\bR\fhasWeightPct\"\xb2\x04\n" +
+	"\x0ehas_weight_pct\x18\x04 \x01(\bR\fhasWeightPct\"\xd9\x04\n" +
 	"\vFundSummary\x12\x19\n" +
 	"\bfund_key\x18\x01 \x01(\tR\afundKey\x12\x16\n" +
 	"\x06ticker\x18\x02 \x01(\tR\x06ticker\x12\x12\n" +
@@ -6183,7 +6192,8 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x0esector_weights\x18\r \x03(\v2!.shorts.v1alpha1.FundSectorWeightR\rsectorWeights\x129\n" +
 	"\alargest\x18\x0e \x03(\v2\x1f.shorts.v1alpha1.FundTopHoldingR\alargest\x12\x17\n" +
 	"\aaum_aud\x18\x0f \x01(\x01R\x06aumAud\x12\x1e\n" +
-	"\vhas_aum_aud\x18\x10 \x01(\bR\thasAumAud\"G\n" +
+	"\vhas_aum_aud\x18\x10 \x01(\bR\thasAumAud\x12%\n" +
+	"\x0esnapshot_count\x18\x11 \x01(\x05R\rsnapshotCount\"G\n" +
 	"\x11ListFundsResponse\x122\n" +
 	"\x05funds\x18\x01 \x03(\v2\x1c.shorts.v1alpha1.FundSummaryR\x05funds\"I\n" +
 	"\x17GetFundPortfolioRequest\x12\x19\n" +

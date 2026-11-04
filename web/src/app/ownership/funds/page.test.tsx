@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { FundRow } from "~/@/components/ownership/funds/fund-model";
 
 const mockLoadFunds = jest.fn();
@@ -79,5 +79,16 @@ describe("the funds page (spec 14.3, static ISR)", () => {
     mockLoadFunds.mockResolvedValue({ ok: false, error: "", funds: [] });
     const { container } = render(await FundsPage());
     expect(container.querySelector('[data-isr-shell="empty"]')).not.toBeNull();
+  });
+
+  it("ends the main column with the closed method disclosure, its text in the HTML", async () => {
+    mockLoadFunds.mockResolvedValue({ ok: true, error: "", funds: [FUND] });
+    const { container } = render(await FundsPage());
+    const method = container.querySelector("details#method") as HTMLElement | null;
+    expect(method).not.toBeNull();
+    expect(method).not.toHaveAttribute("open");
+    expect(within(method as HTMLElement).getByText("How these figures are read")).toBeInTheDocument();
+    expect(method?.textContent).toMatch(/what the notices disclose, not a share of the company/);
+    expect(method?.nextElementSibling).toBeNull();
   });
 });

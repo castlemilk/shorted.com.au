@@ -11,7 +11,7 @@
 
 import { OTHER_SECTOR } from "~/@/components/ownership/desk/map-layout";
 import { formatAmount, NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
-import { FOLDED_SECTOR_LABEL, formatVotingPower, holderHref, kindInfo, registerHref, shortSector } from "~/@/lib/ownership/kinds";
+import { FOLDED_SECTOR_LABEL, formatHeadlinePct, holderHref, kindInfo, registerHref, shortSector } from "~/@/lib/ownership/kinds";
 import type { InspectorContent, InspectorLink, InspectorSection } from "../inspector-types";
 
 /** The companies the rail draws: the ten largest, as the band's own list is. */
@@ -192,7 +192,7 @@ export function connectionInspectorContent({
           ? estimatedExposure(company) === null
             ? NOT_AVAILABLE
             : formatAmount(estimatedExposure(company), "AUD")
-          : formatVotingPower(company.pct),
+          : formatHeadlinePct(company.pct),
         share: largest > 0 ? measure(company) / largest : 0,
       })),
     });

@@ -273,6 +273,28 @@ func TestListFundsSummarisesEachFundsNewestFile(t *testing.T) {
 	assert.False(t, super.HasAumAud)
 }
 
+// A fund's snapshot count is the number of file dates it has on record, the dates
+// CompareFundSnapshots reads, so the web can choose a fund that has two to compare.
+func TestListFundsCountsEachFundsFileDates(t *testing.T) {
+	store := fundFixtureStore()
+	s := fundServer(store)
+	resp, err := s.ListFunds(context.Background(), connect.NewRequest(&shortsv1alpha1.ListFundsRequest{}))
+	require.NoError(t, err)
+	require.Len(t, resp.Msg.Funds, 2)
+	assert.EqualValues(t, 2, resp.Msg.Funds[0].SnapshotCount, "VAS has the 2026-09-30 and 2026-10-15 files")
+	assert.EqualValues(t, 1, resp.Msg.Funds[1].SnapshotCount, "Balanced has one file")
+
+	// The count is the file dates on record, not the holdings the newest file states.
+	store.files = append(store.files, shortsstore.FundFileRow{
+		ID: 4, InstitutionSlug: "vanguard", InstitutionName: "Vanguard", FundName: "Vanguard Australian Shares",
+		FundCode: "VAS", SourceKind: "etf", SourceURL: "https://example.test/vas-1101", AsAt: "2026-11-02",
+	})
+	resp, err = fundServer(store).ListFunds(context.Background(), connect.NewRequest(&shortsv1alpha1.ListFundsRequest{}))
+	require.NoError(t, err)
+	assert.EqualValues(t, 3, resp.Msg.Funds[0].SnapshotCount)
+	assert.Equal(t, "2026-11-02", resp.Msg.Funds[0].AsAt, "the newest file is still the one read")
+}
+
 func TestBuildFundBookResolvesTheRegistryKeyAndTheNameKey(t *testing.T) {
 	files := []shortsstore.FundFileRow{
 		{ID: 1, InstitutionSlug: "state-street", InstitutionName: "State Street", FundName: "SPDR S&P/ASX 200 Fund", FundCode: "STW", SourceKind: "etf", AsAt: "2026-10-15"},

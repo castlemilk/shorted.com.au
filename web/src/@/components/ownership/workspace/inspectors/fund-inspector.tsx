@@ -1,7 +1,7 @@
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
-import { fundHref } from "~/@/lib/ownership/kinds";
-import { formatWeight, fundLabel, type FundRow } from "../../funds/fund-model";
+import { fundHref, formatHeadlinePct } from "~/@/lib/ownership/kinds";
+import { fundLabel, type FundRow } from "../../funds/fund-model";
 import type { InspectorContent } from "../inspector-types";
 
 /**
@@ -25,7 +25,7 @@ export function fundInspectorContent(fund: FundRow): InspectorContent {
     figure: { value: String(fund.holdings), caption: "reported equities" },
     rows: [
       { label: "Holdings as at", value: fund.asAt || NOT_AVAILABLE },
-      { label: "In the top 10", value: formatWeight(fund.top10Pct, 1) },
+      { label: "In the top 10", value: formatHeadlinePct(fund.top10Pct) },
       { label: "Manager", value: fund.institutionName || NOT_AVAILABLE },
     ],
     sections:
@@ -36,7 +36,7 @@ export function fundInspectorContent(fund: FundRow): InspectorContent {
               kind: "bars",
               items: largest.map((holding) => ({
                 label: holding.code,
-                value: formatWeight(holding.weightPct, 1),
+                value: formatHeadlinePct(holding.weightPct),
                 share: top > 0 ? (holding.weightPct ?? 0) / top : 0,
               })),
             },

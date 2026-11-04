@@ -14,7 +14,7 @@
  */
 
 import { ScreenReaderTable } from "~/@/components/politicians/explorer/screen-reader-table";
-import type { CSSProperties, KeyboardEvent, ReactNode, Ref } from "react";
+import { Fragment, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import Link from "next/link";
 import { normalizedLogoUrl } from "@/lib/logo";
 import { SectorIcon } from "../workspace/sector-icon";
@@ -37,7 +37,6 @@ import { DEFAULT_DESK_LENS, DEFAULT_DESK_STATE, type DeskState } from "./desk-st
 import { fundComparisonLine } from "./fund-comparison";
 import {
   DESK_DEFAULT_WINDOW_STATE,
-  WindowPhrase,
   hrefWithParams,
   type NoticeWindow,
 } from "./window-chips";
@@ -677,6 +676,92 @@ export function DeskMapTable({
   );
 }
 
+/**
+ * One clause of the map's coverage line (backlog B1: the captions above the map said one thing
+ * four ways, so they say it once). A clause is text; a `time` is the date it ends with, drawn as
+ * a <time>; an `href` makes it a link; a `stale` clause is a held fund comparison while a read is
+ * in flight, drawn faded and marked.
+ */
+export interface CoverageClause {
+  text: string;
+  time?: string;
+  href?: string;
+  stale?: boolean;
+}
+
+/**
+ * The window clause: "the last 91 days" for the chips, "from X to Y" for a brushed pair. A brushed
+ * pair is always both dates, so the brushed form never prints a missing one.
+ */
+export function windowClause(state: NoticeWindow): string {
+  return state.since === "" ? `the last ${state.window} days` : `from ${state.since} to ${state.until}`;
+}
+
+/**
+ * The map's coverage line (full variant): the notices' read-to date, the window of change, the
+ * index fund comparison (when the answer carries one, under any lens) and the Coverage link. A
+ * missing date drops its clause; the fund comparison is the one `fundComparisonLine` states, and
+ * a held one while a read is in flight carries its "Updating" mark.
+ */
+export function coverageLine({
+  asOf,
+  window,
+  fund,
+  stale,
+}: {
+  asOf: string;
+  window: NoticeWindow;
+  /** The fund comparison the answer states (fundComparisonLine), or null when it states none. */
+  fund: string | null;
+  /** The answer is held while a window is read: its fund comparison is marked. */
+  stale: boolean;
+}): CoverageClause[] {
+  const clauses: CoverageClause[] = [];
+  if (asOf !== "") clauses.push({ text: "Notices read to", time: asOf });
+  clauses.push({ text: windowClause(window) });
+  // The mark is a colon, not a middle dot: the line joins its clauses with a middle dot, and a dot
+  // here would read as a clause of its own.
+  if (fund !== null) clauses.push(stale ? { text: `Updating: ${fund}`, stale: true } : { text: fund });
+  clauses.push({ text: "Coverage", href: "/ownership#coverage" });
+  return clauses;
+}
+
+/** One clause of the coverage line: a link, a faded held comparison, or its text with its date. */
+function CoverageClauseView({ clause }: { clause: CoverageClause }) {
+  if (clause.href !== undefined) {
+    return (
+      <Link href={clause.href} prefetch={false} className="text-primary underline-offset-4 hover:underline">
+        {clause.text}
+      </Link>
+    );
+  }
+  return (
+    <span data-stale={clause.stale ? "true" : undefined} className={cn(clause.stale && "opacity-60")}>
+      {clause.text}
+      {clause.time === undefined ? null : (
+        <>
+          {" "}
+          <time dateTime={clause.time}>{clause.time}</time>
+        </>
+      )}
+    </span>
+  );
+}
+
+/** The coverage line, its clauses joined by a middle dot. */
+function CoverageLine({ clauses }: { clauses: readonly CoverageClause[] }) {
+  return (
+    <p className="text-xs text-muted-foreground">
+      {clauses.map((clause, index) => (
+        <Fragment key={index}>
+          {index > 0 ? " · " : null}
+          <CoverageClauseView clause={clause} />
+        </Fragment>
+      ))}
+    </p>
+  );
+}
+
 export interface OwnershipMapViewProps {
   page: OwnershipMapPage;
   desk: DeskState;
@@ -789,11 +874,19 @@ export function OwnershipMapView({
 
   return (
     <div ref={rootRef} onKeyDown={onRootKeyDown} className="space-y-4">
-      {page.asOf !== "" ? (
-        <p className="text-xs text-muted-foreground">
-          Notices read to <time dateTime={page.asOf}>{page.asOf}</time>
-        </p>
-      ) : null}
+      {compact ? (
+        page.asOf !== "" ? (
+          <p className="text-xs text-muted-foreground">
+            Notices read to <time dateTime={page.asOf}>{page.asOf}</time>
+          </p>
+        ) : null
+      ) : (
+        // The one coverage line above the toolbar and the drawing (backlog B1): the read-to date, the
+        // window, the fund comparison it draws, and the link to what is covered.
+        <CoverageLine
+          clauses={coverageLine({ asOf: page.asOf, window: notice, fund: fundLine, stale })}
+        />
+      )}
 
       {compact ? null : (
         // One toolbar row (spec 14.9): the search and the sources from the island, then the
@@ -825,28 +918,19 @@ export function OwnershipMapView({
         </div>
       )}
 
-      {compact ? null : (
-        <p className="text-[11px] text-muted-foreground">
-          The net change and the notice counts cover the notices released <WindowPhrase state={notice} asOf={page.asOf} />.
-        </p>
-      )}
-
       {compact || undrawn === 0 ? null : (
         <p className="text-[11px] text-muted-foreground">{undrawnAtSizeCopy(undrawn, rows.length)}</p>
       )}
 
-      {compact || fundCaption === undefined ? null : (
-        // The fund comparison the island's answer draws (spec 14.10): the files it reads, or that it reads none.
-        // While a read is in flight the held comparison is marked as the hatched changes are.
-        <p data-stale={stale ? "true" : undefined} className={cn("text-[11px] text-muted-foreground", stale && "opacity-60")}>
-          {fundCaption}
-        </p>
-      )}
-
       {rows.length > 0 ? (
         figured ? (
-          // The index flow's legend states the files it compares (spec 14.10).
-          <LensLegend lens={desk.lens} scale={scale} caption={desk.lens === "index_flow" ? fundCaption : undefined} />
+          // The index flow's legend states the files it compares (spec 14.10). The full map's coverage
+          // line states them already, so only the compact pane's legend repeats them.
+          <LensLegend
+            lens={desk.lens}
+            scale={scale}
+            caption={compact && desk.lens === "index_flow" ? fundCaption : undefined}
+          />
         ) : (
           <p className="text-[11px] text-muted-foreground">{NO_FIGURE_COPY}</p>
         )

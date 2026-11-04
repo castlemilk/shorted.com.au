@@ -1,11 +1,8 @@
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
-import { shortSector } from "~/@/lib/ownership/kinds";
-import { registerHref } from "~/@/lib/ownership/kinds";
+import { formatHeadlinePct, registerHref, shortSector } from "~/@/lib/ownership/kinds";
 import {
-  formatEstCompany,
   formatUnits,
-  formatWeight,
   type PortfolioHolding,
   fundLabel,
 } from "../../funds/fund-model";
@@ -23,7 +20,7 @@ export interface HoldingSeriesPoint {
 
 /** A series figure: a file that could not be read says so, never "n/a" as if the file had no holding. */
 function seriesFigure(point: HoldingSeriesPoint): string {
-  return point.read === false ? "Not read just now" : formatWeight(point.weightPct);
+  return point.read === false ? "Not read just now" : formatHeadlinePct(point.weightPct);
 }
 
 export interface HoldingInspectorInput {
@@ -96,7 +93,7 @@ export function holdingInspectorContent(input: HoldingInspectorInput): Inspector
     heading: `${holding.code} in ${fundLabel(fund)}`,
     subtitle: `${holding.name} · ${shortSector(holding.industry)}`,
     logo: { kind: "stock", code: holding.code },
-    figure: { value: formatWeight(holding.weightPct, 1), caption: "Weight in this fund" },
+    figure: { value: formatHeadlinePct(holding.weightPct), caption: "Weight in this fund" },
     rows: [
       { label: "Reported shares", value: formatUnits(holding.units) },
       // The estimate divides the reported units by the shares on issue, so it is stated
@@ -105,7 +102,7 @@ export function holdingInspectorContent(input: HoldingInspectorInput): Inspector
         label: "Est. company shares held",
         value:
           holding.units !== null && holding.sharesOnIssue !== null
-            ? formatEstCompany(holding.estCompanyPct)
+            ? formatHeadlinePct(holding.estCompanyPct)
             : NOT_AVAILABLE,
       },
       { label: "Holdings", value: fund.asAt || NOT_AVAILABLE },

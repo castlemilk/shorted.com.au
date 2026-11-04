@@ -19,11 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "~/@/components/ui/table";
-import {
-  KindBadge,
-  OwnershipMethodology,
-  OwnershipStockTable,
-} from "~/@/components/ownership/ownership-parts";
+import { KindBadge, OwnershipStockTable } from "~/@/components/ownership/ownership-parts";
 import { ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
 import { NoticeTable } from "~/@/components/ownership/notice-table";
 import { OwnershipPlate, type PlateItem } from "~/@/components/ownership/ownership-plate";
@@ -34,6 +30,7 @@ import {
   type SourceLine,
 } from "~/@/components/ownership/ownership-provenance";
 import { WithheldBreakdown } from "~/@/components/ownership/withheld-breakdown";
+import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 import { NOT_AVAILABLE, formatAmount } from "~/@/lib/fundamentals/format";
 import {
   KIND_ORDER,
@@ -222,17 +219,12 @@ export default async function OwnershipPage() {
               today.
             </p>
           </section>
-          <section className="space-y-3" aria-labelledby="sources">
-            <h2 id="sources" className={sectionTitle}>
-              Sources and method
-            </h2>
-            <div id="method" className="scroll-mt-20">
-              <OwnershipMethodology className="max-w-[80ch]" />
-            </div>
+          <div className="space-y-3">
+            <MethodDisclosure />
             <p className="text-xs text-muted-foreground">
               <OwnershipReportError subject={REPORT_SUBJECT} />
             </p>
-          </section>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -630,18 +622,13 @@ export default async function OwnershipPage() {
             )}
           </details>
 
-          <section className="space-y-3" aria-labelledby="sources">
-            <h2 id="sources" className={sectionTitle}>
-              Sources and method
-            </h2>
-            <OwnershipSourceLines lines={sourceLines} />
-            <div id="method" className="scroll-mt-20">
-              <OwnershipMethodology className="max-w-[80ch]" />
-            </div>
+          <div className="space-y-3">
+            {/* The dated source list is part of how the figures are read, so it folds with the method. */}
+            <MethodDisclosure extra={[<OwnershipSourceLines key="sources" lines={sourceLines} />]} />
             <p className="text-xs text-muted-foreground">
               <OwnershipReportError subject={REPORT_SUBJECT} />
             </p>
-          </section>
+          </div>
         </div>
         </WorkspacePage>
       </DashboardLayout>

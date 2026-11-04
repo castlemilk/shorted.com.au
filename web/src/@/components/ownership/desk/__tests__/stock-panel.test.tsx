@@ -64,6 +64,31 @@ describe("StockPanel", () => {
     expect(screen.queryByText("Short interest")).toBeNull();
   });
 
+  it("prints each holder's figure at two decimals, where the notice states four (spec A4)", async () => {
+    render(
+      <StockPanel
+        code="BHP"
+        loadPanel={async () =>
+          page({
+            largest: [
+              { name: "Super Fund A", slug: "super-a", holderKey: "name:super-a", kind: "super_fund", votingPowerPct: 19.4336, asAt: "2026-09-30" },
+              { name: "Hedge Fund B", slug: "", holderKey: "", kind: "hedge_fund", votingPowerPct: 5, asAt: "" },
+            ],
+            index: { pct: 13.131, asAt: "2026-09-30" },
+          })
+        }
+        scaleMax={100}
+        onClose={jest.fn()}
+      />,
+    );
+    await screen.findByRole("heading", { name: "BHP Group" });
+    const holders = screen.getByRole("region", { name: "Largest holders" });
+    expect(within(holders).getByText("19.43%")).toBeInTheDocument();
+    expect(within(holders).getByText("5.00%")).toBeInTheDocument();
+    expect(screen.queryByText("19.4336%", { exact: false })).toBeNull();
+    expect(screen.getByText("13.13%", { exact: false })).toBeInTheDocument();
+  });
+
   it("links the short position beside the record, and never prints it in the panel", async () => {
     render(<StockPanel code="BHP" loadPanel={async () => page({})} scaleMax={100} onClose={jest.fn()} />);
     await screen.findByRole("heading", { name: "BHP Group" });

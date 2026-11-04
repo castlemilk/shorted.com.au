@@ -4,6 +4,7 @@ import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { FUND_STATUS_COPY, FundExposureMap } from "~/@/components/ownership/funds/fund-exposure-map";
 import { Inspector } from "~/@/components/ownership/workspace/inspector";
 import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 import { lede, pageTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { loadFunds, resolveFundSelection } from "~/app/actions/ownershipFunds";
@@ -58,6 +59,7 @@ export default async function FundsPage() {
               </p>
             </>
           )}
+          <MethodDisclosure />
         </div>
       </WorkspacePage>
     </DashboardLayout>

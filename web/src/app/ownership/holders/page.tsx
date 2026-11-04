@@ -5,6 +5,7 @@ import { HolderBrowser } from "~/@/components/ownership/holders/holder-browser";
 import { HolderConnectionsMap } from "~/@/components/ownership/holders/holder-connections-map";
 import { HolderInspector } from "~/@/components/ownership/workspace/inspectors/holder-inspector";
 import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 import { holderInspectorContent, type HolderConnectionsPage } from "~/@/components/ownership/holders/holder-tree";
 import { lede, pageTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
@@ -84,6 +85,7 @@ export default async function HoldersPage() {
           <HolderBrowser holders={directory.holders} defaultKey={defaultKey}>
             <HolderConnectionsMap defaultKey={defaultKey} initial={initial} loadConnections={loadHolderConnections} />
           </HolderBrowser>
+          <MethodDisclosure />
         </div>
       </WorkspacePage>
     </DashboardLayout>

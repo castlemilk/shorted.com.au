@@ -7,6 +7,7 @@
  * category, not a direction (DESIGN.md, The Semantic Quarantine Rule).
  */
 
+import { formatPct } from "~/@/lib/fundamentals/format";
 import { industryLabel } from "~/@/lib/industry-placeholder";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 
@@ -179,6 +180,18 @@ export function formatVotingPower(pct: number | null | undefined): string {
   const [whole, frac = ""] = pct.toFixed(4).split(".");
   const trimmed = frac.replace(/0+$/, "").padEnd(2, "0");
   return `${whole}.${trimmed}%`;
+}
+
+/**
+ * A headline figure or a sum of voting powers: two decimals, so the rail reads
+ * "19.43%" where the notice states 19.4336%. A measured zero prints "0.00%"; a
+ * figure the page does not hold is "n/a", never 0 (spec A4). This is the rule of
+ * formatSum in ownership-parts.tsx, defined here because a lib cannot import a
+ * component module; the two must stay the same. A single notice's figure, in a
+ * list of notices or a register row, keeps formatVotingPower.
+ */
+export function formatHeadlinePct(pct: number | null | undefined): string {
+  return formatPct(pct, { digits: 2 });
 }
 
 /**

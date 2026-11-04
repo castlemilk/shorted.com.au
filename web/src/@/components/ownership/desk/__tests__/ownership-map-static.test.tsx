@@ -12,8 +12,10 @@ import {
   NO_FIGURE_COPY,
   OwnershipMapStatic,
   OwnershipMapView,
+  coverageLine,
   labelColourFor,
   nextCellIndex,
+  windowClause,
   zoomPose,
   zoomStyle,
 } from "../ownership-map-static";
@@ -204,7 +206,7 @@ describe("OwnershipMapStatic", () => {
 
   it("names the window in the caption: the days by default, the brushed dates when the window is brushed", () => {
     const { unmount } = render(<OwnershipMapStatic initial={page({ asOf: "2026-11-01" })} />);
-    expect(document.body.textContent).toContain("released over the last 91 days");
+    expect(document.body.textContent).toContain("Notices read to 2026-11-01 · the last 91 days");
     unmount();
     render(
       <OwnershipMapView
@@ -216,7 +218,7 @@ describe("OwnershipMapStatic", () => {
         basePath="/ownership"
       />,
     );
-    expect(document.body.textContent).toContain("released from 2026-08-01 to 2026-10-31");
+    expect(document.body.textContent).toContain("Notices read to 2026-11-01 · from 2026-08-01 to 2026-10-31");
     expect(screen.getByRole("combobox", { name: "Window" })).toHaveValue("brushed");
   });
 
@@ -334,7 +336,7 @@ describe("the coverage line's fund comparison (spec 14.10)", () => {
         basePath="/ownership/map"
       />,
     );
-    const line = screen.getByText(/^Updating · 2 funds compared, files 2026-06-30 to 2026-07-31/);
+    const line = screen.getByText(/^Updating: 2 funds compared, files 2026-06-30 to 2026-07-31/);
     expect(line).toHaveAttribute("data-stale", "true");
     expect(container.querySelector("[data-stale='true']")).toBe(line);
   });
@@ -343,5 +345,93 @@ describe("the coverage line's fund comparison (spec 14.10)", () => {
     drawn({});
     const line = screen.getByText(/^2 funds compared, files/);
     expect(line).not.toHaveAttribute("data-stale");
+  });
+});
+
+describe("the map's one coverage line (backlog B1)", () => {
+  const DAYS_91 = { window: 91, since: "", until: "" };
+  const BRUSHED = { window: 91, since: "2026-08-01", until: "2026-10-31" };
+
+  it("names the window as the last N days, or the two dates of a brushed pair", () => {
+    expect(windowClause(DAYS_91)).toBe("the last 91 days");
+    expect(windowClause(BRUSHED)).toBe("from 2026-08-01 to 2026-10-31");
+  });
+
+  it("orders the read-to date, the window, the fund comparison and the Coverage link", () => {
+    expect(
+      coverageLine({ asOf: "2026-11-03", window: DAYS_91, fund: "7 funds compared, files a against b", stale: false }),
+    ).toEqual([
+      { text: "Notices read to", time: "2026-11-03" },
+      { text: "the last 91 days" },
+      { text: "7 funds compared, files a against b" },
+      { text: "Coverage", href: "/ownership#coverage" },
+    ]);
+  });
+
+  it("drops the read-to clause when the date is missing, and the fund clause when the answer states none", () => {
+    expect(coverageLine({ asOf: "", window: DAYS_91, fund: null, stale: false })).toEqual([
+      { text: "the last 91 days" },
+      { text: "Coverage", href: "/ownership#coverage" },
+    ]);
+  });
+
+  it("marks a held fund comparison as updating while a read is in flight", () => {
+    const clauses = coverageLine({ asOf: "2026-11-03", window: BRUSHED, fund: "3 funds compared", stale: true });
+    expect(clauses[2]).toEqual({ text: "Updating: 3 funds compared", stale: true });
+  });
+
+  it("is one line of text in the full map, with the Coverage link and the dates as <time>", () => {
+    const { container } = render(
+      <OwnershipMapView
+        page={page({ asOf: "2026-11-01", fundsCompared: 2, startFilesFrom: "2026-06-30", startFilesTo: "2026-06-30", endFilesFrom: "2026-10-30", endFilesTo: "2026-10-30" })}
+        desk={DEFAULT_DESK_STATE}
+        status="idle"
+        slow={false}
+        basePath="/ownership"
+      />,
+    );
+    const lines = container.querySelectorAll("p.text-xs.text-muted-foreground");
+    const coverage = Array.from(lines).filter((line) => line.textContent?.startsWith("Notices read to"));
+    expect(coverage).toHaveLength(1);
+    expect(coverage[0]?.textContent).toBe(
+      "Notices read to 2026-11-01 · the last 91 days · 2 funds compared, files 2026-06-30 against 2026-10-30 · Coverage",
+    );
+    expect(coverage[0]?.querySelector("time")).toHaveAttribute("dateTime", "2026-11-01");
+    expect(within(coverage[0] as HTMLElement).getByRole("link", { name: "Coverage" })).toHaveAttribute(
+      "href",
+      "/ownership#coverage",
+    );
+  });
+
+  it("drops the old net change sentence and the fund line that the legend repeated", () => {
+    const withFlow = STOCKS.map((stock, index) => ({ ...stock, fundChangePct: index + 1 }));
+    render(
+      <OwnershipMapView
+        page={page({ stocks: withFlow, fundsCompared: 2, startFilesFrom: "2026-06-30", startFilesTo: "2026-06-30", endFilesFrom: "2026-10-30", endFilesTo: "2026-10-30" })}
+        desk={{ ...DEFAULT_DESK_STATE, lens: "index_flow" }}
+        status="idle"
+        slow={false}
+        basePath="/ownership"
+      />,
+    );
+    expect(screen.queryByText(/The net change and the notice counts cover/)).toBeNull();
+    expect(screen.getAllByText(/2 funds compared, files 2026-06-30 against 2026-10-30/)).toHaveLength(1);
+  });
+
+  it("keeps the compact pane as it was: its read-to line, and its legend repeats the fund comparison", () => {
+    const withFlow = STOCKS.map((stock, index) => ({ ...stock, fundChangePct: index + 1 }));
+    const { container } = render(
+      <OwnershipMapView
+        variant="compact"
+        page={page({ asOf: "2026-11-01", stocks: withFlow, fundsCompared: 2, startFilesFrom: "2026-06-30", startFilesTo: "2026-06-30", endFilesFrom: "2026-10-30", endFilesTo: "2026-10-30" })}
+        desk={{ ...DEFAULT_DESK_STATE, lens: "index_flow" }}
+        status="idle"
+        slow={false}
+        basePath="/ownership"
+      />,
+    );
+    expect(container.textContent).toContain("Notices read to 2026-11-01");
+    expect(container.textContent).not.toContain("Coverage");
+    expect(screen.getAllByText(/2 funds compared, files 2026-06-30 against 2026-10-30/)).toHaveLength(1);
   });
 });

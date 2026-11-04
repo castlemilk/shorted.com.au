@@ -16,10 +16,11 @@
 //	-mode notices   ASX substantial holding notices (Forms 603/604/605),
 //	                selected from asx_announcements and read from their PDFs
 //	-mode all       registry, funds, etf, phd, notices, in that order
-//	-mode repair-placeholders  stored notices whose holder name is a placeholder
-//	                ("SEE ANNEXURE 1"): listed, and with -apply and -dry-run=false
-//	                removed with their attempts (rows keyed to an institution are
-//	                listed and kept); never part of all
+//	-mode repair-placeholders  stored notices the gate withholds: a placeholder
+//	                holder name ("SEE ANNEXURE 1"), or a 604 whose stated change
+//	                is over 50 points; listed, and with -apply and -dry-run=false
+//	                removed with their attempts (placeholder rows keyed to an
+//	                institution are listed and kept); never part of all
 //
 // -dry-run (true unless OWNERSHIP_DRY_RUN=false, so a hand run never writes by
 // accident) reads every source and writes nothing.
@@ -103,7 +104,7 @@ func Run(ctx context.Context, args []string) error {
 	cfg := config{}
 	fs.StringVar(&cfg.mode, "mode", modeAll, "registry | funds | etf | phd | notices | all | repair-placeholders")
 	fs.BoolVar(&cfg.dryRun, "dry-run", defaultDryRun(globals.DryRun), "read every source, write nothing (default true unless OWNERSHIP_DRY_RUN=false)")
-	fs.BoolVar(&cfg.apply, "apply", false, "repair-placeholders: remove the placeholder notices and their attempts (also needs -dry-run=false)")
+	fs.BoolVar(&cfg.apply, "apply", false, "repair-placeholders: remove the notices the gate withholds (a placeholder holder name, or a 604 whose stated change is over 50 points) and their attempts (also needs -dry-run=false)")
 	fs.IntVar(&cfg.limit, "limit", 400, "notices: the most notice PDFs to read this run, newest first")
 	fs.StringVar(&cfg.since, "since", "2024-01-01", "notices: read notices released on or after this date")
 	fs.IntVar(&cfg.workers, "workers", 3, "notices: concurrent PDF downloads")

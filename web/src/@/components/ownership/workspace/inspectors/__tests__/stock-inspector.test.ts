@@ -179,6 +179,58 @@ describe("stockInspectorContent (spec 14.3, Market map)", () => {
   it("writes no em dash anywhere in its copy", () => {
     expect(JSON.stringify(stockInspectorContent(panel(), series))).not.toContain(EM_DASH);
   });
+
+  it("prints the headline and every bar at two decimals, where a notice states four (spec A4)", () => {
+    // A fund's weight in a file can state more than two decimals (3.2345%), so the fund bar is held to the same rule.
+    const fourDp: StockFundSeriesPage = {
+      ...series,
+      funds: [
+        {
+          ...series.funds[0]!,
+          points: [{ asAt: "2026-10-30", weightPct: 3.2345, valueAud: null }],
+        },
+      ],
+    };
+    const content = stockInspectorContent(
+      panel({
+        disclosed: [{ kind: "hedge_fund", pct: 13.131, holders: 2 }],
+        disclosedPct: 13.131,
+        largest: [
+          { name: "Alpha Capital", slug: "alpha", holderKey: "alpha", kind: "hedge_fund", votingPowerPct: 19.4336, asAt: "2026-10-01" },
+          { name: "Beta Super", slug: "beta", holderKey: "beta", kind: "super_fund", votingPowerPct: 5, asAt: "2026-09-01" },
+        ],
+        index: { pct: 3.2, asAt: "2026-10-30" },
+      }),
+      fourDp,
+    );
+    expect(content?.figure).toEqual({ value: "13.13%", caption: "Disclosed by notices" });
+    expect(content?.rows).toEqual([{ label: "Index funds tracked", value: "3.20%" }]);
+    const holders = content?.sections?.find((s) => s.title === "Reported interests");
+    if (holders?.kind !== "bars") throw new Error("expected bars");
+    expect(holders.items.map((b) => b.value)).toEqual(["19.43%", "5.00%"]);
+    const kind = content?.sections?.find((s) => s.title === "By kind");
+    if (kind?.kind !== "bars") throw new Error("expected bars");
+    expect(kind.items[0]?.value).toBe("13.13%");
+    const funds = content?.sections?.find((s) => s.title === "Fund contributions");
+    if (funds?.kind !== "bars") throw new Error("expected bars");
+    expect(funds.items[0]?.value).toBe("3.23% at 2026-10-30");
+  });
+
+  it("prints a measured zero in a bar as 0.00%, and n/a for a figure the panel does not hold", () => {
+    const content = stockInspectorContent(
+      panel({
+        disclosed: [{ kind: "super_fund", pct: 0, holders: 1 }],
+        largest: [{ name: "Gamma", slug: "gamma", holderKey: "gamma", kind: "super_fund", votingPowerPct: null, asAt: "" }],
+      }),
+      null,
+    );
+    const holders = content?.sections?.find((s) => s.title === "Reported interests");
+    if (holders?.kind !== "bars") throw new Error("expected bars");
+    expect(holders.items[0]?.value).toBe("n/a");
+    const kind = content?.sections?.find((s) => s.title === "By kind");
+    if (kind?.kind !== "bars") throw new Error("expected bars");
+    expect(kind.items[0]?.value).toBe("0.00%");
+  });
 });
 
 describe("latestFundWeight", () => {

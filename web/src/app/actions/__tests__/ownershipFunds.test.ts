@@ -323,7 +323,7 @@ describe("the API's fund keys", () => {
     const older = await resolveFundSelection(holdingSel("asx:A200", "CBA"), { asAt: "2026-09-30" });
     expect(mockGetFundPortfolio).toHaveBeenCalledWith({ fundKey: "asx:A200", asAt: "2026-09-30" });
     expect(older?.heading).toBe("CBA in A200");
-    expect(older?.figure?.value).toBe("6.2%");
+    expect(older?.figure?.value).toBe("6.20%");
     const newest = await resolveFundSelection(holdingSel("asx:A200", "CBA"));
     expect(newest?.heading).toBe("CBA in A200");
     expect(newest?.note).toBe("CBA is not reported in this file.");
@@ -351,7 +351,7 @@ describe("the API's fund keys", () => {
     const content = await resolveFundSelection(holdingSel(key, "BHP"));
     expect(mockGetFundPortfolio).toHaveBeenCalledWith({ fundKey: key, asAt: "" });
     expect(content?.heading).toBe("BHP in A200");
-    expect(content?.figure?.value).toBe("2.5%");
+    expect(content?.figure?.value).toBe("2.50%");
   });
 
   it("refuses an inverted pair of dates without a request, and says why in its error", async () => {

@@ -3236,6 +3236,12 @@
             "title": "sector_weights",
             "type": "array"
           },
+          "snapshotCount": {
+            "description": "The number of file dates the fund has on record; a comparison needs two. (proto int32)",
+            "format": "int32",
+            "title": "snapshot_count",
+            "type": "integer"
+          },
           "sourceKind": {
             "description": "etf or super_phd. (proto string)",
             "title": "source_kind",

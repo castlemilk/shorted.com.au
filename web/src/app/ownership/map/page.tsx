@@ -5,7 +5,7 @@ import { OwnershipMap } from "~/@/components/ownership/desk/ownership-map";
 import { MapLede } from "~/@/components/ownership/desk/map-lede";
 import { Inspector } from "~/@/components/ownership/workspace/inspector";
 import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
-import { pageTitle, sectionTitle } from "@/lib/typography";
+import { pageTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import {
   loadInspector,
@@ -13,7 +13,7 @@ import {
   loadStockPanel,
   type OwnershipMapPage,
 } from "~/app/actions/ownershipDesk";
-import { OwnershipMethodology } from "~/@/components/ownership/ownership-parts";
+import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 
 const URL = "https://shorted.com.au/ownership/map";
 const TITLE = "Market map: disclosed ownership by sector";
@@ -55,14 +55,6 @@ export default async function OwnershipMapPage() {
             <h1 className={pageTitle}>Map the market</h1>
             <MapLede />
           </header>
-          <p className="text-xs text-muted-foreground">
-            {/* A failed read is an outage line, never "n/a": the page is cached with it as drawn. */}
-            Default window · Latest available ·{" "}
-            <Link href="/ownership#coverage" prefetch={false} className="text-primary underline-offset-4 hover:underline">
-              Coverage
-            </Link>
-            : substantial notices and tracked index funds
-          </p>
           <OwnershipMap
             initial={map}
             loadMap={loadOwnershipMap}
@@ -75,22 +67,19 @@ export default async function OwnershipMapPage() {
               View all stocks in the registers →
             </Link>
           </p>
-          <section className="space-y-3" aria-labelledby="sources">
-            <h2 id="sources" className={`${sectionTitle} scroll-mt-20`}>
-              Sources and method
-            </h2>
-            <div className="max-w-[80ch] space-y-2 text-xs text-muted-foreground">
-              <p>{FUND_METHOD}</p>
-              <p>
+          {/* The method is folded to one line at the foot of the page (backlog B1); its text stays in the HTML. */}
+          <MethodDisclosure
+            extra={[
+              <p key="fund">{FUND_METHOD}</p>,
+              <p key="notice">
                 {NOTICE_METHOD_BEFORE}
                 <Link href="/ownership/activity" prefetch={false} className="text-primary underline-offset-4 hover:underline">
                   sector heatmap on Activity
                 </Link>
                 {NOTICE_METHOD_AFTER}
-              </p>
-            </div>
-            <OwnershipMethodology className="max-w-[80ch]" />
-          </section>
+              </p>,
+            ]}
+          />
         </div>
       </WorkspacePage>
     </DashboardLayout>

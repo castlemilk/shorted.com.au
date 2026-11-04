@@ -15,7 +15,7 @@ import type { FundSeriesRow, StockFundSeriesPage } from "~/app/actions/ownership
 import type { StockPanelPage } from "../../desk/stock-panel";
 import type { DeskLens } from "../../desk/desk-state";
 import { formatAmount, NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
-import { fundHref, formLabel, formatVotingPower, kindInfo, registerHref } from "~/@/lib/ownership/kinds";
+import { fundHref, formLabel, formatHeadlinePct, kindInfo, registerHref } from "~/@/lib/ownership/kinds";
 import { fundLabel } from "../../funds/fund-model";
 import { shortSector } from "~/@/lib/ownership/kinds";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
@@ -116,7 +116,7 @@ export function stockInspectorContent(
       kind: "bars",
       items: panel.disclosed.map((segment) => ({
         label: kindInfo(segment.kind).label,
-        value: formatVotingPower(segment.pct),
+        value: formatHeadlinePct(segment.pct),
         share: kindMax > 0 ? segment.pct / kindMax : 0,
         detail: `${segment.holders} ${segment.holders === 1 ? "holder" : "holders"}`,
       })),
@@ -131,7 +131,7 @@ export function stockInspectorContent(
       kind: "bars",
       items: holders.map((holder) => ({
         label: holder.name,
-        value: formatVotingPower(holder.votingPowerPct),
+        value: formatHeadlinePct(holder.votingPowerPct),
         share:
           holderMax > 0 && holder.votingPowerPct !== null ? holder.votingPowerPct / holderMax : 0,
       })),
@@ -153,7 +153,7 @@ export function stockInspectorContent(
         label: fundLabel({ ticker: fund.fundCode, name: fund.fundName }),
         href: fundHref(fund.fundKey),
         title: fund.institutionName,
-        value: `${formatVotingPower(latest.pct)} at ${latest.asAt}`,
+        value: `${formatHeadlinePct(latest.pct)} at ${latest.asAt}`,
         // The fund's value in AUD, and its change in shares since its start file (spec 14.10).
         detail: fundDetail(fund),
         share: fundMax > 0 ? latest.pct / fundMax : 0,
@@ -180,16 +180,16 @@ export function stockInspectorContent(
     logo: { kind: "stock", code },
     badges: ["Company"],
     figure: indexLens
-      ? { value: formatVotingPower(panel.index.pct), caption: "Held by tracked index funds" }
+      ? { value: formatHeadlinePct(panel.index.pct), caption: "Held by tracked index funds" }
       : {
-          value: panel.disclosedPct > 0 ? formatVotingPower(panel.disclosedPct) : "n/a",
+          value: panel.disclosedPct > 0 ? formatHeadlinePct(panel.disclosedPct) : "n/a",
           caption: "Disclosed by notices",
         },
     // The figure the lens does not draw sits beside it, so the two readings are both on the rail.
     rows: [
       indexLens
-        ? { label: "Disclosed by notices", value: panel.disclosedPct > 0 ? formatVotingPower(panel.disclosedPct) : "n/a" }
-        : { label: "Index funds tracked", value: formatVotingPower(panel.index.pct) },
+        ? { label: "Disclosed by notices", value: panel.disclosedPct > 0 ? formatHeadlinePct(panel.disclosedPct) : "n/a" }
+        : { label: "Index funds tracked", value: formatHeadlinePct(panel.index.pct) },
     ],
     sections,
     // The lens's own line (spec 14.8), then the bars' caption: what the notices disclose is never a share of the company.

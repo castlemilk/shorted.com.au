@@ -34,7 +34,7 @@ describe("formatCompanyName", () => {
   });
 
   it("preserves separators, numbers and multi-word structure", () => {
-    // Pronounceable code words are NOT shouted — "Rio Tinto" stays as-is.
+    // Pronounceable code words are NOT shouted - "Rio Tinto" stays as-is.
     expect(formatCompanyName("Rio Tinto Ltd", "RIO")).toBe("Rio Tinto");
     expect(formatCompanyName("Wesfarmers", "WES")).toBe("Wesfarmers");
     expect(formatCompanyName("360 CAPITAL GROUP LIMITED", "TGP")).toBe(
@@ -70,7 +70,7 @@ describe("formatCompanyName", () => {
     expect(formatCompanyName("GRAINCORP LIMITED A CLASS ORDINARY", "GNC")).toBe(
       "Graincorp",
     );
-    // Space-less venue form — \b would fail between the "I" and the "1".
+    // Space-less venue form - \b would fail between the "I" and the "1".
     expect(formatCompanyName("NEWMONT CORPORATION CDI1:1FOREXEMPT NYSE", "NEM")).toBe(
       "Newmont",
     );
@@ -134,6 +134,53 @@ describe("formatCompanyName", () => {
 
   it("never strips a suffix that is the whole name", () => {
     expect(formatCompanyName("LIMITED", "LTD")).toBe("Limited");
+  });
+});
+
+describe("formatCompanyName ticker words and plain short words", () => {
+  it("keeps the ticker allowlist capitals in a mixed-case name", () => {
+    expect(formatCompanyName("Rea Group Ltd", "REA")).toBe("REA Group");
+    expect(formatCompanyName("Qbe Insurance Group Limited", "QBE")).toBe(
+      "QBE Insurance Group",
+    );
+    expect(formatCompanyName("Bhp Group Limited", "BHP")).toBe("BHP Group");
+    expect(formatCompanyName("Amp Limited", "AMP")).toBe("AMP");
+  });
+
+  it("keeps RIO a word, not a ticker", () => {
+    expect(formatCompanyName("Rio Tinto Limited", "RIO")).toBe("Rio Tinto");
+  });
+
+  it("title-cases the shouted ticker and plain short words of a shouted name", () => {
+    expect(formatCompanyName("NATIONAL AUSTRALIA BANK LIMITED", "NAB")).toBe(
+      "National Australia Bank",
+    );
+    expect(formatCompanyName("SOUTH32 LIMITED", "S32")).toBe("South32");
+    expect(formatCompanyName("RED METAL LIMITED", "RDM")).toBe("Red Metal");
+    expect(formatCompanyName("OIL SEARCH LIMITED", "OSH")).toBe("Oil Search");
+  });
+
+  it("reads each short register word as a word, not an acronym", () => {
+    // Every PLAIN_SHORT_WORDS entry the ASX register uses; mirrors the Go tables.
+    expect(formatCompanyName("AIR NEW ZEALAND LIMITED", "AIZ")).toBe(
+      "Air New Zealand",
+    );
+    expect(formatCompanyName("ARK MINES LIMITED", "AHK")).toBe("Ark Mines");
+    expect(formatCompanyName("HOT CHILI LIMITED", "HCH")).toBe("Hot Chili");
+    expect(formatCompanyName("BAY RESOURCES LIMITED", "BYR")).toBe(
+      "Bay Resources",
+    );
+    expect(formatCompanyName("SEA CHANGE LIMITED", "SCL")).toBe("Sea Change");
+    expect(formatCompanyName("FOX MAX HOLDINGS LIMITED", "FXM")).toBe(
+      "Fox Max Holdings",
+    );
+  });
+
+  it("leaves an unchanged name and a short acronym alone", () => {
+    expect(formatCompanyName("Commonwealth Bank of Australia", "CBA")).toBe(
+      "Commonwealth Bank of Australia",
+    );
+    expect(formatCompanyName("NIB HOLDINGS LIMITED", "NHF")).toBe("NIB Holdings");
   });
 });
 

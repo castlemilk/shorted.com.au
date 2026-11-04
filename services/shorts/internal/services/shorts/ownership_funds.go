@@ -351,6 +351,9 @@ func fundSummaryProto(e *fundEntry, f shortsstore.FundFileRow, rows []shortsstor
 		InstitutionSlug: e.slug, InstitutionName: e.institutionName, SourceKind: f.SourceKind,
 		Pooled: fundPooled(e.slug, f.SourceKind), AsAt: f.AsAt, SourceUrl: f.SourceURL,
 		Holdings: int32(len(rows)), SectorWeights: fundSectorWeights(rows),
+		// Every file the fund has, the dates CompareFundSnapshots reads: a reader
+		// picks a fund that can be compared from this count.
+		SnapshotCount: int32(len(e.files)),
 	}
 	if out.Ticker == "" && e.registry != nil {
 		out.Ticker = e.registry.ASXCode

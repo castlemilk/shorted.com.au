@@ -6,6 +6,9 @@ import {
   changesCsv,
   cleanFundKey,
   cleanIsoDate,
+  compareCaption,
+  compareOptionLabel,
+  defaultCompareFund,
   defaultPair,
   filterChanges,
   formatDeltaPp,
@@ -13,6 +16,7 @@ import {
   fundLabel,
   heatMix,
   holdingsTreemap,
+  orderFundsForCompare,
   otherWeightOf,
   parseFundKeys,
   patchHref,
@@ -249,5 +253,124 @@ describe("a fund's label (spec 14.8)", () => {
   it("never prints a raw fund key for a super option", () => {
     expect(fundCodeOf("asx:A200")).toBe("A200");
     expect(fundCodeOf("aware/High Growth")).toBe("High Growth");
+  });
+});
+
+describe("the comparison's fund order and default (spec 14.3, B4)", () => {
+  const VAS = { key: "asx:VAS", ticker: "VAS", name: "Vanguard", sourceKind: "etf", snapshotCount: 1 };
+  const IOZ = { key: "asx:IOZ", ticker: "IOZ", name: "iShares", sourceKind: "etf", snapshotCount: 3 };
+  const A200 = { key: "asx:A200", ticker: "A200", name: "Betashares", sourceKind: "etf", snapshotCount: 2 };
+  const HVST = { key: "hostplus/Balanced", ticker: "", name: "Balanced", sourceKind: "super_phd", snapshotCount: 4 };
+
+  it("lists every fund with two file dates first, then the rest, each in the API's order", () => {
+    expect(orderFundsForCompare([VAS, IOZ, A200]).map((fund) => fund.key)).toEqual(["asx:IOZ", "asx:A200", "asx:VAS"]);
+    expect(orderFundsForCompare([VAS, HVST, A200]).map((fund) => fund.key)).toEqual([
+      "hostplus/Balanced",
+      "asx:A200",
+      "asx:VAS",
+    ]);
+  });
+
+  it("keeps a fund with one file in the list, never drops it", () => {
+    expect(orderFundsForCompare([VAS])).toEqual([VAS]);
+    expect(orderFundsForCompare([])).toEqual([]);
+  });
+
+  it("reads a fund that states no count as having none, so it sorts after the comparable funds", () => {
+    const unknown = { key: "asx:NEW", ticker: "NEW", name: "New", sourceKind: "etf" };
+    expect(orderFundsForCompare([unknown, A200]).map((fund) => fund.key)).toEqual(["asx:A200", "asx:NEW"]);
+  });
+
+  it("defaults to the first index fund with two file dates", () => {
+    expect(defaultCompareFund([VAS, IOZ, A200])).toBe(IOZ);
+  });
+
+  it("passes over a super fund option with two files for an index fund with two", () => {
+    expect(defaultCompareFund([HVST, VAS, A200])).toBe(A200);
+  });
+
+  it("falls back to the first fund of any kind with two files when no index fund has two", () => {
+    expect(defaultCompareFund([VAS, HVST])).toBe(HVST);
+  });
+
+  it("falls back to the first fund when none has two files, and to undefined for an empty registry", () => {
+    expect(defaultCompareFund([VAS, { ...A200, snapshotCount: 1 }])).toBe(VAS);
+    expect(defaultCompareFund([])).toBeUndefined();
+  });
+});
+
+describe("a fund's option label (spec 14.3, B4)", () => {
+  it("is the ticker, a middle dot and the name", () => {
+    expect(compareOptionLabel({ ticker: "IOZ", name: "iShares", snapshotCount: 3 })).toBe("IOZ · iShares");
+  });
+
+  it("is the name alone when the fund has no ticker", () => {
+    expect(compareOptionLabel({ ticker: " ", name: "Balanced", snapshotCount: 2 })).toBe("Balanced");
+  });
+
+  it("carries the suffix when the fund has exactly one file date, and never hides it", () => {
+    expect(compareOptionLabel({ ticker: "VAS", name: "Vanguard", snapshotCount: 1 })).toBe("VAS · Vanguard (one file)");
+  });
+
+  it("carries no suffix for a count of 0, which is a count the API did not state, not a fund with no file", () => {
+    expect(compareOptionLabel({ ticker: "VAS", name: "Vanguard", snapshotCount: 0 })).toBe("VAS · Vanguard");
+  });
+
+  it("carries no suffix when the fund states no count, so an unknown count is never read as one file", () => {
+    expect(compareOptionLabel({ ticker: "VAS", name: "Vanguard" })).toBe("VAS · Vanguard");
+  });
+});
+
+describe("the comparison's caption (spec 14.3, B4)", () => {
+  const CAPTION_TAIL = "Reported snapshot change, not a trade record.";
+  const row = (deltaPp: number | null, status = "continuing"): CompareRow => ({
+    code: "X",
+    name: "X",
+    industry: "",
+    weightFrom: 1,
+    weightTo: 1,
+    deltaPp,
+    valueFrom: null,
+    valueTo: null,
+    status,
+  });
+
+  it("names the ticker, the two dates and the count of changed holdings", () => {
+    const rows = [
+      ...Array.from({ length: 10 }, () => row(0.5)),
+      row(null, "new"),
+      row(null, "dropped"),
+      row(0),
+    ];
+    expect(compareCaption("VAS", "2026-10-15", "2026-11-02", rows)).toBe(
+      `VAS, 2026-10-15 against 2026-11-02: 12 holdings changed. ${CAPTION_TAIL}`,
+    );
+  });
+
+  it("counts a continuing holding whose change rounds to 0.01 pp or more, and not one under half of that", () => {
+    expect(compareCaption("VAS", "a", "b", [row(0.005)])).toContain("1 holding changed");
+    expect(compareCaption("VAS", "a", "b", [row(0.0049)])).toContain("no holding changed");
+    expect(compareCaption("VAS", "a", "b", [row(-0.01)])).toContain("1 holding changed");
+  });
+
+  it("reads a count of one in the singular and a count of none as no holding changed", () => {
+    expect(compareCaption("VAS", "a", "b", [row(null, "new")])).toBe(`VAS, a against b: 1 holding changed. ${CAPTION_TAIL}`);
+    expect(compareCaption("VAS", "a", "b", [row(0)])).toBe(`VAS, a against b: no holding changed. ${CAPTION_TAIL}`);
+    expect(compareCaption("VAS", "a", "b", [])).toBe(`VAS, a against b: no holding changed. ${CAPTION_TAIL}`);
+  });
+
+  it("is the bare note when no comparison is on screen", () => {
+    expect(compareCaption("VAS", "", "", [])).toBe(CAPTION_TAIL);
+    expect(compareCaption("VAS", "2026-10-15", "", [row(1)])).toBe(CAPTION_TAIL);
+  });
+
+  it("is the bare note for one file on both sides, which is no comparison", () => {
+    expect(compareCaption("VAS", "a", "a", [])).toBe(CAPTION_TAIL);
+  });
+
+  it("carries no em dash, whatever the comparison", () => {
+    const EM_DASH = String.fromCharCode(0x2014);
+    expect(compareCaption("VAS", "2026-10-15", "2026-11-02", [row(1)])).not.toContain(EM_DASH);
+    expect(compareCaption("VAS", "", "", [])).not.toContain(EM_DASH);
   });
 });

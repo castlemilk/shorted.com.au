@@ -35,6 +35,18 @@ describe("connectionInspectorContent (spec 14.3, Connections; spec 14.7)", () =>
     expect(section.items.map((item) => item.share)).toEqual([1, 0.5, 0.25]);
   });
 
+  it("prints each company's bar figure at two decimals, where the register states four (spec A4)", () => {
+    const content = connectionInspectorContent({
+      holderKind: "index_manager",
+      sector: "Materials",
+      companies: [company("BHP", 13.131), company("RIO", 19.4336), company("FMG", null)],
+      total: 3,
+    });
+    const section = content.sections?.find((s) => s.title === "Companies on this connection");
+    if (section?.kind !== "bars") throw new Error("expected bars");
+    expect(section.items.map((item) => item.value)).toEqual(["19.43%", "13.13%", "n/a"]);
+  });
+
   it("names the selected company, and opens the band's largest company from the primary action", () => {
     const content = connectionInspectorContent({
       holderKind: "index_manager",

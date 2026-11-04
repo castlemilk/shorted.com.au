@@ -293,6 +293,8 @@ function fundRow(fund: FundSummary): FundRow {
     sectorWeights: fund.sectorWeights.map(sectorWeight),
     largest: fund.largest.map(topHolding),
     aumAud: fund.hasAumAud ? fund.aumAud : null,
+    // A count is always stated; an API that predates the field reads as no file on record.
+    snapshotCount: fund.snapshotCount ?? 0,
   };
 }
 

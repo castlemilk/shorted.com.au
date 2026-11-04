@@ -230,4 +230,14 @@ public interface FundSummaryOrBuilder extends
    * @return The hasAumAud.
    */
   boolean getHasAumAud();
+
+  /**
+   * <pre>
+   * The number of file dates the fund has on record; a comparison needs two.
+   * </pre>
+   *
+   * <code>int32 snapshot_count = 17 [json_name = "snapshotCount"];</code>
+   * @return The snapshotCount.
+   */
+  int getSnapshotCount();
 }

@@ -139,7 +139,7 @@ func TestOwnershipReadsAgainstPostgres(t *testing.T) {
 		assert.InDelta(t, 1.3e9, shorts["ZIP"].Issued, 1)
 		companies, err := s.OwnershipCompanies(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, "Zip Co Limited", companies["ZIP"].Name)
+		assert.Equal(t, "Zip Co", companies["ZIP"].Name)
 		require.NotNil(t, companies["ZIP"].MarketCap)
 		assert.InDelta(t, 1.5e9, *companies["ZIP"].MarketCap, 1)
 	})
@@ -155,7 +155,7 @@ func TestOwnershipReadsAgainstPostgres(t *testing.T) {
 		assert.InDelta(t, 1.5e9, *companies["ZIP"].MarketCap, 1)
 		assert.Nil(t, companies["EMP"].MarketCap)
 		assert.Nil(t, companies["NA1"].MarketCap)
-		assert.Equal(t, "Empty Cap Ltd", companies["EMP"].Name)
+		assert.Equal(t, "Empty Cap", companies["EMP"].Name)
 	})
 }
 
@@ -648,7 +648,7 @@ func TestOwnershipDeskAgainstPostgres(t *testing.T) {
 			byFile[strconv.FormatInt(h.SnapshotID, 10)+"|"+h.StockCode] = h
 		}
 		bhpSpring := byFile["3|BHP"]
-		assert.Equal(t, "BHP Group Limited", bhpSpring.SecurityName, "company-metadata's name, not the file's")
+		assert.Equal(t, "BHP Group", bhpSpring.SecurityName, "company-metadata's name, not the file's")
 		assert.Equal(t, "Materials", bhpSpring.Industry)
 		require.NotNil(t, bhpSpring.SharesIssued)
 		assert.InDelta(t, 2000, *bhpSpring.SharesIssued, 1e-9, "20 June is 10 days before the 30 June file")
@@ -660,12 +660,12 @@ func TestOwnershipDeskAgainstPostgres(t *testing.T) {
 		assert.Equal(t, "2026-10-14", bhpAutumn.SharesAsAt)
 
 		wbc := byFile["1|WBC"]
-		assert.Equal(t, "WESTPAC", wbc.SecurityName, "not in company-metadata: the file's name")
+		assert.Equal(t, "Westpac", wbc.SecurityName, "not in company-metadata: the file's name")
 		assert.Nil(t, wbc.SharesIssued, "a report 121 days before the file is too old to use")
 		assert.Empty(t, wbc.SharesAsAt)
 
 		zip := byFile["1|ZIP"]
-		assert.Equal(t, "Zip Co Limited", zip.SecurityName)
+		assert.Equal(t, "Zip Co", zip.SecurityName)
 		assert.Nil(t, zip.SharesIssued, "no ASIC row at all is nil, not zero")
 	})
 
@@ -680,7 +680,7 @@ func TestOwnershipDeskAgainstPostgres(t *testing.T) {
 
 		zip := byCode["ZIP"]
 		assert.True(t, zip.InFrom && zip.InTo, "held on both dates")
-		assert.Equal(t, "Zip Co Limited", zip.SecurityName)
+		assert.Equal(t, "Zip Co", zip.SecurityName)
 		assert.Equal(t, "Financial Services", zip.Industry)
 		require.NotNil(t, zip.FromWeight)
 		require.NotNil(t, zip.ToWeight)
@@ -689,7 +689,7 @@ func TestOwnershipDeskAgainstPostgres(t *testing.T) {
 
 		wbc := byCode["WBC"]
 		assert.True(t, wbc.InFrom && !wbc.InTo, "dropped: only on the earlier file")
-		assert.Equal(t, "WESTPAC", wbc.SecurityName, "no company-metadata row: the earlier file's name")
+		assert.Equal(t, "Westpac", wbc.SecurityName, "no company-metadata row: the earlier file's name")
 		assert.Nil(t, wbc.ToWeight)
 
 		pls := byCode["PLS"]
@@ -723,7 +723,7 @@ func flowOf(flows map[string]NoticeFlow, code string) NoticeFlow {
 // ownershipDeskSeed is the desk's notices, a stock and an institution set, and
 // the fund snapshots the desk's pairs and series read.
 const ownershipDeskSeed = `
-INSERT INTO "company-metadata" VALUES ('BHP', 'BHP Group Limited', 'Materials', 200000000000),
+INSERT INTO "company-metadata" VALUES ('BHP', 'Bhp Group Limited', 'Materials', 200000000000),
 	('PLS', 'PLS Group', 'Materials', 3000000000), ('CBA', 'Commonwealth Bank of Australia', 'Banks', 250000000000),
 	('ZIP', 'Zip Co Limited', 'Financial Services', 1500000000);
 INSERT INTO ownership_institutions (slug, name, kind) VALUES

@@ -7,6 +7,8 @@ import {
   WITHHOLDING_OUTCOMES,
   asAtRange,
   fundHref,
+  formatHeadlinePct,
+  formatVotingPower,
   holderHref,
   isInstitutionSlug,
   isPooledFile,
@@ -14,6 +16,44 @@ import {
   registerHref,
   shortSector,
 } from "../kinds";
+import { formatSum } from "~/@/components/ownership/ownership-parts";
+
+describe("formatHeadlinePct (spec A4)", () => {
+  it("prints a headline at two decimals, where the notice states four", () => {
+    expect(formatHeadlinePct(19.4336)).toBe("19.43%");
+    expect(formatHeadlinePct(13.131)).toBe("13.13%");
+  });
+
+  it("pads a whole figure to two decimals", () => {
+    expect(formatHeadlinePct(5)).toBe("5.00%");
+  });
+
+  it("prints a measured zero as 0.00%, never as a missing figure", () => {
+    expect(formatHeadlinePct(0)).toBe("0.00%");
+  });
+
+  it("prints n/a for a figure the page does not hold: null, undefined, NaN and infinity", () => {
+    expect(formatHeadlinePct(null)).toBe("n/a");
+    expect(formatHeadlinePct(undefined)).toBe("n/a");
+    expect(formatHeadlinePct(Number.NaN)).toBe("n/a");
+    expect(formatHeadlinePct(Number.POSITIVE_INFINITY)).toBe("n/a");
+  });
+
+  it("takes a true minus for a negative figure, as the rest of the copy does", () => {
+    expect(formatHeadlinePct(-2.5)).toBe("−2.50%");
+  });
+
+  it("keeps the notice's own precision in formatVotingPower, which the headline does not use", () => {
+    expect(formatVotingPower(19.4336)).toBe("19.4336%");
+    expect(formatHeadlinePct(19.4336)).not.toBe(formatVotingPower(19.4336));
+  });
+
+  it("prints what formatSum prints, the pair the kinds.ts comment names", () => {
+    for (const v of [19.4336, 13.131, 5, 0, -2.5, null, undefined, Number.NaN]) {
+      expect(formatHeadlinePct(v)).toBe(formatSum(v));
+    }
+  });
+});
 
 describe("shortSector (spec 14.9)", () => {
   it("maps every GICS industry group the API names to a short label", () => {

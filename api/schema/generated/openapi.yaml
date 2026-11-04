@@ -7356,6 +7356,11 @@ components:
           type: boolean
           title: has_aum_aud
           description: (proto bool)
+        snapshotCount:
+          type: integer
+          title: snapshot_count
+          format: int32
+          description: The number of file dates the fund has on record; a comparison needs two. (proto int32)
       title: FundSummary
       additionalProperties: false
       description: A tracked fund at one file date.

@@ -876,6 +876,8 @@ message FundSummary {
   repeated FundTopHolding largest = 14;
   double aum_aud = 15;
   bool has_aum_aud = 16;
+  // The number of file dates the fund has on record; a comparison needs two.
+  int32 snapshot_count = 17;
 }
 
 message ListFundsResponse {

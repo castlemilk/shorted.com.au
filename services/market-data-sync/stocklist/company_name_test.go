@@ -2,7 +2,7 @@ package stocklist
 
 import "testing"
 
-// Mirrors web/src/@/lib/__tests__/company-name.test.ts — the two layers must
+// Mirrors web/src/@/lib/__tests__/company-name.test.ts - the two layers must
 // agree on what a display-ready company name looks like.
 func TestCleanCompanyName(t *testing.T) {
 	cases := []struct {
@@ -66,6 +66,30 @@ func TestCleanCompanyName(t *testing.T) {
 		{"LIMITED", "LTD", "Limited"},
 		// Empty stays empty (stocklist upsert relies on NULLIF(name, '')).
 		{"", "BHP", ""},
+		// Tickers in companyTickerWords stay capitals in a mixed-case name too.
+		{"Bhp Group Limited", "BHP", "BHP Group"},
+		{"Rea Group Ltd", "REA", "REA Group"},
+		{"Qbe Insurance Group Limited", "QBE", "QBE Insurance Group"},
+		{"Amp Limited", "AMP", "AMP"},
+		{"Csl Limited", "CSL", "CSL"},
+		{"ASX LIMITED", "ASX", "ASX"},
+		// RIO is deliberately not a ticker word: "Rio Tinto" is a word.
+		{"Rio Tinto Limited", "RIO", "Rio Tinto"},
+		{"National Australia Bank Limited", "NAB", "National Australia Bank"},
+		{"South32 Limited", "S32", "South32"},
+		{"Commonwealth Bank of Australia", "CBA", "Commonwealth Bank of Australia"},
+		// A short shouted English word is title-cased, not read as an acronym.
+		{"RED METAL LIMITED", "RDM", "Red Metal"},
+		{"OIL SEARCH LIMITED", "OSH", "Oil Search"},
+		// A short shouted acronym that is not a plain word stays capitals.
+		{"NIB HOLDINGS LIMITED", "NHF", "NIB Holdings"},
+		// Every plainShortWords entry the register uses reads as a word.
+		{"AIR NEW ZEALAND LIMITED", "AIZ", "Air New Zealand"},
+		{"ARK MINES LIMITED", "AHK", "Ark Mines"},
+		{"HOT CHILI LIMITED", "HCH", "Hot Chili"},
+		{"BAY RESOURCES LIMITED", "BYR", "Bay Resources"},
+		{"SEA CHANGE LIMITED", "SCL", "Sea Change"},
+		{"FOX MAX HOLDINGS LIMITED", "FXM", "Fox Max Holdings"},
 	}
 	for _, tc := range cases {
 		if got := cleanCompanyName(tc.name, tc.code); got != tc.want {

@@ -264,6 +264,25 @@ describe("OwnershipMap island", () => {
     expect(within(bhp as HTMLElement).getByText("41.20%")).toBeInTheDocument();
   });
 
+  it("states the read-to date, the window and the fund comparison in one coverage line, with the Coverage link", () => {
+    const fundPage = page({
+      fundsCompared: 2,
+      startFilesFrom: "2026-09-01",
+      startFilesTo: "2026-09-01",
+      endFilesFrom: "2026-10-30",
+      endFilesTo: "2026-10-30",
+    });
+    render(<OwnershipMap initial={fundPage} loadMap={jest.fn()} loadPanel={jest.fn()} />);
+    const line = screen.getByText("the last 91 days").closest("p") as HTMLElement;
+    expect(line).toHaveTextContent(
+      "Notices read to 2026-10-12 · the last 91 days · 2 funds compared, files 2026-09-01 against 2026-10-30 · Coverage",
+    );
+    expect(within(line).getByRole("link", { name: "Coverage" })).toHaveAttribute("href", "/ownership#coverage");
+    // The caption under the drawing no longer repeats the window, and the legend holds no second copy of the files.
+    expect(screen.queryByText(/The net change and the notice counts cover/)).toBeNull();
+    expect(screen.getAllByText(/2 funds compared, files 2026-09-01 against 2026-10-30/)).toHaveLength(1);
+  });
+
   it("follows a link moved by hand, without asking again for a window it already holds", () => {
     const loadMap = jest.fn().mockResolvedValue(page());
     const { rerender } = render(<OwnershipMap initial={page()} loadMap={loadMap} loadPanel={jest.fn()} />);

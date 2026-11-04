@@ -386,10 +386,38 @@ describe("OwnershipPage coverage and sources", () => {
 
     expect(container.querySelector("section#coverage")).not.toBeNull();
     expect(container.querySelector("#method")).toHaveClass("scroll-mt-20");
+    expect(container.querySelector("details#method")).not.toHaveAttribute("open");
     expect(screen.getByRole("link", { name: "Report an error" })).toHaveAttribute(
       "href",
       "mailto:support@shorted.com.au?subject=Ownership%20data%3A%20hub",
     );
+  });
+
+  // The dated source list folds into the method, and the error report sits under the disclosure.
+  it("folds the mocked source lines into the closed method, with the error report after it", async () => {
+    getOwnershipOverview.mockResolvedValue(
+      overview({
+        noticesParsed: 7118,
+        superFunds: 72,
+        asOf: "2026-10-16",
+        sources: [
+          source({
+            source: "etf",
+            description: "Index fund files from the ASX",
+            records: 412,
+            funds: 11,
+            asAt: "2026-10-19",
+            asAtFrom: "2026-09-30",
+          }),
+        ],
+      }),
+    );
+    const { container } = render(await OwnershipPage());
+
+    const method = container.querySelector("details#method") as HTMLElement;
+    expect(method).not.toHaveAttribute("open");
+    expect(method.textContent).toContain("Index fund files from the ASX: 412 records");
+    expect(method.nextElementSibling).toContainElement(screen.getByRole("link", { name: "Report an error" }));
   });
 
   it("links the latest notices to the feed", async () => {

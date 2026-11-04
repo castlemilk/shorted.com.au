@@ -1,10 +1,9 @@
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
 import { industryLabel } from "~/@/lib/industry-placeholder";
-import { fundHref } from "~/@/lib/ownership/kinds";
+import { fundHref, formatHeadlinePct } from "~/@/lib/ownership/kinds";
 import {
   formatDeltaPp,
-  formatWeight,
   statusLabel,
   type CompareRow,
   fundLabel,
@@ -59,7 +58,7 @@ export function changeInspectorContent(input: ChangeInspectorInput): InspectorCo
     subtitle: `${row.name} · ${industryLabel(row.industry) || NOT_AVAILABLE}`,
     logo: { kind: "stock", code: row.code },
     figure: {
-      value: `${formatWeight(row.weightFrom)} → ${formatWeight(row.weightTo)}`,
+      value: `${formatHeadlinePct(row.weightFrom)} → ${formatHeadlinePct(row.weightTo)}`,
       caption: deltaWords(row.deltaPp),
       tone: row.deltaPp === null || row.deltaPp === 0 ? undefined : row.deltaPp > 0 ? "up" : "down",
     },

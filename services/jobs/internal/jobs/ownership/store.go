@@ -208,13 +208,13 @@ func (s *pgStore) RelinkNotices(ctx context.Context) (int, error) {
 	return batch.Len(), nil
 }
 
-// StoredNotices reads every stored notice's holder for the placeholder repair.
-// The repair judges the names in Go (placeholderRows), so the rule is the
-// parser's own and is not copied into SQL.
+// StoredNotices reads every stored notice's holder and figures for the repair
+// (placeholderRows and implausibleChangeRows). The repair judges them in Go, so
+// the rules are the parser's own and are not copied into SQL.
 func (s *pgStore) StoredNotices(ctx context.Context) ([]storedNotice, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT announcement_url, stock_code, holder_key, COALESCE(holder_name, ''), present_pct,
-		       announced_on::text, form, ceased
+		       previous_pct, announced_on::text, form, ceased
 		FROM substantial_holder_notices
 		ORDER BY announced_on DESC, announcement_url`)
 	if err != nil {
@@ -225,7 +225,7 @@ func (s *pgStore) StoredNotices(ctx context.Context) ([]storedNotice, error) {
 	for rows.Next() {
 		var n storedNotice
 		if err := rows.Scan(&n.URL, &n.StockCode, &n.HolderKey, &n.HolderName, &n.PresentPct,
-			&n.AnnouncedOn, &n.Form, &n.Ceased); err != nil {
+			&n.PreviousPct, &n.AnnouncedOn, &n.Form, &n.Ceased); err != nil {
 			return nil, err
 		}
 		out = append(out, n)
