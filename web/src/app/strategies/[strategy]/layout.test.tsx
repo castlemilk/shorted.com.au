@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 import StrategyLayout, { dynamicParams, generateStaticParams } from "./layout";
@@ -140,8 +140,9 @@ describe("StrategyLayout", () => {
     await renderLayout("canslim");
     const bar = screen.getByRole("navigation", { name: "Strategy sections" });
     const overview = within(bar).getByRole("link", { name: "Overview" });
-    overview.dispatchEvent(new Event("pointerenter", { bubbles: true }));
-    overview.dispatchEvent(new Event("focus"));
+    fireEvent.pointerEnter(overview);
+    fireEvent.touchStart(overview);
+    fireEvent.focus(overview);
     expect(prefetch).not.toHaveBeenCalled();
   });
 
