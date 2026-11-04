@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"slices"
 	"strings"
@@ -15,8 +16,9 @@ import (
 // when it exits, how much it buys and what each trade costs. It is hashed
 // apart from the rules, so the same rules can be traded two ways, and every
 // backtest run names both hashes. The r1 recipes are the values the product
-// publishes; once a recipe is registered its values and this layout are
-// frozen, and a change is a new recipe id.
+// publishes. Their values and this layout are frozen as committed, whether or
+// not a version registers them: a change is a new recipe id, and
+// recipe_hashes.golden only gains lines.
 
 // RecipeSchema is the layout of Recipe. A change to the layout bumps it, which
 // changes every recipe hash.
@@ -130,8 +132,23 @@ type SpreadTier struct {
 
 var recipeIDPattern = regexp.MustCompile(`^[a-z]+-r[1-9][0-9]*$`)
 
+// statusOrder is the only order a status exit lists its statuses in: a status
+// exit names each status once, watch before none. One order means one encoding.
+var statusOrder = []string{statusWatch, statusNone}
+
+// fundamentalsStrategies are the strategies whose rules read company statements.
+// Their backtest starts at computable_from, the first session those statements
+// are computable (5.15); the others start at a fixed date.
+var fundamentalsStrategies = []string{StrategyZangerBreakout, StrategyCANSLIM, StrategyQualityCompounders}
+
+// firstTotalReturnDate is the first full month of XJT's total-return history. A
+// fixed window starts no earlier, so every run is total return against XJT.
+const firstTotalReturnDate = "2019-05-01"
+
 // Validate reports every way the recipe is not one the engine can run. A nil
 // error means the recipe is well formed; it does not mean it is registered.
+// Each behaviour has one encoding: a recipe that spells the same behaviour a
+// second way is refused, because the hash would name two recipes for one.
 func (r Recipe) Validate() error {
 	var problems []string
 	add := func(format string, args ...any) {
@@ -146,6 +163,7 @@ func (r Recipe) Validate() error {
 	if !slices.Contains(strategyOrder, r.StrategyID) {
 		add("strategy %q is not a canonical strategy", r.StrategyID)
 	}
+	validateFinite(r, add)
 	validateEntry(r.Entry, add)
 	validateExits(r.Exits, add)
 	validateSizing(r.Sizing, add)
@@ -171,21 +189,69 @@ func (r Recipe) Validate() error {
 	if r.Reference != ReferenceCrowdedShorts && r.Reference != ReferenceLiquidOrdinary {
 		add("reference %q", r.Reference)
 	}
+	if r.Reference == ReferenceCrowdedShorts && r.StrategyID != StrategyCrowdedShortBreakout {
+		add("reference %s is for %s only", ReferenceCrowdedShorts, StrategyCrowdedShortBreakout)
+	}
 	if r.Delisting != DelistingExitLast {
 		add("delisting %q, want %s", r.Delisting, DelistingExitLast)
 	}
-	if r.WindowStart != WindowComputableFrom {
+	fundamentals := slices.Contains(fundamentalsStrategies, r.StrategyID)
+	switch {
+	case r.WindowStart == WindowComputableFrom:
+		if !fundamentals {
+			add("window_start %s is for fundamentals strategies only", WindowComputableFrom)
+		}
+	default:
 		if _, err := time.Parse("2006-01-02", r.WindowStart); err != nil {
 			add("window_start %q is neither a date nor %s", r.WindowStart, WindowComputableFrom)
+			break
+		}
+		if fundamentals {
+			add("fundamentals strategy %s must start at %s", r.StrategyID, WindowComputableFrom)
+		}
+		if r.WindowStart < firstTotalReturnDate {
+			add("window_start %s is before %s, the first total-return session against XJT", r.WindowStart, firstTotalReturnDate)
 		}
 	}
 	if r.Fundamentals != FundamentalsStrict && r.Fundamentals != FundamentalsApprox {
 		add("fundamentals %q", r.Fundamentals)
 	}
+	if r.Fundamentals == FundamentalsApprox && !fundamentals {
+		add("approximate fundamentals are for fundamentals strategies only")
+	}
 	if len(problems) > 0 {
 		return fmt.Errorf("recipe %q: %s", r.ID, strings.Join(problems, "; "))
 	}
 	return nil
+}
+
+// validateFinite refuses every float that is not an ordinary number. NaN and the
+// infinities have no JSON encoding, so a recipe holding one has no hash.
+func validateFinite(r Recipe, add func(string, ...any)) {
+	check := func(name string, v float64) {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			add("%s is not a finite number", name)
+		}
+	}
+	check("capital", r.Capital)
+	check("sizing.weight_pct", r.Sizing.WeightPct)
+	check("sizing.capacity_pct_dv20", r.Sizing.CapacityPctDV20)
+	check("costs.brokerage_bps", r.Costs.BrokerageBps)
+	check("costs.brokerage_min_aud", r.Costs.BrokerageMinAUD)
+	check("costs.multiplier", r.Costs.Multiplier)
+	if r.Entry.MaxAbovePivotPct != nil {
+		check("entry.max_above_pivot_pct", *r.Entry.MaxAbovePivotPct)
+	}
+	for i, x := range r.Exits {
+		check(fmt.Sprintf("exits[%d] pct", i), x.Pct)
+	}
+	if r.Costs.FlatSlippageBps != nil {
+		check("costs.flat_slippage_bps", *r.Costs.FlatSlippageBps)
+	}
+	for i, t := range r.Costs.SpreadTiers {
+		check(fmt.Sprintf("spread tier %d min_dv20_aud", i), t.MinDV20AUD)
+		check(fmt.Sprintf("spread tier %d bps", i), t.Bps)
+	}
 }
 
 func validateEntry(e EntryRule, add func(string, ...any)) {
@@ -208,6 +274,7 @@ func validateExits(exits []ExitRule, add func(string, ...any)) {
 		add("no exits")
 		return
 	}
+	timeStops, stopLosses := 0, 0
 	for i, x := range exits {
 		if x.Kind != ExitStopLoss && x.Pct != 0 {
 			add("exits[%d] pct is set on %s", i, x.Kind)
@@ -218,16 +285,16 @@ func validateExits(exits []ExitRule, add func(string, ...any)) {
 		if x.Kind != ExitStatusFalls && len(x.Statuses) != 0 {
 			add("exits[%d] statuses are set on %s", i, x.Kind)
 		}
-		if x.Sessions < 0 {
-			add("exits[%d] sessions %d, want zero or more", i, x.Sessions)
-		}
 		switch x.Kind {
 		case ExitClosePivot:
+			validCloses(i, x, add)
 		case ExitTimeStop:
+			timeStops++
 			if x.Sessions < 1 {
 				add("exits[%d] time_stop needs sessions of at least 1", i)
 			}
 		case ExitStopLoss:
+			stopLosses++
 			if x.Sessions != 0 {
 				add("exits[%d] stop_loss takes no sessions", i)
 			}
@@ -235,21 +302,43 @@ func validateExits(exits []ExitRule, add func(string, ...any)) {
 				add("exits[%d] stop_loss pct %s, want between 0 and 100", i, FormatNumber(x.Pct))
 			}
 		case ExitCloseBelowSMA:
+			validCloses(i, x, add)
 			if x.SMA != 50 && x.SMA != 200 {
 				add("exits[%d] close_below_sma sma %d, want 50 or 200", i, x.SMA)
 			}
 		case ExitStatusFalls:
+			validCloses(i, x, add)
 			if len(x.Statuses) == 0 {
 				add("exits[%d] status_falls_to needs statuses", i)
 			}
+			last := -1
 			for _, s := range x.Statuses {
-				if s != statusWatch && s != statusNone {
+				rank := slices.Index(statusOrder, s)
+				switch {
+				case rank < 0:
 					add("exits[%d] status %q, want watch or none", i, s)
+				case rank <= last:
+					add("exits[%d] statuses must be watch then none, each once", i)
 				}
+				last = max(last, rank)
 			}
 		default:
 			add("exits[%d] %q: unknown kind", i, x.Kind)
 		}
+	}
+	if timeStops > 1 {
+		add("at most one time_stop exit, found %d", timeStops)
+	}
+	if stopLosses > 1 {
+		add("at most one stop_loss exit, found %d", stopLosses)
+	}
+}
+
+// validCloses requires an exit that counts closes to name its count. A count of
+// one is written as 1, never left at the zero value, so it has one encoding.
+func validCloses(i int, x ExitRule, add func(string, ...any)) {
+	if x.Sessions < 1 {
+		add("exits[%d] %s sessions %d, want at least 1 consecutive close", i, x.Kind, x.Sessions)
 	}
 }
 
@@ -285,7 +374,7 @@ func validateCosts(c Costs, add func(string, ...any)) {
 		if *c.FlatSlippageBps < 0 {
 			add("costs.flat_slippage_bps %s, want zero or more", FormatNumber(*c.FlatSlippageBps))
 		}
-		if len(c.SpreadTiers) > 0 {
+		if c.SpreadTiers != nil {
 			add("flat slippage replaces the spread tiers, which must then be empty")
 		}
 		return

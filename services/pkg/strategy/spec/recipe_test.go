@@ -2,6 +2,7 @@ package spec
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,6 +60,8 @@ func TestRecipeValidAcceptsWellFormed(t *testing.T) {
 	}
 
 	stale := testRecipe()
+	stale.StrategyID = StrategyQualityCompounders
+	stale.Reference = ReferenceLiquidOrdinary
 	stale.WindowStart = WindowComputableFrom
 	stale.Entry.MaxAbovePivotPct = ptrFloat(5)
 	stale.Exits = []ExitRule{{Kind: ExitStopLoss, Pct: 8}, {Kind: ExitCloseBelowSMA, SMA: 200, Sessions: 5}, {Kind: ExitStatusFalls, Statuses: []string{statusWatch, statusNone}, Sessions: 5}}
@@ -120,6 +123,41 @@ func TestRecipeValidationRefusesEachBrokenField(t *testing.T) {
 		{"delisting", func(r *Recipe) { r.Delisting = "ignore" }, "delisting"},
 		{"window start", func(r *Recipe) { r.WindowStart = "2019-13-01" }, "neither a date nor computable_from"},
 		{"fundamentals", func(r *Recipe) { r.Fundamentals = "loose" }, "fundamentals"},
+		{"zero sessions on a pivot exit", func(r *Recipe) { r.Exits = []ExitRule{{Kind: ExitClosePivot}} }, "want at least 1 consecutive close"},
+		{"zero sessions on a status exit", func(r *Recipe) {
+			r.Exits = []ExitRule{{Kind: ExitStatusFalls, Statuses: []string{statusNone}}}
+		}, "want at least 1 consecutive close"},
+		{"duplicate statuses", func(r *Recipe) {
+			r.Exits = []ExitRule{{Kind: ExitStatusFalls, Statuses: []string{statusWatch, statusWatch, statusNone}, Sessions: 1}}
+		}, "each once"},
+		{"statuses out of order", func(r *Recipe) {
+			r.Exits = []ExitRule{{Kind: ExitStatusFalls, Statuses: []string{statusNone, statusWatch}, Sessions: 1}}
+		}, "watch then none"},
+		{"two time stops", func(r *Recipe) {
+			r.Exits = []ExitRule{{Kind: ExitTimeStop, Sessions: 5}, {Kind: ExitTimeStop, Sessions: 20}}
+		}, "at most one time_stop"},
+		{"two stop losses", func(r *Recipe) {
+			r.Exits = []ExitRule{{Kind: ExitStopLoss, Pct: 8}, {Kind: ExitStopLoss, Pct: 5}}
+		}, "at most one stop_loss"},
+		{"NaN brokerage", func(r *Recipe) { r.Costs.BrokerageBps = math.NaN() }, "costs.brokerage_bps is not a finite number"},
+		{"infinite tier", func(r *Recipe) {
+			r.Costs.SpreadTiers = []SpreadTier{{MinDV20AUD: math.Inf(1), Bps: 5}, {MinDV20AUD: 0, Bps: 75}}
+		}, "spread tier 0 min_dv20_aud is not a finite number"},
+		{"NaN max above pivot", func(r *Recipe) { r.Entry.MaxAbovePivotPct = ptrFloat(math.NaN()) }, "max_above_pivot_pct is not a finite number"},
+		{"infinite stop", func(r *Recipe) { r.Exits = []ExitRule{{Kind: ExitStopLoss, Pct: math.Inf(1)}} }, "exits[0] pct is not a finite number"},
+		{"empty spread tiers with flat slippage", func(r *Recipe) {
+			r.Costs = Costs{BrokerageBps: 10, FlatSlippageBps: ptrFloat(5), SpreadTiers: []SpreadTier{}, Multiplier: 1}
+		}, "must then be empty"},
+		{"fixed window before XJT history", func(r *Recipe) { r.WindowStart = "2001-01-01" }, "before 2019-05-01"},
+		{"computable_from on a non-fundamentals strategy", func(r *Recipe) { r.WindowStart = WindowComputableFrom }, "fundamentals strategies only"},
+		{"fixed window on a fundamentals strategy", func(r *Recipe) {
+			r.StrategyID = StrategyCANSLIM
+			r.Reference = ReferenceLiquidOrdinary
+		}, "must start at computable_from"},
+		{"approximate fundamentals on a non-fundamentals strategy", func(r *Recipe) { r.Fundamentals = FundamentalsApprox }, "approximate fundamentals are for fundamentals strategies only"},
+		{"crowded-short reference on another strategy", func(r *Recipe) {
+			r.StrategyID = StrategyMinerviniTrend
+		}, "is for crowded-short-breakout only"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
