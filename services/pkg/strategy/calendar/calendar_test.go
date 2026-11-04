@@ -62,7 +62,7 @@ func TestPublishedOnUsesDataCalendar(t *testing.T) {
 	)
 	closed := []string{"2019-04-19", "2019-04-22", "2019-04-25"}
 	sessions := weekdays(t, "2019-04-01", "2019-04-30", closed...)
-	c := New(sessions, sessions)
+	c := New(sessions, sessions, PublicationLagSessions)
 
 	got, ok := c.PublishedOn(mustDate(t, report))
 	if !ok {
@@ -89,7 +89,7 @@ func TestSpuriousIndexBarDoesNotMakeAvailabilityEarly(t *testing.T) {
 	asic := weekdays(t, "2022-12-19", "2022-12-30", "2022-12-26", "2022-12-27")
 	// Index bars carry every weekday but the 26th, so the 27th is the spurious bar.
 	index := weekdays(t, "2022-12-19", "2022-12-30", "2022-12-26")
-	c := New(index, asic)
+	c := New(index, asic, PublicationLagSessions)
 
 	got, ok := c.PublishedOn(mustDate(t, "2022-12-21"))
 	if !ok {
@@ -108,8 +108,8 @@ func TestSpuriousIndexBarDoesNotMakeAvailabilityEarly(t *testing.T) {
 // earlier, and the gap is counted as a mismatch.
 func TestMissingSessionOnlyDelays(t *testing.T) {
 	asic := weekdays(t, "2026-02-23", "2026-03-20")
-	full := New(asic, asic)
-	gappy := New(without(asic, mustDate(t, "2026-03-04")), asic)
+	full := New(asic, asic, PublicationLagSessions)
+	gappy := New(without(asic, mustDate(t, "2026-03-04")), asic, PublicationLagSessions)
 
 	report := mustDate(t, "2026-03-02")
 	before, ok := full.PublishedOn(report)
@@ -139,7 +139,7 @@ func TestMissingSessionOnlyDelays(t *testing.T) {
 
 func TestUsableAtTheDecisionClose(t *testing.T) {
 	asic := weekdays(t, "2026-02-23", "2026-03-20")
-	c := New(asic, asic)
+	c := New(asic, asic, PublicationLagSessions)
 	report := mustDate(t, "2026-03-02")
 	if c.Usable(report, mustDate(t, "2026-03-05")) {
 		t.Error("report usable before its fourth session")
@@ -151,7 +151,7 @@ func TestUsableAtTheDecisionClose(t *testing.T) {
 
 func TestSessionsBetweenCountsSessionsAfterFrom(t *testing.T) {
 	asic := weekdays(t, "2026-02-23", "2026-03-20")
-	c := New(asic, asic)
+	c := New(asic, asic, PublicationLagSessions)
 	cases := []struct {
 		from, to string
 		want     int
@@ -174,7 +174,7 @@ func TestPastTheNewestDataUsesTheHolidayTable(t *testing.T) {
 	// is skipped and Easter Monday (6 April) too.
 	asic := weekdays(t, "2026-02-23", "2026-03-02")
 	index := weekdays(t, "2026-02-23", "2026-03-03")
-	c := New(index, asic)
+	c := New(index, asic, PublicationLagSessions)
 	got, ok := c.PublishedOn(mustDate(t, "2026-03-31"))
 	if !ok {
 		t.Fatal("no publication date")
@@ -182,4 +182,38 @@ func TestPastTheNewestDataUsesTheHolidayTable(t *testing.T) {
 	if got != mustDate(t, "2026-04-08") {
 		t.Errorf("PublishedOn(2026-03-31) = %s, want 2026-04-08 (Good Friday and Easter Monday skipped)", got)
 	}
+}
+
+// TestPublicationLagIsAParameter: a run with another lag reads its own
+// availability dates. Six sessions after 2 March 2026 is 10 March; a lag of
+// zero makes the report public on its own date.
+func TestPublicationLagIsAParameter(t *testing.T) {
+	asic := weekdays(t, "2026-02-23", "2026-03-20")
+	report := mustDate(t, "2026-03-02")
+	tests := []struct {
+		lag  int
+		want string
+	}{
+		{0, "2026-03-02"},
+		{PublicationLagSessions, "2026-03-06"},
+		{6, "2026-03-10"},
+	}
+	for _, tc := range tests {
+		got, ok := New(asic, asic, tc.lag).PublishedOn(report)
+		if !ok || got != mustDate(t, tc.want) {
+			t.Errorf("lag %d: PublishedOn = %s (ok %v), want %s", tc.lag, got, ok, tc.want)
+		}
+	}
+	if PublicationLagSessions != asxcalendar.PublicationLagTradingDays {
+		t.Errorf("PublicationLagSessions = %d, want the public history lag %d", PublicationLagSessions, asxcalendar.PublicationLagTradingDays)
+	}
+}
+
+func TestNegativeLagPanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Error("New with a negative lag did not panic")
+		}
+	}()
+	New(nil, nil, -1)
 }

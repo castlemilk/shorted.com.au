@@ -36,7 +36,7 @@ func weekdaysFrom(t *testing.T, first string, n int) []civil.Date {
 func testCalendar(t *testing.T) *calendar.Calendar {
 	t.Helper()
 	days := weekdaysFrom(t, "2026-07-01", 120)
-	return calendar.New(days, days)
+	return calendar.New(days, days, calendar.PublicationLagSessions)
 }
 
 // barsFrom returns n weekday bars starting at first, each closing at 100 on a

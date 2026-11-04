@@ -24,9 +24,11 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
 )
 
-// PublicationLagSessions is ASIC's publication lag, in sessions of this
-// calendar: a report for date R is public from the fourth session after R.
-const PublicationLagSessions = asxcalendar.PublicationLagTradingDays
+// PublicationLagSessions is the v1 publication lag, in sessions of this
+// calendar: a report for date R is public from the fourth session after R. It
+// is the value the v1 policy carries; the lag is a parameter of New, so a run
+// with another lag (a sensitivity run) reads its own availability dates.
+const PublicationLagSessions = 4
 
 // maxLagDays bounds the walk to a publication date. Four sessions never span
 // more than a long holiday weekend, so a walk past this many calendar days can
@@ -54,15 +56,22 @@ type Calendar struct {
 	lastReport  civil.Date // newest ASIC report date
 	hasIndex    bool
 	newestIndex civil.Date // newest index bar date
+	lag         int        // publication lag in sessions
 	mismatches  Mismatches
 }
 
-// New builds the calendar from the index bar dates (XJO) and the ASIC report
-// dates. Duplicate and unordered input is accepted.
-func New(indexDates, asicReportDates []civil.Date) *Calendar {
+// New builds the calendar from the index bar dates (XJO), the ASIC report dates
+// and the publication lag in sessions (the policy's publication_lag_sessions).
+// A lag of zero makes a report public on its own date. Duplicate and unordered
+// input is accepted. It panics on a negative lag, which no policy can set.
+func New(indexDates, asicReportDates []civil.Date, lagSessions int) *Calendar {
+	if lagSessions < 0 {
+		panic("calendar: negative publication lag")
+	}
 	c := &Calendar{
 		index: make(map[civil.Date]bool, len(indexDates)),
 		asic:  make(map[civil.Date]bool, len(asicReportDates)),
+		lag:   lagSessions,
 	}
 	for _, d := range indexDates {
 		c.index[d] = true
@@ -107,16 +116,20 @@ func (c *Calendar) IsSession(d civil.Date) bool {
 }
 
 // PublishedOn returns the date a report for reportDate became public: the
-// fourth session strictly after it. ok is false only when no session falls
-// within maxLagDays, which a calendar built from real data never produces.
+// lag-th session strictly after it (the report's own date for a lag of zero).
+// ok is false only when no session falls within maxLagDays, which a calendar
+// built from real data never produces.
 func (c *Calendar) PublishedOn(reportDate civil.Date) (published civil.Date, ok bool) {
+	if c.lag == 0 {
+		return reportDate, true
+	}
 	d := reportDate
 	sessions := 0
 	for n := 0; n < maxLagDays; n++ {
 		d = d.AddDays(1)
 		if c.IsSession(d) {
 			sessions++
-			if sessions == PublicationLagSessions {
+			if sessions == c.lag {
 				return d, true
 			}
 		}
