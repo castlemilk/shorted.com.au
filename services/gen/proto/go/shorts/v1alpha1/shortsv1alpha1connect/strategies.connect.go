@@ -62,9 +62,8 @@ type StrategyServiceClient interface {
 	// the current market regime (S&P/ASX 200).
 	ListStrategies(context.Context, *connect.Request[v1alpha1.ListStrategiesRequest]) (*connect.Response[v1alpha1.ListStrategiesResponse], error)
 	// Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
-	// score and a per-rule pass / fail / unknown breakdown for each stock.
-	//
-	// The answer is the same bytes to every HTTP caller. When the public depth
+	// score and a per-rule pass / fail / unknown breakdown for each stock. The
+	// answer is the same bytes to every HTTP caller. When the public depth
 	// limit is set, the rows are the top of the default ranking only, for every
 	// HTTP caller, API-token holders included: a bearer token does not lift it.
 	// Full depth comes from GetViewerStrategyPicks, which accepts a bearer token.
@@ -151,9 +150,8 @@ type StrategyServiceHandler interface {
 	// the current market regime (S&P/ASX 200).
 	ListStrategies(context.Context, *connect.Request[v1alpha1.ListStrategiesRequest]) (*connect.Response[v1alpha1.ListStrategiesResponse], error)
 	// Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
-	// score and a per-rule pass / fail / unknown breakdown for each stock.
-	//
-	// The answer is the same bytes to every HTTP caller. When the public depth
+	// score and a per-rule pass / fail / unknown breakdown for each stock. The
+	// answer is the same bytes to every HTTP caller. When the public depth
 	// limit is set, the rows are the top of the default ranking only, for every
 	// HTTP caller, API-token holders included: a bearer token does not lift it.
 	// Full depth comes from GetViewerStrategyPicks, which accepts a bearer token.

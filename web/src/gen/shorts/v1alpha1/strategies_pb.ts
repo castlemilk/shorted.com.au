@@ -1550,9 +1550,8 @@ export const StrategyService: GenService<{
   },
   /**
    * Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
-   * score and a per-rule pass / fail / unknown breakdown for each stock.
-   *
-   * The answer is the same bytes to every HTTP caller. When the public depth
+   * score and a per-rule pass / fail / unknown breakdown for each stock. The
+   * answer is the same bytes to every HTTP caller. When the public depth
    * limit is set, the rows are the top of the default ranking only, for every
    * HTTP caller, API-token holders included: a bearer token does not lift it.
    * Full depth comes from GetViewerStrategyPicks, which accepts a bearer token.
