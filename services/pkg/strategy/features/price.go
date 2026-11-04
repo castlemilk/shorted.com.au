@@ -289,7 +289,9 @@ func AsOf(bars []Bar, xjo []IndexBar, D civil.Date, p spec.FeatureSpec) (PriceFe
 	if cnt := min(f.dvSessions, n); cnt >= f.dvMinN {
 		sum := 0.0
 		for rank := 1; rank <= cnt; rank++ {
-			sum += at(rank).close * at(rank).volume
+			// Each product is rounded before it is added: the compiler fuses an
+			// unrounded a*b+c on arm64 (not amd64), which would make the value depend on GOARCH.
+			sum += float64(at(rank).close * at(rank).volume)
 		}
 		v := sum / float64(cnt)
 		dollarVolume = &v
@@ -355,7 +357,8 @@ func relativeStrength(ret *float64, anchor civil.Date, anchored bool, asOf civil
 	if end.Date.Before(asOf.AddDays(-tolerance)) || start.Date.Before(anchor.AddDays(-tolerance)) {
 		return nil
 	}
-	v := *ret - (end.Close/start.Close-1)*100
+	// The product is rounded first, for the same reason as the dollar volume sum.
+	v := *ret - float64((end.Close/start.Close-1)*100)
 	return &v
 }
 
