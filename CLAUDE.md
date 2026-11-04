@@ -778,7 +778,8 @@ or Create-alert control renders: those capabilities stay off.
   rank order, and is sorted in the browser. The island asks for the whole list at
   most once per mount for a slug and snapshot, so turning a filter, the search or
   the sort off and on draws the list it holds; a failed read is asked again the
-  next time the viewer draws past the top rows. A read is also held in the tab
+  next time the viewer shows more, filters, searches or sorts, and the pane says
+  it is loading meanwhile. A read is also held in the tab
   for 60 seconds under the user id, session and rules version
   (`signals-read-cache.ts`, browser memory only). A full read costs one call per 100 signals, and every
   call is metered as the viewer's own browser access. That module imports no
