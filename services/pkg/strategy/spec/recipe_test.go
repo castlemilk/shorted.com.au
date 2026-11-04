@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -219,6 +220,37 @@ func TestRecipeHashesArePinned(t *testing.T) {
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("recipe hashes do not match testdata/recipe_hashes.golden.\ncomputed:\n%s\ngolden:\n%s",
 			strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// TestRegisteredRecipesArePinned holds a recipe that a registered version carries
+// to the same rules as the r1 set: it validates, names the version's strategy and
+// its hash is in the golden, so a registration cannot carry an edited copy. v0 is
+// never backtested, so it carries no recipe.
+func TestRegisteredRecipesArePinned(t *testing.T) {
+	want := readGolden(t, filepath.Join("testdata", "recipe_hashes.golden"))
+	for _, reg := range Registry() {
+		if reg.Label == "v0" && reg.Recipe != nil {
+			t.Errorf("%s %s carries a recipe; v0 is never backtested", reg.Spec.StrategyID, reg.Label)
+		}
+		if reg.Recipe == nil {
+			continue
+		}
+		r := *reg.Recipe
+		if err := r.Validate(); err != nil {
+			t.Errorf("%s %s: %v", reg.Spec.StrategyID, reg.Label, err)
+			continue
+		}
+		if r.StrategyID != reg.Spec.StrategyID {
+			t.Errorf("%s %s: recipe %s is for strategy %s", reg.Spec.StrategyID, reg.Label, r.ID, r.StrategyID)
+		}
+		h, err := RecipeHash(r)
+		if err != nil {
+			t.Fatalf("%s: hash: %v", r.ID, err)
+		}
+		if line := fmt.Sprintf("%s %s %s", r.StrategyID, r.ID, h); !slices.Contains(want, line) {
+			t.Errorf("recipe %s is not pinned in testdata/recipe_hashes.golden: %s", r.ID, line)
+		}
 	}
 }
 
