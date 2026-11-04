@@ -1,0 +1,306 @@
+== zanger-breakout uptrend
+1 RDY triggered score=83.5
+  growth pass value=50
+  base pass value=15.8
+  breakout pass value=5.26316
+  regime pass value=7.31707
+  rs pass value=10
+  liquidity pass value=5e+06
+2 SET setup score=65.1
+  growth pass value=50
+  base pass value=15.8
+  breakout fail value=-3.15789
+  regime pass value=7.31707
+  rs pass value=10
+  liquidity pass value=5e+06
+3 ILQ watch score=74.9
+  growth pass value=50
+  base pass value=15.8
+  breakout pass value=5.26316
+  regime pass value=7.31707
+  rs pass value=10
+  liquidity fail value=50000
+4 QLY watch score=19.8
+  growth fail value=6
+  base unknown
+  breakout unknown
+  regime pass value=7.31707
+  rs unknown
+  liquidity pass value=2e+07
+== zanger-breakout downtrend
+1 RDY watch score=73.5
+  growth pass value=50
+  base pass value=15.8
+  breakout pass value=5.26316
+  regime fail value=-2.43902
+  rs pass value=10
+  liquidity pass value=5e+06
+2 ILQ watch score=64.9
+  growth pass value=50
+  base pass value=15.8
+  breakout pass value=5.26316
+  regime fail value=-2.43902
+  rs pass value=10
+  liquidity fail value=50000
+3 SET watch score=55.1
+  growth pass value=50
+  base pass value=15.8
+  breakout fail value=-3.15789
+  regime fail value=-2.43902
+  rs pass value=10
+  liquidity pass value=5e+06
+4 QLY watch score=9.8
+  growth fail value=6
+  base unknown
+  breakout unknown
+  regime fail value=-2.43902
+  rs unknown
+  liquidity pass value=2e+07
+== canslim uptrend
+1 RDY setup score=69.3
+  eps_growth pass value=50
+  revenue_growth pass value=40
+  near_high unknown
+  rs_leader pass value=15
+  regime pass value=7.31707
+  liquidity pass value=5e+06
+2 SET setup score=69.3
+  eps_growth pass value=50
+  revenue_growth pass value=40
+  near_high unknown
+  rs_leader pass value=15
+  regime pass value=7.31707
+  liquidity pass value=5e+06
+3 ILQ watch score=60.7
+  eps_growth pass value=50
+  revenue_growth pass value=40
+  near_high unknown
+  rs_leader pass value=15
+  regime pass value=7.31707
+  liquidity fail value=50000
+4 QLY watch score=19.8
+  eps_growth unknown
+  revenue_growth fail value=6
+  near_high unknown
+  rs_leader unknown
+  regime pass value=7.31707
+  liquidity pass value=2e+07
+== canslim downtrend
+1 RDY watch score=59.3
+  eps_growth pass value=50
+  revenue_growth pass value=40
+  near_high unknown
+  rs_leader pass value=15
+  regime fail value=-2.43902
+  liquidity pass value=5e+06
+2 SET watch score=59.3
+  eps_growth pass value=50
+  revenue_growth pass value=40
+  near_high unknown
+  rs_leader pass value=15
+  regime fail value=-2.43902
+  liquidity pass value=5e+06
+3 ILQ watch score=50.7
+  eps_growth pass value=50
+  revenue_growth pass value=40
+  near_high unknown
+  rs_leader pass value=15
+  regime fail value=-2.43902
+  liquidity fail value=50000
+4 QLY watch score=9.8
+  eps_growth unknown
+  revenue_growth fail value=6
+  near_high unknown
+  rs_leader unknown
+  regime fail value=-2.43902
+  liquidity pass value=2e+07
+== minervini-trend-template uptrend
+1 RDY watch score=28.6
+  trend_stack unknown
+  sma200_rising unknown
+  above_low unknown
+  off_high unknown
+  rs_leader pass value=15
+  above_sma50 unknown
+  liquidity pass value=5e+06
+2 SET watch score=28.6
+  trend_stack unknown
+  sma200_rising unknown
+  above_low unknown
+  off_high unknown
+  rs_leader pass value=15
+  above_sma50 unknown
+  liquidity pass value=5e+06
+3 ILQ watch score=20
+  trend_stack unknown
+  sma200_rising unknown
+  above_low unknown
+  off_high unknown
+  rs_leader pass value=15
+  above_sma50 unknown
+  liquidity fail value=50000
+4 QLY watch score=9.8
+  trend_stack unknown
+  sma200_rising unknown
+  above_low unknown
+  off_high unknown
+  rs_leader unknown
+  above_sma50 unknown
+  liquidity pass value=2e+07
+== minervini-trend-template downtrend
+1 RDY watch score=28.6
+  trend_stack unknown
+  sma200_rising unknown
+  above_low unknown
+  off_high unknown
+  rs_leader pass value=15
+  above_sma50 unknown
+  liquidity pass value=5e+06
+2 SET watch score=28.6
+  trend_stack unknown
+  sma200_rising unknown
+  above_low unknown
+  off_high unknown
+  rs_leader pass value=15
+  above_sma50 unknown
+  liquidity pass value=5e+06
+3 ILQ watch score=20
+  trend_stack unknown
+  sma200_rising unknown
+  above_low unknown
+  off_high unknown
+  rs_leader pass value=15
+  above_sma50 unknown
+  liquidity fail value=50000
+4 QLY watch score=9.8
+  trend_stack unknown
+  sma200_rising unknown
+  above_low unknown
+  off_high unknown
+  rs_leader unknown
+  above_sma50 unknown
+  liquidity pass value=2e+07
+== crowded-short-breakout uptrend
+1 RDY watch score=53.2
+  short_interest fail
+  days_to_cover fail
+  breakout pass value=5.26316
+  regime pass value=7.31707
+  liquidity pass value=5e+06
+  rs pass value=10
+2 ILQ watch score=44.6
+  short_interest fail
+  days_to_cover fail
+  breakout pass value=5.26316
+  regime pass value=7.31707
+  liquidity fail value=50000
+  rs pass value=10
+3 SET watch score=34.7
+  short_interest fail
+  days_to_cover fail
+  breakout fail value=-3.15789
+  regime pass value=7.31707
+  liquidity pass value=5e+06
+  rs pass value=10
+4 QLY watch score=19.8
+  short_interest fail
+  days_to_cover fail
+  breakout unknown
+  regime pass value=7.31707
+  liquidity pass value=2e+07
+  rs unknown
+== crowded-short-breakout downtrend
+1 RDY watch score=43.2
+  short_interest fail
+  days_to_cover fail
+  breakout pass value=5.26316
+  regime fail value=-2.43902
+  liquidity pass value=5e+06
+  rs pass value=10
+2 ILQ watch score=34.6
+  short_interest fail
+  days_to_cover fail
+  breakout pass value=5.26316
+  regime fail value=-2.43902
+  liquidity fail value=50000
+  rs pass value=10
+3 SET watch score=24.7
+  short_interest fail
+  days_to_cover fail
+  breakout fail value=-3.15789
+  regime fail value=-2.43902
+  liquidity pass value=5e+06
+  rs pass value=10
+4 QLY watch score=9.8
+  short_interest fail
+  days_to_cover fail
+  breakout unknown
+  regime fail value=-2.43902
+  liquidity pass value=2e+07
+  rs unknown
+== quality-compounders uptrend
+1 QLY triggered score=78.5
+  roe pass value=21
+  net_margin pass value=20
+  cash_conversion pass value=0.95
+  leverage pass value=0.857143
+  liquidity pass value=2e+07
+  above_sma200 pass value=11.1111
+  revenue_not_shrinking pass value=6
+2 RDY watch score=18.6
+  roe unknown
+  net_margin unknown
+  cash_conversion unknown
+  leverage unknown
+  liquidity pass value=5e+06
+  above_sma200 unknown
+  revenue_not_shrinking pass value=40
+3 SET watch score=18.6
+  roe unknown
+  net_margin unknown
+  cash_conversion unknown
+  leverage unknown
+  liquidity pass value=5e+06
+  above_sma200 unknown
+  revenue_not_shrinking pass value=40
+4 ILQ watch score=10
+  roe unknown
+  net_margin unknown
+  cash_conversion unknown
+  leverage unknown
+  liquidity fail value=50000
+  above_sma200 unknown
+  revenue_not_shrinking pass value=40
+== quality-compounders downtrend
+1 QLY triggered score=78.5
+  roe pass value=21
+  net_margin pass value=20
+  cash_conversion pass value=0.95
+  leverage pass value=0.857143
+  liquidity pass value=2e+07
+  above_sma200 pass value=11.1111
+  revenue_not_shrinking pass value=6
+2 RDY watch score=18.6
+  roe unknown
+  net_margin unknown
+  cash_conversion unknown
+  leverage unknown
+  liquidity pass value=5e+06
+  above_sma200 unknown
+  revenue_not_shrinking pass value=40
+3 SET watch score=18.6
+  roe unknown
+  net_margin unknown
+  cash_conversion unknown
+  leverage unknown
+  liquidity pass value=5e+06
+  above_sma200 unknown
+  revenue_not_shrinking pass value=40
+4 ILQ watch score=10
+  roe unknown
+  net_margin unknown
+  cash_conversion unknown
+  leverage unknown
+  liquidity fail value=50000
+  above_sma200 unknown
+  revenue_not_shrinking pass value=40

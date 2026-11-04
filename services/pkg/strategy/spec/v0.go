@@ -14,35 +14,36 @@ type ruleDef struct {
 	// far is the proximity distance of a trigger rule (proximity.go). It is
 	// written into a RuleSpec only when the rule is a trigger in that strategy.
 	far float64
-	// source is the data the rule reads: prices, index:XJO, asic, fundamentals.
-	source string
+	// sources is the data the rule reads: prices, index:XJO, asic, fundamentals.
+	// A rule reads every one it lists, whether or not a strategy has a regime rule.
+	sources []string
 }
 
 // ruleDefs holds one entry per rule id the v0 strategies use.
 var ruleDefs = map[string]ruleDef{
-	"growth":                {"pct", ">=", map[string]float64{"min_pct": 25}, 0, "fundamentals"},
-	"eps_growth":            {"pct", ">=", map[string]float64{"min_pct": 25}, 0, "fundamentals"},
-	"revenue_growth":        {"pct", ">=", map[string]float64{"min_pct": 20}, 0, "fundamentals"},
-	"base":                  {"days", "within", map[string]float64{"min_sessions": 20, "max_depth_pct": 25, "window_sessions": 40}, 0, "prices"},
-	"breakout":              {"x", "bool", map[string]float64{"window_sessions": 5, "prior_sessions": 40, "volume_multiple": 1.5, "volume_sessions": 50}, 10, "prices"},
-	"regime":                {"bool", "bool", map[string]float64{"sma_fast": 50, "sma_slow": 200}, 0, "index:XJO"},
-	"rs":                    {"pp", ">", map[string]float64{"lookback_months": 3, "min_points": 0}, 0, "prices"},
-	"liquidity":             {"aud", ">=", map[string]float64{"min_aud": 250000, "sessions": 20}, 0, "prices"},
-	"near_high":             {"pct", ">=", map[string]float64{"max_off_pct": -5}, 15, "prices"},
-	"rs_leader":             {"percentile", ">=", map[string]float64{"quantile": 0.75}, 20, "prices"},
-	"trend_stack":           {"bool", "bool", map[string]float64{"sma_mid": 150, "sma_slow": 200}, 0, "prices"},
-	"sma200_rising":         {"bool", ">", map[string]float64{"sma_slow": 200, "lag_sessions": 21}, 0, "prices"},
-	"above_low":             {"x", ">=", map[string]float64{"multiple": 1.3}, 0, "prices"},
-	"off_high":              {"pct", ">=", map[string]float64{"max_off_pct": -25}, 25, "prices"},
-	"above_sma50":           {"pct", ">", map[string]float64{"sma": 50}, 0, "prices"},
-	"short_interest":        {"pct", ">=", map[string]float64{"min_pct": 5}, 0, "asic"},
-	"days_to_cover":         {"days", ">=", map[string]float64{"min": 5}, 0, "asic"},
-	"roe":                   {"pct", ">=", map[string]float64{"min_pct": 15}, 0, "fundamentals"},
-	"net_margin":            {"pct", ">=", map[string]float64{"min_pct": 10}, 0, "fundamentals"},
-	"cash_conversion":       {"x", ">=", map[string]float64{"min": 0.8}, 0, "fundamentals"},
-	"leverage":              {"x", "<=", map[string]float64{"max_multiple": 2.5}, 0, "fundamentals"},
-	"above_sma200":          {"pct", ">=", map[string]float64{"sma": 200}, 10, "prices"},
-	"revenue_not_shrinking": {"pct", ">=", map[string]float64{"min_pct": 0}, 0, "fundamentals"},
+	"growth":                {"pct", ">=", map[string]float64{"min_pct": 25}, 0, []string{"fundamentals"}},
+	"eps_growth":            {"pct", ">=", map[string]float64{"min_pct": 25}, 0, []string{"fundamentals"}},
+	"revenue_growth":        {"pct", ">=", map[string]float64{"min_pct": 20}, 0, []string{"fundamentals"}},
+	"base":                  {"days", "within", map[string]float64{"min_sessions": 20, "max_depth_pct": 25, "window_sessions": 40}, 0, []string{"prices"}},
+	"breakout":              {"x", "bool", map[string]float64{"window_sessions": 5, "prior_sessions": 40, "volume_multiple": 1.5, "volume_sessions": 50}, 10, []string{"prices"}},
+	"regime":                {"bool", "bool", map[string]float64{"sma_fast": 50, "sma_slow": 200}, 0, []string{"index:XJO"}},
+	"rs":                    {"pp", ">", map[string]float64{"lookback_months": 3, "min_points": 0}, 0, []string{"prices", "index:XJO"}},
+	"liquidity":             {"aud", ">=", map[string]float64{"min_aud": 250000, "sessions": 20}, 0, []string{"prices"}},
+	"near_high":             {"pct", ">=", map[string]float64{"max_off_pct": -5}, 15, []string{"prices"}},
+	"rs_leader":             {"percentile", ">=", map[string]float64{"quantile": 0.75}, 20, []string{"prices", "index:XJO"}},
+	"trend_stack":           {"bool", "bool", map[string]float64{"sma_mid": 150, "sma_slow": 200}, 0, []string{"prices"}},
+	"sma200_rising":         {"bool", ">", map[string]float64{"sma_slow": 200, "lag_sessions": 21}, 0, []string{"prices"}},
+	"above_low":             {"x", ">=", map[string]float64{"multiple": 1.3}, 0, []string{"prices"}},
+	"off_high":              {"pct", ">=", map[string]float64{"max_off_pct": -25}, 25, []string{"prices"}},
+	"above_sma50":           {"pct", ">", map[string]float64{"sma": 50}, 0, []string{"prices"}},
+	"short_interest":        {"pct", ">=", map[string]float64{"min_pct": 5}, 0, []string{"asic"}},
+	"days_to_cover":         {"days", ">=", map[string]float64{"min": 5}, 0, []string{"asic"}},
+	"roe":                   {"pct", ">=", map[string]float64{"min_pct": 15}, 0, []string{"fundamentals"}},
+	"net_margin":            {"pct", ">=", map[string]float64{"min_pct": 10}, 0, []string{"fundamentals"}},
+	"cash_conversion":       {"x", ">=", map[string]float64{"min": 0.8}, 0, []string{"fundamentals"}},
+	"leverage":              {"x", "<=", map[string]float64{"max_multiple": 2.5}, 0, []string{"fundamentals"}},
+	"above_sma200":          {"pct", ">", map[string]float64{"sma": 200}, 10, []string{"prices"}},
+	"revenue_not_shrinking": {"pct", ">=", map[string]float64{"min_pct": 0}, 0, []string{"fundamentals"}},
 }
 
 // v0Rule is one rule of one strategy in v0: its role and weight there.
@@ -145,7 +146,9 @@ func v0(strategyID string) Registered {
 	used := map[string]bool{}
 	for _, r := range rules {
 		def := ruleDefs[r.id]
-		used[def.source] = true
+		for _, s := range def.sources {
+			used[s] = true
+		}
 		rs := RuleSpec{
 			ID:      r.id,
 			Core:    r.core,

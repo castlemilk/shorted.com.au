@@ -141,6 +141,37 @@ func TestV0SpecMatchesCode(t *testing.T) {
 		t.Errorf("fs1 volume multiple %v", got)
 	}
 
+	// The moving-average rules pass only strictly above their average, so a
+	// close exactly at it fails. The spec's compare must say so, because the
+	// compare is part of the hashed rules and is shown to the reader.
+	for _, c := range []struct {
+		strategy, rule string
+		fn             ruleFunc
+		at             Candidate
+	}{
+		{specpkg.StrategyMinerviniTrend, "above_sma50", ruleAboveSMA50, Candidate{Close: 10, SMA50: new(float64(10))}},
+		{specpkg.StrategyQualityCompounders, "above_sma200", ruleAboveSMA200, Candidate{Close: 10, SMA200: new(float64(10))}},
+	} {
+		live, _ := specpkg.Live(c.strategy)
+		found := false
+		for _, r := range live.Spec.Rules {
+			if r.ID != c.rule {
+				continue
+			}
+			found = true
+			if r.Compare != ">" {
+				t.Errorf("%s/%s: spec compare %q, the engine passes only on >", c.strategy, c.rule, r.Compare)
+			}
+		}
+		if !found {
+			t.Errorf("%s: spec has no rule %s", c.strategy, c.rule)
+		}
+		var env evalEnv
+		if out := c.fn(&c.at, &env); out.Status == RulePass {
+			t.Errorf("%s/%s: a close equal to its average passes in the engine", c.strategy, c.rule)
+		}
+	}
+
 	// The ladder behaviour the spec describes: an unknown trigger is not a
 	// pass, so with every other core rule passing it reads as setup.
 	zanger, _ := Lookup(IDZangerBreakout)
