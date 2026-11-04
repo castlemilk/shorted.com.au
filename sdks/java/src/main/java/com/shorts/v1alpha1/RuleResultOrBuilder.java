@@ -81,4 +81,54 @@ public interface RuleResultOrBuilder extends
    * @return The hasValue.
    */
   boolean getHasValue();
+
+  /**
+   * <pre>
+   * Why an unknown rule could not be tested: "no_price_history", "no_volume",
+   * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+   * </pre>
+   *
+   * <code>string reason = 6 [json_name = "reason"];</code>
+   * @return The reason.
+   */
+  java.lang.String getReason();
+  /**
+   * <pre>
+   * Why an unknown rule could not be tested: "no_price_history", "no_volume",
+   * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+   * </pre>
+   *
+   * <code>string reason = 6 [json_name = "reason"];</code>
+   * @return The bytes for reason.
+   */
+  com.google.protobuf.ByteString
+      getReasonBytes();
+
+  /**
+   * <pre>
+   * For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far
+   * distance. Meaningful only when has_proximity.
+   * </pre>
+   *
+   * <code>double proximity = 7 [json_name = "proximity"];</code>
+   * @return The proximity.
+   */
+  double getProximity();
+
+  /**
+   * <code>bool has_proximity = 8 [json_name = "hasProximity"];</code>
+   * @return The hasProximity.
+   */
+  boolean getHasProximity();
+
+  /**
+   * <pre>
+   * True when this is a failing trigger rule on a setup row: the stock is
+   * waiting for the trigger, not yet triggered.
+   * </pre>
+   *
+   * <code>bool waiting = 9 [json_name = "waiting"];</code>
+   * @return The waiting.
+   */
+  boolean getWaiting();
 }

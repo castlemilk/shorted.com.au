@@ -35,6 +35,7 @@ private static final long serialVersionUID = 0L;
     ruleId_ = "";
     status_ = "";
     detail_ = "";
+    reason_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -218,6 +219,98 @@ private static final long serialVersionUID = 0L;
     return hasValue_;
   }
 
+  public static final int REASON_FIELD_NUMBER = 6;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object reason_ = "";
+  /**
+   * <pre>
+   * Why an unknown rule could not be tested: "no_price_history", "no_volume",
+   * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+   * </pre>
+   *
+   * <code>string reason = 6 [json_name = "reason"];</code>
+   * @return The reason.
+   */
+  @java.lang.Override
+  public java.lang.String getReason() {
+    java.lang.Object ref = reason_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      reason_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Why an unknown rule could not be tested: "no_price_history", "no_volume",
+   * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+   * </pre>
+   *
+   * <code>string reason = 6 [json_name = "reason"];</code>
+   * @return The bytes for reason.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getReasonBytes() {
+    java.lang.Object ref = reason_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      reason_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PROXIMITY_FIELD_NUMBER = 7;
+  private double proximity_ = 0D;
+  /**
+   * <pre>
+   * For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far
+   * distance. Meaningful only when has_proximity.
+   * </pre>
+   *
+   * <code>double proximity = 7 [json_name = "proximity"];</code>
+   * @return The proximity.
+   */
+  @java.lang.Override
+  public double getProximity() {
+    return proximity_;
+  }
+
+  public static final int HAS_PROXIMITY_FIELD_NUMBER = 8;
+  private boolean hasProximity_ = false;
+  /**
+   * <code>bool has_proximity = 8 [json_name = "hasProximity"];</code>
+   * @return The hasProximity.
+   */
+  @java.lang.Override
+  public boolean getHasProximity() {
+    return hasProximity_;
+  }
+
+  public static final int WAITING_FIELD_NUMBER = 9;
+  private boolean waiting_ = false;
+  /**
+   * <pre>
+   * True when this is a failing trigger rule on a setup row: the stock is
+   * waiting for the trigger, not yet triggered.
+   * </pre>
+   *
+   * <code>bool waiting = 9 [json_name = "waiting"];</code>
+   * @return The waiting.
+   */
+  @java.lang.Override
+  public boolean getWaiting() {
+    return waiting_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -247,6 +340,18 @@ private static final long serialVersionUID = 0L;
     if (hasValue_ != false) {
       output.writeBool(5, hasValue_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 6, reason_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(proximity_) != 0) {
+      output.writeDouble(7, proximity_);
+    }
+    if (hasProximity_ != false) {
+      output.writeBool(8, hasProximity_);
+    }
+    if (waiting_ != false) {
+      output.writeBool(9, waiting_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -267,6 +372,21 @@ private static final long serialVersionUID = 0L;
     if (hasValue_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(5, hasValue_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(6, reason_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(proximity_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(7, proximity_);
+    }
+    if (hasProximity_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(8, hasProximity_);
+    }
+    if (waiting_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(9, waiting_);
     }
     return size;
   }
@@ -303,6 +423,15 @@ private static final long serialVersionUID = 0L;
             other.getValue())) return false;
     if (getHasValue()
         != other.getHasValue()) return false;
+    if (!getReason()
+        .equals(other.getReason())) return false;
+    if (java.lang.Double.doubleToLongBits(getProximity())
+        != java.lang.Double.doubleToLongBits(
+            other.getProximity())) return false;
+    if (getHasProximity()
+        != other.getHasProximity()) return false;
+    if (getWaiting()
+        != other.getWaiting()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -326,6 +455,17 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_VALUE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasValue());
+    hash = (37 * hash) + REASON_FIELD_NUMBER;
+    hash = (53 * hash) + getReason().hashCode();
+    hash = (37 * hash) + PROXIMITY_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getProximity()));
+    hash = (37 * hash) + HAS_PROXIMITY_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasProximity());
+    hash = (37 * hash) + WAITING_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getWaiting());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -466,6 +606,10 @@ private static final long serialVersionUID = 0L;
       detail_ = "";
       value_ = 0D;
       hasValue_ = false;
+      reason_ = "";
+      proximity_ = 0D;
+      hasProximity_ = false;
+      waiting_ = false;
       return this;
     }
 
@@ -514,6 +658,18 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.hasValue_ = hasValue_;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.reason_ = reason_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.proximity_ = proximity_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.hasProximity_ = hasProximity_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.waiting_ = waiting_;
+      }
     }
 
     @java.lang.Override
@@ -548,6 +704,20 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasValue() != false) {
         setHasValue(other.getHasValue());
+      }
+      if (!other.getReason().isEmpty()) {
+        reason_ = other.reason_;
+        bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getProximity()) != 0) {
+        setProximity(other.getProximity());
+      }
+      if (other.getHasProximity() != false) {
+        setHasProximity(other.getHasProximity());
+      }
+      if (other.getWaiting() != false) {
+        setWaiting(other.getWaiting());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -600,6 +770,26 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 40
+            case 50: {
+              reason_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 50
+            case 57: {
+              proximity_ = input.readDouble();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 57
+            case 64: {
+              hasProximity_ = input.readBool();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 64
+            case 72: {
+              waiting_ = input.readBool();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 72
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -957,6 +1147,229 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasValue() {
       bitField0_ = (bitField0_ & ~0x00000010);
       hasValue_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object reason_ = "";
+    /**
+     * <pre>
+     * Why an unknown rule could not be tested: "no_price_history", "no_volume",
+     * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+     * </pre>
+     *
+     * <code>string reason = 6 [json_name = "reason"];</code>
+     * @return The reason.
+     */
+    public java.lang.String getReason() {
+      java.lang.Object ref = reason_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        reason_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Why an unknown rule could not be tested: "no_price_history", "no_volume",
+     * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+     * </pre>
+     *
+     * <code>string reason = 6 [json_name = "reason"];</code>
+     * @return The bytes for reason.
+     */
+    public com.google.protobuf.ByteString
+        getReasonBytes() {
+      java.lang.Object ref = reason_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        reason_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Why an unknown rule could not be tested: "no_price_history", "no_volume",
+     * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+     * </pre>
+     *
+     * <code>string reason = 6 [json_name = "reason"];</code>
+     * @param value The reason to set.
+     * @return This builder for chaining.
+     */
+    public Builder setReason(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      reason_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Why an unknown rule could not be tested: "no_price_history", "no_volume",
+     * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+     * </pre>
+     *
+     * <code>string reason = 6 [json_name = "reason"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearReason() {
+      reason_ = getDefaultInstance().getReason();
+      bitField0_ = (bitField0_ & ~0x00000020);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Why an unknown rule could not be tested: "no_price_history", "no_volume",
+     * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+     * </pre>
+     *
+     * <code>string reason = 6 [json_name = "reason"];</code>
+     * @param value The bytes for reason to set.
+     * @return This builder for chaining.
+     */
+    public Builder setReasonBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      reason_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private double proximity_ ;
+    /**
+     * <pre>
+     * For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far
+     * distance. Meaningful only when has_proximity.
+     * </pre>
+     *
+     * <code>double proximity = 7 [json_name = "proximity"];</code>
+     * @return The proximity.
+     */
+    @java.lang.Override
+    public double getProximity() {
+      return proximity_;
+    }
+    /**
+     * <pre>
+     * For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far
+     * distance. Meaningful only when has_proximity.
+     * </pre>
+     *
+     * <code>double proximity = 7 [json_name = "proximity"];</code>
+     * @param value The proximity to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProximity(double value) {
+
+      proximity_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far
+     * distance. Meaningful only when has_proximity.
+     * </pre>
+     *
+     * <code>double proximity = 7 [json_name = "proximity"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProximity() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      proximity_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasProximity_ ;
+    /**
+     * <code>bool has_proximity = 8 [json_name = "hasProximity"];</code>
+     * @return The hasProximity.
+     */
+    @java.lang.Override
+    public boolean getHasProximity() {
+      return hasProximity_;
+    }
+    /**
+     * <code>bool has_proximity = 8 [json_name = "hasProximity"];</code>
+     * @param value The hasProximity to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasProximity(boolean value) {
+
+      hasProximity_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_proximity = 8 [json_name = "hasProximity"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasProximity() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      hasProximity_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean waiting_ ;
+    /**
+     * <pre>
+     * True when this is a failing trigger rule on a setup row: the stock is
+     * waiting for the trigger, not yet triggered.
+     * </pre>
+     *
+     * <code>bool waiting = 9 [json_name = "waiting"];</code>
+     * @return The waiting.
+     */
+    @java.lang.Override
+    public boolean getWaiting() {
+      return waiting_;
+    }
+    /**
+     * <pre>
+     * True when this is a failing trigger rule on a setup row: the stock is
+     * waiting for the trigger, not yet triggered.
+     * </pre>
+     *
+     * <code>bool waiting = 9 [json_name = "waiting"];</code>
+     * @param value The waiting to set.
+     * @return This builder for chaining.
+     */
+    public Builder setWaiting(boolean value) {
+
+      waiting_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when this is a failing trigger rule on a setup row: the stock is
+     * waiting for the trigger, not yet triggered.
+     * </pre>
+     *
+     * <code>bool waiting = 9 [json_name = "waiting"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearWaiting() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      waiting_ = false;
       onChanged();
       return this;
     }

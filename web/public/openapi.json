@@ -7165,6 +7165,11 @@
             "title": "as_of",
             "type": "string"
           },
+          "eligible": {
+            "description": "False when the stock cannot be read against the strategies at all. (proto bool)",
+            "title": "eligible",
+            "type": "boolean"
+          },
           "fits": {
             "description": "One per strategy; empty when the stock is outside the universe. (proto shorts.v1alpha1.StrategyFit)",
             "items": {
@@ -7178,6 +7183,11 @@
             "title": "in_universe",
             "type": "boolean"
           },
+          "ineligibleReason": {
+            "description": "Why not eligible, e.g. \"not_in_universe\"; empty when eligible. (proto string)",
+            "title": "ineligible_reason",
+            "type": "string"
+          },
           "priceFeatures": {
             "$ref": "#/components/schemas/shorts.v1alpha1.PriceFeatures",
             "description": "Set only when in_universe is true. (proto shorts.v1alpha1.PriceFeatures)",
@@ -7187,6 +7197,26 @@
             "$ref": "#/components/schemas/shorts.v1alpha1.MarketRegime",
             "description": "(proto shorts.v1alpha1.MarketRegime)",
             "title": "regime"
+          },
+          "sessionDate": {
+            "description": "YYYY-MM-DD of the session the readings are as at. (proto string)",
+            "title": "session_date",
+            "type": "string"
+          },
+          "shortAvailableDate": {
+            "description": "When that report became public. (proto string)",
+            "title": "short_available_date",
+            "type": "string"
+          },
+          "shortReportDate": {
+            "description": "Newest ASIC report date behind the short figures; empty when none. (proto string)",
+            "title": "short_report_date",
+            "type": "string"
+          },
+          "stale": {
+            "description": "True when the readings are older than the update schedule allows. (proto bool)",
+            "title": "stale",
+            "type": "boolean"
           },
           "stockCode": {
             "description": "(proto string)",
@@ -7303,6 +7333,11 @@
             "title": "fundamentals_rows_count",
             "type": "integer"
           },
+          "hasRsQuantileThreshold": {
+            "description": "(proto bool)",
+            "title": "has_rs_quantile_threshold",
+            "type": "boolean"
+          },
           "picks": {
             "description": "(proto shorts.v1alpha1.StrategyPick)",
             "items": {
@@ -7315,6 +7350,37 @@
             "$ref": "#/components/schemas/shorts.v1alpha1.MarketRegime",
             "description": "(proto shorts.v1alpha1.MarketRegime)",
             "title": "regime"
+          },
+          "rsQuantileThreshold": {
+            "description": "The session's top-quartile cut-off of rs_6m_pct (rs_leader reads it). (proto double)",
+            "format": "double",
+            "title": "rs_quantile_threshold",
+            "type": "number"
+          },
+          "sessionDate": {
+            "description": "YYYY-MM-DD of the session the picks are as at. (proto string)",
+            "title": "session_date",
+            "type": "string"
+          },
+          "shortAvailableDate": {
+            "description": "When that report became public. (proto string)",
+            "title": "short_available_date",
+            "type": "string"
+          },
+          "shortReportDate": {
+            "description": "Newest ASIC report date behind the short figures; empty when none. (proto string)",
+            "title": "short_report_date",
+            "type": "string"
+          },
+          "stale": {
+            "description": "True when the picks are older than the update schedule allows. (proto bool)",
+            "title": "stale",
+            "type": "boolean"
+          },
+          "statusCounts": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.StatusCounts",
+            "description": "Counts of every pick by status, over the whole ranked list before the\n status filter and paging. (proto shorts.v1alpha1.StatusCounts)",
+            "title": "status_counts"
           },
           "strategy": {
             "$ref": "#/components/schemas/shorts.v1alpha1.Strategy",
@@ -7332,6 +7398,16 @@
             "format": "int32",
             "title": "universe_count",
             "type": "integer"
+          },
+          "universeLabel": {
+            "description": "The universe the picks were drawn from, as the strategy names it. (proto string)",
+            "title": "universe_label",
+            "type": "string"
+          },
+          "version": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.StrategyVersionRef",
+            "description": "Empty until versioned rules ship. (proto shorts.v1alpha1.StrategyVersionRef)",
+            "title": "version"
           }
         },
         "title": "GetStrategyPicksResponse",
@@ -12839,10 +12915,26 @@
             "title": "detail",
             "type": "string"
           },
+          "hasProximity": {
+            "description": "(proto bool)",
+            "title": "has_proximity",
+            "type": "boolean"
+          },
           "hasValue": {
             "description": "False when value is absent (unknown), never read value then. (proto bool)",
             "title": "has_value",
             "type": "boolean"
+          },
+          "proximity": {
+            "description": "For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far\n distance. Meaningful only when has_proximity. (proto double)",
+            "format": "double",
+            "title": "proximity",
+            "type": "number"
+          },
+          "reason": {
+            "description": "Why an unknown rule could not be tested: \"no_price_history\", \"no_volume\",\n \"no_index\", \"no_fundamentals\" or \"not_meaningful\". Empty for pass and fail. (proto string)",
+            "title": "reason",
+            "type": "string"
           },
           "ruleId": {
             "description": "(proto string)",
@@ -12859,6 +12951,11 @@
             "format": "double",
             "title": "value",
             "type": "number"
+          },
+          "waiting": {
+            "description": "True when this is a failing trigger rule on a setup row: the stock is\n waiting for the trigger, not yet triggered. (proto bool)",
+            "title": "waiting",
+            "type": "boolean"
           }
         },
         "title": "RuleResult",
@@ -13782,6 +13879,38 @@
         "title": "StateTotal",
         "type": "object"
       },
+      "shorts.v1alpha1.StatusCounts": {
+        "additionalProperties": false,
+        "description": "Counts of ranked picks by status.",
+        "properties": {
+          "setup": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "setup",
+            "type": "integer"
+          },
+          "triggered": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "triggered",
+            "type": "integer"
+          },
+          "unknown": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "unknown",
+            "type": "integer"
+          },
+          "watch": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "watch",
+            "type": "integer"
+          }
+        },
+        "title": "StatusCounts",
+        "type": "object"
+      },
       "shorts.v1alpha1.StockFinancialHighlights": {
         "additionalProperties": false,
         "description": "Financial highlights for a single stock",
@@ -14093,6 +14222,16 @@
             "title": "base_length_days",
             "type": "integer"
           },
+          "breakoutDate": {
+            "description": "YYYY-MM-DD of the breakout session; empty when there was none. (proto string)",
+            "title": "breakout_date",
+            "type": "string"
+          },
+          "caSuspectDate": {
+            "description": "Corporate-action suspect date; empty until the basis check ships. (proto string)",
+            "title": "ca_suspect_date",
+            "type": "string"
+          },
           "close": {
             "description": "Headline numbers for the table. Meaningful only when has_close. (proto double)",
             "format": "double",
@@ -14103,6 +14242,18 @@
             "description": "(proto string)",
             "title": "company_name",
             "type": "string"
+          },
+          "daysToCover": {
+            "description": "Signal evidence (display-only in this release where noted). Meaningful only when has_days_to_cover. (proto double)",
+            "format": "double",
+            "title": "days_to_cover",
+            "type": "number"
+          },
+          "dollarVolume20d": {
+            "description": "Average daily turnover over 20 sessions, A$. Meaningful only when has_dollar_volume_20d. (proto double)",
+            "format": "double",
+            "title": "dollar_volume_20d",
+            "type": "number"
           },
           "epsYoyPct": {
             "description": "(proto double)",
@@ -14120,6 +14271,16 @@
             "title": "has_close",
             "type": "boolean"
           },
+          "hasDaysToCover": {
+            "description": "(proto bool)",
+            "title": "has_days_to_cover",
+            "type": "boolean"
+          },
+          "hasDollarVolume20d": {
+            "description": "(proto bool)",
+            "title": "has_dollar_volume_20d",
+            "type": "boolean"
+          },
           "hasEpsYoy": {
             "description": "(proto bool)",
             "title": "has_eps_yoy",
@@ -14130,6 +14291,11 @@
             "title": "has_market_cap",
             "type": "boolean"
           },
+          "hasPctOff52wHigh": {
+            "description": "Meaningful only when has_pct_off_52w_high. pct_off_52w_high is 0 at the high,\n so a stock with no 52-week high yet must not read as \"at the high\". (proto bool)",
+            "title": "has_pct_off_52w_high",
+            "type": "boolean"
+          },
           "hasRevenueYoy": {
             "description": "(proto bool)",
             "title": "has_revenue_yoy",
@@ -14138,6 +14304,16 @@
           "hasRs3mPct": {
             "description": "True when rs_3m_pct is set (enough stock and XJO history for the 3m window). (proto bool)",
             "title": "has_rs_3m_pct",
+            "type": "boolean"
+          },
+          "hasRs6mPct": {
+            "description": "(proto bool)",
+            "title": "has_rs_6m_pct",
+            "type": "boolean"
+          },
+          "hasRs6mPercentile": {
+            "description": "(proto bool)",
+            "title": "has_rs_6m_percentile",
             "type": "boolean"
           },
           "hasShortPct": {
@@ -14191,6 +14367,18 @@
             "title": "rs_3m_pct",
             "type": "number"
           },
+          "rs6mPct": {
+            "description": "Meaningful only when has_rs_6m_pct. (proto double)",
+            "format": "double",
+            "title": "rs_6m_pct",
+            "type": "number"
+          },
+          "rs6mPercentile": {
+            "description": "Percentile of rs_6m_pct across the evaluated universe, 0-100. (proto double)",
+            "format": "double",
+            "title": "rs_6m_percentile",
+            "type": "number"
+          },
           "rules": {
             "description": "(proto shorts.v1alpha1.RuleResult)",
             "items": {
@@ -14205,11 +14393,26 @@
             "title": "score",
             "type": "number"
           },
+          "shortAvailableDate": {
+            "description": "YYYY-MM-DD the report became public (short_report_date plus the publication lag). (proto string)",
+            "title": "short_available_date",
+            "type": "string"
+          },
           "shortPct": {
             "description": "Meaningful only when has_short_pct. (proto double)",
             "format": "double",
             "title": "short_pct",
             "type": "number"
+          },
+          "shortReportDate": {
+            "description": "YYYY-MM-DD of the ASIC report the short figure came from; empty when none. (proto string)",
+            "title": "short_report_date",
+            "type": "string"
+          },
+          "shortStatus": {
+            "description": "\"reported\" when a short position was reported; empty otherwise. (proto string)",
+            "title": "short_status",
+            "type": "string"
           },
           "status": {
             "description": "\"triggered\" | \"setup\" | \"watch\". (proto string)",
@@ -14235,6 +14438,11 @@
         "additionalProperties": false,
         "description": "One rule of a strategy: the author's version and exactly how we test it.",
         "properties": {
+          "comparator": {
+            "description": "\"\u003e=\", \"\u003c=\", \"above\", \"in top quartile\" and the like. (proto string)",
+            "title": "comparator",
+            "type": "string"
+          },
           "core": {
             "description": "Must pass for status \"triggered\". (proto bool)",
             "title": "core",
@@ -14250,6 +14458,11 @@
             "title": "evaluation",
             "type": "string"
           },
+          "hasThreshold": {
+            "description": "False for a rule with no single number to test (the regime, the market trend). (proto bool)",
+            "title": "has_threshold",
+            "type": "boolean"
+          },
           "id": {
             "description": "e.g. \"growth\", \"base\", \"breakout\", \"regime\", \"rs\", \"liquidity\", \"short_interest\". (proto string)",
             "title": "id",
@@ -14260,13 +14473,88 @@
             "title": "rule_text",
             "type": "string"
           },
+          "threshold": {
+            "description": "The number the rule tests, in unit. Meaningful only when has_threshold. (proto double)",
+            "format": "double",
+            "title": "threshold",
+            "type": "number"
+          },
           "title": {
             "description": "(proto string)",
             "title": "title",
             "type": "string"
+          },
+          "trigger": {
+            "description": "A trigger: a core rule a setup may still fail (the breakout, the new-high or leadership rule). (proto bool)",
+            "title": "trigger",
+            "type": "boolean"
+          },
+          "unit": {
+            "description": "\"%\", \"x\", \"A$\", \"days\", \"points\" or empty. (proto string)",
+            "title": "unit",
+            "type": "string"
+          },
+          "weight": {
+            "description": "Share of the score this rule carries, 0-1; the weights of a strategy sum to 1. (proto double)",
+            "format": "double",
+            "title": "weight",
+            "type": "number"
           }
         },
         "title": "StrategyRule",
+        "type": "object"
+      },
+      "shorts.v1alpha1.StrategyVersionRef": {
+        "additionalProperties": false,
+        "description": "The version of a strategy's rules that produced a set of picks.",
+        "properties": {
+          "engineVersion": {
+            "description": "(proto string)",
+            "title": "engine_version",
+            "type": "string"
+          },
+          "featureSet": {
+            "description": "\"fs1\". (proto string)",
+            "title": "feature_set",
+            "type": "string"
+          },
+          "kind": {
+            "description": "\"canonical\" | \"variant\". (proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "\"v0\", \"v1\", \"custom\". (proto string)",
+            "title": "label",
+            "type": "string"
+          },
+          "liveFrom": {
+            "description": "YYYY-MM-DD; empty before the first live session. (proto string)",
+            "title": "live_from",
+            "type": "string"
+          },
+          "rulesHash": {
+            "description": "64 hex characters; UIs show the first 8. (proto string)",
+            "title": "rules_hash",
+            "type": "string"
+          },
+          "status": {
+            "description": "\"draft\" | \"live\" | \"superseded\" | \"retired\". (proto string)",
+            "title": "status",
+            "type": "string"
+          },
+          "strategyId": {
+            "description": "(proto string)",
+            "title": "strategy_id",
+            "type": "string"
+          },
+          "variantId": {
+            "description": "(proto string)",
+            "title": "variant_id",
+            "type": "string"
+          }
+        },
+        "title": "StrategyVersionRef",
         "type": "object"
       },
       "shorts.v1alpha1.SubstantialHolding": {

@@ -39,6 +39,11 @@ private static final long serialVersionUID = 0L;
     rules_ = java.util.Collections.emptyList();
     asOf_ = "";
     logoUrl_ = "";
+    breakoutDate_ = "";
+    shortReportDate_ = "";
+    shortAvailableDate_ = "";
+    shortStatus_ = "";
+    caSuspectDate_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -648,6 +653,361 @@ private static final long serialVersionUID = 0L;
     return fundamentals_ == null ? com.shorts.v1alpha1.PickFundamentals.getDefaultInstance() : fundamentals_;
   }
 
+  public static final int DAYS_TO_COVER_FIELD_NUMBER = 28;
+  private double daysToCover_ = 0D;
+  /**
+   * <pre>
+   * Signal evidence (display-only in this release where noted).
+   * </pre>
+   *
+   * <code>double days_to_cover = 28 [json_name = "daysToCover"];</code>
+   * @return The daysToCover.
+   */
+  @java.lang.Override
+  public double getDaysToCover() {
+    return daysToCover_;
+  }
+
+  public static final int HAS_DAYS_TO_COVER_FIELD_NUMBER = 29;
+  private boolean hasDaysToCover_ = false;
+  /**
+   * <code>bool has_days_to_cover = 29 [json_name = "hasDaysToCover"];</code>
+   * @return The hasDaysToCover.
+   */
+  @java.lang.Override
+  public boolean getHasDaysToCover() {
+    return hasDaysToCover_;
+  }
+
+  public static final int RS_6M_PCT_FIELD_NUMBER = 30;
+  private double rs6MPct_ = 0D;
+  /**
+   * <pre>
+   * Meaningful only when has_rs_6m_pct.
+   * </pre>
+   *
+   * <code>double rs_6m_pct = 30 [json_name = "rs6mPct"];</code>
+   * @return The rs6mPct.
+   */
+  @java.lang.Override
+  public double getRs6MPct() {
+    return rs6MPct_;
+  }
+
+  public static final int HAS_RS_6M_PCT_FIELD_NUMBER = 31;
+  private boolean hasRs6MPct_ = false;
+  /**
+   * <code>bool has_rs_6m_pct = 31 [json_name = "hasRs6mPct"];</code>
+   * @return The hasRs6mPct.
+   */
+  @java.lang.Override
+  public boolean getHasRs6MPct() {
+    return hasRs6MPct_;
+  }
+
+  public static final int RS_6M_PERCENTILE_FIELD_NUMBER = 32;
+  private double rs6MPercentile_ = 0D;
+  /**
+   * <pre>
+   * Percentile of rs_6m_pct across the evaluated universe, 0-100.
+   * </pre>
+   *
+   * <code>double rs_6m_percentile = 32 [json_name = "rs6mPercentile"];</code>
+   * @return The rs6mPercentile.
+   */
+  @java.lang.Override
+  public double getRs6MPercentile() {
+    return rs6MPercentile_;
+  }
+
+  public static final int HAS_RS_6M_PERCENTILE_FIELD_NUMBER = 33;
+  private boolean hasRs6MPercentile_ = false;
+  /**
+   * <code>bool has_rs_6m_percentile = 33 [json_name = "hasRs6mPercentile"];</code>
+   * @return The hasRs6mPercentile.
+   */
+  @java.lang.Override
+  public boolean getHasRs6MPercentile() {
+    return hasRs6MPercentile_;
+  }
+
+  public static final int DOLLAR_VOLUME_20D_FIELD_NUMBER = 34;
+  private double dollarVolume20D_ = 0D;
+  /**
+   * <pre>
+   * Average daily turnover over 20 sessions, A$. Meaningful only when has_dollar_volume_20d.
+   * </pre>
+   *
+   * <code>double dollar_volume_20d = 34 [json_name = "dollarVolume20d"];</code>
+   * @return The dollarVolume20d.
+   */
+  @java.lang.Override
+  public double getDollarVolume20D() {
+    return dollarVolume20D_;
+  }
+
+  public static final int HAS_DOLLAR_VOLUME_20D_FIELD_NUMBER = 35;
+  private boolean hasDollarVolume20D_ = false;
+  /**
+   * <code>bool has_dollar_volume_20d = 35 [json_name = "hasDollarVolume20d"];</code>
+   * @return The hasDollarVolume20d.
+   */
+  @java.lang.Override
+  public boolean getHasDollarVolume20D() {
+    return hasDollarVolume20D_;
+  }
+
+  public static final int BREAKOUT_DATE_FIELD_NUMBER = 36;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object breakoutDate_ = "";
+  /**
+   * <pre>
+   * YYYY-MM-DD of the breakout session; empty when there was none.
+   * </pre>
+   *
+   * <code>string breakout_date = 36 [json_name = "breakoutDate"];</code>
+   * @return The breakoutDate.
+   */
+  @java.lang.Override
+  public java.lang.String getBreakoutDate() {
+    java.lang.Object ref = breakoutDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      breakoutDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * YYYY-MM-DD of the breakout session; empty when there was none.
+   * </pre>
+   *
+   * <code>string breakout_date = 36 [json_name = "breakoutDate"];</code>
+   * @return The bytes for breakoutDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getBreakoutDateBytes() {
+    java.lang.Object ref = breakoutDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      breakoutDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SHORT_REPORT_DATE_FIELD_NUMBER = 37;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object shortReportDate_ = "";
+  /**
+   * <pre>
+   * YYYY-MM-DD of the ASIC report the short figure came from; empty when none.
+   * </pre>
+   *
+   * <code>string short_report_date = 37 [json_name = "shortReportDate"];</code>
+   * @return The shortReportDate.
+   */
+  @java.lang.Override
+  public java.lang.String getShortReportDate() {
+    java.lang.Object ref = shortReportDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      shortReportDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * YYYY-MM-DD of the ASIC report the short figure came from; empty when none.
+   * </pre>
+   *
+   * <code>string short_report_date = 37 [json_name = "shortReportDate"];</code>
+   * @return The bytes for shortReportDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getShortReportDateBytes() {
+    java.lang.Object ref = shortReportDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      shortReportDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SHORT_AVAILABLE_DATE_FIELD_NUMBER = 38;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object shortAvailableDate_ = "";
+  /**
+   * <pre>
+   * YYYY-MM-DD the report became public (short_report_date plus the publication lag).
+   * </pre>
+   *
+   * <code>string short_available_date = 38 [json_name = "shortAvailableDate"];</code>
+   * @return The shortAvailableDate.
+   */
+  @java.lang.Override
+  public java.lang.String getShortAvailableDate() {
+    java.lang.Object ref = shortAvailableDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      shortAvailableDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * YYYY-MM-DD the report became public (short_report_date plus the publication lag).
+   * </pre>
+   *
+   * <code>string short_available_date = 38 [json_name = "shortAvailableDate"];</code>
+   * @return The bytes for shortAvailableDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getShortAvailableDateBytes() {
+    java.lang.Object ref = shortAvailableDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      shortAvailableDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SHORT_STATUS_FIELD_NUMBER = 39;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object shortStatus_ = "";
+  /**
+   * <pre>
+   * "reported" when a short position was reported; empty otherwise.
+   * </pre>
+   *
+   * <code>string short_status = 39 [json_name = "shortStatus"];</code>
+   * @return The shortStatus.
+   */
+  @java.lang.Override
+  public java.lang.String getShortStatus() {
+    java.lang.Object ref = shortStatus_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      shortStatus_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * "reported" when a short position was reported; empty otherwise.
+   * </pre>
+   *
+   * <code>string short_status = 39 [json_name = "shortStatus"];</code>
+   * @return The bytes for shortStatus.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getShortStatusBytes() {
+    java.lang.Object ref = shortStatus_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      shortStatus_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int HAS_PCT_OFF_52W_HIGH_FIELD_NUMBER = 40;
+  private boolean hasPctOff52WHigh_ = false;
+  /**
+   * <pre>
+   * Meaningful only when has_pct_off_52w_high. pct_off_52w_high is 0 at the high,
+   * so a stock with no 52-week high yet must not read as "at the high".
+   * </pre>
+   *
+   * <code>bool has_pct_off_52w_high = 40 [json_name = "hasPctOff52wHigh"];</code>
+   * @return The hasPctOff52wHigh.
+   */
+  @java.lang.Override
+  public boolean getHasPctOff52WHigh() {
+    return hasPctOff52WHigh_;
+  }
+
+  public static final int CA_SUSPECT_DATE_FIELD_NUMBER = 41;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object caSuspectDate_ = "";
+  /**
+   * <pre>
+   * Corporate-action suspect date; empty until the basis check ships.
+   * </pre>
+   *
+   * <code>string ca_suspect_date = 41 [json_name = "caSuspectDate"];</code>
+   * @return The caSuspectDate.
+   */
+  @java.lang.Override
+  public java.lang.String getCaSuspectDate() {
+    java.lang.Object ref = caSuspectDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      caSuspectDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Corporate-action suspect date; empty until the basis check ships.
+   * </pre>
+   *
+   * <code>string ca_suspect_date = 41 [json_name = "caSuspectDate"];</code>
+   * @return The bytes for caSuspectDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getCaSuspectDateBytes() {
+    java.lang.Object ref = caSuspectDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      caSuspectDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -742,6 +1102,48 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000001) != 0)) {
       output.writeMessage(27, getFundamentals());
+    }
+    if (java.lang.Double.doubleToRawLongBits(daysToCover_) != 0) {
+      output.writeDouble(28, daysToCover_);
+    }
+    if (hasDaysToCover_ != false) {
+      output.writeBool(29, hasDaysToCover_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(rs6MPct_) != 0) {
+      output.writeDouble(30, rs6MPct_);
+    }
+    if (hasRs6MPct_ != false) {
+      output.writeBool(31, hasRs6MPct_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(rs6MPercentile_) != 0) {
+      output.writeDouble(32, rs6MPercentile_);
+    }
+    if (hasRs6MPercentile_ != false) {
+      output.writeBool(33, hasRs6MPercentile_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(dollarVolume20D_) != 0) {
+      output.writeDouble(34, dollarVolume20D_);
+    }
+    if (hasDollarVolume20D_ != false) {
+      output.writeBool(35, hasDollarVolume20D_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(breakoutDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 36, breakoutDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortReportDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 37, shortReportDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortAvailableDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 38, shortAvailableDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortStatus_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 39, shortStatus_);
+    }
+    if (hasPctOff52WHigh_ != false) {
+      output.writeBool(40, hasPctOff52WHigh_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(caSuspectDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 41, caSuspectDate_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -854,6 +1256,61 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(27, getFundamentals());
     }
+    if (java.lang.Double.doubleToRawLongBits(daysToCover_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(28, daysToCover_);
+    }
+    if (hasDaysToCover_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(29, hasDaysToCover_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(rs6MPct_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(30, rs6MPct_);
+    }
+    if (hasRs6MPct_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(31, hasRs6MPct_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(rs6MPercentile_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(32, rs6MPercentile_);
+    }
+    return size;
+  }
+  private int computeSerializedSize_1() {
+    int size = 0;
+    if (hasRs6MPercentile_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(33, hasRs6MPercentile_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(dollarVolume20D_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(34, dollarVolume20D_);
+    }
+    if (hasDollarVolume20D_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(35, hasDollarVolume20D_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(breakoutDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(36, breakoutDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortReportDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(37, shortReportDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortAvailableDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(38, shortAvailableDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortStatus_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(39, shortStatus_);
+    }
+    if (hasPctOff52WHigh_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(40, hasPctOff52WHigh_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(caSuspectDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(41, caSuspectDate_);
+    }
     return size;
   }
   @java.lang.Override
@@ -863,6 +1320,7 @@ private static final long serialVersionUID = 0L;
 
     size = 0;
     size += computeSerializedSize_0();
+    size += computeSerializedSize_1();
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -946,6 +1404,38 @@ private static final long serialVersionUID = 0L;
       if (!getFundamentals()
           .equals(other.getFundamentals())) return false;
     }
+    if (java.lang.Double.doubleToLongBits(getDaysToCover())
+        != java.lang.Double.doubleToLongBits(
+            other.getDaysToCover())) return false;
+    if (getHasDaysToCover()
+        != other.getHasDaysToCover()) return false;
+    if (java.lang.Double.doubleToLongBits(getRs6MPct())
+        != java.lang.Double.doubleToLongBits(
+            other.getRs6MPct())) return false;
+    if (getHasRs6MPct()
+        != other.getHasRs6MPct()) return false;
+    if (java.lang.Double.doubleToLongBits(getRs6MPercentile())
+        != java.lang.Double.doubleToLongBits(
+            other.getRs6MPercentile())) return false;
+    if (getHasRs6MPercentile()
+        != other.getHasRs6MPercentile()) return false;
+    if (java.lang.Double.doubleToLongBits(getDollarVolume20D())
+        != java.lang.Double.doubleToLongBits(
+            other.getDollarVolume20D())) return false;
+    if (getHasDollarVolume20D()
+        != other.getHasDollarVolume20D()) return false;
+    if (!getBreakoutDate()
+        .equals(other.getBreakoutDate())) return false;
+    if (!getShortReportDate()
+        .equals(other.getShortReportDate())) return false;
+    if (!getShortAvailableDate()
+        .equals(other.getShortAvailableDate())) return false;
+    if (!getShortStatus()
+        .equals(other.getShortStatus())) return false;
+    if (getHasPctOff52WHigh()
+        != other.getHasPctOff52WHigh()) return false;
+    if (!getCaSuspectDate()
+        .equals(other.getCaSuspectDate())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1032,6 +1522,43 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + FUNDAMENTALS_FIELD_NUMBER;
       hash = (53 * hash) + getFundamentals().hashCode();
     }
+    hash = (37 * hash) + DAYS_TO_COVER_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getDaysToCover()));
+    hash = (37 * hash) + HAS_DAYS_TO_COVER_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasDaysToCover());
+    hash = (37 * hash) + RS_6M_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getRs6MPct()));
+    hash = (37 * hash) + HAS_RS_6M_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasRs6MPct());
+    hash = (37 * hash) + RS_6M_PERCENTILE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getRs6MPercentile()));
+    hash = (37 * hash) + HAS_RS_6M_PERCENTILE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasRs6MPercentile());
+    hash = (37 * hash) + DOLLAR_VOLUME_20D_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getDollarVolume20D()));
+    hash = (37 * hash) + HAS_DOLLAR_VOLUME_20D_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasDollarVolume20D());
+    hash = (37 * hash) + BREAKOUT_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getBreakoutDate().hashCode();
+    hash = (37 * hash) + SHORT_REPORT_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getShortReportDate().hashCode();
+    hash = (37 * hash) + SHORT_AVAILABLE_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getShortAvailableDate().hashCode();
+    hash = (37 * hash) + SHORT_STATUS_FIELD_NUMBER;
+    hash = (53 * hash) + getShortStatus().hashCode();
+    hash = (37 * hash) + HAS_PCT_OFF_52W_HIGH_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasPctOff52WHigh());
+    hash = (37 * hash) + CA_SUSPECT_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getCaSuspectDate().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1174,6 +1701,7 @@ private static final long serialVersionUID = 0L;
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
+      bitField1_ = 0;
       rank_ = 0;
       stockCode_ = "";
       companyName_ = "";
@@ -1211,6 +1739,20 @@ private static final long serialVersionUID = 0L;
         fundamentalsBuilder_.dispose();
         fundamentalsBuilder_ = null;
       }
+      daysToCover_ = 0D;
+      hasDaysToCover_ = false;
+      rs6MPct_ = 0D;
+      hasRs6MPct_ = false;
+      rs6MPercentile_ = 0D;
+      hasRs6MPercentile_ = false;
+      dollarVolume20D_ = 0D;
+      hasDollarVolume20D_ = false;
+      breakoutDate_ = "";
+      shortReportDate_ = "";
+      shortAvailableDate_ = "";
+      shortStatus_ = "";
+      hasPctOff52WHigh_ = false;
+      caSuspectDate_ = "";
       return this;
     }
 
@@ -1239,6 +1781,7 @@ private static final long serialVersionUID = 0L;
       com.shorts.v1alpha1.StrategyPick result = new com.shorts.v1alpha1.StrategyPick(this);
       buildPartialRepeatedFields(result);
       if (bitField0_ != 0) { buildPartial0(result); }
+      if (bitField1_ != 0) { buildPartial1(result); }
       onBuilt();
       return result;
     }
@@ -1339,7 +1882,53 @@ private static final long serialVersionUID = 0L;
             : fundamentalsBuilder_.build();
         to_bitField0_ |= 0x00000001;
       }
+      if (((from_bitField0_ & 0x08000000) != 0)) {
+        result.daysToCover_ = daysToCover_;
+      }
+      if (((from_bitField0_ & 0x10000000) != 0)) {
+        result.hasDaysToCover_ = hasDaysToCover_;
+      }
+      if (((from_bitField0_ & 0x20000000) != 0)) {
+        result.rs6MPct_ = rs6MPct_;
+      }
+      if (((from_bitField0_ & 0x40000000) != 0)) {
+        result.hasRs6MPct_ = hasRs6MPct_;
+      }
+      if (((from_bitField0_ & 0x80000000) != 0)) {
+        result.rs6MPercentile_ = rs6MPercentile_;
+      }
       result.bitField0_ |= to_bitField0_;
+    }
+
+    private void buildPartial1(com.shorts.v1alpha1.StrategyPick result) {
+      int from_bitField1_ = bitField1_;
+      if (((from_bitField1_ & 0x00000001) != 0)) {
+        result.hasRs6MPercentile_ = hasRs6MPercentile_;
+      }
+      if (((from_bitField1_ & 0x00000002) != 0)) {
+        result.dollarVolume20D_ = dollarVolume20D_;
+      }
+      if (((from_bitField1_ & 0x00000004) != 0)) {
+        result.hasDollarVolume20D_ = hasDollarVolume20D_;
+      }
+      if (((from_bitField1_ & 0x00000008) != 0)) {
+        result.breakoutDate_ = breakoutDate_;
+      }
+      if (((from_bitField1_ & 0x00000010) != 0)) {
+        result.shortReportDate_ = shortReportDate_;
+      }
+      if (((from_bitField1_ & 0x00000020) != 0)) {
+        result.shortAvailableDate_ = shortAvailableDate_;
+      }
+      if (((from_bitField1_ & 0x00000040) != 0)) {
+        result.shortStatus_ = shortStatus_;
+      }
+      if (((from_bitField1_ & 0x00000080) != 0)) {
+        result.hasPctOff52WHigh_ = hasPctOff52WHigh_;
+      }
+      if (((from_bitField1_ & 0x00000100) != 0)) {
+        result.caSuspectDate_ = caSuspectDate_;
+      }
     }
 
     @java.lang.Override
@@ -1469,6 +2058,58 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasFundamentals()) {
         mergeFundamentals(other.getFundamentals());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getDaysToCover()) != 0) {
+        setDaysToCover(other.getDaysToCover());
+      }
+      if (other.getHasDaysToCover() != false) {
+        setHasDaysToCover(other.getHasDaysToCover());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getRs6MPct()) != 0) {
+        setRs6MPct(other.getRs6MPct());
+      }
+      if (other.getHasRs6MPct() != false) {
+        setHasRs6MPct(other.getHasRs6MPct());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getRs6MPercentile()) != 0) {
+        setRs6MPercentile(other.getRs6MPercentile());
+      }
+      if (other.getHasRs6MPercentile() != false) {
+        setHasRs6MPercentile(other.getHasRs6MPercentile());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getDollarVolume20D()) != 0) {
+        setDollarVolume20D(other.getDollarVolume20D());
+      }
+      if (other.getHasDollarVolume20D() != false) {
+        setHasDollarVolume20D(other.getHasDollarVolume20D());
+      }
+      if (!other.getBreakoutDate().isEmpty()) {
+        breakoutDate_ = other.breakoutDate_;
+        bitField1_ |= 0x00000008;
+        onChanged();
+      }
+      if (!other.getShortReportDate().isEmpty()) {
+        shortReportDate_ = other.shortReportDate_;
+        bitField1_ |= 0x00000010;
+        onChanged();
+      }
+      if (!other.getShortAvailableDate().isEmpty()) {
+        shortAvailableDate_ = other.shortAvailableDate_;
+        bitField1_ |= 0x00000020;
+        onChanged();
+      }
+      if (!other.getShortStatus().isEmpty()) {
+        shortStatus_ = other.shortStatus_;
+        bitField1_ |= 0x00000040;
+        onChanged();
+      }
+      if (other.getHasPctOff52WHigh() != false) {
+        setHasPctOff52WHigh(other.getHasPctOff52WHigh());
+      }
+      if (!other.getCaSuspectDate().isEmpty()) {
+        caSuspectDate_ = other.caSuspectDate_;
+        bitField1_ |= 0x00000100;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1641,6 +2282,76 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x04000000;
               break;
             } // case 218
+            case 225: {
+              daysToCover_ = input.readDouble();
+              bitField0_ |= 0x08000000;
+              break;
+            } // case 225
+            case 232: {
+              hasDaysToCover_ = input.readBool();
+              bitField0_ |= 0x10000000;
+              break;
+            } // case 232
+            case 241: {
+              rs6MPct_ = input.readDouble();
+              bitField0_ |= 0x20000000;
+              break;
+            } // case 241
+            case 248: {
+              hasRs6MPct_ = input.readBool();
+              bitField0_ |= 0x40000000;
+              break;
+            } // case 248
+            case 257: {
+              rs6MPercentile_ = input.readDouble();
+              bitField0_ |= 0x80000000;
+              break;
+            } // case 257
+            case 264: {
+              hasRs6MPercentile_ = input.readBool();
+              bitField1_ |= 0x00000001;
+              break;
+            } // case 264
+            case 273: {
+              dollarVolume20D_ = input.readDouble();
+              bitField1_ |= 0x00000002;
+              break;
+            } // case 273
+            case 280: {
+              hasDollarVolume20D_ = input.readBool();
+              bitField1_ |= 0x00000004;
+              break;
+            } // case 280
+            case 290: {
+              breakoutDate_ = input.readStringRequireUtf8();
+              bitField1_ |= 0x00000008;
+              break;
+            } // case 290
+            case 298: {
+              shortReportDate_ = input.readStringRequireUtf8();
+              bitField1_ |= 0x00000010;
+              break;
+            } // case 298
+            case 306: {
+              shortAvailableDate_ = input.readStringRequireUtf8();
+              bitField1_ |= 0x00000020;
+              break;
+            } // case 306
+            case 314: {
+              shortStatus_ = input.readStringRequireUtf8();
+              bitField1_ |= 0x00000040;
+              break;
+            } // case 314
+            case 320: {
+              hasPctOff52WHigh_ = input.readBool();
+              bitField1_ |= 0x00000080;
+              break;
+            } // case 320
+            case 330: {
+              caSuspectDate_ = input.readStringRequireUtf8();
+              bitField1_ |= 0x00000100;
+              break;
+            } // case 330
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1657,6 +2368,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     private int bitField0_;
+    private int bitField1_;
 
     private int rank_ ;
     /**
@@ -3283,6 +3995,817 @@ private static final long serialVersionUID = 0L;
         fundamentals_ = null;
       }
       return fundamentalsBuilder_;
+    }
+
+    private double daysToCover_ ;
+    /**
+     * <pre>
+     * Signal evidence (display-only in this release where noted).
+     * </pre>
+     *
+     * <code>double days_to_cover = 28 [json_name = "daysToCover"];</code>
+     * @return The daysToCover.
+     */
+    @java.lang.Override
+    public double getDaysToCover() {
+      return daysToCover_;
+    }
+    /**
+     * <pre>
+     * Signal evidence (display-only in this release where noted).
+     * </pre>
+     *
+     * <code>double days_to_cover = 28 [json_name = "daysToCover"];</code>
+     * @param value The daysToCover to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDaysToCover(double value) {
+
+      daysToCover_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Signal evidence (display-only in this release where noted).
+     * </pre>
+     *
+     * <code>double days_to_cover = 28 [json_name = "daysToCover"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDaysToCover() {
+      bitField0_ = (bitField0_ & ~0x08000000);
+      daysToCover_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasDaysToCover_ ;
+    /**
+     * <code>bool has_days_to_cover = 29 [json_name = "hasDaysToCover"];</code>
+     * @return The hasDaysToCover.
+     */
+    @java.lang.Override
+    public boolean getHasDaysToCover() {
+      return hasDaysToCover_;
+    }
+    /**
+     * <code>bool has_days_to_cover = 29 [json_name = "hasDaysToCover"];</code>
+     * @param value The hasDaysToCover to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasDaysToCover(boolean value) {
+
+      hasDaysToCover_ = value;
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_days_to_cover = 29 [json_name = "hasDaysToCover"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasDaysToCover() {
+      bitField0_ = (bitField0_ & ~0x10000000);
+      hasDaysToCover_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double rs6MPct_ ;
+    /**
+     * <pre>
+     * Meaningful only when has_rs_6m_pct.
+     * </pre>
+     *
+     * <code>double rs_6m_pct = 30 [json_name = "rs6mPct"];</code>
+     * @return The rs6mPct.
+     */
+    @java.lang.Override
+    public double getRs6MPct() {
+      return rs6MPct_;
+    }
+    /**
+     * <pre>
+     * Meaningful only when has_rs_6m_pct.
+     * </pre>
+     *
+     * <code>double rs_6m_pct = 30 [json_name = "rs6mPct"];</code>
+     * @param value The rs6mPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRs6MPct(double value) {
+
+      rs6MPct_ = value;
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Meaningful only when has_rs_6m_pct.
+     * </pre>
+     *
+     * <code>double rs_6m_pct = 30 [json_name = "rs6mPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRs6MPct() {
+      bitField0_ = (bitField0_ & ~0x20000000);
+      rs6MPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasRs6MPct_ ;
+    /**
+     * <code>bool has_rs_6m_pct = 31 [json_name = "hasRs6mPct"];</code>
+     * @return The hasRs6mPct.
+     */
+    @java.lang.Override
+    public boolean getHasRs6MPct() {
+      return hasRs6MPct_;
+    }
+    /**
+     * <code>bool has_rs_6m_pct = 31 [json_name = "hasRs6mPct"];</code>
+     * @param value The hasRs6mPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasRs6MPct(boolean value) {
+
+      hasRs6MPct_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_rs_6m_pct = 31 [json_name = "hasRs6mPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasRs6MPct() {
+      bitField0_ = (bitField0_ & ~0x40000000);
+      hasRs6MPct_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double rs6MPercentile_ ;
+    /**
+     * <pre>
+     * Percentile of rs_6m_pct across the evaluated universe, 0-100.
+     * </pre>
+     *
+     * <code>double rs_6m_percentile = 32 [json_name = "rs6mPercentile"];</code>
+     * @return The rs6mPercentile.
+     */
+    @java.lang.Override
+    public double getRs6MPercentile() {
+      return rs6MPercentile_;
+    }
+    /**
+     * <pre>
+     * Percentile of rs_6m_pct across the evaluated universe, 0-100.
+     * </pre>
+     *
+     * <code>double rs_6m_percentile = 32 [json_name = "rs6mPercentile"];</code>
+     * @param value The rs6mPercentile to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRs6MPercentile(double value) {
+
+      rs6MPercentile_ = value;
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Percentile of rs_6m_pct across the evaluated universe, 0-100.
+     * </pre>
+     *
+     * <code>double rs_6m_percentile = 32 [json_name = "rs6mPercentile"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRs6MPercentile() {
+      bitField0_ = (bitField0_ & ~0x80000000);
+      rs6MPercentile_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasRs6MPercentile_ ;
+    /**
+     * <code>bool has_rs_6m_percentile = 33 [json_name = "hasRs6mPercentile"];</code>
+     * @return The hasRs6mPercentile.
+     */
+    @java.lang.Override
+    public boolean getHasRs6MPercentile() {
+      return hasRs6MPercentile_;
+    }
+    /**
+     * <code>bool has_rs_6m_percentile = 33 [json_name = "hasRs6mPercentile"];</code>
+     * @param value The hasRs6mPercentile to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasRs6MPercentile(boolean value) {
+
+      hasRs6MPercentile_ = value;
+      bitField1_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_rs_6m_percentile = 33 [json_name = "hasRs6mPercentile"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasRs6MPercentile() {
+      bitField1_ = (bitField1_ & ~0x00000001);
+      hasRs6MPercentile_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double dollarVolume20D_ ;
+    /**
+     * <pre>
+     * Average daily turnover over 20 sessions, A$. Meaningful only when has_dollar_volume_20d.
+     * </pre>
+     *
+     * <code>double dollar_volume_20d = 34 [json_name = "dollarVolume20d"];</code>
+     * @return The dollarVolume20d.
+     */
+    @java.lang.Override
+    public double getDollarVolume20D() {
+      return dollarVolume20D_;
+    }
+    /**
+     * <pre>
+     * Average daily turnover over 20 sessions, A$. Meaningful only when has_dollar_volume_20d.
+     * </pre>
+     *
+     * <code>double dollar_volume_20d = 34 [json_name = "dollarVolume20d"];</code>
+     * @param value The dollarVolume20d to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDollarVolume20D(double value) {
+
+      dollarVolume20D_ = value;
+      bitField1_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Average daily turnover over 20 sessions, A$. Meaningful only when has_dollar_volume_20d.
+     * </pre>
+     *
+     * <code>double dollar_volume_20d = 34 [json_name = "dollarVolume20d"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDollarVolume20D() {
+      bitField1_ = (bitField1_ & ~0x00000002);
+      dollarVolume20D_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasDollarVolume20D_ ;
+    /**
+     * <code>bool has_dollar_volume_20d = 35 [json_name = "hasDollarVolume20d"];</code>
+     * @return The hasDollarVolume20d.
+     */
+    @java.lang.Override
+    public boolean getHasDollarVolume20D() {
+      return hasDollarVolume20D_;
+    }
+    /**
+     * <code>bool has_dollar_volume_20d = 35 [json_name = "hasDollarVolume20d"];</code>
+     * @param value The hasDollarVolume20d to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasDollarVolume20D(boolean value) {
+
+      hasDollarVolume20D_ = value;
+      bitField1_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_dollar_volume_20d = 35 [json_name = "hasDollarVolume20d"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasDollarVolume20D() {
+      bitField1_ = (bitField1_ & ~0x00000004);
+      hasDollarVolume20D_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object breakoutDate_ = "";
+    /**
+     * <pre>
+     * YYYY-MM-DD of the breakout session; empty when there was none.
+     * </pre>
+     *
+     * <code>string breakout_date = 36 [json_name = "breakoutDate"];</code>
+     * @return The breakoutDate.
+     */
+    public java.lang.String getBreakoutDate() {
+      java.lang.Object ref = breakoutDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        breakoutDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the breakout session; empty when there was none.
+     * </pre>
+     *
+     * <code>string breakout_date = 36 [json_name = "breakoutDate"];</code>
+     * @return The bytes for breakoutDate.
+     */
+    public com.google.protobuf.ByteString
+        getBreakoutDateBytes() {
+      java.lang.Object ref = breakoutDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        breakoutDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the breakout session; empty when there was none.
+     * </pre>
+     *
+     * <code>string breakout_date = 36 [json_name = "breakoutDate"];</code>
+     * @param value The breakoutDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBreakoutDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      breakoutDate_ = value;
+      bitField1_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the breakout session; empty when there was none.
+     * </pre>
+     *
+     * <code>string breakout_date = 36 [json_name = "breakoutDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBreakoutDate() {
+      breakoutDate_ = getDefaultInstance().getBreakoutDate();
+      bitField1_ = (bitField1_ & ~0x00000008);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the breakout session; empty when there was none.
+     * </pre>
+     *
+     * <code>string breakout_date = 36 [json_name = "breakoutDate"];</code>
+     * @param value The bytes for breakoutDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBreakoutDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      breakoutDate_ = value;
+      bitField1_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object shortReportDate_ = "";
+    /**
+     * <pre>
+     * YYYY-MM-DD of the ASIC report the short figure came from; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 37 [json_name = "shortReportDate"];</code>
+     * @return The shortReportDate.
+     */
+    public java.lang.String getShortReportDate() {
+      java.lang.Object ref = shortReportDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        shortReportDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the ASIC report the short figure came from; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 37 [json_name = "shortReportDate"];</code>
+     * @return The bytes for shortReportDate.
+     */
+    public com.google.protobuf.ByteString
+        getShortReportDateBytes() {
+      java.lang.Object ref = shortReportDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        shortReportDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the ASIC report the short figure came from; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 37 [json_name = "shortReportDate"];</code>
+     * @param value The shortReportDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortReportDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      shortReportDate_ = value;
+      bitField1_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the ASIC report the short figure came from; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 37 [json_name = "shortReportDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShortReportDate() {
+      shortReportDate_ = getDefaultInstance().getShortReportDate();
+      bitField1_ = (bitField1_ & ~0x00000010);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the ASIC report the short figure came from; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 37 [json_name = "shortReportDate"];</code>
+     * @param value The bytes for shortReportDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortReportDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      shortReportDate_ = value;
+      bitField1_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object shortAvailableDate_ = "";
+    /**
+     * <pre>
+     * YYYY-MM-DD the report became public (short_report_date plus the publication lag).
+     * </pre>
+     *
+     * <code>string short_available_date = 38 [json_name = "shortAvailableDate"];</code>
+     * @return The shortAvailableDate.
+     */
+    public java.lang.String getShortAvailableDate() {
+      java.lang.Object ref = shortAvailableDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        shortAvailableDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD the report became public (short_report_date plus the publication lag).
+     * </pre>
+     *
+     * <code>string short_available_date = 38 [json_name = "shortAvailableDate"];</code>
+     * @return The bytes for shortAvailableDate.
+     */
+    public com.google.protobuf.ByteString
+        getShortAvailableDateBytes() {
+      java.lang.Object ref = shortAvailableDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        shortAvailableDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD the report became public (short_report_date plus the publication lag).
+     * </pre>
+     *
+     * <code>string short_available_date = 38 [json_name = "shortAvailableDate"];</code>
+     * @param value The shortAvailableDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortAvailableDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      shortAvailableDate_ = value;
+      bitField1_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD the report became public (short_report_date plus the publication lag).
+     * </pre>
+     *
+     * <code>string short_available_date = 38 [json_name = "shortAvailableDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShortAvailableDate() {
+      shortAvailableDate_ = getDefaultInstance().getShortAvailableDate();
+      bitField1_ = (bitField1_ & ~0x00000020);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD the report became public (short_report_date plus the publication lag).
+     * </pre>
+     *
+     * <code>string short_available_date = 38 [json_name = "shortAvailableDate"];</code>
+     * @param value The bytes for shortAvailableDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortAvailableDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      shortAvailableDate_ = value;
+      bitField1_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object shortStatus_ = "";
+    /**
+     * <pre>
+     * "reported" when a short position was reported; empty otherwise.
+     * </pre>
+     *
+     * <code>string short_status = 39 [json_name = "shortStatus"];</code>
+     * @return The shortStatus.
+     */
+    public java.lang.String getShortStatus() {
+      java.lang.Object ref = shortStatus_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        shortStatus_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "reported" when a short position was reported; empty otherwise.
+     * </pre>
+     *
+     * <code>string short_status = 39 [json_name = "shortStatus"];</code>
+     * @return The bytes for shortStatus.
+     */
+    public com.google.protobuf.ByteString
+        getShortStatusBytes() {
+      java.lang.Object ref = shortStatus_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        shortStatus_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "reported" when a short position was reported; empty otherwise.
+     * </pre>
+     *
+     * <code>string short_status = 39 [json_name = "shortStatus"];</code>
+     * @param value The shortStatus to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortStatus(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      shortStatus_ = value;
+      bitField1_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "reported" when a short position was reported; empty otherwise.
+     * </pre>
+     *
+     * <code>string short_status = 39 [json_name = "shortStatus"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShortStatus() {
+      shortStatus_ = getDefaultInstance().getShortStatus();
+      bitField1_ = (bitField1_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "reported" when a short position was reported; empty otherwise.
+     * </pre>
+     *
+     * <code>string short_status = 39 [json_name = "shortStatus"];</code>
+     * @param value The bytes for shortStatus to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortStatusBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      shortStatus_ = value;
+      bitField1_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasPctOff52WHigh_ ;
+    /**
+     * <pre>
+     * Meaningful only when has_pct_off_52w_high. pct_off_52w_high is 0 at the high,
+     * so a stock with no 52-week high yet must not read as "at the high".
+     * </pre>
+     *
+     * <code>bool has_pct_off_52w_high = 40 [json_name = "hasPctOff52wHigh"];</code>
+     * @return The hasPctOff52wHigh.
+     */
+    @java.lang.Override
+    public boolean getHasPctOff52WHigh() {
+      return hasPctOff52WHigh_;
+    }
+    /**
+     * <pre>
+     * Meaningful only when has_pct_off_52w_high. pct_off_52w_high is 0 at the high,
+     * so a stock with no 52-week high yet must not read as "at the high".
+     * </pre>
+     *
+     * <code>bool has_pct_off_52w_high = 40 [json_name = "hasPctOff52wHigh"];</code>
+     * @param value The hasPctOff52wHigh to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasPctOff52WHigh(boolean value) {
+
+      hasPctOff52WHigh_ = value;
+      bitField1_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Meaningful only when has_pct_off_52w_high. pct_off_52w_high is 0 at the high,
+     * so a stock with no 52-week high yet must not read as "at the high".
+     * </pre>
+     *
+     * <code>bool has_pct_off_52w_high = 40 [json_name = "hasPctOff52wHigh"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasPctOff52WHigh() {
+      bitField1_ = (bitField1_ & ~0x00000080);
+      hasPctOff52WHigh_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object caSuspectDate_ = "";
+    /**
+     * <pre>
+     * Corporate-action suspect date; empty until the basis check ships.
+     * </pre>
+     *
+     * <code>string ca_suspect_date = 41 [json_name = "caSuspectDate"];</code>
+     * @return The caSuspectDate.
+     */
+    public java.lang.String getCaSuspectDate() {
+      java.lang.Object ref = caSuspectDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        caSuspectDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Corporate-action suspect date; empty until the basis check ships.
+     * </pre>
+     *
+     * <code>string ca_suspect_date = 41 [json_name = "caSuspectDate"];</code>
+     * @return The bytes for caSuspectDate.
+     */
+    public com.google.protobuf.ByteString
+        getCaSuspectDateBytes() {
+      java.lang.Object ref = caSuspectDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        caSuspectDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Corporate-action suspect date; empty until the basis check ships.
+     * </pre>
+     *
+     * <code>string ca_suspect_date = 41 [json_name = "caSuspectDate"];</code>
+     * @param value The caSuspectDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCaSuspectDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      caSuspectDate_ = value;
+      bitField1_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Corporate-action suspect date; empty until the basis check ships.
+     * </pre>
+     *
+     * <code>string ca_suspect_date = 41 [json_name = "caSuspectDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCaSuspectDate() {
+      caSuspectDate_ = getDefaultInstance().getCaSuspectDate();
+      bitField1_ = (bitField1_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Corporate-action suspect date; empty until the basis check ships.
+     * </pre>
+     *
+     * <code>string ca_suspect_date = 41 [json_name = "caSuspectDate"];</code>
+     * @param value The bytes for caSuspectDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCaSuspectDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      caSuspectDate_ = value;
+      bitField1_ |= 0x00000100;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.StrategyPick)

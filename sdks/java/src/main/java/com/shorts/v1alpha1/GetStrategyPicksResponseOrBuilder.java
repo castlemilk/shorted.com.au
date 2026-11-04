@@ -123,4 +123,167 @@ public interface GetStrategyPicksResponseOrBuilder extends
    * @return The fundamentalsRowsCount.
    */
   int getFundamentalsRowsCount();
+
+  /**
+   * <pre>
+   * Counts of every pick by status, over the whole ranked list before the
+   * status filter and paging.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+   * @return Whether the statusCounts field is set.
+   */
+  boolean hasStatusCounts();
+  /**
+   * <pre>
+   * Counts of every pick by status, over the whole ranked list before the
+   * status filter and paging.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+   * @return The statusCounts.
+   */
+  com.shorts.v1alpha1.StatusCounts getStatusCounts();
+  /**
+   * <pre>
+   * Counts of every pick by status, over the whole ranked list before the
+   * status filter and paging.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+   */
+  com.shorts.v1alpha1.StatusCountsOrBuilder getStatusCountsOrBuilder();
+
+  /**
+   * <pre>
+   * Empty until versioned rules ship.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   * @return Whether the version field is set.
+   */
+  boolean hasVersion();
+  /**
+   * <pre>
+   * Empty until versioned rules ship.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   * @return The version.
+   */
+  com.shorts.v1alpha1.StrategyVersionRef getVersion();
+  /**
+   * <pre>
+   * Empty until versioned rules ship.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   */
+  com.shorts.v1alpha1.StrategyVersionRefOrBuilder getVersionOrBuilder();
+
+  /**
+   * <pre>
+   * YYYY-MM-DD of the session the picks are as at.
+   * </pre>
+   *
+   * <code>string session_date = 11 [json_name = "sessionDate"];</code>
+   * @return The sessionDate.
+   */
+  java.lang.String getSessionDate();
+  /**
+   * <pre>
+   * YYYY-MM-DD of the session the picks are as at.
+   * </pre>
+   *
+   * <code>string session_date = 11 [json_name = "sessionDate"];</code>
+   * @return The bytes for sessionDate.
+   */
+  com.google.protobuf.ByteString
+      getSessionDateBytes();
+
+  /**
+   * <pre>
+   * Newest ASIC report date behind the short figures; empty when none.
+   * </pre>
+   *
+   * <code>string short_report_date = 12 [json_name = "shortReportDate"];</code>
+   * @return The shortReportDate.
+   */
+  java.lang.String getShortReportDate();
+  /**
+   * <pre>
+   * Newest ASIC report date behind the short figures; empty when none.
+   * </pre>
+   *
+   * <code>string short_report_date = 12 [json_name = "shortReportDate"];</code>
+   * @return The bytes for shortReportDate.
+   */
+  com.google.protobuf.ByteString
+      getShortReportDateBytes();
+
+  /**
+   * <pre>
+   * When that report became public.
+   * </pre>
+   *
+   * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
+   * @return The shortAvailableDate.
+   */
+  java.lang.String getShortAvailableDate();
+  /**
+   * <pre>
+   * When that report became public.
+   * </pre>
+   *
+   * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
+   * @return The bytes for shortAvailableDate.
+   */
+  com.google.protobuf.ByteString
+      getShortAvailableDateBytes();
+
+  /**
+   * <pre>
+   * True when the picks are older than the update schedule allows.
+   * </pre>
+   *
+   * <code>bool stale = 14 [json_name = "stale"];</code>
+   * @return The stale.
+   */
+  boolean getStale();
+
+  /**
+   * <pre>
+   * The session's top-quartile cut-off of rs_6m_pct (rs_leader reads it).
+   * </pre>
+   *
+   * <code>double rs_quantile_threshold = 16 [json_name = "rsQuantileThreshold"];</code>
+   * @return The rsQuantileThreshold.
+   */
+  double getRsQuantileThreshold();
+
+  /**
+   * <code>bool has_rs_quantile_threshold = 17 [json_name = "hasRsQuantileThreshold"];</code>
+   * @return The hasRsQuantileThreshold.
+   */
+  boolean getHasRsQuantileThreshold();
+
+  /**
+   * <pre>
+   * The universe the picks were drawn from, as the strategy names it.
+   * </pre>
+   *
+   * <code>string universe_label = 18 [json_name = "universeLabel"];</code>
+   * @return The universeLabel.
+   */
+  java.lang.String getUniverseLabel();
+  /**
+   * <pre>
+   * The universe the picks were drawn from, as the strategy names it.
+   * </pre>
+   *
+   * <code>string universe_label = 18 [json_name = "universeLabel"];</code>
+   * @return The bytes for universeLabel.
+   */
+  com.google.protobuf.ByteString
+      getUniverseLabelBytes();
 }

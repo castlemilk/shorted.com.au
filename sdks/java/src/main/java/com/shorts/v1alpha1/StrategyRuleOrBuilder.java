@@ -111,4 +111,84 @@ public interface StrategyRuleOrBuilder extends
    */
   com.google.protobuf.ByteString
       getDataSourceBytes();
+
+  /**
+   * <pre>
+   * A trigger: a core rule a setup may still fail (the breakout, the new-high or leadership rule).
+   * </pre>
+   *
+   * <code>bool trigger = 7 [json_name = "trigger"];</code>
+   * @return The trigger.
+   */
+  boolean getTrigger();
+
+  /**
+   * <pre>
+   * Share of the score this rule carries, 0-1; the weights of a strategy sum to 1.
+   * </pre>
+   *
+   * <code>double weight = 8 [json_name = "weight"];</code>
+   * @return The weight.
+   */
+  double getWeight();
+
+  /**
+   * <pre>
+   * The number the rule tests, in unit. Meaningful only when has_threshold.
+   * </pre>
+   *
+   * <code>double threshold = 9 [json_name = "threshold"];</code>
+   * @return The threshold.
+   */
+  double getThreshold();
+
+  /**
+   * <pre>
+   * False for a rule with no single number to test (the regime, the market trend).
+   * </pre>
+   *
+   * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>
+   * @return The hasThreshold.
+   */
+  boolean getHasThreshold();
+
+  /**
+   * <pre>
+   * "%", "x", "A$", "days", "points" or empty.
+   * </pre>
+   *
+   * <code>string unit = 11 [json_name = "unit"];</code>
+   * @return The unit.
+   */
+  java.lang.String getUnit();
+  /**
+   * <pre>
+   * "%", "x", "A$", "days", "points" or empty.
+   * </pre>
+   *
+   * <code>string unit = 11 [json_name = "unit"];</code>
+   * @return The bytes for unit.
+   */
+  com.google.protobuf.ByteString
+      getUnitBytes();
+
+  /**
+   * <pre>
+   * "&gt;=", "&lt;=", "above", "in top quartile" and the like.
+   * </pre>
+   *
+   * <code>string comparator = 12 [json_name = "comparator"];</code>
+   * @return The comparator.
+   */
+  java.lang.String getComparator();
+  /**
+   * <pre>
+   * "&gt;=", "&lt;=", "above", "in top quartile" and the like.
+   * </pre>
+   *
+   * <code>string comparator = 12 [json_name = "comparator"];</code>
+   * @return The bytes for comparator.
+   */
+  com.google.protobuf.ByteString
+      getComparatorBytes();
 }
