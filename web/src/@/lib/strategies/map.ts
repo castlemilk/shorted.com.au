@@ -26,6 +26,7 @@ import type {
   PickStatus,
   RegimeLabel,
   RuleParamView,
+  RuleSettingView,
   RuleResultRow,
   RuleStatus,
   StatusCountsView,
@@ -84,6 +85,8 @@ export interface RuleParamInput {
 export interface StrategyVersionDetailInput {
   version?: StrategyVersionInput | null;
   params?: readonly RuleParamInput[];
+  /** The version's canonical spec as JSON text (the hashed one). */
+  canonicalJson?: string;
   policies?: readonly string[];
   changes?: readonly string[];
   knownIssues?: readonly string[];
@@ -386,6 +389,31 @@ export function mapStrategy(strategy: StrategyInput): StrategyDef {
 }
 
 /** One published rules version for the changelog, or null when it names no version. */
+/**
+ * Each rule's role and weight from a version's canonical spec. A rule without a
+ * finite weight is dropped (its share is unknown, never zero); unparseable JSON
+ * gives no rules, and the page then bails rather than showing roles it cannot
+ * stand behind.
+ */
+export function mapRuleSettings(canonicalJson: string | undefined): RuleSettingView[] {
+  if (!canonicalJson) return [];
+  let spec: unknown;
+  try {
+    spec = JSON.parse(canonicalJson);
+  } catch {
+    return [];
+  }
+  const rules = (spec as { rules?: unknown } | null)?.rules;
+  if (!Array.isArray(rules)) return [];
+  return rules.flatMap((rule: unknown) => {
+    if (!rule || typeof rule !== "object") return [];
+    const r = rule as Record<string, unknown>;
+    const ruleId = str(r.id);
+    if (!ruleId || typeof r.weight !== "number" || !Number.isFinite(r.weight)) return [];
+    return [{ ruleId, core: r.core === true, trigger: r.trigger === true, weight: r.weight }];
+  });
+}
+
 export function mapStrategyVersionDetail(
   input: StrategyVersionDetailInput,
 ): StrategyVersionDetailView | null {
@@ -397,6 +425,7 @@ export function mapStrategyVersionDetail(
       const mapped = mapRuleParam(param);
       return mapped ? [mapped] : [];
     }),
+    rules: mapRuleSettings(input.canonicalJson),
     policies: strings(input.policies),
     changes: strings(input.changes),
     knownIssues: strings(input.knownIssues),

@@ -102,6 +102,11 @@ function version(
       { ruleId: "new_high", name: "max_off_pct", value: 15 },
       { ruleId: "new_high", name: "fraction", value: 0.8 },
     ],
+    rules: [
+      { ruleId: "growth", core: true, trigger: false, weight: 0.25 },
+      { ruleId: "new_high", core: true, trigger: true, weight: 0.2 },
+      { ruleId: "leader", core: false, trigger: false, weight: 0 },
+    ],
     policies: ["Candidates are ordinary shares only."],
     changes: ["Initial version."],
     knownIssues: ["A recent issuer can read as unknown."],
@@ -145,6 +150,10 @@ describe("the Rules tab", () => {
       params: Promise.resolve({ strategy: "canslim" }),
     });
     expect(meta.alternates?.canonical).toBe("https://shorted.com.au/strategies/canslim/rules");
+    expect(meta.alternates?.languages).toEqual({
+      "en-AU": "https://shorted.com.au/strategies/canslim/rules",
+      "x-default": "https://shorted.com.au/strategies/canslim/rules",
+    });
     expect(meta.title).toBe("Rules: CAN SLIM Strategy");
     expect(meta).not.toHaveProperty("robots");
     expect(meta.openGraph).toEqual(
@@ -162,7 +171,7 @@ describe("the Rules tab", () => {
   });
 
   it("states every parameter of the live version against its rule, with its role and weight", async () => {
-    render(await StrategyRulesPage({ params: Promise.resolve({ strategy: "canslim" }) }));
+    const { container } = render(await StrategyRulesPage({ params: Promise.resolve({ strategy: "canslim" }) }));
 
     expect(screen.getByRole("heading", { level: 2, name: "Parameters" })).toBeInTheDocument();
     const table = screen.getByRole("table");
@@ -177,8 +186,37 @@ describe("the Rules tab", () => {
     expect(within(newHigh).getByText("fraction = 0.8")).toBeInTheDocument();
 
     const leader = within(table).getByRole("rowheader", { name: "Market leader" }).closest("tr")!;
-    expect(within(leader).getByText("Off")).toBeInTheDocument();
+    expect(within(leader).getByText("Non-core")).toBeInTheDocument();
+    expect(within(leader).getByText("0%")).toBeInTheDocument();
     expect(within(leader).getByText("No numeric parameter")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/\bOff\b/);
+  });
+
+  it("takes each rule's role and weight from the live version, not from the catalogue", async () => {
+    getStrategies.mockResolvedValue({
+      strategies: [
+        {
+          ...canslim,
+          rules: canslim.rules.map((rule) =>
+            rule.id === "leader" ? { ...rule, core: true, weight: 0.5 } : rule,
+          ),
+        },
+      ],
+      regime: null,
+    });
+    render(await StrategyRulesPage({ params: Promise.resolve({ strategy: "canslim" }) }));
+    const table = screen.getByRole("table");
+    const leader = within(table).getByRole("rowheader", { name: "Market leader" }).closest("tr")!;
+    expect(within(leader).getByText("Non-core")).toBeInTheDocument();
+    expect(within(leader).getByText("0%")).toBeInTheDocument();
+    expect(within(leader).queryByText("50%")).not.toBeInTheDocument();
+  });
+
+  it("bails and shows the unavailable card when the live version names no rule settings", async () => {
+    getStrategyVersion.mockResolvedValue(version("canslim", HASH, { rules: [] }));
+    render(await StrategyRulesPage({ params: Promise.resolve({ strategy: "canslim" }) }));
+    expect(bailOnEmptyRender).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("names the version, its hash and its live date, and never repeats the author's rule wording", async () => {

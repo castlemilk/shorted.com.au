@@ -20,8 +20,9 @@ import { bailOnEmptyRender } from "~/app/actions/config";
 
 // The Rules tab: the numbers the live rules version tests each stock with. The
 // author's rule wording stays on the Overview and is not repeated here; this
-// page states the parameters, the score weights and roles, the data and
-// universe policy, and this strategy's changelog.
+// page states the parameters, the score weights and roles (both read from the
+// live version), the data and universe policy, and this strategy's changelog.
+// The catalogue supplies only the rule titles and the strategy's name.
 //
 // Static ISR like the other tabs, one cached read per source per hour. No
 // searchParams or cookies are read, so the route stays prerendered.
@@ -52,7 +53,10 @@ export async function generateMetadata({
   return {
     title,
     description,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      languages: { "en-AU": url, "x-default": url },
+    },
     openGraph: {
       title: `${title} | ${siteConfig.name}`,
       description,
@@ -78,11 +82,14 @@ export default async function StrategyRulesPage({ params }: PageProps) {
   const seo = getStrategy(slug);
   if (!seo) notFound();
 
-  const [catalogue, live, history] = await Promise.all([
+  const [catalogue, read, history] = await Promise.all([
     getStrategies(),
     getStrategyVersion(seo.slug),
     listStrategyVersions(),
   ]);
+  // A version with no rule settings cannot state its roles and weights, so it
+  // is treated as unreadable like a missing one.
+  const live = read && read.rules.length > 0 ? read : null;
   // A failed read must not bake a degraded page into the route cache.
   if (!catalogue || !live || !history) await bailOnEmptyRender();
 
@@ -104,7 +111,7 @@ export default async function StrategyRulesPage({ params }: PageProps) {
         <RulesBody
           strategyName={strategyName}
           live={live}
-          rules={definition?.rules ?? []}
+          titles={definition?.rules ?? []}
           changelog={(history ?? []).filter(
             (entry) => entry.version.strategyId === seo.slug,
           )}
@@ -123,7 +130,7 @@ export default async function StrategyRulesPage({ params }: PageProps) {
 interface RulesBodyProps {
   strategyName: string;
   live: StrategyVersionDetailView;
-  rules: readonly StrategyRuleDef[];
+  titles: readonly StrategyRuleDef[];
   changelog: StrategyVersionDetailView[];
   changelogAvailable: boolean;
 }
@@ -131,21 +138,20 @@ interface RulesBodyProps {
 function RulesBody({
   strategyName,
   live,
-  rules,
+  titles,
   changelog,
   changelogAvailable,
 }: RulesBodyProps) {
   const version = live.version;
   const liveFrom = formatIsoDate(version.liveFrom);
-  const rows = buildRuleParamRows(rules, live.params);
+  const rows = buildRuleParamRows(titles, live.rules, live.params);
 
   return (
     <div className="space-y-10">
       <p className="max-w-3xl text-muted-foreground">
-        The live rules version of the {strategyName}, as it is tested against
-        each stock. The rule wording is on the Overview. Weights are each
-        rule&rsquo;s share of the score, and a rule shown as Off is switched
-        off.
+        The live rules version of {strategyName}, as it is tested against each
+        stock. The rule wording is on the Overview. Weights are each
+        rule&rsquo;s share of the score.
       </p>
 
       <section aria-labelledby="rules-version" className="space-y-3">
@@ -197,7 +203,7 @@ function RulesBody({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] border-collapse text-sm">
               <caption className="sr-only">
-                Each rule of the {strategyName}, its role, its weight and the
+                Each rule of {strategyName}, its role, its weight and the
                 numbers it tests
               </caption>
               <thead>
@@ -287,12 +293,12 @@ function RulesBody({
             <article
               key={entry.version.rulesHash}
               id={entry.version.rulesHash}
-              className="scroll-mt-24 space-y-3 rounded-md border border-border/60 bg-card p-4 sm:p-6"
+              className="scroll-mt-[124px] space-y-3 rounded-md border border-border/60 bg-card p-4 sm:p-6"
             >
               <header className="space-y-1">
                 <h3 className="text-base font-semibold">
                   {entry.version.label}
-                  {entry.version.status === "live" ? (
+                  {entry.version.rulesHash === version.rulesHash ? (
                     <span className="ml-2 align-middle text-xs font-normal uppercase tracking-wide text-muted-foreground">
                       Live
                     </span>

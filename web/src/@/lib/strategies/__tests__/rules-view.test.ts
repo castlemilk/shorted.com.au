@@ -27,20 +27,24 @@ describe("rule parameter rows", () => {
 
   it("states the role and the weight of each rule", () => {
     expect(ruleRoles({ core: true, trigger: true })).toEqual(["Core", "Trigger"]);
-    expect(ruleRoles({ core: false })).toEqual(["Non-core"]);
-    expect(ruleWeightLabel({ core: true, weight: 0.2 })).toBe("20%");
-    expect(ruleWeightLabel({ core: true, weight: 0.125 })).toBe("12.5%");
-    expect(ruleWeightLabel({ core: false, weight: 0 })).toBe("Off");
-    expect(ruleWeightLabel({ core: true, weight: 0 })).toBe("0%");
-    expect(ruleWeightLabel({ core: true, weight: undefined })).toBe("");
+    expect(ruleRoles({ core: false, trigger: false })).toEqual(["Non-core"]);
+    expect(ruleWeightLabel({ weight: 0.2 })).toBe("20%");
+    expect(ruleWeightLabel({ weight: 0.125 })).toBe("12.5%");
+    expect(ruleWeightLabel({ weight: 0 })).toBe("0%");
+    expect(ruleWeightLabel({ weight: Number.NaN })).toBe("");
   });
 
-  it("gives every listed rule a row in the strategy's order, with its own parameters", () => {
+  it("gives every rule the version names a row in the version's order, with its own parameters", () => {
     const rows = buildRuleParamRows(
       [
-        rule({ id: "short_interest", title: "Short crowding", core: true, weight: 0.3 }),
-        rule({ id: "breakout", title: "Breakout", core: true, trigger: true, weight: 0.2 }),
-        rule({ id: "liquidity", core: true, weight: 0 }),
+        rule({ id: "short_interest", title: "Short crowding" }),
+        rule({ id: "breakout", title: "Breakout" }),
+        rule({ id: "dropped_from_version", title: "Not in this version" }),
+      ],
+      [
+        { ruleId: "short_interest", core: true, trigger: false, weight: 0.3 },
+        { ruleId: "breakout", core: true, trigger: true, weight: 0.2 },
+        { ruleId: "liquidity", core: true, trigger: false, weight: 0 },
       ],
       [
         { ruleId: "breakout", name: "volume_multiple", value: 1.5 },
@@ -61,11 +65,14 @@ describe("rule parameter rows", () => {
       { name: "window", value: "5" },
     ]);
     expect(rows[1]?.roles).toEqual(["Core", "Trigger"]);
-    expect(rows[2]).toEqual(expect.objectContaining({ title: "liquidity", params: [] }));
+    expect(rows[2]).toEqual(
+      expect.objectContaining({ title: "liquidity", weight: "0%", params: [] }),
+    );
+    expect(rows.map((row) => row.title)).not.toContain("Not in this version");
   });
 
   it("keeps a parameter whose rule the strategy does not list, titled by its id", () => {
-    const rows = buildRuleParamRows([], [{ ruleId: "orphan", name: "min_pct", value: 2 }]);
+    const rows = buildRuleParamRows([], [], [{ ruleId: "orphan", name: "min_pct", value: 2 }]);
     expect(rows).toEqual([
       { ruleId: "orphan", title: "orphan", roles: [], weight: "", params: [{ name: "min_pct", value: "2" }] },
     ]);

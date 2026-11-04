@@ -41,7 +41,7 @@ export async function listStrategyVersions(): Promise<
         }
         return versions;
       },
-      ["strategy-versions-v1"],
+      ["strategy-versions-v2"],
       { tags: ["strategy-picks", "strategy-versions"], revalidate: 3600 },
     )();
   } catch (err) {

@@ -41,7 +41,7 @@ export async function getStrategyVersion(
   try {
     return await unstable_cache(
       () => fetchStrategyVersion(strategyId),
-      [`strategy-live-version-${strategyId}-v1`],
+      [`strategy-live-version-${strategyId}-v2`],
       { tags: ["strategy-picks", "strategy-versions"], revalidate: 3600 },
     )();
   } catch (err) {

@@ -96,4 +96,27 @@ describe("version mapping", () => {
     ]);
     expect(mapStrategyVersionDetail({ version: { label: "v0" } })?.params).toEqual([]);
   });
+
+  it("reads each rule's role and weight from the canonical spec, dropping a rule with no finite weight", () => {
+    const canonicalJson = JSON.stringify({
+      rules: [
+        { id: "growth", core: true, trigger: false, weight: 0.25 },
+        { id: "new_high", core: true, trigger: true, weight: 0.2 },
+        { id: "leader", core: false, trigger: false, weight: 0 },
+        { id: "no_weight", core: true },
+        "not a rule",
+      ],
+    });
+    const entry = mapStrategyVersionDetail({
+      version: { strategyId: "canslim", label: "v0", rulesHash: HASH },
+      canonicalJson,
+    });
+    expect(entry?.rules).toEqual([
+      { ruleId: "growth", core: true, trigger: false, weight: 0.25 },
+      { ruleId: "new_high", core: true, trigger: true, weight: 0.2 },
+      { ruleId: "leader", core: false, trigger: false, weight: 0 },
+    ]);
+    expect(mapStrategyVersionDetail({ version: { label: "v0" }, canonicalJson: "{not json" })?.rules).toEqual([]);
+    expect(mapStrategyVersionDetail({ version: { label: "v0" } })?.rules).toEqual([]);
+  });
 });

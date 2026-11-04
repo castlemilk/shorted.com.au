@@ -39,6 +39,8 @@ function v0(strategyId: string): StrategyVersionDetailView {
       kind: "canonical",
       variantId: "",
     },
+    params: [],
+    rules: [],
     policies: ["Candidates are every instrument with price history, exchange-traded products included."],
     changes: ["Initial version."],
     knownIssues: ["An ETF or a listed investment company can trigger."],

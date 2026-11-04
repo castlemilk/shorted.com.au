@@ -2,10 +2,15 @@
 // parameters the version tests it with, its role in the ladder and its share of
 // the score. Pure, so the table is tested without React.
 //
-// The rule's wording (ruleText, evaluation) is the Overview's and is never read
-// here: this module states numbers and roles only.
+// The roles and weights come from the version itself (its canonical spec); the
+// catalogue supplies only the rule titles. The rule's wording (ruleText,
+// evaluation) is the Overview's and is never read here.
 
-import type { RuleParamView, StrategyRuleDef } from "./types";
+import type {
+  RuleParamView,
+  RuleSettingView,
+  StrategyRuleDef,
+} from "./types";
 
 export interface RuleParamLine {
   name: string;
@@ -18,7 +23,7 @@ export interface RuleParamRow {
   title: string;
   /** "Core", "Non-core", with "Trigger" added for a trigger rule. */
   roles: string[];
-  /** The share of the score as "20%", "Off" for a non-core rule at weight 0, "" when unknown. */
+  /** The share of the score as "20%", "0%" for a rule that carries none, "" when unknown. */
   weight: string;
   params: RuleParamLine[];
 }
@@ -31,31 +36,28 @@ export function formatParamValue(value: number): string {
 }
 
 /** The rule's role words, in ladder order. */
-export function ruleRoles(rule: Pick<StrategyRuleDef, "core" | "trigger">): string[] {
+export function ruleRoles(rule: Pick<RuleSettingView, "core" | "trigger">): string[] {
   const roles = [rule.core ? "Core" : "Non-core"];
   if (rule.trigger) roles.push("Trigger");
   return roles;
 }
 
-/**
- * A rule's weight as a share of the score. A non-core rule at weight 0 is
- * switched off (the evaluator skips it), so it reads "Off", never "0%".
- */
-export function ruleWeightLabel(
-  rule: Pick<StrategyRuleDef, "core" | "weight">,
-): string {
+/** A rule's weight as a share of the score, as a percentage. */
+export function ruleWeightLabel(rule: Pick<RuleSettingView, "weight">): string {
   if (rule.weight === undefined || !Number.isFinite(rule.weight)) return "";
-  if (rule.weight <= 0) return rule.core ? "0%" : "Off";
   return `${formatParamValue(Number((rule.weight * 100).toFixed(4)))}%`;
 }
 
 /**
- * One row per rule, in the strategy's rule order, with the version's parameters
- * for it in their stated order. A parameter whose rule the strategy does not
- * list still gets a row (titled by its id), so no parameter is dropped.
+ * One row per rule the version names, in the version's rule order, with the
+ * version's parameters for it in their stated order. The title comes from the
+ * catalogue by rule id, or the id when the catalogue has none. A parameter whose
+ * rule the version does not list still gets a row (titled by its id), so no
+ * parameter is dropped.
  */
 export function buildRuleParamRows(
-  rules: readonly StrategyRuleDef[],
+  titles: readonly Pick<StrategyRuleDef, "id" | "title">[],
+  settings: readonly RuleSettingView[],
   params: readonly RuleParamView[],
 ): RuleParamRow[] {
   const byRule = new Map<string, RuleParamLine[]>();
@@ -65,14 +67,18 @@ export function buildRuleParamRows(
     byRule.set(param.ruleId, lines);
   }
 
-  const rows: RuleParamRow[] = rules.map((rule) => ({
-    ruleId: rule.id,
-    title: rule.title || rule.id,
-    roles: ruleRoles(rule),
-    weight: ruleWeightLabel(rule),
-    params: byRule.get(rule.id) ?? [],
-  }));
-  const listed = new Set(rules.map((rule) => rule.id));
+  const titleOf = new Map(titles.map((rule) => [rule.id, rule.title]));
+  const rows: RuleParamRow[] = settings.map((setting) => {
+    const title = titleOf.get(setting.ruleId);
+    return {
+      ruleId: setting.ruleId,
+      title: title ? title : setting.ruleId,
+      roles: ruleRoles(setting),
+      weight: ruleWeightLabel(setting),
+      params: byRule.get(setting.ruleId) ?? [],
+    };
+  });
+  const listed = new Set(settings.map((setting) => setting.ruleId));
   for (const [ruleId, lines] of byRule) {
     if (listed.has(ruleId)) continue;
     rows.push({ ruleId, title: ruleId, roles: [], weight: "", params: lines });
