@@ -1,6 +1,6 @@
 ## csb-r1
 Execution recipe chosen by Shorted to test the screen; the author's own entries and exits differ.
-Buys at the next traded open after the close on which a stock becomes triggered, only when its breakout date has never been traded in this code. Skipped when that open is more than 10% above the captured pivot. After an exit, no re-entry for 10 sessions.
+Buys at the next session's open after the close on which a stock becomes triggered, when that session trades; otherwise the order is cancelled, only when its breakout date has never been traded in this code. Skipped when that open is more than 10% above the captured pivot. After an exit, no re-entry for 10 sessions.
 Exits at a close below the captured pivot.
 Time stop: exits at the next traded open after the close of session 20 after entry.
 Rules are checked at each close in the order listed; the first to hit exits, filled at the next traded open.
@@ -9,15 +9,15 @@ Up to 10 positions, each 10% of equity at the decision close, taken in rank orde
 Brokerage 10 bps per side, at least A$10 per fill.
 Spread and impact per side by 20-session dollar volume at the decision close: A$20,000,000 and over at 5 bps; A$5,000,000 to under A$20,000,000 at 10 bps; A$1,000,000 to under A$5,000,000 at 25 bps; A$250,000 to under A$1,000,000 at 50 bps; under A$250,000 at 75 bps.
 Notional at most 5% of the 20-session dollar volume at the decision close.
-Total return: adjusted prices per bar, plus cash dividends on their ex-dates (franking excluded).
-Short positions are the ones ASIC had published by the decision session.
+Total return: dividends as adjusted by the price vendor, or credited in cash on the ex-date from ASX dividend notices where the vendor has not adjusted them (notices from 11 Sep 2024); franking excluded.
+Short positions: the latest complete ASIC report published by each session (T+4 sessions on a calendar derived from the data; assumed for the whole history); values as later revised; original publications not kept.
 A delisted stock exits at its last close.
 Starting capital A$100,000.
 Idle cash earns the RBA cash rate.
 
 ## mtt-r1
 Execution recipe chosen by Shorted to test the screen; the author's own entries and exits differ.
-Buys at the next traded open after the close on which a stock becomes triggered. After an exit, no re-entry for 10 sessions. Buys the session a stock first passes the template; Minervini waits for a volatility-contraction entry we do not detect.
+Buys at the next session's open after the close on which a stock becomes triggered, when that session trades; otherwise the order is cancelled. After an exit, no re-entry for 10 sessions. Buys the session a stock first passes the template; Minervini waits for a volatility-contraction entry we do not detect.
 Stop loss: exits at a close at or below 8% under the entry price.
 Exits at a close below the 50-day average.
 Exits when the status falls to watch or none.
@@ -27,15 +27,15 @@ Up to 10 positions, each 10% of equity at the decision close, taken in rank orde
 Brokerage 10 bps per side, at least A$10 per fill.
 Spread and impact per side by 20-session dollar volume at the decision close: A$20,000,000 and over at 5 bps; A$5,000,000 to under A$20,000,000 at 10 bps; A$1,000,000 to under A$5,000,000 at 25 bps; A$250,000 to under A$1,000,000 at 50 bps; under A$250,000 at 75 bps.
 Notional at most 5% of the 20-session dollar volume at the decision close.
-Total return: adjusted prices per bar, plus cash dividends on their ex-dates (franking excluded).
-Short positions are the ones ASIC had published by the decision session.
+Total return: dividends as adjusted by the price vendor, or credited in cash on the ex-date from ASX dividend notices where the vendor has not adjusted them (notices from 11 Sep 2024); franking excluded.
+Short positions: the latest complete ASIC report published by each session (T+4 sessions on a calendar derived from the data; assumed for the whole history); values as later revised; original publications not kept.
 A delisted stock exits at its last close.
 Starting capital A$100,000.
 Idle cash earns the RBA cash rate.
 
 ## zb-r1
 Execution recipe chosen by Shorted to test the screen; the author's own entries and exits differ.
-Buys at the next traded open after the close on which a stock becomes triggered, only when its breakout date has never been traded in this code. Skipped when that open is more than 5% above the captured pivot. After an exit, no re-entry for 10 sessions.
+Buys at the next session's open after the close on which a stock becomes triggered, when that session trades; otherwise the order is cancelled, only when its breakout date has never been traded in this code. Skipped when that open is more than 5% above the captured pivot. After an exit, no re-entry for 10 sessions.
 Exits at a close below the captured pivot.
 Stop loss: exits at a close at or below 8% under the entry price.
 Exits at a close below the 50-day average.
@@ -45,15 +45,15 @@ Up to 10 positions, each 10% of equity at the decision close, taken in rank orde
 Brokerage 10 bps per side, at least A$10 per fill.
 Spread and impact per side by 20-session dollar volume at the decision close: A$20,000,000 and over at 5 bps; A$5,000,000 to under A$20,000,000 at 10 bps; A$1,000,000 to under A$5,000,000 at 25 bps; A$250,000 to under A$1,000,000 at 50 bps; under A$250,000 at 75 bps.
 Notional at most 5% of the 20-session dollar volume at the decision close.
-Total return: adjusted prices per bar, plus cash dividends on their ex-dates (franking excluded).
-Short positions are the ones ASIC had published by the decision session.
+Total return: dividends as adjusted by the price vendor, or credited in cash on the ex-date from ASX dividend notices where the vendor has not adjusted them (notices from 11 Sep 2024); franking excluded.
+Short positions: the latest complete ASIC report published by each session (T+4 sessions on a calendar derived from the data; assumed for the whole history); values as later revised; original publications not kept.
 A delisted stock exits at its last close.
 Starting capital A$100,000.
 Idle cash earns the RBA cash rate.
 
 ## cs-r1
 Execution recipe chosen by Shorted to test the screen; the author's own entries and exits differ.
-Buys at the next traded open after the close on which a stock becomes triggered. After an exit, no re-entry for 10 sessions.
+Buys at the next session's open after the close on which a stock becomes triggered, when that session trades; otherwise the order is cancelled. After an exit, no re-entry for 10 sessions.
 Stop loss: exits at a close at or below 8% under the entry price.
 Exits at a close below the 50-day average.
 Exits when the status falls to watch or none.
@@ -63,15 +63,15 @@ Up to 10 positions, each 10% of equity at the decision close, taken in rank orde
 Brokerage 10 bps per side, at least A$10 per fill.
 Spread and impact per side by 20-session dollar volume at the decision close: A$20,000,000 and over at 5 bps; A$5,000,000 to under A$20,000,000 at 10 bps; A$1,000,000 to under A$5,000,000 at 25 bps; A$250,000 to under A$1,000,000 at 50 bps; under A$250,000 at 75 bps.
 Notional at most 5% of the 20-session dollar volume at the decision close.
-Total return: adjusted prices per bar, plus cash dividends on their ex-dates (franking excluded).
-Short positions are the ones ASIC had published by the decision session.
+Total return: dividends as adjusted by the price vendor, or credited in cash on the ex-date from ASX dividend notices where the vendor has not adjusted them (notices from 11 Sep 2024); franking excluded.
+Short positions: the latest complete ASIC report published by each session (T+4 sessions on a calendar derived from the data; assumed for the whole history); values as later revised; original publications not kept.
 A delisted stock exits at its last close.
 Starting capital A$100,000.
 Idle cash earns the RBA cash rate.
 
 ## qc-r1
 Execution recipe chosen by Shorted to test the screen; the author's own entries and exits differ.
-Buys at the next traded open after the close on which a stock becomes triggered. After an exit, no re-entry for 20 sessions.
+Buys at the next session's open after the close on which a stock becomes triggered, when that session trades; otherwise the order is cancelled. After an exit, no re-entry for 20 sessions.
 Exits after 5 consecutive closes below the 200-day average.
 Exits when the status falls to watch or none for 5 consecutive sessions.
 Rules are checked at each close in the order listed; the first to hit exits, filled at the next traded open.
@@ -80,9 +80,8 @@ Up to 10 positions, each 10% of equity at the decision close, taken in rank orde
 Brokerage 10 bps per side, at least A$10 per fill.
 Spread and impact per side by 20-session dollar volume at the decision close: A$20,000,000 and over at 5 bps; A$5,000,000 to under A$20,000,000 at 10 bps; A$1,000,000 to under A$5,000,000 at 25 bps; A$250,000 to under A$1,000,000 at 50 bps; under A$250,000 at 75 bps.
 Notional at most 5% of the 20-session dollar volume at the decision close.
-Total return: adjusted prices per bar, plus cash dividends on their ex-dates (franking excluded).
-Short positions are the ones ASIC had published by the decision session.
+Total return: dividends as adjusted by the price vendor, or credited in cash on the ex-date from ASX dividend notices where the vendor has not adjusted them (notices from 11 Sep 2024); franking excluded.
+Short positions: the latest complete ASIC report published by each session (T+4 sessions on a calendar derived from the data; assumed for the whole history); values as later revised; original publications not kept.
 A delisted stock exits at its last close.
 Starting capital A$100,000.
 Idle cash earns the RBA cash rate.
-

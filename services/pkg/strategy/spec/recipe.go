@@ -196,16 +196,14 @@ func (r Recipe) Validate() error {
 		add("delisting %q, want %s", r.Delisting, DelistingExitLast)
 	}
 	fundamentals := slices.Contains(fundamentalsStrategies, r.StrategyID)
-	switch {
-	case r.WindowStart == WindowComputableFrom:
+	_, dateErr := time.Parse("2006-01-02", r.WindowStart)
+	if r.WindowStart == WindowComputableFrom {
 		if !fundamentals {
 			add("window_start %s is for fundamentals strategies only", WindowComputableFrom)
 		}
-	default:
-		if _, err := time.Parse("2006-01-02", r.WindowStart); err != nil {
-			add("window_start %q is neither a date nor %s", r.WindowStart, WindowComputableFrom)
-			break
-		}
+	} else if dateErr != nil {
+		add("window_start %q is neither a date nor %s", r.WindowStart, WindowComputableFrom)
+	} else {
 		if fundamentals {
 			add("fundamentals strategy %s must start at %s", r.StrategyID, WindowComputableFrom)
 		}
@@ -465,9 +463,8 @@ func r1Recipe(id, strategyID, reference, windowStart string, cooldown int) Recip
 // R1Recipes returns the five r1 recipes, one per canonical strategy, in the
 // order of the recipe table. Every call returns fresh values.
 //
-// Once a recipe is published its values and the Recipe layout are frozen: a
-// change is a new recipe id, and TestRecipeHashesArePinned fails until the
-// golden moves with it.
+// The values and the Recipe layout are frozen as committed: a change is a new
+// recipe id, and TestRecipeHashesArePinned fails until the golden moves with it.
 func R1Recipes() []Recipe {
 	return []Recipe{
 		crowdedShortR1(),
@@ -593,8 +590,8 @@ func RenderRecipeLines(r Recipe) (RecipeLines, error) {
 		Brokerage: brokerageLine(r.Costs),
 		Spread:    spreadLine(r.Costs),
 		Capacity:  fmt.Sprintf("Notional at most %s%% of the 20-session dollar volume at the decision close.", FormatNumber(r.Sizing.CapacityPctDV20)),
-		Dividends: "Total return: adjusted prices per bar, plus cash dividends on their ex-dates (franking excluded).",
-		ASICData:  "Short positions are the ones ASIC had published by the decision session.",
+		Dividends: "Total return: dividends as adjusted by the price vendor, or credited in cash on the ex-date from ASX dividend notices where the vendor has not adjusted them (notices from 11 Sep 2024); franking excluded.",
+		ASICData:  "Short positions: the latest complete ASIC report published by each session (T+4 sessions on a calendar derived from the data; assumed for the whole history); values as later revised; original publications not kept.",
 		Delisting: "A delisted stock exits at its last close.",
 		Capital:   fmt.Sprintf("Starting capital A$%s.", audAmount(r.Capital)),
 		Cash:      "Idle cash earns the RBA cash rate.",
@@ -607,23 +604,24 @@ func audAmount(v float64) string {
 	return GroupThousands(FormatNumber(v))
 }
 
+// entryLine says when a signal buys. An entry is cancelled on an untraded session
+// (5.5), unlike an exit, which waits for the next traded one.
 func entryLine(r Recipe) string {
-	var b strings.Builder
-	b.WriteString("Buys at the next traded open after the close on which a stock becomes triggered")
+	line := "Buys at the next session's open after the close on which a stock becomes triggered, when that session trades; otherwise the order is cancelled"
 	if r.Entry.Fresh == EntryFreshNewBreakout {
-		b.WriteString(", only when its breakout date has never been traded in this code")
+		line += ", only when its breakout date has never been traded in this code"
 	}
-	b.WriteString(".")
+	line += "."
 	if r.Entry.MaxAbovePivotPct != nil {
-		b.WriteString(fmt.Sprintf(" Skipped when that open is more than %s%% above the captured pivot.", FormatNumber(*r.Entry.MaxAbovePivotPct)))
+		line += " Skipped when that open is more than " + FormatNumber(*r.Entry.MaxAbovePivotPct) + "% above the captured pivot."
 	}
 	if r.CooldownSessions > 0 {
-		b.WriteString(fmt.Sprintf(" After an exit, no re-entry for %d %s.", r.CooldownSessions, sessionWord(r.CooldownSessions)))
+		line += fmt.Sprintf(" After an exit, no re-entry for %d %s.", r.CooldownSessions, sessionWord(r.CooldownSessions))
 	}
 	if note, ok := recipeEntryNotes[r.ID]; ok {
-		b.WriteString(" " + note)
+		line += " " + note
 	}
-	return b.String()
+	return line
 }
 
 func exitLines(r Recipe) []string {
@@ -641,7 +639,7 @@ func exitLines(r Recipe) []string {
 func exitLine(x ExitRule) string {
 	switch x.Kind {
 	case ExitClosePivot:
-		if n := consecutiveCloses(x); n > 1 {
+		if n := x.Sessions; n > 1 {
 			return fmt.Sprintf("Exits after %d consecutive closes below the captured pivot.", n)
 		}
 		return "Exits at a close below the captured pivot."
@@ -650,27 +648,18 @@ func exitLine(x ExitRule) string {
 	case ExitStopLoss:
 		return fmt.Sprintf("Stop loss: exits at a close at or below %s%% under the entry price.", FormatNumber(x.Pct))
 	case ExitCloseBelowSMA:
-		if n := consecutiveCloses(x); n > 1 {
+		if n := x.Sessions; n > 1 {
 			return fmt.Sprintf("Exits after %d consecutive closes below the %d-day average.", n, x.SMA)
 		}
 		return fmt.Sprintf("Exits at a close below the %d-day average.", x.SMA)
 	case ExitStatusFalls:
 		status := strings.Join(x.Statuses, " or ")
-		if n := consecutiveCloses(x); n > 1 {
+		if n := x.Sessions; n > 1 {
 			return fmt.Sprintf("Exits when the status falls to %s for %d consecutive sessions.", status, n)
 		}
 		return fmt.Sprintf("Exits when the status falls to %s.", status)
 	}
 	return x.Kind
-}
-
-// consecutiveCloses is the number of consecutive closes an exit waits for; a
-// zero Sessions means one.
-func consecutiveCloses(x ExitRule) int {
-	if x.Sessions == 0 {
-		return 1
-	}
-	return x.Sessions
 }
 
 func brokerageLine(c Costs) string {
@@ -683,7 +672,9 @@ func brokerageLine(c Costs) string {
 
 func spreadLine(c Costs) string {
 	if c.FlatSlippageBps != nil {
-		return fmt.Sprintf("Flat slippage of %s bps per side replaces the spread tiers. Flat costs flatter small-cap breakouts: this is a sensitivity, not the house model.", FormatNumber(*c.FlatSlippageBps))
+		// 5.4: the flat alternative is never shown without this label.
+		return fmt.Sprintf("Mockup costs (flat %s + %s bps per side) flatter small-cap breakouts. Flat slippage of %s bps per side replaces the spread tiers: this is a sensitivity, not the house model.",
+			FormatNumber(c.BrokerageBps), FormatNumber(*c.FlatSlippageBps), FormatNumber(*c.FlatSlippageBps))
 	}
 	parts := make([]string, 0, len(c.SpreadTiers))
 	for i, t := range c.SpreadTiers {

@@ -298,20 +298,23 @@ func TestR1ExitsMatchTheScreen(t *testing.T) {
 }
 
 // renderAllRecipeLines renders the r1 recipes as the golden holds them: each
-// recipe's id, its lines in print order, then a blank line.
+// recipe's id and its lines in print order, with a blank line between recipes
+// and none after the last, so the golden is clean under git diff --check.
 func renderAllRecipeLines(t *testing.T) string {
 	t.Helper()
 	var b strings.Builder
-	for _, r := range R1Recipes() {
+	for i, r := range R1Recipes() {
 		lines, err := RenderRecipeLines(r)
 		if err != nil {
 			t.Fatalf("%s: %v", r.ID, err)
+		}
+		if i > 0 {
+			b.WriteString("\n")
 		}
 		fmt.Fprintf(&b, "## %s\n", r.ID)
 		for _, l := range lines.Ordered() {
 			b.WriteString(l + "\n")
 		}
-		b.WriteString("\n")
 	}
 	return b.String()
 }
@@ -384,6 +387,20 @@ func TestRecipeLinesStateTheRules(t *testing.T) {
 	}
 	if !strings.Contains(lines.Spread, "sensitivity, not the house model") {
 		t.Errorf("flat-slippage spread %q is not labelled as a sensitivity", lines.Spread)
+	}
+	if !strings.Contains(lines.Spread, "Mockup costs (flat 10 + 5 bps per side) flatter small-cap breakouts") {
+		t.Errorf("flat-slippage spread %q lacks the mockup-costs label of 5.4", lines.Spread)
+	}
+	for id, l := range byID {
+		if !strings.Contains(l.Dividends, "where the vendor has not adjusted them") {
+			t.Errorf("%s: dividends %q do not state the return basis", id, l.Dividends)
+		}
+		if !strings.Contains(l.ASICData, "assumed") || !strings.Contains(l.ASICData, "as later revised") {
+			t.Errorf("%s: ASIC data %q does not state the publication and revision basis", id, l.ASICData)
+		}
+		if strings.Contains(l.Entry, "next traded open after") {
+			t.Errorf("%s: entry %q defers an entry to a traded session; an untraded entry is cancelled", id, l.Entry)
+		}
 	}
 }
 
