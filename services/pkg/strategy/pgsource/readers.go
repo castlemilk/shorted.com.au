@@ -12,11 +12,13 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 )
 
-// Every reader below is per code or bounded by a date range, so none of them
-// scans a whole history (Supabase's work_mem is 2 MB). A NULL price, position
-// or share count is NaN, which the feature functions read as "not a price" or
-// "not a count", never as zero. The one NULL read as zero is a bar's volume,
-// as 000130's own price view reads it (see Bars).
+// The readers of history are per code or bounded by a date range, so none
+// scans a whole history (Supabase's work_mem is 2 MB). The company, fund and
+// growth reads are whole dimension tables of a few thousand rows each.
+//
+// A NULL price, position or share count is NaN, which the feature functions
+// read as "not a price" or "not a count", never as zero. The one NULL read as
+// zero is a bar's volume, as 000130's own price view reads it (see Bars).
 
 // CashRateSeries is the economic_series key of the cash rate target that
 // Sharpe and idle cash read.
