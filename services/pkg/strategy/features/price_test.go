@@ -465,3 +465,41 @@ func TestSpecParametersAreRead(t *testing.T) {
 	}()
 	AsOf(nil, nil, day(t, "2024-03-29"), fs)
 }
+
+// The volume averages need their own minimums: the 20-session dollar volume
+// needs 10 sessions, and the 50-session average volume needs 20 of its 50. At
+// the default 60-session floor those never bite, so the floor is lowered on a
+// copy of the v0 parameters to reach them.
+func TestVolumeAverageMinimums(t *testing.T) {
+	last := day(t, "2024-03-29")
+	fs := v0FS1(t)
+	params := map[string]float64{}
+	for k, v := range fs.Params {
+		params[k] = v
+	}
+	params["min_sessions"] = 5
+	fs.Params = params
+
+	cases := []struct {
+		sessions    int
+		wantDollar  bool // 10 of the newest 20
+		wantAverage bool // 20 of the 50 before the newest
+	}{
+		{9, false, false},
+		{12, true, false},
+		{21, true, true},
+	}
+	for _, c := range cases {
+		bars := series(last, c.sessions, func(int) Bar { return flatBar(10, 100) })
+		got, ok := AsOf(bars, nil, last, fs)
+		if !ok {
+			t.Fatalf("%d sessions with min_sessions 5 must produce features", c.sessions)
+		}
+		if (got.DollarVolume20d != nil) != c.wantDollar {
+			t.Errorf("%d sessions: dollar_volume_20d present = %v, want %v", c.sessions, got.DollarVolume20d != nil, c.wantDollar)
+		}
+		if (got.AvgVolume50d != nil) != c.wantAverage {
+			t.Errorf("%d sessions: avg_volume_50d present = %v, want %v", c.sessions, got.AvgVolume50d != nil, c.wantAverage)
+		}
+	}
+}
