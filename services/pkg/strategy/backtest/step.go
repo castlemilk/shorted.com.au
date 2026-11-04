@@ -276,13 +276,16 @@ type State struct {
 	lastEquity float64
 	peak       float64
 	lastIndex  int
-	codes      map[string]*perCode
-	positions  map[string]*position
-	exits      map[string]pendingExit
-	entries    []pendingEntry
-	trades     []Trade
-	events     []Event
-	records    []Record
+	// dividendsDue is the session's cash dividends, held out of cash until the
+	// session's close.
+	dividendsDue float64
+	codes        map[string]*perCode
+	positions    map[string]*position
+	exits        map[string]pendingExit
+	entries      []pendingEntry
+	trades       []Trade
+	events       []Event
+	records      []Record
 }
 
 // NewState starts a run with Capital in cash. It panics when Price4dpFrom is
@@ -342,14 +345,15 @@ func (st *State) Finish() []Trade {
 
 // Step advances the simulation by one session. The order is fixed: the
 // session's bars are classified and the P&L multiplier steps; the cash dividends
-// of positions held at the previous close are credited; exits and entries queued
-// at the previous close fill at this open; positions are marked at the close;
-// idle cash accrues; exits are decided; entries for the next session are
-// scheduled; and the session is recorded.
+// of positions held at the previous close are registered; exits and entries
+// queued at the previous close fill at this open; positions are marked at the
+// close; idle cash accrues; the dividends are paid into cash; exits are decided;
+// entries for the next session are scheduled; and the session is recorded.
 //
-// Dividends come before the fills because the register is the one at the
-// previous close: a buyer at an ex-date open is not paid, and a seller at that
-// open is.
+// Dividends are registered before the fills because the register is the one at
+// the previous close: a buyer at an ex-date open is not paid, and a seller at
+// that open is. They are paid into cash after the fills and the interest, so
+// they fund no fill on their ex-date and earn no interest that day.
 func Step(st *State, s Session) {
 	by := make(map[string]*CodeSession, len(s.Codes))
 	for i := range s.Codes {
@@ -383,6 +387,7 @@ func Step(st *State, s Session) {
 	st.fillEntries(s, by)
 	st.markToMarket(s, by, basis)
 	st.accrueCash(s)
+	st.payDividends()
 	st.decideExits(s, by)
 	st.scheduleEntries(s, by, codes)
 	st.record(s)
@@ -426,9 +431,11 @@ func fillPrice(b features.Bar) (float64, bool) {
 	return b.Close, true
 }
 
-// creditDividends pays each held position's cash dividend on an unadjusted
-// ex-date. The credit is qty x m_t: qty counts units on the P&L basis, so the
-// shares held are qty x m_t, and the amount is the dividend per share on them.
+// creditDividends registers each held position's cash dividend on an unadjusted
+// ex-date, so an exit filled at this open still carries it, and holds the cash
+// until payDividends. The credit is qty x m_t: qty counts units on the P&L basis,
+// so the shares held are qty x m_t, and the amount is the dividend per share on
+// them.
 func (st *State) creditDividends(s Session, by map[string]*CodeSession, basis map[string]BarBasis) {
 	for _, code := range sortedKeys(st.positions) {
 		c := by[code]
@@ -437,10 +444,17 @@ func (st *State) creditDividends(s Session, by map[string]*CodeSession, basis ma
 		}
 		pos := st.positions[code]
 		amt := c.Dividend * pos.qty * st.codeState(code).mult
-		st.cash += amt
 		pos.dividends += amt
+		st.dividendsDue += amt
 		st.event(s.Date, code, EventDividendCredit, "")
 	}
+}
+
+// payDividends moves the session's registered dividends into cash. It runs at
+// the close, after the session's fills and interest.
+func (st *State) payDividends() {
+	st.cash += st.dividendsDue
+	st.dividendsDue = 0
 }
 
 func (st *State) fillExits(s Session, by map[string]*CodeSession, basis map[string]BarBasis) {
