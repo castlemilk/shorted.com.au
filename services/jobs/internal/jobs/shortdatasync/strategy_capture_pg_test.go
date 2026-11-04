@@ -151,6 +151,42 @@ func TestStrategyCaptureVintagesAgainstPostgres(t *testing.T) {
 	require.Equal(t, "CBA", deletedCode)
 }
 
+// TestStrategyCaptureLatestVintageWithinOneTransaction: the vintages one transaction writes share a
+// captured_at, so "the latest" is the greatest (captured_at, id). The reader's order must pick the
+// transaction's last write, not an intermediate state of the same row.
+func TestStrategyCaptureLatestVintageWithinOneTransaction(t *testing.T) {
+	pool := captureDB(t)
+	ctx := context.Background()
+	captureApply(t, pool, "000129_add_stock_fundamentals.up.sql")
+	captureApply(t, pool, "000154_strategy_capture.up.sql")
+
+	tx, err := pool.Begin(ctx)
+	require.NoError(t, err)
+	for _, stmt := range []string{
+		`INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, revenue, source)
+		 VALUES ('ZZZ', 'annual', '2025-06-30', 'AUD', 1, 'yahoo-timeseries')`,
+		`UPDATE stock_fundamentals SET revenue = NULL WHERE stock_code = 'ZZZ'`,
+		`UPDATE stock_fundamentals SET revenue = 3 WHERE stock_code = 'ZZZ'`,
+	} {
+		_, err := tx.Exec(ctx, stmt)
+		require.NoError(t, err)
+	}
+	require.NoError(t, tx.Commit(ctx))
+
+	var distinctCaptured int
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT count(DISTINCT captured_at) FROM stock_fundamentals_vintages WHERE stock_code = 'ZZZ'`).
+		Scan(&distinctCaptured))
+	require.Equal(t, 1, distinctCaptured, "one transaction, one captured_at")
+
+	var latest string
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT row_json->>'revenue' FROM stock_fundamentals_vintages
+		WHERE stock_code = 'ZZZ'
+		ORDER BY captured_at DESC, id DESC LIMIT 1`).Scan(&latest))
+	require.Equal(t, "3", latest, "the reader's order picks the transaction's final write")
+}
+
 // TestStrategyCaptureFilingPurgeAgainstPostgres mirrors the nightly purge's shape: a DELETE of many rows in
 // one statement writes exactly one D row per deleted row.
 func TestStrategyCaptureFilingPurgeAgainstPostgres(t *testing.T) {

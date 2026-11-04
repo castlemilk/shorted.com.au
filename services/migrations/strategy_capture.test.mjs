@@ -100,7 +100,7 @@ test("every index is created only when the catalog lacks it", () => {
   );
   for (const [tag, name, table] of [
     ["m154_idx_revisions", "idx_shorts_revisions_code_date", "shorts_revisions \\(product_code, report_date\\)"],
-    ["m154_idx_vintages", "idx_sfv_key_time", "stock_fundamentals_vintages \\(stock_code, period_type, period_end, captured_at\\)"],
+    ["m154_idx_vintages", "idx_sfv_key_time", "stock_fundamentals_vintages \\(stock_code, period_type, period_end, captured_at, id\\)"],
   ]) {
     const block = doBlock(tag);
     assert.match(block, new RegExp(`to_regclass\\('public\\.${name}'\\) IS NULL`));

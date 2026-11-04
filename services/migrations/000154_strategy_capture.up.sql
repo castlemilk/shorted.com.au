@@ -8,8 +8,13 @@
 --                                 by shortdatasync's reconcile pass, not by a trigger: shorts holds 2.1M
 --                                 rows and must not gain one.
 --   stock_fundamentals_vintages   the version history of stock_fundamentals: a baseline of every row
---                                 (op 'B'), then every insert ('I'), change ('U') and delete ('D'). A later
---                                 engine reads "the latest vintage on or before D" (4.9, 5.15).
+--                                 (op 'B'), then every insert ('I'), change ('U') and delete ('D').
+--                                 THE LATEST VINTAGE ON OR BEFORE D is the row with the greatest
+--                                 (captured_at, id) whose captured_at is at or before D. Order by both:
+--                                 now() is one value for a whole transaction, so every vintage a
+--                                 transaction writes shares its captured_at, and id (BIGSERIAL, in write
+--                                 order) is what picks the last of them. The filings rebuild writes several
+--                                 vintages of one row in one transaction, some of them intermediate states.
 --
 -- LOCK-FREE ON REPLAY. Prod replays every allowlisted migration on every deploy
 -- (.github/workflows/terraform-deploy.yml). Every table is CREATE TABLE IF NOT EXISTS. Every index and the
@@ -80,7 +85,7 @@ END $m154_idx_revisions$;
 DO $m154_idx_vintages$
 BEGIN
   IF to_regclass('public.idx_sfv_key_time') IS NULL THEN
-    CREATE INDEX idx_sfv_key_time ON stock_fundamentals_vintages (stock_code, period_type, period_end, captured_at);
+    CREATE INDEX idx_sfv_key_time ON stock_fundamentals_vintages (stock_code, period_type, period_end, captured_at, id);
   END IF;
 END $m154_idx_vintages$;
 
