@@ -30,8 +30,12 @@ describe("strategy profile tabs", () => {
 
   it("links the Overview to the canonical strategy URL and the others under it", () => {
     expect(strategyTabHref("canslim", "overview")).toBe("/strategies/canslim");
-    expect(strategyTabHref("canslim", "signals")).toBe("/strategies/canslim/signals");
-    expect(strategyTabHref("canslim", "rules")).toBe("/strategies/canslim/rules");
+    expect(strategyTabHref("canslim", "signals")).toBe(
+      "/strategies/canslim/signals",
+    );
+    expect(strategyTabHref("canslim", "rules")).toBe(
+      "/strategies/canslim/rules",
+    );
   });
 
   it("finds the active tab from the pathname, Overview for the bare strategy URL", () => {
@@ -44,7 +48,9 @@ describe("strategy profile tabs", () => {
   it("falls back to Overview for a segment no tab owns, and off the strategy routes", () => {
     expect(activeStrategyTab("/strategies/canslim/unknown")).toBe("overview");
     expect(activeStrategyTab("/strategies")).toBe("overview");
-    expect(activeStrategyTab("/strategies/canslim/signals/extra")).toBe("overview");
+    expect(activeStrategyTab("/strategies/canslim/signals/extra")).toBe(
+      "overview",
+    );
   });
 
   it("labels every tab", () => {
