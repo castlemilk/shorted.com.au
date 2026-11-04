@@ -2827,13 +2827,12 @@ export function resolveShortsTtl(path, defaults) {
 /**
  * Build a cache key suffix for the in-memory hot cache.
  * Only allowlisted public reads reach this function (see isCacheableRpc).
- * For POST requests the body is hashed with SHA-256, so distinct request
- * parameters (e.g. productCode, period) always get distinct entries.
+ * For POST requests the raw body bytes are hashed with SHA-256, so each
+ * distinct request body gets its own entry.
  */
 async function buildHotCacheKey(request, path, cacheVersion = DEFAULT_CACHE_VERSION) {
   if (request.method === "POST") {
-    const bodyText = await request.clone().text();
-    const bodyHash = await hashString(bodyText);
+    const bodyHash = await hashRequestBody(request);
     return `${cacheVersion}:${path}:${bodyHash}`;
   }
   return `${cacheVersion}:${path}`;
@@ -3060,8 +3059,7 @@ export async function buildKvCacheKey(request, path, cacheVersion = DEFAULT_CACH
     return null;
   }
   if (request.method === "POST") {
-    const bodyText = await request.clone().text();
-    const bodyHash = await hashString(bodyText);
+    const bodyHash = await hashRequestBody(request);
     const pathClean = path.replace(/\//g, "_").replace(/^_/, "");
     return `prewarm:${cacheVersion}:${pathClean}:${bodyHash}`;
   }
@@ -3258,8 +3256,7 @@ async function buildCacheKey(request, url, cacheVersion = DEFAULT_CACHE_VERSION)
   cacheUrl.searchParams.set("_cv", cacheVersion);
 
   if (request.method === "POST") {
-    const body = await request.clone().text();
-    const bodyHash = await hashString(body);
+    const bodyHash = await hashRequestBody(request);
     cacheUrl.searchParams.set("_bh", bodyHash);
   }
 
@@ -3335,7 +3332,17 @@ export function isKvCacheableEndpoint(path) {
  * allowlisted public read. Every other request passes through uncached.
  */
 export function isCacheableRpc(request, path) {
-  return request.method === "POST" && isPublicReadEndpoint(path);
+  return request.method === "POST" && isJsonRequest(request) && isPublicReadEndpoint(path);
+}
+
+/**
+ * True when the request body is JSON (`application/json`, parameters allowed).
+ * Every caller of an allowlisted read sends JSON, and a JSON body is the one
+ * whose key and stored response are both text.
+ */
+function isJsonRequest(request) {
+  const mediaType = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+  return mediaType === "application/json";
 }
 
 /**
@@ -3418,6 +3425,18 @@ async function handlePurge(env, request = null, started = Date.now()) {
 async function hashString(text) {
   const data = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * SHA-256 hex digest of a request body's raw bytes, used by every cache key
+ * that carries a body. For a JSON body the digest equals hashString of its
+ * text, so the keys prewarm.js writes stay the same.
+ */
+async function hashRequestBody(request) {
+  const hash = await crypto.subtle.digest("SHA-256", await request.clone().arrayBuffer());
   return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");

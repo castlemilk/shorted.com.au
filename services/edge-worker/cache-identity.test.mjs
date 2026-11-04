@@ -259,6 +259,42 @@ test("only POST reaches a cache tier, and only for an allowlisted read", () => {
   assert.equal(isCacheableRpc(rpc("/shorts.v1alpha1.ExampleService/Anything", probeBody), "/shorts.v1alpha1.ExampleService/Anything"), false);
 });
 
+test("only a JSON body reaches a cache tier", () => {
+  const path = `${SHORTS}/GetStock`;
+  const withType = (type) => new Request(`${API}${path}`, {
+    method: "POST",
+    headers: { "content-type": type },
+    body: probeBody,
+  });
+  assert.equal(isCacheableRpc(withType("application/json"), path), true);
+  assert.equal(isCacheableRpc(withType("application/json; charset=utf-8"), path), true);
+  assert.equal(isCacheableRpc(withType("Application/JSON"), path), true);
+  assert.equal(isCacheableRpc(withType("application/proto"), path), false);
+  assert.equal(isCacheableRpc(withType("application/connect+json"), path), false);
+  assert.equal(isCacheableRpc(withType("text/plain;charset=UTF-8"), path), false);
+});
+
+test("a non-JSON request to an allowlisted read passes through every tier uncached", async () => {
+  const path = `${SHORTS}/GetTopShorts`;
+  // Two binary request bodies, each a varint-encoded `limit` field.
+  const bodies = [new Uint8Array([0x10, 0xc8, 0x01]), new Uint8Array([0x10, 0xc9, 0x01])];
+
+  await withEdge(jsonOrigin, async ({ send, state }) => {
+    for (const [index, bytes] of bodies.entries()) {
+      const response = await send(new Request(`${API}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/proto" },
+        body: bytes,
+      }));
+      assert.equal(response.headers.get("X-Shorted-Cache"), "BYPASS");
+      assert.equal((await response.json()).call, index + 1);
+    }
+    assert.equal(state.originCalls.length, bodies.length);
+    assert.deepEqual(state.cacheWrites, []);
+    assert.deepEqual(state.kvWrites, []);
+  });
+});
+
 test("every KV-cached path is allowlisted", async () => {
   const services = [
     "shorts.v1alpha1.ShortedStocksService",
