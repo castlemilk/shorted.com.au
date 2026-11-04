@@ -17,7 +17,7 @@ import (
 // TestGetMySubscriptionAgreesWithResolveEntitlement pins the alert entitlement
 // rule to the subscription RPC.
 //
-// The shorted alerts evaluator (services/jobs/internal/jobs/alerts/entitlement.go)
+// The shorted alerts evaluator (services/jobs/internal/entitlementcheck, shared with the alerts job)
 // emails an owner only when GetMySubscription reports ACTIVE or TRIALING. This
 // test runs every branch of ResolveEntitlement through the RPC and fails if the
 // two disagree. Change the mapping on either side and this test breaks next to
