@@ -275,6 +275,7 @@ function SignalsView({
                     priceFeatures={fit?.priceFeatures ?? null}
                     initialStrategyId={props.slug}
                     hideSelector
+                    keepVolumeOnNarrow
                   />
                 ) : null
               }

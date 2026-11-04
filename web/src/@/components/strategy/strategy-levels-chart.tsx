@@ -45,10 +45,15 @@ export interface StrategyLevelsChartProps {
   priceFeatures: StockPriceFeatures | null;
   initialStrategyId?: string | null;
   /**
-   * Hides the strategy toggle. The Signals tab's evidence panel is about one
-   * strategy, so it passes its fit alone and the chart draws that strategy.
+   * Hides the strategy toggle. The Signals tab's evidence panel is about the
+   * page's strategy, so the chart draws `initialStrategyId` and offers no other.
    */
   hideSelector?: boolean;
+  /**
+   * Keeps the volume bars at a phone width. The Signals evidence panel is
+   * narrow on every breakpoint, and the chart would otherwise drop its volume.
+   */
+  keepVolumeOnNarrow?: boolean;
 }
 
 export function StrategyLevelsChart({
@@ -57,6 +62,7 @@ export function StrategyLevelsChart({
   priceFeatures,
   initialStrategyId,
   hideSelector = false,
+  keepVolumeOnNarrow = false,
 }: StrategyLevelsChartProps) {
   const [selected, setSelected] = useState<string | null>(
     () => initialStrategyId ?? defaultStrategyId(fits),
@@ -183,6 +189,7 @@ export function StrategyLevelsChart({
           }
           height={360}
           showBrush={false}
+          keepVolumeOnNarrow={keepVolumeOnNarrow}
         />
       ) : anyLoading ? (
         <div

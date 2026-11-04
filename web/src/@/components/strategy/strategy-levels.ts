@@ -168,7 +168,7 @@ function baseGeometry(pf: StockPriceFeatures): {
     };
     span = { from, to: end };
   }
-  const pivot = level(baseHigh, "Pivot", LEVEL_COLORS.pivot, span);
+  const pivot = level(baseHigh, "Pivot", LEVEL_COLORS.pivot, { ...span, tag: true });
 
   const marker: ChartMarker | null =
     breakout !== null

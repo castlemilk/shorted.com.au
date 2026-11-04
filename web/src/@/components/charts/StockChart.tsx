@@ -199,6 +199,7 @@ export function StockChartInner({
   decimationTargetPerPx = 2,
   readout = "strip",
   readoutReserveSeries,
+  keepVolumeOnNarrow = false,
   indicatorLegend = false,
   indicatorsInDomain = false,
   handleRef,
@@ -328,7 +329,8 @@ export function StockChartInner({
     [leftMargin, rightMargin],
   );
 
-  const showVolume = !!volume?.length && !compact && !isMobile;
+  const showVolume =
+    !!volume?.length && !compact && (keepVolumeOnNarrow || !isMobile);
   const showOsc = oscillators.length > 0 && !compact;
   const showBrushBand = showBrush && !compact && !isMobile && width > 0;
 
