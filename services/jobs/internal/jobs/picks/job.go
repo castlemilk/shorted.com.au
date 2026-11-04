@@ -65,6 +65,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/strategies"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 )
@@ -137,18 +138,20 @@ func Run(parent context.Context, args []string) error {
 	// checking the upstream from a laptop). Everything else opens the pool,
 	// including a dry run of -mode filings, which reads (never writes).
 	var st store
+	var pool *pgxpool.Pool
 	needDB := !*dryRun || len(codes) == 0 || *mode != modeFundamentals
 	if needDB {
 		notices := &noticeLog{}
 		if *verbose {
 			notices.logf = log.Printf
 		}
-		pool, err := platform.ConnectFromEnv(ctx, platform.PoolOption(func(cfg *pgxpool.Config) {
+		p, err := platform.ConnectFromEnv(ctx, platform.PoolOption(func(cfg *pgxpool.Config) {
 			cfg.ConnConfig.OnNotice = notices.handle
 		}))
 		if err != nil {
 			return fmt.Errorf("db connect: %w", err)
 		}
+		pool = p
 		defer pool.Close()
 		st = &pgStore{pool: pool, notices: notices, logf: log.Printf}
 	}
@@ -224,7 +227,11 @@ func Run(parent context.Context, args []string) error {
 
 	// The refresh runs even after a degraded or failed pull: whatever did
 	// land should reach the views, and the stale-view check is its own verdict.
+	refreshStart := time.Now()
 	err := runRefresh(ctx, st, *dryRun, log.Printf)
+	if err == nil && parityShadowDue(*mode, *dryRun, os.Getenv) {
+		runParityShadow(ctx, pool, refreshStart)
+	}
 	if err == nil && !*dryRun {
 		revalidateAfterRefresh(ctx, defaultRevalidator(), fundamentalsChanged, log.Printf)
 	}
@@ -232,6 +239,31 @@ func Run(parent context.Context, args []string) error {
 		return err
 	}
 	return worstError(append(stepErrs, stepError("refresh", err))...)
+}
+
+// parityShadowEnv switches the shadow parity on. The shadow is log-only: it
+// reads the views and the stored bars, and nothing it finds changes the exit
+// code of this job.
+const parityShadowEnv = "STRATEGY_PARITY_SHADOW"
+
+// parityShadowDue says whether this execution runs the shadow parity: only a
+// live -mode refresh (never -mode all, whose timeout leaves no room for a second
+// full comparison), only after the views really refreshed, and only when the
+// switch is on.
+func parityShadowDue(mode string, dryRun bool, getenv func(string) string) bool {
+	return mode == modeRefresh && !dryRun && strings.TrimSpace(getenv(parityShadowEnv)) == "on"
+}
+
+// runParityShadow runs the comparison and reports its failure in the log. A
+// failure, or a panic inside the comparison, never fails the picks run.
+func runParityShadow(ctx context.Context, pool *pgxpool.Pool, refreshStart time.Time) {
+	if pool == nil {
+		log.Printf("picks: strategy parity shadow skipped: no database")
+		return
+	}
+	if _, err := strategies.RunParity(ctx, pool, refreshStart, log.Printf); err != nil {
+		log.Printf("picks: strategy parity shadow failed; the picks run is unaffected: %v", err)
+	}
 }
 
 // fundamentalsBudget is PICKS_FUNDAMENTALS_BUDGET_MIN (default 170), capped
