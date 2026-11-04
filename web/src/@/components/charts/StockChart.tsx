@@ -18,7 +18,7 @@ import { Line, AreaClosed } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
 import { localPoint } from "@visx/event";
 import { decimate } from "./decimate";
-import { regionPaint } from "./chart-regions";
+import { regionLabelShown, regionPaint } from "./chart-regions";
 import { layoutEndLabels } from "./end-labels";
 import { volumeBarAt } from "./volume-bars";
 import { AXIS_NUM_TICKS, axisMargin } from "./axis-margin";
@@ -1150,18 +1150,32 @@ export function StockChartInner({
             const x = Math.max(0, Math.min(xa, xb));
             const cw = Math.min(Math.max(xa, xb), innerW) - x;
             if (cw <= 0) return null;
+            const labelled = regionLabelShown(r.tone, r.label, cw);
             return (
-              <rect
-                key={`region-${i}`}
-                x={x}
-                y={0}
-                width={cw}
-                height={mainH}
-                {...regionAttrs(r.tone)}
-                pointerEvents="none"
-              >
-                {r.label ? <title>{r.label}</title> : null}
-              </rect>
+              <React.Fragment key={`region-${i}`}>
+                <rect
+                  x={x}
+                  y={0}
+                  width={cw}
+                  height={mainH}
+                  {...regionAttrs(r.tone)}
+                  pointerEvents="none"
+                >
+                  {r.label ? <title>{r.label}</title> : null}
+                </rect>
+                {labelled ? (
+                  <text
+                    data-chart-region-label
+                    x={x + 6}
+                    y={12}
+                    fontSize={10}
+                    fill={chartTheme.axisLabel}
+                    pointerEvents="none"
+                  >
+                    {r.label}
+                  </text>
+                ) : null}
+              </React.Fragment>
             );
           })}
           {reference.bands.map((b, i) => (

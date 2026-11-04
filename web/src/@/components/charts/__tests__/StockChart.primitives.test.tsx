@@ -133,6 +133,21 @@ describe("StockChart regions", () => {
     expect(container.innerHTML).not.toMatch(/fill="#ef4444"|fill="#22c55e"/);
   });
 
+  it("writes the live band's label on the band, as text a touch reader can see", () => {
+    const { container } = renderChart({
+      regions: [
+        {
+          start: T0 + 2 * DAY,
+          end: T0 + 10 * DAY,
+          tone: "live",
+          label: "Recorded since 1 Jan",
+        },
+      ],
+    });
+    const label = container.querySelector("[data-chart-region-label]");
+    expect(label?.textContent).toBe("Recorded since 1 Jan");
+  });
+
   it("keeps the bearish fill a fixed hex for existing charts", () => {
     const { container } = renderChart({
       regions: [{ start: T0 + 2 * DAY, end: T0 + 8 * DAY, tone: "bearish" }],
