@@ -141,7 +141,7 @@ INSERT INTO index_metadata VALUES ('XJO', 'S&P/ASX 200'), ('XJT', 'S&P/ASX 200 T
 	// Every fixture stock with 60 or more sessions in the window is featured;
 	// SHORT40 and EXACT59 are not.
 	featured := []string{"BADCLOSE", "BADHL", "BRK1", "BRK24", "BRK3", "BRK5", "CLAMP", "CONT", "EXACT60", "FLAT",
-		"FUTURE", "GAPS", "LONG", "NULLVOL", "STALE"}
+		"FUTURE", "GAPS", "LONG", "NULLVOL", "STALE", "STALE7", "STALE8"}
 	if len(view) != len(featured) {
 		t.Fatalf("mv_price_features has %d rows %v, want the %d featured fixtures", len(view), keys(view), len(featured))
 	}
