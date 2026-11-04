@@ -285,6 +285,7 @@ export function cellInspectorContent({
       label: total === 1 ? "View 1 notice →" : `View ${total} notices →`,
       href: cellNoticesHref(sector, weekStart, kind),
     },
+    primaryPlacement: "first",
     links: [
       {
         label: "Switch to reported voting-power change",

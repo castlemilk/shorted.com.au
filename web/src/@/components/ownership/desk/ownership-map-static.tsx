@@ -24,6 +24,7 @@ import { cn } from "~/@/lib/utils";
 import type { OwnershipMapPage } from "~/app/actions/ownershipDesk";
 import {
   PHONE_MIN_CELL,
+  hasChangeMeasure,
   layoutMap,
   lensFigure,
   phoneLayout,
@@ -40,7 +41,7 @@ import {
 } from "./map-layout";
 import { binOf, labelOnBin, lensFill, lensScale, type LensScale } from "./desk-scales";
 import { FOLDED_SECTOR_LABEL, shortSector } from "~/@/lib/ownership/kinds";
-import { DEFAULT_DESK_LENS, DEFAULT_DESK_STATE, type DeskState } from "./desk-state";
+import { DEFAULT_DESK_LENS, DEFAULT_DESK_SORT, DEFAULT_DESK_STATE, type DeskSort, type DeskState } from "./desk-state";
 import { fundComparisonLine } from "./fund-comparison";
 import {
   DESK_DEFAULT_WINDOW_STATE,
@@ -57,6 +58,7 @@ import {
 } from "./lens-legend";
 import { Toolbar, type ToolbarFold } from "../workspace/toolbar";
 import { WindowSelect } from "../workspace/window-select";
+import { SortControl } from "../workspace/sort-control";
 
 /**
  * What a cell's area is (spec 14.3, Market map's Size): the market cap, or the estimated
@@ -99,6 +101,24 @@ export function sizedRows(rows: readonly MapStockRow[], size: MapSize | undefine
   const positive = exposures.filter((exposure) => exposure > 0);
   const floor = positive.length > 0 ? Math.min(...positive) * DISCLOSED_AREA_FLOOR : 1;
   return rows.map((row, index) => ({ ...row, marketCap: exposures[index]! > 0 ? exposures[index]! : floor }));
+}
+
+/**
+ * The stale state drawn over a layout the last answer gave: each cell's figure is null and hatched,
+ * each sector's change null, so its title reads "Net change n/a". The boxes and the order stay where
+ * they were, so a window change draws nothing new until the answer lands. Pure, and the identity
+ * when the map is not stale.
+ */
+export function staleOverlay(layout: MapLayout, stale: boolean, lens: DeskState["lens"]): MapLayout {
+  if (!stale) return layout;
+  // Only a lens whose figure is a change depends on the window: a level (the disclosed share, a short
+  // position) is the same whatever window is read, so its cells keep their figures.
+  const changes = hasChangeMeasure(lens);
+  return {
+    ...layout,
+    sectors: layout.sectors.map((sector) => (sector.change === undefined ? sector : { ...sector, change: null })),
+    cells: changes ? layout.cells.map((cell) => ({ ...cell, value: null, hatched: true })) : layout.cells,
+  };
 }
 
 /** The stocks the index fund Size leaves out: no tracked fund holds them, so they have no area to draw. */
@@ -482,10 +502,12 @@ function CellShape({
 function SectorShape({
   sector,
   zoomed,
+  lens,
   handlers,
 }: {
   sector: MapSector;
   zoomed: boolean;
+  lens: DeskState["lens"];
   handlers?: MapHandlers;
 }) {
   const width = sector.x1 - sector.x0;
@@ -505,7 +527,7 @@ function SectorShape({
   const bandHeight = Math.min(SECTOR_BAND, height);
   return (
     <g data-sector={sector.sector}>
-      <title>{`${label}, ${sector.stocks} ${sector.stocks === 1 ? "stock" : "stocks"}`}</title>
+      <title>{sectorTitle(sector, lens)}</title>
       <rect
         x={sector.x0}
         y={sector.y0}
@@ -580,6 +602,16 @@ function SectorShape({
   );
 }
 
+/**
+ * A sector band's title. Under the change order (backlog C3) it also states the sector's net change in
+ * the lens's own unit, and "n/a" when no stock of the sector states one: a missing change is never a zero.
+ */
+export function sectorTitle(sector: MapSector, lens: DeskState["lens"]): string {
+  const count = `${sector.stocks} ${sector.stocks === 1 ? "stock" : "stocks"}`;
+  if (sector.change === undefined) return `${sector.sector}, ${count}`;
+  return `${sector.sector}, ${count}. Net change ${formatLensFigure(lens, sector.change)}`;
+}
+
 /** A sector's icon in its band, drawn in a foreign object so the sprite's own markup is used. */
 export const SECTOR_ICON_SIZE = 16;
 export const SECTOR_ICON_MIN_WIDTH = 120;
@@ -650,7 +682,7 @@ export function DeskMapFigure({
           />
         ))}
         {layout.sectors.map((sector) => (
-          <SectorShape key={sector.sector} sector={sector} zoomed={layout.zoomed} handlers={handlers} />
+          <SectorShape key={sector.sector} sector={sector} zoomed={layout.zoomed} lens={lens} handlers={handlers} />
         ))}
       </g>
     </svg>
@@ -1289,6 +1321,10 @@ export interface OwnershipMapViewProps {
   toolbarFold?: ToolbarFold;
   /** Writes the window in place (the Window select). Absent on the server, where the select is drawn disabled. */
   onWindowChange?: (next: NoticeWindow) => void;
+  /** The order the sectors are drawn in (backlog C3); absent is by area. */
+  sort?: DeskSort;
+  /** Writes the sort in place (the Sort control, drawn only under a diverging lens). Absent on the server, where it is disabled. */
+  onSortChange?: (next: DeskSort) => void;
 }
 
 /**
@@ -1319,6 +1355,8 @@ export function OwnershipMapView({
   selectedCode = "",
   toolbarFold,
   onWindowChange,
+  sort = DEFAULT_DESK_SORT,
+  onSortChange,
 }: OwnershipMapViewProps) {
   const compact = variant === "compact";
   const failed = status === "error" || (status === "idle" && !page.ok);
@@ -1337,12 +1375,22 @@ export function OwnershipMapView({
   const empty = status === "idle" && page.ok && page.stocks.length === 0;
   const busy = status === "loading";
   const drawnRows = sizedRows(rows, size);
-  const sized = layoutMap(drawnRows, {
-    width: MAP_WIDTH,
-    height: MAP_HEIGHT,
-    lens: desk.lens,
-    sector: desk.sector,
-  });
+  // The treemap is laid out from the held rows, not the nulled ones: a null change would fall the
+  // order back to area and re-tile the map now, and again when the answer lands. The stale state is
+  // drawn over the layout the last answer gave (staleOverlay), so the map is tiled once, on the answer.
+  const sized = staleOverlay(
+    layoutMap(sizedRows(held, size), {
+      width: MAP_WIDTH,
+      height: MAP_HEIGHT,
+      lens: desk.lens,
+      sector: desk.sector,
+      sort,
+      // The sector change is weighted by the stocks' own market caps, as the phone square weights it (phoneSectors below).
+      weights: held,
+    }),
+    stale,
+    desk.lens,
+  );
   // The exposure size replaces each area, so the estimate flag is read from the market caps here.
   const estimated = size === "disclosed" ? estimatedAreaCodes(rows) : null;
   const layout =
@@ -1389,6 +1437,8 @@ export function OwnershipMapView({
           {controls}
           <LensSelect lens={desk.lens} onPick={onPick ? (lens) => onPick({ lens }) : undefined} />
           <WindowSelect active={notice} onWindowChange={onWindowChange} />
+          {/* The sort orders by a change, so it is offered only where the lens states one (backlog C3). */}
+          {hasChangeMeasure(desk.lens) ? <SortControl active={sort} onChange={onSortChange} /> : null}
         </Toolbar>
       )}
       {compact || rows.length === 0 ? null : (
@@ -1636,16 +1686,20 @@ export function OwnershipMapStatic({
   basePath = "/ownership",
   variant,
   controls,
+  sort = DEFAULT_DESK_SORT,
 }: {
   initial: OwnershipMapPage;
   basePath?: string;
   variant?: "compact" | "full";
   controls?: ReactNode;
+  /** The order the sectors are drawn in (backlog C3); the hub's compact pane passes "changed". */
+  sort?: DeskSort;
 }) {
   return (
     <OwnershipMapView
       variant={variant}
       controls={controls}
+      sort={sort}
       page={initial}
       desk={DEFAULT_DESK_STATE}
       notice={DESK_DEFAULT_WINDOW_STATE}

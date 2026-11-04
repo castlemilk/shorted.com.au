@@ -18,6 +18,7 @@ import {
   holderInspectorContent,
   holderPositions,
   holderRowFrom,
+  holderWeekHref,
   layoutHolderTree,
   marketCapsOf,
   parseHolderParam,
@@ -478,5 +479,40 @@ describe("the kind chips (spec 14.3)", () => {
     expect(filterHolders(holders, "other", "").map((h) => h.key)).toEqual(["norges"]);
     expect(filterHolders(holders, "all", "  RE").map((h) => h.key)).toEqual(["regal"]);
     expect(filterHolders(holders, "super_fund", "zzz")).toEqual([]);
+  });
+});
+
+describe("the holder's notices by week section (backlog C6)", () => {
+  const positions = [position("BHP", "Materials", 6, 200e9)];
+  const weekly = { asOf: "2026-10-31", released: ["2026-10-20", "2026-08-03"] };
+
+  it("draws the strip after the holder's positions, one link per week to the holder's feed", () => {
+    const content = holderInspectorContent(holder, positions, null, [], weekly);
+    const strip = content.sections?.find((section) => section.title === "Notices by week");
+    expect(strip?.kind).toBe("weeks");
+    if (strip?.kind !== "weeks") throw new Error("the strip is a weeks section");
+    expect(strip.weeks).toHaveLength(26);
+    expect(strip.weeks.find((w) => w.weekStart === "2026-10-19")?.count).toBe(1);
+    expect(strip.weeks.find((w) => w.weekStart === "2026-10-19")?.href).toBe(
+      "/ownership/notices?holder=vanguard&since=2026-10-19&until=2026-10-25",
+    );
+  });
+
+  it("follows a selected connection's card, so the strip comes after the positions it summarises", () => {
+    const content = holderInspectorContent(holder, positions, { kind: "stock", code: "BHP" }, [], weekly);
+    const titles = content.sections?.map((section) => section.title) ?? [];
+    expect(titles.indexOf("Notices by week")).toBeGreaterThan(titles.indexOf("BHP · Materials"));
+  });
+
+  it("is absent when the holder's notices did not read, or no date ends the strip", () => {
+    expect(holderInspectorContent(holder, positions, null, [], null).sections).toEqual([]);
+    const undated = holderInspectorContent(holder, positions, null, [], { asOf: "", released: [] });
+    expect(undated.sections?.some((section) => section.title === "Notices by week")).toBe(false);
+  });
+
+  it("names the feed for the holder's slug, the week's Monday and Sunday", () => {
+    expect(holderWeekHref("vanguard", "2026-10-26", "2026-11-01")).toBe(
+      "/ownership/notices?holder=vanguard&since=2026-10-26&until=2026-11-01",
+    );
   });
 });

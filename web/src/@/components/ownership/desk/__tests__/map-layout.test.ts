@@ -14,6 +14,7 @@ import {
   phoneSectors,
   phoneStockLayout,
   sectorOf,
+  type MapLayout,
   type MapStockRow,
   type PhoneCell,
   type PhoneSector,
@@ -431,5 +432,142 @@ describe("phoneStockLayout", () => {
     const cells = phoneStockLayout(stocks, "Materials", "disclosed", 360);
     expect(cells.every((cell) => cell.folded.length === 0 && cell.code !== "")).toBe(true);
     expect(cells.every((cell) => cell.figured === 1)).toBe(true);
+  });
+});
+
+/*
+ * The change order (backlog C3). Under the flow lens: Financials states one figure (CBA, -2.00, WBC
+ * has none), so its net is -2.00; Energy's is the cap-weighted mean of +0.50 (180) and +6.00 (10),
+ * 0.79; Materials' is (300 x +1.00 + 60 x -4.00) / 360, 0.17; Health Care states none. By area the
+ * order is Materials, Financials, Energy, Health Care; by magnitude of change it is Financials,
+ * Energy, Materials, Health Care.
+ */
+const MOVERS: MapStockRow[] = [
+  stock({ code: "BHP", industry: "Materials", marketCap: 300, flowPp: 1 }),
+  stock({ code: "FMG", industry: "Materials", marketCap: 60, flowPp: -4 }),
+  stock({ code: "CBA", industry: "Financials", marketCap: 200, flowPp: -2 }),
+  stock({ code: "WBC", industry: "Financials", marketCap: 120, flowPp: null }),
+  stock({ code: "OIL", industry: "Energy", marketCap: 180, flowPp: 0.5 }),
+  stock({ code: "NOC", industry: "Energy", marketCap: 10, flowPp: 6 }),
+  stock({ code: "CSL", industry: "Health Care", marketCap: 90, flowPp: null }),
+];
+
+function areaOfBox(box: { x0: number; y0: number; x1: number; y1: number }): number {
+  return (box.x1 - box.x0) * (box.y1 - box.y0);
+}
+
+describe("layoutMap under the change order (backlog C3)", () => {
+  const changed = (lens: "flow" | "index_flow" | "disclosed" | "short" = "flow", sector?: string) =>
+    layoutMap(MOVERS, { width: W, height: H, lens, sector, sort: "changed" });
+  const largest = (lens: "flow" | "index_flow" | "disclosed" | "short" = "flow", sector?: string) =>
+    layoutMap(MOVERS, { width: W, height: H, lens, sector, sort: "largest" });
+
+  it("orders the sectors by the magnitude of their net change, with an unmeasured sector last", () => {
+    expect(changed().sectors.map((s) => s.sector)).toEqual(["Financials", "Energy", "Materials", "Health Care"]);
+  });
+
+  it("keeps the order by area under the largest sort", () => {
+    expect(largest().sectors.map((s) => s.sector)).toEqual(["Materials", "Financials", "Energy", "Health Care"]);
+  });
+
+  it("states each sector's net change, the cap-weighted figure the phone map states, and none for a sector with no figure", () => {
+    const sectors = changed().sectors;
+    expect(sectors.find((s) => s.sector === "Financials")?.change).toBeCloseTo(-2, 9);
+    expect(sectors.find((s) => s.sector === "Energy")?.change).toBeCloseTo(150 / 190, 9);
+    expect(sectors.find((s) => s.sector === "Materials")?.change).toBeCloseTo(60 / 360, 9);
+    expect(sectors.find((s) => s.sector === "Health Care")?.change).toBeNull();
+  });
+
+  it("weights a sector's net change by the rows it is given as weights, whatever the Size draws", () => {
+    // Under the exposure Size the drawn rows carry exposures as their market caps: BHP's 30 against FMG's 60.
+    // The change is weighted by the stocks' own market caps (300 and 60), as the phone square weights it.
+    const sized = MOVERS.map((s) => (s.code === "BHP" ? { ...s, marketCap: 30 } : s.code === "FMG" ? { ...s, marketCap: 60 } : s));
+    const materialsOf = (layout: MapLayout) => layout.sectors.find((s) => s.sector === "Materials")?.change;
+    const weighted = layoutMap(sized, { width: W, height: H, lens: "flow", sort: "changed", weights: MOVERS });
+    expect(materialsOf(weighted)).toBeCloseTo(60 / 360, 9);
+    const unweighted = layoutMap(sized, { width: W, height: H, lens: "flow", sort: "changed" });
+    expect(materialsOf(unweighted)).toBeCloseTo((30 * 1 + 60 * -4) / 90, 9);
+  });
+
+  it("states no change on a sector under the largest sort", () => {
+    for (const sector of largest().sectors) expect(sector.change).toBeUndefined();
+  });
+
+  it("puts the biggest mover in the top-left corner", () => {
+    const layout = changed();
+    const first = layout.sectors[0]!;
+    expect(first.sector).toBe("Financials");
+    expect(first.x0).toBe(0);
+    expect(first.y0).toBe(0);
+  });
+
+  it("orders the stocks inside a sector by the magnitude of their own figure, a stock with no figure last", () => {
+    const codes = changed().cells.map((cell) => cell.code);
+    // Financials: CBA (-2.00) before WBC (no figure); Energy: NOC (+6.00) before OIL (+0.50);
+    // Materials: FMG (-4.00) before BHP (+1.00); Health Care: CSL (no figure).
+    expect(codes).toEqual(["CBA", "WBC", "NOC", "OIL", "FMG", "BHP", "CSL"]);
+  });
+
+  it("orders the stocks inside a sector by area under the largest sort", () => {
+    const materials = largest().cells.filter((cell) => cell.sector === "Materials").map((cell) => cell.code);
+    expect(materials).toEqual(["BHP", "FMG"]);
+  });
+
+  it("keeps the sr-only table's order with the drawing: the cells come in the order they are drawn", () => {
+    const layout = changed();
+    const firstCellOfSector = (name: string) => layout.cells.findIndex((cell) => cell.sector === name);
+    expect(firstCellOfSector("Financials")).toBeLessThan(firstCellOfSector("Energy"));
+    expect(firstCellOfSector("Energy")).toBeLessThan(firstCellOfSector("Materials"));
+    expect(firstCellOfSector("Materials")).toBeLessThan(firstCellOfSector("Health Care"));
+  });
+
+  it("keeps every cell and every sector inside the box, and tiles it, under the change order", () => {
+    const layout = changed();
+    const total = layout.sectors.reduce((sum, sector) => sum + areaOfBox(sector), 0);
+    expect(total).toBeCloseTo(W * H, 6);
+    for (const cell of layout.cells) {
+      expect(cell.x0).toBeGreaterThanOrEqual(0);
+      expect(cell.y0).toBeGreaterThanOrEqual(0);
+      expect(cell.x1).toBeLessThanOrEqual(W + 1e-9);
+      expect(cell.y1).toBeLessThanOrEqual(H + 1e-9);
+    }
+  });
+
+  it("keeps each sector's size the Size's share of the market under either sort: only its place moves", () => {
+    const byChange = changed();
+    const byArea = largest();
+    for (const sector of byArea.sectors) {
+      const other = byChange.sectors.find((s) => s.sector === sector.sector)!;
+      expect(areaOfBox(other)).toBeCloseTo(areaOfBox(sector), 6);
+      expect(other.stocks).toBe(sector.stocks);
+    }
+  });
+
+  it("orders by area under a lens that states no change, even when the sort is changed", () => {
+    expect(changed("disclosed").sectors.map((s) => s.sector)).toEqual(
+      largest("disclosed").sectors.map((s) => s.sector),
+    );
+    expect(changed("disclosed").cells.map((c) => c.code)).toEqual(largest("disclosed").cells.map((c) => c.code));
+    expect(changed("short").sectors[0]?.change).toBeUndefined();
+  });
+
+  it("applies the same rule to the index flow lens, which states a change too", () => {
+    const withFunds = MOVERS.map((s) => ({ ...s, fundChangePct: s.code === "OIL" ? 9 : null }));
+    const layout = layoutMap(withFunds, { width: W, height: H, lens: "index_flow", sort: "changed" });
+    expect(layout.sectors[0]?.sector).toBe("Energy");
+    expect(layout.cells.find((c) => c.sector === "Energy")?.code).toBe("OIL");
+  });
+
+  it("orders a zoomed sector's stocks by change, and reports the zoom's one sector", () => {
+    const layout = changed("flow", "Materials");
+    expect(layout.zoomed).toBe(true);
+    expect(layout.cells.map((c) => c.code)).toEqual(["FMG", "BHP"]);
+    expect(layout.sectors.map((s) => s.sector)).toEqual(["Materials"]);
+  });
+
+  it("does not read the order of the stocks it is given, under either sort", () => {
+    const shuffled = [...MOVERS].reverse();
+    const a = layoutMap(shuffled, { width: W, height: H, lens: "flow", sort: "changed" });
+    expect(a.cells.map((c) => c.code)).toEqual(changed().cells.map((c) => c.code));
   });
 });

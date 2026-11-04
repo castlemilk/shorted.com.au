@@ -42,6 +42,7 @@ private static final long serialVersionUID = 0L;
     sourceUrl_ = "";
     sectorWeights_ = java.util.Collections.emptyList();
     largest_ = java.util.Collections.emptyList();
+    largestSectorChangeSector_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -578,6 +579,73 @@ private static final long serialVersionUID = 0L;
     return snapshotCount_;
   }
 
+  public static final int LARGEST_SECTOR_CHANGE_PP_FIELD_NUMBER = 18;
+  private double largestSectorChangePp_ = 0D;
+  /**
+   * <pre>
+   * The sector whose weight moved most between the fund's two newest files, and
+   * that move in percentage points, signed: the newer file less the older. has_ is
+   * false with fewer than two files, or when no sector is stated on both.
+   * </pre>
+   *
+   * <code>double largest_sector_change_pp = 18 [json_name = "largestSectorChangePp"];</code>
+   * @return The largestSectorChangePp.
+   */
+  @java.lang.Override
+  public double getLargestSectorChangePp() {
+    return largestSectorChangePp_;
+  }
+
+  public static final int HAS_LARGEST_SECTOR_CHANGE_FIELD_NUMBER = 19;
+  private boolean hasLargestSectorChange_ = false;
+  /**
+   * <code>bool has_largest_sector_change = 19 [json_name = "hasLargestSectorChange"];</code>
+   * @return The hasLargestSectorChange.
+   */
+  @java.lang.Override
+  public boolean getHasLargestSectorChange() {
+    return hasLargestSectorChange_;
+  }
+
+  public static final int LARGEST_SECTOR_CHANGE_SECTOR_FIELD_NUMBER = 20;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object largestSectorChangeSector_ = "";
+  /**
+   * <code>string largest_sector_change_sector = 20 [json_name = "largestSectorChangeSector"];</code>
+   * @return The largestSectorChangeSector.
+   */
+  @java.lang.Override
+  public java.lang.String getLargestSectorChangeSector() {
+    java.lang.Object ref = largestSectorChangeSector_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      largestSectorChangeSector_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string largest_sector_change_sector = 20 [json_name = "largestSectorChangeSector"];</code>
+   * @return The bytes for largestSectorChangeSector.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getLargestSectorChangeSectorBytes() {
+    java.lang.Object ref = largestSectorChangeSector_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      largestSectorChangeSector_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -642,6 +710,15 @@ private static final long serialVersionUID = 0L;
     }
     if (snapshotCount_ != 0) {
       output.writeInt32(17, snapshotCount_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(largestSectorChangePp_) != 0) {
+      output.writeDouble(18, largestSectorChangePp_);
+    }
+    if (hasLargestSectorChange_ != false) {
+      output.writeBool(19, hasLargestSectorChange_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(largestSectorChangeSector_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 20, largestSectorChangeSector_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -717,6 +794,17 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(17, snapshotCount_);
     }
+    if (java.lang.Double.doubleToRawLongBits(largestSectorChangePp_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(18, largestSectorChangePp_);
+    }
+    if (hasLargestSectorChange_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(19, hasLargestSectorChange_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(largestSectorChangeSector_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(20, largestSectorChangeSector_);
+    }
     return size;
   }
   @java.lang.Override
@@ -777,6 +865,13 @@ private static final long serialVersionUID = 0L;
         != other.getHasAumAud()) return false;
     if (getSnapshotCount()
         != other.getSnapshotCount()) return false;
+    if (java.lang.Double.doubleToLongBits(getLargestSectorChangePp())
+        != java.lang.Double.doubleToLongBits(
+            other.getLargestSectorChangePp())) return false;
+    if (getHasLargestSectorChange()
+        != other.getHasLargestSectorChange()) return false;
+    if (!getLargestSectorChangeSector()
+        .equals(other.getLargestSectorChangeSector())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -831,6 +926,14 @@ private static final long serialVersionUID = 0L;
         getHasAumAud());
     hash = (37 * hash) + SNAPSHOT_COUNT_FIELD_NUMBER;
     hash = (53 * hash) + getSnapshotCount();
+    hash = (37 * hash) + LARGEST_SECTOR_CHANGE_PP_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getLargestSectorChangePp()));
+    hash = (37 * hash) + HAS_LARGEST_SECTOR_CHANGE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasLargestSectorChange());
+    hash = (37 * hash) + LARGEST_SECTOR_CHANGE_SECTOR_FIELD_NUMBER;
+    hash = (53 * hash) + getLargestSectorChangeSector().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -995,6 +1098,9 @@ private static final long serialVersionUID = 0L;
       aumAud_ = 0D;
       hasAumAud_ = false;
       snapshotCount_ = 0;
+      largestSectorChangePp_ = 0D;
+      hasLargestSectorChange_ = false;
+      largestSectorChangeSector_ = "";
       return this;
     }
 
@@ -1094,6 +1200,15 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00010000) != 0)) {
         result.snapshotCount_ = snapshotCount_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.largestSectorChangePp_ = largestSectorChangePp_;
+      }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.hasLargestSectorChange_ = hasLargestSectorChange_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.largestSectorChangeSector_ = largestSectorChangeSector_;
       }
     }
 
@@ -1222,6 +1337,17 @@ private static final long serialVersionUID = 0L;
       if (other.getSnapshotCount() != 0) {
         setSnapshotCount(other.getSnapshotCount());
       }
+      if (java.lang.Double.doubleToRawLongBits(other.getLargestSectorChangePp()) != 0) {
+        setLargestSectorChangePp(other.getLargestSectorChangePp());
+      }
+      if (other.getHasLargestSectorChange() != false) {
+        setHasLargestSectorChange(other.getHasLargestSectorChange());
+      }
+      if (!other.getLargestSectorChangeSector().isEmpty()) {
+        largestSectorChangeSector_ = other.largestSectorChangeSector_;
+        bitField0_ |= 0x00080000;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1349,6 +1475,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00010000;
               break;
             } // case 136
+            case 145: {
+              largestSectorChangePp_ = input.readDouble();
+              bitField0_ |= 0x00020000;
+              break;
+            } // case 145
+            case 152: {
+              hasLargestSectorChange_ = input.readBool();
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 152
+            case 162: {
+              largestSectorChangeSector_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00080000;
+              break;
+            } // case 162
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2764,6 +2905,160 @@ private static final long serialVersionUID = 0L;
     public Builder clearSnapshotCount() {
       bitField0_ = (bitField0_ & ~0x00010000);
       snapshotCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private double largestSectorChangePp_ ;
+    /**
+     * <pre>
+     * The sector whose weight moved most between the fund's two newest files, and
+     * that move in percentage points, signed: the newer file less the older. has_ is
+     * false with fewer than two files, or when no sector is stated on both.
+     * </pre>
+     *
+     * <code>double largest_sector_change_pp = 18 [json_name = "largestSectorChangePp"];</code>
+     * @return The largestSectorChangePp.
+     */
+    @java.lang.Override
+    public double getLargestSectorChangePp() {
+      return largestSectorChangePp_;
+    }
+    /**
+     * <pre>
+     * The sector whose weight moved most between the fund's two newest files, and
+     * that move in percentage points, signed: the newer file less the older. has_ is
+     * false with fewer than two files, or when no sector is stated on both.
+     * </pre>
+     *
+     * <code>double largest_sector_change_pp = 18 [json_name = "largestSectorChangePp"];</code>
+     * @param value The largestSectorChangePp to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLargestSectorChangePp(double value) {
+
+      largestSectorChangePp_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The sector whose weight moved most between the fund's two newest files, and
+     * that move in percentage points, signed: the newer file less the older. has_ is
+     * false with fewer than two files, or when no sector is stated on both.
+     * </pre>
+     *
+     * <code>double largest_sector_change_pp = 18 [json_name = "largestSectorChangePp"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLargestSectorChangePp() {
+      bitField0_ = (bitField0_ & ~0x00020000);
+      largestSectorChangePp_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasLargestSectorChange_ ;
+    /**
+     * <code>bool has_largest_sector_change = 19 [json_name = "hasLargestSectorChange"];</code>
+     * @return The hasLargestSectorChange.
+     */
+    @java.lang.Override
+    public boolean getHasLargestSectorChange() {
+      return hasLargestSectorChange_;
+    }
+    /**
+     * <code>bool has_largest_sector_change = 19 [json_name = "hasLargestSectorChange"];</code>
+     * @param value The hasLargestSectorChange to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasLargestSectorChange(boolean value) {
+
+      hasLargestSectorChange_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_largest_sector_change = 19 [json_name = "hasLargestSectorChange"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasLargestSectorChange() {
+      bitField0_ = (bitField0_ & ~0x00040000);
+      hasLargestSectorChange_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object largestSectorChangeSector_ = "";
+    /**
+     * <code>string largest_sector_change_sector = 20 [json_name = "largestSectorChangeSector"];</code>
+     * @return The largestSectorChangeSector.
+     */
+    public java.lang.String getLargestSectorChangeSector() {
+      java.lang.Object ref = largestSectorChangeSector_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        largestSectorChangeSector_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string largest_sector_change_sector = 20 [json_name = "largestSectorChangeSector"];</code>
+     * @return The bytes for largestSectorChangeSector.
+     */
+    public com.google.protobuf.ByteString
+        getLargestSectorChangeSectorBytes() {
+      java.lang.Object ref = largestSectorChangeSector_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        largestSectorChangeSector_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string largest_sector_change_sector = 20 [json_name = "largestSectorChangeSector"];</code>
+     * @param value The largestSectorChangeSector to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLargestSectorChangeSector(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      largestSectorChangeSector_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string largest_sector_change_sector = 20 [json_name = "largestSectorChangeSector"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLargestSectorChangeSector() {
+      largestSectorChangeSector_ = getDefaultInstance().getLargestSectorChangeSector();
+      bitField0_ = (bitField0_ & ~0x00080000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string largest_sector_change_sector = 20 [json_name = "largestSectorChangeSector"];</code>
+     * @param value The bytes for largestSectorChangeSector to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLargestSectorChangeSectorBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      largestSectorChangeSector_ = value;
+      bitField0_ |= 0x00080000;
       onChanged();
       return this;
     }

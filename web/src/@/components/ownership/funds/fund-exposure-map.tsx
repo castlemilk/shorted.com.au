@@ -8,6 +8,7 @@ import { NOT_AVAILABLE, formatPct } from "~/@/lib/fundamentals/format";
 import { industryLabel } from "~/@/lib/industry-placeholder";
 import { binFill, binOf, labelOnBin, lensFill, type LensScale } from "../desk/desk-scales";
 import { HolderLogo } from "../workspace/holder-logo";
+import { SortControl } from "../workspace/sort-control";
 import { TOOLBAR_SELECT_CLASS, Toolbar, ToolbarSelect } from "../workspace/toolbar";
 import { ViewDisclosure } from "../workspace/view-disclosure";
 import { SectorIcon } from "../workspace/sector-icon";
@@ -16,13 +17,16 @@ import { FigureList } from "./row-disclosure";
 import { EXPANDER_HEADER, ExpandableRow } from "./expandable-row";
 import { shortSector } from "~/@/lib/ownership/kinds";
 import { withUrlState, type UrlState } from "./url-params";
+import { DEFAULT_DESK_SORT, readDeskState, type DeskSort } from "../desk/desk-state";
 import {
   FUND_COMPARE_MAX,
   fundKindLabel,
   formatWeight,
+  orderFundsForSort,
   otherWeightOf,
   parseFundKeys,
   patchHref,
+  sectorChangeDetail,
   sectorColumns,
   sectorWeightOf,
   serializeFundKeys,
@@ -101,13 +105,18 @@ export function FundExposureMapView({
   const coverage = params.get("coverage") === "all" ? "all" : "files";
   const selected = parseFundKeys(params.get("funds"));
   const sel = params.get("sel") ?? "";
+  // The sort orders the fund rows of both views (backlog C3b): "changed" puts the largest sector moves first.
+  const sort: DeskSort = readDeskState(params).sort;
   const byType = funds.filter((fund) => (type === "super" ? fund.sourceKind === "super_phd" : fund.sourceKind !== "super_phd"));
   const managers = [...new Set(byType.map((fund) => fund.institutionName).filter((name) => name !== ""))].sort();
-  const visible = byType.filter(
-    (fund) =>
-      fundMatches(fund, query) &&
-      (manager === "" || fund.institutionName === manager) &&
-      (coverage === "all" || fundHasFile(fund)),
+  const visible = orderFundsForSort(
+    byType.filter(
+      (fund) =>
+        fundMatches(fund, query) &&
+        (manager === "" || fund.institutionName === manager) &&
+        (coverage === "all" || fundHasFile(fund)),
+    ),
+    sort,
   );
   const columns = sectorColumns(visible);
   const full = selected.length >= FUND_COMPARE_MAX;
@@ -187,6 +196,10 @@ export function FundExposureMapView({
             </option>
           ))}
         </ToolbarSelect>
+        <SortControl
+          active={sort}
+          onChange={(next) => navigate(patchHref(pathname, params, { sort: next === DEFAULT_DESK_SORT ? null : next }))}
+        />
       </Toolbar>
 
       {visible.length === 0 ? (
@@ -223,6 +236,7 @@ export function FundExposureMapView({
                 {visible.map((fund) => {
                   const checked = selected.includes(fund.key);
                   const current = sel === `fund:${fund.key}`;
+                  const change = sort === "changed" ? sectorChangeDetail(fund) : "";
                   return (
                     <ExpandableRow
                       key={fund.key}
@@ -280,6 +294,7 @@ export function FundExposureMapView({
                           <span className="min-w-0 max-w-[10rem] truncate text-xs text-muted-foreground" title={fund.institutionName}>
                             {fund.institutionName}
                           </span>
+                          {change !== "" ? <span className="shrink-0 text-xs text-muted-foreground">{change}</span> : null}
                         </Link>
                       </td>
                       {columns.map((sector) => {

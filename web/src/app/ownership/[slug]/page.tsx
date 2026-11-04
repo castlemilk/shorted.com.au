@@ -30,7 +30,7 @@ import {
 import { HolderInspector } from "~/@/components/ownership/workspace/inspectors/holder-inspector";
 import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
 import { loadOwnershipMap } from "~/app/actions/ownershipDesk";
-import { loadHolderConnections, resolveHolderInspector } from "~/app/actions/ownershipHolders";
+import { loadHolderConnections, loadHolderWeekNotices, resolveHolderInspector } from "~/app/actions/ownershipHolders";
 import type { GetInstitutionResponse, SubstantialHolding } from "~/gen/shorts/v1alpha1/ownership_pb";
 
 // On-demand ISR: rendered on first visit, cached for an hour. The empty
@@ -166,10 +166,12 @@ export default async function InstitutionPage({ params }: PageProps) {
   // (its outage line), and the page caches as usual (spec 14.7).
   const desk = await loadOwnershipMap({});
   const caps = desk.ok ? marketCapsOf(desk.stocks) : null;
+  // The holder's notices by week for its inspector's strip (backlog C6): a failed read draws no strip.
+  const weekNotices = await loadHolderWeekNotices(inst.slug, desk.ok ? desk.asOf : "");
   const holder = holderRowFrom(inst);
   const funds = data.funds.map(holderFundRow);
   const connections = connectionsPage(holder, data.positions, caps, funds);
-  const inspector = holderInspectorContent(holder, connections.positions, null, connections.funds);
+  const inspector = holderInspectorContent(holder, connections.positions, null, connections.funds, weekNotices);
 
   const info = kindInfo(inst.kind);
   const stakes = stakesLargestFirst(data.positions, caps).map(holdingRow);

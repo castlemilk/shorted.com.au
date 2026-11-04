@@ -10,7 +10,7 @@ import { LensLegend } from "./lens-legend";
 import { Toolbar, type ToolbarFold } from "../workspace/toolbar";
 import { WindowSelect } from "../workspace/window-select";
 import { shortSector } from "~/@/lib/ownership/kinds";
-import { isIsoDate, shiftDate } from "./desk-state";
+import { DEFAULT_DESK_SORT, isIsoDate, shiftDate, type DeskSort } from "./desk-state";
 import { parseSelection } from "../workspace/selection";
 import { OTHER_SECTOR, sectorOf } from "./map-layout";
 import {
@@ -112,6 +112,23 @@ export function foldHeatRows(rows: readonly HeatRow[], keep: number): HeatRow[] 
   return [...head, { sector: HEAT_FOLDED_ROW, total, cells }];
 }
 
+/**
+ * The compact pane's order under the "changed" sort: by the magnitude of each row's net change over the
+ * window, a fall as much as a rise, so the sectors the pane keeps are the ones that moved most. A row with
+ * no stated net is last, then the more notices first. The full page keeps rises first (heatRows).
+ */
+export function magnitudeHeatRows(rows: readonly HeatRow[], range: WeekRange | null): HeatRow[] {
+  const size = (row: HeatRow) => {
+    const net = windowNetPp(row, range);
+    return net === null ? -1 : Math.abs(net);
+  };
+  return [...rows].sort((a, b) => {
+    const moved = size(b) - size(a);
+    if (moved !== 0) return moved;
+    return b.total - a.total || (a.sector < b.sector ? -1 : a.sector > b.sector ? 1 : 0);
+  });
+}
+
 /** A row's label: the short sector name, or the folded row's own name. */
 export function heatRowLabel(sector: string): string {
   return sector === HEAT_FOLDED_ROW ? HEAT_FOLDED_ROW : shortSector(sector);
@@ -121,6 +138,36 @@ export function heatRowLabel(sector: string): string {
 export interface WeekRange {
   first: number;
   last: number;
+}
+
+/**
+ * A row's net change over the window: the sum of the stated net of each week in the range (every week when
+ * there is no range). Null when no week in the range states one, so a row with no figure is n/a, never zero;
+ * and null when a week with notices in the range states no figure, because the sum of the other weeks would
+ * read as a change the notices do not state (the same rule heatRows applies to a single week).
+ */
+export function windowNetPp(row: HeatRow, range: WeekRange | null): number | null {
+  let net = 0;
+  let stated = false;
+  let partial = false;
+  row.cells.forEach((cell, index) => {
+    if (range !== null && (index < range.first || index > range.last)) return;
+    if (cell.netPp === null) {
+      if (cell.notices > 0) partial = true;
+      return;
+    }
+    net += cell.netPp;
+    stated = true;
+  });
+  return stated && !partial ? net : null;
+}
+
+/** Rises first, then falls, and a row with no figure last. Zero means a tie: the caller's next key decides. */
+function riseFirst(a: number | null, b: number | null): number {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return b - a;
 }
 
 /** The notices released in each week, summed over every industry: the brush's bars (spec 14.3). */
@@ -205,7 +252,8 @@ function emptyAccumulator(): Accumulator {
 /**
  * The sector rows of the movement: the rows of every industry in one sector
  * summed by week, sorted by the notices in the window (every week when there is no
- * window). A sector with no notice in the weeks shown is no row. A week's net is
+ * window), or, under the "changed" sort (backlog C3), by the window's net change, rises first.
+ * A sector with no notice in the weeks shown is no row. A week's net is
  * stated only when every notice that week has a figure: a partial sum would read as
  * a change the notices do not state.
  */
@@ -213,6 +261,7 @@ export function heatRows(
   rows: readonly IndustryWeekRow[],
   weeks: readonly string[],
   range: WeekRange | null,
+  sort: DeskSort = DEFAULT_DESK_SORT,
 ): HeatRow[] {
   const indexOf = new Map(weeks.map((week, index) => [week, index]));
   const bySector = new Map<string, Accumulator[]>();
@@ -258,7 +307,13 @@ export function heatRows(
     );
     return { sector, total, cells: built };
   });
-  sectors.sort((a, b) => b.total - a.total || (a.sector < b.sector ? -1 : a.sector > b.sector ? 1 : 0));
+  sectors.sort((a, b) => {
+    if (sort === "changed") {
+      const moved = riseFirst(windowNetPp(a, range), windowNetPp(b, range));
+      if (moved !== 0) return moved;
+    }
+    return b.total - a.total || (a.sector < b.sector ? -1 : a.sector > b.sector ? 1 : 0);
+  });
   return sectors.filter((row) => row.cells.some((cell) => cell.notices > 0));
 }
 
@@ -286,6 +341,23 @@ export function cellTitle(sector: string, cell: HeatCell): string {
       ? "net change in disclosed voting power n/a"
       : `net change in disclosed voting power ${formatPointChange(0, cell.netPp)}`;
   return `${when}: ${cell.notices} ${noun} (${parts.join(", ")}); ${net}`;
+}
+
+/** The direction glyph a row carries under the "changed" sort (backlog C3): a rise, a fall, or an en dash for no stated change. */
+export function rowGlyph(net: number | null): string {
+  // The threshold is the one formatPointChange prints as "0.00 pp": a figure that prints as zero is no direction.
+  if (net === null || Math.abs(net) < 0.005) return EN_DASH;
+  return net > 0 ? UP_TRIANGLE : DOWN_TRIANGLE;
+}
+
+/** A row's title under the "changed" sort: its net over the window, or that none is stated. */
+export function rowNetTitle(sector: string, net: number | null): string {
+  return `${sector}, ${rowNetPhrase(net)}`;
+}
+
+/** A row's net over the window as words, without the sector: the title and the screen reader table say the same. */
+export function rowNetPhrase(net: number | null): string {
+  return net === null ? "no net change stated over the window" : `${formatPointChange(0, net)} over the window`;
 }
 
 /** The feed filtered to one sector and one week. The sector is left out for the placeholder group. */
@@ -326,6 +398,8 @@ interface GridProps {
   figures?: boolean;
   /** The holder type the grid counts; "" for every kind. Carried by each cell's link. */
   kind?: string;
+  /** The order the rows came in (backlog C3). Under "changed" each label carries its direction glyph. */
+  sort?: DeskSort;
 }
 
 /** The figure a cell's colour is drawn from: its notice count, or its net change in percentage points. */
@@ -336,6 +410,8 @@ function cellValue(item: HeatCell, measure: HeatMeasure): number | null {
 /** The minus sign the figures print, U+2212, so a fall reads as a true minus (spec 7.1). */
 const TRUE_MINUS = String.fromCharCode(0x2212);
 const EN_DASH = String.fromCharCode(0x2013);
+const UP_TRIANGLE = String.fromCharCode(0x25b2);
+const DOWN_TRIANGLE = String.fromCharCode(0x25bc);
 
 /**
  * A cell's printed figure (spec 14.3, Activity): the count of notices, or the net change in
@@ -369,6 +445,7 @@ function HeatGrid({
   selectedCell = null,
   figures = false,
   kind = "",
+  sort = DEFAULT_DESK_SORT,
 }: GridProps) {
   const offset = variant === "phone" ? Math.max(0, weeks.length - HEAT_PHONE_WEEKS) : 0;
   const shown = weeks.slice(offset);
@@ -389,16 +466,25 @@ function HeatGrid({
       )}
     >
       <ol className="flex flex-col" style={{ height }}>
-        {rows.map((row) => (
-          <li
-            key={row.sector}
-            title={row.sector}
-            className="flex items-center truncate text-[11px] leading-none text-muted-foreground"
-            style={{ height: HEAT_ROW_PX }}
-          >
-            {heatRowLabel(row.sector)}
-          </li>
-        ))}
+        {rows.map((row) => {
+          // Under the "changed" sort the label names the window's direction in the foreground ink, and its title the net.
+          const net = sort === "changed" ? windowNetPp(row, range) : undefined;
+          return (
+            <li
+              key={row.sector}
+              title={net === undefined ? row.sector : rowNetTitle(row.sector, net)}
+              className="flex items-center truncate text-[11px] leading-none text-muted-foreground"
+              style={{ height: HEAT_ROW_PX }}
+            >
+              {net === undefined ? null : (
+                <span aria-hidden="true" className="mr-1 text-foreground">
+                  {rowGlyph(net)}
+                </span>
+              )}
+              {heatRowLabel(row.sector)}
+            </li>
+          );
+        })}
       </ol>
       <div className="relative min-w-0">
         <svg
@@ -552,10 +638,15 @@ export function HeatTable({
   rows,
   onCellSelect,
   kind = "",
+  range = null,
+  sort = DEFAULT_DESK_SORT,
 }: {
   rows: readonly HeatRow[];
   onCellSelect?: (sector: string, weekStart: string) => void;
   kind?: string;
+  /** The weeks the window covers; the row's net is summed over them under the "changed" sort. */
+  range?: WeekRange | null;
+  sort?: DeskSort;
 }) {
   const lines = rows.flatMap((row) =>
     row.cells.filter((item) => item.notices > 0).map((item) => ({ row, item })),
@@ -575,7 +666,11 @@ export function HeatTable({
       <tbody>
         {lines.map(({ row, item }) => (
           <tr key={`${row.sector}-${item.weekStart}`}>
-            <th scope="row">{row.sector}</th>
+            <th scope="row">
+              {row.sector}
+              {/* The grid's direction glyph is drawn for sight only; the window's net is said here for a screen reader. */}
+              {sort === "changed" ? <span className="sr-only">, {rowNetPhrase(windowNetPp(row, range))}</span> : null}
+            </th>
             <td>
               <time dateTime={item.weekStart}>{item.weekStart}</time>
             </td>
@@ -641,6 +736,8 @@ export interface MovementHeatmapViewProps {
   kind?: string;
   /** The Overview's compact pane (backlog B2): its most active sectors and a folded row, no legend caption. */
   compact?: boolean;
+  /** The order the sectors are drawn in (backlog C3): by notices, or by the window's net change. */
+  sort?: DeskSort;
   /**
    * The Activity page (spec 14.3). Off, this is the Overview's compact pane: no window chips,
    * no caption and no figures, as the wireframe draws it.
@@ -667,6 +764,7 @@ export function MovementHeatmapView({
   compact = false,
   toolbarFold,
   onWindowChange,
+  sort = DEFAULT_DESK_SORT,
 }: MovementHeatmapViewProps) {
   const selection = parseSelection(params.get("sel") ?? "");
   // A cell outlines only in the holder type the grid is showing: the inspector names that kind's cell.
@@ -686,13 +784,18 @@ export function MovementHeatmapView({
   const weeks = workspace ? allWeeks : allWeeks.slice(-HEAT_PANE_WEEKS);
   const range = selectedWeekRange(state, page.asOf, weeks);
   // The compact pane names its most active sectors and folds the rest into one row (backlog B2).
-  const paneRows = (list: HeatRow[]) => (compact ? foldHeatRows(list, HEAT_PANE_SECTORS) : list);
-  const phoneRows = paneRows(heatRows(page.rows, weeks, range));
+  // Under the changed sort the pane keeps the eleven that moved most by magnitude, not the first eleven of
+  // the rises-first order, which folded every faller away once eleven sectors rose.
+  const paneRows = (list: HeatRow[], span: WeekRange | null) =>
+    compact
+      ? foldHeatRows(sort === "changed" ? magnitudeHeatRows(list, span) : list, HEAT_PANE_SECTORS)
+      : list;
+  const phoneRows = paneRows(heatRows(page.rows, weeks, range, sort), range);
   // The workspace's desktop grid draws the window's own weeks, 13 columns at the default 91 days, so its
   // figures print in the cells (spec 14.3). The brush below still spans every week.
   const shownWeeks = workspace && range !== null ? weeks.slice(range.first, range.last + 1) : weeks;
   const shownRange = selectedWeekRange(state, page.asOf, shownWeeks);
-  const rows = paneRows(heatRows(page.rows, shownWeeks, shownRange));
+  const rows = paneRows(heatRows(page.rows, shownWeeks, shownRange, sort), shownRange);
   const reach = heatReach([...phoneRows, ...rows]);
   const countReach = [...phoneRows, ...rows].reduce(
     (most, row) => row.cells.reduce((m, c) => Math.max(m, c.notices), most),
@@ -709,8 +812,10 @@ export function MovementHeatmapView({
       ) : null}
       {workspace ? (
         <p className="text-sm text-muted-foreground">
-          Window <WindowPhrase state={state} asOf={page.asOf} />. Sectors are sorted by the notices released in
-          the whole weeks the window touches.{" "}
+          Window <WindowPhrase state={state} asOf={page.asOf} />.{" "}
+          {sort === "changed"
+            ? "Sectors are sorted by their net change over the window, rises first."
+            : "Sectors are sorted by the notices released in the whole weeks the window touches."}{" "}
           {measure === "count"
             ? "Each cell is the number of notices released that week, deeper where there are more."
             : "Each cell is the net change in disclosed voting power over that week's notices, in percentage points, summed from what the notices disclose and not a share of the company. Ink is a fall, amber a rise, and a hatched cell has notices that state no figure."}
@@ -735,7 +840,7 @@ export function MovementHeatmapView({
               </div>
             </div>
           ) : null}
-          <HeatGrid rows={phoneRows} weeks={weeks} range={range} variant="phone" reach={reach} measure={measure} countReach={countReach} selectedCell={selectedCell} kind={kind} />
+          <HeatGrid rows={phoneRows} weeks={weeks} range={range} variant="phone" reach={reach} measure={measure} countReach={countReach} selectedCell={selectedCell} kind={kind} sort={sort} />
           <HeatGrid
             rows={rows}
             weeks={shownWeeks}
@@ -748,6 +853,7 @@ export function MovementHeatmapView({
             selectedCell={selectedCell}
             figures={workspace}
             kind={kind}
+            sort={sort}
           />
           {brush}
           {measure === "count" ? (
@@ -781,7 +887,7 @@ export function MovementHeatmapView({
           )}
         </div>
       )}
-      <HeatTable rows={rows} onCellSelect={onCellSelect} kind={kind} />
+      <HeatTable rows={rows} onCellSelect={onCellSelect} kind={kind} range={shownRange} sort={sort} />
     </div>
   );
 }

@@ -26,7 +26,14 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Keybo
 import type { DeskRangeInput, loadOwnershipMap, OwnershipMapPage } from "~/app/actions/ownershipDesk";
 import { layoutMap, sectorOf, type MapStockRow } from "./map-layout";
 import { SearchCombobox, type SearchComboboxOption } from "~/@/components/gamma/SearchCombobox";
-import { readDeskState, writeDeskState, type DeskState } from "./desk-state";
+import {
+  DEFAULT_DESK_SORT,
+  readDeskSort,
+  readDeskState,
+  writeDeskState,
+  type DeskSort,
+  type DeskState,
+} from "./desk-state";
 import { formatLensFigure, LENS_LABELS } from "./lens-legend";
 import {
   MAP_HEIGHT,
@@ -47,6 +54,7 @@ import { StockPanel, type StockPanelPage } from "./stock-panel";
 import { ViewDisclosure } from "../workspace/view-disclosure";
 import { TOOLBAR_COMBOBOX_ROW_CLASS, ToolbarSelect, type ToolbarFold } from "../workspace/toolbar";
 import { writeWindowInPlace } from "../workspace/window-select";
+import { writeSortInPlace } from "../workspace/sort-control";
 import { SourceSelect } from "./source-control";
 import {
   DESK_DEFAULT_WINDOW_STATE,
@@ -72,6 +80,11 @@ export interface OwnershipMapProps {
    * inspector to read, and draws no panel. Absent is the hub's panel, as before.
    */
   variant?: "compact" | "full";
+  /**
+   * The order the sectors are drawn in when the link names none (backlog C3). Absent is "largest"; the
+   * hub's compact pane passes "changed". A link that names a valid sort always wins.
+   */
+  sort?: DeskSort;
 }
 
 /** The stock a `?sel=` names, or "" when it names none (the workspace's selection is read here). */
@@ -162,9 +175,22 @@ function reducedMotion(): boolean {
  * The zoom's start pose for a change of sector, from the whole market's layout.
  * The sector's boxes do not depend on the lens, so either lens gives them.
  */
-function zoomPoseFor(stocks: readonly MapStockRow[], prev: DeskState, next: DeskState, size?: MapSize): string | null {
+function zoomPoseFor(
+  stocks: readonly MapStockRow[],
+  prev: DeskState,
+  next: DeskState,
+  size?: MapSize,
+  sort?: DeskSort,
+): string | null {
   if (prev.sector === next.sector || reducedMotion()) return null;
-  const whole = layoutMap(sizedRows(stocks, size), { width: MAP_WIDTH, height: MAP_HEIGHT, lens: next.lens });
+  // The sector boxes move with the sort, so the zoom starts from the box the map draws (backlog C3).
+  const whole = layoutMap(sizedRows(stocks, size), {
+    width: MAP_WIDTH,
+    height: MAP_HEIGHT,
+    lens: next.lens,
+    sort,
+    weights: stocks,
+  });
   if (next.sector !== "" && prev.sector === "") {
     const box = whole.sectors.find((sector) => sector.sector === next.sector);
     return box ? zoomPose(box, "in") : null;
@@ -184,13 +210,15 @@ export function mapSizeOf(value: string): MapSize {
 /** A cell's code as an SVG attribute selector can take it: the API's own shape, no quotes or brackets. */
 const CODE_SHAPE = /^[A-Z0-9]{1,6}$/;
 
-function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant }: OwnershipMapProps) {
+function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant, sort: defaultSort }: OwnershipMapProps) {
   const workspace = variant !== undefined;
   const compact = variant === "compact";
   const router = useRouter();
   const searchParams = useSearchParams();
   const search = searchParams?.toString() ?? "";
   const params = useMemo(() => new URLSearchParams(search), [search]);
+  // The order the sectors are drawn in: the link's sort, else the instrument's own default (backlog C3).
+  const sort = readDeskSort(params, defaultSort ?? DEFAULT_DESK_SORT);
   // In the workspace the selection is the link's: a clear, or a selection made by another
   // instrument on the page, moves the outline and the zoom with it.
   const linkedCode = workspace ? stockOfSelection(params.get("sel") ?? "") : "";
@@ -312,7 +340,7 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant
     const next = patchDeskParams(new URLSearchParams(window.location.search), patch);
     setState((s) => {
       const controls = { ...s.controls, ...patch };
-      return { ...s, controls, pose: zoomPoseFor(s.page.stocks, s.controls, controls, size) };
+      return { ...s, controls, pose: zoomPoseFor(s.page.stocks, s.controls, controls, size, sort) };
     });
     writeLink(next);
   };
@@ -355,6 +383,8 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant
     height: MAP_HEIGHT,
     lens: state.controls.lens,
     sector: state.controls.sector,
+    sort,
+    weights: state.page.ok ? state.page.stocks : [],
   });
 
   // The workspace's Find: every stock by its code, and every sector the map names (spec 14.3).
@@ -457,7 +487,9 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant
   // lenses of the same map) and the size of each cell.
   const controlsNode = workspace ? (
     <>
-      <div className="min-w-[11rem] flex-1 sm:max-w-[16rem]">
+      {/* The Find floor is 8rem: the map's row at 1440 (Find, Source, Size, Colour, Window, Sort) fits on one line
+          only with it, and a wider floor wraps the Sort select onto a second line (spec 14.9). */}
+      <div className="min-w-[8rem] flex-1 sm:max-w-[16rem]">
         <SearchCombobox
           label="Find company or sector"
           placeholder="Find company or sector"
@@ -477,8 +509,8 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant
       />
       <ToolbarSelect label="Size" value={size} onChange={(value) => setSize(mapSizeOf(value))}>
         <option value="market_cap">Market cap</option>
-        <option value="disclosed">Disclosed exposure</option>
-        <option value="index_fund">Index fund holdings</option>
+        <option value="disclosed">Exposure</option>
+        <option value="index_fund">Fund holdings</option>
       </ToolbarSelect>
     </>
   ) : undefined;
@@ -494,6 +526,8 @@ function LiveMap({ initial, loadMap, loadPanel, basePath = "/ownership", variant
       desk={state.controls}
       notice={state.notice}
       onWindowChange={writeWindowInPlace}
+      sort={sort}
+      onSortChange={writeSortInPlace}
       params={params}
       status={state.status}
       slow={state.slow}
@@ -523,6 +557,7 @@ export function OwnershipMap(props: OwnershipMapProps) {
           initial={props.initial}
           basePath={props.basePath}
           variant={props.variant}
+          sort={props.sort ?? DEFAULT_DESK_SORT}
           // The full page's controls row is reserved, so the island mounting does not shift the drawing.
           controls={props.variant === "full" ? <div aria-hidden="true" className={TOOLBAR_COMBOBOX_ROW_CLASS} /> : undefined}
         />

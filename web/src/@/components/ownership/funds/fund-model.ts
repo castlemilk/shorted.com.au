@@ -10,7 +10,9 @@
  */
 
 import { MINUS, NOT_AVAILABLE, formatPct, formatShares } from "~/@/lib/fundamentals/format";
+import { formatPointChange, shortSector } from "~/@/lib/ownership/kinds";
 import { layoutMap, sectorOf, type MapLayout, type MapStockRow } from "../desk/map-layout";
+import type { DeskSort } from "../desk/desk-state";
 import { isFundKey as isFundKeyGrammar } from "../workspace/selection";
 
 /** Up to this many funds can be compared at once (spec 14.3). */
@@ -58,6 +60,14 @@ export interface FundRow {
    * predates the field reads as 0 too, so the field is optional in the type.
    */
   snapshotCount?: number;
+  /**
+   * The largest absolute change in one sector's weight between the fund's two newest files, in percentage
+   * points, signed (the later file less the earlier), and that sector (backlog C3b). Null, and the sector "",
+   * when the API states none: a fund with one file, or no sector stated on both. Optional like snapshotCount:
+   * a fixture that predates the fields reads as none.
+   */
+  largestSectorChangePp?: number | null;
+  largestSectorChangeSector?: string;
 }
 
 /** One holding of one fund at one file date. */
@@ -224,6 +234,49 @@ export function fundKeyFromSegment(segment: string | null | undefined): string {
     decoded = segment;
   }
   return cleanFundKey(decoded);
+}
+
+/** Whether a fund states a largest sector change: a finite change in percentage points. */
+function sectorChangeStated<T extends { largestSectorChangePp?: number | null }>(
+  fund: T,
+): fund is T & { largestSectorChangePp: number } {
+  return typeof fund.largestSectorChangePp === "number" && Number.isFinite(fund.largestSectorChangePp);
+}
+
+/**
+ * The fund rows in the order a sort gives (backlog C3b). "largest" is the API's order. "changed" orders by
+ * the size of the largest sector change, largest first, and a fund that states none comes last in the API's
+ * order. Array.prototype.sort is stable, so ties keep the API's order.
+ */
+export function orderFundsForSort<T extends { largestSectorChangePp?: number | null }>(
+  funds: readonly T[],
+  sort: DeskSort,
+): T[] {
+  if (sort !== "changed") return [...funds];
+  return [...funds].sort((a, b) => {
+    const x = changeSize(a);
+    const y = changeSize(b);
+    if (x === null) return y === null ? 0 : 1;
+    if (y === null) return -1;
+    return y - x;
+  });
+}
+
+/** The size of a fund's largest sector change, or null when it states none. */
+function changeSize(fund: { largestSectorChangePp?: number | null }): number | null {
+  return sectorChangeStated(fund) ? Math.abs(fund.largestSectorChangePp) : null;
+}
+
+/**
+ * The sector a changed row names after its manager: the sector's short name and its change, true minus
+ * ("Banks +10.20 pp"). "" when the fund states no change, so the row carries nothing it cannot back.
+ */
+export function sectorChangeDetail(fund: {
+  largestSectorChangePp?: number | null;
+  largestSectorChangeSector?: string;
+}): string {
+  if (!sectorChangeStated(fund)) return "";
+  return `${shortSector(fund.largestSectorChangeSector)} ${formatPointChange(0, fund.largestSectorChangePp)}`;
 }
 
 /**

@@ -373,3 +373,12 @@ describe("the cell's section order (backlog C7)", () => {
     expect(content.primary?.label).toBe("View 2 notices →");
   });
 });
+
+describe("the cell's primary placement (backlog C7)", () => {
+  it("places the notices action first, so it sits before the holder, move and notice lists", () => {
+    const content = cellInspectorContent({ sector: "Materials", weekStart: "2026-10-26", feed: feed([row("became")], 1) });
+    expect(content.primaryPlacement).toBe("first");
+    expect(content.primary?.label).toBe("View 1 notice →");
+    expect(content.sections?.length ?? 0).toBeGreaterThan(0);
+  });
+});

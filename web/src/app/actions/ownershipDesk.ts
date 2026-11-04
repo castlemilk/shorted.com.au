@@ -45,6 +45,7 @@ import type { InspectorContent, InspectorQuery } from "~/@/components/ownership/
 import {
   SELECTION_KINDS,
   parseSelection,
+  sectorSelection,
   serializeSelection,
   type Selection,
 } from "~/@/components/ownership/workspace/selection";
@@ -54,6 +55,7 @@ import {
   type ConnectionCompany,
   type ConnectionSpan,
 } from "~/@/components/ownership/workspace/inspectors/connection-inspector";
+import { sectorInspectorContent } from "~/@/components/ownership/workspace/inspectors/sector-inspector";
 import { changePpOf } from "~/@/components/ownership/workspace/inspectors/window-net";
 import {
   stockInspectorContent,
@@ -83,6 +85,8 @@ import {
   windowDates,
 } from "~/@/components/ownership/desk/desk-state";
 import { loadNoticeFeed } from "./ownershipExplorer";
+import { readWeekNotices, weekWindow, type WeekNotices } from "~/@/components/ownership/workspace/week-strip";
+import { PAGE_MAX_LIMIT } from "~/@/lib/ownership/query";
 import { CACHE_KEYS } from "@/lib/kv-cache";
 import { skipForBuild } from "./config";
 import { cachedRead, ownershipClient, type ProtoSchema } from "./ownership-shared";
@@ -480,6 +484,8 @@ const CELL_LIMIT = 100;
 function cleanInspectorSelection(input: unknown): Selection | null {
   if (typeof input !== "object" || input === null) return null;
   const kind = (input as { kind?: unknown }).kind;
+  // The zoomed sector is internal (backlog C4): it is no link kind, so it is read from its own name, not the codec's link form.
+  if (kind === "sector") return sectorSelection((input as { sector?: unknown }).sector);
   if (typeof kind !== "string" || !(SELECTION_KINDS as readonly string[]).includes(kind)) return null;
   return parseSelection(serializeSelection(input as Selection));
 }
@@ -532,7 +538,8 @@ export async function loadConnectionCompanies(
  * The inspector's content for one selection on the workspace (spec 14.1), as the
  * plain contract the rail draws. A company reads the register and the fund series;
  * a connection reads the register's companies on it (spec 14.7); a cell reads the
- * notice feed for its filters, the holder kind included. A read that failed is
+ * notice feed for its filters, the holder kind included; a zoomed sector reads the
+ * flows over the link's window (backlog C4). A read that failed is
  * thrown, so the rail says it could not load (an outage is never an empty record);
  * a selection this loader does not serve, or one with nothing on record, is null.
  * `lens` is the map's figure for a company (the disclosed notices by default).
@@ -604,6 +611,33 @@ async function bandHolders(holderKind: string, sector: string): Promise<FlowHold
   return band?.topHolders ?? [];
 }
 
+/**
+ * The newest notice date the desk reads (backlog C6): the map's as-of, the newest notice the market
+ * read. When the map did not answer, the newest of the given dates (a stock's panel states its own).
+ * "" when neither states one, so a strip is not drawn over a guessed end.
+ */
+async function deskAsOf(fallbackDates: readonly string[] = []): Promise<string> {
+  const map = await loadOwnershipMap({});
+  if (map.ok && isIsoDate(map.asOf)) return map.asOf;
+  return fallbackDates.reduce((latest, date) => (isIsoDate(date) && date > latest ? date : latest), "");
+}
+
+/**
+ * A stock's notice dates over the strip's 26 weeks (backlog C6), or null when they cannot be read whole.
+ * The feed is asked for the span the strip draws, from the Monday of its first week through the as-of,
+ * one page after another (readWeekNotices), at the feed's own page size.
+ */
+async function stockWeekNotices(code: string, panelDates: readonly string[]): Promise<WeekNotices | null> {
+  const asOf = await deskAsOf(panelDates);
+  const span = weekWindow(asOf);
+  if (span === null) return null;
+  return readWeekNotices(
+    loadNoticeFeed,
+    { stockCode: code, since: span.since, until: span.until, limit: PAGE_MAX_LIMIT, includeActivity: false },
+    asOf,
+  );
+}
+
 export async function loadInspector(
   selection: Selection,
   query: InspectorQuery = NO_INSPECTOR_QUERY,
@@ -627,7 +661,12 @@ export async function loadInspector(
         stockNoticeWindow(query),
       ]);
       if (!panel.ok) throw new Error("the register could not be read");
-      return stockInspectorContent(panel, series.ok ? series : null, lens, notices);
+      // The strip's notices are read after the panel, which names the newest notice a desk with no map can end on.
+      const weekly = await stockWeekNotices(
+        clean.code,
+        panel.notices.map((notice) => notice.announcedOn),
+      );
+      return stockInspectorContent(panel, series.ok ? series : null, lens, notices, weekly);
     }
     case "connection": {
       // The folded tail is several sectors under one label: no register filter, so it is withheld like Other.
@@ -690,6 +729,22 @@ export async function loadInspector(
                 total: feed.total,
               },
       });
+    }
+    case "sector": {
+      // The zoomed sector's holders (backlog C4): the flows over the link's window, the range the panes read.
+      // An outage or a refusal is thrown, so the rail says it could not load and never draws an empty sector.
+      const span = connectionWindow(query);
+      const flows = await loadOwnershipFlows({ window: Number(span.window), since: span.since, until: span.until });
+      if (!flows.ok || flows.error !== "") throw new Error("the flows could not be read");
+      // The holders' links keep the reader's lens and fund dates, as the link names them (spec 14.8); a default is not written.
+      const fund = fundDatesOf(query);
+      const keep = {
+        lens: lens === DEFAULT_DESK_LENS ? "" : lens,
+        view: query.view ?? "",
+        from: fund.fundFrom,
+        to: fund.fundTo,
+      };
+      return sectorInspectorContent({ sector: clean.sector, flows, window: span, keep });
     }
     case "cell": {
       // The Other row is the placeholder industry: the feed cannot filter to it, so its count is withheld.

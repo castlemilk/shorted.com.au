@@ -11,6 +11,11 @@
  *   fund:aware/High Growth         a super option: <institution_slug>/<fund name>
  *   holding:asx:A200/BHP           one holding of one fund (the code after the LAST slash)
  *
+ * The sector kind is INTERNAL (backlog C4): the map's zoom lives in `?sector=`,
+ * and the inspector shows that sector when no `sel` is set. It is built in code
+ * (`sectorSelection`) and never parsed from a link, so `sel=sector:...` is no
+ * selection and a shared link cannot pick a sector through `sel`.
+ *
  * READ AND WRITE ARE ONE RULE, as in desk-state.ts: `parseSelection` accepts a
  * string only when `serializeSelection` of what it parses is that same string,
  * so a link round-trips by construction and an unknown or malformed value reads
@@ -36,7 +41,12 @@ export type Selection =
   | { kind: "connection"; holderKind: string; sector: string }
   | { kind: "cell"; sector: string; date: string; holderKind?: string }
   | { kind: "fund"; fundKey: string }
-  | { kind: "holding"; fundKey: string; code: string };
+  | { kind: "holding"; fundKey: string; code: string }
+  /** Internal only (C4): the zoomed sector, read from `?sector=`. Never parsed from `sel`. */
+  | { kind: "sector"; sector: string };
+
+/** A selection a link can carry: every kind but the internal sector, which a link never names. */
+export type LinkSelection = Exclude<Selection, { kind: "sector" }>;
 
 /**
  * A selection link is short (spec 14.7); anything longer is not one this codec wrote. The cap
@@ -104,7 +114,8 @@ function cleanHolderKey(value: string): string | null {
  * A selection from its link form, or null for anything the codec would not
  * write. The kind is everything before the first colon; the key is the rest.
  */
-export function parseSelection(raw: string): Selection | null {
+export function parseSelection(raw: string): LinkSelection | null {
+  // `sector` is not a link kind: the zoom is `?sector=`, so `default` refuses it like any unknown kind.
   if (raw.length === 0 || raw.length > SELECTION_MAX) return null;
   const colon = raw.indexOf(":");
   if (colon <= 0) return null;
@@ -173,7 +184,19 @@ export function serializeSelection(selection: Selection): string {
       return `fund:${selection.fundKey}`;
     case "holding":
       return `holding:${selection.fundKey}/${selection.code}`;
+    case "sector":
+      return `sector:${selection.sector}`;
   }
+}
+
+/**
+ * The internal sector selection for a zoomed sector (backlog C4), or null for a value that is not a
+ * sector name the codec would print. It is not `parseSelection`: a sector never comes from a link.
+ */
+export function sectorSelection(sector: unknown): Selection | null {
+  if (typeof sector !== "string") return null;
+  const clean = cleanSector(sector);
+  return clean === null ? null : { kind: "sector", sector: clean };
 }
 
 /** The link value a raw string cleans to: its canonical form, or "" for no selection. */
@@ -198,6 +221,8 @@ export function selectionHeading(selection: Selection): string {
       return "Selected fund";
     case "holding":
       return "Selected holding";
+    case "sector":
+      return "Selected sector";
   }
 }
 

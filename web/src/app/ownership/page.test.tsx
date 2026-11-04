@@ -278,6 +278,17 @@ describe("OwnershipPage desk", () => {
     expect(getStockOwnership).not.toHaveBeenCalled();
   });
 
+  it("gives the Overview's market map and notice activity the Changed sort, which a link can change (backlog C3)", async () => {
+    render(await OwnershipPage());
+
+    const map = mockOwnershipMap.mock.calls.at(-1)?.[0] as { variant?: string; sort?: string };
+    expect(map.variant).toBe("compact");
+    expect(map.sort).toBe("changed");
+    const heatmap = movementHeatmap.mock.calls.at(-1)?.[0] as { variant?: string; sort?: string };
+    expect(heatmap.variant).toBe("compact");
+    expect(heatmap.sort).toBe("changed");
+  });
+
   it("hands the movement island the activity loader, so its window and brush can redraw", async () => {
     render(await OwnershipPage());
 

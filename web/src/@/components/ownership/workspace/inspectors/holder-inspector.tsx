@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { HolderLogo } from "../holder-logo";
 import type { InspectorLink, InspectorSection } from "../inspector-types";
+import { WeekStrip } from "../week-strip-view";
 
 /** From `lg` the holder inspector is the right rail; below it, a sheet (spec 14.1). */
 const DESKTOP_QUERY = "(min-width: 1024px)";
@@ -324,7 +325,9 @@ function HolderSection({ section }: { section: InspectorSection }) {
   return (
     <section aria-label={section.title} className="space-y-2">
       <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{section.title}</h3>
-      {section.kind === "bars" ? (
+      {section.kind === "weeks" ? (
+        <WeekStrip weeks={section.weeks} label={section.title} />
+      ) : section.kind === "bars" ? (
         <ul className="space-y-2.5">
           {section.items.map((bar) => (
             <li key={bar.label} className="space-y-1">

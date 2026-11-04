@@ -274,6 +274,73 @@ describe("the fund exposure map's controls and expanders (spec 14.1, 14.3)", () 
 });
 
 
+/** Index funds with a largest sector change, one with none (IOZ), and a super option the kind filter hides. */
+const MOVED = [
+  fund("A200", { largestSectorChangePp: -2.5, largestSectorChangeSector: "Banks" }),
+  fund("IOZ", { institutionName: "iShares" }),
+  fund("VAS", { institutionName: "Vanguard", pooled: true, largestSectorChangePp: 10.2, largestSectorChangeSector: "Banks" }),
+  fund("STW", { institutionName: "State Street", largestSectorChangePp: 0.5, largestSectorChangeSector: "Materials" }),
+  fund("HVST", { sourceKind: "super_phd", institutionName: "Hostplus", largestSectorChangePp: 40, largestSectorChangeSector: "Banks" }),
+];
+
+/** The fund rows' checkboxes in the order the table draws them, named by their fund. */
+function rowOrder(): string[] {
+  return screen.getAllByRole("checkbox").map((box) => (box.getAttribute("aria-label") ?? "").replace("Compare ", ""));
+}
+
+describe("the fund exposure map's sort (backlog C3b)", () => {
+  it("orders the rows by the largest sector change under Changed, the rows with none last in the API's order", () => {
+    render(<FundExposureMapView funds={MOVED} params={new URLSearchParams("sort=changed")} pathname="/ownership/funds" navigate={jest.fn()} />);
+    expect(rowOrder()).toEqual(["VAS", "A200", "STW", "IOZ"]);
+  });
+
+  it("keeps the API's order under Largest", () => {
+    render(<FundExposureMapView funds={MOVED} params={new URLSearchParams("")} pathname="/ownership/funds" navigate={jest.fn()} />);
+    expect(rowOrder()).toEqual(["A200", "IOZ", "VAS", "STW"]);
+  });
+
+  it("names the sector and its change after the manager under Changed, with a true minus", () => {
+    render(<FundExposureMapView funds={MOVED} params={new URLSearchParams("sort=changed")} pathname="/ownership/funds" navigate={jest.fn()} />);
+    expect(screen.getByText("Banks +10.20 pp")).toBeInTheDocument();
+    expect(screen.getByText("Banks −2.50 pp")).toBeInTheDocument();
+    expect(screen.getByText("Materials +0.50 pp")).toBeInTheDocument();
+    // The fund that states no change carries no detail, not a dash or a zero.
+    expect(screen.getAllByText(/ pp$/)).toHaveLength(3);
+  });
+
+  it("carries no change detail under Largest", () => {
+    render(<FundExposureMapView funds={MOVED} params={new URLSearchParams("")} pathname="/ownership/funds" navigate={jest.fn()} />);
+    expect(screen.queryByText(/ pp$/)).toBeNull();
+  });
+
+  it("draws the Sort select in the toolbar's one row, showing the sort the URL names", () => {
+    const { container } = render(
+      <FundExposureMapView funds={MOVED} params={new URLSearchParams("sort=changed")} pathname="/ownership/funds" navigate={jest.fn()} />,
+    );
+    expect(container.querySelectorAll("[data-toolbar]")).toHaveLength(1);
+    const select = screen.getByRole("combobox", { name: "Sort" }) as HTMLSelectElement;
+    expect(select.value).toBe("changed");
+    expect(select.closest("[data-toolbar]")).toBe(container.querySelector("[data-toolbar]"));
+    expect(Array.from(select.options).map((option) => option.textContent)).toEqual(["Largest", "Changed"]);
+  });
+
+  it("navigates to the sort it is set to, and drops the parameter for Largest", () => {
+    const navigate = jest.fn();
+    render(<FundExposureMapView funds={MOVED} params={new URLSearchParams("sort=changed&type=super")} pathname="/ownership/funds" navigate={navigate} />);
+    const select = screen.getByRole("combobox", { name: "Sort" });
+    fireEvent.change(select, { target: { value: "largest" } });
+    expect(navigate).toHaveBeenLastCalledWith("/ownership/funds?type=super");
+  });
+
+  it("draws the server's default view on Largest, as the toolbar's other selects draw their defaults", () => {
+    const host = document.createElement("div");
+    host.innerHTML = markupOf("", MOVED);
+    const select = Array.from(host.querySelectorAll("select")).find((el) => el.querySelector('option[value="changed"]'));
+    expect(select).toBeDefined();
+    expect(select?.value).toBe("largest");
+  });
+});
+
 /** The server's markup of the default view: React writes each inline style itself, so the stops are read as written. */
 function markupOf(search = "", funds: FundRow[] = FUNDS): string {
   return renderToStaticMarkup(

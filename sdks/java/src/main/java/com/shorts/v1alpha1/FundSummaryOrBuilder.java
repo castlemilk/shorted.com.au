@@ -240,4 +240,34 @@ public interface FundSummaryOrBuilder extends
    * @return The snapshotCount.
    */
   int getSnapshotCount();
+
+  /**
+   * <pre>
+   * The sector whose weight moved most between the fund's two newest files, and
+   * that move in percentage points, signed: the newer file less the older. has_ is
+   * false with fewer than two files, or when no sector is stated on both.
+   * </pre>
+   *
+   * <code>double largest_sector_change_pp = 18 [json_name = "largestSectorChangePp"];</code>
+   * @return The largestSectorChangePp.
+   */
+  double getLargestSectorChangePp();
+
+  /**
+   * <code>bool has_largest_sector_change = 19 [json_name = "hasLargestSectorChange"];</code>
+   * @return The hasLargestSectorChange.
+   */
+  boolean getHasLargestSectorChange();
+
+  /**
+   * <code>string largest_sector_change_sector = 20 [json_name = "largestSectorChangeSector"];</code>
+   * @return The largestSectorChangeSector.
+   */
+  java.lang.String getLargestSectorChangeSector();
+  /**
+   * <code>string largest_sector_change_sector = 20 [json_name = "largestSectorChangeSector"];</code>
+   * @return The bytes for largestSectorChangeSector.
+   */
+  com.google.protobuf.ByteString
+      getLargestSectorChangeSectorBytes();
 }

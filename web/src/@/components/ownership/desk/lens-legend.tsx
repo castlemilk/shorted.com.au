@@ -52,7 +52,7 @@ export const LENS_SELECT_LABELS: Readonly<Record<DeskLens, string>> = {
   index: "Index funds",
   short: "Short interest",
   flow: "Net change, pp",
-  index_flow: "Index fund shares",
+  index_flow: "Fund shares",
 };
 
 export const LENS_LABELS: Readonly<Record<DeskLens, string>> = {

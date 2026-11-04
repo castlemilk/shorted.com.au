@@ -4,7 +4,9 @@ import {
   cleanSelection,
   isFundKey,
   parseSelection,
+  sectorSelection,
   selectionHeading,
+  selectionNamesStock,
   serializeSelection,
   withoutSelection,
   type Selection,
@@ -137,5 +139,29 @@ describe("selection codec (spec 14.1)", () => {
     expect(withoutSelection("sel=stock%3ABHP&window=28")).toBe("window=28");
     expect(withoutSelection("sel=stock%3ABHP")).toBe("");
     expect(withoutSelection("")).toBe("");
+  });
+
+  it("reads the internal sector kind as nothing from a link: the zoom lives in ?sector=, never in sel", () => {
+    expect(parseSelection("sector:Materials")).toBeNull();
+    expect(cleanSelection("sector:Materials")).toBe("");
+  });
+
+  it("writes the internal sector kind as sector:<name> and reads its heading as the selected sector", () => {
+    const selection: Selection = { kind: "sector", sector: "Materials" };
+    expect(serializeSelection(selection)).toBe("sector:Materials");
+    expect(selectionHeading(selection)).toBe("Selected sector");
+  });
+
+  it("builds the internal sector selection only from a name the codec would print", () => {
+    expect(sectorSelection("Materials")).toEqual({ kind: "sector", sector: "Materials" });
+    expect(sectorSelection("")).toBeNull();
+    expect(sectorSelection(" Materials")).toBeNull();
+    expect(sectorSelection("Materials\nX")).toBeNull();
+    expect(sectorSelection("x".repeat(65))).toBeNull();
+    expect(sectorSelection(42)).toBeNull();
+  });
+
+  it("never names a company for a sector selection", () => {
+    expect(selectionNamesStock({ kind: "sector", sector: "Materials" }, "BHP")).toBe(false);
   });
 });

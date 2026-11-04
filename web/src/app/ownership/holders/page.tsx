@@ -64,7 +64,7 @@ export default async function HoldersPage() {
   const shell = directoryFailed || connectionsFailed;
   const inspector =
     initial.ok && initial.holder !== null
-      ? holderInspectorContent(initial.holder, initial.positions, null, initial.funds)
+      ? holderInspectorContent(initial.holder, initial.positions, null, initial.funds, initial.weekNotices ?? null)
       : null;
 
   return (

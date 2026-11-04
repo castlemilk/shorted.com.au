@@ -177,6 +177,18 @@ describe("loadFunds", () => {
     });
   });
 
+  it("reads the largest sector change with its has_ flag, and withholds both figures without it", async () => {
+    mockListFunds.mockResolvedValue({
+      funds: [
+        summary({ largestSectorChangePp: -2.5, hasLargestSectorChange: true, largestSectorChangeSector: "Banks" }),
+        summary({ fundKey: "asx:IOZ", ticker: "IOZ", largestSectorChangePp: 0, hasLargestSectorChange: false, largestSectorChangeSector: "" }),
+      ],
+    });
+    const page = await loadFunds();
+    expect(page.funds[0]).toMatchObject({ largestSectorChangePp: -2.5, largestSectorChangeSector: "Banks" });
+    expect(page.funds[1]).toMatchObject({ largestSectorChangePp: null, largestSectorChangeSector: "" });
+  });
+
   it("answers an outage as not ok, never as an empty fund list", async () => {
     mockListFunds.mockRejectedValue({ code: 14, message: "unavailable" });
     const page = await loadFunds();

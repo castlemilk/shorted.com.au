@@ -16,10 +16,12 @@ import {
   fundLabel,
   holdingsTreemap,
   orderFundsForCompare,
+  orderFundsForSort,
   otherWeightOf,
   parseFundKeys,
   patchHref,
   serializeFundKeys,
+  sectorChangeDetail,
   sectorColumns,
   sectorSummary,
   sectorTint,
@@ -363,5 +365,43 @@ describe("the comparison's caption (spec 14.3, B4)", () => {
     const EM_DASH = String.fromCharCode(0x2014);
     expect(compareCaption("VAS", "2026-10-15", "2026-11-02", [row(1)])).not.toContain(EM_DASH);
     expect(compareCaption("VAS", "", "", [])).not.toContain(EM_DASH);
+  });
+});
+
+describe("the fund sort (backlog C3b)", () => {
+  const moved = (key: string, pp: number | null) =>
+    fund({ key, largestSectorChangePp: pp, largestSectorChangeSector: "Banks" });
+  const keysOf = (rows: FundRow[]) => rows.map((row) => row.key);
+
+  it("keeps the API's order under Largest", () => {
+    const rows = [moved("A", 1), moved("B", null), moved("C", -5)];
+    expect(keysOf(orderFundsForSort(rows, "largest"))).toEqual(["A", "B", "C"]);
+  });
+
+  it("orders by the size of the change under Changed, a fall as much as a rise", () => {
+    const rows = [moved("A", 1), moved("B", -4), moved("C", 2.5)];
+    expect(keysOf(orderFundsForSort(rows, "changed"))).toEqual(["B", "C", "A"]);
+  });
+
+  it("puts the funds that state no change last, in the API's order, and does not reorder the input", () => {
+    const rows = [moved("A", null), moved("B", 0.2), moved("C", null), moved("D", -3)];
+    expect(keysOf(orderFundsForSort(rows, "changed"))).toEqual(["D", "B", "A", "C"]);
+    expect(keysOf(rows)).toEqual(["A", "B", "C", "D"]);
+  });
+
+  it("treats a fund without the field as one that states no change", () => {
+    expect(keysOf(orderFundsForSort([fund({ key: "A" }), moved("B", 1)], "changed"))).toEqual(["B", "A"]);
+  });
+});
+
+describe("the sector change's detail (backlog C3b)", () => {
+  it("names the sector's short name and the change, with a true minus", () => {
+    expect(sectorChangeDetail({ largestSectorChangePp: 10.2, largestSectorChangeSector: "Banks" })).toBe("Banks +10.20 pp");
+    expect(sectorChangeDetail({ largestSectorChangePp: -2.5, largestSectorChangeSector: "Banks" })).toBe(`Banks ${MINUS}2.50 pp`);
+  });
+
+  it("is empty when the fund states no change, never a dash or a zero", () => {
+    expect(sectorChangeDetail({ largestSectorChangePp: null, largestSectorChangeSector: "" })).toBe("");
+    expect(sectorChangeDetail({})).toBe("");
   });
 });

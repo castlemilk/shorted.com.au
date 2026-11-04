@@ -18,7 +18,7 @@
 
 import { industryLabel } from "~/@/lib/industry-placeholder";
 import { FOLDED_SECTOR_LABEL } from "~/@/lib/ownership/kinds";
-import type { DeskLens } from "./desk-state";
+import type { DeskLens, DeskSort } from "./desk-state";
 
 /** The placeholder every stock with no industry is grouped under. */
 export const OTHER_SECTOR = "Other";
@@ -73,6 +73,11 @@ export interface MapSector {
   x1: number;
   y1: number;
   stocks: number;
+  /**
+   * The sector's net change under the change order: the market-cap-weighted figure of its stocks
+   * that state one, or null when none does. Absent when the layout is not ordered by change.
+   */
+  change?: number | null;
 }
 
 export interface MapLayout {
@@ -90,6 +95,27 @@ export interface MapLayoutOptions {
   lens: DeskLens;
   /** An industry name to zoom to; "" or absent is the whole market. */
   sector?: string;
+  /**
+   * The order. "largest" (or absent) is by area. "changed" orders the sectors by the magnitude of
+   * their net change and the stocks inside a sector by the magnitude of their own figure, under a
+   * lens that states a change (`hasChangeMeasure`); any other lens keeps the order by area. The
+   * sizes stay the Size's either way.
+   */
+  sort?: DeskSort;
+  /**
+   * The rows the sector change is weighted by: the stocks with their own market caps, whatever the
+   * Size draws. The caller passes the same rows the phone map weights by, so the two maps state the
+   * same net change for a sector. Absent, the layout's own stocks weight it.
+   */
+  weights?: readonly MapStockRow[];
+}
+
+/**
+ * The lenses that state a change, so the map can order by it: the flow in percentage points and
+ * the index funds' change. The other lenses state levels, and the map keeps its order by area.
+ */
+export function hasChangeMeasure(lens: DeskLens): boolean {
+  return lens === "flow" || lens === "index_flow";
 }
 
 /** The sector a stock is grouped under: its industry, or OTHER_SECTOR for a placeholder. */
@@ -141,9 +167,10 @@ const SQUARIFY_RATIO = (1 + Math.sqrt(5)) / 2;
 
 /**
  * Tiles `box` with one rectangle per area, in input order. The areas must be
- * positive and sorted largest first, which keeps the cells near square. Each row
- * is laid along the box's shorter side, and the row grows while its worst aspect
- * ratio does not get worse.
+ * positive. Sorted largest first the cells are nearest square; in any other order
+ * they still tile the box exactly, with less square cells. Each row is laid along
+ * the box's shorter side, and the row grows while its worst aspect ratio does not
+ * get worse.
  */
 function squarify(areas: readonly number[], box: Box): Box[] {
   const out: Box[] = new Array<Box>(areas.length);
@@ -207,6 +234,22 @@ function byCode(a: MapStockRow, b: MapStockRow): number {
   return a.code < b.code ? -1 : a.code > b.code ? 1 : 0;
 }
 
+/** A figure's magnitude, or null when it is not one (a hatched stock or sector). */
+function magnitudeOf(value: number | null | undefined): number | null {
+  return value === null || value === undefined || !Number.isFinite(value) ? null : Math.abs(value);
+}
+
+/**
+ * Largest first, with the figures that are null after every figure that is. Zero means
+ * a tie, and the caller falls through to its next key.
+ */
+function largestFirst(a: number | null, b: number | null): number {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return b - a;
+}
+
 /**
  * The map for one set of stocks and one window. The sector groups are laid out
  * largest first, then each group's stocks inside its own box. A zoom keeps the
@@ -222,6 +265,13 @@ export function layoutMap(stocks: readonly MapStockRow[], options: MapLayoutOpti
 
   const fallback = median(stocks.filter((s) => isMarketCap(s.marketCap)).map((s) => s.marketCap!));
   const areaOf = (stock: MapStockRow) => (isMarketCap(stock.marketCap) ? stock.marketCap : (fallback ?? 1));
+  // The change order: each sector's net change is the same market-cap-weighted figure the phone map
+  // states for it (phoneSectors, given the same rows to weight by), so the two maps agree on which
+  // sector moved most whatever the Size draws.
+  const byChange = options.sort === "changed" && hasChangeMeasure(lens);
+  const sectorChange = byChange
+    ? new Map(phoneSectors(options.weights ?? stocks, stocks, lens).map((entry) => [entry.sector, entry.figure] as const))
+    : null;
 
   const groups = new Map<string, MapStockRow[]>();
   for (const stock of [...stocks].sort(byCode)) {
@@ -235,11 +285,25 @@ export function layoutMap(stocks: readonly MapStockRow[], options: MapLayoutOpti
 
   const ordered = [...groups.entries()]
     .map(([name, members]) => {
-      const sorted = [...members].sort((a, b) => areaOf(b) - areaOf(a) || byCode(a, b));
+      // The stocks inside a sector: by the magnitude of their own figure under the change order,
+      // then by area, so a sector's biggest mover is its top-left cell.
+      const sorted = [...members].sort((a, b) => {
+        if (byChange) {
+          const moved = largestFirst(magnitudeOf(lensFigure(a, lens)), magnitudeOf(lensFigure(b, lens)));
+          if (moved !== 0) return moved;
+        }
+        return areaOf(b) - areaOf(a) || byCode(a, b);
+      });
       const total = sorted.reduce((sum, stock) => sum + areaOf(stock), 0);
-      return { name, members: sorted, total };
+      return { name, members: sorted, total, change: sectorChange?.get(name) ?? null };
     })
-    .sort((a, b) => b.total - a.total || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    .sort((a, b) => {
+      if (byChange) {
+        const moved = largestFirst(magnitudeOf(a.change), magnitudeOf(b.change));
+        if (moved !== 0) return moved;
+      }
+      return b.total - a.total || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+    });
 
   const sectorBoxes = squarify(
     ordered.map((group) => group.total),
@@ -250,7 +314,12 @@ export function layoutMap(stocks: readonly MapStockRow[], options: MapLayoutOpti
   const cells: MapCell[] = [];
   ordered.forEach((group, i) => {
     const box = sectorBoxes[i]!;
-    sectors.push({ sector: group.name, ...box, stocks: group.members.length });
+    sectors.push({
+      sector: group.name,
+      ...box,
+      stocks: group.members.length,
+      ...(byChange ? { change: group.change } : {}),
+    });
     const memberBoxes = squarify(group.members.map(areaOf), box);
     group.members.forEach((stock, j) => {
       const cell = memberBoxes[j]!;

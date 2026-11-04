@@ -326,12 +326,14 @@ export default async function OwnershipPage() {
                   Market map
                 </Link>
               </h2>
+              {/* The pane's sort is "Changed" when the link names none (backlog C3); the hub has no sort control. */}
               <OwnershipMap
                 initial={map}
                 loadMap={loadOwnershipMap}
                 loadPanel={loadStockPanel}
                 basePath="/ownership"
                 variant="compact"
+                sort="changed"
               />
             </section>
             <section className="min-w-0 space-y-3 lg:flex lg:h-[420px] lg:flex-col lg:overflow-hidden" aria-labelledby="desk-flows">
@@ -357,6 +359,7 @@ export default async function OwnershipPage() {
                 loadActivity={loadOwnershipActivity}
                 basePath="/ownership"
                 variant="compact"
+                sort="changed"
               />
             </section>
             {/* The instrument draws its own title, a link to the map's index lens, in both its states. */}

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { OwnershipMapPage } from "~/app/actions/ownershipDesk";
 import { layoutMap, type MapCell, type MapStockRow } from "../map-layout";
 import { DEFAULT_DESK_STATE } from "../desk-state";
+import { DESK_DEFAULT_WINDOW_STATE } from "../window-chips";
 import { mapCaption } from "../lens-legend";
 import {
   HATCH_ID,
@@ -677,5 +678,147 @@ describe("the compact pane fills its fixed height from lg (backlog B2)", () => {
     const drawing = container.querySelector('svg[role="group"]');
     expect(drawing).toHaveClass("h-auto");
     expect(drawing).not.toHaveClass("lg:h-full");
+  });
+});
+
+describe("the Sort control and the change order (backlog C3)", () => {
+  const MINUS = String.fromCharCode(0x2212);
+  // Materials and Financials both state +0.50 pp; Other states -3.00 pp, the biggest magnitude.
+  const MOVERS: MapStockRow[] = [
+    stock({ code: "BHP", name: "BHP Group", marketCap: 300_000, flowPp: 0.5 }),
+    stock({ code: "RIO", name: "Rio Tinto", marketCap: 200_000, flowPp: 0.5 }),
+    stock({ code: "CBA", name: "Commonwealth Bank", marketCap: 150_000, industry: "Financials", flowPp: 0.5 }),
+    stock({ code: "ZZZ", name: "Unclassified Co", marketCap: 1_000, industry: "Not Applic", flowPp: -3 }),
+  ];
+
+  function view(lens: "disclosed" | "flow" | "index_flow", props: { sort?: "largest" | "changed"; onSortChange?: (next: "largest" | "changed") => void } = {}) {
+    return (
+      <OwnershipMapView
+        page={page({ stocks: MOVERS })}
+        desk={{ ...DEFAULT_DESK_STATE, lens }}
+        notice={DESK_DEFAULT_WINDOW_STATE}
+        status="idle"
+        slow={false}
+        basePath="/ownership/map"
+        {...props}
+      />
+    );
+  }
+
+  function sectorOrder(container: HTMLElement): string[] {
+    return Array.from(container.querySelectorAll("g[data-sector]")).map((group) => group.getAttribute("data-sector") ?? "");
+  }
+
+  it("offers the Sort control in the one toolbar row under a diverging lens, and not under a level lens", () => {
+    const flow = render(view("flow", { sort: "largest", onSortChange: () => undefined }));
+    const row = flow.container.querySelectorAll("[data-toolbar]");
+    expect(row).toHaveLength(1);
+    expect(within(row[0] as HTMLElement).getByRole("combobox", { name: "Sort" })).toBeInTheDocument();
+    flow.unmount();
+
+    const indexFlow = render(view("index_flow", { sort: "largest", onSortChange: () => undefined }));
+    expect(screen.getByRole("combobox", { name: "Sort" })).toBeInTheDocument();
+    indexFlow.unmount();
+
+    const level = render(view("disclosed", { sort: "changed", onSortChange: () => undefined }));
+    expect(screen.queryByRole("combobox", { name: "Sort" })).toBeNull();
+    expect(level.container.querySelectorAll("[data-toolbar]")).toHaveLength(1);
+  });
+
+  it("draws the Sort control disabled on the server's default view, and calls its handler with the chosen sort", () => {
+    const onSortChange = jest.fn();
+    const { unmount } = render(view("flow", { sort: "largest" }));
+    expect(screen.getByRole("combobox", { name: "Sort" })).toBeDisabled();
+    unmount();
+    render(view("flow", { sort: "largest", onSortChange }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort" }), { target: { value: "changed" } });
+    expect(onSortChange).toHaveBeenCalledWith("changed");
+  });
+
+  it("orders the drawn sectors by the magnitude of their net change under the changed sort", () => {
+    const { container } = render(view("flow", { sort: "changed" }));
+    expect(sectorOrder(container)).toEqual(["Other", "Materials", "Financials"]);
+  });
+
+  it("keeps the order by area under the largest sort, whatever the lens", () => {
+    const { container } = render(view("flow", { sort: "largest" }));
+    expect(sectorOrder(container)).toEqual(["Materials", "Financials", "Other"]);
+  });
+
+  it("states each sector's net change in its band's title under the changed sort, and no change under the largest", () => {
+    const changed = render(view("flow", { sort: "changed" }));
+    const titles = Array.from(changed.container.querySelectorAll("g[data-sector] > title")).map((t) => t.textContent);
+    expect(titles).toEqual([
+      `Other, 1 stock. Net change ${MINUS}3.00 pp`,
+      "Materials, 2 stocks. Net change +0.50 pp",
+      "Financials, 1 stock. Net change +0.50 pp",
+    ]);
+    changed.unmount();
+
+    const largest = render(view("flow", { sort: "largest" }));
+    const plain = Array.from(largest.container.querySelectorAll("g[data-sector] > title")).map((t) => t.textContent);
+    expect(plain).toEqual(["Materials, 2 stocks", "Financials, 1 stock", "Other, 1 stock"]);
+  });
+
+  it("states n/a, never zero, in a sector's title when no stock of it states a change", () => {
+    const { container } = render(
+      <OwnershipMapView
+        page={page({ stocks: [stock({ code: "BHP", flowPp: null }), stock({ code: "RIO", industry: "Energy", flowPp: 1 })] })}
+        desk={{ ...DEFAULT_DESK_STATE, lens: "flow" }}
+        notice={DESK_DEFAULT_WINDOW_STATE}
+        status="idle"
+        slow={false}
+        basePath="/ownership/map"
+        sort="changed"
+      />,
+    );
+    const titles = Array.from(container.querySelectorAll("g[data-sector] > title")).map((t) => t.textContent);
+    expect(titles).toContain("Materials, 1 stock. Net change n/a");
+  });
+
+  it("keeps the idle order while a read is in flight under the changed sort, and hatches the stale figures with n/a titles", () => {
+    const idle = render(view("flow", { sort: "changed" }));
+    const idleSectors = sectorOrder(idle.container);
+    const idleCells = screen.getAllByRole("rowheader").map((header) => header.textContent);
+    idle.unmount();
+
+    const loading = render(
+      <OwnershipMapView
+        page={page({ stocks: MOVERS })}
+        desk={{ ...DEFAULT_DESK_STATE, lens: "flow" }}
+        notice={DESK_DEFAULT_WINDOW_STATE}
+        status="loading"
+        slow={false}
+        basePath="/ownership/map"
+        sort="changed"
+      />,
+    );
+    // The stale map is tiled once from the last answer: the order is the idle order, not the area fallback.
+    expect(sectorOrder(loading.container)).toEqual(idleSectors);
+    expect(screen.getAllByRole("rowheader").map((header) => header.textContent)).toEqual(idleCells);
+    const titles = Array.from(loading.container.querySelectorAll("g[data-sector] > title")).map((t) => t.textContent);
+    expect(titles).toEqual([
+      "Other, 1 stock. Net change n/a",
+      "Materials, 2 stocks. Net change n/a",
+      "Financials, 1 stock. Net change n/a",
+    ]);
+  });
+
+  it("keeps the table of every cell in the drawing's order under each sort", () => {
+    const changed = render(view("flow", { sort: "changed" }));
+    expect(screen.getAllByRole("rowheader").map((header) => header.textContent)).toEqual([
+      "ZZZ Unclassified Co",
+      "BHP BHP Group",
+      "RIO Rio Tinto",
+      "CBA Commonwealth Bank",
+    ]);
+    changed.unmount();
+    render(view("flow", { sort: "largest" }));
+    expect(screen.getAllByRole("rowheader").map((header) => header.textContent)).toEqual([
+      "BHP BHP Group",
+      "RIO Rio Tinto",
+      "CBA Commonwealth Bank",
+      "ZZZ Unclassified Co",
+    ]);
   });
 });

@@ -295,6 +295,9 @@ function fundRow(fund: FundSummary): FundRow {
     aumAud: fund.hasAumAud ? fund.aumAud : null,
     // A count is always stated; an API that predates the field reads as no file on record.
     snapshotCount: fund.snapshotCount ?? 0,
+    // The largest sector change is stated only with its has_ flag; without it, neither figure is read.
+    largestSectorChangePp: fund.hasLargestSectorChange ? fund.largestSectorChangePp : null,
+    largestSectorChangeSector: fund.hasLargestSectorChange ? fund.largestSectorChangeSector : "",
   };
 }
 

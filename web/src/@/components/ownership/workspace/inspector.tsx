@@ -21,9 +21,11 @@ import { shortSector } from "~/@/lib/ownership/kinds";
 import { zoomedSector } from "./nav";
 import { SectorIcon } from "./sector-icon";
 import { StockLogoBox } from "./stock-logo-box";
+import { WeekStrip } from "./week-strip-view";
 import { pushTrail, readTrail, trailHref, trailKey, writeTrail, type TrailStep, type TrailStorage } from "./trail";
 import {
   parseSelection,
+  sectorSelection,
   selectionHeading,
   serializeSelection,
   withoutSelection,
@@ -144,7 +146,10 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
   const params = useSearchParams();
   const search = params?.toString() ?? "";
   const raw = params?.get("sel") ?? "";
-  const selection = useMemo(() => parseSelection(raw), [raw]);
+  const linked = useMemo(() => parseSelection(raw), [raw]);
+  // The zoomed sector (backlog C4) is the selection when the link names none: a selection wins over it.
+  const sector = zoomedSector(params?.get("sector"));
+  const selection = useMemo<Selection | null>(() => linked ?? sectorSelection(sector), [linked, sector]);
   // The link's own parameters the resolver reads (spec 14.8): the lens, the Connections view and the window.
   const query = useMemo<InspectorQuery>(
     () => ({
@@ -164,7 +169,8 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
   const key = selection
     ? `${selectionKey}|${query.lens}|${query.view}|${query.window}|${query.since}|${query.until}|${query.asAt}|${query.from}|${query.to}`
     : "";
-  const clearHref = clearedHref(pathname, search);
+  // Clear selection on a zoomed sector clears the zoom itself: the sector is the thing the rail shows.
+  const clearHref = linked === null && sector !== "" ? clearedSectorHref(pathname, search) : clearedHref(pathname, search);
   // The link that restores the page as it is now: the trail's current step is the one that matches it.
   const pageHref = trailHref(pathname, search);
   const mobile = useIsMobile();
@@ -204,17 +210,17 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
   const loading = selection !== null && current === null;
   const failed = current?.failed ?? false;
   const kicker = selection ? selectionHeading(selection) : null;
-  // The aside is named by its kind alone until the thing's name arrives.
-  const sector = zoomedSector(params?.get("sector"));
+  // The trail's sector step is the zoom with no link selection; a selected sector is the resolved selection's own step.
   const trail = useInspectorTrail({
     pathname,
     href: pageHref,
-    hasSelection: selection !== null,
-    selectionKey,
-    selectionKind: selection ? selectionHeading(selection) : "",
+    hasSelection: linked !== null,
+    selectionKey: linked ? serializeSelection(linked) : "",
+    selectionKind: linked ? selectionHeading(linked) : "",
     sector,
     heading: content?.heading ?? null,
   });
+  // The aside is named by its kind alone until the thing's name arrives.
   const label = content && kicker ? `${kicker} ${content.heading}` : (kicker ?? "Inspector");
   const retry = () => {
     setLoaded(null);
@@ -241,11 +247,12 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
   );
 
   if (mobile) {
-    // The sheet's own title names the thing, so the body does not repeat the name.
+    // The sheet's own title names the thing, so the body does not repeat the name. It opens on the link's own
+    // selection only: a zoomed sector is the map's state, and a sheet over it would hide the zoom the tap asked for.
     return (
       <SideSheet
         side="bottom"
-        open={selection !== null}
+        open={linked !== null}
         onOpenChange={(open) => {
           if (!open) router.replace(clearHref, { scroll: false });
         }}
@@ -338,6 +345,18 @@ function InspectorBodyContent({
   const hasLogo = content.logo !== undefined;
   const badges = content.badges ?? [];
   const sections = content.sections ?? [];
+  // The primary action sits where the resolver placed it: after every section by default, or before them (C7).
+  const primary = content.primary ? (
+    <Link
+      href={content.primary.href}
+      prefetch={false}
+      rel={content.primary.nofollow ? "nofollow" : undefined}
+      className="block w-full rounded-[var(--radius)] bg-primary px-4 py-2.5 text-center font-mono text-sm text-primary-foreground"
+    >
+      {content.primary.label}
+    </Link>
+  ) : null;
+  const primaryFirst = content.primaryPlacement === "first";
   return (
     <div className="space-y-5">
       {trailNav}
@@ -392,19 +411,12 @@ function InspectorBodyContent({
           ))}
         </dl>
       ) : null}
+      {primaryFirst ? primary : null}
       {sections.map((section, index) => (
         <InspectorSectionView key={`${index}:${section.title}`} section={section} />
       ))}
       {content.note ? <p className="text-xs text-muted-foreground">{content.note}</p> : null}
-      {content.primary ? (
-        <Link
-          href={content.primary.href}
-          prefetch={false}
-          className="block w-full rounded-[var(--radius)] bg-primary px-4 py-2.5 text-center font-mono text-sm text-primary-foreground"
-        >
-          {content.primary.label}
-        </Link>
-      ) : null}
+      {primaryFirst ? null : primary}
       {content.links && content.links.length > 0 ? (
         <ul className="space-y-1.5 text-sm">
           {content.links.map((link) => (
@@ -430,7 +442,15 @@ function InspectorBodyContent({
  * A link whose parameters are merged into the current link (spec 14.8): the reader's
  * window, lens and selection stay as they are, and only the named parameters change.
  */
-function MergedLink({ link, params }: { link: InspectorLink; params: Record<string, string | null> }) {
+function MergedLink({
+  link,
+  params,
+  className = "underline underline-offset-4",
+}: {
+  link: Pick<InspectorLink, "label">;
+  params: Record<string, string | null>;
+  className?: string;
+}) {
   const pathname = usePathname() ?? "";
   const search = useSearchParams();
   const next = new URLSearchParams(search?.toString() ?? "");
@@ -440,7 +460,7 @@ function MergedLink({ link, params }: { link: InspectorLink; params: Record<stri
   }
   const query = next.toString();
   return (
-    <Link href={query === "" ? pathname : `${pathname}?${query}`} prefetch={false} scroll={false} className="underline underline-offset-4">
+    <Link href={query === "" ? pathname : `${pathname}?${query}`} prefetch={false} scroll={false} className={className}>
       {link.label}
     </Link>
   );
@@ -451,7 +471,9 @@ function InspectorSectionView({ section }: { section: InspectorSection }) {
   return (
     <section aria-label={section.title} className="space-y-2">
       <h3 className="font-mono text-[11px] text-muted-foreground">{section.title}</h3>
-      {section.kind === "series" && section.points && section.points.length > 0 ? (
+      {section.kind === "weeks" ? (
+        <WeekStrip weeks={section.weeks} label={section.title} />
+      ) : section.kind === "series" && section.points && section.points.length > 0 ? (
         <>
           <WeightSeries
             points={section.points.map(
@@ -473,7 +495,9 @@ function InspectorSectionView({ section }: { section: InspectorSection }) {
           {section.items.map((bar, index) => (
             <li key={index} className="space-y-1" title={bar.title}>
               <div className="flex items-baseline justify-between gap-4">
-                {bar.href ? (
+                {bar.params ? (
+                  <MergedLink link={{ label: bar.label }} params={bar.params} className="min-w-0 truncate underline underline-offset-4" />
+                ) : bar.href ? (
                   <Link href={bar.href} prefetch={false} className="min-w-0 truncate underline underline-offset-4">
                     {bar.label}
                   </Link>
@@ -698,6 +722,14 @@ function InspectorAside({ label, children }: { label: string; children: ReactNod
 /** The current URL with the selection cleared; the path alone when nothing else is set. */
 function clearedHref(pathname: string, search: string): string {
   const rest = withoutSelection(search);
+  return rest === "" ? pathname : `${pathname}?${rest}`;
+}
+
+/** The current URL with the zoomed sector cleared and every other parameter kept (backlog C4). */
+function clearedSectorHref(pathname: string, search: string): string {
+  const params = new URLSearchParams(search);
+  params.delete("sector");
+  const rest = params.toString();
   return rest === "" ? pathname : `${pathname}?${rest}`;
 }
 

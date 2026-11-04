@@ -119,6 +119,21 @@ describe("holders page (spec 14.3)", () => {
     expect(container.querySelector('[data-isr-shell="empty"]')).not.toBeNull();
   });
 
+  it("draws the default holder's notices-by-week strip in its inspector when the notices read", async () => {
+    jest.mocked(loadHolderConnections).mockResolvedValue({
+      ...connections,
+      weekNotices: { asOf: "2026-11-02", released: ["2026-10-20"] },
+    });
+    render(await HoldersPage());
+    expect(screen.getByRole("group", { name: "Notices by week" })).toBeInTheDocument();
+  });
+
+  it("draws no notices-by-week strip when the notices did not read", async () => {
+    jest.mocked(loadHolderConnections).mockResolvedValue({ ...connections, weekNotices: null });
+    render(await HoldersPage());
+    expect(screen.queryByRole("group", { name: "Notices by week" })).toBeNull();
+  });
+
   it("ends the main column with the closed method disclosure, its text in the HTML", async () => {
     const { container } = render(await HoldersPage());
     const method = container.querySelector("details#method") as HTMLElement | null;

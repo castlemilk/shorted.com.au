@@ -266,7 +266,7 @@ function ChangeList({ title, rows, reach, selectedCode, onSelect, compact = fals
   if (rows.length === 0) return null;
   // The compact pane has no AUD column: its row is the name, the bar and the change.
   const rowGrid = compact
-    ? "grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_3.5rem]"
+    ? "grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_4.5rem]"
     : "grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_4.5rem_5.5rem]";
   return (
     <div className="space-y-2">
@@ -296,7 +296,7 @@ function ChangeList({ title, rows, reach, selectedCode, onSelect, compact = fals
                 <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
                 <div className="absolute inset-y-0 rounded-[2px]" style={bar} />
               </div>
-              <span className="text-right tabular-nums">{formatPointChange(0, delta)}</span>
+              <span className="whitespace-nowrap text-right tabular-nums">{formatPointChange(0, delta)}</span>
               {compact ? null : (
                 <span className="text-right text-xs tabular-nums text-muted-foreground">
                   {formatValueChange(valueChange(row))}

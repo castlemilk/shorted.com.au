@@ -5,6 +5,7 @@ import { barPercent, Inspector, InspectorFallback } from "../inspector";
 import type { InspectorContent } from "../inspector-types";
 import { serializeSelection } from "../selection";
 import { trailKey } from "../trail";
+import { weekStrip } from "../week-strip";
 
 let mockSearch = "";
 const mockReplace = jest.fn();
@@ -494,5 +495,241 @@ describe("workspace inspector trail (spec 14.1, backlog C2)", () => {
     fake.items.set(PAGE_KEY, JSON.stringify([{ label: "BHP Group", href: "/ownership/map?sel=stock%3ABHP" }]));
     const { container } = render(<InspectorFallback emptyText="Click selects." />);
     expect(container.querySelector('nav[aria-label="Trail"]')).toBeNull();
+  });
+});
+
+describe("workspace inspector sector zoom (backlog C4)", () => {
+  const sectorContent: InspectorContent = {
+    heading: "Materials",
+    rows: [{ label: "Notices released", value: "2026-08-07 to 2026-11-04" }],
+    sections: [{ title: "Largest holders by disclosed exposure", kind: "rows", items: [{ label: "Vanguard", value: "$1.1B" }] }],
+  };
+
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(true);
+  });
+
+  it("resolves a zoomed sector through the resolver when the link names no selection, and kicks it as the selected sector", async () => {
+    mockSearch = "sector=Materials";
+    const resolve = jest.fn(async () => sectorContent);
+    render(<Inspector resolve={resolve} emptyText="Select a company." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Materials" })).toBeInTheDocument());
+    expect(resolve).toHaveBeenCalledWith(
+      { kind: "sector", sector: "Materials" },
+      { lens: "", view: "", window: "", since: "", until: "", asAt: "", from: "", to: "" },
+    );
+    expect(screen.getByText("Selected sector", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Largest holders by disclosed exposure" })).toBeInTheDocument();
+  });
+
+  it("clears the zoom with Clear selection and keeps the rest of the link", async () => {
+    mockSearch = "sector=Materials&lens=flow&window=28";
+    render(<Inspector resolve={jest.fn(async () => sectorContent)} emptyText="Select a company." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Materials" })).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Clear selection" })).toHaveAttribute("href", "/ownership/map?lens=flow&window=28");
+  });
+
+  it("lets a selection win over a zoomed sector", async () => {
+    mockSearch = "sector=Materials&sel=stock%3ABHP";
+    const resolve = jest.fn(async () => content);
+    render(<Inspector resolve={resolve} emptyText="Select a company." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "BHP Group" })).toBeInTheDocument());
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledWith({ kind: "stock", code: "BHP" }, expect.anything());
+  });
+
+  it("keeps the empty prompt for a link that tries to pick a sector through sel", () => {
+    mockSearch = "sel=sector%3AMaterials";
+    const resolve = jest.fn(async () => sectorContent);
+    render(<Inspector resolve={resolve} emptyText="Select a company to inspect its holding." />);
+    expect(screen.getByText("Select a company to inspect its holding.")).toBeInTheDocument();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("keeps the empty prompt when there is neither a selection nor a zoomed sector", () => {
+    const resolve = jest.fn(async () => sectorContent);
+    render(<Inspector resolve={resolve} emptyText="Select a company to inspect its holding." />);
+    expect(screen.getByText("Select a company to inspect its holding.")).toBeInTheDocument();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+});
+
+describe("workspace inspector sector sheet below lg (backlog C4)", () => {
+  const sectorContent: InspectorContent = { heading: "Materials", rows: [] };
+
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(false);
+  });
+
+  it("does not open the sheet for a zoomed sector, so the zoomed map stays in reach below lg", async () => {
+    mockSearch = "sector=Materials";
+    const resolve = jest.fn(async () => sectorContent);
+    render(<Inspector resolve={resolve} emptyText="Select a company." />);
+    await waitFor(() => expect(document.querySelector("dialog")).not.toBeNull());
+    const dialog = document.querySelector("dialog") as HTMLDialogElement;
+    expect(dialog.hasAttribute("open")).toBe(false);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("closes a stock's sheet inside a zoom back to the zoomed map, and the sector does not reopen it", async () => {
+    mockSearch = "sel=stock%3ABHP&sector=Materials";
+    const { rerender } = render(<Inspector resolve={jest.fn(async () => content)} emptyText="Select a company." />);
+    await waitFor(() => expect(document.querySelector("dialog")).not.toBeNull());
+    const dialog = document.querySelector("dialog") as HTMLDialogElement;
+    await waitFor(() => expect(dialog.hasAttribute("open")).toBe(true));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear selection" }));
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith("/ownership/map?sector=Materials", { scroll: false });
+
+    // The router's replace lands the reader on the zoom alone: the sheet stays closed and nothing is replaced again.
+    mockSearch = "sector=Materials";
+    rerender(<Inspector resolve={jest.fn(async () => content)} emptyText="Select a company." />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(dialog.hasAttribute("open")).toBe(false);
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("workspace inspector sheet opens for a link's selection only (backlog C4 follow-up)", () => {
+  const sectorContent: InspectorContent = { heading: "Materials", rows: [] };
+
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(false);
+  });
+
+  it("opens the sheet for ?sel= below lg, and leaves it closed for ?sector= alone", async () => {
+    mockSearch = "sector=Materials";
+    const sectorRender = render(<Inspector resolve={jest.fn(async () => sectorContent)} emptyText="Select." />);
+    await waitFor(() => expect(document.querySelector("dialog")).not.toBeNull());
+    expect((document.querySelector("dialog") as HTMLDialogElement).hasAttribute("open")).toBe(false);
+    sectorRender.unmount();
+
+    mockSearch = "sel=stock%3ABHP";
+    render(<Inspector resolve={jest.fn(async () => content)} emptyText="Select." />);
+    await waitFor(() => expect((document.querySelector("dialog") as HTMLDialogElement).hasAttribute("open")).toBe(true));
+  });
+});
+
+describe("workspace inspector bar with params (backlog C4 follow-up)", () => {
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(true);
+  });
+
+  it("renders a bar's label as a link that keeps the current search parameters and sets sel", async () => {
+    mockSearch = "sector=Materials&lens=flow&window=28";
+    const withBars: InspectorContent = {
+      heading: "Materials",
+      rows: [],
+      sections: [
+        {
+          title: "Largest holders by disclosed exposure",
+          kind: "bars",
+          items: [
+            {
+              label: "Vanguard",
+              value: "$1.1B",
+              share: 1,
+              href: "?sector=Materials&sel=connection%3Aindex_manager%3EMaterials&window=28",
+              params: { sel: "connection:index_manager>Materials" },
+            },
+          ],
+        },
+      ],
+    };
+    render(<Inspector resolve={jest.fn(async () => withBars)} emptyText="Select." />);
+    const link = await screen.findByRole("link", { name: "Vanguard" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/ownership/map?sector=Materials&lens=flow&window=28&sel=connection%3Aindex_manager%3EMaterials",
+    );
+  });
+});
+
+describe("workspace inspector primary placement (backlog C7, C4)", () => {
+  beforeEach(() => {
+    mockSearch = "sel=stock%3ABHP";
+    stubDialog();
+    viewport(true);
+  });
+
+  const sections: InspectorContent["sections"] = [
+    { title: "By holder type", kind: "rows", items: [{ label: "Index managers", value: "2 notices" }] },
+  ];
+
+  it("draws the primary action before the sections when it is placed first", async () => {
+    render(
+      <Inspector
+        resolve={jest.fn(async () => ({ ...content, sections, primaryPlacement: "first" as const }))}
+        emptyText="Select."
+      />,
+    );
+    const primary = await screen.findByRole("link", { name: "Open ownership →" });
+    const section = screen.getByRole("region", { name: "By holder type" });
+    expect(primary.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("draws the primary action after every section by default and when it is placed last", async () => {
+    render(<Inspector resolve={jest.fn(async () => ({ ...content, sections }))} emptyText="Select." />);
+    const primary = await screen.findByRole("link", { name: "Open ownership →" });
+    const section = screen.getByRole("region", { name: "By holder type" });
+    expect(section.compareDocumentPosition(primary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("marks a nofollow primary action rel=nofollow", async () => {
+    render(
+      <Inspector
+        resolve={jest.fn(async () => ({
+          ...content,
+          primary: { label: "View the registers →", href: "/ownership/stocks?industry=Materials", nofollow: true },
+        }))}
+        emptyText="Select."
+      />,
+    );
+    expect(await screen.findByRole("link", { name: "View the registers →" })).toHaveAttribute("rel", "nofollow");
+  });
+});
+
+describe("workspace inspector notices by week (backlog C6)", () => {
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(true);
+  });
+
+  it("draws a weeks section as its strip, with a link per week under the section's title", async () => {
+    mockSearch = "sel=stock%3ABHP";
+    const weeks = weekStrip([], "2026-10-31", (start, end) => `/ownership/notices?stock=BHP&since=${start}&until=${end}`).map(
+      (week, index) => ({ ...week, count: index === 25 ? 2 : 0 }),
+    );
+    render(
+      <Inspector
+        resolve={async () => ({
+          ...content,
+          sections: [{ title: "Notices by week", kind: "weeks", weeks }],
+        })}
+        emptyText="Select."
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole("heading", { name: "BHP Group" })).toBeInTheDocument());
+    const region = screen.getByRole("region", { name: "Notices by week" });
+    expect(region.querySelector("svg")).not.toBeNull();
+    // The strip's bars are hidden from assistive tech; the list beside them carries the 26 links a reader hears.
+    expect(within(region).getAllByRole("link")).toHaveLength(26);
+    expect(within(region).getByRole("group", { name: "Notices by week" })).toBeInTheDocument();
   });
 });

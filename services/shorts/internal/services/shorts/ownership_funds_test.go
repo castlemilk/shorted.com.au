@@ -273,6 +273,73 @@ func TestListFundsSummarisesEachFundsNewestFile(t *testing.T) {
 	assert.False(t, super.HasAumAud)
 }
 
+// The largest sector change compares the fund's two newest files. The VAS fixture
+// moves into Banks by 10.2 points (absent from the older file, so 0 there) and
+// Materials by 0.5; Other is unstated in the newer file, so it is left out. Balanced
+// has one file and no change.
+func TestListFundsReportsTheLargestSectorChangeOfTwoFiles(t *testing.T) {
+	s := fundServer(fundFixtureStore())
+	resp, err := s.ListFunds(context.Background(), connect.NewRequest(&shortsv1alpha1.ListFundsRequest{}))
+	require.NoError(t, err)
+	require.Len(t, resp.Msg.Funds, 2)
+	vas := resp.Msg.Funds[0]
+	require.True(t, vas.HasLargestSectorChange)
+	assert.Equal(t, "Banks", vas.LargestSectorChangeSector)
+	assert.InDelta(t, 10.2, vas.LargestSectorChangePp, 1e-9)
+	balanced := resp.Msg.Funds[1]
+	assert.False(t, balanced.HasLargestSectorChange, "one file has no change to read")
+	assert.Equal(t, "", balanced.LargestSectorChangeSector)
+	assert.Equal(t, 0.0, balanced.LargestSectorChangePp)
+}
+
+// fundLargestSectorChange is the sector that moved most, signed, and it is withheld
+// rather than read as 0 wherever a figure is not stated.
+func TestFundLargestSectorChangeWithholdsWhatIsNotStated(t *testing.T) {
+	w := func(industry string, weight float64) shortsstore.FundHoldingDetail {
+		return shortsstore.FundHoldingDetail{StockCode: industry, Industry: industry, Weight: new(weight)}
+	}
+	unstated := func(industry string) shortsstore.FundHoldingDetail {
+		return shortsstore.FundHoldingDetail{StockCode: industry, Industry: industry}
+	}
+
+	// Both sides stated: Materials falls 2 points, Banks rises 1; the larger move wins
+	// and keeps its sign.
+	pp, sector, ok := fundLargestSectorChange(
+		[]shortsstore.FundHoldingDetail{w("Materials", 9)},
+		[]shortsstore.FundHoldingDetail{w("Materials", 7), w("Banks", 1)})
+	require.True(t, ok)
+	assert.Equal(t, "Materials", sector)
+	assert.InDelta(t, -2, pp, 1e-9)
+
+	// A sector with no holding in the older file is a real zero there.
+	pp, sector, ok = fundLargestSectorChange(
+		[]shortsstore.FundHoldingDetail{w("Materials", 9)},
+		[]shortsstore.FundHoldingDetail{w("Materials", 9), w("Banks", 1.5)})
+	require.True(t, ok)
+	assert.Equal(t, "Banks", sector)
+	assert.InDelta(t, 1.5, pp, 1e-9)
+
+	// A sector stated on one side only is left out, never read as 0 on the other.
+	_, _, ok = fundLargestSectorChange(
+		[]shortsstore.FundHoldingDetail{unstated("Energy")},
+		[]shortsstore.FundHoldingDetail{w("Energy", 30)})
+	assert.False(t, ok, "an unstated weight in the older file withholds the sector")
+
+	// A tie keeps the sector name first.
+	pp, sector, ok = fundLargestSectorChange(
+		[]shortsstore.FundHoldingDetail{w("Materials", 5), w("Banks", 5)},
+		[]shortsstore.FundHoldingDetail{w("Materials", 4), w("Banks", 6)})
+	require.True(t, ok)
+	assert.Equal(t, "Banks", sector)
+	assert.InDelta(t, 1, pp, 1e-9)
+
+	// An empty file on either side withholds the whole comparison.
+	_, _, ok = fundLargestSectorChange(nil, []shortsstore.FundHoldingDetail{w("Banks", 1)})
+	assert.False(t, ok)
+	_, _, ok = fundLargestSectorChange([]shortsstore.FundHoldingDetail{w("Banks", 1)}, nil)
+	assert.False(t, ok)
+}
+
 // A fund's snapshot count is the number of file dates it has on record, the dates
 // CompareFundSnapshots reads, so the web can choose a fund that has two to compare.
 func TestListFundsCountsEachFundsFileDates(t *testing.T) {

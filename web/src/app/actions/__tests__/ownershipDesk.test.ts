@@ -1178,3 +1178,229 @@ describe("loadInspector connections read the registers (spec 14.7)", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("loadInspector zoomed sector (backlog C4)", () => {
+  const load = async () => (await import("../ownershipDesk")).loadInspector;
+  const NO_LINK_QUERY = { lens: "", view: "", window: "", since: "", until: "", asAt: "" };
+
+  function holder(slug: string, name: string, exposureAud: number) {
+    return { slug, name, exposureAud, hasExposure: true, holdings: 1 };
+  }
+
+  function sectorFlows() {
+    return flowsResponse({
+      positions: [
+        {
+          kind: "index_manager",
+          industry: "Materials",
+          exposureAud: 3.2e9,
+          hasExposure: true,
+          holdings: 4,
+          largestCode: "BHP",
+          largestPct: 9.2,
+          topHolders: [holder("vanguard", "Vanguard", 1.1e9), holder("blackrock", "BlackRock", 0.9e9)],
+        },
+      ],
+      changes: [{ kind: "index_manager", industry: "Materials", direction: "up", exposureAud: 4e8, hasExposure: true, notices: 3 }],
+    });
+  }
+
+  it("reads the flows over the default window with no dates, and draws the sector's largest holders", async () => {
+    const loadInspector = await load();
+    mockGetOwnershipFlows.mockResolvedValue(sectorFlows());
+    const content = await loadInspector({ kind: "sector", sector: "Materials" }, NO_LINK_QUERY);
+    expect(mockGetOwnershipFlows).toHaveBeenCalledWith({ from: "", to: "" });
+    expect(content?.heading).toBe("Materials");
+    const bars = content?.sections?.find((section) => section.title === "Largest holders by disclosed exposure");
+    expect(bars?.kind === "bars" ? bars.items.map((bar) => bar.label) : []).toEqual(["Vanguard", "BlackRock"]);
+    expect(content?.reading).toContain("Vanguard largest at");
+  });
+
+  it("reads the flows over a brushed pair of dates, as the panes read it", async () => {
+    const loadInspector = await load();
+    await loadInspector(
+      { kind: "sector", sector: "Materials" },
+      { ...NO_LINK_QUERY, since: "2026-10-01", until: "2026-10-31" },
+    );
+    expect(mockGetOwnershipFlows).toHaveBeenCalledWith({ from: "2026-10-01", to: "2026-10-31" });
+  });
+
+  it("carries the link's lens and fund dates onto the holders' links, as the link names them", async () => {
+    const loadInspector = await load();
+    mockGetOwnershipFlows.mockResolvedValue(sectorFlows());
+    const content = await loadInspector(
+      { kind: "sector", sector: "Materials" },
+      { ...NO_LINK_QUERY, lens: "flow", from: "2026-10-01", to: "2026-10-31" },
+    );
+    const bars = content?.sections?.find((section) => section.title === "Largest holders by disclosed exposure");
+    const href = bars?.kind === "bars" ? (bars.items[0]?.href ?? "") : "";
+    const params = new URLSearchParams(href.slice(1));
+    expect(params.get("lens")).toBe("flow");
+    expect(params.get("from")).toBe("2026-10-01");
+    expect(params.get("to")).toBe("2026-10-31");
+    expect(params.get("sel")).toBe("connection:index_manager>Materials");
+  });
+
+  it("dates a chip's window from the newest notice, as the desk does", async () => {
+    const loadInspector = await load();
+    await loadInspector({ kind: "sector", sector: "Materials" }, { ...NO_LINK_QUERY, window: "28" });
+    expect(mockGetOwnershipFlows).toHaveBeenCalledWith({ from: "2026-10-04", to: "2026-10-31" });
+  });
+
+  it("names the sector's flows with a note when no holder is disclosed in the window", async () => {
+    const loadInspector = await load();
+    mockGetOwnershipFlows.mockResolvedValue(flowsResponse({ positions: [], changes: [] }));
+    const content = await loadInspector({ kind: "sector", sector: "Materials" }, NO_LINK_QUERY);
+    expect(content?.note).toBe("No holder disclosed in this sector in the window.");
+    expect(content?.reading).toBeUndefined();
+  });
+
+  it("throws, so the rail says it could not load, when the flows did not answer", async () => {
+    const loadInspector = await load();
+    mockGetOwnershipFlows.mockRejectedValue(UNAVAILABLE);
+    await expect(loadInspector({ kind: "sector", sector: "Materials" }, NO_LINK_QUERY)).rejects.toThrow();
+  });
+
+  it("throws when the flows refuse the window, and never draws an empty sector for it", async () => {
+    const loadInspector = await load();
+    mockGetOwnershipFlows.mockRejectedValue({ code: 3, rawMessage: "the window is not served" });
+    await expect(loadInspector({ kind: "sector", sector: "Materials" }, NO_LINK_QUERY)).rejects.toThrow();
+  });
+
+  it("reads no flows for a sector name the codec would not write", async () => {
+    const loadInspector = await load();
+    expect(await loadInspector({ kind: "sector", sector: "" }, NO_LINK_QUERY)).toBeNull();
+    expect(await loadInspector({ kind: "sector", sector: "Mate\nrials" }, NO_LINK_QUERY)).toBeNull();
+    expect(mockGetOwnershipFlows).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadInspector stock notices by week (backlog C6)", () => {
+  const load = async () => (await import("../ownershipDesk")).loadInspector;
+
+  function panelWithNotices(dates: string[]) {
+    return create(GetStockOwnershipResponseSchema, {
+      summary: { stockCode: "BHP", companyName: "BHP Group", industry: "Materials", disclosedPct: 14.1 },
+      history: dates.map((announcedOn) => ({ holderName: "Alpha", form: "Form 604", ceased: false, announcedOn })),
+    });
+  }
+
+  it("reads the stock's notices over the 26 weeks ending on the map's as-of, and draws them as the strip", async () => {
+    const loadInspector = await load();
+    mockGetOwnershipMap.mockResolvedValue(mapResponse({ asOf: "2026-10-31" }));
+    mockGetStockOwnership.mockResolvedValue(stockPanelFixture());
+    mockLoadNoticeFeed.mockResolvedValue({
+      ok: true,
+      total: 1,
+      rows: [{ released: "2026-10-20" }],
+      nextCursor: "",
+      weeks: [],
+      query: {},
+      activityOk: true,
+      error: "",
+    });
+    const content = await loadInspector({ kind: "stock", code: "BHP" } as never, { ...NO_QUERY_FIXTURE });
+    // The Monday 25 weeks before the week of 31 October is 4 May; the feed is asked through the as-of.
+    expect(mockLoadNoticeFeed).toHaveBeenCalledWith({
+      stockCode: "BHP",
+      since: "2026-05-04",
+      until: "2026-10-31",
+      limit: 100,
+      includeActivity: false,
+    });
+    const strip = content?.sections?.find((section) => section.title === "Notices by week");
+    expect(strip?.kind).toBe("weeks");
+    if (strip?.kind !== "weeks") throw new Error("the strip is a weeks section");
+    expect(strip.weeks).toHaveLength(26);
+    expect(strip.weeks.find((week) => week.weekStart === "2026-10-19")?.count).toBe(1);
+    expect(strip.weeks.find((week) => week.weekStart === "2026-10-26")?.href).toBe(
+      "/ownership/notices?stock=BHP&since=2026-10-26&until=2026-11-01",
+    );
+  });
+
+  it("ends the strip on the newest notice the panel states when the map gives no as-of", async () => {
+    const loadInspector = await load();
+    mockGetOwnershipMap.mockResolvedValue(mapResponse({ asOf: "" }));
+    mockGetStockOwnership.mockResolvedValue(panelWithNotices(["2026-10-20", "2026-09-01"]));
+    mockLoadNoticeFeed.mockResolvedValue({ ok: true, total: 0, rows: [], nextCursor: "", weeks: [], query: {}, activityOk: true, error: "" });
+    await loadInspector({ kind: "stock", code: "BHP" } as never, { ...NO_QUERY_FIXTURE });
+    expect(mockLoadNoticeFeed).toHaveBeenCalledWith(
+      expect.objectContaining({ stockCode: "BHP", since: "2026-04-27", until: "2026-10-20" }),
+    );
+  });
+
+  it("drops the strip when the feed did not answer, so a failed read is never a quiet half year", async () => {
+    const loadInspector = await load();
+    mockGetOwnershipMap.mockResolvedValue(mapResponse({ asOf: "2026-10-31" }));
+    mockGetStockOwnership.mockResolvedValue(stockPanelFixture());
+    mockLoadNoticeFeed.mockResolvedValue({ ok: false, total: 0, rows: [], nextCursor: "", weeks: [], query: {}, activityOk: false, error: "" });
+    const content = await loadInspector({ kind: "stock", code: "BHP" } as never, { ...NO_QUERY_FIXTURE });
+    expect(content).not.toBeNull();
+    expect(content?.sections?.some((section) => section.title === "Notices by week")).toBe(false);
+  });
+
+  it("drops the strip when the feed's page holds fewer notices than it matches", async () => {
+    const loadInspector = await load();
+    mockGetOwnershipMap.mockResolvedValue(mapResponse({ asOf: "2026-10-31" }));
+    mockGetStockOwnership.mockResolvedValue(stockPanelFixture());
+    mockLoadNoticeFeed.mockResolvedValue({
+      ok: true,
+      total: 240,
+      rows: [{ released: "2026-10-20" }],
+      nextCursor: "next",
+      weeks: [],
+      query: {},
+      activityOk: true,
+      error: "",
+    });
+    const content = await loadInspector({ kind: "stock", code: "BHP" } as never, { ...NO_QUERY_FIXTURE });
+    expect(content?.sections?.some((section) => section.title === "Notices by week")).toBe(false);
+  });
+
+  it("drops the strip when the feed read did not return at all", async () => {
+    const loadInspector = await load();
+    mockGetOwnershipMap.mockResolvedValue(mapResponse({ asOf: "2026-10-31" }));
+    mockGetStockOwnership.mockResolvedValue(stockPanelFixture());
+    mockLoadNoticeFeed.mockResolvedValue(undefined);
+    const content = await loadInspector({ kind: "stock", code: "BHP" } as never, { ...NO_QUERY_FIXTURE });
+    expect(content?.sections?.some((section) => section.title === "Notices by week")).toBe(false);
+  });
+
+  it("reads the feed's second page with the first page's cursor, and counts the notices of both", async () => {
+    const loadInspector = await load();
+    mockGetOwnershipMap.mockResolvedValue(mapResponse({ asOf: "2026-10-31" }));
+    mockGetStockOwnership.mockResolvedValue(stockPanelFixture());
+    mockLoadNoticeFeed
+      .mockResolvedValueOnce({
+        ok: true,
+        total: 3,
+        rows: [{ released: "2026-10-20" }, { released: "2026-10-21" }],
+        nextCursor: "page-2",
+        weeks: [],
+        query: {},
+        activityOk: true,
+        error: "",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        total: 3,
+        rows: [{ released: "2026-10-22" }],
+        nextCursor: "",
+        weeks: [],
+        query: {},
+        activityOk: true,
+        error: "",
+      });
+    const content = await loadInspector({ kind: "stock", code: "BHP" } as never, { ...NO_QUERY_FIXTURE });
+    // The strip's span is asked once per page: the first with no cursor, the second with the first's.
+    const strip26 = mockLoadNoticeFeed.mock.calls.filter(
+      ([input]) => (input as { stockCode?: string; since?: string }).stockCode === "BHP" &&
+        (input as { since?: string }).since === "2026-05-04",
+    );
+    expect(strip26).toHaveLength(2);
+    expect(strip26[1]?.[0]).toEqual(expect.objectContaining({ stockCode: "BHP", cursor: "page-2", limit: 100 }));
+    const strip = content?.sections?.find((section) => section.title === "Notices by week");
+    if (strip?.kind !== "weeks") throw new Error("the strip is a weeks section");
+    expect(strip.weeks.find((week) => week.weekStart === "2026-10-19")?.count).toBe(3);
+  });
+});

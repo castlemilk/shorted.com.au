@@ -20,6 +20,7 @@ import { fundLabel } from "../../funds/fund-model";
 import { shortSector } from "~/@/lib/ownership/kinds";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import type { InspectorContent, InspectorSection } from "../inspector-types";
+import { noticesByWeekSection, type WeekNotices } from "../week-strip";
 
 /** The holders the rail names: the three largest, as the panel gives them. */
 const HOLDER_BARS = 3;
@@ -186,15 +187,25 @@ export function stockReading(
 }
 
 /**
+ * The feed link of one week of the stock's strip (backlog C6): the company's notices released in
+ * that Monday to Sunday.
+ */
+export function stockWeekHref(code: string, weekStart: string, weekEnd: string): string {
+  return `/ownership/notices?${new URLSearchParams({ stock: code, since: weekStart, until: weekEnd }).toString()}`;
+}
+
+/**
  * The company's rail. Null when the panel did not answer or nothing is on record:
  * the caller reports a failed read as an outage, and this never draws an empty
- * company in its place.
+ * company in its place. `weekNotices` is the company's notice dates for the
+ * "Notices by week" strip; null (the read failed) drops the strip.
  */
 export function stockInspectorContent(
   panel: StockPanelPage,
   series: StockFundSeriesPage | null,
   lens: DeskLens = "disclosed",
   notices: StockNoticeWindow | null = null,
+  weekNotices: WeekNotices | null = null,
 ): InspectorContent | null {
   if (!panel.ok) return null;
   const code = panel.code;
@@ -254,6 +265,10 @@ export function stockInspectorContent(
       })),
     });
   }
+
+  // The strip sits beside the list it summarises: after the funds, before the five latest notices.
+  const byWeek = noticesByWeekSection(weekNotices, (weekStart, weekEnd) => stockWeekHref(code, weekStart, weekEnd));
+  if (byWeek !== null) sections.push(byWeek);
 
   if (panel.notices.length > 0) {
     sections.push({

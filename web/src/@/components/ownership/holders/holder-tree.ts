@@ -24,6 +24,7 @@ import type {
   InspectorSection,
 } from "~/@/components/ownership/workspace/inspector-types";
 import { holderReading } from "../workspace/inspectors/holder-reading";
+import { noticesByWeekSection, type WeekNotices } from "../workspace/week-strip";
 import type { Selection } from "~/@/components/ownership/workspace/selection";
 
 /* ------------------------------------------------------------------ */
@@ -40,6 +41,12 @@ export interface HolderRow {
   positions: number;
   latestNoticeDate: string;
 }
+
+/**
+ * A directory row: the holder's row and, from the register, how many of its current positions became
+ * substantial in the default window (backlog C3b). Optional so a row without the count reads as none.
+ */
+export type DirectoryHolder = HolderRow & { positionsGained?: number };
 
 /** One current substantial holding of one holder, with the stock's market cap when on record. */
 export interface HolderPosition {
@@ -85,6 +92,11 @@ export interface HolderConnectionsPage {
   funds: HolderFundRow[];
   /** False when the market caps could not be read: every width is then a hairline, and the page says so. */
   capsOk: boolean;
+  /**
+   * The holder's notice dates for its "Notices by week" strip (backlog C6). Null, or absent, when they
+   * could not be read whole, so the strip is dropped rather than drawn over unread weeks.
+   */
+  weekNotices?: WeekNotices | null;
 }
 
 /** The fields of an institution a holder row is made from (structural: no generated type). */
@@ -570,11 +582,20 @@ export interface HolderInspectorContent extends InspectorContent {
   selectionHeading?: string;
 }
 
+/**
+ * The feed link of one week of a holder's strip (backlog C6): the holder's notices released in that
+ * Monday to Sunday.
+ */
+export function holderWeekHref(slug: string, weekStart: string, weekEnd: string): string {
+  return `/ownership/notices?${new URLSearchParams({ holder: slug, since: weekStart, until: weekEnd }).toString()}`;
+}
+
 export function holderInspectorContent(
   holder: HolderRow,
   positions: readonly HolderPosition[],
   selection: Selection | null,
   funds: readonly HolderFundRow[] = [],
+  weekNotices: WeekNotices | null = null,
 ): HolderInspectorContent {
   const tree = buildHolderTree(positions);
   const kind = kindInfo(holder.kind).label;
@@ -633,6 +654,10 @@ export function holderInspectorContent(
       });
     }
   }
+
+  // The holder's strip comes after its positions (backlog C6); a failed read (null) drops it.
+  const byWeek = noticesByWeekSection(weekNotices, (weekStart, weekEnd) => holderWeekHref(holder.key, weekStart, weekEnd));
+  if (byWeek !== null) sections.push(byWeek);
 
   const unpriced = tree.unpricedCount;
   if (!note && unpriced > 0) {

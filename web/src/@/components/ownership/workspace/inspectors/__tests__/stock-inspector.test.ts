@@ -8,6 +8,7 @@ import {
   stockInspectorContent,
   stockNoticesHref,
   stockReading,
+  stockWeekHref,
   type StockNoticeWindow,
 } from "../stock-inspector";
 
@@ -505,5 +506,48 @@ describe("stockReading (spec 14.1, backlog C1)", () => {
     expect(content?.reading).toBe("Index funds hold 3.41%; 1 notice in 91 days, the last on 2026-10-27.");
     const unread = stockInspectorContent(panel({ index: { pct: 3.41, asAt: "" }, notices: [noticeOn("2026-10-27")] }), null, "index", null);
     expect(unread?.reading).toBe("Index funds hold 3.41%.");
+  });
+});
+
+describe("the notices by week section (backlog C6)", () => {
+  const released = ["2026-10-20", "2026-10-21", "2026-08-03"];
+  const weekly = { asOf: "2026-10-31", released };
+
+  it("draws the strip after the fund contributions and before the recent activity, with a week per link", () => {
+    const content = stockInspectorContent(panel(), series, "disclosed", null, weekly);
+    expect(content?.sections?.map((section) => section.title)).toEqual([
+      "Reported interests",
+      "Fund contributions",
+      "Notices by week",
+      "Recent activity",
+    ]);
+    const strip = content?.sections?.find((section) => section.title === "Notices by week");
+    expect(strip?.kind).toBe("weeks");
+    if (strip?.kind !== "weeks") throw new Error("the strip is a weeks section");
+    expect(strip.weeks).toHaveLength(26);
+    const week = strip.weeks.find((w) => w.weekStart === "2026-10-19");
+    expect(week?.count).toBe(2);
+    expect(week?.href).toBe("/ownership/notices?stock=PLS&since=2026-10-19&until=2026-10-25");
+  });
+
+  it("names the feed for the company, the week's Monday and Sunday, in the link", () => {
+    expect(stockWeekHref("PLS", "2026-10-26", "2026-11-01")).toBe(
+      "/ownership/notices?stock=PLS&since=2026-10-26&until=2026-11-01",
+    );
+  });
+
+  it("is absent when the notices did not read, so a failed read is never a quiet strip", () => {
+    const content = stockInspectorContent(panel(), series, "disclosed", null, null);
+    expect(content?.sections?.some((section) => section.title === "Notices by week")).toBe(false);
+    expect(content?.sections?.map((section) => section.title)).toEqual([
+      "Reported interests",
+      "Fund contributions",
+      "Recent activity",
+    ]);
+  });
+
+  it("is absent when the desk has no date to end the strip on", () => {
+    const content = stockInspectorContent(panel(), series, "disclosed", null, { asOf: "", released: [] });
+    expect(content?.sections?.some((section) => section.title === "Notices by week")).toBe(false);
   });
 });

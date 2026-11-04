@@ -17,6 +17,7 @@ import { notFound } from "next/navigation";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { loadOwnershipMap } from "~/app/actions/ownershipDesk";
+import { loadHolderWeekNotices } from "~/app/actions/ownershipHolders";
 
 import InstitutionPage, { generateMetadata } from "./page";
 
@@ -29,6 +30,7 @@ jest.mock("~/app/actions/config", () => ({
 }));
 jest.mock("~/app/actions/ownershipHolders", () => ({
   loadHolderConnections: jest.fn(async () => ({ ok: false, error: "", holder: null, positions: [], capsOk: false })),
+  loadHolderWeekNotices: jest.fn(async () => null),
   resolveHolderInspector: jest.fn(async () => null),
 }));
 
@@ -394,6 +396,29 @@ describe("InstitutionPage", () => {
     const link = within(history).getByRole("link", { name: "All notices →" });
     expect(link).toHaveAttribute("href", "/ownership/notices?window=all&holder=vanguard");
     expect(link).toHaveAttribute("rel", "nofollow");
+  });
+
+  it("draws the notices-by-week strip in the inspector when the holder's notices read", async () => {
+    jest.mocked(loadOwnershipMap).mockResolvedValueOnce({
+      ok: true,
+      error: "",
+      from: "",
+      to: "",
+      asOf: "2026-10-31",
+      stocks: [],
+    } as unknown as Awaited<ReturnType<typeof loadOwnershipMap>>);
+    jest.mocked(loadHolderWeekNotices).mockResolvedValueOnce({ asOf: "2026-10-31", released: ["2026-10-20"] });
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1 }));
+    render(await InstitutionPage(params("vanguard")));
+    expect(loadHolderWeekNotices).toHaveBeenCalledWith("vanguard", "2026-10-31");
+    expect(screen.getByRole("group", { name: "Notices by week" })).toBeInTheDocument();
+  });
+
+  it("draws no notices-by-week strip when the notices did not read", async () => {
+    jest.mocked(loadHolderWeekNotices).mockResolvedValueOnce(null);
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1 }));
+    render(await InstitutionPage(params("vanguard")));
+    expect(screen.queryByRole("group", { name: "Notices by week" })).toBeNull();
   });
 
   it("draws no notices link when the holder has no notice on record", async () => {
