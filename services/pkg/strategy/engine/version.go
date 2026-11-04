@@ -7,8 +7,9 @@ package engine
 //   - a major bumps it for a semantic change, which also changes every spec's
 //     hash (spec.EngineMajor).
 //
-// TestEngineVersionBumpedWithGoldens fails when the spec goldens change without
-// this version changing.
+// TestEngineVersionBumpedWithGoldens fails when the engine goldens
+// (testdata/evaluate.golden) change without this version changing; a rules-hash
+// change alone does not bump it.
 const Version = "1.0.0"
 
 // Major is the major component of Version.
