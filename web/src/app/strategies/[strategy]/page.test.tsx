@@ -181,7 +181,7 @@ describe("StrategyPicksPage", () => {
     const nav = screen.getByRole("navigation", { name: "Strategies" });
     const links = within(nav).getAllByRole("link");
     expect(links.map((a) => a.getAttribute("href"))).toEqual(
-      STRATEGY_SLUGS.map((slug) => `/picks/${slug}`),
+      STRATEGY_SLUGS.map((slug) => `/strategies/${slug}`),
     );
     expect(within(nav).getByRole("link", { name: "Zanger Breakout" })).toHaveAttribute(
       "aria-current",
@@ -314,14 +314,14 @@ describe("StrategyPicksPage", () => {
 
     const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
     for (const related of getStrategy("zanger-breakout")!.related) {
-      expect(links).toContain(`/picks/${related}`);
+      expect(links).toContain(`/strategies/${related}`);
     }
     expect(links).toEqual(expect.arrayContaining(["/scans", "/screener", "/battlegrounds"]));
   });
 
   // Measured 2026-10-07: 100 rows, each with a fundamentals disclosure, in
   // the HTML, the fallback's RSC tree and the island's props made
-  // /picks/minervini-trend-template 1.85 MB. The page renders the shortlist
+  // /strategies/minervini-trend-template 1.85 MB. The page renders the shortlist
   // (SHORTLIST_MAX_ROWS at most) and the chips still count every row.
   it("renders at most 40 rows of a long list, with chips that count every ranked row", async () => {
     const triggered = Array.from({ length: 60 }, (_, i) =>
@@ -349,7 +349,7 @@ describe("StrategyPicksPage", () => {
     expect(screen.getByTestId("itemlist")).toHaveTextContent("15");
   });
 
-  // Measured 2026-10-21 on /picks/minervini-trend-template: the page's own
+  // Measured 2026-10-21 on /strategies/minervini-trend-template: the page's own
   // <Suspense fallback={<PicksFilterView />}> serialised the fallback's
   // element tree into the RSC payload, 364 KB for 40 rows, beside the same
   // rows as the island's props, only to be replaced on hydration. The island

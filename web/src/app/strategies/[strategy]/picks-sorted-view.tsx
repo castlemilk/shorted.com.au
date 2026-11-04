@@ -16,7 +16,7 @@ import {
 import type { PickStatus } from "~/@/lib/strategies/types";
 
 /**
- * The client island behind `?status=` and `?sort=` on /picks/[strategy]
+ * The client island behind `?status=` and `?sort=` on /strategies/[strategy]
  * (docs/plans/fundamentals-coverage.md §7.2).
  *
  * It reads the query string with useSearchParams, which suspends on a static

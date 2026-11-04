@@ -32,7 +32,7 @@ import { PicksTable, type RuleColumn } from "./picks-table";
  * shortlist), optionally sorted by a fundamentals figure.
  *
  * Props-only and hook-free. The sort island
- * (app/picks/[strategy]/picks-sorted-view.tsx) renders it as its own
+ * (app/strategies/[strategy]/picks-sorted-view.tsx) renders it as its own
  * <Suspense> fallback with `status={null}` and no sort, so the shortlist table
  * is in the static HTML, and again with the `?status=` and `?sort=` it reads
  * and, once the API has answered, the fetched rows. The chips are real links
@@ -58,7 +58,7 @@ export interface PicksFilterViewProps {
    */
   counts?: Record<PickStatus, StatusCount>;
   rules: RuleColumn[];
-  /** The page path the chips link to, e.g. "/picks/zanger-breakout". */
+  /** The page path the chips link to, e.g. "/strategies/zanger-breakout". */
   basePath: string;
   caption: string;
   status: PickStatus | null;

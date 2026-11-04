@@ -82,7 +82,7 @@ describe("RegimeBanner ladder", () => {
 
 // The stock Strategy tab's phone form (spec D4). Below sm the readouts and the
 // ladder are hidden so the levels chart is not pushed below the fold; from sm,
-// and on /picks, the gauge is whole. The hiding is CSS, so every figure stays in
+// and on /strategies, the gauge is whole. The hiding is CSS, so every figure stays in
 // the server HTML.
 describe("RegimeBanner compact", () => {
   const readouts = (container: HTMLElement) =>

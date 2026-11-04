@@ -2,7 +2,7 @@
 
 One warm-duotone scene per strategy, drawn through the **brandbrain
 `flow-orchestrator` MCP** in the housing banners' language, and shown behind
-the strategy page's faceplate (`/picks/<strategy>`), as a plate on the `/picks`
+the strategy page's faceplate (`/strategies/<strategy>`), as a plate on the `/strategies`
 rack, and as the scene behind the strategy's share card. Each scene is the
 strategy's engraved glyph (`web/src/@/lib/strategies/glyphs.ts`) at scene
 scale: the mechanism the strategy waits for, never a stock chart, never a
@@ -52,7 +52,7 @@ OPENAI_API_KEY=... node web/scripts/picks-art/generate-art-openai.mjs
 node web/scripts/picks-art/bake.mjs
 
 # Look at it: the strategy page header, the hub row, and
-#   /picks/<strategy>/opengraph-image
+#   /strategies/<strategy>/opengraph-image
 npm --prefix web run dev
 ```
 

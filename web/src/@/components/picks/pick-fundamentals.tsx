@@ -33,7 +33,7 @@ import { ProvenanceMark } from "~/@/components/stocks/provenance";
  * Props-only and hook-free, like the table: they render in the ISR HTML and
  * inside the sort island alike. The vocabulary is lib/fundamentals/format.ts,
  * and the growth figures are the stock page's own growthFigures(), so a figure
- * reads the same on /picks and on /shorts/<code>.
+ * reads the same on /strategies and on /shorts/<code>.
  */
 
 /** The row source the filing mark stands for. */

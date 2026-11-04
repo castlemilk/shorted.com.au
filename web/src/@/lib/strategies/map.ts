@@ -1,7 +1,7 @@
 // StrategyService response -> plain rows (./types.ts).
 //
 // ONE mapper for every surface (docs/plans/fundamentals-coverage.md §7.2): the
-// server actions call it on protobuf-es messages, and the /picks sort island
+// server actions call it on protobuf-es messages, and the /strategies sort island
 // calls it on the protojson a browser POST gets back. So its input types are
 // STRUCTURAL, ALL-OPTIONAL and JSON-COMPATIBLE, and this file imports nothing
 // from the generated modules (not even types): a message satisfies these

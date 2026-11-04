@@ -281,7 +281,7 @@ export default async function Page() {
       <section className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link
-            href="/picks"
+            href="/strategies"
             className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
           >
             <p className={eyebrow}>Stock picker</p>
@@ -414,7 +414,7 @@ export default async function Page() {
           </Link>
           , the{" "}
           <Link
-            href="/picks"
+            href="/strategies"
             className="underline underline-offset-4 hover:text-foreground"
           >
             strategy-driven stock picker

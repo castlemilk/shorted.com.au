@@ -14,7 +14,7 @@ import {
 } from "~/@/lib/strategies/map";
 import type { StrategyPicksResult } from "~/@/lib/strategies/types";
 
-// One strategy's ranked picks for /picks/[strategy] and the /picks hub cards.
+// One strategy's ranked picks for /strategies/[strategy] and the /strategies hub cards.
 //
 // The getScanResults pattern exactly: the connect call runs inside
 // unstable_cache on a serverFetchOutsideNextCache transport (a bare connect

@@ -49,7 +49,7 @@ test("nested wrappers preserve Markdown, image alt text and literal code", () =>
 
 <ScrollReveal>
 
-Keep **all** of [this link](/picks).
+Keep **all** of [this link](/strategies).
 
 <Quote>Quoted text.</Quote>
 
@@ -67,7 +67,7 @@ Keep **all** of [this link](/picks).
 `;
   const markdown = mdxToCleanMarkdown(source);
   assert.ok(markdown.includes("**A > B**"));
-  assert.ok(markdown.includes("Keep **all** of [this link](/picks)."));
+  assert.ok(markdown.includes("Keep **all** of [this link](/strategies)."));
   assert.ok(markdown.includes("Quoted text."));
   assert.ok(markdown.includes("[A breakout chart]"));
   assert.ok(markdown.includes("```mdx\n<GraphStat items={[{ value: 1 }]} />\n```"));

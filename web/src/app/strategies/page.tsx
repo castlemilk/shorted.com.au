@@ -36,7 +36,7 @@ import { bailOnEmptyRender } from "~/app/actions/config";
 const TITLE = "ASX Stock Picker: Named Strategy Screens";
 const DESCRIPTION =
   "Pick a strategy (Zanger breakouts, CAN SLIM, Minervini's Trend Template, crowded-short breakouts or quality compounders) and see which ASX stocks fit.";
-const PAGE_URL = `${siteConfig.url}/picks`;
+const PAGE_URL = `${siteConfig.url}/strategies`;
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -83,7 +83,7 @@ export const revalidate = 3600;
 
 const breadcrumbs = [
   { name: "Home", url: siteConfig.url },
-  { name: "Stock picker", url: PAGE_URL },
+  { name: "Strategies", url: PAGE_URL },
 ];
 
 /** How many names each row previews. */
@@ -146,21 +146,21 @@ export default async function PicksHubPage() {
         itemType="WebPage"
         items={cards.map((card) => ({
           name: STRATEGIES[card.slug]!.h1,
-          url: `${siteConfig.url}/picks/${card.slug}`,
+          url: `${siteConfig.url}/strategies/${card.slug}`,
           description: STRATEGIES[card.slug]!.description,
         }))}
       />
 
       <div className="space-y-8">
         <div className="mb-4">
-          <Breadcrumbs items={[{ label: "Stock picker", href: "/picks" }]} />
+          <Breadcrumbs items={[{ label: "Strategies", href: "/strategies" }]} />
         </div>
 
         {/* The desk switches on: a 320ms phosphor warm-up from 0.45 opacity,
             so the H1 is painted (and is the LCP) from the first frame. */}
         <section className="border-b border-border/40 pb-6 motion-safe:animate-phosphor-warm">
           <p className={cn(eyebrow, "mb-2 font-medium")}>Stock picker</p>
-          <h1 className={cn(pageTitle, "leading-[1.1]")}>ASX Stock Picker</h1>
+          <h1 className={cn(pageTitle, "leading-[1.1]")}>Strategies</h1>
           <p className={cn(lede, "max-w-3xl")}>
             Choose a named strategy, then see the market regime and the ASX
             stocks that currently meet its rules. Every rule is shown for every

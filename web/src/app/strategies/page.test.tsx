@@ -69,7 +69,7 @@ describe("PicksHubPage", () => {
     render(await PicksHubPage());
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "ASX Stock Picker" }),
+      screen.getByRole("heading", { level: 1, name: "Strategies" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Choose a named strategy/)).toBeInTheDocument();
     expect(screen.getByText(NEUTRAL_VERDICT)).toBeInTheDocument();
@@ -80,7 +80,7 @@ describe("PicksHubPage", () => {
     }
     const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
     for (const slug of STRATEGY_SLUGS) {
-      expect(links).toContain(`/picks/${slug}`);
+      expect(links).toContain(`/strategies/${slug}`);
     }
     expect(screen.getByTestId("itemlist")).toHaveTextContent(
       String(STRATEGY_SLUGS.length),

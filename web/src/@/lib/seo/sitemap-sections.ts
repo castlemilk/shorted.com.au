@@ -232,7 +232,7 @@ const STOCK_TAB_IN_SITEMAP: Record<StockTabId, boolean> = {
   overview: false,
   "short-interest": true,
   // Most stocks read "not a candidate" on every strategy, which would read as
-  // thin content; reached through the tab bar, the Overview strip and /picks.
+  // thin content; reached through the tab bar, the Overview strip and /strategies.
   strategy: false,
   financials: true,
   company: true,
@@ -396,8 +396,8 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     // Stock picker: strategy slugs from the registry. NO lastmod: the picks
     // are driven by the daily PRICE sweep, whose date this builder does not
     // fetch, and stamping the ASIC date on them would be a fabricated signal.
-    { url: `${baseUrl}/picks` },
-    ...STRATEGY_SLUGS.map((slug) => ({ url: `${baseUrl}/picks/${slug}` })),
+    { url: `${baseUrl}/strategies` },
+    ...STRATEGY_SLUGS.map((slug) => ({ url: `${baseUrl}/strategies/${slug}` })),
     // /ownership lives in the ownership child, dated from its own data.
     // Open data hub + press kit, both citation surfaces we point journalists at.
     { url: `${baseUrl}/data`, lastModified: latestDataDate },

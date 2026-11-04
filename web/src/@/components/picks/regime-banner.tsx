@@ -193,7 +193,7 @@ export interface RegimeBannerProps {
    * date and the verdict; from `sm` it is the whole gauge, unchanged. Without
    * it the gauge was 347px tall on a 390px phone and pushed the tab's levels
    * chart below the fold. The hiding is CSS only: the figures are still in the
-   * server HTML for a crawler. Off by default, so /picks shows the whole gauge.
+   * server HTML for a crawler. Off by default, so /strategies shows the whole gauge.
    */
   compact?: boolean;
 }

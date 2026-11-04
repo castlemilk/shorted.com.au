@@ -429,7 +429,7 @@ func picksNextStep(mode jobmonitor.PicksMode) string {
 	case jobmonitor.PicksModeFilings:
 		return "Run refresh so the rebuilt filing rows reach mv_fundamentals_growth and mv_fundamentals_quality. Exit 10 means the rebuild was refused (a read failed or found no extractions) and nothing was written."
 	case jobmonitor.PicksModeRefresh:
-		return "The run waits 16 minutes after the refresh (the API's strategy cache), then asks the picks pages to revalidate (best effort), so get_strategy_picks reads the refreshed views once it succeeds and /picks follows."
+		return "The run waits 16 minutes after the refresh (the API's strategy cache), then asks the picks pages to revalidate (best effort), so get_strategy_picks reads the refreshed views once it succeeds and /strategies follows."
 	case jobmonitor.PicksModeAll:
 		return "Nothing: this is the nightly sequence. Check get_strategy_picks for fundamentals_rows_count (stocks with any fundamentals) and fundamentals_coverage_count (those with growth figures)."
 	}

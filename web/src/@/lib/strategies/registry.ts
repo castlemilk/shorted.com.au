@@ -1,4 +1,4 @@
-// Strategy SEO registry: the single source of truth for the /picks URL set.
+// Strategy SEO registry: the single source of truth for the /strategies URL set.
 //
 // One entry per strategy id in docs/plans/stock-picker.md §1 plus
 // quality-compounders (docs/plans/fundamentals-coverage.md §5.4); the ids are
