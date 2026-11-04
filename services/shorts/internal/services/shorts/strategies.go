@@ -258,6 +258,7 @@ func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *sh
 			RequiredAccess: AccessFree.String(),
 			Limit:          int32(depth.limit),
 		},
+		Version: liveVersion(q.st.ID),
 	}
 	if thr, ok := u.env.RSQuantileThreshold(); ok {
 		resp.RsQuantileThreshold, resp.HasRsQuantileThreshold = thr, true
@@ -468,6 +469,7 @@ func strategyProto(st engine.Strategy, caveats []string) *shortsv1alpha1.Strateg
 		},
 		Caveats: append([]string(nil), caveats...),
 		Sources: append([]string(nil), st.Sources...),
+		Version: liveVersion(st.ID),
 	}
 }
 
