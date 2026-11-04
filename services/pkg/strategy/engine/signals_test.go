@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"math"
 	"testing"
 )
@@ -25,29 +26,39 @@ func signalsUniverse() []Candidate {
 
 // TestRegistryAnnotatesDefinitionFacts pins the definition-level fields of
 // every rule: trigger membership, the score weight and the threshold, each
-// read from the one table its surface shares.
+// read from the one table its surface shares. The expected values are typed
+// out here, comparators included, so a change to thresholds.go shows up as a
+// change to this table as well.
 func TestRegistryAnnotatesDefinitionFacts(t *testing.T) {
 	want := map[string]struct {
-		value float64
-		unit  string
+		value      float64
+		unit       string
+		comparator string
 	}{
-		RuleGrowth:              {growthMinPct, "%"},
-		RuleBase:                {baseMaxDepthPct, "%"},
-		RuleLiquidity:           {LiquidityFloorAUD, "A$"},
-		RuleEPSGrowth:           {growthMinPct, "%"},
-		RuleRevenueGrowth:       {revenueGrowthMinPct, "%"},
-		RuleNearHigh:            {nearHighMaxOffPct, "%"},
-		RuleOffHigh:             {offHighMaxOffPct, "%"},
-		RuleRSLeader:            {75, "percentile"},
-		RuleShortInterest:       {shortInterestMinPct, "%"},
-		RuleDaysToCover:         {daysToCoverMin, "days"},
-		RuleROE:                 {roeMinPct, "%"},
-		RuleNetMargin:           {netMarginMinPct, "%"},
-		RuleCashConversion:      {cashConversionMin, "x"},
-		RuleLeverage:            {leverageMaxMultiple, "x"},
-		RuleRevenueNotShrinking: {revenueNotShrinkingMin, "%"},
+		RuleGrowth:              {growthMinPct, "pct", ">="},
+		RuleBase:                {baseMaxDepthPct, "pct", "<="},
+		RuleRS:                  {0, "pp", ">"},
+		RuleLiquidity:           {LiquidityFloorAUD, "aud", ">="},
+		RuleEPSGrowth:           {growthMinPct, "pct", ">="},
+		RuleRevenueGrowth:       {revenueGrowthMinPct, "pct", ">="},
+		RuleNearHigh:            {nearHighMaxOffPct, "pct", ">="},
+		RuleSMA200Rising:        {0, "pct", ">"},
+		RuleAboveLow:            {(aboveLowMultiple - 1) * 100, "pct", ">="},
+		RuleOffHigh:             {offHighMaxOffPct, "pct", ">="},
+		RuleAboveSMA50:          {0, "pct", ">"},
+		RuleShortInterest:       {shortInterestMinPct, "pct", ">="},
+		RuleDaysToCover:         {daysToCoverMin, "days", ">="},
+		RuleROE:                 {roeMinPct, "pct", ">="},
+		RuleNetMargin:           {netMarginMinPct, "pct", ">="},
+		RuleCashConversion:      {cashConversionMin, "x", ">="},
+		RuleLeverage:            {leverageMaxMultiple, "x", "<="},
+		RuleAboveSMA200:         {0, "pct", ">"},
+		RuleRevenueNotShrinking: {revenueNotShrinkingMin, "pct", ">="},
 	}
-	noSingleNumber := map[string]bool{RuleBreakout: true, RuleRegime: true, RuleTrendStack: true}
+	// No single number to test: the regime, the trend shape, the breakout's
+	// pivot shape and rs_leader (its cut-off is in points, the response's
+	// rs_quantile_threshold, not in the rule's own unit).
+	noSingleNumber := map[string]bool{RuleBreakout: true, RuleRegime: true, RuleTrendStack: true, RuleRSLeader: true}
 	for _, s := range Registry() {
 		triggers := triggerRuleSet(s)
 		var weightSum float64
@@ -65,10 +76,13 @@ func TestRegistryAnnotatesDefinitionFacts(t *testing.T) {
 				}
 				continue
 			}
-			if w, ok := want[r.ID]; ok {
-				if !r.HasThreshold || r.Threshold != w.value || r.Unit != w.unit {
-					t.Errorf("%s/%s: threshold %v %q (has %v), want %v %q", s.ID, r.ID, r.Threshold, r.Unit, r.HasThreshold, w.value, w.unit)
-				}
+			w, ok := want[r.ID]
+			if !ok {
+				t.Errorf("%s/%s: a thresholded rule with no expected threshold", s.ID, r.ID)
+				continue
+			}
+			if !r.HasThreshold || r.Threshold != w.value || r.Unit != w.unit || r.Comparator != w.comparator {
+				t.Errorf("%s/%s: threshold %v %q %q (has %v), want %v %q %q", s.ID, r.ID, r.Threshold, r.Unit, r.Comparator, r.HasThreshold, w.value, w.unit, w.comparator)
 			}
 		}
 		if math.Abs(weightSum-1) > 1e-9 {
@@ -92,6 +106,13 @@ func TestUnknownResultsCarryAReason(t *testing.T) {
 		{"trend without averages", ruleTrendStack, Candidate{StockCode: "X"}, ReasonNoPriceHistory},
 		{"roe without a quality row", ruleROE, Candidate{StockCode: "X"}, ReasonNoFundamentals},
 		{"cash conversion for a bank", ruleCashConversion, Candidate{StockCode: "X", Quality: &Quality{IsFinancial: true}}, ReasonNotMeaningful},
+		{"net margin with no revenue", ruleNetMargin, Candidate{StockCode: "X", Quality: &Quality{}}, ReasonNoFundamentals},
+		{"net margin with zero revenue", ruleNetMargin, Candidate{StockCode: "X", Quality: &Quality{Revenue: new(0.0)}}, ReasonNotMeaningful},
+		{"net margin with negative revenue", ruleNetMargin, Candidate{StockCode: "X", Quality: &Quality{Revenue: new(-5.0)}}, ReasonNotMeaningful},
+		{"roe withheld by the equity guard", ruleROE, Candidate{StockCode: "X", Quality: &Quality{
+			NetIncome: new(10.0), TotalEquity: new(5.0), TotalAssets: new(100.0)}}, ReasonNotMeaningful},
+		{"roe with missing net profit", ruleROE, Candidate{StockCode: "X", Quality: &Quality{
+			TotalEquity: new(50.0), TotalAssets: new(100.0)}}, ReasonNoFundamentals},
 	}
 	for _, c := range cases {
 		out := c.fn(&c.c, &evalEnv{})
@@ -180,8 +201,9 @@ func TestWaitingOnlyOnSetupRows(t *testing.T) {
 	}
 }
 
-// TestRS6mPercentileAndQuantileThreshold: the percentile is the share of the
-// universe at or below the stock, and absent without a figure.
+// TestRS6mPercentileAndQuantileThreshold: the percentile is the stock's rank on
+// the quantile's own scale (type 7: 0 at the lowest, 100 at the highest), and
+// absent without a figure.
 func TestRS6mPercentileAndQuantileThreshold(t *testing.T) {
 	cands := []Candidate{
 		{StockCode: "A", RS6mPct: new(10.0)},
@@ -197,7 +219,7 @@ func TestRS6mPercentileAndQuantileThreshold(t *testing.T) {
 	if _, ok := NewEnv(nil, uptrend).RSQuantileThreshold(); ok {
 		t.Error("an empty universe has no quartile threshold")
 	}
-	want := map[string]float64{"A": 25, "B": 50, "C": 75, "D": 100}
+	want := map[string]float64{"A": 0, "B": 100.0 / 3, "C": 200.0 / 3, "D": 100}
 	for _, c := range cands {
 		p, _ := EvaluateOne(Registry()[0], c, env)
 		if c.RS6mPct == nil {
@@ -206,8 +228,35 @@ func TestRS6mPercentileAndQuantileThreshold(t *testing.T) {
 			}
 			continue
 		}
-		if p.RS6mPercentile == nil || *p.RS6mPercentile != want[c.StockCode] {
+		if p.RS6mPercentile == nil || math.Abs(*p.RS6mPercentile-want[c.StockCode]) > 1e-9 {
 			t.Errorf("%s: percentile %v, want %v", c.StockCode, p.RS6mPercentile, want[c.StockCode])
+		}
+	}
+}
+
+// TestRS6mPercentileAgreesWithTheRule: a stock's rs_6m_percentile is 75 or
+// more exactly when rs_leader passes it, for every universe size, with and
+// without a tie at the cut-off.
+func TestRS6mPercentileAgreesWithTheRule(t *testing.T) {
+	for n := 4; n <= 23; n++ {
+		var cands []Candidate
+		for i := 0; i < n; i++ {
+			// Distinct, uneven figures, so no two stocks share a rank.
+			cands = append(cands, Candidate{StockCode: fmt.Sprintf("S%02d", i), RS6mPct: new(float64(i*i) + 0.5*float64(i))})
+		}
+		// A duplicate of a middle figure: a tie must read one rank for both.
+		cands = append(cands, Candidate{StockCode: "TIE", RS6mPct: new(*cands[n/2].RS6mPct)})
+		env := NewEnv(cands, uptrend)
+		for _, c := range cands {
+			p, _ := EvaluateOne(Registry()[0], c, env)
+			rule := ruleRSLeader(&c, env)
+			if p.RS6mPercentile == nil {
+				t.Fatalf("n=%d %s: no percentile", n, c.StockCode)
+			}
+			inTop := *p.RS6mPercentile >= 75-1e-9
+			if inTop != (rule.Status == RulePass) {
+				t.Errorf("n=%d %s: percentile %v, rule %s", n, c.StockCode, *p.RS6mPercentile, rule.Status)
+			}
 		}
 	}
 }

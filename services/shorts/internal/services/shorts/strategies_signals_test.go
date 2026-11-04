@@ -206,17 +206,68 @@ func TestRuleResultsNeverReportAZeroAsAValue(t *testing.T) {
 // present with a short position and both absent without one.
 func TestShortDatesFollowTheReport(t *testing.T) {
 	report := spDate("2026-10-28")
-	got := strategyPickProto(&engine.Pick{Candidate: engine.Candidate{StockCode: "SHT", ShortReportDate: &report}})
+	got := strategyPickProto(&engine.Pick{Candidate: engine.Candidate{StockCode: "SHT", ShortPct: new(6.0), ShortReportDate: &report}})
 	assert.Equal(t, "2026-10-28", got.ShortReportDate)
 	available := asxcalendar.AvailableFrom(report)
 	assert.Equal(t, available.Format("2006-01-02"), got.ShortAvailableDate)
 	assert.True(t, available.After(report), "the report is public after its own date")
 	assert.Equal(t, "reported", got.ShortStatus)
 
+	// No short figure, no status, even when a date came through.
+	noFigure := strategyPickProto(&engine.Pick{Candidate: engine.Candidate{StockCode: "ETF", ShortReportDate: &report}})
+	assert.Empty(t, noFigure.ShortStatus, "the status follows the figure, which the date is the report of")
+
 	none := strategyPickProto(&engine.Pick{Candidate: engine.Candidate{StockCode: "NON"}})
 	assert.Empty(t, none.ShortReportDate)
 	assert.Empty(t, none.ShortAvailableDate)
 	assert.Empty(t, none.ShortStatus)
+}
+
+// A report from before the holiday table's first year keeps its date and a
+// figure, but no publication date: the table would count Christmas as a
+// trading day. A figure with no date is a report older than the lookup reads.
+func TestShortDatesWithholdPublicationBeforeTheHolidayTable(t *testing.T) {
+	old := spDate("2025-12-19")
+	got := strategyPickProto(&engine.Pick{Candidate: engine.Candidate{StockCode: "OLD", ShortPct: new(5.0), ShortReportDate: &old}})
+	assert.Equal(t, "2025-12-19", got.ShortReportDate)
+	assert.Empty(t, got.ShortAvailableDate)
+	assert.Equal(t, "reported", got.ShortStatus)
+
+	bare := strategyPickProto(&engine.Pick{Candidate: engine.Candidate{StockCode: "BAR", ShortPct: new(5.0)}})
+	assert.Empty(t, bare.ShortReportDate)
+	assert.Equal(t, "reported", bare.ShortStatus, "the figure is reported even when its report date is not read")
+}
+
+// The picks and the fit are stale when the index has closed a session the
+// prices have not reached, and never otherwise.
+func TestGetStrategyPicksAndFit_StaleOnlyWhenTheIndexIsAhead(t *testing.T) {
+	ahead := spUptrend()
+	later := spDate("2026-09-28")
+	ahead.AsOf = &later
+	for _, tc := range []struct {
+		name   string
+		regime engine.Regime
+		stale  bool
+	}{
+		{"index at the price session", spUptrend(), false},
+		{"index ahead of the prices", ahead, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockStore := mocks.NewMockShortsStore(ctrl)
+			mockStore.EXPECT().ListStrategyCandidates(gomock.Any()).Return(spUniverse(), nil).Times(1)
+			mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(tc.regime, nil).Times(1)
+			srv := newTestServer(t, mockStore)
+
+			picks, err := srv.GetStrategyPicks(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{StrategyId: engine.IDZangerBreakout}))
+			require.NoError(t, err)
+			assert.Equal(t, tc.stale, picks.Msg.Stale, "picks")
+
+			fit, err := srv.GetStockStrategyFit(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStockStrategyFitRequest{StockCode: "RDY"}))
+			require.NoError(t, err)
+			assert.Equal(t, tc.stale, fit.Msg.Stale, "fit")
+		})
+	}
 }
 
 // The response's short dates are the newest report across the universe, and
@@ -281,9 +332,9 @@ func TestGetStrategyPicks_RSQuantileAndPercentileFromTheUniverse(t *testing.T) {
 	assert.InDelta(t, 32.5, resp.Msg.RsQuantileThreshold, 1e-9, "the 75th percentile of 10, 20, 30, 40")
 
 	assert.True(t, spPick(resp.Msg.Picks, "RDY").HasRs_6MPercentile)
-	assert.InDelta(t, 25, spPick(resp.Msg.Picks, "RDY").Rs_6MPercentile, 1e-9, "one of four stocks is at or below 10")
-	assert.InDelta(t, 50, spPick(resp.Msg.Picks, "SET").Rs_6MPercentile, 1e-9)
-	assert.InDelta(t, 75, spPick(resp.Msg.Picks, "WAT").Rs_6MPercentile, 1e-9)
+	assert.InDelta(t, 0, spPick(resp.Msg.Picks, "RDY").Rs_6MPercentile, 1e-9, "the lowest of four stocks")
+	assert.InDelta(t, 100.0/3, spPick(resp.Msg.Picks, "SET").Rs_6MPercentile, 1e-9)
+	assert.InDelta(t, 200.0/3, spPick(resp.Msg.Picks, "WAT").Rs_6MPercentile, 1e-9, "below the 32.5 cut-off, so not in the top quartile")
 	assert.InDelta(t, 10, spPick(resp.Msg.Picks, "RDY").Rs_6MPct, 1e-9, "rs_6m_pct is the stock's own figure")
 }
 

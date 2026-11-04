@@ -313,15 +313,27 @@ func TestFundamentalsReadsReturnOtherErrors(t *testing.T) {
 	}
 }
 
-// The newest short report date merges onto each stock by code, and a schema
-// without the shorts relation leaves every stock without one.
+// A candidate row with a short figure, as strategyCandidatesQuery returns it.
+func fakeShortCandidateRow(code string, pct float64) []any {
+	var row candidateRow
+	row.c.StockCode = code
+	row.asOf = tp("2026-09-25")
+	row.closePx = new(float64(45))
+	row.c.ShortPct = new(pct)
+	return rowFrom(row.targets())
+}
+
+// The newest short report date merges onto each stock by code, and only onto a
+// stock with a short figure: the date is the report that figure came from. A
+// schema without the shorts relation leaves every stock without one.
 func TestListStrategyShortDatesMergesByCode(t *testing.T) {
 	db := &fakeDB{respond: func(sql string) ([][]any, error) {
 		switch {
 		case strings.Contains(sql, strategyShortDatesQuery):
-			return [][]any{{"bhp", *tp("2026-10-28")}}, nil
+			// ZZZ has a date but no figure: it must not get the date.
+			return [][]any{{"bhp", *tp("2026-10-28")}, {"ZZZ", *tp("2026-10-29")}}, nil
 		case strings.Contains(sql, sqlCandidates):
-			return [][]any{fakeCandidateRow("BHP"), fakeCandidateRow("ZZZ")}, nil
+			return [][]any{fakeShortCandidateRow("BHP", 6), fakeCandidateRow("ZZZ")}, nil
 		}
 		return nil, pgErr("42P01")
 	}}
@@ -333,7 +345,18 @@ func TestListStrategyShortDatesMergesByCode(t *testing.T) {
 		t.Errorf("BHP short report date = %v, want 2026-10-28", cands[0].ShortReportDate)
 	}
 	if cands[1].ShortReportDate != nil {
-		t.Errorf("ZZZ has no reported short position: %v", cands[1].ShortReportDate)
+		t.Errorf("ZZZ has no short figure, so no report date: %v", cands[1].ShortReportDate)
+	}
+
+	// The date query reads the view's own filtered rows, keyed on its codes,
+	// with no age bound: a figure a year old keeps its date.
+	for _, want := range []string{"LATERAL", "mv_screener_data", "DEFERRED", "5000000"} {
+		if !strings.Contains(strategyShortDatesQuery, want) {
+			t.Errorf("strategyShortDatesQuery lacks %q", want)
+		}
+	}
+	if strings.Contains(strategyShortDatesQuery, "400 days") {
+		t.Error("strategyShortDatesQuery must not bound the report's age")
 	}
 
 	missing := &fakeDB{respond: func(sql string) ([][]any, error) {

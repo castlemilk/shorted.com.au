@@ -38,6 +38,7 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 		Fits:      []*shortsv1alpha1.StrategyFit{},
 	}
 	resp.SessionDate = u.asOf
+	resp.Stale = staleBehind(u.asOf, u.regime)
 	if _, ok := u.index[code]; !ok {
 		resp.IneligibleReason = "not_in_universe"
 		return connect.NewResponse(resp), nil

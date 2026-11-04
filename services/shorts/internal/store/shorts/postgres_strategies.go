@@ -289,17 +289,29 @@ func (r *candidateRow) targets() []any {
 	return append(t, &c.CompanyName, &c.Industry, &c.LogoURL, &c.ShortPct, &c.DaysToCover, &c.MarketCap)
 }
 
-// strategyShortDatesQuery is the newest non-zero ASIC short position of each
-// stock within 400 days: the report a pick's short figure came from (4.6,
-// display-only). The ORDER BY matches idx_shorts_timeseries_full.
+// strategyShortDatesQuery is, for each stock in mv_screener_data, the report
+// its short figure came from: the newest row that 000080's latest_shorts
+// admits, with no age limit (4.6, display-only). Taking the date from the same
+// filtered row as the figure keeps the two in step: an ETF, a deferred product
+// or a percent-coupon bond has neither a figure nor a date, and a figure a
+// year old keeps its date. Driving on the view's codes also keeps a NULL
+// PRODUCT_CODE out of the scan.
 const strategyShortDatesQuery = `
-	SELECT DISTINCT ON (s."PRODUCT_CODE")
-		s."PRODUCT_CODE"::text,
-		s."DATE"::date
-	FROM shorts s
-	WHERE s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
-		AND s."DATE" >= now() - interval '400 days'
-	ORDER BY s."PRODUCT_CODE", s."DATE" DESC
+	SELECT sd.stock_code::text, ls."DATE"::date
+	FROM mv_screener_data sd
+	CROSS JOIN LATERAL (
+		SELECT s."DATE"
+		FROM shorts s
+		WHERE s."PRODUCT_CODE" = sd.stock_code
+			AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+			AND s."PRODUCT" !~~* '%DEFERRED%'
+			AND s."PRODUCT" !~* 'ETF\M'
+			AND length(s."PRODUCT_CODE") <= 4
+			AND s."PRODUCT" !~ '[0-9]+(\.[0-9]+)?\s*%'
+			AND (s."TOTAL_PRODUCT_IN_ISSUE" IS NULL OR s."TOTAL_PRODUCT_IN_ISSUE" >= 5000000)
+		ORDER BY s."DATE" DESC
+		LIMIT 1
+	) ls
 `
 
 // listStrategyShortDates returns each stock's newest non-zero short report
@@ -338,9 +350,14 @@ func listStrategyShortDates(ctx context.Context, db fundamentalsDB) (map[string]
 	return out, nil
 }
 
-// mergeShortDates attaches each candidate's short report date by code.
+// mergeShortDates attaches each candidate's short report date by code. Only a
+// stock with a short figure gets one: the date is the report that figure came
+// from, so a stock with no figure has no date either.
 func mergeShortDates(cands []engine.Candidate, dates map[string]time.Time) {
 	for i := range cands {
+		if cands[i].ShortPct == nil {
+			continue
+		}
 		if d, ok := dates[strings.ToUpper(cands[i].StockCode)]; ok {
 			d := d
 			cands[i].ShortReportDate = &d

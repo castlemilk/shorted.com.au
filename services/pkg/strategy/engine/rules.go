@@ -570,7 +570,14 @@ func ruleROE(c *Candidate, _ *evalEnv) outcome {
 		return fail("Shareholders' equity is zero or negative", 0, false)
 	}
 	if q.ROEPct == nil {
-		return unknownFor(ReasonNoFundamentals, "Return on equity cannot be measured: it needs net profit, equity at both ends of the year and, outside banks, insurers and other financials, equity of at least 10% of total assets")
+		const detail = "Return on equity cannot be measured: it needs net profit, equity at both ends of the year and, outside banks, insurers and other financials, equity of at least 10% of total assets"
+		// Inputs present but the ratio withheld by the equity guard is not
+		// meaningful for this balance sheet; missing inputs are missing data.
+		if !q.IsFinancial && q.NetIncome != nil && q.TotalEquity != nil && q.TotalAssets != nil &&
+			*q.TotalAssets > 0 && *q.TotalEquity > 0 && *q.TotalEquity < 0.1 * *q.TotalAssets {
+			return unknownFor(ReasonNotMeaningful, detail)
+		}
+		return unknownFor(ReasonNoFundamentals, detail)
 	}
 	roe := *q.ROEPct
 	detail := withQualityBasis("Return on equity "+pctAbs(roe), q)
@@ -586,7 +593,10 @@ func ruleNetMargin(c *Candidate, _ *evalEnv) outcome {
 	if q == nil {
 		return unknownFor(ReasonNoFundamentals, noStatementsYet)
 	}
-	if q.Revenue == nil || *q.Revenue <= 0 {
+	if q.Revenue != nil && *q.Revenue <= 0 {
+		return unknownFor(ReasonNotMeaningful, "Net margin is not meaningful: revenue is zero or negative")
+	}
+	if q.Revenue == nil {
 		return unknownFor(ReasonNoFundamentals, "No positive revenue figure to measure a margin against")
 	}
 	if q.NetMarginPct == nil {

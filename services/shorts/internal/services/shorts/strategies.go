@@ -147,12 +147,13 @@ func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Reques
 		SessionDate:               u.asOf,
 		ShortReportDate:           dateOrEmpty(u.shortReportDate),
 		UniverseLabel:             st.Metadata.Universe,
+		Stale:                     staleBehind(u.asOf, u.regime),
 	}
 	if thr, ok := u.env.RSQuantileThreshold(); ok {
 		resp.RsQuantileThreshold, resp.HasRsQuantileThreshold = thr, true
 	}
 	if !u.shortReportDate.IsZero() {
-		resp.ShortAvailableDate = dateOrEmpty(asxcalendar.AvailableFrom(u.shortReportDate))
+		_, resp.ShortAvailableDate = shortDatesProto(&u.shortReportDate)
 	}
 	for i := start; i < end; i++ {
 		resp.Picks = append(resp.Picks, strategyPickProto(&matching[i]))
@@ -286,12 +287,24 @@ func dateOrEmpty(t time.Time) string {
 }
 
 // shortDatesProto returns a short position's report date and the date it
-// became public, both empty when the stock has no report.
+// became public. Both are empty when the stock has no report, and the
+// publication date is empty too for a report the holiday table does not cover.
 func shortDatesProto(report *time.Time) (reported, available string) {
 	if report == nil {
 		return "", ""
 	}
-	return dateOrEmpty(*report), dateOrEmpty(asxcalendar.AvailableFrom(*report))
+	published, _ := asxcalendar.AvailableFromCovered(*report)
+	return dateOrEmpty(*report), dateOrEmpty(published)
+}
+
+// staleBehind reports whether the market index has closed a session the
+// prices have not reached yet (the "data delayed" state): the picks or the
+// readings are then older than the market they are read against.
+func staleBehind(asOf string, regime engine.Regime) bool {
+	if asOf == "" || regime.AsOf == nil {
+		return false
+	}
+	return regime.AsOf.Format("2006-01-02") > asOf
 }
 
 func strategyIDList() string {
@@ -404,7 +417,9 @@ func strategyPickProto(p *engine.Pick) *shortsv1alpha1.StrategyPick {
 	out.DollarVolume_20D, out.HasDollarVolume_20D = optional(c.DollarVolume20d)
 	out.BreakoutDate = dateString(c.BreakoutDate)
 	out.ShortReportDate, out.ShortAvailableDate = shortDatesProto(c.ShortReportDate)
-	if c.ShortReportDate != nil {
+	// The date is the report the figure came from, so the status follows the
+	// figure. A figure with no date is a report older than the lookup reads.
+	if c.ShortPct != nil {
 		out.ShortStatus = "reported"
 	}
 	if c.BaseLengthDays != nil {

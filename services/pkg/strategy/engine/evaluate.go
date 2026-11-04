@@ -14,14 +14,32 @@ type quartile struct {
 	sorted    []float64 // every value, ascending, for percentile ranks
 }
 
-// percentileOf is the share of the universe at or below v, 0-100. nil when v
-// is nil or non-finite, or the universe carries no values.
+// percentileOf is v's rank in the universe on the same scale as the quantile
+// it is compared with (type 7): the sorted position of v, interpolated between
+// neighbours, divided by n-1, 0-100. So percentileOf(v) >= 75 holds exactly
+// when v >= the 75th-percentile cut-off, whatever the universe's size. A tie
+// takes the highest position of its values. nil when v is nil or non-finite,
+// or the universe carries no values.
 func (q quartile) percentileOf(v *float64) *float64 {
 	if v == nil || !isFinite(*v) || len(q.sorted) == 0 {
 		return nil
 	}
-	n := sort.Search(len(q.sorted), func(i int) bool { return q.sorted[i] > *v })
-	p := float64(n) / float64(len(q.sorted)) * 100
+	n := len(q.sorted)
+	// idx is the highest position whose value is at or below v; -1 when v is
+	// below every value.
+	idx := sort.Search(n, func(i int) bool { return q.sorted[i] > *v }) - 1
+	var p float64
+	switch {
+	case idx < 0:
+		p = 0
+	case n == 1:
+		p = 100
+	case idx == n-1 || q.sorted[idx] == *v:
+		p = float64(idx) / float64(n-1) * 100
+	default:
+		frac := (*v - q.sorted[idx]) / (q.sorted[idx+1] - q.sorted[idx])
+		p = (float64(idx) + frac) / float64(n-1) * 100
+	}
 	return &p
 }
 

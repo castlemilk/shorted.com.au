@@ -56,6 +56,11 @@ var Holidays = map[string]bool{
 // HolidayCoverageEndYear is the last year Holidays is complete for.
 const HolidayCoverageEndYear = 2027
 
+// HolidayCoverageStartYear is the first year Holidays is complete for. A
+// report dated before it has a publication date that counts a holiday as a
+// trading day, so AvailableFromCovered withholds it.
+const HolidayCoverageStartYear = 2026
+
 // IsTradingDay reports whether the ASX was open on t.
 func IsTradingDay(t time.Time) bool {
 	switch t.Weekday() {
@@ -81,6 +86,16 @@ func AvailableFrom(reportDate time.Time) time.Time {
 		}
 	}
 	return d
+}
+
+// AvailableFromCovered is AvailableFrom for a report the holiday table covers,
+// and ok false for one dated before HolidayCoverageStartYear, whose result
+// would land early.
+func AvailableFromCovered(reportDate time.Time) (time.Time, bool) {
+	if reportDate.Year() < HolidayCoverageStartYear {
+		return time.Time{}, false
+	}
+	return AvailableFrom(reportDate), true
 }
 
 // WasKnownOn reports whether an observation reported for reportDate had been
