@@ -1,4 +1,4 @@
-// Package strategies holds the named stock-picking strategies behind /picks,
+// Package engine holds the named stock-picking strategies behind /picks,
 // the StrategyService API and the MCP strategy tools.
 //
 // It is deliberately free of I/O. Registry() is the single home of every

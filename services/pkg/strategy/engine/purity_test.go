@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -11,50 +12,93 @@ import (
 	"testing"
 )
 
-// TestNoClockNoIONoRand holds the evaluator to the purity rule of
-// architecture 4.1: a function of its inputs only. Every non-test file in this
-// package may import the standard library and nothing else, and may not read
-// the clock, draw random numbers or read the environment. The check parses the
-// source rather than trusting review, so a new call fails the build.
+// TestNoClockNoIONoRand holds the strategy packages to a purity rule: an output
+// is a function of the inputs alone. Every non-test file under
+// services/pkg/strategy (pgsource excepted, the one package that does I/O) may
+// import only the standard-library packages in pureImports, and may not read the
+// clock, sleep, wait on a timer, load a time zone, print, or draw random
+// numbers. The check parses the source rather than trusting review, so a new
+// import or call fails the build.
 func TestNoClockNoIONoRand(t *testing.T) {
-	files, err := filepath.Glob("*.go")
+	root := ".." // services/pkg/strategy: the parent of this engine package
+	fset := token.NewFileSet()
+	scanned := map[string]bool{}
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == "pgsource" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		scanned[filepath.Base(filepath.Dir(path))] = true
+		file, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		for _, v := range purityViolations(file) {
+			t.Errorf("%s: %s", path, v)
+		}
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	fset := token.NewFileSet()
-	checked := 0
-	for _, name := range files {
-		if strings.HasSuffix(name, "_test.go") {
-			continue
+	// The scan must reach both packages, or it would pass vacuously.
+	for _, dir := range []string{"engine", "instrument"} {
+		if !scanned[dir] {
+			t.Fatalf("no source files scanned under package %q; the scan would pass vacuously", dir)
 		}
-		checked++
-		file, err := parser.ParseFile(fset, name, nil, parser.ParseComments)
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		for _, v := range purityViolations(file) {
-			t.Errorf("%s: %s", name, v)
-		}
-	}
-	if checked == 0 {
-		t.Fatal("no source files found; the scan would pass vacuously")
 	}
 }
 
-// forbiddenCalls maps an import path to the selectors that break purity.
-// A nil set forbids every selector of the package.
-var forbiddenCalls = map[string]map[string]bool{
-	"time":         {"Now": true, "Since": true, "Until": true},
-	"math/rand":    nil,
-	"math/rand/v2": nil,
-	"crypto/rand":  nil,
-	"os":           {"Getenv": true, "LookupEnv": true, "Environ": true},
+// pureImports is the allowlist: the standard-library packages a strategy package
+// may import. Everything else, including os, io, net/..., os/exec, database/sql,
+// syscall, log, math/rand and crypto/rand, is a violation.
+var pureImports = map[string]bool{
+	"cmp":          true,
+	"errors":       true,
+	"fmt":          true,
+	"maps":         true,
+	"math":         true,
+	"math/bits":    true,
+	"reflect":      true,
+	"regexp":       true,
+	"slices":       true,
+	"sort":         true,
+	"strconv":      true,
+	"strings":      true,
+	"time":         true,
+	"unicode":      true,
+	"unicode/utf8": true,
+}
+
+// forbiddenSelectors lists the selectors of an allowed package that break
+// purity: clock reads, timers and sleeps, time-zone loading and ambient
+// time.Local, and printing or scanning to or from the process's streams.
+var forbiddenSelectors = map[string]map[string]bool{
+	"time": {
+		"Now": true, "Since": true, "Until": true, "Sleep": true, "After": true,
+		"AfterFunc": true, "Tick": true, "NewTicker": true, "NewTimer": true,
+		"LoadLocation": true, "Local": true,
+	},
+	"fmt": {
+		"Print": true, "Println": true, "Printf": true,
+		"Fprint": true, "Fprintln": true, "Fprintf": true,
+		"Scan": true, "Scanln": true, "Scanf": true,
+		"Fscan": true, "Fscanln": true, "Fscanf": true,
+	},
 }
 
 // purityViolations returns one message per import or call that breaks the rule.
 func purityViolations(file *ast.File) []string {
 	var out []string
-	names := map[string]string{} // local name -> import path
+	names := map[string]string{} // local name -> import path, for packages with forbidden selectors
 	for _, imp := range file.Imports {
 		path, err := strconv.Unquote(imp.Path.Value)
 		if err != nil {
@@ -63,14 +107,18 @@ func purityViolations(file *ast.File) []string {
 		}
 		if first := strings.SplitN(path, "/", 2)[0]; strings.Contains(first, ".") {
 			out = append(out, "non-standard-library import "+path)
-		}
-		if _, banned := forbiddenCalls[path]; banned && imp.Name != nil && imp.Name.Name != "_" {
-			names[imp.Name.Name] = path
-		} else if banned {
-			names[importName(path)] = path
+		} else if !pureImports[path] {
+			out = append(out, "import "+path+" is outside the pure standard-library allowlist")
 		}
 		if imp.Name != nil && imp.Name.Name == "." {
 			out = append(out, "dot import of "+path)
+		}
+		if _, guarded := forbiddenSelectors[path]; guarded && (imp.Name == nil || imp.Name.Name != "_") {
+			local := importName(path)
+			if imp.Name != nil {
+				local = imp.Name.Name
+			}
+			names[local] = path
 		}
 	}
 	ast.Inspect(file, func(n ast.Node) bool {
@@ -86,7 +134,7 @@ func purityViolations(file *ast.File) []string {
 		if !ok {
 			return true
 		}
-		if calls := forbiddenCalls[path]; calls == nil || calls[sel.Sel.Name] {
+		if forbiddenSelectors[path][sel.Sel.Name] {
 			out = append(out, "forbidden call "+path+"."+sel.Sel.Name)
 		}
 		return true
@@ -95,37 +143,86 @@ func purityViolations(file *ast.File) []string {
 	return out
 }
 
-// TestPurityScanCatchesViolations keeps the scan honest: it must flag each
-// forbidden form on a synthetic file, so a broken scan cannot pass silently.
+// TestPurityScanCatchesViolations keeps the scan honest: each forbidden form
+// must be flagged on a synthetic file, and an ordinary pure file must pass, so
+// a broken scan cannot pass silently.
 func TestPurityScanCatchesViolations(t *testing.T) {
-	src := `package engine
-
-import (
-	"github.com/acme/thing"
-	"os"
-	t "time"
-	r "math/rand"
-)
-
-var _ = thing.Get
-var _ = os.Getenv("X")
-var _ = t.Now()
-var _ = r.Intn(3)
-`
-	file, err := parser.ParseFile(token.NewFileSet(), "synthetic.go", src, 0)
-	if err != nil {
-		t.Fatal(err)
+	cases := []struct {
+		name string
+		src  string
+		want []string // substrings that must each appear in the violations
+	}{
+		{
+			name: "non-standard-library import",
+			src:  "package engine\n\nimport \"github.com/acme/thing\"\n\nvar _ = thing.Get\n",
+			want: []string{"non-standard-library import github.com/acme/thing"},
+		},
+		{
+			name: "os reads the environment and files",
+			src:  "package engine\n\nimport \"os\"\n\nvar _ = os.Getenv(\"X\")\nvar _, _ = os.ReadFile(\"f\")\nvar _ = os.ExpandEnv(\"$HOME\")\n",
+			want: []string{"import os is outside"},
+		},
+		{
+			name: "syscall reads the environment",
+			src:  "package engine\n\nimport \"syscall\"\n\nvar _, _ = syscall.Getenv(\"HOME\")\n",
+			want: []string{"import syscall is outside"},
+		},
+		{
+			name: "network and process packages",
+			src:  "package engine\n\nimport (\n\t\"net/http\"\n\t\"os/exec\"\n)\n\nvar _, _ = http.Get(\"u\")\nvar _ = exec.Command(\"ls\")\n",
+			want: []string{"import net/http is outside", "import os/exec is outside"},
+		},
+		{
+			name: "aliased time reads the clock",
+			src:  "package engine\n\nimport t \"time\"\n\nvar _ = t.Now()\n",
+			want: []string{"forbidden call time.Now"},
+		},
+		{
+			name: "time timers, sleeps and zones",
+			src:  "package engine\n\nimport \"time\"\n\nvar _ = time.After(time.Second)\nvar _ = time.Sleep\nvar _ = time.LoadLocation(\"Australia/Sydney\")\nvar _ = time.Local\n",
+			want: []string{"forbidden call time.After", "forbidden call time.Sleep", "forbidden call time.LoadLocation", "forbidden call time.Local"},
+		},
+		{
+			name: "math/rand",
+			src:  "package engine\n\nimport r \"math/rand\"\n\nvar _ = r.Intn(3)\n",
+			want: []string{"import math/rand is outside"},
+		},
+		{
+			name: "printing to the process streams",
+			src:  "package engine\n\nimport \"fmt\"\n\nfunc f() { fmt.Println(\"x\") }\n",
+			want: []string{"forbidden call fmt.Println"},
+		},
+		{
+			name: "dot import",
+			src:  "package engine\n\nimport . \"time\"\n\nvar _ = Duration(1)\n",
+			want: []string{"dot import of time"},
+		},
+		{
+			name: "pure file passes",
+			src:  "package engine\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\t\"time\"\n)\n\nvar _ = fmt.Sprintf(\"%s\", strings.ToUpper(\"x\"))\nvar _ time.Duration = time.Second\n",
+			want: nil,
+		},
 	}
-	got := strings.Join(purityViolations(file), "\n")
-	for _, want := range []string{
-		"non-standard-library import github.com/acme/thing",
-		"forbidden call os.Getenv",
-		"forbidden call time.Now",
-		"forbidden call math/rand.Intn",
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("scan missed %q; got:\n%s", want, got)
-		}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			file, err := parser.ParseFile(token.NewFileSet(), "synthetic.go", tc.src, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := purityViolations(file)
+			if tc.want == nil {
+				if len(got) != 0 {
+					t.Fatalf("pure file flagged: %v", got)
+				}
+				return
+			}
+			joined := strings.Join(got, "\n")
+			for _, want := range tc.want {
+				if !strings.Contains(joined, want) {
+					t.Errorf("scan missed %q; got:\n%s", want, joined)
+				}
+			}
+		})
 	}
 }
 
