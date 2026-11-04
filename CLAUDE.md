@@ -770,6 +770,20 @@ or Create-alert control renders: those capabilities stay off.
   `ineligible_reason` is a closed vocabulary: a stock outside the universe
   reads `short_history`. Rule `value`s keep the API's precision; the
   mapper rounds only the figures a cut-off reads, rounding down.
+- **Signed-in depth never enters a cache.** The Signals island reads a signed-in
+  viewer's whole list through `app/actions/strategies/viewer.ts`
+  (`getSignalsForViewer`, the private `GetViewerStrategyPicks`) once the session
+  is known: read once in rank order, paged to the reported total (the API caps a
+  page at 100), and sorted in the browser. That module imports no cache helper,
+  and its guard test reads the source. The Signals ISR page stays anonymous: its
+  HTML carries the top 10 rows and the sign-in prompt row, which also draws while
+  the session loads. The full list is drawn only when its snapshot (session and
+  rules version) matches the page's, so a refresh can refuse it briefly until the
+  page regenerates. Its transport, `app/actions/auth-transport.ts`
+  (`createSignedInTransport(options)`), reads the session itself and derives the
+  verified address from it: a caller passes options only. It fails closed in
+  production without `INTERNAL_SERVICE_SECRET`; read-only calls send identity
+  only, with no address and no Firebase lookup.
 
 ## Strategy chart primitives and returns kit (PR-17)
 
@@ -805,16 +819,6 @@ They are in place so the chart and table code is reviewed once.
   (a new token, light sand in dark) rather than `var(--background)`, which
   keeps the ink above 4.5:1 in both themes; a `CoverageStrip` month row is the
   `columns` layout here rather than a separate primitive.
-
-- **Signed-in depth never enters a cache.** The Signals island reads a signed-in
-  viewer's whole list through `app/actions/strategies/viewer.ts`
-  (`getSignalsForViewer`, the private `GetViewerStrategyPicks`) once the session
-  is known. That module imports no `unstable_cache` and no KV helper, and the
-  Signals ISR page stays anonymous (the top 10 rows and the sign-in prompt).
-  Its transport, `app/actions/auth-transport.ts` (`createSignedInTransport`),
-  derives the verified address from the session itself and fails closed in
-  production without `INTERNAL_SERVICE_SECRET`; read-only calls send identity
-  only, with no address and no Firebase lookup.
 
 ## Stock page (one route per tab)
 
