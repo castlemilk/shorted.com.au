@@ -247,7 +247,7 @@ func TestAlertLevelOutageWaitsAndWritesNothing(t *testing.T) {
 	if !res.Waiting {
 		t.Fatalf("two of three without data must wait: %+v", res)
 	}
-	if want := []SideOutage{{Side: SideEntry, Unknown: 2, Total: 3, Waiting: true}}; !reflect.DeepEqual(res.Sides, want) {
+	if want := []SideOutage{{Side: SideEntry, Unknown: 2, Total: 3}}; !reflect.DeepEqual(res.Sides, want) {
 		t.Fatalf("sides %+v, want %+v", res.Sides, want)
 	}
 	if res.SetBaseline {
@@ -312,72 +312,64 @@ func mixedSpec() Spec {
 	return spec
 }
 
-func TestOneSidesOutageDoesNotHoldTheOtherSide(t *testing.T) {
+func TestMostOfTheAlertWithoutDataWaitsAsAWhole(t *testing.T) {
 	a := Alert{Spec: mixedSpec(), FirstEval: FirstEvalBaseline, Baselined: true}
 	belowPivot := &Position{EntryPrice: 9, Pivot: f(10), SessionsHeld: 3}
+	noClose := &Position{EntryPrice: 9, Pivot: f(10), SessionsHeld: 3}
+	closed := Observation{Metrics: map[string]float64{MetricClose: 9.9}}
 
-	t.Run("entry side waits, exit still fires", func(t *testing.T) {
+	t.Run("a stale stock is outvoted by the alert's known subjects", func(t *testing.T) {
+		// Two of six subjects lack data, so the alert is not waiting: the known
+		// position fires and the stale stock records its own skip.
+		res, err := Evaluate(a, 9, []Subject{
+			{Key: "code:AAA", Side: SideEntry, State: DefaultState()},
+			{Key: "code:BBB", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
+			{Key: "code:CCC", Side: SideEntry, Current: Observation{Status: StatusSetup}, State: DefaultState()},
+			{Key: "entry:1", Side: SideExit, Position: belowPivot, Current: closed, State: DefaultState()},
+			{Key: "entry:2", Side: SideExit, Position: belowPivot, Current: closed, State: DefaultState()},
+			{Key: "entry:3", Side: SideExit, Position: belowPivot, Current: closed, State: DefaultState()},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Waiting {
+			t.Fatalf("two of six without data must not wait: %+v", res.Sides)
+		}
+		if ex := res.Subjects[3]; !ex.Emit {
+			t.Fatalf("the known position must fire: %+v", ex)
+		}
+		if st := res.Subjects[0]; st.Emit || !st.Skipped || st.State.UnavailableSince == nil {
+			t.Fatalf("the stale stock records its skip and fires nothing: %+v", st)
+		}
+	})
+
+	t.Run("most of the alert without data waits as a whole", func(t *testing.T) {
+		// Three of five subjects lack data: the alert waits, so the known
+		// position does not fire and nothing moves.
+		known := DefaultState()
 		res, err := Evaluate(a, 9, []Subject{
 			{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
 			{Key: "code:BBB", Side: SideEntry, State: DefaultState()},
 			{Key: "code:CCC", Side: SideEntry, State: DefaultState()},
-			{Key: "entry:7", Side: SideExit, Position: belowPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+			{Key: "entry:1", Side: SideExit, Position: noClose, State: DefaultState()},
+			{Key: "entry:2", Side: SideExit, Position: belowPivot, Current: closed, State: known},
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !res.Waiting || res.Sides[0].Waiting != true || res.Sides[1].Waiting {
-			t.Fatalf("only the entry side waits: %+v", res.Sides)
+		if !res.Waiting || res.SetBaseline {
+			t.Fatalf("three of five without data waits and sets no baseline: %+v", res)
 		}
-		if res.Subjects[0].Emit || res.Subjects[0].State != DefaultState() {
-			t.Fatalf("the waiting entry side fires nothing: %+v", res.Subjects[0])
+		for _, r := range res.Subjects {
+			if r.Emit || r.Skipped {
+				t.Fatalf("%s: a waiting alert writes no events (emit %v skipped %v)", r.Key, r.Emit, r.Skipped)
+			}
 		}
-		if ex := res.Subjects[3]; !ex.Emit {
-			t.Fatalf("the exit side must keep watching its position: %+v", ex)
+		if ex := res.Subjects[4]; ex.State != known {
+			t.Fatalf("the known position keeps its state while the alert waits: %+v", ex)
 		}
-	})
-
-	t.Run("exit side waits, entry still fires", func(t *testing.T) {
-		// Three tracked positions with a captured pivot and no close: a real
-		// data outage on the exit side.
-		noClose := &Position{EntryPrice: 9, Pivot: f(10), SessionsHeld: 3}
-		res, err := Evaluate(a, 9, []Subject{
-			{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
-			{Key: "entry:1", Side: SideExit, Position: noClose, Current: Observation{}, State: DefaultState()},
-			{Key: "entry:2", Side: SideExit, Position: noClose, Current: Observation{}, State: DefaultState()},
-			{Key: "entry:3", Side: SideExit, Position: belowPivot, Current: Observation{}, State: DefaultState()},
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !res.Waiting || res.Sides[0].Waiting || !res.Sides[1].Waiting {
-			t.Fatalf("only the exit side waits: %+v", res.Sides)
-		}
-		if ent := res.Subjects[0]; !ent.Emit {
-			t.Fatalf("the entry side must keep firing: %+v", ent)
-		}
-		if ex := res.Subjects[1]; ex.Emit || ex.State != DefaultState() {
-			t.Fatalf("the waiting exit side fires nothing and keeps its state: %+v", ex)
-		}
-	})
-
-	t.Run("exit side waits on its own, a known position still fires", func(t *testing.T) {
-		// Two of three positions have a captured pivot but no close. The third
-		// has data: it is evaluated, but the side waiting holds it back.
-		res, err := Evaluate(a, 9, []Subject{
-			{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
-			{Key: "entry:1", Side: SideExit, Position: belowPivot, Current: Observation{}, State: DefaultState()},
-			{Key: "entry:2", Side: SideExit, Position: belowPivot, Current: Observation{}, State: DefaultState()},
-			{Key: "entry:3", Side: SideExit, Position: belowPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !res.Sides[1].Waiting {
-			t.Fatalf("two of three positions without data wait: %+v", res.Sides[1])
-		}
-		if ex := res.Subjects[3]; ex.Emit {
-			t.Fatalf("the waiting exit side fires nothing, even for a known position: %+v", ex)
+		if res.Subjects[1].SkipReason == "" || res.Subjects[3].SkipReason == "" {
+			t.Fatal("a waiting alert keeps each subject's reason for the missing input")
 		}
 	})
 }
@@ -397,7 +389,7 @@ func TestPivotlessPositionsAreNotAnOutage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Sides[0].Waiting || res.Sides[0].Total != 2 {
+	if res.Waiting || res.Sides[0].Unknown != 0 || res.Sides[0].Total != 2 {
 		t.Fatalf("the entry side has data for every stock: %+v", res.Sides[0])
 	}
 	if want := (SideOutage{Side: SideExit, Unknown: 0, Total: 1, NoPivot: 2}); res.Sides[1] != want {
@@ -412,10 +404,11 @@ func TestPivotlessPositionsAreNotAnOutage(t *testing.T) {
 	}
 }
 
-func TestFirstEvaluationIsGatedByTheEntrySide(t *testing.T) {
-	// Notify-existing, not yet baselined. The entry side has data for every
-	// stock, but one tracked position has a pivot and no close. The exit side
-	// waits on its own, and the entry side still sets the baseline and fires.
+func TestFirstEvaluationCountsBothSidesTogether(t *testing.T) {
+	// Notify-existing, not yet baselined. Three of four subjects have data (the
+	// position with no close is the one that lacks it), so the alert evaluates,
+	// sets the baseline and reports the stock that is already triggered. The
+	// pivot-less position is not counted as an outage.
 	a := Alert{Spec: mixedSpec(), FirstEval: FirstEvalNotifyExisting}
 	res, err := Evaluate(a, 1, []Subject{
 		{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
@@ -426,50 +419,53 @@ func TestFirstEvaluationIsGatedByTheEntrySide(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Sides[0].Waiting || !res.Sides[1].Waiting {
-		t.Fatalf("only the exit side waits: %+v", res.Sides)
+	if res.Waiting || !res.SetBaseline {
+		t.Fatalf("three of four with data evaluates and sets the baseline: %+v", res)
 	}
-	if !res.SetBaseline {
-		t.Fatal("a known entry side sets the baseline beside a waiting exit side")
+	if want := (SideOutage{Side: SideExit, Unknown: 1, Total: 1, NoPivot: 1}); res.Sides[1] != want {
+		t.Fatalf("exit side %+v, want %+v", res.Sides[1], want)
 	}
 	if ent := res.Subjects[0]; !ent.Emit || !ent.ExistingMatch {
-		t.Fatalf("the entry side is evaluated on the first evaluation: %+v", ent)
+		t.Fatalf("the triggered stock is reported on the first evaluation: %+v", ent)
 	}
-	if ex := res.Subjects[2]; ex.Emit || ex.State != DefaultState() {
-		t.Fatalf("the waiting exit side is not evaluated on the first evaluation: %+v", ex)
+	if ex := res.Subjects[2]; ex.Emit || !ex.Skipped {
+		t.Fatalf("the position without a close records its skip and fires nothing: %+v", ex)
+	}
+	if ex := res.Subjects[3]; ex.Emit || !ex.Skipped {
+		t.Fatalf("the pivot-less position records its skip and fires nothing: %+v", ex)
 	}
 }
 
-func TestKnownExitFiresBesideAWaitingEntrySide(t *testing.T) {
-	// The mirror case: the entry side is mostly without data, the exit side is
-	// fully known. The gate is the entry side, so only it is held: the entry
-	// side writes nothing and sets no baseline, while the known exit is
-	// evaluated as usual and its event fires.
+func TestBaselineRecordsAKnownExitBesideUnknownStocks(t *testing.T) {
+	// Baseline mode, not yet baselined. Two of four subjects lack data, so the
+	// alert is not waiting. The exit is already under its pivot: that is the
+	// state the baseline records, so it fires nothing, and it is armed off.
 	a := Alert{Spec: mixedSpec(), FirstEval: FirstEvalBaseline}
-	belowPivot := &Position{EntryPrice: 9, Pivot: f(10)}
 	res, err := Evaluate(a, 1, []Subject{
 		{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
-		{Key: "code:BBB", Side: SideEntry, Current: Observation{}, State: DefaultState()},
-		{Key: "code:CCC", Side: SideEntry, Current: Observation{}, State: DefaultState()},
-		{Key: "entry:1", Side: SideExit, Position: belowPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+		{Key: "code:BBB", Side: SideEntry, State: DefaultState()},
+		{Key: "code:CCC", Side: SideEntry, State: DefaultState()},
+		{Key: "entry:1", Side: SideExit, Position: &Position{EntryPrice: 9, Pivot: f(10)}, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !res.Sides[0].Waiting || res.Sides[1].Waiting {
-		t.Fatalf("only the entry side waits: %+v", res.Sides)
+	if res.Waiting {
+		t.Fatalf("two of four without data must not wait: %+v", res.Sides)
 	}
-	if res.SetBaseline {
-		t.Fatal("a waiting entry side sets no baseline, even with a known exit side")
+	if !res.SetBaseline {
+		t.Fatal("the first evaluated session sets the baseline")
 	}
 	for _, r := range res.Subjects {
-		if r.Side == SideEntry && (r.Emit || r.Skipped || r.State != DefaultState()) {
-			t.Fatalf("%s: the held entry side writes nothing: %+v", r.Key, r)
+		if r.Emit {
+			t.Fatalf("%s: the baseline records existing states without events: %+v", r.Key, r)
 		}
 	}
-	ex := res.Subjects[3]
-	if !ex.Emit || ex.ExistingMatch || ex.State.Last != true || ex.State.Disarmed != true {
-		t.Fatalf("the known exit fires and is armed off its own transition: %+v", ex)
+	if !res.Subjects[1].Skipped || !res.Subjects[2].Skipped {
+		t.Fatal("the stocks without data record their skips")
+	}
+	if ex := res.Subjects[3]; !ex.State.Last || !ex.State.Disarmed {
+		t.Fatalf("the exit is armed off its state: %+v", ex.State)
 	}
 }
 
@@ -503,7 +499,7 @@ func TestExactlyHalfWithoutDataIsNotAnOutage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Waiting || res.Sides[0].Waiting {
+	if res.Waiting || res.Sides[0].Unknown != 1 {
 		t.Fatal("one of two without data is half, not more than half")
 	}
 	if !res.Subjects[1].Skipped {
@@ -572,5 +568,47 @@ func TestTheDefaultStateIsTheZeroValue(t *testing.T) {
 	}
 	if (State{Last: true}).IsDefault() {
 		t.Fatal("a true last value must be stored")
+	}
+}
+
+func TestPositionThresholdsCompareExactBoundaries(t *testing.T) {
+	// A close exactly on the threshold reads True, as the recipe's stop-loss
+	// expression (close <= entry * (1 + v/100)) does. The raw quotients are a
+	// few ulps off (-7.9999999999999964, 9.999999999999986).
+	cases := []struct {
+		name  string
+		cond  Condition
+		pos   Position
+		close float64
+	}{
+		{"-8% stop on a 6.25 entry", Condition{Kind: KindPosition, Metric: MetricReturnSinceEntry, Op: OpIsAtMost, Value: f(-8)}, Position{EntryPrice: 6.25}, 5.75},
+		{"+10% on a 3.00 entry", Condition{Kind: KindPosition, Metric: MetricReturnSinceEntry, Op: OpIsAtLeast, Value: f(10)}, Position{EntryPrice: 3.00}, 3.30},
+		{"-8% under a 12.50 pivot", Condition{Kind: KindPosition, Metric: MetricCloseVsEntryPivot, Op: OpIsAtMost, Value: f(-8)}, Position{EntryPrice: 9, Pivot: f(12.50)}, 11.50},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			o := &Observation{Metrics: map[string]float64{MetricClose: c.close}}
+			if got := evalCondition(c.cond, o, nil, &c.pos, false); got != True {
+				t.Fatalf("close %v on %+v: got %v, want true", c.close, c.pos, got)
+			}
+		})
+	}
+}
+
+func TestAnOutOfRangeRuleOutcomeReadsUnknown(t *testing.T) {
+	// A caller that maps a rule outcome wrongly must not read as a pass: the
+	// ALL group would otherwise fire an entry on it.
+	spec := entryOf(OpAll, Condition{Kind: KindRule, RuleID: "breakout", Op: OpPasses})
+	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline, Baselined: true}
+	res, err := Evaluate(a, 1, []Subject{{
+		Key: "code:BHP", Side: SideEntry,
+		Current: Observation{Rules: map[string]Truth{"breakout": Truth(7)}},
+		State:   DefaultState(),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := res.Subjects[0]; r.Value != Unknown || r.Emit {
+		t.Fatalf("an out-of-range outcome must read unknown and not fire: %+v", r)
 	}
 }

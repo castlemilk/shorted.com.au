@@ -43,8 +43,9 @@ type SubjectResult struct {
 	// notify-existing alert, rather than a new transition.
 	ExistingMatch bool
 	// SkipReason is set on every subject whose section is unknown on the
-	// session, including one whose side is waiting. Skipped is true only on
-	// the first such session, when an in-app skipped event is written.
+	// session, including every subject of an alert that is waiting. Skipped is
+	// true only on the first such session of a run of unknowns, when an in-app
+	// skipped event is written.
 	Skipped    bool
 	SkipReason string
 	// State is the state to store (the default state means delete the row).
@@ -64,27 +65,21 @@ type SideOutage struct {
 	// are not a data outage: they are skipped on their own and kept out of Total
 	// and Unknown.
 	NoPivot int
-	// Waiting is true when more than half of the side's subjects are unknown.
-	Waiting bool
 }
 
 // Result is the outcome of one alert on one session.
 type Result struct {
-	// Waiting is true when an enabled side has more than half of its subjects
-	// without data (see Sides). A waiting side fires nothing, writes no events
-	// and leaves its subjects' state alone. The other side is evaluated as
-	// usual, so a stale entry universe does not hold back the exits of tracked
-	// positions. On the first evaluation the baseline gate decides what waits
-	// (see SetBaseline): when the gate side waits, only the gate side is held,
-	// and the other side is evaluated in transition forms with normal arming,
-	// so a tracked position's exit is not lost behind a stale entry universe.
+	// Waiting is true when more than half of the alert's subjects (both sides
+	// together, see Sides) are without data on the session. A waiting alert
+	// fires nothing, writes no events, leaves every subject's state alone and
+	// sets no baseline. Subjects keep their skip reasons.
 	Waiting bool
-	// Sides holds one entry per enabled side, entry first.
+	// Sides holds one entry per enabled side, entry first, with the counts
+	// the alert's wait is decided on.
 	Sides []SideOutage
 	// SetBaseline is true when this session is the alert's first evaluated
-	// session, so the caller sets baseline_as_of to it. The baseline is set
-	// unless the gate side waits: the entry side when enabled, else the exit
-	// side. A waiting exit side beside a known entry side does not hold it.
+	// session (the alert is not yet baselined and is not waiting), so the caller
+	// sets baseline_as_of to it.
 	SetBaseline bool
 	// Subjects holds one result per subject on an enabled side, in input order.
 	// Subjects on a disabled side are not evaluated and do not appear.
@@ -95,14 +90,15 @@ type Result struct {
 // function of its inputs: the caller supplies the session ordinal, the
 // observations, the tracked positions and the stored state.
 //
-// For each subject the section is evaluated in Kleene logic. A True value on a
-// subject that was not armed or was cooling down does not fire. An unknown
-// value leaves the subject's state alone, apart from recording the first
-// session it went unknown. The first evaluation takes every transition
-// operator in its state form, so a stock that is already in a state does not
-// read as a fresh event (see evalCondition). The exception is an exit side
-// evaluated while the entry side holds the first evaluation: it reads transition
-// forms, so its events are raised as they happen.
+// The alert waits as a whole when more than half of its subjects are unknown
+// on the session: an alert that cannot see most of its stocks does not notify,
+// and a stale entry universe holds back the exits of its tracked positions
+// with it. Otherwise each subject's section is evaluated in Kleene logic. A
+// True value on a subject that was not armed or was cooling down does not
+// fire. An unknown value leaves the subject's state alone, apart from recording
+// the first session it went unknown. Until the alert is baselined every
+// transition operator is taken in its state form, so a stock or position that
+// is already in a state does not read as a fresh event (see evalCondition).
 func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 	if err := a.Spec.Validate(nil); err != nil {
 		return Result{}, fmt.Errorf("alertspec: invalid spec: %w", err)
@@ -113,7 +109,7 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 	firstEval := !a.Baselined
 
 	// The enabled sides, entry first, with their counts still zero.
-	var template []SideOutage
+	var sides []SideOutage
 	sideIdx := map[string]int{}
 	for _, side := range []string{SideEntry, SideExit} {
 		sec, err := sectionOf(a.Spec, side)
@@ -121,100 +117,54 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 			return Result{}, err
 		}
 		if sec.Enabled {
-			sideIdx[side] = len(template)
-			template = append(template, SideOutage{Side: side})
+			sideIdx[side] = len(sides)
+			sides = append(sides, SideOutage{Side: side})
 		}
-	}
-	// The baseline gate is the entry side when it is enabled, else the exit side.
-	gate := SideExit
-	if _, ok := sideIdx[SideEntry]; ok {
-		gate = SideEntry
 	}
 
-	type pending struct {
-		SubjectResult
-		skipReason string
-	}
-	// scan evaluates every subject on an enabled side and counts each side's
-	// outage. first reports whether a side reads its first-evaluation forms.
-	scan := func(first func(side string) bool) ([]pending, []SideOutage, error) {
-		sides := append([]SideOutage(nil), template...)
-		var results []pending
-		for _, sub := range subjects {
-			sec, err := sectionOf(a.Spec, sub.Side)
-			if err != nil {
-				return nil, nil, err
-			}
-			if !sec.Enabled {
-				continue
-			}
-			conds := make([]Truth, len(sec.Conditions))
-			for i, c := range sec.Conditions {
-				conds[i] = evalCondition(c, &sub.Current, sub.Previous, sub.Position, first(sub.Side))
-			}
-			v := combine(sec.Op, conds)
-			p := pending{SubjectResult: SubjectResult{Key: sub.Key, Side: sub.Side, Value: v, Conditions: conds, State: sub.State}}
-			so := &sides[sideIdx[sub.Side]]
-			if v == Unknown {
-				p.skipReason = unknownReason(sec, conds)
-			}
-			if v == Unknown && noPivotOnly(sec, conds, sub.Position) {
-				so.NoPivot++
-			} else {
-				so.Total++
-				if v == Unknown {
-					so.Unknown++
-				}
-			}
-			results = append(results, p)
-		}
-		for i := range sides {
-			sides[i].Waiting = sides[i].Total > 0 && 2*sides[i].Unknown > sides[i].Total
-		}
-		return results, sides, nil
-	}
-	// firstFor returns the first-evaluation reading per side. While the gate
-	// side holds the first evaluation, only the gate side reads it: the other
-	// side is evaluated as a baselined side, in transition forms.
-	firstFor := func(holding bool) func(string) bool {
-		return func(side string) bool { return firstEval && (!holding || side == gate) }
-	}
-
-	results, sides, err := scan(firstFor(false))
-	if err != nil {
-		return Result{}, err
-	}
-	// Only the gate side decides whether the first evaluation waits. An exit
-	// side waiting on its own, beside a known entry side, does not hold it.
-	holding := false
-	if i, ok := sideIdx[gate]; ok && firstEval {
-		holding = sides[i].Waiting
-	}
-	if holding {
-		results, sides, err = scan(firstFor(true))
+	results := make([]SubjectResult, 0, len(subjects))
+	total, unknown := 0, 0
+	for _, sub := range subjects {
+		sec, err := sectionOf(a.Spec, sub.Side)
 		if err != nil {
 			return Result{}, err
 		}
-	}
-
-	waitingAny := false
-	for i := range sides {
-		waitingAny = waitingAny || sides[i].Waiting
-	}
-	firstOf := firstFor(holding)
-	frozen := func(side string) bool {
-		return sides[sideIdx[side]].Waiting || (holding && side == gate)
-	}
-
-	out := make([]SubjectResult, len(results))
-	for i, p := range results {
-		r := p.SubjectResult
-		r.SkipReason = p.skipReason
-		s := r.State
-		if frozen(r.Side) {
-			out[i] = r
+		if !sec.Enabled {
 			continue
 		}
+		conds := make([]Truth, len(sec.Conditions))
+		for i, c := range sec.Conditions {
+			conds[i] = evalCondition(c, &sub.Current, sub.Previous, sub.Position, firstEval)
+		}
+		v := combine(sec.Op, conds)
+		r := SubjectResult{Key: sub.Key, Side: sub.Side, Value: v, Conditions: conds, State: sub.State}
+		if v == Unknown {
+			r.SkipReason = unknownReason(sec, conds)
+		}
+		so := &sides[sideIdx[sub.Side]]
+		if v == Unknown && noPivotOnly(sec, conds, sub.Position) {
+			so.NoPivot++
+		} else {
+			so.Total++
+			total++
+			if v == Unknown {
+				so.Unknown++
+				unknown++
+			}
+		}
+		results = append(results, r)
+	}
+
+	// The alert waits when more than half of its subjects have no data. A
+	// waiting alert is held whole: nothing fires, no skip is written and no
+	// state moves, so an outage is never recorded as an event.
+	if total > 0 && 2*unknown > total {
+		return Result{Waiting: true, Sides: sides, Subjects: results}, nil
+	}
+
+	for i := range results {
+		r := &results[i]
+		s := r.State
 		if r.Value == Unknown {
 			if s.UnavailableSince == nil {
 				since := session
@@ -227,10 +177,11 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 				s.CooldownUntil = nil
 			}
 			switch {
-			case firstOf(r.Side):
+			case firstEval:
 				if r.Value == True {
-					// A subject that already raised its event on a session of
-					// the hold is disarmed, so the baseline does not raise it again.
+					// A subject that is already in its state on the first
+					// evaluation is recorded as armed off, so it is not raised
+					// again later. Only notify-existing raises it now.
 					if a.FirstEval == FirstEvalNotifyExisting && !s.Disarmed {
 						r.Emit = true
 						r.ExistingMatch = true
@@ -251,13 +202,11 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 			s.Last = r.Value == True
 		}
 		r.State = s
-		out[i] = r
 	}
 	return Result{
-		Waiting:     waitingAny,
 		Sides:       sides,
-		SetBaseline: firstEval && !holding && len(out) > 0,
-		Subjects:    out,
+		SetBaseline: firstEval && len(results) > 0,
+		Subjects:    results,
 	}, nil
 }
 
@@ -366,13 +315,15 @@ func evalStatus(c Condition, cur, prev *Observation, stateForm bool) Truth {
 	return Unknown
 }
 
-// ruleAt reads a rule's pass or fail on a session. A missing id is unknown.
+// ruleAt reads a rule's pass or fail on a session. A missing id, and any
+// value other than True or False, is unknown: a caller's mapping mistake must
+// never read as a pass.
 func ruleAt(o *Observation, id string) Truth {
 	if o == nil {
 		return Unknown
 	}
 	t, ok := o.Rules[id]
-	if !ok {
+	if !ok || (t != True && t != False) {
 		return Unknown
 	}
 	return t
@@ -391,6 +342,14 @@ func evalRule(c Condition, cur, prev *Observation, stateForm bool) Truth {
 		return and(ruleAt(cur, c.RuleID), not(ruleAt(prev, c.RuleID)))
 	}
 	return Unknown
+}
+
+// pctPoints rounds a percentage to 1e-9 points. A price that sits exactly on a
+// threshold computes as a percentage a few ulps off it (6.25 against 5.75 is
+// -7.9999999999999964, not -8), and ASX tick sizes make such closes common, so
+// the comparison must not depend on the last bit of the division.
+func pctPoints(x float64) float64 {
+	return math.Round(x*1e9) / 1e9
 }
 
 // finiteMetric reads a stored metric, treating a missing or non-finite value as unknown.
@@ -426,7 +385,7 @@ func metricValue(c Condition, o *Observation, pos *Position) (float64, bool) {
 		if !ok {
 			return 0, false
 		}
-		return (cl / *pos.Pivot - 1) * 100, true
+		return pctPoints((cl / *pos.Pivot - 1) * 100), true
 	case MetricReturnSinceEntry:
 		if pos == nil || pos.EntryPrice <= 0 {
 			return 0, false
@@ -435,7 +394,7 @@ func metricValue(c Condition, o *Observation, pos *Position) (float64, bool) {
 		if !ok {
 			return 0, false
 		}
-		return (cl/pos.EntryPrice - 1) * 100, true
+		return pctPoints((cl/pos.EntryPrice - 1) * 100), true
 	}
 	key := c.Metric
 	if c.Metric == MetricCloseVsSMA {

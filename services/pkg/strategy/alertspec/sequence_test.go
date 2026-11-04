@@ -413,13 +413,12 @@ func stateOr(states map[string]State, key string) State {
 	return DefaultState()
 }
 
-func TestTimeStopBesideAWaitingEntrySideFiresOnItsSession(t *testing.T) {
-	// The entry stock reads unknown on sessions 1 to 25 (more than half of the
-	// side, so the side waits) and is at setup from 26. The tracked position was
-	// held 6 sessions when linked, so its time stop of 20 is reached on session
-	// 15. The exit fires there under either first-evaluation mode, not on 26 as
-	// an existing match, and the baseline is set on 26 when the entry side
-	// becomes known.
+func TestTimeStopDuringAWaitingAlertIsNotLostOnceItResumes(t *testing.T) {
+	// Three of four stocks read unknown on sessions 1 to 25, so the alert waits
+	// and holds its position's exit with it. The stocks are known from 26, when
+	// the first evaluation runs. The time stop (held 20) was reached long before,
+	// so notify-existing reports it on 26 as an existing match. Baseline mode
+	// records it silently, as the state the first evaluation finds.
 	for _, mode := range []string{FirstEvalBaseline, FirstEvalNotifyExisting} {
 		t.Run(mode, func(t *testing.T) {
 			spec := exitOf(OpAny,
@@ -429,20 +428,23 @@ func TestTimeStopBesideAWaitingEntrySideFiresOnItsSession(t *testing.T) {
 			spec.Entry = entryOf(OpAll, Condition{Kind: KindStatus, Status: StatusTriggered, Op: OpIs}).Entry
 			spec.Cooldown = 0
 			a := Alert{Spec: spec, FirstEval: mode}
-			pos := Position{EntryPrice: 9, Pivot: f(10)}
 			fired, baselineOn := runFeed(t, a, 26, func(s Session) []feed {
 				st := StatusUnknown
 				if s >= 26 {
 					st = StatusSetup
 				}
-				p := pos
-				p.SessionsHeld = 5 + int(s)
-				return []feed{
-					{key: "code:BHP", side: SideEntry, obs: Observation{Status: st}},
-					{key: "entry:7", side: SideExit, obs: Observation{Metrics: map[string]float64{MetricClose: 10.5}}, pos: &p},
+				p := Position{EntryPrice: 9, Pivot: f(10), SessionsHeld: 5 + int(s)}
+				var feeds []feed
+				for _, k := range []string{"code:AAA", "code:BBB", "code:CCC"} {
+					feeds = append(feeds, feed{key: k, side: SideEntry, obs: Observation{Status: st}})
 				}
+				return append(feeds, feed{key: "entry:7", side: SideExit, obs: Observation{Metrics: map[string]float64{MetricClose: 10.5}}, pos: &p})
 			})
-			if want := []Session{15}; !reflect.DeepEqual(fired["entry:7"], want) {
+			want := []Session(nil)
+			if mode == FirstEvalNotifyExisting {
+				want = []Session{26}
+			}
+			if !reflect.DeepEqual(fired["entry:7"], want) {
 				t.Fatalf("time stop fired on %v, want %v", fired["entry:7"], want)
 			}
 			if baselineOn != 26 {
@@ -452,12 +454,12 @@ func TestTimeStopBesideAWaitingEntrySideFiresOnItsSession(t *testing.T) {
 	}
 }
 
-func TestExitBesideAStockThatStaysUnknownFiresWithoutABaseline(t *testing.T) {
-	// Three stocks, two of them unknown throughout, so the entry side waits on
-	// every session and never sets a baseline. The tracked position closes under
-	// its pivot from session 5 (a transition, so it fires there) and reaches its
-	// time stop of 20 on session 21 after the close has dropped back under the
-	// pivot. The exit fires on both sessions.
+func TestAStaleScopeHoldsTheExitsAndSetsNoBaseline(t *testing.T) {
+	// Two of four stocks have no data throughout, one has data, and the tracked
+	// position closes under its pivot from session 5 and reaches its time stop
+	// of 20 on session 21. With three of five subjects unknown the alert waits
+	// on every session, so the exit fires nothing and the alert sets no
+	// baseline.
 	spec := exitOf(OpAny,
 		Condition{Kind: KindPosition, Metric: MetricCloseVsEntryPivot, Op: OpCrossesBelow, Value: f(0)},
 		Condition{Kind: KindPosition, Metric: MetricSessionsHeld, Op: OpReaches, Value: f(20)},
@@ -477,16 +479,106 @@ func TestExitBesideAStockThatStaysUnknownFiresWithoutABaseline(t *testing.T) {
 			{key: "code:AAA", side: SideEntry, obs: Observation{Status: StatusSetup}},
 			{key: "code:BBB", side: SideEntry, obs: Observation{Status: StatusUnknown}},
 			{key: "code:CCC", side: SideEntry, obs: Observation{Status: StatusUnknown}},
+			{key: "code:DDD", side: SideEntry, obs: Observation{Status: StatusUnknown}},
 			{key: "entry:7", side: SideExit, obs: Observation{Metrics: map[string]float64{MetricClose: close}}, pos: &p},
 		}
 	})
-	if want := []Session{5, 21}; !reflect.DeepEqual(fired["entry:7"], want) {
-		t.Fatalf("exit fired on %v, want %v", fired["entry:7"], want)
+	if len(fired) != 0 {
+		t.Fatalf("a waiting alert fires nothing, got %v", fired)
 	}
 	if baselineOn != 0 {
-		t.Fatalf("a stock that stays unknown sets no baseline, got %d", baselineOn)
+		t.Fatalf("a waiting alert sets no baseline, got %d", baselineOn)
 	}
-	if len(fired["code:AAA"])+len(fired["code:BBB"])+len(fired["code:CCC"]) != 0 {
-		t.Fatalf("the held entry side fires nothing: %+v", fired)
+}
+
+func TestAnExitReachedAsTheStockBecomesKnownFiresOnItsSessions(t *testing.T) {
+	// The stock has no status until 14, so the alert (one of two subjects
+	// unknown) is not waiting and is baselined on 1. The position closes under
+	// its pivot on 15, a transition that fires there, and reaches its time stop
+	// on 21 (held 20). Both fire once.
+	spec := exitOf(OpAny,
+		Condition{Kind: KindPosition, Metric: MetricCloseVsEntryPivot, Op: OpCrossesBelow, Value: f(0)},
+		Condition{Kind: KindPosition, Metric: MetricSessionsHeld, Op: OpReaches, Value: f(20)},
+	)
+	spec.Entry = entryOf(OpAll, Condition{Kind: KindStatus, Status: StatusTriggered, Op: OpIs}).Entry
+	spec.Cooldown = 0
+	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline}
+	fired, baselineOn := runFeed(t, a, 22, func(s Session) []feed {
+		st := StatusUnknown
+		if s >= 14 {
+			st = StatusSetup
+		}
+		close := 10.5
+		if s >= 15 {
+			close = 9.9
+		}
+		p := Position{EntryPrice: 9, Pivot: f(10), SessionsHeld: int(s) - 1}
+		return []feed{
+			{key: "code:BHP", side: SideEntry, obs: Observation{Status: st}},
+			{key: "entry:7", side: SideExit, obs: Observation{Metrics: map[string]float64{MetricClose: close}}, pos: &p},
+		}
+	})
+	if want := []Session{15, 21}; !reflect.DeepEqual(fired["entry:7"], want) {
+		t.Fatalf("exit fired on %v, want %v", fired["entry:7"], want)
+	}
+	if baselineOn != 1 {
+		t.Fatalf("baseline set on %d, want 1", baselineOn)
+	}
+}
+
+func TestAnExitUnderItsStopOnTheBaselineSessionIsRecordedSilently(t *testing.T) {
+	// The stock is unknown on session 1 only. The position is already 10% under
+	// its entry, so the baseline records that state without an event (the stock
+	// being unknown does not make the alert wait). It fires nothing on 1 or 2.
+	spec := exitOf(OpAny, Condition{Kind: KindPosition, Metric: MetricReturnSinceEntry, Op: OpIsAtMost, Value: f(-8)})
+	spec.Entry = entryOf(OpAll, Condition{Kind: KindStatus, Status: StatusTriggered, Op: OpIs}).Entry
+	spec.Cooldown = 0
+	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline}
+	fired, baselineOn := runFeed(t, a, 3, func(s Session) []feed {
+		st := StatusUnknown
+		if s >= 2 {
+			st = StatusSetup
+		}
+		p := Position{EntryPrice: 10}
+		return []feed{
+			{key: "code:BHP", side: SideEntry, obs: Observation{Status: st}},
+			{key: "entry:7", side: SideExit, obs: Observation{Metrics: map[string]float64{MetricClose: 9}}, pos: &p},
+		}
+	})
+	if len(fired) != 0 {
+		t.Fatalf("the baseline records the stop without an event, fired %v", fired)
+	}
+	if baselineOn != 1 {
+		t.Fatalf("baseline set on %d, want 1", baselineOn)
+	}
+}
+
+func TestTwoPositionsWithoutACloseDoNotHoldAKnownExitOnTheBaseline(t *testing.T) {
+	// Of four subjects, two positions have a pivot but no close. Two of four is
+	// not more than half, so the alert is evaluated on 1 and baselined. The
+	// position under its pivot is the state notify-existing reports on the first
+	// evaluation, as an existing match, even beside the two with no close.
+	spec := exitOf(OpAny, Condition{Kind: KindPosition, Metric: MetricCloseVsEntryPivot, Op: OpIsAtMost, Value: f(0)})
+	spec.Cooldown = 0
+	a := Alert{Spec: spec, FirstEval: FirstEvalNotifyExisting}
+	fired, baselineOn := runFeed(t, a, 3, func(s Session) []feed {
+		under := Observation{Metrics: map[string]float64{MetricClose: 9.9}}
+		above := Observation{Metrics: map[string]float64{MetricClose: 10.5}}
+		pivot := Position{EntryPrice: 9, Pivot: f(10)}
+		return []feed{
+			{key: "entry:1", side: SideExit, obs: Observation{}, pos: &pivot},
+			{key: "entry:2", side: SideExit, obs: Observation{}, pos: &pivot},
+			{key: "entry:3", side: SideExit, obs: under, pos: &pivot},
+			{key: "entry:4", side: SideExit, obs: above, pos: &pivot},
+		}
+	})
+	if baselineOn != 1 {
+		t.Fatalf("baseline set on %d, want 1", baselineOn)
+	}
+	if want := []Session{1}; !reflect.DeepEqual(fired["entry:3"], want) {
+		t.Fatalf("entry:3 fired on %v, want the existing match %v", fired["entry:3"], want)
+	}
+	if len(fired["entry:4"]) != 0 {
+		t.Fatalf("the position above its pivot fires nothing, got %v", fired["entry:4"])
 	}
 }
