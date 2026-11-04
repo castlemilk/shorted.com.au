@@ -16,9 +16,15 @@ import (
 // sorted; the maps are keyed by stock code and are never ranged over for output.
 // The readers that fill each field are pgsource's (PR-09c); the fields are
 // fixed here so that the backtest is written against them.
+//
+// Bars are each code's stock_prices rows as stored, date ascending, with no
+// close filter: unpriced closes and zero volume are kept. AsOf, DaysToCover
+// and CASuspects drop the rows whose close fails validPrice themselves, while
+// DaysToCoverV0 reads the rows as 000080 does, so a reader or backtest must not
+// filter them before they reach the features.
 type Inputs struct {
 	Codes        []string                         // sorted; the only iteration order
-	Bars         map[string][]features.Bar        // per code, date ascending, px-filtered by the reader
+	Bars         map[string][]features.Bar        // per code, date ascending, unfiltered (see above)
 	XJO          []features.IndexBar              // regime, RS
 	XJT          []features.IndexBar              // benchmark
 	ASIC         []features.ASICRow               // shorts rows for the report dates needed, zero rows included
