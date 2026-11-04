@@ -4,10 +4,13 @@
 // database that answers SQLSTATE 42P01 or 42703.
 //
 // Missing objects: a database that predates a migration answers 42P01
-// (undefined table) or 42703 (undefined column). The readers of the stock
-// picker and fundamentals treat both as "absent": an empty result, logged
-// once per method, never an error. Any other error is returned, so a timeout
-// on a sick view cannot pass for "no data".
+// (undefined table) or 42703 (undefined column). The fundamentals reads (the
+// growth view and the 000132 extras) treat both as absent. The other picker
+// reads (ListGrowth, GetGrowth, ReportIngests, ETPSet, CompanyNames, Metadata,
+// CashRate) treat 42P01 as absent. Bars, IndexBars, ASICRows and Dividends
+// treat neither as absent: their tables predate the picker. An absent object
+// is an empty result, logged once per method, never an error. Any other error
+// is returned, so a timeout on a sick view cannot pass for "no data".
 package pgsource
 
 import (
@@ -55,7 +58,7 @@ var missingRelationLog sync.Map // method name -> *sync.Once
 func logMissingRelationOnce(method string, err error) {
 	once, _ := missingRelationLog.LoadOrStore(method, &sync.Once{})
 	once.(*sync.Once).Do(func() {
-		log.Warnf("%s: a stock-picker relation is missing (migrations 000129/000130 not applied?); serving an empty result: %v", method, err)
+		log.Warnf("%s: a relation this read needs is missing (a migration not applied, or a source table absent); serving an empty result: %v", method, err)
 	})
 }
 

@@ -92,10 +92,11 @@ func TestMonthlyForwardFill(t *testing.T) {
 		{Date: civil.Date{Year: 2024, Month: 5, Day: 1}, Rate: 4.10},
 	}
 	got := monthlyForwardFill(obs, civil.Date{Year: 2024, Month: 6, Day: 30})
+	// March has no observation before it, so the series starts in April. May's
+	// point is dated the first of May, so the 1 May rate is not in it yet.
 	want := []features.RatePoint{
-		{Date: civil.Date{Year: 2024, Month: 3, Day: 1}, Rate: 4.35},
 		{Date: civil.Date{Year: 2024, Month: 4, Day: 1}, Rate: 4.35},
-		{Date: civil.Date{Year: 2024, Month: 5, Day: 1}, Rate: 4.10},
+		{Date: civil.Date{Year: 2024, Month: 5, Day: 1}, Rate: 4.35},
 		{Date: civil.Date{Year: 2024, Month: 6, Day: 1}, Rate: 4.10},
 	}
 	if len(got) != len(want) {
@@ -111,10 +112,59 @@ func TestMonthlyForwardFill(t *testing.T) {
 	}
 }
 
+// A month-end observation, as the RBA's periods are dated, is not in its own
+// month's point: March carries the rate set before March.
+func TestMonthlyForwardFillReadsOnlyEarlierObservations(t *testing.T) {
+	obs := []features.RatePoint{
+		{Date: civil.Date{Year: 2026, Month: 1, Day: 31}, Rate: 4.35},
+		{Date: civil.Date{Year: 2026, Month: 3, Day: 31}, Rate: 4.10},
+	}
+	got := monthlyForwardFill(obs, civil.Date{Year: 2026, Month: 4, Day: 15})
+	want := []features.RatePoint{
+		{Date: civil.Date{Year: 2026, Month: 2, Day: 1}, Rate: 4.35},
+		{Date: civil.Date{Year: 2026, Month: 3, Day: 1}, Rate: 4.35},
+		{Date: civil.Date{Year: 2026, Month: 4, Day: 1}, Rate: 4.10},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("point %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
 func TestMonthlyForwardFillAcrossTheYearEnd(t *testing.T) {
 	obs := []features.RatePoint{{Date: civil.Date{Year: 2023, Month: 11, Day: 1}, Rate: 4.35}}
 	got := monthlyForwardFill(obs, civil.Date{Year: 2024, Month: 1, Day: 1})
-	if len(got) != 3 || got[2].Date != (civil.Date{Year: 2024, Month: 1, Day: 1}) {
+	if len(got) != 2 || got[0].Date != (civil.Date{Year: 2023, Month: 12, Day: 1}) || got[1].Date != (civil.Date{Year: 2024, Month: 1, Day: 1}) {
 		t.Fatalf("year rollover: %+v", got)
+	}
+}
+
+// fundamentalsGoldenHash pins the frozen body of one fully set stock. The
+// body's keys are the Go field names of engine.Growth, engine.Quality and
+// engine.ValuationInputs (they carry no json tags), so a rename or a new field
+// changes every stored hash and every stored blob decodes with a field nil. A
+// change to this hash is a change to the stored format and needs a re-encode.
+const fundamentalsGoldenHash = "9e1912b6a5c2b67b6e4f7acab66e30a36e929e3c813c6383a0dc296c706b83e0"
+
+func TestEncodeFundamentalsGolden(t *testing.T) {
+	pct := 12.5
+	g := &engine.Growth{BasisPeriodType: "ttm", RevenueYoYPct: &pct, EPSYoYPct: &pct, PeriodsAvailable: 2}
+	e := &FundamentalsExtras{
+		HasGrowthRow:       true,
+		RevenueBasisSource: "vendor",
+		EPSBasisSource:     "filing",
+		Quality:            &engine.Quality{BasisPeriodType: "annual", Currency: "AUD", ROEPct: &pct, StatementIsFinancial: true},
+		Valuation:          engine.ValuationInputs{Shares: &pct, KPeriods: 2, KConsistent: true, EPSCurrency: "AUD"},
+	}
+	f, err := EncodeFundamentals(g, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Hash != fundamentalsGoldenHash {
+		t.Fatalf("hash = %s, want %s\nblob: %s", f.Hash, fundamentalsGoldenHash, f.Blob)
 	}
 }

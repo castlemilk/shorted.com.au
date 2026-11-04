@@ -42,9 +42,12 @@ CREATE TABLE shorts (
 CREATE TABLE asic_report_ingests (
 	report_date DATE PRIMARY KEY, file_rows INTEGER, loaded_rows INTEGER NOT NULL);
 CREATE TABLE ownership_funds (fund_type TEXT NOT NULL, asx_code VARCHAR(10));
-CREATE TABLE "company-metadata" (stock_code VARCHAR(50) UNIQUE NOT NULL, company_name VARCHAR(255));
+CREATE TABLE "company-metadata" (
+	stock_code VARCHAR(50) UNIQUE NOT NULL, company_name VARCHAR(255), industry VARCHAR(255),
+	logo_gcs_url TEXT, logo_icon_gcs_url TEXT, key_metrics JSONB);
 CREATE TABLE dividend_history (
-	stock_code VARCHAR(10) NOT NULL, ex_date DATE NOT NULL, amount_per_share DECIMAL(10, 6) NOT NULL);
+	stock_code VARCHAR(10) NOT NULL, ex_date DATE NOT NULL, amount_per_share DECIMAL(10, 6) NOT NULL,
+	dividend_type VARCHAR(30) NOT NULL DEFAULT 'ordinary', UNIQUE (stock_code, ex_date, dividend_type));
 CREATE TABLE economic_series (id BIGSERIAL PRIMARY KEY, series_key TEXT UNIQUE NOT NULL);
 CREATE TABLE economic_observations (
 	series_id BIGINT NOT NULL REFERENCES economic_series(id), period DATE NOT NULL, value DOUBLE PRECISION NOT NULL);
@@ -168,7 +171,7 @@ func TestReadersAgainstPostgres(t *testing.T) {
 	})
 
 	t.Run("company names skip empty names and key on the upper-case code", func(t *testing.T) {
-		exec(`INSERT INTO "company-metadata" VALUES ('bhp', 'BHP Group Limited'), ('XYZ', ''), ('CBA', 'Commonwealth Bank')`)
+		exec(`INSERT INTO "company-metadata" (stock_code, company_name) VALUES ('bhp', 'BHP Group Limited'), ('XYZ', ''), ('CBA', 'Commonwealth Bank')`)
 		names, err := CompanyNames(ctx, pool)
 		require.NoError(t, err)
 		require.Equal(t, "BHP Group Limited", names["BHP"])
@@ -177,8 +180,26 @@ func TestReadersAgainstPostgres(t *testing.T) {
 		require.False(t, empty)
 	})
 
+	t.Run("metadata keys on the upper-case code, prefers the icon logo, and guards the market cap", func(t *testing.T) {
+		exec(`INSERT INTO "company-metadata" (stock_code, company_name, industry, logo_gcs_url, logo_icon_gcs_url, key_metrics) VALUES
+			('META', 'Meta Alpha Ltd', 'Materials', 'https://x/full.png', NULL, '{"market_cap": 1234567.5}'),
+			('METB', 'Meta Beta Ltd', NULL, 'https://x/full.png', 'https://x/icon.png', '{"market_cap": "9e999"}'),
+			('metc', 'Meta Gamma Ltd', '', NULL, NULL, '{"market_cap": "1111111111111111111111111111111111111111"}'),
+			('METD', 'Meta Delta Ltd', 'Energy', NULL, NULL, '{"market_cap": "NaN"}')`)
+		meta, err := Metadata(ctx, pool)
+		require.NoError(t, err, "an exponent, a long number and NaN are withheld in SQL, never a cast error")
+		require.Equal(t, CompanyMeta{Name: "Meta Alpha Ltd", Industry: "Materials", LogoURL: "https://x/full.png",
+			MarketCap: new(1234567.5)}, meta["META"])
+		require.Equal(t, "", meta["METB"].Industry, "a NULL industry reads as empty")
+		require.Equal(t, "https://x/icon.png", meta["METB"].LogoURL, "the icon logo is preferred")
+		require.Nil(t, meta["METB"].MarketCap, "an exponent form is withheld")
+		require.Equal(t, "Meta Gamma Ltd", meta["METC"].Name, "a lower-case code is keyed upper case")
+		require.Nil(t, meta["METC"].MarketCap, "more than 15 whole digits is withheld")
+		require.Nil(t, meta["METD"].MarketCap, "NaN is withheld")
+	})
+
 	t.Run("dividends come from the first ex-date on, per code, in ex-date order", func(t *testing.T) {
-		exec(`INSERT INTO dividend_history VALUES
+		exec(`INSERT INTO dividend_history (stock_code, ex_date, amount_per_share) VALUES
 			('BHP', '2025-03-01', 0.50), ('BHP', '2024-08-01', 0.40), ('BHP', '2024-09-10', 0.99), ('CBA', '2025-06-01', 2.00)`)
 		divs, err := Dividends(ctx, pool, DividendsFrom)
 		require.NoError(t, err)
@@ -188,18 +209,36 @@ func TestReadersAgainstPostgres(t *testing.T) {
 		require.Len(t, divs["CBA"], 1)
 	})
 
-	t.Run("the cash rate is monthly, forward-filled to the month of to", func(t *testing.T) {
+	t.Run("dividends that share an ex-date come back in one fixed order, after a no-op upsert too", func(t *testing.T) {
+		exec(`INSERT INTO dividend_history (stock_code, ex_date, amount_per_share, dividend_type) VALUES
+			('TIE', '2025-06-01', 0.20, 'special'), ('TIE', '2025-06-01', 0.50, 'final')`)
+		first, err := Dividends(ctx, pool, DividendsFrom)
+		require.NoError(t, err)
+		require.Equal(t, []float64{0.5, 0.2}, []float64{first["TIE"][0].AmountPerShare, first["TIE"][1].AmountPerShare},
+			"final sorts before special")
+		// The notice pass upserts the same figure: the row moves in the heap, and
+		// the read must not follow it.
+		exec(`UPDATE dividend_history SET amount_per_share = amount_per_share WHERE stock_code = 'TIE' AND dividend_type = 'special'`)
+		again, err := Dividends(ctx, pool, DividendsFrom)
+		require.NoError(t, err)
+		require.Equal(t, first["TIE"], again["TIE"])
+	})
+
+	t.Run("the cash rate is monthly, each month carrying the rate set before it", func(t *testing.T) {
 		exec(`INSERT INTO economic_series (series_key) VALUES ('rates.cash_rate_target.aus'), ('other')`)
+		// RBA periods are dated at month end, so each rate is first known after
+		// its own month's first day.
 		exec(`INSERT INTO economic_observations (series_id, period, value)
-			SELECT id, '2026-01-01'::date, 4.35 FROM economic_series WHERE series_key = 'rates.cash_rate_target.aus'
-			UNION ALL SELECT id, '2026-03-01'::date, 4.10 FROM economic_series WHERE series_key = 'rates.cash_rate_target.aus'
+			SELECT id, '2026-01-31'::date, 4.35 FROM economic_series WHERE series_key = 'rates.cash_rate_target.aus'
+			UNION ALL SELECT id, '2026-03-31'::date, 4.10 FROM economic_series WHERE series_key = 'rates.cash_rate_target.aus'
 			UNION ALL SELECT id, '2026-03-01'::date, 9.99 FROM economic_series WHERE series_key = 'other'`)
 		rates, err := CashRate(ctx, pool, d(2026, 4, 15))
 		require.NoError(t, err)
-		require.Len(t, rates, 4, "January to April")
-		require.Equal(t, 4.35, rates[1].Rate, "February carries January's rate")
-		require.Equal(t, 4.10, rates[2].Rate, "March takes the new rate")
-		require.Equal(t, 4.10, rates[3].Rate)
+		require.Len(t, rates, 3, "February to April: January's rate first applies in February")
+		require.Equal(t, d(2026, 2, 1), rates[0].Date)
+		require.Equal(t, 4.35, rates[0].Rate)
+		require.Equal(t, 4.35, rates[1].Rate, "March carries the rate set before March, not its month-end figure")
+		require.Equal(t, 4.10, rates[2].Rate, "April takes the March-end rate")
 	})
 }
 

@@ -13,9 +13,10 @@ import (
 )
 
 // Every reader below is per code or bounded by a date range, so none of them
-// scans a whole history (Supabase's work_mem is 2 MB). A NULL price or count
-// is NaN, which the feature functions read as "not a price" or "not a count",
-// never as zero.
+// scans a whole history (Supabase's work_mem is 2 MB). A NULL price, position
+// or share count is NaN, which the feature functions read as "not a price" or
+// "not a count", never as zero. The one NULL read as zero is a bar's volume,
+// as 000130's own price view reads it (see Bars).
 
 // CashRateSeries is the economic_series key of the cash rate target that
 // Sharpe and idle cash read.
@@ -81,6 +82,13 @@ func Bars(ctx context.Context, db DB, code string, from, to civil.Date) ([]featu
 
 // IndexBars reads one index's bars (index_prices, for example XJO or XJT) in
 // [from, to], date ascending. A missing index or range is an empty slice.
+//
+// The dates are as stored, and the stored XJO and XJT dates are one UTC day
+// early under daylight saving: the index sync takes the UTC day of the 10:00
+// Sydney open. The calendar, the regime and relative strength read those dates
+// as the session dates. Until the sync records exchange dates and the two
+// indexes are re-synced, a caller must not build candidates or a backtest on
+// these bars without accepting that shift.
 func IndexBars(ctx context.Context, db DB, indexCode string, from, to civil.Date) ([]features.IndexBar, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
@@ -261,6 +269,11 @@ func CompanyNames(ctx context.Context, db DB) (map[string]string, error) {
 
 // Dividends reads dividend_history from from onward, per code in ex-date
 // order. amount_per_share is the unadjusted cash per share on the ex-date.
+//
+// The key is (stock_code, ex_date, dividend_type), so an ordinary and a special
+// dividend can share an ex-date. Rows that share one come back in a fixed
+// order (type, then amount), so an identical read always returns identical
+// rows in identical order. A consumer sums the rows of one ex-date.
 func Dividends(ctx context.Context, db DB, from civil.Date) (map[string][]features.Dividend, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
@@ -269,7 +282,7 @@ func Dividends(ctx context.Context, db DB, from civil.Date) (map[string][]featur
 		SELECT stock_code::text, ex_date::date, amount_per_share::float8
 		FROM dividend_history
 		WHERE ex_date >= $1::date
-		ORDER BY stock_code, ex_date`, from.String())
+		ORDER BY stock_code, ex_date, dividend_type, amount_per_share`, from.String())
 	if err != nil {
 		return nil, fmt.Errorf("query dividends: %w", err)
 	}
@@ -293,9 +306,12 @@ func Dividends(ctx context.Context, db DB, from civil.Date) (map[string][]featur
 }
 
 // CashRate reads the cash rate target (CashRateSeries) and returns one point
-// per calendar month from the first observation's month through the month of
-// to, each carrying the latest rate observed on or before the month's start.
-// No observation means no points.
+// per calendar month, dated the month's first day, through the month of to.
+// Each point carries the latest rate observed strictly before that day, so a
+// rate is never read in the month it is first observed, and an observation
+// dated at a month's end is not in that month's point. A month with no earlier
+// observation has no point: the first month of the series is the one after
+// its first observation. No observation means no points.
 func CashRate(ctx context.Context, db DB, to civil.Date) ([]features.RatePoint, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
@@ -332,21 +348,26 @@ func CashRate(ctx context.Context, db DB, to civil.Date) ([]features.RatePoint, 
 }
 
 // monthlyForwardFill turns observations (date ascending) into one point per
-// month from the first observation's month through to's month. Each month
-// takes the last observation on or before its first day.
+// month, dated the month's first day, from the month after the first
+// observation through to's month. The point of a month carries the last
+// observation dated before that first day, so no point reads a rate set on or
+// after its own date. obs[:i] are the observations dated before cur: they only
+// grow as cur advances, and obs[i-1] is the latest of them.
 func monthlyForwardFill(obs []features.RatePoint, to civil.Date) []features.RatePoint {
 	if len(obs) == 0 {
 		return nil
 	}
 	var out []features.RatePoint
 	i := 0
-	cur := civil.Date{Year: obs[0].Date.Year, Month: obs[0].Date.Month, Day: 1}
-	last := civil.Date{Year: to.Year, Month: to.Month, Day: 1}
+	cur := monthStart(obs[0].Date)
+	last := monthStart(to)
 	for !cur.After(last) {
-		for i < len(obs) && !monthStart(obs[i].Date).After(cur) {
+		for i < len(obs) && obs[i].Date.Before(cur) {
 			i++
 		}
-		out = append(out, features.RatePoint{Date: cur, Rate: obs[i-1].Rate})
+		if i > 0 {
+			out = append(out, features.RatePoint{Date: cur, Rate: obs[i-1].Rate})
+		}
 		cur = addMonth(cur)
 	}
 	return out
