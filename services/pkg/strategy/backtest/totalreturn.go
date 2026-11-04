@@ -57,7 +57,7 @@ func ClassifyBar(prev, cur Bar, hasPrev bool, date, price4dpFrom time.Time) BarB
 	}
 	q := Quantum(date, price4dpFrom)
 	rk := math.Log((cur.Adj / cur.Close) / (prev.Adj / prev.Close))
-	tol := toleranceFloor + q*(1/cur.Adj+1/cur.Close+1/prev.Adj+1/prev.Close)
+	tol := toleranceFloor + float64(q*(1/cur.Adj+1/cur.Close+1/prev.Adj+1/prev.Close))
 	return BarBasis{
 		HasPrev:     true,
 		RK:          rk,

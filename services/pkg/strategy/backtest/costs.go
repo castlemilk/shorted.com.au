@@ -76,7 +76,7 @@ func (c Costs) Fee(notional, dv20 float64) float64 {
 	if notional <= 0 {
 		return 0
 	}
-	brokerage := math.Max(c.BrokerageBps/10000*notional, c.BrokerageMinAUD)
-	spread := c.SpreadBps(dv20) / 10000 * notional
+	brokerage := math.Max(float64(c.BrokerageBps/10000*notional), c.BrokerageMinAUD)
+	spread := float64(c.SpreadBps(dv20) / 10000 * notional)
 	return c.multiplier() * (brokerage + spread)
 }

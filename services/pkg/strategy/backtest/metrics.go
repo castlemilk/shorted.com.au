@@ -130,7 +130,7 @@ func sampleStdev(xs []float64) float64 {
 	m := mean(xs)
 	ss := 0.0
 	for _, x := range xs {
-		ss += (x - m) * (x - m)
+		ss += float64((x - m) * (x - m))
 	}
 	return math.Sqrt(ss / float64(len(xs)-1))
 }
@@ -188,7 +188,8 @@ func Sharpe(c Curve, rf []float64) SharpeResult {
 	res.Shown = len(r) >= SharpeMinReturns
 	if res.Shown {
 		n := float64(len(r))
-		res.SE = math.Sqrt((1+res.Daily*res.Daily/2)/n) * math.Sqrt(TradingDaysPerYear)
+		half := float64(res.Daily*res.Daily) / 2
+		res.SE = math.Sqrt((1+half)/n) * math.Sqrt(TradingDaysPerYear)
 	}
 	return res
 }
@@ -258,4 +259,55 @@ func MeanExposure(recs []Record) (float64, bool) {
 		}
 	}
 	return sum / float64(len(recs)), true
+}
+
+// Turnover is the annualised fill notional over average equity, halved: a round
+// trip is two fills and the figure is one side of it. Entries count at their
+// notional and closed exits at their proceeds. It is false when no session is
+// recorded or average equity is not positive.
+func Turnover(trades []Trade, recs []Record) (float64, bool) {
+	avg, years, ok := averageEquity(recs)
+	if !ok {
+		return 0, false
+	}
+	notional := 0.0
+	for _, t := range trades {
+		notional += float64(t.Qty * t.EntryPrice)
+		if !t.OpenAtEnd {
+			notional += float64(t.Qty * t.ExitPrice)
+		}
+	}
+	return notional / years / avg / 2, true
+}
+
+// CostsPaid is the total of every fill's brokerage and spread, annualised over
+// average equity. It is false when no session is recorded or average equity is
+// not positive.
+func CostsPaid(trades []Trade, recs []Record) (float64, bool) {
+	avg, years, ok := averageEquity(recs)
+	if !ok {
+		return 0, false
+	}
+	fees := 0.0
+	for _, t := range trades {
+		fees += t.Fees
+	}
+	return fees / years / avg, true
+}
+
+// averageEquity is the mean recorded equity and the window's length in years of
+// TradingDaysPerYear sessions.
+func averageEquity(recs []Record) (avg, years float64, ok bool) {
+	if len(recs) == 0 {
+		return 0, 0, false
+	}
+	sum := 0.0
+	for _, r := range recs {
+		sum += r.Equity
+	}
+	avg = sum / float64(len(recs))
+	if avg <= 0 {
+		return 0, 0, false
+	}
+	return avg, float64(len(recs)) / TradingDaysPerYear, true
 }
