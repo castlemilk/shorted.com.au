@@ -1,5 +1,3 @@
-//go:build testcontainers
-
 package features
 
 import (
@@ -42,8 +40,6 @@ const parityMigration = "../../../migrations/000130_add_price_features.up.sql"
 // parityAnchors are the fixed sessions, and the real date is added at run time.
 var parityAnchors = []string{"2024-01-31", "2024-02-29", "2024-05-31", "2019-04-23"}
 
-func TestMain(m *testing.M) { os.Exit(testpostgres.Main(m)) }
-
 func TestPriceFeaturesParity(t *testing.T) {
 	dsn, err := testpostgres.Admin("FEATURES_PARITY_DATABASE_URL", "FEATURES_PARITY_TESTCONTAINERS")
 	if err != nil {
@@ -57,7 +53,7 @@ func TestPriceFeaturesParity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
-	defer conn.Close(ctx)
+	defer func() { _ = conn.Close(ctx) }()
 
 	anchors := append([]string{}, parityAnchors...)
 	anchors = append(anchors, time.Now().UTC().Format("2006-01-02"))
@@ -75,7 +71,7 @@ func fixtureRows(t *testing.T, name string) [][]string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	recs, err := csv.NewReader(f).ReadAll()
 	if err != nil {
 		t.Fatalf("%s: %v", name, err)

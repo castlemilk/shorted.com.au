@@ -212,6 +212,7 @@ run_testcontainers_integration() {
   fi
 
   run "Testcontainers integration" make test-integration-local
+  run "Strategy parity container suite" make test-strategy-parity
 }
 
 run_fast() {

@@ -2003,6 +2003,15 @@ jobs:
           cd services
           make test-shortdatasync-pg
 
+      # The strategy feature parity suite (services/pkg/strategy/features): the Go port of
+      # mv_price_features and mv_market_regime against migration 000130's views at fixed anchors.
+      # It gates the deploy so that a change to either side fails here, not in a later PR.
+      - name: Run strategy feature parity container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the strategy feature parity suite (postgres container)..."
+          cd services
+          make test-strategy-parity
+
       # Workflow pins: the apply gate and the smoke ordering are asserted here,
       # and nothing else ran these tests in CI. The test imports `yaml`, a root
       # devDependency, so the runner installs the root packages first.
