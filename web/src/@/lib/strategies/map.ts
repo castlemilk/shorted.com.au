@@ -31,6 +31,7 @@ import type {
   StrategyDef,
   StrategyRuleDef,
   StrategyVersionDef,
+  StrategyVersionDetailView,
 } from "./types";
 
 /** A protojson double: a number, or "NaN" / "Infinity" / "-Infinity". */
@@ -70,6 +71,16 @@ export interface StrategyInput {
   metadata?: StrategyMetadataInput | null;
   caveats?: readonly string[];
   sources?: readonly string[];
+  version?: StrategyVersionInput | null;
+}
+
+export interface StrategyVersionDetailInput {
+  version?: StrategyVersionInput | null;
+  policies?: readonly string[];
+  changes?: readonly string[];
+  knownIssues?: readonly string[];
+  supersededOn?: string;
+  retiredOn?: string;
 }
 
 export interface MarketRegimeInput {
@@ -334,6 +345,7 @@ export function sydneyIsoDate(rfc3339: unknown): string {
 export function mapStrategy(strategy: StrategyInput): StrategyDef {
   const metadata = strategy.metadata;
   const rules = strategy.rules ?? [];
+  const version = mapStrategyVersion(strategy.version);
   return {
     id: str(strategy.id),
     name: str(strategy.name),
@@ -361,6 +373,23 @@ export function mapStrategy(strategy: StrategyInput): StrategyDef {
       : null,
     caveats: strings(strategy.caveats),
     sources: strings(strategy.sources),
+    ...(version ? { version } : {}),
+  };
+}
+
+/** One published rules version for the changelog, or null when it names no version. */
+export function mapStrategyVersionDetail(
+  input: StrategyVersionDetailInput,
+): StrategyVersionDetailView | null {
+  const version = mapStrategyVersion(input.version);
+  if (!version) return null;
+  return {
+    version,
+    policies: strings(input.policies),
+    changes: strings(input.changes),
+    knownIssues: strings(input.knownIssues),
+    supersededOn: isoDateOrNull(input.supersededOn) ?? "",
+    retiredOn: isoDateOrNull(input.retiredOn) ?? "",
   };
 }
 

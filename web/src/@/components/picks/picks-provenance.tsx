@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { fundamentalsHeld } from "~/@/lib/strategies/coverage";
 import { formatCount, formatIsoDate } from "~/@/lib/strategies/format";
+import type { StrategyVersionDef } from "~/@/lib/strategies/types";
+import { versionChipText } from "~/@/lib/strategies/versions";
 
 /**
  * Where the numbers come from, as one line: price date, fundamentals
@@ -22,6 +24,7 @@ export function PicksProvenance({
   coverage,
   rowsCount = 0,
   universe,
+  version,
 }: {
   /** YYYY-MM-DD of the latest price; "" when unknown. */
   asOf: string;
@@ -30,9 +33,12 @@ export function PicksProvenance({
   /** Evaluated stocks with any fundamentals row; 0 from an older API. */
   rowsCount?: number;
   universe: number;
+  /** The rules version the picks were evaluated under; omitted when the API names none. */
+  version?: StrategyVersionDef | null;
 }) {
   const priceDate = formatIsoDate(asOf);
   const held = fundamentalsHeld(rowsCount, coverage);
+  const versionText = version ? versionChipText(version) : "";
   return (
     <p className="inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded-md border border-border/60 bg-card px-3 py-1.5 text-xs text-muted-foreground">
       {priceDate ? (
@@ -62,6 +68,15 @@ export function PicksProvenance({
             {" · "}
           </>
         )
+      ) : null}
+      {versionText ? (
+        <>
+          Rules{" "}
+          <span className="font-medium text-foreground tabular-nums">
+            {versionText}
+          </span>
+          {" · "}
+        </>
       ) : null}
       ASIC shorts T+4
       {" · "}
