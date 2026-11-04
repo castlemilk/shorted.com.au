@@ -291,6 +291,7 @@ function SignalsView({
                     initialStrategyId={props.slug}
                     hideSelector
                     keepVolumeOnNarrow
+                    tagLastClose
                   />
                 ) : null
               }

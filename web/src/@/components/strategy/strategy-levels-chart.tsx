@@ -54,6 +54,8 @@ export interface StrategyLevelsChartProps {
    * narrow on every breakpoint, and the chart would otherwise drop its volume.
    */
   keepVolumeOnNarrow?: boolean;
+  /** Tags the last close as a level (the Signals evidence panel). */
+  tagLastClose?: boolean;
 }
 
 export function StrategyLevelsChart({
@@ -63,6 +65,7 @@ export function StrategyLevelsChart({
   initialStrategyId,
   hideSelector = false,
   keepVolumeOnNarrow = false,
+  tagLastClose = false,
 }: StrategyLevelsChartProps) {
   const [selected, setSelected] = useState<string | null>(
     () => initialStrategyId ?? defaultStrategyId(fits),
@@ -77,8 +80,12 @@ export function StrategyLevelsChart({
     (r) => r.ruleId === "short_interest",
   )?.detail;
   const levelSet = useMemo(
-    () => strategyLevelSet(selected ?? "", priceFeatures, { shortRuleDetail }),
-    [selected, priceFeatures, shortRuleDetail],
+    () =>
+      strategyLevelSet(selected ?? "", priceFeatures, {
+        shortRuleDetail,
+        tagLastClose,
+      }),
+    [selected, priceFeatures, shortRuleDetail, tagLastClose],
   );
 
   // The levels are as at the picker's last refresh, while the prices are

@@ -43,6 +43,9 @@ export const LEVEL_COLORS = {
   sma200: INDICATOR_COLORS.sma200,
   range: "#94a3b8",
   breakout: "#f97316",
+  // The last close is a reading, not a direction: the foreground token, so the
+  // tag reads as a price and never as a rise or a fall.
+  close: "hsl(var(--foreground))",
 } as const;
 
 export const PRICE_ONLY_NOTE =
@@ -195,6 +198,26 @@ function baseCaption(pf: StockPriceFeatures): string[] {
 }
 
 export function strategyLevelSet(
+  strategyId: string,
+  pf: StockPriceFeatures | null,
+  opts: {
+    shortRuleDetail?: string;
+    /**
+     * Adds the last close as a tagged level across the plot. Only the Signals
+     * evidence panel asks for it; the Strategy tab's levels stay as they were.
+     */
+    tagLastClose?: boolean;
+  },
+): LevelSet {
+  const set = strategyBaseLevels(strategyId, pf, opts);
+  const lastClose =
+    pf && opts.tagLastClose
+      ? level(pf.close, "Close", LEVEL_COLORS.close, { tag: true })
+      : null;
+  return lastClose ? { ...set, levels: [...set.levels, lastClose] } : set;
+}
+
+function strategyBaseLevels(
   strategyId: string,
   pf: StockPriceFeatures | null,
   opts: { shortRuleDetail?: string },
