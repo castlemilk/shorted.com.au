@@ -111,7 +111,7 @@ export default async function StrategyChangelogPage() {
                 <article
                   key={entry.version.rulesHash}
                   id={entry.version.rulesHash}
-                  className="scroll-mt-24 space-y-4 rounded-md border border-border/60 bg-card p-4 sm:p-6"
+                  className="scroll-mt-[124px] space-y-4 rounded-md border border-border/60 bg-card p-4 sm:p-6"
                 >
                   <header className="space-y-1">
                     <h3 className="text-lg font-semibold">
