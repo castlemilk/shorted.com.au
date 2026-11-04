@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 
 	"cloud.google.com/go/civil"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 )
 
 // The value types the feature pipeline's inputs and stored rows carry. Each is
@@ -68,4 +70,15 @@ type ShortReading struct {
 type Fundamentals struct {
 	Hash string          `json:"hash"`
 	Blob json.RawMessage `json:"blob,omitempty"`
+}
+
+// FundamentalsBody is the fundamentals a feature row freezes (4.9): the growth
+// row with its appended 000132 columns, the quality row and the valuation
+// inputs. It carries no provenance timestamp, so the same figures always
+// encode to the same bytes and hash to the same blob. Fundamentals.Blob is its
+// JSON encoding; the pipeline decodes it back.
+type FundamentalsBody struct {
+	Growth          *engine.Growth          `json:"growth,omitempty"`
+	Quality         *engine.Quality         `json:"quality,omitempty"`
+	ValuationInputs *engine.ValuationInputs `json:"valuation_inputs,omitempty"`
 }
