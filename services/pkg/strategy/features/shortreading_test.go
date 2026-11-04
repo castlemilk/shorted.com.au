@@ -1,6 +1,8 @@
 package features
 
 import (
+	"encoding/json"
+	"math"
 	"testing"
 
 	"cloud.google.com/go/civil"
@@ -196,6 +198,10 @@ func TestShortReadingV0Filters(t *testing.T) {
 		row(t, "XYZ", "2026-08-17", "XYZ ETF UNITS", 3_000, 100_000_000, ptr(7)),
 		row(t, "XYZ", "2026-08-24", "XYZ 4.5% NOTE", 4_000, 100_000_000, ptr(9)),
 		row(t, "XYZ", "2026-08-31", "XYZ GROUP ORDINARY", 5_000, 1_000, ptr(11)),
+		// A deferred settlement line that looks ordinary, dated after the 3rd.
+		row(t, "XYZ", "2026-08-07", "XYZ DEFERRED SETTLEMENT", 6_000, 100_000_000, ptr(6)),
+		// A five-character code, which is a secondary line whatever its name.
+		row(t, "XYZAB", "2026-08-03", "XYZAB GROUP ORDINARY", 2_000, 100_000_000, ptr(5)),
 	}
 	reports := NewReports(rows, nil)
 
@@ -215,4 +221,77 @@ func TestShortReadingV0Filters(t *testing.T) {
 			t.Errorf("status = %q, want %q", got.Status, StatusNone)
 		}
 	})
+
+	t.Run("a five-character code has no ordinary row", func(t *testing.T) {
+		got := ShortReadingV0("XYZAB", mustDate(t, "2026-12-18"), cal, reports, nil)
+		if got.Status != StatusNone {
+			t.Errorf("status = %q, want %q: the code is longer than four characters", got.Status, StatusNone)
+		}
+	})
+}
+
+// TestNonFiniteValuesAreNotReadings: a NULL-like or infinite percentage or
+// positions is not a figure. The reading must say unavailable (sf1) or skip the
+// row (sf0), and whatever it returns must encode as JSON, because the snapshot
+// stores it that way and one unencodable value would fail the whole write.
+func TestNonFiniteValuesAreNotReadings(t *testing.T) {
+	cal := testCalendar(t)
+	asOf := mustDate(t, "2026-10-06")
+	tests := []struct {
+		name      string
+		positions float64
+		pct       float64
+	}{
+		{"+Inf percentage", 500, math.Inf(1)},
+		{"-Inf percentage", 500, math.Inf(-1)},
+		{"NaN percentage", 500, math.NaN()},
+		{"+Inf positions", math.Inf(1), 5},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, rows := septemberReports(t)
+			rows = replaceRow(t, rows, row(t, "ABC", "2026-09-30", "ABC GROUP ORDINARY", tc.positions, 10_000_000, ptr(tc.pct)))
+			reports := NewReports(rows, nil)
+
+			v1 := ShortReadingV1("ABC", asOf, cal, reports, nil, nil, StaleAfterSessions)
+			if v1.Status != StatusUnavailable || v1.Reason != ReasonASICValueMissing {
+				t.Errorf("sf1 status = %q reason = %q, want unavailable", v1.Status, v1.Reason)
+			}
+			if _, err := json.Marshal(v1); err != nil {
+				t.Errorf("sf1 reading does not encode: %v", err)
+			}
+
+			// sf0 skips the 30th and reads the 29th, a finite 5%.
+			v0 := ShortReadingV0("ABC", asOf, cal, reports, nil)
+			if v0.Status != StatusReported || v0.ReportDate == nil || *v0.ReportDate != mustDate(t, "2026-09-29") {
+				t.Errorf("sf0 = %+v, want the 29th", v0)
+			}
+			if _, err := json.Marshal(v0); err != nil {
+				t.Errorf("sf0 reading does not encode: %v", err)
+			}
+		})
+	}
+}
+
+// TestStaleBoundary: the newest complete report is eight sessions old on 11
+// September and nine on the 14th. Eight is current, nine is stale.
+func TestStaleBoundary(t *testing.T) {
+	cal := testCalendar(t)
+	rows := []ASICRow{
+		row(t, "ABC", "2026-09-01", "ABC GROUP ORDINARY", 500, 10_000_000, ptr(5)),
+		row(t, "OTH", "2026-09-01", "OTHER GROUP ORDINARY", 1000, 10_000_000, ptr(1)),
+	}
+	reports := NewReports(rows, nil)
+	if got := cal.SessionsBetween(mustDate(t, "2026-09-01"), mustDate(t, "2026-09-11")); got != 8 {
+		t.Fatalf("SessionsBetween(1 Sep, 11 Sep) = %d, want 8", got)
+	}
+
+	current := ShortReadingV1("ABC", mustDate(t, "2026-09-11"), cal, reports, nil, nil, StaleAfterSessions)
+	if current.Status != StatusReported {
+		t.Errorf("eight sessions old: status = %q, want reported", current.Status)
+	}
+	stale := ShortReadingV1("ABC", mustDate(t, "2026-09-14"), cal, reports, nil, nil, StaleAfterSessions)
+	if stale.Status != StatusStale {
+		t.Errorf("nine sessions old: status = %q, want stale", stale.Status)
+	}
 }

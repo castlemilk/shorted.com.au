@@ -3,6 +3,8 @@ package features
 import (
 	"math"
 	"testing"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 )
 
 // TestDTCIncludesZeroVolumeBars: the sf1 average covers the last 20 sessions and
@@ -109,5 +111,35 @@ func TestDaysToCoverV0HalfCentRounding(t *testing.T) {
 func TestRoundNumeric2Negative(t *testing.T) {
 	if got := roundNumeric2(-1.005); got != -1.01 {
 		t.Errorf("roundNumeric2(-1.005) = %v, want -1.01 (half away from zero)", got)
+	}
+}
+
+// TestDaysToCoverV0SpanEdge: the 35-day span includes a bar exactly 35 days
+// before asOf and excludes the one before it. Five traded bars from 1 September
+// give a mean of 1,000 with the 1st in the span; from the 2nd only four remain.
+func TestDaysToCoverV0SpanEdge(t *testing.T) {
+	bars := barsFrom(t, "2026-09-01", 5)
+	if got, reason := DaysToCoverV0(bars, mustDate(t, "2026-10-06"), 500); reason != "" || got != 0.5 {
+		t.Errorf("span starting on the bar: got %v (reason %q), want 0.5", got, reason)
+	}
+	if _, reason := DaysToCoverV0(bars, mustDate(t, "2026-10-07"), 500); reason != ReasonNoVolume {
+		t.Errorf("span starting after the bar: reason %q, want %q", reason, ReasonNoVolume)
+	}
+}
+
+// TestDaysToCoverV0MatchesSpecParams pins the v0 span and minimum to the
+// hashed v0 spec, so a change to either one is a change to the spec.
+func TestDaysToCoverV0MatchesSpecParams(t *testing.T) {
+	regs := spec.Registry()
+	if len(regs) == 0 {
+		t.Fatal("no registered spec versions")
+	}
+	for _, r := range regs {
+		if got := r.Spec.Features.Params["dtc_window_days"]; got != dtcV0Days {
+			t.Errorf("%s dtc_window_days = %v, constant = %d", r.Spec.StrategyID, got, dtcV0Days)
+		}
+		if got := r.Spec.Features.Params["dtc_min_rows"]; got != dtcV0MinRows {
+			t.Errorf("%s dtc_min_rows = %v, constant = %d", r.Spec.StrategyID, got, dtcV0MinRows)
+		}
 	}
 }

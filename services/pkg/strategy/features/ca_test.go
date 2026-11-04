@@ -159,3 +159,39 @@ func TestCABasisChangeMakesDaysToCoverUnknown(t *testing.T) {
 		t.Errorf("days to cover = %v (reason %q), want 0.5: 500 positions over a 1,000 mean", got.DaysToCover, got.DaysToCoverReason)
 	}
 }
+
+// TestCAUpjumpFromBoundary: an integer up-jump is a suspect on or after the
+// re-sync boundary and not before it. 29 September is the boundary; the bar
+// dated 28 September carries the same jump and is not a suspect.
+func TestCAUpjumpFromBoundary(t *testing.T) {
+	on := jumpAt(t, "2026-09-21", 10, 6, 2.0)
+	if on[6].Date != mustDate(t, "2026-09-29") {
+		t.Fatalf("bar 6 is %s, want 2026-09-29", on[6].Date)
+	}
+	got := suspectsOf(t, on, nil)
+	if len(got) != 1 || got[0].Kind != CAUpjump || got[0].Date != on[6].Date {
+		t.Errorf("on the boundary: suspects %+v, want one up-jump on 29 September", got)
+	}
+
+	before := jumpAt(t, "2026-09-21", 10, 5, 2.0)
+	if got := suspectsOf(t, before, nil); len(got) != 0 {
+		t.Errorf("the day before the boundary: suspects %+v, want none", got)
+	}
+}
+
+// TestCACorroborationWindow: a report pair three sessions from the bar
+// corroborates it, and a pair four sessions away does not.
+func TestCACorroborationWindow(t *testing.T) {
+	bars := jumpAt(t, "2026-10-05", 14, 7, 0.1)
+	after := ASICRow{Code: "ABC", ReportDate: bars[7].Date, Issued: 1_000_000_000}
+
+	inWindow := []ASICRow{{Code: "ABC", ReportDate: bars[4].Date, Issued: 100_000_000}, after}
+	if got := suspectsOf(t, bars, inWindow); len(got) != 1 || got[0].Kind != CACorroborated {
+		t.Errorf("pair three sessions before the bar: suspects %+v, want one corroborated", got)
+	}
+
+	outside := []ASICRow{{Code: "ABC", ReportDate: bars[3].Date, Issued: 100_000_000}, after}
+	if got := suspectsOf(t, bars, outside); len(got) != 0 {
+		t.Errorf("pair four sessions before the bar: suspects %+v, want none", got)
+	}
+}
