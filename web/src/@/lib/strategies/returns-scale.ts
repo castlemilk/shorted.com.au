@@ -37,12 +37,18 @@ export const RED_FILL_MAX = 60;
 export const GREEN_FILL_MAX = 80;
 
 /** A value the scale cannot place (NaN, infinite) gets no bin. */
-export function returnBin(value: number, scale: ReturnsScale): ReturnBin | null {
+export function returnBin(
+  value: number,
+  scale: ReturnsScale,
+): ReturnBin | null {
   if (!Number.isFinite(value)) return null;
   const strong = RETURNS_STRONG_PCT[scale];
-  if (value <= -strong) return { key: "strong-down", sign: -1, strength: RED_FILL_MAX };
-  if (value <= -RETURNS_NEAR_ZERO_PCT) return { key: "down", sign: -1, strength: 40 };
-  if (value < RETURNS_NEAR_ZERO_PCT) return { key: "flat", sign: 0, strength: null };
+  if (value <= -strong)
+    return { key: "strong-down", sign: -1, strength: RED_FILL_MAX };
+  if (value <= -RETURNS_NEAR_ZERO_PCT)
+    return { key: "down", sign: -1, strength: 40 };
+  if (value < RETURNS_NEAR_ZERO_PCT)
+    return { key: "flat", sign: 0, strength: null };
   if (value < strong) return { key: "up", sign: 1, strength: 40 };
   return { key: "strong-up", sign: 1, strength: GREEN_FILL_MAX };
 }

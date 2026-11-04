@@ -40,7 +40,8 @@ function tokens(selector: RegExp): Record<string, string> {
   }
   const body = CSS.slice(open + 1, end);
   const out: Record<string, string> = {};
-  for (const m of body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) out[m[1]!] = m[2]!.trim();
+  for (const m of body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g))
+    out[m[1]!] = m[2]!.trim();
   return out;
 }
 
@@ -58,7 +59,8 @@ function hslTripletToRgb(triplet: string): RGB {
   const L = l! / 100;
   const k = (n: number) => (n + h! / 30) % 12;
   const a = S * Math.min(L, 1 - L);
-  const f = (n: number) => L - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const f = (n: number) =>
+    L - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
   return [f(0), f(8), f(4)].map((x) => x * 255) as RGB;
 }
 
@@ -66,7 +68,8 @@ function resolveColour(value: string, theme: Record<string, string>): RGB {
   const hsl = value.match(/^hsl\(var\((--[\w-]+)\)\)$/);
   if (hsl) return hslTripletToRgb(theme[hsl[1]!]!);
   if (value.startsWith("#")) return hexToRgb(value);
-  if (value.startsWith("var(")) return resolveColour(theme[value.slice(4, -1)]!, theme);
+  if (value.startsWith("var("))
+    return resolveColour(theme[value.slice(4, -1)]!, theme);
   throw new Error(`unhandled colour ${value}`);
 }
 
@@ -95,9 +98,15 @@ const THEMES = {
 } as const;
 
 /** The fill a bin paints, resolved to sRGB in a theme: the colour-mix of its signal over the paper. */
-function fillRgb(bin: NonNullable<ReturnType<typeof returnBin>>, theme: Record<string, string>): RGB | null {
+function fillRgb(
+  bin: NonNullable<ReturnType<typeof returnBin>>,
+  theme: Record<string, string>,
+): RGB | null {
   if (bin.strength === null) return null;
-  const signal = resolveColour(bin.sign > 0 ? "var(--semantic-green)" : "var(--semantic-red)", theme);
+  const signal = resolveColour(
+    bin.sign > 0 ? "var(--semantic-green)" : "var(--semantic-red)",
+    theme,
+  );
   const paper = resolveColour("hsl(var(--returns-paper))", theme);
   return mix(signal, bin.strength, paper);
 }
@@ -172,7 +181,9 @@ describe("ink contrast on every bin", () => {
     it(`keeps the plain text readable on the card in the ${theme} theme, for an unfilled cell`, () => {
       const t = THEMES[theme];
       const card = resolveColour("hsl(var(--card))", t);
-      expect(contrast(resolveColour(RETURNS_PLAIN_INK, t), card)).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(resolveColour(RETURNS_PLAIN_INK, t), card),
+      ).toBeGreaterThanOrEqual(4.5);
     });
 
     it(`keeps the muted state text readable on a hatched cell in the ${theme} theme`, () => {
@@ -181,7 +192,9 @@ describe("ink contrast on every bin", () => {
       const card = resolveColour("hsl(var(--card))", t);
       const muted = resolveColour("hsl(var(--muted))", t);
       const cell = mix(muted, 60, card);
-      expect(contrast(resolveColour("hsl(var(--muted-foreground))", t), cell)).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(resolveColour("hsl(var(--muted-foreground))", t), cell),
+      ).toBeGreaterThanOrEqual(4.5);
     });
   }
 
@@ -194,11 +207,23 @@ describe("ink contrast on every bin", () => {
 
 describe("returnsLegend", () => {
   it("names the five annual bins in the mockup's terms", () => {
-    expect(returnsLegend("annual")).toEqual(["≤ −10%", "−10 to −0.5%", "about 0", "0.5 to 10%", "≥ 10%"]);
+    expect(returnsLegend("annual")).toEqual([
+      "≤ −10%",
+      "−10 to −0.5%",
+      "about 0",
+      "0.5 to 10%",
+      "≥ 10%",
+    ]);
   });
 
   it("names the five monthly bins", () => {
-    expect(returnsLegend("monthly")).toEqual(["≤ −5%", "−5 to −0.5%", "about 0", "0.5 to 5%", "≥ 5%"]);
+    expect(returnsLegend("monthly")).toEqual([
+      "≤ −5%",
+      "−5 to −0.5%",
+      "about 0",
+      "0.5 to 5%",
+      "≥ 5%",
+    ]);
   });
 });
 
