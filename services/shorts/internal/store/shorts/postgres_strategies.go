@@ -291,7 +291,7 @@ func (r *candidateRow) targets() []any {
 
 // strategyShortDatesQuery is, for each stock in mv_screener_data, the report
 // its short figure came from: the newest row that 000080's latest_shorts
-// admits, with no age limit (4.6, display-only). Taking the date from the same
+// admits, with no age limit. Taking the date from the same
 // filtered row as the figure keeps the two in step: an ETF, a deferred product
 // or a percent-coupon bond has neither a figure nor a date, and a figure a
 // year old keeps its date. Driving on the view's codes also keeps a NULL
