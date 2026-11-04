@@ -72,7 +72,7 @@ describe("getStockStrategyFit", () => {
     mockListStrategies.mockReset();
   });
 
-  it("caches under ['stock-strategy-fit', code, 'v2'] for an hour with the strategy-picks tag", async () => {
+  it("caches under ['stock-strategy-fit', code, 'v3'] for an hour with the strategy-picks tag", async () => {
     mockGetStockStrategyFit.mockResolvedValue(fitResponse());
     mockListStrategies.mockResolvedValue({
       strategies: [
@@ -82,7 +82,7 @@ describe("getStockStrategyFit", () => {
     const fit = await getStockStrategyFit("bhp");
 
     const [, key, opts] = cacheCalls.find(([, k]) => k[0] === "stock-strategy-fit")!;
-    expect(key).toEqual(["stock-strategy-fit", "BHP", "v2"]);
+    expect(key).toEqual(["stock-strategy-fit", "BHP", "v3"]);
     expect(opts.revalidate).toBe(3600);
     expect(opts.tags).toEqual(["strategy-picks", "shorts-data", "stock-page:strategy-fit:bhp"]);
 
@@ -153,6 +153,8 @@ describe("mapStockStrategyFit", () => {
     expect(
       mapStockStrategyFit("X", { asOf: "", inUniverse: false, fits: [] }),
     ).toEqual({
+      eligible: false,
+      sessionDate: "",
       stockCode: "X",
       asOf: "",
       inUniverse: false,
@@ -209,5 +211,66 @@ describe("price features and regime", () => {
     expect(fit.priceFeatures?.breakoutDate).toBeNull();
     expect(fit.priceFeatures?.sma50).toBeNull();
     expect(fit.regime).toBeNull();
+  });
+});
+
+describe("mapStockStrategyFit signal fields", () => {
+  it("carries eligibility, the session and the stock's own short dates", () => {
+    const fit = mapStockStrategyFit("RDY", {
+      asOf: "2026-09-25",
+      inUniverse: true,
+      eligible: true,
+      sessionDate: "2026-09-25",
+      shortReportDate: "2026-10-27",
+      shortAvailableDate: "2026-10-30",
+      fits: [],
+    });
+    expect(fit).toMatchObject({
+      eligible: true,
+      sessionDate: "2026-09-25",
+      shortReportDate: "2026-10-27",
+      shortAvailableDate: "2026-10-30",
+    });
+    expect(fit.ineligibleReason).toBeUndefined();
+    expect(fit).not.toHaveProperty("stale");
+  });
+
+  it("says why a stock outside the universe cannot be read, with no short dates", () => {
+    const fit = mapStockStrategyFit("ZZZ", {
+      inUniverse: false,
+      eligible: false,
+      ineligibleReason: "not_in_universe",
+      sessionDate: "2026-09-25",
+      fits: [],
+    });
+    expect(fit).toMatchObject({ eligible: false, ineligibleReason: "not_in_universe", sessionDate: "2026-09-25" });
+    expect(fit.shortReportDate).toBeUndefined();
+    expect(fit.shortAvailableDate).toBeUndefined();
+  });
+
+  it("keeps a failing trigger's proximity and waiting flag, and a rule's reason when it is unknown", () => {
+    const fit = mapStockStrategyFit("SET", {
+      asOf: "2026-09-25",
+      inUniverse: true,
+      fits: [
+        {
+          strategyId: "zanger-breakout",
+          strategyName: "Zanger breakout",
+          status: "setup",
+          score: 40,
+          rank: 2,
+          totalCount: 5,
+          rules: [
+            { ruleId: "breakout", status: "fail", detail: "below the pivot", proximity: 0.4, hasProximity: true, waiting: true },
+            { ruleId: "rs", status: "unknown", detail: "", reason: "no_index" },
+          ],
+        },
+      ],
+    });
+    const [row] = fit.fits;
+    expect(row.rules[0]).toMatchObject({ ruleId: "breakout", status: "fail", proximity: 0.4, waiting: true });
+    expect(row.rules[1]).toMatchObject({ ruleId: "rs", status: "unknown", reason: "no_index" });
+    expect(row.rules[1]).not.toHaveProperty("proximity");
+    expect(row.ruleColumns.map((c) => c.id)).toEqual(["breakout", "rs"]);
   });
 });
