@@ -30,7 +30,7 @@ export function StrategyHeader({ slug }: { slug: string }) {
     <section
       data-scene-stage={hasArt ? "" : undefined}
       className={cn(
-        "motion-safe:animate-phosphor-warm",
+        "mb-4 motion-safe:animate-phosphor-warm",
         hasArt
           ? "relative overflow-hidden rounded-lg border border-border/60 p-4 sm:p-6"
           : "border-b border-border/40 pb-6",

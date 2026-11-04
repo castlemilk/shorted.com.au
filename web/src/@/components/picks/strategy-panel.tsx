@@ -63,7 +63,7 @@ export function StrategyPanel({ strategy }: StrategyPanelProps) {
 
   return (
     <div className="space-y-12">
-      <section id="method" aria-labelledby="method-heading" className="scroll-mt-24">
+      <section id="method" aria-labelledby="method-heading" className="scroll-mt-[124px]">
         <h2 id="method-heading" className={sectionTitle}>
           The method
         </h2>
@@ -89,7 +89,7 @@ export function StrategyPanel({ strategy }: StrategyPanelProps) {
         </dl>
       </section>
 
-      <section id="rules" aria-labelledby="rules-heading" className="scroll-mt-24">
+      <section id="rules" aria-labelledby="rules-heading" className="scroll-mt-[124px]">
         <h2 id="rules-heading" className={sectionTitle}>
           The rules
         </h2>
@@ -148,7 +148,7 @@ export function StrategyPanel({ strategy }: StrategyPanelProps) {
       </section>
 
       {strategy.caveats.length > 0 ? (
-        <section id="caveats" aria-labelledby="caveats-heading" className="scroll-mt-24">
+        <section id="caveats" aria-labelledby="caveats-heading" className="scroll-mt-[124px]">
           <h2 id="caveats-heading" className={sectionTitle}>
             What this cannot see
           </h2>
@@ -163,7 +163,7 @@ export function StrategyPanel({ strategy }: StrategyPanelProps) {
       <footer
         id="sources"
         aria-labelledby="sources-heading"
-        className="scroll-mt-24 space-y-3 border-t border-border/40 pt-6"
+        className="scroll-mt-[124px] space-y-3 border-t border-border/40 pt-6"
       >
         <h2
           id="sources-heading"
