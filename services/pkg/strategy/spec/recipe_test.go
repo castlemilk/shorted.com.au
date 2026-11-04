@@ -2,6 +2,7 @@ package spec
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -255,5 +256,103 @@ func TestR1ExitsMatchTheScreen(t *testing.T) {
 		if r.Costs.FlatSlippageBps != nil {
 			t.Errorf("%s: the house model must not use flat slippage", r.ID)
 		}
+	}
+}
+
+// renderAllRecipeLines renders the r1 recipes as the golden holds them: each
+// recipe's id, its lines in print order, then a blank line.
+func renderAllRecipeLines(t *testing.T) string {
+	t.Helper()
+	var b strings.Builder
+	for _, r := range R1Recipes() {
+		lines, err := RenderRecipeLines(r)
+		if err != nil {
+			t.Fatalf("%s: %v", r.ID, err)
+		}
+		fmt.Fprintf(&b, "## %s\n", r.ID)
+		for _, l := range lines.Ordered() {
+			b.WriteString(l + "\n")
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// TestRecipeLinesGolden holds the printed recipe prose to its golden. A wording
+// change is a visible change to every recipe surface, so the golden moves with
+// it in the same commit.
+func TestRecipeLinesGolden(t *testing.T) {
+	want, err := os.ReadFile(filepath.Join("testdata", "recipe_lines.golden"))
+	if err != nil {
+		t.Fatalf("read golden: %v", err)
+	}
+	if got := renderAllRecipeLines(t); got != string(want) {
+		t.Fatalf("recipe lines do not match testdata/recipe_lines.golden.\n--- got ---\n%s", got)
+	}
+}
+
+// TestRecipeLinesOpenWithThePreface holds the preface to the first line of every
+// recipe and to a single occurrence in it.
+func TestRecipeLinesOpenWithThePreface(t *testing.T) {
+	for _, r := range R1Recipes() {
+		lines, err := RenderRecipeLines(r)
+		if err != nil {
+			t.Fatalf("%s: %v", r.ID, err)
+		}
+		ordered := lines.Ordered()
+		if ordered[0] != RecipePreface {
+			t.Errorf("%s: first line %q, want the preface", r.ID, ordered[0])
+		}
+		n := 0
+		for _, l := range ordered {
+			if strings.Contains(l, "chosen by Shorted") {
+				n++
+			}
+		}
+		if n != 1 {
+			t.Errorf("%s: the preface appears %d times, want once", r.ID, n)
+		}
+	}
+}
+
+// TestRecipeLinesStateTheRules checks the prose says what the recipe does for the
+// points a reader would otherwise misread: Zanger has no time stop, Crowded-Short
+// stops at 20 sessions, Minervini carries its entry note, and flat costs are
+// labelled as a sensitivity.
+func TestRecipeLinesStateTheRules(t *testing.T) {
+	byID := map[string]RecipeLines{}
+	for _, r := range R1Recipes() {
+		lines, err := RenderRecipeLines(r)
+		if err != nil {
+			t.Fatalf("%s: %v", r.ID, err)
+		}
+		byID[r.ID] = lines
+	}
+	if z := strings.Join(byID[RecipeZangerR1].Ordered(), "\n"); strings.Contains(z, "Time stop") {
+		t.Errorf("zb-r1 prints a time stop:\n%s", z)
+	}
+	if c := byID[RecipeCrowdedShortR1].Exits; !contains(c, "Time stop: exits at the next traded open after the close of session 20 after entry.") {
+		t.Errorf("csb-r1 exits %q do not state its 20-session time stop", c)
+	}
+	const note = "Buys the session a stock first passes the template; Minervini waits for a volatility-contraction entry we do not detect."
+	if e := byID[RecipeMinerviniR1].Entry; !strings.Contains(e, note) {
+		t.Errorf("mtt-r1 entry %q lacks its entry note", e)
+	}
+	flat := testRecipe()
+	flat.Costs = Costs{BrokerageBps: 10, BrokerageMinAUD: 10, FlatSlippageBps: ptrFloat(5), Multiplier: 1}
+	lines, err := RenderRecipeLines(flat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(lines.Spread, "sensitivity, not the house model") {
+		t.Errorf("flat-slippage spread %q is not labelled as a sensitivity", lines.Spread)
+	}
+}
+
+// TestRenderRecipeLinesRefusesAnInvalidRecipe holds the prose to validated
+// recipes: an invalid recipe has no lines to print.
+func TestRenderRecipeLinesRefusesAnInvalidRecipe(t *testing.T) {
+	if _, err := RenderRecipeLines(Recipe{}); err == nil {
+		t.Fatal("an empty recipe rendered prose")
 	}
 }

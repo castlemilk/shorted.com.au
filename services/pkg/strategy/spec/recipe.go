@@ -453,3 +453,170 @@ func qualityR1() Recipe {
 	}
 	return r
 }
+
+// RecipePreface opens every recipe surface: the Backtest tab, RecipeLines and
+// the MCP backtest resource. It is printed before any line of the recipe.
+const RecipePreface = "Execution recipe chosen by Shorted to test the screen; the author's own entries and exits differ."
+
+// recipeEntryNotes are the notes a recipe adds to its entry line. They are
+// prose, not part of the recipe, so they are not hashed.
+var recipeEntryNotes = map[string]string{
+	RecipeMinerviniR1: "Buys the session a stock first passes the template; Minervini waits for a volatility-contraction entry we do not detect.",
+}
+
+// RecipeLines is one recipe's prose, one field per line, as the recipe surfaces
+// print it. Its fields follow the RecipeLines message of the strategies proto.
+type RecipeLines struct {
+	RecipeID  string   `json:"recipe_id"`
+	Entry     string   `json:"entry"`
+	Exits     []string `json:"exits"`
+	Sizing    string   `json:"sizing"`
+	Brokerage string   `json:"brokerage"`
+	Spread    string   `json:"spread"`
+	Capacity  string   `json:"capacity"`
+	Dividends string   `json:"dividends"`
+	ASICData  string   `json:"asic_data"`
+	Delisting string   `json:"delisting"`
+	Capital   string   `json:"capital"`
+	Cash      string   `json:"cash"`
+	Preface   string   `json:"preface"`
+}
+
+// Ordered returns the lines in print order: the preface first, then the entry,
+// each exit, and the rest of the recipe.
+func (l RecipeLines) Ordered() []string {
+	out := []string{l.Preface, l.Entry}
+	out = append(out, l.Exits...)
+	return append(out, l.Sizing, l.Brokerage, l.Spread, l.Capacity, l.Dividends, l.ASICData, l.Delisting, l.Capital, l.Cash)
+}
+
+// RenderRecipeLines renders the prose of a recipe. A recipe that does not
+// validate has no prose, so it returns the validation error.
+func RenderRecipeLines(r Recipe) (RecipeLines, error) {
+	if err := r.Validate(); err != nil {
+		return RecipeLines{}, err
+	}
+	return RecipeLines{
+		RecipeID:  r.ID,
+		Entry:     entryLine(r),
+		Exits:     exitLines(r),
+		Sizing:    fmt.Sprintf("Up to %d positions, each %s%% of equity at the decision close, taken in rank order: highest score first, then code ascending.", r.Sizing.MaxPositions, FormatNumber(r.Sizing.WeightPct)),
+		Brokerage: brokerageLine(r.Costs),
+		Spread:    spreadLine(r.Costs),
+		Capacity:  fmt.Sprintf("Notional at most %s%% of the 20-session dollar volume at the decision close.", FormatNumber(r.Sizing.CapacityPctDV20)),
+		Dividends: "Total return: adjusted prices per bar, plus cash dividends on their ex-dates (franking excluded).",
+		ASICData:  "Short positions are the ones ASIC had published by the decision session.",
+		Delisting: "A delisted stock exits at its last close.",
+		Capital:   fmt.Sprintf("Starting capital A$%s.", audAmount(r.Capital)),
+		Cash:      "Idle cash earns the RBA cash rate.",
+		Preface:   RecipePreface,
+	}, nil
+}
+
+// audAmount writes a dollar amount with thousands separators.
+func audAmount(v float64) string {
+	return GroupThousands(FormatNumber(v))
+}
+
+func entryLine(r Recipe) string {
+	var b strings.Builder
+	b.WriteString("Buys at the next traded open after the close on which a stock becomes triggered")
+	if r.Entry.Fresh == EntryFreshNewBreakout {
+		b.WriteString(", only when its breakout date has never been traded in this code")
+	}
+	b.WriteString(".")
+	if r.Entry.MaxAbovePivotPct != nil {
+		b.WriteString(fmt.Sprintf(" Skipped when that open is more than %s%% above the captured pivot.", FormatNumber(*r.Entry.MaxAbovePivotPct)))
+	}
+	if r.CooldownSessions > 0 {
+		b.WriteString(fmt.Sprintf(" After an exit, no re-entry for %d %s.", r.CooldownSessions, sessionWord(r.CooldownSessions)))
+	}
+	if note, ok := recipeEntryNotes[r.ID]; ok {
+		b.WriteString(" " + note)
+	}
+	return b.String()
+}
+
+func exitLines(r Recipe) []string {
+	out := make([]string, 0, len(r.Exits)+2)
+	for _, x := range r.Exits {
+		out = append(out, exitLine(x))
+	}
+	out = append(out,
+		"Rules are checked at each close in the order listed; the first to hit exits, filled at the next traded open.",
+		fmt.Sprintf("A stock with no bar for %d %s exits at its last close.", r.StaleExitSessions, sessionWord(r.StaleExitSessions)),
+	)
+	return out
+}
+
+func exitLine(x ExitRule) string {
+	switch x.Kind {
+	case ExitClosePivot:
+		if n := consecutiveCloses(x); n > 1 {
+			return fmt.Sprintf("Exits after %d consecutive closes below the captured pivot.", n)
+		}
+		return "Exits at a close below the captured pivot."
+	case ExitTimeStop:
+		return fmt.Sprintf("Time stop: exits at the next traded open after the close of session %d after entry.", x.Sessions)
+	case ExitStopLoss:
+		return fmt.Sprintf("Stop loss: exits at a close at or below %s%% under the entry price.", FormatNumber(x.Pct))
+	case ExitCloseBelowSMA:
+		if n := consecutiveCloses(x); n > 1 {
+			return fmt.Sprintf("Exits after %d consecutive closes below the %d-day average.", n, x.SMA)
+		}
+		return fmt.Sprintf("Exits at a close below the %d-day average.", x.SMA)
+	case ExitStatusFalls:
+		status := strings.Join(x.Statuses, " or ")
+		if n := consecutiveCloses(x); n > 1 {
+			return fmt.Sprintf("Exits when the status falls to %s for %d consecutive sessions.", status, n)
+		}
+		return fmt.Sprintf("Exits when the status falls to %s.", status)
+	}
+	return x.Kind
+}
+
+// consecutiveCloses is the number of consecutive closes an exit waits for; a
+// zero Sessions means one.
+func consecutiveCloses(x ExitRule) int {
+	if x.Sessions == 0 {
+		return 1
+	}
+	return x.Sessions
+}
+
+func brokerageLine(c Costs) string {
+	line := fmt.Sprintf("Brokerage %s bps per side, at least A$%s per fill.", FormatNumber(c.BrokerageBps), audAmount(c.BrokerageMinAUD))
+	if c.Multiplier != 1 {
+		line += fmt.Sprintf(" Every cost is multiplied by %s.", FormatNumber(c.Multiplier))
+	}
+	return line
+}
+
+func spreadLine(c Costs) string {
+	if c.FlatSlippageBps != nil {
+		return fmt.Sprintf("Flat slippage of %s bps per side replaces the spread tiers. Flat costs flatter small-cap breakouts: this is a sensitivity, not the house model.", FormatNumber(*c.FlatSlippageBps))
+	}
+	parts := make([]string, 0, len(c.SpreadTiers))
+	for i, t := range c.SpreadTiers {
+		var band string
+		switch {
+		case i == 0 && t.MinDV20AUD == 0:
+			band = "all volumes"
+		case i == 0:
+			band = fmt.Sprintf("A$%s and over", audAmount(t.MinDV20AUD))
+		case t.MinDV20AUD == 0:
+			band = fmt.Sprintf("under A$%s", audAmount(c.SpreadTiers[i-1].MinDV20AUD))
+		default:
+			band = fmt.Sprintf("A$%s to under A$%s", audAmount(t.MinDV20AUD), audAmount(c.SpreadTiers[i-1].MinDV20AUD))
+		}
+		parts = append(parts, fmt.Sprintf("%s at %s bps", band, FormatNumber(t.Bps)))
+	}
+	return "Spread and impact per side by 20-session dollar volume at the decision close: " + strings.Join(parts, "; ") + "."
+}
+
+func sessionWord(n int) string {
+	if n == 1 {
+		return "session"
+	}
+	return "sessions"
+}
