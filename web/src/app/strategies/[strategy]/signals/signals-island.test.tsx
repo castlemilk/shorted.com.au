@@ -253,6 +253,31 @@ describe("SignalsIsland", () => {
     expect(actions.getSignalStockFit).toHaveBeenCalledWith("ZZZ");
   });
 
+  it("prints an empty state, and no evidence panel, for a valid list with no stock in it", () => {
+    render(<SignalsIsland {...props({ rows: [], total: 0 })} />);
+    expect(screen.getByText(/meets Crowded-Short Breakout/)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open stock →" })).toBeNull();
+  });
+
+  it("words an empty filter for its own chip, and counts the rest of the list", () => {
+    const setups = Array.from({ length: 9 }, (_, i) => pick(`S${i}`, "setup", true));
+    render(<SignalsIsland {...props({ rows: setups })} />);
+    fireEvent.click(screen.getByRole("button", { name: /Triggered\s*5/ }));
+    expect(
+      screen.getByText("No triggered stock in the top 9; the list holds 5 in all."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("0 triggered in the top 9")).toBeInTheDocument();
+  });
+
+  it("switches strategy with links, not a select that navigates on change", () => {
+    render(<SignalsIsland {...props()} />);
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Crowded-Short Breakout" }),
+    ).toHaveAttribute("href", "/strategies/crowded-short-breakout/signals");
+  });
+
   it("keeps the 25 KB payload budget for the ten anonymous rows", () => {
     const serialised = JSON.stringify(props());
     expect(serialised.length).toBeLessThan(25 * 1024);

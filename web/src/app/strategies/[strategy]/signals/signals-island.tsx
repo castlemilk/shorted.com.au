@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 import { StrategyLevelsChart } from "~/@/components/strategy/strategy-levels-chart-loader";
 import { EvidencePanel } from "~/@/components/strategies/evidence-panel";
 import { SignalsMatrix } from "~/@/components/strategies/signals-matrix";
 import { SignalsProvenance } from "~/@/components/strategies/signals-provenance";
+import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { sectionTitle } from "~/@/lib/typography";
 import { cn } from "~/@/lib/utils";
 import {
@@ -88,7 +89,6 @@ function SignalsView({
   initialSelected,
   ...props
 }: SignalsIslandProps & { initialSelected: string | null }) {
-  const router = useRouter();
   const [filter, setFilter] = useState<SignalFilter>("all");
   const [selected, setSelected] = useState<string | null>(initialSelected);
   const [fitState, setFitState] = useState<FitState>(null);
@@ -156,22 +156,30 @@ function SignalsView({
               {props.universeLabel ? ` · ${props.universeLabel}` : ""}.
             </p>
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Strategy</span>
-            <select
-              value={props.slug}
-              onChange={(event) =>
-                router.push(`/strategies/${event.target.value}/signals`)
-              }
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm font-medium"
-            >
-              {props.strategies.map((strategy) => (
-                <option key={strategy.id} value={strategy.id}>
-                  {strategy.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <nav aria-label="Strategies">
+            <ul className="flex flex-wrap gap-1.5 text-xs">
+              {props.strategies.map((strategy) => {
+                const active = strategy.id === props.slug;
+                return (
+                  <li key={strategy.id}>
+                    <Link
+                      href={`/strategies/${strategy.id}/signals`}
+                      prefetch={false}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "inline-flex h-8 items-center rounded-md border px-2.5 font-medium transition-colors",
+                        active
+                          ? "border-primary/60 bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:border-input hover:text-foreground",
+                      )}
+                    >
+                      {strategy.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
         </div>
         <SignalsProvenance
           asOf={props.asOf}
@@ -187,6 +195,11 @@ function SignalsView({
         <section className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground">
           Signals for this strategy are temporarily unavailable; they refresh
           automatically. Not financial advice.
+        </section>
+      ) : rows.length === 0 ? (
+        <section className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground">
+          No stock in the universe meets {props.strategyName}&apos;s rules in
+          this session&apos;s data. Not financial advice.
         </section>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
@@ -223,8 +236,8 @@ function SignalsView({
 
             {visible.length === 0 ? (
               <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-                No stock in the top {rows.length} is{" "}
-                {FILTER_LABELS[filter].toLowerCase()}
+                No {FILTER_LABELS[filter].toLowerCase()} stock in the top{" "}
+                {rows.length}
                 {props.counts
                   ? `; the list holds ${filterCount(filter, props.counts, props.total) ?? 0} in all`
                   : ""}
@@ -242,14 +255,14 @@ function SignalsView({
             )}
 
             <p className="text-xs text-muted-foreground" data-signals-count>
-              {countLine(props.counts, rows.length, props.total)}
+              {filter === "all"
+                ? countLine(props.counts, rows.length, props.total)
+                : `${visible.length} ${FILTER_LABELS[filter].toLowerCase()} in the top ${rows.length}`}
             </p>
 
             <p className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
               <span>
-                {rankingInputs.length > 0
-                  ? "* Ranking inputs · "
-                  : "* Ranking inputs are not used by this strategy · "}
+                {rankingInputs.length > 0 ? "* Ranking inputs · " : ""}
                 Unknown never counts as passing
               </span>
               <span className="italic">
@@ -265,7 +278,9 @@ function SignalsView({
               pick={pick}
               rules={props.rules}
               notice={notice}
-              openHref={`/shorts/${selectedCode ?? ""}/strategy`}
+              openHref={
+                selectedCode ? stockTabHref(selectedCode, "strategy") : null
+              }
               chart={
                 selectedCode ? (
                   <StrategyLevelsChart

@@ -31,8 +31,8 @@ export interface EvidencePanelProps {
   notice: string | null;
   /** The levels chart, drawn by the island. */
   chart: ReactNode;
-  /** The stock page's strategy tab. */
-  openHref: string;
+  /** The stock page's strategy tab; no link when there is no stock. */
+  openHref: string | null;
 }
 
 export function EvidencePanel({
@@ -128,15 +128,17 @@ export function EvidencePanel({
         </p>
       )}
 
-      <div className="flex flex-wrap gap-2 border-t pt-4">
-        <Link
-          href={openHref}
-          prefetch={false}
-          className="inline-flex h-9 items-center rounded-md border border-input px-3 text-sm font-medium hover:bg-muted/50"
-        >
-          Open stock →
-        </Link>
-      </div>
+      {openHref ? (
+        <div className="flex flex-wrap gap-2 border-t pt-4">
+          <Link
+            href={openHref}
+            prefetch={false}
+            className="inline-flex h-9 items-center rounded-md border border-input px-3 text-sm font-medium hover:bg-muted/50"
+          >
+            Open stock →
+          </Link>
+        </div>
+      ) : null}
     </section>
   );
 }
