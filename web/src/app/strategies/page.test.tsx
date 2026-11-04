@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 
-import PicksHubPage from "./page";
+import PicksHubPage, { metadata } from "./page";
 import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 import {
   PICKS,
@@ -63,6 +63,16 @@ describe("PicksHubPage", () => {
             picks: [WATCH],
           },
     );
+  });
+
+  // OD-20: the title tag keeps the "ASX Stock Picker" keyword while the H1 says
+  // "Strategies", and every canonical and og:url names /strategies itself, never
+  // the /picks URL that now redirects there.
+  it("keeps the ASX Stock Picker title keyword and canonicalises to /strategies", () => {
+    expect(metadata.title).toContain("ASX Stock Picker");
+    expect(metadata.alternates?.canonical).toBe("https://shorted.com.au/strategies");
+    expect(metadata.openGraph?.url).toBe("https://shorted.com.au/strategies");
+    expect(JSON.stringify(metadata)).not.toMatch(/\/picks/);
   });
 
   it("renders the hub header, regime banner and one card per strategy", async () => {

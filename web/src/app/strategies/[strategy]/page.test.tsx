@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { isValidElement, Suspense, type ReactElement, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 
-import StrategyPicksPage, { generateStaticParams } from "./page";
+import StrategyPicksPage, { generateMetadata, generateStaticParams } from "./page";
 import { PicksSortedView } from "./picks-sorted-view";
 import { PicksFilterView } from "~/@/components/picks/picks-filter-view";
 import { STRATEGY_SLUGS, getStrategy } from "~/@/lib/strategies/registry";
@@ -118,6 +118,13 @@ describe("StrategyPicksPage", () => {
     const undated = render(await StrategyPicksPage({ params: params("zanger-breakout") }));
     expect(dataset(undated.container)).toBeDefined();
     expect(dataset(undated.container)).not.toHaveProperty("dateModified");
+  });
+
+  it("canonicalises and opens each strategy under /strategies/<slug>, never /picks", async () => {
+    const meta = await generateMetadata({ params: params("canslim") });
+    expect(meta.alternates?.canonical).toBe("https://shorted.com.au/strategies/canslim");
+    expect(meta.openGraph?.url).toBe("https://shorted.com.au/strategies/canslim");
+    expect(JSON.stringify(meta)).not.toMatch(/\/picks/);
   });
 
   it("404s an unknown strategy without calling the API", async () => {
