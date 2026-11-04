@@ -11,6 +11,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -383,7 +384,7 @@ func realisticStrategySource(src *fakeDataSource) {
 		})
 	}
 	src.strategyPicks = &shortsv1alpha1.GetStrategyPicksResponse{
-		Strategy: strategyFixture(widest), Regime: regime, Picks: picks,
+		Strategy: strategyFixture(widest), Version: liveVersionFixture(widest.ID), Regime: regime, Picks: picks,
 		TotalCount: 212, UniverseCount: 1_234, FundamentalsCoverageCount: 987, FundamentalsRowsCount: 1_101,
 		AsOf: "2026-09-25", SessionDate: "2026-09-25", ShortReportDate: "2026-09-18", ShortAvailableDate: "2026-09-21",
 		StatusCounts:        &shortsv1alpha1.StatusCounts{Triggered: 0, Setup: 14, Watch: 198},
@@ -490,6 +491,25 @@ func pickFundamentalsFixture() *shortsv1alpha1.PickFundamentals {
 	}
 }
 
+// liveVersionFixture is the wire reference the handler attaches to a strategy's
+// live version: the same hash, label, engine and feature set, built from the
+// registry so the fixture cannot drift from what production sends.
+func liveVersionFixture(strategyID string) *shortsv1alpha1.StrategyVersionRef {
+	r, ok := spec.Live(strategyID)
+	if !ok {
+		panic("no live rules version for " + strategyID)
+	}
+	hash, err := spec.RulesHash(r.Spec)
+	if err != nil {
+		panic(err)
+	}
+	return &shortsv1alpha1.StrategyVersionRef{
+		StrategyId: strategyID, Label: r.Label, RulesHash: hash,
+		EngineVersion: engine.Version, FeatureSet: r.Spec.FeatureSet,
+		Status: "live", Kind: r.Spec.Kind,
+	}
+}
+
 // strategyFixture renders a registry strategy the way the handler does, prose
 // and all, so the list fixture costs what production costs.
 func strategyFixture(st engine.Strategy) *shortsv1alpha1.Strategy {
@@ -505,6 +525,7 @@ func strategyFixture(st engine.Strategy) *shortsv1alpha1.Strategy {
 	return &shortsv1alpha1.Strategy{
 		Id: st.ID, Name: st.Name, Author: st.Author, Tagline: st.Tagline,
 		DescriptionParagraphs: st.Description, Rules: rules,
+		Version: liveVersionFixture(st.ID),
 		Metadata: &shortsv1alpha1.StrategyMetadata{
 			Style: st.Metadata.Style, HoldingPeriod: st.Metadata.HoldingPeriod,
 			RiskPosture: st.Metadata.RiskPosture, Universe: st.Metadata.Universe,
