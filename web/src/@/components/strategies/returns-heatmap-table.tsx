@@ -1,10 +1,12 @@
 import { cn } from "@/lib/utils";
-import { formatSigned } from "@/lib/strategies/format";
+import { NOT_AVAILABLE, formatSigned } from "@/lib/strategies/format";
 import {
   RETURNS_INK,
   RETURNS_PLAIN_INK,
   binFill,
   coverageHatched,
+  coverageKnown,
+  printedReturn,
   returnBin,
   returnsLegend,
   type ReturnsScale,
@@ -25,7 +27,15 @@ export type ReturnsHeatmapCell =
       /** A glyph after the figure, named for a screen reader (e.g. "?" with "Coverage on ASIC-reported names only"). */
       marker?: { glyph: string; label: string };
     }
-  | { state: "hatched"; label: string };
+  | {
+      state: "hatched";
+      label: string;
+      /**
+       * How many columns the cell covers, from its own column on. A run of
+       * columns with no figure (before a fiscal year) reads as one cell. Default 1.
+       */
+      span?: number;
+    };
 
 export interface ReturnsHeatmapColumn {
   key: string;
@@ -68,17 +78,21 @@ function ValueCell({
   coverage,
   marker,
   scale,
+  colKey,
 }: {
   value: number;
   coverage?: number | null;
   marker?: { glyph: string; label: string };
   scale: ReturnsScale;
+  colKey: string;
 }) {
-  const bin = returnBin(value, scale);
+  // The fill follows the figure as printed, so a cell's colour and its text agree.
+  const bin = returnBin(printedReturn(value), scale);
   const fill = bin ? binFill(bin) : null;
   const hatched = coverageHatched(coverage);
   return (
     <td
+      data-col={colKey}
       className={CELL}
       data-bin={bin?.key}
       style={{
@@ -95,12 +109,13 @@ function ValueCell({
           <span className="sr-only">{marker.label}</span>
         </>
       ) : null}
-      {coverage != null ? (
+      {coverageKnown(coverage) ? (
         <span
           data-coverage-hatched={hatched ? "" : undefined}
           className={cn(
             "block px-0.5 font-mono text-[10px] leading-tight",
-            hatched && "hatch-empty",
+            // Over a fill the hatch is stripes only, so the ink keeps its contrast.
+            hatched && (fill ? "hatch-on-fill" : "hatch-empty"),
           )}
         >
           cov {Math.round(coverage * 100)}%
@@ -110,9 +125,19 @@ function ValueCell({
   );
 }
 
-function HatchedCell({ label }: { label: string }) {
+function HatchedCell({
+  label,
+  span,
+  colKey,
+}: {
+  label: string;
+  span: number;
+  colKey: string;
+}) {
   return (
     <td
+      data-col={colKey}
+      colSpan={span > 1 ? span : undefined}
       className={cn(CELL, "hatch-empty")}
       data-state="hatched"
       style={{ color: RETURNS_PLAIN_INK }}
@@ -138,7 +163,9 @@ function MetricCell({ metric }: { metric: ReturnsHeatmapMetric }) {
 /**
  * A returns heatmap as a real table: a caption, scoped headers, figures
  * right-aligned in tabular numerals, and each cell's ink on a tint of the signal
- * (returns-scale.ts). Server-rendered; it holds no state and no script.
+ * (returns-scale.ts). Server-rendered; it holds no state and no script. The
+ * scrolling wrapper takes keyboard focus, so a narrow screen's later columns
+ * can be reached without a pointer.
  */
 export function ReturnsHeatmapTable({
   caption,
@@ -149,7 +176,12 @@ export function ReturnsHeatmapTable({
   metricColumns = [],
 }: ReturnsHeatmapTableProps) {
   return (
-    <div className="max-w-full overflow-x-auto">
+    <div
+      role="region"
+      aria-label={caption}
+      tabIndex={0}
+      className="max-w-full overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <table className="w-full border-collapse text-xs">
         <caption className="mb-2 text-left font-mono text-xs text-muted-foreground">
           {caption}
@@ -183,39 +215,57 @@ export function ReturnsHeatmapTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.key} className="border-t border-border/60">
-              <th scope="row" className="px-1.5 py-1 text-left font-normal">
-                <span className="block">{row.name}</span>
-                {row.sublabel ? (
-                  <span className="block font-mono text-[10px] text-muted-foreground">
-                    {row.sublabel}
-                  </span>
-                ) : null}
-              </th>
-              {row.cells.map((cell, i) =>
-                cell.state === "value" ? (
-                  <ValueCell
-                    key={columns[i]?.key ?? i}
-                    value={cell.value}
-                    coverage={cell.coverage}
-                    marker={cell.marker}
-                    scale={scale}
-                  />
-                ) : (
-                  <HatchedCell key={columns[i]?.key ?? i} label={cell.label} />
-                ),
-              )}
-              {metricColumns.map((c) => {
-                const metric = row.metrics?.find((m) => m.key === c.key);
-                return metric ? (
-                  <MetricCell key={c.key} metric={metric} />
-                ) : (
-                  <td key={c.key} className={CELL} />
-                );
-              })}
-            </tr>
-          ))}
+          {rows.map((row) => {
+            // A cell covers `span` columns from the column it starts in, so the
+            // cells after a merged one stay under their own headers.
+            let col = 0;
+            const cells = row.cells.map((cell) => {
+              const start = col;
+              const span = cell.state === "hatched" ? Math.max(1, cell.span ?? 1) : 1;
+              col += span;
+              const colKey = columns[start]?.key ?? `col-${start}`;
+              return cell.state === "value" ? (
+                <ValueCell
+                  key={colKey}
+                  colKey={colKey}
+                  value={cell.value}
+                  coverage={cell.coverage}
+                  marker={cell.marker}
+                  scale={scale}
+                />
+              ) : (
+                <HatchedCell
+                  key={colKey}
+                  colKey={colKey}
+                  label={cell.label}
+                  span={span}
+                />
+              );
+            });
+            return (
+              <tr key={row.key} className="border-t border-border/60">
+                <th scope="row" className="px-1.5 py-1 text-left font-normal">
+                  <span className="block">{row.name}</span>
+                  {row.sublabel ? (
+                    <span className="block font-mono text-[10px] text-muted-foreground">
+                      {row.sublabel}
+                    </span>
+                  ) : null}
+                </th>
+                {cells}
+                {metricColumns.map((c) => {
+                  const metric = row.metrics?.find((m) => m.key === c.key);
+                  return metric ? (
+                    <MetricCell key={c.key} metric={metric} />
+                  ) : (
+                    <td key={c.key} className={CELL}>
+                      {NOT_AVAILABLE}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

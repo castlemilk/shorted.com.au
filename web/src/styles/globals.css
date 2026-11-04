@@ -444,6 +444,31 @@
   );
 }
 
+/* A coverage hatch laid over a filled returns cell: stripes only, so the fill
+   shows through. The stripes are the returns paper token, lighter than every
+   fill, so the ink on them is never less readable than on the bare fill
+   (returns-scale.test.ts checks every bin in both themes). */
+.hatch-on-fill {
+  background-color: transparent;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    hsl(var(--returns-paper) / 0.6) 0 1px,
+    transparent 1px 6px
+  );
+}
+
+/* A coverage bar under the hatch line. Its base is the solid bar's ink, so its
+   length reads against the track as a solid bar's does; the light stripes mark
+   it as hatched. (.hatch-empty's base is the track's own colour, which hid it.) */
+.hatch-bar {
+  background-color: hsl(var(--muted-foreground) / 0.6);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    hsl(var(--background) / 0.45) 0 1px,
+    transparent 1px 6px
+  );
+}
+
 /* Amber glow effect for text */
 .text-glow {
   text-shadow:

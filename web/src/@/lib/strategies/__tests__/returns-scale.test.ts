@@ -13,6 +13,7 @@ import {
   returnsLegend,
   type ReturnsScale,
 } from "../returns-scale";
+import { coverageKnown, printedReturn } from "../returns-scale";
 
 // The contrast check reads the real tokens, so a palette change that breaks
 // the ink fails here, not in a screenshot.
@@ -242,4 +243,63 @@ describe("coverage", () => {
     expect(coverageHatched(0.8)).toBe(false);
     expect(coverageHatched(null)).toBe(false);
   });
+});
+
+describe("printedReturn", () => {
+  it.each([
+    [9.96, 10, "annual"],
+    [-9.96, -10, "annual"],
+    [4.97, 5, "monthly"],
+    [-0.46, -0.5, "annual"],
+    [0.46, 0.5, "annual"],
+  ] as const)("rounds %d to the %d the cell prints", (value, printed) => {
+    expect(printedReturn(value)).toBe(printed);
+  });
+
+  it("bins the printed figure, so the fill agrees with its text at each bin edge", () => {
+    expect(returnBin(printedReturn(9.96), "annual")?.key).toBe("strong-up");
+    expect(returnBin(printedReturn(-0.46), "annual")?.key).toBe("down");
+    expect(returnBin(printedReturn(4.97), "monthly")?.key).toBe("strong-up");
+  });
+
+  it("passes a value that is not a number through, to be given no bin", () => {
+    expect(printedReturn(Number.NaN)).toBeNaN();
+    expect(returnBin(printedReturn(Number.NaN), "annual")).toBeNull();
+  });
+});
+
+describe("coverageKnown", () => {
+  it("is true only for a finite number", () => {
+    expect(coverageKnown(0.64)).toBe(true);
+    expect(coverageKnown(0)).toBe(true);
+    expect(coverageKnown(null)).toBe(false);
+    expect(coverageKnown(undefined)).toBe(false);
+    expect(coverageKnown(Number.NaN)).toBe(false);
+    expect(coverageKnown(Number.POSITIVE_INFINITY)).toBe(false);
+  });
+});
+
+describe("the coverage hatch over a filled cell", () => {
+  it("is stripes only: a transparent base, so the fill shows through", () => {
+    // Comments are stripped by the CSS reader above, so this checks the declaration.
+    expect(CSS).toMatch(/\.hatch-on-fill\s*\{\s*background-color:\s*transparent;/);
+    expect(CSS).not.toMatch(/\.hatch-on-fill[^}]*hsl\(var\(--muted\)/);
+  });
+
+  for (const theme of ["light", "dark"] as const) {
+    it(`keeps the ink at 4.5:1 or better on its stripes over every fill in the ${theme} theme`, () => {
+      // The stripe is the returns paper at 60% over the fill, the same composite
+      // the browser paints where a stripe crosses the cell.
+      const t = THEMES[theme];
+      const ink = resolveColour(RETURNS_INK, t);
+      const paper = resolveColour("hsl(var(--returns-paper))", t);
+      for (const scale of ["annual", "monthly"] as const) {
+        for (const value of SAMPLES[scale]) {
+          const fill = fillRgb(returnBin(value, scale)!, t);
+          if (!fill) continue;
+          expect(contrast(ink, mix(paper, 60, fill))).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    });
+  }
 });

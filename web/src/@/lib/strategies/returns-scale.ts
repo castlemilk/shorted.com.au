@@ -36,6 +36,16 @@ export const RED_FILL_MAX = 60;
 /** The most a green cell is mixed to. */
 export const GREEN_FILL_MAX = 80;
 
+/**
+ * The figure a cell prints, as a number: the value rounded to the one decimal
+ * formatSigned writes. A cell bins this, not the raw value, so the fill agrees
+ * with the text beside it: 9.96 prints "+10.0%" and so takes the deep bin, as
+ * the legend says "≥ 10%" does. A value that is not finite passes through.
+ */
+export function printedReturn(value: number): number {
+  return Number.isFinite(value) ? Number(value.toFixed(1)) : value;
+}
+
 /** A value the scale cannot place (NaN, infinite) gets no bin. */
 export function returnBin(
   value: number,
@@ -103,6 +113,14 @@ export function coverageFraction(coverage: number | null | undefined): number {
 
 /** Coverage under this fraction is hatched: the figure is measured on too few names. */
 export const COVERAGE_HATCH_BELOW = 0.8;
+
+/**
+ * Whether a coverage figure is known: a finite number. Null, undefined and NaN
+ * (protojson can carry NaN) are all unknown, and a component prints "n/a" for them.
+ */
+export function coverageKnown(coverage: number | null | undefined): coverage is number {
+  return coverage != null && Number.isFinite(coverage);
+}
 
 /** Whether a coverage figure is known and under the hatch line. Unknown is not hatched. */
 export function coverageHatched(coverage: number | null | undefined): boolean {

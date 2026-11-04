@@ -157,7 +157,29 @@ describe("ReturnsHeatmapTable markup", () => {
     expect(
       screen.getByText("cov 96%").getAttribute("data-coverage-hatched"),
     ).toBeNull();
-    expect(screen.getByText("cov 64%").className).toContain("hatch-empty");
+    // The 64% cell is filled, so its hatch is stripes only over the fill.
+    expect(screen.getByText("cov 64%").className).toContain("hatch-on-fill");
+    expect(screen.getByText("cov 64%").className).not.toContain("hatch-empty");
+  });
+
+  it("keeps the coverage hatch off the muted base when the cell is unfilled", () => {
+    const { container } = render(
+      <ReturnsHeatmapTable
+        caption="c"
+        rowHeader="Strategy"
+        scale="annual"
+        columns={[{ key: "2019", label: "2019" }]}
+        rows={[
+          {
+            key: "flat",
+            name: "Flat year",
+            cells: [{ state: "value", value: 0.2, coverage: 0.5 }],
+          },
+        ]}
+      />,
+    );
+    expect(container.querySelector(".hatch-empty")).not.toBeNull();
+    expect(container.querySelector(".hatch-on-fill")).toBeNull();
   });
 
   it("labels a marker for a screen reader, with the glyph hidden from it", () => {
@@ -197,5 +219,105 @@ describe("ReturnsLegend", () => {
     const swatches = [...host.querySelectorAll("li > span:first-child")];
     expect(swatches[2]!.getAttribute("style")).toBeNull();
     expect(swatches[0]!.getAttribute("style")).toContain("--semantic-red");
+  });
+});
+
+describe("ReturnsHeatmapTable cells that span or print", () => {
+  it("merges a run of columns into one hatched cell, and keeps the next figure under its own header", () => {
+    const columns = [
+      { key: "2019", label: "2019" },
+      { key: "2020", label: "2020" },
+      { key: "2021", label: "2021" },
+      { key: "2022", label: "2022" },
+    ];
+    render(
+      <ReturnsHeatmapTable
+        caption="c"
+        rowHeader="Strategy"
+        scale="annual"
+        columns={columns}
+        rows={[
+          {
+            key: "zanger",
+            name: "Zanger",
+            cells: [
+              { state: "hatched", label: "Not computable before FY2023", span: 3 },
+              { state: "value", value: 4.2 },
+            ],
+          },
+        ]}
+      />,
+    );
+    const merged = screen.getByText("Not computable before FY2023").closest("td")!;
+    expect(merged.getAttribute("colspan")).toBe("3");
+    const figure = screen.getByText("+4.2%").closest("td")!;
+    expect(figure.getAttribute("data-col")).toBe("2022");
+  });
+
+  it("bins a figure as printed, so 9.96 is the same deep bin as the 10.0 it prints", () => {
+    const { container } = render(
+      <ReturnsHeatmapTable
+        caption="c"
+        rowHeader="Strategy"
+        scale="annual"
+        columns={[{ key: "2019", label: "2019" }]}
+        rows={[
+          { key: "a", name: "A", cells: [{ state: "value", value: 9.96 }] },
+        ]}
+      />,
+    );
+    expect(container.querySelector("td[data-bin]")?.getAttribute("data-bin")).toBe(
+      "strong-up",
+    );
+  });
+
+  it("prints n/a, and no NaN, for a coverage figure that is not a number", () => {
+    const { container } = render(
+      <ReturnsHeatmapTable
+        caption="c"
+        rowHeader="Strategy"
+        scale="annual"
+        columns={[{ key: "2019", label: "2019" }]}
+        rows={[
+          {
+            key: "a",
+            name: "A",
+            cells: [{ state: "value", value: 1, coverage: Number.NaN }],
+          },
+        ]}
+      />,
+    );
+    expect(container.textContent).not.toContain("NaN");
+    expect(container.querySelector("[data-coverage-hatched]")).toBeNull();
+  });
+
+  it("prints n/a in a window column the row does not carry", () => {
+    render(
+      <ReturnsHeatmapTable
+        caption="c"
+        rowHeader="Strategy"
+        scale="annual"
+        columns={[{ key: "2019", label: "2019" }]}
+        rows={[
+          { key: "a", name: "A", cells: [{ state: "value", value: 1 }] },
+        ]}
+        metricColumns={[{ key: "cagr", label: "CAGR" }]}
+      />,
+    );
+    expect(screen.getByText("n/a")).toBeInTheDocument();
+  });
+
+  it("lets the scrolling wrapper take keyboard focus, named for its caption", () => {
+    render(
+      <ReturnsHeatmapTable
+        caption="Historical returns by year"
+        rowHeader="Strategy"
+        scale="annual"
+        columns={[{ key: "2019", label: "2019" }]}
+        rows={[]}
+      />,
+    );
+    const region = screen.getByRole("region", { name: "Historical returns by year" });
+    expect(region.getAttribute("tabindex")).toBe("0");
   });
 });
