@@ -104,10 +104,10 @@ func TestRS6mQuartileIgnoresMissingAndNonFinite(t *testing.T) {
 	}
 }
 
-// NewEnv over a universe equals NewEnvFromStats over that universe's statistics,
-// and the picks evaluated against either environment are identical. The live
-// path builds its environment from statistics; the backtest builds it from the
-// session's eligible codes, so the two must agree on the same candidates.
+// NewEnv over a universe equals NewEnvFromStats over the statistics a backtest
+// builds from the same eligible codes, and the picks evaluated against either
+// are identical. The live path builds its environment from candidates; the
+// backtest builds it from session statistics, so the two must agree.
 func TestNewEnvEqualsNewEnvFromStats(t *testing.T) {
 	cands := []Candidate{
 		{StockCode: "AAA", RS6mPct: new(float64(12)), Close: 10},
@@ -119,17 +119,24 @@ func TestNewEnvEqualsNewEnvFromStats(t *testing.T) {
 		{StockCode: "GGG", RS6mPct: new(math.Inf(1)), Close: 4},
 		{StockCode: "HHH", RS6mPct: new(float64(18)), Close: 11},
 	}
+	// What a backtest hands over for the same codes: the finite rs_6m values,
+	// sorted ascending, built independently of the candidates.
+	backtest := UniverseStats{RS6m: []float64{-4, 3, 12, 18, 31}}
+
 	fromCands := NewEnv(cands, uptrend)
-	fromStats := NewEnvFromStats(uptrend, UniverseStatsOf(cands))
+	fromStats := NewEnvFromStats(uptrend, backtest)
 	if !reflect.DeepEqual(fromCands, fromStats) {
-		t.Fatalf("NewEnv = %+v, NewEnvFromStats = %+v; want equal", *fromCands, *fromStats)
+		t.Fatalf("NewEnv = %+v, NewEnvFromStats over the backtest's statistics = %+v; want equal", *fromCands, *fromStats)
+	}
+	// Five finite values: the 75th percentile sits at position 3, which is 18.
+	if q := fromCands.rs6m; !q.ok || q.threshold != 18 || q.max != 31 {
+		t.Fatalf("rs6m quartile = %+v, want threshold 18 and max 31", q)
 	}
 
 	// Statistics handed over unsorted, with non-finite values, give the same
 	// environment as the sorted finite ones.
 	rough := UniverseStats{RS6m: []float64{31, math.NaN(), 3, 18, math.Inf(-1), 12, -4}}
-	sorted := UniverseStats{RS6m: []float64{-4, 3, 12, 18, 31}}
-	if !reflect.DeepEqual(NewEnvFromStats(uptrend, rough), NewEnvFromStats(uptrend, sorted)) {
+	if !reflect.DeepEqual(NewEnvFromStats(uptrend, rough), fromStats) {
 		t.Fatal("NewEnvFromStats must ignore non-finite values and order-independent input")
 	}
 
