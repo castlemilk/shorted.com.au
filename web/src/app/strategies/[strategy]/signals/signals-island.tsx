@@ -42,13 +42,13 @@ import type {
 } from "~/@/lib/strategies/types";
 import type { StockStrategyFit } from "~/app/actions/getStockStrategyFit";
 import { getSignalStockFit } from "~/app/actions/getSignalStockFit";
-import {
-  getSignalsForViewer,
-  type ViewerSignalsResult,
-} from "~/app/actions/strategies/viewer";
+import type { ViewerSignalsResult } from "~/app/actions/strategies/viewer";
+import { readSignalsOnce } from "./signals-read-cache";
 
 /** Rows drawn per step for a signed-in viewer; the list is never drawn whole. */
 const SHOW_STEP = 50;
+/** The API's page: the rows a signed-in mount reads. */
+const HEAD_ROWS = 100;
 
 /**
  * The Signals tab's client island: the strategy select, the status chips (their
@@ -59,8 +59,10 @@ const SHOW_STEP = 50;
  * Only the stock code is sent to the server: the evidence (the stock's fit and
  * its prices) comes from getSignalStockFit, the public read the stock page uses.
  *
- * A signed-in viewer gets the whole list (getSignalsForViewer), read once in
- * rank order and sorted in the browser, with filters and a search over it.
+ * A signed-in viewer gets the first page of the list at mount. The whole list is
+ * read only when they search, filter, sort or draw past that page, and it is then
+ * sorted in the browser, with filters and a search over it. A read is held for a
+ * minute (signals-read-cache), so returning to the tab costs no call.
  * Anonymous visitors get the top rows and a sign-in prompt: the last row, and
  * the same prompt inline wherever they use a filter, the sort or the search.
  * While the session loads the controls are disabled and the prompt row keeps
@@ -108,8 +110,8 @@ function QuerySignalsView(props: SignalsIslandProps) {
 
 type FitState = { code: string; fit: StockStrategyFit | null } | null;
 
-/** The full list as the viewer's read answered it, for the stock list it was read for. */
-type FullState = { slug: string; result: ViewerSignalsResult } | null;
+/** A signed-in read as it answered, for the stock list it was read for. */
+type ReadState = { slug: string; result: ViewerSignalsResult } | null;
 type FullList = Extract<ViewerSignalsResult, { ok: true }>;
 
 /** The sign-in link's lead words; the rest of the prompt copy follows them. */
@@ -151,11 +153,12 @@ function SignalsView({
   initialSelected,
   ...props
 }: SignalsIslandProps & { initialSelected: string | null }) {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   // "loading" until the session is known. The ISR HTML and the first paint are
   // the anonymous view: the prompt row is drawn meanwhile, and the controls wait.
   const pending = status === "loading";
   const signedIn = status === "authenticated";
+  const userId = session?.user?.id ?? null;
 
   const [filter, setFilter] = useState<SignalFilter>("all");
   const [selected, setSelected] = useState<string | null>(initialSelected);
@@ -163,63 +166,118 @@ function SignalsView({
   const [sortKey, setSortKey] = useState<PickSortKey | null>(null);
   const [query, setQuery] = useState("");
   const [gated, setGated] = useState(false);
-  const [full, setFull] = useState<FullState>(null);
+  const [head, setHead] = useState<ReadState>(null);
+  const [deep, setDeep] = useState<ReadState>(null);
   const [shown, setShown] = useState(SHOW_STEP);
 
-  // Signed-in depth: the whole list in rank order, read once per stock list. A
-  // sort is applied in the browser below, so it costs no read.
+  const needle = query.trim().toLowerCase();
+  const sessionDate = props.sessionDate ?? "";
+  const rulesHash = props.version?.rulesHash ?? "";
+  // A read is drawn only with the rule columns and provenance of this page: the
+  // same session and rules version. Another snapshot reads as a mismatch.
+  const settle = (result: ViewerSignalsResult): ViewerSignalsResult =>
+    result.ok &&
+    (result.snapshot.sessionDate !== sessionDate ||
+      (result.snapshot.version?.rulesHash ?? "") !== rulesHash)
+      ? { ok: false, reason: "snapshot-mismatch" }
+      : result;
+
+  // The first page, at mount. The list's rule columns and provenance come from
+  // this page, so a read from another session or rules version is never drawn.
   useEffect(() => {
-    if (!signedIn) return;
+    if (!signedIn || userId === null || !props.available) return;
     let live = true;
     const slug = props.slug;
-    getSignalsForViewer({ strategyId: slug })
+    readSignalsOnce({
+      userId,
+      strategyId: slug,
+      sessionDate,
+      rulesHash,
+      full: false,
+    })
       .then((result) => {
-        if (live) setFull({ slug, result });
+        if (live) setHead({ slug, result });
       })
       .catch(() => {
         if (live)
-          setFull({ slug, result: { ok: false, reason: "unavailable" } });
+          setHead({ slug, result: { ok: false, reason: "unavailable" } });
       });
     return () => {
       live = false;
     };
-  }, [signedIn, props.slug]);
+  }, [signedIn, userId, props.available, props.slug, sessionDate, rulesHash]);
 
-  const loaded = full && full.slug === props.slug ? full.result : null;
-  // The full list is drawn only with the rule columns and provenance of this
-  // page: the same rules version and the same session.
-  const snapshotMatches = (snapshot: FullList["snapshot"]): boolean =>
-    snapshot.sessionDate === (props.sessionDate ?? "") &&
-    (snapshot.version?.rulesHash ?? "") === (props.version?.rulesHash ?? "");
+  const headRead =
+    signedIn && head?.slug === props.slug ? settle(head.result) : null;
+  const headOk = headRead?.ok ? headRead : null;
+  const headWhole = headOk !== null && headOk.rows.length >= headOk.totalCount;
+  // The whole list is needed for a filter, a search, a sort, or a draw past the
+  // first page. A sort runs in the browser over the whole list.
+  const wantDeep =
+    signedIn &&
+    props.available &&
+    !headWhole &&
+    (filter !== "all" ||
+      needle !== "" ||
+      sortKey !== null ||
+      shown > HEAD_ROWS);
 
-  let fullList: FullList | null = null;
+  useEffect(() => {
+    if (!wantDeep || userId === null) return;
+    let live = true;
+    const slug = props.slug;
+    readSignalsOnce({
+      userId,
+      strategyId: slug,
+      sessionDate,
+      rulesHash,
+      full: true,
+    })
+      .then((result) => {
+        if (live) setDeep({ slug, result });
+      })
+      .catch(() => {
+        if (live)
+          setDeep({ slug, result: { ok: false, reason: "unavailable" } });
+      });
+    return () => {
+      live = false;
+    };
+  }, [wantDeep, userId, props.slug, sessionDate, rulesHash]);
+
+  const deepRead =
+    signedIn && deep?.slug === props.slug ? settle(deep.result) : null;
+  const deepOk = deepRead && deepRead.ok ? deepRead : null;
+  // The signed-in list drawn: the whole list once it has landed, else the first page.
+  const list: FullList | null = deepOk ?? headOk;
+
   let note: string | null = null;
   let signedOutNow = false;
   if (signedIn) {
-    if (loaded === null) {
-      note = "Loading the full list…";
-    } else if (!loaded.ok) {
-      if (loaded.reason === "signed-out") signedOutNow = true;
+    const governing = wantDeep ? deepRead : (deepOk ?? headRead);
+    const loading = wantDeep
+      ? deepRead === null
+      : list === null && headRead === null;
+    if (governing && !governing.ok) {
+      if (governing.reason === "signed-out") signedOutNow = true;
+      else if (governing.reason === "snapshot-mismatch")
+        note =
+          "The full list is from another session or rules version; showing the top rows.";
       else
         note = "The full list is unavailable right now; showing the top rows.";
-    } else if (!snapshotMatches(loaded.snapshot)) {
-      note =
-        "The full list is from another session or rules version; showing the top rows.";
-    } else {
-      fullList = loaded;
+    } else if (loading) {
+      note = "Loading the full list…";
     }
   }
 
   const pool = useMemo<PickRow[]>(() => {
-    if (!fullList) return props.rows;
-    return sortKey ? sortPickRows(fullList.rows, sortKey) : fullList.rows;
-    // fullList is a state-derived value: it changes only when its read lands.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullList, props.rows, sortKey]);
-  const counts = fullList
-    ? (fullList.statusCounts ?? props.counts)
-    : props.counts;
-  const total = fullList ? fullList.totalCount : props.total;
+    if (!list) return props.rows;
+    return sortKey ? sortPickRows(list.rows, sortKey) : list.rows;
+  }, [list, props.rows, sortKey]);
+  const counts = list ? (list.statusCounts ?? props.counts) : props.counts;
+  const total = list ? list.totalCount : props.total;
+  // The drawn list holds every row of the list (not only the first page).
+  const whole = list !== null && list.rows.length >= list.totalCount;
 
   // Anonymous visitors who reach for a filter, the sort or the search see the
   // sign-in prompt instead; the top rows stay as they are.
@@ -228,7 +286,6 @@ function SignalsView({
   }
 
   const selectedCode = selected ?? pool[0]?.code ?? null;
-  const needle = query.trim().toLowerCase();
   const searched = needle
     ? pool.filter(
         (row) =>
@@ -238,7 +295,13 @@ function SignalsView({
     : pool;
   const visible = searched.filter((row) => matchesFilter(row, filter));
   const drawn = visible.slice(0, shown);
-  const hiddenCount = visible.length - drawn.length;
+  // Rows still to draw: those of the pool, and (while only the first page is
+  // read, and no filter or search narrows the list) the rows not read yet.
+  const unread =
+    list !== null && !whole && filter === "all" && needle === ""
+      ? list.totalCount - pool.length
+      : 0;
+  const left = visible.length - drawn.length + unread;
   const core = coreRules(props.rules);
   const rankingInputs = rankingInputsFor(props.slug);
   const chips = chipFilters(counts);
@@ -478,14 +541,13 @@ function SignalsView({
                   caption={`${props.strategyName}: stocks by rule`}
                   footer={footer}
                 />
-                {hiddenCount > 0 ? (
+                {left > 0 ? (
                   <button
                     type="button"
                     onClick={() => setShown((count) => count + SHOW_STEP)}
                     className="self-center rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50"
                   >
-                    Show {Math.min(SHOW_STEP, hiddenCount)} more · {hiddenCount}{" "}
-                    left
+                    Show {Math.min(SHOW_STEP, left)} more · {left} left
                   </button>
                 ) : null}
               </>
@@ -494,7 +556,7 @@ function SignalsView({
             {filtered || footer === null || note !== null ? (
               <p className="text-xs text-muted-foreground" data-signals-count>
                 {filtered
-                  ? fullList
+                  ? whole
                     ? `Showing ${visible.length} of ${total} signals`
                     : needle && filter === "all"
                       ? `${visible.length} ${visible.length === 1 ? "match" : "matches"} in the top ${pool.length}`

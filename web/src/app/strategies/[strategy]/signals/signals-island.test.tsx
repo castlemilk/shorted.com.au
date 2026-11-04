@@ -8,6 +8,7 @@ import type {
 } from "~/@/lib/strategies/types";
 import type { SignalRule } from "~/@/lib/strategies/signals";
 import { SignalsIsland, type SignalsIslandProps } from "./signals-island";
+import { clearSignalsReadCache } from "./signals-read-cache";
 import { getSignalsForViewer } from "~/app/actions/strategies/viewer";
 
 const mockUseSession = useSession as unknown as jest.Mock;
@@ -213,10 +214,19 @@ function fullListRows(): PickRow[] {
   ];
 }
 
+/** The first `count` rows of a ranked list, coded `prefix` plus their rank. */
+function rankedRows(count: number, prefix = "R"): PickRow[] {
+  return Array.from({ length: count }, (_, i) =>
+    pick(`${prefix}${i}`, "setup", true),
+  );
+}
+
 describe("SignalsIsland", () => {
   beforeEach(() => {
     search = "";
-    mockGetSignalsForViewer.mockClear();
+    clearSignalsReadCache();
+    mockGetSignalsForViewer.mockReset();
+    mockGetSignalsForViewer.mockImplementation(() => new Promise(() => {}));
     signedOut();
   });
 
@@ -389,6 +399,9 @@ describe("SignalsIsland", () => {
     ).toBeInTheDocument();
     expect(mockGetSignalsForViewer).toHaveBeenCalledWith({
       strategyId: "crowded-short-breakout",
+      sessionDate: "2026-11-03",
+      rulesHash: "3f9a1c2e0000",
+      full: false,
     });
     expect(screen.queryByRole("link", { name: "Sign in free" })).toBeNull();
     expect(
@@ -588,6 +601,127 @@ describe("SignalsIsland", () => {
     expect(
       screen.getByRole("link", { name: "Crowded-Short Breakout" }),
     ).toHaveAttribute("href", "/strategies/crowded-short-breakout/signals");
+  });
+
+  it("reads only the first page at mount, and the whole list once the viewer draws past it", async () => {
+    signedInAs();
+    mockGetSignalsForViewer
+      .mockResolvedValueOnce({
+        ok: true,
+        rows: rankedRows(100),
+        totalCount: 120,
+        statusCounts: { triggered: 0, setup: 120, watch: 0, unknown: 0 },
+        snapshot: SNAPSHOT,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        rows: rankedRows(120),
+        totalCount: 120,
+        statusCounts: { triggered: 0, setup: 120, watch: 0, unknown: 0 },
+        snapshot: SNAPSHOT,
+      });
+    render(<SignalsIsland {...props()} />);
+    await screen.findByRole("button", { name: "R0" });
+    expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(1);
+    expect(mockGetSignalsForViewer).toHaveBeenLastCalledWith(
+      expect.objectContaining({ full: false }),
+    );
+    // The first page's 100 rows, of 120: the rest is one more step away.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show 50 more · 70 left" }),
+    );
+    expect(screen.queryByRole("button", { name: "R100" })).toBeNull();
+    expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show 20 more · 20 left" }),
+    );
+    expect(await screen.findByRole("button", { name: "R110" })).toBeVisible();
+    expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(2);
+    expect(mockGetSignalsForViewer).toHaveBeenLastCalledWith(
+      expect.objectContaining({ full: true }),
+    );
+  });
+
+  it("reads the whole list for a search, before it filters", async () => {
+    signedInAs();
+    mockGetSignalsForViewer
+      .mockResolvedValueOnce({
+        ok: true,
+        rows: rankedRows(100),
+        totalCount: 120,
+        statusCounts: { triggered: 0, setup: 120, watch: 0, unknown: 0 },
+        snapshot: SNAPSHOT,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        rows: [...rankedRows(119), pick("ZED", "setup", true)],
+        totalCount: 120,
+        statusCounts: { triggered: 0, setup: 120, watch: 0, unknown: 0 },
+        snapshot: SNAPSHOT,
+      });
+    render(<SignalsIsland {...props()} />);
+    await screen.findByRole("button", { name: "R0" });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search stock" }), {
+      target: { value: "zed" },
+    });
+    expect(await screen.findByRole("button", { name: "ZED" })).toBeVisible();
+    expect(mockGetSignalsForViewer).toHaveBeenLastCalledWith(
+      expect.objectContaining({ full: true }),
+    );
+    expect(screen.getByText("Showing 1 of 120 signals")).toBeInTheDocument();
+  });
+
+  it("holds the read for a minute, so a remount draws it without another call", async () => {
+    signedInAs();
+    mockGetSignalsForViewer.mockResolvedValueOnce({
+      ok: true,
+      rows: rankedRows(3),
+      totalCount: 3,
+      statusCounts: { triggered: 0, setup: 3, watch: 0, unknown: 0 },
+      snapshot: SNAPSHOT,
+    });
+    const first = render(<SignalsIsland {...props()} />);
+    await screen.findByRole("button", { name: "R2" });
+    first.unmount();
+
+    render(<SignalsIsland {...props()} />);
+    expect(await screen.findByRole("button", { name: "R2" })).toBeVisible();
+    expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not read the picks for a strategy whose read failed", () => {
+    signedInAs();
+    render(
+      <SignalsIsland
+        {...props({ available: false, rows: [], total: 0, counts: null })}
+      />,
+    );
+    expect(mockGetSignalsForViewer).not.toHaveBeenCalled();
+  });
+
+  it("keeps the top rows when the whole list is from another snapshot", async () => {
+    signedInAs();
+    mockGetSignalsForViewer
+      .mockResolvedValueOnce({
+        ok: true,
+        rows: rankedRows(100),
+        totalCount: 120,
+        statusCounts: { triggered: 0, setup: 120, watch: 0, unknown: 0 },
+        snapshot: SNAPSHOT,
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        reason: "snapshot-mismatch",
+      });
+    render(<SignalsIsland {...props()} />);
+    await screen.findByRole("button", { name: "R0" });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search stock" }), {
+      target: { value: "R" },
+    });
+    expect(
+      await screen.findByText(/from another session or rules version/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "R0" })).toBeInTheDocument();
   });
 
   it("keeps the 25 KB payload budget for the ten anonymous rows", () => {
