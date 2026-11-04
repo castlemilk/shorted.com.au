@@ -202,8 +202,42 @@ func TestShortReadingV0Filters(t *testing.T) {
 		row(t, "XYZ", "2026-08-07", "XYZ DEFERRED SETTLEMENT", 6_000, 100_000_000, ptr(6)),
 		// A five-character code, which is a secondary line whatever its name.
 		row(t, "XYZAB", "2026-08-03", "XYZAB GROUP ORDINARY", 2_000, 100_000_000, ptr(5)),
+		// A zero and a negative share count are excluded, as 000080 excludes
+		// them, so the 3 August row is the reading.
+		row(t, "ZRO", "2026-08-03", "ZRO GROUP ORDINARY", 2_000, 100_000_000, ptr(5)),
+		row(t, "ZRO", "2026-08-10", "ZRO GROUP ORDINARY", 3_000, 0, ptr(7)),
+		row(t, "ZRO", "2026-08-17", "ZRO GROUP ORDINARY", 4_000, -5, ptr(8)),
+		// A NULL share count passes, as it does in SQL, so the 17 August row is
+		// the reading.
+		row(t, "NUL", "2026-08-03", "NUL GROUP ORDINARY", 2_000, 100_000_000, ptr(5)),
+		row(t, "NUL", "2026-08-17", "NUL GROUP ORDINARY", 4_000, math.NaN(), ptr(8)),
+		// An empty product name fails 000080's name predicates, so the 3 August
+		// row is the reading.
+		row(t, "EMP", "2026-08-03", "EMP GROUP ORDINARY", 2_000, 100_000_000, ptr(5)),
+		row(t, "EMP", "2026-08-17", "", 4_000, 100_000_000, ptr(8)),
 	}
 	reports := NewReports(rows, nil)
+
+	t.Run("zero and negative share counts are excluded", func(t *testing.T) {
+		got := ShortReadingV0("ZRO", mustDate(t, "2026-12-18"), cal, reports, nil)
+		if got.ReportDate == nil || *got.ReportDate != mustDate(t, "2026-08-03") || got.Pct == nil || *got.Pct != 5 {
+			t.Errorf("got %+v, want the 3 August row at 5%%", got)
+		}
+	})
+
+	t.Run("a NULL share count passes", func(t *testing.T) {
+		got := ShortReadingV0("NUL", mustDate(t, "2026-12-18"), cal, reports, nil)
+		if got.ReportDate == nil || *got.ReportDate != mustDate(t, "2026-08-17") || got.Pct == nil || *got.Pct != 8 {
+			t.Errorf("got %+v, want the 17 August row at 8%%", got)
+		}
+	})
+
+	t.Run("an empty product name is excluded", func(t *testing.T) {
+		got := ShortReadingV0("EMP", mustDate(t, "2026-12-18"), cal, reports, nil)
+		if got.ReportDate == nil || *got.ReportDate != mustDate(t, "2026-08-03") || got.Pct == nil || *got.Pct != 5 {
+			t.Errorf("got %+v, want the 3 August row at 5%%", got)
+		}
+	})
 
 	t.Run("latest filtered row, no age limit", func(t *testing.T) {
 		got := ShortReadingV0("XYZ", mustDate(t, "2026-12-18"), cal, reports, nil)

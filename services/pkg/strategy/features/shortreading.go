@@ -205,11 +205,20 @@ func ShortReadingV1(code string, asOf civil.Date, cal *calendar.Calendar, report
 // the instrument filters the v0 picker applied (ordinary shares only). It has
 // no age limit. Its days to cover follows DaysToCoverV0, so bars are the code's
 // stock_prices rows as stored, with no close filter.
+//
+// The v0 filters are 000080's: a share count of zero or below is excluded, and
+// so is an empty product name, while a NULL share count (NaN here) passes, as
+// it does in SQL. Rows with a non-finite percentage are skipped here, which
+// 000080 does not do (it takes +Inf and NaN as positive); that is a known
+// exclusion, not a figure.
 func ShortReadingV0(code string, asOf civil.Date, cal *calendar.Calendar, reports *Reports, bars []Bar) ShortReading {
 	rows := reports.byCode[code]
 	for i := len(rows) - 1; i >= 0; i-- {
 		row := rows[i]
 		if row.ReportDate.After(asOf) || !finiteRow(row) || *row.Percent <= 0 {
+			continue
+		}
+		if row.Product == "" || row.Issued <= 0 {
 			continue
 		}
 		if instrument.ClassifySecurity(row.Product, row.Code, row.Issued) != instrument.SecurityTypeOrdinary {
