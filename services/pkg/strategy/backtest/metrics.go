@@ -2,7 +2,8 @@ package backtest
 
 import (
 	"math"
-	"time"
+
+	"cloud.google.com/go/civil"
 )
 
 const (
@@ -15,13 +16,13 @@ const (
 
 // Curve is a daily series of closing equity with its session dates.
 type Curve struct {
-	Dates  []time.Time
+	Dates  []civil.Date
 	Values []float64
 }
 
 // EquityCurve is the equity curve of recorded sessions.
 func EquityCurve(recs []Record) Curve {
-	c := Curve{Dates: make([]time.Time, 0, len(recs)), Values: make([]float64, 0, len(recs))}
+	c := Curve{Dates: make([]civil.Date, 0, len(recs)), Values: make([]float64, 0, len(recs))}
 	for _, r := range recs {
 		c.Dates = append(c.Dates, r.Date)
 		c.Values = append(c.Values, r.Equity)
@@ -52,8 +53,8 @@ func CAGR(c Curve) (float64, bool) {
 	return math.Pow(c.Values[n-1]/c.Values[0], 365.25/float64(days)) - 1, true
 }
 
-func calendarDays(from, to time.Time) int {
-	return int(math.Round(to.Sub(from).Hours() / 24))
+func calendarDays(from, to civil.Date) int {
+	return to.DaysSince(from)
 }
 
 // Drawdown is the deepest peak-to-trough fall of a curve. Indices refer to the

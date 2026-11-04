@@ -2,7 +2,10 @@ package backtest
 
 import (
 	"math"
-	"time"
+
+	"cloud.google.com/go/civil"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 )
 
 // TradingDaysPerYear annualises daily returns and rates.
@@ -38,7 +41,7 @@ type BarBasis struct {
 
 // Quantum is the rounding quantum for a bar dated on date: cents before
 // price4dpFrom, four decimal places from it on.
-func Quantum(date, price4dpFrom time.Time) float64 {
+func Quantum(date, price4dpFrom civil.Date) float64 {
 	if date.Before(price4dpFrom) {
 		return quantumCents
 	}
@@ -48,16 +51,16 @@ func Quantum(date, price4dpFrom time.Time) float64 {
 // ClassifyBar applies the per-bar rule to cur, given the previous loaded bar.
 // A bar with a non-positive close or adjusted close, against a previous bar that
 // exists, is price-return: the step cannot be measured, so it is not trusted.
-func ClassifyBar(prev, cur Bar, hasPrev bool, date, price4dpFrom time.Time) BarBasis {
+func ClassifyBar(prev, cur features.Bar, hasPrev bool, date, price4dpFrom civil.Date) BarBasis {
 	if !hasPrev {
 		return BarBasis{}
 	}
-	if prev.Close <= 0 || prev.Adj <= 0 || cur.Close <= 0 || cur.Adj <= 0 {
+	if prev.Close <= 0 || prev.AdjClose <= 0 || cur.Close <= 0 || cur.AdjClose <= 0 {
 		return BarBasis{HasPrev: true}
 	}
 	q := Quantum(date, price4dpFrom)
-	rk := math.Log((cur.Adj / cur.Close) / (prev.Adj / prev.Close))
-	tol := toleranceFloor + float64(q*(1/cur.Adj+1/cur.Close+1/prev.Adj+1/prev.Close))
+	rk := math.Log((cur.AdjClose / cur.Close) / (prev.AdjClose / prev.Close))
+	tol := toleranceFloor + float64(q*(1/cur.AdjClose+1/cur.Close+1/prev.AdjClose+1/prev.Close))
 	return BarBasis{
 		HasPrev:     true,
 		RK:          rk,

@@ -1,7 +1,7 @@
 // Package backtest holds the pure simulation of a strategy's execution: fills
-// at the next traded open, the house cost model, the point-in-time total-return
-// basis that prices P&L, cash dividends on unadjusted ex-dates, the exit and
-// data-exclusion rules, and the metrics a run reports.
+// at the next traded open with the cost model of the execution recipe, the
+// point-in-time total-return basis that prices P&L, cash dividends on unadjusted
+// ex-dates, the exit and data-exclusion rules, and the metrics a run reports.
 //
 // Everything here is a function of its inputs. The package reads no clock,
 // draws no random numbers and does no I/O, and iterates codes in sorted order,

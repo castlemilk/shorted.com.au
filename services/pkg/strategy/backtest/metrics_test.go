@@ -3,7 +3,8 @@ package backtest
 import (
 	"math"
 	"testing"
-	"time"
+
+	"cloud.google.com/go/civil"
 )
 
 // curveOf builds a curve on consecutive calendar days from base.
@@ -55,7 +56,7 @@ func TestMetrics(t *testing.T) {
 	t.Run("CAGR over exactly four years", func(t *testing.T) {
 		// 1461 calendar days is four years, so 365.25/1461 = 1/4 and 2x is 2^(1/4).
 		c := Curve{
-			Dates:  []time.Time{base, base.AddDate(4, 0, 0)},
+			Dates:  []civil.Date{base, base.AddYears(4)},
 			Values: []float64{100, 200},
 		}
 		got, ok := CAGR(c)
@@ -66,11 +67,11 @@ func TestMetrics(t *testing.T) {
 	})
 
 	t.Run("CAGR withheld at 364 days and shown at 365", func(t *testing.T) {
-		short := Curve{Dates: []time.Time{base, base.AddDate(0, 0, 364)}, Values: []float64{100, 200}}
+		short := Curve{Dates: []civil.Date{base, base.AddDays(364)}, Values: []float64{100, 200}}
 		if _, ok := CAGR(short); ok {
 			t.Fatal("CAGR shown for a 364-day window")
 		}
-		year := Curve{Dates: []time.Time{base, base.AddDate(0, 0, 365)}, Values: []float64{100, 200}}
+		year := Curve{Dates: []civil.Date{base, base.AddDays(365)}, Values: []float64{100, 200}}
 		got, ok := CAGR(year)
 		if !ok {
 			t.Fatal("CAGR withheld for a 365-day window")
