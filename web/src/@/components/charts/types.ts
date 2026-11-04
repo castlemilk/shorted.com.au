@@ -102,6 +102,19 @@ export interface OscillatorSpec {
   kind?: "line" | "area";
   /** Suffix for the tick labels, e.g. "%". Default none. */
   unit?: string;
+  /**
+   * Value callouts on the panel, read against its own domain: a drawdown's
+   * trough ("−18.6%" at −18.6). Drawn in the panel with its scale, not on the
+   * plot's. Off when absent.
+   */
+  annotations?: readonly OscillatorAnnotation[];
+}
+
+/** A dot and callout on an oscillator panel at a session, read on the panel's domain. */
+export interface OscillatorAnnotation {
+  t: number; // epoch ms
+  v: number;
+  label: string;
 }
 
 export interface StockChartProps {

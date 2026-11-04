@@ -1702,6 +1702,14 @@ export function StockChartInner({
   );
 }
 
+/** The oscillator's tick labels are 9 px type. */
+const TICK_FONT_PX = 9;
+
+/** A tick's text with a true minus (U+2212), per the tabular rule: "−30", never "-30". */
+function tickLabel(value: number): string {
+  return String(value).replace("-", "−");
+}
+
 function OscillatorPanel({
   oscillators,
   refIndices,
@@ -1740,6 +1748,26 @@ function OscillatorPanel({
     : [];
   // The tick labels: the reference levels, or the domain's ends for an area with none.
   const ticks = osc.reference ?? (isArea ? [domain[0], domain[1]] : []);
+  // Callouts on the panel (a drawdown's trough), placed on the panel's own scales:
+  // a value is read against the panel's domain, never the plot's.
+  const callouts = osc.annotations?.length
+    ? layoutPointMarks(
+        osc.annotations.map((a) => ({
+          kind: "annotation" as const,
+          t: a.t,
+          v: a.v,
+          axis: "left" as const,
+          label: a.label,
+          fill: ANNOTATION_FILL,
+        })),
+        {
+          x: (t) => xScale(new Date(t)) ?? NaN,
+          yFor: () => (v) => yScale(v) ?? NaN,
+          innerW: width,
+          innerH: height,
+        },
+      )
+    : [];
   return (
     <g>
       <rect x={0} y={0} width={width} height={height} fill="hsl(var(--muted))" fillOpacity={0.25} rx={4} />
@@ -1792,19 +1820,28 @@ function OscillatorPanel({
         </text>
       )}
       {(Boolean(osc.caption) || isArea) &&
-        ticks.map((lvl) => (
-          <text
-            key={`ref-${lvl}`}
-            x={width - 2}
-            y={(yScale(lvl) ?? 0) - 2}
-            textAnchor="end"
-            fontSize={9}
-            fill={chartTheme.axisLabel}
-          >
-            {lvl}
-            {osc.unit ?? ""}
-          </text>
-        ))}
+        ticks.map((lvl) => {
+          const line = yScale(lvl) ?? 0;
+          // Two pixels above its line. The area variant keeps a tick on the panel's
+          // top edge (a drawdown's zero) inside the panel, under its line. A line
+          // oscillator's ticks are unchanged (Williams %R's negative levels keep
+          // their output).
+          const baseline =
+            isArea && line - 2 < TICK_FONT_PX ? line + TICK_FONT_PX + 1 : line - 2;
+          return (
+            <text
+              key={`ref-${lvl}`}
+              x={width - 2}
+              y={baseline}
+              textAnchor="end"
+              fontSize={TICK_FONT_PX}
+              fill={chartTheme.axisLabel}
+            >
+              {isArea ? tickLabel(lvl) : lvl}
+              {osc.unit ?? ""}
+            </text>
+          );
+        })}
       {(osc.extraLines ?? []).map((ln, i) => (
         <IndicatorPath
           key={i}
@@ -1824,6 +1861,33 @@ function OscillatorPanel({
         color={osc.color}
         dash={osc.dash}
       />
+      {callouts.length > 0 && (
+        <g data-chart-osc-annotations pointerEvents="none">
+          {callouts.map((m, i) => (
+            <g key={`osc-mark-${i}`} data-chart-mark={m.kind}>
+              <circle
+                cx={m.x}
+                cy={m.y}
+                r={3.5}
+                style={{ fill: m.fill }}
+                stroke="hsl(var(--background))"
+                strokeWidth={1.5}
+              />
+              {m.label ? (
+                <text
+                  x={m.labelX}
+                  y={m.labelY}
+                  textAnchor={m.labelAnchor}
+                  fontSize={10}
+                  fill={chartTheme.crosshair}
+                >
+                  {m.label}
+                </text>
+              ) : null}
+            </g>
+          ))}
+        </g>
+      )}
     </g>
   );
 }

@@ -93,8 +93,17 @@ describe("StockChart oscillator area", () => {
       ...container.querySelectorAll("[data-chart='oscillator'] text"),
     ].map((t) => t.textContent);
     expect(labels).toEqual(
-      expect.arrayContaining(["-30%", "-20%", "-10%", "0%"]),
+      expect.arrayContaining(["−30%", "−20%", "−10%", "0%"]),
     );
+  });
+
+  it("keeps the top tick of a drawdown inside the panel, below its line", () => {
+    const { container } = renderChart({ oscillators: [area()] });
+    const zero = [
+      ...container.querySelectorAll("[data-chart='oscillator'] text"),
+    ].find((t) => t.textContent === "0%")!;
+    // The line sits at y = 0 (the panel's top edge); its label must not be above it.
+    expect(Number(zero.getAttribute("y"))).toBeGreaterThanOrEqual(9);
   });
 
   it("draws the chart's regions in the sub-panel as well as the plot", () => {
@@ -105,6 +114,33 @@ describe("StockChart oscillator area", () => {
     expect(container.querySelectorAll("[data-chart-osc-region]")).toHaveLength(
       1,
     );
+  });
+
+  it("draws a trough callout on the panel, on the panel's own domain", () => {
+    const { container } = renderChart({
+      oscillators: [
+        area({
+          // The trough is the fifth session, at -30 (the panel's floor).
+          annotations: [{ t: T0 + 5 * DAY, v: -30, label: "−30.0%" }],
+        }),
+      ],
+    });
+    const panel = container.querySelector("[data-chart='oscillator']")!;
+    const mark = panel.querySelector("[data-chart-mark='annotation']");
+    expect(mark).not.toBeNull();
+    // The panel is 72px: -30 on a [-30, 0] domain sits on its bottom edge.
+    expect(Number(mark!.querySelector("circle")!.getAttribute("cy"))).toBeCloseTo(
+      72,
+      5,
+    );
+    expect(mark!.querySelector("text")!.textContent).toBe("−30.0%");
+  });
+
+  it("draws no callout on the panel when none is given", () => {
+    const { container } = renderChart({ oscillators: [area()] });
+    expect(
+      container.querySelector("[data-chart-osc-annotations]"),
+    ).toBeNull();
   });
 
   it("draws no sub-panel region for a line oscillator", () => {
