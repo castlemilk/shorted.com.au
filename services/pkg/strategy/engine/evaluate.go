@@ -10,7 +10,28 @@ import (
 type quartile struct {
 	threshold float64 // the 75th percentile (linear interpolation)
 	max       float64
-	ok        bool // false when no candidate carries the metric
+	ok        bool      // false when no candidate carries the metric
+	sorted    []float64 // every value, ascending, for percentile ranks
+}
+
+// percentileOf is the share of the universe at or below v, 0-100. nil when v
+// is nil or non-finite, or the universe carries no values.
+func (q quartile) percentileOf(v *float64) *float64 {
+	if v == nil || !isFinite(*v) || len(q.sorted) == 0 {
+		return nil
+	}
+	n := sort.Search(len(q.sorted), func(i int) bool { return q.sorted[i] > *v })
+	p := float64(n) / float64(len(q.sorted)) * 100
+	return &p
+}
+
+// RSQuantileThreshold is the universe's top-quartile cut-off of rs_6m_pct, the
+// figure rs_leader reads. ok is false when no candidate carries the metric.
+func (e *evalEnv) RSQuantileThreshold() (float64, bool) {
+	if e == nil || !e.rs6m.ok {
+		return 0, false
+	}
+	return e.rs6m.threshold, true
 }
 
 // computeRS6mQuartile returns the 75th percentile of rs_6m_pct across every
@@ -44,6 +65,7 @@ func quantile(vals []float64, p float64) quartile {
 		threshold: sorted[lo] + (sorted[hi]-sorted[lo])*frac,
 		max:       sorted[len(sorted)-1],
 		ok:        true,
+		sorted:    sorted,
 	}
 }
 
@@ -129,24 +151,38 @@ func EvaluateOne(strategy Strategy, c Candidate, env *Env) (Pick, bool) {
 			}
 			score += weights[rule.ID] * (passFloor + passStrength*clamp01(out.Strength)) * 100
 		case out.Status == RuleFail && triggers[rule.ID]:
-			// A trigger that has not fired yet earns a share of its weight
-			// for how close it is (proximity.go), so a setup about to break
-			// out ranks above one far from its pivot.
+			// A trigger that has not fired yet earns a share of its weight for
+			// how close it is (proximity.go), so a setup about to break out ranks
+			// above one far from its pivot.
 			score += weights[rule.ID] * triggerCredit * clamp01(out.Proximity) * 100
 		}
-		results = append(results, RuleResult{
+		res := RuleResult{
 			RuleID:   rule.ID,
 			Status:   out.Status,
 			Detail:   out.Detail,
 			Value:    finiteOrZero(out.Value),
 			HasValue: out.HasValue && isFinite(out.Value),
-		})
+			Reason:   out.Reason,
+		}
+		// Proximity grades a failing trigger and nothing else.
+		if out.Status == RuleFail && triggers[rule.ID] && out.HasProximity {
+			res.Proximity, res.HasProximity = clamp01(out.Proximity), true
+		}
+		results = append(results, res)
+	}
+	status := Ladder(strategy, results)
+	if status == StatusSetup {
+		// The failing triggers of a setup are what it is waiting for.
+		for i := range results {
+			results[i].Waiting = results[i].Status == RuleFail && triggers[results[i].RuleID]
+		}
 	}
 	return Pick{
-		Candidate: c,
-		Status:    Ladder(strategy, results),
-		Score:     math.Min(100, math.Max(0, math.Round(score*10)/10)),
-		Rules:     results,
+		Candidate:      c,
+		Status:         status,
+		Score:          math.Min(100, math.Max(0, math.Round(score*10)/10)),
+		Rules:          results,
+		RS6mPercentile: env.rs6m.percentileOf(c.RS6mPct),
 	}, anyPass
 }
 
