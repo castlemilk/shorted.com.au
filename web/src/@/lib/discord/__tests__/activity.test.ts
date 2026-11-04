@@ -139,6 +139,20 @@ describe("activitySignInUrl", () => {
     );
   });
 
+  it("returns to the chart as posted when it was pinned", () => {
+    const url = new URL(
+      activitySignInUrl({
+        code: "CBA",
+        view: "combined",
+        period: "3m",
+        anchor: { day: "2026-11-04", shorts: "2026-10-28" },
+      }),
+    );
+    expect(url.searchParams.get("callbackUrl")).toBe(
+      "/chart/CBA?view=combined&period=3m&asof=2026-11-04&shorts=2026-10-28&landscape=1",
+    );
+  });
+
   it("leaves the share page's defaults out of the callback", () => {
     expect(
       activitySignInUrl({ code: "CBA", view: "short", period: "1y" }),

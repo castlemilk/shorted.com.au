@@ -1,8 +1,13 @@
 import { siteConfig } from "~/@/config/site";
 import {
-  CHART_PERIOD_PHRASE,
-  shortFmt,
-} from "~/@/components/charts/chart-views";
+  chartPeriodPhrase,
+  formatAnchorDay,
+  isIsoDay,
+  parseChartAnchor,
+  sydneyDay,
+  type ChartAnchor,
+} from "~/@/components/charts/chart-anchor";
+import { shortFmt } from "~/@/components/charts/chart-views";
 import {
   CHART_SOURCE,
   chartImageUrl,
@@ -140,14 +145,19 @@ export function stockPageUrl(code: string): string {
 }
 
 /**
- * The chart card (/chart/<CODE>/image), with today's Sydney date appended.
- * Discord's media proxy caches an image by its URL, so without the date a
- * chart posted again tomorrow would show yesterday's picture; the route
- * ignores the parameter, and the CDN keys on it, so each day draws afresh.
+ * The chart card (/chart/<CODE>/image), with a date appended for the CDN's
+ * key. A live chart takes today's Sydney date: Discord's media proxy caches an
+ * image by its URL, so without the date a chart posted again tomorrow would
+ * show yesterday's picture. A kept chart takes its posting day, which never
+ * changes, so its card is drawn once and stays cached while the message is
+ * pressed, instead of being redrawn each day someone presses an old message.
+ * The route ignores the parameter.
  */
 export function chartCardUrl(state: ChartState, now: Date): string {
-  const url = new URL(chartImageUrl(state.code, state.view, state.period));
-  url.searchParams.set("v", dayFmt.format(now));
+  const url = new URL(
+    chartImageUrl(state.code, state.view, state.period, state.anchor),
+  );
+  url.searchParams.set("v", state.anchor?.day ?? dayFmt.format(now));
   return url.toString();
 }
 
@@ -178,7 +188,58 @@ function stockFields(s: StockSummary): NonNullable<Embed["fields"]> {
   );
 }
 
+/**
+ * The anchor a new message is posted with, decided before its card is drawn:
+ * the day (Sydney), the newest ASIC report (never after the day) and the
+ * newest close the bot read on or before the day. Null when either date is
+ * unknown, or one the anchor rules would not keep (a report more than 60
+ * days old, say: a stock ASIC no longer reports): the chart is then live, as
+ * every chart was before anchors. A kept chart is never anchored to a
+ * guessed date, and its ids always parse back to exactly this anchor.
+ */
+export function postedAnchor(
+  summary: { asOf?: Date | null },
+  now: Date,
+  newestClose: string | null | undefined,
+): ChartAnchor | null {
+  if (!summary.asOf || !isIsoDay(newestClose)) return null;
+  const day = sydneyDay(now);
+  const reported = sydneyDay(summary.asOf);
+  const wanted = {
+    day,
+    shorts: reported < day ? reported : day,
+    prices: newestClose,
+  };
+  const kept = parseChartAnchor(wanted);
+  return kept &&
+    kept.day === wanted.day &&
+    kept.shorts === wanted.shorts &&
+    kept.prices === wanted.prices
+    ? kept
+    : null;
+}
+
+/**
+ * A kept-as-posted chart's footer. It names the posting day and the report
+ * date instead of the stock's latest data, so a redraw of the same view reads
+ * the same as the post did.
+ */
+export function anchoredFooter(
+  view: ChartState["view"],
+  anchor: ChartAnchor,
+): string {
+  const shorts =
+    view !== "price"
+      ? `, short positions as of ${formatAnchorDay(anchor.shorts)}`
+      : "";
+  return truncate(
+    `Source: ${CHART_SOURCE[view]}${shorts} · As posted ${formatAnchorDay(anchor.day)} · shorted.com.au`,
+    LIMITS.embedFooter,
+  );
+}
+
 function footer(summary: StockSummary, state: ChartState): string {
+  if (state.anchor) return anchoredFooter(state.view, state.anchor);
   const source = CHART_SOURCE[state.view];
   const asOf =
     summary.asOf && state.view !== "price"
@@ -197,7 +258,9 @@ function footer(summary: StockSummary, state: ChartState): string {
  * ignored.
  */
 export function openOnShortedUrl(state: ChartState): string {
-  const url = new URL(chartShareUrl(state.code, state.view, state.period));
+  const url = new URL(
+    chartShareUrl(state.code, state.view, state.period, state.anchor),
+  );
   url.searchParams.set("landscape", "1");
   return url.toString();
 }
@@ -280,32 +343,132 @@ export function buildChartMessage({
   now,
   card,
 }: ChartMessageOptions): MessagePayload {
+  const title = summary.name ? `${state.code} · ${summary.name}` : state.code;
+  return assembleChartMessage({
+    figures: {
+      title,
+      // The card under it prints what it charts and over what period, and the
+      // highlighted buttons say the same, so the text is the readings only.
+      description: headline(summary),
+      fields: stockFields(summary),
+    },
+    footerText: footer(summary, state),
+    state,
+    activity,
+    now,
+    card,
+  });
+}
+
+/** The figures a chart message shows above its card. */
+export interface ChartFigures {
+  title: string;
+  description?: string;
+  fields: NonNullable<Embed["fields"]>;
+}
+
+/**
+ * The figures of a message the bot posted, copied from its embed. A press on a
+ * chart kept as posted uses these instead of reading the stock again, so the
+ * figures above the chart stay the ones posted. The embed comes back from
+ * Discord, so each part is kept only when it has the right type, and cut to
+ * the limits a new message would obey. Null when there is no usable title.
+ */
+export function copiedFigures(embed: unknown): ChartFigures | null {
+  if (!embed || typeof embed !== "object") return null;
+  const e = embed as Record<string, unknown>;
+  if (typeof e.title !== "string" || e.title.trim() === "") return null;
+  const fields: NonNullable<Embed["fields"]> = [];
+  if (Array.isArray(e.fields)) {
+    for (const field of e.fields) {
+      if (fields.length >= LIMITS.embedFields) break;
+      if (!field || typeof field !== "object") continue;
+      const f = field as Record<string, unknown>;
+      if (typeof f.name !== "string" || typeof f.value !== "string") continue;
+      if (!f.name.trim() || !f.value.trim()) continue;
+      fields.push({
+        name: truncate(f.name, LIMITS.embedFieldName),
+        value: truncate(f.value, LIMITS.embedFieldValue),
+        inline: typeof f.inline === "boolean" ? f.inline : true,
+      });
+    }
+  }
+  const description =
+    typeof e.description === "string" && e.description.trim() !== ""
+      ? truncate(e.description, LIMITS.embedDescription)
+      : undefined;
+  return {
+    title: truncate(e.title, LIMITS.embedTitle),
+    description,
+    fields,
+  };
+}
+
+/**
+ * A redrawn chart kept as posted: the figures copied from the message it is
+ * on (copiedFigures), the anchored footer for the new view, and the card for
+ * the anchored state.
+ */
+export function buildCopiedChartMessage({
+  figures,
+  state,
+  activity,
+  now,
+  card,
+}: Omit<ChartMessageOptions, "summary"> & {
+  figures: ChartFigures;
+  state: ChartState & { anchor: ChartAnchor };
+}): MessagePayload {
+  return assembleChartMessage({
+    figures,
+    footerText: anchoredFooter(state.view, state.anchor),
+    state,
+    activity,
+    now,
+    card,
+  });
+}
+
+function assembleChartMessage({
+  figures,
+  footerText,
+  state,
+  activity,
+  now,
+  card,
+}: {
+  figures: ChartFigures;
+  footerText: string;
+  state: ChartState;
+  activity: boolean;
+  now: Date;
+  card?: Uint8Array | null;
+}): MessagePayload {
   const file = card
     ? {
         name: chartCardFileName(state),
         data: card,
         contentType: "image/png",
         description: truncate(
-          `${state.code} ${chartSubject(state.view)} chart, ${CHART_PERIOD_PHRASE[state.period]}`,
+          `${state.code} ${chartSubject(state.view)} chart, ${chartPeriodPhrase(state.period, state.anchor)}`,
           LIMITS.attachmentDescription,
         ),
       }
     : null;
-  const title = summary.name ? `${state.code} · ${summary.name}` : state.code;
   const embed: Embed = {
-    title: truncate(title, LIMITS.embedTitle),
+    title: truncate(figures.title, LIMITS.embedTitle),
     url: stockPageUrl(state.code),
-    // The card under it prints what it charts and over what period, and the
-    // highlighted buttons say the same, so the text is the readings only.
-    description: truncate(headline(summary), LIMITS.embedDescription),
+    description: figures.description
+      ? truncate(figures.description, LIMITS.embedDescription)
+      : undefined,
     color: EMBED_COLOR,
-    fields: stockFields(summary),
+    fields: figures.fields,
     // No thumbnail: the card draws the company's logo on a light tile, and the
     // raw logo (often dark on transparent) would vanish on Discord's dark theme.
     image: {
       url: file ? `attachment://${file.name}` : chartCardUrl(state, now),
     },
-    footer: { text: footer(summary, state) },
+    footer: { text: footerText },
   };
   return {
     embeds: [embed],
@@ -431,7 +594,7 @@ export function buildHelpMessage({
     "`/settings` The stock, chart and period the bot opens with, for this server (Manage Server) or just you",
     "",
     "Start typing a company name in `code` to search as you go. With a default stock set, `code` can be left out.",
-    "The buttons under a chart redraw it in place for everyone in the channel: pick a period, or switch between short interest, price and both. Pressing the highlighted one again redraws it with the latest figures.",
+    "The buttons under a chart redraw it in place for everyone in the channel: pick a period, or switch between short interest, price and both. A chart's footer says which kind it is: one marked “As posted” keeps the window and figures it was posted with, and any other redraws with the latest figures. `/settings` chooses which kind new charts are.",
   ];
   if (activity) {
     lines.push(
@@ -497,6 +660,13 @@ export function buildSettingsMessage({
             value: settings.interactive
               ? "The interactive chart"
               : "A chart message with buttons",
+            inline: true,
+          },
+          {
+            name: "Buttons",
+            value: settings.asPosted
+              ? "Keep the chart as posted"
+              : "Redraw with the latest figures",
             inline: true,
           },
         ],

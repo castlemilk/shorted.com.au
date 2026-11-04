@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import { useShortTimeSeries, useHistoricalData } from "@/hooks/use-stock-queries";
 import { shortSeriesToPoints, historicalToPoints, mergeByDay } from "./adapters";
 import { pearson } from "./correlation";
+import { anchoredWindows, type ChartAnchor } from "./chart-anchor";
+import type { ChartPeriod } from "./chart-views";
 import type { ChartPoint } from "./types";
 
 export interface StockChartData {
@@ -23,10 +25,19 @@ export interface StockChartData {
  * derives volume + price↔short correlation. Used by both the consolidated
  * StockPriceShortChart and the tabbed StockChartPanel so the fetch/derive logic
  * lives in one place.
+ *
+ * With an `anchor` (a chart kept as posted) each series is fetched for its
+ * anchored window, which ends on the anchor. Without one the queries are the
+ * live charts' own, unchanged.
  */
-export function useStockChartData(code: string, period: string): StockChartData {
-  const shortQ = useShortTimeSeries(code, period);
-  const histQ = useHistoricalData(code, period);
+export function useStockChartData(
+  code: string,
+  period: ChartPeriod,
+  anchor?: ChartAnchor | null,
+): StockChartData {
+  const windows = anchor ? anchoredWindows(period, anchor) : null;
+  const shortQ = useShortTimeSeries(code, period, { window: windows?.shorts });
+  const histQ = useHistoricalData(code, period, { window: windows?.prices });
 
   const short = useMemo(() => shortSeriesToPoints(shortQ.data), [shortQ.data]);
   const { price, volume } = useMemo(

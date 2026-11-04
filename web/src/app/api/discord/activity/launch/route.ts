@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  parseChartAnchor,
+  sydneyDay,
+} from "~/@/components/charts/chart-anchor";
 import { DEFAULT_EMBED_CODE } from "~/app/embed/chart/params";
 import type { LaunchAnswer } from "~/@/lib/discord/activity";
+import type { ChartState } from "~/@/lib/discord/custom-id";
 import { recallLaunch } from "~/@/lib/discord/launch";
 import { isSnowflake, resolveSettings } from "~/@/lib/discord/settings";
 import { firestoreSettingsStore } from "~/@/lib/discord/settings-store";
@@ -25,16 +30,38 @@ export const dynamic = "force-dynamic";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
+/**
+ * A recalled state with its anchor re-checked: the KV entry was written by the
+ * bot, but it is read back here as data, so an anchor that is not a real day is
+ * dropped (the chart is then live) rather than passed on.
+ */
+function checkedState(state: ChartState): ChartState {
+  const anchor = parseChartAnchor(
+    {
+      day: state.anchor?.day,
+      shorts: state.anchor?.shorts,
+      prices: state.anchor?.prices,
+    },
+    sydneyDay(new Date()),
+  );
+  return {
+    code: state.code,
+    view: state.view,
+    period: state.period,
+    ...(anchor ? { anchor } : {}),
+  };
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const channel = params.get("channel");
   const guild = params.get("guild");
 
   if (isSnowflake(channel)) {
-    const state = await recallLaunch(channel).catch(() => null);
-    if (state) {
+    const recalled = await recallLaunch(channel).catch(() => null);
+    if (recalled) {
       return NextResponse.json(
-        { source: "command", state } satisfies LaunchAnswer,
+        { source: "command", state: checkedState(recalled) } satisfies LaunchAnswer,
         { headers: NO_STORE },
       );
     }

@@ -2,6 +2,7 @@
 
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
+import { shouldRetryQuery } from "@/lib/query-client";
 import {
   getMultipleStockQuotes,
   getHistoricalData,
@@ -14,7 +15,10 @@ import {
   fetchStockClient,
   fetchStockDataClient,
   fetchStockDetailsClient,
+  fetchStockDataWindowClient,
+  fetchStockPricesClient,
   fetchTopShortsClient,
+  type ClientDateWindow,
 } from "@/lib/client-api";
 import type { TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 
@@ -58,18 +62,44 @@ export function useStockQuote(code: string) {
 }
 
 /**
- * Hook for fetching historical market data (prices)
+ * The retry rule for a windowed read (a chart kept as posted): the app's rule,
+ * except that NotFound is retried too, because the stock service answers a
+ * database error on GetStockData with NotFound; a stock it does not know is an
+ * empty answer, not an error. Three tries, as the app's rule allows.
+ */
+export function retryWindowedRead(failureCount: number, error: unknown): boolean {
+  if (failureCount >= 3) return false;
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? (error as { code: unknown }).code
+      : undefined;
+  return code === CODE_NOT_FOUND || shouldRetryQuery(failureCount, error);
+}
+
+const CODE_NOT_FOUND = 5;
+
+/**
+ * Hook for fetching historical market data (prices). With a `window` (a chart
+ * kept as posted) the prices are that date range, from the stock service; the
+ * live chart's query is unchanged.
  */
 export function useHistoricalData(
   code: string,
   period: string,
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; window?: ClientDateWindow } = {},
 ) {
+  const range = options.window;
   return useQuery({
-    queryKey: queryKeys.market.historical(code, period),
-    queryFn: () => getHistoricalData(code, period),
+    queryKey: queryKeys.market.historical(code, period, range),
+    // A failed windowed read rejects (fetchStockPricesClient), so TanStack retries
+    // it rather than caching an empty series for the stale time.
+    queryFn: () =>
+      range
+        ? fetchStockPricesClient(code.toUpperCase(), range)
+        : getHistoricalData(code, period),
     enabled: (options.enabled ?? true) && !!code && !!period,
     staleTime: DAILY_STALE, // daily end-of-day prices
+    ...(range ? { retry: retryWindowedRead } : {}),
   });
 }
 
@@ -104,13 +134,18 @@ export function useMultipleHistoricalData(codes: string[], period: string) {
 export function useShortTimeSeries(
   code: string,
   period: string,
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; window?: ClientDateWindow } = {},
 ) {
+  const range = options.window;
   return useQuery({
-    queryKey: queryKeys.stock.timeSeries(code, period),
-    queryFn: () => fetchStockDataClient(code, period),
+    queryKey: queryKeys.stock.timeSeries(code, period, range),
+    queryFn: () =>
+      range
+        ? fetchStockDataWindowClient(code, period, range)
+        : fetchStockDataClient(code, period),
     enabled: (options.enabled ?? true) && !!code && !!period,
     staleTime: DAILY_STALE, // daily (ASIC T+4)
+    ...(range ? { retry: retryWindowedRead } : {}),
   });
 }
 

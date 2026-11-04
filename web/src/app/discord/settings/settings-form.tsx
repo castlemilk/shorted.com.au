@@ -22,6 +22,7 @@ import {
   ASK_FOR_STOCK,
   buildChartMessage,
   notice,
+  postedAnchor,
   type StockHit,
   type StockSummary,
 } from "~/@/lib/discord/messages";
@@ -77,7 +78,8 @@ export function sameSettings(a: DiscordSettings, b: DiscordSettings): boolean {
     a.code === b.code &&
     a.view === b.view &&
     a.period === b.period &&
-    a.interactive === b.interactive
+    a.interactive === b.interactive &&
+    a.asPosted === b.asPosted
   );
 }
 
@@ -94,20 +96,30 @@ function useMinutesLeft(expiresAt: number): number | null {
   return left;
 }
 
-function toSummary(preview: PreviewSummary): StockSummary {
-  return { ...preview, asOf: preview.asOf ? new Date(preview.asOf) : null };
+/** A preview's readings: the stock's summary and the newest close a post would use. */
+interface Readings {
+  summary: StockSummary;
+  newestClose: string | null;
+}
+
+function toReadings(preview: PreviewSummary): Readings {
+  const { asOf, newestClose, ...rest } = preview;
+  return {
+    summary: { ...rest, asOf: asOf ? new Date(asOf) : null },
+    newestClose,
+  };
 }
 
 /** The readings for the preview's stock, fetched once per stock. */
-function useStockSummary(code: string): StockSummary | null {
-  const [summaries, setSummaries] = useState<Record<string, StockSummary>>({});
+function useReadings(code: string): Readings | null {
+  const [summaries, setSummaries] = useState<Record<string, Readings>>({});
   useEffect(() => {
     if (summaries[code]) return;
     let live = true;
     previewStock(code)
       .then((preview) => {
         if (live && preview) {
-          setSummaries((all) => ({ ...all, [code]: toSummary(preview) }));
+          setSummaries((all) => ({ ...all, [code]: toReadings(preview) }));
         }
       })
       .catch(() => undefined);
@@ -409,17 +421,26 @@ function Preview({
   activityEnabled: boolean;
 }) {
   const code = settings.code ?? SAMPLE_CODE;
-  const summary = useStockSummary(code);
-  const state = { code, view: settings.view, period: settings.period };
+  const readings = useReadings(code);
+  const summary = readings?.summary ?? null;
+  const now = new Date();
+  // The Activity a command opens is live (commands with the interactive chart
+  // stay live), so its frame is built from the plain state. A chart without
+  // its report date is live too, as the bot posts it.
+  const live = { code, view: settings.view, period: settings.period };
+  const anchor = settings.asPosted
+    ? postedAnchor(summary ?? { asOf: null }, now, readings?.newestClose)
+    : null;
+  const state = anchor ? { ...live, anchor } : live;
   const interactive = settings.interactive && activityEnabled;
   const command = settings.code ? "/chart" : `/chart ${SAMPLE_CODE}`;
   const payload = buildChartMessage({
     summary: summary ?? { code, name: settings.code ? name : undefined },
     state,
     activity: activityEnabled,
-    now: new Date(),
+    now,
   });
-  const activitySrc = `/embed/discord?${new URLSearchParams(state).toString()}`;
+  const activitySrc = `/embed/discord?${new URLSearchParams(live).toString()}`;
 
   return (
     <div className="overflow-hidden rounded-lg border bg-[#313338]">
@@ -515,6 +536,18 @@ export function DiscordSettingsForm({
     label: v.label,
     hint: VIEW_HINTS[v.id],
   }));
+  const buttonChoices: Choice<"posted" | "latest">[] = [
+    {
+      id: "posted",
+      label: "Keep the chart as posted",
+      hint: "The window ends on the day it was posted, and its figures stay as posted.",
+    },
+    {
+      id: "latest",
+      label: "Redraw with the latest figures",
+      hint: "Charts posted from now on redraw with today's readings, in a window ending today. Charts already posted keep how they were posted.",
+    },
+  ];
   const modeChoices: Choice<"message" | "interactive">[] = [
     {
       id: "message",
@@ -601,6 +634,19 @@ export function DiscordSettingsForm({
             value={values.period}
             onChange={(period) => change({ period })}
             className="grid-cols-5 [&_label]:items-center [&_label]:px-0"
+          />
+        </Section>
+
+        <Section
+          legend="Buttons"
+          description="What the buttons under a chart do, for charts posted from now on. Charts already posted keep how they were posted."
+        >
+          <ChoiceGroup
+            name="buttons"
+            choices={buttonChoices}
+            value={values.asPosted ? "posted" : "latest"}
+            onChange={(buttons) => change({ asPosted: buttons === "posted" })}
+            className="sm:grid-cols-2"
           />
         </Section>
 

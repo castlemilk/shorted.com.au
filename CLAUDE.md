@@ -1636,6 +1636,7 @@ because chat apps show HTML as text (a WBT snippet pasted into Discord,
 
 ### Landmines
 
+- **A chart as posted takes `?asof=&shorts=&prices=`.** `/chart/<CODE>`, `/chart/<CODE>/image`, `/embed/chart` and the Activity accept the three dates of an anchor (`chart-anchor.ts`: the posting day, the newest report and the newest close). A settled anchored card (posted 2+ days ago, report 8+ days old, complete with name and both logos) is cached 30 days at the CDN, and its data 7 days. Anything else uses the existing policies.
 - **`/chart/` must stay out of robots.txt; `/embed/` stays in it.** Twitterbot
   and Slackbot honour robots.txt, so a disallowed share link posts with no
   preview. The share page keeps itself out of the index with its noindex meta.
@@ -1697,6 +1698,13 @@ it in place, and an **Interactive** button (`"activity": true`, on since
 
 - **Buttons carry their chart in `custom_id`** (`chart:p:BHP:short:3m`); old
   messages keep sending what they were posted with. Add kinds, never change one.
+- **Kept-as-posted charts add three dates to the `custom_id`**: the posting day,
+  the newest short report and the newest close
+  (`chart:p:BHP:short:3m:20261104:20261028:20261103`). The bot reads the report
+  and the close before it draws a new post, and posts live when either is unknown.
+  A press copies the figures from `interaction.message` and never re-reads the
+  stock, and one with no embed is refused privately. The forms without dates stay
+  live, and a form's meaning never changes.
 - **A chart message uploads its card** (`lib/discord/chart-card.ts`) as
   `attachment://<CODE>-<view>-<period>.png` in the deferred webhook edit; an
   interaction's HTTP response is JSON and cannot. The card's URL made Discord's

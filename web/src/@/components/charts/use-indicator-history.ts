@@ -14,6 +14,7 @@ import {
   type ChartIndicatorId,
   type IndicatorTarget,
 } from "./chart-indicators";
+import { anchoredWindows, type ChartAnchor } from "./chart-anchor";
 import type { ChartPeriod } from "./chart-views";
 import type { ChartPoint } from "./types";
 
@@ -45,7 +46,8 @@ interface Held {
 }
 
 interface Kept {
-  code: string;
+  /** The stock and the anchor the history was loaded for (keepKey). */
+  key: string;
   price?: Held;
   short?: Held;
 }
@@ -86,15 +88,30 @@ function longerHeld(
  * loading. Once it lands, or the load ends without it, the indicator is drawn from what
  * there is. The hook reads the same query keys as the period buttons, so a period the
  * visitor has seen costs nothing.
+ *
+ * A chart kept as posted (`anchor`) reads every history through its anchored windows,
+ * the ones useStockChartData reads: each period's window ends on the anchor, so a
+ * longer one still reaches further back from the same end, and the warm-up for an
+ * indicator is the history before the posted window, never today's. The history kept
+ * belongs to one stock AND one anchor; a switch to the latest data starts again.
  */
 export function useIndicatorHistory(
   code: string,
   period: ChartPeriod,
   ids: readonly ChartIndicatorId[],
+  anchor?: ChartAnchor | null,
 ): IndicatorHistory {
+  const priceWindow = (p: ChartPeriod) =>
+    anchor ? anchoredWindows(p, anchor).prices : undefined;
+  const shortWindow = (p: ChartPeriod) =>
+    anchor ? anchoredWindows(p, anchor).shorts : undefined;
   // The visible series, through the queries the chart panel reads: no request is added.
-  const visiblePriceQ = useHistoricalData(code, period);
-  const visibleShortQ = useShortTimeSeries(code, period);
+  const visiblePriceQ = useHistoricalData(code, period, {
+    window: priceWindow(period),
+  });
+  const visibleShortQ = useShortTimeSeries(code, period, {
+    window: shortWindow(period),
+  });
   const visiblePrice = useMemo(
     () => historicalToPoints(visiblePriceQ.data).price,
     [visiblePriceQ.data],
@@ -121,8 +138,11 @@ export function useIndicatorHistory(
   // What is kept for this stock. It is read during render and set when a longer
   // history lands, so the value used is never a render behind. A new stock starts
   // again.
-  const [kept, setKept] = useState<Kept>({ code });
-  const current: Kept = kept.code === code ? kept : { code };
+  const keepKey = anchor
+    ? `${code}@${anchor.day}/${anchor.shorts}/${anchor.prices}`
+    : code;
+  const [kept, setKept] = useState<Kept>({ key: keepKey });
+  const current: Kept = kept.key === keepKey ? kept : { key: keepKey };
   const heldPricePeriod = current.price?.period;
   const heldShortPeriod = current.short?.period;
 
@@ -143,9 +163,11 @@ export function useIndicatorHistory(
   // makes no request.
   const warmPriceQ = useHistoricalData(code, plan.price ?? period, {
     enabled: plan.price !== null,
+    window: priceWindow(plan.price ?? period),
   });
   const warmShortQ = useShortTimeSeries(code, plan.short ?? period, {
     enabled: plan.short !== null,
+    window: shortWindow(plan.short ?? period),
   });
   const freshPrice = useMemo<Held | undefined>(
     () =>
@@ -177,7 +199,7 @@ export function useIndicatorHistory(
     priceHeld !== current.price ||
     shortHeld !== current.short
   ) {
-    setKept({ code, price: priceHeld, short: shortHeld });
+    setKept({ key: keepKey, price: priceHeld, short: shortHeld });
   }
 
   // A disabled TanStack v5 query is pending, so each flag is gated on the plan.

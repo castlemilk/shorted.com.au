@@ -19,10 +19,14 @@ import {
  * another instance shows within that minute.
  */
 export interface SettingsStore {
-  /** `fresh` skips this instance's cache: the settings page edits what is stored. */
+  /**
+   * `fresh` skips this instance's cache: the settings page edits what is
+   * stored. `strict` rejects when the read fails, instead of answering null,
+   * so a caller can tell "nothing stored" from "could not read".
+   */
   get(
     scope: SettingsScope,
-    options?: { fresh?: boolean },
+    options?: { fresh?: boolean; strict?: boolean },
   ): Promise<Partial<DiscordSettings> | null>;
   put(
     scope: SettingsScope,
@@ -70,6 +74,7 @@ export const firestoreSettingsStore: SettingsStore = {
       return value;
     } catch (error) {
       console.error(`[discord] settings read failed for ${key}:`, error);
+      if (options?.strict) throw error;
       return null;
     }
   },

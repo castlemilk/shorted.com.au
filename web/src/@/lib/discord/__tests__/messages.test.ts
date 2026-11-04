@@ -1,14 +1,18 @@
 import { ButtonStyle, ComponentType, MessageFlags, type Button } from "../api";
-import { parseCustomId } from "../custom-id";
+import { activityCustomId, chartCustomId, parseCustomId } from "../custom-id";
 import {
   EMBED_COLOR,
   buildChartMessage,
   buildHelpMessage,
   buildSearchMessage,
+  buildCopiedChartMessage,
   buildTopMessage,
   chartCardUrl,
+  copiedFigures,
   escapeMarkdown,
   formatChange,
+  openOnShortedUrl,
+  postedAnchor,
   toAutocompleteChoices,
   type StockSummary,
 } from "../messages";
@@ -19,6 +23,9 @@ jest.mock("@/lib/utils", () => jest.requireActual("@/lib/utils"));
 
 // 19 Oct 2026, 23:30 UTC: already 20 Oct in Sydney.
 const NOW = new Date("2026-10-19T23:30:00Z");
+
+/** A PNG's signature is enough to follow a card through the message. */
+const CARD = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
 
 const BHP: StockSummary = {
   code: "BHP",
@@ -314,5 +321,202 @@ describe("escapeMarkdown", () => {
     expect(escapeMarkdown("A*B_C~D`E|F>G[H](I)")).toBe(
       "A\\*B\\_C\\~D\\`E\\|F\\>G\\[H\\]\\(I\\)",
     );
+  });
+});
+
+describe("charts kept as posted", () => {
+  const ANCHOR = {
+    day: "2026-11-04",
+    shorts: "2026-10-29",
+    prices: "2026-11-03",
+  };
+  const anchored = {
+    code: "BHP",
+    view: "short",
+    period: "3m",
+    anchor: ANCHOR,
+  } as const;
+  const live = { code: "BHP", view: "short", period: "3m" } as const;
+
+  it("footer names the posting day and the report, and the price view names only the day", () => {
+    expect(chart({ state: anchored }).embeds![0]!.footer!.text).toBe(
+      "Source: ASIC short position reports, short positions as of 29 Oct 2026 · As posted 4 Nov 2026 · shorted.com.au",
+    );
+    expect(
+      chart({
+        state: { ...anchored, view: "price" },
+      }).embeds![0]!.footer!.text,
+    ).toBe(
+      "Source: end-of-day ASX prices · As posted 4 Nov 2026 · shorted.com.au",
+    );
+  });
+
+  it("keeps the figures and the footer the same for the same view, posted or redrawn", () => {
+    const posted = chart({ state: anchored, summary: { ...BHP, asOf: null } });
+    const redrawn = buildCopiedChartMessage({
+      figures: copiedFigures(posted.embeds![0])!,
+      state: anchored,
+      activity: false,
+      now: NOW,
+      card: null,
+    });
+    expect(redrawn.embeds![0]!.title).toBe(posted.embeds![0]!.title);
+    expect(redrawn.embeds![0]!.description).toBe(
+      posted.embeds![0]!.description,
+    );
+    expect(redrawn.embeds![0]!.fields).toEqual(posted.embeds![0]!.fields);
+    expect(redrawn.embeds![0]!.footer).toEqual(posted.embeds![0]!.footer);
+  });
+
+  it("puts the anchor in every button id and in the share link, and names the period by its end date", () => {
+    const message = chart({ state: anchored, activity: true });
+    const ids = message.components!.flatMap((row) =>
+      row.components.flatMap((c) => (c.custom_id ? [c.custom_id] : [])),
+    );
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) {
+      expect(parseCustomId(id)).toMatchObject({ state: { anchor: ANCHOR } });
+    }
+    expect(ids).toContain(
+      chartCustomId("view", { ...anchored, view: "price" }),
+    );
+    expect(ids).toContain(activityCustomId(anchored));
+    const open = new URL(openOnShortedUrl(anchored));
+    expect(open.searchParams.get("asof")).toBe("2026-11-04");
+    expect(open.searchParams.get("shorts")).toBe("2026-10-29");
+    expect(open.searchParams.get("landscape")).toBe("1");
+    expect(message.files).toBeUndefined();
+    expect(chart({ state: anchored, card: CARD }).embeds![0]!.image!.url).toBe(
+      "attachment://BHP-short-3m.png",
+    );
+    expect(chart({ state: anchored, card: CARD }).files![0]!.description).toBe(
+      "BHP short interest chart, 3 months to 4 Nov 2026",
+    );
+  });
+
+  it("points the card's URL at the anchored state, keyed by its posting day, not today", () => {
+    const url = new URL(chartCardUrl(anchored, NOW));
+    expect(url.searchParams.get("asof")).toBe("2026-11-04");
+    expect(url.searchParams.get("shorts")).toBe("2026-10-29");
+    expect(url.searchParams.get("prices")).toBe("2026-11-03");
+    // NOW is 20 Oct in Sydney: a pinned card does not move with the day.
+    expect(url.searchParams.get("v")).toBe("2026-11-04");
+    // A live card is still keyed by today.
+    expect(new URL(chartCardUrl(live, NOW)).searchParams.get("v")).toBe(
+      "2026-10-20",
+    );
+  });
+
+  it("dates a posting by Sydney's calendar day, and never after it", () => {
+    // 19 Oct 23:30 UTC is 20 Oct in Sydney; a report dated 20 Oct is that day.
+    expect(
+      postedAnchor(
+        { asOf: new Date("2026-10-19T14:00:00Z") },
+        NOW,
+        "2026-10-19",
+      ),
+    ).toEqual({
+      day: "2026-10-20",
+      shorts: "2026-10-20",
+      prices: "2026-10-19",
+    });
+    expect(
+      postedAnchor(
+        { asOf: new Date("2026-10-14T00:00:00Z") },
+        NOW,
+        "2026-10-19",
+      ),
+    ).toEqual({
+      day: "2026-10-20",
+      shorts: "2026-10-14",
+      prices: "2026-10-19",
+    });
+  });
+
+  it("is no anchor for a report the anchor rules would not keep, so the chart is live", () => {
+    // ASIC stopped reporting the stock months ago: its ids would not parse
+    // back to this anchor, so the chart is posted live.
+    expect(
+      postedAnchor({ asOf: new Date("2026-07-01T00:00:00Z") }, NOW, "2026-10-19"),
+    ).toBeNull();
+  });
+
+  it("is no anchor when the report date is unknown, so the chart is live", () => {
+    expect(postedAnchor({ asOf: null }, NOW, "2026-10-19")).toBeNull();
+    expect(postedAnchor({}, NOW, "2026-10-19")).toBeNull();
+  });
+
+  it("is no anchor when the newest close is unknown, so the chart is live", () => {
+    expect(
+      postedAnchor({ asOf: new Date("2026-10-14T00:00:00Z") }, NOW, null),
+    ).toBeNull();
+    expect(
+      postedAnchor({ asOf: new Date("2026-10-14T00:00:00Z") }, NOW, undefined),
+    ).toBeNull();
+    expect(
+      postedAnchor({ asOf: new Date("2026-10-14T00:00:00Z") }, NOW, ""),
+    ).toBeNull();
+  });
+
+  it("is no anchor for a close that is not a real day on or before the posting day", () => {
+    const asOf = { asOf: new Date("2026-10-14T00:00:00Z") };
+    expect(postedAnchor(asOf, NOW, "2026-10-21")).toBeNull();
+    expect(postedAnchor(asOf, NOW, "2026-02-30")).toBeNull();
+    expect(postedAnchor(asOf, NOW, "yesterday")).toBeNull();
+  });
+});
+
+describe("copiedFigures", () => {
+  it("keeps the title, description and fields of a well-formed embed", () => {
+    expect(
+      copiedFigures({
+        title: "BHP · BHP Group",
+        description: "**0.81%** of shares",
+        fields: [{ name: "Industry", value: "Materials", inline: true }],
+      }),
+    ).toEqual({
+      title: "BHP · BHP Group",
+      description: "**0.81%** of shares",
+      fields: [{ name: "Industry", value: "Materials", inline: true }],
+    });
+  });
+
+  it("keeps only the parts with the right types, cut to Discord's limits", () => {
+    const figures = copiedFigures({
+      title: "x".repeat(400),
+      description: 7,
+      fields: [
+        { name: "Good", value: "1" },
+        { name: 3, value: "bad name" },
+        { name: "Empty", value: "" },
+        null,
+        { name: "Long", value: "y".repeat(2000), inline: "yes" },
+      ],
+    });
+    expect(figures!.title).toHaveLength(256);
+    expect(figures!.description).toBeUndefined();
+    expect(figures!.fields).toEqual([
+      { name: "Good", value: "1", inline: true },
+      { name: "Long", value: expect.stringMatching(/…$/), inline: true },
+    ]);
+    expect(figures!.fields[1]!.value).toHaveLength(1024);
+  });
+
+  it("is null without a usable title", () => {
+    expect(copiedFigures(undefined)).toBeNull();
+    expect(copiedFigures("embed")).toBeNull();
+    expect(copiedFigures({ title: "  " })).toBeNull();
+    expect(copiedFigures({ description: "no title" })).toBeNull();
+  });
+});
+
+describe("buildHelpMessage on charts kept as posted", () => {
+  it("says a chart keeps its window and figures, and that a server can change it", () => {
+    const text = buildHelpMessage({ activity: false }).embeds![0]!.description!;
+    expect(text).toContain("keeps the window and figures it was posted with");
+    expect(text).toContain("`/settings`");
+    expect(text).not.toContain("Pressing the highlighted one again");
+    // No em or en dashes in user-facing copy.
+    expect(text).not.toMatch(/[\u2013\u2014]/);
   });
 });

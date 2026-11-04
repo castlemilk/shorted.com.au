@@ -14,16 +14,23 @@ import {
   TOP_MAX_COUNT,
   isCommandName,
 } from "./commands";
+import {
+  sydneyDay,
+  type ChartAnchor,
+} from "~/@/components/charts/chart-anchor";
 import { normalizeCode, parseCustomId, type ChartState } from "./custom-id";
 import type { DiscordData } from "./data";
 import {
   ASK_FOR_STOCK,
   buildChartMessage,
+  buildCopiedChartMessage,
   buildHelpMessage,
   buildSearchMessage,
   buildSettingsMessage,
   buildTopMessage,
+  copiedFigures,
   notice,
+  postedAnchor,
   toAutocompleteChoices,
   type StockSummary,
 } from "./messages";
@@ -75,7 +82,10 @@ export interface HandlerDeps {
   rememberLaunch: (channelId: string, state: ChartState) => Promise<void>;
   /** The signed settings page for a grant, or null when links cannot be signed. */
   settingsUrl: (grant: SettingsGrant) => string | null;
-  /** A chart's card as PNG, or null when it cannot be drawn whole (chart-card.ts). */
+  /**
+   * A chart's card as PNG, or null when it cannot be drawn whole
+   * (chart-card.ts).
+   */
   renderChart: (state: ChartState) => Promise<Uint8Array | null>;
   /**
    * Has the cards one press away from a posted chart drawn ahead of the press
@@ -112,7 +122,21 @@ export const SUMMARY_RETRY_MS = 400;
  */
 export const CARD_BUDGET_MS = 9000;
 
+/**
+ * The close read for a name that resolved to a code, which starts only once
+ * the stock is known. Three six-second reads, this and the card's nine
+ * seconds stay inside the interactions route's maxDuration of 30.
+ */
+export const LATE_CLOSE_BUDGET_MS = 2500;
+
 type Mode = "new" | "update";
+
+/** A chart kept as posted: the window and figures are pinned to its anchor. */
+type PostedState = ChartState & { anchor: ChartAnchor };
+
+/** A press on a kept chart with no embed to copy its figures from. */
+const AS_POSTED_UNAVAILABLE =
+  "This chart can't be redrawn as posted. Run `/chart` again for today's.";
 
 type Reply =
   | { kind: "now"; action: string; response: InteractionResponse }
@@ -145,6 +169,13 @@ type Reply =
       input: string;
       view: ChartState["view"];
       period: ChartState["period"];
+      /** The chart the Activity opens pinned to (a button on a kept chart). */
+      anchor?: ChartAnchor;
+      /**
+       * Whether a fallback chart message (the lookup was too slow to launch)
+       * is kept as posted, as the command's settings say.
+       */
+      posted?: boolean;
     };
 
 const FAILED = "Something went wrong on our side. Try again in a moment.";
@@ -242,30 +273,86 @@ async function drawCard(
   }
 }
 
+/** Has the cards one press away from this chart drawn, in the background. */
+function warmNeighbours(state: ChartState, deps: HandlerDeps): void {
+  if (deps.warmCharts) {
+    deps.waitUntil(deps.warmCharts(state).catch(() => undefined));
+  }
+}
+
 /**
- * A chart message, its card drawn and attached. `early` is a card already
+ * A live chart message, its card drawn and attached. `early` is a card already
  * being drawn for the code that was asked for, used when the stock resolves to
  * that code, so the card and the stock read run side by side.
  */
 async function chartMessage(
   summary: StockSummary,
-  view: ChartState["view"],
-  period: ChartState["period"],
+  state: ChartState,
   deps: HandlerDeps,
   early?: { code: string; card: Promise<Uint8Array | null> },
 ): Promise<MessagePayload> {
-  const state = { code: summary.code, view, period };
+  const target = { ...state, code: summary.code };
   const card = await (early?.code === summary.code
     ? early.card
-    : drawCard(state, deps));
-  if (deps.warmCharts) {
-    deps.waitUntil(deps.warmCharts(state).catch(() => undefined));
+    : drawCard(target, deps));
+  warmNeighbours(target, deps);
+  return buildChartMessage({
+    summary,
+    state: target,
+    activity: deps.activityEnabled,
+    now: deps.now(),
+    card,
+  });
+}
+
+/**
+ * A close read started ahead of the stock, for the code that was typed on
+ * the day it was read. It is reused only when both still match.
+ */
+interface EarlyClose {
+  code: string;
+  day: string;
+  read: Promise<string | null>;
+}
+
+/**
+ * A new chart message kept as posted. The bot reads the stock's newest close
+ * before it draws, so the card is drawn for the anchor the message will carry:
+ * the same windows every redraw reads. When the report date or the close is
+ * unknown the chart is posted live (postedAnchor), never anchored to a guess.
+ */
+async function postedMessage(
+  summary: StockSummary,
+  view: ChartState["view"],
+  period: ChartState["period"],
+  deps: HandlerDeps,
+  early?: EarlyClose,
+): Promise<MessagePayload> {
+  const now = deps.now();
+  const day = sydneyDay(now);
+  // A typed code's close was read beside the stock. A name that resolved to a
+  // code reads it now, after a stock read and a search that may each have
+  // taken their six seconds: it gets what is left of the function's budget,
+  // and a miss posts the chart live.
+  const close =
+    early?.code === summary.code && early.day === day
+      ? await early.read
+      : await within(
+          deps.data.newestClose(summary.code, day),
+          LATE_CLOSE_BUDGET_MS,
+        ).then((r) => (r.done ? r.value : null));
+  const anchor = postedAnchor(summary, now, close);
+  if (!anchor) {
+    return chartMessage(summary, { code: summary.code, view, period }, deps);
   }
+  const state: PostedState = { code: summary.code, view, period, anchor };
+  const card = await drawCard(state, deps);
+  warmNeighbours(state, deps);
   return buildChartMessage({
     summary,
     state,
     activity: deps.activityEnabled,
-    now: deps.now(),
+    now,
     card,
   });
 }
@@ -284,7 +371,11 @@ async function buttonSummary(
   return data.stockSummary(code);
 }
 
-/** A new chart message for what was typed (a code, or a name to search). */
+/**
+ * A new chart message for what was typed (a code, or a name to search). Kept
+ * as posted, its card needs the stock's report date, so it is drawn once the
+ * stock has resolved, not alongside the read.
+ */
 function newChart(
   action: string,
   input: string,
@@ -292,17 +383,28 @@ function newChart(
   view: ChartState["view"],
   period: ChartState["period"],
   deps: HandlerDeps,
+  posted = false,
 ): ChartReply {
   const code = normalizeCode(input);
-  const early = code
-    ? { code, card: drawCard({ code, view, period }, deps) }
-    : undefined;
+  // The card or the close is read now, beside the stock read.
+  const day = sydneyDay(deps.now());
+  const earlyCard =
+    code && !posted
+      ? { code, card: drawCard({ code, view, period }, deps) }
+      : undefined;
+  const earlyClose: EarlyClose | undefined =
+    code && posted
+      ? { code, day, read: deps.data.newestClose(code, day) }
+      : undefined;
   return {
     kind: "chart",
     action,
     mode: "new",
     summary,
-    draw: (s) => chartMessage(s, view, period, deps, early),
+    draw: (s) =>
+      posted
+        ? postedMessage(s, view, period, deps, earlyClose)
+        : chartMessage(s, { code: s.code, view, period }, deps, earlyCard),
     missing: notFound(input),
   };
 }
@@ -334,9 +436,28 @@ function chartReply(
   const summary = resolveStock(input, deps.data);
   const channelId = interaction.channel_id;
   if (settings.interactive && deps.activityEnabled && isSnowflake(channelId)) {
-    return { kind: "launch", action, channelId, summary, input, view, period };
+    // A launch is live, whatever the setting says: the Activity has its own
+    // window. A fallback message (below) follows the setting.
+    return {
+      kind: "launch",
+      action,
+      channelId,
+      summary,
+      input,
+      view,
+      period,
+      posted: settings.asPosted,
+    };
   }
-  return newChart(action, input, summary, view, period, deps);
+  return newChart(
+    action,
+    input,
+    summary,
+    view,
+    period,
+    deps,
+    settings.asPosted,
+  );
 }
 
 /**
@@ -344,13 +465,33 @@ function chartReply(
  * read that takes longer than SETTINGS_BUDGET_MS is not waited for: the
  * built-ins stand in, and the read still fills the cache for the next one.
  */
+/**
+ * A server's stored settings, with the Buttons choice filled from the
+ * built-ins when the document was saved before that choice existed. Settings
+ * layer per field, so without this a member's own choice would decide the
+ * Buttons of their charts in a server that has settings of its own; the docs
+ * say a person's settings apply only where a server has none.
+ */
+function serverDefaults(
+  scope: SettingsScope,
+  stored: Partial<DiscordSettings> | null,
+): Partial<DiscordSettings> | null {
+  if (scope.kind !== "guild" || !stored) return stored;
+  return stored.asPosted === undefined
+    ? { ...stored, asPosted: BUILT_IN_SETTINGS.asPosted }
+    : stored;
+}
+
 async function loadSettings(
   interaction: Interaction,
   deps: HandlerDeps,
 ): Promise<DiscordSettings> {
   const reads = Promise.all(
     settingsScopes(interaction).map((scope) =>
-      deps.settingsStore.get(scope).catch(() => null),
+      deps.settingsStore
+        .get(scope)
+        .catch(() => null)
+        .then((stored) => serverDefaults(scope, stored)),
     ),
   );
   const settled = await within(reads, SETTINGS_BUDGET_MS);
@@ -499,6 +640,39 @@ function routeCommand(
   }
 }
 
+const REDRAW_FAILED =
+  "Couldn't redraw that chart just now. Try again in a moment.";
+
+/**
+ * A press on a chart kept as posted. Its figures are the message's own: they
+ * are copied from the embed the button is on, and the stock is not read again,
+ * so the figures above the chart stay the ones posted. Only the card is drawn,
+ * for the anchored state. A message with no embed to copy (suppressed embeds)
+ * is answered privately and left as it is: reading the stock would print
+ * today's figures under a chart posted with other ones.
+ */
+function postedRedraw(
+  interaction: Interaction,
+  state: PostedState,
+  deps: HandlerDeps,
+): Reply {
+  const figures = copiedFigures(interaction.message?.embeds?.[0]);
+  if (!figures) {
+    return privately("component_chart", AS_POSTED_UNAVAILABLE);
+  }
+  const work = drawCard(state, deps).then((card) => {
+    warmNeighbours(state, deps);
+    return buildCopiedChartMessage({
+      figures,
+      state,
+      activity: deps.activityEnabled,
+      now: deps.now(),
+      card,
+    });
+  });
+  return withData("component_chart", "update", work, { defer: true });
+}
+
 function routeComponent(
   interaction: Interaction,
   deps: HandlerDeps,
@@ -507,18 +681,24 @@ function routeComponent(
   const parsed = parseCustomId(interaction.data?.custom_id);
   switch (parsed?.kind) {
     case "chart": {
-      const { code, view, period } = parsed.state;
-      const card = drawCard(parsed.state, deps);
+      const state = parsed.state;
+      if (state.anchor) {
+        return postedRedraw(
+          interaction,
+          { ...state, anchor: state.anchor },
+          deps,
+        );
+      }
+      const { code, view, period } = state;
+      const card = drawCard(state, deps);
       return {
         kind: "chart",
         action: "component_chart",
         mode: "update",
         summary: buttonSummary(code, deps.data),
         draw: (summary) =>
-          chartMessage(summary, view, period, deps, { code, card }),
-        missing: notice(
-          "Couldn't redraw that chart just now. Try again in a moment.",
-        ),
+          chartMessage(summary, { code, view, period }, deps, { code, card }),
+        missing: notice(REDRAW_FAILED),
       };
     }
     case "activity": {
@@ -532,7 +712,7 @@ function routeComponent(
       // opened the server's default stock (DRO from a CBA message, 2026-10-31).
       // So the button's chart is handed over by channel first, as interactive
       // mode does, and the Activity's launch lookup finds it.
-      const { code, view, period } = parsed.state;
+      const { code, view, period, anchor } = parsed.state;
       const channelId = interaction.channel_id;
       return isSnowflake(channelId)
         ? {
@@ -543,6 +723,7 @@ function routeComponent(
             input: code,
             view,
             period,
+            anchor,
           }
         : now("component_activity", {
             type: InteractionResponseType.LAUNCH_ACTIVITY,
@@ -686,7 +867,7 @@ export async function handleInteraction(
         : privately("unsupported", "That isn't something this bot handles.");
 
   if (reply.kind === "launch") {
-    const { action, channelId, input, view, period } = reply;
+    const { action, channelId, input, view, period, anchor, posted } = reply;
     const summary = reply.summary.catch((error: unknown) => {
       console.error(`[discord] ${action} lookup failed:`, error);
       return null;
@@ -702,7 +883,9 @@ export async function handleInteraction(
       if (!found) {
         return respondNow("new", notFound(input));
       }
-      const state = { code: found.code, view, period };
+      const state: ChartState = anchor
+        ? { code: found.code, view, period, anchor }
+        : { code: found.code, view, period };
       // Best effort: should the hand-off fail, the Activity opens the
       // server's default stock instead, which still beats no chart.
       await within(
@@ -715,7 +898,7 @@ export async function handleInteraction(
     }
     // Too slow to launch inside Discord's window (a launch cannot be
     // deferred): post the chart message instead, as a deferred reply.
-    reply = newChart(action, input, summary, view, period, deps);
+    reply = newChart(action, input, summary, view, period, deps, posted);
   }
 
   if (reply.kind === "chart") {

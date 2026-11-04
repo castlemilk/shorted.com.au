@@ -4,6 +4,12 @@ import {
   type ChartPeriod,
   type ChartViewId,
 } from "~/@/components/charts/chart-views";
+import {
+  compactDay,
+  expandDay,
+  parseChartAnchor,
+  type ChartAnchor,
+} from "~/@/components/charts/chart-anchor";
 
 /**
  * Message components carry their state in their `custom_id` (at most 100
@@ -15,6 +21,16 @@ import {
  *   chart:p:BHP:short:3m     a period button on a chart message
  *   activity:BHP:short:1y    launches the Activity at that chart
  *   pick                     a stock select menu (the code is the value)
+ *
+ * A chart kept as posted (chart-anchor.ts) adds the day it was posted, the
+ * newest short report it showed and the newest close it drew, and every
+ * redraw keeps all three:
+ *
+ *   chart:p:BHP:short:3m:20261104:20261028:20261103
+ *   activity:BHP:short:3m:20261104:20261028:20261103
+ *
+ * The forms without the dates are live charts, as every message posted before
+ * the dates existed is. Never change what a form means; add a new one.
  *
  * The `v`/`p` segment exists because Discord rejects a message whose
  * components share a custom_id, and the view button for the view on screen
@@ -28,6 +44,8 @@ export interface ChartState {
   code: string;
   view: ChartViewId;
   period: ChartPeriod;
+  /** Kept as posted: the window ends here, whenever it is drawn. */
+  anchor?: ChartAnchor;
 }
 
 export type ParsedCustomId =
@@ -47,15 +65,34 @@ export function normalizeCode(raw: string | null | undefined): string | null {
   return CODE_RE.test(code) ? code : null;
 }
 
-function encodeState({ code, view, period }: ChartState): string {
-  return `${code}:${view}:${period}`;
+function encodeState({ code, view, period, anchor }: ChartState): string {
+  const base = `${code}:${view}:${period}`;
+  return anchor
+    ? `${base}:${[anchor.day, anchor.shorts, anchor.prices].map(compactDay).join(":")}`
+    : base;
 }
 
+/** Three parts (live) or six (anchored); anything else is not a chart. */
 function parseState(parts: string[]): ChartState | null {
-  const [rawCode, view, period] = parts;
+  if (parts.length !== 3 && parts.length !== 6) return null;
+  const [rawCode, view, period, rawDay, rawShorts, rawPrices] = parts;
   const code = normalizeCode(rawCode);
   if (!code || !isChartViewId(view) || !isChartPeriod(period)) return null;
-  return { code, view, period };
+  if (parts.length === 3) return { code, view, period };
+  const [day, shorts, prices] = [rawDay, rawShorts, rawPrices].map(expandDay);
+  // A malformed anchor is a malformed id, never a quietly live chart. The
+  // bot writes only real dates on or before the day, so the parsed anchor
+  // must be exactly what was written.
+  const anchor = parseChartAnchor({ day, shorts, prices });
+  if (
+    !anchor ||
+    anchor.day !== day ||
+    anchor.shorts !== shorts ||
+    anchor.prices !== prices
+  ) {
+    return null;
+  }
+  return { code, view, period, anchor };
 }
 
 export const PICK_CUSTOM_ID = "pick";
@@ -78,11 +115,11 @@ export function parseCustomId(
   if (id === PICK_CUSTOM_ID) return { kind: "pick" };
   const parts = id.split(":");
   if (parts[0] === "chart" && (parts[1] === "v" || parts[1] === "p")) {
-    const state = parts.length === 5 ? parseState(parts.slice(2)) : null;
+    const state = parseState(parts.slice(2));
     return state ? { kind: "chart", state } : null;
   }
   if (parts[0] === "activity") {
-    const state = parts.length === 4 ? parseState(parts.slice(1)) : null;
+    const state = parseState(parts.slice(1));
     return state ? { kind: "activity", state } : null;
   }
   return null;

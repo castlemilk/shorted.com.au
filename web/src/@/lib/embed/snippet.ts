@@ -1,4 +1,8 @@
 import { siteConfig } from "~/@/config/site";
+import {
+  anchorQuery,
+  type ChartAnchor,
+} from "~/@/components/charts/chart-anchor";
 import type {
   ChartPeriod,
   ChartViewId,
@@ -114,9 +118,10 @@ export function chartShareUrl(
   code: string,
   view: ChartViewId = DEFAULT_CHART_VIEW,
   period: ChartPeriod = DEFAULT_CHART_PERIOD,
+  anchor?: ChartAnchor | null,
 ): string {
   const c = code.trim().toUpperCase();
-  return `${siteConfig.url}/chart/${encodeURIComponent(c)}${qs(chartParams(view, period))}`;
+  return `${siteConfig.url}/chart/${encodeURIComponent(c)}${qs({ ...chartParams(view, period), ...anchorQuery(anchor) })}`;
 }
 
 /** The share page's social card: a 1200x630 PNG of the chart itself. */
@@ -124,9 +129,10 @@ export function chartImageUrl(
   code: string,
   view: ChartViewId = DEFAULT_CHART_VIEW,
   period: ChartPeriod = DEFAULT_CHART_PERIOD,
+  anchor?: ChartAnchor | null,
 ): string {
   const c = code.trim().toUpperCase();
-  return `${siteConfig.url}/chart/${encodeURIComponent(c)}/image${qs(chartParams(view, period))}`;
+  return `${siteConfig.url}/chart/${encodeURIComponent(c)}/image${qs({ ...chartParams(view, period), ...anchorQuery(anchor) })}`;
 }
 
 function specFor(target: EmbedTarget): TargetSpec {

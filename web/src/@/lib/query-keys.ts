@@ -3,13 +3,29 @@
  * Provides consistent, type-safe query keys with proper invalidation patterns
  */
 
+/**
+ * A date range a chart asks for (a chart kept as posted). Its key is the two
+ * dates, so each anchor's windows are cached apart from the live ones.
+ */
+export interface DateWindowKey {
+  from?: string;
+  to?: string;
+}
+
+function windowKey(window: DateWindowKey): string {
+  return `${window.from ?? ""}..${window.to ?? ""}`;
+}
+
 export const queryKeys = {
   // Stock-related queries
   stock: {
     all: ["stock"] as const,
     quotes: (codes: string[]) => ["stock", "quotes", codes.sort().join(",")] as const,
     quote: (code: string) => ["stock", "quote", code] as const,
-    timeSeries: (code: string, period: string) => ["stock", "timeSeries", code, period] as const,
+    timeSeries: (code: string, period: string, window?: DateWindowKey) =>
+      window
+        ? (["stock", "timeSeries", code, period, "window", windowKey(window)] as const)
+        : (["stock", "timeSeries", code, period] as const),
     search: (query: string) => ["stock", "search", query] as const,
     details: (code: string) => ["stock", "details", code] as const,
   },
@@ -17,7 +33,10 @@ export const queryKeys = {
   // Market data queries
   market: {
     all: ["market"] as const,
-    historical: (code: string, period: string) => ["market", "historical", code, period] as const,
+    historical: (code: string, period: string, window?: DateWindowKey) =>
+      window
+        ? (["market", "historical", code, "window", windowKey(window)] as const)
+        : (["market", "historical", code, period] as const),
     multipleHistorical: (codes: string[], period: string) =>
       ["market", "historical", "multiple", codes.sort().join(","), period] as const,
   },

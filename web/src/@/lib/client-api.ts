@@ -12,6 +12,48 @@ import {
   type TimeSeriesData,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { formatPeriodForAPI } from "~/lib/period-utils";
+import type { HistoricalDataPoint } from "@/lib/stock-data-service";
+
+/**
+ * A date range, YYYY-MM-DD, inclusive; no `from` runs from the first data and
+ * no `to` runs to the newest. A chart kept as posted asks for one.
+ */
+export interface ClientDateWindow {
+  from?: string;
+  to?: string;
+}
+
+/**
+ * The codes a windowed read accepts: the chart share page's and the bot's rule
+ * (2 to 6 letters or digits), not the live reads' 3 to 4.
+ */
+const WINDOWED_CODE_RE = /^[A-Za-z0-9]{2,6}$/;
+
+/** A window that cannot hold a session (from after to): nothing to ask for. */
+function isEmptyRange(range: ClientDateWindow): boolean {
+  return (
+    range.from !== undefined &&
+    range.to !== undefined &&
+    range.from !== "" &&
+    range.to !== "" &&
+    range.from > range.to
+  );
+}
+
+/**
+ * A connect error that is permanent: the request itself was refused as
+ * malformed, so asking again changes nothing. Only InvalidArgument qualifies.
+ * NotFound does not: the shorts API answers it for a database error as well as
+ * for an unknown stock (services/shorts/.../service.go), so it may be transient,
+ * and it rejects so the query retries rather than caching an empty series. An
+ * unknown stock is answered with 200 and no points, which is an empty answer.
+ */
+function isPermanent(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === 3) return true; // Connect's InvalidArgument
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("invalid_argument");
+}
 
 // Client-side API calls (not using React cache) for use in interactive components like tooltips
 // These should only be called from client components
@@ -131,6 +173,77 @@ export async function fetchStockDataClient(
       console.error(`Error fetching stock data for ${productCode}:`, error);
     }
     return undefined;
+  }
+}
+
+/**
+ * Fetch a windowed short series (a chart kept as posted). `period` still picks
+ * the bucketing. Answers an empty series for a window that cannot hold a
+ * session and for a code or stock the API does not know; a transient failure
+ * rejects, so the query retries rather than caching nothing.
+ */
+export async function fetchStockDataWindowClient(
+  productCode: string,
+  period: string,
+  range: ClientDateWindow,
+): Promise<TimeSeriesData> {
+  // The chart reads only `points`; an empty series is the same shape with none.
+  const empty = () => ({ points: [] }) as unknown as TimeSeriesData;
+  if (!WINDOWED_CODE_RE.test(productCode) || isEmptyRange(range)) return empty();
+
+  try {
+    const client = createClient(StockService, getTransport());
+    return await client.getStockData({
+      productCode,
+      period,
+      from: range.from ?? "",
+      to: range.to ?? "",
+    });
+  } catch (error) {
+    if (isPermanent(error)) return empty();
+    throw error;
+  }
+}
+
+/**
+ * Fetch end-of-day prices for a date range on the client side, as the
+ * historical-data shape the charts read. The live chart's prices come from the
+ * market-data service, which takes only a period; a chart kept as posted needs
+ * its window, so it reads them here. An empty `from` or `to` is left open.
+ *
+ * Answers [] for a window that cannot hold a session and for a code or stock
+ * the API does not know. A transient failure rejects, so the query retries and
+ * an empty answer is never cached in its place.
+ */
+export async function fetchStockPricesClient(
+  productCode: string,
+  range: ClientDateWindow,
+): Promise<HistoricalDataPoint[]> {
+  if (!WINDOWED_CODE_RE.test(productCode) || isEmptyRange(range)) return [];
+
+  try {
+    const client = createClient(StockService, getTransport());
+    const response = await client.getStockPrices({
+      productCode,
+      from: range.from ?? "",
+      to: range.to ?? "",
+    });
+    // GetStockPrices fills a NULL close with 0: that session has no price, and
+    // a chart would plot it as $0. The card and the live path skip it too.
+    return response.points
+      .filter((p) => p.close > 0)
+      .map((p) => ({
+        date: p.date,
+        open: p.open,
+        high: p.high,
+        low: p.low,
+        close: p.close,
+        volume: Number(p.volume),
+        adjustedClose: p.adjustedClose,
+      }));
+  } catch (error) {
+    if (isPermanent(error)) return [];
+    throw error;
   }
 }
 
