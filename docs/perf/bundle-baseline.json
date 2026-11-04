@@ -556,16 +556,16 @@
     "/ownership/stocks/[code]/opengraph-image": {
       "firstLoadKB": 112
     },
-    "/picks": {
+    "/strategies": {
       "firstLoadKB": 123
     },
-    "/picks/[strategy]": {
+    "/strategies/[strategy]": {
       "firstLoadKB": 136
     },
-    "/picks/[strategy]/opengraph-image": {
+    "/strategies/[strategy]/opengraph-image": {
       "firstLoadKB": 112
     },
-    "/picks/opengraph-image": {
+    "/strategies/opengraph-image": {
       "firstLoadKB": 112
     },
     "/politicians": {
