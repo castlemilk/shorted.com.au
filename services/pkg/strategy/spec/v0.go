@@ -205,7 +205,6 @@ func v0(strategyID string) Registered {
 		},
 		Changes: []string{
 			"Initial version: the rules the engine evaluated before rules versioning, recorded so their hash and known issues can be published.",
-			"Before publication, the units of breakout (pct), sma200_rising (pct) and rs_leader (pp) were set to the quantity each rule tests, and days_to_cover reads prices as well as ASIC data. Their hashes moved with the units.",
 		},
 		KnownIssues: v0KnownIssues(),
 	}
