@@ -124,7 +124,22 @@ type StrategySummary struct {
 	Tagline       string                `json:"tagline"`
 	Style         string                `json:"style,omitempty"`
 	HoldingPeriod string                `json:"holding_period,omitempty"`
+	RulesVersion  string                `json:"rules_version,omitempty" jsonschema:"The live rules version."`
 	Rules         []StrategyRuleSummary `json:"rules"`
+}
+
+// rulesVersionText names a rules version the way a reader quotes it: the label,
+// the first eight characters of its hash and the engine version. "" when the
+// API sent no version, which is absent, never a guessed label.
+func rulesVersionText(v *shortsv1alpha1.StrategyVersionRef) string {
+	hash := v.GetRulesHash()
+	if hash == "" {
+		return ""
+	}
+	if len(hash) > 8 {
+		hash = hash[:8]
+	}
+	return fmt.Sprintf("%s %s · engine %s", v.GetLabel(), hash, v.GetEngineVersion())
 }
 
 type ListStrategiesOutput struct {
@@ -185,6 +200,7 @@ func listStrategiesHandler(src DataSource) sdk.ToolHandlerFor[ListStrategiesInpu
 				Tagline:       st.GetTagline(),
 				Style:         st.GetMetadata().GetStyle(),
 				HoldingPeriod: st.GetMetadata().GetHoldingPeriod(),
+				RulesVersion:  rulesVersionText(st.GetVersion()),
 				Rules:         []StrategyRuleSummary{},
 			}
 			for _, r := range st.GetRules() {
@@ -291,6 +307,7 @@ type GetStrategyPicksOutput struct {
 	FundamentalsRowsCount     int                 `json:"fundamentals_rows_count" jsonschema:"Evaluated stocks with any reported fundamentals."`
 	FundamentalsCoverageCount int                 `json:"fundamentals_coverage_count" jsonschema:"Of those, with a growth figure."`
 	TotalCount                int                 `json:"total_count" jsonschema:"Before the limit."`
+	RulesVersion              string              `json:"rules_version,omitempty" jsonschema:"The rules version these picks were evaluated under."`
 	Count                     int                 `json:"count"`
 	DetailTrimmed             bool                `json:"detail_trimmed,omitempty" jsonschema:"Evidence ran out part-way down the list."`
 	Picks                     []StrategyPickRow   `json:"picks"`
@@ -376,6 +393,7 @@ func getStrategyPicksHandler(src DataSource) sdk.ToolHandlerFor[GetStrategyPicks
 			FundamentalsRowsCount:     int(msg.GetFundamentalsRowsCount()),
 			FundamentalsCoverageCount: int(msg.GetFundamentalsCoverageCount()),
 			TotalCount:                int(msg.GetTotalCount()),
+			RulesVersion:              rulesVersionText(msg.GetVersion()),
 			Picks:                     []StrategyPickRow{},
 		}
 
