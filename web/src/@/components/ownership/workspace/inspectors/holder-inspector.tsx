@@ -218,6 +218,7 @@ function HolderContent({ content, pinned }: { content: HolderInspectorContent; p
           </ul>
         ) : null}
       </header>
+      {content.reading ? <p className="text-sm leading-snug text-foreground">{content.reading}</p> : null}
       {content.rows.length > 0 ? (
         <dl className="divide-y divide-border border-y border-border">
           {content.rows.map((row) => (

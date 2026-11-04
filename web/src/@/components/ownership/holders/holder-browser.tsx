@@ -179,9 +179,13 @@ function HolderBrowserView({
                         aria-hidden="true"
                         className="hidden h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-muted sm:block"
                       >
+                        {/* The ramp's fourth stop (desk-scales, spec 13.1), so the one legend teaches every bar. */}
                         <span
-                          className="block h-full rounded-full bg-primary/70"
-                          style={{ width: `${Math.round((holder.positions / largest) * 1000) / 10}%` }}
+                          className="block h-full rounded-full"
+                          style={{
+                            width: `${Math.round((holder.positions / largest) * 1000) / 10}%`,
+                            background: "hsl(var(--desk-bin-3))",
+                          }}
                         />
                       </span>
                       <span

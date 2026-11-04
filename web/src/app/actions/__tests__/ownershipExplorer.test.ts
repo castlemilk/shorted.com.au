@@ -488,6 +488,7 @@ describe("loadNoticeFeed", () => {
         holderHref: "/ownership/blackrock",
         votingPower: "9.10%",
         change: "",
+        changePp: null,
         url: "https://www.asx.com.au/notice-bhp.pdf",
       },
       {
@@ -499,6 +500,7 @@ describe("loadNoticeFeed", () => {
         holderHref: "/shorts/SFR/company",
         votingPower: "under 5%",
         change: "",
+        changePp: null,
         url: "https://www.asx.com.au/notice-bhp.pdf",
       },
       {
@@ -510,6 +512,7 @@ describe("loadNoticeFeed", () => {
         holderHref: null,
         votingPower: "6.14%",
         change: "+1.14 pp",
+        changePp: 6.14 - 5,
         url: "https://www.asx.com.au/notice-bhp.pdf",
       },
       {
@@ -521,9 +524,27 @@ describe("loadNoticeFeed", () => {
         holderHref: null,
         votingPower: "5.01%",
         change: "",
+        changePp: null,
         url: "https://www.asx.com.au/notice-bhp.pdf",
       },
     ]);
+  });
+
+  it("carries the change in points when both figures are stated, and null when either is missing", async () => {
+    mockRequestNotices.mockResolvedValue(
+      feedResponse({
+        notices: [
+          notice({ presentPct: 3.5, hasPresent: true, previousPct: 5, hasPrevious: true }),
+          notice({ presentPct: 0, hasPresent: false, previousPct: 5, hasPrevious: true }),
+          notice({ presentPct: 6, hasPresent: true, previousPct: 0, hasPrevious: false }),
+        ],
+        total: 3,
+      }),
+    );
+
+    const page = await loadNoticeFeed({});
+
+    expect(page.rows.map((row) => row.changePp)).toEqual([-1.5, null, null]);
   });
 
   it("passes an event this build does not know through as the API sent it", async () => {
@@ -585,6 +606,7 @@ describe("loadNoticeFeed", () => {
           holderHref: null,
           votingPower: "6.14%",
           change: "+1.14 pp",
+          changePp: 6.14 - 5,
           url: "https://www.asx.com.au/notice-bhp.pdf",
         },
       ],

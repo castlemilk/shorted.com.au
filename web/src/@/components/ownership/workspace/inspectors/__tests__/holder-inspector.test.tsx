@@ -48,6 +48,27 @@ describe("holder inspector (spec 14.3)", () => {
     expect(resolve).toHaveBeenCalledWith("vanguard", "stock:BHP");
   });
 
+  it("leads the rail with its reading, under the heading and before the rows", () => {
+    const withReading = { ...holderContent("Vanguard"), reading: "172 positions, 14 new this quarter, largest in Banks." };
+    const { container } = render(
+      <HolderInspector initial={withReading} defaultKey="vanguard" resolve={jest.fn(async () => null)} />,
+    );
+    const reading = screen.getByText("172 positions, 14 new this quarter, largest in Banks.");
+    const heading = screen.getByRole("heading", { name: "Vanguard" });
+    const rows = screen.getByText("Disclosed positions");
+    expect(heading.compareDocumentPosition(reading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(reading.compareDocumentPosition(rows) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(reading.tagName).toBe("P");
+    expect(container.querySelectorAll("p.leading-snug")).toHaveLength(1);
+  });
+
+  it("draws no reading line when the holder carries none", () => {
+    const { container } = render(
+      <HolderInspector initial={holderContent("Vanguard")} defaultKey="vanguard" resolve={jest.fn(async () => null)} />,
+    );
+    expect(container.querySelector("p.leading-snug")).toBeNull();
+  });
+
   it("names the holder a page pins, whatever the URL says", async () => {
     mockSearch = "holder=regal";
     const resolve = jest.fn(async () => holderContent("Vanguard"));

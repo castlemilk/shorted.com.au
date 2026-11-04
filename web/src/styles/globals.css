@@ -79,6 +79,33 @@
        the value invalid, and Storybook and the unit tests have no next/font class. */
     --font-sans: var(--font-plex-mono, "IBM Plex Mono"), "JetBrains Mono", "Fira Code", ui-monospace, monospace;
     --font-display: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
+
+    /* The desk's five-stop ramp (spec 13.1). Each theme sets five explicit stops and
+       the ink printed on each, so a bin is told from its neighbours at 1x on a 20px
+       cell. Every ink clears WCAG AA (4.5:1) at the 11px figures, adjacent stops differ
+       by at least 7 L*, and the first stop differs from the paper by at least 7 L*.
+       desk-ramp-contrast.test.ts reads these tokens and checks those rules. The desk's
+       scales (desk/desk-scales.ts) name the stops; the theme decides their values. */
+    --desk-bin-0: 36 28% 88%;
+    --desk-bin-1: 32 50% 78%;
+    --desk-bin-2: 30 62% 64%;
+    --desk-bin-3: 28 80% 37%;
+    --desk-bin-4: 26 85% 28%;
+    --desk-bin-ink-0: 19 18% 24%;
+    --desk-bin-ink-1: 19 18% 24%;
+    --desk-bin-ink-2: 19 18% 24%;
+    --desk-bin-ink-3: 40 25% 97%;
+    --desk-bin-ink-4: 40 25% 97%;
+    /* The diverging lenses: a fall runs ink to a light tint, a rise amber to the deepest stop. */
+    --desk-fall-2: 19 18% 24%;
+    --desk-fall-1: 20 14% 70%;
+    --desk-rise-1: 30 62% 64%;
+    --desk-rise-2: 26 85% 28%;
+    --desk-div-ink-0: 40 25% 97%;
+    --desk-div-ink-1: 19 18% 24%;
+    --desk-div-ink-2: 19 18% 24%;
+    --desk-div-ink-3: 19 18% 24%;
+    --desk-div-ink-4: 40 25% 97%;
   }
 
   .dark {
@@ -136,6 +163,27 @@
     --glow-color: 32 100% 65%;
     --scanline-opacity: 0.05;
     --phosphor-blur: 1px;
+
+    /* The desk's five-stop ramp, dark (spec 13.1; see :root for the rules these meet). */
+    --desk-bin-0: 32 12% 18%;
+    --desk-bin-1: 32 30% 30%;
+    --desk-bin-2: 32 60% 45%;
+    --desk-bin-3: 32 80% 54%;
+    --desk-bin-4: 32 100% 65%;
+    --desk-bin-ink-0: 48 52% 81%;
+    --desk-bin-ink-1: 48 52% 81%;
+    --desk-bin-ink-2: 0 0% 5%;
+    --desk-bin-ink-3: 0 0% 5%;
+    --desk-bin-ink-4: 0 0% 5%;
+    --desk-fall-2: 48 52% 81%;
+    --desk-fall-1: 45 12% 28%;
+    --desk-rise-1: 32 60% 45%;
+    --desk-rise-2: 32 100% 65%;
+    --desk-div-ink-0: 0 0% 5%;
+    --desk-div-ink-1: 48 52% 81%;
+    --desk-div-ink-2: 48 52% 81%;
+    --desk-div-ink-3: 0 0% 5%;
+    --desk-div-ink-4: 0 0% 5%;
   }
 }
 

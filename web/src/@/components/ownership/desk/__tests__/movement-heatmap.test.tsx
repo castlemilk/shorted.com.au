@@ -287,6 +287,23 @@ describe("MovementHeatmapStatic", () => {
     expect(phone?.querySelectorAll("g > g")).toHaveLength(0);
   });
 
+  it("marks the window as one hairline under its columns on the phone grid, and none when it covers every shown week", () => {
+    const windowed = render(
+      <MovementHeatmapStatic page={PAGE} state={{ window: 28, since: "", until: "" }} basePath="/ownership" />,
+    );
+    const [phone] = Array.from(windowed.container.querySelectorAll("svg[preserveAspectRatio='none']"));
+    // The pattern's hatch is a line too, so the window's rule is the one outside a pattern.
+    const rules = Array.from(phone!.querySelectorAll("line")).filter((line) => line.closest("pattern") === null);
+    expect(rules).toHaveLength(1);
+    // 28 days back from 3 November starts in the week of 5 October, the fourth of the eight weeks: columns 3 to 7 at the phone's 10px cell.
+    expect(rules[0]).toHaveAttribute("x1", "30");
+    expect(rules[0]).toHaveAttribute("x2", "80");
+    windowed.unmount();
+    const wide = render(<MovementHeatmapStatic page={PAGE} state={DEFAULT} basePath="/ownership" />);
+    const [widePhone] = Array.from(wide.container.querySelectorAll("svg[preserveAspectRatio='none']"));
+    expect(Array.from(widePhone!.querySelectorAll("line")).filter((line) => line.closest("pattern") === null)).toHaveLength(0);
+  });
+
   it("says the movement could not be read, and links nothing, when the read failed", () => {
     render(
       <MovementHeatmapStatic

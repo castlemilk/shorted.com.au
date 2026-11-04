@@ -62,11 +62,6 @@ export default async function OwnershipMapPage() {
             basePath="/ownership/map"
             variant="full"
           />
-          <p className="text-sm">
-            <Link href="/ownership/stocks" prefetch={false} className="text-primary underline-offset-4 hover:underline">
-              View all stocks in the registers →
-            </Link>
-          </p>
           {/* The method is folded to one line at the foot of the page (backlog B1); its text stays in the HTML. */}
           <MethodDisclosure
             extra={[

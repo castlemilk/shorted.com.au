@@ -1,6 +1,7 @@
 /// <reference types="jest" />
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { HolderBrowser } from "../holder-browser";
 import type { HolderRow } from "../holder-tree";
 
@@ -100,5 +101,21 @@ describe("holder browser (spec 14.3)", () => {
     expect(within(list).getByText("AustralianSuper")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Hedge funds" }));
     expect(screen.getByText("No holder matches these filters.")).toBeInTheDocument();
+  });
+});
+
+
+describe("holder browser bars (spec 13.1, backlog A2)", () => {
+  beforeEach(() => {
+    mockSearch = "";
+  });
+
+  it("draws every holder's bar in the ramp's fourth stop, so the one legend teaches it", () => {
+    // React writes the inline style itself, so the server markup shows each bar's stop as written.
+    const markup = renderToStaticMarkup(<HolderBrowser holders={holders} defaultKey="vanguard" />);
+    const bars = markup.match(/style="width:[^"]*;background:hsl\(var\(--desk-bin-3\)\)"/g) ?? [];
+    expect(bars).toHaveLength(3);
+    // The bar is the holder's share of the largest holder: Vanguard's 157 is the full width.
+    expect(bars[0]).toContain("width:100%");
   });
 });

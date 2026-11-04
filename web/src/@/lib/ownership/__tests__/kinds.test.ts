@@ -12,6 +12,7 @@ import {
   holderHref,
   isInstitutionSlug,
   isPooledFile,
+  kindShortLabel,
   FOLDED_SECTOR_LABEL,
   registerHref,
   shortSector,
@@ -91,6 +92,46 @@ describe("shortSector (spec 14.9)", () => {
 
   it("names the fold's bucket for every sector past the six largest", () => {
     expect(FOLDED_SECTOR_LABEL).toBe("Other sectors");
+  });
+});
+
+describe("kindShortLabel (spec B6)", () => {
+  it("names each kind by its short label, the names a sankey's gutter is sized from", () => {
+    expect(kindShortLabel("super_fund")).toBe("Super");
+    expect(kindShortLabel("index_manager")).toBe("Index");
+    expect(kindShortLabel("active_manager")).toBe("Active");
+    expect(kindShortLabel("hedge_fund")).toBe("Hedge");
+    expect(kindShortLabel("bank_broker")).toBe("Bank/broker");
+    expect(kindShortLabel("sovereign_public")).toBe("Sovereign");
+    expect(kindShortLabel("insurer")).toBe("Insurer");
+    expect(kindShortLabel("private_equity")).toBe("PE");
+    expect(kindShortLabel("corporate")).toBe("Listed co");
+    expect(kindShortLabel("other")).toBe("Other");
+    expect(kindShortLabel("unclassified")).toBe("Unclassified");
+  });
+
+  it("reads an unknown kind as Unclassified, and an inherited name as Unclassified too", () => {
+    expect(kindShortLabel("")).toBe("Unclassified");
+    expect(kindShortLabel("made_up_kind")).toBe("Unclassified");
+    expect(kindShortLabel("constructor")).toBe("Unclassified");
+    expect(kindShortLabel("toString")).toBe("Unclassified");
+  });
+
+  it("keeps every short name at twelve characters or fewer, unique, and free of an ellipsis", () => {
+    const shorts = Object.keys(KIND_INFO).map((kind) => kindShortLabel(kind));
+    for (const short of shorts) {
+      expect(short.length).toBeGreaterThan(0);
+      expect(short.length).toBeLessThanOrEqual(12);
+      expect(short).not.toContain("…");
+    }
+    expect(new Set(shorts).size).toBe(shorts.length);
+  });
+
+  it("names every kind with its own short label, never the full one", () => {
+    for (const [kind, info] of Object.entries(KIND_INFO)) {
+      expect(kindShortLabel(kind)).toBe(info.short);
+      expect(info.short.length).toBeLessThanOrEqual(info.label.length);
+    }
   });
 });
 

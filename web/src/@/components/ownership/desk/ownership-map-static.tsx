@@ -14,7 +14,7 @@
  */
 
 import { ScreenReaderTable } from "~/@/components/politicians/explorer/screen-reader-table";
-import { Fragment, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from "react";
+import { Fragment, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, type Ref } from "react";
 import Link from "next/link";
 import { normalizedLogoUrl } from "@/lib/logo";
 import { SectorIcon } from "../workspace/sector-icon";
@@ -23,16 +23,23 @@ import { NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
 import { cn } from "~/@/lib/utils";
 import type { OwnershipMapPage } from "~/app/actions/ownershipDesk";
 import {
+  PHONE_MIN_CELL,
   layoutMap,
   lensFigure,
+  phoneLayout,
+  phoneSectors,
+  phoneStockLayout,
   sectorOf,
   type MapCell,
   type MapLayout,
   type MapSector,
   type MapStockRow,
+  type PhoneCell,
+  type PhoneLayout,
+  type PhoneStock,
 } from "./map-layout";
 import { binOf, labelOnBin, lensFill, lensScale, type LensScale } from "./desk-scales";
-import { shortSector } from "~/@/lib/ownership/kinds";
+import { FOLDED_SECTOR_LABEL, shortSector } from "~/@/lib/ownership/kinds";
 import { DEFAULT_DESK_LENS, DEFAULT_DESK_STATE, type DeskState } from "./desk-state";
 import { fundComparisonLine } from "./fund-comparison";
 import {
@@ -676,6 +683,476 @@ export function DeskMapTable({
   );
 }
 
+/* The phone map (D1). Below sm the drawing is this square of sectors; from sm the full treemap. */
+
+/** The phone map's square: its coordinate space. The layouts tile it, and no drawn cell is under PHONE_MIN_CELL. */
+export const PHONE_MAP_SIZE = 360;
+
+/**
+ * The hatch of a phone cell with no figure. Its own id: the full map's drawing is display:none below
+ * sm, and a pattern inside a display:none svg is not drawn in every browser.
+ */
+const PHONE_HATCH_ID = "ownership-desk-phone-hatch";
+
+/** A phone cell's text: 11 px mono, a line every 11 units. The width of a character is estimated, never measured. */
+const PHONE_TEXT = 11;
+const PHONE_LINE = 11;
+const PHONE_CHAR_WIDTH = 6.6;
+
+/** The caption under the sectors' phone map: how a sector is coloured, and the way in. */
+export const PHONE_CAPTION =
+  "Each sector is coloured by the market-cap-weighted mean of its stocks' figures. Tap a sector for its stocks.";
+/** The caption under a zoomed sector's phone map: its stocks are coloured by their own figures. */
+export const PHONE_STOCKS_CAPTION = "Each stock is coloured by its own figure. Tap a stock to select it.";
+/** The ids of the details a phone map's fold cell opens in place, under the square. */
+const PHONE_SECTOR_FOLD_ID = "ownership-desk-phone-fold";
+const PHONE_STOCK_FOLD_ID = "ownership-desk-phone-stock-fold";
+
+/** The Size's name in a phone cell's title. */
+const SIZE_NAMES: Readonly<Record<MapSize, string>> = {
+  market_cap: "market cap",
+  disclosed: "disclosed exposure",
+  index_fund: "index fund holdings",
+};
+
+/**
+ * A name in at most two lines, broken at a space; the second line is cut with an ellipsis when it
+ * still does not fit, and a name with no space is cut to one line. A short name is one line.
+ */
+export function wrapPhoneLabel(text: string, maxChars: number): string[] {
+  const limit = Math.max(4, Math.floor(maxChars));
+  if (text.length <= limit) return [text];
+  const cut = text.lastIndexOf(" ", limit);
+  if (cut > 0) {
+    const rest = text.slice(cut + 1);
+    return [text.slice(0, cut), rest.length <= limit ? rest : `${rest.slice(0, limit - 1)}…`];
+  }
+  return [`${text.slice(0, limit - 1)}…`];
+}
+
+/** The characters a phone cell's name can hold across its width, with its 4 px padding each side. */
+function phoneCharsFor(width: number): number {
+  return Math.floor((width - 8) / PHONE_CHAR_WIDTH);
+}
+
+/** The count with its noun: "1 stock", "2 stocks". */
+function plural(count: number, noun: string): string {
+  return `${count} ${count === 1 ? noun : `${noun}s`}`;
+}
+
+/**
+ * A phone sector's title: the sector, its figure, the market-cap-weighted mean of how many stocks,
+ * and the Size's area. A figure no stock states is "n/a", never zero.
+ */
+export function phoneSectorTitle(cell: PhoneCell, lens: DeskState["lens"], size: MapSize = "market_cap"): string {
+  const name = cell.sector === FOLDED_SECTOR_LABEL ? `${FOLDED_SECTOR_LABEL} (${cell.folded.length})` : cell.sector;
+  const area = `area: ${SIZE_NAMES[size]}${estimatedClause(cell.estimated)}`;
+  if (cell.figure === null) {
+    return `${name}: ${NOT_AVAILABLE}, none of its ${plural(cell.stocks, "stock")} states a figure; ${area}`;
+  }
+  return `${name}: ${formatLensFigure(lens, cell.figure)}, the market-cap-weighted mean of ${cell.figured} of ${plural(cell.stocks, "stock")}; ${area}`;
+}
+
+/** The clause that says how many market caps are estimated from the median; empty when none is. */
+function estimatedClause(count: number): string {
+  return count > 0 ? `, ${count} ${count === 1 ? "market cap" : "market caps"} estimated from the median` : "";
+}
+
+/**
+ * A zoomed sector's fold cell title: the mean of the folded stocks' figures, weighted by their areas
+ * (the Size's), how many of them state one, and the Size. A figure no stock states is "n/a", never zero.
+ */
+export function phoneStockFoldTitle(cell: PhoneStock, lens: DeskState["lens"], size: MapSize = "market_cap"): string {
+  const name = `Other stocks (${cell.folded.length})`;
+  const area = `area: ${SIZE_NAMES[size]}`;
+  const stocks = plural(cell.folded.length, "stock");
+  if (cell.value === null) return `${name}: ${NOT_AVAILABLE}, none of its ${stocks} states a figure; ${area}`;
+  return `${name}: ${formatLensFigure(lens, cell.value)}, the mean of ${cell.figured} of ${stocks}, weighted by area; ${area}`;
+}
+
+/**
+ * A link on the phone map. With `onPick` (the island's desk patch) it is the desk's own link, a
+ * replace with no scroll; without it (the compact pane's link to the full map) it pushes a page.
+ * Every one is nofollow, as the full map's chips are: the sector variants are not for the index.
+ * Inside an svg the anchor draws its children, so a cell's rect is its direct child.
+ */
+function PhoneLink({
+  href,
+  onPick,
+  label,
+  className,
+  children,
+}: {
+  href: string;
+  onPick?: () => void;
+  label?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  const onClick = onPick
+    ? (event: MouseEvent<HTMLAnchorElement>) => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+          return;
+        }
+        event.preventDefault();
+        onPick();
+      }
+    : undefined;
+  return (
+    <Link
+      href={href}
+      replace={onPick !== undefined}
+      scroll={onPick === undefined ? undefined : false}
+      prefetch={false}
+      rel="nofollow"
+      role="link"
+      aria-label={label}
+      onClick={onClick}
+      className={className}
+    >
+      {children}
+    </Link>
+  );
+}
+
+/** The ring a focused phone cell draws, the same as the full map's. */
+const PHONE_CELL_FOCUS =
+  "cursor-pointer focus:outline-none focus-visible:[&>rect]:stroke-[hsl(var(--ring))] focus-visible:[&>rect]:[stroke-width:3]";
+
+/** The body of a phone cell: its rect, its name (two lines at most) and its figure, with its title. */
+function PhoneCellBody({
+  cell,
+  name,
+  figure,
+  fill,
+  ink,
+  title,
+  detail,
+}: {
+  cell: { x0: number; y0: number; x1: number; y1: number };
+  name: string;
+  figure: string;
+  fill: string;
+  ink: string;
+  title: string;
+  /** A line under the figure, e.g. the fold's largest members; drawn only where the cell has the room. */
+  detail?: string;
+}) {
+  const width = cell.x1 - cell.x0;
+  const height = cell.y1 - cell.y0;
+  // A cell at the minimum height holds one name line over its figure: a name is never wrapped there.
+  const lines = height < PHONE_MIN_CELL + PHONE_LINE ? [name] : wrapPhoneLabel(name, phoneCharsFor(width));
+  const figureY = cell.y0 + 14 + (lines.length - 1) * PHONE_LINE + 13;
+  const detailLines = detail === undefined ? [] : wrapPhoneLabel(detail, phoneCharsFor(width)).slice(0, 2);
+  const showDetail = detailLines.length > 0 && figureY + 4 + detailLines.length * PHONE_LINE <= cell.y1 - 2;
+  return (
+    <>
+      <title>{title}</title>
+      <rect
+        x={cell.x0}
+        y={cell.y0}
+        width={width}
+        height={cell.y1 - cell.y0}
+        fill={fill}
+        stroke="hsl(var(--background))"
+        strokeWidth={1}
+      />
+      {lines.map((line, index) => (
+        <text
+          key={index}
+          x={cell.x0 + 4}
+          y={cell.y0 + 14 + index * PHONE_LINE}
+          fontSize={PHONE_TEXT}
+          fill={ink}
+          className="pointer-events-none font-mono"
+        >
+          {line}
+        </text>
+      ))}
+      <text
+        x={cell.x0 + 4}
+        y={figureY}
+        fontSize={PHONE_TEXT}
+        fill={ink}
+        className="pointer-events-none font-mono tabular-nums"
+      >
+        {figure}
+      </text>
+      {showDetail
+        ? detailLines.map((line, index) => (
+            <text
+              key={`detail-${index}`}
+              x={cell.x0 + 4}
+              y={figureY + 4 + (index + 1) * PHONE_LINE}
+              fontSize={PHONE_TEXT - 1}
+              fill={ink}
+              opacity={0.75}
+              className="pointer-events-none font-mono"
+            >
+              {line}
+            </text>
+          ))
+        : null}
+    </>
+  );
+}
+
+/**
+ * What the fold cell says of its members: the three largest by short name, then how many more, so
+ * the fold reads as the sectors it holds and not as a blank. The members arrive largest first.
+ */
+export function foldDetail(folded: readonly string[]): string {
+  const named = folded.slice(0, 3).map((sector) => shortSector(sector));
+  const rest = folded.length - named.length;
+  return rest > 0 ? `${named.join(", ")} +${rest}` : named.join(", ");
+}
+
+/**
+ * A sector's cell on the phone map: its name (two lines at most) and its figure, filled from the lens's
+ * scale. The fold cell is a plain anchor to the details under the square that list its sectors.
+ */
+function PhoneSectorCell({
+  cell,
+  lens,
+  scale,
+  size,
+  link,
+}: {
+  cell: PhoneCell;
+  lens: DeskState["lens"];
+  scale: LensScale;
+  size?: MapSize;
+  /** The sector's link; absent for the fold cell, whose way in is the details below the drawing. */
+  link?: { href: string; onPick?: () => void };
+}) {
+  const fill = cell.figure === null ? `url(#${PHONE_HATCH_ID})` : (lensFill(cell.figure, scale) ?? `url(#${PHONE_HATCH_ID})`);
+  const ink = labelColourFor(cell.figure, scale);
+  const folds = cell.folded.length > 0;
+  const name = folds ? `${FOLDED_SECTOR_LABEL} (${cell.folded.length})` : shortSector(cell.sector);
+  const figure = formatLensFigure(lens, cell.figure);
+  const label = `${name}, ${figure}`;
+  const body = (
+    <PhoneCellBody
+      cell={cell}
+      name={name}
+      figure={figure}
+      fill={fill}
+      ink={ink}
+      title={phoneSectorTitle(cell, lens, size)}
+      detail={folds ? foldDetail(cell.folded) : undefined}
+    />
+  );
+  if (folds) {
+    // A plain anchor, not a PhoneLink: a fragment to the details, which opens them in place (no replace, no nofollow).
+    return (
+      <g data-phone-sector={cell.sector}>
+        <a href={`#${PHONE_SECTOR_FOLD_ID}`} aria-label={label} className={PHONE_CELL_FOCUS}>
+          {body}
+        </a>
+      </g>
+    );
+  }
+  if (link === undefined) {
+    return (
+      <g role="img" aria-label={label} data-phone-sector={cell.sector}>
+        {body}
+      </g>
+    );
+  }
+  return (
+    <g data-phone-sector={cell.sector}>
+      <PhoneLink href={link.href} onPick={link.onPick} label={label} className={PHONE_CELL_FOCUS}>
+        {body}
+      </PhoneLink>
+    </g>
+  );
+}
+
+/** A stock's cell on a zoomed sector's phone map: its ticker and its own figure, a tap selects it. */
+function PhoneStockCell({
+  cell,
+  lens,
+  scale,
+  size,
+  selected,
+  handlers,
+}: {
+  cell: MapCell;
+  lens: DeskState["lens"];
+  size?: MapSize;
+  scale: LensScale;
+  selected: boolean;
+  handlers?: MapHandlers;
+}) {
+  const width = cell.x1 - cell.x0;
+  const height = cell.y1 - cell.y0;
+  const fill = cell.hatched ? `url(#${PHONE_HATCH_ID})` : (lensFill(cell.value, scale) ?? `url(#${PHONE_HATCH_ID})`);
+  const ink = labelColourFor(cell.value, scale);
+  const title = cellTitle(cell, lens, size);
+  // A ticker takes what the cell gives it; a cell too thin to hold it prints none, and the title and the table carry it.
+  const ticker = tickerSize(width, height);
+  const showCode = width >= 24 && height >= ticker + 4;
+  const codeY = cell.y0 + ticker + 2;
+  const figureSize = figureSizeFor(ticker);
+  const figureY = codeY + figureSize + 3;
+  const showFigure = showCode && cell.value !== null && width >= 56 && figureY <= cell.y1 - 3;
+  const interactive = handlers !== undefined;
+  // Every stock is a tab stop: the phone map has at most the cells the fold rule allows, and the
+  // full map's roving stop is display:none below sm.
+  return (
+    <g
+      data-phone-code={cell.code}
+      role={interactive ? "button" : "img"}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={title}
+      aria-pressed={interactive ? selected : undefined}
+      onClick={interactive ? () => handlers?.onCellClick(cell.code) : undefined}
+      onKeyDown={
+        interactive
+          ? (event: KeyboardEvent<SVGGElement>) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handlers?.onCellKey(cell.code, event.key);
+              }
+            }
+          : undefined
+      }
+      className={cn(interactive && PHONE_CELL_FOCUS)}
+    >
+      <title>{title}</title>
+      <rect
+        x={cell.x0}
+        y={cell.y0}
+        width={width}
+        height={height}
+        fill={fill}
+        stroke={selected ? "hsl(var(--foreground))" : "hsl(var(--background))"}
+        strokeWidth={selected ? 2.5 : 1}
+      />
+      {showCode ? (
+        <text x={cell.x0 + 4} y={codeY} fontSize={ticker} fill={ink} className="pointer-events-none font-mono font-semibold tabular-nums">
+          {cell.code}
+        </text>
+      ) : null}
+      {showFigure ? (
+        <text x={cell.x0 + 4} y={figureY} fontSize={figureSize} fill={ink} className="pointer-events-none font-mono tabular-nums">
+          {formatLensFigure(lens, cell.value)}
+        </text>
+      ) : null}
+    </g>
+  );
+}
+
+/**
+ * A zoomed sector's fold cell: the mean of its stocks, an anchor to the details under the square that
+ * list them. Not a button: a tap opens the details, and a stock in them is the tap target.
+ */
+function PhoneStockFoldCell({
+  cell,
+  lens,
+  scale,
+  size,
+}: {
+  cell: PhoneStock;
+  lens: DeskState["lens"];
+  scale: LensScale;
+  size?: MapSize;
+}) {
+  const fill = cell.hatched ? `url(#${PHONE_HATCH_ID})` : (lensFill(cell.value, scale) ?? `url(#${PHONE_HATCH_ID})`);
+  const ink = labelColourFor(cell.value, scale);
+  const name = `Other stocks (${cell.folded.length})`;
+  const figure = formatLensFigure(lens, cell.value);
+  return (
+    <a
+      href={`#${PHONE_STOCK_FOLD_ID}`}
+      aria-label={`${name}, ${figure}`}
+      data-phone-stock-fold=""
+      className={PHONE_CELL_FOCUS}
+    >
+      <PhoneCellBody
+        cell={cell}
+        name={name}
+        figure={figure}
+        fill={fill}
+        ink={ink}
+        title={phoneStockFoldTitle(cell, lens, size)}
+      />
+    </a>
+  );
+}
+
+/**
+ * The phone map's drawing: the sectors (each a link, the fold cell an anchor to its details), or a zoomed
+ * sector's stocks (each a button, the fold cell an anchor). Always drawn with its own hatch; the caller
+ * shows it below sm only.
+ */
+export function PhoneMapFigure({
+  label,
+  lens,
+  scale,
+  size,
+  sectors,
+  stocks,
+  sectorLink,
+  selected,
+  handlers,
+}: {
+  label: string;
+  lens: DeskState["lens"];
+  scale: LensScale;
+  size?: MapSize;
+  /** The sectors' overview: one cell per sector, and the fold cell when some fold. */
+  sectors?: PhoneLayout;
+  /** A zoomed sector's stocks, in the same square, with their fold cell (`PhoneStock.folded`). */
+  stocks?: readonly PhoneStock[];
+  /** A sector's link: the desk's patch on the full map, the full map's link on the compact pane. */
+  sectorLink: (sector: string) => { href: string; onPick?: () => void };
+  selected?: string;
+  handlers?: MapHandlers;
+}) {
+  return (
+    <svg
+      role="group"
+      aria-label={label}
+      viewBox={`0 0 ${PHONE_MAP_SIZE} ${PHONE_MAP_SIZE}`}
+      className="block aspect-square h-auto w-full select-none"
+    >
+      <defs>
+        <pattern id={PHONE_HATCH_ID} width={6} height={6} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width={6} height={6} fill="hsl(var(--background))" />
+          <line x1={0} y1={0} x2={0} y2={6} stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} />
+        </pattern>
+      </defs>
+      {stocks !== undefined
+        ? stocks.map((cell) =>
+            cell.folded.length > 0 ? (
+              <PhoneStockFoldCell key="fold" cell={cell} lens={lens} scale={scale} size={size} />
+            ) : (
+              <PhoneStockCell
+                key={cell.code}
+                cell={cell}
+                lens={lens}
+                size={size}
+                scale={scale}
+                selected={cell.code === selected}
+                handlers={handlers}
+              />
+            ),
+          )
+        : (sectors?.cells ?? []).map((cell) => (
+            <PhoneSectorCell
+              key={cell.sector}
+              cell={cell}
+              lens={lens}
+              scale={scale}
+              size={size}
+              link={cell.folded.length > 0 ? undefined : sectorLink(cell.sector)}
+            />
+          ))}
+    </svg>
+  );
+}
+
 /**
  * One clause of the map's coverage line (backlog B1: the captions above the map said one thing
  * four ways, so they say it once). A clause is text; a `time` is the date it ends with, drawn as
@@ -848,7 +1325,8 @@ export function OwnershipMapView({
   const loading = status === "loading" && rows.length === 0;
   const empty = status === "idle" && page.ok && page.stocks.length === 0;
   const busy = status === "loading";
-  const sized = layoutMap(sizedRows(rows, size), {
+  const drawnRows = sizedRows(rows, size);
+  const sized = layoutMap(drawnRows, {
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
     lens: desk.lens,
@@ -871,6 +1349,17 @@ export function OwnershipMapView({
     href: deskHref(basePath, params, patch),
     onPick: onPick ? () => onPick(patch) : undefined,
   });
+  // The phone map (D1): the sectors' square below sm. The full map's compact pane has no desk to
+  // patch, so its sector links open the full map at that sector, as its zoom does.
+  const zoomedPhone = !compact && desk.sector !== "";
+  const phone = phoneLayout(phoneSectors(rows, drawnRows, desk.lens), PHONE_MAP_SIZE, PHONE_MIN_CELL);
+  const phoneSectorLink = (sector: string): { href: string; onPick?: () => void } =>
+    compact ? { href: hrefWithParams("/ownership/map", new URLSearchParams({ sector })) } : chip({ sector });
+  const foldCell = phone.cells.find((cell) => cell.sector === FOLDED_SECTOR_LABEL);
+  // A zoomed sector's stocks in the same square; its fold (when some stocks fold) is listed under the square.
+  const phoneStocks = zoomedPhone ? phoneStockLayout(drawnRows, desk.sector, desk.lens, PHONE_MAP_SIZE) : undefined;
+  const stockFold = phoneStocks?.find((cell) => cell.folded.length > 0);
+  const stockNames = stockFold === undefined ? undefined : new Map(drawnRows.map((row) => [row.code, row.name] as const));
 
   return (
     <div ref={rootRef} onKeyDown={onRootKeyDown} className="space-y-4">
@@ -960,10 +1449,10 @@ export function OwnershipMapView({
       )}
 
       {!compact && rows.length > 0 && !unknownSector && desk.sector === "" ? (
-        // The phone's way into a sector: the drawing's name is not printed below sm, and a
-        // sector's box is too small to press with a thumb. Each chip is a link, so it is a stop.
-        // From sm the chips are visually hidden but stay in the tab order, and show when focused.
-        <nav aria-label="Sectors" className="flex flex-wrap gap-1.5 sm:sr-only sm:focus-within:not-sr-only">
+        // The keyboard's and the screen reader's way into a sector: the phone map (below sm) and the
+        // full map (from sm) are the drawing; these links stay in the DOM at every width, visually
+        // hidden, and show when one of them has focus.
+        <nav aria-label="Sectors" className="sr-only flex flex-wrap gap-1.5 focus-within:not-sr-only">
           {layout.sectors.map((sector) => (
             <DeskLink
               key={sector.sector}
@@ -986,17 +1475,106 @@ export function OwnershipMapView({
         <div className="min-w-0">
           {rows.length > 0 && !unknownSector ? (
             <div aria-busy={busy} className={cn("relative", status !== "idle" && "opacity-60")}>
-              <DeskMapFigure
-                layout={layout}
-                lens={desk.lens}
-                scale={scale}
-                selected={selected}
-                focusCode={focusCode}
-                handlers={handlers}
-                groupStyle={groupStyle}
-                size={size}
-              />
-              {overlay}
+              <div className="relative hidden sm:block">
+                <DeskMapFigure
+                  layout={layout}
+                  lens={desk.lens}
+                  scale={scale}
+                  selected={selected}
+                  focusCode={focusCode}
+                  handlers={handlers}
+                  groupStyle={groupStyle}
+                  size={size}
+                />
+                {overlay}
+              </div>
+              <div className="sm:hidden">
+                {zoomedPhone ? (
+                  <>
+                    <PhoneMapFigure
+                      label={`Stocks in ${desk.sector}, coloured by ${LENS_LABELS[desk.lens]}`}
+                      lens={desk.lens}
+                      scale={scale}
+                      size={size}
+                      stocks={phoneStocks}
+                      sectorLink={phoneSectorLink}
+                      selected={selected}
+                      handlers={handlers}
+                    />
+                    {stockFold === undefined || stockNames === undefined ? null : (
+                      // The fold cell opens in place: its stocks are listed under the square, and a tap on one
+                      // selects it as its cell does (read-only on the server, where there are no handlers).
+                      <details className="mt-2 text-xs">
+                        <summary className="cursor-pointer text-primary underline-offset-4 hover:underline">
+                          {`Other stocks (${stockFold.folded.length})`}
+                        </summary>
+                        {/* The fragment target is a descendant, so the fragment navigation opens this details; scroll-mt clears the sticky bars. */}
+                        <div id={PHONE_STOCK_FOLD_ID} className="mt-2 flex flex-wrap gap-1.5 scroll-mt-36">
+                          {stockFold.folded.map((code) => {
+                            const label = `${code}, ${stockNames.get(code) ?? code}`;
+                            return handlers === undefined ? (
+                              <span
+                                key={code}
+                                className="rounded-sm border px-2 py-0.5 font-mono text-[11px] text-muted-foreground"
+                              >
+                                {label}
+                              </span>
+                            ) : (
+                              <button
+                                key={code}
+                                type="button"
+                                aria-pressed={code === selected}
+                                onClick={() => handlers?.onCellClick(code)}
+                                className="hit-target rounded-sm border px-2 py-0.5 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    )}
+                    <p className="mt-2 text-xs text-muted-foreground">{PHONE_STOCKS_CAPTION}</p>
+                  </>
+                ) : (
+                  <>
+                    <PhoneMapFigure
+                      label={`Sectors, coloured by ${LENS_LABELS[desk.lens]}`}
+                      lens={desk.lens}
+                      scale={scale}
+                      size={size}
+                      sectors={phone}
+                      sectorLink={phoneSectorLink}
+                    />
+                    {foldCell === undefined ? null : (
+                      // The fold cell opens in place: its sectors are the chips below the drawing, the one place
+                      // the chips show. A link there is a link like any sector's.
+                      <details className="mt-2 text-xs">
+                        <summary className="cursor-pointer text-primary underline-offset-4 hover:underline">
+                          {`Other sectors (${foldCell.folded.length})`}
+                        </summary>
+                        {/* The fragment target is a descendant, so the fragment navigation opens this details; scroll-mt clears the sticky bars. */}
+                        <div id={PHONE_SECTOR_FOLD_ID} className="mt-2 flex flex-wrap gap-1.5 scroll-mt-36">
+                          {foldCell.folded.map((sector) => {
+                            const link = phoneSectorLink(sector);
+                            return (
+                              <PhoneLink
+                                key={sector}
+                                href={link.href}
+                                onPick={link.onPick}
+                                className="hit-target rounded-sm border px-2 py-0.5 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                              >
+                                {shortSector(sector)}
+                              </PhoneLink>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    )}
+                    <p className="mt-2 text-xs text-muted-foreground">{PHONE_CAPTION}</p>
+                  </>
+                )}
+              </div>
             </div>
           ) : loading ? (
             <div

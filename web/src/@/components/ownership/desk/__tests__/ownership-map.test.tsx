@@ -6,6 +6,11 @@ import type { StockPanelPage } from "../stock-panel";
 import { OwnershipMap } from "../ownership-map";
 import { HATCH_ID } from "../ownership-map-static";
 
+/** The full treemap (from sm). Below sm the phone map draws a zoomed sector's stocks again under the same names. */
+function fullMap(): HTMLElement {
+  return screen.getByRole("group", { name: /^Sectors and stocks, coloured by/ });
+}
+
 // The link the reader arrives with. The island reads it through useSearchParams; a
 // test that moves the link by hand (back or forward) changes this and re-renders.
 let mockSearchParams = new URLSearchParams("");
@@ -114,11 +119,11 @@ describe("OwnershipMap island", () => {
     expect(window.location.search).toBe("?sector=Materials");
     const location = screen.getByRole("navigation", { name: "Map location" });
     expect(within(location).getByText("Materials").closest("li")).toHaveAttribute("aria-current", "location");
-    expect(screen.queryByRole("button", { name: CELL_BHP })).toBeInTheDocument();
+    expect(within(fullMap()).getByRole("button", { name: CELL_BHP })).toBeInTheDocument();
     // The sector's stocks only: CBA is a financial and is not on the zoomed map.
     expect(screen.queryByRole("button", { name: /^CBA,/ })).toBeNull();
 
-    fireEvent.keyDown(screen.getByRole("button", { name: CELL_BHP }), { key: "Escape" });
+    fireEvent.keyDown(within(fullMap()).getByRole("button", { name: CELL_BHP }), { key: "Escape" });
     expect(window.location.search).toBe("");
     expect(screen.getByRole("button", { name: /^CBA,/ })).toBeInTheDocument();
   });
@@ -128,7 +133,7 @@ describe("OwnershipMap island", () => {
     render(<OwnershipMap initial={page()} loadMap={jest.fn()} loadPanel={loadPanel} />);
     fireEvent.click(screen.getByRole("button", { name: "Zoom to Materials" }));
     expect(window.location.search).toBe("?sector=Materials");
-    fireEvent.click(screen.getByRole("button", { name: CELL_BHP }));
+    fireEvent.click(within(fullMap()).getByRole("button", { name: CELL_BHP }));
     expect(await screen.findByRole("heading", { name: "BHP Group" })).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("button", { name: "Close BHP" }), { key: "Escape" });
     expect(screen.queryByRole("heading", { name: "BHP Group" })).toBeNull();

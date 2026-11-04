@@ -1,7 +1,7 @@
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
 import { industryLabel } from "~/@/lib/industry-placeholder";
-import { fundHref, formatHeadlinePct } from "~/@/lib/ownership/kinds";
+import { fundHref, formatHeadlinePct, formatPointChange } from "~/@/lib/ownership/kinds";
 import {
   formatDeltaPp,
   statusLabel,
@@ -25,6 +25,26 @@ export function deltaWords(pp: number | null): string {
   if (pp === null || !Number.isFinite(pp)) return "Held on one file date only";
   if (Math.abs(pp) < 0.005) return "0.00 percentage points";
   return `${pp > 0 ? "+" : "−"}${Math.abs(pp).toFixed(2)} percentage points`;
+}
+
+/**
+ * The change row's reading (spec 14.1, backlog C1): the two weights and the change in points, then the status
+ * when the row is newly reported or no longer reported. A weight pair is printed only when both are stated.
+ * With nothing stated there is no reading.
+ */
+export function changeReading(input: ChangeInspectorInput): string | undefined {
+  const { fund, row } = input;
+  const weights =
+    row.weightFrom !== null && Number.isFinite(row.weightFrom) && row.weightTo !== null && Number.isFinite(row.weightTo)
+      ? `${formatHeadlinePct(row.weightFrom)} to ${formatHeadlinePct(row.weightTo)}`
+      : undefined;
+  const delta = row.deltaPp !== null && Number.isFinite(row.deltaPp) ? formatPointChange(0, row.deltaPp) : undefined;
+  const status = row.status === "new" ? "newly reported" : row.status === "dropped" ? "no longer reported" : undefined;
+  const tail = [delta, status].filter((part): part is string => part !== undefined);
+  if (weights === undefined && tail.length === 0) return undefined;
+  const head = `${row.code} in ${fundLabel(fund)}`;
+  const lead = weights === undefined ? head : `${head}: ${weights}`;
+  return `${[lead, ...tail].join(", ")}.`;
 }
 
 /**
@@ -55,6 +75,7 @@ export function changeInspectorContent(input: ChangeInspectorInput): InspectorCo
   ];
   return {
     heading: `${row.code} in ${fundLabel(fund)}`,
+    reading: changeReading(input),
     subtitle: `${row.name} · ${industryLabel(row.industry) || NOT_AVAILABLE}`,
     logo: { kind: "stock", code: row.code },
     figure: {

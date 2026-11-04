@@ -269,6 +269,7 @@ export type HeatMeasure = "pp" | "count";
 interface GridProps {
   rows: readonly HeatRow[];
   weeks: readonly string[];
+  /** The window's weeks, drawn as a hairline under the columns it covers (never as a dim of the stops). */
   range: WeekRange | null;
   variant: "phone" | "full";
   reach: number;
@@ -380,8 +381,6 @@ function HeatGrid({
             <g key={row.sector} transform={`translate(0 ${rowIndex * HEAT_ROW_PX})`}>
               {row.cells.slice(offset).map((item, column) => {
                 if (item.notices === 0) return null;
-                const index = column + offset;
-                const dim = range === null || index < range.first || index > range.last;
                 const fill = lensFill(cellValue(item, measure), cellScale) ?? `url(#${idPrefix}-hatch)`;
                 const isSelected = selectedCell !== null && selectedCell.sector === row.sector && selectedCell.weekStart === item.weekStart;
                 const mark = (
@@ -406,7 +405,7 @@ function HeatGrid({
                 // link is the inspector's and the table's, not the drawing's.
                 const select = onCellSelect === undefined || variant !== "full" ? null : () => onCellSelect(row.sector, item.weekStart);
                 return (
-                  <g key={item.weekStart} opacity={dim ? 0.35 : 1}>
+                  <g key={item.weekStart}>
                     {select !== null ? (
                       <g
                         role="button"
@@ -453,6 +452,17 @@ function HeatGrid({
               })}
             </g>
           ))}
+          {/* The window is a mark under its columns, never a dim of the stops (A2): a stop reads the same inside and outside it. */}
+          {range !== null && range.last >= offset && range.first < weeks.length && (range.first > offset || range.last < weeks.length - 1) ? (
+            <line
+              x1={(Math.max(range.first, offset) - offset) * cell}
+              x2={(Math.min(range.last, weeks.length - 1) - offset + 1) * cell}
+              y1={height - 0.5}
+              y2={height - 0.5}
+              stroke="hsl(var(--foreground))"
+              strokeWidth={1}
+            />
+          ) : null}
         </svg>
       {printFigures ? (
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col">
@@ -465,7 +475,7 @@ function HeatGrid({
               {row.cells.slice(offset).map((item) => {
                 // A zero week is a muted dash; a week with notices but no stated figure prints nothing.
                 const text = item.notices === 0 ? EN_DASH : (cellFigure(item, measure) ?? "");
-                // The figure takes the ink on a pale cell and the paper on the two deepest steps (spec 14.9).
+                // The figure takes its stop's own ink (desk-scales, the theme's --desk-*-ink tokens, AA at 11px; spec 14.9, A2).
                 const ink = labelOnBin(binOf(cellValue(item, measure), cellScale), cellScale);
                 return (
                   <span

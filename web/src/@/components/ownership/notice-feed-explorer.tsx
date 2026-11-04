@@ -110,6 +110,8 @@ export interface NoticeFeedRow {
   votingPower: string;
   /** The change in percentage points with a true minus, or "" when the notice states no earlier figure. */
   change: string;
+  /** The same change as a number of points (present less previous), null when either figure is not stated. */
+  changePp: number | null;
   /** The notice on ASX. */
   url: string;
 }

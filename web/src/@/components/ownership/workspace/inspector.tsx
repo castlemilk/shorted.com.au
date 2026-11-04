@@ -321,6 +321,7 @@ function InspectorBodyContent({
           ))}
         </ul>
       ) : null}
+      {content.reading ? <p className="text-sm leading-snug text-foreground">{content.reading}</p> : null}
       {content.figure ? (
         <div>
           <p

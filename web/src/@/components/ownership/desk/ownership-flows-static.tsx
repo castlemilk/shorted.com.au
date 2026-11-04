@@ -4,10 +4,18 @@ import { ScreenReaderTable } from "~/@/components/politicians/explorer/screen-re
 import { NOT_AVAILABLE, formatProseAmount } from "~/@/lib/fundamentals/format";
 import { parseSelection, serializeSelection } from "../workspace/selection";
 import { industryLabel } from "~/@/lib/industry-placeholder";
-import { FOLDED_SECTOR_LABEL, formatVotingPower, kindInfo, shortSector } from "~/@/lib/ownership/kinds";
+import { FOLDED_SECTOR_LABEL, formatVotingPower, kindInfo, kindShortLabel, shortSector } from "~/@/lib/ownership/kinds";
 import { cn } from "~/@/lib/utils";
 import type { FlowChangeRow, FlowLayout, FlowNode } from "./flows-layout";
-import { changeFlows, positionFlows } from "./flows-layout";
+import {
+  LABEL_GAP,
+  LABEL_LINE_EM,
+  changeFlows,
+  flowGutters,
+  labelLines,
+  positionFlows,
+  positive,
+} from "./flows-layout";
 import { OTHER_SECTOR, sectorOf } from "./map-layout";
 import type { OwnershipFlowsPage } from "~/app/actions/ownershipDesk";
 import { Toolbar, type ToolbarFold } from "../workspace/toolbar";
@@ -33,10 +41,14 @@ import { WindowSelect } from "../workspace/window-select";
 
 export type FlowMode = "positions" | "changes";
 
-/** The desktop and phone drawings. The phone's gutters hold the labels at a size a phone reads. */
+/**
+ * The desktop and phone drawings. These are the FLOORS a layout starts from: each gutter
+ * widens to the labels it holds (flowGutters, spec B6). The phone's right label wraps to
+ * two lines before its gutter widens; the desktop's never wraps.
+ */
 export const FLOW_SIZES = {
-  phone: { width: 360, height: 330, left: 92, right: 96, font: 10.5, maxChars: 13 },
-  full: { width: 600, height: 400, left: 150, right: 150, font: 12, maxChars: 20 },
+  phone: { width: 360, height: 330, left: 92, right: 96, font: 10.5, wrapRight: true },
+  full: { width: 600, height: 400, left: 150, right: 150, font: 12, wrapRight: false },
 } as const;
 
 /** The caption the positions carry (spec 13.3), verbatim. */
@@ -114,10 +126,16 @@ export function sectorOfNode(node: FlowNode): string {
   return node.key.slice("sector:".length);
 }
 
-/** Shortens a label to the room its gutter has. The full name is in the node's title. */
-export function shortenLabel(text: string, max: number): string {
-  const chars = [...text];
-  return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : text;
+/**
+ * The share of the normal band opacity the unclassified remainder draws at (spec B6). A
+ * multiplier, so the selected band keeps its lift over the unselected ones.
+ */
+export const UNCLASSIFIED_BAND_SHARE = 0.6;
+
+/** A band's fill opacity: about 15% when unselected, amber's 80% when selected, and 60% of either for the remainder. */
+export function bandFillOpacity(selected: boolean, kind: string): number {
+  const base = selected ? 0.8 : 0.15;
+  return kind === "unclassified" ? base * UNCLASSIFIED_BAND_SHARE : base;
 }
 
 /** The registers filtered to one kind and one industry: a band's link. */
@@ -164,19 +182,44 @@ export function changeBandTitle(row: FlowChangeRow, measure: FlowMeasure = "expo
   return `${kindInfo(row.kind).label}, ${direction} in ${sector}: ${formatProseAmount(row.exposureAud, "AUD")} change in disclosed exposure, estimated, across ${noun(row.notices, "notice", "notices")}`;
 }
 
-/** The layout a mode and a size draw. Positions and changes split their rows the same way. */
+/** A layout with the gutters it was drawn in: the labels sit beside them (spec B6). */
+export type SizedFlowLayout = FlowLayout & { left: number; right: number };
+
+/**
+ * The gutters a set of rows needs: sized from the short names of the kinds and sectors the
+ * drawing shows, the sectors as the drawing names them (spec B6). Only rows with an estimate
+ * are drawn, so only their labels count.
+ */
+function gutterFor(
+  rows: readonly { kind: string; industry: string; exposureAud: number | null }[],
+  size: (typeof FLOW_SIZES)[keyof typeof FLOW_SIZES],
+): { left: number; right: number } {
+  const drawn = rows.filter((row) => positive(row.exposureAud));
+  return flowGutters(
+    [...new Set(drawn.map((row) => kindShortLabel(row.kind)))],
+    [...new Set(drawn.map((row) => shortSector(sectorOf(row.industry))))],
+    size,
+  );
+}
+
+/**
+ * The layout a mode and a size draw. Positions and changes split their rows the same way.
+ * The gutters widen from the labels (flowGutters), so the layout's width is what is left
+ * between them; the drawing places its labels from the gutters it is given.
+ */
 export function flowLayout(
   page: OwnershipFlowsPage,
   mode: FlowMode,
   size: (typeof FLOW_SIZES)[keyof typeof FLOW_SIZES],
-): FlowLayout {
-  const inner = size.width - size.left - size.right;
+): SizedFlowLayout {
   if (mode === "positions") {
     const rows = [...page.positions].sort((a, b) => (b.exposureAud ?? 0) - (a.exposureAud ?? 0));
-    return positionFlows(rows, inner, size.height);
+    const gutters = gutterFor(rows, size);
+    return { ...positionFlows(rows, size.width - gutters.left - gutters.right, size.height), ...gutters };
   }
   const rows = [...page.changes].sort((a, b) => (b.exposureAud ?? 0) - (a.exposureAud ?? 0));
-  return changeFlows(rows, inner, size.height);
+  const gutters = gutterFor(rows, size);
+  return { ...changeFlows(rows, size.width - gutters.left - gutters.right, size.height), ...gutters };
 }
 
 interface DrawingProps {
@@ -238,9 +281,9 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
         const foldedBand = sector === FOLDED_SECTOR_LABEL;
         const selected = !foldedBand && connectionIsSelected(params, kind, sector);
         // Unselected ribbons are neutral at about 15% in both modes; the selected band is amber (spec 14.9). A change's
-        // direction is named in its band's title, not in its colour.
+        // direction is named in its band's title, not in its colour. The remainder's bands are lighter still (spec B6).
         const fill = selected ? "hsl(var(--primary))" : "hsl(var(--foreground))";
-        const opacity = selected ? 0.8 : 0.15;
+        const opacity = bandFillOpacity(selected, kind);
         const title =
           mode === "positions"
             ? positionBandTitle(
@@ -288,7 +331,7 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
             data-selected={selected || undefined}
           >
             <path
-              transform={`translate(${size.left} 0)`}
+              transform={`translate(${layout.left} 0)`}
               d={item.path}
               fill={fill}
               fillOpacity={opacity}
@@ -301,12 +344,12 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
       })}
       {layout.nodes.map((node) => {
         const isHolder = node.kind === "holder";
-        const x = size.left + node.x0;
+        const x = layout.left + node.x0;
         const width = node.x1 - node.x0;
         const height = Math.max(node.y1 - node.y0, 0);
         const folded = !isHolder && sectorOfNode(node) === FOLDED_SECTOR_LABEL;
-        const label = isHolder ? kindInfo(kindOfNode(node)).label : shortSector(sectorOfNode(node));
-        // The title names the full group, the drawn label its short name (spec 14.9).
+        // The drawn label is the short name; the title names the full group (spec 14.9, spec B6).
+        const label = isHolder ? kindShortLabel(kindOfNode(node)) : shortSector(sectorOfNode(node));
         const fullLabel = isHolder ? kindInfo(kindOfNode(node)).label : sectorOfNode(node);
         const title =
           measure === "count"
@@ -321,9 +364,16 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
             ? sectorMapHref(sectorOfNode(node))
             : deskParamHref(basePath, params, { sector: sectorOfNode(node) });
         const drillTo: DrillPatch = isHolder ? { kind: kindOfNode(node) } : { sector: sectorOfNode(node) };
+        // The unclassified holders are a remainder: muted ink, drawn last (spec 14.9, spec B6).
+        const unclassified = isHolder && kindOfNode(node) === "unclassified";
         const textY = node.y0 + height / 2;
-        // Every drawn node is labelled (spec 14.9), a short node's label included: it sits on the node's middle.
-        const labelX = isHolder ? size.left - 6 : size.width - size.right + 6;
+        // A label takes the room its gutter leaves beside it, wrapped to two lines at a space when it is longer (spec B6).
+        const lines = labelLines(label, size.font, (isHolder ? layout.left : layout.right) - LABEL_GAP);
+        const lineHeight = size.font * LABEL_LINE_EM;
+        // The phone prints a label only where its node holds every line, so a short node keeps its title alone. The
+        // full drawing labels every node, a short node's label included, on the node's middle (spec 14.9).
+        const labelFits = variant === "full" || height >= lines.length * lineHeight;
+        const labelX = isHolder ? layout.left - LABEL_GAP : layout.left + layout.width + LABEL_GAP;
         return (
           <Link
             key={node.key}
@@ -356,19 +406,28 @@ function FlowsDrawing({ page, mode, variant, basePath, params, measure, onSelect
               width={width}
               height={height}
               fill={isHolder ? kindColour(kindOfNode(node)) : "hsl(var(--foreground))"}
+              className={unclassified ? "fill-muted-foreground" : undefined}
             >
               <title>{title}</title>
             </rect>
-            <text
-              x={labelX}
-              y={textY}
-              dominantBaseline="middle"
-              textAnchor={isHolder ? "end" : "start"}
-              fontSize={size.font}
-              fill="hsl(var(--foreground))"
-            >
-              {shortenLabel(label, size.maxChars)}
-            </text>
+            {labelFits ? (
+              <text
+                x={labelX}
+                y={textY}
+                dominantBaseline="middle"
+                textAnchor={isHolder ? "end" : "start"}
+                fontSize={size.font}
+                fill={unclassified ? "currentColor" : "hsl(var(--foreground))"}
+                className={unclassified ? "text-muted-foreground" : undefined}
+              >
+                {lines.map((line, index) => (
+                  // Two lines are centred on the node's middle: the first rises by half a line, the second falls by it.
+                  <tspan key={index} x={labelX} dy={index === 0 ? -((lines.length - 1) * lineHeight) / 2 : lineHeight}>
+                    {index < lines.length - 1 ? `${line} ` : line}
+                  </tspan>
+                ))}
+              </text>
+            ) : null}
           </Link>
         );
       })}

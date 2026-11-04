@@ -82,6 +82,12 @@ export interface InspectorContent {
   heading: string;
   /** A line under the name, e.g. "PLS Group · Materials" or "Holdings as at {date}". */
   subtitle?: string;
+  /**
+   * The one computed sentence the rail leads with (spec 14.1, backlog C1): what is notable in
+   * this selection, built from the figures the rail already shows. Never model prose. A figure
+   * that is missing drops its clause, and with no clause left there is no reading at all.
+   */
+  reading?: string;
   logo?: InspectorLogo;
   /** Kind or status badges beside the name, e.g. "Company", "Substantial notices". */
   badges?: string[];

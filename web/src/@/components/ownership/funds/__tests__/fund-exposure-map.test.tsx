@@ -1,6 +1,7 @@
 /// <reference types="jest" />
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { FundExposureMapView, fundMatches } from "../fund-exposure-map";
 import { fundKindLabel, type FundRow } from "../fund-model";
 
@@ -189,5 +190,47 @@ describe("the fund exposure map's controls and expanders (spec 14.1, 14.3)", () 
   it("says the comparison reads one fund when more than one is selected", () => {
     renderView("funds=asx:A200,asx:IOZ");
     expect(screen.getByText("The comparison reads one fund: A200.")).toBeInTheDocument();
+  });
+});
+
+
+/** The server's markup of the default view: React writes each inline style itself, so the stops are read as written. */
+function markupOf(search = "", funds: FundRow[] = FUNDS): string {
+  return renderToStaticMarkup(
+    <FundExposureMapView funds={funds} params={new URLSearchParams(search)} pathname="/ownership/funds" navigate={jest.fn()} />,
+  );
+}
+
+describe("the fund exposure map's ramp (spec 13.1, backlog A2)", () => {
+  it("shades a cell by the desk's weight stop, and prints its figure in that stop's ink", () => {
+    const markup = markupOf();
+    // 30% is the fourth of the five 8-point bins: the stop and its ink are theme tokens, never a mix.
+    expect(markup).toMatch(/<td[^>]*style="background:hsl\(var\(--desk-bin-3\)\);color:hsl\(var\(--desk-bin-ink-3\)\)"[^>]*>30\.0%<\/td>/);
+    expect(markup).not.toMatch(/<td[^>]*style="[^"]*"[^>]*>n\/a<\/td>/);
+  });
+
+  it("leaves a sector the fund states no weight for plain: no fill and no ink, never a tinted zero", () => {
+    // Materials is a column sector this fund states no weight for; the other funds state all three.
+    const markup = markupOf("", [
+      ...FUNDS,
+      fund("NUL", {
+        sectorWeights: [
+          { industry: "Banks", weightPct: 30 },
+          { industry: "Materials", weightPct: null },
+          { industry: "Insurance", weightPct: 4 },
+        ],
+      }),
+    ]);
+    // The default view shows five funds (the super option is filtered out). Each has an n/a Other cell, since every
+    // sector lies in a column, and the new fund's stated-null Materials cell is the sixth unstyled n/a.
+    expect(markup.match(/<td class="px-2 py-2 text-right tabular-nums">n\/a<\/td>/g)).toHaveLength(6);
+    expect(markup).not.toMatch(/<td[^>]*style="[^"]*"[^>]*>n\/a<\/td>/);
+  });
+
+  it("keys the legend with the five stops of the same scale, from the paper to the deepest stop", () => {
+    const markup = markupOf();
+    for (let bin = 0; bin < 5; bin += 1) {
+      expect(markup).toContain(`class="h-3 w-6 border border-border" style="background:hsl(var(--desk-bin-${bin}))"`);
+    }
   });
 });

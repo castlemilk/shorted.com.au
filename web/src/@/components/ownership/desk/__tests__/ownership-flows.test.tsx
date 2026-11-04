@@ -14,14 +14,17 @@ import {
   FLOWS_LOADING,
   FLOWS_OUTAGE,
   FLOW_POSITIONS_CAPTION,
+  FLOW_SIZES,
   OwnershipFlowsStatic,
+  bandFillOpacity,
   changeBandTitle,
   connectionIsSelected,
+  flowLayout,
   flowRegisterHref,
   kindColour,
   positionBandTitle,
-  shortenLabel,
 } from "../ownership-flows-static";
+import { LABEL_GAP, labelWidth } from "../flows-layout";
 import { DESK_DEFAULT_WINDOW_STATE } from "../window-chips";
 
 let mockSearchParams = new URLSearchParams("");
@@ -104,10 +107,141 @@ describe("the figures a band and a node state", () => {
     expect(flowRegisterHref("super_fund", "Other")).toBe("/ownership/stocks?kind=super_fund");
   });
 
-  it("colours a kind with its category swatch, and shortens a label to its room", () => {
+  it("colours a kind with its category swatch, and the remainder in muted ink", () => {
     expect(kindColour("super_fund")).toBe("#87A96B");
-    expect(shortenLabel("Sovereign or public fund", 13)).toBe("Sovereign or…");
-    expect(shortenLabel("Insurer", 13)).toBe("Insurer");
+    expect(kindColour("unclassified")).toBe("hsl(var(--muted-foreground))");
+  });
+});
+
+/**
+ * Every kind and eight sectors, the two longest names among them. Each kind has the same
+ * exposure, so the holder nodes are the same height and the phone draws every label; the
+ * sectors are weighted, so the fold keeps six and draws "Other sectors".
+ */
+const LONG_SECTORS = [
+  "Commercial & Professional Services",
+  "Consumer Discretionary Distribution & Retail",
+  "Materials",
+  "Banks",
+  "Energy",
+  "Health Care Equipment & Services",
+  "Utilities",
+  "Insurance",
+];
+const ALL_KINDS = [
+  "super_fund",
+  "index_manager",
+  "active_manager",
+  "hedge_fund",
+  "bank_broker",
+  "sovereign_public",
+  "insurer",
+  "private_equity",
+  "corporate",
+  "other",
+  "unclassified",
+];
+const LABEL_PAGE: OwnershipFlowsPage = {
+  ...PAGE,
+  positions: ALL_KINDS.flatMap((kind) =>
+    LONG_SECTORS.map((industry, index) => ({
+      kind,
+      industry,
+      exposureAud: (LONG_SECTORS.length - index) * 1e8,
+      holdings: 1,
+      largestCode: "BHP",
+      largestPct: 5,
+    })),
+  ),
+  changes: [],
+};
+
+/** The two drawings the static view draws, by their viewBox. */
+function drawings(container: HTMLElement) {
+  const svgs = Array.from(container.querySelectorAll<SVGSVGElement>('svg[aria-hidden="true"]'));
+  const phone = svgs.find((svg) => svg.getAttribute("viewBox") === `0 0 ${FLOW_SIZES.phone.width} ${FLOW_SIZES.phone.height}`);
+  const full = svgs.find((svg) => svg.getAttribute("viewBox") === `0 0 ${FLOW_SIZES.full.width} ${FLOW_SIZES.full.height}`);
+  if (!phone || !full) throw new Error("both drawings render");
+  return { phone, full };
+}
+
+function labelled(svg: SVGSVGElement, text: string): SVGTextElement | undefined {
+  return Array.from(svg.querySelectorAll<SVGTextElement>("text")).find((t) => t.textContent === text);
+}
+
+describe("the drawn labels (spec B6)", () => {
+  it("draws every kind and every sector by its short name, at both sizes, and cuts none", () => {
+    const { container } = render(<OwnershipFlowsStatic page={LABEL_PAGE} state={DESK_DEFAULT_WINDOW_STATE} basePath="/ownership" />);
+    const { phone, full } = drawings(container);
+    const expected = [
+      "Super", "Index", "Active", "Hedge", "Bank/broker", "Sovereign", "Insurer", "PE", "Listed co", "Other", "Unclassified",
+      "Professional services", "Discretionary retail", "Materials", "Banks", "Energy", "Health care", "Other sectors",
+    ];
+    for (const svg of [phone, full]) {
+      const labels = Array.from(svg.querySelectorAll("text")).map((t) => t.textContent ?? "");
+      for (const name of expected) expect(labels).toContain(name);
+      for (const label of labels) expect(label).not.toContain("…");
+    }
+  });
+
+  it("wraps a long sector label on the phone into two tspans, and draws it whole on the desktop", () => {
+    const { container } = render(<OwnershipFlowsStatic page={LABEL_PAGE} state={DESK_DEFAULT_WINDOW_STATE} basePath="/ownership" />);
+    const { phone, full } = drawings(container);
+    const wrapped = labelled(phone, "Professional services");
+    expect(wrapped).toBeDefined();
+    expect(Array.from(wrapped!.querySelectorAll("tspan")).map((t) => t.textContent?.trim())).toEqual([
+      "Professional",
+      "services",
+    ]);
+    expect(Array.from(labelled(phone, "Discretionary retail")!.querySelectorAll("tspan")).map((t) => t.textContent?.trim())).toEqual([
+      "Discretionary",
+      "retail",
+    ]);
+    expect(labelled(full, "Professional services")!.querySelectorAll("tspan")).toHaveLength(1);
+  });
+
+  it("widens the desktop's right gutter to hold the longest sector name, and the phone's only to its wrapped width", () => {
+    const desktop = flowLayout(LABEL_PAGE, "positions", FLOW_SIZES.full);
+    expect(desktop.right).toBeGreaterThanOrEqual(labelWidth("Professional services", FLOW_SIZES.full.font) + LABEL_GAP);
+    expect(desktop.width).toBe(FLOW_SIZES.full.width - desktop.left - desktop.right);
+    const phone = flowLayout(LABEL_PAGE, "positions", FLOW_SIZES.phone);
+    expect(phone.right).toBe(FLOW_SIZES.phone.right);
+  });
+
+  it("prints no label on the phone for a node too short to hold it, and keeps the node's title", () => {
+    const page: OwnershipFlowsPage = {
+      ...LABEL_PAGE,
+      positions: LABEL_PAGE.positions.map((row) => (row.kind === "insurer" ? { ...row, exposureAud: 1e5 } : row)),
+    };
+    const { container } = render(<OwnershipFlowsStatic page={page} state={DESK_DEFAULT_WINDOW_STATE} basePath="/ownership" />);
+    const { phone, full } = drawings(container);
+    expect(labelled(phone, "Insurer")).toBeUndefined();
+    expect(labelled(full, "Insurer")).toBeDefined();
+    const node = Array.from(phone.querySelectorAll("rect")).find((r) => r.querySelector("title")?.textContent?.startsWith("Insurer:"));
+    expect(node).toBeDefined();
+  });
+
+  it("draws the unclassified node in muted ink and its bands at 60 percent of the normal opacity", () => {
+    const { container } = render(<OwnershipFlowsStatic page={LABEL_PAGE} state={DESK_DEFAULT_WINDOW_STATE} basePath="/ownership" />);
+    const { full } = drawings(container);
+    const node = Array.from(full.querySelectorAll("rect")).find((r) => r.querySelector("title")?.textContent?.startsWith("Unclassified:"));
+    expect(node).toBeDefined();
+    expect(node!.getAttribute("class")).toContain("fill-muted-foreground");
+    expect(node!.getAttribute("fill")).toBe("hsl(var(--muted-foreground))");
+    const label = labelled(full, "Unclassified");
+    expect(label!.getAttribute("class")).toContain("text-muted-foreground");
+    const remainderBand = full.querySelector('a[aria-label^="Unclassified in"] path');
+    const ordinaryBand = full.querySelector('a[aria-label^="Super fund in"] path');
+    expect(Number(remainderBand!.getAttribute("fill-opacity"))).toBeCloseTo(0.15 * 0.6, 6);
+    expect(Number(ordinaryBand!.getAttribute("fill-opacity"))).toBeCloseTo(0.15, 6);
+  });
+
+  it("keeps the selected band's lift over the unselected ones, for the remainder as for the rest", () => {
+    expect(bandFillOpacity(false, "super_fund")).toBeCloseTo(0.15, 6);
+    expect(bandFillOpacity(true, "super_fund")).toBeCloseTo(0.8, 6);
+    expect(bandFillOpacity(false, "unclassified")).toBeCloseTo(0.09, 6);
+    expect(bandFillOpacity(true, "unclassified")).toBeCloseTo(0.48, 6);
+    expect(bandFillOpacity(true, "unclassified")).toBeGreaterThan(bandFillOpacity(false, "unclassified"));
   });
 });
 

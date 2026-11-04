@@ -14,7 +14,6 @@ import {
   formatDeltaPp,
   fundCodeOf,
   fundLabel,
-  heatMix,
   holdingsTreemap,
   orderFundsForCompare,
   otherWeightOf,
@@ -114,14 +113,6 @@ describe("fund sectors", () => {
   it("folds every sector outside the columns into Other, and is n/a when none is stated", () => {
     expect(otherWeightOf(funds[1]!, ["Banks"])).toBe(5);
     expect(otherWeightOf(fund({ key: "X", sectorWeights: [{ industry: "Banks", weightPct: 1 }] }), ["Banks"])).toBeNull();
-  });
-
-  it("tints a heat cell on one scale, and leaves a cell with no weight or a zero plain", () => {
-    expect(heatMix(null)).toBeNull();
-    expect(heatMix(0)).toBeNull();
-    expect(heatMix(40)).toContain("60%");
-    expect(heatMix(80)).toContain("60%");
-    expect(heatMix(10)).toContain("15%");
   });
 
   it("gives the six sector tints in order, cycling, never a kind colour or red or green", () => {

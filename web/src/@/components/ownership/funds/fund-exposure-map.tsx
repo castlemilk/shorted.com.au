@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { sectionTitle } from "@/lib/typography";
 import { NOT_AVAILABLE, formatPct } from "~/@/lib/fundamentals/format";
 import { industryLabel } from "~/@/lib/industry-placeholder";
+import { binFill, binOf, labelOnBin, lensFill, type LensScale } from "../desk/desk-scales";
 import { HolderLogo } from "../workspace/holder-logo";
 import { Toolbar } from "../workspace/toolbar";
 import { ViewDisclosure } from "../workspace/view-disclosure";
@@ -20,7 +21,6 @@ import {
   FUND_COMPARE_MAX,
   fundKindLabel,
   formatWeight,
-  heatMix,
   otherWeightOf,
   parseFundKeys,
   patchHref,
@@ -32,8 +32,12 @@ import {
   fundLabel,
 } from "./fund-model";
 
-/** The legend's ramp (spec 14.3): the weights its swatches stand for, 0% to ≥ 40%. */
-const LEGEND_STEPS = [8, 16, 24, 32, 40] as const;
+/**
+ * The weight ramp (spec 14.3, 13.1): the desk's sequential scale over 0% to 40%, five bins of 8 points.
+ * A cell is one of the five stops every instrument draws, and a weight above 40% reads in the top bin.
+ */
+const WEIGHT_SCALE: LensScale = { lens: "disclosed", mode: "sequential", lo: 0, hi: 40, step: 8 };
+const LEGEND_BINS = [0, 1, 2, 3, 4] as const;
 const LEGEND_COPY = "Cell colour and value = weight within that fund";
 /** The page header's status line (spec 14.7); the page prints it beside its title. */
 export const FUND_STATUS_COPY = "Tracked portfolios only · Snapshot dates vary";
@@ -254,7 +258,10 @@ export function FundExposureMapView({
                           <td
                             key={sector}
                             className="px-2 py-2 text-right tabular-nums"
-                            style={{ background: heatMix(weight) ?? undefined }}
+                            style={{
+                              background: lensFill(weight, WEIGHT_SCALE) ?? undefined,
+                              color: weight === null ? undefined : labelOnBin(binOf(weight, WEIGHT_SCALE), WEIGHT_SCALE),
+                            }}
                           >
                             {formatWeight(weight, 1)}
                           </td>
@@ -273,8 +280,8 @@ export function FundExposureMapView({
             <div className="flex items-center gap-2" aria-hidden="true">
               <span>0%</span>
               <span className="flex">
-                {LEGEND_STEPS.map((step) => (
-                  <span key={step} className="h-3 w-6 border border-border" style={{ background: heatMix(step) ?? undefined }} />
+                {LEGEND_BINS.map((bin) => (
+                  <span key={bin} className="h-3 w-6 border border-border" style={{ background: binFill(bin, WEIGHT_SCALE) }} />
                 ))}
               </span>
               <span>≥ 40%</span>

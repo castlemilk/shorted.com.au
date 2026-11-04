@@ -959,6 +959,42 @@ describe("loadInspector stock fund window (spec 14.10)", () => {
   });
 });
 
+describe("loadInspector stock reading window (spec 14.8)", () => {
+  const load = async () => (await import("../ownershipDesk")).loadInspector;
+
+  function stockWithNotices(dates: string[]) {
+    return create(GetStockOwnershipResponseSchema, {
+      summary: { stockCode: "BHP", companyName: "BHP Group", industry: "Materials", disclosedPct: 14.1 },
+      history: dates.map((announcedOn) => ({ holderName: "Alpha", form: "Form 604", ceased: false, announcedOn })),
+    });
+  }
+
+  it("counts the stock's notices in the window the desk reads, back from the newest notice on the activity", async () => {
+    const loadInspector = await load();
+    mockGetStockOwnership.mockResolvedValue(stockWithNotices(["2026-10-02", "2026-10-20", "2024-03-12"]));
+    mockGetOwnershipActivity.mockResolvedValue(activityResponse({ asOf: "2026-10-31" }));
+    const content = await loadInspector({ kind: "stock", code: "BHP" } as never, { ...NO_QUERY_FIXTURE, window: "28" });
+    // 28 days back from 31 October is 4 October: only the 20 October notice is in it.
+    expect(content?.reading).toContain("1 notice in 28 days, the last on 2026-10-20.");
+  });
+
+  it("names no notice count when none of the stock's notices is in the desk's window", async () => {
+    const loadInspector = await load();
+    mockGetStockOwnership.mockResolvedValue(stockWithNotices(["2024-03-12"]));
+    mockGetOwnershipActivity.mockResolvedValue(activityResponse({ asOf: "2026-10-31" }));
+    const content = await loadInspector({ kind: "stock", code: "BHP" } as never, { ...NO_QUERY_FIXTURE, window: "28" });
+    expect(content?.reading).not.toMatch(/notice/);
+  });
+
+  it("names no notice count when the activity cannot date the window", async () => {
+    const loadInspector = await load();
+    mockGetStockOwnership.mockResolvedValue(stockWithNotices(["2026-10-20"]));
+    mockGetOwnershipActivity.mockResolvedValue(activityResponse({ asOf: "" }));
+    const content = await loadInspector({ kind: "stock", code: "BHP" } as never, { ...NO_QUERY_FIXTURE, window: "28" });
+    expect(content?.reading).not.toMatch(/notice/);
+  });
+});
+
 function stockPanelFixture() {
   return create(GetStockOwnershipResponseSchema, {
     summary: { stockCode: "BHP", companyName: "BHP Group", industry: "Materials", disclosedPct: 14.1 },
@@ -1056,6 +1092,27 @@ describe("loadInspector connections read the registers (spec 14.7)", () => {
     const link = "/ownership/notices?kind=index_manager&industry=Materials&since=2026-10-04&until=2026-10-31";
     expect(content?.links?.[0]?.href).toBe(link);
     expect(content?.links?.find((l) => l.label === "All 12 notices in this window →")?.href).toBe(link);
+    // The feed serves 12 notices and lists one row: the count is the served total, and no net is printed for a partial page.
+    expect(content?.reading).toBe("12 notices in the window.");
+  });
+
+  it("reads the Change view's notice count when the rows are all of the window, and names no net change", async () => {
+    const loadInspector = await load();
+    mockListStockRegisters.mockResolvedValue({ stocks: [register("BHP", 4, 1e11)], total: 1, universe: 1, industries: [], asOf: "" });
+    mockGetOwnershipActivity.mockResolvedValue(activityResponse({ asOf: "2026-10-31" }));
+    mockLoadNoticeFeed.mockResolvedValue({
+      ok: true,
+      activityOk: true,
+      error: "",
+      rows: [{ released: "2026-10-30", code: "BHP", holder: "Alpha" }],
+      total: 1,
+    });
+    const content = await loadInspector({
+      kind: "connection",
+      holderKind: "index_manager",
+      sector: "Materials",
+    } as never, { lens: "", view: "changes", window: "28", since: "", until: "" });
+    expect(content?.reading).toBe("1 notice in the window.");
   });
 
   it("dates the Positions view's record links the same way, so the window matches the desk (spec 14.8)", async () => {

@@ -54,7 +54,11 @@ import {
   type ConnectionCompany,
   type ConnectionSpan,
 } from "~/@/components/ownership/workspace/inspectors/connection-inspector";
-import { stockInspectorContent } from "~/@/components/ownership/workspace/inspectors/stock-inspector";
+import { changePpOf } from "~/@/components/ownership/workspace/inspectors/window-net";
+import {
+  stockInspectorContent,
+  type StockNoticeWindow,
+} from "~/@/components/ownership/workspace/inspectors/stock-inspector";
 import type { DeskLens } from "~/@/components/ownership/desk/desk-state";
 import { OTHER_SECTOR, type MapStockRow } from "~/@/components/ownership/desk/map-layout";
 import { FOLDED_SECTOR_LABEL } from "~/@/lib/ownership/kinds";
@@ -570,6 +574,22 @@ async function linkNoticeDates(query: InspectorQuery): Promise<{ fundFrom: strin
 }
 
 /**
+ * The notice window a stock's reading counts over, as dates (spec 14.8). The desk resolves it the way the
+ * connections do: a brushed pair as it stands, else the chip's days counted back from the newest notice the
+ * market read. Null when the window cannot be dated (an outage, or no notice on record), so the reading names
+ * no count rather than one over a guessed window.
+ */
+async function stockNoticeWindow(query: InspectorQuery): Promise<StockNoticeWindow | null> {
+  const span = connectionWindow(query);
+  const brushed = span.since !== "" && span.until !== "";
+  const answer: RangeAnswer = brushed
+    ? await resolveRange({ since: span.since, until: span.until })
+    : await datedWindow(Number(span.window));
+  if (answer.kind !== "range") return null;
+  return { since: answer.dates.from, until: answer.dates.to, days: brushed ? null : Number(span.window) };
+}
+
+/**
  * The largest holders of a connection's band, from the flows' current positions (spec 14.10).
  * Null when the flows did not answer, so the rail draws no holders rather than an empty list.
  */
@@ -597,12 +617,13 @@ export async function loadInspector(
       // so each fund's line compares the files the map compares.
       const fund = fundDatesOf(query);
       const fundWindow = fund.fundFrom !== "" ? fund : await linkNoticeDates(query);
-      const [panel, series] = await Promise.all([
+      const [panel, series, notices] = await Promise.all([
         loadStockPanel(clean.code),
         loadStockFundSeries({ stockCode: clean.code, ...fundWindow }),
+        stockNoticeWindow(query),
       ]);
       if (!panel.ok) throw new Error("the register could not be read");
-      return stockInspectorContent(panel, series.ok ? series : null, lens);
+      return stockInspectorContent(panel, series.ok ? series : null, lens, notices);
     }
     case "connection": {
       // The folded tail is several sectors under one label: no register filter, so it is withheld like Other.
@@ -656,7 +677,12 @@ export async function loadInspector(
               ? { rows: [], total: 0 }
               : null
             : {
-                rows: feed.rows.map((row) => ({ released: row.released, code: row.code, holder: row.holder })),
+                rows: feed.rows.map((row) => ({
+                  released: row.released,
+                  code: row.code,
+                  holder: row.holder,
+                  changePp: changePpOf(row),
+                })),
                 total: feed.total,
               },
       });

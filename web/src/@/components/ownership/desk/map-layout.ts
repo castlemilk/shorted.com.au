@@ -17,6 +17,7 @@
  */
 
 import { industryLabel } from "~/@/lib/industry-placeholder";
+import { FOLDED_SECTOR_LABEL } from "~/@/lib/ownership/kinds";
 import type { DeskLens } from "./desk-state";
 
 /** The placeholder every stock with no industry is grouped under. */
@@ -269,4 +270,292 @@ export function layoutMap(stocks: readonly MapStockRow[], options: MapLayoutOpti
   });
 
   return { width, height, zoomed, sectors, cells };
+}
+
+/*
+ * THE PHONE MAP (spec 13.2, D1). Below sm the drawing is a square of sectors, not the
+ * full treemap, whose 1000 x 560 units print no readable cell on a 390 px screen. The
+ * square has two columns: a sector is one cell, and a sector's cell is only ever
+ * drawn at least `minCell` tall, so its name and figure fit. The sectors too small for
+ * that fold into one cell, so the phone never prints a sector too thin to read. A zoomed
+ * sector's stocks are laid out by the same rule (`phoneStockLayout`).
+ */
+
+/**
+ * The smallest cell the phone map draws, in the square's units: a 32 px row, above the 24 px hit
+ * floor (DESIGN.md, The Two Floors Rule) and tall enough for a one-line name over its figure. At 44
+ * the live market drew three sectors and folded twenty-three (Materials and Banks are half of it),
+ * which was three cells, not a map; at 32 a sector of about 4.5% of the market is drawn.
+ */
+export const PHONE_MIN_CELL = 32;
+
+/** A sector on the phone map, as `phoneSectors` states it. */
+export interface PhoneSector {
+  sector: string;
+  /** The sector's area: the Size lens's sum over its stocks. Relative: only the ratios draw. */
+  area: number;
+  /** The stocks the sector holds on the map. */
+  stocks: number;
+  /** How many of them state a figure for the colour. */
+  figured: number;
+  /** How many of them have no market cap of their own, so their area and weight take the median. */
+  estimated: number;
+  /** The market-cap-weighted mean of those figures; null when none of the stocks states one. */
+  figure: number | null;
+  /** The market caps the figure is weighted by: the sum over the figured stocks. */
+  figuredCap: number;
+}
+
+/** A cell of the phone map: one sector, or the fold cell that holds the smallest sectors. */
+export interface PhoneCell extends PhoneSector, Box {
+  /** The sectors a fold cell holds, largest first; empty for a sector's own cell. */
+  folded: readonly string[];
+}
+
+export interface PhoneLayout {
+  /** The side of the square the cells tile. */
+  size: number;
+  cells: PhoneCell[];
+}
+
+/**
+ * A stock on a zoomed sector's phone map: the stock's own cell, or the fold cell (code "")
+ * that holds the smallest stocks, which is drawn last and lists them in `folded`.
+ */
+export interface PhoneStock extends MapCell {
+  /** The codes a fold cell holds, largest first; empty for a stock's own cell. */
+  folded: readonly string[];
+  /** How many of the cell's stocks state a figure: 0 or 1 for a stock's own cell. */
+  figured: number;
+}
+
+/**
+ * The sectors of the phone map for one set of stocks. The area is the Size lens's, summed
+ * over the stocks as the full map sums them (`sized`, the rows the layout is given), so a
+ * sector's cell is the same share of the market as its box on the full map. The figure is
+ * the market-cap-weighted mean over the stocks that state one (`rows`, the stocks with their
+ * market caps, whatever the Size draws); a stock with no market cap takes the median, as
+ * the layout does, and is counted in `estimated`. A figure no stock states is null, never zero.
+ */
+export function phoneSectors(
+  rows: readonly MapStockRow[],
+  sized: readonly MapStockRow[],
+  lens: DeskLens,
+): PhoneSector[] {
+  const areaFallback = median(sized.filter((s) => isMarketCap(s.marketCap)).map((s) => s.marketCap!)) ?? 1;
+  const capFallback = median(rows.filter((s) => isMarketCap(s.marketCap)).map((s) => s.marketCap!)) ?? 1;
+  const byCodeRow = new Map(rows.map((row) => [row.code, row] as const));
+  const groups = new Map<
+    string,
+    { sector: string; area: number; stocks: number; figured: number; estimated: number; figuredCap: number; weighted: number }
+  >();
+  for (const stock of sized) {
+    const name = sectorOf(stock.industry);
+    let group = groups.get(name);
+    if (!group) {
+      group = { sector: name, area: 0, stocks: 0, figured: 0, estimated: 0, figuredCap: 0, weighted: 0 };
+      groups.set(name, group);
+    }
+    group.area += isMarketCap(stock.marketCap) ? stock.marketCap : areaFallback;
+    group.stocks += 1;
+    const row = byCodeRow.get(stock.code) ?? stock;
+    if (!isMarketCap(row.marketCap)) group.estimated += 1;
+    const figure = lensFigure(row, lens);
+    if (figure !== null && Number.isFinite(figure)) {
+      const cap = isMarketCap(row.marketCap) ? row.marketCap : capFallback;
+      group.figured += 1;
+      group.figuredCap += cap;
+      group.weighted += figure * cap;
+    }
+  }
+  return [...groups.values()].map((group) => ({
+    sector: group.sector,
+    area: group.area,
+    stocks: group.stocks,
+    figured: group.figured,
+    estimated: group.estimated,
+    figuredCap: group.figuredCap,
+    figure: group.figuredCap > 0 ? group.weighted / group.figuredCap : null,
+  }));
+}
+
+/**
+ * Places areas in two columns of a square `size` on a side. Each area goes to the column
+ * with the smaller total so far (the first to the left), and each column is stacked with
+ * heights proportional to its areas, scaled to the full height. A single area fills the
+ * square. Returns one box per area, in input order.
+ */
+function twoColumnBoxes(areas: readonly number[], size: number): Box[] {
+  if (areas.length === 1) return [{ x0: 0, y0: 0, x1: size, y1: size }];
+  const totals = [0, 0];
+  const columns: { index: number; area: number }[][] = [[], []];
+  areas.forEach((area, index) => {
+    const column = totals[1]! < totals[0]! ? 1 : 0;
+    columns[column]!.push({ index, area });
+    totals[column] = totals[column]! + area;
+  });
+  const half = size / 2;
+  const boxes: Box[] = new Array<Box>(areas.length);
+  columns.forEach((column, c) => {
+    let y = 0;
+    for (const { index, area } of column) {
+      const height = (area / totals[c]!) * size;
+      boxes[index] = { x0: c * half, y0: y, x1: (c + 1) * half, y1: y + height };
+      y += height;
+    }
+  });
+  return boxes;
+}
+
+/**
+ * The fold (D1), shared by the sectors and a zoomed sector's stocks. The items are sorted
+ * largest first; the largest `count` are drawn and the rest fold into one item, placed last.
+ * `count` falls until every box, the fold's too, is at least `minCell` tall, so the loop ends
+ * at the latest with everything folded into one box that fills the square. Returns the drawn
+ * items, the folded ones, and the boxes: one per drawn item, then the fold's when some fold.
+ */
+function foldToFit<T extends { area: number }>(
+  ordered: readonly T[],
+  size: number,
+  minCell: number,
+): { drawn: T[]; folded: T[]; boxes: Box[] } {
+  let count = ordered.length;
+  for (;;) {
+    const drawn = ordered.slice(0, count);
+    const folded = ordered.slice(count);
+    const areas = drawn.map((item) => item.area);
+    if (folded.length > 0) areas.push(folded.reduce((sum, item) => sum + item.area, 0));
+    const boxes = twoColumnBoxes(areas, size);
+    if (count === 0 || boxes.every((box) => box.y1 - box.y0 >= minCell)) return { drawn, folded, boxes };
+    count -= 1;
+  }
+}
+
+/** The fold cell's sector: the folded sectors' areas, counts and market-cap-weighted figure, summed. */
+function foldedSector(folded: readonly PhoneSector[]): PhoneSector {
+  let figuredCap = 0;
+  let weighted = 0;
+  let area = 0;
+  let stocks = 0;
+  let figured = 0;
+  let estimated = 0;
+  for (const sector of folded) {
+    area += sector.area;
+    stocks += sector.stocks;
+    figured += sector.figured;
+    estimated += sector.estimated;
+    figuredCap += sector.figuredCap;
+    if (sector.figure !== null) weighted += sector.figure * sector.figuredCap;
+  }
+  return {
+    sector: FOLDED_SECTOR_LABEL,
+    area,
+    stocks,
+    figured,
+    estimated,
+    figuredCap,
+    figure: figuredCap > 0 ? weighted / figuredCap : null,
+  };
+}
+
+/**
+ * The phone map's cells (D1). Sectors are sorted largest first and laid out in two columns
+ * (`twoColumnBoxes`). A sector whose cell would be under `minCell` tall folds, smallest first,
+ * into one fold cell, and the layout is laid out again, until every drawn cell (the fold
+ * cell too) is at least `minCell`. A sector with no area is not drawn. Deterministic.
+ */
+export function phoneLayout(sectors: readonly PhoneSector[], size: number, minCell: number): PhoneLayout {
+  const ordered = sectors
+    .filter((sector) => Number.isFinite(sector.area) && sector.area > 0)
+    .sort((a, b) => b.area - a.area || (a.sector < b.sector ? -1 : a.sector > b.sector ? 1 : 0));
+  if (!(size > 0) || ordered.length === 0) return { size, cells: [] };
+  const { drawn, folded, boxes } = foldToFit(ordered, size, minCell);
+  const cells: PhoneCell[] = drawn.map((sector, index) => ({ ...sector, folded: [], ...boxes[index]! }));
+  if (folded.length > 0) {
+    cells.push({ ...foldedSector(folded), folded: folded.map((sector) => sector.sector), ...boxes[drawn.length]! });
+  }
+  return { size, cells };
+}
+
+/** One stock's cell on a zoomed sector's phone map: its own area, figure and notices. */
+function stockCell(stock: MapStockRow, sector: string, lens: DeskLens, box: Box): PhoneStock {
+  const value = lensFigure(stock, lens);
+  return {
+    code: stock.code,
+    name: stock.name,
+    sector,
+    ...box,
+    marketCap: isMarketCap(stock.marketCap) ? stock.marketCap : null,
+    areaEstimated: !isMarketCap(stock.marketCap),
+    value,
+    hatched: value === null,
+    notices: stock.notices,
+    folded: [],
+    figured: value !== null && Number.isFinite(value) ? 1 : 0,
+  };
+}
+
+/**
+ * The fold cell of a zoomed sector's stocks (code ""): its value is the mean of the folded
+ * stocks' figures weighted by their areas (the Size's), null when none states one.
+ */
+function foldedStockCell(entries: readonly { stock: MapStockRow; area: number }[], sector: string, lens: DeskLens, box: Box): PhoneStock {
+  let weighted = 0;
+  let weight = 0;
+  let figured = 0;
+  let notices = 0;
+  for (const { stock, area } of entries) {
+    notices += stock.notices;
+    const value = lensFigure(stock, lens);
+    if (value !== null && Number.isFinite(value)) {
+      figured += 1;
+      weighted += value * area;
+      weight += area;
+    }
+  }
+  const value = weight > 0 ? weighted / weight : null;
+  return {
+    code: "",
+    name: `Other stocks (${entries.length})`,
+    sector,
+    ...box,
+    marketCap: null,
+    areaEstimated: false,
+    value,
+    hatched: value === null,
+    notices,
+    folded: entries.map(({ stock }) => stock.code),
+    figured,
+  };
+}
+
+/**
+ * The stocks of one sector on the phone map, when the sector is zoomed: the same two-column
+ * layout, each stock's area its market cap (the Size's, from `sized`). The stocks too thin to
+ * draw at `minCell` fold into one fold cell placed last (`PhoneStock.folded`), so every drawn
+ * cell is at least `minCell` tall. The fallback for a missing market cap is the median of the
+ * whole list, as `layoutMap` takes it.
+ */
+export function phoneStockLayout(
+  sized: readonly MapStockRow[],
+  sector: string,
+  lens: DeskLens,
+  size: number,
+  minCell: number = PHONE_MIN_CELL,
+): PhoneStock[] {
+  if (!(size > 0)) return [];
+  const fallback = median(sized.filter((s) => isMarketCap(s.marketCap)).map((s) => s.marketCap!)) ?? 1;
+  const areaOf = (stock: MapStockRow) => (isMarketCap(stock.marketCap) ? stock.marketCap : fallback);
+  const members = sized
+    .filter((stock) => sectorOf(stock.industry) === sector)
+    .sort((a, b) => areaOf(b) - areaOf(a) || byCode(a, b));
+  if (members.length === 0) return [];
+  const { drawn, folded, boxes } = foldToFit(
+    members.map((stock) => ({ stock, area: areaOf(stock) })),
+    size,
+    minCell,
+  );
+  const cells: PhoneStock[] = drawn.map(({ stock }, index) => stockCell(stock, sector, lens, boxes[index]!));
+  if (folded.length > 0) cells.push(foldedStockCell(folded, sector, lens, boxes[drawn.length]!));
+  return cells;
 }

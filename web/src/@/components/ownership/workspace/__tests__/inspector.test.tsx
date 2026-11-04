@@ -239,3 +239,34 @@ describe("barPercent", () => {
     expect(barPercent(0.1234)).toBe(12.3);
   });
 });
+
+describe("workspace inspector reading (spec 14.1, backlog C1)", () => {
+  beforeEach(() => {
+    mockSearch = "sel=stock%3ABHP";
+    stubDialog();
+    viewport(true);
+  });
+
+  it("leads the rail with its reading, under the heading and before the figure", async () => {
+    const withReading: InspectorContent = { ...content, reading: "Index funds hold 3.41%, up 0.12 pp since 2026-09-30." };
+    const { container } = render(
+      <Inspector resolve={jest.fn(async () => withReading)} emptyText="Select a company." />,
+    );
+    const reading = await screen.findByText("Index funds hold 3.41%, up 0.12 pp since 2026-09-30.");
+    const heading = screen.getByRole("heading", { name: "BHP Group" });
+    const figure = screen.getByText("12.4%");
+    expect(heading.compareDocumentPosition(reading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("ASX").compareDocumentPosition(reading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(reading.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(reading.tagName).toBe("P");
+    expect(reading).toHaveClass("text-sm", "leading-snug", "text-foreground");
+    expect(reading).not.toHaveClass("font-serif");
+    expect(container.querySelectorAll("p.leading-snug")).toHaveLength(1);
+  });
+
+  it("draws no reading line when the content carries none", async () => {
+    const { container } = render(<Inspector resolve={jest.fn(async () => content)} emptyText="Select a company." />);
+    await screen.findByRole("heading", { name: "BHP Group" });
+    expect(container.querySelector("p.leading-snug")).toBeNull();
+  });
+});

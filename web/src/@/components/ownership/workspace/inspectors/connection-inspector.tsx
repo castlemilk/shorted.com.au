@@ -13,6 +13,7 @@ import { OTHER_SECTOR } from "~/@/components/ownership/desk/map-layout";
 import { formatAmount, NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
 import { FOLDED_SECTOR_LABEL, formatHeadlinePct, holderHref, kindInfo, registerHref, shortSector } from "~/@/lib/ownership/kinds";
 import type { InspectorContent, InspectorLink, InspectorSection } from "../inspector-types";
+import { windowNetText } from "./window-net";
 
 /** The companies the rail draws: the ten largest, as the band's own list is. */
 export const COMPANY_LIMIT = 10;
@@ -52,11 +53,15 @@ export interface ConnectionSpan {
   until: string;
 }
 
-/** A notice the Change view lists: the release date, the company and the holder. */
+/**
+ * A notice the Change view lists: the release date, the company and the holder. `changePp` is the notice's own
+ * change in points, null (or absent) when it states none; the window's net is printed only when every notice has one.
+ */
 export interface ConnectionNotice {
   released: string;
   code: string;
   holder: string;
+  changePp?: number | null;
 }
 
 /** One holder of the band, as the flows name it (spec 14.10): its page's slug, exposure and holdings. */
@@ -90,6 +95,58 @@ export function connectionNoticesHref(
 /** Whether the companies carry more than one notice date: the connection's figures are not one date. */
 export function hasMixedDates(companies: readonly ConnectionCompany[]): boolean {
   return new Set(companies.map((company) => company.latestNotice).filter((date) => date !== "")).size > 1;
+}
+
+/**
+ * The band's companies in the order the rail lists them (spec 14.7): by estimated exposure, then by the
+ * kind's share, then by code. A company with no exposure sorts after the ranked ones.
+ */
+export function rankedCompanies(companies: readonly ConnectionCompany[]): ConnectionCompany[] {
+  return [...companies].sort(
+    (a, b) =>
+      (estimatedExposure(b) ?? -1) - (estimatedExposure(a) ?? -1) ||
+      (b.pct ?? -1) - (a.pct ?? -1) ||
+      a.code.localeCompare(b.code),
+  );
+}
+
+/**
+ * The connection's reading (spec 14.1, backlog C1): the band's company count and its largest company by
+ * exposure. In the Change view it is the window's notice count, with the window's net change when every notice
+ * is listed and states its change (the net is summed from the notices' own points, as the grid sums them).
+ * A withheld band (no registers, Other, the folded tail) has no reading.
+ */
+export function connectionReading({
+  holderKind,
+  sector,
+  companies,
+  total = 0,
+  view = "positions",
+  notices = null,
+}: {
+  holderKind: string;
+  sector: string;
+  companies: readonly ConnectionCompany[] | null;
+  total?: number;
+  view?: "positions" | "changes";
+  notices?: { rows: readonly ConnectionNotice[]; total: number } | null;
+}): string | undefined {
+  if (companies === null || sector === OTHER_SECTOR || sector === FOLDED_SECTOR_LABEL) return undefined;
+  if (view === "changes" && notices !== null && notices.total > 0) {
+    const net = windowNetText(notices.rows, notices.total);
+    const head = `${notices.total} ${notices.total === 1 ? "notice" : "notices"} in the window`;
+    return `${head}${net === undefined ? "" : `, net ${net}`}.`;
+  }
+  const count = Math.max(total, companies.length);
+  if (count === 0) return undefined;
+  const ranked = rankedCompanies(companies);
+  const largest = ranked[0];
+  const largestText =
+    largest !== undefined && estimatedExposure(largest) !== null
+      ? `${largest.code} largest at ${formatAmount(estimatedExposure(largest), "AUD")}`
+      : undefined;
+  const head = `${kindInfo(holderKind).plural} hold ${count} ${count === 1 ? "company" : "companies"} in ${shortSector(sector)}`;
+  return `${[head, largestText].filter((part) => part !== undefined).join(", ")}.`;
 }
 
 /**
@@ -147,12 +204,7 @@ export function connectionInspectorContent({
   }
 
   // Ranked by estimated exposure, then by the kind's share, then by code (spec 14.7).
-  const ranked = [...companies].sort(
-    (a, b) =>
-      (estimatedExposure(b) ?? -1) - (estimatedExposure(a) ?? -1) ||
-      (b.pct ?? -1) - (a.pct ?? -1) ||
-      a.code.localeCompare(b.code),
-  );
+  const ranked = rankedCompanies(companies);
   const listed = ranked.slice(0, COMPANY_LIMIT);
   // The bars are the exposure when the register gives market caps, else the kind's share alone.
   const byExposure = listed.some((company) => estimatedExposure(company) !== null);
@@ -236,6 +288,7 @@ export function connectionInspectorContent({
   return {
     heading: `${holder} → ${shortSector(sector)}`,
     subtitle: `${kindInfo(holderKind).label} to ${sector}`,
+    reading: connectionReading({ holderKind, sector, companies, total, view, notices }),
     badges: [holder],
     // A served band with no company is a real zero, not an unknown.
     rows: [{ label: "Companies on this connection", value: String(Math.max(total, companies.length)) }],

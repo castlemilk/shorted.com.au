@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import type { OwnershipMapPage } from "~/app/actions/ownershipDesk";
 import { layoutMap, type MapCell, type MapStockRow } from "../map-layout";
@@ -12,12 +12,16 @@ import {
   NO_FIGURE_COPY,
   OwnershipMapStatic,
   OwnershipMapView,
+  PHONE_CAPTION,
+  PHONE_STOCKS_CAPTION,
   coverageLine,
   labelColourFor,
   nextCellIndex,
   windowClause,
+  wrapPhoneLabel,
   zoomPose,
   zoomStyle,
+  foldDetail,
 } from "../ownership-map-static";
 import { lensScale } from "../desk-scales";
 
@@ -124,8 +128,8 @@ describe("zoomPose and zoomStyle", () => {
 describe("labelColourFor", () => {
   it("is paper on the deepest step and ink on the pale ones (spec 14.9)", () => {
     const scale = lensScale("disclosed", [10]);
-    expect(labelColourFor(1, scale)).toBe("hsl(var(--foreground))");
-    expect(labelColourFor(10, scale)).toBe("hsl(var(--background))");
+    expect(labelColourFor(1, scale)).toBe("hsl(var(--desk-bin-ink-0))");
+    expect(labelColourFor(10, scale)).toBe("hsl(var(--desk-bin-ink-4))");
   });
 });
 
@@ -267,17 +271,21 @@ describe("the drawing's labels and the phone's way into a sector", () => {
     expect(banded).toBeGreaterThan(0);
   });
 
-  it("lists every sector as a link below the drawing, so a phone can zoom without the drawing's small targets", () => {
+  it("lists every sector as a link below the drawing, visually hidden at every width and shown on focus", () => {
     render(<OwnershipMapStatic initial={page()} />);
     const nav = screen.getByRole("navigation", { name: "Sectors" });
-    expect(nav).toHaveClass("sm:sr-only", "sm:focus-within:not-sr-only");
+    // The phone map draws the sectors below sm; the chips are its keyboard and screen reader list, not a view.
+    expect(nav).toHaveClass("sr-only", "focus-within:not-sr-only");
+    expect(nav.className).not.toMatch(/sm:/);
     expect(within(nav).getByRole("link", { name: "Materials" })).toHaveAttribute("href", "/ownership?sector=Materials");
     expect(within(nav).getByRole("link", { name: "Financials" })).toHaveAttribute("href", "/ownership?sector=Financials");
   });
 
-  it("draws the cell labels and the sector names only from sm, so a phone shows no 4 px text", () => {
+  it("draws the full treemap's cell labels and sector names only from sm, so a phone shows no 4 px text", () => {
     const { container } = render(<OwnershipMapStatic initial={page()} />);
-    const labels = Array.from(container.querySelectorAll("svg text"));
+    const full = container.querySelector('svg[aria-label^="Sectors and stocks"]');
+    expect(full).not.toBeNull();
+    const labels = Array.from(full?.querySelectorAll("text") ?? []);
     expect(labels.length).toBeGreaterThan(0);
     for (const label of labels) expect(label).toHaveClass("hidden", "sm:inline");
   });
@@ -433,5 +441,209 @@ describe("the map's one coverage line (backlog B1)", () => {
     expect(container.textContent).toContain("Notices read to 2026-11-01");
     expect(container.textContent).not.toContain("Coverage");
     expect(screen.getAllByText(/2 funds compared, files 2026-06-30 against 2026-10-30/)).toHaveLength(1);
+  });
+});
+
+describe("the phone map (D1)", () => {
+  // Three sectors by market cap: Materials 500k (BHP, RIO), Other 200k (ZZZ, no cap, the median), Financials 150k.
+  // Their cells are 360 tall, 205.7 and 154.3 in two columns, so none folds.
+  function phoneSquare(container: HTMLElement): SVGSVGElement {
+    const svg = container.querySelector<SVGSVGElement>('svg[viewBox="0 0 360 360"]');
+    if (svg === null) throw new Error("no phone square");
+    return svg;
+  }
+
+  it("draws the sectors as a square below sm: one link per sector, its figure in its title and name", () => {
+    const { container } = render(<OwnershipMapStatic initial={page()} />);
+    const square = phoneSquare(container);
+    expect(square).toHaveClass("aspect-square", "h-auto", "w-full");
+    const sectors = Array.from(square.querySelectorAll("g[data-phone-sector]")).map((g) => g.getAttribute("data-phone-sector"));
+    expect(sectors.sort()).toEqual(["Financials", "Materials", "Other"]);
+    // The market-cap-weighted mean of BHP (41.2 at 300k) and RIO (12.5 at 200k), at two decimals.
+    const materials = square.querySelector('g[data-phone-sector="Materials"]');
+    expect(materials?.querySelector("title")?.textContent).toBe(
+      "Materials: 29.72%, the market-cap-weighted mean of 2 of 2 stocks; area: market cap",
+    );
+    const link = within(square).getByRole("link", { name: "Materials, 29.72%" });
+    expect(link).toHaveAttribute("href", "/ownership?sector=Materials");
+    // The chips the full map keeps out of the index are nofollow; the phone's sector links are the same links.
+    expect(link).toHaveAttribute("rel", "nofollow");
+    expect(within(square).getByRole("link", { name: "Financials, 9.50%" })).toBeInTheDocument();
+    // ZZZ has no market cap: it takes the median, and its figure is its own.
+    expect(within(square).getByRole("link", { name: "Other, 5.00%" })).toBeInTheDocument();
+  });
+
+  it("is drawn below sm only, and the full treemap from sm only", () => {
+    const { container } = render(<OwnershipMapStatic initial={page()} />);
+    expect(phoneSquare(container).parentElement).toHaveClass("sm:hidden");
+    const full = container.querySelector('svg[aria-label^="Sectors and stocks"]');
+    expect(full?.parentElement).toHaveClass("hidden", "sm:block");
+  });
+
+  it("prints the sector's short name and its figure inside each cell, and the caption under the square", () => {
+    const { container } = render(<OwnershipMapStatic initial={page()} />);
+    const materials = phoneSquare(container).querySelector('g[data-phone-sector="Materials"]');
+    const texts = Array.from(materials?.querySelectorAll("text") ?? []).map((t) => t.textContent);
+    expect(texts).toEqual(["Materials", "29.72%"]);
+    expect(screen.getByText(PHONE_CAPTION)).toBeInTheDocument();
+  });
+
+  it("folds the smallest sectors into one cell that opens in place, its sectors as links under the square", () => {
+    // Materials is two million, Financials one million, Energy and Utilities a thousand each. The small
+    // sectors' cells would be under 44 units, and the fold has to reach 44 units too, so the fold takes
+    // Financials and both small sectors, and Materials is the one sector drawn.
+    const stocks = [
+      stock({ code: "BHP", industry: "Materials", marketCap: 2_000_000 }),
+      stock({ code: "CBA", industry: "Financials", marketCap: 1_000_000, disclosedPct: 9.5 }),
+      stock({ code: "WPL", industry: "Energy", marketCap: 1_000 }),
+      stock({ code: "AGL", industry: "Utilities", marketCap: 1_000 }),
+    ];
+    const { container } = render(<OwnershipMapStatic initial={page({ stocks })} />);
+    const square = phoneSquare(container);
+    const folded = square.querySelector('g[data-phone-sector="Other sectors"]');
+    expect(folded?.querySelector("title")?.textContent).toMatch(/^Other sectors \(3\): /);
+    // The fold cell is an anchor to the details beneath the square, which open in place.
+    expect(folded?.querySelector("a")).toHaveAttribute("href", "#ownership-desk-phone-fold");
+    const details = container.querySelector("details") as HTMLElement;
+    // The fragment target sits INSIDE the details (a descendant opens it on navigation); the details carries no id.
+    expect(details).not.toHaveAttribute("id");
+    const target = details.querySelector("#ownership-desk-phone-fold");
+    expect(target).not.toBeNull();
+    expect(details.contains(target)).toBe(true);
+    expect(within(details as HTMLElement).getByText("Other sectors (3)")).toBeInTheDocument();
+    expect(within(details as HTMLElement).getByRole("link", { name: "Financials" })).toHaveAttribute("href", "/ownership?sector=Financials");
+    expect(within(details as HTMLElement).getByRole("link", { name: "Energy" })).toHaveAttribute("href", "/ownership?sector=Energy");
+    expect(within(details as HTMLElement).getByRole("link", { name: "Utilities" })).toHaveAttribute("href", "/ownership?sector=Utilities");
+  });
+
+  it("draws a zoomed sector's stocks in the square, each a button with its own figure", () => {
+    const desk = { ...DEFAULT_DESK_STATE, sector: "Materials" };
+    const { container } = render(
+      <OwnershipMapView
+        page={page()}
+        desk={desk}
+        status="idle"
+        slow={false}
+        basePath="/ownership"
+        handlers={{ onCellClick: jest.fn(), onCellKey: jest.fn(), onCellHover: jest.fn(), onSectorZoom: jest.fn() }}
+      />,
+    );
+    const square = phoneSquare(container);
+    const cells = Array.from(square.querySelectorAll("g[data-phone-code]")).map((g) => g.getAttribute("data-phone-code"));
+    expect(cells.sort()).toEqual(["BHP", "RIO"]);
+    expect(square.querySelector("g[data-phone-sector]")).toBeNull();
+    // Every stock is a tab stop below sm, as the sectors are: no roving stop hides a stock from a keyboard.
+    for (const g of Array.from(square.querySelectorAll("g[data-phone-code]"))) {
+      expect(g).toHaveAttribute("tabindex", "0");
+    }
+    const bhp = within(square).getByRole("button", { name: /^BHP, BHP Group, Materials\./ });
+    expect(bhp.querySelector("text")?.textContent).toBe("BHP");
+    expect(within(square).getByText("41.20%")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Map location" })).toHaveTextContent("Materials");
+    expect(screen.getByText(PHONE_STOCKS_CAPTION)).toBeInTheDocument();
+  });
+
+  it("folds a zoomed sector's smallest stocks into one anchor, and lists them in a details under the square", () => {
+    // Sixty stocks whose caps fall by 15% each: the largest fit, the rest fold into one cell.
+    const many = Array.from({ length: 60 }, (_, i) =>
+      stock({ code: `S${String(i).padStart(2, "0")}`, name: `Stock ${i}`, industry: "Materials", marketCap: 1000 * 0.85 ** i, disclosedPct: 10 }),
+    );
+    const desk = { ...DEFAULT_DESK_STATE, sector: "Materials" };
+    const onCellClick = jest.fn();
+    const { container } = render(
+      <OwnershipMapView
+        page={page({ stocks: many })}
+        desk={desk}
+        status="idle"
+        slow={false}
+        basePath="/ownership"
+        handlers={{ onCellClick, onCellKey: jest.fn(), onCellHover: jest.fn(), onSectorZoom: jest.fn() }}
+      />,
+    );
+    const square = phoneSquare(container);
+    const fold = square.querySelector("a[data-phone-stock-fold]");
+    expect(fold).toHaveAttribute("href", "#ownership-desk-phone-stock-fold");
+    expect(fold?.querySelector("title")?.textContent).toMatch(/^Other stocks \(\d+\): .*, weighted by area; area: market cap$/);
+    const drawn = square.querySelectorAll("g[data-phone-code]");
+    const details = container.querySelector("details");
+    expect(details).not.toBeNull();
+    // The fragment target is a descendant of the details, never the details itself.
+    expect(details).not.toHaveAttribute("id");
+    expect(details?.querySelector("#ownership-desk-phone-stock-fold")).not.toBeNull();
+    // Every stock is either drawn or listed under the square: none is lost to the fold.
+    const listed = within(details as HTMLElement).getAllByRole("button");
+    expect(drawn.length + listed.length).toBe(60);
+    expect(within(details as HTMLElement).getByText(`Other stocks (${listed.length})`)).toBeInTheDocument();
+    // A listed stock selects it, as its cell does.
+    const code = listed[0]!.textContent!.split(",")[0]!;
+    fireEvent.click(listed[0]!);
+    expect(onCellClick).toHaveBeenCalledWith(code);
+  });
+
+  it("lists a zoomed sector's folded stocks as text on the server, with no button", () => {
+    const many = Array.from({ length: 60 }, (_, i) =>
+      stock({ code: `S${String(i).padStart(2, "0")}`, name: `Stock ${i}`, industry: "Materials", marketCap: 1000 * 0.85 ** i, disclosedPct: 10 }),
+    );
+    const { container } = render(
+      <OwnershipMapView page={page({ stocks: many })} desk={{ ...DEFAULT_DESK_STATE, sector: "Materials" }} status="idle" slow={false} basePath="/ownership" />,
+    );
+    const details = container.querySelector("details") as HTMLElement;
+    expect(details).not.toBeNull();
+    expect(details).not.toHaveAttribute("id");
+    expect(details.querySelector("#ownership-desk-phone-stock-fold")).not.toBeNull();
+    expect(within(details).queryAllByRole("button")).toHaveLength(0);
+    expect(within(details).getByText(/^S59, Stock 59$/)).toBeInTheDocument();
+  });
+
+  it("hatches a sector no stock of which states a figure, and prints n/a for it", () => {
+    const stocks = STOCKS.map((row) => ({ ...row, indexPct: null }));
+    const desk = { ...DEFAULT_DESK_STATE, lens: "index" as const };
+    const { container } = render(
+      <OwnershipMapView page={page({ stocks })} desk={desk} status="idle" slow={false} basePath="/ownership" />,
+    );
+    const materials = phoneSquare(container).querySelector('g[data-phone-sector="Materials"]');
+    expect(materials?.querySelector("title")?.textContent).toBe(
+      "Materials: n/a, none of its 2 stocks states a figure; area: market cap",
+    );
+    expect(materials?.querySelector("rect")?.getAttribute("fill")).toBe("url(#ownership-desk-phone-hatch)");
+  });
+
+  it("links a sector from the compact pane to the full map at that sector, as its zoom does", () => {
+    const { container } = render(<OwnershipMapStatic initial={page()} variant="compact" />);
+    expect(within(phoneSquare(container)).getByRole("link", { name: "Materials, 29.72%" })).toHaveAttribute(
+      "href",
+      "/ownership/map?sector=Materials",
+    );
+  });
+});
+
+describe("wrapPhoneLabel", () => {
+  it("keeps a name that fits on one line", () => {
+    expect(wrapPhoneLabel("Materials", 20)).toEqual(["Materials"]);
+  });
+
+  it("breaks a long name into two lines at a space", () => {
+    expect(wrapPhoneLabel("Pharma & biotech services", 16)).toEqual(["Pharma & biotech", "services"]);
+  });
+
+  it("cuts a second line that still does not fit, with an ellipsis", () => {
+    const [first, second] = wrapPhoneLabel("Alpha beta gamma delta epsilon", 12);
+    expect(first).toBe("Alpha beta");
+    expect(second).toBe("gamma delta…");
+    expect(second.length).toBeLessThanOrEqual(12);
+  });
+
+  it("cuts a name with no space to one line with an ellipsis", () => {
+    expect(wrapPhoneLabel("Unbrokenword", 6)).toEqual(["Unbro…"]);
+  });
+});
+
+describe("foldDetail", () => {
+  it("names the fold's three largest members by their short names, then how many more", () => {
+    expect(foldDetail(["Equity Real Estate Investment Trusts (REITs)", "Energy", "Health Care Equipment & Services", "Software & Services", "Media & Entertainment"])).toBe(
+      "REITs, Energy, Health care +2",
+    );
+    expect(foldDetail(["Energy", "Utilities"])).toBe("Energy, Utilities");
+    expect(foldDetail([])).toBe("");
   });
 });

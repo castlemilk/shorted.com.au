@@ -17,12 +17,13 @@
 import { industryLabel } from "@/lib/industry-placeholder";
 import { formatAmount, formatDate } from "~/@/lib/fundamentals/format";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
-import { formatVotingPower, isInstitutionSlug, kindInfo } from "~/@/lib/ownership/kinds";
+import { formatHeadlinePct, isInstitutionSlug, kindInfo } from "~/@/lib/ownership/kinds";
 import type {
   InspectorContent,
   InspectorLink,
   InspectorSection,
 } from "~/@/components/ownership/workspace/inspector-types";
+import { holderReading } from "../workspace/inspectors/holder-reading";
 import type { Selection } from "~/@/components/ownership/workspace/selection";
 
 /* ------------------------------------------------------------------ */
@@ -49,11 +50,13 @@ export interface HolderPosition {
   eventDate: string;
   /** The release date ASX carries for the notice; the fallback when the event date is missing. */
   announcedOn?: string;
+  /** The latest notice's form: "603", "604", "605" or "nz". Read by the reading's "new this quarter" clause. */
+  form?: string;
   announcementUrl: string;
   marketCap: number | null;
 }
 
-/** The raw fields a position carries before its market cap is joined. */
+/** The raw fields a position carries before its market cap is joined (so `form` is carried too). */
 export type RawPosition = Omit<HolderPosition, "marketCap">;
 
 /** One index fund or super option the holder runs, for the inspector's Funds and products tab. */
@@ -152,6 +155,7 @@ export function holderPositions(
     votingPowerPct: row.votingPowerPct,
     eventDate: row.eventDate,
     announcedOn: row.announcedOn,
+    form: row.form,
     announcementUrl: row.announcementUrl,
     marketCap: caps?.get(row.stockCode) ?? null,
   }));
@@ -515,7 +519,7 @@ function companyTitle(company: TreeCompany, sector: string): string {
   if (company.exposureAud === null) {
     return `${company.code}, ${sector}: market cap not available, so the width is not estimated`;
   }
-  return `${company.code}, ${sector}: ${formatVotingPower(company.votingPowerPct)} voting power, about ${formatExposure(company.exposureAud)} estimated exposure`;
+  return `${company.code}, ${sector}: ${formatHeadlinePct(company.votingPowerPct)} voting power, about ${formatExposure(company.exposureAud)} estimated exposure`;
 }
 
 function foldedTitle(sector: string, count: number, exposure: number | null): string {
@@ -592,12 +596,14 @@ export function holderInspectorContent(
           ? { label: "Release date", value: releaseDate }
           : { label: "Notice date", value: "n/a" };
       selectionHeading = "Selected connection";
+      // The card prints the rail's figure (two decimals, backlog A4);
+      // the notice's stated precision stays on the register's row and in the notices list.
       sections.push({
         title: `${position.stockCode} · ${sectorLabel(position.industry)}`,
         kind: "rows",
         items: [
           { label: "Company", value: position.companyName || position.stockCode },
-          { label: "Voting power", value: formatVotingPower(position.votingPowerPct) },
+          { label: "Voting power", value: formatHeadlinePct(position.votingPowerPct) },
           { label: "Estimated exposure", value: exposure === null ? "n/a" : formatExposure(exposure) },
           dateRow,
         ],
@@ -635,6 +641,7 @@ export function holderInspectorContent(
 
   return {
     heading: holder.name,
+    reading: holderReading({ count: holder.positions, positions }),
     logo: {
       kind: "holder",
       name: holder.name,

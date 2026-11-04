@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 
 import type { NoticeFeedPage, NoticeFeedRow } from "~/@/components/ownership/notice-feed-explorer";
-import { cellInspectorContent, cellNoticesHref, countWeek, measureSwitchHref, weekCountLine } from "../cell-inspector";
+import { cellInspectorContent, cellNoticesHref, countWeek, measureSwitchHref, weekCountLine, cellReading } from "../cell-inspector";
 import { OTHER_SECTOR } from "~/@/components/ownership/desk/map-layout";
 
 function row(event: string, code = "BHP"): NoticeFeedRow {
@@ -141,5 +141,82 @@ describe("measureSwitchHref (spec 14.3, Activity: Switch to reported voting-powe
   it("leaves the holder type out for every kind", () => {
     const params = new URLSearchParams(measureSwitchHref("Materials", "2026-10-26").slice(1));
     expect(params.get("sel")).toBe("cell:Materials@2026-10-26");
+  });
+});
+
+describe("cellReading (spec 14.1, backlog C1)", () => {
+  type ChangedRow = NoticeFeedRow & { changePp: number | null };
+  const withChange = (event: string, change: string, changePp: number | null): ChangedRow => ({
+    ...row(event),
+    change,
+    changePp,
+  });
+  /**
+   * Eight notices of the week of 26 Oct: five rises (two new, three increases) and three falls. Each row states
+   * its change in points as the grid sums it: 2.00 + 1.50 + 1.00 + 0.50 + 0.20 - 0.50 - 0.30 - 0.20 = +4.20.
+   */
+  const week: ChangedRow[] = [
+    withChange("became", "+2.00 pp", 2),
+    withChange("increased", "+1.50 pp", 1.5),
+    withChange("increased", "+1.00 pp", 1),
+    withChange("became", "+0.50 pp", 0.5),
+    withChange("increased", "+0.20 pp", 0.2),
+    withChange("decreased", "−0.50 pp", -0.5),
+    withChange("ceased", "−0.30 pp", -0.3),
+    withChange("decreased", "−0.20 pp", -0.2),
+  ];
+
+  it("counts the week's notices, its rises and falls, then the week's net change", () => {
+    expect(cellReading({ sector: "Materials", weekStart: "2026-10-26", feed: feed(week) })).toBe(
+      "8 notices in the week of 26 Oct, 5 rises and 3 falls, net +4.20 pp.",
+    );
+  });
+
+  it("drops only the net when one row states no change in points", () => {
+    const unstated = [withChange("became", "+2.00 pp", null), ...week.slice(1)];
+    expect(cellReading({ sector: "Materials", weekStart: "2026-10-26", feed: feed(unstated) })).toBe(
+      "8 notices in the week of 26 Oct, 5 rises and 3 falls.",
+    );
+    expect(cellReading({ sector: "Materials", weekStart: "2026-10-26", feed: feed(unstated) })).not.toContain("net");
+  });
+
+  it("prints a negative net with the true minus", () => {
+    const falling = [withChange("decreased", "−0.50 pp", -0.5), withChange("ceased", "−1.00 pp", -1)];
+    expect(cellReading({ sector: "Materials", weekStart: "2026-10-26", feed: feed(falling) })).toBe(
+      "2 notices in the week of 26 Oct, 0 rises and 2 falls, net −1.50 pp.",
+    );
+  });
+
+  it("names the holder kind the cell is of", () => {
+    expect(cellReading({ sector: "Materials", weekStart: "2026-10-26", feed: feed(week), kind: "hedge_fund" })).toBe(
+      "8 hedge fund notices in the week of 26 Oct, 5 rises and 3 falls, net +4.20 pp.",
+    );
+    expect(cellReading({ sector: "Materials", weekStart: "2026-10-26", feed: feed(week.slice(0, 1)), kind: "hedge_fund" })).toBe(
+      "1 hedge fund notice in the week of 26 Oct, 1 rise and 0 falls, net +2.00 pp.",
+    );
+  });
+
+  it("keeps the count alone for a partial page, with no rises, falls or net", () => {
+    expect(cellReading({ sector: "Materials", weekStart: "2026-10-26", feed: feed(week.slice(0, 3), 8) })).toBe(
+      "8 notices in the week of 26 Oct.",
+    );
+  });
+
+  it("counts rises and falls by the event, and does not read the printed change text", () => {
+    const textOnly = week.map((notice) => ({ ...notice, change: "", changePp: null }));
+    expect(cellReading({ sector: "Materials", weekStart: "2026-10-26", feed: feed(textOnly) })).toBe(
+      "8 notices in the week of 26 Oct, 5 rises and 3 falls.",
+    );
+  });
+
+  it("says a week with no notice in words, never a count of zero", () => {
+    expect(cellReading({ sector: "Materials", weekStart: "2026-10-26", feed: feed([], 0) })).toBe(
+      "No notices in the week of 26 Oct.",
+    );
+  });
+
+  it("has no reading for Other, whose count is withheld, or for an unread week", () => {
+    expect(cellReading({ sector: OTHER_SECTOR, weekStart: "2026-10-26", feed: feed(week) })).toBeUndefined();
+    expect(cellReading({ sector: "Materials", weekStart: "2026-10-26", feed: null })).toBeUndefined();
   });
 });

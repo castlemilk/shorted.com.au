@@ -27,6 +27,11 @@ export type OwnershipKind =
 interface KindInfo {
   label: string;
   plural: string;
+  /**
+   * The name a chart's small labels take (a sankey node): at most twelve characters,
+   * so a gutter sized from it holds it on one line. The full label stays in the title.
+   */
+  short: string;
   /** One line on what the kind's substantial holdings usually are. */
   note: string;
   /** Tailwind background for a bar segment or a swatch. */
@@ -37,66 +42,77 @@ export const KIND_INFO: Readonly<Record<OwnershipKind, KindInfo>> = {
   super_fund: {
     label: "Super fund",
     plural: "Super funds",
+    short: "Super",
     note: "APRA-regulated superannuation trustees investing members' retirement savings.",
     swatch: "bg-[#87A96B]",
   },
   index_manager: {
     label: "Index manager",
     plural: "Index managers",
+    short: "Index",
     note: "Managers whose assets are mostly index funds and ETFs; their stakes track index weights.",
     swatch: "bg-[#C9A66B]",
   },
   hedge_fund: {
     label: "Hedge fund",
     plural: "Hedge funds",
+    short: "Hedge",
     note: "Long/short, event-driven and absolute-return managers.",
     swatch: "bg-[#D16A47]",
   },
   active_manager: {
     label: "Active manager",
     plural: "Active managers",
+    short: "Active",
     note: "Long-only active managers and listed investment companies.",
     swatch: "bg-[#FFA94D]",
   },
   bank_broker: {
     label: "Bank or broker",
     plural: "Banks and brokers",
+    short: "Bank/broker",
     note: "Often securities lending: shares lent to, or held as collateral from, short sellers.",
     swatch: "bg-[#72625A]",
   },
   sovereign_public: {
     label: "Sovereign or public fund",
     plural: "Sovereign and public funds",
+    short: "Sovereign",
     note: "Sovereign wealth funds and public-sector investors.",
     swatch: "bg-[#9AC082]",
   },
   insurer: {
     label: "Insurer",
     plural: "Insurers",
+    short: "Insurer",
     note: "Life insurers.",
     swatch: "bg-[#A39A75]",
   },
   private_equity: {
     label: "Private equity",
     plural: "Private equity",
+    short: "PE",
     note: "Private equity and infrastructure investors, often building a takeover stake.",
     swatch: "bg-[#9E5210] dark:bg-[#C77A2A]",
   },
   corporate: {
     label: "Listed company",
     plural: "Listed companies",
+    short: "Listed co",
     note: "Another ASX company: a strategic stake, a takeover bidder or a parent.",
     swatch: "bg-[#483932] dark:bg-[#B5A48C]",
   },
   other: {
     label: "Other",
     plural: "Other",
+    short: "Other",
     note: "Institutions outside the categories above.",
     swatch: "bg-[#E8DEB5]",
   },
   unclassified: {
     label: "Unclassified",
     plural: "Unclassified holders",
+    short: "Unclassified",
     note: "Holders not on the curated map: families, founders, private companies, smaller managers.",
     swatch: "bg-[#E5E1DC]",
   },
@@ -155,6 +171,17 @@ export const INVESTOR_KINDS: ReadonlySet<string> = new Set<string>([
 
 export function kindInfo(kind: string): KindInfo {
   return KIND_INFO[kind as OwnershipKind] ?? KIND_INFO.unclassified;
+}
+
+/**
+ * A kind's short name for a chart's small labels (spec B6). An unknown kind reads
+ * "Unclassified", as kindInfo does; the own-property check keeps a name such as
+ * "constructor" from reaching Object's members.
+ */
+export function kindShortLabel(kind: string): string {
+  return Object.prototype.hasOwnProperty.call(KIND_INFO, kind)
+    ? KIND_INFO[kind as OwnershipKind].short
+    : KIND_INFO.unclassified.short;
 }
 
 export function kindRank(kind: string): number {

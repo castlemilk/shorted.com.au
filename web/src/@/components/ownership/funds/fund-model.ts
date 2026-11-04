@@ -19,8 +19,6 @@ export const FUND_COMPARE_MAX = 3;
 export const SECTOR_COLUMN_COUNT = 6;
 /** An ISO calendar date, YYYY-MM-DD. The shape only; the loaders check the calendar. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-/** The weight a heat cell is full at, in percent: a fund's sector weight at 40% is the darkest. */
-const HEAT_CEILING_PCT = 40;
 
 /* ------------------------------------------------------------------ */
 /* Plain rows                                                         */
@@ -372,17 +370,6 @@ export const SECTOR_TINTS: readonly string[] = [
 export function sectorTint(index: number): string {
   const n = SECTOR_TINTS.length;
   return SECTOR_TINTS[((index % n) + n) % n]!;
-}
-
-/**
- * A heat cell's background: the amber of the theme mixed onto the card, its
- * strength the weight over 40%. Null for no weight or a zero, so a cell with no
- * figure is left plain rather than tinted as a measured nothing.
- */
-export function heatMix(weight: number | null): string | null {
-  if (weight === null || !Number.isFinite(weight) || weight <= 0) return null;
-  const share = Math.min(1, weight / HEAT_CEILING_PCT);
-  return `color-mix(in srgb, hsl(var(--primary)) ${Math.round(share * 60)}%, hsl(var(--card)))`;
 }
 
 /* ------------------------------------------------------------------ */

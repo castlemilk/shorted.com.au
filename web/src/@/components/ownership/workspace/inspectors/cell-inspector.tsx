@@ -16,6 +16,7 @@ import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { kindInfo } from "~/@/lib/ownership/kinds";
 import { serializeSelection } from "../selection";
 import type { InspectorContent, InspectorLink, InspectorRow, InspectorSection } from "../inspector-types";
+import { windowNetText } from "./window-net";
 
 /** The week's events, in the order the wireframe counts them: new, changed, ceased. */
 export interface WeekCounts {
@@ -69,6 +70,36 @@ export function weekHeading(weekStart: string): string {
   const monthName = MONTHS[index];
   if (monthName === undefined || !/^\d{2}$/.test(day ?? "")) return `Week of ${weekStart}`;
   return `Week of ${Number(day)} ${monthName}`;
+}
+
+/**
+ * The cell's reading (spec 14.1, backlog C1): the week's notice count, then its rises and falls, then the week's
+ * net change. The rises, falls and net are counted over the rows, so they are printed only when the rows are the
+ * whole week; a partial page keeps the count alone. The net is printed only when every row states its own change
+ * in points (the grid's sum); a row with none drops the net and nothing else.
+ */
+export function cellReading({
+  sector,
+  weekStart,
+  feed,
+  kind = "",
+}: {
+  sector: string;
+  weekStart: string;
+  feed: NoticeFeedPage | null;
+  kind?: string;
+}): string | undefined {
+  if (sector === OTHER_SECTOR || feed === null) return undefined;
+  const total = feed.total;
+  const week = weekHeading(weekStart).replace(/^Week of /, "the week of ");
+  const kindWord = kind === "" ? "" : `${kindInfo(kind).label.toLowerCase()} `;
+  if (total === 0) return `No ${kindWord}notices in ${week}.`;
+  const head = `${total} ${kindWord}${total === 1 ? "notice" : "notices"} in ${week}`;
+  if (feed.rows.length < total) return `${head}.`;
+  const rises = feed.rows.filter((row) => row.event === "became" || row.event === "increased").length;
+  const falls = feed.rows.filter((row) => row.event === "decreased" || row.event === "ceased").length;
+  const net = windowNetText(feed.rows, total);
+  return `${head}, ${rises} ${rises === 1 ? "rise" : "rises"} and ${falls} ${falls === 1 ? "fall" : "falls"}${net === undefined ? "" : `, net ${net}`}.`;
 }
 
 /**
@@ -145,6 +176,7 @@ export function cellInspectorContent({
   return {
     heading: sector,
     subtitle,
+    reading: cellReading({ sector, weekStart, feed, kind }),
     figure: { value: `${total} ${total === 1 ? "notice" : "notices"}`, caption: "Notices released this week" },
     rows: [{ label: partial ? "Events in the listed notices" : "Events", value: weekCountLine(counts) }],
     sections: weekSections(notices, unlinked),
