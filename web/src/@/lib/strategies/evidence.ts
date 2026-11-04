@@ -6,7 +6,6 @@
 // a colour: rule outcomes are drawn by the components from the status word.
 
 import { formatDate } from "~/@/lib/fundamentals/format";
-import { formatSigned } from "~/@/lib/strategies/format";
 import type {
   PickRow,
   RuleResultRow,
@@ -128,41 +127,146 @@ function firstCore(
   });
 }
 
+const MINUS = "−";
+
 const COMPARATOR_SYMBOL: Readonly<Record<string, string>> = {
   ">=": "≥",
   "<=": "≤",
   ">": ">",
 };
 
-/** A.$ amount as the picker's liquidity figure reads: "A$63.5m", "A$250k". */
-function audAmount(value: number): string {
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000) return `A$${(value / 1_000_000).toFixed(1)}m`;
-  if (abs >= 1_000) return `A$${Math.round(value / 1_000)}k`;
-  return `A$${Math.round(value)}`;
+/** The symbol that prints the comparison when it does not hold. */
+const NEGATED_SYMBOL: Readonly<Record<string, string>> = {
+  ">=": "<",
+  "<=": ">",
+  ">": "≤",
+};
+
+/** The comparison as a predicate on two numbers; null for an operator not listed. */
+function comparisonHolds(
+  value: number,
+  comparator: string,
+  threshold: number,
+): boolean | null {
+  switch (comparator) {
+    case ">=":
+      return value >= threshold;
+    case "<=":
+      return value <= threshold;
+    case ">":
+      return value > threshold;
+    default:
+      return null;
+  }
+}
+
+interface FigureUnit {
+  /** The value is divided by this to get the number printed. */
+  div: number;
+  prefix: string;
+  suffix: string;
+  /** Decimals printed for the scaled number. */
+  decimals: number;
+  /** A "+" on a positive figure (signed rule units). */
+  signed: boolean;
+}
+
+/** How a figure in a rule's unit is scaled and written; A$ amounts pick m or k by size. */
+function figureUnit(value: number, unit: string): FigureUnit {
+  switch (unit) {
+    case "pct":
+      return { div: 1, prefix: "", suffix: "%", decimals: 1, signed: false };
+    case "pp":
+      return { div: 1, prefix: "", suffix: "pp", decimals: 1, signed: true };
+    case "aud": {
+      const abs = Math.abs(value);
+      if (abs >= 1_000_000)
+        return {
+          div: 1_000_000,
+          prefix: "A$",
+          suffix: "m",
+          decimals: 1,
+          signed: false,
+        };
+      if (abs >= 1_000)
+        return {
+          div: 1_000,
+          prefix: "A$",
+          suffix: "k",
+          decimals: 0,
+          signed: false,
+        };
+      return { div: 1, prefix: "A$", suffix: "", decimals: 0, signed: false };
+    }
+    case "days":
+      return {
+        div: 1,
+        prefix: "",
+        suffix: " days",
+        decimals: 1,
+        signed: false,
+      };
+    case "x":
+      return { div: 1, prefix: "", suffix: "×", decimals: 1, signed: false };
+    default:
+      return { div: 1, prefix: "", suffix: "", decimals: 1, signed: false };
+  }
+}
+
+/** The number written at `decimals` places, with the unit's prefix, suffix and sign. */
+function writeFigure(num: number, meta: FigureUnit, decimals: number): string {
+  const body = Math.abs(num).toFixed(decimals);
+  const zero = Number(body) === 0;
+  const sign = num < 0 && !zero ? MINUS : meta.signed && !zero ? "+" : "";
+  return `${sign}${meta.prefix}${body}${meta.suffix}`;
+}
+
+/**
+ * A figure written so that the printed pair keeps the outcome it had. Rounding
+ * to the nearest place can carry a failing 4.96 to "5.0" against a 5.0 cut-off,
+ * so each candidate (nearest, then down, then up) is taken only when comparing
+ * the printed numbers gives the outcome the true numbers give. The places grow
+ * until one does (a value a hair under a cut-off prints one more digit).
+ */
+function figureAgreeing(
+  value: number,
+  unit: string,
+  comparator: string,
+  threshold: number,
+  holds: boolean,
+): string {
+  const meta = figureUnit(value, unit);
+  for (let extra = 0; extra <= 3; extra++) {
+    const decimals = meta.decimals + extra;
+    const factor = 10 ** decimals;
+    const scaled = Math.round((value / meta.div) * factor * 1e6) / 1e6;
+    const candidates = [
+      Math.round(scaled),
+      Math.floor(scaled),
+      Math.ceil(scaled),
+    ];
+    for (const rounded of candidates) {
+      const printed = rounded / factor;
+      const printedValue = printed * meta.div;
+      if (comparisonHolds(printedValue, comparator, threshold) === holds) {
+        return writeFigure(printed, meta, decimals);
+      }
+    }
+  }
+  return writeFigure(value / meta.div, meta, meta.decimals);
 }
 
 /** One figure in its rule's unit. Units are the definition's, never guessed. */
 export function formatRuleFigure(value: number, unit: string): string {
-  switch (unit) {
-    case "pct":
-      return `${value.toFixed(1)}%`;
-    case "pp":
-      return formatSigned(value, "pp");
-    case "aud":
-      return audAmount(value);
-    case "days":
-      return `${value.toFixed(1)} days`;
-    case "x":
-      return `${value.toFixed(1)}×`;
-    default:
-      return Number(value.toFixed(1)).toString();
-  }
+  const meta = figureUnit(value, unit);
+  return writeFigure(value / meta.div, meta, meta.decimals);
 }
 
 /**
- * The measured value against the rule's threshold: "10.0% ≥ 5%". Null when the
- * value or the threshold is not known, so the caller prints the rule's detail.
+ * The measured value against the rule's threshold: "10.0% ≥ 5.0%" when the
+ * comparison holds, "−5.7% < −5.0%" when it does not, so a failing or waiting
+ * rule never prints a comparison that is false. Null when the value or the
+ * threshold is not known, so the caller prints the rule's detail.
  */
 export function formatRuleMeasure(
   rule: Pick<StrategyRuleDef, "threshold" | "unit" | "comparator">,
@@ -171,10 +275,22 @@ export function formatRuleMeasure(
   if (result?.value === undefined || rule.threshold === undefined) {
     return null;
   }
-  const symbol = COMPARATOR_SYMBOL[rule.comparator ?? ""];
-  if (!symbol) return null;
+  const comparator = rule.comparator ?? "";
+  const holds = comparisonHolds(result.value, comparator, rule.threshold);
+  if (holds === null) return null;
   const unit = rule.unit ?? "";
-  return `${formatRuleFigure(result.value, unit)} ${symbol} ${formatRuleFigure(rule.threshold, unit)}`;
+  const symbol = holds
+    ? COMPARATOR_SYMBOL[comparator]
+    : NEGATED_SYMBOL[comparator];
+  if (!symbol) return null;
+  const measure = figureAgreeing(
+    result.value,
+    unit,
+    comparator,
+    rule.threshold,
+    holds,
+  );
+  return `${measure} ${symbol} ${formatRuleFigure(rule.threshold, unit)}`;
 }
 
 /**

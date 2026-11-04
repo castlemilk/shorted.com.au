@@ -4,11 +4,7 @@
 //
 // Pure and serialisable, so the page, the island and the tests share one list.
 
-import {
-  NOT_AVAILABLE,
-  formatScore,
-  formatSigned,
-} from "~/@/lib/strategies/format";
+import { NOT_AVAILABLE, formatSigned } from "~/@/lib/strategies/format";
 import type {
   PickRow,
   PickStatus,
@@ -44,6 +40,12 @@ export interface RankingInput {
   read: (row: PickRow) => string;
 }
 
+/** A percentile in whole points, floored so a value under the line never reads at it. */
+export function formatPercentile(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return NOT_AVAILABLE;
+  return Math.floor(value).toString();
+}
+
 /** Days to cover as one decimal; "n/a" when the API holds none. */
 function formatDays(value: number | null): string {
   if (value === null || !Number.isFinite(value) || value < 0)
@@ -70,7 +72,8 @@ const RANKING_RS_6M_PERCENTILE: RankingInput = {
   label: "6m RS pctl*",
   title:
     "Rank of the 6-month relative strength across the universe, 0 to 100; 75 or more is the top quartile",
-  read: (row) => formatScore(row.rs6mPercentile ?? null),
+  // Floored, not rounded: 74.6 must not print as 75, the top-quartile line.
+  read: (row) => formatPercentile(row.rs6mPercentile ?? null),
 };
 
 /**

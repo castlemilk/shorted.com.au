@@ -58,6 +58,13 @@ describe("the Signals tab's rules", () => {
     expect(crowded.map((i) => i.read(missing))).toEqual(["n/a", "n/a"]);
     expect(rankingInputsFor("canslim")[0]!.read(row)).toBe("81");
   });
+
+  it("floors the RS percentile, so a value under the top-quartile line never prints at it", () => {
+    const canslim = rankingInputsFor("canslim")[0]!;
+    expect(canslim.read({ rs6mPercentile: 74.9 } as PickRow)).toBe("74");
+    expect(canslim.read({ rs6mPercentile: 74.99 } as PickRow)).toBe("74");
+    expect(canslim.read({ rs6mPercentile: 75 } as PickRow)).toBe("75");
+  });
 });
 
 describe("filter chips and the count line", () => {

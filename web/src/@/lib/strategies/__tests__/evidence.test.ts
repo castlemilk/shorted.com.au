@@ -250,3 +250,61 @@ describe("notEvaluatedCopy", () => {
     expect(notEvaluatedCopy({ eligible: true, asOf: "2026-11-03" })).toBeNull();
   });
 });
+
+describe("formatRuleMeasure outcomes", () => {
+  it("prints the negated comparison when a rule fails or waits", () => {
+    expect(
+      formatRuleMeasure(
+        { threshold: -5, unit: "pct", comparator: ">=" },
+        { value: -5.66 },
+      ),
+    ).toBe("−5.7% < −5.0%");
+    expect(
+      formatRuleMeasure(
+        { threshold: 5, unit: "pct", comparator: ">=" },
+        { value: 3.2 },
+      ),
+    ).toBe("3.2% < 5.0%");
+    expect(
+      formatRuleMeasure(
+        { threshold: 2.5, unit: "x", comparator: "<=" },
+        { value: 3.4 },
+      ),
+    ).toBe("3.4× > 2.5×");
+    expect(
+      formatRuleMeasure(
+        { threshold: 250_000, unit: "aud", comparator: ">=" },
+        { value: 120_000 },
+      ),
+    ).toBe("A$120k < A$250k");
+  });
+
+  it("never rounds a figure across its cut-off", () => {
+    // A failing 4.96 against 5 would print as 5.0 at one decimal.
+    expect(
+      formatRuleMeasure(
+        { threshold: 5, unit: "pct", comparator: ">=" },
+        { value: 4.96 },
+      ),
+    ).toBe("4.9% < 5.0%");
+    // A passing value just over the cut-off still holds when printed.
+    expect(
+      formatRuleMeasure(
+        { threshold: 5, unit: "pct", comparator: ">=" },
+        { value: 5.04 },
+      ),
+    ).toBe("5.0% ≥ 5.0%");
+    // A$249,999 is under A$250k, so the printed figure must be under it too.
+    const text = formatRuleMeasure(
+      { threshold: 250_000, unit: "aud", comparator: ">=" },
+      { value: 249_999 },
+    );
+    expect(text).toBe("A$249k < A$250k");
+    expect(
+      formatRuleMeasure(
+        { threshold: 2.5, unit: "x", comparator: "<=" },
+        { value: 2.46 },
+      ),
+    ).toBe("2.5× ≤ 2.5×");
+  });
+});
