@@ -23,7 +23,7 @@ import { firstNonEmpty } from "~/@/lib/strategies/format";
 import {
   STATUS_DESCRIPTIONS,
   STATUS_LABELS,
-  countByStatus,
+  statusCountsOf,
 } from "~/@/lib/strategies/shortlist";
 import { PICK_STATUSES } from "~/@/lib/strategies/types";
 import { getStrategies } from "~/app/actions/getStrategies";
@@ -96,7 +96,7 @@ function cardFor(
 ): StrategyCardProps {
   const seo = STRATEGIES[slug]!;
   const strategy = picks?.strategy ?? apiStrategy;
-  const counts = picks ? countByStatus(picks.picks, picks.totalCount) : null;
+  const counts = picks ? statusCountsOf(picks) : null;
   return {
     slug,
     name: firstNonEmpty(strategy?.name, seo.label),

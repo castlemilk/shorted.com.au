@@ -1,6 +1,7 @@
 import {
   SHORTLIST_MAX_ROWS,
   countByStatus,
+  statusCountsOf,
   formatStatusCount,
   parsePickStatus,
   shortlistRows,
@@ -63,5 +64,26 @@ describe("countByStatus", () => {
     const counts = countByStatus(rows([["triggered", 4], ["watch", 96]]), 900);
     expect(formatStatusCount(counts.triggered)).toBe("4");
     expect(formatStatusCount(counts.watch)).toBe("96+");
+  });
+});
+
+describe("statusCountsOf", () => {
+  it("reads the API's status counts, exact, when the row list is clamped", () => {
+    const rows = [{ status: "triggered" }, { status: "triggered" }] as PickRow[];
+    const counts = statusCountsOf({
+      picks: rows,
+      totalCount: 151,
+      statusCounts: { triggered: 9, setup: 60, watch: 82, unknown: 0 },
+    });
+    expect(counts.triggered).toEqual({ count: 9, atLeast: false });
+    expect(counts.setup).toEqual({ count: 60, atLeast: false });
+    expect(counts.watch).toEqual({ count: 82, atLeast: false });
+  });
+
+  it("falls back to counting the rows when the API sent no counts", () => {
+    const rows = [{ status: "triggered" }, { status: "setup" }] as PickRow[];
+    const counts = statusCountsOf({ picks: rows, totalCount: 2 });
+    expect(counts.triggered).toEqual({ count: 1, atLeast: false });
+    expect(counts.setup).toEqual({ count: 1, atLeast: false });
   });
 });

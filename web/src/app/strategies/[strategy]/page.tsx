@@ -17,7 +17,7 @@ import { StrategySwitcher } from "~/@/components/picks/strategy-switcher";
 import { STRATEGIES, getStrategy } from "~/@/lib/strategies/registry";
 import {
   STATUS_LABELS,
-  countByStatus,
+  statusCountsOf,
   shortlistRows,
 } from "~/@/lib/strategies/shortlist";
 import { firstNonEmpty, formatPrice } from "~/@/lib/strategies/format";
@@ -112,7 +112,11 @@ export default async function StrategyPicksPage({ params }: PageProps) {
   // every ranked row instead of the rows themselves: a status chip fetches
   // its full list, as a sort chip does.
   const shortlist = shortlistRows(rows);
-  const counts = countByStatus(rows, data?.totalCount ?? 0);
+  const counts = statusCountsOf({
+    picks: rows,
+    totalCount: data?.totalCount ?? 0,
+    statusCounts: data?.statusCounts,
+  });
   const listRows = shortlist.slice(0, ITEM_LIST_LIMIT);
 
   const breadcrumbsSchema = [

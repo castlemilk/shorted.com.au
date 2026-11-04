@@ -1,7 +1,12 @@
 // Row selection and counting for the picks table and the hub cards. Pure,
 // serialisable-in / serialisable-out, safe on both sides of the RSC boundary.
 
-import { PICK_STATUSES, type PickRow, type PickStatus } from "./types";
+import {
+  PICK_STATUSES,
+  type PickRow,
+  type PickStatus,
+  type StatusCountsView,
+} from "./types";
 
 /**
  * Zanger's "concentrate" rule (plan §1, rule 5): the table is a short list.
@@ -79,6 +84,25 @@ export function countByStatus(
     };
   }
   return result;
+}
+
+/**
+ * The per-status counts a page prints: the API's status_counts when it sent
+ * them (exact over every ranked row, so a clamped row list does not shrink
+ * them), otherwise the count of the rows the page holds.
+ */
+export function statusCountsOf(picks: {
+  picks: PickRow[];
+  totalCount: number;
+  statusCounts?: StatusCountsView;
+}): Record<PickStatus, StatusCount> {
+  const api = picks.statusCounts;
+  if (!api) return countByStatus(picks.picks, picks.totalCount);
+  return {
+    triggered: { count: api.triggered, atLeast: false },
+    setup: { count: api.setup, atLeast: false },
+    watch: { count: api.watch, atLeast: false },
+  };
 }
 
 /** "12", or "100+" when the count is a floor. */
