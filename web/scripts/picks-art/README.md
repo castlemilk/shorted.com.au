@@ -66,6 +66,6 @@ nothing.
 
 Squint at the hub: five plates must be told apart by silhouette alone, as the
 glyphs are. On the strategy page the upper-left must stay calm under the H1
-and the provenance plate (the scrim helps, it does not rescue a busy corner).
+and the dek (the scrim helps, it does not rescue a busy corner).
 Reject anything with text, a candlestick, a person, or a frame; regenerate
 that one with `FORCE=1 ONLY=<id>`. The full-res `out/` masters are gitignored.
