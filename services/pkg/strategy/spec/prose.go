@@ -11,32 +11,33 @@ import (
 // Rule prose is generated from a version's own parameters, so the text a
 // reader sees states the thresholds the version tests. A template names each
 // parameter as {key} (the value), {abs:key} (its magnitude), {x100:key} (the
-// value times 100, for a fraction shown as a percentage) or {aud:key} (the
-// value with thousands separators, for dollar amounts). Values never print in
-// exponent form: a threshold of one million reads 1,000,000 under {aud:key}
-// and 1000000 under {key}, never 1e+06.
+// value times 100, for a fraction shown as a percentage), {ord100:key} (that
+// percentage as an ordinal, 75th), {aud:key} (the value with thousands
+// separators, for dollar amounts) or {day:key} (the word "day" or "days" for
+// the value). Values never print in exponent form: a threshold of one million
+// reads 1,000,000 under {aud:key} and 1000000 under {key}, never 1e+06.
 
-var placeholder = regexp.MustCompile(`\{(abs:|x100:|aud:)?([a-z_0-9]+)\}`)
+var placeholder = regexp.MustCompile(`\{(abs:|x100:|aud:|ord100:|day:)?([a-z_0-9]+)\}`)
 
 // proseTemplates holds one template per rule id.
 var proseTemplates = map[string]string{
-	"growth":                "Pass when the latest annual revenue or EPS is up at least {min_pct}% on the same series a year earlier, or the company has swung from a net loss to a net profit.",
-	"eps_growth":            "Pass when EPS is up at least {min_pct}% on the same series a year earlier.",
+	"growth":                "Pass when the latest revenue or EPS is up at least {min_pct}% on the same series a year earlier, or the company has swung from a net loss to a net profit.",
+	"eps_growth":            "Pass when EPS is up at least {min_pct}% on the same series a year earlier, or the company has swung from a net loss to a net profit.",
 	"revenue_growth":        "Pass when revenue is up at least {min_pct}% on the same series a year earlier.",
 	"base":                  "Pass when the stock has consolidated for at least {min_sessions} sessions since first setting its high over the prior {window_sessions} sessions, the base is no more than {max_depth_pct}% deep from that high to its low, and the close is at or above the base low.",
 	"breakout":              "Pass when any of the last {window_sessions} sessions closed above the highest high of the {prior_sessions} sessions before it, on volume at least {volume_multiple} times the {volume_sessions}-session average.",
-	"regime":                "Read from the S&P/ASX 200: pass unless it trades below its {sma_slow}-day average, uptrend when it is above its {sma_fast}-day average and that average is above the {sma_slow}-day average.",
+	"regime":                "Read from the S&P/ASX 200. Pass when it closes strictly above its {sma_slow}-day average: an uptrend when it is also above its {sma_fast}-day average and that average is above the {sma_slow}-day average, neutral otherwise. Unknown without enough index data.",
 	"rs":                    "Pass when the stock's {lookback_months}-month return beats the S&P/ASX 200's over the same period, so relative strength is above {min_points} points.",
 	"liquidity":             "Pass when the average daily turnover over the last {sessions} sessions is at least A${aud:min_aud}.",
 	"near_high":             "Pass when the close is no more than {abs:max_off_pct}% below its 52-week high.",
-	"rs_leader":             "Pass when the stock's 6-month relative strength is at or above the {x100:quantile}th percentile of every stock evaluated that day.",
+	"rs_leader":             "Pass when the stock's 6-month relative strength is at or above the {ord100:quantile} percentile of every stock evaluated that day.",
 	"trend_stack":           "Pass when the close is above the {sma_mid}-day average and the {sma_mid}-day average is above the {sma_slow}-day average.",
 	"sma200_rising":         "Pass when the {sma_slow}-day average is higher than it was {lag_sessions} sessions earlier.",
 	"above_low":             "Pass when the close is at least {multiple} times the 52-week low.",
 	"off_high":              "Pass when the close is no more than {abs:max_off_pct}% below its 52-week high.",
 	"above_sma50":           "Pass when the close is above the {sma}-day average.",
 	"short_interest":        "Pass when the latest reported short position is at least {min_pct}% of shares on issue.",
-	"days_to_cover":         "Pass when the latest reported short position covers at least {min} days of average volume.",
+	"days_to_cover":         "Pass when the latest reported short position covers at least {min} {day:min} of average volume.",
 	"roe":                   "Pass when return on equity is at least {min_pct}%.",
 	"net_margin":            "Pass when net profit is at least {min_pct}% of revenue for the same period.",
 	"cash_conversion":       "Pass when free cash flow is positive and at least {min} times net profit for the same period.",
@@ -53,7 +54,7 @@ func RenderRule(r RuleSpec) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("no prose for rule %q", r.ID)
 	}
-	var missing []string
+	var missing, invalid []string
 	out := placeholder.ReplaceAllStringFunc(tmpl, func(m string) string {
 		parts := placeholder.FindStringSubmatch(m)
 		mode, key := parts[1], parts[2]
@@ -69,13 +70,52 @@ func RenderRule(r RuleSpec) (string, error) {
 			v = math.Round(v*100*1e9) / 1e9
 		case "aud:":
 			return GroupThousands(FormatNumber(v))
+		case "ord100:":
+			s, err := ordinalPercent(v)
+			if err != nil {
+				invalid = append(invalid, fmt.Sprintf("%s: %v", key, err))
+				return m
+			}
+			return s
+		case "day:":
+			if v == 1 {
+				return "day"
+			}
+			return "days"
 		}
 		return FormatNumber(v)
 	})
 	if len(missing) > 0 {
 		return "", fmt.Errorf("rule %q: template uses parameters the rule does not have: %s", r.ID, strings.Join(missing, ", "))
 	}
+	if len(invalid) > 0 {
+		return "", fmt.Errorf("rule %q: %s", r.ID, strings.Join(invalid, ", "))
+	}
 	return out, nil
+}
+
+// ordinalPercent writes a fraction as a whole percentage with its ordinal
+// suffix: 0.75 reads 75th, 0.51 reads 51st, 0.92 reads 92nd and 0.83 reads
+// 83rd. A value that is not a whole percentage is an error, so no rendered
+// ordinal is ever rounded.
+func ordinalPercent(v float64) (string, error) {
+	n := math.Round(v*100*1e9) / 1e9
+	if n < 0 || n != math.Trunc(n) {
+		return "", fmt.Errorf("%s is not a whole percentage", FormatNumber(n))
+	}
+	i := int64(n)
+	suffix := "th"
+	if i%100 < 11 || i%100 > 13 {
+		switch i % 10 {
+		case 1:
+			suffix = "st"
+		case 2:
+			suffix = "nd"
+		case 3:
+			suffix = "rd"
+		}
+	}
+	return strconv.FormatInt(i, 10) + suffix, nil
 }
 
 // ProseTemplateKeys returns the parameter keys a rule's template names, for

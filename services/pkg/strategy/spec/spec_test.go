@@ -279,6 +279,55 @@ func TestProseRendersValues(t *testing.T) {
 	}
 }
 
+// TestProseOrdinalsAndPlurals pins the forms the templates print for a
+// percentile and a count of days, across the quantile bounds of the variants.
+func TestProseOrdinalsAndPlurals(t *testing.T) {
+	for q, want := range map[float64]string{0.5: "50th", 0.51: "51st", 0.62: "62nd", 0.73: "73rd", 0.75: "75th", 0.82: "82nd", 0.83: "83rd", 0.92: "92nd", 0.95: "95th", 0.11: "11th", 0.12: "12th"} {
+		text, err := RenderRule(RuleSpec{ID: "rs_leader", Params: map[string]float64{"quantile": q}})
+		if err != nil {
+			t.Fatalf("quantile %g: %v", q, err)
+		}
+		if !strings.Contains(text, "at or above the "+want+" percentile") {
+			t.Errorf("quantile %g rendered %q, want %s", q, text, want)
+		}
+	}
+	if _, err := RenderRule(RuleSpec{ID: "rs_leader", Params: map[string]float64{"quantile": 0.755}}); err == nil {
+		t.Error("a quantile that is not a whole percentage rendered without error")
+	}
+	for min, want := range map[float64]string{1: "covers at least 1 day of", 2: "covers at least 2 days of", 5: "covers at least 5 days of"} {
+		text, err := RenderRule(RuleSpec{ID: "days_to_cover", Params: map[string]float64{"min": min}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(text, want) {
+			t.Errorf("min %g rendered %q, want %q", min, text, want)
+		}
+	}
+}
+
+// TestProseStatesThePassPaths checks the phrases that name a pass the engine
+// grants beyond the threshold, and the boundary a close must clear. Each one
+// is a case the reader would otherwise be told the rule does not pass.
+func TestProseStatesThePassPaths(t *testing.T) {
+	for _, c := range []struct {
+		rule   RuleSpec
+		phrase string
+	}{
+		{RuleSpec{ID: "growth", Params: map[string]float64{"min_pct": 25}}, "swung from a net loss to a net profit"},
+		{RuleSpec{ID: "eps_growth", Params: map[string]float64{"min_pct": 25}}, "swung from a net loss to a net profit"},
+		{RuleSpec{ID: "regime", Params: map[string]float64{"sma_fast": 50, "sma_slow": 200}}, "closes strictly above its 200-day average"},
+		{RuleSpec{ID: "regime", Params: map[string]float64{"sma_fast": 50, "sma_slow": 200}}, "Unknown without enough index data"},
+	} {
+		text, err := RenderRule(c.rule)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(text, c.phrase) {
+			t.Errorf("%s rendered %q, which does not state %q", c.rule.ID, text, c.phrase)
+		}
+	}
+}
+
 func TestGroupThousands(t *testing.T) {
 	for in, want := range map[string]string{
 		"0":          "0",
