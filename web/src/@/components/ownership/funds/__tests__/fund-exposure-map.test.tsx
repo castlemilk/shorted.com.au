@@ -63,7 +63,8 @@ describe("the fund exposure map (spec 14.3, Funds)", () => {
     const row = rows[0] as HTMLElement;
     const search = screen.getByRole("searchbox", { name: "Find fund, code or manager" });
     expect(search).toHaveAttribute("placeholder", "A200, Vanguard, Betashares");
-    expect(search).toHaveClass("h-8", "font-mono", "text-xs", "flex-1", "min-w-[10rem]", "max-w-[16rem]");
+    expect(search).toHaveClass("h-8", "font-mono", "text-xs", "w-40", "max-w-[16rem]", "truncate");
+    expect(search).not.toHaveClass("flex-1");
     expect(search.closest("[data-toolbar]")).toBe(row);
     for (const name of ["Manager", "Kind", "View", "Files"]) {
       const select = screen.getByRole("combobox", { name });
@@ -78,7 +79,7 @@ describe("the fund exposure map (spec 14.3, Funds)", () => {
     renderView("");
     const optionsOf = (name: string) =>
       Array.from((screen.getByRole("combobox", { name }) as HTMLSelectElement).options).map((option) => option.textContent);
-    expect(optionsOf("Kind")).toEqual(["Index funds", "Super options"]);
+    expect(optionsOf("Kind")).toEqual(["Index", "Super"]);
     expect(optionsOf("View")).toEqual(["Sector weights", "Holdings"]);
     expect(optionsOf("Files")).toEqual(["Available", "All tracked"]);
     expect(optionsOf("Manager")).toEqual(["All managers", "Betashares", "State Street", "Vanguard", "iShares"]);

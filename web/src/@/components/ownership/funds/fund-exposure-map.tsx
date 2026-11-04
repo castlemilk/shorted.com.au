@@ -50,8 +50,8 @@ export const FUND_STATUS_COPY = "Tracked portfolios only · Snapshot dates vary"
  * value is what the URL carries, and the default value is the one that writes no parameter.
  */
 const KIND_OPTIONS = [
-  { value: "index", label: "Index funds" },
-  { value: "super", label: "Super options" },
+  { value: "index", label: "Index" },
+  { value: "super", label: "Super" },
 ] as const;
 const VIEW_OPTIONS = [
   { value: "sectors", label: "Sector weights" },
@@ -131,15 +131,16 @@ export function FundExposureMapView({
       <h2 className={sectionTitle}>Fund exposure map</h2>
 
       {/*
-        One toolbar row (spec 14.9, backlog B3): the search, then four labelled selects, under "Adjust view"
-        below sm. Each select writes the same parameter the segmented controls wrote before.
+        One toolbar row (spec 14.9, backlog B3): the search, then four labelled selects and the Sort select, under
+        "Adjust view" below sm. Each select writes the same parameter the segmented controls wrote before.
       */}
       <Toolbar fold={(row) => <ViewDisclosure>{row}</ViewDisclosure>}>
         {/*
-          The search takes the row's spare width. Its 10 rem basis is what makes the row break before the
-          selects overflow: with the Manager select at its 12 rem cap (the super managers' longest name) the
-          controls use about 953 px of the 1016 px column at 1440, so the search grows into the rest and the
-          placeholder shows whole; a fixed width would push Files onto a second line.
+          The search is a fixed 10 rem, so the row's width is the sum of its controls and it stays on one line
+          at 1440 (the 1016 px column). The served build's widths with these classes applied: the search 160 px,
+          Manager 183 px (202 px with the widest super manager, held to its 9 rem cap), Kind 111 px, View 176 px,
+          Files 162 px and Sort 126 px, with five 12 px gaps, make 978 px, or 997 px in the super case. The
+          placeholder truncates rather than the search widening, which would push Sort onto a second line.
         */}
         <input
           type="search"
@@ -147,13 +148,13 @@ export function FundExposureMapView({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="A200, Vanguard, Betashares"
-          className={cn(TOOLBAR_SELECT_CLASS, "min-w-[10rem] max-w-[16rem] flex-1 placeholder:text-muted-foreground")}
+          className={cn(TOOLBAR_SELECT_CLASS, "w-40 max-w-[16rem] truncate placeholder:text-muted-foreground")}
         />
         <ToolbarSelect
           label="Manager"
           value={manager}
           onChange={(value) => navigate(patchHref(pathname, params, { manager: value || null }))}
-          className="max-w-[12rem] truncate"
+          className="max-w-[9rem] truncate"
         >
           <option value="">All managers</option>
           {managers.map((name) => (

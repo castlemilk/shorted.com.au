@@ -26,6 +26,14 @@ import {
 /** The directory's first rows: the twenty largest by disclosed positions, until "Show all" (spec 14.9). */
 export const DIRECTORY_FIRST = 20;
 
+/**
+ * The toolbar's chip labels where the full label does not fit the one row at 1440. "Banks and brokers"
+ * is the only one shortened (the chip set itself is holder-tree's HOLDER_CHIPS, which keeps the full
+ * name for the rest of the page): with it the find, the chips and Sort measure 974 px of the 1016 px
+ * column, and with it at its full width they would wrap Sort onto a second line.
+ */
+const TOOLBAR_CHIP_LABELS: Readonly<Record<string, string>> = { bank_broker: "Banks" };
+
 // The directory row type lives in holder-tree.ts (the loader needs it without a view import); re-exported
 // here so the browser's existing importers keep their name.
 export type { DirectoryHolder };
@@ -174,10 +182,11 @@ function HolderBrowserView({
 
   return (
     <div className="min-w-0 space-y-6">
-      {/* One toolbar row (spec 14.9): the find and the kind chips, labelled, then the status line in sentence case. */}
+      {/* One toolbar row (spec 14.9): the find, the kind chips and the sort, labelled, then the status line in sentence case. */}
       <div className="min-w-0 space-y-2">
         <Toolbar fold={(row) => <ViewDisclosure>{row}</ViewDisclosure>}>
-          <div className="min-w-[14rem] flex-1 sm:max-w-xs">
+          {/* A fixed 10 rem, so the row's width is its controls' and it holds one line with the chips and Sort. */}
+          <div className="w-40 min-w-0">
             <SearchCombobox
               options={options}
               placeholder="Find a holder…"
@@ -200,10 +209,11 @@ function HolderBrowserView({
               onChange={setChip}
               options={HOLDER_CHIPS.map((c) => ({
                 value: c.value,
-                label: c.label,
+                label: TOOLBAR_CHIP_LABELS[c.value] ?? c.label,
               }))}
             />
           </div>
+          {/* The last control of the one row, after the chips (spec 14.9): the sort orders the list beneath it. */}
           <SortControl active={sort} onChange={onSortChange} />
         </Toolbar>
         <p className="text-xs text-muted-foreground">Substantial notices · Latest reported interest per holder</p>

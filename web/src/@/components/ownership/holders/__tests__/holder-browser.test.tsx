@@ -216,10 +216,17 @@ describe("holder browser's sort (backlog C3b)", () => {
   it("draws the Sort select in the toolbar's one row, showing the sort the URL names", () => {
     mockSearch = "sort=changed";
     const { container } = render(<HolderBrowser holders={ranked} defaultKey="vanguard" />);
-    expect(container.querySelectorAll("[data-toolbar]")).toHaveLength(1);
+    const toolbars = container.querySelectorAll("[data-toolbar]");
+    expect(toolbars).toHaveLength(1);
+    const row = toolbars[0] as HTMLElement;
     const select = screen.getByRole("combobox", { name: "Sort" }) as HTMLSelectElement;
     expect(select.value).toBe("changed");
-    expect(select.closest("[data-toolbar]")).toBe(container.querySelector("[data-toolbar]"));
+    // The Sort control's label is itself a child of the row, not nested in a wrapper under it.
+    expect(select.closest("label")?.parentElement).toBe(row);
+    // It comes after the kind chips, so the row reads find, chips, sort.
+    const chips = screen.getByRole("radiogroup", { name: "Holder kind" });
+    expect(chips.compareDocumentPosition(select) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(row.contains(chips)).toBe(true);
   });
 
   it("writes the sort into the link in place, keeping the holder", () => {
