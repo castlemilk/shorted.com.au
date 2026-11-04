@@ -35,17 +35,25 @@ export interface ChartSeriesSpec {
   measureMode?: "relative" | "absolute";
   /** Suffix for the change in "absolute" mode (e.g. "pp"), after a space. Default "". */
   measureUnit?: string;
+  /** The stroke's dash pattern (stroke-dasharray), e.g. "4,3". Solid when absent. */
+  dash?: string;
+  /** Label the series' final value at its right end, above the line. Off when absent. */
+  endLabel?: boolean;
 }
 
 /**
  * A shaded time-span drawn UNDER the series (full plot height). Generic on
  * purpose — the caller decides what a region means (e.g. short-vs-price
  * divergence) and the core just paints it by `tone`.
+ *
+ * "bearish" and "bullish" are the divergence pair and keep their fixed fills.
+ * "live" is a neutral token tint for a span that is not a market direction
+ * (the recorded track after a strategy's rules were frozen).
  */
 export interface ChartRegion {
   start: number; // epoch ms (inclusive)
   end: number; // epoch ms (inclusive)
-  tone: "bearish" | "bullish";
+  tone: "bearish" | "bullish" | "live";
   label?: string;
 }
 

@@ -18,6 +18,8 @@ import { Line, AreaClosed } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
 import { localPoint } from "@visx/event";
 import { decimate } from "./decimate";
+import { regionPaint } from "./chart-regions";
+import { layoutEndLabels } from "./end-labels";
 import { volumeBarAt } from "./volume-bars";
 import { AXIS_NUM_TICKS, axisMargin } from "./axis-margin";
 import { useChartScales, valueAxisLabels } from "./use-chart-scales";
@@ -64,6 +66,7 @@ import { useCoarsePointer } from "~/@/hooks/use-coarse-pointer";
 import type {
   ChartBand,
   ChartLevel,
+  ChartRegion,
   ChartMarker,
   ChartPoint,
   ChartSeriesSpec,
@@ -110,6 +113,17 @@ const NO_MARKERS: readonly ChartMarker[] = Object.freeze([]);
 // recompute the memos built on them every render.
 const NO_INDICATORS: SeriesIndicator[] = [];
 const NO_OSCILLATORS: OscillatorSpec[] = [];
+const NO_END_LABELS: ReturnType<typeof layoutEndLabels> = [];
+
+/** The rect attributes that paint a region's tone (chart-regions.ts). */
+function regionAttrs(tone: ChartRegion["tone"]) {
+  const paint = regionPaint(tone);
+  return {
+    fill: paint.fill,
+    fillOpacity: paint.fillOpacity,
+    style: paint.cssFill ? { fill: paint.cssFill } : undefined,
+  };
+}
 // The tooltip shows the reading, so no strip needs the room of a value.
 const NO_VALUE_CHARS: Readonly<Record<string, number>> = Object.freeze({});
 
@@ -437,6 +451,25 @@ export function StockChartInner({
       range: [mainH, mainH * 0.72],
     });
   }, [decVolume, mainH]);
+
+  // The final value of each series that asks for an end label, placed at the
+  // plot's right edge. Off (the shared empty list) unless a series sets it.
+  const endLabels = useMemo(() => {
+    const items = series
+      .filter((s) => s.endLabel && s.points.length > 0)
+      .map((s) => {
+        const last = s.points[s.points.length - 1]!.v;
+        const format = s.axis === "right" ? rightAxis?.format : leftAxis?.format;
+        return {
+          id: s.id,
+          y: scaleForAxis(s.axis)(last) ?? NaN,
+          text: format ? format(last) : last.toLocaleString("en-AU", { maximumFractionDigits: 2 }),
+          color: s.color,
+        };
+      });
+    if (!items.length) return NO_END_LABELS;
+    return layoutEndLabels(items, { innerW, innerH: mainH });
+  }, [series, leftAxis, rightAxis, scaleForAxis, innerW, mainH]);
 
   // Reference geometry (strategy levels): pure, clipped to the plot, recomputed
   // only when the scales change or a caller passes new arrays (an omitted prop is
@@ -1062,8 +1095,7 @@ export function StockChartInner({
                 y={0}
                 width={cw}
                 height={mainH}
-                fill={r.tone === "bearish" ? "#ef4444" : "#22c55e"}
-                fillOpacity={0.1}
+                {...regionAttrs(r.tone)}
                 pointerEvents="none"
               >
                 {r.label ? <title>{r.label}</title> : null}
@@ -1116,6 +1148,23 @@ export function StockChartInner({
               gradientId={`${gid}-grad-${i}`}
             />
           ))}
+          {endLabels.length > 0 && (
+            <g data-chart="end-labels" pointerEvents="none">
+              {endLabels.map((l) => (
+                <text
+                  key={l.id}
+                  x={l.x}
+                  y={l.y}
+                  textAnchor="end"
+                  fontSize={10}
+                  fill={l.color}
+                  style={{ fontVariantNumeric: "tabular-nums" }}
+                >
+                  {l.text}
+                </text>
+              ))}
+            </g>
+          )}
           {indicators.map((ind) => {
             const d = decBySeries.get(ind.seriesId);
             const target = series.find((s) => s.id === ind.seriesId);

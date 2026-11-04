@@ -39,9 +39,9 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 // inside the plot.
 const LABEL_CHAR_PX = 6;
 // A label sits this far from the line it names: above a level, beside a marker.
-const LABEL_INSET = 4;
+export const LABEL_INSET = 4;
 // The closest two level labels' baselines may be: 10 px type and a pixel of air.
-const LABEL_SPACING = 11;
+export const LABEL_SPACING = 11;
 
 const labelWidth = (label: string) => label.length * LABEL_CHAR_PX;
 
@@ -59,7 +59,7 @@ const endLabelX = (end: number, width: number, innerW: number) =>
  * which case it drops below that one. A stack that would run past the plot
  * floor is pulled back up to it. The lines themselves never move.
  */
-function spreadLabels(ys: number[], innerH: number): number[] {
+export function spreadLabels(ys: number[], innerH: number): number[] {
   // Indices, top of the plot first.
   const order = ys.map((_, i) => i).sort((a, b) => ys[a]! - ys[b]!);
   const baselines = ys.map((y) => y - LABEL_INSET);

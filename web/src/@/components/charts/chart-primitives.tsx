@@ -247,6 +247,7 @@ export const SeriesPath = React.memo(function SeriesPath({
         y={y}
         stroke={series.color}
         strokeWidth={1.75}
+        strokeDasharray={series.dash}
         curve={curveLinear}
       />
     </g>
