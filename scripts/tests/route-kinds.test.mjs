@@ -232,9 +232,9 @@ test("the ownership failure hint and the header point at the ownership source sc
 });
 
 // Only the static check fails in this case, so the assertions below read its hint. The hint names
-// the three pages, both ways a page loses ISR (built once and never regenerated, or rendered per
+// the four pages, both ways a page loses ISR (built once and never regenerated, or rendered per
 // request), and the ownership source scan, which sees such a read in a file under app/ownership.
-test("the static failure hint names the three pages, both outcomes and the ownership source scan", (t) => {
+test("the static failure hint names the four pages, both outcomes and the ownership source scan", (t) => {
   const scan = "web/src/app/ownership/__tests__/isr-source-safety.test.ts";
   assert.ok(existsSync(new URL(`../../${scan}`, import.meta.url)), `${scan} is gone, but the gate points at it`);
   const dynamicRoutes = Object.fromEntries([...EXPECTED, ...OWNERSHIP_ROUTES].map((r) => [r, { fallback: null }]));
@@ -244,8 +244,8 @@ test("the static failure hint names the three pages, both outcomes and the owner
   assert.match(result.stdout, new RegExp(`${EXPECTED.length} stock routes are ISR`));
   assert.match(result.stdout, new RegExp(`${OWNERSHIP_ROUTES.length} ownership routes are ISR`));
   assert.ok(
-    result.stderr.includes("/ownership, /ownership/notices or /ownership/stocks"),
-    "the static failure hint does not name the three pages",
+    result.stderr.includes("/ownership, /ownership/notices, /ownership/stocks or /ownership/insights"),
+    "the static failure hint does not name the four pages",
   );
   // Each outcome is matched to its own cause, so a swap of the two parentheticals fails here.
   assert.match(

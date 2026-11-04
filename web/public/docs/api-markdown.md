@@ -905,6 +905,32 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.NewsService/ListEditori
   -d '{}'
 ```
 
+### shorts.v1alpha1.OwnershipInsightsService
+
+#### `POST /shorts.v1alpha1.OwnershipInsightsService/GetOwnershipInsights`
+
+The register in one window: sectors and their stocks, the money flow from
+ institution kinds through institutions to sectors, the position changes by
+ sector and week or month, the window's largest stated moves, and the dates
+ a window can take.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sector` | string | no | Optional focus: one sector (as the response names it). The response then lists every stock of the sector, the institutions whose funds moved in it, and the sector's moves only. (proto string) |
+| `stockCode` | string | no | Optional focus: one ASX code. The response then carries the stock's detail. (proto string) |
+| `windowFrom` | string | no | The window's first and last day, YYYY-MM-DD, inclusive. Empty: the default window, the 90 days to the newest date read. A window is clamped to the timeline, and a from after the to is refused. (proto string) |
+| `windowTo` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipInsightsService/GetOwnershipInsights' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 ### shorts.v1alpha1.OwnershipService
 
 #### `POST /shorts.v1alpha1.OwnershipService/GetInstitution`

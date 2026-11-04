@@ -201,6 +201,9 @@ export const CACHE_KEYS = {
   ownershipDeskFlows: () => `cache:ownership:desk-flows:v1`,
   ownershipDeskActivity: () => `cache:ownership:desk-activity:v1`,
   ownershipDeskFunds: () => `cache:ownership:desk-funds:v1`,
+  // The insights explorer's default view (/ownership/insights: the default window,
+  // no focus), under the same rule: every other window is a live read.
+  ownershipInsights: () => `cache:ownership:insights:v1`,
   // --- Registers of Members'/Senators' Interests ---
   parliamentOverview: () => `cache:politicians:overview`,
   politicianList: (chamber: string, state: string, party: string, query: string, limit: number, offset: number) =>
