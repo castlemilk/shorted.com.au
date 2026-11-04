@@ -273,7 +273,7 @@ type Candidate struct {
 	Valuation       Valuation
 
 	// ShortReportDate is the newest ASIC report date at which the stock had a
-	// non-zero reported short position (within 400 days); nil when none. It is
+	// non-zero reported short position; nil when none. It is
 	// display-only until the short-interest rules read report dates.
 	ShortReportDate *time.Time
 
@@ -365,7 +365,9 @@ type Pick struct {
 	Score     float64 // 0-100, orders rows within a status
 	Rules     []RuleResult
 	// RS6mPercentile is where the stock's rs_6m_pct sits in the evaluated
-	// universe, 0-100 (share of the universe at or below it). nil when the
+	// universe on the quartile's own scale, 0-100: 75 or more is the top
+	// quartile, the cut-off rs_leader reads (type-7 rank, not a share of stocks).
+	// nil when the
 	// stock has no 6-month figure.
 	RS6mPercentile *float64
 }

@@ -124,7 +124,7 @@ export interface StockStrategyFit {
   shortReportDate?: string;
   /** YYYY-MM-DD the short report became public. */
   shortAvailableDate?: string;
-  /** True when the readings are older than the update schedule allows. */
+  /** True when the index has closed a session the prices have not reached (the data is delayed). */
   stale?: boolean;
 }
 

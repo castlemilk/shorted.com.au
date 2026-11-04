@@ -174,7 +174,7 @@ export interface PickRow {
   daysToCover?: number;
   /** Stock return minus the index return over 6 months, in points. */
   rs6mPct?: number;
-  /** Share of the evaluated universe at or below this stock's rs_6m, 0-100. */
+  /** Rank of this stock's rs_6m across the evaluated universe, 0-100; 75 or more is the top quartile (a type-7 rank, not a share of stocks). */
   rs6mPercentile?: number;
   /** Average daily turnover over 20 sessions, A$. */
   dollarVolume20d?: number;
@@ -221,7 +221,7 @@ export interface PicksSignals {
   shortReportDate?: string;
   /** YYYY-MM-DD the newest short report became public. */
   shortAvailableDate?: string;
-  /** True when the picks are older than the update schedule allows. */
+  /** True when the index has closed a session the prices have not reached (the data is delayed). */
   stale?: boolean;
   /** The universe's top-quartile cut-off of rs_6m_pct, which rs_leader reads. */
   rsQuantileThreshold?: number;

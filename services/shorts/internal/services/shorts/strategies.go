@@ -426,7 +426,7 @@ func strategyPickProto(p *engine.Pick) *shortsv1alpha1.StrategyPick {
 	out.BreakoutDate = dateString(c.BreakoutDate)
 	out.ShortReportDate, out.ShortAvailableDate = shortDatesProto(c.ShortReportDate)
 	// The date is the report the figure came from, so the status follows the
-	// figure. A figure with no date is a report older than the lookup reads.
+	// figure. A figure with no matching report row has no date.
 	if c.ShortPct != nil {
 		out.ShortStatus = "reported"
 	}

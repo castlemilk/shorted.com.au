@@ -233,7 +233,7 @@ func TestShortDatesFollowTheReport(t *testing.T) {
 
 // A report from before the holiday table's first year keeps its date and a
 // figure, but no publication date: the table would count Christmas as a
-// trading day. A figure with no date is a report older than the lookup reads.
+// trading day. A figure with no matching report row has no date.
 func TestShortDatesWithholdPublicationBeforeTheHolidayTable(t *testing.T) {
 	old := spDate("2025-12-19")
 	got := strategyPickProto(&engine.Pick{Candidate: engine.Candidate{StockCode: "OLD", ShortPct: new(5.0), ShortReportDate: &old}})
@@ -328,7 +328,7 @@ func TestGetStrategyPicks_NoShortReportAnywhereLeavesTheDatesEmpty(t *testing.T)
 }
 
 // The response carries the universe's rs_6m quartile only when some stock has
-// an rs_6m figure, and each pick's percentile is its share of the universe.
+// an rs_6m figure, and each pick's percentile is its rank on the quartile's scale.
 func TestGetStrategyPicks_RSQuantileAndPercentileFromTheUniverse(t *testing.T) {
 	cands := spUniverse()
 	rs := map[string]float64{"RDY": 10, "SET": 20, "WAT": 30, "NIL": 40}
