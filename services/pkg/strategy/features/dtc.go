@@ -2,8 +2,8 @@ package features
 
 import (
 	"math"
-	"math/big"
 	"strconv"
+	"strings"
 
 	"cloud.google.com/go/civil"
 )
@@ -79,26 +79,56 @@ func DaysToCoverV0(bars []Bar, asOf civil.Date, positions float64) (value float6
 // 2): the float is first written with 15 significant digits, then that decimal
 // is rounded half away from zero. Rounding the binary value directly differs at
 // exact half-cent quotients (201 over 200 is 1.01 in the database, and a binary
-// round gives 1.00), which is more than the parity tolerance.
+// round gives 1.00), which is more than the parity tolerance. The rounding is
+// done on the decimal digits, so no quotient overflows.
 func roundNumeric2(q float64) float64 {
 	if !finite(q) {
 		return q
 	}
-	dec, ok := new(big.Rat).SetString(strconv.FormatFloat(q, 'g', 15, 64))
-	if !ok {
+	// 15 significant digits: d.dddddddddddddd e exp, so the value is
+	// digits x 10^(exp-14), and its hundredths are digits x 10^(exp-12).
+	mant, expText, _ := strings.Cut(strconv.FormatFloat(math.Abs(q), 'e', 14, 64), "e")
+	exp, err := strconv.Atoi(expText)
+	if err != nil {
 		return math.Round(q*100) / 100
 	}
-	neg := dec.Sign() < 0
-	dec.Abs(dec)
-	// floor(x*100 + 1/2) for x >= 0, in integers: (2*100*num + den) / (2*den).
-	num := new(big.Int).Mul(dec.Num(), big.NewInt(200))
-	num.Add(num, dec.Denom())
-	cents := new(big.Int).Quo(num, new(big.Int).Mul(dec.Denom(), big.NewInt(2)))
-	v := float64(cents.Int64()) / 100
-	if neg {
+	digits := strings.Replace(mant, ".", "", 1)
+	cents := digits + strings.Repeat("0", max(exp-12, 0))
+	if shift := -(exp - 12); shift > 0 {
+		if len(digits) <= shift {
+			digits = strings.Repeat("0", shift+1-len(digits)) + digits
+		}
+		kept := digits[:len(digits)-shift]
+		if digits[len(digits)-shift] >= '5' {
+			kept = incrementDecimal(kept)
+		}
+		cents = kept
+	}
+	cents = strings.TrimLeft(cents, "0")
+	for len(cents) < 3 {
+		cents = "0" + cents
+	}
+	v, err := strconv.ParseFloat(cents[:len(cents)-2]+"."+cents[len(cents)-2:], 64)
+	if err != nil {
+		return math.Round(q*100) / 100
+	}
+	if q < 0 {
 		return -v
 	}
 	return v
+}
+
+// incrementDecimal adds one to a string of decimal digits.
+func incrementDecimal(s string) string {
+	b := []byte(s)
+	for i := len(b) - 1; i >= 0; i-- {
+		if b[i] < '9' {
+			b[i]++
+			return string(b)
+		}
+		b[i] = '0'
+	}
+	return "1" + string(b)
 }
 
 // barsUpTo returns the prefix of bars dated on or before asOf. bars must be
