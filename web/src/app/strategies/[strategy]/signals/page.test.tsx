@@ -46,6 +46,18 @@ describe("the Signals page", () => {
     );
   });
 
+  it("names the strategy's share card as its image, in both card formats", async () => {
+    const meta = await generateMetadata({
+      params: Promise.resolve({ strategy: "canslim" }),
+    });
+    const og = meta.openGraph as { images?: { url: string }[] } | undefined;
+    expect(og?.images?.[0]?.url).toBe("/strategies/canslim/opengraph-image");
+    expect(meta.twitter).toMatchObject({
+      card: "summary_large_image",
+      images: ["/strategies/canslim/opengraph-image"],
+    });
+  });
+
   it("passes the anonymous slice of rows and the API's status counts", async () => {
     getStrategyPicks.mockResolvedValue(
       picks(40, { statusCounts: { triggered: 9, setup: 60, watch: 82, unknown: 0 } }),

@@ -36,7 +36,15 @@ export async function generateMetadata({
   const description = `Which ASX stocks meet the ${seo.h1} rules today, rule by rule, with the evidence for each.`;
   // The shared-link preview is this tab's own: without these the nearest
   // parent's openGraph (the root layout's site card) would preview instead.
-  // No `images` key, so the segment's opengraph-image.tsx still applies.
+  // The strategy's opengraph-image.tsx belongs to the parent segment, so it
+  // does not reach this page by itself: name it explicitly, as a nested page
+  // that sets openGraph replaces any inherited image.
+  const image = {
+    url: `/strategies/${seo.slug}/opengraph-image`,
+    width: 1200,
+    height: 630,
+    alt: `${seo.h1} signals, on Shorted`,
+  };
   return {
     title,
     description,
@@ -49,6 +57,7 @@ export async function generateMetadata({
       siteName: siteConfig.name,
       type: "website",
       locale: "en_AU",
+      images: [image],
     },
     twitter: {
       site: "@shorted___",
@@ -56,6 +65,7 @@ export async function generateMetadata({
       card: "summary_large_image",
       title,
       description,
+      images: [image.url],
     },
   };
 }
