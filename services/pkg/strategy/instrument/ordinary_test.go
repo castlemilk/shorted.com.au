@@ -26,7 +26,8 @@ func TestEligibleExcludesETPAndStale(t *testing.T) {
 		{"stale: no bar on the session", "CBA", "COMMONWEALTH BANK. ORDINARY", "Commonwealth Bank", 1_673_462_358, false, true, ReasonNoBarOnSession},
 		{"stale ETP reports the stale reason first", "VAS", "", "", 0, false, false, ReasonNoBarOnSession},
 		{"no name from either source, three characters", "ABC", "", "", 0, true, true, ""},
-		{"no name from either source, four characters", "ABCD", "", "", 0, true, false, ReasonUnclassified},
+		{"no name from either source, four characters", "ABCD", "", "", 0, true, false, ReasonSecondaryLine},
+		{"no name from either source, five characters", "ABCDE", "", "", 0, true, false, ReasonSecondaryLine},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

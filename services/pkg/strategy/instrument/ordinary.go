@@ -14,7 +14,6 @@ const (
 	ReasonExchangeTradedProduct = "exchange_traded_product"
 	ReasonDebtOrHybrid          = "debt_or_hybrid"
 	ReasonSecondaryLine         = "secondary_line"
-	ReasonUnclassified          = "unclassified"
 )
 
 // etpNamePattern matches a company name that names an exchange-traded product.
@@ -59,10 +58,12 @@ func IneligibleReason(code, asicProduct, companyName string, shares float64, etp
 		}
 	}
 	if companyName == "" {
+		// A nameless code of another length is most often a secondary line, the
+		// case rule 3 below applies to every named code.
 		if len(code) == 3 {
 			return ""
 		}
-		return ReasonUnclassified
+		return ReasonSecondaryLine
 	}
 	if len(code) > 4 {
 		return ReasonSecondaryLine
