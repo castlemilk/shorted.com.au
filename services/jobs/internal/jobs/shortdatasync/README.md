@@ -248,7 +248,7 @@ Logging is not readable from CI. The run log carries the same summary line:
 Running it again must print `4112 of 4116 published date(s) match ASIC, the
 rest could not be checked` — the rest being the four unusable source files.
 
-## Ingest log and revisions (migration 000154, PR-02)
+## Ingest log and revisions (migration 000154)
 
 Every file the writer loads (`daily`, `poll`) or examines (`reconcile`) gets one
 `asic_report_ingests` row, written after the file's rows:
@@ -260,16 +260,33 @@ Every file the writer loads (`daily`, `poll`) or examines (`reconcile`) gets one
 | `loaded_rows` | how many of those codes shorts holds for the date, **recounted from shorts after the write** by every mode. A clean reconcile writes no shorts row and still recounts. |
 | `mode` / `last_mode` | the first mode that recorded it, and the latest |
 
-A report is **complete** when `loaded_rows >= file_rows` (architecture 4.6, R23).
+A report is **complete** when `loaded_rows >= file_rows`.
 The count is taken from shorts, not from the writer's own count, so a row that
 failed to write is not counted. A day with failed rows is repaired by the next
 reconcile, which recounts it complete.
+
+A file that parsed to **no codes** records `file_rows` NULL, not 0. Zero would
+make an empty file complete (`0 >= 0`), so a format change that drops every
+record would read as "no codes, complete" and mark every code absent. NULL makes
+the report's completeness unknown. The recount trims codes with the same
+`strings.TrimSpace` that `RowsOnDate` uses, so a padded legacy row (`"WBT "`,
+or one padded with a tab) counts as its code.
 
 Reconcile also writes one `shorts_revisions` row per value ASIC changed in a
 report the table already held: the stored values beside the file's, written
 before the repair. A NULL stored value is a revision with a NULL old value.
 Missing rows are repairs, not revisions. Nothing writes to `shorts` beyond the
 rows the sync already writes, and no trigger touches `shorts`.
+
+Two rules keep the revision log honest when a write fails part-way:
+
+- A revision equal to the **latest** revision the table holds for the same date
+  and code is not inserted again. A run whose row upsert failed after its
+  revision landed finds the same difference next time; this stops it writing a
+  second row. A later change back to an earlier value is still recorded.
+- A changed row whose revision did not land is **left out of that run's
+  write**, so its stored value (ASIC's replaced value) is not overwritten
+  without its revision. The next run finds it changed again and retries both.
 
 A dry run records neither. The ingest write is observational: a failure is
 logged (`Ingest record for <file> not written`) and never fails the run, so a

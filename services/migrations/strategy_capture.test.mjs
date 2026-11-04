@@ -1,6 +1,6 @@
 // node --test services/migrations/strategy_capture.test.mjs
 //
-// 000154 is the forward point-in-time capture (architecture 9.1): the ASIC report ingest log, the ASIC
+// 000154 is the forward point-in-time capture: the ASIC report ingest log, the ASIC
 // revision log and the stock_fundamentals vintage history. Prod replays every allowlisted migration on
 // every deploy, so the file must be replay-safe, touch no row outside its guarded baseline, grant nothing,
 // and sit in the allowlist between 000153 and the 000138 closer. The container test in
@@ -157,7 +157,8 @@ test("the down migration drops only what the up migration creates, guarded by IF
 
 test("the allowlist runs 000154 after 000153 and before the 000138 closer", () => {
   const line = "run_psql_session -f /migrations/000154_strategy_capture.up.sql";
-  assert.equal(workflow.split("/migrations/000154_strategy_capture.up.sql").length - 1, 1, "allowlisted once");
+  // Counts the allowlist command, not the path: the workflow comment also names the file for the manual apply.
+  assert.equal(workflow.split(line).length - 1, 1, "allowlisted once");
   const at = workflow.indexOf(line);
   assert.ok(at > 0, "000154 must be in the allowlist, or it never reaches prod");
   assert.ok(at > workflow.indexOf("run_psql_session -f /migrations/000153_add_crawl_ops_indexes.up.sql"));

@@ -1,8 +1,8 @@
--- 000154: forward point-in-time capture for the strategy workspace (PR-02, architecture 9.1).
+-- 000154: forward point-in-time capture for the strategy workspace.
 --
 --   asic_report_ingests           one row per ASIC short-position report: when we first saw it, how many
 --                                 rows ASIC's file carried, and how many of those are in shorts now. Read
---                                 by the completeness rule (4.6, R23): a report is complete when
+--                                 by the completeness rule: a report is complete when
 --                                 loaded_rows >= file_rows. Written by shortdatasync, not by a trigger.
 --   shorts_revisions              one row per value ASIC later changed in a report we already held. Written
 --                                 by shortdatasync's reconcile pass, not by a trigger: shorts holds 2.1M
@@ -22,7 +22,7 @@
 -- table, so a replay that has already done its work takes no lock on stock_fundamentals and writes no row.
 -- The one exception is the first application, which takes SHARE ROW EXCLUSIVE on stock_fundamentals to
 -- create the trigger (writers wait for the commit; picks writes stop for a moment). Run it outside the
--- picks window (architecture 9.1: not between 15:00 and 18:30 UTC).
+-- picks window (not between 15:00 and 18:30 UTC).
 --
 -- The trigger function is CREATE OR REPLACE: it changes no table and no row.
 
@@ -32,7 +32,7 @@ SET LOCAL lock_timeout = '5s';
 
 CREATE TABLE IF NOT EXISTS asic_report_ingests (
     report_date       DATE PRIMARY KEY,
-    -- Preserved on conflict: the observed publication time. Measures the real lag (4.5) from the day
+    -- Preserved on conflict: the observed publication time. Measures the real lag from the day
     -- this migration lands; a report first seen by reconcile (mode 'reconcile') shows the reconcile time.
     first_ingested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     last_ingested_at  TIMESTAMPTZ NOT NULL DEFAULT now(),

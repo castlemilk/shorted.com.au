@@ -1,9 +1,9 @@
 package shortdatasync
 
-// capture_test.go covers the forward point-in-time capture (architecture 9.1, 000154): one
+// capture_test.go covers the forward point-in-time capture (migration 000154): one
 // asic_report_ingests row per file the writer examines, a recount of loaded_rows after every
 // write, and a shorts_revisions row per value ASIC changed. The completeness facts these feed
-// (4.6, R23) are what the strategy engine reads, so each test states the fact it protects.
+// are what the strategy engine reads, so each test states the fact it protects.
 // The SQL side (first_ingested_at and mode kept on conflict, the recount itself) is pinned by
 // strategy_capture_pg_test.go against a live Postgres.
 
