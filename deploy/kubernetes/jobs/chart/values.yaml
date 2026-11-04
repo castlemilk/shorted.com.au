@@ -59,6 +59,7 @@ enabled:
   - shorted-news-digest
   - shorted-economy
   - shorted-alerts
+  - shorted-ownership
 
 # Jobs that exist ONLY on the cluster: no Cloud Run twin, no Cloud Scheduler
 # trigger, so no `cloudRun` mapping and no local.jobs_on_vke entry. Their schedule
