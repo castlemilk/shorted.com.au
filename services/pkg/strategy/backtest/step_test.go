@@ -333,7 +333,7 @@ func TestCorporateActionExitClosesAtThePreSuspectClose(t *testing.T) {
 	Step(st, sessionAt(4, codeAt("AAA", StatusTriggered, mkBar(11, 5))))
 	Step(st, sessionAt(5, codeAt("AAA", StatusTriggered, mkBar(5, 5))))
 	c6 := codeAt("AAA", StatusTriggered, mkBar(5, 5))
-	c6.CA = CASuspect{Known: true, SuspectDate: dayAt(4), PrePL: 11}
+	c6.CA = CASuspect{Known: true, SuspectDate: dayAt(4)}
 	Step(st, sessionAt(6, c6))
 	if _, ok := st.positions["AAA"]; ok {
 		t.Fatal("the position survived the corporate-action exclusion")
@@ -351,7 +351,7 @@ func TestCorporateActionLeavesAPositionEnteredOnTheSuspectBar(t *testing.T) {
 	Step(st, sessionAt(1, codeAt("AAA", "setup", mkBar(10, 10))))
 	Step(st, sessionAt(2, codeAt("AAA", StatusTriggered, mkBar(10, 10)))) // candidate; fills on 3
 	c3 := codeAt("AAA", StatusTriggered, mkBar(10, 4))
-	c3.CA = CASuspect{Known: true, SuspectDate: dayAt(3), PrePL: 10}
+	c3.CA = CASuspect{Known: true, SuspectDate: dayAt(3)}
 	Step(st, sessionAt(3, c3))
 	if _, ok := st.positions["AAA"]; !ok {
 		t.Fatal("a position entered on the suspect bar was closed by the exclusion")
@@ -383,7 +383,7 @@ func TestCooldownBlocksReentry(t *testing.T) {
 func TestCorporateActionBlocksNewEntriesForSixtySessions(t *testing.T) {
 	st := NewState(testConfig())
 	c1 := codeAt("AAA", "setup", mkBar(10, 10))
-	c1.CA = CASuspect{Known: true, SuspectDate: dayAt(1), PrePL: 10}
+	c1.CA = CASuspect{Known: true, SuspectDate: dayAt(1)}
 	Step(st, sessionAt(0, codeAt("AAA", "setup", mkBar(10, 10))))
 	Step(st, sessionAt(1, c1))
 	Step(st, sessionAt(2, codeAt("AAA", StatusTriggered, mkBar(10, 10))))
@@ -499,7 +499,9 @@ func TestTwoDPPayerStaysTotalReturn(t *testing.T) {
 	if pos.flags[FlagPriceReturnOnly] {
 		t.Fatal("a 2-dp payer priced A$1-2 fell back to price return")
 	}
-	near(t, "multiplier", st.codeState("AAA").mult, 1.49/1.5, 1e-9)
+	// The bar is cash-credited, so its step is not applied to the multiplier:
+	// the dividend is the adjustment for it, and the step would count it twice.
+	near(t, "multiplier", st.codeState("AAA").mult, 1, 1e-12)
 	near(t, "dividend credited in cash", pos.dividends, 0.05*pos.qty, 1e-9)
 }
 
@@ -542,7 +544,9 @@ func fixedPath(t *testing.T, multiplier float64) *State {
 	Step(st, sessionAt(0, codeAt("AAA", "setup", mkBar(10, 10))))
 	Step(st, sessionAt(1, codeAt("AAA", StatusTriggered, mkBar(10, 10.2))))
 	Step(st, sessionAt(2, codeAt("AAA", StatusTriggered, mkBar(10.2, 10.6))))
-	Step(st, sessionAt(3, codeAt("AAA", StatusTriggered, mkBar(10.6, 11))))
+	div := codeAt("AAA", StatusTriggered, mkBar(10.6, 11))
+	div.Dividend = 0.1 // an unadjusted ex-date on the path, credited in cash
+	Step(st, sessionAt(3, div))
 	Step(st, sessionAt(4, codeAt("AAA", StatusTriggered, mkBar(11, 9.5))))
 	Step(st, sessionAt(5, codeAt("AAA", StatusTriggered, mkBar(9.4, 9.4))))
 	return st
@@ -563,6 +567,9 @@ func TestCostsOnAFixedFillPath(t *testing.T) {
 	if t2[0].Net > t1[0].Net {
 		t.Fatalf("doubling costs raised the net return: %v > %v", t2[0].Net, t1[0].Net)
 	}
+	if t1[0].Dividends <= 0 {
+		t.Fatal("the fixed path carries no cash dividend, so the gross and net gate is not exercised")
+	}
 	if !(two.Equity() <= one.Equity()) {
 		t.Fatalf("final equity at 2x costs %v above 1x %v", two.Equity(), one.Equity())
 	}
@@ -575,6 +582,9 @@ func TestOpenAtEndIsMarkedAndExcluded(t *testing.T) {
 	if len(trades) != 1 || !trades[0].OpenAtEnd || trades[0].ExitReason != ReasonOpenAtEnd {
 		t.Fatalf("open position not reported as open at end: %+v", trades)
 	}
+	if !trades[0].ExitSignalDate.IsZero() {
+		t.Fatalf("open trade with no pending exit reports exit signal %v", trades[0].ExitSignalDate)
+	}
 }
 
 func TestUpJumpSuspectExitsOnItsOwnBar(t *testing.T) {
@@ -583,7 +593,7 @@ func TestUpJumpSuspectExitsOnItsOwnBar(t *testing.T) {
 	st := enter(t, testConfig(), mkBar(10, 10))
 	Step(st, sessionAt(3, codeAt("AAA", StatusTriggered, mkBar(10, 10))))
 	jump := codeAt("AAA", StatusTriggered, mkBar(100, 100))
-	jump.CA = CASuspect{Known: true, SuspectDate: dayAt(4), PrePL: 10}
+	jump.CA = CASuspect{Known: true, SuspectDate: dayAt(4)}
 	Step(st, sessionAt(4, jump))
 	tr := st.Finish()[0]
 	if tr.ExitReason != ReasonCorporateAction || !tr.ExitDate.Equal(dayAt(4)) {
@@ -609,4 +619,352 @@ func TestStepIsDeterministic(t *testing.T) {
 	if x, y := run(), run(); x != y {
 		t.Fatalf("two identical runs disagree: %v and %v", x, y)
 	}
+}
+
+// shortCodeBar is a traded bar that is cash-credited or stepped by the caller:
+// its adjusted close is given separately from its close.
+func shortCodeBar(open, close, adj float64) Bar {
+	return Bar{Present: true, Open: open, High: math.Max(open, close), Low: math.Min(open, close), Close: close, Adj: adj, Volume: 1e6}
+}
+
+func TestDividendCreditScalesWithTheMultiplier(t *testing.T) {
+	// The first session's close is 10 on an adjusted level of 9, so the
+	// multiplier is 1/0.9 before the entry. The position holds 900 units on the
+	// P&L basis, 10,000 of notional at 11.11. An unadjusted 50c ex-date whose
+	// close falls by 50c must leave equity unchanged: the 50c is credited on
+	// the 900 shares actually held, not on the 900 units.
+	st := NewState(testConfig())
+	Step(st, sessionAt(0, codeAt("AAA", "setup", shortCodeBar(9, 10, 9))))
+	Step(st, sessionAt(1, codeAt("AAA", StatusTriggered, mkBar(10, 10))))
+	Step(st, sessionAt(2, codeAt("AAA", StatusTriggered, mkBar(10, 10))))
+	pos := st.positions["AAA"]
+	if pos == nil {
+		t.Fatal("no position")
+	}
+	near(t, "multiplier before the ex-date", st.codeState("AAA").mult, 1/0.9, 1e-9)
+	near(t, "units on the P&L basis", pos.qty, 900, 1e-6)
+	before := recordAt(t, st, 2).Equity
+	ex := codeAt("AAA", StatusTriggered, mkBar(9.5, 9.5))
+	ex.Dividend = 0.5
+	Step(st, sessionAt(3, ex))
+	near(t, "dividend on 900 shares", pos.dividends, 500, 1e-6)
+	near(t, "equity across an unadjusted ex-date", recordAt(t, st, 3).Equity, before, 1e-6)
+}
+
+func TestBuyerAtAnExDateOpenIsNotPaid(t *testing.T) {
+	// The buyer's fill is the ex-date open, so the register is the one at the
+	// previous close and the buyer was not on it.
+	st := NewState(testConfig())
+	Step(st, sessionAt(0, codeAt("AAA", "setup", mkBar(10, 10))))
+	Step(st, sessionAt(1, codeAt("AAA", StatusTriggered, mkBar(10, 10))))
+	fill := codeAt("AAA", StatusTriggered, mkBar(9.5, 9.5))
+	fill.Dividend = 0.2
+	Step(st, sessionAt(2, fill))
+	pos := st.positions["AAA"]
+	if pos == nil {
+		t.Fatal("no position")
+	}
+	if pos.dividends != 0 {
+		t.Fatalf("a buyer at the ex-date open was credited %v", pos.dividends)
+	}
+	near(t, "cash after the buy", st.cash, 100000-10000-15, 1e-9)
+}
+
+func TestSellerAtAnExDateOpenIsPaid(t *testing.T) {
+	// The seller held the shares at the previous close, so the dividend is paid
+	// on the trade that exits at the ex-date open.
+	cfg := testConfig()
+	cfg.ExitRules = []ExitRule{{Kind: RuleCloseBelowCapturedPivot}}
+	st := enter(t, cfg, mkBar(10, 10))
+	Step(st, sessionAt(3, codeAt("AAA", StatusTriggered, mkBar(10, 9))))
+	ex := codeAt("AAA", StatusTriggered, mkBar(9.5, 9.5))
+	ex.Dividend = 0.5
+	Step(st, sessionAt(4, ex))
+	trades := st.Finish()
+	if len(trades) != 1 {
+		t.Fatalf("got %d trades, want 1", len(trades))
+	}
+	tr := trades[0]
+	if tr.ExitReason != ReasonPivotStop || !tr.ExitDate.Equal(dayAt(4)) {
+		t.Fatalf("exit %s on %v, want pivot_stop on session 4", tr.ExitReason, tr.ExitDate)
+	}
+	near(t, "dividend on the exiting trade", tr.Dividends, 500, 1e-6)
+	// Proceeds 9,500 less the exit fee of 14.75 (brokerage floor 10 and 5 bps
+	// spread), on top of 89,985 cash after the entry and 500 of dividend.
+	near(t, "cash after the exit", st.cash, 89985+500+9500-14.75, 1e-6)
+}
+
+func TestQueuedExitDoesNotFillOnAnUpJumpSuspectBar(t *testing.T) {
+	// The pivot stop is queued at session 3's close. Session 4 is a 10x
+	// consolidation known on its own bar: the queued exit must not fill at the
+	// jumped open. The position closes at the pre-suspect close (9) instead.
+	cfg := testConfig()
+	cfg.ExitRules = []ExitRule{{Kind: RuleCloseBelowCapturedPivot}}
+	st := enter(t, cfg, mkBar(10, 10))
+	Step(st, sessionAt(3, codeAt("AAA", StatusTriggered, mkBar(10, 9))))
+	jump := codeAt("AAA", StatusTriggered, mkBar(100, 100))
+	jump.CA = CASuspect{Known: true, SuspectDate: dayAt(4)}
+	Step(st, sessionAt(4, jump))
+	trades := st.Finish()
+	if len(trades) != 1 {
+		t.Fatalf("got %d trades, want 1", len(trades))
+	}
+	tr := trades[0]
+	if tr.ExitReason != ReasonCorporateAction || !tr.ExitDate.Equal(dayAt(4)) {
+		t.Fatalf("exit %s on %v, want corporate_action_exit on session 4", tr.ExitReason, tr.ExitDate)
+	}
+	near(t, "exit at the pre-suspect close", tr.ExitPrice, 9, 1e-12)
+	near(t, "exit fill on the signal basis", tr.ExitFill, 9, 1e-12)
+	if tr.Net > 0 {
+		t.Fatalf("a position marked down into the exclusion has net %v", tr.Net)
+	}
+}
+
+// caSetup runs sessions 0..last as setup, with a corporate-action suspect known
+// on each session in known and SuspectDate set to that session.
+func caSetup(t *testing.T, st *State, last int, known ...int) {
+	t.Helper()
+	isKnown := map[int]bool{}
+	for _, k := range known {
+		isKnown[k] = true
+	}
+	for i := 0; i <= last; i++ {
+		c := codeAt("AAA", "setup", mkBar(10, 10))
+		if isKnown[i] {
+			c.CA = CASuspect{Known: true, SuspectDate: dayAt(i)}
+		}
+		Step(st, sessionAt(i, c))
+	}
+}
+
+func TestEveryCorporateActionSuspectRearmsTheEntryBlock(t *testing.T) {
+	// Suspects known on sessions 1 and 100. A candidate on session 101 is within
+	// 60 sessions of the second suspect, so it must not be scheduled.
+	st := NewState(testConfig())
+	caSetup(t, st, 100, 1, 100)
+	Step(st, sessionAt(101, codeAt("AAA", StatusTriggered, mkBar(10, 10))))
+	if len(st.entries) != 0 {
+		t.Fatal("a candidate 1 session after a second corporate-action suspect was scheduled")
+	}
+}
+
+func TestCorporateActionBlockBoundary(t *testing.T) {
+	// The block covers the suspect's session and the 60 sessions after it: a
+	// candidate on session 61 is blocked, one on session 62 is not.
+	t.Run("61 sessions after is blocked", func(t *testing.T) {
+		st := NewState(testConfig())
+		caSetup(t, st, 60, 1)
+		Step(st, sessionAt(61, codeAt("AAA", StatusTriggered, mkBar(10, 10))))
+		if len(st.entries) != 0 {
+			t.Fatal("a candidate 60 sessions after the suspect was scheduled")
+		}
+	})
+	t.Run("62 sessions after is admitted", func(t *testing.T) {
+		st := NewState(testConfig())
+		caSetup(t, st, 61, 1)
+		Step(st, sessionAt(62, codeAt("AAA", StatusTriggered, mkBar(10, 10))))
+		if len(st.entries) != 1 {
+			t.Fatal("a candidate 61 sessions after the suspect was still blocked")
+		}
+	})
+}
+
+func TestSmallVendorAdjustedDividendIsCountedOnce(t *testing.T) {
+	// A 2c dividend on a A$1.50 payer. The vendor stored the history adjusted,
+	// so the ex-date's step is ln(1.5/1.48), 1.34%: under the cents-era tolerance
+	// (about 1.45%) it reads as rounding. Either way the equity on the ex-date
+	// must not move: the dividend is counted once, in the price basis or in cash.
+	for name, from := range map[string]time.Time{"4-decimal era": base, "cents era": dayAt(10)} {
+		t.Run(name, func(t *testing.T) {
+			cfg := testConfig()
+			cfg.Price4dpFrom = from
+			st := NewState(cfg)
+			prev := shortCodeBar(1.5, 1.5, 1.48)
+			Step(st, sessionAt(0, codeAt("AAA", "setup", prev)))
+			Step(st, sessionAt(1, codeAt("AAA", StatusTriggered, prev)))
+			Step(st, sessionAt(2, codeAt("AAA", StatusTriggered, prev)))
+			before := recordAt(t, st, 2).Equity
+			ex := codeAt("AAA", StatusTriggered, shortCodeBar(1.48, 1.48, 1.48))
+			ex.Dividend = 0.02
+			Step(st, sessionAt(3, ex))
+			near(t, "equity across the ex-date", recordAt(t, st, 3).Equity, before, 1e-6)
+		})
+	}
+}
+
+func TestClassifyBarTolerance(t *testing.T) {
+	// Prices at 10 with unit adjustment ratios, so the step is the ratio's log.
+	prev := Bar{Present: true, Close: 10, Adj: 10}
+	cases := []struct {
+		name        string
+		rk          float64
+		date, from  time.Time
+		totalReturn bool
+		unadjusted  bool
+	}{
+		{"noise within tolerance", -0.00101, base, base, true, true},
+		{"just above tolerance is an adjustment", 0.002, base, base, true, false},
+		{"fall beyond tolerance is price return and cash", -0.05, base, base, false, true},
+		{"rise over 15% is price return", 0.15, base, base, false, false},
+		{"cents era widens the tolerance", 0.002, dayAt(0), dayAt(10), true, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cur := Bar{Present: true, Close: 10, Adj: 10 * math.Exp(tc.rk)}
+			b := ClassifyBar(prev, cur, true, tc.date, tc.from)
+			if b.TotalReturn != tc.totalReturn || b.Unadjusted != tc.unadjusted {
+				t.Fatalf("total return %v unadjusted %v, want %v and %v (rk %.5f tol %.5f)",
+					b.TotalReturn, b.Unadjusted, tc.totalReturn, tc.unadjusted, b.RK, b.Tol)
+			}
+		})
+	}
+}
+
+func TestToleranceFloorAloneKeepsAStepTotalReturn(t *testing.T) {
+	// With the 4-decimal quantum the tolerance is 0.001 plus about 0.00002, so
+	// the 0.001 floor carries a step of -0.00101 to total return.
+	prev := Bar{Present: true, Close: 10, Adj: 10}
+	cur := Bar{Present: true, Close: 10, Adj: 10 * math.Exp(-0.00101)}
+	b := ClassifyBar(prev, cur, true, base, base)
+	if !b.TotalReturn {
+		t.Fatalf("a step within the floor was price return (tol %.6f)", b.Tol)
+	}
+	if b.Tol < toleranceFloor {
+		t.Fatalf("tolerance %v below the floor", b.Tol)
+	}
+}
+
+func TestEntryBlockedWhileAnEarlierPositionMoved(t *testing.T) {
+	// AAA is bought at 10 and closes session 4 at 12. Its equity of 101,985 on
+	// session 4 is the base for BBB's sizing on the next session: 10% of it.
+	st := NewState(testConfig())
+	for i := 0; i <= 3; i++ {
+		a := codeAt("AAA", "setup", mkBar(10, 10))
+		b := codeAt("BBB", "setup", mkBar(20, 20))
+		if i == 2 {
+			a.Status = StatusTriggered
+		}
+		if i == 3 {
+			a.Bar = mkBar(10, 12) // fills AAA at 10 on session 3, closes at 12
+		}
+		Step(st, sessionAt(i, b, a))
+	}
+	if _, ok := st.positions["AAA"]; !ok {
+		t.Fatal("AAA not held")
+	}
+	Step(st, sessionAt(4, codeAt("AAA", StatusTriggered, mkBar(12, 12)), codeAt("BBB", StatusTriggered, mkBar(20, 20))))
+	near(t, "equity on session 4", st.Equity(), 89985+1000*12, 1e-6)
+	Step(st, sessionAt(5, codeAt("AAA", StatusTriggered, mkBar(12, 12)), codeAt("BBB", StatusTriggered, mkBar(20, 20))))
+	pos := st.positions["BBB"]
+	if pos == nil {
+		t.Fatal("BBB not filled on session 5")
+	}
+	near(t, "BBB notional is 10% of equity on session 4", pos.qty*pos.entryPL, 0.1*(89985+1000*12), 1e-6)
+}
+
+func TestTimeStopDecidedOnAnUntradedSession(t *testing.T) {
+	// Entry on session 2 with a 3-session time stop: due on session 5. Session 5
+	// has no bar, so the exit is decided there and fills at session 6's open.
+	cfg := testConfig()
+	cfg.ExitRules = []ExitRule{{Kind: RuleTimeStop, Sessions: 3}}
+	st := enter(t, cfg, mkBar(10, 10))
+	Step(st, sessionAt(3, codeAt("AAA", StatusTriggered, mkBar(10, 10))))
+	Step(st, sessionAt(4, codeAt("AAA", StatusTriggered, mkBar(10, 10))))
+	Step(st, sessionAt(5))
+	if _, queued := st.exits["AAA"]; !queued {
+		t.Fatal("the time stop was not decided on the session with no bar")
+	}
+	Step(st, sessionAt(6, codeAt("AAA", StatusTriggered, mkBar(10.4, 10.4))))
+	tr := st.Finish()[0]
+	if tr.ExitReason != ReasonTimeStop || !tr.ExitDate.Equal(dayAt(6)) {
+		t.Fatalf("exit %s on %v, want time_stop on session 6", tr.ExitReason, tr.ExitDate)
+	}
+}
+
+func TestPivotExitCountsConsecutiveCloses(t *testing.T) {
+	cfg := testConfig()
+	cfg.ExitRules = []ExitRule{{Kind: RuleCloseBelowCapturedPivot, Sessions: 2}}
+	st := enter(t, cfg, mkBar(10, 10))
+	Step(st, sessionAt(3, codeAt("AAA", StatusTriggered, mkBar(10, 9.5))))
+	if _, queued := st.exits["AAA"]; queued {
+		t.Fatal("one close below the pivot queued an exit; two were needed")
+	}
+	Step(st, sessionAt(4, codeAt("AAA", StatusTriggered, mkBar(9.5, 9.4))))
+	if _, queued := st.exits["AAA"]; !queued {
+		t.Fatal("two consecutive closes below the pivot did not queue an exit")
+	}
+}
+
+func TestPriceReturnFlagOnTheEntryAndExitBars(t *testing.T) {
+	// A k artefact on the entry bar cannot change the trade: its fill and its
+	// mark share the same multiplier, so it is not flagged.
+	t.Run("entry bar is not flagged", func(t *testing.T) {
+		spike := Bar{Present: true, Open: 10, High: 10, Low: 10, Close: 10, Adj: 13, Volume: 1e6}
+		st := enter(t, testConfig(), spike)
+		pos := st.positions["AAA"]
+		if pos == nil {
+			t.Fatal("no position")
+		}
+		if pos.flags[FlagPriceReturnOnly] {
+			t.Fatal("an artefact on the entry bar flagged the trade")
+		}
+	})
+	// A k artefact on the bar whose open fills the exit does change the exit's
+	// price basis, so it is flagged.
+	t.Run("exit bar is flagged", func(t *testing.T) {
+		cfg := testConfig()
+		cfg.ExitRules = []ExitRule{{Kind: RuleCloseBelowCapturedPivot}}
+		st := enter(t, cfg, mkBar(10, 10))
+		Step(st, sessionAt(3, codeAt("AAA", StatusTriggered, mkBar(10, 9.5))))
+		spike := Bar{Present: true, Open: 9.4, High: 9.4, Low: 9.4, Close: 9.4, Adj: 13, Volume: 1e6}
+		Step(st, sessionAt(4, codeAt("AAA", StatusTriggered, spike)))
+		tr := st.Finish()[0]
+		if !hasFlag(tr.Flags, FlagPriceReturnOnly) {
+			t.Fatalf("an artefact on the exit-fill bar was not flagged: %v", tr.Flags)
+		}
+	})
+}
+
+func TestGrossIncludesCashDividends(t *testing.T) {
+	// One unadjusted 50c dividend on 1,000 units bought at 10 and held: the
+	// price is flat, so the total return before costs is 500 on 10,000.
+	st := enter(t, testConfig(), mkBar(10, 10))
+	ex := codeAt("AAA", StatusTriggered, mkBar(10, 10))
+	ex.Dividend = 0.5
+	Step(st, sessionAt(3, ex))
+	tr := st.Finish()[0]
+	near(t, "gross on a flat price with a dividend", tr.Gross, 0.05, 1e-9)
+	if tr.Net > tr.Gross {
+		t.Fatalf("net %v above gross %v", tr.Net, tr.Gross)
+	}
+	near(t, "dividends on the trade", tr.Dividends, 500, 1e-6)
+}
+
+func TestRecordCarriesDrawdown(t *testing.T) {
+	cfg := testConfig()
+	cfg.ExitRules = []ExitRule{{Kind: RuleStopLoss, Pct: 50}}
+	st := enter(t, cfg, mkBar(10, 10))
+	Step(st, sessionAt(3, codeAt("AAA", StatusTriggered, mkBar(10, 9))))
+	r := recordAt(t, st, 3)
+	peak := 0.0
+	for _, rec := range st.Records() {
+		if rec.Equity > peak {
+			peak = rec.Equity
+		}
+	}
+	near(t, "drawdown on session 3", r.Drawdown, r.Equity/peak-1, 1e-12)
+	if r.Drawdown >= 0 {
+		t.Fatalf("drawdown %v on a falling session", r.Drawdown)
+	}
+}
+
+func TestNewStateRequiresThePriceQuantumDate(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("NewState accepted a zero Price4dpFrom")
+		}
+	}()
+	cfg := testConfig()
+	cfg.Price4dpFrom = time.Time{}
+	NewState(cfg)
 }

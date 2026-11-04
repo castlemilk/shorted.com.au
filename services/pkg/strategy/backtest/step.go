@@ -72,16 +72,15 @@ type Bar struct {
 
 func (b Bar) traded() bool { return b.Present && b.Volume > 0 }
 
-// CASuspect is a corporate-action suspect as it is known on a session.
+// CASuspect is a corporate-action suspect as it is known on a session. The
+// exclusion price is not supplied: the simulator closes a position at its own
+// P&L-basis close from the session before the suspect bar.
 type CASuspect struct {
 	// Known is true on the session the suspect becomes known (ca_known_at).
 	Known bool
 	// SuspectDate is the bar the suspect sits on. A position entered before it
 	// is closed as a data exclusion; one entered on or after it is unaffected.
 	SuspectDate time.Time
-	// PrePL is the P&L-basis close of the bar before SuspectDate, the price the
-	// exclusion closes at.
-	PrePL float64
 }
 
 // CodeSession is one code's inputs on one session. Signals are as at this
@@ -108,7 +107,8 @@ type CodeSession struct {
 type Session struct {
 	Date  time.Time
 	Index int
-	// CashRate is the annual RBA cash rate forward-filled to this session.
+	// CashRate is the annual RBA cash rate as a fraction (0.0435 for 4.35%),
+	// forward-filled to this session.
 	CashRate             float64
 	Benchmark, Reference float64
 	Codes                []CodeSession
@@ -141,28 +141,35 @@ type Config struct {
 	// NewBreakoutOnly admits a candidate only when its breakout date was never
 	// traded in this code (the recipe's fresh rule).
 	NewBreakoutOnly bool
-	// Price4dpFrom is the first date stored to four decimal places.
+	// Price4dpFrom is the first date stored to four decimal places. It is
+	// required: a zero value would read all history as four-decimal prices.
 	Price4dpFrom time.Time
 	// LastLoaded is each code's last loaded bar date. A stale exit is labelled
 	// delisted when no later bar exists, and suspended otherwise.
 	LastLoaded map[string]time.Time
 }
 
-// Trade is one round trip. Prices are on the P&L basis (price x multiplier).
+// Trade is one round trip. EntryPrice and ExitPrice are on the P&L basis (price
+// x multiplier) and carry the returns; EntryFill and ExitFill are the executed
+// prices on the signal basis, the ones a trade list shows beside the pivot.
+// Gross is the total return before costs, cash dividends included; Net is after
+// both sides' costs and cash dividends, so Net never exceeds Gross.
 type Trade struct {
 	Code           string
 	SignalDate     time.Time
 	EntryDate      time.Time
 	EntryPrice     float64
+	EntryFill      float64
 	Pivot          float64
 	EntryScore     float64
 	ExitSignalDate time.Time
 	ExitDate       time.Time
 	ExitPrice      float64
+	ExitFill       float64
 	ExitReason     string
 	Qty            float64
-	Gross          float64 // price-only return before costs and cash dividends
-	Net            float64 // after both sides' costs and cash dividends
+	Gross          float64
+	Net            float64
 	SessionsHeld   int
 	Dividends      float64
 	Fees           float64
@@ -177,6 +184,7 @@ type Record struct {
 	Equity, Cash         float64
 	Invested             float64
 	Exposure             float64 // invested / equity
+	Drawdown             float64 // equity / highest equity so far - 1
 	Benchmark, Reference float64
 }
 
@@ -188,6 +196,13 @@ type Event struct {
 	Reason string
 }
 
+// mark is one session's close for a held position: the signal-basis close and
+// the P&L-basis close it was marked at.
+type mark struct {
+	date    time.Time
+	raw, pl float64
+}
+
 type position struct {
 	code       string
 	signalDate time.Time
@@ -196,7 +211,7 @@ type position struct {
 	entryIdx   int
 	entryRaw   float64 // signal basis fill, for the stop loss
 	entryPL    float64 // P&L basis fill
-	qty        float64
+	qty        float64 // notional / entryPL: units on the P&L basis
 	pivot      float64
 	score      float64
 	dv20       float64
@@ -205,6 +220,19 @@ type position struct {
 	missing    int // consecutive sessions without a bar
 	ruleCount  []int
 	flags      map[string]bool
+	// marks holds the position's closes from its entry on, by session.
+	marks []mark
+}
+
+// preSuspect is the position's close on the last session before suspect: the
+// price a corporate-action exclusion closes at.
+func (p *position) preSuspect(suspect time.Time) (raw, pl float64) {
+	for i := len(p.marks) - 1; i >= 0; i-- {
+		if p.marks[i].date.Before(suspect) {
+			return p.marks[i].raw, p.marks[i].pl
+		}
+	}
+	return p.entryRaw, p.entryPL
 }
 
 type pendingEntry struct {
@@ -227,6 +255,7 @@ type perCode struct {
 	mult          float64
 	prev          Bar
 	hasPrev       bool
+	lastRaw       float64
 	lastPL        float64
 	lastPLDate    time.Time
 	prevStatus    string
@@ -244,6 +273,7 @@ type State struct {
 	cfg        Config
 	cash       float64
 	lastEquity float64
+	peak       float64
 	lastIndex  int
 	codes      map[string]*perCode
 	positions  map[string]*position
@@ -254,8 +284,12 @@ type State struct {
 	records    []Record
 }
 
-// NewState starts a run with Capital in cash.
+// NewState starts a run with Capital in cash. It panics when Price4dpFrom is
+// unset, because the total-return tolerance depends on it.
 func NewState(cfg Config) *State {
+	if cfg.Price4dpFrom.IsZero() {
+		panic("backtest: Config.Price4dpFrom must be set to the first four-decimal session")
+	}
 	if cfg.StaleExitSessions == 0 {
 		cfg.StaleExitSessions = defaultStaleSessions
 	}
@@ -263,6 +297,7 @@ func NewState(cfg Config) *State {
 		cfg:        cfg,
 		cash:       cfg.Capital,
 		lastEquity: cfg.Capital,
+		peak:       cfg.Capital,
 		codes:      map[string]*perCode{},
 		positions:  map[string]*position{},
 		exits:      map[string]pendingExit{},
@@ -280,7 +315,8 @@ func (st *State) Equity() float64 { return st.lastEquity }
 
 // Finish returns the closed trades followed by the positions still open,
 // marked at their last P&L close and flagged OpenAtEnd. Open trades are not
-// charged an exit cost, and they are excluded from closed-trade statistics.
+// charged an exit cost, and they are excluded from closed-trade statistics. An
+// open trade's exit signal date is set only when an exit is pending on it.
 func (st *State) Finish() []Trade {
 	out := append([]Trade(nil), st.trades...)
 	var date time.Time
@@ -289,16 +325,26 @@ func (st *State) Finish() []Trade {
 	}
 	for _, code := range sortedKeys(st.positions) {
 		pos := st.positions[code]
-		out = append(out, pos.trade(date, st.lastIndex, st.codeState(code).lastPL, ReasonOpenAtEnd, pos.signalDate, 0, true))
+		cs := st.codeState(code)
+		var signal time.Time
+		if px, ok := st.exits[code]; ok {
+			signal = px.signalDate
+		}
+		out = append(out, pos.trade(date, st.lastIndex, cs.lastRaw, cs.lastPL, ReasonOpenAtEnd, signal, 0, true))
 	}
 	return out
 }
 
 // Step advances the simulation by one session. The order is fixed: the
-// session's bars are classified; exits and entries queued at the previous close
-// fill at this open; positions are marked at the close; cash accrues and
-// dividends are credited; exits are decided; entries for the next session are
+// session's bars are classified and the P&L multiplier steps; the cash dividends
+// of positions held at the previous close are credited; exits and entries queued
+// at the previous close fill at this open; positions are marked at the close;
+// idle cash accrues; exits are decided; entries for the next session are
 // scheduled; and the session is recorded.
+//
+// Dividends come before the fills because the register is the one at the
+// previous close: a buyer at an ex-date open is not paid, and a seller at that
+// open is.
 func Step(st *State, s Session) {
 	by := make(map[string]*CodeSession, len(s.Codes))
 	for i := range s.Codes {
@@ -310,7 +356,7 @@ func Step(st *State, s Session) {
 	for _, code := range codes {
 		c := by[code]
 		cs := st.codeState(code)
-		if c.CA.Known && !cs.hasCA {
+		if c.CA.Known {
 			cs.hasCA = true
 			cs.caKnownIdx = s.Index
 		}
@@ -318,20 +364,30 @@ func Step(st *State, s Session) {
 			continue
 		}
 		b := ClassifyBar(cs.prev, c.Bar, cs.hasPrev, s.Date, st.cfg.Price4dpFrom)
-		if b.TotalReturn {
+		// A cash-credited bar's step is not applied: the cash dividend is the
+		// total-return adjustment for that event, so stepping as well would count
+		// it twice when the vendor stored a small dividend as an adjustment.
+		if b.TotalReturn && !cashCredited(b, c) {
 			cs.mult *= math.Exp(b.RK)
 		}
 		basis[code] = b
 	}
 
-	st.fillExits(s, by)
+	st.creditDividends(s, by, basis)
+	st.fillExits(s, by, basis)
 	st.fillEntries(s, by)
 	st.markToMarket(s, by, basis)
-	st.accrueCash(s, by, basis)
+	st.accrueCash(s)
 	st.decideExits(s, by)
 	st.scheduleEntries(s, by, codes)
 	st.record(s)
 	st.advance(s, by)
+}
+
+// cashCredited reports whether a recorded dividend on this bar is paid in cash:
+// the bar is unadjusted by the vendor (r_k at or below the tolerance).
+func cashCredited(b BarBasis, c *CodeSession) bool {
+	return c.Dividend > 0 && b.Unadjusted
 }
 
 func sortedKeys[V any](m map[string]V) []string {
@@ -365,7 +421,24 @@ func fillPrice(b Bar) (float64, bool) {
 	return b.Close, true
 }
 
-func (st *State) fillExits(s Session, by map[string]*CodeSession) {
+// creditDividends pays each held position's cash dividend on an unadjusted
+// ex-date. The credit is qty x m_t: qty counts units on the P&L basis, so the
+// shares held are qty x m_t, and the amount is the dividend per share on them.
+func (st *State) creditDividends(s Session, by map[string]*CodeSession, basis map[string]BarBasis) {
+	for _, code := range sortedKeys(st.positions) {
+		c := by[code]
+		if c == nil || !c.Bar.Present || !cashCredited(basis[code], c) {
+			continue
+		}
+		pos := st.positions[code]
+		amt := float64(float64(c.Dividend*pos.qty) * st.codeState(code).mult)
+		st.cash += amt
+		pos.dividends += amt
+		st.event(s.Date, code, EventDividendCredit, "")
+	}
+}
+
+func (st *State) fillExits(s Session, by map[string]*CodeSession, basis map[string]BarBasis) {
 	for _, code := range sortedKeys(st.exits) {
 		px := st.exits[code]
 		pos := st.positions[code]
@@ -374,13 +447,19 @@ func (st *State) fillExits(s Session, by map[string]*CodeSession) {
 			continue
 		}
 		c := by[code]
+		// A position entered before a suspect bar is closed by the exclusion at
+		// that session's close, at the pre-suspect price. The suspect bar's open
+		// is an unadjusted level, so a fill there would book a phantom move.
+		if c != nil && c.CA.Known && pos.entryDate.Before(c.CA.SuspectDate) {
+			continue
+		}
 		if c == nil || !c.Bar.traded() {
 			pos.flags[FlagDelayedExit] = true
 			st.event(s.Date, code, EventExitDelayed, px.reason)
 			continue
 		}
-		price, fallback := fillPrice(c.Bar)
-		if price <= 0 {
+		raw, fallback := fillPrice(c.Bar)
+		if raw <= 0 {
 			pos.flags[FlagDelayedExit] = true
 			st.event(s.Date, code, EventExitDelayed, px.reason)
 			continue
@@ -388,7 +467,13 @@ func (st *State) fillExits(s Session, by map[string]*CodeSession) {
 		if fallback {
 			pos.flags[FlagFallbackClose] = true
 		}
-		st.closePosition(s.Date, s.Index, pos, price*st.codeState(code).mult, px.reason, px.signalDate, px.dv20)
+		// The exit is priced with this bar's multiplier, so a bar whose step was
+		// ignored makes the exit a price-return fill.
+		if b := basis[code]; b.HasPrev && !b.TotalReturn {
+			pos.flags[FlagPriceReturnOnly] = true
+		}
+		pl := float64(raw * st.codeState(code).mult)
+		st.closePosition(s.Date, s.Index, pos, raw, pl, px.reason, px.signalDate, px.dv20)
 	}
 }
 
@@ -396,8 +481,8 @@ func (st *State) fillExits(s Session, by map[string]*CodeSession) {
 // can pay for it and its minimum fee. Capacity caps the notional at a share of
 // the decision's DV20.
 func (st *State) sizeEntry(e pendingEntry) (notional float64, capped, ok bool) {
-	want := st.cfg.WeightPct / 100 * st.lastEquity
-	if capN := st.cfg.CapacityPctDV20 / 100 * e.dv20; capN < want {
+	want := float64(st.cfg.WeightPct / 100 * st.lastEquity)
+	if capN := float64(st.cfg.CapacityPctDV20 / 100 * e.dv20); capN < want {
 		want = capN
 		capped = true
 	}
@@ -430,7 +515,7 @@ func (st *State) fillEntries(s Session, by map[string]*CodeSession) {
 			st.event(s.Date, e.code, EventEntryCancelled, CancelUntraded)
 			continue
 		}
-		if limit := st.cfg.MaxAbovePivotPct; limit != nil && raw > e.pivot*(1+*limit/100) {
+		if limit := st.cfg.MaxAbovePivotPct; limit != nil && raw > float64(e.pivot*(1+*limit/100)) {
 			st.event(s.Date, e.code, EventEntryCancelled, CancelGap)
 			continue
 		}
@@ -440,7 +525,7 @@ func (st *State) fillEntries(s Session, by map[string]*CodeSession) {
 			continue
 		}
 		cs := st.codeState(e.code)
-		pl := raw * cs.mult
+		pl := float64(raw * cs.mult)
 		fee := st.cfg.Costs.Fee(notional, e.dv20)
 		st.cash -= notional + fee
 		pos := &position{
@@ -466,6 +551,7 @@ func (st *State) fillEntries(s Session, by map[string]*CodeSession) {
 			pos.flags[FlagCapacityCapped] = true
 		}
 		st.positions[e.code] = pos
+		cs.lastRaw = raw
 		cs.lastPL = pl
 		cs.lastPLDate = s.Date
 		if !e.breakout.IsZero() {
@@ -476,41 +562,41 @@ func (st *State) fillEntries(s Session, by map[string]*CodeSession) {
 }
 
 // markToMarket records each held code's P&L-basis close. A code with no bar
-// keeps its last mark, and its missing count rises.
+// keeps its last mark, and its missing count rises. On a session where a held
+// position's corporate-action exclusion applies, the mark is the pre-suspect
+// close instead of the suspect bar's close, so no phantom mark is recorded.
 func (st *State) markToMarket(s Session, by map[string]*CodeSession, basis map[string]BarBasis) {
 	for _, code := range sortedKeys(st.positions) {
 		pos := st.positions[code]
 		c := by[code]
 		cs := st.codeState(code)
-		if c != nil && c.Bar.Present {
-			cs.lastPL = c.Bar.Close * cs.mult
-			cs.lastPLDate = s.Date
-			pos.missing = 0
+		if c == nil || !c.Bar.Present {
+			pos.missing++
+			pos.flags[FlagStaleMarks] = true
+			continue
+		}
+		pos.missing = 0
+		if c.CA.Known && pos.entryDate.Before(c.CA.SuspectDate) {
+			cs.lastRaw, cs.lastPL = pos.preSuspect(c.CA.SuspectDate)
+		} else {
+			cs.lastRaw = c.Bar.Close
+			cs.lastPL = float64(c.Bar.Close * cs.mult)
+			pos.marks = append(pos.marks, mark{date: s.Date, raw: cs.lastRaw, pl: cs.lastPL})
+		}
+		cs.lastPLDate = s.Date
+		// The entry bar is priced on the same multiplier as its fill, so only the
+		// bars after entry can change the position's basis.
+		if s.Index > pos.entryIdx {
 			if b := basis[code]; b.HasPrev && !b.TotalReturn {
 				pos.flags[FlagPriceReturnOnly] = true
 			}
-			continue
 		}
-		pos.missing++
-		pos.flags[FlagStaleMarks] = true
 	}
 }
 
-// accrueCash earns the session's cash rate and credits each held code's cash
-// dividend when its bar is unadjusted.
-func (st *State) accrueCash(s Session, by map[string]*CodeSession, basis map[string]BarBasis) {
+// accrueCash earns the session's cash rate on the cash held at the close.
+func (st *State) accrueCash(s Session) {
 	st.cash *= 1 + DailyRate(s.CashRate)
-	for _, code := range sortedKeys(st.positions) {
-		c := by[code]
-		if c == nil || !c.Bar.Present || c.Dividend <= 0 || !basis[code].Unadjusted {
-			continue
-		}
-		pos := st.positions[code]
-		amt := c.Dividend * pos.qty
-		st.cash += amt
-		pos.dividends += amt
-		st.event(s.Date, code, EventDividendCredit, "")
-	}
 }
 
 // decideExits evaluates the data exclusions and the recipe's exits on signal
@@ -524,7 +610,8 @@ func (st *State) decideExits(s Session, by map[string]*CodeSession) {
 
 		if c != nil && c.CA.Known && pos.entryDate.Before(c.CA.SuspectDate) {
 			delete(st.exits, code)
-			st.closePosition(s.Date, s.Index, pos, c.CA.PrePL, ReasonCorporateAction, s.Date, c.DV20)
+			raw, pl := pos.preSuspect(c.CA.SuspectDate)
+			st.closePosition(s.Date, s.Index, pos, raw, pl, ReasonCorporateAction, s.Date, c.DV20)
 			continue
 		}
 		if c == nil || !c.Bar.Present {
@@ -534,7 +621,17 @@ func (st *State) decideExits(s Session, by map[string]*CodeSession) {
 					reason = ReasonSuspended
 				}
 				delete(st.exits, code)
-				st.closePosition(s.Date, s.Index, pos, cs.lastPL, reason, s.Date, pos.dv20)
+				st.closePosition(s.Date, s.Index, pos, cs.lastRaw, cs.lastPL, reason, s.Date, pos.dv20)
+				continue
+			}
+			// A time stop is decided on its own session, with or without a bar.
+			if _, queued := st.exits[code]; !queued {
+				for _, r := range st.cfg.ExitRules {
+					if r.Kind == RuleTimeStop && timeStopFires(r, pos, s) {
+						st.exits[code] = pendingExit{code: code, reason: ReasonTimeStop, signalDate: s.Date, dv20: pos.dv20}
+						break
+					}
+				}
 			}
 			continue
 		}
@@ -553,8 +650,13 @@ func (st *State) decideExits(s Session, by map[string]*CodeSession) {
 	}
 }
 
+func timeStopFires(r ExitRule, pos *position, s Session) bool {
+	return r.Sessions > 0 && s.Index-pos.entryIdx >= r.Sessions
+}
+
 // ruleFires reports whether one exit rule fires at this close, and updates the
-// rule's consecutive-close count for the position.
+// rule's consecutive-close count for the position. Every rule except the time
+// stop counts consecutive closes.
 func ruleFires(pos *position, i int, r ExitRule, s Session, c *CodeSession) (bool, string) {
 	px := c.Bar.Close
 	need := r.Sessions
@@ -563,31 +665,32 @@ func ruleFires(pos *position, i int, r ExitRule, s Session, c *CodeSession) (boo
 	}
 	switch r.Kind {
 	case RuleCloseBelowCapturedPivot:
-		return pos.pivot > 0 && px < pos.pivot, ReasonPivotStop
+		return consecutive(pos, i, need, pos.pivot > 0 && px < pos.pivot), ReasonPivotStop
 	case RuleTimeStop:
-		return r.Sessions > 0 && s.Index-pos.entryIdx >= r.Sessions, ReasonTimeStop
+		return timeStopFires(r, pos, s), ReasonTimeStop
 	case RuleStopLoss:
-		return r.Pct > 0 && px <= pos.entryRaw*(1-r.Pct/100), ReasonStopLoss
+		return consecutive(pos, i, need, r.Pct > 0 && px <= float64(pos.entryRaw*(1-r.Pct/100))), ReasonStopLoss
 	case RuleCloseBelowSMA:
 		sma := c.SMA50
 		if r.SMA == 200 {
 			sma = c.SMA200
 		}
-		if sma > 0 && px < sma {
-			pos.ruleCount[i]++
-		} else {
-			pos.ruleCount[i] = 0
-		}
-		return pos.ruleCount[i] >= need, ReasonSMAStop
+		return consecutive(pos, i, need, sma > 0 && px < sma), ReasonSMAStop
 	case RuleStatusFallsTo:
-		if containsString(r.Statuses, c.Status) {
-			pos.ruleCount[i]++
-		} else {
-			pos.ruleCount[i] = 0
-		}
-		return pos.ruleCount[i] >= need, ReasonStatusExit
+		return consecutive(pos, i, need, containsString(r.Statuses, c.Status)), ReasonStatusExit
 	}
 	return false, ""
+}
+
+// consecutive advances rule i's run of closes that hold, or resets it, and
+// reports whether the run has reached need.
+func consecutive(pos *position, i, need int, holds bool) bool {
+	if holds {
+		pos.ruleCount[i]++
+	} else {
+		pos.ruleCount[i] = 0
+	}
+	return pos.ruleCount[i] >= need
 }
 
 func containsString(xs []string, v string) bool {
@@ -654,16 +757,24 @@ func (st *State) openNotQueued() int {
 	return n
 }
 
-// record writes the session's equity and sets the next session's sizing base.
+// record writes the session's equity and drawdown, and sets the next session's
+// sizing base.
 func (st *State) record(s Session) {
 	invested := 0.0
 	for _, code := range sortedKeys(st.positions) {
-		invested += st.positions[code].qty * st.codeState(code).lastPL
+		invested += float64(st.positions[code].qty * st.codeState(code).lastPL)
 	}
 	equity := st.cash + invested
 	exposure := 0.0
 	if equity > 0 {
 		exposure = invested / equity
+	}
+	if equity > st.peak {
+		st.peak = equity
+	}
+	drawdown := 0.0
+	if st.peak > 0 {
+		drawdown = equity/st.peak - 1
 	}
 	st.records = append(st.records, Record{
 		Date:      s.Date,
@@ -672,6 +783,7 @@ func (st *State) record(s Session) {
 		Cash:      st.cash,
 		Invested:  invested,
 		Exposure:  exposure,
+		Drawdown:  drawdown,
 		Benchmark: s.Benchmark,
 		Reference: s.Reference,
 	})
@@ -694,13 +806,14 @@ func (st *State) advance(s Session, by map[string]*CodeSession) {
 	st.lastIndex = s.Index
 }
 
-// closePosition sells the whole position at price (P&L basis), pays the exit
-// fee, and records the trade. The code starts its cooldown from this session.
-func (st *State) closePosition(date time.Time, idx int, pos *position, price float64, reason string, signalDate time.Time, dv20 float64) {
-	proceeds := pos.qty * price
+// closePosition sells the whole position at pl (P&L basis; raw is the same
+// price on the signal basis), pays the exit fee, and records the trade. The code
+// starts its cooldown from this session.
+func (st *State) closePosition(date time.Time, idx int, pos *position, raw, pl float64, reason string, signalDate time.Time, dv20 float64) {
+	proceeds := float64(pos.qty * pl)
 	fee := st.cfg.Costs.Fee(proceeds, dv20)
 	st.cash += proceeds - fee
-	st.trades = append(st.trades, pos.trade(date, idx, price, reason, signalDate, fee, false))
+	st.trades = append(st.trades, pos.trade(date, idx, raw, pl, reason, signalDate, fee, false))
 	delete(st.positions, pos.code)
 	delete(st.exits, pos.code)
 	cs := st.codeState(pos.code)
@@ -709,12 +822,17 @@ func (st *State) closePosition(date time.Time, idx int, pos *position, price flo
 	st.event(date, pos.code, EventExitFilled, reason)
 }
 
-func (p *position) trade(date time.Time, idx int, price float64, reason string, signalDate time.Time, exitFee float64, open bool) Trade {
-	cost := p.qty*p.entryPL + p.entryFee
-	proceeds := p.qty*price - exitFee + p.dividends
+func (p *position) trade(date time.Time, idx int, raw, pl float64, reason string, signalDate time.Time, exitFee float64, open bool) Trade {
+	entry := float64(p.qty * p.entryPL)
+	cost := entry + p.entryFee
+	proceeds := float64(p.qty*pl) - exitFee + p.dividends
 	net := 0.0
 	if cost > 0 {
 		net = proceeds/cost - 1
+	}
+	gross := 0.0
+	if entry > 0 {
+		gross = (float64(p.qty*pl)+p.dividends)/entry - 1
 	}
 	flags := make([]string, 0, len(p.flags))
 	for f := range p.flags {
@@ -726,14 +844,16 @@ func (p *position) trade(date time.Time, idx int, price float64, reason string, 
 		SignalDate:     p.signalDate,
 		EntryDate:      p.entryDate,
 		EntryPrice:     p.entryPL,
+		EntryFill:      p.entryRaw,
 		Pivot:          p.pivot,
 		EntryScore:     p.score,
 		ExitSignalDate: signalDate,
 		ExitDate:       date,
-		ExitPrice:      price,
+		ExitPrice:      pl,
+		ExitFill:       raw,
 		ExitReason:     reason,
 		Qty:            p.qty,
-		Gross:          price/p.entryPL - 1,
+		Gross:          gross,
 		Net:            net,
 		SessionsHeld:   idx - p.entryIdx,
 		Dividends:      p.dividends,
