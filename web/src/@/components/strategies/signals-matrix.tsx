@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { cn } from "~/@/lib/utils";
 import { formatRuleMeasure } from "~/@/lib/strategies/evidence";
 import type { RankingInput, SignalRule } from "~/@/lib/strategies/signals";
@@ -21,6 +23,8 @@ export interface SignalsMatrixProps {
   onSelect: (code: string) => void;
   /** Screen-reader caption for the table. */
   caption: string;
+  /** A full-width last row under the stocks, e.g. the sign-in prompt. */
+  footer?: ReactNode;
 }
 
 const TH = "whitespace-nowrap px-3 py-2 text-left font-medium";
@@ -33,6 +37,7 @@ export function SignalsMatrix({
   selected,
   onSelect,
   caption,
+  footer,
 }: SignalsMatrixProps) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border/60">
@@ -126,6 +131,18 @@ export function SignalsMatrix({
             );
           })}
         </tbody>
+        {footer ? (
+          <tfoot>
+            <tr className="border-t bg-muted/20">
+              <td
+                colSpan={2 + rules.length + rankingInputs.length}
+                className="px-3 py-3 text-sm text-muted-foreground"
+              >
+                {footer}
+              </td>
+            </tr>
+          </tfoot>
+        ) : null}
       </table>
     </div>
   );

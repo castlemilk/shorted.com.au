@@ -133,14 +133,35 @@ export function countLine(
   total: number,
 ): string {
   if (!counts) return "";
-  const parts = STATUS_ORDER.filter((key) => counts[key] > 0).map(
-    (key) => `${counts[key]} ${key}`,
-  );
   const head =
     total > shown
       ? `Showing ${shown} of ${total} signals`
       : `${total} ${total === 1 ? "signal" : "signals"}`;
-  return parts.length > 0 ? `${head}: ${parts.join(" · ")}` : head;
+  const split = statusSplit(counts);
+  return split ? `${head}: ${split}` : head;
+}
+
+/** The whole list's split by status, non-zero parts only: "5 triggered · 66 setup". "" with no counts. */
+export function statusSplit(counts: StatusCountsView | null): string {
+  if (!counts) return "";
+  return STATUS_ORDER.filter((key) => counts[key] > 0)
+    .map((key) => `${counts[key]} ${key}`)
+    .join(" · ");
+}
+
+/**
+ * The sign-in prompt's copy: what a free account unlocks, with the whole list's
+ * size and split. The same words serve the list's last row and an inline prompt.
+ */
+export function signInPromptCopy(
+  counts: StatusCountsView | null,
+  total: number,
+): string {
+  const split = statusSplit(counts);
+  const noun = total === 1 ? "signal" : "signals";
+  return split
+    ? `Sign in free to see all ${total} ${noun} (${split}).`
+    : `Sign in free to see all ${total} ${noun}.`;
 }
 
 /** The status word a filter chip names, as the page prints it. */

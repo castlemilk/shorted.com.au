@@ -1,6 +1,8 @@
 import {
   RANKING_INPUTS,
   SIGNALS_PUBLIC_ROWS,
+  signInPromptCopy,
+  statusSplit,
   chipFilters,
   countLine,
   coreRules,
@@ -98,6 +100,18 @@ describe("filter chips and the count line", () => {
 
   it("is empty without status counts rather than inventing a split", () => {
     expect(countLine(null, 10, 71)).toBe("");
+  });
+
+  it("splits the list by status without the shown count", () => {
+    expect(statusSplit(COUNTS)).toBe("5 triggered · 66 setup");
+    expect(statusSplit(null)).toBe("");
+  });
+
+  it("words the sign-in prompt with the whole list's size and split", () => {
+    expect(signInPromptCopy(COUNTS, 71)).toBe(
+      "Sign in free to see all 71 signals (5 triggered · 66 setup).",
+    );
+    expect(signInPromptCopy(null, 1)).toBe("Sign in free to see all 1 signal.");
   });
 
   it("filters rows by status, and 'all' takes every row", () => {
