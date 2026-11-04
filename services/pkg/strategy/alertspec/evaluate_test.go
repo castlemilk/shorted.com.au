@@ -315,7 +315,6 @@ func mixedSpec() Spec {
 func TestOneSidesOutageDoesNotHoldTheOtherSide(t *testing.T) {
 	a := Alert{Spec: mixedSpec(), FirstEval: FirstEvalBaseline, Baselined: true}
 	belowPivot := &Position{EntryPrice: 9, Pivot: f(10), SessionsHeld: 3}
-	noPivot := &Position{EntryPrice: 9, SessionsHeld: 3}
 
 	t.Run("entry side waits, exit still fires", func(t *testing.T) {
 		res, err := Evaluate(a, 9, []Subject{
@@ -339,11 +338,14 @@ func TestOneSidesOutageDoesNotHoldTheOtherSide(t *testing.T) {
 	})
 
 	t.Run("exit side waits, entry still fires", func(t *testing.T) {
+		// Three tracked positions with a captured pivot and no close: a real
+		// data outage on the exit side.
+		noClose := &Position{EntryPrice: 9, Pivot: f(10), SessionsHeld: 3}
 		res, err := Evaluate(a, 9, []Subject{
 			{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
-			{Key: "entry:1", Side: SideExit, Position: noPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
-			{Key: "entry:2", Side: SideExit, Position: noPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
-			{Key: "entry:3", Side: SideExit, Position: belowPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+			{Key: "entry:1", Side: SideExit, Position: noClose, Current: Observation{}, State: DefaultState()},
+			{Key: "entry:2", Side: SideExit, Position: noClose, Current: Observation{}, State: DefaultState()},
+			{Key: "entry:3", Side: SideExit, Position: belowPivot, Current: Observation{}, State: DefaultState()},
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -354,15 +356,35 @@ func TestOneSidesOutageDoesNotHoldTheOtherSide(t *testing.T) {
 		if ent := res.Subjects[0]; !ent.Emit {
 			t.Fatalf("the entry side must keep firing: %+v", ent)
 		}
+		if ex := res.Subjects[1]; ex.Emit || ex.State != DefaultState() {
+			t.Fatalf("the waiting exit side fires nothing and keeps its state: %+v", ex)
+		}
+	})
+
+	t.Run("exit side waits on its own, a known position still fires", func(t *testing.T) {
+		// Two of three positions have a captured pivot but no close. The third
+		// has data: it is evaluated, but the side waiting holds it back.
+		res, err := Evaluate(a, 9, []Subject{
+			{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
+			{Key: "entry:1", Side: SideExit, Position: belowPivot, Current: Observation{}, State: DefaultState()},
+			{Key: "entry:2", Side: SideExit, Position: belowPivot, Current: Observation{}, State: DefaultState()},
+			{Key: "entry:3", Side: SideExit, Position: belowPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !res.Sides[1].Waiting {
+			t.Fatalf("two of three positions without data wait: %+v", res.Sides[1])
+		}
 		if ex := res.Subjects[3]; ex.Emit {
 			t.Fatalf("the waiting exit side fires nothing, even for a known position: %+v", ex)
 		}
 	})
 }
 
-func TestEntryOutageIsCountedOnTheEntryScopeOnly(t *testing.T) {
-	// Two of three exits have no pivot. The entry side has data for both of
-	// its stocks, so the alert does not wait on the entry side at all.
+func TestPivotlessPositionsAreNotAnOutage(t *testing.T) {
+	// Two of three exits have no pivot, by the user's choice. The one with a
+	// pivot has data, so the exit side is not an outage and is evaluated.
 	a := Alert{Spec: mixedSpec(), FirstEval: FirstEvalBaseline, Baselined: true}
 	noPivot := &Position{EntryPrice: 9, SessionsHeld: 3}
 	res, err := Evaluate(a, 9, []Subject{
@@ -378,8 +400,90 @@ func TestEntryOutageIsCountedOnTheEntryScopeOnly(t *testing.T) {
 	if res.Sides[0].Waiting || res.Sides[0].Total != 2 {
 		t.Fatalf("the entry side has data for every stock: %+v", res.Sides[0])
 	}
-	if !res.Sides[1].Waiting {
-		t.Fatalf("the exit side is mostly pivot-less: %+v", res.Sides[1])
+	if want := (SideOutage{Side: SideExit, Unknown: 0, Total: 1, NoPivot: 2}); res.Sides[1] != want {
+		t.Fatalf("exit side %+v, want %+v", res.Sides[1], want)
+	}
+	// Subjects are AAA, BBB, entry:1 (no pivot), entry:2 (no pivot), entry:3.
+	if ex := res.Subjects[2]; ex.Emit || !ex.Skipped || ex.Value != Unknown {
+		t.Fatalf("a pivot-less position records its own skip and does not fire: %+v", ex)
+	}
+	if ex := res.Subjects[4]; !ex.Emit || ex.Skipped {
+		t.Fatalf("the position with a pivot and a close fires and is not skipped: %+v", ex)
+	}
+}
+
+func TestFirstEvaluationIsGatedByTheEntrySide(t *testing.T) {
+	// Notify-existing, not yet baselined. The entry side has data for every
+	// stock, but one tracked position has a pivot and no close. The exit side
+	// waits on its own, and the entry side still sets the baseline and fires.
+	a := Alert{Spec: mixedSpec(), FirstEval: FirstEvalNotifyExisting}
+	res, err := Evaluate(a, 1, []Subject{
+		{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
+		{Key: "code:BBB", Side: SideEntry, Current: Observation{Status: StatusSetup}, State: DefaultState()},
+		{Key: "entry:1", Side: SideExit, Position: &Position{EntryPrice: 9, Pivot: f(10)}, Current: Observation{}, State: DefaultState()},
+		{Key: "entry:2", Side: SideExit, Position: &Position{EntryPrice: 9}, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Sides[0].Waiting || !res.Sides[1].Waiting {
+		t.Fatalf("only the exit side waits: %+v", res.Sides)
+	}
+	if !res.SetBaseline {
+		t.Fatal("a known entry side sets the baseline beside a waiting exit side")
+	}
+	if ent := res.Subjects[0]; !ent.Emit || !ent.ExistingMatch {
+		t.Fatalf("the entry side is evaluated on the first evaluation: %+v", ent)
+	}
+	if ex := res.Subjects[2]; ex.Emit || ex.State != DefaultState() {
+		t.Fatalf("the waiting exit side is not evaluated on the first evaluation: %+v", ex)
+	}
+}
+
+func TestFirstEvaluationWaitsOnAWaitingEntrySideBesideAKnownExit(t *testing.T) {
+	// The mirror case: the entry side is mostly without data, the exit side is
+	// fully known. The gate is the entry side, so nothing is evaluated.
+	a := Alert{Spec: mixedSpec(), FirstEval: FirstEvalBaseline}
+	belowPivot := &Position{EntryPrice: 9, Pivot: f(10)}
+	res, err := Evaluate(a, 1, []Subject{
+		{Key: "code:AAA", Side: SideEntry, Current: Observation{Status: StatusTriggered}, State: DefaultState()},
+		{Key: "code:BBB", Side: SideEntry, Current: Observation{}, State: DefaultState()},
+		{Key: "code:CCC", Side: SideEntry, Current: Observation{}, State: DefaultState()},
+		{Key: "entry:1", Side: SideExit, Position: belowPivot, Current: Observation{Metrics: map[string]float64{MetricClose: 9.9}}, State: DefaultState()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Sides[0].Waiting || res.Sides[1].Waiting {
+		t.Fatalf("only the entry side waits: %+v", res.Sides)
+	}
+	if res.SetBaseline {
+		t.Fatal("a waiting entry side sets no baseline, even with a known exit side")
+	}
+	for _, r := range res.Subjects {
+		if r.Emit || r.Skipped || r.State != DefaultState() {
+			t.Fatalf("%s: a first evaluation held by the entry side writes nothing: %+v", r.Key, r)
+		}
+	}
+}
+
+func TestExitOnlyAlertBaselinesFromItsExitSide(t *testing.T) {
+	// With no entry side, the exit side is the gate: a fully pivot-less exit
+	// set has no data outage, so the baseline is set on the first session.
+	spec := exitOf(OpAny, Condition{Kind: KindPosition, Metric: MetricCloseVsEntryPivot, Op: OpCrossesBelow, Value: f(0)})
+	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline}
+	res, err := Evaluate(a, 1, []Subject{
+		{Key: "entry:1", Side: SideExit, Position: &Position{EntryPrice: 9}, Current: Observation{}, State: DefaultState()},
+		{Key: "entry:2", Side: SideExit, Position: &Position{EntryPrice: 9}, Current: Observation{}, State: DefaultState()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Waiting || !res.SetBaseline {
+		t.Fatalf("pivot-less positions are not an outage: %+v", res)
+	}
+	if !res.Subjects[0].Skipped {
+		t.Fatalf("a pivot-less position records its own skip: %+v", res.Subjects[0])
 	}
 }
 

@@ -289,3 +289,75 @@ func TestALatelyLinkedPositionReachesItsTimeStop(t *testing.T) {
 		t.Fatalf("late link fired on %v, want %v", fired, want)
 	}
 }
+
+func TestPivotlessPositionsRecordSkipsAndReachTheirTimeStop(t *testing.T) {
+	// The exit is ANY(close crosses below the pivot, held reaches 20). Three
+	// positions are linked on session 1: entry:1 has a pivot of 10 and closes
+	// under it on session 10; entry:2 and entry:3 have no pivot. The pivot-less
+	// positions are not an outage: the baseline is set on session 1, they
+	// record their skip on session 1, and their time stop fires on session 21.
+	spec := exitOf(OpAny,
+		Condition{Kind: KindPosition, Metric: MetricCloseVsEntryPivot, Op: OpCrossesBelow, Value: f(0)},
+		Condition{Kind: KindPosition, Metric: MetricSessionsHeld, Op: OpReaches, Value: f(20)},
+	)
+	spec.Cooldown = 0
+	a := Alert{Spec: spec, FirstEval: FirstEvalBaseline}
+	keys := []string{"entry:1", "entry:2", "entry:3"}
+	pivots := map[string]*float64{"entry:1": f(10), "entry:2": nil, "entry:3": nil}
+	state := map[string]State{}
+	prev := map[string]*Observation{}
+	fired := map[string][]Session{}
+	skipped := map[string][]Session{}
+	for day := 1; day <= 25; day++ {
+		session := Session(day)
+		var subs []Subject
+		curs := map[string]Observation{}
+		for _, k := range keys {
+			// After its first exit a tracked entry is exit_signalled and the
+			// caller stops evaluating it (7.4).
+			if len(fired[k]) > 0 {
+				continue
+			}
+			close := 10.5
+			if k == "entry:1" && day >= 10 {
+				close = 9.9
+			}
+			cur := Observation{Metrics: map[string]float64{MetricClose: close}}
+			curs[k] = cur
+			subs = append(subs, Subject{
+				Key: k, Side: SideExit,
+				Position: &Position{EntryPrice: 9, Pivot: pivots[k], SessionsHeld: day - 1},
+				Current:  cur, Previous: prev[k], State: state[k],
+			})
+		}
+		res, err := Evaluate(a, session, subs)
+		if err != nil {
+			t.Fatalf("session %d: %v", day, err)
+		}
+		if res.Waiting {
+			t.Fatalf("session %d: pivot-less positions made the alert wait: %+v", day, res.Sides)
+		}
+		if res.SetBaseline {
+			a.Baselined = true
+		}
+		for _, r := range res.Subjects {
+			if r.Emit {
+				fired[r.Key] = append(fired[r.Key], session)
+			}
+			if r.Skipped {
+				skipped[r.Key] = append(skipped[r.Key], session)
+			}
+			state[r.Key] = r.State
+			c := curs[r.Key]
+			prev[r.Key] = &c
+		}
+	}
+	wantFired := map[string][]Session{"entry:1": {10}, "entry:2": {21}, "entry:3": {21}}
+	if !reflect.DeepEqual(fired, wantFired) {
+		t.Fatalf("fired %v, want %v", fired, wantFired)
+	}
+	wantSkipped := map[string][]Session{"entry:2": {1}, "entry:3": {1}}
+	if !reflect.DeepEqual(skipped, wantSkipped) {
+		t.Fatalf("skipped %v, want %v", skipped, wantSkipped)
+	}
+}

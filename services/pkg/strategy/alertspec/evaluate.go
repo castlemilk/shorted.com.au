@@ -55,9 +55,15 @@ type SubjectResult struct {
 type SideOutage struct {
 	Side string
 	// Unknown counts the side's subjects whose section is unknown; Total counts
-	// every subject evaluated on the side.
+	// every subject evaluated on the side, except the pivot-less positions
+	// counted in NoPivot.
 	Unknown int
 	Total   int
+	// NoPivot counts the tracked positions with no captured pivot whose section
+	// is unknown only because of that pivot. The user chose no pivot, so these
+	// are not a data outage: they are skipped on their own and kept out of Total
+	// and Unknown.
+	NoPivot int
 	// Waiting is true when more than half of the side's subjects are unknown.
 	Waiting bool
 }
@@ -68,13 +74,16 @@ type Result struct {
 	// without data (see Sides). A waiting side fires nothing, writes no events
 	// and leaves its subjects' state alone. The other side is evaluated as
 	// usual, so a stale entry universe does not hold back the exits of tracked
-	// positions. On the first evaluation nothing is evaluated at all, because
-	// the baseline must cover every enabled side.
+	// positions. On the first evaluation nothing is evaluated while the
+	// baseline gate waits (see SetBaseline): the entry side decides it when
+	// enabled, and the exit side does otherwise.
 	Waiting bool
 	// Sides holds one entry per enabled side, entry first.
 	Sides []SideOutage
 	// SetBaseline is true when this session is the alert's first evaluated
-	// session, so the caller sets baseline_as_of to it.
+	// session, so the caller sets baseline_as_of to it. The baseline is set
+	// unless the gate side waits: the entry side when enabled, else the exit
+	// side. A waiting exit side beside a known entry side does not hold it.
 	SetBaseline bool
 	// Subjects holds one result per subject on an enabled side, in input order.
 	// Subjects on a disabled side are not evaluated and do not appear.
@@ -134,10 +143,16 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 		v := combine(sec.Op, conds)
 		p := pending{SubjectResult: SubjectResult{Key: sub.Key, Side: sub.Side, Value: v, Conditions: conds, State: sub.State}}
 		so := &sides[sideIdx[sub.Side]]
-		so.Total++
 		if v == Unknown {
-			so.Unknown++
 			p.skipReason = unknownReason(sec, conds)
+		}
+		if v == Unknown && noPivotOnly(sec, conds, sub.Position) {
+			so.NoPivot++
+		} else {
+			so.Total++
+			if v == Unknown {
+				so.Unknown++
+			}
 		}
 		results = append(results, p)
 	}
@@ -148,9 +163,19 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 		s.Waiting = s.Total > 0 && 2*s.Unknown > s.Total
 		waitingAny = waitingAny || s.Waiting
 	}
-	// The first evaluation is all or nothing: a baseline must cover every
-	// enabled side, so one waiting side holds the whole alert back.
-	holdAll := firstEval && waitingAny
+	// The baseline gate is the entry side when it is enabled, else the exit
+	// side. Only the gate side holds the first evaluation: a baseline is set
+	// from it, and an exit side waiting on its own does not stop the entry
+	// side from being baselined and evaluated.
+	gate := SideExit
+	if _, ok := sideIdx[SideEntry]; ok {
+		gate = SideEntry
+	}
+	baselineWaiting := false
+	if i, ok := sideIdx[gate]; ok {
+		baselineWaiting = sides[i].Waiting
+	}
+	holdAll := firstEval && baselineWaiting
 	frozen := func(side string) bool {
 		return holdAll || sides[sideIdx[side]].Waiting
 	}
@@ -203,7 +228,7 @@ func Evaluate(a Alert, session Session, subjects []Subject) (Result, error) {
 	return Result{
 		Waiting:     waitingAny,
 		Sides:       sides,
-		SetBaseline: firstEval && !waitingAny && len(out) > 0,
+		SetBaseline: firstEval && !baselineWaiting && len(out) > 0,
 		Subjects:    out,
 	}, nil
 }
@@ -264,19 +289,35 @@ func evalCondition(c Condition, cur, prev *Observation, pos *Position, stateForm
 	return Unknown
 }
 
-// statusIs is True or False when the status is a ladder value the alert can
-// read (triggered, setup, or other for watch and none). A missing status, the
-// v1 ladder's unknown rung and any value outside the ladder are Unknown: none
-// of them says the stock is not triggered.
+// statusIs is True or False when the status is a known ladder value (triggered,
+// setup, watch, none) or StatusOther. A missing status, the v1 ladder's unknown
+// rung and any other value are Unknown: none of them says the stock is not
+// triggered.
 func statusIs(o *Observation, want string) Truth {
 	if o == nil {
 		return Unknown
 	}
 	switch o.Status {
-	case StatusTriggered, StatusSetup, StatusOther:
+	case StatusTriggered, StatusSetup, StatusWatch, StatusNone, StatusOther:
 		return FromBool(o.Status == want)
 	}
 	return Unknown
+}
+
+// noPivotOnly reports whether a section's unknown is the missing pivot of a
+// tracked position and nothing else: the position has no captured pivot, and
+// every unknown condition reads that pivot. It is only asked of an unknown
+// section, so at least one condition is unknown.
+func noPivotOnly(sec Section, conds []Truth, pos *Position) bool {
+	if pos == nil || pos.Pivot != nil {
+		return false
+	}
+	for i, t := range conds {
+		if t == Unknown && sec.Conditions[i].Metric != MetricCloseVsEntryPivot {
+			return false
+		}
+	}
+	return true
 }
 
 func evalStatus(c Condition, cur, prev *Observation, stateForm bool) Truth {

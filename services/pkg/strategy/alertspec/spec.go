@@ -102,13 +102,16 @@ func DefaultEntry() Section {
 	}
 }
 
-// Stock statuses a condition can read. The ladder's watch and none both read
-// as StatusOther. StatusUnknown is the v1 ladder's unknown rung, which a
-// condition reads as Unknown, not as a stock that is not triggered. A status
-// outside this list is also Unknown.
+// Stock statuses a condition can read. These are the ladder's own values
+// (triggered, setup, watch, none), plus StatusOther for a caller that maps a
+// known non-triggered status onto one name. A status that is "", StatusUnknown
+// (the v1 ladder's unknown rung) or any other value is Unknown, not a stock
+// that is not triggered.
 const (
 	StatusTriggered = "triggered"
 	StatusSetup     = "setup"
+	StatusWatch     = "watch"
+	StatusNone      = "none"
 	StatusOther     = "other"
 	StatusUnknown   = "unknown"
 )
@@ -116,8 +119,9 @@ const (
 // Observation is what the caller knows about one stock on one session. A zero
 // Observation is a session with no data at all.
 type Observation struct {
-	// Status is the pinned version's ladder status on the session (see the
-	// Status constants). "" and StatusUnknown are unknown.
+	// Status is the pinned version's ladder status on the session: one of the
+	// Status constants other than StatusUnknown. "" and StatusUnknown are
+	// unknown, and so is any other value.
 	Status string
 	// Rules holds each rule's outcome for the alert's pinned rule version,
 	// keyed by rule id: True for pass, False for fail. A missing id is unknown.
