@@ -7,7 +7,7 @@ import { cn } from "~/@/lib/utils";
 import type { IndustryWeekRow, OwnershipActivityPage } from "~/app/actions/ownershipDesk";
 import { binOf, countScale, labelOnBin, lensFill, netScale } from "./desk-scales";
 import { LensLegend } from "./lens-legend";
-import { Toolbar, type ToolbarFold } from "../workspace/toolbar";
+import { Toolbar, type ToolbarFold } from "~/@/components/workspace/toolbar";
 import { WindowSelect } from "../workspace/window-select";
 import { shortSector } from "~/@/lib/ownership/kinds";
 import { DEFAULT_DESK_SORT, isIsoDate, shiftDate, type DeskSort } from "./desk-state";

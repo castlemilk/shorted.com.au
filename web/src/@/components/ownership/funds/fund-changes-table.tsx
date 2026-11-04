@@ -5,7 +5,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { sectionTitle } from "@/lib/typography";
 import { parseSelection } from "../workspace/selection";
-import { Toolbar, ToolbarSelect } from "../workspace/toolbar";
+import { Toolbar, ToolbarSelect } from "~/@/components/workspace/toolbar";
 import { ViewDisclosure } from "../workspace/view-disclosure";
 import { StockLogoBox } from "../workspace/stock-logo-box";
 import { withUrlState, type UrlState } from "./url-params";

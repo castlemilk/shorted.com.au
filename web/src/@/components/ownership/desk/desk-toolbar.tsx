@@ -22,7 +22,7 @@ import { Suspense, useMemo, type ReactNode } from "react";
 
 import { SearchCombobox, type SearchComboboxOption } from "~/@/components/gamma/SearchCombobox";
 import { serializeSelection } from "~/@/components/ownership/workspace/selection";
-import { Toolbar, ToolbarSelect, type ToolbarFold } from "~/@/components/ownership/workspace/toolbar";
+import { Toolbar, ToolbarSelect, type ToolbarFold } from "~/@/components/workspace/toolbar";
 import { ViewDisclosure } from "~/@/components/ownership/workspace/view-disclosure";
 import { WindowSelect, writeWindowInPlace } from "~/@/components/ownership/workspace/window-select";
 import { readNoticeWindow } from "./window-chips";

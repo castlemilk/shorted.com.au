@@ -9,7 +9,7 @@ import { industryLabel } from "~/@/lib/industry-placeholder";
 import { binFill, binOf, labelOnBin, lensFill, type LensScale } from "../desk/desk-scales";
 import { HolderLogo } from "../workspace/holder-logo";
 import { SortControl } from "../workspace/sort-control";
-import { TOOLBAR_SELECT_CLASS, Toolbar, ToolbarSelect } from "../workspace/toolbar";
+import { TOOLBAR_SELECT_CLASS, Toolbar, ToolbarSelect } from "~/@/components/workspace/toolbar";
 import { ViewDisclosure } from "../workspace/view-disclosure";
 import { SectorIcon } from "../workspace/sector-icon";
 import { StockLogoBox } from "../workspace/stock-logo-box";

@@ -34,7 +34,7 @@ import { MovementHeatmap } from "~/@/components/ownership/desk/movement-heatmap"
 import { OwnershipFlows } from "~/@/components/ownership/desk/ownership-flows";
 import { OwnershipMap } from "~/@/components/ownership/desk/ownership-map";
 import { Inspector } from "~/@/components/ownership/workspace/inspector";
-import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { WorkspacePage } from "~/@/components/workspace/workspace-page";
 import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/ownership";

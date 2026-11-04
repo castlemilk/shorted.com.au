@@ -3,7 +3,7 @@ import Link from "next/link";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { MovementHeatmap } from "~/@/components/ownership/desk/movement-heatmap";
 import { Inspector } from "~/@/components/ownership/workspace/inspector";
-import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { WorkspacePage } from "~/@/components/workspace/workspace-page";
 import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 import { lede, pageTitle } from "@/lib/typography";
 import { formatFlowPp } from "~/@/components/ownership/desk/lens-legend";

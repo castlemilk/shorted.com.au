@@ -6,7 +6,7 @@ import { SearchCombobox } from "~/@/components/gamma/SearchCombobox";
 import { SegmentedControl } from "~/@/components/gamma/SegmentedControl";
 import { EmptyState } from "~/@/components/gamma/EmptyState";
 import { HolderLogo } from "~/@/components/ownership/workspace/holder-logo";
-import { Toolbar } from "~/@/components/ownership/workspace/toolbar";
+import { Toolbar } from "~/@/components/workspace/toolbar";
 import { ViewDisclosure } from "~/@/components/ownership/workspace/view-disclosure";
 import { kindInfo } from "~/@/lib/ownership/kinds";
 import { cn } from "@/lib/utils";

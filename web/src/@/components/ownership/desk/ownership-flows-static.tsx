@@ -18,7 +18,7 @@ import {
 } from "./flows-layout";
 import { OTHER_SECTOR, sectorOf } from "./map-layout";
 import type { OwnershipFlowsPage } from "~/app/actions/ownershipDesk";
-import { Toolbar, type ToolbarFold } from "../workspace/toolbar";
+import { Toolbar, type ToolbarFold } from "~/@/components/workspace/toolbar";
 import { WindowPhrase, deskParamHref, hrefWithParams, type NoticeWindow } from "./window-chips";
 import { WindowSelect } from "../workspace/window-select";
 

@@ -56,7 +56,7 @@ import {
   formatLensFigure,
   mapCaption,
 } from "./lens-legend";
-import { Toolbar, type ToolbarFold } from "../workspace/toolbar";
+import { Toolbar, type ToolbarFold } from "~/@/components/workspace/toolbar";
 import { WindowSelect } from "../workspace/window-select";
 import { SortControl } from "../workspace/sort-control";
 
