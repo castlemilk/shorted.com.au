@@ -32,11 +32,31 @@ export async function generateMetadata({
   const seo = getStrategy(slug);
   if (!seo) notFound();
   const url = `${siteConfig.url}/strategies/${seo.slug}/signals`;
+  const title = `Signals: ${seo.h1}`;
+  const description = `Which ASX stocks meet the ${seo.h1} rules today, rule by rule, with the evidence for each.`;
+  // The shared-link preview is this tab's own: without these the nearest
+  // parent's openGraph (the root layout's site card) would preview instead.
+  // No `images` key, so the segment's opengraph-image.tsx still applies.
   return {
-    title: `Signals: ${seo.h1}`,
-    description: `Which ASX stocks meet the ${seo.h1} rules today, rule by rule, with the evidence for each.`,
+    title,
+    description,
     robots: { index: false, follow: true },
     alternates: { canonical: url },
+    openGraph: {
+      title: `${title} | ${siteConfig.name}`,
+      description,
+      url,
+      siteName: siteConfig.name,
+      type: "website",
+      locale: "en_AU",
+    },
+    twitter: {
+      site: "@shorted___",
+      creator: "@shorted___",
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 
