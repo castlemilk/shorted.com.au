@@ -1,9 +1,12 @@
 package features
 
 import (
+	"math"
 	"testing"
 
 	"cloud.google.com/go/civil"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/calendar"
 )
 
 // suspectsOf runs CASuspects over bars with the given rows for the code and the
@@ -99,6 +102,52 @@ func TestCAGuardNeedsCorroboration(t *testing.T) {
 			t.Errorf("suspects = %+v, want none: the reports are seven sessions away", got)
 		}
 	})
+	t.Run("a report pair with no publication date does not corroborate", func(t *testing.T) {
+		// Reports on the 27th and 29th of February 2024, with no index session
+		// from March to the end of April, so the later report has no publication
+		// date. The 10x share step and the 10x price fall on the 28th would
+		// otherwise be known on the 28th, before the report is public.
+		cal := gapCalendar(t)
+		bars := barsFrom(t, "2024-02-20", 7) // 20, 21, 22, 23, 26, 27 and 28 February
+		bars[6].Close /= 10
+		bars[6].AdjClose /= 10
+		rows := []ASICRow{
+			{Code: "ABC", ReportDate: mustDate(t, "2024-02-27"), Issued: 100_000_000},
+			{Code: "ABC", ReportDate: mustDate(t, "2024-02-29"), Issued: 1_000_000_000},
+		}
+		if got := CASuspects(bars, rows, cal, mustDate(t, "2026-09-29")); len(got) != 0 {
+			t.Errorf("suspects = %+v, want none: the corroborating report has no publication date", got)
+		}
+	})
+	t.Run("an infinite share count does not corroborate", func(t *testing.T) {
+		// Inf over Inf is NaN, which passes neither guard. The share counts are
+		// unusable, so the 1.9x fall is not corroborated.
+		bars := jumpAt(t, "2026-10-05", 10, 3, 1/1.9)
+		rows := []ASICRow{
+			{Code: "ABC", ReportDate: bars[2].Date, Issued: math.Inf(1)},
+			{Code: "ABC", ReportDate: bars[3].Date, Issued: math.Inf(1)},
+		}
+		if got := suspectsOf(t, bars, rows); len(got) != 0 {
+			t.Errorf("suspects = %+v, want none: infinite share counts cannot corroborate", got)
+		}
+	})
+}
+
+// gapCalendar is a calendar whose index dates run through February 2024 and
+// resume in May, with ASIC reports on the 27th and 29th of February. From the
+// 1st of March no session falls within the publication walk.
+func gapCalendar(t *testing.T) *calendar.Calendar {
+	t.Helper()
+	var index []civil.Date
+	for _, span := range [][2]string{{"2024-02-01", "2024-02-29"}, {"2024-05-01", "2024-05-31"}} {
+		for d, end := mustDate(t, span[0]), mustDate(t, span[1]); !d.After(end); d = d.AddDays(1) {
+			if w := d.Weekday(); w != 0 && w != 6 {
+				index = append(index, d)
+			}
+		}
+	}
+	asic := []civil.Date{mustDate(t, "2024-02-27"), mustDate(t, "2024-02-29")}
+	return calendar.New(index, asic, calendar.PublicationLagSessions)
 }
 
 // TestCAUpjumpRatios: an up-jump after the boundary is a suspect when its ratio
@@ -112,6 +161,9 @@ func TestCAUpjumpRatios(t *testing.T) {
 		{2.0, true},
 		{2.02, true},
 		{1.97, true},
+		// Exactly 3% from an integer, which the decimal reading includes.
+		{1.94, true},
+		{2.06, true},
 		{3.0, true},
 		{4.0, true},
 		{1.93, false},

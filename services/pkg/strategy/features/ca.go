@@ -106,8 +106,15 @@ func corroboratedAt(t civil.Date, ratio float64, rows []ASICRow, cal *calendar.C
 		if math.Abs(math.Log(ratio*share)) > math.Log(caPriceTolerance) {
 			continue
 		}
+		// A pair whose later report has no publication date is not a
+		// corroboration: nothing may use the suspect before that report is public,
+		// and an unknown date cannot be placed before t either.
+		published, ok := cal.PublishedOn(after.ReportDate)
+		if !ok {
+			continue
+		}
 		known := t
-		if published, ok := cal.PublishedOn(after.ReportDate); ok && published.After(t) {
+		if published.After(t) {
 			known = published
 		}
 		return known, true
@@ -125,18 +132,22 @@ func withinSessions(d, t civil.Date, cal *calendar.Calendar) bool {
 }
 
 // integerRatio reports whether a price ratio is within caUpjumpTolerance of an
-// integer of at least 2.
+// integer of at least 2. The comparison allows a rounding error of 1e-9, so a
+// ratio exactly at the tolerance (2.06 over 2, which is 0.030000000000000027 in
+// binary) is included as the decimal reads.
 func integerRatio(ratio float64) bool {
 	n := math.Round(ratio)
-	return n >= 2 && math.Abs(ratio/n-1) <= caUpjumpTolerance
+	return n >= 2 && math.Abs(ratio/n-1) <= caUpjumpTolerance+1e-9
 }
 
-// usableShareRows returns the rows with a positive share count, sorted by
-// report date. A zero or missing count cannot anchor a share ratio.
+// usableShareRows returns the rows with a finite, positive share count, sorted
+// by report date. A zero, missing or infinite count cannot anchor a share
+// ratio: an infinite count divided by another gives a NaN that passes neither
+// of the corroboration guards.
 func usableShareRows(asic []ASICRow) []ASICRow {
 	var rows []ASICRow
 	for _, r := range asic {
-		if r.Issued > 0 && !math.IsNaN(r.Issued) {
+		if r.Issued > 0 && finite(r.Issued) {
 			rows = append(rows, r)
 		}
 	}
