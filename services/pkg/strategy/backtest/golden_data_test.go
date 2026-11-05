@@ -28,14 +28,25 @@ import (
 //     ex-date (credited in cash) and one vendor-adjusted (total return);
 //   - code 11 pays an adjusted dividend on a A$20 stock;
 //   - code 12 carries a k artefact from goldenK: the vendor's adjustment step on
-//     one bar, not a return, which must change only that bar.
+//     one bar, not a return, which must change only that bar;
+//   - code 1 takes a corroborated 1:10 share consolidation on goldenConsolidation,
+//     dated before ca_upjump_from while its position is held: the reports either
+//     side show the share count stepping down by the same factor, and the
+//     price rising tenfold;
+//   - code 9 breaks out on a smaller bump, so its entry fills inside the 10%
+//     gap cap and its position is held across its tenfold up-jump.
 const (
 	goldenSeed     = 20230602
 	goldenCodes    = 24
 	goldenSessions = 700
 	goldenK        = 350
-	goldenPrice4dp = "2023-06-01"
-	goldenStart    = "2023-01-02"
+	// goldenConsolidation is the first session of code 1's consolidation, the
+	// session after its entry on 2023-03-27. Its suspect is known four sessions
+	// later, on the publication of the report dated on it, while the position is
+	// still held.
+	goldenConsolidation = 61
+	goldenPrice4dp      = "2023-06-01"
+	goldenStart         = "2023-01-02"
 	// goldenWindow opens the recipe one session after the first, so the first
 	// session is the seed the window's entries read.
 	goldenWindow = "2023-01-03"
@@ -46,9 +57,15 @@ const (
 // complete publication, a four-session publication lag and the corroborated
 // corporate-action guard).
 func goldenSpec(t interface{ Fatal(...any) }) spec.Spec {
-	r, ok := spec.Live(spec.StrategyCrowdedShortBreakout)
+	return goldenSpecFor(t, spec.StrategyCrowdedShortBreakout)
+}
+
+// goldenSpecFor is goldenSpec under the live version of strategyID: the same
+// universe and data policy for every strategy the golden form runs.
+func goldenSpecFor(t interface{ Fatal(...any) }, strategyID string) spec.Spec {
+	r, ok := spec.Live(strategyID)
 	if !ok {
-		t.Fatal("no live crowded-short version")
+		t.Fatal("no live version for " + strategyID)
 	}
 	s := r.Spec
 	s.Universe = spec.UniverseSpec{Instruments: "ordinary", Freshness: "bar_on_session", MinSessions: 60, LookbackDays: 400, ASICReported: true, CAGuard: true, RSPopulation: "universe"}
@@ -63,13 +80,19 @@ func goldenSpec(t interface{ Fatal(...any) }) spec.Spec {
 // goldenRecipe is the canonical crowded-short recipe with its window opened to
 // the whole golden history.
 func goldenRecipe(t interface{ Fatal(...any) }) spec.Recipe {
+	return goldenRecipeFor(t, spec.StrategyCrowdedShortBreakout)
+}
+
+// goldenRecipeFor is the canonical recipe of strategyID with its window opened
+// to the whole golden history.
+func goldenRecipeFor(t interface{ Fatal(...any) }, strategyID string) spec.Recipe {
 	for _, r := range spec.R1Recipes() {
-		if r.StrategyID == spec.StrategyCrowdedShortBreakout {
+		if r.StrategyID == strategyID {
 			r.WindowStart = goldenWindow
 			return r
 		}
 	}
-	t.Fatal("no crowded-short recipe")
+	t.Fatal("no canonical recipe for " + strategyID)
 	return spec.Recipe{}
 }
 
@@ -148,6 +171,14 @@ func buildGolden() goldenData {
 	}
 
 	breakouts := map[int]int{0: 120, 1: 260, 2: 520, 3: 180, 4: 300, 5: 600, 7: 190, 8: 485, 9: 410, 10: 100, 11: 280, 12: 345}
+	// bump is the close's rise on a breakout session. Code 9's is smaller, so
+	// its entry clears the 10% gap cap.
+	bump := func(i int) float64 {
+		if i == 9 {
+			return 1.04
+		}
+		return 1.12
+	}
 	for i := 0; i < goldenCodes; i++ {
 		code := goldenCode(i)
 		start := 2 + 38*rng.Float64()
@@ -177,7 +208,7 @@ func buildGolden() goldenData {
 				px = start * (1 + 0.004*math.Sin(float64(t)))
 			}
 			if b, ok := breakouts[i]; ok && t == b {
-				px *= 1.12
+				px *= bump(i)
 			}
 			if b, ok := breakouts[i]; ok && t > b && t <= b+10 {
 				px *= 1.005
@@ -186,6 +217,11 @@ func buildGolden() goldenData {
 		}
 		if i == 9 {
 			for t := 420; t < goldenSessions; t++ {
+				closes[t] *= 10
+			}
+		}
+		if i == 1 {
+			for t := goldenConsolidation; t < goldenSessions; t++ {
 				closes[t] *= 10
 			}
 		}
@@ -257,6 +293,9 @@ func buildGolden() goldenData {
 			code := goldenCode(i)
 			issued := 3e8 + float64(i)*1e7
 			if i == 9 && t >= 420 {
+				issued /= 10
+			}
+			if i == 1 && t >= goldenConsolidation {
 				issued /= 10
 			}
 			pct := round4(g.shortPct[code] * (0.7 + 0.6*rng.Float64()))

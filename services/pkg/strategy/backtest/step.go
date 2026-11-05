@@ -67,6 +67,10 @@ type CASuspect struct {
 	// SuspectDate is the bar the suspect sits on. A position entered before it
 	// is closed as a data exclusion; one entered on or after it is unaffected.
 	SuspectDate civil.Date
+	// Age is set with Known on the first session of a run for a suspect that
+	// became known before it: the sessions from the known date to that session.
+	// The entry block counts from the known date.
+	Age int
 }
 
 // CodeSession is one code's inputs on one session. Signals are as at this
@@ -411,7 +415,7 @@ func (st *State) classify(s Session, by map[string]*CodeSession, codes []string)
 		cs := st.codeState(code)
 		if c.CA.Known {
 			cs.hasCA = true
-			cs.caKnownIdx = s.Index
+			cs.caKnownIdx = s.Index - c.CA.Age
 		}
 		if c.Bar == nil {
 			continue

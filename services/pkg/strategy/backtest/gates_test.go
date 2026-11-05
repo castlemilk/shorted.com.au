@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/civil"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pipeline"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 )
 
 // orderedInputs returns the golden inputs with the codes and the ASIC rows in
@@ -56,7 +58,14 @@ func runGolden(t *testing.T, in Inputs) Result {
 // the decisions of every code on every session can be compared.
 func planGolden(t *testing.T, in Inputs) plan {
 	t.Helper()
-	p, err := prepare(in, goldenSpec(t), goldenRecipe(t), true)
+	return planGoldenFor(t, in, spec.StrategyCrowdedShortBreakout)
+}
+
+// planGoldenFor is planGolden under the live version and canonical recipe of
+// strategyID.
+func planGoldenFor(t *testing.T, in Inputs, strategyID string) plan {
+	t.Helper()
+	p, err := prepare(in, goldenSpecFor(t, strategyID), goldenRecipeFor(t, strategyID), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +332,7 @@ func TestStepEqualsRun(t *testing.T) {
 			}
 			cs.Bar = dailyBar(pin.Bars[code], d)
 			cs.Dividend = dividendDuring(pin.Dividends[code], prev, d, hasPrev)
-			cs.CA = suspectDuring(idx.Suspects(code), prev, d, hasPrev)
+			cs.CA = suspectDuring(idx.Suspects(code), prev, d, hasPrev, idx.Calendar())
 			sess.Codes = append(sess.Codes, cs)
 		}
 		Step(st, sess)
@@ -383,11 +392,20 @@ func dividendDuring(ds []features.Dividend, prev, d civil.Date, hasPrev bool) fl
 }
 
 // suspectDuring is the suspect whose KnownAt falls in (prev, d], the earliest
-// bar when several do; on the first session it takes those known on or before d.
-func suspectDuring(suspects []features.CASuspect, prev, d civil.Date, hasPrev bool) CASuspect {
+// bar when several do. On the first session it takes those known on or before
+// d: one known before d carries its age in sessions, and of several the most
+// recent one.
+func suspectDuring(suspects []features.CASuspect, prev, d civil.Date, hasPrev bool, cal *calendar.Calendar) CASuspect {
 	var out CASuspect
 	for _, s := range suspects {
 		if s.KnownAt.After(d) || (hasPrev && !s.KnownAt.After(prev)) {
+			continue
+		}
+		if !hasPrev && s.KnownAt.Before(d) {
+			age := sessionsBefore(cal, s.KnownAt, d, caBlockSessions+1)
+			if age <= caBlockSessions && (!out.Known || age < out.Age) {
+				out = CASuspect{Known: true, SuspectDate: s.Date, Age: age}
+			}
 			continue
 		}
 		if !out.Known || s.Date.Before(out.SuspectDate) {
@@ -397,34 +415,57 @@ func suspectDuring(suspects []features.CASuspect, prev, d civil.Date, hasPrev bo
 	return out
 }
 
-// TestBacktestSessionEqualsSnapshot is the golden form: on several sessions,
-// every code's decision in Run's pass 2 (the statuses, scores and rule inputs,
-// built from the statistics and regime of pass 1) is the snapshot path's pick,
-// field for field, and a code the snapshot does not hold has no status.
-func TestBacktestSessionEqualsSnapshot(t *testing.T) {
-	in := loadGolden(t)
-	s := goldenSpec(t)
+// snapshotPicks is the snapshot path on session d: BuildCandidates over the
+// rows, the regime and statistics of that day, and EvaluateWithEnv's picks
+// keyed by code. It also returns the statistics.
+func snapshotPicks(t *testing.T, s spec.Spec, pin *pipeline.Inputs, mkt Market, d civil.Date) (map[string]engine.Pick, engine.UniverseStats) {
+	t.Helper()
 	strategy, ok := engine.Lookup(s.StrategyID)
 	if !ok {
 		t.Fatal("no strategy")
 	}
+	cands, stats, _ := pipeline.BuildCandidates(d, pin, s)
+	for i := range cands {
+		cands[i].Industry = mkt.Industry[cands[i].StockCode]
+	}
+	engine.PrepareCandidates(cands)
+	env := engine.NewEnvFromStats(features.Regime(pin.XJO, d), stats)
+	picks := map[string]engine.Pick{}
+	for _, pk := range engine.EvaluateWithEnv(strategy, cands, env) {
+		picks[pk.Candidate.StockCode] = pk
+	}
+	return picks, stats
+}
+
+// withoutRank is a pick with its rank, which is the position in the snapshot's
+// list and so not part of a decision, cleared.
+func withoutRank(pk engine.Pick) engine.Pick {
+	pk.Rank = 0
+	return pk
+}
+
+// assertSessionsEqualSnapshot holds Run's pass 2 to the snapshot path on every
+// step-th session, the seed included, for the strategy: every code's pick (its
+// status, score, rule results and percentile, candidate included), the
+// statistics pass 1 gave the rules, and the rows the simulator reads.
+func assertSessionsEqualSnapshot(t *testing.T, in Inputs, strategyID string, step int) {
+	t.Helper()
+	s := goldenSpecFor(t, strategyID)
 	pin, mkt, err := pipelineInputs(in)
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := planGolden(t, in)
-	for _, k := range []int{100, 250, 400, 600} {
+	p := planGoldenFor(t, in, strategyID)
+	if len(p.picks) != len(p.sessions) || len(p.universe) != len(p.sessions) {
+		t.Fatal("the plan keeps no per-session picks or statistics")
+	}
+	for k := 0; k < len(p.sessions); k += step {
 		ses := p.sessions[k]
 		d := ses.Date
-		cands, stats, _ := pipeline.BuildCandidates(d, pin, s)
-		for i := range cands {
-			cands[i].Industry = mkt.Industry[cands[i].StockCode]
-		}
-		engine.PrepareCandidates(cands)
-		env := engine.NewEnvFromStats(features.Regime(pin.XJO, d), stats)
-		snapshot := map[string]engine.Pick{}
-		for _, pk := range engine.EvaluateWithEnv(strategy, cands, env) {
-			snapshot[pk.Candidate.StockCode] = pk
+		snap, stats := snapshotPicks(t, s, pin, mkt, d)
+		if !reflect.DeepEqual(p.universe[k], stats) {
+			t.Fatalf("%s: pass 1 statistics differ from the snapshot's: %d rs values, want %d",
+				d, len(p.universe[k].RS6m), len(stats.RS6m))
 		}
 		rows := map[string]CodeSession{}
 		for _, cs := range ses.Codes {
@@ -435,19 +476,61 @@ func TestBacktestSessionEqualsSnapshot(t *testing.T) {
 			if !ok {
 				t.Fatalf("%s on %s: the plan keeps no rows for it", code, d)
 			}
-			pk, held := snapshot[code]
+			pk, held := snap[code]
+			gp, run := p.picks[k][code]
 			if !held {
-				if got.Status != string(engine.StatusNone) {
+				if got.Status != string(engine.StatusNone) || run {
 					t.Fatalf("%s on %s: the snapshot excludes it, the run reads %s", code, d, got.Status)
 				}
 				continue
 			}
-			want := pickRow(code, pk)
-			if !reflect.DeepEqual(decisionOnly(got), decisionOnly(want)) {
-				t.Fatalf("%s on %s: decision differs: run %+v, snapshot %+v", code, d, decisionOnly(got), decisionOnly(want))
+			if !run {
+				t.Fatalf("%s on %s: the snapshot holds a pick the run does not", code, d)
+			}
+			if !reflect.DeepEqual(withoutRank(gp), withoutRank(pk)) {
+				t.Fatalf("%s on %s: pick differs:\nrun      %+v\nsnapshot %+v", code, d, withoutRank(gp), withoutRank(pk))
+			}
+			if !reflect.DeepEqual(decisionOnly(got), decisionOnly(pickRow(code, pk))) {
+				t.Fatalf("%s on %s: the simulator's row differs: run %+v, snapshot %+v", code, d, decisionOnly(got), decisionOnly(pickRow(code, pk)))
 			}
 		}
 	}
+}
+
+// TestBacktestSessionEqualsSnapshot is the golden form: on every tenth session,
+// under the crowded-short version and under Minervini (whose rs_leader rule
+// reads the cross-sectional quartile), Run's pass 2 is the snapshot path's pick
+// for every code, field for field and rule for rule, and a code the snapshot
+// does not hold has no status.
+func TestBacktestSessionEqualsSnapshot(t *testing.T) {
+	for _, sid := range []string{spec.StrategyCrowdedShortBreakout, spec.StrategyMinerviniTrend} {
+		t.Run(sid, func(t *testing.T) {
+			assertSessionsEqualSnapshot(t, loadGolden(t), sid, 10)
+		})
+	}
+}
+
+// TestMissingASICDayIsNoSession: a trading day with no ASIC report is no
+// session, and the index bar on it still reaches the regime and the RS probes,
+// as the snapshot path reads it. The run agrees with the snapshot on the
+// sessions around the gap.
+func TestMissingASICDayIsNoSession(t *testing.T) {
+	in := loadGolden(t)
+	gap := in.Mkt.XJO[300].Date
+	alt := *in
+	alt.Mkt.ASIC = nil
+	for _, r := range in.Mkt.ASIC {
+		if r.ReportDate != gap {
+			alt.Mkt.ASIC = append(alt.Mkt.ASIC, r)
+		}
+	}
+	p := planGoldenFor(t, &alt, spec.StrategyCrowdedShortBreakout)
+	for _, ses := range p.sessions {
+		if ses.Date == gap {
+			t.Fatalf("%s has no report, yet the run holds it as a session", gap)
+		}
+	}
+	assertSessionsEqualSnapshot(t, &alt, spec.StrategyCrowdedShortBreakout, 7)
 }
 
 // TestCAGuardNeedsCorroboration: a fifty-per-cent gap with no share-count step
@@ -462,32 +545,50 @@ func TestCAGuardNeedsCorroboration(t *testing.T) {
 		d := civil.Date{Year: 2024, Month: 1, Day: 2}.AddDays(i)
 		bars[i] = features.Bar{Date: d, Open: px, High: px, Low: px, Close: px, AdjClose: px, Volume: 1000}
 	}
-	cal := calendarOf(Market{XJO: xjoOf(bars)})
+	cal := publicationCalendar(Market{XJO: xjoOf(bars)}, 0)
 	if got := features.CASuspects(bars, nil, cal, civil.Date{Year: 2023, Month: 1, Day: 1}); len(got) != 0 {
 		t.Fatalf("an uncorroborated -50%% gap is a suspect: %+v", got)
 	}
 }
 
+// barClose is the close of code's stored bar dated d.
+func barClose(t *testing.T, in *MemoryInputs, code string, d civil.Date) float64 {
+	t.Helper()
+	for _, b := range in.BarsByCode[code] {
+		if b.Date == d {
+			return b.Close
+		}
+	}
+	t.Fatalf("no %s bar on %s", code, d)
+	return 0
+}
+
 // TestCAGuardIsPointInTime: a suspect corroborated only by a report published
-// after T changes nothing up to T. The golden's consolidation of code GD09 is
-// corroborated by the report of session 420, so the run with that report's
-// share count altered is compared up to the session before it is public.
+// after T changes nothing up to T. GD01's consolidation is corroborated by the
+// report dated on it (goldenConsolidation), public four sessions later. That
+// report's share count is altered, so the suspect is never corroborated, and the
+// decisions and equity before its publication date are the golden run's.
 func TestCAGuardIsPointInTime(t *testing.T) {
 	in := loadGolden(t)
 	base := runGolden(t, in)
 	baseP := planGolden(t, in)
 	lag := goldenSpec(t).Data.PublicationLagSessions
-	report := base.Sessions[420]
+	report := in.Mkt.XJO[goldenConsolidation].Date
 	published, ok := publicationCalendar(in.Mkt, lag).PublishedOn(report)
 	if !ok {
 		t.Fatal("no publication date")
 	}
 	alt := *in
 	alt.Mkt.ASIC = append([]features.ASICRow(nil), in.Mkt.ASIC...)
+	found := false
 	for i := range alt.Mkt.ASIC {
-		if alt.Mkt.ASIC[i].Code == "GD09" && alt.Mkt.ASIC[i].ReportDate == report {
+		if alt.Mkt.ASIC[i].Code == "GD01" && alt.Mkt.ASIC[i].ReportDate == report {
 			alt.Mkt.ASIC[i].Issued *= 2
+			found = true
 		}
+	}
+	if !found {
+		t.Fatalf("no GD01 report on %s", report)
 	}
 	got := runGolden(t, &alt)
 	gotP := planGolden(t, &alt)
@@ -498,6 +599,34 @@ func TestCAGuardIsPointInTime(t *testing.T) {
 	if !reflect.DeepEqual(sessionsUpTo(baseP.sessions, cut), sessionsUpTo(gotP.sessions, cut)) {
 		t.Fatalf("a report public after %s changed a decision before it: %s", cut, firstDecisionDiff(baseP.sessions, gotP.sessions))
 	}
+	if reflect.DeepEqual(baseP.sessions, gotP.sessions) {
+		t.Fatal("the report's share count changed nothing after its publication; the gate tests nothing")
+	}
+}
+
+// TestCorroboratedSuspectExitsAtPublication: a position held across a suspect
+// that is corroborated by a report is closed on the day the report is public,
+// at the close before the suspect bar, and not on the bar.
+func TestCorroboratedSuspectExitsAtPublication(t *testing.T) {
+	in := loadGolden(t)
+	base := runGolden(t, in)
+	report := in.Mkt.XJO[goldenConsolidation].Date
+	published, ok := publicationCalendar(in.Mkt, goldenSpec(t).Data.PublicationLagSessions).PublishedOn(report)
+	if !ok {
+		t.Fatal("no publication date")
+	}
+	want := barClose(t, in, "GD01", in.Mkt.XJO[goldenConsolidation-1].Date)
+	for _, tr := range base.Trades {
+		if tr.Code != "GD01" || tr.EntryDate.After(report) || tr.ExitDate.Before(report) {
+			continue
+		}
+		if tr.ExitReason != ReasonCorporateAction || tr.ExitDate != published || tr.ExitPrice != want {
+			t.Fatalf("the GD01 trade held across the consolidation exits %s at %v (%s), want %s at %v (%s)",
+				tr.ExitDate, tr.ExitPrice, tr.ExitReason, published, want, ReasonCorporateAction)
+		}
+		return
+	}
+	t.Fatal("no GD01 trade is held across the consolidation; the gate tests nothing")
 }
 
 // TestUpJumpConsolidationAfterResync: a tenfold up-jump after the last live
@@ -553,8 +682,31 @@ func TestUpJumpConsolidationAfterResync(t *testing.T) {
 		t.Fatal("the guard never excluded the code; the gate tests nothing")
 	}
 
+	// GD09's position is held across the jump and closed on the day the suspect
+	// is known, at the close before the bar: no phantom equity around it.
 	res := runGolden(t, in)
+	j := sort.Search(len(res.Sessions), func(i int) bool { return !res.Sessions[i].Before(jump.Date) })
+	if j == 0 || j+1 >= len(res.Sessions) || res.Sessions[j] != jump.Date {
+		t.Fatalf("the up-jump %s is not inside the run", jump.Date)
+	}
+	closed := false
+	for _, tr := range res.Trades {
+		if tr.Code != "GD09" || tr.ExitDate != jump.KnownAt {
+			continue
+		}
+		closed = true
+		if tr.ExitReason != ReasonCorporateAction || tr.ExitPrice != barClose(t, in, "GD09", res.Sessions[j-1]) {
+			t.Fatalf("GD09 held across its up-jump exits at %v (%s) on %s, want the close before the bar on the known date",
+				tr.ExitPrice, tr.ExitReason, tr.ExitDate)
+		}
+	}
+	if !closed {
+		t.Fatal("GD09 is not held across its up-jump; the gate tests nothing")
+	}
 	for i := 1; i < len(res.Records); i++ {
+		if d := res.Records[i].Date; d.Before(res.Sessions[j-1]) || d.After(res.Sessions[j+1]) {
+			continue
+		}
 		if r := res.Records[i].Equity / res.Records[i-1].Equity; r > 1.5 || r < 0.5 {
 			t.Fatalf("equity moved %.2fx on %s: a phantom mark", r, res.Records[i].Date)
 		}
@@ -620,8 +772,10 @@ func insertIndexBar(bars []features.IndexBar, d civil.Date) []features.IndexBar 
 }
 
 // TestSpuriousIndexBarOnAClosedDayChangesNothing: an index bar dated on a day
-// the calendar does not hold as a session, a Saturday or a holiday, reaches
-// neither the regime nor the simulator. The run is the same.
+// the calendar does not hold as a session, a Saturday or a holiday, adds no
+// session, so no interest accrues on it, and no entry is filled or cancelled on
+// it. The bar is the stored row the regime reads, so the decisions on the other
+// sessions may move; the run's calendar does not.
 func TestSpuriousIndexBarOnAClosedDayChangesNothing(t *testing.T) {
 	in := loadGolden(t)
 	base := runGolden(t, in)
@@ -629,11 +783,20 @@ func TestSpuriousIndexBarOnAClosedDayChangesNothing(t *testing.T) {
 		alt := *in
 		alt.Mkt.XJO = insertIndexBar(in.Mkt.XJO, d)
 		alt.Mkt.XJT = insertIndexBar(in.Mkt.XJT, d)
-		if calendarOf(alt.Mkt).IsSession(d) {
+		if publicationCalendar(alt.Mkt, 0).IsSession(d) {
 			t.Fatalf("%s is a session of the golden calendar; the gate needs a closed day", d)
 		}
-		if got := runGolden(t, &alt); got.OutputHash != base.OutputHash {
-			t.Fatalf("a spurious index bar on %s changed the run", d)
+		got := runGolden(t, &alt)
+		if !reflect.DeepEqual(got.Sessions, base.Sessions) {
+			t.Fatalf("a spurious index bar on %s added or removed a session", d)
+		}
+		if len(got.Records) != len(base.Records) {
+			t.Fatalf("a spurious index bar on %s changed the number of records", d)
+		}
+		for _, e := range got.Events {
+			if e.Date == d {
+				t.Fatalf("a spurious index bar on %s put an event on it: %+v", d, e)
+			}
 		}
 	}
 }
@@ -677,12 +840,25 @@ func TestUnpricedRowIsNoBar(t *testing.T) {
 	}
 }
 
+// weekdays are the Monday-to-Friday days from from to to, inclusive.
+func weekdays(from, to civil.Date) []civil.Date {
+	var out []civil.Date
+	for d := from; !d.After(to); d = d.AddDays(1) {
+		if wd := time.Date(d.Year, d.Month, d.Day, 0, 0, 0, 0, time.UTC).Weekday(); wd != time.Saturday && wd != time.Sunday {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 // TestSuspectAndExDateBetweenSessionsAreTaken: a dividend ex-dated on a closed
 // day and a suspect known on one are taken on the next session, and one known
-// before the first session on the first. Neither is lost, nor counted twice.
+// before the first session on the first, with its age. Neither is lost, nor
+// counted twice.
 func TestSuspectAndExDateBetweenSessionsAreTaken(t *testing.T) {
 	d := func(day int) civil.Date { return civil.Date{Year: 2023, Month: 6, Day: day} }
 	dates := []civil.Date{d(8), d(9), d(12)} // Thu, Fri, then Monday: 10 and 11 are closed
+	cal := publicationCalendar(Market{XJO: xjoOf(barsOn(weekdays(d(1), d(12))))}, 0)
 	divs := []features.Dividend{
 		{ExDate: d(10), AmountPerShare: 0.5}, // Saturday: the Monday session
 		{ExDate: d(8), AmountPerShare: 0.25},
@@ -693,12 +869,12 @@ func TestSuspectAndExDateBetweenSessionsAreTaken(t *testing.T) {
 	}
 	suspects := []features.CASuspect{
 		{Date: d(9), KnownAt: d(10), Kind: features.CAUpjump},
-		{Date: d(1), KnownAt: d(2), Kind: features.CACorroborated},
-		{Date: d(8), KnownAt: d(12), Kind: features.CAZeroVolume}, // earlier bar, same session
+		{Date: d(1), KnownAt: d(2), Kind: features.CACorroborated}, // known on Friday 2 June: four sessions before the first
+		{Date: d(8), KnownAt: d(12), Kind: features.CAZeroVolume},  // earlier bar, same session
 	}
-	got := caBySession(suspects, dates)
-	if got[0] != (CASuspect{Known: true, SuspectDate: d(1)}) {
-		t.Fatalf("a suspect known before the first session: %+v, want the first session", got[0])
+	got := caBySession(suspects, dates, cal)
+	if want := (CASuspect{Known: true, SuspectDate: d(1), Age: 4}); got[0] != want {
+		t.Fatalf("a suspect known before the first session: %+v, want %+v", got[0], want)
 	}
 	if got[1] != (CASuspect{}) {
 		t.Fatalf("a suspect known on a closed day reported on %s: %+v", dates[1], got[1])
@@ -706,6 +882,86 @@ func TestSuspectAndExDateBetweenSessionsAreTaken(t *testing.T) {
 	if got[2] != (CASuspect{Known: true, SuspectDate: d(8)}) {
 		t.Fatalf("the Monday session: %+v, want the earliest bar of the two known there", got[2])
 	}
+}
+
+// TestSuspectOlderThanTheBlockIsDropped: a suspect known more than the entry
+// block before the first session blocks nothing, and of two known before it the
+// more recent one sets the block.
+func TestSuspectOlderThanTheBlockIsDropped(t *testing.T) {
+	d := func(y int, m time.Month, day int) civil.Date { return civil.Date{Year: y, Month: m, Day: day} }
+	dates := []civil.Date{d(2023, time.June, 12)}
+	cal := publicationCalendar(Market{XJO: xjoOf(barsOn(weekdays(d(2023, time.January, 2), d(2023, time.June, 12))))}, 0)
+	old := features.CASuspect{Date: d(2023, time.January, 2), KnownAt: d(2023, time.January, 2), Kind: features.CAZeroVolume}
+	if got := caBySession([]features.CASuspect{old}, dates, cal); got[0] != (CASuspect{}) {
+		t.Fatalf("a suspect known more than %d sessions before the first session blocks it: %+v", caBlockSessions, got[0])
+	}
+	recent := features.CASuspect{Date: d(2023, time.May, 30), KnownAt: d(2023, time.May, 30), Kind: features.CAZeroVolume}
+	got := caBySession([]features.CASuspect{old, recent}, dates, cal)
+	if want := (CASuspect{Known: true, SuspectDate: d(2023, time.May, 30), Age: sessionsBefore(cal, d(2023, time.May, 30), dates[0], 1<<30)}); got[0] != want {
+		t.Fatalf("the more recent of two known before the first session: %+v, want %+v", got[0], want)
+	}
+}
+
+// TestSuspectOlderThanTheBlockLeavesTheRunUnchanged: a zero-volume bar on GD04
+// more than the entry block before window_start is a suspect the window never
+// feels. The run from that window is the run with the bar absent, and the
+// window does trade GD04, so the gate is not vacuous.
+func TestSuspectOlderThanTheBlockLeavesTheRunUnchanged(t *testing.T) {
+	in := loadGolden(t)
+	s := goldenSpec(t)
+	r := goldenRecipe(t)
+	r.WindowStart = "2024-03-01"
+	base, err := Run(in, s, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	traded := false
+	for _, tr := range base.Trades {
+		traded = traded || tr.Code == "GD04"
+	}
+	if !traded {
+		t.Fatal("GD04 does not trade in the window; the gate tests nothing")
+	}
+
+	spike := civil.Date{Year: 2023, Month: 2, Day: 1}
+	bars := append([]features.Bar(nil), in.BarsByCode["GD04"]...)
+	found := false
+	for i := range bars {
+		if bars[i].Date == spike {
+			found = true
+			bars[i].Open *= 2
+			bars[i].High *= 2
+			bars[i].Low *= 2
+			bars[i].Close *= 2
+			bars[i].AdjClose *= 2
+			bars[i].Volume = 0
+		}
+	}
+	if !found {
+		t.Fatalf("no GD04 bar on %s", spike)
+	}
+	alt := *in
+	alt.BarsByCode = map[string][]features.Bar{}
+	for code, b := range in.BarsByCode {
+		alt.BarsByCode[code] = b
+	}
+	alt.BarsByCode["GD04"] = bars
+	got, err := Run(&alt, s, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.OutputHash != base.OutputHash {
+		t.Fatalf("a suspect known on %s, more than %d sessions before the window, changed the run", spike, caBlockSessions)
+	}
+}
+
+// barsOn is one bar per date, for building a calendar from dates.
+func barsOn(dates []civil.Date) []features.Bar {
+	out := make([]features.Bar, len(dates))
+	for i, d := range dates {
+		out[i] = features.Bar{Date: d}
+	}
+	return out
 }
 
 // TestRateBeforeTheSeriesIsNone: a session before the first cash-rate point

@@ -52,7 +52,13 @@ type plan struct {
 	sessions []Session
 	// eligible counts, per entry of sessions, the codes the universe admits.
 	eligible []int
-	cfg      Config
+	// universe is pass 1's statistics per entry of sessions: the values
+	// pipeline.BuildCandidates gives the snapshot path on that session.
+	universe []engine.UniverseStats
+	// picks is pass 2's pick of every code the rules pass, per entry of
+	// sessions. It is kept only when every code's rows are, nil otherwise.
+	picks []map[string]engine.Pick
+	cfg   Config
 }
 
 // Run runs recipe r over the rows in in under version s. It makes two passes
@@ -104,11 +110,15 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe, keepAll bool) (plan, error) 
 	codes, bars := pin.Codes, pin.Bars
 	idx := pipeline.NewIndex(pin, s)
 
-	// The sessions are the calendar's: pipelineInputs has already dropped the
-	// index bars on dates the calendar does not hold as sessions.
-	dates := make([]civil.Date, len(mkt.XJO))
-	for i, b := range mkt.XJO {
-		dates[i] = b.Date
+	// The sessions are the calendar's, read off the index dates. The index bars
+	// the regime and the RS probes read are the stored rows, whatever the
+	// calendar makes of their dates: the snapshot path reads the same rows.
+	cal := idx.Calendar()
+	var dates []civil.Date
+	for _, b := range mkt.XJO {
+		if cal.IsSession(b.Date) {
+			dates = append(dates, b.Date)
+		}
 	}
 	n := len(dates)
 	seed := make([]bool, n)
@@ -126,34 +136,43 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe, keepAll bool) (plan, error) 
 		return plan{}, errors.New("backtest: no sessions in the window")
 	}
 
-	// Pass 1: the universe statistics and regime of every session.
+	// Pass 1: the universe statistics and regime of every session. The
+	// statistics are the eligible codes' own, read by the function the snapshot
+	// path uses.
 	envs := make([]*engine.Env, n)
+	universe := make([]engine.UniverseStats, n)
 	eligible := make([]int, n)
 	for k, t := range dates {
 		regime := features.Regime(mkt.XJO, t)
-		var rs []float64
+		var cands []engine.Candidate
 		for _, code := range codes {
 			c, bad := idx.CandidateAt(code, t)
 			if bad != nil {
 				continue
 			}
-			eligible[k]++
-			if c.RS6mPct != nil {
-				rs = append(rs, *c.RS6mPct)
-			}
+			cands = append(cands, c)
 		}
-		sort.Float64s(rs)
-		envs[k] = engine.NewEnvFromStats(regime, engine.UniverseStats{Session: t, RS6m: rs})
+		eligible[k] = len(cands)
+		universe[k] = engine.UniverseStatsOf(cands)
+		universe[k].Session = t
+		envs[k] = engine.NewEnvFromStats(regime, universe[k])
 	}
 
 	// Pass 2: each code on each session. Only the codes that ever trigger keep
 	// their rows, unless keepAll: no other code can hold a position or enter one.
+	var picks []map[string]engine.Pick
+	if keepAll {
+		picks = make([]map[string]engine.Pick, n)
+		for k := range picks {
+			picks[k] = map[string]engine.Pick{}
+		}
+	}
 	kept := make([][]CodeSession, 0)
 	keptCodes := make([]string, 0)
 	for _, code := range codes {
 		rows := make([]CodeSession, n)
 		triggered := false
-		caKnown := caBySession(idx.Suspects(code), dates)
+		caKnown := caBySession(idx.Suspects(code), dates, cal)
 		divAt := dividendsBySession(pin.Dividends[code], dates)
 		for k, t := range dates {
 			cs := CodeSession{Code: code, Status: string(engine.StatusNone)}
@@ -163,7 +182,10 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe, keepAll bool) (plan, error) 
 				cands := []engine.Candidate{cand}
 				engine.PrepareCandidates(cands)
 				cand = cands[0]
-				pick, _ := engine.EvaluateOne(strategy, cand, envs[k])
+				pick, ok := engine.EvaluateOne(strategy, cand, envs[k])
+				if ok && keepAll {
+					picks[k][code] = pick
+				}
 				cs.Status = string(pick.Status)
 				cs.Score = pick.Score
 				cs.Pivot = derefOr(cand.BaseHigh)
@@ -221,27 +243,19 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe, keepAll bool) (plan, error) 
 			cfg.LastLoaded[code] = last
 		}
 	}
-	return plan{sessions: sessions, eligible: windowEligible, cfg: cfg}, nil
+	return plan{sessions: sessions, eligible: windowEligible, universe: universe, picks: picks, cfg: cfg}, nil
 }
 
 // pipelineInputs reads the window's rows once into the pipeline's form: the
-// codes sorted and unique, their bars checked for order, and the market rows.
-// The index bars are kept on the calendar's sessions only, so a spurious bar on
-// a closed day reaches neither the regime nor the simulator. Run and the tests
-// that compare it with the snapshot path build their candidates from the same
-// value.
+// codes sorted and unique, their bars checked for order, and the market rows,
+// all as stored. Run and the tests that compare it with the snapshot path build
+// their candidates from the same value.
 func pipelineInputs(in Inputs) (*pipeline.Inputs, Market, error) {
 	codes := append([]string(nil), in.Codes()...)
 	sort.Strings(codes)
 	mkt := in.Market()
 	if len(mkt.XJO) == 0 {
 		return nil, Market{}, errors.New("backtest: no index bars")
-	}
-	cal := calendarOf(mkt)
-	mkt.XJO = sessionBars(mkt.XJO, cal)
-	mkt.XJT = sessionBars(mkt.XJT, cal)
-	if len(mkt.XJO) == 0 {
-		return nil, Market{}, errors.New("backtest: no index sessions")
 	}
 	pin := &pipeline.Inputs{
 		Codes:        codes,
@@ -271,32 +285,6 @@ func pipelineInputs(in Inputs) (*pipeline.Inputs, Market, error) {
 		pin.Fundamentals[code] = in.Fundamentals(code)
 	}
 	return pin, mkt, nil
-}
-
-// calendarOf is the session calendar of a market's rows: the index dates and
-// the ASIC report dates. Whether a date is a session does not depend on the
-// publication lag.
-func calendarOf(m Market) *calendar.Calendar {
-	xjo := make([]civil.Date, len(m.XJO))
-	for i, b := range m.XJO {
-		xjo[i] = b.Date
-	}
-	asic := make([]civil.Date, len(m.ASIC))
-	for i, r := range m.ASIC {
-		asic[i] = r.ReportDate
-	}
-	return calendar.New(xjo, asic, 0)
-}
-
-// sessionBars keeps the index bars dated on a session of cal.
-func sessionBars(bars []features.IndexBar, cal *calendar.Calendar) []features.IndexBar {
-	out := make([]features.IndexBar, 0, len(bars))
-	for _, b := range bars {
-		if cal.IsSession(b.Date) {
-			out = append(out, b)
-		}
-	}
-	return out
 }
 
 // simulate runs the simulator over the plan's sessions and reports the run.
@@ -399,11 +387,27 @@ func dividendsBySession(ds []features.Dividend, dates []civil.Date) []float64 {
 // so one dated between sessions is never lost. When several are known on the
 // same session, the earliest bar is the one reported. A position entered before
 // that bar is the one the exclusion closes.
-func caBySession(suspects []features.CASuspect, dates []civil.Date) []CASuspect {
+//
+// A suspect known before the first session is known on that session with its
+// age: the sessions from its known date to the first session. The block on new
+// entries counts from the known date, so a suspect older than the block is
+// dropped, and of several the most recent one sets the block. Nothing can be
+// held across such a suspect: no position is entered before the first session.
+func caBySession(suspects []features.CASuspect, dates []civil.Date, cal *calendar.Calendar) []CASuspect {
 	out := make([]CASuspect, len(dates))
 	for _, s := range suspects {
 		k := sort.Search(len(dates), func(i int) bool { return !dates[i].Before(s.KnownAt) })
 		if k == len(dates) {
+			continue
+		}
+		if k == 0 && s.KnownAt.Before(dates[0]) {
+			age := sessionsBefore(cal, s.KnownAt, dates[0], caBlockSessions+1)
+			if age > caBlockSessions {
+				continue
+			}
+			if !out[0].Known || age < out[0].Age {
+				out[0] = CASuspect{Known: true, SuspectDate: s.Date, Age: age}
+			}
 			continue
 		}
 		if !out[k].Known || s.Date.Before(out[k].SuspectDate) {
@@ -411,6 +415,18 @@ func caBySession(suspects []features.CASuspect, dates []civil.Date) []CASuspect 
 		}
 	}
 	return out
+}
+
+// sessionsBefore counts the sessions s with from <= s < to, and stops counting
+// once the count exceeds limit.
+func sessionsBefore(cal *calendar.Calendar, from, to civil.Date, limit int) int {
+	n := 0
+	for d := from; d.Before(to) && n <= limit; d = d.AddDays(1) {
+		if cal.IsSession(d) {
+			n++
+		}
+	}
+	return n
 }
 
 // rateOn is the cash rate in force on t: the newest point on or before t. Zero
