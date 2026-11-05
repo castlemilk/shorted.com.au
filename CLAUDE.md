@@ -191,11 +191,14 @@ XJO, XAO, XKO and XJT daily levels, kept out of `stock_prices` on purpose (an
 index is not a security). Fetched by `shorted market-data index-sync` (CronJob
 `shorted-index-sync`, daily, `-years 2`). Each bar is dated by its ASX session
 (Sydney date), not its UTC day, so daylight-saving sessions are not filed one day
-early. Rows dated in the fetched window that the response does not carry are
-removed per series. The scheduled run re-dates only its two-year window: history
-older than that stays one session early in daylight-saving months until the
-one-off full re-fetch (`-years 21`; XJT `-years 8`) has run after the deploy.
-The operator steps are in `services/jobs/README.md` ("Benchmark indices").
+early. Stored rows inside the fetched window that the response does not stamp
+are removed per series, in the same transaction as the upsert; a clean-up that
+would remove more than 15% of the window's rows is refused. The scheduled run
+re-dates only its two-year window: history older than that stays one session
+early in daylight-saving months until the one-off full re-fetch (`-years 21`;
+XJT `-years 8`, each `-dry-run` first) has run after the deploy. The operator
+steps, the backup and the post-check are in `services/jobs/README.md`
+("Benchmark indices").
 
 ### Refreshing Materialized Views
 

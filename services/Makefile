@@ -782,9 +782,10 @@ test-alerts-e2e: test-integration-images
 	cd jobs && GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run TestAlertsE2E ./internal/jobs/alerts/
 
-# The index sync's weekend clean-up (services/jobs/internal/jobs/marketdata): the rows the old UTC dating
-# filed under a Saturday or Sunday are removed for one series and no other row. The Sydney dating is
-# covered by the package's unit tests, which need no server.
+# The index sync's write (services/jobs/internal/jobs/marketdata): one series' upsert plus removal of the
+# stored rows inside the fetched window that the response does not stamp, in one transaction. Rows outside
+# the window and other series are kept; a removal above the ceiling, a failed delete, an empty response and
+# a dry run change nothing. The Sydney dating is covered by the package's unit tests, which need no server.
 .PHONY: test-indexsync-pg
 test-indexsync-pg: test-integration-images
 	@set -e; \
