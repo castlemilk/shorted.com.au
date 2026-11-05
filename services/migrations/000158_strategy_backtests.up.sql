@@ -10,10 +10,14 @@
 --   strategy_backtest_requests  the queue: a publish request per live canonical version and recipe per ISO
 --                               week (and once more when no run has succeeded), a variant request per save.
 --
--- LOCK-FREE ON REPLAY. Prod replays every allowlisted migration on every deploy
+-- LOCK ON FIRST APPLY, NONE ON REPLAY. Prod replays every allowlisted migration on every deploy
 -- (.github/workflows/terraform-deploy.yml). Every table is CREATE TABLE IF NOT EXISTS, and every index is
--- created only when the catalog lacks it, so a replay that has done its work writes no row and takes no
--- lock on a table it does not create. Nothing here reads or writes an existing table.
+-- created only when the catalog lacks it. The first apply's two REFERENCES clauses (rules_hash to
+-- strategy_rule_versions, recipe_hash to strategy_recipes) take SHARE ROW EXCLUSIVE on those two tables, so
+-- the first apply waits on the daily snapshot's evaluation write (weekdays 13:00-16:40 UTC, which holds
+-- those tables). The lock_timeout of 15 s fails the apply cleanly if it cannot get the lock. A replay that
+-- has done its work takes no lock on any table: its statements are all catalog checks or IF NOT EXISTS.
+-- Nothing here writes an existing table.
 --
 -- No grants, owners, policies or RLS changes, and no function: 000138 closes every table in public on each
 -- deploy and this file adds nothing to it. The backend owns these tables.

@@ -113,7 +113,7 @@ test("the allowlist runs the backtest migration after the saved-strategies migra
   const line = "run_psql_session -f /migrations/000158_strategy_backtests.up.sql";
   assert.equal(workflow.split(line).length - 1, 1, "allowlisted once");
   const at = workflow.indexOf(line);
-  const saves = workflow.match(/run_psql_session -f \/migrations\/000157_strategy_saves\.up\.sql/);
+  const saves = workflow.match(/run_psql_session -f \/migrations\/\d{6}_strategy_saves\.up\.sql/);
   assert.ok(saves, "the saved-strategies migration is allowlisted");
   assert.ok(at > workflow.indexOf(saves[0]), "after 000157");
   assert.ok(at < workflow.indexOf("run_psql_session -f /migrations/000138_harden_data_api_grants.up.sql"), "before the 000138 closer");

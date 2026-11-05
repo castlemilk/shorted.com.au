@@ -1049,10 +1049,12 @@ jobs:
             run_psql_session -f /migrations/000157_strategy_saves.up.sql
 
             # 000158 (strategy backtests) adds the four backtest tables: runs, series, trades and the request
-            # queue. CREATE TABLE IF NOT EXISTS and catalog-guarded indexes, so a replay writes no row and takes
-            # no lock on an existing table. Nothing reads them until shorted-strategies-backtest runs, and that
-            # CronJob is not live until the chart's VKE branch moves after this apply. Session pooler, under
-            # lock_timeout 15s. If it cannot apply, apply it by hand in a quiet window, then re-run the deploy:
+            # queue. CREATE TABLE IF NOT EXISTS and catalog-guarded indexes. The FIRST apply takes SHARE ROW
+            # EXCLUSIVE on strategy_rule_versions and strategy_recipes (its REFERENCES clauses), so do not merge
+            # while shorted-strategies-daily is running (weekdays 13:00-16:40 UTC). A replay takes no lock.
+            # Nothing reads them until shorted-strategies-backtest runs, and that CronJob is not live until the
+            # chart's VKE branch moves after this apply. Session pooler, under lock_timeout 15s. If it cannot
+            # apply, apply it by hand outside that window, then re-run the deploy:
             #   task db:prod:apply FILE=services/migrations/000158_strategy_backtests.up.sql CONFIRM=prod
             run_psql_session -f /migrations/000158_strategy_backtests.up.sql
 
