@@ -68,3 +68,4 @@ Every step reports what it recovered and what it set aside, in the job's log and
 - A notice with no ASIC share count on record is never sent to a model (a 603 or 604 must state votes the validator cannot check); it is counted `no_share_count` and re-selected only when a count appears.
 - The gold set holds nine hand readings and twenty-one withheld entries (eight no_share_count); five scans over 300 KB keep no PDF and the bench skips them. The scan readings are checked by eye, not against a stored text.
 - A parser write resets `read_by` to parser on both upserts; the web's overview, institution and stock KV keys are v3.
+- **The first ETF run of the 35 funds** (cluster, 2026-11-05 07:12 UTC) stored every fund: iShares, Vanguard and SPDR as at 2026-11-04, Betashares as at 2026-11-04 (two option rows skipped per fund, 22 on YMAX), Global X as at 2026-11-05 with ISIN and SEDOL identifiers. The index fund source now reads 35 funds.
