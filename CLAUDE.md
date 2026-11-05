@@ -853,7 +853,11 @@ recipe fields on the wire (PR-12a).
   regime (the universe's under `snapshot`; the views' only when the universe read fails).
   The served version is the one `strategy_rule_versions` marks live (the daily
   job's promotion, read once per universe fill), not the registry's live flag:
-  a deploy changes nothing until the job promotes. Views always serve v0, and a
+  a deploy changes nothing until the job promotes. The version RPCs
+  (`GetStrategyVersion`, `ListStrategyVersions`) and the signal events state each
+  version's status and `live_from` / `superseded_on` from that table (cached 5 min
+  per instance; a registered version with no row is a draft; a failed read is
+  Unavailable). Views always serve v0, and a
   fallback to the views is labelled v0. A stock outside the universe answers the
   reason the snapshot stored (`ineligible_reason`). `GetStrategyDataStatus`
   derives each report's availability from the same two inputs the stored reading
