@@ -295,6 +295,24 @@ test("collectStrategy refuses a clamped read and a short read", async () => {
   await assert.rejects(collectStrategy("https://api.example", "canslim", { fetchImpl: short.fetchImpl, sleep: async () => {} }), /page at offset 100 is empty/);
 });
 
+test("collectStrategy refuses pages that answer for different sessions or lists", async () => {
+  // Page 2 comes from a universe built the day before: same rows, another session.
+  const otherSession = fakeFetch((m, body) => ({ json: { ...picksPage(250, body.offset, body.limit), sessionDate: body.offset === 0 ? "2026-11-04" : "2026-11-03" } }));
+  await assert.rejects(collectStrategy("https://api.example", "canslim", { fetchImpl: otherSession.fetchImpl, sleep: async () => {} }), /answers for a different session or list than page 1/);
+
+  // Page 3 holds a different total: the list changed between reads.
+  const otherTotal = fakeFetch((m, body) => ({ json: picksPage(body.offset === 200 ? 240 : 250, body.offset, body.limit) }));
+  await assert.rejects(collectStrategy("https://api.example", "canslim", { fetchImpl: otherTotal.fetchImpl, sleep: async () => {} }), /different session or list/);
+
+  // Page 2's status counts differ from page 1's.
+  const otherCounts = fakeFetch((m, body) => {
+    const p = picksPage(250, body.offset, body.limit);
+    if (body.offset === 100) p.statusCounts = { triggered: 1, setup: 0, watch: 249 };
+    return { json: p };
+  });
+  await assert.rejects(collectStrategy("https://api.example", "canslim", { fetchImpl: otherCounts.fetchImpl, sleep: async () => {} }), /different session or list/);
+});
+
 test("collectStrategy surfaces a refused offset rather than reading a partial list", async () => {
   const refused = fakeFetch(() => ({ status: 403, json: { code: "permission_denied" } }));
   await assert.rejects(collectStrategy("https://api.example", "canslim", { fetchImpl: refused.fetchImpl, sleep: async () => {} }), /HTTP 403/);

@@ -20,7 +20,9 @@
 // `diff` exits 0 when every difference is one the cutover allows, 1 when one is
 // not, and 2 on a usage error. Both recordings must answer for the same session,
 // and the after recording must be the snapshot's own session (GetStrategyDataStatus
-// names it), so a views fallback cannot pass as a cutover.
+// names it). That check cannot see which source answered: on the cutover day the
+// views also answer for session D, and the wire does not name the source. Only the
+// revision's STRATEGY_SOURCE and its logs (operator step 5) show the snapshot served.
 //
 // Every status must be identical for every code, for all five strategies, and the
 // status counts and total must match once the allowed codes are left out of both
@@ -219,6 +221,22 @@ export async function collectStrategy(baseUrl, strategyId, opts = {}) {
     const page = resp.picks ?? [];
     if (page.length === 0 && offset < total) {
       throw new RecordError(`${strategyId}: page at offset ${offset} is empty but totalCount is ${total}`);
+    }
+    // Every page must answer for the session and the list page 1 answered for. Two
+    // instances can hold universes built either side of a refresh, so a mixed read is refused.
+    if (pages.length > 0) {
+      const first = pages[0];
+      const countsOf = (r) => ["triggered", "setup", "watch"].map((k) => r.statusCounts?.[k] ?? 0).join(",");
+      if (
+        (resp.sessionDate ?? "") !== (first.sessionDate ?? "") ||
+        (resp.shortReportDate ?? "") !== (first.shortReportDate ?? "") ||
+        (resp.totalCount ?? 0) !== total ||
+        countsOf(resp) !== countsOf(first)
+      ) {
+        throw new RecordError(
+          `${strategyId}: the page at offset ${offset} answers for a different session or list than page 1 (the instances disagree); record again`,
+        );
+      }
     }
     seen += page.length;
     pages.push(resp);
