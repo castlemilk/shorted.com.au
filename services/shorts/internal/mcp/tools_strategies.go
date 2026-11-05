@@ -319,7 +319,7 @@ const getStrategyPicksDescription = "Ranked ASX stocks for one named strategy, w
 	"reordered by sort_by (rank stays the strategy's). Each pick carries its prices, base, volume, growth, return and short " +
 	"figures; a figure is absent when unknown, never zero. Also the market regime with this strategy's verdict (a downtrend " +
 	"means stand aside, it does not hide picks) and how many evaluated stocks hold fundamentals: without them fundamentals " +
-	"rules read unknown and a stock cannot trigger. Default 10 picks. Ids and rules: list_strategies. A pick's statements " +
+	"rules read unknown and a stock cannot trigger. Default 10 picks. Without sign-in, the top 10 only; connected with OAuth, up to 25. Ids and rules: list_strategies. A pick's statements " +
 	"and ratios: get_stock_fundamentals. End-of-day data; short data is T+4. A rules-based screen, not financial advice."
 
 func getStrategyPicksTool() Tool {
