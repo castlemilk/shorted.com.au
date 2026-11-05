@@ -31,6 +31,10 @@ type StrategyDailyStatus struct {
 	Tables []StrategyTableRow
 	// Migrated is false when the snapshot tables do not exist yet (000156 not applied).
 	Migrated bool
+	// BacktestQueue is the request queue's length by kind and status (queued and running only).
+	BacktestQueue []StrategyBacktestQueueRow
+	// BacktestRuns are the newest canonical backtest runs; empty before 000158.
+	BacktestRuns []StrategyBacktestRunRow
 }
 
 // StrategyPhaseRow is one phase of one session.
@@ -148,6 +152,9 @@ func (s *postgresStore) StrategyDailyStatus(ctx context.Context, sessions int) (
 			return StrategyDailyStatus{}, nil
 		}
 		return StrategyDailyStatus{}, fmt.Errorf("read strategy daily status: %w", err)
+	}
+	if err := s.strategyBacktestStatus(ctx, &out); err != nil {
+		return StrategyDailyStatus{}, err
 	}
 	return out, nil
 }

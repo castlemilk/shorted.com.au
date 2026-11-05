@@ -226,7 +226,7 @@ func AdminRegistry() []AdminTool {
 	tools := []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool(),
 		listAsyncJobsTool(), listJobExecutionsTool(), getJobExecutionTool(), listEnrichmentJobsTool(), searchJobMentionsTool(),
 		peopleOverviewTool(), listUsersTool(), listPayingUsersTool(), listMailingListTool(), lookupPersonTool(),
-		checkSubscriptionTool(), billingExceptionsTool(), paidFeatureStatusTool(), runPaidProbeTool(), strategyStatusTool()}
+		checkSubscriptionTool(), billingExceptionsTool(), paidFeatureStatusTool(), runPaidProbeTool(), strategyStatusTool(), queueStrategyBacktestTool()}
 	tools = append(tools, alertsAdminTools()...)
 	tools = append(tools, crawlAdminTools()...)
 	tools = append(tools, crawlOpsAdminTools()...)
@@ -536,6 +536,8 @@ func adminToolError(err error) *sdk.CallToolResult {
 		msg = "that job is not deployed as a runnable Cloud Run Job in this environment"
 	case errors.Is(err, jobmonitor.ErrNoProject), errors.Is(err, jobmonitor.ErrOverridesUnsupported):
 		msg = "job execution is not configured in this deployment"
+	case errors.Is(err, ErrStrategyBacktestRefused):
+		msg = err.Error()
 	}
 	res := &sdk.CallToolResult{}
 	res.SetError(errors.New(msg))

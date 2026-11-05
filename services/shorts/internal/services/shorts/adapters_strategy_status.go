@@ -25,3 +25,13 @@ func (s *StoreAdapter) StrategyDailyStatus(ctx context.Context, sessions int) (s
 	}
 	return st.StrategyDailyStatus(ctx, sessions)
 }
+
+// QueueStrategyBacktest queues one canonical version's backtest publish, or refuses it,
+// through the underlying store.
+func (s *StoreAdapter) QueueStrategyBacktest(ctx context.Context, req shorts.QueueStrategyBacktestRequest) (shorts.QueueStrategyBacktestResult, error) {
+	st, ok := s.store.(shorts.StrategyBacktestQueueAdminStore)
+	if !ok {
+		return shorts.QueueStrategyBacktestResult{}, fmt.Errorf("the store backend (%T) does not queue strategy backtests", s.store)
+	}
+	return st.QueueStrategyBacktest(ctx, req)
+}
