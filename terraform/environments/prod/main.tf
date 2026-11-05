@@ -1370,6 +1370,10 @@ module "shorts_api" {
   # (PR-11b flips it to "snapshot" after one clean weekday of parity). See
   # modules/shorts-api/variables.tf.
   strategy_source = "views"
+  # Anonymous depth of the public strategy picks: the top 10 of the default
+  # ranking for every HTTP caller without sign-in, API tokens included (PR-06b).
+  # Signed-in depth is GetViewerStrategyPicks, which this does not touch.
+  strategy_public_signals_limit = 10
 
   # Internal tier grants. The tfvar lists operator user ids, so revoking one is a
   # tfvar change rather than a code change. The paid-feature probe's identity
