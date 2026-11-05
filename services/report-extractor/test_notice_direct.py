@@ -634,6 +634,36 @@ def test_a_zero_budget_starts_nothing(monkeypatch):
     assert counts.get("recovered:agree") is None and counts["not_started"] == 1
 
 
+def test_a_read_still_running_past_the_budget_and_its_grace_is_abandoned_and_nothing_recorded(monkeypatch):
+    # The first live run hung for 106 minutes past its budget inside a model call, until the pod's
+    # deadline killed it with nothing logged. A read past the budget plus BUDGET_GRACE_S is
+    # abandoned: counted, logged, nothing written, and the run returns without waiting for it.
+    import threading
+
+    release = threading.Event()
+
+    def hang(extractor, cand, *args, **kwargs):
+        release.wait(30)
+        return {"kind": "fetch_failed", "reason": "released"}
+
+    monkeypatch.setattr(nd, "read_one", hang)
+    monkeypatch.setattr(nd, "BUDGET_GRACE_S", 0.5)
+    conn = FakeConn([row("https://www.asx.com.au/asxpdf/1.pdf")], shares=664_000_000)
+    try:
+        counts = nd.run(conn, extractor({}), limit=0, workers=1, budget_min=0.001, since="", dry_run=False)
+    finally:
+        release.set()
+    assert counts["abandoned"] == 1 and conn.commits == 0
+    assert counts.get("fetch_failed") is None
+
+
+def test_the_notice_client_tries_twice_with_a_two_minute_timeout(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    ex = nd.from_env()
+    assert ex is not None
+    assert ex.client.timeout == 120.0 and ex.client.max_attempts == 2
+
+
 def test_a_fetch_failure_is_not_an_attempt(monkeypatch):
     def boom(url, session=None):
         raise nd.FetchError("HTTP 403")

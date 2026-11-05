@@ -152,3 +152,53 @@ func keys(m map[string]pendingNotice) []string {
 	slices.Sort(out)
 	return out
 }
+
+// A parser refusal recorded over a model-read parsed attempt leaves it parsed and model's:
+// the reader and the nightly ran at once on 2026-11-05 and the nightly's re-read turned 69
+// model-read notices back into withheld attempts while their notice rows stayed.
+func TestAParserRefusalNeverDowngradesAModelRead(t *testing.T) {
+	dsn := os.Getenv("OWNERSHIP_TEST_POSTGRES_URL")
+	if dsn == "" {
+		t.Skip("OWNERSHIP_TEST_POSTGRES_URL not set; skipping the real-Postgres attempt test")
+	}
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close(ctx) }()
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	record := func(a noticeAttempt) error {
+		_, err := tx.Exec(ctx, recordAttemptSQL, a.URL, a.StockCode, a.Outcome, nullIfEmpty(truncate(a.Detail, 500)), 4)
+		return err
+	}
+	const url = "https://example.test/model-read.pdf"
+	if _, err := tx.Exec(ctx, `INSERT INTO substantial_holder_notice_attempts (announcement_url, stock_code, outcome, detail, parser_version, read_by)
+		VALUES ($1, 'SDR', 'parsed', 'model: read by two readers', 4, 'model')`, url); err != nil {
+		t.Fatal(err)
+	}
+	if err := record(noticeAttempt{URL: url, StockCode: "CBA", Outcome: "no_voting_power", Detail: "no pair"}); err != nil {
+		t.Fatal(err)
+	}
+	var outcome, readBy, code string
+	if err := tx.QueryRow(ctx, `SELECT outcome, read_by, stock_code FROM substantial_holder_notice_attempts WHERE announcement_url = $1`, url).Scan(&outcome, &readBy, &code); err != nil {
+		t.Fatal(err)
+	}
+	if outcome != "parsed" || readBy != "model" || code != "SDR" {
+		t.Fatalf("after a refusal: outcome=%s read_by=%s code=%s, want parsed/model/SDR", outcome, readBy, code)
+	}
+	// A parser SUCCESS replaces the model read.
+	if err := record(noticeAttempt{URL: url, StockCode: "SDR", Outcome: "parsed", Detail: ""}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.QueryRow(ctx, `SELECT read_by FROM substantial_holder_notice_attempts WHERE announcement_url = $1`, url).Scan(&readBy); err != nil {
+		t.Fatal(err)
+	}
+	if readBy != "parser" {
+		t.Fatalf("after a parser success read_by=%s, want parser", readBy)
+	}
+}
