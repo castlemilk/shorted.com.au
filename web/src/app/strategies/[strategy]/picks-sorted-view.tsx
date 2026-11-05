@@ -32,8 +32,9 @@ import type { PickStatus } from "~/@/lib/strategies/types";
  * With no status and no sort (or ?sort=score) it renders the server's
  * shortlist as the page always did, with no request. With either it asks the
  * API for the ranked list within the status, in the sort's order (up to 100
- * rows; a caller without sign-in gets the public top rows, and the copy says
- * so): a plain JSON POST through the same-origin rewrite, from a module loaded on first use
+ * rows; every caller of the public RPC gets the public top rows, signed in or
+ * not, and the copy says so): a plain JSON POST through the same-origin rewrite,
+ * from a module loaded on first use
  * (no ~/gen, no @connectrpc in the browser). The island is handed ONLY the
  * shortlist rows (at most SHORTLIST_MAX_ROWS) and the server's status counts,
  * never every ranked row: those rows are serialised into the page's RSC

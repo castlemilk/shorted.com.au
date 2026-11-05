@@ -32,7 +32,8 @@ export interface SortedPicks {
    */
   clientSorted: boolean;
   /**
-   * The answer is clamped to the caller's public depth (no sign-in): the rows
+   * The answer is clamped to the public depth, which every caller of the
+   * public RPC gets, signed in or not: the rows
    * are the top of the rank order, sorted or filtered within it, and the
    * totals are the whole ranking's.
    */

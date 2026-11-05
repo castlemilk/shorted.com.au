@@ -2,8 +2,8 @@
 // loaded with import() on first use so neither it nor the mapper is in the
 // page's first-load JavaScript. It answers a status filter as well as a sort:
 // the island carries only the shortlist, so the rest of a status is the
-// API's to send, up to the depth it gives this caller (the public top rows,
-// for every caller without sign-in, which the answer's `viewer` says).
+// API's to send, up to the depth the public RPC gives (the public top rows,
+// for every caller, signed in or not, which the answer's `viewer` says).
 //
 // A PLAIN JSON POST, deliberately: the Connect protocol's unary JSON form is
 // just that, so the browser needs neither ~/gen (the protobuf descriptors) nor
