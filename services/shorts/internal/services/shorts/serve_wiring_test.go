@@ -213,3 +213,37 @@ func TestAdapterOverAStoreWithoutTheCrawlLedgerSaysSo(t *testing.T) {
 	_, _, err := NewStoreAdapter(plainStore{}).CrawlDispatchOpen(context.Background())
 	assert.ErrorContains(t, err, "does not provide the housing crawl ledger")
 }
+
+// strategyStatusStore is a backend that provides the strategy daily status view.
+// The embedded nil Store panics on any method this test does not expect.
+type strategyStatusStore struct {
+	shorts.Store
+	gotSessions int
+}
+
+func (f *strategyStatusStore) StrategyDailyStatus(_ context.Context, sessions int) (shorts.StrategyDailyStatus, error) {
+	f.gotSessions = sessions
+	return shorts.StrategyDailyStatus{Migrated: true, LateLast30: 3, LastCompleted: "2026-11-04"}, nil
+}
+
+// serve.go hands the admin source the adapter, so the strategy status read must be
+// reachable through it. Without the forwarder the assertion is nil and strategy_status
+// answers "not wired on this deployment" in production.
+func TestStrategyStatusReachableThroughTheAdapter(t *testing.T) {
+	backend := &strategyStatusStore{}
+	src := newAdminMCPSource(&ShortsServer{store: NewStoreAdapter(backend), logger: NewLoggerAdapter()}, nil)
+	status := src.StrategyStatus()
+	require.NotNil(t, status, "the adapter must expose the strategy daily status")
+
+	read, err := status.StrategyStatus(context.Background(), 5)
+	require.NoError(t, err)
+	assert.Equal(t, 5, backend.gotSessions, "the forwarded read reaches the store")
+	assert.True(t, read.Migrated)
+	assert.Equal(t, int64(3), read.LateLast30)
+	assert.Equal(t, "2026-11-04", read.LastCompleted)
+}
+
+func TestAdapterOverAStoreWithoutTheStrategyStatusSaysSo(t *testing.T) {
+	_, err := NewStoreAdapter(plainStore{}).StrategyDailyStatus(context.Background(), 5)
+	assert.ErrorContains(t, err, "does not provide the strategy daily status")
+}

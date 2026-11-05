@@ -220,19 +220,19 @@ func candidateAt(code string, t civil.Date, idx *index) (engine.Candidate, *Inel
 	return c, nil
 }
 
-// caGuardSessions is how long a known corporate-action suspect keeps its code
+// CAGuardSessions is how long a known corporate-action suspect keeps its code
 // out of the v1 universe: the code is ineligible from the suspect's known date
 // until this many sessions after the suspect's bar, and eligible again on that
 // session.
-const caGuardSessions = 260
+const CAGuardSessions = 260
 
 // caGuarded reports whether one of the known suspects still excludes the code
 // on session t. The window is counted from the suspect's bar, not from the day
-// it became known, so a suspect expires after caGuardSessions sessions however
+// it became known, so a suspect expires after CAGuardSessions sessions however
 // far back the caller's bars reach.
 func caGuarded(cal *calendar.Calendar, known []features.CASuspect, t civil.Date) bool {
 	for _, s := range known {
-		if cal.SessionsBetween(s.Date, t) < caGuardSessions {
+		if cal.SessionsBetween(s.Date, t) < CAGuardSessions {
 			return true
 		}
 	}
@@ -294,6 +294,20 @@ func newestASIC(rows []features.ASICRow, t civil.Date) (product string, shares f
 	}
 	r := rows[i-1]
 	return r.Product, r.Issued, true
+}
+
+// CandidateFromPrice maps one price-feature row onto the evaluator's candidate.
+// The snapshot reader builds candidates from its stored rows with it, so a
+// stored session and a live build share one mapping.
+func CandidateFromPrice(code string, p features.PriceFeatures) engine.Candidate {
+	return candidateFromPrice(code, p)
+}
+
+// ApplyFundamentals decodes a stock's frozen fundamentals onto its candidate,
+// as the live build does. A missing or undecodable blob leaves the candidate
+// without fundamentals.
+func ApplyFundamentals(c *engine.Candidate, f features.Fundamentals) {
+	applyFundamentals(c, f)
 }
 
 // candidateFromPrice maps one price-feature row onto the evaluator's candidate.

@@ -2,6 +2,7 @@ package features
 
 import (
 	"encoding/json"
+	"time"
 
 	"cloud.google.com/go/civil"
 
@@ -70,6 +71,11 @@ type ShortReading struct {
 type Fundamentals struct {
 	Hash string          `json:"hash"`
 	Blob json.RawMessage `json:"blob,omitempty"`
+	// GrowthFetchedAt and QualityFetchedAt are the fetch times of the rows the
+	// blob was encoded from. They sit outside the blob, so they never change its
+	// hash; the row's meta carries them to the candidate.
+	GrowthFetchedAt  *time.Time `json:"-"`
+	QualityFetchedAt *time.Time `json:"-"`
 }
 
 // FundamentalsBody is the fundamentals a feature row freezes: the growth

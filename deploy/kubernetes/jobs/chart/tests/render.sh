@@ -58,6 +58,7 @@ declare -A want_schedule=(
   [financial-report-extractor]="0 14 * * *"
   [asx-discovery]="0 12 * * 0"
   [shorted-alerts]="55 * * * 1-5"
+  [shorted-strategies-daily]="0,20,40 13-16 * * 1-5"
 )
 
 got_names="$(cronjobs "${tmp}/default.yaml")"
@@ -107,6 +108,17 @@ shorts_url="$(field "${tmp}/default.yaml" "${alerts}" '.spec.jobTemplate.spec.te
 [[ -z "$(field "${tmp}/default.yaml" "${alerts}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
   || fail "shorted-alerts: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
 pass "shorted-alerts: live, Resend and entitlement secrets isolated, origin URL, no WIF"
+
+# shorted-strategies-daily: writes only when STRATEGIES_DRY_RUN is "false" (the job itself defaults to a dry run),
+# is VKE-native, has no GCS identity, and its per-attempt deadline is one hour.
+strat=shorted-strategies-daily
+[[ "$(field "${tmp}/default.yaml" "${strat}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "STRATEGIES_DRY_RUN") | .value')" == "false" ]] \
+  || fail "shorted-strategies-daily: STRATEGIES_DRY_RUN must be \"false\" in the chart"
+[[ "$(field "${tmp}/default.yaml" "${strat}" '.spec.jobTemplate.spec.backoffLimitPerIndex')" == "0" ]] || fail "shorted-strategies-daily: backoffLimitPerIndex must be 0"
+[[ "$(field "${tmp}/default.yaml" "${strat}" '.spec.jobTemplate.spec.template.spec.activeDeadlineSeconds')" == "3600" ]] || fail "shorted-strategies-daily: per-attempt activeDeadlineSeconds must be 3600"
+[[ -z "$(field "${tmp}/default.yaml" "${strat}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
+  || fail "shorted-strategies-daily: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
+pass "shorted-strategies-daily: writes only on STRATEGIES_DRY_RUN=false, one attempt, no WIF"
 
 # --- 2. Nothing runs by default; enabling is per job and needs suspendAll=false.
 # Exactly the jobs in `enabled` run (none while suspendAll is true).

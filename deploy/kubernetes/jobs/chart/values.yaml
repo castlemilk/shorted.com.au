@@ -60,6 +60,7 @@ enabled:
   - shorted-economy
   - shorted-alerts
   - shorted-ownership
+  - shorted-strategies-daily
 
 # Jobs that exist ONLY on the cluster: no Cloud Run twin, no Cloud Scheduler
 # trigger, so no `cloudRun` mapping and no local.jobs_on_vke entry. Their schedule
@@ -67,6 +68,7 @@ enabled:
 # names from the twin checks and pin that they have no twin.
 vkeNative:
   - shorted-alerts
+  - shorted-strategies-daily
 
 # Google Workload Identity Federation for the jobs that write to GCS. Keyless:
 # a projected Kubernetes token is exchanged for a short-lived token of the SAME
@@ -648,3 +650,27 @@ jobs:
       RESEND_API_KEY: RESEND_API_KEY
       INTERNAL_SERVICE_SECRET: INTERNAL_SERVICE_SECRET
       UNSUBSCRIBE_SECRET: UNSUBSCRIBE_SECRET
+
+  # services/jobs/internal/jobs/strategies: the strategy engine's daily snapshot (-mode daily).
+  # VKE-native (vkeNative): no Cloud Run twin. It runs at :00, :20 and :40 past 13 to 16 UTC on
+  # weekdays, so the first run follows the price sweep (about 12:37 UTC) and the last one, at 16:40,
+  # is the deadline: a session still held then exits 10 once, so the monitor pages once. A held
+  # session is retried by the next run and backfilled oldest first. maxRetries 0: the next scheduled
+  # run is the retry, and a Kubernetes retry would take the lease the run already holds.
+  # Index dates are fixed in the tree (#860): the job reads stored XJO dates, the index sync dates
+  # each bar by its ASX session, and history older than the scheduled window waits for the one-off
+  # -years 21 (XJO) and -years 8 (XJT) re-fetch. Readiness rule (e) holds every session
+  # (xjo_weekend_rows) while a weekend-dated XJO bar remains in the window, rather than writing
+  # shifted figures. The runbook gate before enabling writes is in services/jobs/README.md
+  # ("Strategy daily snapshot").
+  shorted-strategies-daily:
+    image: jobs
+    args: ["strategies", "-mode", "daily"]
+    schedule: "0,20,40 13-16 * * 1-5"
+    timeoutSeconds: 3600
+    maxRetries: 0
+    resources: { cpuRequest: 500m, memoryRequest: 768Mi, memory: 1536Mi }
+    profiles: [db, revalidate]
+    env:
+      # Writes only when this is "false"; the dry run is the default everywhere else.
+      STRATEGIES_DRY_RUN: "false"

@@ -226,7 +226,7 @@ func AdminRegistry() []AdminTool {
 	tools := []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool(),
 		listAsyncJobsTool(), listJobExecutionsTool(), getJobExecutionTool(), listEnrichmentJobsTool(), searchJobMentionsTool(),
 		peopleOverviewTool(), listUsersTool(), listPayingUsersTool(), listMailingListTool(), lookupPersonTool(),
-		checkSubscriptionTool(), billingExceptionsTool(), paidFeatureStatusTool(), runPaidProbeTool()}
+		checkSubscriptionTool(), billingExceptionsTool(), paidFeatureStatusTool(), runPaidProbeTool(), strategyStatusTool()}
 	tools = append(tools, alertsAdminTools()...)
 	tools = append(tools, crawlAdminTools()...)
 	tools = append(tools, crawlOpsAdminTools()...)

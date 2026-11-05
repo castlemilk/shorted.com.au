@@ -28,7 +28,9 @@ services/jobs/
   internal/jobs/picks/        `shorted picks`      stock-picker data: full statements, filing
                               half-years + refresh_strategy_views() (new, not a port)
   internal/jobs/strategies/   `shorted strategies`  strategy engine: `-mode parity`, the read-only
-                              comparison of the Go feature port with the views
+                              comparison of the Go feature port with the views; `-mode daily`,
+                              the session's snapshot and its signal events (writes only with
+                              `STRATEGIES_DRY_RUN=false`)
   internal/jobs/ownership/    `shorted ownership`  who holds ASX stocks: substantial holder
                               notices, ETF + super fund holdings (new, not a port)
   internal/jobs/reportextract/`shorted report-extract concurrent|sequential`
@@ -71,7 +73,7 @@ services/jobs/
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
 | `review` | — (new job, data review) | no — laptop tool, read-only: `task data:review` |
 | `short-data-sync` | `services/daily-sync` (Python, **DELETED**) — **ASIC shorts tier only** | yes — `shorts-data-sync` (cutover 4, in-place image swap; Python source deleted in the cleanup slice) |
-| `strategies` | — (new job, strategy engine) | no schedule of its own: `-mode parity` by hand. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks") |
+| `strategies` | — (new job, strategy engine) | yes for `-mode daily`: `shorted-strategies-daily` (VKE-native, weekdays at :00, :20 and :40 past 13 to 16 UTC; `STRATEGIES_DRY_RUN=false` writes; the 16:40 run exits 10 when any session is still held). `-mode parity` runs by hand. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks"). Index dates are fixed in the tree (#860); writes wait for the index sync to re-date the window and the XJO weekend-row gate to clear, see "Strategy daily snapshot" |
 | `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
 | `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
 
@@ -933,6 +935,102 @@ that. It exits 10 when a conclusive run disagrees.
 `mismatches=0 only_view=0 only_go=0`, read with the admin MCP's
 `list_job_executions` and `get_job_execution`, and the picks exit code
 unchanged. Any mismatch is fixed before the daily snapshot job is built on it.
+
+**Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migration 000156).
+Runs as `shorted-strategies-daily` (VKE CronJob, weekdays at :00, :20 and :40 past 13 to 16 UTC). It writes
+when `STRATEGIES_DRY_RUN=false`, holds a session it cannot yet read whole, backfills held sessions oldest
+first (ten per run), and exits 10 once at the 16:40 UTC run when a session is still held.
+
+- **Index dates are fixed in the tree (#860).** The index sync dates each bar by its Sydney session and removes
+  stored rows in a re-fetched window that are not sessions (the weekend rows). The job reads stored XJO dates for
+  the data calendar, the regime and RS. Rows inside the scheduled index window (`-years 2`, which covers the job's
+  420-day window) are dated by session once the sync has run; older history waits for the one-off `-years 21`
+  (XJO) and `-years 8` (XJT) re-fetch. Readiness rule (e) holds the job with `xjo_weekend_rows` while any XJO bar
+  in the window is dated on a weekend, so a deploy ahead of the re-sync holds rather than writes. Gate before
+  enabling writes, after the one-off XJO re-fetch as well:
+  `task db:prod:psql -- -At -c "SELECT count(*) FROM index_prices WHERE index_code = 'XJO' AND EXTRACT(ISODOW FROM date) > 5"`
+  must return 0.
+- **Signal event evidence** (`strategy_signal_events.evidence`, compact JSON): `r` is one string with one
+  character per rule in the rules version's rule order (`P` pass, `F` fail, `U` unknown; the rule ids are not
+  stored, the event's `rules_hash` pins the order), `v` and `p` the per-rule value and proximity in the same
+  order (null where a rule has none), then `close`, `pivot`, `short_report`, `short_available` and `regime`.
+  An exit (`to_status` none) has `r` "", `v` [] and `p` []. A rule status other than pass, fail or unknown fails
+  the run rather than storing a wrong character, and so does a pick whose rules are not the version's rule list
+  id for id in order (the run fails before any event of that session is written). Example: `{"r":"PFU","v":[9.5,null,null],"p":[null,0.82,null],
+  "close":41.2,"pivot":41.64,"short_report":"2026-10-28","short_available":"2026-11-03","regime":"neutral"}`.
+- **Recompute from session X.** A completed session is read back, never recomputed, and events are insert-only
+  in practice (no trigger forbids a delete). Recompute only for a bug that changed a stored row, and only when
+  every precondition below holds; each is a read-only probe (`task db:prod:psql -- -At -c "..."`):
+  1. The CronJob is not running: no `picks_run_lease` row named `strategies-daily`
+     (`SELECT count(*) FROM picks_run_lease WHERE name = 'strategies-daily'` = 0), and the change is not made
+     on a weekday between 13:00 and 16:59 UTC (the job's runs are at :00, :20 and :40).
+  2. X is inside the kept window and has a completed session before it that still has feature rows:
+     `SELECT min(as_of) FROM strategy_features_daily` is before X, and
+     `SELECT count(*) FROM strategy_features_daily WHERE as_of = (SELECT max(as_of) FROM strategy_daily_runs WHERE phase = 'features' AND status = 'completed' AND as_of < 'X')` is above 0.
+     Pruning keeps feature rows for the newest 15 completed sessions only, so an older X cannot be diffed.
+     With no such session, the recomputed session has no previous to diff against and every later one is lost.
+  3. No canonical version was promoted or superseded on or after X:
+     `SELECT count(*) FROM strategy_rule_versions WHERE kind = 'canonical' AND (live_from >= 'X' OR superseded_on >= 'X')` = 0.
+     Otherwise the superseded version's events in [X, live_from) are deleted and the backfill, which evaluates live
+     versions only, never rebuilds them.
+
+  Back up the four tables and the fundamentals blobs they reference, first, outside the repo. Each file is SQL
+  that `task db:prod:apply` replays: one `INSERT` per row through `jsonb_populate_record`, so every column keeps
+  its type and the events keep their `id`. Make the directory first, then generate each file through the
+  read-only probe (`X` is the session, written as a date in every line):
+
+  ```sh
+  mkdir -p ~/strategy-recompute-X
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_fundamentals_blobs SELECT * FROM jsonb_populate_record(NULL::strategy_fundamentals_blobs, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_fundamentals_blobs t WHERE t.hash IN (SELECT fundamentals_hash FROM strategy_features_daily WHERE as_of >= 'X' AND fundamentals_hash IS NOT NULL)" > ~/strategy-recompute-X/blobs.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_regime_daily SELECT * FROM jsonb_populate_record(NULL::strategy_regime_daily, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_regime_daily t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/regime.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_features_daily SELECT * FROM jsonb_populate_record(NULL::strategy_features_daily, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_features_daily t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/features.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_daily_runs SELECT * FROM jsonb_populate_record(NULL::strategy_daily_runs, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_daily_runs t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/runs.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_signal_events SELECT * FROM jsonb_populate_record(NULL::strategy_signal_events, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_signal_events t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/events.sql
+  ```
+
+  Count what each file holds before the change: `grep -c '^INSERT' ~/strategy-recompute-X/*.sql` must match
+  `SELECT count(*)` for the same rows (the blobs are the ones the feature rows reference). Then write the
+  deletes, with the same `X`, into `~/strategy-recompute-X/restore-delete.sql`:
+
+  ```sql
+  DELETE FROM strategy_signal_events WHERE as_of >= 'X';
+  DELETE FROM strategy_daily_runs WHERE as_of >= 'X';
+  DELETE FROM strategy_features_daily WHERE as_of >= 'X';
+  DELETE FROM strategy_regime_daily WHERE as_of >= 'X';
+  ```
+
+  The recompute starts with the deletes alone, applied as one transaction (`task db:prod:apply` wraps the file
+  in `--single-transaction`, with the statement timeout off). The next scheduled runs then rewrite X. To undo
+  it, apply the restore file, which is those deletes followed by the backup inserts. The blobs go first, because
+  the feature rows reference them:
+
+  ```sh
+  cat ~/strategy-recompute-X/restore-delete.sql ~/strategy-recompute-X/blobs.sql ~/strategy-recompute-X/regime.sql \
+      ~/strategy-recompute-X/features.sql ~/strategy-recompute-X/runs.sql ~/strategy-recompute-X/events.sql \
+      > ~/strategy-recompute-X/restore.sql
+  task db:prod:apply FILE="$HOME/strategy-recompute-X/restore.sql" CONFIRM=prod
+  ```
+
+  The restore file is also the way back: run it on its own, under precondition 1, to put the session exactly
+  as it was backed up (its deletes remove whatever the recompute wrote for X first, so the inserts never meet a
+  conflicting row). Blobs the recompute added and no restored row references are removed by the next run's
+  prune. Verify the counts against the backups before the next run.
+
+  The next scheduled runs backfill from the newest remaining complete session, ten per run. Those sessions take
+  today's fundamentals, metadata, ETP set and dividends, not what was known on their day, so every recomputed
+  session is written with `late=true` in its features `counts`. Blobs are not kept for good: each run's prune
+  deletes every blob no feature row references (`prune.go`, the fundamentals blobs step). A recomputed session
+  whose fundamentals changed leaves its old blobs unreferenced, so the next run removes them. That is why the
+  backup holds the blobs its rows reference, and why the restore puts them back before the feature rows that
+  point at them.
+- **A session that can never pass.** A closure missing from `asxcalendar` is a trading day to the job. It fails
+  readiness rule (c) (`no_priced_codes`) on every run, so every later run stops at that date and the 16:40 run
+  pages. The job has no operator flag to skip a session: add the closure to `asxcalendar` (a code change). The
+  day then leaves the session list, and the next run backfills from the last complete session.
+- **Spot check.** After the 13:30 UTC picks refresh:
+  `task db:prod:psql -- -P pager=off -f scripts/strategy-daily-spot-check.sql`. Every row reads `equal`: the
+  stored `fs1` features against `mv_price_features`, and the stored XJO regime against `mv_market_regime`, for
+  three codes on the newest completed session.
 
 **Run lease.** `-mode fundamentals`, `filings` and `all` claim the one
 `picks_run_lease` row (`name = 'picks'`, 4 hours, extended every 100 codes,

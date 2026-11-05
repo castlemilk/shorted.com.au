@@ -155,6 +155,10 @@ var catalog = map[string]catalogEntry{
 		DisplayName: "Alerts Evaluator",
 		Category:    "Alerts",
 	},
+	"shorted-strategies-daily": {
+		DisplayName: "Strategy Daily Snapshot",
+		Category:    "Strategies",
+	},
 
 	// --- Retired: deployed + manually executable, schedulers paused ON PURPOSE --
 	// terraform/environments/prod/main.tf marks both modules SUPERSEDED and sets
