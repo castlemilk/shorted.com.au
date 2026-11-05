@@ -338,7 +338,7 @@ public final class OwnershipProto extends com.google.protobuf.GeneratedFile {
       "es\030\r \001(\010R\010hasVotes\022\035\n\nevent_date\030\016 \001(\tR\t" +
       "eventDate\022!\n\014announced_on\030\017 \001(\tR\013announc" +
       "edOn\022)\n\020announcement_url\030\020 \001(\tR\017announce" +
-      "mentUrl\"\213\004\n\021SubstantialNotice\022\035\n\nstock_c" +
+      "mentUrl\"\244\004\n\021SubstantialNotice\022\035\n\nstock_c" +
       "ode\030\001 \001(\tR\tstockCode\022!\n\014company_name\030\002 \001" +
       "(\tR\013companyName\022\035\n\nholder_key\030\003 \001(\tR\thol" +
       "derKey\022\037\n\013holder_name\030\004 \001(\tR\nholderName\022" +
@@ -351,410 +351,412 @@ public final class OwnershipProto extends com.google.protobuf.GeneratedFile {
       "ed\022\035\n\nevent_date\030\r \001(\tR\teventDate\022!\n\014ann" +
       "ounced_on\030\016 \001(\tR\013announcedOn\022)\n\020announce" +
       "ment_url\030\017 \001(\tR\017announcementUrl\022\024\n\005event" +
-      "\030\020 \001(\tR\005event\"\243\004\n\013FundHolding\022)\n\020institu" +
-      "tion_slug\030\001 \001(\tR\017institutionSlug\022)\n\020inst" +
-      "itution_name\030\002 \001(\tR\017institutionName\022\022\n\004k" +
-      "ind\030\003 \001(\tR\004kind\022\033\n\tfund_name\030\004 \001(\tR\010fund" +
-      "Name\022\033\n\tfund_code\030\005 \001(\tR\010fundCode\022\037\n\013sou" +
-      "rce_kind\030\006 \001(\tR\nsourceKind\022\023\n\005as_at\030\007 \001(" +
-      "\tR\004asAt\022\035\n\nstock_code\030\010 \001(\tR\tstockCode\022!" +
-      "\n\014company_name\030\t \001(\tR\013companyName\022\024\n\005uni" +
-      "ts\030\n \001(\001R\005units\022\033\n\thas_units\030\013 \001(\010R\010hasU" +
-      "nits\022\033\n\tvalue_aud\030\014 \001(\001R\010valueAud\022\033\n\thas" +
-      "_value\030\r \001(\010R\010hasValue\022\035\n\nweight_pct\030\016 \001" +
-      "(\001R\tweightPct\022\035\n\nhas_weight\030\017 \001(\010R\thasWe" +
-      "ight\022\"\n\rpct_of_issued\030\020 \001(\001R\013pctOfIssued" +
-      "\022)\n\021has_pct_of_issued\030\021 \001(\010R\016hasPctOfIss" +
-      "ued\"\200\002\n\rOwnershipFund\022\031\n\010fund_key\030\001 \001(\tR" +
-      "\007fundKey\022\022\n\004name\030\002 \001(\tR\004name\022\033\n\tfund_typ" +
-      "e\030\003 \001(\tR\010fundType\022\031\n\010asx_code\030\004 \001(\tR\007asx" +
-      "Code\022!\n\014manager_name\030\005 \001(\tR\013managerName\022" +
-      "\032\n\010category\030\006 \001(\tR\010category\022\031\n\010size_aud\030" +
-      "\007 \001(\001R\007sizeAud\022\031\n\010has_size\030\010 \001(\010R\007hasSiz" +
-      "e\022\023\n\005as_at\030\t \001(\tR\004asAt\"K\n\tKindShare\022\022\n\004k" +
-      "ind\030\001 \001(\tR\004kind\022\020\n\003pct\030\002 \001(\001R\003pct\022\030\n\007hol" +
-      "ders\030\003 \001(\005R\007holders\"\320\001\n\024OwnershipKindSum" +
-      "mary\022\022\n\004kind\030\001 \001(\tR\004kind\022\"\n\014institutions" +
-      "\030\002 \001(\005R\014institutions\022\030\n\007holders\030\003 \001(\005R\007h" +
-      "olders\022\034\n\tpositions\030\004 \001(\005R\tpositions\022\026\n\006" +
-      "stocks\030\005 \001(\005R\006stocks\022\027\n\007aum_aud\030\006 \001(\001R\006a" +
-      "umAud\022\027\n\007has_aum\030\007 \001(\010R\006hasAum\"\333\005\n\016Owner" +
-      "shipStock\022\035\n\nstock_code\030\001 \001(\tR\tstockCode" +
-      "\022!\n\014company_name\030\002 \001(\tR\013companyName\022\032\n\010i" +
-      "ndustry\030\003 \001(\tR\010industry\022\030\n\007holders\030\004 \001(\005" +
-      "R\007holders\022#\n\rdisclosed_pct\030\005 \001(\001R\014disclo" +
-      "sedPct\0223\n\007by_kind\030\006 \003(\0132\032.shorts.v1alpha" +
-      "1.KindShareR\006byKind\022\033\n\tshort_pct\030\007 \001(\001R\010" +
-      "shortPct\022\"\n\rhas_short_pct\030\010 \001(\010R\013hasShor" +
-      "tPct\022\033\n\tindex_pct\030\t \001(\001R\010indexPct\022\"\n\rhas" +
-      "_index_pct\030\n \001(\010R\013hasIndexPct\022#\n\rsuper_o" +
-      "ptions\030\013 \001(\005R\014superOptions\022&\n\017super_valu" +
-      "e_aud\030\014 \001(\001R\rsuperValueAud\022&\n\017has_super_" +
-      "value\030\r \001(\010R\rhasSuperValue\022\035\n\nmarket_cap" +
-      "\030\016 \001(\001R\tmarketCap\022$\n\016has_market_cap\030\017 \001(" +
-      "\010R\014hasMarketCap\022\036\n\013short_as_of\030\020 \001(\tR\tsh" +
-      "ortAsOf\022\'\n\020index_as_at_from\030\021 \001(\tR\rindex" +
-      "AsAtFrom\022#\n\016index_as_at_to\030\022 \001(\tR\013indexA" +
-      "sAtTo\022\037\n\013index_files\030\023 \001(\005R\nindexFiles\022," +
-      "\n\022latest_notice_date\030\024 \001(\tR\020latestNotice" +
-      "Date\"\256\001\n\017OwnershipSource\022\026\n\006source\030\001 \001(\t" +
-      "R\006source\022 \n\013description\030\002 \001(\tR\013descripti" +
-      "on\022\023\n\005as_at\030\003 \001(\tR\004asAt\022\030\n\007records\030\004 \001(\005" +
-      "R\007records\022\024\n\005funds\030\005 \001(\005R\005funds\022\034\n\nas_at" +
-      "_from\030\006 \001(\tR\010asAtFrom\"A\n\017WithheldOutcome" +
-      "\022\030\n\007outcome\030\001 \001(\tR\007outcome\022\024\n\005count\030\002 \001(" +
-      "\005R\005count\"\035\n\033GetOwnershipOverviewRequest\"" +
-      "\215\010\n\034GetOwnershipOverviewResponse\022;\n\005kind" +
-      "s\030\001 \003(\0132%.shorts.v1alpha1.OwnershipKindS" +
-      "ummaryR\005kinds\022F\n\013top_holders\030\002 \003(\0132%.sho" +
-      "rts.v1alpha1.OwnershipInstitutionR\ntopHo" +
-      "lders\0229\n\007crowded\030\003 \003(\0132\037.shorts.v1alpha1" +
-      ".OwnershipStockR\007crowded\022K\n\021crowded_both" +
-      "_ways\030\004 \003(\0132\037.shorts.v1alpha1.OwnershipS" +
-      "tockR\017crowdedBothWays\0229\n\007lending\030\005 \003(\0132\037" +
-      ".shorts.v1alpha1.OwnershipStockR\007lending" +
-      "\022:\n\006recent\030\006 \003(\0132\".shorts.v1alpha1.Subst" +
-      "antialNoticeR\006recent\022H\n\017super_consensus\030" +
-      "\007 \003(\0132\037.shorts.v1alpha1.OwnershipStockR\016" +
-      "superConsensus\0229\n\007passive\030\010 \003(\0132\037.shorts" +
-      ".v1alpha1.OwnershipStockR\007passive\022:\n\007sou" +
-      "rces\030\t \003(\0132 .shorts.v1alpha1.OwnershipSo" +
-      "urceR\007sources\022%\n\016notices_parsed\030\n \001(\005R\rn" +
-      "oticesParsed\022)\n\020notices_withheld\030\013 \001(\005R\017" +
-      "noticesWithheld\022\037\n\013super_funds\030\014 \001(\005R\nsu" +
-      "perFunds\022(\n\020super_assets_aud\030\r \001(\001R\016supe" +
-      "rAssetsAud\022\022\n\004etfs\030\016 \001(\005R\004etfs\022\036\n\013etf_fu" +
-      "m_aud\030\017 \001(\001R\tetfFumAud\022\022\n\004lics\030\020 \001(\005R\004li" +
-      "cs\022+\n\022lic_market_cap_aud\030\021 \001(\001R\017licMarke" +
-      "tCapAud\022\023\n\005as_of\030\022 \001(\tR\004asOf\022P\n\023withheld" +
-      "_by_outcome\030\023 \003(\0132 .shorts.v1alpha1.With" +
-      "heldOutcomeR\021withheldByOutcome\022/\n\023docume" +
-      "nts_attempted\030\024 \001(\005R\022documentsAttempted\"" +
-      "q\n\027ListInstitutionsRequest\022\022\n\004kind\030\001 \001(\t" +
-      "R\004kind\022\024\n\005query\030\002 \001(\tR\005query\022\024\n\005limit\030\003 " +
-      "\001(\005R\005limit\022\026\n\006offset\030\004 \001(\005R\006offset\"{\n\030Li" +
-      "stInstitutionsResponse\022I\n\014institutions\030\001" +
-      " \003(\0132%.shorts.v1alpha1.OwnershipInstitut" +
-      "ionR\014institutions\022\024\n\005total\030\002 \001(\005R\005total\"" +
-      "+\n\025GetInstitutionRequest\022\022\n\004slug\030\001 \001(\tR\004" +
-      "slug\"\213\003\n\026GetInstitutionResponse\022G\n\013insti" +
-      "tution\030\001 \001(\0132%.shorts.v1alpha1.Ownership" +
-      "InstitutionR\013institution\022A\n\tpositions\030\002 " +
+      "\030\020 \001(\tR\005event\022\027\n\007read_by\030\021 \001(\tR\006readBy\"\243" +
+      "\004\n\013FundHolding\022)\n\020institution_slug\030\001 \001(\t" +
+      "R\017institutionSlug\022)\n\020institution_name\030\002 " +
+      "\001(\tR\017institutionName\022\022\n\004kind\030\003 \001(\tR\004kind" +
+      "\022\033\n\tfund_name\030\004 \001(\tR\010fundName\022\033\n\tfund_co" +
+      "de\030\005 \001(\tR\010fundCode\022\037\n\013source_kind\030\006 \001(\tR" +
+      "\nsourceKind\022\023\n\005as_at\030\007 \001(\tR\004asAt\022\035\n\nstoc" +
+      "k_code\030\010 \001(\tR\tstockCode\022!\n\014company_name\030" +
+      "\t \001(\tR\013companyName\022\024\n\005units\030\n \001(\001R\005units" +
+      "\022\033\n\thas_units\030\013 \001(\010R\010hasUnits\022\033\n\tvalue_a" +
+      "ud\030\014 \001(\001R\010valueAud\022\033\n\thas_value\030\r \001(\010R\010h" +
+      "asValue\022\035\n\nweight_pct\030\016 \001(\001R\tweightPct\022\035" +
+      "\n\nhas_weight\030\017 \001(\010R\thasWeight\022\"\n\rpct_of_" +
+      "issued\030\020 \001(\001R\013pctOfIssued\022)\n\021has_pct_of_" +
+      "issued\030\021 \001(\010R\016hasPctOfIssued\"\200\002\n\rOwnersh" +
+      "ipFund\022\031\n\010fund_key\030\001 \001(\tR\007fundKey\022\022\n\004nam" +
+      "e\030\002 \001(\tR\004name\022\033\n\tfund_type\030\003 \001(\tR\010fundTy" +
+      "pe\022\031\n\010asx_code\030\004 \001(\tR\007asxCode\022!\n\014manager" +
+      "_name\030\005 \001(\tR\013managerName\022\032\n\010category\030\006 \001" +
+      "(\tR\010category\022\031\n\010size_aud\030\007 \001(\001R\007sizeAud\022" +
+      "\031\n\010has_size\030\010 \001(\010R\007hasSize\022\023\n\005as_at\030\t \001(" +
+      "\tR\004asAt\"K\n\tKindShare\022\022\n\004kind\030\001 \001(\tR\004kind" +
+      "\022\020\n\003pct\030\002 \001(\001R\003pct\022\030\n\007holders\030\003 \001(\005R\007hol" +
+      "ders\"\320\001\n\024OwnershipKindSummary\022\022\n\004kind\030\001 " +
+      "\001(\tR\004kind\022\"\n\014institutions\030\002 \001(\005R\014institu" +
+      "tions\022\030\n\007holders\030\003 \001(\005R\007holders\022\034\n\tposit" +
+      "ions\030\004 \001(\005R\tpositions\022\026\n\006stocks\030\005 \001(\005R\006s" +
+      "tocks\022\027\n\007aum_aud\030\006 \001(\001R\006aumAud\022\027\n\007has_au" +
+      "m\030\007 \001(\010R\006hasAum\"\333\005\n\016OwnershipStock\022\035\n\nst" +
+      "ock_code\030\001 \001(\tR\tstockCode\022!\n\014company_nam" +
+      "e\030\002 \001(\tR\013companyName\022\032\n\010industry\030\003 \001(\tR\010" +
+      "industry\022\030\n\007holders\030\004 \001(\005R\007holders\022#\n\rdi" +
+      "sclosed_pct\030\005 \001(\001R\014disclosedPct\0223\n\007by_ki" +
+      "nd\030\006 \003(\0132\032.shorts.v1alpha1.KindShareR\006by" +
+      "Kind\022\033\n\tshort_pct\030\007 \001(\001R\010shortPct\022\"\n\rhas" +
+      "_short_pct\030\010 \001(\010R\013hasShortPct\022\033\n\tindex_p" +
+      "ct\030\t \001(\001R\010indexPct\022\"\n\rhas_index_pct\030\n \001(" +
+      "\010R\013hasIndexPct\022#\n\rsuper_options\030\013 \001(\005R\014s" +
+      "uperOptions\022&\n\017super_value_aud\030\014 \001(\001R\rsu" +
+      "perValueAud\022&\n\017has_super_value\030\r \001(\010R\rha" +
+      "sSuperValue\022\035\n\nmarket_cap\030\016 \001(\001R\tmarketC" +
+      "ap\022$\n\016has_market_cap\030\017 \001(\010R\014hasMarketCap" +
+      "\022\036\n\013short_as_of\030\020 \001(\tR\tshortAsOf\022\'\n\020inde" +
+      "x_as_at_from\030\021 \001(\tR\rindexAsAtFrom\022#\n\016ind" +
+      "ex_as_at_to\030\022 \001(\tR\013indexAsAtTo\022\037\n\013index_" +
+      "files\030\023 \001(\005R\nindexFiles\022,\n\022latest_notice" +
+      "_date\030\024 \001(\tR\020latestNoticeDate\"\256\001\n\017Owners" +
+      "hipSource\022\026\n\006source\030\001 \001(\tR\006source\022 \n\013des" +
+      "cription\030\002 \001(\tR\013description\022\023\n\005as_at\030\003 \001" +
+      "(\tR\004asAt\022\030\n\007records\030\004 \001(\005R\007records\022\024\n\005fu" +
+      "nds\030\005 \001(\005R\005funds\022\034\n\nas_at_from\030\006 \001(\tR\010as" +
+      "AtFrom\"A\n\017WithheldOutcome\022\030\n\007outcome\030\001 \001" +
+      "(\tR\007outcome\022\024\n\005count\030\002 \001(\005R\005count\"\035\n\033Get" +
+      "OwnershipOverviewRequest\"\300\010\n\034GetOwnershi" +
+      "pOverviewResponse\022;\n\005kinds\030\001 \003(\0132%.short" +
+      "s.v1alpha1.OwnershipKindSummaryR\005kinds\022F" +
+      "\n\013top_holders\030\002 \003(\0132%.shorts.v1alpha1.Ow" +
+      "nershipInstitutionR\ntopHolders\0229\n\007crowde" +
+      "d\030\003 \003(\0132\037.shorts.v1alpha1.OwnershipStock" +
+      "R\007crowded\022K\n\021crowded_both_ways\030\004 \003(\0132\037.s" +
+      "horts.v1alpha1.OwnershipStockR\017crowdedBo" +
+      "thWays\0229\n\007lending\030\005 \003(\0132\037.shorts.v1alpha" +
+      "1.OwnershipStockR\007lending\022:\n\006recent\030\006 \003(" +
+      "\0132\".shorts.v1alpha1.SubstantialNoticeR\006r" +
+      "ecent\022H\n\017super_consensus\030\007 \003(\0132\037.shorts." +
+      "v1alpha1.OwnershipStockR\016superConsensus\022" +
+      "9\n\007passive\030\010 \003(\0132\037.shorts.v1alpha1.Owner" +
+      "shipStockR\007passive\022:\n\007sources\030\t \003(\0132 .sh" +
+      "orts.v1alpha1.OwnershipSourceR\007sources\022%" +
+      "\n\016notices_parsed\030\n \001(\005R\rnoticesParsed\022)\n" +
+      "\020notices_withheld\030\013 \001(\005R\017noticesWithheld" +
+      "\022\037\n\013super_funds\030\014 \001(\005R\nsuperFunds\022(\n\020sup" +
+      "er_assets_aud\030\r \001(\001R\016superAssetsAud\022\022\n\004e" +
+      "tfs\030\016 \001(\005R\004etfs\022\036\n\013etf_fum_aud\030\017 \001(\001R\tet" +
+      "fFumAud\022\022\n\004lics\030\020 \001(\005R\004lics\022+\n\022lic_marke" +
+      "t_cap_aud\030\021 \001(\001R\017licMarketCapAud\022\023\n\005as_o" +
+      "f\030\022 \001(\tR\004asOf\022P\n\023withheld_by_outcome\030\023 \003" +
+      "(\0132 .shorts.v1alpha1.WithheldOutcomeR\021wi" +
+      "thheldByOutcome\022/\n\023documents_attempted\030\024" +
+      " \001(\005R\022documentsAttempted\0221\n\025notices_read" +
+      "_by_model\030\025 \001(\005R\022noticesReadByModel\"q\n\027L" +
+      "istInstitutionsRequest\022\022\n\004kind\030\001 \001(\tR\004ki" +
+      "nd\022\024\n\005query\030\002 \001(\tR\005query\022\024\n\005limit\030\003 \001(\005R" +
+      "\005limit\022\026\n\006offset\030\004 \001(\005R\006offset\"{\n\030ListIn" +
+      "stitutionsResponse\022I\n\014institutions\030\001 \003(\013" +
+      "2%.shorts.v1alpha1.OwnershipInstitutionR" +
+      "\014institutions\022\024\n\005total\030\002 \001(\005R\005total\"+\n\025G" +
+      "etInstitutionRequest\022\022\n\004slug\030\001 \001(\tR\004slug" +
+      "\"\213\003\n\026GetInstitutionResponse\022G\n\013instituti" +
+      "on\030\001 \001(\0132%.shorts.v1alpha1.OwnershipInst" +
+      "itutionR\013institution\022A\n\tpositions\030\002 \003(\0132" +
+      "#.shorts.v1alpha1.SubstantialHoldingR\tpo" +
+      "sitions\022<\n\007notices\030\003 \003(\0132\".shorts.v1alph" +
+      "a1.SubstantialNoticeR\007notices\022A\n\rfund_ho" +
+      "ldings\030\004 \003(\0132\034.shorts.v1alpha1.FundHoldi" +
+      "ngR\014fundHoldings\0224\n\005funds\030\005 \003(\0132\036.shorts" +
+      ".v1alpha1.OwnershipFundR\005funds\022.\n\023fund_h" +
+      "oldings_total\030\006 \001(\005R\021fundHoldingsTotal\"9" +
+      "\n\030GetStockOwnershipRequest\022\035\n\nstock_code" +
+      "\030\001 \001(\tR\tstockCode\"\320\003\n\031GetStockOwnershipR" +
+      "esponse\0229\n\007summary\030\001 \001(\0132\037.shorts.v1alph" +
+      "a1.OwnershipStockR\007summary\022=\n\007holders\030\002 " +
       "\003(\0132#.shorts.v1alpha1.SubstantialHolding" +
-      "R\tpositions\022<\n\007notices\030\003 \003(\0132\".shorts.v1" +
-      "alpha1.SubstantialNoticeR\007notices\022A\n\rfun" +
-      "d_holdings\030\004 \003(\0132\034.shorts.v1alpha1.FundH" +
-      "oldingR\014fundHoldings\0224\n\005funds\030\005 \003(\0132\036.sh" +
-      "orts.v1alpha1.OwnershipFundR\005funds\022.\n\023fu" +
-      "nd_holdings_total\030\006 \001(\005R\021fundHoldingsTot" +
-      "al\"9\n\030GetStockOwnershipRequest\022\035\n\nstock_" +
-      "code\030\001 \001(\tR\tstockCode\"\320\003\n\031GetStockOwners" +
-      "hipResponse\0229\n\007summary\030\001 \001(\0132\037.shorts.v1" +
-      "alpha1.OwnershipStockR\007summary\022=\n\007holder" +
-      "s\030\002 \003(\0132#.shorts.v1alpha1.SubstantialHol" +
-      "dingR\007holders\022<\n\007history\030\003 \003(\0132\".shorts." +
-      "v1alpha1.SubstantialNoticeR\007history\022A\n\rf" +
-      "und_holdings\030\004 \003(\0132\034.shorts.v1alpha1.Fun" +
-      "dHoldingR\014fundHoldings\022&\n\017shares_on_issu" +
-      "e\030\005 \001(\001R\rsharesOnIssue\022-\n\023has_shares_on_" +
-      "issue\030\006 \001(\010R\020hasSharesOnIssue\022#\n\rhistory" +
-      "_total\030\007 \001(\005R\014historyTotal\022\'\n\017withheld_l" +
-      "isted\030\010 \001(\005R\016withheldListed\022\023\n\005as_of\030\t \001" +
-      "(\tR\004asOf\"\325\002\n\035ListSubstantialNoticesReque" +
-      "st\022\037\n\013window_days\030\001 \001(\005R\nwindowDays\022\024\n\005e" +
-      "vent\030\002 \001(\tR\005event\022\022\n\004kind\030\003 \001(\tR\004kind\022\035\n" +
-      "\nstock_code\030\004 \001(\tR\tstockCode\022)\n\020institut" +
-      "ion_slug\030\005 \001(\tR\017institutionSlug\022\026\n\006curso" +
-      "r\030\006 \001(\tR\006cursor\022\024\n\005limit\030\007 \001(\005R\005limit\022)\n" +
-      "\020include_activity\030\010 \001(\010R\017includeActivity" +
-      "\022\032\n\010industry\030\t \001(\tR\010industry\022\024\n\005since\030\n " +
-      "\001(\tR\005since\022\024\n\005until\030\013 \001(\tR\005until\"\301\001\n\nNot" +
-      "iceWeek\022\035\n\nweek_start\030\001 \001(\tR\tweekStart\022\026" +
-      "\n\006became\030\002 \001(\005R\006became\022\034\n\tincreased\030\003 \001(" +
-      "\005R\tincreased\022\034\n\tdecreased\030\004 \001(\005R\tdecreas" +
-      "ed\022\030\n\007changed\030\005 \001(\005R\007changed\022\026\n\006ceased\030\006" +
-      " \001(\005R\006ceased\022\016\n\002nz\030\007 \001(\005R\002nz\"\353\002\n\016NoticeA" +
-      "ctivity\022\026\n\006became\030\001 \001(\005R\006became\022\034\n\tincre" +
-      "ased\030\002 \001(\005R\tincreased\022\034\n\tdecreased\030\003 \001(\005" +
-      "R\tdecreased\022\030\n\007changed\030\004 \001(\005R\007changed\022\026\n" +
-      "\006ceased\030\005 \001(\005R\006ceased\022\016\n\002nz\030\006 \001(\005R\002nz\0221\n" +
-      "\005weeks\030\007 \003(\0132\033.shorts.v1alpha1.NoticeWee" +
-      "kR\005weeks\022G\n\rlargest_rises\030\010 \003(\0132\".shorts" +
-      ".v1alpha1.SubstantialNoticeR\014largestRise" +
-      "s\022G\n\rlargest_falls\030\t \003(\0132\".shorts.v1alph" +
-      "a1.SubstantialNoticeR\014largestFalls\"\210\002\n\036L" +
-      "istSubstantialNoticesResponse\022<\n\007notices" +
-      "\030\001 \003(\0132\".shorts.v1alpha1.SubstantialNoti" +
-      "ceR\007notices\022\037\n\013next_cursor\030\002 \001(\tR\nnextCu" +
-      "rsor\022\024\n\005total\030\003 \001(\005R\005total\022\037\n\013window_day" +
-      "s\030\004 \001(\005R\nwindowDays\022\023\n\005as_of\030\005 \001(\tR\004asOf" +
-      "\022;\n\010activity\030\006 \001(\0132\037.shorts.v1alpha1.Not" +
-      "iceActivityR\010activity\"\212\002\n\031ListStockRegis" +
-      "tersRequest\022\022\n\004sort\030\001 \001(\tR\004sort\022\034\n\tascen" +
-      "ding\030\002 \001(\010R\tascending\022\032\n\010industry\030\003 \001(\tR" +
-      "\010industry\022\022\n\004kind\030\004 \001(\tR\004kind\022#\n\rmin_int" +
-      "erests\030\005 \001(\005R\014minInterests\022\"\n\rmin_short_" +
-      "pct\030\006 \001(\001R\013minShortPct\022\024\n\005query\030\007 \001(\tR\005q" +
-      "uery\022\024\n\005limit\030\010 \001(\005R\005limit\022\026\n\006offset\030\t \001" +
-      "(\005R\006offset\"C\n\rIndustryCount\022\032\n\010industry\030" +
-      "\001 \001(\tR\010industry\022\026\n\006stocks\030\002 \001(\005R\006stocks\"" +
-      "\334\001\n\032ListStockRegistersResponse\0227\n\006stocks" +
-      "\030\001 \003(\0132\037.shorts.v1alpha1.OwnershipStockR" +
-      "\006stocks\022\024\n\005total\030\002 \001(\005R\005total\022\032\n\010univers" +
-      "e\030\003 \001(\005R\010universe\022>\n\nindustries\030\004 \003(\0132\036." +
-      "shorts.v1alpha1.IndustryCountR\nindustrie" +
-      "s\022\023\n\005as_of\030\005 \001(\tR\004asOf\"r\n\026GetOwnershipMa" +
-      "pRequest\022\022\n\004from\030\001 \001(\tR\004from\022\016\n\002to\030\002 \001(\t" +
-      "R\002to\022\033\n\tfund_from\030\003 \001(\tR\010fundFrom\022\027\n\007fun" +
-      "d_to\030\004 \001(\tR\006fundTo\"\325\005\n\010MapStock\022\035\n\nstock" +
-      "_code\030\001 \001(\tR\tstockCode\022!\n\014company_name\030\002" +
-      " \001(\tR\013companyName\022\032\n\010industry\030\003 \001(\tR\010ind" +
-      "ustry\022\035\n\nmarket_cap\030\004 \001(\001R\tmarketCap\022$\n\016" +
-      "has_market_cap\030\005 \001(\010R\014hasMarketCap\022#\n\rdi" +
-      "sclosed_pct\030\006 \001(\001R\014disclosedPct\022+\n\021insti" +
-      "tutional_pct\030\007 \001(\001R\020institutionalPct\022\033\n\t" +
-      "hedge_pct\030\010 \001(\001R\010hedgePct\022\033\n\tindex_pct\030\t" +
-      " \001(\001R\010indexPct\022\"\n\rhas_index_pct\030\n \001(\010R\013h" +
-      "asIndexPct\022\033\n\tshort_pct\030\013 \001(\001R\010shortPct\022" +
-      "\"\n\rhas_short_pct\030\014 \001(\010R\013hasShortPct\022\027\n\007f" +
-      "low_pp\030\r \001(\001R\006flowPp\022\036\n\013has_flow_pp\030\016 \001(" +
-      "\010R\thasFlowPp\022\030\n\007notices\030\017 \001(\005R\007notices\022$" +
-      "\n\016fund_value_aud\030\020 \001(\001R\014fundValueAud\022$\n\016" +
-      "has_fund_value\030\021 \001(\010R\014hasFundValue\022\"\n\rfu" +
-      "nd_flow_aud\030\022 \001(\001R\013fundFlowAud\022\"\n\rhas_fu" +
-      "nd_flow\030\023 \001(\010R\013hasFundFlow\022&\n\017fund_chang" +
-      "e_pct\030\024 \001(\001R\rfundChangePct\022&\n\017has_fund_c" +
-      "hange\030\025 \001(\010R\rhasFundChange\"\372\002\n\027GetOwners" +
-      "hipMapResponse\022\022\n\004from\030\001 \001(\tR\004from\022\016\n\002to" +
-      "\030\002 \001(\tR\002to\0221\n\006stocks\030\003 \003(\0132\031.shorts.v1al" +
-      "pha1.MapStockR\006stocks\022\023\n\005as_of\030\004 \001(\tR\004as" +
-      "Of\022%\n\016funds_compared\030\005 \001(\005R\rfundsCompare" +
-      "d\022(\n\020start_files_from\030\006 \001(\tR\016startFilesF" +
-      "rom\022$\n\016start_files_to\030\007 \001(\tR\014startFilesT" +
-      "o\022$\n\016end_files_from\030\010 \001(\tR\014endFilesFrom\022" +
-      " \n\014end_files_to\030\t \001(\tR\nendFilesTo\022\033\n\tfun" +
-      "d_from\030\n \001(\tR\010fundFrom\022\027\n\007fund_to\030\013 \001(\tR" +
-      "\006fundTo\">\n\030GetOwnershipFlowsRequest\022\022\n\004f" +
-      "rom\030\001 \001(\tR\004from\022\016\n\002to\030\002 \001(\tR\002to\"\242\002\n\014Flow" +
-      "Position\022\022\n\004kind\030\001 \001(\tR\004kind\022\032\n\010industry" +
-      "\030\002 \001(\tR\010industry\022!\n\014exposure_aud\030\003 \001(\001R\013" +
-      "exposureAud\022!\n\014has_exposure\030\004 \001(\010R\013hasEx" +
-      "posure\022\032\n\010holdings\030\005 \001(\005R\010holdings\022!\n\014la" +
-      "rgest_code\030\006 \001(\tR\013largestCode\022\037\n\013largest" +
-      "_pct\030\007 \001(\001R\nlargestPct\022<\n\013top_holders\030\010 " +
-      "\003(\0132\033.shorts.v1alpha1.FlowHolderR\ntopHol" +
-      "ders\"\277\001\n\nFlowHolder\022\022\n\004slug\030\001 \001(\tR\004slug\022" +
-      "\022\n\004name\030\002 \001(\tR\004name\022!\n\014exposure_aud\030\003 \001(" +
-      "\001R\013exposureAud\022!\n\014has_exposure\030\004 \001(\010R\013ha" +
-      "sExposure\022\032\n\010holdings\030\005 \001(\005R\010holdings\022\'\n" +
-      "\017has_institution\030\006 \001(\010R\016hasInstitution\"\272" +
-      "\001\n\nFlowChange\022\022\n\004kind\030\001 \001(\tR\004kind\022\032\n\010ind" +
-      "ustry\030\002 \001(\tR\010industry\022\034\n\tdirection\030\003 \001(\t" +
-      "R\tdirection\022!\n\014exposure_aud\030\004 \001(\001R\013expos" +
-      "ureAud\022!\n\014has_exposure\030\005 \001(\010R\013hasExposur" +
-      "e\022\030\n\007notices\030\006 \001(\005R\007notices\"\310\001\n\031GetOwner" +
-      "shipFlowsResponse\022\022\n\004from\030\001 \001(\tR\004from\022\016\n" +
-      "\002to\030\002 \001(\tR\002to\022;\n\tpositions\030\003 \003(\0132\035.short" +
-      "s.v1alpha1.FlowPositionR\tpositions\0225\n\007ch" +
-      "anges\030\004 \003(\0132\033.shorts.v1alpha1.FlowChange" +
-      "R\007changes\022\023\n\005as_of\030\005 \001(\tR\004asOf\"G\n\033GetOwn" +
-      "ershipActivityRequest\022\024\n\005weeks\030\001 \001(\005R\005we" +
-      "eks\022\022\n\004kind\030\002 \001(\tR\004kind\"\224\002\n\014IndustryWeek" +
-      "\022\032\n\010industry\030\001 \001(\tR\010industry\022\035\n\nweek_sta" +
-      "rt\030\002 \001(\tR\tweekStart\022\026\n\006became\030\003 \001(\005R\006bec" +
-      "ame\022\034\n\tincreased\030\004 \001(\005R\tincreased\022\034\n\tdec" +
-      "reased\030\005 \001(\005R\tdecreased\022\030\n\007changed\030\006 \001(\005" +
-      "R\007changed\022\026\n\006ceased\030\007 \001(\005R\006ceased\022\016\n\002nz\030" +
-      "\010 \001(\005R\002nz\022\025\n\006net_pp\030\t \001(\001R\005netPp\022\034\n\nhas_" +
-      "net_pp\030\n \001(\010R\010hasNetPp\"\337\001\n\034GetOwnershipA" +
-      "ctivityResponse\022\033\n\tfrom_week\030\001 \001(\tR\010from" +
-      "Week\022\027\n\007to_week\030\002 \001(\tR\006toWeek\0221\n\004rows\030\003 " +
-      "\003(\0132\035.shorts.v1alpha1.IndustryWeekR\004rows" +
-      "\022\023\n\005as_of\030\004 \001(\tR\004asOf\022A\n\rlargest_moves\030\005" +
-      " \003(\0132\034.shorts.v1alpha1.LargestMoveR\014larg" +
-      "estMoves\"\377\002\n\013LargestMove\022\035\n\nstock_code\030\001" +
-      " \001(\tR\tstockCode\022!\n\014company_name\030\002 \001(\tR\013c" +
-      "ompanyName\022\037\n\013holder_name\030\003 \001(\tR\nholderN" +
-      "ame\022\037\n\013holder_slug\030\004 \001(\tR\nholderSlug\022\'\n\017" +
-      "has_institution\030\005 \001(\010R\016hasInstitution\022!\n" +
-      "\014previous_pct\030\006 \001(\001R\013previousPct\022\037\n\013pres" +
-      "ent_pct\030\007 \001(\001R\npresentPct\022\033\n\tchange_pp\030\010" +
-      " \001(\001R\010changePp\022\024\n\005event\030\t \001(\tR\005event\022!\n\014" +
-      "announced_on\030\n \001(\tR\013announcedOn\022)\n\020annou" +
-      "ncement_url\030\013 \001(\tR\017announcementUrl\"Z\n\036Li" +
-      "stFundPositionChangesRequest\022\022\n\004from\030\001 \001" +
-      "(\tR\004from\022\016\n\002to\030\002 \001(\tR\002to\022\024\n\005limit\030\003 \001(\005R" +
-      "\005limit\"\342\003\n\022FundPositionChange\022\035\n\nstock_c" +
-      "ode\030\001 \001(\tR\tstockCode\022!\n\014company_name\030\002 \001" +
-      "(\tR\013companyName\022&\n\017weight_from_pct\030\003 \001(\001" +
-      "R\rweightFromPct\022&\n\017has_weight_from\030\004 \001(\010" +
-      "R\rhasWeightFrom\022\"\n\rweight_to_pct\030\005 \001(\001R\013" +
-      "weightToPct\022\"\n\rhas_weight_to\030\006 \001(\010R\013hasW" +
-      "eightTo\022\031\n\010delta_pp\030\007 \001(\001R\007deltaPp\022\033\n\tha" +
-      "s_delta\030\010 \001(\010R\010hasDelta\022$\n\016value_from_au" +
-      "d\030\t \001(\001R\014valueFromAud\022$\n\016has_value_from\030" +
-      "\n \001(\010R\014hasValueFrom\022 \n\014value_to_aud\030\013 \001(" +
-      "\001R\nvalueToAud\022 \n\014has_value_to\030\014 \001(\010R\nhas" +
-      "ValueTo\022\024\n\005funds\030\r \001(\005R\005funds\022\024\n\005state\030\016" +
-      " \001(\tR\005state\"\245\001\n\037ListFundPositionChangesR" +
-      "esponse\022%\n\016snapshot_dates\030\001 \003(\tR\rsnapsho" +
-      "tDates\022\022\n\004from\030\002 \001(\tR\004from\022\016\n\002to\030\003 \001(\tR\002" +
-      "to\0227\n\004rows\030\004 \003(\0132#.shorts.v1alpha1.FundP" +
-      "ositionChangeR\004rows\"p\n\031GetStockFundSerie" +
-      "sRequest\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022" +
-      "\033\n\tfund_from\030\002 \001(\tR\010fundFrom\022\027\n\007fund_to\030" +
-      "\003 \001(\tR\006fundTo\"\313\001\n\tFundPoint\022\023\n\005as_at\030\001 \001" +
-      "(\tR\004asAt\022\035\n\nweight_pct\030\002 \001(\001R\tweightPct\022" +
-      "\035\n\nhas_weight\030\003 \001(\010R\thasWeight\022\033\n\tvalue_" +
-      "aud\030\004 \001(\001R\010valueAud\022\033\n\thas_value\030\005 \001(\010R\010" +
-      "hasValue\022\024\n\005units\030\006 \001(\001R\005units\022\033\n\thas_un" +
-      "its\030\007 \001(\010R\010hasUnits\"\300\005\n\nFundSeries\022)\n\020in" +
-      "stitution_slug\030\001 \001(\tR\017institutionSlug\022)\n" +
-      "\020institution_name\030\002 \001(\tR\017institutionName" +
-      "\022\033\n\tfund_name\030\003 \001(\tR\010fundName\022\037\n\013source_" +
-      "kind\030\004 \001(\tR\nsourceKind\0222\n\006points\030\005 \003(\0132\032" +
-      ".shorts.v1alpha1.FundPointR\006points\022\033\n\tfu" +
-      "nd_code\030\006 \001(\tR\010fundCode\022\031\n\010fund_key\030\007 \001(" +
-      "\tR\007fundKey\022\035\n\nstart_date\030\010 \001(\tR\tstartDat" +
-      "e\022$\n\016has_start_date\030\t \001(\010R\014hasStartDate\022" +
-      "\037\n\013start_units\030\n \001(\001R\nstartUnits\022&\n\017has_" +
-      "start_units\030\013 \001(\010R\rhasStartUnits\022\031\n\010end_" +
-      "date\030\014 \001(\tR\007endDate\022 \n\014has_end_date\030\r \001(" +
-      "\010R\nhasEndDate\022\033\n\tend_units\030\016 \001(\001R\010endUni" +
-      "ts\022\"\n\rhas_end_units\030\017 \001(\010R\013hasEndUnits\022!" +
-      "\n\014units_change\030\020 \001(\001R\013unitsChange\022(\n\020has" +
-      "_units_change\030\021 \001(\010R\016hasUnitsChange\022(\n\020c" +
-      "hange_value_aud\030\022 \001(\001R\016changeValueAud\022/\n" +
-      "\024has_change_value_aud\030\023 \001(\010R\021hasChangeVa" +
-      "lueAud\"\244\001\n\032GetStockFundSeriesResponse\022\035\n" +
-      "\nstock_code\030\001 \001(\tR\tstockCode\0221\n\005funds\030\002 " +
-      "\003(\0132\033.shorts.v1alpha1.FundSeriesR\005funds\022" +
-      "\033\n\tfund_from\030\003 \001(\tR\010fundFrom\022\027\n\007fund_to\030" +
-      "\004 \001(\tR\006fundTo\"\022\n\020ListFundsRequest\"s\n\020Fun" +
-      "dSectorWeight\022\032\n\010industry\030\001 \001(\tR\010industr" +
-      "y\022\035\n\nweight_pct\030\002 \001(\001R\tweightPct\022$\n\016has_" +
-      "weight_pct\030\003 \001(\010R\014hasWeightPct\"}\n\016FundTo" +
-      "pHolding\022\022\n\004code\030\001 \001(\tR\004code\022\022\n\004name\030\002 \001" +
-      "(\tR\004name\022\035\n\nweight_pct\030\003 \001(\001R\tweightPct\022" +
-      "$\n\016has_weight_pct\030\004 \001(\010R\014hasWeightPct\"\216\006" +
-      "\n\013FundSummary\022\031\n\010fund_key\030\001 \001(\tR\007fundKey" +
-      "\022\026\n\006ticker\030\002 \001(\tR\006ticker\022\022\n\004name\030\003 \001(\tR\004" +
-      "name\022)\n\020institution_slug\030\004 \001(\tR\017institut" +
-      "ionSlug\022)\n\020institution_name\030\005 \001(\tR\017insti" +
-      "tutionName\022\037\n\013source_kind\030\006 \001(\tR\nsourceK" +
-      "ind\022\026\n\006pooled\030\007 \001(\010R\006pooled\022\023\n\005as_at\030\010 \001" +
-      "(\tR\004asAt\022\035\n\nsource_url\030\t \001(\tR\tsourceUrl\022" +
-      "\032\n\010holdings\030\n \001(\005R\010holdings\022\033\n\ttop10_pct" +
-      "\030\013 \001(\001R\010top10Pct\022\"\n\rhas_top10_pct\030\014 \001(\010R" +
-      "\013hasTop10Pct\022H\n\016sector_weights\030\r \003(\0132!.s" +
-      "horts.v1alpha1.FundSectorWeightR\rsectorW" +
-      "eights\0229\n\007largest\030\016 \003(\0132\037.shorts.v1alpha" +
-      "1.FundTopHoldingR\007largest\022\027\n\007aum_aud\030\017 \001" +
-      "(\001R\006aumAud\022\036\n\013has_aum_aud\030\020 \001(\010R\thasAumA" +
-      "ud\022%\n\016snapshot_count\030\021 \001(\005R\rsnapshotCoun" +
-      "t\0227\n\030largest_sector_change_pp\030\022 \001(\001R\025lar" +
-      "gestSectorChangePp\0229\n\031has_largest_sector" +
-      "_change\030\023 \001(\010R\026hasLargestSectorChange\022?\n" +
-      "\034largest_sector_change_sector\030\024 \001(\tR\031lar" +
-      "gestSectorChangeSector\"G\n\021ListFundsRespo" +
-      "nse\0222\n\005funds\030\001 \003(\0132\034.shorts.v1alpha1.Fun" +
-      "dSummaryR\005funds\"I\n\027GetFundPortfolioReque" +
-      "st\022\031\n\010fund_key\030\001 \001(\tR\007fundKey\022\023\n\005as_at\030\002" +
-      " \001(\tR\004asAt\"\363\003\n\024FundPortfolioHolding\022\022\n\004c" +
-      "ode\030\001 \001(\tR\004code\022\022\n\004name\030\002 \001(\tR\004name\022\032\n\010i" +
-      "ndustry\030\003 \001(\tR\010industry\022\035\n\nweight_pct\030\004 " +
-      "\001(\001R\tweightPct\022$\n\016has_weight_pct\030\005 \001(\010R\014" +
-      "hasWeightPct\022\024\n\005units\030\006 \001(\001R\005units\022\033\n\tha" +
-      "s_units\030\007 \001(\010R\010hasUnits\022\033\n\tvalue_aud\030\010 \001" +
-      "(\001R\010valueAud\022\"\n\rhas_value_aud\030\t \001(\010R\013has" +
-      "ValueAud\022&\n\017shares_on_issue\030\n \001(\001R\rshare" +
-      "sOnIssue\022-\n\023has_shares_on_issue\030\013 \001(\010R\020h" +
-      "asSharesOnIssue\022&\n\017est_company_pct\030\014 \001(\001" +
-      "R\restCompanyPct\022-\n\023has_est_company_pct\030\r" +
-      " \001(\010R\020hasEstCompanyPct\0220\n\025shares_on_issu" +
-      "e_as_at\030\016 \001(\tR\021sharesOnIssueAsAt\"\300\004\n\030Get" +
-      "FundPortfolioResponse\022\031\n\010fund_key\030\001 \001(\tR" +
-      "\007fundKey\022\026\n\006ticker\030\002 \001(\tR\006ticker\022\022\n\004name" +
-      "\030\003 \001(\tR\004name\022)\n\020institution_slug\030\004 \001(\tR\017" +
-      "institutionSlug\022)\n\020institution_name\030\005 \001(" +
-      "\tR\017institutionName\022\037\n\013source_kind\030\006 \001(\tR" +
-      "\nsourceKind\022\026\n\006pooled\030\007 \001(\010R\006pooled\022\023\n\005a" +
-      "s_at\030\010 \001(\tR\004asAt\022\035\n\nsource_url\030\t \001(\tR\tso" +
-      "urceUrl\022%\n\016snapshot_dates\030\n \003(\tR\rsnapsho" +
-      "tDates\022A\n\010holdings\030\013 \003(\0132%.shorts.v1alph" +
-      "a1.FundPortfolioHoldingR\010holdings\022%\n\016hol" +
-      "dings_total\030\014 \001(\005R\rholdingsTotal\022\033\n\ttop1" +
-      "0_pct\030\r \001(\001R\010top10Pct\022\"\n\rhas_top10_pct\030\016" +
-      " \001(\010R\013hasTop10Pct\022H\n\016sector_weights\030\017 \003(" +
-      "\0132!.shorts.v1alpha1.FundSectorWeightR\rse" +
-      "ctorWeights\"\\\n\033CompareFundSnapshotsReque" +
-      "st\022\031\n\010fund_key\030\001 \001(\tR\007fundKey\022\022\n\004from\030\002 " +
-      "\001(\tR\004from\022\016\n\002to\030\003 \001(\tR\002to\"\361\003\n\022FundSnapsh" +
-      "otChange\022\022\n\004code\030\001 \001(\tR\004code\022\022\n\004name\030\002 \001" +
-      "(\tR\004name\022\032\n\010industry\030\003 \001(\tR\010industry\022&\n\017" +
-      "weight_from_pct\030\004 \001(\001R\rweightFromPct\022-\n\023" +
-      "has_weight_from_pct\030\005 \001(\010R\020hasWeightFrom" +
-      "Pct\022\"\n\rweight_to_pct\030\006 \001(\001R\013weightToPct\022" +
-      ")\n\021has_weight_to_pct\030\007 \001(\010R\016hasWeightToP" +
-      "ct\022\031\n\010delta_pp\030\010 \001(\001R\007deltaPp\022 \n\014has_del" +
-      "ta_pp\030\t \001(\010R\nhasDeltaPp\022$\n\016value_from_au" +
-      "d\030\n \001(\001R\014valueFromAud\022+\n\022has_value_from_" +
-      "aud\030\013 \001(\010R\017hasValueFromAud\022 \n\014value_to_a" +
-      "ud\030\014 \001(\001R\nvalueToAud\022\'\n\020has_value_to_aud" +
-      "\030\r \001(\010R\rhasValueToAud\022\026\n\006status\030\016 \001(\tR\006s" +
-      "tatus\"\340\001\n\034CompareFundSnapshotsResponse\022\022" +
-      "\n\004from\030\001 \001(\tR\004from\022\016\n\002to\030\002 \001(\tR\002to\022\037\n\013so" +
-      "urce_from\030\003 \001(\tR\nsourceFrom\022\033\n\tsource_to" +
-      "\030\004 \001(\tR\010sourceTo\0227\n\004rows\030\005 \003(\0132#.shorts." +
-      "v1alpha1.FundSnapshotChangeR\004rows\022%\n\016sna" +
-      "pshot_dates\030\006 \003(\tR\rsnapshotDates2\344\014\n\020Own" +
-      "ershipService\022y\n\024GetOwnershipOverview\022,." +
-      "shorts.v1alpha1.GetOwnershipOverviewRequ",
-      "est\032-.shorts.v1alpha1.GetOwnershipOvervi" +
-      "ewResponse\"\004\200\265\030\001\022m\n\020ListInstitutions\022(.s" +
-      "horts.v1alpha1.ListInstitutionsRequest\032)" +
-      ".shorts.v1alpha1.ListInstitutionsRespons" +
-      "e\"\004\200\265\030\001\022g\n\016GetInstitution\022&.shorts.v1alp" +
-      "ha1.GetInstitutionRequest\032\'.shorts.v1alp" +
-      "ha1.GetInstitutionResponse\"\004\200\265\030\001\022p\n\021GetS" +
-      "tockOwnership\022).shorts.v1alpha1.GetStock" +
-      "OwnershipRequest\032*.shorts.v1alpha1.GetSt" +
-      "ockOwnershipResponse\"\004\200\265\030\001\022\177\n\026ListSubsta" +
-      "ntialNotices\022..shorts.v1alpha1.ListSubst" +
-      "antialNoticesRequest\032/.shorts.v1alpha1.L" +
-      "istSubstantialNoticesResponse\"\004\200\265\030\001\022s\n\022L" +
-      "istStockRegisters\022*.shorts.v1alpha1.List" +
-      "StockRegistersRequest\032+.shorts.v1alpha1." +
-      "ListStockRegistersResponse\"\004\200\265\030\001\022j\n\017GetO" +
-      "wnershipMap\022\'.shorts.v1alpha1.GetOwnersh" +
-      "ipMapRequest\032(.shorts.v1alpha1.GetOwners" +
-      "hipMapResponse\"\004\200\265\030\001\022p\n\021GetOwnershipFlow" +
-      "s\022).shorts.v1alpha1.GetOwnershipFlowsReq" +
-      "uest\032*.shorts.v1alpha1.GetOwnershipFlows" +
-      "Response\"\004\200\265\030\001\022y\n\024GetOwnershipActivity\022," +
-      ".shorts.v1alpha1.GetOwnershipActivityReq" +
-      "uest\032-.shorts.v1alpha1.GetOwnershipActiv" +
-      "ityResponse\"\004\200\265\030\001\022\202\001\n\027ListFundPositionCh" +
-      "anges\022/.shorts.v1alpha1.ListFundPosition" +
-      "ChangesRequest\0320.shorts.v1alpha1.ListFun" +
-      "dPositionChangesResponse\"\004\200\265\030\001\022s\n\022GetSto" +
-      "ckFundSeries\022*.shorts.v1alpha1.GetStockF" +
-      "undSeriesRequest\032+.shorts.v1alpha1.GetSt" +
-      "ockFundSeriesResponse\"\004\200\265\030\001\022X\n\tListFunds" +
-      "\022!.shorts.v1alpha1.ListFundsRequest\032\".sh" +
-      "orts.v1alpha1.ListFundsResponse\"\004\200\265\030\001\022m\n" +
-      "\020GetFundPortfolio\022(.shorts.v1alpha1.GetF" +
-      "undPortfolioRequest\032).shorts.v1alpha1.Ge" +
-      "tFundPortfolioResponse\"\004\200\265\030\001\022y\n\024CompareF" +
-      "undSnapshots\022,.shorts.v1alpha1.CompareFu" +
-      "ndSnapshotsRequest\032-.shorts.v1alpha1.Com" +
-      "pareFundSnapshotsResponse\"\004\200\265\030\001B\335\001\n\023com." +
-      "shorts.v1alpha1B\016OwnershipProtoP\001ZYgithu" +
-      "b.com/castlemilk/shorted.com.au/services" +
-      "/gen/proto/go/shorts/v1alpha1;shortsv1al" +
-      "pha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1" +
-      "alpha1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020S" +
-      "horts::V1alpha1b\006proto3"
+      "R\007holders\022<\n\007history\030\003 \003(\0132\".shorts.v1al" +
+      "pha1.SubstantialNoticeR\007history\022A\n\rfund_" +
+      "holdings\030\004 \003(\0132\034.shorts.v1alpha1.FundHol" +
+      "dingR\014fundHoldings\022&\n\017shares_on_issue\030\005 " +
+      "\001(\001R\rsharesOnIssue\022-\n\023has_shares_on_issu" +
+      "e\030\006 \001(\010R\020hasSharesOnIssue\022#\n\rhistory_tot" +
+      "al\030\007 \001(\005R\014historyTotal\022\'\n\017withheld_liste" +
+      "d\030\010 \001(\005R\016withheldListed\022\023\n\005as_of\030\t \001(\tR\004" +
+      "asOf\"\325\002\n\035ListSubstantialNoticesRequest\022\037" +
+      "\n\013window_days\030\001 \001(\005R\nwindowDays\022\024\n\005event" +
+      "\030\002 \001(\tR\005event\022\022\n\004kind\030\003 \001(\tR\004kind\022\035\n\nsto" +
+      "ck_code\030\004 \001(\tR\tstockCode\022)\n\020institution_" +
+      "slug\030\005 \001(\tR\017institutionSlug\022\026\n\006cursor\030\006 " +
+      "\001(\tR\006cursor\022\024\n\005limit\030\007 \001(\005R\005limit\022)\n\020inc" +
+      "lude_activity\030\010 \001(\010R\017includeActivity\022\032\n\010" +
+      "industry\030\t \001(\tR\010industry\022\024\n\005since\030\n \001(\tR" +
+      "\005since\022\024\n\005until\030\013 \001(\tR\005until\"\301\001\n\nNoticeW" +
+      "eek\022\035\n\nweek_start\030\001 \001(\tR\tweekStart\022\026\n\006be" +
+      "came\030\002 \001(\005R\006became\022\034\n\tincreased\030\003 \001(\005R\ti" +
+      "ncreased\022\034\n\tdecreased\030\004 \001(\005R\tdecreased\022\030" +
+      "\n\007changed\030\005 \001(\005R\007changed\022\026\n\006ceased\030\006 \001(\005" +
+      "R\006ceased\022\016\n\002nz\030\007 \001(\005R\002nz\"\353\002\n\016NoticeActiv" +
+      "ity\022\026\n\006became\030\001 \001(\005R\006became\022\034\n\tincreased" +
+      "\030\002 \001(\005R\tincreased\022\034\n\tdecreased\030\003 \001(\005R\tde" +
+      "creased\022\030\n\007changed\030\004 \001(\005R\007changed\022\026\n\006cea" +
+      "sed\030\005 \001(\005R\006ceased\022\016\n\002nz\030\006 \001(\005R\002nz\0221\n\005wee" +
+      "ks\030\007 \003(\0132\033.shorts.v1alpha1.NoticeWeekR\005w" +
+      "eeks\022G\n\rlargest_rises\030\010 \003(\0132\".shorts.v1a" +
+      "lpha1.SubstantialNoticeR\014largestRises\022G\n" +
+      "\rlargest_falls\030\t \003(\0132\".shorts.v1alpha1.S" +
+      "ubstantialNoticeR\014largestFalls\"\210\002\n\036ListS" +
+      "ubstantialNoticesResponse\022<\n\007notices\030\001 \003" +
+      "(\0132\".shorts.v1alpha1.SubstantialNoticeR\007" +
+      "notices\022\037\n\013next_cursor\030\002 \001(\tR\nnextCursor" +
+      "\022\024\n\005total\030\003 \001(\005R\005total\022\037\n\013window_days\030\004 " +
+      "\001(\005R\nwindowDays\022\023\n\005as_of\030\005 \001(\tR\004asOf\022;\n\010" +
+      "activity\030\006 \001(\0132\037.shorts.v1alpha1.NoticeA" +
+      "ctivityR\010activity\"\212\002\n\031ListStockRegisters" +
+      "Request\022\022\n\004sort\030\001 \001(\tR\004sort\022\034\n\tascending" +
+      "\030\002 \001(\010R\tascending\022\032\n\010industry\030\003 \001(\tR\010ind" +
+      "ustry\022\022\n\004kind\030\004 \001(\tR\004kind\022#\n\rmin_interes" +
+      "ts\030\005 \001(\005R\014minInterests\022\"\n\rmin_short_pct\030" +
+      "\006 \001(\001R\013minShortPct\022\024\n\005query\030\007 \001(\tR\005query" +
+      "\022\024\n\005limit\030\010 \001(\005R\005limit\022\026\n\006offset\030\t \001(\005R\006" +
+      "offset\"C\n\rIndustryCount\022\032\n\010industry\030\001 \001(" +
+      "\tR\010industry\022\026\n\006stocks\030\002 \001(\005R\006stocks\"\334\001\n\032" +
+      "ListStockRegistersResponse\0227\n\006stocks\030\001 \003" +
+      "(\0132\037.shorts.v1alpha1.OwnershipStockR\006sto" +
+      "cks\022\024\n\005total\030\002 \001(\005R\005total\022\032\n\010universe\030\003 " +
+      "\001(\005R\010universe\022>\n\nindustries\030\004 \003(\0132\036.shor" +
+      "ts.v1alpha1.IndustryCountR\nindustries\022\023\n" +
+      "\005as_of\030\005 \001(\tR\004asOf\"r\n\026GetOwnershipMapReq" +
+      "uest\022\022\n\004from\030\001 \001(\tR\004from\022\016\n\002to\030\002 \001(\tR\002to" +
+      "\022\033\n\tfund_from\030\003 \001(\tR\010fundFrom\022\027\n\007fund_to" +
+      "\030\004 \001(\tR\006fundTo\"\325\005\n\010MapStock\022\035\n\nstock_cod" +
+      "e\030\001 \001(\tR\tstockCode\022!\n\014company_name\030\002 \001(\t" +
+      "R\013companyName\022\032\n\010industry\030\003 \001(\tR\010industr" +
+      "y\022\035\n\nmarket_cap\030\004 \001(\001R\tmarketCap\022$\n\016has_" +
+      "market_cap\030\005 \001(\010R\014hasMarketCap\022#\n\rdisclo" +
+      "sed_pct\030\006 \001(\001R\014disclosedPct\022+\n\021instituti" +
+      "onal_pct\030\007 \001(\001R\020institutionalPct\022\033\n\thedg" +
+      "e_pct\030\010 \001(\001R\010hedgePct\022\033\n\tindex_pct\030\t \001(\001" +
+      "R\010indexPct\022\"\n\rhas_index_pct\030\n \001(\010R\013hasIn" +
+      "dexPct\022\033\n\tshort_pct\030\013 \001(\001R\010shortPct\022\"\n\rh" +
+      "as_short_pct\030\014 \001(\010R\013hasShortPct\022\027\n\007flow_" +
+      "pp\030\r \001(\001R\006flowPp\022\036\n\013has_flow_pp\030\016 \001(\010R\th" +
+      "asFlowPp\022\030\n\007notices\030\017 \001(\005R\007notices\022$\n\016fu" +
+      "nd_value_aud\030\020 \001(\001R\014fundValueAud\022$\n\016has_" +
+      "fund_value\030\021 \001(\010R\014hasFundValue\022\"\n\rfund_f" +
+      "low_aud\030\022 \001(\001R\013fundFlowAud\022\"\n\rhas_fund_f" +
+      "low\030\023 \001(\010R\013hasFundFlow\022&\n\017fund_change_pc" +
+      "t\030\024 \001(\001R\rfundChangePct\022&\n\017has_fund_chang" +
+      "e\030\025 \001(\010R\rhasFundChange\"\372\002\n\027GetOwnershipM" +
+      "apResponse\022\022\n\004from\030\001 \001(\tR\004from\022\016\n\002to\030\002 \001" +
+      "(\tR\002to\0221\n\006stocks\030\003 \003(\0132\031.shorts.v1alpha1" +
+      ".MapStockR\006stocks\022\023\n\005as_of\030\004 \001(\tR\004asOf\022%" +
+      "\n\016funds_compared\030\005 \001(\005R\rfundsCompared\022(\n" +
+      "\020start_files_from\030\006 \001(\tR\016startFilesFrom\022" +
+      "$\n\016start_files_to\030\007 \001(\tR\014startFilesTo\022$\n" +
+      "\016end_files_from\030\010 \001(\tR\014endFilesFrom\022 \n\014e" +
+      "nd_files_to\030\t \001(\tR\nendFilesTo\022\033\n\tfund_fr" +
+      "om\030\n \001(\tR\010fundFrom\022\027\n\007fund_to\030\013 \001(\tR\006fun" +
+      "dTo\">\n\030GetOwnershipFlowsRequest\022\022\n\004from\030" +
+      "\001 \001(\tR\004from\022\016\n\002to\030\002 \001(\tR\002to\"\242\002\n\014FlowPosi" +
+      "tion\022\022\n\004kind\030\001 \001(\tR\004kind\022\032\n\010industry\030\002 \001" +
+      "(\tR\010industry\022!\n\014exposure_aud\030\003 \001(\001R\013expo" +
+      "sureAud\022!\n\014has_exposure\030\004 \001(\010R\013hasExposu" +
+      "re\022\032\n\010holdings\030\005 \001(\005R\010holdings\022!\n\014larges" +
+      "t_code\030\006 \001(\tR\013largestCode\022\037\n\013largest_pct" +
+      "\030\007 \001(\001R\nlargestPct\022<\n\013top_holders\030\010 \003(\0132" +
+      "\033.shorts.v1alpha1.FlowHolderR\ntopHolders" +
+      "\"\277\001\n\nFlowHolder\022\022\n\004slug\030\001 \001(\tR\004slug\022\022\n\004n" +
+      "ame\030\002 \001(\tR\004name\022!\n\014exposure_aud\030\003 \001(\001R\013e" +
+      "xposureAud\022!\n\014has_exposure\030\004 \001(\010R\013hasExp" +
+      "osure\022\032\n\010holdings\030\005 \001(\005R\010holdings\022\'\n\017has" +
+      "_institution\030\006 \001(\010R\016hasInstitution\"\272\001\n\nF" +
+      "lowChange\022\022\n\004kind\030\001 \001(\tR\004kind\022\032\n\010industr" +
+      "y\030\002 \001(\tR\010industry\022\034\n\tdirection\030\003 \001(\tR\tdi" +
+      "rection\022!\n\014exposure_aud\030\004 \001(\001R\013exposureA" +
+      "ud\022!\n\014has_exposure\030\005 \001(\010R\013hasExposure\022\030\n" +
+      "\007notices\030\006 \001(\005R\007notices\"\310\001\n\031GetOwnership" +
+      "FlowsResponse\022\022\n\004from\030\001 \001(\tR\004from\022\016\n\002to\030" +
+      "\002 \001(\tR\002to\022;\n\tpositions\030\003 \003(\0132\035.shorts.v1" +
+      "alpha1.FlowPositionR\tpositions\0225\n\007change" +
+      "s\030\004 \003(\0132\033.shorts.v1alpha1.FlowChangeR\007ch" +
+      "anges\022\023\n\005as_of\030\005 \001(\tR\004asOf\"G\n\033GetOwnersh" +
+      "ipActivityRequest\022\024\n\005weeks\030\001 \001(\005R\005weeks\022" +
+      "\022\n\004kind\030\002 \001(\tR\004kind\"\224\002\n\014IndustryWeek\022\032\n\010" +
+      "industry\030\001 \001(\tR\010industry\022\035\n\nweek_start\030\002" +
+      " \001(\tR\tweekStart\022\026\n\006became\030\003 \001(\005R\006became\022" +
+      "\034\n\tincreased\030\004 \001(\005R\tincreased\022\034\n\tdecreas" +
+      "ed\030\005 \001(\005R\tdecreased\022\030\n\007changed\030\006 \001(\005R\007ch" +
+      "anged\022\026\n\006ceased\030\007 \001(\005R\006ceased\022\016\n\002nz\030\010 \001(" +
+      "\005R\002nz\022\025\n\006net_pp\030\t \001(\001R\005netPp\022\034\n\nhas_net_" +
+      "pp\030\n \001(\010R\010hasNetPp\"\337\001\n\034GetOwnershipActiv" +
+      "ityResponse\022\033\n\tfrom_week\030\001 \001(\tR\010fromWeek" +
+      "\022\027\n\007to_week\030\002 \001(\tR\006toWeek\0221\n\004rows\030\003 \003(\0132" +
+      "\035.shorts.v1alpha1.IndustryWeekR\004rows\022\023\n\005" +
+      "as_of\030\004 \001(\tR\004asOf\022A\n\rlargest_moves\030\005 \003(\013" +
+      "2\034.shorts.v1alpha1.LargestMoveR\014largestM" +
+      "oves\"\377\002\n\013LargestMove\022\035\n\nstock_code\030\001 \001(\t" +
+      "R\tstockCode\022!\n\014company_name\030\002 \001(\tR\013compa" +
+      "nyName\022\037\n\013holder_name\030\003 \001(\tR\nholderName\022" +
+      "\037\n\013holder_slug\030\004 \001(\tR\nholderSlug\022\'\n\017has_" +
+      "institution\030\005 \001(\010R\016hasInstitution\022!\n\014pre" +
+      "vious_pct\030\006 \001(\001R\013previousPct\022\037\n\013present_" +
+      "pct\030\007 \001(\001R\npresentPct\022\033\n\tchange_pp\030\010 \001(\001" +
+      "R\010changePp\022\024\n\005event\030\t \001(\tR\005event\022!\n\014anno" +
+      "unced_on\030\n \001(\tR\013announcedOn\022)\n\020announcem" +
+      "ent_url\030\013 \001(\tR\017announcementUrl\"Z\n\036ListFu" +
+      "ndPositionChangesRequest\022\022\n\004from\030\001 \001(\tR\004" +
+      "from\022\016\n\002to\030\002 \001(\tR\002to\022\024\n\005limit\030\003 \001(\005R\005lim" +
+      "it\"\342\003\n\022FundPositionChange\022\035\n\nstock_code\030" +
+      "\001 \001(\tR\tstockCode\022!\n\014company_name\030\002 \001(\tR\013" +
+      "companyName\022&\n\017weight_from_pct\030\003 \001(\001R\rwe" +
+      "ightFromPct\022&\n\017has_weight_from\030\004 \001(\010R\rha" +
+      "sWeightFrom\022\"\n\rweight_to_pct\030\005 \001(\001R\013weig" +
+      "htToPct\022\"\n\rhas_weight_to\030\006 \001(\010R\013hasWeigh" +
+      "tTo\022\031\n\010delta_pp\030\007 \001(\001R\007deltaPp\022\033\n\thas_de" +
+      "lta\030\010 \001(\010R\010hasDelta\022$\n\016value_from_aud\030\t " +
+      "\001(\001R\014valueFromAud\022$\n\016has_value_from\030\n \001(" +
+      "\010R\014hasValueFrom\022 \n\014value_to_aud\030\013 \001(\001R\nv" +
+      "alueToAud\022 \n\014has_value_to\030\014 \001(\010R\nhasValu" +
+      "eTo\022\024\n\005funds\030\r \001(\005R\005funds\022\024\n\005state\030\016 \001(\t" +
+      "R\005state\"\245\001\n\037ListFundPositionChangesRespo" +
+      "nse\022%\n\016snapshot_dates\030\001 \003(\tR\rsnapshotDat" +
+      "es\022\022\n\004from\030\002 \001(\tR\004from\022\016\n\002to\030\003 \001(\tR\002to\0227" +
+      "\n\004rows\030\004 \003(\0132#.shorts.v1alpha1.FundPosit" +
+      "ionChangeR\004rows\"p\n\031GetStockFundSeriesReq" +
+      "uest\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022\033\n\tf" +
+      "und_from\030\002 \001(\tR\010fundFrom\022\027\n\007fund_to\030\003 \001(" +
+      "\tR\006fundTo\"\313\001\n\tFundPoint\022\023\n\005as_at\030\001 \001(\tR\004" +
+      "asAt\022\035\n\nweight_pct\030\002 \001(\001R\tweightPct\022\035\n\nh" +
+      "as_weight\030\003 \001(\010R\thasWeight\022\033\n\tvalue_aud\030" +
+      "\004 \001(\001R\010valueAud\022\033\n\thas_value\030\005 \001(\010R\010hasV" +
+      "alue\022\024\n\005units\030\006 \001(\001R\005units\022\033\n\thas_units\030" +
+      "\007 \001(\010R\010hasUnits\"\300\005\n\nFundSeries\022)\n\020instit" +
+      "ution_slug\030\001 \001(\tR\017institutionSlug\022)\n\020ins" +
+      "titution_name\030\002 \001(\tR\017institutionName\022\033\n\t" +
+      "fund_name\030\003 \001(\tR\010fundName\022\037\n\013source_kind" +
+      "\030\004 \001(\tR\nsourceKind\0222\n\006points\030\005 \003(\0132\032.sho" +
+      "rts.v1alpha1.FundPointR\006points\022\033\n\tfund_c" +
+      "ode\030\006 \001(\tR\010fundCode\022\031\n\010fund_key\030\007 \001(\tR\007f" +
+      "undKey\022\035\n\nstart_date\030\010 \001(\tR\tstartDate\022$\n" +
+      "\016has_start_date\030\t \001(\010R\014hasStartDate\022\037\n\013s" +
+      "tart_units\030\n \001(\001R\nstartUnits\022&\n\017has_star" +
+      "t_units\030\013 \001(\010R\rhasStartUnits\022\031\n\010end_date" +
+      "\030\014 \001(\tR\007endDate\022 \n\014has_end_date\030\r \001(\010R\nh" +
+      "asEndDate\022\033\n\tend_units\030\016 \001(\001R\010endUnits\022\"" +
+      "\n\rhas_end_units\030\017 \001(\010R\013hasEndUnits\022!\n\014un" +
+      "its_change\030\020 \001(\001R\013unitsChange\022(\n\020has_uni" +
+      "ts_change\030\021 \001(\010R\016hasUnitsChange\022(\n\020chang" +
+      "e_value_aud\030\022 \001(\001R\016changeValueAud\022/\n\024has" +
+      "_change_value_aud\030\023 \001(\010R\021hasChangeValueA" +
+      "ud\"\244\001\n\032GetStockFundSeriesResponse\022\035\n\nsto" +
+      "ck_code\030\001 \001(\tR\tstockCode\0221\n\005funds\030\002 \003(\0132" +
+      "\033.shorts.v1alpha1.FundSeriesR\005funds\022\033\n\tf" +
+      "und_from\030\003 \001(\tR\010fundFrom\022\027\n\007fund_to\030\004 \001(" +
+      "\tR\006fundTo\"\022\n\020ListFundsRequest\"s\n\020FundSec" +
+      "torWeight\022\032\n\010industry\030\001 \001(\tR\010industry\022\035\n" +
+      "\nweight_pct\030\002 \001(\001R\tweightPct\022$\n\016has_weig" +
+      "ht_pct\030\003 \001(\010R\014hasWeightPct\"}\n\016FundTopHol" +
+      "ding\022\022\n\004code\030\001 \001(\tR\004code\022\022\n\004name\030\002 \001(\tR\004" +
+      "name\022\035\n\nweight_pct\030\003 \001(\001R\tweightPct\022$\n\016h" +
+      "as_weight_pct\030\004 \001(\010R\014hasWeightPct\"\216\006\n\013Fu" +
+      "ndSummary\022\031\n\010fund_key\030\001 \001(\tR\007fundKey\022\026\n\006" +
+      "ticker\030\002 \001(\tR\006ticker\022\022\n\004name\030\003 \001(\tR\004name" +
+      "\022)\n\020institution_slug\030\004 \001(\tR\017institutionS" +
+      "lug\022)\n\020institution_name\030\005 \001(\tR\017instituti" +
+      "onName\022\037\n\013source_kind\030\006 \001(\tR\nsourceKind\022" +
+      "\026\n\006pooled\030\007 \001(\010R\006pooled\022\023\n\005as_at\030\010 \001(\tR\004" +
+      "asAt\022\035\n\nsource_url\030\t \001(\tR\tsourceUrl\022\032\n\010h" +
+      "oldings\030\n \001(\005R\010holdings\022\033\n\ttop10_pct\030\013 \001" +
+      "(\001R\010top10Pct\022\"\n\rhas_top10_pct\030\014 \001(\010R\013has" +
+      "Top10Pct\022H\n\016sector_weights\030\r \003(\0132!.short" +
+      "s.v1alpha1.FundSectorWeightR\rsectorWeigh" +
+      "ts\0229\n\007largest\030\016 \003(\0132\037.shorts.v1alpha1.Fu" +
+      "ndTopHoldingR\007largest\022\027\n\007aum_aud\030\017 \001(\001R\006" +
+      "aumAud\022\036\n\013has_aum_aud\030\020 \001(\010R\thasAumAud\022%" +
+      "\n\016snapshot_count\030\021 \001(\005R\rsnapshotCount\0227\n" +
+      "\030largest_sector_change_pp\030\022 \001(\001R\025largest" +
+      "SectorChangePp\0229\n\031has_largest_sector_cha" +
+      "nge\030\023 \001(\010R\026hasLargestSectorChange\022?\n\034lar" +
+      "gest_sector_change_sector\030\024 \001(\tR\031largest" +
+      "SectorChangeSector\"G\n\021ListFundsResponse\022" +
+      "2\n\005funds\030\001 \003(\0132\034.shorts.v1alpha1.FundSum" +
+      "maryR\005funds\"I\n\027GetFundPortfolioRequest\022\031" +
+      "\n\010fund_key\030\001 \001(\tR\007fundKey\022\023\n\005as_at\030\002 \001(\t" +
+      "R\004asAt\"\363\003\n\024FundPortfolioHolding\022\022\n\004code\030" +
+      "\001 \001(\tR\004code\022\022\n\004name\030\002 \001(\tR\004name\022\032\n\010indus" +
+      "try\030\003 \001(\tR\010industry\022\035\n\nweight_pct\030\004 \001(\001R" +
+      "\tweightPct\022$\n\016has_weight_pct\030\005 \001(\010R\014hasW" +
+      "eightPct\022\024\n\005units\030\006 \001(\001R\005units\022\033\n\thas_un" +
+      "its\030\007 \001(\010R\010hasUnits\022\033\n\tvalue_aud\030\010 \001(\001R\010" +
+      "valueAud\022\"\n\rhas_value_aud\030\t \001(\010R\013hasValu" +
+      "eAud\022&\n\017shares_on_issue\030\n \001(\001R\rsharesOnI" +
+      "ssue\022-\n\023has_shares_on_issue\030\013 \001(\010R\020hasSh" +
+      "aresOnIssue\022&\n\017est_company_pct\030\014 \001(\001R\res" +
+      "tCompanyPct\022-\n\023has_est_company_pct\030\r \001(\010" +
+      "R\020hasEstCompanyPct\0220\n\025shares_on_issue_as" +
+      "_at\030\016 \001(\tR\021sharesOnIssueAsAt\"\300\004\n\030GetFund" +
+      "PortfolioResponse\022\031\n\010fund_key\030\001 \001(\tR\007fun" +
+      "dKey\022\026\n\006ticker\030\002 \001(\tR\006ticker\022\022\n\004name\030\003 \001" +
+      "(\tR\004name\022)\n\020institution_slug\030\004 \001(\tR\017inst" +
+      "itutionSlug\022)\n\020institution_name\030\005 \001(\tR\017i" +
+      "nstitutionName\022\037\n\013source_kind\030\006 \001(\tR\nsou" +
+      "rceKind\022\026\n\006pooled\030\007 \001(\010R\006pooled\022\023\n\005as_at" +
+      "\030\010 \001(\tR\004asAt\022\035\n\nsource_url\030\t \001(\tR\tsource" +
+      "Url\022%\n\016snapshot_dates\030\n \003(\tR\rsnapshotDat" +
+      "es\022A\n\010holdings\030\013 \003(\0132%.shorts.v1alpha1.F" +
+      "undPortfolioHoldingR\010holdings\022%\n\016holding" +
+      "s_total\030\014 \001(\005R\rholdingsTotal\022\033\n\ttop10_pc" +
+      "t\030\r \001(\001R\010top10Pct\022\"\n\rhas_top10_pct\030\016 \001(\010" +
+      "R\013hasTop10Pct\022H\n\016sector_weights\030\017 \003(\0132!." +
+      "shorts.v1alpha1.FundSectorWeightR\rsector" +
+      "Weights\"\\\n\033CompareFundSnapshotsRequest\022\031" +
+      "\n\010fund_key\030\001 \001(\tR\007fundKey\022\022\n\004from\030\002 \001(\tR" +
+      "\004from\022\016\n\002to\030\003 \001(\tR\002to\"\361\003\n\022FundSnapshotCh" +
+      "ange\022\022\n\004code\030\001 \001(\tR\004code\022\022\n\004name\030\002 \001(\tR\004" +
+      "name\022\032\n\010industry\030\003 \001(\tR\010industry\022&\n\017weig" +
+      "ht_from_pct\030\004 \001(\001R\rweightFromPct\022-\n\023has_" +
+      "weight_from_pct\030\005 \001(\010R\020hasWeightFromPct\022" +
+      "\"\n\rweight_to_pct\030\006 \001(\001R\013weightToPct\022)\n\021h" +
+      "as_weight_to_pct\030\007 \001(\010R\016hasWeightToPct\022\031" +
+      "\n\010delta_pp\030\010 \001(\001R\007deltaPp\022 \n\014has_delta_p" +
+      "p\030\t \001(\010R\nhasDeltaPp\022$\n\016value_from_aud\030\n " +
+      "\001(\001R\014valueFromAud\022+\n\022has_value_from_aud\030" +
+      "\013 \001(\010R\017hasValueFromAud\022 \n\014value_to_aud\030\014" +
+      " \001(\001R\nvalueToAud\022\'\n\020has_value_to_aud\030\r \001" +
+      "(\010R\rhasValueToAud\022\026\n\006status\030\016 \001(\tR\006statu" +
+      "s\"\340\001\n\034CompareFundSnapshotsResponse\022\022\n\004fr" +
+      "om\030\001 \001(\tR\004from\022\016\n\002to\030\002 \001(\tR\002to\022\037\n\013source" +
+      "_from\030\003 \001(\tR\nsourceFrom\022\033\n\tsource_to\030\004 \001" +
+      "(\tR\010sourceTo\0227\n\004rows\030\005 \003(\0132#.shorts.v1al" +
+      "pha1.FundSnapshotChangeR\004rows\022%\n\016snapsho" +
+      "t_dates\030\006 \003(\tR\rsnapshotDates2\344\014\n\020Ownersh",
+      "ipService\022y\n\024GetOwnershipOverview\022,.shor" +
+      "ts.v1alpha1.GetOwnershipOverviewRequest\032" +
+      "-.shorts.v1alpha1.GetOwnershipOverviewRe" +
+      "sponse\"\004\200\265\030\001\022m\n\020ListInstitutions\022(.short" +
+      "s.v1alpha1.ListInstitutionsRequest\032).sho" +
+      "rts.v1alpha1.ListInstitutionsResponse\"\004\200" +
+      "\265\030\001\022g\n\016GetInstitution\022&.shorts.v1alpha1." +
+      "GetInstitutionRequest\032\'.shorts.v1alpha1." +
+      "GetInstitutionResponse\"\004\200\265\030\001\022p\n\021GetStock" +
+      "Ownership\022).shorts.v1alpha1.GetStockOwne" +
+      "rshipRequest\032*.shorts.v1alpha1.GetStockO" +
+      "wnershipResponse\"\004\200\265\030\001\022\177\n\026ListSubstantia" +
+      "lNotices\022..shorts.v1alpha1.ListSubstanti" +
+      "alNoticesRequest\032/.shorts.v1alpha1.ListS" +
+      "ubstantialNoticesResponse\"\004\200\265\030\001\022s\n\022ListS" +
+      "tockRegisters\022*.shorts.v1alpha1.ListStoc" +
+      "kRegistersRequest\032+.shorts.v1alpha1.List" +
+      "StockRegistersResponse\"\004\200\265\030\001\022j\n\017GetOwner" +
+      "shipMap\022\'.shorts.v1alpha1.GetOwnershipMa" +
+      "pRequest\032(.shorts.v1alpha1.GetOwnershipM" +
+      "apResponse\"\004\200\265\030\001\022p\n\021GetOwnershipFlows\022)." +
+      "shorts.v1alpha1.GetOwnershipFlowsRequest" +
+      "\032*.shorts.v1alpha1.GetOwnershipFlowsResp" +
+      "onse\"\004\200\265\030\001\022y\n\024GetOwnershipActivity\022,.sho" +
+      "rts.v1alpha1.GetOwnershipActivityRequest" +
+      "\032-.shorts.v1alpha1.GetOwnershipActivityR" +
+      "esponse\"\004\200\265\030\001\022\202\001\n\027ListFundPositionChange" +
+      "s\022/.shorts.v1alpha1.ListFundPositionChan" +
+      "gesRequest\0320.shorts.v1alpha1.ListFundPos" +
+      "itionChangesResponse\"\004\200\265\030\001\022s\n\022GetStockFu" +
+      "ndSeries\022*.shorts.v1alpha1.GetStockFundS" +
+      "eriesRequest\032+.shorts.v1alpha1.GetStockF" +
+      "undSeriesResponse\"\004\200\265\030\001\022X\n\tListFunds\022!.s" +
+      "horts.v1alpha1.ListFundsRequest\032\".shorts" +
+      ".v1alpha1.ListFundsResponse\"\004\200\265\030\001\022m\n\020Get" +
+      "FundPortfolio\022(.shorts.v1alpha1.GetFundP" +
+      "ortfolioRequest\032).shorts.v1alpha1.GetFun" +
+      "dPortfolioResponse\"\004\200\265\030\001\022y\n\024CompareFundS" +
+      "napshots\022,.shorts.v1alpha1.CompareFundSn" +
+      "apshotsRequest\032-.shorts.v1alpha1.Compare" +
+      "FundSnapshotsResponse\"\004\200\265\030\001B\335\001\n\023com.shor" +
+      "ts.v1alpha1B\016OwnershipProtoP\001ZYgithub.co" +
+      "m/castlemilk/shorted.com.au/services/gen" +
+      "/proto/go/shorts/v1alpha1;shortsv1alpha1" +
+      "\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alph" +
+      "a1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Short" +
+      "s::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -778,7 +780,7 @@ public final class OwnershipProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_SubstantialNotice_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SubstantialNotice_descriptor,
-        new java.lang.String[] { "StockCode", "CompanyName", "HolderKey", "HolderName", "InstitutionSlug", "Kind", "Form", "PresentPct", "HasPresent", "PreviousPct", "HasPrevious", "Ceased", "EventDate", "AnnouncedOn", "AnnouncementUrl", "Event", });
+        new java.lang.String[] { "StockCode", "CompanyName", "HolderKey", "HolderName", "InstitutionSlug", "Kind", "Form", "PresentPct", "HasPresent", "PreviousPct", "HasPrevious", "Ceased", "EventDate", "AnnouncedOn", "AnnouncementUrl", "Event", "ReadBy", });
     internal_static_shorts_v1alpha1_FundHolding_descriptor =
       getDescriptor().getMessageType(3);
     internal_static_shorts_v1alpha1_FundHolding_fieldAccessorTable = new
@@ -832,7 +834,7 @@ public final class OwnershipProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_GetOwnershipOverviewResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetOwnershipOverviewResponse_descriptor,
-        new java.lang.String[] { "Kinds", "TopHolders", "Crowded", "CrowdedBothWays", "Lending", "Recent", "SuperConsensus", "Passive", "Sources", "NoticesParsed", "NoticesWithheld", "SuperFunds", "SuperAssetsAud", "Etfs", "EtfFumAud", "Lics", "LicMarketCapAud", "AsOf", "WithheldByOutcome", "DocumentsAttempted", });
+        new java.lang.String[] { "Kinds", "TopHolders", "Crowded", "CrowdedBothWays", "Lending", "Recent", "SuperConsensus", "Passive", "Sources", "NoticesParsed", "NoticesWithheld", "SuperFunds", "SuperAssetsAud", "Etfs", "EtfFumAud", "Lics", "LicMarketCapAud", "AsOf", "WithheldByOutcome", "DocumentsAttempted", "NoticesReadByModel", });
     internal_static_shorts_v1alpha1_ListInstitutionsRequest_descriptor =
       getDescriptor().getMessageType(12);
     internal_static_shorts_v1alpha1_ListInstitutionsRequest_fieldAccessorTable = new

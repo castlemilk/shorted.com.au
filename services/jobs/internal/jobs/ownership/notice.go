@@ -11,9 +11,11 @@ import (
 )
 
 // noticeParserVersion is stored with every attempt. Bump it when a change to
-// parseSubstantialNotice would read a notice it once refused differently: a
-// refused notice whose attempt carries an older version is read again
-// (pendingNoticesSQL), a parsed one never is. The placeholder gate (a section 1
+// parseSubstantialNotice would read a notice it once refused differently. A
+// refused notice whose attempt carries an older version is read again only
+// when its outcome is one this version changed (the staleRereads entry for
+// this version, pendingNoticesSQL); a parsed one never is, and a bump that adds
+// no entry re-reads nothing. The placeholder gate (a section 1
 // name such as "SEE ANNEXURE 1" is withheld as no_holder) did not bump it: it
 // only adds refusals, so no notice refused before would parse now, and a bump
 // would re-download every refusal to change nothing but its label. A notice
@@ -24,7 +26,21 @@ import (
 // refuses a name or a change that was parsed, or cuts a label off a name that
 // still parses, and repair-placeholders lists every stored row the new rules
 // would refuse.
-const noticeParserVersion = 1
+//
+// Version 2 (2026-11) changed which listed code an ambiguous notice is filed
+// under (resolveTarget's live-code rule and the name folding). Only the
+// refusals with the ambiguous_target outcome change verdict, so staleRereads
+// lists that outcome under version 2 and the nightly pass reads only those
+// again (pendingNoticesSQL). Re-downloading every refusal to learn the same
+// verdict would cost ASX thousands of requests. A later bump adds its own entry
+// to staleRereads for the outcomes it changed, and nothing else.
+//
+// Version 3 (2026-11) is the announcements API path (apiPathVersion): an
+// attempt at 3 or later records that ASX's API was asked for the notice, so the
+// nightly pass asks it only for a notice not yet asked, and resolve-unavailable
+// reads only the unavailable attempts recorded before it. Ambiguous targets
+// are re-read again under it (staleRereads), as they were under 2.
+const noticeParserVersion = 3
 
 // Form is the statutory form a substantial holding notice was given on.
 type Form string
@@ -796,7 +812,7 @@ func parseSubstantialNotice(text, headline string) (Notice, Outcome, string) {
 	if form == "" {
 		form = formFromHeadline(headline)
 		lower := strings.ToLower(s)
-		if form == "" || !(strings.Contains(lower, "substantial holder") || strings.Contains(lower, "substantial shareholder")) ||
+		if form == "" || (!strings.Contains(lower, "substantial holder") && !strings.Contains(lower, "substantial shareholder")) ||
 			!strings.Contains(lower, "voting") {
 			return Notice{}, outcomeNotNotice, "no substantial holding form in the document"
 		}

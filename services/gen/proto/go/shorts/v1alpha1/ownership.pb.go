@@ -387,7 +387,12 @@ type SubstantialNotice struct {
 	// decreased (604 with both figures and a difference), changed (604 with no
 	// previous figure, no present figure, or an equal one), nz (an NZ
 	// disclosure that is not a cessation).
-	Event         string `protobuf:"bytes,16,opt,name=event,proto3" json:"event,omitempty"`
+	Event string `protobuf:"bytes,16,opt,name=event,proto3" json:"event,omitempty"`
+	// Who read the notice: "parser" (the parser, the default) or "model" (a model
+	// pass recovered it after the parser withheld it; two readers agreed and the
+	// figures were validated against the share count). A schema without the column
+	// reads "parser".
+	ReadBy        string `protobuf:"bytes,17,opt,name=read_by,json=readBy,proto3" json:"read_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -530,6 +535,13 @@ func (x *SubstantialNotice) GetAnnouncementUrl() string {
 func (x *SubstantialNotice) GetEvent() string {
 	if x != nil {
 		return x.Event
+	}
+	return ""
+}
+
+func (x *SubstantialNotice) GetReadBy() string {
+	if x != nil {
+		return x.ReadBy
 	}
 	return ""
 }
@@ -1401,6 +1413,9 @@ type GetOwnershipOverviewResponse struct {
 	WithheldByOutcome []*WithheldOutcome `protobuf:"bytes,19,rep,name=withheld_by_outcome,json=withheldByOutcome,proto3" json:"withheld_by_outcome,omitempty"`
 	// Every document attempted, parsed included: the base of notices_withheld.
 	DocumentsAttempted int32 `protobuf:"varint,20,opt,name=documents_attempted,json=documentsAttempted,proto3" json:"documents_attempted,omitempty"`
+	// Parsed notices a model read after the parser withheld them (read_by = model).
+	// Counted within notices_parsed.
+	NoticesReadByModel int32 `protobuf:"varint,21,opt,name=notices_read_by_model,json=noticesReadByModel,proto3" json:"notices_read_by_model,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1571,6 +1586,13 @@ func (x *GetOwnershipOverviewResponse) GetWithheldByOutcome() []*WithheldOutcome
 func (x *GetOwnershipOverviewResponse) GetDocumentsAttempted() int32 {
 	if x != nil {
 		return x.DocumentsAttempted
+	}
+	return 0
+}
+
+func (x *GetOwnershipOverviewResponse) GetNoticesReadByModel() int32 {
+	if x != nil {
+		return x.NoticesReadByModel
 	}
 	return 0
 }
@@ -5778,7 +5800,7 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\n" +
 	"event_date\x18\x0e \x01(\tR\teventDate\x12!\n" +
 	"\fannounced_on\x18\x0f \x01(\tR\vannouncedOn\x12)\n" +
-	"\x10announcement_url\x18\x10 \x01(\tR\x0fannouncementUrl\"\x8b\x04\n" +
+	"\x10announcement_url\x18\x10 \x01(\tR\x0fannouncementUrl\"\xa4\x04\n" +
 	"\x11SubstantialNotice\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +
@@ -5802,7 +5824,8 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"event_date\x18\r \x01(\tR\teventDate\x12!\n" +
 	"\fannounced_on\x18\x0e \x01(\tR\vannouncedOn\x12)\n" +
 	"\x10announcement_url\x18\x0f \x01(\tR\x0fannouncementUrl\x12\x14\n" +
-	"\x05event\x18\x10 \x01(\tR\x05event\"\xa3\x04\n" +
+	"\x05event\x18\x10 \x01(\tR\x05event\x12\x17\n" +
+	"\aread_by\x18\x11 \x01(\tR\x06readBy\"\xa3\x04\n" +
 	"\vFundHolding\x12)\n" +
 	"\x10institution_slug\x18\x01 \x01(\tR\x0finstitutionSlug\x12)\n" +
 	"\x10institution_name\x18\x02 \x01(\tR\x0finstitutionName\x12\x12\n" +
@@ -5884,7 +5907,7 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x0fWithheldOutcome\x12\x18\n" +
 	"\aoutcome\x18\x01 \x01(\tR\aoutcome\x12\x14\n" +
 	"\x05count\x18\x02 \x01(\x05R\x05count\"\x1d\n" +
-	"\x1bGetOwnershipOverviewRequest\"\x8d\b\n" +
+	"\x1bGetOwnershipOverviewRequest\"\xc0\b\n" +
 	"\x1cGetOwnershipOverviewResponse\x12;\n" +
 	"\x05kinds\x18\x01 \x03(\v2%.shorts.v1alpha1.OwnershipKindSummaryR\x05kinds\x12F\n" +
 	"\vtop_holders\x18\x02 \x03(\v2%.shorts.v1alpha1.OwnershipInstitutionR\n" +
@@ -5908,7 +5931,8 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x12lic_market_cap_aud\x18\x11 \x01(\x01R\x0flicMarketCapAud\x12\x13\n" +
 	"\x05as_of\x18\x12 \x01(\tR\x04asOf\x12P\n" +
 	"\x13withheld_by_outcome\x18\x13 \x03(\v2 .shorts.v1alpha1.WithheldOutcomeR\x11withheldByOutcome\x12/\n" +
-	"\x13documents_attempted\x18\x14 \x01(\x05R\x12documentsAttempted\"q\n" +
+	"\x13documents_attempted\x18\x14 \x01(\x05R\x12documentsAttempted\x121\n" +
+	"\x15notices_read_by_model\x18\x15 \x01(\x05R\x12noticesReadByModel\"q\n" +
 	"\x17ListInstitutionsRequest\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +

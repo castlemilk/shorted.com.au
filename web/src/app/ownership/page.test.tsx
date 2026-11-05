@@ -621,3 +621,29 @@ describe("OwnershipPage first phone screen (backlog D2)", () => {
     expect(mapSection).toHaveClass("lg:h-[420px]");
   });
 });
+
+describe("OwnershipPage model reads (read_by)", () => {
+  const notices = source({
+    source: "substantial_notices",
+    description: "ASX substantial holding notices (Forms 603, 604, 605) read from their PDFs",
+    records: 7118,
+    asAt: "2026-10-16",
+  });
+
+  it("names the notices a model read on the notices' source line", async () => {
+    getOwnershipOverview.mockResolvedValue(
+      overview({ noticesParsed: 7118, asOf: "2026-10-16", sources: [notices], noticesReadByModel: 12 }),
+    );
+    const { container } = render(await OwnershipPage());
+    expect(container.textContent).toContain("7,118 records, 12 read by model");
+  });
+
+  it("leaves the clause out when no notice was read by a model", async () => {
+    getOwnershipOverview.mockResolvedValue(
+      overview({ noticesParsed: 7118, asOf: "2026-10-16", sources: [notices], noticesReadByModel: 0 }),
+    );
+    const { container } = render(await OwnershipPage());
+    expect(container.textContent).toContain("7,118 records,");
+    expect(container.textContent).not.toContain("read by model");
+  });
+});

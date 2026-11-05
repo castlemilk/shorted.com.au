@@ -103,3 +103,46 @@ test("the down migration drops everything the up creates", () => {
   assert.match(down, /DROP VIEW IF EXISTS v_fund_holdings_latest;/);
   assert.match(down, /DROP INDEX IF EXISTS idx_asx_ann_substantial;/);
 });
+
+// 000154 (notice read_by): the mark the model pass writes and the API reads. It is in the
+// deploy allowlist ABOVE 000138, and every ALTER runs only when the catalog lacks it.
+const readByUp = readFileSync(new URL("./000154_notice_read_by.up.sql", import.meta.url), "utf8");
+const readByDown = readFileSync(new URL("./000154_notice_read_by.down.sql", import.meta.url), "utf8");
+const readByUpCode = code(readByUp);
+
+test("000154 adds read_by to both notice tables, defaulting to parser, and checks its two values", () => {
+  for (const table of ["substantial_holder_notices", "substantial_holder_notice_attempts"]) {
+    assert.match(readByUpCode, new RegExp(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS read_by TEXT NOT NULL DEFAULT 'parser'`), table);
+    assert.match(readByUpCode, new RegExp(`ALTER TABLE ${table}\\s+ADD CONSTRAINT ${table}_read_by_check CHECK \\(read_by IN \\('parser', 'model'\\)\\)`), table);
+  }
+});
+
+test("000154 takes no lock and touches no rows on a replay: every ALTER sits behind a catalog check", () => {
+  assert.match(readByUpCode, /BEGIN;\s*SET LOCAL lock_timeout = '15s';/);
+  assert.match(readByUpCode, /COMMIT;\s*$/);
+  const alters = readByUpCode.match(/ALTER TABLE[^;]*;/g) ?? [];
+  assert.equal(alters.length, 4);
+  for (const alter of alters) {
+    const at = readByUpCode.indexOf(alter);
+    const before = readByUpCode.slice(0, at);
+    assert.match(before.slice(before.lastIndexOf("DO $")), /IF NOT EXISTS \(/, alter);
+  }
+  assert.doesNotMatch(readByUpCode, /\b(UPDATE|INSERT INTO|DELETE FROM|TRUNCATE)\b/i);
+  // IF NOT EXISTS alone would still take the lock on a replay; it is kept for the deploy's replay
+  // lint (migration-drift.test.mjs), and the catalog check above it is what skips the lock.
+  assert.match(readByUpCode, /IF NOT EXISTS \(\s*SELECT 1 FROM pg_attribute/, "the ADD COLUMN must sit behind a pg_attribute check");
+});
+
+test("000154 is in the prod deploy allowlist above 000138, the Data API lockdown that stays last", () => {
+  const at = workflow.indexOf("-f /migrations/000154_notice_read_by.up.sql");
+  assert.ok(at > 0, "000154 missing from terraform-deploy.yml");
+  assert.ok(at < workflow.indexOf("-f /migrations/000138_harden_data_api_grants.up.sql"));
+  assert.ok(at > workflow.indexOf("-f /migrations/000153_add_crawl_ops_indexes.up.sql"));
+});
+
+test("the 000154 down file drops the checks and the columns", () => {
+  for (const table of ["substantial_holder_notices", "substantial_holder_notice_attempts"]) {
+    assert.match(readByDown, new RegExp(`DROP CONSTRAINT IF EXISTS ${table}_read_by_check`), table);
+    assert.match(readByDown, new RegExp(`ALTER TABLE ${table} DROP COLUMN IF EXISTS read_by`), table);
+  }
+});

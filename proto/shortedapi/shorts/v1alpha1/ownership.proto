@@ -186,6 +186,11 @@ message SubstantialNotice {
   // previous figure, no present figure, or an equal one), nz (an NZ
   // disclosure that is not a cessation).
   string event = 16;
+  // Who read the notice: "parser" (the parser, the default) or "model" (a model
+  // pass recovered it after the parser withheld it; two readers agreed and the
+  // figures were validated against the share count). A schema without the column
+  // reads "parser".
+  string read_by = 17;
 }
 
 // One stock in one fund's holdings file.
@@ -341,6 +346,9 @@ message GetOwnershipOverviewResponse {
   repeated WithheldOutcome withheld_by_outcome = 19;
   // Every document attempted, parsed included: the base of notices_withheld.
   int32 documents_attempted = 20;
+  // Parsed notices a model read after the parser withheld them (read_by = model).
+  // Counted within notices_parsed.
+  int32 notices_read_by_model = 21;
 }
 
 message ListInstitutionsRequest {

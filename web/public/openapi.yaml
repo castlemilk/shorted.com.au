@@ -4849,6 +4849,13 @@ components:
           format: int32
           title: notices_parsed
           type: integer
+        noticesReadByModel:
+          description: |-
+            Parsed notices a model read after the parser withheld them (read_by = model).
+             Counted within notices_parsed. (proto int32)
+          format: int32
+          title: notices_read_by_model
+          type: integer
         noticesWithheld:
           description: (proto int32)
           format: int32
@@ -12424,6 +12431,14 @@ components:
           format: double
           title: previous_pct
           type: number
+        readBy:
+          description: |-
+            Who read the notice: "parser" (the parser, the default) or "model" (a model
+             pass recovered it after the parser withheld it; two readers agreed and the
+             figures were validated against the share count). A schema without the column
+             reads "parser". (proto string)
+          title: read_by
+          type: string
         stockCode:
           description: (proto string)
           title: stock_code

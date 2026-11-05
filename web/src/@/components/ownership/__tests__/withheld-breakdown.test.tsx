@@ -106,3 +106,36 @@ describe("WithheldBreakdown", () => {
     );
   });
 });
+
+describe("WithheldBreakdown: unavailable is set aside", () => {
+  it("names an outcome ASX cannot display apart, never as a withheld notice", () => {
+    const { container } = render(
+      <WithheldBreakdown outcomes={[{ outcome: "no_text", count: 2 }, { outcome: "unavailable", count: 5 }]} />,
+    );
+    expect(labels(container)).not.toContain("unavailable");
+    expect(labels(container)).toHaveLength(6);
+    expect(screen.getByText("A further 5 are not available from ASX; they are not withheld notices.")).toBeInTheDocument();
+  });
+
+  it("lists the three apart clauses in one sentence when all three are counted", () => {
+    render(
+      <WithheldBreakdown
+        outcomes={[
+          { outcome: "not_a_notice", count: 3 },
+          { outcome: "fetch_error", count: 1 },
+          { outcome: "unavailable", count: 2 },
+        ]}
+      />,
+    );
+    expect(
+      screen.getByText(
+        "A further 3 documents were not substantial holding forms, 1 has not yet been downloaded and 2 are not available from ASX; none is a withheld notice.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("says a single unavailable notice in the singular", () => {
+    render(<WithheldBreakdown outcomes={[{ outcome: "unavailable", count: 1 }]} />);
+    expect(screen.getByText("A further 1 is not available from ASX; it is not a withheld notice.")).toBeInTheDocument();
+  });
+});

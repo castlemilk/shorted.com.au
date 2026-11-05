@@ -771,6 +771,22 @@ private static final long serialVersionUID = 0L;
     return documentsAttempted_;
   }
 
+  public static final int NOTICES_READ_BY_MODEL_FIELD_NUMBER = 21;
+  private int noticesReadByModel_ = 0;
+  /**
+   * <pre>
+   * Parsed notices a model read after the parser withheld them (read_by = model).
+   * Counted within notices_parsed.
+   * </pre>
+   *
+   * <code>int32 notices_read_by_model = 21 [json_name = "noticesReadByModel"];</code>
+   * @return The noticesReadByModel.
+   */
+  @java.lang.Override
+  public int getNoticesReadByModel() {
+    return noticesReadByModel_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -844,6 +860,9 @@ private static final long serialVersionUID = 0L;
     }
     if (documentsAttempted_ != 0) {
       output.writeInt32(20, documentsAttempted_);
+    }
+    if (noticesReadByModel_ != 0) {
+      output.writeInt32(21, noticesReadByModel_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -978,6 +997,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(20, documentsAttempted_);
     }
+    if (noticesReadByModel_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(21, noticesReadByModel_);
+    }
     return size;
   }
   @java.lang.Override
@@ -1045,6 +1068,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getWithheldByOutcomeList())) return false;
     if (getDocumentsAttempted()
         != other.getDocumentsAttempted()) return false;
+    if (getNoticesReadByModel()
+        != other.getNoticesReadByModel()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1119,6 +1144,8 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + DOCUMENTS_ATTEMPTED_FIELD_NUMBER;
     hash = (53 * hash) + getDocumentsAttempted();
+    hash = (37 * hash) + NOTICES_READ_BY_MODEL_FIELD_NUMBER;
+    hash = (53 * hash) + getNoticesReadByModel();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1330,6 +1357,7 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00040000);
       documentsAttempted_ = 0;
+      noticesReadByModel_ = 0;
       return this;
     }
 
@@ -1486,6 +1514,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00080000) != 0)) {
         result.documentsAttempted_ = documentsAttempted_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.noticesReadByModel_ = noticesReadByModel_;
       }
     }
 
@@ -1793,6 +1824,9 @@ private static final long serialVersionUID = 0L;
       if (other.getDocumentsAttempted() != 0) {
         setDocumentsAttempted(other.getDocumentsAttempted());
       }
+      if (other.getNoticesReadByModel() != 0) {
+        setNoticesReadByModel(other.getNoticesReadByModel());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1999,6 +2033,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00080000;
               break;
             } // case 160
+            case 168: {
+              noticesReadByModel_ = input.readInt32();
+              bitField0_ |= 0x00100000;
+              break;
+            } // case 168
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -5360,6 +5399,53 @@ private static final long serialVersionUID = 0L;
     public Builder clearDocumentsAttempted() {
       bitField0_ = (bitField0_ & ~0x00080000);
       documentsAttempted_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int noticesReadByModel_ ;
+    /**
+     * <pre>
+     * Parsed notices a model read after the parser withheld them (read_by = model).
+     * Counted within notices_parsed.
+     * </pre>
+     *
+     * <code>int32 notices_read_by_model = 21 [json_name = "noticesReadByModel"];</code>
+     * @return The noticesReadByModel.
+     */
+    @java.lang.Override
+    public int getNoticesReadByModel() {
+      return noticesReadByModel_;
+    }
+    /**
+     * <pre>
+     * Parsed notices a model read after the parser withheld them (read_by = model).
+     * Counted within notices_parsed.
+     * </pre>
+     *
+     * <code>int32 notices_read_by_model = 21 [json_name = "noticesReadByModel"];</code>
+     * @param value The noticesReadByModel to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNoticesReadByModel(int value) {
+
+      noticesReadByModel_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Parsed notices a model read after the parser withheld them (read_by = model).
+     * Counted within notices_parsed.
+     * </pre>
+     *
+     * <code>int32 notices_read_by_model = 21 [json_name = "noticesReadByModel"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNoticesReadByModel() {
+      bitField0_ = (bitField0_ & ~0x00100000);
+      noticesReadByModel_ = 0;
       onChanged();
       return this;
     }
