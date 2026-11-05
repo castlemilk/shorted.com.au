@@ -42,9 +42,9 @@ describe("SourceDatesPopover", () => {
 
     const rows = within(table).getAllByRole("rowheader");
     expect(rows).toHaveLength(10);
-    expect(rows[0]).toHaveTextContent("28 Oct 2026");
-    expect(rows[9]).toHaveTextContent("19 Oct 2026");
-    expect(within(table).getAllByText("3 Nov 2026")).toHaveLength(10);
+    expect(rows[0]).toHaveTextContent("28 October 2026");
+    expect(rows[9]).toHaveTextContent("19 October 2026");
+    expect(within(table).getAllByText("3 November 2026")).toHaveLength(10);
   });
 
   it("marks a partial report and states the latest prices", async () => {

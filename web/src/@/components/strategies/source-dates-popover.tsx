@@ -1,23 +1,19 @@
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
-import { Button } from "~/@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "~/@/components/ui/popover";
-import { formatDate } from "~/@/lib/fundamentals/format";
 import { cn } from "~/@/lib/utils";
+import { formatIsoDate } from "~/@/lib/strategies/format";
 import type { StrategyDataStatusView } from "~/@/lib/strategies/types";
 
 /**
  * "View source dates": the sessions the picks are read from and the ASIC
  * short-position reports behind them, with the day each became public. The
- * status is read when the popover first opens (the caller's `load`), and held
- * for the rest of the mount, so a closed and reopened popover asks nothing new.
+ * status is read when the panel first opens (the caller's `load`) and held for
+ * the rest of the mount, so a closed and reopened panel asks nothing new.
  *
- * The figures are the API's; nothing is derived here beyond the date format.
- * A failed read says so in words and offers a retry.
+ * The panel is a disclosure, not a floating popover: a Radix popover would add
+ * its positioning and focus code to the Signals route's first load, and the
+ * route is held to a budget. It closes on Escape and on a press outside it.
+ * The figures are the API's; nothing is derived beyond the date format.
  */
 export interface SourceDatesPopoverProps {
   /** Reads GetStrategyDataStatus; null when the read failed. */
@@ -37,6 +33,8 @@ export function SourceDatesPopover({
 }: SourceDatesPopoverProps) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<LoadState>({ phase: "idle" });
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const panelId = useId();
 
   async function fetchStatus() {
     setState({ phase: "loading" });
@@ -48,31 +46,53 @@ export function SourceDatesPopover({
     }
   }
 
-  function onOpenChange(next: boolean) {
+  function onToggle() {
+    const next = !open;
     setOpen(next);
     if (next && (state.phase === "idle" || state.phase === "failed")) {
       void fetchStatus();
     }
   }
 
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="link"
-          size="sm"
-          className={cn("h-auto p-0 text-xs text-primary", className)}
-          aria-expanded={open}
+    <div ref={wrapRef} className={cn("relative", className)}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={onToggle}
+        className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+      >
+        View source dates
+      </button>
+      {open ? (
+        <div
+          id={panelId}
+          role="region"
+          aria-label="Source dates"
+          className="absolute left-0 z-20 mt-2 w-[min(92vw,28rem)] rounded-md border border-border bg-card p-4 text-sm shadow-lg"
         >
-          View source dates
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[min(92vw,28rem)] p-4 text-sm">
-        <h3 className="text-sm font-semibold">Source dates</h3>
-        <SourceDatesBody state={state} onRetry={fetchStatus} />
-      </PopoverContent>
-    </Popover>
+          <h3 className="text-sm font-semibold">Source dates</h3>
+          <SourceDatesBody state={state} onRetry={fetchStatus} />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -94,9 +114,13 @@ function SourceDatesBody({
     return (
       <div className="mt-2 space-y-2 text-muted-foreground">
         <p>The source dates are unavailable right now.</p>
-        <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted/50"
+        >
           Try again
-        </Button>
+        </button>
       </div>
     );
   }
@@ -107,16 +131,16 @@ function SourceDatesBody({
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
         <dt className="text-muted-foreground">Latest prices</dt>
         <dd className="tabular-nums">
-          {formatDate(status.latestSession) || "n/a"}
+          {formatIsoDate(status.latestSession) || "n/a"}
           {status.pricesCompletedAt
-            ? ` · completed ${formatDate(status.pricesCompletedAt)}`
+            ? ` · completed ${formatIsoDate(status.pricesCompletedAt)}`
             : ""}
         </dd>
         <dt className="text-muted-foreground">Daily snapshot</dt>
         <dd className="tabular-nums">
-          {formatDate(status.snapshotAsOf) || "n/a"}
+          {formatIsoDate(status.snapshotAsOf) || "n/a"}
           {status.snapshotCompletedAt
-            ? ` · completed ${formatDate(status.snapshotCompletedAt)}`
+            ? ` · completed ${formatIsoDate(status.snapshotCompletedAt)}`
             : ""}
         </dd>
         {status.pricedCodes > 0 ? (
@@ -167,10 +191,10 @@ function SourceDatesBody({
                     scope="row"
                     className="py-1 pr-2 text-left font-normal tabular-nums"
                   >
-                    {formatDate(report.reportDate) || report.reportDate}
+                    {formatIsoDate(report.reportDate) || report.reportDate}
                   </th>
                   <td className="py-1 pr-2 tabular-nums">
-                    {formatDate(report.availableDate) || "n/a"}
+                    {formatIsoDate(report.availableDate) || "n/a"}
                   </td>
                   <td className="py-1 pr-2 text-right tabular-nums">
                     {report.rows.toLocaleString("en-AU")}

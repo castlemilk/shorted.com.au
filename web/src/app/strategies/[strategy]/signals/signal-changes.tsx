@@ -12,7 +12,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 
 import { cn } from "~/@/lib/utils";
-import { formatDate } from "~/@/lib/fundamentals/format";
+import { formatIsoDate } from "~/@/lib/strategies/format";
 import type { StrategySignalEventView } from "~/@/lib/strategies/types";
 import {
   getSignalEventsForViewer,
@@ -235,7 +235,7 @@ function SignedInHistory({
               dateTime={event.sessionDate}
               className="tabular-nums text-muted-foreground"
             >
-              {formatDate(event.sessionDate) || event.sessionDate}
+              {formatIsoDate(event.sessionDate) || event.sessionDate}
             </time>
             {stockCode ? null : (
               <span className="font-mono font-medium">{event.stockCode}</span>
