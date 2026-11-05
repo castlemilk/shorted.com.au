@@ -322,11 +322,13 @@ func latestPriceSweepCompletion(ctx context.Context, db fundamentalsDB) (*time.T
 
 // reportAvailability sets each report's publication date from the calendar the
 // snapshot's short reading is built on: the index sessions and the distinct
-// report dates of the shorts table, at the v1 publication lag. A date shown here
-// is therefore the date the stored reading used (the sf1 availability), not a
-// second calendar's guess: the job reads the same two inputs, with the same
-// filters (pgsource.IndexBars and pgsource.ASICRows). The reports listed are
-// the newest, and a report's lag reads only the sessions after it.
+// report dates of the shorts table, at the v1 publication lag. The job reads the
+// same two inputs, with the same filters (pgsource.IndexBars and
+// pgsource.ASICRows), but at its own session: this reads them as they are now.
+// The date matches the stored reading while no report day was loaded or
+// backfilled after that session; a later load can move it by a session, and the
+// stored reading remains the authority. The reports listed are the newest, and a
+// report's lag reads only the sessions after it.
 func reportAvailability(ctx context.Context, db fundamentalsDB, reports []AsicReportRow) error {
 	if len(reports) == 0 {
 		return nil
