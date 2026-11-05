@@ -39,9 +39,11 @@ type Identity struct {
 // track, which the Since windows chain onto and the Live since freeze window is
 // measured on. pricesThrough is the newest price session the run reads. build is
 // the build revision the caller records (the VCS revision, or the image tag); the
-// pure package reads no build information of its own.
+// pure package reads no build information of its own. variantID is empty for a
+// canonical run and names a user's variant otherwise, so two identical variants
+// never share a run key.
 func Disclose(in Inputs, s spec.Spec, r spec.Recipe, liveFrom civil.Date, paper *Series,
-	pricesThrough civil.Date, build string) (Disclosures, Result, error) {
+	pricesThrough civil.Date, build, variantID string) (Disclosures, Result, error) {
 	p, err := prepare(in, s, r, false)
 	if err != nil {
 		return Disclosures{}, Result{}, err
@@ -85,7 +87,7 @@ func Disclose(in Inputs, s spec.Spec, r spec.Recipe, liveFrom civil.Date, paper 
 	if err != nil {
 		return Disclosures{}, Result{}, err
 	}
-	key, err := RunKey(s, r, RunIdentity{InputHash: inputHash, Window: WindowKey(r, base.Sessions)})
+	key, err := RunKey(s, r, RunIdentity{VariantID: variantID, InputHash: inputHash, Window: WindowKey(r, base.Sessions)})
 	if err != nil {
 		return Disclosures{}, Result{}, err
 	}

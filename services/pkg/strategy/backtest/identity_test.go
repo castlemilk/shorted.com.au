@@ -198,11 +198,11 @@ func TestGoldenDisclosureIdentityIsStable(t *testing.T) {
 	r := goldenRecipe(t)
 	live := civil.Date{Year: 2023, Month: 9, Day: 1}
 	through := civil.Date{Year: 2025, Month: 9, Day: 8}
-	d1, _, err := Disclose(in, s, r, live, nil, through, "tag")
+	d1, _, err := Disclose(in, s, r, live, nil, through, "tag", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	d2, _, err := Disclose(loadGolden(t), s, r, live, nil, through, "tag")
+	d2, _, err := Disclose(loadGolden(t), s, r, live, nil, through, "tag", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,5 +217,36 @@ func TestGoldenDisclosureIdentityIsStable(t *testing.T) {
 	}
 	if len(d1.Identity.Digests) == 0 {
 		t.Fatalf("no per-code digests")
+	}
+}
+
+// TestDisclosureRunKeyNamesTheVariant: over the same inputs two variants get two
+// run keys, an empty variant id gets the canonical key, and the key is the one
+// RunKey gives for that identity.
+func TestDisclosureRunKeyNamesTheVariant(t *testing.T) {
+	in := loadGolden(t)
+	s := goldenSpec(t)
+	r := goldenRecipe(t)
+	live := civil.Date{Year: 2023, Month: 9, Day: 1}
+	through := civil.Date{Year: 2025, Month: 9, Day: 8}
+	key := func(variant string) string {
+		t.Helper()
+		d, _, err := Disclose(in, s, r, live, nil, through, "tag", variant)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d.Identity.RunKey
+	}
+	canonical := key("")
+	a, b := key("variant-a"), key("variant-b")
+	if a == canonical || b == canonical || a == b {
+		t.Fatalf("run keys collide: canonical %s, a %s, b %s", canonical, a, b)
+	}
+	d, _, err := Disclose(in, s, r, live, nil, through, "tag", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again := key(""); again != d.Identity.RunKey || canonical == "" {
+		t.Fatalf("an empty variant id gives run key %s, want the canonical %s", again, d.Identity.RunKey)
 	}
 }
