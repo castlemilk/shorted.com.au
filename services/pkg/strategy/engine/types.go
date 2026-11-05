@@ -277,6 +277,11 @@ type Candidate struct {
 	// display-only until the short-interest rules read report dates.
 	ShortReportDate *time.Time
 
+	// ShortAvailableDate is when that report became public, as the daily
+	// snapshot stored it (sf0's available date, from the data calendar). nil on
+	// the views path, where the API derives it from the ASX calendar instead.
+	ShortAvailableDate *time.Time
+
 	// mv_screener_data, falling back to "company-metadata" for names.
 	CompanyName string
 	Industry    string

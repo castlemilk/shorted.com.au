@@ -40,8 +40,13 @@ func (s *ShortsServer) snapshotUniverse(ctx context.Context) (*strategyUniverse,
 	}
 	snap, err := reader.ReadStrategySnapshot(ctx)
 	switch {
-	case errors.Is(err, shortsstore.ErrStrategySnapshotUnavailable), errors.Is(err, shortsstore.ErrNoStrategySnapshot):
-		s.logger.Warnf("strategy snapshot unavailable, serving the views: %v", err)
+	case errors.Is(err, shortsstore.ErrStrategySnapshotUnavailable):
+		s.logger.Warnf("strategy source is snapshot but the snapshot tables are not migrated, serving the views: %v", err)
+		return nil, false, nil
+	case errors.Is(err, shortsstore.ErrNoStrategySnapshot):
+		// Not expected once the daily job runs: a session that has no completed phases,
+		// or a completed one with no rows or no regime. Loud, because the views are not the cutover.
+		s.logger.Errorf("strategy source is snapshot but no whole snapshot session is readable, serving the views: %v", err)
 		return nil, false, nil
 	case err != nil:
 		return nil, false, err
@@ -50,7 +55,7 @@ func (s *ShortsServer) snapshotUniverse(ctx context.Context) (*strategyUniverse,
 	if err != nil {
 		return nil, false, err
 	}
-	return newStrategyUniverse(cands, snap.Regime, snap.AsOf.String()), true, nil
+	return newStrategyUniverse(cands, snap.Regime, snap.AsOf.String(), StrategySourceSnapshot), true, nil
 }
 
 // snapshotCandidates rebuilds a session's stored rows as the universe's
@@ -87,13 +92,28 @@ func (s *ShortsServer) GetStrategyDataStatus(ctx context.Context, _ *connect.Req
 	if !ok {
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("strategy data status is not available"))
 	}
-	st, err := reader.ReadStrategyDataStatus(ctx)
+	// Public and the same for every caller, so it is cached per instance like the
+	// other public reads; the fill is detached from the caller's cancellation.
+	v, err := s.cache.GetOrSetWithTTL(strategyDataStatusCacheKey, strategyDataStatusTTL, func() (any, error) {
+		return reader.ReadStrategyDataStatus(context.WithoutCancel(ctx))
+	})
 	if err != nil {
 		s.logger.Errorf("database error in GetStrategyDataStatus: %v", err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read strategy data status"))
 	}
-	return connect.NewResponse(strategyDataStatusProto(st, nextPicksRefresh(time.Now()))), nil
+	next := nextPicksRefresh(time.Now())
+	if s.config.StrategySource == StrategySourceSnapshot {
+		next = nextSnapshotRun(time.Now())
+	}
+	return connect.NewResponse(strategyDataStatusProto(v.(shortsstore.StrategyDataStatus), next)), nil
 }
+
+// The data status is read once per instance per this long; the sources move at
+// most a few times a day.
+const (
+	strategyDataStatusCacheKey = "strategy_data_status"
+	strategyDataStatusTTL      = 5 * time.Minute
+)
 
 // strategyDataStatusProto is the wire form of the source dates. It reports at
 // most the newest ten ASIC reports; availability is derived from the report
@@ -117,7 +137,7 @@ func strategyDataStatusProto(st shortsstore.StrategyDataStatus, next time.Time) 
 			ReportDate:      r.ReportDate.String(),
 			FirstIngestedAt: snapshotTimeOrEmpty(&r.FirstIngestedAt),
 			Rows:            int32(r.LoadedRows),
-			Complete:        r.FileRows != nil && r.LoadedRows >= *r.FileRows,
+			Complete:        asicReportComplete(st.AsicReports, i),
 		}
 		if published, ok := asxcalendar.AvailableFromCovered(report); ok {
 			entry.AvailableDate = dateOrEmpty(published)
@@ -127,15 +147,43 @@ func strategyDataStatusProto(st shortsstore.StrategyDataStatus, next time.Time) 
 	return out
 }
 
-// nextPicksRefresh is the next weekday 13:30 UTC strictly after now: the
-// picks refresh the daily job runs (shorted picks -mode refresh).
+// nextPicksRefresh is the next trading day 13:30 UTC strictly after now: the
+// views' refresh (shorted picks -mode refresh). The ASX holiday table skips a
+// day with no session, so the field never names a refresh that brings no data.
 func nextPicksRefresh(now time.Time) time.Time {
+	return nextTradingDayAt(now, 13, 30)
+}
+
+// nextSnapshotRun is the next trading day 13:00 UTC strictly after now: the
+// first run of the daily snapshot job, which is what the picks wait on once the
+// source is the snapshot (its runs go on until 16:40 UTC).
+func nextSnapshotRun(now time.Time) time.Time {
+	return nextTradingDayAt(now, 13, 0)
+}
+
+func nextTradingDayAt(now time.Time, hour, minute int) time.Time {
 	t := now.UTC()
-	day := time.Date(t.Year(), t.Month(), t.Day(), 13, 30, 0, 0, time.UTC)
-	for !day.After(t) || day.Weekday() == time.Saturday || day.Weekday() == time.Sunday {
+	day := time.Date(t.Year(), t.Month(), t.Day(), hour, minute, 0, 0, time.UTC)
+	for !day.After(t) || !asxcalendar.IsTradingDay(day) {
 		day = day.AddDate(0, 0, 1)
 	}
 	return day
+}
+
+// asicReportComplete is the features package's rule (Reports.Complete) over the
+// newest-first list: the ingest's file row count when the ingest recorded it;
+// otherwise at least half the row count of the report before it. A report with
+// neither (the oldest of the list when no file count is recorded) is not shown
+// as complete.
+func asicReportComplete(reports []shortsstore.AsicReportRow, i int) bool {
+	r := reports[i]
+	if r.FileRows != nil {
+		return r.LoadedRows >= *r.FileRows
+	}
+	if i+1 < len(reports) {
+		return 2*r.LoadedRows >= reports[i+1].LoadedRows
+	}
+	return false
 }
 
 // snapshotTimeOrEmpty is a UTC instant as RFC 3339, "" for nil or the zero time.
@@ -226,12 +274,25 @@ func (s *ShortsServer) ListStrategySignalEvents(ctx context.Context, req *connec
 		s.logger.Errorf("database error in ListStrategySignalEvents: strategy_id=%s err=%v", id, err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read signal events"))
 	}
+	// The store reads the version's canonical rows only; a row under any other
+	// hash is dropped here too, so a store that drifted cannot serve a variant.
+	kept := rows[:0]
+	for _, r := range rows {
+		if r.RulesHash == version.hash {
+			kept = append(kept, r)
+		}
+	}
+	rows = kept
 	if len(rows) > pageSize {
 		rows = rows[:pageSize]
 		resp.NextPageToken = strconv.FormatInt(rows[len(rows)-1].ID, 10)
 	}
 	for i := range rows {
-		resp.Events = append(resp.Events, signalEventProto(rows[i]))
+		ev, err := signalEventProto(rows[i])
+		if err != nil {
+			s.logger.Errorf("strategy signal event %d: evidence is not decodable, its rules are empty: %v", rows[i].ID, err)
+		}
+		resp.Events = append(resp.Events, ev)
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -299,7 +360,7 @@ type signalEvidence struct {
 // signalEventProto is one stored status change on the wire. Evidence records a
 // rule's id, value and proximity but not its pass, fail or unknown result, so
 // the rules carry an empty status.
-func signalEventProto(r shortsstore.StrategySignalEventRow) *shortsv1alpha1.StrategySignalEvent {
+func signalEventProto(r shortsstore.StrategySignalEventRow) (*shortsv1alpha1.StrategySignalEvent, error) {
 	out := &shortsv1alpha1.StrategySignalEvent{
 		StockCode:       r.StockCode,
 		CompanyName:     r.CompanyName,
@@ -314,23 +375,24 @@ func signalEventProto(r shortsstore.StrategySignalEventRow) *shortsv1alpha1.Stra
 		out.Score = *r.Score
 	}
 	var ev signalEvidence
-	if err := json.Unmarshal([]byte(r.Evidence), &ev); err == nil {
-		if ev.Close != nil {
-			out.Close = *ev.Close
-		}
-		if ev.Pivot != nil {
-			out.Pivot, out.HasPivot = *ev.Pivot, true
-		}
-		for i, id := range ev.R {
-			rr := &shortsv1alpha1.RuleResult{RuleId: id}
-			if i < len(ev.V) && ev.V[i] != nil {
-				rr.Value, rr.HasValue = *ev.V[i], true
-			}
-			if i < len(ev.P) && ev.P[i] != nil {
-				rr.Proximity, rr.HasProximity = *ev.P[i], true
-			}
-			out.Rules = append(out.Rules, rr)
-		}
+	if err := json.Unmarshal([]byte(r.Evidence), &ev); err != nil {
+		return out, fmt.Errorf("decode signal evidence: %w", err)
 	}
-	return out
+	if ev.Close != nil {
+		out.Close = *ev.Close
+	}
+	if ev.Pivot != nil {
+		out.Pivot, out.HasPivot = *ev.Pivot, true
+	}
+	for i, id := range ev.R {
+		rr := &shortsv1alpha1.RuleResult{RuleId: id}
+		if i < len(ev.V) && ev.V[i] != nil {
+			rr.Value, rr.HasValue = *ev.V[i], true
+		}
+		if i < len(ev.P) && ev.P[i] != nil {
+			rr.Proximity, rr.HasProximity = *ev.P[i], true
+		}
+		out.Rules = append(out.Rules, rr)
+	}
+	return out, nil
 }

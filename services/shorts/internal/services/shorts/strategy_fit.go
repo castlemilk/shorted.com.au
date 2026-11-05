@@ -49,7 +49,7 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 	resp.Eligible = true
 	c := &u.candidates[u.index[code]]
 	resp.PriceFeatures = priceFeaturesProto(c)
-	resp.ShortReportDate, resp.ShortAvailableDate = shortDatesProto(c.ShortReportDate)
+	resp.ShortReportDate, resp.ShortAvailableDate = shortDatesProto(c.ShortReportDate, c.ShortAvailableDate)
 
 	for _, st := range engine.Registry() {
 		eval, err := s.loadStrategyEvaluation(ctx, st)

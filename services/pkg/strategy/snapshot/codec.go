@@ -128,6 +128,10 @@ func ToCandidate(r Row, s spec.Spec, f features.Fundamentals) (engine.Candidate,
 		t := dateTime(*sr.ReportDate)
 		c.ShortReportDate = &t
 	}
+	if sr.AvailableDate != nil {
+		t := dateTime(*sr.AvailableDate)
+		c.ShortAvailableDate = &t
+	}
 	c.CompanyName = meta.Name
 	c.Industry = meta.Industry
 	c.LogoURL = meta.LogoURL
