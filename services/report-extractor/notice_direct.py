@@ -105,6 +105,9 @@ NAME_TAILS = (
 NAME_TAIL_ID = re.compile(r"(?i)[ \t]*\(?[ \t]*\b(?:acn|abn|arsn)[ \t]*:?[ \t]*[0-9][0-9 ]{8,13}\)?")
 NO_SHARE_COUNT_OUTCOME = "invalid_no_share_count"  # extract()'s outcome when no count is on record
 MAX_SYSTEMIC_ERRORS = 5       # the run exits 1 at this many model errors (or 3 at a fifth of the calls)
+BUDGET_GRACE_S = 300          # a read still running this long past the budget is abandoned (nothing recorded)
+NOTICE_CALL_TIMEOUT_S = 120.0 # one model call's HTTP timeout for a notice (the filings pass uses 180)
+NOTICE_CALL_ATTEMPTS = 2      # attempts per model call for a notice (the filings pass uses 5)
 
 SYSTEM_PROMPT = """You read an ASX substantial holding notice (Form 603, 604 or 605) for a database that publishes who holds what in ASX companies. A wrong figure is far worse than a missing one.
 
@@ -931,7 +934,11 @@ def from_env() -> Optional[NoticeExtractor]:
     key = (os.environ.get("OPENROUTER_API_KEY") or "").strip()
     if not key:
         return None
-    return extractor_for(dx.OpenRouter(api_key=key), model_names_from_env())
+    # A notice is a few pages: two attempts of two minutes each, not the filings' five of three,
+    # so a reader that cannot answer costs a run six minutes, not fifty (the first live run hung
+    # past its budget for 106 minutes). A model error is never an attempt: it is retried next run.
+    return extractor_for(dx.OpenRouter(api_key=key, timeout=NOTICE_CALL_TIMEOUT_S, max_attempts=NOTICE_CALL_ATTEMPTS),
+                         model_names_from_env())
 
 
 # --- the document -------------------------------------------------------------------
@@ -1162,9 +1169,14 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
     errors_in_row = 0
     model_calls = 0
     model_errors = 0
+    abandoned = False
     pending: dict[concurrent.futures.Future, Candidate] = {}
     queue = list(cands)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+    # Not a `with` block: its exit waits for every thread, and an abandoned read is a thread
+    # that may never return. The pool is shut down in the finally, waiting only when nothing
+    # was abandoned.
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=max(1, workers))
+    try:
         while queue or pending:
             budget_left = clock() - start < budget_min * 60
             while queue and len(pending) < max(1, workers) and budget_left and errors_in_row < MAX_SYSTEMIC_ERRORS:
@@ -1172,7 +1184,19 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
                 pending[pool.submit(read_one, extractor, cand, institutions, reference, shares_on)] = cand
             if not pending:
                 break
-            done, _ = concurrent.futures.wait(pending, return_when=concurrent.futures.FIRST_COMPLETED)
+            # Past the budget, a read still running gets a grace period and no more: a model
+            # call can retry for minutes (the first live run hung for 106 minutes after its
+            # budget, until the pod's deadline killed it with nothing logged).
+            grace_left = (budget_min * 60 + BUDGET_GRACE_S) - (clock() - start)
+            done, _ = concurrent.futures.wait(pending, timeout=max(1.0, grace_left),
+                                              return_when=concurrent.futures.FIRST_COMPLETED)
+            if not done and grace_left <= 0:
+                counts["abandoned"] = len(pending)
+                for cand in pending.values():
+                    log.warning("  abandoned at the budget's grace, nothing recorded: %s", cand.url)
+                pool.shutdown(wait=False, cancel_futures=True)
+                abandoned = True
+                break
             for fut in done:
                 cand = pending.pop(fut)
                 try:
@@ -1224,6 +1248,8 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
                     wrote = write_recovered(cur, cand.url, code, cand.announced_on, n)
                     conn.commit()
                 counts["written" if wrote else "kept_parser_row"] += 1
+    finally:
+        pool.shutdown(wait=not abandoned, cancel_futures=True)
     if queue:
         # The budget ran out, or five model errors in a row stopped new work: these were never read.
         counts["not_started"] = len(queue)

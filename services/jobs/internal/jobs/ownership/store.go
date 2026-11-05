@@ -245,14 +245,33 @@ func (s *pgStore) UpsertNotice(ctx context.Context, r noticeRow) error {
 	return err
 }
 
-func (s *pgStore) RecordAttempt(ctx context.Context, a noticeAttempt, parserVersion int) error {
-	_, err := s.db.Exec(ctx, `
+// recordAttemptSQL is RecordAttempt's upsert, shared with the Postgres test that pins
+// the rule that a parser refusal never downgrades a model-read parsed attempt.
+var recordAttemptSQL = `
 		INSERT INTO substantial_holder_notice_attempts (announcement_url, stock_code, outcome, detail, parser_version, attempts, attempted_at)
 		VALUES ($1, $2, $3, $4, $5, 1, now())
 		ON CONFLICT (announcement_url) DO UPDATE SET
-			stock_code = EXCLUDED.stock_code, outcome = EXCLUDED.outcome, detail = EXCLUDED.detail,
-			parser_version = EXCLUDED.parser_version, read_by = 'parser',
-			attempts = substantial_holder_notice_attempts.attempts + 1, attempted_at = now()`,
+			stock_code = CASE WHEN substantial_holder_notice_attempts.read_by = 'model'
+			                   AND substantial_holder_notice_attempts.outcome = 'parsed'
+			                   AND EXCLUDED.outcome <> 'parsed' THEN substantial_holder_notice_attempts.stock_code
+			                  ELSE EXCLUDED.stock_code END,
+			outcome = CASE WHEN substantial_holder_notice_attempts.read_by = 'model'
+			                AND substantial_holder_notice_attempts.outcome = 'parsed'
+			                AND EXCLUDED.outcome <> 'parsed' THEN 'parsed' ELSE EXCLUDED.outcome END,
+			detail = CASE WHEN substantial_holder_notice_attempts.read_by = 'model'
+			               AND substantial_holder_notice_attempts.outcome = 'parsed'
+			               AND EXCLUDED.outcome <> 'parsed' THEN substantial_holder_notice_attempts.detail
+			              ELSE EXCLUDED.detail END,
+			parser_version = EXCLUDED.parser_version,
+			-- A model read stands until the parser SUCCEEDS: a parser refusal re-recorded over
+			-- a model-read notice (both ran at once on 2026-11-05) must not downgrade it.
+			read_by = CASE WHEN substantial_holder_notice_attempts.read_by = 'model'
+			                AND substantial_holder_notice_attempts.outcome = 'parsed'
+			                AND EXCLUDED.outcome <> 'parsed' THEN 'model' ELSE 'parser' END,
+			attempts = substantial_holder_notice_attempts.attempts + 1, attempted_at = now()`
+
+func (s *pgStore) RecordAttempt(ctx context.Context, a noticeAttempt, parserVersion int) error {
+	_, err := s.db.Exec(ctx, recordAttemptSQL,
 		a.URL, a.StockCode, a.Outcome, nullIfEmpty(truncate(a.Detail, 500)), parserVersion)
 	return err
 }
