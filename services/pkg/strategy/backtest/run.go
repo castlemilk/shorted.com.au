@@ -177,9 +177,11 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe, keepAll bool) (plan, error) 
 		for k, t := range dates {
 			// A code the universe admits is evaluated: it is a pick only when a
 			// stock-specific rule passes, and otherwise its row reads none, as the
-			// snapshot holds it. An excluded code keeps its price features whenever
-			// it has a priced bar, because an exit decided on its session (a
-			// corporate action, a stale position) is charged on them.
+			// snapshot holds it. An excluded code keeps its price features as of its
+			// last priced bar, because an exit decided on its session is charged on
+			// them: a corporate-action exit, or a recipe exit on a session the
+			// universe excludes while the code has a priced bar. A stale exit is
+			// charged on the position's entry volume instead.
 			cs := CodeSession{Code: code, Status: string(engine.StatusNone)}
 			cand, bad := idx.CandidateAt(code, t)
 			hasFeatures := false

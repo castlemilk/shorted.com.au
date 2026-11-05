@@ -139,16 +139,15 @@ func (x *Index) CandidateAt(code string, t civil.Date) (engine.Candidate, *Ineli
 }
 
 // PriceCandidateAt is the price features of a code on session t, whatever the
-// universe decides about the code on t. It is built when the code has a priced
-// bar dated t and its price history reads, and ok is false otherwise. No
-// universe rule is applied, so the candidate's short, fundamentals and name
-// fields are unset: a caller reads its price fields (the 20-session dollar
-// volume, the moving averages, the pivot) for a code the universe excludes.
+// universe decides about the code on t. They are the features as of the code's
+// last priced bar on or before t, the same rows the feature store keeps, so a
+// session with no bar of its own still carries them. It is built when the
+// history reads as of t, and ok is false otherwise. No universe rule is
+// applied, so the candidate's short, fundamentals and name fields are unset: a
+// caller reads its price fields (the 20-session dollar volume, the moving
+// averages, the pivot) for a code the universe excludes.
 func (x *Index) PriceCandidateAt(code string, t civil.Date) (engine.Candidate, bool) {
 	bars := x.idx.in.Bars[code]
-	if !pricedOn(bars, t) {
-		return engine.Candidate{}, false
-	}
 	pf, ok := features.AsOf(bars, x.idx.in.XJO, t, x.idx.s.Features)
 	if !ok {
 		return engine.Candidate{}, false

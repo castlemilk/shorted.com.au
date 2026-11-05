@@ -346,8 +346,8 @@ func TestIndexAgreesWithCandidateAt(t *testing.T) {
 // TestPriceCandidateAtCarriesAnExcludedCodesPriceFeatures: a code the universe
 // excludes on a session it has a priced bar keeps the price features that the
 // admitted candidate of that session carries, so an exit decided on the
-// session is charged on the code's real volume. A session with no priced bar
-// has none.
+// session is charged on the code's real volume. A session with no bar of its
+// own carries the features as of its last priced bar.
 func TestPriceCandidateAtCarriesAnExcludedCodesPriceFeatures(t *testing.T) {
 	in := inputsFor(120)
 	excluded := NewIndex(in, v1Spec(t))
@@ -378,7 +378,13 @@ func TestPriceCandidateAtCarriesAnExcludedCodesPriceFeatures(t *testing.T) {
 		got.Close != want.Close {
 		t.Fatalf("AAA on %s: the excluded code's price features differ from the admitted candidate's:\n%+v\n%+v", d, got, want)
 	}
-	if _, ok := excluded.PriceCandidateAt("AAA", day(200)); ok {
-		t.Fatalf("AAA on %s has no bar, but a candidate was built", day(200))
+	// A session with no bar of its own carries the features as of the code's
+	// last priced bar: an exit decided there is charged on the real volume.
+	after, ok := excluded.PriceCandidateAt("AAA", day(200))
+	if !ok {
+		t.Fatalf("AAA on %s has no bar of its own, but its last bar's features are not carried", day(200))
+	}
+	if after.DollarVolume20d == nil || *after.DollarVolume20d <= 0 {
+		t.Fatalf("AAA on %s: dollar volume %v, want the last bar's positive figure", day(200), after.DollarVolume20d)
 	}
 }
