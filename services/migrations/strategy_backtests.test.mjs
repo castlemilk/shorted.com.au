@@ -3,7 +3,7 @@
 // 000158 is the backtest job's four tables (runs, series, trades, requests). Prod replays every allowlisted
 // migration on every deploy, so the file must be replay-safe, touch no row, grant nothing, define no function,
 // and sit in the allowlist after 000157 (the saved-strategies table) and before the 000138 closer. The job's
-// container suite (services/jobs/internal/jobs/strategies, BacktestPG) runs it against a live Postgres.
+// container tests (services/jobs/internal/jobs/strategies, the Backtest tests) run it against a live Postgres.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
