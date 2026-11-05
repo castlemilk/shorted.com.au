@@ -2032,6 +2032,15 @@ jobs:
           cd services
           make test-strategy-parity
 
+      # The strategy reader suite (services/pkg/strategy/pgsource): the feature pipeline's readers and the
+      # picker's metadata, dividend and cash-rate reads, against a real Postgres. It gates the deploy so a
+      # reader's SQL or scan types cannot drift from the tables unnoticed.
+      - name: Run strategy reader container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the strategy reader suite (postgres container)..."
+          cd services
+          make test-pgsource-pg
+
       # The saved-strategy store (migration 000157): the cap under concurrent saves, the bounded lock wait,
       # the variant owner guard and replay. The cap is a guarantee the handler tests cannot see (they fake
       # the store), so it gates the deploy like the suites above.
