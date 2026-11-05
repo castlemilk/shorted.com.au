@@ -1008,7 +1008,7 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Strategy Data Status",
-      description: "Where the stock-picking strategies' readings come from: the latest price session and when its price sweep completed, the snapshot session the picks are read from and when it completed, the newest ASIC short-position reports with their availability and completeness, and the next scheduled update. Not financial advice."
+      description: "Where the stock-picking strategies' readings come from: the latest price session and when its price sweep completed, the newest completed snapshot session (the picks read it once the source is the snapshot) and when it completed, the newest ASIC short-position reports with their availability and completeness, and the next scheduled update. Not financial advice."
     };
   }
 
@@ -1020,6 +1020,8 @@ service ShortedStocksService {
       description: "Status changes of one stock-picking strategy's canonical rules version, newest first, from the daily snapshot. Signed-in callers only. Variant versions are never listed. Not financial advice."
     };
   }
+
+  // Mirrored from StrategyService (saved strategies); the parity test enforces the visibility match.
 
   // Save a strategy to the signed-in caller's list (at most 20).
   rpc SaveStrategy (SaveStrategyRequest) returns (SaveStrategyResponse) {

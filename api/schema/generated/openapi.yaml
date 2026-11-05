@@ -4126,8 +4126,8 @@ paths:
         - shorts.v1alpha1.StrategyService
       summary: GetStrategyDataStatus
       description: |-
-        Where the readings come from: the latest session, the snapshot the picks
-         are read from, the newest ASIC short reports and the next update time.
+        Where the readings come from: the latest session, the newest completed
+         snapshot session, the newest ASIC short reports and the next update time.
       operationId: StrategyService_GetStrategyDataStatus
       parameters:
         - name: Connect-Protocol-Version
@@ -11188,7 +11188,7 @@ components:
         snapshotAsOf:
           type: string
           title: snapshot_as_of
-          description: The session the picks are read from; "" when none is completed. (proto string)
+          description: The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views. (proto string)
         snapshotCompletedAt:
           type: string
           title: snapshot_completed_at

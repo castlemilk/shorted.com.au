@@ -2002,8 +2002,8 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetStoc
 
 #### `POST /shorts.v1alpha1.StrategyService/GetStrategyDataStatus`
 
-Where the readings come from: the latest session, the snapshot the picks
- are read from, the newest ASIC short reports and the next update time.
+Where the readings come from: the latest session, the newest completed
+ snapshot session, the newest ASIC short reports and the next update time.
 
 Request body: an empty JSON object, `{}`.
 

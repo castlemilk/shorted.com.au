@@ -112,8 +112,8 @@ type StrategyServiceClient interface {
 	// Every published canonical version of a strategy (all strategies when
 	// strategy_id is empty), in publication order: the rules changelog.
 	ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error)
-	// Where the readings come from: the latest session, the snapshot the picks
-	// are read from, the newest ASIC short reports and the next update time.
+	// Where the readings come from: the latest session, the newest completed
+	// snapshot session, the newest ASIC short reports and the next update time.
 	GetStrategyDataStatus(context.Context, *connect.Request[v1alpha1.GetStrategyDataStatusRequest]) (*connect.Response[v1alpha1.GetStrategyDataStatusResponse], error)
 	// The status changes of one strategy's canonical rules version, newest first:
 	// a stock entering or leaving a status, with the rule results that day.
@@ -309,8 +309,8 @@ type StrategyServiceHandler interface {
 	// Every published canonical version of a strategy (all strategies when
 	// strategy_id is empty), in publication order: the rules changelog.
 	ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error)
-	// Where the readings come from: the latest session, the snapshot the picks
-	// are read from, the newest ASIC short reports and the next update time.
+	// Where the readings come from: the latest session, the newest completed
+	// snapshot session, the newest ASIC short reports and the next update time.
 	GetStrategyDataStatus(context.Context, *connect.Request[v1alpha1.GetStrategyDataStatusRequest]) (*connect.Response[v1alpha1.GetStrategyDataStatusResponse], error)
 	// The status changes of one strategy's canonical rules version, newest first:
 	// a stock entering or leaving a status, with the rule results that day.

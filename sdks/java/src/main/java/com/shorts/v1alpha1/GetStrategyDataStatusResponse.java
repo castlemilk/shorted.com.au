@@ -157,7 +157,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object snapshotAsOf_ = "";
   /**
    * <pre>
-   * The session the picks are read from; "" when none is completed.
+   * The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views.
    * </pre>
    *
    * <code>string snapshot_as_of = 3 [json_name = "snapshotAsOf"];</code>
@@ -178,7 +178,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The session the picks are read from; "" when none is completed.
+   * The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views.
    * </pre>
    *
    * <code>string snapshot_as_of = 3 [json_name = "snapshotAsOf"];</code>
@@ -1054,7 +1054,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object snapshotAsOf_ = "";
     /**
      * <pre>
-     * The session the picks are read from; "" when none is completed.
+     * The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views.
      * </pre>
      *
      * <code>string snapshot_as_of = 3 [json_name = "snapshotAsOf"];</code>
@@ -1074,7 +1074,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The session the picks are read from; "" when none is completed.
+     * The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views.
      * </pre>
      *
      * <code>string snapshot_as_of = 3 [json_name = "snapshotAsOf"];</code>
@@ -1095,7 +1095,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The session the picks are read from; "" when none is completed.
+     * The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views.
      * </pre>
      *
      * <code>string snapshot_as_of = 3 [json_name = "snapshotAsOf"];</code>
@@ -1112,7 +1112,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The session the picks are read from; "" when none is completed.
+     * The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views.
      * </pre>
      *
      * <code>string snapshot_as_of = 3 [json_name = "snapshotAsOf"];</code>
@@ -1126,7 +1126,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The session the picks are read from; "" when none is completed.
+     * The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views.
      * </pre>
      *
      * <code>string snapshot_as_of = 3 [json_name = "snapshotAsOf"];</code>

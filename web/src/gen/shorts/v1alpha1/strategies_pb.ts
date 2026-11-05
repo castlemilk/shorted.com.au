@@ -1947,7 +1947,7 @@ export type GetStrategyDataStatusResponse = Message<"shorts.v1alpha1.GetStrategy
   pricesCompletedAt: string;
 
   /**
-   * The session the picks are read from; "" when none is completed.
+   * The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views.
    *
    * @generated from field: string snapshot_as_of = 3;
    */
@@ -2299,8 +2299,8 @@ export const StrategyService: GenService<{
     output: typeof ListStrategyVersionsResponseSchema;
   },
   /**
-   * Where the readings come from: the latest session, the snapshot the picks
-   * are read from, the newest ASIC short reports and the next update time.
+   * Where the readings come from: the latest session, the newest completed
+   * snapshot session, the newest ASIC short reports and the next update time.
    *
    * @generated from rpc shorts.v1alpha1.StrategyService.GetStrategyDataStatus
    */

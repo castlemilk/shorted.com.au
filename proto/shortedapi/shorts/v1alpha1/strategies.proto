@@ -57,8 +57,8 @@ service StrategyService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
 
-  // Where the readings come from: the latest session, the snapshot the picks
-  // are read from, the newest ASIC short reports and the next update time.
+  // Where the readings come from: the latest session, the newest completed
+  // snapshot session, the newest ASIC short reports and the next update time.
   rpc GetStrategyDataStatus (GetStrategyDataStatusRequest) returns (GetStrategyDataStatusResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
@@ -489,7 +489,7 @@ message GetStrategyDataStatusRequest {}
 message GetStrategyDataStatusResponse {
   string latest_session = 1;                   // The newest index session the price data reaches; "" when unknown.
   string prices_completed_at = 2;              // When the newest completed price sweep finished; "" when none.
-  string snapshot_as_of = 3;                   // The session the picks are read from; "" when none is completed.
+  string snapshot_as_of = 3;                   // The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views.
   string snapshot_completed_at = 4;            // When that session's last phase completed.
   repeated AsicReportStatus asic_reports = 5;  // The newest ASIC short-position reports, newest first (at most 10).
   string next_update_utc = 6;                  // The next scheduled refresh of the picks.
