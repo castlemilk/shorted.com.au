@@ -1054,12 +1054,12 @@ func TestRecordsStartAtTheWindow(t *testing.T) {
 	}
 }
 
-// TestFillsPayTheirRealTier: no fill of the canonical recipes is charged in the
-// lowest spread tier by default. A row with no price features reads zero volume,
-// which falls to that tier, so every row a fill is decided on must carry its
-// code's real 20-session dollar volume: the entry on its signal session, and
-// every exit on its signal session, whether or not that session has a bar of
-// its own (a corporate-action exit on a barless session is charged on the row).
+// TestFillsPayTheirRealTier: each fill of the canonical recipes pays the spread
+// tier of the dollar volume it is decided on, and that volume is never the
+// lowest tier's by default. A row with no price features reads zero volume,
+// which falls to that tier, so the entry and exit bases must carry their code's
+// real 20-session dollar volume, whether or not the exit session has a bar of
+// its own. checkFillsPayTheirTier checks the fee each trade paid, not the rows.
 func TestFillsPayTheirRealTier(t *testing.T) {
 	in := loadGolden(t)
 	for _, sid := range []string{spec.StrategyCrowdedShortBreakout, spec.StrategyMinerviniTrend} {
@@ -1115,11 +1115,15 @@ func TestCorporateActionExitOnBarlessSession(t *testing.T) {
 	checkFillsPayTheirTier(t, p, res)
 }
 
-// checkFillsPayTheirTier: no fill of the plan's run is charged in the lowest
-// spread tier by default. A row with no price features reads zero volume, which
-// falls to that tier, so every row a fill is decided on must carry its code's
-// real 20-session dollar volume: the entry on its signal session, and every exit
-// on its signal session, whether or not that session has a bar of its own.
+// checkFillsPayTheirTier holds every fill of the plan's run to the spread tier
+// of its real 20-session dollar volume. It reads what the trade paid, not only
+// the rows: the entry fee is recomputed from the entry row, the exit fee is the
+// rest of Trade.Fees, and that exit fee must equal the fee of the basis the
+// simulator charges. A corporate-action or recipe exit is charged on its exit
+// row, and so is a time stop decided on a session with a bar. A delisted,
+// suspended or barless time-stop exit is charged on the position's entry
+// volume. A basis in the lowest tier fails: no fill of a canonical recipe pays
+// the fallback tier.
 func checkFillsPayTheirTier(t *testing.T, p plan, res Result) {
 	t.Helper()
 	rows := map[string]map[civil.Date]CodeSession{}
@@ -1131,13 +1135,19 @@ func checkFillsPayTheirTier(t *testing.T, p plan, res Result) {
 			rows[cs.Code][ses.Date] = cs
 		}
 	}
-	fallback := spreadBps(p.cfg.Costs, 0)
-	check := func(tr Trade, on civil.Date, row CodeSession, what string) {
-		if row.DV20 <= 0 {
-			t.Fatalf("%s %s on %s: the row carries no dollar volume", tr.Code, what, on)
+	costs := p.cfg.Costs
+	fallback := spreadBps(costs, 0)
+	tierOf := func(tr Trade, on civil.Date, dv float64, what string) {
+		if dv <= 0 {
+			t.Fatalf("%s %s on %s: the basis carries no dollar volume", tr.Code, what, on)
 		}
-		if spreadBps(p.cfg.Costs, row.DV20) == fallback {
-			t.Fatalf("%s %s on %s pays the lowest tier (%v bps) on dv20 %v", tr.Code, what, on, fallback, row.DV20)
+		if spreadBps(costs, dv) == fallback {
+			t.Fatalf("%s %s on %s pays the lowest tier (%v bps) on dv20 %v", tr.Code, what, on, fallback, dv)
+		}
+	}
+	feeIs := func(tr Trade, what string, got, want float64) {
+		if math.Abs(got-want) > 1e-9*math.Max(1, math.Abs(want)) {
+			t.Fatalf("%s %s paid %v, want %v (the fee of its real tier)", tr.Code, what, got, want)
 		}
 	}
 	for _, tr := range res.Trades {
@@ -1145,14 +1155,24 @@ func checkFillsPayTheirTier(t *testing.T, p plan, res Result) {
 		if !ok {
 			t.Fatalf("%s: no row on its entry signal %s", tr.Code, tr.SignalDate)
 		}
-		check(tr, tr.SignalDate, entry, "entry")
+		tierOf(tr, tr.SignalDate, entry.DV20, "entry")
+		entryFee := feeFor(costs, tr.Qty*tr.EntryPrice, entry.DV20)
 		if tr.OpenAtEnd {
+			feeIs(tr, "entry (open at end)", tr.Fees, entryFee)
 			continue
 		}
 		exit, ok := rows[tr.Code][tr.ExitSignalDate]
 		if !ok {
 			t.Fatalf("%s: no row on its exit signal %s", tr.Code, tr.ExitSignalDate)
 		}
-		check(tr, tr.ExitSignalDate, exit, "exit")
+		basis := exit.DV20
+		switch {
+		case tr.ExitReason == ReasonDelisted || tr.ExitReason == ReasonSuspended:
+			basis = entry.DV20
+		case tr.ExitReason == ReasonTimeStop && exit.Bar == nil:
+			basis = entry.DV20
+		}
+		tierOf(tr, tr.ExitSignalDate, basis, "exit ("+tr.ExitReason+")")
+		feeIs(tr, "exit ("+tr.ExitReason+")", tr.Fees-entryFee, feeFor(costs, tr.Qty*tr.ExitPrice, basis))
 	}
 }
