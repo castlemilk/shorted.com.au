@@ -242,7 +242,9 @@ func runBacktest(ctx context.Context, pool *pgxpool.Pool, opts backtestOptions) 
 	res, err := processBatch(ctx, pool, st, opts, batch)
 	if err != nil {
 		// A batch that errored before it finished puts its open requests back in the
-		// queue. requeue touches only rows still running, so a finished request stays.
+		// queue, the one that was running included: a SIGTERM (a drain, or the deadline)
+		// cancels the run and lands here. requeue touches only rows still running, so a
+		// finished request stays. Only a SIGKILL leaves a running row for failAbandoned.
 		if rerr := st.requeue(context.Background(), batch); rerr != nil {
 			opts.Logf("strategies backtest: requeueing after the error failed: %v", rerr)
 		}

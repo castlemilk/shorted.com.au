@@ -87,9 +87,10 @@ type backtestRequest struct {
 // enqueue queues each target's weekly publish request, and an immediate one when
 // the key has no succeeded run and no request queued or running for it. A new key
 // therefore costs one request: the weekly one is queued first, so it is pending
-// and the immediate one is not added. A key whose last request failed is queued
-// again the next day (the day is in the immediate request's key), so a failure is
-// retried without being retried every hour.
+// and the immediate one is not added. Once that weekly request has failed, the
+// next execution queues the day's immediate request, and then one each UTC day
+// (the day is in its key), so a failing key is retried once a day, not every hour.
+// A key with a succeeded run waits for the next ISO week's request.
 func (s backtestStore) enqueue(ctx context.Context, targets []backtestTarget, now time.Time) error {
 	week := isoWeek(now)
 	day := now.UTC().Format("2006-01-02")
@@ -193,10 +194,12 @@ func (s backtestStore) requeue(ctx context.Context, batch []backtestRequest) err
 
 // failAbandoned fails every request a dead execution left running. Only the lease
 // holder claims requests, so under the lease a running row belongs to an execution
-// that did not finish (an OOM kill, a deadline, a drain). It is failed rather than
-// queued again: a request that kills every execution that takes it would otherwise
-// be retried on every lease expiry. Its key's immediate request is queued again on
-// the next day, so a failure is retried once a day, not on every run.
+// that was SIGKILLed before it could unwind (an out-of-memory kill, or a kill after
+// a deadline or drain). It is failed rather than queued again: a request that kills
+// every execution that takes it would otherwise be retried on every lease expiry.
+// The next execution after this one queues the key's immediate request when the key
+// has no succeeded run, so the failure is retried once a UTC day. A SIGTERM does not
+// reach this path: the run unwinds and requeues its open requests (see runBacktest).
 func (s backtestStore) failAbandoned(ctx context.Context) (int64, error) {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE strategy_backtest_requests
