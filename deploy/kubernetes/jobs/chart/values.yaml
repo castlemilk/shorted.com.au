@@ -348,6 +348,7 @@ jobs:
     profiles: [db, gcpProject, revalidate]
     env:
       PICKS_FUNDAMENTALS_BUDGET_MIN: "170"
+      STRATEGY_PARITY_SHADOW: "on"
 
   shorted-picks-fundamentals:
     # The Cloud Run job whose executions report to this monitor while
@@ -362,6 +363,7 @@ jobs:
     profiles: [db, gcpProject, revalidate]
     env:
       PICKS_FUNDAMENTALS_BUDGET_MIN: "170"
+      STRATEGY_PARITY_SHADOW: "on"
 
   shorted-ownership:
     # The Cloud Run job whose executions report to this monitor while

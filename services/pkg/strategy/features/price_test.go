@@ -50,14 +50,6 @@ func flatBar(c, v float64) Bar {
 
 func ptr(v float64) *float64 { return &v }
 
-// approx is true when a and b agree to 1e-9 relative (the parity tolerance).
-func approx(a, b float64) bool {
-	if a == b {
-		return true
-	}
-	return math.Abs(a-b) <= 1e-9*math.Max(1, math.Max(math.Abs(a), math.Abs(b)))
-}
-
 func wantPtr(t *testing.T, name string, got *float64, want float64) {
 	t.Helper()
 	if got == nil {

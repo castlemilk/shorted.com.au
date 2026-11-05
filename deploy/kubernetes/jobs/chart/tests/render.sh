@@ -170,6 +170,20 @@ unlabelled="$(yq -N 'select(.kind == "CronJob") | select(.spec.jobTemplate.metad
 [[ "$(yq -N 'select(.kind == "Deployment" and .metadata.name == "cronjob-reporter") | .spec.template.spec.containers[0].args[0]' "${tmp}/default.yaml")" == "cronjob-reporter" ]] \
   && pass "reporter Deployment renders" || fail "reporter Deployment missing"
 
+# --- 5b. The picker's shadow parity: on in both CronJobs and in Terraform. --
+# Both picks CronJobs run one Cloud Run job, so they must carry the same env
+# (CLAUDE.md: change args/env in BOTH). The switch only has meaning in
+# -mode refresh; the job itself gates on that.
+for picks_job in shorted-picks shorted-picks-fundamentals; do
+  [[ "$(field "${tmp}/default.yaml" "${picks_job}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "STRATEGY_PARITY_SHADOW") | .value')" == "on" ]] \
+    && pass "${picks_job} runs the parity shadow" || fail "${picks_job}: STRATEGY_PARITY_SHADOW is not on"
+done
+# Only inside module "shorted_job_picks": the same line in another module would
+# pass a check that names the picks job.
+awk '/^module "shorted_job_picks" \{/{f=1} f{print} f && /^\}/{exit}' "${repo_root}/terraform/environments/prod/main.tf" \
+  | grep -qE '^ *STRATEGY_PARITY_SHADOW *= *"on"$' \
+  && pass "Terraform's picks job sets STRATEGY_PARITY_SHADOW" || fail "terraform/environments/prod/main.tf: STRATEGY_PARITY_SHADOW is not on for the picks job"
+
 # --- 6. Render-time guards fail loudly. -------------------------------------
 render --set 'jobs.shorted-news.image=nope' >/dev/null 2>&1 && fail "unknown image key rendered" || pass "unknown image key fails the render"
 render --set 'images.jobs.tag=' >/dev/null 2>&1 && fail "empty image tag rendered" || pass "empty image tag fails the render"
