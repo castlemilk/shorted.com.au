@@ -299,7 +299,7 @@ func TestParseASXProducts(t *testing.T) {
 		t.Errorf("AFI %+v", funds[2])
 	}
 	for manager, want := range map[string]string{"Vanguard": "vanguard", "iShares": "blackrock", "StateStreet": "state-street",
-		"DFA": "dimensional", "Hyperion / Pinnacle": "hyperion", "Global X": "", "Macquarie": "macquarie",
+		"DFA": "dimensional", "Hyperion / Pinnacle": "hyperion", "Global X": "global-x", "Macquarie": "macquarie",
 		"Milford / EQT": "", "American Century / EQT": ""} {
 		got := ""
 		if inst := resolveIssuer(manager); inst != nil {
