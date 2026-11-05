@@ -33,7 +33,13 @@ export function SaveStrategyButton({
   strategyName: string;
 }) {
   if (!strategyCapabilityEnabled("saves")) return null;
-  return <SaveControl strategyId={strategyId} strategyName={strategyName} />;
+  // The slot holds the control's height for every viewer, so the page does not
+  // move when a signed-in viewer's list arrives after hydration (CLS).
+  return (
+    <div className="flex min-h-9 flex-col items-start gap-1" data-save-slot>
+      <SaveControl strategyId={strategyId} strategyName={strategyName} />
+    </div>
+  );
 }
 
 type Message = "limit" | "failed" | null;
@@ -55,10 +61,13 @@ function SaveControl({
   useEffect(() => {
     if (!signedIn) return;
     let live = true;
-    void listSavedStrategies().then((result) => {
-      if (!live || !result.ok) return;
-      setSaved(result.strategies.some((s) => s.strategyRef === strategyId));
-    });
+    // A rejected read leaves the control hidden: there is no state to show.
+    listSavedStrategies()
+      .then((result) => {
+        if (!live || !result.ok) return;
+        setSaved(result.strategies.some((s) => s.strategyRef === strategyId));
+      })
+      .catch(() => undefined);
     return () => {
       live = false;
     };
@@ -69,16 +78,23 @@ function SaveControl({
   const toggle = async () => {
     setPending(true);
     setMessage(null);
-    if (saved) {
-      const result = await unsaveStrategy(strategyId);
-      if (result.ok) setSaved(false);
-      else setMessage("failed");
-    } else {
-      const result = await saveStrategy(strategyId);
-      if (result.ok) setSaved(true);
-      else setMessage(result.reason === "limit" ? "limit" : "failed");
+    try {
+      if (saved) {
+        const result = await unsaveStrategy(strategyId);
+        if (result.ok) setSaved(false);
+        else setMessage("failed");
+      } else {
+        const result = await saveStrategy(strategyId);
+        if (result.ok) setSaved(true);
+        else setMessage(result.reason === "limit" ? "limit" : "failed");
+      }
+    } catch {
+      // A rejected action (a network failure, or a deploy that retired the action)
+      // must not leave the control disabled.
+      setMessage("failed");
+    } finally {
+      setPending(false);
     }
-    setPending(false);
   };
 
   return (
@@ -90,9 +106,12 @@ function SaveControl({
         aria-pressed={saved}
         disabled={pending}
         onClick={() => void toggle()}
-        aria-label={saved ? `Remove ${strategyName} from My strategies` : `Save ${strategyName} to My strategies`}
       >
+        {/* The accessible name starts with the visible label, so a speech user who says
+            the label reaches the control (WCAG 2.5.3). The name is the label and the
+            strategy; the pressed state carries the saved state. */}
         {saved ? "Saved" : "Save"}
+        <span className="sr-only"> {strategyName}</span>
       </Button>
       {message === "limit" ? (
         <p role="status" className="text-xs text-muted-foreground">

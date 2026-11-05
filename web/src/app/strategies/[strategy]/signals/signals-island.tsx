@@ -440,11 +440,12 @@ function SignalsView({
               as passing. Evaluated each session
               {props.universeLabel ? ` · ${props.universeLabel}` : ""}.
             </p>
+            {/* Inside the heading block, so its reserved slot never moves the chip nav. */}
+            <SaveStrategyButton
+              strategyId={props.slug}
+              strategyName={props.strategyName}
+            />
           </div>
-          <SaveStrategyButton
-            strategyId={props.slug}
-            strategyName={props.strategyName}
-          />
           <nav aria-label="Strategies">
             <ul className="flex flex-wrap gap-1.5 text-xs">
               {props.strategies.map((strategy) => {

@@ -8,6 +8,7 @@
 
 import { createClient } from "@connectrpc/connect";
 
+import { parseEntitlementDetail } from "~/@/lib/strategies/entitlement";
 import type { StatusCountsView } from "~/@/lib/strategies/types";
 import { StrategyService } from "~/gen/shorts/v1alpha1/strategies_pb";
 import { auth } from "~/server/auth";
@@ -43,9 +44,11 @@ export type UnsaveResult =
   | { ok: true }
   | { ok: false; reason: "signed-out" | "unavailable" };
 
-/** The Connect status codes this module answers to (the protocol's numbers). */
+/** The Connect status code this module answers to (the protocol's number). */
 const CODE_NOT_FOUND = 5;
-const CODE_FAILED_PRECONDITION = 9;
+
+/** The capability the API names when a save is refused at the cap. */
+const CAP_REACHED = "cap_reached";
 
 /** The status code of a Connect error, read by value so no SSR-visible module imports it. */
 function connectCode(err: unknown): number | null {
@@ -133,9 +136,10 @@ export async function saveStrategy(strategyRef: string): Promise<SaveResult> {
     const response = await client.saveStrategy({ strategyRef: strategyRef.trim() });
     return { ok: true, strategy: savedOf(response.saved as SavedInput) };
   } catch (err) {
-    const code = connectCode(err);
-    if (code === CODE_FAILED_PRECONDITION) return { ok: false, reason: "limit" };
-    if (code === CODE_NOT_FOUND) return { ok: false, reason: "not-found" };
+    // The cap is PermissionDenied with X-Entitlement-Detail naming cap_reached. The
+    // code alone is not the signal: another refusal carries its own capability.
+    if (parseEntitlementDetail(err)?.capability === CAP_REACHED) return { ok: false, reason: "limit" };
+    if (connectCode(err) === CODE_NOT_FOUND) return { ok: false, reason: "not-found" };
     console.warn("[saveStrategy] unavailable:", err);
     return { ok: false, reason: "unavailable" };
   }

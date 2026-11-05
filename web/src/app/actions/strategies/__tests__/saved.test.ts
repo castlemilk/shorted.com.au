@@ -36,6 +36,17 @@ function connectError(code: number, message = "boom") {
   return Object.assign(new Error(message), { code });
 }
 
+/** The API's refusal at the cap: PermissionDenied with its X-Entitlement-Detail metadata. */
+function capRefusal() {
+  const headers = new Map([
+    ["X-Entitlement-Detail", JSON.stringify({ capability: "cap_reached", required: "free", current: "free", limit: 20, upgrade_url: "", message: "full" })],
+  ]);
+  return Object.assign(new Error("full"), {
+    code: 7,
+    metadata: { get: (key: string) => headers.get(key) ?? null },
+  });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -101,10 +112,16 @@ describe("saved strategy actions", () => {
     await expect(listSavedStrategies()).resolves.toEqual({ ok: false, reason: "unavailable" });
   });
 
-  it("maps a refused save past the cap to limit", async () => {
+  it("maps a refused save past the cap to limit, read from its cap_reached detail", async () => {
+    signIn();
+    mockClient.saveStrategy.mockRejectedValue(capRefusal());
+    await expect(saveStrategy("variant:v99")).resolves.toEqual({ ok: false, reason: "limit" });
+  });
+
+  it("does not read a bare refusal with no cap_reached detail as the limit", async () => {
     signIn();
     mockClient.saveStrategy.mockRejectedValue(connectError(9));
-    await expect(saveStrategy("variant:v99")).resolves.toEqual({ ok: false, reason: "limit" });
+    await expect(saveStrategy("variant:v99")).resolves.toEqual({ ok: false, reason: "unavailable" });
   });
 
   it("maps an unknown strategy to not-found", async () => {

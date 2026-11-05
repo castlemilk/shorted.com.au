@@ -42,17 +42,19 @@ describe("SaveStrategyButton", () => {
     expect(mockList).not.toHaveBeenCalled();
   });
 
-  it("draws nothing for an anonymous visitor, and reads nothing", () => {
+  it("reserves its slot but draws no control for an anonymous visitor, and reads nothing", () => {
     mockUseSession.mockReturnValue({ data: null, status: "unauthenticated" });
     const { container } = renderButton();
-    expect(container).toBeEmptyDOMElement();
+    expect(container.querySelector("[data-save-slot]")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(mockList).not.toHaveBeenCalled();
   });
 
-  it("draws nothing while the session loads", () => {
+  it("reserves its slot while the session loads", () => {
     mockUseSession.mockReturnValue({ data: null, status: "loading" });
     const { container } = renderButton();
-    expect(container).toBeEmptyDOMElement();
+    expect(container.querySelector("[data-save-slot]")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("offers Save for a strategy the viewer has not saved, and saves it on the press", async () => {
@@ -60,10 +62,10 @@ describe("SaveStrategyButton", () => {
     mockList.mockResolvedValue({ ok: true, strategies: [], limit: 20 });
     mockSave.mockResolvedValue({ ok: true, strategy: { strategyRef: "canslim" } });
     renderButton();
-    const button = await screen.findByRole("button", { name: "Save CAN SLIM to My strategies" });
+    const button = await screen.findByRole("button", { name: "Save CAN SLIM" });
     expect(button).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(button);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Remove CAN SLIM from My strategies" })).toHaveAttribute("aria-pressed", "true"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Saved CAN SLIM" })).toHaveAttribute("aria-pressed", "true"));
     expect(mockSave).toHaveBeenCalledWith("canslim");
   });
 
@@ -76,9 +78,18 @@ describe("SaveStrategyButton", () => {
     });
     mockUnsave.mockResolvedValue({ ok: true });
     renderButton();
-    fireEvent.click(await screen.findByRole("button", { name: "Remove CAN SLIM from My strategies" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Save CAN SLIM to My strategies" })).toBeInTheDocument());
+    fireEvent.click(await screen.findByRole("button", { name: "Saved CAN SLIM" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save CAN SLIM" })).toBeInTheDocument());
     expect(mockUnsave).toHaveBeenCalledWith("canslim");
+  });
+
+  it("names the control with its visible label, so the label is in the accessible name", async () => {
+    mockUseSession.mockReturnValue(SIGNED_IN);
+    mockList.mockResolvedValue({ ok: true, strategies: [], limit: 20 });
+    renderButton();
+    const button = await screen.findByRole("button", { name: /^Save\b/ });
+    expect(button).toHaveAccessibleName(/^Save CAN SLIM$/);
+    expect(button).not.toHaveAttribute("aria-label");
   });
 
   it("says so at the cap, and keeps the strategy unsaved", async () => {
@@ -86,9 +97,9 @@ describe("SaveStrategyButton", () => {
     mockList.mockResolvedValue({ ok: true, strategies: [], limit: 20 });
     mockSave.mockResolvedValue({ ok: false, reason: "limit" });
     renderButton();
-    fireEvent.click(await screen.findByRole("button", { name: "Save CAN SLIM to My strategies" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save CAN SLIM" }));
     expect(await screen.findByText("You can save up to 20 strategies. Remove one to save another.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save CAN SLIM to My strategies" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Save CAN SLIM" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("says a failed save failed, and changes nothing on the screen", async () => {
@@ -96,8 +107,26 @@ describe("SaveStrategyButton", () => {
     mockList.mockResolvedValue({ ok: true, strategies: [], limit: 20 });
     mockSave.mockResolvedValue({ ok: false, reason: "unavailable" });
     renderButton();
-    fireEvent.click(await screen.findByRole("button", { name: "Save CAN SLIM to My strategies" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save CAN SLIM" }));
     expect(await screen.findByText("Could not update your saved strategies. Try again.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save CAN SLIM to My strategies" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Save CAN SLIM" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("is enabled again and says it failed when the action itself rejects", async () => {
+    mockUseSession.mockReturnValue(SIGNED_IN);
+    mockList.mockResolvedValue({ ok: true, strategies: [], limit: 20 });
+    mockSave.mockRejectedValue(new Error("network down"));
+    renderButton();
+    fireEvent.click(await screen.findByRole("button", { name: "Save CAN SLIM" }));
+    expect(await screen.findByText("Could not update your saved strategies. Try again.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save CAN SLIM" })).toBeEnabled();
+  });
+
+  it("stays hidden, and does not throw, when the list read rejects", async () => {
+    mockUseSession.mockReturnValue(SIGNED_IN);
+    mockList.mockRejectedValue(new Error("deploy skew"));
+    renderButton();
+    await waitFor(() => expect(mockList).toHaveBeenCalled());
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
