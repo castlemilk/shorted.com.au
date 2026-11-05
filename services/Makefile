@@ -761,6 +761,16 @@ backfill.historical-test: ## Test backfill with limited stocks (usage: make back
 		cd market-data-sync && go run ./cmd/historical-backfill -years=$(or $(YEARS),2) -limit=$(or $(LIMIT),10) \
 	'
 
+# The index sync's write (services/jobs/internal/jobs/marketdata): one series' upsert plus removal of the
+# stored rows inside the fetched window that the response does not stamp, in one transaction. Rows outside
+# the window and other series are kept; a removal above the ceiling, a failed delete, an empty response and
+# a dry run change nothing. The Sydney dating is covered by the package's unit tests, which need no server.
+.PHONY: test-indexsync-pg
+test-indexsync-pg: test-integration-images
+	@set -e; \
+	cd jobs && GOWORK=off CGO_ENABLED=0 INDEXSYNC_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run IndexSyncPG ./internal/jobs/marketdata/
+
 # Alerts evaluator end-to-end suite (services/jobs/internal/jobs/alerts) and the
 # shorts API's alert store tests (services/shorts/internal/store/shorts, -tags=integration).
 # ALERTS_E2E_TESTCONTAINERS=1 with -tags=testcontainers has each test binary start one
@@ -781,16 +791,6 @@ test-alerts-e2e: test-integration-images
 		go test -count=1 -tags=integration,testcontainers -run 'Alert|ReportWindow' ./shorts/internal/store/shorts/; \
 	cd jobs && GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run TestAlertsE2E ./internal/jobs/alerts/
-
-# The index sync's write (services/jobs/internal/jobs/marketdata): one series' upsert plus removal of the
-# stored rows inside the fetched window that the response does not stamp, in one transaction. Rows outside
-# the window and other series are kept; a removal above the ceiling, a failed delete, an empty response and
-# a dry run change nothing. The Sydney dating is covered by the package's unit tests, which need no server.
-.PHONY: test-indexsync-pg
-test-indexsync-pg: test-integration-images
-	@set -e; \
-	cd jobs && GOWORK=off CGO_ENABLED=0 INDEXSYNC_TESTCONTAINERS=1 \
-		go test -count=1 -tags=testcontainers -run IndexSyncPG ./internal/jobs/marketdata/
 
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench

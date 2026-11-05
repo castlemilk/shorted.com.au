@@ -1961,15 +1961,6 @@ jobs:
           GOPRIVATE: github.com/skunkworq/*
         run: go test ./... -short
 
-      # The alerts evaluator's cross-user and fail-closed checks (owner isolation,
-      # the pause link, the owner lookup and billing failing closed). Kept on the
-      # deploy gate: about 17s, and they guard who can see or change a monitor.
-      - name: Run alerts evaluator end-to-end suite (gates the deploy)
-        run: |
-          echo "🧪 Running the alerts evaluator end-to-end suite (postgres container)..."
-          cd services
-          make test-alerts-e2e
-
       # The index sync's write (services/jobs/internal/jobs/marketdata): one
       # series' upsert and bounded clean-up in one transaction, against a real
       # postgres. The clean-up is a DELETE on the production index_prices table,
@@ -1979,6 +1970,15 @@ jobs:
           echo "🧪 Running the index sync write suite (postgres container)..."
           cd services
           make test-indexsync-pg
+
+      # The alerts evaluator's cross-user and fail-closed checks (owner isolation,
+      # the pause link, the owner lookup and billing failing closed). Kept on the
+      # deploy gate: about 17s, and they guard who can see or change a monitor.
+      - name: Run alerts evaluator end-to-end suite (gates the deploy)
+        run: |
+          echo "🧪 Running the alerts evaluator end-to-end suite (postgres container)..."
+          cd services
+          make test-alerts-e2e
 
       # Workflow pins: the apply gate and the smoke ordering are asserted here,
       # and nothing else ran these tests in CI. The test imports `yaml`, a root
