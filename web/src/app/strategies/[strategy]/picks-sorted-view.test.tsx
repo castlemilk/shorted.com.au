@@ -551,7 +551,7 @@ describe("PicksSortedView: the shortlist's own copy", () => {
   it("says watch names fill the list to the shortlist's size, not a larger one", () => {
     renderView([TRIGGERED, WATCH]);
     expect(summary()).toHaveTextContent(
-      `Showing 2 of 2 ranked stocks. Triggered and setup first; watch names fill the list to ${SHORTLIST_MAX_ROWS}.`,
+      `Showing 2 of 2 ranked stocks. Triggered, setup and unknown first; watch names fill the list to ${SHORTLIST_MAX_ROWS}.`,
     );
   });
 });
