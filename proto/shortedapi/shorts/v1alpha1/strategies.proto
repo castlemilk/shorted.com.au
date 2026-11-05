@@ -57,6 +57,18 @@ service StrategyService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
 
+  // Where the readings come from: the latest session, the snapshot the picks
+  // are read from, the newest ASIC short reports and the next update time.
+  rpc GetStrategyDataStatus (GetStrategyDataStatusRequest) returns (GetStrategyDataStatusResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // The status changes of one strategy's canonical rules version, newest first:
+  // a stock entering or leaving a status, with the rule results that day.
+  rpc ListStrategySignalEvents (ListStrategySignalEventsRequest) returns (ListStrategySignalEventsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
   // ==================== Saved Strategies ====================
 
   // Save a strategy to the signed-in caller's list. Saving a strategy that is
@@ -468,4 +480,60 @@ message SavedStrategy {
   StatusCounts status_counts = 5;   // Today's counts; absent for a variant or when they cannot be read.
   StrategyVersionRef version = 6;   // The live rules version the counts were evaluated under; absent for a variant or when unknown.
   string session_date = 7;          // The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+}
+
+// Request for GetStrategyDataStatus.
+message GetStrategyDataStatusRequest {}
+
+// Response for GetStrategyDataStatus. Dates are YYYY-MM-DD; times are RFC 3339 UTC.
+message GetStrategyDataStatusResponse {
+  string latest_session = 1;                   // The newest index session the price data reaches; "" when unknown.
+  string prices_completed_at = 2;              // When the newest completed price sweep finished; "" when none.
+  string snapshot_as_of = 3;                   // The session the picks are read from; "" when none is completed.
+  string snapshot_completed_at = 4;            // When that session's last phase completed.
+  repeated AsicReportStatus asic_reports = 5;  // The newest ASIC short-position reports, newest first (at most 10).
+  string next_update_utc = 6;                  // The next scheduled refresh of the picks.
+  int32 priced_codes = 7;                      // Codes the snapshot session priced.
+}
+
+// One ASIC short-position report as the source dates show it.
+message AsicReportStatus {
+  string report_date = 1;          // The report's as-at date.
+  string available_date = 2;       // When the report became public (T+ the publication lag).
+  string first_ingested_at = 3;    // When we first saw the report; "" when not recorded.
+  int32 rows = 4;                  // Codes of the report that are loaded.
+  bool complete = 5;               // Every code the report carries is loaded.
+}
+
+// Request for ListStrategySignalEvents.
+message ListStrategySignalEventsRequest {
+  string strategy_id = 1;    // Required: a canonical strategy id.
+  string version_hash = 2;   // Empty for the live version; else a live or superseded canonical rules hash.
+  string stock_code = 3;     // Optional: one stock's events only.
+  string since = 4;          // Optional YYYY-MM-DD, inclusive.
+  string page_token = 5;     // The next_page_token of the previous page.
+  int32 page_size = 6;       // 1 to 200; 0 is the default of 50.
+}
+
+// Response for ListStrategySignalEvents.
+message ListStrategySignalEventsResponse {
+  repeated StrategySignalEvent events = 1;  // Newest first.
+  string next_page_token = 2;               // Empty on the last page.
+  StrategyVersionRef version = 3;           // The rules version the events belong to.
+}
+
+// One status change of one stock under one canonical rules version.
+message StrategySignalEvent {
+  string stock_code = 1;
+  string company_name = 2;
+  string session_date = 3;          // The session the status changed on (YYYY-MM-DD).
+  string prev_session_date = 4;     // The session it changed from; "" when none.
+  string from_status = 5;           // triggered, setup, unknown, watch or none.
+  string to_status = 6;             // triggered, setup, unknown, watch or none.
+  double score = 7;
+  double close = 8;
+  double pivot = 9;
+  bool has_pivot = 10;
+  repeated RuleResult rules = 11;   // The rule results recorded that session (values and proximities as stored).
+  string rules_hash = 12;
 }

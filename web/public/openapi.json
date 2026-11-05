@@ -361,6 +361,40 @@
         "title": "AlertMonitorScope",
         "type": "string"
       },
+      "shorts.v1alpha1.AsicReportStatus": {
+        "additionalProperties": false,
+        "description": "One ASIC short-position report as the source dates show it.",
+        "properties": {
+          "availableDate": {
+            "description": "When the report became public (T+ the publication lag). (proto string)",
+            "title": "available_date",
+            "type": "string"
+          },
+          "complete": {
+            "description": "Every code the report carries is loaded. (proto bool)",
+            "title": "complete",
+            "type": "boolean"
+          },
+          "firstIngestedAt": {
+            "description": "When we first saw the report; \"\" when not recorded. (proto string)",
+            "title": "first_ingested_at",
+            "type": "string"
+          },
+          "reportDate": {
+            "description": "The report's as-at date. (proto string)",
+            "title": "report_date",
+            "type": "string"
+          },
+          "rows": {
+            "description": "Codes of the report that are loaded. (proto int32)",
+            "format": "int32",
+            "title": "rows",
+            "type": "integer"
+          }
+        },
+        "title": "AsicReportStatus",
+        "type": "object"
+      },
       "shorts.v1alpha1.BattlegroundStock": {
         "additionalProperties": false,
         "description": "A single stock result from the squeeze radar / battlegrounds ranking",
@@ -7270,6 +7304,59 @@
           }
         },
         "title": "GetStockVerdictResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetStrategyDataStatusRequest": {
+        "additionalProperties": false,
+        "description": "Request for GetStrategyDataStatus.",
+        "title": "GetStrategyDataStatusRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetStrategyDataStatusResponse": {
+        "additionalProperties": false,
+        "description": "Response for GetStrategyDataStatus. Dates are YYYY-MM-DD; times are RFC 3339 UTC.",
+        "properties": {
+          "asicReports": {
+            "description": "The newest ASIC short-position reports, newest first (at most 10). (proto shorts.v1alpha1.AsicReportStatus)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.AsicReportStatus"
+            },
+            "title": "asic_reports",
+            "type": "array"
+          },
+          "latestSession": {
+            "description": "The newest index session the price data reaches; \"\" when unknown. (proto string)",
+            "title": "latest_session",
+            "type": "string"
+          },
+          "nextUpdateUtc": {
+            "description": "The next scheduled refresh of the picks. (proto string)",
+            "title": "next_update_utc",
+            "type": "string"
+          },
+          "pricedCodes": {
+            "description": "Codes the snapshot session priced. (proto int32)",
+            "format": "int32",
+            "title": "priced_codes",
+            "type": "integer"
+          },
+          "pricesCompletedAt": {
+            "description": "When the newest completed price sweep finished; \"\" when none. (proto string)",
+            "title": "prices_completed_at",
+            "type": "string"
+          },
+          "snapshotAsOf": {
+            "description": "The session the picks are read from; \"\" when none is completed. (proto string)",
+            "title": "snapshot_as_of",
+            "type": "string"
+          },
+          "snapshotCompletedAt": {
+            "description": "When that session's last phase completed. (proto string)",
+            "title": "snapshot_completed_at",
+            "type": "string"
+          }
+        },
+        "title": "GetStrategyDataStatusResponse",
         "type": "object"
       },
       "shorts.v1alpha1.GetStrategyPicksRequest": {
@@ -23027,6 +23114,65 @@
           }
         },
         "summary": "GetStockStrategyFit",
+        "tags": [
+          "shorts.v1alpha1.StrategyService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.StrategyService/GetStrategyDataStatus": {
+      "post": {
+        "description": "Where the readings come from: the latest session, the snapshot the picks\n are read from, the newest ASIC short reports and the next update time.",
+        "operationId": "StrategyService_GetStrategyDataStatus",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetStrategyDataStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetStrategyDataStatusResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetStrategyDataStatus",
         "tags": [
           "shorts.v1alpha1.StrategyService"
         ]

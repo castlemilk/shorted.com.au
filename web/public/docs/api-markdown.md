@@ -2000,6 +2000,21 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetStoc
   -d '{}'
 ```
 
+#### `POST /shorts.v1alpha1.StrategyService/GetStrategyDataStatus`
+
+Where the readings come from: the latest session, the snapshot the picks
+ are read from, the newest ASIC short reports and the next update time.
+
+Request body: an empty JSON object, `{}`.
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetStrategyDataStatus' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.StrategyService/GetStrategyPicks`
 
 Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
