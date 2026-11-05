@@ -709,3 +709,99 @@ export function mapPicksResponse(response: StrategyPicksResponseInput): MappedPi
     ...mapPicksSignals(response),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Data status and signal history
+// ---------------------------------------------------------------------------
+
+export interface AsicReportStatusInput {
+  reportDate?: string;
+  availableDate?: string;
+  firstIngestedAt?: string;
+  rows?: number;
+  complete?: boolean;
+}
+
+export interface StrategyDataStatusInput {
+  latestSession?: string;
+  pricesCompletedAt?: string;
+  snapshotAsOf?: string;
+  snapshotCompletedAt?: string;
+  asicReports?: readonly AsicReportStatusInput[];
+  nextUpdateUtc?: string;
+  pricedCodes?: number;
+}
+
+export interface StrategySignalEventInput {
+  stockCode?: string;
+  companyName?: string;
+  sessionDate?: string;
+  prevSessionDate?: string;
+  fromStatus?: string;
+  toStatus?: string;
+  score?: WireDouble;
+  close?: WireDouble;
+  pivot?: WireDouble;
+  hasPivot?: boolean;
+  rules?: readonly RuleResultInput[];
+  rulesHash?: string;
+}
+
+export interface SignalEventsResponseInput {
+  events?: readonly StrategySignalEventInput[];
+  nextPageToken?: string;
+  version?: StrategyVersionInput | null;
+}
+
+/** The data status read. Dates are YYYY-MM-DD; the completion times become Sydney dates. */
+export function mapStrategyDataStatus(
+  input: StrategyDataStatusInput,
+): StrategyDataStatusView {
+  return {
+    latestSession: isoDate(input.latestSession),
+    pricesCompletedAt: sydneyIsoDate(input.pricesCompletedAt),
+    snapshotAsOf: isoDate(input.snapshotAsOf),
+    snapshotCompletedAt: sydneyIsoDate(input.snapshotCompletedAt),
+    asicReports: (input.asicReports ?? []).map((report) => ({
+      reportDate: isoDate(report.reportDate),
+      availableDate: isoDate(report.availableDate),
+      firstIngestedAt: sydneyIsoDate(report.firstIngestedAt),
+      rows: count(report.rows),
+      complete: report.complete === true,
+    })),
+    nextUpdateUtc: str(input.nextUpdateUtc),
+    pricedCodes: count(input.pricedCodes),
+  };
+}
+
+export function mapStrategySignalEvent(
+  input: StrategySignalEventInput,
+): StrategySignalEventView {
+  const event: StrategySignalEventView = {
+    stockCode: str(input.stockCode),
+    companyName: str(input.companyName),
+    sessionDate: isoDate(input.sessionDate),
+    prevSessionDate: isoDate(input.prevSessionDate),
+    fromStatus: str(input.fromStatus),
+    toStatus: str(input.toStatus),
+    score: finiteOrNull(input.score) ?? 0,
+    rules: (input.rules ?? []).map(mapRuleResult),
+    rulesHash: str(input.rulesHash),
+  };
+  const close = positiveOrNull(input.close);
+  if (close !== null) event.close = close;
+  const pivot = flagged(input.pivot, input.hasPivot);
+  if (pivot !== null && pivot > 0) event.pivot = pivot;
+  return event;
+}
+
+/** One page of signal events; the version is null when the response carries none. */
+export function mapSignalEventsResponse(
+  input: SignalEventsResponseInput,
+): SignalEventsPage {
+  return {
+    events: (input.events ?? []).map(mapStrategySignalEvent),
+    nextPageToken: str(input.nextPageToken),
+    version: mapStrategyVersion(input.version),
+  };
+}
