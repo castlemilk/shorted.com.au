@@ -320,26 +320,25 @@ func latestPriceSweepCompletion(ctx context.Context, db fundamentalsDB) (*time.T
 	return at, nil
 }
 
-// recentAsicReports reads the newest n ASIC reports, newest first. A database
-// without 000155 has none.
 // reportAvailability sets each report's publication date from the calendar the
-// snapshot's short reading is built on: the index sessions and the report
-// dates, at the v1 publication lag. A date shown here is therefore the date the
-// stored reading used (the sf1 availability), not a second calendar's guess.
-// The newest reports are all the calendar needs: a report's lag reads the
-// sessions after it, which are newer reports or index bars.
+// snapshot's short reading is built on: the index sessions and the distinct
+// report dates of the shorts table, at the v1 publication lag. A date shown here
+// is therefore the date the stored reading used (the sf1 availability), not a
+// second calendar's guess: the job reads the same two inputs, with the same
+// filters (pgsource.IndexBars and pgsource.ASICRows). The reports listed are
+// the newest, and a report's lag reads only the sessions after it.
 func reportAvailability(ctx context.Context, db fundamentalsDB, reports []AsicReportRow) error {
 	if len(reports) == 0 {
 		return nil
 	}
 	oldest := reports[len(reports)-1].ReportDate
-	xjo, err := indexSessionDates(ctx, db, engine.DefaultIndexCode, oldest)
+	xjo, err := allIndexSessionDates(ctx, db, engine.DefaultIndexCode, oldest)
 	if err != nil {
 		return err
 	}
-	asic := make([]civil.Date, 0, len(reports))
-	for _, r := range reports {
-		asic = append(asic, r.ReportDate)
+	asic, err := shortsReportDates(ctx, db, oldest)
+	if err != nil {
+		return err
 	}
 	cal := calendar.New(xjo, asic, publicationLagSessions())
 	for i := range reports {
@@ -354,23 +353,50 @@ func reportAvailability(ctx context.Context, db fundamentalsDB, reports []AsicRe
 	return nil
 }
 
-// publicationLagSessions is the v1 policy's publication lag, read from the
-// registered version rather than restated.
-func publicationLagSessions() int {
-	if r, ok := spec.Version(spec.StrategyZangerBreakout, "v1"); ok {
-		return r.Spec.Data.PublicationLagSessions
+// shortsReportDates returns the distinct report dates of the shorts table from
+// `from` on, ascending: the report dates the job's calendar is built from.
+func shortsReportDates(ctx context.Context, db fundamentalsDB, from civil.Date) ([]civil.Date, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+	rows, err := db.Query(ctx, `
+		SELECT DISTINCT "DATE"::date::text FROM shorts
+		 WHERE "DATE" >= $1::date AND "PRODUCT_CODE" IS NOT NULL
+		 ORDER BY 1`, from.String())
+	if err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ReadStrategyDataStatus.shorts", err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read ASIC report dates: %w", err)
 	}
-	return calendar.PublicationLagSessions
+	defer rows.Close()
+	var out []civil.Date
+	for rows.Next() {
+		var day string
+		if err := rows.Scan(&day); err != nil {
+			return nil, fmt.Errorf("scan ASIC report date: %w", err)
+		}
+		d, err := civil.ParseDate(day)
+		if err != nil {
+			return nil, fmt.Errorf("parse ASIC report date %q: %w", day, err)
+		}
+		out = append(out, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate ASIC report dates: %w", err)
+	}
+	return out, nil
 }
 
-// indexSessionDates returns the index's session dates from `from` on, ascending.
-// A missing index table reads as no sessions.
-func indexSessionDates(ctx context.Context, db fundamentalsDB, indexCode string, from civil.Date) ([]civil.Date, error) {
+// allIndexSessionDates returns every index bar date from `from` on, ascending,
+// as pgsource.IndexBars reads them (no close filter). A missing index table
+// reads as no sessions.
+func allIndexSessionDates(ctx context.Context, db fundamentalsDB, indexCode string, from civil.Date) ([]civil.Date, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
 	rows, err := db.Query(ctx, `
 		SELECT DISTINCT date::date::text FROM index_prices
-		 WHERE index_code = $1 AND close > 0 AND date >= $2::date
+		 WHERE index_code = $1 AND date >= $2::date
 		 ORDER BY 1`, indexCode, from.String())
 	if err != nil {
 		if isUndefinedTable(err) {
@@ -398,6 +424,17 @@ func indexSessionDates(ctx context.Context, db fundamentalsDB, indexCode string,
 	return out, nil
 }
 
+// publicationLagSessions is the v1 policy's publication lag, read from the
+// registered version rather than restated.
+func publicationLagSessions() int {
+	if r, ok := spec.Version(spec.StrategyZangerBreakout, "v1"); ok {
+		return r.Spec.Data.PublicationLagSessions
+	}
+	return calendar.PublicationLagSessions
+}
+
+// recentAsicReports reads the newest n ASIC reports, newest first. A database
+// without 000155 has none.
 func recentAsicReports(ctx context.Context, db fundamentalsDB, n int) ([]AsicReportRow, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()

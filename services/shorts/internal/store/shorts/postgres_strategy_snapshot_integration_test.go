@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/calendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
@@ -361,3 +362,56 @@ func TestStrategyDataStatus_SourceDates(t *testing.T) {
 }
 
 func floatPtr(v float64) *float64 { return &v }
+
+// A report's publication date is the one the stored short reading used: the
+// calendar of the index sessions and the shorts table's report dates, even for a
+// report that has no ingest row (loaded outside the ASIC recorder).
+func TestStrategyDataStatus_AvailabilityUsesTheShortsReportDates(t *testing.T) {
+	pool := snapshotDB(t)
+	applySnapshotMigration(t, pool)
+	ctx := context.Background()
+	s := &postgresStore{db: pool}
+
+	completeSession(t, pool, "2026-10-30", time.Date(2026, 10, 30, 14, 0, 0, 0, time.UTC))
+	_, err := pool.Exec(ctx, `INSERT INTO sync_status (environment, hostname, checkpoint_stocks_total, status, started_at, completed_at)
+		VALUES (NULL, NULL, 2000, 'completed', '2026-10-30 06:00+00', '2026-10-30 07:30+00')`)
+	require.NoError(t, err)
+
+	var xjo []civil.Date
+	for d := (civil.Date{Year: 2026, Month: time.October, Day: 19}); d.Before((civil.Date{Year: 2026, Month: time.November, Day: 3})); d = d.AddDays(1) {
+		if wd := time.Date(d.Year, d.Month, d.Day, 0, 0, 0, 0, time.UTC).Weekday(); wd == time.Saturday || wd == time.Sunday {
+			continue
+		}
+		xjo = append(xjo, d)
+		_, err := pool.Exec(ctx, `INSERT INTO index_prices VALUES ('XJO', $1::date, 8800)`, d.String())
+		require.NoError(t, err)
+	}
+	// Two report dates in shorts; only the older has an ingest row.
+	_, err = pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS shorts (
+		"DATE" timestamp without time zone, "PRODUCT" text, "PRODUCT_CODE" text,
+		"REPORTED_SHORT_POSITIONS" double precision, "TOTAL_PRODUCT_IN_ISSUE" double precision,
+		"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" double precision)`)
+	require.NoError(t, err)
+	var shorts []civil.Date
+	for _, day := range []string{"2026-10-21", "2026-10-28"} {
+		_, err := pool.Exec(ctx, `INSERT INTO shorts ("PRODUCT_CODE", "PRODUCT", "DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS")
+			VALUES ('AAA', 'AAA LTD', $1::date, 5.0)`, day)
+		require.NoError(t, err)
+		shorts = append(shorts, snapDate(day))
+	}
+	_, err = pool.Exec(ctx, `INSERT INTO asic_report_ingests VALUES ('2026-10-21', now(), 100, 100)`)
+	require.NoError(t, err)
+
+	st, err := s.ReadStrategyDataStatus(ctx)
+	require.NoError(t, err)
+	var got *civil.Date
+	for _, r := range st.AsicReports {
+		if r.ReportDate.String() == "2026-10-21" {
+			got = r.AvailableDate
+		}
+	}
+	require.NotNil(t, got, "the ingested report is listed")
+	want, ok := calendar.New(xjo, shorts, calendar.PublicationLagSessions).PublishedOn(snapDate("2026-10-21"))
+	require.True(t, ok)
+	assert.Equal(t, want.String(), got.String(), "the stored reading's calendar, from the shorts report dates")
+}
