@@ -760,6 +760,12 @@
     "/strategies/[strategy]/opengraph-image": {
       "firstLoadKB": 112
     },
+    "/strategies/[strategy]/rules": {
+      "firstLoadKB": 115
+    },
+    "/strategies/changelog": {
+      "firstLoadKB": 118
+    },
     "/strategies/opengraph-image": {
       "firstLoadKB": 112
     },
