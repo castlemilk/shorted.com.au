@@ -57,6 +57,23 @@ export interface StrategyDef {
   metadata: StrategyMetadataDef | null;
   caveats: string[];
   sources: string[];
+  /** The live rules version the definition is evaluated under; absent when the API names none. */
+  version?: StrategyVersionDef;
+}
+
+/** One published rules version, as the changelog states it. */
+export interface StrategyVersionDetailView {
+  version: StrategyVersionDef;
+  /** Universe and data policy, one sentence each. */
+  policies: string[];
+  /** What this version changed from the one before it. */
+  changes: string[];
+  /** What this version gets wrong, worded as defects. */
+  knownIssues: string[];
+  /** YYYY-MM-DD the next version went live; "" while it is live. */
+  supersededOn: string;
+  /** YYYY-MM-DD the version was retired; "" while it is still evaluated. */
+  retiredOn: string;
 }
 
 export interface MarketRegimeView {
@@ -198,7 +215,7 @@ export interface StatusCountsView {
   unknown: number;
 }
 
-/** The strategy rules version that produced a set of picks; empty until versioned rules ship. */
+/** A strategy rules version: the picks, the fit and the definition name the same one. */
 export interface StrategyVersionDef {
   strategyId: string;
   label: string;

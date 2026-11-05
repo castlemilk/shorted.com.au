@@ -61,6 +61,7 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 			StrategyId:   st.ID,
 			StrategyName: st.Name,
 			TotalCount:   int32(len(eval.picks)),
+			VersionHash:  liveRulesHash(st.ID),
 		}
 		if i, ok := eval.index[code]; ok {
 			p := &eval.picks[i]

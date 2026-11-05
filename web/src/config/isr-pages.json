@@ -87,6 +87,7 @@
   "/strategies/minervini-trend-template/signals",
   "/strategies/crowded-short-breakout/signals",
   "/strategies/quality-compounders/signals",
+  "/strategies/changelog",
   "/housing/nsw",
   "/housing/vic",
   "/housing/qld",

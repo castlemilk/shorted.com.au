@@ -171,6 +171,9 @@ func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	//
 	// 5 Nov 2026, PR-04b (viewer context; no schema change, no new tool): tools/list
 	// measures 101,858 bytes across 33 tools, 542 bytes under the 102,400-byte ceiling.
+	// Rules versions (rules_version on list_strategies, one per strategy, and
+	// on get_strategy_picks) take the list to 102,034 bytes, 366 under the
+	// ceiling: the next strategy tool field needs a trim elsewhere first.
 	const budget = 100 * 1024
 
 	ctx := context.Background()

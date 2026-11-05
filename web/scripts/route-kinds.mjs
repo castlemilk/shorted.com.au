@@ -99,7 +99,7 @@ export const STRATEGY_ROUTES = ["/strategies/[strategy]", "/strategies/[strategy
 
 // The strategies hub is a static ISR page with no dynamic segment, so the gate
 // reads its revalidate under `routes` as it does the ownership pages.
-export const STRATEGY_STATIC_ROUTES = ["/strategies"];
+export const STRATEGY_STATIC_ROUTES = ["/strategies", "/strategies/changelog"];
 
 export function missingIsrRoutes(manifest, expected = STOCK_ROUTES) {
   const dynamicRoutes = manifest?.dynamicRoutes ?? {};

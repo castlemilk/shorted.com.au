@@ -983,6 +983,24 @@ service ShortedStocksService {
     };
   }
 
+  // One published version of a strategy's rules, with its parameters, changes and known issues.
+  rpc GetStrategyVersion (GetStrategyVersionRequest) returns (GetStrategyVersionResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Strategy Version",
+      description: "One published version of a strategy's rules, identified by its rules hash (empty for the live version): every numeric parameter, the policies it applies, what changed from the version before, and its known issues. An unknown hash is NotFound. Not financial advice."
+    };
+  }
+
+  // Every published version of the strategies' rules, in publication order (the rules changelog).
+  rpc ListStrategyVersions (ListStrategyVersionsRequest) returns (ListStrategyVersionsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Strategy Versions",
+      description: "Every published version of the stock-picking strategies' rules, with its rules hash, engine version, status and known issues. Filter by strategy_id; empty lists every strategy. Not financial advice."
+    };
+  }
+
   // ==================== Ownership ====================
   // Mirrored from OwnershipService for external API back-compat; the parity
   // test enforces the visibility match.

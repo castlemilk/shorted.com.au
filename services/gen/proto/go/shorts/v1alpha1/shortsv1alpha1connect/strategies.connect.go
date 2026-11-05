@@ -45,6 +45,12 @@ const (
 	// StrategyServiceGetStockStrategyFitProcedure is the fully-qualified name of the StrategyService's
 	// GetStockStrategyFit RPC.
 	StrategyServiceGetStockStrategyFitProcedure = "/shorts.v1alpha1.StrategyService/GetStockStrategyFit"
+	// StrategyServiceGetStrategyVersionProcedure is the fully-qualified name of the StrategyService's
+	// GetStrategyVersion RPC.
+	StrategyServiceGetStrategyVersionProcedure = "/shorts.v1alpha1.StrategyService/GetStrategyVersion"
+	// StrategyServiceListStrategyVersionsProcedure is the fully-qualified name of the StrategyService's
+	// ListStrategyVersions RPC.
+	StrategyServiceListStrategyVersionsProcedure = "/shorts.v1alpha1.StrategyService/ListStrategyVersions"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -54,6 +60,8 @@ var (
 	strategyServiceGetStrategyPicksMethodDescriptor       = strategyServiceServiceDescriptor.Methods().ByName("GetStrategyPicks")
 	strategyServiceGetViewerStrategyPicksMethodDescriptor = strategyServiceServiceDescriptor.Methods().ByName("GetViewerStrategyPicks")
 	strategyServiceGetStockStrategyFitMethodDescriptor    = strategyServiceServiceDescriptor.Methods().ByName("GetStockStrategyFit")
+	strategyServiceGetStrategyVersionMethodDescriptor     = strategyServiceServiceDescriptor.Methods().ByName("GetStrategyVersion")
+	strategyServiceListStrategyVersionsMethodDescriptor   = strategyServiceServiceDescriptor.Methods().ByName("ListStrategyVersions")
 )
 
 // StrategyServiceClient is a client for the shorts.v1alpha1.StrategyService service.
@@ -77,6 +85,13 @@ type StrategyServiceClient interface {
 	// per-rule pass / fail / unknown breakdown. A stock that is not a candidate
 	// for a strategy still gets its rule results, with status "none".
 	GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error)
+	// One published version of a strategy's rules: its parameters, what changed
+	// from the version before, and its known issues. An empty version_hash is
+	// the live version. Canonical versions only; an unknown hash is NotFound.
+	GetStrategyVersion(context.Context, *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error)
+	// Every published canonical version of a strategy (all strategies when
+	// strategy_id is empty), in publication order: the rules changelog.
+	ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error)
 }
 
 // NewStrategyServiceClient constructs a client for the shorts.v1alpha1.StrategyService service. By
@@ -113,6 +128,18 @@ func NewStrategyServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(strategyServiceGetStockStrategyFitMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getStrategyVersion: connect.NewClient[v1alpha1.GetStrategyVersionRequest, v1alpha1.GetStrategyVersionResponse](
+			httpClient,
+			baseURL+StrategyServiceGetStrategyVersionProcedure,
+			connect.WithSchema(strategyServiceGetStrategyVersionMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listStrategyVersions: connect.NewClient[v1alpha1.ListStrategyVersionsRequest, v1alpha1.ListStrategyVersionsResponse](
+			httpClient,
+			baseURL+StrategyServiceListStrategyVersionsProcedure,
+			connect.WithSchema(strategyServiceListStrategyVersionsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -122,6 +149,8 @@ type strategyServiceClient struct {
 	getStrategyPicks       *connect.Client[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse]
 	getViewerStrategyPicks *connect.Client[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse]
 	getStockStrategyFit    *connect.Client[v1alpha1.GetStockStrategyFitRequest, v1alpha1.GetStockStrategyFitResponse]
+	getStrategyVersion     *connect.Client[v1alpha1.GetStrategyVersionRequest, v1alpha1.GetStrategyVersionResponse]
+	listStrategyVersions   *connect.Client[v1alpha1.ListStrategyVersionsRequest, v1alpha1.ListStrategyVersionsResponse]
 }
 
 // ListStrategies calls shorts.v1alpha1.StrategyService.ListStrategies.
@@ -142,6 +171,16 @@ func (c *strategyServiceClient) GetViewerStrategyPicks(ctx context.Context, req 
 // GetStockStrategyFit calls shorts.v1alpha1.StrategyService.GetStockStrategyFit.
 func (c *strategyServiceClient) GetStockStrategyFit(ctx context.Context, req *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error) {
 	return c.getStockStrategyFit.CallUnary(ctx, req)
+}
+
+// GetStrategyVersion calls shorts.v1alpha1.StrategyService.GetStrategyVersion.
+func (c *strategyServiceClient) GetStrategyVersion(ctx context.Context, req *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error) {
+	return c.getStrategyVersion.CallUnary(ctx, req)
+}
+
+// ListStrategyVersions calls shorts.v1alpha1.StrategyService.ListStrategyVersions.
+func (c *strategyServiceClient) ListStrategyVersions(ctx context.Context, req *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error) {
+	return c.listStrategyVersions.CallUnary(ctx, req)
 }
 
 // StrategyServiceHandler is an implementation of the shorts.v1alpha1.StrategyService service.
@@ -165,6 +204,13 @@ type StrategyServiceHandler interface {
 	// per-rule pass / fail / unknown breakdown. A stock that is not a candidate
 	// for a strategy still gets its rule results, with status "none".
 	GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error)
+	// One published version of a strategy's rules: its parameters, what changed
+	// from the version before, and its known issues. An empty version_hash is
+	// the live version. Canonical versions only; an unknown hash is NotFound.
+	GetStrategyVersion(context.Context, *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error)
+	// Every published canonical version of a strategy (all strategies when
+	// strategy_id is empty), in publication order: the rules changelog.
+	ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error)
 }
 
 // NewStrategyServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -197,6 +243,18 @@ func NewStrategyServiceHandler(svc StrategyServiceHandler, opts ...connect.Handl
 		connect.WithSchema(strategyServiceGetStockStrategyFitMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	strategyServiceGetStrategyVersionHandler := connect.NewUnaryHandler(
+		StrategyServiceGetStrategyVersionProcedure,
+		svc.GetStrategyVersion,
+		connect.WithSchema(strategyServiceGetStrategyVersionMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	strategyServiceListStrategyVersionsHandler := connect.NewUnaryHandler(
+		StrategyServiceListStrategyVersionsProcedure,
+		svc.ListStrategyVersions,
+		connect.WithSchema(strategyServiceListStrategyVersionsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.StrategyService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StrategyServiceListStrategiesProcedure:
@@ -207,6 +265,10 @@ func NewStrategyServiceHandler(svc StrategyServiceHandler, opts ...connect.Handl
 			strategyServiceGetViewerStrategyPicksHandler.ServeHTTP(w, r)
 		case StrategyServiceGetStockStrategyFitProcedure:
 			strategyServiceGetStockStrategyFitHandler.ServeHTTP(w, r)
+		case StrategyServiceGetStrategyVersionProcedure:
+			strategyServiceGetStrategyVersionHandler.ServeHTTP(w, r)
+		case StrategyServiceListStrategyVersionsProcedure:
+			strategyServiceListStrategyVersionsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -230,4 +292,12 @@ func (UnimplementedStrategyServiceHandler) GetViewerStrategyPicks(context.Contex
 
 func (UnimplementedStrategyServiceHandler) GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.GetStockStrategyFit is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) GetStrategyVersion(context.Context, *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.GetStrategyVersion is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.ListStrategyVersions is not implemented"))
 }

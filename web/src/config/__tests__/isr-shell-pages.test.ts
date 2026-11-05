@@ -98,6 +98,11 @@ describe("stock picker pages in the ISR sweep inventory", () => {
     const missing = STRATEGY_SLUGS.filter((slug) => !all.has(`/strategies/${slug}`));
     expect(missing).toEqual([]);
   });
+
+  it("covers the rules changelog, so the post-promote sweep refreshes it", () => {
+    const all = new Set(isrPages as string[]);
+    expect(all.has("/strategies/changelog")).toBe(true);
+  });
 });
 
 // Housing ranking pages deliberately skip their live state read at build time

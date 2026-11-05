@@ -11,6 +11,7 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { RegimeBanner } from "~/@/components/picks/regime-banner";
 import { PicksProvenance } from "~/@/components/picks/picks-provenance";
+import { VersionChip } from "~/@/components/strategies/version-chip";
 import { RuleLegend, type RuleColumn } from "~/@/components/picks/picks-table";
 import { StrategyPanel } from "~/@/components/picks/strategy-panel";
 import { StrategySwitcher } from "~/@/components/picks/strategy-switcher";
@@ -172,11 +173,13 @@ export default async function StrategyPicksPage({ params }: PageProps) {
           {strategy?.author ? (
             <p className="text-sm text-muted-foreground">By {strategy.author}</p>
           ) : null}
+          <VersionChip version={data?.version ?? strategy?.version ?? null} />
           <PicksProvenance
             asOf={data?.asOf ?? ""}
             coverage={data?.fundamentalsCoverageCount ?? 0}
             rowsCount={data?.fundamentalsRowsCount ?? 0}
             universe={data?.universeCount ?? 0}
+            version={data?.version ?? strategy?.version ?? null}
           />
         </div>
 

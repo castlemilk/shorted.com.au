@@ -304,7 +304,7 @@ private static final long serialVersionUID = 0L;
   private com.shorts.v1alpha1.StrategyVersionRef version_;
   /**
    * <pre>
-   * Empty until versioned rules ship.
+   * The live rules version that produced these picks.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -316,7 +316,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Empty until versioned rules ship.
+   * The live rules version that produced these picks.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -328,7 +328,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Empty until versioned rules ship.
+   * The live rules version that produced these picks.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -2367,7 +2367,7 @@ private static final long serialVersionUID = 0L;
         com.shorts.v1alpha1.StrategyVersionRef, com.shorts.v1alpha1.StrategyVersionRef.Builder, com.shorts.v1alpha1.StrategyVersionRefOrBuilder> versionBuilder_;
     /**
      * <pre>
-     * Empty until versioned rules ship.
+     * The live rules version that produced these picks.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -2378,7 +2378,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Empty until versioned rules ship.
+     * The live rules version that produced these picks.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -2393,7 +2393,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Empty until versioned rules ship.
+     * The live rules version that produced these picks.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -2413,7 +2413,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Empty until versioned rules ship.
+     * The live rules version that produced these picks.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -2431,7 +2431,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Empty until versioned rules ship.
+     * The live rules version that produced these picks.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -2456,7 +2456,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Empty until versioned rules ship.
+     * The live rules version that produced these picks.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -2473,7 +2473,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Empty until versioned rules ship.
+     * The live rules version that produced these picks.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -2485,7 +2485,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Empty until versioned rules ship.
+     * The live rules version that produced these picks.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
@@ -2500,7 +2500,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Empty until versioned rules ship.
+     * The live rules version that produced these picks.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>

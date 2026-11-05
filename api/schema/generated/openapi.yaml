@@ -4162,6 +4162,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStrategyPicksResponse'
+  /shorts.v1alpha1.StrategyService/GetStrategyVersion:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: GetStrategyVersion
+      description: |-
+        One published version of a strategy's rules: its parameters, what changed
+         from the version before, and its known issues. An empty version_hash is
+         the live version. Canonical versions only; an unknown hash is NotFound.
+      operationId: StrategyService_GetStrategyVersion
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStrategyVersionRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetStrategyVersionResponse'
   /shorts.v1alpha1.StrategyService/GetViewerStrategyPicks:
     post:
       tags:
@@ -4240,6 +4279,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.ListStrategiesResponse'
+  /shorts.v1alpha1.StrategyService/ListStrategyVersions:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: ListStrategyVersions
+      description: |-
+        Every published canonical version of a strategy (all strategies when
+         strategy_id is empty), in publication order: the rules changelog.
+      operationId: StrategyService_ListStrategyVersions
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListStrategyVersionsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListStrategyVersionsResponse'
 servers:
   - url: https://api.shorted.com.au
 components:
@@ -10964,7 +11041,7 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.StatusCounts'
         version:
           title: version
-          description: Empty until versioned rules ship. (proto shorts.v1alpha1.StrategyVersionRef)
+          description: The live rules version that produced these picks. (proto shorts.v1alpha1.StrategyVersionRef)
           $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionRef'
         sessionDate:
           type: string
@@ -11004,6 +11081,30 @@ components:
       title: GetStrategyPicksResponse
       additionalProperties: false
       description: Response for GetStrategyPicks.
+    shorts.v1alpha1.GetStrategyVersionRequest:
+      type: object
+      properties:
+        strategyId:
+          type: string
+          title: strategy_id
+          description: Required, e.g. "zanger-breakout". (proto string)
+        versionHash:
+          type: string
+          title: version_hash
+          description: rules_hash of a published version; empty for the live version. (proto string)
+      title: GetStrategyVersionRequest
+      additionalProperties: false
+      description: Request for GetStrategyVersion.
+    shorts.v1alpha1.GetStrategyVersionResponse:
+      type: object
+      properties:
+        version:
+          title: version
+          description: (proto shorts.v1alpha1.StrategyVersionDetail)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionDetail'
+      title: GetStrategyVersionResponse
+      additionalProperties: false
+      description: Response for GetStrategyVersion.
     shorts.v1alpha1.GetSuburbIndexRequest:
       type: object
       properties:
@@ -13443,6 +13544,28 @@ components:
       title: ListStrategiesResponse
       additionalProperties: false
       description: Response for ListStrategies.
+    shorts.v1alpha1.ListStrategyVersionsRequest:
+      type: object
+      properties:
+        strategyId:
+          type: string
+          title: strategy_id
+          description: Empty for every strategy's versions. (proto string)
+      title: ListStrategyVersionsRequest
+      additionalProperties: false
+      description: Request for ListStrategyVersions.
+    shorts.v1alpha1.ListStrategyVersionsResponse:
+      type: object
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionDetail'
+          title: versions
+          description: (proto shorts.v1alpha1.StrategyVersionDetail)
+      title: ListStrategyVersionsResponse
+      additionalProperties: false
+      description: Response for ListStrategyVersions.
     shorts.v1alpha1.ListSubstantialNoticesRequest:
       type: object
       properties:
@@ -15885,6 +16008,25 @@ components:
       title: ReportListItem
       additionalProperties: false
       description: Summary of a published report for archive/index pages
+    shorts.v1alpha1.RuleParam:
+      type: object
+      properties:
+        ruleId:
+          type: string
+          title: rule_id
+          description: (proto string)
+        name:
+          type: string
+          title: name
+          description: The parameter's key, e.g. "min_pct". (proto string)
+        value:
+          type: number
+          title: value
+          format: double
+          description: (proto double)
+      title: RuleParam
+      additionalProperties: false
+      description: One numeric parameter of one rule in a version.
     shorts.v1alpha1.RuleResult:
       type: object
       properties:
@@ -16874,6 +17016,10 @@ components:
             type: string
           title: sources
           description: Attribution lines. (proto string)
+        version:
+          title: version
+          description: The live rules version this definition is evaluated under. (proto shorts.v1alpha1.StrategyVersionRef)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionRef'
       title: Strategy
       additionalProperties: false
       description: A named stock-picking strategy and how we evaluate it.
@@ -16913,6 +17059,10 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.RuleResult'
           title: rules
           description: (proto shorts.v1alpha1.RuleResult)
+        versionHash:
+          type: string
+          title: version_hash
+          description: rules_hash of the live version this reading was evaluated under. (proto string)
       title: StrategyFit
       additionalProperties: false
       description: One strategy's reading of one stock.
@@ -17197,6 +17347,54 @@ components:
       title: StrategyRule
       additionalProperties: false
       description: 'One rule of a strategy: the author''s version and exactly how we test it.'
+    shorts.v1alpha1.StrategyVersionDetail:
+      type: object
+      properties:
+        version:
+          title: version
+          description: (proto shorts.v1alpha1.StrategyVersionRef)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionRef'
+        params:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.RuleParam'
+          title: params
+          description: Every numeric parameter of every rule, in rule order. (proto shorts.v1alpha1.RuleParam)
+        policies:
+          type: array
+          items:
+            type: string
+          title: policies
+          description: Universe and data policy, one rendered sentence each. (proto string)
+        changes:
+          type: array
+          items:
+            type: string
+          title: changes
+          description: What this version changed from the one before it. (proto string)
+        knownIssues:
+          type: array
+          items:
+            type: string
+          title: known_issues
+          description: What this version gets wrong, worded as defects. (proto string)
+        supersededOn:
+          type: string
+          title: superseded_on
+          description: YYYY-MM-DD the next version went live; empty while live. (proto string)
+        retiredOn:
+          type: string
+          title: retired_on
+          description: YYYY-MM-DD the version was retired; empty while it is still evaluated. (proto string)
+        canonicalJson:
+          type: string
+          title: canonical_json
+          description: The hashed spec in canonical form, for audit. (proto string)
+      title: StrategyVersionDetail
+      additionalProperties: false
+      description: |-
+        One published version of a strategy's rules, as the changelog states it.
+         Recipe and recipe_hash (4 and 5) arrive with the recipe schema.
     shorts.v1alpha1.StrategyVersionRef:
       type: object
       properties:
