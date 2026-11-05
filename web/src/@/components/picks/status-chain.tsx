@@ -14,6 +14,7 @@ import type { PickStatus, RuleStatus } from "~/@/lib/strategies/types";
 const CHAIN: Record<PickStatus, readonly RuleStatus[]> = {
   triggered: ["pass", "pass", "pass"],
   setup: ["pass", "pass", "fail"],
+  unknown: ["pass", "pass", "unknown"],
   watch: ["pass", "fail", "unknown"],
 };
 

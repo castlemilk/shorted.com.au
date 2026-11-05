@@ -239,7 +239,7 @@ export function PicksFilterView({
             href={`${basePath}${picksQuery(value, sort)}`}
             active={status === value}
             label={STATUS_LABELS[value]}
-            count={formatStatusCount(counts[value])}
+            count={formatStatusCount(counts[value] ?? { count: 0, atLeast: false })}
           />
         ))}
       </nav>

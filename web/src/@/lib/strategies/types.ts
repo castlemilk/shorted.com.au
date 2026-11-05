@@ -9,11 +9,11 @@
 // repeat (docs/plans/stock-picker.md §3.1).
 
 export type RuleStatus = "pass" | "fail" | "unknown";
-export type PickStatus = "triggered" | "setup" | "watch";
+export type PickStatus = "triggered" | "setup" | "unknown" | "watch";
 /** Empty string when the API could not read the regime. */
 export type RegimeLabel = "uptrend" | "neutral" | "downtrend" | "";
 
-export const PICK_STATUSES: readonly PickStatus[] = ["triggered", "setup", "watch"];
+export const PICK_STATUSES: readonly PickStatus[] = ["triggered", "setup", "unknown", "watch"];
 
 export interface StrategyRuleDef {
   id: string;

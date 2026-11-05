@@ -97,6 +97,7 @@ export function statusCountsOf(picks: {
   return {
     triggered: { count: api.triggered, atLeast: false },
     setup: { count: api.setup, atLeast: false },
+    unknown: { count: api.unknown, atLeast: false },
     watch: { count: api.watch, atLeast: false },
   };
 }
@@ -109,11 +110,13 @@ export function formatStatusCount({ count, atLeast }: StatusCount): string {
 export const STATUS_LABELS: Record<PickStatus, string> = {
   triggered: "Triggered",
   setup: "Setup",
+  unknown: "Unknown",
   watch: "Watch",
 };
 
 export const STATUS_DESCRIPTIONS: Record<PickStatus, string> = {
   triggered: "Every core rule passes.",
   setup: "Every core rule passes except the trigger, which has not happened yet.",
+  unknown: "No core rule fails, but a core rule cannot be tested yet, so the stock may still qualify.",
   watch: "Some rules pass; ranked below the setups.",
 };

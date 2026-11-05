@@ -50,7 +50,7 @@ export const STRATEGY_FIT_TIMEOUT_MS = 4000;
  */
 export const STRATEGY_FIT_CACHE_VERSION = "v3";
 
-export type StrategyFitStatus = "triggered" | "setup" | "watch" | "none";
+export type StrategyFitStatus = "triggered" | "setup" | "unknown" | "watch" | "none";
 export type StrategyFitRuleStatus = "pass" | "fail" | "unknown";
 
 /** One rule's result on a stock's fit: the shared rule row. */
@@ -203,7 +203,7 @@ function text(value: string | undefined | null): string {
 
 function toStatus(value: string | undefined): StrategyFitStatus {
   const status = text(value).toLowerCase();
-  return status === "triggered" || status === "setup" || status === "watch"
+  return status === "triggered" || status === "setup" || status === "unknown" || status === "watch"
     ? status
     : "none";
 }

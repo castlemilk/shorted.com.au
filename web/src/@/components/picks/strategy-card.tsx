@@ -69,7 +69,7 @@ export function StatusTape({
 }) {
   const parts = PICK_STATUSES.map((status) => ({
     status,
-    count: Math.max(0, Math.min(ranked, counts[status].count)),
+    count: Math.max(0, Math.min(ranked, counts[status]?.count ?? 0)),
   }));
   const total = parts.reduce((sum, part) => sum + part.count, 0);
   if (total <= 0) return null;
@@ -90,6 +90,7 @@ export function StatusTape({
               "block min-w-[2px]",
               part.status === "triggered" && "bg-primary",
               part.status === "setup" && "border border-primary/70",
+              part.status === "unknown" && "border border-dashed border-muted-foreground",
               part.status === "watch" && "bg-muted-foreground/30",
             )}
           />
