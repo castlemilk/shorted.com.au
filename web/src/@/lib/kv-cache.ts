@@ -175,11 +175,11 @@ export const CACHE_KEYS = {
   // parses, with those fields empty, so it must never be read as the current
   // shape: the version lives in the key. The institutions list gained no field,
   // so its key stays where it is.
-  ownershipOverview: () => `cache:ownership:overview:v2`,
+  ownershipOverview: () => `cache:ownership:overview:v3`,
   ownershipInstitutions: (kind: string, query: string, limit: number, offset: number) =>
     `cache:ownership:institutions:${kind || "all"}:${query || "-"}:${limit}:${offset}`,
-  ownershipInstitution: (slug: string) => `cache:ownership:institution:v2:${slug}`,
-  stockOwnership: (stockCode: string) => `cache:ownership:stock:v2:${stockCode}`,
+  ownershipInstitution: (slug: string) => `cache:ownership:institution:v3:${slug}`,
+  stockOwnership: (stockCode: string) => `cache:ownership:stock:v3:${stockCode}`,
   // The explorer's two default views, and nothing else: /ownership/notices at
   // window 30 with no filters, and /ownership/stocks sorted by disclosed voting
   // power with no filters. Every other query is a live read, so a key never

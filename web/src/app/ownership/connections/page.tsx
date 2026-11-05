@@ -4,6 +4,7 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { OwnershipFlows } from "~/@/components/ownership/desk/ownership-flows";
 import { Inspector } from "~/@/components/ownership/workspace/inspector";
 import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 import { lede, pageTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { loadInspector, loadOwnershipFlows } from "~/app/actions/ownershipDesk";
@@ -46,6 +47,7 @@ export default async function OwnershipConnectionsPage() {
               All substantial notices →
             </Link>
           </p>
+          <MethodDisclosure />
         </div>
       </WorkspacePage>
     </DashboardLayout>

@@ -1,18 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useRef } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { OWNERSHIP_GROUP, OWNERSHIP_TABS, activeOwnershipTab } from "./nav";
+import { OWNERSHIP_GROUP, OWNERSHIP_TABS, activeOwnershipTab, tabHref } from "./nav";
 
 /**
  * The workspace's sub-navigation (spec 14.1), under the site header and sticky at
  * `top-16` as the stock tab bar is. Prefetch is by intent only (pointer, touch or
  * focus, once per href): a viewport prefetch would regenerate every ISR page the
  * bar names. The active tab reads the pathname, so this is a client island.
+ *
+ * The reader's selection and sector (backlog C2) ride on each tab's link, so a page
+ * change keeps the place the reader is in. The URL read sits under its own Suspense,
+ * as `useSearchParams` requires: the fallback is the bare links, which is the markup
+ * the server renders, so the first paint and the static page carry the same bar.
  */
 export function OwnershipNav() {
+  return (
+    <Suspense fallback={<OwnershipNavBar place={null} />}>
+      <OwnershipNavLive />
+    </Suspense>
+  );
+}
+
+function OwnershipNavLive() {
+  const params = useSearchParams();
+  return <OwnershipNavBar place={{ sel: params?.get("sel") ?? "", sector: params?.get("sector") ?? "" }} />;
+}
+
+/** The reader's place on the page: the selection and the zoomed sector, as the link carries them. */
+interface NavPlace {
+  sel: string;
+  sector: string;
+}
+
+function OwnershipNavBar({ place }: { place: NavPlace | null }) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const active = activeOwnershipTab(pathname);
@@ -36,16 +60,17 @@ export function OwnershipNav() {
         <ul className="flex shrink-0 items-center gap-1">
           {OWNERSHIP_TABS.map((tab) => {
             const isActive = tab.id === active;
+            const href = place === null ? tab.href : tabHref(tab, place);
             return (
               <li key={tab.id}>
                 <Link
-                  href={tab.href}
+                  href={href}
                   prefetch={false}
                   scroll
                   aria-current={isActive ? "page" : undefined}
-                  onPointerEnter={() => warm(tab.href, isActive)}
-                  onTouchStart={() => warm(tab.href, isActive)}
-                  onFocus={() => warm(tab.href, isActive)}
+                  onPointerEnter={() => warm(href, isActive)}
+                  onTouchStart={() => warm(href, isActive)}
+                  onFocus={() => warm(href, isActive)}
                   className={cn(
                     "-mb-px inline-flex items-center border-b-2 px-2 py-3 font-mono text-sm transition-colors",
                     isActive

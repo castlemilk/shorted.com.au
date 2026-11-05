@@ -25,14 +25,6 @@ import {
   holderHref,
 } from "./kinds";
 
-/**
- * Notices an institution page draws before "Show all": its newest, in the
- * server's order. Only the notices are bounded. The stakes and holdings-file
- * rows are what the page says an institution holds, so every one of them,
- * with its stock link, is in the HTML.
- */
-export const INSTITUTION_NOTICES_SHOWN = 25;
-
 /** One current substantial holding, on its holder's page. */
 export interface HoldingRow {
   code: string;
@@ -100,6 +92,8 @@ export interface NoticeRow {
   votingPower: string;
   change: string;
   url: string;
+  /** "model" when a model read the notice after the parser withheld it (read_by); absent otherwise. */
+  readBy?: string;
 }
 
 export function noticeRow(n: SubstantialNotice, withHolder: boolean): NoticeRow {
@@ -113,5 +107,6 @@ export function noticeRow(n: SubstantialNotice, withHolder: boolean): NoticeRow 
     votingPower: n.ceased ? "under 5%" : n.hasPresent ? formatVotingPower(n.presentPct) : "n/a",
     change: n.hasPrevious && n.hasPresent ? formatPointChange(n.previousPct, n.presentPct) : "",
     url: n.announcementUrl,
+    ...(n.readBy === "model" ? { readBy: "model" } : {}),
   };
 }

@@ -340,6 +340,7 @@ locals {
     "shorted-news-resolve-googlenews",
     "shorted-news-digest",
     "shorted-economy",
+    "shorted-ownership",
   ]
 }
 

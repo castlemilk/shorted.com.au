@@ -248,14 +248,14 @@ Logging is not readable from CI. The run log carries the same summary line:
 Running it again must print `4112 of 4116 published date(s) match ASIC, the
 rest could not be checked` — the rest being the four unusable source files.
 
-## Ingest log and revisions (migration 000154)
+## Ingest log and revisions (migration 000155)
 
 Every file the writer loads (`daily`, `poll`) or examines (`reconcile`) gets one
 `asic_report_ingests` row, written after the file's rows:
 
 | Column | What it holds |
 |---|---|
-| `first_ingested_at` | when the report was first recorded. Kept on every later load, so it measures ASIC's real publication lag from the day 000154 landed. A report first seen by reconcile shows the reconcile time, with `mode = reconcile`. |
+| `first_ingested_at` | when the report was first recorded. Kept on every later load, so it measures ASIC's real publication lag from the day 000155 landed. A report first seen by reconcile shows the reconcile time, with `mode = reconcile`. |
 | `file_rows` | distinct product codes the file parsed |
 | `loaded_rows` | how many of those codes shorts holds for the date, **recounted from shorts after the write** by every mode. A clean reconcile writes no shorts row and still recounts. |
 | `mode` / `last_mode` | the first mode that recorded it, and the latest |

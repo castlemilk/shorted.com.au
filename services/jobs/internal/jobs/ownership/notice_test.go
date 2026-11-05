@@ -92,6 +92,20 @@ func TestParseSubstantialNoticeFixtures(t *testing.T) {
 		// A private equity consortium: KKR's vehicles, not Comet.
 		{file: "car_603_kkr_vehicles", outcome: outcomeParsed, form: Form603, inst: "kkr", date: "2026-10-06",
 			pres: new(5.01), votes: new(int64(18978899))},
+		// A section 1 value that runs into the "Name" label on its line: the label is
+		// cut, and the name is kept ("Eric Sondergaard Name" is no holder's name).
+		{file: "mhc_603_sondergaard_name_label", outcome: outcomeParsed, form: Form603,
+			holder: "Eric Sondergaard", date: "2026-09-25", pres: new(6.2141), votes: new(int64(35500000))},
+		// "This notice is given by" opens the value: the sentence is cut to the name
+		// that follows it.
+		{file: "cma_604_carma_notice_given_by", outcome: outcomeParsed, form: Form604,
+			holder: "Carma Investments Pty Ltd", prev: new(9.40), pres: new(6.10), votes: new(int64(13840000))},
+		// The previous (5.21%) and present (78.21%) figures are on different rows: a
+		// 73 point change no register shows, withheld as implausible.
+		{file: "mhc_604_previous_present_split_rows", outcome: outcomeImplausible, form: Form604},
+		// A 52 point change with both figures on one row is read.
+		{file: "mhc_604_fifty_two_points_one_row", outcome: outcomeParsed, form: Form604,
+			holder: "Eric Sondergaard", prev: new(5.50), pres: new(57.50), votes: new(int64(61600000))},
 		// Voting power "See Annexure B": withheld, never guessed.
 		{file: "boq_603_dimensional_see_annexure", outcome: outcomeNoVotingPower, form: Form603},
 		{file: "ltr_scan_no_text", headline: "Ceasing to be a substantial holder", outcome: outcomeNoText},
@@ -326,6 +340,23 @@ func TestPlaceholderReason(t *testing.T) {
 		{"Mega Uranium Ltd and Mega Redport Pty Ltd who are each associates of each other - N/A", false},
 		{"Name: N/A", true},
 		{"Not applicable (N/A)", true},
+		// A label or the form's wording inside the value, as whole words.
+		{"Eric Sondergaard Name Holdings", true},
+		{"Eric Sondergaard Names Pty Ltd", true},
+		{"This notice is given by", true},
+		{"This notice is given by Carma", true},
+		{"Carma Investments Pty Ltd, this notice", true},
+		{"Substantial holder Pty Ltd", true},
+		{"Notice of Holdings Pty Ltd", true},
+		{"Form 604 Holdings", true},
+		{"Holder became Capital", true},
+		{"There was a change", true},
+		{"ACN/ARSN 112 425 788", true},
+		{"Renamed Holdings Pty Ltd", false},
+		{"Substantial Holdings Pty Ltd", false},
+		{"Namesake Capital", false},
+		{"Form 6041 Trust", false},
+		{"Carma Investments Pty Ltd", false},
 		{"", false}, // no value was written: the fallbacks read the holder
 	} {
 		if got := placeholderReason(tc.name); (got != "") != tc.placeholder {
@@ -389,6 +420,13 @@ func TestPlaceholderHolderWithheld(t *testing.T) {
 		// The pointer sits in the tail that tidying cuts, so the rule reads the
 		// pointer alone.
 		{"a pointer behind a tail", placeholderNotice("SEE ANNEXURE 1 on behalf of Some Fund Pty Ltd"), outcomeNoHolder, `"SEE ANNEXURE 1" (matches "annexure")`},
+		// A label inside the value: the name is kept whole, so the phrase withholds it.
+		{"a label inside the value", placeholderNotice("Eric Sondergaard Name-Holdings Pty Ltd"), outcomeNoHolder, `"Eric Sondergaard Name-Holdings Pty Ltd" (contains "name")`},
+		// The notice's own sentence is withheld alone and before one word, and cut
+		// before a name of two words or more.
+		{"the sentence alone", placeholderNotice("This notice is given by"), outcomeNoHolder, `"This notice is given by" (contains "this notice")`},
+		{"the sentence before one word", placeholderNotice("This notice is given by Carma"), outcomeNoHolder, `"This notice is given by Carma" (contains "this notice")`},
+		{"the sentence before a name", placeholderNotice("This notice is given by Carma Investments Pty Ltd"), outcomeParsed, ""},
 		{"a dash", placeholderNotice("-"), outcomeNoHolder, `"-" (no letter in it)`},
 		{"digits only", placeholderNotice("123 456 789"), outcomeNoHolder, `"123 456 789" (no letter in it)`},
 		{"single letters", placeholderNotice("A B"), outcomeNoHolder, `"A B" (every word is a single letter)`},
@@ -447,6 +485,79 @@ func TestPlaceholderHolderResolvesToInstitution(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// The section 1 label cut and the notice's own sentence. A label after the value
+// on its line is no part of the name, and "This notice is given by" is cut only
+// when a name of two words or more follows it; a bare value keeps the sentence,
+// which the placeholder rule then withholds.
+func TestCleanHolderNameLabels(t *testing.T) {
+	for raw, want := range map[string]string{
+		"Eric Sondergaard Name":  "Eric Sondergaard",
+		"Eric Sondergaard Names": "Eric Sondergaard",
+		"Eric Sondergaard, Name": "Eric Sondergaard",
+		"Name Name":              "",
+		"This notice is given by Carma Investments Pty Ltd":   "Carma Investments Pty Ltd",
+		"this notice is given by Carma Investments":           "Carma Investments",
+		"This notice is given by Carma":                       "This notice is given by Carma",
+		"This notice is given by":                             "This notice is given by",
+		"This notice is given by: Carma Investments Pty Ltd":  "Carma Investments Pty Ltd",
+		"This notice is given by (Carma Investments Pty Ltd)": "Carma Investments Pty Ltd",
+		"Renamed Holdings Pty Ltd":                            "Renamed Holdings Pty Ltd",
+		"Some Fund Pty Ltd":                                   "Some Fund Pty Ltd",
+	} {
+		if got := cleanHolderName(raw); got != want {
+			t.Errorf("cleanHolderName(%q) = %q, want %q", raw, got, want)
+		}
+	}
+}
+
+// readNoticeFixture returns a fixture's layout text, for the tests that need the
+// raw rows rather than the parsed notice.
+func readNoticeFixture(t *testing.T, name string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("testdata", "notices", name+".txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+// changeNotice is a synthetic 604 whose previous and present figures sit on the
+// table rows given, one string per row. The text has the layout's line breaks, so
+// the rule sees the rows as the form draws them.
+func changeNotice(rows ...string) string {
+	return "Form 604 Notice of change of interests of substantial holder 1. Details of substantial holder (1) Name Some Fund Pty Ltd ACN 1\n" +
+		"2. Previous and present voting power\n" + strings.Join(rows, "\n") + "\n3. Changes in relevant interests " + padding
+}
+
+// A stated change over 50 points is withheld unless both figures are on one row.
+// Exactly 50 is not over 50, and a fifty-point change on one row is read.
+func TestChangeNoticeFiftyPointRule(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		text    string
+		outcome Outcome
+		detail  string
+	}{
+		{"50 points on two rows", changeNotice("Ordinary 10,000,000 5.00%", "Ordinary 60,000,000 55.00%"), outcomeParsed, ""},
+		{"50.01 points on two rows", changeNotice("Ordinary 10,000,000 5.00%", "Ordinary 60,000,001 55.01%"), outcomeImplausible, changeOver50Detail},
+		{"51 points down on two rows", changeNotice("Ordinary 10,000,000 60.00%", "Ordinary 9,000,000 9.00%"), outcomeImplausible, changeOver50Detail},
+		{"51 points down on one row", changeNotice("Ordinary 10,000,000 60.00% 9,000,000 9.00%"), outcomeParsed, ""},
+		{"50.01 points on one row", changeNotice("Ordinary 10,000,000 5.00% 60,000,001 55.01%"), outcomeParsed, ""},
+		// The same two figures on one line of section 3 do not vouch for the
+		// section 2 rows: the same-row check reads the voting section only.
+		{"section 3 pair does not vouch for section 2 rows", changeNotice("Ordinary 10,000,000 5.00%", "Ordinary 60,000,001 55.01%") + "\nOrdinary 10,000,000 5.00% 60,000,001 55.01%", outcomeImplausible, changeOver50Detail},
+		{"fixture: figures on different rows", readNoticeFixture(t, "mhc_604_previous_present_split_rows"), outcomeImplausible, changeOver50Detail},
+		{"fixture: 52 points on one row", readNoticeFixture(t, "mhc_604_fifty_two_points_one_row"), outcomeParsed, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, outcome, detail := parseSubstantialNotice(tc.text, "")
+			if outcome != tc.outcome || detail != tc.detail {
+				t.Fatalf("outcome %s (%q), want %s (%q)", outcome, detail, tc.outcome, tc.detail)
+			}
+		})
 	}
 }
 

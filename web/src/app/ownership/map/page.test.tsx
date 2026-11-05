@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import OwnershipMapPage, { metadata, revalidate } from "./page";
 
 const bailOnEmptyRender = jest.fn(async () => undefined);
@@ -69,19 +69,25 @@ describe("the market map page (spec 14.3)", () => {
     loadOwnershipMap.mockResolvedValue({ ...MAP_OK, fundsCompared: 2 });
     render(await OwnershipMapPage());
     expect(screen.queryByText(/funds compared/)).toBeNull();
-    expect(screen.getByText(/Default window · Latest available/)).toBeInTheDocument();
+    // The page's own status line is gone: the map's coverage line states the window and the read-to date.
+    expect(screen.queryByText(/Default window · Latest available/)).toBeNull();
   });
 
-  it("keeps the method in the sources section, which the insights page's paragraphs now sit in", async () => {
+  it("folds the method into one closed disclosure at the foot of the page, its text still in the HTML", async () => {
     const { container } = render(await OwnershipMapPage());
-    const section = container.querySelector("section[aria-labelledby='sources']");
-    expect(section).not.toBeNull();
-    expect(section?.textContent).toMatch(/valued at its own later file's price .* so a price move is not a position move/);
-    expect(section?.textContent).toMatch(/A notice is dated by the day ASX released it/);
-    expect(section?.querySelector('a[href="/ownership/activity"]')?.textContent).toBe("sector heatmap on Activity");
-    expect(section?.textContent).toMatch(/its file at the window's start \(or its first file inside the window\)/);
-    expect(section?.textContent).toMatch(/what the notices disclose, not a share of the company/);
-    expect(screen.getByRole("heading", { name: "Sources and method" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sources and method" })).toBeNull();
+    const method = container.querySelector("details#method");
+    expect(method).not.toBeNull();
+    expect(method).not.toHaveAttribute("open");
+    expect(method).toHaveClass("scroll-mt-20");
+    expect(within(method as HTMLElement).getByText("How these figures are read")).toBeInTheDocument();
+    expect(method?.textContent).toMatch(/valued at its own later file's price .* so a price move is not a position move/);
+    expect(method?.textContent).toMatch(/A notice is dated by the day ASX released it/);
+    expect(method?.querySelector('a[href="/ownership/activity"]')?.textContent).toBe("sector heatmap on Activity");
+    expect(method?.textContent).toMatch(/its file at the window's start \(or its first file inside the window\)/);
+    expect(method?.textContent).toMatch(/what the notices disclose, not a share of the company/);
+    // The method is the last block of the page: nothing follows the disclosure.
+    expect(method?.nextElementSibling ?? null).toBeNull();
   });
 
   it("bails the cache, and draws no map, when the market cannot be read", async () => {

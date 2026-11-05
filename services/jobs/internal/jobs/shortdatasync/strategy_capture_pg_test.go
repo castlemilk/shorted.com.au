@@ -16,7 +16,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/testpostgres"
 )
 
-// Real-Postgres tests for migration 000154: the vintage trigger and its baseline, the replay guarantee,
+// Real-Postgres tests for migration 000155: the vintage trigger and its baseline, the replay guarantee,
 // and the writer's SQL. They run against a disposable server: a URL in SHORTDATASYNC_TEST_DATABASE_URL,
 // or a container when SHORTDATASYNC_TESTCONTAINERS=1 (see testmain_test.go). Each test builds its own
 // DATABASE, not a schema: the trigger function pins search_path to public, exactly as production runs it,
@@ -97,7 +97,7 @@ func seedFundamental(t *testing.T, pool *pgxpool.Pool, code string, revenue floa
 	require.NoError(t, err)
 }
 
-// TestStrategyCaptureVintagesAgainstPostgres applies 000154 twice and checks the trigger, the baseline and
+// TestStrategyCaptureVintagesAgainstPostgres applies 000155 twice and checks the trigger, the baseline and
 // the delete rule against a live table.
 func TestStrategyCaptureVintagesAgainstPostgres(t *testing.T) {
 	pool := captureDB(t)
@@ -109,11 +109,11 @@ func TestStrategyCaptureVintagesAgainstPostgres(t *testing.T) {
 	seedFundamental(t, pool, "BHP", 100)
 	seedFundamental(t, pool, "CBA", 200)
 
-	captureApply(t, pool, "000154_strategy_capture.up.sql")
+	captureApply(t, pool, "000155_strategy_capture.up.sql")
 	require.Equal(t, 2, countVintages(t, pool, "B"), "one baseline row per existing row")
 
 	// Replay: a second application changes nothing, adds no trigger and no baseline.
-	captureApply(t, pool, "000154_strategy_capture.up.sql")
+	captureApply(t, pool, "000155_strategy_capture.up.sql")
 	require.Equal(t, 2, countVintages(t, pool, "B"), "a replay must not repeat the baseline")
 	var triggers int
 	require.NoError(t, pool.QueryRow(ctx, `
@@ -161,7 +161,7 @@ func TestStrategyCaptureLatestVintageWithinOneTransaction(t *testing.T) {
 	pool := captureDB(t)
 	ctx := context.Background()
 	captureApply(t, pool, "000129_add_stock_fundamentals.up.sql")
-	captureApply(t, pool, "000154_strategy_capture.up.sql")
+	captureApply(t, pool, "000155_strategy_capture.up.sql")
 
 	tx, err := pool.Begin(ctx)
 	require.NoError(t, err)
@@ -197,7 +197,7 @@ func TestStrategyCaptureFilingPurgeAgainstPostgres(t *testing.T) {
 	ctx := context.Background()
 
 	captureApply(t, pool, "000129_add_stock_fundamentals.up.sql")
-	captureApply(t, pool, "000154_strategy_capture.up.sql")
+	captureApply(t, pool, "000155_strategy_capture.up.sql")
 
 	for i := range 5 {
 		_, err := pool.Exec(ctx, `
@@ -235,7 +235,7 @@ func TestIngestWriterAgainstPostgres(t *testing.T) {
 	pool := captureDB(t)
 	ctx := context.Background()
 	captureApply(t, pool, "000129_add_stock_fundamentals.up.sql")
-	captureApply(t, pool, "000154_strategy_capture.up.sql")
+	captureApply(t, pool, "000155_strategy_capture.up.sql")
 	captureShorts(t, pool)
 	store := &pgStore{db: pool}
 

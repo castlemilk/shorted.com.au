@@ -119,7 +119,8 @@ function LiveOwnershipFlows({ initial, loadFlows, basePath, variant }: Ownership
   const key = keyOf(state);
 
   // The Positions | Change view is a link parameter (`view=changes`), so the inspector reads the window's notices for it.
-  const mode: FlowMode = params.get("view") === "changes" ? "changes" : "positions";
+  // The Overview's pane is positions only (backlog B2): its link's view is not read.
+  const mode: FlowMode = variant !== "compact" && params.get("view") === "changes" ? "changes" : "positions";
   const [measure, setMeasure] = useState<FlowMeasure>("exposure");
   const [largest, setLargest] = useState<LargestChoice>("all");
   // The drilldown (spec 14.3, Connections): a holder kind, a sector, or both narrow the drawing to their bands.
@@ -245,7 +246,7 @@ function LiveOwnershipFlows({ initial, loadFlows, basePath, variant }: Ownership
         onExpandOther={() => setTailOpen(true)}
         onFoldOther={() => setTailOpen(false)}
         tailToggle={variant === "full"}
-        windowControl={variant !== "compact"}
+        compact={variant === "compact"}
         // The drilldown is the Connections page's; the Overview's pane keeps its links to the directories.
         onDrill={variant === "full" ? (patch) => setDrill((current) => ({ ...current, ...patch })) : undefined}
       />
@@ -267,7 +268,7 @@ export function OwnershipFlows(props: OwnershipFlowsProps) {
           state={DESK_DEFAULT_WINDOW_STATE}
           basePath={props.basePath}
           params={new URLSearchParams()}
-          windowControl={props.variant !== "compact"}
+          compact={props.variant === "compact"}
           // The full page's controls row is reserved, so the island mounting does not shift the drawing.
           controls={props.variant === "full" ? <div aria-hidden="true" className={TOOLBAR_ROW_CLASS} /> : undefined}
         />

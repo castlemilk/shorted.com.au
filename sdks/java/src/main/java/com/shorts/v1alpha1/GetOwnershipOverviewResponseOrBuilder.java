@@ -479,4 +479,15 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
    * @return The documentsAttempted.
    */
   int getDocumentsAttempted();
+
+  /**
+   * <pre>
+   * Parsed notices a model read after the parser withheld them (read_by = model).
+   * Counted within notices_parsed.
+   * </pre>
+   *
+   * <code>int32 notices_read_by_model = 21 [json_name = "noticesReadByModel"];</code>
+   * @return The noticesReadByModel.
+   */
+  int getNoticesReadByModel();
 }

@@ -3,46 +3,19 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/@/components/ui/card";
 import { Disclosure } from "~/@/components/ui/disclosure";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/@/components/ui/table";
-import {
-  KindBadge,
-  OwnershipMethodology,
-  OwnershipStockTable,
-} from "~/@/components/ownership/ownership-parts";
 import { ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
-import { NoticeTable } from "~/@/components/ownership/notice-table";
 import { OwnershipPlate, type PlateItem } from "~/@/components/ownership/ownership-plate";
 import {
-  Dated,
   OwnershipReportError,
   OwnershipSourceLines,
   type SourceLine,
 } from "~/@/components/ownership/ownership-provenance";
 import { WithheldBreakdown } from "~/@/components/ownership/withheld-breakdown";
-import { NOT_AVAILABLE, formatAmount } from "~/@/lib/fundamentals/format";
-import {
-  KIND_ORDER,
-  WITHHOLDING_OUTCOMES,
-  asAtRange,
-  kindInfo,
-  kindRank,
-} from "~/@/lib/ownership/kinds";
-import { cn } from "@/lib/utils";
+import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
+import { NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
+import { WITHHOLDING_OUTCOMES, asAtRange } from "~/@/lib/ownership/kinds";
+import { weekList, weekTotals } from "~/@/components/ownership/desk/movement-heatmap-static";
 import { lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getOwnershipOverview, listInstitutions } from "~/app/actions/getOwnership";
@@ -62,9 +35,6 @@ import { OwnershipFlows } from "~/@/components/ownership/desk/ownership-flows";
 import { OwnershipMap } from "~/@/components/ownership/desk/ownership-map";
 import { Inspector } from "~/@/components/ownership/workspace/inspector";
 import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
-import type {
-  OwnershipInstitution,
-} from "~/gen/shorts/v1alpha1/ownership_pb";
 import { JsonLd } from "~/@/components/seo/json-ld";
 
 const URL = "https://shorted.com.au/ownership";
@@ -74,18 +44,6 @@ const DESCRIPTION =
 const LLM_SOURCE =
   "ASX substantial holding notices; APRA fund-level statistics; ASX Investment Products report; the holdings files index funds and super fund options publish";
 const REPORT_SUBJECT = "Ownership data: hub";
-
-// What each register view counts, in the words the views are read by.
-const CROWDED =
-  "Stocks where investors (super funds, index and active managers, hedge funds, sovereign funds and insurers) disclose the most voting power between them. Banks and brokers (often securities lending), listed companies and private holders are not counted.";
-const BOTH_WAYS =
-  "Hedge funds and active managers together disclose 5% or more, and at least 3% of the shares are reported short. Two disclosures on one page, not a finding.";
-const LENDING =
-  "Banks and brokers with a substantial interest, often securities lending (shares lent to, or held as collateral from, short sellers), beside each stock's short interest.";
-const INDEX =
-  "The share of each company held by the index funds tracked (iShares, Vanguard, SPDR, Betashares), from their latest holdings files. Vanguard's files cover the whole fund behind each ETF, so VAS's figures are the fund's, not the ETF's alone.";
-const superCopy = (range: string) =>
-  `What the tracked super fund options hold most of, by combined value: each fund's default or balanced option, from its portfolio holdings disclosure, ${range}.`;
 
 export const revalidate = 3600;
 
@@ -116,43 +74,25 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", site: "@shorted___", creator: "@shorted___" },
 };
 
-function Tile({
-  value,
-  label,
-  meta,
-  children,
-}: {
-  value: string;
-  label: string;
-  meta?: ReactNode;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="space-y-1 bg-card p-4">
-      <p className="text-2xl font-semibold tabular-nums">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      {meta ? <p className="text-xs tabular-nums text-muted-foreground">{meta}</p> : null}
-      {children}
-    </div>
-  );
+/** A count in the headline band: the one figure of its sentence, in mono. */
+function Figure({ children }: { children: ReactNode }) {
+  return <span className="font-mono tabular-nums text-foreground">{children}</span>;
 }
 
-function InstitutionLink({ inst }: { inst: OwnershipInstitution }) {
-  return (
-    <Link href={`/ownership/${inst.slug}`} prefetch={false} className="text-primary underline-offset-4 hover:underline">
-      {inst.name}
-    </Link>
-  );
+function count(value: number): string {
+  return value.toLocaleString("en-AU");
 }
 
-/** An institution's size: a super fund's total assets, else its products'. */
-function sizeOf(inst: OwnershipInstitution): string {
-  if (inst.hasAum) return `${formatAmount(inst.aumAud, "AUD")} assets`;
-  if (inst.hasFundsSize) return `${formatAmount(inst.fundsSizeAud, "AUD")} in ${inst.funds} listed fund${inst.funds === 1 ? "" : "s"}`;
-  return "";
+/**
+ * A record's label on the Records row: its name, and its count when the page holds a count above
+ * zero. A count the page does not have is left out, never printed as 0.
+ */
+function recordLabel(name: string, value: number | undefined): string {
+  return value !== undefined && value > 0 ? `${name} · ${count(value)}` : name;
 }
 
-/** A ticker's shape: the panel's loader takes a code from the client, so it is checked before a read. */
+/** The pane titles are the links to each instrument's own page. */
+const paneTitleLink = "underline-offset-4 hover:underline";
 
 export default async function OwnershipPage() {
   // The desk's instruments read the default view here, so the HTML carries it. Each
@@ -176,14 +116,7 @@ export default async function OwnershipPage() {
   const directoryOk = directory !== undefined;
   if (empty || !deskOk || !directoryOk) await bailOnEmptyRender();
 
-
-  const kinds = [...(overview?.kinds ?? [])].sort((a, b) => kindRank(a.kind) - kindRank(b.kind));
   const institutions = directory?.institutions ?? [];
-  // Every kind keeps its group, even an empty one, so each flow link lands on its own anchor.
-  const byKind = KIND_ORDER.map((kind) => ({
-    kind,
-    members: institutions.filter((i) => i.kind === kind),
-  }));
   const asOf = overview?.asOf ?? "";
   const etfs = overview?.etfs ?? 0;
   const lics = overview?.lics ?? 0;
@@ -198,6 +131,10 @@ export default async function OwnershipPage() {
   const superOptions = superSource?.funds ?? 0;
   const indexRange = asAtRange(indexSource?.asAtFrom ?? "", indexSource?.asAt ?? "");
   const superRange = asAtRange(superSource?.asAtFrom ?? "", superSource?.asAt ?? "");
+  // A date the API does not hold drops its clause from the band, rather than printing "as at n/a".
+  const dated = (...dates: (string | undefined)[]) => dates.some((date) => date !== undefined && date !== "");
+  const indexDates = dated(indexSource?.asAt, indexSource?.asAtFrom) ? indexRange : "";
+  const superDates = dated(superSource?.asAt, superSource?.asAtFrom) ? superRange : "";
 
   // The tile counts the six withholding outcomes. The two that are not withheld
   // are named apart in the breakdown, never counted here.
@@ -207,6 +144,15 @@ export default async function OwnershipPage() {
     outcomes.length > 0
       ? outcomes.filter((o) => WITHHOLDING_OUTCOMES.includes(o.outcome)).reduce((n, o) => n + o.count, 0)
       : (overview?.noticesWithheld ?? 0);
+  // The two outcomes that are not withheld notices (a document that was never a form, a download still
+  // to retry) are "set aside" in the sentence, so read + withheld + set aside = attempted and the band
+  // reconciles; the breakdown names them.
+  const setAside = outcomes.filter((o) => !WITHHOLDING_OUTCOMES.includes(o.outcome)).reduce((n, o) => n + o.count, 0);
+
+  // The newest week of the activity the page loads, over every sector: "released this week" in the
+  // band. Dropped when the read names no week, never printed as 0.
+  const newestWeek = activity.ok ? weekList(activity.fromWeek, activity.toWeek).at(-1) : undefined;
+  const thisWeek: number | undefined = newestWeek === undefined ? undefined : weekTotals(activity.rows, [newestWeek])[0];
 
   const title = <h1 className={pageTitle}>The ownership landscape</h1>;
 
@@ -222,32 +168,19 @@ export default async function OwnershipPage() {
               today.
             </p>
           </section>
-          <section className="space-y-3" aria-labelledby="sources">
-            <h2 id="sources" className={sectionTitle}>
-              Sources and method
-            </h2>
-            <div id="method" className="scroll-mt-20">
-              <OwnershipMethodology className="max-w-[80ch]" />
-            </div>
+          <div className="space-y-3">
+            <MethodDisclosure />
             <p className="text-xs text-muted-foreground">
               <OwnershipReportError subject={REPORT_SUBJECT} />
             </p>
-          </section>
+          </div>
         </div>
       </DashboardLayout>
     );
   }
 
-  // The wireframe's lede, verbatim (spec 14.3); the file counts are the record's and sit beneath it.
+  // The wireframe's lede, verbatim (spec 14.3); the file counts are the record's and sit in the band.
   const ledeText = "Explore the market. Follow the connections. Inspect the changes.";
-  // The line says the dates are mixed only when they are: the notices' date and each file's span.
-  const mixedDates = new Set(
-    [asOf, indexSource?.asAtFrom ?? "", indexSource?.asAt ?? "", superSource?.asAtFrom ?? "", superSource?.asAt ?? ""].filter(
-      (date) => date !== "",
-    ),
-  ).size > 1;
-  const statusParts = [asOf ? `Latest notices to ${asOf}` : "", mixedDates ? "Mixed disclosure dates" : ""];
-  const statusLine = statusParts.filter((part) => part !== "").join(" · ");
 
   // The plate carries the dates the page's figures are read to, each with its own.
   const plate: PlateItem[] = [
@@ -257,9 +190,30 @@ export default async function OwnershipPage() {
     { text: "ASIC shorts T+4" },
   ];
 
+  // The records behind each row, counted from what the page already holds. The registers are the stocks
+  // with a disclosed holding; the directory's total is the institutions on the map.
+  const records: { href: string; name: string; count: number | undefined }[] = [
+    { href: "/ownership/stocks", name: "Stocks on the map", count: map.ok ? map.stocks.length : undefined },
+    // The API caps the holders list at 25, so its length is a list cap, not a count of the record: no count.
+    { href: "/ownership/holders", name: "Biggest holders", count: undefined },
+    {
+      href: "/ownership/stocks",
+      name: "Registers",
+      count: map.ok ? map.stocks.filter((stock) => stock.disclosedPct > 0).length : undefined,
+    },
+    { href: "/ownership/notices", name: "Latest notices", count: overview?.noticesParsed },
+    { href: "/ownership/holders", name: "Institutions on the map", count: directory?.total },
+  ];
+
+  // The notices the parser withheld and a model read (read_by = model), named on the notices' source line.
+  const readByModel = overview?.noticesReadByModel ?? 0;
   const sourceLines: SourceLine[] = [
     ...sources.map((s) => ({
-      text: `${s.description}: ${s.records.toLocaleString("en-AU")} records, ${asAtRange(s.asAtFrom, s.asAt)}`,
+      text: `${s.description}: ${s.records.toLocaleString("en-AU")} records${
+        s.source === "substantial_notices" && readByModel > 0
+          ? `, ${readByModel.toLocaleString("en-AU")} read by model`
+          : ""
+      }, ${asAtRange(s.asAtFrom, s.asAt)}`,
     })),
     {
       text: `ASX Investment Products report and APRA fund-level statistics: ${etfs.toLocaleString("en-AU")} exchange-traded products, ${lics.toLocaleString("en-AU")} listed investment companies and trusts, ${superFunds.toLocaleString("en-AU")} APRA-regulated super funds.`,
@@ -299,53 +253,126 @@ export default async function OwnershipPage() {
         <WorkspacePage
           inspector={<Inspector resolve={loadInspector} emptyText="Select a company to inspect its holding." />}
         >
-        <div className="mx-auto w-full max-w-[100rem] space-y-10">
-          {/* The latest notices' ASX links point at it. */}
+        {/* A flex column, not space-y, so the order classes below can move the band, the records and the
+            method after the panes on a phone (backlog D2). The DOM order is unchanged: the focus order
+            still runs the band first, and the order classes only change what a sighted reader sees. */}
+        <div className="mx-auto flex w-full max-w-[100rem] flex-col gap-8">
+          {/* Kept by backlog B2 for the record links that use it; nothing on the hub references it today. */}
           <ExternalLinkSymbol />
           <header className="space-y-1.5">
             {title}
             <p className={lede}>{ledeText}</p>
-            <p className="text-xs text-muted-foreground">{statusLine}</p>
           </header>
-          <OwnershipPlate items={plate} />
-          {/* The toolbar (spec 14.3): find a stock or holder, the panes' Source, and the window of change. */}
+
+          {/* One toolbar row (backlog B2): the search, the Source and the window. The plate (backlog D2) is
+              drawn once inside it, so a phone's first screen is the title, this fold, and the first pane. */}
           <DeskToolbar
+            plate={<OwnershipPlate items={plate} />}
             stocks={map.ok ? map.stocks.map((stock) => ({ code: stock.code, name: stock.name })) : []}
             holders={institutions.map((institution) => ({ slug: institution.slug, name: institution.name }))}
-            basePath="/ownership"
           />
 
-          {/* Three compact panes in a 2 + 1 grid; each heading opens its full instrument (spec 14.3). */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <section className="min-w-0 space-y-3 lg:col-span-2" aria-labelledby="desk-map">
+          {/* The headline band: four sentences, each a figure the record states (backlog B2). The coverage
+              id is the map's coverage line's target. Below lg it follows the panes (order-[10]), so the
+              first instrument is in view under the title (backlog D2). */}
+          <section aria-label="Coverage" id="coverage" className="order-[10] scroll-mt-20 lg:order-none">
+            <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:grid-cols-4">
+              <div className="bg-card p-3 text-sm text-muted-foreground">
+                <Figure>{overview ? count(overview.noticesParsed) : NOT_AVAILABLE}</Figure> notices read
+                {asOf ? ` to ${asOf}` : ""}
+                {thisWeek === undefined ? null : (
+                  <>
+                    , <Figure>{count(thisWeek)}</Figure> released this week
+                  </>
+                )}
+              </div>
+              <div className="space-y-2 bg-card p-3 text-sm text-muted-foreground">
+                <p>
+                  <Figure>{count(withheld)}</Figure> {outcomes.length > 0 ? "notices withheld" : "documents not parsed"}
+                  {setAside > 0 ? (
+                    <>
+                      , <Figure>{count(setAside)}</Figure> set aside,
+                    </>
+                  ) : null}
+                  {attempted > 0 ? (
+                    <>
+                      {" "}
+                      of <Figure>{count(attempted)}</Figure> documents attempted
+                    </>
+                  ) : null}
+                </p>
+                {/* A figure the outcomes are kept under, folded so the band stays four sentences. */}
+                {outcomes.length > 0 ? (
+                  <Disclosure title="By outcome">
+                    <WithheldBreakdown outcomes={outcomes} />
+                  </Disclosure>
+                ) : null}
+              </div>
+              {/* The tracked funds against the ASX ETFs and APRA funds on record (the 471 and 72 are products,
+                  not files; the files' dates follow). A count the API does not hold reads n/a, never 0: a
+                  source with a file is in the list, so 0 means the field is absent. */}
+              <div className="bg-card p-3 text-sm text-muted-foreground">
+                {indexFiles > 0 ? (
+                  <>
+                    <Figure>{count(indexFiles)}</Figure> of <Figure>{count(etfs)}</Figure> ASX ETFs tracked
+                    {indexDates ? `, files ${indexDates}` : ""}
+                  </>
+                ) : (
+                  <>
+                    <Figure>{NOT_AVAILABLE}</Figure> index funds tracked
+                  </>
+                )}
+              </div>
+              <div className="bg-card p-3 text-sm text-muted-foreground">
+                {superOptions > 0 ? (
+                  <>
+                    <Figure>{count(superOptions)}</Figure> of <Figure>{count(superFunds)}</Figure> APRA super funds tracked, one
+                    option each{superDates ? `, ${superDates}` : ""}
+                  </>
+                ) : (
+                  <>
+                    <Figure>{NOT_AVAILABLE}</Figure> super funds tracked
+                  </>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Row 1: the market map and the disclosed exposure, each a fixed 420px from lg. Each title is the
+              link to its page; the pane draws the instrument with no control row of its own. */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="min-w-0 space-y-3 lg:flex lg:h-[420px] lg:flex-col lg:overflow-hidden" aria-labelledby="desk-map">
               <h2 id="desk-map" className={sectionTitle}>
-                Market map{" "}
-                <Link href="/ownership/map" prefetch={false} aria-label="Open the market map" className="text-primary no-underline">
-                  ↗
+                <Link href="/ownership/map" prefetch={false} className={paneTitleLink}>
+                  Market map
                 </Link>
               </h2>
+              {/* The pane's sort is "Changed" when the link names none (backlog C3); the hub has no sort control. */}
               <OwnershipMap
                 initial={map}
                 loadMap={loadOwnershipMap}
                 loadPanel={loadStockPanel}
                 basePath="/ownership"
                 variant="compact"
+                sort="changed"
               />
             </section>
-            <section className="min-w-0 space-y-3" aria-labelledby="desk-flows">
+            <section className="min-w-0 space-y-3 lg:flex lg:h-[420px] lg:flex-col lg:overflow-hidden" aria-labelledby="desk-flows">
               <h2 id="desk-flows" className={sectionTitle}>
-                Disclosed exposure{" "}
-                <Link href="/ownership/connections" prefetch={false} aria-label="Open the connections" className="text-primary no-underline">
-                  ↗
+                <Link href="/ownership/connections" prefetch={false} className={paneTitleLink}>
+                  Disclosed exposure
                 </Link>
               </h2>
               <OwnershipFlows initial={flows} loadFlows={loadOwnershipFlows} basePath="/ownership" variant="compact" />
             </section>
-            <section className="min-w-0 space-y-3 lg:col-span-2" aria-labelledby="desk-movement">
+          </div>
+
+          {/* Row 2: the notice activity and the index fund positions, each a fixed 320px from lg. */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="min-w-0 space-y-3 lg:h-[320px] lg:overflow-hidden" aria-labelledby="desk-movement">
               <h2 id="desk-movement" className={sectionTitle}>
-                Notice activity{" "}
-                <Link href="/ownership/activity" prefetch={false} aria-label="Open the notice activity" className="text-primary no-underline">
-                  ↗
+                <Link href="/ownership/activity" prefetch={false} className={paneTitleLink}>
+                  Notice activity
                 </Link>
               </h2>
               <MovementHeatmap
@@ -353,295 +380,42 @@ export default async function OwnershipPage() {
                 loadActivity={loadOwnershipActivity}
                 basePath="/ownership"
                 variant="compact"
+                sort="changed"
+              />
+            </section>
+            {/* The instrument draws its own title, a link to the map's index lens, in both its states. */}
+            <section className="min-w-0 lg:h-[320px] lg:overflow-hidden" aria-label="Index fund positions">
+              <FundPositions
+                initial={funds}
+                loadPositions={loadFundPositionChanges}
+                loadSeries={loadStockFundSeries}
+                variant="compact"
               />
             </section>
           </div>
 
-          {/* The instrument draws its own heading, "Index fund positions", in both its states. */}
-          <section className="space-y-3" aria-label="Index fund positions">
-            <FundPositions initial={funds} loadPositions={loadFundPositionChanges} loadSeries={loadStockFundSeries} />
-          </section>
-
-          <section aria-label="Coverage" id="coverage" className="scroll-mt-20">
-            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border md:grid-cols-4">
-              <Tile
-                value={overview ? overview.noticesParsed.toLocaleString("en-AU") : NOT_AVAILABLE}
-                label="Notices read"
-                meta={asOf ? <Dated text={`to ${asOf}`} /> : undefined}
-              />
-              <Tile
-                value={withheld.toLocaleString("en-AU")}
-                label={outcomes.length > 0 ? "Notices withheld" : "Documents not parsed (all outcomes)"}
-                meta={attempted > 0 ? `of ${attempted.toLocaleString("en-AU")} documents attempted` : undefined}
-              >
-                {outcomes.length > 0 ? (
-                  <Disclosure title="Withheld, by outcome">
-                    <WithheldBreakdown outcomes={outcomes} />
-                  </Disclosure>
-                ) : null}
-              </Tile>
-              {/* A file count the API does not hold reads n/a, never 0: a source
-                  with a file is in the list, so 0 means the field is absent. */}
-              <Tile
-                value={indexFiles > 0 ? `${indexFiles.toLocaleString("en-AU")} of ${etfs.toLocaleString("en-AU")}` : NOT_AVAILABLE}
-                label="Index fund files"
-                meta={<Dated text={`of ${etfs.toLocaleString("en-AU")} exchange-traded products; ${indexRange}`} />}
-              />
-              <Tile
-                value={superOptions > 0 ? `${superOptions.toLocaleString("en-AU")} of ${superFunds.toLocaleString("en-AU")}` : NOT_AVAILABLE}
-                label="Super option files"
-                meta={<Dated text={`of ${superFunds.toLocaleString("en-AU")} APRA funds; ${superRange}`} />}
-              />
-            </div>
-          </section>
-
-          <details className="group space-y-3 rounded-lg border border-border/60 p-4 open:pb-6">
-            <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <h2 id="map" className={cn(sectionTitle, "inline-flex items-center gap-3")}>
-                The map
-                <span aria-hidden className="text-base text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none">
-                  ▸
-                </span>
-              </h2>
-            </summary>
-            <p className="max-w-[70ch] text-sm text-muted-foreground">
-              Who holds a 5% or larger stake, by the kind of institution. A kind is the institution&apos;s main
-              business, decided once by hand; a holder that is itself a listed company is a listed company, and the
-              rest are unclassified.
-            </p>
-            <Table>
-              <caption className="sr-only">Institutions and substantial holdings by kind</caption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Kind</TableHead>
-                  <TableHead className="text-right">On the map</TableHead>
-                  <TableHead className="text-right">Holding 5%+</TableHead>
-                  <TableHead className="text-right">Stakes</TableHead>
-                  <TableHead className="text-right">Stocks</TableHead>
-                  <TableHead className="hidden lg:table-cell">What their stakes usually are</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {kinds.map((k) => (
-                  <TableRow key={k.kind}>
-                    <TableCell>
-                      <KindBadge kind={k.kind} />
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{k.institutions || ""}</TableCell>
-                    <TableCell className="text-right tabular-nums">{k.holders}</TableCell>
-                    <TableCell className="text-right tabular-nums">{k.positions}</TableCell>
-                    <TableCell className="text-right tabular-nums">{k.stocks}</TableCell>
-                    <TableCell className="hidden max-w-[48ch] text-xs text-muted-foreground lg:table-cell">
-                      {kindInfo(k.kind).note}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </details>
-
-          <details className="group space-y-3 rounded-lg border border-border/60 p-4 open:pb-6">
-            <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <h2 id="holders" className={cn(sectionTitle, "inline-flex items-center gap-3")}>
-                The biggest holders
-                <span aria-hidden className="text-base text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none">
-                  ▸
-                </span>
-              </h2>
-            </summary>
-            <Table>
-              <caption className="sr-only">Institutions with the most current substantial holdings</caption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Institution</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead className="text-right">Stakes of 5%+</TableHead>
-                  <TableHead className="text-right">Notices</TableHead>
-                  <TableHead className="hidden md:table-cell">Latest notice</TableHead>
-                  <TableHead className="hidden text-right lg:table-cell">Size</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(overview?.topHolders ?? []).map((inst) => (
-                  <TableRow key={inst.slug}>
-                    <TableCell>
-                      <InstitutionLink inst={inst} />
-                    </TableCell>
-                    <TableCell>
-                      <KindBadge kind={inst.kind} />
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{inst.substantialPositions}</TableCell>
-                    <TableCell className="text-right tabular-nums">{inst.notices}</TableCell>
-                    <TableCell className="hidden tabular-nums md:table-cell">{inst.latestNoticeDate}</TableCell>
-                    <TableCell className="hidden text-right tabular-nums lg:table-cell">{sizeOf(inst)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </details>
-
-          <details className="group space-y-3 rounded-lg border border-border/60 p-4 open:pb-6">
-            <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <h2 id="registers" className={cn(sectionTitle, "inline-flex items-center gap-3")}>
-                Registers
-                <span aria-hidden className="text-base text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none">
-                  ▸
-                </span>
-              </h2>
-            </summary>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Most crowded registers</CardTitle>
-                  <CardDescription>{CROWDED}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <OwnershipStockTable
-                    stocks={overview?.crowded ?? []}
-                    columns={["institutional", "holders", "bar", "short"]}
-                    caption="Most crowded registers"
-                  />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Crowded both ways</CardTitle>
-                  <CardDescription>{BOTH_WAYS}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <OwnershipStockTable
-                    stocks={overview?.crowdedBothWays ?? []}
-                    columns={["longActive", "short", "bar"]}
-                    caption="Stocks crowded long and short"
-                  />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Lending desks</CardTitle>
-                  <CardDescription>{LENDING}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <OwnershipStockTable
-                    stocks={overview?.lending ?? []}
-                    columns={["bank", "short", "bar"]}
-                    caption="Bank and broker substantial interests beside short interest"
-                  />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Index fund ownership</CardTitle>
-                  <CardDescription>{INDEX}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <OwnershipStockTable
-                    stocks={overview?.passive ?? []}
-                    columns={["index", "short"]}
-                    caption="Stocks most owned by index funds"
-                  />
-                </CardContent>
-              </Card>
-              <Card className="xl:col-span-2">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Super funds&apos; consensus</CardTitle>
-                  <CardDescription>
-                    <Dated text={superCopy(superRange)} />
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <OwnershipStockTable
-                    stocks={overview?.superConsensus ?? []}
-                    columns={["superValue", "superOptions", "short"]}
-                    caption="Super funds' largest combined holdings"
-                  />
-                </CardContent>
-              </Card>
-            </div>
-          </details>
-
-          <details className="group space-y-3 rounded-lg border border-border/60 p-4 open:pb-6">
-            <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <h2 id="notices" className={cn(sectionTitle, "inline-flex items-center gap-3")}>
-                Latest notices
-                <span aria-hidden className="text-base text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none">
-                  ▸
-                </span>
-              </h2>
-            </summary>
-            <p className="text-sm">
+          {/* The records, one row of links with their counts; the record pages hold the tables. Below lg
+              they follow the band (order-[11]), as the desk's order does. */}
+          <nav aria-label="Records" className="order-[11] flex flex-wrap items-center gap-x-6 gap-y-2 text-sm lg:order-none">
+            {records.map((record) => (
               <Link
-                href="/ownership/notices"
+                key={record.name}
+                href={record.href}
                 prefetch={false}
                 className="hit-target text-primary underline-offset-4 hover:underline"
               >
-                All notices →
+                {recordLabel(record.name, record.count)}
               </Link>
-            </p>
-            <NoticeTable notices={overview?.recent ?? []} caption="Latest substantial holding notices" />
-          </details>
+            ))}
+          </nav>
 
-          <details className="group space-y-3 rounded-lg border border-border/60 p-4 open:pb-6">
-            <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <h2 id="directory" className={cn(sectionTitle, "inline-flex items-center gap-3")}>
-                Institutions on the map
-                <span aria-hidden className="text-base text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none">
-                  ▸
-                </span>
-              </h2>
-            </summary>
-            {directory === undefined ? (
-              <>
-                <p className="max-w-[70ch] text-sm">
-                  The institution list could not be read just now. Nothing here is missing from the register: this is
-                  our end.
-                </p>
-                {/* The anchors stay, empty, so a link to one kind still lands in this section. */}
-                {KIND_ORDER.map((kind) => (
-                  <span key={kind} id={`directory-${kind}`} aria-hidden="true" className="block scroll-mt-20" />
-                ))}
-              </>
-            ) : (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {byKind.map((group) => (
-                  <div key={group.kind} id={`directory-${group.kind}`} className="scroll-mt-20 space-y-2">
-                    <h3 className="text-sm font-semibold">
-                      {kindInfo(group.kind).plural}{" "}
-                      <span className="font-normal text-muted-foreground">({group.members.length})</span>
-                    </h3>
-                    {group.members.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">None listed.</p>
-                    ) : null}
-                    <ul className="space-y-1 text-sm">
-                      {group.members.map((inst) => (
-                        <li key={inst.slug} className="flex justify-between gap-3">
-                          <InstitutionLink inst={inst} />
-                          <span className="shrink-0 tabular-nums text-muted-foreground">
-                            {inst.substantialPositions > 0
-                              ? `${inst.substantialPositions} stake${inst.substantialPositions === 1 ? "" : "s"}`
-                              : ""}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-          </details>
-
-          <section className="space-y-3" aria-labelledby="sources">
-            <h2 id="sources" className={sectionTitle}>
-              Sources and method
-            </h2>
-            <OwnershipSourceLines lines={sourceLines} />
-            <div id="method" className="scroll-mt-20">
-              <OwnershipMethodology className="max-w-[80ch]" />
-            </div>
+          <div className="order-[12] space-y-3 lg:order-none">
+            {/* The dated source list is part of how the figures are read, so it folds with the method. */}
+            <MethodDisclosure extra={[<OwnershipSourceLines key="sources" lines={sourceLines} />]} />
             <p className="text-xs text-muted-foreground">
               <OwnershipReportError subject={REPORT_SUBJECT} />
             </p>
-          </section>
+          </div>
         </div>
         </WorkspacePage>
       </DashboardLayout>

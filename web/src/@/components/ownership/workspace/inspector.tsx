@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SideSheet } from "~/@/components/gamma/SideSheet";
 import { Skeleton } from "~/@/components/gamma/Skeleton";
 import { WeightSeries, type WeightPoint } from "../funds/weight-series";
+import { parseFundKeys } from "../funds/fund-model";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { cn } from "@/lib/utils";
 import { HolderLogo } from "./holder-logo";
@@ -17,10 +18,16 @@ import type {
   InspectorSection,
   LargestMovesBlock,
 } from "./inspector-types";
+import { shortSector } from "~/@/lib/ownership/kinds";
+import { zoomedSector } from "./nav";
 import { SectorIcon } from "./sector-icon";
 import { StockLogoBox } from "./stock-logo-box";
+import { WeekStrip } from "./week-strip-view";
+import { pushTrail, readTrail, trailHref, trailKey, writeTrail, type TrailStep, type TrailStorage } from "./trail";
 import {
+  compareSelection,
   parseSelection,
+  sectorSelection,
   selectionHeading,
   serializeSelection,
   withoutSelection,
@@ -73,9 +80,20 @@ export function InspectorFallback({ emptyText, largestMoves }: { emptyText: stri
  * The prompt an empty rail shows: its kicker and the prompt, centred in the rail's height (spec 14.9).
  * The fallback and the island draw this one markup, so the rail does not change when the link is read.
  */
-function EmptyPrompt({ emptyText, largestMoves }: { emptyText: string; largestMoves?: LargestMovesBlock | null }) {
+function EmptyPrompt({
+  emptyText,
+  largestMoves,
+  trail,
+  currentHref,
+}: {
+  emptyText: string;
+  largestMoves?: LargestMovesBlock | null;
+  trail?: TrailStep[];
+  currentHref?: string;
+}) {
   return (
     <div className="flex h-full flex-col justify-center gap-2">
+      {trail && trail.length > 0 ? <TrailNav steps={trail} currentHref={currentHref ?? null} /> : null}
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Inspector</p>
       <p className="text-muted-foreground">{emptyText}</p>
       {largestMoves ? <LargestMoves block={largestMoves} /> : null}
@@ -130,7 +148,20 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
   const params = useSearchParams();
   const search = params?.toString() ?? "";
   const raw = params?.get("sel") ?? "";
-  const selection = useMemo(() => parseSelection(raw), [raw]);
+  const linked = useMemo(() => parseSelection(raw), [raw]);
+  // Two ticked funds (backlog C5) are the selection when the link names none: a comparison of exactly two funds.
+  // One key alone is no comparison, and a key the codec would not write (compareSelection) is none either.
+  const fundsRaw = params?.get("funds") ?? "";
+  const comparison = useMemo<Selection | null>(
+    () => (linked === null ? compareSelection(parseFundKeys(fundsRaw)) : null),
+    [linked, fundsRaw],
+  );
+  // The zoomed sector (backlog C4) is the selection when the link names none: a selection wins over both.
+  const sector = zoomedSector(params?.get("sector"));
+  const selection = useMemo<Selection | null>(
+    () => linked ?? comparison ?? sectorSelection(sector),
+    [linked, comparison, sector],
+  );
   // The link's own parameters the resolver reads (spec 14.8): the lens, the Connections view and the window.
   const query = useMemo<InspectorQuery>(
     () => ({
@@ -150,7 +181,18 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
   const key = selection
     ? `${selectionKey}|${query.lens}|${query.view}|${query.window}|${query.since}|${query.until}|${query.asAt}|${query.from}|${query.to}`
     : "";
-  const clearHref = clearedHref(pathname, search);
+  // Clear selection on a comparison clears the ticked funds; on a zoomed sector it clears the zoom itself. Either
+  // leaves the rest of the link as it is, so a sector zoomed under a comparison is still the map's zoom.
+  const clearHref =
+    linked !== null
+      ? clearedHref(pathname, search)
+      : comparison !== null
+        ? clearedParamHref(pathname, search, "funds")
+        : sector !== ""
+          ? clearedParamHref(pathname, search, "sector")
+          : clearedHref(pathname, search);
+  // The link that restores the page as it is now: the trail's current step is the one that matches it.
+  const pageHref = trailHref(pathname, search);
   const mobile = useIsMobile();
 
   // The resolver changes identity on each server render; the request is keyed on
@@ -188,6 +230,16 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
   const loading = selection !== null && current === null;
   const failed = current?.failed ?? false;
   const kicker = selection ? selectionHeading(selection) : null;
+  // The trail's sector step is the zoom with no link selection; a selected sector is the resolved selection's own step.
+  const trail = useInspectorTrail({
+    pathname,
+    href: pageHref,
+    hasSelection: linked !== null,
+    selectionKey: linked ? serializeSelection(linked) : "",
+    selectionKind: linked ? selectionHeading(linked) : "",
+    sector,
+    heading: content?.heading ?? null,
+  });
   // The aside is named by its kind alone until the thing's name arrives.
   const label = content && kicker ? `${kicker} ${content.heading}` : (kicker ?? "Inspector");
   const retry = () => {
@@ -209,15 +261,19 @@ function InspectorBody({ resolve, emptyText, largestMoves }: InspectorProps) {
       name={inSheet ? null : (content?.heading ?? null)}
       clearLink={!inSheet}
       onRetry={retry}
+      trail={trail}
+      currentHref={pageHref}
     />
   );
 
   if (mobile) {
-    // The sheet's own title names the thing, so the body does not repeat the name.
+    // The sheet's own title names the thing, so the body does not repeat the name. It opens on the link's own
+    // selection and on a comparison of two ticked funds, which has no other surface below lg. A zoomed sector stays
+    // closed: it is the map's state, and a sheet over it would hide the zoom the tap asked for.
     return (
       <SideSheet
         side="bottom"
-        open={selection !== null}
+        open={linked !== null || comparison !== null}
         onOpenChange={(open) => {
           if (!open) router.replace(clearHref, { scroll: false });
         }}
@@ -244,6 +300,8 @@ function InspectorBodyContent({
   name,
   clearLink,
   onRetry,
+  trail,
+  currentHref,
 }: {
   selection: Selection | null;
   loading: boolean;
@@ -259,13 +317,28 @@ function InspectorBodyContent({
   /** False in the sheet, whose close button is the same action. */
   clearLink: boolean;
   onRetry: () => void;
+  /** The page's trail (backlog C2), drawn above everything in the rail. */
+  trail: TrailStep[];
+  /** The link that restores the page as it is now; the trail's step with this link is the current one. */
+  currentHref: string;
 }) {
+  const trailNav = trail.length > 0 ? <TrailNav steps={trail} currentHref={currentHref} /> : null;
   // The prompt sits with its kicker, vertically centred in the rail's height (spec 14.9).
-  if (selection === null) return <EmptyPrompt emptyText={emptyText} largestMoves={largestMoves} />;
-  if (loading) return <InspectorLoading />;
+  if (selection === null) {
+    return <EmptyPrompt emptyText={emptyText} largestMoves={largestMoves} trail={trail} currentHref={currentHref} />;
+  }
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        {trailNav}
+        <InspectorLoading />
+      </div>
+    );
+  }
   if (failed) {
     return (
       <div className="space-y-4">
+        {trailNav}
         <p className="text-muted-foreground">Could not load this selection.</p>
         <div className="flex items-center gap-4 text-sm">
           <button type="button" onClick={onRetry} className="underline underline-offset-4">
@@ -281,6 +354,7 @@ function InspectorBodyContent({
   if (content === null) {
     return (
       <div className="space-y-4">
+        {trailNav}
         <p className="text-muted-foreground">Nothing on record for this selection.</p>
         <Link href={clearHref} prefetch={false} scroll={false} className="text-sm underline underline-offset-4">
           Clear selection
@@ -292,8 +366,21 @@ function InspectorBodyContent({
   const hasLogo = content.logo !== undefined;
   const badges = content.badges ?? [];
   const sections = content.sections ?? [];
+  // The primary action sits where the resolver placed it: after every section by default, or before them (C7).
+  const primary = content.primary ? (
+    <Link
+      href={content.primary.href}
+      prefetch={false}
+      rel={content.primary.nofollow ? "nofollow" : undefined}
+      className="block w-full rounded-[var(--radius)] bg-primary px-4 py-2.5 text-center font-mono text-sm text-primary-foreground"
+    >
+      {content.primary.label}
+    </Link>
+  ) : null;
+  const primaryFirst = content.primaryPlacement === "first";
   return (
     <div className="space-y-5">
+      {trailNav}
       {kicker !== null || hasName || hasLogo || content.subtitle ? (
         <header className="space-y-2">
           {kicker !== null ? (
@@ -321,6 +408,7 @@ function InspectorBodyContent({
           ))}
         </ul>
       ) : null}
+      {content.reading ? <p className="text-sm leading-snug text-foreground">{content.reading}</p> : null}
       {content.figure ? (
         <div>
           <p
@@ -344,19 +432,12 @@ function InspectorBodyContent({
           ))}
         </dl>
       ) : null}
+      {primaryFirst ? primary : null}
       {sections.map((section, index) => (
         <InspectorSectionView key={`${index}:${section.title}`} section={section} />
       ))}
       {content.note ? <p className="text-xs text-muted-foreground">{content.note}</p> : null}
-      {content.primary ? (
-        <Link
-          href={content.primary.href}
-          prefetch={false}
-          className="block w-full rounded-[var(--radius)] bg-primary px-4 py-2.5 text-center font-mono text-sm text-primary-foreground"
-        >
-          {content.primary.label}
-        </Link>
-      ) : null}
+      {primaryFirst ? null : primary}
       {content.links && content.links.length > 0 ? (
         <ul className="space-y-1.5 text-sm">
           {content.links.map((link) => (
@@ -382,7 +463,15 @@ function InspectorBodyContent({
  * A link whose parameters are merged into the current link (spec 14.8): the reader's
  * window, lens and selection stay as they are, and only the named parameters change.
  */
-function MergedLink({ link, params }: { link: InspectorLink; params: Record<string, string | null> }) {
+function MergedLink({
+  link,
+  params,
+  className = "underline underline-offset-4",
+}: {
+  link: Pick<InspectorLink, "label">;
+  params: Record<string, string | null>;
+  className?: string;
+}) {
   const pathname = usePathname() ?? "";
   const search = useSearchParams();
   const next = new URLSearchParams(search?.toString() ?? "");
@@ -392,7 +481,7 @@ function MergedLink({ link, params }: { link: InspectorLink; params: Record<stri
   }
   const query = next.toString();
   return (
-    <Link href={query === "" ? pathname : `${pathname}?${query}`} prefetch={false} scroll={false} className="underline underline-offset-4">
+    <Link href={query === "" ? pathname : `${pathname}?${query}`} prefetch={false} scroll={false} className={className}>
       {link.label}
     </Link>
   );
@@ -403,7 +492,9 @@ function InspectorSectionView({ section }: { section: InspectorSection }) {
   return (
     <section aria-label={section.title} className="space-y-2">
       <h3 className="font-mono text-[11px] text-muted-foreground">{section.title}</h3>
-      {section.kind === "series" && section.points && section.points.length > 0 ? (
+      {section.kind === "weeks" ? (
+        <WeekStrip weeks={section.weeks} label={section.title} />
+      ) : section.kind === "series" && section.points && section.points.length > 0 ? (
         <>
           <WeightSeries
             points={section.points.map(
@@ -425,7 +516,9 @@ function InspectorSectionView({ section }: { section: InspectorSection }) {
           {section.items.map((bar, index) => (
             <li key={index} className="space-y-1" title={bar.title}>
               <div className="flex items-baseline justify-between gap-4">
-                {bar.href ? (
+                {bar.params ? (
+                  <MergedLink link={{ label: bar.label }} params={bar.params} className="min-w-0 truncate underline underline-offset-4" />
+                ) : bar.href ? (
                   <Link href={bar.href} prefetch={false} className="min-w-0 truncate underline underline-offset-4">
                     {bar.label}
                   </Link>
@@ -517,6 +610,123 @@ function InspectorLoading() {
 }
 
 /**
+ * The trail (spec 14.1, backlog C2): the steps the reader has taken on this page, each as a link
+ * that restores it, except the step that matches the page as it is now, which is the current one
+ * in the foreground. Mono and small, with " > " between steps. After "Clear selection" the trail
+ * is kept and no step is current, so every step stays a way back.
+ */
+function TrailNav({ steps, currentHref }: { steps: TrailStep[]; currentHref: string | null }) {
+  return (
+    <nav aria-label="Trail" className="font-mono text-xs text-muted-foreground">
+      <p className="break-words leading-relaxed">
+        {steps.map((step, index) => {
+          const current = step.href === currentHref;
+          return (
+            <Fragment key={`${index}:${step.href}`}>
+              {index > 0 ? " > " : null}
+              {current ? (
+                <span aria-current="step" className="text-foreground">
+                  {step.label}
+                </span>
+              ) : (
+                <Link
+                  href={step.href}
+                  prefetch={false}
+                  scroll={false}
+                  className="inline-flex min-h-[24px] items-center underline underline-offset-4 hover:text-foreground"
+                >
+                  {step.label}
+                </Link>
+              )}
+            </Fragment>
+          );
+        })}
+      </p>
+    </nav>
+  );
+}
+
+/** The browser's sessionStorage, or null where it is absent or refused (a privacy mode that throws). */
+function sessionStore(): TrailStorage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The page's trail, kept in sessionStorage under the page's path (backlog C2). The stored trail is
+ * read after mount, so the server and the first paint carry none. A step is recorded once per
+ * selection: when a selection's content arrives, or, with no selection, when a sector is zoomed.
+ * A change of the lens or the window on the same selection is not a new step.
+ */
+function useInspectorTrail({
+  pathname,
+  href,
+  hasSelection,
+  selectionKey,
+  selectionKind,
+  sector,
+  heading,
+}: {
+  pathname: string;
+  /** The link that restores the page as it is now. */
+  href: string;
+  hasSelection: boolean;
+  selectionKey: string;
+  /** The kind of thing selected, named when the content has no heading to take its place. */
+  selectionKind: string;
+  sector: string;
+  /** The resolved content's heading; null while the selection loads or when it failed. */
+  heading: string | null;
+}): TrailStep[] {
+  const key = trailKey(pathname);
+  const [store, setStore] = useState<{ key: string; steps: TrailStep[] } | null>(null);
+  const hrefRef = useRef(href);
+  hrefRef.current = href;
+  const recorded = useRef<{ key: string; id: string } | null>(null);
+
+  // Read after mount: the first render is the server's, with no trail.
+  useEffect(() => {
+    setStore({ key, steps: readTrail(sessionStore(), key) });
+  }, [key]);
+
+  useEffect(() => {
+    let label: string;
+    let id: string;
+    if (hasSelection) {
+      // A failed or still loading selection is not a step yet.
+      if (heading === null) return;
+      label = heading.trim() === "" ? selectionKind : heading;
+      id = `sel:${selectionKey}`;
+    } else if (sector !== "") {
+      label = shortSector(sector);
+      id = `sector:${sector}`;
+    } else {
+      return;
+    }
+    if (recorded.current !== null && recorded.current.key === key && recorded.current.id === id) return;
+    recorded.current = { key, id };
+    const storage = sessionStore();
+    const step: TrailStep = { label, href: hrefRef.current };
+    // The write is idempotent (the same trail under the same key), so a second run of this updater is harmless.
+    setStore((prev) => {
+      const base = prev !== null && prev.key === key ? prev.steps : readTrail(storage, key);
+      // Clear selection on a zoomed sector lands on that sector's own link. That is the reader's place
+      // returning, not a new step: the trail after it (the company, the holder) stays walkable.
+      if (!hasSelection && base.some((existing) => existing.href === step.href)) return { key, steps: base };
+      const steps = pushTrail(base, step);
+      writeTrail(storage, key, steps);
+      return { key, steps };
+    });
+  }, [key, hasSelection, selectionKey, selectionKind, sector, heading]);
+
+  return store !== null && store.key === key ? store.steps : [];
+}
+
+/**
  * The right rail's aside. It is hidden below `lg` by CSS, so a phone never paints
  * it, and the sheet takes over once the viewport is known (no first-paint swap).
  * From `lg` it is a viewport-high column that scrolls within itself (spec 14.9), so the
@@ -533,6 +743,14 @@ function InspectorAside({ label, children }: { label: string; children: ReactNod
 /** The current URL with the selection cleared; the path alone when nothing else is set. */
 function clearedHref(pathname: string, search: string): string {
   const rest = withoutSelection(search);
+  return rest === "" ? pathname : `${pathname}?${rest}`;
+}
+
+/** The current URL with one parameter cleared (the zoomed sector, backlog C4; the ticked funds, C5) and every other kept. */
+function clearedParamHref(pathname: string, search: string, name: string): string {
+  const params = new URLSearchParams(search);
+  params.delete(name);
+  const rest = params.toString();
   return rest === "" ? pathname : `${pathname}?${rest}`;
 }
 

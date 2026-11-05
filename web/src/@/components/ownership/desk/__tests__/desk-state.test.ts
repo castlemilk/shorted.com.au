@@ -12,8 +12,11 @@ import {
   DEFAULT_DESK_STATE,
   cleanDeskState,
   isIsoDate,
+  DEFAULT_DESK_SORT,
+  isDeskSort,
   isServedNoticePair,
   normalizeDeskState,
+  readDeskSort,
   readDeskState,
   readNoticeWindow,
   shiftDate,
@@ -99,6 +102,8 @@ describe("desk state codec", () => {
       { window: 91, lens: "short", sector: "", from: "2026-01-01", to: "2026-01-31" },
       { window: 28, lens: "flow", sector: "Energy", from: "2026-08-01", to: "2026-10-31" },
       { window: 28, lens: "disclosed", sector: "Other", from: "", to: "" },
+      { ...DEFAULT_DESK_STATE, sort: "changed" },
+      { ...DEFAULT_DESK_STATE, lens: "flow", sort: "changed", window: 28, sector: "Energy" },
     ];
     for (const state of states) {
       expect(readDeskState(new URLSearchParams(writeDeskState(state)))).toEqual(
@@ -272,5 +277,63 @@ describe("desk state codec: the workspace selection (spec 14.1)", () => {
     const next = writeDeskState({ ...readDeskState(link), from: "2026-01-01", to: "2026-02-01" });
     expect(readDeskState(new URLSearchParams(next)).sel).toBe("holding:asx:A200/BHP");
     expect(readDeskState(new URLSearchParams(next)).from).toBe("2026-01-01");
+  });
+});
+
+describe("desk state codec: the sort (backlog C3)", () => {
+  it("defaults to largest, which the link leaves out", () => {
+    expect(DEFAULT_DESK_SORT).toBe("largest");
+    expect(readDeskState(new URLSearchParams("")).sort).toBe("largest");
+    expect(writeDeskState({ ...DEFAULT_DESK_STATE, sort: "largest" })).toBe("");
+  });
+
+  it("writes sort only when it is changed, and reads it back", () => {
+    expect(writeDeskState({ ...DEFAULT_DESK_STATE, sort: "changed" })).toBe("sort=changed");
+    expect(readDeskState(new URLSearchParams("sort=changed")).sort).toBe("changed");
+  });
+
+  it("takes the default for any other value, one parameter at a time", () => {
+    for (const sort of ["Changed", "biggest", "", "changed,largest", "2"]) {
+      const state = readDeskState(new URLSearchParams({ sort, lens: "flow" }));
+      expect(state.sort).toBe("largest");
+      expect(state.lens).toBe("flow");
+    }
+  });
+
+  it("reads a sort from a Next search-params record, taking the first of a repeated key", () => {
+    expect(readDeskState({ sort: ["changed", "largest"] }).sort).toBe("changed");
+  });
+
+  it("recognises the two served sorts and nothing else", () => {
+    expect(isDeskSort("largest")).toBe(true);
+    expect(isDeskSort("changed")).toBe(true);
+    expect(isDeskSort("toString")).toBe(false);
+    expect(isDeskSort(undefined)).toBe(false);
+    expect(isDeskSort(1)).toBe(false);
+  });
+
+  it("names the default an instrument draws in when the link names no valid sort", () => {
+    expect(readDeskSort(new URLSearchParams(""), "changed")).toBe("changed");
+    expect(readDeskSort(new URLSearchParams("sort=bogus"), "changed")).toBe("changed");
+    expect(readDeskSort(new URLSearchParams("sort=largest"), "changed")).toBe("largest");
+    expect(readDeskSort(new URLSearchParams("sort=changed"))).toBe("changed");
+    expect(readDeskSort(new URLSearchParams(""))).toBe("largest");
+  });
+
+  it("writeDeskParams replaces sort with the state's value and keeps the other parameters", () => {
+    const params = new URLSearchParams("sort=changed&utm=1&lens=flow");
+    writeDeskParams(params, { ...DEFAULT_DESK_STATE, lens: "flow", sort: "largest" });
+    expect(params.get("sort")).toBeNull();
+    expect(params.get("utm")).toBe("1");
+    writeDeskParams(params, { ...DEFAULT_DESK_STATE, sort: "changed" });
+    expect(params.get("sort")).toBe("changed");
+  });
+
+  it("keeps a sort through a notice-window write, which rebuilds the desk's names", () => {
+    const params = new URLSearchParams("sort=changed&sel=stock%3ABHP");
+    writeNoticeWindow(params, { window: 28, since: "", until: "" });
+    expect(params.get("sort")).toBe("changed");
+    expect(params.get("window")).toBe("28");
+    expect(params.get("sel")).toBe("stock:BHP");
   });
 });

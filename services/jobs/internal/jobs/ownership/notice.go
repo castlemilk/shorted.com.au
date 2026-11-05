@@ -2,6 +2,7 @@ package ownership
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -10,15 +11,36 @@ import (
 )
 
 // noticeParserVersion is stored with every attempt. Bump it when a change to
-// parseSubstantialNotice would read a notice it once refused differently: a
-// refused notice whose attempt carries an older version is read again
-// (pendingNoticesSQL), a parsed one never is. The placeholder gate (a section 1
+// parseSubstantialNotice would read a notice it once refused differently. A
+// refused notice whose attempt carries an older version is read again only
+// when its outcome is one this version changed (the staleRereads entry for
+// this version, pendingNoticesSQL); a parsed one never is, and a bump that adds
+// no entry re-reads nothing. The placeholder gate (a section 1
 // name such as "SEE ANNEXURE 1" is withheld as no_holder) did not bump it: it
 // only adds refusals, so no notice refused before would parse now, and a bump
 // would re-download every refusal to change nothing but its label. A notice
 // parsed with a placeholder name before the gate keeps its row until a repair
-// removes it, because a parsed attempt is never read again.
-const noticeParserVersion = 1
+// removes it, because a parsed attempt is never read again. The 2026-11 rules
+// (the trailing name label cut, the sentence cut, the withheld name phrases and
+// the 50 point change rule) did not bump it for the same reason: each only
+// refuses a name or a change that was parsed, or cuts a label off a name that
+// still parses, and repair-placeholders lists every stored row the new rules
+// would refuse.
+//
+// Version 2 (2026-11) changed which listed code an ambiguous notice is filed
+// under (resolveTarget's live-code rule and the name folding). Only the
+// refusals with the ambiguous_target outcome change verdict, so staleRereads
+// lists that outcome under version 2 and the nightly pass reads only those
+// again (pendingNoticesSQL). Re-downloading every refusal to learn the same
+// verdict would cost ASX thousands of requests. A later bump adds its own entry
+// to staleRereads for the outcomes it changed, and nothing else.
+//
+// Version 3 (2026-11) is the announcements API path (apiPathVersion): an
+// attempt at 3 or later records that ASX's API was asked for the notice, so the
+// nightly pass asks it only for a notice not yet asked, and resolve-unavailable
+// reads only the unavailable attempts recorded before it. Ambiguous targets
+// are re-read again under it (staleRereads), as they were under 2.
+const noticeParserVersion = 3
 
 // Form is the statutory form a substantial holding notice was given on.
 type Form string
@@ -243,6 +265,14 @@ var (
 	splitCapRe = regexp.MustCompile(`\b([A-Z]) ([a-z]{2,})`)
 	// Words that mean section 1's value was never written next to its label.
 	labelWords = []string{"the holder became", "the holder ceased", "there was a change", "acn/arsn", "details of", "name"}
+	// labelSuffixes are the section 1 labels a text layer draws after the value on
+	// the same line: "Eric Sondergaard Name" (the MHC notice of 2026-09-25).
+	labelSuffixes = []string{" name", " names"}
+	// noticeGivenBy opens a value a notice writes about itself: "This notice is
+	// given by Carma Investments Pty Ltd". The sentence names no one, so it is cut
+	// when a name of two words or more follows it. One word after it ("This notice
+	// is given by Carma") keeps the sentence, and placeholderReason withholds it.
+	noticeGivenBy = "this notice is given by"
 )
 
 // cleanHolderName trims the label debris around a section 1 name. It returns ""
@@ -258,6 +288,8 @@ func cleanHolderName(raw string) string {
 		// A label drawn in the middle of a two-line value: "PINNACLE ... (AND ITS
 		// SUBSIDIARIES Name LISTED IN ANNEXURE A)".
 		s = strings.Replace(s, " Name ", " ", 1)
+		s = cutLabelSuffix(s)
+		s = cutGivenBy(s)
 		lower := strings.ToLower(s)
 		for _, w := range labelWords {
 			if lower == w || strings.HasPrefix(lower, w+" ") {
@@ -269,6 +301,45 @@ func cleanHolderName(raw string) string {
 		s = strings.TrimSpace(s[:200])
 	}
 	return s
+}
+
+// cutLabelSuffix removes a section 1 label that trails the value, with the
+// punctuation before it. A holder's name never ends in "Name", so the label is
+// cut whatever its case; a value that is only the label is left for the
+// label-only check in cleanHolderName.
+func cutLabelSuffix(s string) string {
+	for {
+		cut := false
+		for _, l := range labelSuffixes {
+			if len(s) > len(l) && strings.EqualFold(s[len(s)-len(l):], l) {
+				s = strings.TrimRight(s[:len(s)-len(l)], " :;,.-\"'()")
+				cut = true
+				break
+			}
+		}
+		if !cut {
+			return s
+		}
+	}
+}
+
+// cutGivenBy drops the notice's own sentence from the front of a value when a
+// name of two words or more follows it. The sentence is kept otherwise, so the
+// placeholder rule sees it and withholds the value.
+func cutGivenBy(s string) string {
+	if len(s) <= len(noticeGivenBy) || !strings.EqualFold(s[:len(noticeGivenBy)], noticeGivenBy) {
+		return s
+	}
+	// The sentence ends at a word boundary: "given by:" or "given by (Carma" are
+	// the same sentence, but "given byCarma" is not the phrase.
+	if unicode.IsLetter(rune(s[len(noticeGivenBy)])) {
+		return s
+	}
+	rest := strings.TrimLeft(strings.TrimSpace(s[len(noticeGivenBy):]), " :;,.-\"'(")
+	if len(strings.Fields(rest)) < 2 {
+		return s
+	}
+	return rest
 }
 
 // placeholderPointers are the words a section 1 name uses to point the reader at
@@ -311,6 +382,28 @@ var placeholderLeads = map[string]bool{
 	"refer": true, "annexure": true, "annexures": true,
 	"appendix": true, "appendices": true,
 }
+
+// labelPhrases are words and phrases a holder's name never carries: a section 1
+// label, or the form's own wording, that a text layer read into the value. Each
+// matches as whole words (labelPhraseRes), so "Renamed" and "Substantial
+// Holdings" are names. "Name" and "Names" are labels; "notice of" and the form
+// numbers are the form's title; "is given by" and "this notice" are the
+// sentence a notice writes about itself.
+var labelPhrases = []string{
+	"name", "names", "this notice", "is given by", "substantial holder", "notice of",
+	"form 603", "form 604", "form 605", "acn/arsn", "holder became", "holder ceased",
+	"there was a change",
+}
+
+// labelPhraseRes are labelPhrases as whole-word matchers: a phrase matches when
+// no letter or digit touches it on either side.
+var labelPhraseRes = func() []*regexp.Regexp {
+	out := make([]*regexp.Regexp, len(labelPhrases))
+	for i, p := range labelPhrases {
+		out[i] = regexp.MustCompile(`(?:^|[^\pL\pN])` + regexp.QuoteMeta(p) + `(?:$|[^\pL\pN])`)
+	}
+	return out
+}()
 
 // placeholderTokenRe splits a name into its letter runs and its digit runs, so
 // "ANNEXURE1" reads as two words and "A" as a label.
@@ -361,6 +454,15 @@ func placeholderReason(name string) string {
 			if t == "schedule" || t == "schedules" {
 				return `matches "schedule" in a name of three words or fewer`
 			}
+		}
+	}
+	// A label or the form's own wording inside the value: a text layer drew the
+	// next label onto the name ("Eric Sondergaard Name Holdings") or read the
+	// notice's sentence as the holder ("This notice is given by Carma"). No holder
+	// is written with these words, so the value is withheld.
+	for i, re := range labelPhraseRes {
+		if re.MatchString(lower) {
+			return fmt.Sprintf("contains %q", labelPhrases[i])
 		}
 	}
 	letters := strings.FieldsFunc(lower, func(r rune) bool { return !unicode.IsLetter(r) })
@@ -682,6 +784,10 @@ func sectionSpan(s string, start, end *regexp.Regexp, limit int) string {
 	return rest
 }
 
+// votingSpanLimit is the most characters of the voting power section that are read
+// when no end heading follows it.
+const votingSpanLimit = 2500
+
 var (
 	votingStartRe = looseRe(`(?i)%s|%s`, "details of voting power", "previous and present voting power")
 	votingEndRe   = looseRe(`(?i)(?:\b3\s*\.\s*)?(?:%s|%s)`, "details of relevant interests", "changes in relevant interests")
@@ -706,7 +812,7 @@ func parseSubstantialNotice(text, headline string) (Notice, Outcome, string) {
 	if form == "" {
 		form = formFromHeadline(headline)
 		lower := strings.ToLower(s)
-		if form == "" || !(strings.Contains(lower, "substantial holder") || strings.Contains(lower, "substantial shareholder")) ||
+		if form == "" || (!strings.Contains(lower, "substantial holder") && !strings.Contains(lower, "substantial shareholder")) ||
 			!strings.Contains(lower, "voting") {
 			return Notice{}, outcomeNotNotice, "no substantial holding form in the document"
 		}
@@ -737,7 +843,7 @@ func parseSubstantialNotice(text, headline string) (Notice, Outcome, string) {
 		}
 	}
 
-	span := sectionSpan(s, votingStartRe, votingEndRe, 2500)
+	span := sectionSpan(s, votingStartRe, votingEndRe, votingSpanLimit)
 	tokens := votingPowerTokens(span)
 	if len(tokens) == 0 {
 		// A plain text layer can draw a form's values after every label:
@@ -789,6 +895,14 @@ func parseSubstantialNotice(text, headline string) (Notice, Outcome, string) {
 		if prev.pct < 4.95 {
 			return n, outcomeImplausible, "change notice whose previous voting power is under 5%: " + strconv.FormatFloat(prev.pct, 'f', -1, 64)
 		}
+		// A change of over 50 points in one notice is no movement a register
+		// shows, so a pair of figures that sit on different rows of the form is
+		// some other table's. The rule is about that row mismatch at a size no
+		// real register shows, not about size alone: a 50 point change that both
+		// figures share a row for is read.
+		if changeOver50(prev.pct, cur.pct) && !pairOnOneRow(text, prev.pct, cur.pct) {
+			return n, outcomeImplausible, changeOver50Detail
+		}
 		n.PreviousPct, n.PreviousVotes = new(prev.pct), prev.votes
 		n.PresentPct, n.PresentVotes = new(cur.pct), cur.votes
 		// A holder who fell below 5% gives a 605; one who used a 604 to say
@@ -802,6 +916,76 @@ func parseSubstantialNotice(text, headline string) (Notice, Outcome, string) {
 		// holding: nothing is read from them.
 	}
 	return n, outcomeParsed, ""
+}
+
+// changeOver50Detail is the detail of a change notice withheld because its stated
+// change is over 50 points and its two figures are not on one row of the form.
+const changeOver50Detail = "change over 50 points from figures on different rows"
+
+// changeOver50 reports whether the change between two stated voting power figures
+// is over 50 points in either direction. The figures state four places, so the
+// difference is compared at that precision: exactly 50.0000 is not over 50.
+func changeOver50(prev, cur float64) bool {
+	return math.Abs(math.Round((cur-prev)*1e4)) > 50e4
+}
+
+// pairOnOneRow reports whether one line of the notice's voting power section
+// carries both figures as votes-and-percentage cells. A change notice puts its
+// previous and present voting power in one table row per class, and every fixture
+// that has both figures has them on one line of the layout text, so the rule asks
+// for that line and allows no neighbouring line. A row split across two lines is
+// two rows here. The layout is read line by line because normalizeNoticeText joins
+// the whole text into one line, which is where the row breaks go.
+//
+// Only the section's own lines are read (votingSectionLines). A pair printed
+// elsewhere, in an annexure's table or in section 3, cannot vouch for a pair the
+// section draws on two rows. A section whose heading is not on one line has no
+// lines here, so its 50 point change is withheld rather than guessed.
+func pairOnOneRow(layout string, prev, cur float64) bool {
+	for _, line := range votingSectionLines(layout) {
+		pcts := map[float64]bool{}
+		for _, t := range votingPowerTokens(normalizeNoticeText(line)) {
+			pcts[t.pct] = true
+		}
+		if pcts[prev] && pcts[cur] {
+			return true
+		}
+	}
+	return false
+}
+
+// votingSectionLines returns the layout's lines of the voting power section: from
+// the line that opens it ("2. Details of voting power", or a 604's "Previous and
+// present voting power") to the line that opens the next section, within the same
+// character budget sectionSpan gives the section. It is the per-line twin of the
+// span parseSubstantialNotice reads the figures from, so the same-row check reads
+// the same rows. It is nil when no single line opens the section.
+func votingSectionLines(layout string) []string {
+	lines := strings.Split(layout, "\n")
+	start := -1
+	for i, line := range lines {
+		if votingStartRe.MatchString(normalizeNoticeText(line)) {
+			start = i
+			break
+		}
+	}
+	if start < 0 {
+		return nil
+	}
+	var out []string
+	size := 0
+	for _, line := range lines[start:] {
+		n := normalizeNoticeText(line)
+		if len(out) > 0 && votingEndRe.MatchString(n) {
+			break
+		}
+		size += len(n)
+		if size > votingSpanLimit {
+			break
+		}
+		out = append(out, line)
+	}
+	return out
 }
 
 // section1Text is section 1 of an Australian form (the holder's details),

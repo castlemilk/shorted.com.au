@@ -1,8 +1,11 @@
 /// <reference types="jest" />
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { barPercent, Inspector, InspectorFallback } from "../inspector";
 import type { InspectorContent } from "../inspector-types";
+import { serializeSelection } from "../selection";
+import { trailKey } from "../trail";
+import { weekStrip } from "../week-strip";
 
 let mockSearch = "";
 const mockReplace = jest.fn();
@@ -237,5 +240,604 @@ describe("barPercent", () => {
     expect(barPercent(-0.2)).toBe(0);
     expect(barPercent(Number.NaN)).toBe(0);
     expect(barPercent(0.1234)).toBe(12.3);
+  });
+});
+
+describe("workspace inspector reading (spec 14.1, backlog C1)", () => {
+  beforeEach(() => {
+    mockSearch = "sel=stock%3ABHP";
+    stubDialog();
+    viewport(true);
+  });
+
+  it("leads the rail with its reading, under the heading and before the figure", async () => {
+    const withReading: InspectorContent = { ...content, reading: "Index funds hold 3.41%, up 0.12 pp since 2026-09-30." };
+    const { container } = render(
+      <Inspector resolve={jest.fn(async () => withReading)} emptyText="Select a company." />,
+    );
+    const reading = await screen.findByText("Index funds hold 3.41%, up 0.12 pp since 2026-09-30.");
+    const heading = screen.getByRole("heading", { name: "BHP Group" });
+    const figure = screen.getByText("12.4%");
+    expect(heading.compareDocumentPosition(reading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("ASX").compareDocumentPosition(reading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(reading.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(reading.tagName).toBe("P");
+    expect(reading).toHaveClass("text-sm", "leading-snug", "text-foreground");
+    expect(reading).not.toHaveClass("font-serif");
+    expect(container.querySelectorAll("p.leading-snug")).toHaveLength(1);
+  });
+
+  it("draws no reading line when the content carries none", async () => {
+    const { container } = render(<Inspector resolve={jest.fn(async () => content)} emptyText="Select a company." />);
+    await screen.findByRole("heading", { name: "BHP Group" });
+    expect(container.querySelector("p.leading-snug")).toBeNull();
+  });
+});
+
+describe("workspace inspector trail (spec 14.1, backlog C2)", () => {
+  const PAGE_KEY = trailKey("/ownership/map");
+  const contents: Record<string, InspectorContent> = {
+    "stock:BHP": { heading: "BHP Group", rows: [{ label: "Holders", value: "14" }] },
+    "stock:CBA": { heading: "CBA", rows: [] },
+    "holder:state-street": { heading: "State Street", rows: [] },
+  };
+  const resolve = async (selection: Parameters<typeof serializeSelection>[0]) =>
+    contents[serializeSelection(selection)] ?? null;
+
+  /** A sessionStorage stand-in: a Map behind the Storage methods the rail calls. */
+  function fakeSessionStorage() {
+    const items = new Map<string, string>();
+    return {
+      items,
+      getItem: (key: string) => (items.has(key) ? (items.get(key) as string) : null),
+      setItem: (key: string, value: string) => {
+        items.set(key, String(value));
+      },
+      removeItem: (key: string) => {
+        items.delete(key);
+      },
+      clear: () => items.clear(),
+    };
+  }
+
+  let fake: ReturnType<typeof fakeSessionStorage>;
+  let original: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(true);
+    fake = fakeSessionStorage();
+    original = Object.getOwnPropertyDescriptor(window, "sessionStorage");
+    Object.defineProperty(window, "sessionStorage", { value: fake, configurable: true });
+  });
+
+  afterEach(() => {
+    if (original) Object.defineProperty(window, "sessionStorage", original);
+    else delete (window as { sessionStorage?: unknown }).sessionStorage;
+  });
+
+  /** The trail's text as the rail draws it, or null with no trail. */
+  function trailText(): string | null {
+    return screen.queryByRole("navigation", { name: "Trail" })?.textContent ?? null;
+  }
+
+  /**
+   * The trail is recorded in an effect, which runs after the heading is on screen, so a test
+   * waits on the trail itself rather than on the heading.
+   */
+  async function flushEffects() {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  /** The trail's steps as the rail draws them: the text of each step and whether it is a link. */
+  function trailSteps() {
+    const nav = screen.queryByRole("navigation", { name: "Trail" });
+    if (nav === null) return null;
+    return Array.from(nav.querySelectorAll("a, span[aria-current='step']")).map((el) => ({
+      label: el.textContent,
+      href: el.getAttribute("href"),
+      current: el.getAttribute("aria-current") === "step",
+    }));
+  }
+
+  it("records a zoomed sector, then a stock, then its holder, and draws the three as a trail", async () => {
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    mockSearch = "sector=Materials";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailSteps()).toEqual([{ label: "Materials", href: null, current: true }]));
+
+    mockSearch = "sector=Materials&sel=stock%3ABHP";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("Materials > BHP Group"));
+
+    mockSearch = "sector=Materials&sel=holder%3Astate-street";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "State Street" })).toBeInTheDocument());
+    await waitFor(() => expect(trailText()).toBe("Materials > BHP Group > State Street"));
+
+    const nav = screen.getByRole("navigation", { name: "Trail" });
+    expect(trailSteps()).toEqual([
+      { label: "Materials", href: "/ownership/map?sector=Materials", current: false },
+      { label: "BHP Group", href: "/ownership/map?sector=Materials&sel=stock%3ABHP", current: false },
+      { label: "State Street", href: null, current: true },
+    ]);
+    // The earlier steps are links with the scroll and prefetch the rail's other links use; the current one is text.
+    expect(screen.getByRole("link", { name: "BHP Group" })).toHaveAttribute("href", "/ownership/map?sector=Materials&sel=stock%3ABHP");
+    expect(screen.getByText("State Street", { selector: "span" })).toHaveAttribute("aria-current", "step");
+    expect(screen.queryByRole("link", { name: "State Street" })).toBeNull();
+  });
+
+  it("draws a trail of three after three resolved selections, with the earlier two linked", async () => {
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    for (const [search, heading] of [
+      ["sel=stock%3ABHP", "BHP Group"],
+      ["sel=stock%3ACBA", "CBA"],
+      ["sel=holder%3Astate-street", "State Street"],
+    ] as const) {
+      mockSearch = search;
+      rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+      await waitFor(() => expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument());
+    }
+    await waitFor(() => expect(trailText()).toBe("BHP Group > CBA > State Street"));
+    expect(trailSteps()).toEqual([
+      { label: "BHP Group", href: "/ownership/map?sel=stock%3ABHP", current: false },
+      { label: "CBA", href: "/ownership/map?sel=stock%3ACBA", current: false },
+      { label: "State Street", href: null, current: true },
+    ]);
+  });
+
+  it("keeps the trail in sessionStorage under the page's key, never in the link", async () => {
+    mockSearch = "sel=stock%3ABHP";
+    render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(fake.items.has(PAGE_KEY)).toBe(true));
+    const stored = JSON.parse(fake.items.get(PAGE_KEY) as string);
+    expect(stored).toEqual([{ label: "BHP Group", href: "/ownership/map?sel=stock%3ABHP" }]);
+  });
+
+  it("does not record a step for a selection with nothing on record", async () => {
+    mockSearch = "sel=fund%3Aasx%3AZZZ";
+    render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await screen.findByText("Nothing on record for this selection.");
+    expect(fake.items.has(PAGE_KEY)).toBe(false);
+    expect(screen.queryByRole("navigation", { name: "Trail" })).toBeNull();
+  });
+
+  it("keeps the trail when the selection is cleared, so the reader can walk back", async () => {
+    mockSearch = "sel=stock%3ABHP";
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await screen.findByRole("heading", { name: "BHP Group" });
+    mockSearch = "";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(screen.getByText("Click selects.")).toBeInTheDocument());
+    // The page is now the bare link, which is no step's link: every step stays a way back.
+    expect(trailSteps()).toEqual([{ label: "BHP Group", href: "/ownership/map?sel=stock%3ABHP", current: false }]);
+  });
+
+  it("keeps a zoomed sector's company and holder walkable when the selection is cleared on the sector", async () => {
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    mockSearch = "sector=Materials";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("Materials"));
+    mockSearch = "sector=Materials&sel=stock%3ABHP";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("Materials > BHP Group"));
+    // Clear selection lands on the sector's own link: the trail is not cut back to the sector.
+    mockSearch = "sector=Materials";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("Materials > BHP Group"));
+    await flushEffects();
+    expect(trailSteps()).toEqual([
+      { label: "Materials", href: null, current: true },
+      { label: "BHP Group", href: "/ownership/map?sector=Materials&sel=stock%3ABHP", current: false },
+    ]);
+    expect(screen.getByRole("link", { name: "BHP Group" })).toHaveAttribute(
+      "href",
+      "/ownership/map?sector=Materials&sel=stock%3ABHP",
+    );
+  });
+
+  it("cuts the trail back when an earlier step is walked to, and grows it again when walked forward", async () => {
+    mockSearch = "sel=stock%3ABHP";
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("BHP Group"));
+    mockSearch = "sel=stock%3ACBA";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("BHP Group > CBA"));
+
+    // The reader follows the BHP link: the page loads that selection and the trail is cut back to it.
+    mockSearch = "sel=stock%3ABHP";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("BHP Group"));
+
+    // Walking forward again does not grow it past the steps the reader has taken.
+    mockSearch = "sel=stock%3ACBA";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("BHP Group > CBA"));
+    await flushEffects();
+    expect(trailText()).toBe("BHP Group > CBA");
+  });
+
+  it("does not record a new step when only the lens changes on the same selection", async () => {
+    mockSearch = "sel=stock%3ABHP";
+    const { rerender } = render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await waitFor(() => expect(trailText()).toBe("BHP Group"));
+    mockSearch = "sel=stock%3ABHP&lens=flow";
+    rerender(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await screen.findByRole("heading", { name: "BHP Group" });
+    await flushEffects();
+    expect(trailText()).toBe("BHP Group");
+    expect(JSON.parse(fake.items.get(PAGE_KEY) as string)).toHaveLength(1);
+  });
+
+  it("draws a stored trail above the empty prompt when nothing is selected and no sector is zoomed", async () => {
+    fake.items.set(PAGE_KEY, JSON.stringify([{ label: "BHP Group", href: "/ownership/map?sel=stock%3ABHP" }]));
+    render(<Inspector resolve={resolve} emptyText="Click selects. Filter narrows the map." />);
+    const nav = await screen.findByRole("navigation", { name: "Trail" });
+    expect(nav.textContent).toBe("BHP Group");
+    // Nothing is selected on this page, so the stored step is a way back, not the current step.
+    expect(screen.getByRole("link", { name: "BHP Group" })).toHaveAttribute("href", "/ownership/map?sel=stock%3ABHP");
+    expect(screen.getByText("Click selects. Filter narrows the map.")).toBeInTheDocument();
+    expect(nav.compareDocumentPosition(screen.getByText("Click selects. Filter narrows the map.")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("reads a malformed stored trail as no trail at all", async () => {
+    fake.items.set(PAGE_KEY, "[not a trail");
+    render(<Inspector resolve={resolve} emptyText="Click selects." />);
+    await screen.findByText("Click selects.");
+    expect(screen.queryByRole("navigation", { name: "Trail" })).toBeNull();
+  });
+
+  it("serves the server's markup first: no trail before the stored one is read", () => {
+    fake.items.set(PAGE_KEY, JSON.stringify([{ label: "BHP Group", href: "/ownership/map?sel=stock%3ABHP" }]));
+    const { container } = render(<InspectorFallback emptyText="Click selects." />);
+    expect(container.querySelector('nav[aria-label="Trail"]')).toBeNull();
+  });
+});
+
+describe("workspace inspector sector zoom (backlog C4)", () => {
+  const sectorContent: InspectorContent = {
+    heading: "Materials",
+    rows: [{ label: "Notices released", value: "2026-08-07 to 2026-11-04" }],
+    sections: [{ title: "Largest holders by disclosed exposure", kind: "rows", items: [{ label: "Vanguard", value: "$1.1B" }] }],
+  };
+
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(true);
+  });
+
+  it("resolves a zoomed sector through the resolver when the link names no selection, and kicks it as the selected sector", async () => {
+    mockSearch = "sector=Materials";
+    const resolve = jest.fn(async () => sectorContent);
+    render(<Inspector resolve={resolve} emptyText="Select a company." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Materials" })).toBeInTheDocument());
+    expect(resolve).toHaveBeenCalledWith(
+      { kind: "sector", sector: "Materials" },
+      { lens: "", view: "", window: "", since: "", until: "", asAt: "", from: "", to: "" },
+    );
+    expect(screen.getByText("Selected sector", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Largest holders by disclosed exposure" })).toBeInTheDocument();
+  });
+
+  it("clears the zoom with Clear selection and keeps the rest of the link", async () => {
+    mockSearch = "sector=Materials&lens=flow&window=28";
+    render(<Inspector resolve={jest.fn(async () => sectorContent)} emptyText="Select a company." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Materials" })).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Clear selection" })).toHaveAttribute("href", "/ownership/map?lens=flow&window=28");
+  });
+
+  it("lets a selection win over a zoomed sector", async () => {
+    mockSearch = "sector=Materials&sel=stock%3ABHP";
+    const resolve = jest.fn(async () => content);
+    render(<Inspector resolve={resolve} emptyText="Select a company." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "BHP Group" })).toBeInTheDocument());
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledWith({ kind: "stock", code: "BHP" }, expect.anything());
+  });
+
+  it("keeps the empty prompt for a link that tries to pick a sector through sel", () => {
+    mockSearch = "sel=sector%3AMaterials";
+    const resolve = jest.fn(async () => sectorContent);
+    render(<Inspector resolve={resolve} emptyText="Select a company to inspect its holding." />);
+    expect(screen.getByText("Select a company to inspect its holding.")).toBeInTheDocument();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("keeps the empty prompt when there is neither a selection nor a zoomed sector", () => {
+    const resolve = jest.fn(async () => sectorContent);
+    render(<Inspector resolve={resolve} emptyText="Select a company to inspect its holding." />);
+    expect(screen.getByText("Select a company to inspect its holding.")).toBeInTheDocument();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+});
+
+describe("workspace inspector sector sheet below lg (backlog C4)", () => {
+  const sectorContent: InspectorContent = { heading: "Materials", rows: [] };
+
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(false);
+  });
+
+  it("does not open the sheet for a zoomed sector, so the zoomed map stays in reach below lg", async () => {
+    mockSearch = "sector=Materials";
+    const resolve = jest.fn(async () => sectorContent);
+    render(<Inspector resolve={resolve} emptyText="Select a company." />);
+    await waitFor(() => expect(document.querySelector("dialog")).not.toBeNull());
+    const dialog = document.querySelector("dialog") as HTMLDialogElement;
+    expect(dialog.hasAttribute("open")).toBe(false);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("closes a stock's sheet inside a zoom back to the zoomed map, and the sector does not reopen it", async () => {
+    mockSearch = "sel=stock%3ABHP&sector=Materials";
+    const { rerender } = render(<Inspector resolve={jest.fn(async () => content)} emptyText="Select a company." />);
+    await waitFor(() => expect(document.querySelector("dialog")).not.toBeNull());
+    const dialog = document.querySelector("dialog") as HTMLDialogElement;
+    await waitFor(() => expect(dialog.hasAttribute("open")).toBe(true));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear selection" }));
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith("/ownership/map?sector=Materials", { scroll: false });
+
+    // The router's replace lands the reader on the zoom alone: the sheet stays closed and nothing is replaced again.
+    mockSearch = "sector=Materials";
+    rerender(<Inspector resolve={jest.fn(async () => content)} emptyText="Select a company." />);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(dialog.hasAttribute("open")).toBe(false);
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("workspace inspector sheet opens for a link's selection only (backlog C4 follow-up)", () => {
+  const sectorContent: InspectorContent = { heading: "Materials", rows: [] };
+
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(false);
+  });
+
+  it("opens the sheet for ?sel= below lg, and leaves it closed for ?sector= alone", async () => {
+    mockSearch = "sector=Materials";
+    const sectorRender = render(<Inspector resolve={jest.fn(async () => sectorContent)} emptyText="Select." />);
+    await waitFor(() => expect(document.querySelector("dialog")).not.toBeNull());
+    expect((document.querySelector("dialog") as HTMLDialogElement).hasAttribute("open")).toBe(false);
+    sectorRender.unmount();
+
+    mockSearch = "sel=stock%3ABHP";
+    render(<Inspector resolve={jest.fn(async () => content)} emptyText="Select." />);
+    await waitFor(() => expect((document.querySelector("dialog") as HTMLDialogElement).hasAttribute("open")).toBe(true));
+  });
+});
+
+describe("workspace inspector bar with params (backlog C4 follow-up)", () => {
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(true);
+  });
+
+  it("renders a bar's label as a link that keeps the current search parameters and sets sel", async () => {
+    mockSearch = "sector=Materials&lens=flow&window=28";
+    const withBars: InspectorContent = {
+      heading: "Materials",
+      rows: [],
+      sections: [
+        {
+          title: "Largest holders by disclosed exposure",
+          kind: "bars",
+          items: [
+            {
+              label: "Vanguard",
+              value: "$1.1B",
+              share: 1,
+              href: "?sector=Materials&sel=connection%3Aindex_manager%3EMaterials&window=28",
+              params: { sel: "connection:index_manager>Materials" },
+            },
+          ],
+        },
+      ],
+    };
+    render(<Inspector resolve={jest.fn(async () => withBars)} emptyText="Select." />);
+    const link = await screen.findByRole("link", { name: "Vanguard" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/ownership/map?sector=Materials&lens=flow&window=28&sel=connection%3Aindex_manager%3EMaterials",
+    );
+  });
+});
+
+describe("workspace inspector primary placement (backlog C7, C4)", () => {
+  beforeEach(() => {
+    mockSearch = "sel=stock%3ABHP";
+    stubDialog();
+    viewport(true);
+  });
+
+  const sections: InspectorContent["sections"] = [
+    { title: "By holder type", kind: "rows", items: [{ label: "Index managers", value: "2 notices" }] },
+  ];
+
+  it("draws the primary action before the sections when it is placed first", async () => {
+    render(
+      <Inspector
+        resolve={jest.fn(async () => ({ ...content, sections, primaryPlacement: "first" as const }))}
+        emptyText="Select."
+      />,
+    );
+    const primary = await screen.findByRole("link", { name: "Open ownership →" });
+    const section = screen.getByRole("region", { name: "By holder type" });
+    expect(primary.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("draws the primary action after every section by default and when it is placed last", async () => {
+    render(<Inspector resolve={jest.fn(async () => ({ ...content, sections }))} emptyText="Select." />);
+    const primary = await screen.findByRole("link", { name: "Open ownership →" });
+    const section = screen.getByRole("region", { name: "By holder type" });
+    expect(section.compareDocumentPosition(primary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("marks a nofollow primary action rel=nofollow", async () => {
+    render(
+      <Inspector
+        resolve={jest.fn(async () => ({
+          ...content,
+          primary: { label: "View the registers →", href: "/ownership/stocks?industry=Materials", nofollow: true },
+        }))}
+        emptyText="Select."
+      />,
+    );
+    expect(await screen.findByRole("link", { name: "View the registers →" })).toHaveAttribute("rel", "nofollow");
+  });
+});
+
+describe("workspace inspector notices by week (backlog C6)", () => {
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(true);
+  });
+
+  it("draws a weeks section as its strip, with a link per week under the section's title", async () => {
+    mockSearch = "sel=stock%3ABHP";
+    const weeks = weekStrip([], "2026-10-31", (start, end) => `/ownership/notices?stock=BHP&since=${start}&until=${end}`).map(
+      (week, index) => ({ ...week, count: index === 25 ? 2 : 0 }),
+    );
+    render(
+      <Inspector
+        resolve={async () => ({
+          ...content,
+          sections: [{ title: "Notices by week", kind: "weeks", weeks }],
+        })}
+        emptyText="Select."
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole("heading", { name: "BHP Group" })).toBeInTheDocument());
+    const region = screen.getByRole("region", { name: "Notices by week" });
+    expect(region.querySelector("svg")).not.toBeNull();
+    // The strip's bars are hidden from assistive tech; the list beside them carries the 26 links a reader hears.
+    expect(within(region).getAllByRole("link")).toHaveLength(26);
+    expect(within(region).getByRole("group", { name: "Notices by week" })).toBeInTheDocument();
+  });
+});
+
+describe("workspace inspector fund comparison (backlog C5)", () => {
+  const compareContent: InspectorContent = {
+    heading: "A200 vs IOZ",
+    subtitle: "A200 at 2026-11-02 · IOZ at 2026-10-31",
+    rows: [],
+    sections: [
+      {
+        title: "Sector weights, A200 / IOZ",
+        kind: "rows",
+        items: [{ label: "Materials", value: "12.00% / 0.00% (+12.00 pp)" }],
+      },
+    ],
+    primary: { label: "Compare portfolios →", href: "/ownership/changes?fund=asx%3AA200" },
+  };
+  const compareQuery = { lens: "", view: "", window: "", since: "", until: "", asAt: "", from: "", to: "" };
+
+  beforeEach(() => {
+    mockSearch = "";
+    mockReplace.mockClear();
+    stubDialog();
+    viewport(true);
+  });
+
+  it("resolves two ticked funds through the resolver when the link names no selection, and kicks it as the compared funds", async () => {
+    mockSearch = "funds=asx%3AA200%2Casx%3AIOZ";
+    const resolve = jest.fn(async () => compareContent);
+    render(<Inspector resolve={resolve} emptyText="Select a fund to inspect its portfolio." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "A200 vs IOZ" })).toBeInTheDocument());
+    expect(resolve).toHaveBeenCalledWith({ kind: "compare", fundKeys: ["asx:A200", "asx:IOZ"] }, compareQuery);
+    expect(screen.getByText("Compared funds", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Sector weights, A200 / IOZ" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Compare portfolios →" })).toHaveAttribute(
+      "href",
+      "/ownership/changes?fund=asx%3AA200",
+    );
+  });
+
+  it("is no comparison from one fund alone, so the empty prompt stays and nothing is resolved", () => {
+    mockSearch = "funds=asx%3AA200";
+    const resolve = jest.fn(async () => compareContent);
+    render(<Inspector resolve={resolve} emptyText="Select a fund to inspect its portfolio." />);
+    expect(screen.getByText("Select a fund to inspect its portfolio.")).toBeInTheDocument();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("is no comparison from a list that names one valid fund beside an invalid key", () => {
+    mockSearch = "funds=asx%3AA200%2Cnot%20a%20key";
+    const resolve = jest.fn(async () => compareContent);
+    render(<Inspector resolve={resolve} emptyText="Select a fund to inspect its portfolio." />);
+    expect(screen.getByText("Select a fund to inspect its portfolio.")).toBeInTheDocument();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("is no comparison of two keys the codec would not write, such as a fund name holding the separator", () => {
+    mockSearch = "funds=aware%2FGrowth%7CBalanced%2Casx%3AA200";
+    const resolve = jest.fn(async () => compareContent);
+    render(<Inspector resolve={resolve} emptyText="Select a fund to inspect its portfolio." />);
+    expect(screen.getByText("Select a fund to inspect its portfolio.")).toBeInTheDocument();
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("lets a selection in sel win over the ticked funds", async () => {
+    mockSearch = "sel=stock%3ABHP&funds=asx%3AA200%2Casx%3AIOZ";
+    const resolve = jest.fn(async () => content);
+    render(<Inspector resolve={resolve} emptyText="Select a fund to inspect its portfolio." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "BHP Group" })).toBeInTheDocument());
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledWith({ kind: "stock", code: "BHP" }, expect.anything());
+  });
+
+  it("clears the ticked funds with Clear selection and keeps the rest of the link", async () => {
+    mockSearch = "funds=asx%3AA200%2Casx%3AIOZ&lens=flow&window=28";
+    render(<Inspector resolve={jest.fn(async () => compareContent)} emptyText="Select a fund." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "A200 vs IOZ" })).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Clear selection" })).toHaveAttribute("href", "/ownership/map?lens=flow&window=28");
+  });
+
+  it("keeps a zoomed sector under the comparison: clearing the funds leaves the zoom", async () => {
+    mockSearch = "sector=Materials&funds=asx%3AA200%2Casx%3AIOZ";
+    render(<Inspector resolve={jest.fn(async () => compareContent)} emptyText="Select a fund." />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "A200 vs IOZ" })).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Clear selection" })).toHaveAttribute("href", "/ownership/map?sector=Materials");
+  });
+
+  it("opens the sheet below lg for ticked funds, since a comparison has no other surface there, and closing it clears the funds", async () => {
+    viewport(false);
+    mockSearch = "funds=asx%3AA200%2Casx%3AIOZ&lens=flow";
+    render(<Inspector resolve={jest.fn(async () => compareContent)} emptyText="Select a fund." />);
+    await waitFor(() => expect(document.querySelector("dialog")).not.toBeNull());
+    const dialog = document.querySelector("dialog") as HTMLDialogElement;
+    await waitFor(() => expect(dialog.hasAttribute("open")).toBe(true));
+    // The resolver answers after the sheet opens: wait for the comparison to draw, so its update lands inside the test.
+    await waitFor(() => expect(within(dialog).getByText("A200 vs IOZ")).toBeInTheDocument());
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear selection" }));
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith("/ownership/map?lens=flow", { scroll: false });
+  });
+
+  it("keeps the sheet shut below lg for a zoomed sector under no comparison", async () => {
+    viewport(false);
+    mockSearch = "sector=Materials";
+    render(<Inspector resolve={jest.fn(async () => compareContent)} emptyText="Select a fund." />);
+    await waitFor(() => expect(document.querySelector("dialog")).not.toBeNull());
+    expect((document.querySelector("dialog") as HTMLDialogElement).hasAttribute("open")).toBe(false);
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

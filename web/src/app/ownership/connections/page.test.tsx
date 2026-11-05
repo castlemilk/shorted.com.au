@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import OwnershipConnectionsPage, { metadata, revalidate } from "./page";
 
 const bailOnEmptyRender = jest.fn(async () => undefined);
@@ -60,5 +60,15 @@ describe("the connections page (spec 14.3)", () => {
 
   it("has a canonical URL of its own", () => {
     expect(metadata.alternates).toEqual({ canonical: "https://shorted.com.au/ownership/connections" });
+  });
+
+  it("ends the main column with the closed method disclosure, its text in the HTML", async () => {
+    const { container } = render(await OwnershipConnectionsPage());
+    const method = container.querySelector("details#method") as HTMLElement | null;
+    expect(method).not.toBeNull();
+    expect(method).not.toHaveAttribute("open");
+    expect(within(method as HTMLElement).getByText("How these figures are read")).toBeInTheDocument();
+    expect(method?.textContent).toMatch(/what the notices disclose, not a share of the company/);
+    expect(method?.nextElementSibling).toBeNull();
   });
 });

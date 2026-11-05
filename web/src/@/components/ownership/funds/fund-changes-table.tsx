@@ -5,7 +5,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { sectionTitle } from "@/lib/typography";
 import { parseSelection } from "../workspace/selection";
-import { Toolbar } from "../workspace/toolbar";
+import { Toolbar, ToolbarSelect } from "../workspace/toolbar";
 import { ViewDisclosure } from "../workspace/view-disclosure";
 import { StockLogoBox } from "../workspace/stock-logo-box";
 import { withUrlState, type UrlState } from "./url-params";
@@ -15,6 +15,8 @@ import {
   changesCsv,
   cleanFundKey,
   cleanIsoDate,
+  compareCaption,
+  compareOptionLabel,
   defaultPair,
   filterChanges,
   formatDeltaPp,
@@ -32,6 +34,11 @@ export interface ChangeFundOption {
   key: string;
   ticker: string;
   name: string;
+  /**
+   * The file dates the fund has on record; under two, its label says so. Optional: a caller
+   * that does not state it gets the label with no suffix.
+   */
+  snapshotCount?: number;
 }
 
 export interface FundChangesTableProps {
@@ -129,6 +136,15 @@ export function FundChangesTableView({
   const page: FundComparison | null = key === initialKey ? initial : loaded?.key === key ? loaded.page : null;
   const rows: CompareRow[] = page?.ok ? page.rows : [];
   const shown = filterChanges(rows, filter);
+  // The caption names the comparison on screen, with its own dates; with none on screen it is the bare note.
+  const onScreen = page?.ok === true && !inverted && from !== "" && to !== "";
+  const shownFund = funds.find((option) => option.key === fund);
+  const caption = compareCaption(
+    shownFund ? (shownFund.ticker.trim() !== "" ? shownFund.ticker : shownFund.name) : "",
+    onScreen && page?.ok ? page.from : "",
+    onScreen && page?.ok ? page.to : "",
+    rows,
+  );
   // The selected holding of this fund is outlined (spec 14.1), as the exposure map outlines its row.
   const selection = parseSelection(params.get("sel") ?? "");
   const selectedCode = selection?.kind === "holding" && selection.fundKey === fund ? selection.code : "";
@@ -160,84 +176,60 @@ export function FundChangesTableView({
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const selectClass =
-    "h-10 rounded-md border border-input bg-background px-2 font-mono text-sm text-foreground disabled:opacity-50 w-full min-w-0 max-w-full sm:w-auto";
-
   return (
     <div className="space-y-4">
       <div className="space-y-1">
         <h2 className={sectionTitle}>Changes in portfolio weight</h2>
-        <p className="text-sm text-muted-foreground">Reported snapshot change. Not a trade record.</p>
+        <p className="text-sm text-muted-foreground">{caption}</p>
       </div>
 
-      {/* One toolbar row (spec 14.9): the fund, the two snapshots and the filter, under "Adjust view" below sm. */}
+      {/*
+       * One toolbar row (spec 14.9, B4): the fund, the two snapshots, the filter and the export. The
+       * Fund select is capped at 18rem so the row holds at 1440 (the main column is about 1,016px beside
+       * the rail); below sm the row folds under "Adjust view". Every select is a ToolbarSelect, so each
+       * keeps its visible label. The note of what the figures are is the footnote, not a row control.
+       */}
       <Toolbar fold={(row) => <ViewDisclosure>{row}</ViewDisclosure>}>
-        <label className="flex min-w-0 max-w-full flex-col gap-1 font-mono text-xs text-muted-foreground">
-          Fund
-          <select aria-label="Fund" value={fund} onChange={(event) => void pickFund(event.target.value)} className={selectClass}>
-            {funds.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.ticker.trim() !== "" ? `${option.ticker} · ${option.name}` : option.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex min-w-0 max-w-full flex-col gap-1 font-mono text-xs text-muted-foreground">
-          Earlier snapshot
-          <select
-            aria-label="Earlier snapshot"
-            value={from}
-            disabled={dates.length === 0}
-            onChange={(event) => pickDate("from", event.target.value)}
-            className={selectClass}
-          >
-            {dateOptions.map((date) => (
-              <option key={date} value={date}>
-                {date}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex min-w-0 max-w-full flex-col gap-1 font-mono text-xs text-muted-foreground">
-          Later snapshot
-          <select
-            aria-label="Later snapshot"
-            value={to}
-            disabled={dates.length === 0}
-            onChange={(event) => pickDate("to", event.target.value)}
-            className={selectClass}
-          >
-            {dateOptions.map((date) => (
-              <option key={date} value={date}>
-                {date}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex min-w-0 max-w-full flex-col gap-1 font-mono text-xs text-muted-foreground">
-          Show
-          <select
-            aria-label="Show changes"
-            value={filter}
-            onChange={(event) => navigate(patchHref(pathname, params, { filter: event.target.value === "all" ? null : event.target.value }))}
-            className={selectClass}
-          >
-            {CHANGE_FILTERS.map((option) => (
-              <option key={option} value={option}>
-                {CHANGE_FILTER_LABELS[option]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ToolbarSelect label="Fund" value={fund} onChange={(next) => void pickFund(next)} className="max-w-[18rem] truncate">
+          {funds.map((option) => (
+            <option key={option.key} value={option.key}>
+              {compareOptionLabel(option)}
+            </option>
+          ))}
+        </ToolbarSelect>
+        <ToolbarSelect label="Earlier" value={from} disabled={dates.length === 0} onChange={(next) => pickDate("from", next)}>
+          {dateOptions.map((date) => (
+            <option key={date} value={date}>
+              {date}
+            </option>
+          ))}
+        </ToolbarSelect>
+        <ToolbarSelect label="Later" value={to} disabled={dates.length === 0} onChange={(next) => pickDate("to", next)}>
+          {dateOptions.map((date) => (
+            <option key={date} value={date}>
+              {date}
+            </option>
+          ))}
+        </ToolbarSelect>
+        <ToolbarSelect
+          label="Show"
+          value={filter}
+          onChange={(next) => navigate(patchHref(pathname, params, { filter: next === "all" ? null : next }))}
+        >
+          {CHANGE_FILTERS.map((option) => (
+            <option key={option} value={option}>
+              {CHANGE_FILTER_LABELS[option]}
+            </option>
+          ))}
+        </ToolbarSelect>
         <button
           type="button"
           onClick={exportCsv}
           disabled={shown.length === 0}
-          className="h-10 rounded-md border border-border px-3 font-mono text-xs hover:border-primary disabled:opacity-50"
+          className="h-8 rounded-sm border border-border px-3 font-mono text-xs hover:border-primary disabled:opacity-50"
         >
           Export CSV
         </button>
-        <p className="pb-2 font-mono text-xs text-muted-foreground">Exact file dates shown · Comparable holdings only</p>
       </Toolbar>
 
       {inverted ? (
@@ -315,7 +307,9 @@ export function FundChangesTableView({
           </table>
         </div>
       )}
-      <p className="text-xs text-muted-foreground">Weight changes can reflect price moves.</p>
+      <p className="font-mono text-xs text-muted-foreground">
+        Exact file dates shown · Comparable holdings only · Weight changes can reflect price moves.
+      </p>
     </div>
   );
 }

@@ -72,7 +72,7 @@ export function MobileNav({ items }: MobileNavProps) {
               const isLocked = item.requiresAuth && !session;
 
               // Locked items bounce to signin on click, but the anchor keeps
-              // the real destination — baking /signin?callbackUrl= into the
+              // the real destination; baking /signin?callbackUrl= into the
               // href leaked sitewide internal link equity to a signin URL
               // (crawlers read the signed-out SSR'd anchor).
               return (
@@ -84,8 +84,13 @@ export function MobileNav({ items }: MobileNavProps) {
                     "-mx-2 flex items-center gap-2 rounded-md px-2 py-2 transition-colors",
                     isLocked
                       ? "text-muted-foreground/40"
-                      : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
-                    pathname === item.href && !isLocked && "text-foreground font-bold"
+                      : "text-muted-foreground hover:bg-secondary/50 dark:hover:bg-muted hover:text-foreground",
+                    // Same rule as the desktop nav: a section stays lit on its
+                    // own sub-pages. main-nav imports this file, so the helper
+                    // is repeated here rather than imported back (a cycle).
+                    (pathname === item.href || pathname.startsWith(`${item.href}/`)) &&
+                      !isLocked &&
+                      "text-primary font-bold"
                   )}
                   onClick={(e) => {
                     setOpen(false);
@@ -113,8 +118,8 @@ export function MobileNav({ items }: MobileNavProps) {
                 href="/docs/api"
                 prefetch={false}
                 className={cn(
-                  "-mx-2 flex items-center gap-2 rounded-md px-2 py-2 text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground",
-                  pathname.startsWith("/docs/api") && "text-foreground font-bold"
+                  "-mx-2 flex items-center gap-2 rounded-md px-2 py-2 text-muted-foreground transition-colors hover:bg-secondary/50 dark:hover:bg-muted hover:text-foreground",
+                  pathname.startsWith("/docs/api") && "text-primary font-bold"
                 )}
                 onClick={() => setOpen(false)}
               >

@@ -85,7 +85,7 @@ func (s *pgStore) UpsertRows(ctx context.Context, rows []shortsRow) (int, error)
 	return written, nil
 }
 
-// The three ways the writer loads a file. They are the asic_report_ingests.mode values (000154).
+// The three ways the writer loads a file. They are the asic_report_ingests.mode values (000155).
 const (
 	modeDaily     = "daily"
 	modePoll      = "poll"

@@ -24,6 +24,12 @@ export interface InspectorBar {
   title?: string;
   /** The bar's label is a link when set, e.g. a company row to its register page (spec 14.8). */
   href?: string;
+  /**
+   * Parameters merged into the link the reader is on, as InspectorLink.params does: the bar keeps the
+   * sort, lens and window and sets only the names given. A null removes the name. `href` is the fallback
+   * for a bar without params.
+   */
+  params?: Record<string, string | null>;
   /** A second line under the bar, e.g. a fund's shares beside its weight (spec 14.10). */
   detail?: string;
 }
@@ -66,22 +72,42 @@ export interface InspectorLink {
 }
 
 /**
+ * One week of a `weeks` section (backlog C6): the Monday-started week, its count of notices and the
+ * feed link for it. A count of 0 is a real quiet week, drawn as an empty slot, never left out. The
+ * strip's bars take the heatmap's count bins (desk-scales countScale and lensFill).
+ */
+export interface WeekBar {
+  /** The week's Monday, YYYY-MM-DD. */
+  weekStart: string;
+  count: number;
+  href: string;
+}
+
+/**
  * A titled block under the rows (spec 14.1): a list of label and value rows, bars
  * with a figure each, a list of links, or a dated series (activity, snapshots). A
  * series with `points` is drawn as a line with a dot per point, and its `items` are
- * the figures beneath it (spec 14.8); one without stays the dated text list.
+ * the figures beneath it (spec 14.8); one without stays the dated text list. A
+ * `weeks` block is a strip of notice counts by week (backlog C6).
  */
 export type InspectorSection =
   | { title: string; kind: "rows"; items: InspectorRow[] }
   | { title: string; kind: "series"; items: InspectorRow[]; points?: InspectorPoint[] }
   | { title: string; kind: "bars"; items: InspectorBar[] }
-  | { title: string; kind: "list"; items: InspectorLink[] };
+  | { title: string; kind: "list"; items: InspectorLink[] }
+  | { title: string; kind: "weeks"; weeks: WeekBar[] };
 
 export interface InspectorContent {
   /** The name, in the page-title serif. */
   heading: string;
   /** A line under the name, e.g. "PLS Group · Materials" or "Holdings as at {date}". */
   subtitle?: string;
+  /**
+   * The one computed sentence the rail leads with (spec 14.1, backlog C1): what is notable in
+   * this selection, built from the figures the rail already shows. Never model prose. A figure
+   * that is missing drops its clause, and with no clause left there is no reading at all.
+   */
+  reading?: string;
   logo?: InspectorLogo;
   /** Kind or status badges beside the name, e.g. "Company", "Substantial notices". */
   badges?: string[];
@@ -99,6 +125,12 @@ export interface InspectorContent {
   note?: string;
   /** The one primary action, full width; spec 14.1. */
   primary?: InspectorLink;
+  /**
+   * Where the primary action sits relative to the sections: "last" (the default) after them all, or
+   * "first" before them, for a rail whose lists are long and whose action is what the reader came for
+   * (the cell's "View N notices", backlog C7).
+   */
+  primaryPlacement?: "first" | "last";
   links?: InspectorLink[];
   /** A line under "Clear selection", e.g. "Selection highlights this company and sector across the workspace." */
   footnote?: string;

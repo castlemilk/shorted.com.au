@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 
 const mockLoadFunds = jest.fn();
 const mockLoadFundPortfolio = jest.fn();
@@ -54,8 +54,8 @@ describe("the changes page (spec 14.3, static ISR)", () => {
       ok: true,
       error: "",
       funds: [
-        { key: "VAS", ticker: "VAS", name: "Vanguard", sourceKind: "etf" },
-        { key: "HVST", ticker: "HVST", name: "Hostplus", sourceKind: "super_phd" },
+        { key: "VAS", ticker: "VAS", name: "Vanguard", sourceKind: "etf", snapshotCount: 2 },
+        { key: "HVST", ticker: "HVST", name: "Hostplus", sourceKind: "super_phd", snapshotCount: 1 },
       ],
     });
     mockLoadFundPortfolio.mockResolvedValue({
@@ -73,6 +73,64 @@ describe("the changes page (spec 14.3, static ISR)", () => {
       "Fund snapshots",
       "Substantial notices",
     ]);
+  });
+
+  it("opens on the first index fund with two file dates, lists its rows, and orders the Fund select", async () => {
+    mockLoadFunds.mockResolvedValue({
+      ok: true,
+      error: "",
+      funds: [
+        { key: "asx:VAS", ticker: "VAS", name: "Vanguard", sourceKind: "etf", snapshotCount: 1 },
+        { key: "asx:IOZ", ticker: "IOZ", name: "iShares", sourceKind: "etf", snapshotCount: 3 },
+        { key: "asx:A200", ticker: "A200", name: "Betashares", sourceKind: "etf", snapshotCount: 2 },
+      ],
+    });
+    const DATES: Record<string, string[]> = {
+      "asx:VAS": ["2026-10-15"],
+      "asx:IOZ": ["2026-08-31", "2026-09-30", "2026-10-31"],
+      "asx:A200": ["2026-09-30", "2026-10-31"],
+    };
+    mockLoadFundPortfolio.mockImplementation(async ({ fundKey }: { fundKey: string }) => ({
+      ok: true,
+      missing: false,
+      error: "",
+      fund: { snapshotDates: DATES[fundKey] ?? [] },
+    }));
+    mockCompare.mockResolvedValue({
+      ok: true,
+      error: "",
+      from: "2026-09-30",
+      to: "2026-10-31",
+      sourceFrom: "",
+      sourceTo: "",
+      rows: [
+        { code: "CBA", name: "Commonwealth Bank", industry: "Banks", weightFrom: 10, weightTo: 10.2, deltaPp: 0.2, valueFrom: null, valueTo: null, status: "continuing" },
+      ],
+    });
+    render(await ChangesPage());
+    // IOZ is the first index fund with two files; its two newest files are compared.
+    expect(mockLoadFundPortfolio).toHaveBeenCalledWith({ fundKey: "asx:IOZ" });
+    expect(mockCompare).toHaveBeenCalledWith({ fundKey: "asx:IOZ", from: "2026-09-30", to: "2026-10-31" });
+    expect(screen.getByRole("link", { name: "CBA" })).toBeInTheDocument();
+    expect(screen.queryByText("Two file dates of this fund are needed to compare them.")).not.toBeInTheDocument();
+    const select = screen.getByRole("combobox", { name: /^Fund/ });
+    expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "IOZ · iShares",
+      "A200 · Betashares",
+      "VAS · Vanguard (one file)",
+    ]);
+    expect(select).toHaveValue("asx:IOZ");
+  });
+
+  // B1 folded the method on the institution and holder pages; the Changes page ends
+  // its main column with the same disclosure, so its figures are read the same way.
+  it("ends its main column with the shared method disclosure", async () => {
+    mockLoadFunds.mockResolvedValue({ ok: true, error: "", funds: [] });
+    const { container } = render(await ChangesPage());
+
+    const method = container.querySelector<HTMLElement>("details#method")!;
+    expect(method.querySelector("summary")).toHaveTextContent("How these figures are read");
+    expect(method.parentElement!.lastElementChild).toBe(method);
   });
 
   it("bails an outage of the funds read rather than caching an empty comparison", async () => {

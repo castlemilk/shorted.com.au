@@ -2,6 +2,7 @@ package ownership
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/reportextract"
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 )
 
@@ -28,6 +30,10 @@ type pendingNotice struct {
 	Headline    string
 	AnnouncedOn string
 	ListedCodes []string
+	// PriorOutcome and PriorVersion are the notice's last attempt, "" and 0 when
+	// it has none. They decide whether the announcements API is asked.
+	PriorOutcome string
+	PriorVersion int
 }
 
 // company is what the pass knows about a listed code.
@@ -64,26 +70,58 @@ type noticeAttempt struct {
 // without Postgres.
 type noticeStore interface {
 	PendingNotices(ctx context.Context, limit int, since string, parserVersion int) ([]pendingNotice, error)
+	ResolvableNotices(ctx context.Context, limit int, since string) ([]pendingNotice, error)
 	Companies(ctx context.Context) (map[string]company, error)
+	LiveCodes(ctx context.Context) (map[string]bool, error)
 	SharesOnIssue(ctx context.Context, code, on string) (float64, error)
 	UpsertNotice(ctx context.Context, row noticeRow) error
 	RecordAttempt(ctx context.Context, a noticeAttempt, parserVersion int) error
+	// SharedHeadlineNotices counts the distinct notices the feed holds under the
+	// codes on the day with the headline (folded as the API folds it). The notice
+	// itself is one of them; more than one means the API cannot tell them apart.
+	SharedHeadlineNotices(ctx context.Context, codes []string, day, headline string) (int, error)
 }
 
-// pdfSource downloads an announcement's PDF.
+// pdfSource downloads an announcement's PDF from its display page.
 type pdfSource interface {
 	PDF(ctx context.Context, url string) ([]byte, error)
 }
 
+// announcementSource looks an announcement up in ASX's announcements API by
+// its codes, day (YYYY-MM-DD, Sydney) and headline, and returns its PDF.
+// reportextract.ErrASXCodeUnknown, ErrASXNotListed and a plain error are the
+// answers the pass distinguishes.
+type announcementSource interface {
+	AnnouncementPDF(ctx context.Context, codes []string, day, headline string) ([]byte, error)
+}
+
 // Outcomes the pass records beyond the parser's. no_holder is both: the parser
 // returns it for a placeholder section 1 name (notice.go), and the pass returns it
-// for a name it cannot resolve to a holder.
+// for a name it cannot resolve to a holder. unavailable is ASX's own answer
+// that it holds no PDF for the announcement: set aside, never retried by the
+// nightly pass (only resolve-unavailable reads it again, once, for a live code).
 const (
 	outcomeFetchError        = "fetch_error"
+	outcomeUnavailable       = "unavailable"
 	outcomeAmbiguousTarget   = "ambiguous_target"
 	outcomeNoHolder          = "no_holder"
 	outcomeInconsistentVotes = "inconsistent_votes"
 )
+
+// apiPathVersion is the parser version from which an attempt records that the
+// announcements API was asked (noticeParserVersion carries it). An attempt
+// below it was made before the API path existed, or while the API gave no
+// answer (unansweredVersion): the nightly pass asks the API for such a notice
+// once it has an answer, and resolve-unavailable reads its unavailable ones.
+const apiPathVersion = 3
+
+// unansweredVersion is the parser version an outcome is recorded at when the
+// API was wanted and gave no answer: a run's request cap, a refusal, a transport
+// failure. A "not listed" answer is an answer and keeps apiPathVersion.
+const unansweredVersion = apiPathVersion - 1
+
+// unavailableDetail is the attempt's detail for every unavailable notice.
+const unavailableDetail = "ASX cannot display the PDF"
 
 var (
 	headlineForRe  = regexp.MustCompile(`\b(?:for|in)\s+([A-Z0-9]{3,6})\s*$`)
@@ -95,7 +133,13 @@ var (
 // holder's code and "... from MQG" under the company's, and lists it under
 // both. A headline naming a company not on record (delisted since, or taken
 // over) is withheld: the code it is listed under is then the holder's.
-func resolveTarget(p pendingNotice, docCompany string, companies map[string]company) (string, string) {
+//
+// When the notice's own company name settles nothing by the rules above, the
+// one listed code that ASIC's short report still carries (live) decides, if its
+// name folds to the notice's (foldCompanyName): a delisted code that still has
+// the same name in company-metadata cannot take the notice. Two live codes, or
+// no live code, stay ambiguous.
+func resolveTarget(p pendingNotice, docCompany string, companies map[string]company, live map[string]bool) (string, string) {
 	codes := uniqueSorted(p.ListedCodes)
 	if m := headlineForRe.FindStringSubmatch(strings.TrimSpace(p.Headline)); m != nil {
 		if _, ok := companies[m[1]]; ok {
@@ -117,6 +161,18 @@ func resolveTarget(p pendingNotice, docCompany string, companies map[string]comp
 		}
 		if len(matched) == 1 {
 			return matched[0], ""
+		}
+		var current []string
+		for _, c := range codes {
+			if live[c] {
+				current = append(current, c)
+			}
+		}
+		if len(current) == 1 {
+			want := foldCompanyName(docCompany)
+			if co, ok := companies[current[0]]; ok && want != "" && want == foldCompanyName(co.Name) {
+				return current[0], ""
+			}
 		}
 	}
 	if m := headlineFromRe.FindStringSubmatch(strings.TrimSpace(p.Headline)); m != nil {
@@ -145,6 +201,30 @@ func uniqueSorted(in []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// companySuffixes are the corporate words a company's name ends in that carry
+// no identity: "ZIP CO LIMITED" and "Zip Co Ltd" are both "zip".
+var companySuffixes = map[string]bool{
+	"limited": true, "ltd": true, "pty": true, "corporation": true, "corp": true,
+	"group": true, "holdings": true, "nl": true, "inc": true, "co": true,
+}
+
+var (
+	bracketRe = regexp.MustCompile(`\([^)]*\)`)
+	wordRe    = regexp.MustCompile(`[^a-z0-9]+`)
+)
+
+// foldCompanyName is a company name as two sources write it alike: brackets
+// and punctuation gone, lower case, and the trailing corporate suffixes
+// dropped. "" when nothing is left.
+func foldCompanyName(name string) string {
+	s := strings.ToLower(strings.ReplaceAll(bracketRe.ReplaceAllString(name, " "), "'", ""))
+	words := strings.Fields(wordRe.ReplaceAllString(s, " "))
+	for len(words) > 0 && companySuffixes[words[len(words)-1]] {
+		words = words[:len(words)-1]
+	}
+	return strings.Join(words, " ")
 }
 
 // holderIdentity is who a notice's holder is.
@@ -271,10 +351,12 @@ type noticePassResult struct {
 	Outcomes map[string]int
 }
 
-// noticePass carries one run's collaborators.
+// noticePass carries one run's collaborators. api is nil only in tests that
+// exercise the display page alone.
 type noticePass struct {
 	store     noticeStore
 	pdfs      pdfSource
+	api       announcementSource
 	extractor textExtractor
 	workers   int
 	delay     time.Duration
@@ -282,11 +364,29 @@ type noticePass struct {
 	logf      func(string, ...any)
 }
 
+// run is the nightly pass: the notices selected by PendingNotices.
 func (p *noticePass) run(ctx context.Context, limit int, since string) (noticePassResult, error) {
 	pending, err := p.store.PendingNotices(ctx, limit, since, noticeParserVersion)
 	if err != nil {
 		return noticePassResult{}, fmt.Errorf("select pending notices: %w", err)
 	}
+	return p.process(ctx, pending, false)
+}
+
+// resolve is resolve-unavailable: every fetch_error, and each live code's
+// unavailable notice once (ResolvableNotices), read again through the API.
+func (p *noticePass) resolve(ctx context.Context, limit int, since string) (noticePassResult, error) {
+	pending, err := p.store.ResolvableNotices(ctx, limit, since)
+	if err != nil {
+		return noticePassResult{}, fmt.Errorf("select resolvable notices: %w", err)
+	}
+	return p.process(ctx, pending, true)
+}
+
+// process reads each notice and records its outcome. resolving asks the API for
+// every notice it is given; the nightly pass asks it only for a notice that has
+// not been asked yet (apiPathVersion).
+func (p *noticePass) process(ctx context.Context, pending []pendingNotice, resolving bool) (noticePassResult, error) {
 	res := noticePassResult{Selected: len(pending), Outcomes: map[string]int{}}
 	if len(pending) == 0 {
 		return res, nil
@@ -294,6 +394,11 @@ func (p *noticePass) run(ctx context.Context, limit int, since string) (noticePa
 	companies, err := p.store.Companies(ctx)
 	if err != nil {
 		return res, fmt.Errorf("load companies: %w", err)
+	}
+	// Read once per run: a code is current when ASIC's short report carries it.
+	live, err := p.store.LiveCodes(ctx)
+	if err != nil {
+		return res, fmt.Errorf("load live codes: %w", err)
 	}
 	byKey := companiesByHolderKey(companies)
 
@@ -306,7 +411,7 @@ func (p *noticePass) run(ctx context.Context, limit int, since string) (noticePa
 			res.Parsed++
 		}
 	}
-	record := func(n pendingNotice, code, outcome, detail string) {
+	recordAt := func(n pendingNotice, code, outcome, detail string, version int) {
 		tally(outcome)
 		if p.dryRun {
 			if outcome != string(outcomeParsed) {
@@ -317,15 +422,23 @@ func (p *noticePass) run(ctx context.Context, limit int, since string) (noticePa
 		if code == "" && len(n.ListedCodes) > 0 {
 			code = uniqueSorted(n.ListedCodes)[0]
 		}
-		if err := p.store.RecordAttempt(ctx, noticeAttempt{URL: n.URL, StockCode: code, Outcome: outcome, Detail: detail}, noticeParserVersion); err != nil {
+		if err := p.store.RecordAttempt(ctx, noticeAttempt{URL: n.URL, StockCode: code, Outcome: outcome, Detail: detail}, version); err != nil {
 			p.logf("notice %s: recording outcome %s failed: %v", n.URL, outcome, err) // re-selected next run
 		}
 	}
+	record := func(n pendingNotice, code, outcome, detail string) {
+		recordAt(n, code, outcome, detail, noticeParserVersion)
+	}
 
 	handle := func(n pendingNotice) {
-		data, err := p.pdfs.PDF(ctx, n.URL)
-		if err != nil {
-			record(n, "", outcomeFetchError, err.Error())
+		viaAPI := p.api != nil && (resolving || n.PriorVersion < apiPathVersion)
+		data, outcome, detail, unanswered := p.fetch(ctx, n, viaAPI)
+		if outcome != "" {
+			version := noticeParserVersion
+			if unanswered {
+				version = unansweredVersion
+			}
+			recordAt(n, "", outcome, detail, version)
 			return
 		}
 		text, err := p.extractor.extract(ctx, data)
@@ -333,18 +446,18 @@ func (p *noticePass) run(ctx context.Context, limit int, since string) (noticePa
 			record(n, "", string(outcomeNoText), err.Error())
 			return
 		}
-		notice, outcome, detail := parseSubstantialNotice(text, n.Headline)
-		if outcome != outcomeParsed {
+		notice, parsed, parseDetail := parseSubstantialNotice(text, n.Headline)
+		if parsed != outcomeParsed {
 			// A placeholder names no holder, so its attempt is filed under the
 			// company its target names, as a parsed notice's would be.
 			code := ""
-			if outcome == outcomeNoHolder {
-				code, _ = resolveTarget(n, notice.CompanyName, companies)
+			if parsed == outcomeNoHolder {
+				code, _ = resolveTarget(n, notice.CompanyName, companies, live)
 			}
-			record(n, code, string(outcome), detail)
+			record(n, code, string(parsed), parseDetail)
 			return
 		}
-		code, why := resolveTarget(n, notice.CompanyName, companies)
+		code, why := resolveTarget(n, notice.CompanyName, companies, live)
 		if code == "" {
 			record(n, "", outcomeAmbiguousTarget, why)
 			return
@@ -421,6 +534,94 @@ func (p *noticePass) run(ctx context.Context, limit int, since string) (noticePa
 	}()
 	wg.Wait()
 	return res, ctx.Err()
+}
+
+// fetch returns a notice's PDF, or the outcome and detail to record when it
+// has none. The display page is asked first. When viaAPI, a notice whose
+// display page failed for any reason but a refusal is then looked up in the
+// announcements API. A refusal (401, 403, 429) is a result: it is recorded as
+// fetch_error and the API is not asked around it.
+//
+// unanswered is set when the API was wanted and gave no answer to the notice: the
+// run's request cap, a refusal of the API, a transport failure, a list cut before
+// the notice's day (ErrASXListCut), a list holding a same-day item it cannot
+// download (ErrASXUnreadable), a feed that holds another notice of the same
+// headline on the day (the API cannot tell them apart), a notice with no
+// well-formed code, or a display refusal that kept the API from being asked at
+// all. The outcome is then recorded at unansweredVersion, so the nightly pass
+// asks the API again on the notice's next retry. A set-aside is never recorded
+// as unanswered.
+//
+// unavailable is recorded only when ASX's two answers agree in the same run: the
+// display page's "cannot display" text, and then either the API not knowing the
+// code or the API listing no document for the notice in a list that reaches back
+// before its day. The API lists only as many items as it chooses (5 for BHP on
+// 2026-11-05), so a miss in a list that does not reach back proves nothing. A
+// display page that failed for any other reason stays fetch_error. A notice
+// whose attempt predates this run's API answer (a fetch_error at or above
+// apiPathVersion, asked before) is not set aside on the display page alone: it is
+// recorded as unanswered and asked again. Only a notice the API already set aside
+// (PriorOutcome unavailable), or a pass with no API at all, keeps unavailable on
+// the display page alone.
+func (p *noticePass) fetch(ctx context.Context, n pendingNotice, viaAPI bool) (data []byte, outcome, detail string, unanswered bool) {
+	data, displayErr := p.pdfs.PDF(ctx, n.URL)
+	if displayErr == nil {
+		return data, "", "", false
+	}
+	displayUnavailable := errors.Is(displayErr, reportextract.ErrASXUnavailable)
+	if !viaAPI {
+		switch {
+		case !displayUnavailable:
+			return nil, outcomeFetchError, displayErr.Error(), false
+		case p.api == nil || n.PriorOutcome == outcomeUnavailable:
+			return nil, outcomeUnavailable, unavailableDetail, false
+		default:
+			return nil, outcomeFetchError, unavailableDetail + "; announcements API not asked again", true
+		}
+	}
+	if reportextract.IsRefusal(displayErr) {
+		return nil, outcomeFetchError, displayErr.Error(), true
+	}
+	displayDetail := displayErr.Error()
+	if displayUnavailable {
+		displayDetail = unavailableDetail
+	}
+	// The API matches a notice by its code, day and headline, and a generic headline
+	// is shared by every holder's notice of that day. When the feed holds another
+	// notice of the same headline on the day, the API's match could be that
+	// notice's document, so no match is asked for: the notice is withheld.
+	shared, err := p.store.SharedHeadlineNotices(ctx, n.ListedCodes, n.AnnouncedOn, n.Headline)
+	switch {
+	case err != nil:
+		return nil, outcomeFetchError, displayDetail + "; announcements API not asked: " + err.Error(), true
+	case shared > 1:
+		return nil, outcomeFetchError, fmt.Sprintf("%s; announcements API not asked: %d notices share the day and headline", displayDetail, shared), true
+	}
+	data, apiErr := p.api.AnnouncementPDF(ctx, n.ListedCodes, n.AnnouncedOn, n.Headline)
+	// "Not listed" and "code unknown" are the API's answers; every other failure,
+	// a list that cannot settle the day, and a notice with no well-formed code are
+	// no answer.
+	answered := errors.Is(apiErr, reportextract.ErrASXNotListed) || errors.Is(apiErr, reportextract.ErrASXCodeUnknown)
+	switch {
+	case apiErr == nil:
+		return data, "", "", false
+	case errors.Is(apiErr, reportextract.ErrASXCodeUnknown) && displayUnavailable:
+		// ASX's display page says it cannot show the PDF, and the API does not know
+		// the code: there is no document to read, and both answers say so. An
+		// unknown code with a display page that failed another way is a failure to
+		// retry, recorded below as fetch_error.
+		return nil, outcomeUnavailable, unavailableDetail, false
+	case errors.Is(apiErr, reportextract.ErrASXListCut), errors.Is(apiErr, reportextract.ErrASXUnreadable):
+		// The list cannot show the notice's day: the document is neither found nor
+		// ruled out, so the notice is never set aside on this answer.
+		return nil, outcomeFetchError, displayDetail + "; announcements API: " + apiErr.Error(), true
+	case errors.Is(apiErr, reportextract.ErrASXNotListed) && displayUnavailable:
+		return nil, outcomeUnavailable, unavailableDetail, false
+	case displayUnavailable:
+		return nil, outcomeFetchError, unavailableDetail + "; announcements API: " + apiErr.Error(), !answered
+	default:
+		return nil, outcomeFetchError, displayErr.Error() + "; announcements API: " + apiErr.Error(), !answered
+	}
 }
 
 func fmtPct(p *float64) string {

@@ -6,6 +6,11 @@ import type { StockPanelPage } from "../stock-panel";
 import { OwnershipMap } from "../ownership-map";
 import { HATCH_ID } from "../ownership-map-static";
 
+/** The full treemap (from sm). Below sm the phone map draws a zoomed sector's stocks again under the same names. */
+function fullMap(): HTMLElement {
+  return screen.getByRole("group", { name: /^Sectors and stocks, coloured by/ });
+}
+
 // The link the reader arrives with. The island reads it through useSearchParams; a
 // test that moves the link by hand (back or forward) changes this and re-renders.
 let mockSearchParams = new URLSearchParams("");
@@ -114,11 +119,11 @@ describe("OwnershipMap island", () => {
     expect(window.location.search).toBe("?sector=Materials");
     const location = screen.getByRole("navigation", { name: "Map location" });
     expect(within(location).getByText("Materials").closest("li")).toHaveAttribute("aria-current", "location");
-    expect(screen.queryByRole("button", { name: CELL_BHP })).toBeInTheDocument();
+    expect(within(fullMap()).getByRole("button", { name: CELL_BHP })).toBeInTheDocument();
     // The sector's stocks only: CBA is a financial and is not on the zoomed map.
     expect(screen.queryByRole("button", { name: /^CBA,/ })).toBeNull();
 
-    fireEvent.keyDown(screen.getByRole("button", { name: CELL_BHP }), { key: "Escape" });
+    fireEvent.keyDown(within(fullMap()).getByRole("button", { name: CELL_BHP }), { key: "Escape" });
     expect(window.location.search).toBe("");
     expect(screen.getByRole("button", { name: /^CBA,/ })).toBeInTheDocument();
   });
@@ -128,7 +133,7 @@ describe("OwnershipMap island", () => {
     render(<OwnershipMap initial={page()} loadMap={jest.fn()} loadPanel={loadPanel} />);
     fireEvent.click(screen.getByRole("button", { name: "Zoom to Materials" }));
     expect(window.location.search).toBe("?sector=Materials");
-    fireEvent.click(screen.getByRole("button", { name: CELL_BHP }));
+    fireEvent.click(within(fullMap()).getByRole("button", { name: CELL_BHP }));
     expect(await screen.findByRole("heading", { name: "BHP Group" })).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("button", { name: "Close BHP" }), { key: "Escape" });
     expect(screen.queryByRole("heading", { name: "BHP Group" })).toBeNull();
@@ -264,6 +269,25 @@ describe("OwnershipMap island", () => {
     expect(within(bhp as HTMLElement).getByText("41.20%")).toBeInTheDocument();
   });
 
+  it("states the read-to date, the window and the fund comparison in one coverage line, with the Coverage link", () => {
+    const fundPage = page({
+      fundsCompared: 2,
+      startFilesFrom: "2026-09-01",
+      startFilesTo: "2026-09-01",
+      endFilesFrom: "2026-10-30",
+      endFilesTo: "2026-10-30",
+    });
+    render(<OwnershipMap initial={fundPage} loadMap={jest.fn()} loadPanel={jest.fn()} />);
+    const line = screen.getByText("the last 91 days").closest("p") as HTMLElement;
+    expect(line).toHaveTextContent(
+      "Notices read to 2026-10-12 · the last 91 days · 2 funds compared, files 2026-09-01 against 2026-10-30 · Coverage",
+    );
+    expect(within(line).getByRole("link", { name: "Coverage" })).toHaveAttribute("href", "/ownership#coverage");
+    // The caption under the drawing no longer repeats the window, and the legend holds no second copy of the files.
+    expect(screen.queryByText(/The net change and the notice counts cover/)).toBeNull();
+    expect(screen.getAllByText(/2 funds compared, files 2026-09-01 against 2026-10-30/)).toHaveLength(1);
+  });
+
   it("follows a link moved by hand, without asking again for a window it already holds", () => {
     const loadMap = jest.fn().mockResolvedValue(page());
     const { rerender } = render(<OwnershipMap initial={page()} loadMap={loadMap} loadPanel={jest.fn()} />);
@@ -271,5 +295,59 @@ describe("OwnershipMap island", () => {
     rerender(<OwnershipMap initial={page()} loadMap={loadMap} loadPanel={jest.fn()} />);
     expect(screen.getByRole("combobox", { name: "Colour" })).toHaveValue("hedge");
     expect(loadMap).not.toHaveBeenCalled();
+  });
+});
+
+describe("the map's sort (backlog C3)", () => {
+  // Under the flow lens Financials moves most (-4.00 pp) and Materials least (+0.50 pp); by area Materials is first.
+  const MOVERS: MapStockRow[] = [
+    stock({ code: "BHP", name: "BHP Group", marketCap: 300_000, flowPp: 0.5 }),
+    stock({ code: "RIO", name: "Rio Tinto", marketCap: 200_000, flowPp: 0.5 }),
+    stock({ code: "CBA", name: "Commonwealth Bank", marketCap: 150_000, industry: "Financials", flowPp: -4 }),
+  ];
+
+  function sectorOrder(container: HTMLElement): string[] {
+    return Array.from(container.querySelectorAll("g[data-sector]")).map((group) => group.getAttribute("data-sector") ?? "");
+  }
+
+  it("orders the compact pane by change when the link names no sort, and by area when it names largest", () => {
+    mockSearchParams = new URLSearchParams("lens=flow");
+    const changed = render(
+      <OwnershipMap initial={page({ stocks: MOVERS })} loadMap={jest.fn()} loadPanel={jest.fn()} variant="compact" sort="changed" />,
+    );
+    expect(sectorOrder(changed.container)).toEqual(["Financials", "Materials"]);
+    changed.unmount();
+
+    mockSearchParams = new URLSearchParams("lens=flow&sort=largest");
+    const largest = render(
+      <OwnershipMap initial={page({ stocks: MOVERS })} loadMap={jest.fn()} loadPanel={jest.fn()} variant="compact" sort="changed" />,
+    );
+    expect(sectorOrder(largest.container)).toEqual(["Materials", "Financials"]);
+  });
+
+  it("orders the full map by area when the link names no sort, and offers the Sort control in its one toolbar row under the flow lens", () => {
+    mockSearchParams = new URLSearchParams("lens=flow");
+    const { container } = render(<OwnershipMap initial={page({ stocks: MOVERS })} loadMap={jest.fn()} loadPanel={jest.fn()} variant="full" />);
+    expect(sectorOrder(container)).toEqual(["Materials", "Financials"]);
+    const toolbar = container.querySelectorAll("[data-toolbar]");
+    expect(toolbar).toHaveLength(1);
+    expect(within(toolbar[0] as HTMLElement).getByRole("combobox", { name: "Sort" })).toHaveValue("largest");
+  });
+
+  it("writes the sort into the link when the Sort control changes, and redraws the sectors in that order", () => {
+    window.history.replaceState(null, "", "/ownership/map?lens=flow");
+    mockSearchParams = new URLSearchParams("lens=flow");
+    const { container, rerender } = render(
+      <OwnershipMap initial={page({ stocks: MOVERS })} loadMap={jest.fn()} loadPanel={jest.fn()} variant="full" />,
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort" }), { target: { value: "changed" } });
+    expect(new URLSearchParams(window.location.search).get("sort")).toBe("changed");
+    expect(new URLSearchParams(window.location.search).get("lens")).toBe("flow");
+    // The router hands the island the link it now has.
+    mockSearchParams = new URLSearchParams(window.location.search);
+    rerender(<OwnershipMap initial={page({ stocks: MOVERS })} loadMap={jest.fn()} loadPanel={jest.fn()} variant="full" />);
+    expect(sectorOrder(container)).toEqual(["Financials", "Materials"]);
+    expect(within(container.querySelector("[data-toolbar]") as HTMLElement).getByRole("combobox", { name: "Sort" })).toHaveValue("changed");
+    window.history.replaceState(null, "", "/ownership");
   });
 });

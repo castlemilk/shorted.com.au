@@ -140,6 +140,8 @@ var registry = []Institution{
 		Aliases: []string{"dimensional fund advisors", "dimensional entities", "dfa australia"}, Description: "Systematic, index-like equity manager."},
 	{Slug: "vaneck", Name: "VanEck", Kind: KindIndexManager, Country: "US",
 		Aliases: []string{"vaneck", "van eck"}, Description: "ETF issuer (MVW, GDX)."},
+	{Slug: "global-x", Name: "Global X", Kind: KindIndexManager, Country: "US", Website: "https://www.globalxetfs.com.au",
+		Aliases: []string{"global x", "global x etfs", "mirae asset global investments"}, Description: "ETF issuer (A300, ZYAU, OZXX), owned by Mirae Asset."},
 	{Slug: "legal-and-general", Name: "Legal & General Investment Management", Kind: KindIndexManager, Country: "GB",
 		Aliases: []string{"legal and general"}},
 	{Slug: "geode", Name: "Geode Capital Management", Kind: KindIndexManager, Country: "US",

@@ -5,14 +5,16 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { BreadcrumbStructuredData, Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { ExternalLinkGlyph, ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph";
 import { NoticeTable } from "~/@/components/ownership/notice-table";
-import { KindBadge, OwnershipMethodology } from "~/@/components/ownership/ownership-parts";
+import { KindBadge } from "~/@/components/ownership/ownership-parts";
 import { OwnershipReportError } from "~/@/components/ownership/ownership-provenance";
 import { FileHoldingsTable, SubstantialHoldingsTable } from "~/@/components/ownership/ownership-tables";
+import { ShowAll } from "~/@/components/ownership/show-all";
+import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 import { formatAmount } from "~/@/lib/fundamentals/format";
 import { institutionIsIndexable } from "~/@/lib/ownership/indexability";
 import { isInstitutionSlug, kindInfo } from "~/@/lib/ownership/kinds";
 import { defaultNoticeQuery, NOTICE_WINDOW_ALL, serialiseNoticeParams } from "~/@/lib/ownership/query";
-import { INSTITUTION_NOTICES_SHOWN, fileHoldingRow, holdingRow } from "~/@/lib/ownership/rows";
+import { fileHoldingRow, holdingRow } from "~/@/lib/ownership/rows";
 import { eyebrow, lede, pageTitle, sectionTitle } from "@/lib/typography";
 import { getInstitutionOrNotFound } from "~/app/actions/getOwnership";
 import { NotFoundError } from "~/app/actions/withRetry";
@@ -28,8 +30,8 @@ import {
 import { HolderInspector } from "~/@/components/ownership/workspace/inspectors/holder-inspector";
 import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
 import { loadOwnershipMap } from "~/app/actions/ownershipDesk";
-import { loadHolderConnections, resolveHolderInspector } from "~/app/actions/ownershipHolders";
-import type { GetInstitutionResponse } from "~/gen/shorts/v1alpha1/ownership_pb";
+import { loadHolderConnections, loadHolderWeekNotices, resolveHolderInspector } from "~/app/actions/ownershipHolders";
+import type { GetInstitutionResponse, SubstantialHolding } from "~/gen/shorts/v1alpha1/ownership_pb";
 
 // On-demand ISR: rendered on first visit, cached for an hour. The empty
 // generateStaticParams keeps the segment static (the stock tabs' rule).
@@ -41,6 +43,35 @@ export function generateStaticParams(): Array<{ slug: string }> {
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+/**
+ * Each list's rows drawn before its "Show all" disclosure. The rest stay in the HTML.
+ */
+const SECTION_ROWS_SHOWN = 10;
+
+/**
+ * The stakes, largest first: voting power times the stock's market cap where the row has one,
+ * else voting power alone. The two keys are in different units (dollars against a share of the
+ * vote), so every row with a market cap sorts ahead of every row without one, and the two groups
+ * are ordered within themselves. The sort is stable, so equal keys keep the API's order.
+ */
+function stakesLargestFirst(
+  positions: readonly SubstantialHolding[],
+  caps: ReadonlyMap<string, number | null> | null,
+): SubstantialHolding[] {
+  const dollars = (p: SubstantialHolding): number | null => {
+    const cap = caps?.get(p.stockCode);
+    return cap ? p.votingPowerPct * cap : null;
+  };
+  return [...positions].sort((a, b) => {
+    const da = dollars(a);
+    const db = dollars(b);
+    if (da !== null && db !== null) return db - da;
+    if (da !== null) return -1;
+    if (db !== null) return 1;
+    return b.votingPowerPct - a.votingPowerPct;
+  });
 }
 
 const NOINDEX = {
@@ -134,14 +165,18 @@ export default async function InstitutionPage({ params }: PageProps) {
   // content: a map that cannot be read draws every width as a hairline and the pane says so
   // (its outage line), and the page caches as usual (spec 14.7).
   const desk = await loadOwnershipMap({});
+  const caps = desk.ok ? marketCapsOf(desk.stocks) : null;
+  // The holder's notices by week for its inspector's strip (backlog C6): a failed read draws no strip.
+  const weekNotices = await loadHolderWeekNotices(inst.slug, desk.ok ? desk.asOf : "");
   const holder = holderRowFrom(inst);
   const funds = data.funds.map(holderFundRow);
-  const connections = connectionsPage(holder, data.positions, desk.ok ? marketCapsOf(desk.stocks) : null, funds);
-  const inspector = holderInspectorContent(holder, connections.positions, null, connections.funds);
+  const connections = connectionsPage(holder, data.positions, caps, funds);
+  const inspector = holderInspectorContent(holder, connections.positions, null, connections.funds, weekNotices);
 
   const info = kindInfo(inst.kind);
-  const etfs = data.funds.filter((f) => f.fundType === "etf");
-  const superFunds = data.funds.filter((f) => f.fundType === "super_fund");
+  const stakes = stakesLargestFirst(data.positions, caps).map(holdingRow);
+  const files = data.fundHoldings.map(fileHoldingRow);
+  const products = [...data.funds.filter((f) => f.fundType === "super_fund"), ...data.funds.filter((f) => f.fundType === "etf")];
   const crumbs = [
     { label: "Ownership", href: "/ownership" },
     { label: inst.name, href: `/ownership/${inst.slug}` },
@@ -234,21 +269,33 @@ export default async function InstitutionPage({ params }: PageProps) {
           <h2 id="stakes" className={sectionTitle}>
             Substantial holdings
           </h2>
-          {data.positions.length === 0 ? (
+          {stakes.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No current substantial holding on record: no notice read leaves {inst.name} with 5% or more of an ASX
               company.
             </p>
           ) : (
-            <SubstantialHoldingsTable
-              rows={data.positions.map(holdingRow)}
-              holder={inst.name}
-              caption={`${inst.name}'s current substantial holdings`}
-            />
+            <ShowAll
+              total={stakes.length}
+              limit={SECTION_ROWS_SHOWN}
+              rest={
+                <SubstantialHoldingsTable
+                  rows={stakes.slice(SECTION_ROWS_SHOWN)}
+                  holder={inst.name}
+                  caption={`${inst.name}'s other current substantial holdings`}
+                />
+              }
+            >
+              <SubstantialHoldingsTable
+                rows={stakes.slice(0, SECTION_ROWS_SHOWN)}
+                holder={inst.name}
+                caption={`${inst.name}'s current substantial holdings`}
+              />
+            </ShowAll>
           )}
         </section>
 
-        {data.fundHoldings.length > 0 ? (
+        {files.length > 0 ? (
           <section className="space-y-3" aria-labelledby="files">
             <h2 id="files" className={sectionTitle}>
               From its holdings files
@@ -257,36 +304,51 @@ export default async function InstitutionPage({ params }: PageProps) {
               The largest ASX holdings, by value, in the latest holdings files {inst.name} publishes
               {inst.kind === "super_fund" ? " (one investment option, not the whole fund)" : ""}.
             </p>
-            <FileHoldingsTable
-              rows={data.fundHoldings.map(fileHoldingRow)}
-              caption={`${inst.name}'s largest disclosed ASX holdings`}
-            />
-            {data.fundHoldingsTotal > data.fundHoldings.length ? (
+            <ShowAll
+              total={files.length}
+              limit={SECTION_ROWS_SHOWN}
+              rest={
+                <FileHoldingsTable
+                  rows={files.slice(SECTION_ROWS_SHOWN)}
+                  caption={`${inst.name}'s other disclosed ASX holdings`}
+                />
+              }
+            >
+              <FileHoldingsTable
+                rows={files.slice(0, SECTION_ROWS_SHOWN)}
+                caption={`${inst.name}'s largest disclosed ASX holdings`}
+              />
+            </ShowAll>
+            {data.fundHoldingsTotal > files.length ? (
               <p className="text-xs text-muted-foreground">
-                {`The largest ${data.fundHoldings.length.toLocaleString("en-AU")} of ${data.fundHoldingsTotal.toLocaleString("en-AU")} ASX holdings in its files.`}
+                {`The largest ${files.length.toLocaleString("en-AU")} of ${data.fundHoldingsTotal.toLocaleString("en-AU")} ASX holdings in its files.`}
               </p>
             ) : null}
           </section>
         ) : null}
 
-        {etfs.length + superFunds.length > 0 ? (
+        {products.length > 0 ? (
           <section className="space-y-3" aria-labelledby="products">
             <h2 id="products" className={sectionTitle}>
               Products
             </h2>
-            <ul className="grid gap-x-6 gap-y-1 text-sm md:grid-cols-2">
-              {[...superFunds, ...etfs].map((f) => (
-                <li key={f.fundKey} className="flex min-w-0 justify-between gap-3">
-                  <span className="min-w-0 truncate">
-                    {f.asxCode ? <span className="font-semibold">{f.asxCode} </span> : null}
-                    {f.name}
-                  </span>
-                  <span className="shrink-0 tabular-nums text-muted-foreground">
-                    {f.hasSize ? formatAmount(f.sizeAud, "AUD") : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <ShowAll
+              total={products.length}
+              limit={SECTION_ROWS_SHOWN}
+              rest={
+                <ul className="grid gap-x-6 gap-y-1 text-sm md:grid-cols-2">
+                  {products.slice(SECTION_ROWS_SHOWN).map((f) => (
+                    <ProductItem key={f.fundKey} fund={f} />
+                  ))}
+                </ul>
+              }
+            >
+              <ul className="grid gap-x-6 gap-y-1 text-sm md:grid-cols-2">
+                {products.slice(0, SECTION_ROWS_SHOWN).map((f) => (
+                  <ProductItem key={f.fundKey} fund={f} />
+                ))}
+              </ul>
+            </ShowAll>
           </section>
         ) : null}
 
@@ -306,27 +368,56 @@ export default async function InstitutionPage({ params }: PageProps) {
               </Link>
             </p>
           ) : null}
-          <NoticeTable
-            notices={data.notices}
-            showHolder={false}
-            caption={`${inst.name}'s substantial holding notices`}
-            limit={INSTITUTION_NOTICES_SHOWN}
-            onRecord={inst.notices}
-          />
+          {inst.notices > data.notices.length ? (
+            <p className="text-xs text-muted-foreground">
+              {`The newest ${data.notices.length.toLocaleString("en-AU")} of ${inst.notices.toLocaleString("en-AU")} notices on record.`}
+            </p>
+          ) : null}
+          <ShowAll
+            total={data.notices.length}
+            limit={SECTION_ROWS_SHOWN}
+            rest={
+              <NoticeTable
+                notices={data.notices.slice(SECTION_ROWS_SHOWN)}
+                showHolder={false}
+                caption={`${inst.name}'s other substantial holding notices`}
+              />
+            }
+          >
+            <NoticeTable
+              notices={data.notices.slice(0, SECTION_ROWS_SHOWN)}
+              showHolder={false}
+              caption={`${inst.name}'s substantial holding notices`}
+            />
+          </ShowAll>
         </section>
 
-        <section className="space-y-2" aria-label="Method">
-          <div className="flex items-center gap-2">
-            <KindBadge kind={inst.kind} />
-            <span className="text-xs text-muted-foreground">{info.note}</span>
-          </div>
-          <OwnershipMethodology className="max-w-[80ch]" />
-          <p className="text-xs text-muted-foreground">
-            <OwnershipReportError subject={`Ownership data: ${inst.name}`} />
-          </p>
-        </section>
+        <MethodDisclosure
+          extra={[
+            <div key="kind" className="flex items-center gap-2">
+              <KindBadge kind={inst.kind} />
+              <span>{info.note}</span>
+            </div>,
+            <p key="report">
+              <OwnershipReportError subject={`Ownership data: ${inst.name}`} />
+            </p>,
+          ]}
+        />
       </div>
       </WorkspacePage>
     </DashboardLayout>
+  );
+}
+
+/** One product of the institution: its ASX code, name and size where it is stated. */
+function ProductItem({ fund: f }: { fund: GetInstitutionResponse["funds"][number] }) {
+  return (
+    <li className="flex min-w-0 justify-between gap-3">
+      <span className="min-w-0 truncate">
+        {f.asxCode ? <span className="font-semibold">{f.asxCode} </span> : null}
+        {f.name}
+      </span>
+      <span className="shrink-0 tabular-nums text-muted-foreground">{f.hasSize ? formatAmount(f.sizeAud, "AUD") : ""}</span>
+    </li>
   );
 }

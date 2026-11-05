@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net/http"
@@ -19,6 +21,49 @@ import (
 
 // PDFTextMode is the pdfchild mode that runs ExtractPDFText; main serves it.
 const PDFTextMode = "text"
+
+// ErrASXUnavailable is ASX's answer for an announcement it holds no PDF for:
+// its display page says "Sorry, cannot display PDF." This is a definitive
+// refusal of the page, not a transport failure, so a caller may set the
+// announcement aside instead of retrying it.
+var ErrASXUnavailable = errors.New("ASX cannot display the PDF")
+
+// asxUnavailableRe is the body text of that answer, matched after the markup
+// is stripped, entities are decoded and whitespace is folded, so a rewording
+// of the markup (a tag inside the sentence, &nbsp;, another case) still counts.
+var asxUnavailableRe = regexp.MustCompile(`(?i)\bsorry, cannot display pdf\.`)
+
+// asxShellMaxBytes bounds the page that can carry the answer: ASX's shell is
+// under a kilobyte. A large page (a 404 template, a results page) is not read
+// as the answer even if the phrase happens to sit in it.
+const asxShellMaxBytes = 16 << 10
+
+var htmlTagRe = regexp.MustCompile(`<[^>]*>`)
+
+// isASXUnavailable reports whether body is ASX's "cannot display" answer.
+func isASXUnavailable(body []byte) bool {
+	if len(body) > asxShellMaxBytes || bytes.HasPrefix(body, pdfMagic) {
+		return false
+	}
+	text := strings.Join(strings.Fields(html.UnescapeString(htmlTagRe.ReplaceAllString(string(body), " "))), " ")
+	return asxUnavailableRe.MatchString(text)
+}
+
+// StatusError is a non-200 answer from ASX.
+type StatusError struct{ Code int }
+
+func (e *StatusError) Error() string { return fmt.Sprintf("HTTP %d", e.Code) }
+
+// IsRefusal reports whether err is ASX refusing the request (401, 403 or 429).
+// A refusal is a result: a caller must not route around it through another
+// ASX endpoint.
+func IsRefusal(err error) bool {
+	var se *StatusError
+	if !errors.As(err, &se) {
+		return false
+	}
+	return se.Code == http.StatusUnauthorized || se.Code == http.StatusForbidden || se.Code == http.StatusTooManyRequests
+}
 
 // defaultPDFMemory is the resident memory a fetcher's PDF children share
 // unless WithPDFMemory says otherwise: two notices at once at the smallest
@@ -92,7 +137,10 @@ func newFetcherWithPDFMemory(pdfMemory int64) *fetcher {
 // AnnouncementTextFetcher downloads an ASX announcement's text the way the
 // report and director jobs do: displayAnnouncement.do resolution, ASX headers
 // and the same PDF extraction. Safe for concurrent use.
-type AnnouncementTextFetcher struct{ f *fetcher }
+type AnnouncementTextFetcher struct {
+	f   *fetcher
+	api *announcementAPI
+}
 
 // FetcherOption configures an AnnouncementTextFetcher.
 type FetcherOption func(*fetcherOptions)
@@ -111,7 +159,8 @@ func NewAnnouncementTextFetcher(opts ...FetcherOption) *AnnouncementTextFetcher 
 	for _, opt := range opts {
 		opt(&o)
 	}
-	return &AnnouncementTextFetcher{f: newFetcherWithPDFMemory(o.pdfMemory)}
+	f := newFetcherWithPDFMemory(o.pdfMemory)
+	return &AnnouncementTextFetcher{f: f, api: newAnnouncementAPI(f.client, asxAPIBase)}
 }
 
 // Text returns the text of the announcement's first maxPages pages, or "" on
@@ -131,10 +180,14 @@ func (a *AnnouncementTextFetcher) PDF(ctx context.Context, url string) ([]byte, 
 func (f *fetcher) downloadPDF(ctx context.Context, url string) ([]byte, error) {
 	pdfURL := url
 	if strings.Contains(url, "displayAnnouncement.do") {
-		pdfURL = f.resolveASXPDFURL(ctx, url)
-		if pdfURL == "" {
+		resolved, err := f.resolveASXPDF(ctx, url)
+		if err != nil {
+			return nil, err
+		}
+		if resolved == "" {
 			return nil, fmt.Errorf("could not resolve PDF URL")
 		}
+		pdfURL = resolved
 	}
 	resp, err := f.get(ctx, pdfURL, downloadTimeout)
 	if err != nil {
@@ -142,7 +195,7 @@ func (f *fetcher) downloadPDF(ctx context.Context, url string) ([]byte, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		return nil, &StatusError{Code: resp.StatusCode}
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxPDFBytes))
 	if err != nil {
@@ -193,29 +246,43 @@ func (c *cancelOnClose) Close() error {
 // Returns "" (not an error) whenever the page can't be resolved — the caller
 // treats that exactly as Python's None: log and skip the report.
 func (f *fetcher) resolveASXPDFURL(ctx context.Context, displayURL string) string {
-	resp, err := f.get(ctx, displayURL, resolveTimeout)
+	resolved, err := f.resolveASXPDF(ctx, displayURL)
 	if err != nil {
 		log.Printf("  Failed to resolve PDF URL: %v", err)
 		return ""
+	}
+	return resolved
+}
+
+// resolveASXPDF is resolveASXPDFURL with the reason a page did not resolve:
+// ErrASXUnavailable for ASX's "cannot display" answer, a *StatusError for a
+// non-200 answer, any other error for a transport failure. ("", nil) is a page
+// with no PDF link in it.
+func (f *fetcher) resolveASXPDF(ctx context.Context, displayURL string) (string, error) {
+	resp, err := f.get(ctx, displayURL, resolveTimeout)
+	if err != nil {
+		return "", err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
-		return ""
-	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxPDFBytes))
 	if err != nil {
-		log.Printf("  Failed to resolve PDF URL: %v", err)
-		return ""
+		return "", err
+	}
+	if isASXUnavailable(body) {
+		return "", ErrASXUnavailable
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", &StatusError{Code: resp.StatusCode}
 	}
 	// Already a direct PDF.
 	if bytes.HasPrefix(body, pdfMagic) {
-		return displayURL
+		return displayURL, nil
 	}
 	if m := pdfURLPattern.FindSubmatch(body); m != nil {
-		return string(m[1])
+		return string(m[1]), nil
 	}
-	return ""
+	return "", nil
 }
 
 // downloadPDFText downloads an ASX announcement PDF and extracts up to maxPages

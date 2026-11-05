@@ -1,4 +1,9 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+
+// The setup mocks Badge as a span, which hides the real Badge's <div>: under a
+// <p>, React's DOM nesting check (src/test/setup.ts) only sees it unmocked.
+jest.unmock("@/components/ui/badge");
+
 import type {
   FundHolding,
   GetInstitutionResponse,
@@ -12,6 +17,7 @@ import { notFound } from "next/navigation";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { loadOwnershipMap } from "~/app/actions/ownershipDesk";
+import { loadHolderWeekNotices } from "~/app/actions/ownershipHolders";
 
 import InstitutionPage, { generateMetadata } from "./page";
 
@@ -24,6 +30,7 @@ jest.mock("~/app/actions/config", () => ({
 }));
 jest.mock("~/app/actions/ownershipHolders", () => ({
   loadHolderConnections: jest.fn(async () => ({ ok: false, error: "", holder: null, positions: [], capsOk: false })),
+  loadHolderWeekNotices: jest.fn(async () => null),
   resolveHolderInspector: jest.fn(async () => null),
 }));
 
@@ -135,50 +142,134 @@ const bodyRows = (table: HTMLElement) => within(table).getAllByRole("row").slice
 describe("InstitutionPage", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  // /ownership/vanguard drew all 88 stakes, 100 holdings-file rows and 100
-  // notices as server tables, each row as HTML and again in the RSC payload:
-  // 946 KB. The stakes and holdings files are the page's account of what an
-  // institution holds, so every row and its stock link stays in the HTML (the
-  // perf review's fix kept them whole; a first cut drew 25 of each). Only the
-  // notices, a dated log of filings, wait behind "Show all" past the newest 25.
-  it("draws every stake and holdings-file row and the newest 25 notices, and holds the other notices", async () => {
+  // /ownership/vanguard drew every stake, holdings-file row and notice as a full
+  // row: 19,465px tall at 1440. Each long list now draws its ten largest rows and
+  // holds the rest behind "Show all N", still in the HTML (ShowAll).
+  it("draws the ten largest stakes, holdings-file rows and notices, and holds the rest behind Show all", async () => {
     getInstitutionOrNotFound.mockResolvedValue(response({ positions: 88, fundHoldings: 100, notices: 100 }));
-    render(await InstitutionPage(params("vanguard")));
+    const { container } = render(await InstitutionPage(params("vanguard")));
 
     const stakes = screen.getByRole("table", { name: "Vanguard's current substantial holdings" });
     const files = screen.getByRole("table", { name: "Vanguard's largest disclosed ASX holdings" });
     const notices = screen.getByRole("table", { name: "Vanguard's substantial holding notices" });
-    expect(bodyRows(stakes)).toHaveLength(88);
-    expect(bodyRows(files)).toHaveLength(100);
-    expect(bodyRows(notices)).toHaveLength(25);
-    // Every holding's stock link is in the page, in the API's order.
-    // Every stock on the page goes to its register, not to its Company tab.
-    expect(within(stakes).getAllByRole("link", { name: /^P\d\d$/ }).map((a) => a.getAttribute("href"))).toEqual(
+    expect(bodyRows(stakes)).toHaveLength(10);
+    expect(bodyRows(files)).toHaveLength(10);
+    expect(bodyRows(notices)).toHaveLength(10);
+
+    const stakesRest = screen.getByRole("table", { name: "Vanguard's other current substantial holdings" });
+    const filesRest = screen.getByRole("table", { name: "Vanguard's other disclosed ASX holdings" });
+    const noticesRest = screen.getByRole("table", { name: "Vanguard's other substantial holding notices" });
+    expect(bodyRows(stakesRest)).toHaveLength(78);
+    expect(bodyRows(filesRest)).toHaveLength(90);
+    expect(bodyRows(noticesRest)).toHaveLength(90);
+
+    // Every row is reachable: the first ten and the rest, by voting power, since the default map carries no market cap, which is the fixture's order.
+    const stakeLinks = [stakes, stakesRest].flatMap((t) => within(t).getAllByRole("link", { name: /^P\d\d$/ }));
+    expect(stakeLinks.map((a) => a.getAttribute("href"))).toEqual(
       Array.from({ length: 88 }, (_, i) => `/ownership/stocks/P${String(i).padStart(2, "0")}`),
     );
-    expect(within(files).getAllByRole("link", { name: /^F\d\d$/ }).map((a) => a.getAttribute("href"))).toEqual(
-      Array.from({ length: 100 }, (_, i) => `/ownership/stocks/F${String(i).padStart(2, "0")}`),
-    );
+    const fileLinks = [files, filesRest].flatMap((t) => within(t).getAllByRole("link", { name: /^F\d\d$/ }));
+    expect(fileLinks).toHaveLength(100);
 
-    // One control, under the notices.
-    const more = screen.getByRole("button", { name: /^Show all/ });
-    expect(more).toHaveAttribute("aria-controls", notices.querySelector("tbody")!.id);
-    fireEvent.click(more);
-    expect(bodyRows(notices)).toHaveLength(100);
+    // One disclosure per long section, each holding the rest of its own table.
+    const section = (id: string) => container.querySelector<HTMLElement>(`section[aria-labelledby='${id}']`)!;
+    expect(within(section("stakes")).getByText("Show all 88").closest("details")!.contains(stakesRest)).toBe(true);
+    expect(within(section("files")).getByText("Show all 100").closest("details")!.contains(filesRest)).toBe(true);
+    expect(within(section("history")).getByText("Show all 100").closest("details")!.contains(noticesRest)).toBe(true);
+    // The disclosure's open wording is in the HTML beside the closed one.
+    expect(within(section("stakes")).getByText("Showing all 88")).toBeInTheDocument();
+  });
+
+  // The stakes order: voting power times the stock's market cap where the row has
+  // one, so a smaller holding of a bigger company ranks above a bigger share of a
+  // smaller one; rows with no market cap follow, by voting power.
+  it("orders the stakes by voting power times market cap, and the rows without one after", async () => {
+    jest.mocked(loadOwnershipMap).mockResolvedValueOnce({
+      ok: true,
+      error: "",
+      from: "",
+      to: "",
+      asOf: "",
+      stocks: [
+        { code: "P01", marketCap: 1e9 },
+        { code: "P02", marketCap: 5e9 },
+      ],
+    } as unknown as Awaited<ReturnType<typeof loadOwnershipMap>>);
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 3 }));
+    const { container } = render(await InstitutionPage(params("vanguard")));
+
+    const stakes = within(container.querySelector<HTMLElement>("section[aria-labelledby='stakes']")!);
+    const rows = stakes.getAllByRole("link", { name: /^P\d\d$/ }).map((a) => a.textContent);
+    // P02 is 14.8 x $5B, P01 is 14.9 x $1B, and P00 has no market cap in the map.
+    expect(rows).toEqual(["P02", "P01", "P00"]);
+  });
+
+  it("draws no disclosure for a section of ten rows or fewer", async () => {
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 3, fundHoldings: 5, notices: 2 }));
+    const { container } = render(await InstitutionPage(params("vanguard")));
+
+    for (const id of ["stakes", "files", "history"]) {
+      expect(container.querySelector(`section[aria-labelledby='${id}'] details`)).toBeNull();
+    }
+    expect(screen.queryByText(/^Show all/)).toBeNull();
+  });
+
+  it("holds the products past the tenth behind Show all, in the order its files give", async () => {
+    const data = response({ slug: "hesta", name: "HESTA", kind: "super_fund" });
+    data.funds = Array.from({ length: 22 }, (_, i) => ({
+      fundKey: `fund-${i}`,
+      fundType: i < 2 ? "super_fund" : "etf",
+      asxCode: `A${i}`,
+      name: `Product ${i}`,
+      hasSize: false,
+      sizeAud: 0,
+    })) as unknown as GetInstitutionResponse["funds"];
+    getInstitutionOrNotFound.mockResolvedValue(data);
+    const { container } = render(await InstitutionPage(params("hesta")));
+
+    const products = container.querySelector<HTMLElement>("section[aria-labelledby='products']")!;
+    const shown = within(products.querySelector<HTMLElement>("ul")!).getAllByRole("listitem");
+    expect(shown).toHaveLength(10);
+    expect(shown[0]).toHaveTextContent("A0 Product 0");
+    // Super funds first, as the page always listed them.
+    expect(shown[1]).toHaveTextContent("A1 Product 1");
+    const rest = within(products.querySelector<HTMLElement>("details")!).getAllByRole("listitem");
+    expect(rest).toHaveLength(12);
+    expect(rest[0]).toHaveTextContent("A10 Product 10");
+    expect(within(products).getByText("Show all 22")).toBeInTheDocument();
+  });
+
+  it("holds the notices past the tenth behind Show all, and reads the newest of the rest", async () => {
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1, notices: 25 }));
+    const { container } = render(await InstitutionPage(params("vanguard")));
+
+    const history = container.querySelector<HTMLElement>("section[aria-labelledby='history']")!;
+    expect(bodyRows(within(history).getByRole("table", { name: "Vanguard's substantial holding notices" }))).toHaveLength(10);
+    expect(bodyRows(within(history).getByRole("table", { name: "Vanguard's other substantial holding notices" }))).toHaveLength(15);
+    expect(within(history).getByText("Show all 25")).toBeInTheDocument();
   });
 
   // GetInstitution serves a holder's newest 100 notices. State Street has
-  // 1,117 on record, and its control said "Show all 100 notices" under a
-  // "Notices read" tile of 1117.
-  it("says how many of the notices on record it can show, and never calls a capped list all", async () => {
+  // 1,117 on record: the page says how many it shows, and the feed link holds the rest.
+  it("says how many of the notices on record it shows, and links the feed for the rest", async () => {
     const data = response({ slug: "state-street", name: "State Street", positions: 3, notices: 100 });
     data.institution!.notices = 1117;
     getInstitutionOrNotFound.mockResolvedValue(data);
-    render(await InstitutionPage(params("state-street")));
+    const { container } = render(await InstitutionPage(params("state-street")));
 
-    expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Show the latest 100 of 1,117 notices" }));
-    expect(bodyRows(screen.getByRole("table", { name: "State Street's substantial holding notices" }))).toHaveLength(100);
+    expect(screen.getByText("The newest 100 of 1,117 notices on record.")).toBeInTheDocument();
+    const history = container.querySelector<HTMLElement>("section[aria-labelledby='history']")!;
+    expect(within(history).getByRole("link", { name: "All notices →" })).toHaveAttribute(
+      "href",
+      "/ownership/notices?window=all&holder=state-street",
+    );
+  });
+
+  it("says nothing of a notice count it shows whole", async () => {
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1, notices: 2 }));
+    render(await InstitutionPage(params("vanguard")));
+
+    expect(screen.queryByText(/notices on record\./)).toBeNull();
   });
 
   it("draws the external-link glyph once and points every ASX link at it", async () => {
@@ -282,11 +373,14 @@ describe("InstitutionPage", () => {
     expect(screen.queryByText(/ASX holdings in its files\./)).toBeNull();
   });
 
-  it("ends its method with a report-an-error line that names the institution", async () => {
+  it("ends with the shared method disclosure, and keeps a report-an-error line that names the institution", async () => {
     getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1 }));
-    render(await InstitutionPage(params("vanguard")));
+    const { container } = render(await InstitutionPage(params("vanguard")));
 
-    expect(screen.getByRole("link", { name: "Report an error" })).toHaveAttribute(
+    const method = container.querySelector<HTMLElement>("details#method")!;
+    expect(method.querySelector("summary")).toHaveTextContent("How these figures are read");
+    expect(method.parentElement!.lastElementChild).toBe(method);
+    expect(within(method).getByRole("link", { name: "Report an error" })).toHaveAttribute(
       "href",
       "mailto:support@shorted.com.au?subject=Ownership%20data%3A%20Vanguard",
     );
@@ -302,6 +396,29 @@ describe("InstitutionPage", () => {
     const link = within(history).getByRole("link", { name: "All notices →" });
     expect(link).toHaveAttribute("href", "/ownership/notices?window=all&holder=vanguard");
     expect(link).toHaveAttribute("rel", "nofollow");
+  });
+
+  it("draws the notices-by-week strip in the inspector when the holder's notices read", async () => {
+    jest.mocked(loadOwnershipMap).mockResolvedValueOnce({
+      ok: true,
+      error: "",
+      from: "",
+      to: "",
+      asOf: "2026-10-31",
+      stocks: [],
+    } as unknown as Awaited<ReturnType<typeof loadOwnershipMap>>);
+    jest.mocked(loadHolderWeekNotices).mockResolvedValueOnce({ asOf: "2026-10-31", released: ["2026-10-20"] });
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1 }));
+    render(await InstitutionPage(params("vanguard")));
+    expect(loadHolderWeekNotices).toHaveBeenCalledWith("vanguard", "2026-10-31");
+    expect(screen.getByRole("group", { name: "Notices by week" })).toBeInTheDocument();
+  });
+
+  it("draws no notices-by-week strip when the notices did not read", async () => {
+    jest.mocked(loadHolderWeekNotices).mockResolvedValueOnce(null);
+    getInstitutionOrNotFound.mockResolvedValue(response({ positions: 1 }));
+    render(await InstitutionPage(params("vanguard")));
+    expect(screen.queryByRole("group", { name: "Notices by week" })).toBeNull();
   });
 
   it("draws no notices link when the holder has no notice on record", async () => {

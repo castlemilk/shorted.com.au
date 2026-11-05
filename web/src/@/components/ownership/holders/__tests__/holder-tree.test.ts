@@ -18,6 +18,7 @@ import {
   holderInspectorContent,
   holderPositions,
   holderRowFrom,
+  holderWeekHref,
   layoutHolderTree,
   marketCapsOf,
   parseHolderParam,
@@ -32,6 +33,7 @@ import {
   withSearch,
   type HolderPosition,
   type HolderRow,
+  type RawPosition,
 } from "../holder-tree";
 
 const EM_DASH = String.fromCharCode(0x2014);
@@ -213,6 +215,19 @@ describe("the layout (spec 14.2, 14.3)", () => {
     expect(hairline?.title).toContain("not estimated");
   });
 
+  it("titles a company's node and ribbon with its headline figure to two decimals (backlog A4)", () => {
+    const tree = buildHolderTree([position("BHP", "Materials", 19.4336, 200e9), position("CBA", "Banks", 5.2988, 150e9)]);
+    const layout = layoutHolderTree(tree, { expanded: false });
+    const bhp = layout.ribbons.find((r) => r.code === "BHP");
+    expect(bhp?.title).toContain("BHP, Materials: 19.43% voting power, about");
+    expect(bhp?.title).not.toContain("19.4336");
+    const cba = layout.ribbons.find((r) => r.code === "CBA");
+    expect(cba?.title).toContain("CBA, Banks: 5.30% voting power, about");
+    expect(cba?.title).not.toContain("5.2988");
+    const node = layout.sectors.flatMap((s) => s.companies).find((n) => n.code === "BHP");
+    expect(node?.title).toBe(bhp?.title);
+  });
+
   it("returns an empty layout for a holder with no positions", () => {
     const layout = layoutHolderTree(buildHolderTree([]), { expanded: false });
     expect(layout.height).toBe(0);
@@ -257,6 +272,13 @@ describe("the inspector's content (spec 14.3)", () => {
       href: "https://www.asx.com.au/BHP.pdf",
       external: true,
     });
+  });
+
+  it("prints a selected connection's figure to two decimals, where a notice states four (backlog A4)", () => {
+    const precise = [position("BHP", "Materials", 19.4336, 200e9)];
+    const content = holderInspectorContent(holder, precise, { kind: "stock", code: "BHP" });
+    const connection = content.sections?.find((s) => s.title === "BHP · Materials");
+    expect(connection?.items.find((i) => i.label === "Voting power")?.value).toBe("19.43%");
   });
 
   it("heads a selected company's card as a selected connection, and dates its notice as the page's date format", () => {
@@ -343,6 +365,59 @@ describe("the funds and products (spec 14.3)", () => {
   });
 });
 
+describe("the holder's reading (backlog C1)", () => {
+  const positions = [position("BHP", "Materials", 6, 200e9), position("CBA", "Banks", 5, 150e9)];
+
+  it("leads with the count and the sector of the largest position, ranked by exposure", () => {
+    expect(holderInspectorContent(holder, positions, null).reading).toBe("3 positions, largest in Materials.");
+  });
+
+  it("counts a position new this quarter only when every position carries its form and date", () => {
+    const formed = [
+      { ...position("BHP", "Materials", 6, 200e9), form: "603" },
+      { ...position("CBA", "Banks", 5, 150e9), form: "604" },
+    ];
+    expect(holderInspectorContent(holder, formed, null).reading).toBe(
+      "3 positions, 1 new this quarter, largest in Materials.",
+    );
+    // CBA carries no form, so the count would be partial and the clause is left out.
+    const partial = [{ ...position("BHP", "Materials", 6, 200e9), form: "603" }, positions[1]!];
+    expect(holderInspectorContent(holder, partial, null).reading).toBe("3 positions, largest in Materials.");
+  });
+
+  it("carries each register row's form through the connections path, so the clause fires on the live page", () => {
+    const rows: RawPosition[] = [
+      {
+        stockCode: "BHP",
+        companyName: "BHP Limited",
+        industry: "Materials",
+        votingPowerPct: 6,
+        eventDate: "2026-10-14",
+        form: "603",
+        announcementUrl: "",
+      },
+      {
+        stockCode: "CBA",
+        companyName: "CBA Limited",
+        industry: "Banks",
+        votingPowerPct: 5,
+        eventDate: "2026-10-14",
+        form: "604",
+        announcementUrl: "",
+      },
+    ];
+    const live = holderPositions(rows, new Map<string, number | null>([["BHP", 200e9], ["CBA", 150e9]]));
+    expect(live.map((p) => p.form)).toEqual(["603", "604"]);
+    expect(holderInspectorContent(holder, live, null).reading).toBe(
+      "3 positions, 1 new this quarter, largest in Materials.",
+    );
+  });
+
+  it("leaves the reading out when the holder has no positions", () => {
+    expect(holderInspectorContent({ ...holder, positions: 0 }, [], null).reading).toBeUndefined();
+  });
+});
+
 describe("the URL codec (spec 13.1, 14.1)", () => {
   it("resolves the holder every island shows: the named slug, else the default, never a raw value", () => {
     expect(resolveHolderKey("vanguard", "aus-super")).toBe("vanguard");
@@ -404,5 +479,40 @@ describe("the kind chips (spec 14.3)", () => {
     expect(filterHolders(holders, "other", "").map((h) => h.key)).toEqual(["norges"]);
     expect(filterHolders(holders, "all", "  RE").map((h) => h.key)).toEqual(["regal"]);
     expect(filterHolders(holders, "super_fund", "zzz")).toEqual([]);
+  });
+});
+
+describe("the holder's notices by week section (backlog C6)", () => {
+  const positions = [position("BHP", "Materials", 6, 200e9)];
+  const weekly = { asOf: "2026-10-31", released: ["2026-10-20", "2026-08-03"] };
+
+  it("draws the strip after the holder's positions, one link per week to the holder's feed", () => {
+    const content = holderInspectorContent(holder, positions, null, [], weekly);
+    const strip = content.sections?.find((section) => section.title === "Notices by week");
+    expect(strip?.kind).toBe("weeks");
+    if (strip?.kind !== "weeks") throw new Error("the strip is a weeks section");
+    expect(strip.weeks).toHaveLength(26);
+    expect(strip.weeks.find((w) => w.weekStart === "2026-10-19")?.count).toBe(1);
+    expect(strip.weeks.find((w) => w.weekStart === "2026-10-19")?.href).toBe(
+      "/ownership/notices?holder=vanguard&since=2026-10-19&until=2026-10-25",
+    );
+  });
+
+  it("follows a selected connection's card, so the strip comes after the positions it summarises", () => {
+    const content = holderInspectorContent(holder, positions, { kind: "stock", code: "BHP" }, [], weekly);
+    const titles = content.sections?.map((section) => section.title) ?? [];
+    expect(titles.indexOf("Notices by week")).toBeGreaterThan(titles.indexOf("BHP · Materials"));
+  });
+
+  it("is absent when the holder's notices did not read, or no date ends the strip", () => {
+    expect(holderInspectorContent(holder, positions, null, [], null).sections).toEqual([]);
+    const undated = holderInspectorContent(holder, positions, null, [], { asOf: "", released: [] });
+    expect(undated.sections?.some((section) => section.title === "Notices by week")).toBe(false);
+  });
+
+  it("names the feed for the holder's slug, the week's Monday and Sunday", () => {
+    expect(holderWeekHref("vanguard", "2026-10-26", "2026-11-01")).toBe(
+      "/ownership/notices?holder=vanguard&since=2026-10-26&until=2026-11-01",
+    );
   });
 });

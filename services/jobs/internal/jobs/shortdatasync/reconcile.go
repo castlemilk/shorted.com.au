@@ -413,7 +413,7 @@ type dateDiff struct {
 	missing []shortsRow // in the file, not in the table
 	changed []shortsRow // in both with different values — the FILE's values
 	// revised is one record per changed row: the stored values beside the file's.
-	// It is the shorts_revisions row (000154) the writer records before it repairs the row.
+	// It is the shorts_revisions row (000155) the writer records before it repairs the row.
 	revised []revisionRecord
 	padded  int         // differ, but stored under a padded legacy code
 	extra   []storedRow // in the table, not in the file

@@ -1,6 +1,6 @@
--- Reverses 000154. Drops the vintage trigger and function, then the three tables it created. The
+-- Reverses 000155. Drops the vintage trigger and function, then the three tables it created. The
 -- vintage history is lost with them, so do not run this against a database whose strategy engine has
--- started reading it. Deploys never run a down file: 000154 is replayed by the up file only.
+-- started reading it. Deploys never run a down file: 000155 is replayed by the up file only.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 

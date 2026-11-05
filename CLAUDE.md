@@ -545,9 +545,9 @@ valuation, stock page).
 | Art (scenes) | `lib/strategies/scenes.ts`: one generative scene per strategy, the glyph's mechanism at scene scale (the weir, the staircase, the fan, the coil, the meter), as a pure `sceneFrame(slug, w, h, t)` of SVG paths in the theme's tones (ink, amber, olive, rust, muted; never market red or green). Drawn three ways from the one geometry: the SSR'd inline-SVG still in the ISR HTML (`components/picks/strategy-scene.tsx`, `SCENE_STILL_TIME` picks the strategy's moment), a Canvas 2D animation layered over it in the browser (`strategy-scene-canvas.tsx` via the lazy client module: a few KB, no three.js; 30 fps cap, paused off-screen and on a hidden tab, nothing under reduced motion, theme colours re-read from the CSS variables; `data-scene-live` on the host fades the still out), and the strategy OG card (`OgCard.scene`). The scenes answer the pointer (`ScenePointer`, eased per frame, read on the nearest `data-scene-stage` ancestor: the strategy header section and the hub row's article, so a pointer over the H1 plays the scene behind it; touch is a tap, nothing is prevented): past the base the hand pulls Zanger's plume over the pivot, the CAN SLIM marker walks to it, price lifts under it on the fan and the fan opens for a high hand, the coil compresses under a pressing hand and releases when it leaves, the needle swings to it on the dial. The still and the OG card never see a pointer. The two scene files are the ONLY `use client` modules in the kit (`client-boundary.test.ts`). The scenes are the one place the desk loops; they are decorative, aria-hidden and behind a scrim |
 | Art (brandbrain) | `web/scripts/picks-art/`: one warm-duotone scene per strategy (the glyph's mechanism at scene scale) through the brandbrain flow-orchestrator MCP (`web/scripts/lib/brandbrain-flow.mjs`, the ONE shared driver) or the OpenAI fallback; `bake.mjs` writes `public/picks-art/<id>.{light,dark}.avif`, `og/<id>.jpg` and the manifest `lib/strategies/art.generated.ts` (slug -> content hash; empty until baked). `strategyArt(slug)` is null without an entry and the generative scene is shown instead (`hasStrategyArt`): the strategy header is a bordered band on the art (`StrategyArtBand`), the hub row has a 3:2 plate column (`StrategyArtPlate`), the strategy OG card takes the JPEG as `backgroundSrc` (over the scene). Run it locally (the MCP and its login live on the owner's machine), commit the baked files with the manifest |
 | Store | `store/shorts/postgres_strategies.go`, `postgres_fundamentals.go`: a missing view = empty universe; a schema without 000132 (42P01 / 42703) = nil quality, provenance and coverage, never a 500 |
-| Data: `stock_fundamentals` (+ `_sync`), `mv_fundamentals_growth` | `000129`, widened by `000132` (below); `000154` adds the vintage trigger (landmine below) |
-| Data: `stock_fundamentals_vintages` | `000154`: one row per insert (`I`), changed update (`U`), delete (`D`), plus a one-time baseline (`B`), written by trigger `trg_fundamentals_vintage`. Kept forever, never pruned |
-| Data: `asic_report_ingests`, `shorts_revisions` | `000154`: written by `shortdatasync` (daily, poll, reconcile), never by a trigger, so `shorts` (2.1M rows) gains none. `loaded_rows >= file_rows` is the report-completeness rule; a zero-code file records `file_rows` NULL |
+| Data: `stock_fundamentals` (+ `_sync`), `mv_fundamentals_growth` | `000129`, widened by `000132` (below); `000155` adds the vintage trigger (landmine below) |
+| Data: `stock_fundamentals_vintages` | `000155`: one row per insert (`I`), changed update (`U`), delete (`D`), plus a one-time baseline (`B`), written by trigger `trg_fundamentals_vintage`. Kept forever, never pruned |
+| Data: `asic_report_ingests`, `shorts_revisions` | `000155`: written by `shortdatasync` (daily, poll, reconcile), never by a trigger, so `shorts` (2.1M rows) gains none. `loaded_rows >= file_rows` is the report-completeness rule; a zero-code file records `file_rows` NULL |
 | Data: `mv_price_features`, `mv_market_regime`, `refresh_strategy_views()` | `000130`; refreshed by `shorted picks -mode refresh` weekdays 13:30 UTC, AFTER the price sweep (not inside `refresh_all_materialized_views()` at 10:00, which runs before prices land). Order: regime, growth, quality, price features. The step pins `client_min_messages = notice` and fails on a `Skipping <view>` warning or on a picker view with no `Refreshing <view>` NOTICE (a stale 000130 body: re-apply 000132) |
 | Data: `000132_extend_fundamentals` | 21 statement lines on `stock_fundamentals` (gross profit to current liabilities; outflows negative); `field_sources` JSONB (only fields NOT from the row's `source`: Markit, a filing, `derived:*`); `source_document_url` / `_date`; `period_type='quarter'` = a balance snapshot (no flow fields); sync `last_outcome`, `consecutive_empty`, `median_k`, `fx_converted`, `native_currency`; `picks_run_lease`; `financial_report_extractions.document_meta`; growth view rebuilt once with `revenue_basis_source` / `eps_basis_source` (`vendor` / `filing`) and `revenue_latest_period_end` / `revenue_prior_period_end` appended; new `mv_fundamentals_quality` (one flow row + one same-currency balance row at or up to 6 months before it) |
 | Job | `shorted picks` (`services/jobs/README.md` "picks"): `-mode all` daily 15:00 UTC (fundamentals, filings, refresh; 12600s timeout, 1 retry). Fundamentals is budget-driven, no count cap: `PICKS_FUNDAMENTALS_BUDGET_MIN` 170 at 4s/code, priority due filers, never attempted by market cap, failures, stale successes (14-day skip, 45 for repeat empties); pre-000132 sync rows (`last_outcome` NULL) queue with never attempted and are never skipped, so the first nights after the deploy re-fetch the universe largest first (`pre_000132=N` in the log); breakers at 25 consecutive failures, >30% of the last 100 Yahoo requests, Markit off after 10; 20-minute budget on a task retry. One writer via `picks_run_lease` (a held lease exits 0). After a refresh: waits 16 min, then revalidates tags `strategy-picks` (+ `fundamentals` when rows changed) |
@@ -634,7 +634,7 @@ valuation, stock page).
   dry run by default) restores the echo rows' summaries (the API withholds them
   until then), and pre-000132 codes are re-fetched first,
   largest first, over the next nights.
-- **000154 puts a trigger on `stock_fundamentals`, the picker's own table.**
+- **000155 puts a trigger on `stock_fundamentals`, the picker's own table.**
   `trg_fundamentals_vintage` writes a `stock_fundamentals_vintages` row for every
   insert, changed update and delete (`I`, `U`, `D`) and a one-time baseline
   (`B`); an update that changes nothing writes nothing. So every write to
@@ -646,7 +646,7 @@ valuation, stock page).
   row, so size it before running it. The first apply takes `SHARE ROW EXCLUSIVE`
   on `stock_fundamentals`, so do not merge during 15:00-18:30 UTC or while
   `run_picks_job` runs. If the deploy's apply times out on that lock, run
-  `task db:prod:apply FILE=services/migrations/000154_strategy_capture.up.sql CONFIRM=prod`
+  `task db:prod:apply FILE=services/migrations/000155_strategy_capture.up.sql CONFIRM=prod`
   in a quiet window, then re-run the deploy. Change `record_fundamentals_vintage`
   only through a later allowlisted migration, never by hand-apply: the deploy
   replays its `CREATE OR REPLACE` on every run, which reverts a hand fix. Read
@@ -1019,15 +1019,18 @@ report, 11 index funds' holdings files, 11 super funds' portfolio holdings
 disclosures, and every substantial holding notice PDF since 2024. Migration
 `000137_add_ownership` is in the deploy allowlist. Spec:
 `docs/superpowers/specs/2026-11-02-ownership-explorer-design.md` (stages 1 to 4 built: section 13 is the desk, 14 the workspace; 7.1, 13.8, 14.7,
-14.8 and 14.9 hold the decisions taken in review; the Short interest lending line, the register OG lanes and the
-e2e spec remain specified and unbuilt).
+14.8 and 14.9 hold the decisions taken in review; 14.11 holds the backlog
+pass of 2026-11-04 and 2026-11-05, `2026-11-04-ownership-workspace-backlog.md`,
+nineteen items built in five waves and measured against a local production
+build; the Short interest lending line, the register OG lanes and the e2e spec
+remain specified and unbuilt).
 
 | Piece | Where |
 |---|---|
 | Job, parser, registry | `services/jobs/internal/jobs/ownership/` (`notice.go` parser, fixtures in `testdata/notices/`; `registry.go` kinds, aliases, groups; `repair.go` the `-mode repair-placeholders` dry run) |
 | API | `services/shorts/internal/services/shorts/ownership.go` (handlers assemble every response from ONE cached universe, `ownership_universe.go`: built once per `ownershipTTL` from 11 statements, refreshed in the background two minutes ahead of expiry, never served past it; a stock's or an institution's notices and the feed's first page are the per-key statements, cached under the universe's generation; `ownership_lists.go` holds `ListSubstantialNotices` (a keyset cursor `YYYY-MM-DD|url`, windows rounded UP to 7/30/90/365, 0 = every notice read) and `ListStockRegisters` (in memory over the universe, never cached per query), with every clamp mirrored in `web/src/@/lib/ownership/__fixtures__/clamps.json`, which a Go test and the web test both read), `store/shorts/postgres_ownership.go` (a schema without 000137 reads empty, never a 500; `eventOf` classifies a notice's event ONCE here: ceased, then 603 became, then 604 increased / decreased / changed, then nz) |
-| Desk | The hub's instruments over one window of time, `components/ownership/desk/`: the map (`ownership-map.tsx`, a d3-hierarchy treemap of sectors and stocks, area = market cap, disclosed exposure or index fund holdings (Size), seven lenses (the last, index_flow, is the index fund change), a sector zoom and a stock panel), flows (`ownership-flows.tsx`, a d3-sankey from holder kinds to sectors by disclosed exposure, estimated, with a changes-in-the-window toggle), movement (`movement-heatmap.tsx`, sectors by week with a two-handle brush), index fund positions (`fund-positions.tsx`, a two-handle date slider over the funds' snapshot dates, the largest weight changes, per-fund series). Each has a `-static.tsx` twin the server renders from the pure layouts (`map-layout.ts`, `flows-layout.ts`, `fund-changes.ts`), one URL state (`desk-state.ts`: window, lens, sector, since/until, from/to) and loaders in `app/actions/ownershipDesk.ts` over five rpcs (`GetOwnershipMap`, `GetOwnershipFlows`, `GetOwnershipActivity`, `ListFundPositionChanges`, `GetStockFundSeries`; `ownership_desk.go`) |
-| Workspace | The instrument pages, `components/ownership/workspace/`: `workspace-page.tsx` (the shell: `ownership-nav.tsx` sub-nav from `nav.ts`, the content column, the rail), `inspector.tsx` (the right rail from lg, a `SideSheet` bottom sheet below it, the content a plain contract from `inspectors/*` built in pure functions and loaded by `loadInspector` in `app/actions/ownershipDesk.ts`), `selection.ts` (the `?sel=` grammar: `stock:PLS`, `holder:vanguard`, `connection:index_manager>Materials`, `cell:Materials@2026-10-26[:kind]`, `fund:asx:A200`, `holding:asx:A200/BHP`; 280 characters at most, parsed never trusted), `toolbar.tsx` (ONE row of labelled selects or segmented controls per page, folded under `view-disclosure.tsx` "Adjust view" below sm; `window-select.tsx` the shared Window select), the logos (`stock-logo-box.tsx` over `CompanyLogo`, `holder-logo.tsx` the favicon of the registry's website with a monogram fallback, `sector-icon.tsx` the landing page's `/assets/sectors-v2` images via `lib/sector-images.ts`). Funds: `components/ownership/funds/` (`fund-portfolio-map.tsx` a treemap whose cells select `holding:`, `fund-exposure-map.tsx` six sectors plus Other, `fund-changes-table.tsx` two snapshots compared, `expandable-row.tsx` the in-row chevron) over `ListFunds`, `GetFundPortfolio`, `CompareFundSnapshots` (`ownership_funds.go`) and `app/actions/ownershipFunds.ts`; `fundHref(key)` / `fundLabel` in `lib/ownership/kinds.ts`, which also holds `shortSector` (the short sector names every instrument prints, the full name in the title). Holders: `components/ownership/holders/` (`holder-browser.tsx` the twenty largest with Show all, `holder-connections-map.tsx` the tree, `holder-tree.ts`) over `app/actions/ownershipHolders.ts`. Vendored Gamma components live in `components/gamma/` with `gamma-bridge.css` mapping their tokens onto the house theme (standard ease only, no spring; the data table transitions colour and opacity, never width) |
+| Desk | The hub's instruments over one window of time, `components/ownership/desk/`: the map (`ownership-map.tsx`, a d3-hierarchy treemap of sectors and stocks, area = market cap, disclosed exposure or index fund holdings (Size), seven lenses (the last, index_flow, is the index fund change), a sector zoom and a stock panel), flows (`ownership-flows.tsx`, a d3-sankey from holder kinds to sectors by disclosed exposure, estimated, with a changes-in-the-window toggle), movement (`movement-heatmap.tsx`, sectors by week with a two-handle brush), index fund positions (`fund-positions.tsx`, a two-handle date slider over the funds' snapshot dates, the largest weight changes, per-fund series). Each has a `-static.tsx` twin the server renders from the pure layouts (`map-layout.ts`, `flows-layout.ts`, `fund-changes.ts`), one URL state (`desk-state.ts`: window, lens, sector, since/until, from/to, sort) and loaders in `app/actions/ownershipDesk.ts` over five rpcs (`GetOwnershipMap`, `GetOwnershipFlows`, `GetOwnershipActivity`, `ListFundPositionChanges`, `GetStockFundSeries`; `ownership_desk.go`). Colour is `desk-scales.ts` over the theme's stops in `globals.css` (`--desk-bin-N` with an ink token per stop, the diverging `--desk-fall-N`/`--desk-rise-N`, the short lens's `--desk-short-N`; `desk-ramp-contrast.test.ts` reads the CSS); below sm the map is `phoneLayout` (map-layout.ts), a two-column square of sectors; a Sort control (`workspace/sort-control.tsx`, `?sort=largest|changed`) orders the map (under a diverging lens), the heatmap, the holders directory and the fund exposure map by what moved |
+| Workspace | The instrument pages, `components/ownership/workspace/`: `workspace-page.tsx` (the shell: `ownership-nav.tsx` sub-nav from `nav.ts`, the content column, the rail), `inspector.tsx` (the right rail from lg, a `SideSheet` bottom sheet below it, the content a plain contract from `inspectors/*` built in pure functions and loaded by `loadInspector` in `app/actions/ownershipDesk.ts`), `selection.ts` (the `?sel=` grammar: `stock:PLS`, `holder:vanguard`, `connection:index_manager>Materials`, `cell:Materials@2026-10-26[:kind]`, `fund:asx:A200`, `holding:asx:A200/BHP`; 280 characters at most, parsed never trusted), `toolbar.tsx` (ONE row of labelled selects or segmented controls per page, folded under `view-disclosure.tsx` "Adjust view" below sm; `window-select.tsx` the shared Window select; `sort-control.tsx` the Sort control), `method-disclosure.tsx` (the one-line "How these figures are read" every page ends with), `trail.ts` (the rail's trail of selections, sessionStorage), `week-strip.ts` / `week-strip-view.tsx` (a stock's or a holder's notices by week, the rail's "weeks" section), the readings (every `inspectors/*` builder sets `InspectorContent.reading`, one computed sentence drawn first; `holder-reading.ts`), the internal selection kinds `sector` and `compare` (resolved from `?sector=` and `?funds=`, never read from `sel`), `components/ownership/show-all.tsx` (an institution page list's rows past the tenth), the logos (`stock-logo-box.tsx` over `CompanyLogo`, `holder-logo.tsx` the favicon of the registry's website with a monogram fallback, `sector-icon.tsx` the landing page's `/assets/sectors-v2` images via `lib/sector-images.ts`). Funds: `components/ownership/funds/` (`fund-portfolio-map.tsx` a treemap whose cells select `holding:`, `fund-exposure-map.tsx` six sectors plus Other, `fund-changes-table.tsx` two snapshots compared, `expandable-row.tsx` the in-row chevron) over `ListFunds`, `GetFundPortfolio`, `CompareFundSnapshots` (`ownership_funds.go`) and `app/actions/ownershipFunds.ts`; `fundHref(key)` / `fundLabel` in `lib/ownership/kinds.ts`, which also holds `shortSector` (the short sector names every instrument prints, the full name in the title). Holders: `components/ownership/holders/` (`holder-browser.tsx` the twenty largest with Show all, `holder-connections-map.tsx` the tree, `holder-tree.ts`) over `app/actions/ownershipHolders.ts`. Vendored Gamma components live in `components/gamma/` with `gamma-bridge.css` mapping their tokens onto the house theme (standard ease only, no spring; the data table transitions colour and opacity, never width) |
 | Web | `app/ownership/` (the hub, `[slug]`, `stocks/[code]`, and the static ISR pages `notices/` and `stocks/`), `components/ownership/` (server components; the islands are `ownership-tables.tsx`, `notice-feed-explorer.tsx` and `registers-explorer.tsx`: the action as a prop, `useSearchParams` under their own Suspense, `history.replaceState`, no Connect; `notice-mark.tsx`, `notice-week-bars.tsx`, `register-rows-table.tsx` are the parts they draw), `app/actions/ownershipExplorer.ts` ("use server"; the one loader a page and its island share; KV only for each page's DEFAULT view), `lib/ownership/query.ts` (the clamps and the URL codec) and `events.ts` (reads `notice.event`, never re-derives it), `components/stocks/register-strip.tsx` (props only), `lib/ownership/` (`trace.ts` the lane geometry, `kinds.ts`, `rows.ts`, `age.ts`, `register-indexability.ts`), `app/actions/getOwnership.ts` (ISR tag `ownership` + KV last-good under the `v2` keys, flush `ownership`), `app/actions/getStockRegisterStrip.ts` (the Overview's read: `unstable_cache`, a 4 s abort, no KV, tagged by stock and never `ownership`) |
 | Guards | `app/ownership/__tests__/isr-source-safety.test.ts` (no `searchParams`, `cookies()`, `headers()`, `auth()` or `useSearchParams` under `app/ownership`), `app/__tests__/editorial-copy.test.ts` (no em dash, "of the voting power", "index ETF", "sold" in ownership copy), `scripts/route-kinds.mjs` `OWNERSHIP_ROUTES` (the two dynamic routes) and `OWNERSHIP_STATIC_ROUTES` (the hub, the feed, the registers list: each must keep a positive `initialRevalidateSeconds`), `components/ownership/__tests__/client-boundary.test.ts`, `app/api/static-pages/warm-cache/__tests__/budget.test.ts` (23 shell pages read eight at a time fit the 145 s the callers allow) |
 | MCP | `get_stock_ownership` (holders, by-kind sum, the 15 largest fund holdings, each fund named with its institution) and `get_institution_holdings` (slug or name; an ambiguous name lists the slugs), `services/shorts/internal/mcp/tools_ownership.go`. A stated 0.00% fund weight beside a real value is omitted (super disclosures state two places) |
@@ -1045,9 +1048,10 @@ e2e spec remain specified and unbuilt).
   toolbar row is one row from `sm` (`TOOLBAR_ROW_CLASS`); an island that
   mounts a taller control shifts the drawing. Measured at 1440 on
   2026-11-04: the map's row fits its 1016 px column with about 30 px to
-  spare, so a longer option label wraps it. Window is a select, never four
-  chips, on the instrument pages and the notices feed; the Overview's desk
-  toolbar keeps its chips.
+  spare, so a longer option label wraps it (the Sort control cost the Colour
+  option its "Index" word: "Fund shares"). Window is a select, never four
+  chips, everywhere: the instrument pages, the notices feed and the Overview
+  (whose row is the search, a Source select and the Window select).
 - **Every drawn element selects, through the same `?sel=`.** A map cell, a
   sankey band, a heatmap cell, a fund treemap cell, a holder, a change row:
   each writes the selection and the rail reads it. The folded "Other
@@ -1077,8 +1081,10 @@ e2e spec remain specified and unbuilt).
   date) pairs once; other overlaps remain, so every sum is "what the notices
   disclose", never a share of the company. Say so wherever a sum is shown.
 - **Kinds are colours of a category, never market red or green**
-  (`kinds.ts`); a sum prints to two decimals, a single notice's figure keeps
-  the precision it states (`formatSum` / `formatVotingPower`).
+  (`kinds.ts`). A headline figure, a bar's figure or a sum prints to two
+  decimals (`formatHeadlinePct`, `formatSum`); a single notice's figure keeps
+  the precision it states (`formatVotingPower`) only in a list of notices and
+  the register's own row.
 - **A super fund's holdings disclosure is one investment option**, not the
   whole fund; ETF issuers are linked by the manager before the slash in ASX's
   issuer field ("Milford / EQT" is Equity Trustees the RE, not EQT the firm).
@@ -1178,6 +1184,71 @@ e2e spec remain specified and unbuilt).
   layer breaks: "Limite d"). The parser withholds placeholder names ("SEE
   ANNEXURE 1") as `no_holder` unless the name resolves to a curated
   institution; `-mode repair-placeholders` removes rows stored before the gate.
+
+- **A lens is five stops, told apart and legible.** Every bin is a theme
+  token (`globals.css`), the figure printed on it an ink token of its own, at
+  4.5:1 or better and at least 7 L* from its neighbours in both themes;
+  `desk-ramp-contrast.test.ts` reads the CSS and fails on a stop that is not.
+  Never mix a colour in `desk-scales.ts` again (five mixes of amber over a
+  near-black paper were five browns). Light's top bin is one step deeper than
+  Burnt Amber for that reason.
+- **The rail leads with a computed sentence, never model prose.** Every
+  `InspectorContent.reading` is built clause by clause from figures the rail
+  already shows; a missing figure drops its clause, so no reading can print
+  n/a or 0. The holder rail's comes from `holderInspectorContent` (the holder
+  pages never go through `loadInspector`).
+- **The hub's panes are fixed-height and have no control row.** 420px for
+  the map and the sankey, 320px for the heatmap (the count measure, the
+  eleven most active sectors plus a fold, ranked by magnitude under the
+  "changed" default) and the index fund positions (five rises beside five
+  falls); the compact heatmap once drew the net-change measure, whose scale a
+  few bad notices blew out to 200 pp so every cell was the paper. Measured
+  2,129px at 1440 (4,401 at the review).
+- **The phone map's minimum cell is 32 units** (`PHONE_MIN_CELL`): at 44 the
+  live market drew three sectors and folded twenty-three. A sector's figure
+  there is the market-cap-weighted mean of its stocks' figures, said in the
+  cell's title and one caption; the fold cell names its three largest
+  members and its chips sit in a details beneath.
+- **The institution page shows ten rows per list** (`SECTION_ROWS_SHOWN`),
+  the rest behind "Show all N" in the HTML: measured 5,413px at 1440, of
+  which the holder's connections tree is 1,750. The backlog's 3,000px could
+  not be reached with any number of rows; the figure is the record.
+- **The parser cuts labels and refuses sentences.** A trailing "Name" label
+  and a leading "This notice is given by" are cut off a holder name; a name
+  still carrying a form phrase is withheld (`no_holder`); a 604 whose stated
+  change is over 50 points is withheld unless both figures sit on one layout
+  line of the voting-power section (`pairOnOneRow`). `-mode
+  repair-placeholders` lists and removes the stored rows the rules refuse
+  (`storedNotice.PreviousPct`); the production repair is a hand run.
+- **Kind colours are on a leash** (`kinds.ts`, `kind-chroma.test.ts` reads
+  the swatches): every kind is a light and dark hex pair, HSL chroma at or
+  under 0.45 and under the amber's minus 0.1, outside the amber's hue band
+  unless at or under 0.30, the dark pairs at least CIE76 9 apart; the active
+  manager is a mustard, never the amber; the sankey's holder body is the
+  foreground (muted for Unclassified) with the kind as a 4-unit edge
+  (`kindEdgeClass`, `KindInfo.fill`), so the amber selection is the only
+  bright mark.
+- **The toolbar fold's first paint is closed on a phone.** `view-disclosure.tsx`
+  renders `open` for the desktop's scriptless first paint, and `view-fold`
+  (globals.css) hides the content below `sm` until the effect has set the
+  attribute from the `sm` media query and marked the element ready; the
+  effect follows the query, so a phone turned to landscape gets its controls
+  back. The hub's plate lives inside that fold (DeskToolbar's `plate` prop,
+  one plate in the DOM) and the band, the records and the method order after
+  the panes below lg (`order-[10|11|12] lg:order-none`), so the map is the
+  phone's first screen.
+- **A comparison is the two keys in `?funds=`** (the checkboxes' cap is two,
+  a third tick replaces the oldest): the rail resolves an internal "compare"
+  selection (precedence `sel`, then the comparison, then the zoomed sector;
+  "Clear selection" removes `funds` only; no bottom sheet below lg, as for
+  the sector zoom; no trail step); a sector a complete file does not name is
+  a true 0.00% in the diff and in the fund exposure map's cells, n/a only for
+  a file with no holdings.
+- **Company names are served clean.** Every name an ownership rpc serves goes
+  through `cleanCompanyName` (`servedOwnershipName` in the store): BHP, CSL,
+  NAB, ANZ, QBE, AMP, IAG, CBA, WBC, S32, REA and ASX stay capitals in any
+  source, a shouted short English word ("RED") reads as a word; the stocklist
+  copy and `web/src/@/lib/company-name.ts` carry the same tables.
 
 ### Insights explorer (folded into the desk, spec 14.10)
 

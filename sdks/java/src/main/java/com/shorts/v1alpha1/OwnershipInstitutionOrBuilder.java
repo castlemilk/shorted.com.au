@@ -171,4 +171,15 @@ public interface OwnershipInstitutionOrBuilder extends
    * @return The hasFundsSize.
    */
   boolean getHasFundsSize();
+
+  /**
+   * <pre>
+   * The holder's current positions whose latest notice is a "became substantial"
+   * (Form 603) released in the last 91 days, the default window.
+   * </pre>
+   *
+   * <code>int32 positions_gained = 16 [json_name = "positionsGained"];</code>
+   * @return The positionsGained.
+   */
+  int getPositionsGained();
 }

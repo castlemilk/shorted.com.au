@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -158,6 +159,12 @@ func envInt(key string, defaultValue int) int {
 type postgresStore struct {
 	db                *pgxpool.Pool
 	stockDetailsQuery string
+	// readBy caches the read_by probe (readByUnknown, readByAbsent, readByPresent).
+	readBy atomic.Int32
+	// readByAbsentAt is when readBy last answered absent (unix nanos). An absent answer is
+	// re-probed after readByAbsentTTL, so an API started before 000154 is hand-applied
+	// picks the column up without a restart.
+	readByAbsentAt atomic.Int64
 }
 
 // Pool exposes the underlying connection pool.

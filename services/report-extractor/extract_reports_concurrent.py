@@ -995,6 +995,13 @@ def run_with_budget(
 
 
 def main():
+    # --notices hands the run to notice_direct.py (withheld substantial holding notices read by
+    # a model). It keeps its own flags and its own dry-run default, so none of the filings
+    # options below apply to it.
+    if "--notices" in sys.argv[1:]:
+        import notice_direct
+
+        sys.exit(notice_direct.main([a for a in sys.argv[1:] if a != "--notices"]))
     ap = argparse.ArgumentParser()
     ap.add_argument("--recent", type=int, default=2, help="newest N results documents per company considered")
     ap.add_argument("--limit", type=int, default=0, help="cap total reports (0=all, still capped by GEMINI_MAX_RUN_ITEMS)")

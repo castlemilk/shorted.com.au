@@ -41,6 +41,7 @@ token counts and OpenRouter's billed cost go into the run's TokenUsage.
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -149,13 +150,20 @@ class OpenRouter:
         return s
 
     def chat(self, model: str, system: str, user: str, usage: Optional[TokenUsage] = None,
-             temperature: float = 0.0) -> str:
-        """The assistant message content. Raises ModelCallError."""
+             temperature: float = 0.0, images: Optional[list[bytes]] = None) -> str:
+        """The assistant message content. Raises ModelCallError. images (PNG bytes) are sent
+        beside the text as image_url parts, for a scanned document (notice_direct.py)."""
         with self._lock:
             reasoning = {"effort": "minimal"} if model in self._min_reasoning else {"enabled": False}
+        content: object = user
+        if images:
+            content = [{"type": "text", "text": user}] + [
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(im).decode("ascii")}}
+                for im in images
+            ]
         body = {
             "model": model,
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
             "temperature": temperature,
             "response_format": {"type": "json_object"},
             "reasoning": reasoning,

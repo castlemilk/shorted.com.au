@@ -15,17 +15,29 @@ import type { FundSeriesRow, StockFundSeriesPage } from "~/app/actions/ownership
 import type { StockPanelPage } from "../../desk/stock-panel";
 import type { DeskLens } from "../../desk/desk-state";
 import { formatAmount, NOT_AVAILABLE } from "~/@/lib/fundamentals/format";
-import { fundHref, formLabel, formatVotingPower, kindInfo, registerHref } from "~/@/lib/ownership/kinds";
+import { fundHref, formLabel, formatHeadlinePct, kindInfo, registerHref } from "~/@/lib/ownership/kinds";
 import { fundLabel } from "../../funds/fund-model";
 import { shortSector } from "~/@/lib/ownership/kinds";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import type { InspectorContent, InspectorSection } from "../inspector-types";
+import { noticesByWeekSection, type WeekNotices } from "../week-strip";
 
 /** The holders the rail names: the three largest, as the panel gives them. */
 const HOLDER_BARS = 3;
 
 /** The notices the rail lists: the five latest, as the panel gives them. */
 const RECENT_NOTICES = 5;
+
+/**
+ * The notice window a stock's reading counts over, as dates. The desk resolves it the way the connections do
+ * (the chip's days counted back from the newest notice the market read, or the brushed pair), so the count
+ * is the one the map's instruments show for the same link. `days` is the chip's count, null for a brushed pair.
+ */
+export interface StockNoticeWindow {
+  since: string;
+  until: string;
+  days: number | null;
+}
 
 /**
  * A fund's line under its weight (spec 14.10): its value in AUD at its own end file, and its change
@@ -92,15 +104,108 @@ export function latestFundWeight(
   return latest;
 }
 
+function isIsoDate(value: string | null | undefined): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+/** The fund whose shares moved the most over its window, by the size of the change (spec 14.10). */
+function largestUnitsMover(series: StockFundSeriesPage | null): { fund: FundSeriesRow; units: number } | null {
+  if (series === null || !series.ok) return null;
+  let best: { fund: FundSeriesRow; units: number } | null = null;
+  for (const fund of series.funds) {
+    const units = fund.change.unitsChange;
+    if (units === null || !Number.isFinite(units) || Math.round(units) === 0) continue;
+    if (best === null || Math.abs(units) > Math.abs(best.units)) best = { fund, units };
+  }
+  return best;
+}
+
+/**
+ * The notices clause: how many of the rail's notices fall in the window, and the latest of them. The window
+ * is the desk's dated window (see StockNoticeWindow); a window that could not be dated has no clause. The
+ * panel carries the five latest only, so a full list whose oldest notice is still inside the window may hide
+ * more of them: the count is then withheld rather than printed short.
+ */
+function noticesClause(panel: StockPanelPage, window: StockNoticeWindow | null): string | undefined {
+  if (window === null || !isIsoDate(window.since) || !isIsoDate(window.until) || window.since > window.until) {
+    return undefined;
+  }
+  const { since: from, until: to } = window;
+  const listed = panel.notices;
+  const inWindow = listed.filter((notice) => isIsoDate(notice.announcedOn) && notice.announcedOn >= from && notice.announcedOn <= to);
+  // The oldest and the newest are taken by comparison, not by where the list happens to put them.
+  const oldest = listed.reduce<string | null>(
+    (min, notice) => (isIsoDate(notice.announcedOn) && (min === null || notice.announcedOn < min) ? notice.announcedOn : min),
+    null,
+  );
+  const complete = listed.length < RECENT_NOTICES || (oldest !== null && oldest < from);
+  if (!complete || inWindow.length === 0) return undefined;
+  const last = inWindow.reduce((latest, notice) => (notice.announcedOn > latest ? notice.announcedOn : latest), "");
+  const count = inWindow.length;
+  const when = window.days === null ? `between ${from} and ${to}` : `in ${window.days} days`;
+  return `${count} ${count === 1 ? "notice" : "notices"} ${when}, the last on ${last}`;
+}
+
+/**
+ * The company's reading (spec 14.1, backlog C1): one plain sentence that leads the rail. Its clauses are the
+ * big figure (the index share under the index lens, the disclosed share otherwise), the fund whose shares
+ * moved most over its window, and the notices in the window. A missing figure drops its clause; with none
+ * left there is no reading. The index funds' change is not a clause: the fund series states each fund's
+ * weight in its portfolio, not the index's share of the company, so no change in that share is known here.
+ */
+export function stockReading(
+  panel: StockPanelPage,
+  series: StockFundSeriesPage | null,
+  lens: DeskLens,
+  notices: StockNoticeWindow | null,
+): string | undefined {
+  if (!panel.ok) return undefined;
+  const indexLens = lens === "index";
+  let figure: string | undefined;
+  if (indexLens) {
+    if (panel.index.pct !== null && Number.isFinite(panel.index.pct)) {
+      figure = `Index funds hold ${formatHeadlinePct(panel.index.pct)}`;
+    }
+  } else if (panel.disclosedPct > 0) {
+    figure = `Notices disclose ${formatHeadlinePct(panel.disclosedPct)}`;
+  }
+  const clauses: string[] = [];
+  if (figure !== undefined) clauses.push(figure);
+  const mover = largestUnitsMover(series);
+  if (mover !== null) {
+    // The manager names the move (Vanguard added ...); the ticker is the fallback for a fund with no manager on record.
+    const subject = mover.fund.institutionName || fundLabel({ ticker: mover.fund.fundCode, name: mover.fund.fundName });
+    // The magnitude is grouped as the rail's own share rows group it (1,200,000), never a compact form.
+    const amount = Math.abs(Math.round(mover.units)).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+    const verb = mover.units > 0 ? `added ${amount} shares` : `reduced by ${amount} shares`;
+    const since = mover.fund.change.startDate;
+    clauses.push(`${subject} ${verb}${isIsoDate(since) ? ` since ${since}` : ""}`);
+  }
+  const noticeText = noticesClause(panel, notices);
+  if (noticeText !== undefined) clauses.push(noticeText);
+  return clauses.length > 0 ? `${clauses.join("; ")}.` : undefined;
+}
+
+/**
+ * The feed link of one week of the stock's strip (backlog C6): the company's notices released in
+ * that Monday to Sunday.
+ */
+export function stockWeekHref(code: string, weekStart: string, weekEnd: string): string {
+  return `/ownership/notices?${new URLSearchParams({ stock: code, since: weekStart, until: weekEnd }).toString()}`;
+}
+
 /**
  * The company's rail. Null when the panel did not answer or nothing is on record:
  * the caller reports a failed read as an outage, and this never draws an empty
- * company in its place.
+ * company in its place. `weekNotices` is the company's notice dates for the
+ * "Notices by week" strip; null (the read failed) drops the strip.
  */
 export function stockInspectorContent(
   panel: StockPanelPage,
   series: StockFundSeriesPage | null,
   lens: DeskLens = "disclosed",
+  notices: StockNoticeWindow | null = null,
+  weekNotices: WeekNotices | null = null,
 ): InspectorContent | null {
   if (!panel.ok) return null;
   const code = panel.code;
@@ -116,7 +221,7 @@ export function stockInspectorContent(
       kind: "bars",
       items: panel.disclosed.map((segment) => ({
         label: kindInfo(segment.kind).label,
-        value: formatVotingPower(segment.pct),
+        value: formatHeadlinePct(segment.pct),
         share: kindMax > 0 ? segment.pct / kindMax : 0,
         detail: `${segment.holders} ${segment.holders === 1 ? "holder" : "holders"}`,
       })),
@@ -131,7 +236,7 @@ export function stockInspectorContent(
       kind: "bars",
       items: holders.map((holder) => ({
         label: holder.name,
-        value: formatVotingPower(holder.votingPowerPct),
+        value: formatHeadlinePct(holder.votingPowerPct),
         share:
           holderMax > 0 && holder.votingPowerPct !== null ? holder.votingPowerPct / holderMax : 0,
       })),
@@ -153,13 +258,17 @@ export function stockInspectorContent(
         label: fundLabel({ ticker: fund.fundCode, name: fund.fundName }),
         href: fundHref(fund.fundKey),
         title: fund.institutionName,
-        value: `${formatVotingPower(latest.pct)} at ${latest.asAt}`,
+        value: `${formatHeadlinePct(latest.pct)} at ${latest.asAt}`,
         // The fund's value in AUD, and its change in shares since its start file (spec 14.10).
         detail: fundDetail(fund),
         share: fundMax > 0 ? latest.pct / fundMax : 0,
       })),
     });
   }
+
+  // The strip sits beside the list it summarises: after the funds, before the five latest notices.
+  const byWeek = noticesByWeekSection(weekNotices, (weekStart, weekEnd) => stockWeekHref(code, weekStart, weekEnd));
+  if (byWeek !== null) sections.push(byWeek);
 
   if (panel.notices.length > 0) {
     sections.push({
@@ -175,21 +284,22 @@ export function stockInspectorContent(
   return {
     // The code is the name the rail carries, the company's name beneath it (spec 14.3).
     heading: code,
+    reading: stockReading(panel, series, lens, notices),
     // The name and the sector, as the wireframe prints them (spec 14.8); a stock with no industry reads "Other".
     subtitle: panel.companyName ? [panel.companyName, shortSector(panel.industry)].join(" · ") : undefined,
     logo: { kind: "stock", code },
     badges: ["Company"],
     figure: indexLens
-      ? { value: formatVotingPower(panel.index.pct), caption: "Held by tracked index funds" }
+      ? { value: formatHeadlinePct(panel.index.pct), caption: "Held by tracked index funds" }
       : {
-          value: panel.disclosedPct > 0 ? formatVotingPower(panel.disclosedPct) : "n/a",
+          value: panel.disclosedPct > 0 ? formatHeadlinePct(panel.disclosedPct) : "n/a",
           caption: "Disclosed by notices",
         },
     // The figure the lens does not draw sits beside it, so the two readings are both on the rail.
     rows: [
       indexLens
-        ? { label: "Disclosed by notices", value: panel.disclosedPct > 0 ? formatVotingPower(panel.disclosedPct) : "n/a" }
-        : { label: "Index funds tracked", value: formatVotingPower(panel.index.pct) },
+        ? { label: "Disclosed by notices", value: panel.disclosedPct > 0 ? formatHeadlinePct(panel.disclosedPct) : "n/a" }
+        : { label: "Index funds tracked", value: formatHeadlinePct(panel.index.pct) },
     ],
     sections,
     // The lens's own line (spec 14.8), then the bars' caption: what the notices disclose is never a share of the company.

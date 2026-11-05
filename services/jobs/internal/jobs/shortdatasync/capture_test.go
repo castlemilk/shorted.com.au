@@ -1,6 +1,6 @@
 package shortdatasync
 
-// capture_test.go covers the forward point-in-time capture (migration 000154): one
+// capture_test.go covers the forward point-in-time capture (migration 000155): one
 // asic_report_ingests row per file the writer examines, a recount of loaded_rows after every
 // write, and a shorts_revisions row per value ASIC changed. The completeness facts these feed
 // are what the strategy engine reads, so each test states the fact it protects.
@@ -211,7 +211,7 @@ func TestDryRunRecordsNoIngestAndNoRevision(t *testing.T) {
 // not fail a pass whose rows landed, nor be reported as a failed file.
 func TestIngestFailureDoesNotFailReconcile(t *testing.T) {
 	store := newFakeReconcileStore()
-	store.ingestErr = errors.New("relation asic_report_ingests does not exist") // as before 000154
+	store.ingestErr = errors.New("relation asic_report_ingests does not exist") // as before 000155
 	store.holds("2026-02-03", "BHP")
 	rep, err := reconcileFiles(context.Background(), store, fetchFrom(map[int][]byte{20260203: asicCSV("BHP", "CBA")}, nil), files(20260203), false)
 	if err != nil {

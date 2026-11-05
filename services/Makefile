@@ -782,7 +782,7 @@ test-alerts-e2e: test-integration-images
 	cd jobs && GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run TestAlertsE2E ./internal/jobs/alerts/
 
-# The strategy capture suite (migration 000154): the vintage trigger and its replay, and the ingest writer's
+# The strategy capture suite (migration 000155): the vintage trigger and its replay, and the ingest writer's
 # SQL, against a throwaway postgres:15 container. Gates the deploy beside test-alerts-e2e.
 .PHONY: test-shortdatasync-pg
 test-shortdatasync-pg: test-integration-images

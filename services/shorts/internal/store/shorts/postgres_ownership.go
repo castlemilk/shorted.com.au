@@ -74,13 +74,17 @@ type SubstantialNoticeRow struct {
 	EventDate, AnnouncedOn, AnnouncementURL                       string
 	PresentPct, PreviousPct                                       *float64
 	Ceased                                                        bool
+	// ReadBy is "parser" or "model" (migration 000154); "parser" when the schema lacks it.
+	ReadBy string
 }
 
 // NoticeStats counts notices per holder and in all.
 type NoticeStats struct {
 	Parsed, Withheld int
-	LatestAnnounced  string
-	PerHolder        map[string]HolderNoticeStats
+	// ReadByModel counts parsed notices a model read (read_by = model); 0 without 000154.
+	ReadByModel     int
+	LatestAnnounced string
+	PerHolder       map[string]HolderNoticeStats
 }
 
 type HolderNoticeStats struct {
@@ -219,7 +223,7 @@ func (s *postgresStore) SubstantialNotices(ctx context.Context, f OwnershipFilte
 	args = append(args, limit)
 	var out []SubstantialNoticeRow
 	err := ownershipRead(ctx, s, "SubstantialNotices", `
-		SELECT `+noticeColumns+`
+		SELECT `+s.noticeColumns(ctx)+`
 		`+noticeFrom+`
 		WHERE true`+where+`
 		ORDER BY h.announced_on DESC, COALESCE(h.event_date, h.announced_on) DESC, h.announcement_url
@@ -258,6 +262,14 @@ func (s *postgresStore) NoticeStats(ctx context.Context) (*NoticeStats, error) {
 	err = ownershipRead(ctx, s, "NoticeStats.withheld", `
 		SELECT count(*) FROM substantial_holder_notice_attempts WHERE outcome <> 'parsed'`, nil,
 		func(r pgx.Rows) error { return r.Scan(&st.Withheld) })
+	if err != nil {
+		return st, err
+	}
+	if s.noticeReadBy(ctx) == "h.read_by" {
+		err = ownershipRead(ctx, s, "NoticeStats.readByModel", `
+			SELECT count(*) FROM substantial_holder_notices WHERE read_by = 'model'`, nil,
+			func(r pgx.Rows) error { return r.Scan(&st.ReadByModel) })
+	}
 	return st, err
 }
 
@@ -320,6 +332,7 @@ func (s *postgresStore) LatestFundHoldings(ctx context.Context, f OwnershipFilte
 				&row.SecurityName, &row.Units, &row.Value, &row.Weight); err != nil {
 				return err
 			}
+			row.SecurityName = servedOwnershipName(row.StockCode, row.SecurityName)
 			out = append(out, row)
 			return nil
 		})
@@ -394,6 +407,7 @@ func (s *postgresStore) OwnershipCompanies(ctx context.Context) (map[string]Owne
 			if err := r.Scan(&code, &c.Name, &c.Industry, &c.MarketCap); err != nil {
 				return err
 			}
+			c.Name = servedOwnershipName(code, c.Name)
 			out[strings.ToUpper(strings.TrimSpace(code))] = c
 			return nil
 		})
@@ -461,11 +475,59 @@ const noticeEventSQL = `CASE
 		WHEN h.form = '604' THEN '` + EventChanged + `'
 		ELSE '` + EventNZ + `' END`
 
-// noticeColumns is a notice as the feed and SubstantialNotices read it, over alias h
-// and noticeFrom.
-const noticeColumns = `h.stock_code, h.holder_key, COALESCE(h.holder_name, ''), COALESCE(h.institution_slug, ''), ` + holderKindSQL + `,
+// noticeColumnsBase is a notice as the feed and SubstantialNotices read it, over alias h
+// and noticeFrom. The read_by column follows it: see noticeColumns.
+const noticeColumnsBase = `h.stock_code, h.holder_key, COALESCE(h.holder_name, ''), COALESCE(h.institution_slug, ''), ` + holderKindSQL + `,
 		       h.form, COALESCE(h.event_date::text, ''), h.announced_on::text, h.announcement_url,
 		       h.present_pct::float8, h.previous_pct::float8, h.ceased`
+
+// The read_by probe's answers, cached on the store: a schema is migrated, not rolled
+// back under a running process, so one answer per process is enough.
+const (
+	readByUnknown int32 = iota
+	readByAbsent
+	readByPresent
+)
+
+// readByAbsentTTL is how long an absent answer is trusted before the probe runs again.
+const readByAbsentTTL = 5 * time.Minute
+
+// noticeColumns is noticeColumnsBase and the notice's read_by.
+func (s *postgresStore) noticeColumns(ctx context.Context) string {
+	return noticeColumnsBase + ", " + s.noticeReadBy(ctx)
+}
+
+// noticeReadBy is the SQL for a notice's read_by over alias h. A schema without
+// migration 000154 has no column, so it reads 'parser' (42703 is never sent, and the
+// feed is not emptied by ownershipRead's missing-schema path). A probe that fails is
+// answered 'parser' and not cached, so a transient error is never kept.
+func (s *postgresStore) noticeReadBy(ctx context.Context) string {
+	switch s.readBy.Load() {
+	case readByPresent:
+		return "h.read_by"
+	case readByAbsent:
+		if time.Since(time.Unix(0, s.readByAbsentAt.Load())) < readByAbsentTTL {
+			return "'parser'"
+		}
+	}
+	ctx, cancel := ownershipCtx(ctx)
+	defer cancel()
+	var present bool
+	err := s.db.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM pg_attribute
+		               WHERE attrelid = to_regclass('substantial_holder_notices')
+		                 AND attname = 'read_by' AND NOT attisdropped)`).Scan(&present)
+	if err != nil {
+		return "'parser'"
+	}
+	if present {
+		s.readBy.Store(readByPresent)
+		return "h.read_by"
+	}
+	s.readByAbsentAt.Store(time.Now().UnixNano())
+	s.readBy.Store(readByAbsent)
+	return "'parser'"
+}
 
 // noticeFrom is the notices table with each notice's institution, for its kind.
 const noticeFrom = `FROM substantial_holder_notices h
@@ -515,7 +577,7 @@ const noticeDeltaSQL = `CASE
 
 func scanSubstantialNotice(r pgx.Rows, row *SubstantialNoticeRow) error {
 	return r.Scan(&row.StockCode, &row.HolderKey, &row.HolderName, &row.InstitutionSlug, &row.Kind, &row.Form,
-		&row.EventDate, &row.AnnouncedOn, &row.AnnouncementURL, &row.PresentPct, &row.PreviousPct, &row.Ceased)
+		&row.EventDate, &row.AnnouncedOn, &row.AnnouncementURL, &row.PresentPct, &row.PreviousPct, &row.Ceased, &row.ReadBy)
 }
 
 // SubstantialNoticesPage is one page of the feed, newest release first. The
@@ -532,7 +594,7 @@ func (s *postgresStore) SubstantialNoticesPage(ctx context.Context, f NoticeFilt
 	args = append(args, limit)
 	var out []SubstantialNoticeRow
 	err := ownershipRead(ctx, s, "SubstantialNoticesPage", `
-		SELECT `+noticeColumns+`
+		SELECT `+s.noticeColumns(ctx)+`
 		`+noticeFrom+`
 		WHERE true`+where+`
 		ORDER BY h.announced_on DESC, h.announcement_url DESC
@@ -620,7 +682,7 @@ func (s *postgresStore) noticeMoves(ctx context.Context, f NoticeFilter, event, 
 	where += fmt.Sprintf(" AND %s = $%d", noticeEventSQL, len(args))
 	var out []SubstantialNoticeRow
 	err := ownershipRead(ctx, s, "NoticeActivity.moves", `
-		SELECT `+noticeColumns+`
+		SELECT `+s.noticeColumns(ctx)+`
 		`+noticeFrom+`
 		WHERE true`+where+`
 		ORDER BY (h.present_pct - h.previous_pct) `+order+`, h.announced_on DESC, h.announcement_url DESC
@@ -819,7 +881,7 @@ func (s *postgresStore) NoticeLargestMoves(ctx context.Context, from, until, kin
 	args = append(args, limit)
 	var out []SubstantialNoticeRow
 	err := ownershipRead(ctx, s, "NoticeLargestMoves", `
-		SELECT `+noticeColumns+`
+		SELECT `+s.noticeColumns(ctx)+`
 		`+noticeFrom+`
 		WHERE h.present_pct IS NOT NULL AND h.previous_pct IS NOT NULL
 		  AND NOT h.ceased AND h.form <> '605'
@@ -896,6 +958,7 @@ func (s *postgresStore) FundPositionPairs(ctx context.Context, from, until strin
 				&p.InFrom, &p.FromWeight, &p.FromValue, &p.InTo, &p.ToWeight, &p.ToValue); err != nil {
 				return err
 			}
+			p.SecurityName = servedOwnershipName(p.StockCode, p.SecurityName)
 			out = append(out, p)
 			return nil
 		})
@@ -1036,6 +1099,7 @@ func (s *postgresStore) FundHoldingsOf(ctx context.Context, snapshotIDs []int64,
 				&d.Units, &d.Value, &d.Weight, &d.SharesIssued, &d.SharesAsAt); err != nil {
 				return err
 			}
+			d.SecurityName = servedOwnershipName(d.StockCode, d.SecurityName)
 			out = append(out, d)
 			return nil
 		})
@@ -1063,6 +1127,7 @@ func (s *postgresStore) FundCompareRows(ctx context.Context, fromID, toID int64)
 				&row.InFrom, &row.FromWeight, &row.FromValue, &row.InTo, &row.ToWeight, &row.ToValue); err != nil {
 				return err
 			}
+			row.SecurityName = servedOwnershipName(row.StockCode, row.SecurityName)
 			out = append(out, row)
 			return nil
 		})

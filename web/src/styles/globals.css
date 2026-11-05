@@ -79,6 +79,47 @@
        the value invalid, and Storybook and the unit tests have no next/font class. */
     --font-sans: var(--font-plex-mono, "IBM Plex Mono"), "JetBrains Mono", "Fira Code", ui-monospace, monospace;
     --font-display: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
+
+    /* The desk's five-stop ramp (spec 13.1). Each theme sets five explicit stops and
+       the ink printed on each, so a bin is told from its neighbours at 1x on a 20px
+       cell. Every ink clears WCAG AA (4.5:1) at the 11px figures, adjacent stops differ
+       by at least 7 L*, and the first stop differs from the paper by at least 7 L*.
+       desk-ramp-contrast.test.ts reads these tokens and checks those rules. The desk's
+       scales (desk/desk-scales.ts) name the stops; the theme decides their values.
+       The short-interest lens has its own five stops in the chart's rust family
+       (--desk-short-*), with the same AA and L* rules, so it is a ramp like the rest
+       and never a mix made at run time. */
+    --desk-bin-0: 36 28% 88%;
+    --desk-bin-1: 32 50% 78%;
+    --desk-bin-2: 30 62% 64%;
+    --desk-bin-3: 28 80% 37%;
+    --desk-bin-4: 26 85% 28%;
+    --desk-bin-ink-0: 19 18% 24%;
+    --desk-bin-ink-1: 19 18% 24%;
+    --desk-bin-ink-2: 19 18% 24%;
+    --desk-bin-ink-3: 40 25% 97%;
+    --desk-bin-ink-4: 40 25% 97%;
+    /* The diverging lenses: a fall runs ink to a light tint, a rise amber to the deepest stop. */
+    --desk-fall-2: 19 18% 24%;
+    --desk-fall-1: 20 14% 70%;
+    --desk-rise-1: 30 62% 64%;
+    --desk-rise-2: 26 85% 28%;
+    --desk-div-ink-0: 40 25% 97%;
+    --desk-div-ink-1: 19 18% 24%;
+    --desk-div-ink-2: 19 18% 24%;
+    --desk-div-ink-3: 19 18% 24%;
+    --desk-div-ink-4: 40 25% 97%;
+    /* The short-interest lens's five stops, the rust family from the paper to the deepest. */
+    --desk-short-0: 16 30% 89%;
+    --desk-short-1: 16 45% 78%;
+    --desk-short-2: 16 50% 70%;
+    --desk-short-3: 16 62% 38%;
+    --desk-short-4: 14 65% 28%;
+    --desk-short-ink-0: 19 18% 24%;
+    --desk-short-ink-1: 19 18% 24%;
+    --desk-short-ink-2: 19 18% 24%;
+    --desk-short-ink-3: 40 25% 97%;
+    --desk-short-ink-4: 40 25% 97%;
   }
 
   .dark {
@@ -136,6 +177,38 @@
     --glow-color: 32 100% 65%;
     --scanline-opacity: 0.05;
     --phosphor-blur: 1px;
+
+    /* The desk's five-stop ramp, dark (spec 13.1; see :root for the rules these meet). */
+    --desk-bin-0: 32 12% 18%;
+    --desk-bin-1: 32 30% 30%;
+    --desk-bin-2: 32 60% 45%;
+    --desk-bin-3: 32 80% 54%;
+    --desk-bin-4: 32 100% 65%;
+    --desk-bin-ink-0: 48 52% 81%;
+    --desk-bin-ink-1: 48 52% 81%;
+    --desk-bin-ink-2: 0 0% 5%;
+    --desk-bin-ink-3: 0 0% 5%;
+    --desk-bin-ink-4: 0 0% 5%;
+    --desk-fall-2: 48 52% 81%;
+    --desk-fall-1: 45 12% 28%;
+    --desk-rise-1: 32 60% 45%;
+    --desk-rise-2: 32 100% 65%;
+    --desk-div-ink-0: 0 0% 5%;
+    --desk-div-ink-1: 48 52% 81%;
+    --desk-div-ink-2: 48 52% 81%;
+    --desk-div-ink-3: 0 0% 5%;
+    --desk-div-ink-4: 0 0% 5%;
+    /* The short-interest lens's five stops, dark: the rust family brightening with the figure. */
+    --desk-short-0: 16 14% 18%;
+    --desk-short-1: 16 35% 30%;
+    --desk-short-2: 16 55% 50%;
+    --desk-short-3: 17 66% 58%;
+    --desk-short-4: 19 75% 66%;
+    --desk-short-ink-0: 48 52% 81%;
+    --desk-short-ink-1: 48 52% 81%;
+    --desk-short-ink-2: 0 0% 5%;
+    --desk-short-ink-3: 0 0% 5%;
+    --desk-short-ink-4: 0 0% 5%;
   }
 }
 
@@ -188,7 +261,20 @@
     background-position: center;
   }
 
-  .dark .banner-art {
+  /*
+ * A workspace toolbar's phone fold (components/ownership/workspace/view-disclosure.tsx,
+ * backlog D2): the HTML carries `open` so a desktop's first paint is the row, and below
+ * `sm` the content stays hidden until the island's effect has set the attribute and
+ * marked the element ready, so a phone's first paint is the closed fold and nothing
+ * jumps when the island mounts.
+ */
+@media (max-width: 639.98px) {
+  details.view-fold:not([data-ready]) > :not(summary) {
+    display: none;
+  }
+}
+
+.dark .banner-art {
     background-image: var(--banner-dark);
   }
 

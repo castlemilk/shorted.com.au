@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
 )
@@ -21,6 +22,13 @@ import (
 // and never removed. Removing one would bring an earlier holding back as current
 // in v_substantial_holdings_current, and the next run would store it again.
 
+// The change repair. The parser withholds a 604 whose stated change is over 50
+// points when its two figures are not on one row of the form (changeOver50 and
+// pairOnOneRow in notice.go). A row stored before that rule has no record of its
+// rows, so the repair removes every stored 604 whose change is over 50 points,
+// and the next notices run reads each one again: a real change on one row is
+// stored again, and a mismatch is withheld.
+
 // storedNotice is one substantial_holder_notices row, as the repair reads it.
 type storedNotice struct {
 	URL         string
@@ -28,13 +36,15 @@ type storedNotice struct {
 	HolderKey   string
 	HolderName  string
 	PresentPct  *float64
+	PreviousPct *float64
 	AnnouncedOn string
 	Form        string
 	Ceased      bool
 }
 
-// placeholderRow is a stored notice whose holder name the placeholder rule
-// withholds, with the rule's reason. Kept is set for a row keyed to a curated
+// placeholderRow is a stored notice the gate withholds, with the rule's reason:
+// a placeholder holder name (placeholderRows) or a change over 50 points
+// (implausibleChangeRows). Kept is set for a placeholder keyed to a curated
 // institution: it is listed for the operator and never removed.
 type placeholderRow struct {
 	storedNotice
@@ -58,6 +68,47 @@ func placeholderRows(rows []storedNotice) []placeholderRow {
 	for _, r := range rows {
 		if _, why := placeholderHolder(r.HolderName); why != "" {
 			out = append(out, placeholderRow{storedNotice: r, Reason: why, Kept: institutionKey(r.HolderKey)})
+		}
+	}
+	return out
+}
+
+// implausibleChangeRows returns the stored 604s whose stated change is over 50
+// points in either direction. A stored row carries no record of its rows, so the
+// repair cannot tell a real change from a mismatch and removes each one; the next
+// notices run decides it again. A row with no previous figure is never a change
+// row. NZ notices are not judged: the NZ path has its own figures and is unchanged.
+func implausibleChangeRows(rows []storedNotice) []placeholderRow {
+	var out []placeholderRow
+	for _, r := range rows {
+		if r.Form != string(Form604) || r.PreviousPct == nil || r.PresentPct == nil {
+			continue
+		}
+		if !changeOver50(*r.PreviousPct, *r.PresentPct) {
+			continue
+		}
+		reason := fmt.Sprintf("stated change of %.4f points, over 50, between previous %s and present %s: a re-read keeps it only when both figures are on one row",
+			math.Abs(*r.PresentPct-*r.PreviousPct), fmtPctExact(r.PreviousPct), fmtPctExact(r.PresentPct))
+		out = append(out, placeholderRow{storedNotice: r, Reason: reason})
+	}
+	return out
+}
+
+// withheldRows is every stored notice the gate withholds: the implausible changes,
+// then the placeholder holders. A row both rules withhold is listed once, under
+// the change reason, because a change row is always removable while a placeholder
+// keyed to an institution is kept; listing the change first keeps that row
+// removable, so one removal names it once.
+func withheldRows(rows []storedNotice) []placeholderRow {
+	out := implausibleChangeRows(rows)
+	listed := make(map[string]bool, len(out))
+	for _, p := range out {
+		listed[p.URL] = true
+	}
+	for _, p := range placeholderRows(rows) {
+		if !listed[p.URL] {
+			listed[p.URL] = true
+			out = append(out, p)
 		}
 	}
 	return out
@@ -102,12 +153,12 @@ func fmtPctExact(p *float64) string {
 }
 
 // repairPlaceholders is -mode repair-placeholders. It lists the stored notices
-// whose holder name the placeholder rule withholds, one line each, and with
-// -apply removes the ones not keyed to an institution, with their attempts, so
-// the next notices run reads them again. -apply is the mode's own consent, and
-// the job's dry-run convention still holds (a hand run writes nothing until
-// -dry-run=false), so a removal needs both. ping is the web tier's revalidation,
-// sent once after a removal.
+// the gate withholds (a placeholder holder name, or a change over 50 points), one
+// line each, and with -apply removes the ones not keyed to an institution, with
+// their attempts, so the next notices run reads them again. -apply is the mode's
+// own consent, and the job's dry-run convention still holds (a hand run writes
+// nothing until -dry-run=false), so a removal needs both. ping is the web tier's
+// revalidation, sent once after a removal.
 func repairPlaceholders(ctx context.Context, st repairStore, cfg config, ping func(platform.RevalidateRequest)) error {
 	if cfg.apply && cfg.dryRun {
 		// A request to remove rows that writes nothing is a failure, not a quiet
@@ -118,7 +169,7 @@ func repairPlaceholders(ctx context.Context, st repairStore, cfg config, ping fu
 	if err != nil {
 		return fmt.Errorf("ownership repair-placeholders: reading stored notices: %w", err)
 	}
-	found := placeholderRows(rows)
+	found := withheldRows(rows)
 	if len(found) == 0 {
 		log.Printf("ownership repair-placeholders: nothing to repair (%d stored notices checked)", len(rows))
 		return nil
@@ -133,7 +184,7 @@ func repairPlaceholders(ctx context.Context, st repairStore, cfg config, ping fu
 		}
 		urls = append(urls, p.URL)
 	}
-	log.Printf("ownership repair-placeholders: %d of %d stored notices name a placeholder holder: %d removable, %d keyed to an institution and kept",
+	log.Printf("ownership repair-placeholders: %d of %d stored notices are withheld by the gate (a placeholder holder or a change over 50 points): %d removable, %d keyed to an institution and kept",
 		len(found), len(rows), len(urls), kept)
 	if len(urls) == 0 {
 		log.Printf("ownership repair-placeholders: nothing to remove")

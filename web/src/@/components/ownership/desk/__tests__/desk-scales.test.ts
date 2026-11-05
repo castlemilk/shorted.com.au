@@ -1,10 +1,14 @@
 /// <reference types="jest" />
 
 /**
- * The desk's colour scales (spec 13.1). Every fill is a theme token mixed with the
- * paper, a figure with no value has no fill, and nothing on the desk is red or
- * green except nothing at all: the short lens takes the chart's rust.
+ * The desk's colour scales (spec 13.1). Every fill is a theme token (a stop of the
+ * ramp, globals.css), a figure with no value has no fill, and nothing on the desk is
+ * red or green. The short lens has its own rust stops (`--desk-short-*`), so no
+ * fill is a mix made at run time.
  */
+
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import { BIN_COUNT, binFill, binOf, countScale, directionFill, labelOnBin, lensFill, lensScale, netFill, netScale, niceStep } from "../desk-scales";
 
@@ -18,6 +22,11 @@ const SIGNAL_COLOURS = [
   "red",
   "green",
 ];
+
+/** A ramp fill is a theme token and nothing else: no literal colour, no mix. */
+const RAMP_TOKEN = /^hsl\(var\(--desk-[a-z0-9-]+\)\)$/;
+/** The short lens's stops: the theme's rust family, and no other fill. */
+const SHORT_TOKEN = /^hsl\(var\(--desk-short-[0-4]\)\)$/;
 
 function noSignalColour(fill: string | null): void {
   expect(fill).not.toBeNull();
@@ -43,10 +52,10 @@ describe("lens scales", () => {
     expect(lensScale("flow", [0, null])).toEqual({ lens: "flow", mode: "diverging", lo: -2, hi: 2, step: 1 });
   });
 
-  it("gives the short lens its own mode, drawn in the chart's short colour", () => {
+  it("gives the short lens its own mode, drawn from its own rust stops", () => {
     expect(lensScale("short", [3]).mode).toBe("short");
     const fill = lensFill(3, lensScale("short", [3]));
-    expect(fill).toContain("#D16A47");
+    expect(fill).toBe("hsl(var(--desk-short-3))");
     noSignalColour(fill);
   });
 });
@@ -58,25 +67,25 @@ describe("lens fills", () => {
     expect(lensFill(Number.NaN, scale)).toBeNull();
   });
 
-  it("paints the largest figure in the primary and a zero in the paper", () => {
+  it("paints the largest figure in the top stop and a zero in the paper", () => {
     const scale = lensScale("disclosed", [10]);
-    expect(lensFill(10, scale)).toBe("color-mix(in srgb, hsl(var(--primary)) 100%, hsl(var(--background)))");
+    expect(lensFill(10, scale)).toBe("hsl(var(--desk-bin-4))");
     expect(lensFill(0, scale)).toBe("hsl(var(--background))");
   });
 
-  it("grows a sequential fill with its figure, never past the scale", () => {
+  it("grows a sequential fill with its figure, one stop per bin, never past the scale", () => {
     const scale = lensScale("institutional", [10]);
-    // Ten is the top: the bins are two wide, so five falls in the third (60%) and forty in the top (100%).
-    expect(lensFill(5, scale)).toContain("60%");
-    expect(lensFill(40, scale)).toContain("100%");
+    // Ten is the top: the bins are two wide, so five falls in the third stop and forty in the top.
+    expect(lensFill(5, scale)).toBe("hsl(var(--desk-bin-2))");
+    expect(lensFill(40, scale)).toBe("hsl(var(--desk-bin-4))");
   });
 
   it("runs a flow from ink through paper to amber, never red or green", () => {
     const scale = lensScale("flow", [-4, 4]);
     const falling = lensFill(-4, scale);
     const rising = lensFill(4, scale);
-    expect(falling).toContain("hsl(var(--foreground))");
-    expect(rising).toContain("hsl(var(--primary))");
+    expect(falling).toBe("hsl(var(--desk-fall-2))");
+    expect(rising).toBe("hsl(var(--desk-rise-2))");
     expect(lensFill(0, scale)).toBe("hsl(var(--background))");
     noSignalColour(falling);
     noSignalColour(rising);
@@ -92,12 +101,57 @@ describe("lens fills", () => {
       }
     }
   });
+
+  it("paints every sequential and diverging bin from a theme token, never a literal colour", () => {
+    const sequential = lensScale("disclosed", [10]);
+    for (let bin = 0; bin < BIN_COUNT; bin += 1) {
+      expect(binFill(bin, sequential)).toMatch(RAMP_TOKEN);
+    }
+    const diverging = lensScale("flow", [-4, 4]);
+    for (let bin = 0; bin < BIN_COUNT; bin += 1) {
+      // The diverging centre is the paper itself: the zero both sides of the flow share.
+      if (bin === 2) expect(binFill(bin, diverging)).toBe("hsl(var(--background))");
+      else expect(binFill(bin, diverging)).toMatch(RAMP_TOKEN);
+    }
+    const short = lensScale("short", [10]);
+    for (let bin = 0; bin < BIN_COUNT; bin += 1) {
+      expect(binFill(bin, short)).toMatch(SHORT_TOKEN);
+    }
+  });
+});
+
+describe("the ink of each bin (labelOnBin)", () => {
+  it("takes the sequential stop's own ink token, the foreground on the pale stops and the paper on the deepest", () => {
+    const scale = lensScale("disclosed", [10]);
+    for (let bin = 0; bin < BIN_COUNT; bin += 1) {
+      expect(labelOnBin(bin, scale)).toBe(`hsl(var(--desk-bin-ink-${bin}))`);
+    }
+    expect(labelOnBin(null, scale)).toBe("hsl(var(--foreground))");
+  });
+
+  it("takes the diverging stop's own ink token, the paper on the two deepest falls and rises", () => {
+    const scale = lensScale("flow", [-4, 4]);
+    for (let bin = 0; bin < BIN_COUNT; bin += 1) {
+      expect(labelOnBin(bin, scale)).toBe(`hsl(var(--desk-div-ink-${bin}))`);
+    }
+    expect(labelOnBin(binOf(-4, scale), scale)).toBe("hsl(var(--desk-div-ink-0))");
+    expect(labelOnBin(binOf(0.5, scale), scale)).toBe("hsl(var(--desk-div-ink-2))");
+    expect(labelOnBin(binOf(4, scale), scale)).toBe("hsl(var(--desk-div-ink-4))");
+  });
+
+  it("gives the short lens its own ink token for each of its stops", () => {
+    const scale = lensScale("short", [10]);
+    for (let bin = 0; bin < BIN_COUNT; bin += 1) {
+      expect(labelOnBin(bin, scale)).toBe(`hsl(var(--desk-short-ink-${bin}))`);
+    }
+    expect(labelOnBin(null, scale)).toBe("hsl(var(--foreground))");
+  });
 });
 
 describe("direction and week fills", () => {
-  it("draws an increase in the amber and a decrease in the ink", () => {
-    expect(directionFill("up")).toContain("hsl(var(--primary))");
-    expect(directionFill("down")).toContain("hsl(var(--foreground))");
+  it("draws an increase in the deepest amber stop and a decrease in the ink", () => {
+    expect(directionFill("up")).toBe("hsl(var(--desk-rise-2))");
+    expect(directionFill("down")).toBe("hsl(var(--desk-fall-2))");
     noSignalColour(directionFill("up"));
     noSignalColour(directionFill("down"));
   });
@@ -105,15 +159,14 @@ describe("direction and week fills", () => {
   it("scales a week's net change to the largest week, diverging around zero", () => {
     expect(netFill(null, 4)).toBeNull();
     expect(netFill(0, 4)).toBe("hsl(var(--background))");
-    expect(netFill(-4, 4)).toContain("hsl(var(--foreground))");
-    expect(netFill(2, 4)).toContain("50%");
+    expect(netFill(-4, 4)).toBe("hsl(var(--desk-fall-2))");
+    expect(netFill(2, 4)).toBe("hsl(var(--desk-rise-1))");
     noSignalColour(netFill(-2, 4));
   });
 });
 
 describe("the scale's cap", () => {
   it("tops a long list at the 98th percentile and says so, and keeps a short list's largest figure", () => {
-    const { lensScale } = require("../desk-scales") as typeof import("../desk-scales");
     const many = Array.from({ length: 99 }, (_, i) => i + 1).concat([242]);
     const capped = lensScale("disclosed", many);
     expect(capped.capped).toBe(true);
@@ -176,12 +229,12 @@ describe("five quantised bins (spec 14.9)", () => {
     }
   });
 
-  it("draws a rise and a fall of one size at one strength, the centre bin as the paper", () => {
+  it("draws a rise and a fall of one size on the same step, the centre bin as the paper", () => {
     const scale = lensScale("flow", [-4, 4]);
-    expect(binFill(binOf(-3, scale)!, scale)).toContain("50%");
-    expect(binFill(binOf(3, scale)!, scale)).toContain("50%");
-    expect(binFill(binOf(-4, scale)!, scale)).toContain("100%");
-    expect(binFill(binOf(4, scale)!, scale)).toContain("100%");
+    expect(binFill(binOf(-3, scale)!, scale)).toBe("hsl(var(--desk-fall-1))");
+    expect(binFill(binOf(3, scale)!, scale)).toBe("hsl(var(--desk-rise-1))");
+    expect(binFill(binOf(-4, scale)!, scale)).toBe("hsl(var(--desk-fall-2))");
+    expect(binFill(binOf(4, scale)!, scale)).toBe("hsl(var(--desk-rise-2))");
     expect(binFill(binOf(0.5, scale)!, scale)).toBe("hsl(var(--background))");
     expect(binFill(binOf(-0.5, scale)!, scale)).toBe("hsl(var(--background))");
   });
@@ -190,6 +243,22 @@ describe("five quantised bins (spec 14.9)", () => {
     const many = Array.from({ length: 99 }, (_, i) => i + 1).concat([242]);
     const capped = lensScale("disclosed", many);
     expect(binOf(242, capped)).toBe(BIN_COUNT - 1);
+  });
+
+  it("fills the short lens from its five rust stops in order, never a mix into the paper", () => {
+    const scale = lensScale("short", [10]);
+    expect(binFill(0, scale)).toBe("hsl(var(--desk-short-0))");
+    expect(binFill(2, scale)).toBe("hsl(var(--desk-short-2))");
+    expect(binFill(4, scale)).toBe("hsl(var(--desk-short-4))");
+    for (let bin = 0; bin < BIN_COUNT; bin += 1) {
+      expect(binFill(bin, scale)).not.toContain("color-mix");
+    }
+  });
+
+  it("keeps the module pure: no mix, and no import from the chart theme", () => {
+    const source = readFileSync(path.join(__dirname, "../desk-scales.ts"), "utf8");
+    expect(source).not.toContain("color-mix");
+    expect(source).not.toMatch(/from\s+["'][^"']*chart-theme["']/);
   });
 });
 
@@ -208,16 +277,23 @@ describe("the heatmap's count scale and label ink (spec 14.9)", () => {
     expect(countScale(0).step).toBe(1);
   });
 
-  it("takes the paper ink on the two deepest steps and the ink elsewhere", () => {
+  it("takes each stop's ink for the label on it, the foreground for an empty cell", () => {
     const scale = netScale(4);
-    expect(labelOnBin(binOf(-4, scale), scale)).toBe("hsl(var(--background))");
-    expect(labelOnBin(binOf(4, scale), scale)).toBe("hsl(var(--background))");
-    expect(labelOnBin(binOf(0.5, scale), scale)).toBe("hsl(var(--foreground))");
+    expect(labelOnBin(binOf(-4, scale), scale)).toBe("hsl(var(--desk-div-ink-0))");
+    expect(labelOnBin(binOf(4, scale), scale)).toBe("hsl(var(--desk-div-ink-4))");
+    expect(labelOnBin(binOf(0.5, scale), scale)).toBe("hsl(var(--desk-div-ink-2))");
     expect(labelOnBin(null, scale)).toBe("hsl(var(--foreground))");
   });
 
   it("gives the net-change scale the same five symmetric bins as the flow lens", () => {
     expect(netFill(-4, 4)).toBe(lensFill(-4, lensScale("flow", [-4, 4])));
     expect(netFill(4, 4)).toBe(lensFill(4, lensScale("flow", [-4, 4])));
+  });
+
+  it("fills a count cell from the ramp's stops, the same tokens as every other sequential lens", () => {
+    const scale = countScale(12);
+    expect(lensFill(12, scale)).toBe("hsl(var(--desk-bin-4))");
+    expect(lensFill(0, scale)).toBe("hsl(var(--background))");
+    expect(lensFill(3, scale)).toBe("hsl(var(--desk-bin-1))");
   });
 });

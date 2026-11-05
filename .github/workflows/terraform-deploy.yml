@@ -1021,14 +1021,20 @@ jobs:
             # run id and by suburb slug. Plain builds in one transaction under lock_timeout, like 000150 to
             # 000152. The tables are small and pruned, and a replay touches nothing once the indexes exist.
             run_psql_session -f /migrations/000153_add_crawl_ops_indexes.up.sql
-            # 000154 (strategy workspace) adds the ASIC report ingest log, the ASIC revision log and the
+            # 000154 (notice read_by, coverage spec 2.3) adds read_by TEXT NOT NULL DEFAULT 'parser'
+            # to substantial_holder_notices and substantial_holder_notice_attempts, and a CHECK on
+            # each, every one added only when the catalog lacks it, so a replay takes no lock and
+            # touches no rows (a constant default is catalog-only). The API reads read_by, so it
+            # runs before the image swap, under lock_timeout on the session pooler.
+            run_psql_session -f /migrations/000154_notice_read_by.up.sql
+            # 000155 (strategy workspace) adds the ASIC report ingest log, the ASIC revision log and the
             # stock_fundamentals vintage history with its trigger and one-time baseline. Every step is
             # catalog-guarded, so a replay that has done its work takes no lock on stock_fundamentals. The
             # first application takes SHARE ROW EXCLUSIVE on it to create the trigger, so it must not run
             # during the picks window (15:00-18:30 UTC). Session pooler, under lock_timeout 5s. If the first
             # apply times out on that lock, apply it by hand in a quiet window, then re-run the deploy:
-            #   task db:prod:apply FILE=services/migrations/000154_strategy_capture.up.sql CONFIRM=prod
-            run_psql_session -f /migrations/000154_strategy_capture.up.sql
+            #   task db:prod:apply FILE=services/migrations/000155_strategy_capture.up.sql CONFIRM=prod
+            run_psql_session -f /migrations/000155_strategy_capture.up.sql
 
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
@@ -1978,7 +1984,7 @@ jobs:
           cd services
           make test-alerts-e2e
 
-      # The strategy capture suite (migration 000154): the vintage trigger, its replay and the ingest
+      # The strategy capture suite (migration 000155): the vintage trigger, its replay and the ingest
       # writer's SQL, against a real Postgres. It guards the table every stock_fundamentals write now also
       # writes, so it gates the deploy like the alerts suite.
       - name: Run strategy capture container suite (gates the deploy)
