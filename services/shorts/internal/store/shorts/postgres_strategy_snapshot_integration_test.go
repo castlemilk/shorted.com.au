@@ -415,3 +415,22 @@ func TestStrategyDataStatus_AvailabilityUsesTheShortsReportDates(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, want.String(), got.String(), "the stored reading's calendar, from the shorts report dates")
 }
+
+// The API serves the canonical version the table marks live, with its live_from:
+// a draft and a superseded row are never read as live.
+func TestStrategyLive_ReadsTheLiveCanonicalRow(t *testing.T) {
+	pool := snapshotDB(t)
+	applySnapshotMigration(t, pool)
+	ctx := context.Background()
+	s := &postgresStore{db: pool}
+
+	v0From, v1From := "2026-11-12", "2026-11-16"
+	insertRuleVersion(t, pool, strings.Repeat("1", 64), "zanger-breakout", "v0", "canonical", "superseded", &v0From)
+	insertRuleVersion(t, pool, strings.Repeat("2", 64), "zanger-breakout", "v1", "canonical", "live", &v1From)
+	insertRuleVersion(t, pool, strings.Repeat("3", 64), "zanger-breakout", "v2", "canonical", "draft", nil)
+
+	rows, err := s.ReadLiveRuleVersions(ctx)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, LiveRuleVersion{StrategyID: "zanger-breakout", RulesHash: strings.Repeat("2", 64), Label: "v1", LiveFrom: "2026-11-16"}, rows[0])
+}
