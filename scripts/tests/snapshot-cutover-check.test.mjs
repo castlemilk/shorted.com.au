@@ -5,6 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  assertTokenBaseUrl,
   collectStrategy,
   diff,
   fundamentalsDigest,
@@ -16,6 +17,19 @@ import {
 
 const ids = ["zanger-breakout", "canslim", "minervini-trend-template", "crowded-short-breakout", "quality-compounders"];
 
+// SNAPSHOT_FETCH is the fetch the snapshot's fundamentals were read from. A digest may
+// move only when the views hold a later fetch than this (see viewsAfterRefetch).
+const SNAPSHOT_FETCH = "2026-11-04T06:00:00Z";
+const LATER_FETCH = "2026-11-05T06:00:00Z";
+
+// viewsAfterRefetch is the views' recording with one canslim code fetched again since
+// the snapshot, so its digest may move.
+function viewsAfterRefetch(code, id = "canslim") {
+  const before = recording();
+  before.strategies[id].statuses[code].fetchedAt = LATER_FETCH;
+  return before;
+}
+
 function strategy(overrides = {}) {
   return {
     sessionDate: "2026-11-04",
@@ -24,8 +38,8 @@ function strategy(overrides = {}) {
     totalCount: 2,
     statusCounts: { triggered: 1, setup: 1, watch: 0 },
     statuses: {
-      BHP: { status: "triggered", score: 90, rank: 1, daysToCover: 2.1, digest: "aaaa" },
-      CBA: { status: "setup", score: 70, rank: 2, daysToCover: 3.0, digest: "bbbb" },
+      BHP: { status: "triggered", score: 90, rank: 1, daysToCover: 2.1, digest: "aaaa", fetchedAt: SNAPSHOT_FETCH },
+      CBA: { status: "setup", score: 70, rank: 2, daysToCover: 3.0, digest: "bbbb", fetchedAt: SNAPSHOT_FETCH },
     },
     top: [
       { rank: 1, stockCode: "BHP", status: "triggered" },
@@ -136,13 +150,13 @@ test("a fundamentals code whose digest changed is allowed, an unchanged one is n
     strategies: {
       canslim: strategy({
         statuses: {
-          BHP: { status: "triggered", score: 90, rank: 1, daysToCover: 2.1, digest: "cccc" },
+          BHP: { status: "triggered", score: 90, rank: 1, daysToCover: 2.1, digest: "cccc", fetchedAt: SNAPSHOT_FETCH },
           CBA: { status: "setup", score: 71, rank: 2, daysToCover: 3.0, digest: "bbbb" },
         },
       }),
     },
   });
-  const r = diff(recording(), after);
+  const r = diff(viewsAfterRefetch("BHP"), after);
   assert.equal(r.allowed.length, 1);
   assert.match(r.allowed[0], /canslim BHP/);
   assert.equal(r.unexpected.length, 1, "CBA moved with an unchanged digest");
@@ -215,14 +229,16 @@ test("summarisePicks keeps status, score, rank, days to cover and a fundamentals
     totalCount: 2,
     statusCounts: { triggered: 1 },
     picks: [
-      { stockCode: "BHP", status: "triggered", score: 91.123456789, rank: 1, hasDaysToCover: true, daysToCover: 2, fundamentals: { currency: "AUD" } },
+      { stockCode: "BHP", status: "triggered", score: 91.123456789, rank: 1, hasDaysToCover: true, daysToCover: 2, fundamentals: { currency: "AUD", fetchedAt: "2026-11-05T01:00:00Z" } },
       { stockCode: "CBA", status: "watch", score: 10, rank: 2 },
     ],
   });
   assert.equal(s.statuses.BHP.score, 91.123457);
   assert.equal(s.statuses.BHP.daysToCover, 2);
+  assert.equal(s.statuses.BHP.fetchedAt, "2026-11-05T01:00:00Z");
   assert.equal(s.statuses.CBA.daysToCover, null);
   assert.equal(s.statuses.CBA.digest, null);
+  assert.equal(s.statuses.CBA.fetchedAt, null);
   assert.equal(s.statusCounts.setup, 0);
   assert.equal(s.totalCount, 2);
   assert.equal(s.top.length, 2);
@@ -427,13 +443,13 @@ test("a digest-moved status change is allowed, and the counts are compared net o
       canslim: strategy({
         statusCounts: { triggered: 0, setup: 2, watch: 0 },
         statuses: {
-          BHP: { status: "setup", score: 90, rank: 1, daysToCover: 2.1, digest: "cccc" },
+          BHP: { status: "setup", score: 90, rank: 1, daysToCover: 2.1, digest: "cccc", fetchedAt: SNAPSHOT_FETCH },
           CBA: { status: "setup", score: 70, rank: 2, daysToCover: 3.0, digest: "bbbb" },
         },
       }),
     },
   });
-  const r = diff(recording(), after);
+  const r = diff(viewsAfterRefetch("BHP"), after);
   assert.deepEqual(r.unexpected, []);
   assert.equal(r.allowed.length, 1);
   assert.match(r.allowed[0], /canslim BHP: \{"status":"triggered".*"setup".*fundamentals digest changed/);
@@ -461,7 +477,7 @@ test("the counts still have to match once the allowed codes are left out", () =>
       canslim: strategy({
         statusCounts: { triggered: 0, setup: 2, watch: 0 },
         statuses: {
-          BHP: { status: "setup", score: 90, rank: 1, daysToCover: 2.1, digest: "cccc" },
+          BHP: { status: "setup", score: 90, rank: 1, daysToCover: 2.1, digest: "cccc", fetchedAt: SNAPSHOT_FETCH },
           CBA: { status: "setup", score: 70, rank: 2, daysToCover: 3.0, digest: "bbbb" },
         },
       }),
@@ -470,7 +486,78 @@ test("the counts still have to match once the allowed codes are left out", () =>
   // The digest-moved code is allowed to change status, but a count the allowed codes do not explain is not.
   after.strategies.canslim.statusCounts = { triggered: 0, setup: 2, watch: 1 };
   after.strategies.canslim.totalCount = 3;
-  const r = diff(recording(), after);
+  const r = diff(viewsAfterRefetch("BHP"), after);
   assert.ok(r.unexpected.some((l) => l.startsWith("canslim: status_counts")));
   assert.ok(r.unexpected.some((l) => l.startsWith("canslim: total_count")));
+});
+
+// A digest that moved on the same fetch is the two sources disagreeing: the cutover
+// must not excuse it, whatever the status and score do.
+test("a digest that moves with no later fetch is unexpected, whatever the status does", () => {
+  const sameFetch = recording({
+    strategies: {
+      canslim: strategy({
+        statuses: {
+          BHP: { status: "triggered", score: 90, rank: 1, daysToCover: 2.1, digest: "cccc", fetchedAt: SNAPSHOT_FETCH },
+          CBA: { status: "setup", score: 70, rank: 2, daysToCover: 3.0, digest: "bbbb", fetchedAt: SNAPSHOT_FETCH },
+        },
+      }),
+    },
+  });
+  const r = diff(recording(), sameFetch);
+  assert.deepEqual(r.allowed, []);
+  assert.equal(r.unexpected.length, 1);
+  assert.match(r.unexpected[0], /canslim BHP.*disagree on the same fetch/);
+
+  const statusMoved = recording({
+    strategies: {
+      canslim: strategy({
+        statuses: {
+          BHP: { status: "setup", score: 90, rank: 1, daysToCover: 2.1, digest: "cccc", fetchedAt: SNAPSHOT_FETCH },
+          CBA: { status: "setup", score: 70, rank: 2, daysToCover: 3.0, digest: "bbbb", fetchedAt: SNAPSHOT_FETCH },
+        },
+        statusCounts: { triggered: 0, setup: 2, watch: 0 },
+      }),
+    },
+  });
+  const r2 = diff(recording(), statusMoved);
+  assert.deepEqual(r2.allowed, []);
+  assert.ok(r2.unexpected.some((l) => l.startsWith("canslim BHP") && l.includes("disagree")));
+});
+
+// The views holding an earlier fetch than the snapshot is not a refresh either.
+test("a digest move with the views' fetch earlier than the snapshot's is unexpected", () => {
+  const before = recording();
+  before.strategies.canslim.statuses.BHP.fetchedAt = "2026-11-03T06:00:00Z";
+  const after = recording({
+    strategies: {
+      canslim: strategy({
+        statuses: {
+          BHP: { status: "setup", score: 90, rank: 1, daysToCover: 2.1, digest: "cccc", fetchedAt: SNAPSHOT_FETCH },
+          CBA: { status: "setup", score: 70, rank: 2, daysToCover: 3.0, digest: "bbbb", fetchedAt: SNAPSHOT_FETCH },
+        },
+      }),
+    },
+  });
+  const r = diff(before, after);
+  assert.deepEqual(r.allowed, []);
+  assert.ok(r.unexpected.some((l) => l.startsWith("canslim BHP")));
+});
+
+test("assertTokenBaseUrl sends a token only over https, or over http on this machine", () => {
+  assert.doesNotThrow(() => assertTokenBaseUrl("https://api.shorted.com.au"));
+  assert.doesNotThrow(() => assertTokenBaseUrl("https://shorts-api-abc.a.run.app/"));
+  assert.doesNotThrow(() => assertTokenBaseUrl("http://localhost:9091"));
+  assert.doesNotThrow(() => assertTokenBaseUrl("http://127.0.0.1:9091"));
+  assert.throws(() => assertTokenBaseUrl("http://api.shorted.com.au"), RecordError);
+  assert.throws(() => assertTokenBaseUrl("http://192.168.1.10:9091"), RecordError);
+  assert.throws(() => assertTokenBaseUrl("https.example"), RecordError);
+});
+
+test("record refuses a token for a plain http or foreign base URL before any fetch is made", async () => {
+  for (const baseUrl of ["http://api.shorted.com.au", "http://preview.example.com"]) {
+    const { fetchImpl, calls } = fakeFetch(() => ({ json: {} }));
+    await assert.rejects(record(baseUrl, { fetchImpl, token: "tok", sleep: async () => {}, delayMs: 0 }), RecordError, baseUrl);
+    assert.equal(calls.length, 0, `${baseUrl}: no request carries the token`);
+  }
 });

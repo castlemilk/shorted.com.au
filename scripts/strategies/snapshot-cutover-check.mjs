@@ -4,7 +4,8 @@
 //
 // Read only. It calls the StrategyService reads over Connect's JSON protocol and
 // writes a JSON file. It never writes to any database, and it never writes the
-// bearer token into the recording.
+// bearer token into the recording. The token goes only to an https base URL (or
+// plain http on localhost), so a mistyped URL cannot carry it in clear text.
 //
 //   node scripts/strategies/snapshot-cutover-check.mjs record \
 //       --base-url https://api.shorted.com.au --out before.json [--token-env SHORTED_API_TOKEN]
@@ -31,8 +32,11 @@
 //     the only passing rule on the side that has it. A days_to_cover value that becomes
 //     unknown is never allowed.
 //   - zanger-breakout, canslim, quality-compounders: a code whose fundamentals digest
-//     changed since the snapshot was written (both digests present and different). Its
+//     changed because the fundamentals were fetched again: both digests present and
+//     different, and the views' fetch (before) later than the snapshot's (after). Its
 //     figures moved, so it is excluded, its status included, and it is left out of the counts.
+//     A digest that moved with no later fetch is never allowed: the snapshot and the views
+//     disagree on the same figures, and the cutover must not hide that.
 // Pick ranks are not compared: they follow from status and score. BHP's fit is compared
 // by status and score, and its rank only when a code of that strategy was allowed to move.
 
@@ -71,7 +75,10 @@ export async function callJSON(baseUrl, method, body, opts = {}) {
   const { fetchImpl = fetch, token = "", sleep = defaultSleep, baseDelayMs = 2000 } = opts;
   const url = `${baseUrl.replace(/\/+$/, "")}/${SERVICE}/${method}`;
   const headers = { "content-type": "application/json", "connect-protocol-version": "1", accept: "application/json" };
-  if (token) headers.authorization = `Bearer ${token}`;
+  if (token) {
+    assertTokenBaseUrl(baseUrl);
+    headers.authorization = `Bearer ${token}`;
+  }
   for (let attempt = 0; ; attempt++) {
     const res = await fetchImpl(url, { method: "POST", headers, body: JSON.stringify(body) });
     if (res.status === 429 && attempt < MAX_RETRIES) {
@@ -86,6 +93,20 @@ export async function callJSON(baseUrl, method, body, opts = {}) {
     }
     return JSON.parse(text);
   }
+}
+
+// assertTokenBaseUrl refuses a bearer token to any base URL that is not https, and
+// to plain http except on this machine. The token is a long-lived API credential.
+export function assertTokenBaseUrl(baseUrl) {
+  let u;
+  try {
+    u = new URL(baseUrl);
+  } catch {
+    throw new RecordError("--base-url is not a URL, so the token is not sent");
+  }
+  if (u.protocol === "https:") return;
+  if (u.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(u.hostname)) return;
+  throw new RecordError(`refusing to send the bearer token to ${u.protocol}//${u.host}: use https (plain http is allowed for localhost only)`);
 }
 
 // digest is a stable hash of a pick's fundamentals object, so a change in any
@@ -131,6 +152,9 @@ export function summarisePicks(resp) {
       rank: p.rank ?? 0,
       daysToCover: p.hasDaysToCover ? round(p.daysToCover) : null,
       digest: fundamentalsDigest(p.fundamentals),
+      // The newest fetch of the inputs behind the digest (RFC 3339): a digest may move
+      // only on a later fetch, which the diff checks.
+      fetchedAt: p.fundamentals?.fetchedAt || null,
       // The stock-specific rules this code passed (regime excluded), sorted: a pick
       // needs one of them, so a code whose only one is days_to_cover is listed on that alone.
       passing: passingRules(p.rules),
@@ -156,6 +180,19 @@ function round(v) {
 }
 
 const REGIME_RULE = "regime";
+
+// digestMovement classifies a fundamentals digest change for a code on a strategy
+// that reads fundamentals: "none" (no change, or a digest missing on a side),
+// "refreshed" (the views hold a later fetch than the snapshot: the figures were
+// fetched again since the snapshot), or "disagree" (the digests differ on the same
+// fetch, so the two sources built different figures).
+function digestMovement(strategyId, x, y) {
+  if (!FUNDAMENTALS_STRATEGIES.has(strategyId)) return "none";
+  if (x.digest === null || y.digest === null || x.digest === y.digest) return "none";
+  const before = Date.parse(x.fetchedAt ?? "");
+  const after = Date.parse(y.fetchedAt ?? "");
+  return before > after ? "refreshed" : "disagree";
+}
 
 function passingRules(rules) {
   return (rules ?? [])
@@ -290,8 +327,13 @@ export function diff(before, after) {
         unexpected.push(`${label} [days_to_cover lost its value]`);
         continue;
       }
+      const movement = digestMovement(id, x, y);
+      if (movement === "disagree") {
+        unexpected.push(`${label} [the snapshot and the views disagree on the same fetch: the fundamentals digest moved with no later fetch]`);
+        continue;
+      }
       const dtcMoved = id === DAYS_TO_COVER_STRATEGY && x.daysToCover !== y.daysToCover;
-      const digestMoved = FUNDAMENTALS_STRATEGIES.has(id) && x.digest !== null && y.digest !== null && x.digest !== y.digest;
+      const digestMoved = movement === "refreshed";
       if (x.status !== y.status) {
         // A status never moves for a crowded-short code on days to cover alone.
         if (digestMoved) {
