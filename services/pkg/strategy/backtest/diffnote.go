@@ -34,10 +34,13 @@ type PreviousRun struct {
 	RunID int64
 	// CutOff is the previous run's digest cut-off: CutOff(its prices_through).
 	CutOff civil.Date
-	// FinishedAt is when the previous run was written. A revision recorded after
-	// it changed an input the previous run did not read.
-	FinishedAt time.Time
-	InputHash  string
+	// ASICThrough is the newest ASIC report the previous run read. A revision to a
+	// later report did not change anything the previous run held.
+	ASICThrough civil.Date
+	// ReadAt is when the previous run read its inputs (its batch snapshot). A
+	// revision recorded after it changed an input the previous run did not read.
+	ReadAt    time.Time
+	InputHash string
 	// Digests are the previous run's per-code digests, taken at its cut-off.
 	Digests map[string]Digest
 	// Dates and Equity are the previous run's stored daily equity.
@@ -59,22 +62,28 @@ type DiffNote struct {
 	State         string `json:"state"`
 	PreviousRunID int64  `json:"previous_run_id,omitempty"`
 	// PreviousCutOff is the cut-off the codes are compared at.
-	PreviousCutOff civil.Date `json:"previous_cut_off"`
+	PreviousCutOff civil.Date `json:"previous_cut_off,omitzero"`
 	// PriceRowsRewritten lists the codes whose price or dividend rows up to
 	// PreviousCutOff changed. RewrittenCount is the full count.
 	PriceRowsRewritten []string `json:"price_rows_rewritten"`
 	RewrittenCount     int      `json:"rewritten_count"`
-	// ASICRevised lists the product codes of ASIC revisions to reports at or before
-	// PreviousCutOff, recorded after the previous run finished. RevisedCount is the
-	// full count.
+	// ASICRevised lists the product codes of ASIC revisions to reports the previous
+	// run read (up to its ASICThrough), recorded after it read its inputs.
+	// RevisedCount is the full count.
 	ASICRevised  []string `json:"asic_revised"`
 	RevisedCount int      `json:"revised_count"`
 	// CAGRShiftPP is the change in CAGR over the shared window, in percentage
 	// points, current minus previous. It is set only when both are annualised.
 	CAGRShiftPP  float64    `json:"cagr_shift_pp"`
 	HasCAGRShift bool       `json:"has_cagr_shift"`
-	SharedFrom   civil.Date `json:"shared_from"`
-	SharedTo     civil.Date `json:"shared_to"`
+	SharedFrom   civil.Date `json:"shared_from,omitzero"`
+	SharedTo     civil.Date `json:"shared_to,omitzero"`
+}
+
+// NoPrevious is the note of a run with no previously published run to compare with.
+// Its lists are [] and its dates absent (omitted), so the stored JSON decodes back.
+func NoPrevious() DiffNote {
+	return DiffNote{State: DiffNone, PriceRowsRewritten: []string{}, ASICRevised: []string{}}
 }
 
 // DiffAgainst builds a run's diff note. in is the run's own read of the history,
@@ -82,9 +91,9 @@ type DiffNote struct {
 // the job read in the same snapshot.
 func DiffAgainst(in Inputs, prev *PreviousRun, inputHash string, cur Curve, revisions []ASICRevision) DiffNote {
 	if prev == nil || prev.RunID == 0 {
-		return DiffNote{State: DiffNone}
+		return NoPrevious()
 	}
-	d := DiffNote{State: DiffUnchanged, PreviousRunID: prev.RunID, PreviousCutOff: prev.CutOff}
+	d := DiffNote{State: DiffUnchanged, PreviousRunID: prev.RunID, PreviousCutOff: prev.CutOff, PriceRowsRewritten: []string{}, ASICRevised: []string{}}
 	if prev.InputHash == inputHash {
 		return d
 	}
@@ -95,10 +104,10 @@ func DiffAgainst(in Inputs, prev *PreviousRun, inputHash string, cur Curve, revi
 	d.RewrittenCount = len(rewritten)
 	d.PriceRowsRewritten = capList(rewritten)
 
-	var revised []string
+	revised := []string{}
 	seen := map[string]bool{}
 	for _, r := range revisions {
-		if r.ReportDate.After(prev.CutOff) || !r.RevisedAt.After(prev.FinishedAt) {
+		if r.ReportDate.After(prev.ASICThrough) || !r.RevisedAt.After(prev.ReadAt) {
 			continue
 		}
 		if !seen[r.Code] {
@@ -157,9 +166,13 @@ func within(c Curve, from, to civil.Date) Curve {
 	return out
 }
 
-// capList is the first diffListLimit entries of a sorted list.
+// capList is the first diffListLimit entries of a sorted list. It is never nil, so
+// an empty list is stored as [] and not null.
 func capList(list []string) []string {
 	if len(list) <= diffListLimit {
+		if list == nil {
+			return []string{}
+		}
 		return list
 	}
 	return append([]string(nil), list[:diffListLimit]...)
