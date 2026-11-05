@@ -131,6 +131,40 @@ export default async function StrategyRulesPage({ params }: PageProps) {
   );
 }
 
+/**
+ * The live version first, then the rest newest first: by the day each went
+ * live, and where two went live together, by the day the later one replaced it.
+ */
+function historyOrder(
+  entries: readonly StrategyVersionDetailView[],
+  liveHash: string,
+): StrategyVersionDetailView[] {
+  const rank = (entry: StrategyVersionDetailView) =>
+    entry.version.rulesHash === liveHash ? 1 : 0;
+  return [...entries].sort(
+    (a, b) =>
+      rank(b) - rank(a) ||
+      b.version.liveFrom.localeCompare(a.version.liveFrom) ||
+      b.supersededOn.localeCompare(a.supersededOn),
+  );
+}
+
+/** The live and superseded dates of one version, in words. */
+function versionDates(
+  entry: StrategyVersionDetailView,
+  current: boolean,
+): string {
+  const parts: string[] = [];
+  const liveFrom = formatIsoDate(entry.version.liveFrom);
+  if (current) parts.push(liveFrom ? `Live now, from ${liveFrom}` : "Live now");
+  else if (liveFrom) parts.push(`Live from ${liveFrom}`);
+  const superseded = formatIsoDate(entry.supersededOn);
+  if (superseded) parts.push(`Superseded on ${superseded}`);
+  const retired = formatIsoDate(entry.retiredOn);
+  if (retired) parts.push(`Retired on ${retired}`);
+  return parts.join(" · ");
+}
+
 interface RulesBodyProps {
   strategyName: string;
   live: StrategyVersionDetailView;
@@ -191,6 +225,47 @@ function RulesBody({
             </Link>
           </p>
         ) : null}
+      </section>
+
+      <section aria-labelledby="rules-history" className="space-y-3">
+        <h2 id="rules-history" className={sectionTitle}>
+          Version history
+        </h2>
+        {!changelogAvailable ? (
+          <p className="text-sm text-muted-foreground">
+            The version history is unavailable right now.
+          </p>
+        ) : changelog.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No published versions of this strategy yet.
+          </p>
+        ) : (
+          <ol className="space-y-2 text-sm">
+            {historyOrder(changelog, version.rulesHash).map((entry) => {
+              const current = entry.version.rulesHash === version.rulesHash;
+              const dates = versionDates(entry, current);
+              return (
+                <li
+                  key={entry.version.rulesHash}
+                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border/40 pb-2"
+                >
+                  <span className="font-medium">{entry.version.label}</span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {shortRulesHash(entry.version.rulesHash)}
+                  </span>
+                  <span className="text-muted-foreground">{dates}</span>
+                  <Link
+                    href={`/strategies/changelog#${entry.version.rulesHash}`}
+                    prefetch={false}
+                    className="text-primary hover:underline"
+                  >
+                    Changelog entry
+                  </Link>
+                </li>
+              );
+            })}
+          </ol>
+        )}
       </section>
 
       <section aria-labelledby="rules-parameters" className="space-y-3">

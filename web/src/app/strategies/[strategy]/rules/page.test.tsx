@@ -247,6 +247,27 @@ describe("the Rules tab", () => {
     expect(within(entries[1]!).getByText("A recent issuer can read as unknown.")).toBeInTheDocument();
   });
 
+  it("lists this strategy's versions newest first, with their live and superseded dates", async () => {
+    render(await StrategyRulesPage({ params: Promise.resolve({ strategy: "canslim" }) }));
+    const history = screen.getByRole("region", { name: "Version history" });
+    const items = within(history).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("Live now, from 3 November 2026");
+    expect(items[1]).toHaveTextContent("Superseded on 3 November 2026");
+    expect(within(items[1]!).getByRole("link", { name: "Changelog entry" })).toHaveAttribute(
+      "href",
+      `/strategies/changelog#${OLD_HASH}`,
+    );
+    expect(screen.queryByText(/other strategy/)).toBeNull();
+  });
+
+  it("says the version history is unavailable, and keeps the parameters, when the read fails", async () => {
+    listStrategyVersions.mockResolvedValue(null);
+    render(await StrategyRulesPage({ params: Promise.resolve({ strategy: "canslim" }) }));
+    const history = screen.getByRole("region", { name: "Version history" });
+    expect(within(history).getByText("The version history is unavailable right now.")).toBeInTheDocument();
+  });
+
   it("says so and bails the cache lifetime when the live version cannot be read", async () => {
     getStrategyVersion.mockResolvedValue(null);
     render(await StrategyRulesPage({ params: Promise.resolve({ strategy: "canslim" }) }));
