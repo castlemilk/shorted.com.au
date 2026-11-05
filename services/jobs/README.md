@@ -936,23 +936,28 @@ that. It exits 10 when a conclusive run disagrees.
 `list_job_executions` and `get_job_execution`, and the picks exit code
 unchanged. Any mismatch is fixed before the daily snapshot job is built on it.
 
-**Strategy backtest** (`shorted strategies -mode backtest`, `services/jobs/internal/jobs/strategies/backtest.go`, migration 000158).
-Runs as `shorted-strategies-backtest` (VKE CronJob, hourly at :20; 1536Mi request, 3Gi limit). It idles, exiting 0
-in milliseconds, until a live canonical version other than v0 has a recipe. Each run takes the
+**Strategy backtest** (`shorted strategies -mode backtest`, `services/jobs/internal/jobs/strategies/backtest.go`,
+migration 000158). Runs as `shorted-strategies-backtest` (VKE CronJob, hourly at :20; 1536Mi request, 3Gi limit). It
+idles, exiting 0 in milliseconds, until a live canonical version other than v0 has a recipe. Each run takes the
 `strategies-backtest` lease, queues each live version's weekly publish request (keyed by ISO week), queues one
-immediately (keyed by day) for a key with no succeeded run and no request queued or running, requeues any request
-a dead execution left running, and processes at most five requests or 20 minutes of work over one
-`REPEATABLE READ, READ ONLY` read of the stored history. The first publish of a key runs a verify pass in the same
-transaction: a second read must reproduce the input hash and the output hash, or the publish fails as a
-determinism failure (exit 10). A run publishes only when the publication gate passes; in this build the
-sensitivity and reference parts are not wired, so runs are stored unpublished. A fundamentals recipe whose window
-is `computable_from` derives that date from `stock_fundamentals` (the first month end on which half the universe
-is computable) and labels it with the fiscal year of the median code's bringing period. Its strict policy stores
-that outcome as one unpublished row (pass 1 only): it never simulates the window, which would read today's
-fundamentals at every session. A version or recipe the daily snapshot has not recorded leaves its request queued.
-A weekend-dated XJO or XJT row holds the batch (exit 0) until the one-off index re-fetch has re-dated the history.
-A request that fails for another reason exits 1. `STRATEGIES_DRY_RUN=false`
-writes; the default is a dry run that reads, computes and logs. Check: `task db:prod:psql -- -At -c "select strategy_id, kind, status, published, window_start, prices_through from strategy_backtest_runs order by started_at desc limit 8"`.
+immediately (keyed by day) for a key with no succeeded run and no request queued or running, fails any request a
+killed execution left running (error "the execution that claimed it did not finish"), and processes at most five
+requests or 20 minutes of work over one `REPEATABLE READ, READ ONLY` read of the stored history. The first publish of
+a key runs a verify pass in the same transaction: a second read must reproduce the input hash and the output hash, or
+the publish fails as a determinism failure (exit 10). A failed request is not retried in place: requeueing a request
+an execution was killed on (out of memory, or past its deadline) would rerun it every hour. A key with no succeeded
+run gets a new request the next day; a key that has one waits for the next ISO week's. A batch that stops on an error,
+is held (a weekend-dated XJO or XJT row), or finds no completed features session is put back in the queue. A run
+publishes only when the publication gate passes; in this build the sensitivity and reference parts are not wired, so
+runs are stored unpublished. A fundamentals recipe whose window is `computable_from` derives that date from
+`stock_fundamentals` (the first month end on which half the universe is computable) and labels it with the fiscal year
+of the median code's bringing period. Its strict policy stores that outcome as one unpublished row (pass 1 only): it
+never simulates the window, which would read today's fundamentals at every session. A version or recipe the daily
+snapshot has not recorded leaves its request queued. A weekend-dated XJO or XJT row holds the batch (exit 0) until the
+one-off index re-fetch has re-dated the history. A request that fails for another reason exits 1.
+`STRATEGIES_DRY_RUN=false` writes; the default is a dry run that reads, computes and logs. Check: `task db:prod:psql
+-- -At -c "select strategy_id, kind, status, published, window_start, prices_through from strategy_backtest_runs order
+by started_at desc limit 8"`.
 
 **Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migration 000156).
 Runs as `shorted-strategies-daily` (VKE CronJob, weekdays at :00, :20 and :40 past 13 to 16 UTC). It writes
