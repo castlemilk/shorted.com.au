@@ -12,7 +12,7 @@ import (
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -114,11 +114,11 @@ type FundamentalsExtras struct {
 
 	// Quality is the mv_fundamentals_quality row (plan §2.7), nil when the
 	// stock has none. The financials decision has NOT been applied yet
-	// (strategies.ApplyQualityRules; it needs the industry).
-	Quality *strategies.Quality
+	// (engine.ApplyQualityRules; it needs the industry).
+	Quality *engine.Quality
 
 	// Valuation holds the stock_fundamentals facts valuation needs.
-	Valuation strategies.ValuationInputs
+	Valuation engine.ValuationInputs
 
 	// The single-stock read only (GetFundamentalsExtras): the latest close
 	// (mv_price_features, else stock_prices), its date, and the industry
@@ -130,7 +130,7 @@ type FundamentalsExtras struct {
 }
 
 // ApplyToGrowth copies the appended growth columns onto g (nil-safe).
-func (e *FundamentalsExtras) ApplyToGrowth(g *strategies.Growth) {
+func (e *FundamentalsExtras) ApplyToGrowth(g *engine.Growth) {
 	if e == nil || g == nil || !e.HasGrowthRow {
 		return
 	}
@@ -143,7 +143,7 @@ func (e *FundamentalsExtras) ApplyToGrowth(g *strategies.Growth) {
 // extrasRow holds one scanned row of the fundamentalsExtras query.
 type extrasRow struct {
 	e          FundamentalsExtras
-	q          strategies.Quality
+	q          engine.Quality
 	hasQuality bool
 }
 
@@ -324,7 +324,7 @@ const (
 	--   the listed-unit evidence when the sync row has no median_k, from
 	--   every k = net income / (EPS x shares) a row allows: how many (n),
 	--   whether all are within [0.8, 1.25] (all_ok) and whether any
-	--   positive k is outside [1/3, 3] (any_far; strategies.Valuate reads a
+	--   positive k is outside [1/3, 3] (any_far; engine.Valuate reads a
 	--   k between the bands as no evidence either way, and so is a k <= 0:
 	--   net income and EPS of opposite signs say nothing about the unit);
 	--   the FX-converted guess for a code the job has not measured
@@ -393,7 +393,7 @@ func scanExtras(row pgx.Row) (*FundamentalsExtras, error) {
 	return &e, nil
 }
 
-func sanitiseQuality(q *strategies.Quality) {
+func sanitiseQuality(q *engine.Quality) {
 	finiteAll(
 		&q.Revenue, &q.GrossProfit, &q.OperatingIncome, &q.EBITDA, &q.NormalizedEBITDA, &q.EBIT, &q.NetIncome,
 		&q.OperatingCashFlow, &q.FreeCashFlow, &q.CapitalExpenditure, &q.DividendsPaid, &q.InterestExpense,
@@ -440,7 +440,7 @@ func listFundamentalsExtras(ctx context.Context, db fundamentalsDB) (map[string]
 // mergeFundamentalsExtras attaches each candidate's extras: the appended
 // growth columns onto its Growth, its quality row and its valuation inputs.
 // A nil map (000132 absent) changes nothing.
-func mergeFundamentalsExtras(cands []strategies.Candidate, extras map[string]*FundamentalsExtras) {
+func mergeFundamentalsExtras(cands []engine.Candidate, extras map[string]*FundamentalsExtras) {
 	if extras == nil {
 		return
 	}

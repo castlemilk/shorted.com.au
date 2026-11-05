@@ -1,4 +1,4 @@
-// Package strategies holds the named stock-picking strategies behind /picks,
+// Package engine holds the named stock-picking strategies behind /picks,
 // the StrategyService API and the MCP strategy tools.
 //
 // It is deliberately free of I/O. Registry() is the single home of every
@@ -15,7 +15,7 @@
 // Every rule resolves to pass, fail or unknown. Unknown means the data is
 // missing, never counts as a pass, and a stock cannot reach status
 // "triggered" with an unknown core rule.
-package strategies
+package engine
 
 import "time"
 

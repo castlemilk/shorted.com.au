@@ -12,8 +12,8 @@ import (
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -937,7 +937,7 @@ func TestGetStockFundamentalsCarriesWhatTheAPIWithheldForAFinancial(t *testing.T
 		NetMarginPct: 35.1, HasNetMarginPct: true, RoePct: 13.2, HasRoePct: true,
 		// Withheld by the API: zeroed with no flag.
 		CurrentRatio: 0, InterestCover: 0,
-		IsFinancial: true, NotMeaningful: strategies.NotMeaningfulForFinancials(),
+		IsFinancial: true, NotMeaningful: engine.NotMeaningfulForFinancials(),
 		MarketCap: 280e9, HasMarketCap: true, PeRatio: 27.1, HasPeRatio: true, PriceAsOf: "2026-09-25",
 	}
 	fixture.Quality, fixture.HasQuality = q, true
@@ -949,7 +949,7 @@ func TestGetStockFundamentalsCarriesWhatTheAPIWithheldForAFinancial(t *testing.T
 	if got == nil || !got.IsFinancial {
 		t.Fatalf("is_financial dropped: %+v", got)
 	}
-	want := strategies.NotMeaningfulForFinancials()
+	want := engine.NotMeaningfulForFinancials()
 	if len(got.NotMeaningful) != len(want) {
 		t.Fatalf("not_meaningful = %v, want %v", got.NotMeaningful, want)
 	}
@@ -975,8 +975,8 @@ func TestGetStockFundamentalsNeverEmitsAWithheldValuation(t *testing.T) {
 		note, want string
 		cap        bool
 	}{
-		{strategies.ValuationNoteNonAUD, "not in AUD", true},
-		{strategies.ValuationNoteListedUnit, "not one ordinary share", false},
+		{engine.ValuationNoteNonAUD, "not in AUD", true},
+		{engine.ValuationNoteListedUnit, "not one ordinary share", false},
 	} {
 		t.Run(tc.note, func(t *testing.T) {
 			fixture := fundamentalsFixture()

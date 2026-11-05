@@ -1,4 +1,4 @@
-package strategies
+package engine
 
 // RegimeVerdict is the strategy-specific sentence shown with the market
 // regime. A strategy whose regime rule is core (RegimeGates) tells the reader

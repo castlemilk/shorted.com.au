@@ -10,7 +10,7 @@ import (
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -1281,9 +1281,9 @@ func describeQuality(q *FundamentalsQualitySummary) string {
 		b.WriteString(" Treated as a financial: " + strings.Join(q.NotMeaningful, ", ") + " are not meaningful and withheld.")
 	}
 	switch q.ValuationNote {
-	case strategies.ValuationNoteNonAUD:
+	case engine.ValuationNoteNonAUD:
 		b.WriteString(" P/E and P/B withheld: the statements are not in AUD (or are currency-converted).")
-	case strategies.ValuationNoteListedUnit:
+	case engine.ValuationNoteListedUnit:
 		b.WriteString(" Valuation withheld: the listed unit is not one ordinary share (for example a CDI).")
 	}
 	return b.String()

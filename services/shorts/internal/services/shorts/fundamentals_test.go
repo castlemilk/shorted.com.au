@@ -12,9 +12,9 @@ import (
 	"go.uber.org/mock/gomock"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/mocks"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 func TestGetStockFundamentals_MapsPeriodsGrowthAndHasFlags(t *testing.T) {
@@ -33,7 +33,7 @@ func TestGetStockFundamentals_MapsPeriodsGrowthAndHasFlags(t *testing.T) {
 		{StockCode: "BHP", PeriodType: "ttm", PeriodEnd: spDate("2025-12-31"), Currency: "USD", Source: "yahoo-timeseries"},
 	}, nil)
 	latest := spDate("2026-06-30")
-	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{
+	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&engine.Growth{
 		BasisPeriodType: "ttm", LatestPeriodEnd: &latest,
 		RevenueYoYPct: new(12.5), RevenueYoYPriorPct: nil,
 		EPSYoYPct: new(float64(-3)), EPSYoYPriorPct: new(float64(8)),
@@ -195,7 +195,7 @@ func TestGetStockFundamentals_GrowthWithoutPeriodsSkipsTheExistenceCheck(t *test
 	ctrl := gomock.NewController(t)
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "PLS", "half", int32(12)).Return(nil, nil)
-	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "PLS").Return(&strategies.Growth{BasisPeriodType: "annual"}, nil)
+	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "PLS").Return(&engine.Growth{BasisPeriodType: "annual"}, nil)
 	// No StockExists expectation: rows exist, so the code is known.
 	expectNo000132Reads(mockStore, "PLS")
 
@@ -213,7 +213,7 @@ func TestGetStockFundamentals_MapsTheHalfBasis(t *testing.T) {
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	half := spDate("2026-12-31")
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "WTC", "", int32(12)).Return(nil, nil)
-	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "WTC").Return(&strategies.Growth{
+	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "WTC").Return(&engine.Growth{
 		BasisPeriodType: "half", RevenueBasisPeriodType: "half", LatestPeriodEnd: &half, HalfLatestPeriodEnd: &half,
 		RevenueYoYPct: new(float64(22)), EPSYoYPct: new(float64(31)),
 		RevenueHalfYoYPct: new(float64(22)), NetIncomeHalfYoYPct: new(float64(18)), EPSHalfYoYPct: new(float64(31)),
@@ -253,12 +253,12 @@ func TestGetStockFundamentals_StoreErrorsAreInternal(t *testing.T) {
 		}},
 		{"extras", func(m *mocks.MockShortsStore) {
 			m.EXPECT().GetStockFundamentals(gomock.Any(), "BHP", "", int32(12)).Return(nil, nil)
-			m.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{}, nil)
+			m.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&engine.Growth{}, nil)
 			m.EXPECT().GetFundamentalsExtras(gomock.Any(), "BHP").Return(nil, boom)
 		}},
 		{"latest filing", func(m *mocks.MockShortsStore) {
 			m.EXPECT().GetStockFundamentals(gomock.Any(), "BHP", "", int32(12)).Return(nil, nil)
-			m.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{}, nil)
+			m.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&engine.Growth{}, nil)
 			m.EXPECT().GetFundamentalsExtras(gomock.Any(), "BHP").Return(nil, nil)
 			m.EXPECT().GetLatestFilingInputs(gomock.Any(), "BHP").Return(nil, boom)
 		}},

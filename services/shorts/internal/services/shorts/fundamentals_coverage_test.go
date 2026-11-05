@@ -12,9 +12,9 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/mocks"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 // expectNo000132Reads expects the three 000132 reads once each and answers
@@ -34,7 +34,7 @@ func TestGetStockFundamentals_Without000132IsTodaysResponse(t *testing.T) {
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "BHP", "", int32(40)).Return([]shortsstore.FundamentalsPeriodRow{
 		{StockCode: "BHP", PeriodType: "annual", PeriodEnd: spDate("2026-06-30"), Currency: "USD", Revenue: new(5.5e10), Source: "yahoo-timeseries"},
 	}, nil)
-	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{BasisPeriodType: "annual", RevenueYoYPct: new(float64(3))}, nil)
+	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&engine.Growth{BasisPeriodType: "annual", RevenueYoYPct: new(float64(3))}, nil)
 	mockStore.EXPECT().GetFundamentalsExtras(gomock.Any(), "BHP").Return(nil, nil)
 	mockStore.EXPECT().GetLatestFilingInputs(gomock.Any(), "BHP").Return(nil, nil)
 	mockStore.EXPECT().GetFundamentalsCoverage(gomock.Any(), "BHP").Return(&shortsstore.FundamentalsCoverageRow{
@@ -79,13 +79,13 @@ func TestGetStockFundamentals_MapsEveryNewField(t *testing.T) {
 		SourceDocumentDate: dayPtr("2026-08-19"),
 	}
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "CSL", "", int32(40)).Return([]shortsstore.FundamentalsPeriodRow{period}, nil)
-	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "CSL").Return(&strategies.Growth{
+	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "CSL").Return(&engine.Growth{
 		BasisPeriodType: "ttm", RevenueBasisPeriodType: "ttm", RevenueYoYPct: new(float64(8)), FetchedAt: dayPtr("2026-09-01"),
 	}, nil)
 	mockStore.EXPECT().GetFundamentalsExtras(gomock.Any(), "CSL").Return(&shortsstore.FundamentalsExtras{
 		StockCode: "CSL", HasGrowthRow: true, RevenueBasisSource: "filing", EPSBasisSource: "vendor",
 		RevenueLatestPeriodEnd: dayPtr("2026-12-31"), RevenuePriorPeriodEnd: dayPtr("2025-12-31"),
-		Quality: &strategies.Quality{
+		Quality: &engine.Quality{
 			BasisPeriodType: "annual", BasisPeriodEnd: dayPtr("2026-06-30"), Currency: "AUD", Source: "yahoo-timeseries",
 			OperatingCashFlowDerived: true, BalancePeriodEnd: dayPtr("2026-06-30"), BalanceCurrency: "AUD",
 			BalanceLagMonths: func() *int32 { v := int32(0); return &v }(),
@@ -93,7 +93,7 @@ func TestGetStockFundamentals_MapsEveryNewField(t *testing.T) {
 			FCFMarginPct: new(21.3), FCFConversion: new(1.07), ROEPct: new(15.2), ROAPct: new(7.6), NetDebt: new(7.5e9),
 			NetDebtToEBITDA: new(1.47), NetDebtToEquity: new(0.375), CurrentRatio: new(1.8), InterestCover: new(13.7), PayoutRatioPct: new(43.3),
 		},
-		Valuation: strategies.ValuationInputs{
+		Valuation: engine.ValuationInputs{
 			Shares: new(4.8e8), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: new(1.0),
 			EPSDiluted: new(6.1), EPSBasic: new(6.2), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "AUD",
 		},
@@ -218,13 +218,13 @@ func TestGetStockFundamentals_MapsEveryNewField(t *testing.T) {
 func TestFundamentalsQualityProto_WithholdsNotMeaningfulRatiosForABank(t *testing.T) {
 	e := &shortsstore.FundamentalsExtras{
 		Industry: "Banks",
-		Quality: &strategies.Quality{
+		Quality: &engine.Quality{
 			Currency: "AUD", BalanceCurrency: "AUD", TotalEquity: new(8e10),
 			GrossMarginPct: new(float64(1)), OperatingMarginPct: new(float64(2)), FCFMarginPct: new(float64(3)), FCFConversion: new(float64(4)),
 			NetDebt: new(float64(5)), NetDebtToEBITDA: new(float64(6)), NetDebtToEquity: new(float64(7)), CurrentRatio: new(float64(8)), InterestCover: new(float64(9)),
 			ROEPct: new(13.1), ROAPct: new(0.8), NetMarginPct: new(float64(38)), PayoutRatioPct: new(float64(80)),
 		},
-		Valuation: strategies.ValuationInputs{
+		Valuation: engine.ValuationInputs{
 			Shares: new(1.67e9), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: new(float64(1)),
 			EPSDiluted: new(6.0), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "AUD",
 		},
@@ -233,7 +233,7 @@ func TestFundamentalsQualityProto_WithholdsNotMeaningfulRatiosForABank(t *testin
 	q := fundamentalsQualityProto(e)
 	require.NotNil(t, q)
 	assert.True(t, q.IsFinancial)
-	assert.Equal(t, strategies.NotMeaningfulForFinancials(), q.NotMeaningful)
+	assert.Equal(t, engine.NotMeaningfulForFinancials(), q.NotMeaningful)
 	assert.False(t, q.HasGrossMarginPct || q.HasOperatingMarginPct || q.HasFcfMarginPct || q.HasFcfConversion ||
 		q.HasNetDebt || q.HasNetDebtToEbitda || q.HasNetDebtToEquity || q.HasCurrentRatio || q.HasInterestCover)
 	assert.True(t, q.HasRoePct && q.HasRoaPct && q.HasNetMarginPct && q.HasPayoutRatioPct)
@@ -246,7 +246,7 @@ func TestFundamentalsQualityProto_ValuationOnlyAndNothing(t *testing.T) {
 
 	usd := &shortsstore.FundamentalsExtras{
 		Industry: "Materials",
-		Valuation: strategies.ValuationInputs{
+		Valuation: engine.ValuationInputs{
 			Shares: new(5.07e9), SharesPeriodEnd: dayPtr("2026-06-30"), MedianK: new(float64(1)),
 			EPSDiluted: new(2.2), EPSPeriodEnd: dayPtr("2026-06-30"), EPSCurrency: "USD",
 		},
@@ -259,7 +259,7 @@ func TestFundamentalsQualityProto_ValuationOnlyAndNothing(t *testing.T) {
 	assert.Equal(t, "non-aud", q.ValuationNote)
 	assert.Equal(t, "", q.BasisPeriodType)
 
-	reit := &shortsstore.FundamentalsExtras{Industry: "Equity Real Estate Investment Trusts (REITs)", Quality: &strategies.Quality{Currency: "AUD"}}
+	reit := &shortsstore.FundamentalsExtras{Industry: "Equity Real Estate Investment Trusts (REITs)", Quality: &engine.Quality{Currency: "AUD"}}
 	q = fundamentalsQualityProto(reit)
 	require.NotNil(t, q)
 	assert.True(t, q.IsProperty)
