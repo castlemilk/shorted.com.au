@@ -115,11 +115,17 @@ describe("strategy components stay server-safe, however indirectly", () => {
     );
   });
 
-  it("marks no kit file as a client component: the kit is server markup", () => {
+  // The kit is server markup, with one exception: the profile's tab bar reads
+  // the pathname (usePathname) and prefetches on intent, so it is a client
+  // module. It imports nothing from the protobuf runtime (the walk below checks
+  // that), and it is the only one.
+  const CLIENT_KIT_FILES = ["strategy-tab-nav.tsx"];
+
+  it("marks no kit file as a client component beyond the tab bar", () => {
     const clientFiles = KIT_FILES.filter((file) =>
       /^\s*["']use client["']/m.test(readFileSync(file, "utf8")),
     ).map((file) => relative(COMPONENT_DIR, file));
-    expect(clientFiles).toEqual([]);
+    expect(clientFiles).toEqual(CLIENT_KIT_FILES);
   });
 
   it("never reaches protobuf, @connectrpc, ~/gen or a server action, lazy chunks included", () => {

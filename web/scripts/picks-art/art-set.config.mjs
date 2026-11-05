@@ -9,7 +9,7 @@
 // the bake script writes the manifest from these ids.
 //
 // The scene sits BEHIND the strategy page's faceplate under a scrim that
-// is heaviest on the left, where the bezel, the H1 and the provenance plate
+// is heaviest on the left, where the bezel, the H1 and the dek
 // sit, so the composition keeps its subject to the right and its upper-left
 // calm. The hub shows the same scene as a small 3:2 plate, so the subject
 // must survive at 120px wide: one bold shape, not a landscape of details.
@@ -94,5 +94,5 @@ export const TARGET = {
     "calm near-empty field across the upper-left",
     "full-bleed scene, no central clutter",
   ],
-  copySafety: "leave clear headline space across the upper-left for a page title and a one-line provenance plate",
+  copySafety: "leave clear headline space across the upper-left for a page title and a short dek line",
 };

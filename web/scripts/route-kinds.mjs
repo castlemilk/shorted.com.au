@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// ISR gate for the stock segment and the ownership pages: the three dynamic
-// ownership routes and the nine static ones.
+// ISR gate for the stock segment, the ownership pages and the strategy profile:
+// the three dynamic ownership routes, the nine static ones, the strategy profile
+// route and the strategies hub.
 //
 // Every route under /shorts/[stockCode] must be on-demand ISR: generated on
 // first request and served from the cache for `revalidate` seconds. A route
@@ -85,9 +86,31 @@ export const OWNERSHIP_STATIC_ROUTES = [
   "/ownership/changes",
 ];
 
+// The strategy profile: the one dynamic route /strategies/[strategy], whose
+// params the layout prerenders (generateStaticParams, dynamicParams = false).
+// The pattern is listed under dynamicRoutes; each prerendered slug is a static
+// page under `routes`. Next writes the pattern with `fallback: false` only while
+// dynamicParams is false, so an unknown slug is a 404; without it the entry is
+// `fallback: null` and an unknown slug renders on demand, which is why the gate
+// reads the field and not only the entry. Its page reads are checked from source
+// by web/src/app/strategies/__tests__/isr-source-safety.test.ts.
+export const STRATEGY_ROUTES = ["/strategies/[strategy]"];
+
+// The strategies hub is a static ISR page with no dynamic segment, so the gate
+// reads its revalidate under `routes` as it does the ownership pages.
+export const STRATEGY_STATIC_ROUTES = ["/strategies"];
+
 export function missingIsrRoutes(manifest, expected = STOCK_ROUTES) {
   const dynamicRoutes = manifest?.dynamicRoutes ?? {};
   return expected.filter((route) => !(route in dynamicRoutes));
+}
+
+// A route whose params are closed (dynamicParams = false): listed under
+// dynamicRoutes with `fallback: false`. Anything else, including an absent entry,
+// is missing.
+export function missingClosedDynamicRoutes(manifest, expected = STRATEGY_ROUTES) {
+  const dynamicRoutes = manifest?.dynamicRoutes ?? {};
+  return expected.filter((route) => dynamicRoutes[route]?.fallback !== false);
 }
 
 // A static page is ISR when `routes` lists it with a positive number of seconds.
@@ -165,6 +188,34 @@ function main(argv) {
     failed = true;
   } else {
     console.log(`route-kinds: ${OWNERSHIP_STATIC_ROUTES.length} static ownership routes are ISR.`);
+  }
+  const missingStrategy = missingClosedDynamicRoutes(manifest, STRATEGY_ROUTES);
+  if (missingStrategy.length) {
+    console.error(
+      "route-kinds: these strategy routes are NOT ISR or not closed (absent from prerender-manifest dynamicRoutes, or without fallback: false):",
+    );
+    for (const r of missingStrategy) console.error(`  ${r}`);
+    console.error(
+      "The strategy profile's layout has lost its generateStaticParams export or its dynamicParams = false (an unknown slug would then render on demand), " +
+        'or a page under it sets revalidate = 0 or dynamic = "force-dynamic".',
+    );
+    failed = true;
+  } else {
+    console.log(`route-kinds: ${STRATEGY_ROUTES.length} strategy routes are ISR.`);
+  }
+  const missingStrategyStatic = missingStaticIsrRoutes(manifest, STRATEGY_STATIC_ROUTES);
+  if (missingStrategyStatic.length) {
+    console.error(
+      "route-kinds: these strategy hub pages are NOT ISR (no positive initialRevalidateSeconds under prerender-manifest routes, or listed under dynamicRoutes):",
+    );
+    for (const r of missingStrategyStatic) console.error(`  ${r}`);
+    console.error(
+      "The strategies hub has lost its `export const revalidate`, or sets revalidate = 0 or dynamic = \"force-dynamic\", " +
+        "or reads a request-time API during its build render.",
+    );
+    failed = true;
+  } else {
+    console.log(`route-kinds: ${STRATEGY_STATIC_ROUTES.length} strategy hub routes are ISR.`);
   }
   return failed ? 1 : 0;
 }
