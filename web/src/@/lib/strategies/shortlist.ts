@@ -9,14 +9,6 @@ import {
 } from "./types";
 
 /**
- * Zanger's "concentrate" rule (plan §1, rule 5): the table is a short list.
- * Triggered and setup rows always show; watch rows only fill the table up to
- * this many rows, so a quiet day still shows the nearest candidates instead of
- * an empty page, and a busy day is not padded with near-misses.
- */
-export const SHORTLIST_MIN_ROWS = 20;
-
-/**
  * The most rows the shortlist renders: the anonymous public depth (the API's
  * STRATEGY_PUBLIC_SIGNALS_LIMIT, 10 in production), so the Overview shows what
  * an anonymous caller can read from the API. Every row is rendered THREE times
@@ -24,22 +16,23 @@ export const SHORTLIST_MIN_ROWS = 20;
  * the sort island's props), each with a fundamentals disclosure, so the list
  * is bounded here as well: measured 2026-10-07, /strategies/minervini-trend-
  * template served 100 rows as 1.85 MB of HTML (115 KB gzipped). The rest of a
- * status stays one chip away for signed-in readers (the Signals tab), and in
- * the API for anyone with the depth.
+ * status is on the Signals tab, which carries signed-in depth, and in the API
+ * for any caller with the depth.
  */
 export const SHORTLIST_MAX_ROWS = 10;
 
-/** The rows shown with no ?status= filter. */
+/**
+ * The rows shown with no ?status= filter (Zanger's "concentrate" rule, plan §1,
+ * rule 5: the table is a short list). Triggered and setup rows come first, then
+ * watch rows fill the table up to SHORTLIST_MAX_ROWS, so a quiet day still shows
+ * the nearest candidates instead of an empty page.
+ */
 export function shortlistRows(rows: PickRow[]): PickRow[] {
-  const primary = rows
-    .filter((row) => row.status !== "watch")
-    .slice(0, SHORTLIST_MAX_ROWS);
-  // Watch rows top the list up to SHORTLIST_MIN_ROWS, but never past the
-  // shortlist's own maximum, which is the smaller of the two at 10 rows.
-  const fill = rows
-    .filter((row) => row.status === "watch")
-    .slice(0, Math.max(0, SHORTLIST_MIN_ROWS - primary.length));
-  return [...primary, ...fill].slice(0, SHORTLIST_MAX_ROWS);
+  const ordered = [
+    ...rows.filter((row) => row.status !== "watch"),
+    ...rows.filter((row) => row.status === "watch"),
+  ];
+  return ordered.slice(0, SHORTLIST_MAX_ROWS);
 }
 
 /** The rows for a given filter: null is the shortlist. */
