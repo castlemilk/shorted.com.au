@@ -178,7 +178,10 @@ for picks_job in shorted-picks shorted-picks-fundamentals; do
   [[ "$(field "${tmp}/default.yaml" "${picks_job}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "STRATEGY_PARITY_SHADOW") | .value')" == "on" ]] \
     && pass "${picks_job} runs the parity shadow" || fail "${picks_job}: STRATEGY_PARITY_SHADOW is not on"
 done
-grep -qE '^ *STRATEGY_PARITY_SHADOW *= *"on"$' "${repo_root}/terraform/environments/prod/main.tf" \
+# Only inside module "shorted_job_picks": the same line in another module would
+# pass a check that names the picks job.
+awk '/^module "shorted_job_picks" \{/{f=1} f{print} f && /^\}/{exit}' "${repo_root}/terraform/environments/prod/main.tf" \
+  | grep -qE '^ *STRATEGY_PARITY_SHADOW *= *"on"$' \
   && pass "Terraform's picks job sets STRATEGY_PARITY_SHADOW" || fail "terraform/environments/prod/main.tf: STRATEGY_PARITY_SHADOW is not on for the picks job"
 
 # --- 6. Render-time guards fail loudly. -------------------------------------
