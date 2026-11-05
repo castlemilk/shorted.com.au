@@ -812,7 +812,7 @@ recipe fields on the wire (PR-12a).
   **Daily snapshot (migration 000156, `shorted strategies -mode daily`).** The
   job writes one session's feature rows (`strategy_features_daily`), regime and
   fundamentals blobs, then the live canonical versions' signal events, diffed
-  against the previous complete session and recomputed from its stored rows. It
+  against the previous complete session and recomputed from its stored rows. Each event's `evidence` holds one P, F or U per rule in `r` (services/jobs/README.md, "Signal event evidence"). It
   holds a session whose inputs are incomplete (ASIC sync running, the price sweep
   not completed after 05:30 UTC, priced codes under 85% of the prior median, no
   XJO bar, a weekend-dated XJO bar in its window) and backfills held sessions

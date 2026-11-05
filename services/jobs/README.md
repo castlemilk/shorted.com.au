@@ -950,6 +950,13 @@ first (ten per run), and exits 10 once at the 16:40 UTC run when a session is st
   enabling writes, after the one-off `-years 21` XJO re-fetch as well:
   `task db:prod:psql -- -At -c "SELECT count(*) FROM index_prices WHERE index_code = 'XJO' AND EXTRACT(ISODOW FROM date) > 5"`
   must return 0.
+- **Signal event evidence** (`strategy_signal_events.evidence`, compact JSON): `r` is one string with one
+  character per rule in the rules version's rule order (`P` pass, `F` fail, `U` unknown; the rule ids are not
+  stored, the event's `rules_hash` pins the order), `v` and `p` the per-rule value and proximity in the same
+  order (null where a rule has none), then `close`, `pivot`, `short_report`, `short_available` and `regime`.
+  An exit (`to_status` none) has `r` "", `v` [] and `p` []. A rule status other than pass, fail or unknown fails
+  the run rather than storing a wrong character. Example: `{"r":"PFU","v":[9.5,null,null],"p":[null,0.82,null],
+  "close":41.2,"pivot":41.64,"short_report":"2026-10-28","short_available":"2026-11-03","regime":"neutral"}`.
 - **Recompute from session X.** A completed session is read back, never recomputed, and events are insert-only
   in practice (no trigger forbids a delete). Recompute only for a bug that changed a stored row, and only when
   every precondition below holds; each is a read-only probe (`task db:prod:psql -- -At -c "..."`):

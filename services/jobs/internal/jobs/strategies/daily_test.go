@@ -1,6 +1,7 @@
 package strategies
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -301,9 +302,10 @@ func ptrDate(y int, m time.Month, d int) *civil.Date {
 	return &c
 }
 
-// TestEvidenceJSONIsTheStoredShape pins the evidence of a pick: the rule ids,
-// values and proximities in rule order (null where a rule has none), the close,
-// the pivot, the short report with its availability, and the regime.
+// TestEvidenceJSONIsTheStoredShape pins the evidence of a pick: one character per
+// rule in rule order (P pass, F fail, U unknown), the values and proximities in
+// the same order (null where a rule has none), the close, the pivot, the short
+// report with its availability, and the regime.
 func TestEvidenceJSONIsTheStoredShape(t *testing.T) {
 	tr := transition{Code: "PFP", To: "triggered", Rules: pickState{
 		Status: "triggered", Close: 41.2, Pivot: ptrFloat(41.64),
@@ -315,19 +317,70 @@ func TestEvidenceJSONIsTheStoredShape(t *testing.T) {
 			{RuleID: "liquidity", Status: engine.RulePass, Value: 19200000, HasValue: true},
 		},
 	}}
-	got := evidenceJSON(tr)
-	want := `{"r":["growth","breakout","liquidity"],"v":[9.5,null,19200000],"p":[null,0.82,null],` +
+	got, err := evidenceJSON(tr)
+	if err != nil {
+		t.Fatalf("evidenceJSON: %v", err)
+	}
+	want := `{"r":"PFP","v":[9.5,null,19200000],"p":[null,0.82,null],` +
 		`"close":41.2,"pivot":41.64,"short_report":"2026-10-28","short_available":"2026-11-03","regime":"neutral"}`
 	if got != want {
 		t.Fatalf("evidenceJSON =\n%s\nwant\n%s", got, want)
 	}
 }
 
+// TestEvidenceJSONWritesEveryStatusInRuleOrder: an unknown rule is U, never
+// dropped, so the characters line up with the rules version's rule order.
+func TestEvidenceJSONWritesEveryStatusInRuleOrder(t *testing.T) {
+	tr := transition{Code: "AAA", To: "setup", Rules: pickState{
+		Status: "setup", Close: 10,
+		Rules: []engine.RuleResult{
+			{RuleID: "a", Status: engine.RuleUnknown},
+			{RuleID: "b", Status: engine.RuleFail},
+			{RuleID: "c", Status: engine.RulePass},
+			{RuleID: "d", Status: engine.RuleUnknown, Value: 2, HasValue: true},
+		},
+	}}
+	got, err := evidenceJSON(tr)
+	if err != nil {
+		t.Fatalf("evidenceJSON: %v", err)
+	}
+	var e struct {
+		R string     `json:"r"`
+		V []*float64 `json:"v"`
+		P []*float64 `json:"p"`
+	}
+	if err := json.Unmarshal([]byte(got), &e); err != nil {
+		t.Fatal(err)
+	}
+	if e.R != "UFPU" {
+		t.Fatalf("r = %q, want UFPU", e.R)
+	}
+	if len(e.V) != 4 || len(e.P) != 4 || e.V[3] == nil || *e.V[3] != 2 || e.V[0] != nil {
+		t.Fatalf("v = %v, want four entries with only the last set", e.V)
+	}
+}
+
+// TestRuleStatusCharRejectsAnUnknownStatus: a status the engine does not define
+// fails the encoder rather than storing a wrong character.
+func TestRuleStatusCharRejectsAnUnknownStatus(t *testing.T) {
+	if _, err := ruleStatusChar(engine.RuleResult{RuleID: "x", Status: engine.RuleStatus("maybe")}); err == nil {
+		t.Fatal("an undefined status must be an error")
+	}
+	if _, err := evidenceJSON(transition{To: "watch", Rules: pickState{
+		Rules: []engine.RuleResult{{RuleID: "x", Status: engine.RuleStatus("")}},
+	}}); err == nil {
+		t.Fatal("evidenceJSON must fail on an undefined status")
+	}
+}
+
 // TestEvidenceJSONOfAnExitHasNoPick: an exit is no longer a pick, so it stores
-// empty rules and null prices and dates.
+// an empty r, empty arrays and null prices and dates.
 func TestEvidenceJSONOfAnExitHasNoPick(t *testing.T) {
-	got := evidenceJSON(transition{Code: "AAA", From: "setup", To: noneStatus})
-	want := `{"r":[],"v":[],"p":[],"close":null,"pivot":null,"short_report":null,"short_available":null,"regime":null}`
+	got, err := evidenceJSON(transition{Code: "AAA", From: "setup", To: noneStatus})
+	if err != nil {
+		t.Fatalf("evidenceJSON: %v", err)
+	}
+	want := `{"r":"","v":[],"p":[],"close":null,"pivot":null,"short_report":null,"short_available":null,"regime":null}`
 	if got != want {
 		t.Fatalf("evidenceJSON = %s, want %s", got, want)
 	}

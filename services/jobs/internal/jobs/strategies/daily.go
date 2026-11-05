@@ -515,10 +515,14 @@ func diffSession(ctx context.Context, pool *pgxpool.Pool, s civil.Date, prev []c
 			return nil, err
 		}
 		for _, t := range diffEvaluations(prevEval.Picks, evals[h].Picks, false) {
+			evidence, err := evidenceJSON(t)
+			if err != nil {
+				return nil, err
+			}
 			out = append(out, eventRow{
 				RulesHash: h, EngineVersion: engine.Version, StrategyID: v.Spec.StrategyID,
 				Code: t.Code, AsOf: s, PrevAsOf: p, From: t.From, To: t.To,
-				Score: scoreOrNil(t), Evidence: evidenceJSON(t),
+				Score: scoreOrNil(t), Evidence: evidence,
 			})
 		}
 	}
@@ -541,11 +545,14 @@ func scoreOrNil(t transition) *float64 {
 }
 
 // eventEvidence is a signal event's stored explanation, in the compact shape the
-// signal history reads: the rule ids in rule order with each rule's value and
-// proximity (null where the rule has none), the close and pivot, the short
-// report with its availability, and the regime.
+// signal history reads. R holds one character per rule, in the rules version's
+// rule order: P pass, F fail, U unknown. The rule ids are not stored: the
+// event's rules_hash pins the version, and with it the rule list and order. V
+// and P are each rule's value and proximity in the same order (null where the
+// rule has none). Then the close and pivot, the short report with its
+// availability, and the regime. An exit has no pick: R is "", V and P are [].
 type eventEvidence struct {
-	R              []string   `json:"r"`
+	R              string     `json:"r"`
 	V              []*float64 `json:"v"`
 	P              []*float64 `json:"p"`
 	Close          *float64   `json:"close"`
@@ -555,30 +562,50 @@ type eventEvidence struct {
 	Regime         *string    `json:"regime"`
 }
 
+// ruleStatusChar is one rule's character in a signal event's r. Any other status
+// is a programming error, so it is an error rather than a wrong character.
+func ruleStatusChar(r engine.RuleResult) (byte, error) {
+	switch r.Status {
+	case engine.RulePass:
+		return 'P', nil
+	case engine.RuleFail:
+		return 'F', nil
+	case engine.RuleUnknown:
+		return 'U', nil
+	}
+	return 0, fmt.Errorf("strategies: rule %s has status %q; want pass, fail or unknown", r.RuleID, r.Status)
+}
+
 // evidenceJSON is a transition's stored evidence. An exit has no pick, so its
 // rules, close and short report are empty.
-func evidenceJSON(t transition) string {
-	e := eventEvidence{R: []string{}, V: []*float64{}, P: []*float64{}, Pivot: t.Rules.Pivot}
+func evidenceJSON(t transition) (string, error) {
+	e := eventEvidence{V: []*float64{}, P: []*float64{}, Pivot: t.Rules.Pivot}
 	if t.To != noneStatus {
 		c := t.Rules.Close
 		e.Close = &c
-	}
-	for _, r := range t.Rules.Rules {
-		e.R = append(e.R, r.RuleID)
-		e.V = append(e.V, optionalFloat(r.HasValue, r.Value))
-		e.P = append(e.P, optionalFloat(r.HasProximity, r.Proximity))
-	}
-	e.ShortReport = dateString(t.Rules.ShortReport)
-	e.ShortAvailable = dateString(t.Rules.ShortAvailable)
-	if t.Rules.Regime != "" {
-		r := t.Rules.Regime
-		e.Regime = &r
+		e.ShortReport = dateString(t.Rules.ShortReport)
+		e.ShortAvailable = dateString(t.Rules.ShortAvailable)
+		if t.Rules.Regime != "" {
+			r := t.Rules.Regime
+			e.Regime = &r
+		}
+		var chars []byte
+		for _, rule := range t.Rules.Rules {
+			ch, err := ruleStatusChar(rule)
+			if err != nil {
+				return "", err
+			}
+			chars = append(chars, ch)
+			e.V = append(e.V, optionalFloat(rule.HasValue, rule.Value))
+			e.P = append(e.P, optionalFloat(rule.HasProximity, rule.Proximity))
+		}
+		e.R = string(chars)
 	}
 	raw, err := json.Marshal(e)
 	if err != nil {
-		return "{}"
+		return "", err
 	}
-	return string(raw)
+	return string(raw), nil
 }
 
 // optionalFloat is v when present, else nil.

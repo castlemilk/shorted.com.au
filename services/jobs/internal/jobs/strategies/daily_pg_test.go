@@ -510,8 +510,9 @@ func TestDailySnapshotPromotionKeepsTheSupersededDates(t *testing.T) {
 	require.Equal(t, []string{"live", "2026-11-16", ""}, []string{status, liveFrom, supersededOn})
 }
 
-// A signal event is inserted with the evidence the job builds for it, and the
-// same key inserted again adds no row.
+// Signal events are inserted with the evidence the job builds for them: an entry
+// with a pass, a fail and an unknown rule, a status change, and an exit. The same
+// key inserted again adds no row.
 func TestDailySnapshotWritesAnEventWithItsEvidence(t *testing.T) {
 	pool := dailyDB(t)
 	ctx := context.Background()
@@ -527,23 +528,48 @@ func TestDailySnapshotWritesAnEventWithItsEvidence(t *testing.T) {
 	require.NoError(t, err)
 	pivot := 41.64
 	score := 80.0
-	tr := transition{Code: "AAA", From: "setup", To: "triggered", Score: score, Rules: pickState{
+	entry := transition{Code: "AAA", From: "setup", To: "triggered", Score: score, Rules: pickState{
 		Status: "triggered", Score: score, Close: 41.2, Pivot: &pivot,
 		ShortReport: ptrDate(2026, time.October, 28), ShortAvailable: ptrDate(2026, time.November, 3), Regime: "neutral",
-		Rules: []engine.RuleResult{{RuleID: "breakout", Status: engine.RulePass, Value: 1.5, HasValue: true}},
+		Rules: []engine.RuleResult{
+			{RuleID: "growth", Status: engine.RulePass, Value: 9.5, HasValue: true},
+			{RuleID: "breakout", Status: engine.RuleFail, Proximity: 0.82, HasProximity: true},
+			{RuleID: "liquidity", Status: engine.RuleUnknown, Reason: engine.ReasonNoPriceHistory},
+		},
 	}}
-	ev := eventRow{
-		RulesHash: h, EngineVersion: engine.Version, StrategyID: live.Spec.StrategyID, Code: "AAA",
-		AsOf: d, PrevAsOf: civil.Date{Year: 2026, Month: time.November, Day: 11},
-		From: tr.From, To: tr.To, Score: &score, Evidence: evidenceJSON(tr),
-	}
-	require.NoError(t, writeEvents(ctx, pool, st, d, []string{h}, []eventRow{ev}, "{}"))
-	require.NoError(t, writeEvents(ctx, pool, st, d, []string{h}, []eventRow{ev}, "{}"))
+	change := transition{Code: "BBB", From: "watch", To: "setup", Score: score, Rules: pickState{
+		Status: "setup", Score: score, Close: 7.5,
+		Rules: []engine.RuleResult{
+			{RuleID: "growth", Status: engine.RuleFail, Value: -3, HasValue: true},
+			{RuleID: "breakout", Status: engine.RulePass, Value: 1.5, HasValue: true},
+		},
+	}}
+	exit := transition{Code: "CCC", From: "triggered", To: noneStatus}
 
-	require.Equal(t, 1, countRows(t, pool, "SELECT count(*) FROM strategy_signal_events WHERE stock_code = 'AAA' AND as_of = '2026-11-12'"))
-	stored := stringOf(t, pool, "SELECT evidence::text FROM strategy_signal_events WHERE stock_code = 'AAA' AND as_of = '2026-11-12'")
-	require.JSONEq(t, `{"r":["breakout"],"v":[1.5],"p":[null],"close":41.2,"pivot":41.64,
-		"short_report":"2026-10-28","short_available":"2026-11-03","regime":"neutral"}`, stored)
+	var events []eventRow
+	for _, tr := range []transition{entry, change, exit} {
+		evidence, err := evidenceJSON(tr)
+		require.NoError(t, err)
+		ev := eventRow{
+			RulesHash: h, EngineVersion: engine.Version, StrategyID: live.Spec.StrategyID, Code: tr.Code,
+			AsOf: d, PrevAsOf: civil.Date{Year: 2026, Month: time.November, Day: 11},
+			From: tr.From, To: tr.To, Score: scoreOrNil(tr), Evidence: evidence,
+		}
+		events = append(events, ev)
+	}
+	require.NoError(t, writeEvents(ctx, pool, st, d, []string{h}, events, "{}"))
+	require.NoError(t, writeEvents(ctx, pool, st, d, []string{h}, events, "{}"))
+
+	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_signal_events WHERE stock_code IN ('AAA','BBB','CCC') AND as_of = '2026-11-12'"))
+	stored := func(code string) string {
+		return stringOf(t, pool, "SELECT evidence::text FROM strategy_signal_events WHERE stock_code = '"+code+"' AND as_of = '2026-11-12'")
+	}
+	require.JSONEq(t, `{"r":"PFU","v":[9.5,null,null],"p":[null,0.82,null],"close":41.2,"pivot":41.64,
+		"short_report":"2026-10-28","short_available":"2026-11-03","regime":"neutral"}`, stored("AAA"))
+	require.JSONEq(t, `{"r":"FP","v":[-3,1.5],"p":[null,null],"close":7.5,"pivot":null,
+		"short_report":null,"short_available":null,"regime":null}`, stored("BBB"))
+	require.JSONEq(t, `{"r":"","v":[],"p":[],"close":null,"pivot":null,
+		"short_report":null,"short_available":null,"regime":null}`, stored("CCC"))
 }
 
 // The window's rows do not answer for a code whose newest qualifying short
