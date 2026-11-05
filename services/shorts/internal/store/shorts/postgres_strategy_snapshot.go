@@ -350,7 +350,7 @@ func recentAsicReports(ctx context.Context, db fundamentalsDB, n int) ([]AsicRep
 
 // ListStrategySignalEvents reads one rules version's status changes, newest
 // first. Only a version that is live or superseded, canonical, and whose
-// events start at its live_from is served (6.4): a variant or a draft reads
+// events start at its live_from is served: a variant or a draft reads
 // nothing. A missing table is ErrStrategySnapshotUnavailable.
 func (s *postgresStore) ListStrategySignalEvents(ctx context.Context, f StrategySignalEventsFilter) ([]StrategySignalEventRow, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
