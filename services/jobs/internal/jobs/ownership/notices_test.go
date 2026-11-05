@@ -44,7 +44,7 @@ func TestResolveTarget(t *testing.T) {
 		{"for a delisted target", pendingNotice{Headline: "Change in substantial holding for IRE", ListedCodes: []string{"CBA"}}, "", "", true},
 	}
 	for _, tc := range tests {
-		got, why := resolveTarget(tc.p, tc.docCo, passCompanies)
+		got, why := resolveTarget(tc.p, tc.docCo, passCompanies, nil)
 		if got != tc.want || (why != "") != tc.wantMiss {
 			t.Errorf("%s: resolveTarget = %q (%s), want %q", tc.name, got, why, tc.want)
 		}
@@ -144,17 +144,29 @@ func TestRegistryIsValid(t *testing.T) {
 
 // fakeStore is the pass's database in memory.
 type fakeStore struct {
-	mu       sync.Mutex
-	pending  []pendingNotice
-	rows     []noticeRow
-	attempts map[string]noticeAttempt
-	failRows bool
+	mu         sync.Mutex
+	pending    []pendingNotice
+	resolvable []pendingNotice
+	live       map[string]bool
+	rows       []noticeRow
+	attempts   map[string]noticeAttempt
+	versions   map[string]int // the parser version each attempt was recorded at
+	failRows   bool
+	shared     int // SharedHeadlineNotices' answer: the notices the feed holds on the day with the headline
+}
+
+func (f *fakeStore) SharedHeadlineNotices(context.Context, []string, string, string) (int, error) {
+	return f.shared, nil
 }
 
 func (f *fakeStore) PendingNotices(context.Context, int, string, int) ([]pendingNotice, error) {
 	return f.pending, nil
 }
+func (f *fakeStore) ResolvableNotices(context.Context, int, string) ([]pendingNotice, error) {
+	return f.resolvable, nil
+}
 func (f *fakeStore) Companies(context.Context) (map[string]company, error) { return passCompanies, nil }
+func (f *fakeStore) LiveCodes(context.Context) (map[string]bool, error)    { return f.live, nil }
 func (f *fakeStore) SharesOnIssue(_ context.Context, code, _ string) (float64, error) {
 	if code == "ZIP" {
 		return 1.246e9, nil
@@ -170,10 +182,14 @@ func (f *fakeStore) UpsertNotice(_ context.Context, r noticeRow) error {
 	f.rows = append(f.rows, r)
 	return nil
 }
-func (f *fakeStore) RecordAttempt(_ context.Context, a noticeAttempt, _ int) error {
+func (f *fakeStore) RecordAttempt(_ context.Context, a noticeAttempt, version int) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.attempts[a.URL] = a
+	if f.versions == nil {
+		f.versions = map[string]int{}
+	}
+	f.versions[a.URL] = version
 	return nil
 }
 

@@ -205,9 +205,15 @@ export default async function OwnershipPage() {
     { href: "/ownership/holders", name: "Institutions on the map", count: directory?.total },
   ];
 
+  // The notices the parser withheld and a model read (read_by = model), named on the notices' source line.
+  const readByModel = overview?.noticesReadByModel ?? 0;
   const sourceLines: SourceLine[] = [
     ...sources.map((s) => ({
-      text: `${s.description}: ${s.records.toLocaleString("en-AU")} records, ${asAtRange(s.asAtFrom, s.asAt)}`,
+      text: `${s.description}: ${s.records.toLocaleString("en-AU")} records${
+        s.source === "substantial_notices" && readByModel > 0
+          ? `, ${readByModel.toLocaleString("en-AU")} read by model`
+          : ""
+      }, ${asAtRange(s.asAtFrom, s.asAt)}`,
     })),
     {
       text: `ASX Investment Products report and APRA fund-level statistics: ${etfs.toLocaleString("en-AU")} exchange-traded products, ${lics.toLocaleString("en-AU")} listed investment companies and trusts, ${superFunds.toLocaleString("en-AU")} APRA-regulated super funds.`,

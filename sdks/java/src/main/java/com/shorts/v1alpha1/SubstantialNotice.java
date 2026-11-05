@@ -43,6 +43,7 @@ private static final long serialVersionUID = 0L;
     announcedOn_ = "";
     announcementUrl_ = "";
     event_ = "";
+    readBy_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -563,6 +564,59 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int READ_BY_FIELD_NUMBER = 17;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object readBy_ = "";
+  /**
+   * <pre>
+   * Who read the notice: "parser" (the parser, the default) or "model" (a model
+   * pass recovered it after the parser withheld it; two readers agreed and the
+   * figures were validated against the share count). A schema without the column
+   * reads "parser".
+   * </pre>
+   *
+   * <code>string read_by = 17 [json_name = "readBy"];</code>
+   * @return The readBy.
+   */
+  @java.lang.Override
+  public java.lang.String getReadBy() {
+    java.lang.Object ref = readBy_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      readBy_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Who read the notice: "parser" (the parser, the default) or "model" (a model
+   * pass recovered it after the parser withheld it; two readers agreed and the
+   * figures were validated against the share count). A schema without the column
+   * reads "parser".
+   * </pre>
+   *
+   * <code>string read_by = 17 [json_name = "readBy"];</code>
+   * @return The bytes for readBy.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getReadByBytes() {
+    java.lang.Object ref = readBy_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      readBy_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -625,6 +679,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(event_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 16, event_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(readBy_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 17, readBy_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -681,6 +738,9 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(event_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(16, event_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(readBy_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(17, readBy_);
     }
     return size;
   }
@@ -740,6 +800,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getAnnouncementUrl())) return false;
     if (!getEvent()
         .equals(other.getEvent())) return false;
+    if (!getReadBy()
+        .equals(other.getReadBy())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -788,6 +850,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getAnnouncementUrl().hashCode();
     hash = (37 * hash) + EVENT_FIELD_NUMBER;
     hash = (53 * hash) + getEvent().hashCode();
+    hash = (37 * hash) + READ_BY_FIELD_NUMBER;
+    hash = (53 * hash) + getReadBy().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -939,6 +1003,7 @@ private static final long serialVersionUID = 0L;
       announcedOn_ = "";
       announcementUrl_ = "";
       event_ = "";
+      readBy_ = "";
       return this;
     }
 
@@ -1019,6 +1084,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00008000) != 0)) {
         result.event_ = event_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.readBy_ = readBy_;
       }
     }
 
@@ -1102,6 +1170,11 @@ private static final long serialVersionUID = 0L;
       if (!other.getEvent().isEmpty()) {
         event_ = other.event_;
         bitField0_ |= 0x00008000;
+        onChanged();
+      }
+      if (!other.getReadBy().isEmpty()) {
+        readBy_ = other.readBy_;
+        bitField0_ |= 0x00010000;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -1210,6 +1283,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00008000;
               break;
             } // case 130
+            case 138: {
+              readBy_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 138
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2215,6 +2293,113 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       event_ = value;
       bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object readBy_ = "";
+    /**
+     * <pre>
+     * Who read the notice: "parser" (the parser, the default) or "model" (a model
+     * pass recovered it after the parser withheld it; two readers agreed and the
+     * figures were validated against the share count). A schema without the column
+     * reads "parser".
+     * </pre>
+     *
+     * <code>string read_by = 17 [json_name = "readBy"];</code>
+     * @return The readBy.
+     */
+    public java.lang.String getReadBy() {
+      java.lang.Object ref = readBy_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        readBy_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Who read the notice: "parser" (the parser, the default) or "model" (a model
+     * pass recovered it after the parser withheld it; two readers agreed and the
+     * figures were validated against the share count). A schema without the column
+     * reads "parser".
+     * </pre>
+     *
+     * <code>string read_by = 17 [json_name = "readBy"];</code>
+     * @return The bytes for readBy.
+     */
+    public com.google.protobuf.ByteString
+        getReadByBytes() {
+      java.lang.Object ref = readBy_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        readBy_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Who read the notice: "parser" (the parser, the default) or "model" (a model
+     * pass recovered it after the parser withheld it; two readers agreed and the
+     * figures were validated against the share count). A schema without the column
+     * reads "parser".
+     * </pre>
+     *
+     * <code>string read_by = 17 [json_name = "readBy"];</code>
+     * @param value The readBy to set.
+     * @return This builder for chaining.
+     */
+    public Builder setReadBy(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      readBy_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Who read the notice: "parser" (the parser, the default) or "model" (a model
+     * pass recovered it after the parser withheld it; two readers agreed and the
+     * figures were validated against the share count). A schema without the column
+     * reads "parser".
+     * </pre>
+     *
+     * <code>string read_by = 17 [json_name = "readBy"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearReadBy() {
+      readBy_ = getDefaultInstance().getReadBy();
+      bitField0_ = (bitField0_ & ~0x00010000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Who read the notice: "parser" (the parser, the default) or "model" (a model
+     * pass recovered it after the parser withheld it; two readers agreed and the
+     * figures were validated against the share count). A schema without the column
+     * reads "parser".
+     * </pre>
+     *
+     * <code>string read_by = 17 [json_name = "readBy"];</code>
+     * @param value The bytes for readBy to set.
+     * @return This builder for chaining.
+     */
+    public Builder setReadByBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      readBy_ = value;
+      bitField0_ |= 0x00010000;
       onChanged();
       return this;
     }

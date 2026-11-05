@@ -28,6 +28,21 @@ const MARKS: Readonly<Record<NoticeEvent, ReactNode>> = {
   nz: <circle cx="8" cy="6" r="3.5" />,
 };
 
+/** The title of the model-read mark: what a model's reading rests on. */
+export const MODEL_READ_TITLE = "Read by a model, two readers agreed; validated against the share count";
+
+/**
+ * The small muted mark a notice read by a model carries (read_by = model). The parser's
+ * notices carry none: the mark is the exception, so a reader sees which figures a model read.
+ */
+export function ModelReadMark() {
+  return (
+    <span title={MODEL_READ_TITLE} className="ml-2 whitespace-nowrap text-xs text-muted-foreground">
+      model-read
+    </span>
+  );
+}
+
 /** A notice's event as a fixed 16 by 12 pictogram. An event the build does not know draws nothing. */
 export function NoticeMark({ event, className }: { event: string; className?: string }) {
   if (!isNoticeEvent(event)) return null;

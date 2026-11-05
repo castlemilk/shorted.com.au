@@ -13,10 +13,10 @@ import { CACHE_KEYS, OWNERSHIP_DATA_CACHE_PREFIXES } from "../kv-cache";
 
 describe("ownership cache keys", () => {
   it("pins the v2 keys of the overview, one stock and one institution", () => {
-    expect(CACHE_KEYS.ownershipOverview()).toBe("cache:ownership:overview:v2");
-    expect(CACHE_KEYS.stockOwnership("BHP")).toBe("cache:ownership:stock:v2:BHP");
+    expect(CACHE_KEYS.ownershipOverview()).toBe("cache:ownership:overview:v3");
+    expect(CACHE_KEYS.stockOwnership("BHP")).toBe("cache:ownership:stock:v3:BHP");
     expect(CACHE_KEYS.ownershipInstitution("blackrock")).toBe(
-      "cache:ownership:institution:v2:blackrock",
+      "cache:ownership:institution:v3:blackrock",
     );
   });
 

@@ -446,6 +446,7 @@ function feedRow(notice: SubstantialNotice): NoticeFeedRow {
     url: row.url,
     // The holder's registry kind, as the notice carries it; "" when the API states none.
     holderKind: notice.kind,
+    ...(row.readBy ? { readBy: row.readBy } : {}),
   };
 }
 

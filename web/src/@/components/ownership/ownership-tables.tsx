@@ -14,6 +14,7 @@ import { registerHref } from "~/@/lib/ownership/kinds";
 import type { FileHoldingRow, HoldingRow, NoticeRow } from "~/@/lib/ownership/rows";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { ExternalLinkGlyph } from "./external-link-glyph";
+import { ModelReadMark } from "./notice-mark";
 
 // The ownership tables that run long: an index manager's ninety-odd stakes, a
 // hundred holdings-file rows, a hundred notices. Each is an island so its rows
@@ -244,7 +245,10 @@ export function NoticeRowsTable({
                   )}
                 </TableCell>
               ) : null}
-              <TableCell className="whitespace-nowrap">{n.form}</TableCell>
+              <TableCell className="whitespace-nowrap">
+                {n.form}
+                {n.readBy === "model" ? <ModelReadMark /> : null}
+              </TableCell>
               <TableCell className="text-right tabular-nums">{n.votingPower}</TableCell>
               <TableCell className="text-right tabular-nums">{n.change}</TableCell>
               <TableCell>
