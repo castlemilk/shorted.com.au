@@ -41,8 +41,9 @@ const (
 	// backtestRevalidateWait is how long the API's cache takes to turn over.
 	backtestRevalidateWait = 16 * time.Minute
 	backtestRevalidateTags = "strategy-backtests"
-	// Retention: runs younger than 30 days, the published run and the newest
-	// succeeded run of each key are kept; requests are kept 90 days.
+	// Retention: runs younger than 30 days are kept, and so are the two newest
+	// published runs of each key (the published run and the one it replaced);
+	// requests are kept 90 days.
 	backtestRunRetentionDays     = 30
 	backtestRequestRetentionDays = 90
 )
@@ -477,6 +478,12 @@ func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, hold *batc
 	if err != nil {
 		return out, fmt.Errorf("publish %s %s: %w", t.Reg.Label, recipe.ID, err)
 	}
+	// The run's inputs are the batch snapshot's: its start is recorded so a later
+	// diff note lists the revisions recorded after it.
+	readAt, err := snapshotTime(ctx, tx)
+	if err != nil {
+		return out, err
+	}
 	// The diff note reads the first copy of the history, so it is built before the
 	// verify pass releases that copy.
 	diff, err := st.diffNote(ctx, tx, t, fundamentalsPolicy(recipe), in, d1, base)
@@ -522,7 +529,7 @@ func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, hold *batc
 		Target: t, Recipe: recipe, Kind: "publish", WindowEnd: windowEnd,
 		Disclosures: d1, Result: base, Diff: &diff,
 		Publish: publish, Build: opts.Build, Verified: verified,
-		Fundamentals: fundamentalsPolicy(recipe), Through: through,
+		Fundamentals: fundamentalsPolicy(recipe), Through: through, ReadAt: readAt,
 	})
 	out.RunID = id
 	return out, err
@@ -532,8 +539,12 @@ func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, hold *batc
 func diffLogLabel(d backtest.DiffNote) string {
 	switch d.State {
 	case backtest.DiffChanged:
-		return fmt.Sprintf("changed: %d code(s) rewritten, %d ASIC code(s) revised, CAGR shift %+.2f pp",
-			d.RewrittenCount, d.RevisedCount, d.CAGRShiftPP)
+		shift := "CAGR shift n/a"
+		if d.HasCAGRShift {
+			shift = fmt.Sprintf("CAGR shift %+.2f pp", d.CAGRShiftPP)
+		}
+		return fmt.Sprintf("changed: %d code(s) rewritten, %d ASIC code(s) revised, %s",
+			d.RewrittenCount, d.RevisedCount, shift)
 	case backtest.DiffUnchanged:
 		return "unchanged inputs"
 	}

@@ -955,9 +955,10 @@ queue. A run
 publishes only when the publication gate passes: a verify pass reproduced the run, coverage is computed under both measures,
 all five sensitivity runs are present (or say why they do not apply) and the same-data reference is computed. A publish
 also stores its diff note against the previously published run of its key on the same engine: the codes whose price
-history up to that run's cut-off was rewritten, the ASIC revisions recorded since (from `shorts_revisions`), and the CAGR
-shift over the shared window. The previously published run of each key is kept by retention, so the next diff can
-read it. A fundamentals recipe whose window is `computable_from` derives that date from
+history up to that run's cut-off was rewritten, the ASIC revisions to reports that run read (up to its ASIC through-date),
+recorded after its snapshot (from `shorts_revisions`; the snapshot time is `diagnostics.read_at`), and the CAGR shift
+over the shared window. The diff's current curve is compared as stored, rounded. Retention keeps the two newest
+published runs of each key (ranked by `published_at`, across engines), so the next diff can read the run it replaced. A fundamentals recipe whose window is `computable_from` derives that date from
 `stock_fundamentals` (the first month end on which half the universe is computable) and labels it with the fiscal year
 of the median code's bringing period. Its strict policy stores that outcome as one unpublished row (pass 1 only): it
 never simulates the window, which would read today's fundamentals at every session. A version or recipe the daily
