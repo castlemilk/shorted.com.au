@@ -75,19 +75,19 @@ CREATE TABLE IF NOT EXISTS stock_fundamentals_vintages (
     row_json    JSONB       NOT NULL
 );
 
-DO $m154_idx_revisions$
+DO $m155_idx_revisions$
 BEGIN
   IF to_regclass('public.idx_shorts_revisions_code_date') IS NULL THEN
     CREATE INDEX idx_shorts_revisions_code_date ON shorts_revisions (product_code, report_date);
   END IF;
-END $m154_idx_revisions$;
+END $m155_idx_revisions$;
 
-DO $m154_idx_vintages$
+DO $m155_idx_vintages$
 BEGIN
   IF to_regclass('public.idx_sfv_key_time') IS NULL THEN
     CREATE INDEX idx_sfv_key_time ON stock_fundamentals_vintages (stock_code, period_type, period_end, captured_at, id);
   END IF;
-END $m154_idx_vintages$;
+END $m155_idx_vintages$;
 
 -- One function for the three operations. An UPDATE that changes nothing but the two provenance columns
 -- writes no vintage, so a nightly re-fetch of unchanged figures adds nothing to the history. A DELETE writes
@@ -114,7 +114,7 @@ BEGIN
   RETURN NEW;
 END $f$;
 
-DO $m154_trigger$
+DO $m155_trigger$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_trigger
@@ -126,12 +126,12 @@ BEGIN
       AFTER INSERT OR UPDATE OR DELETE ON stock_fundamentals
       FOR EACH ROW EXECUTE FUNCTION record_fundamentals_vintage();
   END IF;
-END $m154_trigger$;
+END $m155_trigger$;
 
 -- The baseline: one 'B' row per row that exists when the vintage history first starts. It runs only into an
 -- empty vintage table, so it runs once. The table lock is taken only on that branch, and it stops a writer
 -- from adding an 'I' between the emptiness check and the copy.
-DO $m154_baseline$
+DO $m155_baseline$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM stock_fundamentals_vintages) THEN
     LOCK TABLE stock_fundamentals IN SHARE ROW EXCLUSIVE MODE;
@@ -142,6 +142,6 @@ BEGIN
       ON CONFLICT DO NOTHING;
     END IF;
   END IF;
-END $m154_baseline$;
+END $m155_baseline$;
 
 COMMIT;

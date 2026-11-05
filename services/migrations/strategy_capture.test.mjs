@@ -99,8 +99,8 @@ test("every index is created only when the catalog lacks it", () => {
     "CREATE INDEX must sit inside a guarded DO block",
   );
   for (const [tag, name, table] of [
-    ["m154_idx_revisions", "idx_shorts_revisions_code_date", "shorts_revisions \\(product_code, report_date\\)"],
-    ["m154_idx_vintages", "idx_sfv_key_time", "stock_fundamentals_vintages \\(stock_code, period_type, period_end, captured_at, id\\)"],
+    ["m155_idx_revisions", "idx_shorts_revisions_code_date", "shorts_revisions \\(product_code, report_date\\)"],
+    ["m155_idx_vintages", "idx_sfv_key_time", "stock_fundamentals_vintages \\(stock_code, period_type, period_end, captured_at, id\\)"],
   ]) {
     const block = doBlock(tag);
     assert.match(block, new RegExp(`to_regclass\\('public\\.${name}'\\) IS NULL`));
@@ -109,7 +109,7 @@ test("every index is created only when the catalog lacks it", () => {
 });
 
 test("the trigger is created only when pg_trigger lacks it, and fires after each row change", () => {
-  const block = doBlock("m154_trigger");
+  const block = doBlock("m155_trigger");
   assert.match(block, /FROM pg_trigger/);
   assert.match(block, /tgname = 'trg_fundamentals_vintage'/);
   assert.match(block, /NOT tgisinternal/);
@@ -129,7 +129,7 @@ test("the function records deletes as D, skips no-op updates and is replaced, no
 });
 
 test("the baseline runs only into an empty vintage table, under a lock on the source", () => {
-  const block = doBlock("m154_baseline");
+  const block = doBlock("m155_baseline");
   assert.match(block, /IF NOT EXISTS \(SELECT 1 FROM stock_fundamentals_vintages\)/);
   assert.match(block, /LOCK TABLE stock_fundamentals IN SHARE ROW EXCLUSIVE MODE;/);
   assert.match(block, /INSERT INTO stock_fundamentals_vintages[\s\S]*SELECT f\.stock_code, f\.period_type, f\.period_end, 'B', to_jsonb\(f\) - 'updated_at' - 'source_fetched_at'/);
@@ -139,7 +139,7 @@ test("every INSERT sits inside a guarded block, and nothing updates, deletes or 
   // The function body's INSERTs are the trigger's own writes; the baseline is guarded above.
   const outsideFunction = code.replace(/CREATE OR REPLACE FUNCTION[\s\S]*?END \$f\$;/, "");
   const inserts = [...outsideFunction.matchAll(/INSERT INTO/g)].length;
-  const guardedInserts = [...doBlock("m154_baseline").matchAll(/INSERT INTO/g)].length;
+  const guardedInserts = [...doBlock("m155_baseline").matchAll(/INSERT INTO/g)].length;
   assert.equal(inserts, guardedInserts, "the only INSERT outside the function is the guarded baseline");
   assert.doesNotMatch(code, /\bUPDATE\s+\w+\s+SET\b/i);
   assert.doesNotMatch(code, /\bDELETE FROM\b/i);
