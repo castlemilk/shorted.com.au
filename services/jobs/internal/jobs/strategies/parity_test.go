@@ -2,6 +2,8 @@ package strategies
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -10,6 +12,7 @@ import (
 
 	"cloud.google.com/go/civil"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/calendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 )
@@ -269,3 +272,58 @@ func TestRunParityRecoversAPanic(t *testing.T) {
 		t.Error("the failure was not logged")
 	}
 }
+
+// TestHistoryShortsReadsInChunks: the whole-history read fetches the codes a
+// chunk at a time, and the readings are the same as one read of every code.
+func TestHistoryShortsReadsInChunks(t *testing.T) {
+	d := civil.Date{Year: 2026, Month: 11, Day: 5}
+	cal := calendar.New(nil, nil, 0)
+	n := 2*historyChunkCodes + 20
+	codes := make([]string, n)
+	store := map[string][]features.ASICRow{}
+	for i := range codes {
+		code := fmt.Sprintf("A%c%c", 'A'+i/26, 'A'+i%26)
+		codes[i] = code
+		store[code] = []features.ASICRow{{
+			Code: code, ReportDate: d.AddDays(-30), Product: code + " GROUP ORDINARY",
+			Positions: 2000, Issued: 100_000_000, Percent: ptrFloat(5),
+		}}
+	}
+	fetchAll := func(req []string) ([]features.ASICRow, error) {
+		if len(req) > historyChunkCodes {
+			t.Errorf("fetched %d codes at once, want at most %d", len(req), historyChunkCodes)
+		}
+		var out []features.ASICRow
+		for _, code := range req {
+			out = append(out, store[code]...)
+		}
+		return out, nil
+	}
+	got := map[string]shortRead{}
+	if err := readHistoryShorts(codes, fetchAll, d, cal, nil, got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != n {
+		t.Fatalf("read %d codes, want %d", len(got), n)
+	}
+	// One fetch of every code, the same readings.
+	whole := map[string]shortRead{}
+	var all []features.ASICRow
+	for _, code := range codes {
+		all = append(all, store[code]...)
+	}
+	if err := readHistoryShorts(codes, func([]string) ([]features.ASICRow, error) { return all, nil }, d, cal, nil, whole); err != nil {
+		t.Fatal(err)
+	}
+	for _, code := range codes {
+		if got[code].ReportDate != whole[code].ReportDate || got[code].Positions != whole[code].Positions {
+			t.Errorf("%s: chunked %+v, whole %+v", code, got[code], whole[code])
+		}
+	}
+	wantErr := errors.New("boom")
+	if err := readHistoryShorts(codes, func([]string) ([]features.ASICRow, error) { return nil, wantErr }, d, cal, nil, map[string]shortRead{}); !errors.Is(err, wantErr) {
+		t.Errorf("fetch error = %v, want %v", err, wantErr)
+	}
+}
+
+func ptrFloat(f float64) *float64 { return &f }

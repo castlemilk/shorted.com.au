@@ -47,6 +47,10 @@ const (
 	// walks back from the decision date. A code with none inside it is read with
 	// its whole history: 000080 has no age limit.
 	shortsLookbackDays = 60
+	// historyChunkCodes is how many codes one whole-history read holds at once.
+	// The reading walks only its own code's rows, so the chunks change no
+	// reading; they bound the rows in memory to a few codes' histories.
+	historyChunkCodes = 50
 	// parityTimeout bounds one run, so a slow read cannot hold the picks
 	// execution past its own deadline.
 	parityTimeout = 10 * time.Minute
@@ -449,7 +453,8 @@ func parityInTx(ctx context.Context, tx pgx.Tx, refreshStart time.Time, logf fun
 // readGoShorts is sf0's reading of every code that either side names. The
 // window's rows answer the codes they hold: the reading walks back from the
 // decision date, so its first hit is the newest qualifying row. A code the
-// window does not answer, but 000080 does, is read with its whole history.
+// window does not answer, but 000080 does, is read with its whole history, a
+// chunk of codes at a time so that the whole history is never held at once.
 func readGoShorts(ctx context.Context, tx pgx.Tx, d civil.Date, asic []features.ASICRow, view map[string]shortView, recent map[string][]features.Bar) (map[string]shortRead, error) {
 	cal := calendar.New(nil, nil, 0)
 	goShorts := map[string]shortRead{}
@@ -465,20 +470,33 @@ func readGoShorts(ctx context.Context, tx pgx.Tx, d civil.Date, asic []features.
 			older = append(older, code)
 		}
 	}
-	if len(older) == 0 {
-		return goShorts, nil
+	fetch := func(codes []string) ([]features.ASICRow, error) {
+		return pgsource.ASICRowsForCodes(ctx, tx, codes, d)
 	}
-	history, err := pgsource.ASICRowsForCodes(ctx, tx, older, d)
-	if err != nil {
+	if err := readHistoryShorts(older, fetch, d, cal, recent, goShorts); err != nil {
 		return nil, err
 	}
-	whole := features.NewReports(history, nil)
-	for _, code := range older {
-		if r, ok := readShort(code, d, cal, whole, recent[code]); ok {
-			goShorts[code] = r
+	return goShorts, nil
+}
+
+// readHistoryShorts reads each of the codes' whole histories through fetch, a
+// chunk of historyChunkCodes at a time, and records their readings in goShorts.
+// Each chunk's reports are dropped before the next chunk is fetched.
+func readHistoryShorts(codes []string, fetch func([]string) ([]features.ASICRow, error), d civil.Date, cal *calendar.Calendar, recent map[string][]features.Bar, goShorts map[string]shortRead) error {
+	for start := 0; start < len(codes); start += historyChunkCodes {
+		chunk := codes[start:min(start+historyChunkCodes, len(codes))]
+		history, err := fetch(chunk)
+		if err != nil {
+			return err
+		}
+		whole := features.NewReports(history, nil)
+		for _, code := range chunk {
+			if r, ok := readShort(code, d, cal, whole, recent[code]); ok {
+				goShorts[code] = r
+			}
 		}
 	}
-	return goShorts, nil
+	return nil
 }
 
 // readShort is ShortReadingV0 for one code, as a shortRead when it reports one.
