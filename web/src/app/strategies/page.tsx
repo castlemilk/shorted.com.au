@@ -219,7 +219,7 @@ export default async function PicksHubPage() {
           {/* The printed key: each status beside what it looks like as rule
               outcomes, and the dot marks themselves, so both are taught
               before a reader reaches a table. */}
-          <dl className="grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-2 lg:grid-cols-4">
+          <dl className="grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-2 lg:grid-cols-5">
             {PICK_STATUSES.map((status) => (
               <div key={status} className="bg-card p-4">
                 <dt className="flex items-center gap-2 text-sm font-semibold">
@@ -232,7 +232,7 @@ export default async function PicksHubPage() {
                 </dd>
               </div>
             ))}
-            <div className="bg-card p-4">
+            <div className="bg-card p-4 sm:col-span-2 lg:col-span-1">
               <dt className="text-sm font-semibold">Rule marks</dt>
               <dd className="mt-1">
                 <RuleLegend rules={[]} />

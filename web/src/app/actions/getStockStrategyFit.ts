@@ -48,7 +48,7 @@ export const STRATEGY_FIT_TIMEOUT_MS = 4000;
  * current shape. v3 added the signal fields (eligibility, the session and
  * short dates, rule values, reasons and proximity): a v2 entry has none.
  */
-export const STRATEGY_FIT_CACHE_VERSION = "v3";
+export const STRATEGY_FIT_CACHE_VERSION = "v4";
 
 export type StrategyFitStatus = "triggered" | "setup" | "unknown" | "watch" | "none";
 export type StrategyFitRuleStatus = "pass" | "fail" | "unknown";
