@@ -1043,6 +1043,10 @@ jobs:
             # then re-run the deploy:
             #   task db:prod:apply FILE=services/migrations/000156_strategy_engine.up.sql CONFIRM=prod
             run_psql_session -f /migrations/000156_strategy_engine.up.sql
+            # 000157 (strategy workspace) adds the saved-strategies table of the My strategies list. One
+            # CREATE TABLE IF NOT EXISTS, no row, no lock beyond the catalog check, so it replays freely.
+            # The save and list RPCs read it, and the signed-in list reads it as empty until it exists.
+            run_psql_session -f /migrations/000157_strategy_saves.up.sql
 
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
@@ -2036,6 +2040,15 @@ jobs:
           echo "🧪 Running the strategy reader suite (postgres container)..."
           cd services
           make test-pgsource-pg
+
+      # The saved-strategy store (migration 000157): the cap under concurrent saves, the bounded lock wait,
+      # the variant owner guard and replay. The cap is a guarantee the handler tests cannot see (they fake
+      # the store), so it gates the deploy like the suites above.
+      - name: Run saved strategies container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the saved strategies suite (postgres container)..."
+          cd services
+          make test-strategy-saves-pg
 
       # Workflow pins: the apply gate and the smoke ordering are asserted here,
       # and nothing else ran these tests in CI. The test imports `yaml`, a root

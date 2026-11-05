@@ -8,6 +8,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { StrategyLevelsChart } from "~/@/components/strategy/strategy-levels-chart-loader";
 import { EvidencePanel } from "~/@/components/strategies/evidence-panel";
 import { SignalsMatrix } from "~/@/components/strategies/signals-matrix";
+import { SaveStrategyButton } from "~/app/strategies/save-strategy-button";
 import { SignalsProvenance } from "~/@/components/strategies/signals-provenance";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { sectionTitle } from "~/@/lib/typography";
@@ -439,6 +440,11 @@ function SignalsView({
               as passing. Evaluated each session
               {props.universeLabel ? ` · ${props.universeLabel}` : ""}.
             </p>
+            {/* Inside the heading block, so its reserved slot never moves the chip nav. */}
+            <SaveStrategyButton
+              strategyId={props.slug}
+              strategyName={props.strategyName}
+            />
           </div>
           <nav aria-label="Strategies">
             <ul className="flex flex-wrap gap-1.5 text-xs">

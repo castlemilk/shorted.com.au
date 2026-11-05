@@ -16,10 +16,10 @@ import {
 import { STRATEGY_SLUGS } from "../registry";
 
 describe("strategies workspace nav", () => {
-  it("lists Explore, My strategies, Signals and Alerts, with only Explore and Signals enabled", () => {
+  it("lists Explore, My strategies, Signals and Alerts, with Alerts alone disabled", () => {
     expect(STRATEGIES_TABS.map((tab) => [tab.id, tab.label, tab.enabled])).toEqual([
       ["explore", "Explore", true],
-      ["my", "My strategies", false],
+      ["my", "My strategies", true],
       ["signals", "Signals", true],
       ["alerts", "Alerts", false],
     ]);
@@ -28,6 +28,7 @@ describe("strategies workspace nav", () => {
   it("renders only the enabled tabs, with Signals on the default strategy until one is viewed", () => {
     expect(resolveStrategiesTabs(null)).toEqual([
       { id: "explore", label: "Explore", href: "/strategies" },
+      { id: "my", label: "My strategies", href: "/strategies/my" },
       { id: "signals", label: "Signals", href: `/strategies/${DEFAULT_SIGNALS_STRATEGY}/signals` },
     ]);
   });

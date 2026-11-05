@@ -53,7 +53,7 @@ export const RESERVED_STRATEGY_SEGMENTS: readonly string[] = [
  */
 export const STRATEGIES_TABS: readonly StrategiesTab[] = [
   { id: "explore", label: "Explore", href: "/strategies", enabled: true },
-  { id: "my", label: "My strategies", href: "/strategies/my", enabled: false },
+  { id: "my", label: "My strategies", href: "/strategies/my", enabled: true },
   {
     id: "signals",
     label: "Signals",

@@ -131,8 +131,11 @@ describe("StrategyLayout", () => {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
     }
+    // Saves ships with My strategies and is on; every other capability stays dark.
     expect(
-      Object.values(STRATEGY_CAPABILITIES).every((on) => on === false),
+      Object.entries(STRATEGY_CAPABILITIES)
+        .filter(([name]) => name !== "saves")
+        .every(([, on]) => on === false),
     ).toBe(true);
   });
 

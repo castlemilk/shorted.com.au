@@ -56,6 +56,29 @@ service StrategyService {
   rpc ListStrategyVersions (ListStrategyVersionsRequest) returns (ListStrategyVersionsResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // ==================== Saved Strategies ====================
+
+  // Save a strategy to the signed-in caller's list. Saving a strategy that is
+  // already saved succeeds and keeps its first save time. The list holds at
+  // most 20; a save past that is refused with PermissionDenied and the
+  // X-Entitlement-Detail metadata (capability cap_reached, with the limit), and
+  // a repeat save at the cap still succeeds.
+  rpc SaveStrategy (SaveStrategyRequest) returns (SaveStrategyResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Remove a strategy from the caller's list. Removing one that is not saved
+  // succeeds.
+  rpc UnsaveStrategy (UnsaveStrategyRequest) returns (UnsaveStrategyResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // The caller's saved strategies, most recent first, each with today's
+  // status counts.
+  rpc ListSavedStrategies (ListSavedStrategiesRequest) returns (ListSavedStrategiesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
 }
 
 // ==================== Strategy Messages ====================
@@ -405,4 +428,44 @@ message RuleParam {
   string rule_id = 1;
   string name = 2;     // The parameter's key, e.g. "min_pct".
   double value = 3;
+}
+
+// ==================== Saved Strategy Messages ====================
+
+// Request for SaveStrategy.
+message SaveStrategyRequest {
+  string strategy_ref = 1;   // A canonical strategy id, or "variant:<id>" for a variant the caller owns.
+}
+
+// Response for SaveStrategy.
+message SaveStrategyResponse {
+  SavedStrategy saved = 1;   // The entry as ListSavedStrategies lists it.
+}
+
+// Request for UnsaveStrategy.
+message UnsaveStrategyRequest {
+  string strategy_ref = 1;   // The reference SaveStrategy was given.
+}
+
+// Response for UnsaveStrategy.
+message UnsaveStrategyResponse {}
+
+// Request for ListSavedStrategies.
+message ListSavedStrategiesRequest {}
+
+// Response for ListSavedStrategies.
+message ListSavedStrategiesResponse {
+  repeated SavedStrategy strategies = 1;   // Most recent save first.
+  int32 limit = 2;                         // The most strategies one caller may save.
+}
+
+// One strategy the signed-in caller saved.
+message SavedStrategy {
+  string strategy_ref = 1;          // A canonical strategy id, or "variant:<id>".
+  string strategy_id = 2;           // The canonical id; empty for a variant.
+  string name = 3;                  // The strategy's name; empty when it is not in the registry.
+  string saved_at = 4;              // RFC 3339 time of the first save.
+  StatusCounts status_counts = 5;   // Today's counts; absent for a variant or when they cannot be read.
+  StrategyVersionRef version = 6;   // The live rules version the counts were evaluated under; absent for a variant or when unknown.
+  string session_date = 7;          // The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
 }

@@ -11,6 +11,7 @@
 //   alertEmail     the Email delivery checkbox
 //   trackedEntries "Track this entry" and tracked entries
 //   variants       "Edit a copy" and variant backtests
+//   saves          "Save" on a strategy and the My strategies list (signed-in only)
 
 export const STRATEGY_CAPABILITY_NAMES = [
   "compare",
@@ -19,6 +20,7 @@ export const STRATEGY_CAPABILITY_NAMES = [
   "alertEmail",
   "trackedEntries",
   "variants",
+  "saves",
 ] as const;
 
 export type StrategyCapability = (typeof STRATEGY_CAPABILITY_NAMES)[number];
@@ -30,6 +32,7 @@ export const STRATEGY_CAPABILITIES: Record<StrategyCapability, boolean> = {
   alertEmail: false,
   trackedEntries: false,
   variants: false,
+  saves: true,
 };
 
 export function strategyCapabilityEnabled(name: StrategyCapability): boolean {
