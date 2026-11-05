@@ -756,9 +756,12 @@ recipe fields on the wire (PR-12a).
   and in the sort island's props, each with its fundamentals disclosure.
   With the API's 100 rows that made `/strategies/minervini-trend-template`
   1.85 MB of HTML (measured 2026-10-07). `shortlistRows` caps the server
-  shortlist at `SHORTLIST_MAX_ROWS` (40), the island gets `counts` from
-  `countByStatus` over every row instead of the rows, and a status chip
-  fetches its full list like a sort chip. Do not hand the island every row
+  shortlist at `SHORTLIST_MAX_ROWS` (10, the anonymous public depth), the
+  island gets `counts` from `countByStatus` over every row instead of the
+  rows. Under the production clamp a status or sort chip's answer is the
+  public top 10 for every caller (`viewer.clamped`), so the island words it
+  as the top rows and links "See all signals" to the Signals tab, the only
+  place with signed-in depth. Do not hand the island every row
   again, and do not add a per-row `<details>` outside the fundamentals cell.
 - **The base is anchored.** After a breakout `mv_price_features` reports
   `base_high` / `base_low` / `base_length_days` as at the breakout session, so the

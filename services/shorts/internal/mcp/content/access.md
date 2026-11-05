@@ -14,9 +14,9 @@ return is not. If you get an HTTP 429, back off for the interval in the
 `Retry-After` header rather than retrying immediately. Responses carry
 `X-RateLimit-*` headers describing the bucket that rejected.
 
-Authentication and per-caller quotas are planned for a later phase. When they
-arrive this endpoint keeps working anonymously; a token will raise the ceiling
-rather than being required.
+OAuth 2.1 is optional. Connected with it, `get_strategy_picks` returns up to 25
+rows where an anonymous call returns the top 10. The endpoint keeps working
+anonymously; OAuth raises that depth rather than being required.
 
 ## Prefer the tools over scraping
 

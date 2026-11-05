@@ -1366,13 +1366,10 @@ module "shorts_api" {
   rate_limit_ssr_bypass_header_name = var.rate_limit_ssr_bypass_header_name
   rate_limit_ssr_bypass_user_agent  = var.rate_limit_ssr_bypass_user_agent
 
-  # Where the stock picker reads its inputs: "views" until the snapshot cutover
-  # (PR-11b flips it to "snapshot" after one clean weekday of parity). See
-  # modules/shorts-api/variables.tf.
-  strategy_source = "views"
-  # Anonymous depth of the public strategy picks: the top 10 of the default
-  # ranking for every HTTP caller without sign-in, API tokens included (PR-06b).
-  # Signed-in depth is GetViewerStrategyPicks, which this does not touch.
+  # Public depth of the strategy picks: the top 10 of the default ranking for
+  # every caller of the public GetStrategyPicks, signed in or not, API tokens
+  # included (PR-06b). A bearer token's full depth is GetViewerStrategyPicks,
+  # which this does not touch; the web's Signals tab reads it when signed in.
   strategy_public_signals_limit = 10
 
   # Internal tier grants. The tfvar lists operator user ids, so revoking one is a
