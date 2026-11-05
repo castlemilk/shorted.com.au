@@ -11,7 +11,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/strategies.proto.
  */
 export const file_shorts_v1alpha1_strategies: GenFile = /*@__PURE__*/
-  fileDesc("CiBzaG9ydHMvdjFhbHBoYTEvc3RyYXRlZ2llcy5wcm90bxIPc2hvcnRzLnYxYWxwaGExIuoBCghTdHJhdGVneRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmF1dGhvchgDIAEoCRIPCgd0YWdsaW5lGAQgASgJEh4KFmRlc2NyaXB0aW9uX3BhcmFncmFwaHMYBSADKAkSLAoFcnVsZXMYBiADKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lSdWxlEjMKCG1ldGFkYXRhGAcgASgLMiEuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5TWV0YWRhdGESDwoHY2F2ZWF0cxgIIAMoCRIPCgdzb3VyY2VzGAkgAygJIuABCgxTdHJhdGVneVJ1bGUSCgoCaWQYASABKAkSDQoFdGl0bGUYAiABKAkSEQoJcnVsZV90ZXh0GAMgASgJEhIKCmV2YWx1YXRpb24YBCABKAkSDAoEY29yZRgFIAEoCBITCgtkYXRhX3NvdXJjZRgGIAEoCRIPCgd0cmlnZ2VyGAcgASgIEg4KBndlaWdodBgIIAEoARIRCgl0aHJlc2hvbGQYCSABKAESFQoNaGFzX3RocmVzaG9sZBgKIAEoCBIMCgR1bml0GAsgASgJEhIKCmNvbXBhcmF0b3IYDCABKAkijgEKEFN0cmF0ZWd5TWV0YWRhdGESDQoFc3R5bGUYASABKAkSFgoOaG9sZGluZ19wZXJpb2QYAiABKAkSFAoMcmlza19wb3N0dXJlGAMgASgJEhAKCHVuaXZlcnNlGAQgASgJEhcKD3JlZnJlc2hfY2FkZW5jZRgFIAEoCRISCgpydWxlX2NvdW50GAYgASgFIpoBCgxNYXJrZXRSZWdpbWUSEgoKaW5kZXhfY29kZRgBIAEoCRINCgVhc19vZhgCIAEoCRIOCgZyZWdpbWUYAyABKAkSDQoFY2xvc2UYBCABKAESDQoFc21hNTAYBSABKAESDgoGc21hMjAwGAYgASgBEhgKEHBjdF9vZmZfNTJ3X2hpZ2gYByABKAESDwoHdmVyZGljdBgIIAEoCSKqAQoKUnVsZVJlc3VsdBIPCgdydWxlX2lkGAEgASgJEg4KBnN0YXR1cxgCIAEoCRIOCgZkZXRhaWwYAyABKAkSDQoFdmFsdWUYBCABKAESEQoJaGFzX3ZhbHVlGAUgASgIEg4KBnJlYXNvbhgGIAEoCRIRCglwcm94aW1pdHkYByABKAESFQoNaGFzX3Byb3hpbWl0eRgIIAEoCBIPCgd3YWl0aW5nGAkgASgIItsHCgxTdHJhdGVneVBpY2sSDAoEcmFuaxgBIAEoBRISCgpzdG9ja19jb2RlGAIgASgJEhQKDGNvbXBhbnlfbmFtZRgDIAEoCRIQCghpbmR1c3RyeRgEIAEoCRIOCgZzdGF0dXMYBSABKAkSDQoFc2NvcmUYBiABKAESKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdBINCgVjbG9zZRgIIAEoARINCgVhc19vZhgJIAEoCRIYChBwY3Rfb2ZmXzUyd19oaWdoGAogASgBEhgKEHZvbHVtZV9yYXRpb181MGQYCyABKAESFgoOYmFzZV9kZXB0aF9wY3QYDCABKAESGAoQYmFzZV9sZW5ndGhfZGF5cxgNIAEoBRINCgVwaXZvdBgOIAEoARIXCg9yZXZlbnVlX3lveV9wY3QYDyABKAESFwoPaGFzX3JldmVudWVfeW95GBAgASgIEhMKC2Vwc195b3lfcGN0GBEgASgBEhMKC2hhc19lcHNfeW95GBIgASgIEhEKCXJzXzNtX3BjdBgTIAEoARIRCglzaG9ydF9wY3QYFCABKAESEgoKbWFya2V0X2NhcBgVIAEoARIQCghsb2dvX3VybBgWIAEoCRIVCg1oYXNfcnNfM21fcGN0GBcgASgIEhUKDWhhc19zaG9ydF9wY3QYGCABKAgSFgoOaGFzX21hcmtldF9jYXAYGSABKAgSEQoJaGFzX2Nsb3NlGBogASgIEjcKDGZ1bmRhbWVudGFscxgbIAEoCzIhLnNob3J0cy52MWFscGhhMS5QaWNrRnVuZGFtZW50YWxzEhUKDWRheXNfdG9fY292ZXIYHCABKAESGQoRaGFzX2RheXNfdG9fY292ZXIYHSABKAgSEQoJcnNfNm1fcGN0GB4gASgBEhUKDWhhc19yc182bV9wY3QYHyABKAgSGAoQcnNfNm1fcGVyY2VudGlsZRggIAEoARIcChRoYXNfcnNfNm1fcGVyY2VudGlsZRghIAEoCBIZChFkb2xsYXJfdm9sdW1lXzIwZBgiIAEoARIdChVoYXNfZG9sbGFyX3ZvbHVtZV8yMGQYIyABKAgSFQoNYnJlYWtvdXRfZGF0ZRgkIAEoCRIZChFzaG9ydF9yZXBvcnRfZGF0ZRglIAEoCRIcChRzaG9ydF9hdmFpbGFibGVfZGF0ZRgmIAEoCRIUCgxzaG9ydF9zdGF0dXMYJyABKAkSHAoUaGFzX3BjdF9vZmZfNTJ3X2hpZ2gYKCABKAgSFwoPY2Ffc3VzcGVjdF9kYXRlGCkgASgJIqMEChBQaWNrRnVuZGFtZW50YWxzEiEKGXJldmVudWVfYmFzaXNfcGVyaW9kX3R5cGUYASABKAkSGgoScmV2ZW51ZV9wZXJpb2RfZW5kGAIgASgJEh0KFWVwc19iYXNpc19wZXJpb2RfdHlwZRgDIAEoCRIWCg5lcHNfcGVyaW9kX2VuZBgEIAEoCRIQCghjdXJyZW5jeRgFIAEoCRISCgpmZXRjaGVkX2F0GAYgASgJEhwKFHJldmVudWVfYmFzaXNfc291cmNlGAcgASgJEhgKEGVwc19iYXNpc19zb3VyY2UYCCABKAkSFgoObmV0X21hcmdpbl9wY3QYCSABKAESGgoSaGFzX25ldF9tYXJnaW5fcGN0GAogASgIEg8KB3JvZV9wY3QYCyABKAESEwoLaGFzX3JvZV9wY3QYDCABKAgSFgoOZmNmX21hcmdpbl9wY3QYDSABKAESGgoSaGFzX2ZjZl9tYXJnaW5fcGN0GA4gASgIEhoKEm5ldF9kZWJ0X3RvX2ViaXRkYRgPIAEoARIeChZoYXNfbmV0X2RlYnRfdG9fZWJpdGRhGBAgASgIEhAKCHBlX3JhdGlvGBEgASgBEhQKDGhhc19wZV9yYXRpbxgSIAEoCBIUCgxpc19maW5hbmNpYWwYEyABKAgSGwoTbmV0X2luY29tZV9wb3NpdGl2ZRgUIAEoCBIWCg5ub3RfbWVhbmluZ2Z1bBgVIAMoCSKMAQoXR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QSEwoLc3RyYXRlZ3lfaWQYASABKAkSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFEg4KBnN0YXR1cxgEIAEoCRIPCgdzb3J0X2J5GAUgASgJEhwKFHJlcXVpcmVfZnVuZGFtZW50YWxzGAYgASgIIvgEChhHZXRTdHJhdGVneVBpY2tzUmVzcG9uc2USKwoIc3RyYXRlZ3kYASABKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZRIsCgVwaWNrcxgDIAMoCzIdLnNob3J0cy52MWFscGhhMS5TdHJhdGVneVBpY2sSEwoLdG90YWxfY291bnQYBCABKAUSFgoOdW5pdmVyc2VfY291bnQYBSABKAUSIwobZnVuZGFtZW50YWxzX2NvdmVyYWdlX2NvdW50GAYgASgFEg0KBWFzX29mGAcgASgJEh8KF2Z1bmRhbWVudGFsc19yb3dzX2NvdW50GAggASgFEjQKDXN0YXR1c19jb3VudHMYCSABKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RhdHVzQ291bnRzEjQKB3ZlcnNpb24YCiABKAsyIy5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lWZXJzaW9uUmVmEhQKDHNlc3Npb25fZGF0ZRgLIAEoCRIZChFzaG9ydF9yZXBvcnRfZGF0ZRgMIAEoCRIcChRzaG9ydF9hdmFpbGFibGVfZGF0ZRgNIAEoCRINCgVzdGFsZRgOIAEoCBIdChVyc19xdWFudGlsZV90aHJlc2hvbGQYECABKAESIQoZaGFzX3JzX3F1YW50aWxlX3RocmVzaG9sZBgRIAEoCBIWCg51bml2ZXJzZV9sYWJlbBgSIAEoCRIsCgZ2aWV3ZXIYDyABKAsyHC5zaG9ydHMudjFhbHBoYTEuVmlld2VyRGVwdGgiVgoLVmlld2VyRGVwdGgSDgoGYWNjZXNzGAEgASgJEg8KB2NsYW1wZWQYAiABKAgSFwoPcmVxdWlyZWRfYWNjZXNzGAMgASgJEg0KBWxpbWl0GAQgASgFIr4BChJTdHJhdGVneVZlcnNpb25SZWYSEwoLc3RyYXRlZ3lfaWQYASABKAkSDQoFbGFiZWwYAiABKAkSEgoKcnVsZXNfaGFzaBgDIAEoCRIWCg5lbmdpbmVfdmVyc2lvbhgEIAEoCRITCgtmZWF0dXJlX3NldBgFIAEoCRIOCgZzdGF0dXMYBiABKAkSEQoJbGl2ZV9mcm9tGAcgASgJEgwKBGtpbmQYCCABKAkSEgoKdmFyaWFudF9pZBgJIAEoCSJQCgxTdGF0dXNDb3VudHMSEQoJdHJpZ2dlcmVkGAEgASgFEg0KBXNldHVwGAIgASgFEg0KBXdhdGNoGAMgASgFEg8KB3Vua25vd24YBCABKAUiMAoaR2V0U3RvY2tTdHJhdGVneUZpdFJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCSKnAQoLU3RyYXRlZ3lGaXQSEwoLc3RyYXRlZ3lfaWQYASABKAkSFQoNc3RyYXRlZ3lfbmFtZRgCIAEoCRIOCgZzdGF0dXMYAyABKAkSDQoFc2NvcmUYBCABKAESDAoEcmFuaxgFIAEoBRITCgt0b3RhbF9jb3VudBgGIAEoBRIqCgVydWxlcxgHIAMoCzIbLnNob3J0cy52MWFscGhhMS5SdWxlUmVzdWx0Iq0FCg1QcmljZUZlYXR1cmVzEg0KBWFzX29mGAEgASgJEg0KBWNsb3NlGAIgASgBEg0KBXNtYTUwGAMgASgBEhEKCWhhc19zbWE1MBgEIAEoCBIOCgZzbWExNTAYBSABKAESEgoKaGFzX3NtYTE1MBgGIAEoCBIOCgZzbWEyMDAYByABKAESEgoKaGFzX3NtYTIwMBgIIAEoCBIaChJzbWEyMDBfcHJpb3JfbW9udGgYCSABKAESHgoWaGFzX3NtYTIwMF9wcmlvcl9tb250aBgKIAEoCBIPCgdoaWdoNTJ3GAsgASgBEhMKC2hhc19oaWdoNTJ3GAwgASgIEg4KBmxvdzUydxgNIAEoARISCgpoYXNfbG93NTJ3GA4gASgIEhEKCWJhc2VfaGlnaBgPIAEoARIVCg1oYXNfYmFzZV9oaWdoGBAgASgIEhAKCGJhc2VfbG93GBEgASgBEhQKDGhhc19iYXNlX2xvdxgSIAEoCBIWCg5iYXNlX2RlcHRoX3BjdBgTIAEoARIaChJoYXNfYmFzZV9kZXB0aF9wY3QYFCABKAgSGAoQYmFzZV9sZW5ndGhfZGF5cxgVIAEoBRIcChRoYXNfYmFzZV9sZW5ndGhfZGF5cxgWIAEoCBIXCg9icmVha291dF9yZWNlbnQYFyABKAgSFQoNYnJlYWtvdXRfZGF0ZRgYIAEoCRIQCghyczNtX3BjdBgZIAEoARIUCgxoYXNfcnMzbV9wY3QYGiABKAgSEAoIcnM2bV9wY3QYGyABKAESFAoMaGFzX3JzNm1fcGN0GBwgASgIEhcKD3ZvbHVtZV9yYXRpbzUwZBgdIAEoARIbChNoYXNfdm9sdW1lX3JhdGlvNTBkGB4gASgIEhoKEnNlc3Npb25zX2F2YWlsYWJsZRgfIAEoBSLzAgobR2V0U3RvY2tTdHJhdGVneUZpdFJlc3BvbnNlEhIKCnN0b2NrX2NvZGUYASABKAkSDQoFYXNfb2YYAiABKAkSLQoGcmVnaW1lGAMgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZRIqCgRmaXRzGAQgAygLMhwuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5Rml0EhMKC2luX3VuaXZlcnNlGAUgASgIEjYKDnByaWNlX2ZlYXR1cmVzGAYgASgLMh4uc2hvcnRzLnYxYWxwaGExLlByaWNlRmVhdHVyZXMSFAoMc2Vzc2lvbl9kYXRlGAcgASgJEhkKEXNob3J0X3JlcG9ydF9kYXRlGAggASgJEhwKFHNob3J0X2F2YWlsYWJsZV9kYXRlGAkgASgJEg0KBXN0YWxlGAogASgIEhAKCGVsaWdpYmxlGAsgASgIEhkKEWluZWxpZ2libGVfcmVhc29uGAwgASgJIhcKFUxpc3RTdHJhdGVnaWVzUmVxdWVzdCJ2ChZMaXN0U3RyYXRlZ2llc1Jlc3BvbnNlEi0KCnN0cmF0ZWdpZXMYASADKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZTLWAwoPU3RyYXRlZ3lTZXJ2aWNlEmcKDkxpc3RTdHJhdGVnaWVzEiYuc2hvcnRzLnYxYWxwaGExLkxpc3RTdHJhdGVnaWVzUmVxdWVzdBonLnNob3J0cy52MWFscGhhMS5MaXN0U3RyYXRlZ2llc1Jlc3BvbnNlIgSAtRgBEm0KEEdldFN0cmF0ZWd5UGlja3MSKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1Jlc3BvbnNlIgSAtRgBEnMKFkdldFZpZXdlclN0cmF0ZWd5UGlja3MSKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1Jlc3BvbnNlIgSAtRgCEnYKE0dldFN0b2NrU3RyYXRlZ3lGaXQSKy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlcXVlc3QaLC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlc3BvbnNlIgSAtRgBQt4BChNjb20uc2hvcnRzLnYxYWxwaGExQg9TdHJhdGVnaWVzUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_options_v1_options]);
+  fileDesc("CiBzaG9ydHMvdjFhbHBoYTEvc3RyYXRlZ2llcy5wcm90bxIPc2hvcnRzLnYxYWxwaGExIqACCghTdHJhdGVneRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmF1dGhvchgDIAEoCRIPCgd0YWdsaW5lGAQgASgJEh4KFmRlc2NyaXB0aW9uX3BhcmFncmFwaHMYBSADKAkSLAoFcnVsZXMYBiADKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lSdWxlEjMKCG1ldGFkYXRhGAcgASgLMiEuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5TWV0YWRhdGESDwoHY2F2ZWF0cxgIIAMoCRIPCgdzb3VyY2VzGAkgAygJEjQKB3ZlcnNpb24YCiABKAsyIy5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lWZXJzaW9uUmVmIuABCgxTdHJhdGVneVJ1bGUSCgoCaWQYASABKAkSDQoFdGl0bGUYAiABKAkSEQoJcnVsZV90ZXh0GAMgASgJEhIKCmV2YWx1YXRpb24YBCABKAkSDAoEY29yZRgFIAEoCBITCgtkYXRhX3NvdXJjZRgGIAEoCRIPCgd0cmlnZ2VyGAcgASgIEg4KBndlaWdodBgIIAEoARIRCgl0aHJlc2hvbGQYCSABKAESFQoNaGFzX3RocmVzaG9sZBgKIAEoCBIMCgR1bml0GAsgASgJEhIKCmNvbXBhcmF0b3IYDCABKAkijgEKEFN0cmF0ZWd5TWV0YWRhdGESDQoFc3R5bGUYASABKAkSFgoOaG9sZGluZ19wZXJpb2QYAiABKAkSFAoMcmlza19wb3N0dXJlGAMgASgJEhAKCHVuaXZlcnNlGAQgASgJEhcKD3JlZnJlc2hfY2FkZW5jZRgFIAEoCRISCgpydWxlX2NvdW50GAYgASgFIpoBCgxNYXJrZXRSZWdpbWUSEgoKaW5kZXhfY29kZRgBIAEoCRINCgVhc19vZhgCIAEoCRIOCgZyZWdpbWUYAyABKAkSDQoFY2xvc2UYBCABKAESDQoFc21hNTAYBSABKAESDgoGc21hMjAwGAYgASgBEhgKEHBjdF9vZmZfNTJ3X2hpZ2gYByABKAESDwoHdmVyZGljdBgIIAEoCSKqAQoKUnVsZVJlc3VsdBIPCgdydWxlX2lkGAEgASgJEg4KBnN0YXR1cxgCIAEoCRIOCgZkZXRhaWwYAyABKAkSDQoFdmFsdWUYBCABKAESEQoJaGFzX3ZhbHVlGAUgASgIEg4KBnJlYXNvbhgGIAEoCRIRCglwcm94aW1pdHkYByABKAESFQoNaGFzX3Byb3hpbWl0eRgIIAEoCBIPCgd3YWl0aW5nGAkgASgIItsHCgxTdHJhdGVneVBpY2sSDAoEcmFuaxgBIAEoBRISCgpzdG9ja19jb2RlGAIgASgJEhQKDGNvbXBhbnlfbmFtZRgDIAEoCRIQCghpbmR1c3RyeRgEIAEoCRIOCgZzdGF0dXMYBSABKAkSDQoFc2NvcmUYBiABKAESKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdBINCgVjbG9zZRgIIAEoARINCgVhc19vZhgJIAEoCRIYChBwY3Rfb2ZmXzUyd19oaWdoGAogASgBEhgKEHZvbHVtZV9yYXRpb181MGQYCyABKAESFgoOYmFzZV9kZXB0aF9wY3QYDCABKAESGAoQYmFzZV9sZW5ndGhfZGF5cxgNIAEoBRINCgVwaXZvdBgOIAEoARIXCg9yZXZlbnVlX3lveV9wY3QYDyABKAESFwoPaGFzX3JldmVudWVfeW95GBAgASgIEhMKC2Vwc195b3lfcGN0GBEgASgBEhMKC2hhc19lcHNfeW95GBIgASgIEhEKCXJzXzNtX3BjdBgTIAEoARIRCglzaG9ydF9wY3QYFCABKAESEgoKbWFya2V0X2NhcBgVIAEoARIQCghsb2dvX3VybBgWIAEoCRIVCg1oYXNfcnNfM21fcGN0GBcgASgIEhUKDWhhc19zaG9ydF9wY3QYGCABKAgSFgoOaGFzX21hcmtldF9jYXAYGSABKAgSEQoJaGFzX2Nsb3NlGBogASgIEjcKDGZ1bmRhbWVudGFscxgbIAEoCzIhLnNob3J0cy52MWFscGhhMS5QaWNrRnVuZGFtZW50YWxzEhUKDWRheXNfdG9fY292ZXIYHCABKAESGQoRaGFzX2RheXNfdG9fY292ZXIYHSABKAgSEQoJcnNfNm1fcGN0GB4gASgBEhUKDWhhc19yc182bV9wY3QYHyABKAgSGAoQcnNfNm1fcGVyY2VudGlsZRggIAEoARIcChRoYXNfcnNfNm1fcGVyY2VudGlsZRghIAEoCBIZChFkb2xsYXJfdm9sdW1lXzIwZBgiIAEoARIdChVoYXNfZG9sbGFyX3ZvbHVtZV8yMGQYIyABKAgSFQoNYnJlYWtvdXRfZGF0ZRgkIAEoCRIZChFzaG9ydF9yZXBvcnRfZGF0ZRglIAEoCRIcChRzaG9ydF9hdmFpbGFibGVfZGF0ZRgmIAEoCRIUCgxzaG9ydF9zdGF0dXMYJyABKAkSHAoUaGFzX3BjdF9vZmZfNTJ3X2hpZ2gYKCABKAgSFwoPY2Ffc3VzcGVjdF9kYXRlGCkgASgJIqMEChBQaWNrRnVuZGFtZW50YWxzEiEKGXJldmVudWVfYmFzaXNfcGVyaW9kX3R5cGUYASABKAkSGgoScmV2ZW51ZV9wZXJpb2RfZW5kGAIgASgJEh0KFWVwc19iYXNpc19wZXJpb2RfdHlwZRgDIAEoCRIWCg5lcHNfcGVyaW9kX2VuZBgEIAEoCRIQCghjdXJyZW5jeRgFIAEoCRISCgpmZXRjaGVkX2F0GAYgASgJEhwKFHJldmVudWVfYmFzaXNfc291cmNlGAcgASgJEhgKEGVwc19iYXNpc19zb3VyY2UYCCABKAkSFgoObmV0X21hcmdpbl9wY3QYCSABKAESGgoSaGFzX25ldF9tYXJnaW5fcGN0GAogASgIEg8KB3JvZV9wY3QYCyABKAESEwoLaGFzX3JvZV9wY3QYDCABKAgSFgoOZmNmX21hcmdpbl9wY3QYDSABKAESGgoSaGFzX2ZjZl9tYXJnaW5fcGN0GA4gASgIEhoKEm5ldF9kZWJ0X3RvX2ViaXRkYRgPIAEoARIeChZoYXNfbmV0X2RlYnRfdG9fZWJpdGRhGBAgASgIEhAKCHBlX3JhdGlvGBEgASgBEhQKDGhhc19wZV9yYXRpbxgSIAEoCBIUCgxpc19maW5hbmNpYWwYEyABKAgSGwoTbmV0X2luY29tZV9wb3NpdGl2ZRgUIAEoCBIWCg5ub3RfbWVhbmluZ2Z1bBgVIAMoCSKMAQoXR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QSEwoLc3RyYXRlZ3lfaWQYASABKAkSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFEg4KBnN0YXR1cxgEIAEoCRIPCgdzb3J0X2J5GAUgASgJEhwKFHJlcXVpcmVfZnVuZGFtZW50YWxzGAYgASgIIvgEChhHZXRTdHJhdGVneVBpY2tzUmVzcG9uc2USKwoIc3RyYXRlZ3kYASABKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZRIsCgVwaWNrcxgDIAMoCzIdLnNob3J0cy52MWFscGhhMS5TdHJhdGVneVBpY2sSEwoLdG90YWxfY291bnQYBCABKAUSFgoOdW5pdmVyc2VfY291bnQYBSABKAUSIwobZnVuZGFtZW50YWxzX2NvdmVyYWdlX2NvdW50GAYgASgFEg0KBWFzX29mGAcgASgJEh8KF2Z1bmRhbWVudGFsc19yb3dzX2NvdW50GAggASgFEjQKDXN0YXR1c19jb3VudHMYCSABKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RhdHVzQ291bnRzEjQKB3ZlcnNpb24YCiABKAsyIy5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lWZXJzaW9uUmVmEhQKDHNlc3Npb25fZGF0ZRgLIAEoCRIZChFzaG9ydF9yZXBvcnRfZGF0ZRgMIAEoCRIcChRzaG9ydF9hdmFpbGFibGVfZGF0ZRgNIAEoCRINCgVzdGFsZRgOIAEoCBIdChVyc19xdWFudGlsZV90aHJlc2hvbGQYECABKAESIQoZaGFzX3JzX3F1YW50aWxlX3RocmVzaG9sZBgRIAEoCBIWCg51bml2ZXJzZV9sYWJlbBgSIAEoCRIsCgZ2aWV3ZXIYDyABKAsyHC5zaG9ydHMudjFhbHBoYTEuVmlld2VyRGVwdGgiVgoLVmlld2VyRGVwdGgSDgoGYWNjZXNzGAEgASgJEg8KB2NsYW1wZWQYAiABKAgSFwoPcmVxdWlyZWRfYWNjZXNzGAMgASgJEg0KBWxpbWl0GAQgASgFIr4BChJTdHJhdGVneVZlcnNpb25SZWYSEwoLc3RyYXRlZ3lfaWQYASABKAkSDQoFbGFiZWwYAiABKAkSEgoKcnVsZXNfaGFzaBgDIAEoCRIWCg5lbmdpbmVfdmVyc2lvbhgEIAEoCRITCgtmZWF0dXJlX3NldBgFIAEoCRIOCgZzdGF0dXMYBiABKAkSEQoJbGl2ZV9mcm9tGAcgASgJEgwKBGtpbmQYCCABKAkSEgoKdmFyaWFudF9pZBgJIAEoCSJQCgxTdGF0dXNDb3VudHMSEQoJdHJpZ2dlcmVkGAEgASgFEg0KBXNldHVwGAIgASgFEg0KBXdhdGNoGAMgASgFEg8KB3Vua25vd24YBCABKAUiMAoaR2V0U3RvY2tTdHJhdGVneUZpdFJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCSK9AQoLU3RyYXRlZ3lGaXQSEwoLc3RyYXRlZ3lfaWQYASABKAkSFQoNc3RyYXRlZ3lfbmFtZRgCIAEoCRIOCgZzdGF0dXMYAyABKAkSDQoFc2NvcmUYBCABKAESDAoEcmFuaxgFIAEoBRITCgt0b3RhbF9jb3VudBgGIAEoBRIqCgVydWxlcxgHIAMoCzIbLnNob3J0cy52MWFscGhhMS5SdWxlUmVzdWx0EhQKDHZlcnNpb25faGFzaBgIIAEoCSKtBQoNUHJpY2VGZWF0dXJlcxINCgVhc19vZhgBIAEoCRINCgVjbG9zZRgCIAEoARINCgVzbWE1MBgDIAEoARIRCgloYXNfc21hNTAYBCABKAgSDgoGc21hMTUwGAUgASgBEhIKCmhhc19zbWExNTAYBiABKAgSDgoGc21hMjAwGAcgASgBEhIKCmhhc19zbWEyMDAYCCABKAgSGgoSc21hMjAwX3ByaW9yX21vbnRoGAkgASgBEh4KFmhhc19zbWEyMDBfcHJpb3JfbW9udGgYCiABKAgSDwoHaGlnaDUydxgLIAEoARITCgtoYXNfaGlnaDUydxgMIAEoCBIOCgZsb3c1MncYDSABKAESEgoKaGFzX2xvdzUydxgOIAEoCBIRCgliYXNlX2hpZ2gYDyABKAESFQoNaGFzX2Jhc2VfaGlnaBgQIAEoCBIQCghiYXNlX2xvdxgRIAEoARIUCgxoYXNfYmFzZV9sb3cYEiABKAgSFgoOYmFzZV9kZXB0aF9wY3QYEyABKAESGgoSaGFzX2Jhc2VfZGVwdGhfcGN0GBQgASgIEhgKEGJhc2VfbGVuZ3RoX2RheXMYFSABKAUSHAoUaGFzX2Jhc2VfbGVuZ3RoX2RheXMYFiABKAgSFwoPYnJlYWtvdXRfcmVjZW50GBcgASgIEhUKDWJyZWFrb3V0X2RhdGUYGCABKAkSEAoIcnMzbV9wY3QYGSABKAESFAoMaGFzX3JzM21fcGN0GBogASgIEhAKCHJzNm1fcGN0GBsgASgBEhQKDGhhc19yczZtX3BjdBgcIAEoCBIXCg92b2x1bWVfcmF0aW81MGQYHSABKAESGwoTaGFzX3ZvbHVtZV9yYXRpbzUwZBgeIAEoCBIaChJzZXNzaW9uc19hdmFpbGFibGUYHyABKAUi8wIKG0dldFN0b2NrU3RyYXRlZ3lGaXRSZXNwb25zZRISCgpzdG9ja19jb2RlGAEgASgJEg0KBWFzX29mGAIgASgJEi0KBnJlZ2ltZRgDIAEoCzIdLnNob3J0cy52MWFscGhhMS5NYXJrZXRSZWdpbWUSKgoEZml0cxgEIAMoCzIcLnNob3J0cy52MWFscGhhMS5TdHJhdGVneUZpdBITCgtpbl91bml2ZXJzZRgFIAEoCBI2Cg5wcmljZV9mZWF0dXJlcxgGIAEoCzIeLnNob3J0cy52MWFscGhhMS5QcmljZUZlYXR1cmVzEhQKDHNlc3Npb25fZGF0ZRgHIAEoCRIZChFzaG9ydF9yZXBvcnRfZGF0ZRgIIAEoCRIcChRzaG9ydF9hdmFpbGFibGVfZGF0ZRgJIAEoCRINCgVzdGFsZRgKIAEoCBIQCghlbGlnaWJsZRgLIAEoCBIZChFpbmVsaWdpYmxlX3JlYXNvbhgMIAEoCSIXChVMaXN0U3RyYXRlZ2llc1JlcXVlc3QidgoWTGlzdFN0cmF0ZWdpZXNSZXNwb25zZRItCgpzdHJhdGVnaWVzGAEgAygLMhkuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5Ei0KBnJlZ2ltZRgCIAEoCzIdLnNob3J0cy52MWFscGhhMS5NYXJrZXRSZWdpbWUiRgoZR2V0U3RyYXRlZ3lWZXJzaW9uUmVxdWVzdBITCgtzdHJhdGVneV9pZBgBIAEoCRIUCgx2ZXJzaW9uX2hhc2gYAiABKAkiVQoaR2V0U3RyYXRlZ3lWZXJzaW9uUmVzcG9uc2USNwoHdmVyc2lvbhgBIAEoCzImLnNob3J0cy52MWFscGhhMS5TdHJhdGVneVZlcnNpb25EZXRhaWwiMgobTGlzdFN0cmF0ZWd5VmVyc2lvbnNSZXF1ZXN0EhMKC3N0cmF0ZWd5X2lkGAEgASgJIlgKHExpc3RTdHJhdGVneVZlcnNpb25zUmVzcG9uc2USOAoIdmVyc2lvbnMYASADKAsyJi5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lWZXJzaW9uRGV0YWlsIvUBChVTdHJhdGVneVZlcnNpb25EZXRhaWwSNAoHdmVyc2lvbhgBIAEoCzIjLnNob3J0cy52MWFscGhhMS5TdHJhdGVneVZlcnNpb25SZWYSKgoGcGFyYW1zGAIgAygLMhouc2hvcnRzLnYxYWxwaGExLlJ1bGVQYXJhbRIQCghwb2xpY2llcxgDIAMoCRIPCgdjaGFuZ2VzGAYgAygJEhQKDGtub3duX2lzc3VlcxgHIAMoCRIVCg1zdXBlcnNlZGVkX29uGAggASgJEhIKCnJldGlyZWRfb24YCSABKAkSFgoOY2Fub25pY2FsX2pzb24YCiABKAkiOQoJUnVsZVBhcmFtEg8KB3J1bGVfaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgV2YWx1ZRgDIAEoATLGBQoPU3RyYXRlZ3lTZXJ2aWNlEmcKDkxpc3RTdHJhdGVnaWVzEiYuc2hvcnRzLnYxYWxwaGExLkxpc3RTdHJhdGVnaWVzUmVxdWVzdBonLnNob3J0cy52MWFscGhhMS5MaXN0U3RyYXRlZ2llc1Jlc3BvbnNlIgSAtRgBEm0KEEdldFN0cmF0ZWd5UGlja3MSKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1Jlc3BvbnNlIgSAtRgBEnMKFkdldFZpZXdlclN0cmF0ZWd5UGlja3MSKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1Jlc3BvbnNlIgSAtRgCEnYKE0dldFN0b2NrU3RyYXRlZ3lGaXQSKy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlcXVlc3QaLC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlc3BvbnNlIgSAtRgBEnMKEkdldFN0cmF0ZWd5VmVyc2lvbhIqLnNob3J0cy52MWFscGhhMS5HZXRTdHJhdGVneVZlcnNpb25SZXF1ZXN0Gisuc2hvcnRzLnYxYWxwaGExLkdldFN0cmF0ZWd5VmVyc2lvblJlc3BvbnNlIgSAtRgBEnkKFExpc3RTdHJhdGVneVZlcnNpb25zEiwuc2hvcnRzLnYxYWxwaGExLkxpc3RTdHJhdGVneVZlcnNpb25zUmVxdWVzdBotLnNob3J0cy52MWFscGhhMS5MaXN0U3RyYXRlZ3lWZXJzaW9uc1Jlc3BvbnNlIgSAtRgBQt4BChNjb20uc2hvcnRzLnYxYWxwaGExQg9TdHJhdGVnaWVzUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_options_v1_options]);
 
 /**
  * A named stock-picking strategy and how we evaluate it.
@@ -75,6 +75,13 @@ export type Strategy = Message<"shorts.v1alpha1.Strategy"> & {
    * @generated from field: repeated string sources = 9;
    */
   sources: string[];
+
+  /**
+   * The live rules version this definition is evaluated under.
+   *
+   * @generated from field: shorts.v1alpha1.StrategyVersionRef version = 10;
+   */
+  version?: StrategyVersionRef;
 };
 
 /**
@@ -922,7 +929,7 @@ export type GetStrategyPicksResponse = Message<"shorts.v1alpha1.GetStrategyPicks
   statusCounts?: StatusCounts;
 
   /**
-   * Empty until versioned rules ship.
+   * The live rules version that produced these picks.
    *
    * @generated from field: shorts.v1alpha1.StrategyVersionRef version = 10;
    */
@@ -1207,6 +1214,13 @@ export type StrategyFit = Message<"shorts.v1alpha1.StrategyFit"> & {
    * @generated from field: repeated shorts.v1alpha1.RuleResult rules = 7;
    */
   rules: RuleResult[];
+
+  /**
+   * rules_hash of the live version this reading was evaluated under.
+   *
+   * @generated from field: string version_hash = 8;
+   */
+  versionHash: string;
 };
 
 /**
@@ -1527,6 +1541,193 @@ export const ListStrategiesResponseSchema: GenMessage<ListStrategiesResponse> = 
   messageDesc(file_shorts_v1alpha1_strategies, 17);
 
 /**
+ * Request for GetStrategyVersion.
+ *
+ * @generated from message shorts.v1alpha1.GetStrategyVersionRequest
+ */
+export type GetStrategyVersionRequest = Message<"shorts.v1alpha1.GetStrategyVersionRequest"> & {
+  /**
+   * Required, e.g. "zanger-breakout".
+   *
+   * @generated from field: string strategy_id = 1;
+   */
+  strategyId: string;
+
+  /**
+   * rules_hash of a published version; empty for the live version.
+   *
+   * @generated from field: string version_hash = 2;
+   */
+  versionHash: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStrategyVersionRequest.
+ * Use `create(GetStrategyVersionRequestSchema)` to create a new message.
+ */
+export const GetStrategyVersionRequestSchema: GenMessage<GetStrategyVersionRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 18);
+
+/**
+ * Response for GetStrategyVersion.
+ *
+ * @generated from message shorts.v1alpha1.GetStrategyVersionResponse
+ */
+export type GetStrategyVersionResponse = Message<"shorts.v1alpha1.GetStrategyVersionResponse"> & {
+  /**
+   * @generated from field: shorts.v1alpha1.StrategyVersionDetail version = 1;
+   */
+  version?: StrategyVersionDetail;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStrategyVersionResponse.
+ * Use `create(GetStrategyVersionResponseSchema)` to create a new message.
+ */
+export const GetStrategyVersionResponseSchema: GenMessage<GetStrategyVersionResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 19);
+
+/**
+ * Request for ListStrategyVersions.
+ *
+ * @generated from message shorts.v1alpha1.ListStrategyVersionsRequest
+ */
+export type ListStrategyVersionsRequest = Message<"shorts.v1alpha1.ListStrategyVersionsRequest"> & {
+  /**
+   * Empty for every strategy's versions.
+   *
+   * @generated from field: string strategy_id = 1;
+   */
+  strategyId: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListStrategyVersionsRequest.
+ * Use `create(ListStrategyVersionsRequestSchema)` to create a new message.
+ */
+export const ListStrategyVersionsRequestSchema: GenMessage<ListStrategyVersionsRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 20);
+
+/**
+ * Response for ListStrategyVersions.
+ *
+ * @generated from message shorts.v1alpha1.ListStrategyVersionsResponse
+ */
+export type ListStrategyVersionsResponse = Message<"shorts.v1alpha1.ListStrategyVersionsResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.StrategyVersionDetail versions = 1;
+   */
+  versions: StrategyVersionDetail[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListStrategyVersionsResponse.
+ * Use `create(ListStrategyVersionsResponseSchema)` to create a new message.
+ */
+export const ListStrategyVersionsResponseSchema: GenMessage<ListStrategyVersionsResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 21);
+
+/**
+ * One published version of a strategy's rules, as the changelog states it.
+ * Recipe and recipe_hash (4 and 5) arrive with the recipe schema.
+ *
+ * @generated from message shorts.v1alpha1.StrategyVersionDetail
+ */
+export type StrategyVersionDetail = Message<"shorts.v1alpha1.StrategyVersionDetail"> & {
+  /**
+   * @generated from field: shorts.v1alpha1.StrategyVersionRef version = 1;
+   */
+  version?: StrategyVersionRef;
+
+  /**
+   * Every numeric parameter of every rule, in rule order.
+   *
+   * @generated from field: repeated shorts.v1alpha1.RuleParam params = 2;
+   */
+  params: RuleParam[];
+
+  /**
+   * Universe and data policy, one rendered sentence each.
+   *
+   * @generated from field: repeated string policies = 3;
+   */
+  policies: string[];
+
+  /**
+   * What this version changed from the one before it.
+   *
+   * @generated from field: repeated string changes = 6;
+   */
+  changes: string[];
+
+  /**
+   * What this version gets wrong, worded as defects.
+   *
+   * @generated from field: repeated string known_issues = 7;
+   */
+  knownIssues: string[];
+
+  /**
+   * YYYY-MM-DD the next version went live; empty while live.
+   *
+   * @generated from field: string superseded_on = 8;
+   */
+  supersededOn: string;
+
+  /**
+   * YYYY-MM-DD the version was retired; empty while it is still evaluated.
+   *
+   * @generated from field: string retired_on = 9;
+   */
+  retiredOn: string;
+
+  /**
+   * The hashed spec in canonical form, for audit.
+   *
+   * @generated from field: string canonical_json = 10;
+   */
+  canonicalJson: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.StrategyVersionDetail.
+ * Use `create(StrategyVersionDetailSchema)` to create a new message.
+ */
+export const StrategyVersionDetailSchema: GenMessage<StrategyVersionDetail> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 22);
+
+/**
+ * One numeric parameter of one rule in a version.
+ *
+ * @generated from message shorts.v1alpha1.RuleParam
+ */
+export type RuleParam = Message<"shorts.v1alpha1.RuleParam"> & {
+  /**
+   * @generated from field: string rule_id = 1;
+   */
+  ruleId: string;
+
+  /**
+   * The parameter's key, e.g. "min_pct".
+   *
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: double value = 3;
+   */
+  value: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.RuleParam.
+ * Use `create(RuleParamSchema)` to create a new message.
+ */
+export const RuleParamSchema: GenMessage<RuleParam> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 23);
+
+/**
  * Named, rule-based stock-picking strategies evaluated daily against ASX
  * price structure, reported fundamentals and ASIC short interest. Every rule
  * resolves to pass, fail or unknown; unknown (missing data) never counts as a
@@ -1587,6 +1788,29 @@ export const StrategyService: GenService<{
     methodKind: "unary";
     input: typeof GetStockStrategyFitRequestSchema;
     output: typeof GetStockStrategyFitResponseSchema;
+  },
+  /**
+   * One published version of a strategy's rules: its parameters, what changed
+   * from the version before, and its known issues. An empty version_hash is
+   * the live version. Canonical versions only; an unknown hash is NotFound.
+   *
+   * @generated from rpc shorts.v1alpha1.StrategyService.GetStrategyVersion
+   */
+  getStrategyVersion: {
+    methodKind: "unary";
+    input: typeof GetStrategyVersionRequestSchema;
+    output: typeof GetStrategyVersionResponseSchema;
+  },
+  /**
+   * Every published canonical version of a strategy (all strategies when
+   * strategy_id is empty), in publication order: the rules changelog.
+   *
+   * @generated from rpc shorts.v1alpha1.StrategyService.ListStrategyVersions
+   */
+  listStrategyVersions: {
+    methodKind: "unary";
+    input: typeof ListStrategyVersionsRequestSchema;
+    output: typeof ListStrategyVersionsResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_shorts_v1alpha1_strategies, 0);
