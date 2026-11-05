@@ -296,6 +296,20 @@ func newestASIC(rows []features.ASICRow, t civil.Date) (product string, shares f
 	return r.Product, r.Issued, true
 }
 
+// CandidateFromPrice maps one price-feature row onto the evaluator's candidate.
+// The snapshot reader builds candidates from its stored rows with it, so a
+// stored session and a live build share one mapping.
+func CandidateFromPrice(code string, p features.PriceFeatures) engine.Candidate {
+	return candidateFromPrice(code, p)
+}
+
+// ApplyFundamentals decodes a stock's frozen fundamentals onto its candidate,
+// as the live build does. A missing or undecodable blob leaves the candidate
+// without fundamentals.
+func ApplyFundamentals(c *engine.Candidate, f features.Fundamentals) {
+	applyFundamentals(c, f)
+}
+
 // candidateFromPrice maps one price-feature row onto the evaluator's candidate.
 func candidateFromPrice(code string, p features.PriceFeatures) engine.Candidate {
 	volume := p.Volume
