@@ -166,6 +166,113 @@ behaviour: the standalone `cmd/audit-gaps` used a bare `pgxpool.New` (extended
 protocol, default pool size) against the same Supabase pooler, and now shares the
 tuned config.
 
+### Benchmark indices (`market-data index-sync`, job `shorted-index-sync`)
+
+XJO, XAO, XKO and XJT are fetched from Yahoo into `index_prices` (migration
+000117), with the series registry in `index_metadata`. The scheduled CronJob
+runs `-years 2` daily at 11:30 UTC, and it re-dates only that two-year window.
+
+**Dating.** A bar is dated by its ASX session, the Sydney date of its open
+(`providers.SessionDate`). Yahoo stamps a session at 10:00 Sydney, which is the
+previous UTC day under daylight saving, so the old UTC dating filed every
+daylight-saving session one day early: a Monday's close sat under the Sunday.
+The symptoms in production were weekend rows (XJO 481, XAO 483, XKO 324,
+XJT 177 before the fix), no Friday rows in daylight-saving history (the newest
+Friday is filed correctly while it is Yahoo's last bar), and each weekday
+holding the next session's close.
+
+**Write.** Per series, the upsert and a bounded clean-up run in one
+transaction. The clean-up removes only this series' stored rows dated inside
+the response's first and last session stamp that the response does not stamp.
+A session Yahoo stamps without a close counts as stamped, so its stored row
+survives. Rows outside the window are never touched. An empty or failed
+response writes and removes nothing.
+
+**Ceiling.** A write whose clean-up would remove more than 15% of the series'
+stored rows in the window is refused: nothing is written for that series, the
+run logs `refused, nothing written`, and the series counts as failed. The
+other series are still written, and then the run exits 1, so the scheduled job
+retries and alerts: a refusal is never silent. The legitimate re-date removes
+about one row in ten, so a refusal means the response is gappy or something else
+is wrong. Stop and look before retrying.
+
+**Dry run.** `-dry-run` fetches, then logs for each code how many stored rows
+the write would remove and how many stored rows are in the window, and whether
+that is within the ceiling. It writes nothing.
+
+**One-off operator step, after the deploy that carries this change.** The
+scheduled two-year window re-dates only its own rows. History older than two
+years stays one session early in daylight-saving months until the full history
+is re-fetched once. Until then it is wrong, not missing.
+
+Run the steps in this order, and not at 11:30 UTC, when the scheduled run
+starts.
+
+1. Read the baseline, which is what the clean-up is about to change:
+
+   ```sql
+   SELECT index_code, count(*) FILTER (WHERE extract(isodow FROM date) > 5) AS weekend, count(*) AS rows
+   FROM index_prices GROUP BY 1 ORDER BY 1;
+   ```
+
+   (`task db:prod:psql -- -At -c "<the query>"`.)
+
+2. Back up the whole table before any write. The backup is SQL, one statement
+   per stored row, written through the read-only wrapper: a `\copy` is refused
+   there, so do not use one. Keep the file outside the repo:
+
+   ```bash
+   task db:prod:psql -- -At -c "SELECT format('INSERT INTO index_prices (index_code,date,open,high,low,close,volume,created_at,updated_at) VALUES (%L,%L,%L,%L,%L,%L,%L,%L,%L) ON CONFLICT (index_code,date) DO UPDATE SET open=EXCLUDED.open, high=EXCLUDED.high, low=EXCLUDED.low, close=EXCLUDED.close, volume=EXCLUDED.volume, created_at=EXCLUDED.created_at, updated_at=EXCLUDED.updated_at;', index_code, date, open, high, low, close, volume, created_at, updated_at) FROM index_prices ORDER BY index_code, date" > ~/index_prices-YYYYMMDD.sql
+   wc -l ~/index_prices-YYYYMMDD.sql   # must equal the sum of the rows column in step 1
+   head -c 120 ~/index_prices-YYYYMMDD.sql   # must start with INSERT INTO
+   ```
+
+   The file is the only record of a removed row: the run logs counts, not rows.
+
+   Restore with `task db:prod:apply FILE=~/index_prices-YYYYMMDD.sql CONFIRM=prod`.
+   It re-upserts every backed-up row, which puts back each removed row and each
+   changed close, in one transaction. It does not delete the rows the re-date
+   added: those are sessions Yahoo stamped in the window that the backup did not
+   have. To list them, select the rows of a series whose dates are not in the
+   backup's dates for that series.
+
+3. Dry run each command, and read its log lines in the execution:
+
+   ```bash
+   gcloud run jobs execute shorted-index-sync --region australia-southeast2 --wait \
+     --args="market-data,index-sync,-years,21,-dry-run"
+   gcloud run jobs execute shorted-index-sync --region australia-southeast2 --wait \
+     --args="market-data,index-sync,-code,XJT,-years,8,-dry-run"
+   ```
+
+   Each `[dry-run]` line should show a count close to the weekend rows from step
+   1 for that series, plus a few dozen holiday-dated weekday rows. Stop if a
+   count is far above that, or any line says `OVER`.
+
+4. Write, with the same two commands without `-dry-run`. The XJT run is
+   separate on purpose: Yahoo answers 400 to a `-years 21` window for XJT, which
+   is logged as a fetch failure and writes nothing for XJT, while XJO, XAO and
+   XKO still run. Confirm a log line `<code> N sessions written (...), M stale
+   rows removed` for each of XJO, XAO, XKO and XJT, and no `refused` line. A
+   refused series exits 1. XJT's fetch failure exits 0 while the others write,
+   so the exit code does not prove that a series was written: read the lines.
+
+5. Check: no weekend rows remain.
+
+   ```sql
+   SELECT index_code, count(*) FROM index_prices WHERE extract(isodow FROM date) > 5 GROUP BY 1;
+   ```
+
+   It must return no rows.
+
+Do not run the full-history command with `kubectl create job --from=cronjob/...`:
+the CronJob's args are `-years 2`, so that would re-run the scheduled window
+and not the full history. Only the Cloud Run job takes the overridden args
+above.
+
+Its test suite is `make test-indexsync-pg` (`services/jobs/internal/jobs/marketdata/index_sync_pg_test.go`).
+It gates the deploy in `terraform-deploy.yml`'s `run-tests` job.
+
 ### `discovery` — env-only, browser image
 
 No flags, before or after: `GCS_BUCKET_NAME` (default `shorted-data`) and

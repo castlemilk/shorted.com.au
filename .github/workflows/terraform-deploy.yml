@@ -1967,6 +1967,16 @@ jobs:
           GOPRIVATE: github.com/skunkworq/*
         run: go test ./... -short
 
+      # The index sync's write (services/jobs/internal/jobs/marketdata): one
+      # series' upsert and bounded clean-up in one transaction, against a real
+      # postgres. The clean-up is a DELETE on the production index_prices table,
+      # so it gates the deploy like the alerts suite. About 10s.
+      - name: Run index sync clean-up suite (gates the deploy)
+        run: |
+          echo "🧪 Running the index sync write suite (postgres container)..."
+          cd services
+          make test-indexsync-pg
+
       # The alerts evaluator's cross-user and fail-closed checks (owner isolation,
       # the pause link, the owner lookup and billing failing closed). Kept on the
       # deploy gate: about 17s, and they guard who can see or change a monitor.
