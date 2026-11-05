@@ -275,6 +275,37 @@ func TestDailySnapshotDiffsAgainstTheStoredPreviousSession(t *testing.T) {
 	require.Equal(t, 0, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE status = 'failed'"))
 }
 
+// TestDailySnapshotNoFeatureRowsOnThePreviousSessionMakesNoEvents: a previous
+// session with a stored regime but no feature rows (a pruned or edited session)
+// is no baseline for a diff. Every current pick would read as none -> its status,
+// so the session writes no events instead.
+func TestDailySnapshotNoFeatureRowsOnThePreviousSessionMakesNoEvents(t *testing.T) {
+	pool := dailyDB(t)
+	seedDailySession(t, pool)
+	ctx := context.Background()
+	_, err := runDaily(ctx, pool, dailyOpts(true, t))
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `DELETE FROM strategy_features_daily WHERE as_of = '2026-11-12'`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO stock_prices (stock_code, date, open, high, low, close, adjusted_close, volume)
+		VALUES ('AAA', '2026-11-13', 30, 30.5, 29.5, 30, 30, 1000000), ('BBB', '2026-11-13', 30, 30.5, 29.5, 30, 30, 1000000)`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO index_prices (index_code, date, high, low, close) VALUES ('XJO', '2026-11-13', 5100, 5080, 5090)`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO sync_status (environment, hostname, checkpoint_stocks_total, status, started_at, completed_at)
+		VALUES (NULL, NULL, 1800, 'completed', '2026-11-13 06:00:00+00', '2026-11-13 06:30:00+00')`)
+	require.NoError(t, err)
+
+	opts := dailyOpts(true, t)
+	opts.Now = time.Date(2026, 11, 13, 14, 0, 0, 0, time.UTC)
+	_, err = runDaily(ctx, pool, opts)
+	require.NoError(t, err)
+	require.Equal(t, 0, countRows(t, pool, "SELECT count(*) FROM strategy_signal_events WHERE as_of = '2026-11-13'"))
+}
+
 // TestDailySnapshotSweepIgnoresASICAndSingleStockRows: the readiness sweep is the
 // price sweep alone. A later ASIC sync row, and a market-data single-stock run,
 // leave it as it was, so the session stays ready.

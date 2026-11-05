@@ -950,10 +950,35 @@ first (ten per run), and exits 10 once at the 16:40 UTC run when a session is st
   enabling writes, after the one-off `-years 21` XJO re-fetch as well:
   `task db:prod:psql -- -At -c "SELECT count(*) FROM index_prices WHERE index_code = 'XJO' AND EXTRACT(ISODOW FROM date) > 5"`
   must return 0.
-- **Recompute from session X.** A completed session is read back, never recomputed, and events are insert-only.
-  To recompute, in one transaction delete the `strategy_signal_events`, `strategy_daily_runs`,
-  `strategy_features_daily` and `strategy_regime_daily` rows with `as_of >= X`. The next runs backfill from the
-  newest remaining complete session, ten per run. The fundamentals blobs are content-addressed and stay.
+- **Recompute from session X.** A completed session is read back, never recomputed, and events are insert-only
+  in practice (no trigger forbids a delete). Recompute only for a bug that changed a stored row, and only when
+  every precondition below holds; each is a read-only probe (`task db:prod:psql -- -At -c "..."`):
+  1. The CronJob is not running: no `picks_run_lease` row named `strategies-daily`
+     (`SELECT count(*) FROM picks_run_lease WHERE name = 'strategies-daily'` = 0), and the change is not made
+     on a weekday between 13:00 and 16:59 UTC (the job's runs are at :00, :20 and :40).
+  2. X is inside the kept window and has a completed session before it that still has feature rows:
+     `SELECT min(as_of) FROM strategy_features_daily` is before X, and
+     `SELECT count(*) FROM strategy_features_daily WHERE as_of = (SELECT max(as_of) FROM strategy_daily_runs WHERE phase = 'features' AND status = 'completed' AND as_of < 'X')` is above 0.
+     Pruning keeps feature rows for the newest 15 completed sessions only, so an older X cannot be diffed.
+     With no such session, the recomputed session has no previous to diff against and every later one is lost.
+  3. No canonical version was promoted or superseded on or after X:
+     `SELECT count(*) FROM strategy_rule_versions WHERE kind = 'canonical' AND (live_from >= 'X' OR superseded_on >= 'X')` = 0.
+     Otherwise the superseded version's events in [X, live_from) are deleted and the backfill, which evaluates live
+     versions only, never rebuilds them.
+
+  Back up the four tables first, outside the repo, one CSV per table:
+  `task db:prod:psql -- -At -c "COPY (SELECT * FROM <table> WHERE as_of >= 'X') TO STDOUT WITH (FORMAT csv, HEADER)" > ~/strategy-recompute-X/<table>.csv`
+  (`<table>` is each of `strategy_signal_events`, `strategy_daily_runs`, `strategy_features_daily`,
+  `strategy_regime_daily`). Then write one file with the four statements, in this order, and apply it as one
+  transaction: `DELETE FROM strategy_signal_events WHERE as_of >= 'X';`, then `strategy_daily_runs`,
+  `strategy_features_daily`, `strategy_regime_daily`, each `WHERE as_of >= 'X'`. Run it with
+  `task db:prod:apply FILE=<file> CONFIRM=prod`, which wraps the file in one transaction. Verify the counts
+  against the backups before the next run.
+
+  The next scheduled runs backfill from the newest remaining complete session, ten per run. Those sessions take
+  today's fundamentals, metadata, ETP set and dividends, not what was known on their day, so every recomputed
+  session is written with `late=true` in its features `counts`. The fundamentals blobs are content-addressed and
+  stay.
 - **A session that can never pass.** A closure missing from `asxcalendar` is a trading day to the job. It fails
   readiness rule (c) (`no_priced_codes`) on every run, so every later run stops at that date and the 16:40 run
   pages. The job has no operator flag to skip a session: add the closure to `asxcalendar` (a code change). The

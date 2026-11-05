@@ -474,6 +474,13 @@ func diffSession(ctx context.Context, pool *pgxpool.Pool, s civil.Date, prev []c
 	if err != nil {
 		return nil, err
 	}
+	if len(prevRows) == 0 {
+		// A complete session always has feature rows (readiness rule (c) holds a session
+		// with no priced codes). A regime with no rows is a pruned or hand-edited session:
+		// diffing against it would record every current pick as none -> its status.
+		logf("strategies: session %s: no feature rows stored for %s; no events this session", s, p)
+		return nil, nil
+	}
 	hashes := make([]string, 0, len(prevRows))
 	for _, r := range prevRows {
 		if r.FundamentalsHash != "" {
