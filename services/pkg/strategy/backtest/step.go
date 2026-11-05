@@ -64,8 +64,9 @@ func traded(b *features.Bar) bool { return b != nil && b.Volume > 0 }
 type CASuspect struct {
 	// Known is true on the session the suspect becomes known (ca_known_at).
 	Known bool
-	// SuspectDate is the bar the suspect sits on. A position entered before it
-	// is closed as a data exclusion; one entered on or after it is unaffected.
+	// SuspectDate is the bar the suspect sits on. A position entered on or
+	// before it is closed as a data exclusion: that bar's open is an unadjusted
+	// level, so no fill or mark on it can be trusted.
 	SuspectDate civil.Date
 	// Age is set with Known on the first session of a run for a suspect that
 	// became known before it: the sessions from the known date to that session.
@@ -135,6 +136,12 @@ type Config struct {
 	// LastLoaded is each code's last loaded bar date. A stale exit is labelled
 	// delisted when no later bar exists, and suspended otherwise.
 	LastLoaded map[string]civil.Date
+	// DelistingAtZero fills a delisted exit at zero instead of the last close.
+	// It is a sensitivity; a canonical run leaves it false.
+	DelistingAtZero bool
+	// EntryLagSessions delays every entry by this many sessions: the sensitivity
+	// entry_plus_1 fills at the open of the second session after the signal.
+	EntryLagSessions int
 }
 
 // ConfigOf is the part of a simulator configuration that a recipe holds: the
@@ -265,6 +272,8 @@ type pendingEntry struct {
 	dv20       float64
 	signalDate civil.Date
 	breakout   civil.Date
+	// lag counts the sessions the fill has waited (Config.EntryLagSessions).
+	lag int
 }
 
 type pendingExit struct {
@@ -504,10 +513,10 @@ func (st *State) fillExits(s Session, by map[string]*CodeSession, basis map[stri
 			continue
 		}
 		c := by[code]
-		// A position entered before a suspect bar is closed by the exclusion at
-		// that session's close, at the pre-suspect price. The suspect bar's open
+		// A position entered on or before a suspect bar is closed by the exclusion
+		// at that session's close, at the pre-suspect price. The suspect bar's open
 		// is an unadjusted level, so a fill there would book a phantom move.
-		if c != nil && c.CA.Known && pos.entryDate.Before(c.CA.SuspectDate) {
+		if c != nil && c.CA.Known && !pos.entryDate.After(c.CA.SuspectDate) {
 			continue
 		}
 		if c == nil || !traded(c.Bar) {
@@ -562,6 +571,11 @@ func (st *State) fillEntries(s Session, by map[string]*CodeSession) {
 	pending := st.entries
 	st.entries = nil
 	for _, e := range pending {
+		if e.lag < st.cfg.EntryLagSessions {
+			e.lag++
+			st.entries = append(st.entries, e)
+			continue
+		}
 		c := by[e.code]
 		if c == nil || !traded(c.Bar) {
 			st.event(s.Date, e.code, EventEntryCancelled, CancelUntraded)
@@ -633,7 +647,7 @@ func (st *State) markToMarket(s Session, by map[string]*CodeSession, basis map[s
 			continue
 		}
 		pos.missing = 0
-		if c.CA.Known && pos.entryDate.Before(c.CA.SuspectDate) {
+		if c.CA.Known && !pos.entryDate.After(c.CA.SuspectDate) {
 			cs.lastRaw, cs.lastPL = pos.preSuspect(c.CA.SuspectDate)
 		} else {
 			cs.lastRaw = c.Bar.Close
@@ -665,7 +679,7 @@ func (st *State) decideExits(s Session, by map[string]*CodeSession) {
 		c := by[code]
 		cs := st.codeState(code)
 
-		if c != nil && c.CA.Known && pos.entryDate.Before(c.CA.SuspectDate) {
+		if c != nil && c.CA.Known && !pos.entryDate.After(c.CA.SuspectDate) {
 			delete(st.exits, code)
 			raw, pl := pos.preSuspect(c.CA.SuspectDate)
 			st.closePosition(s.Date, s.Index, pos, raw, pl, ReasonCorporateAction, s.Date, c.DV20)
@@ -678,7 +692,11 @@ func (st *State) decideExits(s Session, by map[string]*CodeSession) {
 					reason = ReasonSuspended
 				}
 				delete(st.exits, code)
-				st.closePosition(s.Date, s.Index, pos, cs.lastRaw, cs.lastPL, reason, s.Date, pos.dv20)
+				raw, pl := cs.lastRaw, cs.lastPL
+				if reason == ReasonDelisted && st.cfg.DelistingAtZero {
+					raw, pl = 0, 0
+				}
+				st.closePosition(s.Date, s.Index, pos, raw, pl, reason, s.Date, pos.dv20)
 				continue
 			}
 			// A time stop is decided on its own session, with or without a bar.

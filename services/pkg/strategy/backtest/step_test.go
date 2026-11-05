@@ -348,7 +348,10 @@ func TestCorporateActionExitClosesAtThePreSuspectClose(t *testing.T) {
 	near(t, "exclusion price", tr.ExitPrice, 11, 1e-12)
 }
 
-func TestCorporateActionLeavesAPositionEnteredOnTheSuspectBar(t *testing.T) {
+// TestCorporateActionExcludesAPositionEnteredOnTheSuspectBar: the suspect bar's
+// open is on the pre-event basis, so a fill there is excluded at the close of the
+// session the suspect is known, at its entry price, like any earlier entry.
+func TestCorporateActionExcludesAPositionEnteredOnTheSuspectBar(t *testing.T) {
 	st := NewState(testConfig())
 	Step(st, sessionAt(0, codeAt("AAA", "setup", mkBar(10, 10))))
 	Step(st, sessionAt(1, codeAt("AAA", "setup", mkBar(10, 10))))
@@ -356,9 +359,19 @@ func TestCorporateActionLeavesAPositionEnteredOnTheSuspectBar(t *testing.T) {
 	c3 := codeAt("AAA", statusTriggered, mkBar(10, 4))
 	c3.CA = CASuspect{Known: true, SuspectDate: dayAt(3)}
 	Step(st, sessionAt(3, c3))
-	if _, ok := st.positions["AAA"]; !ok {
-		t.Fatal("a position entered on the suspect bar was closed by the exclusion")
+	if _, ok := st.positions["AAA"]; ok {
+		t.Fatal("a position entered on the suspect bar survived the exclusion")
 	}
+	trades := st.Finish()
+	if len(trades) != 1 {
+		t.Fatalf("%d trades, want 1", len(trades))
+	}
+	tr := trades[0]
+	if tr.EntryDate != dayAt(3) || tr.ExitReason != ReasonCorporateAction || tr.ExitDate != dayAt(3) {
+		t.Fatalf("entry %v exit %s on %v, want an entry and a corporate_action_exit on session 3",
+			tr.EntryDate, tr.ExitReason, tr.ExitDate)
+	}
+	near(t, "exclusion price", tr.ExitPrice, 10, 1e-12)
 }
 
 func TestCooldownBlocksReentry(t *testing.T) {
