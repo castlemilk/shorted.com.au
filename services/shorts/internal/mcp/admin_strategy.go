@@ -258,7 +258,7 @@ func queueStrategyBacktestTool() AdminTool {
 			if err != nil {
 				return adminToolError(err), QueueStrategyBacktestOutput{}, nil
 			}
-			out := QueueStrategyBacktestOutput{RequestID: res.RequestID, StrategyID: res.StrategyID, Label: res.Label, Status: res.Status}
+			out := QueueStrategyBacktestOutput(res)
 			text := fmt.Sprintf("%s %s: backtest request %d %s. The next hourly backtest execution runs it; check strategy_status for the run.",
 				res.StrategyID, res.Label, res.RequestID, res.Status)
 			return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: text}}}, out, nil
