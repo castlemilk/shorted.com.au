@@ -498,9 +498,26 @@ func ruleLiquidity(c *Candidate, _ *evalEnv) outcome {
 
 // ---------------------------------------------------------------- short interest
 
+// shortUnknownText is the sentence a short rule says when its reading cannot be
+// tested. The reasons are the ones the signal evidence and the stock page show.
+func shortUnknownText(reason string) string {
+	switch reason {
+	case ReasonASICReportStale:
+		return "No ASIC report within 8 sessions"
+	case ReasonASICValueMissing:
+		return "Value missing in ASIC's report"
+	case ReasonBasisChange:
+		return "Share basis changed after the report"
+	}
+	return "Short position cannot be tested"
+}
+
 // ruleShortInterest: short_pct >= 5. No reported position is a fail, not an
 // unknown: absence from the ASIC report means no reportable short.
 func ruleShortInterest(c *Candidate, _ *evalEnv) outcome {
+	if c.ShortReason != "" {
+		return unknownFor(c.ShortReason, shortUnknownText(c.ShortReason))
+	}
 	if c.ShortPct == nil {
 		return fail("No reported short position", 0, false)
 	}
@@ -514,10 +531,16 @@ func ruleShortInterest(c *Candidate, _ *evalEnv) outcome {
 
 // ruleDaysToCover: days_to_cover >= 5.
 func ruleDaysToCover(c *Candidate, _ *evalEnv) outcome {
+	if c.ShortReason != "" {
+		return unknownFor(c.ShortReason, shortUnknownText(c.ShortReason))
+	}
 	if c.ShortPct == nil {
 		return fail("No reported short position", 0, false)
 	}
 	if c.DaysToCover == nil {
+		if c.DaysToCoverReason == ReasonBasisChange {
+			return unknownFor(ReasonBasisChange, shortUnknownText(ReasonBasisChange))
+		}
 		return unknownFor(ReasonNoVolume, "No recent volume to measure days to cover")
 	}
 	d := *c.DaysToCover

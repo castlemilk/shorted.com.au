@@ -122,8 +122,8 @@ func ToCandidate(r Row, s spec.Spec, f features.Fundamentals) (engine.Candidate,
 	if s.Data.ShortSource == "latest_complete_published" {
 		sr = r.Features.SF1
 	}
-	c.ShortPct = sr.Pct
-	c.DaysToCover = sr.DaysToCover
+	pipeline.ApplyShortReading(&c, sr)
+	c.InASICReport = r.InASICReport
 	if sr.ReportDate != nil {
 		t := dateTime(*sr.ReportDate)
 		c.ShortReportDate = &t

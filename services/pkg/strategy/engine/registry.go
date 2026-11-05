@@ -113,6 +113,11 @@ type Strategy struct {
 	// RegimeGates is true when the regime rule is core: a downtrend then
 	// turns the verdict to "Stand aside".
 	RegimeGates bool
+
+	// UnknownStatus selects the status ladder of the version that evaluates
+	// the strategy: false is v0's ladder (an unknown trigger reads as setup),
+	// true is v1's (see Ladder). Callers set it from the version they evaluate.
+	UnknownStatus bool
 }
 
 // UsesFundamentals reports whether any rule reads stock_fundamentals.

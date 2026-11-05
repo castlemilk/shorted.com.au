@@ -128,9 +128,9 @@ func TestEvaluateVersionRebuildsTheUniverseFromStoredRows(t *testing.T) {
 	d := civil.Date{Year: 2026, Month: time.November, Day: 12}
 	fs, _ := featureParams()
 	out := buildSessionRows(sessionFixture(t, d), fs)
-	v, ok := spec.Live(spec.StrategyZangerBreakout)
+	v, ok := spec.Version(spec.StrategyZangerBreakout, "v0")
 	if !ok {
-		t.Fatal("no live zanger version")
+		t.Fatal("no v0 zanger version")
 	}
 	ev, err := evaluateVersion(out.Rows, out.Blobs, out.Regime, v)
 	if err != nil {
@@ -322,4 +322,16 @@ func TestStoredUniverseReasonsAgreeWithThePipeline(t *testing.T) {
 	bars := in.Bars["AAA"]
 	bars[len(bars)-1].Close = 0
 	check("zero close on the session", in)
+}
+
+// The stored up-jump guard reads the date the v1 policy names, so the features
+// the daily job writes and the policy the pipeline reads cannot drift apart.
+func TestCAUpjumpFromIsTheV1Policy(t *testing.T) {
+	v1, ok := spec.Version(spec.StrategyZangerBreakout, "v1")
+	if !ok {
+		t.Fatal("no v1 version for zanger-breakout")
+	}
+	if v1.Spec.Data.CAUpjumpFrom != caUpjumpFrom {
+		t.Fatalf("v1 ca_upjump_from = %q, the daily job reads %q", v1.Spec.Data.CAUpjumpFrom, caUpjumpFrom)
+	}
 }

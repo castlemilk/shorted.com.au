@@ -103,13 +103,15 @@ func TestV0SpecMatchesCode(t *testing.T) {
 		t.Fatalf("engine has %d strategies, the spec pins %d", len(strategies), len(ids))
 	}
 	for _, s := range strategies {
-		live, ok := specpkg.Live(ids[s.ID])
+		// The engine's constants are v0's; v1 changes the ladder and the
+		// universe, not these numbers, so v0 is the version they must match.
+		live, ok := specpkg.Version(ids[s.ID], "v0")
 		if !ok {
-			t.Fatalf("no live spec for %s", s.ID)
+			t.Fatalf("no v0 spec for %s", s.ID)
 		}
 		sp := live.Spec
-		if !live.Live || live.Label != "v0" {
-			t.Errorf("%s: live version is %q, want v0", s.ID, live.Label)
+		if live.Live {
+			t.Errorf("%s: v0 is still marked live", s.ID)
 		}
 		if len(sp.Rules) != len(s.Rules) {
 			t.Fatalf("%s: spec has %d rules, engine has %d", s.ID, len(sp.Rules), len(s.Rules))
@@ -161,7 +163,7 @@ func TestV0SpecMatchesCode(t *testing.T) {
 		}
 	}
 
-	live, _ := specpkg.Live(specpkg.StrategyZangerBreakout)
+	live, _ := specpkg.Version(specpkg.StrategyZangerBreakout, "v0")
 	if sc := live.Spec.Score; sc.PassFloor != passFloor || sc.PassStrength != passStrength || sc.TriggerCredit != triggerCredit {
 		t.Errorf("score spec %+v, engine %v %v %v", sc, passFloor, passStrength, triggerCredit)
 	}
@@ -170,6 +172,9 @@ func TestV0SpecMatchesCode(t *testing.T) {
 	}
 	if live.Spec.Ladder.UnknownStatus || !live.Spec.Ladder.PickRequiresStockPass {
 		t.Errorf("ladder spec %+v: v0 must read an unknown trigger as setup and need a stock pass", live.Spec.Ladder)
+	}
+	if v1, _ := specpkg.Version(specpkg.StrategyZangerBreakout, "v1"); !v1.Spec.Ladder.UnknownStatus {
+		t.Errorf("ladder spec %+v: v1 must read an unknown core rule as unknown", v1.Spec.Ladder)
 	}
 	if got := live.Spec.Features.Params["breakout_volume_multiple"]; got != 1.5 {
 		t.Errorf("fs1 volume multiple %v", got)
@@ -186,7 +191,7 @@ func TestV0SpecMatchesCode(t *testing.T) {
 		{specpkg.StrategyMinerviniTrend, "above_sma50", ruleAboveSMA50, Candidate{Close: 10, SMA50: new(float64(10))}},
 		{specpkg.StrategyQualityCompounders, "above_sma200", ruleAboveSMA200, Candidate{Close: 10, SMA200: new(float64(10))}},
 	} {
-		live, _ := specpkg.Live(c.strategy)
+		live, _ := specpkg.Version(c.strategy, "v0")
 		found := false
 		for _, r := range live.Spec.Rules {
 			if r.ID != c.rule {
