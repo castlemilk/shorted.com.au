@@ -43,8 +43,12 @@ func Job() runner.Job {
 
 // Run executes the strategies job.
 func Run(parent context.Context, args []string) error {
+	g := runner.FromContext(parent)
 	fs := flag.NewFlagSet("strategies", flag.ContinueOnError)
 	mode := fs.String("mode", modeParity, "parity")
+	// Every mode is read-only, so the flag changes nothing; it is declared so
+	// that DryRun: true above holds for this job's own flags too.
+	_ = fs.Bool("dry-run", g.DryRun, "parity writes nothing; accepted for the common job flag")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return runner.ErrUsage
