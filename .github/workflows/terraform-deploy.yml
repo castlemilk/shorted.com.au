@@ -1048,6 +1048,14 @@ jobs:
             # The save and list RPCs read it, and the signed-in list reads it as empty until it exists.
             run_psql_session -f /migrations/000157_strategy_saves.up.sql
 
+            # 000158 (strategy backtests) adds the four backtest tables: runs, series, trades and the request
+            # queue. CREATE TABLE IF NOT EXISTS and catalog-guarded indexes, so a replay writes no row and takes
+            # no lock on an existing table. Nothing reads them until shorted-strategies-backtest runs, and that
+            # CronJob is not live until the chart's VKE branch moves after this apply. Session pooler, under
+            # lock_timeout 15s. If it cannot apply, apply it by hand in a quiet window, then re-run the deploy:
+            #   task db:prod:apply FILE=services/migrations/000158_strategy_backtests.up.sql CONFIRM=prod
+            run_psql_session -f /migrations/000158_strategy_backtests.up.sql
+
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
             # tables, views, materialized views, sequences and functions there,
