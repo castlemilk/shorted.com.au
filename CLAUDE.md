@@ -857,6 +857,22 @@ recipe fields on the wire (PR-12a).
   `--token-env` once the public depth clamp is on; `diff` requires both recordings
   to be one session and the after recording to be the snapshot's).
 
+- **Backtest job (PR-16a, migration 000158, `shorted strategies -mode backtest`).**
+  A VKE CronJob (`shorted-strategies-backtest`, hourly at :20, 1536Mi request and
+  3Gi limit, `vkeNative`, `clusterOnlyJobs`). It idles, exit 0 in under a minute,
+  until a live canonical version other than v0 has a recipe and the daily snapshot
+  has recorded it. Each execution takes the `strategies-backtest` lease, requeues
+  any request a dead execution left `running`, queues the ISO-week publish request
+  of each key, and runs at most five requests (publish before variant) over one
+  REPEATABLE READ, READ ONLY snapshot, holding the batch while an XJO or XJT row
+  is dated on a weekend. A publish's first attempt for a given input and output
+  runs the verify pass from a second read (a mismatch is exit 10, a determinism
+  failure). A fundamentals strategy whose window is `computable_from` gets pass 1
+  only: the derived date and label are stored, never a simulation. Failed requests
+  exit 1. Dry run unless `STRATEGIES_DRY_RUN=false`. Nothing is published until the
+  sensitivity and reference parts of the gate are wired (PR-16b). Container suite:
+  `make test-strategies-backtest-pg`.
+
 ### Saved strategies and My strategies (`/strategies/my`)
 
 - **Table `user_saved_strategies` (migration 000157, allowlisted after the strategy capture migration, before the 000138 closer).**

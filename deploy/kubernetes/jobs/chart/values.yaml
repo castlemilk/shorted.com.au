@@ -682,7 +682,7 @@ jobs:
   # milliseconds, until a live canonical version other than v0 has a recipe (v1 is not live yet). Each
   # execution takes the strategies-backtest lease, queues the weekly publish request of each live
   # version and recipe (and one immediately when a key has no succeeded run), runs at most five
-  # requests or 30 minutes of work over one REPEATABLE READ read, and publishes only what the
+  # requests or 20 minutes of work over one REPEATABLE READ read, and publishes only what the
   # publication gate passes. maxRetries 0: the next hourly run is the retry, and a Kubernetes retry
   # would take a lease the run still holds. Memory: the whole history is held for one batch, measured
   # in the live check (the job logs its peak RSS). The Telesis monitor shortted-strategies-backtest is
