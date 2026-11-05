@@ -31,6 +31,10 @@ const (
 	flatMockupBps           = 5
 )
 
+// SensitivityIDs are the table's sensitivity runs, in the table's order. A
+// published run carries one entry per id.
+var SensitivityIDs = []string{SensCostsX2, SensASICLagPlus2, SensDelistingZero, SensEntryPlus1, SensFlatMockup}
+
 // Labels are the copy a sensitivity is shown under. The chips are the copy of
 // the fragility flag, as the Backtest tab prints it.
 var sensitivityLabels = map[string]string{
@@ -219,9 +223,8 @@ func sensitivitiesOf(in Inputs, s spec.Spec, r spec.Recipe, p plan, base Result)
 	}
 
 	// Keep the table's order: costs, publication, delisting, entry, flat.
-	order := []string{SensCostsX2, SensASICLagPlus2, SensDelistingZero, SensEntryPlus1, SensFlatMockup}
-	sorted := make([]Sensitivity, 0, len(order))
-	for _, id := range order {
+	sorted := make([]Sensitivity, 0, len(SensitivityIDs))
+	for _, id := range SensitivityIDs {
 		for _, run := range out.Runs {
 			if run.ID == id {
 				sorted = append(sorted, run)
