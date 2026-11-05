@@ -191,8 +191,10 @@ response writes and removes nothing.
 **Ceiling.** A write whose clean-up would remove more than 15% of the series'
 stored rows in the window is refused: nothing is written for that series, the
 run logs `refused, nothing written`, and the series counts as failed. The
-legitimate re-date removes about one row in ten, so a refusal means the
-response is gappy or something else is wrong. Stop and look before retrying.
+other series are still written, and then the run exits 1, so the scheduled job
+retries and alerts: a refusal is never silent. The legitimate re-date removes
+about one row in ten, so a refusal means the response is gappy or something else
+is wrong. Stop and look before retrying.
 
 **Dry run.** `-dry-run` fetches, then logs for each code how many stored rows
 the write would remove and how many stored rows are in the window, and whether
@@ -215,18 +217,24 @@ starts.
 
    (`task db:prod:psql -- -At -c "<the query>"`.)
 
-2. Back up the three series and XJT before any write. Keep the file outside the
-   repo:
+2. Back up the whole table before any write. The backup is SQL, one statement
+   per stored row, written through the read-only wrapper: a `\copy` is refused
+   there, so do not use one. Keep the file outside the repo:
 
    ```bash
-   task db:prod:psql -- -c "\copy (SELECT * FROM index_prices ORDER BY index_code, date) TO '/Users/<you>/index_prices-YYYYMMDD.csv' CSV HEADER"
+   task db:prod:psql -- -At -c "SELECT format('INSERT INTO index_prices (index_code,date,open,high,low,close,volume,created_at,updated_at) VALUES (%L,%L,%L,%L,%L,%L,%L,%L,%L) ON CONFLICT (index_code,date) DO UPDATE SET open=EXCLUDED.open, high=EXCLUDED.high, low=EXCLUDED.low, close=EXCLUDED.close, volume=EXCLUDED.volume, created_at=EXCLUDED.created_at, updated_at=EXCLUDED.updated_at;', index_code, date, open, high, low, close, volume, created_at, updated_at) FROM index_prices ORDER BY index_code, date" > ~/index_prices-YYYYMMDD.sql
+   wc -l ~/index_prices-YYYYMMDD.sql   # must equal the sum of the rows column in step 1
+   head -c 120 ~/index_prices-YYYYMMDD.sql   # must start with INSERT INTO
    ```
 
-   A restore loads the file into a scratch table, then `INSERT ... SELECT` from
-   it `ON CONFLICT (index_code, date) DO UPDATE` for the rows, and deletes the
-   rows the backup does not have for the series, inside the window the backup
-   covers. The CSV is the only record of a removed row: the run logs counts, not
-   rows.
+   The file is the only record of a removed row: the run logs counts, not rows.
+
+   Restore with `task db:prod:apply FILE=~/index_prices-YYYYMMDD.sql CONFIRM=prod`.
+   It re-upserts every backed-up row, which puts back each removed row and each
+   changed close, in one transaction. It does not delete the rows the re-date
+   added: those are sessions Yahoo stamped in the window that the backup did not
+   have. To list them, select the rows of a series whose dates are not in the
+   backup's dates for that series.
 
 3. Dry run each command, and read its log lines in the execution:
 
@@ -245,8 +253,9 @@ starts.
    separate on purpose: Yahoo answers 400 to a `-years 21` window for XJT, which
    is logged as a fetch failure and writes nothing for XJT, while XJO, XAO and
    XKO still run. Confirm a log line `<code> N sessions written (...), M stale
-   rows removed` for each of XJO, XAO, XKO and XJT, and no `refused` line. The
-   exit code does not prove that a series was written.
+   rows removed` for each of XJO, XAO, XKO and XJT, and no `refused` line. A
+   refused series exits 1. XJT's fetch failure exits 0 while the others write,
+   so the exit code does not prove that a series was written: read the lines.
 
 5. Check: no weekend rows remain.
 
