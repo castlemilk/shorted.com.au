@@ -172,6 +172,17 @@ variable "rate_limit_enabled" {
   default     = false
 }
 
+variable "strategy_public_signals_limit" {
+  description = "Depth an anonymous HTTP caller gets on the public strategy picks list: the top N rows of the default ranking, for every HTTP caller (API-token holders included). 0 is off, which is today's behaviour. Signed-in depth comes from GetViewerStrategyPicks whatever this is set to."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.strategy_public_signals_limit >= 0 && var.strategy_public_signals_limit <= 100 && floor(var.strategy_public_signals_limit) == var.strategy_public_signals_limit
+    error_message = "strategy_public_signals_limit must be a whole number from 0 to 100."
+  }
+}
+
 variable "rate_limit_ssr_bypass_secret" {
   description = "Shared secret proving a first-party marker really is our own Vercel SSR. Same value the Cloudflare worker gets. Empty leaves every first-party request in the unverified (monthly-metered) class, which is degraded but never throttled."
   type        = string

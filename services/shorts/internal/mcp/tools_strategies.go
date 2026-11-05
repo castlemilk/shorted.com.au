@@ -8,6 +8,7 @@ import (
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/viewerctx"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -155,7 +156,8 @@ func listStrategiesTool() Tool {
 }
 
 func listStrategiesHandler(src DataSource) sdk.ToolHandlerFor[ListStrategiesInput, ListStrategiesOutput] {
-	return func(ctx context.Context, _ *sdk.CallToolRequest, _ ListStrategiesInput) (*sdk.CallToolResult, ListStrategiesOutput, error) {
+	return func(ctx context.Context, req *sdk.CallToolRequest, _ ListStrategiesInput) (*sdk.CallToolResult, ListStrategiesOutput, error) {
+		ctx = mcpViewerContext(ctx, req)
 		res, err := src.ListStrategies(ctx, connect.NewRequest(&shortsv1alpha1.ListStrategiesRequest{}))
 		if err != nil {
 			return nil, ListStrategiesOutput{}, fmt.Errorf("could not list strategies: %w", err)
@@ -209,6 +211,16 @@ func listStrategiesHandler(src DataSource) sdk.ToolHandlerFor[ListStrategiesInpu
 		}
 		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: text}}}, out, nil
 	}
+}
+
+// mcpViewerContext carries a verified MCP caller into the strategy reads, so a
+// signed-in MCP caller gets the depth the connector is owed. The viewer comes
+// from the token the SDK verified, never from the tool arguments, and only the
+// in-process call sees it: the strategy reads take it from the context, and
+// the HTTP handlers never can. An anonymous caller has no token and keeps the
+// public depth.
+func mcpViewerContext(ctx context.Context, req *sdk.CallToolRequest) context.Context {
+	return viewerctx.WithMCPUser(ctx, tokenUserID(req))
 }
 
 // describeRegime renders the regime for a text fallback.
@@ -311,7 +323,8 @@ func getStrategyPicksTool() Tool {
 }
 
 func getStrategyPicksHandler(src DataSource) sdk.ToolHandlerFor[GetStrategyPicksInput, GetStrategyPicksOutput] {
-	return func(ctx context.Context, _ *sdk.CallToolRequest, in GetStrategyPicksInput) (*sdk.CallToolResult, GetStrategyPicksOutput, error) {
+	return func(ctx context.Context, req *sdk.CallToolRequest, in GetStrategyPicksInput) (*sdk.CallToolResult, GetStrategyPicksOutput, error) {
+		ctx = mcpViewerContext(ctx, req)
 		id := strings.ToLower(strings.TrimSpace(in.StrategyID))
 		if id == "" {
 			return nil, GetStrategyPicksOutput{}, fmt.Errorf(

@@ -106,7 +106,9 @@ private static final long serialVersionUID = 0L;
   private int limit_ = 0;
   /**
    * <pre>
-   * Default 20, max 100.
+   * Default 20, max 100. Under the public depth limit every HTTP caller, API
+   * tokens included, gets at most that many rows of the default ranking; a
+   * larger limit is clamped to it. GetViewerStrategyPicks is not clamped.
    * </pre>
    *
    * <code>int32 limit = 2 [json_name = "limit"];</code>
@@ -120,6 +122,13 @@ private static final long serialVersionUID = 0L;
   public static final int OFFSET_FIELD_NUMBER = 3;
   private int offset_ = 0;
   /**
+   * <pre>
+   * Rows to skip. Under the public depth limit an offset other than 0 is
+   * refused with PermissionDenied (the X-Entitlement-Detail names
+   * full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks
+   * for the rows beyond the public depth.
+   * </pre>
+   *
    * <code>int32 offset = 3 [json_name = "offset"];</code>
    * @return The offset.
    */
@@ -758,7 +767,9 @@ private static final long serialVersionUID = 0L;
     private int limit_ ;
     /**
      * <pre>
-     * Default 20, max 100.
+     * Default 20, max 100. Under the public depth limit every HTTP caller, API
+     * tokens included, gets at most that many rows of the default ranking; a
+     * larger limit is clamped to it. GetViewerStrategyPicks is not clamped.
      * </pre>
      *
      * <code>int32 limit = 2 [json_name = "limit"];</code>
@@ -770,7 +781,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Default 20, max 100.
+     * Default 20, max 100. Under the public depth limit every HTTP caller, API
+     * tokens included, gets at most that many rows of the default ranking; a
+     * larger limit is clamped to it. GetViewerStrategyPicks is not clamped.
      * </pre>
      *
      * <code>int32 limit = 2 [json_name = "limit"];</code>
@@ -786,7 +799,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Default 20, max 100.
+     * Default 20, max 100. Under the public depth limit every HTTP caller, API
+     * tokens included, gets at most that many rows of the default ranking; a
+     * larger limit is clamped to it. GetViewerStrategyPicks is not clamped.
      * </pre>
      *
      * <code>int32 limit = 2 [json_name = "limit"];</code>
@@ -801,6 +816,13 @@ private static final long serialVersionUID = 0L;
 
     private int offset_ ;
     /**
+     * <pre>
+     * Rows to skip. Under the public depth limit an offset other than 0 is
+     * refused with PermissionDenied (the X-Entitlement-Detail names
+     * full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks
+     * for the rows beyond the public depth.
+     * </pre>
+     *
      * <code>int32 offset = 3 [json_name = "offset"];</code>
      * @return The offset.
      */
@@ -809,6 +831,13 @@ private static final long serialVersionUID = 0L;
       return offset_;
     }
     /**
+     * <pre>
+     * Rows to skip. Under the public depth limit an offset other than 0 is
+     * refused with PermissionDenied (the X-Entitlement-Detail names
+     * full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks
+     * for the rows beyond the public depth.
+     * </pre>
+     *
      * <code>int32 offset = 3 [json_name = "offset"];</code>
      * @param value The offset to set.
      * @return This builder for chaining.
@@ -821,6 +850,13 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Rows to skip. Under the public depth limit an offset other than 0 is
+     * refused with PermissionDenied (the X-Entitlement-Detail names
+     * full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks
+     * for the rows beyond the public depth.
+     * </pre>
+     *
      * <code>int32 offset = 3 [json_name = "offset"];</code>
      * @return This builder for chaining.
      */

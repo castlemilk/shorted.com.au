@@ -168,6 +168,9 @@ func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	// Explicit destructiveHint/openWorldHint booleans are required by the
 	// public review importer. They take the wire catalog to 101,858 bytes;
 	// retain a tight 100 KiB ceiling without dropping data provenance.
+	//
+	// 5 Nov 2026, PR-04b (viewer context; no schema change, no new tool): tools/list
+	// measures 101,858 bytes across 33 tools, 542 bytes under the 102,400-byte ceiling.
 	const budget = 100 * 1024
 
 	ctx := context.Background()

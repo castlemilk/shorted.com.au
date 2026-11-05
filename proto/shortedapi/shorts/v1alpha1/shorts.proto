@@ -950,11 +950,27 @@ service ShortedStocksService {
   }
 
   // Ranked picks for one strategy with a per-rule breakdown.
+  //
+  // The answer is the same bytes to every HTTP caller. When the public depth
+  // limit is set, the rows are the top of the default ranking only, for every
+  // HTTP caller, API-token holders included: a bearer token does not lift it.
+  // Full depth comes from GetViewerStrategyPicks, which accepts a bearer token.
   rpc GetStrategyPicks (GetStrategyPicksRequest) returns (GetStrategyPicksResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Strategy Picks",
-      description: "Ranked ASX stocks for one strategy: status (triggered, setup, watch), a 0-100 score, a pass / fail / unknown result for every rule, and the reported fundamentals behind each pick. Unknown means the data is missing or not meaningful for the company and never counts as a pass. Optional sort_by orders by a fundamentals metric. Not financial advice."
+      description: "Ranked ASX stocks for one strategy: status (triggered, setup, watch), a 0-100 score, a pass / fail / unknown result for every rule, and the reported fundamentals behind each pick. Unknown means the data is missing or not meaningful for the company and never counts as a pass. Optional sort_by orders by a fundamentals metric. Not financial advice. When the public depth limit is set, the rows are the top of the default ranking for every HTTP caller, API-token holders included; the viewer field says so. Full depth: GetViewerStrategyPicks."
+    };
+  }
+
+  // The same ranked picks as GetStrategyPicks, at the caller's full depth.
+  // Needs a signed-in caller (a bearer token) and is never clamped; the viewer
+  // field reports access "free" or "premium" and clamped false.
+  rpc GetViewerStrategyPicks (GetStrategyPicksRequest) returns (GetStrategyPicksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Viewer Strategy Picks",
+      description: "The ranked picks of GetStrategyPicks at the signed-in caller's full depth, with the same status, sort, filter and paging. Requires a bearer token. Not clamped: the viewer field reports access free or premium. Not financial advice."
     };
   }
 

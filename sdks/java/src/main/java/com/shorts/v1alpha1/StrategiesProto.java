@@ -72,6 +72,11 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_GetStrategyPicksResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ViewerDepth_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ViewerDepth_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_shorts_v1alpha1_StrategyVersionRef_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -220,7 +225,7 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       "mit\030\002 \001(\005R\005limit\022\026\n\006offset\030\003 \001(\005R\006offset" +
       "\022\026\n\006status\030\004 \001(\tR\006status\022\027\n\007sort_by\030\005 \001(" +
       "\tR\006sortBy\0221\n\024require_fundamentals\030\006 \001(\010R" +
-      "\023requireFundamentals\"\302\006\n\030GetStrategyPick" +
+      "\023requireFundamentals\"\370\006\n\030GetStrategyPick" +
       "sResponse\0225\n\010strategy\030\001 \001(\0132\031.shorts.v1a" +
       "lpha1.StrategyR\010strategy\0225\n\006regime\030\002 \001(\013" +
       "2\035.shorts.v1alpha1.MarketRegimeR\006regime\022" +
@@ -241,83 +246,90 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       "le_threshold\030\020 \001(\001R\023rsQuantileThreshold\022" +
       "9\n\031has_rs_quantile_threshold\030\021 \001(\010R\026hasR" +
       "sQuantileThreshold\022%\n\016universe_label\030\022 \001" +
-      "(\tR\runiverseLabel\"\232\002\n\022StrategyVersionRef" +
-      "\022\037\n\013strategy_id\030\001 \001(\tR\nstrategyId\022\024\n\005lab" +
-      "el\030\002 \001(\tR\005label\022\035\n\nrules_hash\030\003 \001(\tR\trul" +
-      "esHash\022%\n\016engine_version\030\004 \001(\tR\rengineVe" +
-      "rsion\022\037\n\013feature_set\030\005 \001(\tR\nfeatureSet\022\026" +
-      "\n\006status\030\006 \001(\tR\006status\022\033\n\tlive_from\030\007 \001(" +
-      "\tR\010liveFrom\022\022\n\004kind\030\010 \001(\tR\004kind\022\035\n\nvaria" +
-      "nt_id\030\t \001(\tR\tvariantId\"r\n\014StatusCounts\022\034" +
-      "\n\ttriggered\030\001 \001(\005R\ttriggered\022\024\n\005setup\030\002 " +
-      "\001(\005R\005setup\022\024\n\005watch\030\003 \001(\005R\005watch\022\030\n\007unkn" +
-      "own\030\004 \001(\005R\007unknown\";\n\032GetStockStrategyFi" +
-      "tRequest\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\"" +
-      "\351\001\n\013StrategyFit\022\037\n\013strategy_id\030\001 \001(\tR\nst" +
-      "rategyId\022#\n\rstrategy_name\030\002 \001(\tR\014strateg" +
-      "yName\022\026\n\006status\030\003 \001(\tR\006status\022\024\n\005score\030\004" +
-      " \001(\001R\005score\022\022\n\004rank\030\005 \001(\005R\004rank\022\037\n\013total" +
-      "_count\030\006 \001(\005R\ntotalCount\0221\n\005rules\030\007 \003(\0132" +
-      "\033.shorts.v1alpha1.RuleResultR\005rules\"\254\010\n\r" +
-      "PriceFeatures\022\023\n\005as_of\030\001 \001(\tR\004asOf\022\024\n\005cl" +
-      "ose\030\002 \001(\001R\005close\022\024\n\005sma50\030\003 \001(\001R\005sma50\022\033" +
-      "\n\thas_sma50\030\004 \001(\010R\010hasSma50\022\026\n\006sma150\030\005 " +
-      "\001(\001R\006sma150\022\035\n\nhas_sma150\030\006 \001(\010R\thasSma1" +
-      "50\022\026\n\006sma200\030\007 \001(\001R\006sma200\022\035\n\nhas_sma200" +
-      "\030\010 \001(\010R\thasSma200\022,\n\022sma200_prior_month\030" +
-      "\t \001(\001R\020sma200PriorMonth\0223\n\026has_sma200_pr" +
-      "ior_month\030\n \001(\010R\023hasSma200PriorMonth\022\030\n\007" +
-      "high52w\030\013 \001(\001R\007high52w\022\037\n\013has_high52w\030\014 " +
-      "\001(\010R\nhasHigh52w\022\026\n\006low52w\030\r \001(\001R\006low52w\022" +
-      "\035\n\nhas_low52w\030\016 \001(\010R\thasLow52w\022\033\n\tbase_h" +
-      "igh\030\017 \001(\001R\010baseHigh\022\"\n\rhas_base_high\030\020 \001" +
-      "(\010R\013hasBaseHigh\022\031\n\010base_low\030\021 \001(\001R\007baseL" +
-      "ow\022 \n\014has_base_low\030\022 \001(\010R\nhasBaseLow\022$\n\016" +
-      "base_depth_pct\030\023 \001(\001R\014baseDepthPct\022+\n\022ha" +
-      "s_base_depth_pct\030\024 \001(\010R\017hasBaseDepthPct\022" +
-      "(\n\020base_length_days\030\025 \001(\005R\016baseLengthDay" +
-      "s\022/\n\024has_base_length_days\030\026 \001(\010R\021hasBase" +
-      "LengthDays\022\'\n\017breakout_recent\030\027 \001(\010R\016bre" +
-      "akoutRecent\022#\n\rbreakout_date\030\030 \001(\tR\014brea" +
-      "koutDate\022\031\n\010rs3m_pct\030\031 \001(\001R\007rs3mPct\022 \n\014h" +
-      "as_rs3m_pct\030\032 \001(\010R\nhasRs3mPct\022\031\n\010rs6m_pc" +
-      "t\030\033 \001(\001R\007rs6mPct\022 \n\014has_rs6m_pct\030\034 \001(\010R\n" +
-      "hasRs6mPct\022\'\n\017volume_ratio50d\030\035 \001(\001R\016vol" +
-      "umeRatio50d\022.\n\023has_volume_ratio50d\030\036 \001(\010" +
-      "R\021hasVolumeRatio50d\022-\n\022sessions_availabl" +
-      "e\030\037 \001(\005R\021sessionsAvailable\"\202\004\n\033GetStockS" +
-      "trategyFitResponse\022\035\n\nstock_code\030\001 \001(\tR\t" +
-      "stockCode\022\023\n\005as_of\030\002 \001(\tR\004asOf\0225\n\006regime" +
-      "\030\003 \001(\0132\035.shorts.v1alpha1.MarketRegimeR\006r" +
-      "egime\0220\n\004fits\030\004 \003(\0132\034.shorts.v1alpha1.St" +
-      "rategyFitR\004fits\022\037\n\013in_universe\030\005 \001(\010R\nin" +
-      "Universe\022E\n\016price_features\030\006 \001(\0132\036.short" +
-      "s.v1alpha1.PriceFeaturesR\rpriceFeatures\022" +
-      "!\n\014session_date\030\007 \001(\tR\013sessionDate\022*\n\021sh" +
-      "ort_report_date\030\010 \001(\tR\017shortReportDate\0220" +
-      "\n\024short_available_date\030\t \001(\tR\022shortAvail" +
-      "ableDate\022\024\n\005stale\030\n \001(\010R\005stale\022\032\n\010eligib" +
-      "le\030\013 \001(\010R\010eligible\022+\n\021ineligible_reason\030" +
-      "\014 \001(\tR\020ineligibleReason\"\027\n\025ListStrategie" +
-      "sRequest\"\212\001\n\026ListStrategiesResponse\0229\n\ns" +
-      "trategies\030\001 \003(\0132\031.shorts.v1alpha1.Strate" +
-      "gyR\nstrategies\0225\n\006regime\030\002 \001(\0132\035.shorts." +
-      "v1alpha1.MarketRegimeR\006regime2\341\002\n\017Strate" +
-      "gyService\022g\n\016ListStrategies\022&.shorts.v1a" +
-      "lpha1.ListStrategiesRequest\032\'.shorts.v1a" +
-      "lpha1.ListStrategiesResponse\"\004\200\265\030\001\022m\n\020Ge" +
-      "tStrategyPicks\022(.shorts.v1alpha1.GetStra" +
-      "tegyPicksRequest\032).shorts.v1alpha1.GetSt" +
-      "rategyPicksResponse\"\004\200\265\030\001\022v\n\023GetStockStr" +
-      "ategyFit\022+.shorts.v1alpha1.GetStockStrat" +
-      "egyFitRequest\032,.shorts.v1alpha1.GetStock" +
-      "StrategyFitResponse\"\004\200\265\030\001B\336\001\n\023com.shorts" +
-      ".v1alpha1B\017StrategiesProtoP\001ZYgithub.com" +
-      "/castlemilk/shorted.com.au/services/gen/" +
-      "proto/go/shorts/v1alpha1;shortsv1alpha1\242" +
-      "\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha" +
-      "1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Shorts" +
-      "::V1alpha1b\006proto3"
+      "(\tR\runiverseLabel\0224\n\006viewer\030\017 \001(\0132\034.shor" +
+      "ts.v1alpha1.ViewerDepthR\006viewer\"~\n\013Viewe" +
+      "rDepth\022\026\n\006access\030\001 \001(\tR\006access\022\030\n\007clampe" +
+      "d\030\002 \001(\010R\007clamped\022\'\n\017required_access\030\003 \001(" +
+      "\tR\016requiredAccess\022\024\n\005limit\030\004 \001(\005R\005limit\"" +
+      "\232\002\n\022StrategyVersionRef\022\037\n\013strategy_id\030\001 " +
+      "\001(\tR\nstrategyId\022\024\n\005label\030\002 \001(\tR\005label\022\035\n" +
+      "\nrules_hash\030\003 \001(\tR\trulesHash\022%\n\016engine_v" +
+      "ersion\030\004 \001(\tR\rengineVersion\022\037\n\013feature_s" +
+      "et\030\005 \001(\tR\nfeatureSet\022\026\n\006status\030\006 \001(\tR\006st" +
+      "atus\022\033\n\tlive_from\030\007 \001(\tR\010liveFrom\022\022\n\004kin" +
+      "d\030\010 \001(\tR\004kind\022\035\n\nvariant_id\030\t \001(\tR\tvaria" +
+      "ntId\"r\n\014StatusCounts\022\034\n\ttriggered\030\001 \001(\005R" +
+      "\ttriggered\022\024\n\005setup\030\002 \001(\005R\005setup\022\024\n\005watc" +
+      "h\030\003 \001(\005R\005watch\022\030\n\007unknown\030\004 \001(\005R\007unknown" +
+      "\";\n\032GetStockStrategyFitRequest\022\035\n\nstock_" +
+      "code\030\001 \001(\tR\tstockCode\"\351\001\n\013StrategyFit\022\037\n" +
+      "\013strategy_id\030\001 \001(\tR\nstrategyId\022#\n\rstrate" +
+      "gy_name\030\002 \001(\tR\014strategyName\022\026\n\006status\030\003 " +
+      "\001(\tR\006status\022\024\n\005score\030\004 \001(\001R\005score\022\022\n\004ran" +
+      "k\030\005 \001(\005R\004rank\022\037\n\013total_count\030\006 \001(\005R\ntota" +
+      "lCount\0221\n\005rules\030\007 \003(\0132\033.shorts.v1alpha1." +
+      "RuleResultR\005rules\"\254\010\n\rPriceFeatures\022\023\n\005a" +
+      "s_of\030\001 \001(\tR\004asOf\022\024\n\005close\030\002 \001(\001R\005close\022\024" +
+      "\n\005sma50\030\003 \001(\001R\005sma50\022\033\n\thas_sma50\030\004 \001(\010R" +
+      "\010hasSma50\022\026\n\006sma150\030\005 \001(\001R\006sma150\022\035\n\nhas" +
+      "_sma150\030\006 \001(\010R\thasSma150\022\026\n\006sma200\030\007 \001(\001" +
+      "R\006sma200\022\035\n\nhas_sma200\030\010 \001(\010R\thasSma200\022" +
+      ",\n\022sma200_prior_month\030\t \001(\001R\020sma200Prior" +
+      "Month\0223\n\026has_sma200_prior_month\030\n \001(\010R\023h" +
+      "asSma200PriorMonth\022\030\n\007high52w\030\013 \001(\001R\007hig" +
+      "h52w\022\037\n\013has_high52w\030\014 \001(\010R\nhasHigh52w\022\026\n" +
+      "\006low52w\030\r \001(\001R\006low52w\022\035\n\nhas_low52w\030\016 \001(" +
+      "\010R\thasLow52w\022\033\n\tbase_high\030\017 \001(\001R\010baseHig" +
+      "h\022\"\n\rhas_base_high\030\020 \001(\010R\013hasBaseHigh\022\031\n" +
+      "\010base_low\030\021 \001(\001R\007baseLow\022 \n\014has_base_low" +
+      "\030\022 \001(\010R\nhasBaseLow\022$\n\016base_depth_pct\030\023 \001" +
+      "(\001R\014baseDepthPct\022+\n\022has_base_depth_pct\030\024" +
+      " \001(\010R\017hasBaseDepthPct\022(\n\020base_length_day" +
+      "s\030\025 \001(\005R\016baseLengthDays\022/\n\024has_base_leng" +
+      "th_days\030\026 \001(\010R\021hasBaseLengthDays\022\'\n\017brea" +
+      "kout_recent\030\027 \001(\010R\016breakoutRecent\022#\n\rbre" +
+      "akout_date\030\030 \001(\tR\014breakoutDate\022\031\n\010rs3m_p" +
+      "ct\030\031 \001(\001R\007rs3mPct\022 \n\014has_rs3m_pct\030\032 \001(\010R" +
+      "\nhasRs3mPct\022\031\n\010rs6m_pct\030\033 \001(\001R\007rs6mPct\022 " +
+      "\n\014has_rs6m_pct\030\034 \001(\010R\nhasRs6mPct\022\'\n\017volu" +
+      "me_ratio50d\030\035 \001(\001R\016volumeRatio50d\022.\n\023has" +
+      "_volume_ratio50d\030\036 \001(\010R\021hasVolumeRatio50" +
+      "d\022-\n\022sessions_available\030\037 \001(\005R\021sessionsA" +
+      "vailable\"\202\004\n\033GetStockStrategyFitResponse" +
+      "\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022\023\n\005as_of" +
+      "\030\002 \001(\tR\004asOf\0225\n\006regime\030\003 \001(\0132\035.shorts.v1" +
+      "alpha1.MarketRegimeR\006regime\0220\n\004fits\030\004 \003(" +
+      "\0132\034.shorts.v1alpha1.StrategyFitR\004fits\022\037\n" +
+      "\013in_universe\030\005 \001(\010R\ninUniverse\022E\n\016price_" +
+      "features\030\006 \001(\0132\036.shorts.v1alpha1.PriceFe" +
+      "aturesR\rpriceFeatures\022!\n\014session_date\030\007 " +
+      "\001(\tR\013sessionDate\022*\n\021short_report_date\030\010 " +
+      "\001(\tR\017shortReportDate\0220\n\024short_available_" +
+      "date\030\t \001(\tR\022shortAvailableDate\022\024\n\005stale\030" +
+      "\n \001(\010R\005stale\022\032\n\010eligible\030\013 \001(\010R\010eligible" +
+      "\022+\n\021ineligible_reason\030\014 \001(\tR\020ineligibleR" +
+      "eason\"\027\n\025ListStrategiesRequest\"\212\001\n\026ListS" +
+      "trategiesResponse\0229\n\nstrategies\030\001 \003(\0132\031." +
+      "shorts.v1alpha1.StrategyR\nstrategies\0225\n\006" +
+      "regime\030\002 \001(\0132\035.shorts.v1alpha1.MarketReg" +
+      "imeR\006regime2\326\003\n\017StrategyService\022g\n\016ListS" +
+      "trategies\022&.shorts.v1alpha1.ListStrategi" +
+      "esRequest\032\'.shorts.v1alpha1.ListStrategi" +
+      "esResponse\"\004\200\265\030\001\022m\n\020GetStrategyPicks\022(.s" +
+      "horts.v1alpha1.GetStrategyPicksRequest\032)" +
+      ".shorts.v1alpha1.GetStrategyPicksRespons" +
+      "e\"\004\200\265\030\001\022s\n\026GetViewerStrategyPicks\022(.shor" +
+      "ts.v1alpha1.GetStrategyPicksRequest\032).sh" +
+      "orts.v1alpha1.GetStrategyPicksResponse\"\004" +
+      "\200\265\030\002\022v\n\023GetStockStrategyFit\022+.shorts.v1a" +
+      "lpha1.GetStockStrategyFitRequest\032,.short" +
+      "s.v1alpha1.GetStockStrategyFitResponse\"\004" +
+      "\200\265\030\001B\336\001\n\023com.shorts.v1alpha1B\017Strategies" +
+      "ProtoP\001ZYgithub.com/castlemilk/shorted.c" +
+      "om.au/services/gen/proto/go/shorts/v1alp" +
+      "ha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alph" +
+      "a1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha1\\G" +
+      "PBMetadata\352\002\020Shorts::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -377,51 +389,57 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_GetStrategyPicksResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetStrategyPicksResponse_descriptor,
-        new java.lang.String[] { "Strategy", "Regime", "Picks", "TotalCount", "UniverseCount", "FundamentalsCoverageCount", "AsOf", "FundamentalsRowsCount", "StatusCounts", "Version", "SessionDate", "ShortReportDate", "ShortAvailableDate", "Stale", "RsQuantileThreshold", "HasRsQuantileThreshold", "UniverseLabel", });
-    internal_static_shorts_v1alpha1_StrategyVersionRef_descriptor =
+        new java.lang.String[] { "Strategy", "Regime", "Picks", "TotalCount", "UniverseCount", "FundamentalsCoverageCount", "AsOf", "FundamentalsRowsCount", "StatusCounts", "Version", "SessionDate", "ShortReportDate", "ShortAvailableDate", "Stale", "RsQuantileThreshold", "HasRsQuantileThreshold", "UniverseLabel", "Viewer", });
+    internal_static_shorts_v1alpha1_ViewerDepth_descriptor =
       getDescriptor().getMessageType(9);
+    internal_static_shorts_v1alpha1_ViewerDepth_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ViewerDepth_descriptor,
+        new java.lang.String[] { "Access", "Clamped", "RequiredAccess", "Limit", });
+    internal_static_shorts_v1alpha1_StrategyVersionRef_descriptor =
+      getDescriptor().getMessageType(10);
     internal_static_shorts_v1alpha1_StrategyVersionRef_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StrategyVersionRef_descriptor,
         new java.lang.String[] { "StrategyId", "Label", "RulesHash", "EngineVersion", "FeatureSet", "Status", "LiveFrom", "Kind", "VariantId", });
     internal_static_shorts_v1alpha1_StatusCounts_descriptor =
-      getDescriptor().getMessageType(10);
+      getDescriptor().getMessageType(11);
     internal_static_shorts_v1alpha1_StatusCounts_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StatusCounts_descriptor,
         new java.lang.String[] { "Triggered", "Setup", "Watch", "Unknown", });
     internal_static_shorts_v1alpha1_GetStockStrategyFitRequest_descriptor =
-      getDescriptor().getMessageType(11);
+      getDescriptor().getMessageType(12);
     internal_static_shorts_v1alpha1_GetStockStrategyFitRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetStockStrategyFitRequest_descriptor,
         new java.lang.String[] { "StockCode", });
     internal_static_shorts_v1alpha1_StrategyFit_descriptor =
-      getDescriptor().getMessageType(12);
+      getDescriptor().getMessageType(13);
     internal_static_shorts_v1alpha1_StrategyFit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StrategyFit_descriptor,
         new java.lang.String[] { "StrategyId", "StrategyName", "Status", "Score", "Rank", "TotalCount", "Rules", });
     internal_static_shorts_v1alpha1_PriceFeatures_descriptor =
-      getDescriptor().getMessageType(13);
+      getDescriptor().getMessageType(14);
     internal_static_shorts_v1alpha1_PriceFeatures_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_PriceFeatures_descriptor,
         new java.lang.String[] { "AsOf", "Close", "Sma50", "HasSma50", "Sma150", "HasSma150", "Sma200", "HasSma200", "Sma200PriorMonth", "HasSma200PriorMonth", "High52W", "HasHigh52W", "Low52W", "HasLow52W", "BaseHigh", "HasBaseHigh", "BaseLow", "HasBaseLow", "BaseDepthPct", "HasBaseDepthPct", "BaseLengthDays", "HasBaseLengthDays", "BreakoutRecent", "BreakoutDate", "Rs3MPct", "HasRs3MPct", "Rs6MPct", "HasRs6MPct", "VolumeRatio50D", "HasVolumeRatio50D", "SessionsAvailable", });
     internal_static_shorts_v1alpha1_GetStockStrategyFitResponse_descriptor =
-      getDescriptor().getMessageType(14);
+      getDescriptor().getMessageType(15);
     internal_static_shorts_v1alpha1_GetStockStrategyFitResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetStockStrategyFitResponse_descriptor,
         new java.lang.String[] { "StockCode", "AsOf", "Regime", "Fits", "InUniverse", "PriceFeatures", "SessionDate", "ShortReportDate", "ShortAvailableDate", "Stale", "Eligible", "IneligibleReason", });
     internal_static_shorts_v1alpha1_ListStrategiesRequest_descriptor =
-      getDescriptor().getMessageType(15);
+      getDescriptor().getMessageType(16);
     internal_static_shorts_v1alpha1_ListStrategiesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStrategiesRequest_descriptor,
         new java.lang.String[] { });
     internal_static_shorts_v1alpha1_ListStrategiesResponse_descriptor =
-      getDescriptor().getMessageType(16);
+      getDescriptor().getMessageType(17);
     internal_static_shorts_v1alpha1_ListStrategiesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStrategiesResponse_descriptor,

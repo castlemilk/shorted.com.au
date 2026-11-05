@@ -286,4 +286,34 @@ public interface GetStrategyPicksResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getUniverseLabelBytes();
+
+  /**
+   * <pre>
+   * Whose depth this answer is. A clamp is not an error: clamped is true when
+   * more rows exist than this access receives.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+   * @return Whether the viewer field is set.
+   */
+  boolean hasViewer();
+  /**
+   * <pre>
+   * Whose depth this answer is. A clamp is not an error: clamped is true when
+   * more rows exist than this access receives.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+   * @return The viewer.
+   */
+  com.shorts.v1alpha1.ViewerDepth getViewer();
+  /**
+   * <pre>
+   * Whose depth this answer is. A clamp is not an error: clamped is true when
+   * more rows exist than this access receives.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.ViewerDepth viewer = 15 [json_name = "viewer"];</code>
+   */
+  com.shorts.v1alpha1.ViewerDepthOrBuilder getViewerOrBuilder();
 }
