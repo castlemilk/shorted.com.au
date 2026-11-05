@@ -20,7 +20,7 @@ import (
 // `shorted strategies -mode daily` snapshots one session of the strategy engine
 // and records the canonical versions' transitions. The session is today's (or the
 // last trading day's); a session the run finds held, or missed, is backfilled
-// oldest first by the next run that can. See 4.10 of the design for the steps.
+// oldest first by the next run that can.
 
 const (
 	phaseFeatures   = "features"
@@ -564,7 +564,7 @@ func revalidateAfter(ctx context.Context, opts dailyOptions, logf func(string, .
 	return nil
 }
 
-// pruneAfter applies the retention rules (9.9) after a run that wrote sessions.
+// pruneAfter applies the retention rules after a run that wrote sessions.
 func pruneAfter(ctx context.Context, pool *pgxpool.Pool, st store, d civil.Date, logf func(string, ...any)) error {
 	completed, err := st.completedSessions(ctx, d, true, keepSessions)
 	if err != nil {

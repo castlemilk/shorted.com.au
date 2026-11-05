@@ -28,14 +28,14 @@ const (
 	// snapshotPublicationLag is the short-report publication lag of the
 	// latest-complete-published reading (sf1), in sessions.
 	snapshotPublicationLag = 4
-	// caUpjumpFrom is the first bar the unadjusted up-jump rule reads (4.8): the
+	// caUpjumpFrom is the first bar the unadjusted up-jump rule reads the
 	// day after the last live price re-sync.
 	caUpjumpFrom = "2026-09-29"
 	// caGuardSessions is how long a known corporate-action suspect keeps a code
 	// out of the ordinary universe (pipeline.caGuardSessions).
 	caGuardSessions = 260
 	// minPricedForOrdinary is the bar history the ordinary universe needs
-	// (ordinary_fresh_60, 4.7).
+	// (ordinary_fresh_60).
 	minPricedForOrdinary = 60
 	// asicWindowDays is the ASIC history the daily job loads: two years, for the
 	// share counts the basis guard and the instrument rule read.
@@ -175,7 +175,7 @@ func buildSessionRows(in sessionInputs, fs spec.FeatureSpec) sessionRows {
 }
 
 // universeReason is the v1 base universe's reason for a code, in the order the
-// stock page reads them (4.7). Empty when the code is in the base universe.
+// stock page reads them. Empty when the code is in the base universe.
 func universeReason(onD, okPrice bool, priced int, isOrd bool, code, product, name string, shares float64, etp map[string]bool, caGuarded bool) string {
 	if !onD {
 		return snapshot.ReasonNoBarOnSession

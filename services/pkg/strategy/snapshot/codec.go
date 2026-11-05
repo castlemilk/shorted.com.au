@@ -73,7 +73,7 @@ func (r Row) HasPrice() bool {
 
 // Eligible reports whether a stored row is in the version's universe on its
 // session, and the reason when it is not. The version's universe policy is
-// read from s; the universe facts are the ones the row stores (4.7):
+// read from s; the universe facts are the ones the row stores:
 //
 //   - the instruments-all universe (v0) needs price features and at least
 //     MinSessions priced sessions in the lookback;

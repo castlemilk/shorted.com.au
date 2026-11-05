@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Retention of the snapshot (9.9). Feature rows are kept for the newest
+// Retention of the snapshot. Feature rows are kept for the newest
 // keepSessions completed sessions and for as long as the paper track has not yet
 // read them; the events for three years. The cut-off is computed here, never in
 // SQL, so the statements take one date each.
@@ -42,7 +42,7 @@ func pruneCutoff(completed []civil.Date, guards []civil.Date) civil.Date {
 }
 
 // paperGuardSessions is, for each live canonical version except v0, the session
-// before its first live session, from the data calendar. The paper track (PR-15)
+// before its first live session, from the data calendar. The paper track
 // will replace this with the newest session it has recorded; until then the
 // guard keeps the session the track's first step reads. A version with no
 // live_from has no guard.

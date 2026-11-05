@@ -1,9 +1,9 @@
--- 000155: the strategy engine's daily snapshot (PR-10).
+-- 000155: the strategy engine's daily snapshot.
 --
 --   strategy_rule_versions   one row per published rules hash: the canonical versions the product shows
---                            (v0 now) and, from PR-27, the variants an owner saves. The hash is the
+--                            (v0 now) and, once variants are saved, the variants an owner saves. The hash is the
 --                            version's identity everywhere it is shown.
---   strategy_recipes         the execution recipes backtests trade with (PR-12a), keyed by their hash.
+--   strategy_recipes         the execution recipes backtests trade with, keyed by their hash.
 --   strategy_daily_runs      one row per session and phase: the daily job's progress, its holds and the
 --                            counts a reader needs to tell a late (backfilled) session from a current one.
 --   strategy_regime_daily    the market regime per session and index.
@@ -12,7 +12,7 @@
 --   strategy_features_daily  the stored feature row of one stock on one session (snapshot.Row): the input
 --                            every evaluation of that session reads, so a published result can be
 --                            reproduced from what was known that day.
---   strategy_signal_events   the status transitions of the canonical versions (2.1), diffed against the
+--   strategy_signal_events   the status transitions of the canonical versions, diffed against the
 --                            previous completed session.
 --
 -- LOCK-FREE ON REPLAY. Prod replays every allowlisted migration on every deploy
@@ -133,7 +133,7 @@ BEGIN
   END IF;
 END $m155_idx_live$;
 
--- The blob prune's anti-join and the foreign key check probe this index (9.9).
+-- The blob prune's anti-join and the foreign key check probe this index.
 DO $m155_idx_fhash$
 BEGIN
   IF to_regclass('public.idx_sfd_fundamentals_hash') IS NULL THEN
