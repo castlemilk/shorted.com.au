@@ -110,6 +110,7 @@ export function SourceDatesPopover({
         <div
           ref={panelRef}
           id={panelId}
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- A scroll region needs focus for arrow-key scrolling.
           tabIndex={0}
           role="region"
           aria-label="Source dates"
