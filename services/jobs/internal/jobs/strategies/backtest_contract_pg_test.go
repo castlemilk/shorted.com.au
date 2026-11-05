@@ -303,11 +303,9 @@ func TestBacktestRevalidatesAfterSixteenMinutesWithNoOpenSnapshot(t *testing.T) 
 	var pings []platform.RevalidateRequest
 	opts.Ping = func(r platform.RevalidateRequest) { pings = append(pings, r) }
 
-	withPublicationWired(t, func() {
-		res, err := runBacktest(ctx, pool, opts)
-		require.NoError(t, err)
-		require.Equal(t, 1, res.Published)
-	})
+	res, err := runBacktest(ctx, pool, opts)
+	require.NoError(t, err)
+	require.Equal(t, 1, res.Published)
 	require.Equal(t, []time.Duration{16 * time.Minute}, slept)
 	require.Len(t, pings, 1)
 	require.Equal(t, "strategy-backtests", pings[0].Tag)

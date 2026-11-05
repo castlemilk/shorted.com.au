@@ -41,8 +41,9 @@ const (
 	// backtestRevalidateWait is how long the API's cache takes to turn over.
 	backtestRevalidateWait = 16 * time.Minute
 	backtestRevalidateTags = "strategy-backtests"
-	// Retention: runs younger than 30 days, the published run and the newest
-	// succeeded run of each key are kept; requests are kept 90 days.
+	// Retention: runs younger than 30 days are kept, and so are the two newest
+	// published runs of each key (the published run and the one it replaced);
+	// requests are kept 90 days.
 	backtestRunRetentionDays     = 30
 	backtestRequestRetentionDays = 90
 )
@@ -130,33 +131,39 @@ func fundamentalsNeeds(s spec.Spec) (backtest.Needs, bool) {
 	return needs, reads && (needs.Growth || needs.Quality)
 }
 
-// publicationParts is what the publication gate has wired. Sensitivity
-// runs and the same-data reference arrive in the follow-up, so this build publishes nothing.
-type publicationParts struct {
-	Sensitivity bool
-	Reference   bool
-}
-
-// publicationWired is what this build's gate has. the follow-up switches the two parts on.
-var publicationWired = publicationParts{}
-
-// publicationGate reports why a run may not publish, or nil when it may. It
-// needs coverage (always computed), the parts wired in this build, and a verify
-// pass that reproduced the run.
-func publicationGate(d backtest.Disclosures, verified bool, wired publicationParts) error {
+// publicationGate reports why a run may not publish, or nil when it may. A run
+// publishes only when a verify pass reproduced it, its coverage is computed under
+// both measures, its five sensitivity runs are complete and the same-data
+// reference is computed. The diff note is a record, not a condition.
+func publicationGate(d backtest.Disclosures, verified bool) error {
 	if !verified {
 		return errors.New("no verify pass reproduced the run")
 	}
-	if !wired.Sensitivity {
-		return errors.New("sensitivity runs are not wired in this build (the follow-up)")
-	}
-	if !wired.Reference {
-		return errors.New("the same-data reference is not wired in this build (the follow-up)")
-	}
-	if d.Coverage.Qualifying.Total.Qualifying == 0 {
+	if d.Coverage.Qualifying.Total.Qualifying == 0 || d.Coverage.AllReported.Total.Qualifying == 0 {
 		return errors.New("coverage is not computed")
 	}
+	if !sensitivityComplete(d.Sensitivity) {
+		return errors.New("the sensitivity runs are not complete")
+	}
+	if d.Reference.Basis != backtest.BasisTotal || d.Reference.Sessions == 0 {
+		return errors.New("the same-data reference is not computed")
+	}
 	return nil
+}
+
+// sensitivityComplete reports whether every sensitivity run of the table is
+// present: each one either ran or says why it does not apply to the recipe.
+func sensitivityComplete(s backtest.Sensitivities) bool {
+	if len(s.Runs) != len(backtest.SensitivityIDs) {
+		return false
+	}
+	for i, id := range backtest.SensitivityIDs {
+		run := s.Runs[i]
+		if run.ID != id || (!run.Applies && run.Reason == "") {
+			return false
+		}
+	}
+	return true
 }
 
 // backtestOptions carries the job's dependencies, so a test can stand in the
@@ -471,6 +478,18 @@ func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, hold *batc
 	if err != nil {
 		return out, fmt.Errorf("publish %s %s: %w", t.Reg.Label, recipe.ID, err)
 	}
+	// The run's inputs are the batch snapshot's: its start is recorded so a later
+	// diff note lists the revisions recorded after it.
+	readAt, err := snapshotTime(ctx, tx)
+	if err != nil {
+		return out, err
+	}
+	// The diff note reads the first copy of the history, so it is built before the
+	// verify pass releases that copy.
+	diff, err := st.diffNote(ctx, tx, t, fundamentalsPolicy(recipe), in, d1, base)
+	if err != nil {
+		return out, err
+	}
 	// The verify pass runs unless a succeeded verify already reproduced this exact
 	// input and output: the gate's verify check is for this run, never another.
 	verified, err := st.verifiedRun(ctx, t, d1.Identity.InputHash, d1.Identity.OutputHash)
@@ -499,20 +518,37 @@ func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, hold *batc
 		verified = true
 	}
 
-	gate := publicationGate(d1, verified, publicationWired)
+	gate := publicationGate(d1, verified)
 	publish := gate == nil
 	out.Published = publish
 	if gate != nil {
 		opts.Logf("strategies backtest: %s %s computed, not published: %v", t.Reg.Label, recipe.ID, gate)
 	}
+	opts.Logf("strategies backtest: %s %s diff against the previous published run: %s", t.Reg.Label, recipe.ID, diffLogLabel(diff))
 	id, err := st.writeRun(ctx, runWrite{
 		Target: t, Recipe: recipe, Kind: "publish", WindowEnd: windowEnd,
-		Disclosures: d1, Result: base,
+		Disclosures: d1, Result: base, Diff: &diff,
 		Publish: publish, Build: opts.Build, Verified: verified,
-		Fundamentals: fundamentalsPolicy(recipe), Through: through,
+		Fundamentals: fundamentalsPolicy(recipe), Through: through, ReadAt: readAt,
 	})
 	out.RunID = id
 	return out, err
+}
+
+// diffLogLabel is a short form of a diff note for the log.
+func diffLogLabel(d backtest.DiffNote) string {
+	switch d.State {
+	case backtest.DiffChanged:
+		shift := "CAGR shift n/a"
+		if d.HasCAGRShift {
+			shift = fmt.Sprintf("CAGR shift %+.2f pp", d.CAGRShiftPP)
+		}
+		return fmt.Sprintf("changed: %d code(s) rewritten, %d ASIC code(s) revised, %s",
+			d.RewrittenCount, d.RevisedCount, shift)
+	case backtest.DiffUnchanged:
+		return "unchanged inputs"
+	}
+	return "no previous published run"
 }
 
 // verifyPass reruns the key from a second read inside the same transaction and

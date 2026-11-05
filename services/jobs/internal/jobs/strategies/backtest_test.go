@@ -86,33 +86,72 @@ func TestIsoWeekFollowsTheISOYearNotTheCalendarYear(t *testing.T) {
 	}
 }
 
-func TestPublicationGateRefusesWithoutAVerifyPass(t *testing.T) {
-	d := backtest.Disclosures{}
+// publishable is a run's disclosures with every part the gate needs.
+func publishable() backtest.Disclosures {
+	var d backtest.Disclosures
 	d.Coverage.Qualifying.Total.Qualifying = 10
-	wired := publicationParts{Sensitivity: true, Reference: true}
-	if err := publicationGate(d, false, wired); err == nil {
+	d.Coverage.AllReported.Total.Qualifying = 40
+	for _, id := range backtest.SensitivityIDs {
+		d.Sensitivity.Runs = append(d.Sensitivity.Runs, backtest.Sensitivity{ID: id, Applies: true})
+	}
+	d.Reference.Basis = backtest.BasisTotal
+	d.Reference.Sessions = 250
+	return d
+}
+
+func TestPublicationGateRefusesWithoutAVerifyPass(t *testing.T) {
+	d := publishable()
+	if err := publicationGate(d, false); err == nil {
 		t.Fatal("published without a verify pass")
 	}
-	if err := publicationGate(d, true, wired); err != nil {
-		t.Fatalf("verified, wired and covered must publish: %v", err)
+	if err := publicationGate(d, true); err != nil {
+		t.Fatalf("verified, covered, with sensitivity and reference must publish: %v", err)
 	}
 }
 
-func TestPublicationGateRefusesUntilTheSensitivityAndReferenceAreWired(t *testing.T) {
-	d := backtest.Disclosures{}
-	d.Coverage.Qualifying.Total.Qualifying = 10
-	if err := publicationGate(d, true, publicationWired); err == nil {
-		t.Fatal("this build publishes: the sensitivity and reference parts are the follow-up's")
+func TestPublicationGateRefusesWithoutTheSensitivityRuns(t *testing.T) {
+	d := publishable()
+	d.Sensitivity.Runs = d.Sensitivity.Runs[:4]
+	if err := publicationGate(d, true); err == nil {
+		t.Fatal("published with four of the five sensitivity runs")
 	}
-	if err := publicationGate(d, true, publicationParts{Sensitivity: true}); err == nil {
-		t.Fatal("the reference alone is not enough")
+	d = publishable()
+	d.Sensitivity.Runs[1].Applies = false
+	d.Sensitivity.Runs[1].Reason = ""
+	if err := publicationGate(d, true); err == nil {
+		t.Fatal("a run that neither ran nor says why not is incomplete")
+	}
+	d = publishable()
+	d.Sensitivity.Runs[1].Applies = false
+	d.Sensitivity.Runs[1].Reason = "applies to the Crowded-Short recipe only"
+	if err := publicationGate(d, true); err != nil {
+		t.Fatalf("a sensitivity that does not apply, with its reason, is complete: %v", err)
+	}
+}
+
+func TestPublicationGateRefusesWithoutTheReference(t *testing.T) {
+	d := publishable()
+	d.Reference = backtest.WindowFigures{}
+	if err := publicationGate(d, true); err == nil {
+		t.Fatal("published without the same-data reference")
+	}
+	d = publishable()
+	d.Reference.Basis = backtest.BasisPrice
+	if err := publicationGate(d, true); err == nil {
+		t.Fatal("a price-return reference is not the total-return reference")
 	}
 }
 
 func TestPublicationGateRefusesUncoveredRuns(t *testing.T) {
-	d := backtest.Disclosures{}
-	if err := publicationGate(d, true, publicationParts{Sensitivity: true, Reference: true}); err == nil {
+	d := publishable()
+	d.Coverage = backtest.Coverage{}
+	if err := publicationGate(d, true); err == nil {
 		t.Fatal("a run with no coverage must not publish")
+	}
+	d = publishable()
+	d.Coverage.AllReported = backtest.CoverageMeasure{}
+	if err := publicationGate(d, true); err == nil {
+		t.Fatal("a run without the all-reported measure must not publish")
 	}
 }
 

@@ -33,6 +33,21 @@ type fakePublisher struct {
 	picks     jobmonitor.PicksRequest
 	picksErr  error
 	picksExec string
+	// backtest records the strategy backtest queue half.
+	backtest    StrategyBacktestQueueRequest
+	backtestErr error
+}
+
+// StrategyBacktestQueue makes the fake its own queue writer.
+func (f *fakePublisher) StrategyBacktestQueue() StrategyBacktestQueueStore { return f }
+
+// QueueStrategyBacktest records the request and answers the configured error.
+func (f *fakePublisher) QueueStrategyBacktest(_ context.Context, req StrategyBacktestQueueRequest) (StrategyBacktestQueueResult, error) {
+	f.backtest = req
+	if f.backtestErr != nil {
+		return StrategyBacktestQueueResult{}, f.backtestErr
+	}
+	return StrategyBacktestQueueResult{RequestID: 41, StrategyID: req.StrategyID, Label: req.Version, Status: "queued"}, nil
 }
 
 func (f *fakePublisher) RunPublish(_ context.Context, req jobmonitor.PublishRequest) (*jobmonitor.PublishRun, error) {

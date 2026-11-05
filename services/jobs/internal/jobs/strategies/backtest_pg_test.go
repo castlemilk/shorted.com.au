@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/backtest"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
@@ -57,6 +58,11 @@ CREATE TABLE shorts ("DATE" timestamp, "PRODUCT" text, "PRODUCT_CODE" varchar,
 	"REPORTED_SHORT_POSITIONS" float8, "TOTAL_PRODUCT_IN_ISSUE" float8,
 	"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" float8);
 CREATE TABLE asic_report_ingests (report_date date PRIMARY KEY, file_rows int, loaded_rows int);
+-- The production shape of 000155's revisions table. The migration itself also builds
+-- stock_fundamentals' vintage trigger, which this fixture does not carry.
+CREATE TABLE shorts_revisions (id bigserial PRIMARY KEY, report_date date NOT NULL, product_code text NOT NULL,
+	old_positions float8, new_positions float8, old_shares float8, new_shares float8, old_percent float8, new_percent float8,
+	revised_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE dividend_history (stock_code varchar, ex_date date, dividend_type text, amount_per_share float8);
 CREATE TABLE "company-metadata" (stock_code varchar PRIMARY KEY, company_name text, industry text,
 	logo_gcs_url text, logo_icon_gcs_url text, key_metrics jsonb);
@@ -240,16 +246,6 @@ func goldenTarget(t *testing.T, pool *pgxpool.Pool) backtestTarget {
 	return backtestTarget{Reg: reg, RulesHash: rh, Recipe: recipe, RecipeHash: recipeHash}
 }
 
-// withPublicationWired runs f with the gate's parts switched on, then restores
-// the build's setting. The publication gate is tested for its refusals elsewhere.
-func withPublicationWired(t *testing.T, f func()) {
-	t.Helper()
-	saved := publicationWired
-	publicationWired = publicationParts{Sensitivity: true, Reference: true}
-	defer func() { publicationWired = saved }()
-	f()
-}
-
 func backtestOptsFor(t *testing.T, write bool, targets []backtestTarget) backtestOptions {
 	t.Helper()
 	return backtestOptions{
@@ -331,14 +327,12 @@ func TestBacktestGoldenRunMatchesItsCommittedHashAndPublishes(t *testing.T) {
 	want := goldenExpectedOutputHash(t)
 	require.Equal(t, want, res.OutputHash, "the stored rows reproduce the golden run")
 
-	// The job publishes the same run, through the gate with its parts wired.
-	withPublicationWired(t, func() {
-		res, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
-		require.NoError(t, err)
-		// The weekly and the first-publish requests both name the key: each is
-		// published, and the second finds the first's run key already stored.
-		require.GreaterOrEqual(t, res.Published, 1)
-	})
+	// The job publishes the same run through the gate. The weekly and the
+	// first-publish requests both name the key: each is published, and the second
+	// finds the first's run key already stored.
+	pub, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, pub.Published, 1)
 	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE kind = 'verify' AND status = 'succeeded'`),
 		"the first publish of a key runs the verify pass")
 	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE kind = 'publish' AND published`))
@@ -359,16 +353,19 @@ func goldenExpectedOutputHash(t *testing.T) string {
 	return want.OutputHash
 }
 
-func TestBacktestPublishesRefuseWithoutTheGatesPartsInThisBuild(t *testing.T) {
+func TestBacktestPublishesOnlyARunWithItsDisclosures(t *testing.T) {
 	pool := backtestDB(t)
 	seedGolden(t, pool)
 	target := goldenTarget(t, pool)
 	ctx := context.Background()
 	res, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
 	require.NoError(t, err)
-	require.Equal(t, 0, res.Published, "this build stores the run unpublished")
-	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE kind = 'publish' AND status = 'succeeded' AND NOT published`))
-	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE published`))
+	require.GreaterOrEqual(t, res.Published, 1)
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE kind = 'publish' AND published
+		AND jsonb_array_length(summary->'sensitivity'->'Runs') = 5 AND summary ? 'reference' AND summary ? 'coverage' AND summary ? 'diff'`),
+		"the published run carries its sensitivity runs, reference, coverage and diff note")
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE published AND diagnostics ? 'published_at'`),
+		"the flip stamps the published run, which retention and the diff note read")
 }
 
 func TestBacktestRerunOfAnIdenticalKeyIsDetectedNotStoredTwice(t *testing.T) {
@@ -663,4 +660,325 @@ func TestBacktestNotComputableStoresTheOutcomeWithoutASimulation(t *testing.T) {
 	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_trades`))
 	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE computable_from IS NULL AND fiscal_label IS NULL`),
 		"a run that is not computable carries no date and no label")
+}
+
+// The previously published run is the most recently published run of its key, and
+// retention keeps it, and the one before it, after it is superseded. Each publish
+// goes through the real flip, so published_at is stamped as the job stamps it.
+func TestBacktestRetentionKeepsTheTwoNewestPublishedRuns(t *testing.T) {
+	pool := backtestDB(t)
+	seedGolden(t, pool)
+	target := goldenTarget(t, pool)
+	ctx := context.Background()
+	_, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	var first int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id FROM strategy_backtest_runs WHERE published`).Scan(&first))
+	st := backtestStore{pool: pool}
+
+	// The previous run's read back: its cut-off, digests and daily equity.
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	require.NoError(t, err)
+	prev, err := st.previousPublished(ctx, tx, target, "strict")
+	require.NoError(t, tx.Rollback(ctx))
+	require.NoError(t, err)
+	require.NotNil(t, prev)
+	require.Equal(t, first, prev.RunID)
+	require.NotEmpty(t, prev.Digests, "the run stores its per-code digests")
+	require.NotEmpty(t, prev.Dates)
+	require.Equal(t, len(prev.Dates), len(prev.Equity))
+	require.False(t, prev.CutOff.IsZero())
+	require.False(t, prev.ReadAt.IsZero(), "the run stores when it read its inputs")
+
+	// The second publish replaces the first, which is now the previous run. Once it
+	// is older than the retention window it still survives: it is one of the two newest.
+	second := publishKey(t, st, target, "key-second")
+	require.Equal(t, 1, countRows(t, pool, fmt.Sprintf(`SELECT count(*) FROM strategy_backtest_runs WHERE id = %d AND published`, second)))
+	ageRun(t, pool, first)
+	require.NoError(t, st.prune(ctx))
+	require.Equal(t, 1, countRows(t, pool, fmt.Sprintf(`SELECT count(*) FROM strategy_backtest_runs WHERE id = %d`, first)),
+		"the run a publish replaced survives retention: the diff note reads it")
+
+	// A third publish makes the first one older than the previous run: it goes.
+	third := publishKey(t, st, target, "key-third")
+	ageRun(t, pool, second)
+	require.NoError(t, st.prune(ctx))
+	require.Equal(t, 0, countRows(t, pool, fmt.Sprintf(`SELECT count(*) FROM strategy_backtest_runs WHERE id = %d`, first)),
+		"a run older than the two newest published runs of its key is pruned")
+	require.Equal(t, 1, countRows(t, pool, fmt.Sprintf(`SELECT count(*) FROM strategy_backtest_runs WHERE id = %d AND published`, third)))
+	require.Equal(t, 1, countRows(t, pool, fmt.Sprintf(`SELECT count(*) FROM strategy_backtest_runs WHERE id = %d`, second)),
+		"the previous run of the newest publish survives")
+
+	// An orphan unpublished run of the key, aged and never published, is pruned once a
+	// newer succeeded run of the key exists (the newest succeeded run is always kept).
+	orphan := insertRunRow(t, pool, target, time.Now().Add(-60*24*time.Hour))
+	insertRunRow(t, pool, target, time.Now())
+	require.NoError(t, st.prune(ctx))
+	require.Equal(t, 0, countRows(t, pool, fmt.Sprintf(`SELECT count(*) FROM strategy_backtest_runs WHERE id = %d`, orphan)),
+		"an aged run that was never published is pruned")
+}
+
+// A second publish of a key whose history changed reads the first run as its previous
+// run: the diff note of the stored run lists the rewritten code, names the first run,
+// and carries no zero date. The second request is queued the way the admin tool queues
+// one, so it does not wait for the next ISO week.
+func TestBacktestSecondPublishDiffsAgainstTheFirst(t *testing.T) {
+	pool := backtestDB(t)
+	seedGolden(t, pool)
+	target := goldenTarget(t, pool)
+	ctx := context.Background()
+	_, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	var first int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id FROM strategy_backtest_runs WHERE published`).Scan(&first))
+
+	// Rewrite the oldest price row of one code: history up to the first run's cut-off
+	// changed, so the second run's digest of that code differs.
+	var code string
+	var day time.Time
+	require.NoError(t, pool.QueryRow(ctx, `SELECT stock_code, date FROM stock_prices ORDER BY date, stock_code LIMIT 1`).Scan(&code, &day))
+	_, err = pool.Exec(ctx, `UPDATE stock_prices SET close = close + 0.01, adjusted_close = adjusted_close + 0.01
+		WHERE stock_code = $1 AND date = $2`, code, day)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO strategy_backtest_requests (kind, strategy_id, rules_hash, recipe_hash, requested_by, dedupe_key, status)
+		VALUES ('publish', $1, $2, $3, 'test', 'test-second-publish', 'queued')`,
+		target.Reg.Spec.StrategyID, target.RulesHash, target.RecipeHash)
+	require.NoError(t, err)
+
+	_, err = runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	var second int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id FROM strategy_backtest_runs
+		WHERE kind = 'publish' AND status = 'succeeded' AND diagnostics ? 'published_at' AND id <> $1
+		ORDER BY id DESC LIMIT 1`, first).Scan(&second))
+
+	var diffJSON string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT (summary->'diff')::text FROM strategy_backtest_runs WHERE id = $1`, second).Scan(&diffJSON))
+	var note backtest.DiffNote
+	require.NoError(t, json.Unmarshal([]byte(diffJSON), &note), "the stored note decodes into the type that wrote it: %s", diffJSON)
+	require.NotContains(t, diffJSON, "0000-00-00")
+	require.Equal(t, backtest.DiffChanged, note.State)
+	require.Equal(t, first, note.PreviousRunID)
+	require.GreaterOrEqual(t, note.RewrittenCount, 1)
+	require.Contains(t, note.PriceRowsRewritten, code)
+}
+
+// publishKey stores a bare publish of the target's key under runKey and publishes it
+// through the job's own flip.
+func publishKey(t *testing.T, st backtestStore, target backtestTarget, runKey string) int64 {
+	t.Helper()
+	var d backtest.Disclosures
+	d.Identity.RunKey = runKey
+	d.Identity.InputHash = runKey
+	d.Identity.OutputHash = runKey
+	id, err := st.writeRun(context.Background(), runWrite{
+		Target: target, Recipe: target.Recipe, Kind: "publish", WindowEnd: civil.Date{Year: 2026, Month: 11, Day: 5},
+		Disclosures: d, Publish: true, Verified: true, Fundamentals: "strict", ReadAt: time.Now(),
+	})
+	require.NoError(t, err)
+	return id
+}
+
+// ageRun moves a run's write times past the retention window.
+func ageRun(t *testing.T, pool *pgxpool.Pool, id int64) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `UPDATE strategy_backtest_runs
+		SET started_at = now() - interval '60 days', finished_at = now() - interval '60 days' WHERE id = $1`, id)
+	require.NoError(t, err)
+}
+
+// ASIC revisions are read in the batch's snapshot and bounded by the report dates the
+// previous run read, and a database without the table answers none without aborting
+// the transaction the rest of the batch reads on.
+func TestBacktestASICRevisionsAreBoundedAndTolerateAMissingTable(t *testing.T) {
+	pool := backtestDB(t)
+	ctx := context.Background()
+	st := backtestStore{pool: pool}
+	_, err := pool.Exec(ctx, `INSERT INTO shorts_revisions (report_date, product_code, revised_at) VALUES
+		('2025-08-29', 'GD00', now()), ('2025-09-01', 'GD01', now())`)
+	require.NoError(t, err)
+
+	read := func(tx pgx.Tx, through civil.Date) []string {
+		revs, err := st.asicRevisions(ctx, tx, through, time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC))
+		require.NoError(t, err)
+		var codes []string
+		for _, r := range revs {
+			codes = append(codes, r.Code)
+		}
+		return codes
+	}
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(ctx) }()
+	require.Equal(t, []string{"GD00", "GD01"}, read(tx, civil.Date{Year: 2025, Month: 9, Day: 5}))
+	require.Equal(t, []string{"GD00"}, read(tx, civil.Date{Year: 2025, Month: 8, Day: 31}),
+		"a revision to a report after the previous run's ASIC through-date is not the diff's")
+	require.NoError(t, tx.Rollback(ctx))
+
+	_, err = pool.Exec(ctx, `DROP TABLE shorts_revisions`)
+	require.NoError(t, err)
+	tx, err = pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(ctx) }()
+	require.Empty(t, read(tx, civil.Date{Year: 2025, Month: 9, Day: 5}))
+	var one int
+	require.NoError(t, tx.QueryRow(ctx, `SELECT 1`).Scan(&one), "the transaction is still usable after a missing table")
+}
+
+// queuePublish queues a publish of the target's key the way the admin tool queues one,
+// so the next batch runs it.
+func queuePublish(t *testing.T, pool *pgxpool.Pool, target backtestTarget, dedupe string) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `INSERT INTO strategy_backtest_requests (kind, strategy_id, rules_hash, recipe_hash, requested_by, dedupe_key, status)
+		VALUES ('publish', $1, $2, $3, 'test', $4, 'queued')`,
+		target.Reg.Spec.StrategyID, target.RulesHash, target.RecipeHash, dedupe)
+	require.NoError(t, err)
+}
+
+// reviseASIC changes one stored report row and records the revision the way the
+// reconcile does: the row's value moves and shorts_revisions keeps the change, stamped
+// revisedAt.
+func reviseASIC(t *testing.T, pool *pgxpool.Pool, code string, day civil.Date, revisedAt time.Time) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `UPDATE shorts SET "REPORTED_SHORT_POSITIONS" = "REPORTED_SHORT_POSITIONS" + 1
+		WHERE "PRODUCT_CODE" = $1 AND "DATE"::date = $2::date`, code, day.String())
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO shorts_revisions (report_date, product_code, revised_at) VALUES ($1::date, $2, $3)`,
+		day.String(), code, revisedAt)
+	require.NoError(t, err)
+}
+
+// storedDiff is the diff note a run stores, decoded into the type that wrote it.
+func storedDiff(t *testing.T, pool *pgxpool.Pool, runID int64) backtest.DiffNote {
+	t.Helper()
+	var raw string
+	require.NoError(t, pool.QueryRow(context.Background(), `SELECT (summary->'diff')::text FROM strategy_backtest_runs WHERE id = $1`, runID).Scan(&raw))
+	var note backtest.DiffNote
+	require.NoError(t, json.Unmarshal([]byte(raw), &note), "the stored note decodes: %s", raw)
+	return note
+}
+
+// The diff note lists the ASIC revisions to every report the previous run read, on
+// either side of its digest cut-off. The golden run's prices run to 2025-09-05, so its
+// cut-off is 2025-08-31 and its ASIC through-date is 2025-09-05: a revision to the
+// 2025-09-01 report is after the cut-off and still one the run held.
+func TestBacktestSecondPublishListsEveryASICRevisionThePreviousRunRead(t *testing.T) {
+	pool := backtestDB(t)
+	seedGolden(t, pool)
+	target := goldenTarget(t, pool)
+	ctx := context.Background()
+	_, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	var first int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id FROM strategy_backtest_runs WHERE published`).Scan(&first))
+	require.Equal(t, 1, countRows(t, pool, fmt.Sprintf(`SELECT count(*) FROM strategy_backtest_runs
+		WHERE id = %d AND prices_through = '2025-09-05' AND asic_report_through = '2025-09-05'`, first)),
+		"the premise: the first run's prices and ASIC run to 2025-09-05")
+
+	reviseASIC(t, pool, "GD00", civil.Date{Year: 2025, Month: 8, Day: 29}, time.Now())
+	reviseASIC(t, pool, "GD01", civil.Date{Year: 2025, Month: 9, Day: 1}, time.Now())
+	queuePublish(t, pool, target, "test-asic-both-sides")
+	_, err = runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	var second int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id FROM strategy_backtest_runs WHERE published`).Scan(&second))
+	require.NotEqual(t, first, second)
+
+	note := storedDiff(t, pool, second)
+	require.Equal(t, backtest.DiffChanged, note.State)
+	require.Equal(t, first, note.PreviousRunID)
+	require.Equal(t, []string{"GD00", "GD01"}, note.ASICRevised,
+		"a revision after the previous run's cut-off, on a report it read, is listed")
+	require.Equal(t, 2, note.RevisedCount)
+}
+
+// The diff note reads the previous run's snapshot time, not its finish time: a revision
+// recorded after the run read its inputs is a change it did not see, even when it was
+// recorded before the run finished.
+func TestBacktestASICRevisionIsMeasuredFromTheSnapshotNotTheFinish(t *testing.T) {
+	pool := backtestDB(t)
+	seedGolden(t, pool)
+	target := goldenTarget(t, pool)
+	ctx := context.Background()
+	_, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	var first int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id FROM strategy_backtest_runs WHERE published`).Scan(&first))
+	var readAt time.Time
+	require.NoError(t, pool.QueryRow(ctx, `SELECT (diagnostics->>'read_at')::timestamptz FROM strategy_backtest_runs WHERE id = $1`, first).Scan(&readAt))
+	require.False(t, readAt.IsZero(), "the run stores its snapshot time")
+
+	// The run finished an hour after its snapshot. The revision falls between the two.
+	_, err = pool.Exec(ctx, `UPDATE strategy_backtest_runs SET finished_at = $2 WHERE id = $1`, first, readAt.Add(time.Hour))
+	require.NoError(t, err)
+	reviseASIC(t, pool, "GD02", civil.Date{Year: 2025, Month: 9, Day: 2}, readAt.Add(30*time.Minute))
+	queuePublish(t, pool, target, "test-asic-snapshot")
+	_, err = runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	var second int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id FROM strategy_backtest_runs WHERE published`).Scan(&second))
+	require.Equal(t, []string{"GD02"}, storedDiff(t, pool, second).ASICRevised)
+}
+
+// The previously published run is the one published most recently, whatever its id:
+// publishing an older run again makes it the previous run of the next publish.
+func TestBacktestPreviousPublishedIsTheMostRecentlyPublishedRun(t *testing.T) {
+	pool := backtestDB(t)
+	seedGolden(t, pool)
+	target := goldenTarget(t, pool)
+	ctx := context.Background()
+	_, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	var first int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id FROM strategy_backtest_runs WHERE published`).Scan(&first))
+
+	reviseASIC(t, pool, "GD00", civil.Date{Year: 2025, Month: 8, Day: 29}, time.Now())
+	queuePublish(t, pool, target, "test-prev-second")
+	_, err = runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	var second int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id FROM strategy_backtest_runs WHERE published`).Scan(&second))
+	require.NotEqual(t, first, second)
+
+	// Publish the first run again under its own key: it is found, not stored twice, and
+	// its flip stamps it as the newest publish.
+	var key string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT run_key FROM strategy_backtest_runs WHERE id = $1`, first).Scan(&key))
+	require.NotEmpty(t, key)
+	var d backtest.Disclosures
+	d.Identity.RunKey = key
+	st := backtestStore{pool: pool}
+	again, err := st.writeRun(ctx, runWrite{
+		Target: target, Recipe: target.Recipe, Kind: "publish", Disclosures: d,
+		Publish: true, Verified: true, Fundamentals: "strict",
+	})
+	require.NoError(t, err)
+	require.Equal(t, first, again, "a run already stored under its key is found, not written again")
+	require.Equal(t, 1, countRows(t, pool, fmt.Sprintf(`SELECT count(*) FROM strategy_backtest_runs WHERE id = %d AND published`, first)))
+
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	require.NoError(t, err)
+	prev, err := st.previousPublished(ctx, tx, target, "strict")
+	require.NoError(t, tx.Rollback(ctx))
+	require.NoError(t, err)
+	require.NotNil(t, prev)
+	require.Equal(t, first, prev.RunID, "the most recently published run is the previous one, not the newest id")
+}
+
+// insertRunRow stores a bare succeeded unpublished publish run of the target's key,
+// finished at when. The retention test uses it to stand in for later runs.
+func insertRunRow(t *testing.T, pool *pgxpool.Pool, target backtestTarget, when time.Time) int64 {
+	t.Helper()
+	var id int64
+	err := pool.QueryRow(context.Background(), `
+		INSERT INTO strategy_backtest_runs (kind, strategy_id, rules_hash, recipe_hash, engine_version, status, published,
+		  window_start, returns, benchmark_code, fundamentals, build_revision, goarch, summary, diagnostics,
+		  started_at, finished_at)
+		VALUES ('publish', $1, $2, $3, $4, 'succeeded', false, '2019-05-01', 'total', 'XJT', 'strict', 'test', 'arm64',
+		  '{}', '{}', $5, $5)
+		RETURNING id`,
+		target.Reg.Spec.StrategyID, target.RulesHash, target.RecipeHash, engine.Version, when).Scan(&id)
+	require.NoError(t, err)
+	return id
 }

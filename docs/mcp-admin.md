@@ -27,7 +27,7 @@ and approve **jobs:read**, **news:publish**, **jobs:run**, **users:read**,
 For a monitoring-only client, request only `jobs:read`; leave out `users:read`,
 `crawl:authorize`, `crawl:read` and `crawl:operate` unless the client needs personal
 data or the housing crawl. The connector then appears in every Claude session (including Claude
-Code on the web) with thirty-two tools:
+Code on the web) with thirty-three tools:
 
 | Tool | Scope | What it does |
 |---|---|---|
@@ -35,12 +35,13 @@ Code on the web) with thirty-two tools:
 | `list_job_executions` `{job, region?, limit?, page_token?}` | `jobs:read` | Paginated history; follow `nextPageToken` until absent. Default 20, maximum 100. |
 | `get_job_execution` `{job, region?, execution_name}` | `jobs:read` | Fresh status of one execution, including task/retry/cancellation counts, timings and log link. |
 | `list_enrichment_jobs` `{status?, limit?, offset?}` | `jobs:read` | Database queue with queued/processing/completed/failed/cancelled filters, stock, timestamps and error; follow `nextOffset`. |
-| `strategy_status` `{sessions?}` | `jobs:read` | Strategy engine daily snapshot: each phase of the newest sessions (status, counts, hold reasons), late (backfilled) sessions, the last complete session, the canonical versions and table sizes. Read-only; aggregates only, no user or email data. |
+| `strategy_status` `{sessions?}` | `jobs:read` | Strategy engine daily snapshot: each phase of the newest sessions (status, counts, hold reasons), late (backfilled) sessions, the last complete session, the canonical versions and table sizes. Also the backtest queue (requests queued or running by kind) and the ten newest canonical backtest runs (state, published flag, diff state). Read-only; aggregates only, no user, email, alert or variant name, no rules hash. |
 | `search_job_mentions` `{query}` | `jobs:read` | Composer job search; returns up to 20 scope-protected resource references. |
 | `publish_news_article` `{slug, images?, force?}` | `news:publish` | Starts the publish job for a merged article; returns `execution_name` |
 | `news_publish_status` `{execution_name}` | `news:publish` | `running` / `succeeded` / `failed`, log link, failure reason |
 | `run_picks_job` `{mode, force?}` | `jobs:run` | Starts `shorted picks -mode <mode>` (`fundamentals` \| `filings` \| `refresh` \| `all`); returns `execution_name`, the argv and the next step of the coverage runbook |
 | `picks_job_status` `{execution_name}` | `jobs:run` | `running` / `succeeded` / `failed`, log link, failure reason (exit 10 in the message = DEGRADED, a partial pull) |
+| `queue_strategy_backtest` `{version, strategy_id?, recipe_id?}` | `jobs:run` | Queues one publish of a live canonical strategy version's backtest (its label with `strategy_id`, or its full rules hash). The next hourly backtest execution (20 past) runs it and publishes it when it passes the gate. A variant, a superseded or unregistered version, v0, and a recipe the version does not use are refused; a key already queued or running is not queued twice. |
 | `people_overview` `{}` | `users:read` | Counts: signed-up accounts (total, verified, new in 7/30 days, signed in within 30 days, by provider), paying subscriptions (active or trialing, by tier and status, cancelling, new in 30 days) and the mailing list (subscribed, unsubscribed, joined and left recently). A source that cannot be read is omitted and named in `warnings`. |
 | `list_users` `{query?, sort?, limit?, offset?}` | `users:read` | Signed-up accounts, newest first (or `sort: "last_sign_in"`): uid, email, verified, providers, dates, plan and mailing list membership. `query` is an email substring. Follow `nextOffset`. |
 | `list_paying_users` `{status?, limit?, offset?}` | `users:read` | Subscriptions from the Stripe webhook mirror: uid, email, tier, status, period end, cancelling. `status` defaults to `paying` (active or trialing); also `past_due`, `canceled`, `all`, ... Each row carries `entitled` and `entitlementReason`: the product's own verdict for the row, so a paying row that grants nothing reads as such. |

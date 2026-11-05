@@ -310,19 +310,24 @@ func executionName() string {
 
 // runWrite is one run to store.
 type runWrite struct {
-	Target       backtestTarget
-	Recipe       spec.Recipe
-	Kind         string
-	WindowEnd    civil.Date
-	Computable   civil.Date
-	Label        string
-	Disclosures  backtest.Disclosures
-	Result       backtest.Result
+	Target      backtestTarget
+	Recipe      spec.Recipe
+	Kind        string
+	WindowEnd   civil.Date
+	Computable  civil.Date
+	Label       string
+	Disclosures backtest.Disclosures
+	Result      backtest.Result
+	// Diff is the diff note of a publish; nil for a verify record.
+	Diff         *backtest.DiffNote
 	Publish      bool
 	Verified     bool
 	Build        string
 	Fundamentals string
 	Through      throughDates
+	// ReadAt is the batch snapshot's start, the time the run's inputs were read. A
+	// later run's diff note lists the revisions recorded after it.
+	ReadAt time.Time
 }
 
 // writeRun stores one succeeded run, its series and trades, and, when Publish is
@@ -389,7 +394,7 @@ func insertRun(ctx context.Context, tx pgx.Tx, w runWrite) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("encode run metrics: %w", err)
 	}
-	summary, err := json.Marshal(map[string]any{
+	summaryMap := map[string]any{
 		"state":        "computed",
 		"coverage":     d.Coverage,
 		"survivorship": d.Survivorship,
@@ -399,13 +404,20 @@ func insertRun(ctx context.Context, tx pgx.Tx, w runWrite) (int64, error) {
 		"trades":       w.Result.Metrics.Trades,
 		"identity":     map[string]any{"cut_off": d.Identity.CutOff, "in_sample_until": d.Identity.InSampleUntil},
 		"verified":     w.Verified,
-	})
+	}
+	if w.Diff != nil {
+		summaryMap["diff"] = w.Diff
+	}
+	summary, err := json.Marshal(summaryMap)
 	if err != nil {
 		return 0, fmt.Errorf("encode run summary: %w", err)
 	}
 	diag := map[string]any{}
 	if w.Kind == "publish" {
 		diag["code_digests"] = d.Identity.Digests
+		if !w.ReadAt.IsZero() {
+			diag["read_at"] = w.ReadAt.UTC().Format(time.RFC3339Nano)
+		}
 	}
 	diagJSON, err := json.Marshal(diag)
 	if err != nil {
@@ -520,7 +532,13 @@ func flipPublished(ctx context.Context, tx pgx.Tx, t backtestTarget, fundamental
 		t.Reg.Spec.StrategyID, t.RulesHash, t.RecipeHash, fundamentals, runID); err != nil {
 		return fmt.Errorf("unpublish the previous run: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE strategy_backtest_runs SET published = true WHERE id = $1`, runID); err != nil {
+	// The published_at marker is what retention and the diff note read: the newest
+	// run of a key that was ever published is the previously published run.
+	if _, err := tx.Exec(ctx, `
+		UPDATE strategy_backtest_runs
+		   SET published = true,
+		       diagnostics = diagnostics || jsonb_build_object('published_at', to_jsonb(now()))
+		 WHERE id = $1`, runID); err != nil {
 		return fmt.Errorf("publish run %d: %w", runID, err)
 	}
 	return nil
@@ -582,10 +600,17 @@ func insertTrades(ctx context.Context, tx pgx.Tx, runID int64, trades []backtest
 	return nil
 }
 
+// backtestPublishedKept is how many publishes of each key are kept whatever their
+// age: the published run and the one it replaced, which the next publish's diff
+// note reads. Across engines, so an engine bump keeps the last published run of
+// the engine before it.
+const backtestPublishedKept = 2
+
 // prune applies the retention: unpublished runs older than 30 days go, except
-// the newest succeeded run and the newest succeeded verify record of each key;
-// requests older than 90 days go. Published runs and their series are never
-// pruned here.
+// the newest succeeded run, the newest succeeded verify record of each key and
+// the two newest published runs of each key (ranked by published_at, across
+// engines). Requests older than 90 days go. Published runs and their series are
+// never pruned here.
 func (s backtestStore) prune(ctx context.Context) error {
 	if _, err := s.pool.Exec(ctx, `
 		DELETE FROM strategy_backtest_requests
@@ -604,7 +629,15 @@ func (s backtestStore) prune(ctx context.Context) error {
 		   AND r.id NOT IN (
 		     SELECT max(id) FROM strategy_backtest_runs
 		      WHERE status = 'succeeded' AND kind = 'verify'
-		      GROUP BY strategy_id, rules_hash, recipe_hash, engine_version)`, backtestRunRetentionDays); err != nil {
+		      GROUP BY strategy_id, rules_hash, recipe_hash, engine_version)
+		   AND r.id NOT IN (
+		     SELECT ranked.id FROM (
+		       SELECT id, row_number() OVER (
+		         PARTITION BY strategy_id, rules_hash, recipe_hash, fundamentals
+		         ORDER BY (diagnostics->>'published_at')::timestamptz DESC, id DESC) AS rn
+		         FROM strategy_backtest_runs
+		        WHERE status = 'succeeded' AND kind <> 'verify' AND diagnostics ? 'published_at') ranked
+		      WHERE ranked.rn <= $2)`, backtestRunRetentionDays, backtestPublishedKept); err != nil {
 		return fmt.Errorf("prune runs: %w", err)
 	}
 	return nil
@@ -635,4 +668,139 @@ func vcsRevision() string {
 		}
 	}
 	return ""
+}
+
+// previousPublished is the previously published run of a key on the current
+// engine: the most recently published one (the published_at marker, newest first,
+// so a run published again after an older one is the previous run). It is nil when
+// the key has none yet. The current run is never returned: it is not written until
+// after this read.
+func (s backtestStore) previousPublished(ctx context.Context, tx pgx.Tx, t backtestTarget, fundamentals string) (*backtest.PreviousRun, error) {
+	var (
+		id            int64
+		pricesThrough string
+		asicThrough   string
+		readAt        time.Time
+		inputHash     string
+		digestsJSON   string
+		pointsJSON    string
+	)
+	err := tx.QueryRow(ctx, `
+		SELECT r.id, COALESCE(r.prices_through::text, ''), COALESCE(r.asic_report_through::text, ''),
+		       COALESCE((r.diagnostics->>'read_at')::timestamptz, r.finished_at, r.started_at),
+		       COALESCE(r.input_hash, ''), COALESCE(r.diagnostics->'code_digests', '{}')::text,
+		       COALESCE(sr.points::text, '{}')
+		  FROM strategy_backtest_runs r
+		  LEFT JOIN strategy_backtest_series sr ON sr.run_id = r.id
+		 WHERE r.strategy_id = $1 AND r.rules_hash = $2 AND r.recipe_hash = $3
+		   AND r.fundamentals = $4 AND r.engine_version = $5
+		   AND r.kind = 'publish' AND r.status = 'succeeded' AND r.diagnostics ? 'published_at'
+		 ORDER BY (r.diagnostics->>'published_at')::timestamptz DESC, r.id DESC LIMIT 1`,
+		t.Reg.Spec.StrategyID, t.RulesHash, t.RecipeHash, fundamentals, engine.Version).Scan(
+		&id, &pricesThrough, &asicThrough, &readAt, &inputHash, &digestsJSON, &pointsJSON)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read the previously published run of %s: %w", t.Reg.Spec.StrategyID, err)
+	}
+	prev := &backtest.PreviousRun{RunID: id, ReadAt: readAt, InputHash: inputHash}
+	if asicThrough != "" {
+		if prev.ASICThrough, err = civil.ParseDate(asicThrough); err != nil {
+			return nil, fmt.Errorf("previous run %d has an unreadable asic_report_through: %w", id, err)
+		}
+	}
+	through, err := civil.ParseDate(pricesThrough)
+	if err != nil {
+		return nil, fmt.Errorf("previous run %d has no prices_through: %w", id, err)
+	}
+	prev.CutOff = backtest.CutOff(through)
+	if err := json.Unmarshal([]byte(digestsJSON), &prev.Digests); err != nil {
+		return nil, fmt.Errorf("decode the digests of run %d: %w", id, err)
+	}
+	var pts seriesPoints
+	if err := json.Unmarshal([]byte(pointsJSON), &pts); err != nil {
+		return nil, fmt.Errorf("decode the series of run %d: %w", id, err)
+	}
+	for _, d := range pts.D {
+		day, err := civil.ParseDate(d)
+		if err != nil {
+			return nil, fmt.Errorf("decode a series date of run %d: %w", id, err)
+		}
+		prev.Dates = append(prev.Dates, day)
+	}
+	prev.Equity = pts.E
+	return prev, nil
+}
+
+// snapshotTime is the start of the batch's read transaction: the time its inputs
+// were read. transaction_timestamp is fixed for the whole transaction.
+func snapshotTime(ctx context.Context, tx pgx.Tx) (time.Time, error) {
+	var at time.Time
+	if err := tx.QueryRow(ctx, `SELECT transaction_timestamp()`).Scan(&at); err != nil {
+		return time.Time{}, fmt.Errorf("read the snapshot time: %w", err)
+	}
+	return at, nil
+}
+
+// asicRevisions reads the ASIC revisions to reports up to through that were recorded
+// after the previous run read its inputs (after), in the same snapshot as the run.
+// The table is checked first: a failed statement would abort the batch's transaction,
+// and the verify pass reads on it.
+func (s backtestStore) asicRevisions(ctx context.Context, tx pgx.Tx, through civil.Date, after time.Time) ([]backtest.ASICRevision, error) {
+	var has bool
+	if err := tx.QueryRow(ctx, `SELECT to_regclass('public.shorts_revisions') IS NOT NULL`).Scan(&has); err != nil {
+		return nil, fmt.Errorf("check for the ASIC revisions table: %w", err)
+	}
+	if !has {
+		return nil, nil
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT report_date::text, product_code, revised_at
+		  FROM shorts_revisions
+		 WHERE report_date <= $1::date AND revised_at > $2
+		 ORDER BY report_date, product_code, id`, through.String(), after)
+	if err != nil {
+		return nil, fmt.Errorf("read the ASIC revisions: %w", err)
+	}
+	defer rows.Close()
+	var out []backtest.ASICRevision
+	for rows.Next() {
+		var (
+			date string
+			r    backtest.ASICRevision
+		)
+		if err := rows.Scan(&date, &r.Code, &r.RevisedAt); err != nil {
+			return nil, fmt.Errorf("scan an ASIC revision: %w", err)
+		}
+		if r.ReportDate, err = civil.ParseDate(date); err != nil {
+			return nil, fmt.Errorf("parse an ASIC revision date: %w", err)
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// diffNote builds a publish's diff note against the key's previously published
+// run. The first copy of the history (in) and the run's disclosures are read; the
+// revisions are read in the run's own snapshot.
+func (s backtestStore) diffNote(ctx context.Context, tx pgx.Tx, t backtestTarget, fundamentals string, in *backtest.MemoryInputs, d backtest.Disclosures, base backtest.Result) (backtest.DiffNote, error) {
+	prev, err := s.previousPublished(ctx, tx, t, fundamentals)
+	if err != nil {
+		return backtest.DiffNote{}, err
+	}
+	if prev == nil {
+		return backtest.NoPrevious(), nil
+	}
+	revs, err := s.asicRevisions(ctx, tx, prev.ASICThrough, prev.ReadAt)
+	if err != nil {
+		return backtest.DiffNote{}, err
+	}
+	// The current curve is compared as it is stored, rounded, so an unchanged path
+	// shifts by exactly zero.
+	cur := backtest.EquityCurve(base.Records)
+	for i, v := range cur.Values {
+		cur.Values[i] = roundSeries(v)
+	}
+	return backtest.DiffAgainst(in, prev, d.Identity.InputHash, cur, revs), nil
 }
