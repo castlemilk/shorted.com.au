@@ -551,6 +551,66 @@ func TestRefreshRotationInvalidatesTheOldToken(t *testing.T) {
 	}
 }
 
+func TestRefreshMintFailureLeavesGrantUsable(t *testing.T) {
+	store := newFakeTokenStore()
+	minter := &fakeMinter{}
+	h := newTokenTestHandler(store, minter, nil)
+	first := redeem(t, h, store)
+
+	minter.err = errors.New("temporary signing failure")
+	if got := postForm(t, h, refreshForm(first)); got.Code != http.StatusInternalServerError {
+		t.Fatalf("mint failure status = %d, want 500", got.Code)
+	}
+	if !store.live(HashCode(first)) {
+		t.Fatal("failed access-token mint consumed the refresh token")
+	}
+	minter.err = nil
+	if got := postForm(t, h, refreshForm(first)); got.Code != http.StatusOK {
+		t.Fatalf("retry status = %d, want 200", got.Code)
+	}
+}
+
+func TestRefreshExpiryAtRotationDoesNotRevokeFamily(t *testing.T) {
+	store := newFakeTokenStore()
+	h := newTokenTestHandler(store, &fakeMinter{}, nil)
+	first := redeem(t, h, store)
+	store.rotateErr = errRefreshExpired
+	got := postForm(t, h, refreshForm(first))
+	if got.Code != http.StatusBadRequest || decodeTokenResponse(t, got)["error"] != "invalid_grant" {
+		t.Fatalf("expiry status = %d, want invalid_grant", got.Code)
+	}
+	if !store.live(HashCode(first)) {
+		t.Fatal("expiry while waiting for rotation revoked the family")
+	}
+}
+
+type changedGrantStore struct{ *fakeTokenStore }
+
+func (s *changedGrantStore) RotateRefreshToken(ctx context.Context, presented, successor string, expires time.Time) (*RefreshToken, error) {
+	grant, err := s.fakeTokenStore.RotateRefreshToken(ctx, presented, successor, expires)
+	if grant != nil {
+		grant.UserID = "changed-user"
+	}
+	return grant, err
+}
+
+func TestRefreshRefusesChangedGrantAfterMint(t *testing.T) {
+	store := &changedGrantStore{newFakeTokenStore()}
+	h := newTokenTestHandler(store, &fakeMinter{}, nil)
+	first := redeem(t, h, store)
+	got := postForm(t, h, refreshForm(first))
+	if got.Code != http.StatusServiceUnavailable || decodeTokenResponse(t, got)["error"] != "temporarily_unavailable" {
+		t.Fatalf("changed grant status = %d, want temporarily_unavailable", got.Code)
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	for _, grant := range store.refresh {
+		if grant.RevokedAt.IsZero() {
+			t.Fatal("changed grant left a usable refresh-family member")
+		}
+	}
+}
+
 // THE property of this task. A stolen refresh token must be useful once, not
 // forever: presenting an already-rotated token means two parties hold it, so
 // every descendant of that grant dies.

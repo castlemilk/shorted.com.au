@@ -426,8 +426,9 @@ func (s *PostgresStore) RotateRefreshToken(
 
 	const rotate = `
 		UPDATE oauth_refresh_tokens
-		SET rotated_at = now()
+		SET rotated_at = clock_timestamp()
 		WHERE token_hash = $1 AND rotated_at IS NULL AND revoked_at IS NULL
+		  AND expires_at > clock_timestamp()
 		RETURNING token_hash, family_id::text, client_id, user_id, resource, scope, expires_at`
 
 	var parent RefreshToken
@@ -436,6 +437,17 @@ func (s *PostgresStore) RotateRefreshToken(
 		&parent.Resource, &parent.Scope, &parent.ExpiresAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
+		// The family lock is held. Distinguish expiry from replay without
+		// mistaking time spent waiting for this lock for evidence of theft.
+		var expired bool
+		err = tx.QueryRow(ctx, `SELECT expires_at <= clock_timestamp() FROM oauth_refresh_tokens
+			WHERE token_hash = $1 AND rotated_at IS NULL AND revoked_at IS NULL`, presentedHash).Scan(&expired)
+		if err == nil && expired {
+			return nil, errRefreshExpired
+		}
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("checking refresh token expiry: %w", err)
+		}
 		return nil, nil
 	}
 	if err != nil {
