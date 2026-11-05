@@ -1035,6 +1035,14 @@ jobs:
             # apply times out on that lock, apply it by hand in a quiet window, then re-run the deploy:
             #   task db:prod:apply FILE=services/migrations/000155_strategy_capture.up.sql CONFIRM=prod
             run_psql_session -f /migrations/000155_strategy_capture.up.sql
+            # 000155 (strategy engine) adds the daily snapshot: rule versions, recipes, the daily run log, the
+            # regime, the fundamentals blobs, the per-session feature rows and the signal events. Every table is
+            # CREATE TABLE IF NOT EXISTS and every index is catalog-guarded, so a replay writes no row and
+            # takes no lock on an existing table. Nothing reads these tables until the job first runs.
+            # Session pooler, under lock_timeout 15s. If it cannot apply, apply it by hand in a quiet window,
+            # then re-run the deploy:
+            #   task db:prod:apply FILE=services/migrations/000155_strategy_engine.up.sql CONFIRM=prod
+            run_psql_session -f /migrations/000155_strategy_engine.up.sql
 
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
