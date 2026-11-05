@@ -71,6 +71,7 @@ services/jobs/
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
 | `review` | — (new job, data review) | no — laptop tool, read-only: `task data:review` |
 | `short-data-sync` | `services/daily-sync` (Python, **DELETED**) — **ASIC shorts tier only** | yes — `shorts-data-sync` (cutover 4, in-place image swap; Python source deleted in the cleanup slice) |
+| `strategies` | — (new job, strategy engine) | no schedule of its own: `-mode parity` by hand. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks") |
 | `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
 | `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
 
@@ -901,13 +902,27 @@ code is unchanged. `-mode all` never runs it. A run is `conclusive=false
 inconclusive=<reason>` and counts for nothing when the newest price sweep row
 (`sync_status`, `environment`/`hostname` NULL, `checkpoint_stocks_total > 1`)
 is not `completed`, has no finish time, or finished after the refresh began
-(`no_sweep_row`, `sweep_<status>`, `sweep_unfinished`, `sweep_after_refresh`).
+(`no_sweep_row`, `sweep_<status>`, `sweep_unfinished`, `sweep_after_refresh`);
+the comparison still runs and is logged in full.
 The comparison reads inside one REPEATABLE READ, READ ONLY transaction and
 holds fs1 to `mv_price_features`, the regime to `mv_market_regime` (XJO) and
 sf0's days to cover to the `latest_shorts` and `avg_volume` CTEs of 000080
-(the rows of the last 60 days; codes whose newest qualifying row is older are
-in neither side). The CTE text is copied into `screener_ctes.go` because the
-image carries no migrations; `TestScreenerCTEsMatchMigration` holds it to 000080.
+(the view's own days-to-cover expression, run at parity time). The view side
+has no age limit, as 000080 has none: the Go side reads the last 60 days of
+shorts rows, and a code that window does not answer is read with its whole
+history of positive rows, so an old newest row is compared, not dropped. The
+CTE text is copied into `screener_ctes.go` because the image carries no
+migrations; `TestScreenerCTEsMatchMigration` holds it to 000080.
+`mv_screener_data` is read for one informational line, `strategy_parity_info`
+(its days to cover, counted apart and never in the verdict), because its own
+refresh runs at another time from the CTEs.
+
+An inconclusive run keeps its numbers: the same `strategy_parity ...` line,
+marked `conclusive=false inconclusive=<reason>`. The shadow runs on its own
+goroutine while the picks job waits out its 16-minute revalidation, so the
+revalidation fires on the same schedule with or without it; a panic in the
+shadow is recovered and logged. `-mode parity` takes a `-dry-run` flag for the
+common job flag; it changes nothing.
 
 By hand: `shorted strategies -mode parity` (read-only, needs `DATABASE_URL`).
 It uses its own start time as the refresh start, so it cannot see a sweep that
