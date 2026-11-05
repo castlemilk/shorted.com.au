@@ -842,15 +842,16 @@ recipe fields on the wire (PR-12a).
   `"snapshot"`. A database without 000156 (42P01) or with no whole session serves
   the views and logs at warn or error. Any other snapshot error fails the read.
   Snapshot reads: the picks, the fit, the status counts, `session_date`,
-  `short_report_date`, `stale` and the short availability date (the stored sf0
-  date). Not from the snapshot: `ListStrategies`' regime (it takes the universe's
-  regime under `snapshot`) and the data status' availability calendar (the ASX
-  calendar). `GetStrategyDataStatus` (public, cached 5 min per instance) reports
+  `short_report_date`, `stale`, the short availability date (the stored sf0 date,
+  empty for a report before 2026 as on the views) and `ListStrategies`' regime
+  (the universe's under `snapshot`; the views' only when the universe read fails).
+  Not from the snapshot: the data status' availability calendar (the ASX calendar). `GetStrategyDataStatus` (public, cached 5 min per instance) reports
   the sweep, the snapshot session, the priced count, the newest 10 ASIC reports
   and `next_update_utc` (13:00 UTC on the next trading day under `snapshot`,
   13:30 under `views`). `ListStrategySignalEvents` (private) serves the canonical
   live or superseded versions from `live_from` only, keyset on `id`; a variant or
-  draft hash is NotFound. Container suite: `make test-strategy-snapshot-pg`, which
+  unregistered hash is NotFound, and a registered version that is neither live nor
+  superseded reads no events. Container suite: `make test-strategy-snapshot-pg`, which
   gates the deploy. Live check: `scripts/strategies/snapshot-cutover-check.mjs`
   (`record` pages every list to `total_count` and fails on a clamped read; pass
   `--token-env` once the public depth clamp is on; `diff` requires both recordings
