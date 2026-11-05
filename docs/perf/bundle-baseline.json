@@ -752,10 +752,10 @@
       "firstLoadKB": 202
     },
     "/strategies": {
-      "firstLoadKB": 123
+      "firstLoadKB": 124
     },
     "/strategies/[strategy]": {
-      "firstLoadKB": 136
+      "firstLoadKB": 134
     },
     "/strategies/[strategy]/opengraph-image": {
       "firstLoadKB": 112
@@ -763,8 +763,14 @@
     "/strategies/[strategy]/rules": {
       "firstLoadKB": 115
     },
+    "/strategies/[strategy]/signals": {
+      "firstLoadKB": 147
+    },
     "/strategies/changelog": {
       "firstLoadKB": 118
+    },
+    "/strategies/my": {
+      "firstLoadKB": 130
     },
     "/strategies/opengraph-image": {
       "firstLoadKB": 112
