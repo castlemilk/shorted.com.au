@@ -178,6 +178,11 @@ func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	// 5 Nov 2026, PR-06b (the anonymous clause in get_strategy_picks' description; no
 	// schema change): tools/list measures 102,087 bytes, 313 under the ceiling. The
 	// clause says that without sign-in the list is the top 10 and that OAuth reaches 25.
+	//
+	// 5 Nov 2026, PR-06b review round 1: the clause is paid for by dropping the
+	// rules_version field's description (it restated the field name), and the
+	// missing space before "list_strategies" is restored. tools/list measures
+	// 102,020 bytes, 380 under the ceiling: 14 bytes below the figure before PR-06b.
 	const budget = 100 * 1024
 
 	ctx := context.Background()

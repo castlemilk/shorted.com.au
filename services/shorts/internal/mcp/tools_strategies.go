@@ -307,7 +307,7 @@ type GetStrategyPicksOutput struct {
 	FundamentalsRowsCount     int                 `json:"fundamentals_rows_count" jsonschema:"Evaluated stocks with any reported fundamentals."`
 	FundamentalsCoverageCount int                 `json:"fundamentals_coverage_count" jsonschema:"Of those, with a growth figure."`
 	TotalCount                int                 `json:"total_count" jsonschema:"Before the limit."`
-	RulesVersion              string              `json:"rules_version,omitempty" jsonschema:"The rules version these picks were evaluated under."`
+	RulesVersion              string              `json:"rules_version,omitempty"`
 	Count                     int                 `json:"count"`
 	DetailTrimmed             bool                `json:"detail_trimmed,omitempty" jsonschema:"Evidence ran out part-way down the list."`
 	Picks                     []StrategyPickRow   `json:"picks"`
@@ -321,7 +321,7 @@ const getStrategyPicksDescription = "Ranked ASX stocks for one named strategy, w
 	"and EPS growth year on year, return on equity and net margin, 3-month return relative to the S&P/ASX 200 and ASIC " +
 	"short percent; a figure is absent when unknown, never zero. Also the market regime with this strategy's verdict " +
 	"(a downtrend means stand aside, it does not hide picks) and how many evaluated stocks hold fundamentals: without " +
-	"them fundamentals rules read unknown and a stock cannot trigger. Default 10 picks. Without sign-in, the top 10 only; connected with OAuth, up to 25. Ids and rules:" +
+	"them fundamentals rules read unknown and a stock cannot trigger. Default 10 picks. Without sign-in, the top 10 only; connected with OAuth, up to 25. Ids and rules: " +
 	"list_strategies. A pick's statements and ratios: get_stock_fundamentals. End-of-day data; short data is T+4. A " +
 	"rules-based screen, not financial advice."
 
@@ -432,7 +432,13 @@ func getStrategyPicksHandler(src DataSource) sdk.ToolHandlerFor[GetStrategyPicks
 		}
 		out.Count = len(out.Picks)
 
-		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: describePicks(out, status, sortBy, st)}}}, out, nil
+		// Without sign-in the read is clamped to the public depth; the text
+		// says so, so a clamped answer is never read as the whole ranking.
+		public := 0
+		if v := msg.GetViewer(); v.GetClamped() {
+			public = int(v.GetLimit())
+		}
+		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: describePicks(out, status, sortBy, st, public)}}}, out, nil
 	}
 }
 
@@ -570,10 +576,18 @@ func describeCoverage(out GetStrategyPicksOutput, kind string) string {
 		out.FundamentalsCoverageCount, out.UniverseCount, kind)
 }
 
-func describePicks(out GetStrategyPicksOutput, status, sortBy string, st *shortsv1alpha1.Strategy) string {
+func describePicks(out GetStrategyPicksOutput, status, sortBy string, st *shortsv1alpha1.Strategy, public int) string {
 	name := out.Strategy.Name
 	kind := fundamentalsRuleKind(out.Strategy.ID)
 	var b strings.Builder
+	if public > 0 && status != "" && out.TotalCount > 0 && out.Count == 0 {
+		// The filter matched stocks, but none ranks in the public top rows the
+		// clamp serves: "no picks" would be false, and the advice would be wrong.
+		fmt.Fprintf(&b, "%s: none of the public top %d of the ranking has status %s, but %d stocks with that status rank below it. Connected with OAuth, up to 25 rows.",
+			name, public, status, out.TotalCount)
+		b.WriteString(" " + describeRegime(out.Regime))
+		return b.String()
+	}
 	if out.Count == 0 {
 		b.WriteString("No picks for " + name)
 		if status != "" {
@@ -612,6 +626,9 @@ func describePicks(out GetStrategyPicksOutput, status, sortBy string, st *shorts
 	}
 	b.WriteString(".")
 	b.WriteString(describeSort(sortBy))
+	if public > 0 {
+		fmt.Fprintf(&b, " Without sign-in only the top %d of the ranking are served; the status and sort apply within them.", public)
+	}
 	b.WriteString(" " + describeRegime(out.Regime))
 
 	first := out.Picks[0]
