@@ -59,7 +59,7 @@ const STATUS_WORD: Record<RuleStatus, string> = {
 /**
  * A status as an indicator lamp: lit (triggered, every core rule passes),
  * armed (setup, hollow amber: only the trigger is missing) or standby
- * (watch, hollow muted). Square, so it is never mistaken for the round rule
+ * (watch, hollow muted, unknown dashed: a rule cannot be tested yet). Square, so it is never mistaken for the round rule
  * dots; decorative, so the word beside it stays the carrier of meaning.
  */
 export function StatusLamp({ status }: { status: PickStatus }) {
@@ -72,6 +72,7 @@ export function StatusLamp({ status }: { status: PickStatus }) {
         status === "triggered" && "bg-primary",
         status === "setup" && "border border-primary/70",
         status === "watch" && "border border-muted-foreground/60",
+        status === "unknown" && "border border-dashed border-muted-foreground/70",
       )}
     />
   );
@@ -85,6 +86,7 @@ export function StatusPill({ status }: { status: PickStatus }) {
         status === "triggered" && "border-primary/50 bg-primary/10 text-primary",
         status === "setup" && "border-input text-foreground",
         status === "watch" && "border-border text-muted-foreground",
+        status === "unknown" && "border-dashed border-muted-foreground/70 text-muted-foreground",
       )}
     >
       <StatusLamp status={status} />

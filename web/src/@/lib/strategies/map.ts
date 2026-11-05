@@ -280,7 +280,9 @@ function toRuleStatus(value: unknown): RuleStatus {
 }
 
 function toPickStatus(value: unknown): PickStatus {
-  return value === "triggered" || value === "setup" ? value : "watch";
+  return value === "triggered" || value === "setup" || value === "unknown"
+    ? value
+    : "watch";
 }
 
 function toRegimeLabel(value: unknown): RegimeLabel {

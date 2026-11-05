@@ -117,6 +117,7 @@ export const STATUS_LABELS: Record<PickStatus, string> = {
 export const STATUS_DESCRIPTIONS: Record<PickStatus, string> = {
   triggered: "Every core rule passes.",
   setup: "Every core rule passes except the trigger, which has not happened yet.",
-  unknown: "No core rule fails, but a core rule cannot be tested yet, so the stock may still qualify.",
+  unknown:
+    "No core rule other than the trigger fails, and at least one core rule cannot be tested yet, so the stock may still qualify.",
   watch: "Some rules pass; ranked below the setups.",
 };

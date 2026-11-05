@@ -209,7 +209,7 @@ export function PicksFilterView({
         : "");
   } else if (status === null) {
     const total = formatCount(Math.max(totalCount, rows.length));
-    summary = `Showing ${visible.length} of ${total} ranked stocks. Triggered and setup first${
+    summary = `Showing ${visible.length} of ${total} ranked stocks. Triggered, setup and unknown first${
       filled ? `; watch names fill the list to ${SHORTLIST_MAX_ROWS}` : ""
     }.`;
   } else {

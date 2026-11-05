@@ -80,10 +80,8 @@ export function evidenceHeadline(
     }
     return "Waiting for the trigger rule";
   }
-  // An unknown status arrives with the v1 ladder; the API does not send it
-  // before then, and the copy is ready for it without widening the shared
-  // status type here.
-  if ((pick.status as string) === "unknown") {
+  // An unknown status is served under the v1 ladder: a core rule cannot be tested.
+  if (pick.status === "unknown") {
     const unknown = firstCore(
       pick.rules,
       rules,
