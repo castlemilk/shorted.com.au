@@ -187,9 +187,12 @@ jobs:
         with:
           # Partial clone uses the checkout action; avoids the native mirror path.
           filter: blob:none
+          # The ownership job's Go source too: the notice tests pin the parser version and the
+          # name-tail list to notice.go and registry.go.
           sparse-checkout: |
             services/report-extractor
             services/pkg/extractiontrust
+            services/jobs/internal/jobs/ownership
 
       # The runner image is not a contract (scripts/tests/self-hosted-toolchain
       # .test.mjs): ask for Python explicitly. 3.11 is what the job's image

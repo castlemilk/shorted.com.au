@@ -981,9 +981,14 @@ def test_the_bench_skips_a_notice_with_no_stored_file_and_scores_the_rest_withou
     # bench must check for a file, not a path, or it crashes on the first such notice.
     import bench_notices as bn
 
+    # The five name no file at all. A named scan PDF may be absent too: services/report-extractor/.gitignore
+    # keeps every PDF out of the repo, so a checkout holds only the PDFs read on this machine, and the
+    # bench must skip a missing file the same way.
     gold = gold_entries()
     unstored = [e["id"] for e in gold if not bn.has_document(e)]
-    assert len(unstored) == 5 and all(e["scan"] for e in gold if e["id"] in unstored)
+    unnamed = [e["id"] for e in gold if not e.get("pdf_file" if e["scan"] else "text_file")]
+    assert len(unnamed) == 5 and set(unnamed) <= set(unstored)
+    assert all(e["scan"] for e in gold if e["id"] in unstored)
     got = bn.score({}, False, nd.model_names_from_env({}))
     assert got["skipped"] == len(unstored)
     assert got["uncached"] + got["correct"] + got["wrong"] + got["withheld_correct"] + got["withheld_missed"] \
