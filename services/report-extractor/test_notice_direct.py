@@ -657,6 +657,38 @@ def test_a_read_still_running_past_the_budget_and_its_grace_is_abandoned_and_not
     assert counts.get("fetch_failed") is None
 
 
+def test_the_connection_keeps_alive_and_every_transaction_is_bounded():
+    # The second live run froze for 107 minutes with every result landed and no model call open:
+    # the shared connection was the one unbounded thing. Keepalives notice a dead peer within
+    # about a minute, and each transaction bounds its statements with SET LOCAL (a session SET
+    # does not hold on the transaction pooler).
+    kw = nd.connect_kwargs("postgresql://u:p@h:6543/db")
+    assert kw["dsn"] == "postgresql://u:p@h:6543/db" and kw["keepalives"] == 1
+    assert kw["keepalives_idle"] + kw["keepalives_interval"] * kw["keepalives_count"] <= 120
+    assert 0 < kw["connect_timeout"] <= 30
+    cur = FakeCursor()
+    nd.bound(cur)
+    assert cur.sql == [(f"SET LOCAL statement_timeout = {nd.STATEMENT_TIMEOUT_MS}", None)]
+    assert 0 < nd.STATEMENT_TIMEOUT_MS <= 120_000
+
+
+def test_the_run_bounds_its_statements_and_arms_a_watchdog_past_the_grace(monkeypatch):
+    # The grace stop runs on the main thread; a run frozen whole (the GIL, a lock) never reaches
+    # it. The watchdog is a C-level timer armed for the budget, the grace and a margin, and
+    # disarmed when the run ends on its own.
+    armed, disarmed = [], []
+    monkeypatch.setattr(nd, "watchdog_arm", armed.append)
+    monkeypatch.setattr(nd, "watchdog_disarm", lambda: disarmed.append(True))
+    monkeypatch.setattr(nd, "read_one", lambda *a, **k: {"kind": "fetch_failed", "reason": "x"})
+    conn = FakeConn([row("https://www.asx.com.au/asxpdf/1.pdf")], shares=664_000_000)
+    nd.run(conn, extractor({}), limit=0, workers=1, budget_min=10, since="", dry_run=False)
+    assert armed == [10 * 60 + nd.BUDGET_GRACE_S + nd.WATCHDOG_MARGIN_S] and disarmed == [True]
+    assert conn.statements[0] == f"SET LOCAL statement_timeout = {nd.STATEMENT_TIMEOUT_MS}"
+    # The real timer arms and disarms without error.
+    nd.watchdog_arm(60)
+    nd.watchdog_disarm()
+
+
 def test_the_notice_client_tries_twice_with_a_two_minute_timeout(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     ex = nd.from_env()
