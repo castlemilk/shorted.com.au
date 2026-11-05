@@ -20,10 +20,10 @@ const v1UpjumpFrom = "2026-09-29"
 var v1Changes = []string{
 	"Ordinary shares only. Exchange-traded products in ASX's Investment Products list and the debt, hybrid, deferred and secondary lines are excluded. Affects every strategy and the relative-strength quartile. The product list is current; it is applied to every date.",
 	"A price bar on the session is required. Suspended or delisted codes no longer keep frozen features, including a breakout that never aged out.",
-	"Corporate-action guard. A code is not evaluated for 260 sessions after a corroborated unadjusted share consolidation or split, or after an integer-ratio up-jump of 1.8x or more in bars since the last price re-sync.",
+	"Corporate-action guard. A code is not evaluated for 260 sessions after an unadjusted share consolidation or split corroborated by ASIC's share count, a move of 1.8x or more on a zero-volume bar, or an integer-ratio up-jump (2x or more) in bars since the last price re-sync.",
 	"Crowded-Short universe: the ordinary names in the latest complete ASIC report published by the session.",
 	"Short interest as published: the stock's row in the latest complete ASIC report published by the session, four sessions after the report. A reported zero is zero (fail). A stock absent from a complete report has no reportable position (fail, and outside Crowded-Short's universe). With no complete report within 8 sessions, the short rules are unknown. This replaces the latest non-zero figure, forever.",
-	"Days to cover: reported positions divided by the mean volume of the last 20 bars, zero-volume bars included. Unknown when fewer than 10 of them traded, fewer than 20 bars exist, or a corroborated consolidation lies between the report and the session.",
+	"Days to cover: reported positions divided by the mean volume of the last 20 bars, zero-volume bars included. Unknown when fewer than 10 of them traded, fewer than 20 bars exist, or a corporate-action suspect is dated after the report.",
 	"New status Unknown: no core non-trigger rule fails and at least one core rule is unknown. An unknown trigger no longer reads as setup. The downtrend demotion is unchanged and stated: a failing regime rule makes every Zanger and CAN SLIM stock watch.",
 	"Every unknown rule carries a reason.",
 	"Evaluation text is not yet generated from the thresholds: the rule text still carries the v0 wording on prices (2 decimal places) and on liquidity, and the generated text follows in a later release. The rules, not the text, are v1.",

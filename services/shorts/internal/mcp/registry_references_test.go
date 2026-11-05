@@ -187,9 +187,10 @@ func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 
 	// PR-12 (rules v1, status unknown): the unknown status and the sort text take the
 	// list to 102,141 bytes; get_strategy_picks' description is trimmed of the field
-	// names it restated and the OAuth sentence that landed with PR-06b, which takes the
-	// list to 101,815 bytes (585 under the ceiling). The briefing's status schema adds
-	// "unknown" from that headroom.
+	// names it restated and of its "maximum 25" clause, which takes the list to 101,815
+	// bytes (585 under the ceiling). The briefing's status schema adds "unknown" from
+	// that headroom. PR-06b's OAuth clause is not on this branch: when the two integrate,
+	// keep that clause and re-measure this budget on the merged tree.
 	const budget = 100 * 1024
 
 	ctx := context.Background()
