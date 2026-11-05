@@ -20,7 +20,7 @@ import (
 )
 
 // The saved-strategy store against a live Postgres: the cap under concurrency, the
-// repeat save, the variant ownership guard and replay of migration 000156. Opt in
+// repeat save, the variant ownership guard and replay of migration 000157. Opt in
 // with STRATEGY_SAVES_TEST_DATABASE_URL, or STRATEGY_SAVES_TESTCONTAINERS=1 for one
 // postgres container the package's TestMain removes:
 //
@@ -30,9 +30,9 @@ import (
 // The container opt-in needs the testcontainers build tag as well; make
 // test-strategy-saves-pg sets both.
 
-// savesMigrationPath is migration 000156 as the deploy replays it. go test runs
+// savesMigrationPath is migration 000157 as the deploy replays it. go test runs
 // in the package directory; runtime.Caller would give a trimmed path under -trimpath.
-const savesMigrationPath = "../../../../migrations/000156_strategy_saves.up.sql"
+const savesMigrationPath = "../../../../migrations/000157_strategy_saves.up.sql"
 
 // savesDB returns a pool on a fresh database with no saved-strategies table yet.
 // The database is dropped at cleanup.
@@ -71,7 +71,7 @@ func savesDB(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// applySavesMigration runs 000156 as psql -f does: the file's own transaction, one call.
+// applySavesMigration runs 000157 as psql -f does: the file's own transaction, one call.
 func applySavesMigration(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	sql, err := os.ReadFile(savesMigrationPath)
@@ -281,7 +281,7 @@ func TestStrategySaves_ListIsMostRecentFirst(t *testing.T) {
 	assert.Equal(t, "canslim", rows[2].StrategyRef)
 }
 
-// Without the table (before 000156 is applied) a list is empty, and a save is
+// Without the table (before 000157 is applied) a list is empty, and a save is
 // reported as the missing relation, not as a database failure.
 func TestStrategySaves_AMissingTableReadsEmptyAndRefusesWrites(t *testing.T) {
 	pool := savesDB(t)

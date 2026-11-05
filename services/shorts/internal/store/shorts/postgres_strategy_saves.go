@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Saved strategies (migration 000156): the signed-in user's My strategies list.
+// Saved strategies (migration 000157): the signed-in user's My strategies list.
 //
 // Every write runs in one transaction that first takes a transaction-scoped
 // advisory lock on the user. Two saves by the same user therefore run one
@@ -41,7 +41,7 @@ var ErrStrategySaveLimit = errors.New("saved strategy limit reached")
 var ErrStrategySaveBusy = errors.New("saved strategy list is busy")
 
 // savesMissingOnce logs one warning when the table is absent. It names this
-// migration, not the stock picker's, so a missing 000156 is not blamed on them.
+// migration, not the stock picker's, so a missing 000157 is not blamed on them.
 var savesMissingOnce sync.Once
 
 // The Postgres store is the saves store.
@@ -208,7 +208,7 @@ func (s *postgresStore) ListStrategySaves(ctx context.Context, userID string) ([
 	if err != nil {
 		if errors.Is(relationMissing(err), ErrRelationMissing) {
 			savesMissingOnce.Do(func() {
-				log.Warnf("ListStrategySaves: user_saved_strategies is missing (migration 000156 not applied?); serving an empty list: %v", err)
+				log.Warnf("ListStrategySaves: user_saved_strategies is missing (migration 000157 not applied?); serving an empty list: %v", err)
 			})
 			return nil, nil
 		}

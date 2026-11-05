@@ -834,7 +834,7 @@ recipe fields on the wire (PR-12a).
 
 ### Saved strategies and My strategies (`/strategies/my`)
 
-- **Table `user_saved_strategies` (migration 000156, allowlisted after 000154, before the 000138 closer).**
+- **Table `user_saved_strategies` (migration 000157, allowlisted after the strategy capture migration, before the 000138 closer).**
   The key is `(user_id, strategy_ref)`; `strategy_ref` is a canonical id or `variant:<id>`. Nothing is granted.
 - **RPCs** `SaveStrategy`, `UnsaveStrategy` and `ListSavedStrategies` are `VISIBILITY_PRIVATE` on
   `StrategyService`, mirrored on the legacy service. The owner is the verified uid only. The cap is 20

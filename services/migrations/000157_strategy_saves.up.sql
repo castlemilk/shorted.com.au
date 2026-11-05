@@ -1,4 +1,4 @@
--- 000156: saved strategies for the signed-in user (the My strategies list).
+-- 000157: saved strategies for the signed-in user (the My strategies list).
 --
 --   user_saved_strategies  one row per (user, strategy). strategy_ref is a canonical strategy id, or
 --                          'variant:<id>' for a variant the user owns. created_at is the first save: a

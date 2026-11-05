@@ -55,7 +55,7 @@ type ShortsServer struct {
 	// ownershipStore serves OwnershipService (migration 000137). Nil when the
 	// store is not Postgres; the ownership rpcs then answer empty.
 	ownershipStore shorts.OwnershipStore
-	// strategySaves serves the saved-strategy rpcs (migration 000156). Nil when
+	// strategySaves serves the saved-strategy rpcs (migration 000157). Nil when
 	// the store is not Postgres; those rpcs then answer unavailable.
 	strategySaves shorts.StrategySavesStore
 	// ownershipUniverse is the whole register, read once per ownershipTTL and

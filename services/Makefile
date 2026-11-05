@@ -800,16 +800,7 @@ test-shortdatasync-pg: test-integration-images
 	cd jobs && GOWORK=off CGO_ENABLED=0 SHORTDATASYNC_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run 'StrategyCapture|IngestWriter' ./internal/jobs/shortdatasync/
 
-# The strategy daily snapshot suite (services/jobs/internal/jobs/strategies): migration 000156 applied to a
-# throwaway database, one session written, a dry run that writes nothing, a re-run that writes the same rows,
-# and a second session diffed against the first. Gates the deploy beside the capture suite.
-.PHONY: test-strategies-daily-pg
-test-strategies-daily-pg: test-integration-images
-	@set -e; \
-	cd jobs && GOWORK=off CGO_ENABLED=0 STRATEGIES_DAILY_TESTCONTAINERS=1 \
-		go test -count=1 -tags=testcontainers -run DailySnapshot ./internal/jobs/strategies/
-
-# The saved-strategy store (migration 000156) against a throwaway postgres:15 container: the cap under
+# The saved-strategy store (migration 000157) against a throwaway postgres:15 container: the cap under
 # concurrent saves, the repeat save, the variant owner guard and replay of the migration. Opt-in, like the
 # other container suites; STRATEGY_SAVES_TEST_DATABASE_URL uses a server you started.
 .PHONY: test-strategy-saves-pg

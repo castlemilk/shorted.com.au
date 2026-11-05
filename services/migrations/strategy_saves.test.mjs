@@ -1,16 +1,16 @@
 // node --test services/migrations/strategy_saves.test.mjs
 //
-// 000156 is the saved-strategies table of the My strategies list. Prod replays every allowlisted
+// 000157 is the saved-strategies table of the My strategies list. Prod replays every allowlisted
 // migration on every deploy, so the file must be replay-safe, touch no row, grant nothing, and sit in
-// the allowlist between 000154 and the 000138 closer. The store's container test
+// the allowlist after the strategy capture migration, after 000153 and before the 000138 closer. The store's container test
 // (services/shorts/internal/store/shorts, the StrategySaves suite) runs it against a live Postgres.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const up = readFileSync(new URL("./000156_strategy_saves.up.sql", import.meta.url), "utf8");
-const down = readFileSync(new URL("./000156_strategy_saves.down.sql", import.meta.url), "utf8");
+const up = readFileSync(new URL("./000157_strategy_saves.up.sql", import.meta.url), "utf8");
+const down = readFileSync(new URL("./000157_strategy_saves.down.sql", import.meta.url), "utf8");
 const workflow = readFileSync(
   new URL("../../.github/workflows/terraform-deploy.yml", import.meta.url),
   "utf8",
@@ -74,10 +74,13 @@ test("the down migration drops only the table, guarded by IF EXISTS", () => {
   assert.doesNotMatch(sqlOnly(down), /\bGRANT\b/i);
 });
 
-test("the allowlist runs 000156 after 000154 and before the 000138 closer", () => {
-  const line = "run_psql_session -f /migrations/000156_strategy_saves.up.sql";
+test("the allowlist runs the saved-strategies migration after the strategy capture, after 000153 and before the 000138 closer", () => {
+  const line = "run_psql_session -f /migrations/000157_strategy_saves.up.sql";
   assert.equal(workflow.split(line).length - 1, 1, "allowlisted once");
   const at = workflow.indexOf(line);
-  assert.ok(at > workflow.indexOf("run_psql_session -f /migrations/000154_strategy_capture.up.sql"));
-  assert.ok(at < workflow.indexOf("run_psql_session -f /migrations/000138_harden_data_api_grants.up.sql"));
+  const capture = workflow.match(/run_psql_session -f \/migrations\/0001\d\d_strategy_capture\.up\.sql/);
+  assert.ok(capture, "the strategy capture migration is allowlisted");
+  assert.ok(at > workflow.indexOf(capture[0]), "after the strategy capture");
+  assert.ok(at > workflow.indexOf("run_psql_session -f /migrations/000153_add_crawl_ops_indexes.up.sql"), "after 000153");
+  assert.ok(at < workflow.indexOf("run_psql_session -f /migrations/000138_harden_data_api_grants.up.sql"), "before the 000138 closer");
 });
