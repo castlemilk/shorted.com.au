@@ -5485,6 +5485,12 @@
             "title": "etfs",
             "type": "integer"
           },
+          "etfsAustralianEquity": {
+            "description": "ETFs on ASX's investment products report whose category is Australian equity or\n Australian property: the universe the tracked index funds are measured against\n (etfs counts every ETF on the report, most holding no ASX equity). (proto int32)",
+            "format": "int32",
+            "title": "etfs_australian_equity",
+            "type": "integer"
+          },
           "kinds": {
             "description": "(proto shorts.v1alpha1.OwnershipKindSummary)",
             "items": {

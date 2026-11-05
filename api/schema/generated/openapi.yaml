@@ -9370,6 +9370,14 @@ components:
           description: |-
             Parsed notices a model read after the parser withheld them (read_by = model).
              Counted within notices_parsed. (proto int32)
+        etfsAustralianEquity:
+          type: integer
+          title: etfs_australian_equity
+          format: int32
+          description: |-
+            ETFs on ASX's investment products report whose category is Australian equity or
+             Australian property: the universe the tracked index funds are measured against
+             (etfs counts every ETF on the report, most holding no ASX equity). (proto int32)
       title: GetOwnershipOverviewResponse
       additionalProperties: false
     shorts.v1alpha1.GetParliamentOverviewRequest:

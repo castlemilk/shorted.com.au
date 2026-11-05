@@ -38,6 +38,7 @@ const liveCodesSQL = `SELECT DISTINCT "PRODUCT_CODE" FROM shorts WHERE "DATE" >=
 var staleRereads = map[int][]string{
 	2: {outcomeAmbiguousTarget},
 	3: {outcomeAmbiguousTarget},
+	4: {outcomeAmbiguousTarget, string(outcomeNoVotingPower), outcomeInconsistentVotes},
 }
 
 // staleOutcomes is staleRereads[parserVersion], never nil (an empty array
@@ -102,7 +103,12 @@ WHERE ` + substantialHeadlineSQL + `
            AND EXISTS (SELECT 1 FROM asx_announcements b
                        WHERE b.pdf_url = a.pdf_url AND b.stock_code IN (` + liveCodesSQL + `))))
 GROUP BY a.pdf_url, t.outcome, t.parser_version
-ORDER BY max(a.announcement_date) DESC, a.pdf_url
+-- The notices the API was never asked about come first (the lowest parser_version),
+-- newest first within a version: a run capped at $1 then reaches the rest of the
+-- backlog on its next run instead of asking about the same newest notices again
+-- (measured 2026-11-05: 385 of the newest 400 were cut-list answers at version 2,
+-- and 453 older ones were never reached).
+ORDER BY t.parser_version ASC, max(a.announcement_date) DESC, a.pdf_url
 LIMIT $1`
 
 func (s *pgStore) PendingNotices(ctx context.Context, limit int, since string, parserVersion int) ([]pendingNotice, error) {
@@ -110,7 +116,9 @@ func (s *pgStore) PendingNotices(ctx context.Context, limit int, since string, p
 }
 
 func (s *pgStore) ResolvableNotices(ctx context.Context, limit int, since string) ([]pendingNotice, error) {
-	return s.selectNotices(ctx, resolvableNoticesSQL, limit, since, noticeParserVersion)
+	// An unavailable attempt is "asked" from apiPathVersion on, whatever the parser's own
+	// version: a parser bump must not ask the API again about every notice it has set aside.
+	return s.selectNotices(ctx, resolvableNoticesSQL, limit, since, apiPathVersion)
 }
 
 func (s *pgStore) selectNotices(ctx context.Context, sql string, args ...any) ([]pendingNotice, error) {

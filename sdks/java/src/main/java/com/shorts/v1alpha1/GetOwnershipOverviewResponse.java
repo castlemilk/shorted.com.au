@@ -787,6 +787,23 @@ private static final long serialVersionUID = 0L;
     return noticesReadByModel_;
   }
 
+  public static final int ETFS_AUSTRALIAN_EQUITY_FIELD_NUMBER = 22;
+  private int etfsAustralianEquity_ = 0;
+  /**
+   * <pre>
+   * ETFs on ASX's investment products report whose category is Australian equity or
+   * Australian property: the universe the tracked index funds are measured against
+   * (etfs counts every ETF on the report, most holding no ASX equity).
+   * </pre>
+   *
+   * <code>int32 etfs_australian_equity = 22 [json_name = "etfsAustralianEquity"];</code>
+   * @return The etfsAustralianEquity.
+   */
+  @java.lang.Override
+  public int getEtfsAustralianEquity() {
+    return etfsAustralianEquity_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -863,6 +880,9 @@ private static final long serialVersionUID = 0L;
     }
     if (noticesReadByModel_ != 0) {
       output.writeInt32(21, noticesReadByModel_);
+    }
+    if (etfsAustralianEquity_ != 0) {
+      output.writeInt32(22, etfsAustralianEquity_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1001,6 +1021,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(21, noticesReadByModel_);
     }
+    if (etfsAustralianEquity_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(22, etfsAustralianEquity_);
+    }
     return size;
   }
   @java.lang.Override
@@ -1070,6 +1094,8 @@ private static final long serialVersionUID = 0L;
         != other.getDocumentsAttempted()) return false;
     if (getNoticesReadByModel()
         != other.getNoticesReadByModel()) return false;
+    if (getEtfsAustralianEquity()
+        != other.getEtfsAustralianEquity()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1146,6 +1172,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getDocumentsAttempted();
     hash = (37 * hash) + NOTICES_READ_BY_MODEL_FIELD_NUMBER;
     hash = (53 * hash) + getNoticesReadByModel();
+    hash = (37 * hash) + ETFS_AUSTRALIAN_EQUITY_FIELD_NUMBER;
+    hash = (53 * hash) + getEtfsAustralianEquity();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1358,6 +1386,7 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00040000);
       documentsAttempted_ = 0;
       noticesReadByModel_ = 0;
+      etfsAustralianEquity_ = 0;
       return this;
     }
 
@@ -1517,6 +1546,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00100000) != 0)) {
         result.noticesReadByModel_ = noticesReadByModel_;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.etfsAustralianEquity_ = etfsAustralianEquity_;
       }
     }
 
@@ -1827,6 +1859,9 @@ private static final long serialVersionUID = 0L;
       if (other.getNoticesReadByModel() != 0) {
         setNoticesReadByModel(other.getNoticesReadByModel());
       }
+      if (other.getEtfsAustralianEquity() != 0) {
+        setEtfsAustralianEquity(other.getEtfsAustralianEquity());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -2038,6 +2073,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00100000;
               break;
             } // case 168
+            case 176: {
+              etfsAustralianEquity_ = input.readInt32();
+              bitField0_ |= 0x00200000;
+              break;
+            } // case 176
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -5446,6 +5486,56 @@ private static final long serialVersionUID = 0L;
     public Builder clearNoticesReadByModel() {
       bitField0_ = (bitField0_ & ~0x00100000);
       noticesReadByModel_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int etfsAustralianEquity_ ;
+    /**
+     * <pre>
+     * ETFs on ASX's investment products report whose category is Australian equity or
+     * Australian property: the universe the tracked index funds are measured against
+     * (etfs counts every ETF on the report, most holding no ASX equity).
+     * </pre>
+     *
+     * <code>int32 etfs_australian_equity = 22 [json_name = "etfsAustralianEquity"];</code>
+     * @return The etfsAustralianEquity.
+     */
+    @java.lang.Override
+    public int getEtfsAustralianEquity() {
+      return etfsAustralianEquity_;
+    }
+    /**
+     * <pre>
+     * ETFs on ASX's investment products report whose category is Australian equity or
+     * Australian property: the universe the tracked index funds are measured against
+     * (etfs counts every ETF on the report, most holding no ASX equity).
+     * </pre>
+     *
+     * <code>int32 etfs_australian_equity = 22 [json_name = "etfsAustralianEquity"];</code>
+     * @param value The etfsAustralianEquity to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEtfsAustralianEquity(int value) {
+
+      etfsAustralianEquity_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ETFs on ASX's investment products report whose category is Australian equity or
+     * Australian property: the universe the tracked index funds are measured against
+     * (etfs counts every ETF on the report, most holding no ASX equity).
+     * </pre>
+     *
+     * <code>int32 etfs_australian_equity = 22 [json_name = "etfsAustralianEquity"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEtfsAustralianEquity() {
+      bitField0_ = (bitField0_ & ~0x00200000);
+      etfsAustralianEquity_ = 0;
       onChanged();
       return this;
     }

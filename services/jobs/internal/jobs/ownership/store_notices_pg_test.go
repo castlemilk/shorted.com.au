@@ -92,7 +92,7 @@ func TestNoticeSelectionsAgainstPostgres(t *testing.T) {
 
 	// resolve-unavailable: the fetch_error and the live-coded unavailable notice,
 	// with every listed code, so the target is settled on the whole listing.
-	resolvable := selectAll(resolvableNoticesSQL, 10, "2025-01-01", noticeParserVersion)
+	resolvable := selectAll(resolvableNoticesSQL, 10, "2025-01-01", apiPathVersion)
 	if len(resolvable) != 2 {
 		t.Fatalf("resolvable notices = %v, want u-dead-live and u-fetch", keys(resolvable))
 	}

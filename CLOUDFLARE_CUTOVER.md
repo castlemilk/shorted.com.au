@@ -18,13 +18,16 @@ api.shorted.com.au ─► Cloudflare Proxy (orange-cloud) ──► Edge Worker 
 - **WAF protection**: Cloudflare Managed Free Ruleset + bot protection
 - **Real IP forwarding**: CF-Connecting-IP forwarded to Vercel for Upstash rate limiting
 
+### Cached reads
+Only the public reads listed in `PUBLIC_READ_RPCS` (`services/edge-worker/worker.js`) are cached, and only as a POST with a JSON body. Every other `/shorts.v1alpha1.` or `/marketdata.v1.` request passes through uncached. The rule and its tests are in `services/edge-worker/README.md`.
+
 ### Cache TTLs
 | Endpoint Pattern | TTL | Description |
 |------------------|-----|-------------|
-| GetTopShorts, GetShortsTreeMap, GetWeeklyReport | 300s | Top shorted stocks, treemaps, reports |
-| GetStock*, GetTimeSeries*, GetSearch, GetWatchlist | 120s | Stock details, time series, search |
-| GetNews*, GetAnnouncement* | 300s | News and announcements |
-| Default | 60s | All other endpoints |
+| GetTopShorts, GetWeeklyReport | 300s | Top shorted stocks, reports |
+| GetStock*, GetDirectorTrades, GetPeerComparison | 120s | Stock details, trades, peers |
+| GetNews, GetAnnouncement, GetMarketNews | 300s | News and announcements |
+| Default | 60s | Allowlisted reads that match no pattern above |
 
 ### Pass-through (Never Cached)
 - `/health`, `/healthz` → Shorts API

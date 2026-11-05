@@ -490,4 +490,16 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
    * @return The noticesReadByModel.
    */
   int getNoticesReadByModel();
+
+  /**
+   * <pre>
+   * ETFs on ASX's investment products report whose category is Australian equity or
+   * Australian property: the universe the tracked index funds are measured against
+   * (etfs counts every ETF on the report, most holding no ASX equity).
+   * </pre>
+   *
+   * <code>int32 etfs_australian_equity = 22 [json_name = "etfsAustralianEquity"];</code>
+   * @return The etfsAustralianEquity.
+   */
+  int getEtfsAustralianEquity();
 }

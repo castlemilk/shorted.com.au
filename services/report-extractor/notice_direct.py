@@ -51,20 +51,22 @@ import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import requests
 
 import direct_extract as dx
 import director_direct as dd
+import entity_match as em
 from dataclasses import replace
 
 log = logging.getLogger("notice_direct")
 
 # notice.go's noticeParserVersion: a row the parser wrote carries it, and a model's write carries
 # the same, so the Go pass's refusal rule treats a model-read row as current. test_notice_direct
-# reads the Go constant and fails when the two drift.
-NOTICE_PARSER_VERSION = 3
+# reads the Go constant and fails when the two drift. Version 4 is the subject rule (resolve_target,
+# notices.go subjectTarget): a notice is filed under the company its document names.
+NOTICE_PARSER_VERSION = 4
 
 # A scan is sent as page images, so its two readers must accept images. The text primary
 # (dx.PRIMARY_MODEL) is text-only on OpenRouter (input_modalities: text), so a scan never goes to
@@ -81,7 +83,11 @@ MIN_TEXT_CHARS = 100          # a page with less text layer than this is a scan 
 FIVE_PCT = 4.95               # the parser's threshold: 4.995% rounds to 5.00 and is substantial
 MAX_CHANGE_POINTS = 50        # a change of over 50 points is not one a register shows (parser: changeOver50)
 VOTES_RATIO_LOW, VOTES_RATIO_HIGH = 0.5, 2.0   # notices.go votesConsistent
-# notices.go nameTails (in order): the boilerplate that follows a holder's name in section 1.
+# "Ply" where a legal name's "Pty" should be: the OCR misreads the suffix, so the name as written is
+# not the company's. Withheld rather than stored (Go's legal-suffix list is not ours to change, so a
+# suffix rule here would key the holder differently from the Go registry).
+OCR_PLY_LEGAL_NAME = re.compile(r"\bply\s+(?:ltd|limited)\b", re.IGNORECASE)
+# registry.go nameTails (in order): the boilerplate that follows a holder's name in section 1.
 # test_notice_direct.py parses the Go list and fails when this copy drifts.
 NAME_TAILS = (
     " and its related bodies corporate", " and its related body corporate", " and related bodies corporate",
@@ -93,6 +99,10 @@ NAME_TAILS = (
     " and the other entities", " and entities listed", " - a subsidiary of", " a subsidiary of", "__",
     " and its entities",
 )
+# registry.go nameTailID: an ACN, ABN or ARSN and its digits (9 to 11 of them, with or without
+# spaces) after the holder's name. The word alone is no tail ("ABN AMRO" is a bank's name). The
+# pattern is the Go text exactly, so Go and Python cut the same name (test_notice_direct reads both).
+NAME_TAIL_ID = re.compile(r"(?i)[ \t]*\(?[ \t]*\b(?:acn|abn|arsn)[ \t]*:?[ \t]*[0-9][0-9 ]{8,13}\)?")
 NO_SHARE_COUNT_OUTCOME = "invalid_no_share_count"  # extract()'s outcome when no count is on record
 MAX_SYSTEMIC_ERRORS = 5       # the run exits 1 at this many model errors (or 3 at a fifth of the calls)
 
@@ -102,19 +112,23 @@ Return ONLY a JSON object:
 {
   "is_substantial_holder_notice": true | false,
   "holder_name": "the substantial holder named in section 1, copied exactly as written (a person or entity, never the company); null if none",
+  "subject_company": "the company named on the 'To: Company Name/Scheme' line, copied exactly as written; null if none",
   "form": "603" | "604" | "605" | null,
   "previous_pct": number | null,
   "previous_votes": integer | null,
   "present_pct": number | null,
   "present_votes": integer | null,
+  "voting_class_rows": integer | null,
   "event_date": "YYYY-MM-DD" | null,
   "ceased": true | false,
   "quotes": {
     "holder_name": "the words of the notice that name the holder",
+    "subject_company": "the words of the 'To: Company Name/Scheme' line that name the company (at most 200 characters); null if none",
     "previous_pct": "the words that state the previous percentage",
     "previous_votes": "the words that state the previous number of votes",
     "present_pct": "the words that state the present percentage",
     "present_votes": "the words that state the present number of votes",
+    "total_row": "the words of the voting power table's total row, when it has one; null otherwise",
     "event_date": "the words that state the date of the change"
   }
 }
@@ -125,6 +139,9 @@ Rules:
 3. For every figure, quote the exact words of the notice that state it (at most 200 characters, verbatim). A figure with no quote is null.
 4. If the document is not a substantial holding notice, set is_substantial_holder_notice to false and every other field to null.
 5. If the voting power is not stated in the notice itself, leave its figures null.
+6. A voting power table with more than one class row (for example ORD and ADR) and no total row: every figure is null. voting_class_rows is the number of class rows the table has (null when there is no table).
+7. event_date is the date section 1 states for the change: the date after "became a substantial holder on", "There was a change in the interests of the substantial holder on" or "ceased to be a substantial holder on". Never a date in a row of a changes table, never the date beside "Date" or "Sign here" in the signature block, and null when section 1 states none.
+8. subject_company is the company the notice is about: the one named on the 'To: Company Name/Scheme' line, whose shares the holding is in. A listed holder that lodges a notice about another company names that other company there, and its own name as holder_name.
 """
 
 SCAN_USER_MESSAGE = "The notice is a scanned document; the page images follow. Read them."
@@ -255,6 +272,9 @@ def tidy_holder_name(name: str) -> str:
         i = lower.find(t)
         if i > 2 and i < cut:
             cut = i
+    m = NAME_TAIL_ID.search(s)
+    if m and m.start() > 2 and m.start() < cut:
+        cut = m.start()
     return s[:cut].strip().rstrip(" ,.:-")
 
 
@@ -339,6 +359,149 @@ def _year_before(a):
         return _dt.date(a.year - 1, 3, 1)
 
 
+# --- the subject company ----------------------------------------------------------------------
+
+SUBJECT_UNRESOLVED = "subject_unresolved"  # a reading whose subject company the run cannot settle
+
+# notices.go companySuffixes: the corporate words a name ends in that carry no identity.
+# test_notice_direct reads the Go map and fails when this set drifts.
+COMPANY_SUFFIXES = frozenset({"limited", "ltd", "pty", "corporation", "corp", "group", "holdings", "nl", "inc", "co"})
+_BRACKET_RE = re.compile(r"\([^)]*\)")
+_NON_WORD_RE = re.compile(r"[^a-z0-9]+")
+# notices.go headlineForRe and headlineFromRe (case-sensitive, as the Go regexps are).
+HEADLINE_FOR_RE = re.compile(r"\b(?:for|in)\s+([A-Z0-9]{3,6})\s*$")
+HEADLINE_FROM_RE = re.compile(r"\bfrom\s+([A-Z0-9]{2,6})\s*$")
+
+
+def fold_company_name(name: str) -> str:
+    """notices.go foldCompanyName: brackets and punctuation gone, lower case, the trailing corporate
+    suffixes dropped. "" when nothing is left."""
+    s = _BRACKET_RE.sub(" ", name or "").replace("'", "").lower()
+    words = [w for w in _NON_WORD_RE.split(s) if w]
+    while words and words[-1] in COMPANY_SUFFIXES:
+        words.pop()
+    return " ".join(words)
+
+
+def unique_codes(codes) -> list[str]:
+    """notices.go uniqueSorted: the codes trimmed, upper case, without duplicates, sorted."""
+    return sorted({str(c).strip().upper() for c in (codes or []) if c and str(c).strip()})
+
+
+def _subject_target(code: str, subject: str, companies: dict, live) -> tuple[str, bool]:
+    """notices.go subjectTarget: (the one live company the document's name picks when the listed
+    code's own name does not match it, whether the document names another company). ("", True)
+    is a notice about a company outside the record, which the caller withholds: filed under the
+    listed code it would make a holder a substantial holder of itself (NAB about Spenda)."""
+    co = companies.get(code)
+    if not subject or not co or em.entity_matches(subject, co):
+        return "", False
+    want = fold_company_name(subject)
+    if not want:
+        return "", False
+    found = [c for c, name in companies.items() if c in live and fold_company_name(name) == want]
+    return (found[0], True) if len(found) == 1 else ("", True)
+
+
+def resolve_target(listed, headline: str, subject: str, companies: dict, live) -> str:
+    """notices.go resolveTarget: the listed company a notice is about, or "" when none can be settled.
+    The same rules in the same order as the Go pass, so a notice resolves to the code the Go pass
+    files it under. companies maps code -> company name; live is the set of codes ASIC's short report
+    carries now."""
+    codes = unique_codes(listed)
+    h = (headline or "").strip()
+    m = HEADLINE_FOR_RE.search(h)
+    if m:
+        if m.group(1) in companies:
+            return m.group(1)
+        if m.group(1) not in codes:
+            return ""
+    if len(codes) == 1:
+        target, named = _subject_target(codes[0], subject, companies, live)
+        if target:
+            return target
+        return "" if named else codes[0]
+    if subject:
+        matched = [c for c in codes if c in companies and em.entity_matches(subject, companies[c])]
+        if len(matched) == 1:
+            return matched[0]
+        current = [c for c in codes if c in live]
+        if len(current) == 1 and current[0] in companies:
+            want = fold_company_name(subject)
+            if want and want == fold_company_name(companies[current[0]]):
+                return current[0]
+    m = HEADLINE_FROM_RE.search(h)
+    if m:
+        others = [c for c in codes if c != m.group(1)]
+        if len(others) == 1 and len(others) < len(codes):
+            return others[0]
+    return ""
+
+
+@dataclass
+class Reference:
+    """What a run reads once: the companies on record (code -> name, company-metadata) and the codes
+    ASIC's short position report carries now (notices.go's Companies and LiveCodes)."""
+    companies: dict
+    live: frozenset
+
+
+@dataclass
+class Subject:
+    """The company a notice is filed under, its name on record and ASIC's count on issue for it."""
+    code: str
+    name: str
+    shares: float
+
+
+def resolve_subject(answer: dict, ctx: "ReadContext") -> tuple[Optional[Subject], str]:
+    """(subject, "") or (None, reason). Without a Reference (a replayed answer, in the bench and the
+    tests) the notice is the candidate's own. With one, the answer must name its subject company with
+    a quote in the text that names it (a scan has no text, so its quote is not checked: the two
+    readers must then resolve the same code, see same_notice), and the name must resolve to one
+    company on record under the Go rules. Otherwise the notice is withheld as subject_unresolved: a
+    reply that names no subject is never filed under the candidate's code."""
+    if ctx.reference is None:
+        return Subject(ctx.candidate_code, ctx.company_name, ctx.shares_on_issue), ""
+    name = clean_name(answer.get("subject_company"))
+    if not name:
+        return None, SUBJECT_UNRESOLVED
+    if not ctx.scan:
+        quotes = answer.get("quotes") if isinstance(answer.get("quotes"), dict) else {}
+        q = quotes.get("subject_company")
+        if (not isinstance(q, str) or len(q.strip()) < 4 or dx.locate(q, ctx.text) is None
+                or not name_in_text(name, q)):
+            return None, SUBJECT_UNRESOLVED
+    companies, live = ctx.reference.companies, ctx.reference.live
+    code = resolve_target(ctx.listed_codes, ctx.headline, name, companies, live)
+    # The name must be the company the code is on record as: the rules above may settle a code the
+    # document does not name (an unknown name stays the listed code), and that is not a subject.
+    if not code or code not in companies or not _names_company(name, companies[code]):
+        return None, SUBJECT_UNRESOLVED
+    if ctx.shares_on is not None:
+        shares = ctx.shares_on(code, ctx.announced_on)
+    else:
+        shares = ctx.shares_by_code.get(code, 0.0)
+    return Subject(code, companies[code], float(shares)), ""
+
+
+def _names_company(name: str, company: str) -> bool:
+    """The document's name is the company's: the entity rule the pass uses everywhere, or the same
+    folded name (notices.go foldCompanyName)."""
+    fold = fold_company_name(name)
+    return em.entity_matches(name, company) or (bool(fold) and fold == fold_company_name(company))
+
+
+def load_reference(cur) -> Reference:
+    """The companies on record and ASIC's live codes, read once per run (notices.go Companies, LiveCodes)."""
+    cur.execute("""SELECT stock_code, company_name FROM "company-metadata"
+                   WHERE company_name IS NOT NULL AND company_name <> ''""")
+    companies = {str(code).strip().upper(): name for code, name in cur.fetchall()}
+    cur.execute('SELECT DISTINCT "PRODUCT_CODE" FROM shorts WHERE "DATE" >= current_date - 30')
+    live = frozenset(str(c).strip().upper() for (c,) in cur.fetchall() if c)
+    return Reference(companies=companies, live=live)
+
+
 # --- validation -----------------------------------------------------------------------
 
 
@@ -355,6 +518,7 @@ class Notice:
     present_votes: Optional[int]
     ceased: bool
     model: str = ""
+    stock_code: str = ""   # the subject company's code (resolve_subject); the row is filed under it
 
     def figures(self) -> tuple:
         return (self.form, self.holder_name, _r(self.previous_pct), _r(self.present_pct),
@@ -373,6 +537,18 @@ def _pct(v: Any) -> Optional[float]:
     except ValueError:
         return None
     return f
+
+
+def _class_rows(v: Any) -> Optional[float]:
+    """The class-row count a reader reports, as a number (a numeric string counts), or None."""
+    if v is None or isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(str(v).strip())
+    except ValueError:
+        return None
 
 
 def _votes(v: Any) -> Optional[int]:
@@ -402,8 +578,79 @@ def date_in_quote(event: str, quote: str) -> bool:
             and str(d.year) in nums)
 
 
+_DATE_LABEL_RE = re.compile(r"\bdate\s*[:\-]?\s*$", re.IGNORECASE)
+ESCROW_RE = re.compile(r"\b(?:escrow|escrowed|restricted securities)\b", re.IGNORECASE)
+_SIGN_HERE_RE = re.compile(r"sign\s+here", re.IGNORECASE)
+# The section 1 phrases a date follows: "became a substantial holder on", "There was a change in the
+# interests of the substantial holder on", "ceased to be a substantial holder on". Matched against the
+# text just before the date (spaces, line breaks and a colon allowed), so a date they introduce is
+# section 1's whatever its layout.
+_SECTION1_ON_RE = re.compile(
+    r"(?:\bbecame|\bbecome|\bbecoming)[ \t]+a[ \t]+substantial[ \t]+holder[ \t]+on[\s:]*$"
+    r"|\bchange[ \t]+in[ \t]+the[ \t]+interests?[ \t]+(?:of[ \t]+)?(?:the[ \t]+)?substantial[ \t]+holder[ \t]+on[\s:]*$"
+    r"|\bceased[ \t]+to[ \t]+be[ \t]+a[ \t]+substantial[ \t]+holder[ \t]+on[\s:]*$",
+    re.IGNORECASE)
+# The ASX watermark on a page. It sits on the date's line or the next one, and is no part of a row.
+_WATERMARK_RE = re.compile(r"for[ \t]+personal[ \t]+use[ \t]+only", re.IGNORECASE)
+# Words that name a changes-table row: a broker, custodian or holder, or the nature of the change.
+_ROW_WORDS = {
+    "buy", "sell", "sold", "bought", "purchase", "purchased", "sale", "disposal", "acquisition",
+    "acquired", "transfer", "transferred", "market", "issue", "cancellation", "conversion", "exercise",
+    "lapse", "bank", "broker", "brokers", "securities", "stockbroking", "nominees", "nominee",
+    "custodian", "trust", "markets", "capital", "finance", "financial", "investments", "management",
+    "partners", "fund", "funds", "asset", "assets", "equities", "super", "superannuation",
+}
+# A nature-of-change line opens the row when the broker sits on the line above it.
+_NATURE_START_RE = re.compile(
+    r"^(?:buy|sell|sold|bought|transfer|purchase|disposal|acquisition|on[ \t-]+market|off[ \t-]+market)\b",
+    re.IGNORECASE)
+
+
+def _without_watermark(s: str) -> str:
+    return " ".join(_WATERMARK_RE.sub(" ", s).split())
+
+
+def date_beside_table_or_signature(text: str, start: int, end: int, holder: str) -> bool:
+    """True when the date text[start:end] is a row of a changes table or the signature block's date.
+    Local context only, never a position in the document (a scrambled text layer puts section 1
+    out of order). A date that a section 1 phrase introduces is never a row, whatever follows it.
+    Otherwise it is a row when the words after it on its line (the ASX watermark aside) name a
+    broker, a holder or a nature of change, or the holder's name, or when the line below does the
+    same or opens with a nature of change; it is the signature date when a "Date" label sits before
+    it or "Sign here" (or a "Date" label) is the nearest line either side. A holder's name on the
+    line below is a row too (the row's name sits under its date)."""
+    if _SECTION1_ON_RE.search(text[max(0, start - 200):start]):
+        return False
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", end)
+    if line_end < 0:
+        line_end = len(text)
+    if _DATE_LABEL_RE.search(text[line_start:start]):
+        return True
+    tail = _without_watermark(text[end:line_end])
+    words = set(re.findall(r"[^\W\d_]+", tail.lower()))
+    if words & _ROW_WORDS or (tail and name_in_text(holder, tail)):
+        return True
+    lines = text.split("\n")
+    li = text.count("\n", 0, start)
+    before = [ln.strip() for ln in lines[:li] if ln.strip()]
+    after = [w for w in (_without_watermark(ln) for ln in lines[li + 1:]) if w]
+    near = [ln for ln in (before[-1:] + after[:1]) if ln]
+    for ln in near:
+        if _SIGN_HERE_RE.search(ln) or _DATE_LABEL_RE.search(ln):
+            return True
+    if after:
+        below = after[0]
+        if _NATURE_START_RE.search(below) or holder_same(below, holder):
+            return True
+        if set(re.findall(r"[^\W\d_]+", below.lower())) & _ROW_WORDS:
+            return True
+    return False
+
+
 def validate_notice(answer: dict, text: str, *, headline: str, announced_on: str,
-                    shares_on_issue: float, scan: bool, model: str = "") -> tuple[Optional[Notice], str]:
+                    shares_on_issue: float, scan: bool, model: str = "",
+                    company_name: str = "") -> tuple[Optional[Notice], str]:
     """One reader's answer, checked in code. Returns (notice, "") or (None, reason)."""
     if not isinstance(answer, dict) or not answer:
         return None, "malformed"
@@ -425,8 +672,33 @@ def validate_notice(answer: dict, text: str, *, headline: str, announced_on: str
         return None, "no_holder"
     if placeholder_reason(name):
         return None, "no_holder"
+    # The subject company is never its own holder: a reader that copies the "To Company Name" line
+    # names the company, and a company is not a substantial holder of itself.
+    # A company may lodge about its own escrowed or restricted shares (a notice filed after an IPO):
+    # the rule applies only to a notice that does not say so.
+    if (company_name and holder_key(name) and holder_key(name) == holder_key(company_name)
+            and not ESCROW_RE.search(text)):
+        return None, "holder_is_subject_company"
+    if OCR_PLY_LEGAL_NAME.search(name):
+        return None, "ocr_misspelled_legal_name"
     if not scan and not name_in_text(name, text):
         return None, "name_not_in_notice"
+
+    # Several class rows (ORD and ADR, say) with no total row: the figure a reader takes is one
+    # class's, not the holding's. Withheld unless the total row is quoted from the text.
+    classes = _class_rows(answer.get("voting_class_rows"))
+    if classes is not None and classes > 1:
+        quoted = answer.get("quotes") if isinstance(answer.get("quotes"), dict) else {}
+        total = quoted.get("total_row")
+        if scan or not isinstance(total, str) or len(total.strip()) < 4 or dx.locate(total, text) is None:
+            return None, "several_classes_without_total"
+        # The figures must be the total row's own, or a reader can quote one class row as
+        # the total (RHC: the ORD row, 37 votes short of the holding) and pass.
+        totals = dx.numbers_in(total)
+        for field_name in ("present_votes", "present_pct"):
+            value = answer.get(field_name)
+            if value is None or dx.canonical(str(_votes(value) if field_name == "present_votes" else _pct(value))) not in totals:
+                return None, "figures_not_from_total_row"
 
     quotes = answer.get("quotes") if isinstance(answer.get("quotes"), dict) else {}
     prev_pct = _pct(answer.get("previous_pct"))
@@ -508,8 +780,11 @@ def validate_notice(answer: dict, text: str, *, headline: str, announced_on: str
     event = plausible_event_date(str(answer.get("event_date") or "").strip(), announced_on)
     if event and not scan:
         q = quotes.get("event_date")
-        if not isinstance(q, str) or len(q.strip()) < 4 or dx.locate(q, text) is None or not date_in_quote(event, q):
+        loc = dx.locate(q, text) if isinstance(q, str) and len(q.strip()) >= 4 else None
+        if loc is None or not date_in_quote(event, q):
             event = ""
+        elif date_beside_table_or_signature(text, loc[0], loc[1], name):
+            event = ""  # the date is a changes-table row or the signature date: the notice stays, the date goes
     key = holder_key(name)
     if not key:
         return None, "no_holder"
@@ -518,11 +793,19 @@ def validate_notice(answer: dict, text: str, *, headline: str, announced_on: str
                   previous_votes=prev_votes, present_votes=pres_votes, ceased=ceased, model=model), ""
 
 
+def holder_same(a: str, b: str) -> bool:
+    """Two section 1 names are one holder when their grouping keys agree (holder_key: the name
+    tidied at its tails, folded, without legal suffixes). The text is not compared, so
+    "Perennial Value Management Limited (PVM)" and "Perennial Value Management Limited" are one holder."""
+    ka = holder_key(a)
+    return bool(ka) and ka == holder_key(b)
+
+
 def same_notice(a: Notice, b: Notice) -> bool:
-    """Two readings agree on who, which form, every figure and whether it ceased. The event date
+    """Two readings agree on who, which company, which form, every figure and whether it ceased. The event date
     is not part of agreement: a disagreement on it alone drops the date (agreed), never the notice."""
-    return (a.form == b.form and dd.same_person(a.holder_name, b.holder_name)
-            and a.figures()[2:] == b.figures()[2:])
+    return (a.form == b.form and holder_same(a.holder_name, b.holder_name)
+            and a.stock_code == b.stock_code and a.figures()[2:] == b.figures()[2:])
 
 
 def agreed(a: Notice, b: Notice) -> Notice:
@@ -545,6 +828,14 @@ class ReadContext:
     shares_on_issue: float
     scan: bool
     institutions: dict[str, str] = field(default_factory=dict)
+    company_name: str = ""     # the subject company (company-metadata); "" when not known
+    candidate_code: str = ""   # the code the notice is filed under (a replayed read's subject)
+    listed_codes: tuple = ()   # every code ASX lists the notice under
+    shares_by_code: dict = field(default_factory=dict)  # ASIC's count per listed code, as at the date
+    reference: Optional[Reference] = None  # None: a replayed answer, whose subject is candidate_code
+    # ASIC's count on issue for a code as at a date. The subject a reading names may be a code the
+    # notice is not listed under, so the run looks it up when it is needed; None reads shares_by_code.
+    shares_on: Optional[Callable[[str, str], float]] = None
 
 
 @dataclass
@@ -565,10 +856,16 @@ class NoticeExtractor:
             # A reply with no JSON object is a model failure, not a reading: it is never written,
             # so the notice is offered again (the direct_extract rule for an unparseable reply).
             raise dx.ModelCallError(f"{model}: the reply holds no JSON object")
+        subject, why = resolve_subject(answer, ctx)
+        if subject is None:
+            return None, why
         n, why = validate_notice(answer, ctx.text, headline=ctx.headline, announced_on=ctx.announced_on,
-                                 shares_on_issue=ctx.shares_on_issue, scan=ctx.scan, model=model)
+                                 shares_on_issue=subject.shares, scan=ctx.scan, model=model,
+                                 company_name=subject.name)
+        if n is not None:
+            n.stock_code = subject.code
         if n is not None and ctx.institutions:
-            slug = ctx.institutions.get(" ".join(re.findall(r"[^\W_]+", _fold(n.holder_name))))
+            slug = ctx.institutions.get(" ".join(re.findall(r"[^\W_]+", _fold(tidy_holder_name(n.holder_name)))))
             if slug:
                 n.holder_key, n.institution_slug = slug, slug
         return n, why
@@ -648,10 +945,25 @@ BROWSER_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1
               "(KHTML, like Gecko) Version/17.0 Safari/605.1.15")
 
 
+# ASX answers displayAnnouncement.do with its access-terms page, whose hidden form names the
+# document (extract.py and the Go fetcher resolve it the same way).
+PDF_URL_RE = re.compile(r'name="pdfURL"\s+value="([^"]+)"')
+UNAVAILABLE_TEXT = "cannot display PDF"
+
+
 def fetch_pdf(url: str, session: Optional[requests.Session] = None) -> bytes:
     s = session or requests.Session()
+    headers = {"User-Agent": BROWSER_UA, "Accept": "application/pdf,*/*"}
     try:
-        resp = s.get(url, headers={"User-Agent": BROWSER_UA, "Accept": "application/pdf,*/*"}, timeout=60)
+        resp = s.get(url, headers=headers, timeout=60)
+        if resp.status_code == 200 and not resp.content.startswith(b"%PDF") and "displayAnnouncement.do" in url:
+            body = resp.content[:65536].decode("utf-8", "replace")
+            if UNAVAILABLE_TEXT in body:
+                raise FetchError("asx cannot display the PDF")
+            m = PDF_URL_RE.search(body)
+            if m is None:
+                raise FetchError("no pdfURL on the display page")
+            resp = s.get(m.group(1), headers=headers, timeout=60)
     except requests.RequestException as e:
         raise FetchError(f"transport: {type(e).__name__}") from e
     if resp.status_code != 200 or not resp.content.startswith(b"%PDF"):
@@ -697,15 +1009,18 @@ SELECT_SQL = """
 SELECT a.announcement_url, a.stock_code, a.outcome, COALESCE(a.detail, ''),
        max(ann.announcement_date)::text,
        (array_agg(ann.headline ORDER BY ann.announcement_date DESC, ann.stock_code))[1],
-       cm.market_cap
+       cm.market_cap, cm.company_name,
+       array_agg(DISTINCT ann.stock_code::text)
 FROM substantial_holder_notice_attempts a
 JOIN asx_announcements ann ON ann.pdf_url = a.announcement_url
 LEFT JOIN "company-metadata" cm ON cm.stock_code = a.stock_code
 WHERE a.outcome IN ('no_text', 'no_voting_power', 'no_holder')
   AND a.read_by = 'parser'
   AND (%(since)s::date IS NULL OR ann.announcement_date >= %(since)s::date)
-GROUP BY a.announcement_url, a.stock_code, a.outcome, a.detail, cm.market_cap
-ORDER BY cm.market_cap DESC NULLS LAST, a.announcement_url
+GROUP BY a.announcement_url, a.stock_code, a.outcome, a.detail, cm.market_cap, cm.company_name
+ORDER BY CASE WHEN btrim(cm.market_cap::text) ~ '^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$'
+              THEN btrim(cm.market_cap::text)::float8 END DESC NULLS LAST,
+         a.announcement_url
 LIMIT %(limit)s
 """
 
@@ -737,19 +1052,20 @@ WHERE substantial_holder_notices.read_by = 'model'
 
 
 def write_recovered(cur, url: str, code: str, announced_on: str, n: Notice) -> bool:
-    """Upserts a model-read notice unless a parser-read row holds the URL. True when written."""
+    """Upserts a model-read notice unless a parser-read row holds the URL. True when written. The
+    notice is filed under code, the subject company the reading resolved to, and the attempt follows it."""
     # A 605 stores no figures: notice.go keeps none from a cessation, and the readers only
     # use the percentages to validate and to compare the two readings.
     prev_pct, pres_pct = (None, None) if n.ceased else (n.previous_pct, n.present_pct)
-    cur.execute(UPSERT_SQL, (url, code, n.form, n.holder_name, n.holder_key, n.institution_slug,
+    cur.execute(UPSERT_SQL, (url, code, n.form, tidy_holder_name(n.holder_name), n.holder_key, n.institution_slug,
                              n.event_date, announced_on, prev_pct, pres_pct,
                              n.previous_votes, n.present_votes, n.ceased, NOTICE_PARSER_VERSION))
     if cur.rowcount == 0:
         return False
     cur.execute("""UPDATE substantial_holder_notice_attempts
-                   SET outcome = 'parsed', read_by = 'model', detail = %s, attempted_at = now()
+                   SET outcome = 'parsed', read_by = 'model', detail = %s, stock_code = %s, attempted_at = now()
                    WHERE announcement_url = %s""",
-                ("model: read by two readers, validated against the share count", url))
+                ("model: read by two readers, validated against the share count", code, url))
     return True
 
 
@@ -788,6 +1104,9 @@ class Candidate:
     headline: str
     market_cap: Optional[int]
     shares: float = 0.0  # ASIC's count on issue as at the notice's date (0 = none on record)
+    company_name: str = ""  # the candidate's own company name, for a replayed read's holder rule
+    listed_codes: tuple = ()  # every code ASX lists the notice under (asx_announcements)
+    shares_by_code: dict = field(default_factory=dict)  # ASIC's count per listed code (and the candidate's)
 
 
 def systemic(errors: int, calls: int) -> bool:
@@ -805,12 +1124,39 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
         cur.execute(SELECT_SQL, {"since": since or None, "limit": limit if limit > 0 else 10**9})
         rows = cur.fetchall()
         institutions = institution_index(institution_rows(cur))
+        reference = load_reference(cur)
         cands = []
-        for url, code, outcome, detail, announced, headline, cap in rows:
-            cands.append(Candidate(url, code, outcome, detail, announced or "", headline or "", cap,
-                                   shares=shares_on_issue(cur, code, announced or "")))
+        for url, code, outcome, detail, announced, headline, cap, company, listed in rows:
+            announced = announced or ""
+            own_codes = unique_codes([code])
+            own = own_codes[0] if own_codes else ""
+            # Every code the notice is listed under gets ASIC's count as at its date: the subject the
+            # reading resolves to may be any of them, and its votes are checked against that count.
+            # The listed codes are ASX's alone, as Go's resolveTarget sees them; the attempt's own
+            # code (where Go already retargeted the notice) is a key for the share count only.
+            listed_codes = unique_codes(list(listed or [])) or unique_codes([own])
+            codes = unique_codes([own, *listed_codes])
+            shares = {c: shares_on_issue(cur, c, announced) for c in codes}
+            cands.append(Candidate(url, own, outcome, detail, announced, headline or "", cap,
+                                   shares=shares.get(own, 0.0), company_name=company or "",
+                                   listed_codes=tuple(listed_codes), shares_by_code=shares))
     counts["selected"] = len(cands)
     log.info("selected %d withheld notices (dry_run=%s, budget %.0f min)", len(cands), dry_run, budget_min)
+
+    # Workers read the same connection for a subject's count, so every use of it is under one lock.
+    # A count is read once per (code, date); the listed codes' counts are already cached.
+    db_lock = threading.Lock()
+    count_cache: dict[tuple[str, str], float] = {}
+    for cand in cands:
+        for code, value in cand.shares_by_code.items():
+            count_cache[(code, cand.announced_on)] = value
+
+    def shares_on(code: str, on: str) -> float:
+        with db_lock:
+            if (code, on) not in count_cache:
+                with conn.cursor() as cur:
+                    count_cache[(code, on)] = shares_on_issue(cur, code, on)
+            return count_cache[(code, on)]
 
     start = clock()
     errors_in_row = 0
@@ -823,7 +1169,7 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
             budget_left = clock() - start < budget_min * 60
             while queue and len(pending) < max(1, workers) and budget_left and errors_in_row < MAX_SYSTEMIC_ERRORS:
                 cand = queue.pop(0)
-                pending[pool.submit(read_one, extractor, cand, institutions)] = cand
+                pending[pool.submit(read_one, extractor, cand, institutions, reference, shares_on)] = cand
             if not pending:
                 break
             done, _ = concurrent.futures.wait(pending, return_when=concurrent.futures.FIRST_COMPLETED)
@@ -860,22 +1206,23 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
                 if kind == "withheld":
                     counts[f"withheld:{res['reason']}"] += 1
                     if not dry_run:
-                        with conn.cursor() as cur:
+                        with db_lock, conn.cursor() as cur:
                             record_withheld(cur, cand.url, cand.outcome, res["reason"])
-                        conn.commit()
+                            conn.commit()
                     else:
                         log.info("  [dry-run] withheld again: %s (%s)", cand.url, res["reason"])
                     continue
                 n: Notice = res["notice"]
+                code = res["code"]
                 counts[f"recovered:{res['outcome']}"] += 1
                 if dry_run:
-                    log.info("  [dry-run] %s %s %s %s prev=%s pres=%s votes=%s/%s ceased=%s", cand.code,
+                    log.info("  [dry-run] %s %s %s %s prev=%s pres=%s votes=%s/%s ceased=%s", code,
                              n.form, n.holder_name, n.holder_key, n.previous_pct, n.present_pct,
                              n.previous_votes, n.present_votes, n.ceased)
                     continue
-                with conn.cursor() as cur:
-                    wrote = write_recovered(cur, cand.url, cand.code, cand.announced_on, n)
-                conn.commit()
+                with db_lock, conn.cursor() as cur:
+                    wrote = write_recovered(cur, cand.url, code, cand.announced_on, n)
+                    conn.commit()
                 counts["written" if wrote else "kept_parser_row"] += 1
     if queue:
         # The budget ran out, or five model errors in a row stopped new work: these were never read.
@@ -889,13 +1236,18 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
     return dict(counts)
 
 
-def read_one(extractor: NoticeExtractor, cand: Candidate, institutions: dict[str, str]) -> dict:
-    """One candidate, end to end. Returns {"kind": ...}: recovered (with its notice), withheld
-    (with the reason), fetch_failed, model_error or no_share_count. A model error is never written.
-    A notice with no ASIC count on record for its date is neither fetched nor read: its votes cannot
-    be checked, so nothing is written and it is offered again once a count appears. A 605 states no
-    votes (validate_notice keeps none), so it needs no count and is read."""
-    if cand.shares <= 0 and form_from_headline(cand.headline) != "605":
+def read_one(extractor: NoticeExtractor, cand: Candidate, institutions: dict[str, str],
+             reference: Optional[Reference] = None, shares_on: Optional[Callable[[str, str], float]] = None) -> dict:
+    """One candidate, end to end. Returns {"kind": ...}: recovered (with its notice and the code it is
+    filed under), withheld (with the reason), fetch_failed, model_error or no_share_count. A model
+    error is never written. A notice with no ASIC count on record for any code it is listed under is
+    neither fetched nor read: its votes cannot be checked, so nothing is written and it is offered
+    again once a count appears. A 605 states no votes (validate_notice keeps none), so it needs no
+    count and is read. reference is the run's companies and live codes and shares_on its counts by
+    date (resolve_subject); without a reference a replayed answer is read, whose subject is the
+    candidate's own code."""
+    counts = [cand.shares, *cand.shares_by_code.values()]
+    if not any(v > 0 for v in counts) and form_from_headline(cand.headline) != "605":
         return {"kind": "no_share_count"}
     try:
         pdf = fetch_pdf(cand.url)  # a session per fetch: requests sessions are not shared across threads
@@ -910,14 +1262,18 @@ def read_one(extractor: NoticeExtractor, cand: Candidate, institutions: dict[str
     except Exception as e:  # the rasteriser failing is this host's fault: retried, never recorded
         return {"kind": "fetch_failed", "reason": f"rasterise: {type(e).__name__}"}
     ctx = ReadContext(text=text, images=images, headline=cand.headline, announced_on=cand.announced_on,
-                      shares_on_issue=cand.shares, scan=scan, institutions=institutions)
+                      shares_on_issue=cand.shares, scan=scan, institutions=institutions,
+                      company_name=cand.company_name, candidate_code=cand.code,
+                      listed_codes=cand.listed_codes, shares_by_code=cand.shares_by_code, reference=reference,
+                      shares_on=shares_on)
     try:
         notice, outcome = extractor.extract(ctx)
     except dx.ModelCallError as e:
         return {"kind": "model_error", "reason": str(e)[:300], "scan": scan}
     if notice is None:
         return {"kind": "withheld", "reason": outcome, "scan": scan}
-    return {"kind": "recovered", "notice": notice, "outcome": outcome, "scan": scan}
+    return {"kind": "recovered", "notice": notice, "outcome": outcome, "scan": scan,
+            "code": notice.stock_code or cand.code}
 
 
 GOLD = Path(__file__).resolve().parent / "testdata" / "notices" / "gold.json"

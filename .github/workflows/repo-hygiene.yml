@@ -190,6 +190,9 @@ jobs:
           sparse-checkout: |
             services/report-extractor
             services/pkg/extractiontrust
+            # The notice reader's tests pin its parser version and name tails to
+            # the Go parser's (notice.go, notices.go, registry.go).
+            services/jobs/internal/jobs/ownership
 
       # The runner image is not a contract (scripts/tests/self-hosted-toolchain
       # .test.mjs): ask for Python explicitly. 3.11 is what the job's image

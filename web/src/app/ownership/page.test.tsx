@@ -317,6 +317,7 @@ describe("OwnershipPage headline band (backlog B2)", () => {
         noticesParsed: 18173,
         superFunds: 72,
         etfs: 471,
+        etfsAustralianEquity: 81,
         asOf: "2026-11-03",
         documentsAttempted: 26819,
         withheldByOutcome: [outcome("no_text", 7518)],
@@ -330,11 +331,11 @@ describe("OwnershipPage headline band (backlog B2)", () => {
 
     expect(band(container)).toHaveTextContent("18,173 notices read to 2026-11-03, 41 released this week");
     expect(band(container)).toHaveTextContent("7,518 notices withheld of 26,819 documents attempted");
-    expect(band(container)).toHaveTextContent("11 of 471 ASX ETFs tracked, files as at 2026-09-30 to 2026-11-02");
+    expect(band(container)).toHaveTextContent("11 of 81 Australian-equity ETFs tracked, files as at 2026-09-30 to 2026-11-02");
     expect(band(container)).toHaveTextContent("72 of 72 APRA super funds tracked, one option each, as at 2026-06-30");
     // The figures are mono; the words around them are not.
     const figures = Array.from(band(container).querySelectorAll("span.font-mono")).map((node) => node.textContent);
-    expect(figures).toEqual(expect.arrayContaining(["18,173", "41", "7,518", "26,819", "11", "471"]));
+    expect(figures).toEqual(expect.arrayContaining(["18,173", "41", "7,518", "26,819", "11", "81"]));
   });
 
   it("drops the this-week clause when the activity read is not ok", async () => {
