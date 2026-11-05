@@ -9,6 +9,9 @@
 -- 'equal'. A 'mismatch' is a finding: the snapshot and the view disagree on that session.
 -- The views are as of their newest bar, so view_as_of must equal the session for the
 -- comparison to mean anything; a later view_as_of is reported, not compared away.
+-- Section 4 checks the signal events the session wrote: each non-exit event's evidence r
+-- holds one P, F or U per rule of its version, and v and p hold one entry per rule. Its
+-- results read 'ok' or 'mismatch'; a mismatch means the event credits outcomes to the wrong rules.
 
 -- 1. The session compared, and the view dates it is compared against.
 WITH s AS (
@@ -95,3 +98,24 @@ SELECT 'regime' AS scope, 'XJO' AS subject, st.key, st.stored, vw.viewed,
   FROM stored st
   JOIN viewed vw ON vw.key = st.key
  ORDER BY result DESC, st.key;
+
+-- 4. The signal events on the session: r, v and p against the rule count of the event's version.
+WITH s AS (
+  SELECT max(as_of) AS session
+    FROM strategy_daily_runs
+   WHERE phase = 'features' AND status = 'completed'
+)
+SELECT e.stock_code, e.rules_hash, e.to_status, e.evidence->>'r' AS r,
+       jsonb_array_length(v.canonical_json -> 'rules') AS version_rules,
+       CASE
+         WHEN e.evidence->>'r' ~ '^[PFU]*$'
+          AND length(e.evidence->>'r') = jsonb_array_length(v.canonical_json -> 'rules')
+          AND jsonb_array_length(e.evidence -> 'v') = jsonb_array_length(v.canonical_json -> 'rules')
+          AND jsonb_array_length(e.evidence -> 'p') = jsonb_array_length(v.canonical_json -> 'rules')
+         THEN 'ok' ELSE 'mismatch'
+       END AS result
+  FROM strategy_signal_events e
+  CROSS JOIN s
+  JOIN strategy_rule_versions v ON v.rules_hash = e.rules_hash
+ WHERE e.as_of = s.session AND e.to_status <> 'none'
+ ORDER BY result DESC, e.stock_code;
