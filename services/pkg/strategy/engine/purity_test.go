@@ -59,23 +59,28 @@ func TestNoClockNoIONoRand(t *testing.T) {
 
 // pureImports is the allowlist: the standard-library packages a strategy package
 // may import. Everything else, including os, io, net/..., os/exec, database/sql,
-// syscall, log, math/rand and crypto/rand, is a violation.
+// syscall, log, math/rand and crypto/rand, is a violation. The encoding and hash
+// packages are here because the spec package names a version by the hash of its
+// canonical JSON: they read and write memory only.
 var pureImports = map[string]bool{
-	"cmp":          true,
-	"errors":       true,
-	"fmt":          true,
-	"maps":         true,
-	"math":         true,
-	"math/bits":    true,
-	"reflect":      true,
-	"regexp":       true,
-	"slices":       true,
-	"sort":         true,
-	"strconv":      true,
-	"strings":      true,
-	"time":         true,
-	"unicode":      true,
-	"unicode/utf8": true,
+	"cmp":           true,
+	"crypto/sha256": true,
+	"encoding/hex":  true,
+	"encoding/json": true,
+	"errors":        true,
+	"fmt":           true,
+	"maps":          true,
+	"math":          true,
+	"math/bits":     true,
+	"reflect":       true,
+	"regexp":        true,
+	"slices":        true,
+	"sort":          true,
+	"strconv":       true,
+	"strings":       true,
+	"time":          true,
+	"unicode":       true,
+	"unicode/utf8":  true,
 }
 
 // forbiddenSelectors lists the selectors of an allowed package that break
