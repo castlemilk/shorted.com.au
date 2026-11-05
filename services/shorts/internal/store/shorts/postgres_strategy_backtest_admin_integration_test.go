@@ -38,11 +38,11 @@ func strategyAdminTestStore(t *testing.T) *postgresStore {
 
 // seedStrategyAdmin records one live canonical version with its recipe, one variant
 // version, and one canonical and one variant backtest run of the live version.
-func seedStrategyAdmin(t *testing.T, s *postgresStore) (live, variant string) {
+func seedStrategyAdmin(t *testing.T, s *postgresStore) (live, variant, recipe string) {
 	t.Helper()
 	ctx := context.Background()
 	live, variant = strings.Repeat("a", 64), strings.Repeat("b", 64)
-	recipe := strings.Repeat("c", 64)
+	recipe = strings.Repeat("c", 64)
 	_, err := s.db.Exec(ctx, `
 		INSERT INTO strategy_rule_versions (rules_hash, strategy_id, label, kind, engine_major, feature_set, canonical_json, status, live_from)
 		VALUES ($1, 'zanger-breakout', 'v1', 'canonical', 1, 'fs1', '{}', 'live', '2026-11-01'),
@@ -60,26 +60,26 @@ func seedStrategyAdmin(t *testing.T, s *postgresStore) (live, variant string) {
 		       ('publish', 'zanger-breakout', $2, $3, '1.1.0', 'succeeded', false, '2019-05-01', '2026-11-05', 'total', 'XJT', 'strict',
 		  'test', 'arm64', '{"state":"computed"}', '{}', now(), now())`, live, variant, recipe)
 	require.NoError(t, err)
-	return live, variant
+	return live, variant, recipe
 }
 
 // The admin queue refuses a variant hash and queues a live canonical version once,
 // then names the request it already holds.
 func TestStrategyBacktestQueueRefusesVariantsAndDedupes(t *testing.T) {
 	s := strategyAdminTestStore(t)
-	live, variant := seedStrategyAdmin(t, s)
+	live, variant, recipe := seedStrategyAdmin(t, s)
 	ctx := context.Background()
 
-	_, err := s.QueueStrategyBacktest(ctx, QueueStrategyBacktestRequest{Version: variant, Actor: "oauth:uid"})
+	_, err := s.QueueStrategyBacktest(ctx, QueueStrategyBacktestRequest{RulesHash: variant, RecipeHash: recipe, Actor: "oauth:uid"})
 	require.True(t, errors.Is(err, ErrBacktestRefused), "a variant hash is refused: %v", err)
 	require.NotContains(t, err.Error(), "variant:x", "a refusal never echoes a variant's name")
 
-	first, err := s.QueueStrategyBacktest(ctx, QueueStrategyBacktestRequest{StrategyID: "zanger-breakout", Version: "v1", Actor: "oauth:uid"})
+	first, err := s.QueueStrategyBacktest(ctx, QueueStrategyBacktestRequest{StrategyID: "zanger-breakout", Version: "v1", RulesHash: live, RecipeHash: recipe, Actor: "oauth:uid"})
 	require.NoError(t, err)
 	require.Equal(t, "queued", first.Status)
 	require.Equal(t, "v1", first.Label)
 
-	again, err := s.QueueStrategyBacktest(ctx, QueueStrategyBacktestRequest{Version: live})
+	again, err := s.QueueStrategyBacktest(ctx, QueueStrategyBacktestRequest{RulesHash: live, RecipeHash: recipe})
 	require.NoError(t, err)
 	require.Equal(t, "already_queued", again.Status)
 	require.Equal(t, first.RequestID, again.RequestID)
@@ -93,9 +93,10 @@ func TestStrategyBacktestQueueRefusesVariantsAndDedupes(t *testing.T) {
 // The status carries the queue and the canonical runs, and no variant run.
 func TestStrategyStatusCarriesCanonicalRunsAndTheQueueOnly(t *testing.T) {
 	s := strategyAdminTestStore(t)
-	seedStrategyAdmin(t, s)
+	_, _, recipe := seedStrategyAdmin(t, s)
+	live := strings.Repeat("a", 64)
 	ctx := context.Background()
-	_, err := s.QueueStrategyBacktest(ctx, QueueStrategyBacktestRequest{StrategyID: "zanger-breakout", Version: "v1"})
+	_, err := s.QueueStrategyBacktest(ctx, QueueStrategyBacktestRequest{StrategyID: "zanger-breakout", Version: "v1", RulesHash: live, RecipeHash: recipe})
 	require.NoError(t, err)
 
 	st, err := s.StrategyDailyStatus(ctx, 3)

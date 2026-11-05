@@ -12,9 +12,11 @@ import (
 
 // strategy_status is the read-only view of the strategy engine's daily job: which
 // phases ran for the newest sessions, which sessions were held and why, how many
-// were backfilled, the canonical versions and the snapshot's table sizes. Every
-// field is an aggregate or a session's own facts. It carries no user identifier,
-// no email address and no subscription, and no tool here writes.
+// were backfilled, the canonical versions, the snapshot's table sizes, the backtest
+// queue and the newest canonical backtest runs. Every field is an aggregate or a
+// run's or session's own facts. It carries no user identifier, no email address and no
+// subscription. The one tool here that writes is queue_strategy_backtest, which queues
+// a publish of a canonical version and is in this file's registration below.
 
 // AdminStrategyOperator is the optional capability the strategy tool needs. The
 // admin server's operator provides it when the store has the snapshot view.
@@ -115,7 +117,7 @@ func strategyStatusTool() AdminTool {
 		sdk.AddTool(server, &sdk.Tool{
 			Name:        t.Name,
 			Title:       "Check the strategy engine's daily snapshot",
-			Description: "Report the strategy daily job for the newest sessions: each phase's status, held sessions and their reasons, late (backfilled) sessions, the canonical versions and the snapshot table sizes. Aggregates only; no user or email data.",
+			Description: "Report the strategy daily job for the newest sessions: each phase's status, held sessions and their reasons, late (backfilled) sessions, the canonical versions, the snapshot table sizes, the backtest queue by kind and status, and the ten newest canonical backtest runs with their publish and diff state. Aggregates only; no user or email data.",
 			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: new(false)},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, in StrategyStatusInput) (*sdk.CallToolResult, StrategyStatusOutput, error) {
 			if denied := requireScope(req, t.Scope); denied != nil {
@@ -237,7 +239,7 @@ func queueStrategyBacktestTool() AdminTool {
 			Name:  t.Name,
 			Title: "Queue a strategy backtest",
 			Description: "Queue one publish of a live canonical strategy version's backtest. The backtest job runs it at its next hourly " +
-				"execution and publishes it when it passes the gate. Canonical live versions only: a variant is refused.",
+				"execution and publishes it when it passes the gate. Canonical live versions only: a variant or an unregistered version is refused.",
 			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: new(false), IdempotentHint: true, OpenWorldHint: new(false)},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, in QueueStrategyBacktestInput) (*sdk.CallToolResult, QueueStrategyBacktestOutput, error) {
 			if denied := requireScope(req, t.Scope); denied != nil {

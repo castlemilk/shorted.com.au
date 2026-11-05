@@ -121,7 +121,8 @@ func TestStrategyStatusRunAndQueueFieldsCarryNoIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := strings.ToLower(string(raw))
-	for _, banned := range []string{`"uid"`, "email", "user_id", "alert", "variant", "rules_hash", "requested_by"} {
+	// Output keys are camelCase, so the snake_case and camelCase forms are both banned.
+	for _, banned := range []string{`"uid"`, "email", "user_id", "userid", "alert", "variant", "rules_hash", "ruleshash", "requested_by", "requestedby"} {
 		if strings.Contains(body, banned) {
 			t.Errorf("strategy_status must not carry %q: %s", banned, raw)
 		}

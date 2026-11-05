@@ -821,13 +821,15 @@ test-strategies-backtest-pg: test-integration-images
 		go test -count=1 -tags=testcontainers -run Backtest ./internal/jobs/strategies/
 
 # The saved-strategy store (migration 000157) against a throwaway postgres:15 container: the cap under
-# concurrent saves, the repeat save, the variant owner guard and replay of the migration. Opt-in, like the
-# other container suites; STRATEGY_SAVES_TEST_DATABASE_URL uses a server you started.
+# concurrent saves, the repeat save, the variant owner guard and replay of the migration. The admin
+# backtest queue and status (migration 000158) run in the same container: the variant refusal, the
+# dedupe and the canonical-only status join. Opt-in, like the other container suites;
+# STRATEGY_SAVES_TEST_DATABASE_URL uses a server you started.
 .PHONY: test-strategy-saves-pg
 test-strategy-saves-pg: test-integration-images
 	@set -e; \
-	GOWORK=off CGO_ENABLED=0 STRATEGY_SAVES_TESTCONTAINERS=1 \
-		go test -count=1 -tags=integration,testcontainers -run StrategySaves ./shorts/internal/store/shorts/
+	GOWORK=off CGO_ENABLED=0 STRATEGY_SAVES_TESTCONTAINERS=1 STRATEGY_ADMIN_TESTCONTAINERS=1 \
+		go test -count=1 -tags=integration,testcontainers -run 'StrategySaves|StrategyBacktestQueue|StrategyStatusCarries' ./shorts/internal/store/shorts/
 
 # The daily snapshot's API reads (migration 000156) against a throwaway postgres:15 container: the newest
 # completed session and the one before it, the unmigrated fallback, canonical and live-only signal events and

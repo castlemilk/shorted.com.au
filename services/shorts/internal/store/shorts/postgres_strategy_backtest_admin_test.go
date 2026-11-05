@@ -9,7 +9,7 @@ import (
 // A variant is refused whatever its status: only canonical versions are backtested
 // from the admin tool, and a variant's hash is the one a caller would try first.
 func TestCheckBacktestVersionRefusesAVariantHash(t *testing.T) {
-	variant := versionRow{StrategyID: "zanger-breakout", Label: "variant:abc", Kind: "variant", Status: "live", RulesHash: strings.Repeat("a", 64)}
+	variant := versionRow{StrategyID: "zanger-breakout", Label: "variant:abc", Kind: "variant", RulesHash: strings.Repeat("a", 64)}
 	err := checkBacktestVersion(variant)
 	if !errors.Is(err, ErrBacktestRefused) || !strings.Contains(err.Error(), "variant") {
 		t.Fatalf("a variant must be refused as a variant: %v", err)
@@ -19,19 +19,14 @@ func TestCheckBacktestVersionRefusesAVariantHash(t *testing.T) {
 	}
 }
 
+// The store refuses a recorded version the job would not run, the pre-recipe v0; a
+// canonical version it can queue. Liveness is the registry's, not the database's.
 func TestCheckBacktestVersionRefusesWhatTheJobWouldNotRun(t *testing.T) {
-	cases := map[string]versionRow{
-		"not live": {StrategyID: "canonical-s", Label: "v1", Kind: "canonical", Status: "superseded"},
-		"v0":       {StrategyID: "canonical-s", Label: "v0", Kind: "canonical", Status: "live"},
-		"draft":    {StrategyID: "canonical-s", Label: "v2", Kind: "canonical", Status: "draft"},
+	if err := checkBacktestVersion(versionRow{StrategyID: "canonical-s", Label: "v0", Kind: "canonical"}); !errors.Is(err, ErrBacktestRefused) {
+		t.Fatalf("v0: want a refusal, got %v", err)
 	}
-	for name, v := range cases {
-		if err := checkBacktestVersion(v); !errors.Is(err, ErrBacktestRefused) {
-			t.Errorf("%s: want a refusal, got %v", name, err)
-		}
-	}
-	if err := checkBacktestVersion(versionRow{StrategyID: "canonical-s", Label: "v1", Kind: "canonical", Status: "live"}); err != nil {
-		t.Fatalf("a live canonical version is queued: %v", err)
+	if err := checkBacktestVersion(versionRow{StrategyID: "canonical-s", Label: "v1", Kind: "canonical"}); err != nil {
+		t.Fatalf("a canonical version is queued: %v", err)
 	}
 }
 

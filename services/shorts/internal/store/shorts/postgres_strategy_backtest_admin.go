@@ -107,7 +107,9 @@ func (s *postgresStore) strategyBacktestStatus(ctx context.Context, out *Strateg
 }
 
 // StrategyBacktestQueueAdminStore is the admin queue's write: one publish request
-// for a live canonical version. The store refuses what the job would not run.
+// for a canonical version and its recipe. The service resolves the request from the
+// code registry (the live version the job runs) before it reaches the store, so the
+// store checks only what the database records about that pair.
 type StrategyBacktestQueueAdminStore interface {
 	QueueStrategyBacktest(ctx context.Context, req QueueStrategyBacktestRequest) (QueueStrategyBacktestResult, error)
 }
@@ -119,12 +121,17 @@ var rulesHashPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 // after the sentinel's text and a colon.
 var ErrBacktestRefused = errors.New("backtest request refused")
 
-// QueueStrategyBacktestRequest names one canonical version to queue a publish for.
+// QueueStrategyBacktestRequest names one canonical version and its recipe to queue a
+// publish for. The service fills the hashes from the registry; RecipeID is the
+// caller's optional check against it and the store does not read it.
 type QueueStrategyBacktestRequest struct {
-	// Version is a label (for example v1, with StrategyID) or a full rules hash.
+	// StrategyID and Version (the label) name the version, for the answer.
 	StrategyID string
 	Version    string
-	// RecipeID names the recipe when the strategy records more than one.
+	// RulesHash and RecipeHash are the pair the backtest job matches its requests on.
+	RulesHash  string
+	RecipeHash string
+	// RecipeID is the recipe the caller named, if any; checked by the service.
 	RecipeID string
 	// Actor is the caller's audit identity, stored on the request and never returned.
 	Actor string
@@ -139,50 +146,48 @@ type QueueStrategyBacktestResult struct {
 	Status string
 }
 
-// versionRow is a recorded version's identity and status.
+// versionRow is a recorded version's identity.
 type versionRow struct {
 	StrategyID string
 	Label      string
 	Kind       string
-	Status     string
 	RulesHash  string
 }
 
-// checkBacktestVersion refuses what the backtest job would not run: a variant, a
-// version that is not live, and the pre-recipe v0.
+// checkBacktestVersion refuses a recorded version the backtest job would not run: a
+// variant, and the pre-recipe v0. Liveness is the registry's, resolved by the service.
 func checkBacktestVersion(v versionRow) error {
 	switch {
 	case v.Kind != "canonical":
 		return fmt.Errorf("%w: the version names a variant; only canonical versions are backtested here", ErrBacktestRefused)
-	case v.Status != "live":
-		return fmt.Errorf("%w: %s %s is %s, not live", ErrBacktestRefused, v.StrategyID, v.Label, v.Status)
 	case v.Label == "v0":
 		return fmt.Errorf("%w: v0 has no recipe to backtest", ErrBacktestRefused)
 	}
 	return nil
 }
 
-// QueueStrategyBacktest queues one publish request for a live canonical version
-// and its recipe. The backtest job claims it at its next execution. A key with a
-// request already queued or running is not queued twice.
+// QueueStrategyBacktest queues one publish request for a canonical version and its
+// recipe. The backtest job claims it at its next execution. A key with a request
+// already queued or running is not queued twice.
 func (s *postgresStore) QueueStrategyBacktest(ctx context.Context, req QueueStrategyBacktestRequest) (QueueStrategyBacktestResult, error) {
 	var out QueueStrategyBacktestResult
+	if !rulesHashPattern.MatchString(req.RulesHash) || !rulesHashPattern.MatchString(req.RecipeHash) {
+		return out, fmt.Errorf("%w: the request names no registered version and recipe", ErrBacktestRefused)
+	}
 	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return out, fmt.Errorf("begin the backtest request: %w", err)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 
-	v, err := resolveBacktestVersion(ctx, tx, req)
+	v, err := recordedBacktestVersion(ctx, tx, req.RulesHash)
 	if err != nil {
 		return out, backtestQueueError(err)
 	}
 	if err := checkBacktestVersion(v); err != nil {
 		return out, err
 	}
-
-	recipe, err := resolveBacktestRecipe(ctx, tx, v.StrategyID, req.RecipeID)
-	if err != nil {
+	if err := checkRecipeRecorded(ctx, tx, req.RecipeHash); err != nil {
 		return out, backtestQueueError(err)
 	}
 
@@ -191,7 +196,7 @@ func (s *postgresStore) QueueStrategyBacktest(ctx context.Context, req QueueStra
 		SELECT id FROM strategy_backtest_requests
 		 WHERE kind = 'publish' AND strategy_id = $1 AND rules_hash = $2 AND recipe_hash = $3
 		   AND status IN ('queued', 'running')
-		 ORDER BY id LIMIT 1`, v.StrategyID, v.RulesHash, recipe).Scan(&out.RequestID)
+		 ORDER BY id LIMIT 1`, v.StrategyID, req.RulesHash, req.RecipeHash).Scan(&out.RequestID)
 	if err == nil {
 		out.Status = "already_queued"
 		return out, tx.Commit(ctx)
@@ -200,11 +205,11 @@ func (s *postgresStore) QueueStrategyBacktest(ctx context.Context, req QueueStra
 		return out, backtestQueueError(err)
 	}
 
-	dedupe := fmt.Sprintf("publish:%s:%s:admin:%d", v.RulesHash, recipe, time.Now().UnixNano())
+	dedupe := fmt.Sprintf("publish:%s:%s:admin:%d", req.RulesHash, req.RecipeHash, time.Now().UnixNano())
 	err = tx.QueryRow(ctx, `
 		INSERT INTO strategy_backtest_requests (kind, strategy_id, rules_hash, recipe_hash, requested_by, dedupe_key, status)
 		VALUES ('publish', $1, $2, $3, NULLIF($4, ''), $5, 'queued')
-		RETURNING id`, v.StrategyID, v.RulesHash, recipe, req.Actor, dedupe).Scan(&out.RequestID)
+		RETURNING id`, v.StrategyID, req.RulesHash, req.RecipeHash, req.Actor, dedupe).Scan(&out.RequestID)
 	if err != nil {
 		return out, backtestQueueError(err)
 	}
@@ -212,76 +217,29 @@ func (s *postgresStore) QueueStrategyBacktest(ctx context.Context, req QueueStra
 	return out, tx.Commit(ctx)
 }
 
-// resolveBacktestVersion finds the one recorded version a request names.
-func resolveBacktestVersion(ctx context.Context, tx pgx.Tx, req QueueStrategyBacktestRequest) (versionRow, error) {
-	var (
-		rows pgx.Rows
-		err  error
-	)
-	if rulesHashPattern.MatchString(req.Version) {
-		rows, err = tx.Query(ctx, `
-			SELECT strategy_id, label, kind, status, rules_hash FROM strategy_rule_versions WHERE rules_hash = $1`, req.Version)
-	} else {
-		if req.StrategyID == "" {
-			return versionRow{}, fmt.Errorf("%w: a label needs its strategy_id", ErrBacktestRefused)
-		}
-		rows, err = tx.Query(ctx, `
-			SELECT strategy_id, label, kind, status, rules_hash FROM strategy_rule_versions
-			 WHERE strategy_id = $1 AND label = $2 AND kind = 'canonical'`, req.StrategyID, req.Version)
+// recordedBacktestVersion reads the recorded version a request's rules hash names.
+// The daily snapshot records a version; until it has, the request is refused.
+func recordedBacktestVersion(ctx context.Context, tx pgx.Tx, rulesHash string) (versionRow, error) {
+	var v versionRow
+	err := tx.QueryRow(ctx, `
+		SELECT strategy_id, label, kind, rules_hash FROM strategy_rule_versions WHERE rules_hash = $1`, rulesHash).Scan(
+		&v.StrategyID, &v.Label, &v.Kind, &v.RulesHash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return versionRow{}, fmt.Errorf("%w: the version is not recorded yet (the daily snapshot records it)", ErrBacktestRefused)
 	}
-	if err != nil {
-		return versionRow{}, err
-	}
-	defer rows.Close()
-	var found []versionRow
-	for rows.Next() {
-		var v versionRow
-		if err := rows.Scan(&v.StrategyID, &v.Label, &v.Kind, &v.Status, &v.RulesHash); err != nil {
-			return versionRow{}, err
-		}
-		found = append(found, v)
-	}
-	if err := rows.Err(); err != nil {
-		return versionRow{}, err
-	}
-	switch len(found) {
-	case 0:
-		return versionRow{}, fmt.Errorf("%w: no recorded version matches %q", ErrBacktestRefused, req.Version)
-	case 1:
-		return found[0], nil
-	}
-	return versionRow{}, fmt.Errorf("%w: %d versions match %q; name the rules hash", ErrBacktestRefused, len(found), req.Version)
+	return v, err
 }
 
-// resolveBacktestRecipe is the one recipe a strategy records, or the one a request names.
-func resolveBacktestRecipe(ctx context.Context, tx pgx.Tx, strategyID, recipeID string) (string, error) {
-	rows, err := tx.Query(ctx, `
-		SELECT recipe_hash, recipe_id FROM strategy_recipes
-		 WHERE strategy_id = $1 AND ($2 = '' OR recipe_id = $2)
-		 ORDER BY recipe_id`, strategyID, recipeID)
-	if err != nil {
-		return "", err
+// checkRecipeRecorded refuses a recipe the daily snapshot has not recorded.
+func checkRecipeRecorded(ctx context.Context, tx pgx.Tx, recipeHash string) error {
+	var recorded bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM strategy_recipes WHERE recipe_hash = $1)`, recipeHash).Scan(&recorded); err != nil {
+		return err
 	}
-	defer rows.Close()
-	var hashes, ids []string
-	for rows.Next() {
-		var h, id string
-		if err := rows.Scan(&h, &id); err != nil {
-			return "", err
-		}
-		hashes = append(hashes, h)
-		ids = append(ids, id)
+	if !recorded {
+		return fmt.Errorf("%w: the recipe is not recorded yet (the daily snapshot records it)", ErrBacktestRefused)
 	}
-	if err := rows.Err(); err != nil {
-		return "", err
-	}
-	switch len(hashes) {
-	case 0:
-		return "", fmt.Errorf("%w: no recipe is recorded for %s yet (the daily snapshot records it)", ErrBacktestRefused, strategyID)
-	case 1:
-		return hashes[0], nil
-	}
-	return "", fmt.Errorf("%w: %s records %d recipes (%v); name one with recipe_id", ErrBacktestRefused, strategyID, len(ids), ids)
+	return nil
 }
 
 // backtestQueueError names a missing table as the migration it needs.
