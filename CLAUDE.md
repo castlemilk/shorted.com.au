@@ -809,7 +809,7 @@ recipe fields on the wire (PR-12a).
   verified address from it: a caller passes options only. It fails closed in
   production without `INTERNAL_SERVICE_SECRET`; read-only calls send identity
   only, with no address and no Firebase lookup.
-  **Daily snapshot (migration 000155, `shorted strategies -mode daily`).** The
+  **Daily snapshot (migration 000156, `shorted strategies -mode daily`).** The
   job writes one session's feature rows (`strategy_features_daily`), regime and
   fundamentals blobs, then the live canonical versions' signal events, diffed
   against the previous complete session and recomputed from its stored rows. It

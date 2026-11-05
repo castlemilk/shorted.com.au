@@ -800,7 +800,7 @@ test-shortdatasync-pg: test-integration-images
 	cd jobs && GOWORK=off CGO_ENABLED=0 SHORTDATASYNC_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run 'StrategyCapture|IngestWriter' ./internal/jobs/shortdatasync/
 
-# The strategy daily snapshot suite (services/jobs/internal/jobs/strategies): migration 000155 applied to a
+# The strategy daily snapshot suite (services/jobs/internal/jobs/strategies): migration 000156 applied to a
 # throwaway database, one session written, a dry run that writes nothing, a re-run that writes the same rows,
 # and a second session diffed against the first. Gates the deploy beside the capture suite.
 .PHONY: test-strategies-daily-pg

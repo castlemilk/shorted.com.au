@@ -1,4 +1,4 @@
--- 000155: the strategy engine's daily snapshot.
+-- 000156: the strategy engine's daily snapshot.
 --
 --   strategy_rule_versions   one row per published rules hash: the canonical versions the product shows
 --                            (v0 now) and, once variants are saved, the variants an owner saves. The hash is the

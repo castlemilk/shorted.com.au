@@ -67,7 +67,7 @@ type StrategyStatusInput struct {
 // StrategyStatusOutput is the daily job's state.
 type StrategyStatusOutput struct {
 	ObservedAt    string            `json:"observedAt"`
-	Migrated      bool              `json:"migrated" jsonschema:"False when the strategy snapshot tables do not exist yet (migration 000155 not applied)."`
+	Migrated      bool              `json:"migrated" jsonschema:"False when the strategy snapshot tables do not exist yet (migration 000156 not applied)."`
 	LastCompleted string            `json:"lastCompletedSession,omitempty" jsonschema:"The newest session whose features, evaluation and events all completed."`
 	LateLast30    int64             `json:"lateSessionsLast30Days" jsonschema:"Sessions in the last 30 days the job backfilled after their own day."`
 	Sessions      []StrategyPhase   `json:"sessions" jsonschema:"Each phase of the newest sessions, newest session first. A held session has one held features row whose note gives the reason."`
@@ -118,7 +118,7 @@ func strategyStatusTool() AdminTool {
 			text := fmt.Sprintf("strategy daily: %d session(s) reported, last complete %s, %d late in 30 days",
 				distinctSessions(read.Sessions), orNone(read.LastCompleted), read.LateLast30)
 			if !read.Migrated {
-				text = "strategy daily: the snapshot tables do not exist yet (migration 000155 not applied)"
+				text = "strategy daily: the snapshot tables do not exist yet (migration 000156 not applied)"
 			}
 			return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: text}}}, out, nil
 		})

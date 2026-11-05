@@ -29,7 +29,7 @@ type StrategyDailyStatus struct {
 	Versions []StrategyVersionRow
 	// Tables are the snapshot tables' estimated row counts and sizes in bytes.
 	Tables []StrategyTableRow
-	// Migrated is false when the snapshot tables do not exist yet (000155 not applied).
+	// Migrated is false when the snapshot tables do not exist yet (000156 not applied).
 	Migrated bool
 }
 
@@ -60,7 +60,7 @@ type StrategyTableRow struct {
 
 // StrategyDailyStatus reads the newest `sessions` sessions' phases, the late
 // count, the last complete session, the canonical versions and the table sizes.
-// A database without 000155 answers Migrated=false, not an error.
+// A database without 000156 answers Migrated=false, not an error.
 func (s *postgresStore) StrategyDailyStatus(ctx context.Context, sessions int) (StrategyDailyStatus, error) {
 	if sessions < 1 {
 		sessions = 1

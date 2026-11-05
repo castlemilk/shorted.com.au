@@ -1,6 +1,6 @@
 package strategies
 
-// Real-Postgres tests for the daily job: migration 000155 applied to a fresh
+// Real-Postgres tests for the daily job: migration 000156 applied to a fresh
 // database, the source tables the readers select from, one session written, a
 // dry run that writes nothing, and a re-run of the same session that writes the
 // same rows. They run only with an opt-in:
@@ -51,7 +51,7 @@ CREATE TABLE sync_status (environment text, hostname text, checkpoint_stocks_tot
 CREATE TABLE picks_run_lease (name text PRIMARY KEY, holder text NOT NULL, expires_at timestamptz NOT NULL);
 `
 
-// dailyDB returns a pool on a fresh database with 000155 applied and the source
+// dailyDB returns a pool on a fresh database with 000156 applied and the source
 // tables created. The database is dropped at cleanup.
 func dailyDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
@@ -87,10 +87,10 @@ func dailyDB(t *testing.T) *pgxpool.Pool {
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 
-	b, err := os.ReadFile(filepath.Join(dailyMigrationsDir, "000155_strategy_engine.up.sql"))
+	b, err := os.ReadFile(filepath.Join(dailyMigrationsDir, "000156_strategy_engine.up.sql"))
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, string(b))
-	require.NoError(t, err, "applying 000155")
+	require.NoError(t, err, "applying 000156")
 	_, err = pool.Exec(ctx, dailySourceTables)
 	require.NoError(t, err, "creating the source tables")
 	return pool

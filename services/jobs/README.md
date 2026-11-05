@@ -936,7 +936,7 @@ that. It exits 10 when a conclusive run disagrees.
 `list_job_executions` and `get_job_execution`, and the picks exit code
 unchanged. Any mismatch is fixed before the daily snapshot job is built on it.
 
-**Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migration 000155).
+**Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migration 000156).
 Runs as `shorted-strategies-daily` (VKE CronJob, weekdays at :00, :20 and :40 past 13 to 16 UTC). It writes
 when `STRATEGIES_DRY_RUN=false`, holds a session it cannot yet read whole, backfills held sessions oldest
 first (ten per run), and exits 10 once at the 16:40 UTC run when a session is still held.

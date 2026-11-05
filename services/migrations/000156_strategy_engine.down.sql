@@ -1,6 +1,6 @@
--- Reverses 000155. Drops the snapshot and its registries. The snapshot is rebuilt from the bars, so the
+-- Reverses 000156. Drops the snapshot and its registries. The snapshot is rebuilt from the bars, so the
 -- loss is the event history and the recorded run log; do not run this against a database whose strategy
--- engine reads them. Deploys never run a down file: 000155 is replayed by the up file only.
+-- engine reads them. Deploys never run a down file: 000156 is replayed by the up file only.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 
