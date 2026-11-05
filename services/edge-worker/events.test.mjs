@@ -801,7 +801,11 @@ test("a failing KV read is instrumented through the real cache path", async () =
     () =>
       withStubbedOrigin({ status: 200 }, () =>
         worker.fetch(
-          new Request(`https://api.shorted.com.au${RPC_PATH}`, { method: "POST", body: "{}" }),
+          new Request(`https://api.shorted.com.au${RPC_PATH}`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: "{}",
+          }),
           env,
           { waitUntil(p) { return p; } }
         )
