@@ -1,6 +1,7 @@
 package strategies
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -148,6 +149,28 @@ func TestEvaluateVersionRebuildsTheUniverseFromStoredRows(t *testing.T) {
 		if code == "NEW" {
 			t.Errorf("an ineligible code cannot be a pick")
 		}
+	}
+}
+
+// The live version's universe is the ordinary shares: v1 drops the exchange
+// traded product that v0 evaluates, so the stored rows read under v1 are fewer.
+func TestEvaluateVersionUnderV1DropsTheProduct(t *testing.T) {
+	d := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	fs, _ := featureParams()
+	out := buildSessionRows(sessionFixture(t, d), fs)
+	v1, ok := spec.Version(spec.StrategyZangerBreakout, "v1")
+	if !ok {
+		t.Fatal("no v1 zanger version")
+	}
+	ev, err := evaluateVersion(out.Rows, out.Blobs, out.Regime, v1)
+	if err != nil {
+		t.Fatalf("evaluateVersion: %v", err)
+	}
+	if ev.Eligible != 1 {
+		t.Errorf("eligible under v1 = %d, want 1 (AAA; the ETF is not an ordinary share)", ev.Eligible)
+	}
+	if _, ok := ev.Picks["ETF"]; ok {
+		t.Errorf("the exchange traded product cannot be a v1 pick")
 	}
 }
 
@@ -333,5 +356,36 @@ func TestCAUpjumpFromIsTheV1Policy(t *testing.T) {
 	}
 	if v1.Spec.Data.CAUpjumpFrom != caUpjumpFrom {
 		t.Fatalf("v1 ca_upjump_from = %q, the daily job reads %q", v1.Spec.Data.CAUpjumpFrom, caUpjumpFrom)
+	}
+}
+
+// The stored short reading and its staleness read the v1 policy's publication
+// lag and maximum report age, so a change to either constant is a change to v1.
+func TestStoredShortReadingIsTheV1Policy(t *testing.T) {
+	v1, ok := spec.Version(spec.StrategyZangerBreakout, "v1")
+	if !ok {
+		t.Fatal("no v1 version for zanger-breakout")
+	}
+	if v1.Spec.Data.PublicationLagSessions != snapshotPublicationLag {
+		t.Fatalf("v1 publication_lag_sessions = %d, the daily job stores %d", v1.Spec.Data.PublicationLagSessions, snapshotPublicationLag)
+	}
+	if v1.Spec.Data.MaxReportAgeSessions != features.StaleAfterSessions {
+		t.Fatalf("v1 max_report_age_sessions = %d, the daily job stores %d", v1.Spec.Data.MaxReportAgeSessions, features.StaleAfterSessions)
+	}
+}
+
+// v1 changes the universe, the short data and the ladder, never the thresholds:
+// its rules, score, regime and features are v0's, as the changelog says.
+func TestV1KeepsV0sThresholds(t *testing.T) {
+	for _, id := range []string{spec.StrategyZangerBreakout, spec.StrategyCrowdedShortBreakout} {
+		v0, ok0 := spec.Version(id, "v0")
+		v1, ok1 := spec.Version(id, "v1")
+		if !ok0 || !ok1 {
+			t.Fatalf("%s: missing v0 or v1", id)
+		}
+		if !reflect.DeepEqual(v0.Spec.Rules, v1.Spec.Rules) || !reflect.DeepEqual(v0.Spec.Score, v1.Spec.Score) ||
+			!reflect.DeepEqual(v0.Spec.Regime, v1.Spec.Regime) || !reflect.DeepEqual(v0.Spec.Features, v1.Spec.Features) {
+			t.Fatalf("%s: v1 thresholds differ from v0's", id)
+		}
 	}
 }
