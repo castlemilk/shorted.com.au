@@ -24,7 +24,8 @@ type Row struct {
 
 // Features is the row's features object. The price features are stored under
 // fs1 with the view's column names. The dividend field and the short readings
-// are stored beside them; their readers fill them in later changes.
+// are stored beside them, filled by the daily snapshot's session rows
+// (services/jobs/internal/jobs/strategies).
 type Features struct {
 	Bar   Bar                    `json:"bar"`    // the as-of bar
 	ExDiv float64                `json:"ex_div"` // ex-dividend cash per share on the as-of session; 0 when none

@@ -815,12 +815,23 @@ recipe fields on the wire (PR-12a).
   against the previous complete session and recomputed from its stored rows. It
   holds a session whose inputs are incomplete (ASIC sync running, the price sweep
   not completed after 05:30 UTC, priced codes under 85% of the prior median, no
-  XJO bar) and backfills held sessions oldest first. Dry run unless
-  `STRATEGIES_DRY_RUN=false`. Container suite: `make test-strategies-daily-pg`.
-  Admin `strategy_status` (`jobs:read`) reports the phases, holds and table
-  sizes, aggregates only. Landmine: the XJO bar for a session is read at its
-  stored date, which is one UTC day early under daylight saving; the readiness
-  rule and the features agree on that date, so do not "fix" one side only.
+  XJO bar, a weekend-dated XJO bar in its window) and backfills held sessions
+  oldest first. Dry run unless `STRATEGIES_DRY_RUN=false`. Container suite:
+  `make test-strategies-daily-pg`. Admin `strategy_status` (`jobs:read`) reports
+  the phases, holds and table sizes, aggregates only.
+  **Depends on `fix/index-bars-sydney-date`, which is not in this branch.** The job
+  reads stored XJO dates for the data calendar, the regime and RS. Until that fix
+  is deployed and the scheduled index sync (`-years 2`) has re-dated the job's
+  window, XJO bars in daylight-saving months are dated one UTC day early: Sunday
+  rows, duplicate closes, no Friday rows. A session written then keeps the shifted
+  figures, because a completed features phase is read back, never recomputed.
+  Readiness rule (e) holds with `xjo_weekend_rows` while any XJO bar in the window
+  is dated on a weekend, so a deploy ahead of the fix holds and pages rather than
+  writes. Merge PR-10, and enable writes, only after
+  `task db:prod:psql -- -At -c "SELECT count(*) FROM index_prices WHERE index_code = 'XJO' AND EXTRACT(ISODOW FROM date) > 5"`
+  returns 0 (481 on 2026-11-05); that whole-table count also needs the one-off
+  `-years 21` XJO re-fetch. Runbook (recompute, a dead session, the spot check):
+  `services/jobs/README.md`, "Strategy daily snapshot".
 
 ## Strategy chart primitives and returns kit (PR-17)
 

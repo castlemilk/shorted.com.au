@@ -73,7 +73,7 @@ services/jobs/
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
 | `review` | — (new job, data review) | no — laptop tool, read-only: `task data:review` |
 | `short-data-sync` | `services/daily-sync` (Python, **DELETED**) — **ASIC shorts tier only** | yes — `shorts-data-sync` (cutover 4, in-place image swap; Python source deleted in the cleanup slice) |
-| `strategies` | — (new job, strategy engine) | yes for `-mode daily`: `shorted-strategies-daily` (VKE-native, weekdays at :00, :20 and :40 past 13 to 16 UTC; `STRATEGIES_DRY_RUN=false` writes; the 16:40 run exits 10 when any session is still held). `-mode parity` runs by hand. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks") |
+| `strategies` | — (new job, strategy engine) | yes for `-mode daily`: `shorted-strategies-daily` (VKE-native, weekdays at :00, :20 and :40 past 13 to 16 UTC; `STRATEGIES_DRY_RUN=false` writes; the 16:40 run exits 10 when any session is still held). `-mode parity` runs by hand. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks"). **Depends on `fix/index-bars-sydney-date` (not in this branch):** writes only after that fix is deployed and the index sync has re-dated the window, see "Strategy daily snapshot" |
 | `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
 | `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
 
@@ -935,6 +935,33 @@ that. It exits 10 when a conclusive run disagrees.
 `mismatches=0 only_view=0 only_go=0`, read with the admin MCP's
 `list_job_executions` and `get_job_execution`, and the picks exit code
 unchanged. Any mismatch is fixed before the daily snapshot job is built on it.
+
+**Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migration 000155).
+Runs as `shorted-strategies-daily` (VKE CronJob, weekdays at :00, :20 and :40 past 13 to 16 UTC). It writes
+when `STRATEGIES_DRY_RUN=false`, holds a session it cannot yet read whole, backfills held sessions oldest
+first (ten per run), and exits 10 once at the 16:40 UTC run when a session is still held.
+
+- **Depends on `fix/index-bars-sydney-date`, which is not in this branch.** That fix dates index bars by their
+  Sydney session and removes stored rows in a re-fetched window that are not sessions (the weekend rows). The
+  job reads stored XJO dates for the data calendar, the regime and RS. Until the fix is deployed and the
+  scheduled index sync (`-years 2`, which covers the job's 420-day window) has run, XJO bars in daylight-saving
+  months are dated one UTC day early. Readiness rule (e) holds the job with `xjo_weekend_rows` while any XJO
+  bar in the window is dated on a weekend, so a deploy ahead of the fix holds rather than writes. Gate before
+  enabling writes, after the one-off `-years 21` XJO re-fetch as well:
+  `task db:prod:psql -- -At -c "SELECT count(*) FROM index_prices WHERE index_code = 'XJO' AND EXTRACT(ISODOW FROM date) > 5"`
+  must return 0.
+- **Recompute from session X.** A completed session is read back, never recomputed, and events are insert-only.
+  To recompute, in one transaction delete the `strategy_signal_events`, `strategy_daily_runs`,
+  `strategy_features_daily` and `strategy_regime_daily` rows with `as_of >= X`. The next runs backfill from the
+  newest remaining complete session, ten per run. The fundamentals blobs are content-addressed and stay.
+- **A session that can never pass.** A closure missing from `asxcalendar` is a trading day to the job. It fails
+  readiness rule (c) (`no_priced_codes`) on every run, so every later run stops at that date and the 16:40 run
+  pages. The job has no operator flag to skip a session: add the closure to `asxcalendar` (a code change). The
+  day then leaves the session list, and the next run backfills from the last complete session.
+- **Spot check.** After the 13:30 UTC picks refresh:
+  `task db:prod:psql -- -P pager=off -f scripts/strategy-daily-spot-check.sql`. Every row reads `equal`: the
+  stored `fs1` features against `mv_price_features`, and the stored XJO regime against `mv_market_regime`, for
+  three codes on the newest completed session.
 
 **Run lease.** `-mode fundamentals`, `filings` and `all` claim the one
 `picks_run_lease` row (`name = 'picks'`, 4 hours, extended every 100 codes,
