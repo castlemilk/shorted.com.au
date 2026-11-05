@@ -342,3 +342,43 @@ func TestIndexAgreesWithCandidateAt(t *testing.T) {
 		}
 	}
 }
+
+// TestPriceCandidateAtCarriesAnExcludedCodesPriceFeatures: a code the universe
+// excludes on a session it has a priced bar keeps the price features that the
+// admitted candidate of that session carries, so an exit decided on the
+// session is charged on the code's real volume. A session with no priced bar
+// has none.
+func TestPriceCandidateAtCarriesAnExcludedCodesPriceFeatures(t *testing.T) {
+	in := inputsFor(120)
+	excluded := NewIndex(in, v1Spec(t))
+	open := v1Spec(t)
+	open.Universe.ASICReported = false
+	admitted := NewIndex(in, open)
+
+	d := day(100)
+	if _, bad := excluded.CandidateAt("AAA", d); bad == nil {
+		t.Fatalf("AAA on %s is admitted; the test needs it excluded", d)
+	}
+	want, bad := admitted.CandidateAt("AAA", d)
+	if bad != nil {
+		t.Fatalf("AAA on %s is excluded even without the report rule: %+v", d, bad)
+	}
+	got, ok := excluded.PriceCandidateAt("AAA", d)
+	if !ok {
+		t.Fatalf("AAA on %s has a priced bar and history, but no price features", d)
+	}
+	if got.DollarVolume20d == nil || *got.DollarVolume20d <= 0 {
+		t.Fatalf("AAA on %s: dollar volume %v, want a positive figure", d, got.DollarVolume20d)
+	}
+	if !reflect.DeepEqual(got.DollarVolume20d, want.DollarVolume20d) ||
+		!reflect.DeepEqual(got.SMA50, want.SMA50) ||
+		!reflect.DeepEqual(got.SMA200, want.SMA200) ||
+		!reflect.DeepEqual(got.BaseHigh, want.BaseHigh) ||
+		!reflect.DeepEqual(got.BreakoutDate, want.BreakoutDate) ||
+		got.Close != want.Close {
+		t.Fatalf("AAA on %s: the excluded code's price features differ from the admitted candidate's:\n%+v\n%+v", d, got, want)
+	}
+	if _, ok := excluded.PriceCandidateAt("AAA", day(200)); ok {
+		t.Fatalf("AAA on %s has no bar, but a candidate was built", day(200))
+	}
+}

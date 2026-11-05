@@ -34,10 +34,14 @@ import (
 //     side show the share count stepping down by the same factor, and the
 //     price rising tenfold;
 //   - code 9 breaks out on a smaller bump, so its entry fills inside the 10%
-//     gap cap and its position is held across its tenfold up-jump.
+//     gap cap and its position is held across its tenfold up-jump;
+//   - code goldenNoShort is eligible on every session but is never a pick: it
+//     reports no short position, trades illiquidly and falls, so no stock rule
+//     passes. Its rows must still carry its price features.
 const (
 	goldenSeed     = 20230602
-	goldenCodes    = 24
+	goldenCodes    = 25
+	goldenNoShort  = 24
 	goldenSessions = 700
 	goldenK        = 350
 	// goldenConsolidation is the first session of code 1's consolidation, the
@@ -191,6 +195,9 @@ func buildGolden() goldenData {
 		if i == 11 {
 			start, sigma, vol = 20, 0.012, 8e5
 		}
+		if i == goldenNoShort {
+			start, sigma, drift, vol = 5, 0.01, -0.0015, 2e4
+		}
 		shortPct := 1 + 4*rng.Float64()
 		if _, ok := breakouts[i]; ok {
 			shortPct = 8 + 4*rng.Float64()
@@ -298,7 +305,10 @@ func buildGolden() goldenData {
 			if i == 1 && t >= goldenConsolidation {
 				issued /= 10
 			}
-			pct := round4(g.shortPct[code] * (0.7 + 0.6*rng.Float64()))
+			pct := 0.0
+			if i != goldenNoShort {
+				pct = round4(g.shortPct[code] * (0.7 + 0.6*rng.Float64()))
+			}
 			if i%4 == 3 {
 				pct = 0
 			}

@@ -138,6 +138,24 @@ func (x *Index) CandidateAt(code string, t civil.Date) (engine.Candidate, *Ineli
 	return candidateAt(code, t, x.idx)
 }
 
+// PriceCandidateAt is the price features of a code on session t, whatever the
+// universe decides about the code on t. It is built when the code has a priced
+// bar dated t and its price history reads, and ok is false otherwise. No
+// universe rule is applied, so the candidate's short, fundamentals and name
+// fields are unset: a caller reads its price fields (the 20-session dollar
+// volume, the moving averages, the pivot) for a code the universe excludes.
+func (x *Index) PriceCandidateAt(code string, t civil.Date) (engine.Candidate, bool) {
+	bars := x.idx.in.Bars[code]
+	if !pricedOn(bars, t) {
+		return engine.Candidate{}, false
+	}
+	pf, ok := features.AsOf(bars, x.idx.in.XJO, t, x.idx.s.Features)
+	if !ok {
+		return engine.Candidate{}, false
+	}
+	return candidateFromPrice(code, pf), true
+}
+
 // Suspects returns the corporate-action suspects of a code over the whole of
 // the run's rows. A suspect is used on the session it is KnownAt, through
 // KnownBy, so a caller may read the full list and select by session.

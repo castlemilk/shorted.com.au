@@ -324,12 +324,10 @@ func TestStepEqualsRun(t *testing.T) {
 		for _, pk := range engine.EvaluateWithEnv(strategy, cands, env) {
 			picks[pk.Candidate.StockCode] = pk
 		}
+		byCode := candidatesByCode(cands)
 		sess := Session{Date: d, Index: k, Seed: ses.Seed, CashRate: ses.CashRate, Benchmark: ses.Benchmark}
 		for _, code := range pin.Codes {
-			cs := CodeSession{Code: code, Status: string(engine.StatusNone)}
-			if pk, ok := picks[code]; ok {
-				cs = pickRow(code, pk)
-			}
+			cs := stepRow(code, d, picks, byCode, idx)
 			cs.Bar = dailyBar(pin.Bars[code], d)
 			cs.Dividend = dividendDuring(pin.Dividends[code], prev, d, hasPrev)
 			cs.CA = suspectDuring(idx.Suspects(code), prev, d, hasPrev, idx.Calendar())
@@ -345,11 +343,18 @@ func TestStepEqualsRun(t *testing.T) {
 
 // pickRow is the decision a pick carries, as the simulator's row holds it.
 func pickRow(code string, pk engine.Pick) CodeSession {
-	c := pk.Candidate
+	cs := candidateRow(code, pk.Candidate)
+	cs.Status = string(pk.Status)
+	cs.Score = pk.Score
+	return cs
+}
+
+// candidateRow is a code's price features as the simulator's row holds them,
+// with no decision: the status is none and the score zero.
+func candidateRow(code string, c engine.Candidate) CodeSession {
 	cs := CodeSession{
 		Code:   code,
-		Status: string(pk.Status),
-		Score:  pk.Score,
+		Status: string(engine.StatusNone),
 		Pivot:  derefOr(c.BaseHigh),
 		DV20:   derefOr(c.DollarVolume20d),
 		SMA50:  derefOr(c.SMA50),
@@ -359,6 +364,32 @@ func pickRow(code string, pk engine.Pick) CodeSession {
 		cs.BreakoutDate = civil.DateOf(*c.BreakoutDate)
 	}
 	return cs
+}
+
+// candidatesByCode keys a candidate slice by code.
+func candidatesByCode(cands []engine.Candidate) map[string]engine.Candidate {
+	out := make(map[string]engine.Candidate, len(cands))
+	for _, c := range cands {
+		out[c.StockCode] = c
+	}
+	return out
+}
+
+// stepRow is the row a daily step carries for code on d: the pick's when the
+// code is a pick, else the features of its candidate when the universe admits
+// it, else the price features of an excluded code that has a priced bar, else
+// an empty row.
+func stepRow(code string, d civil.Date, picks map[string]engine.Pick, cands map[string]engine.Candidate, idx *pipeline.Index) CodeSession {
+	if pk, ok := picks[code]; ok {
+		return pickRow(code, pk)
+	}
+	if c, ok := cands[code]; ok {
+		return candidateRow(code, c)
+	}
+	if c, ok := idx.PriceCandidateAt(code, d); ok {
+		return candidateRow(code, c)
+	}
+	return CodeSession{Code: code, Status: string(engine.StatusNone)}
 }
 
 // decisionOnly keeps the decision fields of a row and clears the rest.
@@ -437,6 +468,19 @@ func snapshotPicks(t *testing.T, s spec.Spec, pin *pipeline.Inputs, mkt Market, 
 	return picks, stats
 }
 
+// snapshotCandidates is BuildCandidates' candidates on session d, keyed by
+// code: the codes the universe admits that day, prepared as the snapshot
+// prepares them.
+func snapshotCandidates(t *testing.T, s spec.Spec, pin *pipeline.Inputs, mkt Market, d civil.Date) map[string]engine.Candidate {
+	t.Helper()
+	cands, _, _ := pipeline.BuildCandidates(d, pin, s)
+	for i := range cands {
+		cands[i].Industry = mkt.Industry[cands[i].StockCode]
+	}
+	engine.PrepareCandidates(cands)
+	return candidatesByCode(cands)
+}
+
 // withoutRank is a pick with its rank, which is the position in the snapshot's
 // list and so not part of a decision, cleared.
 func withoutRank(pk engine.Pick) engine.Pick {
@@ -455,14 +499,17 @@ func assertSessionsEqualSnapshot(t *testing.T, in Inputs, strategyID string, ste
 	if err != nil {
 		t.Fatal(err)
 	}
+	idx := pipeline.NewIndex(pin, s)
 	p := planGoldenFor(t, in, strategyID)
 	if len(p.picks) != len(p.sessions) || len(p.universe) != len(p.sessions) {
 		t.Fatal("the plan keeps no per-session picks or statistics")
 	}
+	notHeld := 0
 	for k := 0; k < len(p.sessions); k += step {
 		ses := p.sessions[k]
 		d := ses.Date
 		snap, stats := snapshotPicks(t, s, pin, mkt, d)
+		cands := snapshotCandidates(t, s, pin, mkt, d)
 		if !reflect.DeepEqual(p.universe[k], stats) {
 			t.Fatalf("%s: pass 1 statistics differ from the snapshot's: %d rs values, want %d",
 				d, len(p.universe[k].RS6m), len(stats.RS6m))
@@ -482,6 +529,16 @@ func assertSessionsEqualSnapshot(t *testing.T, in Inputs, strategyID string, ste
 				if got.Status != string(engine.StatusNone) || run {
 					t.Fatalf("%s on %s: the snapshot excludes it, the run reads %s", code, d, got.Status)
 				}
+				want := CodeSession{Code: code, Status: string(engine.StatusNone)}
+				if c, ok := cands[code]; ok {
+					want = candidateRow(code, c)
+				} else if c, ok := idx.PriceCandidateAt(code, d); ok {
+					want = candidateRow(code, c)
+				}
+				if !reflect.DeepEqual(decisionOnly(got), decisionOnly(want)) {
+					t.Fatalf("%s on %s: the run's row for a code the snapshot does not hold differs: run %+v, want %+v", code, d, decisionOnly(got), decisionOnly(want))
+				}
+				notHeld++
 				continue
 			}
 			if !run {
@@ -494,6 +551,11 @@ func assertSessionsEqualSnapshot(t *testing.T, in Inputs, strategyID string, ste
 				t.Fatalf("%s on %s: the simulator's row differs: run %+v, snapshot %+v", code, d, decisionOnly(got), decisionOnly(pickRow(code, pk)))
 			}
 		}
+	}
+	// A gate that never reaches the not-held branch checks nothing about the
+	// codes the universe admits but no stock rule passes.
+	if notHeld == 0 {
+		t.Fatal("no sampled session reaches the not-held branch")
 	}
 }
 
@@ -986,5 +1048,64 @@ func TestRecordsStartAtTheWindow(t *testing.T) {
 	}
 	if len(res.Records) != len(res.Sessions) || len(res.Eligible) != len(res.Sessions) {
 		t.Fatalf("%d records, %d sessions, %d eligible counts", len(res.Records), len(res.Sessions), len(res.Eligible))
+	}
+}
+
+// TestFillsPayTheirRealTier: every fill of the canonical recipes is charged on
+// its decision's own 20-session dollar volume. A row with no price features
+// reads zero volume, which falls to the lowest spread tier, so a fill decided
+// on a session the universe excludes (a corporate-action or stale exit) must
+// not pay that tier by default. The entry is checked on its signal session and
+// an exit on its signal session, unless that session has no priced bar: the
+// exit then uses the position's entry volume, as the simulator does.
+func TestFillsPayTheirRealTier(t *testing.T) {
+	in := loadGolden(t)
+	for _, sid := range []string{spec.StrategyCrowdedShortBreakout, spec.StrategyMinerviniTrend} {
+		t.Run(sid, func(t *testing.T) {
+			p := planGoldenFor(t, in, sid)
+			res, err := simulate(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(res.Trades) == 0 {
+				t.Fatal("the run must trade, or the gate tests nothing")
+			}
+			rows := map[string]map[civil.Date]CodeSession{}
+			for _, ses := range p.sessions {
+				for _, cs := range ses.Codes {
+					if rows[cs.Code] == nil {
+						rows[cs.Code] = map[civil.Date]CodeSession{}
+					}
+					rows[cs.Code][ses.Date] = cs
+				}
+			}
+			fallback := spreadBps(p.cfg.Costs, 0)
+			check := func(tr Trade, on civil.Date, row CodeSession, what string) {
+				if row.DV20 <= 0 {
+					t.Fatalf("%s %s on %s: the row carries no dollar volume", tr.Code, what, on)
+				}
+				if spreadBps(p.cfg.Costs, row.DV20) == fallback {
+					t.Fatalf("%s %s on %s pays the lowest tier (%v bps) on dv20 %v", tr.Code, what, on, fallback, row.DV20)
+				}
+			}
+			for _, tr := range res.Trades {
+				entry, ok := rows[tr.Code][tr.SignalDate]
+				if !ok {
+					t.Fatalf("%s: no row on its entry signal %s", tr.Code, tr.SignalDate)
+				}
+				check(tr, tr.SignalDate, entry, "entry")
+				if tr.OpenAtEnd {
+					continue
+				}
+				exit, ok := rows[tr.Code][tr.ExitSignalDate]
+				if !ok {
+					t.Fatalf("%s: no row on its exit signal %s", tr.Code, tr.ExitSignalDate)
+				}
+				if exit.Bar == nil {
+					continue
+				}
+				check(tr, tr.ExitSignalDate, exit, "exit")
+			}
+		})
 	}
 }

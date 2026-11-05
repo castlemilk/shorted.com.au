@@ -175,19 +175,32 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe, keepAll bool) (plan, error) 
 		caKnown := caBySession(idx.Suspects(code), dates, cal)
 		divAt := dividendsBySession(pin.Dividends[code], dates)
 		for k, t := range dates {
+			// A code the universe admits is evaluated: it is a pick only when a
+			// stock-specific rule passes, and otherwise its row reads none, as the
+			// snapshot holds it. An excluded code keeps its price features whenever
+			// it has a priced bar, because an exit decided on its session (a
+			// corporate action, a stale position) is charged on them.
 			cs := CodeSession{Code: code, Status: string(engine.StatusNone)}
 			cand, bad := idx.CandidateAt(code, t)
+			hasFeatures := false
 			if bad == nil {
 				cand.Industry = mkt.Industry[code]
 				cands := []engine.Candidate{cand}
 				engine.PrepareCandidates(cands)
 				cand = cands[0]
 				pick, ok := engine.EvaluateOne(strategy, cand, envs[k])
-				if ok && keepAll {
-					picks[k][code] = pick
+				if ok {
+					cs.Status = string(pick.Status)
+					cs.Score = pick.Score
+					if keepAll {
+						picks[k][code] = pick
+					}
 				}
-				cs.Status = string(pick.Status)
-				cs.Score = pick.Score
+				hasFeatures = true
+			} else {
+				cand, hasFeatures = idx.PriceCandidateAt(code, t)
+			}
+			if hasFeatures {
 				cs.Pivot = derefOr(cand.BaseHigh)
 				cs.DV20 = derefOr(cand.DollarVolume20d)
 				cs.SMA50 = derefOr(cand.SMA50)
