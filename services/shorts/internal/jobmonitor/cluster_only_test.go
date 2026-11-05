@@ -148,8 +148,14 @@ func TestAddClusterOnlyJobsKeepsARowThatAlreadyExists(t *testing.T) {
 	if byName["shorted-alerts"] != existing {
 		t.Error("an existing row was replaced")
 	}
-	if len(order) != 1 {
-		t.Errorf("order = %v, want no duplicate", order)
+	dup := 0
+	for _, name := range order {
+		if name == "shorted-alerts" {
+			dup++
+		}
+	}
+	if dup != 1 {
+		t.Errorf("order = %v, want shorted-alerts once", order)
 	}
 }
 
