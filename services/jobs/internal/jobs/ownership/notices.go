@@ -155,8 +155,16 @@ func resolveTarget(p pendingNotice, docCompany string, companies map[string]comp
 		}
 	}
 	if len(codes) == 1 {
-		if target := subjectTarget(codes[0], docCompany, companies, live); target != "" {
+		target, named := subjectTarget(codes[0], docCompany, companies, live)
+		if target != "" {
 			return target, ""
+		}
+		if named {
+			// The document names another company, and no live company on record carries that
+			// name: a notice a listed holder lodged about a company outside ASIC's report. Filing
+			// it under the holder's code would make the holder a substantial holder of itself
+			// (NAB stored at 13.58% of NAB, a notice about Spenda, 2026-11-05).
+			return "", fmt.Sprintf("listed under %s; the notice names %q, which no live company on record carries", codes[0], docCompany)
 		}
 		return codes[0], ""
 	}
@@ -208,14 +216,18 @@ func resolveTarget(p pendingNotice, docCompany string, companies map[string]comp
 // A listed code whose name is not on record, a document naming no company, no match,
 // or several matches leave the listed code as it was: a code whose name the parser
 // cannot read must not be retargeted blindly. "" means the listed code stands.
-func subjectTarget(code, docCompany string, companies map[string]company, live map[string]bool) string {
+// subjectTarget reads the one-code case. target is the one live company on record whose
+// name folds to the document's, when the listed code's own name does not match it; named
+// reports that the document names a company other than the listed one (the caller withholds
+// when named and no target was found: a notice about a company outside the record).
+func subjectTarget(code, docCompany string, companies map[string]company, live map[string]bool) (target string, named bool) {
 	co, onRecord := companies[code]
 	if docCompany == "" || !onRecord || co.Name == "" || extractiontrust.EntityMatches(docCompany, co.Name) {
-		return ""
+		return "", false
 	}
 	want := foldCompanyName(docCompany)
 	if want == "" {
-		return ""
+		return "", false
 	}
 	var found []string
 	for c, other := range companies {
@@ -224,9 +236,9 @@ func subjectTarget(code, docCompany string, companies map[string]company, live m
 		}
 	}
 	if len(found) == 1 {
-		return found[0]
+		return found[0], true
 	}
-	return ""
+	return "", true
 }
 
 func uniqueSorted(in []string) []string {

@@ -516,6 +516,18 @@ def test_candidates_are_ordered_by_a_numeric_market_cap_never_by_text():
     assert "::float8 END DESC NULLS LAST" in nd.SELECT_SQL
 
 
+def test_a_one_code_notice_about_a_company_outside_the_record_is_withheld_not_filed_under_the_holder():
+    # NAB lodged a 603 about Spenda (SPX, not in ASIC's report); ASX listed it under NAB. Filed under
+    # NAB it made NAB a 13.58% holder of itself (production, 2026-11-05).
+    companies = {"NAB": "National Australia Bank Limited", "SPX": "Spenda Limited"}
+    assert nd.resolve_target(["NAB"], "Becoming a substantial holder", "Spenda Limited", companies, frozenset({"NAB"})) == ""
+    # The same document with Spenda live resolves to Spenda; one that names NAB itself stays NAB.
+    assert nd.resolve_target(["NAB"], "Becoming a substantial holder", "Spenda Limited", companies, frozenset({"NAB", "SPX"})) == "SPX"
+    assert nd.resolve_target(["NAB"], "Becoming a substantial holder", "National Australia Bank Limited", companies, frozenset({"NAB"})) == "NAB"
+    # A document whose company line could not be read keeps the listed code, as before.
+    assert nd.resolve_target(["NAB"], "Becoming a substantial holder", "", companies, frozenset({"NAB"})) == "NAB"
+
+
 # --- the run: budget, dry run, systemic errors ----------------------------------------------------
 
 class FakeConn:
@@ -1358,9 +1370,9 @@ RESOLVE_CASES = [
     ("a delisted target is withheld", ["CBA"], "Change in substantial holding for IRE", "", set(), ""),
     ("retargets a holder's notice to the company it names", ["CBA"], CHANGE, "SITEMINDER LIMITED", {"SDR", "CBA"}, "SDR"),
     ("names the listed company itself", ["CBA"], CHANGE, "Commonwealth Bank of Australia", {"CBA"}, "CBA"),
-    ("names no company on record: the listed code stands", ["CBA"], CHANGE, "Acme Widgets Limited", {"SDR"}, "CBA"),
-    ("two live companies carry the name: the listed code stands", ["CBA"], CHANGE, "SiteMinder Limited", {"SDR", "SMX"}, "CBA"),
-    ("the matching company is not live", ["CBA"], CHANGE, "SiteMinder Limited", {"CBA"}, "CBA"),
+    ("names a company not on record: withheld, never the listed code", ["CBA"], CHANGE, "Acme Widgets Limited", {"SDR"}, ""),
+    ("two live companies carry the name: withheld", ["CBA"], CHANGE, "SiteMinder Limited", {"SDR", "SMX"}, ""),
+    ("the matching company is not live: withheld", ["CBA"], CHANGE, "SiteMinder Limited", {"CBA"}, ""),
     ("a listed code with no name on record stands", ["NOP"], CHANGE, "SiteMinder Limited", {"SDR"}, "NOP"),
     ("the one live code of the name", ["Z1P", "ZIP"], CHANGE, "ZIP CO LIMITED", {"ZIP"}, "ZIP"),
     ("two live codes of the name are ambiguous", ["Z1P", "ZIP"], CHANGE, "ZIP CO LIMITED", {"ZIP", "Z1P"}, ""),
