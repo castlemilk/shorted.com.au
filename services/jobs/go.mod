@@ -7,6 +7,7 @@ go 1.27.0
 replace github.com/castlemilk/shorted.com.au/services => ../
 
 require (
+	cloud.google.com/go v0.123.0
 	cloud.google.com/go/storage v1.70.0
 	connectrpc.com/connect v1.21.1
 	github.com/PuerkitoBio/goquery v1.13.0
@@ -33,7 +34,6 @@ require (
 
 require (
 	cel.dev/expr v0.25.3 // indirect
-	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/ai v0.8.0 // indirect
 	cloud.google.com/go/auth v0.24.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.3.0 // indirect
