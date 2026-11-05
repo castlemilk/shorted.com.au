@@ -1027,6 +1027,14 @@ jobs:
             # touches no rows (a constant default is catalog-only). The API reads read_by, so it
             # runs before the image swap, under lock_timeout on the session pooler.
             run_psql_session -f /migrations/000154_notice_read_by.up.sql
+            # 000155 (strategy workspace) adds the ASIC report ingest log, the ASIC revision log and the
+            # stock_fundamentals vintage history with its trigger and one-time baseline. Every step is
+            # catalog-guarded, so a replay that has done its work takes no lock on stock_fundamentals. The
+            # first application takes SHARE ROW EXCLUSIVE on it to create the trigger, so it must not run
+            # during the picks window (15:00-18:30 UTC). Session pooler, under lock_timeout 5s. If the first
+            # apply times out on that lock, apply it by hand in a quiet window, then re-run the deploy:
+            #   task db:prod:apply FILE=services/migrations/000155_strategy_capture.up.sql CONFIRM=prod
+            run_psql_session -f /migrations/000155_strategy_capture.up.sql
 
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
@@ -1985,6 +1993,15 @@ jobs:
           echo "🧪 Running the alerts evaluator end-to-end suite (postgres container)..."
           cd services
           make test-alerts-e2e
+
+      # The strategy capture suite (migration 000155): the vintage trigger, its replay and the ingest
+      # writer's SQL, against a real Postgres. It guards the table every stock_fundamentals write now also
+      # writes, so it gates the deploy like the alerts suite.
+      - name: Run strategy capture container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the strategy capture suite (postgres container)..."
+          cd services
+          make test-shortdatasync-pg
 
       # Workflow pins: the apply gate and the smoke ordering are asserted here,
       # and nothing else ran these tests in CI. The test imports `yaml`, a root

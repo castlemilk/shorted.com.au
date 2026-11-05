@@ -74,11 +74,18 @@ type storedRow struct {
 	Short, Issue, Pct *float64
 }
 
+// ingestStore records a report's asic_report_ingests row. pgStore satisfies it.
+type ingestStore interface {
+	RecordIngest(ctx context.Context, rec ingestRecord) error
+}
+
 // reconcileStore is the slice of pgStore the pass needs, narrowed so the pass
 // is testable without Postgres.
 type reconcileStore interface {
 	RowsOnDate(ctx context.Context, d time.Time) (map[string]storedRow, error)
 	UpsertRows(ctx context.Context, rows []shortsRow) (int, error)
+	RecordIngest(ctx context.Context, rec ingestRecord) error
+	InsertRevisions(ctx context.Context, revs []revisionRecord) ([]revisionRecord, error)
 }
 
 // fetchFunc returns one ASIC file's bytes.
@@ -328,6 +335,10 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 		write := append(d.missing, d.changed...)
 		if len(write) == 0 {
 			rep.Clean++
+			// Nothing to write, but the report's completeness is a fact the
+			// reconcile pass re-reads: recount it, so a report a failed earlier
+			// write left short is complete once shorts holds its rows.
+			recordIngest(ctx, store, name, obsDate, rows, modeReconcile, dryRun)
 			continue
 		}
 		rep.Diverged++
@@ -337,6 +348,17 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 			log.Printf("  [dry-run] %s: %d missing, %d changed of %d row(s) — would write them", day, len(d.missing), len(d.changed), len(rows))
 			continue
 		}
+		// The revisions are written before the rows they describe, from the
+		// stored values read above. A changed row whose revision did not land
+		// is left out of this write: its stored value is the one ASIC replaced,
+		// and the next run finds it changed again and retries both.
+		if len(d.revised) > 0 {
+			unwritten, err := store.InsertRevisions(ctx, d.revised)
+			if err != nil {
+				return rep, err
+			}
+			write = withoutUnrevised(write, unwritten)
+		}
 		written, err := store.UpsertRows(ctx, write)
 		rep.RowsWritten += written
 		if err != nil {
@@ -345,14 +367,54 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 			return rep, err
 		}
 		log.Printf("  🩹 %s: %d missing, %d changed of %d row(s) — wrote %d", day, len(d.missing), len(d.changed), len(rows), written)
+		recordIngest(ctx, store, name, obsDate, rows, modeReconcile, dryRun)
 	}
 	return rep, nil
+}
+
+// recordIngest writes the report's asic_report_ingests row for a file the writer
+// has just examined or loaded. It is observational: a failure is logged, never
+// fatal, so a missing or unmigrated table cannot fail a sync whose rows landed.
+// A dry run writes nothing, and neither does it record an ingest.
+func recordIngest(ctx context.Context, store ingestStore, name string, obsDate time.Time, rows []shortsRow, mode string, dryRun bool) {
+	if dryRun {
+		return
+	}
+	rec := ingestRecord{
+		ReportDate: obsDate,
+		Codes:      distinctCodes(rows),
+		SourceFile: name,
+		Mode:       mode,
+	}
+	if err := store.RecordIngest(ctx, rec); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return
+		}
+		log.Printf("⚠️  Ingest record for %s not written: %v", name, err)
+	}
+}
+
+// distinctCodes returns a file's product codes once each, in file order.
+func distinctCodes(rows []shortsRow) []string {
+	seen := make(map[string]struct{}, len(rows))
+	out := make([]string, 0, len(rows))
+	for _, r := range rows {
+		if _, ok := seen[r.ProductCode]; ok {
+			continue
+		}
+		seen[r.ProductCode] = struct{}{}
+		out = append(out, r.ProductCode)
+	}
+	return out
 }
 
 // dateDiff is how one date's stored rows differ from its current file.
 type dateDiff struct {
 	missing []shortsRow // in the file, not in the table
 	changed []shortsRow // in both with different values — the FILE's values
+	// revised is one record per changed row: the stored values beside the file's.
+	// It is the shorts_revisions row (000155) the writer records before it repairs the row.
+	revised []revisionRecord
 	padded  int         // differ, but stored under a padded legacy code
 	extra   []storedRow // in the table, not in the file
 }
@@ -376,6 +438,7 @@ func diffDate(file []shortsRow, listed map[string]struct{}, have map[string]stor
 			d.padded++
 		default:
 			d.changed = append(d.changed, r)
+			d.revised = append(d.revised, revisionOf(r, st))
 		}
 	}
 	for code, st := range have {
@@ -384,6 +447,40 @@ func diffDate(file []shortsRow, listed map[string]struct{}, have map[string]stor
 		}
 	}
 	return d
+}
+
+// withoutUnrevised drops from a write the changed rows whose revision did not land.
+// Missing rows never have a revision, so they are kept.
+func withoutUnrevised(write []shortsRow, unwritten []revisionRecord) []shortsRow {
+	if len(unwritten) == 0 {
+		return write
+	}
+	skip := make(map[string]struct{}, len(unwritten))
+	for _, u := range unwritten {
+		skip[u.Code] = struct{}{}
+	}
+	out := make([]shortsRow, 0, len(write))
+	for _, r := range write {
+		if _, ok := skip[r.ProductCode]; ok {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// revisionOf pairs a changed row's stored values with the file's, for shorts_revisions.
+func revisionOf(file shortsRow, st storedRow) revisionRecord {
+	return revisionRecord{
+		Date:         file.Date,
+		Code:         file.ProductCode,
+		OldPositions: st.Short,
+		OldShares:    st.Issue,
+		OldPercent:   st.Pct,
+		NewPositions: file.ReportedShortPositions,
+		NewShares:    file.TotalProductInIssue,
+		NewPercent:   file.Percent,
+	}
 }
 
 // sameValues compares a file row with a stored one. Share counts are whole
