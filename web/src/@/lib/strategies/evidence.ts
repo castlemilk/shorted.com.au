@@ -320,6 +320,25 @@ export function notEvaluatedCopy(
 }
 
 /**
+ * The heading of a stock the picker did not read. "yet" only where a later
+ * session can read it: a short history, a missing bar, or a recent corporate
+ * action that grows out of the guard. An exchange-traded product, a debt or
+ * hybrid security and a secondary line are never evaluated, so their heading
+ * does not promise an evaluation.
+ */
+const CLEARABLE_INELIGIBLE: ReadonlySet<string> = new Set([
+  "short_history",
+  "no_bar_on_session",
+  "corporate_action_guard",
+]);
+
+export function notEvaluatedHeading(reason: string | undefined | null): string {
+  return !reason || CLEARABLE_INELIGIBLE.has(reason)
+    ? "Not evaluated yet"
+    : "Not evaluated";
+}
+
+/**
  * A pick row built from one stock's fit, for a stock outside the list the page
  * holds (the `?sel=stock:` deep link). The fit carries the status, the rules
  * and the price features; the figures it does not carry stay null. Null when

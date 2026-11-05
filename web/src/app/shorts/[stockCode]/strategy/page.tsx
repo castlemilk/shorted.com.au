@@ -9,7 +9,10 @@ import {
   sortFitsByStrength,
 } from "~/@/components/strategy/strategy-fit-panel";
 import { cleanCompanyName } from "~/@/lib/company-name";
-import { notEvaluatedCopy } from "~/@/lib/strategies/evidence";
+import {
+  notEvaluatedCopy,
+  notEvaluatedHeading,
+} from "~/@/lib/strategies/evidence";
 import { formatDate } from "~/@/lib/fundamentals/format";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabTitle } from "~/@/lib/seo/stock-tab-title";
@@ -136,7 +139,7 @@ export default async function StrategyPage({ params }: PageProps) {
             className="rounded-lg border bg-card px-4 py-3 text-sm"
           >
             <h2 id="not-evaluated-heading" className="font-medium">
-              Not evaluated yet
+              {notEvaluatedHeading(fit.ineligibleReason)}
             </h2>
             {/* The universe is mv_price_features, which admits a stock only with
                 at least 60 sessions in the last 400 days (000130, `WHERE

@@ -3,6 +3,7 @@ import {
   formatRuleFigure,
   formatRuleMeasure,
   notEvaluatedCopy,
+  notEvaluatedHeading,
   pickFromStockFit,
   reasonText,
   shortDayLabel,
@@ -259,6 +260,24 @@ describe("notEvaluatedCopy", () => {
 
   it("is null for a stock that was read", () => {
     expect(notEvaluatedCopy({ eligible: true, asOf: "2026-11-03" })).toBeNull();
+  });
+});
+
+describe("notEvaluatedHeading", () => {
+  it("says yet only where a later session can read the stock", () => {
+    expect(notEvaluatedHeading("short_history")).toBe("Not evaluated yet");
+    expect(notEvaluatedHeading("corporate_action_guard")).toBe(
+      "Not evaluated yet",
+    );
+    expect(notEvaluatedHeading(undefined)).toBe("Not evaluated yet");
+  });
+
+  it("drops yet for a stock the picker never evaluates", () => {
+    expect(notEvaluatedHeading("exchange_traded_product")).toBe(
+      "Not evaluated",
+    );
+    expect(notEvaluatedHeading("debt_or_hybrid")).toBe("Not evaluated");
+    expect(notEvaluatedHeading("secondary_line")).toBe("Not evaluated");
   });
 });
 

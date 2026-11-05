@@ -1,3 +1,4 @@
+import { formatIsoDate } from "~/@/lib/strategies/format";
 import type { StrategyVersionDef } from "~/@/lib/strategies/types";
 
 /** How many characters of a rules hash a reader sees; the full hash is in the changelog. */
@@ -16,6 +17,28 @@ export function shortRulesHash(rulesHash: string): string {
 export function versionChipText(version: StrategyVersionDef): string {
   const hash = shortRulesHash(version.rulesHash);
   return [version.label.trim(), hash].filter(Boolean).join(" · ");
+}
+
+/**
+ * What a version's entry says of its status when it is not the live one: a
+ * draft is "draft: not yet live" until the job promotes it, a superseded one
+ * "superseded 3 November 2026". "" for the live version, which carries its own
+ * mark, and for a status with no reader-facing words.
+ */
+export function versionStatusNote(
+  version: Pick<StrategyVersionDef, "status">,
+  supersededOn?: string,
+): string {
+  switch (version.status) {
+    case "draft":
+      return "draft: not yet live";
+    case "superseded": {
+      const day = formatIsoDate(supersededOn);
+      return day ? `superseded ${day}` : "superseded";
+    }
+    default:
+      return "";
+  }
 }
 
 /** The version with its engine, for a title or an announcement. */
