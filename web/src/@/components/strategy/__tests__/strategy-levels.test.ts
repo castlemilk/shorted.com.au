@@ -485,6 +485,42 @@ describe("strategyLevelSet", () => {
   });
 });
 
+describe("the tagged levels", () => {
+  it("tags the pivot, and the last close only when the Signals panel asks for it", () => {
+    const pivot = strategyLevelSet("zanger-breakout", pf, {}).levels.find((l) =>
+      l.label.startsWith("Pivot"),
+    );
+    expect(pivot).toMatchObject({ tag: true, value: 43 });
+
+    const plain = strategyLevelSet("zanger-breakout", pf, {});
+    expect(labels(plain.levels)).not.toContain("Close $42.10");
+
+    const tagged = strategyLevelSet("zanger-breakout", pf, { tagLastClose: true });
+    expect(tagged.levels[tagged.levels.length - 1]).toEqual({
+      axis: "left",
+      value: 42.1,
+      label: "Close $42.10",
+      color: LEVEL_COLORS.close,
+      tag: true,
+    });
+  });
+
+  it("draws the last close in the foreground token, never a market colour", () => {
+    expect(LEVEL_COLORS.close).toBe("hsl(var(--foreground))");
+    expect(Object.values(LEVEL_COLORS)).not.toContain("#ef4444");
+    expect(Object.values(LEVEL_COLORS)).not.toContain("#22c55e");
+  });
+
+  it("omits the close tag without a close, and never on a price-only stock", () => {
+    const noClose = strategyLevelSet("minervini-trend-template", { ...pf, close: null }, {
+      tagLastClose: true,
+    });
+    expect(labels(noClose.levels).some((l) => l.startsWith("Close"))).toBe(false);
+    const priceOnly = strategyLevelSet("zanger-breakout", null, { tagLastClose: true });
+    expect(priceOnly.levels).toEqual([]);
+  });
+});
+
 describe("smaIndicator", () => {
   const pts = Array.from({ length: 10 }, (_, i) => ({ t: i, v: i + 1 }));
   it("refuses a partial window and nulls the warmup", () => {

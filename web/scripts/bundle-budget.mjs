@@ -114,6 +114,9 @@ const BUDGETS = {
     // the matching ISR gate is scripts/route-kinds.mjs.
     "/strategies/[strategy]": 140,
     "/strategies": 160,
+    // The Signals tab (PR-06): the matrix and the evidence panel's chart, which
+    // is a lazy chunk. The budget is the profile spec's figure, measured on build.
+    "/strategies/[strategy]/signals": 150,
     "/screener": 250,
     "/dashboards": 280,
     // Known-heavy / non-public routes — guarded at current + headroom. These

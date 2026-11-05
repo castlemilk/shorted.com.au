@@ -49,7 +49,7 @@ function RegimeLamp({ regime }: { regime: RegimeLabel }) {
   );
 }
 
-function RegimePill({ regime }: { regime: RegimeLabel }) {
+export function RegimePill({ regime }: { regime: RegimeLabel }) {
   return (
     <span
       className={cn(

@@ -168,6 +168,13 @@ export interface StockChartProps {
    */
   readoutReserveSeries?: number;
   /**
+   * Draw the volume bars at a phone width too (at or under 500px the chart
+   * otherwise drops them). For a panel that is narrow by design, where the
+   * volume is the only context the price line has. Nothing changes on a compact
+   * chart, which never draws volume.
+   */
+  keepVolumeOnNarrow?: boolean;
+  /**
    * Draw the indicators' names as a legend inside the plot, at its top left. Not
    * drawn on a compact chart.
    */

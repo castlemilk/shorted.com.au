@@ -1,3 +1,4 @@
+import { INDICATOR_COLORS } from "~/@/components/charts/chart-theme";
 import type {
   ChartBand,
   ChartLevel,
@@ -31,14 +32,20 @@ export interface LevelSet {
   smaPeriods: number[];
 }
 
+// The moving averages take the indicator tokens (the chart theme's own
+// INDICATOR_COLORS), never the signal red or green: those mean the direction of a
+// number, and a line's colour is not a direction.
 export const LEVEL_COLORS = {
   pivot: "#f59e0b",
   base: "#3b82f6",
-  sma50: "#22c55e",
+  sma50: INDICATOR_COLORS.sma50,
   sma150: "#a855f7",
-  sma200: "#ef4444",
+  sma200: INDICATOR_COLORS.sma200,
   range: "#94a3b8",
   breakout: "#f97316",
+  // The last close is a reading, not a direction: the foreground token, so the
+  // tag reads as a price and never as a rise or a fall.
+  close: "hsl(var(--foreground))",
 } as const;
 
 export const PRICE_ONLY_NOTE =
@@ -164,7 +171,7 @@ function baseGeometry(pf: StockPriceFeatures): {
     };
     span = { from, to: end };
   }
-  const pivot = level(baseHigh, "Pivot", LEVEL_COLORS.pivot, span);
+  const pivot = level(baseHigh, "Pivot", LEVEL_COLORS.pivot, { ...span, tag: true });
 
   const marker: ChartMarker | null =
     breakout !== null
@@ -191,6 +198,26 @@ function baseCaption(pf: StockPriceFeatures): string[] {
 }
 
 export function strategyLevelSet(
+  strategyId: string,
+  pf: StockPriceFeatures | null,
+  opts: {
+    shortRuleDetail?: string;
+    /**
+     * Adds the last close as a tagged level across the plot. Only the Signals
+     * evidence panel asks for it; the Strategy tab's levels stay as they were.
+     */
+    tagLastClose?: boolean;
+  },
+): LevelSet {
+  const set = strategyBaseLevels(strategyId, pf, opts);
+  const lastClose =
+    pf && opts.tagLastClose
+      ? level(pf.close, "Close", LEVEL_COLORS.close, { tag: true })
+      : null;
+  return lastClose ? { ...set, levels: [...set.levels, lastClose] } : set;
+}
+
+function strategyBaseLevels(
   strategyId: string,
   pf: StockPriceFeatures | null,
   opts: { shortRuleDetail?: string },

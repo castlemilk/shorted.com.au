@@ -181,6 +181,38 @@ describe("PicksHubPage", () => {
     expect(line.textContent).not.toContain("growth figures for 812 of 1,904");
   });
 
+  // The tape draws the whole list's shape from exact counts, even when only
+  // the first rows are served: 74/13/1,514 of 1,601 must not collapse to a
+  // watch segment capped at the 100 rows.
+  it("draws the status tape from exact counts over a shorter served list", async () => {
+    getStrategyPicks.mockImplementation(async (id: string) =>
+      id === "zanger-breakout"
+        ? {
+            ...PICKS,
+            picks: [TRIGGERED, SETUP],
+            totalCount: 1601,
+            statusCounts: { triggered: 74, setup: 13, watch: 1514, unknown: 0 },
+          }
+        : { ...PICKS, strategy: { ...ZANGER, id, name: `Strategy ${id}` }, picks: [WATCH] },
+    );
+
+    render(await PicksHubPage());
+
+    const card = screen
+      .getByRole("heading", { level: 2, name: "Zanger Breakout" })
+      .closest("article")!;
+    const tape = card.querySelector("[data-status-tape]")!;
+    const grow = [...tape.querySelectorAll("[data-tape-segment]")].map((segment) => ({
+      status: (segment as HTMLElement).dataset.tapeSegment,
+      grow: (segment as HTMLElement).style.flexGrow,
+    }));
+    expect(grow).toEqual([
+      { status: "triggered", grow: "74" },
+      { status: "setup", grow: "13" },
+      { status: "watch", grow: "1514" },
+    ]);
+  });
+
   it("falls back to registry copy and bails the render when the API is down", async () => {
     getStrategies.mockResolvedValue(null);
     getStrategyPicks.mockResolvedValue(null);

@@ -14,6 +14,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+import { LEVEL_COLORS } from "~/@/components/strategy/strategy-levels";
+
 const COMPONENT_DIR = join(__dirname, "..");
 
 /** Files that may name the market colours, by base name. None yet in this directory. */
@@ -64,6 +66,12 @@ describe("strategy components keep the market colours to direction", () => {
       }
     });
   }
+});
+
+describe("the levels chart's line colours (shared with the Strategy tab)", () => {
+  it.each(Object.entries(LEVEL_COLORS))("%s is not a market colour", (_name, color) => {
+    expect(color).not.toMatch(/#22c55e|#ef4444|#16a34a|#dc2626|semantic-(green|red)(?!-text)/i);
+  });
 });
 
 describe("the Tailwind market utilities", () => {

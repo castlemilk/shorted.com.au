@@ -589,6 +589,21 @@ until their capability ships, so no Compare, Create alert or Alert-me control
 renders before then. The Overview page keeps `StrategyPanel`, the shortlist and
 the sorted view unchanged.
 
+**Signals tab (`/strategies/[strategy]/signals`).** The stock-by-rule matrix:
+one column per core rule, each cell a pass, fail, unknown or waiting mark with
+its word, and the evidence panel for the selected stock. ISR like the profile
+(the layout's params, `?sel=stock:<CODE>` read client-side under `Suspense`),
+`noindex, follow`, and listed in `STRATEGY_ROUTES` (`web/scripts/route-kinds.mjs`)
+and `isr-pages.json`. It reads the same ranked read as the Overview but shows
+only the first `SIGNALS_PUBLIC_ROWS` (10) rows to an anonymous visitor; the
+status chips and the count line read the API's `status_counts`, so the rest of
+the list is counted, not fetched. The panel's stock reading comes from the
+public `getSignalStockFit` action, one call per selection, with the code checked
+on the server. Its chart is `StrategyLevelsChart` with `keepVolumeOnNarrow`,
+because the panel is narrow on every breakpoint. Measures print the comparison
+that holds (`−5.7% < −5.0%` for a failing rule), never a false one. No Alert-me
+or Create-alert control renders: those capabilities stay off.
+
 ### Landmines
 
 - **Fundamentals are in the company's REPORTING currency** (BHP is USD) and
