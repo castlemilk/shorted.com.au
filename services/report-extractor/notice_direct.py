@@ -784,10 +784,25 @@ BROWSER_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1
               "(KHTML, like Gecko) Version/17.0 Safari/605.1.15")
 
 
+# ASX answers displayAnnouncement.do with its access-terms page, whose hidden form names the
+# document (extract.py and the Go fetcher resolve it the same way).
+PDF_URL_RE = re.compile(r'name="pdfURL"\s+value="([^"]+)"')
+UNAVAILABLE_TEXT = "cannot display PDF"
+
+
 def fetch_pdf(url: str, session: Optional[requests.Session] = None) -> bytes:
     s = session or requests.Session()
+    headers = {"User-Agent": BROWSER_UA, "Accept": "application/pdf,*/*"}
     try:
-        resp = s.get(url, headers={"User-Agent": BROWSER_UA, "Accept": "application/pdf,*/*"}, timeout=60)
+        resp = s.get(url, headers=headers, timeout=60)
+        if resp.status_code == 200 and not resp.content.startswith(b"%PDF") and "displayAnnouncement.do" in url:
+            body = resp.content[:65536].decode("utf-8", "replace")
+            if UNAVAILABLE_TEXT in body:
+                raise FetchError("asx cannot display the PDF")
+            m = PDF_URL_RE.search(body)
+            if m is None:
+                raise FetchError("no pdfURL on the display page")
+            resp = s.get(m.group(1), headers=headers, timeout=60)
     except requests.RequestException as e:
         raise FetchError(f"transport: {type(e).__name__}") from e
     if resp.status_code != 200 or not resp.content.startswith(b"%PDF"):
@@ -841,7 +856,9 @@ WHERE a.outcome IN ('no_text', 'no_voting_power', 'no_holder')
   AND a.read_by = 'parser'
   AND (%(since)s::date IS NULL OR ann.announcement_date >= %(since)s::date)
 GROUP BY a.announcement_url, a.stock_code, a.outcome, a.detail, cm.market_cap, cm.company_name
-ORDER BY cm.market_cap DESC NULLS LAST, a.announcement_url
+ORDER BY CASE WHEN btrim(cm.market_cap::text) ~ '^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$'
+              THEN btrim(cm.market_cap::text)::float8 END DESC NULLS LAST,
+         a.announcement_url
 LIMIT %(limit)s
 """
 
