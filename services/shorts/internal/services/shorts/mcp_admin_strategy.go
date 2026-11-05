@@ -11,6 +11,9 @@ import (
 // (internal/mcp/admin_strategy.go). The store reads the daily snapshot's aggregates; this
 // converts them into the tool's types and passes nothing else through.
 
+// The admin server's operator must provide the strategy capability.
+var _ mcp.AdminStrategyOperator = (*adminMCPSource)(nil)
+
 // StrategyStatus returns the snapshot's status reader, or nil when the store does not provide it.
 func (a *adminMCPSource) StrategyStatus() mcp.StrategyStatusStore {
 	if a == nil || a.server == nil {
