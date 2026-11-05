@@ -275,35 +275,68 @@ func TestDailySnapshotDiffsAgainstTheStoredPreviousSession(t *testing.T) {
 	require.Equal(t, 0, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE status = 'failed'"))
 }
 
+// diffSetup writes the 2026-11-12 session, then returns what diffSession needs to
+// diff 2026-11-13 against it: the live Zanger version with AAA read as a setup
+// (its stored 2026-11-12 status is watch, so the diff is watch -> setup), and
+// nothing for BBB, so BBB is no event. The 2026-11-13 session is never written.
+func diffSetup(t *testing.T, pool *pgxpool.Pool) (spec.Registered, map[string]versionEval) {
+	t.Helper()
+	ctx := context.Background()
+	seedDailySession(t, pool)
+	_, err := runDaily(ctx, pool, dailyOpts(true, t))
+	require.NoError(t, err)
+	live, ok := spec.Live(spec.StrategyZangerBreakout)
+	require.True(t, ok)
+	h, err := spec.RulesHash(live.Spec)
+	require.NoError(t, err)
+	pivot := 41.64
+	evals := map[string]versionEval{h: {RulesHash: h, Picks: map[string]pickState{
+		"AAA": {Status: "setup", Score: 60, Close: 41.2, Pivot: &pivot, Regime: "neutral"},
+	}}}
+	return live, evals
+}
+
+// TestDailySnapshotWatchToSetupEventsWhileRowsExist is the positive control for the
+// guard below: with the previous session's feature rows stored, the diff of a
+// setup against that session's watch is one event, so the guard test's zero is not
+// the diff finding nothing to say.
+func TestDailySnapshotWatchToSetupEventsWhileRowsExist(t *testing.T) {
+	pool := dailyDB(t)
+	live, evals := diffSetup(t, pool)
+	ctx := context.Background()
+	prev := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	cur := civil.Date{Year: 2026, Month: time.November, Day: 13}
+	require.Equal(t, 2, countRows(t, pool, "SELECT count(*) FROM strategy_features_daily WHERE as_of = '2026-11-12'"))
+
+	events, err := diffSession(ctx, pool, cur, []civil.Date{prev}, []spec.Registered{live}, evals, map[string]bool{}, t.Logf)
+	require.NoError(t, err)
+	require.Len(t, events, 1, "one watch -> setup event for AAA; BBB, absent on the session, is no event")
+	require.Equal(t, "AAA", events[0].Code)
+	require.Equal(t, "watch", events[0].From)
+	require.Equal(t, "setup", events[0].To)
+	require.Equal(t, prev, events[0].PrevAsOf)
+}
+
 // TestDailySnapshotNoFeatureRowsOnThePreviousSessionMakesNoEvents: a previous
 // session with a stored regime but no feature rows (a pruned or edited session)
 // is no baseline for a diff. Every current pick would read as none -> its status,
-// so the session writes no events instead.
+// so diffSession writes no events instead. The same diff with the rows stored is
+// the positive control above, so removing the guard makes this test fail.
 func TestDailySnapshotNoFeatureRowsOnThePreviousSessionMakesNoEvents(t *testing.T) {
 	pool := dailyDB(t)
-	seedDailySession(t, pool)
+	live, evals := diffSetup(t, pool)
 	ctx := context.Background()
-	_, err := runDaily(ctx, pool, dailyOpts(true, t))
-	require.NoError(t, err)
+	prev := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	cur := civil.Date{Year: 2026, Month: time.November, Day: 13}
 
-	_, err = pool.Exec(ctx, `DELETE FROM strategy_features_daily WHERE as_of = '2026-11-12'`)
+	_, err := pool.Exec(ctx, `DELETE FROM strategy_features_daily WHERE as_of = '2026-11-12'`)
 	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `
-		INSERT INTO stock_prices (stock_code, date, open, high, low, close, adjusted_close, volume)
-		VALUES ('AAA', '2026-11-13', 30, 30.5, 29.5, 30, 30, 1000000), ('BBB', '2026-11-13', 30, 30.5, 29.5, 30, 30, 1000000)`)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO index_prices (index_code, date, high, low, close) VALUES ('XJO', '2026-11-13', 5100, 5080, 5090)`)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `
-		INSERT INTO sync_status (environment, hostname, checkpoint_stocks_total, status, started_at, completed_at)
-		VALUES (NULL, NULL, 1800, 'completed', '2026-11-13 06:00:00+00', '2026-11-13 06:30:00+00')`)
-	require.NoError(t, err)
+	require.Equal(t, 1, countRows(t, pool, "SELECT count(*) FROM strategy_regime_daily WHERE as_of = '2026-11-12' AND index_code = 'XJO'"),
+		"the previous session keeps its regime, so only the missing feature rows stop the diff")
 
-	opts := dailyOpts(true, t)
-	opts.Now = time.Date(2026, 11, 13, 14, 0, 0, 0, time.UTC)
-	_, err = runDaily(ctx, pool, opts)
+	events, err := diffSession(ctx, pool, cur, []civil.Date{prev}, []spec.Registered{live}, evals, map[string]bool{}, t.Logf)
 	require.NoError(t, err)
-	require.Equal(t, 0, countRows(t, pool, "SELECT count(*) FROM strategy_signal_events WHERE as_of = '2026-11-13'"))
+	require.Empty(t, events, "AAA's setup would read as none -> setup against an empty previous session")
 }
 
 // TestDailySnapshotSweepIgnoresASICAndSingleStockRows: the readiness sweep is the
