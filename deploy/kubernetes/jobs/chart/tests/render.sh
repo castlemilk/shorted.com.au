@@ -59,6 +59,7 @@ declare -A want_schedule=(
   [asx-discovery]="0 12 * * 0"
   [shorted-alerts]="55 * * * 1-5"
   [shorted-strategies-daily]="0,20,40 13-16 * * 1-5"
+  [shorted-strategies-backtest]="20 * * * *"
 )
 
 got_names="$(cronjobs "${tmp}/default.yaml")"
@@ -119,6 +120,22 @@ strat=shorted-strategies-daily
 [[ -z "$(field "${tmp}/default.yaml" "${strat}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
   || fail "shorted-strategies-daily: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
 pass "shorted-strategies-daily: writes only on STRATEGIES_DRY_RUN=false, one attempt, no WIF"
+
+# shorted-strategies-backtest: writes only when STRATEGIES_DRY_RUN is "false" (the job itself defaults to a
+# dry run), one attempt, a 3300-second deadline, a 1536Mi request and a 3Gi limit (the whole history of a
+# batch is held in memory), VKE-native, no GCS identity.
+bt=shorted-strategies-backtest
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "STRATEGIES_DRY_RUN") | .value')" == "false" ]] \
+  || fail "shorted-strategies-backtest: STRATEGIES_DRY_RUN must be \"false\" in the chart"
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.backoffLimitPerIndex')" == "0" ]] || fail "shorted-strategies-backtest: backoffLimitPerIndex must be 0"
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.activeDeadlineSeconds')" == "3300" ]] || fail "shorted-strategies-backtest: per-attempt activeDeadlineSeconds must be 3300"
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].resources.requests.memory')" == "1536Mi" ]] || fail "shorted-strategies-backtest: memory request must be 1536Mi"
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].resources.limits.memory')" == "3Gi" ]] || fail "shorted-strategies-backtest: memory limit must be 3Gi"
+[[ -z "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
+  || fail "shorted-strategies-backtest: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOMEMLIMIT") | .value')" == "2600MiB" ]] \
+  || fail "shorted-strategies-backtest: GOMEMLIMIT must be 2600MiB (a soft ceiling under the 3Gi limit)"
+pass "shorted-strategies-backtest: writes only on STRATEGIES_DRY_RUN=false, one attempt, 1536Mi/3Gi, GOMEMLIMIT 2600MiB, no WIF"
 
 # --- 2. Nothing runs by default; enabling is per job and needs suspendAll=false.
 # Exactly the jobs in `enabled` run (none while suspendAll is true).

@@ -13,6 +13,12 @@
 //	              It backfills a held or missed session oldest first, and
 //	              writes only when STRATEGIES_DRY_RUN=false (daily.go). The
 //	              default is a dry run: it reads, computes and logs.
+//	-mode backtest  Runs the live canonical versions' recipes over the stored
+//	              history: the queue, one REPEATABLE READ read per batch, the
+//	              verify pass on a key's first publish and the publication
+//	              gate (backtest.go). It idles, exiting 0, until a live
+//	              version with a recipe exists. The default is a dry run:
+//	              it reads, computes and logs and writes nothing.
 //
 // Exit codes (runner.ExitCodeError, picks' convention):
 //
@@ -21,7 +27,8 @@
 //	    or the daily session is complete, held before the deadline, or another
 //	    execution holds the daily lease
 //	1   failure: the database, or a read that errored
-//	10  a conclusive parity run found a disagreement (only_view, only_go or
+//	10  a backtest publish failed its verify pass (a determinism failure);
+//	    a conclusive parity run found a disagreement (only_view, only_go or
 //	    mismatches); or a daily session is still held at 16:40 UTC, the last
 //	    scheduled run, so the monitor pages once
 package strategies
@@ -40,8 +47,9 @@ import (
 )
 
 const (
-	modeParity = "parity"
-	modeDaily  = "daily"
+	modeParity   = "parity"
+	modeDaily    = "daily"
+	modeBacktest = "backtest"
 )
 
 // Job returns the `shorted strategies` subcommand. Parity writes nothing, so a
@@ -50,7 +58,7 @@ const (
 func Job() runner.Job {
 	return runner.Func{
 		JobName: "strategies",
-		Desc:    "strategy engine: -mode parity (read-only) compares the Go port with the views; -mode daily snapshots the session",
+		Desc:    "strategy engine: -mode parity (read-only) compares the Go port with the views; -mode daily snapshots the session; -mode backtest runs the live recipes",
 		DryRun:  true,
 		Fn:      Run,
 	}
@@ -60,7 +68,7 @@ func Job() runner.Job {
 func Run(parent context.Context, args []string) error {
 	g := runner.FromContext(parent)
 	fs := flag.NewFlagSet("strategies", flag.ContinueOnError)
-	mode := fs.String("mode", modeParity, "parity | daily")
+	mode := fs.String("mode", modeParity, "parity | daily | backtest")
 	dryFlag := fs.Bool("dry-run", g.DryRun, "daily writes only when this is false AND STRATEGIES_DRY_RUN=false; parity writes nothing")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -76,8 +84,10 @@ func Run(parent context.Context, args []string) error {
 		return runParityMode(parent)
 	case modeDaily:
 		return runDailyMode(parent, *dryFlag)
+	case modeBacktest:
+		return runBacktestMode(parent, *dryFlag)
 	default:
-		return fmt.Errorf("unknown -mode %q (want parity or daily)", *mode)
+		return fmt.Errorf("unknown -mode %q (want parity, daily or backtest)", *mode)
 	}
 }
 

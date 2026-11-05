@@ -166,7 +166,7 @@ const clusterNote = "Runs on the omega Kubernetes cluster; run status from Teles
 // trigger, so no Cloud Run or Scheduler read ever makes a row for them. They are
 // the chart's vkeNative list (deploy/kubernetes/jobs/chart/values.yaml), and
 // TestClusterOnlyJobsMatchChart keeps the two in step.
-var clusterOnlyJobs = []string{"shorted-alerts", "shorted-strategies-daily"}
+var clusterOnlyJobs = []string{"shorted-alerts", "shorted-strategies-daily", "shorted-strategies-backtest"}
 
 // addClusterOnlyJobs gives each cluster-only job a row, unless a Cloud Run job or
 // a scheduler already produced one. The row's single trigger is a CLUSTER trigger

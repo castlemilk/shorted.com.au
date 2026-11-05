@@ -809,6 +809,17 @@ test-strategies-daily-pg: test-integration-images
 	cd jobs && GOWORK=off CGO_ENABLED=0 STRATEGIES_DAILY_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run DailySnapshot ./internal/jobs/strategies/
 
+# The strategy backtest job (services/jobs/internal/jobs/strategies, -mode backtest): migrations 000156 and
+# 000158 applied to a throwaway database, the queue's order and dedupe, the run-key skip, the publish flip, the
+# verify pass's determinism check, the strict computable_from on stored statements and the golden dataset read
+# back through the production readers, which must reproduce the committed output hash. Opt-in, like the other
+# container suites; STRATEGIES_BACKTEST_DATABASE_URL uses a server you started.
+.PHONY: test-strategies-backtest-pg
+test-strategies-backtest-pg: test-integration-images
+	@set -e; \
+	cd jobs && GOWORK=off CGO_ENABLED=0 STRATEGIES_BACKTEST_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run Backtest ./internal/jobs/strategies/
+
 # The saved-strategy store (migration 000157) against a throwaway postgres:15 container: the cap under
 # concurrent saves, the repeat save, the variant owner guard and replay of the migration. Opt-in, like the
 # other container suites; STRATEGY_SAVES_TEST_DATABASE_URL uses a server you started.

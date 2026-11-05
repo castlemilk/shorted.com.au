@@ -61,6 +61,7 @@ enabled:
   - shorted-alerts
   - shorted-ownership
   - shorted-strategies-daily
+  - shorted-strategies-backtest
 
 # Jobs that exist ONLY on the cluster: no Cloud Run twin, no Cloud Scheduler
 # trigger, so no `cloudRun` mapping and no local.jobs_on_vke entry. Their schedule
@@ -69,6 +70,7 @@ enabled:
 vkeNative:
   - shorted-alerts
   - shorted-strategies-daily
+  - shorted-strategies-backtest
 
 # Google Workload Identity Federation for the jobs that write to GCS. Keyless:
 # a projected Kubernetes token is exchanged for a short-lived token of the SAME
@@ -674,3 +676,31 @@ jobs:
     env:
       # Writes only when this is "false"; the dry run is the default everywhere else.
       STRATEGIES_DRY_RUN: "false"
+
+  # services/jobs/internal/jobs/strategies: the strategy backtest (-mode backtest). VKE-native (vkeNative):
+  # no Cloud Run twin. Hourly at :20, after the daily snapshot's first run. It idles, exiting 0 in
+  # milliseconds, until a live canonical version other than v0 has a recipe (v1 is not live yet). Each
+  # execution takes the strategies-backtest lease, queues the weekly publish request of each live
+  # version and recipe (and one immediately when a key has no succeeded run), runs at most five
+  # requests or 20 minutes of work over one REPEATABLE READ read, and publishes only what the
+  # publication gate passes. maxRetries 0: a Kubernetes retry would only meet the attempt's lease
+  # (2 h TTL) and exit 0. An errored batch is requeued for the next hourly run; a SIGKILLed attempt's
+  # running request is failed by the next lease holder and retried by its key's next request (the
+  # day's, or the next ISO week's). Memory: the whole history is held for one batch, and a
+  # verify pass holds one more copy only after the first is released. GOMEMLIMIT is a soft ceiling
+  # under the 3Gi limit, so the collector works harder before the kernel kills the process. The job logs
+  # its peak RSS on every publish that verifies: the live check records that line, not a dry run's.
+  # The Telesis monitor shorted-strategies-backtest is registered by the owner.
+  shorted-strategies-backtest:
+    image: jobs
+    args: ["strategies", "-mode", "backtest"]
+    schedule: "20 * * * *"
+    timeoutSeconds: 3300
+    maxRetries: 0
+    resources: { cpuRequest: "1", memoryRequest: 1536Mi, memory: 3Gi }
+    profiles: [db, revalidate]
+    env:
+      # Writes only when this is "false"; the dry run is the default everywhere else.
+      STRATEGIES_DRY_RUN: "false"
+      # A soft ceiling below the 3Gi limit: the collector runs harder before the kernel kills the job.
+      GOMEMLIMIT: "2600MiB"

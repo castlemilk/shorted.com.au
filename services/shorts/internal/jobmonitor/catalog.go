@@ -159,6 +159,10 @@ var catalog = map[string]catalogEntry{
 		DisplayName: "Strategy Daily Snapshot",
 		Category:    "Strategies",
 	},
+	"shorted-strategies-backtest": {
+		DisplayName: "Strategy Backtest",
+		Category:    "Strategies",
+	},
 
 	// --- Retired: deployed + manually executable, schedulers paused ON PURPOSE --
 	// terraform/environments/prod/main.tf marks both modules SUPERSEDED and sets
