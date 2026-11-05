@@ -2011,6 +2011,14 @@ jobs:
           cd services
           make test-shortdatasync-pg
 
+      # The strategy daily snapshot suite (migration 000155): one session written, a dry run that writes nothing,
+      # a re-run that writes the same rows, and a second session diffed against the first, on a real Postgres.
+      - name: Run strategy daily snapshot container suite (gates the deploy)
+        run: |
+          echo "Running the strategy daily snapshot suite (postgres container)..."
+          cd services
+          make test-strategies-daily-pg
+
       # The strategy feature parity suite (services/pkg/strategy/features): the Go port of
       # mv_price_features and mv_market_regime against migration 000130's views at fixed anchors.
       # It gates the deploy so that a change to either side fails here, not in a later PR.

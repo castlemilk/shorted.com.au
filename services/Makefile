@@ -800,6 +800,15 @@ test-shortdatasync-pg: test-integration-images
 	cd jobs && GOWORK=off CGO_ENABLED=0 SHORTDATASYNC_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run 'StrategyCapture|IngestWriter' ./internal/jobs/shortdatasync/
 
+# The strategy daily snapshot suite (services/jobs/internal/jobs/strategies): migration 000155 applied to a
+# throwaway database, one session written, a dry run that writes nothing, a re-run that writes the same rows,
+# and a second session diffed against the first. Gates the deploy beside the capture suite.
+.PHONY: test-strategies-daily-pg
+test-strategies-daily-pg: test-integration-images
+	@set -e; \
+	cd jobs && GOWORK=off CGO_ENABLED=0 STRATEGIES_DAILY_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run DailySnapshot ./internal/jobs/strategies/
+
 # The strategy feature parity suite (services/pkg/strategy/features): the Go port of
 # mv_price_features and mv_market_regime against migration 000130's own views, at fixed
 # anchors and the real date, on a throwaway postgres:15 container. Opt-in, like the
