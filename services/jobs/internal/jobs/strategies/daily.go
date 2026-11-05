@@ -515,6 +515,9 @@ func diffSession(ctx context.Context, pool *pgxpool.Pool, s civil.Date, prev []c
 			return nil, err
 		}
 		for _, t := range diffEvaluations(prevEval.Picks, evals[h].Picks, false) {
+			if err := checkRuleOrder(t, v.Spec.Rules); err != nil {
+				return nil, err
+			}
 			evidence, err := evidenceJSON(t)
 			if err != nil {
 				return nil, err
@@ -574,6 +577,26 @@ func ruleStatusChar(r engine.RuleResult) (byte, error) {
 		return 'U', nil
 	}
 	return 0, fmt.Errorf("strategies: rule %s has status %q; want pass, fail or unknown", r.RuleID, r.Status)
+}
+
+// checkRuleOrder fails the run when a pick's rules are not the version's rule list,
+// id for id in the same order. The stored r has no ids, so the event's rules_hash is
+// the only thing that names each character's rule; a mismatch would credit every
+// outcome to the wrong rule in an insert-only table. An exit has no rules to check.
+func checkRuleOrder(t transition, rules []spec.RuleSpec) error {
+	if t.To == noneStatus {
+		return nil
+	}
+	got := t.Rules.Rules
+	if len(got) != len(rules) {
+		return fmt.Errorf("strategies: %s %s->%s has %d rule results; the version has %d rules", t.Code, t.From, t.To, len(got), len(rules))
+	}
+	for i := range rules {
+		if got[i].RuleID != rules[i].ID {
+			return fmt.Errorf("strategies: %s %s->%s rule %d is %s; the version's rule %d is %s", t.Code, t.From, t.To, i, got[i].RuleID, i, rules[i].ID)
+		}
+	}
+	return nil
 }
 
 // evidenceJSON is a transition's stored evidence. An exit has no pick, so its

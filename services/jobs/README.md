@@ -955,7 +955,8 @@ first (ten per run), and exits 10 once at the 16:40 UTC run when a session is st
   stored, the event's `rules_hash` pins the order), `v` and `p` the per-rule value and proximity in the same
   order (null where a rule has none), then `close`, `pivot`, `short_report`, `short_available` and `regime`.
   An exit (`to_status` none) has `r` "", `v` [] and `p` []. A rule status other than pass, fail or unknown fails
-  the run rather than storing a wrong character. Example: `{"r":"PFU","v":[9.5,null,null],"p":[null,0.82,null],
+  the run rather than storing a wrong character, and so does a pick whose rules are not the version's rule list
+  id for id in order (the run fails before any event of that session is written). Example: `{"r":"PFU","v":[9.5,null,null],"p":[null,0.82,null],
   "close":41.2,"pivot":41.64,"short_report":"2026-10-28","short_available":"2026-11-03","regime":"neutral"}`.
 - **Recompute from session X.** A completed session is read back, never recomputed, and events are insert-only
   in practice (no trigger forbids a delete). Recompute only for a bug that changed a stored row, and only when

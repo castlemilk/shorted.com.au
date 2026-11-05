@@ -291,9 +291,55 @@ func diffSetup(t *testing.T, pool *pgxpool.Pool) (spec.Registered, map[string]ve
 	require.NoError(t, err)
 	pivot := 41.64
 	evals := map[string]versionEval{h: {RulesHash: h, Picks: map[string]pickState{
-		"AAA": {Status: "setup", Score: 60, Close: 41.2, Pivot: &pivot, Regime: "neutral"},
+		"AAA": {Status: "setup", Score: 60, Close: 41.2, Pivot: &pivot, Regime: "neutral", Rules: passingRules(live)},
 	}}}
 	return live, evals
+}
+
+// passingRules is one result per rule of the version, in its rule order, each a pass.
+func passingRules(live spec.Registered) []engine.RuleResult {
+	out := make([]engine.RuleResult, 0, len(live.Spec.Rules))
+	for _, r := range live.Spec.Rules {
+		out = append(out, engine.RuleResult{RuleID: r.ID, Status: engine.RulePass, Value: 1, HasValue: true})
+	}
+	return out
+}
+
+// A pick whose rule list is not the version's, by id or by order, fails the run
+// before any event is written: the stored r would credit outcomes to the wrong rules.
+func TestDailySnapshotRuleOrderMismatchFailsTheRun(t *testing.T) {
+	pivot := 41.64
+	cases := map[string]func(spec.Registered) []engine.RuleResult{
+		"undefined status": func(live spec.Registered) []engine.RuleResult {
+			rules := passingRules(live)
+			rules[0].Status = engine.RuleStatus("")
+			return rules
+		},
+		"rules out of order": func(live spec.Registered) []engine.RuleResult {
+			rules := passingRules(live)
+			rules[0], rules[1] = rules[1], rules[0]
+			return rules
+		},
+		"a rule missing": func(live spec.Registered) []engine.RuleResult {
+			return passingRules(live)[1:]
+		},
+	}
+	for name, rules := range cases {
+		t.Run(name, func(t *testing.T) {
+			pool := dailyDB(t)
+			live, evals := diffSetup(t, pool)
+			ctx := context.Background()
+			prev := civil.Date{Year: 2026, Month: time.November, Day: 12}
+			cur := civil.Date{Year: 2026, Month: time.November, Day: 13}
+			h, err := spec.RulesHash(live.Spec)
+			require.NoError(t, err)
+			evals[h].Picks["AAA"] = pickState{Status: "setup", Score: 60, Close: 41.2, Pivot: &pivot, Regime: "neutral", Rules: rules(live)}
+
+			events, err := diffSession(ctx, pool, cur, []civil.Date{prev}, []spec.Registered{live}, evals, map[string]bool{}, t.Logf)
+			require.Error(t, err, "the watch -> setup event for AAA cannot be stored with these rules")
+			require.Empty(t, events)
+		})
+	}
 }
 
 // TestDailySnapshotWatchToSetupEventsWhileRowsExist is the positive control for the

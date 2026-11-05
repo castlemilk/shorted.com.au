@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/civil"
+	"github.com/stretchr/testify/require"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
@@ -434,4 +435,25 @@ func TestNewlyLiveIsAFirstSessionOrAPromotion(t *testing.T) {
 	if got["retired"] {
 		t.Error("a version that is not live in the registry is never a baseline")
 	}
+}
+
+// checkRuleOrder accepts a pick whose rules are the version's, id for id in order,
+// and an exit with no rules; any other shape is an error, never a stored r.
+func TestCheckRuleOrderMatchesTheVersionsRules(t *testing.T) {
+	rules := []spec.RuleSpec{{ID: "growth"}, {ID: "breakout"}, {ID: "liquidity"}}
+	results := func(ids ...string) pickState {
+		var out []engine.RuleResult
+		for _, id := range ids {
+			out = append(out, engine.RuleResult{RuleID: id, Status: engine.RulePass})
+		}
+		return pickState{Rules: out}
+	}
+	in := func(p pickState) transition { return transition{Code: "AAA", From: "watch", To: "setup", Rules: p} }
+
+	require.NoError(t, checkRuleOrder(in(results("growth", "breakout", "liquidity")), rules))
+	require.NoError(t, checkRuleOrder(transition{Code: "AAA", From: "setup", To: noneStatus}, rules), "an exit has no rules to check")
+	require.Error(t, checkRuleOrder(in(results("growth", "liquidity", "breakout")), rules), "order")
+	require.Error(t, checkRuleOrder(in(results("growth", "breakout")), rules), "a rule missing")
+	require.Error(t, checkRuleOrder(in(results("growth", "breakout", "liquidity", "rs")), rules), "a rule extra")
+	require.Error(t, checkRuleOrder(in(results("growth", "breakout", "other")), rules), "an id not in the version")
 }
