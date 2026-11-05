@@ -105,18 +105,29 @@ func TestSensitivitiesTableAndApplicability(t *testing.T) {
 	}
 }
 
-// TestFragileFlagIsASignFlipOfTheExcess: a timing or cost run carries its flag
-// exactly when the base excess CAGR over the benchmark is positive and the
-// variant's is at or below zero. The flag is absent from runs that do not flip.
+// TestFragileFlagIsASignFlipOfTheExcess pins the golden's flags against figures
+// written down here, not against flagFor. The golden base excess is negative, so
+// no sensitivity can flip it and every run is unflagged. The positive-base cases
+// are TestFlagForTruthTable's.
 func TestFragileFlagIsASignFlipOfTheExcess(t *testing.T) {
 	sens := goldenSens(t)
+	if !sens.Base.HasExcess || sens.Base.Excess >= 0 {
+		t.Fatalf("base excess %v (has %v), want a negative golden excess", sens.Base.Excess, sens.Base.HasExcess)
+	}
 	for _, run := range sens.Runs {
-		if !run.Applies {
+		if run.Applies && run.Fragile != "" {
+			t.Fatalf("%s: flagged %q, but the golden base cannot flip", run.ID, run.Fragile)
+		}
+	}
+	// The entry-timing run stays a near miss of the base, not a flip: its excess
+	// is within two points of the canonical run's, so a phantom mark cannot hide one.
+	for _, run := range sens.Runs {
+		if run.ID != SensEntryPlus1 {
 			continue
 		}
-		want := flagFor(run.ID, sens.Base, run.Figures)
-		if run.Fragile != want {
-			t.Fatalf("%s: flag %q, want %q", run.ID, run.Fragile, want)
+		if d := run.Figures.Excess - sens.Base.Excess; d > 0.02 || d < -0.02 {
+			t.Fatalf("entry_plus_1 excess %v is %v from the base %v, want within two points",
+				run.Figures.Excess, d, sens.Base.Excess)
 		}
 	}
 }
