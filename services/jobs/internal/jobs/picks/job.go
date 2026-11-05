@@ -233,11 +233,21 @@ func Run(parent context.Context, args []string) error {
 	// land should reach the views, and the stale-view check is its own verdict.
 	refreshStart := time.Now()
 	err := runRefresh(ctx, st, *dryRun, log.Printf)
+	// The shadow runs beside the revalidation wait, so the revalidation fires on
+	// the same schedule with or without it. It is joined before the job returns.
+	var shadowDone chan struct{}
 	if err == nil && parityShadowDue(*mode, *dryRun, os.Getenv) {
-		runParityShadow(ctx, pool, refreshStart)
+		shadowDone = make(chan struct{})
+		go func() {
+			defer close(shadowDone)
+			runParityShadow(ctx, pool, refreshStart)
+		}()
 	}
 	if err == nil && !*dryRun {
 		revalidateAfterRefresh(ctx, defaultRevalidator(), fundamentalsChanged, log.Printf)
+	}
+	if shadowDone != nil {
+		<-shadowDone
 	}
 	if *mode == modeRefresh {
 		return err
@@ -259,8 +269,15 @@ func parityShadowDue(mode string, dryRun bool, getenv func(string) string) bool 
 }
 
 // runParityShadow runs the comparison and reports its failure in the log. A
-// failure, or a panic inside the comparison, never fails the picks run.
+// failure, or a panic inside the comparison, never fails the picks run. It runs
+// on its own goroutine, so the recover here is what keeps a panic from ending
+// the process.
 func runParityShadow(ctx context.Context, pool *pgxpool.Pool, refreshStart time.Time) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("picks: strategy parity shadow failed; the picks run is unaffected: panic: %v", r)
+		}
+	}()
 	if pool == nil {
 		log.Printf("picks: strategy parity shadow skipped: no database")
 		return
