@@ -242,7 +242,7 @@ func runSession(ctx context.Context, pool *pgxpool.Pool, st store, s civil.Date,
 		evals[h] = ev
 		evalCounts[v.Label] = ev.Eligible
 		picks[v.Label] = len(ev.Picks)
-		logf("strategies: session %s evaluation %s: %d eligible, %d pick(s)", s, v.Label, ev.Eligible, len(ev.Picks))
+		logf("strategies: session %s evaluation %s (%s): %d eligible, %d pick(s)", s, v.Label, v.Spec.StrategyID, ev.Eligible, len(ev.Picks))
 	}
 	evalRunCounts, err := counts(map[string]any{"eligible": evalCounts, "picks": picks})
 	if err != nil {

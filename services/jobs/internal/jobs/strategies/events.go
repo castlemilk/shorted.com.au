@@ -1,10 +1,6 @@
 package strategies
 
-import (
-	"sort"
-
-	"cloud.google.com/go/civil"
-)
+import "sort"
 
 // Signal events are the status transitions of a canonical version between two
 // sessions. They are diffed from the two sessions' evaluations, both recomputed
@@ -73,10 +69,4 @@ func diffEvaluations(prev, cur map[string]pickState, prevBaseline bool) []transi
 // isWatchNoneChurn reports a move between watch and none, in either direction.
 func isWatchNoneChurn(a, b string) bool {
 	return (a == "watch" && b == noneStatus) || (a == noneStatus && b == "watch")
-}
-
-// eventSession names the two sessions an event set was diffed between.
-type eventSession struct {
-	AsOf     civil.Date
-	PrevAsOf civil.Date // zero on a baseline
 }
