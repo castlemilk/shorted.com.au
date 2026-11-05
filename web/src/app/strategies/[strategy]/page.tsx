@@ -83,8 +83,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-/** How many ranked names go into the ItemList JSON-LD. */
-const ITEM_LIST_LIMIT = 15;
+/**
+ * How many ranked names go into the ItemList JSON-LD: the anonymous public
+ * depth, the same as the shortlist (SHORTLIST_MAX_ROWS).
+ */
+const ITEM_LIST_LIMIT = 10;
 
 export default async function StrategyPicksPage({ params }: PageProps) {
   const { strategy: slug } = await params;

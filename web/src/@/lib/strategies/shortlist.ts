@@ -17,26 +17,29 @@ import {
 export const SHORTLIST_MIN_ROWS = 20;
 
 /**
- * The most rows the shortlist renders. Every row is rendered THREE times on
- * its way to a reader (the HTML, the RSC tree of the Suspense fallback, and
- * the sort island's props), each with a fundamentals disclosure, so a busy
- * strategy is bounded here rather than by the API's 100: measured
- * 2026-10-07, /strategies/minervini-trend-template served 100 rows as 1.85 MB of
- * HTML (115 KB gzipped) and /strategies/crowded-short-breakout 1.35 MB. The rest
- * of a status stays one chip away (the island fetches it) and in the API.
+ * The most rows the shortlist renders: the anonymous public depth (the API's
+ * STRATEGY_PUBLIC_SIGNALS_LIMIT, 10 in production), so the Overview shows what
+ * an anonymous caller can read from the API. Every row is rendered THREE times
+ * on its way to a reader (the HTML, the RSC tree of the Suspense fallback, and
+ * the sort island's props), each with a fundamentals disclosure, so the list
+ * is bounded here as well: measured 2026-10-07, /strategies/minervini-trend-
+ * template served 100 rows as 1.85 MB of HTML (115 KB gzipped). The rest of a
+ * status stays one chip away for signed-in readers (the Signals tab), and in
+ * the API for anyone with the depth.
  */
-export const SHORTLIST_MAX_ROWS = 40;
+export const SHORTLIST_MAX_ROWS = 10;
 
 /** The rows shown with no ?status= filter. */
 export function shortlistRows(rows: PickRow[]): PickRow[] {
-  const primary = rows.filter((row) => row.status !== "watch");
-  if (primary.length >= SHORTLIST_MIN_ROWS) {
-    return primary.slice(0, SHORTLIST_MAX_ROWS);
-  }
+  const primary = rows
+    .filter((row) => row.status !== "watch")
+    .slice(0, SHORTLIST_MAX_ROWS);
+  // Watch rows top the list up to SHORTLIST_MIN_ROWS, but never past the
+  // shortlist's own maximum, which is the smaller of the two at 10 rows.
   const fill = rows
     .filter((row) => row.status === "watch")
-    .slice(0, SHORTLIST_MIN_ROWS - primary.length);
-  return [...primary, ...fill];
+    .slice(0, Math.max(0, SHORTLIST_MIN_ROWS - primary.length));
+  return [...primary, ...fill].slice(0, SHORTLIST_MAX_ROWS);
 }
 
 /** The rows for a given filter: null is the shortlist. */

@@ -11,6 +11,7 @@ import {
   ZANGER,
   pick,
 } from "~/@/components/picks/__tests__/fixtures";
+import { SHORTLIST_MAX_ROWS } from "~/@/lib/strategies/shortlist";
 import type { PickRow } from "~/@/lib/strategies/types";
 import { getStrategyPicks } from "~/app/actions/getStrategyPicks";
 
@@ -207,16 +208,16 @@ describe("PicksSortedView: status filter (a request in rank order)", () => {
   });
 
   it("keeps watch rows out of a shortlist that is already full", () => {
-    const setups = Array.from({ length: 20 }, (_, i) =>
+    const setups = Array.from({ length: SHORTLIST_MAX_ROWS }, (_, i) =>
       pick({
         code: `S${String(i).padStart(2, "0")}`,
         rank: i + 1,
         status: "setup",
       }),
     );
-    renderView([...setups, { ...WATCH, rank: 21 }]);
+    renderView([...setups, { ...WATCH, rank: SHORTLIST_MAX_ROWS + 1 }]);
     const codes = tableCodes();
-    expect(codes).toHaveLength(20);
+    expect(codes).toHaveLength(SHORTLIST_MAX_ROWS);
     expect(codes).not.toContain(WATCH.code);
   });
 

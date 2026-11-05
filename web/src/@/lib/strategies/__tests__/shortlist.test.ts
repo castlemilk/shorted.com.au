@@ -19,27 +19,34 @@ function rows(spec: Array<[PickStatus, number]>): PickRow[] {
 }
 
 describe("shortlistRows", () => {
-  it("fills a short list with watch names up to 20", () => {
+  it("tops a short list up with watch names, to the shortlist size at most", () => {
     const list = shortlistRows(rows([["triggered", 2], ["setup", 3], ["watch", 40]]));
-    expect(list).toHaveLength(20);
-    expect(list.filter((r) => r.status === "watch")).toHaveLength(15);
+    expect(list).toHaveLength(SHORTLIST_MAX_ROWS);
+    expect(list.filter((r) => r.status === "watch")).toHaveLength(SHORTLIST_MAX_ROWS - 5);
   });
 
   it("never pads a full list with watch names", () => {
     const list = shortlistRows(rows([["triggered", 5], ["setup", 25], ["watch", 40]]));
-    expect(list).toHaveLength(30);
+    expect(list).toHaveLength(SHORTLIST_MAX_ROWS);
     expect(list.some((r) => r.status === "watch")).toBe(false);
   });
 
   // A busy strategy (Minervini on a trending tape) can have 100 triggered or
   // setup names: the shortlist is bounded, in rank order, and the status
   // chips fetch the rest.
-  it("caps a long list at 40 rows, keeping the top of the rank order", () => {
+  it("caps a long list at SHORTLIST_MAX_ROWS, keeping the top of the rank order", () => {
     const list = shortlistRows(rows([["triggered", 60], ["setup", 30], ["watch", 10]]));
     expect(list).toHaveLength(SHORTLIST_MAX_ROWS);
-    expect(list).toHaveLength(40);
-    expect(list.map((r) => r.rank)).toEqual(Array.from({ length: 40 }, (_, i) => i + 1));
+    expect(list.map((r) => r.rank)).toEqual(
+      Array.from({ length: SHORTLIST_MAX_ROWS }, (_, i) => i + 1),
+    );
     expect(list.some((r) => r.status === "watch")).toBe(false);
+  });
+
+  it("is ten rows at most, the anonymous public depth", () => {
+    expect(SHORTLIST_MAX_ROWS).toBe(10);
+    const list = shortlistRows(rows([["watch", 40]]));
+    expect(list).toHaveLength(10);
   });
 });
 
