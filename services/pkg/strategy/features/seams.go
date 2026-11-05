@@ -17,6 +17,7 @@ import (
 type ASICRow struct {
 	Code       string
 	ReportDate civil.Date
+	Product    string   // PRODUCT: the ASIC product name, which the instrument classifier reads
 	Positions  float64  // REPORTED_SHORT_POSITIONS
 	Issued     float64  // TOTAL_PRODUCT_IN_ISSUE
 	Percent    *float64 // the reported percentage; nil is SQL NULL
@@ -45,14 +46,20 @@ type RatePoint struct {
 
 // ShortReading is a stock's short-interest reading on one session: the feature
 // set's view of the latest usable ASIC report. Status is the short_status the
-// evaluator reads; the dates are nil when the reading has no report.
+// evaluator reads; the dates are nil when the reading has no report. Reason
+// names why the status is unavailable or stale; DaysToCoverReason names why
+// DaysToCover is unknown. InReport says whether the code has a row in the report
+// the reading reads, and is nil when no report backs the reading.
 type ShortReading struct {
-	Status        string      `json:"status"`
-	ReportDate    *civil.Date `json:"report_date"`
-	AvailableDate *civil.Date `json:"available_date"`
-	Pct           *float64    `json:"pct"`
-	Positions     *float64    `json:"positions"`
-	DaysToCover   *float64    `json:"days_to_cover"`
+	Status            string      `json:"status"`
+	ReportDate        *civil.Date `json:"report_date"`
+	AvailableDate     *civil.Date `json:"available_date"`
+	Pct               *float64    `json:"pct"`
+	Positions         *float64    `json:"positions"`
+	DaysToCover       *float64    `json:"days_to_cover"`
+	InReport          *bool       `json:"in_report,omitempty"`
+	Reason            string      `json:"reason,omitempty"`
+	DaysToCoverReason string      `json:"days_to_cover_reason,omitempty"`
 }
 
 // Fundamentals is one stock's fundamentals as the feature row carries them: the

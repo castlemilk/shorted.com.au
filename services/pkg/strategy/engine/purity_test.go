@@ -20,37 +20,42 @@ import (
 // numbers. The check parses the source rather than trusting review, so a new
 // import or call fails the build.
 func TestNoClockNoIONoRand(t *testing.T) {
-	root := ".." // services/pkg/strategy: the parent of this engine package
+	// services/pkg/strategy, the parent of this engine package, and
+	// services/pkg/asxcalendar, which the strategy packages import for the
+	// holiday table and so must be as pure as they are.
+	roots := []string{"..", "../../asxcalendar"}
 	fset := token.NewFileSet()
 	scanned := map[string]bool{}
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if d.Name() == "pgsource" {
-				return filepath.SkipDir
+	for _, root := range roots {
+		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				if d.Name() == "pgsource" {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			scanned[filepath.Base(filepath.Dir(path))] = true
+			file, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+			if err != nil {
+				t.Fatalf("%s: %v", path, err)
+			}
+			for _, v := range purityViolations(file) {
+				t.Errorf("%s: %s", path, v)
 			}
 			return nil
-		}
-		if filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		scanned[filepath.Base(filepath.Dir(path))] = true
-		file, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+		})
 		if err != nil {
-			t.Fatalf("%s: %v", path, err)
+			t.Fatal(err)
 		}
-		for _, v := range purityViolations(file) {
-			t.Errorf("%s: %s", path, v)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
 	}
-	// The scan must reach both packages, or it would pass vacuously.
-	for _, dir := range []string{"engine", "instrument"} {
+	// The scan must reach every package, or it would pass vacuously.
+	for _, dir := range []string{"engine", "instrument", "asxcalendar"} {
 		if !scanned[dir] {
 			t.Fatalf("no source files scanned under package %q; the scan would pass vacuously", dir)
 		}
@@ -84,11 +89,13 @@ var pureImports = map[string]bool{
 }
 
 // pureModuleImport reports whether a non-standard-library import is allowed: the
-// civil date value type, and the strategy packages themselves (which are held to
-// this same rule). pgsource is the one package that does I/O and is never
-// imported by a pure package.
+// civil date value type, the ASX holiday table (a pure time-only package), and
+// the strategy packages themselves (which are held to this same rule). pgsource
+// is the one package that does I/O and is never imported by a pure package.
 func pureModuleImport(path string) bool {
-	if path == "cloud.google.com/go/civil" {
+	switch path {
+	case "cloud.google.com/go/civil",
+		"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar":
 		return true
 	}
 	const tree = "github.com/castlemilk/shorted.com.au/services/pkg/strategy/"
