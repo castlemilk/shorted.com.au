@@ -11,6 +11,11 @@ import { SignalsIsland, type SignalsIslandProps } from "./signals-island";
 import { clearSignalsReadCache } from "./signals-read-cache";
 import { getSignalsForViewer } from "~/app/actions/strategies/viewer";
 
+// Rendering 100 to 120 signal rows takes about half a second alone and several times
+// that on a loaded runner, past Testing Library's one-second default. The wait still
+// ends as soon as the rows are drawn.
+const LIST_WAIT = { timeout: 5000 };
+
 const mockUseSession = useSession as unknown as jest.Mock;
 const mockGetSignalsForViewer = getSignalsForViewer as unknown as jest.Mock;
 
@@ -486,7 +491,7 @@ describe("SignalsIsland", () => {
       snapshot: SNAPSHOT,
     });
     render(<SignalsIsland {...props()} />);
-    await screen.findByRole("button", { name: "R0" });
+    await screen.findByRole("button", { name: "R0" }, LIST_WAIT);
     expect(screen.queryByRole("button", { name: "R60" })).toBeNull();
     fireEvent.click(
       screen.getByRole("button", { name: "Show 50 more · 70 left" }),
@@ -623,7 +628,7 @@ describe("SignalsIsland", () => {
         snapshot: SNAPSHOT,
       });
     render(<SignalsIsland {...props()} />);
-    await screen.findByRole("button", { name: "R0" });
+    await screen.findByRole("button", { name: "R0" }, LIST_WAIT);
     expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(1);
     expect(mockGetSignalsForViewer).toHaveBeenLastCalledWith(
       expect.objectContaining({ full: false }),
@@ -637,7 +642,9 @@ describe("SignalsIsland", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Show 20 more · 20 left" }),
     );
-    expect(await screen.findByRole("button", { name: "R110" })).toBeVisible();
+    expect(
+      await screen.findByRole("button", { name: "R110" }, LIST_WAIT),
+    ).toBeVisible();
     expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(2);
     expect(mockGetSignalsForViewer).toHaveBeenLastCalledWith(
       expect.objectContaining({ full: true }),
@@ -807,7 +814,7 @@ describe("SignalsIsland", () => {
         snapshot: SNAPSHOT,
       });
     render(<SignalsIsland {...props()} />);
-    await screen.findByRole("button", { name: "R0" });
+    await screen.findByRole("button", { name: "R0" }, LIST_WAIT);
     fireEvent.click(
       screen.getByRole("button", { name: "Show 50 more · 70 left" }),
     );
@@ -817,6 +824,8 @@ describe("SignalsIsland", () => {
     expect(
       await screen.findByText(
         /The full list is unavailable right now; showing the top rows\./,
+        undefined,
+        LIST_WAIT,
       ),
     ).toBeInTheDocument();
     expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(2);
@@ -825,7 +834,7 @@ describe("SignalsIsland", () => {
       screen.getByRole("button", { name: "Show 20 more · 20 left" }),
     );
     expect(
-      await screen.findByRole("button", { name: "R110" }),
+      await screen.findByRole("button", { name: "R110" }, LIST_WAIT),
     ).toBeInTheDocument();
     expect(mockGetSignalsForViewer).toHaveBeenCalledTimes(3);
     expect(mockGetSignalsForViewer).toHaveBeenLastCalledWith(
