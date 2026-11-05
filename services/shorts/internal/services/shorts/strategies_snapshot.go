@@ -416,6 +416,9 @@ func decodeSignalRules(r shortsstore.StrategySignalEventRow, ev signalEvidence) 
 			return nil, fmt.Errorf("evidence status %q at rule %d is not P, F or U", ev.R[i], i)
 		}
 		rr := &shortsv1alpha1.RuleResult{RuleId: rule.ID, Status: string(status)}
+		// As the picks rows set it: a failing trigger on a setup row is what the
+		// stock is waiting for.
+		rr.Waiting = r.ToStatus == string(engine.StatusSetup) && status == engine.RuleFail && rule.Trigger
 		if ev.V[i] != nil {
 			rr.Value, rr.HasValue = *ev.V[i], true
 		}
@@ -446,14 +449,17 @@ func signalEventProto(r shortsstore.StrategySignalEventRow) (*shortsv1alpha1.Str
 		out.Score = *r.Score
 	}
 	var ev signalEvidence
-	if err := json.Unmarshal([]byte(r.Evidence), &ev); err != nil {
-		return out, fmt.Errorf("decode signal evidence: %w", err)
-	}
+	// encoding/json fills the fields it can before it reports a mistyped one, so
+	// close and pivot are read even when the evidence does not decode in full.
+	decodeErr := json.Unmarshal([]byte(r.Evidence), &ev)
 	if ev.Close != nil {
 		out.Close = *ev.Close
 	}
 	if ev.Pivot != nil {
 		out.Pivot, out.HasPivot = *ev.Pivot, true
+	}
+	if decodeErr != nil {
+		return out, fmt.Errorf("decode signal evidence: %w", decodeErr)
 	}
 	rules, err := decodeSignalRules(r, ev)
 	if err != nil {

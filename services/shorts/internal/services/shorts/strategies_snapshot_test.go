@@ -545,10 +545,13 @@ func TestSignalEventProto_MalformedEvidenceServesNoRules(t *testing.T) {
 		{"more statuses than rules", h, "triggered", signalEvidence{R: full + "P", V: nils(n + 1), P: nils(n + 1)}},
 		{"more statuses than values", h, "triggered", signalEvidence{R: full + "P", V: nils(n), P: nils(n)}},
 		{"values short of the statuses", h, "triggered", signalEvidence{R: full, V: nils(n - 1), P: nils(n)}},
+		{"proximities short of the statuses", h, "triggered", signalEvidence{R: full, V: nils(n), P: nils(n - 1)}},
 		{"no statuses on a pick", h, "triggered", signalEvidence{R: "", V: []*float64{}, P: []*float64{}}},
 		{"unknown status character", h, "triggered", signalEvidence{R: "X" + full[1:], V: nils(n), P: nils(n)}},
 		{"lower-case status", h, "triggered", signalEvidence{R: "p" + full[1:], V: nils(n), P: nils(n)}},
 		{"rule results on an exit", h, "none", signalEvidence{R: "P", V: nils(1), P: nils(1)}},
+		{"values on an exit", h, "none", signalEvidence{R: "", V: nils(1), P: nils(0)}},
+		{"proximities on an exit", h, "none", signalEvidence{R: "", V: nils(0), P: nils(1)}},
 		{"rules hash not registered", strings.Repeat("9f", 32), "triggered", signalEvidence{R: full, V: nils(n), P: nils(n)}},
 	}
 	for _, c := range cases {
@@ -564,4 +567,62 @@ func TestSignalEventProto_MalformedEvidenceServesNoRules(t *testing.T) {
 		assert.InDelta(t, closePrice, ev.Close, 1e-9, c.name)
 		assert.Equal(t, "BHP", ev.StockCode, c.name)
 	}
+}
+
+// The evidence as the store returns it: the jsonb text Postgres prints, its keys
+// reordered and spaced, not the reader's own marshalling. It pins the key names
+// and the one-string form that the job writes. Zanger's rules are growth, base,
+// breakout (the trigger), regime, rs and liquidity, so PFFPUP reads pass, fail,
+// fail (the breakout, waiting on a setup), pass, unknown, pass.
+func TestSignalEventProto_DecodesStoredEvidenceText(t *testing.T) {
+	reg, ok := spec.Live(spec.StrategyZangerBreakout)
+	require.True(t, ok)
+	h, err := spec.RulesHash(reg.Spec)
+	require.NoError(t, err)
+	require.Len(t, reg.Spec.Rules, 6, "the stored text below is the six Zanger rules")
+	const stored = `{"p": [null, null, 0.82, null, null, null], "r": "PFFPUP", "v": [9.5, null, null, 1, null, 19200000], "close": 41.20, "pivot": 41.64, "short_report": "2026-10-28", "short_available": "2026-11-03", "regime": "neutral"}`
+	row := shortsstore.StrategySignalEventRow{StockCode: "ZNG", FromStatus: "watch", ToStatus: "setup", RulesHash: h, Evidence: stored}
+
+	ev, err := signalEventProto(row)
+	require.NoError(t, err)
+	wantIDs := []string{"growth", "base", "breakout", "regime", "rs", "liquidity"}
+	wantStatus := []string{"pass", "fail", "fail", "pass", "unknown", "pass"}
+	require.Len(t, ev.Rules, len(wantIDs))
+	for i, rr := range ev.Rules {
+		assert.Equal(t, wantIDs[i], rr.RuleId, "rule %d id", i)
+		assert.Equal(t, wantStatus[i], rr.Status, "rule %d status", i)
+	}
+	assert.True(t, ev.Rules[0].HasValue)
+	assert.InDelta(t, 9.5, ev.Rules[0].Value, 1e-9)
+	assert.True(t, ev.Rules[2].HasProximity)
+	assert.InDelta(t, 0.82, ev.Rules[2].Proximity, 1e-9)
+	assert.True(t, ev.Rules[5].HasValue)
+	assert.InDelta(t, 19200000, ev.Rules[5].Value, 1e-9)
+	assert.True(t, ev.Rules[2].Waiting, "a failing breakout on a setup row is what the stock waits for")
+	assert.False(t, ev.Rules[1].Waiting, "a failing non-trigger rule never waits")
+	assert.InDelta(t, 41.20, ev.Close, 1e-9)
+	assert.True(t, ev.HasPivot)
+	assert.InDelta(t, 41.64, ev.Pivot, 1e-9)
+
+	row.ToStatus = "triggered"
+	ev, err = signalEventProto(row)
+	require.NoError(t, err)
+	require.Len(t, ev.Rules, len(wantIDs))
+	assert.False(t, ev.Rules[2].Waiting, "a triggered row is not waiting")
+	assert.Equal(t, "fail", ev.Rules[2].Status)
+}
+
+// A mistyped field makes encoding/json stop with an error, but it has already
+// read close and pivot. The event keeps them and serves no rules.
+func TestSignalEventProto_MistypedEvidenceKeepsCloseAndPivot(t *testing.T) {
+	ev, err := signalEventProto(shortsstore.StrategySignalEventRow{
+		StockCode: "BHP", FromStatus: "setup", ToStatus: "triggered",
+		Evidence: `{"r":["breakout","near_high"],"v":[1],"p":[null],"close":41.2,"pivot":41.64}`,
+	})
+	require.Error(t, err)
+	assert.Equal(t, "BHP", ev.StockCode)
+	assert.InDelta(t, 41.2, ev.Close, 1e-9)
+	assert.True(t, ev.HasPivot)
+	assert.InDelta(t, 41.64, ev.Pivot, 1e-9)
+	assert.Empty(t, ev.Rules)
 }
