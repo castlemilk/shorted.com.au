@@ -407,6 +407,16 @@ func TestSnapshotShortAvailableDateIsTheStoredOne(t *testing.T) {
 	_, fromSnapshot := shortDatesProto(&report, cands[0].ShortAvailableDate)
 	assert.Equal(t, "2026-11-02", fromSnapshot)
 	assert.NotEmpty(t, calendar, "without a stored date the ASX calendar derives it")
+
+	// A report before the holiday table's first year names no date on either path,
+	// as the views do, even when the snapshot stores one.
+	old := time.Date(2025, 12, 15, 0, 0, 0, 0, time.UTC)
+	storedOld := time.Date(2025, 12, 19, 0, 0, 0, 0, time.UTC)
+	reportedOld, availableOld := shortDatesProto(&old, &storedOld)
+	assert.Equal(t, "2025-12-15", reportedOld)
+	assert.Empty(t, availableOld)
+	_, calendarOld := shortDatesProto(&old, nil)
+	assert.Empty(t, calendarOld)
 }
 
 // The next refresh skips the ASX's non-trading days: Christmas and the day after

@@ -439,11 +439,15 @@ func dateOrEmpty(t time.Time) string {
 // shortDatesProto returns a short position's report date and the date it
 // became public. Both are empty when the stock has no report. The publication
 // date is the stored one when the snapshot holds it (stored non-nil), so the
-// page shows the date the reading was gated on; otherwise the ASX calendar's,
-// which is empty too for a report the holiday table does not cover.
+// page shows the date the reading was gated on; otherwise the ASX calendar's.
+// Neither names a date for a report the holiday table does not cover, so the
+// snapshot answers as the views do.
 func shortDatesProto(report, stored *time.Time) (reported, available string) {
 	if report == nil {
 		return "", ""
+	}
+	if _, covered := asxcalendar.AvailableFromCovered(*report); !covered {
+		return dateOrEmpty(*report), ""
 	}
 	if stored != nil {
 		return dateOrEmpty(*report), dateOrEmpty(*stored)
