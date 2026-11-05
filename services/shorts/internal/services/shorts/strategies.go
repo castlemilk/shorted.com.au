@@ -10,6 +10,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
 // Stock picker handlers (StrategyService; docs/plans/stock-picker.md §3 and
@@ -51,6 +52,9 @@ type strategyUniverse struct {
 	shortAvailable *time.Time
 	// source names what answered the universe: "views" or "snapshot".
 	source string
+	// served is the version each strategy is served under, resolved once per
+	// fill from the source and the table's live rows (resolveServed).
+	served map[string]servedVersion
 }
 
 // coverageFor is the count a strategy's coverage caveat quotes.
@@ -69,6 +73,10 @@ type strategyEvaluation struct {
 	universe *strategyUniverse
 	// version is the rules version the picks were evaluated under.
 	version *shortsv1alpha1.StrategyVersionRef
+	// candidates is how many stocks the strategy's own universe holds (the
+	// ASIC-reported names for Crowded-Short), and env its rs statistics.
+	candidates int
+	env        *engine.Env
 }
 
 // ListStrategies returns every strategy's definition and the market regime.
@@ -87,7 +95,7 @@ func (s *ShortsServer) ListStrategies(ctx context.Context, req *connect.Request[
 		Regime:     marketRegimeProto(regime, engine.NeutralRegimeVerdict(regime)),
 	}
 	for _, st := range registry {
-		resp.Strategies = append(resp.Strategies, strategyProto(st, st.CaveatsWithCoverage(0, -1), s.servedVersion(st.ID)))
+		resp.Strategies = append(resp.Strategies, strategyProto(st, st.CaveatsWithCoverage(0, -1), s.servedRef(ctx, st.ID)))
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -246,11 +254,11 @@ func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *sh
 	end := min(start+limit, len(matching))
 
 	resp := &shortsv1alpha1.GetStrategyPicksResponse{
-		Strategy:                  strategyProto(q.st, q.st.CaveatsWithCoverage(u.coverageFor(q.st), len(u.candidates)), eval.version),
+		Strategy:                  strategyProto(q.st, q.st.CaveatsWithCoverage(u.coverageFor(q.st), eval.candidates), eval.version),
 		Regime:                    marketRegimeProto(u.regime, q.st.RegimeVerdict(u.regime)),
 		Picks:                     make([]*shortsv1alpha1.StrategyPick, 0, end-start),
 		TotalCount:                int32(total),
-		UniverseCount:             int32(len(u.candidates)),
+		UniverseCount:             int32(eval.candidates),
 		FundamentalsCoverageCount: int32(u.coverage),
 		FundamentalsRowsCount:     int32(u.rowsCount),
 		AsOf:                      u.asOf,
@@ -267,7 +275,7 @@ func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *sh
 		},
 		Version: eval.version,
 	}
-	if thr, ok := u.env.RSQuantileThreshold(); ok {
+	if thr, ok := eval.env.RSQuantileThreshold(); ok {
 		resp.RsQuantileThreshold, resp.HasRsQuantileThreshold = thr, true
 	}
 	if !u.shortReportDate.IsZero() {
@@ -357,7 +365,7 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 		if latest := engine.LatestAsOf(cands); !latest.IsZero() {
 			asOf = latest.Format("2006-01-02")
 		}
-		return newStrategyUniverse(cands, regime, asOf, StrategySourceViews), nil
+		return newStrategyUniverse(cands, regime, asOf, StrategySourceViews, nil), nil
 	})
 	if err != nil {
 		return nil, err
@@ -369,7 +377,7 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 // valuation, once per fill, before any rule reads a candidate) and indexes them
 // with the universe's shared environment. asOf is the session the universe is
 // as at, "" when unknown.
-func newStrategyUniverse(cands []engine.Candidate, regime engine.Regime, asOf, source string) *strategyUniverse {
+func newStrategyUniverse(cands []engine.Candidate, regime engine.Regime, asOf, source string, live map[string]shortsstore.LiveRuleVersion) *strategyUniverse {
 	engine.PrepareCandidates(cands)
 	u := &strategyUniverse{
 		candidates:      cands,
@@ -381,6 +389,7 @@ func newStrategyUniverse(cands []engine.Candidate, regime engine.Regime, asOf, s
 		rowsCount:       engine.FundamentalsRows(cands),
 		asOf:            asOf,
 		source:          source,
+		served:          resolveServed(source, live),
 	}
 	for i := range cands {
 		u.index[strings.ToUpper(cands[i].StockCode)] = i
@@ -397,8 +406,8 @@ func newStrategyUniverse(cands []engine.Candidate, regime engine.Regime, asOf, s
 // ASIC report (Crowded-Short, v1) ranks only the stocks the report lists, and
 // its rs statistics are over that universe.
 func (s *ShortsServer) strategyCandidates(strategyID string, u *strategyUniverse) ([]engine.Candidate, *engine.Env) {
-	reg, ok := s.servedRegistered(strategyID)
-	if !ok || !reg.Spec.Universe.ASICReported {
+	reg := u.served[strategyID].reg
+	if !reg.Spec.Universe.ASICReported {
 		return u.candidates, u.env
 	}
 	reported := make([]engine.Candidate, 0, len(u.candidates))
@@ -418,14 +427,22 @@ func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st engine.Str
 		if err != nil {
 			return nil, err
 		}
-		st.UnknownStatus = s.servedUnknownStatus(st.ID)
+		sv := u.served[st.ID]
+		st.UnknownStatus = sv.reg.Spec.Ladder.UnknownStatus
 		cands, env := s.strategyCandidates(st.ID, u)
 		picks := engine.EvaluateWithEnv(st, cands, env)
 		index := make(map[string]int, len(picks))
 		for i := range picks {
 			index[strings.ToUpper(picks[i].Candidate.StockCode)] = i
 		}
-		return &strategyEvaluation{picks: picks, index: index, universe: u, version: s.servedVersion(st.ID)}, nil
+		return &strategyEvaluation{
+			picks:      picks,
+			index:      index,
+			universe:   u,
+			version:    servedRefOf(sv),
+			candidates: len(cands),
+			env:        env,
+		}, nil
 	})
 	if err != nil {
 		return nil, err

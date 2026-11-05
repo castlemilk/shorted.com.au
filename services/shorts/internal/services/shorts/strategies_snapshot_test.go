@@ -191,6 +191,11 @@ func TestSnapshotSourceFallsBackToTheViews(t *testing.T) {
 			u, err := srv.loadStrategyUniverse(context.Background())
 			require.NoError(t, err)
 			assert.Equal(t, "2026-09-25", u.asOf, "the views' newest price date")
+			// The views answer v0 whatever the source says, so no fallback is labelled v1.
+			for _, id := range []string{spec.StrategyCrowdedShortBreakout, spec.StrategyZangerBreakout} {
+				assert.Equal(t, "v0", u.served[id].reg.Label, id)
+				assert.False(t, u.served[id].reg.Spec.Ladder.UnknownStatus, id)
+			}
 		})
 	}
 }

@@ -483,3 +483,54 @@ func (s *postgresStore) ListStrategySignalEvents(ctx context.Context, f Strategy
 	}
 	return out, nil
 }
+
+// LiveRuleVersion is the canonical version strategy_rule_versions marks live for
+// one strategy: the rules hash the daily job evaluates under, and the first
+// session it was live (YYYY-MM-DD, "" when the row has none).
+type LiveRuleVersion struct {
+	StrategyID string
+	RulesHash  string
+	Label      string
+	LiveFrom   string
+}
+
+// StrategyLiveReader is the live-version read the API serves picks under.
+// Store implements it beside the snapshot reader; a store without it (a test
+// fake) serves the registry's live flag.
+type StrategyLiveReader interface {
+	ReadLiveRuleVersions(ctx context.Context) ([]LiveRuleVersion, error)
+}
+
+// ReadLiveRuleVersions returns the live canonical version of every strategy the
+// table records, the version the job last promoted (the table is written by the
+// daily job, so the served version changes when the job promotes, not at
+// deploy). A database without the table answers ErrStrategySnapshotUnavailable.
+func (s *postgresStore) ReadLiveRuleVersions(ctx context.Context) ([]LiveRuleVersion, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+	rows, err := s.db.Query(ctx, `
+		SELECT strategy_id, rules_hash, label, COALESCE(live_from::text, '')
+		  FROM strategy_rule_versions
+		 WHERE kind = 'canonical' AND status = 'live'
+		 ORDER BY strategy_id`)
+	if err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ReadLiveRuleVersions", err)
+			return nil, ErrStrategySnapshotUnavailable
+		}
+		return nil, fmt.Errorf("read live rule versions: %w", err)
+	}
+	defer rows.Close()
+	var out []LiveRuleVersion
+	for rows.Next() {
+		var v LiveRuleVersion
+		if err := rows.Scan(&v.StrategyID, &v.RulesHash, &v.Label, &v.LiveFrom); err != nil {
+			return nil, fmt.Errorf("scan live rule version: %w", err)
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read live rule versions: %w", err)
+	}
+	return out, nil
+}

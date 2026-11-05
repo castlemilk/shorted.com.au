@@ -52,11 +52,18 @@ func (s *ShortsServer) snapshotUniverse(ctx context.Context) (*strategyUniverse,
 	case err != nil:
 		return nil, false, err
 	}
-	cands, err := snapshotCandidates(snap)
+	live, err := s.readLiveVersions(ctx)
 	if err != nil {
 		return nil, false, err
 	}
-	return newStrategyUniverse(cands, snap.Regime, snap.AsOf.String(), StrategySourceSnapshot), true, nil
+	// The snapshot's eligibility is the version the table marks live for Zanger,
+	// the strategy whose universe policy every live version shares.
+	zanger := resolveServedOne(spec.StrategyZangerBreakout, StrategySourceSnapshot, live)
+	cands, err := snapshotCandidatesUnder(snap, zanger.reg)
+	if err != nil {
+		return nil, false, err
+	}
+	return newStrategyUniverse(cands, snap.Regime, snap.AsOf.String(), StrategySourceSnapshot, live), true, nil
 }
 
 // snapshotCandidates rebuilds a session's stored rows as the universe's
@@ -70,6 +77,11 @@ func snapshotCandidates(snap shortsstore.StrategySnapshot) ([]engine.Candidate, 
 	if !ok {
 		return nil, errors.New("no live strategy spec for the snapshot universe")
 	}
+	return snapshotCandidatesUnder(snap, live)
+}
+
+// snapshotCandidatesUnder is snapshotCandidates under the given registered version.
+func snapshotCandidatesUnder(snap shortsstore.StrategySnapshot, live spec.Registered) ([]engine.Candidate, error) {
 	cands := make([]engine.Candidate, 0, len(snap.Rows))
 	for i := range snap.Rows {
 		row := snap.Rows[i]
@@ -218,7 +230,7 @@ func (s *ShortsServer) ListStrategySignalEvents(ctx context.Context, req *connec
 	if _, ok := engine.Lookup(id); !ok {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", msg.StrategyId, strategyIDList()))
 	}
-	version, err := signalEventsVersion(id, msg.VersionHash)
+	version, err := signalEventsVersion(id, msg.VersionHash, s.tableLiveRulesHash(ctx, id))
 	if err != nil {
 		return nil, err
 	}
@@ -314,18 +326,14 @@ type signalVersion struct {
 // signalEventsVersion resolves the requested version: the live one when hash is
 // empty, else the canonical registered version with that hash (NotFound for an
 // unknown hash, a variant's included, or one of another strategy).
-func signalEventsVersion(strategyID, hash string) (signalVersion, error) {
+func signalEventsVersion(strategyID, hash, liveHash string) (signalVersion, error) {
 	hash = strings.ToLower(strings.TrimSpace(hash))
 	if hash == "" {
-		reg, ok := spec.Live(strategyID)
-		if !ok {
+		reg, ok := spec.ByHash(liveHash)
+		if liveHash == "" || !ok || reg.Spec.StrategyID != strategyID {
 			return signalVersion{}, connect.NewError(connect.CodeNotFound, fmt.Errorf("no live version for strategy %q", strategyID))
 		}
-		h, err := spec.RulesHash(reg.Spec)
-		if err != nil {
-			return signalVersion{}, connect.NewError(connect.CodeInternal, fmt.Errorf("hash the live version: %w", err))
-		}
-		return signalVersion{hash: h, reg: reg, ok: true}, nil
+		return signalVersion{hash: liveHash, reg: reg, ok: true}, nil
 	}
 	reg, ok := spec.ByHash(hash)
 	if !ok || reg.Spec.StrategyID != strategyID {

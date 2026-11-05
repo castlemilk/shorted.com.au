@@ -61,7 +61,7 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 			StrategyId:   st.ID,
 			StrategyName: st.Name,
 			TotalCount:   int32(len(eval.picks)),
-			VersionHash:  servedRulesHash(s, st.ID),
+			VersionHash:  servedRefOf(u.served[st.ID]).GetRulesHash(),
 		}
 		if i, ok := eval.index[code]; ok {
 			p := &eval.picks[i]
@@ -77,7 +77,7 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 			if !ok {
 				eu, ci = u, u.index[code]
 			}
-			st.UnknownStatus = s.servedUnknownStatus(st.ID)
+			st.UnknownStatus = eu.served[st.ID].reg.Spec.Ladder.UnknownStatus
 			p, _ := engine.EvaluateOne(st, eu.candidates[ci], eu.env)
 			fit.Status = string(engine.StatusNone)
 			fit.Rules = ruleResultsProto(p.Rules)

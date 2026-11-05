@@ -135,7 +135,7 @@ func TestStrategyResponsesNameTheLiveVersion(t *testing.T) {
 
 	// On the views path (this test server's source) the responses name the
 	// version the views evaluate, v0; on the snapshot path they name the live one.
-	served := srv.servedVersion("zanger-breakout")
+	served := servedRefOf(srv.servedVersionOf(ctx, "zanger-breakout"))
 	require.NotNil(t, served)
 	assert.Equal(t, "v0", served.Label)
 	assert.Equal(t, live.RulesHash, liveRulesHash("zanger-breakout"))
@@ -150,7 +150,7 @@ func TestStrategyResponsesNameTheLiveVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, fit.Msg.Fits)
 	for _, f := range fit.Msg.Fits {
-		assert.Equal(t, servedRulesHash(srv, f.StrategyId), f.VersionHash, f.StrategyId)
+		assert.Equal(t, srv.servedRulesHash(ctx, f.StrategyId), f.VersionHash, f.StrategyId)
 		assert.NotEmpty(t, f.VersionHash)
 	}
 
@@ -158,7 +158,7 @@ func TestStrategyResponsesNameTheLiveVersion(t *testing.T) {
 	require.NoError(t, err)
 	for _, st := range list.Msg.Strategies {
 		require.NotNil(t, st.Version, st.Id)
-		assert.Equal(t, srv.servedVersion(st.Id).RulesHash, st.Version.RulesHash)
+		assert.Equal(t, srv.servedRulesHash(ctx, st.Id), st.Version.RulesHash)
 	}
 }
 
