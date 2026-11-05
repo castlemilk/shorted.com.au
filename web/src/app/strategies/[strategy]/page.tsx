@@ -16,6 +16,7 @@ import { RuleLegend, type RuleColumn } from "~/@/components/picks/picks-table";
 import { StrategyPanel } from "~/@/components/picks/strategy-panel";
 import { StrategySwitcher } from "~/@/components/picks/strategy-switcher";
 import { STRATEGIES, getStrategy } from "~/@/lib/strategies/registry";
+import { strategyTabHref } from "~/@/lib/strategies/strategy-tabs";
 import {
   STATUS_LABELS,
   statusCountsOf,
@@ -127,6 +128,7 @@ export default async function StrategyPicksPage({ params }: PageProps) {
     totalCount: data?.totalCount ?? 0,
     rules,
     basePath: `/strategies/${seo.slug}`,
+    signalsHref: strategyTabHref(seo.slug, "signals"),
     caption: `${seo.h1}: ranked ASX picks`,
     showFundamentals: data
       ? fundamentalsHeld(data.fundamentalsRowsCount, data.fundamentalsCoverageCount)

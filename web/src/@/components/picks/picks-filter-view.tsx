@@ -55,14 +55,17 @@ export interface PicksFilterViewProps {
   /** Every ranked pick, before the row limit. */
   totalCount: number;
   /**
-   * Status counts over every ranked row the server fetched (up to the API's
-   * 100). Computed from `rows` when absent, which is only right when `rows`
-   * is the whole list.
+   * The chips' counts: the API's status_counts over every ranked pick
+   * (statusCountsOf), which stay the whole ranking under the public depth.
+   * Computed from `rows` when absent, which is only right when `rows` is the
+   * whole list.
    */
   counts?: Record<PickStatus, StatusCount>;
   rules: RuleColumn[];
   /** The page path the chips link to, e.g. "/strategies/zanger-breakout". */
   basePath: string;
+  /** The Signals tab's href (strategyTabHref), the "See all signals" link. */
+  signalsHref: string;
   caption: string;
   status: PickStatus | null;
   /** See PicksTableProps.showFundamentals. */
@@ -155,13 +158,15 @@ function statusSummary(count: string, status: PickStatus): string {
  */
 function clampedStatusSummary(sorted: SortedPicks, status: PickStatus): string {
   const word = STATUS_LABELS[status].toLowerCase();
-  const total = formatCount(Math.max(sorted.totalCount, sorted.rows.length));
+  const all = Math.max(sorted.totalCount, sorted.rows.length);
+  const total = formatCount(all);
   const top = formatCount(clampDepth(sorted));
+  const noun = all === 1 ? "stock" : "stocks";
   if (sorted.rows.length === 0) {
-    return `None of the public top ${top} is ${word}. ${total} ${word} stocks rank below it.`;
+    return `None of the public top ${top} is ${word}. ${total} ${word} ${noun} ${all === 1 ? "ranks" : "rank"} below it.`;
   }
   const shown = formatCount(sorted.rows.length);
-  return `${shown} of the public top ${top} ${sorted.rows.length === 1 ? "is" : "are"} ${word}. ${total} ${word} stocks in all.`;
+  return `${shown} of the public top ${top} ${sorted.rows.length === 1 ? "is" : "are"} ${word}. ${total} ${word} ${noun} in all.`;
 }
 
 export function PicksFilterView({
@@ -170,6 +175,7 @@ export function PicksFilterView({
   counts: countsProp,
   rules,
   basePath,
+  signalsHref,
   caption,
   status,
   showFundamentals = false,
@@ -214,7 +220,7 @@ export function PicksFilterView({
   if (busy) {
     summary = sort
       ? `Sorting by ${pickSortDef(sort).phrase}. ${summary}`
-      : `Loading every ${STATUS_LABELS[status!].toLowerCase()} stock. ${summary}`;
+      : `Loading ${STATUS_LABELS[status!].toLowerCase()} stocks. ${summary}`;
   }
   const statusWord = status ? STATUS_LABELS[status].toLowerCase() : "";
 
@@ -260,7 +266,7 @@ export function PicksFilterView({
             <span className="font-medium text-foreground">
               {sort
                 ? "Sorting is unavailable right now."
-                : `The full ${statusWord} list is unavailable right now.`}
+                : `The ${statusWord} list is unavailable right now.`}
             </span>{" "}
           </>
         ) : null}
@@ -278,7 +284,7 @@ export function PicksFilterView({
             ? busy
               ? `Loading ${statusWord} stocks.`
               : unavailable
-                ? `The full ${statusWord} list is unavailable right now.`
+                ? `The ${statusWord} list is unavailable right now.`
                 : sorted?.clamped
                   ? `None of the public top ${formatCount(clampDepth(sorted))} is ${statusWord}.`
                   : `No stocks are at ${statusWord} status today.`
@@ -287,7 +293,7 @@ export function PicksFilterView({
       />
       <p className="text-xs">
         <Link
-          href={`${basePath}/signals`}
+          href={signalsHref}
           prefetch={false}
           className="font-medium text-primary underline-offset-4 hover:underline"
         >

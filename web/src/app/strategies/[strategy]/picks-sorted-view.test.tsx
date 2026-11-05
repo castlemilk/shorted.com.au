@@ -58,6 +58,7 @@ function renderView(rows: PickRow[] = PICKS.picks, totalCount = rows.length) {
       totalCount={totalCount}
       rules={RULES}
       basePath="/strategies/zanger-breakout"
+      signalsHref="/strategies/zanger-breakout/signals"
       caption="Zanger Breakout Strategy: ranked ASX picks"
       showFundamentals
     />,
@@ -119,7 +120,7 @@ describe("PicksSortedView: status filter (a request in rank order)", () => {
     // Loading: the shortlist's setup rows, dimmed and aria-busy.
     expect(region()).toHaveAttribute("aria-busy", "true");
     expect(tableCodes()).toEqual([SETUP.code]);
-    expect(summary()).toHaveTextContent(/^Loading every setup stock\./);
+    expect(summary()).toHaveTextContent(/^Loading setup stocks\./);
 
     // The API's answer is the whole status: names the shortlist never held.
     await act(async () =>
@@ -163,7 +164,7 @@ describe("PicksSortedView: status filter (a request in rank order)", () => {
     searchParams = new URLSearchParams("status=triggered");
     fetchMock.mockResolvedValue(jsonResponse({ code: "unavailable" }, 503));
     renderView();
-    await screen.findByText("The full triggered list is unavailable right now.");
+    await screen.findByText("The triggered list is unavailable right now.");
     expect(tableCodes()).toEqual([TRIGGERED.code]);
     expect(region()).not.toHaveAttribute("aria-busy");
   });
@@ -182,6 +183,7 @@ describe("PicksSortedView: status filter (a request in rank order)", () => {
         }}
         rules={RULES}
         basePath="/strategies/zanger-breakout"
+        signalsHref="/strategies/zanger-breakout/signals"
         caption="Zanger Breakout Strategy: ranked ASX picks"
       />,
     );
@@ -485,7 +487,8 @@ describe("one mapper for the server action and the sort island", () => {
   });
 });
 
-// Without sign-in the API answers with the public top rows only (viewer.clamped).
+// The public RPC answers with the public top rows only (viewer.clamped), for every
+// caller, signed in or not.
 // The chips must say so: a status with no row in the top rows is not "no stocks
 // at that status", and a sort is the top of the rank order, not of the metric.
 describe("PicksSortedView: an answer clamped to the public depth", () => {

@@ -342,7 +342,7 @@ describe("StrategyPicksPage", () => {
     const nav = screen.getByRole("navigation", { name: "Filter picks by status" });
     expect(within(nav).getByRole("link", { name: /^Triggered/ })).toHaveTextContent("Triggered60");
     expect(within(nav).getByRole("link", { name: /^Watch/ })).toHaveTextContent("Watch40+");
-    expect(screen.getByTestId("itemlist")).toHaveTextContent("10");
+    expect(screen.getByTestId("itemlist").textContent).toBe(String(SHORTLIST_MAX_ROWS));
   });
 
   // Measured 2026-10-21 on /strategies/minervini-trend-template: the page's own
