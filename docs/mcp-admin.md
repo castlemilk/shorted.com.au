@@ -35,6 +35,7 @@ Code on the web) with thirty-one tools:
 | `list_job_executions` `{job, region?, limit?, page_token?}` | `jobs:read` | Paginated history; follow `nextPageToken` until absent. Default 20, maximum 100. |
 | `get_job_execution` `{job, region?, execution_name}` | `jobs:read` | Fresh status of one execution, including task/retry/cancellation counts, timings and log link. |
 | `list_enrichment_jobs` `{status?, limit?, offset?}` | `jobs:read` | Database queue with queued/processing/completed/failed/cancelled filters, stock, timestamps and error; follow `nextOffset`. |
+| `strategy_status` `{sessions?}` | `jobs:read` | Strategy engine daily snapshot: each phase of the newest sessions (status, counts, hold reasons), late (backfilled) sessions, the last complete session, the canonical versions and table sizes. Read-only; aggregates only, no user or email data. |
 | `search_job_mentions` `{query}` | `jobs:read` | Composer job search; returns up to 20 scope-protected resource references. |
 | `publish_news_article` `{slug, images?, force?}` | `news:publish` | Starts the publish job for a merged article; returns `execution_name` |
 | `news_publish_status` `{execution_name}` | `news:publish` | `running` / `succeeded` / `failed`, log link, failure reason |

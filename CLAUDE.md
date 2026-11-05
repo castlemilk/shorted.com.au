@@ -809,6 +809,18 @@ recipe fields on the wire (PR-12a).
   verified address from it: a caller passes options only. It fails closed in
   production without `INTERNAL_SERVICE_SECRET`; read-only calls send identity
   only, with no address and no Firebase lookup.
+  **Daily snapshot (migration 000155, `shorted strategies -mode daily`).** The
+  job writes one session's feature rows (`strategy_features_daily`), regime and
+  fundamentals blobs, then the live canonical versions' signal events, diffed
+  against the previous complete session and recomputed from its stored rows. It
+  holds a session whose inputs are incomplete (ASIC sync running, the price sweep
+  not completed after 05:30 UTC, priced codes under 85% of the prior median, no
+  XJO bar) and backfills held sessions oldest first. Dry run unless
+  `STRATEGIES_DRY_RUN=false`. Container suite: `make test-strategies-daily-pg`.
+  Admin `strategy_status` (`jobs:read`) reports the phases, holds and table
+  sizes, aggregates only. Landmine: the XJO bar for a session is read at its
+  stored date, which is one UTC day early under daylight saving; the readiness
+  rule and the features agree on that date, so do not "fix" one side only.
 
 ## Strategy chart primitives and returns kit (PR-17)
 

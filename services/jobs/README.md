@@ -28,7 +28,9 @@ services/jobs/
   internal/jobs/picks/        `shorted picks`      stock-picker data: full statements, filing
                               half-years + refresh_strategy_views() (new, not a port)
   internal/jobs/strategies/   `shorted strategies`  strategy engine: `-mode parity`, the read-only
-                              comparison of the Go feature port with the views
+                              comparison of the Go feature port with the views; `-mode daily`,
+                              the session's snapshot and its signal events (writes only with
+                              `STRATEGIES_DRY_RUN=false`)
   internal/jobs/ownership/    `shorted ownership`  who holds ASX stocks: substantial holder
                               notices, ETF + super fund holdings (new, not a port)
   internal/jobs/reportextract/`shorted report-extract concurrent|sequential`
@@ -71,7 +73,7 @@ services/jobs/
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
 | `review` | — (new job, data review) | no — laptop tool, read-only: `task data:review` |
 | `short-data-sync` | `services/daily-sync` (Python, **DELETED**) — **ASIC shorts tier only** | yes — `shorts-data-sync` (cutover 4, in-place image swap; Python source deleted in the cleanup slice) |
-| `strategies` | — (new job, strategy engine) | no schedule of its own: `-mode parity` by hand. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks") |
+| `strategies` | — (new job, strategy engine) | yes for `-mode daily`: `shorted-strategies-daily` (VKE-native, weekdays at :00, :20 and :40 past 13 to 16 UTC; `STRATEGIES_DRY_RUN=false` writes; the 16:40 run exits 10 when today's session is still held). `-mode parity` runs by hand. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks") |
 | `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
 | `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
 
