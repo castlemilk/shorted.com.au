@@ -3,8 +3,8 @@ package strategies
 // Real-Postgres tests for the backtest job's contract: the strict pass 1 of a
 // fundamentals strategy whose derivation finds computable_from, the not-ready
 // requests and the stale running rows an earlier execution left, the weekend-dated
-// index hold, a verify mismatch through the run (not the pure pass), the one
-// published run of a key, and the revalidation wait with no open snapshot. They
+// index hold, a verify mismatch through the run (not the pure pass), a second read
+// that fails after the first copy is released, the one published run of a key, and the revalidation wait with no open snapshot. They
 // share backtestDB and the golden dataset with backtest_pg_test.go.
 //
 //	STRATEGIES_BACKTEST_TESTCONTAINERS=1 CGO_ENABLED=0 GOWORK=off \
@@ -12,6 +12,7 @@ package strategies
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -133,10 +134,12 @@ func TestBacktestPassOneStoresTheDerivationAndSimulatesNothing(t *testing.T) {
 	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE status = 'done'`))
 }
 
-// TestBacktestUnrecordedVersionWaitsAndAStaleRunningRowIsQueuedAgain: a version the
-// daily snapshot has not recorded leaves its request queued (not failed), and a
-// row an earlier execution left running is queued again under the lease.
-func TestBacktestUnrecordedVersionWaitsAndAStaleRunningRowIsQueuedAgain(t *testing.T) {
+// TestBacktestUnrecordedVersionWaitsAndAnAbandonedRequestFailsOnce: a version the
+// daily snapshot has not recorded leaves its request queued (not failed). A row an
+// earlier execution left running is failed under the lease, not queued again, so a
+// request that kills its execution cannot repeat on every lease expiry; the day's
+// immediate request is the one retry.
+func TestBacktestUnrecordedVersionWaitsAndAnAbandonedRequestFailsOnce(t *testing.T) {
 	pool := backtestDB(t)
 	seedGolden(t, pool)
 	ctx := context.Background()
@@ -148,10 +151,18 @@ func TestBacktestUnrecordedVersionWaitsAndAStaleRunningRowIsQueuedAgain(t *testi
 	require.NoError(t, err)
 
 	res, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
-	require.NoError(t, err, "a version not yet recorded is not a failure: the job exits 0")
+	require.NoError(t, err, "an abandoned request is not a run failure: the job exits 0")
 	require.Equal(t, 0, res.Failed)
-	require.Equal(t, 1, res.NotReady)
+	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE status = 'running'`))
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE status = 'failed' AND error = 'the execution that claimed it did not finish'`),
+		"the abandoned request is failed, not queued again")
 	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs`))
+
+	// The day's immediate request is queued by the next execution, and waits for the
+	// unrecorded version without failing.
+	res, err = runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	require.Equal(t, 1, res.NotReady)
 	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE status = 'queued'`),
 		"the request waits in the queue, with no run and not failed")
 
@@ -190,6 +201,29 @@ func TestBacktestWeekendDatedIndexRowHoldsTheBatchUntilItIsGone(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, res.Held)
 	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE kind = 'publish' AND status = 'succeeded'`))
+}
+
+// TestBacktestVerifySecondReadFailureStopsTheBatchWithoutAHistory: the verify pass
+// releases the first copy before its second read, so a failed second read leaves
+// the batch no history. The batch stops with an error (exit 1), the request is
+// failed, and nothing is left running.
+func TestBacktestVerifySecondReadFailureStopsTheBatchWithoutAHistory(t *testing.T) {
+	pool := backtestDB(t)
+	seedGolden(t, pool)
+	target := goldenTarget(t, pool)
+	ctx := context.Background()
+	opts := backtestOptsFor(t, true, []backtestTarget{target})
+	opts.Load = func(context.Context, pgsource.DB, civil.Date) (*backtest.MemoryInputs, error) {
+		return nil, errors.New("the second read was refused")
+	}
+
+	res, err := runBacktest(ctx, pool, opts)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "second read was refused")
+	require.Equal(t, 1, res.Failed)
+	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE status = 'running'`))
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE status = 'failed'`))
+	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE kind = 'publish' AND status = 'succeeded'`))
 }
 
 // TestBacktestVerifyInputMismatchFailsTheRequestAndExitsTen runs the verify pass

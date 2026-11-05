@@ -422,14 +422,14 @@ func TestBacktestVerifyMismatchFailsAsADeterminismFailure(t *testing.T) {
 	opts := backtestOptsFor(t, false, nil)
 
 	// The same snapshot reproduces the run: the verify pass passes.
-	second, err := verifyPass(ctx, tx, target, target.Recipe, civil.Date{Year: 2023, Month: time.June, Day: 2}, end, opts, first)
+	second, _, err := verifyPass(ctx, tx, target, target.Recipe, civil.Date{Year: 2023, Month: time.June, Day: 2}, end, opts, first)
 	require.NoError(t, err)
 	require.Equal(t, first.Identity.OutputHash, second.Identity.OutputHash)
 
 	// A first run that disagrees with its rerun is a determinism failure.
 	corrupt := first
 	corrupt.Identity.OutputHash = "deadbeef"
-	_, err = verifyPass(ctx, tx, target, target.Recipe, civil.Date{Year: 2023, Month: time.June, Day: 2}, end, opts, corrupt)
+	_, _, err = verifyPass(ctx, tx, target, target.Recipe, civil.Date{Year: 2023, Month: time.June, Day: 2}, end, opts, corrupt)
 	require.ErrorIs(t, err, errDeterminism)
 }
 

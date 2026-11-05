@@ -191,15 +191,19 @@ func (s backtestStore) requeue(ctx context.Context, batch []backtestRequest) err
 	return nil
 }
 
-// requeueRunning puts back every request a dead execution left running. Only the
-// lease holder claims requests, so under the lease a running row belongs to an
-// execution that did not finish (an OOM kill, a deadline, a drain).
-func (s backtestStore) requeueRunning(ctx context.Context) (int64, error) {
+// failAbandoned fails every request a dead execution left running. Only the lease
+// holder claims requests, so under the lease a running row belongs to an execution
+// that did not finish (an OOM kill, a deadline, a drain). It is failed rather than
+// queued again: a request that kills every execution that takes it would otherwise
+// be retried on every lease expiry. Its key's immediate request is queued again on
+// the next day, so a failure is retried once a day, not on every run.
+func (s backtestStore) failAbandoned(ctx context.Context) (int64, error) {
 	tag, err := s.pool.Exec(ctx, `
-		UPDATE strategy_backtest_requests SET status = 'queued', started_at = NULL
+		UPDATE strategy_backtest_requests
+		   SET status = 'failed', error = 'the execution that claimed it did not finish', finished_at = now()
 		 WHERE status = 'running'`)
 	if err != nil {
-		return 0, fmt.Errorf("requeue the running requests: %w", err)
+		return 0, fmt.Errorf("fail the abandoned requests: %w", err)
 	}
 	return tag.RowsAffected(), nil
 }

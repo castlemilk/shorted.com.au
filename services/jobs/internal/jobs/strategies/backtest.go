@@ -222,13 +222,14 @@ func runBacktest(ctx context.Context, pool *pgxpool.Pool, opts backtestOptions) 
 		return backtestResult{}, err
 	}
 	// Only the lease holder claims requests, so a running row belongs to an
-	// execution that did not finish. It is queued again, not left running.
-	n, err := st.requeueRunning(ctx)
+	// execution that did not finish. It is failed, not queued again: a request
+	// that kills its execution (an OOM kill) would otherwise repeat every lease.
+	n, err := st.failAbandoned(ctx)
 	if err != nil {
 		return backtestResult{}, err
 	}
 	if n > 0 {
-		opts.Logf("strategies backtest: %d request(s) left running by an earlier execution are queued again", n)
+		opts.Logf("strategies backtest: %d request(s) left running by an earlier execution are marked failed (the day's request retries them)", n)
 	}
 	batch, err := st.claimBatch(ctx, opts.Batch)
 	if err != nil {
@@ -297,6 +298,10 @@ func processBatch(ctx context.Context, pool *pgxpool.Pool, st backtestStore, opt
 	}
 	opts.Logf("strategies backtest: read %d code(s) to %s in one snapshot, %d batch request(s)", len(inputs.BarsByCode), windowEnd, len(batch))
 	through := throughOf(inputs, windowEnd)
+	// The batch holds one copy of the history in hold; a verify pass releases it
+	// before its second read and keeps the second copy for the rest of the batch.
+	hold := &batchInputs{in: inputs}
+	inputs = nil
 
 	// seen maps a key already published in this batch to its run, so a second
 	// request for the same key is finished against that run, not recomputed.
@@ -325,7 +330,7 @@ func processBatch(ctx context.Context, pool *pgxpool.Pool, st backtestStore, opt
 			continue
 		}
 		res.Processed++
-		out, err := publishRequest(ctx, tx, st, inputs, statements, windowEnd, through, t, opts)
+		out, err := publishRequest(ctx, tx, st, hold, statements, windowEnd, through, t, opts)
 		switch {
 		case errors.Is(err, errNotReady):
 			res.NotReady++
@@ -336,7 +341,7 @@ func processBatch(ctx context.Context, pool *pgxpool.Pool, st backtestStore, opt
 		case errors.Is(err, errDeterminism):
 			res.Determinism++
 			opts.Logf("strategies backtest: %s %s: %v", t.Reg.Label, t.Recipe.ID, err)
-			if ferr := st.failRun(ctx, t, opts, firstSession(sessionsOf(inputs)), windowEnd, err); ferr != nil {
+			if ferr := st.failRun(ctx, t, opts, hold.firstSession(), windowEnd, err); ferr != nil {
 				return res, ferr
 			}
 			if ferr := st.finishRequest(ctx, req.ID, 0, err.Error(), false); ferr != nil {
@@ -364,6 +369,12 @@ func processBatch(ctx context.Context, pool *pgxpool.Pool, st backtestStore, opt
 			if err := st.finishRequest(ctx, req.ID, out.RunID, "", true); err != nil {
 				return res, err
 			}
+		}
+		// A verify pass whose second read failed has released the batch's only copy
+		// of the history. Nothing can run on no history: the error requeues the
+		// requests still running.
+		if hold.in == nil {
+			return res, fmt.Errorf("%w: %v", errBatchInputsLost, err)
 		}
 	}
 
@@ -399,17 +410,38 @@ type publishOutcome struct {
 	NotComputable bool
 }
 
+// batchInputs is the batch's one copy of the history. It is a holder so a verify
+// pass can release the first copy before its second read: the two copies are never
+// held together, which keeps the job inside its memory limit.
+type batchInputs struct {
+	in *backtest.MemoryInputs
+}
+
+// firstSession is the earliest session of the held copy, or the zero date when
+// the copy is gone.
+func (h *batchInputs) firstSession() civil.Date {
+	if h.in == nil {
+		return civil.Date{}
+	}
+	return firstSession(sessionsOf(h.in))
+}
+
+// errBatchInputsLost is a batch that cannot continue because a verify pass's
+// second read failed after the first copy was released.
+var errBatchInputsLost = errors.New("the verify pass lost the batch's history copy")
+
 // publishRequest computes one request's run inside the batch's snapshot. For a
 // fundamentals strategy whose window is computable_from, the strict policy stores
 // the derivation's outcome (pass 1) and never simulates the window: a simulation
 // would read today's fundamentals at every session. A simple recipe is simulated;
 // its first publish of a result runs the verify pass.
-func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, in *backtest.MemoryInputs, stmts map[string][]backtest.Statement, windowEnd civil.Date, through throughDates, t backtestTarget, opts backtestOptions) (publishOutcome, error) {
+func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, hold *batchInputs, stmts map[string][]backtest.Statement, windowEnd civil.Date, through throughDates, t backtestTarget, opts backtestOptions) (publishOutcome, error) {
 	var out publishOutcome
 	liveFrom, err := st.liveFrom(ctx, t)
 	if err != nil {
 		return out, err
 	}
+	in := hold.in
 	recipe := t.Recipe
 	if recipe.WindowStart == spec.WindowComputableFrom {
 		needs, ok := fundamentalsNeeds(t.Reg.Spec)
@@ -444,10 +476,17 @@ func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, in *backte
 		return out, err
 	}
 	if !verified {
-		d2, err := verifyPass(ctx, tx, t, recipe, liveFrom, windowEnd, opts, d1)
+		// The first copy is released before the second read, so one copy is held at
+		// a time. The verify pass's copy replaces it for the rest of the batch: both
+		// reads share one snapshot, so the two are identical once verified.
+		in = nil
+		hold.in = nil
+		d2, second, err := verifyPass(ctx, tx, t, recipe, liveFrom, windowEnd, opts, d1)
+		hold.in = second
 		if err != nil {
 			return out, err
 		}
+		logPeakRSS(opts.Logf)
 		if _, err := st.writeRun(ctx, runWrite{
 			Target: t, Recipe: recipe, Kind: "verify", WindowEnd: windowEnd,
 			Disclosures: d2, Result: base, Build: opts.Build, Verified: true,
@@ -475,29 +514,30 @@ func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, in *backte
 }
 
 // verifyPass reruns the key from a second read inside the same transaction and
-// compares the input hash and the output hash. A mismatch is a
-// determinism failure. The rerun is stored as kind verify, the record of it.
-func verifyPass(ctx context.Context, tx pgx.Tx, t backtestTarget, recipe spec.Recipe, liveFrom, windowEnd civil.Date, opts backtestOptions, first backtest.Disclosures) (backtest.Disclosures, error) {
+// compares the input hash and the output hash. A mismatch is a determinism
+// failure. It returns the rerun's disclosures and the second copy of the inputs
+// (nil when the read failed). The rerun is stored as kind verify, the record of it.
+func verifyPass(ctx context.Context, tx pgx.Tx, t backtestTarget, recipe spec.Recipe, liveFrom, windowEnd civil.Date, opts backtestOptions, first backtest.Disclosures) (backtest.Disclosures, *backtest.MemoryInputs, error) {
 	load := opts.Load
 	if load == nil {
 		load = pgsource.LoadBacktestInputs
 	}
 	second, err := load(ctx, tx, windowEnd)
 	if err != nil {
-		return backtest.Disclosures{}, fmt.Errorf("verify: second read: %w", err)
+		return backtest.Disclosures{}, nil, fmt.Errorf("verify: second read: %w", err)
 	}
 	d2, _, err := backtest.Disclose(second, t.Reg.Spec, recipe, liveFrom, nil, windowEnd, opts.Build, "")
 	if err != nil {
-		return backtest.Disclosures{}, fmt.Errorf("verify: rerun: %w", err)
+		return backtest.Disclosures{}, second, fmt.Errorf("verify: rerun: %w", err)
 	}
 	if d2.Identity.InputHash != first.Identity.InputHash {
-		return d2, fmt.Errorf("%w: input hash %s != %s", errDeterminism, shortHash(d2.Identity.InputHash), shortHash(first.Identity.InputHash))
+		return d2, second, fmt.Errorf("%w: input hash %s != %s", errDeterminism, shortHash(d2.Identity.InputHash), shortHash(first.Identity.InputHash))
 	}
 	if d2.Identity.OutputHash != first.Identity.OutputHash {
-		return d2, fmt.Errorf("%w: output hash %s != %s", errDeterminism, shortHash(d2.Identity.OutputHash), shortHash(first.Identity.OutputHash))
+		return d2, second, fmt.Errorf("%w: output hash %s != %s", errDeterminism, shortHash(d2.Identity.OutputHash), shortHash(first.Identity.OutputHash))
 	}
 	opts.Logf("strategies backtest: %s %s determinism ok (input %s output %s)", t.Reg.Label, recipe.ID, shortHash(d2.Identity.InputHash), shortHash(d2.Identity.OutputHash))
-	return d2, nil
+	return d2, second, nil
 }
 
 // dryRunBacktest computes each eligible target once and logs it. It writes
