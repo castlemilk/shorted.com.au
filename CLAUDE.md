@@ -612,8 +612,7 @@ routing 404) and renders the breadcrumbs, `components/strategies/strategy-header
 `strategies-sub-nav.tsx`, links with `scroll` and has no dock). Tabs live in `lib/strategies/strategy-tabs.ts` and render only
 when `enabled`; capability flags in `lib/strategies/capabilities.ts` are all off
 until their capability ships, so no Compare, Create alert or Alert-me control
-renders before then. The Overview page keeps `StrategyPanel`, the shortlist and
-the sorted view unchanged.
+renders before then. The Overview page keeps `StrategyPanel` unchanged.
 
 **Signals tab (`/strategies/[strategy]/signals`).** The stock-by-rule matrix:
 one column per core rule, each cell a pass, fail, unknown or waiting mark with
@@ -756,13 +755,15 @@ recipe fields on the wire (PR-12a).
   and in the sort island's props, each with its fundamentals disclosure.
   With the API's 100 rows that made `/strategies/minervini-trend-template`
   1.85 MB of HTML (measured 2026-10-07). `shortlistRows` caps the server
-  shortlist at `SHORTLIST_MAX_ROWS` (10, the anonymous public depth), the
-  island gets `counts` from `countByStatus` over every row instead of the
-  rows. Under the production clamp a status or sort chip's answer is the
-  public top 10 for every caller (`viewer.clamped`), so the island words it
-  as the top rows and links "See all signals" to the Signals tab, the only
-  place with signed-in depth. Do not hand the island every row
-  again, and do not add a per-row `<details>` outside the fundamentals cell.
+  shortlist at `SHORTLIST_MAX_ROWS` (10, the anonymous public depth), and the
+  island gets the chip `counts` from `statusCountsOf` (the API's
+  `status_counts`, which stay the whole ranking under the clamp) instead of
+  the rows. Under the production clamp a status or sort chip's answer is the
+  public top 10 for every caller of the public RPC (`viewer.clamped`), signed
+  in or not, so the island words it as the top rows and links "See all
+  signals" to the Signals tab, the only place with signed-in depth. Do not
+  hand the island every row again, and do not add a per-row `<details>`
+  outside the fundamentals cell.
 - **The base is anchored.** After a breakout `mv_price_features` reports
   `base_high` / `base_low` / `base_length_days` as at the breakout session, so the
   pivot is the level cleared (the invalidation level), and `base_length_days`
