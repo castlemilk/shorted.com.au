@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import faulthandler
 import json
 import logging
 import os
@@ -107,6 +108,8 @@ NO_SHARE_COUNT_OUTCOME = "invalid_no_share_count"  # extract()'s outcome when no
 MAX_SYSTEMIC_ERRORS = 5       # the run exits 1 at this many model errors (or 3 at a fifth of the calls)
 BUDGET_GRACE_S = 300          # a read still running this long past the budget is abandoned (nothing recorded)
 NOTICE_CALL_TIMEOUT_S = 120.0 # one model call's HTTP timeout for a notice (the filings pass uses 180)
+STATEMENT_TIMEOUT_MS = 60_000   # every statement after the selection is bounded on the server (SET LOCAL, which holds on the transaction pooler)
+WATCHDOG_MARGIN_S = 600         # past the grace, a run whose main thread has still not acted is dumped (every thread's stack) and ended
 NOTICE_CALL_ATTEMPTS = 2      # attempts per model call for a notice (the filings pass uses 5)
 
 SYSTEM_PROMPT = """You read an ASX substantial holding notice (Form 603, 604 or 605) for a database that publishes who holds what in ASX companies. A wrong figure is far worse than a missing one.
@@ -1084,6 +1087,32 @@ def record_withheld(cur, url: str, outcome: str, reason: str) -> None:
                 (f"model: {reason} (parser: {outcome})", url))
 
 
+def connect_kwargs(dsn: str) -> dict:
+    """psycopg2.connect's arguments: TCP keepalives and a connect timeout, so a peer that went away
+    (the transaction pooler, a NAT) is noticed within about a minute instead of never. The second
+    live run (2026-11-05) froze for 107 minutes with every result landed and no model call open:
+    nothing in the run was unbounded but the shared connection."""
+    return {"dsn": dsn, "connect_timeout": 15, "keepalives": 1, "keepalives_idle": 30,
+            "keepalives_interval": 10, "keepalives_count": 3}
+
+
+def bound(cur) -> None:
+    """Bounds this transaction's statements. SET LOCAL holds on the transaction pooler, where a
+    session SET would land on whichever server connection the pooler hands out next."""
+    cur.execute(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}")
+
+
+def watchdog_arm(seconds: float) -> None:
+    """A C-level timer that needs no GIL and no cooperating thread: at the deadline it writes every
+    thread's stack to stderr and ends the process with exit 1, so the Job fails and alerts, and the
+    log says where the run was stuck. The grace stop needs the main thread; this does not."""
+    faulthandler.dump_traceback_later(seconds, repeat=False, file=sys.stderr, exit=True)
+
+
+def watchdog_disarm() -> None:
+    faulthandler.cancel_dump_traceback_later()
+
+
 def shares_on_issue(cur, code: str, on: str) -> float:
     cur.execute(SHARES_SQL, (code, on, on))
     row = cur.fetchone()
@@ -1127,7 +1156,9 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
     """Reads the withheld notices, largest company first, within the budget. Writes only when
     not a dry run. Returns the counts; the caller decides the exit code from model_errors."""
     counts: Counter = Counter()
+    watchdog_arm(budget_min * 60 + BUDGET_GRACE_S + WATCHDOG_MARGIN_S)
     with conn.cursor() as cur:
+        bound(cur)
         cur.execute(SELECT_SQL, {"since": since or None, "limit": limit if limit > 0 else 10**9})
         rows = cur.fetchall()
         institutions = institution_index(institution_rows(cur))
@@ -1162,6 +1193,7 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
         with db_lock:
             if (code, on) not in count_cache:
                 with conn.cursor() as cur:
+                    bound(cur)
                     count_cache[(code, on)] = shares_on_issue(cur, code, on)
             return count_cache[(code, on)]
 
@@ -1186,7 +1218,9 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
                 break
             # Past the budget, a read still running gets a grace period and no more: a model
             # call can retry for minutes (the first live run hung for 106 minutes after its
-            # budget, until the pod's deadline killed it with nothing logged).
+            # budget, until the pod's deadline killed it with nothing logged). This stop needs
+            # the main thread; the watchdog armed above does not, and the second live run
+            # (107 minutes frozen, this thread included) is why both exist.
             grace_left = (budget_min * 60 + BUDGET_GRACE_S) - (clock() - start)
             done, _ = concurrent.futures.wait(pending, timeout=max(1.0, grace_left),
                                               return_when=concurrent.futures.FIRST_COMPLETED)
@@ -1194,6 +1228,8 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
                 counts["abandoned"] = len(pending)
                 for cand in pending.values():
                     log.warning("  abandoned at the budget's grace, nothing recorded: %s", cand.url)
+                log.warning("  every thread's stack follows on stderr")
+                faulthandler.dump_traceback(file=sys.stderr, all_threads=True)
                 pool.shutdown(wait=False, cancel_futures=True)
                 abandoned = True
                 break
@@ -1231,6 +1267,7 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
                     counts[f"withheld:{res['reason']}"] += 1
                     if not dry_run:
                         with db_lock, conn.cursor() as cur:
+                            bound(cur)
                             record_withheld(cur, cand.url, cand.outcome, res["reason"])
                             conn.commit()
                     else:
@@ -1245,11 +1282,13 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
                              n.previous_votes, n.present_votes, n.ceased)
                     continue
                 with db_lock, conn.cursor() as cur:
+                    bound(cur)
                     wrote = write_recovered(cur, cand.url, code, cand.announced_on, n)
                     conn.commit()
                 counts["written" if wrote else "kept_parser_row"] += 1
     finally:
         pool.shutdown(wait=not abandoned, cancel_futures=True)
+        watchdog_disarm()
     if queue:
         # The budget ran out, or five model errors in a row stopped new work: these were never read.
         counts["not_started"] = len(queue)
@@ -1356,7 +1395,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 1
     import psycopg2
 
-    conn = psycopg2.connect(dsn)
+    conn = psycopg2.connect(**connect_kwargs(dsn))
     try:
         counts = run(conn, extractor, limit=args.limit, workers=args.workers, budget_min=args.budget_min,
                      since=args.since, dry_run=args.dry_run)
