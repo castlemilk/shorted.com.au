@@ -21,12 +21,18 @@
 // and the after recording must be the snapshot's own session (GetStrategyDataStatus
 // names it), so a views fallback cannot pass as a cutover.
 //
-// Every status must be identical for every code, for all five strategies. The
-// allowed differences (the PR-11 live check) are the only ones a diff accepts:
-//   - crowded-short-breakout: a code whose days_to_cover changed (its 20-bar window
-//     gained session D's bar). Its score and rank may move with it; its status may not.
+// Every status must be identical for every code, for all five strategies, and the
+// status counts and total must match once the allowed codes are left out of both
+// recordings. The allowed differences (the PR-11 live check) are the only ones a diff accepts:
+//   - crowded-short-breakout: a code whose days_to_cover changed (its 35-calendar-day
+//     window gained session D's bar). Its score and rank may move with it; its status may not.
+//     Days to cover is a stock-specific rule, so it can also be the only rule a code passes,
+//     which lists it as a watch pick: such a code may enter or leave the list when that is
+//     the only passing rule on the side that has it. A days_to_cover value that becomes
+//     unknown is never allowed.
 //   - zanger-breakout, canslim, quality-compounders: a code whose fundamentals digest
-//     changed since the snapshot was written. Its figures moved, so it is excluded.
+//     changed since the snapshot was written (both digests present and different). Its
+//     figures moved, so it is excluded, its status included, and it is left out of the counts.
 // Pick ranks are not compared: they follow from status and score. BHP's fit is compared
 // by status and score, and its rank only when a code of that strategy was allowed to move.
 
@@ -46,6 +52,7 @@ export const STRATEGY_IDS = [
 export const FUNDAMENTALS_STRATEGIES = new Set(["zanger-breakout", "canslim", "quality-compounders"]);
 
 export const DAYS_TO_COVER_STRATEGY = "crowded-short-breakout";
+const DAYS_TO_COVER_RULE = "days_to_cover";
 export const MINERVINI_TOP = 10;
 export const FIT_CODE = "BHP";
 export const PAGE_SIZE = 100;
@@ -124,6 +131,9 @@ export function summarisePicks(resp) {
       rank: p.rank ?? 0,
       daysToCover: p.hasDaysToCover ? round(p.daysToCover) : null,
       digest: fundamentalsDigest(p.fundamentals),
+      // The stock-specific rules this code passed (regime excluded), sorted: a pick
+      // needs one of them, so a code whose only one is days_to_cover is listed on that alone.
+      passing: passingRules(p.rules),
     };
   }
   return {
@@ -143,6 +153,15 @@ export function summarisePicks(resp) {
 
 function round(v) {
   return typeof v === "number" ? Math.round(v * 1e6) / 1e6 : null;
+}
+
+const REGIME_RULE = "regime";
+
+function passingRules(rules) {
+  return (rules ?? [])
+    .filter((r) => r?.status === "pass" && r.ruleId !== REGIME_RULE)
+    .map((r) => r.ruleId)
+    .sort();
 }
 
 // collectStrategy reads one strategy's whole list, page by page. It fails when a
@@ -196,6 +215,27 @@ export async function record(baseUrl, { now = new Date(), fetchImpl = fetch, tok
   return out;
 }
 
+// netCounts is a recording's status counts and total with the excluded codes left out.
+// The API counts the whole list, and the recording holds every row, so each excluded
+// code's status is taken off the counts it was in.
+function netCounts(rec, strategy, excluded) {
+  const counts = { ...strategy.statusCounts };
+  let total = strategy.totalCount;
+  for (const code of excluded) {
+    const s = strategy.statuses[code];
+    if (!s) continue;
+    total -= 1;
+    if (Object.hasOwn(counts, s.status)) counts[s.status] -= 1;
+  }
+  return { counts, total };
+}
+
+// isWatchOnDaysToCover: a crowded-short code listed on days to cover alone. Days to cover
+// is its only passing stock-specific rule, so the pick exists only through that rule.
+function isWatchOnDaysToCover(entry) {
+  return entry.status === "watch" && entry.daysToCover !== null && entry.passing?.length === 1 && entry.passing[0] === DAYS_TO_COVER_RULE;
+}
+
 // diff compares two recordings. before is the views' recording, after the snapshot's.
 // It returns { identical, allowed, unexpected, info }.
 export function diff(before, after) {
@@ -226,29 +266,38 @@ export function diff(before, after) {
     if (b.shortReportDate !== a.shortReportDate) {
       unexpected.push(`${id}: short_report_date ${b.shortReportDate} -> ${a.shortReportDate}`);
     }
-    if (JSON.stringify(b.statusCounts) !== JSON.stringify(a.statusCounts)) {
-      unexpected.push(`${id}: status_counts ${JSON.stringify(b.statusCounts)} -> ${JSON.stringify(a.statusCounts)}`);
-    }
-    if (b.totalCount !== a.totalCount) {
-      unexpected.push(`${id}: total_count ${b.totalCount} -> ${a.totalCount}`);
-    }
 
+    const excluded = new Set();
     const codes = new Set([...Object.keys(b.statuses), ...Object.keys(a.statuses)]);
     for (const code of [...codes].sort()) {
       const x = b.statuses[code];
       const y = a.statuses[code];
       if (!x || !y) {
-        unexpected.push(`${id} ${code}: ${x ? "left" : "entered"} the list (${JSON.stringify(x ?? null)} -> ${JSON.stringify(y ?? null)})`);
+        const side = x ?? y;
+        const label = `${id} ${code}: ${x ? "left" : "entered"} the list (${JSON.stringify(x ?? null)} -> ${JSON.stringify(y ?? null)})`;
+        if (id === DAYS_TO_COVER_STRATEGY && isWatchOnDaysToCover(side)) {
+          allowed.push(`${label} [days_to_cover is its only passing rule and its window gained session D's bar]`);
+          allowedCodes[id].add(code);
+          excluded.add(code);
+        } else {
+          unexpected.push(label);
+        }
         continue;
       }
       const label = `${id} ${code}: ${JSON.stringify(x)} -> ${JSON.stringify(y)}`;
+      if (id === DAYS_TO_COVER_STRATEGY && x.daysToCover !== null && y.daysToCover === null) {
+        // Adding a bar can turn an unknown days to cover into a value, never a value into unknown.
+        unexpected.push(`${label} [days_to_cover lost its value]`);
+        continue;
+      }
       const dtcMoved = id === DAYS_TO_COVER_STRATEGY && x.daysToCover !== y.daysToCover;
-      const digestMoved = FUNDAMENTALS_STRATEGIES.has(id) && x.digest !== y.digest;
+      const digestMoved = FUNDAMENTALS_STRATEGIES.has(id) && x.digest !== null && y.digest !== null && x.digest !== y.digest;
       if (x.status !== y.status) {
         // A status never moves for a crowded-short code on days to cover alone.
         if (digestMoved) {
           allowed.push(`${label} [fundamentals digest changed since the snapshot]`);
           allowedCodes[id].add(code);
+          excluded.add(code);
         } else {
           unexpected.push(label);
         }
@@ -261,6 +310,7 @@ export function diff(before, after) {
         } else if (digestMoved) {
           allowed.push(`${label} [fundamentals digest changed since the snapshot]`);
           allowedCodes[id].add(code);
+          excluded.add(code);
         } else {
           unexpected.push(label);
         }
@@ -269,7 +319,19 @@ export function diff(before, after) {
       if (dtcMoved || digestMoved) {
         allowed.push(`${label} [${dtcMoved ? "days_to_cover" : "fundamentals digest"} moved; status and score unchanged]`);
         allowedCodes[id].add(code);
+        if (digestMoved) excluded.add(code);
       }
+    }
+
+    // The counts are compared net of the allowed codes, which are left out of both
+    // recordings. Anything else that moves the counts is unexpected.
+    const nb = netCounts(before, b, excluded);
+    const na = netCounts(after, a, excluded);
+    if (JSON.stringify(nb.counts) !== JSON.stringify(na.counts)) {
+      unexpected.push(`${id}: status_counts ${JSON.stringify(nb.counts)} -> ${JSON.stringify(na.counts)} (net of ${excluded.size} allowed code(s))`);
+    }
+    if (nb.total !== na.total) {
+      unexpected.push(`${id}: total_count ${nb.total} -> ${na.total} (net of ${excluded.size} allowed code(s))`);
     }
 
     if (id === "minervini-trend-template" && JSON.stringify(b.top) !== JSON.stringify(a.top)) {

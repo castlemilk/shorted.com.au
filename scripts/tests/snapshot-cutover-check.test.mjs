@@ -313,3 +313,164 @@ test("record with a token reads the viewer list and never writes the token into 
   assert.equal(rec.dataStatus.snapshotAsOf, "2026-11-04");
   assert.ok(!JSON.stringify(rec).includes(token), "the token is never recorded");
 });
+
+// A crowded-short code whose days to cover is its only stock-specific pass: the pick
+// exists only through that rule, so a change to the window can list or unlist it.
+const dtcOnly = (daysToCover) => ({ status: "watch", score: 12, rank: 3, daysToCover, digest: null, passing: ["days_to_cover"] });
+
+test("summarisePicks records the stock-specific passing rules, never the regime", () => {
+  const s = summarisePicks({
+    picks: [
+      {
+        stockCode: "SRN",
+        status: "watch",
+        rules: [
+          { ruleId: "regime", status: "pass" },
+          { ruleId: "days_to_cover", status: "pass" },
+          { ruleId: "short_interest", status: "fail" },
+          { ruleId: "rs", status: "pass" },
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(s.statuses.SRN.passing, ["days_to_cover", "rs"]);
+});
+
+test("a crowded-short code that enters the list on days to cover alone is allowed", () => {
+  const after = recording({
+    strategies: {
+      "crowded-short-breakout": strategy({
+        totalCount: 3,
+        statusCounts: { triggered: 1, setup: 1, watch: 1 },
+        statuses: {
+          ...strategy().statuses,
+          SRN: dtcOnly(5.11),
+        },
+      }),
+    },
+  });
+  const r = diff(recording(), after);
+  assert.deepEqual(r.unexpected, []);
+  assert.equal(r.allowed.length, 1);
+  assert.match(r.allowed[0], /crowded-short-breakout SRN: entered the list .*only passing rule/);
+});
+
+test("a crowded-short code that leaves the list on days to cover alone is allowed", () => {
+  const before = recording({
+    strategies: {
+      "crowded-short-breakout": strategy({
+        totalCount: 3,
+        statusCounts: { triggered: 1, setup: 1, watch: 1 },
+        statuses: { ...strategy().statuses, SRN: dtcOnly(4.99) },
+      }),
+    },
+  });
+  const r = diff(before, recording());
+  assert.deepEqual(r.unexpected, []);
+  assert.match(r.allowed[0], /crowded-short-breakout SRN: left the list/);
+});
+
+test("a crowded-short code that enters with another passing rule is unexpected", () => {
+  const after = recording({
+    strategies: {
+      "crowded-short-breakout": strategy({
+        totalCount: 3,
+        statusCounts: { triggered: 1, setup: 1, watch: 1 },
+        statuses: { ...strategy().statuses, SRN: { ...dtcOnly(5.11), passing: ["days_to_cover", "rs"] } },
+      }),
+    },
+  });
+  const r = diff(recording(), after);
+  assert.ok(r.unexpected.some((l) => l.startsWith("crowded-short-breakout SRN: entered the list")));
+});
+
+test("a crowded-short days to cover that becomes unknown is unexpected, one that becomes a value is not", () => {
+  const lost = recording({
+    strategies: {
+      "crowded-short-breakout": strategy({
+        statuses: {
+          BHP: { status: "triggered", score: 88, rank: 1, daysToCover: null, digest: null, passing: ["breakout"] },
+          CBA: strategy().statuses.CBA,
+        },
+      }),
+    },
+  });
+  const r = diff(recording(), lost);
+  assert.ok(r.unexpected.some((l) => l.includes("crowded-short-breakout BHP") && l.includes("days_to_cover lost its value")));
+
+  const gained = recording({
+    strategies: {
+      "crowded-short-breakout": strategy({
+        statuses: {
+          BHP: { status: "triggered", score: 88, rank: 1, daysToCover: 2.4, digest: null, passing: ["breakout"] },
+          CBA: strategy().statuses.CBA,
+        },
+      }),
+    },
+  });
+  const base = recording({
+    strategies: {
+      "crowded-short-breakout": strategy({
+        statuses: {
+          BHP: { status: "triggered", score: 88, rank: 1, daysToCover: null, digest: null, passing: ["breakout"] },
+          CBA: strategy().statuses.CBA,
+        },
+      }),
+    },
+  });
+  assert.deepEqual(diff(base, gained).unexpected, []);
+});
+
+test("a digest-moved status change is allowed, and the counts are compared net of it", () => {
+  const after = recording({
+    strategies: {
+      canslim: strategy({
+        statusCounts: { triggered: 0, setup: 2, watch: 0 },
+        statuses: {
+          BHP: { status: "setup", score: 90, rank: 1, daysToCover: 2.1, digest: "cccc" },
+          CBA: { status: "setup", score: 70, rank: 2, daysToCover: 3.0, digest: "bbbb" },
+        },
+      }),
+    },
+  });
+  const r = diff(recording(), after);
+  assert.deepEqual(r.unexpected, []);
+  assert.equal(r.allowed.length, 1);
+  assert.match(r.allowed[0], /canslim BHP: \{"status":"triggered".*"setup".*fundamentals digest changed/);
+});
+
+test("a digest that appears or vanishes within one session is not a digest change", () => {
+  const after = recording({
+    strategies: {
+      canslim: strategy({
+        statuses: {
+          BHP: { status: "setup", score: 90, rank: 1, daysToCover: 2.1, digest: null },
+          CBA: { status: "setup", score: 70, rank: 2, daysToCover: 3.0, digest: "bbbb" },
+        },
+      }),
+    },
+  });
+  const r = diff(recording(), after);
+  assert.ok(r.unexpected.some((l) => l.startsWith("canslim BHP")), "a status change with a vanished digest is not allowed");
+  assert.deepEqual(r.allowed, []);
+});
+
+test("the counts still have to match once the allowed codes are left out", () => {
+  const after = recording({
+    strategies: {
+      canslim: strategy({
+        statusCounts: { triggered: 0, setup: 2, watch: 0 },
+        statuses: {
+          BHP: { status: "setup", score: 90, rank: 1, daysToCover: 2.1, digest: "cccc" },
+          CBA: { status: "setup", score: 70, rank: 2, daysToCover: 3.0, digest: "bbbb" },
+        },
+      }),
+    },
+  });
+  // The digest-moved code is allowed to change status, but a count the allowed codes do not explain is not.
+  after.strategies.canslim.statusCounts = { triggered: 0, setup: 2, watch: 1 };
+  after.strategies.canslim.totalCount = 3;
+  const r = diff(recording(), after);
+  assert.ok(r.unexpected.some((l) => l.startsWith("canslim: status_counts")));
+  assert.ok(r.unexpected.some((l) => l.startsWith("canslim: total_count")));
+});
