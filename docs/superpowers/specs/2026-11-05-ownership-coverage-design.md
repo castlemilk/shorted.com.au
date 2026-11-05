@@ -59,5 +59,12 @@ The top twenty shareholders table in every annual report (the report extractor a
 4. 2.5 and 2.6 as follow-ups.
 
 Every step reports what it recovered and what it set aside, in the job's log and on the hub's band.
-- **Measured on production, 2026-11-05.** `resolve-unavailable` over the first 400 fetch errors: recovered 0, set aside 15 (delisted), 385 still fetch errors because ASX's announcements API answers a company's five newest items whatever the parameters (count, page, offset, dates). The API path therefore serves the nightly's new failures only; the 853 backlog stays as it is until another source exists, and the hub counts it as set aside.
-- **The ETF universe the hub states** is ASX's investment products categories "Equity - Australia" and "Property - Australia" (81 on 2026-11-05), carried as `etfs_australian_equity` on the overview; the band reads "N of M Australian-equity ETFs tracked".
+
+## 4. Decisions taken while building wave 1 (2026-11-05)
+
+- The migration is **000154**, not 000145 (taken by chat usage events).
+- An API match is accepted only when the company's list provably covers the notice's Sydney day (the oldest listed item is before it) and no other notice in the announcements feed shares the code, day and headline: the document key cannot be tied to the display id, so a same-day notice of the same generic headline would otherwise be stored under the wrong URL. A notice the API never answered (the run cap, a refusal, a cut list) is recorded at a version below the API path's, so the next night asks again; two documents on one day is a fetch_error, not unavailable.
+- The announcements API lists only a company's newest items (about 200, with no paging that reaches further back), so it recovers recent unavailable notices and sets the rest aside; older ones need another source before the backlog is claimed.
+- A notice with no ASIC share count on record is never sent to a model (a 603 or 604 must state votes the validator cannot check); it is counted `no_share_count` and re-selected only when a count appears.
+- The gold set holds nine hand readings and twenty-one withheld entries (eight no_share_count); five scans over 300 KB keep no PDF and the bench skips them. The scan readings are checked by eye, not against a stored text.
+- A parser write resets `read_by` to parser on both upserts; the web's overview, institution and stock KV keys are v3.
