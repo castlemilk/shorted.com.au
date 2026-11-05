@@ -1,4 +1,4 @@
-import { layoutLevels } from "../chart-levels";
+import { layoutLevels, spreadLabels } from "../chart-levels";
 
 // x: 10 ms per px over a 0..1000 ms domain (0..100 px); y: 100 - value.
 const x = (t: number) => t / 10;
@@ -287,5 +287,17 @@ describe("layoutLevels labels", () => {
       if (!inside) outside.push(t);
     }
     expect(outside).toEqual([]);
+  });
+});
+
+describe("spreadLabels with tags", () => {
+  it("spaces two tagged labels 15 px apart so their tag boxes do not overlap", () => {
+    const [a, b] = spreadLabels([60, 61], 200, { tagged: [true, true] });
+    expect(b - a).toBeGreaterThanOrEqual(15);
+  });
+
+  it("keeps an untagged pair at 11 px", () => {
+    const [a, b] = spreadLabels([60, 61], 200, { tagged: [false, false] });
+    expect(b - a).toBe(11);
   });
 });

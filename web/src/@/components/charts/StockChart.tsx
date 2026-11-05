@@ -18,11 +18,19 @@ import { Line, AreaClosed } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
 import { localPoint } from "@visx/event";
 import { decimate } from "./decimate";
+import { regionLabelShown, regionPaint } from "./chart-regions";
+import { layoutEndLabels } from "./end-labels";
 import { volumeBarAt } from "./volume-bars";
 import { AXIS_NUM_TICKS, axisMargin } from "./axis-margin";
 import { useChartScales, valueAxisLabels } from "./use-chart-scales";
 import { normalizeToPercentChange } from "./indicators";
-import { layoutLevels } from "./chart-levels";
+import { LABEL_CHAR_PX, layoutLevels } from "./chart-levels";
+import {
+  ANNOTATION_FILL,
+  EVENT_FILL,
+  layoutPointMarks,
+  type PointMarkGeometry,
+} from "./chart-events";
 import {
   LEGEND_GAP_PX,
   LEGEND_HEADROOM_PX,
@@ -62,8 +70,11 @@ import {
 } from "./chart-tooltip";
 import { useCoarsePointer } from "~/@/hooks/use-coarse-pointer";
 import type {
+  ChartAnnotation,
   ChartBand,
+  ChartEvent,
   ChartLevel,
+  ChartRegion,
   ChartMarker,
   ChartPoint,
   ChartSeriesSpec,
@@ -110,12 +121,35 @@ const NO_MARKERS: readonly ChartMarker[] = Object.freeze([]);
 // recompute the memos built on them every render.
 const NO_INDICATORS: SeriesIndicator[] = [];
 const NO_OSCILLATORS: OscillatorSpec[] = [];
+const NO_END_LABELS: ReturnType<typeof layoutEndLabels> = [];
+const NO_EVENTS: readonly ChartEvent[] = Object.freeze([]);
+const NO_ANNOTATIONS: readonly ChartAnnotation[] = Object.freeze([]);
+const NO_POINT_MARKS: PointMarkGeometry[] = [];
+
+/** The rect attributes that paint a region's tone (chart-regions.ts). */
+function regionAttrs(tone: ChartRegion["tone"]) {
+  const paint = regionPaint(tone);
+  return {
+    fill: paint.fill,
+    fillOpacity: paint.fillOpacity,
+    style: paint.cssFill ? { fill: paint.cssFill } : undefined,
+  };
+}
 // The tooltip shows the reading, so no strip needs the room of a value.
 const NO_VALUE_CHARS: Readonly<Record<string, number>> = Object.freeze({});
 
 // What a screen reader is told about the chart, and how to drive it.
 const CHART_LABEL =
   "Chart. Use the left and right arrow keys to step through readings, Escape to release.";
+
+/**
+ * A normalised value (percent change since the first point on screen), signed
+ * with a true minus: "+11.0%", "−3.4%".
+ */
+function formatPercentChange(value: number): string {
+  const sign = value < 0 ? "−" : "+";
+  return `${sign}${Math.abs(value).toFixed(1)}%`;
+}
 
 function normalizePoints(points: ChartPoint[]): ChartPoint[] {
   if (!points.length) return points;
@@ -155,6 +189,8 @@ export function StockChartInner({
   levels = NO_LEVELS,
   bands = NO_BANDS,
   markers = NO_MARKERS,
+  events = NO_EVENTS,
+  annotations = NO_ANNOTATIONS,
   leftAxis,
   rightAxis,
   viewMode = "absolute",
@@ -437,6 +473,65 @@ export function StockChartInner({
       range: [mainH, mainH * 0.72],
     });
   }, [decVolume, mainH]);
+
+  // The final value of each series that asks for an end label, placed at the
+  // plot's right edge. It is read from what is drawn (renderSeries): the zoom,
+  // the decimation (which keeps the last point) and the normalised view are all
+  // applied, so the label names the value the line ends at. Off (the shared empty
+  // list) unless a series sets it.
+  const endLabels = useMemo(() => {
+    const items = renderSeries
+      .filter((s) => s.endLabel && s.points.length > 0)
+      .map((s) => {
+        const last = s.points[s.points.length - 1]!.v;
+        const format = s.axis === "right" ? rightAxis?.format : leftAxis?.format;
+        return {
+          id: s.id,
+          y: scaleForAxis(s.axis)(last) ?? NaN,
+          text:
+            viewMode === "normalized"
+              ? formatPercentChange(last)
+              : format
+                ? format(last)
+                : last.toLocaleString("en-AU", { maximumFractionDigits: 2 }),
+          color: s.color,
+        };
+      });
+    if (!items.length) return NO_END_LABELS;
+    return layoutEndLabels(items, { innerW, innerH: mainH });
+  }, [renderSeries, leftAxis, rightAxis, scaleForAxis, innerW, mainH, viewMode]);
+
+  // Dots on the series (events) and value callouts (annotations): pure, clipped
+  // to the plot. Off (the shared empty list) unless a caller passes one.
+  const pointMarks = useMemo(() => {
+    if (!events.length && !annotations.length) return NO_POINT_MARKS;
+    return layoutPointMarks(
+      [
+        ...events.map((e) => ({
+          kind: "event" as const,
+          t: e.t,
+          v: e.v,
+          axis: e.axis ?? "left",
+          label: e.label,
+          fill: EVENT_FILL[e.tone],
+        })),
+        ...annotations.map((a) => ({
+          kind: "annotation" as const,
+          t: a.t,
+          v: a.v,
+          axis: a.axis ?? "left",
+          label: a.label,
+          fill: ANNOTATION_FILL,
+        })),
+      ],
+      {
+        x: (t) => dateScale(t) ?? NaN,
+        yFor: (axis) => (v) => scaleForAxis(axis)(v) ?? NaN,
+        innerW,
+        innerH: mainH,
+      },
+    );
+  }, [events, annotations, dateScale, scaleForAxis, innerW, mainH]);
 
   // Reference geometry (strategy levels): pure, clipped to the plot, recomputed
   // only when the scales change or a caller passes new arrays (an omitted prop is
@@ -1055,19 +1150,32 @@ export function StockChartInner({
             const x = Math.max(0, Math.min(xa, xb));
             const cw = Math.min(Math.max(xa, xb), innerW) - x;
             if (cw <= 0) return null;
+            const labelled = regionLabelShown(r.tone, r.label, cw);
             return (
-              <rect
-                key={`region-${i}`}
-                x={x}
-                y={0}
-                width={cw}
-                height={mainH}
-                fill={r.tone === "bearish" ? "#ef4444" : "#22c55e"}
-                fillOpacity={0.1}
-                pointerEvents="none"
-              >
-                {r.label ? <title>{r.label}</title> : null}
-              </rect>
+              <React.Fragment key={`region-${i}`}>
+                <rect
+                  x={x}
+                  y={0}
+                  width={cw}
+                  height={mainH}
+                  {...regionAttrs(r.tone)}
+                  pointerEvents="none"
+                >
+                  {r.label ? <title>{r.label}</title> : null}
+                </rect>
+                {labelled ? (
+                  <text
+                    data-chart-region-label
+                    x={x + 6}
+                    y={12}
+                    fontSize={10}
+                    fill={chartTheme.axisLabel}
+                    pointerEvents="none"
+                  >
+                    {r.label}
+                  </text>
+                ) : null}
+              </React.Fragment>
             );
           })}
           {reference.bands.map((b, i) => (
@@ -1116,6 +1224,50 @@ export function StockChartInner({
               gradientId={`${gid}-grad-${i}`}
             />
           ))}
+          {pointMarks.length > 0 && (
+            <g data-chart="point-marks" pointerEvents="none">
+              {pointMarks.map((m, i) => (
+                <g key={`mark-${i}`} data-chart-mark={m.kind}>
+                  <circle
+                    cx={m.x}
+                    cy={m.y}
+                    r={3.5}
+                    style={{ fill: m.fill }}
+                    stroke="hsl(var(--background))"
+                    strokeWidth={1.5}
+                  />
+                  {m.label ? (
+                    <text
+                      x={m.labelX}
+                      y={m.labelY}
+                      textAnchor={m.labelAnchor}
+                      fontSize={10}
+                      fill={chartTheme.crosshair}
+                    >
+                      {m.label}
+                    </text>
+                  ) : null}
+                </g>
+              ))}
+            </g>
+          )}
+          {endLabels.length > 0 && (
+            <g data-chart="end-labels" pointerEvents="none">
+              {endLabels.map((l) => (
+                <text
+                  key={l.id}
+                  x={l.x}
+                  y={l.y}
+                  textAnchor="end"
+                  fontSize={10}
+                  fill={l.color}
+                  style={{ fontVariantNumeric: "tabular-nums" }}
+                >
+                  {l.text}
+                </text>
+              ))}
+            </g>
+          )}
           {indicators.map((ind) => {
             const d = decBySeries.get(ind.seriesId);
             const target = series.find((s) => s.id === ind.seriesId);
@@ -1207,6 +1359,19 @@ export function StockChartInner({
                 strokeWidth={1}
                 strokeDasharray={l.dash}
               />
+              {l.tag ? (
+                <rect
+                  data-chart-level-tag
+                  x={l.labelX - l.label.length * LABEL_CHAR_PX - 3}
+                  y={l.labelY - 10}
+                  width={l.label.length * LABEL_CHAR_PX + 6}
+                  height={14}
+                  rx={2}
+                  style={{ fill: "hsl(var(--card))" }}
+                  stroke={l.color}
+                  strokeWidth={1}
+                />
+              ) : null}
               <text
                 x={l.labelX}
                 y={l.labelY}
@@ -1318,6 +1483,7 @@ export function StockChartInner({
               width={innerW}
               height={oscH - 12}
               xScale={dateScale}
+              regions={regions}
             />
           </Group>
         )}
@@ -1550,6 +1716,14 @@ export function StockChartInner({
   );
 }
 
+/** The oscillator's tick labels are 9 px type. */
+const TICK_FONT_PX = 9;
+
+/** A tick's text with a true minus (U+2212), per the tabular rule: "−30", never "-30". */
+function tickLabel(value: number): string {
+  return String(value).replace("-", "−");
+}
+
 function OscillatorPanel({
   oscillators,
   refIndices,
@@ -1557,6 +1731,7 @@ function OscillatorPanel({
   width,
   height,
   xScale,
+  regions,
 }: {
   oscillators: OscillatorSpec[];
   refIndices: number[];
@@ -1564,6 +1739,7 @@ function OscillatorPanel({
   width: number;
   height: number;
   xScale: ReturnType<typeof scaleTime<number>>;
+  regions: readonly ChartRegion[];
 }) {
   const osc = oscillators[0];
   if (!osc || !points.length) return null;
@@ -1574,9 +1750,74 @@ function OscillatorPanel({
   // Subsample the original-length oscillator values by the same original indices
   // used for the reference series (mirrors the indicator subsampling contract).
   const oscValues = refIndices.map((i) => osc.values[i] ?? null);
+  const isArea = osc.kind === "area";
+  // An area fills to zero, or to the floor of a domain that does not reach zero.
+  const baseline = domain[0] <= 0 && domain[1] >= 0 ? 0 : domain[0];
+  const yBase = yScale(baseline) ?? height;
+  const areaData = isArea
+    ? points.flatMap((p, i) => {
+        const v = oscValues[i];
+        return v == null ? [] : [{ t: p.t, v }];
+      })
+    : [];
+  // The tick labels: the reference levels, or the domain's ends for an area with none.
+  const ticks = osc.reference ?? (isArea ? [domain[0], domain[1]] : []);
+  // Callouts on the panel (a drawdown's trough), placed on the panel's own scales:
+  // a value is read against the panel's domain, never the plot's.
+  const callouts = osc.annotations?.length
+    ? layoutPointMarks(
+        osc.annotations.map((a) => ({
+          kind: "annotation" as const,
+          t: a.t,
+          v: a.v,
+          axis: "left" as const,
+          label: a.label,
+          fill: ANNOTATION_FILL,
+        })),
+        {
+          x: (t) => xScale(new Date(t)) ?? NaN,
+          yFor: () => (v) => yScale(v) ?? NaN,
+          innerW: width,
+          innerH: height,
+        },
+      )
+    : [];
   return (
     <g>
       <rect x={0} y={0} width={width} height={height} fill="hsl(var(--muted))" fillOpacity={0.25} rx={4} />
+      {isArea &&
+        regions.map((r, i) => {
+          const xa = xScale(r.start) ?? NaN;
+          const xb = xScale(r.end) ?? NaN;
+          const x = Math.max(0, Math.min(xa, xb));
+          const cw = Math.min(Math.max(xa, xb), width) - x;
+          if (!(cw > 0)) return null;
+          return (
+            <rect
+              key={`osc-region-${i}`}
+              data-chart-osc-region
+              x={x}
+              y={0}
+              width={cw}
+              height={height}
+              pointerEvents="none"
+              {...regionAttrs(r.tone)}
+            />
+          );
+        })}
+      {isArea && areaData.length > 1 && (
+        <AreaClosed<{ t: number; v: number }>
+          data={areaData}
+          x={(d) => xScale(new Date(d.t)) ?? 0}
+          y={(d) => yScale(d.v) ?? 0}
+          yScale={yScale}
+          y0={() => yBase}
+          fill={osc.color}
+          fillOpacity={0.18}
+          stroke="none"
+          data-chart-osc-area
+        />
+      )}
       {(osc.reference ?? []).map((lvl) => (
         <Line
           key={lvl}
@@ -1588,24 +1829,33 @@ function OscillatorPanel({
         />
       ))}
       {osc.caption && (
-        <>
-          <text x={4} y={10} fontSize={10} fill={chartTheme.axisLabel}>
-            {osc.caption}
-          </text>
-          {(osc.reference ?? []).map((lvl) => (
+        <text x={4} y={10} fontSize={10} fill={chartTheme.axisLabel}>
+          {osc.caption}
+        </text>
+      )}
+      {(Boolean(osc.caption) || isArea) &&
+        ticks.map((lvl) => {
+          const line = yScale(lvl) ?? 0;
+          // Two pixels above its line. The area variant keeps a tick on the panel's
+          // top edge (a drawdown's zero) inside the panel, under its line. A line
+          // oscillator's ticks are unchanged (Williams %R's negative levels keep
+          // their output).
+          const baseline =
+            isArea && line - 2 < TICK_FONT_PX ? line + TICK_FONT_PX + 1 : line - 2;
+          return (
             <text
               key={`ref-${lvl}`}
               x={width - 2}
-              y={(yScale(lvl) ?? 0) - 2}
+              y={baseline}
               textAnchor="end"
-              fontSize={9}
+              fontSize={TICK_FONT_PX}
               fill={chartTheme.axisLabel}
             >
-              {lvl}
+              {isArea ? tickLabel(lvl) : lvl}
+              {osc.unit ?? ""}
             </text>
-          ))}
-        </>
-      )}
+          );
+        })}
       {(osc.extraLines ?? []).map((ln, i) => (
         <IndicatorPath
           key={i}
@@ -1625,6 +1875,33 @@ function OscillatorPanel({
         color={osc.color}
         dash={osc.dash}
       />
+      {callouts.length > 0 && (
+        <g data-chart-osc-annotations pointerEvents="none">
+          {callouts.map((m, i) => (
+            <g key={`osc-mark-${i}`} data-chart-mark={m.kind}>
+              <circle
+                cx={m.x}
+                cy={m.y}
+                r={3.5}
+                style={{ fill: m.fill }}
+                stroke="hsl(var(--background))"
+                strokeWidth={1.5}
+              />
+              {m.label ? (
+                <text
+                  x={m.labelX}
+                  y={m.labelY}
+                  textAnchor={m.labelAnchor}
+                  fontSize={10}
+                  fill={chartTheme.crosshair}
+                >
+                  {m.label}
+                </text>
+              ) : null}
+            </g>
+          ))}
+        </g>
+      )}
     </g>
   );
 }
