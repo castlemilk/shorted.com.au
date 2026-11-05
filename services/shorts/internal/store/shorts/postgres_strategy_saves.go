@@ -17,7 +17,7 @@ import (
 // the count it sees is the count after every earlier save. The lock is per
 // user, so one user's saves never wait on another's.
 
-// MaxSavedStrategies is the most strategies one user may keep saved (OD-17).
+// MaxSavedStrategies is the most strategies one user may keep saved.
 // Saving one already saved is not a new strategy and never counts against it.
 const MaxSavedStrategies = 20
 
