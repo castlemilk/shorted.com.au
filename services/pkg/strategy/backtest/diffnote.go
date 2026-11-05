@@ -69,7 +69,12 @@ type DiffNote struct {
 	RewrittenCount     int      `json:"rewritten_count"`
 	// ASICRevised lists the product codes of ASIC revisions to reports the previous
 	// run read (up to its ASICThrough), recorded after it read its inputs.
-	// RevisedCount is the full count.
+	// RevisedCount is the full count. The reconcile records a revision before it
+	// repairs the report's row, in separate writes: a snapshot taken between the two
+	// reads the old value, and a revision recorded before that snapshot is not listed,
+	// though the run's inputs changed. The gap is the time between those two writes,
+	// so the list can under-report then; the state and the CAGR shift still show the
+	// change.
 	ASICRevised  []string `json:"asic_revised"`
 	RevisedCount int      `json:"revised_count"`
 	// CAGRShiftPP is the change in CAGR over the shared window, in percentage

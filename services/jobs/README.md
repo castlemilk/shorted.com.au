@@ -957,7 +957,10 @@ all five sensitivity runs are present (or say why they do not apply) and the sam
 also stores its diff note against the previously published run of its key on the same engine: the codes whose price
 history up to that run's cut-off was rewritten, the ASIC revisions to reports that run read (up to its ASIC through-date),
 recorded after its snapshot (from `shorts_revisions`; the snapshot time is `diagnostics.read_at`), and the CAGR shift
-over the shared window. The diff's current curve is compared as stored, rounded. Retention keeps the two newest
+over the shared window. The diff's current curve is compared as stored, rounded. The ASIC list has one known gap: the
+reconcile records a revision and then repairs the report's row in separate writes, so a snapshot taken between them reads
+the old value and a revision recorded before that snapshot is not listed (the state and the shift still show the change).
+The gap is one reconcile's write interval; closing it needs both writes in one transaction, which is outside this job. Retention keeps the two newest
 published runs of each key (ranked by `published_at`, across engines), so the next diff can read the run it replaced. A fundamentals recipe whose window is `computable_from` derives that date from
 `stock_fundamentals` (the first month end on which half the universe is computable) and labels it with the fiscal year
 of the median code's bringing period. Its strict policy stores that outcome as one unpublished row (pass 1 only): it

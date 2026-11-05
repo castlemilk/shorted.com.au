@@ -881,10 +881,10 @@ recipe fields on the wire (PR-12a).
   window is `computable_from` gets pass 1 only: the derived date and label are
   stored, never a simulation. Failed requests exit 1. Dry run unless
   `STRATEGIES_DRY_RUN=false`. Container suite: `make test-strategies-backtest-pg`.
-  **The publication gate (PR-16b)**: a publish is stored and flipped to published
-  only when the verify pass reproduced it, both coverage measures pass, the five
-  sensitivity runs are complete (or each says why it does not apply) and the
-  same-data reference is computed. Every publish stores a diff note in
+  **The publication gate (PR-16b)**: every computed publish is stored; it is
+  flipped to published only when the verify pass reproduced it, coverage is
+  computed under both measures, the five sensitivity runs are complete (or each
+  says why it does not apply) and the same-data reference is computed. Every publish stores a diff note in
   `summary.diff` (state `none`, `unchanged` or `changed`; the codes whose price
   history up to the previous run's cut-off changed; the ASIC codes revised in
   reports that run read, recorded after its snapshot; the CAGR shift over the
