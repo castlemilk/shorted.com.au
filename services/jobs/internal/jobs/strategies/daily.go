@@ -63,8 +63,8 @@ type dailyResult struct {
 	Held        *heldSession
 	AlreadyDone bool
 	Skipped     bool // another execution holds the lease
-	// PastDeadline is true when the held session is today's and the run started at
-	// or after 16:40 UTC: the monitor should page.
+	// PastDeadline is true when a session is still held and the run started at or
+	// after 16:40 UTC, the last scheduled run: the monitor should page.
 	PastDeadline bool
 	Events       int
 }
@@ -128,9 +128,7 @@ func runDaily(ctx context.Context, pool *pgxpool.Pool, opts dailyOptions) (daily
 		res.Done = append(res.Done, s)
 	}
 
-	if res.Held != nil && res.Held.Date == d && minuteOfDay(opts.Now) >= deadlineMinute {
-		res.PastDeadline = true
-	}
+	res.PastDeadline = pastDeadline(res.Held, opts.Now)
 	if opts.Write && len(res.Done) > 0 {
 		if err := revalidateAfter(ctx, opts, logf); err != nil {
 			logf("strategies: revalidation skipped (%v); pages self-heal on their ISR TTL", err)
@@ -166,67 +164,97 @@ func sessionsToProcess(lastDone *civil.Date, d civil.Date, limit int) []civil.Da
 	return out
 }
 
+// pastDeadline reports whether a run that starts at now, and finds a session
+// held, is at or past the last scheduled run's deadline. Any held session counts:
+// an older one blocks every later session, so it is the day's page too.
+func pastDeadline(held *heldSession, now time.Time) bool {
+	return held != nil && minuteOfDay(now) >= deadlineMinute
+}
+
 // minuteOfDay is the UTC minute of the day of t.
 func minuteOfDay(t time.Time) int {
 	u := t.UTC()
 	return u.Hour()*60 + u.Minute()
 }
 
-// runSession snapshots, evaluates and diffs one session. It returns the held
-// session when readiness fails, which ends the run.
+// runSession snapshots, evaluates and diffs one session. A phase its run log
+// records as completed is not written again: a completed features phase is read
+// back from the store, never recomputed from inputs that may have changed since.
+// It returns the held session when readiness fails, which ends the run.
 func runSession(ctx context.Context, pool *pgxpool.Pool, st store, s civil.Date, late bool, opts dailyOptions, res *dailyResult) (*heldSession, error) {
 	logf := opts.Logf
-	facts, err := readinessDB(ctx, pool, s)
+	done, err := st.completedPhases(ctx, s)
 	if err != nil {
 		return nil, err
 	}
-	if ok, reason := evaluateReadiness(s, facts); !ok {
-		logf("strategies: session %s held: %s", s, reason)
+
+	// Features. The stored rows of a completed phase stand in for the computation,
+	// unless they are incomplete (no regime), when the session is recomputed.
+	var out sessionRows
+	stored := false
+	if done[phaseFeatures] {
+		out, stored, err = readStoredFeatures(ctx, pool, s)
+		if err != nil {
+			return nil, err
+		}
+		if stored {
+			logf("strategies: session %s features already completed; evaluating the stored rows", s)
+		} else {
+			logf("strategies: session %s features are completed but incomplete in the store; recomputing", s)
+		}
+	}
+	if !stored {
+		facts, err := readinessDB(ctx, pool, s)
+		if err != nil {
+			return nil, err
+		}
+		if ok, reason := evaluateReadiness(s, facts); !ok {
+			logf("strategies: session %s held: %s", s, reason)
+			if opts.Write {
+				if err := st.writeRun(ctx, pool, runRow{AsOf: s, Phase: phaseFeatures, Status: "held", EngineVersion: engine.Version, Note: reason}); err != nil {
+					return nil, err
+				}
+			}
+			return &heldSession{Date: s, Reason: reason}, nil
+		}
+
+		fs, err := featureParams()
+		if err != nil {
+			return nil, err
+		}
+		in, err := loadSessionInputs(ctx, pool, s)
+		if err != nil {
+			return nil, fmt.Errorf("load session %s: %w", s, err)
+		}
+		out = buildSessionRows(in, fs)
+		featCounts, err := counts(map[string]any{
+			"codes": len(out.Rows), "priced": out.Priced, "blobs": len(out.Blobs), "late": late, "xjo_bar": out.XJOBar,
+		})
+		if err != nil {
+			return nil, err
+		}
+		logf("strategies: session %s features: %d code(s), %d priced, late=%t", s, len(out.Rows), out.Priced, late)
 		if opts.Write {
-			if err := st.writeRun(ctx, pool, runRow{AsOf: s, Phase: phaseFeatures, Status: "held", EngineVersion: engine.Version, Note: reason}); err != nil {
+			if err := writeFeatures(ctx, pool, st, s, out, featCounts); err != nil {
 				return nil, err
 			}
 		}
-		return &heldSession{Date: s, Reason: reason}, nil
 	}
 
-	fs, err := featureParams()
-	if err != nil {
-		return nil, err
-	}
-	in, err := loadSessionInputs(ctx, pool, s)
-	if err != nil {
-		return nil, fmt.Errorf("load session %s: %w", s, err)
-	}
-	out := buildSessionRows(in, fs)
-	featCounts, err := counts(map[string]any{
-		"codes": len(out.Rows), "priced": out.Priced, "blobs": len(out.Blobs), "late": late, "xjo_bar": out.XJOBar,
-	})
-	if err != nil {
-		return nil, err
-	}
-	logf("strategies: session %s features: %d code(s), %d priced, late=%t", s, len(out.Rows), out.Priced, late)
-
+	// Evaluation: the versions are recorded and the recipes registered, then every
+	// live canonical version is evaluated on the session's rows. The baseline is
+	// read before the write, so a retry does not count the version it just made live.
 	versions, err := registeredVersions(spec.Registry())
 	if err != nil {
 		return nil, err
 	}
 	live := liveOnly(versions)
 	rulesHashes := hashesOf(live)
-
-	if opts.Write {
-		if err := writeFeatures(ctx, pool, st, s, out, featCounts); err != nil {
-			return nil, err
-		}
-	}
-
-	// Evaluation: the versions are recorded and the recipes registered, then every
-	// live canonical version is evaluated on the session's stored rows.
 	before, err := st.liveVersions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	baseline := newlyLive(versions, before)
+	baseline := newlyLive(versions, before, s)
 	evals := map[string]versionEval{}
 	evalCounts := map[string]any{}
 	picks := map[string]any{}
@@ -240,15 +268,17 @@ func runSession(ctx context.Context, pool *pgxpool.Pool, st store, s civil.Date,
 			return nil, err
 		}
 		evals[h] = ev
-		evalCounts[v.Label] = ev.Eligible
-		picks[v.Label] = len(ev.Picks)
+		// Keyed by strategy and label: each strategy's v0 is a different version.
+		key := v.Spec.StrategyID + "/" + v.Label
+		evalCounts[key] = ev.Eligible
+		picks[key] = len(ev.Picks)
 		logf("strategies: session %s evaluation %s (%s): %d eligible, %d pick(s)", s, v.Label, v.Spec.StrategyID, ev.Eligible, len(ev.Picks))
 	}
 	evalRunCounts, err := counts(map[string]any{"eligible": evalCounts, "picks": picks})
 	if err != nil {
 		return nil, err
 	}
-	if opts.Write {
+	if opts.Write && !done[phaseEvaluation] {
 		if err := writeEvaluation(ctx, pool, st, s, versions, rulesHashes, evalRunCounts); err != nil {
 			return nil, err
 		}
@@ -256,6 +286,10 @@ func runSession(ctx context.Context, pool *pgxpool.Pool, st store, s civil.Date,
 
 	// Events: the diff against the previous complete session, recomputed from its
 	// stored rows. A version's first session is a baseline with no events.
+	if done[phaseEvents] {
+		logf("strategies: session %s events already completed", s)
+		return nil, nil
+	}
 	prev, err := st.completedSessions(ctx, s, false, 1)
 	if err != nil {
 		return nil, err
@@ -276,6 +310,31 @@ func runSession(ctx context.Context, pool *pgxpool.Pool, st store, s civil.Date,
 	}
 	logf("strategies: session %s complete (%d event(s))", s, len(events))
 	return nil, nil
+}
+
+// readStoredFeatures reads back a session's features phase: its feature rows,
+// the fundamentals blobs they point at and the regime. ok is false when the
+// session has no stored regime, which means the phase is not whole.
+func readStoredFeatures(ctx context.Context, pool *pgxpool.Pool, s civil.Date) (sessionRows, bool, error) {
+	rows, err := pgsource.ReadFeatureRows(ctx, pool, s, snapshotFeatureSet)
+	if err != nil {
+		return sessionRows{}, false, err
+	}
+	hashes := make([]string, 0, len(rows))
+	for _, r := range rows {
+		if r.FundamentalsHash != "" {
+			hashes = append(hashes, r.FundamentalsHash)
+		}
+	}
+	blobs, err := pgsource.ReadFundamentalsBlobs(ctx, pool, hashes)
+	if err != nil {
+		return sessionRows{}, false, err
+	}
+	regime, ok, err := pgsource.ReadRegime(ctx, pool, s, engine.DefaultIndexCode)
+	if err != nil {
+		return sessionRows{}, false, err
+	}
+	return sessionRows{Rows: rows, Blobs: blobs, Regime: regime}, ok, nil
 }
 
 // liveOnly is the registered versions the engine evaluates now.
@@ -452,21 +511,62 @@ func scoreOrNil(t transition) *float64 {
 	return &v
 }
 
-// evidenceJSON is the rule outcomes of a transition's pick, as stored evidence.
+// eventEvidence is a signal event's stored explanation, in the compact shape the
+// signal history reads: the rule ids in rule order with each rule's value and
+// proximity (null where the rule has none), the close and pivot, the short
+// report with its availability, and the regime.
+type eventEvidence struct {
+	R              []string   `json:"r"`
+	V              []*float64 `json:"v"`
+	P              []*float64 `json:"p"`
+	Close          *float64   `json:"close"`
+	Pivot          *float64   `json:"pivot"`
+	ShortReport    *string    `json:"short_report"`
+	ShortAvailable *string    `json:"short_available"`
+	Regime         *string    `json:"regime"`
+}
+
+// evidenceJSON is a transition's stored evidence. An exit has no pick, so its
+// rules, close and short report are empty.
 func evidenceJSON(t transition) string {
-	type rule struct {
-		ID     string `json:"id"`
-		Status string `json:"status"`
+	e := eventEvidence{R: []string{}, V: []*float64{}, P: []*float64{}, Pivot: t.Rules.Pivot}
+	if t.To != noneStatus {
+		c := t.Rules.Close
+		e.Close = &c
 	}
-	rules := make([]rule, 0, len(t.Rules.Rules))
 	for _, r := range t.Rules.Rules {
-		rules = append(rules, rule{ID: r.RuleID, Status: string(r.Status)})
+		e.R = append(e.R, r.RuleID)
+		e.V = append(e.V, optionalFloat(r.HasValue, r.Value))
+		e.P = append(e.P, optionalFloat(r.HasProximity, r.Proximity))
 	}
-	raw, err := json.Marshal(map[string]any{"rules": rules})
+	e.ShortReport = dateString(t.Rules.ShortReport)
+	e.ShortAvailable = dateString(t.Rules.ShortAvailable)
+	if t.Rules.Regime != "" {
+		r := t.Rules.Regime
+		e.Regime = &r
+	}
+	raw, err := json.Marshal(e)
 	if err != nil {
 		return "{}"
 	}
 	return string(raw)
+}
+
+// optionalFloat is v when present, else nil.
+func optionalFloat(present bool, v float64) *float64 {
+	if !present {
+		return nil
+	}
+	return &v
+}
+
+// dateString is a civil date as YYYY-MM-DD, or nil when there is none.
+func dateString(d *civil.Date) *string {
+	if d == nil {
+		return nil
+	}
+	s := d.String()
+	return &s
 }
 
 // writeEvents inserts the events and records the events phase complete.
@@ -522,6 +622,10 @@ func loadSessionInputs(ctx context.Context, pool *pgxpool.Pool, d civil.Date) (s
 	if err != nil {
 		return sessionInputs{}, err
 	}
+	history, err := asicHistoryFor(ctx, pool, codes, d, asic, ingests, xjo)
+	if err != nil {
+		return sessionInputs{}, err
+	}
 	etp, err := pgsource.ETPSet(ctx, pool)
 	if err != nil {
 		return sessionInputs{}, err
@@ -545,7 +649,33 @@ func loadSessionInputs(ctx context.Context, pool *pgxpool.Pool, d civil.Date) (s
 	return sessionInputs{
 		D: d, Codes: codes, Bars: bars, XJO: xjo, ASIC: asic, Ingests: ingests,
 		ETP: etp, Names: names, Meta: meta, Dividends: divs, Fund: fund,
+		ASICHistory: history,
 	}, nil
+}
+
+// asicHistoryFor reads the whole short history of each code the two-year window
+// does not answer for sf0. The reading walks back from the session, so a code
+// whose newest qualifying row is older than the window needs every row it has.
+// The codes are read in chunks, so the whole history is never held at once.
+func asicHistoryFor(ctx context.Context, pool *pgxpool.Pool, codes []string, d civil.Date, asic []features.ASICRow, ingests []features.ReportIngest, xjo []features.IndexBar) ([]features.ASICRow, error) {
+	cal := sessionCalendar(sessionInputs{XJO: xjo, ASIC: asic})
+	reports := features.NewReports(asic, ingests)
+	var older []string
+	for _, code := range codes {
+		if features.ShortReadingV0(code, d, cal, reports, nil).Status == features.StatusNone {
+			older = append(older, code)
+		}
+	}
+	var out []features.ASICRow
+	for start := 0; start < len(older); start += historyChunkCodes {
+		chunk := older[start:min(start+historyChunkCodes, len(older))]
+		rows, err := pgsource.ASICRowsForCodes(ctx, pool, chunk, d)
+		if err != nil {
+			return nil, fmt.Errorf("read the short history of %d code(s): %w", len(chunk), err)
+		}
+		out = append(out, rows...)
+	}
+	return out, nil
 }
 
 // revalidateAfter waits for the API's cache to turn over, then asks the web tier

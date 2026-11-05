@@ -8,6 +8,8 @@ import (
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pipeline"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/snapshot"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 )
@@ -201,3 +203,124 @@ func TestUniverseReasonOrder(t *testing.T) {
 		})
 	}
 }
+
+// The window's rows answer a code only when they hold a qualifying row; a code
+// whose newest one is older than the window is read from its whole history.
+func TestShortReadingReadsTheWholeHistoryForACodeTheWindowMisses(t *testing.T) {
+	d := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	fs, _ := featureParams()
+	in := sessionFixture(t, d)
+	pct := 6.0
+	in.ASICHistory = []features.ASICRow{{
+		Code: "AAA", ReportDate: civil.Date{Year: 2024, Month: time.March, Day: 1},
+		Product: "ALPHA MINING LIMITED", Positions: 1_000_000, Issued: 100_000_000, Percent: &pct,
+	}}
+	out := buildSessionRows(in, fs)
+	for _, r := range out.Rows {
+		if r.StockCode != "AAA" {
+			continue
+		}
+		if r.Features.SF0.Status != features.StatusReported || r.Features.SF0.Pct == nil || *r.Features.SF0.Pct != 6 {
+			t.Fatalf("AAA sf0 = %+v, want the 2024 report read from the whole history", r.Features.SF0)
+		}
+	}
+}
+
+// A session whose bar has no positive close is not priced on the session: the
+// stored universe reads it as no bar, the pipeline's reason for the same code.
+func TestUnpricedCloseOnTheSessionIsNoBarOnTheSession(t *testing.T) {
+	d := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	fs, _ := featureParams()
+	in := sessionFixture(t, d)
+	bars := in.Bars["AAA"]
+	bars[len(bars)-1].Close = 0
+	for _, r := range buildSessionRows(in, fs).Rows {
+		if r.StockCode != "AAA" {
+			continue
+		}
+		if r.OrdinaryFresh60 || r.IneligibleReason != snapshot.ReasonNoBarOnSession {
+			t.Fatalf("AAA with a zero close on the session: fresh=%v reason=%q, want no_bar_on_session", r.OrdinaryFresh60, r.IneligibleReason)
+		}
+	}
+}
+
+// The fundamentals' fetch times leave the blob (and so its hash) and come back
+// on the candidate through the row's meta.
+func TestFundamentalsFetchTimesReturnThroughTheMeta(t *testing.T) {
+	d := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	fs, _ := featureParams()
+	fetched := time.Date(2026, 11, 11, 3, 0, 0, 0, time.UTC)
+	fund, err := pgsource.EncodeFundamentals(&engine.Growth{FetchedAt: &fetched}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := sessionFixture(t, d)
+	in.Fund = map[string]features.Fundamentals{"AAA": fund}
+	out := buildSessionRows(in, fs)
+	var row snapshot.Row
+	for _, r := range out.Rows {
+		if r.StockCode == "AAA" {
+			row = r
+		}
+	}
+	if row.FundamentalsHash != fund.Hash {
+		t.Fatalf("the row must point at the blob's hash")
+	}
+	v, ok := spec.Live(spec.StrategyZangerBreakout)
+	if !ok {
+		t.Fatal("no live zanger version")
+	}
+	c, err := snapshot.ToCandidate(row, v.Spec, out.Blobs[row.FundamentalsHash])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Growth == nil || c.Growth.FetchedAt == nil || !c.Growth.FetchedAt.Equal(fetched) {
+		t.Fatalf("the candidate's growth fetch time = %v, want %v", c.Growth, fetched)
+	}
+}
+
+// The stored universe reasons are the pipeline's verdict for the base universe:
+// the same code gets the same reason from both, whether its bar on the session
+// has a close or not.
+func TestStoredUniverseReasonsAgreeWithThePipeline(t *testing.T) {
+	d := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	fs, _ := featureParams()
+	base, ok := spec.Live(spec.StrategyZangerBreakout)
+	if !ok {
+		t.Fatal("no live zanger version")
+	}
+	// The base universe the stored facts describe, as a version would name it.
+	s := base.Spec
+	s.Universe = spec.UniverseSpec{Instruments: "ordinary", Freshness: "bar_on_session", MinSessions: 60, LookbackDays: 400, CAGuard: true}
+	s.Data.ShortSource = "latest_complete_published"
+	s.Data.PublicationLagSessions = snapshotPublicationLag
+	s.Data.MaxReportAgeSessions = 8
+	s.Data.CAUpjumpFrom = caUpjumpFrom
+
+	check := func(name string, in sessionInputs) {
+		t.Helper()
+		pin := &pipeline.Inputs{
+			Codes: in.Codes, Bars: in.Bars, XJO: in.XJO, ASIC: in.ASIC, Ingests: in.Ingests,
+			ETPSet: in.ETP, Names: in.Names,
+		}
+		_, _, inel := pipeline.BuildCandidates(d, pin, s)
+		want := map[string]string{}
+		for _, i := range inel {
+			want[i.Code] = i.Reason
+		}
+		for _, r := range buildSessionRows(in, fs).Rows {
+			if r.IneligibleReason != want[r.StockCode] {
+				t.Errorf("%s: %s reason = %q, the pipeline says %q", name, r.StockCode, r.IneligibleReason, want[r.StockCode])
+			}
+		}
+	}
+
+	in := sessionFixture(t, d)
+	check("priced session", in)
+
+	in = sessionFixture(t, d)
+	bars := in.Bars["AAA"]
+	bars[len(bars)-1].Close = 0
+	check("zero close on the session", in)
+}
+

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/civil"
 
@@ -80,6 +81,21 @@ func TestMetaKeysAreTheStoredNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, k := range []string{"market_cap", "priced_sessions"} {
+		if _, ok := got[k]; !ok {
+			t.Errorf("meta has no %q key; keys = %v", k, got)
+		}
+	}
+	// The fundamentals' fetch times are written only when the row has them.
+	fetched := time.Date(2026, 11, 11, 3, 0, 0, 0, time.UTC)
+	raw, err = EncodeMeta(Meta{GrowthFetchedAt: &fetched, QualityFetchedAt: &fetched})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got = map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"growth_fetched_at", "quality_fetched_at"} {
 		if _, ok := got[k]; !ok {
 			t.Errorf("meta has no %q key; keys = %v", k, got)
 		}

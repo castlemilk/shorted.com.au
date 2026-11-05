@@ -7,6 +7,7 @@ import (
 	"cloud.google.com/go/civil"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 )
 
 // The pure half of the daily job: the readiness truth table, the session and
@@ -262,11 +263,89 @@ func TestDiffEvaluationsBaselineHasNoEvents(t *testing.T) {
 	}
 }
 
-func TestEvidenceJSONCarriesRuleOutcomesOnly(t *testing.T) {
-	tr := transition{Code: "AAA", To: "triggered", Rules: pickState{Rules: []engine.RuleResult{{RuleID: "above_sma200", Status: engine.RulePass}}}}
+func ptrDate(y int, m time.Month, d int) *civil.Date {
+	c := civil.Date{Year: y, Month: m, Day: d}
+	return &c
+}
+
+// TestEvidenceJSONIsTheStoredShape pins the evidence of a pick: the rule ids,
+// values and proximities in rule order (null where a rule has none), the close,
+// the pivot, the short report with its availability, and the regime.
+func TestEvidenceJSONIsTheStoredShape(t *testing.T) {
+	tr := transition{Code: "PFP", To: "triggered", Rules: pickState{
+		Status: "triggered", Close: 41.2, Pivot: ptrFloat(41.64),
+		ShortReport: ptrDate(2026, time.October, 28), ShortAvailable: ptrDate(2026, time.November, 3),
+		Regime: "neutral",
+		Rules: []engine.RuleResult{
+			{RuleID: "growth", Status: engine.RulePass, Value: 9.5, HasValue: true},
+			{RuleID: "breakout", Status: engine.RuleFail, Proximity: 0.82, HasProximity: true},
+			{RuleID: "liquidity", Status: engine.RulePass, Value: 19200000, HasValue: true},
+		},
+	}}
 	got := evidenceJSON(tr)
-	want := `{"rules":[{"id":"above_sma200","status":"pass"}]}`
+	want := `{"r":["growth","breakout","liquidity"],"v":[9.5,null,19200000],"p":[null,0.82,null],` +
+		`"close":41.2,"pivot":41.64,"short_report":"2026-10-28","short_available":"2026-11-03","regime":"neutral"}`
+	if got != want {
+		t.Fatalf("evidenceJSON =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// TestEvidenceJSONOfAnExitHasNoPick: an exit is no longer a pick, so it stores
+// empty rules and null prices and dates.
+func TestEvidenceJSONOfAnExitHasNoPick(t *testing.T) {
+	got := evidenceJSON(transition{Code: "AAA", From: "setup", To: noneStatus})
+	want := `{"r":[],"v":[],"p":[],"close":null,"pivot":null,"short_report":null,"short_available":null,"regime":null}`
 	if got != want {
 		t.Fatalf("evidenceJSON = %s, want %s", got, want)
+	}
+}
+
+// TestHoldAtTheDeadlinePagesWhateverSessionIsHeld: a hold exits 0 before the
+// deadline and 10 at it, and an older session held at the deadline pages too.
+func TestHoldAtTheDeadlinePagesWhateverSessionIsHeld(t *testing.T) {
+	at := func(h, m int) time.Time { return time.Date(2026, 11, 13, h, m, 0, 0, time.UTC) }
+	thursday := &heldSession{Date: civil.Date{Year: 2026, Month: time.November, Day: 12}, Reason: "xjo_bar_missing"}
+	if pastDeadline(nil, at(16, 40)) {
+		t.Error("no hold: nothing to page")
+	}
+	if pastDeadline(thursday, at(14, 0)) {
+		t.Error("a hold before the deadline exits 0")
+	}
+	if pastDeadline(thursday, at(16, 39)) {
+		t.Error("16:39 UTC is before the deadline")
+	}
+	if !pastDeadline(thursday, at(16, 40)) {
+		t.Error("a hold at the deadline exits 10, even when the held session is not today's")
+	}
+}
+
+// TestNewlyLiveIsAFirstSessionOrAPromotion: a version the database has not
+// recorded as live, or recorded as live from this session on, is a baseline. A
+// version live from an earlier session is not.
+func TestNewlyLiveIsAFirstSessionOrAPromotion(t *testing.T) {
+	s := civil.Date{Year: 2026, Month: time.November, Day: 16}
+	before := civil.Date{Year: 2026, Month: time.November, Day: 13}
+	live := spec.Registered{Label: "v1", Live: true}
+	old := spec.Registered{Label: "v0", Live: false}
+	versions := []versionRow{
+		{Hash: "fresh", Reg: live},
+		{Hash: "from-today", Reg: live},
+		{Hash: "from-earlier", Reg: live},
+		{Hash: "retired", Reg: old},
+	}
+	recorded := map[string]liveVersion{
+		"from-today":   {RulesHash: "from-today", LiveFrom: s},
+		"from-earlier": {RulesHash: "from-earlier", LiveFrom: before},
+		"retired":      {RulesHash: "retired", LiveFrom: before},
+	}
+	got := newlyLive(versions, recorded, s)
+	if !got["fresh"] || !got["from-today"] {
+		t.Errorf("a new live version and one live from this session are baselines: %v", got)
+	}
+	if got["from-earlier"] {
+		t.Error("a version live since an earlier session has events, not a baseline")
+	}
+	if got["retired"] {
+		t.Error("a version that is not live in the registry is never a baseline")
 	}
 }

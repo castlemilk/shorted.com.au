@@ -13,6 +13,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/instrument"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pipeline"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/snapshot"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
@@ -31,9 +32,6 @@ const (
 	// caUpjumpFrom is the first bar the unadjusted up-jump rule reads the
 	// day after the last live price re-sync.
 	caUpjumpFrom = "2026-09-29"
-	// caGuardSessions is how long a known corporate-action suspect keeps a code
-	// out of the ordinary universe (pipeline.caGuardSessions).
-	caGuardSessions = 260
 	// minPricedForOrdinary is the bar history the ordinary universe needs
 	// (ordinary_fresh_60).
 	minPricedForOrdinary = 60
@@ -64,6 +62,9 @@ type sessionInputs struct {
 	Meta      map[string]pgsource.CompanyMeta
 	Dividends map[string][]features.Dividend
 	Fund      map[string]features.Fundamentals
+	// ASICHistory is the whole short history of each code the two-year window
+	// does not answer for sf0 (asicHistoryFor), so sf0 reads it as the window would.
+	ASICHistory []features.ASICRow
 }
 
 // sessionRows is one session's stored output: the feature rows, the fundamentals
@@ -94,13 +95,14 @@ func buildSessionRows(in sessionInputs, fs spec.FeatureSpec) sessionRows {
 	d := in.D
 	cal := sessionCalendar(in)
 	reports := features.NewReports(in.ASIC, in.Ingests)
+	historyReports := features.NewReports(in.ASICHistory, nil)
 	asicByCode := asicRowsByCode(in.ASIC)
 	upjump, _ := civil.ParseDate(caUpjumpFrom)
 
 	out := sessionRows{Blobs: map[string]features.Fundamentals{}}
 	out.Regime = features.Regime(in.XJO, d)
 	out.XJOBar = hasIndexBar(in.XJO, d)
-	out.Report, out.Avail = latestReport(cal, in.ASIC, d)
+	out.Report, out.Avail = latestUsable(reports, cal, d)
 
 	for _, code := range in.Codes {
 		bars := in.Bars[code]
@@ -113,20 +115,28 @@ func buildSessionRows(in sessionInputs, fs spec.FeatureSpec) sessionRows {
 
 		pf, okPrice := features.AsOf(bars, in.XJO, d, fs)
 		priced := pricedCount(bars, d.AddDays(-lookbackDays), d)
-		barD, onD := barOn(bars, d)
-		if onD {
+		barD, hasBar := barOn(bars, d)
+		// The session counts as priced only when its bar has a positive close: the
+		// pipeline's bar_on_session rule, which the stored universe must match.
+		pricedD := hasBar && features.Priced(barD.Close)
+		if pricedD {
 			out.Priced++
 		}
 
 		known := features.KnownBy(features.CASuspects(bars, asic, cal, upjump), d)
 		sf0 := features.ShortReadingV0(code, d, cal, reports, bars)
+		if sf0.Status == features.StatusNone {
+			// The window holds no qualifying row for the code, so its history does.
+			sf0 = features.ShortReadingV0(code, d, cal, historyReports, bars)
+		}
 		sf1 := features.ShortReadingV1(code, d, cal, reports, bars, known, features.StaleAfterSessions)
 
 		isOrd := instrument.IsOrdinary(code, product, name, shares, in.ETP)
 		caGuarded := guardedBy(cal, known, d)
-		reason := universeReason(onD, okPrice, priced, isOrd, code, product, name, shares, in.ETP, caGuarded)
+		reason := universeReason(pricedD, okPrice, priced, isOrd, code, product, name, shares, in.ETP, caGuarded)
 		fresh := reason == ""
 
+		fund, hasFund := in.Fund[code]
 		row := snapshot.Row{
 			AsOf:               d,
 			BarDate:            lastBarOnOrBefore(bars, d),
@@ -141,7 +151,7 @@ func buildSessionRows(in sessionInputs, fs spec.FeatureSpec) sessionRows {
 			ShortAvailableDate: sf1.AvailableDate,
 			CASuspectDate:      latestSuspect(known),
 			Features: snapshot.Features{
-				Bar:   barFeature(barD, onD),
+				Bar:   barFeature(barD, hasBar),
 				ExDiv: exDividend(in.Dividends[code], d),
 				FS1:   pf,
 				SF0:   sf0,
@@ -151,16 +161,18 @@ func buildSessionRows(in sessionInputs, fs spec.FeatureSpec) sessionRows {
 		if !okPrice {
 			row.Features.FS1 = features.PriceFeatures{}
 		}
-		if fund, ok := in.Fund[code]; ok && fund.Hash != "" {
+		if hasFund && fund.Hash != "" {
 			row.FundamentalsHash = fund.Hash
 			out.Blobs[fund.Hash] = fund
 		}
 		meta, err := snapshot.EncodeMeta(snapshot.Meta{
-			Name:           name,
-			Industry:       in.Meta[code].Industry,
-			LogoURL:        in.Meta[code].LogoURL,
-			MarketCap:      in.Meta[code].MarketCap,
-			PricedSessions: priced,
+			Name:             name,
+			Industry:         in.Meta[code].Industry,
+			LogoURL:          in.Meta[code].LogoURL,
+			MarketCap:        in.Meta[code].MarketCap,
+			PricedSessions:   priced,
+			GrowthFetchedAt:  fund.GrowthFetchedAt,
+			QualityFetchedAt: fund.QualityFetchedAt,
 		})
 		if err != nil {
 			// The fields are plain strings and numbers: the encoder cannot fail on
@@ -175,9 +187,10 @@ func buildSessionRows(in sessionInputs, fs spec.FeatureSpec) sessionRows {
 }
 
 // universeReason is the v1 base universe's reason for a code, in the order the
-// stock page reads them. Empty when the code is in the base universe.
-func universeReason(onD, okPrice bool, priced int, isOrd bool, code, product, name string, shares float64, etp map[string]bool, caGuarded bool) string {
-	if !onD {
+// stock page reads them. Empty when the code is in the base universe. pricedOnD
+// is whether the code has a priced bar dated the session.
+func universeReason(pricedOnD, okPrice bool, priced int, isOrd bool, code, product, name string, shares float64, etp map[string]bool, caGuarded bool) string {
+	if !pricedOnD {
 		return snapshot.ReasonNoBarOnSession
 	}
 	if !okPrice || priced < minPricedForOrdinary {
@@ -233,19 +246,15 @@ func sessionCalendar(in sessionInputs) *calendar.Calendar {
 	return calendar.New(xjo, reports, snapshotPublicationLag)
 }
 
-// latestReport is the newest ASIC report on or before d and its publication date.
-func latestReport(cal *calendar.Calendar, rows []features.ASICRow, d civil.Date) (civil.Date, civil.Date) {
-	var newest civil.Date
-	for _, r := range rows {
-		if !r.ReportDate.After(d) && r.ReportDate.After(newest) {
-			newest = r.ReportDate
-		}
-	}
-	if newest.IsZero() {
+// latestUsable is R*(d): the newest complete ASIC report public on d, and its
+// publication date. Both are zero when no report qualifies.
+func latestUsable(reports *features.Reports, cal *calendar.Calendar, d civil.Date) (civil.Date, civil.Date) {
+	report, ok := reports.LatestUsable(d, cal)
+	if !ok {
 		return civil.Date{}, civil.Date{}
 	}
-	avail, _ := cal.PublishedOn(newest)
-	return newest, avail
+	avail, _ := cal.PublishedOn(report)
+	return report, avail
 }
 
 // asicRowsByCode groups the ASIC rows by code, each group in report-date order.
@@ -323,7 +332,7 @@ func exDividend(divs []features.Dividend, d civil.Date) float64 {
 // guardedBy reports whether a known suspect still keeps the code out on d.
 func guardedBy(cal *calendar.Calendar, known []features.CASuspect, d civil.Date) bool {
 	for _, s := range known {
-		if cal.SessionsBetween(s.Date, d) < caGuardSessions {
+		if cal.SessionsBetween(s.Date, d) < pipeline.CAGuardSessions {
 			return true
 		}
 	}
@@ -362,11 +371,28 @@ type versionEval struct {
 	Eligible  int
 }
 
-// pickState is a pick's status ladder position and score.
+// pickState is a pick's status ladder position and score, and the evidence an
+// event stores with it: the close and pivot it was evaluated on, the short
+// report it read with its availability, and the regime.
 type pickState struct {
-	Status string
-	Score  float64
-	Rules  []engine.RuleResult
+	Status         string
+	Score          float64
+	Rules          []engine.RuleResult
+	Close          float64
+	Pivot          *float64
+	ShortReport    *civil.Date
+	ShortAvailable *civil.Date
+	Regime         string
+}
+
+// shortDates is the short report and its availability the version's short
+// reading names: sf1 for a version on the latest complete published report, else sf0.
+func shortDates(r snapshot.Row, s spec.Spec) (*civil.Date, *civil.Date) {
+	sr := r.Features.SF0
+	if s.Data.ShortSource == "latest_complete_published" {
+		sr = r.Features.SF1
+	}
+	return sr.ReportDate, sr.AvailableDate
 }
 
 // evaluateVersion evaluates the stored rows of one session under one version.
@@ -381,6 +407,7 @@ func evaluateVersion(rows []snapshot.Row, blobs map[string]features.Fundamentals
 	out.RulesHash = hash
 
 	var cands []engine.Candidate
+	byCode := map[string]snapshot.Row{}
 	for _, r := range rows {
 		ok, _ := snapshot.Eligible(r, v.Spec)
 		if !ok {
@@ -391,6 +418,7 @@ func evaluateVersion(rows []snapshot.Row, blobs map[string]features.Fundamentals
 			return out, fmt.Errorf("candidate %s: %w", r.StockCode, err)
 		}
 		cands = append(cands, c)
+		byCode[r.StockCode] = r
 	}
 	out.Eligible = len(cands)
 	if len(cands) == 0 {
@@ -408,7 +436,12 @@ func evaluateVersion(rows []snapshot.Row, blobs map[string]features.Fundamentals
 		if !isPick {
 			continue
 		}
-		out.Picks[cands[i].StockCode] = pickState{Status: string(pick.Status), Score: pick.Score, Rules: pick.Rules}
+		report, available := shortDates(byCode[cands[i].StockCode], v.Spec)
+		out.Picks[cands[i].StockCode] = pickState{
+			Status: string(pick.Status), Score: pick.Score, Rules: pick.Rules,
+			Close: cands[i].Close, Pivot: cands[i].BaseHigh,
+			ShortReport: report, ShortAvailable: available, Regime: regime.Label,
+		}
 	}
 	return out, nil
 }

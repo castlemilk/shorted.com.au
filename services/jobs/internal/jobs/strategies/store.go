@@ -21,10 +21,8 @@ import (
 // dailyLeaseName is the picks_run_lease row the daily job holds while it runs.
 const dailyLeaseName = "strategies-daily"
 
-// dailyLeaseTTL is how long a claimed lease lasts without an extension.
-const dailyLeaseTTL = 2 * time.Hour
-
-// dailyLeaseTTLSQL is dailyLeaseTTL as a Postgres interval.
+// dailyLeaseTTLSQL is how long a claimed lease lasts without an extension, as a
+// Postgres interval.
 const dailyLeaseTTLSQL = "2 hours"
 
 const (
@@ -253,16 +251,18 @@ func registeredVersions(regs []spec.Registered) ([]versionRow, error) {
 	return out, nil
 }
 
-// newlyLive returns the registered live versions the database does not record
-// as live yet: a first session, or a promotion. A version that is not live in the
-// registry is never returned.
-func newlyLive(versions []versionRow, live map[string]liveVersion) map[string]bool {
+// newlyLive returns the registered live versions whose first session is s: the
+// versions the database does not record as live, and those it records as having
+// gone live on s or later (a run that wrote the version and then failed before
+// its events). A version that is not live in the registry is never returned.
+func newlyLive(versions []versionRow, live map[string]liveVersion, s civil.Date) map[string]bool {
 	out := map[string]bool{}
 	for _, v := range versions {
 		if !v.Reg.Live {
 			continue
 		}
-		if _, ok := live[v.Hash]; !ok {
+		lv, ok := live[v.Hash]
+		if !ok || lv.LiveFrom.IsZero() || !lv.LiveFrom.Before(s) {
 			out[v.Hash] = true
 		}
 	}
@@ -271,23 +271,12 @@ func newlyLive(versions []versionRow, live map[string]liveVersion) map[string]bo
 
 // upsertVersions records the registered canonical versions. A live version
 // supersedes the other live version of its strategy first, so the one-live index
-// is never violated; the new one takes live_from = d.
+// is never violated, and it takes live_from = d unless the database already
+// records one. A version that is not live never changes a row the database
+// holds: a version seen for the first time is a draft, and a superseded or
+// retired one keeps its dates, so a promotion's history survives later runs.
 func (s store) upsertVersions(ctx context.Context, w runWriter, d civil.Date, versions []versionRow) error {
 	for _, v := range versions {
-		status := "superseded"
-		if v.Reg.Live {
-			status = "live"
-			if _, err := w.Exec(ctx, `
-				UPDATE strategy_rule_versions SET status = 'superseded', superseded_on = $3::date
-				 WHERE strategy_id = $1 AND kind = 'canonical' AND status = 'live' AND rules_hash <> $2`,
-				v.Reg.Spec.StrategyID, v.Hash, d.String()); err != nil {
-				return fmt.Errorf("supersede live %s: %w", v.Reg.Spec.StrategyID, err)
-			}
-		}
-		var from any
-		if v.Reg.Live {
-			from = d.String()
-		}
 		changes := v.Reg.Changes
 		if changes == nil {
 			changes = []string{}
@@ -296,14 +285,33 @@ func (s store) upsertVersions(ctx context.Context, w runWriter, d civil.Date, ve
 		if known == nil {
 			known = []string{}
 		}
+		if !v.Reg.Live {
+			if _, err := w.Exec(ctx, `
+				INSERT INTO strategy_rule_versions (rules_hash, strategy_id, label, kind, engine_major,
+					feature_set, canonical_json, status, live_from, changes, known_issues)
+				VALUES ($1, $2, $3, 'canonical', $4, $5, $6::jsonb, 'draft', NULL, $7::text[], $8::text[])
+				ON CONFLICT (rules_hash) DO NOTHING`,
+				v.Hash, v.Reg.Spec.StrategyID, v.Reg.Label, v.Reg.Spec.EngineMajor, v.Reg.Spec.FeatureSet,
+				string(v.Canonical), changes, known); err != nil {
+				return fmt.Errorf("record version %s %s: %w", v.Reg.Spec.StrategyID, v.Reg.Label, err)
+			}
+			continue
+		}
+		if _, err := w.Exec(ctx, `
+			UPDATE strategy_rule_versions SET status = 'superseded', superseded_on = $3::date
+			 WHERE strategy_id = $1 AND kind = 'canonical' AND status = 'live' AND rules_hash <> $2`,
+			v.Reg.Spec.StrategyID, v.Hash, d.String()); err != nil {
+			return fmt.Errorf("supersede live %s: %w", v.Reg.Spec.StrategyID, err)
+		}
 		if _, err := w.Exec(ctx, `
 			INSERT INTO strategy_rule_versions (rules_hash, strategy_id, label, kind, engine_major,
 				feature_set, canonical_json, status, live_from, changes, known_issues)
-			VALUES ($1, $2, $3, 'canonical', $4, $5, $6::jsonb, $7, $8::date, $9::text[], $10::text[])
-			ON CONFLICT (rules_hash) DO UPDATE SET status = EXCLUDED.status, live_from = EXCLUDED.live_from
-			 WHERE strategy_rule_versions.status <> EXCLUDED.status`,
+			VALUES ($1, $2, $3, 'canonical', $4, $5, $6::jsonb, 'live', $7::date, $8::text[], $9::text[])
+			ON CONFLICT (rules_hash) DO UPDATE SET status = 'live', superseded_on = NULL,
+				live_from = COALESCE(strategy_rule_versions.live_from, EXCLUDED.live_from)
+			 WHERE strategy_rule_versions.status <> 'live'`,
 			v.Hash, v.Reg.Spec.StrategyID, v.Reg.Label, v.Reg.Spec.EngineMajor, v.Reg.Spec.FeatureSet,
-			string(v.Canonical), status, from, changes, known); err != nil {
+			string(v.Canonical), d.String(), changes, known); err != nil {
 			return fmt.Errorf("upsert version %s %s: %w", v.Reg.Spec.StrategyID, v.Reg.Label, err)
 		}
 	}

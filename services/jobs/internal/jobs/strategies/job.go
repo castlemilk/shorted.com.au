@@ -22,7 +22,7 @@
 //	    execution holds the daily lease
 //	1   failure: the database, or a read that errored
 //	10  a conclusive parity run found a disagreement (only_view, only_go or
-//	    mismatches); or the daily session is still held at 16:40 UTC, the last
+//	    mismatches); or a daily session is still held at 16:40 UTC, the last
 //	    scheduled run, so the monitor pages once
 package strategies
 

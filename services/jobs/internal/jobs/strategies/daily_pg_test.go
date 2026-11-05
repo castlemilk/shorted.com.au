@@ -26,6 +26,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 	"github.com/castlemilk/shorted.com.au/services/pkg/testpostgres"
 )
 
@@ -178,6 +180,9 @@ func TestDailySnapshotWritesAndRerunsIdentically(t *testing.T) {
 	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND status = 'completed'"),
 		"features, evaluation and events complete")
 	require.Equal(t, 0, countRows(t, pool, "SELECT count(*) FROM picks_run_lease"), "the lease is released on exit")
+	require.Equal(t, 5, countRows(t, pool, `SELECT count(*) FROM jsonb_object_keys(
+		(SELECT counts->'eligible' FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND phase = 'evaluation'))`),
+		"one eligible count per version, keyed by strategy and label")
 
 	first := featureSnapshot(t, pool)
 
@@ -293,3 +298,231 @@ func TestDailySnapshotSweepIgnoresASICAndSingleStockRows(t *testing.T) {
 	ready, reason := evaluateReadiness(s, facts)
 	require.True(t, ready, "the session is ready: %s", reason)
 }
+
+// stringOf reads one text value.
+func stringOf(t *testing.T, pool *pgxpool.Pool, query string, args ...any) string {
+	t.Helper()
+	var v string
+	require.NoError(t, pool.QueryRow(context.Background(), query, args...).Scan(&v))
+	return v
+}
+
+// datesText is the dates as YYYY-MM-DD, for comparing the sessions a run did.
+func datesText(ds []civil.Date) []string {
+	out := make([]string, 0, len(ds))
+	for _, d := range ds {
+		out = append(out, d.String())
+	}
+	return out
+}
+
+// seedFriday adds Friday 13 November's bars, index bar and completed sweep.
+func seedFriday(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO stock_prices (stock_code, date, open, high, low, close, adjusted_close, volume)
+		VALUES ('AAA', '2026-11-13', 30, 30.5, 29.5, 30, 30, 1000000), ('BBB', '2026-11-13', 30, 30.5, 29.5, 30, 30, 1000000)`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO index_prices (index_code, date, high, low, close) VALUES ('XJO', '2026-11-13', 5100, 5080, 5090)`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO sync_status (environment, hostname, checkpoint_stocks_total, status, started_at, completed_at)
+		VALUES (NULL, NULL, 1800, 'completed', '2026-11-13 06:00:00+00', '2026-11-13 06:30:00+00')`)
+	require.NoError(t, err)
+}
+
+// A code with too little history stores no price features. The next session
+// reads its row back in the diff, so the row must decode, and the code stays out
+// of the universe with its reason.
+func TestDailySnapshotShortHistoryCodeSurvivesTheNextSession(t *testing.T) {
+	pool := dailyDB(t)
+	seedDailySession(t, pool)
+	ctx := context.Background()
+	// NEW has about thirty priced sessions, under the sixty the ordinary universe needs.
+	_, err := pool.Exec(ctx, `
+		INSERT INTO stock_prices (stock_code, date, open, high, low, close, adjusted_close, volume)
+		SELECT 'NEW', d::date, 3, 3.5, 2.5, 3, 3, 1000000
+		  FROM generate_series('2026-10-01'::date, '2026-11-12'::date, interval '1 day') AS g(d)
+		 WHERE extract(isodow FROM d) < 6`)
+	require.NoError(t, err)
+
+	wed := dailyOpts(true, t)
+	wed.Now = time.Date(2026, 11, 11, 14, 0, 0, 0, time.UTC)
+	res, err := runDaily(ctx, pool, wed)
+	require.NoError(t, err)
+	require.Equal(t, "2026-11-11", res.D.String())
+	require.Len(t, res.Done, 1)
+
+	res, err = runDaily(ctx, pool, dailyOpts(true, t))
+	require.NoError(t, err)
+	require.Nil(t, res.Held)
+	require.Equal(t, []string{"2026-11-12"}, datesText(res.Done), "the diff reads Wednesday's rows back, NEW included")
+	require.Equal(t, 0, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE status = 'failed'"))
+	require.Equal(t, "short_history", stringOf(t, pool,
+		"SELECT ineligible_reason FROM strategy_features_daily WHERE as_of = '2026-11-12' AND stock_code = 'NEW'"))
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_features_daily
+		WHERE as_of = '2026-11-12' AND stock_code = 'NEW' AND jsonb_typeof(features->'fs1') = 'null'`))
+}
+
+// A session held before the last scheduled run is backfilled, oldest first, by
+// the next run that can. A hold at 16:40 pages, even when the held session is
+// an earlier one.
+func TestDailySnapshotHeldBackfillRunsOldestFirstAndPagesAtTheDeadline(t *testing.T) {
+	pool := dailyDB(t)
+	seedDailySession(t, pool)
+	ctx := context.Background()
+
+	wed := dailyOpts(true, t)
+	wed.Now = time.Date(2026, 11, 11, 14, 0, 0, 0, time.UTC)
+	res, err := runDaily(ctx, pool, wed)
+	require.NoError(t, err)
+	require.Equal(t, []string{"2026-11-11"}, datesText(res.Done))
+
+	_, err = pool.Exec(ctx, "DELETE FROM index_prices WHERE date = '2026-11-12'")
+	require.NoError(t, err)
+	res, err = runDaily(ctx, pool, dailyOpts(true, t))
+	require.NoError(t, err)
+	require.NotNil(t, res.Held, "Thursday's index bar is missing")
+	require.False(t, res.PastDeadline, "a hold before 16:40 UTC exits 0")
+
+	atDeadline := dailyOpts(true, t)
+	atDeadline.Now = time.Date(2026, 11, 12, 16, 40, 0, 0, time.UTC)
+	res, err = runDaily(ctx, pool, atDeadline)
+	require.NoError(t, err)
+	require.NotNil(t, res.Held)
+	require.True(t, res.PastDeadline, "a hold at 16:40 UTC exits 10")
+
+	// Thursday's index bar lands, then Friday's data: Friday's run backfills Thursday first.
+	_, err = pool.Exec(ctx, `INSERT INTO index_prices (index_code, date, high, low, close) VALUES ('XJO', '2026-11-12', 5160, 5140, 5150)`)
+	require.NoError(t, err)
+	seedFriday(t, pool)
+	friday := dailyOpts(true, t)
+	friday.Now = time.Date(2026, 11, 13, 14, 0, 0, 0, time.UTC)
+	res, err = runDaily(ctx, pool, friday)
+	require.NoError(t, err)
+	require.Nil(t, res.Held)
+	require.Equal(t, []string{"2026-11-12", "2026-11-13"}, datesText(res.Done), "oldest first")
+	require.Equal(t, "true", stringOf(t, pool, "SELECT counts->>'late' FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND phase = 'features'"),
+		"a backfilled session records late")
+	require.Equal(t, "false", stringOf(t, pool, "SELECT counts->>'late' FROM strategy_daily_runs WHERE as_of = '2026-11-13' AND phase = 'features'"))
+	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND status = 'completed'"))
+	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-13' AND status = 'completed'"))
+}
+
+// A promotion keeps the superseded version's live_from and sets its
+// superseded_on, and a later run that registers the same versions changes nothing.
+func TestDailySnapshotPromotionKeepsTheSupersededDates(t *testing.T) {
+	pool := dailyDB(t)
+	ctx := context.Background()
+	st := store{pool: pool}
+	live, ok := spec.Live(spec.StrategyZangerBreakout)
+	require.True(t, ok)
+
+	first, err := registeredVersions([]spec.Registered{live})
+	require.NoError(t, err)
+	require.NoError(t, st.upsertVersions(ctx, pool, civil.Date{Year: 2026, Month: time.November, Day: 12}, first))
+
+	v0 := live
+	v0.Live = false
+	v1 := live
+	v1.Label = "v1"
+	v1.Spec.Universe.MinSessions = 61
+	second, err := registeredVersions([]spec.Registered{v0, v1})
+	require.NoError(t, err)
+	promoted := civil.Date{Year: 2026, Month: time.November, Day: 16}
+	require.NoError(t, st.upsertVersions(ctx, pool, promoted, second))
+	require.NoError(t, st.upsertVersions(ctx, pool, promoted, second), "a rerun is a no-op")
+
+	dates := func(label string) (status, liveFrom, supersededOn string) {
+		t.Helper()
+		require.NoError(t, pool.QueryRow(ctx, `SELECT status, coalesce(live_from::text, ''), coalesce(superseded_on::text, '')
+			FROM strategy_rule_versions WHERE strategy_id = $1 AND label = $2`, live.Spec.StrategyID, label).Scan(&status, &liveFrom, &supersededOn))
+		return status, liveFrom, supersededOn
+	}
+	status, liveFrom, supersededOn := dates("v0")
+	require.Equal(t, []string{"superseded", "2026-11-12", "2026-11-16"}, []string{status, liveFrom, supersededOn}, "v0 keeps its live_from")
+	status, liveFrom, supersededOn = dates("v1")
+	require.Equal(t, []string{"live", "2026-11-16", ""}, []string{status, liveFrom, supersededOn})
+}
+
+// A signal event is inserted with the evidence the job builds for it, and the
+// same key inserted again adds no row.
+func TestDailySnapshotWritesAnEventWithItsEvidence(t *testing.T) {
+	pool := dailyDB(t)
+	ctx := context.Background()
+	st := store{pool: pool}
+	versions, err := registeredVersions(spec.Registry())
+	require.NoError(t, err)
+	d := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	require.NoError(t, st.upsertVersions(ctx, pool, d, versions))
+
+	live, ok := spec.Live(spec.StrategyZangerBreakout)
+	require.True(t, ok)
+	h, err := spec.RulesHash(live.Spec)
+	require.NoError(t, err)
+	pivot := 41.64
+	score := 80.0
+	tr := transition{Code: "AAA", From: "setup", To: "triggered", Score: score, Rules: pickState{
+		Status: "triggered", Score: score, Close: 41.2, Pivot: &pivot,
+		ShortReport: ptrDate(2026, time.October, 28), ShortAvailable: ptrDate(2026, time.November, 3), Regime: "neutral",
+		Rules: []engine.RuleResult{{RuleID: "breakout", Status: engine.RulePass, Value: 1.5, HasValue: true}},
+	}}
+	ev := eventRow{
+		RulesHash: h, EngineVersion: engine.Version, StrategyID: live.Spec.StrategyID, Code: "AAA",
+		AsOf: d, PrevAsOf: civil.Date{Year: 2026, Month: time.November, Day: 11},
+		From: tr.From, To: tr.To, Score: &score, Evidence: evidenceJSON(tr),
+	}
+	require.NoError(t, writeEvents(ctx, pool, st, d, []string{h}, []eventRow{ev}, "{}"))
+	require.NoError(t, writeEvents(ctx, pool, st, d, []string{h}, []eventRow{ev}, "{}"))
+
+	require.Equal(t, 1, countRows(t, pool, "SELECT count(*) FROM strategy_signal_events WHERE stock_code = 'AAA' AND as_of = '2026-11-12'"))
+	stored := stringOf(t, pool, "SELECT evidence::text FROM strategy_signal_events WHERE stock_code = 'AAA' AND as_of = '2026-11-12'")
+	require.JSONEq(t, `{"r":["breakout"],"v":[1.5],"p":[null],"close":41.2,"pivot":41.64,
+		"short_report":"2026-10-28","short_available":"2026-11-03","regime":"neutral"}`, stored)
+}
+
+// The window's rows do not answer for a code whose newest qualifying short
+// position is older than two years, so its sf0 reads the whole history.
+func TestDailySnapshotReadsAShortPositionOlderThanTheWindow(t *testing.T) {
+	pool := dailyDB(t)
+	seedDailySession(t, pool)
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO shorts ("DATE", "PRODUCT", "PRODUCT_CODE", "REPORTED_SHORT_POSITIONS", "TOTAL_PRODUCT_IN_ISSUE",
+			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS")
+		VALUES ('2024-03-01', 'ALPHA MINING LIMITED ORDINARY FULLY PAID', 'AAA', 1000000, 100000000, 6)`)
+	require.NoError(t, err)
+
+	wed := dailyOpts(true, t)
+	wed.Now = time.Date(2026, 11, 11, 14, 0, 0, 0, time.UTC)
+	res, err := runDaily(ctx, pool, wed)
+	require.NoError(t, err)
+	require.Len(t, res.Done, 1)
+	require.Equal(t, "reported", stringOf(t, pool, "SELECT features->'sf0'->>'status' FROM strategy_features_daily WHERE as_of = '2026-11-11' AND stock_code = 'AAA'"))
+	require.Equal(t, "6", stringOf(t, pool, "SELECT features->'sf0'->>'pct' FROM strategy_features_daily WHERE as_of = '2026-11-11' AND stock_code = 'AAA'"))
+}
+
+// A features phase the run log records as completed is read back, not computed
+// again: changed inputs leave its rows as they were, while the phases that were
+// not complete run on the stored rows.
+func TestDailySnapshotSkipsACompletedFeaturesPhase(t *testing.T) {
+	pool := dailyDB(t)
+	seedDailySession(t, pool)
+	ctx := context.Background()
+	_, err := runDaily(ctx, pool, dailyOpts(true, t))
+	require.NoError(t, err)
+	first := featureSnapshot(t, pool)
+
+	_, err = pool.Exec(ctx, "UPDATE stock_prices SET open = 999, high = 999, low = 999, close = 999, adjusted_close = 999 WHERE stock_code = 'AAA' AND date = '2026-11-12'")
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, "DELETE FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND phase <> 'features'")
+	require.NoError(t, err)
+
+	res, err := runDaily(ctx, pool, dailyOpts(true, t))
+	require.NoError(t, err)
+	require.Equal(t, []string{"2026-11-12"}, datesText(res.Done))
+	require.Equal(t, first, featureSnapshot(t, pool), "a completed features phase is read back, not recomputed")
+	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND status = 'completed'"))
+}
+
