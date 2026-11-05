@@ -1043,6 +1043,10 @@ jobs:
             # then re-run the deploy:
             #   task db:prod:apply FILE=services/migrations/000156_strategy_engine.up.sql CONFIRM=prod
             run_psql_session -f /migrations/000156_strategy_engine.up.sql
+            # 000156 (strategy workspace) adds the saved-strategies table of the My strategies list. One
+            # CREATE TABLE IF NOT EXISTS, no row, no lock beyond the catalog check, so it replays freely.
+            # The save and list RPCs read it, and the signed-in list reads it as empty until it exists.
+            run_psql_session -f /migrations/000156_strategy_saves.up.sql
 
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
