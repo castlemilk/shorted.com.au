@@ -1,27 +1,31 @@
 // Package pipeline turns stored rows into the candidates the engine evaluates.
 // Inputs is the one set of rows a run reads; CandidateAt and BuildCandidates
-// apply the universe rules to them. The types and signatures are final here;
-// the universe rules are added with the candidate builder.
+// apply the universe policy of the version to them. Both are pure: the
+// readers that fill Inputs are pgsource's.
+//
+// The bars are each code's stock_prices rows as stored, date ascending, with no
+// close filter: unpriced closes and zero volume are kept. AsOf, DaysToCover and
+// CASuspects drop the rows whose close fails validPrice themselves, while
+// DaysToCoverV0 reads the rows as 000080 does, so a reader or backtest must not
+// filter them before they reach the features.
 package pipeline
 
 import (
+	"encoding/json"
+	"sort"
+	"time"
+
 	"cloud.google.com/go/civil"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/calendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/instrument"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 )
 
 // Inputs is the set of rows one run reads. Iteration is over Codes, which is
 // sorted; the maps are keyed by stock code and are never ranged over for output.
-// The readers that fill each field are pgsource's (PR-09c); the fields are
-// fixed here so that the backtest is written against them.
-//
-// Bars are each code's stock_prices rows as stored, date ascending, with no
-// close filter: unpriced closes and zero volume are kept. AsOf, DaysToCover
-// and CASuspects drop the rows whose close fails validPrice themselves, while
-// DaysToCoverV0 reads the rows as 000080 does, so a reader or backtest must not
-// filter them before they reach the features.
 type Inputs struct {
 	Codes        []string                         // sorted; the only iteration order
 	Bars         map[string][]features.Bar        // per code, date ascending, unfiltered (see above)
@@ -42,16 +46,275 @@ type Ineligible struct {
 	Reason string
 }
 
-// CandidateAt builds the candidate of one code on session t from in. Not yet
-// implemented: it panics rather than return a candidate that skipped the
-// universe rules.
-func CandidateAt(code string, t civil.Date, in *Inputs) (engine.Candidate, *Ineligible) {
-	panic("pipeline: CandidateAt is not implemented yet")
+// Reasons the pipeline decides itself. The instrument reasons are
+// instrument.IneligibleReason's; these are the rest of the universe's reasons.
+const (
+	ReasonNoBarOnSession       = instrument.ReasonNoBarOnSession
+	ReasonShortHistory         = "short_history"
+	ReasonCorporateActionGuard = "corporate_action_guard"
+	ReasonNotInASICReport      = "not_in_asic_report"
+)
+
+// index is the per-run state the candidates share: built once, read per code.
+type index struct {
+	s        spec.Spec
+	in       *Inputs
+	cal      *calendar.Calendar
+	reports  *features.Reports
+	asic     map[string][]features.ASICRow // per code, date ascending
+	suspects map[string][]features.CASuspect
+}
+
+// newIndex builds the shared state of one run under version s.
+func newIndex(in *Inputs, s spec.Spec) *index {
+	xjoDates := make([]civil.Date, len(in.XJO))
+	for i, b := range in.XJO {
+		xjoDates[i] = b.Date
+	}
+	reportDates := map[civil.Date]bool{}
+	for _, r := range in.ASIC {
+		reportDates[r.ReportDate] = true
+	}
+	var asicDates []civil.Date
+	for d := range reportDates {
+		asicDates = append(asicDates, d)
+	}
+	sort.Slice(asicDates, func(i, j int) bool { return asicDates[i].Before(asicDates[j]) })
+
+	idx := &index{
+		s:        s,
+		in:       in,
+		cal:      calendar.New(xjoDates, asicDates, s.Data.PublicationLagSessions),
+		reports:  features.NewReports(in.ASIC, in.Ingests),
+		asic:     map[string][]features.ASICRow{},
+		suspects: map[string][]features.CASuspect{},
+	}
+	for _, r := range in.ASIC {
+		idx.asic[r.Code] = append(idx.asic[r.Code], r)
+	}
+	for code, rows := range idx.asic {
+		sort.SliceStable(rows, func(i, j int) bool { return rows[i].ReportDate.Before(rows[j].ReportDate) })
+		idx.asic[code] = rows
+	}
+	// The corporate-action suspects are needed by the CA guard and by the
+	// short reading's basis check. An unparseable ca_upjump_from is the empty
+	// date, which counts every up-jump: the conservative error.
+	if s.Universe.CAGuard || s.Data.ShortSource == "latest_complete_published" {
+		upjump, _ := civil.ParseDate(s.Data.CAUpjumpFrom)
+		for _, code := range in.Codes {
+			idx.suspects[code] = features.CASuspects(in.Bars[code], idx.asic[code], idx.cal, upjump)
+		}
+	}
+	return idx
+}
+
+// CandidateAt builds the candidate of one code on session t under version s,
+// from the rows in in, or the reason the universe excludes it on t. It builds
+// the run's shared state on every call, so a run over many codes should use
+// BuildCandidates.
+//
+// The version is a parameter, unlike the seam's first draft: the feature
+// parameters and the universe policy the candidate is built under are the
+// version's, so a candidate cannot be built without it.
+func CandidateAt(code string, t civil.Date, in *Inputs, s spec.Spec) (engine.Candidate, *Ineligible) {
+	return candidateAt(code, t, newIndex(in, s))
+}
+
+// candidateAt is CandidateAt over a built index. The checks run in a fixed
+// order: the bar on the session, the history, the instrument, the CA guard,
+// then the short-report membership.
+func candidateAt(code string, t civil.Date, idx *index) (engine.Candidate, *Ineligible) {
+	s, in := idx.s, idx.in
+	bars := in.Bars[code]
+	inel := func(reason string) (engine.Candidate, *Ineligible) {
+		return engine.Candidate{}, &Ineligible{Code: code, Reason: reason}
+	}
+
+	if s.Universe.Freshness == "bar_on_session" && !pricedOn(bars, t) {
+		return inel(ReasonNoBarOnSession)
+	}
+	if priced(bars, t.AddDays(-s.Universe.LookbackDays), t) < s.Universe.MinSessions {
+		return inel(ReasonShortHistory)
+	}
+	pf, ok := features.AsOf(bars, in.XJO, t, s.Features)
+	if !ok {
+		return inel(ReasonShortHistory)
+	}
+
+	product, shares, _ := newestASIC(idx.asic[code], t)
+	company := in.Names[code]
+	if s.Universe.Instruments == "ordinary" {
+		if r := instrument.IneligibleReason(code, product, company, shares, in.ETPSet, true); r != "" {
+			return inel(r)
+		}
+	}
+
+	known := features.KnownBy(idx.suspects[code], t)
+	if s.Universe.CAGuard && caGuarded(idx.cal, known, t) {
+		return inel(ReasonCorporateActionGuard)
+	}
+
+	var sr features.ShortReading
+	if s.Data.ShortSource == "latest_complete_published" {
+		sr = features.ShortReadingV1(code, t, idx.cal, idx.reports, bars, known, s.Data.MaxReportAgeSessions)
+	} else {
+		sr = features.ShortReadingV0(code, t, idx.cal, idx.reports, bars)
+	}
+	if s.Universe.ASICReported && (sr.InReport == nil || !*sr.InReport) {
+		return inel(ReasonNotInASICReport)
+	}
+
+	c := candidateFromPrice(code, pf)
+	c.CompanyName = company
+	c.ShortPct = sr.Pct
+	c.DaysToCover = sr.DaysToCover
+	c.ShortReportDate = timePtr(sr.ReportDate)
+	applyFundamentals(&c, in.Fundamentals[code])
+	return c, nil
+}
+
+// caGuardSessions is how long a known corporate-action suspect keeps its code
+// out of the v1 universe: the code is ineligible from the suspect's known date
+// until this many sessions after the suspect's bar, and eligible again on that
+// session.
+const caGuardSessions = 260
+
+// caGuarded reports whether one of the known suspects still excludes the code
+// on session t. The window is counted from the suspect's bar, not from the day
+// it became known, so a suspect expires after caGuardSessions sessions however
+// far back the caller's bars reach.
+func caGuarded(cal *calendar.Calendar, known []features.CASuspect, t civil.Date) bool {
+	for _, s := range known {
+		if cal.SessionsBetween(s.Date, t) < caGuardSessions {
+			return true
+		}
+	}
+	return false
 }
 
 // BuildCandidates builds every eligible candidate on session D under the
-// version s, with the statistics the rules read across the universe. Not yet
-// implemented, for the same reason as CandidateAt.
+// version s, with the statistics the rules read across the universe. The
+// candidates are in Codes order and not yet prepared. The rows this package
+// reads do not carry the industry, the logo or the metadata market cap, so the
+// caller attaches them (pgsource.MergeMetadata) before engine.PrepareCandidates,
+// whose financials rule reads the industry. Ineligible codes come back with
+// their reason, in Codes order.
 func BuildCandidates(D civil.Date, in *Inputs, s spec.Spec) ([]engine.Candidate, engine.UniverseStats, []Ineligible) {
-	panic("pipeline: BuildCandidates is not implemented yet")
+	idx := newIndex(in, s)
+	var (
+		cands []engine.Candidate
+		out   []Ineligible
+	)
+	for _, code := range in.Codes {
+		c, bad := candidateAt(code, D, idx)
+		if bad != nil {
+			out = append(out, *bad)
+			continue
+		}
+		cands = append(cands, c)
+	}
+	stats := engine.UniverseStatsOf(cands)
+	stats.Session = D
+	return cands, stats, out
+}
+
+// pricedOn reports whether bars holds a priced bar dated t.
+func pricedOn(bars []features.Bar, t civil.Date) bool {
+	i := sort.Search(len(bars), func(i int) bool { return !bars[i].Date.Before(t) })
+	return i < len(bars) && bars[i].Date == t && features.Priced(bars[i].Close)
+}
+
+// priced counts the priced bars dated in [from, to].
+func priced(bars []features.Bar, from, to civil.Date) int {
+	lo := sort.Search(len(bars), func(i int) bool { return !bars[i].Date.Before(from) })
+	hi := sort.Search(len(bars), func(i int) bool { return bars[i].Date.After(to) })
+	n := 0
+	for _, b := range bars[lo:hi] {
+		if features.Priced(b.Close) {
+			n++
+		}
+	}
+	return n
+}
+
+// newestASIC returns the product name and shares on issue of the newest ASIC
+// row dated on or before t: point-in-time, so a backtest never reads a later
+// classification. ok is false when the code has no row yet.
+func newestASIC(rows []features.ASICRow, t civil.Date) (product string, shares float64, ok bool) {
+	i := sort.Search(len(rows), func(i int) bool { return rows[i].ReportDate.After(t) })
+	if i == 0 {
+		return "", 0, false
+	}
+	r := rows[i-1]
+	return r.Product, r.Issued, true
+}
+
+// candidateFromPrice maps one price-feature row onto the evaluator's candidate.
+func candidateFromPrice(code string, p features.PriceFeatures) engine.Candidate {
+	volume := p.Volume
+	breakout := p.BreakoutRecent
+	var baseLength *int32
+	if p.BaseLengthDays != nil {
+		n := int32(*p.BaseLengthDays)
+		baseLength = &n
+	}
+	return engine.Candidate{
+		StockCode:         code,
+		AsOf:              time.Date(p.AsOf.Year, p.AsOf.Month, p.AsOf.Day, 0, 0, 0, 0, time.UTC),
+		Close:             p.Close,
+		PrevClose:         p.PrevClose,
+		SMA10:             p.SMA10,
+		SMA20:             p.SMA20,
+		SMA50:             p.SMA50,
+		SMA150:            p.SMA150,
+		SMA200:            p.SMA200,
+		SMA200_1mAgo:      p.SMA200OneMonthAgo,
+		High52w:           p.High52w,
+		Low52w:            p.Low52w,
+		PctOff52wHigh:     p.PctOff52wHigh,
+		PctAbove52wLow:    p.PctAbove52wLow,
+		Volume:            &volume,
+		AvgVolume50d:      p.AvgVolume50d,
+		VolumeRatio50d:    p.VolumeRatio50d,
+		DollarVolume20d:   p.DollarVolume20d,
+		BaseHigh:          p.BaseHigh,
+		BaseLow:           p.BaseLow,
+		BaseDepthPct:      p.BaseDepthPct,
+		BaseLengthDays:    baseLength,
+		BreakoutRecent:    &breakout,
+		BreakoutDate:      timePtr(p.BreakoutDate),
+		Ret1mPct:          p.Ret1mPct,
+		Ret3mPct:          p.Ret3mPct,
+		Ret6mPct:          p.Ret6mPct,
+		Ret12mPct:         p.Ret12mPct,
+		RS3mPct:           p.RS3mPct,
+		RS6mPct:           p.RS6mPct,
+		SessionsAvailable: int32(p.SessionsAvailable),
+	}
+}
+
+// applyFundamentals decodes a stock's frozen fundamentals onto its candidate.
+// A blob this package cannot decode is treated as no fundamentals: the
+// encoder writes these bytes from the same type, so that does not happen in a
+// run that reads its own snapshot.
+func applyFundamentals(c *engine.Candidate, f features.Fundamentals) {
+	if len(f.Blob) == 0 {
+		return
+	}
+	var body features.FundamentalsBody
+	if err := json.Unmarshal(f.Blob, &body); err != nil {
+		return
+	}
+	c.Growth = body.Growth
+	c.Quality = body.Quality
+	c.ValuationInputs = body.ValuationInputs
+}
+
+// timePtr converts an optional civil date to the candidate's time form.
+func timePtr(d *civil.Date) *time.Time {
+	if d == nil {
+		return nil
+	}
+	t := time.Date(d.Year, d.Month, d.Day, 0, 0, 0, 0, time.UTC)
+	return &t
 }

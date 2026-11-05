@@ -213,6 +213,7 @@ run_testcontainers_integration() {
 
   run "Testcontainers integration" make test-integration-local
   run "Strategy parity container suite" make -C services test-strategy-parity
+  run "Strategy reader container suite" make -C services test-pgsource-pg
 }
 
 run_fast() {

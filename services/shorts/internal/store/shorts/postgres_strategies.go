@@ -11,6 +11,7 @@ import (
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -118,84 +119,12 @@ func finiteAll(vs ...**float64) {
 	}
 }
 
-// growthColumns selects every mv_fundamentals_growth column (plan §2.2) the
-// evaluator reads, in scanGrowth order, from the alias g. Numeric columns are
-// cast to float8 so the scan types do not depend on how the view declares
-// them. The column list is fixed (never built from input).
-const growthColumns = `
-	COALESCE(g.basis_period_type::text, ''),
-	g.latest_period_end::date,
-	g.latest_annual_period_end::date,
-	g.revenue_latest::float8,
-	g.revenue_prior::float8,
-	g.revenue_yoy_pct::float8,
-	g.revenue_yoy_prior_pct::float8,
-	g.eps_latest::float8,
-	g.eps_prior::float8,
-	g.eps_yoy_pct::float8,
-	g.eps_yoy_prior_pct::float8,
-	g.net_income_latest::float8,
-	g.net_income_prior::float8,
-	g.net_income_positive,
-	g.operating_cash_flow_latest::float8,
-	g.revenue_ttm::float8,
-	g.net_income_ttm::float8,
-	g.eps_ttm::float8,
-	g.revenue_half_delta::float8,
-	g.net_income_half_delta::float8,
-	COALESCE(g.currency::text, ''),
-	COALESCE(g.periods_available, 0)::int4,
-	g.fetched_at::timestamptz,
-	COALESCE(g.revenue_basis_period_type::text, ''),
-	g.revenue_half_yoy_pct::float8,
-	g.net_income_half_yoy_pct::float8,
-	g.eps_half_yoy_pct::float8,
-	g.half_latest_period_end::date`
+// growthColumns is the mv_fundamentals_growth select list, owned by pgsource.
+const growthColumns = pgsource.GrowthColumns
 
-// growthScanTargets returns the scan destinations matching growthColumns.
-func growthScanTargets(g *engine.Growth) []any {
-	return []any{
-		&g.BasisPeriodType,
-		&g.LatestPeriodEnd,
-		&g.LatestAnnualPeriodEnd,
-		&g.RevenueLatest,
-		&g.RevenuePrior,
-		&g.RevenueYoYPct,
-		&g.RevenueYoYPriorPct,
-		&g.EPSLatest,
-		&g.EPSPrior,
-		&g.EPSYoYPct,
-		&g.EPSYoYPriorPct,
-		&g.NetIncomeLatest,
-		&g.NetIncomePrior,
-		&g.NetIncomePositive,
-		&g.OperatingCashFlowLatest,
-		&g.RevenueTTM,
-		&g.NetIncomeTTM,
-		&g.EPSTTM,
-		&g.RevenueHalfDelta,
-		&g.NetIncomeHalfDelta,
-		&g.Currency,
-		&g.PeriodsAvailable,
-		&g.FetchedAt,
-		&g.RevenueBasisPeriodType,
-		&g.RevenueHalfYoYPct,
-		&g.NetIncomeHalfYoYPct,
-		&g.EPSHalfYoYPct,
-		&g.HalfLatestPeriodEnd,
-	}
-}
-
-func sanitiseGrowth(g *engine.Growth) {
-	finiteAll(
-		&g.RevenueLatest, &g.RevenuePrior, &g.RevenueYoYPct, &g.RevenueYoYPriorPct,
-		&g.EPSLatest, &g.EPSPrior, &g.EPSYoYPct, &g.EPSYoYPriorPct,
-		&g.NetIncomeLatest, &g.NetIncomePrior, &g.OperatingCashFlowLatest,
-		&g.RevenueTTM, &g.NetIncomeTTM, &g.EPSTTM,
-		&g.RevenueHalfDelta, &g.NetIncomeHalfDelta,
-		&g.RevenueHalfYoYPct, &g.NetIncomeHalfYoYPct, &g.EPSHalfYoYPct,
-	)
-}
+// growthScanTargets and growthColumns are pgsource's; the candidates query
+// below selects the same columns.
+var growthScanTargets = pgsource.GrowthScanTargets
 
 // strategyCandidatesQuery is ONE query over the evaluator's universe: every
 // row of mv_price_features, LEFT JOIN mv_fundamentals_growth (growth), LEFT
@@ -387,11 +316,11 @@ func listStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]engine.Ca
 	if err != nil || len(out) == 0 {
 		return out, err
 	}
-	extras, err := listFundamentalsExtras(ctx, db)
+	extras, err := pgsource.ListExtras(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-	mergeFundamentalsExtras(out, extras)
+	pgsource.MergeExtras(out, extras)
 	shortDates, err := listStrategyShortDates(ctx, db)
 	if err != nil {
 		return nil, err
@@ -432,7 +361,7 @@ func queryStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]engine.C
 		}
 		sanitiseCandidate(c)
 		if row.hasGrowth {
-			sanitiseGrowth(grow)
+			pgsource.SanitiseGrowth(grow)
 			c.Growth = grow
 		}
 		out = append(out, *c)
@@ -727,30 +656,11 @@ func readFundamentalsPeriods(ctx context.Context, db fundamentalsDB, query strin
 	return out, nil
 }
 
-var fundamentalsGrowthQuery = `
-	SELECT` + growthColumns + `
-	FROM mv_fundamentals_growth g
-	WHERE g.stock_code = $1
-`
+// fundamentalsGrowthQuery is the single-stock growth read, owned by pgsource.
+var fundamentalsGrowthQuery = pgsource.GrowthQuery
 
 // GetFundamentalsGrowth returns the mv_fundamentals_growth row for a stock,
 // or nil when there is none (or the view does not exist yet).
 func (s *postgresStore) GetFundamentalsGrowth(ctx context.Context, code string) (*engine.Growth, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
-	defer cancel()
-
-	var g engine.Growth
-	err := s.db.QueryRow(ctx, fundamentalsGrowthQuery, code).Scan(growthScanTargets(&g)...)
-	switch {
-	case err == nil:
-		sanitiseGrowth(&g)
-		return &g, nil
-	case errors.Is(err, pgx.ErrNoRows):
-		return nil, nil
-	case isUndefinedTable(err):
-		logMissingRelationOnce("GetFundamentalsGrowth", err)
-		return nil, nil
-	default:
-		return nil, fmt.Errorf("failed to query fundamentals growth: %w", err)
-	}
+	return pgsource.GetGrowth(ctx, s.db, code)
 }

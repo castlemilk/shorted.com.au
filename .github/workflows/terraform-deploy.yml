@@ -2012,6 +2012,15 @@ jobs:
           cd services
           make test-strategy-parity
 
+      # The strategy reader suite (services/pkg/strategy/pgsource): the feature pipeline's readers and the
+      # picker's metadata, dividend and cash-rate reads, against a real Postgres. It gates the deploy so a
+      # reader's SQL or scan types cannot drift from the tables unnoticed.
+      - name: Run strategy reader container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the strategy reader suite (postgres container)..."
+          cd services
+          make test-pgsource-pg
+
       # Workflow pins: the apply gate and the smoke ordering are asserted here,
       # and nothing else ran these tests in CI. The test imports `yaml`, a root
       # devDependency, so the runner installs the root packages first.
