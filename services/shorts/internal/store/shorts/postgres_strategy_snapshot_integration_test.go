@@ -418,7 +418,7 @@ func TestStrategyDataStatus_AvailabilityUsesTheShortsReportDates(t *testing.T) {
 
 // The API serves the canonical version the table marks live, with its live_from:
 // a draft and a superseded row are never read as live.
-func TestStrategyLive_ReadsTheLiveCanonicalRow(t *testing.T) {
+func TestStrategySnapshot_LiveRuleVersions(t *testing.T) {
 	pool := snapshotDB(t)
 	applySnapshotMigration(t, pool)
 	ctx := context.Background()
@@ -433,4 +433,33 @@ func TestStrategyLive_ReadsTheLiveCanonicalRow(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	assert.Equal(t, LiveRuleVersion{StrategyID: "zanger-breakout", RulesHash: strings.Repeat("2", 64), Label: "v1", LiveFrom: "2026-11-16"}, rows[0])
+}
+
+// The version RPCs state every canonical row's status and dates, the draft
+// included, and never a variant.
+func TestStrategySnapshot_CanonicalRuleVersions(t *testing.T) {
+	pool := snapshotDB(t)
+	applySnapshotMigration(t, pool)
+	ctx := context.Background()
+	s := &postgresStore{db: pool}
+
+	v0From, v0Super, v1From := "2026-11-12", "2026-11-16", "2026-11-16"
+	v0Hash, v1Hash, v2Hash := strings.Repeat("1", 64), strings.Repeat("2", 64), strings.Repeat("3", 64)
+	insertRuleVersion(t, pool, v0Hash, "zanger-breakout", "v0", "canonical", "superseded", &v0From)
+	_, err := pool.Exec(ctx, `UPDATE strategy_rule_versions SET superseded_on = $1::date WHERE rules_hash = $2`, v0Super, v0Hash)
+	require.NoError(t, err)
+	insertRuleVersion(t, pool, v1Hash, "zanger-breakout", "v1", "canonical", "live", &v1From)
+	insertRuleVersion(t, pool, v2Hash, "zanger-breakout", "v2", "canonical", "draft", nil)
+	insertRuleVersion(t, pool, strings.Repeat("4", 64), "zanger-breakout", "v0-variant", "variant", "draft", nil)
+
+	rows, err := s.ReadCanonicalRuleVersions(ctx)
+	require.NoError(t, err)
+	require.Len(t, rows, 3, "variants are never read")
+	byHash := map[string]CanonicalRuleVersion{}
+	for _, r := range rows {
+		byHash[r.RulesHash] = r
+	}
+	assert.Equal(t, CanonicalRuleVersion{RulesHash: v0Hash, StrategyID: "zanger-breakout", Label: "v0", Status: "superseded", LiveFrom: v0From, SupersededOn: v0Super}, byHash[v0Hash])
+	assert.Equal(t, CanonicalRuleVersion{RulesHash: v1Hash, StrategyID: "zanger-breakout", Label: "v1", Status: "live", LiveFrom: v1From}, byHash[v1Hash])
+	assert.Equal(t, CanonicalRuleVersion{RulesHash: v2Hash, StrategyID: "zanger-breakout", Label: "v2", Status: "draft"}, byHash[v2Hash])
 }

@@ -538,6 +538,59 @@ type StrategyLiveReader interface {
 	ReadLiveRuleVersions(ctx context.Context) ([]LiveRuleVersion, error)
 }
 
+// CanonicalRuleVersion is one canonical version strategy_rule_versions records,
+// with the status and the dates the version RPCs state (YYYY-MM-DD, "" when the
+// row has none).
+type CanonicalRuleVersion struct {
+	RulesHash    string
+	StrategyID   string
+	Label        string
+	Status       string
+	LiveFrom     string
+	SupersededOn string
+	RetiredOn    string
+}
+
+// StrategyVersionReader is the version read the version RPCs state their
+// status and dates from. Store implements it beside the live reader.
+type StrategyVersionReader interface {
+	ReadCanonicalRuleVersions(ctx context.Context) ([]CanonicalRuleVersion, error)
+}
+
+// ReadCanonicalRuleVersions returns every canonical version the table records,
+// whatever its status. A database without the table answers
+// ErrStrategySnapshotUnavailable.
+func (s *postgresStore) ReadCanonicalRuleVersions(ctx context.Context) ([]CanonicalRuleVersion, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+	rows, err := s.db.Query(ctx, `
+		SELECT rules_hash, strategy_id, label, status,
+		       COALESCE(live_from::text, ''), COALESCE(superseded_on::text, ''), COALESCE(retired_on::text, '')
+		  FROM strategy_rule_versions
+		 WHERE kind = 'canonical'
+		 ORDER BY strategy_id, rules_hash`)
+	if err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ReadCanonicalRuleVersions", err)
+			return nil, ErrStrategySnapshotUnavailable
+		}
+		return nil, fmt.Errorf("read canonical rule versions: %w", err)
+	}
+	defer rows.Close()
+	var out []CanonicalRuleVersion
+	for rows.Next() {
+		var v CanonicalRuleVersion
+		if err := rows.Scan(&v.RulesHash, &v.StrategyID, &v.Label, &v.Status, &v.LiveFrom, &v.SupersededOn, &v.RetiredOn); err != nil {
+			return nil, fmt.Errorf("scan canonical rule version: %w", err)
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read canonical rule versions: %w", err)
+	}
+	return out, nil
+}
+
 // ReadLiveRuleVersions returns the live canonical version of every strategy the
 // table records, the version the job last promoted (the table is written by the
 // daily job, so the served version changes when the job promotes, not at
