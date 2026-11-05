@@ -2962,6 +2962,8 @@ type SavedStrategy struct {
 	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`                                     // The strategy's name; empty when it is not in the registry.
 	SavedAt       string                 `protobuf:"bytes,4,opt,name=saved_at,json=savedAt,proto3" json:"saved_at,omitempty"`                // RFC 3339 time of the first save.
 	StatusCounts  *StatusCounts          `protobuf:"bytes,5,opt,name=status_counts,json=statusCounts,proto3" json:"status_counts,omitempty"` // Today's counts; absent for a variant or when they cannot be read.
+	Version       *StrategyVersionRef    `protobuf:"bytes,6,opt,name=version,proto3" json:"version,omitempty"`                               // The live rules version the counts were evaluated under; absent for a variant or when unknown.
+	SessionDate   string                 `protobuf:"bytes,7,opt,name=session_date,json=sessionDate,proto3" json:"session_date,omitempty"`    // The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3029,6 +3031,20 @@ func (x *SavedStrategy) GetStatusCounts() *StatusCounts {
 		return x.StatusCounts
 	}
 	return nil
+}
+
+func (x *SavedStrategy) GetVersion() *StrategyVersionRef {
+	if x != nil {
+		return x.Version
+	}
+	return nil
+}
+
+func (x *SavedStrategy) GetSessionDate() string {
+	if x != nil {
+		return x.SessionDate
+	}
+	return ""
 }
 
 var File_shorts_v1alpha1_strategies_proto protoreflect.FileDescriptor
@@ -3335,14 +3351,16 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\n" +
 	"strategies\x18\x01 \x03(\v2\x1e.shorts.v1alpha1.SavedStrategyR\n" +
 	"strategies\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\x05R\x05limit\"\xc6\x01\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"\xa8\x02\n" +
 	"\rSavedStrategy\x12!\n" +
 	"\fstrategy_ref\x18\x01 \x01(\tR\vstrategyRef\x12\x1f\n" +
 	"\vstrategy_id\x18\x02 \x01(\tR\n" +
 	"strategyId\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x19\n" +
 	"\bsaved_at\x18\x04 \x01(\tR\asavedAt\x12B\n" +
-	"\rstatus_counts\x18\x05 \x01(\v2\x1d.shorts.v1alpha1.StatusCountsR\fstatusCounts2\x8a\b\n" +
+	"\rstatus_counts\x18\x05 \x01(\v2\x1d.shorts.v1alpha1.StatusCountsR\fstatusCounts\x12=\n" +
+	"\aversion\x18\x06 \x01(\v2#.shorts.v1alpha1.StrategyVersionRefR\aversion\x12!\n" +
+	"\fsession_date\x18\a \x01(\tR\vsessionDate2\x8a\b\n" +
 	"\x0fStrategyService\x12g\n" +
 	"\x0eListStrategies\x12&.shorts.v1alpha1.ListStrategiesRequest\x1a'.shorts.v1alpha1.ListStrategiesResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
 	"\x10GetStrategyPicks\x12(.shorts.v1alpha1.GetStrategyPicksRequest\x1a).shorts.v1alpha1.GetStrategyPicksResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
@@ -3426,29 +3444,30 @@ var file_shorts_v1alpha1_strategies_proto_depIdxs = []int32{
 	30, // 21: shorts.v1alpha1.SaveStrategyResponse.saved:type_name -> shorts.v1alpha1.SavedStrategy
 	30, // 22: shorts.v1alpha1.ListSavedStrategiesResponse.strategies:type_name -> shorts.v1alpha1.SavedStrategy
 	11, // 23: shorts.v1alpha1.SavedStrategy.status_counts:type_name -> shorts.v1alpha1.StatusCounts
-	16, // 24: shorts.v1alpha1.StrategyService.ListStrategies:input_type -> shorts.v1alpha1.ListStrategiesRequest
-	7,  // 25: shorts.v1alpha1.StrategyService.GetStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
-	7,  // 26: shorts.v1alpha1.StrategyService.GetViewerStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
-	12, // 27: shorts.v1alpha1.StrategyService.GetStockStrategyFit:input_type -> shorts.v1alpha1.GetStockStrategyFitRequest
-	18, // 28: shorts.v1alpha1.StrategyService.GetStrategyVersion:input_type -> shorts.v1alpha1.GetStrategyVersionRequest
-	20, // 29: shorts.v1alpha1.StrategyService.ListStrategyVersions:input_type -> shorts.v1alpha1.ListStrategyVersionsRequest
-	24, // 30: shorts.v1alpha1.StrategyService.SaveStrategy:input_type -> shorts.v1alpha1.SaveStrategyRequest
-	26, // 31: shorts.v1alpha1.StrategyService.UnsaveStrategy:input_type -> shorts.v1alpha1.UnsaveStrategyRequest
-	28, // 32: shorts.v1alpha1.StrategyService.ListSavedStrategies:input_type -> shorts.v1alpha1.ListSavedStrategiesRequest
-	17, // 33: shorts.v1alpha1.StrategyService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
-	8,  // 34: shorts.v1alpha1.StrategyService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
-	8,  // 35: shorts.v1alpha1.StrategyService.GetViewerStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
-	15, // 36: shorts.v1alpha1.StrategyService.GetStockStrategyFit:output_type -> shorts.v1alpha1.GetStockStrategyFitResponse
-	19, // 37: shorts.v1alpha1.StrategyService.GetStrategyVersion:output_type -> shorts.v1alpha1.GetStrategyVersionResponse
-	21, // 38: shorts.v1alpha1.StrategyService.ListStrategyVersions:output_type -> shorts.v1alpha1.ListStrategyVersionsResponse
-	25, // 39: shorts.v1alpha1.StrategyService.SaveStrategy:output_type -> shorts.v1alpha1.SaveStrategyResponse
-	27, // 40: shorts.v1alpha1.StrategyService.UnsaveStrategy:output_type -> shorts.v1alpha1.UnsaveStrategyResponse
-	29, // 41: shorts.v1alpha1.StrategyService.ListSavedStrategies:output_type -> shorts.v1alpha1.ListSavedStrategiesResponse
-	33, // [33:42] is the sub-list for method output_type
-	24, // [24:33] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	10, // 24: shorts.v1alpha1.SavedStrategy.version:type_name -> shorts.v1alpha1.StrategyVersionRef
+	16, // 25: shorts.v1alpha1.StrategyService.ListStrategies:input_type -> shorts.v1alpha1.ListStrategiesRequest
+	7,  // 26: shorts.v1alpha1.StrategyService.GetStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
+	7,  // 27: shorts.v1alpha1.StrategyService.GetViewerStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
+	12, // 28: shorts.v1alpha1.StrategyService.GetStockStrategyFit:input_type -> shorts.v1alpha1.GetStockStrategyFitRequest
+	18, // 29: shorts.v1alpha1.StrategyService.GetStrategyVersion:input_type -> shorts.v1alpha1.GetStrategyVersionRequest
+	20, // 30: shorts.v1alpha1.StrategyService.ListStrategyVersions:input_type -> shorts.v1alpha1.ListStrategyVersionsRequest
+	24, // 31: shorts.v1alpha1.StrategyService.SaveStrategy:input_type -> shorts.v1alpha1.SaveStrategyRequest
+	26, // 32: shorts.v1alpha1.StrategyService.UnsaveStrategy:input_type -> shorts.v1alpha1.UnsaveStrategyRequest
+	28, // 33: shorts.v1alpha1.StrategyService.ListSavedStrategies:input_type -> shorts.v1alpha1.ListSavedStrategiesRequest
+	17, // 34: shorts.v1alpha1.StrategyService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
+	8,  // 35: shorts.v1alpha1.StrategyService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
+	8,  // 36: shorts.v1alpha1.StrategyService.GetViewerStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
+	15, // 37: shorts.v1alpha1.StrategyService.GetStockStrategyFit:output_type -> shorts.v1alpha1.GetStockStrategyFitResponse
+	19, // 38: shorts.v1alpha1.StrategyService.GetStrategyVersion:output_type -> shorts.v1alpha1.GetStrategyVersionResponse
+	21, // 39: shorts.v1alpha1.StrategyService.ListStrategyVersions:output_type -> shorts.v1alpha1.ListStrategyVersionsResponse
+	25, // 40: shorts.v1alpha1.StrategyService.SaveStrategy:output_type -> shorts.v1alpha1.SaveStrategyResponse
+	27, // 41: shorts.v1alpha1.StrategyService.UnsaveStrategy:output_type -> shorts.v1alpha1.UnsaveStrategyResponse
+	29, // 42: shorts.v1alpha1.StrategyService.ListSavedStrategies:output_type -> shorts.v1alpha1.ListSavedStrategiesResponse
+	34, // [34:43] is the sub-list for method output_type
+	25, // [25:34] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_strategies_proto_init() }

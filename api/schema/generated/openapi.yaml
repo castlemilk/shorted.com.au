@@ -4363,8 +4363,9 @@ paths:
       description: |-
         Save a strategy to the signed-in caller's list. Saving a strategy that is
          already saved succeeds and keeps its first save time. The list holds at
-         most 20; a save past that is refused with FailedPrecondition, and a
-         repeat save at the cap still succeeds.
+         most 20; a save past that is refused with PermissionDenied and the
+         X-Entitlement-Detail metadata (capability cap_reached, with the limit), and
+         a repeat save at the cap still succeeds.
       operationId: StrategyService_SaveStrategy
       parameters:
         - name: Connect-Protocol-Version
@@ -16258,6 +16259,14 @@ components:
           title: status_counts
           description: Today's counts; absent for a variant or when they cannot be read. (proto shorts.v1alpha1.StatusCounts)
           $ref: '#/components/schemas/shorts.v1alpha1.StatusCounts'
+        version:
+          title: version
+          description: The live rules version the counts were evaluated under; absent for a variant or when unknown. (proto shorts.v1alpha1.StrategyVersionRef)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionRef'
+        sessionDate:
+          type: string
+          title: session_date
+          description: The session the counts are as at (YYYY-MM-DD); empty when the counts are absent. (proto string)
       title: SavedStrategy
       additionalProperties: false
       description: One strategy the signed-in caller saved.

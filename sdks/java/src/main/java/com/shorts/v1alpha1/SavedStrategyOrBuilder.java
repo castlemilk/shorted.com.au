@@ -116,4 +116,51 @@ public interface SavedStrategyOrBuilder extends
    * <code>.shorts.v1alpha1.StatusCounts status_counts = 5 [json_name = "statusCounts"];</code>
    */
   com.shorts.v1alpha1.StatusCountsOrBuilder getStatusCountsOrBuilder();
+
+  /**
+   * <pre>
+   * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+   * @return Whether the version field is set.
+   */
+  boolean hasVersion();
+  /**
+   * <pre>
+   * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+   * @return The version.
+   */
+  com.shorts.v1alpha1.StrategyVersionRef getVersion();
+  /**
+   * <pre>
+   * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+   */
+  com.shorts.v1alpha1.StrategyVersionRefOrBuilder getVersionOrBuilder();
+
+  /**
+   * <pre>
+   * The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+   * </pre>
+   *
+   * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+   * @return The sessionDate.
+   */
+  java.lang.String getSessionDate();
+  /**
+   * <pre>
+   * The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+   * </pre>
+   *
+   * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+   * @return The bytes for sessionDate.
+   */
+  com.google.protobuf.ByteString
+      getSessionDateBytes();
 }

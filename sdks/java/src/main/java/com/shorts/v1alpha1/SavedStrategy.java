@@ -36,6 +36,7 @@ private static final long serialVersionUID = 0L;
     strategyId_ = "";
     name_ = "";
     savedAt_ = "";
+    sessionDate_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -283,6 +284,91 @@ private static final long serialVersionUID = 0L;
     return statusCounts_ == null ? com.shorts.v1alpha1.StatusCounts.getDefaultInstance() : statusCounts_;
   }
 
+  public static final int VERSION_FIELD_NUMBER = 6;
+  private com.shorts.v1alpha1.StrategyVersionRef version_;
+  /**
+   * <pre>
+   * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+   * @return Whether the version field is set.
+   */
+  @java.lang.Override
+  public boolean hasVersion() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <pre>
+   * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+   * @return The version.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.StrategyVersionRef getVersion() {
+    return version_ == null ? com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+  }
+  /**
+   * <pre>
+   * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.StrategyVersionRefOrBuilder getVersionOrBuilder() {
+    return version_ == null ? com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+  }
+
+  public static final int SESSION_DATE_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object sessionDate_ = "";
+  /**
+   * <pre>
+   * The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+   * </pre>
+   *
+   * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+   * @return The sessionDate.
+   */
+  @java.lang.Override
+  public java.lang.String getSessionDate() {
+    java.lang.Object ref = sessionDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      sessionDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+   * </pre>
+   *
+   * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+   * @return The bytes for sessionDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getSessionDateBytes() {
+    java.lang.Object ref = sessionDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      sessionDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -312,6 +398,12 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000001) != 0)) {
       output.writeMessage(5, getStatusCounts());
     }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(6, getVersion());
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, sessionDate_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -331,6 +423,13 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000001) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(5, getStatusCounts());
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(6, getVersion());
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, sessionDate_);
     }
     return size;
   }
@@ -369,6 +468,13 @@ private static final long serialVersionUID = 0L;
       if (!getStatusCounts()
           .equals(other.getStatusCounts())) return false;
     }
+    if (hasVersion() != other.hasVersion()) return false;
+    if (hasVersion()) {
+      if (!getVersion()
+          .equals(other.getVersion())) return false;
+    }
+    if (!getSessionDate()
+        .equals(other.getSessionDate())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -392,6 +498,12 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + STATUS_COUNTS_FIELD_NUMBER;
       hash = (53 * hash) + getStatusCounts().hashCode();
     }
+    if (hasVersion()) {
+      hash = (37 * hash) + VERSION_FIELD_NUMBER;
+      hash = (53 * hash) + getVersion().hashCode();
+    }
+    hash = (37 * hash) + SESSION_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getSessionDate().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -527,6 +639,7 @@ private static final long serialVersionUID = 0L;
       if (com.google.protobuf.GeneratedMessage
               .alwaysUseFieldBuilders) {
         internalGetStatusCountsFieldBuilder();
+        internalGetVersionFieldBuilder();
       }
     }
     @java.lang.Override
@@ -542,6 +655,12 @@ private static final long serialVersionUID = 0L;
         statusCountsBuilder_.dispose();
         statusCountsBuilder_ = null;
       }
+      version_ = null;
+      if (versionBuilder_ != null) {
+        versionBuilder_.dispose();
+        versionBuilder_ = null;
+      }
+      sessionDate_ = "";
       return this;
     }
 
@@ -594,6 +713,15 @@ private static final long serialVersionUID = 0L;
             : statusCountsBuilder_.build();
         to_bitField0_ |= 0x00000001;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.version_ = versionBuilder_ == null
+            ? version_
+            : versionBuilder_.build();
+        to_bitField0_ |= 0x00000002;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.sessionDate_ = sessionDate_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -631,6 +759,14 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasStatusCounts()) {
         mergeStatusCounts(other.getStatusCounts());
+      }
+      if (other.hasVersion()) {
+        mergeVersion(other.getVersion());
+      }
+      if (!other.getSessionDate().isEmpty()) {
+        sessionDate_ = other.sessionDate_;
+        bitField0_ |= 0x00000040;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -685,6 +821,18 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 42
+            case 50: {
+              input.readMessage(
+                  internalGetVersionFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 50
+            case 58: {
+              sessionDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1225,6 +1373,255 @@ private static final long serialVersionUID = 0L;
         statusCounts_ = null;
       }
       return statusCountsBuilder_;
+    }
+
+    private com.shorts.v1alpha1.StrategyVersionRef version_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.StrategyVersionRef, com.shorts.v1alpha1.StrategyVersionRef.Builder, com.shorts.v1alpha1.StrategyVersionRefOrBuilder> versionBuilder_;
+    /**
+     * <pre>
+     * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+     * @return Whether the version field is set.
+     */
+    public boolean hasVersion() {
+      return ((bitField0_ & 0x00000020) != 0);
+    }
+    /**
+     * <pre>
+     * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+     * @return The version.
+     */
+    public com.shorts.v1alpha1.StrategyVersionRef getVersion() {
+      if (versionBuilder_ == null) {
+        return version_ == null ? com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+      } else {
+        return versionBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+     */
+    public Builder setVersion(com.shorts.v1alpha1.StrategyVersionRef value) {
+      if (versionBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        version_ = value;
+      } else {
+        versionBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+     */
+    public Builder setVersion(
+        com.shorts.v1alpha1.StrategyVersionRef.Builder builderForValue) {
+      if (versionBuilder_ == null) {
+        version_ = builderForValue.build();
+      } else {
+        versionBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+     */
+    public Builder mergeVersion(com.shorts.v1alpha1.StrategyVersionRef value) {
+      if (versionBuilder_ == null) {
+        if (((bitField0_ & 0x00000020) != 0) &&
+          version_ != null &&
+          version_ != com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance()) {
+          getVersionBuilder().mergeFrom(value);
+        } else {
+          version_ = value;
+        }
+      } else {
+        versionBuilder_.mergeFrom(value);
+      }
+      if (version_ != null) {
+        bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+     */
+    public Builder clearVersion() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      version_ = null;
+      if (versionBuilder_ != null) {
+        versionBuilder_.dispose();
+        versionBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+     */
+    public com.shorts.v1alpha1.StrategyVersionRef.Builder getVersionBuilder() {
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return internalGetVersionFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+     */
+    public com.shorts.v1alpha1.StrategyVersionRefOrBuilder getVersionOrBuilder() {
+      if (versionBuilder_ != null) {
+        return versionBuilder_.getMessageOrBuilder();
+      } else {
+        return version_ == null ?
+            com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+      }
+    }
+    /**
+     * <pre>
+     * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 6 [json_name = "version"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.StrategyVersionRef, com.shorts.v1alpha1.StrategyVersionRef.Builder, com.shorts.v1alpha1.StrategyVersionRefOrBuilder> 
+        internalGetVersionFieldBuilder() {
+      if (versionBuilder_ == null) {
+        versionBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.StrategyVersionRef, com.shorts.v1alpha1.StrategyVersionRef.Builder, com.shorts.v1alpha1.StrategyVersionRefOrBuilder>(
+                getVersion(),
+                getParentForChildren(),
+                isClean());
+        version_ = null;
+      }
+      return versionBuilder_;
+    }
+
+    private java.lang.Object sessionDate_ = "";
+    /**
+     * <pre>
+     * The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+     * </pre>
+     *
+     * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+     * @return The sessionDate.
+     */
+    public java.lang.String getSessionDate() {
+      java.lang.Object ref = sessionDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        sessionDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+     * </pre>
+     *
+     * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+     * @return The bytes for sessionDate.
+     */
+    public com.google.protobuf.ByteString
+        getSessionDateBytes() {
+      java.lang.Object ref = sessionDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sessionDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+     * </pre>
+     *
+     * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+     * @param value The sessionDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSessionDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      sessionDate_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+     * </pre>
+     *
+     * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSessionDate() {
+      sessionDate_ = getDefaultInstance().getSessionDate();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+     * </pre>
+     *
+     * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+     * @param value The bytes for sessionDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSessionDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      sessionDate_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.SavedStrategy)

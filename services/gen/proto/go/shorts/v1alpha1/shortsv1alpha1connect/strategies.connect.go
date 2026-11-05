@@ -106,8 +106,9 @@ type StrategyServiceClient interface {
 	ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error)
 	// Save a strategy to the signed-in caller's list. Saving a strategy that is
 	// already saved succeeds and keeps its first save time. The list holds at
-	// most 20; a save past that is refused with FailedPrecondition, and a
-	// repeat save at the cap still succeeds.
+	// most 20; a save past that is refused with PermissionDenied and the
+	// X-Entitlement-Detail metadata (capability cap_reached, with the limit), and
+	// a repeat save at the cap still succeeds.
 	SaveStrategy(context.Context, *connect.Request[v1alpha1.SaveStrategyRequest]) (*connect.Response[v1alpha1.SaveStrategyResponse], error)
 	// Remove a strategy from the caller's list. Removing one that is not saved
 	// succeeds.
@@ -272,8 +273,9 @@ type StrategyServiceHandler interface {
 	ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error)
 	// Save a strategy to the signed-in caller's list. Saving a strategy that is
 	// already saved succeeds and keeps its first save time. The list holds at
-	// most 20; a save past that is refused with FailedPrecondition, and a
-	// repeat save at the cap still succeeds.
+	// most 20; a save past that is refused with PermissionDenied and the
+	// X-Entitlement-Detail metadata (capability cap_reached, with the limit), and
+	// a repeat save at the cap still succeeds.
 	SaveStrategy(context.Context, *connect.Request[v1alpha1.SaveStrategyRequest]) (*connect.Response[v1alpha1.SaveStrategyResponse], error)
 	// Remove a strategy from the caller's list. Removing one that is not saved
 	// succeeds.
