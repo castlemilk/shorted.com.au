@@ -59,3 +59,5 @@ The top twenty shareholders table in every annual report (the report extractor a
 4. 2.5 and 2.6 as follow-ups.
 
 Every step reports what it recovered and what it set aside, in the job's log and on the hub's band.
+- **Measured on production, 2026-11-05.** `resolve-unavailable` over the first 400 fetch errors: recovered 0, set aside 15 (delisted), 385 still fetch errors because ASX's announcements API answers a company's five newest items whatever the parameters (count, page, offset, dates). The API path therefore serves the nightly's new failures only; the 853 backlog stays as it is until another source exists, and the hub counts it as set aside.
+- **The ETF universe the hub states** is ASX's investment products categories "Equity - Australia" and "Property - Australia" (81 on 2026-11-05), carried as `etfs_australian_equity` on the overview; the band reads "N of M Australian-equity ETFs tracked".

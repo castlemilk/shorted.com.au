@@ -1416,8 +1416,12 @@ type GetOwnershipOverviewResponse struct {
 	// Parsed notices a model read after the parser withheld them (read_by = model).
 	// Counted within notices_parsed.
 	NoticesReadByModel int32 `protobuf:"varint,21,opt,name=notices_read_by_model,json=noticesReadByModel,proto3" json:"notices_read_by_model,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// ETFs on ASX's investment products report whose category is Australian equity or
+	// Australian property: the universe the tracked index funds are measured against
+	// (etfs counts every ETF on the report, most holding no ASX equity).
+	EtfsAustralianEquity int32 `protobuf:"varint,22,opt,name=etfs_australian_equity,json=etfsAustralianEquity,proto3" json:"etfs_australian_equity,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *GetOwnershipOverviewResponse) Reset() {
@@ -1593,6 +1597,13 @@ func (x *GetOwnershipOverviewResponse) GetDocumentsAttempted() int32 {
 func (x *GetOwnershipOverviewResponse) GetNoticesReadByModel() int32 {
 	if x != nil {
 		return x.NoticesReadByModel
+	}
+	return 0
+}
+
+func (x *GetOwnershipOverviewResponse) GetEtfsAustralianEquity() int32 {
+	if x != nil {
+		return x.EtfsAustralianEquity
 	}
 	return 0
 }
@@ -5907,7 +5918,7 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x0fWithheldOutcome\x12\x18\n" +
 	"\aoutcome\x18\x01 \x01(\tR\aoutcome\x12\x14\n" +
 	"\x05count\x18\x02 \x01(\x05R\x05count\"\x1d\n" +
-	"\x1bGetOwnershipOverviewRequest\"\xc0\b\n" +
+	"\x1bGetOwnershipOverviewRequest\"\xf6\b\n" +
 	"\x1cGetOwnershipOverviewResponse\x12;\n" +
 	"\x05kinds\x18\x01 \x03(\v2%.shorts.v1alpha1.OwnershipKindSummaryR\x05kinds\x12F\n" +
 	"\vtop_holders\x18\x02 \x03(\v2%.shorts.v1alpha1.OwnershipInstitutionR\n" +
@@ -5932,7 +5943,8 @@ const file_shorts_v1alpha1_ownership_proto_rawDesc = "" +
 	"\x05as_of\x18\x12 \x01(\tR\x04asOf\x12P\n" +
 	"\x13withheld_by_outcome\x18\x13 \x03(\v2 .shorts.v1alpha1.WithheldOutcomeR\x11withheldByOutcome\x12/\n" +
 	"\x13documents_attempted\x18\x14 \x01(\x05R\x12documentsAttempted\x121\n" +
-	"\x15notices_read_by_model\x18\x15 \x01(\x05R\x12noticesReadByModel\"q\n" +
+	"\x15notices_read_by_model\x18\x15 \x01(\x05R\x12noticesReadByModel\x124\n" +
+	"\x16etfs_australian_equity\x18\x16 \x01(\x05R\x14etfsAustralianEquity\"q\n" +
 	"\x17ListInstitutionsRequest\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
