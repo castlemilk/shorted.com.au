@@ -45,19 +45,23 @@ export async function getSignalEventsForViewer(
 ): Promise<SignalEventsResult> {
   const strategyId =
     typeof input?.strategyId === "string" ? input.strategyId : "";
-  if (!STRATEGY_ID.test(strategyId)) return { ok: false, reason: "unavailable" };
+  if (!STRATEGY_ID.test(strategyId))
+    return { ok: false, reason: "unavailable" };
 
   const stockCode =
-    typeof input.stockCode === "string" ? input.stockCode.trim().toUpperCase() : "";
+    typeof input.stockCode === "string"
+      ? input.stockCode.trim().toUpperCase()
+      : "";
   if (stockCode !== "" && !STOCK_CODE.test(stockCode))
     return { ok: false, reason: "unavailable" };
 
-  const pageToken =
-    typeof input.pageToken === "string" ? input.pageToken : "";
+  const pageToken = typeof input.pageToken === "string" ? input.pageToken : "";
   if (pageToken !== "" && !PAGE_TOKEN.test(pageToken))
     return { ok: false, reason: "unavailable" };
 
-  const requested = Number.isInteger(input.pageSize) ? Number(input.pageSize) : DEFAULT_PAGE;
+  const requested = Number.isInteger(input.pageSize)
+    ? Number(input.pageSize)
+    : DEFAULT_PAGE;
   const pageSize = Math.min(MAX_PAGE, Math.max(1, requested));
 
   const session = await auth();
@@ -77,7 +81,10 @@ export async function getSignalEventsForViewer(
     });
     return { ok: true, page: mapSignalEventsResponse(response) };
   } catch (err) {
-    console.warn(`[getSignalEventsForViewer] unavailable for ${strategyId}:`, err);
+    console.warn(
+      `[getSignalEventsForViewer] unavailable for ${strategyId}:`,
+      err,
+    );
     return { ok: false, reason: "unavailable" };
   }
 }

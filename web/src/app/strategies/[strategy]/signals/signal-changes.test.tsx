@@ -34,7 +34,10 @@ const page = (events: StrategySignalEventView[], nextPageToken = "") => ({
 
 beforeEach(() => {
   mockGet.mockReset();
-  mockUseSession.mockReturnValue({ status: "authenticated", data: { user: { id: "u1" } } });
+  mockUseSession.mockReturnValue({
+    status: "authenticated",
+    data: { user: { id: "u1" } },
+  });
 });
 
 describe("SignalChanges", () => {
@@ -59,7 +62,12 @@ describe("SignalChanges", () => {
   it("holds its place while the session loads, without a call", () => {
     mockUseSession.mockReturnValue({ status: "loading", data: null });
     render(
-      <SignalChanges strategyId="canslim" title="Recent changes" returnPath="/x" emptyCopy="None." />,
+      <SignalChanges
+        strategyId="canslim"
+        title="Recent changes"
+        returnPath="/x"
+        emptyCopy="None."
+      />,
     );
     expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
     expect(mockGet).not.toHaveBeenCalled();
@@ -68,14 +76,25 @@ describe("SignalChanges", () => {
   it("draws a signed-in viewer's changes with their status words, newest first as read", async () => {
     mockGet.mockResolvedValue(page([event(0, "PFP"), event(1, "BHP")]));
     render(
-      <SignalChanges strategyId="canslim" title="Recent changes" returnPath="/x" emptyCopy="None." />,
+      <SignalChanges
+        strategyId="canslim"
+        title="Recent changes"
+        returnPath="/x"
+        emptyCopy="None."
+      />,
     );
-    const items = await screen.findAllByRole("listitem", undefined, { timeout: 5000 });
+    const items = await screen.findAllByRole("listitem", undefined, {
+      timeout: 5000,
+    });
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveTextContent("PFP");
     expect(items[0]).toHaveTextContent("Setup to Triggered");
     expect(items[1]).toHaveTextContent("Setup to Watch");
-    expect(mockGet).toHaveBeenCalledWith({ strategyId: "canslim", stockCode: undefined, pageSize: 20 });
+    expect(mockGet).toHaveBeenCalledWith({
+      strategyId: "canslim",
+      stockCode: undefined,
+      pageSize: 20,
+    });
   });
 
   it("omits the code in one stock's history, since the panel already names it", async () => {
@@ -90,17 +109,30 @@ describe("SignalChanges", () => {
         compact
       />,
     );
-    const item = await screen.findByRole("listitem", undefined, { timeout: 5000 });
+    const item = await screen.findByRole("listitem", undefined, {
+      timeout: 5000,
+    });
     expect(item).not.toHaveTextContent("PFP");
-    expect(mockGet).toHaveBeenCalledWith(expect.objectContaining({ stockCode: "PFP" }));
+    expect(mockGet).toHaveBeenCalledWith(
+      expect.objectContaining({ stockCode: "PFP" }),
+    );
   });
 
   it("says when there is no change, in the copy the caller gave", async () => {
     mockGet.mockResolvedValue(page([]));
     render(
-      <SignalChanges strategyId="canslim" title="Recent changes" returnPath="/x" emptyCopy="Nothing has moved." />,
+      <SignalChanges
+        strategyId="canslim"
+        title="Recent changes"
+        returnPath="/x"
+        emptyCopy="Nothing has moved."
+      />,
     );
-    expect(await screen.findByText("Nothing has moved.", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(
+      await screen.findByText("Nothing has moved.", undefined, {
+        timeout: 5000,
+      }),
+    ).toBeInTheDocument();
   });
 
   it("says the changes are unavailable, and asks again on Try again", async () => {
@@ -108,13 +140,24 @@ describe("SignalChanges", () => {
       .mockResolvedValueOnce({ ok: false, reason: "unavailable" })
       .mockResolvedValueOnce(page([event(0, "PFP")]));
     render(
-      <SignalChanges strategyId="canslim" title="Recent changes" returnPath="/x" emptyCopy="None." />,
+      <SignalChanges
+        strategyId="canslim"
+        title="Recent changes"
+        returnPath="/x"
+        emptyCopy="None."
+      />,
     );
     expect(
-      await screen.findByText("The status changes are unavailable right now.", undefined, { timeout: 5000 }),
+      await screen.findByText(
+        "The status changes are unavailable right now.",
+        undefined,
+        { timeout: 5000 },
+      ),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByRole("listitem", undefined, { timeout: 5000 })).toHaveTextContent("PFP");
+    expect(
+      await screen.findByRole("listitem", undefined, { timeout: 5000 }),
+    ).toHaveTextContent("PFP");
     expect(mockGet).toHaveBeenCalledTimes(2);
   });
 
@@ -123,13 +166,30 @@ describe("SignalChanges", () => {
       .mockResolvedValueOnce(page([event(0, "AAA")], "20"))
       .mockResolvedValueOnce(page([event(1, "BBB")], ""));
     render(
-      <SignalChanges strategyId="canslim" title="Recent changes" returnPath="/x" emptyCopy="None." />,
+      <SignalChanges
+        strategyId="canslim"
+        title="Recent changes"
+        returnPath="/x"
+        emptyCopy="None."
+      />,
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Show more changes" }, { timeout: 5000 }));
-    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(2));
+    fireEvent.click(
+      await screen.findByRole(
+        "button",
+        { name: "Show more changes" },
+        { timeout: 5000 },
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getAllByRole("listitem")).toHaveLength(2),
+    );
     expect(screen.getAllByRole("listitem")[1]).toHaveTextContent("BBB");
-    expect(mockGet).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: "20" }));
-    expect(screen.queryByRole("button", { name: "Show more changes" })).toBeNull();
+    expect(mockGet).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pageToken: "20" }),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Show more changes" }),
+    ).toBeNull();
   });
 });
 

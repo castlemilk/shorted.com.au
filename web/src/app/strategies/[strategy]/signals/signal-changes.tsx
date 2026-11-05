@@ -80,7 +80,10 @@ export function SignalChanges({
   return (
     <section
       aria-labelledby={`changes-${stockCode ?? "strategy"}`}
-      className={cn("space-y-3", compact ? "" : "rounded-lg border border-border/60 bg-card p-4")}
+      className={cn(
+        "space-y-3",
+        compact ? "" : "rounded-lg border border-border/60 bg-card p-4",
+      )}
       data-signal-changes={stockCode ?? strategyId}
     >
       {/* A sibling of the matrix (h2) on the tab, and a subsection of the evidence panel (h3 there, so h4). */}
@@ -100,7 +103,11 @@ export function SignalChanges({
         </h2>
       )}
       {pending ? (
-        <p role="status" aria-busy="true" className="text-xs text-muted-foreground">
+        <p
+          role="status"
+          aria-busy="true"
+          className="text-xs text-muted-foreground"
+        >
           Checking your session…
         </p>
       ) : !signedIn ? (
@@ -168,7 +175,11 @@ function SignedInHistory({
 
   if (state.phase === "loading") {
     return (
-      <p role="status" aria-busy="true" className="text-xs text-muted-foreground">
+      <p
+        role="status"
+        aria-busy="true"
+        className="text-xs text-muted-foreground"
+      >
         Loading the status changes…
       </p>
     );
@@ -220,7 +231,10 @@ function SignedInHistory({
             key={`${event.stockCode}-${event.sessionDate}-${event.toStatus}-${index}`}
             className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 py-2"
           >
-            <time dateTime={event.sessionDate} className="tabular-nums text-muted-foreground">
+            <time
+              dateTime={event.sessionDate}
+              className="tabular-nums text-muted-foreground"
+            >
               {formatDate(event.sessionDate) || event.sessionDate}
             </time>
             {stockCode ? null : (

@@ -72,7 +72,11 @@ describe("getSignalEventsForViewer", () => {
         },
       ],
       nextPageToken: "",
-      version: { strategyId: "canslim", label: "v1", rulesHash: "3f9a1c2e" + "0".repeat(56) },
+      version: {
+        strategyId: "canslim",
+        label: "v1",
+        rulesHash: "3f9a1c2e" + "0".repeat(56),
+      },
     });
 
     const result = await getSignalEventsForViewer({
@@ -99,7 +103,9 @@ describe("getSignalEventsForViewer", () => {
   it("clamps the page size to the API's ceiling", async () => {
     mockClient.listStrategySignalEvents.mockResolvedValue({ events: [] });
     await getSignalEventsForViewer({ strategyId: "canslim", pageSize: 5000 });
-    expect(mockClient.listStrategySignalEvents.mock.calls[0]?.[0]).toMatchObject({
+    expect(
+      mockClient.listStrategySignalEvents.mock.calls[0]?.[0],
+    ).toMatchObject({
       pageSize: 200,
     });
   });

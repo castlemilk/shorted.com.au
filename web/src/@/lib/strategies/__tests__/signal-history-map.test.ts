@@ -70,7 +70,13 @@ describe("mapStrategySignalEvent", () => {
       hasPivot: true,
       rulesHash: "3f9a1c2e" + "b".repeat(56),
       rules: [
-        { ruleId: "near_high", status: "pass", detail: "Within 10%", value: 9.5, hasValue: true },
+        {
+          ruleId: "near_high",
+          status: "pass",
+          detail: "Within 10%",
+          value: 9.5,
+          hasValue: true,
+        },
         { ruleId: "growth", status: "unknown", reason: "no_fundamentals" },
       ],
     });
@@ -78,7 +84,12 @@ describe("mapStrategySignalEvent", () => {
     expect(event.pivot).toBe(41.64);
     expect(event.rules).toEqual([
       { ruleId: "near_high", status: "pass", detail: "Within 10%", value: 9.5 },
-      { ruleId: "growth", status: "unknown", detail: "", reason: "no_fundamentals" },
+      {
+        ruleId: "growth",
+        status: "unknown",
+        detail: "",
+        reason: "no_fundamentals",
+      },
     ]);
   });
 
@@ -98,9 +109,15 @@ describe("mapStrategySignalEvent", () => {
 describe("mapSignalEventsResponse", () => {
   it("returns the page, its token and the version it belongs to", () => {
     const page = mapSignalEventsResponse({
-      events: [{ stockCode: "BHP", sessionDate: "2026-11-02", toStatus: "setup" }],
+      events: [
+        { stockCode: "BHP", sessionDate: "2026-11-02", toStatus: "setup" },
+      ],
       nextPageToken: "41",
-      version: { strategyId: "canslim", label: "v1", rulesHash: "3f9a1c2e" + "0".repeat(56) },
+      version: {
+        strategyId: "canslim",
+        label: "v1",
+        rulesHash: "3f9a1c2e" + "0".repeat(56),
+      },
     });
     expect(page.events.map((event) => event.stockCode)).toEqual(["BHP"]);
     expect(page.nextPageToken).toBe("41");

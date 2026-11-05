@@ -1,7 +1,11 @@
 import { useState } from "react";
 
 import { Button } from "~/@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "~/@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "~/@/components/ui/popover";
 import { formatDate } from "~/@/lib/fundamentals/format";
 import { cn } from "~/@/lib/utils";
 import type { StrategyDataStatusView } from "~/@/lib/strategies/types";
@@ -27,7 +31,10 @@ type LoadState =
   | { phase: "ready"; status: StrategyDataStatusView }
   | { phase: "failed" };
 
-export function SourceDatesPopover({ load, className }: SourceDatesPopoverProps) {
+export function SourceDatesPopover({
+  load,
+  className,
+}: SourceDatesPopoverProps) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<LoadState>({ phase: "idle" });
 
@@ -115,7 +122,9 @@ function SourceDatesBody({
         {status.pricedCodes > 0 ? (
           <>
             <dt className="text-muted-foreground">Stocks priced</dt>
-            <dd className="tabular-nums">{status.pricedCodes.toLocaleString("en-AU")}</dd>
+            <dd className="tabular-nums">
+              {status.pricedCodes.toLocaleString("en-AU")}
+            </dd>
           </>
         ) : null}
       </dl>
@@ -129,20 +138,35 @@ function SourceDatesBody({
         ) : (
           <table className="mt-2 w-full border-collapse text-xs">
             <caption className="sr-only">
-              The newest ASIC short-position reports, with the day each became public
+              The newest ASIC short-position reports, with the day each became
+              public
             </caption>
             <thead>
               <tr className="border-b text-left text-muted-foreground">
-                <th scope="col" className="py-1 pr-2 font-medium">Report</th>
-                <th scope="col" className="py-1 pr-2 font-medium">Public</th>
-                <th scope="col" className="py-1 pr-2 text-right font-medium">Rows</th>
-                <th scope="col" className="py-1 font-medium">Status</th>
+                <th scope="col" className="py-1 pr-2 font-medium">
+                  Report
+                </th>
+                <th scope="col" className="py-1 pr-2 font-medium">
+                  Public
+                </th>
+                <th scope="col" className="py-1 pr-2 text-right font-medium">
+                  Rows
+                </th>
+                <th scope="col" className="py-1 font-medium">
+                  Status
+                </th>
               </tr>
             </thead>
             <tbody>
               {reports.map((report) => (
-                <tr key={report.reportDate} className="border-b border-border/40">
-                  <th scope="row" className="py-1 pr-2 text-left font-normal tabular-nums">
+                <tr
+                  key={report.reportDate}
+                  className="border-b border-border/40"
+                >
+                  <th
+                    scope="row"
+                    className="py-1 pr-2 text-left font-normal tabular-nums"
+                  >
                     {formatDate(report.reportDate) || report.reportDate}
                   </th>
                   <td className="py-1 pr-2 tabular-nums">

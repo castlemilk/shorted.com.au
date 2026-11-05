@@ -34,7 +34,11 @@ describe("getStrategyDataStatus", () => {
       rows: 1800 + i,
       complete: true,
     }));
-    mockGetStatus.mockResolvedValue({ latestSession: "2026-11-04", snapshotAsOf: "2026-11-04", asicReports: reports });
+    mockGetStatus.mockResolvedValue({
+      latestSession: "2026-11-04",
+      snapshotAsOf: "2026-11-04",
+      asicReports: reports,
+    });
 
     const status = await getStrategyDataStatus();
 

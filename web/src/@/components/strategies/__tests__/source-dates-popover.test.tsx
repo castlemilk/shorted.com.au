@@ -34,7 +34,9 @@ describe("SourceDatesPopover", () => {
     expect(load).not.toHaveBeenCalled();
 
     fireEvent.click(trigger);
-    const table = await screen.findByRole("table", undefined, { timeout: 5000 });
+    const table = await screen.findByRole("table", undefined, {
+      timeout: 5000,
+    });
     expect(load).toHaveBeenCalledTimes(1);
     expect(trigger).toHaveAttribute("aria-expanded", "true");
 
@@ -48,7 +50,9 @@ describe("SourceDatesPopover", () => {
   it("marks a partial report and states the latest prices", async () => {
     render(<SourceDatesPopover load={async () => STATUS} />);
     fireEvent.click(screen.getByRole("button", { name: "View source dates" }));
-    const table = await screen.findByRole("table", undefined, { timeout: 5000 });
+    const table = await screen.findByRole("table", undefined, {
+      timeout: 5000,
+    });
     expect(within(table).getAllByText("Partial")).toHaveLength(1);
     expect(screen.getByText(/Latest prices/)).toBeInTheDocument();
     expect(screen.getByText("2,100")).toBeInTheDocument();
@@ -64,13 +68,19 @@ describe("SourceDatesPopover", () => {
     const trigger = screen.getByRole("button", { name: "View source dates" });
     fireEvent.click(trigger);
     expect(
-      await screen.findByText("The source dates are unavailable right now.", undefined, {
-        timeout: 5000,
-      }),
+      await screen.findByText(
+        "The source dates are unavailable right now.",
+        undefined,
+        {
+          timeout: 5000,
+        },
+      ),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByRole("table", undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("table", undefined, { timeout: 5000 }),
+    ).toBeInTheDocument();
     expect(load).toHaveBeenCalledTimes(2);
   });
 });
