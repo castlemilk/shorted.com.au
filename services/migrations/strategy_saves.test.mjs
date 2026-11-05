@@ -2,8 +2,8 @@
 //
 // 000156 is the saved-strategies table of the My strategies list. Prod replays every allowlisted
 // migration on every deploy, so the file must be replay-safe, touch no row, grant nothing, and sit in
-// the allowlist between 000154 and the 000138 closer. The container test in
-// services/jobs is not needed for this file; the store's container test runs it against a live Postgres.
+// the allowlist between 000154 and the 000138 closer. The store's container test
+// (services/shorts/internal/store/shorts, the StrategySaves suite) runs it against a live Postgres.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
