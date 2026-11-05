@@ -134,6 +134,9 @@ export default async function StrategyRulesPage({ params }: PageProps) {
 /**
  * The live version first, then the rest newest first: by the day each went
  * live, and where two went live together, by the day the later one replaced it.
+ * Where the dates are not served (the API reads them from the rules versions
+ * table only once that read ships), the API's publication order, oldest first,
+ * is reversed, so the newest published version still leads.
  */
 function historyOrder(
   entries: readonly StrategyVersionDetailView[],
@@ -141,12 +144,16 @@ function historyOrder(
 ): StrategyVersionDetailView[] {
   const rank = (entry: StrategyVersionDetailView) =>
     entry.version.rulesHash === liveHash ? 1 : 0;
-  return [...entries].sort(
-    (a, b) =>
-      rank(b) - rank(a) ||
-      b.version.liveFrom.localeCompare(a.version.liveFrom) ||
-      b.supersededOn.localeCompare(a.supersededOn),
-  );
+  return entries
+    .map((entry, index) => ({ entry, index }))
+    .sort(
+      (a, b) =>
+        rank(b.entry) - rank(a.entry) ||
+        b.entry.version.liveFrom.localeCompare(a.entry.version.liveFrom) ||
+        b.entry.supersededOn.localeCompare(a.entry.supersededOn) ||
+        b.index - a.index,
+    )
+    .map(({ entry }) => entry);
 }
 
 /** The live and superseded dates of one version, in words. */
