@@ -37,6 +37,14 @@ jest.mock("~/app/actions/getSignalStockFit", () => ({
 jest.mock("~/app/actions/strategies/viewer", () => ({
   getSignalsForViewer: jest.fn(() => new Promise(() => {})),
 }));
+// The signed-in change lists are server actions too; held pending unless a
+// test answers them, and the status popover's read is never made by default.
+jest.mock("~/app/actions/strategies/signalEvents", () => ({
+  getSignalEventsForViewer: jest.fn(() => new Promise(() => {})),
+}));
+jest.mock("~/app/actions/strategies/dataStatus", () => ({
+  getStrategyDataStatus: jest.fn(async () => null),
+}));
 // The chart is a client-only lazy module with its own data hooks; the island
 // is under test, so it is stubbed to a marker.
 jest.mock("~/@/components/strategy/strategy-levels-chart-loader", () => ({

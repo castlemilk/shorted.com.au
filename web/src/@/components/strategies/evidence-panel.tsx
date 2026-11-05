@@ -33,6 +33,8 @@ export interface EvidencePanelProps {
   chart: ReactNode;
   /** The stock page's strategy tab; no link when there is no stock. */
   openHref: string | null;
+  /** The stock's signal history, drawn by the island (signed-in only). */
+  history?: ReactNode;
 }
 
 export function EvidencePanel({
@@ -43,6 +45,7 @@ export function EvidencePanel({
   notice,
   chart,
   openHref,
+  history,
 }: EvidencePanelProps) {
   const coreRules = rules.filter((rule) => rule.core);
   const shortReport = shortDayLabel(pick?.shortReportDate);
@@ -127,6 +130,8 @@ export function EvidencePanel({
           {notice ?? "This stock is not in the list for this strategy today."}
         </p>
       )}
+
+      {history ? <div className="border-t pt-4">{history}</div> : null}
 
       {openHref ? (
         <div className="flex flex-wrap gap-2 border-t pt-4">

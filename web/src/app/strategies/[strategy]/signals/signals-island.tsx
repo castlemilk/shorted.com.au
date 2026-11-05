@@ -10,6 +10,9 @@ import { EvidencePanel } from "~/@/components/strategies/evidence-panel";
 import { SignalsMatrix } from "~/@/components/strategies/signals-matrix";
 import { SaveStrategyButton } from "~/app/strategies/save-strategy-button";
 import { SignalsProvenance } from "~/@/components/strategies/signals-provenance";
+import { SourceDatesPopover } from "~/@/components/strategies/source-dates-popover";
+import { getStrategyDataStatus } from "~/app/actions/strategies/dataStatus";
+import { SignalChanges } from "./signal-changes";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { sectionTitle } from "~/@/lib/typography";
 import { cn } from "~/@/lib/utils";
@@ -478,6 +481,9 @@ function SignalsView({
           version={props.version}
           stale={props.stale}
           regime={props.regime}
+          sourceDates={
+            <SourceDatesPopover load={() => getStrategyDataStatus()} />
+          }
         />
       </div>
 
@@ -638,6 +644,13 @@ function SignalsView({
                 A strategy score is rule fit, not probability.
               </span>
             </p>
+
+            <SignalChanges
+              strategyId={props.slug}
+              title="Recent changes"
+              returnPath={`/strategies/${props.slug}/signals`}
+              emptyCopy="No stock has changed status in this strategy yet."
+            />
           </div>
 
           <div
@@ -652,6 +665,19 @@ function SignalsView({
               notice={notice}
               openHref={
                 selectedCode ? stockTabHref(selectedCode, "strategy") : null
+              }
+              history={
+                selectedCode ? (
+                  <SignalChanges
+                    key={selectedCode}
+                    strategyId={props.slug}
+                    stockCode={selectedCode}
+                    title="This stock's signal history"
+                    returnPath={`/strategies/${props.slug}/signals?sel=stock:${selectedCode}`}
+                    emptyCopy="This stock has not changed status in this strategy yet."
+                    compact
+                  />
+                ) : null
               }
               chart={
                 selectedCode ? (
