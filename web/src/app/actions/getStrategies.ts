@@ -11,7 +11,7 @@ import { mapRegime, mapStrategy } from "~/@/lib/strategies/map";
 import type { StrategiesResult } from "~/@/lib/strategies/types";
 
 // Every strategy's definition plus the strategy-neutral market regime, for
-// the /picks hub. Same pattern as getStrategyPicks / getScanResults: connect
+// the /strategies hub. Same pattern as getStrategyPicks / getScanResults: connect
 // inside unstable_cache, an SSR-marked transport, skipped at build, null on
 // failure so the hub falls back to its registry copy.
 //

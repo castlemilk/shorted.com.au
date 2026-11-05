@@ -212,7 +212,7 @@ describe("/shorts/[stockCode]/strategy", () => {
     const canslim = screen.getByRole("region", { name: /CAN SLIM/ });
     expect(
       within(canslim).getByRole("link", { name: "CAN SLIM" }),
-    ).toHaveAttribute("href", "/picks/canslim");
+    ).toHaveAttribute("href", "/strategies/canslim");
     expect(
       within(canslim).getByText("Only buy in a confirmed uptrend."),
     ).toBeInTheDocument();
@@ -237,7 +237,7 @@ describe("/shorts/[stockCode]/strategy", () => {
 
   // The whole gauge is 347px on a 390px phone, which put the levels chart's plot
   // at 854px, below the fold. The tab asks for the phone form (the pill, the date
-  // and the verdict, without the readouts and the ladder); /picks does not.
+  // and the verdict, without the readouts and the ladder); /strategies does not.
   it.each([
     ["a stock the picker reads", fit],
     ["a stock it does not read yet", { ...fit, inUniverse: false, fits: [], priceFeatures: null }],
@@ -271,7 +271,7 @@ describe("/shorts/[stockCode]/strategy", () => {
     expect(screen.queryByText(/40 sessions/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /stock picker/ })).toHaveAttribute(
       "href",
-      "/picks",
+      "/strategies",
     );
     await generateMetadata({ params: Promise.resolve({ stockCode: "NEW" }) });
     expect(mockMetadata.mock.calls[0]![0]).toMatchObject({

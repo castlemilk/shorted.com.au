@@ -26,7 +26,7 @@ const productLinks: FooterLink[] = [
   { title: "Company Directory", href: "/directory" },
   { title: "Short Selling Statistics", href: "/statistics" },
   { title: "Short Interest Scans", href: "/scans" },
-  { title: "ASX Stock Picker", href: "/picks" },
+  { title: "ASX Stock Picker", href: "/strategies" },
 ];
 
 const resourceLinks: FooterLink[] = [

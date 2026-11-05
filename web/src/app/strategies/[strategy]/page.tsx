@@ -43,7 +43,7 @@ interface PageProps {
 }
 
 // Static ISR with prerendered params, the /themes/[slug] pattern: one cached
-// API read per strategy per hour, shared with the /picks hub. The cold-build
+// API read per strategy per hour, shared with the /strategies hub. The cold-build
 // hazard (skipForBuild bakes an empty shell) is handled by bailOnEmptyRender()
 // below, and the post-promote sweep (config/isr-pages.json) refills it.
 //
@@ -67,7 +67,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!seo) {
     notFound();
   }
-  const url = `${siteConfig.url}/picks/${seo.slug}`;
+  const url = `${siteConfig.url}/strategies/${seo.slug}`;
   return {
     title: seo.title,
     description: seo.description,
@@ -119,7 +119,7 @@ export default async function StrategyPicksPage({ params }: PageProps) {
     title: rule.title,
     core: rule.core,
   }));
-  const pageUrl = `${siteConfig.url}/picks/${seo.slug}`;
+  const pageUrl = `${siteConfig.url}/strategies/${seo.slug}`;
   const strategyName = firstNonEmpty(strategy?.name, seo.label);
   // The shortlist is what the HTML and the island's props carry, so it is
   // bounded (SHORTLIST_MAX_ROWS) and the island gets the status counts over
@@ -130,12 +130,12 @@ export default async function StrategyPicksPage({ params }: PageProps) {
   const listRows = shortlist.slice(0, ITEM_LIST_LIMIT);
 
   const breadcrumbItems = [
-    { label: "Stock picker", href: "/picks" },
-    { label: seo.h1, href: `/picks/${seo.slug}` },
+    { label: "Strategies", href: "/strategies" },
+    { label: seo.h1, href: `/strategies/${seo.slug}` },
   ];
   const breadcrumbsSchema = [
     { name: "Home", url: siteConfig.url },
-    { name: "Stock picker", url: `${siteConfig.url}/picks` },
+    { name: "Strategies", url: `${siteConfig.url}/strategies` },
     { name: seo.h1, url: pageUrl },
   ];
   const filterProps = {
@@ -143,7 +143,7 @@ export default async function StrategyPicksPage({ params }: PageProps) {
     counts,
     totalCount: data?.totalCount ?? 0,
     rules,
-    basePath: `/picks/${seo.slug}`,
+    basePath: `/strategies/${seo.slug}`,
     caption: `${seo.h1}: ranked ASX picks`,
     showFundamentals: data
       ? fundamentalsHeld(data.fundamentalsRowsCount, data.fundamentalsCoverageCount)
@@ -206,7 +206,7 @@ export default async function StrategyPicksPage({ params }: PageProps) {
             <StrategyBezel slug={seo.slug} className="mt-1 text-primary" />
             <div className="min-w-0">
               <p className={cn(eyebrow, "mb-2 font-medium")}>
-                <Link href="/picks" className="hover:text-foreground">
+                <Link href="/strategies" className="hover:text-foreground">
                   Stock picker
                 </Link>
                 {strategy?.author ? <> · {strategy.author}</> : null}
@@ -284,7 +284,7 @@ export default async function StrategyPicksPage({ params }: PageProps) {
               return (
                 <li key={relatedSlug}>
                   <Link
-                    href={`/picks/${related.slug}`}
+                    href={`/strategies/${related.slug}`}
                     className="text-primary hover:underline"
                   >
                     {related.h1}
@@ -295,7 +295,7 @@ export default async function StrategyPicksPage({ params }: PageProps) {
           </ul>
           <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm">
             <li>
-              <Link href="/picks" className="text-primary hover:underline">
+              <Link href="/strategies" className="text-primary hover:underline">
                 All strategies
               </Link>
             </li>

@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 
-import PicksHubPage from "./page";
+import PicksHubPage, { metadata } from "./page";
 import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 import {
   PICKS,
@@ -65,11 +65,21 @@ describe("PicksHubPage", () => {
     );
   });
 
+  // OD-20: the title tag keeps the "ASX Stock Picker" keyword while the H1 says
+  // "Strategies", and every canonical and og:url names /strategies itself, never
+  // the /picks URL that now redirects there.
+  it("keeps the ASX Stock Picker title keyword and canonicalises to /strategies", () => {
+    expect(metadata.title).toContain("ASX Stock Picker");
+    expect(metadata.alternates?.canonical).toBe("https://shorted.com.au/strategies");
+    expect(metadata.openGraph?.url).toBe("https://shorted.com.au/strategies");
+    expect(JSON.stringify(metadata)).not.toMatch(/\/picks/);
+  });
+
   it("renders the hub header, regime banner and one card per strategy", async () => {
     render(await PicksHubPage());
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "ASX Stock Picker" }),
+      screen.getByRole("heading", { level: 1, name: "Strategies" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Choose a named strategy/)).toBeInTheDocument();
     expect(screen.getByText(NEUTRAL_VERDICT)).toBeInTheDocument();
@@ -80,7 +90,7 @@ describe("PicksHubPage", () => {
     }
     const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
     for (const slug of STRATEGY_SLUGS) {
-      expect(links).toContain(`/picks/${slug}`);
+      expect(links).toContain(`/strategies/${slug}`);
     }
     expect(screen.getByTestId("itemlist")).toHaveTextContent(
       String(STRATEGY_SLUGS.length),

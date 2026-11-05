@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { isValidElement, Suspense, type ReactElement, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 
-import StrategyPicksPage, { generateStaticParams } from "./page";
+import StrategyPicksPage, { generateMetadata, generateStaticParams } from "./page";
 import { PicksSortedView } from "./picks-sorted-view";
 import { PicksFilterView } from "~/@/components/picks/picks-filter-view";
 import { STRATEGY_SLUGS, getStrategy } from "~/@/lib/strategies/registry";
@@ -120,6 +120,13 @@ describe("StrategyPicksPage", () => {
     expect(dataset(undated.container)).not.toHaveProperty("dateModified");
   });
 
+  it("canonicalises and opens each strategy under /strategies/<slug>, never /picks", async () => {
+    const meta = await generateMetadata({ params: params("canslim") });
+    expect(meta.alternates?.canonical).toBe("https://shorted.com.au/strategies/canslim");
+    expect(meta.openGraph?.url).toBe("https://shorted.com.au/strategies/canslim");
+    expect(JSON.stringify(meta)).not.toMatch(/\/picks/);
+  });
+
   it("404s an unknown strategy without calling the API", async () => {
     await expect(
       StrategyPicksPage({ params: params("not-a-strategy") }),
@@ -181,7 +188,7 @@ describe("StrategyPicksPage", () => {
     const nav = screen.getByRole("navigation", { name: "Strategies" });
     const links = within(nav).getAllByRole("link");
     expect(links.map((a) => a.getAttribute("href"))).toEqual(
-      STRATEGY_SLUGS.map((slug) => `/picks/${slug}`),
+      STRATEGY_SLUGS.map((slug) => `/strategies/${slug}`),
     );
     expect(within(nav).getByRole("link", { name: "Zanger Breakout" })).toHaveAttribute(
       "aria-current",
@@ -314,14 +321,14 @@ describe("StrategyPicksPage", () => {
 
     const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
     for (const related of getStrategy("zanger-breakout")!.related) {
-      expect(links).toContain(`/picks/${related}`);
+      expect(links).toContain(`/strategies/${related}`);
     }
     expect(links).toEqual(expect.arrayContaining(["/scans", "/screener", "/battlegrounds"]));
   });
 
   // Measured 2026-10-07: 100 rows, each with a fundamentals disclosure, in
   // the HTML, the fallback's RSC tree and the island's props made
-  // /picks/minervini-trend-template 1.85 MB. The page renders the shortlist
+  // /strategies/minervini-trend-template 1.85 MB. The page renders the shortlist
   // (SHORTLIST_MAX_ROWS at most) and the chips still count every row.
   it("renders at most 40 rows of a long list, with chips that count every ranked row", async () => {
     const triggered = Array.from({ length: 60 }, (_, i) =>
@@ -349,7 +356,7 @@ describe("StrategyPicksPage", () => {
     expect(screen.getByTestId("itemlist")).toHaveTextContent("15");
   });
 
-  // Measured 2026-10-21 on /picks/minervini-trend-template: the page's own
+  // Measured 2026-10-21 on /strategies/minervini-trend-template: the page's own
   // <Suspense fallback={<PicksFilterView />}> serialised the fallback's
   // element tree into the RSC payload, 364 KB for 40 rows, beside the same
   // rows as the island's props, only to be replaced on hydration. The island

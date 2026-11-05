@@ -559,18 +559,6 @@
     "/ownership/stocks/[code]/opengraph-image": {
       "firstLoadKB": 112
     },
-    "/picks": {
-      "firstLoadKB": 123
-    },
-    "/picks/[strategy]": {
-      "firstLoadKB": 136
-    },
-    "/picks/[strategy]/opengraph-image": {
-      "firstLoadKB": 112
-    },
-    "/picks/opengraph-image": {
-      "firstLoadKB": 112
-    },
     "/politicians": {
       "firstLoadKB": 141
     },
@@ -762,6 +750,18 @@
     },
     "/stocks": {
       "firstLoadKB": 202
+    },
+    "/strategies": {
+      "firstLoadKB": 123
+    },
+    "/strategies/[strategy]": {
+      "firstLoadKB": 136
+    },
+    "/strategies/[strategy]/opengraph-image": {
+      "firstLoadKB": 112
+    },
+    "/strategies/opengraph-image": {
+      "firstLoadKB": 112
     },
     "/subscribe/success": {
       "firstLoadKB": 120

@@ -7,6 +7,7 @@ await import("./src/env.js");
 
 import packageJson from "./package.json" with { type: "json" };
 import { legacyTabRedirects } from "./src/config/stock-tab-redirects.mjs";
+import { strategyRedirects } from "./src/config/strategy-redirects.mjs";
 import { discordActivityRedirect } from "./src/config/discord-activity.mjs";
 import { buildIdentityEnv } from "./src/config/build-identity.mjs";
 import { execSync } from "child_process";
@@ -319,6 +320,9 @@ const config = {
       // entry: it renders the Overview like any value outside the map. The map
       // and the reasoning live in src/config/stock-tab-redirects.mjs.
       ...legacyTabRedirects(),
+      // The stock picker moved from `/picks` to `/strategies`: every old URL is a
+      // permanent redirect (src/config/strategy-redirects.mjs).
+      ...strategyRedirects(),
       // The Discord Activity loads `/` with its launch parameters; only those
       // requests go to the Activity page (src/config/discord-activity.mjs).
       discordActivityRedirect(),

@@ -20,7 +20,7 @@ export function StrategySwitcher({ current }: { current: string }) {
           return (
             <li key={slug}>
               <Link
-                href={`/picks/${slug}`}
+                href={`/strategies/${slug}`}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs transition-colors duration-150 motion-reduce:transition-none",

@@ -821,7 +821,7 @@ test.describe("stock page tabs", () => {
     // be a link in the site chrome.
     const firstPick = page.locator('tr[data-status] a[href^="/shorts/"]').first();
     await expect(async () => {
-      await page.goto("/picks/minervini-trend-template");
+      await page.goto("/strategies/minervini-trend-template");
       await expect(firstPick).toBeVisible({ timeout: 2_000 });
     }, "the picks page lists no stock").toPass({ timeout: 120_000, intervals: [1_000, 30_000, 60_000] });
     const href = await firstPick.getAttribute("href");

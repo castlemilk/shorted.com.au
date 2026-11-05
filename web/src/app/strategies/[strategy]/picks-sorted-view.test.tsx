@@ -56,7 +56,7 @@ function renderView(rows: PickRow[] = PICKS.picks, totalCount = rows.length) {
       rows={rows}
       totalCount={totalCount}
       rules={RULES}
-      basePath="/picks/zanger-breakout"
+      basePath="/strategies/zanger-breakout"
       caption="Zanger Breakout Strategy: ranked ASX picks"
       showFundamentals
     />,
@@ -180,7 +180,7 @@ describe("PicksSortedView: status filter (a request in rank order)", () => {
           watch: { count: 58, atLeast: true },
         }}
         rules={RULES}
-        basePath="/picks/zanger-breakout"
+        basePath="/strategies/zanger-breakout"
         caption="Zanger Breakout Strategy: ranked ASX picks"
       />,
     );
@@ -246,10 +246,10 @@ describe("PicksSortedView: status filter (a request in rank order)", () => {
         .getAllByRole("link")
         .map((a) => a.getAttribute("href")),
     ).toEqual([
-      "/picks/zanger-breakout",
-      "/picks/zanger-breakout?status=triggered",
-      "/picks/zanger-breakout?status=setup",
-      "/picks/zanger-breakout?status=watch",
+      "/strategies/zanger-breakout",
+      "/strategies/zanger-breakout?status=triggered",
+      "/strategies/zanger-breakout?status=setup",
+      "/strategies/zanger-breakout?status=watch",
     ]);
     expect(
       within(nav).getByRole("link", { name: /^Triggered/ }),
@@ -276,17 +276,17 @@ describe("PicksSortedView: sorting", () => {
         .getAllByRole("link")
         .map((a) => a.getAttribute("href")),
     ).toEqual([
-      "/picks/zanger-breakout?sort=roe",
-      "/picks/zanger-breakout?status=triggered&sort=roe",
-      "/picks/zanger-breakout?status=setup&sort=roe",
-      "/picks/zanger-breakout?status=watch&sort=roe",
+      "/strategies/zanger-breakout?sort=roe",
+      "/strategies/zanger-breakout?status=triggered&sort=roe",
+      "/strategies/zanger-breakout?status=setup&sort=roe",
+      "/strategies/zanger-breakout?status=watch&sort=roe",
     ]);
     const sort = screen.getByRole("navigation", { name: "Sort picks" });
     const hrefs = within(sort)
       .getAllByRole("link")
       .map((a) => a.getAttribute("href"));
-    expect(hrefs[0]).toBe("/picks/zanger-breakout?status=setup");
-    expect(hrefs).toContain("/picks/zanger-breakout?status=setup&sort=pe");
+    expect(hrefs[0]).toBe("/strategies/zanger-breakout?status=setup");
+    expect(hrefs).toContain("/strategies/zanger-breakout?status=setup&sort=pe");
     expect(within(sort).getByRole("link", { name: "ROE" })).toHaveAttribute(
       "aria-current",
       "true",

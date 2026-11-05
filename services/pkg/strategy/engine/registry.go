@@ -2,7 +2,7 @@ package engine
 
 import "fmt"
 
-// Strategy ids. They are URLs (/picks/<id>), API arguments and MCP tool
+// Strategy ids. They are URLs (/strategies/<id>), API arguments and MCP tool
 // arguments, so they never change once shipped (plan §1).
 const (
 	IDZangerBreakout         = "zanger-breakout"

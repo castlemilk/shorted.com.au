@@ -25,7 +25,7 @@ Shorted aggregates and visualises official ASIC (Australian Securities and Inves
 - [ASX News & Editorial Hub](https://shorted.com.au/news): Original short-selling editorial (Shorted Takes) plus aggregated ASX news with AI-classified sentiment, sourced from Stockhead, Motley Fool AU, Small Caps, Kalkine Media, ABC, SMH, AFR and Google News.
 - [Short Selling Reports](https://shorted.com.au/reports): Weekly, monthly and yearly LLM-narrated reports covering biggest movers, sector shifts, and short-position trends.
 - [Stock Screener](https://shorted.com.au/screener): Filter ASX stocks by short %, days-to-cover, industry, and other criteria.
-- [Stock Picker](https://shorted.com.au/picks): Five named, rules-based strategies (Zanger Breakout, CAN SLIM, Minervini Trend Template, and Shorted's own Crowded-Short Breakout and Quality compounders) evaluated daily over prices, reported fundamentals and short interest, every rule read pass, fail or unknown (missing data is never a pass). Not financial advice.
+- [Stock Picker](https://shorted.com.au/strategies): Five named, rules-based strategies (Zanger Breakout, CAN SLIM, Minervini Trend Template, and Shorted's own Crowded-Short Breakout and Quality compounders) evaluated daily over prices, reported fundamentals and short interest, every rule read pass, fail or unknown (missing data is never a pass). Not financial advice.
 - [Search ASX Stocks](https://shorted.com.au/search): Search ASX stocks by code or company name.
 - [Insider Trading & Director Trades](https://shorted.com.au/insider-trading): Per-stock director and insider trades sourced from ASX Appendix 3Y filings.
 - [Open Data Hub](https://shorted.com.au/data): Public dataset catalog with Dataset schema for Google Dataset Search.

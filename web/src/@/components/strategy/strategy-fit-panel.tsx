@@ -9,7 +9,7 @@ import { FIT_STATUS_STRENGTH } from "./strategy-levels";
 // rule beside the author's words, our test and the evidence the evaluator
 // wrote. Props-only (no protobuf, no connect) so a server page renders it
 // and it stays crawlable. The strategy's description paragraphs are NOT
-// repeated here; the name links to the /picks page that owns them. A core
+// repeated here; the name links to the /strategies page that owns them. A core
 // rule is flagged beside its title, set off by a real space (not just a
 // margin) so a screen reader reads "core" as a word of its own. Without a
 // definition (the catalogue read failed, or does not list this strategy) the
@@ -52,7 +52,7 @@ export function StrategyFitPanel({
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
         <h2 id={headingId} className="text-base font-semibold">
           <Link
-            href={`/picks/${fit.strategyId}`}
+            href={`/strategies/${fit.strategyId}`}
             prefetch={false}
             className="text-primary hover:underline"
           >

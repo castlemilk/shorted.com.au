@@ -125,7 +125,7 @@ export default async function StrategyPage({ params }: PageProps) {
         {/* The phone form: below `sm` the banner keeps the pill, the date and
             the verdict and drops the four readouts and the ladder (spec D4).
             The whole gauge was 347px on a 390px phone, which put the levels
-            chart's plot at 854px, under the 844px fold. /picks shows all of
+            chart's plot at 854px, under the 844px fold. /strategies shows all of
             it. */}
         <RegimeBanner regime={fit.regime} compact />
 
@@ -146,7 +146,7 @@ export default async function StrategyPage({ params }: PageProps) {
               history in the last 400 days, and it holds fewer than that for{" "}
               {code} today. See what it does read on the{" "}
               <Link
-                href="/picks"
+                href="/strategies"
                 prefetch={false}
                 className="text-primary hover:underline"
               >

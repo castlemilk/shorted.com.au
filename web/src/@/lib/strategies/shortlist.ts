@@ -16,8 +16,8 @@ export const SHORTLIST_MIN_ROWS = 20;
  * its way to a reader (the HTML, the RSC tree of the Suspense fallback, and
  * the sort island's props), each with a fundamentals disclosure, so a busy
  * strategy is bounded here rather than by the API's 100: measured
- * 2026-10-07, /picks/minervini-trend-template served 100 rows as 1.85 MB of
- * HTML (115 KB gzipped) and /picks/crowded-short-breakout 1.35 MB. The rest
+ * 2026-10-07, /strategies/minervini-trend-template served 100 rows as 1.85 MB of
+ * HTML (115 KB gzipped) and /strategies/crowded-short-breakout 1.35 MB. The rest
  * of a status stays one chip away (the island fetches it) and in the API.
  */
 export const SHORTLIST_MAX_ROWS = 40;

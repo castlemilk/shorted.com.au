@@ -993,7 +993,7 @@ func TestGetStrategyPicksProjectsOutcomesAndOmitsUnknownFigures(t *testing.T) {
 
 	text := textOf(t, res)
 	for _, want := range []string{"2 picks for Zanger Breakout: 1 triggered, 0 setup", "of 40 matching", "neutral",
-		"First: PLS", "pivot A$2.20", "Fundamentals cover 900 of 1200", "https://shorted.com.au/picks/zanger-breakout",
+		"First: PLS", "pivot A$2.20", "Fundamentals cover 900 of 1200", "https://shorted.com.au/strategies/zanger-breakout",
 		"Not financial advice"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("summary missing %q: %q", want, text)
