@@ -1,10 +1,11 @@
 package strategies
 
-// The backtest job: shorted strategies -mode backtest. It runs the
-// canonical versions' recipes over the stored history and publishes the runs
-// that pass the publication gate. The job is one writer (the lease), reads every
-// input inside one REPEATABLE READ, READ ONLY transaction, and idles in
-// milliseconds until a live version with a recipe exists.
+// The backtest job: shorted strategies -mode backtest. It runs the canonical
+// versions' recipes over the stored history and publishes the runs that pass the
+// publication gate. The job is one writer (the lease), reads every input inside
+// one REPEATABLE READ, READ ONLY transaction, and idles in milliseconds until a
+// live version with a recipe exists. A fundamentals strategy whose window opens
+// at computable_from gets pass 1 only: its derivation is stored, never simulated.
 
 import (
 	"context"
@@ -31,9 +32,12 @@ import (
 const (
 	// backtestLeaseName is the picks_run_lease row the backtest job holds while it runs.
 	backtestLeaseName = "strategies-backtest"
-	// backtestBatchRuns and backtestBudget bound one execution.
+	// backtestBatchRuns bounds the requests one execution takes.
 	backtestBatchRuns = 5
-	backtestBudget    = 30 * time.Minute
+	// backtestBudget bounds the work an execution starts (a request is not started
+	// after it is spent). Load time, this budget, the overrun of the last request
+	// and the revalidation wait must fit the CronJob's 3300 s activeDeadlineSeconds.
+	backtestBudget = 20 * time.Minute
 	// backtestRevalidateWait is how long the API's cache takes to turn over.
 	backtestRevalidateWait = 16 * time.Minute
 	backtestRevalidateTags = "strategy-backtests"
@@ -48,7 +52,11 @@ const (
 // 10 and the monitor pages.
 var errDeterminism = errors.New("determinism failure")
 
-// backtestTarget is one live canonical version and the recipe that trades it.
+// errNotReady is a request whose version or recipe the daily snapshot has not
+// recorded yet. It is not a failure: the request goes back in the queue.
+var errNotReady = errors.New("not ready")
+
+// backtestTarget is one live canonical version and the recipe it registers.
 type backtestTarget struct {
 	Reg        spec.Registered
 	RulesHash  string
@@ -56,30 +64,25 @@ type backtestTarget struct {
 	RecipeHash string
 }
 
-// backtestTargets pairs each live canonical version with the recipes of its
-// strategy. A version is eligible once it is live and is not the pre-recipe v0
-// (the job idles until v1 is live). A recipe's window may be the literal
+// backtestTargets pairs each live canonical version with the recipe it registers.
+// A version is eligible once it is live, is not the pre-recipe v0 and carries a
+// recipe (the job idles until one does). A recipe's window may be the literal
 // "computable_from", which the job derives.
-func backtestTargets(versions []spec.Registered, recipes []spec.Recipe) ([]backtestTarget, error) {
+func backtestTargets(versions []spec.Registered) ([]backtestTarget, error) {
 	var out []backtestTarget
 	for _, v := range versions {
-		if !v.Live || v.Label == "v0" {
+		if !v.Live || v.Label == "v0" || v.Recipe == nil {
 			continue
 		}
 		h, err := spec.RulesHash(v.Spec)
 		if err != nil {
 			return nil, fmt.Errorf("hash %s %s: %w", v.Spec.StrategyID, v.Label, err)
 		}
-		for _, r := range recipes {
-			if r.StrategyID != v.Spec.StrategyID {
-				continue
-			}
-			rh, err := spec.RecipeHash(r)
-			if err != nil {
-				return nil, fmt.Errorf("hash recipe %s: %w", r.ID, err)
-			}
-			out = append(out, backtestTarget{Reg: v, RulesHash: h, Recipe: r, RecipeHash: rh})
+		rh, err := spec.RecipeHash(*v.Recipe)
+		if err != nil {
+			return nil, fmt.Errorf("hash recipe %s: %w", v.Recipe.ID, err)
 		}
+		out = append(out, backtestTarget{Reg: v, RulesHash: h, Recipe: *v.Recipe, RecipeHash: rh})
 	}
 	return out, nil
 }
@@ -95,15 +98,16 @@ func publishDedupeKey(rulesHash, recipeHash, engineVersion, week string) string 
 	return fmt.Sprintf("publish:%s:%s:%s:%s", rulesHash, recipeHash, engineVersion, week)
 }
 
-// asapDedupeKey is the request queued immediately when a key has no succeeded
-// run: one per key, so an identical key is never queued twice.
-func asapDedupeKey(rulesHash, recipeHash, engineVersion string) string {
-	return fmt.Sprintf("publish:%s:%s:%s:asap", rulesHash, recipeHash, engineVersion)
+// asapDedupeKey is the immediate publish request's key: one per key and day, so a
+// key whose request failed is queued again the next day.
+func asapDedupeKey(rulesHash, recipeHash, engineVersion, day string) string {
+	return fmt.Sprintf("publish:%s:%s:%s:asap:%s", rulesHash, recipeHash, engineVersion, day)
 }
 
-// fundamentalsNeeds names the fundamentals a spec reads. A spec reads
-// fundamentals when a data requirement names them; growth and quality are the
-// rules of each family (v0.go). A spec that reads neither has no needs.
+// fundamentalsNeeds names the fundamentals a spec reads through its core rules.
+// A spec reads fundamentals when a data requirement names them; growth and quality
+// are the core rules of each family (v0.go). A non-core rule adds no need, so
+// Quality Compounders' revenue_not_shrinking does not make growth a requirement.
 func fundamentalsNeeds(s spec.Spec) (backtest.Needs, bool) {
 	var needs backtest.Needs
 	reads := false
@@ -113,8 +117,11 @@ func fundamentalsNeeds(s spec.Spec) (backtest.Needs, bool) {
 		}
 	}
 	for _, r := range s.Rules {
+		if !r.Core {
+			continue
+		}
 		switch r.ID {
-		case "growth", "eps_growth", "revenue_growth", "revenue_not_shrinking":
+		case "growth", "eps_growth", "revenue_growth":
 			needs.Growth = true
 		case "roe", "net_margin", "cash_conversion", "leverage", "fcf_margin":
 			needs.Quality = true
@@ -165,15 +172,22 @@ type backtestOptions struct {
 	Build   string
 	Budget  time.Duration
 	Batch   int
+	// Load reads the verify pass's second copy of the inputs. Nil reads them from
+	// the database; a test sets it to make the second read differ.
+	Load func(context.Context, pgsource.DB, civil.Date) (*backtest.MemoryInputs, error)
 }
 
 // backtestResult reports what one execution did, for the exit code and the log.
 type backtestResult struct {
 	Idle          bool
+	Held          bool
 	Processed     int
+	NotReady      int
 	Published     int
-	Determinism   int
+	Pass1         int
 	NotComputable int
+	Determinism   int
+	Failed        int
 }
 
 // runBacktest is one execution: enqueue the due requests, take a batch, run it
@@ -204,8 +218,17 @@ func runBacktest(ctx context.Context, pool *pgxpool.Pool, opts backtestOptions) 
 	}
 	defer st.releaseLease(backtestLeaseName, opts.Holder, opts.Logf)
 
-	if err := st.enqueue(ctx, opts.Targets, isoWeek(opts.Now)); err != nil {
+	if err := st.enqueue(ctx, opts.Targets, opts.Now); err != nil {
 		return backtestResult{}, err
+	}
+	// Only the lease holder claims requests, so a running row belongs to an
+	// execution that did not finish. It is queued again, not left running.
+	n, err := st.requeueRunning(ctx)
+	if err != nil {
+		return backtestResult{}, err
+	}
+	if n > 0 {
+		opts.Logf("strategies backtest: %d request(s) left running by an earlier execution are queued again", n)
 	}
 	batch, err := st.claimBatch(ctx, opts.Batch)
 	if err != nil {
@@ -226,9 +249,11 @@ func runBacktest(ctx context.Context, pool *pgxpool.Pool, opts backtestOptions) 
 	return res, err
 }
 
+// queueHoldMessage is the log line of a held execution.
+const queueHoldMessage = "strategies backtest: %d weekend-dated index row(s) on or before %s (the XJO and XJT history is not re-dated yet: the one-off index re-fetch); requests stay queued"
+
 // processBatch runs a batch of requests over one REPEATABLE READ, READ ONLY
-// transaction. Requests run in the order claimed: publish before
-// variant, then FIFO.
+// transaction. Requests run in the order claimed: publish before variant, then FIFO.
 func processBatch(ctx context.Context, pool *pgxpool.Pool, st backtestStore, opts backtestOptions, batch []backtestRequest) (backtestResult, error) {
 	var res backtestResult
 	started := time.Now()
@@ -250,6 +275,18 @@ func processBatch(ctx context.Context, pool *pgxpool.Pool, st backtestStore, opt
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 
+	// A weekend-dated XJO or XJT row means the index history is not yet re-dated, so
+	// every weekday holds the next session's close. The batch is held, not run.
+	held, err := indexWeekendRows(ctx, tx, windowEnd)
+	if err != nil {
+		return res, err
+	}
+	if held > 0 {
+		opts.Logf(queueHoldMessage, held, windowEnd)
+		res.Held = true
+		return res, st.requeue(ctx, batch)
+	}
+
 	inputs, err := pgsource.LoadBacktestInputs(ctx, tx, windowEnd)
 	if err != nil {
 		return res, err
@@ -259,25 +296,43 @@ func processBatch(ctx context.Context, pool *pgxpool.Pool, st backtestStore, opt
 		return res, err
 	}
 	opts.Logf("strategies backtest: read %d code(s) to %s in one snapshot, %d batch request(s)", len(inputs.BarsByCode), windowEnd, len(batch))
+	through := throughOf(inputs, windowEnd)
 
-	for _, req := range batch {
+	// seen maps a key already published in this batch to its run, so a second
+	// request for the same key is finished against that run, not recomputed.
+	seen := map[string]int64{}
+	for i, req := range batch {
 		if time.Since(started) > opts.Budget {
-			opts.Logf("strategies backtest: work budget %s spent; %d request(s) stay queued", opts.Budget, len(batch)-res.Processed)
-			if err := st.requeue(ctx, batch[res.Processed:]); err != nil {
+			opts.Logf("strategies backtest: work budget %s spent; %d request(s) stay queued", opts.Budget, len(batch)-i)
+			if err := st.requeue(ctx, batch[i:]); err != nil {
 				return res, err
 			}
 			break
 		}
-		res.Processed++
 		t, ok := findTarget(opts.Targets, req)
 		if !ok {
+			res.Failed++
 			if err := st.finishRequest(ctx, req.ID, 0, "no live version matches this request", false); err != nil {
 				return res, err
 			}
 			continue
 		}
-		out, err := publishRequest(ctx, tx, st, inputs, statements, windowEnd, t, opts)
+		key := t.Reg.Spec.StrategyID + "|" + t.RulesHash + "|" + t.RecipeHash
+		if id, dup := seen[key]; dup {
+			if err := st.finishRequest(ctx, req.ID, id, "", true); err != nil {
+				return res, err
+			}
+			continue
+		}
+		res.Processed++
+		out, err := publishRequest(ctx, tx, st, inputs, statements, windowEnd, through, t, opts)
 		switch {
+		case errors.Is(err, errNotReady):
+			res.NotReady++
+			opts.Logf("strategies backtest: %s %s waits: %v", t.Reg.Label, t.Recipe.ID, err)
+			if rerr := st.requeue(ctx, []backtestRequest{req}); rerr != nil {
+				return res, rerr
+			}
 		case errors.Is(err, errDeterminism):
 			res.Determinism++
 			opts.Logf("strategies backtest: %s %s: %v", t.Reg.Label, t.Recipe.ID, err)
@@ -288,6 +343,7 @@ func processBatch(ctx context.Context, pool *pgxpool.Pool, st backtestStore, opt
 				return res, ferr
 			}
 		case err != nil:
+			res.Failed++
 			opts.Logf("strategies backtest: %s %s failed: %v", t.Reg.Label, t.Recipe.ID, err)
 			if ferr := st.finishRequest(ctx, req.ID, 0, err.Error(), false); ferr != nil {
 				return res, ferr
@@ -296,14 +352,24 @@ func processBatch(ctx context.Context, pool *pgxpool.Pool, st backtestStore, opt
 			if out.NotComputable {
 				res.NotComputable++
 			}
+			if out.Pass1 {
+				res.Pass1++
+			}
 			if out.Published {
 				res.Published++
+			}
+			if out.RunID != 0 {
+				seen[key] = out.RunID
 			}
 			if err := st.finishRequest(ctx, req.ID, out.RunID, "", true); err != nil {
 				return res, err
 			}
 		}
 	}
+
+	// The batch's reads are finished: close the snapshot before the revalidation
+	// wait, which holds no transaction and no pooled connection.
+	_ = tx.Rollback(context.Background())
 
 	if res.Published > 0 && opts.Ping != nil && opts.Sleep != nil {
 		opts.Logf("strategies backtest: waiting %s for the API's cache before revalidating %s", backtestRevalidateWait, backtestRevalidateTags)
@@ -324,24 +390,27 @@ func processBatch(ctx context.Context, pool *pgxpool.Pool, st backtestStore, opt
 
 // publishOutcome is what one request produced.
 type publishOutcome struct {
-	RunID         int64
-	Published     bool
+	RunID int64
+	// Published is set when the run was published by this request.
+	Published bool
+	// Pass1 is set for a fundamentals strategy whose derivation found computable_from.
+	Pass1 bool
+	// NotComputable is set when the derivation found no computable_from.
 	NotComputable bool
 }
 
 // publishRequest computes one request's run inside the batch's snapshot. For a
-// fundamentals strategy whose window is computable_from it derives the date
-// first; a strategy that is not yet computable stores that outcome and no
-// simulation. The first publish of a key also runs the verify pass.
-func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, in *backtest.MemoryInputs, stmts map[string][]backtest.Statement, windowEnd civil.Date, t backtestTarget, opts backtestOptions) (publishOutcome, error) {
+// fundamentals strategy whose window is computable_from, the strict policy stores
+// the derivation's outcome (pass 1) and never simulates the window: a simulation
+// would read today's fundamentals at every session. A simple recipe is simulated;
+// its first publish of a result runs the verify pass.
+func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, in *backtest.MemoryInputs, stmts map[string][]backtest.Statement, windowEnd civil.Date, through throughDates, t backtestTarget, opts backtestOptions) (publishOutcome, error) {
 	var out publishOutcome
-	liveFrom, err := st.liveFrom(ctx, t.RulesHash)
+	liveFrom, err := st.liveFrom(ctx, t)
 	if err != nil {
 		return out, err
 	}
 	recipe := t.Recipe
-	var computable civil.Date
-	var label string
 	if recipe.WindowStart == spec.WindowComputableFrom {
 		needs, ok := fundamentalsNeeds(t.Reg.Spec)
 		if !ok {
@@ -352,23 +421,25 @@ func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, in *backte
 		if err != nil {
 			return out, err
 		}
-		if !der.Found {
+		if der.Found {
+			out.Pass1 = true
+			opts.Logf("strategies backtest: %s %s computable from %s (%s); pass 1 only, no simulation", t.Reg.Label, recipe.ID, der.ComputableFrom, der.FiscalLabel)
+		} else {
 			out.NotComputable = true
 			opts.Logf("strategies backtest: %s %s not computable (best share %.2f); no simulation", t.Reg.Label, recipe.ID, der.Share)
-			id, err := st.writeNotComputable(ctx, t, firstSession(sessions), windowEnd, der, opts)
-			out.RunID = id
-			return out, err
 		}
-		computable, label = der.ComputableFrom, der.FiscalLabel
-		recipe.WindowStart = computable.String()
+		id, err := st.writeNotComputable(ctx, t, firstSession(sessions), windowEnd, der, through, opts)
+		out.RunID = id
+		return out, err
 	}
 
 	d1, base, err := backtest.Disclose(in, t.Reg.Spec, recipe, liveFrom, nil, windowEnd, opts.Build, "")
 	if err != nil {
 		return out, fmt.Errorf("publish %s %s: %w", t.Reg.Label, recipe.ID, err)
 	}
-	// The verify pass runs once per key, on its first publish attempt.
-	verified, err := st.hasVerified(ctx, t)
+	// The verify pass runs unless a succeeded verify already reproduced this exact
+	// input and output: the gate's verify check is for this run, never another.
+	verified, err := st.verifiedRun(ctx, t, d1.Identity.InputHash, d1.Identity.OutputHash)
 	if err != nil {
 		return out, err
 	}
@@ -380,7 +451,7 @@ func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, in *backte
 		if _, err := st.writeRun(ctx, runWrite{
 			Target: t, Recipe: recipe, Kind: "verify", WindowEnd: windowEnd,
 			Disclosures: d2, Result: base, Build: opts.Build, Verified: true,
-			Fundamentals: fundamentalsPolicy(recipe), Computable: computable, Label: label,
+			Fundamentals: fundamentalsPolicy(recipe), Through: through,
 		}); err != nil {
 			return out, err
 		}
@@ -395,9 +466,9 @@ func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, in *backte
 	}
 	id, err := st.writeRun(ctx, runWrite{
 		Target: t, Recipe: recipe, Kind: "publish", WindowEnd: windowEnd,
-		Computable: computable, Label: label, Disclosures: d1, Result: base,
+		Disclosures: d1, Result: base,
 		Publish: publish, Build: opts.Build, Verified: verified,
-		Fundamentals: fundamentalsPolicy(recipe),
+		Fundamentals: fundamentalsPolicy(recipe), Through: through,
 	})
 	out.RunID = id
 	return out, err
@@ -407,7 +478,11 @@ func publishRequest(ctx context.Context, tx pgx.Tx, st backtestStore, in *backte
 // compares the input hash and the output hash. A mismatch is a
 // determinism failure. The rerun is stored as kind verify, the record of it.
 func verifyPass(ctx context.Context, tx pgx.Tx, t backtestTarget, recipe spec.Recipe, liveFrom, windowEnd civil.Date, opts backtestOptions, first backtest.Disclosures) (backtest.Disclosures, error) {
-	second, err := pgsource.LoadBacktestInputs(ctx, tx, windowEnd)
+	load := opts.Load
+	if load == nil {
+		load = pgsource.LoadBacktestInputs
+	}
+	second, err := load(ctx, tx, windowEnd)
 	if err != nil {
 		return backtest.Disclosures{}, fmt.Errorf("verify: second read: %w", err)
 	}
@@ -426,7 +501,9 @@ func verifyPass(ctx context.Context, tx pgx.Tx, t backtestTarget, recipe spec.Re
 }
 
 // dryRunBacktest computes each eligible target once and logs it. It writes
-// nothing: no lease, no requests, no runs. The default for a by-hand run.
+// nothing: no lease, no requests, no runs. The default for a by-hand run. A
+// fundamentals strategy whose window is computable_from gets the same pass 1 as
+// a write run: its derivation is logged, and it is not simulated.
 func dryRunBacktest(ctx context.Context, pool *pgxpool.Pool, opts backtestOptions) (backtestResult, error) {
 	windowEnd, ok, err := pgsource.BacktestWindowEnd(ctx, pool)
 	if err != nil {
@@ -441,6 +518,14 @@ func dryRunBacktest(ctx context.Context, pool *pgxpool.Pool, opts backtestOption
 		return backtestResult{}, fmt.Errorf("begin the read transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
+	held, err := indexWeekendRows(ctx, tx, windowEnd)
+	if err != nil {
+		return backtestResult{}, err
+	}
+	if held > 0 {
+		opts.Logf(queueHoldMessage, held, windowEnd)
+		return backtestResult{Held: true}, nil
+	}
 	in, err := pgsource.LoadBacktestInputs(ctx, tx, windowEnd)
 	if err != nil {
 		return backtestResult{}, err
@@ -452,7 +537,12 @@ func dryRunBacktest(ctx context.Context, pool *pgxpool.Pool, opts backtestOption
 	}
 	var res backtestResult
 	for _, t := range opts.Targets {
-		liveFrom, err := st.liveFrom(ctx, t.RulesHash)
+		liveFrom, err := st.liveFrom(ctx, t)
+		if errors.Is(err, errNotReady) {
+			res.NotReady++
+			opts.Logf("strategies backtest dry run: %s %s waits: %v", t.Reg.Label, t.Recipe.ID, err)
+			continue
+		}
 		if err != nil {
 			return res, err
 		}
@@ -467,12 +557,13 @@ func dryRunBacktest(ctx context.Context, pool *pgxpool.Pool, opts backtestOption
 				return res, err
 			}
 			if !der.Found {
-				opts.Logf("strategies backtest dry run: %s %s not computable (best share %.2f)", t.Reg.Label, recipe.ID, der.Share)
+				opts.Logf("strategies backtest dry run: %s %s not computable (best share %.2f); no simulation", t.Reg.Label, recipe.ID, der.Share)
 				res.NotComputable++
 				continue
 			}
-			recipe.WindowStart = der.ComputableFrom.String()
-			opts.Logf("strategies backtest dry run: %s %s computable from %s (%s)", t.Reg.Label, recipe.ID, der.ComputableFrom, der.FiscalLabel)
+			opts.Logf("strategies backtest dry run: %s %s computable from %s (%s); pass 1 only, no simulation", t.Reg.Label, recipe.ID, der.ComputableFrom, der.FiscalLabel)
+			res.Pass1++
+			continue
 		}
 		d, _, err := backtest.Disclose(in, t.Reg.Spec, recipe, liveFrom, nil, windowEnd, opts.Build, "")
 		if err != nil {
@@ -567,10 +658,12 @@ func backtestBuildRevision() string {
 }
 
 // runBacktestMode is the `shorted strategies -mode backtest` entry point. The dry
-// run is the default; STRATEGIES_DRY_RUN=false with the flag set writes.
+// run is the default; STRATEGIES_DRY_RUN=false with the flag set writes. A request
+// that fails for a reason other than not-ready exits 1, so the monitor pages; a
+// determinism failure exits 10.
 func runBacktestMode(parent context.Context, dryFlag bool) error {
 	write := !dryFlag && os.Getenv("STRATEGIES_DRY_RUN") == "false"
-	targets, err := backtestTargets(spec.Registry(), spec.R1Recipes())
+	targets, err := backtestTargets(spec.Registry())
 	if err != nil {
 		return err
 	}
@@ -602,7 +695,10 @@ func runBacktestMode(parent context.Context, dryFlag bool) error {
 		}
 		return err
 	}
-	log.Printf("strategies backtest: processed %d, published %d, not computable %d, determinism failures %d",
-		res.Processed, res.Published, res.NotComputable, res.Determinism)
+	log.Printf("strategies backtest: processed %d, published %d, pass 1 %d, not computable %d, not ready %d, held %t, determinism failures %d, failed %d",
+		res.Processed, res.Published, res.Pass1, res.NotComputable, res.NotReady, res.Held, res.Determinism, res.Failed)
+	if res.Failed > 0 {
+		return &runner.ExitCodeError{Code: 1, Err: fmt.Errorf("%d backtest request(s) failed; the log names them", res.Failed)}
+	}
 	return nil
 }

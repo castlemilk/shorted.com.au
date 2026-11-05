@@ -22,12 +22,21 @@ func liveV1(t *testing.T, strategyID string) spec.Registered {
 		t.Fatalf("no live version for %s", strategyID)
 	}
 	r.Label = "v1"
+	for _, rec := range spec.R1Recipes() {
+		if rec.StrategyID == strategyID {
+			rec := rec
+			r.Recipe = &rec
+		}
+	}
+	if r.Recipe == nil {
+		t.Fatalf("no r1 recipe for %s", strategyID)
+	}
 	return r
 }
 
 func TestBacktestTargetsIdleUntilAVersionBeyondV0IsLive(t *testing.T) {
 	v0Only := spec.Registry()
-	got, err := backtestTargets(v0Only, spec.R1Recipes())
+	got, err := backtestTargets(v0Only)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +50,7 @@ func TestBacktestTargetsPairEachLiveVersionWithItsStrategysRecipes(t *testing.T)
 	// A retired, not-live version of another strategy must not be targeted.
 	draft := liveV1(t, spec.StrategyMinerviniTrend)
 	draft.Live = false
-	got, err := backtestTargets([]spec.Registered{v1, draft}, spec.R1Recipes())
+	got, err := backtestTargets([]spec.Registered{v1, draft})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,10 +71,10 @@ func TestPublishDedupeKeysNameTheKeyAndTheWeek(t *testing.T) {
 	if weekly != "publish:r1:c1:e1:2026-W45" {
 		t.Errorf("weekly key = %q", weekly)
 	}
-	if asap := asapDedupeKey(rules, recipe, engine); asap != "publish:r1:c1:e1:asap" {
+	if asap := asapDedupeKey(rules, recipe, engine, "2026-11-13"); asap != "publish:r1:c1:e1:asap:2026-11-13" {
 		t.Errorf("asap key = %q", asap)
 	}
-	if weekly == asapDedupeKey(rules, recipe, engine) {
+	if weekly == asapDedupeKey(rules, recipe, engine, "2026-11-13") {
 		t.Error("the immediate request must not collide with the weekly one")
 	}
 }
@@ -110,17 +119,26 @@ func TestPublicationGateRefusesUncoveredRuns(t *testing.T) {
 func TestFundamentalsNeedsReadsTheRulesOfEachFamily(t *testing.T) {
 	growth := spec.Spec{
 		Requires: []spec.DataReq{{Source: "fundamentals", From: "computable_from"}},
-		Rules:    []spec.RuleSpec{{ID: "eps_growth"}, {ID: "revenue_growth"}},
+		Rules:    []spec.RuleSpec{{ID: "eps_growth", Core: true}, {ID: "revenue_growth", Core: true}},
 	}
 	if n, ok := fundamentalsNeeds(growth); !ok || !n.Growth || n.Quality {
 		t.Errorf("growth rules: needs %+v ok %t", n, ok)
 	}
 	quality := spec.Spec{
 		Requires: []spec.DataReq{{Source: "fundamentals", From: "computable_from"}},
-		Rules:    []spec.RuleSpec{{ID: "roe"}, {ID: "leverage"}},
+		Rules:    []spec.RuleSpec{{ID: "roe", Core: true}, {ID: "leverage", Core: true}},
 	}
 	if n, ok := fundamentalsNeeds(quality); !ok || n.Growth || !n.Quality {
 		t.Errorf("quality rules: needs %+v ok %t", n, ok)
+	}
+	// A non-core growth rule (Quality Compounders' revenue_not_shrinking) is not a
+	// core input: it adds no growth need to a quality strategy.
+	qualityWithNonCoreGrowth := spec.Spec{
+		Requires: []spec.DataReq{{Source: "fundamentals", From: "computable_from"}},
+		Rules:    []spec.RuleSpec{{ID: "roe", Core: true}, {ID: "revenue_not_shrinking", Core: false}},
+	}
+	if n, ok := fundamentalsNeeds(qualityWithNonCoreGrowth); !ok || n.Growth || !n.Quality {
+		t.Errorf("a non-core growth rule read as a growth need: %+v ok %t", n, ok)
 	}
 	none := spec.Spec{Rules: []spec.RuleSpec{{ID: "breakout"}}}
 	if _, ok := fundamentalsNeeds(none); ok {

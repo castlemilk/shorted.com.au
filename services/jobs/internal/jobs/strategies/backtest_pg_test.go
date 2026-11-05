@@ -277,17 +277,16 @@ func TestBacktestQueueOrdersPublishFirstAndDedupes(t *testing.T) {
 		target.Reg.Spec.StrategyID, target.RulesHash, target.RecipeHash)
 	require.NoError(t, err)
 
-	require.NoError(t, st.enqueue(ctx, []backtestTarget{target}, "2026-W46"))
-	require.NoError(t, st.enqueue(ctx, []backtestTarget{target}, "2026-W46"), "a repeat enqueue is a no-op")
-	require.Equal(t, 2, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE kind = 'publish'`),
-		"one weekly and one first-publish request, however often the job runs")
+	require.NoError(t, st.enqueue(ctx, []backtestTarget{target}, time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)))
+	require.NoError(t, st.enqueue(ctx, []backtestTarget{target}, time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)), "a repeat enqueue is a no-op")
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE kind = 'publish'`),
+		"a new key costs one request: the weekly one is pending, so the immediate one is not added")
 
 	batch, err := st.claimBatch(ctx, 5)
 	require.NoError(t, err)
-	require.Len(t, batch, 3)
+	require.Len(t, batch, 2)
 	require.Equal(t, "publish", batch[0].Kind, "publish before variant")
-	require.Equal(t, "publish", batch[1].Kind)
-	require.Equal(t, "variant", batch[2].Kind)
+	require.Equal(t, "variant", batch[1].Kind)
 }
 
 func TestBacktestClaimBatchStopsAtTheBatchSize(t *testing.T) {
@@ -295,11 +294,20 @@ func TestBacktestClaimBatchStopsAtTheBatchSize(t *testing.T) {
 	ctx := context.Background()
 	target := goldenTarget(t, pool)
 	st := backtestStore{pool: pool}
-	require.NoError(t, st.enqueue(ctx, []backtestTarget{target}, "2026-W46"))
+	require.NoError(t, st.enqueue(ctx, []backtestTarget{target}, time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)))
+	// Two more queued variants: the batch of one takes the publish, the rest stay queued.
+	for _, id := range []string{"v-2", "v-3"} {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO strategy_backtest_requests (kind, strategy_id, rules_hash, recipe_hash, variant_id, dedupe_key, status)
+			VALUES ('variant', $1, $2, $3, $4, $5, 'queued')`,
+			target.Reg.Spec.StrategyID, target.RulesHash, target.RecipeHash, id, "variant:"+id)
+		require.NoError(t, err)
+	}
 	batch, err := st.claimBatch(ctx, 1)
 	require.NoError(t, err)
 	require.Len(t, batch, 1, "the batch is bounded by its size; the rest stay queued")
-	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE status = 'queued'`))
+	require.Equal(t, "publish", batch[0].Kind, "the publish is claimed ahead of the variants queued before it")
+	require.Equal(t, 2, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE status = 'queued'`))
 }
 
 func TestBacktestGoldenRunMatchesItsCommittedHashAndPublishes(t *testing.T) {
@@ -448,7 +456,7 @@ func TestBacktestComputableFromOnStoredStatements(t *testing.T) {
 
 	_, err = pool.Exec(ctx, `
 		CREATE TABLE stock_fundamentals (stock_code varchar, period_type varchar, period_end date,
-		  revenue float8, net_income float8, PRIMARY KEY (stock_code, period_type, period_end))`)
+		  revenue float8, net_income float8, total_equity float8, PRIMARY KEY (stock_code, period_type, period_end))`)
 	require.NoError(t, err)
 	// A 31 December 2023 result, its prior year, and a balance snapshot, for two codes.
 	for _, code := range []string{"AAA", "BBB"} {
@@ -463,7 +471,7 @@ func TestBacktestComputableFromOnStoredStatements(t *testing.T) {
 			if row.flow {
 				rev = 1000.0
 			}
-			_, err := pool.Exec(ctx, `INSERT INTO stock_fundamentals VALUES ($1, $2, $3::date, $4, $4)`, code, row.typ, row.end, rev)
+			_, err := pool.Exec(ctx, `INSERT INTO stock_fundamentals VALUES ($1, $2, $3::date, $4, $4, 1000)`, code, row.typ, row.end, rev)
 			require.NoError(t, err)
 		}
 	}
@@ -605,7 +613,7 @@ func TestBacktestBudgetStopRequeuesTheRestOfTheBatch(t *testing.T) {
 	target := goldenTarget(t, pool)
 	ctx := context.Background()
 	st := backtestStore{pool: pool}
-	require.NoError(t, st.enqueue(ctx, []backtestTarget{target}, "2026-W46"))
+	require.NoError(t, st.enqueue(ctx, []backtestTarget{target}, time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)))
 
 	opts := backtestOptsFor(t, true, []backtestTarget{target})
 	opts.Budget = time.Nanosecond
@@ -615,7 +623,7 @@ func TestBacktestBudgetStopRequeuesTheRestOfTheBatch(t *testing.T) {
 	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs`))
 	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE status = 'running'`),
 		"the requests the budget stopped are queued again, not left running")
-	require.Equal(t, 2, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE status = 'queued'`))
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_requests WHERE status = 'queued'`))
 }
 
 func TestBacktestNotComputableStoresTheOutcomeWithoutASimulation(t *testing.T) {

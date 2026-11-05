@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"runtime"
 	"runtime/debug"
 	"sort"
@@ -28,6 +29,11 @@ import (
 // backtestStore is the job's pool-backed reader and writer.
 type backtestStore struct {
 	pool *pgxpool.Pool
+}
+
+// queryRower is the read a pool and a transaction both answer.
+type queryRower interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 // leaseClaim is the outcome of claiming the lease. ok is false when another
@@ -78,35 +84,44 @@ type backtestRequest struct {
 	VariantID  string
 }
 
-// enqueue queues each target's publish request for this ISO week, and an
-// immediate one when the key has no succeeded run on the current engine. Both
-// are keyed, so a repeat is a no-op.
-func (s backtestStore) enqueue(ctx context.Context, targets []backtestTarget, week string) error {
+// enqueue queues each target's weekly publish request, and an immediate one when
+// the key has no succeeded run and no request queued or running for it. A new key
+// therefore costs one request: the weekly one is queued first, so it is pending
+// and the immediate one is not added. A key whose last request failed is queued
+// again the next day (the day is in the immediate request's key), so a failure is
+// retried without being retried every hour.
+func (s backtestStore) enqueue(ctx context.Context, targets []backtestTarget, now time.Time) error {
+	week := isoWeek(now)
+	day := now.UTC().Format("2006-01-02")
 	for _, t := range targets {
+		sid := t.Reg.Spec.StrategyID
 		if _, err := s.pool.Exec(ctx, `
 			INSERT INTO strategy_backtest_requests (kind, strategy_id, rules_hash, recipe_hash, requested_by, dedupe_key, status)
 			VALUES ('publish', $1, $2, $3, 'schedule', $4, 'queued')
 			ON CONFLICT (dedupe_key) DO NOTHING`,
-			t.Reg.Spec.StrategyID, t.RulesHash, t.RecipeHash, publishDedupeKey(t.RulesHash, t.RecipeHash, engine.Version, week)); err != nil {
-			return fmt.Errorf("queue the weekly publish of %s: %w", t.Reg.Spec.StrategyID, err)
+			sid, t.RulesHash, t.RecipeHash, publishDedupeKey(t.RulesHash, t.RecipeHash, engine.Version, week)); err != nil {
+			return fmt.Errorf("queue the weekly publish of %s: %w", sid, err)
 		}
-		var has bool
+		var need bool
 		if err := s.pool.QueryRow(ctx, `
-			SELECT EXISTS (SELECT 1 FROM strategy_backtest_runs
-			                WHERE strategy_id = $1 AND rules_hash = $2 AND recipe_hash = $3
-			                  AND engine_version = $4 AND status = 'succeeded' AND kind <> 'verify')`,
-			t.Reg.Spec.StrategyID, t.RulesHash, t.RecipeHash, engine.Version).Scan(&has); err != nil {
-			return fmt.Errorf("read the succeeded runs of %s: %w", t.Reg.Spec.StrategyID, err)
+			SELECT NOT EXISTS (SELECT 1 FROM strategy_backtest_runs
+			                    WHERE strategy_id = $1 AND rules_hash = $2 AND recipe_hash = $3
+			                      AND engine_version = $4 AND status = 'succeeded' AND kind <> 'verify')
+			   AND NOT EXISTS (SELECT 1 FROM strategy_backtest_requests
+			                    WHERE kind = 'publish' AND strategy_id = $1 AND rules_hash = $2 AND recipe_hash = $3
+			                      AND status IN ('queued', 'running'))`,
+			sid, t.RulesHash, t.RecipeHash, engine.Version).Scan(&need); err != nil {
+			return fmt.Errorf("read the queue of %s: %w", sid, err)
 		}
-		if has {
+		if !need {
 			continue
 		}
 		if _, err := s.pool.Exec(ctx, `
 			INSERT INTO strategy_backtest_requests (kind, strategy_id, rules_hash, recipe_hash, requested_by, dedupe_key, status)
 			VALUES ('publish', $1, $2, $3, 'schedule', $4, 'queued')
 			ON CONFLICT (dedupe_key) DO NOTHING`,
-			t.Reg.Spec.StrategyID, t.RulesHash, t.RecipeHash, asapDedupeKey(t.RulesHash, t.RecipeHash, engine.Version)); err != nil {
-			return fmt.Errorf("queue the first publish of %s: %w", t.Reg.Spec.StrategyID, err)
+			sid, t.RulesHash, t.RecipeHash, asapDedupeKey(t.RulesHash, t.RecipeHash, engine.Version, day)); err != nil {
+			return fmt.Errorf("queue the first publish of %s: %w", sid, err)
 		}
 	}
 	return nil
@@ -176,6 +191,19 @@ func (s backtestStore) requeue(ctx context.Context, batch []backtestRequest) err
 	return nil
 }
 
+// requeueRunning puts back every request a dead execution left running. Only the
+// lease holder claims requests, so under the lease a running row belongs to an
+// execution that did not finish (an OOM kill, a deadline, a drain).
+func (s backtestStore) requeueRunning(ctx context.Context) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE strategy_backtest_requests SET status = 'queued', started_at = NULL
+		 WHERE status = 'running'`)
+	if err != nil {
+		return 0, fmt.Errorf("requeue the running requests: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
 // finishRequest marks a request done (ok) or failed, and links the run it made.
 func (s backtestStore) finishRequest(ctx context.Context, id, runID int64, errText string, ok bool) error {
 	if _, err := s.pool.Exec(ctx, `
@@ -188,36 +216,89 @@ func (s backtestStore) finishRequest(ctx context.Context, id, runID int64, errTe
 	return nil
 }
 
-// liveFrom reads the version's live_from, which the daily snapshot records. A
-// version the database does not record as live has no freeze date to report
-// against, so the run is refused rather than guessed.
-func (s backtestStore) liveFrom(ctx context.Context, rulesHash string) (civil.Date, error) {
-	var t *time.Time
-	err := s.pool.QueryRow(ctx, `SELECT live_from FROM strategy_rule_versions WHERE rules_hash = $1`, rulesHash).Scan(&t)
+// liveFrom reads the version's live_from and whether its recipe is recorded. The
+// daily snapshot records both in its evaluation write. Until it has, the request
+// is not ready: it stays queued (errNotReady), rather than failing and waiting for
+// the next week.
+func (s backtestStore) liveFrom(ctx context.Context, t backtestTarget) (civil.Date, error) {
+	var live *time.Time
+	var recipeRecorded bool
+	err := s.pool.QueryRow(ctx, `
+		SELECT v.live_from,
+		       EXISTS (SELECT 1 FROM strategy_recipes r WHERE r.recipe_hash = $2)
+		  FROM strategy_rule_versions v
+		 WHERE v.rules_hash = $1`, t.RulesHash, t.RecipeHash).Scan(&live, &recipeRecorded)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		return civil.Date{}, fmt.Errorf("version %s is not recorded yet (the daily snapshot records it)", shortHash(rulesHash))
+		return civil.Date{}, fmt.Errorf("%w: version %s is not recorded yet (the daily snapshot records it)", errNotReady, shortHash(t.RulesHash))
 	case err != nil:
-		return civil.Date{}, fmt.Errorf("read the live date of %s: %w", shortHash(rulesHash), err)
-	case t == nil:
-		return civil.Date{}, fmt.Errorf("version %s has no live_from recorded", shortHash(rulesHash))
+		return civil.Date{}, fmt.Errorf("read the live date of %s: %w", shortHash(t.RulesHash), err)
+	case !recipeRecorded:
+		return civil.Date{}, fmt.Errorf("%w: recipe %s is not recorded yet (the daily snapshot records it)", errNotReady, shortHash(t.RecipeHash))
+	case live == nil:
+		return civil.Date{}, fmt.Errorf("%w: version %s has no live_from recorded", errNotReady, shortHash(t.RulesHash))
 	}
-	return civil.DateOf(*t), nil
+	return civil.DateOf(*live), nil
 }
 
-// hasVerified reports whether a succeeded verify pass exists for the target's key
-// on the current engine.
-func (s backtestStore) hasVerified(ctx context.Context, t backtestTarget) (bool, error) {
+// verifiedRun reports whether a succeeded verify pass already reproduced this
+// exact input and output on the current engine. Only such a record satisfies the
+// publication gate's verify check: a verify of another input or output does not.
+func (s backtestStore) verifiedRun(ctx context.Context, t backtestTarget, inputHash, outputHash string) (bool, error) {
 	var has bool
 	err := s.pool.QueryRow(ctx, `
 		SELECT EXISTS (SELECT 1 FROM strategy_backtest_runs
 		                WHERE strategy_id = $1 AND rules_hash = $2 AND recipe_hash = $3
-		                  AND engine_version = $4 AND kind = 'verify' AND status = 'succeeded')`,
-		t.Reg.Spec.StrategyID, t.RulesHash, t.RecipeHash, engine.Version).Scan(&has)
+		                  AND engine_version = $4 AND kind = 'verify' AND status = 'succeeded'
+		                  AND input_hash = $5 AND output_hash = $6)`,
+		t.Reg.Spec.StrategyID, t.RulesHash, t.RecipeHash, engine.Version, inputHash, outputHash).Scan(&has)
 	if err != nil {
 		return false, fmt.Errorf("read the verify passes of %s: %w", t.Reg.Spec.StrategyID, err)
 	}
 	return has, nil
+}
+
+// indexWeekendRows counts the XJO and XJT rows dated on a weekend on or before
+// windowEnd. Until the index sync re-dates them (the one-off re-fetch), each
+// weekday holds the next session's close, so a run over them reads the future.
+func indexWeekendRows(ctx context.Context, q queryRower, windowEnd civil.Date) (int, error) {
+	var n int
+	err := q.QueryRow(ctx, `
+		SELECT count(*)::int FROM index_prices
+		 WHERE index_code IN ('XJO', 'XJT') AND date <= $1::date AND EXTRACT(ISODOW FROM date) > 5`,
+		windowEnd.String()).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count the weekend-dated index rows: %w", err)
+	}
+	return n, nil
+}
+
+// throughDates are the newest dates a run's inputs reach: the newest ASIC report
+// and the newest XJT session on or before the window end.
+type throughDates struct {
+	ASIC  civil.Date
+	Index civil.Date
+}
+
+// throughOf is the through-dates of the loaded inputs.
+func throughOf(in *backtest.MemoryInputs, windowEnd civil.Date) throughDates {
+	var out throughDates
+	for _, r := range in.Mkt.ASIC {
+		if !r.ReportDate.After(windowEnd) && out.ASIC.Before(r.ReportDate) {
+			out.ASIC = r.ReportDate
+		}
+	}
+	for _, b := range in.Mkt.XJT {
+		if !b.Date.After(windowEnd) && out.Index.Before(b.Date) {
+			out.Index = b.Date
+		}
+	}
+	return out
+}
+
+// executionName is the Cloud Run execution name the chart emulates, or "".
+func executionName() string {
+	return os.Getenv("CLOUD_RUN_EXECUTION")
 }
 
 // runWrite is one run to store.
@@ -234,6 +315,7 @@ type runWrite struct {
 	Verified     bool
 	Build        string
 	Fundamentals string
+	Through      throughDates
 }
 
 // writeRun stores one succeeded run, its series and trades, and, when Publish is
@@ -327,19 +409,20 @@ func insertRun(ctx context.Context, tx pgx.Tx, w runWrite) (int64, error) {
 		INSERT INTO strategy_backtest_runs (
 		  run_key, kind, strategy_id, rules_hash, recipe_hash, engine_version, status, published,
 		  window_start, window_end, computable_from, fiscal_label, returns, benchmark_code, fundamentals,
-		  input_hash, output_hash, build_revision, goarch, prices_through, index_through, in_sample_until,
-		  metrics, summary, diagnostics, started_at, finished_at)
+		  input_hash, output_hash, build_revision, goarch, prices_through, asic_report_through, index_through,
+		  in_sample_until, metrics, summary, diagnostics, execution, started_at, finished_at)
 		VALUES (NULLIF($1, ''), $2, $3, $4, $5, $6, 'succeeded', $7,
 		  $8::date, $9::date, $10::date, NULLIF($11, ''), 'total', 'XJT', $12,
-		  NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), $16, $17::date, $17::date, $18::date,
-		  $19::jsonb, $20::jsonb, $21::jsonb, now(), now())
+		  NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), $16, $17::date, $18::date, $19::date,
+		  $20::date, $21::jsonb, $22::jsonb, $23::jsonb, NULLIF($24, ''), now(), now())
 		RETURNING id`,
 		d.Identity.RunKey, w.Kind, w.Target.Reg.Spec.StrategyID, w.Target.RulesHash, w.Target.RecipeHash,
-		engine.Version, w.Publish,
+		engine.Version, false, // flipPublished sets the flag: un-publishing the previous run comes first
 		w.Recipe.WindowStart, dateOrNilArg(w.WindowEnd), dateOrNilArg(w.Computable), w.Label, w.Fundamentals,
 		d.Identity.InputHash, d.Identity.OutputHash, w.Build, runtime.GOARCH, dateOrNilArg(w.WindowEnd),
-		d.Identity.InSampleUntil,
-		string(metrics), string(summary), string(diagJSON),
+		dateOrNilArg(w.Through.ASIC), dateOrNilArg(w.Through.Index),
+		dateOrNilArg(d.Identity.InSampleUntil),
+		string(metrics), string(summary), string(diagJSON), executionName(),
 	).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("write the %s run: %w", w.Kind, err)
@@ -348,10 +431,13 @@ func insertRun(ctx context.Context, tx pgx.Tx, w runWrite) (int64, error) {
 }
 
 // writeNotComputable stores the outcome of a fundamentals strategy whose window
-// is not yet computable: pass 1 only, no simulation, no series.
-func (s backtestStore) writeNotComputable(ctx context.Context, t backtestTarget, from, windowEnd civil.Date, der backtest.Derivation, opts backtestOptions) (int64, error) {
+// opens at computable_from, under the strict policy: pass 1 only, no simulation,
+// no series or trades. When the derivation finds the date, the row carries the
+// computable_from and the fiscal label it found; when it does not, both are NULL
+// and the share is recorded. One outcome per key and window end.
+func (s backtestStore) writeNotComputable(ctx context.Context, t backtestTarget, from, windowEnd civil.Date, der backtest.Derivation, through throughDates, opts backtestOptions) (int64, error) {
 	// One outcome per key and window end: the weekly and the immediate request of a
-	// key that is not computable read the same snapshot and store the same row.
+	// key read the same snapshot and store the same row.
 	var existing int64
 	err := s.pool.QueryRow(ctx, `
 		SELECT id FROM strategy_backtest_runs
@@ -373,17 +459,25 @@ func (s backtestStore) writeNotComputable(ctx context.Context, t backtestTarget,
 	if err != nil {
 		return 0, fmt.Errorf("encode the not-computable summary: %w", err)
 	}
+	var computable civil.Date
+	if der.Found {
+		computable = der.ComputableFrom
+	}
 	var id int64
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO strategy_backtest_runs (
 		  kind, strategy_id, rules_hash, recipe_hash, engine_version, status, published,
-		  window_start, window_end, returns, benchmark_code, fundamentals, build_revision, goarch,
-		  prices_through, index_through, summary, started_at, finished_at)
+		  window_start, window_end, computable_from, fiscal_label, returns, benchmark_code, fundamentals,
+		  build_revision, goarch, prices_through, asic_report_through, index_through, summary, execution,
+		  started_at, finished_at)
 		VALUES ('publish', $1, $2, $3, $4, 'succeeded', false,
-		  $5::date, $6::date, 'total', 'XJT', 'strict', NULLIF($7, ''), $8, $6::date, $6::date, $9::jsonb, now(), now())
+		  $5::date, $6::date, $7::date, NULLIF($8, ''), 'total', 'XJT', 'strict',
+		  NULLIF($9, ''), $10, $6::date, $11::date, $12::date, $13::jsonb, NULLIF($14, ''),
+		  now(), now())
 		RETURNING id`,
 		t.Reg.Spec.StrategyID, t.RulesHash, t.RecipeHash, engine.Version, from.String(), windowEnd.String(),
-		opts.Build, runtime.GOARCH, string(summary),
+		dateOrNilArg(computable), der.FiscalLabel, opts.Build, runtime.GOARCH,
+		dateOrNilArg(through.ASIC), dateOrNilArg(through.Index), string(summary), executionName(),
 	).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("write the not-computable run: %w", err)
@@ -398,11 +492,11 @@ func (s backtestStore) failRun(ctx context.Context, t backtestTarget, opts backt
 		INSERT INTO strategy_backtest_runs (
 		  kind, strategy_id, rules_hash, recipe_hash, engine_version, status, published,
 		  window_start, window_end, returns, benchmark_code, fundamentals, build_revision, goarch,
-		  prices_through, error, started_at, finished_at)
+		  prices_through, error, execution, started_at, finished_at)
 		VALUES ('publish', $1, $2, $3, $4, 'failed', false,
-		  $5::date, $6::date, 'total', 'XJT', 'strict', $7, $8, $6::date, $9, now(), now())`,
+		  $5::date, $6::date, 'total', 'XJT', 'strict', $7, $8, $6::date, $9, NULLIF($10, ''), now(), now())`,
 		t.Reg.Spec.StrategyID, t.RulesHash, t.RecipeHash, engine.Version,
-		from.String(), windowEnd.String(), opts.Build, runtime.GOARCH, cause.Error(),
+		from.String(), windowEnd.String(), opts.Build, runtime.GOARCH, cause.Error(), executionName(),
 	); err != nil {
 		return fmt.Errorf("record the failed publish: %w", err)
 	}
@@ -482,8 +576,9 @@ func insertTrades(ctx context.Context, tx pgx.Tx, runID int64, trades []backtest
 }
 
 // prune applies the retention: unpublished runs older than 30 days go, except
-// the newest succeeded run of each key; requests older than 90 days go. Published
-// runs and their series are never pruned here.
+// the newest succeeded run and the newest succeeded verify record of each key;
+// requests older than 90 days go. Published runs and their series are never
+// pruned here.
 func (s backtestStore) prune(ctx context.Context) error {
 	if _, err := s.pool.Exec(ctx, `
 		DELETE FROM strategy_backtest_requests
@@ -498,7 +593,11 @@ func (s backtestStore) prune(ctx context.Context) error {
 		   AND r.id NOT IN (
 		     SELECT max(id) FROM strategy_backtest_runs
 		      WHERE status = 'succeeded' AND kind <> 'verify'
-		      GROUP BY strategy_id, rules_hash, recipe_hash, fundamentals)`, backtestRunRetentionDays); err != nil {
+		      GROUP BY strategy_id, rules_hash, recipe_hash, fundamentals)
+		   AND r.id NOT IN (
+		     SELECT max(id) FROM strategy_backtest_runs
+		      WHERE status = 'succeeded' AND kind = 'verify'
+		      GROUP BY strategy_id, rules_hash, recipe_hash, engine_version)`, backtestRunRetentionDays); err != nil {
 		return fmt.Errorf("prune runs: %w", err)
 	}
 	return nil
