@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -21,25 +22,114 @@ import (
 // what was published, so a response can never name a version the API cannot
 // describe. Variants (kind "variant") are never served here.
 
-// versionRefOf is the wire reference to one registered version.
+// versionTable is the table's state of every canonical version, keyed by rules
+// hash. known is false when the table is not migrated or the store has no
+// reader: the registry's live flag then states the status, and no version
+// carries a date.
+type versionTable struct {
+	known bool
+	rows  map[string]shortsstore.CanonicalRuleVersion
+}
+
+// versionState is one version's status and dates as the table states them.
+type versionState struct {
+	status       string
+	liveFrom     string
+	supersededOn string
+	retiredOn    string
+}
+
+// stateOf is a registered version's state. A version the table does not record
+// yet is a draft; without the table, the registry's live flag answers.
+func (t versionTable) stateOf(r spec.Registered, hash string) versionState {
+	if !t.known {
+		if r.Live {
+			return versionState{status: "live"}
+		}
+		return versionState{status: "superseded"}
+	}
+	row, ok := t.rows[hash]
+	if !ok {
+		return versionState{status: "draft"}
+	}
+	return versionState{status: row.Status, liveFrom: row.LiveFrom, supersededOn: row.SupersededOn, retiredOn: row.RetiredOn}
+}
+
+// liveRulesHash is the rules hash the table marks live for a strategy. Without
+// a live row (or without the table) it is the registry's live version.
+func (t versionTable) liveRulesHash(strategyID string) string {
+	for hash, row := range t.rows {
+		if row.StrategyID == strategyID && row.Status == "live" {
+			return hash
+		}
+	}
+	return liveRulesHash(strategyID)
+}
+
+// strategyVersionTableKey and its TTL: the table moves when the job promotes, a
+// few times a year, so a read per instance every few minutes is enough.
+const (
+	strategyVersionTableKey = "strategy_version_table"
+	strategyVersionTableTTL = 5 * time.Minute
+)
+
+// readVersionTable is the version table, cached per instance. An error is the
+// caller's to answer (Unavailable); a missing table is known=false, not an error.
+func (s *ShortsServer) readVersionTable(ctx context.Context) (versionTable, error) {
+	reader, ok := s.store.(shortsstore.StrategyVersionReader)
+	if !ok {
+		return versionTable{}, nil
+	}
+	load := func() (any, error) {
+		rows, err := reader.ReadCanonicalRuleVersions(context.WithoutCancel(ctx))
+		switch {
+		case errors.Is(err, shortsstore.ErrStrategySnapshotUnavailable):
+			return versionTable{}, nil
+		case err != nil:
+			return nil, err
+		}
+		t := versionTable{known: true, rows: make(map[string]shortsstore.CanonicalRuleVersion, len(rows))}
+		for _, r := range rows {
+			t.rows[r.RulesHash] = r
+		}
+		return t, nil
+	}
+	if s.cache == nil {
+		v, err := load()
+		if err != nil {
+			return versionTable{}, err
+		}
+		return v.(versionTable), nil
+	}
+	v, err := s.cache.GetOrSetWithTTL(strategyVersionTableKey, strategyVersionTableTTL, load)
+	if err != nil {
+		return versionTable{}, err
+	}
+	return v.(versionTable), nil
+}
+
+// versionRefOf is the registry's wire reference to one registered version (no
+// table: the status is the registry's live flag, and no date is stated).
 func versionRefOf(r spec.Registered) (*shortsv1alpha1.StrategyVersionRef, error) {
 	hash, err := spec.RulesHash(r.Spec)
 	if err != nil {
 		return nil, err
 	}
-	status := "superseded"
-	if r.Live {
-		status = "live"
-	}
+	return versionRefWith(r, hash, versionTable{}.stateOf(r, hash)), nil
+}
+
+// versionRefWith is the wire reference to a registered version in a given state.
+func versionRefWith(r spec.Registered, hash string, st versionState) *shortsv1alpha1.StrategyVersionRef {
 	return &shortsv1alpha1.StrategyVersionRef{
 		StrategyId:    r.Spec.StrategyID,
 		Label:         r.Label,
 		RulesHash:     hash,
 		EngineVersion: engine.Version,
 		FeatureSet:    r.Spec.FeatureSet,
-		Status:        status,
+		Status:        st.status,
+		LiveFrom:      st.liveFrom,
 		Kind:          r.Spec.Kind,
-	}, nil
+	}
 }
 
 // servedVersion is the registered version one strategy's picks are read under,
@@ -139,16 +229,14 @@ func (s *ShortsServer) servedVersionOf(ctx context.Context, strategyID string) s
 // tableLiveRulesHash is the rules hash the table marks live for a strategy, the
 // version the job promotes and the version the events and the version RPC name
 // by default, whatever the source serves. It falls back to the registry's live
-// flag when the table has no row or is not migrated, and to "" when the read
-// fails (logged).
-func (s *ShortsServer) tableLiveRulesHash(ctx context.Context, strategyID string) string {
-	live, err := s.readLiveVersions(ctx)
+// flag when the table has no live row or is not migrated; a failed read is an
+// error, never a guess.
+func (s *ShortsServer) tableLiveRulesHash(ctx context.Context, strategyID string) (string, error) {
+	t, err := s.readVersionTable(ctx)
 	if err != nil {
-		s.logger.Warnf("live version of %s unreadable, naming the registry's live version: %v", strategyID, err)
-	} else if row, ok := live[strategyID]; ok {
-		return row.RulesHash
+		return "", err
 	}
-	return liveRulesHash(strategyID)
+	return t.liveRulesHash(strategyID), nil
 }
 
 // servedRef is the wire reference to the version served for a strategy, nil
@@ -203,22 +291,25 @@ func canonicalVersions(strategyID string) []spec.Registered {
 }
 
 // versionDetail renders one registered version for the changelog and the
-// version RPCs.
-func versionDetail(r spec.Registered) (*shortsv1alpha1.StrategyVersionDetail, error) {
-	ref, err := versionRefOf(r)
+// version RPCs, its status and dates as the table states them.
+func versionDetail(r spec.Registered, t versionTable) (*shortsv1alpha1.StrategyVersionDetail, error) {
+	hash, err := spec.RulesHash(r.Spec)
 	if err != nil {
 		return nil, err
 	}
+	st := t.stateOf(r, hash)
 	canonical, err := spec.Canonical(r.Spec)
 	if err != nil {
 		return nil, err
 	}
 	return &shortsv1alpha1.StrategyVersionDetail{
-		Version:       ref,
+		Version:       versionRefWith(r, hash, st),
 		Params:        ruleParams(r.Spec),
 		Policies:      policyLines(r.Spec),
 		Changes:       append([]string(nil), r.Changes...),
 		KnownIssues:   append([]string(nil), r.KnownIssues...),
+		SupersededOn:  st.supersededOn,
+		RetiredOn:     st.retiredOn,
 		CanonicalJson: string(canonical),
 	}, nil
 }
@@ -310,7 +401,12 @@ func (s *ShortsServer) GetStrategyVersion(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", req.Msg.StrategyId, strategyIDList()))
 	}
 	hash := strings.ToLower(strings.TrimSpace(req.Msg.VersionHash))
-	liveHash := s.tableLiveRulesHash(ctx, id)
+	table, err := s.readVersionTable(ctx)
+	if err != nil {
+		s.logger.Errorf("GetStrategyVersion: reading the version table for %s failed: %v", id, err)
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("strategy version is not available"))
+	}
+	liveHash := table.liveRulesHash(id)
 	for _, r := range canonicalVersions(id) {
 		h, err := spec.RulesHash(r.Spec)
 		if err != nil {
@@ -318,7 +414,7 @@ func (s *ShortsServer) GetStrategyVersion(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read strategy version"))
 		}
 		if (hash == "" && h == liveHash) || (hash != "" && h == hash) {
-			detail, err := versionDetail(r)
+			detail, err := versionDetail(r, table)
 			if err != nil {
 				s.logger.Errorf("GetStrategyVersion: rendering %s failed: %v", id, err)
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read strategy version"))
@@ -342,9 +438,14 @@ func (s *ShortsServer) ListStrategyVersions(ctx context.Context, req *connect.Re
 			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", req.Msg.StrategyId, strategyIDList()))
 		}
 	}
+	table, err := s.readVersionTable(ctx)
+	if err != nil {
+		s.logger.Errorf("ListStrategyVersions: reading the version table failed: %v", err)
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("strategy versions are not available"))
+	}
 	resp := &shortsv1alpha1.ListStrategyVersionsResponse{Versions: []*shortsv1alpha1.StrategyVersionDetail{}}
 	for _, r := range canonicalVersions(id) {
-		detail, err := versionDetail(r)
+		detail, err := versionDetail(r, table)
 		if err != nil {
 			s.logger.Errorf("ListStrategyVersions: rendering %s failed: %v", r.Spec.StrategyID, err)
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list strategy versions"))

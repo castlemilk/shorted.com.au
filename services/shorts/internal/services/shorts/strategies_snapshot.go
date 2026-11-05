@@ -237,7 +237,12 @@ func (s *ShortsServer) ListStrategySignalEvents(ctx context.Context, req *connec
 	if _, ok := engine.Lookup(id); !ok {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", msg.StrategyId, strategyIDList()))
 	}
-	version, err := signalEventsVersion(id, msg.VersionHash, s.tableLiveRulesHash(ctx, id))
+	liveHash, err := s.tableLiveRulesHash(ctx, id)
+	if err != nil {
+		s.logger.Errorf("ListStrategySignalEvents: reading the version table for %s failed: %v", id, err)
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("strategy signal events are not available"))
+	}
+	version, err := signalEventsVersion(id, msg.VersionHash, liveHash)
 	if err != nil {
 		return nil, err
 	}

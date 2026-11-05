@@ -38,12 +38,9 @@ type strategyUniverse struct {
 	index map[string]int
 	// env is the evaluation environment (regime + the universe's rs_6m
 	// quartile) every strategy and GetStockStrategyFit share.
-	env             *engine.Env
-	regime          engine.Regime
-	coverage        int    // candidates with at least one growth figure
-	qualityCoverage int    // candidates with a quality row
-	rowsCount       int    // candidates with any fundamentals row
-	asOf            string // newest price date, YYYY-MM-DD ("" when empty)
+	env    *engine.Env
+	regime engine.Regime
+	asOf   string // newest price date, YYYY-MM-DD ("" when empty)
 	// shortReportDate is the newest short report date across the universe
 	// (zero when no stock has one).
 	shortReportDate time.Time
@@ -61,14 +58,6 @@ type strategyUniverse struct {
 	ineligible map[string]string
 }
 
-// coverageFor is the count a strategy's coverage caveat quotes.
-func (u *strategyUniverse) coverageFor(st engine.Strategy) int {
-	if st.UsesQualityRules() {
-		return u.qualityCoverage
-	}
-	return u.coverage
-}
-
 // strategyEvaluation is one strategy's full ranked pick list, cached.
 type strategyEvaluation struct {
 	picks []engine.Pick
@@ -81,6 +70,21 @@ type strategyEvaluation struct {
 	// ASIC-reported names for Crowded-Short), and env its rs statistics.
 	candidates int
 	env        *engine.Env
+	// growth, quality and rows count the fundamentals of the same candidates,
+	// so a strategy never reports more stocks with fundamentals than it ranks.
+	growth  int
+	quality int
+	rows    int
+}
+
+// coverageFor is the count a strategy's coverage caveat quotes: the candidates
+// with a quality row for a strategy that reads quality rules, else the
+// candidates with a growth figure.
+func (e *strategyEvaluation) coverageFor(st engine.Strategy) int {
+	if st.UsesQualityRules() {
+		return e.quality
+	}
+	return e.growth
 }
 
 // ListStrategies returns every strategy's definition and the market regime.
@@ -258,13 +262,13 @@ func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *sh
 	end := min(start+limit, len(matching))
 
 	resp := &shortsv1alpha1.GetStrategyPicksResponse{
-		Strategy:                  strategyProto(q.st, q.st.CaveatsWithCoverage(u.coverageFor(q.st), eval.candidates), eval.version),
+		Strategy:                  strategyProto(q.st, q.st.CaveatsWithCoverage(eval.coverageFor(q.st), eval.candidates), eval.version),
 		Regime:                    marketRegimeProto(u.regime, q.st.RegimeVerdict(u.regime)),
 		Picks:                     make([]*shortsv1alpha1.StrategyPick, 0, end-start),
 		TotalCount:                int32(total),
 		UniverseCount:             int32(eval.candidates),
-		FundamentalsCoverageCount: int32(u.coverage),
-		FundamentalsRowsCount:     int32(u.rowsCount),
+		FundamentalsCoverageCount: int32(eval.growth),
+		FundamentalsRowsCount:     int32(eval.rows),
 		AsOf:                      u.asOf,
 		StatusCounts:              statusCounts(eval.picks),
 		SessionDate:               u.asOf,
@@ -384,16 +388,13 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 func newStrategyUniverse(cands []engine.Candidate, regime engine.Regime, asOf, source string, live map[string]shortsstore.LiveRuleVersion) *strategyUniverse {
 	engine.PrepareCandidates(cands)
 	u := &strategyUniverse{
-		candidates:      cands,
-		index:           make(map[string]int, len(cands)),
-		env:             engine.NewEnvFromStats(regime, engine.UniverseStatsOf(cands)),
-		regime:          regime,
-		coverage:        engine.FundamentalsCoverage(cands),
-		qualityCoverage: engine.QualityCoverage(cands),
-		rowsCount:       engine.FundamentalsRows(cands),
-		asOf:            asOf,
-		source:          source,
-		served:          resolveServed(source, live),
+		candidates: cands,
+		index:      make(map[string]int, len(cands)),
+		env:        engine.NewEnvFromStats(regime, engine.UniverseStatsOf(cands)),
+		regime:     regime,
+		asOf:       asOf,
+		source:     source,
+		served:     resolveServed(source, live),
 	}
 	for i := range cands {
 		u.index[strings.ToUpper(cands[i].StockCode)] = i
@@ -446,6 +447,9 @@ func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st engine.Str
 			version:    servedRefOf(sv),
 			candidates: len(cands),
 			env:        env,
+			growth:     engine.FundamentalsCoverage(cands),
+			quality:    engine.QualityCoverage(cands),
+			rows:       engine.FundamentalsRows(cands),
 		}, nil
 	})
 	if err != nil {
