@@ -255,6 +255,77 @@ func TestStrategySignalEvents_CanonicalAndLiveOnly(t *testing.T) {
 	assert.Equal(t, all[1].ID, page[0].ID, "the keyset page below the first row")
 }
 
+// A variant that is live or superseded, and a canonical version with no live_from,
+// serve no events: the join admits canonical versions only, and only from live_from.
+func TestStrategySignalEvents_VariantAndUnDatedVersionsAreNeverServed(t *testing.T) {
+	pool := snapshotDB(t)
+	applySnapshotMigration(t, pool)
+	ctx := context.Background()
+	s := &postgresStore{db: pool}
+
+	live := strings.Repeat("4", 64)
+	variantLive := strings.Repeat("5", 64)
+	superseded := strings.Repeat("6", 64)
+	undated := strings.Repeat("7", 64)
+	from := "2026-09-01"
+	insertRuleVersion(t, pool, live, "zanger-breakout", "v0", "canonical", "live", &from)
+	insertRuleVersion(t, pool, variantLive, "zanger-breakout", "custom", "variant", "live", &from)
+	insertRuleVersion(t, pool, superseded, "zanger-breakout", "v-old", "canonical", "superseded", &from)
+	insertRuleVersion(t, pool, undated, "zanger-breakout", "v-undated", "canonical", "superseded", nil)
+	_, err := pool.Exec(ctx, `INSERT INTO "company-metadata" VALUES ('BHP', 'BHP Group')`)
+	require.NoError(t, err)
+
+	insertEvent(t, pool, live, "zanger-breakout", "BHP", "2026-09-22", "setup", "triggered")
+	insertEvent(t, pool, variantLive, "zanger-breakout", "BHP", "2026-09-22", "setup", "triggered")
+	insertEvent(t, pool, superseded, "zanger-breakout", "BHP", "2026-09-22", "setup", "triggered")
+	insertEvent(t, pool, undated, "zanger-breakout", "BHP", "2026-09-22", "setup", "triggered")
+
+	// The positive control: a superseded canonical version is served from its live_from.
+	old, err := s.ListStrategySignalEvents(ctx, StrategySignalEventsFilter{StrategyID: "zanger-breakout", RulesHash: superseded, Limit: 10})
+	require.NoError(t, err)
+	assert.Len(t, old, 1, "a superseded canonical version is served from its live_from")
+
+	for name, h := range map[string]string{"variant that is live": variantLive, "canonical with no live_from": undated} {
+		none, err := s.ListStrategySignalEvents(ctx, StrategySignalEventsFilter{StrategyID: "zanger-breakout", RulesHash: h, Limit: 10})
+		require.NoError(t, err)
+		assert.Empty(t, none, name)
+	}
+}
+
+// Before the first session completes the ASIC reports are still read: the daily
+// job holds the sessions while the ingest log already has the reports.
+func TestStrategyDataStatus_AsicReportsWithoutACompletedSession(t *testing.T) {
+	pool := snapshotDB(t)
+	applySnapshotMigration(t, pool)
+	ctx := context.Background()
+	s := &postgresStore{db: pool}
+
+	_, err := pool.Exec(ctx, `INSERT INTO asic_report_ingests VALUES ('2026-10-28', now(), 100, 100)`)
+	require.NoError(t, err)
+	st, err := s.ReadStrategyDataStatus(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, st.SnapshotAsOf, "no session has completed")
+	require.Len(t, st.AsicReports, 1, "the ingest log is read regardless of the snapshot")
+	assert.Equal(t, "2026-10-28", st.AsicReports[0].ReportDate.String())
+}
+
+// A completed session without its regime row is not served as an unknown regime:
+// the read answers ErrNoStrategySnapshot, so the service falls back loudly.
+func TestStrategySnapshot_CompletedSessionWithoutRegimeIsNotServed(t *testing.T) {
+	pool := snapshotDB(t)
+	applySnapshotMigration(t, pool)
+	ctx := context.Background()
+	s := &postgresStore{db: pool}
+
+	completeSession(t, pool, "2026-09-25", time.Date(2026, 9, 25, 14, 0, 0, 0, time.UTC))
+	require.NoError(t, pgsource.WriteFeatureRows(ctx, pool, []snapshot.Row{
+		{AsOf: snapDate("2026-09-25"), FeatureSet: "fs1", StockCode: "BHP", OrdinaryFresh60: true, IsOrdinary: true,
+			Features: snapshot.Features{FS1: features.PriceFeatures{AsOf: snapDate("2026-09-25"), Close: 40}}},
+	}))
+	_, err := s.ReadStrategySnapshot(ctx)
+	assert.ErrorIs(t, err, ErrNoStrategySnapshot)
+}
+
 // The source dates: the newest completed price sweep, the snapshot session and
 // its priced count, and the newest ten ASIC reports.
 func TestStrategyDataStatus_SourceDates(t *testing.T) {

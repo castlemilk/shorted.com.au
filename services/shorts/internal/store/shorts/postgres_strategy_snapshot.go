@@ -43,6 +43,10 @@ type StrategySnapshotReader interface {
 	ListStrategySignalEvents(ctx context.Context, f StrategySignalEventsFilter) ([]StrategySignalEventRow, error)
 }
 
+// The store must implement the snapshot reader at compile time: the service's
+// runtime type assertion would otherwise quietly serve the views.
+var _ StrategySnapshotReader = (*postgresStore)(nil)
+
 // StrategySnapshot is one completed session as the API evaluates it.
 type StrategySnapshot struct {
 	// AsOf is the newest completed session; PrevAsOf the one before it (zero when none).
@@ -109,6 +113,9 @@ type StrategySignalEventRow struct {
 // database without 000156 answers ErrStrategySnapshotUnavailable; one with no
 // completed session answers ErrNoStrategySnapshot.
 func (s *postgresStore) ReadStrategySnapshot(ctx context.Context) (StrategySnapshot, error) {
+	// One deadline over the whole read: the fill it runs under is shared by every picks read.
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
 	sessions, err := completedStrategySessions(ctx, s.db, 2)
 	if err != nil {
 		return StrategySnapshot{}, err
@@ -148,11 +155,13 @@ func (s *postgresStore) ReadStrategySnapshot(ctx context.Context) (StrategySnaps
 		return StrategySnapshot{}, fmt.Errorf("read strategy snapshot regime: %w", err)
 	}
 	if !ok {
-		regime = engine.Regime{IndexCode: engine.DefaultIndexCode}
+		// A completed session without its regime row is not a whole session (the
+		// daily job refuses to diff against one). The service falls back, loudly.
+		return StrategySnapshot{}, fmt.Errorf("strategy snapshot session %s has no regime row: %w", out.AsOf, ErrNoStrategySnapshot)
 	}
 	// The index's own newest session, read live (as GetMarketRegime does):
 	// the snapshot is stale when the market has closed a session it lacks.
-	latest, err := latestIndexSession(ctx, s.db, engine.DefaultIndexCode)
+	latest, err := latestIndexSessionBounded(ctx, s.db)
 	if err != nil {
 		return StrategySnapshot{}, err
 	}
@@ -221,7 +230,7 @@ func completedStrategySessions(ctx context.Context, db fundamentalsDB, n int) ([
 func (s *postgresStore) ReadStrategyDataStatus(ctx context.Context) (StrategyDataStatus, error) {
 	var out StrategyDataStatus
 
-	latest, err := latestIndexSession(ctx, s.db, engine.DefaultIndexCode)
+	latest, err := latestIndexSessionBounded(ctx, s.db)
 	if err != nil {
 		return StrategyDataStatus{}, err
 	}
@@ -234,6 +243,14 @@ func (s *postgresStore) ReadStrategyDataStatus(ctx context.Context) (StrategyDat
 		return StrategyDataStatus{}, err
 	}
 	out.PricesCompletedAt = sweep
+
+	// The ASIC reports are read whatever the snapshot's state: the daily job holds
+	// every session until its index sync lands, and the reports are ingested regardless.
+	reports, err := recentAsicReports(ctx, s.db, 10)
+	if err != nil {
+		return StrategyDataStatus{}, err
+	}
+	out.AsicReports = reports
 
 	sessions, err := completedStrategySessions(ctx, s.db, 1)
 	switch {
@@ -249,7 +266,9 @@ func (s *postgresStore) ReadStrategyDataStatus(ctx context.Context) (StrategyDat
 		t := sessions[0].completedAt
 		out.SnapshotCompletedAt = &t
 	}
-	if err := s.db.QueryRow(ctx, `
+	pricedCtx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+	if err := s.db.QueryRow(pricedCtx, `
 		SELECT COALESCE((counts->>'priced')::int, 0)
 		  FROM strategy_daily_runs WHERE as_of = $1::date AND phase = 'features'`,
 		out.SnapshotAsOf).Scan(&out.PricedCodes); err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -257,13 +276,15 @@ func (s *postgresStore) ReadStrategyDataStatus(ctx context.Context) (StrategyDat
 			return StrategyDataStatus{}, fmt.Errorf("read snapshot priced count: %w", err)
 		}
 	}
-
-	reports, err := recentAsicReports(ctx, s.db, 10)
-	if err != nil {
-		return StrategyDataStatus{}, err
-	}
-	out.AsicReports = reports
 	return out, nil
+}
+
+// latestIndexSessionBounded is the index's newest session under the query timeout.
+// It runs inside the snapshot fill, which every picks read waits on.
+func latestIndexSessionBounded(ctx context.Context, db fundamentalsDB) (*time.Time, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+	return latestIndexSession(ctx, db, engine.DefaultIndexCode)
 }
 
 // latestPriceSweepCompletion is when the newest completed price sweep finished
@@ -346,7 +367,7 @@ func (s *postgresStore) ListStrategySignalEvents(ctx context.Context, f Strategy
 		  JOIN strategy_rule_versions v
 		    ON v.rules_hash = e.rules_hash AND v.kind = 'canonical'
 		   AND v.status IN ('live', 'superseded')
-		   AND (v.live_from IS NULL OR e.as_of >= v.live_from)
+		   AND e.as_of >= v.live_from
 		  LEFT JOIN "company-metadata" m ON m.stock_code = e.stock_code
 		 WHERE e.strategy_id = $1 AND e.rules_hash = $2
 		   AND ($3::text = '' OR e.stock_code = $3::text)
