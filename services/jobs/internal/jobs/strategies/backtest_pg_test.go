@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/backtest"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
@@ -240,16 +241,6 @@ func goldenTarget(t *testing.T, pool *pgxpool.Pool) backtestTarget {
 	return backtestTarget{Reg: reg, RulesHash: rh, Recipe: recipe, RecipeHash: recipeHash}
 }
 
-// withPublicationWired runs f with the gate's parts switched on, then restores
-// the build's setting. The publication gate is tested for its refusals elsewhere.
-func withPublicationWired(t *testing.T, f func()) {
-	t.Helper()
-	saved := publicationWired
-	publicationWired = publicationParts{Sensitivity: true, Reference: true}
-	defer func() { publicationWired = saved }()
-	f()
-}
-
 func backtestOptsFor(t *testing.T, write bool, targets []backtestTarget) backtestOptions {
 	t.Helper()
 	return backtestOptions{
@@ -331,14 +322,12 @@ func TestBacktestGoldenRunMatchesItsCommittedHashAndPublishes(t *testing.T) {
 	want := goldenExpectedOutputHash(t)
 	require.Equal(t, want, res.OutputHash, "the stored rows reproduce the golden run")
 
-	// The job publishes the same run, through the gate with its parts wired.
-	withPublicationWired(t, func() {
-		res, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
-		require.NoError(t, err)
-		// The weekly and the first-publish requests both name the key: each is
-		// published, and the second finds the first's run key already stored.
-		require.GreaterOrEqual(t, res.Published, 1)
-	})
+	// The job publishes the same run through the gate. The weekly and the
+	// first-publish requests both name the key: each is published, and the second
+	// finds the first's run key already stored.
+	pub, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, pub.Published, 1)
 	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE kind = 'verify' AND status = 'succeeded'`),
 		"the first publish of a key runs the verify pass")
 	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE kind = 'publish' AND published`))
@@ -359,16 +348,19 @@ func goldenExpectedOutputHash(t *testing.T) string {
 	return want.OutputHash
 }
 
-func TestBacktestPublishesRefuseWithoutTheGatesPartsInThisBuild(t *testing.T) {
+func TestBacktestPublishesOnlyARunWithItsDisclosures(t *testing.T) {
 	pool := backtestDB(t)
 	seedGolden(t, pool)
 	target := goldenTarget(t, pool)
 	ctx := context.Background()
 	res, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
 	require.NoError(t, err)
-	require.Equal(t, 0, res.Published, "this build stores the run unpublished")
-	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE kind = 'publish' AND status = 'succeeded' AND NOT published`))
-	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE published`))
+	require.GreaterOrEqual(t, res.Published, 1)
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE kind = 'publish' AND published
+		AND jsonb_array_length(summary->'sensitivity'->'Runs') = 5 AND summary ? 'reference' AND summary ? 'coverage' AND summary ? 'diff'`),
+		"the published run carries its sensitivity runs, reference, coverage and diff note")
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE published AND diagnostics ? 'published_at'`),
+		"the flip stamps the published run, which retention and the diff note read")
 }
 
 func TestBacktestRerunOfAnIdenticalKeyIsDetectedNotStoredTwice(t *testing.T) {
@@ -663,4 +655,63 @@ func TestBacktestNotComputableStoresTheOutcomeWithoutASimulation(t *testing.T) {
 	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_trades`))
 	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_backtest_runs WHERE computable_from IS NULL AND fiscal_label IS NULL`),
 		"a run that is not computable carries no date and no label")
+}
+
+// The previously published run is the newest run of its key that was ever
+// published. Retention keeps it after it is superseded, and the diff note reads its
+// digests and series back from what the job stored.
+func TestBacktestRetentionKeepsThePreviouslyPublishedRun(t *testing.T) {
+	pool := backtestDB(t)
+	seedGolden(t, pool)
+	target := goldenTarget(t, pool)
+	ctx := context.Background()
+	_, err := runBacktest(ctx, pool, backtestOptsFor(t, true, []backtestTarget{target}))
+	require.NoError(t, err)
+	var prevID int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT id FROM strategy_backtest_runs WHERE published`).Scan(&prevID))
+
+	// The previous run's read back: its cut-off, digests and daily equity.
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(ctx) }()
+	st := backtestStore{pool: pool}
+	prev, err := st.previousPublished(ctx, tx, target, "strict")
+	require.NoError(t, err)
+	require.NotNil(t, prev)
+	require.Equal(t, prevID, prev.RunID)
+	require.NotEmpty(t, prev.Digests, "the run stores its per-code digests")
+	require.NotEmpty(t, prev.Dates)
+	require.Equal(t, len(prev.Dates), len(prev.Equity))
+	require.False(t, prev.CutOff.IsZero())
+
+	// Supersede it: an unpublished newer run of the key, and the old run ages out.
+	// An orphan unpublished run of the key, aged and never published, is pruned.
+	_, err = pool.Exec(ctx, `UPDATE strategy_backtest_runs SET published = false,
+		started_at = now() - interval '60 days', finished_at = now() - interval '60 days' WHERE id = $1`, prevID)
+	require.NoError(t, err)
+	orphan := insertRunRow(t, pool, target, time.Now().Add(-60*24*time.Hour))
+	insertRunRow(t, pool, target, time.Now())
+
+	require.NoError(t, st.prune(ctx))
+	require.Equal(t, 1, countRows(t, pool, fmt.Sprintf(`SELECT count(*) FROM strategy_backtest_runs WHERE id = %d`, prevID)),
+		"the previously published run survives its own retention")
+	require.Equal(t, 0, countRows(t, pool, fmt.Sprintf(`SELECT count(*) FROM strategy_backtest_runs WHERE id = %d`, orphan)),
+		"an aged run that was never published is pruned")
+}
+
+// insertRunRow stores a bare succeeded unpublished publish run of the target's key,
+// finished at when. The retention test uses it to stand in for later runs.
+func insertRunRow(t *testing.T, pool *pgxpool.Pool, target backtestTarget, when time.Time) int64 {
+	t.Helper()
+	var id int64
+	err := pool.QueryRow(context.Background(), `
+		INSERT INTO strategy_backtest_runs (kind, strategy_id, rules_hash, recipe_hash, engine_version, status, published,
+		  window_start, returns, benchmark_code, fundamentals, build_revision, goarch, summary, diagnostics,
+		  started_at, finished_at)
+		VALUES ('publish', $1, $2, $3, $4, 'succeeded', false, '2019-05-01', 'total', 'XJT', 'strict', 'test', 'arm64',
+		  '{}', '{}', $5, $5)
+		RETURNING id`,
+		target.Reg.Spec.StrategyID, target.RulesHash, target.RecipeHash, engine.Version, when).Scan(&id)
+	require.NoError(t, err)
+	return id
 }

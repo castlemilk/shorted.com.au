@@ -310,14 +310,16 @@ func executionName() string {
 
 // runWrite is one run to store.
 type runWrite struct {
-	Target       backtestTarget
-	Recipe       spec.Recipe
-	Kind         string
-	WindowEnd    civil.Date
-	Computable   civil.Date
-	Label        string
-	Disclosures  backtest.Disclosures
-	Result       backtest.Result
+	Target      backtestTarget
+	Recipe      spec.Recipe
+	Kind        string
+	WindowEnd   civil.Date
+	Computable  civil.Date
+	Label       string
+	Disclosures backtest.Disclosures
+	Result      backtest.Result
+	// Diff is the diff note of a publish; nil for a verify record.
+	Diff         *backtest.DiffNote
 	Publish      bool
 	Verified     bool
 	Build        string
@@ -389,7 +391,7 @@ func insertRun(ctx context.Context, tx pgx.Tx, w runWrite) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("encode run metrics: %w", err)
 	}
-	summary, err := json.Marshal(map[string]any{
+	summaryMap := map[string]any{
 		"state":        "computed",
 		"coverage":     d.Coverage,
 		"survivorship": d.Survivorship,
@@ -399,7 +401,11 @@ func insertRun(ctx context.Context, tx pgx.Tx, w runWrite) (int64, error) {
 		"trades":       w.Result.Metrics.Trades,
 		"identity":     map[string]any{"cut_off": d.Identity.CutOff, "in_sample_until": d.Identity.InSampleUntil},
 		"verified":     w.Verified,
-	})
+	}
+	if w.Diff != nil {
+		summaryMap["diff"] = w.Diff
+	}
+	summary, err := json.Marshal(summaryMap)
 	if err != nil {
 		return 0, fmt.Errorf("encode run summary: %w", err)
 	}
@@ -520,7 +526,13 @@ func flipPublished(ctx context.Context, tx pgx.Tx, t backtestTarget, fundamental
 		t.Reg.Spec.StrategyID, t.RulesHash, t.RecipeHash, fundamentals, runID); err != nil {
 		return fmt.Errorf("unpublish the previous run: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE strategy_backtest_runs SET published = true WHERE id = $1`, runID); err != nil {
+	// The published_at marker is what retention and the diff note read: the newest
+	// run of a key that was ever published is the previously published run.
+	if _, err := tx.Exec(ctx, `
+		UPDATE strategy_backtest_runs
+		   SET published = true,
+		       diagnostics = diagnostics || jsonb_build_object('published_at', to_jsonb(now()))
+		 WHERE id = $1`, runID); err != nil {
 		return fmt.Errorf("publish run %d: %w", runID, err)
 	}
 	return nil
@@ -583,9 +595,10 @@ func insertTrades(ctx context.Context, tx pgx.Tx, runID int64, trades []backtest
 }
 
 // prune applies the retention: unpublished runs older than 30 days go, except
-// the newest succeeded run and the newest succeeded verify record of each key;
-// requests older than 90 days go. Published runs and their series are never
-// pruned here.
+// the newest succeeded run, the newest succeeded verify record of each key and
+// the previously published run of each key (the newest run of it that was ever
+// published, on each engine, which the next publish's diff note reads). Requests
+// older than 90 days go. Published runs and their series are never pruned here.
 func (s backtestStore) prune(ctx context.Context) error {
 	if _, err := s.pool.Exec(ctx, `
 		DELETE FROM strategy_backtest_requests
@@ -604,7 +617,11 @@ func (s backtestStore) prune(ctx context.Context) error {
 		   AND r.id NOT IN (
 		     SELECT max(id) FROM strategy_backtest_runs
 		      WHERE status = 'succeeded' AND kind = 'verify'
-		      GROUP BY strategy_id, rules_hash, recipe_hash, engine_version)`, backtestRunRetentionDays); err != nil {
+		      GROUP BY strategy_id, rules_hash, recipe_hash, engine_version)
+		   AND r.id NOT IN (
+		     SELECT max(id) FROM strategy_backtest_runs
+		      WHERE status = 'succeeded' AND kind <> 'verify' AND diagnostics ? 'published_at'
+		      GROUP BY strategy_id, rules_hash, recipe_hash, fundamentals, engine_version)`, backtestRunRetentionDays); err != nil {
 		return fmt.Errorf("prune runs: %w", err)
 	}
 	return nil
@@ -635,4 +652,109 @@ func vcsRevision() string {
 		}
 	}
 	return ""
+}
+
+// previousPublished is the previously published run of a key on the current
+// engine: the newest succeeded publish that was ever published (the published_at
+// marker). It is nil when the key has none yet. The current run is never returned:
+// it is not written until after this read.
+func (s backtestStore) previousPublished(ctx context.Context, tx pgx.Tx, t backtestTarget, fundamentals string) (*backtest.PreviousRun, error) {
+	var (
+		id            int64
+		pricesThrough string
+		finished      time.Time
+		inputHash     string
+		digestsJSON   string
+		pointsJSON    string
+	)
+	err := tx.QueryRow(ctx, `
+		SELECT r.id, COALESCE(r.prices_through::text, ''), COALESCE(r.finished_at, r.started_at),
+		       COALESCE(r.input_hash, ''), COALESCE(r.diagnostics->'code_digests', '{}')::text,
+		       COALESCE(sr.points::text, '{}')
+		  FROM strategy_backtest_runs r
+		  LEFT JOIN strategy_backtest_series sr ON sr.run_id = r.id
+		 WHERE r.strategy_id = $1 AND r.rules_hash = $2 AND r.recipe_hash = $3
+		   AND r.fundamentals = $4 AND r.engine_version = $5
+		   AND r.kind = 'publish' AND r.status = 'succeeded' AND r.diagnostics ? 'published_at'
+		 ORDER BY r.id DESC LIMIT 1`,
+		t.Reg.Spec.StrategyID, t.RulesHash, t.RecipeHash, fundamentals, engine.Version).Scan(
+		&id, &pricesThrough, &finished, &inputHash, &digestsJSON, &pointsJSON)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read the previously published run of %s: %w", t.Reg.Spec.StrategyID, err)
+	}
+	prev := &backtest.PreviousRun{RunID: id, FinishedAt: finished, InputHash: inputHash}
+	through, err := civil.ParseDate(pricesThrough)
+	if err != nil {
+		return nil, fmt.Errorf("previous run %d has no prices_through: %w", id, err)
+	}
+	prev.CutOff = backtest.CutOff(through)
+	if err := json.Unmarshal([]byte(digestsJSON), &prev.Digests); err != nil {
+		return nil, fmt.Errorf("decode the digests of run %d: %w", id, err)
+	}
+	var pts seriesPoints
+	if err := json.Unmarshal([]byte(pointsJSON), &pts); err != nil {
+		return nil, fmt.Errorf("decode the series of run %d: %w", id, err)
+	}
+	for _, d := range pts.D {
+		day, err := civil.ParseDate(d)
+		if err != nil {
+			return nil, fmt.Errorf("decode a series date of run %d: %w", id, err)
+		}
+		prev.Dates = append(prev.Dates, day)
+	}
+	prev.Equity = pts.E
+	return prev, nil
+}
+
+// asicRevisions reads the ASIC revisions to reports at or before cut that were
+// recorded after the previous run finished, in the same snapshot as the run.
+func (s backtestStore) asicRevisions(ctx context.Context, tx pgx.Tx, cut civil.Date, after time.Time) ([]backtest.ASICRevision, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT report_date::text, product_code, revised_at
+		  FROM shorts_revisions
+		 WHERE report_date <= $1::date AND revised_at > $2
+		 ORDER BY report_date, product_code, id`, cut.String(), after)
+	if isUndefinedTable(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read the ASIC revisions: %w", err)
+	}
+	defer rows.Close()
+	var out []backtest.ASICRevision
+	for rows.Next() {
+		var (
+			date string
+			r    backtest.ASICRevision
+		)
+		if err := rows.Scan(&date, &r.Code, &r.RevisedAt); err != nil {
+			return nil, fmt.Errorf("scan an ASIC revision: %w", err)
+		}
+		if r.ReportDate, err = civil.ParseDate(date); err != nil {
+			return nil, fmt.Errorf("parse an ASIC revision date: %w", err)
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// diffNote builds a publish's diff note against the key's previously published
+// run. The first copy of the history (in) and the run's disclosures are read; the
+// revisions are read in the run's own snapshot.
+func (s backtestStore) diffNote(ctx context.Context, tx pgx.Tx, t backtestTarget, fundamentals string, in *backtest.MemoryInputs, d backtest.Disclosures, base backtest.Result) (backtest.DiffNote, error) {
+	prev, err := s.previousPublished(ctx, tx, t, fundamentals)
+	if err != nil {
+		return backtest.DiffNote{}, err
+	}
+	if prev == nil {
+		return backtest.DiffNote{State: backtest.DiffNone}, nil
+	}
+	revs, err := s.asicRevisions(ctx, tx, prev.CutOff, prev.FinishedAt)
+	if err != nil {
+		return backtest.DiffNote{}, err
+	}
+	return backtest.DiffAgainst(in, prev, d.Identity.InputHash, backtest.EquityCurve(base.Records), revs), nil
 }

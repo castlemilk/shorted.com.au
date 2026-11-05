@@ -952,8 +952,12 @@ Nothing bounds that loop yet. A key with no succeeded run gets the day's immedia
 failed, and one each UTC day while it keeps failing; a key that has one waits for the next ISO week's. A batch that
 stops on an error, is held (a weekend-dated XJO or XJT row), or finds no completed features session is put back in the
 queue. A run
-publishes only when the publication gate passes; in this build the sensitivity and reference parts are not wired, so
-runs are stored unpublished. A fundamentals recipe whose window is `computable_from` derives that date from
+publishes only when the publication gate passes: a verify pass reproduced the run, coverage is computed under both measures,
+all five sensitivity runs are present (or say why they do not apply) and the same-data reference is computed. A publish
+also stores its diff note against the previously published run of its key on the same engine: the codes whose price
+history up to that run's cut-off was rewritten, the ASIC revisions recorded since (from `shorts_revisions`), and the CAGR
+shift over the shared window. The previously published run of each key is kept by retention, so the next diff can
+read it. A fundamentals recipe whose window is `computable_from` derives that date from
 `stock_fundamentals` (the first month end on which half the universe is computable) and labels it with the fiscal year
 of the median code's bringing period. Its strict policy stores that outcome as one unpublished row (pass 1 only): it
 never simulates the window, which would read today's fundamentals at every session. A version or recipe the daily
