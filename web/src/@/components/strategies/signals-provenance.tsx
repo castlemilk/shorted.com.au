@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { RegimePill } from "~/@/components/picks/regime-banner";
 import { shortDayLabel } from "~/@/lib/strategies/evidence";
 import type {
@@ -17,6 +19,7 @@ export function SignalsProvenance({
   version,
   stale,
   regime,
+  sourceDates,
 }: {
   asOf: string;
   shortReportDate?: string;
@@ -24,6 +27,8 @@ export function SignalsProvenance({
   version?: StrategyVersionDef;
   stale: boolean;
   regime: MarketRegimeView | null;
+  /** The "View source dates" control, drawn by the island (a client module). */
+  sourceDates?: ReactNode;
 }) {
   const price = shortDayLabel(asOf);
   const report = shortDayLabel(shortReportDate);
@@ -52,7 +57,10 @@ export function SignalsProvenance({
           </span>
         ))}
       </p>
-      {regime ? <RegimePill regime={regime.regime} /> : null}
+      <div className="flex flex-wrap items-center gap-3">
+        {sourceDates}
+        {regime ? <RegimePill regime={regime.regime} /> : null}
+      </div>
     </div>
   );
 }
