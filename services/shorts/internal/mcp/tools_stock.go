@@ -1299,7 +1299,7 @@ type GetStockBriefingInput struct {
 
 type BriefingStrategyFit struct {
 	Strategy string  `json:"strategy"`
-	Status   string  `json:"status" jsonschema:"triggered, setup, watch or none. A screen's label, not a recommendation."`
+	Status   string  `json:"status" jsonschema:"triggered, setup, unknown, watch or none. A screen's label, not a recommendation."`
 	Score    float64 `json:"score"`
 	Rank     int     `json:"rank"`
 	Of       int     `json:"of"`

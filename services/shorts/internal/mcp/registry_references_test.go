@@ -183,6 +183,13 @@ func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	// rules_version field's description (it restated the field name), and the
 	// missing space before "list_strategies" is restored. tools/list measures
 	// 102,020 bytes, 380 under the ceiling: 14 bytes below the figure before PR-06b.
+	//
+
+	// PR-12 (rules v1, status unknown): the unknown status and the sort text take the
+	// list to 102,141 bytes; get_strategy_picks' description is trimmed of the field
+	// names it restated and the OAuth sentence that landed with PR-06b, which takes the
+	// list to 101,815 bytes (585 under the ceiling). The briefing's status schema adds
+	// "unknown" from that headroom.
 	const budget = 100 * 1024
 
 	ctx := context.Background()

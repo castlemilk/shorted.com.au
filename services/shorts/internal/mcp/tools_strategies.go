@@ -314,16 +314,13 @@ type GetStrategyPicksOutput struct {
 }
 
 const getStrategyPicksDescription = "Ranked ASX stocks for one named strategy, with every rule's outcome (passed, failed, " +
-	"unknown) and evidence for the failures. Status: triggered (every core rule passes), setup (all but the trigger, " +
-	"usually the breakout: the watchlist), unknown (a core rule cannot be tested yet) or watch (some rules pass); ranked by status, then score, or reordered by " +
-	"sort_by (rank stays the strategy's). Each pick carries close, pivot (the base high: the breakout level, and where " +
-	"a failed breakout falls back through), base depth and length in sessions, volume over its 50-day average, revenue " +
-	"and EPS growth year on year, return on equity and net margin, 3-month return relative to the S&P/ASX 200 and ASIC " +
-	"short percent; a figure is absent when unknown, never zero. Also the market regime with this strategy's verdict " +
-	"(a downtrend means stand aside, it does not hide picks) and how many evaluated stocks hold fundamentals: without " +
-	"them fundamentals rules read unknown and a stock cannot trigger. Default 10 picks. Without sign-in, the top 10 only; connected with OAuth, up to 25. Ids and rules: " +
-	"list_strategies. A pick's statements and ratios: get_stock_fundamentals. End-of-day data; short data is T+4. A " +
-	"rules-based screen, not financial advice."
+	"unknown) and evidence for the failures. Status: triggered (every core rule passes), setup (all but the trigger: the " +
+	"watchlist), unknown (a core rule cannot be tested yet) or watch (some rules pass); ranked by status, then score, or " +
+	"reordered by sort_by (rank stays the strategy's). Each pick carries its prices, base, volume, growth, return and short " +
+	"figures; a figure is absent when unknown, never zero. Also the market regime with this strategy's verdict (a downtrend " +
+	"means stand aside, it does not hide picks) and how many evaluated stocks hold fundamentals: without them fundamentals " +
+	"rules read unknown and a stock cannot trigger. Default 10 picks. Ids and rules: list_strategies. A pick's statements " +
+	"and ratios: get_stock_fundamentals. End-of-day data; short data is T+4. A rules-based screen, not financial advice."
 
 func getStrategyPicksTool() Tool {
 	tool := Tool{
