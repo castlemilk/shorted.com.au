@@ -99,6 +99,25 @@ describe("SourceDatesPopover", () => {
     expect(screen.getByText("Next update")).toBeInTheDocument();
   });
 
+  it("keeps the loaded panel in the tab order so a keyboard user can scroll it", async () => {
+    render(<SourceDatesPopover load={async () => STATUS} />);
+    const trigger = screen.getByRole("button", { name: "View source dates" });
+    fireEvent.click(trigger);
+    await screen.findByRole("table", undefined, { timeout: 5000 });
+
+    const panel = screen.getByRole("region", { name: "Source dates" });
+    expect(panel).toHaveAttribute("tabindex", "0");
+    expect(panel).toHaveClass("overflow-y-auto", "focus-visible:outline");
+
+    // Focus moving from the trigger into the panel is not a move outside it, so it stays open.
+    panel.focus();
+    fireEvent.blur(trigger, { relatedTarget: panel });
+    expect(
+      screen.getByRole("region", { name: "Source dates" }),
+    ).toBeInTheDocument();
+    expect(panel).toHaveFocus();
+  });
+
   it("returns focus to its trigger on Escape", async () => {
     render(<SourceDatesPopover load={async () => STATUS} />);
     const trigger = screen.getByRole("button", { name: "View source dates" });

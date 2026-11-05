@@ -110,10 +110,10 @@ export function SourceDatesPopover({
         <div
           ref={panelRef}
           id={panelId}
-          tabIndex={-1}
+          tabIndex={0}
           role="region"
           aria-label="Source dates"
-          className="absolute left-0 right-0 top-full z-20 mt-2 max-h-[70vh] overflow-y-auto rounded-md border border-border bg-card p-4 text-sm shadow-lg sm:left-auto sm:w-[28rem]"
+          className="absolute left-0 right-0 top-full z-20 mt-2 max-h-[70vh] overflow-y-auto rounded-md border border-border bg-card p-4 text-sm shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:left-auto sm:w-[28rem]"
         >
           <h3 className="text-sm font-semibold">Source dates</h3>
           <SourceDatesBody state={state} onRetry={onRetry} />
