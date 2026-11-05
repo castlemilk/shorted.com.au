@@ -4,8 +4,9 @@
 //
 // The API sorts (GetStrategyPicks sort_by). This module holds the web's half:
 // the closed set of keys a URL may carry, their labels, and ONE comparator that
-// mirrors services/pkg/strategy/engine/sort.go exactly, used only when
-// an older API ignores sort_by and answers in rank order.
+// mirrors services/pkg/strategy/engine/sort.go exactly. It sorts the rows it is
+// given in two places: when an older API ignores sort_by and answers in rank
+// order, and in the Signals island, which sorts the signed-in list it holds.
 
 import type { PickRow } from "./types";
 

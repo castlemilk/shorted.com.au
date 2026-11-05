@@ -100,6 +100,7 @@ export default async function StrategySignalsPage({ params }: PageProps) {
     counts: data?.statusCounts ?? null,
     total: data?.totalCount ?? 0,
     asOf: data?.asOf ?? "",
+    sessionDate: data?.sessionDate,
     shortReportDate: data?.shortReportDate,
     shortAvailableDate: data?.shortAvailableDate,
     stale: data?.stale === true,

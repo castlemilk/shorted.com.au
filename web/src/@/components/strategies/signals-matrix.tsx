@@ -1,8 +1,12 @@
+import type { ReactNode } from "react";
+
 import { cn } from "~/@/lib/utils";
 import { formatRuleMeasure } from "~/@/lib/strategies/evidence";
 import type { RankingInput, SignalRule } from "~/@/lib/strategies/signals";
 import type { PickRow } from "~/@/lib/strategies/types";
 import { StatusPill } from "~/@/components/picks/picks-table";
+import { SortedByValue } from "~/@/components/picks/pick-fundamentals";
+import { pickSortDef, type PickSortKey } from "~/@/lib/strategies/sort";
 import { RuleCell } from "./rule-cell";
 
 /**
@@ -18,9 +22,16 @@ export interface SignalsMatrixProps {
   rankingInputs: readonly RankingInput[];
   /** The selected stock's code, or null. */
   selected: string | null;
+  /**
+   * The key the list is sorted by, or null in rank order. A sort on a figure the
+   * matrix does not show adds a "Sorted by" column, so the order reads.
+   */
+  sortKey?: PickSortKey | null;
   onSelect: (code: string) => void;
   /** Screen-reader caption for the table. */
   caption: string;
+  /** A full-width last row under the stocks, e.g. the sign-in prompt. */
+  footer?: ReactNode;
 }
 
 const TH = "whitespace-nowrap px-3 py-2 text-left font-medium";
@@ -31,9 +42,13 @@ export function SignalsMatrix({
   rules,
   rankingInputs,
   selected,
+  sortKey = null,
   onSelect,
   caption,
+  footer,
 }: SignalsMatrixProps) {
+  const sortDef = sortKey ? pickSortDef(sortKey) : null;
+  const columns = 2 + rules.length + rankingInputs.length + (sortDef ? 1 : 0);
   return (
     <div className="overflow-x-auto rounded-lg border border-border/60">
       <table className="w-full text-sm">
@@ -70,6 +85,17 @@ export function SignalsMatrix({
                 {input.label}
               </th>
             ))}
+            {sortDef ? (
+              <th
+                scope="col"
+                aria-sort={sortDef.ascending ? "ascending" : "descending"}
+                title={sortDef.title}
+                className={cn(TH_NUM, "normal-case tracking-normal")}
+              >
+                <span className="sr-only">Sorted by </span>
+                {sortDef.label}
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -122,10 +148,27 @@ export function SignalsMatrix({
                     {input.read(row)}
                   </td>
                 ))}
+                {sortKey ? (
+                  <td className="whitespace-nowrap px-3 py-2 text-right align-top tabular-nums">
+                    <SortedByValue row={row} sortKey={sortKey} />
+                  </td>
+                ) : null}
               </tr>
             );
           })}
         </tbody>
+        {footer ? (
+          <tfoot>
+            <tr className="border-t bg-muted/20">
+              <td
+                colSpan={columns}
+                className="px-3 py-3 text-sm text-muted-foreground"
+              >
+                {footer}
+              </td>
+            </tr>
+          </tfoot>
+        ) : null}
       </table>
     </div>
   );

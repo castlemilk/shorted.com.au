@@ -86,6 +86,7 @@ function protoMonitor(overrides: Record<string, unknown> = {}) {
 
 describe("alert server actions", () => {
   beforeEach(() => {
+    process.env.INTERNAL_SERVICE_SECRET = "test-secret";
     jest.clearAllMocks();
     mockAuth.mockResolvedValue(SIGNED_IN);
   });
