@@ -1366,6 +1366,11 @@ module "shorts_api" {
   rate_limit_ssr_bypass_header_name = var.rate_limit_ssr_bypass_header_name
   rate_limit_ssr_bypass_user_agent  = var.rate_limit_ssr_bypass_user_agent
 
+  # Where the stock picker reads its inputs: "views" until the snapshot cutover
+  # (PR-11b flips it to "snapshot" after one clean weekday of parity). See
+  # modules/shorts-api/variables.tf.
+  strategy_source = "views"
+
   # Internal tier grants. The tfvar lists operator user ids, so revoking one is a
   # tfvar change rather than a code change. The paid-feature probe's identity
   # (web/src/server/paid-probe/constants.ts) is always appended, because the probe

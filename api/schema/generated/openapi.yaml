@@ -4120,6 +4120,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStockStrategyFitResponse'
+  /shorts.v1alpha1.StrategyService/GetStrategyDataStatus:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: GetStrategyDataStatus
+      description: |-
+        Where the readings come from: the latest session, the newest completed
+         snapshot session, the newest ASIC short reports and the next update time.
+      operationId: StrategyService_GetStrategyDataStatus
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStrategyDataStatusRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetStrategyDataStatusResponse'
   /shorts.v1alpha1.StrategyService/GetStrategyPicks:
     post:
       tags:
@@ -4317,6 +4355,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.ListStrategiesResponse'
+  /shorts.v1alpha1.StrategyService/ListStrategySignalEvents:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: ListStrategySignalEvents
+      description: |-
+        The status changes of one strategy's canonical rules version, newest first:
+         a stock entering or leaving a status, with the rule results that day.
+      operationId: StrategyService_ListStrategySignalEvents
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListStrategySignalEventsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListStrategySignalEventsResponse'
   /shorts.v1alpha1.StrategyService/ListStrategyVersions:
     post:
       tags:
@@ -5022,6 +5098,33 @@ components:
         - ALERT_MONITOR_STATUS_ACTIVE
         - ALERT_MONITOR_STATUS_PAUSED
       description: Alert monitor lifecycle status.
+    shorts.v1alpha1.AsicReportStatus:
+      type: object
+      properties:
+        reportDate:
+          type: string
+          title: report_date
+          description: The report's as-at date. (proto string)
+        availableDate:
+          type: string
+          title: available_date
+          description: When the report became public (T+ the publication lag). (proto string)
+        firstIngestedAt:
+          type: string
+          title: first_ingested_at
+          description: When we first saw the report; "" when not recorded. (proto string)
+        rows:
+          type: integer
+          title: rows
+          format: int32
+          description: Codes of the report that are loaded. (proto int32)
+        complete:
+          type: boolean
+          title: complete
+          description: Every code the report carries is loaded. (proto bool)
+      title: AsicReportStatus
+      additionalProperties: false
+      description: One ASIC short-position report as the source dates show it.
     shorts.v1alpha1.BattlegroundStock:
       type: object
       properties:
@@ -11066,6 +11169,48 @@ components:
       title: GetStockVerdictResponse
       additionalProperties: false
       description: Response for GetStockVerdict RPC
+    shorts.v1alpha1.GetStrategyDataStatusRequest:
+      type: object
+      title: GetStrategyDataStatusRequest
+      additionalProperties: false
+      description: Request for GetStrategyDataStatus.
+    shorts.v1alpha1.GetStrategyDataStatusResponse:
+      type: object
+      properties:
+        latestSession:
+          type: string
+          title: latest_session
+          description: The newest index session the price data reaches; "" when unknown. (proto string)
+        pricesCompletedAt:
+          type: string
+          title: prices_completed_at
+          description: When the newest completed price sweep finished; "" when none. (proto string)
+        snapshotAsOf:
+          type: string
+          title: snapshot_as_of
+          description: The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views. (proto string)
+        snapshotCompletedAt:
+          type: string
+          title: snapshot_completed_at
+          description: When that session's last phase completed. (proto string)
+        asicReports:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.AsicReportStatus'
+          title: asic_reports
+          description: The newest ASIC short-position reports, newest first (at most 10). (proto shorts.v1alpha1.AsicReportStatus)
+        nextUpdateUtc:
+          type: string
+          title: next_update_utc
+          description: The next scheduled refresh of the picks. (proto string)
+        pricedCodes:
+          type: integer
+          title: priced_codes
+          format: int32
+          description: Codes the snapshot session priced. (proto int32)
+      title: GetStrategyDataStatusResponse
+      additionalProperties: false
+      description: Response for GetStrategyDataStatus. Dates are YYYY-MM-DD; times are RFC 3339 UTC.
     shorts.v1alpha1.GetStrategyPicksRequest:
       type: object
       properties:
@@ -13683,6 +13828,57 @@ components:
       title: ListStrategiesResponse
       additionalProperties: false
       description: Response for ListStrategies.
+    shorts.v1alpha1.ListStrategySignalEventsRequest:
+      type: object
+      properties:
+        strategyId:
+          type: string
+          title: strategy_id
+          description: 'Required: a canonical strategy id. (proto string)'
+        versionHash:
+          type: string
+          title: version_hash
+          description: Empty for the live version; else a live or superseded canonical rules hash. (proto string)
+        stockCode:
+          type: string
+          title: stock_code
+          description: 'Optional: one stock''s events only. (proto string)'
+        since:
+          type: string
+          title: since
+          description: Optional YYYY-MM-DD, inclusive. (proto string)
+        pageToken:
+          type: string
+          title: page_token
+          description: The next_page_token of the previous page. (proto string)
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+          description: 1 to 200; 0 is the default of 50. (proto int32)
+      title: ListStrategySignalEventsRequest
+      additionalProperties: false
+      description: Request for ListStrategySignalEvents.
+    shorts.v1alpha1.ListStrategySignalEventsResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StrategySignalEvent'
+          title: events
+          description: Newest first. (proto shorts.v1alpha1.StrategySignalEvent)
+        nextPageToken:
+          type: string
+          title: next_page_token
+          description: Empty on the last page. (proto string)
+        version:
+          title: version
+          description: The rules version the events belong to. (proto shorts.v1alpha1.StrategyVersionRef)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionRef'
+      title: ListStrategySignalEventsResponse
+      additionalProperties: false
+      description: Response for ListStrategySignalEvents.
     shorts.v1alpha1.ListStrategyVersionsRequest:
       type: object
       properties:
@@ -17540,6 +17736,65 @@ components:
       title: StrategyRule
       additionalProperties: false
       description: 'One rule of a strategy: the author''s version and exactly how we test it.'
+    shorts.v1alpha1.StrategySignalEvent:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        sessionDate:
+          type: string
+          title: session_date
+          description: The session the status changed on (YYYY-MM-DD). (proto string)
+        prevSessionDate:
+          type: string
+          title: prev_session_date
+          description: The session it changed from; "" when none. (proto string)
+        fromStatus:
+          type: string
+          title: from_status
+          description: triggered, setup, unknown, watch or none. (proto string)
+        toStatus:
+          type: string
+          title: to_status
+          description: triggered, setup, unknown, watch or none. (proto string)
+        score:
+          type: number
+          title: score
+          format: double
+          description: (proto double)
+        close:
+          type: number
+          title: close
+          format: double
+          description: (proto double)
+        pivot:
+          type: number
+          title: pivot
+          format: double
+          description: (proto double)
+        hasPivot:
+          type: boolean
+          title: has_pivot
+          description: (proto bool)
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.RuleResult'
+          title: rules
+          description: The rule results recorded that session (values and proximities as stored). (proto shorts.v1alpha1.RuleResult)
+        rulesHash:
+          type: string
+          title: rules_hash
+          description: (proto string)
+      title: StrategySignalEvent
+      additionalProperties: false
+      description: One status change of one stock under one canonical rules version.
     shorts.v1alpha1.StrategyVersionDetail:
       type: object
       properties:

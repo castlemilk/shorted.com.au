@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
+	"cloud.google.com/go/civil"
 	"connectrpc.com/connect"
 	optionsv1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/options/v1"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/snapshot"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/mocks"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/viewerctx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,6 +59,63 @@ func vdServer(t *testing.T, limit int) *ShortsServer {
 	srv := newTestServer(t, store)
 	srv.config.StrategyPublicSignalsLimit = limit
 	return srv
+}
+
+// vdServerFor is vdServer for one strategy source. The views source answers the
+// snapshot reads with ErrStrategySnapshotUnavailable, so it serves the views as
+// a database without 000156 would. The snapshot source serves vdSnapshot.
+func vdServerFor(t *testing.T, limit int, source string) *ShortsServer {
+	t.Helper()
+	ctrl := gomock.NewController(t)
+	mock := mocks.NewMockShortsStore(ctrl)
+	mock.EXPECT().ListStrategyCandidates(gomock.Any()).Return(vdUniverse(), nil).AnyTimes()
+	mock.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(spUptrend(), nil).AnyTimes()
+	fake := &snapshotStoreFake{MockShortsStore: mock, snapErr: shortsstore.ErrStrategySnapshotUnavailable, status: vdDataStatus()}
+	if source == StrategySourceSnapshot {
+		fake.snap, fake.snapErr = vdSnapshot(), nil
+	}
+	srv := newTestServer(t, fake)
+	srv.config.StrategyPublicSignalsLimit = limit
+	srv.config.StrategySource = source
+	return srv
+}
+
+// vdSnapshot is a completed session of more than vdClampLimit candidates, so the
+// depth clamp is reachable on the snapshot source as it is on the views.
+func vdSnapshot() shortsstore.StrategySnapshot {
+	snap := snapshotOf()
+	snap.Rows = snap.Rows[:0]
+	for i := range 15 {
+		snap.Rows = append(snap.Rows, vdReadyRow(snapDay(), fmt.Sprintf("SN%02d", i)))
+	}
+	return snap
+}
+
+// vdReadyRow is a stored row carrying the price features spReady gives a candidate
+// (a breakout over a base, a short reading), so the snapshot universe has picks.
+func vdReadyRow(day civil.Date, code string) snapshot.Row {
+	breakout := civil.Date{Year: 2026, Month: time.September, Day: 24}
+	report := civil.Date{Year: 2026, Month: time.October, Day: 28}
+	pct, off, vr, bh, bl, bd, rs, dv := 6.5, -0.5, 2.1, 9.5, 8.0, 15.8, 10.0, 5_000_000.0
+	length := 30
+	return snapshot.Row{
+		AsOf:            day,
+		FeatureSet:      "fs1",
+		StockCode:       code,
+		OrdinaryFresh60: true,
+		IsOrdinary:      true,
+		Features: snapshot.Features{
+			FS1: features.PriceFeatures{AsOf: day, Close: 10, PctOff52wHigh: &off, VolumeRatio50d: &vr, BaseHigh: &bh, BaseLow: &bl,
+				BaseDepthPct: &bd, BaseLengthDays: &length, BreakoutRecent: true, BreakoutDate: &breakout, DollarVolume20d: &dv,
+				RS3mPct: &rs, SessionsAvailable: 120},
+			SF0: features.ShortReading{Pct: &pct, ReportDate: &report},
+		},
+		Meta: []byte(`{"name":"` + code + ` Ltd","priced_sessions":120}`),
+	}
+}
+
+func vdDataStatus() shortsstore.StrategyDataStatus {
+	return shortsstore.StrategyDataStatus{LatestSession: "2026-09-25", SnapshotAsOf: "2026-09-25", PricedCodes: 15}
 }
 
 // vdClaims is a context as the interceptor leaves it for a verified caller.
@@ -153,6 +215,13 @@ func vdPublicReads() []vdPublicRead {
 			require.NoError(t, err)
 			return resp.Msg
 		}},
+		{"GetStrategyDataStatus", false, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			resp, err := srv.GetStrategyDataStatus(ctx, connect.NewRequest(&shortsv1alpha1.GetStrategyDataStatusRequest{}))
+			require.NoError(t, err)
+			// The next refresh is the wall clock's, not the data's: it is not compared.
+			resp.Msg.NextUpdateUtc = ""
+			return resp.Msg
+		}},
 	}
 }
 
@@ -184,8 +253,16 @@ func vdHTTPCallers() []struct {
 // is checked the same way on the reads that carry no rows, and its own answer
 // on the picks read is the one place depth may differ.
 func TestPublicStrategyRPCsAreCallerInvariant(t *testing.T) {
+	for _, source := range []string{StrategySourceViews, StrategySourceSnapshot} {
+		t.Run(source, func(t *testing.T) {
+			vdCheckCallerInvariance(t, source)
+		})
+	}
+}
+
+func vdCheckCallerInvariance(t *testing.T, source string) {
 	for _, read := range vdPublicReads() {
-		cold := read.call(t, vdServer(t, vdClampLimit), context.Background())
+		cold := read.call(t, vdServerFor(t, vdClampLimit, source), context.Background())
 		want := vdBytes(t, cold)
 		if read.depth {
 			require.Len(t, cold.(*shortsv1alpha1.GetStrategyPicksResponse).Picks, vdClampLimit, "the anonymous answer is clamped to the public depth")
@@ -198,7 +275,7 @@ func TestPublicStrategyRPCsAreCallerInvariant(t *testing.T) {
 		}{"mcp viewer", func() context.Context { return vdMCP("mcp-user") }})
 		for _, k := range kinds {
 			t.Run(read.name+"/"+k.name, func(t *testing.T) {
-				srv := vdServer(t, vdClampLimit)
+				srv := vdServerFor(t, vdClampLimit, source)
 				first := read.call(t, srv, k.ctx())
 				isMCP := k.name == "mcp viewer"
 				if !isMCP || !read.depth {
@@ -460,20 +537,21 @@ func TestClampLeavesCountsGlobal(t *testing.T) {
 }
 
 // Every method on StrategyService is either public or private, and only the
-// public reads are public: the three picker reads and the two rules-version
-// reads. GetViewerStrategyPicks is private, so a signed-in caller can read it
-// and an anonymous caller cannot.
+// public reads are public: the three picker reads, the two rules-version reads
+// and the source dates. GetViewerStrategyPicks and ListStrategySignalEvents are
+// private, so a signed-in caller can read them and an anonymous caller cannot.
 func TestStrategyMethodsVisibility(t *testing.T) {
 	desc, err := protoregistry.GlobalFiles.FindDescriptorByName("shorts.v1alpha1.StrategyService")
 	require.NoError(t, err)
 	service := desc.(protoreflect.ServiceDescriptor)
 
 	wantPublic := map[string]bool{
-		"ListStrategies":       true,
-		"GetStrategyPicks":     true,
-		"GetStockStrategyFit":  true,
-		"GetStrategyVersion":   true,
-		"ListStrategyVersions": true,
+		"ListStrategies":        true,
+		"GetStrategyPicks":      true,
+		"GetStockStrategyFit":   true,
+		"GetStrategyVersion":    true,
+		"ListStrategyVersions":  true,
+		"GetStrategyDataStatus": true,
 	}
 	methods := service.Methods()
 	seen := map[string]bool{}

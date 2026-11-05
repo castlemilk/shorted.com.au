@@ -703,6 +703,12 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         value = tostring(var.strategy_public_signals_limit)
       }
 
+      # Where the stock picker reads its inputs (views | snapshot); see variables.tf.
+      env {
+        name  = "STRATEGY_SOURCE"
+        value = var.strategy_source
+      }
+
       # The first-party marker, which MUST agree with the edge worker's bindings
       # of the same names. If the two layers disagree about what our own traffic
       # looks like, one of them meters our SSR fleet as anonymous.

@@ -181,6 +181,36 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_SavedStrategy_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetStrategyDataStatusRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetStrategyDataStatusRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetStrategyDataStatusResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetStrategyDataStatusResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_AsicReportStatus_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_AsicReportStatus_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListStrategySignalEventsRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListStrategySignalEventsRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListStrategySignalEventsResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListStrategySignalEventsResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_StrategySignalEvent_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_StrategySignalEvent_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -415,7 +445,42 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       "ts\030\005 \001(\0132\035.shorts.v1alpha1.StatusCountsR" +
       "\014statusCounts\022=\n\007version\030\006 \001(\0132#.shorts." +
       "v1alpha1.StrategyVersionRefR\007version\022!\n\014" +
-      "session_date\030\007 \001(\tR\013sessionDate2\212\010\n\017Stra" +
+      "session_date\030\007 \001(\tR\013sessionDate\"\036\n\034GetSt" +
+      "rategyDataStatusRequest\"\341\002\n\035GetStrategyD" +
+      "ataStatusResponse\022%\n\016latest_session\030\001 \001(" +
+      "\tR\rlatestSession\022.\n\023prices_completed_at\030" +
+      "\002 \001(\tR\021pricesCompletedAt\022$\n\016snapshot_as_" +
+      "of\030\003 \001(\tR\014snapshotAsOf\0222\n\025snapshot_compl" +
+      "eted_at\030\004 \001(\tR\023snapshotCompletedAt\022D\n\014as" +
+      "ic_reports\030\005 \003(\0132!.shorts.v1alpha1.AsicR" +
+      "eportStatusR\013asicReports\022&\n\017next_update_" +
+      "utc\030\006 \001(\tR\rnextUpdateUtc\022!\n\014priced_codes" +
+      "\030\007 \001(\005R\013pricedCodes\"\266\001\n\020AsicReportStatus" +
+      "\022\037\n\013report_date\030\001 \001(\tR\nreportDate\022%\n\016ava" +
+      "ilable_date\030\002 \001(\tR\ravailableDate\022*\n\021firs" +
+      "t_ingested_at\030\003 \001(\tR\017firstIngestedAt\022\022\n\004" +
+      "rows\030\004 \001(\005R\004rows\022\032\n\010complete\030\005 \001(\010R\010comp" +
+      "lete\"\326\001\n\037ListStrategySignalEventsRequest" +
+      "\022\037\n\013strategy_id\030\001 \001(\tR\nstrategyId\022!\n\014ver" +
+      "sion_hash\030\002 \001(\tR\013versionHash\022\035\n\nstock_co" +
+      "de\030\003 \001(\tR\tstockCode\022\024\n\005since\030\004 \001(\tR\005sinc" +
+      "e\022\035\n\npage_token\030\005 \001(\tR\tpageToken\022\033\n\tpage" +
+      "_size\030\006 \001(\005R\010pageSize\"\307\001\n ListStrategySi" +
+      "gnalEventsResponse\022<\n\006events\030\001 \003(\0132$.sho" +
+      "rts.v1alpha1.StrategySignalEventR\006events" +
+      "\022&\n\017next_page_token\030\002 \001(\tR\rnextPageToken" +
+      "\022=\n\007version\030\003 \001(\0132#.shorts.v1alpha1.Stra" +
+      "tegyVersionRefR\007version\"\225\003\n\023StrategySign" +
+      "alEvent\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022!" +
+      "\n\014company_name\030\002 \001(\tR\013companyName\022!\n\014ses" +
+      "sion_date\030\003 \001(\tR\013sessionDate\022*\n\021prev_ses" +
+      "sion_date\030\004 \001(\tR\017prevSessionDate\022\037\n\013from" +
+      "_status\030\005 \001(\tR\nfromStatus\022\033\n\tto_status\030\006" +
+      " \001(\tR\010toStatus\022\024\n\005score\030\007 \001(\001R\005score\022\024\n\005" +
+      "close\030\010 \001(\001R\005close\022\024\n\005pivot\030\t \001(\001R\005pivot" +
+      "\022\033\n\thas_pivot\030\n \001(\010R\010hasPivot\0221\n\005rules\030\013" +
+      " \003(\0132\033.shorts.v1alpha1.RuleResultR\005rules" +
+      "\022\035\n\nrules_hash\030\014 \001(\tR\trulesHash2\220\n\n\017Stra" +
       "tegyService\022g\n\016ListStrategies\022&.shorts.v" +
       "1alpha1.ListStrategiesRequest\032\'.shorts.v" +
       "1alpha1.ListStrategiesResponse\"\004\200\265\030\001\022m\n\020" +
@@ -433,21 +498,28 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       "VersionResponse\"\004\200\265\030\001\022y\n\024ListStrategyVer" +
       "sions\022,.shorts.v1alpha1.ListStrategyVers" +
       "ionsRequest\032-.shorts.v1alpha1.ListStrate" +
-      "gyVersionsResponse\"\004\200\265\030\001\022a\n\014SaveStrategy" +
-      "\022$.shorts.v1alpha1.SaveStrategyRequest\032%" +
-      ".shorts.v1alpha1.SaveStrategyResponse\"\004\200" +
-      "\265\030\002\022g\n\016UnsaveStrategy\022&.shorts.v1alpha1." +
-      "UnsaveStrategyRequest\032\'.shorts.v1alpha1." +
-      "UnsaveStrategyResponse\"\004\200\265\030\002\022v\n\023ListSave" +
-      "dStrategies\022+.shorts.v1alpha1.ListSavedS" +
-      "trategiesRequest\032,.shorts.v1alpha1.ListS" +
-      "avedStrategiesResponse\"\004\200\265\030\002B\336\001\n\023com.sho" +
-      "rts.v1alpha1B\017StrategiesProtoP\001ZYgithub." +
-      "com/castlemilk/shorted.com.au/services/g" +
-      "en/proto/go/shorts/v1alpha1;shortsv1alph" +
-      "a1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1al" +
-      "pha1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Sho" +
-      "rts::V1alpha1b\006proto3"
+      "gyVersionsResponse\"\004\200\265\030\001\022|\n\025GetStrategyD" +
+      "ataStatus\022-.shorts.v1alpha1.GetStrategyD" +
+      "ataStatusRequest\032..shorts.v1alpha1.GetSt" +
+      "rategyDataStatusResponse\"\004\200\265\030\001\022\205\001\n\030ListS" +
+      "trategySignalEvents\0220.shorts.v1alpha1.Li" +
+      "stStrategySignalEventsRequest\0321.shorts.v" +
+      "1alpha1.ListStrategySignalEventsResponse" +
+      "\"\004\200\265\030\002\022a\n\014SaveStrategy\022$.shorts.v1alpha1" +
+      ".SaveStrategyRequest\032%.shorts.v1alpha1.S" +
+      "aveStrategyResponse\"\004\200\265\030\002\022g\n\016UnsaveStrat" +
+      "egy\022&.shorts.v1alpha1.UnsaveStrategyRequ" +
+      "est\032\'.shorts.v1alpha1.UnsaveStrategyResp" +
+      "onse\"\004\200\265\030\002\022v\n\023ListSavedStrategies\022+.shor" +
+      "ts.v1alpha1.ListSavedStrategiesRequest\032," +
+      ".shorts.v1alpha1.ListSavedStrategiesResp" +
+      "onse\"\004\200\265\030\002B\336\001\n\023com.shorts.v1alpha1B\017Stra" +
+      "tegiesProtoP\001ZYgithub.com/castlemilk/sho" +
+      "rted.com.au/services/gen/proto/go/shorts" +
+      "/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts." +
+      "V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1al" +
+      "pha1\\GPBMetadata\352\002\020Shorts::V1alpha1b\006pro" +
+      "to3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -640,6 +712,42 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SavedStrategy_descriptor,
         new java.lang.String[] { "StrategyRef", "StrategyId", "Name", "SavedAt", "StatusCounts", "Version", "SessionDate", });
+    internal_static_shorts_v1alpha1_GetStrategyDataStatusRequest_descriptor =
+      getDescriptor().getMessageType(31);
+    internal_static_shorts_v1alpha1_GetStrategyDataStatusRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetStrategyDataStatusRequest_descriptor,
+        new java.lang.String[] { });
+    internal_static_shorts_v1alpha1_GetStrategyDataStatusResponse_descriptor =
+      getDescriptor().getMessageType(32);
+    internal_static_shorts_v1alpha1_GetStrategyDataStatusResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetStrategyDataStatusResponse_descriptor,
+        new java.lang.String[] { "LatestSession", "PricesCompletedAt", "SnapshotAsOf", "SnapshotCompletedAt", "AsicReports", "NextUpdateUtc", "PricedCodes", });
+    internal_static_shorts_v1alpha1_AsicReportStatus_descriptor =
+      getDescriptor().getMessageType(33);
+    internal_static_shorts_v1alpha1_AsicReportStatus_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_AsicReportStatus_descriptor,
+        new java.lang.String[] { "ReportDate", "AvailableDate", "FirstIngestedAt", "Rows", "Complete", });
+    internal_static_shorts_v1alpha1_ListStrategySignalEventsRequest_descriptor =
+      getDescriptor().getMessageType(34);
+    internal_static_shorts_v1alpha1_ListStrategySignalEventsRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListStrategySignalEventsRequest_descriptor,
+        new java.lang.String[] { "StrategyId", "VersionHash", "StockCode", "Since", "PageToken", "PageSize", });
+    internal_static_shorts_v1alpha1_ListStrategySignalEventsResponse_descriptor =
+      getDescriptor().getMessageType(35);
+    internal_static_shorts_v1alpha1_ListStrategySignalEventsResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListStrategySignalEventsResponse_descriptor,
+        new java.lang.String[] { "Events", "NextPageToken", "Version", });
+    internal_static_shorts_v1alpha1_StrategySignalEvent_descriptor =
+      getDescriptor().getMessageType(36);
+    internal_static_shorts_v1alpha1_StrategySignalEvent_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_StrategySignalEvent_descriptor,
+        new java.lang.String[] { "StockCode", "CompanyName", "SessionDate", "PrevSessionDate", "FromStatus", "ToStatus", "Score", "Close", "Pivot", "HasPivot", "Rules", "RulesHash", });
     descriptor.resolveAllFeaturesImmutable();
     com.shortedapi.options.v1.OptionsProto.getDescriptor();
     com.google.protobuf.ExtensionRegistry registry =

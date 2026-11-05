@@ -326,3 +326,13 @@ type Logger interface {
 	Warnf(format string, args ...any)
 	Errorf(format string, args ...any)
 }
+
+// strategySnapshotStore is the daily snapshot the stock picker reads when the
+// source is "snapshot", and the source dates it reports. The store's
+// StrategySnapshotReader is reached through StoreAdapter, which implements it;
+// a store without the snapshot (a test fake) does not, so the views answer.
+type strategySnapshotStore interface {
+	ReadStrategySnapshot(ctx context.Context) (shortsstore.StrategySnapshot, error)
+	ReadStrategyDataStatus(ctx context.Context) (shortsstore.StrategyDataStatus, error)
+	ListStrategySignalEvents(ctx context.Context, f shortsstore.StrategySignalEventsFilter) ([]shortsstore.StrategySignalEventRow, error)
+}

@@ -46,6 +46,11 @@ type strategyUniverse struct {
 	// shortReportDate is the newest short report date across the universe
 	// (zero when no stock has one).
 	shortReportDate time.Time
+	// shortAvailable is the stored publication date of the newest report's
+	// candidates (nil on the views path, or when none is stored).
+	shortAvailable *time.Time
+	// source names what answered the universe: "views" or "snapshot".
+	source string
 }
 
 // coverageFor is the count a strategy's coverage caveat quotes.
@@ -68,7 +73,7 @@ type strategyEvaluation struct {
 // The definitions are static, so a regime read failure degrades to an
 // unknown regime rather than failing the whole call.
 func (s *ShortsServer) ListStrategies(ctx context.Context, req *connect.Request[shortsv1alpha1.ListStrategiesRequest]) (*connect.Response[shortsv1alpha1.ListStrategiesResponse], error) {
-	regime, err := s.loadMarketRegime(ctx)
+	regime, err := s.listStrategiesRegime(ctx)
 	if err != nil {
 		s.logger.Warnf("ListStrategies: market regime unavailable, serving it as unknown: %v", err)
 		regime = engine.Regime{IndexCode: engine.DefaultIndexCode}
@@ -264,7 +269,7 @@ func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *sh
 		resp.RsQuantileThreshold, resp.HasRsQuantileThreshold = thr, true
 	}
 	if !u.shortReportDate.IsZero() {
-		_, resp.ShortAvailableDate = shortDatesProto(&u.shortReportDate)
+		_, resp.ShortAvailableDate = shortDatesProto(&u.shortReportDate, u.shortAvailable)
 	}
 	for i := start; i < end; i++ {
 		resp.Picks = append(resp.Picks, strategyPickProto(&matching[i]))
@@ -294,6 +299,21 @@ func filterPicks(picks []engine.Pick, status string, requireFundamentals bool) [
 	return out
 }
 
+// listStrategiesRegime is the regime the hub's banner reads. Under the snapshot
+// source it is the regime the picks were evaluated against (the universe's), so
+// the banner and the cards name the same session; a failed universe read falls
+// back to the views' regime.
+func (s *ShortsServer) listStrategiesRegime(ctx context.Context) (engine.Regime, error) {
+	if s.config.StrategySource == StrategySourceSnapshot {
+		u, err := s.loadStrategyUniverse(ctx)
+		if err == nil {
+			return u.regime, nil
+		}
+		s.logger.Warnf("ListStrategies: snapshot universe unavailable, reading the views' regime: %v", err)
+	}
+	return s.loadMarketRegime(ctx)
+}
+
 // loadMarketRegime returns the XJO regime, cached for strategyCacheTTL.
 func (s *ShortsServer) loadMarketRegime(ctx context.Context) (engine.Regime, error) {
 	// The fill outlives the request that triggered it (singleflight shares it
@@ -310,10 +330,19 @@ func (s *ShortsServer) loadMarketRegime(ctx context.Context) (engine.Regime, err
 }
 
 // loadStrategyUniverse returns every candidate plus the regime, prepared and
-// indexed, cached for strategyCacheTTL and shared by all strategies.
+// indexed, cached for strategyCacheTTL and shared by all strategies. The source
+// is the daily snapshot when STRATEGY_SOURCE says so and it has a completed
+// session, else the views.
 func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUniverse, error) {
 	fillCtx := context.WithoutCancel(ctx)
 	v, err := s.cache.GetOrSetWithTTL(s.cache.GetStrategyUniverseKey(), strategyCacheTTL, func() (any, error) {
+		u, ok, err := s.snapshotUniverse(fillCtx)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			return u, nil
+		}
 		cands, err := s.store.ListStrategyCandidates(fillCtx)
 		if err != nil {
 			return nil, err
@@ -322,33 +351,43 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 		if err != nil {
 			return nil, err
 		}
-		// Once per fill, before any rule reads a candidate: the financials
-		// decision (withholding not-meaningful ratios) and valuation.
-		engine.PrepareCandidates(cands)
-		u := &strategyUniverse{
-			candidates:      cands,
-			index:           make(map[string]int, len(cands)),
-			env:             engine.NewEnvFromStats(regime, engine.UniverseStatsOf(cands)),
-			regime:          regime,
-			coverage:        engine.FundamentalsCoverage(cands),
-			qualityCoverage: engine.QualityCoverage(cands),
-			rowsCount:       engine.FundamentalsRows(cands),
-		}
-		for i := range cands {
-			u.index[strings.ToUpper(cands[i].StockCode)] = i
-			if d := cands[i].ShortReportDate; d != nil && d.After(u.shortReportDate) {
-				u.shortReportDate = *d
-			}
-		}
+		asOf := ""
 		if latest := engine.LatestAsOf(cands); !latest.IsZero() {
-			u.asOf = latest.Format("2006-01-02")
+			asOf = latest.Format("2006-01-02")
 		}
-		return u, nil
+		return newStrategyUniverse(cands, regime, asOf, StrategySourceViews), nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return v.(*strategyUniverse), nil
+}
+
+// newStrategyUniverse prepares the candidates (the financials decision and
+// valuation, once per fill, before any rule reads a candidate) and indexes them
+// with the universe's shared environment. asOf is the session the universe is
+// as at, "" when unknown.
+func newStrategyUniverse(cands []engine.Candidate, regime engine.Regime, asOf, source string) *strategyUniverse {
+	engine.PrepareCandidates(cands)
+	u := &strategyUniverse{
+		candidates:      cands,
+		index:           make(map[string]int, len(cands)),
+		env:             engine.NewEnvFromStats(regime, engine.UniverseStatsOf(cands)),
+		regime:          regime,
+		coverage:        engine.FundamentalsCoverage(cands),
+		qualityCoverage: engine.QualityCoverage(cands),
+		rowsCount:       engine.FundamentalsRows(cands),
+		asOf:            asOf,
+		source:          source,
+	}
+	for i := range cands {
+		u.index[strings.ToUpper(cands[i].StockCode)] = i
+		if d := cands[i].ShortReportDate; d != nil && d.After(u.shortReportDate) {
+			u.shortReportDate = *d
+			u.shortAvailable = cands[i].ShortAvailableDate
+		}
+	}
+	return u
 }
 
 // loadStrategyEvaluation returns one strategy's full ranked pick list,
@@ -398,11 +437,20 @@ func dateOrEmpty(t time.Time) string {
 }
 
 // shortDatesProto returns a short position's report date and the date it
-// became public. Both are empty when the stock has no report, and the
-// publication date is empty too for a report the holiday table does not cover.
-func shortDatesProto(report *time.Time) (reported, available string) {
+// became public. Both are empty when the stock has no report. The publication
+// date is the stored one when the snapshot holds it (stored non-nil), so the
+// page shows the date the reading was gated on; otherwise the ASX calendar's.
+// Neither names a date for a report the holiday table does not cover, so the
+// snapshot answers as the views do.
+func shortDatesProto(report, stored *time.Time) (reported, available string) {
 	if report == nil {
 		return "", ""
+	}
+	if _, covered := asxcalendar.AvailableFromCovered(*report); !covered {
+		return dateOrEmpty(*report), ""
+	}
+	if stored != nil {
+		return dateOrEmpty(*report), dateOrEmpty(*stored)
 	}
 	published, _ := asxcalendar.AvailableFromCovered(*report)
 	return dateOrEmpty(*report), dateOrEmpty(published)
@@ -536,7 +584,7 @@ func strategyPickProto(p *engine.Pick) *shortsv1alpha1.StrategyPick {
 	out.Rs_6MPercentile, out.HasRs_6MPercentile = optional(p.RS6mPercentile)
 	out.DollarVolume_20D, out.HasDollarVolume_20D = optional(c.DollarVolume20d)
 	out.BreakoutDate = dateString(c.BreakoutDate)
-	out.ShortReportDate, out.ShortAvailableDate = shortDatesProto(c.ShortReportDate)
+	out.ShortReportDate, out.ShortAvailableDate = shortDatesProto(c.ShortReportDate, c.ShortAvailableDate)
 	// The date is the report the figure came from, so the status follows the
 	// figure. A figure with no matching report row has no date.
 	if c.ShortPct != nil {

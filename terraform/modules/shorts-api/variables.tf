@@ -183,6 +183,17 @@ variable "strategy_public_signals_limit" {
   }
 }
 
+variable "strategy_source" {
+  description = "Where the stock picker reads its evaluation inputs. \"views\" serves the SQL views (mv_price_features, mv_market_regime); \"snapshot\" evaluates the newest completed session of the daily snapshot (migration 000156) through the engine. A database without the snapshot tables serves the views either way. Delivered as STRATEGY_SOURCE."
+  type        = string
+  default     = "views"
+
+  validation {
+    condition     = contains(["views", "snapshot"], var.strategy_source)
+    error_message = "strategy_source must be \"views\" or \"snapshot\"."
+  }
+}
+
 variable "rate_limit_ssr_bypass_secret" {
   description = "Shared secret proving a first-party marker really is our own Vercel SSR. Same value the Cloudflare worker gets. Empty leaves every first-party request in the unverified (monthly-metered) class, which is degraded but never throttled."
   type        = string

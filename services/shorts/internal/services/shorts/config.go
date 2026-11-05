@@ -48,11 +48,23 @@ type Config struct {
 	// which is today's behaviour. Signed-in depth comes from
 	// GetViewerStrategyPicks whatever this is set to.
 	StrategyPublicSignalsLimit int `json:"strategy_public_signals_limit" yaml:"strategy_public_signals_limit" mapstructure:"strategy_public_signals_limit" validate:"gte=0,lte=100"`
+
+	// StrategySource names where the stock picker reads its evaluation inputs:
+	// "views" (the SQL views, mv_price_features and mv_market_regime) or
+	// "snapshot" (the newest completed session of the daily snapshot, 000156).
+	// A database without the snapshot tables falls back to the views either way.
+	StrategySource string `json:"strategy_source" yaml:"strategy_source" mapstructure:"strategy_source" validate:"oneof=views snapshot"`
 }
 
 const (
 	defaultInsecure = true
 	defaultPort     = 9091
+)
+
+// The values of Config.StrategySource.
+const (
+	StrategySourceViews    = "views"
+	StrategySourceSnapshot = "snapshot"
 )
 
 func DefaultConfig() Config {
@@ -64,6 +76,7 @@ func DefaultConfig() Config {
 		APIBaseURL:        mcp.DefaultAPIBaseURL,
 		OAuthConsentURL:   oauth.DefaultConsentURL,
 		RateLimitConfig:   ratelimit.DefaultConfig(),
+		StrategySource:    StrategySourceViews,
 	}
 }
 
@@ -89,6 +102,9 @@ func Env(v *viper.Viper, cfgPrefix, envPrefix string) {
 
 	// Public strategy depth clamp (0 = off). Terraform sets it per environment.
 	_ = v.BindEnv(fmt.Sprintf("%s.strategy_public_signals_limit", cfgPrefix), "STRATEGY_PUBLIC_SIGNALS_LIMIT")
+
+	// Where the stock picker reads its inputs (views | snapshot). Terraform sets it.
+	_ = v.BindEnv(fmt.Sprintf("%s.strategy_source", cfgPrefix), "STRATEGY_SOURCE")
 
 	// Rate limiting configuration.
 	//

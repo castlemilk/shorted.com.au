@@ -779,7 +779,8 @@ recipe fields on the wire (PR-12a).
   (`strategyShortDatesQuery`, the view's own filters and figure, no age limit), so a stock
   with no figure has no date and no `short_status`. `short_available_date` is
   empty for a report dated before 2026, the holiday table's first year. The
-  universe fill reads `shorts`, so a failed read fails `GetStrategyPicks` and
+  universe fill reads `shorts` on the views source (the default; see "Snapshot read"
+  below for the snapshot source), so a failed read fails `GetStrategyPicks` and
   `GetStockStrategyFit` (`ListStrategies` reads only the regime). `stale` is set
   when the index has closed a session the prices have not reached, read from the
   regime view and from the index's own series (`latestIndexSession`).
@@ -831,6 +832,30 @@ recipe fields on the wire (PR-12a).
   returns 0 (481 on 2026-11-05); that whole-table count also needs the one-off
   `-years 21` XJO re-fetch. Runbook (recompute, a dead session, the spot check):
   `services/jobs/README.md`, "Strategy daily snapshot".
+- **Snapshot read (PR-11, `STRATEGY_SOURCE`).** `views` (the default, and what
+  production runs until PR-11b) keeps the SQL views. `snapshot` evaluates the
+  newest completed session of the daily snapshot (`ReadStrategySnapshot`: the
+  newest two sessions whose features, evaluation and events phases all completed,
+  then that session's `fs1` rows, blobs and regime). The Terraform variable is
+  `strategy_source` on `terraform/modules/shorts-api` (set to `"views"` in
+  `terraform/environments/prod/main.tf`); PR-11b is the one-line change to
+  `"snapshot"`. A database without 000156 (42P01) or with no whole session serves
+  the views and logs at warn or error. Any other snapshot error fails the read.
+  Snapshot reads: the picks, the fit, the status counts, `session_date`,
+  `short_report_date`, `stale`, the short availability date (the stored sf0 date,
+  empty for a report before 2026 as on the views) and `ListStrategies`' regime
+  (the universe's under `snapshot`; the views' only when the universe read fails).
+  Not from the snapshot: the data status' availability calendar (the ASX calendar). `GetStrategyDataStatus` (public, cached 5 min per instance) reports
+  the sweep, the snapshot session, the priced count, the newest 10 ASIC reports
+  and `next_update_utc` (13:00 UTC on the next trading day under `snapshot`,
+  13:30 under `views`). `ListStrategySignalEvents` (private) serves the canonical
+  live or superseded versions from `live_from` only, keyset on `id`; a variant or
+  unregistered hash is NotFound, and a registered version that is neither live nor
+  superseded reads no events. Container suite: `make test-strategy-snapshot-pg`, which
+  gates the deploy. Live check: `scripts/strategies/snapshot-cutover-check.mjs`
+  (`record` pages every list to `total_count` and fails on a clamped read; pass
+  `--token-env` once the public depth clamp is on; `diff` requires both recordings
+  to be one session and the after recording to be the snapshot's).
 
 ### Saved strategies and My strategies (`/strategies/my`)
 
