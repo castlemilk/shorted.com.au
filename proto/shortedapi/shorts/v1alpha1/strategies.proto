@@ -19,7 +19,7 @@ service StrategyService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
 
-  // Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+  // Ranked picks for one strategy: status (triggered, setup, unknown, watch), a 0-100
   // score and a per-rule pass / fail / unknown breakdown for each stock. The
   // answer is the same bytes to every HTTP caller. When the public depth
   // limit is set, the rows are the top of the default ranking only, for every
@@ -155,7 +155,8 @@ message RuleResult {
   double value = 4;       // The number the rule tested, when there is one.
   bool has_value = 5;     // False when value is absent (unknown), never read value then.
   // Why an unknown rule could not be tested: "no_price_history", "no_volume",
-  // "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+  // "no_index", "no_fundamentals", "not_meaningful", "asic_report_stale",
+  // "asic_value_missing" or "basis_change". Empty for pass and fail.
   string reason = 6;
   // For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far
   // distance. Meaningful only when has_proximity.
@@ -172,7 +173,7 @@ message StrategyPick {
   string stock_code = 2;
   string company_name = 3;
   string industry = 4;
-  string status = 5;             // "triggered" | "setup" | "watch".
+  string status = 5;             // "triggered" | "setup" | "unknown" | "watch".
   double score = 6;              // 0-100, orders rows within a status.
   repeated RuleResult rules = 7;
 
@@ -270,7 +271,7 @@ message GetStrategyPicksRequest {
   // full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks
   // for the rows beyond the public depth.
   int32 offset = 3;
-  string status = 4;        // Optional filter: "triggered" | "setup" | "watch".
+  string status = 4;        // Optional filter: "triggered" | "setup" | "unknown" | "watch".
   // Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
   // "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
   // sort last; growth above +500% or below -95% sorts after every measured value.
@@ -343,7 +344,7 @@ message GetStockStrategyFitRequest {
 message StrategyFit {
   string strategy_id = 1;
   string strategy_name = 2;
-  string status = 3;        // "triggered" | "setup" | "watch" | "none" (not a candidate).
+  string status = 3;        // "triggered" | "setup" | "unknown" | "watch" | "none" (not a candidate).
   double score = 4;         // 0-100; 0 when status is "none".
   int32 rank = 5;           // 1-based rank among the strategy's picks; 0 when status is "none".
   int32 total_count = 6;    // Picks the strategy has in total.

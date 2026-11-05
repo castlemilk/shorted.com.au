@@ -142,7 +142,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object status_ = "";
   /**
    * <pre>
-   * Optional filter: "triggered" | "setup" | "watch".
+   * Optional filter: "triggered" | "setup" | "unknown" | "watch".
    * </pre>
    *
    * <code>string status = 4 [json_name = "status"];</code>
@@ -163,7 +163,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Optional filter: "triggered" | "setup" | "watch".
+   * Optional filter: "triggered" | "setup" | "unknown" | "watch".
    * </pre>
    *
    * <code>string status = 4 [json_name = "status"];</code>
@@ -870,7 +870,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object status_ = "";
     /**
      * <pre>
-     * Optional filter: "triggered" | "setup" | "watch".
+     * Optional filter: "triggered" | "setup" | "unknown" | "watch".
      * </pre>
      *
      * <code>string status = 4 [json_name = "status"];</code>
@@ -890,7 +890,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional filter: "triggered" | "setup" | "watch".
+     * Optional filter: "triggered" | "setup" | "unknown" | "watch".
      * </pre>
      *
      * <code>string status = 4 [json_name = "status"];</code>
@@ -911,7 +911,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional filter: "triggered" | "setup" | "watch".
+     * Optional filter: "triggered" | "setup" | "unknown" | "watch".
      * </pre>
      *
      * <code>string status = 4 [json_name = "status"];</code>
@@ -928,7 +928,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional filter: "triggered" | "setup" | "watch".
+     * Optional filter: "triggered" | "setup" | "unknown" | "watch".
      * </pre>
      *
      * <code>string status = 4 [json_name = "status"];</code>
@@ -942,7 +942,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional filter: "triggered" | "setup" | "watch".
+     * Optional filter: "triggered" | "setup" | "unknown" | "watch".
      * </pre>
      *
      * <code>string status = 4 [json_name = "status"];</code>

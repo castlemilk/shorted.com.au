@@ -225,7 +225,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Why an unknown rule could not be tested: "no_price_history", "no_volume",
-   * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+   * "no_index", "no_fundamentals", "not_meaningful", "asic_report_stale",
+   * "asic_value_missing" or "basis_change". Empty for pass and fail.
    * </pre>
    *
    * <code>string reason = 6 [json_name = "reason"];</code>
@@ -247,7 +248,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Why an unknown rule could not be tested: "no_price_history", "no_volume",
-   * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+   * "no_index", "no_fundamentals", "not_meaningful", "asic_report_stale",
+   * "asic_value_missing" or "basis_change". Empty for pass and fail.
    * </pre>
    *
    * <code>string reason = 6 [json_name = "reason"];</code>
@@ -1155,7 +1157,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Why an unknown rule could not be tested: "no_price_history", "no_volume",
-     * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+     * "no_index", "no_fundamentals", "not_meaningful", "asic_report_stale",
+     * "asic_value_missing" or "basis_change". Empty for pass and fail.
      * </pre>
      *
      * <code>string reason = 6 [json_name = "reason"];</code>
@@ -1176,7 +1179,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Why an unknown rule could not be tested: "no_price_history", "no_volume",
-     * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+     * "no_index", "no_fundamentals", "not_meaningful", "asic_report_stale",
+     * "asic_value_missing" or "basis_change". Empty for pass and fail.
      * </pre>
      *
      * <code>string reason = 6 [json_name = "reason"];</code>
@@ -1198,7 +1202,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Why an unknown rule could not be tested: "no_price_history", "no_volume",
-     * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+     * "no_index", "no_fundamentals", "not_meaningful", "asic_report_stale",
+     * "asic_value_missing" or "basis_change". Empty for pass and fail.
      * </pre>
      *
      * <code>string reason = 6 [json_name = "reason"];</code>
@@ -1216,7 +1221,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Why an unknown rule could not be tested: "no_price_history", "no_volume",
-     * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+     * "no_index", "no_fundamentals", "not_meaningful", "asic_report_stale",
+     * "asic_value_missing" or "basis_change". Empty for pass and fail.
      * </pre>
      *
      * <code>string reason = 6 [json_name = "reason"];</code>
@@ -1231,7 +1237,8 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Why an unknown rule could not be tested: "no_price_history", "no_volume",
-     * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+     * "no_index", "no_fundamentals", "not_meaningful", "asic_report_stale",
+     * "asic_value_missing" or "basis_change". Empty for pass and fail.
      * </pre>
      *
      * <code>string reason = 6 [json_name = "reason"];</code>

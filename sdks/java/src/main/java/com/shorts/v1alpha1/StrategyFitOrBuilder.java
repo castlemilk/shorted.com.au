@@ -36,7 +36,7 @@ public interface StrategyFitOrBuilder extends
 
   /**
    * <pre>
-   * "triggered" | "setup" | "watch" | "none" (not a candidate).
+   * "triggered" | "setup" | "unknown" | "watch" | "none" (not a candidate).
    * </pre>
    *
    * <code>string status = 3 [json_name = "status"];</code>
@@ -45,7 +45,7 @@ public interface StrategyFitOrBuilder extends
   java.lang.String getStatus();
   /**
    * <pre>
-   * "triggered" | "setup" | "watch" | "none" (not a candidate).
+   * "triggered" | "setup" | "unknown" | "watch" | "none" (not a candidate).
    * </pre>
    *
    * <code>string status = 3 [json_name = "status"];</code>

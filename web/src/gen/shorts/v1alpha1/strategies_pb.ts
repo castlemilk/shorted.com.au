@@ -344,7 +344,8 @@ export type RuleResult = Message<"shorts.v1alpha1.RuleResult"> & {
 
   /**
    * Why an unknown rule could not be tested: "no_price_history", "no_volume",
-   * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+   * "no_index", "no_fundamentals", "not_meaningful", "asic_report_stale",
+   * "asic_value_missing" or "basis_change". Empty for pass and fail.
    *
    * @generated from field: string reason = 6;
    */
@@ -408,7 +409,7 @@ export type StrategyPick = Message<"shorts.v1alpha1.StrategyPick"> & {
   industry: string;
 
   /**
-   * "triggered" | "setup" | "watch".
+   * "triggered" | "setup" | "unknown" | "watch".
    *
    * @generated from field: string status = 5;
    */
@@ -833,7 +834,7 @@ export type GetStrategyPicksRequest = Message<"shorts.v1alpha1.GetStrategyPicksR
   offset: number;
 
   /**
-   * Optional filter: "triggered" | "setup" | "watch".
+   * Optional filter: "triggered" | "setup" | "unknown" | "watch".
    *
    * @generated from field: string status = 4;
    */
@@ -1183,7 +1184,7 @@ export type StrategyFit = Message<"shorts.v1alpha1.StrategyFit"> & {
   strategyName: string;
 
   /**
-   * "triggered" | "setup" | "watch" | "none" (not a candidate).
+   * "triggered" | "setup" | "unknown" | "watch" | "none" (not a candidate).
    *
    * @generated from field: string status = 3;
    */
@@ -2236,7 +2237,7 @@ export const StrategyService: GenService<{
     output: typeof ListStrategiesResponseSchema;
   },
   /**
-   * Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+   * Ranked picks for one strategy: status (triggered, setup, unknown, watch), a 0-100
    * score and a per-rule pass / fail / unknown breakdown for each stock. The
    * answer is the same bytes to every HTTP caller. When the public depth
    * limit is set, the rows are the top of the default ranking only, for every
