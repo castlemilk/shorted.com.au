@@ -77,4 +77,46 @@ describe("version mapping", () => {
     );
     expect(mapStrategyVersionDetail({ policies: ["p"] })).toBeNull();
   });
+
+  it("maps every rule parameter, reading a protojson zero as zero and dropping an unnamed one", () => {
+    const entry = mapStrategyVersionDetail({
+      version: { strategyId: "canslim", label: "v0", rulesHash: HASH },
+      params: [
+        { ruleId: "short_interest", name: "min_pct", value: 5 },
+        { ruleId: "rs_leader", name: "quantile", value: 0.8 },
+        { ruleId: "growth", name: "min_pct" },
+        { ruleId: "growth", name: "", value: 1 },
+        { ruleId: "growth", name: "bad", value: "NaN" },
+      ],
+    });
+    expect(entry?.params).toEqual([
+      { ruleId: "short_interest", name: "min_pct", value: 5 },
+      { ruleId: "rs_leader", name: "quantile", value: 0.8 },
+      { ruleId: "growth", name: "min_pct", value: 0 },
+    ]);
+    expect(mapStrategyVersionDetail({ version: { label: "v0" } })?.params).toEqual([]);
+  });
+
+  it("reads each rule's role and weight from the canonical spec, dropping a rule with no finite weight", () => {
+    const canonicalJson = JSON.stringify({
+      rules: [
+        { id: "growth", core: true, trigger: false, weight: 0.25 },
+        { id: "new_high", core: true, trigger: true, weight: 0.2 },
+        { id: "leader", core: false, trigger: false, weight: 0 },
+        { id: "no_weight", core: true },
+        "not a rule",
+      ],
+    });
+    const entry = mapStrategyVersionDetail({
+      version: { strategyId: "canslim", label: "v0", rulesHash: HASH },
+      canonicalJson,
+    });
+    expect(entry?.rules).toEqual([
+      { ruleId: "growth", core: true, trigger: false, weight: 0.25 },
+      { ruleId: "new_high", core: true, trigger: true, weight: 0.2 },
+      { ruleId: "leader", core: false, trigger: false, weight: 0 },
+    ]);
+    expect(mapStrategyVersionDetail({ version: { label: "v0" }, canonicalJson: "{not json" })?.rules).toEqual([]);
+    expect(mapStrategyVersionDetail({ version: { label: "v0" } })?.rules).toEqual([]);
+  });
 });

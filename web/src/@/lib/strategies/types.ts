@@ -61,9 +61,33 @@ export interface StrategyDef {
   version?: StrategyVersionDef;
 }
 
+/** One numeric parameter of one rule in a rules version: a threshold or window, never a weight. */
+export interface RuleParamView {
+  ruleId: string;
+  /** The parameter's key, e.g. "min_pct". */
+  name: string;
+  value: number;
+}
+
+/**
+ * One rule's role and score weight in a rules version, read from the version's
+ * canonical (hashed) spec, so it cannot disagree with the version's hash.
+ */
+export interface RuleSettingView {
+  ruleId: string;
+  core: boolean;
+  trigger: boolean;
+  /** Share of the score this rule carries, 0-1. */
+  weight: number;
+}
+
 /** One published rules version, as the changelog states it. */
 export interface StrategyVersionDetailView {
   version: StrategyVersionDef;
+  /** Every numeric parameter of every rule, in rule order. */
+  params: RuleParamView[];
+  /** Every rule's role and weight in this version, in rule order. */
+  rules: RuleSettingView[];
   /** Universe and data policy, one sentence each. */
   policies: string[];
   /** What this version changed from the one before it. */

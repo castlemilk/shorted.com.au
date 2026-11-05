@@ -373,6 +373,8 @@ describe("sitemap children", () => {
     const urls = [
       "/strategies",
       ...STRATEGY_SLUGS.map((slug) => `/strategies/${slug}`),
+      // The Rules tab is enabled, so each strategy's rules page is listed too.
+      ...STRATEGY_SLUGS.map((slug) => `/strategies/${slug}/rules`),
       "/strategies/changelog",
     ];
     for (const path of urls) {
