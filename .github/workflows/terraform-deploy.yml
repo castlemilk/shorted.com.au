@@ -2041,6 +2041,15 @@ jobs:
           cd services
           make test-pgsource-pg
 
+      # The saved-strategy store (migration 000156): the cap under concurrent saves, the bounded lock wait,
+      # the variant owner guard and replay. The cap is a guarantee the handler tests cannot see (they fake
+      # the store), so it gates the deploy like the suites above.
+      - name: Run saved strategies container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the saved strategies suite (postgres container)..."
+          cd services
+          make test-strategy-saves-pg
+
       # Workflow pins: the apply gate and the smoke ordering are asserted here,
       # and nothing else ran these tests in CI. The test imports `yaml`, a root
       # devDependency, so the runner installs the root packages first.
