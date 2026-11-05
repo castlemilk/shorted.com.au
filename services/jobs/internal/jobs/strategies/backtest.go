@@ -201,7 +201,7 @@ type backtestResult struct {
 // over one read of the stored history, and publish what passes the gate.
 func runBacktest(ctx context.Context, pool *pgxpool.Pool, opts backtestOptions) (backtestResult, error) {
 	if len(opts.Targets) == 0 {
-		opts.Logf("strategies backtest: no live version with a recipe (v1 is not live); idle")
+		opts.Logf("strategies backtest: no live version with a recipe; idle")
 		return backtestResult{Idle: true}, nil
 	}
 	if opts.Budget == 0 {

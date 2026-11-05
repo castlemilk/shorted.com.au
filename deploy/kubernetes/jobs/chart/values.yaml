@@ -705,7 +705,7 @@ jobs:
 
   # services/jobs/internal/jobs/strategies: the strategy backtest (-mode backtest). VKE-native (vkeNative):
   # no Cloud Run twin. Hourly at :20, after the daily snapshot's first run. It idles, exiting 0 in
-  # milliseconds, until a live canonical version other than v0 has a recipe (v1 is not live yet). Each
+  # milliseconds, until a live canonical version other than v0 has a recipe. Each
   # execution takes the strategies-backtest lease, queues the weekly publish request of each live
   # version and recipe (and one immediately when a key has no succeeded run), runs at most five
   # requests or 20 minutes of work over one REPEATABLE READ read, and publishes only what the

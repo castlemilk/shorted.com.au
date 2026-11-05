@@ -23,7 +23,7 @@ export const SHORTLIST_MAX_ROWS = 10;
 
 /**
  * The rows shown with no ?status= filter (Zanger's "concentrate" rule, plan §1,
- * rule 5: the table is a short list). Triggered and setup rows come first, then
+ * rule 5: the table is a short list). Triggered, setup and unknown rows come first, then
  * watch rows fill the table up to SHORTLIST_MAX_ROWS, so a quiet day still shows
  * the nearest candidates instead of an empty page.
  */
