@@ -144,6 +144,10 @@ export default async function OwnershipPage() {
     outcomes.length > 0
       ? outcomes.filter((o) => WITHHOLDING_OUTCOMES.includes(o.outcome)).reduce((n, o) => n + o.count, 0)
       : (overview?.noticesWithheld ?? 0);
+  // The two outcomes that are not withheld notices (a document that was never a form, a download still
+  // to retry) are "set aside" in the sentence, so read + withheld + set aside = attempted and the band
+  // reconciles; the breakdown names them.
+  const setAside = outcomes.filter((o) => !WITHHOLDING_OUTCOMES.includes(o.outcome)).reduce((n, o) => n + o.count, 0);
 
   // The newest week of the activity the page loads, over every sector: "released this week" in the
   // band. Dropped when the read names no week, never printed as 0.
@@ -279,6 +283,11 @@ export default async function OwnershipPage() {
               <div className="space-y-2 bg-card p-3 text-sm text-muted-foreground">
                 <p>
                   <Figure>{count(withheld)}</Figure> {outcomes.length > 0 ? "notices withheld" : "documents not parsed"}
+                  {setAside > 0 ? (
+                    <>
+                      , <Figure>{count(setAside)}</Figure> set aside,
+                    </>
+                  ) : null}
                   {attempted > 0 ? (
                     <>
                       {" "}
@@ -288,34 +297,35 @@ export default async function OwnershipPage() {
                 </p>
                 {/* A figure the outcomes are kept under, folded so the band stays four sentences. */}
                 {outcomes.length > 0 ? (
-                  <Disclosure title="Withheld, by outcome">
+                  <Disclosure title="By outcome">
                     <WithheldBreakdown outcomes={outcomes} />
                   </Disclosure>
                 ) : null}
               </div>
-              {/* A file count the API does not hold reads n/a, never 0: a source with a file is in the list,
-                  so 0 means the field is absent. */}
+              {/* The tracked funds against the ASX ETFs and APRA funds on record (the 471 and 72 are products,
+                  not files; the files' dates follow). A count the API does not hold reads n/a, never 0: a
+                  source with a file is in the list, so 0 means the field is absent. */}
               <div className="bg-card p-3 text-sm text-muted-foreground">
                 {indexFiles > 0 ? (
                   <>
-                    <Figure>{count(indexFiles)}</Figure> of <Figure>{count(etfs)}</Figure> index fund files
-                    {indexDates ? `, ${indexDates}` : ""}
+                    <Figure>{count(indexFiles)}</Figure> of <Figure>{count(etfs)}</Figure> ASX ETFs tracked
+                    {indexDates ? `, files ${indexDates}` : ""}
                   </>
                 ) : (
                   <>
-                    <Figure>{NOT_AVAILABLE}</Figure> index fund files
+                    <Figure>{NOT_AVAILABLE}</Figure> index funds tracked
                   </>
                 )}
               </div>
               <div className="bg-card p-3 text-sm text-muted-foreground">
                 {superOptions > 0 ? (
                   <>
-                    <Figure>{count(superOptions)}</Figure> of <Figure>{count(superFunds)}</Figure> super option files
-                    {superDates ? `, ${superDates}` : ""}
+                    <Figure>{count(superOptions)}</Figure> of <Figure>{count(superFunds)}</Figure> APRA super funds tracked, one
+                    option each{superDates ? `, ${superDates}` : ""}
                   </>
                 ) : (
                   <>
-                    <Figure>{NOT_AVAILABLE}</Figure> super option files
+                    <Figure>{NOT_AVAILABLE}</Figure> super funds tracked
                   </>
                 )}
               </div>
