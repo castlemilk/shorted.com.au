@@ -389,3 +389,57 @@ func TestV1KeepsV0sThresholds(t *testing.T) {
 		}
 	}
 }
+
+// flatThenBreakout is a stock that sat flat for its whole history, then closed
+// above the pivot on heavy volume in its last sessions: its base and breakout
+// pass, so with no fundamentals only the growth rule is unknown.
+func flatThenBreakout(d civil.Date) []features.Bar {
+	bars := weekdayBars(d, 320, 10, 0)
+	n := len(bars)
+	for i := n - 6; i < n; i++ {
+		c := 10 + 0.2*float64(i-(n-6)+1)
+		bars[i].Open, bars[i].Close, bars[i].AdjClose = c, c, c
+		bars[i].High, bars[i].Low = c*1.01, c*0.99
+		bars[i].Volume = 3_000_000
+	}
+	return bars
+}
+
+// The job applies each version's own ladder: with no fundamentals every growth
+// rule is unknown, so v1 reads a pick whose other core rules pass as unknown,
+// and v0 never does. Both read the same stored rows.
+func TestEvaluateVersionAppliesItsOwnLadder(t *testing.T) {
+	d := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	fs, _ := featureParams()
+	in := sessionFixture(t, d)
+	in.Bars["AAA"] = flatThenBreakout(d)
+	out := buildSessionRows(in, fs)
+	v1, ok := spec.Version(spec.StrategyZangerBreakout, "v1")
+	if !ok {
+		t.Fatal("no v1 zanger version")
+	}
+	v0, ok := spec.Version(spec.StrategyZangerBreakout, "v0")
+	if !ok {
+		t.Fatal("no v0 zanger version")
+	}
+	noFundamentals := map[string]features.Fundamentals{}
+
+	ev1, err := evaluateVersion(out.Rows, noFundamentals, out.Regime, v1)
+	if err != nil {
+		t.Fatalf("evaluateVersion v1: %v", err)
+	}
+	ev0, err := evaluateVersion(out.Rows, noFundamentals, out.Regime, v0)
+	if err != nil {
+		t.Fatalf("evaluateVersion v0: %v", err)
+	}
+	p1, ok := ev1.Picks["AAA"]
+	if !ok {
+		t.Fatalf("AAA is not a v1 pick: %v", ev1.Picks)
+	}
+	if p1.Status != string(engine.StatusUnknown) {
+		t.Errorf("v1 AAA status = %q, want unknown (its growth rule is unknown and no core rule fails)", p1.Status)
+	}
+	if p0, ok := ev0.Picks["AAA"]; !ok || p0.Status == string(engine.StatusUnknown) {
+		t.Errorf("v0 AAA = %+v, want its own ladder's setup or watch, never unknown", p0)
+	}
+}
