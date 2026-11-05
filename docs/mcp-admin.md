@@ -27,7 +27,7 @@ and approve **jobs:read**, **news:publish**, **jobs:run**, **users:read**,
 For a monitoring-only client, request only `jobs:read`; leave out `users:read`,
 `crawl:authorize`, `crawl:read` and `crawl:operate` unless the client needs personal
 data or the housing crawl. The connector then appears in every Claude session (including Claude
-Code on the web) with thirty-one tools:
+Code on the web) with thirty-two tools:
 
 | Tool | Scope | What it does |
 |---|---|---|
