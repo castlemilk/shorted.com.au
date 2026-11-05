@@ -377,8 +377,8 @@ func candidatesByCode(cands []engine.Candidate) map[string]engine.Candidate {
 
 // stepRow is the row a daily step carries for code on d: the pick's when the
 // code is a pick, else the features of its candidate when the universe admits
-// it, else the price features of an excluded code that has a priced bar, else
-// an empty row.
+// it, else the price features of an excluded code as of its last priced bar,
+// else an empty row.
 func stepRow(code string, d civil.Date, picks map[string]engine.Pick, cands map[string]engine.Candidate, idx *pipeline.Index) CodeSession {
 	if pk, ok := picks[code]; ok {
 		return pickRow(code, pk)
@@ -504,7 +504,7 @@ func assertSessionsEqualSnapshot(t *testing.T, in Inputs, strategyID string, ste
 	if len(p.picks) != len(p.sessions) || len(p.universe) != len(p.sessions) {
 		t.Fatal("the plan keeps no per-session picks or statistics")
 	}
-	notHeld := 0
+	admittedNotHeld := 0
 	for k := 0; k < len(p.sessions); k += step {
 		ses := p.sessions[k]
 		d := ses.Date
@@ -538,7 +538,9 @@ func assertSessionsEqualSnapshot(t *testing.T, in Inputs, strategyID string, ste
 				if !reflect.DeepEqual(decisionOnly(got), decisionOnly(want)) {
 					t.Fatalf("%s on %s: the run's row for a code the snapshot does not hold differs: run %+v, want %+v", code, d, decisionOnly(got), decisionOnly(want))
 				}
-				notHeld++
+				if _, admitted := cands[code]; admitted {
+					admittedNotHeld++
+				}
 				continue
 			}
 			if !run {
@@ -552,10 +554,11 @@ func assertSessionsEqualSnapshot(t *testing.T, in Inputs, strategyID string, ste
 			}
 		}
 	}
-	// A gate that never reaches the not-held branch checks nothing about the
-	// codes the universe admits but no stock rule passes.
-	if notHeld == 0 {
-		t.Fatal("no sampled session reaches the not-held branch")
+	// A gate that never reaches the admitted-but-not-held branch checks nothing
+	// about the codes the universe admits but no stock rule passes. Codes the
+	// universe excludes do not count: they are not the case under test.
+	if admittedNotHeld == 0 {
+		t.Fatal("no sampled session reaches the admitted-but-not-held branch")
 	}
 }
 
@@ -1051,13 +1054,12 @@ func TestRecordsStartAtTheWindow(t *testing.T) {
 	}
 }
 
-// TestFillsPayTheirRealTier: every fill of the canonical recipes is charged on
-// its decision's own 20-session dollar volume. A row with no price features
-// reads zero volume, which falls to the lowest spread tier, so a fill decided
-// on a session the universe excludes (a corporate-action or stale exit) must
-// not pay that tier by default. The entry is checked on its signal session and
-// an exit on its signal session, unless that session has no priced bar: the
-// exit then uses the position's entry volume, as the simulator does.
+// TestFillsPayTheirRealTier: no fill of the canonical recipes is charged in the
+// lowest spread tier by default. A row with no price features reads zero volume,
+// which falls to that tier, so every row a fill is decided on must carry its
+// code's real 20-session dollar volume: the entry on its signal session, and
+// every exit on its signal session, whether or not that session has a bar of
+// its own (a corporate-action exit on a barless session is charged on the row).
 func TestFillsPayTheirRealTier(t *testing.T) {
 	in := loadGolden(t)
 	for _, sid := range []string{spec.StrategyCrowdedShortBreakout, spec.StrategyMinerviniTrend} {
@@ -1070,42 +1072,87 @@ func TestFillsPayTheirRealTier(t *testing.T) {
 			if len(res.Trades) == 0 {
 				t.Fatal("the run must trade, or the gate tests nothing")
 			}
-			rows := map[string]map[civil.Date]CodeSession{}
-			for _, ses := range p.sessions {
-				for _, cs := range ses.Codes {
-					if rows[cs.Code] == nil {
-						rows[cs.Code] = map[civil.Date]CodeSession{}
-					}
-					rows[cs.Code][ses.Date] = cs
-				}
-			}
-			fallback := spreadBps(p.cfg.Costs, 0)
-			check := func(tr Trade, on civil.Date, row CodeSession, what string) {
-				if row.DV20 <= 0 {
-					t.Fatalf("%s %s on %s: the row carries no dollar volume", tr.Code, what, on)
-				}
-				if spreadBps(p.cfg.Costs, row.DV20) == fallback {
-					t.Fatalf("%s %s on %s pays the lowest tier (%v bps) on dv20 %v", tr.Code, what, on, fallback, row.DV20)
-				}
-			}
-			for _, tr := range res.Trades {
-				entry, ok := rows[tr.Code][tr.SignalDate]
-				if !ok {
-					t.Fatalf("%s: no row on its entry signal %s", tr.Code, tr.SignalDate)
-				}
-				check(tr, tr.SignalDate, entry, "entry")
-				if tr.OpenAtEnd {
-					continue
-				}
-				exit, ok := rows[tr.Code][tr.ExitSignalDate]
-				if !ok {
-					t.Fatalf("%s: no row on its exit signal %s", tr.Code, tr.ExitSignalDate)
-				}
-				if exit.Bar == nil {
-					continue
-				}
-				check(tr, tr.ExitSignalDate, exit, "exit")
-			}
+			checkFillsPayTheirTier(t, p, res)
 		})
+	}
+}
+
+// TestCorporateActionExitOnBarlessSession: a corporate-action exit decided on a
+// session with no bar of the code's own is charged on the code's real volume,
+// not the lowest tier. The golden dataset has no such session, so GD01's bar on
+// its suspect's known session (2023-04-03) is dropped: the exit still fires on
+// that session and pays its tier.
+func TestCorporateActionExitOnBarlessSession(t *testing.T) {
+	in := loadGolden(t)
+	gap := civil.Date{Year: 2023, Month: 4, Day: 3}
+	alt := *in
+	alt.BarsByCode = map[string][]features.Bar{}
+	for code, bars := range in.BarsByCode {
+		if code != goldenCode(1) {
+			alt.BarsByCode[code] = bars
+			continue
+		}
+		for _, b := range bars {
+			if b.Date != gap {
+				alt.BarsByCode[code] = append(alt.BarsByCode[code], b)
+			}
+		}
+	}
+	p := planGoldenFor(t, &alt, spec.StrategyCrowdedShortBreakout)
+	res, err := simulate(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, tr := range res.Trades {
+		if tr.ExitReason == ReasonCorporateAction && tr.ExitSignalDate == gap {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("the corporate-action exit does not fire on the barless session")
+	}
+	checkFillsPayTheirTier(t, p, res)
+}
+
+// checkFillsPayTheirTier: no fill of the plan's run is charged in the lowest
+// spread tier by default. A row with no price features reads zero volume, which
+// falls to that tier, so every row a fill is decided on must carry its code's
+// real 20-session dollar volume: the entry on its signal session, and every exit
+// on its signal session, whether or not that session has a bar of its own.
+func checkFillsPayTheirTier(t *testing.T, p plan, res Result) {
+	t.Helper()
+	rows := map[string]map[civil.Date]CodeSession{}
+	for _, ses := range p.sessions {
+		for _, cs := range ses.Codes {
+			if rows[cs.Code] == nil {
+				rows[cs.Code] = map[civil.Date]CodeSession{}
+			}
+			rows[cs.Code][ses.Date] = cs
+		}
+	}
+	fallback := spreadBps(p.cfg.Costs, 0)
+	check := func(tr Trade, on civil.Date, row CodeSession, what string) {
+		if row.DV20 <= 0 {
+			t.Fatalf("%s %s on %s: the row carries no dollar volume", tr.Code, what, on)
+		}
+		if spreadBps(p.cfg.Costs, row.DV20) == fallback {
+			t.Fatalf("%s %s on %s pays the lowest tier (%v bps) on dv20 %v", tr.Code, what, on, fallback, row.DV20)
+		}
+	}
+	for _, tr := range res.Trades {
+		entry, ok := rows[tr.Code][tr.SignalDate]
+		if !ok {
+			t.Fatalf("%s: no row on its entry signal %s", tr.Code, tr.SignalDate)
+		}
+		check(tr, tr.SignalDate, entry, "entry")
+		if tr.OpenAtEnd {
+			continue
+		}
+		exit, ok := rows[tr.Code][tr.ExitSignalDate]
+		if !ok {
+			t.Fatalf("%s: no row on its exit signal %s", tr.Code, tr.ExitSignalDate)
+		}
+		check(tr, tr.ExitSignalDate, exit, "exit")
 	}
 }

@@ -35,9 +35,11 @@ import (
 //     price rising tenfold;
 //   - code 9 breaks out on a smaller bump, so its entry fills inside the 10%
 //     gap cap and its position is held across its tenfold up-jump;
-//   - code goldenNoShort is eligible on every session but is never a pick: it
-//     reports no short position, trades illiquidly and falls, so no stock rule
-//     passes. Its rows must still carry its price features.
+//   - code goldenNoShort is eligible from its sixtieth session on and is never
+//     a pick: it reports no short position, trades illiquidly and falls, so no
+//     stock rule passes. It is the admitted code the snapshot gate compares
+//     with a row that reads none, and its rows must still carry its price
+//     features.
 const (
 	goldenSeed     = 20230602
 	goldenCodes    = 25
@@ -196,7 +198,7 @@ func buildGolden() goldenData {
 			start, sigma, vol = 20, 0.012, 8e5
 		}
 		if i == goldenNoShort {
-			start, sigma, drift, vol = 5, 0.01, -0.0015, 2e4
+			start, sigma, drift, vol = 5, 0.004, -0.006, 2e4
 		}
 		shortPct := 1 + 4*rng.Float64()
 		if _, ok := breakouts[i]; ok {
