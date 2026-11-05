@@ -173,18 +173,6 @@ func CompareRegime(got engine.Regime, v ViewRegime) []string {
 	return out
 }
 
-// ViewDaysToCover is the days to cover that 000080's mv_screener_data computes
-// from a row's reported positions and its 20-session average volume (the
-// bigint average, zero when there is none): positions over the average,
-// rounded to two places as the view rounds it. A missing or zero average is 0,
-// which is what the view stores for an unknown value.
-func ViewDaysToCover(positions float64, avgVolume *int64) float64 {
-	if avgVolume == nil || *avgVolume <= 0 {
-		return 0
-	}
-	return roundNumeric2(positions / float64(*avgVolume))
-}
-
 // approx is true when a and b agree to 1e-9 relative (the parity tolerance).
 func approx(a, b float64) bool {
 	if a == b {

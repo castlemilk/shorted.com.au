@@ -22,15 +22,19 @@ import (
 
 // The parity check holds the Go port to the materialised views at one session.
 // It compares fs1 with mv_price_features, the regime with mv_market_regime and
-// sf0's days to cover with the shorts and volume CTEs of 000080 (the view that
-// mv_screener_data is built from). It never reads mv_screener_data, which only
-// refresh_all_materialized_views refreshes, and it changes nothing: it reads
+// sf0's latest row and days to cover with the shorts and volume CTEs of 000080
+// (the view that mv_screener_data is built from). It changes nothing: it reads
 // inside one REPEATABLE READ, READ ONLY transaction, so the Go side and the
 // view side see the same rows.
 //
+// mv_screener_data is read for one informational line only (strategy_parity_info).
+// Its refresh runs at another time from the CTEs, so it can disagree with them
+// for reasons that are not a port defect; it never counts toward the verdict.
+//
 // A run is conclusive only when the newest price sweep has completed before the
-// picks refresh started. Otherwise the views and the stored bars may disagree
-// for reasons that are not a port defect, and the run is discarded.
+// picks refresh started. Otherwise the comparison still runs and its line is
+// marked conclusive=false with the reason: the views and the stored bars may
+// disagree for reasons that are not a port defect, so the run counts for nothing.
 
 const (
 	// barLookbackDays is the bar history fs1 reads: its 400-day window plus a
@@ -38,8 +42,10 @@ const (
 	barLookbackDays = 420
 	// dtcLookbackDays is the span of 000080's average volume.
 	dtcLookbackDays = 35
-	// shortsLookbackDays bounds the shorts rows read. A code whose newest
-	// qualifying row is older is in neither side of the comparison.
+	// shortsLookbackDays bounds the first read of the shorts rows. A code whose
+	// newest qualifying row is inside it is read exactly, because the reading
+	// walks back from the decision date. A code with none inside it is read with
+	// its whole history: 000080 has no age limit.
 	shortsLookbackDays = 60
 	// parityTimeout bounds one run, so a slow read cannot hold the picks
 	// execution past its own deadline.
@@ -88,13 +94,23 @@ type Result struct {
 	Examples   []string       // up to examplesCap codes with any disagreement, sorted
 }
 
-// Line is the one log line a run writes.
+// Line is the one log line a run writes. An inconclusive run prints the same
+// comparison, marked conclusive=false with its reason, so a bad day still
+// leaves its numbers in the log.
 func (r Result) Line() string {
+	verdict := "conclusive=true"
 	if !r.Conclusive {
-		return fmt.Sprintf("strategy_parity d=%s conclusive=false inconclusive=%s", r.D, r.Reason)
+		verdict = "conclusive=false inconclusive=" + r.Reason
 	}
-	return fmt.Sprintf("strategy_parity d=%s codes=%d only_view=%d only_go=%d mismatches=%d fields=%s examples=%s conclusive=true",
-		r.D, r.Codes, r.OnlyView, r.OnlyGo, r.Mismatches, fieldsText(r.Fields), listText(r.Examples))
+	return fmt.Sprintf("strategy_parity d=%s codes=%d only_view=%d only_go=%d mismatches=%d fields=%s examples=%s %s",
+		r.D, r.Codes, r.OnlyView, r.OnlyGo, r.Mismatches, fieldsText(r.Fields), listText(r.Examples), verdict)
+}
+
+// infoLine is the informational diff against mv_screener_data. It names the
+// days-to-cover disagreements only and is never a verdict.
+func infoLine(d civil.Date, r Result) string {
+	return fmt.Sprintf("strategy_parity_info d=%s screener_codes=%d screener_only_view=%d screener_only_go=%d screener_mismatches=%d screener_fields=%s screener_examples=%s",
+		d, r.Codes, r.OnlyView, r.OnlyGo, r.Mismatches, fieldsText(r.Fields), listText(r.Examples))
 }
 
 func fieldsText(fields map[string]int) string {
@@ -201,16 +217,15 @@ type shortRead struct {
 	DTC        *float64 // days to cover; nil when unknown
 }
 
-// shortView is 000080's row for one code: the same latest row and the 35-day
-// average volume as a bigint (nil when the average has fewer than five traded
-// sessions).
+// shortView is 000080's row for one code: the same latest row and its days to
+// cover, which the view stores as zero when the 35-day average volume is unknown.
 type shortView struct {
 	ReportDate civil.Date
 	Positions  float64
-	AvgVolume  *int64
+	DTC        float64
 }
 
-// compareShorts holds sf0 to 000080's latest_shorts and avg_volume.
+// compareShorts holds sf0 to 000080's latest_shorts and days_to_cover.
 func compareShorts(goRows map[string]shortRead, view map[string]shortView, c *comparison) {
 	for _, code := range unionKeys(goRows, view) {
 		g, inGo := goRows[code]
@@ -236,10 +251,36 @@ func compareShorts(goRows map[string]shortRead, view map[string]shortView, c *co
 		if g.DTC != nil {
 			gotDTC = *g.DTC
 		}
-		if wantDTC := features.ViewDaysToCover(v.Positions, v.AvgVolume); !agree(gotDTC, wantDTC) {
-			lines = append(lines, fmt.Sprintf("days_to_cover go %v view %v", gotDTC, wantDTC))
+		if !agree(gotDTC, v.DTC) {
+			lines = append(lines, fmt.Sprintf("days_to_cover go %v view %v", gotDTC, v.DTC))
 		}
 		c.lines(code, lines)
+	}
+}
+
+// compareScreener holds sf0's days to cover to mv_screener_data's, code by code.
+// It is the informational diff: its counts are reported on their own line.
+func compareScreener(goRows map[string]shortRead, screener map[string]float64, c *comparison) {
+	for _, code := range unionKeys(goRows, screener) {
+		g, inGo := goRows[code]
+		want, inView := screener[code]
+		c.codes++
+		switch {
+		case !inGo:
+			c.onlyView++
+			c.issues[code] = true
+		case !inView:
+			c.onlyGo++
+			c.issues[code] = true
+		default:
+			var gotDTC float64
+			if g.DTC != nil {
+				gotDTC = *g.DTC
+			}
+			if !agree(gotDTC, want) {
+				c.lines(code, []string{fmt.Sprintf("days_to_cover go %v view %v", gotDTC, want)})
+			}
+		}
 	}
 }
 
@@ -270,11 +311,22 @@ func unionKeys[A, B any](a map[string]A, b map[string]B) []string {
 	return out
 }
 
+// sortedKeys is one map's keys, sorted.
+func sortedKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // RunParity compares the Go port with the views at the current session. It
-// logs one line and returns the result. It is the shadow run of the picks
-// refresh: refreshStart is when that refresh began, and a run is inconclusive
-// unless the newest sweep completed before it. A panic is recovered into an
-// error, and the caller decides what an error means for its own exit code.
+// logs the informational line and the verdict line, and returns the result. It
+// is the shadow run of the picks refresh: refreshStart is when that refresh
+// began, and a run is inconclusive unless the newest sweep completed before it.
+// A panic is recovered into an error, and the caller decides what an error
+// means for its own exit code.
 func RunParity(parent context.Context, pool *pgxpool.Pool, refreshStart time.Time, logf func(string, ...any)) (res Result, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -297,7 +349,7 @@ func RunParity(parent context.Context, pool *pgxpool.Pool, refreshStart time.Tim
 		return Result{}, fmt.Errorf("lift the parity transaction's statement timeout: %w", err)
 	}
 
-	res, err = parityInTx(ctx, tx, refreshStart)
+	res, err = parityInTx(ctx, tx, refreshStart, logf)
 	if err != nil {
 		return res, err
 	}
@@ -305,8 +357,10 @@ func RunParity(parent context.Context, pool *pgxpool.Pool, refreshStart time.Tim
 	return res, nil
 }
 
-// parityInTx runs the comparison inside its transaction.
-func parityInTx(ctx context.Context, tx pgx.Tx, refreshStart time.Time) (Result, error) {
+// parityInTx runs the comparison inside its transaction. The verdict comes from
+// the newest sweep; the comparison runs either way, so an inconclusive day
+// still logs its numbers.
+func parityInTx(ctx context.Context, tx pgx.Tx, refreshStart time.Time, logf func(string, ...any)) (Result, error) {
 	var today time.Time
 	if err := tx.QueryRow(ctx, `SELECT CURRENT_DATE`).Scan(&today); err != nil {
 		return Result{}, fmt.Errorf("read CURRENT_DATE: %w", err)
@@ -317,9 +371,7 @@ func parityInTx(ctx context.Context, tx pgx.Tx, refreshStart time.Time) (Result,
 	if err != nil {
 		return Result{}, err
 	}
-	if ok, reason := sweepVerdict(sweep, refreshStart); !ok {
-		return Result{D: d, Reason: reason}, nil
-	}
+	conclusive, reason := sweepVerdict(sweep, refreshStart)
 
 	reg, ok := spec.Live(spec.StrategyZangerBreakout)
 	if !ok {
@@ -360,22 +412,15 @@ func parityInTx(ctx context.Context, tx pgx.Tx, refreshStart time.Time) (Result,
 		return Result{}, err
 	}
 
-	shortsFrom := d.AddDays(-shortsLookbackDays)
-	asic, err := pgsource.ASICRows(ctx, tx, shortsFrom, d)
+	asic, err := pgsource.ASICRows(ctx, tx, d.AddDays(-shortsLookbackDays), d)
 	if err != nil {
 		return Result{}, err
 	}
-	reports := features.NewReports(asic, nil)
-	cal := calendar.New(nil, nil, 0)
-	goShorts := map[string]shortRead{}
-	for _, code := range asicCodes(asic) {
-		r := features.ShortReadingV0(code, d, cal, reports, recent[code])
-		if r.Status != features.StatusReported {
-			continue
-		}
-		goShorts[code] = shortRead{ReportDate: *r.ReportDate, Positions: *r.Positions, DTC: r.DaysToCover}
+	viewShorts, err := readViewShorts(ctx, tx)
+	if err != nil {
+		return Result{}, err
 	}
-	viewShorts, err := readViewShorts(ctx, tx, shortsFrom)
+	goShorts, err := readGoShorts(ctx, tx, d, asic, viewShorts, recent)
 	if err != nil {
 		return Result{}, err
 	}
@@ -384,7 +429,65 @@ func parityInTx(ctx context.Context, tx pgx.Tx, refreshStart time.Time) (Result,
 	comparePrices(goPrices, viewPrices, c)
 	compareRegime(goRegime, viewRegime, haveRegime, c)
 	compareShorts(goShorts, viewShorts, c)
-	return c.result(d), nil
+	res := c.result(d)
+	res.Conclusive, res.Reason = conclusive, reason
+
+	// The informational diff: logged, never counted in the verdict. A failed
+	// read aborts this transaction, which the caller rolls back; the verdict is
+	// already computed.
+	screener, err := readScreenerDTC(ctx, tx)
+	if err != nil {
+		logf("strategy_parity_info d=%s unavailable: %v", d, err)
+	} else {
+		info := newComparison()
+		compareScreener(goShorts, screener, info)
+		logf("%s", infoLine(d, info.result(d)))
+	}
+	return res, nil
+}
+
+// readGoShorts is sf0's reading of every code that either side names. The
+// window's rows answer the codes they hold: the reading walks back from the
+// decision date, so its first hit is the newest qualifying row. A code the
+// window does not answer, but 000080 does, is read with its whole history.
+func readGoShorts(ctx context.Context, tx pgx.Tx, d civil.Date, asic []features.ASICRow, view map[string]shortView, recent map[string][]features.Bar) (map[string]shortRead, error) {
+	cal := calendar.New(nil, nil, 0)
+	goShorts := map[string]shortRead{}
+	reports := features.NewReports(asic, nil)
+	for _, code := range asicCodes(asic) {
+		if r, ok := readShort(code, d, cal, reports, recent[code]); ok {
+			goShorts[code] = r
+		}
+	}
+	var older []string
+	for _, code := range sortedKeys(view) {
+		if _, ok := goShorts[code]; !ok {
+			older = append(older, code)
+		}
+	}
+	if len(older) == 0 {
+		return goShorts, nil
+	}
+	history, err := pgsource.ASICRowsForCodes(ctx, tx, older, d)
+	if err != nil {
+		return nil, err
+	}
+	whole := features.NewReports(history, nil)
+	for _, code := range older {
+		if r, ok := readShort(code, d, cal, whole, recent[code]); ok {
+			goShorts[code] = r
+		}
+	}
+	return goShorts, nil
+}
+
+// readShort is ShortReadingV0 for one code, as a shortRead when it reports one.
+func readShort(code string, d civil.Date, cal *calendar.Calendar, reports *features.Reports, bars []features.Bar) (shortRead, bool) {
+	r := features.ShortReadingV0(code, d, cal, reports, bars)
+	if r.Status != features.StatusReported {
+		return shortRead{}, false
+	}
+	return shortRead{ReportDate: *r.ReportDate, Positions: *r.Positions, DTC: r.DaysToCover}, true
 }
 
 // readSweep reads the newest price-sweep row: the complement of the ASIC sync's
@@ -404,16 +507,19 @@ func readSweep(ctx context.Context, tx pgx.Tx) (*sweepRow, error) {
 	return &row, nil
 }
 
-// readViewShorts reads sf0's view side: 000080's latest_shorts joined to its
-// avg_volume, for the newest rows dated on or after from.
-func readViewShorts(ctx context.Context, tx pgx.Tx, from civil.Date) (map[string]shortView, error) {
+// readViewShorts reads sf0's view side: 000080's latest_shorts for every code,
+// with the days to cover its own expression computes. The view has no age
+// limit, so no date bound applies here.
+func readViewShorts(ctx context.Context, tx pgx.Tx) (map[string]shortView, error) {
 	rows, err := tx.Query(ctx, `WITH latest_shorts AS (`+latestShortsCTE+`),
 		avg_volume AS (`+avgVolumeCTE+`)
 		SELECT ls.stock_code::text, ls.reported_short_positions::float8, ls.short_date::date,
-		       av.avg_volume_20d::int8
+		       CASE WHEN COALESCE(av.avg_volume_20d, 0) > 0
+		            THEN round((ls.reported_short_positions / av.avg_volume_20d::double precision)::numeric, 2)::float8
+		            ELSE 0::float8
+		       END
 		  FROM latest_shorts ls
-		  LEFT JOIN avg_volume av ON av.stock_code = ls.stock_code
-		 WHERE ls.short_date::date >= $1::date`, from.String())
+		  LEFT JOIN avg_volume av ON av.stock_code = ls.stock_code`)
 	if err != nil {
 		return nil, fmt.Errorf("query 000080 latest_shorts: %w", err)
 	}
@@ -424,19 +530,51 @@ func readViewShorts(ctx context.Context, tx pgx.Tx, from civil.Date) (map[string
 			code      string
 			positions *float64
 			date      time.Time
-			avg       *int64
+			dtc       *float64
 		)
-		if err := rows.Scan(&code, &positions, &date, &avg); err != nil {
+		if err := rows.Scan(&code, &positions, &date, &dtc); err != nil {
 			return nil, fmt.Errorf("scan 000080 latest_shorts row: %w", err)
 		}
-		v := shortView{ReportDate: civil.DateOf(date), AvgVolume: avg, Positions: math.NaN()}
+		v := shortView{ReportDate: civil.DateOf(date), Positions: math.NaN()}
 		if positions != nil {
 			v.Positions = *positions
+		}
+		if dtc != nil {
+			v.DTC = *dtc
 		}
 		out[code] = v
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate 000080 latest_shorts: %w", err)
+	}
+	return out, nil
+}
+
+// readScreenerDTC reads mv_screener_data's days to cover per code. A NULL is
+// zero, as the view stores an unknown value.
+func readScreenerDTC(ctx context.Context, tx pgx.Tx) (map[string]float64, error) {
+	rows, err := tx.Query(ctx, `SELECT stock_code::text, days_to_cover::float8 FROM mv_screener_data`)
+	if err != nil {
+		return nil, fmt.Errorf("query mv_screener_data: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]float64{}
+	for rows.Next() {
+		var (
+			code string
+			dtc  *float64
+		)
+		if err := rows.Scan(&code, &dtc); err != nil {
+			return nil, fmt.Errorf("scan mv_screener_data row: %w", err)
+		}
+		v := 0.0
+		if dtc != nil {
+			v = *dtc
+		}
+		out[code] = v
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate mv_screener_data: %w", err)
 	}
 	return out, nil
 }

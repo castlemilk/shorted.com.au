@@ -72,10 +72,38 @@ func TestSweepVerdict(t *testing.T) {
 	}
 }
 
-func TestInconclusiveLine(t *testing.T) {
-	r := Result{D: civil.Date{Year: 2026, Month: 11, Day: 5}, Reason: "sweep_running"}
-	if got, want := r.Line(), "strategy_parity d=2026-11-05 conclusive=false inconclusive=sweep_running"; got != want {
-		t.Errorf("Line() = %q, want %q", got, want)
+func TestInconclusiveLineKeepsTheComparison(t *testing.T) {
+	r := Result{
+		D: civil.Date{Year: 2026, Month: 11, Day: 5}, Reason: "sweep_running", Codes: 1800,
+		OnlyView: 1, Mismatches: 2, Fields: map[string]int{"sma50": 2}, Examples: []string{"ABC"},
+	}
+	want := "strategy_parity d=2026-11-05 codes=1800 only_view=1 only_go=0 mismatches=2 fields=sma50:2 examples=ABC conclusive=false inconclusive=sweep_running"
+	if got := r.Line(); got != want {
+		t.Errorf("Line() =\n %q\nwant %q", got, want)
+	}
+}
+
+func TestInfoLineNamesTheScreenerCounts(t *testing.T) {
+	d := civil.Date{Year: 2026, Month: 11, Day: 5}
+	r := Result{Codes: 3, OnlyView: 1, Mismatches: 1, Fields: map[string]int{"days_to_cover": 1}, Examples: []string{"AAA"}}
+	want := "strategy_parity_info d=2026-11-05 screener_codes=3 screener_only_view=1 screener_only_go=0 screener_mismatches=1 screener_fields=days_to_cover:1 screener_examples=AAA"
+	if got := infoLine(d, r); got != want {
+		t.Errorf("infoLine() = %q, want %q", got, want)
+	}
+}
+
+func TestCompareScreenerIsCountedOnItsOwn(t *testing.T) {
+	d := civil.Date{Year: 2026, Month: 11, Day: 5}
+	two := 2.0
+	c := newComparison()
+	compareScreener(
+		map[string]shortRead{"AAA": {ReportDate: d, Positions: 1, DTC: &two}, "BBB": {ReportDate: d, Positions: 1}},
+		map[string]float64{"AAA": 3, "CCC": 1},
+		c,
+	)
+	r := c.result(d)
+	if r.OnlyGo != 1 || r.OnlyView != 1 || r.Mismatches != 1 || r.Fields["days_to_cover"] != 1 {
+		t.Errorf("screener diff = only_go %d only_view %d mismatches %d fields %v", r.OnlyGo, r.OnlyView, r.Mismatches, r.Fields)
 	}
 }
 
@@ -171,14 +199,13 @@ func TestCompareRegimeAgreesOnAMatchingRow(t *testing.T) {
 
 func TestCompareSharesReadsTheDaysToCoverRule(t *testing.T) {
 	d := civil.Date{Year: 2026, Month: 11, Day: 5}
-	avg := int64(1000)
 	// positions 2500 over an average of 1000 is 2.5 days, rounded as the view rounds it.
 	dtc := 2.5
 	good := shortRead{ReportDate: d, Positions: 2500, DTC: &dtc}
-	goodView := shortView{ReportDate: d, Positions: 2500, AvgVolume: &avg}
+	goodView := shortView{ReportDate: d, Positions: 2500, DTC: 2.5}
 
 	unknownGo := shortRead{ReportDate: d, Positions: 2500, DTC: nil}
-	unknownView := shortView{ReportDate: d, Positions: 2500, AvgVolume: nil} // the view stores 0
+	unknownView := shortView{ReportDate: d, Positions: 2500, DTC: 0} // the view stores 0
 
 	wrongDate := shortRead{ReportDate: d.AddDays(-7), Positions: 2500, DTC: &dtc}
 
@@ -201,12 +228,11 @@ func TestCompareSharesReadsTheDaysToCoverRule(t *testing.T) {
 
 func TestCompareSharesFlagsADifferentDaysToCover(t *testing.T) {
 	d := civil.Date{Year: 2026, Month: 11, Day: 5}
-	avg := int64(1000)
 	wrong := 9.9
 	c := newComparison()
 	compareShorts(
 		map[string]shortRead{"AAA": {ReportDate: d, Positions: 2500, DTC: &wrong}},
-		map[string]shortView{"AAA": {ReportDate: d, Positions: 2500, AvgVolume: &avg}},
+		map[string]shortView{"AAA": {ReportDate: d, Positions: 2500, DTC: 2.5}},
 		c,
 	)
 	if r := c.result(d); r.Fields["days_to_cover"] != 1 || r.Mismatches != 1 {

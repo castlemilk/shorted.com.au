@@ -109,3 +109,46 @@ func RegimeView(ctx context.Context, db DB) (v features.ViewRegime, ok bool, err
 	v.AsOf = asOf
 	return v, true, nil
 }
+
+// ASICRowsForCodes reads the rows with a positive percentage of the given codes,
+// dated on or before to, with their whole history. It is the shadow parity's
+// read for a code whose newest qualifying row is older than its window: the
+// reading walks back from to, so it needs every such row. It carries no
+// statement timeout of its own; the parity run's context bounds it.
+func ASICRowsForCodes(ctx context.Context, db DB, codes []string, to civil.Date) ([]features.ASICRow, error) {
+	if len(codes) == 0 {
+		return nil, nil
+	}
+	rows, err := db.Query(ctx, `
+		SELECT "PRODUCT_CODE"::text, "DATE"::date, COALESCE("PRODUCT", '')::text,
+		       "REPORTED_SHORT_POSITIONS"::float8, "TOTAL_PRODUCT_IN_ISSUE"::float8,
+		       "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"::float8
+		FROM shorts
+		WHERE "PRODUCT_CODE" = ANY($1::text[])
+		  AND "DATE" <= $2::date
+		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+		ORDER BY "PRODUCT_CODE", "DATE"`, codes, to.String())
+	if err != nil {
+		return nil, fmt.Errorf("query ASIC history for %d codes: %w", len(codes), err)
+	}
+	defer rows.Close()
+	var out []features.ASICRow
+	for rows.Next() {
+		var (
+			code, product   string
+			d               time.Time
+			pos, issued, pc *float64
+		)
+		if err := rows.Scan(&code, &d, &product, &pos, &issued, &pc); err != nil {
+			return nil, fmt.Errorf("scan ASIC history row: %w", err)
+		}
+		out = append(out, features.ASICRow{
+			Code: code, ReportDate: dateOf(d), Product: product,
+			Positions: nanOr(pos), Issued: nanOr(issued), Percent: finite(pc),
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate ASIC history: %w", err)
+	}
+	return out, nil
+}
