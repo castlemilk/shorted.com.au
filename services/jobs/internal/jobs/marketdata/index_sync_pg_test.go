@@ -1,19 +1,23 @@
 package marketdata
 
-// Real-Postgres tests for the index sync's write: the upsert and the bounded
-// clean-up share one transaction per series, and the dry run only counts. They
-// need a disposable server: a URL in INDEXSYNC_TEST_DATABASE_URL, or a container
-// when INDEXSYNC_TESTCONTAINERS=1 with the testcontainers tag. Without either,
-// the tests skip.
+// Real-Postgres tests for the index sync's write. Per series, the upsert and the
+// bounded clean-up share one transaction, a clean-up above the removal ceiling
+// is refused, and the dry run only counts. They need a disposable server: a URL
+// in INDEXSYNC_TEST_DATABASE_URL, or a container when INDEXSYNC_TESTCONTAINERS=1
+// with the testcontainers tag. Without either, the tests skip. make
+// test-indexsync-pg runs them and gates the deploy.
 //
 //	cd services/jobs && INDEXSYNC_TESTCONTAINERS=1 GOWORK=off CGO_ENABLED=0 \
 //	    go test -tags=testcontainers -count=1 -run IndexSyncPG ./internal/jobs/marketdata/
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -84,32 +88,120 @@ func indexSyncTestDB(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// seedIndexRows stores one close per (code, date) for each row given as
-// "CODE YYYY-MM-DD close".
-func seedIndexRows(t *testing.T, pool *pgxpool.Pool, rows ...string) {
+// mustDay parses a YYYY-MM-DD date.
+func mustDay(t *testing.T, d string) time.Time {
 	t.Helper()
-	for _, r := range rows {
-		var code, date string
-		var close float64
-		_, err := fmt.Sscanf(r, "%s %s %g", &code, &date, &close)
-		require.NoError(t, err, r)
-		_, err = pool.Exec(context.Background(),
-			`INSERT INTO index_prices (index_code, date, close) VALUES ($1, $2, $3)`, code, date, close)
-		require.NoError(t, err, r)
+	day, err := time.Parse("2006-01-02", d)
+	require.NoError(t, err, d)
+	return day
+}
+
+// weekdays returns every Monday to Friday from first to last inclusive.
+func weekdays(t *testing.T, first, last string) []string {
+	t.Helper()
+	var out []string
+	for day := mustDay(t, first); !day.After(mustDay(t, last)); day = day.AddDate(0, 0, 1) {
+		if wd := day.Weekday(); wd != time.Saturday && wd != time.Sunday {
+			out = append(out, day.Format("2006-01-02"))
+		}
+	}
+	return out
+}
+
+// seedDates stores one row per date for a series, closing at 1.
+func seedDates(t *testing.T, pool *pgxpool.Pool, code string, dates ...string) {
+	t.Helper()
+	for _, d := range dates {
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO index_prices (index_code, date, close) VALUES ($1, $2, 1)`, code, d)
+		require.NoError(t, err, d)
 	}
 }
 
-// barsOn builds the response's bars for the given sessions, each closing at 100.
-func barsOn(t *testing.T, dates ...string) []indexBar {
+// chartFor builds the parsed response for the given session stamps, each
+// closing at 100 except the ones named in nullClose, which are stamped but have
+// no close.
+func chartFor(t *testing.T, sessions []string, nullClose ...string) indexChart {
 	t.Helper()
-	out := make([]indexBar, 0, len(dates))
-	for _, d := range dates {
-		day, err := time.Parse("2006-01-02", d)
-		require.NoError(t, err)
-		c := 100.0
-		out = append(out, indexBar{Date: day, Close: &c})
+	nulls := map[string]bool{}
+	for _, d := range nullClose {
+		nulls[d] = true
 	}
+	ch := indexChart{Currency: "AUD"}
+	for _, d := range sessions {
+		day := mustDay(t, d)
+		ch.Sessions = append(ch.Sessions, day)
+		if nulls[d] {
+			continue
+		}
+		c := 100.0
+		ch.Bars = append(ch.Bars, indexBar{Date: day, Close: &c})
+	}
+	return ch
+}
+
+// chartBody is the raw Yahoo payload for the same sessions, stamped at each
+// 10:00 Sydney open as Yahoo stamps them, so the parser dates them as given.
+func chartBody(t *testing.T, sessions []string, nullClose ...string) []byte {
+	t.Helper()
+	nulls := map[string]bool{}
+	for _, d := range nullClose {
+		nulls[d] = true
+	}
+	ts := []int64{}
+	closes := []any{}
+	for _, d := range sessions {
+		day := mustDay(t, d)
+		ts = append(ts, time.Date(day.Year(), day.Month(), day.Day(), 10, 0, 0, 0, sydney).Unix())
+		if nulls[d] {
+			closes = append(closes, nil)
+		} else {
+			closes = append(closes, 100.0)
+		}
+	}
+	body := map[string]any{"chart": map[string]any{
+		"result": []any{map[string]any{
+			"meta":       map[string]any{"symbol": "^AXJO", "currency": "AUD"},
+			"timestamp":  ts,
+			"indicators": map[string]any{"quote": []any{map[string]any{"open": closes, "high": closes, "low": closes, "close": closes, "volume": closes}}},
+		}},
+		"error": nil,
+	}}
+	out, err := json.Marshal(body)
+	require.NoError(t, err)
 	return out
+}
+
+// stubChart stands in for the stealth client: it returns a fixed payload or
+// error and counts the fetches.
+type stubChart struct {
+	body  []byte
+	err   error
+	calls int
+}
+
+func (s *stubChart) FetchBytes(_ context.Context, _, _ string) ([]byte, string, error) {
+	s.calls++
+	return s.body, "", s.err
+}
+
+// snapshotIndex is every row of every series, values and updated_at included,
+// so "unchanged" means unchanged in the strongest sense.
+func snapshotIndex(t *testing.T, pool *pgxpool.Pool) string {
+	t.Helper()
+	rows, err := pool.Query(context.Background(),
+		`SELECT index_code, to_char(date, 'YYYY-MM-DD'), close::text, updated_at::text
+		   FROM index_prices ORDER BY index_code, date`)
+	require.NoError(t, err)
+	defer rows.Close()
+	var lines []string
+	for rows.Next() {
+		var code, date, close, updated string
+		require.NoError(t, rows.Scan(&code, &date, &close, &updated))
+		lines = append(lines, strings.Join([]string{code, date, close, updated}, " "))
+	}
+	require.NoError(t, rows.Err())
+	return strings.Join(lines, "\n")
 }
 
 func indexDates(t *testing.T, pool *pgxpool.Pool, code string) []string {
@@ -128,30 +220,58 @@ func indexDates(t *testing.T, pool *pgxpool.Pool, code string) []string {
 	return out
 }
 
-// The response spans Fri 2026-10-30 to Thu 2026-11-05 and carries 30 Oct, 2 Nov
-// and 5 Nov. The stored XJO rows around it are:
+// The fixture. The response covers the weekdays from Mon 7 Sep to Fri 30 Oct
+// 2026 except Mon 14 Sep, a holiday it does not carry. Stored XJO rows:
 //
-//	kept, before the window:     29 Oct (Thu)
-//	kept, in the response:       30 Oct (Fri), 2 Nov (Mon), 5 Nov (Thu)
-//	removed, weekend in window:  31 Oct (Sat), 1 Nov (Sun)
-//	removed, not in response:    3 Nov (Tue), 4 Nov (Wed): a holiday the response lacks
-//	kept, after the window:      6 Nov (Fri), 7 Nov (Sat)
+//	kept, before the window:       Fri 4 Sep, Sun 6 Sep
+//	kept, in the response:         every other weekday in the window
+//	removed, weekend in window:    Sat 12 Sep, Sat 3 Oct
+//	removed, holiday in window:    Mon 14 Sep
+//	kept, after the window:        Mon 2 Nov, Sat 7 Nov
 //
-// XAO has rows in the same dates, which must all survive a clean-up of XJO.
-var windowSeed = []string{
-	"XJO 2026-10-29 1",
-	"XJO 2026-10-30 1",
-	"XJO 2026-10-31 1",
-	"XJO 2026-11-01 1",
-	"XJO 2026-11-02 1",
-	"XJO 2026-11-03 1",
-	"XJO 2026-11-04 1",
-	"XJO 2026-11-05 1",
-	"XJO 2026-11-06 1",
-	"XJO 2026-11-07 1",
-	"XAO 2026-10-31 1",
-	"XAO 2026-11-01 1",
-	"XAO 2026-11-03 1",
+// That is 3 of 42 stored rows in the window, well under the ceiling. XAO has
+// rows on the same dates, which a clean-up of XJO must never touch.
+const (
+	fixtureFirst = "2026-09-07"
+	fixtureLast  = "2026-10-30"
+	holiday      = "2026-09-14"
+)
+
+// responseSessions is the fixture's response: every weekday in the window but
+// the holiday.
+func responseSessions(t *testing.T) []string {
+	t.Helper()
+	var out []string
+	for _, d := range weekdays(t, fixtureFirst, fixtureLast) {
+		if d != holiday {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+func seedWindowFixture(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	seedDates(t, pool, "XJO", weekdays(t, fixtureFirst, fixtureLast)...)
+	seedDates(t, pool, "XJO", "2026-09-04", "2026-09-06", "2026-09-12", "2026-10-03", "2026-11-02", "2026-11-07")
+	seedDates(t, pool, "XAO", "2026-09-12", "2026-09-14", "2026-10-03")
+}
+
+// windowKept is the fixture's XJO dates once a correct write has run.
+func windowKept(t *testing.T) []string {
+	t.Helper()
+	out := []string{"2026-09-04", "2026-09-06"}
+	out = append(out, responseSessions(t)...)
+	return append(out, "2026-11-02", "2026-11-07")
+}
+
+// The response's 30 Oct close is the one value a write must replace.
+func fixtureChart(t *testing.T) indexChart {
+	t.Helper()
+	ch := chartFor(t, responseSessions(t))
+	require.Equal(t, "2026-10-30", ch.Bars[len(ch.Bars)-1].Date.Format("2006-01-02"))
+	ch.Bars[len(ch.Bars)-1].Close = ptrFloat(555)
+	return ch
 }
 
 // Rows outside the fetched window survive, weekend and holiday rows inside it go,
@@ -159,64 +279,178 @@ var windowSeed = []string{
 func TestIndexSyncPGReplaceKeepsRowsOutsideTheWindow(t *testing.T) {
 	pool := indexSyncTestDB(t)
 	ctx := context.Background()
-	seedIndexRows(t, pool, windowSeed...)
-	bars := barsOn(t, "2026-10-30", "2026-11-02", "2026-11-05")
-	bars[2].Close = ptrFloat(555) // 5 Nov is re-fetched with a new close
+	seedWindowFixture(t, pool)
 
-	written, removed, err := replaceIndexBars(ctx, pool, "XJO", bars)
+	written, removed, err := replaceIndexBars(ctx, pool, "XJO", fixtureChart(t))
 	require.NoError(t, err)
-	require.Equal(t, int64(3), written)
-	require.Equal(t, int64(4), removed, "31 Oct, 1 Nov, 3 Nov and 4 Nov")
+	require.Equal(t, int64(len(responseSessions(t))), written)
+	require.Equal(t, int64(3), removed, "12 Sep, 3 Oct and the 14 Sep holiday")
 
-	require.Equal(t, []string{
-		"2026-10-29", "2026-10-30", "2026-11-02", "2026-11-05", "2026-11-06", "2026-11-07",
-	}, indexDates(t, pool, "XJO"))
+	require.Equal(t, windowKept(t), indexDates(t, pool, "XJO"))
 
 	var close float64
 	require.NoError(t, pool.QueryRow(ctx,
-		`SELECT close FROM index_prices WHERE index_code = 'XJO' AND date = '2026-11-05'`).Scan(&close))
+		`SELECT close FROM index_prices WHERE index_code = 'XJO' AND date = '2026-10-30'`).Scan(&close))
 	require.Equal(t, 555.0, close, "the response's value replaces the stored one")
 
-	require.Equal(t, []string{"2026-10-31", "2026-11-01", "2026-11-03"}, indexDates(t, pool, "XAO"),
+	require.Equal(t, []string{"2026-09-12", "2026-09-14", "2026-10-03"}, indexDates(t, pool, "XAO"),
 		"another series keeps every row")
 
 	// A second run of the same response has nothing left to remove.
-	_, removed, err = replaceIndexBars(ctx, pool, "XJO", bars)
+	_, removed, err = replaceIndexBars(ctx, pool, "XJO", fixtureChart(t))
 	require.NoError(t, err)
 	require.Equal(t, int64(0), removed)
 }
 
-// A response that carries no sessions writes and removes nothing.
+// A stored row on a date the response stamps without a close is kept. The
+// response describes that session; only a missing one is stale.
+func TestIndexSyncPGNullCloseSessionKeepsItsRow(t *testing.T) {
+	pool := indexSyncTestDB(t)
+	ctx := context.Background()
+	seedDates(t, pool, "XJO", weekdays(t, fixtureFirst, fixtureLast)...)
+
+	ch := chartFor(t, responseSessions(t), "2026-10-01")
+	written, removed, err := replaceIndexBars(ctx, pool, "XJO", ch)
+	require.NoError(t, err)
+	require.Equal(t, int64(len(responseSessions(t))-1), written, "the null-close session is not written")
+	require.Equal(t, int64(1), removed, "only the holiday, which the response does not stamp")
+
+	dates := indexDates(t, pool, "XJO")
+	require.Contains(t, dates, "2026-10-01", "a session the response stamps keeps its row")
+	require.NotContains(t, dates, holiday)
+}
+
+// A clean-up above the ceiling is refused and rolled back: the upsert it shares a
+// transaction with does not stick, and the series is unchanged. A response that
+// carries only the first and last session of a 40-day stored window would remove
+// 38 of its 40 rows.
+func TestIndexSyncPGOverCeilingChangesNothing(t *testing.T) {
+	pool := indexSyncTestDB(t)
+	ctx := context.Background()
+	seedDates(t, pool, "XJO", weekdays(t, fixtureFirst, fixtureLast)...)
+	before := snapshotIndex(t, pool)
+
+	gappy := chartFor(t, []string{fixtureFirst, fixtureLast})
+	_, _, err := replaceIndexBars(ctx, pool, "XJO", gappy)
+	require.True(t, errors.Is(err, errRemovalCeiling), "got %v", err)
+	require.Equal(t, before, snapshotIndex(t, pool))
+
+	stale, inWindow, err := countStaleIndexRows(ctx, pool, "XJO", gappy)
+	require.NoError(t, err)
+	require.Equal(t, int64(38), stale)
+	require.Equal(t, int64(40), inWindow)
+}
+
+// A write that fails after the upsert leaves nothing behind: the upsert and the
+// delete are one transaction. The trigger makes the delete fail.
+func TestIndexSyncPGFailedDeleteRollsBackTheUpsert(t *testing.T) {
+	pool := indexSyncTestDB(t)
+	ctx := context.Background()
+	seedWindowFixture(t, pool)
+	before := snapshotIndex(t, pool)
+
+	_, err := pool.Exec(ctx, `CREATE FUNCTION refuse_index_delete() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN RAISE EXCEPTION 'delete refused for test'; END $$`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `CREATE TRIGGER refuse_index_delete BEFORE DELETE ON index_prices
+		FOR EACH ROW EXECUTE FUNCTION refuse_index_delete()`)
+	require.NoError(t, err)
+
+	_, _, err = replaceIndexBars(ctx, pool, "XJO", fixtureChart(t))
+	require.Error(t, err)
+	require.False(t, errors.Is(err, errRemovalCeiling))
+	require.Equal(t, before, snapshotIndex(t, pool), "the 30 Oct close and updated_at are as they were")
+}
+
+// An empty response writes and removes nothing, and so does one with no close.
 func TestIndexSyncPGEmptyResponseDeletesNothing(t *testing.T) {
 	pool := indexSyncTestDB(t)
-	seedIndexRows(t, pool, windowSeed...)
-	before := indexDates(t, pool, "XJO")
+	ctx := context.Background()
+	seedWindowFixture(t, pool)
+	before := snapshotIndex(t, pool)
 
-	written, removed, err := replaceIndexBars(context.Background(), pool, "XJO", nil)
+	written, removed, err := replaceIndexBars(ctx, pool, "XJO", indexChart{})
 	require.NoError(t, err)
 	require.Equal(t, int64(0), written)
 	require.Equal(t, int64(0), removed)
-	require.Equal(t, before, indexDates(t, pool, "XJO"))
+
+	// Stamps with no close are not a usable response either.
+	noClose := chartFor(t, responseSessions(t), responseSessions(t)...)
+	written, removed, err = replaceIndexBars(ctx, pool, "XJO", noClose)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), written)
+	require.Equal(t, int64(0), removed)
+	require.Equal(t, before, snapshotIndex(t, pool))
 }
 
 // The dry run counts what the write would remove, with the same bounds, and
-// writes nothing: no row is removed and no value is updated.
+// writes nothing: no row is removed and no value or updated_at changes.
 func TestIndexSyncPGDryRunCountsAndWritesNothing(t *testing.T) {
 	pool := indexSyncTestDB(t)
 	ctx := context.Background()
-	seedIndexRows(t, pool, windowSeed...)
-	before := indexDates(t, pool, "XJO")
-	bars := barsOn(t, "2026-10-30", "2026-11-02", "2026-11-05")
+	seedWindowFixture(t, pool)
+	before := snapshotIndex(t, pool)
 
-	would, err := countStaleIndexRows(ctx, pool, "XJO", bars)
+	stale, inWindow, err := countStaleIndexRows(ctx, pool, "XJO", fixtureChart(t))
 	require.NoError(t, err)
-	require.Equal(t, int64(4), would)
-	require.Equal(t, before, indexDates(t, pool, "XJO"), "a dry run removes nothing")
+	require.Equal(t, int64(3), stale)
+	require.Equal(t, int64(42), inWindow)
+	require.Equal(t, before, snapshotIndex(t, pool), "a dry run changes nothing")
 
 	// The count agrees with the write it previews.
-	_, removed, err := replaceIndexBars(ctx, pool, "XJO", bars)
+	_, removed, err := replaceIndexBars(ctx, pool, "XJO", fixtureChart(t))
 	require.NoError(t, err)
-	require.Equal(t, would, removed)
+	require.Equal(t, stale, removed)
+}
+
+// The per-series step, end to end against a stub fetcher: a failed fetch, an
+// upstream error and an empty response change nothing; a dry run changes nothing
+// even for a response that would write; a refused clean-up is a failed series;
+// and a real run writes.
+func TestIndexSyncPGSeriesStepWritesOnlyWhenItShould(t *testing.T) {
+	pool := indexSyncTestDB(t)
+	ctx := context.Background()
+	series := indexSeries{Code: "XJO", SourceSymbol: "^AXJO"}
+	from, to := mustDay(t, "2024-01-01"), mustDay(t, "2026-11-05")
+
+	seedWindowFixture(t, pool)
+	before := snapshotIndex(t, pool)
+
+	failed, err := syncIndexSeries(ctx, pool, &stubChart{err: errors.New("HTTP 400")}, series, from, to, false)
+	require.NoError(t, err)
+	require.True(t, failed, "a failed fetch is a failed series")
+	require.Equal(t, before, snapshotIndex(t, pool))
+
+	upstream := []byte(`{"chart":{"result":null,"error":{"code":"Not Found","description":"No data found"}}}`)
+	failed, err = syncIndexSeries(ctx, pool, &stubChart{body: upstream}, series, from, to, false)
+	require.NoError(t, err)
+	require.True(t, failed)
+	require.Equal(t, before, snapshotIndex(t, pool))
+
+	failed, err = syncIndexSeries(ctx, pool, &stubChart{body: chartBody(t, nil)}, series, from, to, false)
+	require.NoError(t, err)
+	require.False(t, failed, "an empty window is not a failure")
+	require.Equal(t, before, snapshotIndex(t, pool))
+
+	// A dry run of a response that would write changes nothing.
+	fetch := &stubChart{body: chartBody(t, responseSessions(t))}
+	failed, err = syncIndexSeries(ctx, pool, fetch, series, from, to, true)
+	require.NoError(t, err)
+	require.False(t, failed)
+	require.Equal(t, 1, fetch.calls)
+	require.Equal(t, before, snapshotIndex(t, pool), "-dry-run writes nothing")
+
+	// A gappy response is refused, and that is a failed series, not a write.
+	failed, err = syncIndexSeries(ctx, pool, &stubChart{body: chartBody(t, []string{fixtureFirst, fixtureLast})}, series, from, to, false)
+	require.NoError(t, err)
+	require.True(t, failed)
+	require.Equal(t, before, snapshotIndex(t, pool))
+
+	// The real run writes what the window fixture expects.
+	failed, err = syncIndexSeries(ctx, pool, &stubChart{body: chartBody(t, responseSessions(t))}, series, from, to, false)
+	require.NoError(t, err)
+	require.False(t, failed)
+	require.Equal(t, windowKept(t), indexDates(t, pool, "XJO"))
 }
 
 func ptrFloat(v float64) *float64 { return &v }

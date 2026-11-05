@@ -20,7 +20,7 @@ const twoSessions = `{"chart":{"result":[{"meta":{"symbol":"^AXJO","currency":"A
  "low":[7290.0,7300.1],"close":[7310.4,7325.9],"volume":[1000,2000]}]}}],"error":null}}`
 
 func TestParseIndexChart(t *testing.T) {
-	bars, currency, err := parseIndexChart(chartJSON(twoSessions))
+	bars, currency, err := parseBars(chartJSON(twoSessions))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestParseIndexChartDropsSessionsWithNoClose(t *testing.T) {
 	 "indicators":{"quote":[{"open":[7300.1,null,7320.0],"high":[7320.5,null,7340.0],
 	 "low":[7290.0,null,7310.0],"close":[7310.4,null,7335.0],"volume":[1000,null,3000]}]}}],"error":null}}`
 
-	bars, _, err := parseIndexChart(chartJSON(withHole))
+	bars, _, err := parseBars(chartJSON(withHole))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -62,6 +62,16 @@ func TestParseIndexChartDropsSessionsWithNoClose(t *testing.T) {
 			t.Errorf("a bar survived with no usable close: %+v", b)
 		}
 	}
+
+	// The session with no close is still a session the response describes, so
+	// it stays in Sessions: the clean-up must not remove its stored row.
+	ch, err := parseIndexChart(chartJSON(withHole))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := len(ch.Sessions); got != 3 {
+		t.Fatalf("Sessions = %d stamps, want all 3 including the one with no close", got)
+	}
 }
 
 // XJT only exists from 2019, so a longer window legitimately errors for it
@@ -70,7 +80,7 @@ func TestParseIndexChartDropsSessionsWithNoClose(t *testing.T) {
 // leave a benchmark unpopulated.
 func TestParseIndexChartSurfacesUpstreamErrors(t *testing.T) {
 	const upstreamErr = `{"chart":{"result":null,"error":{"code":"Not Found","description":"No data found, symbol may be delisted"}}}`
-	_, _, err := parseIndexChart(chartJSON(upstreamErr))
+	_, _, err := parseBars(chartJSON(upstreamErr))
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -81,8 +91,8 @@ func TestParseIndexChartSurfacesUpstreamErrors(t *testing.T) {
 
 func TestParseIndexChartRejectsGarbage(t *testing.T) {
 	for _, body := range []string{``, `not json`, `{}`, `{"chart":{"result":[]}}`} {
-		if _, _, err := parseIndexChart(chartJSON(body)); err == nil {
-			t.Errorf("parseIndexChart(%q) returned no error", body)
+		if _, _, err := parseBars(chartJSON(body)); err == nil {
+			t.Errorf("parseBars(%q) returned no error", body)
 		}
 	}
 }
@@ -91,7 +101,7 @@ func TestParseIndexChartRejectsGarbage(t *testing.T) {
 // simply has no sessions in the window.
 func TestParseIndexChartHandlesAnEmptyWindow(t *testing.T) {
 	const empty = `{"chart":{"result":[{"meta":{"symbol":"^AXJT","currency":"AUD"},"timestamp":[],"indicators":{"quote":[]}}],"error":null}}`
-	bars, currency, err := parseIndexChart(chartJSON(empty))
+	bars, currency, err := parseBars(chartJSON(empty))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -220,7 +230,7 @@ func TestParseIndexChartDatesDaylightSessionsOnTheirOwnWeekday(t *testing.T) {
 	body := fmt.Sprintf(`{"chart":{"result":[{"meta":{"symbol":"^AXJO","currency":"AUD"},
 	 "timestamp":[%d,%d],
 	 "indicators":{"quote":[{"open":[1,2],"high":[1,2],"low":[1,2],"close":[8880.1,8886.8],"volume":[1,2]}]}}],"error":null}}`, mon, tue)
-	bars, _, err := parseIndexChart([]byte(body))
+	bars, _, err := parseBars([]byte(body))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -233,4 +243,11 @@ func TestParseIndexChartDatesDaylightSessionsOnTheirOwnWeekday(t *testing.T) {
 	if got := bars[1].Date.Format("2006-01-02"); got != "2026-11-03" {
 		t.Errorf("Tuesday's session dated %s", got)
 	}
+}
+
+// parseBars is the bars and currency view of parseIndexChart, for the tests
+// that do not look at the session stamps.
+func parseBars(body []byte) ([]indexBar, string, error) {
+	ch, err := parseIndexChart(body)
+	return ch.Bars, ch.Currency, err
 }
