@@ -559,7 +559,7 @@ valuation, stock page).
 | Piece | Where |
 |---|---|
 | Strategy prose, rules, weights, evaluator, sort, valuation, financials rule (no DB) | `services/pkg/strategy/engine/` (prose lives HERE once; the evaluator moved from `services/shorts/internal/strategies/` in 2026-11; `services/pkg/strategy/instrument/` holds ClassifySecurity; `engine/version.go` is the engine version; the web registry holds SEO metadata only) |
-| Rules spec: the versioned rule set as data, canonical JSON, `rules_hash`, the v0 registry (`Registered`: Changes, KnownIssues, no Recipe until PR-12a), rule prose templates | `services/pkg/strategy/spec/` (`spec.go` types, `canonical.go` and `RulesHash`, `registry.go`, `v0.go`, `prose.go`; pinned goldens in `spec/testdata/spec_hashes.golden`). The rule prose templates in `prose.go` are not served yet: served evaluation and author prose still come from the engine until a later version generates them from the templates. Engine output golden: `engine/testdata/evaluate.golden`, with `engine/testdata/version_history.golden` |
+| Rules spec: the versioned rule set as data, canonical JSON, `rules_hash`, the v0 registry (`Registered`: Changes, KnownIssues, Recipe, nil on v0), rule prose templates, the execution recipes (the five r1 recipes, their validation, canonical hash and printed lines) | `services/pkg/strategy/spec/` (`spec.go` types, `canonical.go` and `RulesHash`, `registry.go`, `v0.go`, `prose.go`, `recipe.go` (`Recipe`, `Validate`, `RecipeHash`, `R1Recipes`, `RenderRecipeLines`, `RecipePreface`); pinned goldens in `spec/testdata/spec_hashes.golden`, `recipe_hashes.golden` and `recipe_lines.golden`). The rule prose templates in `prose.go` are not served yet: served evaluation and author prose still come from the engine until a later version generates them from the templates. Engine output golden: `engine/testdata/evaluate.golden`, with `engine/testdata/version_history.golden` |
 | `quality-compounders` (house, no regime gate) | core `roe` (>= 15%), `net_margin` (>= 10%), `cash_conversion` (FCF > 0 and >= 0.8x NPAT), `leverage` (net cash, or net debt / EBITDA <= 2.5), `liquidity`; trigger `above_sma200`; non-core `revenue_not_shrinking` |
 | `sort_by` | `score` (default, rank order), `revenue_yoy`, `eps_yoy`, `roe`, `net_margin`, `fcf_margin`, `pe` (ascending), `market_cap`; unknowns last, growth outside [-95%, +500%] after every measured figure; `rank` stays the evaluator's; any other value is `InvalidArgument` |
 | Score (`weights.go`, `proximity.go`) | A pass earns weight x (0.6 + 0.4 x strength) x 100; a FAILING trigger rule (`Strategy.TriggerRules`: breakout, near_high / off_high, rs_leader, above_sma200) earns weight x 0.3 x proximity x 100, proximity 1 at the trigger line and 0 at the rule's far distance (10% under the pivot, 15 / 25 points under the 52-week lines, 20 RS points under the quartile cut-off, 10% under the 200-day), so setups rank nearest-to-firing first (2026-10-21). 0.3 < 0.6 keeps a near miss below a floor pass; a triggered score is untouched. Every trigger rule's evaluation prose ends with `evalTriggerCredit` (`TestTriggerRuleProseStatesTheCredit`) |
@@ -636,6 +636,13 @@ or Create-alert control renders: those capabilities stay off.
   000080. A threshold or weight change is a new rules version with a changelog entry, never an edit
   to v0 (its hash is published). A rules-only golden change does not bump the engine; an engine
   output change does (`engine.TestEngineVersionBumpedWithGoldens` over `evaluate.golden`).
+- **The five r1 recipes are frozen as committed.** `spec.R1Recipes` (`spec/recipe.go`) is the
+  execution recipe each strategy's backtest trades, and `spec/testdata/recipe_hashes.golden` pins
+  their hashes. A change to a recipe value or to the `Recipe` layout is a new recipe id, never an
+  edit: `TestRecipeHashesArePinned` must not be satisfied by regenerating the golden in place, and
+  the golden only gains lines. `TestRegisteredRecipesArePinned` holds any recipe a registered
+  version carries to the same rules. Recipe prose is not hashed; it changes only with
+  `recipe_lines.golden`, and every recipe surface opens with `RecipePreface`.
 - **Financials are decided once, in Go** (`services/pkg/strategy/engine/fundamentals_quality.go`):
   banks, insurers and lending financial-services companies get the
   not-meaningful ratios nulled and listed in `not_meaningful`, so
