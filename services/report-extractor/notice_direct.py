@@ -388,17 +388,19 @@ def unique_codes(codes) -> list[str]:
     return sorted({str(c).strip().upper() for c in (codes or []) if c and str(c).strip()})
 
 
-def _subject_target(code: str, subject: str, companies: dict, live) -> str:
-    """notices.go subjectTarget: the one live company the document's name picks, when the listed
-    code's own name does not match it. "" when the listed code stands."""
+def _subject_target(code: str, subject: str, companies: dict, live) -> tuple[str, bool]:
+    """notices.go subjectTarget: (the one live company the document's name picks when the listed
+    code's own name does not match it, whether the document names another company). ("", True)
+    is a notice about a company outside the record, which the caller withholds: filed under the
+    listed code it would make a holder a substantial holder of itself (NAB about Spenda)."""
     co = companies.get(code)
     if not subject or not co or em.entity_matches(subject, co):
-        return ""
+        return "", False
     want = fold_company_name(subject)
     if not want:
-        return ""
+        return "", False
     found = [c for c, name in companies.items() if c in live and fold_company_name(name) == want]
-    return found[0] if len(found) == 1 else ""
+    return (found[0], True) if len(found) == 1 else ("", True)
 
 
 def resolve_target(listed, headline: str, subject: str, companies: dict, live) -> str:
@@ -415,7 +417,10 @@ def resolve_target(listed, headline: str, subject: str, companies: dict, live) -
         if m.group(1) not in codes:
             return ""
     if len(codes) == 1:
-        return _subject_target(codes[0], subject, companies, live) or codes[0]
+        target, named = _subject_target(codes[0], subject, companies, live)
+        if target:
+            return target
+        return "" if named else codes[0]
     if subject:
         matched = [c for c in codes if c in companies and em.entity_matches(subject, companies[c])]
         if len(matched) == 1:

@@ -74,16 +74,17 @@ func TestResolveTargetBySubject(t *testing.T) {
 	}{
 		{"the document names another live company", holder, "SITEMINDER LIMITED", map[string]bool{"SDR": true, "CBA": true}, "SDR"},
 		{"the document names the listed company", holder, "Commonwealth Bank of Australia", map[string]bool{"CBA": true}, "CBA"},
-		{"the document names no company on record", holder, "Acme Widgets Limited", map[string]bool{"SDR": true}, "CBA"},
+		{"the document names no company on record", holder, "Acme Widgets Limited", map[string]bool{"SDR": true}, ""},
 		{"no document company", holder, "", map[string]bool{"SDR": true}, "CBA"},
-		{"the matching company is not live", holder, "SiteMinder Limited", map[string]bool{"CBA": true}, "CBA"},
-		{"two live companies carry the name", holder, "SiteMinder Limited", map[string]bool{"SDR": true, "SMX": true}, "CBA"},
+		{"the matching company is not live", holder, "SiteMinder Limited", map[string]bool{"CBA": true}, ""},
+		{"two live companies carry the name", holder, "SiteMinder Limited", map[string]bool{"SDR": true, "SMX": true}, ""},
 		{"the listed code has no name on record", pendingNotice{Headline: "Change in substantial holding", ListedCodes: []string{"NOP"}},
 			"SITEMINDER LIMITED", map[string]bool{"SDR": true}, "NOP"},
 	}
 	for _, tc := range tests {
 		got, why := resolveTarget(tc.p, tc.doc, companies, tc.live)
-		if got != tc.want || why != "" {
+		// A withheld notice (want "") carries its reason; a filed one carries none.
+		if got != tc.want || (why != "") != (tc.want == "") {
 			t.Errorf("%s: resolveTarget = %q (%s), want %q", tc.name, got, why, tc.want)
 		}
 	}
@@ -476,5 +477,25 @@ func TestRelinkHolder(t *testing.T) {
 			t.Errorf("relinkHolder(%q, %q, %q) = %q, %q, %q, %v; want %q, %q, %q, %v",
 				tc.name, tc.key, tc.slug, n, k, s, changed, tc.wantName, tc.wantKey, tc.slug2, tc.changed)
 		}
+	}
+}
+
+// A one-code listing whose document names a company no live company on record carries
+// is withheld, never filed under the listed code: NAB lodged a notice about Spenda (not
+// in ASIC's report) and ASX listed it under NAB (2026-11-05).
+func TestOneCodeNoticeAboutACompanyOutsideTheRecordIsWithheld(t *testing.T) {
+	companies := map[string]company{"NAB": {Name: "National Australia Bank Limited"}, "SPX": {Name: "Spenda Limited"}}
+	p := pendingNotice{ListedCodes: []string{"NAB"}, Headline: "Becoming a substantial holder"}
+	if code, why := resolveTarget(p, "Spenda Limited", companies, map[string]bool{"NAB": true}); code != "" || why == "" {
+		t.Fatalf("filed under %q (%q), want withheld", code, why)
+	}
+	if code, _ := resolveTarget(p, "Spenda Limited", companies, map[string]bool{"NAB": true, "SPX": true}); code != "SPX" {
+		t.Fatalf("code = %q, want SPX when Spenda is live", code)
+	}
+	if code, _ := resolveTarget(p, "National Australia Bank Limited", companies, map[string]bool{"NAB": true}); code != "NAB" {
+		t.Fatalf("code = %q, want NAB for a notice naming NAB", code)
+	}
+	if code, _ := resolveTarget(p, "", companies, map[string]bool{"NAB": true}); code != "NAB" {
+		t.Fatalf("code = %q, want NAB when the company line could not be read", code)
 	}
 }
