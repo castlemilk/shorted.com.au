@@ -194,7 +194,7 @@ func insertEvent(t *testing.T, pool *pgxpool.Pool, hash, strategy, code, asOf, f
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
 		INSERT INTO strategy_signal_events (rules_hash, engine_version, strategy_id, stock_code, as_of, from_status, to_status, score, evidence)
-		VALUES ($1, '1.0.0', $2, $3, $4::date, $5, $6, 70, '{"r":["breakout"],"v":[9.5],"p":[0.8],"close":10.2,"pivot":9.5}')`,
+		VALUES ($1, '1.0.0', $2, $3, $4::date, $5, $6, 70, '{"r":"PU","v":[9.5,null],"p":[null,0.8],"close":10.2,"pivot":9.5}')`,
 		hash, strategy, code, asOf, from, to)
 	require.NoError(t, err)
 }
@@ -232,6 +232,7 @@ func TestStrategySignalEvents_CanonicalAndLiveOnly(t *testing.T) {
 	assert.Equal(t, "setup", all[1].FromStatus)
 	assert.Equal(t, "triggered", all[1].ToStatus)
 	assert.Contains(t, all[1].Evidence, `"pivot": 9.5`, "jsonb text keeps its own spacing")
+	assert.Contains(t, all[1].Evidence, `"r": "PU"`, "one status character per rule, stored as one string")
 
 	for _, h := range []string{draft, variant} {
 		none, err := s.ListStrategySignalEvents(ctx, StrategySignalEventsFilter{StrategyID: "zanger-breakout", RulesHash: h, Limit: 10})
