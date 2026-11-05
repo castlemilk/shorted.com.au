@@ -220,19 +220,19 @@ func candidateAt(code string, t civil.Date, idx *index) (engine.Candidate, *Inel
 	return c, nil
 }
 
-// caGuardSessions is how long a known corporate-action suspect keeps its code
+// CAGuardSessions is how long a known corporate-action suspect keeps its code
 // out of the v1 universe: the code is ineligible from the suspect's known date
 // until this many sessions after the suspect's bar, and eligible again on that
 // session.
-const caGuardSessions = 260
+const CAGuardSessions = 260
 
 // caGuarded reports whether one of the known suspects still excludes the code
 // on session t. The window is counted from the suspect's bar, not from the day
-// it became known, so a suspect expires after caGuardSessions sessions however
+// it became known, so a suspect expires after CAGuardSessions sessions however
 // far back the caller's bars reach.
 func caGuarded(cal *calendar.Calendar, known []features.CASuspect, t civil.Date) bool {
 	for _, s := range known {
-		if cal.SessionsBetween(s.Date, t) < caGuardSessions {
+		if cal.SessionsBetween(s.Date, t) < CAGuardSessions {
 			return true
 		}
 	}

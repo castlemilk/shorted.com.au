@@ -271,10 +271,10 @@ func TestCorporateActionGuardLastsCaGuardSessions(t *testing.T) {
 			if _, bad := CandidateAt("AAA", known, tc.in, s); bad == nil || bad.Reason != ReasonCorporateActionGuard {
 				t.Fatalf("on the known date = %+v, want the corporate-action guard", bad)
 			}
-			if _, bad := CandidateAt("AAA", sessionAfter(cal, bar, caGuardSessions-1), tc.in, s); bad == nil || bad.Reason != ReasonCorporateActionGuard {
+			if _, bad := CandidateAt("AAA", sessionAfter(cal, bar, CAGuardSessions-1), tc.in, s); bad == nil || bad.Reason != ReasonCorporateActionGuard {
 				t.Fatalf("259 sessions after the bar = %+v, want the corporate-action guard", bad)
 			}
-			for _, n := range []int{caGuardSessions, caGuardSessions + 1} {
+			for _, n := range []int{CAGuardSessions, CAGuardSessions + 1} {
 				if _, bad := CandidateAt("AAA", sessionAfter(cal, bar, n), tc.in, s); bad != nil {
 					t.Fatalf("%d sessions after the bar = %+v, want eligible again", n, bad)
 				}

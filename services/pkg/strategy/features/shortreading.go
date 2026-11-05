@@ -120,10 +120,10 @@ func (r *Reports) row(code string, date civil.Date) (ASICRow, bool) {
 	return row, ok
 }
 
-// latestUsable returns the newest complete report public at asOf, with no age
-// limit. A report that is public but partial is skipped, as is one not yet
-// public.
-func (r *Reports) latestUsable(asOf civil.Date, cal *calendar.Calendar) (civil.Date, bool) {
+// LatestUsable returns R*(asOf): the newest complete report public at asOf,
+// with no age limit. A report that is public but partial is skipped, as is one
+// not yet public.
+func (r *Reports) LatestUsable(asOf civil.Date, cal *calendar.Calendar) (civil.Date, bool) {
 	for i := len(r.dates) - 1; i >= 0; i-- {
 		d := r.dates[i]
 		if d.After(asOf) || !cal.Usable(d, asOf) || !r.Complete(d) {
@@ -154,7 +154,7 @@ func finite(f float64) bool { return !math.IsNaN(f) && !math.IsInf(f, 0) }
 // bars are the code's stock_prices rows ascending and unfiltered (DaysToCover
 // drops the rows without a priced close); suspects are the code's CASuspects.
 func ShortReadingV1(code string, asOf civil.Date, cal *calendar.Calendar, reports *Reports, bars []Bar, suspects []CASuspect, maxAgeSessions int) ShortReading {
-	report, found := reports.latestUsable(asOf, cal)
+	report, found := reports.LatestUsable(asOf, cal)
 	if !found {
 		return ShortReading{Status: StatusStale, Reason: ReasonASICReportStale}
 	}
