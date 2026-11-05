@@ -119,6 +119,9 @@ export default async function OwnershipPage() {
   const institutions = directory?.institutions ?? [];
   const asOf = overview?.asOf ?? "";
   const etfs = overview?.etfs ?? 0;
+  // The universe the tracked funds are measured against: ASX's Australian-equity ETFs when the
+  // API states the count, every ETF on the report otherwise (an older API).
+  const etfsAustralianEquity = overview?.etfsAustralianEquity ?? 0;
   const lics = overview?.lics ?? 0;
   const superFunds = overview?.superFunds ?? 0;
 
@@ -314,7 +317,16 @@ export default async function OwnershipPage() {
               <div className="bg-card p-3 text-sm text-muted-foreground">
                 {indexFiles > 0 ? (
                   <>
-                    <Figure>{count(indexFiles)}</Figure> of <Figure>{count(etfs)}</Figure> ASX ETFs tracked
+                    <Figure>{count(indexFiles)}</Figure> of{" "}
+                    {etfsAustralianEquity > 0 ? (
+                      <>
+                        <Figure>{count(etfsAustralianEquity)}</Figure> Australian-equity ETFs tracked
+                      </>
+                    ) : (
+                      <>
+                        <Figure>{count(etfs)}</Figure> ASX ETFs tracked
+                      </>
+                    )}
                     {indexDates ? `, files ${indexDates}` : ""}
                   </>
                 ) : (

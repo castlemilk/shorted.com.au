@@ -590,6 +590,9 @@ func buildOwnershipOverview(u *ownershipUniverse) *shortsv1alpha1.GetOwnershipOv
 		case "etf":
 			out.Etfs++
 			out.EtfFumAud += size
+			if isAustralianEquityETF(f.Category) {
+				out.EtfsAustralianEquity++
+			}
 		case "lic":
 			out.Lics++
 			out.LicMarketCapAud += size
@@ -868,4 +871,12 @@ func buildStockOwnership(u *ownershipUniverse, code string, notices []shortsstor
 	out.WithheldListed = int32(u.withheldListed(code))
 	out.AsOf = d.stats.LatestAnnounced
 	return out
+}
+
+// isAustralianEquityETF reads ASX's investment products category: "Equity - Australia ..."
+// (broad, sectors, strategy, small and mid cap) and "Property - Australia ..." (A-REITs) hold
+// ASX-listed equities; every other category (global equity, fixed income, cash, commodity,
+// crypto, mixed) does not, so the tracked index funds are measured against these alone.
+func isAustralianEquityETF(category string) bool {
+	return strings.HasPrefix(category, "Equity - Australia") || strings.HasPrefix(category, "Property - Australia")
 }
