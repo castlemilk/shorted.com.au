@@ -120,6 +120,53 @@ func CandidateAt(code string, t civil.Date, in *Inputs, s spec.Spec) (engine.Can
 	return candidateAt(code, t, newIndex(in, s))
 }
 
+// Index is the shared state of one run under one version, built once from
+// its rows. A run that evaluates many codes on many sessions reads candidates
+// through an Index: each CandidateAt call is the package-level CandidateAt
+// without the per-call rebuild, so the two agree on every input.
+type Index struct {
+	idx *index
+}
+
+// NewIndex builds the shared state of a run over in under version s.
+func NewIndex(in *Inputs, s spec.Spec) *Index {
+	return &Index{idx: newIndex(in, s)}
+}
+
+// CandidateAt is the package-level CandidateAt over the built index.
+func (x *Index) CandidateAt(code string, t civil.Date) (engine.Candidate, *Ineligible) {
+	return candidateAt(code, t, x.idx)
+}
+
+// PriceCandidateAt is the price features of a code on session t, whatever the
+// universe decides about the code on t. They are the features as of the code's
+// last priced bar on or before t, the same rows the feature store keeps, so a
+// session with no bar of its own still carries them. It is built when the
+// history reads as of t, and ok is false otherwise. No universe rule is
+// applied, so the candidate's short, fundamentals and name fields are unset: a
+// caller reads its price fields (the 20-session dollar volume, the moving
+// averages, the pivot) for a code the universe excludes.
+func (x *Index) PriceCandidateAt(code string, t civil.Date) (engine.Candidate, bool) {
+	bars := x.idx.in.Bars[code]
+	pf, ok := features.AsOf(bars, x.idx.in.XJO, t, x.idx.s.Features)
+	if !ok {
+		return engine.Candidate{}, false
+	}
+	return candidateFromPrice(code, pf), true
+}
+
+// Suspects returns the corporate-action suspects of a code over the whole of
+// the run's rows. A suspect is used on the session it is KnownAt, through
+// KnownBy, so a caller may read the full list and select by session.
+func (x *Index) Suspects(code string) []features.CASuspect {
+	return x.idx.suspects[code]
+}
+
+// Calendar is the session calendar the run's short-position rules read.
+func (x *Index) Calendar() *calendar.Calendar {
+	return x.idx.cal
+}
+
 // candidateAt is CandidateAt over a built index. The checks run in a fixed
 // order: the bar on the session, the history, the instrument, the CA guard,
 // then the short-report membership.

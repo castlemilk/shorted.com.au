@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
@@ -322,4 +323,68 @@ func codesOf(cs []engine.Candidate) []string {
 		out[i] = c.StockCode
 	}
 	return out
+}
+
+// TestIndexAgreesWithCandidateAt: the candidates an Index builds once are the
+// ones CandidateAt builds per call, on every code and session.
+func TestIndexAgreesWithCandidateAt(t *testing.T) {
+	in := inputsFor(120)
+	s := v1Spec(t)
+	x := NewIndex(in, s)
+	for _, code := range in.Codes {
+		for n := 0; n < 120; n += 7 {
+			d := day(n)
+			a, badA := CandidateAt(code, d, in, s)
+			b, badB := x.CandidateAt(code, d)
+			if !reflect.DeepEqual(a, b) || !reflect.DeepEqual(badA, badB) {
+				t.Fatalf("%s on %s: the index and CandidateAt disagree", code, d)
+			}
+		}
+	}
+}
+
+// TestPriceCandidateAtCarriesAnExcludedCodesPriceFeatures: a code the universe
+// excludes on a session it has a priced bar keeps the price features that the
+// admitted candidate of that session carries, so an exit decided on the
+// session is charged on the code's real volume. A session with no bar of its
+// own carries the features as of its last priced bar.
+func TestPriceCandidateAtCarriesAnExcludedCodesPriceFeatures(t *testing.T) {
+	in := inputsFor(120)
+	excluded := NewIndex(in, v1Spec(t))
+	open := v1Spec(t)
+	open.Universe.ASICReported = false
+	admitted := NewIndex(in, open)
+
+	d := day(100)
+	if _, bad := excluded.CandidateAt("AAA", d); bad == nil {
+		t.Fatalf("AAA on %s is admitted; the test needs it excluded", d)
+	}
+	want, bad := admitted.CandidateAt("AAA", d)
+	if bad != nil {
+		t.Fatalf("AAA on %s is excluded even without the report rule: %+v", d, bad)
+	}
+	got, ok := excluded.PriceCandidateAt("AAA", d)
+	if !ok {
+		t.Fatalf("AAA on %s has a priced bar and history, but no price features", d)
+	}
+	if got.DollarVolume20d == nil || *got.DollarVolume20d <= 0 {
+		t.Fatalf("AAA on %s: dollar volume %v, want a positive figure", d, got.DollarVolume20d)
+	}
+	if !reflect.DeepEqual(got.DollarVolume20d, want.DollarVolume20d) ||
+		!reflect.DeepEqual(got.SMA50, want.SMA50) ||
+		!reflect.DeepEqual(got.SMA200, want.SMA200) ||
+		!reflect.DeepEqual(got.BaseHigh, want.BaseHigh) ||
+		!reflect.DeepEqual(got.BreakoutDate, want.BreakoutDate) ||
+		got.Close != want.Close {
+		t.Fatalf("AAA on %s: the excluded code's price features differ from the admitted candidate's:\n%+v\n%+v", d, got, want)
+	}
+	// A session with no bar of its own carries the features as of the code's
+	// last priced bar: an exit decided there is charged on the real volume.
+	after, ok := excluded.PriceCandidateAt("AAA", day(200))
+	if !ok {
+		t.Fatalf("AAA on %s has no bar of its own, but its last bar's features are not carried", day(200))
+	}
+	if after.DollarVolume20d == nil || *after.DollarVolume20d <= 0 {
+		t.Fatalf("AAA on %s: dollar volume %v, want the last bar's positive figure", day(200), after.DollarVolume20d)
+	}
 }
