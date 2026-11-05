@@ -782,6 +782,15 @@ test-alerts-e2e: test-integration-images
 	cd jobs && GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run TestAlertsE2E ./internal/jobs/alerts/
 
+# The index sync's weekend clean-up (services/jobs/internal/jobs/marketdata): the rows the old UTC dating
+# filed under a Saturday or Sunday are removed for one series and no other row. The Sydney dating is
+# covered by the package's unit tests, which need no server.
+.PHONY: test-indexsync-pg
+test-indexsync-pg: test-integration-images
+	@set -e; \
+	cd jobs && GOWORK=off CGO_ENABLED=0 INDEXSYNC_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run WeekendIndexBars ./internal/jobs/marketdata/
+
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench
 .PHONY: test-stack-up test-stack-down test-stack-status test-stack-logs

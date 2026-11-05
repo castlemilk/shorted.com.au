@@ -1,6 +1,7 @@
 package marketdata
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -170,5 +171,54 @@ func TestSubcommandsDoNotBypassThePoolBuilder(t *testing.T) {
 		t.Errorf("these build a pool without QueryExecModeSimpleProtocol, which breaks "+
 			"against Supabase's transaction pooler — use buildDBPoolConfig + "+
 			"pgxpool.NewWithConfig:\n  %s", strings.Join(offenders, "\n  "))
+	}
+}
+
+// Yahoo stamps a session at its 10:00 Sydney open. Under daylight saving that
+// instant is the previous UTC day, and the session must still date to its own
+// weekday. A Monday filed under the Sunday before it is the defect this pins.
+func TestSessionDateUsesTheSydneyDayUnderDaylightSaving(t *testing.T) {
+	cases := []struct {
+		name string
+		open time.Time // the session's 10:00 Sydney open
+		want string
+	}{
+		{"Monday in daylight time", time.Date(2026, 11, 2, 10, 0, 0, 0, sydney), "2026-11-02"},
+		{"Tuesday in daylight time", time.Date(2026, 11, 3, 10, 0, 0, 0, sydney), "2026-11-03"},
+		{"Monday in standard time", time.Date(2026, 7, 6, 10, 0, 0, 0, sydney), "2026-07-06"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := sessionDate(c.open.Unix()).Format("2006-01-02"); got != c.want {
+				t.Errorf("sessionDate(%s) = %s, want %s", c.open, got, c.want)
+			}
+		})
+	}
+	// A stamp at midnight UTC is the same session in standard time: 10:00 AEST.
+	if got := sessionDate(time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC).Unix()).Format("2006-01-02"); got != "2026-07-06" {
+		t.Errorf("midnight-UTC stamp dated %s, want 2026-07-06", got)
+	}
+}
+
+// A two-session daylight-time response: Monday and Tuesday must stay on their
+// own weekdays, not shift onto Sunday and Monday.
+func TestParseIndexChartDatesDaylightSessionsOnTheirOwnWeekday(t *testing.T) {
+	mon := time.Date(2026, 11, 2, 10, 0, 0, 0, sydney).Unix()
+	tue := time.Date(2026, 11, 3, 10, 0, 0, 0, sydney).Unix()
+	body := fmt.Sprintf(`{"chart":{"result":[{"meta":{"symbol":"^AXJO","currency":"AUD"},
+	 "timestamp":[%d,%d],
+	 "indicators":{"quote":[{"open":[1,2],"high":[1,2],"low":[1,2],"close":[8880.1,8886.8],"volume":[1,2]}]}}],"error":null}}`, mon, tue)
+	bars, _, err := parseIndexChart([]byte(body))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(bars) != 2 {
+		t.Fatalf("got %d bars, want 2", len(bars))
+	}
+	if got := bars[0].Date.Format("2006-01-02"); got != "2026-11-02" {
+		t.Errorf("Monday's session dated %s", got)
+	}
+	if got := bars[1].Date.Format("2006-01-02"); got != "2026-11-03" {
+		t.Errorf("Tuesday's session dated %s", got)
 	}
 }

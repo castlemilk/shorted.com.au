@@ -10,12 +10,31 @@ import (
 	"math"
 	"net/url"
 	"time"
+	_ "time/tzdata" // the jobs image is distroless; embed the zone session dates depend on
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
+
+// sydney is the ASX's zone. A session's date is its date there.
+var sydney = func() *time.Location {
+	loc, err := time.LoadLocation("Australia/Sydney")
+	if err != nil {
+		panic(fmt.Sprintf("load Australia/Sydney: %v", err)) // unreachable with time/tzdata embedded
+	}
+	return loc
+}()
+
+// sessionDate is the date of the session a Yahoo bar stamp belongs to. Yahoo
+// stamps a session at its 10:00 Sydney open, which is the previous UTC day under
+// daylight saving, so the UTC date filed each Monday's session under the Sunday
+// before it. The Sydney date is the session's date in either time.
+func sessionDate(ts int64) time.Time {
+	local := time.Unix(ts, 0).In(sydney)
+	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
+}
 
 func indexSyncJob() runner.Job {
 	return runner.Func{
@@ -97,7 +116,7 @@ func parseIndexChart(body []byte) ([]indexBar, string, error) {
 
 	bars := make([]indexBar, 0, len(res.Timestamp))
 	for i, ts := range res.Timestamp {
-		bar := indexBar{Date: time.Unix(ts, 0).UTC().Truncate(24 * time.Hour)}
+		bar := indexBar{Date: sessionDate(ts)}
 		at := func(xs []*float64) *float64 {
 			if i < len(xs) && xs[i] != nil && !math.IsNaN(**&xs[i]) && !math.IsInf(*xs[i], 0) {
 				return xs[i]
@@ -155,6 +174,21 @@ func upsertIndexBars(ctx context.Context, pool *pgxpool.Pool, code string, bars 
 		written += tag.RowsAffected()
 	}
 	return written, nil
+}
+
+// deleteWeekendIndexBars removes stored rows of one index dated on a Saturday or
+// Sunday. The ASX never trades on a weekend, so such a row is a session filed
+// under the wrong day by the old UTC dating (a Monday's close under the Sunday).
+// The upsert cannot correct it: the same session is now filed under its own
+// weekday, so the stale row survives unless it is removed here.
+func deleteWeekendIndexBars(ctx context.Context, pool *pgxpool.Pool, code string) (int64, error) {
+	tag, err := pool.Exec(ctx, `
+		DELETE FROM index_prices
+		 WHERE index_code = $1 AND EXTRACT(ISODOW FROM date) > 5`, code)
+	if err != nil {
+		return 0, fmt.Errorf("delete weekend %s rows: %w", code, err)
+	}
+	return tag.RowsAffected(), nil
 }
 
 func runIndexSync(ctx context.Context, args []string) error {
@@ -250,6 +284,13 @@ func runIndexSync(ctx context.Context, args []string) error {
 		}
 		log.Printf("index-sync: %s %d sessions written (%s..%s)", s.Code, written,
 			bars[0].Date.Format("2006-01-02"), bars[len(bars)-1].Date.Format("2006-01-02"))
+		removed, err := deleteWeekendIndexBars(ctx, pool, s.Code)
+		if err != nil {
+			return err
+		}
+		if removed > 0 {
+			log.Printf("index-sync: %s removed %d weekend rows filed under the old UTC dating", s.Code, removed)
+		}
 	}
 
 	// Every series failing is an outage worth a non-zero exit; some failing is
