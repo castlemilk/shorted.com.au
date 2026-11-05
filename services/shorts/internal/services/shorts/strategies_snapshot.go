@@ -117,8 +117,8 @@ const (
 )
 
 // strategyDataStatusProto is the wire form of the source dates. It reports at
-// most the newest ten ASIC reports; availability is derived from the report
-// date by the ASX calendar, as the picks' short dates are.
+// most the newest ten ASIC reports, each with the date it became public on the
+// snapshot's calendar (the store derives it, as the stored readings do).
 func strategyDataStatusProto(st shortsstore.StrategyDataStatus, next time.Time) *shortsv1alpha1.GetStrategyDataStatusResponse {
 	out := &shortsv1alpha1.GetStrategyDataStatusResponse{
 		LatestSession:       st.LatestSession,
@@ -133,15 +133,16 @@ func strategyDataStatusProto(st shortsstore.StrategyDataStatus, next time.Time) 
 		if i == 10 {
 			break
 		}
-		report := civilTime(r.ReportDate)
 		entry := &shortsv1alpha1.AsicReportStatus{
 			ReportDate:      r.ReportDate.String(),
 			FirstIngestedAt: snapshotTimeOrEmpty(&r.FirstIngestedAt),
 			Rows:            int32(r.LoadedRows),
 			Complete:        asicReportComplete(st.AsicReports, i),
 		}
-		if published, ok := asxcalendar.AvailableFromCovered(report); ok {
-			entry.AvailableDate = dateOrEmpty(published)
+		// The date the stored short reading used, from the same calendar (the
+		// store derives it); empty for a report the holiday table does not cover.
+		if r.AvailableDate != nil {
+			entry.AvailableDate = r.AvailableDate.String()
 		}
 		out.AsicReports = append(out.AsicReports, entry)
 	}

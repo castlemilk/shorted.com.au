@@ -67,6 +67,8 @@ type strategyEvaluation struct {
 	// index maps an upper-case stock code to its picks position.
 	index    map[string]int
 	universe *strategyUniverse
+	// version is the rules version the picks were evaluated under.
+	version *shortsv1alpha1.StrategyVersionRef
 }
 
 // ListStrategies returns every strategy's definition and the market regime.
@@ -85,7 +87,7 @@ func (s *ShortsServer) ListStrategies(ctx context.Context, req *connect.Request[
 		Regime:     marketRegimeProto(regime, engine.NeutralRegimeVerdict(regime)),
 	}
 	for _, st := range registry {
-		resp.Strategies = append(resp.Strategies, strategyProto(st, st.CaveatsWithCoverage(0, -1)))
+		resp.Strategies = append(resp.Strategies, strategyProto(st, st.CaveatsWithCoverage(0, -1), s.servedVersion(st.ID)))
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -123,7 +125,7 @@ func parsePicksQuery(msg *shortsv1alpha1.GetStrategyPicksRequest) (picksQuery, e
 	}
 	status := strings.ToLower(strings.TrimSpace(msg.Status))
 	if status != "" && !engine.ValidPickStatus(status) {
-		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("status must be one of triggered, setup or watch"))
+		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("status must be one of triggered, setup, unknown or watch"))
 	}
 	sortBy := strings.ToLower(strings.TrimSpace(msg.SortBy))
 	if sortBy != "" && !engine.ValidSortBy(sortBy) {
@@ -244,7 +246,7 @@ func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *sh
 	end := min(start+limit, len(matching))
 
 	resp := &shortsv1alpha1.GetStrategyPicksResponse{
-		Strategy:                  strategyProto(q.st, q.st.CaveatsWithCoverage(u.coverageFor(q.st), len(u.candidates))),
+		Strategy:                  strategyProto(q.st, q.st.CaveatsWithCoverage(u.coverageFor(q.st), len(u.candidates)), eval.version),
 		Regime:                    marketRegimeProto(u.regime, q.st.RegimeVerdict(u.regime)),
 		Picks:                     make([]*shortsv1alpha1.StrategyPick, 0, end-start),
 		TotalCount:                int32(total),
@@ -263,7 +265,7 @@ func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *sh
 			RequiredAccess: AccessFree.String(),
 			Limit:          int32(depth.limit),
 		},
-		Version: liveVersion(q.st.ID),
+		Version: eval.version,
 	}
 	if thr, ok := u.env.RSQuantileThreshold(); ok {
 		resp.RsQuantileThreshold, resp.HasRsQuantileThreshold = thr, true
@@ -390,6 +392,24 @@ func newStrategyUniverse(cands []engine.Candidate, regime engine.Regime, asOf, s
 	return u
 }
 
+// strategyCandidates is the candidates a strategy's version ranks. The shared
+// universe is the ordinary, fresh stocks; a version whose universe names the
+// ASIC report (Crowded-Short, v1) ranks only the stocks the report lists, and
+// its rs statistics are over that universe.
+func (s *ShortsServer) strategyCandidates(strategyID string, u *strategyUniverse) ([]engine.Candidate, *engine.Env) {
+	reg, ok := s.servedRegistered(strategyID)
+	if !ok || !reg.Spec.Universe.ASICReported {
+		return u.candidates, u.env
+	}
+	reported := make([]engine.Candidate, 0, len(u.candidates))
+	for i := range u.candidates {
+		if u.candidates[i].InASICReport {
+			reported = append(reported, u.candidates[i])
+		}
+	}
+	return reported, engine.NewEnvFromStats(u.regime, engine.UniverseStatsOf(reported))
+}
+
 // loadStrategyEvaluation returns one strategy's full ranked pick list,
 // evaluated once per cache fill against the universe's shared environment.
 func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st engine.Strategy) (*strategyEvaluation, error) {
@@ -398,12 +418,14 @@ func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st engine.Str
 		if err != nil {
 			return nil, err
 		}
-		picks := engine.EvaluateWithEnv(st, u.candidates, u.env)
+		st.UnknownStatus = s.servedUnknownStatus(st.ID)
+		cands, env := s.strategyCandidates(st.ID, u)
+		picks := engine.EvaluateWithEnv(st, cands, env)
 		index := make(map[string]int, len(picks))
 		for i := range picks {
 			index[strings.ToUpper(picks[i].Candidate.StockCode)] = i
 		}
-		return &strategyEvaluation{picks: picks, index: index, universe: u}, nil
+		return &strategyEvaluation{picks: picks, index: index, universe: u, version: s.servedVersion(st.ID)}, nil
 	})
 	if err != nil {
 		return nil, err
@@ -421,6 +443,8 @@ func statusCounts(picks []engine.Pick) *shortsv1alpha1.StatusCounts {
 			out.Triggered++
 		case engine.StatusSetup:
 			out.Setup++
+		case engine.StatusUnknown:
+			out.Unknown++
 		case engine.StatusWatch:
 			out.Watch++
 		}
@@ -482,7 +506,7 @@ func strategyIDList() string {
 	return strings.Join(ids, ", ")
 }
 
-func strategyProto(st engine.Strategy, caveats []string) *shortsv1alpha1.Strategy {
+func strategyProto(st engine.Strategy, caveats []string, version *shortsv1alpha1.StrategyVersionRef) *shortsv1alpha1.Strategy {
 	rules := make([]*shortsv1alpha1.StrategyRule, 0, len(st.Rules))
 	for _, r := range st.Rules {
 		rules = append(rules, &shortsv1alpha1.StrategyRule{
@@ -517,7 +541,7 @@ func strategyProto(st engine.Strategy, caveats []string) *shortsv1alpha1.Strateg
 		},
 		Caveats: append([]string(nil), caveats...),
 		Sources: append([]string(nil), st.Sources...),
-		Version: liveVersion(st.ID),
+		Version: version,
 	}
 }
 

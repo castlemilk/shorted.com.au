@@ -260,7 +260,7 @@ func describeRegime(r MarketRegimeSummary) string {
 
 type GetStrategyPicksInput struct {
 	StrategyID string `json:"strategy_id" jsonschema:"zanger-breakout, canslim, minervini-trend-template, crowded-short-breakout or quality-compounders. Required."`
-	Status     string `json:"status,omitempty" jsonschema:"triggered, setup or watch. Omit for all."`
+	Status     string `json:"status,omitempty" jsonschema:"triggered, setup, unknown or watch. Omit for all."`
 	SortBy     string `json:"sort_by,omitempty" jsonschema:"score (default), revenue_yoy, eps_yoy, roe, net_margin, fcf_margin, pe (lowest first) or market_cap; unknowns last."`
 	Limit      int    `json:"limit,omitempty" jsonschema:"1-25, default 10."`
 }
@@ -315,7 +315,7 @@ type GetStrategyPicksOutput struct {
 
 const getStrategyPicksDescription = "Ranked ASX stocks for one named strategy, with every rule's outcome (passed, failed, " +
 	"unknown) and evidence for the failures. Status: triggered (every core rule passes), setup (all but the trigger, " +
-	"usually the breakout: the watchlist) or watch (some rules pass); ranked by status, then score, or reordered by " +
+	"usually the breakout: the watchlist), unknown (a core rule cannot be tested yet) or watch (some rules pass); ranked by status, then score, or reordered by " +
 	"sort_by (rank stays the strategy's). Each pick carries close, pivot (the base high: the breakout level, and where " +
 	"a failed breakout falls back through), base depth and length in sessions, volume over its 50-day average, revenue " +
 	"and EPS growth year on year, return on equity and net margin, 3-month return relative to the S&P/ASX 200 and ASIC " +
@@ -354,7 +354,7 @@ func getStrategyPicksHandler(src DataSource) sdk.ToolHandlerFor[GetStrategyPicks
 		status := strings.ToLower(strings.TrimSpace(in.Status))
 		if status != "" && !engine.ValidPickStatus(status) {
 			return nil, GetStrategyPicksOutput{}, fmt.Errorf(
-				"%q is not a pick status: use triggered, setup or watch, or omit it for all", in.Status)
+				"%q is not a pick status: use triggered, setup, unknown or watch, or omit it for all", in.Status)
 		}
 		// Validated against the evaluator's own closed set, so a typo is a
 		// message naming the choices rather than an InvalidArgument to decode.

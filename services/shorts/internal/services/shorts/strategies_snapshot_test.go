@@ -62,15 +62,19 @@ func (f *snapshotStoreFake) ListStrategySignalEvents(_ context.Context, flt shor
 func snapRow(day civil.Date, code string, priced int) snapshot.Row {
 	report := civil.Date{Year: 2026, Month: time.October, Day: 28}
 	pct := 6.5
+	inReport := true
 	return snapshot.Row{
-		AsOf:            day,
-		FeatureSet:      "fs1",
-		StockCode:       code,
-		OrdinaryFresh60: true,
+		AsOf:       day,
+		FeatureSet: "fs1",
+		StockCode:  code,
+		// ordinary_fresh_60 is the job's: a priced bar on the session and 60 priced sessions.
+		OrdinaryFresh60: priced >= 60,
 		IsOrdinary:      true,
+		InASICReport:    true,
 		Features: snapshot.Features{
 			FS1: features.PriceFeatures{AsOf: day, Close: 10},
 			SF0: features.ShortReading{Pct: &pct, ReportDate: &report},
+			SF1: features.ShortReading{Status: features.StatusReported, Pct: &pct, ReportDate: &report, InReport: &inReport},
 		},
 		Meta: []byte(`{"name":"` + code + ` Ltd","priced_sessions":` + strconv.Itoa(priced) + `}`),
 	}
@@ -119,9 +123,15 @@ func TestLiveSpecsShareOneUniversePolicy(t *testing.T) {
 	for _, id := range []string{spec.StrategyCANSLIM, spec.StrategyMinerviniTrend, spec.StrategyCrowdedShortBreakout, spec.StrategyQualityCompounders} {
 		r, ok := spec.Live(id)
 		require.True(t, ok, id)
-		assert.Equal(t, first.Spec.Universe, r.Spec.Universe, id)
+		// Crowded-Short's universe also names the ASIC report; the shared
+		// policy is the rest, and that one is the strategy's own (strategyCandidates).
+		want, got := first.Spec.Universe, r.Spec.Universe
+		want.ASICReported, got.ASICReported = false, false
+		assert.Equal(t, want, got, id)
 		assert.Equal(t, first.Spec.Data.ShortSource, r.Spec.Data.ShortSource, id)
 	}
+	crowded, _ := spec.Live(spec.StrategyCrowdedShortBreakout)
+	assert.True(t, crowded.Spec.Universe.ASICReported, "Crowded-Short ranks only the names the report lists")
 }
 
 // With the snapshot source, the universe is the snapshot's session and regime,
@@ -208,7 +218,7 @@ func TestStrategyDataStatusReportsTheSourceDates(t *testing.T) {
 		SnapshotCompletedAt: &sweep,
 		PricedCodes:         2400,
 		AsicReports: []shortsstore.AsicReportRow{
-			{ReportDate: civil.Date{Year: 2026, Month: time.October, Day: 28}, FirstIngestedAt: sweep, FileRows: intPtr(100), LoadedRows: 100},
+			{ReportDate: civil.Date{Year: 2026, Month: time.October, Day: 28}, FirstIngestedAt: sweep, FileRows: intPtr(100), LoadedRows: 100, AvailableDate: &civil.Date{Year: 2026, Month: time.November, Day: 3}},
 			{ReportDate: civil.Date{Year: 2026, Month: time.October, Day: 27}, FirstIngestedAt: sweep, FileRows: intPtr(100), LoadedRows: 99},
 		},
 	}}
@@ -223,7 +233,8 @@ func TestStrategyDataStatusReportsTheSourceDates(t *testing.T) {
 	require.Len(t, m.AsicReports, 2)
 	assert.True(t, m.AsicReports[0].Complete)
 	assert.False(t, m.AsicReports[1].Complete, "99 of 100 codes is not complete")
-	assert.NotEmpty(t, m.AsicReports[0].AvailableDate)
+	assert.Equal(t, "2026-11-03", m.AsicReports[0].AvailableDate, "the date the store derived from the snapshot calendar")
+	assert.Empty(t, m.AsicReports[1].AvailableDate, "a report the store did not date names no date")
 	assert.Equal(t, "2026-10-28", m.AsicReports[0].ReportDate)
 	assert.NotEmpty(t, m.NextUpdateUtc)
 }
@@ -397,6 +408,7 @@ func TestSnapshotShortAvailableDateIsTheStoredOne(t *testing.T) {
 	snap := snapshotOf()
 	stored := civil.Date{Year: 2026, Month: time.November, Day: 2}
 	snap.Rows[0].Features.SF0.AvailableDate = &stored
+	snap.Rows[0].Features.SF1.AvailableDate = &stored
 	cands, err := snapshotCandidates(snap)
 	require.NoError(t, err)
 	require.NotNil(t, cands[0].ShortAvailableDate)

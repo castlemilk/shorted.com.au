@@ -10,10 +10,13 @@ import (
 	"cloud.google.com/go/civil"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/calendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/snapshot"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 )
 
 // The daily snapshot (migration 000156) read by the API. The picks, the
@@ -80,6 +83,10 @@ type AsicReportRow struct {
 	FirstIngestedAt time.Time
 	FileRows        *int
 	LoadedRows      int
+	// AvailableDate is when the report became public on the calendar the
+	// snapshot's short reading uses (reportAvailability). nil for a report the
+	// holiday table does not cover, or when the calendar has no session for it.
+	AvailableDate *civil.Date
 }
 
 // StrategySignalEventsFilter selects one rules version's status changes. Ordering
@@ -250,6 +257,9 @@ func (s *postgresStore) ReadStrategyDataStatus(ctx context.Context) (StrategyDat
 	if err != nil {
 		return StrategyDataStatus{}, err
 	}
+	if err := reportAvailability(ctx, s.db, reports); err != nil {
+		return StrategyDataStatus{}, err
+	}
 	out.AsicReports = reports
 
 	sessions, err := completedStrategySessions(ctx, s.db, 1)
@@ -312,6 +322,82 @@ func latestPriceSweepCompletion(ctx context.Context, db fundamentalsDB) (*time.T
 
 // recentAsicReports reads the newest n ASIC reports, newest first. A database
 // without 000155 has none.
+// reportAvailability sets each report's publication date from the calendar the
+// snapshot's short reading is built on: the index sessions and the report
+// dates, at the v1 publication lag. A date shown here is therefore the date the
+// stored reading used (the sf1 availability), not a second calendar's guess.
+// The newest reports are all the calendar needs: a report's lag reads the
+// sessions after it, which are newer reports or index bars.
+func reportAvailability(ctx context.Context, db fundamentalsDB, reports []AsicReportRow) error {
+	if len(reports) == 0 {
+		return nil
+	}
+	oldest := reports[len(reports)-1].ReportDate
+	xjo, err := indexSessionDates(ctx, db, engine.DefaultIndexCode, oldest)
+	if err != nil {
+		return err
+	}
+	asic := make([]civil.Date, 0, len(reports))
+	for _, r := range reports {
+		asic = append(asic, r.ReportDate)
+	}
+	cal := calendar.New(xjo, asic, publicationLagSessions())
+	for i := range reports {
+		if reports[i].ReportDate.Year < asxcalendar.HolidayCoverageStartYear {
+			continue
+		}
+		if p, ok := cal.PublishedOn(reports[i].ReportDate); ok {
+			published := p
+			reports[i].AvailableDate = &published
+		}
+	}
+	return nil
+}
+
+// publicationLagSessions is the v1 policy's publication lag, read from the
+// registered version rather than restated.
+func publicationLagSessions() int {
+	if r, ok := spec.Version(spec.StrategyZangerBreakout, "v1"); ok {
+		return r.Spec.Data.PublicationLagSessions
+	}
+	return calendar.PublicationLagSessions
+}
+
+// indexSessionDates returns the index's session dates from `from` on, ascending.
+// A missing index table reads as no sessions.
+func indexSessionDates(ctx context.Context, db fundamentalsDB, indexCode string, from civil.Date) ([]civil.Date, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+	rows, err := db.Query(ctx, `
+		SELECT DISTINCT date::date::text FROM index_prices
+		 WHERE index_code = $1 AND close > 0 AND date >= $2::date
+		 ORDER BY 1`, indexCode, from.String())
+	if err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ReadStrategyDataStatus.index", err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read index sessions: %w", err)
+	}
+	defer rows.Close()
+	var out []civil.Date
+	for rows.Next() {
+		var day string
+		if err := rows.Scan(&day); err != nil {
+			return nil, fmt.Errorf("scan index session: %w", err)
+		}
+		d, err := civil.ParseDate(day)
+		if err != nil {
+			return nil, fmt.Errorf("parse index session %q: %w", day, err)
+		}
+		out = append(out, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate index sessions: %w", err)
+	}
+	return out, nil
+}
+
 func recentAsicReports(ctx context.Context, db fundamentalsDB, n int) ([]AsicReportRow, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()

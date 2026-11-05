@@ -56,6 +56,45 @@ func liveVersion(strategyID string) *shortsv1alpha1.StrategyVersionRef {
 	return ref
 }
 
+// servedRegistered is the registered version a response reads its rules from.
+// On the snapshot path that is the live version. On the views path the stock
+// picker still evaluates v0's rules (the SQL views implement nothing else), so
+// v0 is the version there, and its ladder and universe are v0's.
+func (s *ShortsServer) servedRegistered(strategyID string) (spec.Registered, bool) {
+	if s.config.StrategySource == StrategySourceSnapshot {
+		return spec.Live(strategyID)
+	}
+	return spec.Version(strategyID, "v0")
+}
+
+// servedVersion is the version a response names (servedRegistered's).
+func (s *ShortsServer) servedVersion(strategyID string) *shortsv1alpha1.StrategyVersionRef {
+	r, ok := s.servedRegistered(strategyID)
+	if !ok {
+		return nil
+	}
+	ref, err := versionRefOf(r)
+	if err != nil {
+		return nil
+	}
+	return ref
+}
+
+// servedUnknownStatus reports whether the strategy's picks read under v1's status
+// ladder (the served version's).
+func (s *ShortsServer) servedUnknownStatus(strategyID string) bool {
+	r, ok := s.servedRegistered(strategyID)
+	return ok && r.Spec.Ladder.UnknownStatus
+}
+
+// servedRulesHash is the rules hash of the version a response names, "" when none.
+func servedRulesHash(s *ShortsServer, strategyID string) string {
+	if ref := s.servedVersion(strategyID); ref != nil {
+		return ref.GetRulesHash()
+	}
+	return ""
+}
+
 // liveRulesHash is the rules hash of the live version of a strategy, "" when
 // none is registered.
 func liveRulesHash(strategyID string) string {

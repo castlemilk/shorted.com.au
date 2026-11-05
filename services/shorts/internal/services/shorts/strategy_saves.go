@@ -192,7 +192,7 @@ func (s *ShortsServer) savedStrategyProto(ctx context.Context, row shortsstore.S
 		return out
 	}
 	out.StatusCounts = statusCounts(eval.picks)
-	out.Version = liveVersion(st.ID)
+	out.Version = s.servedVersion(st.ID)
 	out.SessionDate = eval.universe.asOf
 	return out
 }
