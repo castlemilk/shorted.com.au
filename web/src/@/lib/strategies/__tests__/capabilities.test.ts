@@ -5,7 +5,7 @@ import {
 } from "~/@/lib/strategies/capabilities";
 
 describe("strategy capability registry", () => {
-  it("names the six capabilities of the workspace", () => {
+  it("names the seven capabilities of the workspace", () => {
     expect([...STRATEGY_CAPABILITY_NAMES]).toEqual([
       "compare",
       "alertBuilder",
@@ -13,16 +13,18 @@ describe("strategy capability registry", () => {
       "alertEmail",
       "trackedEntries",
       "variants",
+      "saves",
     ]);
   });
 
-  it("holds every flag off until its capability ships", () => {
+  it("holds every flag off until its capability ships, except saves, which ships with My strategies", () => {
     expect(Object.keys(STRATEGY_CAPABILITIES).sort()).toEqual(
       [...STRATEGY_CAPABILITY_NAMES].sort(),
     );
     for (const name of STRATEGY_CAPABILITY_NAMES) {
-      expect(STRATEGY_CAPABILITIES[name]).toBe(false);
-      expect(strategyCapabilityEnabled(name)).toBe(false);
+      const on = name === "saves";
+      expect(STRATEGY_CAPABILITIES[name]).toBe(on);
+      expect(strategyCapabilityEnabled(name)).toBe(on);
     }
   });
 });
