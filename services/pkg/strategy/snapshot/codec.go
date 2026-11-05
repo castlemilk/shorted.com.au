@@ -22,6 +22,11 @@ type Meta struct {
 	LogoURL        string   `json:"logo_url,omitempty"`
 	MarketCap      *float64 `json:"market_cap"`
 	PricedSessions int      `json:"priced_sessions"` // priced bars in the 400-day lookback
+	// The fetch times of the growth and quality rows the fundamentals were built
+	// from: provenance the blob leaves out, so the stock page can say when each
+	// was fetched.
+	GrowthFetchedAt  *time.Time `json:"growth_fetched_at,omitempty"`
+	QualityFetchedAt *time.Time `json:"quality_fetched_at,omitempty"`
 }
 
 // Universe reasons the snapshot writes, named as the stock page shows them.
@@ -131,6 +136,14 @@ func ToCandidate(r Row, s spec.Spec, f features.Fundamentals) (engine.Candidate,
 		c.MarketCap = &v
 	}
 	pipeline.ApplyFundamentals(&c, f)
+	if c.Growth != nil && meta.GrowthFetchedAt != nil {
+		t := *meta.GrowthFetchedAt
+		c.Growth.FetchedAt = &t
+	}
+	if c.Quality != nil && meta.QualityFetchedAt != nil {
+		t := *meta.QualityFetchedAt
+		c.Quality.FetchedAt = &t
+	}
 	return c, nil
 }
 

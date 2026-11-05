@@ -3,6 +3,7 @@ package snapshot
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"cloud.google.com/go/civil"
@@ -154,3 +155,26 @@ func TestToCandidateReadsTheVersionsShortSource(t *testing.T) {
 }
 
 func ptr(v float64) *float64 { return &v }
+
+// A code with too little history has no price features. Its stored features
+// must read back, and the zero date must never be written.
+func TestFeaturesRoundTripWithoutPriceFeatures(t *testing.T) {
+	in := Features{ExDiv: 0.25, SF1: features.ShortReading{Status: "none"}}
+	raw, err := EncodeFeatures(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "0000-00-00") {
+		t.Fatalf("the zero date must not be stored: %s", raw)
+	}
+	out, err := DecodeFeatures(raw)
+	if err != nil {
+		t.Fatalf("a short-history row must decode: %v", err)
+	}
+	if !out.FS1.AsOf.IsZero() || out.ExDiv != 0.25 || out.SF1.Status != "none" {
+		t.Fatalf("round trip = %+v", out)
+	}
+	if (Row{Features: out}).HasPrice() {
+		t.Fatal("a row with no price features must not report one")
+	}
+}

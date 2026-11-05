@@ -42,3 +42,22 @@ type Bar struct {
 	Adj float64 `json:"adj"`
 	V   float64 `json:"v"`
 }
+
+// MarshalJSON writes fs1 as null when the row carries no price features. The
+// zero civil.Date encodes as "0000-00-00", which no reader can parse back, so a
+// code with too little history would make every later session's read fail.
+func (f Features) MarshalJSON() ([]byte, error) {
+	type wire struct {
+		Bar   Bar                     `json:"bar"`
+		ExDiv float64                 `json:"ex_div"`
+		FS1   *features.PriceFeatures `json:"fs1"`
+		SF0   features.ShortReading   `json:"sf0"`
+		SF1   features.ShortReading   `json:"sf1"`
+	}
+	w := wire{Bar: f.Bar, ExDiv: f.ExDiv, SF0: f.SF0, SF1: f.SF1}
+	if !f.FS1.AsOf.IsZero() {
+		fs1 := f.FS1
+		w.FS1 = &fs1
+	}
+	return json.Marshal(w)
+}

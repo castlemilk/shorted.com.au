@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
@@ -110,7 +111,23 @@ func EncodeFundamentals(g *engine.Growth, e *FundamentalsExtras) (features.Funda
 		return features.Fundamentals{}, err
 	}
 	sum := sha256.Sum256(blob)
-	return features.Fundamentals{Hash: hex.EncodeToString(sum[:]), Blob: blob}, nil
+	out := features.Fundamentals{Hash: hex.EncodeToString(sum[:]), Blob: blob}
+	if g != nil {
+		out.GrowthFetchedAt = copyTime(g.FetchedAt)
+	}
+	if e != nil && e.Quality != nil {
+		out.QualityFetchedAt = copyTime(e.Quality.FetchedAt)
+	}
+	return out, nil
+}
+
+// copyTime is a copy of an optional time, so the caller's row is not shared.
+func copyTime(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	v := *t
+	return &v
 }
 
 // DecodeFundamentals reads a blob back into its body.
