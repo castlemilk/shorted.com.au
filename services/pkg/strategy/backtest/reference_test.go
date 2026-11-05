@@ -46,9 +46,10 @@ func TestReferenceIsMonthlyEqualWeight(t *testing.T) {
 	sessions := monthSessions(civil.Date{Year: 2024, Month: 1, Day: 2}, 40)
 	var jan, feb []int
 	for k, d := range sessions {
-		if d.Month == 1 {
+		switch d.Month {
+		case 1:
 			jan = append(jan, k)
-		} else if d.Month == 2 {
+		case 2:
 			feb = append(feb, k)
 		}
 	}
