@@ -359,18 +359,25 @@ func realisticStrategySource(src *fakeDataSource) {
 			case j == 0:
 				status = "unknown"
 			}
-			rules = append(rules, &shortsv1alpha1.RuleResult{
-				RuleId: r.ID, Status: status, Detail: evidence, Value: 12.3456, HasValue: true,
-			})
+			result := &shortsv1alpha1.RuleResult{RuleId: r.ID, Status: status, Detail: evidence}
+			if status == "unknown" {
+				result.Reason = "no_fundamentals"
+			} else {
+				result.Value, result.HasValue = 12.3456, true
+			}
+			rules = append(rules, result)
 		}
 		picks = append(picks, &shortsv1alpha1.StrategyPick{
 			Rank: int32(i + 1), StockCode: fmt.Sprintf("PK%02d", i), CompanyName: "PILBARA MINERALS LIMITED",
 			Industry: "Metals & Mining", Status: "watch", Score: 41.2345, Rules: rules,
-			Close: 12.3456, AsOf: "2026-09-25", PctOff_52WHigh: -31.2345, VolumeRatio_50D: 1.8765,
+			Close: 12.3456, AsOf: "2026-09-25", PctOff_52WHigh: -31.2345, HasPctOff_52WHigh: true, VolumeRatio_50D: 1.8765,
 			BaseDepthPct: 18.7654, BaseLengthDays: 87, Pivot: 14.5678,
 			RevenueYoyPct: 41.2345, HasRevenueYoy: true, EpsYoyPct: -12.3456, HasEpsYoy: true,
 			Rs_3MPct: -8.7654, ShortPct: 6.5432, MarketCap: 7_123_456_789,
 			HasClose: true, HasRs_3MPct: true, HasShortPct: true, HasMarketCap: true,
+			DaysToCover: 3.4567, HasDaysToCover: true, Rs_6MPct: -4.3210, HasRs_6MPct: true,
+			Rs_6MPercentile: 18.5, HasRs_6MPercentile: true, DollarVolume_20D: 4_321_000, HasDollarVolume_20D: true,
+			BreakoutDate: "2026-09-18", ShortReportDate: "2026-09-18", ShortAvailableDate: "2026-09-21", ShortStatus: "reported",
 			LogoUrl:      "https://storage.googleapis.com/shorted/logos/pls.png",
 			Fundamentals: pickFundamentalsFixture(),
 		})
@@ -378,7 +385,9 @@ func realisticStrategySource(src *fakeDataSource) {
 	src.strategyPicks = &shortsv1alpha1.GetStrategyPicksResponse{
 		Strategy: strategyFixture(widest), Regime: regime, Picks: picks,
 		TotalCount: 212, UniverseCount: 1_234, FundamentalsCoverageCount: 987, FundamentalsRowsCount: 1_101,
-		AsOf: "2026-09-25",
+		AsOf: "2026-09-25", SessionDate: "2026-09-25", ShortReportDate: "2026-09-18", ShortAvailableDate: "2026-09-21",
+		StatusCounts:        &shortsv1alpha1.StatusCounts{Triggered: 0, Setup: 14, Watch: 198},
+		RsQuantileThreshold: 9.8765, HasRsQuantileThreshold: true, UniverseLabel: "ASX 300 ex-LIC",
 	}
 
 	// More periods than the tool publishes: the fake ignores the limit, so the
@@ -489,6 +498,8 @@ func strategyFixture(st engine.Strategy) *shortsv1alpha1.Strategy {
 		rules = append(rules, &shortsv1alpha1.StrategyRule{
 			Id: r.ID, Title: r.Title, RuleText: r.RuleText, Evaluation: r.Evaluation,
 			Core: r.Core, DataSource: r.DataSource,
+			Trigger: r.Trigger, Weight: r.Weight, Threshold: r.Threshold, HasThreshold: r.HasThreshold,
+			Unit: r.Unit, Comparator: r.Comparator,
 		})
 	}
 	return &shortsv1alpha1.Strategy{

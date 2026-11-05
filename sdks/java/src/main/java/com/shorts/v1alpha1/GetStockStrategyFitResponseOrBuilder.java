@@ -133,4 +133,104 @@ public interface GetStockStrategyFitResponseOrBuilder extends
    * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
    */
   com.shorts.v1alpha1.PriceFeaturesOrBuilder getPriceFeaturesOrBuilder();
+
+  /**
+   * <pre>
+   * YYYY-MM-DD of the session the readings are as at.
+   * </pre>
+   *
+   * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+   * @return The sessionDate.
+   */
+  java.lang.String getSessionDate();
+  /**
+   * <pre>
+   * YYYY-MM-DD of the session the readings are as at.
+   * </pre>
+   *
+   * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+   * @return The bytes for sessionDate.
+   */
+  com.google.protobuf.ByteString
+      getSessionDateBytes();
+
+  /**
+   * <pre>
+   * Newest ASIC report date behind the short figures; empty when none.
+   * </pre>
+   *
+   * <code>string short_report_date = 8 [json_name = "shortReportDate"];</code>
+   * @return The shortReportDate.
+   */
+  java.lang.String getShortReportDate();
+  /**
+   * <pre>
+   * Newest ASIC report date behind the short figures; empty when none.
+   * </pre>
+   *
+   * <code>string short_report_date = 8 [json_name = "shortReportDate"];</code>
+   * @return The bytes for shortReportDate.
+   */
+  com.google.protobuf.ByteString
+      getShortReportDateBytes();
+
+  /**
+   * <pre>
+   * When that report became public; empty for a report dated before 2026.
+   * </pre>
+   *
+   * <code>string short_available_date = 9 [json_name = "shortAvailableDate"];</code>
+   * @return The shortAvailableDate.
+   */
+  java.lang.String getShortAvailableDate();
+  /**
+   * <pre>
+   * When that report became public; empty for a report dated before 2026.
+   * </pre>
+   *
+   * <code>string short_available_date = 9 [json_name = "shortAvailableDate"];</code>
+   * @return The bytes for shortAvailableDate.
+   */
+  com.google.protobuf.ByteString
+      getShortAvailableDateBytes();
+
+  /**
+   * <pre>
+   * True when the index has closed a session the prices have not reached (the data is delayed).
+   * </pre>
+   *
+   * <code>bool stale = 10 [json_name = "stale"];</code>
+   * @return The stale.
+   */
+  boolean getStale();
+
+  /**
+   * <pre>
+   * False when the stock cannot be read against the strategies at all.
+   * </pre>
+   *
+   * <code>bool eligible = 11 [json_name = "eligible"];</code>
+   * @return The eligible.
+   */
+  boolean getEligible();
+
+  /**
+   * <pre>
+   * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
+   * </pre>
+   *
+   * <code>string ineligible_reason = 12 [json_name = "ineligibleReason"];</code>
+   * @return The ineligibleReason.
+   */
+  java.lang.String getIneligibleReason();
+  /**
+   * <pre>
+   * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
+   * </pre>
+   *
+   * <code>string ineligible_reason = 12 [json_name = "ineligibleReason"];</code>
+   * @return The bytes for ineligibleReason.
+   */
+  com.google.protobuf.ByteString
+      getIneligibleReasonBytes();
 }

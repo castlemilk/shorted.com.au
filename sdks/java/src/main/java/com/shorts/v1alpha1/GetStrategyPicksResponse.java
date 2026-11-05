@@ -34,6 +34,10 @@ private static final long serialVersionUID = 0L;
   private GetStrategyPicksResponse() {
     picks_ = java.util.Collections.emptyList();
     asOf_ = "";
+    sessionDate_ = "";
+    shortReportDate_ = "";
+    shortAvailableDate_ = "";
+    universeLabel_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -255,6 +259,314 @@ private static final long serialVersionUID = 0L;
     return fundamentalsRowsCount_;
   }
 
+  public static final int STATUS_COUNTS_FIELD_NUMBER = 9;
+  private com.shorts.v1alpha1.StatusCounts statusCounts_;
+  /**
+   * <pre>
+   * Counts of every pick by status, over the whole ranked list before the
+   * status filter, the fundamentals filter and paging.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+   * @return Whether the statusCounts field is set.
+   */
+  @java.lang.Override
+  public boolean hasStatusCounts() {
+    return ((bitField0_ & 0x00000004) != 0);
+  }
+  /**
+   * <pre>
+   * Counts of every pick by status, over the whole ranked list before the
+   * status filter, the fundamentals filter and paging.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+   * @return The statusCounts.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.StatusCounts getStatusCounts() {
+    return statusCounts_ == null ? com.shorts.v1alpha1.StatusCounts.getDefaultInstance() : statusCounts_;
+  }
+  /**
+   * <pre>
+   * Counts of every pick by status, over the whole ranked list before the
+   * status filter, the fundamentals filter and paging.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.StatusCountsOrBuilder getStatusCountsOrBuilder() {
+    return statusCounts_ == null ? com.shorts.v1alpha1.StatusCounts.getDefaultInstance() : statusCounts_;
+  }
+
+  public static final int VERSION_FIELD_NUMBER = 10;
+  private com.shorts.v1alpha1.StrategyVersionRef version_;
+  /**
+   * <pre>
+   * Empty until versioned rules ship.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   * @return Whether the version field is set.
+   */
+  @java.lang.Override
+  public boolean hasVersion() {
+    return ((bitField0_ & 0x00000008) != 0);
+  }
+  /**
+   * <pre>
+   * Empty until versioned rules ship.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   * @return The version.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.StrategyVersionRef getVersion() {
+    return version_ == null ? com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+  }
+  /**
+   * <pre>
+   * Empty until versioned rules ship.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.StrategyVersionRefOrBuilder getVersionOrBuilder() {
+    return version_ == null ? com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+  }
+
+  public static final int SESSION_DATE_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object sessionDate_ = "";
+  /**
+   * <pre>
+   * YYYY-MM-DD of the session the picks are as at.
+   * </pre>
+   *
+   * <code>string session_date = 11 [json_name = "sessionDate"];</code>
+   * @return The sessionDate.
+   */
+  @java.lang.Override
+  public java.lang.String getSessionDate() {
+    java.lang.Object ref = sessionDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      sessionDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * YYYY-MM-DD of the session the picks are as at.
+   * </pre>
+   *
+   * <code>string session_date = 11 [json_name = "sessionDate"];</code>
+   * @return The bytes for sessionDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getSessionDateBytes() {
+    java.lang.Object ref = sessionDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      sessionDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SHORT_REPORT_DATE_FIELD_NUMBER = 12;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object shortReportDate_ = "";
+  /**
+   * <pre>
+   * Newest ASIC report date behind the short figures; empty when none.
+   * </pre>
+   *
+   * <code>string short_report_date = 12 [json_name = "shortReportDate"];</code>
+   * @return The shortReportDate.
+   */
+  @java.lang.Override
+  public java.lang.String getShortReportDate() {
+    java.lang.Object ref = shortReportDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      shortReportDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Newest ASIC report date behind the short figures; empty when none.
+   * </pre>
+   *
+   * <code>string short_report_date = 12 [json_name = "shortReportDate"];</code>
+   * @return The bytes for shortReportDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getShortReportDateBytes() {
+    java.lang.Object ref = shortReportDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      shortReportDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SHORT_AVAILABLE_DATE_FIELD_NUMBER = 13;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object shortAvailableDate_ = "";
+  /**
+   * <pre>
+   * When that report became public; empty for a report dated before 2026.
+   * </pre>
+   *
+   * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
+   * @return The shortAvailableDate.
+   */
+  @java.lang.Override
+  public java.lang.String getShortAvailableDate() {
+    java.lang.Object ref = shortAvailableDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      shortAvailableDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * When that report became public; empty for a report dated before 2026.
+   * </pre>
+   *
+   * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
+   * @return The bytes for shortAvailableDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getShortAvailableDateBytes() {
+    java.lang.Object ref = shortAvailableDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      shortAvailableDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int STALE_FIELD_NUMBER = 14;
+  private boolean stale_ = false;
+  /**
+   * <pre>
+   * True when the index has closed a session the prices have not reached (the data is delayed).
+   * </pre>
+   *
+   * <code>bool stale = 14 [json_name = "stale"];</code>
+   * @return The stale.
+   */
+  @java.lang.Override
+  public boolean getStale() {
+    return stale_;
+  }
+
+  public static final int RS_QUANTILE_THRESHOLD_FIELD_NUMBER = 16;
+  private double rsQuantileThreshold_ = 0D;
+  /**
+   * <pre>
+   * The session's top-quartile cut-off of rs_6m_pct (rs_leader reads it).
+   * </pre>
+   *
+   * <code>double rs_quantile_threshold = 16 [json_name = "rsQuantileThreshold"];</code>
+   * @return The rsQuantileThreshold.
+   */
+  @java.lang.Override
+  public double getRsQuantileThreshold() {
+    return rsQuantileThreshold_;
+  }
+
+  public static final int HAS_RS_QUANTILE_THRESHOLD_FIELD_NUMBER = 17;
+  private boolean hasRsQuantileThreshold_ = false;
+  /**
+   * <code>bool has_rs_quantile_threshold = 17 [json_name = "hasRsQuantileThreshold"];</code>
+   * @return The hasRsQuantileThreshold.
+   */
+  @java.lang.Override
+  public boolean getHasRsQuantileThreshold() {
+    return hasRsQuantileThreshold_;
+  }
+
+  public static final int UNIVERSE_LABEL_FIELD_NUMBER = 18;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object universeLabel_ = "";
+  /**
+   * <pre>
+   * The universe the picks were drawn from, as the strategy names it.
+   * </pre>
+   *
+   * <code>string universe_label = 18 [json_name = "universeLabel"];</code>
+   * @return The universeLabel.
+   */
+  @java.lang.Override
+  public java.lang.String getUniverseLabel() {
+    java.lang.Object ref = universeLabel_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      universeLabel_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The universe the picks were drawn from, as the strategy names it.
+   * </pre>
+   *
+   * <code>string universe_label = 18 [json_name = "universeLabel"];</code>
+   * @return The bytes for universeLabel.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getUniverseLabelBytes() {
+    java.lang.Object ref = universeLabel_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      universeLabel_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -292,6 +604,33 @@ private static final long serialVersionUID = 0L;
     }
     if (fundamentalsRowsCount_ != 0) {
       output.writeInt32(8, fundamentalsRowsCount_);
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      output.writeMessage(9, getStatusCounts());
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      output.writeMessage(10, getVersion());
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, sessionDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortReportDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 12, shortReportDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortAvailableDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 13, shortAvailableDate_);
+    }
+    if (stale_ != false) {
+      output.writeBool(14, stale_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(rsQuantileThreshold_) != 0) {
+      output.writeDouble(16, rsQuantileThreshold_);
+    }
+    if (hasRsQuantileThreshold_ != false) {
+      output.writeBool(17, hasRsQuantileThreshold_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(universeLabel_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 18, universeLabel_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -332,6 +671,38 @@ private static final long serialVersionUID = 0L;
     if (fundamentalsRowsCount_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(8, fundamentalsRowsCount_);
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(9, getStatusCounts());
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(10, getVersion());
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, sessionDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortReportDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(12, shortReportDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortAvailableDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(13, shortAvailableDate_);
+    }
+    if (stale_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(14, stale_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(rsQuantileThreshold_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(16, rsQuantileThreshold_);
+    }
+    if (hasRsQuantileThreshold_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(17, hasRsQuantileThreshold_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(universeLabel_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(18, universeLabel_);
     }
     return size;
   }
@@ -379,6 +750,31 @@ private static final long serialVersionUID = 0L;
         .equals(other.getAsOf())) return false;
     if (getFundamentalsRowsCount()
         != other.getFundamentalsRowsCount()) return false;
+    if (hasStatusCounts() != other.hasStatusCounts()) return false;
+    if (hasStatusCounts()) {
+      if (!getStatusCounts()
+          .equals(other.getStatusCounts())) return false;
+    }
+    if (hasVersion() != other.hasVersion()) return false;
+    if (hasVersion()) {
+      if (!getVersion()
+          .equals(other.getVersion())) return false;
+    }
+    if (!getSessionDate()
+        .equals(other.getSessionDate())) return false;
+    if (!getShortReportDate()
+        .equals(other.getShortReportDate())) return false;
+    if (!getShortAvailableDate()
+        .equals(other.getShortAvailableDate())) return false;
+    if (getStale()
+        != other.getStale()) return false;
+    if (java.lang.Double.doubleToLongBits(getRsQuantileThreshold())
+        != java.lang.Double.doubleToLongBits(
+            other.getRsQuantileThreshold())) return false;
+    if (getHasRsQuantileThreshold()
+        != other.getHasRsQuantileThreshold()) return false;
+    if (!getUniverseLabel()
+        .equals(other.getUniverseLabel())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -412,6 +808,31 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getAsOf().hashCode();
     hash = (37 * hash) + FUNDAMENTALS_ROWS_COUNT_FIELD_NUMBER;
     hash = (53 * hash) + getFundamentalsRowsCount();
+    if (hasStatusCounts()) {
+      hash = (37 * hash) + STATUS_COUNTS_FIELD_NUMBER;
+      hash = (53 * hash) + getStatusCounts().hashCode();
+    }
+    if (hasVersion()) {
+      hash = (37 * hash) + VERSION_FIELD_NUMBER;
+      hash = (53 * hash) + getVersion().hashCode();
+    }
+    hash = (37 * hash) + SESSION_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getSessionDate().hashCode();
+    hash = (37 * hash) + SHORT_REPORT_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getShortReportDate().hashCode();
+    hash = (37 * hash) + SHORT_AVAILABLE_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getShortAvailableDate().hashCode();
+    hash = (37 * hash) + STALE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getStale());
+    hash = (37 * hash) + RS_QUANTILE_THRESHOLD_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getRsQuantileThreshold()));
+    hash = (37 * hash) + HAS_RS_QUANTILE_THRESHOLD_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasRsQuantileThreshold());
+    hash = (37 * hash) + UNIVERSE_LABEL_FIELD_NUMBER;
+    hash = (53 * hash) + getUniverseLabel().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -549,6 +970,8 @@ private static final long serialVersionUID = 0L;
         internalGetStrategyFieldBuilder();
         internalGetRegimeFieldBuilder();
         internalGetPicksFieldBuilder();
+        internalGetStatusCountsFieldBuilder();
+        internalGetVersionFieldBuilder();
       }
     }
     @java.lang.Override
@@ -577,6 +1000,23 @@ private static final long serialVersionUID = 0L;
       fundamentalsCoverageCount_ = 0;
       asOf_ = "";
       fundamentalsRowsCount_ = 0;
+      statusCounts_ = null;
+      if (statusCountsBuilder_ != null) {
+        statusCountsBuilder_.dispose();
+        statusCountsBuilder_ = null;
+      }
+      version_ = null;
+      if (versionBuilder_ != null) {
+        versionBuilder_.dispose();
+        versionBuilder_ = null;
+      }
+      sessionDate_ = "";
+      shortReportDate_ = "";
+      shortAvailableDate_ = "";
+      stale_ = false;
+      rsQuantileThreshold_ = 0D;
+      hasRsQuantileThreshold_ = false;
+      universeLabel_ = "";
       return this;
     }
 
@@ -651,6 +1091,39 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000080) != 0)) {
         result.fundamentalsRowsCount_ = fundamentalsRowsCount_;
       }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.statusCounts_ = statusCountsBuilder_ == null
+            ? statusCounts_
+            : statusCountsBuilder_.build();
+        to_bitField0_ |= 0x00000004;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.version_ = versionBuilder_ == null
+            ? version_
+            : versionBuilder_.build();
+        to_bitField0_ |= 0x00000008;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.sessionDate_ = sessionDate_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.shortReportDate_ = shortReportDate_;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.shortAvailableDate_ = shortAvailableDate_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.stale_ = stale_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.rsQuantileThreshold_ = rsQuantileThreshold_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.hasRsQuantileThreshold_ = hasRsQuantileThreshold_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.universeLabel_ = universeLabel_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -714,6 +1187,41 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getFundamentalsRowsCount() != 0) {
         setFundamentalsRowsCount(other.getFundamentalsRowsCount());
+      }
+      if (other.hasStatusCounts()) {
+        mergeStatusCounts(other.getStatusCounts());
+      }
+      if (other.hasVersion()) {
+        mergeVersion(other.getVersion());
+      }
+      if (!other.getSessionDate().isEmpty()) {
+        sessionDate_ = other.sessionDate_;
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      if (!other.getShortReportDate().isEmpty()) {
+        shortReportDate_ = other.shortReportDate_;
+        bitField0_ |= 0x00000800;
+        onChanged();
+      }
+      if (!other.getShortAvailableDate().isEmpty()) {
+        shortAvailableDate_ = other.shortAvailableDate_;
+        bitField0_ |= 0x00001000;
+        onChanged();
+      }
+      if (other.getStale() != false) {
+        setStale(other.getStale());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getRsQuantileThreshold()) != 0) {
+        setRsQuantileThreshold(other.getRsQuantileThreshold());
+      }
+      if (other.getHasRsQuantileThreshold() != false) {
+        setHasRsQuantileThreshold(other.getHasRsQuantileThreshold());
+      }
+      if (!other.getUniverseLabel().isEmpty()) {
+        universeLabel_ = other.universeLabel_;
+        bitField0_ |= 0x00010000;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -793,6 +1301,55 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000080;
               break;
             } // case 64
+            case 74: {
+              input.readMessage(
+                  internalGetStatusCountsFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
+            case 82: {
+              input.readMessage(
+                  internalGetVersionFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 82
+            case 90: {
+              sessionDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
+            case 98: {
+              shortReportDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
+            case 106: {
+              shortAvailableDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 106
+            case 112: {
+              stale_ = input.readBool();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 112
+            case 129: {
+              rsQuantileThreshold_ = input.readDouble();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 129
+            case 136: {
+              hasRsQuantileThreshold_ = input.readBool();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 136
+            case 146: {
+              universeLabel_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 146
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1556,6 +2113,817 @@ private static final long serialVersionUID = 0L;
     public Builder clearFundamentalsRowsCount() {
       bitField0_ = (bitField0_ & ~0x00000080);
       fundamentalsRowsCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private com.shorts.v1alpha1.StatusCounts statusCounts_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.StatusCounts, com.shorts.v1alpha1.StatusCounts.Builder, com.shorts.v1alpha1.StatusCountsOrBuilder> statusCountsBuilder_;
+    /**
+     * <pre>
+     * Counts of every pick by status, over the whole ranked list before the
+     * status filter, the fundamentals filter and paging.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+     * @return Whether the statusCounts field is set.
+     */
+    public boolean hasStatusCounts() {
+      return ((bitField0_ & 0x00000100) != 0);
+    }
+    /**
+     * <pre>
+     * Counts of every pick by status, over the whole ranked list before the
+     * status filter, the fundamentals filter and paging.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+     * @return The statusCounts.
+     */
+    public com.shorts.v1alpha1.StatusCounts getStatusCounts() {
+      if (statusCountsBuilder_ == null) {
+        return statusCounts_ == null ? com.shorts.v1alpha1.StatusCounts.getDefaultInstance() : statusCounts_;
+      } else {
+        return statusCountsBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Counts of every pick by status, over the whole ranked list before the
+     * status filter, the fundamentals filter and paging.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+     */
+    public Builder setStatusCounts(com.shorts.v1alpha1.StatusCounts value) {
+      if (statusCountsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        statusCounts_ = value;
+      } else {
+        statusCountsBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Counts of every pick by status, over the whole ranked list before the
+     * status filter, the fundamentals filter and paging.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+     */
+    public Builder setStatusCounts(
+        com.shorts.v1alpha1.StatusCounts.Builder builderForValue) {
+      if (statusCountsBuilder_ == null) {
+        statusCounts_ = builderForValue.build();
+      } else {
+        statusCountsBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Counts of every pick by status, over the whole ranked list before the
+     * status filter, the fundamentals filter and paging.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+     */
+    public Builder mergeStatusCounts(com.shorts.v1alpha1.StatusCounts value) {
+      if (statusCountsBuilder_ == null) {
+        if (((bitField0_ & 0x00000100) != 0) &&
+          statusCounts_ != null &&
+          statusCounts_ != com.shorts.v1alpha1.StatusCounts.getDefaultInstance()) {
+          getStatusCountsBuilder().mergeFrom(value);
+        } else {
+          statusCounts_ = value;
+        }
+      } else {
+        statusCountsBuilder_.mergeFrom(value);
+      }
+      if (statusCounts_ != null) {
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Counts of every pick by status, over the whole ranked list before the
+     * status filter, the fundamentals filter and paging.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+     */
+    public Builder clearStatusCounts() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      statusCounts_ = null;
+      if (statusCountsBuilder_ != null) {
+        statusCountsBuilder_.dispose();
+        statusCountsBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Counts of every pick by status, over the whole ranked list before the
+     * status filter, the fundamentals filter and paging.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+     */
+    public com.shorts.v1alpha1.StatusCounts.Builder getStatusCountsBuilder() {
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return internalGetStatusCountsFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Counts of every pick by status, over the whole ranked list before the
+     * status filter, the fundamentals filter and paging.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+     */
+    public com.shorts.v1alpha1.StatusCountsOrBuilder getStatusCountsOrBuilder() {
+      if (statusCountsBuilder_ != null) {
+        return statusCountsBuilder_.getMessageOrBuilder();
+      } else {
+        return statusCounts_ == null ?
+            com.shorts.v1alpha1.StatusCounts.getDefaultInstance() : statusCounts_;
+      }
+    }
+    /**
+     * <pre>
+     * Counts of every pick by status, over the whole ranked list before the
+     * status filter, the fundamentals filter and paging.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StatusCounts status_counts = 9 [json_name = "statusCounts"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.StatusCounts, com.shorts.v1alpha1.StatusCounts.Builder, com.shorts.v1alpha1.StatusCountsOrBuilder> 
+        internalGetStatusCountsFieldBuilder() {
+      if (statusCountsBuilder_ == null) {
+        statusCountsBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.StatusCounts, com.shorts.v1alpha1.StatusCounts.Builder, com.shorts.v1alpha1.StatusCountsOrBuilder>(
+                getStatusCounts(),
+                getParentForChildren(),
+                isClean());
+        statusCounts_ = null;
+      }
+      return statusCountsBuilder_;
+    }
+
+    private com.shorts.v1alpha1.StrategyVersionRef version_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.StrategyVersionRef, com.shorts.v1alpha1.StrategyVersionRef.Builder, com.shorts.v1alpha1.StrategyVersionRefOrBuilder> versionBuilder_;
+    /**
+     * <pre>
+     * Empty until versioned rules ship.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     * @return Whether the version field is set.
+     */
+    public boolean hasVersion() {
+      return ((bitField0_ & 0x00000200) != 0);
+    }
+    /**
+     * <pre>
+     * Empty until versioned rules ship.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     * @return The version.
+     */
+    public com.shorts.v1alpha1.StrategyVersionRef getVersion() {
+      if (versionBuilder_ == null) {
+        return version_ == null ? com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+      } else {
+        return versionBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Empty until versioned rules ship.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public Builder setVersion(com.shorts.v1alpha1.StrategyVersionRef value) {
+      if (versionBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        version_ = value;
+      } else {
+        versionBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Empty until versioned rules ship.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public Builder setVersion(
+        com.shorts.v1alpha1.StrategyVersionRef.Builder builderForValue) {
+      if (versionBuilder_ == null) {
+        version_ = builderForValue.build();
+      } else {
+        versionBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Empty until versioned rules ship.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public Builder mergeVersion(com.shorts.v1alpha1.StrategyVersionRef value) {
+      if (versionBuilder_ == null) {
+        if (((bitField0_ & 0x00000200) != 0) &&
+          version_ != null &&
+          version_ != com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance()) {
+          getVersionBuilder().mergeFrom(value);
+        } else {
+          version_ = value;
+        }
+      } else {
+        versionBuilder_.mergeFrom(value);
+      }
+      if (version_ != null) {
+        bitField0_ |= 0x00000200;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Empty until versioned rules ship.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public Builder clearVersion() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      version_ = null;
+      if (versionBuilder_ != null) {
+        versionBuilder_.dispose();
+        versionBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Empty until versioned rules ship.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public com.shorts.v1alpha1.StrategyVersionRef.Builder getVersionBuilder() {
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return internalGetVersionFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Empty until versioned rules ship.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    public com.shorts.v1alpha1.StrategyVersionRefOrBuilder getVersionOrBuilder() {
+      if (versionBuilder_ != null) {
+        return versionBuilder_.getMessageOrBuilder();
+      } else {
+        return version_ == null ?
+            com.shorts.v1alpha1.StrategyVersionRef.getDefaultInstance() : version_;
+      }
+    }
+    /**
+     * <pre>
+     * Empty until versioned rules ship.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.StrategyVersionRef, com.shorts.v1alpha1.StrategyVersionRef.Builder, com.shorts.v1alpha1.StrategyVersionRefOrBuilder> 
+        internalGetVersionFieldBuilder() {
+      if (versionBuilder_ == null) {
+        versionBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.StrategyVersionRef, com.shorts.v1alpha1.StrategyVersionRef.Builder, com.shorts.v1alpha1.StrategyVersionRefOrBuilder>(
+                getVersion(),
+                getParentForChildren(),
+                isClean());
+        version_ = null;
+      }
+      return versionBuilder_;
+    }
+
+    private java.lang.Object sessionDate_ = "";
+    /**
+     * <pre>
+     * YYYY-MM-DD of the session the picks are as at.
+     * </pre>
+     *
+     * <code>string session_date = 11 [json_name = "sessionDate"];</code>
+     * @return The sessionDate.
+     */
+    public java.lang.String getSessionDate() {
+      java.lang.Object ref = sessionDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        sessionDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the session the picks are as at.
+     * </pre>
+     *
+     * <code>string session_date = 11 [json_name = "sessionDate"];</code>
+     * @return The bytes for sessionDate.
+     */
+    public com.google.protobuf.ByteString
+        getSessionDateBytes() {
+      java.lang.Object ref = sessionDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sessionDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the session the picks are as at.
+     * </pre>
+     *
+     * <code>string session_date = 11 [json_name = "sessionDate"];</code>
+     * @param value The sessionDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSessionDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      sessionDate_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the session the picks are as at.
+     * </pre>
+     *
+     * <code>string session_date = 11 [json_name = "sessionDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSessionDate() {
+      sessionDate_ = getDefaultInstance().getSessionDate();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the session the picks are as at.
+     * </pre>
+     *
+     * <code>string session_date = 11 [json_name = "sessionDate"];</code>
+     * @param value The bytes for sessionDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSessionDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      sessionDate_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object shortReportDate_ = "";
+    /**
+     * <pre>
+     * Newest ASIC report date behind the short figures; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 12 [json_name = "shortReportDate"];</code>
+     * @return The shortReportDate.
+     */
+    public java.lang.String getShortReportDate() {
+      java.lang.Object ref = shortReportDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        shortReportDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Newest ASIC report date behind the short figures; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 12 [json_name = "shortReportDate"];</code>
+     * @return The bytes for shortReportDate.
+     */
+    public com.google.protobuf.ByteString
+        getShortReportDateBytes() {
+      java.lang.Object ref = shortReportDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        shortReportDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Newest ASIC report date behind the short figures; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 12 [json_name = "shortReportDate"];</code>
+     * @param value The shortReportDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortReportDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      shortReportDate_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Newest ASIC report date behind the short figures; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 12 [json_name = "shortReportDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShortReportDate() {
+      shortReportDate_ = getDefaultInstance().getShortReportDate();
+      bitField0_ = (bitField0_ & ~0x00000800);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Newest ASIC report date behind the short figures; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 12 [json_name = "shortReportDate"];</code>
+     * @param value The bytes for shortReportDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortReportDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      shortReportDate_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object shortAvailableDate_ = "";
+    /**
+     * <pre>
+     * When that report became public; empty for a report dated before 2026.
+     * </pre>
+     *
+     * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
+     * @return The shortAvailableDate.
+     */
+    public java.lang.String getShortAvailableDate() {
+      java.lang.Object ref = shortAvailableDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        shortAvailableDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * When that report became public; empty for a report dated before 2026.
+     * </pre>
+     *
+     * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
+     * @return The bytes for shortAvailableDate.
+     */
+    public com.google.protobuf.ByteString
+        getShortAvailableDateBytes() {
+      java.lang.Object ref = shortAvailableDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        shortAvailableDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * When that report became public; empty for a report dated before 2026.
+     * </pre>
+     *
+     * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
+     * @param value The shortAvailableDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortAvailableDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      shortAvailableDate_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * When that report became public; empty for a report dated before 2026.
+     * </pre>
+     *
+     * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShortAvailableDate() {
+      shortAvailableDate_ = getDefaultInstance().getShortAvailableDate();
+      bitField0_ = (bitField0_ & ~0x00001000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * When that report became public; empty for a report dated before 2026.
+     * </pre>
+     *
+     * <code>string short_available_date = 13 [json_name = "shortAvailableDate"];</code>
+     * @param value The bytes for shortAvailableDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortAvailableDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      shortAvailableDate_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+
+    private boolean stale_ ;
+    /**
+     * <pre>
+     * True when the index has closed a session the prices have not reached (the data is delayed).
+     * </pre>
+     *
+     * <code>bool stale = 14 [json_name = "stale"];</code>
+     * @return The stale.
+     */
+    @java.lang.Override
+    public boolean getStale() {
+      return stale_;
+    }
+    /**
+     * <pre>
+     * True when the index has closed a session the prices have not reached (the data is delayed).
+     * </pre>
+     *
+     * <code>bool stale = 14 [json_name = "stale"];</code>
+     * @param value The stale to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStale(boolean value) {
+
+      stale_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when the index has closed a session the prices have not reached (the data is delayed).
+     * </pre>
+     *
+     * <code>bool stale = 14 [json_name = "stale"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStale() {
+      bitField0_ = (bitField0_ & ~0x00002000);
+      stale_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double rsQuantileThreshold_ ;
+    /**
+     * <pre>
+     * The session's top-quartile cut-off of rs_6m_pct (rs_leader reads it).
+     * </pre>
+     *
+     * <code>double rs_quantile_threshold = 16 [json_name = "rsQuantileThreshold"];</code>
+     * @return The rsQuantileThreshold.
+     */
+    @java.lang.Override
+    public double getRsQuantileThreshold() {
+      return rsQuantileThreshold_;
+    }
+    /**
+     * <pre>
+     * The session's top-quartile cut-off of rs_6m_pct (rs_leader reads it).
+     * </pre>
+     *
+     * <code>double rs_quantile_threshold = 16 [json_name = "rsQuantileThreshold"];</code>
+     * @param value The rsQuantileThreshold to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRsQuantileThreshold(double value) {
+
+      rsQuantileThreshold_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The session's top-quartile cut-off of rs_6m_pct (rs_leader reads it).
+     * </pre>
+     *
+     * <code>double rs_quantile_threshold = 16 [json_name = "rsQuantileThreshold"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRsQuantileThreshold() {
+      bitField0_ = (bitField0_ & ~0x00004000);
+      rsQuantileThreshold_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasRsQuantileThreshold_ ;
+    /**
+     * <code>bool has_rs_quantile_threshold = 17 [json_name = "hasRsQuantileThreshold"];</code>
+     * @return The hasRsQuantileThreshold.
+     */
+    @java.lang.Override
+    public boolean getHasRsQuantileThreshold() {
+      return hasRsQuantileThreshold_;
+    }
+    /**
+     * <code>bool has_rs_quantile_threshold = 17 [json_name = "hasRsQuantileThreshold"];</code>
+     * @param value The hasRsQuantileThreshold to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasRsQuantileThreshold(boolean value) {
+
+      hasRsQuantileThreshold_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_rs_quantile_threshold = 17 [json_name = "hasRsQuantileThreshold"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasRsQuantileThreshold() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      hasRsQuantileThreshold_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object universeLabel_ = "";
+    /**
+     * <pre>
+     * The universe the picks were drawn from, as the strategy names it.
+     * </pre>
+     *
+     * <code>string universe_label = 18 [json_name = "universeLabel"];</code>
+     * @return The universeLabel.
+     */
+    public java.lang.String getUniverseLabel() {
+      java.lang.Object ref = universeLabel_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        universeLabel_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The universe the picks were drawn from, as the strategy names it.
+     * </pre>
+     *
+     * <code>string universe_label = 18 [json_name = "universeLabel"];</code>
+     * @return The bytes for universeLabel.
+     */
+    public com.google.protobuf.ByteString
+        getUniverseLabelBytes() {
+      java.lang.Object ref = universeLabel_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        universeLabel_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The universe the picks were drawn from, as the strategy names it.
+     * </pre>
+     *
+     * <code>string universe_label = 18 [json_name = "universeLabel"];</code>
+     * @param value The universeLabel to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUniverseLabel(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      universeLabel_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The universe the picks were drawn from, as the strategy names it.
+     * </pre>
+     *
+     * <code>string universe_label = 18 [json_name = "universeLabel"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearUniverseLabel() {
+      universeLabel_ = getDefaultInstance().getUniverseLabel();
+      bitField0_ = (bitField0_ & ~0x00010000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The universe the picks were drawn from, as the strategy names it.
+     * </pre>
+     *
+     * <code>string universe_label = 18 [json_name = "universeLabel"];</code>
+     * @param value The bytes for universeLabel to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUniverseLabelBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      universeLabel_ = value;
+      bitField0_ |= 0x00010000;
       onChanged();
       return this;
     }

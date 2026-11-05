@@ -111,4 +111,84 @@ public interface StrategyRuleOrBuilder extends
    */
   com.google.protobuf.ByteString
       getDataSourceBytes();
+
+  /**
+   * <pre>
+   * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
+   * </pre>
+   *
+   * <code>bool trigger = 7 [json_name = "trigger"];</code>
+   * @return The trigger.
+   */
+  boolean getTrigger();
+
+  /**
+   * <pre>
+   * Share of the score this rule carries, 0-1; the weights of a strategy sum to 1.
+   * </pre>
+   *
+   * <code>double weight = 8 [json_name = "weight"];</code>
+   * @return The weight.
+   */
+  double getWeight();
+
+  /**
+   * <pre>
+   * The number the rule tests, in unit. Meaningful only when has_threshold.
+   * </pre>
+   *
+   * <code>double threshold = 9 [json_name = "threshold"];</code>
+   * @return The threshold.
+   */
+  double getThreshold();
+
+  /**
+   * <pre>
+   * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth).
+   * </pre>
+   *
+   * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>
+   * @return The hasThreshold.
+   */
+  boolean getHasThreshold();
+
+  /**
+   * <pre>
+   * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+   * </pre>
+   *
+   * <code>string unit = 11 [json_name = "unit"];</code>
+   * @return The unit.
+   */
+  java.lang.String getUnit();
+  /**
+   * <pre>
+   * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+   * </pre>
+   *
+   * <code>string unit = 11 [json_name = "unit"];</code>
+   * @return The bytes for unit.
+   */
+  com.google.protobuf.ByteString
+      getUnitBytes();
+
+  /**
+   * <pre>
+   * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
+   * </pre>
+   *
+   * <code>string comparator = 12 [json_name = "comparator"];</code>
+   * @return The comparator.
+   */
+  java.lang.String getComparator();
+  /**
+   * <pre>
+   * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
+   * </pre>
+   *
+   * <code>string comparator = 12 [json_name = "comparator"];</code>
+   * @return The bytes for comparator.
+   */
+  com.google.protobuf.ByteString
+      getComparatorBytes();
 }

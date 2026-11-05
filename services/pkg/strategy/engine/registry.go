@@ -71,6 +71,16 @@ type Rule struct {
 	Evaluation string // exactly how we test it, with thresholds
 	Core       bool   // must pass for status triggered
 	DataSource string
+
+	// Definition-level facts, set by Registry (annotate): whether the rule is
+	// one of its strategy's triggers, its share of the score, and the single
+	// number it tests with HasThreshold (thresholds.go).
+	Trigger      bool
+	Weight       float64
+	Threshold    float64
+	HasThreshold bool
+	Unit         string
+	Comparator   string
 }
 
 // Metadata describes how a strategy is meant to be used.
@@ -226,13 +236,37 @@ const (
 // compounders), freshly allocated on every call so a caller may not mutate
 // the shared definitions.
 func Registry() []Strategy {
-	return []Strategy{
+	out := []Strategy{
 		zangerBreakout(),
 		canslim(),
 		minerviniTrendTemplate(),
 		crowdedShortBreakout(),
 		qualityCompounders(),
 	}
+	for i := range out {
+		out[i] = annotate(out[i])
+	}
+	return out
+}
+
+// annotate fills each rule's definition-level facts from the strategy's
+// trigger list, the score recipe (weights.go) and the threshold table
+// (thresholds.go), so every surface reads one copy of each number.
+func annotate(s Strategy) Strategy {
+	triggers := triggerRuleSet(s)
+	weights := ruleWeights[s.ID]
+	rules := make([]Rule, len(s.Rules))
+	for i, r := range s.Rules {
+		r.Trigger = triggers[r.ID]
+		r.Weight = weights[r.ID]
+		if t, ok := ruleThresholds[r.ID]; ok {
+			r.Threshold, r.HasThreshold = t.value, true
+			r.Unit, r.Comparator = t.unit, t.comparator
+		}
+		rules[i] = r
+	}
+	s.Rules = rules
+	return s
 }
 
 func zangerBreakout() Strategy {

@@ -66,6 +66,21 @@ func ValidPickStatus(s string) bool {
 	return false
 }
 
+// Reason codes for an unknown rule result (RuleResult.Reason). Each names the
+// missing input, never a verdict.
+const (
+	// ReasonNoPriceHistory: too few sessions to measure the rule from prices.
+	ReasonNoPriceHistory = "no_price_history"
+	// ReasonNoVolume: too few traded sessions to measure volume or turnover.
+	ReasonNoVolume = "no_volume"
+	// ReasonNoIndex: no index level to compare the stock against.
+	ReasonNoIndex = "no_index"
+	// ReasonNoFundamentals: the stock has no reported figure the rule needs.
+	ReasonNoFundamentals = "no_fundamentals"
+	// ReasonNotMeaningful: the ratio is not meaningful for this kind of company.
+	ReasonNotMeaningful = "not_meaningful"
+)
+
 // Regime labels, as mv_market_regime.regime stores them.
 const (
 	RegimeUptrend   = "uptrend"
@@ -257,6 +272,11 @@ type Candidate struct {
 	ValuationInputs *ValuationInputs
 	Valuation       Valuation
 
+	// ShortReportDate is the newest ASIC report date at which the stock had a
+	// non-zero reported short position; nil when none. It is
+	// display-only until the short-interest rules read report dates.
+	ShortReportDate *time.Time
+
 	// mv_screener_data, falling back to "company-metadata" for names.
 	CompanyName string
 	Industry    string
@@ -304,6 +324,10 @@ type Regime struct {
 	Ret1mPct      *float64
 	Ret3mPct      *float64
 	Label         string // RegimeUptrend | RegimeNeutral | RegimeDowntrend | ""
+	// LatestSession is the newest session the index's own price series holds
+	// with a level, read live rather than from the view, so it can be newer
+	// than AsOf until the views refresh. Nil when the series has no session.
+	LatestSession *time.Time
 }
 
 // Known reports whether the regime row exists and carries a recognised label.
@@ -322,6 +346,15 @@ type RuleResult struct {
 	Detail   string
 	Value    float64
 	HasValue bool
+	// Reason is the Reason* code of an unknown result; empty otherwise.
+	Reason string
+	// Proximity grades a failing trigger rule, 0-1 (proximity.go). Meaningful
+	// only when HasProximity, which holds for a failing trigger and nothing else.
+	Proximity    float64
+	HasProximity bool
+	// Waiting is true for a failing trigger rule on a setup row: the stock is
+	// waiting for the trigger to fire.
+	Waiting bool
 }
 
 // Pick is one evaluated stock, ranked.
@@ -331,4 +364,10 @@ type Pick struct {
 	Status    PickStatus
 	Score     float64 // 0-100, orders rows within a status
 	Rules     []RuleResult
+	// RS6mPercentile is where the stock's rs_6m_pct sits in the evaluated
+	// universe on the quartile's own scale, 0-100: 75 or more is the top
+	// quartile, the cut-off rs_leader reads (type-7 rank, not a share of stocks).
+	// nil when the
+	// stock has no 6-month figure.
+	RS6mPercentile *float64
 }

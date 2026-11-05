@@ -149,3 +149,15 @@ func TestHolidayCoverageHasNotRunOut(t *testing.T) {
 		t.Error(why)
 	}
 }
+
+// A report before the holiday table's first year has no reliable publication
+// date: a 2025 Christmas would be counted as a trading day.
+func TestAvailableFromCoveredWithholdsEarlierYears(t *testing.T) {
+	if _, ok := AvailableFromCovered(date("2025-12-19")); ok {
+		t.Error("a 2025 report must not get a publication date")
+	}
+	got, ok := AvailableFromCovered(date("2026-08-03"))
+	if !ok || got.Format("2006-01-02") != "2026-08-07" {
+		t.Errorf("a 2026 report = %v, %v; want 2026-08-07, true", got, ok)
+	}
+}

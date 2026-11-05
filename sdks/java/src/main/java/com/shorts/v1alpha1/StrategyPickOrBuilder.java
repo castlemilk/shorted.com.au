@@ -312,4 +312,179 @@ public interface StrategyPickOrBuilder extends
    * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
    */
   com.shorts.v1alpha1.PickFundamentalsOrBuilder getFundamentalsOrBuilder();
+
+  /**
+   * <pre>
+   * Signal evidence (display-only in this release where noted).
+   * </pre>
+   *
+   * <code>double days_to_cover = 28 [json_name = "daysToCover"];</code>
+   * @return The daysToCover.
+   */
+  double getDaysToCover();
+
+  /**
+   * <code>bool has_days_to_cover = 29 [json_name = "hasDaysToCover"];</code>
+   * @return The hasDaysToCover.
+   */
+  boolean getHasDaysToCover();
+
+  /**
+   * <pre>
+   * Meaningful only when has_rs_6m_pct.
+   * </pre>
+   *
+   * <code>double rs_6m_pct = 30 [json_name = "rs6mPct"];</code>
+   * @return The rs6mPct.
+   */
+  double getRs6MPct();
+
+  /**
+   * <code>bool has_rs_6m_pct = 31 [json_name = "hasRs6mPct"];</code>
+   * @return The hasRs6mPct.
+   */
+  boolean getHasRs6MPct();
+
+  /**
+   * <pre>
+   * Rank of rs_6m_pct across the evaluated universe on the quartile's own scale, 0-100 (75 or more is the top quartile).
+   * </pre>
+   *
+   * <code>double rs_6m_percentile = 32 [json_name = "rs6mPercentile"];</code>
+   * @return The rs6mPercentile.
+   */
+  double getRs6MPercentile();
+
+  /**
+   * <code>bool has_rs_6m_percentile = 33 [json_name = "hasRs6mPercentile"];</code>
+   * @return The hasRs6mPercentile.
+   */
+  boolean getHasRs6MPercentile();
+
+  /**
+   * <pre>
+   * Average daily turnover over 20 sessions, A$. Meaningful only when has_dollar_volume_20d.
+   * </pre>
+   *
+   * <code>double dollar_volume_20d = 34 [json_name = "dollarVolume20d"];</code>
+   * @return The dollarVolume20d.
+   */
+  double getDollarVolume20D();
+
+  /**
+   * <code>bool has_dollar_volume_20d = 35 [json_name = "hasDollarVolume20d"];</code>
+   * @return The hasDollarVolume20d.
+   */
+  boolean getHasDollarVolume20D();
+
+  /**
+   * <pre>
+   * YYYY-MM-DD of the breakout session; empty when there was none.
+   * </pre>
+   *
+   * <code>string breakout_date = 36 [json_name = "breakoutDate"];</code>
+   * @return The breakoutDate.
+   */
+  java.lang.String getBreakoutDate();
+  /**
+   * <pre>
+   * YYYY-MM-DD of the breakout session; empty when there was none.
+   * </pre>
+   *
+   * <code>string breakout_date = 36 [json_name = "breakoutDate"];</code>
+   * @return The bytes for breakoutDate.
+   */
+  com.google.protobuf.ByteString
+      getBreakoutDateBytes();
+
+  /**
+   * <pre>
+   * YYYY-MM-DD of the ASIC report the short figure came from; empty when there is no short figure.
+   * </pre>
+   *
+   * <code>string short_report_date = 37 [json_name = "shortReportDate"];</code>
+   * @return The shortReportDate.
+   */
+  java.lang.String getShortReportDate();
+  /**
+   * <pre>
+   * YYYY-MM-DD of the ASIC report the short figure came from; empty when there is no short figure.
+   * </pre>
+   *
+   * <code>string short_report_date = 37 [json_name = "shortReportDate"];</code>
+   * @return The bytes for shortReportDate.
+   */
+  com.google.protobuf.ByteString
+      getShortReportDateBytes();
+
+  /**
+   * <pre>
+   * YYYY-MM-DD the report became public; empty with no report, or a report dated before 2026.
+   * </pre>
+   *
+   * <code>string short_available_date = 38 [json_name = "shortAvailableDate"];</code>
+   * @return The shortAvailableDate.
+   */
+  java.lang.String getShortAvailableDate();
+  /**
+   * <pre>
+   * YYYY-MM-DD the report became public; empty with no report, or a report dated before 2026.
+   * </pre>
+   *
+   * <code>string short_available_date = 38 [json_name = "shortAvailableDate"];</code>
+   * @return The bytes for shortAvailableDate.
+   */
+  com.google.protobuf.ByteString
+      getShortAvailableDateBytes();
+
+  /**
+   * <pre>
+   * "reported" when the stock has a short figure; empty otherwise.
+   * </pre>
+   *
+   * <code>string short_status = 39 [json_name = "shortStatus"];</code>
+   * @return The shortStatus.
+   */
+  java.lang.String getShortStatus();
+  /**
+   * <pre>
+   * "reported" when the stock has a short figure; empty otherwise.
+   * </pre>
+   *
+   * <code>string short_status = 39 [json_name = "shortStatus"];</code>
+   * @return The bytes for shortStatus.
+   */
+  com.google.protobuf.ByteString
+      getShortStatusBytes();
+
+  /**
+   * <pre>
+   * Meaningful only when has_pct_off_52w_high. pct_off_52w_high is 0 at the high,
+   * so a stock with no 52-week high yet must not read as "at the high".
+   * </pre>
+   *
+   * <code>bool has_pct_off_52w_high = 40 [json_name = "hasPctOff52wHigh"];</code>
+   * @return The hasPctOff52wHigh.
+   */
+  boolean getHasPctOff52WHigh();
+
+  /**
+   * <pre>
+   * Corporate-action suspect date; empty until the basis check ships.
+   * </pre>
+   *
+   * <code>string ca_suspect_date = 41 [json_name = "caSuspectDate"];</code>
+   * @return The caSuspectDate.
+   */
+  java.lang.String getCaSuspectDate();
+  /**
+   * <pre>
+   * Corporate-action suspect date; empty until the basis check ships.
+   * </pre>
+   *
+   * <code>string ca_suspect_date = 41 [json_name = "caSuspectDate"];</code>
+   * @return The bytes for caSuspectDate.
+   */
+  com.google.protobuf.ByteString
+      getCaSuspectDateBytes();
 }

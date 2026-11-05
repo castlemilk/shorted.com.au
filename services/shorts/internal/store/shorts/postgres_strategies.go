@@ -289,6 +289,86 @@ func (r *candidateRow) targets() []any {
 	return append(t, &c.CompanyName, &c.Industry, &c.LogoURL, &c.ShortPct, &c.DaysToCover, &c.MarketCap)
 }
 
+// strategyShortDatesQuery is, for each stock in mv_screener_data, the report
+// its short figure came from: the newest row that 000080's latest_shorts
+// admits and that carries the view's own figure, with no age limit. The
+// figure is part of the match because the live shorts table can hold a newer
+// report than the view has loaded (the view refreshes after the load): the
+// date then falls back to the newest report with that same figure, never to
+// a newer report's date beside an older figure. An ETF, a deferred product or
+// a percent-coupon bond has neither a figure nor a date, and a figure a year
+// old keeps its date. Driving on the view's codes also keeps a NULL
+// PRODUCT_CODE out of the scan.
+const strategyShortDatesQuery = `
+	SELECT sd.stock_code::text, ls."DATE"::date
+	FROM mv_screener_data sd
+	CROSS JOIN LATERAL (
+		SELECT s."DATE"
+		FROM shorts s
+		WHERE s."PRODUCT_CODE" = sd.stock_code
+			AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+			AND s."PRODUCT" !~~* '%DEFERRED%'
+			AND s."PRODUCT" !~* 'ETF\M'
+			AND length(s."PRODUCT_CODE") <= 4
+			AND s."PRODUCT" !~ '[0-9]+(\.[0-9]+)?\s*%'
+			AND (s."TOTAL_PRODUCT_IN_ISSUE" IS NULL OR s."TOTAL_PRODUCT_IN_ISSUE" >= 5000000)
+			AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" = sd.short_pct
+		ORDER BY s."DATE" DESC
+		LIMIT 1
+	) ls
+`
+
+// listStrategyShortDates returns each stock's newest non-zero short report
+// date, keyed by upper-case code. A missing shorts relation is an empty map.
+func listStrategyShortDates(ctx context.Context, db fundamentalsDB) (map[string]time.Time, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+
+	rows, err := db.Query(ctx, strategyShortDatesQuery)
+	if err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ListStrategyCandidates.shortDates", err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to query short report dates: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]time.Time{}
+	for rows.Next() {
+		var (
+			code string
+			day  time.Time
+		)
+		if err := rows.Scan(&code, &day); err != nil {
+			return nil, fmt.Errorf("failed to scan short report date: %w", err)
+		}
+		out[strings.ToUpper(code)] = day
+	}
+	if err := rows.Err(); err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ListStrategyCandidates.shortDates", err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error iterating short report dates: %w", err)
+	}
+	return out, nil
+}
+
+// mergeShortDates attaches each candidate's short report date by code. Only a
+// stock with a short figure gets one: the date is the report that figure came
+// from, so a stock with no figure has no date either.
+func mergeShortDates(cands []engine.Candidate, dates map[string]time.Time) {
+	for i := range cands {
+		if cands[i].ShortPct == nil {
+			continue
+		}
+		if d, ok := dates[strings.ToUpper(cands[i].StockCode)]; ok {
+			d := d
+			cands[i].ShortReportDate = &d
+		}
+	}
+}
+
 // ListStrategyCandidates returns the evaluator's universe, one Candidate per
 // stock in mv_price_features, ordered by stock code. A missing relation
 // yields an empty universe, never an error.
@@ -312,6 +392,11 @@ func listStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]engine.Ca
 		return nil, err
 	}
 	mergeFundamentalsExtras(out, extras)
+	shortDates, err := listStrategyShortDates(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	mergeShortDates(out, shortDates)
 	return out, nil
 }
 
@@ -406,14 +491,45 @@ func (s *postgresStore) GetMarketRegime(ctx context.Context, indexCode string) (
 	switch {
 	case err == nil:
 		finiteAll(&r.Close, &r.SMA50, &r.SMA200, &r.PctOff52wHigh, &r.Ret1mPct, &r.Ret3mPct)
-		return r, nil
 	case errors.Is(err, pgx.ErrNoRows):
-		return engine.Regime{IndexCode: code}, nil
+		r = engine.Regime{IndexCode: code}
 	case isUndefinedTable(err):
 		logMissingRelationOnce("GetMarketRegime", err)
-		return engine.Regime{IndexCode: code}, nil
+		r = engine.Regime{IndexCode: code}
 	default:
 		return engine.Regime{}, fmt.Errorf("failed to query market regime: %w", err)
+	}
+	// The index's own newest session, read live: the view can lag the series
+	// when its refresh has not run, and that lag is what "data delayed" reports.
+	latest, err := latestIndexSession(ctx, s.db, code)
+	if err != nil {
+		return engine.Regime{}, err
+	}
+	r.LatestSession = latest
+	return r, nil
+}
+
+// latestIndexSessionQuery is the newest session of an index's price series
+// with a level, read from the series itself rather than the regime view.
+const latestIndexSessionQuery = `
+	SELECT max(date)::date
+	FROM index_prices
+	WHERE index_code = $1 AND close > 0
+`
+
+// latestIndexSession returns the newest session of indexCode's price series,
+// nil when the series has none. A missing relation is nil, never an error.
+func latestIndexSession(ctx context.Context, db fundamentalsDB, indexCode string) (*time.Time, error) {
+	var day *time.Time
+	err := db.QueryRow(ctx, latestIndexSessionQuery, indexCode).Scan(&day)
+	switch {
+	case err == nil:
+		return day, nil
+	case isUndefinedTable(err):
+		logMissingRelationOnce("GetMarketRegime.latestSession", err)
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("failed to query the index's latest session: %w", err)
 	}
 }
 

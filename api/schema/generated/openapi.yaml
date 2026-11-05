@@ -10766,6 +10766,30 @@ components:
           title: price_features
           description: Set only when in_universe is true. (proto shorts.v1alpha1.PriceFeatures)
           $ref: '#/components/schemas/shorts.v1alpha1.PriceFeatures'
+        sessionDate:
+          type: string
+          title: session_date
+          description: YYYY-MM-DD of the session the readings are as at. (proto string)
+        shortReportDate:
+          type: string
+          title: short_report_date
+          description: Newest ASIC report date behind the short figures; empty when none. (proto string)
+        shortAvailableDate:
+          type: string
+          title: short_available_date
+          description: When that report became public; empty for a report dated before 2026. (proto string)
+        stale:
+          type: boolean
+          title: stale
+          description: True when the index has closed a session the prices have not reached (the data is delayed). (proto bool)
+        eligible:
+          type: boolean
+          title: eligible
+          description: False when the stock cannot be read against the strategies at all. (proto bool)
+        ineligibleReason:
+          type: string
+          title: ineligible_reason
+          description: Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible. (proto string)
       title: GetStockStrategyFitResponse
       additionalProperties: false
       description: Response for GetStockStrategyFit.
@@ -10881,6 +10905,45 @@ components:
           title: fundamentals_rows_count
           format: int32
           description: Evaluated stocks with any reported fundamentals row. (proto int32)
+        statusCounts:
+          title: status_counts
+          description: |-
+            Counts of every pick by status, over the whole ranked list before the
+             status filter, the fundamentals filter and paging. (proto shorts.v1alpha1.StatusCounts)
+          $ref: '#/components/schemas/shorts.v1alpha1.StatusCounts'
+        version:
+          title: version
+          description: Empty until versioned rules ship. (proto shorts.v1alpha1.StrategyVersionRef)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionRef'
+        sessionDate:
+          type: string
+          title: session_date
+          description: YYYY-MM-DD of the session the picks are as at. (proto string)
+        shortReportDate:
+          type: string
+          title: short_report_date
+          description: Newest ASIC report date behind the short figures; empty when none. (proto string)
+        shortAvailableDate:
+          type: string
+          title: short_available_date
+          description: When that report became public; empty for a report dated before 2026. (proto string)
+        stale:
+          type: boolean
+          title: stale
+          description: True when the index has closed a session the prices have not reached (the data is delayed). (proto bool)
+        rsQuantileThreshold:
+          type: number
+          title: rs_quantile_threshold
+          format: double
+          description: The session's top-quartile cut-off of rs_6m_pct (rs_leader reads it). (proto double)
+        hasRsQuantileThreshold:
+          type: boolean
+          title: has_rs_quantile_threshold
+          description: (proto bool)
+        universeLabel:
+          type: string
+          title: universe_label
+          description: The universe the picks were drawn from, as the strategy names it. (proto string)
       title: GetStrategyPicksResponse
       additionalProperties: false
       description: Response for GetStrategyPicks.
@@ -15789,6 +15852,29 @@ components:
           type: boolean
           title: has_value
           description: False when value is absent (unknown), never read value then. (proto bool)
+        reason:
+          type: string
+          title: reason
+          description: |-
+            Why an unknown rule could not be tested: "no_price_history", "no_volume",
+             "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail. (proto string)
+        proximity:
+          type: number
+          title: proximity
+          format: double
+          description: |-
+            For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far
+             distance. Meaningful only when has_proximity. (proto double)
+        hasProximity:
+          type: boolean
+          title: has_proximity
+          description: (proto bool)
+        waiting:
+          type: boolean
+          title: waiting
+          description: |-
+            True when this is a failing trigger rule on a setup row: the stock is
+             waiting for the trigger, not yet triggered. (proto bool)
       title: RuleResult
       additionalProperties: false
       description: The outcome of one rule for one stock.
@@ -16547,6 +16633,32 @@ components:
           description: (proto int32)
       title: StateTotal
       additionalProperties: false
+    shorts.v1alpha1.StatusCounts:
+      type: object
+      properties:
+        triggered:
+          type: integer
+          title: triggered
+          format: int32
+          description: (proto int32)
+        setup:
+          type: integer
+          title: setup
+          format: int32
+          description: (proto int32)
+        watch:
+          type: integer
+          title: watch
+          format: int32
+          description: (proto int32)
+        unknown:
+          type: integer
+          title: unknown
+          format: int32
+          description: (proto int32)
+      title: StatusCounts
+      additionalProperties: false
+      description: Counts of ranked picks by status.
     shorts.v1alpha1.StockFinancialHighlights:
       type: object
       properties:
@@ -16907,6 +17019,68 @@ components:
              provenance, plus headline ratios. Absent when the stock has no
              fundamentals row at all. (proto shorts.v1alpha1.PickFundamentals)
           $ref: '#/components/schemas/shorts.v1alpha1.PickFundamentals'
+        daysToCover:
+          type: number
+          title: days_to_cover
+          format: double
+          description: Signal evidence (display-only in this release where noted). Meaningful only when has_days_to_cover. (proto double)
+        hasDaysToCover:
+          type: boolean
+          title: has_days_to_cover
+          description: (proto bool)
+        rs6mPct:
+          type: number
+          title: rs_6m_pct
+          format: double
+          description: Meaningful only when has_rs_6m_pct. (proto double)
+        hasRs6mPct:
+          type: boolean
+          title: has_rs_6m_pct
+          description: (proto bool)
+        rs6mPercentile:
+          type: number
+          title: rs_6m_percentile
+          format: double
+          description: Rank of rs_6m_pct across the evaluated universe on the quartile's own scale, 0-100 (75 or more is the top quartile). (proto double)
+        hasRs6mPercentile:
+          type: boolean
+          title: has_rs_6m_percentile
+          description: (proto bool)
+        dollarVolume20d:
+          type: number
+          title: dollar_volume_20d
+          format: double
+          description: Average daily turnover over 20 sessions, A$. Meaningful only when has_dollar_volume_20d. (proto double)
+        hasDollarVolume20d:
+          type: boolean
+          title: has_dollar_volume_20d
+          description: (proto bool)
+        breakoutDate:
+          type: string
+          title: breakout_date
+          description: YYYY-MM-DD of the breakout session; empty when there was none. (proto string)
+        shortReportDate:
+          type: string
+          title: short_report_date
+          description: YYYY-MM-DD of the ASIC report the short figure came from; empty when there is no short figure. (proto string)
+        shortAvailableDate:
+          type: string
+          title: short_available_date
+          description: YYYY-MM-DD the report became public; empty with no report, or a report dated before 2026. (proto string)
+        shortStatus:
+          type: string
+          title: short_status
+          description: '"reported" when the stock has a short figure; empty otherwise. (proto string)'
+        hasPctOff52wHigh:
+          type: boolean
+          title: has_pct_off_52w_high
+          description: |-
+            Meaningful only when has_pct_off_52w_high. pct_off_52w_high is 0 at the high,
+             so a stock with no 52-week high yet must not read as "at the high". (proto bool)
+        caSuspectDate:
+          type: string
+          title: ca_suspect_date
+          description: Corporate-action suspect date; empty until the basis check ships. (proto string)
       title: StrategyPick
       additionalProperties: false
       description: One ranked stock for a strategy.
@@ -16937,9 +17111,77 @@ components:
           type: string
           title: data_source
           description: '"stock_fundamentals", "stock_prices", "index_prices" or "asic_shorts". (proto string)'
+        trigger:
+          type: boolean
+          title: trigger
+          description: 'A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200). (proto bool)'
+        weight:
+          type: number
+          title: weight
+          format: double
+          description: Share of the score this rule carries, 0-1; the weights of a strategy sum to 1. (proto double)
+        threshold:
+          type: number
+          title: threshold
+          format: double
+          description: The number the rule tests, in unit. Meaningful only when has_threshold. (proto double)
+        hasThreshold:
+          type: boolean
+          title: has_threshold
+          description: False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth). (proto bool)
+        unit:
+          type: string
+          title: unit
+          description: '"pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold. (proto string)'
+        comparator:
+          type: string
+          title: comparator
+          description: '">=", "<=" or ">". Meaningful only when has_threshold. (proto string)'
       title: StrategyRule
       additionalProperties: false
       description: 'One rule of a strategy: the author''s version and exactly how we test it.'
+    shorts.v1alpha1.StrategyVersionRef:
+      type: object
+      properties:
+        strategyId:
+          type: string
+          title: strategy_id
+          description: (proto string)
+        label:
+          type: string
+          title: label
+          description: '"v0", "v1", "custom". (proto string)'
+        rulesHash:
+          type: string
+          title: rules_hash
+          description: 64 hex characters; UIs show the first 8. (proto string)
+        engineVersion:
+          type: string
+          title: engine_version
+          description: (proto string)
+        featureSet:
+          type: string
+          title: feature_set
+          description: '"fs1". (proto string)'
+        status:
+          type: string
+          title: status
+          description: '"draft" | "live" | "superseded" | "retired". (proto string)'
+        liveFrom:
+          type: string
+          title: live_from
+          description: YYYY-MM-DD; empty before the first live session. (proto string)
+        kind:
+          type: string
+          title: kind
+          description: '"canonical" | "variant". (proto string)'
+        variantId:
+          type: string
+          title: variant_id
+          description: (proto string)
+      title: StrategyVersionRef
+      additionalProperties: false
+      description: The version of a strategy's rules that produced a set of picks.
     shorts.v1alpha1.SubscriptionStatus:
       type: string
       title: SubscriptionStatus

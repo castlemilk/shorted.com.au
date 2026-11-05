@@ -21,6 +21,11 @@ type outcome struct {
 	// distance (proximity.go); ignored on a pass or an unknown. Only the
 	// trigger rules set it, so a failing non-trigger rule earns nothing.
 	Proximity float64
+	// HasProximity is true when failNear graded the failure.
+	HasProximity bool
+	// Reason names why an unknown outcome could not be tested (the Reason*
+	// codes in types.go); empty otherwise.
+	Reason string
 }
 
 // evalEnv is the per-Evaluate context rules may read: the market regime and
@@ -102,12 +107,18 @@ func unknown(detail string) outcome {
 	return outcome{Status: RuleUnknown, Detail: detail}
 }
 
+// unknownFor is unknown with the reason code the caller can name.
+func unknownFor(reason, detail string) outcome {
+	return outcome{Status: RuleUnknown, Detail: detail, Reason: reason}
+}
+
 // failNear is fail with the distance to the trigger line graded: gap is how
 // far the stock is from passing, in the rule's own unit (a non-positive gap is
 // at the line), and far is the distance at which the credit runs out.
 func failNear(detail string, value float64, hasValue bool, gap, far float64) outcome {
 	out := fail(detail, value, hasValue)
 	out.Proximity = proximity(gap, far)
+	out.HasProximity = true
 	return out
 }
 
@@ -121,7 +132,7 @@ func failNear(detail string, value float64, hasValue bool, gap, far float64) out
 func ruleGrowth(c *Candidate, _ *evalEnv) outcome {
 	g := c.Growth
 	if g == nil {
-		return unknown("No reported fundamentals for this stock yet")
+		return unknownFor(ReasonNoFundamentals, "No reported fundamentals for this stock yet")
 	}
 	rev, eps := g.RevenueYoYPct, g.EPSYoYPct
 	turn := g.EPSTurnaround()
@@ -154,7 +165,7 @@ func ruleGrowth(c *Candidate, _ *evalEnv) outcome {
 	case rev == nil && eps == nil && loss:
 		return fail(sentence(parts), 0, false)
 	case rev == nil && eps == nil:
-		return unknown("No revenue or EPS growth figure yet")
+		return unknownFor(ReasonNoFundamentals, "No revenue or EPS growth figure yet")
 	default:
 		return fail(sentence(append(parts, "below the +25% threshold")), best, hasBest)
 	}
@@ -166,7 +177,7 @@ func ruleGrowth(c *Candidate, _ *evalEnv) outcome {
 func ruleEPSGrowth(c *Candidate, _ *evalEnv) outcome {
 	g := c.Growth
 	if g == nil {
-		return unknown("No reported fundamentals for this stock yet")
+		return unknownFor(ReasonNoFundamentals, "No reported fundamentals for this stock yet")
 	}
 	eps := g.EPSYoYPct
 	turn := g.EPSTurnaround()
@@ -195,7 +206,7 @@ func ruleEPSGrowth(c *Candidate, _ *evalEnv) outcome {
 		}
 		return fail(sentence(parts), 0, false)
 	case eps == nil:
-		return unknown("No EPS growth figure yet")
+		return unknownFor(ReasonNoFundamentals, "No EPS growth figure yet")
 	default:
 		return fail(sentence(append(parts, "below the +25% threshold")), *eps, true)
 	}
@@ -226,10 +237,10 @@ func lossPhrase(g *Growth) string {
 func ruleRevenueGrowth(c *Candidate, _ *evalEnv) outcome {
 	g := c.Growth
 	if g == nil {
-		return unknown("No reported fundamentals for this stock yet")
+		return unknownFor(ReasonNoFundamentals, "No reported fundamentals for this stock yet")
 	}
 	if g.RevenueYoYPct == nil {
-		return unknown("No revenue growth figure yet")
+		return unknownFor(ReasonNoFundamentals, "No revenue growth figure yet")
 	}
 	rev := *g.RevenueYoYPct
 	parts := append([]string{growthPhrase("Revenue", rev, g.RevenueYoYPriorPct, revenueLabel(g))}, halfYearEvidence(g)...)
@@ -253,7 +264,7 @@ func ruleRevenueGrowth(c *Candidate, _ *evalEnv) outcome {
 // to test here and nothing to special-case after a breakout.
 func ruleBase(c *Candidate, _ *evalEnv) outcome {
 	if c.BaseDepthPct == nil || c.BaseLengthDays == nil || c.BaseLow == nil {
-		return unknown("Base cannot be measured from price history yet")
+		return unknownFor(ReasonNoPriceHistory, "Base cannot be measured from price history yet")
 	}
 	depth, length, low := *c.BaseDepthPct, int(*c.BaseLengthDays), *c.BaseLow
 
@@ -279,7 +290,7 @@ func ruleBase(c *Candidate, _ *evalEnv) outcome {
 // relative to the pivot, in percent.
 func ruleBreakout(c *Candidate, _ *evalEnv) outcome {
 	if c.BreakoutRecent == nil {
-		return unknown("Breakout cannot be measured from price history yet")
+		return unknownFor(ReasonNoPriceHistory, "Breakout cannot be measured from price history yet")
 	}
 	value, hasValue := 0.0, false
 	if c.BaseHigh != nil && *c.BaseHigh > 0 {
@@ -321,7 +332,7 @@ func ruleBreakout(c *Candidate, _ *evalEnv) outcome {
 // ruleNearHigh (CAN SLIM N): pct_off_52w_high >= -5.
 func ruleNearHigh(c *Candidate, _ *evalEnv) outcome {
 	if c.PctOff52wHigh == nil {
-		return unknown("No 52-week high yet")
+		return unknownFor(ReasonNoPriceHistory, "No 52-week high yet")
 	}
 	off := *c.PctOff52wHigh
 	if off >= nearHighMaxOffPct {
@@ -333,7 +344,7 @@ func ruleNearHigh(c *Candidate, _ *evalEnv) outcome {
 // ruleOffHigh (Minervini): pct_off_52w_high >= -25.
 func ruleOffHigh(c *Candidate, _ *evalEnv) outcome {
 	if c.PctOff52wHigh == nil {
-		return unknown("No 52-week high yet")
+		return unknownFor(ReasonNoPriceHistory, "No 52-week high yet")
 	}
 	off := *c.PctOff52wHigh
 	if off >= offHighMaxOffPct {
@@ -345,7 +356,7 @@ func ruleOffHigh(c *Candidate, _ *evalEnv) outcome {
 // ruleTrendStack (Minervini): close > sma150 > sma200.
 func ruleTrendStack(c *Candidate, _ *evalEnv) outcome {
 	if c.SMA150 == nil || c.SMA200 == nil || *c.SMA200 <= 0 {
-		return unknown("Not enough history for the 150-day and 200-day averages")
+		return unknownFor(ReasonNoPriceHistory, "Not enough history for the 150-day and 200-day averages")
 	}
 	s150, s200 := *c.SMA150, *c.SMA200
 	value := (c.Close/s200 - 1) * 100
@@ -366,7 +377,7 @@ func ruleTrendStack(c *Candidate, _ *evalEnv) outcome {
 // ruleSMA200Rising (Minervini): sma200 > sma200_1m_ago.
 func ruleSMA200Rising(c *Candidate, _ *evalEnv) outcome {
 	if c.SMA200 == nil || c.SMA200_1mAgo == nil || *c.SMA200_1mAgo <= 0 {
-		return unknown("Not enough history to compare the 200-day average with a month ago")
+		return unknownFor(ReasonNoPriceHistory, "Not enough history to compare the 200-day average with a month ago")
 	}
 	now, then := *c.SMA200, *c.SMA200_1mAgo
 	slope := (now/then - 1) * 100
@@ -380,7 +391,7 @@ func ruleSMA200Rising(c *Candidate, _ *evalEnv) outcome {
 // ruleAboveLow (Minervini): close >= 1.3 x low_52w.
 func ruleAboveLow(c *Candidate, _ *evalEnv) outcome {
 	if c.Low52w == nil || *c.Low52w <= 0 {
-		return unknown("No 52-week low yet")
+		return unknownFor(ReasonNoPriceHistory, "No 52-week low yet")
 	}
 	low := *c.Low52w
 	ratio := c.Close / low
@@ -395,7 +406,7 @@ func ruleAboveLow(c *Candidate, _ *evalEnv) outcome {
 // ruleAboveSMA50 (Minervini): close > sma50.
 func ruleAboveSMA50(c *Candidate, _ *evalEnv) outcome {
 	if c.SMA50 == nil || *c.SMA50 <= 0 {
-		return unknown("Not enough history for the 50-day average")
+		return unknownFor(ReasonNoPriceHistory, "Not enough history for the 50-day average")
 	}
 	s50 := *c.SMA50
 	value := (c.Close/s50 - 1) * 100
@@ -413,7 +424,7 @@ func ruleAboveSMA50(c *Candidate, _ *evalEnv) outcome {
 func ruleRegime(_ *Candidate, env *evalEnv) outcome {
 	r := env.regime
 	if !r.Known() {
-		return unknown("Not enough recent S&P/ASX 200 data to read the market trend")
+		return unknownFor(ReasonNoIndex, "Not enough recent S&P/ASX 200 data to read the market trend")
 	}
 	code := indexCode(r)
 	value, hasValue := 0.0, false
@@ -433,7 +444,11 @@ func ruleRegime(_ *Candidate, env *evalEnv) outcome {
 // ruleRS (Zanger, crowded short): rs_3m_pct > 0.
 func ruleRS(c *Candidate, _ *evalEnv) outcome {
 	if c.RS3mPct == nil {
-		return unknown("Not enough history for 3-month relative strength")
+		if c.Ret3mPct != nil {
+			// The stock's own return is measured; the index level is not.
+			return unknownFor(ReasonNoIndex, "No S&P/ASX 200 level near the window to measure 3-month relative strength against")
+		}
+		return unknownFor(ReasonNoPriceHistory, "Not enough history for 3-month relative strength")
 	}
 	rs := *c.RS3mPct
 	if rs > 0 {
@@ -449,7 +464,13 @@ func ruleRS(c *Candidate, _ *evalEnv) outcome {
 // percentile of the evaluated universe.
 func ruleRSLeader(c *Candidate, env *evalEnv) outcome {
 	if c.RS6mPct == nil || !env.rs6m.ok {
-		return unknown("Not enough history for 6-month relative strength")
+		// Without an index level no stock has a relative figure, so the
+		// quartile is missing too: the reason is the index whenever the stock
+		// has its own 6-month return.
+		if c.RS6mPct == nil && c.Ret6mPct != nil {
+			return unknownFor(ReasonNoIndex, "No S&P/ASX 200 level near the window to measure 6-month relative strength against")
+		}
+		return unknownFor(ReasonNoPriceHistory, "Not enough history for 6-month relative strength")
 	}
 	rs, q := *c.RS6mPct, env.rs6m
 	if rs >= q.threshold-tolerance {
@@ -465,7 +486,7 @@ func ruleRSLeader(c *Candidate, env *evalEnv) outcome {
 // ruleLiquidity: dollar_volume_20d >= A$250,000.
 func ruleLiquidity(c *Candidate, _ *evalEnv) outcome {
 	if c.DollarVolume20d == nil {
-		return unknown("Not enough history to measure turnover")
+		return unknownFor(ReasonNoVolume, "Not enough history to measure turnover")
 	}
 	dv := *c.DollarVolume20d
 	detail := money(dv) + " average daily turnover over 20 sessions"
@@ -497,7 +518,7 @@ func ruleDaysToCover(c *Candidate, _ *evalEnv) outcome {
 		return fail("No reported short position", 0, false)
 	}
 	if c.DaysToCover == nil {
-		return unknown("No recent volume to measure days to cover")
+		return unknownFor(ReasonNoVolume, "No recent volume to measure days to cover")
 	}
 	d := *c.DaysToCover
 	detail := fmt.Sprintf("%.1f days of average volume to cover", d)
@@ -545,21 +566,21 @@ func balanceCurrency(q *Quality) string {
 }
 
 // ruleROE: roe_pct >= 15. Fail below 15, or when total equity is zero or
-// negative; unknown when roe_pct is NULL for any other reason (an equity
-// point missing, or, for a company that is not a financial, average equity
-// under 10% of average assets, where the view withholds it as not
-// meaningful). A financial's ROE is computed without that guard
+// negative; unknown when roe_pct is NULL for any other reason, with the
+// reason roeWithheldReason gives (missing inputs, or a balance sheet the
+// ratio does not describe). A financial's ROE is computed without that guard
 // (ApplyQualityRules), so a bank is judged on its return like anyone else.
 func ruleROE(c *Candidate, _ *evalEnv) outcome {
 	q := c.Quality
 	if q == nil {
-		return unknown(noStatementsYet)
+		return unknownFor(ReasonNoFundamentals, noStatementsYet)
 	}
 	if q.TotalEquity != nil && *q.TotalEquity <= 0 {
 		return fail("Shareholders' equity is zero or negative", 0, false)
 	}
 	if q.ROEPct == nil {
-		return unknown("Return on equity cannot be measured: it needs net profit, equity at both ends of the year and, outside banks, insurers and other financials, equity of at least 10% of total assets")
+		const detail = "Return on equity cannot be measured: it needs net profit, equity at both ends of the year and, outside banks, insurers and other financials, equity of at least 10% of total assets"
+		return unknownFor(roeWithheldReason(q), detail)
 	}
 	roe := *q.ROEPct
 	detail := withQualityBasis("Return on equity "+pctAbs(roe), q)
@@ -569,17 +590,44 @@ func ruleROE(c *Candidate, _ *evalEnv) outcome {
 	return fail(detail+", below the 15% threshold", roe, true)
 }
 
+// roeWithheldReason is why roe_pct is NULL, mirroring the view's guards on
+// the same balance points: a missing input, or total assets at or under zero
+// at either end, is missing data; a balance point of equity at or under zero
+// at the start of the year, or average equity under 10% of average assets for
+// a company that is not a financial, is a balance sheet the ratio does not
+// describe.
+func roeWithheldReason(q *Quality) string {
+	if q.NetIncome == nil || q.TotalEquity == nil || q.TotalEquityPrior == nil ||
+		q.TotalAssets == nil || q.TotalAssetsPrior == nil ||
+		*q.TotalAssets <= 0 || *q.TotalAssetsPrior <= 0 {
+		return ReasonNoFundamentals
+	}
+	if *q.TotalEquityPrior <= 0 {
+		return ReasonNotMeaningful
+	}
+	if !q.IsFinancial && *q.TotalEquity+*q.TotalEquityPrior < 0.1*(*q.TotalAssets+*q.TotalAssetsPrior) {
+		return ReasonNotMeaningful
+	}
+	return ReasonNoFundamentals
+}
+
 // ruleNetMargin: net profit / revenue >= 10%, on the flow row.
 func ruleNetMargin(c *Candidate, _ *evalEnv) outcome {
 	q := c.Quality
 	if q == nil {
-		return unknown(noStatementsYet)
+		return unknownFor(ReasonNoFundamentals, noStatementsYet)
 	}
 	if q.Revenue == nil || *q.Revenue <= 0 {
-		return unknown("No positive revenue figure to measure a margin against")
+		// The detail is the one the rule has always carried; the reason says
+		// whether the revenue is missing or present but not a margin's base.
+		reason := ReasonNoFundamentals
+		if q.Revenue != nil {
+			reason = ReasonNotMeaningful
+		}
+		return unknownFor(reason, "No positive revenue figure to measure a margin against")
 	}
 	if q.NetMarginPct == nil {
-		return unknown("No net profit figure for the same period")
+		return unknownFor(ReasonNoFundamentals, "No net profit figure for the same period")
 	}
 	m := *q.NetMarginPct
 	detail := withQualityBasis("Net margin "+pctAbs(m), q)
@@ -596,13 +644,13 @@ func ruleNetMargin(c *Candidate, _ *evalEnv) outcome {
 func ruleCashConversion(c *Candidate, _ *evalEnv) outcome {
 	q := c.Quality
 	if q == nil {
-		return unknown(noStatementsYet)
+		return unknownFor(ReasonNoFundamentals, noStatementsYet)
 	}
 	if q.IsFinancial || q.IsNotMeaningful(RatioFCFConversion) {
-		return unknown(notMeaningfulFin + ", whose cash flows mix customers' money with their own")
+		return unknownFor(ReasonNotMeaningful, notMeaningfulFin+", whose cash flows mix customers' money with their own")
 	}
 	if q.FreeCashFlow == nil || q.NetIncome == nil {
-		return unknown("Free cash flow or net profit is missing for the period")
+		return unknownFor(ReasonNoFundamentals, "Free cash flow or net profit is missing for the period")
 	}
 	fcf, ni := *q.FreeCashFlow, *q.NetIncome
 	if ni <= 0 {
@@ -627,13 +675,13 @@ func ruleCashConversion(c *Candidate, _ *evalEnv) outcome {
 func ruleLeverage(c *Candidate, _ *evalEnv) outcome {
 	q := c.Quality
 	if q == nil {
-		return unknown(noStatementsYet)
+		return unknownFor(ReasonNoFundamentals, noStatementsYet)
 	}
 	if q.IsFinancial || q.IsNotMeaningful(RatioNetDebt) || q.IsNotMeaningful(RatioNetDebtToEBITDA) {
-		return unknown(notMeaningfulFin + ", whose debt is the funding of their business")
+		return unknownFor(ReasonNotMeaningful, notMeaningfulFin+", whose debt is the funding of their business")
 	}
 	if q.NetDebt == nil {
-		return unknown("Net debt cannot be measured: no aligned balance sheet with debt and cash")
+		return unknownFor(ReasonNoFundamentals, "Net debt cannot be measured: no aligned balance sheet with debt and cash")
 	}
 	nd := *q.NetDebt
 	ebitda := q.NormalizedEBITDA
@@ -652,7 +700,7 @@ func ruleLeverage(c *Candidate, _ *evalEnv) outcome {
 		return pass(detail, 0, false, 1)
 	}
 	if ebitda == nil {
-		return unknown("Net debt of " + moneyIn(nd, cur) + " excluding leases, but no EBITDA to measure it against")
+		return unknownFor(ReasonNoFundamentals, "Net debt of "+moneyIn(nd, cur)+" excluding leases, but no EBITDA to measure it against")
 	}
 	if *ebitda <= 0 {
 		return fail("Net debt of "+moneyIn(nd, cur)+" excluding leases, against zero or negative EBITDA", 0, false)
@@ -668,7 +716,7 @@ func ruleLeverage(c *Candidate, _ *evalEnv) outcome {
 // ruleAboveSMA200 (quality compounders' trigger): close > sma200.
 func ruleAboveSMA200(c *Candidate, _ *evalEnv) outcome {
 	if c.SMA200 == nil || *c.SMA200 <= 0 {
-		return unknown("Not enough history for the 200-day average")
+		return unknownFor(ReasonNoPriceHistory, "Not enough history for the 200-day average")
 	}
 	s200 := *c.SMA200
 	value := (c.Close/s200 - 1) * 100
@@ -684,10 +732,10 @@ func ruleAboveSMA200(c *Candidate, _ *evalEnv) outcome {
 func ruleRevenueNotShrinking(c *Candidate, _ *evalEnv) outcome {
 	g := c.Growth
 	if g == nil {
-		return unknown("No reported fundamentals for this stock yet")
+		return unknownFor(ReasonNoFundamentals, "No reported fundamentals for this stock yet")
 	}
 	if g.RevenueYoYPct == nil {
-		return unknown("No revenue growth figure yet")
+		return unknownFor(ReasonNoFundamentals, "No revenue growth figure yet")
 	}
 	rev := *g.RevenueYoYPct
 	phrase := growthPhrase("Revenue", rev, g.RevenueYoYPriorPct, revenueLabel(g))

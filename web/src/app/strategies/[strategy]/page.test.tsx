@@ -444,6 +444,7 @@ describe("StrategyPicksPage", () => {
 // some USD reporters and some financials.
 describe("picks payload budget", () => {
   const BUDGET_BYTES = 25 * 1024;
+  const SIGNAL_BUDGET_BYTES = 44 * 1024;
   const NOT_MEANINGFUL = [
     "gross_margin_pct",
     "operating_margin_pct",
@@ -456,7 +457,11 @@ describe("picks payload budget", () => {
     "interest_cover",
   ];
 
-  function wirePick(i: number, withFundamentals: boolean): StrategyPickInput {
+  function wirePick(
+    i: number,
+    withFundamentals: boolean,
+    withSignals = false,
+  ): StrategyPickInput {
     const financial = i % 10 === 5;
     return {
       rank: i + 1,
@@ -469,6 +474,15 @@ describe("picks payload budget", () => {
         ruleId,
         status: k % 2 ? "pass" : "fail",
         detail: `Evidence for ${ruleId}: 12.3% over 38 sessions`,
+        ...(withSignals
+          ? {
+              value: 12.345678 + k,
+              hasValue: true,
+              ...(k % 2 === 0
+                ? { proximity: 0.123456, hasProximity: true, waiting: true }
+                : { reason: "no_index" }),
+            }
+          : {}),
       })),
       close: 12.3456,
       asOf: "2026-09-25",
@@ -488,6 +502,24 @@ describe("picks payload budget", () => {
       hasMarketCap: true,
       hasClose: true,
       logoUrl: `https://storage.googleapis.com/shorted-company-logos/logos/C${i}.png`,
+      ...(withSignals
+        ? {
+            pctOff52wHigh: -4.834567,
+            hasPctOff52wHigh: true,
+            daysToCover: 6.123456,
+            hasDaysToCover: true,
+            rs6mPct: 14.567891,
+            hasRs6mPct: true,
+            rs6mPercentile: 81.23456,
+            hasRs6mPercentile: true,
+            dollarVolume20d: 3456789.123,
+            hasDollarVolume20d: true,
+            breakoutDate: "2026-09-18",
+            shortReportDate: "2026-10-27",
+            shortAvailableDate: "2026-10-30",
+            shortStatus: "reported",
+          }
+        : {}),
       fundamentals: withFundamentals
         ? {
             revenueBasisPeriodType: ["annual", "half", "ttm"][i % 3],
@@ -516,9 +548,11 @@ describe("picks payload budget", () => {
     };
   }
 
-  const bytes = (withFundamentals: boolean) =>
+  const bytes = (withFundamentals: boolean, withSignals = false) =>
     JSON.stringify(
-      Array.from({ length: 100 }, (_, i) => mapPick(wirePick(i, withFundamentals))),
+      Array.from({ length: 100 }, (_, i) =>
+        mapPick(wirePick(i, withFundamentals, withSignals)),
+      ),
     ).length;
 
   it("keeps a 100-row table within +25 KB of the rows without fundamentals", () => {
@@ -526,5 +560,18 @@ describe("picks payload budget", () => {
     const withFundamentals = bytes(true);
     expect(withFundamentals).toBeGreaterThan(today);
     expect(withFundamentals - today).toBeLessThanOrEqual(BUDGET_BYTES);
+  });
+
+  // The signal fields (rule values, proximity, reasons and the pick's
+  // evidence) are not rendered yet, but the client island receives them with
+  // every row, so they carry their own budget on the same worst case. The
+  // measured figure is about 40 KB for this four-rule fixture; the rule values
+  // keep the API's precision (a threshold is read from them), so the budget
+  // holds that and no more. A future rounding change should lower it.
+  it("keeps a 100-row table within +44 KB of the rows without signals", () => {
+    const today = bytes(false);
+    const withSignals = bytes(false, true);
+    expect(withSignals).toBeGreaterThan(today);
+    expect(withSignals - today).toBeLessThanOrEqual(SIGNAL_BUDGET_BYTES);
   });
 });

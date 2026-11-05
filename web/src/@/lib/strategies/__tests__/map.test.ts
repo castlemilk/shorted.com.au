@@ -3,6 +3,8 @@ import {
   mapPickFundamentals,
   mapPicksResponse,
   mapRegime,
+  isoDateOrNull,
+  mapRuleResult,
   mapStrategy,
   sydneyIsoDate,
 } from "~/@/lib/strategies/map";
@@ -340,5 +342,182 @@ describe("sydneyIsoDate", () => {
     expect(sydneyIsoDate("")).toBe("");
     expect(sydneyIsoDate("not a date")).toBe("");
     expect(sydneyIsoDate(undefined)).toBe("");
+  });
+});
+
+describe("mapRuleResult", () => {
+  it("keeps a measured zero value when its flag says it is real, and omits an unmeasured one", () => {
+    expect(
+      mapRuleResult({ ruleId: "rs", status: "pass", detail: "in line", value: 0, hasValue: true }),
+    ).toEqual({ ruleId: "rs", status: "pass", detail: "in line", value: 0 });
+    const unmeasured = mapRuleResult({ ruleId: "rs", status: "unknown", detail: "", value: 0, hasValue: false });
+    expect(unmeasured).not.toHaveProperty("value");
+  });
+
+  it("reads a flagged but omitted value as the zero it stands for, and never a NaN string", () => {
+    expect(mapRuleResult({ ruleId: "r", status: "pass", hasValue: true }).value).toBe(0);
+    expect(mapRuleResult({ ruleId: "r", status: "pass", value: "NaN", hasValue: true })).not.toHaveProperty("value");
+  });
+
+  it("rounds proximity to two decimals and keeps a rule's value at the API's precision", () => {
+    expect(mapRuleResult({ ruleId: "breakout", status: "fail", proximity: 0.456789, hasProximity: true }).proximity).toBe(0.46);
+    expect(mapRuleResult({ ruleId: "near_high", status: "pass", value: -4.9996, hasValue: true }).value).toBe(-4.9996);
+  });
+
+  it("carries proximity only when flagged, and never for a result without one", () => {
+    const graded = mapRuleResult({ ruleId: "breakout", status: "fail", proximity: 0.4, hasProximity: true });
+    expect(graded.proximity).toBe(0.4);
+    expect(mapRuleResult({ ruleId: "breakout", status: "fail", proximity: 0.4 })).not.toHaveProperty("proximity");
+    expect(mapRuleResult({ ruleId: "breakout", status: "pass", proximity: 0, hasProximity: false })).not.toHaveProperty("proximity");
+  });
+
+  it("names why an unknown result is unknown, and marks a waiting trigger", () => {
+    expect(mapRuleResult({ ruleId: "rs", status: "unknown", reason: "no_index" })).toEqual({
+      ruleId: "rs",
+      status: "unknown",
+      detail: "",
+      reason: "no_index",
+    });
+    const waiting = mapRuleResult({ ruleId: "breakout", status: "fail", waiting: true });
+    expect(waiting.waiting).toBe(true);
+    expect(mapRuleResult({ ruleId: "breakout", status: "fail" })).not.toHaveProperty("waiting");
+  });
+});
+
+describe("mapStrategy rule definitions", () => {
+  it("maps the trigger flag, weight, threshold, unit and comparator", () => {
+    const strategy = mapStrategy({
+      id: "zanger-breakout",
+      rules: [
+        { id: "breakout", trigger: true, weight: 0.3, unit: "", comparator: "" },
+        { id: "growth", trigger: true, weight: 0.1, threshold: 15, hasThreshold: true, unit: "pct", comparator: ">=" },
+        { id: "regime", weight: 0 },
+      ],
+    });
+    expect(strategy.rules[0]).toMatchObject({ id: "breakout", trigger: true, weight: 0.3 });
+    expect(strategy.rules[0]).not.toHaveProperty("threshold");
+    expect(strategy.rules[1]).toMatchObject({ threshold: 15, unit: "pct", comparator: ">=" });
+    expect(strategy.rules[2]).toMatchObject({ trigger: false, weight: 0 });
+    expect(strategy.rules[2]).not.toHaveProperty("threshold");
+  });
+
+  it("reads a flagged zero threshold as zero and an unflagged one as absent", () => {
+    const strategy = mapStrategy({
+      rules: [
+        { id: "rs", threshold: 0, hasThreshold: true },
+        { id: "shape", threshold: 0 },
+      ],
+    });
+    expect(strategy.rules[0].threshold).toBe(0);
+    expect(strategy.rules[1]).not.toHaveProperty("threshold");
+  });
+});
+
+describe("mapPick signal fields", () => {
+  it("keeps a measured zero days to cover and rs_6m when their flags say so", () => {
+    const row = mapPick(protoPick({ daysToCover: 0, hasDaysToCover: true, rs6mPct: 0, hasRs6mPct: true }));
+    expect(row.daysToCover).toBe(0);
+    expect(row.rs6mPct).toBe(0);
+  });
+
+  it("omits every figure whose flag is off, even when its value is non-zero", () => {
+    const row = mapPick(protoPick({ daysToCover: 4.5, rs6mPct: 12, rs6mPercentile: 80, dollarVolume20d: 3e6 }));
+    expect(row).not.toHaveProperty("daysToCover");
+    expect(row).not.toHaveProperty("rs6mPct");
+    expect(row).not.toHaveProperty("rs6mPercentile");
+    expect(row).not.toHaveProperty("dollarVolume20d");
+  });
+
+  it("rounds the percentile and turnover down, so a figure under a cut-off never prints at it", () => {
+    const row = mapPick(
+      protoPick({ rs6mPercentile: 74.96, hasRs6mPercentile: true, dollarVolume20d: 249999.7, hasDollarVolume20d: true }),
+    );
+    expect(row.rs6mPercentile).toBe(74.9);
+    expect(row.dollarVolume20d).toBe(249999);
+    expect(mapPick(protoPick({ rs6mPercentile: 75, hasRs6mPercentile: true })).rs6mPercentile).toBe(75);
+    expect(mapPick(protoPick({ dollarVolume20d: 250000, hasDollarVolume20d: true })).dollarVolume20d).toBe(250000);
+  });
+
+  it("says a zero percent off the high is the high only with its flag", () => {
+    expect(mapPick(protoPick({ pctOff52wHigh: 0, hasPctOff52wHigh: true })).pctOff52wHigh).toBe(0);
+    expect(mapPick(protoPick({ pctOff52wHigh: 0 }))).not.toHaveProperty("pctOff52wHigh");
+  });
+
+  it("maps dates as YYYY-MM-DD and omits a missing or unreadable one", () => {
+    const row = mapPick(
+      protoPick({
+        breakoutDate: "2026-09-18",
+        shortReportDate: "2026-10-27",
+        shortAvailableDate: "2026-10-30",
+        caSuspectDate: "not a date",
+        shortStatus: " reported ",
+      }),
+    );
+    expect(row).toMatchObject({
+      breakoutDate: "2026-09-18",
+      shortReportDate: "2026-10-27",
+      shortAvailableDate: "2026-10-30",
+      shortStatus: "reported",
+    });
+    expect(row).not.toHaveProperty("caSuspectDate");
+  });
+
+  it("carries none of the signal keys for a pick that sends none", () => {
+    const row = mapPick(protoPick({}));
+    for (const key of ["daysToCover", "rs6mPct", "rs6mPercentile", "dollarVolume20d", "pctOff52wHigh", "breakoutDate", "shortReportDate", "shortAvailableDate", "shortStatus", "caSuspectDate"]) {
+      expect(row).not.toHaveProperty(key);
+    }
+  });
+});
+
+describe("mapPicksResponse signal fields", () => {
+  it("maps the status counts, the dates, the quartile, the universe and the version", () => {
+    const mapped = mapPicksResponse({
+      statusCounts: { triggered: 1, setup: 2, watch: 3, unknown: 0 },
+      sessionDate: "2026-09-25",
+      shortReportDate: "2026-10-27",
+      shortAvailableDate: "2026-10-30",
+      rsQuantileThreshold: 32.5,
+      hasRsQuantileThreshold: true,
+      universeLabel: "ASX stocks with 60 sessions of price history",
+      version: { strategyId: "zanger-breakout", label: "v0", rulesHash: "" },
+    });
+    expect(mapped.statusCounts).toEqual({ triggered: 1, setup: 2, watch: 3, unknown: 0 });
+    expect(mapped).toMatchObject({
+      sessionDate: "2026-09-25",
+      shortReportDate: "2026-10-27",
+      shortAvailableDate: "2026-10-30",
+      rsQuantileThreshold: 32.5,
+      universeLabel: "ASX stocks with 60 sessions of price history",
+      version: { label: "v0", strategyId: "zanger-breakout", rulesHash: "" },
+    });
+  });
+
+  it("gives none of the signals for an API that predates them, never zeros", () => {
+    const mapped = mapPicksResponse({});
+    expect(mapped).not.toHaveProperty("statusCounts");
+    expect(mapped).not.toHaveProperty("rsQuantileThreshold");
+    expect(mapped).not.toHaveProperty("version");
+    expect(mapped).not.toHaveProperty("stale");
+  });
+
+  it("drops a quartile without its flag, and claims staleness only when the API does", () => {
+    expect(mapPicksResponse({ rsQuantileThreshold: 32.5 })).not.toHaveProperty("rsQuantileThreshold");
+    expect(mapPicksResponse({ stale: true }).stale).toBe(true);
+    expect(mapPicksResponse({ stale: false })).not.toHaveProperty("stale");
+  });
+
+  it("drops a version that names neither a label nor a hash", () => {
+    expect(mapPicksResponse({ version: { strategyId: "x" } })).not.toHaveProperty("version");
+  });
+});
+
+describe("isoDateOrNull", () => {
+  it("passes a date through and returns null for anything else", () => {
+    expect(isoDateOrNull("2026-10-27")).toBe("2026-10-27");
+    expect(isoDateOrNull("2026-10-27T00:00:00Z")).toBe("2026-10-27");
+    expect(isoDateOrNull("")).toBeNull();
+    expect(isoDateOrNull(undefined)).toBeNull();
+    expect(isoDateOrNull("soon")).toBeNull();
   });
 });
