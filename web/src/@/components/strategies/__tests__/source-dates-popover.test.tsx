@@ -83,4 +83,29 @@ describe("SourceDatesPopover", () => {
     ).toBeInTheDocument();
     expect(load).toHaveBeenCalledTimes(2);
   });
+
+  it("shows the first-recorded day, the derived availability and the next update", async () => {
+    render(<SourceDatesPopover load={async () => STATUS} />);
+    fireEvent.click(screen.getByRole("button", { name: "View source dates" }));
+    const table = await screen.findByRole("table", undefined, {
+      timeout: 5000,
+    });
+    expect(
+      within(table).getByRole("columnheader", { name: "Available (T+4)" }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getAllByText("28 October 2026").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Next update")).toBeInTheDocument();
+  });
+
+  it("returns focus to its trigger on Escape", async () => {
+    render(<SourceDatesPopover load={async () => STATUS} />);
+    const trigger = screen.getByRole("button", { name: "View source dates" });
+    fireEvent.click(trigger);
+    await screen.findByRole("table", undefined, { timeout: 5000 });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("region", { name: "Source dates" })).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
 });

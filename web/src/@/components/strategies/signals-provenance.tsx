@@ -27,7 +27,10 @@ export function SignalsProvenance({
   version?: StrategyVersionDef;
   stale: boolean;
   regime: MarketRegimeView | null;
-  /** The "View source dates" control, drawn by the island (a client module). */
+  /**
+   * The "View source dates" control, drawn by the island (a client module). Its
+   * panel is positioned against this line, which is `relative`: keep it so.
+   */
   sourceDates?: ReactNode;
 }) {
   const price = shortDayLabel(asOf);
@@ -48,7 +51,7 @@ export function SignalsProvenance({
     rules,
   ].filter(Boolean);
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
+    <div className="relative flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
       <p>
         {facts.map((fact, index) => (
           <span key={fact}>
