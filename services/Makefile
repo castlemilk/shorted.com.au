@@ -818,6 +818,16 @@ test-strategy-saves-pg: test-integration-images
 	GOWORK=off CGO_ENABLED=0 STRATEGY_SAVES_TESTCONTAINERS=1 \
 		go test -count=1 -tags=integration,testcontainers -run StrategySaves ./shorts/internal/store/shorts/
 
+# The daily snapshot's API reads (migration 000156) against a throwaway postgres:15 container: the newest
+# completed session and the one before it, the unmigrated fallback, canonical and live-only signal events and
+# the source dates. Opt-in, like the other container suites; STRATEGY_SNAPSHOT_TEST_DATABASE_URL uses a server
+# you started.
+.PHONY: test-strategy-snapshot-pg
+test-strategy-snapshot-pg: test-integration-images
+	@set -e; \
+	GOWORK=off CGO_ENABLED=0 STRATEGY_SNAPSHOT_TESTCONTAINERS=1 \
+		go test -count=1 -tags=integration,testcontainers -run 'StrategySnapshot|StrategySignalEvents|StrategyDataStatus' ./shorts/internal/store/shorts/
+
 # The strategy feature parity suite (services/pkg/strategy/features): the Go port of
 # mv_price_features and mv_market_regime against migration 000130's own views, at fixed
 # anchors and the real date, on a throwaway postgres:15 container. Opt-in, like the
