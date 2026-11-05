@@ -6,8 +6,20 @@ jest.mock("@connectrpc/connect", () => ({
 jest.mock("@connectrpc/connect-web", () => ({
   createConnectTransport: () => ({}),
 }));
+// The cache keeps only an answer its function resolves with: a rejection (an
+// empty or failed read) is recorded here and nothing is held.
+const mockCacheOutcome = jest.fn();
 jest.mock("next/cache", () => ({
-  unstable_cache: (fn: unknown) => fn,
+  unstable_cache: (fn: () => Promise<unknown>) => async () => {
+    try {
+      const value = await fn();
+      mockCacheOutcome("held");
+      return value;
+    } catch (err) {
+      mockCacheOutcome("rejected");
+      throw err;
+    }
+  },
 }));
 jest.mock("../../config", () => ({
   SHORTS_API_URL: "https://api.test",
@@ -19,6 +31,7 @@ import { getStrategyDataStatus } from "../dataStatus";
 
 beforeEach(() => {
   mockGetStatus.mockReset();
+  mockCacheOutcome.mockClear();
   jest.spyOn(console, "error").mockImplementation(() => undefined);
 });
 
@@ -50,10 +63,24 @@ describe("getStrategyDataStatus", () => {
   it("answers null, and caches nothing, when the read has no session", async () => {
     mockGetStatus.mockResolvedValue({ asicReports: [] });
     await expect(getStrategyDataStatus()).resolves.toBeNull();
+    expect(mockCacheOutcome).toHaveBeenCalledWith("rejected");
+    expect(mockCacheOutcome).not.toHaveBeenCalledWith("held");
   });
 
-  it("answers null when the API call fails", async () => {
+  it("answers null, and caches nothing, when the API call fails", async () => {
     mockGetStatus.mockRejectedValue(new Error("unavailable"));
     await expect(getStrategyDataStatus()).resolves.toBeNull();
+    expect(mockCacheOutcome).toHaveBeenCalledWith("rejected");
+    expect(mockCacheOutcome).not.toHaveBeenCalledWith("held");
+  });
+
+  it("holds a good answer in the cache", async () => {
+    mockGetStatus.mockResolvedValue({
+      latestSession: "2026-11-04",
+      snapshotAsOf: "2026-11-04",
+      asicReports: [],
+    });
+    await getStrategyDataStatus();
+    expect(mockCacheOutcome).toHaveBeenCalledWith("held");
   });
 });
