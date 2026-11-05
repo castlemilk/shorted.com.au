@@ -139,6 +139,11 @@ var (
 // name folds to the notice's (foldCompanyName): a delisted code that still has
 // the same name in company-metadata cannot take the notice. Two live codes, or
 // no live code, stay ambiguous.
+//
+// A notice listed under one code whose document names another live company is
+// about that company (subjectTarget): a listed holder lodged it under its own code.
+// The company the document names is the one the notice is filed under, and its
+// votes are checked against that company's share count.
 func resolveTarget(p pendingNotice, docCompany string, companies map[string]company, live map[string]bool) (string, string) {
 	codes := uniqueSorted(p.ListedCodes)
 	if m := headlineForRe.FindStringSubmatch(strings.TrimSpace(p.Headline)); m != nil {
@@ -150,6 +155,9 @@ func resolveTarget(p pendingNotice, docCompany string, companies map[string]comp
 		}
 	}
 	if len(codes) == 1 {
+		if target := subjectTarget(codes[0], docCompany, companies, live); target != "" {
+			return target, ""
+		}
 		return codes[0], ""
 	}
 	if docCompany != "" {
@@ -187,6 +195,38 @@ func resolveTarget(p pendingNotice, docCompany string, companies map[string]comp
 		}
 	}
 	return "", fmt.Sprintf("listed under %s; the notice names %q", strings.Join(codes, ","), docCompany)
+}
+
+// subjectTarget is the company a one-code listing is about when the document names
+// another company. ASX lists a notice a listed holder lodges about another company's
+// shares under the holder's code alone (CBA lodging about SiteMinder, 2026-11-05):
+// the holder's name then sits in section 1 and the subject in the "To Company
+// Name/Scheme" line. The listed code's own name is compared with the document's
+// first, so a notice about the listed company itself is untouched. The document's
+// company is then looked up by name over every company on record and taken only when
+// exactly one live company (ASIC's short report) carries that name (foldCompanyName).
+// A listed code whose name is not on record, a document naming no company, no match,
+// or several matches leave the listed code as it was: a code whose name the parser
+// cannot read must not be retargeted blindly. "" means the listed code stands.
+func subjectTarget(code, docCompany string, companies map[string]company, live map[string]bool) string {
+	co, onRecord := companies[code]
+	if docCompany == "" || !onRecord || co.Name == "" || extractiontrust.EntityMatches(docCompany, co.Name) {
+		return ""
+	}
+	want := foldCompanyName(docCompany)
+	if want == "" {
+		return ""
+	}
+	var found []string
+	for c, other := range companies {
+		if live[c] && foldCompanyName(other.Name) == want {
+			found = append(found, c)
+		}
+	}
+	if len(found) == 1 {
+		return found[0]
+	}
+	return ""
 }
 
 func uniqueSorted(in []string) []string {
@@ -448,12 +488,13 @@ func (p *noticePass) process(ctx context.Context, pending []pendingNotice, resol
 		}
 		notice, parsed, parseDetail := parseSubstantialNotice(text, n.Headline)
 		if parsed != outcomeParsed {
-			// A placeholder names no holder, so its attempt is filed under the
-			// company its target names, as a parsed notice's would be.
-			code := ""
-			if parsed == outcomeNoHolder {
-				code, _ = resolveTarget(n, notice.CompanyName, companies, live)
-			}
+			// A refusal is filed under the company its target names, as a parsed notice
+			// is. Without this a listed holder's notice about another company (CBA's
+			// SiteMinder and GR Engineering notices, 2026-11-05) is recorded under the
+			// holder's code whenever the parser refuses it, and that attempt is the one
+			// the withheld counts read. A refusal with no company named falls back to
+			// the first listed code, as before.
+			code, _ := resolveTarget(n, notice.CompanyName, companies, live)
 			record(n, code, string(parsed), parseDetail)
 			return
 		}

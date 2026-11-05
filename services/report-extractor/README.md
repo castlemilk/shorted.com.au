@@ -36,12 +36,60 @@ to a second reader, under the same consensus as the director trades (`director_d
   holder on", "ceased to be a substantial holder on") is always kept, whatever follows it.
   Local context only, never a position in the document.
   Further refusals: a holder whose grouping key is the subject company's (`holder_is_subject_company`,
-  from `company-metadata`, not applied to a notice that mentions escrowed or restricted securities); a name with "Ply" for "Pty" before Ltd or Limited (`ocr_misspelled_legal_name`:
+  checked against the subject the reading resolves to, see below, not applied to a notice that mentions
+  escrowed or restricted securities); a name with "Ply" for "Pty" before Ltd or Limited (`ocr_misspelled_legal_name`:
   the OCR misreads the suffix, and the Go registry's legal suffixes are not changed to key it); more
   than one voting class row with no quoted total row (`several_classes_without_total`). The model
   reports `voting_class_rows` and `quotes.total_row` (prompt rules 6 and 7).
   Holders are compared by grouping key (`holder_same`), not text: a reader's "Limited (PVM)" and
   "Limited" are one holder. The stored `holder_name` is the tidied name, as `notice.go` stores it.
+- **The subject company (the listing finding, 2026-11-05).** ASX lists a substantial holding notice
+  under every code it concerns. A listed holder that lodges about another company's shares is listed
+  under its own code alone. Eighteen CBA notices with outcome `no_voting_power` were lodged by
+  Commonwealth Bank of Australia about SiteMinder (SDR) and GR Engineering (GNG): the "To Company
+  Name/Scheme" line names the subject, and section 1 names CBA as the holder. The Go pass
+  (`notices.go`, before `subjectTarget`) filed them under the listed code, so their figures were read
+  against CBA's share count. The readers refused the same notices as `holder_is_subject_company`,
+  because the holder's name was compared with the listed code's company. The rule is now the same in
+  both languages (`resolve_target` here is `resolveTarget` there):
+  - The answer names the subject in `subject_company`, with `quotes.subject_company` the words of the
+    To line that name it. A notice whose text does not carry that quote is withheld
+    (`subject_unresolved`); a scan has no text, so its subject is not quote-checked and the two readers
+    must resolve the same code.
+  - The subject resolves to one company on record as the Go pass resolves a notice: a listed code
+    stands unless its name differs from the document's, and then exactly one live company
+    (ASIC's short report) whose name folds to the document's (`fold_company_name`, the Go
+    `foldCompanyName`) is the target. A name that is on record as no company, or several live
+    matches, is withheld. The subject's name must be the company's on record (the entity rule or the
+    same fold), so an unknown name never falls back to the listed code.
+  - The notice is filed under the resolved code (`stock_code`, and the attempt follows it), and its
+    votes are checked against that company's count on issue as at the notice's date, looked up when
+    the subject is read. A subject with no count is `no_share_count`: nothing is written, and the
+    notice is offered again.
+  - `holder_is_subject_company` compares the holder with the resolved subject's name, never the
+    candidate's code.
+  The Go pass applies the same rule to a REFUSAL, not only to a parsed notice: every parser refusal
+  (`no_voting_power`, `no_holder`, ...) is filed under `resolveTarget` of the company the To line
+  names. The two production CBA notices (SiteMinder, GR Engineering) are refused by the parser as
+  `no_voting_power`, so a rule that only retargeted parsed notices would still file them under CBA;
+  `TestNoticePassFilesARefusalUnderTheSubjectCompany` runs their real text. A refusal with no company
+  named keeps the first listed code, as before.
+  The Go pass re-reads at parser version 4 the refusals this rule can change (`staleRereads`:
+  `ambiguous_target`, `no_voting_power`, `inconsistent_votes`). The cost is one ASX fetch for each
+  such attempt that was recorded below version 4, and each re-read resets its `read_by` to `parser`,
+  so the Python pass offers again a `no_voting_power` notice it had already withheld. That is the
+  intent (the rule may now recover it), and it is paid once. `inconsistent_votes` is re-fetched
+  too, because its votes were checked against the wrong company's count; the Python pass does not
+  select it.
+  A replayed answer with no `subject_company` (the bench's cache, which predates the field) is read as
+  the candidate's own notice (`ReadContext.reference` is None), as the bench rule requires.
+  DECISION: a run with a reference that gets a reply with no `subject_company` withholds it as
+  `subject_unresolved`; it is never filed under the candidate's code. The Go pass has no such
+  fallback either: a notice whose listed code's name the rule cannot settle keeps that code. So
+  Python withholds a few readings that Go would file under the listed code (a renamed company's old
+  name in the document, no company on record for the name, a reply with no subject). That is the
+  conservative side: the bug this rule fixes is a reply filed under the holder's code. The bench cannot
+  measure the reference path (its cache has no `subject_company`); measuring it needs a paid `--fill`.
 - **Replies.** A reply with no JSON object is a model failure (`ModelCallError`), never a reading.
 - **Failures.** A model that cannot answer raises `ModelCallError`: the notice is not an attempt
   and is retried next run. The run exits 1 when the errors look systemic (5 in the run, or 3 at a
@@ -79,7 +127,9 @@ DATABASE_URL=... OPENROUTER_API_KEY=... python extract_reports_concurrent.py --n
 Parity with the Go pass: `holder_key` cuts the name at the registry's `nameTails` (copied from
 `registry.go`; a test fails when the two lists drift). An ACN, ABN or ARSN is a tail only with its
 digits after it (`NAME_TAIL_ID`, the same pattern as `nameTailID` in `registry.go`), so "ABN AMRO" keys whole before the legal suffixes are dropped, and
-`NOTICE_PARSER_VERSION` is `notice.go`'s `noticeParserVersion` (also pinned by a test). The institution
+`NOTICE_PARSER_VERSION` is `notice.go`'s `noticeParserVersion` (also pinned by a test; 4 since the subject
+rule). `COMPANY_SUFFIXES` is `companySuffixes` and `fold_company_name` is `foldCompanyName`, both pinned
+against the Go source and the Go fold's pairs. The institution
 is resolved by an exact match of the registry's names and aliases only. A holder the pass cannot
 resolve exactly is grouped by name.
 
@@ -118,6 +168,17 @@ The bench scores with the same five model names `--fill` asks for, taken from th
 `NOTICE_SCAN_CHECKER_MODEL`) or from `--primary`, `--checker`, `--arbiter`, `--scan-primary`, `--scan-checker`; the
 summary's `models` field records them. `--fill` is paid and refuses unless `NOTICE_BENCH_LIVE=1`. A reading made
 where the hand reading is withheld counts against every field it states.
+
+The gold set was checked against the subject rule on 2026-11-05. Where the To line's company name is
+readable, it is the entry's own code (NOL, FPR, BUR, A1M, MX1, EGG, CHL, TYR). For ACE, CYL, CEN,
+ERD, NEC and NYR the name is readable in the notice's body, not on the To line, and it is the entry's
+code. The To lines of TRS and VN8 are OCR-damaged but name the company the code belongs to. DBF's text
+is an annexure that carries the code only. Most other
+entries have no company name in a readable To line, so for them the check is not possible from the text
+layer. No entry differed, so no entry carries a `subject_code`. The bench's cache holds answers from before the
+`subject_company` field, so it scores them through the replay path (candidate's own code) and says
+nothing about the new prompt: benching the subject rule needs a fresh `--fill` (paid) against the new
+prompt, which the cache's keys (`model|id`) do not refresh on their own.
 
 `test_notice_direct.py` runs the validator over every hand reading against its own document, with
 no model call. `REPORT_EXTRACTOR_TEST_POSTGRES_URL` runs the selection and write SQL against a

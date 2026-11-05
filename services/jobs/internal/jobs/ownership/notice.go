@@ -40,7 +40,14 @@ import (
 // nightly pass asks it only for a notice not yet asked, and resolve-unavailable
 // reads only the unavailable attempts recorded before it. Ambiguous targets
 // are re-read again under it (staleRereads), as they were under 2.
-const noticeParserVersion = 3
+//
+// Version 4 (2026-11) is resolveTarget's subject rule (subjectTarget): a notice
+// listed under one code whose document names another live company is filed under
+// that company, and its votes are checked against that company's count. Refusals
+// the rule can change are the ambiguous targets, the no_voting_power refusals (a
+// notice the holder's code was given) and the inconsistent votes (checked against
+// the wrong company's count), so staleRereads lists them under version 4.
+const noticeParserVersion = 4
 
 // Form is the statutory form a substantial holding notice was given on.
 type Form string

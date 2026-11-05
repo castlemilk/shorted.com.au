@@ -315,10 +315,10 @@ func TestUnansweredAPIIsRecordedForTheNextNightly(t *testing.T) {
 		{"API transport failure", transport, transport, outcomeFetchError, unansweredVersion, 1},
 		{"API refusal", transport, &reportextract.StatusError{Code: 429}, outcomeFetchError, unansweredVersion, 1},
 		{"display refusal keeps the API unasked", &reportextract.StatusError{Code: 403}, nil, outcomeFetchError, unansweredVersion, 0},
-		{"not listed is an answer", transport, reportextract.ErrASXNotListed, outcomeFetchError, apiPathVersion, 1},
-		{"cannot display and not listed is an answer", unavailable, reportextract.ErrASXNotListed, outcomeUnavailable, apiPathVersion, 1},
-		{"unknown code with a display transport failure is an answer, not a set-aside", transport, reportextract.ErrASXCodeUnknown, outcomeFetchError, apiPathVersion, 1},
-		{"cannot display and code unknown is an answer", unavailable, reportextract.ErrASXCodeUnknown, outcomeUnavailable, apiPathVersion, 1},
+		{"not listed is an answer", transport, reportextract.ErrASXNotListed, outcomeFetchError, noticeParserVersion, 1},
+		{"cannot display and not listed is an answer", unavailable, reportextract.ErrASXNotListed, outcomeUnavailable, noticeParserVersion, 1},
+		{"unknown code with a display transport failure is an answer, not a set-aside", transport, reportextract.ErrASXCodeUnknown, outcomeFetchError, noticeParserVersion, 1},
+		{"cannot display and code unknown is an answer", unavailable, reportextract.ErrASXCodeUnknown, outcomeUnavailable, noticeParserVersion, 1},
 		{"no well-formed code is no answer", unavailable, reportextract.ErrASXNoCode, outcomeFetchError, unansweredVersion, 1},
 		{"no well-formed code with a display transport failure is no answer", transport, reportextract.ErrASXNoCode, outcomeFetchError, unansweredVersion, 1},
 		{"a list cut before the day is no answer about the document", unavailable, reportextract.ErrASXListCut, outcomeFetchError, unansweredVersion, 1},
@@ -387,8 +387,8 @@ func TestCutListNeverSetsAsideOnTheNextNight(t *testing.T) {
 	}
 	// A list that now reaches back before the day and shows no document is ASX's answer.
 	night(reportextract.ErrASXNotListed)
-	if a := attempts[url]; a.Outcome != outcomeUnavailable || versions[url] != apiPathVersion {
-		t.Errorf("night 3: %s at version %d, want unavailable at %d", a.Outcome, versions[url], apiPathVersion)
+	if a := attempts[url]; a.Outcome != outcomeUnavailable || versions[url] != noticeParserVersion {
+		t.Errorf("night 3: %s at version %d, want unavailable at %d", a.Outcome, versions[url], noticeParserVersion)
 	}
 }
 
@@ -467,5 +467,24 @@ func TestNoListedCodeIsNoAPIAnswer(t *testing.T) {
 	}
 	if got := store.versions[url]; got != unansweredVersion {
 		t.Errorf("recorded at version %d, want %d so the next run asks again", got, unansweredVersion)
+	}
+}
+
+// Version 4 re-reads the refusals its subject rule can change (no_voting_power, the
+// inconsistent votes checked against the holder's count, the ambiguous targets), and
+// no other outcome: a refusal the rule cannot touch is not downloaded again.
+func TestVersionFourRereadsWhatTheSubjectRuleChanges(t *testing.T) {
+	if noticeParserVersion != 4 {
+		t.Fatalf("noticeParserVersion = %d; this test pins version 4's re-reads", noticeParserVersion)
+	}
+	for _, o := range []string{outcomeAmbiguousTarget, string(outcomeNoVotingPower), outcomeInconsistentVotes} {
+		if !slices.Contains(staleOutcomes(noticeParserVersion), o) {
+			t.Errorf("version %d does not re-read %s", noticeParserVersion, o)
+		}
+	}
+	for _, o := range []string{string(outcomeNoText), outcomeNoHolder, string(outcomeNotNotice)} {
+		if slices.Contains(staleOutcomes(noticeParserVersion), o) {
+			t.Errorf("version %d re-reads %s, which the subject rule does not change", noticeParserVersion, o)
+		}
 	}
 }
