@@ -631,3 +631,34 @@ func (l *LoggerAdapter) Warnf(format string, args ...any) {
 func (l *LoggerAdapter) Errorf(format string, args ...any) {
 	log.Printf("[ERROR] "+format, args...)
 }
+
+// ReadStrategySnapshot reads the newest completed snapshot session (the store's
+// StrategySnapshotReader). A store without the snapshot answers unavailable.
+func (s *StoreAdapter) ReadStrategySnapshot(ctx context.Context) (shorts.StrategySnapshot, error) {
+	r, ok := s.store.(shorts.StrategySnapshotReader)
+	if !ok {
+		return shorts.StrategySnapshot{}, shorts.ErrStrategySnapshotUnavailable
+	}
+	return r.ReadStrategySnapshot(ctx)
+}
+
+// ReadStrategyDataStatus reads the source dates of the strategy readings.
+func (s *StoreAdapter) ReadStrategyDataStatus(ctx context.Context) (shorts.StrategyDataStatus, error) {
+	r, ok := s.store.(shorts.StrategySnapshotReader)
+	if !ok {
+		return shorts.StrategyDataStatus{}, shorts.ErrStrategySnapshotUnavailable
+	}
+	return r.ReadStrategyDataStatus(ctx)
+}
+
+// ListStrategySignalEvents reads one rules version's status changes.
+func (s *StoreAdapter) ListStrategySignalEvents(ctx context.Context, f shorts.StrategySignalEventsFilter) ([]shorts.StrategySignalEventRow, error) {
+	r, ok := s.store.(shorts.StrategySnapshotReader)
+	if !ok {
+		return nil, shorts.ErrStrategySnapshotUnavailable
+	}
+	return r.ListStrategySignalEvents(ctx, f)
+}
+
+// StoreAdapter serves the snapshot read the stock picker uses when its source is "snapshot".
+var _ strategySnapshotStore = (*StoreAdapter)(nil)

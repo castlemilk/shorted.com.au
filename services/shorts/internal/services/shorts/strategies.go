@@ -310,10 +310,19 @@ func (s *ShortsServer) loadMarketRegime(ctx context.Context) (engine.Regime, err
 }
 
 // loadStrategyUniverse returns every candidate plus the regime, prepared and
-// indexed, cached for strategyCacheTTL and shared by all strategies.
+// indexed, cached for strategyCacheTTL and shared by all strategies. The source
+// is the daily snapshot when STRATEGY_SOURCE says so and it has a completed
+// session, else the views.
 func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUniverse, error) {
 	fillCtx := context.WithoutCancel(ctx)
 	v, err := s.cache.GetOrSetWithTTL(s.cache.GetStrategyUniverseKey(), strategyCacheTTL, func() (any, error) {
+		u, ok, err := s.snapshotUniverse(fillCtx)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			return u, nil
+		}
 		cands, err := s.store.ListStrategyCandidates(fillCtx)
 		if err != nil {
 			return nil, err
@@ -322,33 +331,41 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 		if err != nil {
 			return nil, err
 		}
-		// Once per fill, before any rule reads a candidate: the financials
-		// decision (withholding not-meaningful ratios) and valuation.
-		engine.PrepareCandidates(cands)
-		u := &strategyUniverse{
-			candidates:      cands,
-			index:           make(map[string]int, len(cands)),
-			env:             engine.NewEnvFromStats(regime, engine.UniverseStatsOf(cands)),
-			regime:          regime,
-			coverage:        engine.FundamentalsCoverage(cands),
-			qualityCoverage: engine.QualityCoverage(cands),
-			rowsCount:       engine.FundamentalsRows(cands),
-		}
-		for i := range cands {
-			u.index[strings.ToUpper(cands[i].StockCode)] = i
-			if d := cands[i].ShortReportDate; d != nil && d.After(u.shortReportDate) {
-				u.shortReportDate = *d
-			}
-		}
+		asOf := ""
 		if latest := engine.LatestAsOf(cands); !latest.IsZero() {
-			u.asOf = latest.Format("2006-01-02")
+			asOf = latest.Format("2006-01-02")
 		}
-		return u, nil
+		return newStrategyUniverse(cands, regime, asOf), nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return v.(*strategyUniverse), nil
+}
+
+// newStrategyUniverse prepares the candidates (the financials decision and
+// valuation, once per fill, before any rule reads a candidate) and indexes them
+// with the universe's shared environment. asOf is the session the universe is
+// as at, "" when unknown.
+func newStrategyUniverse(cands []engine.Candidate, regime engine.Regime, asOf string) *strategyUniverse {
+	engine.PrepareCandidates(cands)
+	u := &strategyUniverse{
+		candidates:      cands,
+		index:           make(map[string]int, len(cands)),
+		env:             engine.NewEnvFromStats(regime, engine.UniverseStatsOf(cands)),
+		regime:          regime,
+		coverage:        engine.FundamentalsCoverage(cands),
+		qualityCoverage: engine.QualityCoverage(cands),
+		rowsCount:       engine.FundamentalsRows(cands),
+		asOf:            asOf,
+	}
+	for i := range cands {
+		u.index[strings.ToUpper(cands[i].StockCode)] = i
+		if d := cands[i].ShortReportDate; d != nil && d.After(u.shortReportDate) {
+			u.shortReportDate = *d
+		}
+	}
+	return u
 }
 
 // loadStrategyEvaluation returns one strategy's full ranked pick list,
