@@ -22,11 +22,11 @@ var v1Changes = []string{
 	"A price bar on the session is required. Suspended or delisted codes no longer keep frozen features, including a breakout that never aged out.",
 	"Corporate-action guard. A code is not evaluated for 260 sessions after a corroborated unadjusted share consolidation or split, or after an integer-ratio up-jump of 1.8x or more in bars since the last price re-sync.",
 	"Crowded-Short universe: the ordinary names in the latest complete ASIC report published by the session.",
-	"Short interest as published: the stock's row in the latest complete ASIC report published by the session, four sessions after the report. A reported zero is zero (fail). A stock absent from a complete report has no reportable position (fail). With no complete report within 8 sessions, the short rules are unknown.",
-	"Days to cover: reported positions divided by the mean volume of the last 20 bars, zero-volume bars included. Unknown when fewer than 10 of them traded or a corroborated consolidation lies between the report and the session.",
+	"Short interest as published: the stock's row in the latest complete ASIC report published by the session, four sessions after the report. A reported zero is zero (fail). A stock absent from a complete report has no reportable position (fail, and outside Crowded-Short's universe). With no complete report within 8 sessions, the short rules are unknown. This replaces the latest non-zero figure, forever.",
+	"Days to cover: reported positions divided by the mean volume of the last 20 bars, zero-volume bars included. Unknown when fewer than 10 of them traded, fewer than 20 bars exist, or a corroborated consolidation lies between the report and the session.",
 	"New status Unknown: no core non-trigger rule fails and at least one core rule is unknown. An unknown trigger no longer reads as setup. The downtrend demotion is unchanged and stated: a failing regime rule makes every Zanger and CAN SLIM stock watch.",
 	"Every unknown rule carries a reason.",
-	"Evaluation text is generated from the thresholds, so it states the 4-decimal prices and the liquidity test as the rules apply them.",
+	"Evaluation text is not yet generated from the thresholds: the rule text still carries the v0 wording on prices (2 decimal places) and on liquidity, and the generated text follows in a later release. The rules, not the text, are v1.",
 }
 
 // v1 builds the v1 registered version of a strategy. It is live from the
