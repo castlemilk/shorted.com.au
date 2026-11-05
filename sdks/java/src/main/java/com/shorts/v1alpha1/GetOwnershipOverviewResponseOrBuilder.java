@@ -479,4 +479,27 @@ public interface GetOwnershipOverviewResponseOrBuilder extends
    * @return The documentsAttempted.
    */
   int getDocumentsAttempted();
+
+  /**
+   * <pre>
+   * Parsed notices a model read after the parser withheld them (read_by = model).
+   * Counted within notices_parsed.
+   * </pre>
+   *
+   * <code>int32 notices_read_by_model = 21 [json_name = "noticesReadByModel"];</code>
+   * @return The noticesReadByModel.
+   */
+  int getNoticesReadByModel();
+
+  /**
+   * <pre>
+   * ETFs on ASX's investment products report whose category is Australian equity or
+   * Australian property: the universe the tracked index funds are measured against
+   * (etfs counts every ETF on the report, most holding no ASX equity).
+   * </pre>
+   *
+   * <code>int32 etfs_australian_equity = 22 [json_name = "etfsAustralianEquity"];</code>
+   * @return The etfsAustralianEquity.
+   */
+  int getEtfsAustralianEquity();
 }

@@ -10,8 +10,8 @@ import (
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 const (
@@ -102,7 +102,7 @@ func (s *ShortsServer) GetStockFundamentals(ctx context.Context, req *connect.Re
 type fundamentalsInputs struct {
 	code     string
 	periods  []shortsstore.FundamentalsPeriodRow
-	growth   *strategies.Growth
+	growth   *engine.Growth
 	extras   *shortsstore.FundamentalsExtras
 	coverage *shortsstore.FundamentalsCoverageRow
 	filing   *shortsstore.LatestFilingInputs
@@ -183,7 +183,7 @@ func fundamentalsPeriodProto(p shortsstore.FundamentalsPeriodRow) *shortsv1alpha
 	return fp
 }
 
-func fundamentalsGrowthProto(g *strategies.Growth) *shortsv1alpha1.FundamentalsGrowth {
+func fundamentalsGrowthProto(g *engine.Growth) *shortsv1alpha1.FundamentalsGrowth {
 	fg := &shortsv1alpha1.FundamentalsGrowth{
 		BasisPeriodType:        g.BasisPeriodType,
 		RevenueBasisPeriodType: g.RevenueBasisPeriodType,
@@ -214,17 +214,17 @@ func fundamentalsGrowthProto(g *strategies.Growth) *shortsv1alpha1.FundamentalsG
 }
 
 // fundamentalsQualityProto builds the ratios and valuation of one stock. The
-// financials decision (strategies.ApplyQualityRules) runs here, before
+// financials decision (engine.ApplyQualityRules) runs here, before
 // anything leaves the API, so a bank's not-meaningful ratios are withheld and
 // listed. Valuation uses the one valuation function every surface uses
-// (strategies.Valuate). nil when there is neither a quality row nor any
+// (engine.Valuate). nil when there is neither a quality row nor any
 // valuation figure (and always nil before 000132).
 func fundamentalsQualityProto(e *shortsstore.FundamentalsExtras) *shortsv1alpha1.FundamentalsQuality {
 	if e == nil {
 		return nil
 	}
 	q := e.Quality
-	strategies.ApplyQualityRules(q, e.Industry)
+	engine.ApplyQualityRules(q, e.Industry)
 	var (
 		closePx float64
 		asOf    time.Time
@@ -235,12 +235,12 @@ func fundamentalsQualityProto(e *shortsstore.FundamentalsExtras) *shortsv1alpha1
 	if e.PriceAsOf != nil {
 		asOf = *e.PriceAsOf
 	}
-	val := strategies.Valuate(closePx, asOf, &e.Valuation, q)
+	val := engine.Valuate(closePx, asOf, &e.Valuation, q)
 	if q == nil && !val.HasAny() {
 		return nil
 	}
 
-	isFinancial, isProperty, notMeaningful := strategies.FinancialFlags(q, e.Industry)
+	isFinancial, isProperty, notMeaningful := engine.FinancialFlags(q, e.Industry)
 	out := &shortsv1alpha1.FundamentalsQuality{
 		IsFinancial:    isFinancial,
 		IsProperty:     isProperty,

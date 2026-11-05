@@ -8,7 +8,7 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 )
 
 // Row is a minimal interface for scanning a single database row.
@@ -182,10 +182,10 @@ type Store interface {
 	// Stock picker (postgres_strategies.go; plan docs/plans/stock-picker.md §3.2).
 	// A missing relation (dev without migrations 000129/000130) yields an
 	// empty result, never an error.
-	ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error)
-	GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error)
+	ListStrategyCandidates(ctx context.Context) ([]engine.Candidate, error)
+	GetMarketRegime(ctx context.Context, indexCode string) (engine.Regime, error)
 	GetStockFundamentals(ctx context.Context, code, periodType string, limit int32) ([]FundamentalsPeriodRow, error)
-	GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error)
+	GetFundamentalsGrowth(ctx context.Context, code string) (*engine.Growth, error)
 
 	// Fundamentals coverage (postgres_fundamentals.go; plan
 	// docs/plans/fundamentals-coverage.md §5.3). Every read tolerates a

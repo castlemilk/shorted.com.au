@@ -9363,6 +9363,21 @@ components:
           title: documents_attempted
           format: int32
           description: 'Every document attempted, parsed included: the base of notices_withheld. (proto int32)'
+        noticesReadByModel:
+          type: integer
+          title: notices_read_by_model
+          format: int32
+          description: |-
+            Parsed notices a model read after the parser withheld them (read_by = model).
+             Counted within notices_parsed. (proto int32)
+        etfsAustralianEquity:
+          type: integer
+          title: etfs_australian_equity
+          format: int32
+          description: |-
+            ETFs on ASX's investment products report whose category is Australian equity or
+             Australian property: the universe the tracked index funds are measured against
+             (etfs counts every ETF on the report, most holding no ASX equity). (proto int32)
       title: GetOwnershipOverviewResponse
       additionalProperties: false
     shorts.v1alpha1.GetParliamentOverviewRequest:
@@ -17101,6 +17116,14 @@ components:
              decreased (604 with both figures and a difference), changed (604 with no
              previous figure, no present figure, or an equal one), nz (an NZ
              disclosure that is not a cessation). (proto string)
+        readBy:
+          type: string
+          title: read_by
+          description: |-
+            Who read the notice: "parser" (the parser, the default) or "model" (a model
+             pass recovered it after the parser withheld it; two readers agreed and the
+             figures were validated against the share count). A schema without the column
+             reads "parser". (proto string)
       title: SubstantialNotice
       additionalProperties: false
       description: One notice as released.

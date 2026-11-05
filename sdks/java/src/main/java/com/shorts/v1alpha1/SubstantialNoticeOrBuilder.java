@@ -187,4 +187,30 @@ public interface SubstantialNoticeOrBuilder extends
    */
   com.google.protobuf.ByteString
       getEventBytes();
+
+  /**
+   * <pre>
+   * Who read the notice: "parser" (the parser, the default) or "model" (a model
+   * pass recovered it after the parser withheld it; two readers agreed and the
+   * figures were validated against the share count). A schema without the column
+   * reads "parser".
+   * </pre>
+   *
+   * <code>string read_by = 17 [json_name = "readBy"];</code>
+   * @return The readBy.
+   */
+  java.lang.String getReadBy();
+  /**
+   * <pre>
+   * Who read the notice: "parser" (the parser, the default) or "model" (a model
+   * pass recovered it after the parser withheld it; two readers agreed and the
+   * figures were validated against the share count). A schema without the column
+   * reads "parser".
+   * </pre>
+   *
+   * <code>string read_by = 17 [json_name = "readBy"];</code>
+   * @return The bytes for readBy.
+   */
+  com.google.protobuf.ByteString
+      getReadByBytes();
 }

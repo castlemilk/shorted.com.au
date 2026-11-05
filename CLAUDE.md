@@ -542,7 +542,7 @@ valuation, stock page).
 
 | Piece | Where |
 |---|---|
-| Strategy prose, rules, weights, evaluator, sort, valuation, financials rule (no DB) | `services/shorts/internal/strategies/` (prose lives HERE once; the web registry holds SEO metadata only) |
+| Strategy prose, rules, weights, evaluator, sort, valuation, financials rule (no DB) | `services/pkg/strategy/engine/` (the evaluator, moved from `services/shorts/internal/strategies/` in 2026-11; `services/pkg/strategy/instrument/` holds ClassifySecurity; prose lives HERE once; the web registry holds SEO metadata only) |
 | `quality-compounders` (house, no regime gate) | core `roe` (>= 15%), `net_margin` (>= 10%), `cash_conversion` (FCF > 0 and >= 0.8x NPAT), `leverage` (net cash, or net debt / EBITDA <= 2.5), `liquidity`; trigger `above_sma200`; non-core `revenue_not_shrinking` |
 | `sort_by` | `score` (default, rank order), `revenue_yoy`, `eps_yoy`, `roe`, `net_margin`, `fcf_margin`, `pe` (ascending), `market_cap`; unknowns last, growth outside [-95%, +500%] after every measured figure; `rank` stays the evaluator's; any other value is `InvalidArgument` |
 | Score (`weights.go`, `proximity.go`) | A pass earns weight x (0.6 + 0.4 x strength) x 100; a FAILING trigger rule (`Strategy.TriggerRules`: breakout, near_high / off_high, rs_leader, above_sma200) earns weight x 0.3 x proximity x 100, proximity 1 at the trigger line and 0 at the rule's far distance (10% under the pivot, 15 / 25 points under the 52-week lines, 20 RS points under the quartile cut-off, 10% under the 200-day), so setups rank nearest-to-firing first (2026-10-21). 0.3 < 0.6 keeps a near miss below a floor pass; a triggered score is untouched. Every trigger rule's evaluation prose ends with `evalTriggerCredit` (`TestTriggerRuleProseStatesTheCredit`) |
@@ -583,7 +583,7 @@ valuation, stock page).
   `no-shares`, and the picker falls back to the screener market cap. A CDI's
   filing EPS is withheld too (`-mode filings` gate 8, stricter: without a
   `median_k` any vendor k outside [0.8, 1.25] withholds it).
-- **Financials are decided once, in Go** (`strategies/fundamentals_quality.go`):
+- **Financials are decided once, in Go** (`services/pkg/strategy/engine/fundamentals_quality.go`):
   banks, insurers and lending financial-services companies get the
   not-meaningful ratios nulled and listed in `not_meaningful`, so
   `cash_conversion` / `leverage` read unknown (never pass) and they rank watch

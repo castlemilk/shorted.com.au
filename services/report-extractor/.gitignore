@@ -5,5 +5,8 @@ __pycache__/
 # working cache defaults to /tmp/aph-register; this guards against someone
 # pointing REGISTER_CACHE_DIR at the repo.
 *.pdf
+# The notice gold set's two small scans are ASX announcements, public documents the
+# bench reads as images; they are the one tracked exception (under 300 KB each).
+!testdata/notices/scan/*.pdf
 /cache/
 /aph-register/

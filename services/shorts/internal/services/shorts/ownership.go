@@ -175,7 +175,7 @@ func (d *ownershipData) noticeProto(n shortsstore.SubstantialNoticeRow) *shortsv
 		StockCode: n.StockCode, CompanyName: d.companies[n.StockCode].Name, HolderKey: n.HolderKey, HolderName: n.HolderName,
 		InstitutionSlug: n.InstitutionSlug, Kind: n.Kind, Form: n.Form, Ceased: n.Ceased,
 		EventDate: n.EventDate, AnnouncedOn: n.AnnouncedOn, AnnouncementUrl: n.AnnouncementURL,
-		Event: n.Event(),
+		Event: n.Event(), ReadBy: readByOrParser(n.ReadBy),
 	}
 	if n.PresentPct != nil {
 		out.PresentPct, out.HasPresent = *n.PresentPct, true
@@ -184,6 +184,15 @@ func (d *ownershipData) noticeProto(n shortsstore.SubstantialNoticeRow) *shortsv
 		out.PreviousPct, out.HasPrevious = *n.PreviousPct, true
 	}
 	return out
+}
+
+// readByOrParser is a notice's read_by as served: a row read without the column (a
+// schema before migration 000154, or a row fixture) is the parser's.
+func readByOrParser(v string) string {
+	if v == "" {
+		return "parser"
+	}
+	return v
 }
 
 func (d *ownershipData) fundHoldingProto(h shortsstore.FundHoldingRow, insts map[string]shortsstore.OwnershipInstitutionRow) *shortsv1alpha1.FundHolding {
@@ -488,6 +497,7 @@ func buildOwnershipOverview(u *ownershipUniverse) *shortsv1alpha1.GetOwnershipOv
 	out := &shortsv1alpha1.GetOwnershipOverviewResponse{
 		NoticesParsed: int32(d.stats.Parsed), NoticesWithheld: int32(d.stats.Withheld), AsOf: d.stats.LatestAnnounced,
 		WithheldByOutcome: withheldByOutcome(u.byOutcome), DocumentsAttempted: int32(u.documentsAttempted),
+		NoticesReadByModel: int32(d.stats.ReadByModel),
 	}
 
 	// The map: registry institutions by kind, and who holds what by kind.
@@ -580,6 +590,9 @@ func buildOwnershipOverview(u *ownershipUniverse) *shortsv1alpha1.GetOwnershipOv
 		case "etf":
 			out.Etfs++
 			out.EtfFumAud += size
+			if isAustralianEquityETF(f.Category) {
+				out.EtfsAustralianEquity++
+			}
 		case "lic":
 			out.Lics++
 			out.LicMarketCapAud += size
@@ -858,4 +871,12 @@ func buildStockOwnership(u *ownershipUniverse, code string, notices []shortsstor
 	out.WithheldListed = int32(u.withheldListed(code))
 	out.AsOf = d.stats.LatestAnnounced
 	return out
+}
+
+// isAustralianEquityETF reads ASX's investment products category: "Equity - Australia ..."
+// (broad, sectors, strategy, small and mid cap) and "Property - Australia ..." (A-REITs) hold
+// ASX-listed equities; every other category (global equity, fixed income, cash, commodity,
+// crypto, mixed) does not, so the tracked index funds are measured against these alone.
+func isAustralianEquityETF(category string) bool {
+	return strings.HasPrefix(category, "Equity - Australia") || strings.HasPrefix(category, "Property - Australia")
 }

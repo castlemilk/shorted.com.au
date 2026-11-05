@@ -10,7 +10,7 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -335,7 +335,7 @@ func realisticStrategySource(src *fakeDataSource) {
 			"so no stock can trigger until the trend turns.",
 	}
 
-	registry := strategies.Registry()
+	registry := engine.Registry()
 	list := make([]*shortsv1alpha1.Strategy, 0, len(registry))
 	widest := registry[0]
 	for _, st := range registry {
@@ -415,7 +415,7 @@ func realisticStrategySource(src *fakeDataSource) {
 			IsFinancial: true, Source: "yahoo-timeseries", OperatingCashFlowDerived: true,
 			MarketCap: 331_234_567_890.12, HasMarketCap: true, PeRatio: 14.23456, HasPeRatio: true,
 			PriceToBook: 3.123456, HasPriceToBook: true, PriceAsOf: "2026-09-25", BalanceCurrency: "USD",
-			NotMeaningful: strategies.NotMeaningfulForFinancials(), IsProperty: true, BalanceLagMonths: 6,
+			NotMeaningful: engine.NotMeaningfulForFinancials(), IsProperty: true, BalanceLagMonths: 6,
 			SharesAsOf: "2026-06-30", PeEpsPeriodEnd: "2026-06-30", PeEpsBasis: "diluted",
 			ValuationNote: "listed-unit",
 		},
@@ -477,13 +477,13 @@ func pickFundamentalsFixture() *shortsv1alpha1.PickFundamentals {
 		NetMarginPct: -22.1234, HasNetMarginPct: true, RoePct: -123.4567, HasRoePct: true,
 		FcfMarginPct: 17.7654, HasFcfMarginPct: true, NetDebtToEbitda: 0.412345, HasNetDebtToEbitda: true,
 		PeRatio: 14.23456, HasPeRatio: true, IsFinancial: true, NetIncomePositive: true,
-		NotMeaningful: strategies.NotMeaningfulForFinancials(),
+		NotMeaningful: engine.NotMeaningfulForFinancials(),
 	}
 }
 
 // strategyFixture renders a registry strategy the way the handler does, prose
 // and all, so the list fixture costs what production costs.
-func strategyFixture(st strategies.Strategy) *shortsv1alpha1.Strategy {
+func strategyFixture(st engine.Strategy) *shortsv1alpha1.Strategy {
 	rules := make([]*shortsv1alpha1.StrategyRule, 0, len(st.Rules))
 	for _, r := range st.Rules {
 		rules = append(rules, &shortsv1alpha1.StrategyRule{

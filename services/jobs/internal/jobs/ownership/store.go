@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"unicode/utf8"
 )
 
 // pgStore is the job's Postgres side.
@@ -24,16 +25,47 @@ const substantialHeadlineSQL = `a.headline ILIKE '%substantial%'
     OR a.headline ILIKE '%change of interests of substantial%'
     OR a.headline ILIKE '%initial substantial holder%')`
 
+// liveCodesSQL is the codes ASIC's short position report carries now: a code
+// with a row in the last 30 days. A live code is one ASX still lists in
+// practice, so a notice filed under a delisted code cannot be filed under it.
+const liveCodesSQL = `SELECT DISTINCT "PRODUCT_CODE" FROM shorts WHERE "DATE" >= current_date - 30`
+
+// staleRereads maps a parser version to the refusal outcomes that version
+// changed the verdict of (see noticeParserVersion). A refusal whose attempt
+// carries an older version is read again only when its outcome is in the
+// current version's list, so a bump re-reads what it changed and nothing else.
+// A version that changed no verdict has no entry.
+var staleRereads = map[int][]string{
+	2: {outcomeAmbiguousTarget},
+	3: {outcomeAmbiguousTarget},
+	4: {outcomeAmbiguousTarget, string(outcomeNoVotingPower), outcomeInconsistentVotes},
+}
+
+// staleOutcomes is staleRereads[parserVersion], never nil (an empty array
+// matches no outcome in pendingNoticesSQL).
+func staleOutcomes(parserVersion int) []string {
+	if s, ok := staleRereads[parserVersion]; ok {
+		return s
+	}
+	return []string{}
+}
+
 // pendingNoticesSQL selects notices with no attempt, notices whose text could
-// not be read or downloaded (again after 7 days, at most 3 times) and
-// refusals from an older parser. Newest first, so a backlog never delays
-// today's notices.
+// not be read or downloaded (again after 7 days, at most 3 times) and the
+// refusals staleOutcomes names for the current parser version. An unavailable
+// notice matches none of these: ASX has said it holds no PDF, so it is set
+// aside. Newest first, so a backlog never delays today's notices. The prior
+// attempt's outcome and parser version come back with the row: the pass asks
+// the announcements API only for a notice it has not yet asked (apiPathVersion).
 var pendingNoticesSQL = `
 SELECT a.pdf_url,
        max(a.announcement_date)::text,
        (array_agg(a.headline ORDER BY a.announcement_date DESC, a.stock_code))[1],
-       array_agg(DISTINCT a.stock_code::text)
+       array_agg(DISTINCT a.stock_code::text),
+       COALESCE(max(p.outcome), ''),
+       COALESCE(max(p.parser_version), 0)
 FROM asx_announcements a
+LEFT JOIN substantial_holder_notice_attempts p ON p.announcement_url = a.pdf_url
 WHERE ` + substantialHeadlineSQL + `
   AND a.pdf_url IS NOT NULL AND a.pdf_url <> ''
   AND a.announcement_date >= $2::date
@@ -42,13 +74,55 @@ WHERE ` + substantialHeadlineSQL + `
     WHERE t.announcement_url = a.pdf_url
       AND NOT (t.outcome IN ('no_text', 'fetch_error') AND t.attempts < 3
                AND t.attempted_at < now() - interval '7 days')
-      AND NOT (t.outcome NOT IN ('parsed', 'no_text', 'fetch_error') AND t.parser_version < $3))
+      AND NOT (t.outcome = ANY($4::text[]) AND t.parser_version < $3))
 GROUP BY a.pdf_url
 ORDER BY max(a.announcement_date) DESC, a.pdf_url
 LIMIT $1`
 
+// resolvableNoticesSQL selects what resolve-unavailable reads again: every
+// fetch_error, and an unavailable notice once. "Once" is the parser version: an
+// attempt recorded at apiPathVersion or later has been through the API already
+// (the nightly pass asks it for a new notice; a resolve run records what it
+// found), so only an unavailable attempt from before that version is read.
+// The live-code test is an EXISTS over every row of the notice, not a filter on
+// the aggregated codes: a notice listed under a delisted code and a live one
+// must keep both codes, or resolveTarget could settle it on the live one alone.
+var resolvableNoticesSQL = `
+SELECT a.pdf_url,
+       max(a.announcement_date)::text,
+       (array_agg(a.headline ORDER BY a.announcement_date DESC, a.stock_code))[1],
+       array_agg(DISTINCT a.stock_code::text),
+       t.outcome,
+       t.parser_version
+FROM asx_announcements a
+JOIN substantial_holder_notice_attempts t ON t.announcement_url = a.pdf_url
+WHERE ` + substantialHeadlineSQL + `
+  AND a.announcement_date >= $2::date
+  AND (t.outcome = 'fetch_error'
+       OR (t.outcome = 'unavailable' AND t.parser_version < $3
+           AND EXISTS (SELECT 1 FROM asx_announcements b
+                       WHERE b.pdf_url = a.pdf_url AND b.stock_code IN (` + liveCodesSQL + `))))
+GROUP BY a.pdf_url, t.outcome, t.parser_version
+-- The notices the API was never asked about come first (the lowest parser_version),
+-- newest first within a version: a run capped at $1 then reaches the rest of the
+-- backlog on its next run instead of asking about the same newest notices again
+-- (measured 2026-11-05: 385 of the newest 400 were cut-list answers at version 2,
+-- and 453 older ones were never reached).
+ORDER BY t.parser_version ASC, max(a.announcement_date) DESC, a.pdf_url
+LIMIT $1`
+
 func (s *pgStore) PendingNotices(ctx context.Context, limit int, since string, parserVersion int) ([]pendingNotice, error) {
-	rows, err := s.db.Query(ctx, pendingNoticesSQL, limit, since, parserVersion)
+	return s.selectNotices(ctx, pendingNoticesSQL, limit, since, parserVersion, staleOutcomes(parserVersion))
+}
+
+func (s *pgStore) ResolvableNotices(ctx context.Context, limit int, since string) ([]pendingNotice, error) {
+	// An unavailable attempt is "asked" from apiPathVersion on, whatever the parser's own
+	// version: a parser bump must not ask the API again about every notice it has set aside.
+	return s.selectNotices(ctx, resolvableNoticesSQL, limit, since, apiPathVersion)
+}
+
+func (s *pgStore) selectNotices(ctx context.Context, sql string, args ...any) ([]pendingNotice, error) {
+	rows, err := s.db.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -56,10 +130,49 @@ func (s *pgStore) PendingNotices(ctx context.Context, limit int, since string, p
 	var out []pendingNotice
 	for rows.Next() {
 		var p pendingNotice
-		if err := rows.Scan(&p.URL, &p.AnnouncedOn, &p.Headline, &p.ListedCodes); err != nil {
+		if err := rows.Scan(&p.URL, &p.AnnouncedOn, &p.Headline, &p.ListedCodes, &p.PriorOutcome, &p.PriorVersion); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// LiveCodes is the set of codes ASIC's short report carries now (liveCodesSQL),
+// read once per run.
+// sharedHeadlineSQL counts the distinct notices the feed holds under the codes on
+// the day with the headline, the headline folded as the API's match folds it
+// (whitespace runs to one space, ends trimmed). The notice being read is one of
+// them.
+const sharedHeadlineSQL = `SELECT count(DISTINCT a.pdf_url) FROM asx_announcements a
+WHERE a.stock_code = ANY($1::text[])
+  AND a.announcement_date = $2::date
+  AND btrim(regexp_replace(a.headline, '\s+', ' ', 'g')) = $3
+  AND a.pdf_url IS NOT NULL AND a.pdf_url <> ''`
+
+func (s *pgStore) SharedHeadlineNotices(ctx context.Context, codes []string, day, headline string) (int, error) {
+	codes = uniqueSorted(codes)
+	if len(codes) == 0 {
+		return 0, nil
+	}
+	var n int
+	err := s.db.QueryRow(ctx, sharedHeadlineSQL, codes, day, strings.Join(strings.Fields(headline), " ")).Scan(&n)
+	return n, err
+}
+
+func (s *pgStore) LiveCodes(ctx context.Context) (map[string]bool, error) {
+	rows, err := s.db.Query(ctx, liveCodesSQL)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var c string
+		if err := rows.Scan(&c); err != nil {
+			return nil, err
+		}
+		out[strings.ToUpper(strings.TrimSpace(c))] = true
 	}
 	return out, rows.Err()
 }
@@ -124,30 +237,58 @@ func (s *pgStore) UpsertNotice(ctx context.Context, r noticeRow) error {
 			event_date = EXCLUDED.event_date, announced_on = EXCLUDED.announced_on,
 			previous_pct = EXCLUDED.previous_pct, present_pct = EXCLUDED.present_pct,
 			previous_votes = EXCLUDED.previous_votes, present_votes = EXCLUDED.present_votes,
-			ceased = EXCLUDED.ceased, parser_version = EXCLUDED.parser_version, parsed_at = now()`,
+			ceased = EXCLUDED.ceased, parser_version = EXCLUDED.parser_version, parsed_at = now(),
+			read_by = 'parser'`,
 		r.URL, r.StockCode, string(r.Form), nullIfEmpty(r.HolderName), r.HolderKey, nullIfEmpty(r.InstitutionSlug),
 		nullIfEmpty(r.EventDate), r.AnnouncedOn, r.PreviousPct, r.PresentPct, r.PreviousVotes, r.PresentVotes,
 		r.Ceased, noticeParserVersion)
 	return err
 }
 
-func (s *pgStore) RecordAttempt(ctx context.Context, a noticeAttempt, parserVersion int) error {
-	_, err := s.db.Exec(ctx, `
+// recordAttemptSQL is RecordAttempt's upsert, shared with the Postgres test that pins
+// the rule that a parser refusal never downgrades a model-read parsed attempt.
+var recordAttemptSQL = `
 		INSERT INTO substantial_holder_notice_attempts (announcement_url, stock_code, outcome, detail, parser_version, attempts, attempted_at)
 		VALUES ($1, $2, $3, $4, $5, 1, now())
 		ON CONFLICT (announcement_url) DO UPDATE SET
-			stock_code = EXCLUDED.stock_code, outcome = EXCLUDED.outcome, detail = EXCLUDED.detail,
+			stock_code = CASE WHEN substantial_holder_notice_attempts.read_by = 'model'
+			                   AND substantial_holder_notice_attempts.outcome = 'parsed'
+			                   AND EXCLUDED.outcome <> 'parsed' THEN substantial_holder_notice_attempts.stock_code
+			                  ELSE EXCLUDED.stock_code END,
+			outcome = CASE WHEN substantial_holder_notice_attempts.read_by = 'model'
+			                AND substantial_holder_notice_attempts.outcome = 'parsed'
+			                AND EXCLUDED.outcome <> 'parsed' THEN 'parsed' ELSE EXCLUDED.outcome END,
+			detail = CASE WHEN substantial_holder_notice_attempts.read_by = 'model'
+			               AND substantial_holder_notice_attempts.outcome = 'parsed'
+			               AND EXCLUDED.outcome <> 'parsed' THEN substantial_holder_notice_attempts.detail
+			              ELSE EXCLUDED.detail END,
 			parser_version = EXCLUDED.parser_version,
-			attempts = substantial_holder_notice_attempts.attempts + 1, attempted_at = now()`,
+			-- A model read stands until the parser SUCCEEDS: a parser refusal re-recorded over
+			-- a model-read notice (both ran at once on 2026-11-05) must not downgrade it.
+			read_by = CASE WHEN substantial_holder_notice_attempts.read_by = 'model'
+			                AND substantial_holder_notice_attempts.outcome = 'parsed'
+			                AND EXCLUDED.outcome <> 'parsed' THEN 'model' ELSE 'parser' END,
+			attempts = substantial_holder_notice_attempts.attempts + 1, attempted_at = now()`
+
+func (s *pgStore) RecordAttempt(ctx context.Context, a noticeAttempt, parserVersion int) error {
+	_, err := s.db.Exec(ctx, recordAttemptSQL,
 		a.URL, a.StockCode, a.Outcome, nullIfEmpty(truncate(a.Detail, 500)), parserVersion)
 	return err
 }
 
+// truncate keeps the first n bytes of s as valid UTF-8: a PDF's text layer can
+// carry bytes Postgres refuses (0xff, SQLSTATE 22021), and a byte cut can split a
+// rune. Invalid bytes are dropped, and the cut lands on a rune boundary.
 func truncate(s string, n int) string {
+	s = strings.ToValidUTF8(s, "")
 	if len(s) <= n {
 		return s
 	}
-	return s[:n]
+	cut := n
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
 }
 
 // SyncRegistry upserts the curated institutions. AUM columns belong to the

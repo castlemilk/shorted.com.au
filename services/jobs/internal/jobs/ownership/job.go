@@ -15,6 +15,13 @@
 //	                balanced option, semi-annual)
 //	-mode notices   ASX substantial holding notices (Forms 603/604/605),
 //	                selected from asx_announcements and read from their PDFs
+//	-mode resolve-unavailable  the notices ASX could not give us (fetch_error,
+//	                and unavailable notices recorded before the API path, of a
+//	                live code, once): read again
+//	                through ASX's announcements API. A recovered notice is parsed
+//	                and stored as the nightly pass stores one; the rest are
+//	                marked unavailable, or stay fetch_error on a transport failure.
+//	                Never part of all
 //	-mode all       registry, funds, etf, phd, notices, in that order
 //	-mode repair-placeholders  stored notices the gate withholds: a placeholder
 //	                holder name ("SEE ANNEXURE 1"), or a 604 whose stated change
@@ -62,6 +69,9 @@ const (
 	modeETF      = "etf"
 	modePHD      = "phd"
 	modeAll      = "all"
+	// modeResolveUnavailable is deliberately not part of modeAll: it reads the
+	// notices ASX refused a second time, and is run by hand, once, then as needed.
+	modeResolveUnavailable = "resolve-unavailable"
 )
 
 // modeRepairPlaceholders is deliberately not part of modeAll: it removes stored
@@ -102,10 +112,10 @@ func Run(ctx context.Context, args []string) error {
 	globals := runner.FromContext(ctx)
 	fs := flag.NewFlagSet("ownership", flag.ContinueOnError)
 	cfg := config{}
-	fs.StringVar(&cfg.mode, "mode", modeAll, "registry | funds | etf | phd | notices | all | repair-placeholders")
+	fs.StringVar(&cfg.mode, "mode", modeAll, "registry | funds | etf | phd | notices | resolve-unavailable | all | repair-placeholders")
 	fs.BoolVar(&cfg.dryRun, "dry-run", defaultDryRun(globals.DryRun), "read every source, write nothing (default true unless OWNERSHIP_DRY_RUN=false)")
 	fs.BoolVar(&cfg.apply, "apply", false, "repair-placeholders: remove the notices the gate withholds (a placeholder holder name, or a 604 whose stated change is over 50 points) and their attempts (also needs -dry-run=false)")
-	fs.IntVar(&cfg.limit, "limit", 400, "notices: the most notice PDFs to read this run, newest first")
+	fs.IntVar(&cfg.limit, "limit", 400, "notices and resolve-unavailable: the most notice PDFs to read this run, newest first")
 	fs.StringVar(&cfg.since, "since", "2024-01-01", "notices: read notices released on or after this date")
 	fs.IntVar(&cfg.workers, "workers", 3, "notices: concurrent PDF downloads")
 	fs.DurationVar(&cfg.delay, "delay", 400*time.Millisecond, "notices: pause per worker between ASX downloads")
@@ -140,7 +150,7 @@ func Run(ctx context.Context, args []string) error {
 	switch cfg.mode {
 	case modeAll:
 		modes = []string{modeRegistry, modeFunds, modeETF, modePHD, modeNotices}
-	case modeRegistry, modeFunds, modeETF, modePHD, modeNotices:
+	case modeRegistry, modeFunds, modeETF, modePHD, modeNotices, modeResolveUnavailable:
 		modes = []string{cfg.mode}
 	case modeRepairPlaceholders:
 		return repairPlaceholders(ctx, st, cfg, platform.PingRevalidate)
@@ -167,6 +177,8 @@ func Run(ctx context.Context, args []string) error {
 			f, n = runPHD(ctx, st, client, cfg)
 		case modeNotices:
 			f, n = runNotices(ctx, st, cfg)
+		case modeResolveUnavailable:
+			f, n = runResolveUnavailable(ctx, st, cfg)
 		}
 		failed = append(failed, f...)
 		total += n
@@ -379,23 +391,35 @@ func runPHD(ctx context.Context, st *pgStore, client *http.Client, cfg config) (
 	return failed, len(phdSources)
 }
 
-func runNotices(ctx context.Context, st *pgStore, cfg config) ([]string, int) {
+// newNoticePass wires the notices pass to the display page, the announcements
+// API and the PDF text reader.
+func newNoticePass(st *pgStore, cfg config) *noticePass {
 	extractor := childExtractor{pdfs: pdfchild.NewReader(PDFLayoutMode, int64(cfg.childMB)<<20)}
-	pass := &noticePass{
-		store: st, pdfs: reportextract.NewAnnouncementTextFetcher(), extractor: extractor,
+	fetcher := reportextract.NewAnnouncementTextFetcher()
+	return &noticePass{
+		store: st, pdfs: fetcher, api: fetcher, extractor: extractor,
 		workers: cfg.workers, delay: cfg.delay, dryRun: cfg.dryRun, logf: log.Printf,
 	}
-	res, err := pass.run(ctx, cfg.limit, cfg.since)
-	keys := make([]string, 0, len(res.Outcomes))
-	for k := range res.Outcomes {
+}
+
+// outcomeSummary is "name=count" for every outcome, sorted.
+func outcomeSummary(outcomes map[string]int) string {
+	keys := make([]string, 0, len(outcomes))
+	for k := range outcomes {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	var parts []string
 	for _, k := range keys {
-		parts = append(parts, fmt.Sprintf("%s=%d", k, res.Outcomes[k]))
+		parts = append(parts, fmt.Sprintf("%s=%d", k, outcomes[k]))
 	}
-	log.Printf("ownership notices: selected %d, parsed %d [%s]", res.Selected, res.Parsed, strings.Join(parts, " "))
+	return strings.Join(parts, " ")
+}
+
+func runNotices(ctx context.Context, st *pgStore, cfg config) ([]string, int) {
+	pass := newNoticePass(st, cfg)
+	res, err := pass.run(ctx, cfg.limit, cfg.since)
+	log.Printf("ownership notices: selected %d, parsed %d [%s]", res.Selected, res.Parsed, outcomeSummary(res.Outcomes))
 	if err != nil {
 		log.Printf("ownership notices: %v", err)
 		return []string{"notices"}, 1
@@ -404,6 +428,22 @@ func runNotices(ctx context.Context, st *pgStore, cfg config) ([]string, int) {
 	if res.Selected >= 20 && res.Outcomes[outcomeFetchError]*2 > res.Selected {
 		log.Printf("ownership notices: %d of %d downloads failed", res.Outcomes[outcomeFetchError], res.Selected)
 		return []string{"notices"}, 1
+	}
+	return nil, 1
+}
+
+// runResolveUnavailable reads again the notices ASX did not give us: the
+// fetch_error ones, and each live code's unavailable notice once. It stores a
+// recovered notice the way the nightly pass does, and sets the rest aside.
+func runResolveUnavailable(ctx context.Context, st *pgStore, cfg config) ([]string, int) {
+	pass := newNoticePass(st, cfg)
+	res, err := pass.resolve(ctx, cfg.limit, cfg.since)
+	o := res.Outcomes
+	log.Printf("ownership resolve-unavailable: selected %d; recovered %d, unavailable %d, still fetch_error %d [%s]",
+		res.Selected, res.Parsed, o[outcomeUnavailable], o[outcomeFetchError], outcomeSummary(o))
+	if err != nil {
+		log.Printf("ownership resolve-unavailable: %v", err)
+		return []string{modeResolveUnavailable}, 1
 	}
 	return nil, 1
 }

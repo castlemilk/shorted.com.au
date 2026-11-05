@@ -7,7 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -78,7 +78,7 @@ const (
 // error a model reads when it guesses one.
 func strategyIDs() []string {
 	var ids []string
-	for _, st := range strategies.Registry() {
+	for _, st := range engine.Registry() {
 		ids = append(ids, st.ID)
 	}
 	return ids
@@ -95,7 +95,7 @@ type MarketRegimeSummary struct {
 
 func projectRegime(r *shortsv1alpha1.MarketRegime) MarketRegimeSummary {
 	return MarketRegimeSummary{
-		IndexCode: nonEmpty(r.GetIndexCode(), strategies.DefaultIndexCode),
+		IndexCode: nonEmpty(r.GetIndexCode(), engine.DefaultIndexCode),
 		AsOf:      r.GetAsOf(),
 		Regime:    r.GetRegime(),
 		Verdict:   r.GetVerdict(),
@@ -317,21 +317,21 @@ func getStrategyPicksHandler(src DataSource) sdk.ToolHandlerFor[GetStrategyPicks
 			return nil, GetStrategyPicksOutput{}, fmt.Errorf(
 				"strategy_id is required: use one of %s, or call list_strategies", strings.Join(strategyIDs(), ", "))
 		}
-		if _, ok := strategies.Lookup(id); !ok {
+		if _, ok := engine.Lookup(id); !ok {
 			return nil, GetStrategyPicksOutput{}, fmt.Errorf(
 				"%q is not a strategy id: use one of %s", in.StrategyID, strings.Join(strategyIDs(), ", "))
 		}
 		status := strings.ToLower(strings.TrimSpace(in.Status))
-		if status != "" && !strategies.ValidPickStatus(status) {
+		if status != "" && !engine.ValidPickStatus(status) {
 			return nil, GetStrategyPicksOutput{}, fmt.Errorf(
 				"%q is not a pick status: use triggered, setup or watch, or omit it for all", in.Status)
 		}
 		// Validated against the evaluator's own closed set, so a typo is a
 		// message naming the choices rather than an InvalidArgument to decode.
 		sortBy := strings.ToLower(strings.TrimSpace(in.SortBy))
-		if sortBy != "" && !strategies.ValidSortBy(sortBy) {
+		if sortBy != "" && !engine.ValidSortBy(sortBy) {
 			return nil, GetStrategyPicksOutput{}, fmt.Errorf(
-				"%q is not a sort_by value: use one of %s, or omit it for rank order", in.SortBy, strings.Join(strategies.SortKeys(), ", "))
+				"%q is not a sort_by value: use one of %s, or omit it for rank order", in.SortBy, strings.Join(engine.SortKeys(), ", "))
 		}
 		limit := clampLimit(in.Limit, defaultStrategyPicksLimit, maxStrategyPicksLimit)
 
@@ -483,7 +483,7 @@ func pickFundamentalsSource(f *shortsv1alpha1.PickFundamentals) string {
 // zero-picks explanation follows what the server evaluated.
 func usesFundamentals(st *shortsv1alpha1.Strategy) bool {
 	for _, r := range st.GetRules() {
-		if r.GetDataSource() == strategies.SourceFundamentals {
+		if r.GetDataSource() == engine.SourceFundamentals {
 			return true
 		}
 	}
@@ -494,7 +494,7 @@ func usesFundamentals(st *shortsv1alpha1.Strategy) bool {
 // unknown: the quality ratios for a strategy built on them, the growth figures
 // otherwise. Read from the registry, which is what the server evaluated.
 func fundamentalsRuleKind(id string) string {
-	if st, ok := strategies.Lookup(id); ok && st.UsesQualityRules() {
+	if st, ok := engine.Lookup(id); ok && st.UsesQualityRules() {
 		return "quality"
 	}
 	return "growth"
@@ -510,17 +510,17 @@ func fundamentalsRuleKind(id string) string {
 func describeSort(sortBy string) string {
 	var s string
 	switch sortBy {
-	case "", strategies.SortScore:
+	case "", engine.SortScore:
 		return ""
-	case strategies.SortPE:
+	case engine.SortPE:
 		s = " Sorted by pe, lowest first, unknowns last; rank is still the strategy's."
 	default:
 		s = " Sorted by " + sortBy + ", highest first, unknowns last; rank is still the strategy's."
 	}
 	switch sortBy {
-	case strategies.SortFCFMargin, strategies.SortPE:
+	case engine.SortFCFMargin, engine.SortPE:
 		s += " Each stock's " + sortBy + " figure is in get_stock_fundamentals."
-	case strategies.SortMarketCap:
+	case engine.SortMarketCap:
 		s += " Market cap is the latest close x shares on issue, in AUD (get_stock_fundamentals' market_cap), " +
 			"or the screener's figure where we hold no share count."
 	}

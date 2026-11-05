@@ -4,6 +4,7 @@ package oauth
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -11,6 +12,73 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// The expiry must be checked after the family lock is acquired. PostgreSQL's
+// now() is the transaction start time, which is too early after lock contention.
+func TestRefreshCannotRotateAfterExpiringWhileWaitingForFamilyLock(t *testing.T) {
+	pool := testPool(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	store := NewPostgresStore(pool)
+	clientID := seedClient(t, pool)
+	family := uuid.NewString()
+	parentHash := seedFamily(t, store, clientID, family, 1)[0]
+	locker, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = locker.Rollback(context.Background()) }()
+	if _, err := locker.Exec(ctx, familyLockSQL, family); err != nil {
+		t.Fatal(err)
+	}
+
+	type outcome struct {
+		parent *RefreshToken
+		err    error
+	}
+	result := make(chan outcome, 1)
+	go func() {
+		parent, err := store.RotateRefreshToken(ctx, parentHash, "expiry-successor", time.Now().Add(RefreshTokenTTL))
+		result <- outcome{parent, err}
+	}()
+	for {
+		var waiting bool
+		err := pool.QueryRow(ctx, `SELECT EXISTS (
+			SELECT 1 FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid
+			WHERE l.locktype = 'advisory' AND NOT l.granted AND a.datname = current_database()
+		)`).Scan(&waiting)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if waiting {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal("rotation did not wait for the family lock")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	// Ensure transaction-start time precedes the artificially advanced expiry.
+	time.Sleep(75 * time.Millisecond)
+	if _, err := pool.Exec(ctx, `UPDATE oauth_refresh_tokens SET expires_at = clock_timestamp() - interval '25 milliseconds' WHERE token_hash = $1`, parentHash); err != nil {
+		t.Fatal(err)
+	}
+	if err := locker.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	got := <-result
+	if got.parent != nil {
+		t.Fatal("expired refresh token was rotated")
+	}
+	if !errors.Is(got.err, errRefreshExpired) {
+		t.Fatalf("rotation error = %v, want expired", got.err)
+	}
+	var count int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM oauth_refresh_tokens WHERE token_hash = 'expiry-successor'`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("expired token created successor: count=%d err=%v", count, err)
+	}
+}
 
 // The interleaving family revocation has to survive.
 //

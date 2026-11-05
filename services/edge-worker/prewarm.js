@@ -24,7 +24,7 @@ const DEFAULT_CACHE_VERSION = "v1";
 const STOCK_DETAIL_PREWARM_CODES = ["CBA", "BHP", "PLS", "LYC", "MIN", "ANZ", "WBC", "RIO", "CSL", "FMG"];
 
 // Hot endpoints to pre-warm after daily sync
-const PREWARM_ENDPOINTS = [
+export const PREWARM_ENDPOINTS = [
   // Top shorts — most important, all periods (4 entries)
   { path: "/shorts.v1alpha1.ShortedStocksService/GetTopShorts", body: { period: "1m", limit: 10, summary_only: true }, origin: "shorts" },
   { path: "/shorts.v1alpha1.ShortedStocksService/GetTopShorts", body: { period: "3m", limit: 10, summary_only: true }, origin: "shorts" },
@@ -169,7 +169,7 @@ async function prewarmAll(env, origins) {
   results.cacheVersion = cacheVersion;
 
   for (const endpoint of PREWARM_ENDPOINTS) {
-    const key = buildKvKey(endpoint, cacheVersion);
+    const key = await buildKvKey(endpoint, cacheVersion);
     const origin = origins[endpoint.origin] || origins.shorts;
     if (!origin) {
       results.push({ key, ok: false, error: `No origin for ${endpoint.origin}` });
@@ -200,10 +200,11 @@ async function prewarmAll(env, origins) {
 }
 
 /**
- * Build a deterministic KV key for an endpoint.
+ * Build a deterministic KV key for an endpoint. Matches buildKvCacheKey in
+ * worker.js: the SHA-256 hex of the body text, under the same prefix.
  */
-function buildKvKey(endpoint, cacheVersion = DEFAULT_CACHE_VERSION) {
-  const bodyHash = hashStringSync(JSON.stringify(endpoint.body));
+export async function buildKvKey(endpoint, cacheVersion = DEFAULT_CACHE_VERSION) {
+  const bodyHash = await hashString(JSON.stringify(endpoint.body));
   const pathClean = endpoint.path.replace(/\//g, "_").replace(/^_/, "");
   return `prewarm:${cacheVersion}:${pathClean}:${bodyHash}`;
 }
@@ -217,15 +218,14 @@ async function getCacheVersion(kv) {
 }
 
 /**
- * Deterministic hash without async crypto API (for use in key building).
- * Must produce the same output as the main edge worker's hashStringSync.
+ * SHA-256 hex digest of a string. Must match hashString in worker.js.
  */
-function hashStringSync(text) {
-  let hash = 5381;
-  for (let i = 0; i < text.length; i++) {
-    hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(36);
+async function hashString(text) {
+  const data = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 /**

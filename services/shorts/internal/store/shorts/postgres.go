@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -19,6 +20,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/instrument"
 	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5"
@@ -158,6 +160,12 @@ func envInt(key string, defaultValue int) int {
 type postgresStore struct {
 	db                *pgxpool.Pool
 	stockDetailsQuery string
+	// readBy caches the read_by probe (readByUnknown, readByAbsent, readByPresent).
+	readBy atomic.Int32
+	// readByAbsentAt is when readBy last answered absent (unix nanos). An absent answer is
+	// re-probed after readByAbsentTTL, so an API started before 000154 is hand-applied
+	// picks the column up without a restart.
+	readByAbsentAt atomic.Int64
 }
 
 // Pool exposes the underlying connection pool.
@@ -1563,7 +1571,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 		// Filtered here rather than in SQL so there is ONE classifier: the
 		// rules live in Go, and the MVs' copy in migration 000043 is the thing
 		// that has to agree with it, not a second definition to maintain.
-		if ordinaryOnly && stock.SecurityType != string(SecurityTypeOrdinary) {
+		if ordinaryOnly && stock.SecurityType != string(instrument.SecurityTypeOrdinary) {
 			continue
 		}
 		stocks = append(stocks, stock)

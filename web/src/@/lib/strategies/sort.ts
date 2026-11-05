@@ -4,7 +4,7 @@
 //
 // The API sorts (GetStrategyPicks sort_by). This module holds the web's half:
 // the closed set of keys a URL may carry, their labels, and ONE comparator that
-// mirrors services/shorts/internal/strategies/sort.go exactly, used only when
+// mirrors services/pkg/strategy/engine/sort.go exactly, used only when
 // an older API ignores sort_by and answers in rank order.
 
 import type { PickRow } from "./types";

@@ -5485,6 +5485,12 @@
             "title": "etfs",
             "type": "integer"
           },
+          "etfsAustralianEquity": {
+            "description": "ETFs on ASX's investment products report whose category is Australian equity or\n Australian property: the universe the tracked index funds are measured against\n (etfs counts every ETF on the report, most holding no ASX equity). (proto int32)",
+            "format": "int32",
+            "title": "etfs_australian_equity",
+            "type": "integer"
+          },
           "kinds": {
             "description": "(proto shorts.v1alpha1.OwnershipKindSummary)",
             "items": {
@@ -5517,6 +5523,12 @@
             "description": "(proto int32)",
             "format": "int32",
             "title": "notices_parsed",
+            "type": "integer"
+          },
+          "noticesReadByModel": {
+            "description": "Parsed notices a model read after the parser withheld them (read_by = model).\n Counted within notices_parsed. (proto int32)",
+            "format": "int32",
+            "title": "notices_read_by_model",
             "type": "integer"
           },
           "noticesWithheld": {
@@ -14431,6 +14443,11 @@
             "format": "double",
             "title": "previous_pct",
             "type": "number"
+          },
+          "readBy": {
+            "description": "Who read the notice: \"parser\" (the parser, the default) or \"model\" (a model\n pass recovered it after the parser withheld it; two readers agreed and the\n figures were validated against the share count). A schema without the column\n reads \"parser\". (proto string)",
+            "title": "read_by",
+            "type": "string"
           },
           "stockCode": {
             "description": "(proto string)",

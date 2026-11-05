@@ -92,6 +92,8 @@ export interface NoticeRow {
   votingPower: string;
   change: string;
   url: string;
+  /** "model" when a model read the notice after the parser withheld it (read_by); absent otherwise. */
+  readBy?: string;
 }
 
 export function noticeRow(n: SubstantialNotice, withHolder: boolean): NoticeRow {
@@ -105,5 +107,6 @@ export function noticeRow(n: SubstantialNotice, withHolder: boolean): NoticeRow 
     votingPower: n.ceased ? "under 5%" : n.hasPresent ? formatVotingPower(n.presentPct) : "n/a",
     change: n.hasPrevious && n.hasPresent ? formatPointChange(n.previousPct, n.presentPct) : "",
     url: n.announcementUrl,
+    ...(n.readBy === "model" ? { readBy: "model" } : {}),
   };
 }

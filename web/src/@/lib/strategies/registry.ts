@@ -9,7 +9,7 @@
 // It deliberately carries NO prose about the rules. The method, every rule in
 // the author's terms, how we test it, the caveats and the sources all come
 // from the API (ListStrategies / GetStrategyPicks), whose Go registry
-// (services/shorts/internal/strategies/registry.go) is the one place that
+// (services/pkg/strategy/engine/registry.go) is the one place that
 // prose lives. Duplicating it here would let the page and the API disagree
 // about what a rule means, which is the one thing a rules-shown product
 // cannot do.

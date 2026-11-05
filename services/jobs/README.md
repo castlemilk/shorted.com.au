@@ -1121,6 +1121,7 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
 | `etf` | Holdings files of 11 Australian-equity index ETFs (iShares JSON, Vanguard JSON, SPDR xlsx, Betashares CSV) | `fund_holding_snapshots`, `fund_holdings`, `security_identifiers` |
 | `phd` | 11 super funds' portfolio holdings disclosures (one option each, the default or balanced; semi-annual, `phdPeriod` = latest 30 Jun / 31 Dec at least 90 days ago, else the period before) | same |
 | `notices` | Substantial holding notices (Forms 603/604/605, NZ disclosures) selected from `asx_announcements` by headline, read from their PDFs | `substantial_holder_notices`, `substantial_holder_notice_attempts` |
+| `resolve-unavailable` | the notices ASX did not give us: every `fetch_error` attempt, and each `unavailable` attempt recorded before parser version 3 (the API path, `apiPathVersion`), when one of its listed codes is live (a code with a `shorts` row in the last 30 days). The listed codes are all kept for the target rule, delisted ones included. Each is read again through ASX's announcements API (`asx.api.markitdigital.com/asx-research/1.0`: the company's list of its most recent announcements, which the API cuts short (5 items for BHP on 2026-11-05; see the notices bullets), the item with the notice's Sydney day and headline, then `/file/<documentKey>`). A recovered notice is parsed and stored as the nightly pass stores one. The rest are marked `unavailable` when ASX's display page says it cannot display the PDF and the API either does not know the code or lists no document in a list that reaches back before the notice's day; any other failure, a transport failure included, stays `fetch_error`, so a short list that cannot show the notice's day is never set aside. The API recovers only a notice inside the window its list reaches back over, so an older notice stays `fetch_error`. Logs recovered, unavailable and still-`fetch_error` counts. Dry run by default (`OWNERSHIP_DRY_RUN`). Run by hand, once, then as needed | `substantial_holder_notices`, `substantial_holder_notice_attempts`, as `notices` does. Not in `all` |
 | `all` | all of the above, in that order (the scheduled run) | |
 | `repair-placeholders` | the stored notices (`substantial_holder_notices`), judged by the placeholder rule and by the change rule (a 604 whose stated change is over 50 points) and listed one line each; no PDFs are read | with `-apply` and `-dry-run=false`, removes their rows and attempts in one transaction, so the next `notices` run reads them again (rows keyed to an institution are kept). Not in `all` |
 
@@ -1140,13 +1141,64 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
   institution, so a re-read would store it again, and removing a ceased notice
   would bring an earlier holding back as current in
   `v_substantial_holdings_current`.
+- **The announcements API is asked once per notice.** A notice the nightly
+  pass has not yet asked (no attempt, or an attempt below parser version 3)
+  gets one request to ASX's announcements API when its display page fails for
+  any reason but a refusal. An attempt at version 3 or later records that the
+  API was asked, so the nightly pass retries its `fetch_error` from the display
+  page only; `resolve-unavailable` asks the API for every notice it selects.
+  An attempt recorded while the API gave no answer (the run's cap, a refusal
+  of the API, a transport failure, a list cut before the day, a same-day item
+  the list cannot download, another notice of the same headline on the day in
+  the feed, or a display refusal that kept the API from being asked) is recorded
+  at version 2, so the nightly pass asks the API again
+  on the notice's next retry. A "not listed" answer is an answer and records
+  version 3. API requests share one pace of 400 ms across the run
+  (`asxAPIPace`), and a run makes at most 600. An unanswered outcome counts as an attempt like any other, so after three attempts the nightly pass no longer selects it, and `resolve-unavailable` (which selects every `fetch_error` whatever its attempts) is its recovery path. Parser version 3 re-reads the
+  `ambiguous_target` refusals of earlier versions, as version 2 did.
+  `TestNoticeSelectionsAgainstPostgres`
+  runs the notice selections in a rolled-back transaction when
+  `OWNERSHIP_TEST_POSTGRES_URL` is set, and is skipped otherwise.
+- **The API matches a headline, so the feed guards the match.** The API finds
+  a notice by its code, Sydney day and headline, and a generic headline such as
+  "Becoming a substantial holder" is shared by every holder's notice of that
+  day. The URL cannot name the document: the document key's middle segment is
+  not the display page's idsId. `idsId=03151740` answers a PDF dated 2026-10-13,
+  while the key `2924-03151740-3A704697` is BHP's results of its 2026 AGM,
+  dated 2026-10-22. So before the API is asked, the pass counts the notices the
+  feed (`asx_announcements`) holds under the codes on the day with the headline
+  (`SharedHeadlineNotices`). Two or more, and the API is not asked: the notice is
+  `fetch_error`, recorded at version 2 and asked again on its next retry. The
+  guard sees another holder's notice only when the feed holds it. The
+  announcements job reads ASX's per-code announcement pages, which list the same
+  notices, but a notice those pages never listed is not seen. A match also needs
+  the list to reach back before the day (`ErrASXListCut`), and a same-day item
+  the list cannot download (no document key, or no date) withholds it
+  (`ErrASXUnreadable`), since that item may be the notice. Both are recorded
+  at version 2.
 - **A notice is withheld rather than guessed.** Every refusal is an attempt row
   with an outcome: `no_text` (scanned, retried after 7 days, at most 3 times),
+  `fetch_error` (the display page gave neither a PDF nor ASX's refusal; retried
+  after 7 days, at most 3 times), `unavailable` (ASX's display page says "Sorry,
+  cannot display PDF." (matched after markup, entities and case are folded)
+  and the announcements API either does not know its code, or lists no document in a list that reaches back before the notice's day: set aside, never retried by the nightly pass, counted apart as "not
+  available from ASX"; the detail is "ASX cannot display the PDF". A notice an earlier run recorded as `fetch_error` is asked of the API again before the display page can set it aside, so a set-aside always has both of ASX's answers in one run. A display
+  page that failed for any other reason, and an API answer that proves nothing
+  (a list too short to reach back before the day, or a notice with no
+  well-formed listed code), is not `unavailable`: the API lists only as many
+  announcements as it chooses (5 for BHP on 2026-11-05), so a miss in such a
+  list proves nothing, and the notice stays `fetch_error`),
   `no_voting_power` (the figure is only in an annexure, or the form is an
   unflattened AcroForm), `implausible` (a 603 under 5%, a 604 whose previous
   holding was under 5%), `not_a_notice`, `no_holder`, `ambiguous_target` (the
   headline names a company not on record: the code it is listed under is then
-  the holder's), `inconsistent_votes` (votes over voting power implies a share
+  the holder's; or the notice is listed under several codes and its own company
+  name settles none of them. The name is compared folded (case, brackets and
+  punctuation gone, and the trailing Limited, Ltd, Pty, Corporation, Corp,
+  Group, Holdings, NL, Inc and Co dropped: "ZIP CO LIMITED" is "Zip Co Ltd").
+  When exactly one listed code is live (a `shorts` row in the last 30 days) and
+  its folded name matches, that code is the target; two live codes with the
+  name, or none, stay ambiguous), `inconsistent_votes` (votes over voting power implies a share
   count outside 0.5-2x ASIC's total product in issue AS AT THE NOTICE'S DATE,
   so a consolidation or a scrip takeover never rejects an older notice).
   A placeholder section 1 name is `no_holder` and is never read from the
@@ -1162,7 +1214,39 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
   opening words: "Refer Annexure A for Vanguard Group entities" and "SEE ANNEXURE
   A (BlackRock Inc. and its subsidiaries)" parse, and "SEE ANNEXURE 1", "Refer to
   Annexure A" and "N/A" stay withheld.
-  Refusals are re-read only after `noticeParserVersion` rises.
+  `noticeParserVersion` is 3. Version 2 is the live-code and name rule (above),
+  which changed which code an ambiguous notice is filed under. Version 3 is the
+  announcements API path (`apiPathVersion`). Versions 2 and 3 both re-read the
+  `ambiguous_target` refusals of earlier versions, and only those, through the
+  nightly pass. An outcome recorded while the API gave no answer is recorded at
+  version 2 (`unansweredVersion`), and is asked of the API again (see the API
+  bullets below). `staleRereads` (in
+  `store.go`) maps each version to the outcomes it changed; a refusal from an
+  older version is read again only when its outcome is in the current
+  version's entry. A bump with no entry re-reads nothing, so a bump that changes
+  a verdict must add its outcome there. Every other refusal is read again only
+  by hand: a bump would otherwise re-download all of them to learn the same
+  verdict.
+- **ASX's display page is asked first, and the announcements API second.** A
+  notice whose display page fails is looked up in ASX's announcements API: one
+  list request per code per run (cached), one file request per recovered
+  notice, and one pace of 400 ms shared by every worker of the run
+  (`asxAPIPace`). A list still in flight is shared by the workers that need it,
+  so two workers never request the same code's list at once. A code the API
+  does not know ("Symbol not found", a delisted code) is `unavailable` at once, when the display page also says it cannot display the PDF; with any other display failure it stays `fetch_error`, asked again on its next retry. A notice with no well-formed listed code is never asked of the API (`ErrASXNoCode`).
+  The API's list is as long as the API chooses, not the 200 asked for
+  (`asxAPIListCount`; 5 items for BHP on 2026-11-05, for `count=200`, `count=20`
+  and `itemsPerPage=50` alike). A list is used for a notice only when its oldest
+  item falls on an earlier Sydney day than the notice's, whatever its size;
+  otherwise the notice is not listed
+  (`ErrASXListCut`) and stays `fetch_error`, recorded at version 2, even when the display page says it
+  cannot display the PDF, because the cut list may hold the document. A refusal
+  of the display page (401, 403, 429) is a result: it is
+  recorded as `fetch_error` and the API is not asked around it. A refusal of
+  the API (401, 403, 429) ends the API for the rest of the run, and the run
+  makes at most 600 API requests (`asxAPIRunCap`); past either, a notice stays
+  `fetch_error`, recorded at version 2, and is read in a later run. A transport
+  failure of the API stays `fetch_error` and is recorded the same way.
 - **PDFs are read in a child process** (package `pdfchild`, mode `layout`,
   the same binary): `ledongthuc/pdf` loops on some malformed streams and
   pdfcpu decrypts AES-256 notices at about 32x the file's size. Each child

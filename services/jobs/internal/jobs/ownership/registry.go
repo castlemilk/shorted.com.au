@@ -1,6 +1,7 @@
 package ownership
 
 import (
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -140,6 +141,8 @@ var registry = []Institution{
 		Aliases: []string{"dimensional fund advisors", "dimensional entities", "dfa australia"}, Description: "Systematic, index-like equity manager."},
 	{Slug: "vaneck", Name: "VanEck", Kind: KindIndexManager, Country: "US",
 		Aliases: []string{"vaneck", "van eck"}, Description: "ETF issuer (MVW, GDX)."},
+	{Slug: "global-x", Name: "Global X", Kind: KindIndexManager, Country: "US", Website: "https://www.globalxetfs.com.au",
+		Aliases: []string{"global x", "global x etfs", "mirae asset global investments"}, Description: "ETF issuer (A300, ZYAU, OZXX), owned by Mirae Asset."},
 	{Slug: "legal-and-general", Name: "Legal & General Investment Management", Kind: KindIndexManager, Country: "GB",
 		Aliases: []string{"legal and general"}},
 	{Slug: "geode", Name: "Geode Capital Management", Kind: KindIndexManager, Country: "US",
@@ -551,6 +554,11 @@ var nameTails = []string{
 	" and its entities",
 }
 
+// nameTailID cuts an ACN, ABN or ARSN and its digits after a holder's name. The
+// word alone is no tail ("ABN AMRO" is a bank's name). The pattern text is the
+// one notice_direct.py's NAME_TAIL_ID carries; test_notice_direct reads both.
+var nameTailID = regexp.MustCompile(`(?i)[ \t]*\(?[ \t]*\b(?:acn|abn|arsn)[ \t]*:?[ \t]*[0-9][0-9 ]{8,13}\)?`)
+
 // tidyHolderName cuts a section 1 name at the first boilerplate tail, so
 // "JPMorgan Chase & Co. and its affiliates" is shown as "JPMorgan Chase & Co.".
 func tidyHolderName(name string) string {
@@ -561,6 +569,9 @@ func tidyHolderName(name string) string {
 		if i := strings.Index(lower, t); i > 2 && i < cut {
 			cut = i
 		}
+	}
+	if loc := nameTailID.FindStringIndex(s); loc != nil && loc[0] > 2 && loc[0] < cut {
+		cut = loc[0]
 	}
 	s = strings.TrimSpace(s[:cut])
 	return strings.TrimRight(s, " ,.:-")

@@ -317,6 +317,7 @@ describe("OwnershipPage headline band (backlog B2)", () => {
         noticesParsed: 18173,
         superFunds: 72,
         etfs: 471,
+        etfsAustralianEquity: 81,
         asOf: "2026-11-03",
         documentsAttempted: 26819,
         withheldByOutcome: [outcome("no_text", 7518)],
@@ -330,11 +331,11 @@ describe("OwnershipPage headline band (backlog B2)", () => {
 
     expect(band(container)).toHaveTextContent("18,173 notices read to 2026-11-03, 41 released this week");
     expect(band(container)).toHaveTextContent("7,518 notices withheld of 26,819 documents attempted");
-    expect(band(container)).toHaveTextContent("11 of 471 index fund files, as at 2026-09-30 to 2026-11-02");
-    expect(band(container)).toHaveTextContent("72 of 72 super option files, as at 2026-06-30");
+    expect(band(container)).toHaveTextContent("11 of 81 Australian-equity ETFs tracked, files as at 2026-09-30 to 2026-11-02");
+    expect(band(container)).toHaveTextContent("72 of 72 APRA super funds tracked, one option each, as at 2026-06-30");
     // The figures are mono; the words around them are not.
     const figures = Array.from(band(container).querySelectorAll("span.font-mono")).map((node) => node.textContent);
-    expect(figures).toEqual(expect.arrayContaining(["18,173", "41", "7,518", "26,819", "11", "471"]));
+    expect(figures).toEqual(expect.arrayContaining(["18,173", "41", "7,518", "26,819", "11", "81"]));
   });
 
   it("drops the this-week clause when the activity read is not ok", async () => {
@@ -358,11 +359,11 @@ describe("OwnershipPage headline band (backlog B2)", () => {
     getOwnershipOverview.mockResolvedValue(overview({ noticesParsed: 7118, superFunds: 72, asOf: "2026-10-16" }));
     const { container } = render(await OwnershipPage());
 
-    expect(band(container)).toHaveTextContent("n/a index fund files");
+    expect(band(container)).toHaveTextContent("n/a index funds tracked");
     expect(band(container).textContent).not.toContain("as at n/a");
   });
 
-  it("counts the six withholding outcomes, names the two that are not withheld apart, and keeps the breakdown folded", async () => {
+  it("counts the six withholding outcomes, sets the two that are not withheld aside in the sentence, and keeps the breakdown folded", async () => {
     getOwnershipOverview.mockResolvedValue(
       overview({
         noticesParsed: 7118,
@@ -379,8 +380,9 @@ describe("OwnershipPage headline band (backlog B2)", () => {
     );
     const { container } = render(await OwnershipPage());
 
-    expect(band(container)).toHaveTextContent("5 notices withheld of 7,132 documents attempted");
-    const breakdown = within(band(container)).getByText("Withheld, by outcome");
+    // Read, withheld and set aside add up to the documents attempted, so the band reconciles.
+    expect(band(container)).toHaveTextContent("5 notices withheld, 13 set aside, of 7,132 documents attempted");
+    const breakdown = within(band(container)).getByText("By outcome");
     expect(breakdown.closest("details")).not.toBeNull();
     expect(
       screen.getByText(/A further 9 documents were not substantial holding forms and 4 have not yet been downloaded/),
@@ -618,5 +620,31 @@ describe("OwnershipPage first phone screen (backlog D2)", () => {
     const tokens = mapSection.className.split(/\s+/);
     expect(tokens.some((token) => /^h-\[/.test(token))).toBe(false);
     expect(mapSection).toHaveClass("lg:h-[420px]");
+  });
+});
+
+describe("OwnershipPage model reads (read_by)", () => {
+  const notices = source({
+    source: "substantial_notices",
+    description: "ASX substantial holding notices (Forms 603, 604, 605) read from their PDFs",
+    records: 7118,
+    asAt: "2026-10-16",
+  });
+
+  it("names the notices a model read on the notices' source line", async () => {
+    getOwnershipOverview.mockResolvedValue(
+      overview({ noticesParsed: 7118, asOf: "2026-10-16", sources: [notices], noticesReadByModel: 12 }),
+    );
+    const { container } = render(await OwnershipPage());
+    expect(container.textContent).toContain("7,118 records, 12 read by model");
+  });
+
+  it("leaves the clause out when no notice was read by a model", async () => {
+    getOwnershipOverview.mockResolvedValue(
+      overview({ noticesParsed: 7118, asOf: "2026-10-16", sources: [notices], noticesReadByModel: 0 }),
+    );
+    const { container } = render(await OwnershipPage());
+    expect(container.textContent).toContain("7,118 records,");
+    expect(container.textContent).not.toContain("read by model");
   });
 });

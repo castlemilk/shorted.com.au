@@ -6,16 +6,14 @@ import worker, {
   normalizeRouteGroup,
 } from "./worker.js";
 
-function hashStringSyncForTest(text) {
-  let hash = 5381;
-  for (let i = 0; i < text.length; i++) {
-    hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
-  }
-  return (hash >>> 0).toString(36);
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function versionedPrewarmKey(path, body, version) {
-  const bodyHash = hashStringSyncForTest(body);
+async function versionedPrewarmKey(path, body, version) {
+  const bodyHash = await sha256Hex(body);
   const pathClean = path.replace(/\//g, "_").replace(/^_/, "");
   return `prewarm:${version}:${pathClean}:${bodyHash}`;
 }
@@ -522,7 +520,7 @@ test("public GET edge read facade can reuse prewarmed KV stock data", async () =
   const originalCaches = globalThis.caches;
   const body = JSON.stringify({ product_code: "BHP", period: "3m" });
   const path = "/shorts.v1alpha1.ShortedStocksService/GetStockData";
-  const key = versionedPrewarmKey(path, body, "v1");
+  const key = await versionedPrewarmKey(path, body, "v1");
   let originCalls = 0;
 
   globalThis.caches = {
@@ -577,7 +575,7 @@ test("KV cache covers stock detail page RPCs beyond the summary endpoint", async
   const originalCaches = globalThis.caches;
   const body = JSON.stringify({ product_code: "CBA", period: "3m" });
   const path = "/shorts.v1alpha1.ShortedStocksService/GetStockData";
-  const key = versionedPrewarmKey(path, body, "v1");
+  const key = await versionedPrewarmKey(path, body, "v1");
   let originCalls = 0;
 
   globalThis.caches = {
