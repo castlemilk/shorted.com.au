@@ -832,6 +832,23 @@ recipe fields on the wire (PR-12a).
   `-years 21` XJO re-fetch. Runbook (recompute, a dead session, the spot check):
   `services/jobs/README.md`, "Strategy daily snapshot".
 
+### Saved strategies and My strategies (`/strategies/my`)
+
+- **Table `user_saved_strategies` (migration 000156, allowlisted after 000154, before the 000138 closer).**
+  The key is `(user_id, strategy_ref)`; `strategy_ref` is a canonical id or `variant:<id>`. Nothing is granted.
+- **RPCs** `SaveStrategy`, `UnsaveStrategy` and `ListSavedStrategies` are `VISIBILITY_PRIVATE` on
+  `StrategyService`, mirrored on the legacy service. The owner is the verified uid only. The cap is 20
+  (`shortsstore.MaxSavedStrategies`): the save takes a per-user advisory lock, so the cap is exact under
+  concurrent saves, and a repeat save succeeds at the cap. A save past the cap is `FailedPrecondition`.
+- **Variant refs** resolve under the caller through `strategy_variants` (migration 000157 when it lands). A
+  database without that table owns no variant, so a variant save is `NotFound`.
+- **Web**: the static shell `app/strategies/my/page.tsx` and `my-strategies-island.tsx`. The server actions
+  are `app/actions/strategies/saved.ts` (identity only, no cache). The Save control is
+  `app/strategies/save-strategy-button.tsx` on the Signals header. It is gated by the `saves` capability and
+  by a signed-in session. Only `saves` is on among the capabilities.
+- **Tests**: `services/migrations/strategy_saves.test.mjs`; `shorts/internal/services/shorts/strategy_saves_test.go`
+  (unit); `make test-strategy-saves-pg` (container: the cap under 25 concurrent saves, the variant guard, replay).
+
 ## Strategy chart primitives and returns kit (PR-17)
 
 Primitives only: no page uses them yet (PR-19 Backtest and PR-20 Explore do).
