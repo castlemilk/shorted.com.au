@@ -51,13 +51,13 @@ func TestCollectPaginatesJobsExecutionsAndSchedules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// shorted-news and asx-discovery, plus the cluster-only shorted-alerts and
-	// shorted-strategies-daily rows.
-	if len(jobs) != 4 {
+	// shorted-news and asx-discovery, plus the cluster-only shorted-alerts,
+	// shorted-strategies-daily and shorted-strategies-backtest rows.
+	if len(jobs) != 5 {
 		t.Fatalf("jobs=%+v calls=%v", jobs, calls)
 	}
 	for _, j := range jobs {
-		if j.Name == "shorted-alerts" || j.Name == "shorted-strategies-daily" {
+		if j.Name == "shorted-alerts" || j.Name == "shorted-strategies-daily" || j.Name == "shorted-strategies-backtest" {
 			continue // cluster-only: it has no Cloud Run executions to inspect
 		}
 		if len(j.RunningExecutions) != 2 || j.RunningExecution == "" {
@@ -76,14 +76,14 @@ func TestCollectExposesPartialFailureAndCacheKeepsWarning(t *testing.T) {
 		return nil, errors.New("unavailable")
 	})}
 	jobs, err := collect(context.Background(), Config{ProjectID: "proj", RunRegions: []string{"us-central1"}, SchedulerRegion: "us-central1"}, option.WithHTTPClient(client))
-	// shorted-news plus the two cluster-only rows, which Telesis serves without Cloud Run.
-	if err == nil || len(jobs) != 3 || jobs[0].Message == "" {
+	// shorted-news plus the three cluster-only rows, which Telesis serves without Cloud Run.
+	if err == nil || len(jobs) != 4 || jobs[0].Message == "" {
 		t.Fatalf("partial result=%+v err=%v", jobs, err)
 	}
 	c, _ := seeded(t, jobs)
 	c.cachedErr = err
 	got, cachedErr := c.Collect(context.Background())
-	if cachedErr == nil || len(got) != 3 {
+	if cachedErr == nil || len(got) != 4 {
 		t.Fatal("cached partial result lost warning")
 	}
 }

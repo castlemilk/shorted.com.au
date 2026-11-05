@@ -73,7 +73,7 @@ services/jobs/
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
 | `review` | — (new job, data review) | no — laptop tool, read-only: `task data:review` |
 | `short-data-sync` | `services/daily-sync` (Python, **DELETED**) — **ASIC shorts tier only** | yes — `shorts-data-sync` (cutover 4, in-place image swap; Python source deleted in the cleanup slice) |
-| `strategies` | — (new job, strategy engine) | yes for `-mode daily`: `shorted-strategies-daily` (VKE-native, weekdays at :00, :20 and :40 past 13 to 16 UTC; `STRATEGIES_DRY_RUN=false` writes; the 16:40 run exits 10 when any session is still held). `-mode parity` runs by hand. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks"). Index dates are fixed in the tree (#860); writes wait for the index sync to re-date the window and the XJO weekend-row gate to clear, see "Strategy daily snapshot" |
+| `strategies` | — (new job, strategy engine) | yes for `-mode daily`: `shorted-strategies-daily` (VKE-native, weekdays at :00, :20 and :40 past 13 to 16 UTC; `STRATEGIES_DRY_RUN=false` writes; the 16:40 run exits 10 when any session is still held). `-mode parity` runs by hand. `-mode backtest` (`shorted-strategies-backtest`, hourly) idles until a version beyond v0 is live. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks"). Index dates are fixed in the tree (#860); writes wait for the index sync to re-date the window and the XJO weekend-row gate to clear, see "Strategy daily snapshot" |
 | `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
 | `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
 
@@ -935,6 +935,19 @@ that. It exits 10 when a conclusive run disagrees.
 `mismatches=0 only_view=0 only_go=0`, read with the admin MCP's
 `list_job_executions` and `get_job_execution`, and the picks exit code
 unchanged. Any mismatch is fixed before the daily snapshot job is built on it.
+
+**Strategy backtest** (`shorted strategies -mode backtest`, `services/jobs/internal/jobs/strategies/backtest.go`, migration 000158).
+Runs as `shorted-strategies-backtest` (VKE CronJob, hourly at :20; 1536Mi request, 3Gi limit). It idles, exiting 0
+in milliseconds, until a live canonical version other than v0 has a recipe. Each run takes the
+`strategies-backtest` lease, queues each live version's weekly publish request (keyed by ISO week), queues one
+immediately for a key with no succeeded run, and processes at most five requests or 30 minutes of work over one
+`REPEATABLE READ, READ ONLY` read of the stored history. The first publish of a key runs a verify pass in the same
+transaction: a second read must reproduce the input hash and the output hash, or the publish fails as a
+determinism failure (exit 10). A run publishes only when the publication gate passes; in this build the
+sensitivity and reference parts are not wired, so runs are stored unpublished. A fundamentals recipe whose window
+is `computable_from` derives that date from `stock_fundamentals` (the first month end on which half the universe
+is computable) and labels it with the fiscal year of the median code's bringing period. `STRATEGIES_DRY_RUN=false`
+writes; the default is a dry run that reads, computes and logs. Check: `task db:prod:psql -- -At -c "select strategy_id, kind, status, published, window_start, prices_through from strategy_backtest_runs order by started_at desc limit 8"`.
 
 **Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migration 000156).
 Runs as `shorted-strategies-daily` (VKE CronJob, weekdays at :00, :20 and :40 past 13 to 16 UTC). It writes

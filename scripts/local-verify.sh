@@ -216,6 +216,7 @@ run_testcontainers_integration() {
   run "Strategy reader container suite" make -C services test-pgsource-pg
   run "Strategy daily snapshot container suite" make -C services test-strategies-daily-pg
   run "Strategy snapshot API container suite" make -C services test-strategy-snapshot-pg
+  run "Strategy backtest container suite" make -C services test-strategies-backtest-pg
 }
 
 run_fast() {
