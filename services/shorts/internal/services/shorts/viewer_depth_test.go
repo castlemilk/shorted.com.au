@@ -460,17 +460,20 @@ func TestClampLeavesCountsGlobal(t *testing.T) {
 }
 
 // Every method on StrategyService is either public or private, and only the
-// three public reads are public. GetViewerStrategyPicks is private, so a
-// signed-in caller can read it and an anonymous caller cannot.
+// public reads are public: the three picker reads and the two rules-version
+// reads. GetViewerStrategyPicks is private, so a signed-in caller can read it
+// and an anonymous caller cannot.
 func TestStrategyMethodsVisibility(t *testing.T) {
 	desc, err := protoregistry.GlobalFiles.FindDescriptorByName("shorts.v1alpha1.StrategyService")
 	require.NoError(t, err)
 	service := desc.(protoreflect.ServiceDescriptor)
 
 	wantPublic := map[string]bool{
-		"ListStrategies":      true,
-		"GetStrategyPicks":    true,
-		"GetStockStrategyFit": true,
+		"ListStrategies":       true,
+		"GetStrategyPicks":     true,
+		"GetStockStrategyFit":  true,
+		"GetStrategyVersion":   true,
+		"ListStrategyVersions": true,
 	}
 	methods := service.Methods()
 	seen := map[string]bool{}
