@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -254,7 +255,7 @@ func TestListStrategySignalEvents_AccessLevels(t *testing.T) {
 	fake := &snapshotStoreFake{MockShortsStore: mocks.NewMockShortsStore(ctrl), events: []shortsstore.StrategySignalEventRow{{
 		ID: 9, StockCode: "BHP", CompanyName: "BHP Group", AsOf: "2026-09-25", PrevAsOf: "2026-09-24",
 		FromStatus: "setup", ToStatus: "triggered", Score: &score, RulesHash: liveHash,
-		Evidence: `{"r":["breakout"],"v":[9.5],"p":[null],"close":10.2,"pivot":9.5}`,
+		Evidence: signalEvidenceJSON(t, live.Spec, "P"+strings.Repeat("F", len(live.Spec.Rules)-2)+"U", 10.2, 9.5),
 	}}}
 	srv := newTestServer(t, fake)
 	req := &shortsv1alpha1.ListStrategySignalEventsRequest{StrategyId: spec.StrategyZangerBreakout, StockCode: "bhp"}
@@ -272,10 +273,13 @@ func TestListStrategySignalEvents_AccessLevels(t *testing.T) {
 		assert.Equal(t, "triggered", ev.ToStatus)
 		assert.True(t, ev.HasPivot)
 		assert.InDelta(t, 9.5, ev.Pivot, 1e-9)
-		require.Len(t, ev.Rules, 1)
-		assert.Equal(t, "breakout", ev.Rules[0].RuleId)
+		require.Len(t, ev.Rules, len(live.Spec.Rules))
+		assert.Equal(t, live.Spec.Rules[0].ID, ev.Rules[0].RuleId)
+		assert.Equal(t, "pass", ev.Rules[0].Status)
 		assert.True(t, ev.Rules[0].HasValue)
 		assert.False(t, ev.Rules[0].HasProximity)
+		assert.Equal(t, "fail", ev.Rules[1].Status)
+		assert.Equal(t, "unknown", ev.Rules[len(ev.Rules)-1].Status)
 		assert.Empty(t, resp.Msg.NextPageToken)
 	}
 	assert.Equal(t, liveHash, fake.gotEvent.RulesHash, "the default version is the live one")
@@ -452,4 +456,112 @@ func TestSignalEventProtoReportsUndecodableEvidence(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, "BHP", ev.StockCode)
 	assert.Empty(t, ev.Rules)
+}
+
+// signalEvidenceJSON is a stored evidence document for a rules version: r as
+// given, rule 0's value 9.5 and rule 1's proximity 0.82 (every other value and
+// proximity null), and the close and pivot.
+func signalEvidenceJSON(t *testing.T, s spec.Spec, r string, closePrice, pivot float64) string {
+	t.Helper()
+	n := len(s.Rules)
+	ev := signalEvidence{R: r, V: make([]*float64, n), P: make([]*float64, n), Close: &closePrice, Pivot: &pivot}
+	v0, p1 := 9.5, 0.82
+	ev.V[0] = &v0
+	if n > 1 {
+		ev.P[1] = &p1
+	}
+	raw, err := json.Marshal(ev)
+	require.NoError(t, err)
+	return string(raw)
+}
+
+// Each status character decodes to its rule, in the rules version's order, with
+// the value and proximity stored beside it.
+func TestSignalEventProto_DecodesEachRuleStatus(t *testing.T) {
+	reg, ok := spec.Live(spec.StrategyZangerBreakout)
+	require.True(t, ok)
+	h, err := spec.RulesHash(reg.Spec)
+	require.NoError(t, err)
+	n := len(reg.Spec.Rules)
+	chars := make([]byte, n)
+	for i := range chars {
+		chars[i] = "PFU"[i%3]
+	}
+	ev, err := signalEventProto(shortsstore.StrategySignalEventRow{
+		StockCode: "BHP", FromStatus: "setup", ToStatus: "triggered", RulesHash: h,
+		Evidence: signalEvidenceJSON(t, reg.Spec, string(chars), 10.2, 9.5),
+	})
+	require.NoError(t, err)
+	require.Len(t, ev.Rules, n)
+	want := map[byte]string{'P': "pass", 'F': "fail", 'U': "unknown"}
+	for i, rr := range ev.Rules {
+		assert.Equal(t, reg.Spec.Rules[i].ID, rr.RuleId, "rule %d id, in the version's order", i)
+		assert.Equal(t, want[chars[i]], rr.Status, "rule %d status", i)
+	}
+	assert.True(t, ev.Rules[0].HasValue)
+	assert.InDelta(t, 9.5, ev.Rules[0].Value, 1e-9)
+	assert.False(t, ev.Rules[0].HasProximity)
+	assert.True(t, ev.Rules[1].HasProximity)
+	assert.InDelta(t, 0.82, ev.Rules[1].Proximity, 1e-9)
+	assert.InDelta(t, 10.2, ev.Close, 1e-9)
+	assert.True(t, ev.HasPivot)
+}
+
+// An exit has no pick: r is "", v and p are empty, and the event has no rules.
+func TestSignalEventProto_ExitHasNoRules(t *testing.T) {
+	reg, ok := spec.Live(spec.StrategyZangerBreakout)
+	require.True(t, ok)
+	h, err := spec.RulesHash(reg.Spec)
+	require.NoError(t, err)
+	ev, err := signalEventProto(shortsstore.StrategySignalEventRow{
+		StockCode: "BHP", FromStatus: "triggered", ToStatus: "none", RulesHash: h,
+		Evidence: `{"r":"","v":[],"p":[],"close":null,"pivot":null,"short_report":null,"short_available":null,"regime":null}`,
+	})
+	require.NoError(t, err)
+	assert.Empty(t, ev.Rules)
+	assert.Equal(t, "none", ev.ToStatus)
+}
+
+// Evidence that does not fit its rules version (a length mismatch, an unknown or
+// lower-case status character, rule results on an exit, a rules hash the registry
+// does not hold) is an error, and the event is served with no rule results rather
+// than with rules taken from the wrong version. Its close still reads.
+func TestSignalEventProto_MalformedEvidenceServesNoRules(t *testing.T) {
+	reg, ok := spec.Live(spec.StrategyZangerBreakout)
+	require.True(t, ok)
+	h, err := spec.RulesHash(reg.Spec)
+	require.NoError(t, err)
+	n := len(reg.Spec.Rules)
+	full := strings.Repeat("P", n)
+	nils := func(k int) []*float64 { return make([]*float64, k) }
+	const closePrice = 10.2
+	cases := []struct {
+		name string
+		hash string
+		to   string
+		ev   signalEvidence
+	}{
+		{"fewer statuses than rules", h, "triggered", signalEvidence{R: full[:n-1], V: nils(n), P: nils(n)}},
+		{"more statuses than rules", h, "triggered", signalEvidence{R: full + "P", V: nils(n + 1), P: nils(n + 1)}},
+		{"more statuses than values", h, "triggered", signalEvidence{R: full + "P", V: nils(n), P: nils(n)}},
+		{"values short of the statuses", h, "triggered", signalEvidence{R: full, V: nils(n - 1), P: nils(n)}},
+		{"no statuses on a pick", h, "triggered", signalEvidence{R: "", V: []*float64{}, P: []*float64{}}},
+		{"unknown status character", h, "triggered", signalEvidence{R: "X" + full[1:], V: nils(n), P: nils(n)}},
+		{"lower-case status", h, "triggered", signalEvidence{R: "p" + full[1:], V: nils(n), P: nils(n)}},
+		{"rule results on an exit", h, "none", signalEvidence{R: "P", V: nils(1), P: nils(1)}},
+		{"rules hash not registered", strings.Repeat("9f", 32), "triggered", signalEvidence{R: full, V: nils(n), P: nils(n)}},
+	}
+	for _, c := range cases {
+		c.ev.Close = new(float64)
+		*c.ev.Close = closePrice
+		raw, err := json.Marshal(c.ev)
+		require.NoError(t, err, c.name)
+		ev, err := signalEventProto(shortsstore.StrategySignalEventRow{
+			StockCode: "BHP", FromStatus: "setup", ToStatus: c.to, RulesHash: c.hash, Evidence: string(raw),
+		})
+		require.Error(t, err, c.name)
+		assert.Empty(t, ev.Rules, c.name)
+		assert.InDelta(t, closePrice, ev.Close, 1e-9, c.name)
+		assert.Equal(t, "BHP", ev.StockCode, c.name)
+	}
 }

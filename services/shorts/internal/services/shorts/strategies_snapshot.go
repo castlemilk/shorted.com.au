@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/civil"
@@ -290,7 +291,7 @@ func (s *ShortsServer) ListStrategySignalEvents(ctx context.Context, req *connec
 	for i := range rows {
 		ev, err := signalEventProto(rows[i])
 		if err != nil {
-			s.logger.Errorf("strategy signal event %d: evidence is not decodable, its rules are empty: %v", rows[i].ID, err)
+			s.logger.Errorf("strategy signal event %d: evidence rules are unreadable, served without rule results: %v", rows[i].ID, err)
 		}
 		resp.Events = append(resp.Events, ev)
 	}
@@ -345,9 +346,12 @@ func versionRefOrNil(v signalVersion) *shortsv1alpha1.StrategyVersionRef {
 }
 
 // signalEvidence is a status change's stored evidence (the daily job's compact
-// JSON): the rules' ids, values and proximities, and the close and pivot.
+// JSON). R has one character per rule of the rules version the event's
+// rules_hash names, in that version's rule order: P pass, F fail, U unknown. V
+// and P are each rule's value and proximity in the same order (null where the
+// rule has none). An exit has no pick: R is "", V and P are [].
 type signalEvidence struct {
-	R              []string   `json:"r"`
+	R              string     `json:"r"`
 	V              []*float64 `json:"v"`
 	P              []*float64 `json:"p"`
 	Close          *float64   `json:"close"`
@@ -357,9 +361,76 @@ type signalEvidence struct {
 	Regime         *string    `json:"regime"`
 }
 
-// signalEventProto is one stored status change on the wire. Evidence records a
-// rule's id, value and proximity but not its pass, fail or unknown result, so
-// the rules carry an empty status.
+// registeredRulesByHash maps each canonical registered version's rules hash to
+// its rules in the version's rule order. It is built once, because every event
+// of a page is read against it.
+var registeredRulesByHash = sync.OnceValue(func() map[string][]spec.RuleSpec {
+	out := make(map[string][]spec.RuleSpec)
+	for _, reg := range spec.Registry() {
+		h, err := spec.RulesHash(reg.Spec)
+		if err != nil {
+			continue
+		}
+		out[h] = reg.Spec.Rules
+	}
+	return out
+})
+
+// ruleStatusOf is the rule status one character of an event's r stands for.
+func ruleStatusOf(c byte) (engine.RuleStatus, bool) {
+	switch c {
+	case 'P':
+		return engine.RulePass, true
+	case 'F':
+		return engine.RuleFail, true
+	case 'U':
+		return engine.RuleUnknown, true
+	}
+	return "", false
+}
+
+// decodeSignalRules is an event's rule results: the rules version's rule ids in
+// order, each with the status, value and proximity its evidence stores. An exit
+// has none. Evidence that does not fit the version (an unknown rules_hash, a
+// length mismatch, an unknown status character, rule results on an exit) is an
+// error and returns no rules, never rules taken from the wrong version.
+func decodeSignalRules(r shortsstore.StrategySignalEventRow, ev signalEvidence) ([]*shortsv1alpha1.RuleResult, error) {
+	rules, ok := registeredRulesByHash()[r.RulesHash]
+	if !ok {
+		return nil, fmt.Errorf("rules_hash %q is not a registered version", r.RulesHash)
+	}
+	if r.ToStatus == string(engine.StatusNone) {
+		if ev.R != "" || len(ev.V) != 0 || len(ev.P) != 0 {
+			return nil, errors.New("an exit carries rule results")
+		}
+		return []*shortsv1alpha1.RuleResult{}, nil
+	}
+	if len(ev.R) != len(rules) || len(ev.V) != len(rules) || len(ev.P) != len(rules) {
+		return nil, fmt.Errorf("evidence has %d statuses, %d values and %d proximities for a version of %d rules",
+			len(ev.R), len(ev.V), len(ev.P), len(rules))
+	}
+	out := make([]*shortsv1alpha1.RuleResult, 0, len(rules))
+	for i, rule := range rules {
+		status, ok := ruleStatusOf(ev.R[i])
+		if !ok {
+			return nil, fmt.Errorf("evidence status %q at rule %d is not P, F or U", ev.R[i], i)
+		}
+		rr := &shortsv1alpha1.RuleResult{RuleId: rule.ID, Status: string(status)}
+		if ev.V[i] != nil {
+			rr.Value, rr.HasValue = *ev.V[i], true
+		}
+		if ev.P[i] != nil {
+			rr.Proximity, rr.HasProximity = *ev.P[i], true
+		}
+		out = append(out, rr)
+	}
+	return out, nil
+}
+
+// signalEventProto is one stored status change on the wire. Its rules come from
+// the evidence read against the rules version its rules_hash names. When that
+// fails the event is still returned with its close and pivot, and no rules, and
+// the error says why.
 func signalEventProto(r shortsstore.StrategySignalEventRow) (*shortsv1alpha1.StrategySignalEvent, error) {
 	out := &shortsv1alpha1.StrategySignalEvent{
 		StockCode:       r.StockCode,
@@ -384,15 +455,10 @@ func signalEventProto(r shortsstore.StrategySignalEventRow) (*shortsv1alpha1.Str
 	if ev.Pivot != nil {
 		out.Pivot, out.HasPivot = *ev.Pivot, true
 	}
-	for i, id := range ev.R {
-		rr := &shortsv1alpha1.RuleResult{RuleId: id}
-		if i < len(ev.V) && ev.V[i] != nil {
-			rr.Value, rr.HasValue = *ev.V[i], true
-		}
-		if i < len(ev.P) && ev.P[i] != nil {
-			rr.Proximity, rr.HasProximity = *ev.P[i], true
-		}
-		out.Rules = append(out.Rules, rr)
+	rules, err := decodeSignalRules(r, ev)
+	if err != nil {
+		return out, fmt.Errorf("signal evidence rules: %w", err)
 	}
+	out.Rules = rules
 	return out, nil
 }
