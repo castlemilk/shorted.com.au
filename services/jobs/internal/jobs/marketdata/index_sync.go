@@ -303,9 +303,10 @@ type chartFetcher interface {
 }
 
 // syncIndexSeries fetches one series and, unless dryRun, writes it. A fetch or
-// parse failure, or a clean-up refused by the ceiling, is logged and reported as
-// failed, so the other series still run. A database error is returned: it is
-// not a property of this series' upstream data.
+// parse failure is logged and reported as failed, so the other series still
+// run. A clean-up refused by the ceiling is logged and reported as failed too,
+// and its error wraps errRemovalCeiling so the caller can count it as refused. A
+// database error is returned: it is not a property of this series' upstream data.
 func syncIndexSeries(ctx context.Context, pool *pgxpool.Pool, fetch chartFetcher, s indexSeries, from, to time.Time, dryRun bool) (failed bool, err error) {
 	body, _, err := fetch.FetchBytes(ctx, indexChartURL(s.SourceSymbol, from, to), "application/json")
 	if err != nil {
@@ -344,7 +345,7 @@ func syncIndexSeries(ctx context.Context, pool *pgxpool.Pool, fetch chartFetcher
 	written, removed, err := replaceIndexBars(ctx, pool, s.Code, ch)
 	if errors.Is(err, errRemovalCeiling) {
 		log.Printf("index-sync: %s refused, nothing written: %v", s.Code, err)
-		return true, nil
+		return true, err
 	}
 	if err != nil {
 		return false, err
@@ -411,13 +412,31 @@ func runIndexSync(ctx context.Context, args []string) error {
 	to := time.Now().UTC()
 	from := to.AddDate(-*years, 0, 0)
 
-	var attempted, failures int
+	return syncIndexRegistry(ctx, pool, client, registry, *only, from, to, *dryRun)
+}
+
+// syncIndexRegistry runs syncIndexSeries over the registry, one series at a
+// time, and decides the run's exit.
+//
+// A series whose fetch fails is a failure that leaves the others running. Every
+// attempted series failing is an outage worth a non-zero exit, counted against
+// the attempted series, so a run for one code (-code XJT) exits non-zero when
+// that code fails. A clean-up the ceiling refused also fails the run, after the
+// other series have been written: a refusal means the response had gaps in it,
+// and nothing else in the run would tell anyone the series has stopped
+// updating. A scheduled run that exits 0 with a refused series is silent.
+func syncIndexRegistry(ctx context.Context, pool *pgxpool.Pool, fetch chartFetcher, registry []indexSeries, only string, from, to time.Time, dryRun bool) error {
+	var attempted, failures, refused int
 	for _, s := range registry {
-		if *only != "" && s.Code != *only {
+		if only != "" && s.Code != only {
 			continue
 		}
 		attempted++
-		failed, err := syncIndexSeries(ctx, pool, client, s, from, to, *dryRun)
+		failed, err := syncIndexSeries(ctx, pool, fetch, s, from, to, dryRun)
+		if errors.Is(err, errRemovalCeiling) {
+			refused++
+			failed, err = true, nil
+		}
 		if err != nil {
 			return err
 		}
@@ -426,15 +445,13 @@ func runIndexSync(ctx context.Context, args []string) error {
 		}
 	}
 	if attempted == 0 {
-		return fmt.Errorf("no index series %q in index_metadata", *only)
+		return fmt.Errorf("no index series %q in index_metadata", only)
 	}
-
-	// Every series this run attempted failing is an outage worth a non-zero
-	// exit; some failing is the expected steady state while XJT's history is
-	// shorter than the window. Counted against the attempted series, so a run
-	// for one code (-code XJT) exits non-zero when that code fails.
 	if failures > 0 && failures == attempted {
 		return fmt.Errorf("every index series failed (%d)", failures)
+	}
+	if refused > 0 {
+		return fmt.Errorf("%d series refused by the removal ceiling; nothing written for them", refused)
 	}
 	return nil
 }

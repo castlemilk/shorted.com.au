@@ -440,9 +440,9 @@ func TestIndexSyncPGSeriesStepWritesOnlyWhenItShould(t *testing.T) {
 	require.Equal(t, 1, fetch.calls)
 	require.Equal(t, before, snapshotIndex(t, pool), "-dry-run writes nothing")
 
-	// A gappy response is refused, and that is a failed series, not a write.
+	// A gappy response is refused: a failed series that reports the ceiling, not a write.
 	failed, err = syncIndexSeries(ctx, pool, &stubChart{body: chartBody(t, []string{fixtureFirst, fixtureLast})}, series, from, to, false)
-	require.NoError(t, err)
+	require.True(t, errors.Is(err, errRemovalCeiling), "got %v", err)
 	require.True(t, failed)
 	require.Equal(t, before, snapshotIndex(t, pool))
 
@@ -451,6 +451,53 @@ func TestIndexSyncPGSeriesStepWritesOnlyWhenItShould(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, failed)
 	require.Equal(t, windowKept(t), indexDates(t, pool, "XJO"))
+}
+
+// seqChart returns its payloads in order, one per fetch, so one run can see a
+// different response for each series.
+type seqChart struct {
+	bodies [][]byte
+	calls  int
+}
+
+func (s *seqChart) FetchBytes(_ context.Context, _, _ string) ([]byte, string, error) {
+	body := s.bodies[s.calls]
+	s.calls++
+	return body, "", nil
+}
+
+// A refused clean-up fails the run, and the run still writes the other series.
+// Without this the scheduled CronJob exits 0 on a gappy response and nothing
+// tells anyone XJO has stopped updating.
+func TestIndexSyncPGRefusalFailsTheRun(t *testing.T) {
+	pool := indexSyncTestDB(t)
+	ctx := context.Background()
+	// XJO: 42 stored rows in the window, 3 stale (the window fixture's XJO rows).
+	seedDates(t, pool, "XJO", weekdays(t, fixtureFirst, fixtureLast)...)
+	seedDates(t, pool, "XJO", "2026-09-12", "2026-10-03")
+	// XAO needs enough rows in the window that its own clean-up is under the
+	// ceiling: every weekday of the window, plus the two weekend rows.
+	seedDates(t, pool, "XAO", weekdays(t, fixtureFirst, fixtureLast)...)
+	seedDates(t, pool, "XAO", "2026-09-12", "2026-10-03")
+	xjoBefore := indexDates(t, pool, "XJO")
+
+	registry := []indexSeries{{Code: "XJO", SourceSymbol: "^AXJO"}, {Code: "XAO", SourceSymbol: "^AXAO"}}
+	from, to := mustDay(t, "2024-01-01"), mustDay(t, "2026-11-05")
+	fetch := &seqChart{bodies: [][]byte{
+		chartBody(t, []string{fixtureFirst, fixtureLast}), // gappy: XJO is refused
+		chartBody(t, responseSessions(t)),                 // XAO writes
+	}}
+
+	err := syncIndexRegistry(ctx, pool, fetch, registry, "", from, to, false)
+	require.Error(t, err, "a refused series must fail the run")
+	require.Contains(t, err.Error(), "refused")
+	require.Equal(t, 2, fetch.calls)
+	require.Equal(t, xjoBefore, indexDates(t, pool, "XJO"), "the refused series is unchanged")
+	require.Equal(t, responseSessions(t), indexDates(t, pool, "XAO"), "the other series is still written")
+
+	// The same registry with a response that writes cleanly exits 0.
+	clean := &seqChart{bodies: [][]byte{chartBody(t, responseSessions(t)), chartBody(t, responseSessions(t))}}
+	require.NoError(t, syncIndexRegistry(ctx, pool, clean, registry, "", from, to, false))
 }
 
 func ptrFloat(v float64) *float64 { return &v }
