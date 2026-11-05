@@ -504,8 +504,9 @@ class FakeConn:
         pass
 
 
-def row(url, code="ZIP", outcome="no_voting_power", announced=ANNOUNCED, headline=HEADLINE_604, cap=10**9):
-    return (url, code, outcome, "", announced, headline, cap)
+def row(url, code="ZIP", outcome="no_voting_power", announced=ANNOUNCED, headline=HEADLINE_604, cap=10**9,
+        company="Zip Holdings Limited"):
+    return (url, code, outcome, "", announced, headline, cap, company)
 
 
 def test_a_dry_run_reads_and_writes_nothing(monkeypatch):
@@ -682,7 +683,7 @@ PG_URL = os.environ.get("REPORT_EXTRACTOR_TEST_POSTGRES_URL", "")
 
 PG_SCHEMA = """
 CREATE TEMP TABLE asx_announcements (pdf_url text, announcement_date date, headline text, stock_code text);
-CREATE TEMP TABLE "company-metadata" (stock_code text, market_cap bigint);
+CREATE TEMP TABLE "company-metadata" (stock_code text, market_cap bigint, company_name text);
 CREATE TEMP TABLE substantial_holder_notice_attempts (announcement_url text PRIMARY KEY, stock_code text,
     outcome text, detail text, read_by text NOT NULL DEFAULT 'parser', attempted_at timestamptz);
 CREATE TEMP TABLE substantial_holder_notices (announcement_url text PRIMARY KEY, stock_code text, form text,
@@ -988,3 +989,246 @@ def test_the_bench_skips_a_notice_with_no_stored_file_and_scores_the_rest_withou
     assert got["skipped"] == len(unstored)
     assert got["uncached"] + got["correct"] + got["wrong"] + got["withheld_correct"] + got["withheld_missed"] \
         == len(gold) - len(unstored)
+
+
+# --- the first live bench: holders by grouping key, the subject company, class rows, the date ----
+
+
+def test_a_holder_key_drops_an_acn_tail_so_the_registry_name_keys_the_same():
+    assert nd.tidy_holder_name("EC Pohl & Co Pty Ltd ACN 154 399 916") == "EC Pohl & Co Pty Ltd"
+    assert nd.holder_key("EC Pohl & Co Pty Ltd ACN 154 399 916") == nd.holder_key("EC Pohl & Co Pty Ltd")
+    assert nd.holder_key("Acme Holdings Ltd (ACN 000 000 019)") == nd.holder_key("Acme Holdings Ltd")
+    assert nd.tidy_holder_name("Acnova Ltd") == "Acnova Ltd", "an ACN tail needs its own word and a space"
+
+
+def test_holders_are_one_when_their_grouping_keys_agree_not_their_text():
+    assert nd.holder_same("Perennial Value Management Limited (PVM", "Perennial Value Management Limited")
+    assert nd.holder_same("Regal Funds Management Pty Ltd and its associates (see Annexure 1",
+                          "Regal Funds Management Pty Ltd")
+    assert not nd.holder_same("Perennial Value Management Limited", "Perennial Investments Limited")
+    assert not nd.holder_same("", "")
+
+
+def test_two_readers_that_name_one_holder_with_different_tails_still_agree():
+    ex = extractor({"P": answer_604(holder_name="Vanguard Group Pty Ltd ACN 000 000 019"), "C": answer_604()})
+    n, outcome = ex.extract(ctx())
+    assert outcome == "agree" and n.holder_key == "name:vanguard group"
+
+
+def test_a_company_is_no_holder_of_itself():
+    assert validate(answer_604())[0] is not None
+    n, why = nd.validate_notice(answer_604(), TEXT, headline=HEADLINE_604, announced_on=ANNOUNCED,
+                                shares_on_issue=SHARES, scan=False, model="m",
+                                company_name="Vanguard Group Pty Ltd ACN 000 000 019")
+    assert n is None and why == "holder_is_subject_company"
+
+
+def test_a_recovered_notice_stores_the_tidied_holder_name_as_notice_go_does():
+    n, why = validate(answer_604(holder_name="Vanguard Group Pty Ltd ACN 000 000 019"))
+    assert why == ""
+    cur = FakeCursor(rowcount=1)
+    assert nd.write_recovered(cur, "https://x/1.pdf", "ZIP", ANNOUNCED, n) is True
+    assert cur.sql[0][1][3] == "Vanguard Group Pty Ltd" and cur.sql[0][1][4] == "name:vanguard group"
+
+
+def test_a_legal_name_the_ocr_misreads_as_ply_is_withheld_and_pty_is_not():
+    n, why = validate(answer_604(holder_name="FMR Investments Ply Limited (FMR)"))
+    assert n is None and why == "ocr_misspelled_legal_name"
+    assert nd.OCR_PLY_LEGAL_NAME.search("FMR Investments Pty Limited") is None
+
+
+CLASS_TEXT = TEXT + " Class of securities: ORD 42,500,000 6.40%. Class ADR 148 0.00%. Total 42,500,000 6.40%."
+
+
+def answer_603_two_classes(**over):
+    q = {k: v for k, v in answer_604()["quotes"].items() if not k.startswith("previous")}
+    a = answer_604(form="603", previous_pct=None, previous_votes=None, voting_class_rows=2, quotes=q)
+    a.update(over)
+    return a
+
+
+def test_several_class_rows_with_no_quoted_total_are_withheld():
+    headline = "Becoming a substantial holder from VGI"
+    no_total = nd.validate_notice(answer_603_two_classes(), CLASS_TEXT, headline=headline,
+                                  announced_on=ANNOUNCED, shares_on_issue=SHARES, scan=False, model="m")
+    assert no_total[0] is None and no_total[1] == "several_classes_without_total"
+    with_total = answer_603_two_classes()
+    with_total["quotes"]["total_row"] = "Total 42,500,000 6.40%"
+    assert nd.validate_notice(with_total, CLASS_TEXT, headline=headline, announced_on=ANNOUNCED,
+                              shares_on_issue=SHARES, scan=False, model="m")[1] == ""
+    one_class = answer_603_two_classes(voting_class_rows=1)
+    assert nd.validate_notice(one_class, CLASS_TEXT, headline=headline, announced_on=ANNOUNCED,
+                              shares_on_issue=SHARES, scan=False, model="m")[1] == ""
+    # A class row quoted as the total: located in the text, but the figures are not in it.
+    class_as_total = answer_603_two_classes()
+    class_as_total["quotes"]["total_row"] = "Class ADR 148 0.00%"
+    assert nd.validate_notice(class_as_total, CLASS_TEXT, headline=headline, announced_on=ANNOUNCED,
+                              shares_on_issue=SHARES, scan=False, model="m")[1] == "figures_not_from_total_row"
+    fake_total = answer_603_two_classes()
+    fake_total["quotes"]["total_row"] = "Total 99,999,999 9.99%"
+    assert nd.validate_notice(fake_total, CLASS_TEXT, headline=headline, announced_on=ANNOUNCED,
+                              shares_on_issue=SHARES, scan=False, model="m")[1] == "several_classes_without_total"
+
+
+def test_the_prompt_asks_for_the_class_rows_the_total_row_and_the_section_one_date():
+    assert '"voting_class_rows"' in nd.SYSTEM_PROMPT and '"total_row"' in nd.SYSTEM_PROMPT
+    assert "section 1" in nd.SYSTEM_PROMPT and "changes table" in nd.SYSTEM_PROMPT
+
+
+EGG_TEXT = (HERE / "testdata" / "notices" / "text" / "EGG-2026-08-24-f087c682.txt").read_text()
+NOL_TEXT = (HERE / "testdata" / "notices" / "text" / "NOL-2025-06-16-1691d56f.txt").read_text()
+
+
+def egg_604(event, quote):
+    return {"is_substantial_holder_notice": True, "holder_name": "Perennial Value Management Limited (PVM)",
+            "form": "604", "previous_pct": 12.0, "previous_votes": 10887187, "present_pct": 15.0,
+            "present_votes": 13609629, "event_date": event, "ceased": False,
+            "quotes": {"holder_name": "Perennial Value Management Limited (PVM)", "previous_pct": "12.00",
+                       "previous_votes": "10,887,187", "present_pct": "15.00", "present_votes": "13,609,629",
+                       "event_date": quote}}
+
+
+def test_an_event_date_from_a_changes_row_or_the_signature_block_is_dropped_and_section_one_is_kept():
+    def check(answer, text, headline, announced, shares):
+        return nd.validate_notice(answer, text, headline=headline, announced_on=announced,
+                                  shares_on_issue=shares, scan=False, model="m")
+    egg = ("Change in substantial holding from ENE", "2026-08-24", 90735121)
+    n, why = check(egg_604("2026-08-21", "21 August 2026"), EGG_TEXT, *egg)
+    assert why == "" and n.event_date == "2026-08-21", "section 1's date is kept"
+    n, why = check(egg_604("2026-08-10", "10/08/2026"), EGG_TEXT, *egg)
+    assert why == "" and n.event_date is None, "a changes row: the date has a broker's name after it"
+    n, why = check(egg_604("2026-08-24", "24/08/2026"), EGG_TEXT, *egg)
+    assert why == "" and n.event_date is None, "the signature date: under 'Date' and beside 'Sign Here'"
+    assert n.present_pct == 15.0, "the notice itself is kept when only its date is dropped"
+
+
+def test_the_nol_section_one_date_is_kept_and_its_subject_company_is_refused():
+    nol_headline = "Becoming a substantial holder"
+    holder = {"is_substantial_holder_notice": True, "holder_name": "EC Pohl & Co Pty Ltd", "form": "603",
+              "previous_pct": None, "previous_votes": None, "present_pct": 9.9, "present_votes": 9200000,
+              "event_date": "2025-06-12", "ceased": False,
+              "quotes": {"holder_name": "EC Pohl & Co Pty Ltd", "present_pct": "9.9%",
+                         "present_votes": "9,200,000", "event_date": "12 / 06 / 2025"}}
+    n, why = nd.validate_notice(holder, NOL_TEXT, headline=nol_headline, announced_on="2025-06-16",
+                                shares_on_issue=92799434, scan=False, model="m")
+    assert why == "" and n.event_date == "2025-06-12"
+    subject = {**holder, "holder_name": "NOBLEOAK LIFE LIMITED",
+               "quotes": {**holder["quotes"], "holder_name": "NOBLEOAK LIFE LIMITED"}}
+    n, why = nd.validate_notice(subject, NOL_TEXT, headline=nol_headline, announced_on="2025-06-16",
+                                shares_on_issue=92799434, scan=False, model="m",
+                                company_name="NOBLEOAK LIFE LIMITED")
+    assert n is None and why == "holder_is_subject_company"
+
+
+def test_the_scorer_compares_holders_by_their_grouping_key():
+    import bench_notices as bn
+
+    assert bn.same_field("holder", "Perennial Value Management Limited (PVM", "Perennial Value Management Limited")
+    assert bn.same_field("holder", "Regal Funds Management Pty Ltd and its associates (see Annexure 1",
+                         "Regal Funds Management Pty Ltd")
+    assert not bn.same_field("holder", "Perennial Investments Limited", "Perennial Value Management Limited")
+
+
+@pytest.mark.parametrize("name,want", [
+    ("EC Pohl & Co Pty Ltd ACN 154 399 916", "EC Pohl & Co Pty Ltd"),
+    ("Acme Holdings Ltd (ACN 000 000 019)", "Acme Holdings Ltd"),
+    ("Acme Pty Ltd ACN:154399916", "Acme Pty Ltd"),
+    ("Acme Pty Ltd ABN 12 004 085 616", "Acme Pty Ltd"),
+    ("The ABN AMRO Group", "The ABN AMRO Group"),
+    ("ABN AMRO Clearing Sydney Pty Ltd", "ABN AMRO Clearing Sydney Pty Ltd"),
+    ("Citigroup and ABN AMRO Bank", "Citigroup and ABN AMRO Bank"),
+    ("Smith ACN Holdings", "Smith ACN Holdings"),
+    ("Acnova Ltd", "Acnova Ltd"),
+])
+def test_an_acn_tail_is_cut_only_with_its_digits_as_the_go_pattern_cuts_it(name, want):
+    assert nd.tidy_holder_name(name) == want
+
+
+def test_the_acn_tail_pattern_is_the_go_pattern():
+    src = (HERE.parent / "jobs" / "internal" / "jobs" / "ownership" / "registry.go").read_text()
+    m = re.search(r"var nameTailID = regexp\.MustCompile\(`(.*?)`\)", src, re.S)
+    assert m and m.group(1) == nd.NAME_TAIL_ID.pattern
+
+
+def test_the_section_one_date_is_kept_when_a_watermark_or_a_run_on_line_sits_beside_it():
+    holder = "Vanguard Group Pty Ltd"
+    watermark = ("1. Details of substantial holder\nThe holder became a substantial holder on\n"
+                 "12/06/2025 For personal use only\nName: Vanguard Group Pty Ltd\n")
+    s = watermark.index("12/06/2025")
+    assert nd.date_beside_table_or_signature(watermark, s, s + 10, holder) is False
+    run_on = ("There was a change in the interests of the substantial holder on 21 August 2026 "
+              "The previous notice was given on 29 July 2026")
+    s = run_on.index("21 August 2026")
+    assert nd.date_beside_table_or_signature(run_on, s, s + 14, holder) is False
+    bare = "Signature\n12/06/2025 For personal use only\n6. Associates The reasons the persons"
+    s = bare.index("12/06/2025")
+    assert nd.date_beside_table_or_signature(bare, s, s + 10, holder) is False
+
+
+def test_a_changes_row_and_the_signature_date_are_still_dropped():
+    holder = "Perennial Value Management Limited"
+    row = "Date of change\n10/08/2026 Northern Trust\nBuy on the Market\n122,488"
+    s = row.index("10/08/2026")
+    assert nd.date_beside_table_or_signature(row, s, s + 10, holder) is True
+    broker_below = "Date of change\n10/08/2026\nNorthern Trust\nBuy on the Market"
+    s = broker_below.index("10/08/2026")
+    assert nd.date_beside_table_or_signature(broker_below, s, s + 10, holder) is True
+    nature_below = "Date of change\n10/08/2026\nBuy on the Market\n122,488"
+    s = nature_below.index("10/08/2026")
+    assert nd.date_beside_table_or_signature(nature_below, s, s + 10, holder) is True
+    holder_on_line = f"Some words\n12/06/2025 {holder} bought"
+    s = holder_on_line.index("12/06/2025")
+    assert nd.date_beside_table_or_signature(holder_on_line, s, s + 10, holder) is True
+    signature = "Date\n24/08/2026\nSign Here\nFor personal use only"
+    s = signature.index("24/08/2026")
+    assert nd.date_beside_table_or_signature(signature, s, s + 10, holder) is True
+
+
+def test_the_egg_section_one_date_is_kept_and_its_changes_row_is_dropped():
+    s = EGG_TEXT.index("21 August 2026")
+    assert nd.date_beside_table_or_signature(EGG_TEXT, s, s + 14, "Perennial Value Management Limited (PVM)") is False
+
+
+def test_a_self_filed_notice_about_escrowed_shares_is_not_refused_as_the_subject_company():
+    answer = answer_604(holder_name="Vanguard Group Pty Ltd ACN 000 000 019")
+    text = TEXT + " The shares are escrowed under the listing rules."
+    n, why = nd.validate_notice(answer, text, headline=HEADLINE_604, announced_on=ANNOUNCED,
+                                shares_on_issue=SHARES, scan=False, model="m",
+                                company_name="Vanguard Group Pty Ltd ACN 000 000 019")
+    assert why == "" and n is not None
+
+
+RHC_TEXT = (HERE / "testdata" / "notices" / "text" / "RHC-2024-07-16-e2e1da90.txt").read_text()
+
+
+def rhc_603(classes, total=None):
+    quotes = {"holder_name": "BlackRock Group", "present_pct": "5.08", "present_votes": "11,683,101"}
+    if total is not None:
+        quotes["total_row"] = total
+    return {"is_substantial_holder_notice": True, "holder_name": "BlackRock Group", "form": "603",
+            "previous_pct": None, "previous_votes": None, "present_pct": 5.08, "present_votes": 11683101,
+            "voting_class_rows": classes, "event_date": None, "ceased": False, "quotes": quotes}
+
+
+@pytest.mark.parametrize("classes", [2, 2.0, "2"])
+def test_the_ramsay_two_class_table_with_no_total_row_is_withheld_whatever_form_the_count_takes(classes):
+    n, why = nd.validate_notice(rhc_603(classes), RHC_TEXT, headline="Becoming a substantial holder",
+                                announced_on="2024-07-16", shares_on_issue=229754474, scan=False, model="m")
+    assert n is None and why == "several_classes_without_total"
+
+
+def test_the_ramsay_table_with_a_total_row_the_text_states_is_not_withheld_for_its_classes():
+    _, why = nd.validate_notice(rhc_603(2, total="ORD 11,683,101 11,683,101 5.08"), RHC_TEXT,
+                                headline="Becoming a substantial holder", announced_on="2024-07-16",
+                                shares_on_issue=229754474, scan=False, model="m")
+    assert why != "several_classes_without_total"
+
+
+def test_a_holder_resolves_to_its_institution_by_the_tidied_name_as_go_does():
+    ctx_inst = nd.ReadContext(text=TEXT, images=None, headline=HEADLINE_604, announced_on=ANNOUNCED,
+                              shares_on_issue=SHARES, scan=False,
+                              institutions={"vanguard group pty ltd": "vanguard"})
+    answer = answer_604(holder_name="Vanguard Group Pty Ltd ACN 000 000 019",
+                        quotes={**answer_604()["quotes"], "holder_name": "Name: Vanguard Group Pty Ltd"})
+    n, outcome = extractor({"P": answer, "C": answer}).extract(ctx_inst)
+    assert outcome == "agree" and n.institution_slug == "vanguard" and n.holder_key == "vanguard"

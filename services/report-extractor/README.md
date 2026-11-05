@@ -28,7 +28,20 @@ to a second reader, under the same consensus as the director trades (`director_d
   the votes fit ASIC's share count as at the notice's date within the parser's tolerance (a ratio in
   [0.5, 2]). A notice with no share count on record for its date is neither fetched nor read: its votes cannot be checked, so it is counted as `no_share_count`, no model is called and nothing is written, and it is offered again once a count appears. A 605 states no votes, so it is read without a count.
   The check itself still runs in `validate_notice` (a reading that states votes with no count is withheld as `no_share_count`). An event date is kept only when its quote is in the text and states the
-  date's day, month and year; on a scan it is kept only when both readers agree.
+  date's day, month and year; on a scan it is kept only when both readers agree. An event date
+  is dropped (the notice is kept) when its quote is a changes-table row (a broker, holder or nature
+  of change follows it on its line or opens the line below, the ASX watermark aside) or the
+  signature date (a "Date" label before it, or "Sign here" beside it). A date that a section 1
+  phrase introduces ("became a substantial holder on", "change in the interests of the substantial
+  holder on", "ceased to be a substantial holder on") is always kept, whatever follows it.
+  Local context only, never a position in the document.
+  Further refusals: a holder whose grouping key is the subject company's (`holder_is_subject_company`,
+  from `company-metadata`, not applied to a notice that mentions escrowed or restricted securities); a name with "Ply" for "Pty" before Ltd or Limited (`ocr_misspelled_legal_name`:
+  the OCR misreads the suffix, and the Go registry's legal suffixes are not changed to key it); more
+  than one voting class row with no quoted total row (`several_classes_without_total`). The model
+  reports `voting_class_rows` and `quotes.total_row` (prompt rules 6 and 7).
+  Holders are compared by grouping key (`holder_same`), not text: a reader's "Limited (PVM)" and
+  "Limited" are one holder. The stored `holder_name` is the tidied name, as `notice.go` stores it.
 - **Replies.** A reply with no JSON object is a model failure (`ModelCallError`), never a reading.
 - **Failures.** A model that cannot answer raises `ModelCallError`: the notice is not an attempt
   and is retried next run. The run exits 1 when the errors look systemic (5 in the run, or 3 at a
@@ -64,7 +77,8 @@ DATABASE_URL=... OPENROUTER_API_KEY=... python extract_reports_concurrent.py --n
 `--workers`, `--budget-min`, `--since`, `--dry-run/--no-dry-run`); the filings options do not apply.
 
 Parity with the Go pass: `holder_key` cuts the name at the registry's `nameTails` (copied from
-`registry.go`; a test fails when the two lists drift) before the legal suffixes are dropped, and
+`registry.go`; a test fails when the two lists drift). An ACN, ABN or ARSN is a tail only with its
+digits after it (`NAME_TAIL_ID`, the same pattern as `nameTailID` in `registry.go`), so "ABN AMRO" keys whole before the legal suffixes are dropped, and
 `NOTICE_PARSER_VERSION` is `notice.go`'s `noticeParserVersion` (also pinned by a test). The institution
 is resolved by an exact match of the registry's names and aliases only. A holder the pass cannot
 resolve exactly is grouped by name.
