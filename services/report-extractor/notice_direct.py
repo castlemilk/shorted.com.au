@@ -81,7 +81,11 @@ MIN_TEXT_CHARS = 100          # a page with less text layer than this is a scan 
 FIVE_PCT = 4.95               # the parser's threshold: 4.995% rounds to 5.00 and is substantial
 MAX_CHANGE_POINTS = 50        # a change of over 50 points is not one a register shows (parser: changeOver50)
 VOTES_RATIO_LOW, VOTES_RATIO_HIGH = 0.5, 2.0   # notices.go votesConsistent
-# notices.go nameTails (in order): the boilerplate that follows a holder's name in section 1.
+# "Ply" where a legal name's "Pty" should be: the OCR misreads the suffix, so the name as written is
+# not the company's. Withheld rather than stored (Go's legal-suffix list is not ours to change, so a
+# suffix rule here would key the holder differently from the Go registry).
+OCR_PLY_LEGAL_NAME = re.compile(r"\bply\s+(?:ltd|limited)\b", re.IGNORECASE)
+# registry.go nameTails (in order): the boilerplate that follows a holder's name in section 1.
 # test_notice_direct.py parses the Go list and fails when this copy drifts.
 NAME_TAILS = (
     " and its related bodies corporate", " and its related body corporate", " and related bodies corporate",
@@ -93,6 +97,10 @@ NAME_TAILS = (
     " and the other entities", " and entities listed", " - a subsidiary of", " a subsidiary of", "__",
     " and its entities",
 )
+# registry.go nameTailID: an ACN, ABN or ARSN and its digits (9 to 11 of them, with or without
+# spaces) after the holder's name. The word alone is no tail ("ABN AMRO" is a bank's name). The
+# pattern is the Go text exactly, so Go and Python cut the same name (test_notice_direct reads both).
+NAME_TAIL_ID = re.compile(r"(?i)[ \t]*\(?[ \t]*\b(?:acn|abn|arsn)[ \t]*:?[ \t]*[0-9][0-9 ]{8,13}\)?")
 NO_SHARE_COUNT_OUTCOME = "invalid_no_share_count"  # extract()'s outcome when no count is on record
 MAX_SYSTEMIC_ERRORS = 5       # the run exits 1 at this many model errors (or 3 at a fifth of the calls)
 
@@ -107,6 +115,7 @@ Return ONLY a JSON object:
   "previous_votes": integer | null,
   "present_pct": number | null,
   "present_votes": integer | null,
+  "voting_class_rows": integer | null,
   "event_date": "YYYY-MM-DD" | null,
   "ceased": true | false,
   "quotes": {
@@ -115,6 +124,7 @@ Return ONLY a JSON object:
     "previous_votes": "the words that state the previous number of votes",
     "present_pct": "the words that state the present percentage",
     "present_votes": "the words that state the present number of votes",
+    "total_row": "the words of the voting power table's total row, when it has one; null otherwise",
     "event_date": "the words that state the date of the change"
   }
 }
@@ -125,6 +135,8 @@ Rules:
 3. For every figure, quote the exact words of the notice that state it (at most 200 characters, verbatim). A figure with no quote is null.
 4. If the document is not a substantial holding notice, set is_substantial_holder_notice to false and every other field to null.
 5. If the voting power is not stated in the notice itself, leave its figures null.
+6. A voting power table with more than one class row (for example ORD and ADR) and no total row: every figure is null. voting_class_rows is the number of class rows the table has (null when there is no table).
+7. event_date is the date section 1 states for the change: the date after "became a substantial holder on", "There was a change in the interests of the substantial holder on" or "ceased to be a substantial holder on". Never a date in a row of a changes table, never the date beside "Date" or "Sign here" in the signature block, and null when section 1 states none.
 """
 
 SCAN_USER_MESSAGE = "The notice is a scanned document; the page images follow. Read them."
@@ -255,6 +267,9 @@ def tidy_holder_name(name: str) -> str:
         i = lower.find(t)
         if i > 2 and i < cut:
             cut = i
+    m = NAME_TAIL_ID.search(s)
+    if m and m.start() > 2 and m.start() < cut:
+        cut = m.start()
     return s[:cut].strip().rstrip(" ,.:-")
 
 
@@ -375,6 +390,18 @@ def _pct(v: Any) -> Optional[float]:
     return f
 
 
+def _class_rows(v: Any) -> Optional[float]:
+    """The class-row count a reader reports, as a number (a numeric string counts), or None."""
+    if v is None or isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(str(v).strip())
+    except ValueError:
+        return None
+
+
 def _votes(v: Any) -> Optional[int]:
     if v is None or isinstance(v, bool):
         return None
@@ -402,8 +429,79 @@ def date_in_quote(event: str, quote: str) -> bool:
             and str(d.year) in nums)
 
 
+_DATE_LABEL_RE = re.compile(r"\bdate\s*[:\-]?\s*$", re.IGNORECASE)
+ESCROW_RE = re.compile(r"\b(?:escrow|escrowed|restricted securities)\b", re.IGNORECASE)
+_SIGN_HERE_RE = re.compile(r"sign\s+here", re.IGNORECASE)
+# The section 1 phrases a date follows: "became a substantial holder on", "There was a change in the
+# interests of the substantial holder on", "ceased to be a substantial holder on". Matched against the
+# text just before the date (spaces, line breaks and a colon allowed), so a date they introduce is
+# section 1's whatever its layout.
+_SECTION1_ON_RE = re.compile(
+    r"(?:\bbecame|\bbecome|\bbecoming)[ \t]+a[ \t]+substantial[ \t]+holder[ \t]+on[\s:]*$"
+    r"|\bchange[ \t]+in[ \t]+the[ \t]+interests?[ \t]+(?:of[ \t]+)?(?:the[ \t]+)?substantial[ \t]+holder[ \t]+on[\s:]*$"
+    r"|\bceased[ \t]+to[ \t]+be[ \t]+a[ \t]+substantial[ \t]+holder[ \t]+on[\s:]*$",
+    re.IGNORECASE)
+# The ASX watermark on a page. It sits on the date's line or the next one, and is no part of a row.
+_WATERMARK_RE = re.compile(r"for[ \t]+personal[ \t]+use[ \t]+only", re.IGNORECASE)
+# Words that name a changes-table row: a broker, custodian or holder, or the nature of the change.
+_ROW_WORDS = {
+    "buy", "sell", "sold", "bought", "purchase", "purchased", "sale", "disposal", "acquisition",
+    "acquired", "transfer", "transferred", "market", "issue", "cancellation", "conversion", "exercise",
+    "lapse", "bank", "broker", "brokers", "securities", "stockbroking", "nominees", "nominee",
+    "custodian", "trust", "markets", "capital", "finance", "financial", "investments", "management",
+    "partners", "fund", "funds", "asset", "assets", "equities", "super", "superannuation",
+}
+# A nature-of-change line opens the row when the broker sits on the line above it.
+_NATURE_START_RE = re.compile(
+    r"^(?:buy|sell|sold|bought|transfer|purchase|disposal|acquisition|on[ \t-]+market|off[ \t-]+market)\b",
+    re.IGNORECASE)
+
+
+def _without_watermark(s: str) -> str:
+    return " ".join(_WATERMARK_RE.sub(" ", s).split())
+
+
+def date_beside_table_or_signature(text: str, start: int, end: int, holder: str) -> bool:
+    """True when the date text[start:end] is a row of a changes table or the signature block's date.
+    Local context only, never a position in the document (a scrambled text layer puts section 1
+    out of order). A date that a section 1 phrase introduces is never a row, whatever follows it.
+    Otherwise it is a row when the words after it on its line (the ASX watermark aside) name a
+    broker, a holder or a nature of change, or the holder's name, or when the line below does the
+    same or opens with a nature of change; it is the signature date when a "Date" label sits before
+    it or "Sign here" (or a "Date" label) is the nearest line either side. A holder's name on the
+    line below is a row too (the row's name sits under its date)."""
+    if _SECTION1_ON_RE.search(text[max(0, start - 200):start]):
+        return False
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", end)
+    if line_end < 0:
+        line_end = len(text)
+    if _DATE_LABEL_RE.search(text[line_start:start]):
+        return True
+    tail = _without_watermark(text[end:line_end])
+    words = set(re.findall(r"[^\W\d_]+", tail.lower()))
+    if words & _ROW_WORDS or (tail and name_in_text(holder, tail)):
+        return True
+    lines = text.split("\n")
+    li = text.count("\n", 0, start)
+    before = [ln.strip() for ln in lines[:li] if ln.strip()]
+    after = [w for w in (_without_watermark(ln) for ln in lines[li + 1:]) if w]
+    near = [ln for ln in (before[-1:] + after[:1]) if ln]
+    for ln in near:
+        if _SIGN_HERE_RE.search(ln) or _DATE_LABEL_RE.search(ln):
+            return True
+    if after:
+        below = after[0]
+        if _NATURE_START_RE.search(below) or holder_same(below, holder):
+            return True
+        if set(re.findall(r"[^\W\d_]+", below.lower())) & _ROW_WORDS:
+            return True
+    return False
+
+
 def validate_notice(answer: dict, text: str, *, headline: str, announced_on: str,
-                    shares_on_issue: float, scan: bool, model: str = "") -> tuple[Optional[Notice], str]:
+                    shares_on_issue: float, scan: bool, model: str = "",
+                    company_name: str = "") -> tuple[Optional[Notice], str]:
     """One reader's answer, checked in code. Returns (notice, "") or (None, reason)."""
     if not isinstance(answer, dict) or not answer:
         return None, "malformed"
@@ -425,8 +523,33 @@ def validate_notice(answer: dict, text: str, *, headline: str, announced_on: str
         return None, "no_holder"
     if placeholder_reason(name):
         return None, "no_holder"
+    # The subject company is never its own holder: a reader that copies the "To Company Name" line
+    # names the company, and a company is not a substantial holder of itself.
+    # A company may lodge about its own escrowed or restricted shares (a notice filed after an IPO):
+    # the rule applies only to a notice that does not say so.
+    if (company_name and holder_key(name) and holder_key(name) == holder_key(company_name)
+            and not ESCROW_RE.search(text)):
+        return None, "holder_is_subject_company"
+    if OCR_PLY_LEGAL_NAME.search(name):
+        return None, "ocr_misspelled_legal_name"
     if not scan and not name_in_text(name, text):
         return None, "name_not_in_notice"
+
+    # Several class rows (ORD and ADR, say) with no total row: the figure a reader takes is one
+    # class's, not the holding's. Withheld unless the total row is quoted from the text.
+    classes = _class_rows(answer.get("voting_class_rows"))
+    if classes is not None and classes > 1:
+        quoted = answer.get("quotes") if isinstance(answer.get("quotes"), dict) else {}
+        total = quoted.get("total_row")
+        if scan or not isinstance(total, str) or len(total.strip()) < 4 or dx.locate(total, text) is None:
+            return None, "several_classes_without_total"
+        # The figures must be the total row's own, or a reader can quote one class row as
+        # the total (RHC: the ORD row, 37 votes short of the holding) and pass.
+        totals = dx.numbers_in(total)
+        for field_name in ("present_votes", "present_pct"):
+            value = answer.get(field_name)
+            if value is None or dx.canonical(str(_votes(value) if field_name == "present_votes" else _pct(value))) not in totals:
+                return None, "figures_not_from_total_row"
 
     quotes = answer.get("quotes") if isinstance(answer.get("quotes"), dict) else {}
     prev_pct = _pct(answer.get("previous_pct"))
@@ -508,8 +631,11 @@ def validate_notice(answer: dict, text: str, *, headline: str, announced_on: str
     event = plausible_event_date(str(answer.get("event_date") or "").strip(), announced_on)
     if event and not scan:
         q = quotes.get("event_date")
-        if not isinstance(q, str) or len(q.strip()) < 4 or dx.locate(q, text) is None or not date_in_quote(event, q):
+        loc = dx.locate(q, text) if isinstance(q, str) and len(q.strip()) >= 4 else None
+        if loc is None or not date_in_quote(event, q):
             event = ""
+        elif date_beside_table_or_signature(text, loc[0], loc[1], name):
+            event = ""  # the date is a changes-table row or the signature date: the notice stays, the date goes
     key = holder_key(name)
     if not key:
         return None, "no_holder"
@@ -518,10 +644,18 @@ def validate_notice(answer: dict, text: str, *, headline: str, announced_on: str
                   previous_votes=prev_votes, present_votes=pres_votes, ceased=ceased, model=model), ""
 
 
+def holder_same(a: str, b: str) -> bool:
+    """Two section 1 names are one holder when their grouping keys agree (holder_key: the name
+    tidied at its tails, folded, without legal suffixes). The text is not compared, so
+    "Perennial Value Management Limited (PVM)" and "Perennial Value Management Limited" are one holder."""
+    ka = holder_key(a)
+    return bool(ka) and ka == holder_key(b)
+
+
 def same_notice(a: Notice, b: Notice) -> bool:
     """Two readings agree on who, which form, every figure and whether it ceased. The event date
     is not part of agreement: a disagreement on it alone drops the date (agreed), never the notice."""
-    return (a.form == b.form and dd.same_person(a.holder_name, b.holder_name)
+    return (a.form == b.form and holder_same(a.holder_name, b.holder_name)
             and a.figures()[2:] == b.figures()[2:])
 
 
@@ -545,6 +679,7 @@ class ReadContext:
     shares_on_issue: float
     scan: bool
     institutions: dict[str, str] = field(default_factory=dict)
+    company_name: str = ""     # the subject company (company-metadata); "" when not known
 
 
 @dataclass
@@ -566,9 +701,10 @@ class NoticeExtractor:
             # so the notice is offered again (the direct_extract rule for an unparseable reply).
             raise dx.ModelCallError(f"{model}: the reply holds no JSON object")
         n, why = validate_notice(answer, ctx.text, headline=ctx.headline, announced_on=ctx.announced_on,
-                                 shares_on_issue=ctx.shares_on_issue, scan=ctx.scan, model=model)
+                                 shares_on_issue=ctx.shares_on_issue, scan=ctx.scan, model=model,
+                                 company_name=ctx.company_name)
         if n is not None and ctx.institutions:
-            slug = ctx.institutions.get(" ".join(re.findall(r"[^\W_]+", _fold(n.holder_name))))
+            slug = ctx.institutions.get(" ".join(re.findall(r"[^\W_]+", _fold(tidy_holder_name(n.holder_name)))))
             if slug:
                 n.holder_key, n.institution_slug = slug, slug
         return n, why
@@ -697,14 +833,14 @@ SELECT_SQL = """
 SELECT a.announcement_url, a.stock_code, a.outcome, COALESCE(a.detail, ''),
        max(ann.announcement_date)::text,
        (array_agg(ann.headline ORDER BY ann.announcement_date DESC, ann.stock_code))[1],
-       cm.market_cap
+       cm.market_cap, cm.company_name
 FROM substantial_holder_notice_attempts a
 JOIN asx_announcements ann ON ann.pdf_url = a.announcement_url
 LEFT JOIN "company-metadata" cm ON cm.stock_code = a.stock_code
 WHERE a.outcome IN ('no_text', 'no_voting_power', 'no_holder')
   AND a.read_by = 'parser'
   AND (%(since)s::date IS NULL OR ann.announcement_date >= %(since)s::date)
-GROUP BY a.announcement_url, a.stock_code, a.outcome, a.detail, cm.market_cap
+GROUP BY a.announcement_url, a.stock_code, a.outcome, a.detail, cm.market_cap, cm.company_name
 ORDER BY cm.market_cap DESC NULLS LAST, a.announcement_url
 LIMIT %(limit)s
 """
@@ -741,7 +877,7 @@ def write_recovered(cur, url: str, code: str, announced_on: str, n: Notice) -> b
     # A 605 stores no figures: notice.go keeps none from a cessation, and the readers only
     # use the percentages to validate and to compare the two readings.
     prev_pct, pres_pct = (None, None) if n.ceased else (n.previous_pct, n.present_pct)
-    cur.execute(UPSERT_SQL, (url, code, n.form, n.holder_name, n.holder_key, n.institution_slug,
+    cur.execute(UPSERT_SQL, (url, code, n.form, tidy_holder_name(n.holder_name), n.holder_key, n.institution_slug,
                              n.event_date, announced_on, prev_pct, pres_pct,
                              n.previous_votes, n.present_votes, n.ceased, NOTICE_PARSER_VERSION))
     if cur.rowcount == 0:
@@ -788,6 +924,7 @@ class Candidate:
     headline: str
     market_cap: Optional[int]
     shares: float = 0.0  # ASIC's count on issue as at the notice's date (0 = none on record)
+    company_name: str = ""  # the subject company, for the rule that a company is no holder of itself
 
 
 def systemic(errors: int, calls: int) -> bool:
@@ -806,9 +943,10 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
         rows = cur.fetchall()
         institutions = institution_index(institution_rows(cur))
         cands = []
-        for url, code, outcome, detail, announced, headline, cap in rows:
+        for url, code, outcome, detail, announced, headline, cap, company in rows:
             cands.append(Candidate(url, code, outcome, detail, announced or "", headline or "", cap,
-                                   shares=shares_on_issue(cur, code, announced or "")))
+                                   shares=shares_on_issue(cur, code, announced or ""),
+                                   company_name=company or ""))
     counts["selected"] = len(cands)
     log.info("selected %d withheld notices (dry_run=%s, budget %.0f min)", len(cands), dry_run, budget_min)
 
@@ -910,7 +1048,8 @@ def read_one(extractor: NoticeExtractor, cand: Candidate, institutions: dict[str
     except Exception as e:  # the rasteriser failing is this host's fault: retried, never recorded
         return {"kind": "fetch_failed", "reason": f"rasterise: {type(e).__name__}"}
     ctx = ReadContext(text=text, images=images, headline=cand.headline, announced_on=cand.announced_on,
-                      shares_on_issue=cand.shares, scan=scan, institutions=institutions)
+                      shares_on_issue=cand.shares, scan=scan, institutions=institutions,
+                      company_name=cand.company_name)
     try:
         notice, outcome = extractor.extract(ctx)
     except dx.ModelCallError as e:

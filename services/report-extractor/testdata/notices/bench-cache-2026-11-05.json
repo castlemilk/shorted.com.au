@@ -1,0 +1,1401 @@
+{
+ "deepseek/deepseek-v4-flash|A1M-2024-06-03-70ec0b11": {
+  "ceased": false,
+  "event_date": "2024-05-31",
+  "form": "604",
+  "holder_name": "FMR Investments Ply Limited (FMR), Peter Mervyn Bartlett and the estate of Ronald George Sayers and their associated entities",
+  "is_substantial_holder_notice": true,
+  "present_pct": 14.47,
+  "present_votes": 82600310,
+  "previous_pct": 17.79,
+  "previous_votes": 80378088,
+  "quotes": {
+   "event_date": "31/ 05/ 2024",
+   "holder_name": "FMR Investments Ply Limited (FMR), Peter Mervyn Bartlett and the estate of Ronald George Sayers and their associated entities",
+   "present_pct": "14.47% (Based on an issued capital of A1M of 570,878,324)",
+   "present_votes": "82,600,310",
+   "previous_pct": "17.79% based on an issued capital of A1M of 451,809,925)",
+   "previous_votes": "80,378,088"
+  }
+ },
+ "deepseek/deepseek-v4-flash|ACE-2024-12-24-2638912a": {
+  "ceased": true,
+  "event_date": null,
+  "form": "605",
+  "holder_name": "COPIA INVESTMENT PARTNERS LTD",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": null,
+   "holder_name": "COPIA INVESTMENT PARTNERS LTD",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|BUR-2024-01-09-058a8c65": {
+  "ceased": true,
+  "event_date": "2024-01-02",
+  "form": "605",
+  "holder_name": "Troy Harry",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "2/1/2024",
+   "holder_name": "Troy Harry",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|CEN-2025-07-14-16c2ccd7": {
+  "ceased": false,
+  "event_date": "2025-07-11",
+  "form": "604",
+  "holder_name": "FirstCape Group Limited",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.144,
+  "present_votes": 50502928,
+  "previous_pct": 6.227,
+  "previous_votes": 49142094,
+  "quotes": {
+   "event_date": "11 July 2025",
+   "holder_name": "FirstCape Group Limited",
+   "present_pct": "5.144%",
+   "present_votes": "50,502,928",
+   "previous_pct": "6.227%",
+   "previous_votes": "49,142,094"
+  }
+ },
+ "deepseek/deepseek-v4-flash|CHL-2024-07-24-ebca30d0": {
+  "ceased": false,
+  "event_date": "2024-07-23",
+  "form": "604",
+  "holder_name": "Perennial Value Management Limited (PVM)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 13.3,
+  "present_votes": 9509207,
+  "previous_pct": 11.47,
+  "previous_votes": 8198019,
+  "quotes": {
+   "event_date": "23 July 2024",
+   "holder_name": "Perennial Value Management Limited (PVM)",
+   "present_pct": "13.30",
+   "present_votes": "9,509,207",
+   "previous_pct": "11.47",
+   "previous_votes": "8,198,019"
+  }
+ },
+ "deepseek/deepseek-v4-flash|CTD-2025-08-18-79d8fac8": {
+  "ceased": false,
+  "event_date": "2025-08-14",
+  "form": "603",
+  "holder_name": "Mitsubishi UFJ Financial Group",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.2,
+  "present_votes": 7612202,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "14/08/2025",
+   "holder_name": "Mitsubishi UFJ Financial Group",
+   "present_pct": "5.20%",
+   "present_votes": "7,612,202",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|CYL-2024-04-19-e5e183c0": {
+  "ceased": true,
+  "event_date": "2024-04-18",
+  "form": "605",
+  "holder_name": "Blanca Hope Richart in her capacity as trustee of the Hope Margaret Hancock Trust",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "18 April 2024",
+   "holder_name": "Blanca Hope Richart in her capacity as trustee of the Hope Margaret Hancock Trust",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|EGG-2026-08-24-f087c682": {
+  "ceased": false,
+  "event_date": null,
+  "form": "604",
+  "holder_name": "Perennial Value Management Limited (PVM)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 15.0,
+  "present_votes": 13609629,
+  "previous_pct": 12.0,
+  "previous_votes": 10887187,
+  "quotes": {
+   "event_date": null,
+   "holder_name": "Perennial Value Management Limited (PVM)",
+   "present_pct": "15.00",
+   "present_votes": "13,609,629",
+   "previous_pct": "12.00",
+   "previous_votes": "10,887,187",
+   "total_row": null
+  },
+  "voting_class_rows": 1
+ },
+ "deepseek/deepseek-v4-flash|ERD-2026-09-03-72665b0d": {
+  "ceased": true,
+  "event_date": "2026-09-02",
+  "form": "605",
+  "holder_name": "Accident Compensation Corporation (ACC)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 4.955,
+  "present_votes": 9368117,
+  "previous_pct": 5.361,
+  "previous_votes": 10046793,
+  "quotes": {
+   "event_date": "2 September 2026",
+   "holder_name": "Accident Compensation Corporation (ACC)",
+   "present_pct": "4.955%",
+   "present_votes": "9,368,117",
+   "previous_pct": "5.361%",
+   "previous_votes": "10,046,793"
+  }
+ },
+ "deepseek/deepseek-v4-flash|FPR-2026-09-01-35807679": {
+  "ceased": false,
+  "event_date": "2026-08-27",
+  "form": "603",
+  "holder_name": "Mitsubishi UFJ Financial Group, Inc.",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.09,
+  "present_votes": 10877967,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "27 August 2026",
+   "holder_name": "Mitsubishi UFJ Financial Group, Inc.",
+   "present_pct": "5.09%",
+   "present_votes": "10,877,967",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|FPR-2026-10-21-ebd0c367": {
+  "ceased": false,
+  "event_date": "2026-10-19",
+  "form": "604",
+  "holder_name": "Australian Retirement Trust Pty LTD ATF Australian Retirement Trust",
+  "is_substantial_holder_notice": true,
+  "present_pct": 7.536,
+  "present_votes": 15979801,
+  "previous_pct": 8.745,
+  "previous_votes": 18854480,
+  "quotes": {
+   "event_date": "19/10/2026",
+   "holder_name": "Australian Retirement Trust Pty LTD ATF Australian Retirement Trust",
+   "present_pct": "7.536%",
+   "present_votes": "15,979,801",
+   "previous_pct": "8.745%",
+   "previous_votes": "18,854,480"
+  }
+ },
+ "deepseek/deepseek-v4-flash|GEN-2026-08-04-72f18e85": {
+  "ceased": true,
+  "event_date": null,
+  "form": "605",
+  "holder_name": "Cranport Pty Limited",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": null,
+   "holder_name": "Cranport Pty Limited",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|HAR-2026-10-21-a5f8b0af": {
+  "ceased": false,
+  "event_date": "2026-10-19",
+  "form": "603",
+  "holder_name": "John Mosegaard Norup",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.52,
+  "present_votes": 25011036,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "19 10 2026",
+   "holder_name": "John Mosegaard Norup",
+   "present_pct": "5.52%",
+   "present_votes": "25,011,036",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|KBC-2024-12-02-72f52d99": {
+  "ceased": false,
+  "event_date": "2024-11-21",
+  "form": "603",
+  "holder_name": "Sulieman Ravell",
+  "is_substantial_holder_notice": true,
+  "present_pct": 45.78,
+  "present_votes": 94922878,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "21/11/2024",
+   "holder_name": "Sulieman Ravell",
+   "present_pct": "45.78%",
+   "present_votes": "94,922,878",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|MX1-2024-02-28-9d6fa9f7": {
+  "ceased": false,
+  "event_date": "2024-02-27",
+  "form": "604",
+  "holder_name": "Perennial Value Management Limited (PVM)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 11.69,
+  "present_votes": 60628240,
+  "previous_pct": 10.23,
+  "previous_votes": 52948563,
+  "quotes": {
+   "event_date": "27 February 2024",
+   "holder_name": "Perennial Value Management Limited (PVM)",
+   "present_pct": "11.69",
+   "present_votes": "60,628,240",
+   "previous_pct": "10.23",
+   "previous_votes": "52,948,563"
+  }
+ },
+ "deepseek/deepseek-v4-flash|NEC-2026-02-27-6ad19153": {
+  "ceased": false,
+  "event_date": "2026-02-25",
+  "form": "604",
+  "holder_name": "Birketu Pty Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": 22.98,
+  "present_votes": null,
+  "previous_pct": 19.98,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "on 25 February 2026",
+   "holder_name": "Birketu Pty Ltd",
+   "present_pct": "the WIN Group\u2019s voting power in NEC increased from 19.98% to 22.98%",
+   "present_votes": null,
+   "previous_pct": "the WIN Group\u2019s voting power in NEC increased from 19.98% to 22.98%",
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|NOL-2025-06-16-1691d56f": {
+  "ceased": false,
+  "event_date": "2025-06-12",
+  "form": "603",
+  "holder_name": "EC Pohl & Co Pty Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": 9.9,
+  "present_votes": 9200000,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "12 / 06 / 2025",
+   "holder_name": "EC Pohl & Co Pty Ltd ACN 154 399 916",
+   "present_pct": "9.9%",
+   "present_votes": "9,200,000",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|NYR-2025-05-26-004f0fc4": {
+  "ceased": false,
+  "event_date": "2025-05-23",
+  "form": "604",
+  "holder_name": "Mr Mark Azzi",
+  "is_substantial_holder_notice": true,
+  "present_pct": 8.25,
+  "present_votes": 17389920,
+  "previous_pct": 6.31,
+  "previous_votes": 13301800,
+  "quotes": {
+   "event_date": "23 May 2025",
+   "holder_name": "Mr Mark Azzi",
+   "present_pct": "8.25%",
+   "present_votes": "17,389,920",
+   "previous_pct": "6.31%",
+   "previous_votes": "13,301,800"
+  }
+ },
+ "deepseek/deepseek-v4-flash|RHC-2024-07-16-e2e1da90": {
+  "ceased": false,
+  "event_date": "2024-07-12",
+  "form": "603",
+  "holder_name": "BlackRock Group (BlackRock Inc. and subsidiaries named in Annexures to this form)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.08,
+  "present_votes": 11683101,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "12 07 2024",
+   "holder_name": "BlackRock Group (BlackRock Inc. and subsidiaries named in Annexures \n  to this form)",
+   "present_pct": "5.08",
+   "present_votes": "11,683,101",
+   "previous_pct": null,
+   "previous_votes": null,
+   "total_row": null
+  },
+  "voting_class_rows": 2
+ },
+ "deepseek/deepseek-v4-flash|TRS-2025-04-16-40ac369b": {
+  "ceased": false,
+  "event_date": "2025-04-07",
+  "form": "603",
+  "holder_name": "Harvest Lane Asset Management Pty Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.01,
+  "present_votes": 1881371,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "14/04/2025",
+   "holder_name": "Harvest Lane Asset Management Pty Ltd",
+   "present_pct": "5.01%*",
+   "present_votes": "1,881,3/1",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|TYR-2024-04-05-1e24c70c": {
+  "ceased": false,
+  "event_date": "2024-04-03",
+  "form": "603",
+  "holder_name": "Regal Funds Management Pty Ltd and its associates (see Annexure 1)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 6.19,
+  "present_votes": 32423410,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "3/04/2024",
+   "holder_name": "Regal Funds Management Pty Ltd and its associates (see Annexure 1)",
+   "present_pct": "*6.19%",
+   "present_votes": "32,423,410",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|VN8-2024-11-26-282f3f18": {
+  "ceased": false,
+  "event_date": "2024-11-22",
+  "form": "603",
+  "holder_name": "Harvest Lane Asset Management Pty Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.01,
+  "present_votes": 18116611,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "22/11/2024",
+   "holder_name": "Harvest Lane Asset Management Pty Ltd",
+   "present_pct": "5.01%*",
+   "present_votes": "18,116,611",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "deepseek/deepseek-v4-flash|WAF-2024-11-12-5a3aa72f": {
+  "ceased": true,
+  "event_date": "2024-09-26",
+  "form": "605",
+  "holder_name": "Equinox Partners Investment Management, LLC",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "26/09/2024",
+   "holder_name": "Equinox Partners Investment Management, LLC",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|A1M-2024-06-03-70ec0b11": {
+  "ceased": false,
+  "event_date": "2024-05-31",
+  "form": "604",
+  "holder_name": "FMR Investments Ply Limited (FMR), Peter Mervyn Bartlett and the estate of Ronald George Sayers and their associated entities",
+  "is_substantial_holder_notice": true,
+  "present_pct": 14.47,
+  "present_votes": 82600310,
+  "previous_pct": 17.79,
+  "previous_votes": 80378088,
+  "quotes": {
+   "event_date": "31/ 05/ 2024",
+   "holder_name": "FMR Investments Ply Limited (FMR), Peter Mervyn Bartlett and the estate of Ronald George Sayers and their associated entities",
+   "present_pct": "14.47%",
+   "present_votes": "82,600,310",
+   "previous_pct": "17.79%",
+   "previous_votes": "80,378,088"
+  }
+ },
+ "google/gemini-2.5-flash-lite|ACE-2024-12-24-2638912a": {
+  "ceased": true,
+  "event_date": null,
+  "form": "605",
+  "holder_name": "COPIA INVESTMENT PARTNERS LTD",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": null,
+   "holder_name": "COPIA INVESTMENT PARTNERS LTD",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|BUR-2024-01-09-058a8c65": {
+  "ceased": true,
+  "event_date": "2024-01-02",
+  "form": "605",
+  "holder_name": "Troy Harry",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "2/1/2024",
+   "holder_name": "Troy Harry",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|CEN-2025-07-14-16c2ccd7": {
+  "ceased": false,
+  "event_date": "2025-07-11",
+  "form": "604",
+  "holder_name": "FirstCape Group Limited",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.144,
+  "present_votes": 50502928,
+  "previous_pct": 6.227,
+  "previous_votes": 49142094,
+  "quotes": {
+   "event_date": "11 July 2025",
+   "holder_name": "FirstCape Group Limited",
+   "present_pct": "5.144%",
+   "present_votes": "50,502,928",
+   "previous_pct": "6.227%",
+   "previous_votes": "49,142,094"
+  }
+ },
+ "google/gemini-2.5-flash-lite|CHL-2024-07-24-ebca30d0": {
+  "ceased": false,
+  "event_date": "2024-07-24",
+  "form": "604",
+  "holder_name": "Perennial Value Management Limited (PVM)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 13.3,
+  "present_votes": 9509207,
+  "previous_pct": 11.47,
+  "previous_votes": 8198019,
+  "quotes": {
+   "event_date": "24/07/2024",
+   "holder_name": "Perennial Value Management Limited (PVM)",
+   "present_pct": "13.30",
+   "present_votes": "9,509,207",
+   "previous_pct": "11.47",
+   "previous_votes": "8,198,019"
+  }
+ },
+ "google/gemini-2.5-flash-lite|CTD-2025-08-18-79d8fac8": {
+  "ceased": false,
+  "event_date": "2025-08-14",
+  "form": "603",
+  "holder_name": "First Sentier Investors (Australia) IM Ltd ACN 114 194 311",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.2,
+  "present_votes": 7612202,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "14/08/2025",
+   "holder_name": "First Sentier Investors (Australia) IM Ltd ACN 114 194 311",
+   "present_pct": "5.20%",
+   "present_votes": "7,612,202",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|CYL-2024-04-19-e5e183c0": {
+  "ceased": true,
+  "event_date": "2024-04-18",
+  "form": "605",
+  "holder_name": "Blanca Hope Rinehart",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "18 Aprl 2024",
+   "holder_name": "Blanca Hope Rinehart",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|EGG-2026-08-24-f087c682": {
+  "ceased": false,
+  "event_date": "2026-08-24",
+  "form": "604",
+  "holder_name": "Perennial Value Management Limited (PVM)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 15.0,
+  "present_votes": 13609629,
+  "previous_pct": 12.0,
+  "previous_votes": 10887187,
+  "quotes": {
+   "event_date": "24/08/2026",
+   "holder_name": "Perennial Value Management Limited (PVM)",
+   "present_pct": "15.00",
+   "present_votes": "13,609,629",
+   "previous_pct": "12.00",
+   "previous_votes": "10,887,187",
+   "total_row": "The total number of votes attached to all the voting shares in the company or voting interests in the scheme that the substantial holder or an associate (2) had a relavant interest (3) \nin when last required, and when now required to give a substantial holding notice to the company or scheme, are as follows:"
+  },
+  "voting_class_rows": 1
+ },
+ "google/gemini-2.5-flash-lite|ERD-2026-09-03-72665b0d": {
+  "ceased": true,
+  "event_date": "2026-09-02",
+  "form": "605",
+  "holder_name": "Accident Compensation Corporation (ACC)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 4.955,
+  "present_votes": 9368117,
+  "previous_pct": 5.361,
+  "previous_votes": 10046793,
+  "quotes": {
+   "event_date": "2 September 2026",
+   "holder_name": "Accident Compensation Corporation (ACC)",
+   "present_pct": "4.955%",
+   "present_votes": "9,368,117",
+   "previous_pct": "5.361%",
+   "previous_votes": "10,046,793"
+  }
+ },
+ "google/gemini-2.5-flash-lite|FPR-2026-09-01-35807679": {
+  "ceased": false,
+  "event_date": "2026-08-27",
+  "form": "603",
+  "holder_name": "Mitsubishi UFJ Financial Group, Inc.",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.09,
+  "present_votes": 10877967,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "27 August 2026",
+   "holder_name": "Mitsubishi UFJ Financial Group, Inc.",
+   "present_pct": "5.09%",
+   "present_votes": "10,877,967",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|FPR-2026-10-21-ebd0c367": {
+  "ceased": false,
+  "event_date": "2026-10-19",
+  "form": "604",
+  "holder_name": "Australian Retirement Trust Pty LTD ATF Australian Retirement Trust",
+  "is_substantial_holder_notice": true,
+  "present_pct": 7.536,
+  "present_votes": 15979801,
+  "previous_pct": 8.745,
+  "previous_votes": 18854480,
+  "quotes": {
+   "event_date": "19/10/2026",
+   "holder_name": "Australian Retirement Trust Pty LTD ATF Australian Retirement Trust",
+   "present_pct": "7.536%",
+   "present_votes": "15,979,801",
+   "previous_pct": "8.745%",
+   "previous_votes": "18,854,480"
+  }
+ },
+ "google/gemini-2.5-flash-lite|GAS-2024-07-29-db537758": {
+  "ceased": false,
+  "event_date": "2001-07-29",
+  "form": "604",
+  "holder_name": "Triangle Energy (Global) Limited",
+  "is_substantial_holder_notice": true,
+  "present_pct": 8.05,
+  "present_votes": 22084693,
+  "previous_pct": 9.15,
+  "previous_votes": 24884693,
+  "quotes": {
+   "event_date": "29/07/2024",
+   "holder_name": "Triangle Energy (Global) Limited",
+   "present_pct": "8.05% based on a total of 274,226,789 shares on issue",
+   "present_votes": "22,084,693",
+   "previous_pct": "9.15% based on a total of 269,735,980 shares on issue",
+   "previous_votes": "24,884,693"
+  }
+ },
+ "google/gemini-2.5-flash-lite|GEN-2026-08-04-72f18e85": {
+  "ceased": true,
+  "event_date": "2026-07-31",
+  "form": "605",
+  "holder_name": "Genmin Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "31    07   2026",
+   "holder_name": "Genmin Ltd",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|HAR-2026-10-21-a5f8b0af": {
+  "ceased": false,
+  "event_date": null,
+  "form": "603",
+  "holder_name": "John Mosegaard Norup",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.52,
+  "present_votes": 25011036,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": null,
+   "holder_name": "John Mosegaard Norup",
+   "present_pct": "5.52%",
+   "present_votes": "25,011,036",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|KBC-2024-12-02-72f52d99": {
+  "ceased": false,
+  "event_date": "2024-11-21",
+  "form": "603",
+  "holder_name": "S4 *For Pty Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": 45.78,
+  "present_votes": 94922878,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "21/11/2024",
+   "holder_name": "S4 *For Pty Ltd",
+   "present_pct": "45.78%",
+   "present_votes": "94,922,878",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|MX1-2024-02-28-9d6fa9f7": {
+  "ceased": false,
+  "event_date": "2024-02-27",
+  "form": "604",
+  "holder_name": "Perennial Value Management Limited (PVM)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 11.69,
+  "present_votes": 60628240,
+  "previous_pct": 10.23,
+  "previous_votes": 52948563,
+  "quotes": {
+   "event_date": "27 February 2024",
+   "holder_name": "Perennial Value Management Limited (PVM)",
+   "present_pct": "11.69",
+   "present_votes": "60,628,240",
+   "previous_pct": "10.23",
+   "previous_votes": "52,948,563"
+  }
+ },
+ "google/gemini-2.5-flash-lite|NEC-2026-02-27-6ad19153": {
+  "ceased": false,
+  "event_date": "2026-02-25",
+  "form": "604",
+  "holder_name": "Birketu Pty Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": 22.98,
+  "present_votes": null,
+  "previous_pct": 19.98,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "on 25 February 2026",
+   "holder_name": "BIRKETU PTY LIMITED",
+   "present_pct": "the WIN Group\u2019s voting power in NEC increased from 19.98% to 22.98%",
+   "present_votes": null,
+   "previous_pct": "the WIN Group\u2019s voting power in NEC increased from 19.98% to 22.98%",
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|NOL-2025-06-16-1691d56f": {
+  "ceased": false,
+  "event_date": "2025-06-12",
+  "form": "603",
+  "holder_name": "NOBLEOAK LIFE LIMITED",
+  "is_substantial_holder_notice": true,
+  "present_pct": 9.9,
+  "present_votes": 9200000,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "12 / 06 / 2025",
+   "holder_name": "NOBLEOAK LIFE LIMITED",
+   "present_pct": "9.9%",
+   "present_votes": "9,200,000",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|NYR-2025-05-26-004f0fc4": {
+  "ceased": false,
+  "event_date": "2025-05-23",
+  "form": "604",
+  "holder_name": "Mr Mark Azzi",
+  "is_substantial_holder_notice": true,
+  "present_pct": 8.25,
+  "present_votes": 17389920,
+  "previous_pct": 6.31,
+  "previous_votes": 13301800,
+  "quotes": {
+   "event_date": "23 May 2025",
+   "holder_name": "Mr Mark Azzi",
+   "present_pct": "8.25%",
+   "present_votes": "17,389,920",
+   "previous_pct": "6.31%",
+   "previous_votes": "13,301,800"
+  }
+ },
+ "google/gemini-2.5-flash-lite|RHC-2024-07-16-e2e1da90": {
+  "ceased": false,
+  "event_date": "2024-07-12",
+  "form": "603",
+  "holder_name": "BlackRock Group (BlackRock Inc. and subsidiaries named in Annexures \nto this form)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.08,
+  "present_votes": 11683101,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "12 07 2024",
+   "holder_name": "BlackRock Group (BlackRock Inc. and subsidiaries named in Annexures \nto this form)",
+   "present_pct": "5.08",
+   "present_votes": "11,683,101",
+   "previous_pct": null,
+   "previous_votes": null,
+   "total_row": null
+  },
+  "voting_class_rows": 2
+ },
+ "google/gemini-2.5-flash-lite|TRE-2026-07-23-6d5076e5": {
+  "ceased": false,
+  "event_date": "2001-07-15",
+  "form": "604",
+  "holder_name": "TOUBANI RESOURCES LIMITED (ASX: TRE)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 6.1719,
+  "present_votes": 62365429,
+  "previous_pct": 8.2758,
+  "previous_votes": 62365429,
+  "quotes": {
+   "event_date": "21/07/2026",
+   "holder_name": "TOUBANI RESOURCES LIMITED (ASX: TRE)",
+   "present_pct": "6.1719%",
+   "present_votes": "62,365,429",
+   "previous_pct": "8.2758%",
+   "previous_votes": "62,365,429"
+  }
+ },
+ "google/gemini-2.5-flash-lite|TRS-2025-04-16-40ac369b": {
+  "ceased": false,
+  "event_date": "2015-04-17",
+  "form": "603",
+  "holder_name": "Harvest Lane Asset Management Pty Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.01,
+  "present_votes": 1881371,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "17/04/2015",
+   "holder_name": "Harvest Lane Asset Management Pty Ltd",
+   "present_pct": "5.01%",
+   "present_votes": "1,881,371",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|TYR-2024-04-05-1e24c70c": {
+  "ceased": false,
+  "event_date": "2024-04-03",
+  "form": "603",
+  "holder_name": "Regal Funds Management Pty Ltd and its associates",
+  "is_substantial_holder_notice": true,
+  "present_pct": 6.19,
+  "present_votes": 32423410,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "3/04/2024",
+   "holder_name": "Regal Funds Management Pty Ltd and its associates",
+   "present_pct": "*6.19%",
+   "present_votes": "32,423,410",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|VN8-2024-11-26-282f3f18": {
+  "ceased": false,
+  "event_date": "2024-11-22",
+  "form": "603",
+  "holder_name": "Harvest Lane Asset Management Pty Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.01,
+  "present_votes": 18116611,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "22/11/2024",
+   "holder_name": "Harvest Lane Asset Management Pty Ltd",
+   "present_pct": "5.01%*",
+   "present_votes": "18,116,611",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash-lite|WAF-2024-11-12-5a3aa72f": {
+  "ceased": true,
+  "event_date": "2024-09-26",
+  "form": "605",
+  "holder_name": "Equinox Partners Investment Management, LLC",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "26/09/2024",
+   "holder_name": "Equinox Partners Investment Management, LLC",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|A1M-2024-06-03-70ec0b11": {
+  "ceased": false,
+  "event_date": "2024-05-31",
+  "form": "604",
+  "holder_name": "FMR Investments Ply Limited (FMR), Peter Mervyn Bartlett and the estate of Ronald George Sayers and their associated entities",
+  "is_substantial_holder_notice": true,
+  "present_pct": 14.47,
+  "present_votes": 82600310,
+  "previous_pct": 17.79,
+  "previous_votes": 80378088,
+  "quotes": {
+   "event_date": "31/ 05/ 2024",
+   "holder_name": "FMR Investments Ply Limited (FMR), Peter Mervyn Bartlett and the estate of Ronald George Sayers and their associated entities",
+   "present_pct": "14.47%",
+   "present_votes": "82,600,310",
+   "previous_pct": "17.79%",
+   "previous_votes": "80,378,088"
+  }
+ },
+ "google/gemini-2.5-flash|ACE-2024-12-24-2638912a": {
+  "ceased": true,
+  "event_date": null,
+  "form": "605",
+  "holder_name": null,
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": null,
+   "holder_name": null,
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|BUR-2024-01-09-058a8c65": {
+  "ceased": true,
+  "event_date": "2024-01-02",
+  "form": "605",
+  "holder_name": "Troy Harry",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "2/1/2024",
+   "holder_name": "Troy Harry",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|CEN-2025-07-14-16c2ccd7": {
+  "ceased": false,
+  "event_date": null,
+  "form": null,
+  "holder_name": null,
+  "is_substantial_holder_notice": false,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": null,
+   "holder_name": null,
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|CHL-2024-07-24-ebca30d0": {
+  "ceased": false,
+  "event_date": "2024-07-23",
+  "form": "604",
+  "holder_name": "Perennial Value Management Limited (PVM)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 13.3,
+  "present_votes": 9509207,
+  "previous_pct": 11.47,
+  "previous_votes": 8198019,
+  "quotes": {
+   "event_date": "23 July 2024",
+   "holder_name": "Perennial Value Management Limited (PVM)",
+   "present_pct": "13.30",
+   "present_votes": "9,509,207",
+   "previous_pct": "11.47",
+   "previous_votes": "8,198,019"
+  }
+ },
+ "google/gemini-2.5-flash|CTD-2025-08-18-79d8fac8": {
+  "ceased": false,
+  "event_date": "2025-08-14",
+  "form": "603",
+  "holder_name": "First Sentier Group Limited ACN 630 725 558 and its related bodies corporate or associates listed in annexure A",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.2,
+  "present_votes": 7612202,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "14/08/2025",
+   "holder_name": "First Sentier Group Limited ACN 630 725 558 and its related bodies corporate or associates listed in annexure A",
+   "present_pct": "5.20%",
+   "present_votes": "7,612,202",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|CYL-2024-04-19-e5e183c0": {
+  "ceased": true,
+  "event_date": "2024-04-18",
+  "form": "605",
+  "holder_name": "Blanca Rinehart in her capacity as a trustee of the Hope Margaret Hancock Trust",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "18 April 2024",
+   "holder_name": "Blanca Rinehart in her capacity as a trustee of the Hope Margaret Hancock Trust",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|EGG-2026-08-24-f087c682": {
+  "ceased": false,
+  "event_date": "2026-08-21",
+  "form": "604",
+  "holder_name": "Perennial Value Management Limited (PVM)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 15,
+  "present_votes": 13609629,
+  "previous_pct": 12,
+  "previous_votes": 10887187,
+  "quotes": {
+   "event_date": "21 August 2026",
+   "holder_name": "Perennial Value Management Limited (PVM)",
+   "present_pct": "15.00",
+   "present_votes": "13,609,629",
+   "previous_pct": "12.00",
+   "previous_votes": "10,887,187",
+   "total_row": null
+  },
+  "voting_class_rows": 1
+ },
+ "google/gemini-2.5-flash|ERD-2026-09-03-72665b0d": {
+  "ceased": false,
+  "event_date": null,
+  "form": null,
+  "holder_name": null,
+  "is_substantial_holder_notice": false,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": null,
+   "holder_name": null,
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|FPR-2026-09-01-35807679": {
+  "ceased": false,
+  "event_date": "2026-08-27",
+  "form": "603",
+  "holder_name": "Mitsubishi UFJ Financial Group, Inc.",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.09,
+  "present_votes": 10877967,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "27 August 2026",
+   "holder_name": "Mitsubishi UFJ Financial Group, Inc.",
+   "present_pct": "5.09%",
+   "present_votes": "10,877,967",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|FPR-2026-10-21-ebd0c367": {
+  "ceased": false,
+  "event_date": "2026-10-19",
+  "form": "604",
+  "holder_name": "Australian Retirement Trust Pty LTD ATF Australian Retirement Trust",
+  "is_substantial_holder_notice": true,
+  "present_pct": 7.536,
+  "present_votes": 15979801,
+  "previous_pct": 8.745,
+  "previous_votes": 18854480,
+  "quotes": {
+   "event_date": "19/10/2026",
+   "holder_name": "Australian Retirement Trust Pty LTD ATF Australian Retirement Trust",
+   "present_pct": "7.536%",
+   "present_votes": "15,979,801",
+   "previous_pct": "8.745%",
+   "previous_votes": "18,854,480"
+  }
+ },
+ "google/gemini-2.5-flash|GAS-2024-07-29-db537758": {
+  "ceased": false,
+  "event_date": "2024-07-29",
+  "form": "604",
+  "holder_name": "Triangle Energy (Global) Limited",
+  "is_substantial_holder_notice": true,
+  "present_pct": 8.05,
+  "present_votes": 22084693,
+  "previous_pct": null,
+  "previous_votes": 24884693,
+  "quotes": {
+   "event_date": "29/07/2024",
+   "holder_name": "Triangle Energy (Global) Limited",
+   "present_pct": "8.05% based on a total of 274,226,789 shares on issue",
+   "present_votes": "22,084,693",
+   "previous_pct": null,
+   "previous_votes": "24,884,693"
+  }
+ },
+ "google/gemini-2.5-flash|GEN-2026-08-04-72f18e85": {
+  "ceased": true,
+  "event_date": "2026-07-31",
+  "form": "605",
+  "holder_name": "Cranport Pty Limited",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": 24805884,
+  "quotes": {
+   "event_date": "31   07   2026",
+   "holder_name": "Cranport Pty Limited",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": "24,805,884"
+  }
+ },
+ "google/gemini-2.5-flash|HAR-2026-10-21-a5f8b0af": {
+  "ceased": false,
+  "event_date": "2026-10-19",
+  "form": "603",
+  "holder_name": "John Mosegaard Norup",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.52,
+  "present_votes": 25011036,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "19 10 2026",
+   "holder_name": "John Mosegaard Norup",
+   "present_pct": "5.52%",
+   "present_votes": "25,011,036",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|KBC-2024-12-02-72f52d99": {
+  "ceased": false,
+  "event_date": "2024-11-27",
+  "form": "603",
+  "holder_name": "Sulleman Ravell and associates",
+  "is_substantial_holder_notice": true,
+  "present_pct": 45.78,
+  "present_votes": 94922878,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "27/11/2024",
+   "holder_name": "Sulleman Ravell and associates",
+   "present_pct": "45.78%",
+   "present_votes": "94,922,878",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|MX1-2024-02-28-9d6fa9f7": {
+  "ceased": false,
+  "event_date": "2024-02-27",
+  "form": "604",
+  "holder_name": "Perennial Value Management Limited (PVM)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 11.69,
+  "present_votes": 60628240,
+  "previous_pct": 10.23,
+  "previous_votes": 52948563,
+  "quotes": {
+   "event_date": "27 February 2024",
+   "holder_name": "Perennial Value Management Limited (PVM)",
+   "present_pct": "11.69",
+   "present_votes": "60,628,240",
+   "previous_pct": "10.23",
+   "previous_votes": "52,948,563"
+  }
+ },
+ "google/gemini-2.5-flash|NEC-2026-02-27-6ad19153": {
+  "ceased": false,
+  "event_date": null,
+  "form": null,
+  "holder_name": null,
+  "is_substantial_holder_notice": false,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": null,
+   "holder_name": null,
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|NOL-2025-06-16-1691d56f": {
+  "ceased": false,
+  "event_date": "2025-06-12",
+  "form": "603",
+  "holder_name": "EC Pohl & Co Pty Ltd ACN 154 399 916",
+  "is_substantial_holder_notice": true,
+  "present_pct": 9.9,
+  "present_votes": 9200000,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "12 / 06 / 2025",
+   "holder_name": "EC Pohl & Co Pty Ltd ACN 154 399 916",
+   "present_pct": "9.9%",
+   "present_votes": "9,200,000",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|NYR-2025-05-26-004f0fc4": {
+  "ceased": false,
+  "event_date": "2025-05-23",
+  "form": "604",
+  "holder_name": "Mr Mark Azzi",
+  "is_substantial_holder_notice": true,
+  "present_pct": 8.25,
+  "present_votes": 17389920,
+  "previous_pct": 6.31,
+  "previous_votes": 13301800,
+  "quotes": {
+   "event_date": "Date of change in the interests of the Substantial Holder: 23 May 2025",
+   "holder_name": "Name of Substantial Holder: Mr Mark Azzi",
+   "present_pct": "8.25%",
+   "present_votes": "17,389,920",
+   "previous_pct": "6.31%",
+   "previous_votes": "13,301,800"
+  }
+ },
+ "google/gemini-2.5-flash|RHC-2024-07-16-e2e1da90": {
+  "ceased": false,
+  "event_date": "2024-07-12",
+  "form": "603",
+  "holder_name": "BlackRock Group (BlackRock Inc. and subsidiaries named in Annexures to this form)",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "12 07 2024",
+   "holder_name": "BlackRock Group (BlackRock Inc. and subsidiaries named in Annexures \n  to this form)",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null,
+   "total_row": null
+  },
+  "voting_class_rows": 2
+ },
+ "google/gemini-2.5-flash|TRE-2026-07-23-6d5076e5": {
+  "ceased": false,
+  "event_date": "2026-07-23",
+  "form": "604",
+  "holder_name": "Paradice Investment Management Pty Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": 6.1719,
+  "present_votes": 62365429,
+  "previous_pct": 8.2758,
+  "previous_votes": 62365429,
+  "quotes": {
+   "event_date": "23/07/2026",
+   "holder_name": "Paradice Investment Management Pty Ltd",
+   "present_pct": "6.1719%",
+   "present_votes": "62,365,429",
+   "previous_pct": "8.2758%",
+   "previous_votes": "62,365,429"
+  }
+ },
+ "google/gemini-2.5-flash|TRS-2025-04-16-40ac369b": {
+  "ceased": false,
+  "event_date": "2023-04-04",
+  "form": "603",
+  "holder_name": "Harvest Lane Asset Management Pty Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.01,
+  "present_votes": 1881371,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "14/04/POPS",
+   "holder_name": "Harvest Lane Asset Management Pty Ltd",
+   "present_pct": "5.01%*",
+   "present_votes": "1,881,3/1",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|TYR-2024-04-05-1e24c70c": {
+  "ceased": false,
+  "event_date": "2024-04-03",
+  "form": "603",
+  "holder_name": "Regal Funds Management Pty Ltd and its associates (see Annexure 1)",
+  "is_substantial_holder_notice": true,
+  "present_pct": 6.19,
+  "present_votes": 32423410,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "3/04/2024",
+   "holder_name": "Regal Funds Management Pty Ltd and its associates (see Annexure 1)",
+   "present_pct": "*6.19%",
+   "present_votes": "32,423,410",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|VN8-2024-11-26-282f3f18": {
+  "ceased": false,
+  "event_date": "2024-11-22",
+  "form": "603",
+  "holder_name": "Harvest Lane Asset Management Pty Ltd",
+  "is_substantial_holder_notice": true,
+  "present_pct": 5.01,
+  "present_votes": 18116611,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "22/11/2024",
+   "holder_name": "Harvest Lane Asset Management Pty Ltd",
+   "present_pct": "5.01%*",
+   "present_votes": "18,116,611",
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ },
+ "google/gemini-2.5-flash|WAF-2024-11-12-5a3aa72f": {
+  "ceased": true,
+  "event_date": "2024-09-26",
+  "form": "605",
+  "holder_name": "Equinox Partners Investment Management, LLC",
+  "is_substantial_holder_notice": true,
+  "present_pct": null,
+  "present_votes": null,
+  "previous_pct": null,
+  "previous_votes": null,
+  "quotes": {
+   "event_date": "26 09 2024",
+   "holder_name": "Equinox Partners Investment Management, LLC",
+   "present_pct": null,
+   "present_votes": null,
+   "previous_pct": null,
+   "previous_votes": null
+  }
+ }
+}

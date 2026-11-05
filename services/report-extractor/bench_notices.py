@@ -83,9 +83,8 @@ def same_field(name: str, got, want) -> bool:
     if want is None:
         return got is None
     if name == "holder":
-        import director_direct as dd
-
-        return got is not None and dd.same_person(got, want)
+        # the grouping key notice_direct stores by, never the text: "X Limited (PVM)" is X Limited
+        return got is not None and nd.holder_same(got, want)
     if name in ("previous_pct", "present_pct"):
         return got is not None and abs(float(got) - float(want)) < 1e-6
     return got == want
@@ -149,7 +148,7 @@ def score(cache: dict, verbose: bool, names: dict, gold_path: Path = GOLD) -> di
         ex = nd.extractor_for(client, names)
         ctx = nd.ReadContext(text=text, images=images, headline=entry["headline"],
                              announced_on=entry["announced_on"], shares_on_issue=entry.get("shares_on_issue") or 0,
-                             scan=scan)
+                             scan=scan, company_name=entry.get("company_name") or "")
         try:
             notice, outcome = ex.extract(ctx)
         except dx.ModelCallError as e:

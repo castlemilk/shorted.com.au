@@ -1,6 +1,7 @@
 package ownership
 
 import (
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -553,6 +554,11 @@ var nameTails = []string{
 	" and its entities",
 }
 
+// nameTailID cuts an ACN, ABN or ARSN and its digits after a holder's name. The
+// word alone is no tail ("ABN AMRO" is a bank's name). The pattern text is the
+// one notice_direct.py's NAME_TAIL_ID carries; test_notice_direct reads both.
+var nameTailID = regexp.MustCompile(`(?i)[ \t]*\(?[ \t]*\b(?:acn|abn|arsn)[ \t]*:?[ \t]*[0-9][0-9 ]{8,13}\)?`)
+
 // tidyHolderName cuts a section 1 name at the first boilerplate tail, so
 // "JPMorgan Chase & Co. and its affiliates" is shown as "JPMorgan Chase & Co.".
 func tidyHolderName(name string) string {
@@ -563,6 +569,9 @@ func tidyHolderName(name string) string {
 		if i := strings.Index(lower, t); i > 2 && i < cut {
 			cut = i
 		}
+	}
+	if loc := nameTailID.FindStringIndex(s); loc != nil && loc[0] > 2 && loc[0] < cut {
+		cut = loc[0]
 	}
 	s = strings.TrimSpace(s[:cut])
 	return strings.TrimRight(s, " ,.:-")
