@@ -93,6 +93,8 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe, keepAll bool) (plan, error) 
 	if !ok {
 		return plan{}, fmt.Errorf("backtest: no strategy %q", s.StrategyID)
 	}
+	// The trades are the version's: its status ladder, not the engine default.
+	strategy.UnknownStatus = s.Ladder.UnknownStatus
 	price4dp, err := civil.ParseDate(s.Data.Price4dpFrom)
 	if err != nil || price4dp.IsZero() {
 		return plan{}, errors.New("backtest: the version has no price_4dp_from")
