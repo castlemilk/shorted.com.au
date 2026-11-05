@@ -184,13 +184,10 @@ func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	// missing space before "list_strategies" is restored. tools/list measures
 	// 102,020 bytes, 380 under the ceiling: 14 bytes below the figure before PR-06b.
 	//
-
-	// PR-12 (rules v1, status unknown): the unknown status and the sort text take the
-	// list to 102,141 bytes; get_strategy_picks' description is trimmed of the field
-	// names it restated and of its "maximum 25" clause, which takes the list to 101,815
-	// bytes (585 under the ceiling). The briefing's status schema adds "unknown" from
-	// that headroom. PR-06b's OAuth clause is not on this branch: when the two integrate,
-	// keep that clause and re-measure this budget on the merged tree.
+	// PR-12 (rules v1, status unknown): the unknown status and the sort text, with
+	// PR-06b's anonymous clause kept in get_strategy_picks' description, take the list
+	// to 101,813 bytes (587 under the ceiling). The briefing's status schema adds
+	// "unknown" from that headroom.
 	const budget = 100 * 1024
 
 	ctx := context.Background()
