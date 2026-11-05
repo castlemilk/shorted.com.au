@@ -820,7 +820,8 @@ recipe fields on the wire (PR-12a).
   XJO bar, a weekend-dated XJO bar in its window) and backfills held sessions
   oldest first. Dry run unless `STRATEGIES_DRY_RUN=false`. Container suite:
   `make test-strategies-daily-pg`. Admin `strategy_status` (`jobs:read`) reports
-  the phases, holds and table sizes, aggregates only.
+  the phases, holds and table sizes, and the backtest queue and runs (see the
+  backtest job below), aggregates only.
   **Index dates are fixed in the tree (#860).** The job reads stored XJO dates for the data calendar, the regime
   and RS. Rows inside the scheduled index window (`-years 2`) are dated by ASX session once the index sync has run;
   the one-off full-history re-fetch ran on 2026-11-05, so older history is re-dated too, before the job's
@@ -879,9 +880,24 @@ recipe fields on the wire (PR-12a).
   mismatch is exit 10, a determinism failure). A fundamentals strategy whose
   window is `computable_from` gets pass 1 only: the derived date and label are
   stored, never a simulation. Failed requests exit 1. Dry run unless
-  `STRATEGIES_DRY_RUN=false`. Nothing is published until the sensitivity and
-  reference parts of the gate are wired (PR-16b). Container suite: `make
-  test-strategies-backtest-pg`.
+  `STRATEGIES_DRY_RUN=false`. Container suite: `make test-strategies-backtest-pg`.
+  **The publication gate (PR-16b)**: a publish is stored and flipped to published
+  only when the verify pass reproduced it, both coverage measures pass, the five
+  sensitivity runs are complete (or each says why it does not apply) and the
+  same-data reference is computed. Every publish stores a diff note in
+  `summary.diff` (state `none`, `unchanged` or `changed`; the codes whose price
+  history up to the previous run's cut-off changed; the ASIC codes revised in
+  reports that run read, recorded after its snapshot; the CAGR shift over the
+  shared window), computed against the previously published run of the key on the
+  same engine. A flip stamps `diagnostics.published_at` and the run's snapshot time
+  is `diagnostics.read_at`. Retention keeps the two newest published runs of each
+  key (across engines), so a diff can always read the run it replaced. Engine
+  `1.1.0` (a minor bump: new capability, no output change) reruns every live key.
+  Admin `strategy_status` (`jobs:read`) reports the queue and the ten newest
+  canonical runs, aggregates only. Admin `queue_strategy_backtest` (`jobs:run`)
+  queues a publish of a live canonical version (the code registry's, with its
+  recipe): a variant or an unregistered version is refused, and a request the job
+  would not run is never queued.
 
 ### Saved strategies and My strategies (`/strategies/my`)
 
