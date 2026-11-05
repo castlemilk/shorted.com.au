@@ -4,6 +4,7 @@ package shorts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -24,7 +25,10 @@ import (
 // postgres container the package's TestMain removes:
 //
 //	cd services && GOWORK=off CGO_ENABLED=0 STRATEGY_SAVES_TESTCONTAINERS=1 \
-//	    go test -count=1 -tags=integration -run StrategySaves ./shorts/internal/store/shorts/
+//	    go test -count=1 -tags=integration,testcontainers -run StrategySaves ./shorts/internal/store/shorts/
+//
+// The container opt-in needs the testcontainers build tag as well; make
+// test-strategy-saves-pg sets both.
 
 // savesMigrationPath is migration 000156 as the deploy replays it. go test runs
 // in the package directory; runtime.Caller would give a trimmed path under -trimpath.
@@ -120,7 +124,7 @@ func TestStrategySaves_TheCapHoldsUnderConcurrentSaves(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			_, err := s.SaveStrategy(ctx, "user-a", fmt.Sprintf("s%02d", i))
+			_, err := saveRetrying(ctx, s, "user-a", fmt.Sprintf("s%02d", i))
 			mu.Lock()
 			defer mu.Unlock()
 			switch err {
@@ -140,6 +144,48 @@ func TestStrategySaves_TheCapHoldsUnderConcurrentSaves(t *testing.T) {
 	var n int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM user_saved_strategies WHERE user_id = 'user-a'`).Scan(&n))
 	assert.Equal(t, MaxSavedStrategies, n)
+}
+
+// saveRetrying saves the way a caller does: a busy lock is retried, because
+// nothing was written. The cap test races many saves, so a slow run may wait out
+// the lock wait; that is a retry, not a lost or extra save.
+func saveRetrying(ctx context.Context, s *postgresStore, uid, ref string) (StrategySaveRow, error) {
+	for range 100 {
+		row, err := s.SaveStrategy(ctx, uid, ref)
+		if !errors.Is(err, ErrStrategySaveBusy) {
+			return row, err
+		}
+	}
+	return StrategySaveRow{}, ErrStrategySaveBusy
+}
+
+// A save that cannot take the user's lock within the wait answers
+// ErrStrategySaveBusy, writes nothing, and returns on the wait's bound rather than
+// on the request's deadline. Once the holder lets go, the same save succeeds.
+func TestStrategySaves_ABusyLockIsRetryableAndWritesNothing(t *testing.T) {
+	pool := savesDB(t)
+	applySavesMigration(t, pool)
+	s := &postgresStore{db: pool}
+	ctx := context.Background()
+
+	holder, err := pool.Begin(ctx)
+	require.NoError(t, err)
+	defer func() { _ = holder.Rollback(ctx) }()
+	_, err = holder.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`, strategySavesLockKey+"user-a")
+	require.NoError(t, err)
+
+	start := time.Now()
+	_, err = s.SaveStrategy(ctx, "user-a", "canslim")
+	assert.ErrorIs(t, err, ErrStrategySaveBusy)
+	assert.Less(t, time.Since(start), 4*time.Second, "the lock wait is bounded well under the request deadline")
+
+	var n int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM user_saved_strategies WHERE user_id = 'user-a'`).Scan(&n))
+	assert.Equal(t, 0, n, "a busy save writes nothing")
+
+	require.NoError(t, holder.Rollback(ctx))
+	_, err = s.SaveStrategy(ctx, "user-a", "canslim")
+	require.NoError(t, err)
 }
 
 func TestStrategySaves_ACapIsPerUser(t *testing.T) {
@@ -173,7 +219,8 @@ func TestStrategySaves_ARepeatSaveAtTheCapSucceeds(t *testing.T) {
 }
 
 // A variant reference resolves under its owner only. Without the variants table
-// (migration 000157 not applied) no variant is owned by anyone.
+// no variant is owned by anyone. The table here is a stand-in: the variants
+// migration owns the real one.
 func TestStrategySaves_AVariantResolvesUnderItsOwnerOnly(t *testing.T) {
 	pool := savesDB(t)
 	applySavesMigration(t, pool)

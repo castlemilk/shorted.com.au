@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -151,13 +152,80 @@ func TestSaveStrategy_TheTwentyFirstSaveIsRefusedAndARepeatAtTheCapSucceeds(t *t
 		require.NoError(t, err, "save %d", i+1)
 	}
 	_, err := srv.SaveStrategy(ctx, saveReq("variant:v99"))
-	assert.Equal(t, connect.CodeFailedPrecondition, connectCode(err))
+	assert.Equal(t, connect.CodePermissionDenied, connectCode(err))
 	assert.Contains(t, err.Error(), "up to 20")
 
 	again, err := srv.SaveStrategy(ctx, saveReq("variant:v03"))
 	require.NoError(t, err, "a repeat save at the cap is not a new strategy")
 	assert.Equal(t, "variant:v03", again.Msg.Saved.StrategyRef)
 	assert.Len(t, saves.rows["user-a"], shortsstore.MaxSavedStrategies)
+}
+
+// The cap's refusal is the entitlement contract (PermissionDenied with the
+// X-Entitlement-Detail metadata naming cap_reached and the limit), and it is the
+// same at every access level. The anonymous caller is refused earlier, with no
+// identity, and carries no detail.
+func TestSaveStrategy_CapRefusalIsPermissionDeniedWithDetailAtEveryAccess(t *testing.T) {
+	cases := []struct {
+		name   string
+		claims context.Context
+		access Access
+	}{
+		{"free", vdClaims("user-free", "", false), AccessFree},
+		{"premium", vdClaims("user-premium", "premium", true), AccessPremium},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			saves := newFakeSaves()
+			srv := savesServer(t, saves)
+			for i := range shortsstore.MaxSavedStrategies {
+				_, err := srv.SaveStrategy(tc.claims, saveReq(fmt.Sprintf("variant:v%02d", i)))
+				require.NoError(t, err, "save %d", i+1)
+			}
+			_, err := srv.SaveStrategy(tc.claims, saveReq("variant:over"))
+			require.Error(t, err)
+			assert.Equal(t, connect.CodePermissionDenied, connectCode(err))
+
+			var ce *connect.Error
+			require.True(t, errors.As(err, &ce))
+			raw := ce.Meta().Get(entitlementDetailHeader)
+			require.NotEmpty(t, raw, "the refusal carries X-Entitlement-Detail")
+			var detail EntitlementDetail
+			require.NoError(t, json.Unmarshal([]byte(raw), &detail))
+			assert.Equal(t, capabilityCapReached, detail.Capability)
+			assert.Equal(t, tc.access.String(), detail.Required)
+			assert.Equal(t, shortsstore.MaxSavedStrategies, detail.Limit)
+			assert.NotEmpty(t, detail.Message)
+		})
+	}
+}
+
+// A premium caller's list is theirs to read, unsave and list like any other.
+func TestSavedStrategies_PremiumClaimsReadAndRemoveTheirOwnList(t *testing.T) {
+	srv := savesServer(t, newFakeSaves())
+	ctx := vdClaims("user-premium", "premium", true)
+	_, err := srv.SaveStrategy(ctx, saveReq("canslim"))
+	require.NoError(t, err)
+	list, err := srv.ListSavedStrategies(ctx, connect.NewRequest(&shortsv1alpha1.ListSavedStrategiesRequest{}))
+	require.NoError(t, err)
+	require.Len(t, list.Msg.Strategies, 1)
+	_, err = srv.UnsaveStrategy(ctx, connect.NewRequest(&shortsv1alpha1.UnsaveStrategyRequest{StrategyRef: "canslim"}))
+	require.NoError(t, err)
+	list, err = srv.ListSavedStrategies(ctx, connect.NewRequest(&shortsv1alpha1.ListSavedStrategiesRequest{}))
+	require.NoError(t, err)
+	assert.Empty(t, list.Msg.Strategies)
+}
+
+// An unsave's reference is shape-checked before it is stored or logged: a
+// reference with a control character or a newline never reaches the database.
+func TestUnsaveStrategy_RefusesAReferenceTheTableCouldNotHold(t *testing.T) {
+	saves := newFakeSaves()
+	srv := savesServer(t, saves)
+	for _, ref := range []string{"variant:", "Bad Ref!", "x\x00\n[ERROR] forged", "variant:bad id!"} {
+		_, err := srv.UnsaveStrategy(vdClaims("user-a", "", false), connect.NewRequest(&shortsv1alpha1.UnsaveStrategyRequest{StrategyRef: ref}))
+		assert.Equal(t, connect.CodeInvalidArgument, connectCode(err), "ref %q", ref)
+	}
+	assert.Empty(t, saves.unsaved, "nothing reached the store")
 }
 
 func TestSaveStrategy_AnUnknownStrategyIsNotFound(t *testing.T) {
@@ -247,6 +315,25 @@ func TestListSavedStrategies_NamesCountsAndTheLimit(t *testing.T) {
 		assert.NotEmpty(t, s.Name)
 		require.NotNil(t, s.StatusCounts, "a canonical strategy carries today's counts")
 	}
+}
+
+// The counts a saved strategy carries name the rules version and the session they
+// were evaluated under, as GetStrategyPicks does, so they can be tied back to the
+// rules they came from.
+func TestListSavedStrategies_CountsCarryTheRulesVersionAndSession(t *testing.T) {
+	srv := savesServer(t, newFakeSaves())
+	ctx := vdClaims("user-a", "", false)
+	_, err := srv.SaveStrategy(ctx, saveReq("canslim"))
+	require.NoError(t, err)
+	resp, err := srv.ListSavedStrategies(ctx, connect.NewRequest(&shortsv1alpha1.ListSavedStrategiesRequest{}))
+	require.NoError(t, err)
+	require.Len(t, resp.Msg.Strategies, 1)
+	s := resp.Msg.Strategies[0]
+	require.NotNil(t, s.StatusCounts)
+	require.NotNil(t, s.Version, "the live rules version the counts came from")
+	assert.Equal(t, "canslim", s.Version.StrategyId)
+	assert.NotEmpty(t, s.Version.RulesHash)
+	assert.Regexp(t, `^\d{4}-\d{2}-\d{2}$`, s.SessionDate)
 }
 
 func TestListSavedStrategies_ACountThatCannotBeReadIsLeftOut(t *testing.T) {

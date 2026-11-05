@@ -22,11 +22,25 @@ import (
 // variantIDPattern is the id a variant reference may carry after "variant:".
 var variantIDPattern = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
 
-// errSavedStrategyLimit is the refusal for a save past the cap. The web reads
-// its connect code (FailedPrecondition) and the message as the limit copy.
-func errSavedStrategyLimit() error {
-	return connect.NewError(connect.CodeFailedPrecondition,
-		fmt.Errorf("you can save up to %d strategies; remove one to save another", shortsstore.MaxSavedStrategies))
+// strategyIDPattern is the form a canonical strategy id is stored in. The table
+// checks the same shape, so an unsave of anything else cannot match a row.
+var strategyIDPattern = regexp.MustCompile(`^[a-z0-9-]{1,64}$`)
+
+// capabilityCapReached names the refusal for a full saved-strategy list.
+const capabilityCapReached = "cap_reached"
+
+// errSavedStrategyLimit is the refusal for a save past the cap: PermissionDenied
+// with X-Entitlement-Detail naming cap_reached and the limit. The cap is the same
+// at every access level, so the detail carries no upgrade URL; clients read the
+// capability, not the message.
+func errSavedStrategyLimit(access Access) error {
+	return newEntitlementError(connect.CodePermissionDenied, EntitlementDetail{
+		Capability: capabilityCapReached,
+		Required:   access.String(),
+		Current:    access.String(),
+		Limit:      shortsstore.MaxSavedStrategies,
+		Message:    fmt.Sprintf("You can save up to %d strategies. Remove one to save another.", shortsstore.MaxSavedStrategies),
+	})
 }
 
 // parseStrategyRef resolves a request's reference to its stored form: a
@@ -53,7 +67,7 @@ func parseStrategyRef(raw string) (string, error) {
 
 // SaveStrategy adds a strategy to the caller's list. A repeat save succeeds.
 func (s *ShortsServer) SaveStrategy(ctx context.Context, req *connect.Request[shortsv1alpha1.SaveStrategyRequest]) (*connect.Response[shortsv1alpha1.SaveStrategyResponse], error) {
-	_, uid, err := privateAccess(ctx)
+	access, uid, err := privateAccess(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -67,13 +81,15 @@ func (s *ShortsServer) SaveStrategy(ctx context.Context, req *connect.Request[sh
 	row, err := s.strategySaves.SaveStrategy(ctx, uid, ref)
 	switch {
 	case errors.Is(err, shortsstore.ErrStrategySaveLimit):
-		return nil, errSavedStrategyLimit()
+		return nil, errSavedStrategyLimit(access)
 	case errors.Is(err, shortsstore.ErrStrategyRefNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("strategy_ref not found"))
+	case errors.Is(err, shortsstore.ErrStrategySaveBusy):
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("your saved strategies are being updated; try again"))
 	case errors.Is(err, shortsstore.ErrRelationMissing):
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("saved strategies are not available"))
 	case err != nil:
-		s.logger.Errorf("save strategy failed: ref=%s err=%v", ref, err)
+		s.logger.Errorf("save strategy failed: ref=%q err=%v", ref, err)
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to save strategy"))
 	}
 	return connect.NewResponse(&shortsv1alpha1.SaveStrategyResponse{Saved: s.savedStrategyProto(ctx, row)}), nil
@@ -103,7 +119,7 @@ func (s *ShortsServer) UnsaveStrategy(ctx context.Context, req *connect.Request[
 		if errors.Is(err, shortsstore.ErrRelationMissing) {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("saved strategies are not available"))
 		}
-		s.logger.Errorf("unsave strategy failed: ref=%s err=%v", stored, err)
+		s.logger.Errorf("unsave strategy failed: ref=%q err=%v", stored, err)
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to remove strategy"))
 	}
 	return connect.NewResponse(&shortsv1alpha1.UnsaveStrategyResponse{}), nil
@@ -111,6 +127,8 @@ func (s *ShortsServer) UnsaveStrategy(ctx context.Context, req *connect.Request[
 
 // normaliseStoredRef gives an unsave the form a save stored, without the
 // registry check: a strategy retired from the registry can still be removed.
+// The shape is still checked, so a reference the table could never hold is
+// refused before it reaches the database or the logs.
 func normaliseStoredRef(raw string) (string, error) {
 	if id, ok := strings.CutPrefix(strings.ToLower(raw), "variant:"); ok {
 		if !variantIDPattern.MatchString(id) {
@@ -118,7 +136,11 @@ func normaliseStoredRef(raw string) (string, error) {
 		}
 		return "variant:" + raw[len("variant:"):], nil
 	}
-	return strings.ToLower(raw), nil
+	id := strings.ToLower(raw)
+	if !strategyIDPattern.MatchString(id) {
+		return "", connect.NewError(connect.CodeInvalidArgument, errors.New("strategy_ref names no valid strategy"))
+	}
+	return id, nil
 }
 
 // ListSavedStrategies returns the caller's saves, most recent first, each with
@@ -147,8 +169,9 @@ func (s *ShortsServer) ListSavedStrategies(ctx context.Context, _ *connect.Reque
 }
 
 // savedStrategyProto is one save as the API reports it. A canonical strategy
-// carries its name and today's counts; a count that cannot be read is left
-// out rather than failing the list.
+// carries its name and today's counts, with the live rules version and the
+// session they are as at, as GetStrategyPicks reports them. A count that cannot
+// be read is left out rather than failing the list.
 func (s *ShortsServer) savedStrategyProto(ctx context.Context, row shortsstore.StrategySaveRow) *shortsv1alpha1.SavedStrategy {
 	out := &shortsv1alpha1.SavedStrategy{
 		StrategyRef: row.StrategyRef,
@@ -169,5 +192,7 @@ func (s *ShortsServer) savedStrategyProto(ctx context.Context, row shortsstore.S
 		return out
 	}
 	out.StatusCounts = statusCounts(eval.picks)
+	out.Version = liveVersion(st.ID)
+	out.SessionDate = eval.universe.asOf
 	return out
 }

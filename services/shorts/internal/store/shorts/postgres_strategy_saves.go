@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Saved strategies (migration 000156): the signed-in user's My strategies list.
@@ -16,14 +19,33 @@ import (
 // after the other, so the cap is exact: the INSERT counts the user's rows and
 // the count it sees is the count after every earlier save. The lock is per
 // user, so one user's saves never wait on another's.
+//
+// The wait for that lock is short. A transaction that waits holds one of the
+// instance's few pooled connections, so a burst from one account must not park
+// the pool: past strategySavesLockWait the save returns ErrStrategySaveBusy and
+// the caller retries. Only the lock holder inserts, so the cap stays exact.
 
 // MaxSavedStrategies is the most strategies one user may keep saved.
 // Saving one already saved is not a new strategy and never counts against it.
 const MaxSavedStrategies = 20
 
+// strategySavesLockWait is how long a save waits for the user's lock.
+const strategySavesLockWait = "1s"
+
 // ErrStrategySaveLimit is returned when a user already holds MaxSavedStrategies
 // and asks to save another strategy.
 var ErrStrategySaveLimit = errors.New("saved strategy limit reached")
+
+// ErrStrategySaveBusy is returned when another save by the same user still holds
+// the lock after strategySavesLockWait. Nothing was written; a retry is safe.
+var ErrStrategySaveBusy = errors.New("saved strategy list is busy")
+
+// savesMissingOnce logs one warning when the table is absent. It names this
+// migration, not the stock picker's, so a missing 000156 is not blamed on them.
+var savesMissingOnce sync.Once
+
+// The Postgres store is the saves store.
+var _ StrategySavesStore = (*postgresStore)(nil)
 
 // ErrStrategyRefNotFound is returned for a variant reference the user does not
 // own, or one that names no variant. The two cases are not told apart, so a
@@ -65,7 +87,14 @@ func (s *postgresStore) SaveStrategy(ctx context.Context, userID, strategyRef st
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	// SET LOCAL bounds the lock wait for this transaction only.
+	if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+strategySavesLockWait+`'`); err != nil {
+		return StrategySaveRow{}, fmt.Errorf("bound strategy save lock wait: %w", relationMissing(err))
+	}
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`, strategySavesLockKey+userID); err != nil {
+		if isLockNotAvailable(err) {
+			return StrategySaveRow{}, ErrStrategySaveBusy
+		}
 		return StrategySaveRow{}, fmt.Errorf("lock strategy saves: %w", relationMissing(err))
 	}
 
@@ -120,9 +149,20 @@ func (s *postgresStore) SaveStrategy(ctx context.Context, userID, strategyRef st
 // variantRefPrefix marks a saved reference to one of the user's variants.
 const variantRefPrefix = "variant:"
 
+// isLockNotAvailable reports whether err is the lock wait giving up (SQLSTATE 55P03).
+func isLockNotAvailable(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "55P03"
+}
+
 // variantOwnedBy reports whether the variant exists and belongs to the user.
-// A database without the strategy_variants table (migration 000157 not
-// applied) has no variant the user could own, so the answer is false.
+// A database without the strategy_variants table has no variant the user could
+// own, so the answer is false.
+//
+// This is its own statement under the same transaction and lock, not folded
+// into the INSERT, because the table does not exist yet. When the variants
+// table lands, fold the check into the INSERT ... SELECT and exclude soft-deleted
+// rows (deleted_at IS NULL) there; the variants migration owns that change.
 func variantOwnedBy(ctx context.Context, tx pgx.Tx, userID, variantID string) (bool, error) {
 	// The catalog check comes first: Postgres resolves a table name when it
 	// plans the statement, so an EXISTS over a missing table would fail even
@@ -167,7 +207,9 @@ func (s *postgresStore) ListStrategySaves(ctx context.Context, userID string) ([
 	)
 	if err != nil {
 		if errors.Is(relationMissing(err), ErrRelationMissing) {
-			logMissingRelationOnce("ListStrategySaves", err)
+			savesMissingOnce.Do(func() {
+				log.Warnf("ListStrategySaves: user_saved_strategies is missing (migration 000156 not applied?); serving an empty list: %v", err)
+			})
 			return nil, nil
 		}
 		return nil, fmt.Errorf("list strategy saves: %w", err)
