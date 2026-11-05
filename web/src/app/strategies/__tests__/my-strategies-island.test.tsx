@@ -113,6 +113,26 @@ describe("MyStrategiesIsland", () => {
     expect(screen.getByRole("link", { name: "CAN SLIM" })).toBeInTheDocument();
   });
 
+  it("offers a retry when the list read rejects, rather than loading forever", async () => {
+    mockUseSession.mockReturnValue(SIGNED_IN);
+    mockList.mockRejectedValueOnce(new Error("deploy skew"));
+    render(<MyStrategiesIsland />);
+    expect(await screen.findByText("We could not load your saved strategies.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
+  });
+
+  it("re-enables every Remove when a removal rejects, and says it failed", async () => {
+    mockUseSession.mockReturnValue(SIGNED_IN);
+    mockList.mockResolvedValue({ ok: true, strategies: [CANSLIM, ZANGER], limit: 20 });
+    mockUnsave.mockRejectedValue(new Error("network down"));
+    render(<MyStrategiesIsland />);
+    await screen.findByRole("link", { name: "CAN SLIM" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove CAN SLIM from My strategies" }));
+    expect(await screen.findByText("Could not remove that strategy. Try again.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove CAN SLIM from My strategies" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Remove Zanger Breakout from My strategies" })).toBeEnabled();
+  });
+
   it("names a variant without a registry name, and omits counts it does not have", async () => {
     mockUseSession.mockReturnValue(SIGNED_IN);
     mockList.mockResolvedValue({

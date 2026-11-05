@@ -67,13 +67,17 @@ function SavedList() {
 
   const load = useCallback(() => {
     setState({ kind: "loading" });
-    void listSavedStrategies().then((result) => {
-      setState(
-        result.ok
-          ? { kind: "ready", strategies: result.strategies, limit: result.limit }
-          : { kind: "unavailable" },
-      );
-    });
+    // A rejected action (a network failure, or a deploy that retired it) is the
+    // same as an unavailable read: the retry state, never a stuck loading line.
+    listSavedStrategies()
+      .then((result) => {
+        setState(
+          result.ok
+            ? { kind: "ready", strategies: result.strategies, limit: result.limit }
+            : { kind: "unavailable" },
+        );
+      })
+      .catch(() => setState({ kind: "unavailable" }));
   }, []);
 
   useEffect(() => {
@@ -83,17 +87,22 @@ function SavedList() {
   const remove = async (ref: string) => {
     setRemoving(ref);
     setFailed(false);
-    const result = await unsaveStrategy(ref);
-    setRemoving(null);
-    if (!result.ok) {
+    try {
+      const result = await unsaveStrategy(ref);
+      if (!result.ok) {
+        setFailed(true);
+        return;
+      }
+      setState((prev) =>
+        prev.kind === "ready"
+          ? { ...prev, strategies: prev.strategies.filter((s) => s.strategyRef !== ref) }
+          : prev,
+      );
+    } catch {
       setFailed(true);
-      return;
+    } finally {
+      setRemoving(null);
     }
-    setState((prev) =>
-      prev.kind === "ready"
-        ? { ...prev, strategies: prev.strategies.filter((s) => s.strategyRef !== ref) }
-        : prev,
-    );
   };
 
   if (state.kind === "loading") {
