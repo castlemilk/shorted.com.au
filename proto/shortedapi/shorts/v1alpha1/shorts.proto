@@ -1001,6 +1001,35 @@ service ShortedStocksService {
     };
   }
 
+  // Mirrored from StrategyService (saved strategies); the parity test enforces the visibility match.
+
+  // Save a strategy to the signed-in caller's list (at most 20).
+  rpc SaveStrategy (SaveStrategyRequest) returns (SaveStrategyResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Save Strategy",
+      description: "Save a stock-picking strategy to the signed-in caller's list. Requires a bearer token. Saving one already saved succeeds. A save past the list's limit of 20 is refused. Not financial advice."
+    };
+  }
+
+  // Remove a strategy from the signed-in caller's list.
+  rpc UnsaveStrategy (UnsaveStrategyRequest) returns (UnsaveStrategyResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Unsave Strategy",
+      description: "Remove a stock-picking strategy from the signed-in caller's list. Requires a bearer token. Removing one that is not saved succeeds."
+    };
+  }
+
+  // The signed-in caller's saved strategies, with today's status counts.
+  rpc ListSavedStrategies (ListSavedStrategiesRequest) returns (ListSavedStrategiesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Saved Strategies",
+      description: "The signed-in caller's saved stock-picking strategies, most recent first, each with today's status counts. Requires a bearer token. Not financial advice."
+    };
+  }
+
   // ==================== Ownership ====================
   // Mirrored from OwnershipService for external API back-compat; the parity
   // test enforces the visibility match.

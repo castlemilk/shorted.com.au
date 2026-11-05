@@ -4241,6 +4241,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStrategyPicksResponse'
+  /shorts.v1alpha1.StrategyService/ListSavedStrategies:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: ListSavedStrategies
+      description: |-
+        The caller's saved strategies, most recent first, each with today's
+         status counts.
+      operationId: StrategyService_ListSavedStrategies
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListSavedStrategiesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListSavedStrategiesResponse'
   /shorts.v1alpha1.StrategyService/ListStrategies:
     post:
       tags:
@@ -4317,6 +4355,84 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.ListStrategyVersionsResponse'
+  /shorts.v1alpha1.StrategyService/SaveStrategy:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: SaveStrategy
+      description: |-
+        Save a strategy to the signed-in caller's list. Saving a strategy that is
+         already saved succeeds and keeps its first save time. The list holds at
+         most 20; a save past that is refused with FailedPrecondition, and a
+         repeat save at the cap still succeeds.
+      operationId: StrategyService_SaveStrategy
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.SaveStrategyRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.SaveStrategyResponse'
+  /shorts.v1alpha1.StrategyService/UnsaveStrategy:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: UnsaveStrategy
+      description: |-
+        Remove a strategy from the caller's list. Removing one that is not saved
+         succeeds.
+      operationId: StrategyService_UnsaveStrategy
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.UnsaveStrategyRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.UnsaveStrategyResponse'
 servers:
   - url: https://api.shorted.com.au
 components:
@@ -13235,6 +13351,28 @@ components:
       title: ListReportsResponse
       additionalProperties: false
       description: Response for ListReports RPC
+    shorts.v1alpha1.ListSavedStrategiesRequest:
+      type: object
+      title: ListSavedStrategiesRequest
+      additionalProperties: false
+      description: Request for ListSavedStrategies.
+    shorts.v1alpha1.ListSavedStrategiesResponse:
+      type: object
+      properties:
+        strategies:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SavedStrategy'
+          title: strategies
+          description: Most recent save first. (proto shorts.v1alpha1.SavedStrategy)
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: The most strategies one caller may save. (proto int32)
+      title: ListSavedStrategiesResponse
+      additionalProperties: false
+      description: Response for ListSavedStrategies.
     shorts.v1alpha1.ListSeriesCorrelationsRequest:
       type: object
       properties:
@@ -16077,6 +16215,52 @@ components:
       title: RuleResult
       additionalProperties: false
       description: The outcome of one rule for one stock.
+    shorts.v1alpha1.SaveStrategyRequest:
+      type: object
+      properties:
+        strategyRef:
+          type: string
+          title: strategy_ref
+          description: A canonical strategy id, or "variant:<id>" for a variant the caller owns. (proto string)
+      title: SaveStrategyRequest
+      additionalProperties: false
+      description: Request for SaveStrategy.
+    shorts.v1alpha1.SaveStrategyResponse:
+      type: object
+      properties:
+        saved:
+          title: saved
+          description: The entry as ListSavedStrategies lists it. (proto shorts.v1alpha1.SavedStrategy)
+          $ref: '#/components/schemas/shorts.v1alpha1.SavedStrategy'
+      title: SaveStrategyResponse
+      additionalProperties: false
+      description: Response for SaveStrategy.
+    shorts.v1alpha1.SavedStrategy:
+      type: object
+      properties:
+        strategyRef:
+          type: string
+          title: strategy_ref
+          description: A canonical strategy id, or "variant:<id>". (proto string)
+        strategyId:
+          type: string
+          title: strategy_id
+          description: The canonical id; empty for a variant. (proto string)
+        name:
+          type: string
+          title: name
+          description: The strategy's name; empty when it is not in the registry. (proto string)
+        savedAt:
+          type: string
+          title: saved_at
+          description: RFC 3339 time of the first save. (proto string)
+        statusCounts:
+          title: status_counts
+          description: Today's counts; absent for a variant or when they cannot be read. (proto shorts.v1alpha1.StatusCounts)
+          $ref: '#/components/schemas/shorts.v1alpha1.StatusCounts'
+      title: SavedStrategy
+      additionalProperties: false
+      description: One strategy the signed-in caller saved.
     shorts.v1alpha1.ScreenStocksRequest:
       type: object
       properties:
@@ -18979,6 +19163,21 @@ components:
          donor_name is VERBATIM as lodged — the source is unnormalised and one entity
          can appear under several spellings. donor_name_norm is the key those spellings
          were grouped by, published so a reader can see exactly what was combined.
+    shorts.v1alpha1.UnsaveStrategyRequest:
+      type: object
+      properties:
+        strategyRef:
+          type: string
+          title: strategy_ref
+          description: The reference SaveStrategy was given. (proto string)
+      title: UnsaveStrategyRequest
+      additionalProperties: false
+      description: Request for UnsaveStrategy.
+    shorts.v1alpha1.UnsaveStrategyResponse:
+      type: object
+      title: UnsaveStrategyResponse
+      additionalProperties: false
+      description: Response for UnsaveStrategy.
     shorts.v1alpha1.UpdateAlertMonitorStatusRequest:
       type: object
       properties:

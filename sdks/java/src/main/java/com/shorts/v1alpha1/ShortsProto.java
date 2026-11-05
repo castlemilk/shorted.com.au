@@ -52,7 +52,7 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "1/reports.proto\032\036shorts/v1alpha1/screene" +
       "r.proto\032\034shorts/v1alpha1/search.proto\032\033s" +
       "horts/v1alpha1/stock.proto\032 shorts/v1alp" +
-      "ha1/strategies.proto2\366\216\002\n\024ShortedStocksS" +
+      "ha1/strategies.proto2\346\225\002\n\024ShortedStocksS" +
       "ervice\022\206\003\n\014GetTopShorts\022$.shorts.v1alpha" +
       "1.GetTopShortsRequest\032%.shorts.v1alpha1." +
       "GetTopShortsResponse\"\250\002\332A\023period,limit,o" +
@@ -650,7 +650,29 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "s, with its rules hash, engine version, " +
       "status and known issues. Filter by strat" +
       "egy_id; empty lists every strategy. Not " +
-      "financial advice.\200\265\030\001\022\303\004\n\024GetOwnershipOv" +
+      "financial advice.\200\265\030\001\022\266\002\n\014SaveStrategy\022$" +
+      ".shorts.v1alpha1.SaveStrategyRequest\032%.s" +
+      "horts.v1alpha1.SaveStrategyResponse\"\330\001\272G" +
+      "\320\001\022\rSave Strategy\032\276\001Save a stock-picking" +
+      " strategy to the signed-in caller\'s list" +
+      ". Requires a bearer token. Saving one al" +
+      "ready saved succeeds. A save past the li" +
+      "st\'s limit of 20 is refused. Not financi" +
+      "al advice.\200\265\030\002\022\203\002\n\016UnsaveStrategy\022&.shor" +
+      "ts.v1alpha1.UnsaveStrategyRequest\032\'.shor" +
+      "ts.v1alpha1.UnsaveStrategyResponse\"\237\001\272G\227" +
+      "\001\022\017Unsave Strategy\032\203\001Remove a stock-pick" +
+      "ing strategy from the signed-in caller\'s" +
+      " list. Requires a bearer token. Removing" +
+      " one that is not saved succeeds.\200\265\030\002\022\256\002\n" +
+      "\023ListSavedStrategies\022+.shorts.v1alpha1.L" +
+      "istSavedStrategiesRequest\032,.shorts.v1alp" +
+      "ha1.ListSavedStrategiesResponse\"\273\001\272G\263\001\022\025" +
+      "List Saved Strategies\032\231\001The signed-in ca" +
+      "ller\'s saved stock-picking strategies, m" +
+      "ost recent first, each with today\'s stat" +
+      "us counts. Requires a bearer token. Not " +
+      "financial advice.\200\265\030\002\022\303\004\n\024GetOwnershipOv" +
       "erview\022,.shorts.v1alpha1.GetOwnershipOve" +
       "rviewRequest\032-.shorts.v1alpha1.GetOwners" +
       "hipOverviewResponse\"\315\003\272G\305\003\022\026Get Ownershi" +
@@ -812,7 +834,7 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "p\022\026List Stock Politicians\032VParliamentari" +
       "ans declaring an interest in a company, " +
       "by holder and declaration period.\200\265\030\001\022\346\001" +
-      "\n\024ListPoliticianStocks\022,.shorts.v1alpha1" +
+      "\n\024ListPoliticianStocks\022,.shorts.v1alpha1",
       ".ListPoliticianStocksRequest\032-.shorts.v1" +
       "alpha1.ListPoliticianStocksResponse\"q\272Gj" +
       "\022\026List Politician Stocks\032PMost-declared " +
@@ -834,7 +856,7 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "anges\022+.shorts.v1alpha1.ListRegisterChan" +
       "gesRequest\032,.shorts.v1alpha1.ListRegiste" +
       "rChangesResponse\"l\272Ge\022\025List Register Cha" +
-      "nges\032LRows added to or removed from the ",
+      "nges\032LRows added to or removed from the " +
       "registers. A removal is not a transactio" +
       "n.\200\265\030\001\022\236\002\n\030ListShortInterestOverlap\0220.sh" +
       "orts.v1alpha1.ListShortInterestOverlapRe" +

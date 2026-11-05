@@ -146,6 +146,41 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_RuleParam_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SaveStrategyRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SaveStrategyRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SaveStrategyResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SaveStrategyResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_UnsaveStrategyRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_UnsaveStrategyRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_UnsaveStrategyResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_UnsaveStrategyResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListSavedStrategiesRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListSavedStrategiesRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_ListSavedStrategiesResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_ListSavedStrategiesResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SavedStrategy_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SavedStrategy_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -364,30 +399,53 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       "edOn\022%\n\016canonical_json\030\n \001(\tR\rcanonicalJ" +
       "son\"N\n\tRuleParam\022\027\n\007rule_id\030\001 \001(\tR\006ruleI" +
       "d\022\022\n\004name\030\002 \001(\tR\004name\022\024\n\005value\030\003 \001(\001R\005va" +
-      "lue2\306\005\n\017StrategyService\022g\n\016ListStrategie" +
-      "s\022&.shorts.v1alpha1.ListStrategiesReques" +
-      "t\032\'.shorts.v1alpha1.ListStrategiesRespon" +
-      "se\"\004\200\265\030\001\022m\n\020GetStrategyPicks\022(.shorts.v1" +
-      "alpha1.GetStrategyPicksRequest\032).shorts." +
-      "v1alpha1.GetStrategyPicksResponse\"\004\200\265\030\001\022" +
-      "s\n\026GetViewerStrategyPicks\022(.shorts.v1alp" +
-      "ha1.GetStrategyPicksRequest\032).shorts.v1a" +
-      "lpha1.GetStrategyPicksResponse\"\004\200\265\030\002\022v\n\023" +
-      "GetStockStrategyFit\022+.shorts.v1alpha1.Ge" +
-      "tStockStrategyFitRequest\032,.shorts.v1alph" +
-      "a1.GetStockStrategyFitResponse\"\004\200\265\030\001\022s\n\022" +
-      "GetStrategyVersion\022*.shorts.v1alpha1.Get" +
-      "StrategyVersionRequest\032+.shorts.v1alpha1" +
-      ".GetStrategyVersionResponse\"\004\200\265\030\001\022y\n\024Lis" +
-      "tStrategyVersions\022,.shorts.v1alpha1.List" +
-      "StrategyVersionsRequest\032-.shorts.v1alpha" +
-      "1.ListStrategyVersionsResponse\"\004\200\265\030\001B\336\001\n" +
-      "\023com.shorts.v1alpha1B\017StrategiesProtoP\001Z" +
-      "Ygithub.com/castlemilk/shorted.com.au/se" +
-      "rvices/gen/proto/go/shorts/v1alpha1;shor" +
-      "tsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Sho" +
-      "rts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMetada" +
-      "ta\352\002\020Shorts::V1alpha1b\006proto3"
+      "lue\"8\n\023SaveStrategyRequest\022!\n\014strategy_r" +
+      "ef\030\001 \001(\tR\013strategyRef\"L\n\024SaveStrategyRes" +
+      "ponse\0224\n\005saved\030\001 \001(\0132\036.shorts.v1alpha1.S" +
+      "avedStrategyR\005saved\":\n\025UnsaveStrategyReq" +
+      "uest\022!\n\014strategy_ref\030\001 \001(\tR\013strategyRef\"" +
+      "\030\n\026UnsaveStrategyResponse\"\034\n\032ListSavedSt" +
+      "rategiesRequest\"s\n\033ListSavedStrategiesRe" +
+      "sponse\022>\n\nstrategies\030\001 \003(\0132\036.shorts.v1al" +
+      "pha1.SavedStrategyR\nstrategies\022\024\n\005limit\030" +
+      "\002 \001(\005R\005limit\"\306\001\n\rSavedStrategy\022!\n\014strate" +
+      "gy_ref\030\001 \001(\tR\013strategyRef\022\037\n\013strategy_id" +
+      "\030\002 \001(\tR\nstrategyId\022\022\n\004name\030\003 \001(\tR\004name\022\031" +
+      "\n\010saved_at\030\004 \001(\tR\007savedAt\022B\n\rstatus_coun" +
+      "ts\030\005 \001(\0132\035.shorts.v1alpha1.StatusCountsR" +
+      "\014statusCounts2\212\010\n\017StrategyService\022g\n\016Lis" +
+      "tStrategies\022&.shorts.v1alpha1.ListStrate" +
+      "giesRequest\032\'.shorts.v1alpha1.ListStrate" +
+      "giesResponse\"\004\200\265\030\001\022m\n\020GetStrategyPicks\022(" +
+      ".shorts.v1alpha1.GetStrategyPicksRequest" +
+      "\032).shorts.v1alpha1.GetStrategyPicksRespo" +
+      "nse\"\004\200\265\030\001\022s\n\026GetViewerStrategyPicks\022(.sh" +
+      "orts.v1alpha1.GetStrategyPicksRequest\032)." +
+      "shorts.v1alpha1.GetStrategyPicksResponse" +
+      "\"\004\200\265\030\002\022v\n\023GetStockStrategyFit\022+.shorts.v" +
+      "1alpha1.GetStockStrategyFitRequest\032,.sho" +
+      "rts.v1alpha1.GetStockStrategyFitResponse" +
+      "\"\004\200\265\030\001\022s\n\022GetStrategyVersion\022*.shorts.v1" +
+      "alpha1.GetStrategyVersionRequest\032+.short" +
+      "s.v1alpha1.GetStrategyVersionResponse\"\004\200" +
+      "\265\030\001\022y\n\024ListStrategyVersions\022,.shorts.v1a" +
+      "lpha1.ListStrategyVersionsRequest\032-.shor" +
+      "ts.v1alpha1.ListStrategyVersionsResponse" +
+      "\"\004\200\265\030\001\022a\n\014SaveStrategy\022$.shorts.v1alpha1" +
+      ".SaveStrategyRequest\032%.shorts.v1alpha1.S" +
+      "aveStrategyResponse\"\004\200\265\030\002\022g\n\016UnsaveStrat" +
+      "egy\022&.shorts.v1alpha1.UnsaveStrategyRequ" +
+      "est\032\'.shorts.v1alpha1.UnsaveStrategyResp" +
+      "onse\"\004\200\265\030\002\022v\n\023ListSavedStrategies\022+.shor" +
+      "ts.v1alpha1.ListSavedStrategiesRequest\032," +
+      ".shorts.v1alpha1.ListSavedStrategiesResp" +
+      "onse\"\004\200\265\030\002B\336\001\n\023com.shorts.v1alpha1B\017Stra" +
+      "tegiesProtoP\001ZYgithub.com/castlemilk/sho" +
+      "rted.com.au/services/gen/proto/go/shorts" +
+      "/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts." +
+      "V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1al" +
+      "pha1\\GPBMetadata\352\002\020Shorts::V1alpha1b\006pro" +
+      "to3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -538,6 +596,48 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_RuleParam_descriptor,
         new java.lang.String[] { "RuleId", "Name", "Value", });
+    internal_static_shorts_v1alpha1_SaveStrategyRequest_descriptor =
+      getDescriptor().getMessageType(24);
+    internal_static_shorts_v1alpha1_SaveStrategyRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SaveStrategyRequest_descriptor,
+        new java.lang.String[] { "StrategyRef", });
+    internal_static_shorts_v1alpha1_SaveStrategyResponse_descriptor =
+      getDescriptor().getMessageType(25);
+    internal_static_shorts_v1alpha1_SaveStrategyResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SaveStrategyResponse_descriptor,
+        new java.lang.String[] { "Saved", });
+    internal_static_shorts_v1alpha1_UnsaveStrategyRequest_descriptor =
+      getDescriptor().getMessageType(26);
+    internal_static_shorts_v1alpha1_UnsaveStrategyRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_UnsaveStrategyRequest_descriptor,
+        new java.lang.String[] { "StrategyRef", });
+    internal_static_shorts_v1alpha1_UnsaveStrategyResponse_descriptor =
+      getDescriptor().getMessageType(27);
+    internal_static_shorts_v1alpha1_UnsaveStrategyResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_UnsaveStrategyResponse_descriptor,
+        new java.lang.String[] { });
+    internal_static_shorts_v1alpha1_ListSavedStrategiesRequest_descriptor =
+      getDescriptor().getMessageType(28);
+    internal_static_shorts_v1alpha1_ListSavedStrategiesRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListSavedStrategiesRequest_descriptor,
+        new java.lang.String[] { });
+    internal_static_shorts_v1alpha1_ListSavedStrategiesResponse_descriptor =
+      getDescriptor().getMessageType(29);
+    internal_static_shorts_v1alpha1_ListSavedStrategiesResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_ListSavedStrategiesResponse_descriptor,
+        new java.lang.String[] { "Strategies", "Limit", });
+    internal_static_shorts_v1alpha1_SavedStrategy_descriptor =
+      getDescriptor().getMessageType(30);
+    internal_static_shorts_v1alpha1_SavedStrategy_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SavedStrategy_descriptor,
+        new java.lang.String[] { "StrategyRef", "StrategyId", "Name", "SavedAt", "StatusCounts", });
     descriptor.resolveAllFeaturesImmutable();
     com.shortedapi.options.v1.OptionsProto.getDescriptor();
     com.google.protobuf.ExtensionRegistry registry =
