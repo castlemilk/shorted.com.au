@@ -20,6 +20,8 @@ var passCompanies = map[string]company{
 	"MIN": {Code: "MIN", Name: "Mineral Resources Limited"},
 	"WC8": {Code: "WC8", Name: "Wildcat Resources Limited"},
 	"ZIP": {Code: "ZIP", Name: "Zip Co Limited"},
+	"SDR": {Code: "SDR", Name: "SiteMinder Limited"},
+	"GNG": {Code: "GNG", Name: "GR Engineering Services Limited"},
 }
 
 func TestResolveTarget(t *testing.T) {
@@ -46,6 +48,42 @@ func TestResolveTarget(t *testing.T) {
 	for _, tc := range tests {
 		got, why := resolveTarget(tc.p, tc.docCo, passCompanies, nil)
 		if got != tc.want || (why != "") != tc.wantMiss {
+			t.Errorf("%s: resolveTarget = %q (%s), want %q", tc.name, got, why, tc.want)
+		}
+	}
+}
+
+// A notice listed under one code whose document names another live company is about
+// that company (subjectTarget). The listed code stands whenever the rule cannot name
+// one company with certainty: its own name matches, no company carries the
+// document's name, the matching company is not live, several are live, or the
+// listed code has no name on record.
+func TestResolveTargetBySubject(t *testing.T) {
+	companies := map[string]company{
+		"CBA": {Code: "CBA", Name: "Commonwealth Bank of Australia"},
+		"SDR": {Code: "SDR", Name: "SiteMinder Limited"},
+		"SMX": {Code: "SMX", Name: "SiteMinder Limited"},
+	}
+	holder := pendingNotice{Headline: "Change in substantial holding", ListedCodes: []string{"CBA"}}
+	tests := []struct {
+		name string
+		p    pendingNotice
+		doc  string
+		live map[string]bool
+		want string
+	}{
+		{"the document names another live company", holder, "SITEMINDER LIMITED", map[string]bool{"SDR": true, "CBA": true}, "SDR"},
+		{"the document names the listed company", holder, "Commonwealth Bank of Australia", map[string]bool{"CBA": true}, "CBA"},
+		{"the document names no company on record", holder, "Acme Widgets Limited", map[string]bool{"SDR": true}, "CBA"},
+		{"no document company", holder, "", map[string]bool{"SDR": true}, "CBA"},
+		{"the matching company is not live", holder, "SiteMinder Limited", map[string]bool{"CBA": true}, "CBA"},
+		{"two live companies carry the name", holder, "SiteMinder Limited", map[string]bool{"SDR": true, "SMX": true}, "CBA"},
+		{"the listed code has no name on record", pendingNotice{Headline: "Change in substantial holding", ListedCodes: []string{"NOP"}},
+			"SITEMINDER LIMITED", map[string]bool{"SDR": true}, "NOP"},
+	}
+	for _, tc := range tests {
+		got, why := resolveTarget(tc.p, tc.doc, companies, tc.live)
+		if got != tc.want || why != "" {
 			t.Errorf("%s: resolveTarget = %q (%s), want %q", tc.name, got, why, tc.want)
 		}
 	}
@@ -152,7 +190,8 @@ type fakeStore struct {
 	attempts   map[string]noticeAttempt
 	versions   map[string]int // the parser version each attempt was recorded at
 	failRows   bool
-	shared     int // SharedHeadlineNotices' answer: the notices the feed holds on the day with the headline
+	shares     map[string]float64 // SharesOnIssue's answers by code; ZIP has a count by default
+	shared     int                // SharedHeadlineNotices' answer: the notices the feed holds on the day with the headline
 }
 
 func (f *fakeStore) SharedHeadlineNotices(context.Context, []string, string, string) (int, error) {
@@ -168,6 +207,9 @@ func (f *fakeStore) ResolvableNotices(context.Context, int, string) ([]pendingNo
 func (f *fakeStore) Companies(context.Context) (map[string]company, error) { return passCompanies, nil }
 func (f *fakeStore) LiveCodes(context.Context) (map[string]bool, error)    { return f.live, nil }
 func (f *fakeStore) SharesOnIssue(_ context.Context, code, _ string) (float64, error) {
+	if v, ok := f.shares[code]; ok {
+		return v, nil
+	}
 	if code == "ZIP" {
 		return 1.246e9, nil
 	}
@@ -266,6 +308,72 @@ func TestNoticePass(t *testing.T) {
 	}
 	if len(dry.rows) != 0 || len(dry.attempts) != 0 {
 		t.Errorf("a dry run wrote %d rows and %d attempts", len(dry.rows), len(dry.attempts))
+	}
+}
+
+// A holder listed under its own code (CBA) lodges about another company (SiteMinder,
+// SDR). The fixture is the CBA notice with its "To Company Name/Scheme" line changed.
+// The notice is filed under SDR and its votes are checked against SDR's count: against
+// CBA's (1.6bn shares) they would not fit, and the notice would be withheld.
+func TestNoticePassFilesHolderNoticeUnderTheSubjectCompany(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("testdata", "notices", "car_603_commonwealth_bank_grand_total.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Replace(string(b), "CAR Group Limited", "SiteMinder Limited", 1)
+	store := &fakeStore{attempts: map[string]noticeAttempt{}, live: map[string]bool{"CBA": true, "SDR": true},
+		shares: map[string]float64{"CBA": 1.6e9, "SDR": 379e6}, pending: []pendingNotice{
+			{URL: "sdr", Headline: "Becoming a substantial holder", AnnouncedOn: "2026-09-25", ListedCodes: []string{"CBA"}},
+		}}
+	pass := &noticePass{store: store, pdfs: fakePDFs{"sdr": text}, extractor: passthrough{}, workers: 1, logf: t.Logf}
+	res, err := pass.run(context.Background(), 10, "2025-01-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Parsed != 1 {
+		t.Fatalf("outcomes %+v, want the notice parsed", res.Outcomes)
+	}
+	if len(store.rows) != 1 || store.rows[0].StockCode != "SDR" || store.rows[0].HolderKey != "commonwealth-bank" {
+		t.Errorf("rows %+v, want one row under SDR held by commonwealth-bank", store.rows)
+	}
+	if a := store.attempts["sdr"]; a.Outcome != "parsed" || a.StockCode != "SDR" {
+		t.Errorf("attempt %+v, want parsed under SDR", a)
+	}
+}
+
+// A refusal of a holder's notice about another company is filed under that company,
+// not under the holder's code. The two CBA notices are the production text (2026-11-05):
+// the parser refuses both as no_voting_power (no previous and present pair), so the
+// attempt, which the withheld counts read, must name SiteMinder and GR Engineering.
+func TestNoticePassFilesARefusalUnderTheSubjectCompany(t *testing.T) {
+	read := func(name string) string {
+		b, err := os.ReadFile(filepath.Join("testdata", "notices", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	store := &fakeStore{attempts: map[string]noticeAttempt{}, live: map[string]bool{"CBA": true, "SDR": true, "GNG": true},
+		pending: []pendingNotice{
+			{URL: "sdr", Headline: "Change in substantial holding", AnnouncedOn: "2026-11-05", ListedCodes: []string{"CBA"}},
+			{URL: "gng", Headline: "Change in substantial holding", AnnouncedOn: "2026-11-05", ListedCodes: []string{"CBA"}},
+		}}
+	pdfs := fakePDFs{"sdr": read("cba_604_siteminder_listed_under_cba.txt"), "gng": read("cba_604_gr_engineering_listed_under_cba.txt")}
+	pass := &noticePass{store: store, pdfs: pdfs, extractor: passthrough{}, workers: 1, logf: t.Logf}
+	if _, err := pass.run(context.Background(), 10, "2025-01-01"); err != nil {
+		t.Fatal(err)
+	}
+	for url, want := range map[string]string{"sdr": "SDR", "gng": "GNG"} {
+		a := store.attempts[url]
+		if a.Outcome != string(outcomeNoVotingPower) {
+			t.Errorf("%s: outcome %q (%s), want the parser's refusal no_voting_power", url, a.Outcome, a.Detail)
+		}
+		if a.StockCode != want {
+			t.Errorf("%s: attempt filed under %q, want %q (the company the document names)", url, a.StockCode, want)
+		}
+		if store.versions[url] != noticeParserVersion {
+			t.Errorf("%s: recorded at version %d, want %d", url, store.versions[url], noticeParserVersion)
+		}
 	}
 }
 

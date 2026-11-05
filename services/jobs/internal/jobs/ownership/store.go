@@ -38,6 +38,7 @@ const liveCodesSQL = `SELECT DISTINCT "PRODUCT_CODE" FROM shorts WHERE "DATE" >=
 var staleRereads = map[int][]string{
 	2: {outcomeAmbiguousTarget},
 	3: {outcomeAmbiguousTarget},
+	4: {outcomeAmbiguousTarget, string(outcomeNoVotingPower), outcomeInconsistentVotes},
 }
 
 // staleOutcomes is staleRereads[parserVersion], never nil (an empty array
@@ -115,7 +116,9 @@ func (s *pgStore) PendingNotices(ctx context.Context, limit int, since string, p
 }
 
 func (s *pgStore) ResolvableNotices(ctx context.Context, limit int, since string) ([]pendingNotice, error) {
-	return s.selectNotices(ctx, resolvableNoticesSQL, limit, since, noticeParserVersion)
+	// An unavailable attempt is "asked" from apiPathVersion on, whatever the parser's own
+	// version: a parser bump must not ask the API again about every notice it has set aside.
+	return s.selectNotices(ctx, resolvableNoticesSQL, limit, since, apiPathVersion)
 }
 
 func (s *pgStore) selectNotices(ctx context.Context, sql string, args ...any) ([]pendingNotice, error) {
