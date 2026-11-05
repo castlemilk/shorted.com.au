@@ -644,13 +644,6 @@ function SignalsView({
                 A strategy score is rule fit, not probability.
               </span>
             </p>
-
-            <SignalChanges
-              strategyId={props.slug}
-              title="Recent changes"
-              returnPath={`/strategies/${props.slug}/signals`}
-              emptyCopy="No stock has changed status in this strategy yet."
-            />
           </div>
 
           <div
@@ -672,6 +665,7 @@ function SignalsView({
                     key={selectedCode}
                     strategyId={props.slug}
                     stockCode={selectedCode}
+                    versionHash={props.version?.rulesHash ?? ""}
                     title="This stock's signal history"
                     returnPath={`/strategies/${props.slug}/signals?sel=stock:${selectedCode}`}
                     emptyCopy="This stock has not changed status in this strategy yet."
@@ -707,6 +701,17 @@ function SignalsView({
           </div>
         </div>
       )}
+
+      {/* Under every state of the tab (the list is read on its own), and below the matrix so the evidence panel's heading stays under the matrix. */}
+      <div className="mt-6">
+        <SignalChanges
+          strategyId={props.slug}
+          versionHash={props.version?.rulesHash ?? ""}
+          title="Recent changes"
+          returnPath={`/strategies/${props.slug}/signals`}
+          emptyCopy="No stock has changed status in this strategy under these rules yet."
+        />
+      </div>
     </div>
   );
 }

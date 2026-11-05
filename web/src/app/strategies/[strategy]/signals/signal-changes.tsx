@@ -5,7 +5,8 @@
 // "This stock's signal history". Only a signed-in viewer's read reaches the API
 // (getSignalEventsForViewer, per request); an anonymous visitor sees the sign-in
 // row and no call is made. The first page is read when the list mounts, and
-// "Show more" reads the next one, appended in order.
+// "Show more" reads the next one, appended in order. A server that finds no
+// session answers the sign-in row too, never an outage.
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -19,7 +20,7 @@ import {
   type SignalEventsResult,
 } from "~/app/actions/strategies/signalEvents";
 
-/** Rows per page; the API's default. */
+/** Rows per page: this list's own page size (the API's default is 50). */
 const PAGE = 20;
 
 export interface SignalChangesProps {
@@ -27,6 +28,11 @@ export interface SignalChangesProps {
   strategyId: string;
   /** Set for one stock's history; omitted for the strategy's recent changes. */
   stockCode?: string;
+  /**
+   * The rules version the matrix shows (its 64-hex hash). The history is read
+   * under that version so the two agree; omitted reads the live version.
+   */
+  versionHash?: string;
   /** The heading. */
   title: string;
   /** The sign-in row's return path is the strategy's Signals tab. */
@@ -40,6 +46,7 @@ export interface SignalChangesProps {
 type ListState =
   | { phase: "loading" }
   | { phase: "failed" }
+  | { phase: "signed-out" }
   | {
       phase: "ready";
       events: StrategySignalEventView[];
@@ -68,6 +75,7 @@ export function statusWord(status: string): string {
 export function SignalChanges({
   strategyId,
   stockCode,
+  versionHash,
   title,
   returnPath,
   emptyCopy,
@@ -103,10 +111,11 @@ export function SignalChanges({
         </h2>
       )}
       {pending ? (
+        // The same box as the sign-in row, so the slot keeps its height.
         <p
           role="status"
           aria-busy="true"
-          className="text-xs text-muted-foreground"
+          className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground"
         >
           Checking your session…
         </p>
@@ -116,7 +125,9 @@ export function SignalChanges({
         <SignedInHistory
           strategyId={strategyId}
           stockCode={stockCode}
+          versionHash={versionHash}
           emptyCopy={emptyCopy}
+          returnPath={returnPath}
           compact={compact}
         />
       )}
@@ -142,12 +153,16 @@ function SignInRow({ returnPath }: { returnPath: string }) {
 function SignedInHistory({
   strategyId,
   stockCode,
+  versionHash,
   emptyCopy,
+  returnPath,
   compact,
 }: {
   strategyId: string;
   stockCode?: string;
+  versionHash?: string;
   emptyCopy: string;
+  returnPath: string;
   compact: boolean;
 }) {
   const [state, setState] = useState<ListState>({ phase: "loading" });
@@ -156,23 +171,34 @@ function SignedInHistory({
 
   useEffect(() => {
     let live = true;
+    // The read starts one task later. Next runs server actions one at a time,
+    // and the island's own reads (the first page, the selected stock's fit) are
+    // queued by its effects, which run after these children's: deferring keeps
+    // them ahead of this history.
     setState({ phase: "loading" });
-    getSignalEventsForViewer({
-      strategyId,
-      stockCode,
-      pageSize: PAGE,
-    })
-      .then((result) => {
-        if (live) setState(toListState(result));
+    const timer = setTimeout(() => {
+      getSignalEventsForViewer({
+        strategyId,
+        stockCode,
+        versionHash,
+        pageSize: PAGE,
       })
-      .catch(() => {
-        if (live) setState({ phase: "failed" });
-      });
+        .then((result) => {
+          if (live) setState(toListState(result));
+        })
+        .catch(() => {
+          if (live) setState({ phase: "failed" });
+        });
+    }, 0);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
-  }, [strategyId, stockCode, attempt]);
+  }, [strategyId, stockCode, versionHash, attempt]);
 
+  if (state.phase === "signed-out") {
+    return <SignInRow returnPath={returnPath} />;
+  }
   if (state.phase === "loading") {
     return (
       <p
@@ -203,17 +229,24 @@ function SignedInHistory({
   }
 
   async function showMore(token: string) {
+    // aria-disabled, not disabled: a disabled button drops focus to the body.
+    if (loadingMore) return;
     setLoadingMore(true);
     const result = await getSignalEventsForViewer({
       strategyId,
       stockCode,
+      versionHash,
       pageToken: token,
       pageSize: PAGE,
     }).catch((): SignalEventsResult => ({ ok: false, reason: "unavailable" }));
     setLoadingMore(false);
     setState((current) => {
       if (current.phase !== "ready") return current;
-      if (!result.ok) return { ...current, moreFailed: true };
+      if (!result.ok) {
+        return result.reason === "signed-out"
+          ? { phase: "signed-out" }
+          : { ...current, moreFailed: true };
+      }
       return {
         phase: "ready",
         events: [...current.events, ...result.page.events],
@@ -249,9 +282,12 @@ function SignedInHistory({
       {state.nextPageToken ? (
         <button
           type="button"
-          disabled={loadingMore}
+          aria-disabled={loadingMore}
           onClick={() => void showMore(state.nextPageToken)}
-          className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted/50 disabled:opacity-60"
+          className={cn(
+            "rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted/50",
+            loadingMore && "opacity-60",
+          )}
         >
           {loadingMore ? "Loading…" : "Show more changes"}
         </button>
@@ -266,7 +302,11 @@ function SignedInHistory({
 }
 
 function toListState(result: SignalEventsResult): ListState {
-  if (!result.ok) return { phase: "failed" };
+  if (!result.ok) {
+    return result.reason === "signed-out"
+      ? { phase: "signed-out" }
+      : { phase: "failed" };
+  }
   return {
     phase: "ready",
     events: result.page.events,

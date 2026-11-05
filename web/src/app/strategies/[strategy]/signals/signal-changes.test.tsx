@@ -161,6 +161,43 @@ describe("SignalChanges", () => {
     expect(mockGet).toHaveBeenCalledTimes(2);
   });
 
+  it("shows the sign-in row, not an outage, when the server finds no session", async () => {
+    mockGet.mockResolvedValueOnce({ ok: false, reason: "signed-out" });
+    render(
+      <SignalChanges
+        strategyId="canslim"
+        title="Recent changes"
+        returnPath="/strategies/canslim/signals"
+        emptyCopy="None."
+      />,
+    );
+    expect(
+      await screen.findByRole("link", { name: "Sign in" }, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("The status changes are unavailable right now."),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
+  it("reads the rules version the matrix shows", async () => {
+    const hash = "3f9a1c2e" + "b".repeat(56);
+    mockGet.mockResolvedValueOnce(page([event(0, "PFP")]));
+    render(
+      <SignalChanges
+        strategyId="canslim"
+        versionHash={hash}
+        title="Recent changes"
+        returnPath="/x"
+        emptyCopy="None."
+      />,
+    );
+    await screen.findByRole("listitem", undefined, { timeout: 5000 });
+    expect(mockGet).toHaveBeenCalledWith(
+      expect.objectContaining({ versionHash: hash }),
+    );
+  });
+
   it("appends the next page in order when the viewer asks for more", async () => {
     mockGet
       .mockResolvedValueOnce(page([event(0, "AAA")], "20"))

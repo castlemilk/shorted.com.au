@@ -14,13 +14,14 @@ import { StrategyService } from "~/gen/shorts/v1alpha1/strategies_pb";
 import { auth } from "~/server/auth";
 import { createSignedInTransport } from "../auth-transport";
 
-/** The API's default and largest page for this read. */
+/** This page's default page size; the API's default is 50, and its largest is 200. */
 const DEFAULT_PAGE = 20;
 const MAX_PAGE = 200;
 
 const STRATEGY_ID = /^[a-z0-9-]{1,64}$/;
 const STOCK_CODE = /^[A-Z0-9]{1,6}$/;
 const PAGE_TOKEN = /^\d{1,18}$/;
+const RULES_HASH = /^[0-9a-f]{64}$/;
 
 export type SignalEventsResult =
   | { ok: true; page: SignalEventsPage }
@@ -30,6 +31,8 @@ export interface SignalEventsInput {
   strategyId: string;
   /** Optional: one stock's changes only. */
   stockCode?: string;
+  /** Optional: the rules version to read (64 lowercase hex); "" the live one. */
+  versionHash?: string;
   /** The next_page_token of the previous page. */
   pageToken?: string;
   pageSize?: number;
@@ -55,6 +58,11 @@ export async function getSignalEventsForViewer(
   if (stockCode !== "" && !STOCK_CODE.test(stockCode))
     return { ok: false, reason: "unavailable" };
 
+  const versionHash =
+    typeof input.versionHash === "string" ? input.versionHash : "";
+  if (versionHash !== "" && !RULES_HASH.test(versionHash))
+    return { ok: false, reason: "unavailable" };
+
   const pageToken = typeof input.pageToken === "string" ? input.pageToken : "";
   if (pageToken !== "" && !PAGE_TOKEN.test(pageToken))
     return { ok: false, reason: "unavailable" };
@@ -73,7 +81,7 @@ export async function getSignalEventsForViewer(
     const client = createClient(StrategyService, transport);
     const response = await client.listStrategySignalEvents({
       strategyId,
-      versionHash: "",
+      versionHash,
       stockCode,
       since: "",
       pageToken,
