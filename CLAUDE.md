@@ -590,7 +590,7 @@ valuation, stock page).
 Signals / Alerts bar is `WorkspaceSubNav` (`components/workspace/`, shared with the
 ownership workspace), rendered by the client island `components/strategies/strategies-sub-nav.tsx`
 from the registry `lib/strategies/workspace-nav.ts`. Only enabled tabs render: My
-strategies and Alerts ship later. Signals links to the strategy the route is on, or else to the last strategy viewed
+strategies is on; Alerts ships later. Signals links to the strategy the route is on, or else to the last strategy viewed
 (localStorage in try/catch, default `crowded-short-breakout`); the server knows the first from
 the path, so the cached HTML is right without storage. The bar's accessible name is
 `Strategy workspace`, apart from the in-page switchers also named Strategies. On a
@@ -839,9 +839,11 @@ recipe fields on the wire (PR-12a).
 - **RPCs** `SaveStrategy`, `UnsaveStrategy` and `ListSavedStrategies` are `VISIBILITY_PRIVATE` on
   `StrategyService`, mirrored on the legacy service. The owner is the verified uid only. The cap is 20
   (`shortsstore.MaxSavedStrategies`): the save takes a per-user advisory lock, so the cap is exact under
-  concurrent saves, and a repeat save succeeds at the cap. A save past the cap is `FailedPrecondition`.
-- **Variant refs** resolve under the caller through `strategy_variants` (migration 000157 when it lands). A
-  database without that table owns no variant, so a variant save is `NotFound`.
+  concurrent saves, and a repeat save succeeds at the cap. A save past the cap is `PermissionDenied` with
+  `X-Entitlement-Detail` naming `cap_reached` (the web reads that detail, not the code). A save waits at most
+  one second for the lock and otherwise answers `Unavailable`, so a retry is safe and the pool is never parked.
+- **Variant refs** resolve under the caller through `strategy_variants` (the variants migration when it lands;
+  it must exclude soft-deleted rows). A database without that table owns no variant, so a variant save is `NotFound`.
 - **Web**: the static shell `app/strategies/my/page.tsx` and `my-strategies-island.tsx`. The server actions
   are `app/actions/strategies/saved.ts` (identity only, no cache). The Save control is
   `app/strategies/save-strategy-button.tsx` on the Signals header. It is gated by the `saves` capability and
