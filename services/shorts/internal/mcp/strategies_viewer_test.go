@@ -116,6 +116,14 @@ func TestGetStrategyPicksTextSaysWhatTheClampHides(t *testing.T) {
 		}
 	})
 
+	t.Run("one stock below the depth reads in the singular", func(t *testing.T) {
+		text := run(t, &shortsv1alpha1.GetStrategyPicksResponse{TotalCount: 1, Viewer: clamped},
+			GetStrategyPicksInput{StrategyID: "minervini-trend-template", Status: "setup"})
+		if !strings.Contains(text, "but 1 stock with that status ranks below it") {
+			t.Errorf("one clamped stock is worded in the plural: %q", text)
+		}
+	})
+
 	t.Run("sorted within the public top rows", func(t *testing.T) {
 		text := run(t, &shortsv1alpha1.GetStrategyPicksResponse{
 			Picks: []*shortsv1alpha1.StrategyPick{ranked}, TotalCount: 212, Viewer: clamped,

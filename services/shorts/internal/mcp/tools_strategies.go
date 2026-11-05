@@ -583,8 +583,12 @@ func describePicks(out GetStrategyPicksOutput, status, sortBy string, st *shorts
 	if public > 0 && status != "" && out.TotalCount > 0 && out.Count == 0 {
 		// The filter matched stocks, but none ranks in the public top rows the
 		// clamp serves: "no picks" would be false, and the advice would be wrong.
-		fmt.Fprintf(&b, "%s: none of the public top %d of the ranking has status %s, but %d stocks with that status rank below it. Connected with OAuth, up to 25 rows.",
-			name, public, status, out.TotalCount)
+		noun, verb := "stocks", "rank"
+		if out.TotalCount == 1 {
+			noun, verb = "stock", "ranks"
+		}
+		fmt.Fprintf(&b, "%s: none of the public top %d of the ranking has status %s, but %d %s with that status %s below it. Connected with OAuth, up to 25 rows.",
+			name, public, status, out.TotalCount, noun, verb)
 		b.WriteString(" " + describeRegime(out.Regime))
 		return b.String()
 	}
