@@ -331,3 +331,29 @@ func premiumContextFor() context.Context {
 		UserID: "user_premium", Email: "p@shorted.com.au", EmailVerified: true, Tier: "premium", TierResolved: true,
 	})
 }
+
+// The public readers never serve a variant: the version reads answer NotFound
+// for a variant's hash and list only canonical versions, and the events reader
+// (private) reads nothing for a variant hash either.
+func TestPublicReadersNeverReturnVariants(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	srv := newTestServer(t, &snapshotStoreFake{MockShortsStore: mocks.NewMockShortsStore(ctrl)})
+	variant := strings.Repeat("3", 64)
+
+	_, err := srv.GetStrategyVersion(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStrategyVersionRequest{
+		StrategyId: spec.StrategyZangerBreakout, VersionHash: variant,
+	}))
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err), "a variant hash is not a published version")
+
+	list, err := srv.ListStrategyVersions(context.Background(), connect.NewRequest(&shortsv1alpha1.ListStrategyVersionsRequest{}))
+	require.NoError(t, err)
+	for _, v := range list.Msg.Versions {
+		assert.NotEqual(t, variant, v.Version.RulesHash)
+		assert.Equal(t, "canonical", v.Version.Kind, v.Version.StrategyId)
+	}
+
+	_, err = srv.ListStrategySignalEvents(userContext("free"), connect.NewRequest(&shortsv1alpha1.ListStrategySignalEventsRequest{
+		StrategyId: spec.StrategyZangerBreakout, VersionHash: variant,
+	}))
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+}
