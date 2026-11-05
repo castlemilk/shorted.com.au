@@ -684,9 +684,11 @@ jobs:
   # version and recipe (and one immediately when a key has no succeeded run), runs at most five
   # requests or 20 minutes of work over one REPEATABLE READ read, and publishes only what the
   # publication gate passes. maxRetries 0: the next hourly run is the retry, and a Kubernetes retry
-  # would take a lease the run still holds. Memory: the whole history is held for one batch, measured
-  # in the live check (the job logs its peak RSS). The Telesis monitor shortted-strategies-backtest is
-  # registered by the owner.
+  # would take a lease the run still holds. Memory: the whole history is held for one batch, and a
+  # verify pass holds one more copy only after the first is released. GOMEMLIMIT is a soft ceiling
+  # under the 3Gi limit, so the collector works harder before the kernel kills the process. The job logs
+  # its peak RSS on every publish that verifies: the live check records that line, not a dry run's.
+  # The Telesis monitor shortted-strategies-backtest is registered by the owner.
   shorted-strategies-backtest:
     image: jobs
     args: ["strategies", "-mode", "backtest"]
@@ -698,3 +700,5 @@ jobs:
     env:
       # Writes only when this is "false"; the dry run is the default everywhere else.
       STRATEGIES_DRY_RUN: "false"
+      # A soft ceiling below the 3Gi limit: the collector runs harder before the kernel kills the job.
+      GOMEMLIMIT: "2600MiB"
