@@ -412,7 +412,7 @@ def test_selection_reads_only_parser_withheld_notices_largest_company_first():
     sql = " ".join(nd.SELECT_SQL.split())
     assert "a.read_by = 'parser'" in sql
     assert "('no_text', 'no_voting_power', 'no_holder')" in sql
-    assert "ORDER BY cm.market_cap DESC NULLS LAST" in sql
+    assert "THEN btrim(cm.market_cap::text)::float8 END DESC NULLS LAST" in sql
     assert "ann.announcement_date >= %(since)s::date" in sql
 
 
@@ -464,6 +464,53 @@ def test_a_pdf_that_is_not_a_pdf_is_a_fetch_failure():
 
     with pytest.raises(nd.FetchError):
         nd.fetch_pdf("https://www.asx.com.au/asxpdf/x.pdf", Sess())
+
+
+def test_fetch_pdf_follows_the_access_terms_page_to_the_document():
+    # ASX answers displayAnnouncement.do with its access-terms page: a hidden form field names the PDF.
+    terms = (b'<html><body><form name="showAnnouncementPDFForm" method="post">'
+             b'<input type="hidden" name="pdfURL" value="https://announcements.asx.com.au/asxpdf/x/y.pdf">'
+             b'</form></body></html>')
+    calls = []
+
+    class Resp:
+        def __init__(self, content):
+            self.status_code = 200
+            self.content = content
+
+    class Sess:
+        def get(self, url, **k):
+            calls.append(url)
+            return Resp(b"%PDF-1.4 doc" if url.endswith(".pdf") else terms)
+
+    got = nd.fetch_pdf("https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=1", Sess())
+    assert got.startswith(b"%PDF") and calls == [
+        "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=1",
+        "https://announcements.asx.com.au/asxpdf/x/y.pdf",
+    ]
+
+
+def test_fetch_pdf_names_asx_cannot_display_and_a_page_without_a_link():
+    class Resp:
+        def __init__(self, content):
+            self.status_code = 200
+            self.content = content
+
+    for body, reason in ((b'<p class="error"><span>Sorry, cannot display PDF.</span></p>', "cannot display"),
+                         (b"<html>nothing here</html>", "no pdfURL")):
+        class Sess:
+            def get(self, url, **k):
+                return Resp(body)
+        with pytest.raises(nd.FetchError) as e:
+            nd.fetch_pdf("https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?idsId=1", Sess())
+        assert reason in str(e.value)
+
+
+def test_candidates_are_ordered_by_a_numeric_market_cap_never_by_text():
+    # company-metadata.market_cap is text: "SUSPENDED" sorted first under a text ORDER BY, so a run
+    # over the largest companies read suspended ones (production, 2026-11-05).
+    assert "SUSPENDED" not in nd.SELECT_SQL
+    assert "::float8 END DESC NULLS LAST" in nd.SELECT_SQL
 
 
 # --- the run: budget, dry run, systemic errors ----------------------------------------------------
