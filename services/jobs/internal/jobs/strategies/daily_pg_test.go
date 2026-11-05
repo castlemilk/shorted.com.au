@@ -526,18 +526,21 @@ func TestDailySnapshotPromotionKeepsTheSupersededDates(t *testing.T) {
 	pool := dailyDB(t)
 	ctx := context.Background()
 	st := store{pool: pool}
-	live, ok := spec.Live(spec.StrategyZangerBreakout)
+	// v0 is the version live before the promotion; the registry's live version
+	// is v1, so v0 is taken by label and marked live for the first upsert.
+	v0, ok := spec.Version(spec.StrategyZangerBreakout, "v0")
 	require.True(t, ok)
+	v1, ok := spec.Version(spec.StrategyZangerBreakout, "v1")
+	require.True(t, ok)
+	require.True(t, v1.Live, "the registry's live version is v1")
+	v0.Live = true
 
-	first, err := registeredVersions([]spec.Registered{live})
+	first, err := registeredVersions([]spec.Registered{v0})
 	require.NoError(t, err)
 	require.NoError(t, st.upsertVersions(ctx, pool, civil.Date{Year: 2026, Month: time.November, Day: 12}, first))
 
-	v0 := live
 	v0.Live = false
-	v1 := live
-	v1.Label = "v1"
-	v1.Spec.Universe.MinSessions = 61
+	v1.Live = true
 	second, err := registeredVersions([]spec.Registered{v0, v1})
 	require.NoError(t, err)
 	promoted := civil.Date{Year: 2026, Month: time.November, Day: 16}
@@ -547,7 +550,7 @@ func TestDailySnapshotPromotionKeepsTheSupersededDates(t *testing.T) {
 	dates := func(label string) (status, liveFrom, supersededOn string) {
 		t.Helper()
 		require.NoError(t, pool.QueryRow(ctx, `SELECT status, coalesce(live_from::text, ''), coalesce(superseded_on::text, '')
-			FROM strategy_rule_versions WHERE strategy_id = $1 AND label = $2`, live.Spec.StrategyID, label).Scan(&status, &liveFrom, &supersededOn))
+			FROM strategy_rule_versions WHERE strategy_id = $1 AND label = $2`, spec.StrategyZangerBreakout, label).Scan(&status, &liveFrom, &supersededOn))
 		return status, liveFrom, supersededOn
 	}
 	status, liveFrom, supersededOn := dates("v0")
