@@ -140,10 +140,10 @@ func TestDeriveComputableFromQualityNeedsFlowAndBalance(t *testing.T) {
 	sessions := monthlySessions(t, "2024-01-01", "2024-12-31")
 	stmts := map[string][]Statement{
 		// A flow period with no balance snapshot is not computable for quality.
-		"A": {{PeriodEnd: mustD(t, "2023-06-30"), Span: 12, Flow: true}},
-		// A snapshot up to six months before the flow period counts.
+		"A": {{PeriodEnd: mustD(t, "2023-06-30"), Span: 12, Flow: true, Full: true}},
+		// A balance point up to six months before the flow period counts.
 		"B": {
-			{PeriodEnd: mustD(t, "2023-06-30"), Span: 12, Flow: true},
+			{PeriodEnd: mustD(t, "2023-06-30"), Span: 12, Flow: true, Full: true},
 			{PeriodEnd: mustD(t, "2023-03-31"), Span: 3, Balance: true},
 		},
 	}
@@ -165,5 +165,63 @@ func TestDeriveComputableFromQualityNeedsFlowAndBalance(t *testing.T) {
 func TestDeriveComputableFromNeedsARule(t *testing.T) {
 	if _, err := DeriveComputableFrom(annualUniverse(t, 2, 2), Needs{}, nil); err == nil {
 		t.Fatal("no fundamentals rule must be refused, not read as computable")
+	}
+}
+
+// An annual row that carries total equity is a balance point on its own, as the
+// 000132 view's balance basis reads it: no quarter row is needed.
+func TestDeriveComputableFromQualityAcceptsAnAnnualBalancePoint(t *testing.T) {
+	sessions := monthlySessions(t, "2024-01-01", "2024-12-31")
+	stmts := map[string][]Statement{
+		"A": {
+			{PeriodEnd: mustD(t, "2023-06-30"), Span: 12, Flow: true, Full: true, Balance: true},
+		},
+		"B": {
+			{PeriodEnd: mustD(t, "2023-06-30"), Span: 12, Flow: true, Full: true, Balance: true},
+		},
+	}
+	got, err := DeriveComputableFrom(stmts, Needs{Quality: true}, sessions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Found || got.ComputableFrom.String() != "2024-01-31" {
+		t.Errorf("computable_from = %s found %t, want 2024-01-31 (annual balance point)", got.ComputableFrom, got.Found)
+	}
+}
+
+// A flow period with revenue but no net income is not the quality flow basis.
+func TestDeriveComputableFromQualityNeedsBothFlowLines(t *testing.T) {
+	sessions := monthlySessions(t, "2024-01-01", "2024-12-31")
+	stmts := map[string][]Statement{
+		"A": {
+			{PeriodEnd: mustD(t, "2023-06-30"), Span: 12, Flow: true, Full: false, Balance: true},
+		},
+	}
+	got, err := DeriveComputableFrom(stmts, Needs{Quality: true}, sessions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Found {
+		t.Errorf("found at %s with a flow row that lacks net income", got.ComputableFrom)
+	}
+}
+
+// A half is compared with the same half a year earlier, twelve months apart, so
+// two consecutive halves are not a growth pair.
+func TestGrowthHalvesArePairedTwelveMonthsApart(t *testing.T) {
+	m := mustD(t, "2024-06-28")
+	consecutive := []Statement{
+		{PeriodEnd: mustD(t, "2023-06-30"), Span: 6, Flow: true},
+		{PeriodEnd: mustD(t, "2023-12-31"), Span: 6, Flow: true},
+	}
+	if growthComputable(consecutive, m) {
+		t.Error("two consecutive halves read as a growth pair")
+	}
+	sameHalfYearBefore := []Statement{
+		{PeriodEnd: mustD(t, "2023-06-30"), Span: 6, Flow: true},
+		{PeriodEnd: mustD(t, "2024-06-30"), Span: 6, Flow: true},
+	}
+	if !growthComputable(sameHalfYearBefore, mustD(t, "2024-09-02")) {
+		t.Error("the same half a year earlier is not a growth pair")
 	}
 }

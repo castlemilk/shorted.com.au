@@ -20,14 +20,18 @@ import (
 const ComputableShare = 0.5
 
 // Statement is one stored statement period of a code, as the derivation reads
-// it. Span is the period's length in months: 12 for an annual (or ttm) period,
-// 6 for a half, 3 for a quarter balance snapshot.
+// it. Span is the period's length in months: 12 for an annual period, 6 for a
+// half, 3 for a quarter.
 type Statement struct {
 	PeriodEnd civil.Date
 	Span      int
-	// Flow is an income-statement period (annual, half or ttm). Balance is a
-	// balance snapshot (a quarter row, which carries no flow fields).
+	// Flow is an income-statement period that carries revenue or net income (an
+	// annual or a half row). Full is a flow period that carries both: the flow basis
+	// of the quality rules, as the 000132 view reads it (an annual row). Balance is
+	// a balance point: any annual, half or quarter row that carries total equity,
+	// as the view's balance basis reads it.
 	Flow    bool
+	Full    bool
 	Balance bool
 }
 
@@ -75,7 +79,9 @@ func knownAt(p Statement, m civil.Date) bool {
 }
 
 // growthComputable reports a like-span pair of flow periods, both known on m.
-// An annual pair is one year apart and a half pair six months apart.
+// The comparison is always with the same period a year earlier: an annual pair
+// is twelve months apart, and a half pair is the same half of the year before
+// (twelve months apart too, not the half before it).
 func growthComputable(stmts []Statement, m civil.Date) bool {
 	for _, cur := range stmts {
 		if !cur.Flow || !knownAt(cur, m) || (cur.Span != 12 && cur.Span != 6) {
@@ -85,7 +91,7 @@ func growthComputable(stmts []Statement, m civil.Date) bool {
 			if !prior.Flow || prior.Span != cur.Span || !knownAt(prior, m) {
 				continue
 			}
-			if sameMonthAfter(prior.PeriodEnd, cur.Span, cur.PeriodEnd) {
+			if sameMonthAfter(prior.PeriodEnd, 12, cur.PeriodEnd) {
 				return true
 			}
 		}
@@ -99,11 +105,12 @@ func sameMonthAfter(from civil.Date, span int, to civil.Date) bool {
 	return next.Year == to.Year && next.Month == to.Month
 }
 
-// qualityComputable reports a flow period and a balance snapshot, both known on
-// m, where the snapshot is at or up to six months before the flow period's end.
+// qualityComputable reports a full-year flow period (revenue and net income) and
+// a balance point, both known on m, where the balance point is at or up to six
+// months before the flow period's end.
 func qualityComputable(stmts []Statement, m civil.Date) bool {
 	for _, f := range stmts {
-		if !f.Flow || !knownAt(f, m) {
+		if !f.Flow || !f.Full || f.Span != 12 || !knownAt(f, m) {
 			continue
 		}
 		for _, b := range stmts {
@@ -163,8 +170,10 @@ func MonthEnds(sessions []civil.Date) []civil.Date {
 
 // DeriveComputableFrom runs the strict derivation. statements maps each universe
 // code to its stored statement periods; sessions are the window's sessions,
-// ascending. The universe is every key of statements. It is a function of its
-// inputs: codes are visited in sorted order.
+// ascending. The universe is every key of statements (deviation: the spec's
+// universe at each month end is the priced eligible set, which this build does
+// not compute; the denominator here is the statement codes). It is a function of
+// its inputs: codes are visited in sorted order.
 func DeriveComputableFrom(statements map[string][]Statement, need Needs, sessions []civil.Date) (Derivation, error) {
 	if !need.Growth && !need.Quality {
 		return Derivation{}, fmt.Errorf("backtest: computable_from needs a fundamentals rule")

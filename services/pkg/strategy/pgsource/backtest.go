@@ -68,9 +68,11 @@ func allRelationsExist(ctx context.Context, db DB, names ...string) (bool, error
 }
 
 // BacktestStatements reads the statement periods the strict computable_from
-// derivation reads, up to and including to: annual and half flow rows
-// that carry a revenue or NPAT line, and quarter balance snapshots. A missing
-// table is no statements, so the derivation reports not computable.
+// derivation reads, up to and including to, on the bases 000132's views use:
+// an annual or half row with a revenue or NPAT line is a flow period, an annual
+// row with both lines is the full-year flow basis, and any annual, half or
+// quarter row that carries total equity is a balance point. A missing table is
+// no statements, so the derivation reports not computable.
 func BacktestStatements(ctx context.Context, db DB, to civil.Date) (map[string][]backtest.Statement, error) {
 	ok, err := relationExists(ctx, db, "stock_fundamentals")
 	if err != nil {
@@ -84,7 +86,9 @@ func BacktestStatements(ctx context.Context, db DB, to civil.Date) (map[string][
 	defer cancel()
 	rows, err := db.Query(ctx, `
 		SELECT stock_code::text, period_type::text, period_end::date,
-		       (revenue IS NOT NULL OR net_income IS NOT NULL) AS has_flow
+		       (revenue IS NOT NULL OR net_income IS NOT NULL) AS has_flow,
+		       (revenue IS NOT NULL AND net_income IS NOT NULL) AS has_both,
+		       (total_equity IS NOT NULL) AS has_equity
 		  FROM stock_fundamentals
 		 WHERE period_end <= $1::date
 		   AND period_type IN ('annual', 'half', 'quarter')
@@ -101,18 +105,21 @@ func BacktestStatements(ctx context.Context, db DB, to civil.Date) (map[string][
 	for rows.Next() {
 		var code, periodType string
 		var end time.Time
-		var hasFlow bool
-		if err := rows.Scan(&code, &periodType, &end, &hasFlow); err != nil {
+		var hasFlow, hasBoth, hasEquity bool
+		if err := rows.Scan(&code, &periodType, &end, &hasFlow, &hasBoth, &hasEquity); err != nil {
 			return nil, fmt.Errorf("scan statement period: %w", err)
 		}
-		s := backtest.Statement{PeriodEnd: civil.DateOf(end)}
+		s := backtest.Statement{PeriodEnd: civil.DateOf(end), Balance: hasEquity}
 		switch periodType {
 		case "annual":
-			s.Span, s.Flow = 12, hasFlow
+			s.Span, s.Flow, s.Full = 12, hasFlow, hasBoth
 		case "half":
 			s.Span, s.Flow = 6, hasFlow
 		case "quarter":
-			s.Span, s.Balance = 3, true
+			s.Span = 3
+		}
+		if s.Span == 0 {
+			continue
 		}
 		if !s.Flow && !s.Balance {
 			continue
@@ -198,19 +205,16 @@ func LoadBacktestInputs(ctx context.Context, db DB, to civil.Date) (*backtest.Me
 			return nil, fmt.Errorf("read the cash rate: %w", err)
 		}
 	}
-	funds := map[string]features.Fundamentals{}
-	if ok, err := allRelationsExist(ctx, db, "mv_fundamentals_growth", "mv_fundamentals_quality", "stock_fundamentals_sync"); err != nil {
-		return nil, err
-	} else if ok {
-		if funds, err = Fundamentals(ctx, db); err != nil {
-			return nil, fmt.Errorf("read the fundamentals: %w", err)
-		}
-	}
+	// The fundamentals views are not read here. They hold today's figures, and a
+	// strict run must not hash them into its input (every refresh would change it).
+	// The strict path never simulates a fundamentals strategy: it stores the
+	// derivation's outcome (see the job). Approximate runs supply their own as-of
+	// figures.
 	industry := make(map[string]string, len(meta))
 	for code, cm := range meta {
 		industry[code] = cm.Industry
 	}
-	m.Divs, m.Funds = divs, funds
+	m.Divs = divs
 	m.Mkt = backtest.Market{
 		XJO: xjo, XJT: xjt, ASIC: asic, Ingests: ingests,
 		ETPs: etp, Names: names, Industry: industry, CashRate: rates,
