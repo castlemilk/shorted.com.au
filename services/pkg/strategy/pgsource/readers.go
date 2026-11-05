@@ -90,7 +90,9 @@ func Bars(ctx context.Context, db DB, code string, from, to civil.Date) ([]featu
 // Sydney open. The calendar, the regime and relative strength read those dates
 // as the session dates. Until the sync records exchange dates and the two
 // indexes are re-synced, a caller must not build candidates or a backtest on
-// these bars without accepting that shift.
+// these bars without accepting that shift. The daily snapshot reads them under
+// that gate: readiness rule (e) holds it while a weekend-dated bar is in its
+// window (services/jobs/README.md, "Strategy daily snapshot").
 func IndexBars(ctx context.Context, db DB, indexCode string, from, to civil.Date) ([]features.IndexBar, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
