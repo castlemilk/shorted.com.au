@@ -430,6 +430,26 @@ func decodeSignalRules(r shortsstore.StrategySignalEventRow, ev signalEvidence) 
 	return out, nil
 }
 
+// evidenceClosePivot reads the two numbers of an event's evidence on their own,
+// so a mistyped rule field cannot take them with it.
+type evidenceClosePivot struct {
+	Close json.RawMessage `json:"close"`
+	Pivot json.RawMessage `json:"pivot"`
+}
+
+// evidenceNumber is a JSON number as a float64. null, an absent field and any
+// other type (a string, an array) are not a number.
+func evidenceNumber(raw json.RawMessage) (float64, bool) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, false
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err != nil {
+		return 0, false
+	}
+	return f, true
+}
+
 // signalEventProto is one stored status change on the wire. Its rules come from
 // the evidence read against the rules version its rules_hash names. When that
 // fails the event is still returned with its close and pivot, and no rules, and
@@ -449,17 +469,27 @@ func signalEventProto(r shortsstore.StrategySignalEventRow) (*shortsv1alpha1.Str
 		out.Score = *r.Score
 	}
 	var ev signalEvidence
-	// encoding/json fills the fields it can before it reports a mistyped one, so
-	// close and pivot are read even when the evidence does not decode in full.
-	decodeErr := json.Unmarshal([]byte(r.Evidence), &ev)
+	if decodeErr := json.Unmarshal([]byte(r.Evidence), &ev); decodeErr != nil {
+		// encoding/json skips a mistyped field, finishes the document and returns
+		// the first type error at the end, and a mistyped field may still have
+		// left a value behind. So close and pivot are read one at a time, and each
+		// is kept only when it is a number.
+		var cp evidenceClosePivot
+		if json.Unmarshal([]byte(r.Evidence), &cp) == nil {
+			if c, ok := evidenceNumber(cp.Close); ok {
+				out.Close = c
+			}
+			if p, ok := evidenceNumber(cp.Pivot); ok {
+				out.Pivot, out.HasPivot = p, true
+			}
+		}
+		return out, fmt.Errorf("decode signal evidence: %w", decodeErr)
+	}
 	if ev.Close != nil {
 		out.Close = *ev.Close
 	}
 	if ev.Pivot != nil {
 		out.Pivot, out.HasPivot = *ev.Pivot, true
-	}
-	if decodeErr != nil {
-		return out, fmt.Errorf("decode signal evidence: %w", decodeErr)
 	}
 	rules, err := decodeSignalRules(r, ev)
 	if err != nil {

@@ -622,8 +622,9 @@ func TestSignalEventProto_DecodesStoredEvidenceText(t *testing.T) {
 	assert.Equal(t, "fail", ev.Rules[2].Status)
 }
 
-// A mistyped field makes encoding/json stop with an error, but it has already
-// read close and pivot. The event keeps them and serves no rules.
+// A mistyped field does not stop encoding/json: it skips that field, fills the
+// rest, and returns the first type error at the end. The event keeps the close
+// and pivot that were read and serves no rules.
 func TestSignalEventProto_MistypedEvidenceKeepsCloseAndPivot(t *testing.T) {
 	ev, err := signalEventProto(shortsstore.StrategySignalEventRow{
 		StockCode: "BHP", FromStatus: "setup", ToStatus: "triggered",
@@ -635,4 +636,59 @@ func TestSignalEventProto_MistypedEvidenceKeepsCloseAndPivot(t *testing.T) {
 	assert.True(t, ev.HasPivot)
 	assert.InDelta(t, 41.64, ev.Pivot, 1e-9)
 	assert.Empty(t, ev.Rules)
+}
+
+// A string close or pivot is not a price: it is served as absent, never as 0 with
+// has_pivot set, even when the rules fail to decode too.
+func TestSignalEventProto_MistypedPriceIsNotServed(t *testing.T) {
+	ev, err := signalEventProto(shortsstore.StrategySignalEventRow{
+		StockCode: "BHP", FromStatus: "setup", ToStatus: "triggered",
+		Evidence: `{"r":"PF","v":[1,null],"p":[null,null],"close":"41.2","pivot":"41.64"}`,
+	})
+	require.Error(t, err)
+	assert.Equal(t, "BHP", ev.StockCode)
+	assert.Zero(t, ev.Close)
+	assert.False(t, ev.HasPivot)
+	assert.Zero(t, ev.Pivot)
+	assert.Empty(t, ev.Rules)
+}
+
+// A CANSLIM setup marks only its failing trigger rules as waiting: near_high and
+// rs_leader are the two triggers, and a passing or unknown trigger never waits.
+func TestSignalEventProto_CANSLIMWaitingIsTheFailingTrigger(t *testing.T) {
+	reg, ok := spec.Live(spec.StrategyCANSLIM)
+	require.True(t, ok)
+	h, err := spec.RulesHash(reg.Spec)
+	require.NoError(t, err)
+	require.Len(t, reg.Spec.Rules, 6, "the statuses below are the six CANSLIM rules")
+	require.Equal(t, "near_high", reg.Spec.Rules[2].ID)
+	require.Equal(t, "rs_leader", reg.Spec.Rules[3].ID)
+
+	cases := []struct {
+		name    string
+		r       string
+		waiting map[int]bool
+	}{
+		// near_high passes; only rs_leader fails, so only rs_leader waits.
+		{"a failing rs_leader waits, a passing near_high does not", "PPPFPP", map[int]bool{2: false, 3: true}},
+		// rs_leader is unknown: an unknown trigger is not what the stock waits for.
+		{"an unknown rs_leader does not wait", "PPPUPP", map[int]bool{2: false, 3: false}},
+	}
+	for _, c := range cases {
+		n := len(reg.Spec.Rules)
+		ev, err := signalEventProto(shortsstore.StrategySignalEventRow{
+			StockCode: "BHP", FromStatus: "watch", ToStatus: "setup", RulesHash: h,
+			Evidence: signalEvidenceJSON(t, reg.Spec, c.r, 10.2, 9.5),
+		})
+		require.NoError(t, err, c.name)
+		require.Len(t, ev.Rules, n, c.name)
+		for i, want := range c.waiting {
+			assert.Equal(t, want, ev.Rules[i].Waiting, "%s: rule %s", c.name, ev.Rules[i].RuleId)
+		}
+		for i, rr := range ev.Rules {
+			if _, checked := c.waiting[i]; !checked {
+				assert.False(t, rr.Waiting, "%s: non-trigger rule %s never waits", c.name, rr.RuleId)
+			}
+		}
+	}
 }
