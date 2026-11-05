@@ -557,6 +557,13 @@ type StrategyVersionReader interface {
 	ReadCanonicalRuleVersions(ctx context.Context) ([]CanonicalRuleVersion, error)
 }
 
+// The Postgres store serves both version reads; the API reaches them by type
+// assertion, so a method lost here serves the registry instead of the table.
+var (
+	_ StrategyLiveReader    = (*postgresStore)(nil)
+	_ StrategyVersionReader = (*postgresStore)(nil)
+)
+
 // ReadCanonicalRuleVersions returns every canonical version the table records,
 // whatever its status. A database without the table answers
 // ErrStrategySnapshotUnavailable.

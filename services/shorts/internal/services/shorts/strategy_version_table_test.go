@@ -252,3 +252,54 @@ func TestServedVersionWhenTheUniverseFailsFollowsTheTable(t *testing.T) {
 	assert.Equal(t, "v0", got.reg.Label, "the table marks v0 live")
 	assert.Equal(t, "2026-11-12", got.liveFrom)
 }
+
+// adapterVersionStore is the store the binary builds the server on: the Postgres
+// store behind StoreAdapter. Its embedded shortsstore.Store is nil, so a call to
+// any method the adapter does not forward panics, which is the point.
+type adapterVersionStore struct {
+	shortsstore.Store
+	*versionTableFake
+}
+
+// The version tables reach the server through the adapter, as in production. The
+// handler tests fake the store directly and pass even when the adapter forwards
+// nothing: then the table reads as unmigrated and the registry answers.
+func TestServedVersionReadsThroughTheStoreAdapter(t *testing.T) {
+	v0 := tableVersion(t, spec.StrategyZangerBreakout, "v0", "live", "2026-11-12", "")
+	v1 := tableVersion(t, spec.StrategyZangerBreakout, "v1", "draft", "", "")
+	fake := versionFake(t, v0, v1)
+	srv := &ShortsServer{
+		store:  NewStoreAdapter(adapterVersionStore{versionTableFake: fake}),
+		cache:  NewMemoryCache(time.Minute),
+		logger: NewLoggerAdapter(),
+	}
+	srv.config.StrategySource = StrategySourceSnapshot
+	ctx := context.Background()
+
+	resp, err := srv.GetStrategyPicks(ctx, connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{StrategyId: spec.StrategyZangerBreakout}))
+	require.NoError(t, err)
+	assert.Equal(t, "v0", resp.Msg.Version.Label, "the table's live row, not the registry's v1")
+	assert.Equal(t, "live", resp.Msg.Version.Status)
+	assert.Equal(t, "2026-11-12", resp.Msg.Version.LiveFrom)
+
+	live, err := srv.GetStrategyVersion(ctx, connect.NewRequest(&shortsv1alpha1.GetStrategyVersionRequest{StrategyId: spec.StrategyZangerBreakout}))
+	require.NoError(t, err)
+	assert.Equal(t, "v0", live.Msg.Version.Version.Label)
+	assert.Equal(t, "2026-11-12", live.Msg.Version.Version.LiveFrom)
+
+	list, err := srv.ListStrategyVersions(ctx, connect.NewRequest(&shortsv1alpha1.ListStrategyVersionsRequest{StrategyId: spec.StrategyZangerBreakout}))
+	require.NoError(t, err)
+	require.Len(t, list.Msg.Versions, 2)
+	assert.Equal(t, "live", list.Msg.Versions[0].Version.Status)
+	assert.Equal(t, "2026-11-12", list.Msg.Versions[0].Version.LiveFrom)
+	assert.Equal(t, "draft", list.Msg.Versions[1].Version.Status)
+}
+
+// A store without the version tables answers unavailable through the adapter, so
+// the API falls back to the registry rather than failing the read.
+func TestAdapterOverAStoreWithoutTheVersionTablesIsUnavailable(t *testing.T) {
+	_, err := NewStoreAdapter(plainStore{}).ReadLiveRuleVersions(context.Background())
+	assert.ErrorIs(t, err, shortsstore.ErrStrategySnapshotUnavailable)
+	_, err = NewStoreAdapter(plainStore{}).ReadCanonicalRuleVersions(context.Background())
+	assert.ErrorIs(t, err, shortsstore.ErrStrategySnapshotUnavailable)
+}
