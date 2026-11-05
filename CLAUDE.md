@@ -819,12 +819,10 @@ recipe fields on the wire (PR-12a).
   oldest first. Dry run unless `STRATEGIES_DRY_RUN=false`. Container suite:
   `make test-strategies-daily-pg`. Admin `strategy_status` (`jobs:read`) reports
   the phases, holds and table sizes, aggregates only.
-  **Depends on `fix/index-bars-sydney-date`, which is not in this branch.** The job
-  reads stored XJO dates for the data calendar, the regime and RS. Until that fix
-  is deployed and the scheduled index sync (`-years 2`) has re-dated the job's
-  window, XJO bars in daylight-saving months are dated one UTC day early: Sunday
-  rows, duplicate closes, no Friday rows. A session written then keeps the shifted
-  figures, because a completed features phase is read back, never recomputed.
+  **Index dates are fixed in the tree (#860).** The job reads stored XJO dates for the data calendar, the regime
+  and RS. Rows inside the scheduled index window (`-years 2`) are dated by ASX session once the index sync has run;
+  older XJO history stays one UTC day early under daylight saving until the one-off `-years 21` re-fetch. A session
+  written before that keeps the shifted figures, because a completed features phase is read back, never recomputed.
   Readiness rule (e) holds with `xjo_weekend_rows` while any XJO bar in the window
   is dated on a weekend, so a deploy ahead of the fix holds and pages rather than
   writes. Merge PR-10, and enable writes, only after

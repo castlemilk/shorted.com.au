@@ -73,7 +73,7 @@ services/jobs/
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
 | `review` | — (new job, data review) | no — laptop tool, read-only: `task data:review` |
 | `short-data-sync` | `services/daily-sync` (Python, **DELETED**) — **ASIC shorts tier only** | yes — `shorts-data-sync` (cutover 4, in-place image swap; Python source deleted in the cleanup slice) |
-| `strategies` | — (new job, strategy engine) | yes for `-mode daily`: `shorted-strategies-daily` (VKE-native, weekdays at :00, :20 and :40 past 13 to 16 UTC; `STRATEGIES_DRY_RUN=false` writes; the 16:40 run exits 10 when any session is still held). `-mode parity` runs by hand. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks"). **Depends on `fix/index-bars-sydney-date` (not in this branch):** writes only after that fix is deployed and the index sync has re-dated the window, see "Strategy daily snapshot" |
+| `strategies` | — (new job, strategy engine) | yes for `-mode daily`: `shorted-strategies-daily` (VKE-native, weekdays at :00, :20 and :40 past 13 to 16 UTC; `STRATEGIES_DRY_RUN=false` writes; the 16:40 run exits 10 when any session is still held). `-mode parity` runs by hand. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks"). Index dates are fixed in the tree (#860); writes wait for the index sync to re-date the window and the XJO weekend-row gate to clear, see "Strategy daily snapshot" |
 | `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
 | `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
 
@@ -941,13 +941,13 @@ Runs as `shorted-strategies-daily` (VKE CronJob, weekdays at :00, :20 and :40 pa
 when `STRATEGIES_DRY_RUN=false`, holds a session it cannot yet read whole, backfills held sessions oldest
 first (ten per run), and exits 10 once at the 16:40 UTC run when a session is still held.
 
-- **Depends on `fix/index-bars-sydney-date`, which is not in this branch.** That fix dates index bars by their
-  Sydney session and removes stored rows in a re-fetched window that are not sessions (the weekend rows). The
-  job reads stored XJO dates for the data calendar, the regime and RS. Until the fix is deployed and the
-  scheduled index sync (`-years 2`, which covers the job's 420-day window) has run, XJO bars in daylight-saving
-  months are dated one UTC day early. Readiness rule (e) holds the job with `xjo_weekend_rows` while any XJO
-  bar in the window is dated on a weekend, so a deploy ahead of the fix holds rather than writes. Gate before
-  enabling writes, after the one-off `-years 21` XJO re-fetch as well:
+- **Index dates are fixed in the tree (#860).** The index sync dates each bar by its Sydney session and removes
+  stored rows in a re-fetched window that are not sessions (the weekend rows). The job reads stored XJO dates for
+  the data calendar, the regime and RS. Rows inside the scheduled index window (`-years 2`, which covers the job's
+  420-day window) are dated by session once the sync has run; older history waits for the one-off `-years 21`
+  (XJO) and `-years 8` (XJT) re-fetch. Readiness rule (e) holds the job with `xjo_weekend_rows` while any XJO bar
+  in the window is dated on a weekend, so a deploy ahead of the re-sync holds rather than writes. Gate before
+  enabling writes, after the one-off XJO re-fetch as well:
   `task db:prod:psql -- -At -c "SELECT count(*) FROM index_prices WHERE index_code = 'XJO' AND EXTRACT(ISODOW FROM date) > 5"`
   must return 0.
 - **Signal event evidence** (`strategy_signal_events.evidence`, compact JSON): `r` is one string with one

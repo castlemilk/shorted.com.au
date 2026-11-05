@@ -657,10 +657,12 @@ jobs:
   # is the deadline: a session still held then exits 10 once, so the monitor pages once. A held
   # session is retried by the next run and backfilled oldest first. maxRetries 0: the next scheduled
   # run is the retry, and a Kubernetes retry would take the lease the run already holds.
-  # Depends on fix/index-bars-sydney-date, which is not in this branch: the job reads stored XJO
-  # dates, and until that fix is deployed and the index sync has re-dated its window, readiness
-  # rule (e) holds every session (xjo_weekend_rows) rather than writing shifted figures. The
-  # runbook gate before enabling writes is in services/jobs/README.md ("Strategy daily snapshot").
+  # Index dates are fixed in the tree (#860): the job reads stored XJO dates, the index sync dates
+  # each bar by its ASX session, and history older than the scheduled window waits for the one-off
+  # -years 21 (XJO) and -years 8 (XJT) re-fetch. Readiness rule (e) holds every session
+  # (xjo_weekend_rows) while a weekend-dated XJO bar remains in the window, rather than writing
+  # shifted figures. The runbook gate before enabling writes is in services/jobs/README.md
+  # ("Strategy daily snapshot").
   shorted-strategies-daily:
     image: jobs
     args: ["strategies", "-mode", "daily"]
