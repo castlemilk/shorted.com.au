@@ -526,3 +526,89 @@ func TestDailySnapshotSkipsACompletedFeaturesPhase(t *testing.T) {
 	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND status = 'completed'"))
 }
 
+// TestDailySnapshotPruneDeletesWhatTheRetentionRulesNoLongerNeed seeds sixteen
+// completed sessions with feature rows, the blobs they point at and two events,
+// then runs the prune the job runs after a write. The oldest session's rows go,
+// and the blob only it referenced goes with them; a blob a kept row still
+// references stays; the session at the cut-off stays; an event older than three
+// years goes and a recent one stays.
+func TestDailySnapshotPruneDeletesWhatTheRetentionRulesNoLongerNeed(t *testing.T) {
+	pool := dailyDB(t)
+	ctx := context.Background()
+	newest := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	day := func(i int) string { return newest.AddDays(-i).String() }
+	const rulesHash = "0000000000000000000000000000000000000000000000000000000000000001"
+
+	for _, h := range []string{"orphan", "shared"} {
+		_, err := pool.Exec(ctx, `INSERT INTO strategy_fundamentals_blobs (hash, body, first_seen) VALUES ($1, '{}', '2026-01-01')`, h)
+		require.NoError(t, err)
+	}
+	for i := 0; i <= keepSessions; i++ {
+		for _, p := range phaseNames {
+			_, err := pool.Exec(ctx, `INSERT INTO strategy_daily_runs (as_of, phase, status, engine_version)
+				VALUES ($1::date, $2, 'completed', 'test')`, day(i), p)
+			require.NoError(t, err)
+		}
+	}
+	_, err := pool.Exec(ctx, `
+		INSERT INTO strategy_features_daily (as_of, feature_set, stock_code, ordinary_fresh_60, is_ordinary, in_asic_report, features, fundamentals_hash)
+		VALUES ($1::date, 'fs1', 'AAA', true, true, true, '{}', 'orphan'),
+		       ($1::date, 'fs1', 'BBB', true, true, true, '{}', 'shared'),
+		       ($2::date, 'fs1', 'DDD', true, true, true, '{}', NULL),
+		       ($3::date, 'fs1', 'CCC', true, true, true, '{}', 'shared')`, day(keepSessions), day(keepSessions-1), day(0))
+	require.NoError(t, err, "seed feature rows")
+	_, err = pool.Exec(ctx, `
+		INSERT INTO strategy_rule_versions (rules_hash, strategy_id, label, kind, engine_major, feature_set, canonical_json)
+		VALUES ($1, 'zanger-breakout', 'v0', 'canonical', 1, 'fs1', '{}')`, rulesHash)
+	require.NoError(t, err, "seed the rules version")
+	_, err = pool.Exec(ctx, `
+		INSERT INTO strategy_signal_events (rules_hash, engine_version, strategy_id, stock_code, as_of, from_status, to_status)
+		VALUES ($1, 'test', 'zanger-breakout', 'AAA', '2022-01-03', 'none', 'watch'),
+		       ($1, 'test', 'zanger-breakout', 'AAA', $2::date, 'watch', 'setup')`, rulesHash, day(0))
+	require.NoError(t, err, "seed the signal events")
+
+	require.NoError(t, pruneAfter(ctx, pool, store{pool: pool}, newest, t.Logf))
+
+	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_features_daily WHERE as_of = $1::date`, day(keepSessions)),
+		"the oldest session's feature rows are pruned")
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_features_daily WHERE as_of = $1::date`, day(keepSessions-1)),
+		"the session at the cut-off is kept")
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_features_daily WHERE as_of = $1::date`, day(0)))
+	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_fundamentals_blobs WHERE hash = 'orphan'`),
+		"a blob only a pruned row referenced is pruned with it")
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_fundamentals_blobs WHERE hash = 'shared'`),
+		"a blob a kept row still references is kept")
+	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_signal_events WHERE as_of < current_date - interval '3 years'`),
+		"an event older than three years is pruned")
+	require.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM strategy_signal_events WHERE as_of = $1::date`, day(0)))
+}
+
+// TestDailySnapshotKeepsHoldsThroughCompletion holds a session twice (no price sweep
+// yet), then completes it. The completed features row keeps the two holds and the
+// reason of the last one, which its own completed write would otherwise overwrite.
+func TestDailySnapshotKeepsHoldsThroughCompletion(t *testing.T) {
+	pool := dailyDB(t)
+	seedDailySession(t, pool)
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `DELETE FROM sync_status`)
+	require.NoError(t, err, "hold the session: no price sweep")
+
+	for i := 0; i < 2; i++ {
+		res, err := runDaily(ctx, pool, dailyOpts(true, t))
+		require.NoError(t, err)
+		require.NotNil(t, res.Held)
+	}
+	require.Equal(t, "2", stringOf(t, pool, `SELECT counts->>'holds' FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND phase = 'features' AND status = 'held'`))
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO sync_status (environment, hostname, checkpoint_stocks_total, status, started_at, completed_at)
+		VALUES (NULL, NULL, 1800, 'completed', '2026-11-12 06:00:00+00', '2026-11-12 06:30:00+00')`)
+	require.NoError(t, err, "the price sweep completes")
+	res, err := runDaily(ctx, pool, dailyOpts(true, t))
+	require.NoError(t, err)
+	require.Nil(t, res.Held)
+
+	require.Equal(t, "completed", stringOf(t, pool, `SELECT status FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND phase = 'features'`))
+	require.Equal(t, "2", stringOf(t, pool, `SELECT counts->>'holds' FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND phase = 'features'`))
+	require.Equal(t, "no_price_sweep", stringOf(t, pool, `SELECT counts->>'last_hold_reason' FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND phase = 'features'`))
+}

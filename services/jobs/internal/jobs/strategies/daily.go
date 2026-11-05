@@ -117,7 +117,7 @@ func runDaily(ctx context.Context, pool *pgxpool.Pool, opts dailyOptions) (daily
 	logf("strategies: session %s; processing %d session(s): %v", d, len(sessions), sessions)
 
 	for _, s := range sessions {
-		held, err := runSession(ctx, pool, st, s, s != d, opts, &res)
+		held, err := runSession(ctx, pool, st, s, isLate(s, opts.Now), opts, &res)
 		if err != nil {
 			return res, err
 		}
@@ -138,6 +138,13 @@ func runDaily(ctx context.Context, pool *pgxpool.Pool, opts dailyOptions) (daily
 		}
 	}
 	return res, nil
+}
+
+// isLate reports whether a session is snapshotted after its own day: a session a
+// later run takes, including one whose run falls on a weekend or an ASX holiday.
+// A same-day run is current.
+func isLate(s civil.Date, now time.Time) bool {
+	return s.Before(civil.DateOf(now.UTC()))
 }
 
 // allPhasesDone reports whether every phase of a session completed.
@@ -211,7 +218,15 @@ func runSession(ctx context.Context, pool *pgxpool.Pool, st store, s civil.Date,
 		if ok, reason := evaluateReadiness(s, facts); !ok {
 			logf("strategies: session %s held: %s", s, reason)
 			if opts.Write {
-				if err := st.writeRun(ctx, pool, runRow{AsOf: s, Phase: phaseFeatures, Status: "held", EngineVersion: engine.Version, Note: reason}); err != nil {
+				prior, err := st.holdHistory(ctx, s)
+				if err != nil {
+					return nil, err
+				}
+				heldCounts, err := counts(map[string]any{"holds": prior.Holds + 1, "last_hold_reason": reason})
+				if err != nil {
+					return nil, err
+				}
+				if err := st.writeRun(ctx, pool, runRow{AsOf: s, Phase: phaseFeatures, Status: "held", EngineVersion: engine.Version, Note: reason, Counts: heldCounts}); err != nil {
 					return nil, err
 				}
 			}
@@ -227,8 +242,15 @@ func runSession(ctx context.Context, pool *pgxpool.Pool, st store, s civil.Date,
 			return nil, fmt.Errorf("load session %s: %w", s, err)
 		}
 		out = buildSessionRows(in, fs)
+		// The holds the session took before it completed stay in its counts: the
+		// completed row replaces the held one, which is the only place they are kept.
+		prior, err := st.holdHistory(ctx, s)
+		if err != nil {
+			return nil, err
+		}
 		featCounts, err := counts(map[string]any{
 			"codes": len(out.Rows), "priced": out.Priced, "blobs": len(out.Blobs), "late": late, "xjo_bar": out.XJOBar,
+			"holds": prior.Holds, "last_hold_reason": prior.LastReason,
 		})
 		if err != nil {
 			return nil, err
@@ -595,7 +617,7 @@ func writeEvents(ctx context.Context, pool *pgxpool.Pool, st store, s civil.Date
 // bars up to it (point-in-time by construction), the ASIC rows and ingests of two
 // years, the ETP set, names, metadata, dividends and the fundamentals.
 func loadSessionInputs(ctx context.Context, pool *pgxpool.Pool, d civil.Date) (sessionInputs, error) {
-	from := d.AddDays(-lookbackDays)
+	from := d.AddDays(-barLookbackDays)
 	codes, err := pgsource.BarCodes(ctx, pool, from, d)
 	if err != nil {
 		return sessionInputs{}, err

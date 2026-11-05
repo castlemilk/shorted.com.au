@@ -13,8 +13,8 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/instrument"
-	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pipeline"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pipeline"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/snapshot"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 )
@@ -38,8 +38,9 @@ const (
 	// asicWindowDays is the ASIC history the daily job loads: two years, for the
 	// share counts the basis guard and the instrument rule read.
 	asicWindowDays = 730
-	// lookbackDays is the bar history the features read (barLookbackDays).
-	lookbackDays = 400
+	// pricedWindowDays is the window the priced-session count reads (fs1's 400 days).
+	// The bars the job loads cover barLookbackDays, the window the features read.
+	pricedWindowDays = 400
 	// priceFloorSessions is how many sessions before D the median count of
 	// readiness rule (c) reads.
 	priceFloorSessions = 10
@@ -114,7 +115,7 @@ func buildSessionRows(in sessionInputs, fs spec.FeatureSpec) sessionRows {
 		}
 
 		pf, okPrice := features.AsOf(bars, in.XJO, d, fs)
-		priced := pricedCount(bars, d.AddDays(-lookbackDays), d)
+		priced := pricedCount(bars, d.AddDays(-pricedWindowDays), d)
 		barD, hasBar := barOn(bars, d)
 		// The session counts as priced only when its bar has a positive close: the
 		// pipeline's bar_on_session rule, which the stored universe must match.

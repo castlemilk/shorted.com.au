@@ -30,6 +30,10 @@ type readinessFacts struct {
 	// PriorPriced is the same count for each of the previous sessions.
 	PriorPriced []int
 	XJOBar      bool
+	// XJOWeekendRows is true when the XJO index stores a bar dated on a Saturday or
+	// Sunday inside the bar window: the index's stored dates are not yet exchange
+	// dates (the index sync that re-dates them has not run).
+	XJOWeekendRows bool
 }
 
 // sweepFact is the newest price-sweep row of sync_status.
@@ -45,7 +49,8 @@ type sweepFact struct {
 //	(a) no ASIC sync is writing shorts;
 //	(b) the newest price sweep started on or after the session's 05:30 UTC and completed;
 //	(c) the priced codes are at least 85% of the median of the previous ten sessions;
-//	(d) the XJO index has a bar dated the session.
+//	(d) the XJO index has a bar dated the session;
+//	(e) the XJO index has no weekend-dated bar in the bar window.
 func evaluateReadiness(s civil.Date, f readinessFacts) (bool, string) {
 	if f.ASICSyncRunning {
 		return false, "asic_sync_running"
@@ -67,6 +72,9 @@ func evaluateReadiness(s civil.Date, f readinessFacts) (bool, string) {
 	}
 	if !f.XJOBar {
 		return false, "xjo_bar_missing"
+	}
+	if f.XJOWeekendRows {
+		return false, "xjo_weekend_rows"
 	}
 	return true, ""
 }
@@ -131,6 +139,13 @@ func readinessDB(ctx context.Context, pool *pgxpool.Pool, s civil.Date) (readine
 		SELECT EXISTS (SELECT 1 FROM index_prices WHERE index_code = $1 AND date = $2::date)`,
 		"XJO", s.String()).Scan(&f.XJOBar); err != nil {
 		return f, fmt.Errorf("read XJO bar: %w", err)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM index_prices
+		                WHERE index_code = $1 AND date BETWEEN $2::date AND $3::date
+		                  AND EXTRACT(ISODOW FROM date) > 5)`,
+		"XJO", s.AddDays(-barLookbackDays).String(), s.String()).Scan(&f.XJOWeekendRows); err != nil {
+		return f, fmt.Errorf("read XJO weekend rows: %w", err)
 	}
 	return f, nil
 }

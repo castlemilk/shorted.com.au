@@ -323,4 +323,3 @@ func TestStoredUniverseReasonsAgreeWithThePipeline(t *testing.T) {
 	bars[len(bars)-1].Close = 0
 	check("zero close on the session", in)
 }
-

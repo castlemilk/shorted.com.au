@@ -86,6 +86,11 @@ func TestEvaluateReadinessTruthTable(t *testing.T) {
 			mutate: func(f *readinessFacts) { f.XJOBar = false },
 			reason: "xjo_bar_missing",
 		},
+		{
+			name:   "the XJO index stores a weekend-dated bar in the window (e)",
+			mutate: func(f *readinessFacts) { f.XJOWeekendRows = true },
+			reason: "xjo_weekend_rows",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -175,6 +180,34 @@ func TestMinuteOfDayDrivesTheDeadline(t *testing.T) {
 	}
 	if minuteOfDay(at(16, 40)) < deadlineMinute {
 		t.Error("16:40 UTC is the deadline")
+	}
+}
+
+// TestIsLateCountsAgainstTheRunDate: a session is late when a later run takes it,
+// including a holiday weekday's run that takes the previous trading day.
+func TestIsLateCountsAgainstTheRunDate(t *testing.T) {
+	thu := civil.Date{Year: 2026, Month: time.December, Day: 24}
+	fri := thu.AddDays(1) // an ASX holiday: the cron still runs
+	at := func(d civil.Date, h int) time.Time {
+		return time.Date(d.Year, d.Month, d.Day, h, 0, 0, 0, time.UTC)
+	}
+	cases := []struct {
+		name string
+		s    civil.Date
+		now  time.Time
+		late bool
+	}{
+		{"the same-day run is current", thu, at(thu, 13), false},
+		{"a holiday run takes the previous session late", thu, at(fri, 13), true},
+		{"a weekend run takes Friday late", fri, at(fri.AddDays(2), 14), true},
+		{"a session's own last run is still current", thu, at(thu, 16), false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := isLate(c.s, c.now); got != c.late {
+				t.Fatalf("isLate(%s, %s) = %v, want %v", c.s, c.now, got, c.late)
+			}
+		})
 	}
 }
 

@@ -128,6 +128,30 @@ func (s store) completedSessions(ctx context.Context, upTo civil.Date, inclusive
 	return out, rows.Err()
 }
 
+// holdState is how often a session's features phase was held before it completed,
+// and the reason of the last hold. The counts of the run row carry it.
+type holdState struct {
+	Holds      int
+	LastReason string
+}
+
+// holdHistory reads a session's hold state from its features row. A missing row, or
+// a missing table, is no holds.
+func (s store) holdHistory(ctx context.Context, d civil.Date) (holdState, error) {
+	var h holdState
+	err := s.pool.QueryRow(ctx, `
+		SELECT COALESCE((counts->>'holds')::int, 0), COALESCE(counts->>'last_hold_reason', '')
+		  FROM strategy_daily_runs WHERE as_of = $1::date AND phase = $2`, d.String(), phaseFeatures).
+		Scan(&h.Holds, &h.LastReason)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows), isUndefinedTable(err):
+		return holdState{}, nil
+	case err != nil:
+		return holdState{}, fmt.Errorf("read the holds of %s: %w", d, err)
+	}
+	return h, nil
+}
+
 // runRow is one strategy_daily_runs row.
 type runRow struct {
 	AsOf          civil.Date
