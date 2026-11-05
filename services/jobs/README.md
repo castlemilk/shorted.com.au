@@ -166,6 +166,49 @@ behaviour: the standalone `cmd/audit-gaps` used a bare `pgxpool.New` (extended
 protocol, default pool size) against the same Supabase pooler, and now shares the
 tuned config.
 
+### Benchmark indices (`market-data index-sync`, job `shorted-index-sync`)
+
+XJO, XAO, XKO and XJT are fetched from Yahoo into `index_prices` (migration
+000117), with the series registry in `index_metadata`. The scheduled CronJob
+runs `-years 2` daily at 11:30 UTC, and it re-dates only that two-year window.
+
+**Dating.** A bar is dated by its ASX session, the Sydney date of its open
+(`providers.SessionDate`). Yahoo stamps a session at 10:00 Sydney, which is the
+previous UTC day under daylight saving, so the old UTC dating filed every
+daylight-saving session one day early: a Monday's close sat under the Sunday.
+The symptoms in production were weekend rows (XJO 481, XAO 483, XKO 324,
+XJT 177 before the fix), no Friday rows, and each weekday holding the next
+session's close.
+
+**Write.** Per series, the upsert and a bounded clean-up run in one
+transaction. The clean-up removes only this series' rows dated inside the
+response's first and last session that the response does not carry: the weekend
+rows and any stale holiday row the old dating left in that window. Rows outside
+the window are never touched. An empty or failed response writes and removes
+nothing. `-dry-run` fetches, logs how many stored rows the write would remove
+for each code (the same bounds, a count only), and writes nothing.
+
+**One-off operator step, after the deploy that carries this change.** The
+scheduled two-year window re-dates only its own rows, so history older than two
+years stays one session early in daylight-saving months until the full history
+is re-fetched once. Run each command with `-dry-run` first, check the counts,
+then run it again without the flag:
+
+```bash
+shorted market-data index-sync -years 21 -dry-run   # XJO, XAO, XKO
+shorted market-data index-sync -years 21            # XJO, XAO, XKO
+shorted market-data index-sync -code XJT -years 8 -dry-run
+shorted market-data index-sync -code XJT -years 8   # Yahoo answers 400 to a longer XJT window
+```
+
+The `-years 21` run also asks Yahoo for XJT. Its 400 is logged as a fetch
+failure and writes nothing for XJT, so the run still exits 0. Until the re-fetch
+has run, the history before the two-year window stays one session early in
+daylight-saving months.
+
+Its test suite is `make test-indexsync-pg` (`services/jobs/internal/jobs/marketdata/index_sync_pg_test.go`).
+It gates the deploy in `terraform-deploy.yml`'s `run-tests` job.
+
 ### `discovery` — env-only, browser image
 
 No flags, before or after: `GCS_BUCKET_NAME` (default `shorted-data`) and
