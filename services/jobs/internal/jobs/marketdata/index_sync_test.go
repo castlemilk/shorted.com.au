@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+	_ "time/tzdata" // the zone the session-date tests are written in, on any host
+
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/marketdata/providers"
 )
 
 func chartJSON(body string) []byte { return []byte(body) }
@@ -174,6 +177,15 @@ func TestSubcommandsDoNotBypassThePoolBuilder(t *testing.T) {
 	}
 }
 
+// sydney is the zone the session-date tests state their sessions in.
+var sydney = func() *time.Location {
+	loc, err := time.LoadLocation("Australia/Sydney")
+	if err != nil {
+		panic(err)
+	}
+	return loc
+}()
+
 // Yahoo stamps a session at its 10:00 Sydney open. Under daylight saving that
 // instant is the previous UTC day, and the session must still date to its own
 // weekday. A Monday filed under the Sunday before it is the defect this pins.
@@ -189,13 +201,13 @@ func TestSessionDateUsesTheSydneyDayUnderDaylightSaving(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := sessionDate(c.open.Unix()).Format("2006-01-02"); got != c.want {
-				t.Errorf("sessionDate(%s) = %s, want %s", c.open, got, c.want)
+			if got := providers.SessionDate(c.open.Unix()).Format("2006-01-02"); got != c.want {
+				t.Errorf("providers.SessionDate(%s) = %s, want %s", c.open, got, c.want)
 			}
 		})
 	}
 	// A stamp at midnight UTC is the same session in standard time: 10:00 AEST.
-	if got := sessionDate(time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC).Unix()).Format("2006-01-02"); got != "2026-07-06" {
+	if got := providers.SessionDate(time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC).Unix()).Format("2006-01-02"); got != "2026-07-06" {
 		t.Errorf("midnight-UTC stamp dated %s, want 2026-07-06", got)
 	}
 }

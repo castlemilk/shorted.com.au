@@ -9,32 +9,16 @@ import (
 	"log"
 	"math"
 	"net/url"
+	"strings"
 	"time"
-	_ "time/tzdata" // the jobs image is distroless; embed the zone session dates depend on
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/marketdata/providers"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
-
-// sydney is the ASX's zone. A session's date is its date there.
-var sydney = func() *time.Location {
-	loc, err := time.LoadLocation("Australia/Sydney")
-	if err != nil {
-		panic(fmt.Sprintf("load Australia/Sydney: %v", err)) // unreachable with time/tzdata embedded
-	}
-	return loc
-}()
-
-// sessionDate is the date of the session a Yahoo bar stamp belongs to. Yahoo
-// stamps a session at its 10:00 Sydney open, which is the previous UTC day under
-// daylight saving, so the UTC date filed each Monday's session under the Sunday
-// before it. The Sydney date is the session's date in either time.
-func sessionDate(ts int64) time.Time {
-	local := time.Unix(ts, 0).In(sydney)
-	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
-}
 
 func indexSyncJob() runner.Job {
 	return runner.Func{
@@ -116,7 +100,7 @@ func parseIndexChart(body []byte) ([]indexBar, string, error) {
 
 	bars := make([]indexBar, 0, len(res.Timestamp))
 	for i, ts := range res.Timestamp {
-		bar := indexBar{Date: sessionDate(ts)}
+		bar := indexBar{Date: providers.SessionDate(ts)}
 		at := func(xs []*float64) *float64 {
 			if i < len(xs) && xs[i] != nil && !math.IsNaN(**&xs[i]) && !math.IsInf(*xs[i], 0) {
 				return xs[i]
@@ -158,10 +142,16 @@ func loadIndexRegistry(ctx context.Context, pool *pgxpool.Pool) ([]indexSeries, 
 	return out, rows.Err()
 }
 
-func upsertIndexBars(ctx context.Context, pool *pgxpool.Pool, code string, bars []indexBar) (int64, error) {
+// execer is what the index writes need. A pool and a transaction both have it,
+// and the upsert and the clean-up of one series share a transaction.
+type execer interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}
+
+func upsertIndexBars(ctx context.Context, db execer, code string, bars []indexBar) (int64, error) {
 	var written int64
 	for _, b := range bars {
-		tag, err := pool.Exec(ctx, `
+		tag, err := db.Exec(ctx, `
 			INSERT INTO index_prices (index_code, date, open, high, low, close, volume)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			ON CONFLICT (index_code, date) DO UPDATE SET
@@ -176,19 +166,73 @@ func upsertIndexBars(ctx context.Context, pool *pgxpool.Pool, code string, bars 
 	return written, nil
 }
 
-// deleteWeekendIndexBars removes stored rows of one index dated on a Saturday or
-// Sunday. The ASX never trades on a weekend, so such a row is a session filed
-// under the wrong day by the old UTC dating (a Monday's close under the Sunday).
-// The upsert cannot correct it: the same session is now filed under its own
-// weekday, so the stale row survives unless it is removed here.
-func deleteWeekendIndexBars(ctx context.Context, pool *pgxpool.Pool, code string) (int64, error) {
-	tag, err := pool.Exec(ctx, `
-		DELETE FROM index_prices
-		 WHERE index_code = $1 AND EXTRACT(ISODOW FROM date) > 5`, code)
-	if err != nil {
-		return 0, fmt.Errorf("delete weekend %s rows: %w", code, err)
+// staleIndexRows selects one series' stored rows that a fetch should have
+// replaced: dated inside the fetched window and absent from the response. The
+// response's dates arrive as one comma-separated string, which is the one form
+// every pgx protocol mode encodes the same way. Rows outside the window are
+// history this response does not describe, so they are never selected.
+const staleIndexRows = `index_code = $1 AND date BETWEEN $2 AND $3
+	AND date <> ALL(string_to_array($4, ',')::date[])`
+
+// barWindow is the first and last session of a response and every session it
+// carries, as the comma-separated list staleIndexRows reads.
+func barWindow(bars []indexBar) (first, last time.Time, dates string) {
+	first, last = bars[0].Date, bars[0].Date
+	days := make([]string, 0, len(bars))
+	for _, b := range bars {
+		if b.Date.Before(first) {
+			first = b.Date
+		}
+		if b.Date.After(last) {
+			last = b.Date
+		}
+		days = append(days, b.Date.Format("2006-01-02"))
 	}
-	return tag.RowsAffected(), nil
+	return first, last, strings.Join(days, ",")
+}
+
+// replaceIndexBars writes one series' sessions and removes the stale rows the
+// old UTC dating left inside the window: the weekend rows it filed under a
+// Saturday or Sunday, and any holiday row the response no longer carries. Both
+// happen in one transaction, so a failure leaves the series as it was. An empty
+// response writes and removes nothing.
+func replaceIndexBars(ctx context.Context, pool *pgxpool.Pool, code string, bars []indexBar) (written, removed int64, err error) {
+	if len(bars) == 0 {
+		return 0, 0, nil
+	}
+	first, last, dates := barWindow(bars)
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return 0, 0, fmt.Errorf("begin %s: %w", code, err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }() // a no-op once committed
+	written, err = upsertIndexBars(ctx, tx, code, bars)
+	if err != nil {
+		return 0, 0, err
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM index_prices WHERE `+staleIndexRows, code, first, last, dates)
+	if err != nil {
+		return 0, 0, fmt.Errorf("remove stale %s rows: %w", code, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, 0, fmt.Errorf("commit %s: %w", code, err)
+	}
+	return written, tag.RowsAffected(), nil
+}
+
+// countStaleIndexRows is the dry run's count of what replaceIndexBars would
+// remove for the same response. It writes nothing.
+func countStaleIndexRows(ctx context.Context, pool *pgxpool.Pool, code string, bars []indexBar) (int64, error) {
+	if len(bars) == 0 {
+		return 0, nil
+	}
+	first, last, dates := barWindow(bars)
+	var n int64
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM index_prices WHERE `+staleIndexRows,
+		code, first, last, dates).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count stale %s rows: %w", code, err)
+	}
+	return n, nil
 }
 
 func runIndexSync(ctx context.Context, args []string) error {
@@ -274,23 +318,21 @@ func runIndexSync(ctx context.Context, args []string) error {
 			continue
 		}
 		if *dryRun {
-			log.Printf("index-sync: [dry-run] %s %s %d sessions %s..%s", s.Code, currency, len(bars),
-				bars[0].Date.Format("2006-01-02"), bars[len(bars)-1].Date.Format("2006-01-02"))
+			stale, err := countStaleIndexRows(ctx, pool, s.Code, bars)
+			if err != nil {
+				return err
+			}
+			log.Printf("index-sync: [dry-run] %s %s %d sessions %s..%s; would remove %d stored rows in that window",
+				s.Code, currency, len(bars), bars[0].Date.Format("2006-01-02"),
+				bars[len(bars)-1].Date.Format("2006-01-02"), stale)
 			continue
 		}
-		written, err := upsertIndexBars(ctx, pool, s.Code, bars)
+		written, removed, err := replaceIndexBars(ctx, pool, s.Code, bars)
 		if err != nil {
 			return err
 		}
-		log.Printf("index-sync: %s %d sessions written (%s..%s)", s.Code, written,
-			bars[0].Date.Format("2006-01-02"), bars[len(bars)-1].Date.Format("2006-01-02"))
-		removed, err := deleteWeekendIndexBars(ctx, pool, s.Code)
-		if err != nil {
-			return err
-		}
-		if removed > 0 {
-			log.Printf("index-sync: %s removed %d weekend rows filed under the old UTC dating", s.Code, removed)
-		}
+		log.Printf("index-sync: %s %d sessions written (%s..%s), %d stale rows removed", s.Code, written,
+			bars[0].Date.Format("2006-01-02"), bars[len(bars)-1].Date.Format("2006-01-02"), removed)
 	}
 
 	// Every series failing is an outage worth a non-zero exit; some failing is

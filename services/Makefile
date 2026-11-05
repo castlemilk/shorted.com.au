@@ -789,7 +789,7 @@ test-alerts-e2e: test-integration-images
 test-indexsync-pg: test-integration-images
 	@set -e; \
 	cd jobs && GOWORK=off CGO_ENABLED=0 INDEXSYNC_TESTCONTAINERS=1 \
-		go test -count=1 -tags=testcontainers -run WeekendIndexBars ./internal/jobs/marketdata/
+		go test -count=1 -tags=testcontainers -run IndexSyncPG ./internal/jobs/marketdata/
 
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench
