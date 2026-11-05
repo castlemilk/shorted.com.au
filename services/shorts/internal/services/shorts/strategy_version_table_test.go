@@ -238,3 +238,17 @@ func TestCrowdedShortFundamentalsCountOnlyItsOwnUniverse(t *testing.T) {
 	assert.Equal(t, int32(7), zanger.Msg.UniverseCount)
 	assert.Equal(t, int32(5), zanger.Msg.FundamentalsRowsCount, "RDY, SET, QAA, QBB and CBA hold a row")
 }
+
+// A universe that cannot be read still names the table's live version, not the
+// registry's: the served version never comes from a guess the table contradicts.
+func TestServedVersionWhenTheUniverseFailsFollowsTheTable(t *testing.T) {
+	v0 := tableVersion(t, spec.StrategyZangerBreakout, "v0", "live", "2026-11-12", "")
+	fake := versionFake(t, v0)
+	fake.snapErr = errors.New("connection reset")
+	srv := newTestServer(t, fake)
+	srv.config.StrategySource = StrategySourceSnapshot
+
+	got := srv.servedVersionOf(context.Background(), spec.StrategyZangerBreakout)
+	assert.Equal(t, "v0", got.reg.Label, "the table marks v0 live")
+	assert.Equal(t, "2026-11-12", got.liveFrom)
+}

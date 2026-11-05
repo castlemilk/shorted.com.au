@@ -220,10 +220,24 @@ func (s *ShortsServer) servedVersionOf(ctx context.Context, strategyID string) s
 	}
 	u, err := s.loadStrategyUniverse(ctx)
 	if err != nil {
-		s.logger.Warnf("served version of %s unavailable, naming the registry's live version: %v", strategyID, err)
-		return resolveServedOne(strategyID, StrategySourceSnapshot, nil)
+		s.logger.Warnf("served version of %s unavailable, naming the table's live version: %v", strategyID, err)
+		return s.tableServedVersion(ctx, strategyID)
 	}
 	return u.served[strategyID]
+}
+
+// tableServedVersion is the served version read from the table alone, for a
+// universe that cannot be read. It is the table's live row, and the registry's
+// live flag only when the table is unreadable or has no row for the strategy.
+func (s *ShortsServer) tableServedVersion(ctx context.Context, strategyID string) servedVersion {
+	t, err := s.readVersionTable(ctx)
+	if err == nil && t.known {
+		hash := t.liveRulesHash(strategyID)
+		if r, ok := spec.ByHash(hash); ok && r.Spec.StrategyID == strategyID {
+			return servedVersion{reg: r, liveFrom: t.rows[hash].LiveFrom}
+		}
+	}
+	return resolveServedOne(strategyID, StrategySourceSnapshot, nil)
 }
 
 // tableLiveRulesHash is the rules hash the table marks live for a strategy, the
