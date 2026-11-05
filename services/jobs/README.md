@@ -966,19 +966,55 @@ first (ten per run), and exits 10 once at the 16:40 UTC run when a session is st
      Otherwise the superseded version's events in [X, live_from) are deleted and the backfill, which evaluates live
      versions only, never rebuilds them.
 
-  Back up the four tables first, outside the repo, one CSV per table:
-  `task db:prod:psql -- -At -c "COPY (SELECT * FROM <table> WHERE as_of >= 'X') TO STDOUT WITH (FORMAT csv, HEADER)" > ~/strategy-recompute-X/<table>.csv`
-  (`<table>` is each of `strategy_signal_events`, `strategy_daily_runs`, `strategy_features_daily`,
-  `strategy_regime_daily`). Then write one file with the four statements, in this order, and apply it as one
-  transaction: `DELETE FROM strategy_signal_events WHERE as_of >= 'X';`, then `strategy_daily_runs`,
-  `strategy_features_daily`, `strategy_regime_daily`, each `WHERE as_of >= 'X'`. Run it with
-  `task db:prod:apply FILE=<file> CONFIRM=prod`, which wraps the file in one transaction. Verify the counts
-  against the backups before the next run.
+  Back up the four tables and the fundamentals blobs they reference, first, outside the repo. Each file is SQL
+  that `task db:prod:apply` replays: one `INSERT` per row through `jsonb_populate_record`, so every column keeps
+  its type and the events keep their `id`. Make the directory first, then generate each file through the
+  read-only probe (`X` is the session, written as a date in every line):
+
+  ```sh
+  mkdir -p ~/strategy-recompute-X
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_fundamentals_blobs SELECT * FROM jsonb_populate_record(NULL::strategy_fundamentals_blobs, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_fundamentals_blobs t WHERE t.hash IN (SELECT fundamentals_hash FROM strategy_features_daily WHERE as_of >= 'X' AND fundamentals_hash IS NOT NULL)" > ~/strategy-recompute-X/blobs.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_regime_daily SELECT * FROM jsonb_populate_record(NULL::strategy_regime_daily, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_regime_daily t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/regime.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_features_daily SELECT * FROM jsonb_populate_record(NULL::strategy_features_daily, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_features_daily t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/features.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_daily_runs SELECT * FROM jsonb_populate_record(NULL::strategy_daily_runs, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_daily_runs t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/runs.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_signal_events SELECT * FROM jsonb_populate_record(NULL::strategy_signal_events, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_signal_events t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/events.sql
+  ```
+
+  Count what each file holds before the change: `grep -c '^INSERT' ~/strategy-recompute-X/*.sql` must match
+  `SELECT count(*)` for the same rows (the blobs are the ones the feature rows reference). Then write the
+  deletes, with the same `X`, into `~/strategy-recompute-X/restore-delete.sql`:
+
+  ```sql
+  DELETE FROM strategy_signal_events WHERE as_of >= 'X';
+  DELETE FROM strategy_daily_runs WHERE as_of >= 'X';
+  DELETE FROM strategy_features_daily WHERE as_of >= 'X';
+  DELETE FROM strategy_regime_daily WHERE as_of >= 'X';
+  ```
+
+  The recompute starts with the deletes alone, applied as one transaction (`task db:prod:apply` wraps the file
+  in `--single-transaction`, with the statement timeout off). The next scheduled runs then rewrite X. To undo
+  it, apply the restore file, which is those deletes followed by the backup inserts. The blobs go first, because
+  the feature rows reference them:
+
+  ```sh
+  cat ~/strategy-recompute-X/restore-delete.sql ~/strategy-recompute-X/blobs.sql ~/strategy-recompute-X/regime.sql \
+      ~/strategy-recompute-X/features.sql ~/strategy-recompute-X/runs.sql ~/strategy-recompute-X/events.sql \
+      > ~/strategy-recompute-X/restore.sql
+  task db:prod:apply FILE="$HOME/strategy-recompute-X/restore.sql" CONFIRM=prod
+  ```
+
+  The restore file is also the way back: run it on its own, under precondition 1, to put the session exactly
+  as it was backed up (its deletes remove whatever the recompute wrote for X first, so the inserts never meet a
+  conflicting row). Blobs the recompute added and no restored row references are removed by the next run's
+  prune. Verify the counts against the backups before the next run.
 
   The next scheduled runs backfill from the newest remaining complete session, ten per run. Those sessions take
   today's fundamentals, metadata, ETP set and dividends, not what was known on their day, so every recomputed
-  session is written with `late=true` in its features `counts`. The fundamentals blobs are content-addressed and
-  stay.
+  session is written with `late=true` in its features `counts`. Blobs are not kept for good: each run's prune
+  deletes every blob no feature row references (`prune.go`, the fundamentals blobs step). A recomputed session
+  whose fundamentals changed leaves its old blobs unreferenced, so the next run removes them. That is why the
+  backup holds the blobs its rows reference, and why the restore puts them back before the feature rows that
+  point at them.
 - **A session that can never pass.** A closure missing from `asxcalendar` is a trading day to the job. It fails
   readiness rule (c) (`no_priced_codes`) on every run, so every later run stops at that date and the 16:40 run
   pages. The job has no operator flag to skip a session: add the closure to `asxcalendar` (a code change). The
