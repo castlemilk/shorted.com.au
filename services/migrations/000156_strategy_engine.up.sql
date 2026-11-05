@@ -125,34 +125,34 @@ CREATE TABLE IF NOT EXISTS strategy_signal_events (
 );
 
 -- The one live canonical version per strategy. Guarded: the index is built only when the catalog lacks it.
-DO $m155_idx_live$
+DO $m156_idx_live$
 BEGIN
   IF to_regclass('public.idx_srv_one_live') IS NULL THEN
     CREATE UNIQUE INDEX idx_srv_one_live ON strategy_rule_versions (strategy_id)
       WHERE status = 'live' AND kind = 'canonical';
   END IF;
-END $m155_idx_live$;
+END $m156_idx_live$;
 
 -- The blob prune's anti-join and the foreign key check probe this index.
-DO $m155_idx_fhash$
+DO $m156_idx_fhash$
 BEGIN
   IF to_regclass('public.idx_sfd_fundamentals_hash') IS NULL THEN
     CREATE INDEX idx_sfd_fundamentals_hash ON strategy_features_daily (fundamentals_hash);
   END IF;
-END $m155_idx_fhash$;
+END $m156_idx_fhash$;
 
-DO $m155_idx_sse_strategy$
+DO $m156_idx_sse_strategy$
 BEGIN
   IF to_regclass('public.idx_sse_strategy_date') IS NULL THEN
     CREATE INDEX idx_sse_strategy_date ON strategy_signal_events (strategy_id, as_of DESC);
   END IF;
-END $m155_idx_sse_strategy$;
+END $m156_idx_sse_strategy$;
 
-DO $m155_idx_sse_code$
+DO $m156_idx_sse_code$
 BEGIN
   IF to_regclass('public.idx_sse_code_date') IS NULL THEN
     CREATE INDEX idx_sse_code_date ON strategy_signal_events (stock_code, as_of DESC);
   END IF;
-END $m155_idx_sse_code$;
+END $m156_idx_sse_code$;
 
 COMMIT;

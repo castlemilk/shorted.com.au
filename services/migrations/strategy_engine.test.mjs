@@ -91,10 +91,10 @@ test("every index is created only when the catalog lacks it", () => {
   const outsideBlocks = code.replace(/DO \$[a-z0-9_]+\$[\s\S]*?\$[a-z0-9_]+\$;/g, "");
   assert.doesNotMatch(outsideBlocks, /CREATE (UNIQUE )?INDEX/i, "CREATE INDEX must sit inside a guarded DO block");
   for (const [tag, name, table] of [
-    ["m155_idx_live", "idx_srv_one_live", "strategy_rule_versions \\(strategy_id\\)"],
-    ["m155_idx_fhash", "idx_sfd_fundamentals_hash", "strategy_features_daily \\(fundamentals_hash\\)"],
-    ["m155_idx_sse_strategy", "idx_sse_strategy_date", "strategy_signal_events \\(strategy_id, as_of DESC\\)"],
-    ["m155_idx_sse_code", "idx_sse_code_date", "strategy_signal_events \\(stock_code, as_of DESC\\)"],
+    ["m156_idx_live", "idx_srv_one_live", "strategy_rule_versions \\(strategy_id\\)"],
+    ["m156_idx_fhash", "idx_sfd_fundamentals_hash", "strategy_features_daily \\(fundamentals_hash\\)"],
+    ["m156_idx_sse_strategy", "idx_sse_strategy_date", "strategy_signal_events \\(strategy_id, as_of DESC\\)"],
+    ["m156_idx_sse_code", "idx_sse_code_date", "strategy_signal_events \\(stock_code, as_of DESC\\)"],
   ]) {
     const match = up.match(new RegExp(`DO \\$${tag}\\$([\\s\\S]*?)\\$${tag}\\$;`));
     assert.ok(match, `missing guarded block ${tag}`);
