@@ -20,9 +20,9 @@ import (
 // generator. Its scripted events are the ones the publication gates need:
 //
 //   - codes 0-5 break out of a 40-session base on heavy volume (crowded shorts);
-//   - codes 6 and 7 have a gap of rows and a run of untraded sessions;
+//   - code 6 has a gap of rows and a run of untraded sessions;
 //   - code 8 is delisted: no rows after goldenSessions/2+150;
-//   - code 9 consolidates 1:10 without adjustment, and two ASIC reports either
+//   - code 9 consolidates 1:10 without adjustment, and the ASIC reports either
 //     side of it show the share count stepping down by the same factor;
 //   - code 10 is a 2-dp payer priced A$1-2: one cash dividend on an unadjusted
 //     ex-date (credited in cash) and one vendor-adjusted (total return);
@@ -36,6 +36,9 @@ const (
 	goldenK        = 350
 	goldenPrice4dp = "2023-06-01"
 	goldenStart    = "2023-01-02"
+	// goldenWindow opens the recipe one session after the first, so the first
+	// session is the seed the window's entries read.
+	goldenWindow = "2023-01-03"
 )
 
 // goldenSpec is the crowded-short version the golden run evaluates under: the
@@ -62,7 +65,7 @@ func goldenSpec(t interface{ Fatal(...any) }) spec.Spec {
 func goldenRecipe(t interface{ Fatal(...any) }) spec.Recipe {
 	for _, r := range spec.R1Recipes() {
 		if r.StrategyID == spec.StrategyCrowdedShortBreakout {
-			r.WindowStart = goldenStart
+			r.WindowStart = goldenWindow
 			return r
 		}
 	}
@@ -95,6 +98,11 @@ func goldenSessionDates() []civil.Date {
 	return out
 }
 
+// round4 keeps a value to four decimal places. The generator writes only
+// rounded values, so the committed files are the same on every architecture:
+// math.Exp and its kin differ in the last bit between amd64 and arm64.
+func round4(x float64) float64 { return math.Round(x*10000) / 10000 }
+
 // roundPrice keeps a price to cents before goldenPrice4dp and to four decimal
 // places after it, as the stored rows are.
 func roundPrice(x float64, d, price4dp civil.Date) float64 {
@@ -125,8 +133,8 @@ func buildGolden() goldenData {
 			lvl *= math.Exp(r)
 			tr *= math.Exp(r + 0.00012)
 		}
-		xjo[i] = features.IndexBar{Date: d, High: lvl * 1.004, Low: lvl * 0.996, Close: lvl}
-		xjt[i] = features.IndexBar{Date: d, High: tr * 1.004, Low: tr * 0.996, Close: tr}
+		xjo[i] = features.IndexBar{Date: d, High: round4(lvl * 1.004), Low: round4(lvl * 0.996), Close: round4(lvl)}
+		xjt[i] = features.IndexBar{Date: d, High: round4(tr * 1.004), Low: round4(tr * 0.996), Close: round4(tr)}
 	}
 	g.mkt.XJO, g.mkt.XJT = xjo, xjt
 	g.mkt.ETPs = map[string]bool{}
@@ -238,10 +246,12 @@ func buildGolden() goldenData {
 		g.bars[code] = bars
 	}
 
-	// ASIC: a report every fifth session for every code. Code 9's share count
-	// steps down tenfold with the consolidation, between the reports at 415 and
+	// ASIC: a report on every session for every code, so the calendar's
+	// sessions are the simulator's. Each report's short percentage varies, so a
+	// change to one report can change a later decision. Code 9's share count
+	// steps down tenfold with the consolidation, between the reports at 419 and
 	// 420.
-	for t := 0; t < goldenSessions; t += 5 {
+	for t := 0; t < goldenSessions; t++ {
 		d := dates[t]
 		for i := 0; i < goldenCodes; i++ {
 			code := goldenCode(i)
@@ -249,7 +259,7 @@ func buildGolden() goldenData {
 			if i == 9 && t >= 420 {
 				issued /= 10
 			}
-			pct := g.shortPct[code]
+			pct := round4(g.shortPct[code] * (0.7 + 0.6*rng.Float64()))
 			if i%4 == 3 {
 				pct = 0
 			}

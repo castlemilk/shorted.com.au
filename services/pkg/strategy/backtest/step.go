@@ -94,6 +94,11 @@ type CodeSession struct {
 type Session struct {
 	Date  civil.Date
 	Index int
+	// Seed marks the session before the window. It classifies the bars and
+	// records each code's status, so the window's first entries see the
+	// statuses and bars it left, but nothing is filled, marked, accrued or
+	// recorded on it.
+	Seed bool
 	// CashRate is the annual RBA cash rate as a fraction (0.0435 for 4.35%),
 	// forward-filled to this session.
 	CashRate             float64
@@ -356,6 +361,10 @@ func (st *State) Finish() []Trade {
 	return out
 }
 
+// A seed session (Session.Seed) classifies its bars and records its statuses
+// and suspects, and nothing else: it is the session before a window, which
+// seeds the window's first entries.
+//
 // Step advances the simulation by one session. The order is fixed: the
 // session's bars are classified and the P&L multiplier steps; the cash dividends
 // of positions held at the previous close are registered; exits and entries
@@ -374,6 +383,28 @@ func Step(st *State, s Session) {
 	}
 	codes := sortedKeys(by)
 
+	basis := st.classify(s, by, codes)
+	if s.Seed {
+		st.advance(s, by)
+		return
+	}
+
+	st.creditDividends(s, by, basis)
+	st.fillExits(s, by, basis)
+	st.fillEntries(s, by)
+	st.markToMarket(s, by, basis)
+	st.accrueCash(s)
+	st.payDividends()
+	st.decideExits(s, by)
+	st.scheduleEntries(s, by, codes)
+	st.record(s)
+	st.advance(s, by)
+}
+
+// classify notes each code's known corporate-action suspect and classifies its
+// bar against the previous one, stepping the P&L multiplier. It returns the
+// bar bases of the codes with a bar.
+func (st *State) classify(s Session, by map[string]*CodeSession, codes []string) map[string]BarBasis {
 	basis := make(map[string]BarBasis, len(codes))
 	for _, code := range codes {
 		c := by[code]
@@ -394,17 +425,7 @@ func Step(st *State, s Session) {
 		}
 		basis[code] = b
 	}
-
-	st.creditDividends(s, by, basis)
-	st.fillExits(s, by, basis)
-	st.fillEntries(s, by)
-	st.markToMarket(s, by, basis)
-	st.accrueCash(s)
-	st.payDividends()
-	st.decideExits(s, by)
-	st.scheduleEntries(s, by, codes)
-	st.record(s)
-	st.advance(s, by)
+	return basis
 }
 
 // cashCredited reports whether a recorded dividend on this bar is paid in cash:

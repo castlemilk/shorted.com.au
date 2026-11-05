@@ -16,11 +16,19 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 )
 
-// updateGolden rewrites the committed golden files from the generator and the
-// run. Use it only after an engine or recipe change:
+// updateGolden rewrites the committed expected output from the run. Use it only
+// after an engine or recipe change:
 //
 //	GOWORK=off go test ./pkg/strategy/backtest -run Golden -args -update
-var updateGolden = flag.Bool("update", false, "rewrite the golden dataset and its expected output")
+//
+// updateData rewrites the committed CSV from the generator. It is a separate
+// flag, so re-baselining the expected output never regenerates the dataset:
+//
+//	GOWORK=off go test ./pkg/strategy/backtest -run GoldenData -args -update-data
+var (
+	updateGolden = flag.Bool("update", false, "rewrite the golden expected output")
+	updateData   = flag.Bool("update-data", false, "rewrite the golden dataset from the generator")
+)
 
 const goldenDir = "testdata/golden"
 
@@ -105,7 +113,7 @@ func readGoldenCSV(t *testing.T, name string) [][]string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join(goldenDir, name))
 	if err != nil {
-		t.Fatalf("golden file %s: %v (regenerate with -args -update)", name, err)
+		t.Fatalf("golden file %s: %v (regenerate with -args -update-data)", name, err)
 	}
 	rows, err := csv.NewReader(bytes.NewReader(b)).ReadAll()
 	if err != nil {
@@ -201,16 +209,16 @@ func writeGolden(t *testing.T, files map[string][]byte) {
 // dataset can be rebuilt from its seed and a change to it is a deliberate one.
 func TestGoldenDataIsReproducible(t *testing.T) {
 	files := goldenFiles(buildGolden())
-	if *updateGolden {
+	if *updateData {
 		writeGolden(t, files)
 	}
 	for name, want := range files {
 		got, err := os.ReadFile(filepath.Join(goldenDir, name))
 		if err != nil {
-			t.Fatalf("%s: %v (regenerate with -args -update)", name, err)
+			t.Fatalf("%s: %v (regenerate with -args -update-data)", name, err)
 		}
 		if !bytes.Equal(got, want) {
-			t.Fatalf("%s differs from the generator; regenerate with -args -update", name)
+			t.Fatalf("%s differs from the generator; regenerate with -args -update-data", name)
 		}
 	}
 }

@@ -10,6 +10,7 @@ import (
 
 	"cloud.google.com/go/civil"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/calendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pipeline"
@@ -18,11 +19,11 @@ import (
 
 // Result is one run of a recipe over a version's rules.
 type Result struct {
-	// Sessions are the evaluated sessions, ascending. The first is the session
-	// before the window start, which is evaluated so that a stock already
-	// triggered on the window's first session does not enter.
+	// Sessions are the window's sessions, ascending: the calendar's sessions
+	// from window_start on. The session before the window is evaluated to seed
+	// each stock's last status, but it is not recorded and carries no equity.
 	Sessions []civil.Date
-	// Eligible counts, per session, the codes the universe admits.
+	// Eligible counts, per session in Sessions, the codes the universe admits.
 	Eligible []int
 	Records  []Record
 	Events   []Event
@@ -46,7 +47,10 @@ type Metrics struct {
 // plan is a run's inputs prepared for the simulator: the sessions, each carrying
 // the rows of the codes that ever trigger, and the simulator's configuration.
 type plan struct {
+	// sessions are the calendar's sessions from the seed session on. A session
+	// before the window has Seed set.
 	sessions []Session
+	// eligible counts, per entry of sessions, the codes the universe admits.
 	eligible []int
 	cfg      Config
 }
@@ -62,15 +66,17 @@ type plan struct {
 // Run is a function of its inputs: it reads no clock and no randomness, and
 // its output does not depend on the order in which in returns the codes.
 func Run(in Inputs, s spec.Spec, r spec.Recipe) (Result, error) {
-	p, err := prepare(in, s, r)
+	p, err := prepare(in, s, r, false)
 	if err != nil {
 		return Result{}, err
 	}
 	return simulate(p)
 }
 
-// prepare runs both passes and returns the simulator's sessions.
-func prepare(in Inputs, s spec.Spec, r spec.Recipe) (plan, error) {
+// prepare runs both passes and returns the simulator's sessions. With keepAll
+// every code keeps its rows on every session, not only the codes that trigger:
+// the gates compare every code's decisions with the snapshot's and across cuts.
+func prepare(in Inputs, s spec.Spec, r spec.Recipe, keepAll bool) (plan, error) {
 	if err := r.Validate(); err != nil {
 		return plan{}, fmt.Errorf("backtest: recipe: %w", err)
 	}
@@ -90,35 +96,41 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe) (plan, error) {
 		return plan{}, fmt.Errorf("backtest: window_start: %w", err)
 	}
 
-	pin, err := pipelineInputs(in)
+	// The inputs are read once: the bars are held for both passes.
+	pin, mkt, err := pipelineInputs(in)
 	if err != nil {
 		return plan{}, err
 	}
 	codes, bars := pin.Codes, pin.Bars
 	idx := pipeline.NewIndex(pin, s)
-	market := in.Market()
-	divs := make(map[string]map[civil.Date]float64, len(codes))
-	for _, code := range codes {
-		divs[code] = dividendsByDate(pin.Dividends[code])
-	}
 
-	// The evaluated sessions run from the session before the window start.
-	from := sort.Search(len(market.XJO), func(i int) bool { return !market.XJO[i].Date.Before(windowStart) }) - 1
+	// The sessions are the calendar's: pipelineInputs has already dropped the
+	// index bars on dates the calendar does not hold as sessions.
+	dates := make([]civil.Date, len(mkt.XJO))
+	for i, b := range mkt.XJO {
+		dates[i] = b.Date
+	}
+	n := len(dates)
+	seed := make([]bool, n)
+	for k, t := range dates {
+		seed[k] = t.Before(windowStart)
+	}
+	// The window's first session needs one session before it to seed statuses.
+	from := sort.Search(n, func(i int) bool { return !dates[i].Before(windowStart) }) - 1
 	if from < 0 {
 		from = 0
 	}
-	dates := make([]civil.Date, 0, len(market.XJO)-from)
-	for _, b := range market.XJO[from:] {
-		dates = append(dates, b.Date)
+	dates, seed = dates[from:], seed[from:]
+	n = len(dates)
+	if n == 0 {
+		return plan{}, errors.New("backtest: no sessions in the window")
 	}
-	n := len(dates)
 
 	// Pass 1: the universe statistics and regime of every session.
-	regimes := make([]engine.Regime, n)
-	stats := make([]engine.UniverseStats, n)
+	envs := make([]*engine.Env, n)
 	eligible := make([]int, n)
 	for k, t := range dates {
-		regimes[k] = features.Regime(market.XJO, t)
+		regime := features.Regime(mkt.XJO, t)
 		var rs []float64
 		for _, code := range codes {
 			c, bad := idx.CandidateAt(code, t)
@@ -131,25 +143,27 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe) (plan, error) {
 			}
 		}
 		sort.Float64s(rs)
-		stats[k] = engine.UniverseStats{Session: t, RS6m: rs}
+		envs[k] = engine.NewEnvFromStats(regime, engine.UniverseStats{Session: t, RS6m: rs})
 	}
 
 	// Pass 2: each code on each session. Only the codes that ever trigger keep
-	// their rows: no other code can hold a position or enter one.
+	// their rows, unless keepAll: no other code can hold a position or enter one.
 	kept := make([][]CodeSession, 0)
 	keptCodes := make([]string, 0)
 	for _, code := range codes {
 		rows := make([]CodeSession, n)
 		triggered := false
-		suspects := idx.Suspects(code)
+		caKnown := caBySession(idx.Suspects(code), dates)
+		divAt := dividendsBySession(pin.Dividends[code], dates)
 		for k, t := range dates {
 			cs := CodeSession{Code: code, Status: string(engine.StatusNone)}
 			cand, bad := idx.CandidateAt(code, t)
 			if bad == nil {
+				cand.Industry = mkt.Industry[code]
 				cands := []engine.Candidate{cand}
 				engine.PrepareCandidates(cands)
 				cand = cands[0]
-				pick, _ := engine.EvaluateOne(strategy, cand, engine.NewEnvFromStats(regimes[k], stats[k]))
+				pick, _ := engine.EvaluateOne(strategy, cand, envs[k])
 				cs.Status = string(pick.Status)
 				cs.Score = pick.Score
 				cs.Pivot = derefOr(cand.BaseHigh)
@@ -161,14 +175,14 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe) (plan, error) {
 				}
 			}
 			cs.Bar = barOn(bars[code], t)
-			cs.Dividend = divs[code][t]
-			cs.CA = caOn(suspects, t)
+			cs.Dividend = divAt[k]
+			cs.CA = caKnown[k]
 			rows[k] = cs
 			if cs.Status == statusTriggered {
 				triggered = true
 			}
 		}
-		if triggered {
+		if triggered || keepAll {
 			kept = append(kept, rows)
 			keptCodes = append(keptCodes, code)
 		}
@@ -179,8 +193,9 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe) (plan, error) {
 		sessions[k] = Session{
 			Date:      t,
 			Index:     k,
-			CashRate:  rateOn(market.CashRate, t) / 100,
-			Benchmark: levelOn(market.XJT, t),
+			Seed:      seed[k],
+			CashRate:  rateOn(mkt.CashRate, t) / 100,
+			Benchmark: levelOn(mkt.XJT, t),
 			Codes:     make([]CodeSession, 0, len(keptCodes)),
 		}
 	}
@@ -190,27 +205,43 @@ func prepare(in Inputs, s spec.Spec, r spec.Recipe) (plan, error) {
 		}
 	}
 
+	// The window's eligible counts, one per recorded session.
+	var windowEligible []int
+	for k := range dates {
+		if !seed[k] {
+			windowEligible = append(windowEligible, eligible[k])
+		}
+	}
+
 	cfg := ConfigOf(r)
 	cfg.Price4dpFrom = price4dp
 	cfg.LastLoaded = make(map[string]civil.Date, len(codes))
 	for _, code := range codes {
-		if b := bars[code]; len(b) > 0 {
-			cfg.LastLoaded[code] = b[len(b)-1].Date
+		if last, ok := lastPriced(bars[code]); ok {
+			cfg.LastLoaded[code] = last
 		}
 	}
-	return plan{sessions: sessions, eligible: eligible, cfg: cfg}, nil
+	return plan{sessions: sessions, eligible: windowEligible, cfg: cfg}, nil
 }
 
-// pipelineInputs reads the window's rows into the pipeline's form: the codes
-// sorted and unique, their bars checked for order, and the market rows. Run and
-// the tests that compare it with the snapshot path build their candidates from
-// the same value.
-func pipelineInputs(in Inputs) (*pipeline.Inputs, error) {
+// pipelineInputs reads the window's rows once into the pipeline's form: the
+// codes sorted and unique, their bars checked for order, and the market rows.
+// The index bars are kept on the calendar's sessions only, so a spurious bar on
+// a closed day reaches neither the regime nor the simulator. Run and the tests
+// that compare it with the snapshot path build their candidates from the same
+// value.
+func pipelineInputs(in Inputs) (*pipeline.Inputs, Market, error) {
 	codes := append([]string(nil), in.Codes()...)
 	sort.Strings(codes)
 	mkt := in.Market()
 	if len(mkt.XJO) == 0 {
-		return nil, errors.New("backtest: no index bars")
+		return nil, Market{}, errors.New("backtest: no index bars")
+	}
+	cal := calendarOf(mkt)
+	mkt.XJO = sessionBars(mkt.XJO, cal)
+	mkt.XJT = sessionBars(mkt.XJT, cal)
+	if len(mkt.XJO) == 0 {
+		return nil, Market{}, errors.New("backtest: no index sessions")
 	}
 	pin := &pipeline.Inputs{
 		Codes:        codes,
@@ -227,19 +258,45 @@ func pipelineInputs(in Inputs) (*pipeline.Inputs, error) {
 	}
 	for i, code := range codes {
 		if i > 0 && codes[i-1] == code {
-			return nil, fmt.Errorf("backtest: code %s appears twice", code)
+			return nil, Market{}, fmt.Errorf("backtest: code %s appears twice", code)
 		}
 		b := in.Bars(code)
 		for j := 1; j < len(b); j++ {
 			if !b[j-1].Date.Before(b[j].Date) {
-				return nil, fmt.Errorf("backtest: %s bars are not strictly date ascending at %s", code, b[j].Date)
+				return nil, Market{}, fmt.Errorf("backtest: %s bars are not strictly date ascending at %s", code, b[j].Date)
 			}
 		}
 		pin.Bars[code] = b
 		pin.Dividends[code] = in.Dividends(code)
 		pin.Fundamentals[code] = in.Fundamentals(code)
 	}
-	return pin, nil
+	return pin, mkt, nil
+}
+
+// calendarOf is the session calendar of a market's rows: the index dates and
+// the ASIC report dates. Whether a date is a session does not depend on the
+// publication lag.
+func calendarOf(m Market) *calendar.Calendar {
+	xjo := make([]civil.Date, len(m.XJO))
+	for i, b := range m.XJO {
+		xjo[i] = b.Date
+	}
+	asic := make([]civil.Date, len(m.ASIC))
+	for i, r := range m.ASIC {
+		asic[i] = r.ReportDate
+	}
+	return calendar.New(xjo, asic, 0)
+}
+
+// sessionBars keeps the index bars dated on a session of cal.
+func sessionBars(bars []features.IndexBar, cal *calendar.Calendar) []features.IndexBar {
+	out := make([]features.IndexBar, 0, len(bars))
+	for _, b := range bars {
+		if cal.IsSession(b.Date) {
+			out = append(out, b)
+		}
+	}
+	return out
 }
 
 // simulate runs the simulator over the plan's sessions and reports the run.
@@ -257,7 +314,6 @@ func simulate(p plan) (Result, error) {
 	}
 	curve := EquityCurve(recs)
 	res := Result{
-		Sessions:   make([]civil.Date, len(p.sessions)),
 		Eligible:   p.eligible,
 		Records:    recs,
 		Events:     events,
@@ -268,8 +324,10 @@ func simulate(p plan) (Result, error) {
 			Trades:      Summarise(trades),
 		},
 	}
-	for k, s := range p.sessions {
-		res.Sessions[k] = s.Date
+	for _, s := range p.sessions {
+		if !s.Seed {
+			res.Sessions = append(res.Sessions, s.Date)
+		}
 	}
 	res.Metrics.TotalReturn, res.Metrics.HasTotalReturn = TotalReturn(curve)
 	res.Metrics.CAGR, res.Metrics.HasCAGR = CAGR(curve)
@@ -298,51 +356,70 @@ func derefOr(v *float64) float64 {
 	return *v
 }
 
-// barOn is the code's bar dated t, nil when it has none. The copy keeps the
-// session rows independent of the inputs.
+// barOn is the code's priced bar dated t, nil when it has none. An unpriced row
+// (a NULL or non-positive close) is no bar for execution: it marks nothing and
+// fills nothing, as a missing row does. The copy keeps the session rows
+// independent of the inputs.
 func barOn(bars []features.Bar, t civil.Date) *features.Bar {
 	i := sort.Search(len(bars), func(i int) bool { return !bars[i].Date.Before(t) })
-	if i < len(bars) && bars[i].Date == t {
+	if i < len(bars) && bars[i].Date == t && features.Priced(bars[i].Close) {
 		b := bars[i]
 		return &b
 	}
 	return nil
 }
 
-// dividendsByDate sums a code's cash dividends by ex-date.
-func dividendsByDate(ds []features.Dividend) map[civil.Date]float64 {
-	out := make(map[civil.Date]float64, len(ds))
+// lastPriced is the date of the last priced bar.
+func lastPriced(bars []features.Bar) (civil.Date, bool) {
+	for i := len(bars) - 1; i >= 0; i-- {
+		if features.Priced(bars[i].Close) {
+			return bars[i].Date, true
+		}
+	}
+	return civil.Date{}, false
+}
+
+// dividendsBySession sums a code's cash dividends by the session they are
+// registered on: the first session on or after the ex-date, so an ex-date that
+// falls on a closed day is credited on the next session. An ex-date before the
+// first session is credited on the first.
+func dividendsBySession(ds []features.Dividend, dates []civil.Date) []float64 {
+	out := make([]float64, len(dates))
 	for _, d := range ds {
-		out[d.ExDate] += d.AmountPerShare
+		k := sort.Search(len(dates), func(i int) bool { return !dates[i].Before(d.ExDate) })
+		if k < len(dates) {
+			out[k] += d.AmountPerShare
+		}
 	}
 	return out
 }
 
-// caOn is the corporate-action suspect a code's session reports: the one whose
-// KnownAt is t, the earliest bar when several are known that day. A position
-// entered before that bar is the one the exclusion closes.
-func caOn(suspects []features.CASuspect, t civil.Date) CASuspect {
-	var out CASuspect
+// caBySession reports, per session, the corporate-action suspect that becomes
+// known on it: a suspect is known on the first session on or after its KnownAt,
+// so one dated between sessions is never lost. When several are known on the
+// same session, the earliest bar is the one reported. A position entered before
+// that bar is the one the exclusion closes.
+func caBySession(suspects []features.CASuspect, dates []civil.Date) []CASuspect {
+	out := make([]CASuspect, len(dates))
 	for _, s := range suspects {
-		if s.KnownAt != t {
+		k := sort.Search(len(dates), func(i int) bool { return !dates[i].Before(s.KnownAt) })
+		if k == len(dates) {
 			continue
 		}
-		if !out.Known || s.Date.Before(out.SuspectDate) {
-			out = CASuspect{Known: true, SuspectDate: s.Date}
+		if !out[k].Known || s.Date.Before(out[k].SuspectDate) {
+			out[k] = CASuspect{Known: true, SuspectDate: s.Date}
 		}
 	}
 	return out
 }
 
-// rateOn is the cash rate in force on t: the newest point on or before t, or
-// the first point before any is due. Zero when there are none.
+// rateOn is the cash rate in force on t: the newest point on or before t. Zero
+// when no point is on or before t, so a session before the series starts earns
+// no interest rather than a rate published later.
 func rateOn(points []features.RatePoint, t civil.Date) float64 {
-	if len(points) == 0 {
-		return 0
-	}
 	i := sort.Search(len(points), func(i int) bool { return points[i].Date.After(t) }) - 1
 	if i < 0 {
-		i = 0
+		return 0
 	}
 	return points[i].Rate
 }

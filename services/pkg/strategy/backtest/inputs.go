@@ -6,10 +6,9 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 )
 
-// Inputs is the read side of a run: every row the window reads. A run reads it
-// twice, in pass 1 and pass 2, and holds the bars in memory between them, so an
-// implementation must return the same rows on both reads. The reader that fills
-// it from the database reads inside one REPEATABLE READ transaction.
+// Inputs is the read side of a run: every row the window reads. A run reads each
+// row once and holds the bars in memory for both of its passes. The reader that
+// fills it from the database reads inside one REPEATABLE READ transaction.
 type Inputs interface {
 	// Codes lists the codes with rows in the window, in any order. Run sorts
 	// them, so the order a caller returns them in never reaches an output.
@@ -31,6 +30,9 @@ type Market struct {
 	Ingests  []features.ReportIngest
 	ETPs     map[string]bool
 	Names    map[string]string
+	// Industry is each code's GICS industry group, the one the financials rules
+	// read. It is attached to every candidate before the rules are prepared.
+	Industry map[string]string
 	// CashRate is the RBA cash rate target in percent, as stored (4.35 for
 	// 4.35%), one point a month. Run forward-fills it to each session.
 	CashRate []features.RatePoint
