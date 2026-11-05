@@ -64,8 +64,9 @@ func traded(b *features.Bar) bool { return b != nil && b.Volume > 0 }
 type CASuspect struct {
 	// Known is true on the session the suspect becomes known (ca_known_at).
 	Known bool
-	// SuspectDate is the bar the suspect sits on. A position entered before it
-	// is closed as a data exclusion; one entered on or after it is unaffected.
+	// SuspectDate is the bar the suspect sits on. A position entered on or
+	// before it is closed as a data exclusion: that bar's open is an unadjusted
+	// level, so no fill or mark on it can be trusted.
 	SuspectDate civil.Date
 	// Age is set with Known on the first session of a run for a suspect that
 	// became known before it: the sessions from the known date to that session.
@@ -512,10 +513,10 @@ func (st *State) fillExits(s Session, by map[string]*CodeSession, basis map[stri
 			continue
 		}
 		c := by[code]
-		// A position entered before a suspect bar is closed by the exclusion at
-		// that session's close, at the pre-suspect price. The suspect bar's open
+		// A position entered on or before a suspect bar is closed by the exclusion
+		// at that session's close, at the pre-suspect price. The suspect bar's open
 		// is an unadjusted level, so a fill there would book a phantom move.
-		if c != nil && c.CA.Known && pos.entryDate.Before(c.CA.SuspectDate) {
+		if c != nil && c.CA.Known && !pos.entryDate.After(c.CA.SuspectDate) {
 			continue
 		}
 		if c == nil || !traded(c.Bar) {
@@ -646,7 +647,7 @@ func (st *State) markToMarket(s Session, by map[string]*CodeSession, basis map[s
 			continue
 		}
 		pos.missing = 0
-		if c.CA.Known && pos.entryDate.Before(c.CA.SuspectDate) {
+		if c.CA.Known && !pos.entryDate.After(c.CA.SuspectDate) {
 			cs.lastRaw, cs.lastPL = pos.preSuspect(c.CA.SuspectDate)
 		} else {
 			cs.lastRaw = c.Bar.Close
@@ -678,7 +679,7 @@ func (st *State) decideExits(s Session, by map[string]*CodeSession) {
 		c := by[code]
 		cs := st.codeState(code)
 
-		if c != nil && c.CA.Known && pos.entryDate.Before(c.CA.SuspectDate) {
+		if c != nil && c.CA.Known && !pos.entryDate.After(c.CA.SuspectDate) {
 			delete(st.exits, code)
 			raw, pl := pos.preSuspect(c.CA.SuspectDate)
 			st.closePosition(s.Date, s.Index, pos, raw, pl, ReasonCorporateAction, s.Date, c.DV20)

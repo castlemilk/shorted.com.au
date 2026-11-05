@@ -154,3 +154,53 @@ func TestFlagForTruthTable(t *testing.T) {
 		t.Fatalf("the fragility chips do not carry the flags' copy")
 	}
 }
+
+// TestEntryPlus1NeverBooksTheConsolidationBar: the golden code 1 signals on the
+// session before its consolidation. Delayed one session its entry lands on the
+// suspect bar, whose open is on the pre-event basis and whose close is not. The
+// entry must be excluded at its entry price, not marked up tenfold, and the
+// variant's figures stay within a band of the canonical run's.
+func TestEntryPlus1NeverBooksTheConsolidationBar(t *testing.T) {
+	in := loadGolden(t)
+	p, err := prepare(in, goldenSpec(t), goldenRecipe(t), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := simulate(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := p
+	q.cfg.EntryLagSessions = entryLagSessionsVariant
+	lagged, err := simulate(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	suspect := goldenSessionDates()[goldenConsolidation]
+	found := false
+	for _, tr := range lagged.Trades {
+		if tr.Code != goldenCode(1) || tr.EntryDate != suspect {
+			continue
+		}
+		found = true
+		if tr.ExitReason != ReasonCorporateAction {
+			t.Fatalf("lagged entry on the suspect bar exited %s, want %s", tr.ExitReason, ReasonCorporateAction)
+		}
+		if tr.ExitPrice != tr.EntryFill {
+			t.Fatalf("exit price %v, want the entry price %v (no move)", tr.ExitPrice, tr.EntryFill)
+		}
+		if tr.Net > 0.05 || tr.Net < -0.05 {
+			t.Fatalf("net %v on a position that never moved, want a fee-sized figure", tr.Net)
+		}
+	}
+	if !found {
+		t.Fatalf("no lagged entry on the suspect bar %v; the golden no longer exercises it", suspect)
+	}
+	bf, lf := figuresOf(base), figuresOf(lagged)
+	if !bf.HasTotalReturn || !lf.HasTotalReturn {
+		t.Fatal("the canonical and lagged runs need a total return")
+	}
+	if d := lf.TotalReturn - bf.TotalReturn; d > 0.25 || d < -0.25 {
+		t.Fatalf("lagged total return %v is %v from the canonical %v, want within 0.25", lf.TotalReturn, d, bf.TotalReturn)
+	}
+}
