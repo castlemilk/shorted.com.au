@@ -55,6 +55,10 @@ type strategyUniverse struct {
 	// served is the version each strategy is served under, resolved once per
 	// fill from the source and the table's live rows (resolveServed).
 	served map[string]servedVersion
+	// ineligible is why a stock the snapshot stores is outside the universe
+	// (no bar on the session, an ETP, a corporate-action guard), keyed by code.
+	// Empty on the views path, where a stock outside the universe has short history.
+	ineligible map[string]string
 }
 
 // coverageFor is the count a strategy's coverage caveat quotes.

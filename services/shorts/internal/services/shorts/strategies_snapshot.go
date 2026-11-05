@@ -63,7 +63,14 @@ func (s *ShortsServer) snapshotUniverse(ctx context.Context) (*strategyUniverse,
 	if err != nil {
 		return nil, false, err
 	}
-	return newStrategyUniverse(cands, snap.Regime, snap.AsOf.String(), StrategySourceSnapshot, live), true, nil
+	u := newStrategyUniverse(cands, snap.Regime, snap.AsOf.String(), StrategySourceSnapshot, live)
+	u.ineligible = map[string]string{}
+	for i := range snap.Rows {
+		if ok, reason := snapshot.Eligible(snap.Rows[i], zanger.reg.Spec); !ok {
+			u.ineligible[strings.ToUpper(snap.Rows[i].StockCode)] = reason
+		}
+	}
+	return u, true, nil
 }
 
 // snapshotCandidates rebuilds a session's stored rows as the universe's

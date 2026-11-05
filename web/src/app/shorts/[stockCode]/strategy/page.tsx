@@ -9,6 +9,7 @@ import {
   sortFitsByStrength,
 } from "~/@/components/strategy/strategy-fit-panel";
 import { cleanCompanyName } from "~/@/lib/company-name";
+import { notEvaluatedCopy } from "~/@/lib/strategies/evidence";
 import { formatDate } from "~/@/lib/fundamentals/format";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabTitle } from "~/@/lib/seo/stock-tab-title";
@@ -141,10 +142,26 @@ export default async function StrategyPage({ params }: PageProps) {
                 at least 60 sessions in the last 400 days (000130, `WHERE
                 r.n_sessions >= 60`). The 40 in that file is the base window,
                 not the threshold. */}
+            {/* The stored reason names why the picker did not read the stock on
+                the session; the 60-session explanation is the short-history case. */}
             <p className="mt-1 text-muted-foreground">
-              The picker reads a stock only with at least 60 sessions of price
-              history in the last 400 days, and it holds fewer than that for{" "}
-              {code} today. See what it does read on the{" "}
+              {notEvaluatedCopy({
+                eligible: false,
+                ineligibleReason: fit.ineligibleReason,
+                sessionDate: fit.sessionDate,
+                asOf: fit.asOf,
+              })}
+            </p>
+            {fit.ineligibleReason === undefined ||
+            fit.ineligibleReason === "short_history" ? (
+              <p className="mt-1 text-muted-foreground">
+                The picker reads a stock only with at least 60 sessions of price
+                history in the last 400 days, and it holds fewer than that for{" "}
+                {code} today.
+              </p>
+            ) : null}
+            <p className="mt-1 text-muted-foreground">
+              See what it does read on the{" "}
               <Link
                 href="/strategies"
                 prefetch={false}

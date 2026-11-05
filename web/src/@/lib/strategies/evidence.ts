@@ -41,6 +41,13 @@ export function reasonText(reason: string | undefined | null): string {
 /** Why a stock the API did not evaluate is not read, as the stock page words it. */
 export const INELIGIBLE_TEXT: Readonly<Record<string, string>> = {
   short_history: "not enough trading history to read its signals",
+  no_bar_on_session: "no trade on the session",
+  exchange_traded_product: "an exchange-traded product",
+  debt_or_hybrid: "a debt or hybrid security",
+  secondary_line: "a secondary line of the company",
+  corporate_action_guard:
+    "a possible unadjusted share consolidation or split is recent",
+  not_in_asic_report: "not in ASIC's latest complete short report",
 };
 
 /** "3 Nov 2026" becomes "3 Nov"; "" when the date is not a real day. */

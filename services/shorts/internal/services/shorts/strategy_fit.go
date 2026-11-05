@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/snapshot"
 )
 
 // GetStockStrategyFit returns how one stock reads against every strategy
@@ -40,9 +41,13 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 	resp.SessionDate = u.asOf
 	resp.Stale = staleBehind(u.asOf, u.regime)
 	if _, ok := u.index[code]; !ok {
-		// A stock with no price features has fewer than 60 sessions in the last
-		// 400 days (mv_price_features), which is short_history.
-		resp.IneligibleReason = "short_history"
+		// The reason the snapshot stored for the stock. A stock the snapshot holds
+		// no row for, or the views answered, has fewer than 60 sessions in the
+		// last 400 days (mv_price_features), which is short_history.
+		resp.IneligibleReason = u.ineligible[code]
+		if resp.IneligibleReason == "" {
+			resp.IneligibleReason = snapshot.ReasonShortHistory
+		}
 		return connect.NewResponse(resp), nil
 	}
 	resp.InUniverse = true

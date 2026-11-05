@@ -709,3 +709,25 @@ func TestSignalEventProto_CANSLIMWaitingIsTheFailingTrigger(t *testing.T) {
 		}
 	}
 }
+
+// A stock the snapshot stores outside the universe answers the reason it was
+// stored with, not the short-history reason a stock with no row gets: an ETP
+// reads exchange_traded_product, and a stock with no row reads short_history.
+func TestStockFitNamesTheStoredIneligibleReason(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	snap := snapshotOf()
+	etp := snapRow(snapDay(), "VAS", 300)
+	etp.OrdinaryFresh60 = false
+	etp.IneligibleReason = "exchange_traded_product"
+	snap.Rows = append(snap.Rows, etp)
+	fake := &snapshotStoreFake{MockShortsStore: mocks.NewMockShortsStore(ctrl), snap: snap}
+	srv := newTestServer(t, fake)
+	srv.config.StrategySource = StrategySourceSnapshot
+
+	for code, want := range map[string]string{"VAS": "exchange_traded_product", "NOPE": snapshot.ReasonShortHistory} {
+		resp, err := srv.GetStockStrategyFit(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStockStrategyFitRequest{StockCode: code}))
+		require.NoError(t, err)
+		assert.False(t, resp.Msg.InUniverse, code)
+		assert.Equal(t, want, resp.Msg.IneligibleReason, code)
+	}
+}

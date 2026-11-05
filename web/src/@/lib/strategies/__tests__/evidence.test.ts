@@ -246,6 +246,17 @@ describe("notEvaluatedCopy", () => {
     );
   });
 
+  it("names the stored reason, never the short-history one, for a product", () => {
+    expect(
+      notEvaluatedCopy({
+        eligible: false,
+        ineligibleReason: "exchange_traded_product",
+        sessionDate: "2026-11-03",
+        asOf: "2026-11-03",
+      }),
+    ).toBe("Not evaluated on 3 Nov: an exchange-traded product.");
+  });
+
   it("is null for a stock that was read", () => {
     expect(notEvaluatedCopy({ eligible: true, asOf: "2026-11-03" })).toBeNull();
   });
