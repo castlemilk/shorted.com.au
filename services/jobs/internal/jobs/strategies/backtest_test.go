@@ -35,7 +35,18 @@ func liveV1(t *testing.T, strategyID string) spec.Registered {
 }
 
 func TestBacktestTargetsIdleUntilAVersionBeyondV0IsLive(t *testing.T) {
-	v0Only := spec.Registry()
+	// Only v0 is registered as the pre-recipe version: rules v1 (PR-12) is live in the
+	// registry, so the premise is v0 alone, marked live, which the job must still skip.
+	var v0Only []spec.Registered
+	for _, r := range spec.Registry() {
+		if r.Label == "v0" {
+			r.Live = true
+			v0Only = append(v0Only, r)
+		}
+	}
+	if len(v0Only) == 0 {
+		t.Fatal("no v0 version in the registry")
+	}
 	got, err := backtestTargets(v0Only)
 	if err != nil {
 		t.Fatal(err)
