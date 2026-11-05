@@ -3,7 +3,7 @@
 import { render } from "@testing-library/react";
 import { WorkspacePage } from "../workspace-page";
 
-describe("WorkspacePage (spec 14.1)", () => {
+describe("WorkspacePage", () => {
   it("lays the main column and the inspector out as a two-column grid from lg, with a 1 px rule", () => {
     const { container } = render(
       <WorkspacePage inspector={<p>Inspector body</p>}>

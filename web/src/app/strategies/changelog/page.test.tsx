@@ -76,6 +76,9 @@ describe("StrategyChangelogPage", () => {
     // A version chip's #<rules_hash> link lands on its own entry.
     const entry = zanger.querySelector(`article[id="${HASH}"]`);
     expect(entry).not.toBeNull();
+    // The sticky chrome (the site header and the workspace sub-nav) sits over the top
+    // 124px, so the anchored card must scroll to clear it.
+    expect(entry).toHaveClass("scroll-mt-[124px]");
     expect(bailOnEmptyRender).not.toHaveBeenCalled();
   });
 

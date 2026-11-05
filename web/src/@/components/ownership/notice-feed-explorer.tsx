@@ -55,7 +55,7 @@ import {
 
 import type { loadNoticeFeed } from "~/app/actions/ownershipExplorer";
 import { ExternalLinkGlyph } from "./external-link-glyph";
-import { Toolbar, ToolbarSelect, type ToolbarFold } from "./workspace/toolbar";
+import { Toolbar, ToolbarSelect, type ToolbarFold } from "~/@/components/workspace/toolbar";
 import { ViewDisclosure } from "./workspace/view-disclosure";
 import { ModelReadMark, NoticeMark } from "./notice-mark";
 import { NoticeWeekBars, type NoticeWeekBar } from "./notice-week-bars";

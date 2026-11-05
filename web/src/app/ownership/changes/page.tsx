@@ -11,7 +11,7 @@ import {
   defaultPair,
   orderFundsForCompare,
 } from "~/@/components/ownership/funds/fund-model";
-import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { WorkspacePage } from "~/@/components/workspace/workspace-page";
 import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 import { lede, pageTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";

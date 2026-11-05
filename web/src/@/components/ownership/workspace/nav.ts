@@ -5,16 +5,16 @@
  */
 
 import { cleanSelection, parseSelection, type SelectionKind } from "./selection";
+import type { WorkspaceTab } from "~/@/components/workspace/workspace-sub-nav";
 
-export interface OwnershipTab {
-  id: "overview" | "map" | "connections" | "activity" | "funds" | "holders" | "changes";
-  label: string;
-  href: string;
-}
+export type OwnershipTabId = "overview" | "map" | "connections" | "activity" | "funds" | "holders" | "changes";
+
+/** One tab of the workspace's sub-navigation, as the shared bar takes it. */
+export type OwnershipTab = WorkspaceTab<OwnershipTabId>;
 
 export const OWNERSHIP_GROUP = "Ownership";
 
-export const OWNERSHIP_TABS: readonly OwnershipTab[] = [
+export const OWNERSHIP_TABS: readonly WorkspaceTab<OwnershipTabId>[] = [
   { id: "overview", label: "Overview", href: "/ownership" },
   { id: "map", label: "Market map", href: "/ownership/map" },
   { id: "connections", label: "Connections", href: "/ownership/connections" },
@@ -29,7 +29,7 @@ export const OWNERSHIP_TABS: readonly OwnershipTab[] = [
  * other tab also covers its nested pages (a fund page is under Funds). A path
  * outside the workspace (an institution, a register page) has no active tab.
  */
-export function activeOwnershipTab(pathname: string): OwnershipTab["id"] | null {
+export function activeOwnershipTab(pathname: string): OwnershipTabId | null {
   const path = pathname.replace(/\/+$/, "") || "/";
   if (path === "/ownership") return "overview";
   for (const tab of OWNERSHIP_TABS) {

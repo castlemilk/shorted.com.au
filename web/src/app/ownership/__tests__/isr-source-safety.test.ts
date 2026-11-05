@@ -339,6 +339,7 @@ describe("ownership ISR source safety", () => {
     const COMPONENTS_DIR = path.resolve(APP_DIR, "..", "@", "components");
     const WORKSPACE_FILES = [
       ...sourceFiles(path.join(COMPONENTS_DIR, "ownership", "workspace")),
+      ...sourceFiles(path.join(COMPONENTS_DIR, "workspace")),
       ...sourceFiles(path.join(COMPONENTS_DIR, "ownership", "funds")),
       ...sourceFiles(path.join(COMPONENTS_DIR, "ownership", "holders")),
       ...sourceFiles(path.join(COMPONENTS_DIR, "gamma")),

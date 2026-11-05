@@ -10,7 +10,7 @@
  */
 
 import { DESK_WINDOWS, writeNoticeWindow, type DeskWindow, type NoticeWindow } from "../desk/desk-state";
-import { ToolbarSelect } from "./toolbar";
+import { ToolbarSelect } from "~/@/components/workspace/toolbar";
 
 /** A window option's visible text: "91 days". */
 export function windowOptionLabel(days: DeskWindow): string {

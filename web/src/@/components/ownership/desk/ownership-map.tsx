@@ -52,7 +52,7 @@ import {
 } from "./ownership-map-static";
 import { StockPanel, type StockPanelPage } from "./stock-panel";
 import { ViewDisclosure } from "../workspace/view-disclosure";
-import { TOOLBAR_COMBOBOX_ROW_CLASS, ToolbarSelect, type ToolbarFold } from "../workspace/toolbar";
+import { TOOLBAR_COMBOBOX_ROW_CLASS, ToolbarSelect, type ToolbarFold } from "~/@/components/workspace/toolbar";
 import { writeWindowInPlace } from "../workspace/window-select";
 import { writeSortInPlace } from "../workspace/sort-control";
 import { SourceSelect } from "./source-control";

@@ -14,7 +14,7 @@
  */
 
 import { DESK_SORTS, readDeskState, writeDeskParams, type DeskSort } from "../desk/desk-state";
-import { ToolbarSelect } from "./toolbar";
+import { ToolbarSelect } from "~/@/components/workspace/toolbar";
 
 /**
  * The visible words of each sort. The link carries `largest` and `changed`; the reader sees these.

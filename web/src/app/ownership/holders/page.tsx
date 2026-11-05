@@ -4,7 +4,7 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { HolderBrowser } from "~/@/components/ownership/holders/holder-browser";
 import { HolderConnectionsMap } from "~/@/components/ownership/holders/holder-connections-map";
 import { HolderInspector } from "~/@/components/ownership/workspace/inspectors/holder-inspector";
-import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { WorkspacePage } from "~/@/components/workspace/workspace-page";
 import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 import { holderInspectorContent, type HolderConnectionsPage } from "~/@/components/ownership/holders/holder-tree";
 import { lede, pageTitle } from "@/lib/typography";

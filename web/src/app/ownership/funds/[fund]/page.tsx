@@ -19,7 +19,7 @@ import {
 import { formatPct } from "~/@/lib/fundamentals/format";
 import { FundRail } from "~/@/components/ownership/funds/fund-rail";
 import { HolderLogo } from "~/@/components/ownership/workspace/holder-logo";
-import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { WorkspacePage } from "~/@/components/workspace/workspace-page";
 import { fundHref, isInstitutionSlug } from "~/@/lib/ownership/kinds";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { eyebrow, lede, pageTitle } from "@/lib/typography";

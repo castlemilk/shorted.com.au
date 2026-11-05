@@ -1,5 +1,5 @@
 /**
- * A workspace page's toolbar (spec 14.9): one row of labelled controls. A plain module, so
+ * A workspace page's toolbar (ownership explorer design, section 14.9): one row of labelled controls. A plain module, so
  * the server's default view draws the row as it is. An island passes `fold`, which wraps the
  * row in the client disclosure (view-disclosure.tsx) that folds it below `sm`. The row wraps only
  * when its controls cannot share a line; a phone's column folds the row under one disclosure instead.

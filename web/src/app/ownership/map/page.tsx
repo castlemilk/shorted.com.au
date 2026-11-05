@@ -4,7 +4,7 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { OwnershipMap } from "~/@/components/ownership/desk/ownership-map";
 import { MapLede } from "~/@/components/ownership/desk/map-lede";
 import { Inspector } from "~/@/components/ownership/workspace/inspector";
-import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { WorkspacePage } from "~/@/components/workspace/workspace-page";
 import { pageTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import {

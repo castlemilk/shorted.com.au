@@ -33,7 +33,7 @@ import { SourceControl } from "./source-control";
 import { KIND_ORDER, kindSelectLabel } from "~/@/lib/ownership/kinds";
 import { parseSelection, serializeSelection } from "~/@/components/ownership/workspace/selection";
 import { ViewDisclosure } from "../workspace/view-disclosure";
-import { TOOLBAR_ROW_CLASS, ToolbarSelect, type ToolbarFold } from "../workspace/toolbar";
+import { TOOLBAR_ROW_CLASS, ToolbarSelect, type ToolbarFold } from "~/@/components/workspace/toolbar";
 import { writeWindowInPlace } from "../workspace/window-select";
 import { SortControl, writeSortInPlace } from "../workspace/sort-control";
 
