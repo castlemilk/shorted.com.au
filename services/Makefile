@@ -809,6 +809,15 @@ test-strategies-daily-pg: test-integration-images
 	cd jobs && GOWORK=off CGO_ENABLED=0 STRATEGIES_DAILY_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run DailySnapshot ./internal/jobs/strategies/
 
+# The saved-strategy store (migration 000156) against a throwaway postgres:15 container: the cap under
+# concurrent saves, the repeat save, the variant owner guard and replay of the migration. Opt-in, like the
+# other container suites; STRATEGY_SAVES_TEST_DATABASE_URL uses a server you started.
+.PHONY: test-strategy-saves-pg
+test-strategy-saves-pg: test-integration-images
+	@set -e; \
+	GOWORK=off CGO_ENABLED=0 STRATEGY_SAVES_TESTCONTAINERS=1 \
+		go test -count=1 -tags=integration,testcontainers -run StrategySaves ./shorts/internal/store/shorts/
+
 # The strategy feature parity suite (services/pkg/strategy/features): the Go port of
 # mv_price_features and mv_market_regime against migration 000130's own views, at fixed
 # anchors and the real date, on a throwaway postgres:15 container. Opt-in, like the
