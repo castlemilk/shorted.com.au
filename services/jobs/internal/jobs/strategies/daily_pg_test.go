@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/civil"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
@@ -267,4 +268,28 @@ func TestDailySnapshotDiffsAgainstTheStoredPreviousSession(t *testing.T) {
 	require.Len(t, res.Done, 1)
 	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-13' AND status = 'completed'"))
 	require.Equal(t, 0, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE status = 'failed'"))
+}
+
+// TestDailySnapshotSweepIgnoresASICAndSingleStockRows: the readiness sweep is the
+// price sweep alone. A later ASIC sync row, and a market-data single-stock run,
+// leave it as it was, so the session stays ready.
+func TestDailySnapshotSweepIgnoresASICAndSingleStockRows(t *testing.T) {
+	pool := dailyDB(t)
+	seedDailySession(t, pool)
+	ctx := context.Background()
+	s := civil.Date{Year: 2026, Month: time.November, Day: 12}
+
+	_, err := pool.Exec(ctx, `
+		INSERT INTO sync_status (environment, hostname, checkpoint_stocks_total, status, started_at, completed_at)
+		VALUES ('production', 'asic-exec-1', 1800, 'completed', '2026-11-12 09:00:00+00', '2026-11-12 09:30:00+00'),
+		       (NULL, NULL, 1, 'running', '2026-11-12 10:00:00+00', NULL)`)
+	require.NoError(t, err)
+
+	facts, err := readinessDB(ctx, pool, s)
+	require.NoError(t, err)
+	require.NotNil(t, facts.Sweep)
+	require.Equal(t, "completed", facts.Sweep.Status, "the newest price sweep is the completed one, not the single-stock run")
+	require.True(t, facts.Sweep.StartedAt.Equal(time.Date(2026, 11, 12, 6, 0, 0, 0, time.UTC)))
+	ready, reason := evaluateReadiness(s, facts)
+	require.True(t, ready, "the session is ready: %s", reason)
 }
