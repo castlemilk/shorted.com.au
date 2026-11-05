@@ -102,8 +102,9 @@ func (s *ShortsServer) ListStrategies(ctx context.Context, req *connect.Request[
 		Strategies: make([]*shortsv1alpha1.Strategy, 0, len(registry)),
 		Regime:     marketRegimeProto(regime, engine.NeutralRegimeVerdict(regime)),
 	}
+	served := s.servedRefs(ctx)
 	for _, st := range registry {
-		resp.Strategies = append(resp.Strategies, strategyProto(st, st.CaveatsWithCoverage(0, -1), s.servedRef(ctx, st.ID)))
+		resp.Strategies = append(resp.Strategies, strategyProto(st, st.CaveatsWithCoverage(0, -1), served[st.ID]))
 	}
 	return connect.NewResponse(resp), nil
 }

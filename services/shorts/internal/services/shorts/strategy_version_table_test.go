@@ -303,3 +303,59 @@ func TestAdapterOverAStoreWithoutTheVersionTablesIsUnavailable(t *testing.T) {
 	_, err = NewStoreAdapter(plainStore{}).ReadCanonicalRuleVersions(context.Background())
 	assert.ErrorIs(t, err, shortsstore.ErrStrategySnapshotUnavailable)
 }
+
+// The signal events state the table's status and live_from, as the version
+// RPCs do: the registry's live flag is v1, but the table marks v0 live.
+func TestSignalEventsStateTheTableVersion(t *testing.T) {
+	fake := versionFake(t,
+		tableVersion(t, spec.StrategyZangerBreakout, "v0", "live", "2026-11-12", ""),
+	)
+	srv := newTestServer(t, fake)
+
+	resp, err := srv.ListStrategySignalEvents(userContext("free"), connect.NewRequest(&shortsv1alpha1.ListStrategySignalEventsRequest{
+		StrategyId: spec.StrategyZangerBreakout,
+	}))
+	require.NoError(t, err)
+	require.NotNil(t, resp.Msg.Version)
+	assert.Equal(t, "v0", resp.Msg.Version.Label)
+	assert.Equal(t, "live", resp.Msg.Version.Status)
+	assert.Equal(t, "2026-11-12", resp.Msg.Version.LiveFrom)
+}
+
+// When the universe and the table both fail, the served versions name none: the
+// registry's live flag is a guess the table may contradict.
+func TestServedRefsNameNoVersionWhenBothReadsFail(t *testing.T) {
+	fake := versionFake(t, tableVersion(t, spec.StrategyZangerBreakout, "v0", "live", "2026-11-12", ""))
+	fake.snapErr = errors.New("connection reset")
+	fake.canonErr = errors.New("connection reset")
+	srv := newTestServer(t, fake)
+	srv.config.StrategySource = StrategySourceSnapshot
+
+	refs := srv.servedRefs(context.Background())
+	assert.Nil(t, refs[spec.StrategyZangerBreakout])
+}
+
+// The job commits v1's promotion before the 2026-09-25 session's events, so a
+// snapshot read in between is served under v0, the version live on that session.
+// On the promotion session itself v1 is live.
+func TestSnapshotSessionServesTheVersionLiveOnIt(t *testing.T) {
+	v0 := tableVersion(t, spec.StrategyZangerBreakout, "v0", "superseded", "2026-09-01", "2026-09-28")
+	v1 := tableVersion(t, spec.StrategyZangerBreakout, "v1", "live", "2026-09-28", "")
+
+	fake := versionFake(t, v0, v1)
+	srv := newTestServer(t, fake)
+	srv.config.StrategySource = StrategySourceSnapshot
+	before := srv.servedVersionOf(context.Background(), spec.StrategyZangerBreakout)
+	assert.Equal(t, "v0", before.reg.Label, "the session of 2026-09-25 was evaluated under v0")
+	assert.Equal(t, "2026-09-01", before.liveFrom)
+
+	onPromotion := versionFake(t, v0, v1)
+	day := snapDay()
+	day.Day = 28
+	onPromotion.snap.AsOf = day
+	srv = newTestServer(t, onPromotion)
+	srv.config.StrategySource = StrategySourceSnapshot
+	on := srv.servedVersionOf(context.Background(), spec.StrategyZangerBreakout)
+	assert.Equal(t, "v1", on.reg.Label)
+	assert.Equal(t, "2026-09-28", on.liveFrom)
+}

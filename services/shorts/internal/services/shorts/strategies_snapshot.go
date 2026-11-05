@@ -56,6 +56,10 @@ func (s *ShortsServer) snapshotUniverse(ctx context.Context) (*strategyUniverse,
 	if err != nil {
 		return nil, false, err
 	}
+	live, err = s.sessionLiveVersions(ctx, snap.AsOf.String(), live)
+	if err != nil {
+		return nil, false, err
+	}
 	// The snapshot's eligibility is the version the table marks live for Zanger,
 	// the strategy whose universe policy every live version shares.
 	zanger := resolveServedOne(spec.StrategyZangerBreakout, StrategySourceSnapshot, live)
@@ -215,11 +219,6 @@ func snapshotTimeOrEmpty(t *time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
-// civilTime is a civil date at UTC midnight.
-func civilTime(d civil.Date) time.Time {
-	return time.Date(d.Year, d.Month, d.Day, 0, 0, 0, 0, time.UTC)
-}
-
 // ListStrategySignalEvents returns the status changes of one strategy's
 // canonical rules version, newest first, with cursor paging. A signed-in caller
 // of any access level may read them; an anonymous caller is refused. The version
@@ -237,12 +236,12 @@ func (s *ShortsServer) ListStrategySignalEvents(ctx context.Context, req *connec
 	if _, ok := engine.Lookup(id); !ok {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", msg.StrategyId, strategyIDList()))
 	}
-	liveHash, err := s.tableLiveRulesHash(ctx, id)
+	table, err := s.readVersionTable(ctx)
 	if err != nil {
 		s.logger.Errorf("ListStrategySignalEvents: reading the version table for %s failed: %v", id, err)
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("strategy signal events are not available"))
 	}
-	version, err := signalEventsVersion(id, msg.VersionHash, liveHash)
+	version, err := signalEventsVersion(id, msg.VersionHash, table.liveRulesHash(id))
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +278,7 @@ func (s *ShortsServer) ListStrategySignalEvents(ctx context.Context, req *connec
 
 	resp := &shortsv1alpha1.ListStrategySignalEventsResponse{
 		Events:  []*shortsv1alpha1.StrategySignalEvent{},
-		Version: versionRefOrNil(version),
+		Version: versionRefOrNil(version, table),
 	}
 	reader, ok := s.store.(strategySnapshotStore)
 	if !ok {
@@ -354,16 +353,13 @@ func signalEventsVersion(strategyID, hash, liveHash string) (signalVersion, erro
 	return signalVersion{hash: hash, reg: reg, ok: true}, nil
 }
 
-// versionRefOrNil is the wire reference of a resolved version, nil when unresolved.
-func versionRefOrNil(v signalVersion) *shortsv1alpha1.StrategyVersionRef {
+// versionRefOrNil is the wire reference of a resolved version, nil when
+// unresolved. Its status and dates are the table's, as the version RPCs state them.
+func versionRefOrNil(v signalVersion, t versionTable) *shortsv1alpha1.StrategyVersionRef {
 	if !v.ok {
 		return nil
 	}
-	ref, err := versionRefOf(v.reg)
-	if err != nil {
-		return nil
-	}
-	return ref
+	return versionRefWith(v.reg, v.hash, t.stateOf(v.reg, v.hash))
 }
 
 // signalEvidence is a status change's stored evidence (the daily job's compact
