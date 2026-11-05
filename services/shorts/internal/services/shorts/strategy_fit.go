@@ -14,7 +14,7 @@ import (
 //
 // It reuses the cached universe and the cached ranked lists, so a pick's
 // status, score, rank and rule results here are exactly the ones its row
-// carries on /strategies/<id>. A stock that is in the universe but is not a
+// carries on /picks/<id>. A stock that is in the universe but is not a
 // strategy's pick is re-evaluated (strategies.EvaluateOne) against the SAME
 // cached environment, the regime and the universe's rs_6m quartile, and
 // reported with status "none", score 0 and rank 0. A stock outside the
