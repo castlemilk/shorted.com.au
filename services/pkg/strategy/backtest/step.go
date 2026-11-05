@@ -135,6 +135,12 @@ type Config struct {
 	// LastLoaded is each code's last loaded bar date. A stale exit is labelled
 	// delisted when no later bar exists, and suspended otherwise.
 	LastLoaded map[string]civil.Date
+	// DelistingAtZero fills a delisted exit at zero instead of the last close.
+	// It is a sensitivity; a canonical run leaves it false.
+	DelistingAtZero bool
+	// EntryLagSessions delays every entry by this many sessions: the sensitivity
+	// entry_plus_1 fills at the open of the second session after the signal.
+	EntryLagSessions int
 }
 
 // ConfigOf is the part of a simulator configuration that a recipe holds: the
@@ -265,6 +271,8 @@ type pendingEntry struct {
 	dv20       float64
 	signalDate civil.Date
 	breakout   civil.Date
+	// lag counts the sessions the fill has waited (Config.EntryLagSessions).
+	lag int
 }
 
 type pendingExit struct {
@@ -562,6 +570,11 @@ func (st *State) fillEntries(s Session, by map[string]*CodeSession) {
 	pending := st.entries
 	st.entries = nil
 	for _, e := range pending {
+		if e.lag < st.cfg.EntryLagSessions {
+			e.lag++
+			st.entries = append(st.entries, e)
+			continue
+		}
 		c := by[e.code]
 		if c == nil || !traded(c.Bar) {
 			st.event(s.Date, e.code, EventEntryCancelled, CancelUntraded)
@@ -678,7 +691,11 @@ func (st *State) decideExits(s Session, by map[string]*CodeSession) {
 					reason = ReasonSuspended
 				}
 				delete(st.exits, code)
-				st.closePosition(s.Date, s.Index, pos, cs.lastRaw, cs.lastPL, reason, s.Date, pos.dv20)
+				raw, pl := cs.lastRaw, cs.lastPL
+				if reason == ReasonDelisted && st.cfg.DelistingAtZero {
+					raw, pl = 0, 0
+				}
+				st.closePosition(s.Date, s.Index, pos, raw, pl, reason, s.Date, pos.dv20)
 				continue
 			}
 			// A time stop is decided on its own session, with or without a bar.
