@@ -800,6 +800,16 @@ test-shortdatasync-pg: test-integration-images
 	cd jobs && GOWORK=off CGO_ENABLED=0 SHORTDATASYNC_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run 'StrategyCapture|IngestWriter' ./internal/jobs/shortdatasync/
 
+# The strategy feature parity suite (services/pkg/strategy/features): the Go port of
+# mv_price_features and mv_market_regime against migration 000130's own views, at fixed
+# anchors and the real date, on a throwaway postgres:15 container. Opt-in, like the
+# other container suites; set FEATURES_PARITY_DATABASE_URL to use a server you started.
+.PHONY: test-strategy-parity
+test-strategy-parity: test-integration-images
+	@set -e; \
+	GOWORK=off CGO_ENABLED=0 FEATURES_PARITY_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run TestPriceFeaturesParity ./pkg/strategy/features/
+
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench
 .PHONY: test-stack-up test-stack-down test-stack-status test-stack-logs
