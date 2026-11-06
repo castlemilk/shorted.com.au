@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS stock_fundamentals_sync (
 ```
 
 Values are stored EXACTLY as the source reports them; non-finite values are
-rejected at the write funnel (same rule as `key_metrics_finite.go`). No LLM runs
+rejected at the write funnel (same rule as `services/pkg/keymetrics/finite.go`). No LLM runs
 in the write path. Filing rows (source `asx-filing-extraction`, §2.6
 `-mode filings`) are parsed from the report-extractor's stored Gemini output,
 but only values that can be found in the extraction's own quoted sentence, in

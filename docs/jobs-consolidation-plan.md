@@ -315,11 +315,11 @@ refresh. Only the ASIC tier moves:
 
 ### Cutover checklist — short-data-sync
 
-- **key-metrics: confirm, don't port.** The shorts API's `SyncKeyMetrics` RPC
-  already refreshes `"company-metadata".key_metrics` on its own daily
-  `key-metrics-scheduler` (`enable_key_metrics_scheduler = true` in prod) — the
-  Python job was a duplicate second writer. Before pausing the Python job,
-  confirm that scheduler is enabled and its recent runs are green.
+- **key-metrics: confirm, don't port.** (At the time of this plan the shorts API's
+  `SyncKeyMetrics` RPC refreshed `"company-metadata".key_metrics` on its own daily
+  `key-metrics-scheduler` (`enable_key_metrics_scheduler = true` in prod), and the
+  Python job was a duplicate second writer. That scheduler is retired, 2026-11; now
+  `shorted key-metrics` is the one writer. See `services/jobs/README.md`.)
 - **Prices must already be covered.** The deployed Python is the daily price
   sweep for ~1,850 stocks; `market-data-sync`'s weekday scheduler is the
   replacement. Confirm its coverage before pausing this job, or price freshness
