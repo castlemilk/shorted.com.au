@@ -152,11 +152,12 @@ func buildSessionRows(in sessionInputs, fs spec.FeatureSpec) sessionRows {
 			ShortAvailableDate: sf1.AvailableDate,
 			CASuspectDate:      latestSuspect(known),
 			Features: snapshot.Features{
-				Bar:   barFeature(barD, hasBar),
-				ExDiv: exDividend(in.Dividends[code], d),
-				FS1:   pf,
-				SF0:   sf0,
-				SF1:   sf1,
+				Bar:        barFeature(barD, hasBar),
+				ExDiv:      exDividend(in.Dividends[code], prevTradingDay(d), d),
+				CASuspects: caKnownRecords(known),
+				FS1:        pf,
+				SF0:        sf0,
+				SF1:        sf1,
 			},
 		}
 		if !okPrice {
@@ -319,15 +320,30 @@ func barFeature(b features.Bar, ok bool) snapshot.Bar {
 	return snapshot.Bar{O: b.Open, H: b.High, L: b.Low, C: b.Close, Adj: b.AdjClose, V: b.Volume}
 }
 
-// exDividend is the cash per share of the ex-dates on d; zero when none.
-func exDividend(divs []features.Dividend, d civil.Date) float64 {
+// exDividend is the cash per share of the ex-dates in (prev, d]: the dividends
+// the session d is the first session on or after. The batch credits an ex-date
+// that falls on a weekend or holiday on the next session (dividendsBySession),
+// so the stored session carries it, not only an ex-date equal to d.
+func exDividend(divs []features.Dividend, prev, d civil.Date) float64 {
 	total := 0.0
 	for _, dv := range divs {
-		if dv.ExDate == d {
+		if dv.ExDate.After(prev) && !dv.ExDate.After(d) {
 			total += dv.AmountPerShare
 		}
 	}
 	return total
+}
+
+// caKnownRecords is the stored form of the suspects known by a session.
+func caKnownRecords(known []features.CASuspect) []snapshot.CAKnown {
+	if len(known) == 0 {
+		return nil
+	}
+	out := make([]snapshot.CAKnown, 0, len(known))
+	for _, k := range known {
+		out = append(out, snapshot.CAKnown{Date: k.Date, KnownAt: k.KnownAt})
+	}
+	return out
 }
 
 // guardedBy reports whether a known suspect still keeps the code out on d.
