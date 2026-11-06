@@ -30,13 +30,20 @@ func TestMain(m *testing.M) {
 }
 
 // companyMetadataShape is the columns the job reads and writes, with the
-// production types (key_metrics JSONB, key_metrics_updated_at timestamptz).
+// production types (key_metrics JSONB, key_metrics_updated_at timestamptz), and
+// the price rows the universe is filtered on.
 const companyMetadataShape = `
 CREATE TABLE "company-metadata" (
     stock_code              VARCHAR(50) PRIMARY KEY,
     company_name            TEXT,
     key_metrics             JSONB,
     key_metrics_updated_at  TIMESTAMP WITH TIME ZONE
+);
+CREATE TABLE stock_prices (
+    stock_code  VARCHAR NOT NULL,
+    date        DATE NOT NULL,
+    close       NUMERIC(12,4),
+    PRIMARY KEY (stock_code, date)
 )`
 
 func keyMetricsTestDB(t *testing.T) *pgxpool.Pool {
@@ -83,6 +90,15 @@ func seedStock(t *testing.T, pool *pgxpool.Pool, code string, updated *time.Time
 	_, err := pool.Exec(context.Background(),
 		`INSERT INTO "company-metadata" (stock_code, company_name, key_metrics, key_metrics_updated_at)
 		 VALUES ($1, $1, '{"market_cap": 1, "stock_code": "OLD", "legacy_only": 9}'::jsonb, $2)`, code, updated)
+	require.NoError(t, err)
+}
+
+// seedPrice gives a stock one price row on a day that many days ago, which is
+// what makes it a listed stock in the universe.
+func seedPrice(t *testing.T, pool *pgxpool.Pool, code string, daysAgo int) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO stock_prices (stock_code, date, close) VALUES ($1, CURRENT_DATE - $2::int, 1)`, code, daysAgo)
 	require.NoError(t, err)
 }
 
@@ -171,6 +187,17 @@ func TestKeyMetricsPGUnknownStockIsAnError(t *testing.T) {
 	require.ErrorContains(t, err, "stock not found")
 }
 
+func universeCodes(t *testing.T, pool *pgxpool.Pool) []string {
+	t.Helper()
+	universe, err := (&pgStore{pool: pool}).Universe(context.Background())
+	require.NoError(t, err)
+	var codes []string
+	for _, s := range universe {
+		codes = append(codes, s.Code)
+	}
+	return codes
+}
+
 func TestKeyMetricsPGUniverseIsStalestFirst(t *testing.T) {
 	pool := keyMetricsTestDB(t)
 	recent := time.Now().Add(-time.Hour)
@@ -178,12 +205,80 @@ func TestKeyMetricsPGUniverseIsStalestFirst(t *testing.T) {
 	seedStock(t, pool, "RECENT", &recent)
 	seedStock(t, pool, "OLDER", &older)
 	seedStock(t, pool, "NEVER", nil)
-
-	universe, err := (&pgStore{pool: pool}).Universe(context.Background())
-	require.NoError(t, err)
-	var codes []string
-	for _, s := range universe {
-		codes = append(codes, s.Code)
+	for _, c := range []string{"RECENT", "OLDER", "NEVER"} {
+		seedPrice(t, pool, c, 1)
 	}
-	require.Equal(t, []string{"NEVER", "OLDER", "RECENT"}, codes)
+
+	require.Equal(t, []string{"NEVER", "OLDER", "RECENT"}, universeCodes(t, pool))
+}
+
+func TestKeyMetricsPGUniverseLeavesOutCodesWithNoRecentPrice(t *testing.T) {
+	// The dead block: never written and no price row, or none in the last 90
+	// days. Yahoo answers those with no quote, and they never get a stamp, so
+	// they would sort first on every run. They are left out; a listed stock
+	// with a stale stamp stays in.
+	pool := keyMetricsTestDB(t)
+	old := time.Now().Add(-500 * time.Hour)
+	seedStock(t, pool, "LIVE", &old)
+	seedPrice(t, pool, "LIVE", 2)
+	seedStock(t, pool, "NEWLIST", nil) // never written, priced: a new listing comes first
+	seedPrice(t, pool, "NEWLIST", 0)
+	seedStock(t, pool, "DEAD1", nil) // never written, never priced
+	seedStock(t, pool, "DEAD2", nil)
+	seedStock(t, pool, "DELISTED", nil) // priced once, long ago
+	seedPrice(t, pool, "DELISTED", 200)
+	seedStock(t, pool, "WRITTENDEAD", &old) // written once, now delisted: no price
+	seedPrice(t, pool, "WRITTENDEAD", 400)
+
+	require.Equal(t, []string{"NEWLIST", "LIVE"}, universeCodes(t, pool))
+}
+
+func TestKeyMetricsPGDeadHeadDoesNotHideStaleListedStocks(t *testing.T) {
+	// A head of 30 unpriced never-written codes, larger than a run's budget
+	// would ever reach, must not push the listed stale stocks out of the run.
+	pool := keyMetricsTestDB(t)
+	for i := 0; i < 30; i++ {
+		seedStock(t, pool, fmt.Sprintf("DEAD%02d", i), nil)
+	}
+	stale := time.Now().Add(-48 * time.Hour)
+	for _, c := range []string{"ALPHA", "BETA"} {
+		seedStock(t, pool, c, &stale)
+		seedPrice(t, pool, c, 3)
+	}
+	got := universeCodes(t, pool)
+	require.Equal(t, []string{"ALPHA", "BETA"}, got)
+}
+
+func TestKeyMetricsPGPaddedCodeIsItsOwnRow(t *testing.T) {
+	// A stored "FXG " is a different row from "FXG". The universe returns it as
+	// stored, and the write stamps that row rather than missing it.
+	pool := keyMetricsTestDB(t)
+	seedStock(t, pool, "FXG ", nil)
+	seedPrice(t, pool, "FXG ", 1)
+	st := &pgStore{pool: pool}
+
+	require.Equal(t, []string{"FXG "}, universeCodes(t, pool))
+	require.NoError(t, st.WriteKeyMetrics(context.Background(), "FXG ", map[string]any{"stock_code": "FXG", "beta": 1.0}))
+	got, updated := readRow(t, pool, "FXG ")
+	require.NotNil(t, updated, "the padded row must be stamped")
+	require.Equal(t, "FXG", got["stock_code"])
+}
+
+func TestKeyMetricsPGStockCodeIsNotSanitised(t *testing.T) {
+	// NAN and INF are real ASX codes (Nanosonics and others). The non-finite
+	// guard must not drop the code, which is text, not a measurement.
+	pool := keyMetricsTestDB(t)
+	seedStock(t, pool, "NAN", nil)
+	seedStock(t, pool, "INF", nil)
+	st := &pgStore{pool: pool}
+	require.NoError(t, st.WriteKeyMetrics(context.Background(), "NAN", map[string]any{"stock_code": "NAN", "beta": 0.4, "eps": math.NaN()}))
+	require.NoError(t, st.WriteKeyMetrics(context.Background(), "INF", map[string]any{"stock_code": "INF", "beta": math.Inf(1)}))
+
+	nan, _ := readRow(t, pool, "NAN")
+	require.Equal(t, "NAN", nan["stock_code"], "the code survives the sanitiser")
+	require.Equal(t, 0.4, nan["beta"])
+	require.NotContains(t, nan, "eps", "the NaN metric is still dropped")
+	inf, _ := readRow(t, pool, "INF")
+	require.Equal(t, "INF", inf["stock_code"])
+	require.NotContains(t, inf, "beta")
 }
