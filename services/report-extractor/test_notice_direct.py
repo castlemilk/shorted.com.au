@@ -638,6 +638,30 @@ def test_model_errors_are_counted_and_never_recorded(monkeypatch):
     assert counts["model_error"] >= 5
     assert counts["systemic"] == 1
     assert not any("read_by = 'model'" in s for s in conn.statements), "a model failure is not an attempt"
+    # Only a note on the detail, which the selection orders last: the same erroring notices headed
+    # eight batches in a row before this, until their errors alone read as systemic.
+    notes = [p for s_, p in zip(conn.statements, conn.params) if s_.startswith("UPDATE substantial_holder_notice_attempts SET detail")]
+    assert len(notes) == counts["model_error"] and notes[0][0].startswith("model: error (P: HTTP 503); parser: no_voting_power")
+    assert "WHEN a.detail LIKE 'model: error%%' THEN 1 ELSE 0 END" in nd.SELECT_SQL.rsplit("ORDER BY", 1)[1]
+
+
+def test_a_model_error_in_a_dry_run_writes_no_note(monkeypatch):
+    monkeypatch.setattr(nd, "fetch_pdf", lambda url, session=None: make_pdf([TEXT]))
+    conn = FakeConn([row("https://www.asx.com.au/asxpdf/1.pdf")], shares=664_000_000)
+    nd.run(conn, extractor({"P": dx.ModelCallError("P: HTTP 503"), "C": answer_604()}), limit=0, workers=1,
+           budget_min=10, since="", dry_run=True)
+    assert not any(s_.startswith("UPDATE substantial_holder_notice_attempts") for s_ in conn.statements)
+
+
+def test_a_reply_with_no_json_names_its_head_and_length():
+    class Prose:
+        def chat(self, *a, **k):
+            return "I cannot read this document.  " * 10
+
+    ex = nd.NoticeExtractor(client=Prose(), primary="P", checker="C", arbiter="A")
+    with pytest.raises(dx.ModelCallError) as e:
+        ex.read("P", ctx())
+    assert "no JSON object (300 chars: 'I cannot read this document." in str(e.value)
 
 
 def test_a_zero_budget_starts_nothing(monkeypatch):
