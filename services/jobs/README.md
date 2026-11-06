@@ -1121,10 +1121,23 @@ the load). A weekend-dated XJO or XJT row holds the batch (exit 0) until the one
 history. A request that fails for another reason exits 1. `STRATEGIES_DRY_RUN=false` writes; the default is a dry run
 that reads, computes and logs. Check: `task db:prod:psql -- -At -c "select strategy_id, kind, status, published, window_start, prices_through from strategy_backtest_runs order by started_at desc limit 8"`.
 
-**Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migration 000156).
+**Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migrations 000156 and 000159).
 Runs as `shorted-strategies-daily` (VKE CronJob, weekdays at :00, :20 and :40 past 13 to 16 UTC). It writes
 when `STRATEGIES_DRY_RUN=false`, holds a session it cannot yet read whole, backfills held sessions oldest
-first (ten per run), and exits 10 once at the 16:40 UTC run when a session is still held.
+first (ten per run), and exits 10 once at the 16:40 UTC run when a session is still held. A session's phases
+are features, evaluation, events and paper, and a session completes only when all four have.
+
+- **Paper track (phase `paper`, PR-15, migration 000159).** For each live canonical version that has a recipe
+  (`backtestTargets`, the same resolution the backtest job uses) the job steps `backtest.Step` through the
+  session from its stored snapshot rows of the session and the one before it. It never reads `stock_prices`.
+  The RBA cash rate is read from the stored series as of the session, since the snapshot rows do not carry it.
+  Each session's equity row, its trade rows and the simulator's checkpoint are written in one transaction.
+  Trades move forward only (`pending_entry`, `open`, `pending_exit`, `closed`, or `cancelled`), and the job refuses
+  any other move. The checkpoint (`strategy_paper_checkpoints`, one row per version and recipe, replaced each
+  session) is the state the next session starts from: 000159 adds it beyond the table list in the design. A version
+  starts on its `live_from`, or on the first session after it whose previous session has rows. A run catches up
+  over every session after the last recorded one. With no live version that has a recipe the phase completes
+  with nothing to do. Prune keeps the snapshot rows the track reads next (the newest recorded session).
 
 - **Index dates are fixed in the tree (#860).** The index sync dates each bar by its Sydney session and removes
   stored rows in a re-fetched window that are not sessions (the weekend rows). The job reads stored XJO dates for
