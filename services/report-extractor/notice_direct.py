@@ -874,11 +874,14 @@ class NoticeExtractor:
 
     def read(self, model: str, ctx: ReadContext) -> tuple[Optional[Notice], str]:
         user = ctx.text[:TEXT_CHARS] if not ctx.scan else SCAN_USER_MESSAGE
-        answer = dx.parse_answer(self.client.chat(model, SYSTEM_PROMPT, user, images=ctx.images))
+        content = self.client.chat(model, SYSTEM_PROMPT, user, images=ctx.images)
+        answer = dx.parse_answer(content)
         if not answer:
             # A reply with no JSON object is a model failure, not a reading: it is never written,
             # so the notice is offered again (the direct_extract rule for an unparseable reply).
-            raise dx.ModelCallError(f"{model}: the reply holds no JSON object")
+            # The reply's head and length go in the error, so the log says what came back.
+            head = (content or "")[:120]
+            raise dx.ModelCallError(f"{model}: the reply holds no JSON object ({len(content or '')} chars: {head!r})")
         subject, why = resolve_subject(answer, ctx)
         if subject is None:
             return None, why
@@ -1045,7 +1048,8 @@ WHERE a.outcome IN ('no_text', 'no_voting_power', 'no_holder')
   AND a.read_by = 'parser'
   AND (%(since)s::date IS NULL OR ann.announcement_date >= %(since)s::date)
 GROUP BY a.announcement_url, a.stock_code, a.outcome, a.detail, cm.market_cap, cm.company_name
-ORDER BY CASE WHEN btrim(cm.market_cap::text) ~ '^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$'
+ORDER BY CASE WHEN a.detail LIKE 'model: error%%' THEN 1 ELSE 0 END,
+         CASE WHEN btrim(cm.market_cap::text) ~ '^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$'
               THEN btrim(cm.market_cap::text)::float8 END DESC NULLS LAST,
          a.announcement_url
 LIMIT %(limit)s
@@ -1094,6 +1098,16 @@ def write_recovered(cur, url: str, code: str, announced_on: str, n: Notice) -> b
                    WHERE announcement_url = %s""",
                 ("model: read by two readers, validated against the share count", code, url))
     return True
+
+
+def note_model_error(cur, url: str, outcome: str, reason: str) -> None:
+    """A model failure is not an attempt: the parser's outcome and read_by stay, and only the detail
+    says a model could not read it, which SELECT_SQL orders last. The nightly parser's re-read
+    rewrites the detail, which brings the notice forward again."""
+    cur.execute("""UPDATE substantial_holder_notice_attempts
+                   SET detail = %s
+                   WHERE announcement_url = %s AND read_by = 'parser'""",
+                (f"model: error ({reason[:100]}); parser: {outcome}", url))
 
 
 def record_withheld(cur, url: str, outcome: str, reason: str) -> None:
@@ -1279,7 +1293,16 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
                     model_errors += 1
                     errors_in_row += 1
                     counts["model_error"] += 1
-                    log.warning("  model error %s: %s", cand.url, res.get("reason"))
+                    log.warning("  model error %s (scan=%s): %s", cand.url, res.get("scan"), res.get("reason"))
+                    if not dry_run:
+                        # Not an attempt (outcome and read_by stay the parser's), but a note that
+                        # sends the notice to the back of the selection: nothing was recorded for
+                        # a model error, so the same notices headed every batch (eight of them in
+                        # each of eight batches on 2026-11-06) until the error rate read systemic.
+                        with db_lock, conn.cursor() as cur:
+                            bound(cur)
+                            note_model_error(cur, cand.url, cand.outcome, str(res.get("reason") or ""))
+                            conn.commit()
                     continue
                 errors_in_row = 0
                 if kind == "fetch_failed":
