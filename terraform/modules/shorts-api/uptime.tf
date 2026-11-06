@@ -104,7 +104,7 @@ resource "google_monitoring_alert_policy" "api_public_down" {
       threshold_value = 1
 
       aggregations {
-        alignment_period     = "300s"
+        alignment_period     = "1200s"
         per_series_aligner   = "ALIGN_NEXT_OLDER"
         cross_series_reducer = "REDUCE_COUNT_FALSE"
         group_by_fields      = ["resource.label.host"]
@@ -119,7 +119,7 @@ resource "google_monitoring_alert_policy" "api_public_down" {
   notification_channels = var.notification_channel_ids
 
   documentation {
-    content   = "Runbook: check the uptime check's latest results. A 403, 429 or \"Just a moment\" page is Cloudflare (edge rate limit or a bot challenge on the checkers). A failing /health check is Cloud Run: describe the shorts service and its logs. If a deploy just landed, roll back (docs/PRODUCTION_DEPLOYMENT.md, Rollback)."
+    content   = "Runbook: find which answered. Repeat the check's request as in docs/PRODUCTION_DEPLOYMENT.md (Uptime checks), with the checker's User-Agent, and read the headers. X-Shorted-Build present: the API answered. A 5xx or a timeout means the Cloud Run logs and the database, and /health can pass while this check fails. A JSON 403 permission_denied (automated access detected) is the API's user-agent filter. A 429 with X-RateLimit-Detail is the app limiter; with X-RateLimit-Bucket it is the edge worker. X-Shorted-Build absent, a cf-mitigated header, or a 'Just a moment' page means Cloudflare answered. If a deploy just landed, roll back (docs/PRODUCTION_DEPLOYMENT.md, Rollback)."
     mime_type = "text/markdown"
   }
 }
@@ -140,7 +140,7 @@ resource "google_monitoring_alert_policy" "run_health_down" {
       threshold_value = 1
 
       aggregations {
-        alignment_period     = "300s"
+        alignment_period     = "1200s"
         per_series_aligner   = "ALIGN_NEXT_OLDER"
         cross_series_reducer = "REDUCE_COUNT_FALSE"
         group_by_fields      = ["resource.label.host"]
@@ -155,7 +155,17 @@ resource "google_monitoring_alert_policy" "run_health_down" {
   notification_channels = var.notification_channel_ids
 
   documentation {
-    content   = "Runbook: the Cloud Run service is not answering /health from two regions. Describe the shorts service (latest revision, ready condition), then its logs for memory kills and startup errors. If a deploy just landed, roll back (docs/PRODUCTION_DEPLOYMENT.md, Rollback)."
+    content   = "Runbook: the Cloud Run service is not answering /health from two regions. Describe the shorts service (latest revision, ready condition), then its logs for memory-limit kills and startup errors. A response without X-Shorted-Build came from in front of Cloud Run, not the service. If a deploy just landed, roll back (docs/PRODUCTION_DEPLOYMENT.md, Rollback)."
     mime_type = "text/markdown"
+  }
+}
+
+# The alerts' only notification target is the job-monitoring email channel,
+# which exists only when alert_recipient_email is set. Without it the policies
+# keep evaluating and notify no one, so say so at every plan.
+check "uptime_alert_channel" {
+  assert {
+    condition     = length(var.notification_channel_ids) > 0
+    error_message = "The shorts API uptime alerts have no notification channel, so they evaluate and email no one. Set alert_recipient_email for prod (the job-monitoring email channel)."
   }
 }
