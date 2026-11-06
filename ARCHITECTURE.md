@@ -443,7 +443,7 @@ REFRESH MATERIALIZED VIEW mv_watchlist_defaults;
 | RPC | Required Role | Description |
 |-----|---------------|-------------|
 | `GetSyncStatus` | admin | Sync job monitoring |
-| `SyncKeyMetrics` | admin | Trigger Yahoo Finance sync |
+| `SyncKeyMetrics` | admin | Retired: FailedPrecondition, no writes. Key metrics are refreshed by `shorted key-metrics` (VKE CronJob) |
 | `EnrichStock` | admin | Trigger GPT-4 enrichment |
 | `GetTopStocksForEnrichment` | admin | Prioritized enrichment candidates |
 | `ListPendingEnrichments` | admin | Review queue |

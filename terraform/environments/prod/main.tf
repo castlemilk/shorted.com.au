@@ -1391,9 +1391,6 @@ module "shorts_api" {
   # Stripe can overwrite.
   internal_tier_user_ids = join(",", compact(concat(split(",", var.internal_tier_user_ids), ["svc-paid-probe", "JhKP8T9HoITH07eNBs4BOidsszP2"])))
 
-  scheduler_region             = "australia-southeast1"
-  enable_key_metrics_scheduler = true
-
   # Where GET /api/admin/jobs/validate-sync reads a validation report from.
   # Same bucket the sync job writes it to — see the local above.
   shorts_data_bucket = local.short_selling_bucket_name

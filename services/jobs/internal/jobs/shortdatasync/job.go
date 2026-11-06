@@ -65,10 +65,9 @@
 // protocol is gone.
 //
 // The key-metrics refresh is NOT ported here either (it is a yfinance scrape
-// of company metadata, not the ASIC pipeline) — and it does not need to be:
-// the shorts API's SyncKeyMetrics RPC already refreshes it on its own daily
-// key-metrics-scheduler (enabled in prod). The Python job was a duplicate
-// second writer; the cutover PR only confirms that scheduler is healthy.
+// of company metadata, not the ASIC pipeline). It is `shorted key-metrics`
+// (services/jobs/internal/jobs/keymetrics), a VKE CronJob: the shorts API's
+// SyncKeyMetrics RPC is retired and no longer writes key_metrics.
 //
 // # Preserved landmines
 //

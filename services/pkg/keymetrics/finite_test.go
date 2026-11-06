@@ -1,4 +1,4 @@
-package shorts
+package keymetrics
 
 import (
 	"math"
@@ -42,7 +42,7 @@ func TestSanitiseKeyMetricsDropsNonFiniteValues(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := sanitiseKeyMetrics(map[string]any{
+			got := Sanitise(map[string]any{
 				"pe_ratio":   tc.in,
 				"market_cap": 1_691_086_080.0,
 			})
@@ -71,7 +71,7 @@ func TestSanitiseKeyMetricsKeepsEverythingFinite(t *testing.T) {
 		"as_at":          nil,
 	}
 
-	got := sanitiseKeyMetrics(in)
+	got := Sanitise(in)
 
 	if len(got) != len(in) {
 		t.Fatalf("expected all %d keys kept, got %d: %v", len(in), len(got), got)
@@ -84,10 +84,10 @@ func TestSanitiseKeyMetricsKeepsEverythingFinite(t *testing.T) {
 }
 
 func TestSanitiseKeyMetricsHandlesNilAndEmpty(t *testing.T) {
-	if got := sanitiseKeyMetrics(nil); got != nil {
+	if got := Sanitise(nil); got != nil {
 		t.Errorf("nil in, nil out expected, got %v", got)
 	}
-	if got := sanitiseKeyMetrics(map[string]any{}); len(got) != 0 {
+	if got := Sanitise(map[string]any{}); len(got) != 0 {
 		t.Errorf("empty in, empty out expected, got %v", got)
 	}
 }
@@ -95,7 +95,7 @@ func TestSanitiseKeyMetricsHandlesNilAndEmpty(t *testing.T) {
 // "Infinity" is a legitimate substring of ordinary text. Only drop a key whose
 // value IS a non-finite number, never one that merely mentions one.
 func TestSanitiseKeyMetricsKeepsProseThatMentionsInfinity(t *testing.T) {
-	got := sanitiseKeyMetrics(map[string]any{
+	got := Sanitise(map[string]any{
 		"note": "P/E is effectively infinity while earnings are negative",
 	})
 	if _, present := got["note"]; !present {

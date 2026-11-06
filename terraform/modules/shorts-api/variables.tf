@@ -56,18 +56,6 @@ variable "otel_endpoint" {
   default     = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
 }
 
-variable "scheduler_region" {
-  description = "Region for Cloud Scheduler (must be australia-southeast1)"
-  type        = string
-  default     = "australia-southeast1"
-}
-
-variable "enable_key_metrics_scheduler" {
-  description = "Enable daily Cloud Scheduler for key metrics sync"
-  type        = bool
-  default     = false
-}
-
 variable "resend_secret_exists" {
   description = "Whether the RESEND_API_KEY secret exists in Secret Manager. Gates binding the secret env (so apply doesn't fail before it's provisioned). The handler no-ops when the key is absent."
   type        = bool

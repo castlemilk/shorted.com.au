@@ -258,7 +258,7 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
         # Also NOT set: SYNC_DAYS_STOCK_PRICES, SYNC_KEY_METRICS,
         # ALPHA_VANTAGE_API_KEY, MAX_STOCK_FAILURE_RETRIES. The Go job does not
         # sync prices or key metrics (`shorted market-data` owns stock_prices;
-        # the shorts API's key-metrics-scheduler owns key_metrics) and warns
+        # `shorted key-metrics`, a VKE CronJob, owns key_metrics) and warns
         # loudly if any of them IS set.
 
         # Event-driven cache revalidation: after writing new ASIC data, ping the

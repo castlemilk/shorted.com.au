@@ -1,4 +1,4 @@
-package shorts
+package keymetrics
 
 import (
 	"math"
@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// sanitiseKeyMetrics drops any key whose value is a non-finite number, so that
+// Sanitise drops any key whose value is a non-finite number, so that
 // ±Inf and NaN cannot enter the key_metrics JSONB.
 //
 // Why here rather than at each reader: key_metrics is text in JSONB, and
@@ -28,7 +28,7 @@ import (
 // that actually reached production arrived as JSON *strings*. Both shapes are
 // handled: the numeric case guards a future caller, the string case is the one
 // that has bitten.
-func sanitiseKeyMetrics(metrics map[string]any) map[string]any {
+func Sanitise(metrics map[string]any) map[string]any {
 	if metrics == nil {
 		return nil
 	}

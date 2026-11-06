@@ -2033,6 +2033,15 @@ jobs:
           cd services
           make test-strategies-daily-pg
 
+      # The key-metrics suite (services/jobs/internal/jobs/keymetrics): the one UPDATE that writes
+      # company-metadata.key_metrics, a failed write leaving the old row, the universe's price filter
+      # and the stored-code write, on a real Postgres. The job runs daily on VKE, so the write gates the deploy.
+      - name: Run key-metrics container suite (gates the deploy)
+        run: |
+          echo "Running the key-metrics suite (postgres container)..."
+          cd services
+          make test-keymetrics-pg
+
       # The strategy feature parity suite (services/pkg/strategy/features): the Go port of
       # mv_price_features and mv_market_regime against migration 000130's views at fixed anchors.
       # It gates the deploy so that a change to either side fails here, not in a later PR.

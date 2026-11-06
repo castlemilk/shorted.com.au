@@ -1882,7 +1882,7 @@ Next.js contributes only the consent screen.
   metered as anonymous.
 - **`encoding/json` refuses `±Inf`; protojson does not.** Same value, two
   behaviours — which is why the website's screener worked while MCP's died.
-  Guarded at the write funnel in `store/shorts/key_metrics_finite.go`. Note
+  Guarded at the write funnel in `services/pkg/keymetrics/finite.go`. Note
   **Postgres accepts `-NaN`/`+NaN` where Go's `ParseFloat` does not**, so that
   guard cannot lean on `ParseFloat` alone.
 - **The MCP SDK emits no `$defs`/`$ref`** — every nested struct is inlined at
@@ -1982,6 +1982,10 @@ empty, the channel is destroyed and those alerts notify no one.
   `CLUSTER` and takes its runs from Telesis (`jobmonitor/cluster.go`). Without
   `TELESIS_API_TOKEN` those jobs read as paused and overdue. Keep CronJob names
   matching their old trigger names, or the overlay cannot find them.
+- **Key metrics are a scheduled job here.** `shorted-key-metrics` (VKE-native, daily
+  19:40 UTC) refreshes `"company-metadata".key_metrics` from Yahoo quoteSummary; its
+  contract, breakers and dry-run default are in `services/jobs/README.md` "key-metrics".
+  The shorts API's `SyncKeyMetrics` RPC is retired (FailedPrecondition, no writes).
 
 ## Blog MDX palette (project-owned figures)
 

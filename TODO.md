@@ -337,7 +337,7 @@
 - [ ] **RBA interest rate overlay** — track cash rate decisions, overlay on sector performance charts
 - [ ] **Enhanced financial statements** — extend `report-extractor` to extract full P&L, balance sheet, cash flow (already partially in `FinancialStatementSet` proto)
 - [ ] **Peer comparison tables** — auto-generate top 5 industry peers comparing short %, market cap, P/E, dividend yield, revenue growth
-- [ ] **Daily key metrics auto-refresh** — schedule existing `SyncKeyMetrics` RPC daily via Cloud Scheduler (currently admin-only)
+- [x] **Daily key metrics auto-refresh** — done as `shorted key-metrics` (VKE CronJob, daily 19:40 UTC); the `SyncKeyMetrics` RPC is retired
 
 **Data sources:**
 - ASX announcements (already ingested — need classification for Appendix 3Y, 3A.1, 3B, 4C, 4D, 4E)

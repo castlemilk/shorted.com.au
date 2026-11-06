@@ -92,13 +92,11 @@ The Python script bundled three unrelated pipelines. This job takes ONE:
 |---|---|
 | ASIC shorts ingest, MV refresh, revalidation, Algolia, `sync_status` | **here** |
 | `stock_prices` sweep (yfinance + Alpha Vantage, 500-stock batches, gap fill) | `shorted market-data serve\|sync` (Phase 2c) — already ported, already deployed, own checkpoint store |
-| `key_metrics` refresh of `"company-metadata"` (yfinance `ticker.info`) | the shorts API's `SyncKeyMetrics` RPC, fired by the `key-metrics-scheduler` Cloud Scheduler (`terraform/modules/shorts-api/main.tf`, `enable_key_metrics_scheduler = true` in prod) |
+| `key_metrics` refresh of `"company-metadata"` (Yahoo quoteSummary) | `shorted key-metrics`, the `shorted-key-metrics` VKE CronJob (`services/jobs/internal/jobs/keymetrics`, daily 19:40 UTC). The shorts API's `SyncKeyMetrics` RPC is retired |
 
 `shorted market-data` only READS `key_metrics` (to build Algolia records) and
-this job never writes it either — but that is fine: the shorts API already runs
-its own daily key-metrics refresh (the Python job was a duplicate second
-writer). The cutover PR only needs to CONFIRM that scheduler is enabled and
-healthy in prod before pausing the Python job.
+this job never writes it either. The key-metrics job is the one writer, on its
+own schedule (see the `key-metrics` section of `services/jobs/README.md`).
 
 Consequences of dropping the stock loop (all deliberate):
 
