@@ -3,6 +3,8 @@ package shorts
 import (
 	"net/http"
 	"os"
+
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 )
 
 // BuildHeader names the response header that carries the build the API is
@@ -15,9 +17,17 @@ const BuildHeader = "X-Shorted-Build"
 // buildUnknown is the value of BuildHeader when SERVICE_VERSION is unset.
 const buildUnknown = "unknown"
 
+// rootHandler is the handler chain Serve puts under h2c: the OTel HTTP
+// middleware around the mux, with the build header outermost, so no route,
+// error reply or middleware underneath can skip it. Serve and the tests both
+// build the chain here, so a test exercises what production serves.
+func rootHandler(mux http.Handler) http.Handler {
+	return withBuildHeader(shortedotel.HTTPMiddleware(mux))
+}
+
 // withBuildHeader sets BuildHeader on every response the wrapped handler
-// writes. It is applied outermost, around the whole mux, so no route, error
-// reply or middleware underneath can skip it.
+// writes. It must stay outermost: a middleware that writes a response before
+// this one runs would answer without the header.
 func withBuildHeader(next http.Handler) http.Handler {
 	build := os.Getenv("SERVICE_VERSION")
 	if build == "" {

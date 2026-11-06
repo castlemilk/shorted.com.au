@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,7 +15,7 @@ import (
 )
 
 // buildTestMux serves a 200, a Connect error and nothing else, behind the same
-// wrapper Serve uses.
+// chain Serve uses (rootHandler).
 func buildTestMux(t *testing.T) http.Handler {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -29,7 +30,25 @@ func buildTestMux(t *testing.T) http.Handler {
 		},
 	)
 	mux.Handle("/test.v1.Thing/Fail", handler)
-	return withBuildHeader(mux)
+	return rootHandler(mux)
+}
+
+// serveWire runs the handler on a real socket and returns what the client
+// received, not what the handler wrote into a recorder.
+func serveWire(t *testing.T, h http.Handler, req *http.Request) *http.Response {
+	t.Helper()
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+	req.URL.Scheme = "http"
+	req.URL.Host = strings.TrimPrefix(srv.URL, "http://")
+	req.RequestURI = ""
+	resp, err := srv.Client().Do(req)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	})
+	return resp
 }
 
 func TestBuildHeaderOnEveryResponse(t *testing.T) {
@@ -37,35 +56,34 @@ func TestBuildHeaderOnEveryResponse(t *testing.T) {
 	h := buildTestMux(t)
 
 	t.Run("200", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/ok", nil))
-		require.Equal(t, http.StatusOK, rec.Code)
-		assert.Equal(t, "shorts-test-tag", rec.Header().Get(BuildHeader))
+		req, _ := http.NewRequest(http.MethodGet, "/ok", nil)
+		resp := serveWire(t, h, req)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, "shorts-test-tag", resp.Header.Get(BuildHeader))
 	})
 
 	t.Run("404", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/nope", nil))
-		require.Equal(t, http.StatusNotFound, rec.Code)
-		assert.Equal(t, "shorts-test-tag", rec.Header().Get(BuildHeader))
+		req, _ := http.NewRequest(http.MethodGet, "/nope", nil)
+		resp := serveWire(t, h, req)
+		require.Equal(t, http.StatusNotFound, resp.StatusCode)
+		assert.Equal(t, "shorts-test-tag", resp.Header.Get(BuildHeader))
 	})
 
 	t.Run("connect error", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/test.v1.Thing/Fail", strings.NewReader(`""`))
+		req, _ := http.NewRequest(http.MethodPost, "/test.v1.Thing/Fail", strings.NewReader(`""`))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Connect-Protocol-Version", "1")
-		h.ServeHTTP(rec, req)
-		require.Equal(t, http.StatusNotFound, rec.Code)
-		assert.Equal(t, "shorts-test-tag", rec.Header().Get(BuildHeader))
+		resp := serveWire(t, h, req)
+		require.Equal(t, http.StatusNotFound, resp.StatusCode)
+		assert.Equal(t, "shorts-test-tag", resp.Header.Get(BuildHeader))
 	})
 }
 
 func TestBuildHeaderIsUnknownWhenUnset(t *testing.T) {
 	t.Setenv("SERVICE_VERSION", "")
-	rec := httptest.NewRecorder()
-	buildTestMux(t).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/ok", nil))
-	assert.Equal(t, "unknown", rec.Header().Get(BuildHeader))
+	req, _ := http.NewRequest(http.MethodGet, "/ok", nil)
+	resp := serveWire(t, buildTestMux(t), req)
+	assert.Equal(t, "unknown", resp.Header.Get(BuildHeader))
 }
 
 func TestBuildHeaderIsExposedToBrowsers(t *testing.T) {
@@ -75,4 +93,14 @@ func TestBuildHeaderIsExposedToBrowsers(t *testing.T) {
 	rec := httptest.NewRecorder()
 	cors.ServeHTTP(rec, req)
 	assert.Contains(t, rec.Header().Get("Access-Control-Expose-Headers"), BuildHeader)
+}
+
+// TestServeWrapsEveryRouteInBuildHeader pins the production wiring: Serve must
+// put rootHandler (which carries withBuildHeader) under h2c. A test chain alone
+// cannot catch a later edit that drops the wrapper from Serve.
+func TestServeWrapsEveryRouteInBuildHeader(t *testing.T) {
+	serve := readRepoFile(t, "serve.go")
+	assert.Contains(t, serve, "h2c.NewHandler(rootHandler(mux),")
+	build := readRepoFile(t, "build_header.go")
+	assert.Contains(t, build, "return withBuildHeader(shortedotel.HTTPMiddleware(mux))")
 }
