@@ -480,11 +480,34 @@ def _bare_figure(quote: str, c: str) -> bool:
     return False
 
 
+# A reply longer than this is a model failure (a loop of whitespace or prose), never an answer:
+# the largest real answer, a full statement's figures, is a few tens of thousands of characters.
+ANSWER_MAX_CHARS = 400_000
+
+
+def strip_fence(s: str) -> str:
+    """The text inside a Markdown code fence, or s itself. String operations only: the regex
+    `\\s*```$` this replaced is quadratic in a run of whitespace (0.3 s at 20,000 spaces, hours
+    at a few million), and the regex engine holds the GIL for the whole call, so one degenerate
+    reply froze every thread of the notice reader, its budget stop included, for 107 minutes
+    (2026-11-05, caught by the watchdog's stack dump the next run)."""
+    s = s.strip()
+    if s.startswith("```"):
+        s = s[3:]
+        if s[:4].lower() == "json":
+            s = s[4:]
+        s = s.lstrip()
+    if s.endswith("```"):
+        s = s[:-3].rstrip()
+    return s
+
+
 def parse_answer(content: str) -> dict:
-    """The JSON object in a model's answer ({} when there is none)."""
-    s = (content or "").strip()
-    s = re.sub(r"^```(?:json)?\s*", "", s)
-    s = re.sub(r"\s*```$", "", s)
+    """The JSON object in a model's answer ({} when there is none, or when the reply is over
+    ANSWER_MAX_CHARS)."""
+    if len(content or "") > ANSWER_MAX_CHARS:
+        return {}
+    s = strip_fence(content or "")
     # Some models wrap the object in a one-element array ([{...}]): unwrap it.
     if s.startswith("["):
         try:
