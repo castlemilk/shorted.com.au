@@ -800,6 +800,15 @@ test-shortdatasync-pg: test-integration-images
 	cd jobs && GOWORK=off CGO_ENABLED=0 SHORTDATASYNC_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run 'StrategyCapture|IngestWriter' ./internal/jobs/shortdatasync/
 
+# The key-metrics write (services/jobs/internal/jobs/keymetrics): one UPDATE per stock stamps the row, a good
+# record replaces it, a database refusal leaves the old row untouched, and the universe is stalest first. The
+# Yahoo mapping and the run's breakers need no server and run in the plain go test of the package.
+.PHONY: test-keymetrics-pg
+test-keymetrics-pg: test-integration-images
+	@set -e; \
+	cd jobs && GOWORK=off CGO_ENABLED=0 KEY_METRICS_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run KeyMetricsPG ./internal/jobs/keymetrics/
+
 # The strategy daily snapshot suite (services/jobs/internal/jobs/strategies): migration 000156 applied to a
 # throwaway database, one session written, a dry run that writes nothing, a re-run that writes the same rows,
 # and a second session diffed against the first. Gates the deploy beside the capture suite.
