@@ -423,10 +423,46 @@ func windowMetrics(f backtest.WindowFigures, days []chainDay, trades []windowTra
 		m.ReferenceTotalReturnPct = round2((days[len(days)-1].ref/days[0].ref - 1) * 100)
 		m.HasReferenceTotalReturn = true
 	}
-	closed, win, hasWin := closedAndWinRate(trades, f.Start, f.End, recorded)
+	closed, win, hasWin := closedAndWinRate(trades, f.Start, f.End)
 	m.ClosedTrades = int32(closed)
 	m.WinRatePct, m.HasWinRate = round2(win), hasWin
 	return m
+}
+
+// paperStart is the paper track's actual first recorded session, "" when no track chains.
+func (c *computedRun) paperStart() string {
+	if !c.chain.hasPaper {
+		return ""
+	}
+	return c.chain.startAt.String()
+}
+
+// windowNote is the note a window carries (item 7). Before the paper track starts, the window is in-sample
+// to the day before live_from. Once a track chains, the windows that span it say so, and name the track's
+// actual first session when that is after live_from. The live window is the track alone.
+func (c *computedRun) windowNote(windowID string) string {
+	if windowID == windowLive {
+		if c.chain.hasPaper {
+			return fmt.Sprintf("paper track only, recorded from %s", c.chain.startAt)
+		}
+		return "paper track only, recorded"
+	}
+	switch {
+	case c.chain.hasPaper && c.chain.startAt.After(c.chain.frozenAt):
+		return fmt.Sprintf("in-sample to %s, recorded from %s", c.chain.frozenAt, c.chain.startAt)
+	case c.chain.hasPaper:
+		return fmt.Sprintf("in-sample to %s, recorded after", c.chain.frozenAt.AddDays(-1))
+	case c.chain.hasLive:
+		return fmt.Sprintf("in-sample to %s", c.chain.frozenAt.AddDays(-1))
+	}
+	return ""
+}
+
+// applyWindowNotes sets each window's note from the run's paper track.
+func applyWindowNotes(wins []*shortsv1alpha1.WindowMetrics, c *computedRun) {
+	for _, w := range wins {
+		w.Note = c.windowNote(w.GetWindow())
+	}
 }
 
 // applyReferenceFallback gives the since-May-2019 window the reference figures the summary states, when
@@ -848,6 +884,7 @@ func (s *ShortsServer) runFromStored(ctx context.Context, lb liveBacktest, sr *s
 		wins = append(wins, windowMetrics(f, c.spanOf(f), c.windowTrades()))
 	}
 	applyReferenceFallback(wins, c.chain.days, sr.summary)
+	applyWindowNotes(wins, c)
 	served := c.serveSeries(specWin, resolution)
 	annual, monthly := periodTables(c.chain.days, sr.summary.Coverage, sr.summary.Survivorship.Measurement)
 	covYears, covMonths := coverageRows(sr.summary.Coverage, sr.trades)
@@ -861,31 +898,33 @@ func (s *ShortsServer) runFromStored(ctx context.Context, lb liveBacktest, sr *s
 		state, reason = backtestStateApproximate, "Approximate: fundamentals assumed known 2 months after period end"
 	}
 	run := &shortsv1alpha1.BacktestRun{
-		State:             state,
-		StateReason:       reason,
-		StrategyId:        sr.row.StrategyID,
-		Identity:          runIdentityOf(sr, lb),
-		Windows:           wins,
-		Annual:            annual,
-		Monthly:           monthly,
-		Series:            served.points,
-		Coverage:          covYears,
-		CoverageMonthly:   covMonths,
-		Survivorship:      survivorshipOf(sr.summary),
-		Sensitivity:       sensitivitiesOf(sr.summary.Sensitivity),
-		Recipe:            recipeLinesOfHash(sr.row.RecipeHash),
-		TradeSummary:      tradeSummaryOf(inSample),
-		LiveVersion:       versionRefWith(lb.reg, lb.hash, lb.table.stateOf(lb.reg, lb.hash)),
-		RulesMatchLive:    lb.found && sr.row.RulesHash == lb.hash && sr.row.RecipeHash == lb.recipeHash,
-		EngineMatchesLive: sr.row.EngineVersion == engine.Version,
-		ReplayAgreement:   s.replayFor(c, lb),
-		InputChangeNote:   diffNoteOf(sr.summary.Diff),
-		Disclosures:       disclosuresOf(sr.row.InSampleUntil, c.chain.liveFromString(), sr.summary.Survivorship.Caveat),
-		DataNotes:         dataNotesOf(sr.summary.DataQuality),
-		DataQuality:       dataQualityOf(sr.summary.DataQuality),
-		SeriesResolution:  served.resolution,
-		WindowId:          served.windowID,
-		FundamentalsLabel: fundamentalsLabel(sr.row.Fundamentals),
+		State:               state,
+		StateReason:         reason,
+		StrategyId:          sr.row.StrategyID,
+		Identity:            runIdentityOf(sr, lb),
+		Windows:             wins,
+		Annual:              annual,
+		Monthly:             monthly,
+		Series:              served.points,
+		Coverage:            covYears,
+		CoverageMonthly:     covMonths,
+		Survivorship:        survivorshipOf(sr.summary),
+		Sensitivity:         sensitivitiesOf(sr.summary.Sensitivity),
+		Recipe:              recipeLinesOfHash(sr.row.RecipeHash),
+		TradeSummary:        tradeSummaryOf(inSample),
+		LiveVersion:         versionRefWith(lb.reg, lb.hash, lb.table.stateOf(lb.reg, lb.hash)),
+		RulesMatchLive:      lb.found && sr.row.RulesHash == lb.hash && sr.row.RecipeHash == lb.recipeHash,
+		EngineMatchesLive:   sr.row.EngineVersion == engine.Version,
+		ReplayAgreement:     s.replayFor(c, lb),
+		InputChangeNote:     diffNoteOf(sr.summary.Diff),
+		Disclosures:         disclosuresOf(sr.row.InSampleUntil, c.chain.liveFromString(), sr.summary.Survivorship.Caveat),
+		DataNotes:           dataNotesOf(sr.summary.DataQuality),
+		DataQuality:         dataQualityOf(sr.summary.DataQuality),
+		SeriesResolution:    served.resolution,
+		WindowId:            served.windowID,
+		FundamentalsLabel:   fundamentalsLabel(sr.row.Fundamentals),
+		PaperStart:          c.paperStart(),
+		PaperEngineSegments: engineSegmentsOf(pt.equity),
 	}
 	return run, nil
 }
@@ -1165,6 +1204,7 @@ func (s *ShortsServer) strategyEvidence(ctx context.Context, st engine.Strategy)
 			ev.Windows = append(ev.Windows, windowMetrics(f, c.spanOf(f), c.windowTrades()))
 		}
 		applyReferenceFallback(ev.Windows, c.chain.days, sr.summary)
+		applyWindowNotes(ev.Windows, c)
 		ev.Annual, _ = periodTables(c.chain.days, sr.summary.Coverage, sr.summary.Survivorship.Measurement)
 		for _, k := range monthEnds(c.chain.days, evidenceMonthCap) {
 			ev.MiniCurve = append(ev.MiniCurve, seriesOf(c.chain.days, []int{k})...)
@@ -1422,7 +1462,8 @@ func (s *ShortsServer) CompareStrategies(ctx context.Context, req *connect.Reque
 	return connect.NewResponse(out), nil
 }
 
-// windowTradesFor is the trades a window counts; the same rule the run's own windows apply.
+// windowTradesFor is the trades a window counts: the in-sample trades that exited before the cut and the
+// paper trades that closed, each with its net return where it has one.
 func windowTradesFor(run []shortsstore.BacktestTradeRow, paper []shortsstore.PaperTradeRow, liveFrom civil.Date, hasLive, hasPaper bool) []windowTrade {
 	var out []windowTrade
 	for _, t := range run {
@@ -1443,7 +1484,7 @@ func windowTradesFor(run []shortsstore.BacktestTradeRow, paper []shortsstore.Pap
 			continue
 		}
 		if exit, err := civil.ParseDate(t.ExitDate); err == nil {
-			out = append(out, windowTrade{exit: exit})
+			out = append(out, windowTrade{exit: exit, net: t.NetReturnPct / 100, hasNet: t.HasNet})
 		}
 	}
 	return out

@@ -185,3 +185,40 @@ func TestBacktestTradePagesAreKeysetAndFiltered(t *testing.T) {
 	require.Len(t, byStock, 1)
 	require.Equal(t, "CBA", byStock[0].StockCode)
 }
+
+// The paper reads carry the engine that wrote each row (a track is not filtered by engine), XJT's raw close, and
+// a closed trade's return columns (item 7 and item 4 on the database).
+func TestPaperReadsCarryEngineBenchmarkAndReturns(t *testing.T) {
+	s := strategyBacktestReadStore(t)
+	live, _, recipe := seedBacktestMatrix(t, s)
+	ctx := context.Background()
+	_, err := s.db.Exec(ctx, `
+		INSERT INTO strategy_paper_equity (rules_hash, recipe_hash, as_of, equity, cash, positions, benchmark, engine_version)
+		VALUES ($1, $2, '2026-10-01', 100, 10, 2, 5200, '1.1.1'),
+		       ($1, $2, '2026-10-02', 101, 10, 2, NULL, '1.2.0')`, live, recipe)
+	require.NoError(t, err)
+	_, err = s.db.Exec(ctx, `
+		INSERT INTO strategy_paper_trades (strategy_id, engine_version, rules_hash, recipe_hash, stock_code, signal_date, entry_date, entry_price,
+		  exit_date, exit_price, exit_reason, status, entry_score, sessions_held, gross_return_pct, net_return_pct)
+		VALUES ('zanger-breakout', '1.2.0', $1, $2, 'RIO', '2026-10-01', '2026-10-02', 90, '2026-10-20', 95, 'pivot_stop', 'closed', 75.44, 12, 5.6, 5.1)`,
+		live, recipe)
+	require.NoError(t, err)
+
+	eq, err := s.ReadPaperEquity(ctx, live, recipe)
+	require.NoError(t, err)
+	require.Len(t, eq, 2, "a track across an engine bump keeps every row")
+	require.Equal(t, "1.1.1", eq[0].EngineVersion)
+	require.Equal(t, "1.2.0", eq[1].EngineVersion)
+	require.NotNil(t, eq[0].Benchmark)
+	require.InDelta(t, 5200, *eq[0].Benchmark, 1e-9)
+	require.Nil(t, eq[1].Benchmark, "no close on the session: the benchmark is absent, not zero")
+
+	trades, err := s.ReadPaperTrades(ctx, live, recipe)
+	require.NoError(t, err)
+	require.Len(t, trades, 1)
+	require.True(t, trades[0].HasNet)
+	require.InDelta(t, 5.1, trades[0].NetReturnPct, 1e-9)
+	require.InDelta(t, 5.6, trades[0].GrossReturnPct, 1e-9)
+	require.Equal(t, 12, trades[0].SessionsHeld)
+	require.InDelta(t, 75.4, trades[0].EntryScore, 0.05)
+}

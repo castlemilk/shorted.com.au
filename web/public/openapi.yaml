@@ -579,6 +579,18 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.MonthlyReturn'
           title: monthly
           type: array
+        paperEngineSegments:
+          description: The engine versions the paper track was written by, in order.
+            (proto shorts.v1alpha1.EngineSegment)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.EngineSegment'
+          title: paper_engine_segments
+          type: array
+        paperStart:
+          description: The paper track's actual first recorded session; "" when the
+            run has none. (proto string)
+          title: paper_start
+          type: string
         recipe:
           $ref: '#/components/schemas/shorts.v1alpha1.RecipeLines'
           description: The recipe prose, preface first. (proto shorts.v1alpha1.RecipeLines)
@@ -2644,6 +2656,31 @@ components:
           title: word_count
           type: integer
       title: EditorialTake
+      type: object
+    shorts.v1alpha1.EngineSegment:
+      additionalProperties: false
+      description: |-
+        A stretch of the paper track written by one engine version. A track continues across an engine bump; the
+         segments say where it changed, so a surface can mark the change.
+      properties:
+        engineVersion:
+          description: (proto string)
+          title: engine_version
+          type: string
+        firstSession:
+          description: YYYY-MM-DD. (proto string)
+          title: first_session
+          type: string
+        lastSession:
+          description: YYYY-MM-DD. (proto string)
+          title: last_session
+          type: string
+        sessions:
+          description: (proto int32)
+          format: int32
+          title: sessions
+          type: integer
+      title: EngineSegment
       type: object
     shorts.v1alpha1.FilterSuburbsRequest:
       additionalProperties: false
@@ -10554,6 +10591,13 @@ components:
           format: int32
           title: closed_trades
           type: integer
+        engineSegments:
+          description: The engine that wrote each stretch of the track, in order.
+            (proto shorts.v1alpha1.EngineSegment)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.EngineSegment'
+          title: engine_segments
+          type: array
         hasReturn:
           description: (proto bool)
           title: has_return
@@ -10563,6 +10607,11 @@ components:
           format: int32
           title: open_positions
           type: integer
+        recordedFrom:
+          description: The track's actual first recorded session (YYYY-MM-DD); ""
+            when no track. (proto string)
+          title: recorded_from
+          type: string
         returnPct:
           description: (proto double)
           format: double

@@ -649,6 +649,8 @@ message BacktestRun {
   DataQuality data_quality = 28;                 // The run's data-quality counts, as fields.
   string window_id = 29;                         // The window the series and window tables are served for.
   string fundamentals_label = 30;                // The fundamentals policy, in words the surfaces print.
+  string paper_start = 31;                       // The paper track's actual first recorded session; "" when the run has none.
+  repeated EngineSegment paper_engine_segments = 32;  // The engine versions the paper track was written by, in order.
 }
 
 // A run's data-quality counts (5.11). Every count the run stores is served here, so no reader has to
@@ -890,6 +892,17 @@ message PaperTrackSummary {
   double return_pct = 5;
   bool has_return = 6;
   bool too_short = 7;              // Under 63 sessions or 10 closed trades.
+  string recorded_from = 8;        // The track's actual first recorded session (YYYY-MM-DD); "" when no track.
+  repeated EngineSegment engine_segments = 9;  // The engine that wrote each stretch of the track, in order.
+}
+
+// A stretch of the paper track written by one engine version. A track continues across an engine bump; the
+// segments say where it changed, so a surface can mark the change.
+message EngineSegment {
+  string engine_version = 1;
+  string first_session = 2;        // YYYY-MM-DD.
+  string last_session = 3;         // YYYY-MM-DD.
+  int32 sessions = 4;
 }
 
 // Request for ListBacktestTrades.

@@ -76,6 +76,7 @@ func fixturePaper(dates []civil.Date) []shortsstore.PaperEquityRow {
 		bench := 5200 * (1 + 0.0001*mm)
 		out = append(out, shortsstore.PaperEquityRow{
 			AsOf: d.String(), Equity: 300000 * (1 + 0.0004*mm), Cash: 30000, Positions: 4, Benchmark: &bench,
+			EngineVersion: engine.Version,
 		})
 	}
 	return out
@@ -950,11 +951,9 @@ func TestReferenceLevelIsOnEverySeriesPoint(t *testing.T) {
 	srv := backtestServer(t, fake)
 	resp, err := srv.GetBacktestRun(anonymousContext(), connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: spec.StrategyCrowdedShortBreakout}))
 	require.NoError(t, err)
+	// A paper session carries the run's own reference where the run has one for the day (item 7: prefer
+	// the run's own levels), so every point of this run, in-sample or recorded, has a reference.
 	for _, p := range resp.Msg.Run.Series {
-		if p.Recorded {
-			assert.Zero(t, p.Reference, "%s: the reference is not recorded after the freeze", p.Date)
-			continue
-		}
 		assert.Greater(t, p.Reference, 0.0, p.Date)
 	}
 }
@@ -1168,4 +1167,193 @@ func TestPayloadOfARealisticRunStaysNearItsBudget(t *testing.T) {
 	// monthly table about 13 KB and the monthly coverage about 9 KB, with the fixed copy and identity the rest.
 	// This guard holds the measured figure; it is not the target (reported as not met).
 	assert.LessOrEqual(t, len(b), 80*1024, "the realistic run stays within 80 KB (the target is 60 KB)")
+}
+
+// paperFrom is the paper track from a session on or after from, with the raw XJT level truth(m) on each
+// session and the given engine version.
+func paperFrom(dates []civil.Date, from civil.Date, truth func(m int) float64, engineVersion string) []shortsstore.PaperEquityRow {
+	var out []shortsstore.PaperEquityRow
+	for _, d := range dates {
+		if d.Before(from) {
+			continue
+		}
+		m := len(out)
+		b := truth(m)
+		out = append(out, shortsstore.PaperEquityRow{
+			AsOf: d.String(), Equity: 300000 * (1 + 0.0004*float64(m)), Cash: 30000, Positions: 4,
+			Benchmark: &b, EngineVersion: engineVersion,
+		})
+	}
+	return out
+}
+
+// The paper track chains at its actual first session, not at live_from: a track that starts a session late
+// is rebased on the in-sample level before it, the in-sample curve runs to the day before the start, and the
+// window and the run say where the track starts (item 7, point 1).
+func TestPaperTrackChainsAtItsActualStart(t *testing.T) {
+	dates := weekdays(civil.Date{Year: 2026, Month: time.September, Day: 1}, civil.Date{Year: 2026, Month: time.October, Day: 15})
+	series := fixtureSeries(dates)
+	actual := backtestFixtureLiveFrom.AddDays(1) // the Friday after live_from
+	paper := paperFrom(dates, actual, func(m int) float64 { return 5000 }, engine.Version)
+	chain, err := buildChainedRun(series, backtestFixtureLiveFrom.AddDays(-1).String(), paper)
+	require.NoError(t, err)
+	require.True(t, chain.hasPaper)
+	assert.Equal(t, actual, chain.startAt)
+	assert.Equal(t, actual, chain.liveFrom, "the cut is the actual start")
+	assert.Equal(t, backtestFixtureLiveFrom, chain.frozenAt, "live_from is kept for the label")
+
+	var baseIdx int
+	for k, d := range dates {
+		if d == backtestFixtureLiveFrom {
+			baseIdx = k
+		}
+	}
+	for _, d := range chain.days {
+		if d.date == actual {
+			assert.InDelta(t, series.E[baseIdx], d.equity, 1e-9, "the track's first session starts at the in-sample level before it")
+			assert.True(t, d.recorded)
+		}
+		if d.date == backtestFixtureLiveFrom {
+			assert.False(t, d.recorded, "live_from itself is in-sample: the track had not started")
+		}
+	}
+	figs, err := backtest.Windows(chain.bt, chain.paper, chain.liveFrom, nil)
+	require.NoError(t, err)
+	for _, f := range figs {
+		if f.ID == backtest.WindowLiveSinceFreeze {
+			assert.Equal(t, actual.String(), f.Start.String(), "live since freeze starts at the track's actual start")
+		}
+	}
+
+	// The run states the start, and the since window's note names both dates.
+	fake := newBacktestFake()
+	fake.publish(t, spec.StrategyCrowdedShortBreakout, 101)
+	fake.paperEq = paper
+	srv := backtestServer(t, fake)
+	resp, err := srv.GetBacktestRun(anonymousContext(), connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: spec.StrategyCrowdedShortBreakout}))
+	require.NoError(t, err)
+	assert.Equal(t, actual.String(), resp.Msg.Run.PaperStart)
+	for _, w := range resp.Msg.Run.Windows {
+		if w.Window == windowSince2019 {
+			assert.Equal(t, "in-sample to 2026-10-01, recorded from 2026-10-02", w.Note)
+		}
+	}
+}
+
+// The probe: a benchmark that rises 1% a session. Chained from the raw XJT close on each paper session, the
+// level is the truth to the last digit. Rebasing from paper[live_from] lost one session's move (1/1.01 = 0.9901).
+func TestBenchmarkProbeChainsTheRawIndexLevelExactly(t *testing.T) {
+	dates := weekdays(civil.Date{Year: 2026, Month: time.September, Day: 1}, civil.Date{Year: 2026, Month: time.October, Day: 30})
+	truth := func(m int) float64 { return 1000 * math.Pow(1.01, float64(m)) }
+	// The run has no sessions after live_from - 1, so every post-freeze benchmark comes from the paper track.
+	var series storedSeries
+	var inSample []civil.Date
+	for _, d := range dates {
+		if d.Before(backtestFixtureLiveFrom) {
+			inSample = append(inSample, d)
+		}
+	}
+	series = fixtureSeries(inSample)
+	for k := range series.B {
+		series.B[k] = 1000
+	}
+	paper := paperFrom(dates, backtestFixtureLiveFrom, truth, engine.Version)
+	chain, err := buildChainedRun(series, backtestFixtureLiveFrom.AddDays(-1).String(), paper)
+	require.NoError(t, err)
+	var checked, m int
+	for _, d := range chain.days {
+		if !d.recorded {
+			continue
+		}
+		checked++
+		assert.Equal(t, 1.0, d.bench/truth(m), "%s: chained benchmark over the truth", d.date)
+		m++
+	}
+	assert.Greater(t, checked, 10)
+}
+
+// On a session the run carries its own XJT level, the run's level is used, not the paper track's (item 7,
+// point 2: prefer the run's B and R where the run has them).
+func TestRunsOwnBenchmarkIsPreferredAfterTheFreeze(t *testing.T) {
+	dates := weekdays(civil.Date{Year: 2019, Month: time.May, Day: 1}, civil.Date{Year: 2026, Month: time.November, Day: 5})
+	series := fixtureSeries(dates)
+	paper := fixturePaper(dates)
+	chain, err := buildChainedRun(series, backtestFixtureLiveFrom.AddDays(-1).String(), paper)
+	require.NoError(t, err)
+	byDate := map[string]float64{}
+	for k, d := range series.D {
+		byDate[d] = series.B[k]
+	}
+	var seen int
+	for _, d := range chain.days {
+		if !d.recorded {
+			continue
+		}
+		if run, ok := byDate[d.date.String()]; ok && run > 0 {
+			seen++
+			assert.Equal(t, run, d.bench, "%s: the run's own level", d.date)
+		}
+	}
+	assert.Positive(t, seen)
+}
+
+// The win rate is computed across the freeze, from the paper trades' net returns, with the in-sample trades
+// of the run. It does not disappear once the track starts (item 7, point 3).
+func TestWinRateCrossesTheFreeze(t *testing.T) {
+	fake := newBacktestFake()
+	fake.publish(t, spec.StrategyCrowdedShortBreakout, 101)
+	fake.paperTrades = []shortsstore.PaperTradeRow{
+		{StockCode: "RIO", EntryDate: "2026-10-21", ExitDate: "2026-10-30", Status: "closed", NetReturnPct: 5, HasNet: true},
+	}
+	srv := backtestServer(t, fake)
+	resp, err := srv.GetBacktestRun(anonymousContext(), connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: spec.StrategyCrowdedShortBreakout}))
+	require.NoError(t, err)
+	var since *shortsv1alpha1.WindowMetrics
+	for _, w := range resp.Msg.Run.Windows {
+		if w.Window == windowSince2019 {
+			since = w
+		}
+	}
+	require.NotNil(t, since)
+	assert.True(t, since.HasWinRate, "the win rate is served across the freeze")
+	assert.InDelta(t, 66.67, since.WinRatePct, 0.01, "two winners of three: BHP, RIO; CBA lost")
+	assert.Equal(t, int32(3), since.ClosedTrades)
+}
+
+// A track whose rows span two engine versions is one track: its equity chains across the change, every row is
+// used, and the run and the paper summary report where the engine changed (item 4).
+func TestPaperTrackSpanningAnEngineBumpIsOneTrack(t *testing.T) {
+	dates := weekdays(civil.Date{Year: 2026, Month: time.September, Day: 1}, civil.Date{Year: 2026, Month: time.November, Day: 5})
+	paper := paperFrom(dates, backtestFixtureLiveFrom, func(m int) float64 { return 5000 }, "1.1.1")
+	bump := len(paper) / 2
+	for k := bump; k < len(paper); k++ {
+		paper[k].EngineVersion = "1.2.0"
+	}
+	series := fixtureSeries(dates)
+	chain, err := buildChainedRun(series, backtestFixtureLiveFrom.AddDays(-1).String(), paper)
+	require.NoError(t, err)
+	recorded := 0
+	for _, d := range chain.days {
+		if d.recorded {
+			recorded++
+		}
+	}
+	assert.Equal(t, len(paper), recorded, "every paper row is used across the bump")
+
+	summary := paperSummaryOf(backtestFixtureLiveFrom.String(), paper, nil)
+	require.Len(t, summary.EngineSegments, 2)
+	assert.Equal(t, "1.1.1", summary.EngineSegments[0].EngineVersion)
+	assert.Equal(t, "1.2.0", summary.EngineSegments[1].EngineVersion)
+	assert.Equal(t, int32(len(paper)), summary.EngineSegments[0].Sessions+summary.EngineSegments[1].Sessions)
+	assert.Equal(t, paper[bump].AsOf, summary.EngineSegments[1].FirstSession, "the second segment starts where the engine changed")
+	assert.Equal(t, paper[0].AsOf, summary.RecordedFrom)
+
+	// The run serves the same segments.
+	fake := newBacktestFake()
+	fake.publish(t, spec.StrategyCrowdedShortBreakout, 101)
+	fake.paperEq = paper
+	srv := backtestServer(t, fake)
+	resp, err := srv.GetBacktestRun(anonymousContext(), connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: spec.StrategyCrowdedShortBreakout}))
+	require.NoError(t, err)
+	assert.Len(t, resp.Msg.Run.PaperEngineSegments, 2, "the run marks the engine change")
 }

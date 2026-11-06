@@ -59,23 +59,32 @@ type chainDay struct {
 	recorded bool
 }
 
-// chainedRun is a published run's curve after the chaining of 5.8: the in-sample sessions before
-// live_from, then the paper track rebased onto the last in-sample session.
+// chainedRun is a published run's curve after the chaining of 5.8. The in-sample sessions are the
+// backtest's before the cut; the paper track follows from its actual first recorded session.
 type chainedRun struct {
 	// days are the chained sessions: the in-sample ones, then the paper track's.
 	days []chainDay
-	// bt and paper are the two curves the backtest package's Windows chains. paper is nil when no
-	// paper session chains (or the run has no live_from).
+	// bt and paper are the two curves the backtest package's Windows chains. paper is nil when no paper
+	// session chains.
 	bt    backtest.Series
 	paper *backtest.Series
-	// liveFrom is the first session of the paper track; hasLive is false for a run with no live
-	// split, which has no in-sample/paper boundary.
+	// liveFrom is the cut: the paper track's actual first session when a track chains, else live_from.
+	// The windows, the trades and the replay count from it.
 	liveFrom civil.Date
 	hasLive  bool
+	// frozenAt is live_from, the day the rules froze. startAt is the paper track's actual first session
+	// (zero when no track chains); hasPaper says whether one does.
+	frozenAt civil.Date
+	startAt  civil.Date
+	hasPaper bool
 }
 
-// buildChainedRun chains a run's stored series with its paper track. inSampleUntil is the run's
-// in_sample_until (live_from minus one day); "" means the run has no live split.
+// buildChainedRun chains a run's stored series with its paper track (5.8, item 7). The in-sample curve is
+// the backtest's up to the day before the paper track's actual first session, and the track is rebased onto
+// that level: E(t) = E_bt(start-1) x paper_E(t) / paper_E(start). A track whose first session is after
+// live_from is chained at that session, not at live_from. Benchmark: the run's own XJT level where the run
+// has one for the session, else the paper track's raw XJT close. Nothing is rebased from paper[live_from],
+// so a +1% session in the index reads 1.00 against the truth, not 0.9901.
 func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsstore.PaperEquityRow) (chainedRun, error) {
 	n := len(series.D)
 	if n == 0 || len(series.E) != n || len(series.B) != n || len(series.X) != n {
@@ -92,23 +101,38 @@ func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsst
 	out := chainedRun{
 		bt: backtest.Series{Basis: backtest.BasisTotal, Curve: backtest.Curve{Dates: dates, Values: series.E}},
 	}
-	out.liveFrom = dates[n-1].AddDays(1)
+	out.frozenAt = dates[n-1].AddDays(1)
 	if inSampleUntil != "" {
 		until, err := civil.ParseDate(inSampleUntil)
 		if err != nil {
 			return chainedRun{}, fmt.Errorf("in_sample_until %q: %w", inSampleUntil, err)
 		}
-		out.liveFrom, out.hasLive = until.AddDays(1), true
+		out.frozenAt, out.hasLive = until.AddDays(1), true
+	}
+	out.liveFrom = out.frozenAt
+
+	// The paper track chains at its actual first session, when that session is on or after live_from and
+	// the backtest has an in-sample session before it.
+	var start civil.Date
+	chainable := false
+	if out.hasLive && len(paper) > 0 {
+		var err error
+		if start, err = civil.ParseDate(paper[0].AsOf); err != nil {
+			return chainedRun{}, fmt.Errorf("the paper date %q: %w", paper[0].AsOf, err)
+		}
+		chainable = !start.Before(out.frozenAt) && sort.Search(n, func(k int) bool { return !dates[k].Before(start) }) > 0
+	}
+	if chainable {
+		out.liveFrom, out.startAt, out.hasPaper = start, start, true
 	}
 
-	// The in-sample sessions are the backtest's before live_from. Without a live split every
-	// session is in-sample.
+	// The in-sample sessions are the backtest's before the cut. Without a live split every session is.
 	i := n
 	if out.hasLive {
 		i = sort.Search(n, func(k int) bool { return !dates[k].Before(out.liveFrom) })
 	}
 	if i == 0 {
-		return chainedRun{}, fmt.Errorf("the run has no in-sample session before live_from %s", out.liveFrom)
+		return chainedRun{}, fmt.Errorf("the run has no in-sample session before %s", out.liveFrom)
 	}
 	days := make([]chainDay, 0, n)
 	for k := 0; k < i; k++ {
@@ -120,7 +144,7 @@ func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsst
 		})
 	}
 
-	if out.hasLive && len(paper) > 0 {
+	if out.hasPaper {
 		pc := backtest.Curve{}
 		for _, row := range paper {
 			d, err := civil.ParseDate(row.AsOf)
@@ -131,12 +155,12 @@ func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsst
 			pc.Values = append(pc.Values, row.Equity)
 		}
 		ps := backtest.Series{Basis: backtest.BasisTotal, Curve: pc}
-		// Chain is the 5.8 formula. A paper track that cannot be chained (no session on or after
-		// live_from, or no in-sample session to start from) is left out, not guessed.
-		if _, err := backtest.Chain(out.bt, ps, out.liveFrom); err == nil {
-			out.paper = &ps
-			days = append(days, paperDays(paper, pc, out.liveFrom, series, i)...)
+		// Chain is the 5.8 formula, checked by the backtest package at the same cut.
+		if _, err := backtest.Chain(out.bt, ps, out.liveFrom); err != nil {
+			return chainedRun{}, fmt.Errorf("the paper track does not chain: %w", err)
 		}
+		out.paper = &ps
+		days = append(days, paperDays(paper, dates, series, i)...)
 	}
 	out.days = days
 	return out, nil
@@ -150,23 +174,28 @@ func refAt(series storedSeries, k int) float64 {
 	return 0
 }
 
-// paperDays are the paper track's sessions on or after live_from, rebased as Chain rebases them:
-// E(t) = E_bt(live_from-1) x paper(t) / paper(start). The paper track's own first session is the
-// base of the rebase, and the last in-sample session carries the level the chain starts from.
-func paperDays(paper []shortsstore.PaperEquityRow, pc backtest.Curve, liveFrom civil.Date, series storedSeries, i int) []chainDay {
-	j := sort.Search(len(pc.Dates), func(m int) bool { return !pc.Dates[m].Before(liveFrom) })
+// paperDays are the paper track's sessions, chained at the track's first session: E(t) = E_bt(start-1) x
+// paper(t) / paper(start), where E_bt(start-1) is the in-sample level before index i. The benchmark is the
+// run's own XJT level on a session the run has one for, and otherwise the paper track's raw XJT close.
+func paperDays(paper []shortsstore.PaperEquityRow, dates []civil.Date, series storedSeries, i int) []chainDay {
 	base := series.E[i-1]
-	start := pc.Values[j]
-	out := make([]chainDay, 0, len(pc.Dates)-j)
-	for m := j; m < len(pc.Dates); m++ {
-		row := paper[m]
-		day := chainDay{
-			date:     pc.Dates[m],
-			equity:   base * pc.Values[m] / start,
-			recorded: true,
-		}
+	start := paper[0].Equity
+	out := make([]chainDay, 0, len(paper))
+	for _, row := range paper {
+		d, _ := civil.ParseDate(row.AsOf)
+		day := chainDay{date: d, equity: base * row.Equity / start, recorded: true}
 		if row.Equity > 0 {
 			day.exposure = (row.Equity - row.Cash) / row.Equity
+		}
+		k := sort.Search(len(dates), func(k int) bool { return !dates[k].Before(d) })
+		switch {
+		case k < len(dates) && dates[k] == d && series.B[k] > 0:
+			day.bench, day.hasBench = series.B[k], true
+		case row.Benchmark != nil && *row.Benchmark > 0:
+			day.bench, day.hasBench = *row.Benchmark, true
+		}
+		if k < len(dates) && dates[k] == d && refAt(series, k) > 0 {
+			day.ref, day.hasRef = refAt(series, k), true
 		}
 		out = append(out, day)
 	}
@@ -427,10 +456,10 @@ type windowTrade struct {
 	hasNet bool
 }
 
-// closedAndWinRate counts the trades that exited inside [from, to]. The win rate is over the trades
-// that carry a net return, and is withheld when the window holds paper sessions (paper trades carry
-// no net return until the paper track records one).
-func closedAndWinRate(trades []windowTrade, from, to civil.Date, windowHasPaper bool) (closed int, winRate float64, hasWin bool) {
+// closedAndWinRate counts the trades that exited inside [from, to]. The win rate is over the trades that
+// carry a net return: the in-sample trades and, across the freeze, the paper trades (their net return is filled
+// when they close). It is withheld only when no trade in the window carries one.
+func closedAndWinRate(trades []windowTrade, from, to civil.Date) (closed int, winRate float64, hasWin bool) {
 	var wins, withNet int
 	for _, t := range trades {
 		if t.exit.Before(from) || t.exit.After(to) {
@@ -444,7 +473,7 @@ func closedAndWinRate(trades []windowTrade, from, to civil.Date, windowHasPaper 
 			}
 		}
 	}
-	if windowHasPaper || withNet == 0 {
+	if withNet == 0 {
 		return closed, 0, false
 	}
 	return closed, float64(wins) / float64(withNet) * 100, true
@@ -585,9 +614,13 @@ func tradeSummaryOf(run []shortsstore.BacktestTradeRow) *shortsv1alpha1.TradeSum
 	return out
 }
 
-// paperSummaryOf is the paper track since live_from, with its too-short flag.
+// paperSummaryOf is the paper track since live_from, with its actual first session, its too-short flag and
+// the engine versions it was written by.
 func paperSummaryOf(since string, rows []shortsstore.PaperEquityRow, trades []shortsstore.PaperTradeRow) *shortsv1alpha1.PaperTrackSummary {
-	out := &shortsv1alpha1.PaperTrackSummary{Since: since, Sessions: int32(len(rows))}
+	out := &shortsv1alpha1.PaperTrackSummary{Since: since, Sessions: int32(len(rows)), EngineSegments: engineSegmentsOf(rows)}
+	if len(rows) > 0 {
+		out.RecordedFrom = rows[0].AsOf
+	}
 	for _, t := range trades {
 		switch t.Status {
 		case "closed":
@@ -601,6 +634,21 @@ func paperSummaryOf(since string, rows []shortsstore.PaperEquityRow, trades []sh
 		out.HasReturn = true
 	}
 	out.TooShort = len(rows) < paperMinSessions || int(out.ClosedTrades) < paperMinClosed
+	return out
+}
+
+// engineSegmentsOf is the paper track split where its engine version changes, in date order. The track is one
+// track across the change: the segments only say where it changed, so a surface can mark it.
+func engineSegmentsOf(rows []shortsstore.PaperEquityRow) []*shortsv1alpha1.EngineSegment {
+	var out []*shortsv1alpha1.EngineSegment
+	for _, r := range rows {
+		if n := len(out); n > 0 && out[n-1].EngineVersion == r.EngineVersion {
+			out[n-1].LastSession = r.AsOf
+			out[n-1].Sessions++
+			continue
+		}
+		out = append(out, &shortsv1alpha1.EngineSegment{EngineVersion: r.EngineVersion, FirstSession: r.AsOf, LastSession: r.AsOf, Sessions: 1})
+	}
 	return out
 }
 

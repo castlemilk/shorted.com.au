@@ -5482,6 +5482,16 @@ components:
           type: string
           title: fundamentals_label
           description: The fundamentals policy, in words the surfaces print. (proto string)
+        paperStart:
+          type: string
+          title: paper_start
+          description: The paper track's actual first recorded session; "" when the run has none. (proto string)
+        paperEngineSegments:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.EngineSegment'
+          title: paper_engine_segments
+          description: The engine versions the paper track was written by, in order. (proto shorts.v1alpha1.EngineSegment)
       title: BacktestRun
       additionalProperties: false
       description: One canonical backtest run as the API serves it.
@@ -7719,6 +7729,31 @@ components:
       description: |-
         A single Shorted Take editorial article (Gemini-generated commentary
          on a price-sensitive news headline).
+    shorts.v1alpha1.EngineSegment:
+      type: object
+      properties:
+        engineVersion:
+          type: string
+          title: engine_version
+          description: (proto string)
+        firstSession:
+          type: string
+          title: first_session
+          description: YYYY-MM-DD. (proto string)
+        lastSession:
+          type: string
+          title: last_session
+          description: YYYY-MM-DD. (proto string)
+        sessions:
+          type: integer
+          title: sessions
+          format: int32
+          description: (proto int32)
+      title: EngineSegment
+      additionalProperties: false
+      description: |-
+        A stretch of the paper track written by one engine version. A track continues across an engine bump; the
+         segments say where it changed, so a surface can mark the change.
     shorts.v1alpha1.FilterSuburbsRequest:
       type: object
       properties:
@@ -15992,6 +16027,16 @@ components:
           type: boolean
           title: too_short
           description: Under 63 sessions or 10 closed trades. (proto bool)
+        recordedFrom:
+          type: string
+          title: recorded_from
+          description: The track's actual first recorded session (YYYY-MM-DD); "" when no track. (proto string)
+        engineSegments:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.EngineSegment'
+          title: engine_segments
+          description: The engine that wrote each stretch of the track, in order. (proto shorts.v1alpha1.EngineSegment)
       title: PaperTrackSummary
       additionalProperties: false
       description: The recorded paper track since live_from, with its honesty flags.

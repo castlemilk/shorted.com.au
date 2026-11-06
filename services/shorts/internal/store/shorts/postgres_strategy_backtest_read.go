@@ -119,25 +119,34 @@ type BacktestTradeFilter struct {
 	ExitReason string
 }
 
-// PaperEquityRow is one recorded session of the paper track.
+// PaperEquityRow is one recorded session of the paper track. Benchmark is XJT's raw close on or before the
+// session (nil only when no close exists). EngineVersion is the engine that wrote the row: a track
+// continues across an engine bump, and the engine changes are reported, not filtered.
 type PaperEquityRow struct {
-	AsOf      string
-	Equity    float64
-	Cash      float64
-	Positions int
-	Benchmark *float64
+	AsOf          string
+	Equity        float64
+	Cash          float64
+	Positions     int
+	Benchmark     *float64
+	EngineVersion string
 }
 
-// PaperTradeRow is one paper-track trade of a key. Status is one of the table's states.
+// PaperTradeRow is one paper-track trade of a key. Status is one of the table's states. The return
+// columns are percentages and are filled when the trade closes: HasNet is false for an open trade.
 type PaperTradeRow struct {
-	StockCode  string
-	SignalDate string
-	EntryDate  string
-	EntryPrice float64
-	ExitDate   string
-	ExitPrice  float64
-	ExitReason string
-	Status     string
+	StockCode      string
+	SignalDate     string
+	EntryDate      string
+	EntryPrice     float64
+	ExitDate       string
+	ExitPrice      float64
+	ExitReason     string
+	Status         string
+	EntryScore     float64
+	SessionsHeld   int
+	GrossReturnPct float64
+	NetReturnPct   float64
+	HasNet         bool
 }
 
 // backtestSchemaMissing reports a read that names a table or column the migration has not
@@ -364,7 +373,7 @@ func (s *postgresStore) ReadPaperEquity(ctx context.Context, rulesHash, recipeHa
 	ctx, cancel := backtestQuery(ctx)
 	defer cancel()
 	rows, err := s.db.Query(ctx, `
-		SELECT as_of::text, equity, cash, positions, benchmark
+		SELECT as_of::text, equity, cash, positions, benchmark, engine_version
 		  FROM strategy_paper_equity
 		 WHERE rules_hash = $1 AND recipe_hash = $2
 		 ORDER BY as_of`, rulesHash, recipeHash)
@@ -381,7 +390,7 @@ func (s *postgresStore) ReadPaperEquity(ctx context.Context, rulesHash, recipeHa
 			r   PaperEquityRow
 			pos int16
 		)
-		if err := rows.Scan(&r.AsOf, &r.Equity, &r.Cash, &pos, &r.Benchmark); err != nil {
+		if err := rows.Scan(&r.AsOf, &r.Equity, &r.Cash, &pos, &r.Benchmark, &r.EngineVersion); err != nil {
 			return nil, fmt.Errorf("scan the paper equity: %w", err)
 		}
 		r.Positions = int(pos)
@@ -396,7 +405,9 @@ func (s *postgresStore) ReadPaperTrades(ctx context.Context, rulesHash, recipeHa
 	defer cancel()
 	rows, err := s.db.Query(ctx, `
 		SELECT stock_code, signal_date::text, COALESCE(entry_date::text, ''), COALESCE(entry_price, 0),
-		       COALESCE(exit_date::text, ''), COALESCE(exit_price, 0), COALESCE(exit_reason, ''), status
+		       COALESCE(exit_date::text, ''), COALESCE(exit_price, 0), COALESCE(exit_reason, ''), status,
+		       COALESCE(entry_score::float8, 0), COALESCE(sessions_held, 0), COALESCE(gross_return_pct, 0),
+		       COALESCE(net_return_pct, 0), net_return_pct IS NOT NULL
 		  FROM strategy_paper_trades
 		 WHERE rules_hash = $1 AND recipe_hash = $2
 		 ORDER BY signal_date, stock_code`, rulesHash, recipeHash)
@@ -411,7 +422,8 @@ func (s *postgresStore) ReadPaperTrades(ctx context.Context, rulesHash, recipeHa
 	for rows.Next() {
 		var r PaperTradeRow
 		if err := rows.Scan(&r.StockCode, &r.SignalDate, &r.EntryDate, &r.EntryPrice, &r.ExitDate,
-			&r.ExitPrice, &r.ExitReason, &r.Status); err != nil {
+			&r.ExitPrice, &r.ExitReason, &r.Status, &r.EntryScore, &r.SessionsHeld, &r.GrossReturnPct,
+			&r.NetReturnPct, &r.HasNet); err != nil {
 			return nil, fmt.Errorf("scan a paper trade: %w", err)
 		}
 		out = append(out, r)

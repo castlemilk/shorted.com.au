@@ -54,6 +54,8 @@ private static final long serialVersionUID = 0L;
     seriesResolution_ = "";
     windowId_ = "";
     fundamentalsLabel_ = "";
+    paperStart_ = "";
+    paperEngineSegments_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -1389,6 +1391,114 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int PAPER_START_FIELD_NUMBER = 31;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object paperStart_ = "";
+  /**
+   * <pre>
+   * The paper track's actual first recorded session; "" when the run has none.
+   * </pre>
+   *
+   * <code>string paper_start = 31 [json_name = "paperStart"];</code>
+   * @return The paperStart.
+   */
+  @java.lang.Override
+  public java.lang.String getPaperStart() {
+    java.lang.Object ref = paperStart_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      paperStart_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The paper track's actual first recorded session; "" when the run has none.
+   * </pre>
+   *
+   * <code>string paper_start = 31 [json_name = "paperStart"];</code>
+   * @return The bytes for paperStart.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPaperStartBytes() {
+    java.lang.Object ref = paperStart_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      paperStart_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PAPER_ENGINE_SEGMENTS_FIELD_NUMBER = 32;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.EngineSegment> paperEngineSegments_;
+  /**
+   * <pre>
+   * The engine versions the paper track was written by, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.EngineSegment> getPaperEngineSegmentsList() {
+    return paperEngineSegments_;
+  }
+  /**
+   * <pre>
+   * The engine versions the paper track was written by, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.EngineSegmentOrBuilder> 
+      getPaperEngineSegmentsOrBuilderList() {
+    return paperEngineSegments_;
+  }
+  /**
+   * <pre>
+   * The engine versions the paper track was written by, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+   */
+  @java.lang.Override
+  public int getPaperEngineSegmentsCount() {
+    return paperEngineSegments_.size();
+  }
+  /**
+   * <pre>
+   * The engine versions the paper track was written by, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.EngineSegment getPaperEngineSegments(int index) {
+    return paperEngineSegments_.get(index);
+  }
+  /**
+   * <pre>
+   * The engine versions the paper track was written by, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.EngineSegmentOrBuilder getPaperEngineSegmentsOrBuilder(
+      int index) {
+    return paperEngineSegments_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -1492,6 +1602,12 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundamentalsLabel_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 30, fundamentalsLabel_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(paperStart_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 31, paperStart_);
+    }
+    for (int i = 0; i < paperEngineSegments_.size(); i++) {
+      output.writeMessage(32, paperEngineSegments_.get(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -1649,6 +1765,18 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundamentalsLabel_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(30, fundamentalsLabel_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(paperStart_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(31, paperStart_);
+    }
+
+        {
+          final int count = paperEngineSegments_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(paperEngineSegments_.get(i));
+          }
+          size += 2 * count;
+        }
     return size;
   }
   @java.lang.Override
@@ -1752,6 +1880,10 @@ private static final long serialVersionUID = 0L;
         .equals(other.getWindowId())) return false;
     if (!getFundamentalsLabel()
         .equals(other.getFundamentalsLabel())) return false;
+    if (!getPaperStart()
+        .equals(other.getPaperStart())) return false;
+    if (!getPaperEngineSegmentsList()
+        .equals(other.getPaperEngineSegmentsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1857,6 +1989,12 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getWindowId().hashCode();
     hash = (37 * hash) + FUNDAMENTALS_LABEL_FIELD_NUMBER;
     hash = (53 * hash) + getFundamentalsLabel().hashCode();
+    hash = (37 * hash) + PAPER_START_FIELD_NUMBER;
+    hash = (53 * hash) + getPaperStart().hashCode();
+    if (getPaperEngineSegmentsCount() > 0) {
+      hash = (37 * hash) + PAPER_ENGINE_SEGMENTS_FIELD_NUMBER;
+      hash = (53 * hash) + getPaperEngineSegmentsList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -2004,6 +2142,7 @@ private static final long serialVersionUID = 0L;
         internalGetTradeSummaryFieldBuilder();
         internalGetLiveVersionFieldBuilder();
         internalGetDataQualityFieldBuilder();
+        internalGetPaperEngineSegmentsFieldBuilder();
       }
     }
     @java.lang.Override
@@ -2108,6 +2247,14 @@ private static final long serialVersionUID = 0L;
       }
       windowId_ = "";
       fundamentalsLabel_ = "";
+      paperStart_ = "";
+      if (paperEngineSegmentsBuilder_ == null) {
+        paperEngineSegments_ = java.util.Collections.emptyList();
+      } else {
+        paperEngineSegments_ = null;
+        paperEngineSegmentsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x80000000);
       return this;
     }
 
@@ -2204,6 +2351,15 @@ private static final long serialVersionUID = 0L;
       } else {
         result.sensitivity_ = sensitivityBuilder_.build();
       }
+      if (paperEngineSegmentsBuilder_ == null) {
+        if (((bitField0_ & 0x80000000) != 0)) {
+          paperEngineSegments_ = java.util.Collections.unmodifiableList(paperEngineSegments_);
+          bitField0_ = (bitField0_ & ~0x80000000);
+        }
+        result.paperEngineSegments_ = paperEngineSegments_;
+      } else {
+        result.paperEngineSegments_ = paperEngineSegmentsBuilder_.build();
+      }
     }
 
     private void buildPartial0(com.shorts.v1alpha1.BacktestRun result) {
@@ -2297,6 +2453,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x20000000) != 0)) {
         result.fundamentalsLabel_ = fundamentalsLabel_;
+      }
+      if (((from_bitField0_ & 0x40000000) != 0)) {
+        result.paperStart_ = paperStart_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -2600,6 +2759,37 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x20000000;
         onChanged();
       }
+      if (!other.getPaperStart().isEmpty()) {
+        paperStart_ = other.paperStart_;
+        bitField0_ |= 0x40000000;
+        onChanged();
+      }
+      if (paperEngineSegmentsBuilder_ == null) {
+        if (!other.paperEngineSegments_.isEmpty()) {
+          if (paperEngineSegments_.isEmpty()) {
+            paperEngineSegments_ = other.paperEngineSegments_;
+            bitField0_ = (bitField0_ & ~0x80000000);
+          } else {
+            ensurePaperEngineSegmentsIsMutable();
+            paperEngineSegments_.addAll(other.paperEngineSegments_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.paperEngineSegments_.isEmpty()) {
+          if (paperEngineSegmentsBuilder_.isEmpty()) {
+            paperEngineSegmentsBuilder_.dispose();
+            paperEngineSegmentsBuilder_ = null;
+            paperEngineSegments_ = other.paperEngineSegments_;
+            bitField0_ = (bitField0_ & ~0x80000000);
+            paperEngineSegmentsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetPaperEngineSegmentsFieldBuilder() : null;
+          } else {
+            paperEngineSegmentsBuilder_.addAllMessages(other.paperEngineSegments_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -2844,6 +3034,24 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x20000000;
               break;
             } // case 242
+            case 250: {
+              paperStart_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x40000000;
+              break;
+            } // case 250
+            case 258: {
+              com.shorts.v1alpha1.EngineSegment m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.EngineSegment.parser(),
+                      extensionRegistry);
+              if (paperEngineSegmentsBuilder_ == null) {
+                ensurePaperEngineSegmentsIsMutable();
+                paperEngineSegments_.add(m);
+              } else {
+                paperEngineSegmentsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 258
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -7399,6 +7607,410 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x20000000;
       onChanged();
       return this;
+    }
+
+    private java.lang.Object paperStart_ = "";
+    /**
+     * <pre>
+     * The paper track's actual first recorded session; "" when the run has none.
+     * </pre>
+     *
+     * <code>string paper_start = 31 [json_name = "paperStart"];</code>
+     * @return The paperStart.
+     */
+    public java.lang.String getPaperStart() {
+      java.lang.Object ref = paperStart_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        paperStart_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The paper track's actual first recorded session; "" when the run has none.
+     * </pre>
+     *
+     * <code>string paper_start = 31 [json_name = "paperStart"];</code>
+     * @return The bytes for paperStart.
+     */
+    public com.google.protobuf.ByteString
+        getPaperStartBytes() {
+      java.lang.Object ref = paperStart_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        paperStart_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The paper track's actual first recorded session; "" when the run has none.
+     * </pre>
+     *
+     * <code>string paper_start = 31 [json_name = "paperStart"];</code>
+     * @param value The paperStart to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPaperStart(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      paperStart_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The paper track's actual first recorded session; "" when the run has none.
+     * </pre>
+     *
+     * <code>string paper_start = 31 [json_name = "paperStart"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPaperStart() {
+      paperStart_ = getDefaultInstance().getPaperStart();
+      bitField0_ = (bitField0_ & ~0x40000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The paper track's actual first recorded session; "" when the run has none.
+     * </pre>
+     *
+     * <code>string paper_start = 31 [json_name = "paperStart"];</code>
+     * @param value The bytes for paperStart to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPaperStartBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      paperStart_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.EngineSegment> paperEngineSegments_ =
+      java.util.Collections.emptyList();
+    private void ensurePaperEngineSegmentsIsMutable() {
+      if (!((bitField0_ & 0x80000000) != 0)) {
+        paperEngineSegments_ = new java.util.ArrayList<com.shorts.v1alpha1.EngineSegment>(paperEngineSegments_);
+        bitField0_ |= 0x80000000;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.EngineSegment, com.shorts.v1alpha1.EngineSegment.Builder, com.shorts.v1alpha1.EngineSegmentOrBuilder> paperEngineSegmentsBuilder_;
+
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.EngineSegment> getPaperEngineSegmentsList() {
+      if (paperEngineSegmentsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(paperEngineSegments_);
+      } else {
+        return paperEngineSegmentsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public int getPaperEngineSegmentsCount() {
+      if (paperEngineSegmentsBuilder_ == null) {
+        return paperEngineSegments_.size();
+      } else {
+        return paperEngineSegmentsBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public com.shorts.v1alpha1.EngineSegment getPaperEngineSegments(int index) {
+      if (paperEngineSegmentsBuilder_ == null) {
+        return paperEngineSegments_.get(index);
+      } else {
+        return paperEngineSegmentsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public Builder setPaperEngineSegments(
+        int index, com.shorts.v1alpha1.EngineSegment value) {
+      if (paperEngineSegmentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensurePaperEngineSegmentsIsMutable();
+        paperEngineSegments_.set(index, value);
+        onChanged();
+      } else {
+        paperEngineSegmentsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public Builder setPaperEngineSegments(
+        int index, com.shorts.v1alpha1.EngineSegment.Builder builderForValue) {
+      if (paperEngineSegmentsBuilder_ == null) {
+        ensurePaperEngineSegmentsIsMutable();
+        paperEngineSegments_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        paperEngineSegmentsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public Builder addPaperEngineSegments(com.shorts.v1alpha1.EngineSegment value) {
+      if (paperEngineSegmentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensurePaperEngineSegmentsIsMutable();
+        paperEngineSegments_.add(value);
+        onChanged();
+      } else {
+        paperEngineSegmentsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public Builder addPaperEngineSegments(
+        int index, com.shorts.v1alpha1.EngineSegment value) {
+      if (paperEngineSegmentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensurePaperEngineSegmentsIsMutable();
+        paperEngineSegments_.add(index, value);
+        onChanged();
+      } else {
+        paperEngineSegmentsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public Builder addPaperEngineSegments(
+        com.shorts.v1alpha1.EngineSegment.Builder builderForValue) {
+      if (paperEngineSegmentsBuilder_ == null) {
+        ensurePaperEngineSegmentsIsMutable();
+        paperEngineSegments_.add(builderForValue.build());
+        onChanged();
+      } else {
+        paperEngineSegmentsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public Builder addPaperEngineSegments(
+        int index, com.shorts.v1alpha1.EngineSegment.Builder builderForValue) {
+      if (paperEngineSegmentsBuilder_ == null) {
+        ensurePaperEngineSegmentsIsMutable();
+        paperEngineSegments_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        paperEngineSegmentsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public Builder addAllPaperEngineSegments(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.EngineSegment> values) {
+      if (paperEngineSegmentsBuilder_ == null) {
+        ensurePaperEngineSegmentsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, paperEngineSegments_);
+        onChanged();
+      } else {
+        paperEngineSegmentsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public Builder clearPaperEngineSegments() {
+      if (paperEngineSegmentsBuilder_ == null) {
+        paperEngineSegments_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x80000000);
+        onChanged();
+      } else {
+        paperEngineSegmentsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public Builder removePaperEngineSegments(int index) {
+      if (paperEngineSegmentsBuilder_ == null) {
+        ensurePaperEngineSegmentsIsMutable();
+        paperEngineSegments_.remove(index);
+        onChanged();
+      } else {
+        paperEngineSegmentsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public com.shorts.v1alpha1.EngineSegment.Builder getPaperEngineSegmentsBuilder(
+        int index) {
+      return internalGetPaperEngineSegmentsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public com.shorts.v1alpha1.EngineSegmentOrBuilder getPaperEngineSegmentsOrBuilder(
+        int index) {
+      if (paperEngineSegmentsBuilder_ == null) {
+        return paperEngineSegments_.get(index);  } else {
+        return paperEngineSegmentsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.EngineSegmentOrBuilder> 
+         getPaperEngineSegmentsOrBuilderList() {
+      if (paperEngineSegmentsBuilder_ != null) {
+        return paperEngineSegmentsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(paperEngineSegments_);
+      }
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public com.shorts.v1alpha1.EngineSegment.Builder addPaperEngineSegmentsBuilder() {
+      return internalGetPaperEngineSegmentsFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.EngineSegment.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public com.shorts.v1alpha1.EngineSegment.Builder addPaperEngineSegmentsBuilder(
+        int index) {
+      return internalGetPaperEngineSegmentsFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.EngineSegment.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The engine versions the paper track was written by, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.EngineSegment.Builder> 
+         getPaperEngineSegmentsBuilderList() {
+      return internalGetPaperEngineSegmentsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.EngineSegment, com.shorts.v1alpha1.EngineSegment.Builder, com.shorts.v1alpha1.EngineSegmentOrBuilder> 
+        internalGetPaperEngineSegmentsFieldBuilder() {
+      if (paperEngineSegmentsBuilder_ == null) {
+        paperEngineSegmentsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.EngineSegment, com.shorts.v1alpha1.EngineSegment.Builder, com.shorts.v1alpha1.EngineSegmentOrBuilder>(
+                paperEngineSegments_,
+                ((bitField0_ & 0x80000000) != 0),
+                getParentForChildren(),
+                isClean());
+        paperEngineSegments_ = null;
+      }
+      return paperEngineSegmentsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.BacktestRun)

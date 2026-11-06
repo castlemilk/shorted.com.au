@@ -797,4 +797,68 @@ public interface BacktestRunOrBuilder extends
    */
   com.google.protobuf.ByteString
       getFundamentalsLabelBytes();
+
+  /**
+   * <pre>
+   * The paper track's actual first recorded session; "" when the run has none.
+   * </pre>
+   *
+   * <code>string paper_start = 31 [json_name = "paperStart"];</code>
+   * @return The paperStart.
+   */
+  java.lang.String getPaperStart();
+  /**
+   * <pre>
+   * The paper track's actual first recorded session; "" when the run has none.
+   * </pre>
+   *
+   * <code>string paper_start = 31 [json_name = "paperStart"];</code>
+   * @return The bytes for paperStart.
+   */
+  com.google.protobuf.ByteString
+      getPaperStartBytes();
+
+  /**
+   * <pre>
+   * The engine versions the paper track was written by, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.EngineSegment> 
+      getPaperEngineSegmentsList();
+  /**
+   * <pre>
+   * The engine versions the paper track was written by, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+   */
+  com.shorts.v1alpha1.EngineSegment getPaperEngineSegments(int index);
+  /**
+   * <pre>
+   * The engine versions the paper track was written by, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+   */
+  int getPaperEngineSegmentsCount();
+  /**
+   * <pre>
+   * The engine versions the paper track was written by, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.EngineSegmentOrBuilder> 
+      getPaperEngineSegmentsOrBuilderList();
+  /**
+   * <pre>
+   * The engine versions the paper track was written by, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment paper_engine_segments = 32 [json_name = "paperEngineSegments"];</code>
+   */
+  com.shorts.v1alpha1.EngineSegmentOrBuilder getPaperEngineSegmentsOrBuilder(
+      int index);
 }

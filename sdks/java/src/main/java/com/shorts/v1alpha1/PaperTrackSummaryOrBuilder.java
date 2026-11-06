@@ -69,4 +69,68 @@ public interface PaperTrackSummaryOrBuilder extends
    * @return The tooShort.
    */
   boolean getTooShort();
+
+  /**
+   * <pre>
+   * The track's actual first recorded session (YYYY-MM-DD); "" when no track.
+   * </pre>
+   *
+   * <code>string recorded_from = 8 [json_name = "recordedFrom"];</code>
+   * @return The recordedFrom.
+   */
+  java.lang.String getRecordedFrom();
+  /**
+   * <pre>
+   * The track's actual first recorded session (YYYY-MM-DD); "" when no track.
+   * </pre>
+   *
+   * <code>string recorded_from = 8 [json_name = "recordedFrom"];</code>
+   * @return The bytes for recordedFrom.
+   */
+  com.google.protobuf.ByteString
+      getRecordedFromBytes();
+
+  /**
+   * <pre>
+   * The engine that wrote each stretch of the track, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.EngineSegment> 
+      getEngineSegmentsList();
+  /**
+   * <pre>
+   * The engine that wrote each stretch of the track, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+   */
+  com.shorts.v1alpha1.EngineSegment getEngineSegments(int index);
+  /**
+   * <pre>
+   * The engine that wrote each stretch of the track, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+   */
+  int getEngineSegmentsCount();
+  /**
+   * <pre>
+   * The engine that wrote each stretch of the track, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.EngineSegmentOrBuilder> 
+      getEngineSegmentsOrBuilderList();
+  /**
+   * <pre>
+   * The engine that wrote each stretch of the track, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+   */
+  com.shorts.v1alpha1.EngineSegmentOrBuilder getEngineSegmentsOrBuilder(
+      int index);
 }

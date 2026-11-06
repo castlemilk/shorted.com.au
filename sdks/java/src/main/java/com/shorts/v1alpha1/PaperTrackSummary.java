@@ -33,6 +33,8 @@ private static final long serialVersionUID = 0L;
   }
   private PaperTrackSummary() {
     since_ = "";
+    recordedFrom_ = "";
+    engineSegments_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -170,6 +172,114 @@ private static final long serialVersionUID = 0L;
     return tooShort_;
   }
 
+  public static final int RECORDED_FROM_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object recordedFrom_ = "";
+  /**
+   * <pre>
+   * The track's actual first recorded session (YYYY-MM-DD); "" when no track.
+   * </pre>
+   *
+   * <code>string recorded_from = 8 [json_name = "recordedFrom"];</code>
+   * @return The recordedFrom.
+   */
+  @java.lang.Override
+  public java.lang.String getRecordedFrom() {
+    java.lang.Object ref = recordedFrom_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      recordedFrom_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The track's actual first recorded session (YYYY-MM-DD); "" when no track.
+   * </pre>
+   *
+   * <code>string recorded_from = 8 [json_name = "recordedFrom"];</code>
+   * @return The bytes for recordedFrom.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRecordedFromBytes() {
+    java.lang.Object ref = recordedFrom_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      recordedFrom_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int ENGINE_SEGMENTS_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.EngineSegment> engineSegments_;
+  /**
+   * <pre>
+   * The engine that wrote each stretch of the track, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.EngineSegment> getEngineSegmentsList() {
+    return engineSegments_;
+  }
+  /**
+   * <pre>
+   * The engine that wrote each stretch of the track, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.EngineSegmentOrBuilder> 
+      getEngineSegmentsOrBuilderList() {
+    return engineSegments_;
+  }
+  /**
+   * <pre>
+   * The engine that wrote each stretch of the track, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+   */
+  @java.lang.Override
+  public int getEngineSegmentsCount() {
+    return engineSegments_.size();
+  }
+  /**
+   * <pre>
+   * The engine that wrote each stretch of the track, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.EngineSegment getEngineSegments(int index) {
+    return engineSegments_.get(index);
+  }
+  /**
+   * <pre>
+   * The engine that wrote each stretch of the track, in order.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.EngineSegmentOrBuilder getEngineSegmentsOrBuilder(
+      int index) {
+    return engineSegments_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -205,6 +315,12 @@ private static final long serialVersionUID = 0L;
     if (tooShort_ != false) {
       output.writeBool(7, tooShort_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(recordedFrom_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 8, recordedFrom_);
+    }
+    for (int i = 0; i < engineSegments_.size(); i++) {
+      output.writeMessage(9, engineSegments_.get(i));
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -236,6 +352,18 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(7, tooShort_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(recordedFrom_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(8, recordedFrom_);
+    }
+
+        {
+          final int count = engineSegments_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(engineSegments_.get(i));
+          }
+          size += 1 * count;
+        }
     return size;
   }
   @java.lang.Override
@@ -275,6 +403,10 @@ private static final long serialVersionUID = 0L;
         != other.getHasReturn()) return false;
     if (getTooShort()
         != other.getTooShort()) return false;
+    if (!getRecordedFrom()
+        .equals(other.getRecordedFrom())) return false;
+    if (!getEngineSegmentsList()
+        .equals(other.getEngineSegmentsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -303,6 +435,12 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + TOO_SHORT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getTooShort());
+    hash = (37 * hash) + RECORDED_FROM_FIELD_NUMBER;
+    hash = (53 * hash) + getRecordedFrom().hashCode();
+    if (getEngineSegmentsCount() > 0) {
+      hash = (37 * hash) + ENGINE_SEGMENTS_FIELD_NUMBER;
+      hash = (53 * hash) + getEngineSegmentsList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -445,6 +583,14 @@ private static final long serialVersionUID = 0L;
       returnPct_ = 0D;
       hasReturn_ = false;
       tooShort_ = false;
+      recordedFrom_ = "";
+      if (engineSegmentsBuilder_ == null) {
+        engineSegments_ = java.util.Collections.emptyList();
+      } else {
+        engineSegments_ = null;
+        engineSegmentsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000100);
       return this;
     }
 
@@ -471,9 +617,22 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.shorts.v1alpha1.PaperTrackSummary buildPartial() {
       com.shorts.v1alpha1.PaperTrackSummary result = new com.shorts.v1alpha1.PaperTrackSummary(this);
+      buildPartialRepeatedFields(result);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
+    }
+
+    private void buildPartialRepeatedFields(com.shorts.v1alpha1.PaperTrackSummary result) {
+      if (engineSegmentsBuilder_ == null) {
+        if (((bitField0_ & 0x00000100) != 0)) {
+          engineSegments_ = java.util.Collections.unmodifiableList(engineSegments_);
+          bitField0_ = (bitField0_ & ~0x00000100);
+        }
+        result.engineSegments_ = engineSegments_;
+      } else {
+        result.engineSegments_ = engineSegmentsBuilder_.build();
+      }
     }
 
     private void buildPartial0(com.shorts.v1alpha1.PaperTrackSummary result) {
@@ -498,6 +657,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.tooShort_ = tooShort_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.recordedFrom_ = recordedFrom_;
       }
     }
 
@@ -535,6 +697,37 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getTooShort() != false) {
         setTooShort(other.getTooShort());
+      }
+      if (!other.getRecordedFrom().isEmpty()) {
+        recordedFrom_ = other.recordedFrom_;
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (engineSegmentsBuilder_ == null) {
+        if (!other.engineSegments_.isEmpty()) {
+          if (engineSegments_.isEmpty()) {
+            engineSegments_ = other.engineSegments_;
+            bitField0_ = (bitField0_ & ~0x00000100);
+          } else {
+            ensureEngineSegmentsIsMutable();
+            engineSegments_.addAll(other.engineSegments_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.engineSegments_.isEmpty()) {
+          if (engineSegmentsBuilder_.isEmpty()) {
+            engineSegmentsBuilder_.dispose();
+            engineSegmentsBuilder_ = null;
+            engineSegments_ = other.engineSegments_;
+            bitField0_ = (bitField0_ & ~0x00000100);
+            engineSegmentsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetEngineSegmentsFieldBuilder() : null;
+          } else {
+            engineSegmentsBuilder_.addAllMessages(other.engineSegments_);
+          }
+        }
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -597,6 +790,24 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 56
+            case 66: {
+              recordedFrom_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 74: {
+              com.shorts.v1alpha1.EngineSegment m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.EngineSegment.parser(),
+                      extensionRegistry);
+              if (engineSegmentsBuilder_ == null) {
+                ensureEngineSegmentsIsMutable();
+                engineSegments_.add(m);
+              } else {
+                engineSegmentsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 74
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -908,6 +1119,410 @@ private static final long serialVersionUID = 0L;
       tooShort_ = false;
       onChanged();
       return this;
+    }
+
+    private java.lang.Object recordedFrom_ = "";
+    /**
+     * <pre>
+     * The track's actual first recorded session (YYYY-MM-DD); "" when no track.
+     * </pre>
+     *
+     * <code>string recorded_from = 8 [json_name = "recordedFrom"];</code>
+     * @return The recordedFrom.
+     */
+    public java.lang.String getRecordedFrom() {
+      java.lang.Object ref = recordedFrom_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        recordedFrom_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The track's actual first recorded session (YYYY-MM-DD); "" when no track.
+     * </pre>
+     *
+     * <code>string recorded_from = 8 [json_name = "recordedFrom"];</code>
+     * @return The bytes for recordedFrom.
+     */
+    public com.google.protobuf.ByteString
+        getRecordedFromBytes() {
+      java.lang.Object ref = recordedFrom_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        recordedFrom_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The track's actual first recorded session (YYYY-MM-DD); "" when no track.
+     * </pre>
+     *
+     * <code>string recorded_from = 8 [json_name = "recordedFrom"];</code>
+     * @param value The recordedFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRecordedFrom(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      recordedFrom_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The track's actual first recorded session (YYYY-MM-DD); "" when no track.
+     * </pre>
+     *
+     * <code>string recorded_from = 8 [json_name = "recordedFrom"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRecordedFrom() {
+      recordedFrom_ = getDefaultInstance().getRecordedFrom();
+      bitField0_ = (bitField0_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The track's actual first recorded session (YYYY-MM-DD); "" when no track.
+     * </pre>
+     *
+     * <code>string recorded_from = 8 [json_name = "recordedFrom"];</code>
+     * @param value The bytes for recordedFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRecordedFromBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      recordedFrom_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.EngineSegment> engineSegments_ =
+      java.util.Collections.emptyList();
+    private void ensureEngineSegmentsIsMutable() {
+      if (!((bitField0_ & 0x00000100) != 0)) {
+        engineSegments_ = new java.util.ArrayList<com.shorts.v1alpha1.EngineSegment>(engineSegments_);
+        bitField0_ |= 0x00000100;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.EngineSegment, com.shorts.v1alpha1.EngineSegment.Builder, com.shorts.v1alpha1.EngineSegmentOrBuilder> engineSegmentsBuilder_;
+
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.EngineSegment> getEngineSegmentsList() {
+      if (engineSegmentsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(engineSegments_);
+      } else {
+        return engineSegmentsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public int getEngineSegmentsCount() {
+      if (engineSegmentsBuilder_ == null) {
+        return engineSegments_.size();
+      } else {
+        return engineSegmentsBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public com.shorts.v1alpha1.EngineSegment getEngineSegments(int index) {
+      if (engineSegmentsBuilder_ == null) {
+        return engineSegments_.get(index);
+      } else {
+        return engineSegmentsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public Builder setEngineSegments(
+        int index, com.shorts.v1alpha1.EngineSegment value) {
+      if (engineSegmentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureEngineSegmentsIsMutable();
+        engineSegments_.set(index, value);
+        onChanged();
+      } else {
+        engineSegmentsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public Builder setEngineSegments(
+        int index, com.shorts.v1alpha1.EngineSegment.Builder builderForValue) {
+      if (engineSegmentsBuilder_ == null) {
+        ensureEngineSegmentsIsMutable();
+        engineSegments_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        engineSegmentsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public Builder addEngineSegments(com.shorts.v1alpha1.EngineSegment value) {
+      if (engineSegmentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureEngineSegmentsIsMutable();
+        engineSegments_.add(value);
+        onChanged();
+      } else {
+        engineSegmentsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public Builder addEngineSegments(
+        int index, com.shorts.v1alpha1.EngineSegment value) {
+      if (engineSegmentsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureEngineSegmentsIsMutable();
+        engineSegments_.add(index, value);
+        onChanged();
+      } else {
+        engineSegmentsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public Builder addEngineSegments(
+        com.shorts.v1alpha1.EngineSegment.Builder builderForValue) {
+      if (engineSegmentsBuilder_ == null) {
+        ensureEngineSegmentsIsMutable();
+        engineSegments_.add(builderForValue.build());
+        onChanged();
+      } else {
+        engineSegmentsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public Builder addEngineSegments(
+        int index, com.shorts.v1alpha1.EngineSegment.Builder builderForValue) {
+      if (engineSegmentsBuilder_ == null) {
+        ensureEngineSegmentsIsMutable();
+        engineSegments_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        engineSegmentsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public Builder addAllEngineSegments(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.EngineSegment> values) {
+      if (engineSegmentsBuilder_ == null) {
+        ensureEngineSegmentsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, engineSegments_);
+        onChanged();
+      } else {
+        engineSegmentsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public Builder clearEngineSegments() {
+      if (engineSegmentsBuilder_ == null) {
+        engineSegments_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000100);
+        onChanged();
+      } else {
+        engineSegmentsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public Builder removeEngineSegments(int index) {
+      if (engineSegmentsBuilder_ == null) {
+        ensureEngineSegmentsIsMutable();
+        engineSegments_.remove(index);
+        onChanged();
+      } else {
+        engineSegmentsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public com.shorts.v1alpha1.EngineSegment.Builder getEngineSegmentsBuilder(
+        int index) {
+      return internalGetEngineSegmentsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public com.shorts.v1alpha1.EngineSegmentOrBuilder getEngineSegmentsOrBuilder(
+        int index) {
+      if (engineSegmentsBuilder_ == null) {
+        return engineSegments_.get(index);  } else {
+        return engineSegmentsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.EngineSegmentOrBuilder> 
+         getEngineSegmentsOrBuilderList() {
+      if (engineSegmentsBuilder_ != null) {
+        return engineSegmentsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(engineSegments_);
+      }
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public com.shorts.v1alpha1.EngineSegment.Builder addEngineSegmentsBuilder() {
+      return internalGetEngineSegmentsFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.EngineSegment.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public com.shorts.v1alpha1.EngineSegment.Builder addEngineSegmentsBuilder(
+        int index) {
+      return internalGetEngineSegmentsFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.EngineSegment.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The engine that wrote each stretch of the track, in order.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.EngineSegment engine_segments = 9 [json_name = "engineSegments"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.EngineSegment.Builder> 
+         getEngineSegmentsBuilderList() {
+      return internalGetEngineSegmentsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.EngineSegment, com.shorts.v1alpha1.EngineSegment.Builder, com.shorts.v1alpha1.EngineSegmentOrBuilder> 
+        internalGetEngineSegmentsFieldBuilder() {
+      if (engineSegmentsBuilder_ == null) {
+        engineSegmentsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.EngineSegment, com.shorts.v1alpha1.EngineSegment.Builder, com.shorts.v1alpha1.EngineSegmentOrBuilder>(
+                engineSegments_,
+                ((bitField0_ & 0x00000100) != 0),
+                getParentForChildren(),
+                isClean());
+        engineSegments_ = null;
+      }
+      return engineSegmentsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.PaperTrackSummary)
