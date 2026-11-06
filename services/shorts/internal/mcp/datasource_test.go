@@ -77,6 +77,13 @@ func TestDataSourceMethodsAreAllReachableFromSomeTool(t *testing.T) {
 		}
 	}
 
+	// The backtest resource reads GetBacktestRun from outside the tools (8.7).
+	for _, rpc := range backtestResourceRPCs {
+		if i := strings.LastIndex(rpc, "."); i >= 0 {
+			declared[rpc[i+1:]] = true
+		}
+	}
+
 	iface := reflect.TypeFor[DataSource]()
 	for method := range iface.Methods() {
 		name := method.Name

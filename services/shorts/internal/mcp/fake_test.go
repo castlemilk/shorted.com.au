@@ -39,6 +39,7 @@ type fakeDataSource struct {
 	gotStrategies      *shortsv1alpha1.ListStrategiesRequest
 	gotStrategyPicks   *shortsv1alpha1.GetStrategyPicksRequest
 	gotStrategyFit     *shortsv1alpha1.GetStockStrategyFitRequest
+	gotBacktestRun     *shortsv1alpha1.GetBacktestRunRequest
 	gotDividendHistory *shortsv1alpha1.GetDividendHistoryRequest
 	gotStockSignals    *shortsv1alpha1.GetStockSignalsRequest
 	gotSearchStocks    *shortsv1alpha1.SearchStocksRequest
@@ -83,6 +84,7 @@ type fakeDataSource struct {
 	strategies      *shortsv1alpha1.ListStrategiesResponse
 	strategyPicks   *shortsv1alpha1.GetStrategyPicksResponse
 	strategyFit     *shortsv1alpha1.GetStockStrategyFitResponse
+	backtestRun     *shortsv1alpha1.GetBacktestRunResponse
 	dividendHistory *shortsv1alpha1.GetDividendHistoryResponse
 	stockSignals    *shortsv1alpha1.GetStockSignalsResponse
 	searchStocks    *shortsv1alpha1.SearchStocksResponse
@@ -301,6 +303,14 @@ func (f *fakeDataSource) GetStockStrategyFit(_ context.Context, req *connect.Req
 		return nil, f.err
 	}
 	return connect.NewResponse(f.strategyFit), nil
+}
+
+func (f *fakeDataSource) GetBacktestRun(_ context.Context, req *connect.Request[shortsv1alpha1.GetBacktestRunRequest]) (*connect.Response[shortsv1alpha1.GetBacktestRunResponse], error) {
+	f.gotBacktestRun = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.backtestRun), nil
 }
 
 func (f *fakeDataSource) GetDividendHistory(_ context.Context, req *connect.Request[shortsv1alpha1.GetDividendHistoryRequest]) (*connect.Response[shortsv1alpha1.GetDividendHistoryResponse], error) {
