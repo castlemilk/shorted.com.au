@@ -17,12 +17,12 @@ describe("strategy capability registry", () => {
     ]);
   });
 
-  it("holds every flag off until its capability ships, except saves, which ships with My strategies", () => {
+  it("holds every flag off until its capability ships: saves (My strategies) and compare (PR-20) are on", () => {
     expect(Object.keys(STRATEGY_CAPABILITIES).sort()).toEqual(
       [...STRATEGY_CAPABILITY_NAMES].sort(),
     );
     for (const name of STRATEGY_CAPABILITY_NAMES) {
-      const on = name === "saves";
+      const on = name === "saves" || name === "compare";
       expect(STRATEGY_CAPABILITIES[name]).toBe(on);
       expect(strategyCapabilityEnabled(name)).toBe(on);
     }
