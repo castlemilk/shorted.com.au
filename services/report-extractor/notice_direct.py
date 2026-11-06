@@ -881,7 +881,7 @@ class NoticeExtractor:
             # so the notice is offered again (the direct_extract rule for an unparseable reply).
             # The reply's head and length go in the error, so the log says what came back.
             head = (content or "")[:120]
-            raise dx.ModelCallError(f"{model}: the reply holds no JSON object ({len(content or '')} chars: {head!r})")
+            raise dx.ReplyError(f"{model}: the reply holds no JSON object ({len(content or '')} chars: {head!r})")
         subject, why = resolve_subject(answer, ctx)
         if subject is None:
             return None, why
@@ -896,6 +896,28 @@ class NoticeExtractor:
                 n.holder_key, n.institution_slug = slug, slug
         return n, why
 
+    def read_or_stand_in(self, model: str, ctx: ReadContext, stand_in: Optional[str],
+                         used: set) -> tuple[Optional[Notice], str]:
+        """read(model), or, when the model answers with no JSON object (dx.ReplyError), read with
+        the stand-in once (the arbiter, for a text notice), which gives the consensus its second
+        reader from a third model. With no stand-in, or a stand-in that answers the same way, the
+        notice is withheld as reply_unreadable: recorded, so it is not asked again every batch.
+        An HTTP or transport failure (dx.ModelCallError) still propagates: the model is down."""
+        try:
+            return self.read(model, ctx)
+        except dx.ReplyError as e:
+            log.warning("  %s", str(e)[:220])
+            self._count("reply_unreadable:" + model)
+            if stand_in is None or stand_in in used:
+                return None, "reply_unreadable"
+            used.add(stand_in)
+            try:
+                return self.read(stand_in, ctx)
+            except dx.ReplyError as e2:
+                log.warning("  %s", str(e2)[:220])
+                self._count("reply_unreadable:" + stand_in)
+                return None, "reply_unreadable"
+
     def extract(self, ctx: ReadContext) -> tuple[Optional[Notice], str]:
         """(notice, outcome). outcome: agree | majority | disputed | not_a_notice | invalid_<reason>.
         Raises dx.ModelCallError when a reader cannot answer: the notice is then not an attempt."""
@@ -905,8 +927,9 @@ class NoticeExtractor:
             first, second, arbiter = self.scan_primary, self.scan_checker, None
         else:
             first, second, arbiter = self.primary, self.checker, self.arbiter
-        p, pwhy = self.read(first, ctx)
-        c, cwhy = self.read(second, ctx)
+        used: set = {first, second}
+        p, pwhy = self.read_or_stand_in(first, ctx, arbiter, used)
+        c, cwhy = self.read_or_stand_in(second, ctx, arbiter, used)
         if p and c and same_notice(p, c):
             return agreed(p, c), self._count("agree")
         if p is None and c is None:
@@ -914,8 +937,10 @@ class NoticeExtractor:
                 return None, self._count("not_a_notice")
             return None, self._count(f"invalid_{pwhy if pwhy != 'not_a_notice' else cwhy}")
         a, _awhy = (None, "")
-        if arbiter:
-            a, _awhy = self.read(arbiter, ctx)
+        if arbiter and arbiter not in used:
+            # The arbiter has not read yet. When it stood in for a reader above, the two readings
+            # are already two models' and a third reading would be the arbiter's own again.
+            a, _awhy = self.read_or_stand_in(arbiter, ctx, None, used)
         for cand in (p, c):
             if cand and a and same_notice(cand, a):
                 return agreed(cand, a), self._count("majority")

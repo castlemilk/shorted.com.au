@@ -125,6 +125,14 @@ class ModelCallError(Exception):
     retries, blocked or empty response)."""
 
 
+class ReplyError(ModelCallError):
+    """The model answered, and the answer holds no JSON object (prose, an array of several
+    objects, a reply looping past ANSWER_MAX_CHARS). The model is up, so it says nothing
+    about the run; and it is the model's reading of THIS document, so asking the same model
+    again gives the same answer (Flash-Lite answered an array for twelve Xanadu Mines notices
+    and looped to 1.5 MB on an Allan Gray one, batch after batch, 2026-11-06)."""
+
+
 # --- transport -------------------------------------------------------------
 
 

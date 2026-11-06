@@ -246,9 +246,11 @@ def test_a_scan_skips_the_text_checks_and_keeps_the_rest():
 def test_a_non_notice_and_a_malformed_answer_are_withheld_as_such():
     assert validate({"is_substantial_holder_notice": False})[1] == "not_a_notice"
     assert validate({})[1] == "malformed"
-    # A reply with no JSON object is a model failure in the consensus, never a reading.
-    with pytest.raises(dx.ModelCallError):
-        extractor({"P": "not json at all", "C": answer_604()}).extract(ctx())
+    # A reply with no JSON object is never a reading: the arbiter stands in for that reader
+    # (test_a_reader_answering_no_json_is_stood_in_for_by_the_arbiter), and read() itself
+    # raises the reply error the consensus handles.
+    with pytest.raises(dx.ReplyError):
+        extractor({"P": "not json at all", "C": answer_604()}).read("P", ctx())
     assert validate(answer_604(form="606"))[1] == "no_form"
 
 
@@ -306,6 +308,50 @@ def test_a_disagreement_is_settled_by_the_arbiter_when_it_sides_with_one_reader(
     ex = extractor({"P": answer_604(), "C": wrong, "A": answer_604()})
     n, outcome = ex.extract(ctx())
     assert outcome == "majority" and n.present_votes == 42_500_000
+
+
+def test_a_reader_answering_no_json_is_stood_in_for_by_the_arbiter():
+    # Flash-Lite answered an array of two objects for twelve Xanadu Mines notices and looped to
+    # 1.5 MB on an Allan Gray one, batch after batch: the model is up, and asking it again gives
+    # the same answer. The arbiter reads in its place, and the two readings are two models'.
+    ex = extractor({"P": answer_604(), "C": dx.ReplyError("C: the reply holds no JSON object"), "A": answer_604()})
+    n, why = ex.extract(ctx())
+    assert why == "agree" and n.present_pct == 6.40
+    assert [m for m, _ in ex.client.calls] == ["P", "C", "A"], "the arbiter read once, as the checker's stand-in"
+    assert ex.stats["reply_unreadable:C"] == 1
+
+
+def test_the_arbiter_standing_in_does_not_arbitrate_its_own_reading_again():
+    ex = extractor({"P": answer_604(), "C": dx.ReplyError("C: no JSON"), "A": answer_604(present_pct=7.0)})
+    n, why = ex.extract(ctx())
+    assert why == "disputed" and n is None
+    assert [m for m, _ in ex.client.calls] == ["P", "C", "A"]
+
+
+def test_two_unreadable_replies_withhold_the_notice_as_reply_unreadable():
+    ex = extractor({"P": answer_604(), "C": dx.ReplyError("C: no JSON"), "A": dx.ReplyError("A: no JSON")})
+    n, why = ex.extract(ctx())
+    assert (n, why) == (None, "disputed"), "one reading and two unreadable replies: no second reader"
+    ex = extractor({"P": dx.ReplyError("P: no JSON"), "C": dx.ReplyError("C: no JSON"), "A": dx.ReplyError("A: no JSON")})
+    assert ex.extract(ctx()) == (None, "invalid_reply_unreadable")
+    assert [m for m, _ in ex.client.calls] == ["P", "A", "C"], "the arbiter stands in once, for the first reader"
+
+
+def test_a_scan_reader_answering_no_json_has_no_stand_in():
+    client = FakeClient({"SP": answer_604(quotes={}), "SC": dx.ReplyError("SC: no JSON"), "A": answer_604(quotes={})})
+    ex = nd.NoticeExtractor(client=client, primary="P", checker="C", arbiter="A", scan_primary="SP", scan_checker="SC")
+    n, why = ex.extract(ctx(scan=True))
+    assert why == "disputed" and [m for m, _ in client.calls] == ["SP", "SC"]
+
+
+def test_an_unreadable_reply_is_a_withheld_read_not_a_model_error(monkeypatch):
+    monkeypatch.setattr(nd, "fetch_pdf", lambda url, session=None: make_pdf([TEXT]))
+    conn = FakeConn([row("https://www.asx.com.au/asxpdf/1.pdf")], shares=664_000_000)
+    ex = extractor({"P": dx.ReplyError("P: no JSON"), "C": dx.ReplyError("C: no JSON"), "A": dx.ReplyError("A: no JSON")})
+    counts = nd.run(conn, ex, limit=0, workers=1, budget_min=10, since="", dry_run=False)
+    assert counts["withheld:invalid_reply_unreadable"] == 1 and counts.get("model_error") is None
+    assert counts["systemic"] == 0
+    assert any("SET read_by = 'model', detail" in s for s in conn.statements), "recorded, so not asked again every batch"
 
 
 def test_no_majority_is_withheld_as_disputed():
