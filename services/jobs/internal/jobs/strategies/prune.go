@@ -41,28 +41,6 @@ func pruneCutoff(completed []civil.Date, guards []civil.Date) civil.Date {
 	return cut
 }
 
-// paperGuardSessions is, for each live canonical version except v0, the session
-// the paper track reads next: the newest session it has recorded, or, before
-// its first recorded session, the session before its live_from on the data
-// calendar (the seed the track starts from). A version with no live_from has no
-// guard. recorded is the newest recorded session per rules hash; a version
-// without one is absent from it, and a version with no recipe never has one.
-func paperGuardSessions(liveFrom map[string]civil.Date, labels map[string]string, recorded map[string]civil.Date) []civil.Date {
-	var out []civil.Date
-	for hash, from := range liveFrom {
-		if labels[hash] == "v0" || from.IsZero() {
-			continue
-		}
-		if last, ok := recorded[hash]; ok {
-			out = append(out, last)
-			continue
-		}
-		out = append(out, prevTradingDay(from))
-	}
-	sortDates(out)
-	return out
-}
-
 // pruneRun deletes the snapshot rows the cut-off and the retention rules no
 // longer need. Each statement runs in its own transaction with its own timeout,
 // so a long one cannot hold the others.

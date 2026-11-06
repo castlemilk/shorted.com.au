@@ -2,8 +2,12 @@ package strategies
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
+	"strings"
+	"sync"
+	"time"
 
 	"cloud.google.com/go/civil"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,29 +20,120 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 )
 
-// The paper track (5.13): the only out-of-sample record. For each live canonical
-// version with a recipe it steps the simulator (backtest.Step) one session at a
-// time, from the stored snapshot rows of the session and the one before it, never
-// from stock_prices. Each session's equity, its trades and the simulator's
-// checkpoint are written in one transaction, so a session is recorded whole or
-// not at all.
+// The paper track (5.13): the only out-of-sample record. For each canonical
+// version with a registered recipe that the database records as live, and each
+// superseded one until it stopped, the paper track steps backtest.Step through
+// the complete sessions of the snapshot. It reads the stored snapshot rows of
+// each session and the one before, never stock_prices, so a price re-sync after
+// a session cannot change its record.
+//
+// The paper phase is not part of a session's completion (session completeness is
+// the three snapshot phases). It runs after the snapshot work of a run, as one
+// catch-up over every track: each track's failure is its own, its error is
+// returned at the end of the run, and the snapshot work of the run is already
+// committed. Its record is its own tables (strategy_paper_*), never
+// strategy_daily_runs.
 //
 // The rows are append-only: an equity row is inserted once and never updated, a
 // trade moves forward only (pending_entry -> open -> pending_exit -> closed, or
-// pending_entry -> cancelled), and the checkpoint is replaced by the next
-// session's. The job refuses a trade that would move backwards.
+// pending_entry -> cancelled; its flags may grow), and the checkpoint is replaced
+// by the next session's.
+//
+// Engine versions: a track continues across engine bumps. Every equity row and
+// checkpoint records the engine that computed it (engine_version).
+//
+// How a track ends: a superseded version is stepped through the sessions before
+// its superseded_on and then stopped (checkpoint.stopped_on). Its open and
+// pending trades keep their last recorded status: no exit is fabricated. A later
+// re-promotion of a stopped version does not resume its track; the job logs that
+// once and writes nothing for it.
 
-const phasePaper = "paper"
+// caBlockSessionsPaper is the batch's corporate-action block in sessions: a
+// suspect known more than this long before a track's seed session is dropped.
+const caBlockSessionsPaper = 60
 
-// paperSessionBuilder builds a stored session's simulator session, and
-// paperTargetsOf names the live versions with a recipe. Both default to the
-// production functions. A test replaces them to set statuses the engine would
-// not reach on fixture rows, or to exercise the idle phase; it restores them
-// when it is done.
-var (
-	paperSessionBuilder = paperSessionOf
-	paperTargetsOf      = func() ([]backtestTarget, error) { return backtestTargets(spec.Registry()) }
-)
+// paperVersion is a canonical version and recipe the paper track records.
+type paperVersion struct {
+	Target       backtestTarget
+	Status       string     // "live" or "superseded"
+	LiveFrom     civil.Date // the version's first live session (kept across re-promotion)
+	SupersededOn civil.Date // zero while live
+}
+
+// paperLogOnce remembers the log lines that must print once per process.
+var paperLogOnce sync.Map
+
+func logOnce(key string, logf func(string, ...any), format string, args ...any) {
+	if _, loaded := paperLogOnce.LoadOrStore(key, true); !loaded {
+		logf(format, args...)
+	}
+}
+
+// paperVersions lists the versions the paper track records: each canonical
+// version the database records as live or superseded that has a registered
+// recipe. A version the registry no longer names, or that has no recipe, is
+// skipped with a log line.
+func paperVersions(ctx context.Context, st store, logf func(string, ...any)) ([]paperVersion, error) {
+	rows, err := st.pool.Query(ctx, `
+		SELECT rules_hash, status, live_from, superseded_on FROM strategy_rule_versions
+		 WHERE kind = 'canonical' AND status IN ('live','superseded') AND live_from IS NOT NULL
+		 ORDER BY strategy_id, label`)
+	if err != nil {
+		if isUndefinedTable(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read the versions the paper track records: %w", err)
+	}
+	defer rows.Close()
+	var out []paperVersion
+	for rows.Next() {
+		var (
+			hash, status string
+			liveFrom     time.Time
+			supersededOn *time.Time
+		)
+		if err := rows.Scan(&hash, &status, &liveFrom, &supersededOn); err != nil {
+			return nil, fmt.Errorf("scan a version the paper track records: %w", err)
+		}
+		reg, ok := spec.ByHash(hash)
+		if !ok || reg.Recipe == nil {
+			logOnce("paper-skip-"+hash, logf, "strategies: paper track: version %s has no registered recipe in this build; not recorded", hash[:12])
+			continue
+		}
+		rh, err := spec.RecipeHash(*reg.Recipe)
+		if err != nil {
+			return nil, fmt.Errorf("hash recipe %s: %w", reg.Recipe.ID, err)
+		}
+		v := paperVersion{
+			Target: backtestTarget{Reg: reg, RulesHash: hash, Recipe: *reg.Recipe, RecipeHash: rh},
+			Status: status, LiveFrom: civil.DateOf(liveFrom),
+		}
+		if supersededOn != nil {
+			v.SupersededOn = civil.DateOf(*supersededOn)
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// paperConfig is the simulator's configuration for a recipe under a version: the
+// recipe's sizing, costs and exits, the version's first four-decimal session.
+// LastLoaded stays empty. The paper track cannot see future bars, so it cannot
+// tell a stale exit's code will trade again: every stale exit is labelled
+// delisted_exit (the spec's rule for a stale exit that cannot be known to be a
+// suspension), never suspended_exit.
+func paperConfig(t backtestTarget) (backtest.Config, error) {
+	if err := t.Recipe.Validate(); err != nil {
+		return backtest.Config{}, fmt.Errorf("recipe %s: %w", t.Recipe.ID, err)
+	}
+	price4dp, err := civil.ParseDate(t.Reg.Spec.Data.Price4dpFrom)
+	if err != nil || price4dp.IsZero() {
+		return backtest.Config{}, fmt.Errorf("version %s has no price_4dp_from", t.Reg.Label)
+	}
+	cfg := backtest.ConfigOf(t.Recipe)
+	cfg.Price4dpFrom = price4dp
+	return cfg, nil
+}
 
 // paperSnapshot is one stored session's inputs to the paper track.
 type paperSnapshot struct {
@@ -48,8 +143,7 @@ type paperSnapshot struct {
 }
 
 // readPaperSnapshot reads one session's feature rows, the fundamentals blobs
-// they point at and the regime. ok is false when the session has no rows, which
-// is a session the features phase has not completed.
+// they point at and the regime. ok is false when the session has no rows.
 func readPaperSnapshot(ctx context.Context, pool *pgxpool.Pool, d civil.Date) (paperSnapshot, bool, error) {
 	rows, err := pgsource.ReadFeatureRows(ctx, pool, d, snapshotFeatureSet)
 	if err != nil {
@@ -78,34 +172,63 @@ func readPaperSnapshot(ctx context.Context, pool *pgxpool.Pool, d civil.Date) (p
 	return paperSnapshot{Rows: rows, Blobs: blobs, Regime: regime}, true, nil
 }
 
-// paperConfig is the simulator's configuration for a recipe under a version: the
-// recipe's sizing, costs and exits, the version's first four-decimal session.
-// LastLoaded stays empty: the paper track cannot know which codes trade later,
-// so every stale exit is labelled delisted_exit (the batch run labels a code
-// suspended when a later bar exists in its loaded data).
-func paperConfig(t backtestTarget) (backtest.Config, error) {
-	if err := t.Recipe.Validate(); err != nil {
-		return backtest.Config{}, fmt.Errorf("recipe %s: %w", t.Recipe.ID, err)
+// caForSession is one code's corporate-action suspect as the batch's caBySession
+// gives it for the simulator's session s. A suspect becomes known on KnownAt; on
+// a track's seed session (the first session the simulator steps) a suspect known
+// earlier is admitted with its age in sessions, and dropped when older than the
+// block. Otherwise the suspects known since the previous session are new on s,
+// and the earliest of them sets the bar the position exclusion reads.
+func caForSession(known []snapshot.CAKnown, s, prev civil.Date, seed bool) backtest.CASuspect {
+	var best *backtest.CASuspect
+	for _, k := range known {
+		var cand backtest.CASuspect
+		switch {
+		case seed && k.KnownAt.After(s):
+			continue
+		case seed && k.KnownAt.Before(s):
+			age := sessionsBetweenPaper(k.KnownAt, s)
+			if age > caBlockSessionsPaper {
+				continue
+			}
+			cand = backtest.CASuspect{Known: true, SuspectDate: k.Date, Age: age}
+		case seed: // known on the seed session itself
+			cand = backtest.CASuspect{Known: true, SuspectDate: k.Date}
+		case k.KnownAt.After(s) || !k.KnownAt.After(prev):
+			continue
+		default:
+			cand = backtest.CASuspect{Known: true, SuspectDate: k.Date}
+		}
+		if best == nil || cand.Age < best.Age || (cand.Age == best.Age && cand.SuspectDate.Before(best.SuspectDate)) {
+			c := cand
+			best = &c
+		}
 	}
-	price4dp, err := civil.ParseDate(t.Reg.Spec.Data.Price4dpFrom)
-	if err != nil || price4dp.IsZero() {
-		return backtest.Config{}, fmt.Errorf("version %s has no price_4dp_from", t.Reg.Label)
+	if best == nil {
+		return backtest.CASuspect{}
 	}
-	cfg := backtest.ConfigOf(t.Recipe)
-	cfg.Price4dpFrom = price4dp
-	return cfg, nil
+	return *best
+}
+
+// sessionsBetweenPaper counts the ASX sessions s with from <= s < to.
+func sessionsBetweenPaper(from, to civil.Date) int {
+	n := 0
+	for d := from; d.Before(to); d = d.AddDays(1) {
+		if isTradingDay(d) {
+			n++
+		}
+	}
+	return n
 }
 
 // paperSessionOf builds the simulator's session for one stored session. Each
-// code's bar, status, score, captured pivot, dollar volume, moving averages,
-// breakout date, cash dividend and corporate-action suspect come from its
-// snapshot row; the statuses are the version's evaluation of the session's
-// eligible rows, as the daily evaluation phase makes them. prev is the session
-// before (nil for a track's first session, whose suspects are then all new).
-// holdings are the codes the simulator holds: one with no row on the session
-// still gets a session entry, with no bar, so its stale-exit rule can run.
-func paperSessionOf(rows, prev []snapshot.Row, blobs map[string]features.Fundamentals, regime engine.Regime,
-	reg spec.Registered, s civil.Date, index int, seed bool, rate float64, holdings []string) (backtest.Session, error) {
+// code's status and score come from the version's evaluation of the session's
+// eligible rows, as the evaluation phase makes them. A code's bar is set only when
+// the row's bar is dated on the session AND priced: a NULL close is stored as zero,
+// and the batch's barOn reads the session as having no bar. holdings are the codes
+// the simulator holds, so a held code with no row still gets a session entry for
+// its stale-exit rule.
+func paperSessionOf(rows []snapshot.Row, blobs map[string]features.Fundamentals, regime engine.Regime,
+	reg spec.Registered, s, prev civil.Date, index int, seed bool, rate, benchmark float64, holdings []string) (backtest.Session, error) {
 	strategy, ok := engine.Lookup(reg.Spec.StrategyID)
 	if !ok {
 		return backtest.Session{}, fmt.Errorf("no engine strategy for %s", reg.Spec.StrategyID)
@@ -115,16 +238,6 @@ func paperSessionOf(rows, prev []snapshot.Row, blobs map[string]features.Fundame
 	sorted := append([]snapshot.Row(nil), rows...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].StockCode < sorted[j].StockCode })
 
-	prevSuspect := make(map[string]civil.Date, len(prev))
-	for _, r := range prev {
-		if r.CASuspectDate != nil {
-			prevSuspect[r.StockCode] = *r.CASuspectDate
-		}
-	}
-
-	// The candidates the universe admits are prepared together and set the
-	// universe statistics, as evaluateVersion does; the rest keep their price
-	// features for an exit decided on their session.
 	feats := map[string]engine.Candidate{}
 	var eligible []engine.Candidate
 	var eligibleCodes []string
@@ -169,13 +282,18 @@ func paperSessionOf(rows, prev []snapshot.Row, blobs map[string]features.Fundame
 				cs.Score = pick.Score
 			}
 		}
-		if r.BarDate == s {
+		if r.BarDate == s && features.Priced(r.Features.Bar.C) {
 			b := r.Features.Bar
 			cs.Bar = &features.Bar{Date: s, Open: b.O, High: b.H, Low: b.L, Close: b.C, AdjClose: b.Adj, Volume: b.V}
 		}
 		cs.Dividend = r.Features.ExDiv
-		if r.CASuspectDate != nil {
-			cs.CA = backtest.CASuspect{Known: prevSuspect[r.StockCode] != *r.CASuspectDate, SuspectDate: *r.CASuspectDate}
+		// The batch computes corporate-action suspects only for a version whose
+		// universe has the CA guard or whose short source is the latest complete
+		// published report (pipeline.Index); the features phase stores them for
+		// every version. The paper track follows the batch's policy, so a version
+		// without the guard sees no suspect.
+		if usesCASuspects(reg.Spec) {
+			cs.CA = caForSession(r.Features.CASuspects, s, prev, seed)
 		}
 		byCode[r.StockCode] = cs
 	}
@@ -189,7 +307,13 @@ func paperSessionOf(rows, prev []snapshot.Row, blobs map[string]features.Fundame
 		codes = append(codes, cs)
 	}
 	sort.Slice(codes, func(i, j int) bool { return codes[i].Code < codes[j].Code })
-	return backtest.Session{Date: s, Index: index, Seed: seed, CashRate: rate, Codes: codes}, nil
+	return backtest.Session{Date: s, Index: index, Seed: seed, CashRate: rate, Benchmark: benchmark, Codes: codes}, nil
+}
+
+// usesCASuspects is the batch's rule for computing corporate-action suspects
+// (pipeline.NewIndex): the CA guard, or the latest complete published short source.
+func usesCASuspects(s spec.Spec) bool {
+	return s.Universe.CAGuard || s.Data.ShortSource == "latest_complete_published"
 }
 
 func optFloat(v *float64) float64 {
@@ -199,124 +323,274 @@ func optFloat(v *float64) float64 {
 	return *v
 }
 
-// paperTrack is one live canonical version's paper account: its recipe, its
-// configuration, the session it went live and the simulator's state after its
-// last recorded session.
-type paperTrack struct {
-	target   backtestTarget
-	liveFrom civil.Date
-	cfg      backtest.Config
-	// asOf is the last session the track recorded, zero before its first.
-	asOf civil.Date
-	// state is the simulator after asOf; nil until the track starts.
-	state *backtest.State
-}
-
-// paperStep is what one session did for one track: the rows it writes.
-type paperStep struct {
-	Equity  backtest.Record
-	Trades  []paperTradeRow
-	Holds   int
-	Raw     []byte
-	Session civil.Date
-}
-
-// advance steps the track through session x. It reports whether the track
-// stepped: a track that has not started waits for a session whose previous
-// session has rows, the one its first step reads, and a session with no rows at
-// all is not part of its record. write false computes the step and writes nothing.
-func (tr *paperTrack) advance(ctx context.Context, pool *pgxpool.Pool, st store, x civil.Date, write bool) (*paperStep, error) {
-	if !tr.asOf.IsZero() && !x.After(tr.asOf) {
-		return nil, nil
-	}
-	reg := tr.target.Reg
-	prevDate := prevTradingDay(x)
-	prev, havePrev, err := readPaperSnapshot(ctx, pool, prevDate)
+// paperCatchUp runs the paper phase for one run: every version the database
+// records as live or superseded, stepped through the complete sessions up to d.
+// A missing paper table idles the phase with one log line. Each track fails on
+// its own: a track whose step errors stops there (its next run retries it), the
+// others still step, and the errors come back together at the end.
+func paperCatchUp(ctx context.Context, pool *pgxpool.Pool, st store, d civil.Date, write bool, logf func(string, ...any)) error {
+	missing, err := st.paperTablesMissing(ctx)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	if len(missing) > 0 {
+		logf("strategies: paper track idle: %s missing (migration 000159 not applied)", strings.Join(missing, ", "))
+		return nil
+	}
+	versions, err := paperVersions(ctx, st, logf)
+	if err != nil {
+		return err
+	}
+	if len(versions) == 0 {
+		logf("strategies: paper track idle: no live version with a recipe")
+		return nil
+	}
+	from := versions[0].LiveFrom
+	for _, v := range versions {
+		if v.LiveFrom.Before(from) {
+			from = v.LiveFrom
+		}
+	}
+	sessions, err := st.snapshotSessions(ctx, from, d)
+	if err != nil {
+		return err
+	}
+	c := &paperRun{pool: pool, st: st, write: write, logf: logf, snaps: map[civil.Date]paperSnapped{}, bench: map[civil.Date]float64{}}
+	var errs []error
+	for _, v := range versions {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := c.track(ctx, v, sessions, d); err != nil {
+			logf("strategies: paper track %s %s stopped this run: %v", v.Target.Reg.Spec.StrategyID, v.Target.Reg.Label, err)
+			errs = append(errs, fmt.Errorf("paper track %s %s: %w", v.Target.Reg.Spec.StrategyID, v.Target.Reg.Label, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// paperRun is one catch-up's shared reads: the snapshot sessions and the levels
+// are read once however many tracks step through them.
+type paperRun struct {
+	pool  *pgxpool.Pool
+	st    store
+	write bool
+	logf  func(string, ...any)
+	snaps map[civil.Date]paperSnapped
+	bench map[civil.Date]float64
+}
+
+type paperSnapped struct {
+	snap paperSnapshot
+	ok   bool
+}
+
+func (c *paperRun) snapshot(ctx context.Context, d civil.Date) (paperSnapshot, bool, error) {
+	if s, seen := c.snaps[d]; seen {
+		return s.snap, s.ok, nil
+	}
+	snap, ok, err := readPaperSnapshot(ctx, c.pool, d)
+	if err != nil {
+		return paperSnapshot{}, false, err
+	}
+	c.snaps[d] = paperSnapped{snap: snap, ok: ok}
+	return snap, ok, nil
+}
+
+// track steps one version's track through the sessions it still owes. A stopped
+// track is never stepped. A live track starts on its live_from and resumes from
+// its checkpoint. A superseded track steps the sessions before superseded_on and
+// then records its stop.
+func (c *paperRun) track(ctx context.Context, v paperVersion, sessions []civil.Date, d civil.Date) error {
+	reg := v.Target.Reg
+	cfg, err := paperConfig(v.Target)
+	if err != nil {
+		return err
+	}
+	cp, found, err := c.st.paperCheckpointOf(ctx, v.Target.RulesHash, v.Target.RecipeHash)
+	if err != nil {
+		return err
+	}
+	if found && !cp.StoppedOn.IsZero() {
+		if v.Status == "live" {
+			logOnce("paper-repromoted-"+v.Target.RulesHash, c.logf,
+				"strategies: paper track %s %s was stopped on %s when it was superseded; re-promotion does not resume it, so it records nothing",
+				reg.Spec.StrategyID, reg.Label, cp.StoppedOn)
+		}
+		return nil
+	}
+	if v.Status == "superseded" && !found {
+		return nil
+	}
+	tr := &paperTrack{v: v, cfg: cfg}
+	if found {
+		if tr.state, err = backtest.RestoreState(cfg, cp.Raw); err != nil {
+			return fmt.Errorf("restore the checkpoint written at engine %s: %w", cp.EngineVersion, err)
+		}
+		tr.asOf = cp.AsOf
+	}
+	bound := d
+	if v.Status == "superseded" {
+		bound = v.SupersededOn.AddDays(-1)
+	}
+	for _, x := range sessions {
+		if x.After(bound) {
+			break
+		}
+		if !tr.asOf.IsZero() && !x.After(tr.asOf) {
+			continue
+		}
+		if tr.state == nil && x.Before(v.LiveFrom) {
+			continue
+		}
+		if _, err := c.step(ctx, tr, x); err != nil {
+			return fmt.Errorf("session %s: %w", x, err)
+		}
+	}
+	if v.Status == "superseded" && c.write && !tr.asOf.IsZero() {
+		if err := c.st.paperStop(ctx, v.Target.RulesHash, v.Target.RecipeHash, v.SupersededOn); err != nil {
+			return err
+		}
+		logOnce("paper-stopped-"+v.Target.RulesHash, c.logf,
+			"strategies: paper track %s %s stopped at its supersession on %s", reg.Spec.StrategyID, reg.Label, v.SupersededOn)
+	}
+	return nil
+}
+
+// paperTrack is one version's account while a catch-up runs: the simulator's
+// state after asOf, restored from the checkpoint each step.
+type paperTrack struct {
+	v     paperVersion
+	cfg   backtest.Config
+	state *backtest.State
+	asOf  civil.Date
+}
+
+// step runs one session on a track. It reports whether the session was recorded:
+// a session whose previous session has no rows cannot seed a track and is skipped.
+func (c *paperRun) step(ctx context.Context, tr *paperTrack, x civil.Date) (bool, error) {
+	reg := tr.v.Target.Reg
+	prev := prevTradingDay(x)
+	prevSnap, havePrev, err := c.snapshot(ctx, prev)
+	if err != nil {
+		return false, err
 	}
 	if tr.state == nil {
-		if !havePrev || x.Before(tr.liveFrom) {
-			return nil, nil
+		if !havePrev {
+			return false, nil
 		}
-		// The track starts on this session: the session before it is the seed,
-		// which classifies the bars and records the statuses, but fills, marks
-		// and records nothing.
-		prevPrev, _, err := readPaperSnapshot(ctx, pool, prevTradingDay(prevDate))
+		// The track starts here: the previous session is the seed, which classifies
+		// the bars and records the statuses and suspects, and fills and records nothing.
+		seedRate, err := c.rate(ctx, prev)
 		if err != nil {
-			return nil, err
+			return false, err
+		}
+		seedBench, err := c.benchmark(ctx, prev)
+		if err != nil {
+			return false, err
 		}
 		state := backtest.NewState(tr.cfg)
-		seedRates, err := pgsource.CashRate(ctx, pool, prevDate)
+		seed, err := paperSessionOf(prevSnap.Rows, prevSnap.Blobs, prevSnap.Regime, reg, prev, civil.Date{}, 0, true, seedRate, seedBench, nil)
 		if err != nil {
-			return nil, fmt.Errorf("read the cash rate on %s: %w", prevDate, err)
-		}
-		seed, err := paperSessionBuilder(prev.Rows, prevPrev.Rows, prev.Blobs, prev.Regime, reg, prevDate, 0, true,
-			backtest.CashRateFraction(seedRates, prevDate), nil)
-		if err != nil {
-			return nil, fmt.Errorf("paper track %s seed %s: %w", reg.Label, prevDate, err)
+			return false, fmt.Errorf("seed %s: %w", prev, err)
 		}
 		backtest.Step(state, seed)
 		raw, err := state.Checkpoint()
 		if err != nil {
-			return nil, err
+			return false, err
 		}
 		if tr.state, err = backtest.RestoreState(tr.cfg, raw); err != nil {
-			return nil, err
+			return false, err
 		}
 	}
-	cur, ok, err := readPaperSnapshot(ctx, pool, x)
+	cur, ok, err := c.snapshot(ctx, x)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 	if !ok {
-		return nil, fmt.Errorf("paper track %s: session %s has no feature rows", reg.Label, x)
+		return false, fmt.Errorf("session %s has no feature rows", x)
 	}
 	if !havePrev {
-		return nil, fmt.Errorf("paper track %s: session %s has no feature rows to step from", reg.Label, prevDate)
+		return false, fmt.Errorf("session %s has no feature rows to step from", prev)
 	}
-	rates, err := pgsource.CashRate(ctx, pool, x)
+	rate, err := c.rate(ctx, x)
 	if err != nil {
-		return nil, fmt.Errorf("read the cash rate on %s: %w", x, err)
+		return false, err
+	}
+	bench, err := c.benchmark(ctx, x)
+	if err != nil {
+		return false, err
 	}
 	var holdings []string
 	for _, h := range tr.state.Holdings() {
 		holdings = append(holdings, h.Code)
 	}
-	sess, err := paperSessionBuilder(cur.Rows, prev.Rows, cur.Blobs, cur.Regime, reg, x, tr.state.LastIndex()+1, false,
-		backtest.CashRateFraction(rates, x), holdings)
+	sess, err := paperSessionOf(cur.Rows, cur.Blobs, cur.Regime, reg, x, prev, tr.state.LastIndex()+1, false, rate, bench, holdings)
 	if err != nil {
-		return nil, fmt.Errorf("paper track %s session %s: %w", reg.Label, x, err)
+		return false, err
 	}
 	before := tr.state.PendingEntries()
 	backtest.Step(tr.state, sess)
 
 	rows, err := paperLedgerRows(before, tr.state.PendingEntries(), tr.state.Holdings(), tr.state.Closed(), tr.state.Events())
 	if err != nil {
-		return nil, fmt.Errorf("paper track %s session %s: %w", reg.Label, x, err)
+		return false, err
 	}
 	recs := tr.state.Records()
 	if len(recs) != 1 {
-		return nil, fmt.Errorf("paper track %s session %s: the step recorded %d sessions, want 1", reg.Label, x, len(recs))
+		return false, fmt.Errorf("the step recorded %d sessions, want 1", len(recs))
 	}
 	raw, err := tr.state.Checkpoint()
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	out := &paperStep{Equity: recs[0], Trades: rows, Holds: len(tr.state.Holdings()), Raw: raw, Session: x}
-	if write {
-		if err := st.writePaperStep(ctx, tr.target, reg.Spec.StrategyID, out); err != nil {
-			return nil, err
+	out := &paperStep{Equity: recs[0], Benchmark: bench, Trades: rows, Holds: len(tr.state.Holdings()), Raw: raw, Session: x}
+	if c.write {
+		if err := c.st.writePaperStep(ctx, tr.v.Target, reg.Spec.StrategyID, out); err != nil {
+			return false, err
 		}
 	}
-	// The next session starts from the checkpoint, as a later run would: the
-	// outputs above are this session's only, and an in-memory run and a daily
-	// run step the same state.
+	c.logf("strategies: paper %s %s %s: equity %.2f, cash %.2f, %d open, %d trade row(s)",
+		reg.Spec.StrategyID, reg.Label, x, out.Equity.Equity, out.Equity.Cash, out.Holds, len(out.Trades))
+	// The next session starts from the checkpoint, as a later run would.
 	if tr.state, err = backtest.RestoreState(tr.cfg, raw); err != nil {
-		return nil, err
+		return false, err
 	}
 	tr.asOf = x
-	return out, nil
+	return true, nil
+}
+
+// rate is the RBA cash rate on d as the annual fraction the simulator takes.
+func (c *paperRun) rate(ctx context.Context, d civil.Date) (float64, error) {
+	rates, err := pgsource.CashRate(ctx, c.pool, d)
+	if err != nil {
+		return 0, fmt.Errorf("read the cash rate on %s: %w", d, err)
+	}
+	return backtest.CashRateFraction(rates, d), nil
+}
+
+// benchmark is the XJT level on or before d (the batch's levelOn), zero when no
+// XJT bar exists on or before d.
+func (c *paperRun) benchmark(ctx context.Context, d civil.Date) (float64, error) {
+	if v, seen := c.bench[d]; seen {
+		return v, nil
+	}
+	v, err := c.st.indexLevelOn(ctx, pgsource.BacktestIndexBenchmark, d)
+	if err != nil {
+		return 0, err
+	}
+	c.bench[d] = v
+	return v, nil
+}
+
+// paperStep is what one session did for one track: the rows it writes.
+type paperStep struct {
+	Equity    backtest.Record
+	Benchmark float64
+	Trades    []paperTradeRow
+	Holds     int
+	Raw       []byte
+	Session   civil.Date
 }
 
 // paperTradeRow is one trade as the paper table records it.
@@ -331,12 +605,20 @@ type paperTradeRow struct {
 	HasPivot       bool
 	Quantity       float64
 	HasQuantity    bool
+	EntryScore     float64
 	ExitSignalDate civil.Date
 	ExitDate       civil.Date
 	ExitPrice      float64
 	HasExitPrice   bool
 	ExitReason     string
 	Flags          []string
+	// Economics are set on a closed trade only (Closed).
+	Closed       bool
+	SessionsHeld int
+	GrossPct     float64
+	NetPct       float64
+	Fees         float64
+	Dividends    float64
 }
 
 // paperLedgerRows is the trade rows one session leaves: every scheduled entry,
@@ -349,14 +631,14 @@ func paperLedgerRows(before, pending []backtest.PendingEntry, holdings []backtes
 	for _, p := range pending {
 		rows = append(rows, paperTradeRow{
 			Status: "pending_entry", Code: p.Code, SignalDate: p.SignalDate,
-			CapturedPivot: p.Pivot, HasPivot: true,
+			CapturedPivot: p.Pivot, HasPivot: true, EntryScore: p.Score, Flags: []string{},
 		})
 	}
 	for _, h := range holdings {
 		row := paperTradeRow{
 			Status: "open", Code: h.Code, SignalDate: h.SignalDate,
 			EntryDate: h.EntryDate, EntryPrice: h.EntryFill, HasEntry: true,
-			CapturedPivot: h.Pivot, HasPivot: true,
+			CapturedPivot: h.Pivot, HasPivot: true, EntryScore: h.Score,
 			Quantity: h.Quantity, HasQuantity: true, Flags: h.Flags,
 		}
 		if h.ExitPending {
@@ -370,11 +652,12 @@ func paperLedgerRows(before, pending []backtest.PendingEntry, holdings []backtes
 		rows = append(rows, paperTradeRow{
 			Status: "closed", Code: t.Code, SignalDate: t.SignalDate,
 			EntryDate: t.EntryDate, EntryPrice: t.EntryFill, HasEntry: true,
-			CapturedPivot: t.Pivot, HasPivot: true,
+			CapturedPivot: t.Pivot, HasPivot: true, EntryScore: t.EntryScore,
 			Quantity: t.Qty, HasQuantity: true,
 			ExitSignalDate: t.ExitSignalDate, ExitDate: t.ExitDate,
 			ExitPrice: t.ExitFill, HasExitPrice: true, ExitReason: t.ExitReason,
-			Flags: t.Flags,
+			Flags: t.Flags, Closed: true, SessionsHeld: t.SessionsHeld,
+			GrossPct: t.Gross * 100, NetPct: t.Net * 100, Fees: t.Fees, Dividends: t.Dividends,
 		})
 	}
 	for _, ev := range events {
@@ -417,10 +700,9 @@ func paperMayMove(from, to string) bool {
 
 // paperPath is the statuses a trade passes through to move from one status to
 // another, the ones a row records in order. An entry that fills and has its exit
-// decided on the same session goes pending_entry -> open -> pending_exit, and one
-// that also closes that session goes through open to closed: the fill is a
-// session of its own in the record, even when the simulator's state shows only
-// the end of the session.
+// decided on the same session goes pending_entry -> open -> pending_exit (or
+// closed): the fill is a session of its own in the record, even when the
+// simulator's state shows only the end of the session.
 func paperPath(from, to string) ([]string, bool) {
 	if paperMayMove(from, to) {
 		return []string{to}, true
@@ -431,108 +713,47 @@ func paperPath(from, to string) ([]string, bool) {
 	return nil, false
 }
 
-// runPaperPhase brings every live canonical version with a recipe up to session
-// s. A version has no paper record before its live_from. A version whose track
-// has not started steps from live_from, once the session before it has rows;
-// one whose track has started steps every session after its last recorded one,
-// oldest first, so a session the daily job did not reach is caught up here. A
-// version with no live_from, or no recipe, is skipped. With no live version
-// with a recipe the phase is idle: it completes with nothing to do.
-func runPaperPhase(ctx context.Context, pool *pgxpool.Pool, st store, s civil.Date, write bool, logf func(string, ...any)) error {
-	targets, err := paperTargetsOf()
-	if err != nil {
-		return err
+// paperGuardOf is the earliest snapshot session a track still reads: the session
+// two before the track's next step (the session its next step reads, and one
+// more). A stopped track needs nothing; a live track with no checkpoint reads
+// from its live_from.
+func paperGuardOf(cpAsOf civil.Date, found bool, liveFrom civil.Date) civil.Date {
+	if found {
+		return prevTradingDay(prevTradingDay(nextTradingDay(cpAsOf)))
 	}
-	if len(targets) == 0 {
-		logf("strategies: paper track idle: no live version with a recipe")
-		if write {
-			return st.writePaperRunDone(ctx, s, nil, 0)
-		}
-		return nil
+	if liveFrom.IsZero() {
+		return civil.Date{}
 	}
-	live, err := st.liveVersions(ctx)
-	if err != nil {
-		return err
-	}
-	var tracks []*paperTrack
-	from := s
-	for _, t := range targets {
-		lv, ok := live[t.RulesHash]
-		if !ok || lv.LiveFrom.IsZero() {
-			logf("strategies: paper track %s %s: not recorded as live yet", t.Reg.Spec.StrategyID, t.Reg.Label)
-			continue
-		}
-		if s.Before(lv.LiveFrom) {
-			continue
-		}
-		cfg, err := paperConfig(t)
-		if err != nil {
-			return err
-		}
-		tr := &paperTrack{target: t, liveFrom: lv.LiveFrom, cfg: cfg}
-		cp, found, err := st.paperCheckpoint(ctx, t.RulesHash, t.RecipeHash)
-		if err != nil {
-			return err
-		}
-		start := sessionOnOrAfter(lv.LiveFrom)
-		if found {
-			tr.asOf = cp.AsOf
-			if tr.state, err = backtest.RestoreState(cfg, cp.Raw); err != nil {
-				return fmt.Errorf("paper track %s: %w", t.Reg.Label, err)
-			}
-			start = nextTradingDay(cp.AsOf)
-		}
-		if start.Before(from) {
-			from = start
-		}
-		tracks = append(tracks, tr)
-	}
-	if len(tracks) == 0 {
-		if write {
-			return st.writePaperRunDone(ctx, s, nil, 0)
-		}
-		return nil
-	}
-
-	var hashes []string
-	for _, tr := range tracks {
-		hashes = append(hashes, tr.target.RulesHash)
-	}
-	sort.Strings(hashes)
-	for x := from; !x.After(s); x = nextTradingDay(x) {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		stepped := 0
-		for _, tr := range tracks {
-			out, err := tr.advance(ctx, pool, st, x, write)
-			if err != nil {
-				return err
-			}
-			if out == nil {
-				continue
-			}
-			stepped++
-			logf("strategies: paper %s %s %s: equity %.2f, cash %.2f, %d open, %d trade row(s)",
-				tr.target.Reg.Spec.StrategyID, tr.target.Reg.Label, x, out.Equity.Equity, out.Equity.Cash, out.Holds, len(out.Trades))
-		}
-		if write {
-			if err := st.writePaperRunDone(ctx, x, hashes, stepped); err != nil {
-				return err
-			}
-		}
-	}
-	if from.After(s) && write {
-		// Every track has recorded s already: the phase is complete for it.
-		return st.writePaperRunDone(ctx, s, hashes, 0)
-	}
-	return nil
+	return prevTradingDay(prevTradingDay(liveFrom))
 }
 
-// sessionOnOrAfter is d when the ASX traded on it, else the next trading day.
-func sessionOnOrAfter(d civil.Date) civil.Date {
-	if isTradingDay(d) {
-		return d
+// paperGuards is the snapshot guard of every track the paper phase still records
+// (see paperGuardOf): one per (rules hash, recipe hash) over the registered
+// recipes, so a recipe that is no longer registered never pins pruning.
+func paperGuards(ctx context.Context, st store, logf func(string, ...any)) ([]civil.Date, error) {
+	missing, err := st.paperTablesMissing(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return nextTradingDay(d)
+	if len(missing) > 0 {
+		return nil, nil
+	}
+	versions, err := paperVersions(ctx, st, logf)
+	if err != nil {
+		return nil, err
+	}
+	var out []civil.Date
+	for _, v := range versions {
+		cp, found, err := st.paperCheckpointOf(ctx, v.Target.RulesHash, v.Target.RecipeHash)
+		if err != nil {
+			return nil, err
+		}
+		if found && !cp.StoppedOn.IsZero() {
+			continue
+		}
+		if g := paperGuardOf(cp.AsOf, found, v.LiveFrom); !g.IsZero() {
+			out = append(out, g)
+		}
+	}
+	return out, nil
 }

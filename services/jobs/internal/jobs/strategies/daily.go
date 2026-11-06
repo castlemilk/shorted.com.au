@@ -3,6 +3,7 @@ package strategies
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -95,6 +96,15 @@ func runDaily(ctx context.Context, pool *pgxpool.Pool, opts dailyOptions) (daily
 		}
 	}
 
+	// The recipes are registered on every writing run, outside the evaluation
+	// phase's skip: a paper checkpoint or trade must never reference a recipe row
+	// that does not exist, and a session completed before this change has none.
+	if opts.Write {
+		if err := upsertRecipes(ctx, pool, spec.R1Recipes()); err != nil {
+			return res, err
+		}
+	}
+
 	done, err := st.completedPhases(ctx, d)
 	if err != nil {
 		return res, err
@@ -102,7 +112,8 @@ func runDaily(ctx context.Context, pool *pgxpool.Pool, opts dailyOptions) (daily
 	if allPhasesDone(done) {
 		res.AlreadyDone = true
 		logf("strategies: session %s already completed", d)
-		return res, nil
+		// The snapshot is whole; the paper tracks may still owe sessions.
+		return res, paperCatchUp(ctx, pool, st, d, opts.Write, logf)
 	}
 
 	last, err := st.completedSessions(ctx, d, true, 1)
@@ -129,15 +140,21 @@ func runDaily(ctx context.Context, pool *pgxpool.Pool, opts dailyOptions) (daily
 	}
 
 	res.PastDeadline = pastDeadline(res.Held, opts.Now)
+	// The paper tracks run after the snapshot work, which is committed session by
+	// session. Their errors come back at the end, so the next run's snapshot is
+	// not held up by a track (paper.go).
+	paperErr := paperCatchUp(ctx, pool, st, d, opts.Write, logf)
 	if opts.Write && len(res.Done) > 0 {
 		if err := revalidateAfter(ctx, opts, logf); err != nil {
 			logf("strategies: revalidation skipped (%v); pages self-heal on their ISR TTL", err)
 		}
+	}
+	if opts.Write {
 		if err := pruneAfter(ctx, pool, st, d, logf); err != nil {
-			return res, err
+			return res, errors.Join(paperErr, err)
 		}
 	}
-	return res, nil
+	return res, paperErr
 }
 
 // isLate reports whether a session is snapshotted after its own day: a session a
@@ -149,7 +166,7 @@ func isLate(s civil.Date, now time.Time) bool {
 
 // allPhasesDone reports whether every phase of a session completed.
 func allPhasesDone(done map[string]bool) bool {
-	for _, p := range phaseNames {
+	for _, p := range snapshotPhases {
 		if !done[p] {
 			return false
 		}
@@ -332,13 +349,6 @@ func runSession(ctx context.Context, pool *pgxpool.Pool, st store, s civil.Date,
 		logf("strategies: session %s events: %d event(s)", s, len(events))
 	}
 
-	// Paper track: each live version with a recipe steps through s from the
-	// stored rows (paper.go). A completed phase is not stepped again.
-	if done[phasePaper] {
-		logf("strategies: session %s paper track already completed", s)
-	} else if err := runPaperPhase(ctx, pool, st, s, opts.Write, logf); err != nil {
-		return nil, err
-	}
 	logf("strategies: session %s complete", s)
 	return nil, nil
 }
@@ -788,19 +798,9 @@ func pruneAfter(ctx context.Context, pool *pgxpool.Pool, st store, d civil.Date,
 	if err != nil {
 		return err
 	}
-	live, err := st.liveVersions(ctx)
+	guards, err := paperGuards(ctx, st, logf)
 	if err != nil {
 		return err
 	}
-	liveFrom := map[string]civil.Date{}
-	labels := map[string]string{}
-	for h, v := range live {
-		liveFrom[h] = v.LiveFrom
-		labels[h] = v.Label
-	}
-	recorded, err := st.paperRecordedAsOf(ctx)
-	if err != nil {
-		return err
-	}
-	return pruneRun(ctx, pool, pruneCutoff(completed, paperGuardSessions(liveFrom, labels, recorded)), logf)
+	return pruneRun(ctx, pool, pruneCutoff(completed, guards), logf)
 }
