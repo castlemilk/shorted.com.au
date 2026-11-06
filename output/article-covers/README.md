@@ -32,6 +32,7 @@ Each prompt file records the exact generation and revision prompts, built-in mod
 - [short-squeeze-explained (v3)](short-squeeze-explained-v3.md)
 - [shorted-2026-platform-update (v2)](shorted-2026-platform-update-v2.md)
 - [shorted-mcp-server (v2)](shorted-mcp-server-v2.md)
+- [shorted-ownership-explorer (v1)](shorted-ownership-explorer.md)
 - [what-are-short-positions (v2)](what-are-short-positions-v2.md)
 - [where-asking-prices-are-being-cut-australia-2026 (v2)](where-asking-prices-are-being-cut-australia-2026-v2.md)
 

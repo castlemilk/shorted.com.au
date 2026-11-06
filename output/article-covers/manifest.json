@@ -197,6 +197,14 @@
       "thumbnail": "web/public/assets/blog/shorted-mcp-server/thumbnail-editorial-v2.webp"
     },
     {
+      "slug": "shorted-ownership-explorer",
+      "asset": "web/public/assets/blog/shorted-ownership-explorer/cover-editorial-v1.webp",
+      "alt": "A modern leadlight panel of mostly clear glass on a glazier's light table, with a few muted coloured panes and one burnt-amber pane being set into its opening.",
+      "prompt": "output/article-covers/shorted-ownership-explorer.md",
+      "original": "output/article-covers/shorted-ownership-explorer.png",
+      "thumbnail": "web/public/assets/blog/shorted-ownership-explorer/thumbnail-editorial-v1.webp"
+    },
+    {
       "slug": "shorting-australian-bank-stocks",
       "asset": "web/public/assets/blog/shorting-australian-bank-stocks/cover-editorial-v2.webp",
       "alt": "Low light casts long parallel charcoal shadows from four upright fluted ivory columns across a golden sandstone step.",

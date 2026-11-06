@@ -1,0 +1,169 @@
+---
+title: "Who Holds ASX Stocks: Shorted's Ownership Explorer Is Live"
+excerpt: "Shorted's ownership explorer maps who holds ASX companies, from 20,208 substantial holding notices read from their PDFs, the holdings files of 35 index funds and the disclosures of 11 super fund options. What each page shows, how to read a register like PLS Group's, and why its figures never add up to a share of the company."
+standfirst: "Shorted now shows who holds each ASX company, from substantial holding notices and the holdings that index and super funds publish. Every figure keeps its own date, and a notice that cannot be read reliably is left out."
+coverImage: "/assets/blog/shorted-ownership-explorer/cover-editorial-v1.webp"
+thumbnailImage: "/assets/blog/shorted-ownership-explorer/thumbnail-editorial-v1.webp"
+coverAlt: "A modern leadlight panel of mostly clear glass on a glazier's light table, with a few muted coloured panes and one burnt-amber pane being set into its opening."
+date: "2026-11-06"
+category: product
+tags: ["ownership", "substantial holders", "index funds", "super funds", "institutional ownership"]
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben-ebsworth.jpg"
+ogImage:
+  url: "/assets/blog/shorted-ownership-explorer/cover-editorial-v1.webp"
+---
+
+# Who Holds ASX Stocks
+
+Shorted has always answered one question about an ASX company: how much of it is sold short. The ownership explorer answers the next one: who holds it.
+
+It is built from records that are already public. A holder must lodge a substantial holding notice when its interest reaches 5% of a company's votes, when that interest moves by a percentage point or more, and when it falls below 5%. Index funds publish their holdings files, some of them daily. Super funds publish their portfolio holdings twice a year. Each figure on the site carries the date of the document it came from, and a document Shorted cannot read reliably is left out rather than guessed.
+
+It is free, at **[shorted.com.au/ownership](/ownership)**.
+
+<GraphStat
+  title="The record, as at 5 November 2026"
+  items='[
+    {"value":"20,208","label":"substantial holding notices read","hint":"newest released 5 November 2026","accent":true},
+    {"value":"1,457","label":"companies with a current substantial holder"},
+    {"value":"35","label":"index fund holdings files","hint":"dated 30 September to 5 November 2026"},
+    {"value":"11","label":"super fund options","hint":"as at 30 June 2026"}
+  ]'
+/>
+
+## Start with one company
+
+Every company with a current substantial holder has a register page at `/ownership/stocks/<code>`. [PLS Group's](/ownership/stocks/PLS) has 147 notices on record. PLS was the most shorted company in ASIC's report for 2 November 2026, with 16.81% of its shares reported short, and on 5 November its register named nine current substantial holders:
+
+<GraphTable title="PLS Group's current substantial holders, from the newest notice read for each, 5 November 2026">
+
+| Holder | Voting power | Form | Date of change | Released |
+| --- | --- | --- | --- | --- |
+| [AustralianSuper](/ownership/australiansuper) | [13.13%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03155864) | 604 | 20 Oct 2026 | 22 Oct 2026 |
+| [State Street](/ownership/state-street) | [12.66%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03162703) | 604 | 3 Nov 2026 | 5 Nov 2026 |
+| [First Sentier Group](/ownership/first-sentier) | [9.45%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03158705) | 604 | 26 Oct 2026 | 28 Oct 2026 |
+| [Mitsubishi UFJ Financial Group](/ownership/mufg) | [9.42%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03159555) | 604 | 26 Oct 2026 | 29 Oct 2026 |
+| [JPMorgan Chase](/ownership/jpmorgan) | [8.76%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03158814) | 604 | 26 Oct 2026 | 29 Oct 2026 |
+| [Morgan Stanley](/ownership/morgan-stanley) | [8.36%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03159440) | 604 | 26 Oct 2026 | 29 Oct 2026 |
+| [BlackRock](/ownership/blackrock) | [6.54%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03100415) | 603 | 29 May 2026 | 3 Jun 2026 |
+| [Citigroup](/ownership/citigroup) | [6.3063%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03162104) | 604 | n/a | 4 Nov 2026 |
+| [Vanguard](/ownership/vanguard) | [5.256%](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=02962156) | 603 | 20 Jun 2025 | 26 Jun 2025 |
+
+</GraphTable>
+
+Each figure is the notice's own, as at its date of change, and links to the notice on ASX. The register draws the same record as Holder Lanes: one line per holder, on its own scale from the 5% threshold up, stepping at each notice read, with a dotted tail for the time since the last one. A holder that ceases drops back to the 5% line, marked "under 5%", because a notice of ceasing states no figure below it. State Street's lane on PLS steps four times in a fortnight: 11.29% for 23 October, 12.37% for 28 October, 13.8% for 30 October and 12.66% for 3 November.
+
+The page's header also prints ASIC's short position, 16.81% for 2 November. Above the lanes, its readout adds two figures from the fund files, each with its own date: the share of PLS held by the index funds Shorted tracks (3.53%, from 16 of the 35 funds, in files dated 30 September to 5 November 2026) and the combined value held by the super fund options it tracks (all 11 hold PLS, $579.5 million at 30 June 2026).
+
+### Why the figures do not add up
+
+The nine figures add to 79.88%. The register prints 62.10%, because Mitsubishi UFJ Financial Group's notices include the interests of First Sentier, which it owns, and of Morgan Stanley, in which it holds more than 20% of the votes. Shorted counts the three once, at the largest of their figures. Even 62.10% is not the share of PLS these holders own:
+
+- **The dates differ.** The notices were released between 26 June 2025 and 5 November 2026, and each figure stands until the same holder's next notice replaces it. The register marks any figure older than 90 days with its age.
+- **A relevant interest is wider than ownership.** Banks' and brokers' notices are often securities lending, and a lent share can appear in the lender's notice and the borrower's at once, or in the lender's notice and on the share register under a buyer's name. [Our guide to substantial holder notices](/blog/substantial-holder-notices-explained) walks through the rules.
+- **Below 5% there are no notices.** Most of a company's holders never appear.
+
+So every sum on the site is labelled for what it is: what the notices disclose, with each interest counted once where an overlap is known.
+
+## Then the whole market
+
+The [Overview](/ownership) and six instrument pages read the same record across the market:
+
+- **[Market map](/ownership/map):** ASX sectors and companies as a treemap, sized by market cap, disclosed exposure or index fund holdings, and coloured by what the notices disclose, investors' interests, hedge funds, index funds, short interest or a change over the chosen window.
+- **[Connections](/ownership/connections):** how each kind of holder, from super funds and index managers to banks and brokers, connects to each sector, by estimated exposure (the voting power a notice states, times the company's market cap).
+- **[Activity](/ownership/activity):** notices by sector and week over the last year, each week's notices one click away.
+- **[Funds](/ownership/funds):** each tracked index fund's and super option's ASX holdings and sector weights, what changed between two of an index fund's files, and two funds side by side.
+- **[Holders](/ownership/holders):** the institutions, largest first, with each one's disclosed connections by sector and company.
+- **[Changes](/ownership/changes):** two snapshots of an index fund compared, beside the notices released in between.
+
+Select anything drawn, such as a company on the map, a band, a week or a fund holding, and a panel beside it (a sheet on smaller screens) explains the selection. It starts with one sentence built from the figures it shows, never written by a model. The selection is part of the page's address, so a shared link opens on the same company, band or week.
+
+Two lists sit behind the instruments. [Notices](/ownership/notices) has every notice read, newest release first, filtered by window, event, kind of holder, company or holder. [Registers](/ownership/stocks) has every company with a current substantial holder, sortable eleven ways, from what its notices disclose to its short position. Each of the 146 institutions on Shorted's map has a page of its own, such as [State Street's](/ownership/state-street) or [AustralianSuper's](/ownership/australiansuper), with its current substantial holdings, its notices and its funds' largest holdings. On a stock page, a Substantial holders card on the Company tab and a one-line strip on the Overview link to the full register.
+
+## What the fund files add
+
+Notices stop at 5%. A fund's holdings file lists every holding, however small, so it shows how much of a company the tracked funds hold whether or not any of them has lodged a notice. Shorted reads 35 funds that hold Australian shares: 15 from Betashares and five each from iShares, Global X, SPDR and Vanguard, in files dated 30 September to 5 November 2026. The site calls them index funds, though a few are actively managed or use options. Vanguard publishes each of its files for the whole pooled fund, wholesale investors included, so its rows carry a P.
+
+<GraphRank
+  title="Share of each company held by the 35 tracked index funds, files dated 30 September to 5 November 2026"
+  max="8"
+  items='[
+    {"label":"Mirvac (MGR)","value":7.54,"display":"7.54%","accent":true},
+    {"label":"GPT Group (GPT)","value":7.44,"display":"7.44%"},
+    {"label":"Stockland (SGP)","value":7.44,"display":"7.44%"},
+    {"label":"Region Group (RGN)","value":7.41,"display":"7.41%"},
+    {"label":"Charter Hall Group (CHC)","value":7.34,"display":"7.34%"},
+    {"label":"BHP Group (BHP), for comparison","value":3.64,"display":"3.64%"},
+    {"label":"Commonwealth Bank (CBA), for comparison","value":3.62,"display":"3.62%"}
+  ]'
+/>
+
+The eleven companies the tracked funds hold the largest share of are all property groups, from Mirvac at 7.54% to Goodman Group at 7.03%. A property fund holds them on top of what the broad funds hold: Vanguard's Australian Property Securities Index Fund alone holds 3.52% of Mirvac, and its Australian Shares Index Fund another 2.00%. For BHP and Commonwealth Bank, the two largest companies on ASX, the figure is about 3.6%.
+
+Super funds publish their portfolio holdings twice a year, one disclosure for each investment option. Shorted reads one option, the default or balanced, from each of 11 funds: Australian Retirement Trust, Aware Super, Brighter Super, Cbus, Equip, HESTA, Hostplus, Legalsuper, Mercer, Rest and Vision Super, as at 30 June 2026. AustralianSuper, UniSuper and several other large funds publish their disclosures behind pages that refuse automated downloads. Shorted does not work around a refusal, so those funds' holdings appear only through their substantial holding notices.
+
+<GraphRank
+  title="ASX holdings of the 11 tracked super fund options, by combined value, 30 June 2026"
+  items='[
+    {"label":"BHP Group","value":9.38,"display":"$9.38bn","accent":true},
+    {"label":"Commonwealth Bank","value":7.53,"display":"$7.53bn"},
+    {"label":"National Australia Bank","value":3.28,"display":"$3.28bn"},
+    {"label":"ANZ Group","value":2.99,"display":"$2.99bn"},
+    {"label":"Macquarie Group","value":2.92,"display":"$2.92bn"},
+    {"label":"Westpac","value":2.90,"display":"$2.90bn"}
+  ]'
+/>
+
+Ten of the 11 options hold BHP, and all 11 hold Commonwealth Bank. These are values at the disclosure date, from one option per fund: what the options held on 30 June, not what the funds hold today.
+
+## How to read it
+
+- **Current means the newest notice read.** A holding stands until the same holder's next notice replaces it. A notice of ceasing that could not be read leaves the older figure in place, so every row carries its date, and the register flags any figure older than 90 days.
+- **Banks' and brokers' notices are often securities lending.** They are shown beside investors and never counted as investors. A "crowded" register counts super funds, index managers, active managers, hedge funds, sovereign funds and insurers only.
+- **A fall is a fall in the notice's figure.** A holder's percentage also falls when a company issues new shares, so the site never calls a lower figure a disposal.
+- **A super disclosure is one investment option**, not the whole fund.
+- **Short interest is ASIC's**, published four trading days after the date it describes.
+
+## Decisions behind it
+
+**Withhold rather than guess.** A document is read as a notice only when its holder, its company and its figures can be read and agree with one another. The Overview reports everything else by outcome. To 5 November, 5,544 notices were withheld:
+
+<GraphRank
+  title="Notices withheld, by reason, to 5 November 2026"
+  items='[
+    {"label":"Scanned, with no text layer","value":2663,"display":"2,663","accent":true},
+    {"label":"Voting power not stated, or only in an annexure","value":1840,"display":"1,840"},
+    {"label":"Holder not named","value":501,"display":"501"},
+    {"label":"Company not identified","value":409,"display":"409"},
+    {"label":"Votes do not fit the share count","value":83,"display":"83"},
+    {"label":"Figures do not reconcile","value":48,"display":"48"}
+  ]'
+/>
+
+Another 1,134 documents were set aside: 837 not yet downloaded, which are retried, 277 that were not substantial holding forms and 20 that ASX no longer serves.
+
+**A second reader, with checks.** A notice the parser withholds because it is a scan, states no voting power it can read or names no holder is now read again by language models. One reads it, a second reads it independently, and a third settles a disagreement. A reading is stored only when the readers agree, the form matches the ASX headline, a change notice states both its previous and present figures, the holder is named in the document, and the votes imply a share count within a tenth of ASIC's at the time. Anything else stays withheld. So far 1,896 notices have been read this way, among them BlackRock's 6.54% on PLS, and each carries a "model-read" mark in the notice lists.
+
+**One holder's history at a time.** The Holder Lanes step each holder from notice to notice. Shorted does not draw a company's whole register over time: rebuilding past registers from a record with withheld notices and nothing below 5% would be guessing.
+
+**Every figure carries its own date.** Notices are read to 5 November 2026, index fund files are dated 30 September to 5 November, super options are as at 30 June, and ASIC's short positions are for 2 November. No page prints one "as at" for all of them.
+
+## Where to look it up
+
+- [The ownership Overview](/ownership): the market map, connections, activity and index fund positions on one page, with a band stating what was read, withheld and set aside.
+- [PLS Group's register](/ownership/stocks/PLS), or any company's, from the Company tab of its stock page.
+- [The notices feed](/ownership/notices), newest release first.
+- AI assistants connected to [Shorted's MCP server](/blog/shorted-mcp-server) can call two ownership tools, `get_stock_ownership` and `get_institution_holdings`.
+- For the rules behind the notices, read [Substantial holder notices: why banks file so many](/blog/substantial-holder-notices-explained).
+
+Every ownership page ends with its method and a Report an error link. If a figure looks wrong, we would like to know.
+
+<Callout type="warning" title="A holding is not a view">
+
+A substantial holding notice discloses who can vote or dispose of shares, as at a date. It is not a position for or against the company, and an index fund holds a company because the company is in its index. Nothing here is a recommendation.
+
+</Callout>
+
+_This content is for informational purposes only and does not constitute financial advice. Substantial holding figures are each notice's own, as at its date of change, from notices released to 5 November 2026. Index fund figures are from files dated 30 September to 5 November 2026, super option figures from disclosures as at 30 June 2026, and short positions from ASIC's report for 2 November 2026, published four trading days after the position date. Always conduct your own research before making investment decisions._
