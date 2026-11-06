@@ -38,3 +38,19 @@ test("GOMEMLIMIT leaves headroom under the container memory limit", () => {
     `GOMEMLIMIT ${soft} MiB must be at most 80% of the ${limit} MiB container limit`,
   );
 });
+
+test("production wires the uptime alerts to the job-monitoring email channel", () => {
+  const prod = readFileSync(
+    new URL("../../terraform/environments/prod/main.tf", import.meta.url),
+    "utf8",
+  );
+  const start = prod.indexOf('module "shorts_api"');
+  assert.ok(start >= 0, "prod declares the shorts_api module");
+  const block = prod.slice(start, prod.indexOf("\n}\n", start));
+  // The module's check block warns only at a production plan; this pins the
+  // wiring itself, so removing it fails here before any plan runs.
+  assert.match(
+    block,
+    /notification_channel_ids\s*=\s*compact\(\[module\.job_monitoring\.notification_channel_id\]\)/,
+  );
+});

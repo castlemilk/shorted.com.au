@@ -162,10 +162,12 @@ resource "google_monitoring_alert_policy" "run_health_down" {
 
 # The alerts' only notification target is the job-monitoring email channel,
 # which exists only when alert_recipient_email is set. Without it the policies
-# keep evaluating and notify no one, so say so at every plan.
+# keep evaluating and notify no one, so say so at every production plan. Only
+# production: `terraform test` plans the module with environment "test" and no
+# channel (terraform/tests/metrics-routing), and a failed check fails a test.
 check "uptime_alert_channel" {
   assert {
-    condition     = length(var.notification_channel_ids) > 0
+    condition     = var.environment != "production" || length(var.notification_channel_ids) > 0
     error_message = "The shorts API uptime alerts have no notification channel, so they evaluate and email no one. Set alert_recipient_email for prod (the job-monitoring email channel)."
   }
 }
