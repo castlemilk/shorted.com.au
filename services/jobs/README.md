@@ -59,6 +59,7 @@ services/jobs/
 | `economy` | `services/economy-collector` | yes — `shorted-economy` (cutover 1; old scheduler paused) |
 | ~~`house-prices`~~ | `services/house-price-collector` | **retired 2026-09-24** — the port was never scheduled and was deleted; `services/house-price-collector` is the only copy. See "Phase 2d (house-prices) — retired" |
 | `influence` | `services/influence-collector` | no — laptop-only tool |
+| `key-metrics` | — (new job; replaces the shorts API's `SyncKeyMetrics` RPC, which forked Python in the serving process) | VKE-native CronJob `shorted-key-metrics` (`deploy/kubernetes/jobs/chart/values.yaml`, no Cloud Run twin): daily 19:40 UTC, `KEY_METRICS_DRY_RUN: "false"`. Live from the merge's `deploy/vke-jobs` bump. See "key-metrics" |
 | `market-data serve` | `services/market-data-sync` (default mode) | yes — the EXISTING `market-data-sync` Cloud Run SERVICE now runs the `shorted-jobs` image with args `["market-data","serve"]` (cutover 3, in-place revision swap; same URI/SA/scheduler) |
 | `market-data sync` | `services/market-data-sync -cli` | yes — `shorted-price-sync`, the daily price sweep (weekdays 10:00 UTC); the `market-data-sync-daily` scheduler that drove `serve`'s `POST /api/sync/all` is paused. See "Daily price sweep" |
 | `market-data audit-gaps` | `services/market-data-sync/cmd/audit-gaps` | no — laptop-only tool |
@@ -980,20 +981,36 @@ by `deploy/kubernetes/jobs/scripts/register-monitors.py` (`TELESIS_ORG_ID`
 after the merge: an old checkout plans no new monitor. The monitor pages on a
 failed, missed or timed-out run, which is the exit-1 contract above.
 
-**First run by hand (VKE, read-only evidence first).**
+**First run by hand (VKE, read-only evidence first).** A one-off Job is built from
+the CronJob's own pod template, so it runs the same image and env. The `jq` drops
+the `shorted.com.au/cronjob` label (cronjob-reporter checks a labelled run in to the
+Telesis monitor, so an unlabelled smoke stays off it), takes `.spec.jobTemplate.spec`
+(a Job has no `schedule`), and overrides the args and `KEY_METRICS_DRY_RUN`. Each
+smoke gets its own name. The recipe was checked against `helm template` of the chart.
 
-1. A dry run on a few codes, which writes nothing:
-   `kubectl -n shorted-jobs get cronjob shorted-key-metrics -o json`, then edit
-   the copy so the container's args are `["key-metrics","-codes","BHP,CBA,EML","-force"]`,
-   `KEY_METRICS_DRY_RUN` is `"true"`, the name is unique (`km-dry-<date>`) and
-   the `schedule`/`status` fields are dropped; `kubectl create -f <file>`, then
-   `kubectl -n shorted-jobs logs job/km-dry-<date>`. Each `would write` line is the
-   object the live run would store: compare BHP and CBA with the stored rows
-   (`task db:prod:psql`, one read-only SELECT of `key_metrics`).
-2. A live smoke on the same three codes with `KEY_METRICS_DRY_RUN` `"false"` (the
-   same manifest, `-codes` as above), outside 19:30 to 20:30 UTC so it does not
-   share the scheduled run's Yahoo budget. Then delete the Job.
-3. Register the monitor (above) before the first scheduled run, or a failed run
+```bash
+export KUBECONFIG=~/projects/paprika/terraform/omega.kubeconfig
+DRY=true                                  # false only for the live smoke, after the dry run is read
+N=km-smoke-$(date -u +%Y%m%d%H%M)
+kubectl -n shorted-jobs get cronjob shorted-key-metrics -o json \
+  | jq --arg n "$N" --arg dry "$DRY" 'walk(if type == "object" then del(.["shorted.com.au/cronjob"]) else . end)
+      | {apiVersion: "batch/v1", kind: "Job", metadata: {name: $n}, spec: (.spec.jobTemplate.spec
+         | .template.spec.containers[0].args = ["key-metrics", "-codes", "BHP,CBA,EML", "-force"]
+         | .template.spec.containers[0].env |= map(if .name == "KEY_METRICS_DRY_RUN" then .value = $dry else . end))}' \
+  | kubectl -n shorted-jobs create -f -
+kubectl -n shorted-jobs logs -f "job/$N"
+kubectl -n shorted-jobs delete job "$N"
+```
+
+1. **Dry run** (`DRY=true`, writes nothing). Expect `dry_run=true`, three
+   `would write` lines whose `dividend_yield` is a percent (BHP about 4, not 0.04),
+   `written=3` (a dry run counts what it would write) and `failed=0`. Compare BHP
+   and CBA with the stored rows: one read-only SELECT of `key_metrics` through
+   `task db:prod:psql`.
+2. **Live smoke** (`DRY=false`, the same command, three rows written), outside
+   19:30 to 20:30 UTC so it does not share the scheduled run's Yahoo budget. Read
+   the summary line: `stopped=none`, `written=3`.
+3. **Register the monitor** (above) before the first scheduled run, or a failed run
    only logs a WARN.
 
 **Tests.** `go test ./internal/jobs/keymetrics/` covers the field mapping on a
