@@ -105,7 +105,7 @@ NAME_TAILS = (
 # pattern is the Go text exactly, so Go and Python cut the same name (test_notice_direct reads both).
 NAME_TAIL_ID = re.compile(r"(?i)[ \t]*\(?[ \t]*\b(?:acn|abn|arsn)[ \t]*:?[ \t]*[0-9][0-9 ]{8,13}\)?")
 NO_SHARE_COUNT_OUTCOME = "invalid_no_share_count"  # extract()'s outcome when no count is on record
-MAX_SYSTEMIC_ERRORS = 5       # the run exits 1 at this many model errors (or 3 at a fifth of the calls)
+MAX_SYSTEMIC_ERRORS = 5       # the run exits 1 at this many model errors making a twentieth of the calls (or 3 at a fifth)
 BUDGET_GRACE_S = 300          # a read still running this long past the budget is abandoned (nothing recorded)
 NOTICE_CALL_TIMEOUT_S = 120.0 # one model call's HTTP timeout for a notice (the filings pass uses 180)
 STATEMENT_TIMEOUT_MS = 60_000   # every statement after the selection is bounded on the server (SET LOCAL, which holds on the transaction pooler)
@@ -1146,9 +1146,11 @@ class Candidate:
 
 
 def systemic(errors: int, calls: int) -> bool:
-    """The model is down rather than one notice being hard: 5 errors, or 3 making up a fifth
-    of the calls (the financial-report pass's rule)."""
-    return errors >= MAX_SYSTEMIC_ERRORS or (errors >= 3 and errors * 5 >= calls)
+    """The model is down rather than one notice being hard: 3 errors making up a fifth of the
+    calls, or MAX_SYSTEMIC_ERRORS making up a twentieth (the financial-report pass's rule, with
+    the absolute count made a rate: the fourth live run read all 400 notices with 7 errors in 392
+    calls, two of them an upstream 429 that cleared in seconds, and exited 1 for it)."""
+    return (errors >= 3 and errors * 5 >= calls) or (errors >= MAX_SYSTEMIC_ERRORS and errors * 20 >= calls)
 
 
 def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_min: float,
