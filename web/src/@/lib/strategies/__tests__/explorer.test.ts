@@ -57,6 +57,17 @@ describe("the map-backtest mapper", () => {
     expect(ev.runId).toBe(8);
   });
 
+  it("reads the names PR-18 sends today as the design 8.2 vocabulary, and passes others through", () => {
+    const ev = mapStrategyEvidence({
+      strategyId: "x",
+      state: "computed",
+      windows: [{ window: "since_may_2019" }, { window: "live_since_freeze" }, { window: "trailing_12m" }],
+    });
+    expect(ev.state).toBe("published");
+    expect(ev.windows.map((w) => w.window)).toEqual(["since_2019_05", "live", "trailing_12m"]);
+    expect(mapStrategyEvidence({ state: "run_required" }).state).toBe("run_required");
+  });
+
   it("reads a bigint run id as a number", () => {
     expect(mapStrategyEvidence({ runId: BigInt(42) }).runId).toBe(42);
   });
