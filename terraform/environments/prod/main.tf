@@ -1349,6 +1349,10 @@ module "shorts_api" {
   # (roles/run.viewer on that one service; mcp_admin_ingest.go).
   housing_ingest_service_name = module.housing_ingest.service_name
 
+  # The API's uptime alerts (uptime.tf) notify the same email channel as the
+  # Cloud Run Job alerts. Empty when alert_recipient_email is unset.
+  notification_channel_ids = compact([module.job_monitoring.notification_channel_id])
+
   project_id        = var.project_id
   region            = var.region
   environment       = "production"
