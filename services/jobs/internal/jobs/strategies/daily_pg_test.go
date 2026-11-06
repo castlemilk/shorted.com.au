@@ -181,8 +181,8 @@ func TestDailySnapshotWritesAndRerunsIdentically(t *testing.T) {
 	require.Equal(t, 5, countRows(t, pool, "SELECT count(*) FROM strategy_rule_versions WHERE status = 'live' AND kind = 'canonical'"),
 		"one live version per launch strategy")
 	require.Equal(t, 5, countRows(t, pool, "SELECT count(*) FROM strategy_recipes"), "the five R1 recipes")
-	require.Equal(t, 4, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND status = 'completed'"),
-		"features, evaluation, events and paper complete")
+	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND status = 'completed'"),
+		"features, evaluation and events complete")
 	require.Equal(t, 0, countRows(t, pool, "SELECT count(*) FROM picks_run_lease"), "the lease is released on exit")
 	require.Equal(t, 5, countRows(t, pool, `SELECT count(*) FROM jsonb_object_keys(
 		(SELECT counts->'eligible' FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND phase = 'evaluation'))`),
@@ -275,7 +275,7 @@ func TestDailySnapshotDiffsAgainstTheStoredPreviousSession(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "2026-11-13", res.D.String())
 	require.Len(t, res.Done, 1)
-	require.Equal(t, 4, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-13' AND status = 'completed'"))
+	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-13' AND status = 'completed'"))
 	require.Equal(t, 0, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE status = 'failed'"))
 }
 
@@ -520,8 +520,8 @@ func TestDailySnapshotHeldBackfillRunsOldestFirstAndPagesAtTheDeadline(t *testin
 	require.Equal(t, "true", stringOf(t, pool, "SELECT counts->>'late' FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND phase = 'features'"),
 		"a backfilled session records late")
 	require.Equal(t, "false", stringOf(t, pool, "SELECT counts->>'late' FROM strategy_daily_runs WHERE as_of = '2026-11-13' AND phase = 'features'"))
-	require.Equal(t, 4, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND status = 'completed'"))
-	require.Equal(t, 4, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-13' AND status = 'completed'"))
+	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND status = 'completed'"))
+	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-13' AND status = 'completed'"))
 }
 
 // A promotion keeps the superseded version's live_from and sets its
@@ -666,7 +666,7 @@ func TestDailySnapshotSkipsACompletedFeaturesPhase(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"2026-11-12"}, datesText(res.Done))
 	require.Equal(t, first, featureSnapshot(t, pool), "a completed features phase is read back, not recomputed")
-	require.Equal(t, 4, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND status = 'completed'"))
+	require.Equal(t, 3, countRows(t, pool, "SELECT count(*) FROM strategy_daily_runs WHERE as_of = '2026-11-12' AND status = 'completed'"))
 }
 
 // TestDailySnapshotPruneDeletesWhatTheRetentionRulesNoLongerNeed seeds sixteen
@@ -687,7 +687,7 @@ func TestDailySnapshotPruneDeletesWhatTheRetentionRulesNoLongerNeed(t *testing.T
 		require.NoError(t, err)
 	}
 	for i := 0; i <= keepSessions; i++ {
-		for _, p := range phaseNames {
+		for _, p := range snapshotPhases {
 			_, err := pool.Exec(ctx, `INSERT INTO strategy_daily_runs (as_of, phase, status, engine_version)
 				VALUES ($1::date, $2, 'completed', 'test')`, day(i), p)
 			require.NoError(t, err)

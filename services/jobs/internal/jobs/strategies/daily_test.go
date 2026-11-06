@@ -167,11 +167,11 @@ func TestSessionsToProcessBackfillsOldestFirstWithinTheLimit(t *testing.T) {
 }
 
 func TestAllPhasesDone(t *testing.T) {
-	if allPhasesDone(map[string]bool{phaseFeatures: true, phaseEvaluation: true, phaseEvents: true}) {
-		t.Error("a session without its paper phase must not count as done")
+	if allPhasesDone(map[string]bool{phaseFeatures: true, phaseEvaluation: true}) {
+		t.Error("two of three snapshot phases must not count as done")
 	}
-	if !allPhasesDone(map[string]bool{phaseFeatures: true, phaseEvaluation: true, phaseEvents: true, phasePaper: true}) {
-		t.Error("all four phases must count as done")
+	if !allPhasesDone(map[string]bool{phaseFeatures: true, phaseEvaluation: true, phaseEvents: true}) {
+		t.Error("the three snapshot phases must count as done")
 	}
 }
 
@@ -233,20 +233,6 @@ func TestPruneCutoffKeepsFifteenSessionsAndThePaperGuard(t *testing.T) {
 	}
 	if got := pruneCutoff(completed[:keepSessions-1], nil); !got.IsZero() {
 		t.Errorf("fewer than %d completed sessions must delete nothing: cutoff = %s", keepSessions, got)
-	}
-}
-
-func TestPaperGuardIsTheSessionBeforeLiveFromOnTheDataCalendar(t *testing.T) {
-	// Monday 16 November 2026 went live: the guard is Friday 13, never the Sunday.
-	monday := civil.Date{Year: 2026, Month: time.November, Day: 16}
-	friday := civil.Date{Year: 2026, Month: time.November, Day: 13}
-	guards := paperGuardSessions(
-		map[string]civil.Date{"live-v1": monday, "v0-hash": monday, "no-date": {}},
-		map[string]string{"live-v1": "v1", "v0-hash": "v0", "no-date": "v2"},
-		nil,
-	)
-	if len(guards) != 1 || guards[0] != friday {
-		t.Fatalf("paper guards = %v, want [%s]: v0 and a version without live_from carry none", guards, friday)
 	}
 }
 

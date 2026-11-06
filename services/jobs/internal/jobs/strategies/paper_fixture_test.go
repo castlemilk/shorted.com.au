@@ -1,0 +1,273 @@
+package strategies
+
+// The paper track's market fixture. The rows are generated deterministically, so
+// every run of a test sees the same market, and they are written to the source
+// tables the production readers select from. The daily job's features phase reads
+// them, so a test's snapshot is the job's own, not a stand-in.
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"testing"
+	"time"
+
+	"cloud.google.com/go/civil"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stretchr/testify/require"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
+)
+
+// paperMarketStart is the first bar the fixture writes: enough history for the
+// features' 400-day and the ASIC window's 730-day lookbacks before the first run.
+var paperMarketStart = civil.Date{Year: 2025, Month: time.January, Day: 2}
+
+// paperRunFrom is the first session the daily job snapshots (a live version's
+// live_from), and paperRunTo the last.
+var (
+	paperRunFrom = civil.Date{Year: 2026, Month: time.June, Day: 1}
+	paperRunTo   = civil.Date{Year: 2026, Month: time.September, Day: 25}
+)
+
+// paperCodes are the fixture's stocks. Their roles:
+//   - CCC: a NULL close on one day (a priced-bar check; the batch steps it).
+//   - CCC: a dividend with a Saturday ex-date (credited on the Monday).
+//   - FFF: stops trading in mid-July, so a position held then exits stale.
+//   - GGG: no volume on three days (a triggered entry can cancel as untraded).
+//   - the rest: sawtooth cycles that set new highs, so the rules trigger.
+var paperCodes = []string{"AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH"}
+
+// paperNullCode is the code with the NULL close: one the batch steps, so the NULL
+// close reaches the simulator's session.
+const paperNullCode = "EEE"
+
+// paperCrash is BBB's fall: a 40% level drop from this session on. BBB is entered
+// in July and held through it, so an exit rule closes the trade (a closed trade
+// with its exit reason, flags and economics).
+var paperCrash = civil.Date{Year: 2026, Month: time.August, Day: 3}
+
+// paperCASuspect is HHH's corporate-action suspect (a stepped code: it triggers): a level shift of 1.9 from this
+// session on, with no volume on the day. The features phase flags the bar as a
+// zero-volume suspect, known on the day, so a position entered before it is
+// excluded and no entry is taken for the next sixty sessions.
+var paperCASuspect = civil.Date{Year: 2026, Month: time.July, Day: 6}
+
+// paperNullClose is paperNullCode's day with no close, paperFFFLast FFF's last bar.
+var (
+	paperNullClose = civil.Date{Year: 2026, Month: time.July, Day: 28}
+	paperFFFLast   = civil.Date{Year: 2026, Month: time.July, Day: 14}
+	paperDividend  = civil.Date{Year: 2026, Month: time.July, Day: 11} // a Saturday
+)
+
+// paperZeroVolume are GGG's days with no volume.
+var paperZeroVolume = map[civil.Date]bool{
+	{Year: 2026, Month: time.June, Day: 17}:  true,
+	{Year: 2026, Month: time.June, Day: 29}:  true,
+	{Year: 2026, Month: time.August, Day: 5}: true,
+}
+
+// paperTradingDays are the ASX sessions from from to to, inclusive, oldest first.
+func paperTradingDays(from, to civil.Date) []civil.Date {
+	var out []civil.Date
+	for d := from; !d.After(to); d = d.AddDays(1) {
+		if asxcalendar.IsTradingDay(time.Date(d.Year, d.Month, d.Day, 0, 0, 0, 0, time.UTC)) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// paperPrice is one code's close on its k-th fixture session.
+func paperPrice(code, k int) float64 {
+	base := 10 + 3*float64(code)
+	drift := 0.0025 + 0.0004*float64(code%3)
+	period := 12 + code
+	phase := k % period
+	trend := base * math.Exp(drift*float64(k))
+	if paperCodes[code] == "HHH" && k >= paperCAIndex() {
+		trend *= 1.9 // the level shift of the corporate-action suspect
+	}
+	if paperCodes[code] == "BBB" && k >= paperCrashIndex() {
+		trend *= 0.6
+	}
+	// The sawtooth dips by at most 2% in the last quarter of each cycle, less than
+	// the cycle's drift, so each cycle closes at a new high: a breakout.
+	dip := 0.0
+	if quarter := period / 4; phase > period*3/4 {
+		dip = 0.02 * float64(phase-period*3/4) / float64(quarter+1)
+	}
+	return trend * (1 - dip) * (1 + 0.002*math.Sin(float64(k)/3.0+float64(code)))
+}
+
+// paperCAIndex is the fixture session index of paperCASuspect.
+func paperCAIndex() int {
+	for i, d := range paperTradingDays(paperMarketStart, paperRunTo) {
+		if d == paperCASuspect {
+			return i
+		}
+	}
+	return -1
+}
+
+// paperCrashIndex is the fixture session index of paperCrash.
+func paperCrashIndex() int {
+	for i, d := range paperTradingDays(paperMarketStart, paperRunTo) {
+		if d == paperCrash {
+			return i
+		}
+	}
+	return -1
+}
+
+// paperIsHigh reports whether the code's k-th session closes at the highest close
+// of the 20 sessions before it and the session itself.
+func paperIsHigh(code, k int) bool {
+	if k < 20 {
+		return false
+	}
+	c := paperPrice(code, k)
+	for j := k - 20; j < k; j++ {
+		if paperPrice(code, j) >= c {
+			return false
+		}
+	}
+	return true
+}
+
+// seedPaperMarket writes the fixture's market: bars for every code and the index
+// levels, the ASX sweep row the readiness gate reads, the dividend, the ASIC
+// reports and the cash-rate series. Bars run from paperMarketStart to paperRunTo.
+func seedPaperMarket(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	ctx := context.Background()
+	days := paperTradingDays(paperMarketStart, paperRunTo)
+
+	var priceRows, indexRows [][]any
+	for i, d := range days {
+		for code := range paperCodes {
+			if paperCodes[code] == "FFF" && d.After(paperFFFLast) {
+				continue
+			}
+			c := paperPrice(code, i)
+			var closeArg any = c
+			if paperCodes[code] == paperNullCode && d == paperNullClose {
+				closeArg = nil
+			}
+			// A session that closes at a 20-session high trades heavily: the volume
+			// behind a breakout.
+			volume := int64(1000000)
+			if paperIsHigh(code, i) {
+				volume = 3000000
+			}
+			if paperCodes[code] == "GGG" && paperZeroVolume[d] {
+				volume = 0
+			}
+			if paperCodes[code] == "HHH" && d == paperCASuspect {
+				volume = 0
+			}
+			open := c * (1 + 0.002*math.Cos(float64(i)))
+			priceRows = append(priceRows, []any{paperCodes[code], d.String(), open, math.Max(open, c) * 1.001, math.Min(open, c) * 0.999, closeArg, c, volume})
+		}
+		xjo := 5000 * math.Exp(0.0003*float64(i)) * (1 + 0.003*math.Sin(float64(i)/5))
+		xjt := 3000 * math.Exp(0.00035*float64(i)) * (1 + 0.003*math.Sin(float64(i)/5))
+		indexRows = append(indexRows, []any{"XJO", d.String(), xjo * 1.01, xjo * 0.99, xjo},
+			[]any{"XJT", d.String(), xjt * 1.01, xjt * 0.99, xjt})
+	}
+	for _, r := range priceRows {
+		_, err := pool.Exec(ctx, `INSERT INTO stock_prices (stock_code, date, open, high, low, close, adjusted_close, volume)
+			VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8)`, r...)
+		require.NoError(t, err)
+	}
+	for _, r := range indexRows {
+		_, err := pool.Exec(ctx, `INSERT INTO index_prices (index_code, date, high, low, close) VALUES ($1, $2::date, $3, $4, $5)`, r...)
+		require.NoError(t, err)
+	}
+
+	_, err := pool.Exec(ctx, `INSERT INTO dividend_history (stock_code, ex_date, dividend_type, amount_per_share)
+		VALUES ('CCC', $1::date, 'final', 0.4)`, paperDividend.String())
+	require.NoError(t, err)
+
+	// One completed price sweep, started on the last session's morning: it is the
+	// newest sweep for every earlier session too, and each earlier 05:30 has passed.
+	_, err = pool.Exec(ctx, `INSERT INTO sync_status (environment, hostname, checkpoint_stocks_total, status, started_at, completed_at)
+		VALUES (NULL, NULL, 1800, 'completed', $1::timestamptz, $2::timestamptz)`,
+		paperRunTo.String()+" 06:00:00+00", paperRunTo.String()+" 06:30:00+00")
+	require.NoError(t, err)
+
+	seedPaperASIC(t, pool)
+	seedPaperCashRate(t, pool)
+}
+
+// seedPaperASIC writes a short-position report per code on every session, as the
+// ASIC publishes them: the rows the calendar, the ASIC history and the crowded-short
+// universe read. A session below the newest report needs a report on its own date.
+func seedPaperASIC(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	ctx := context.Background()
+	for i, report := range paperTradingDays(paperMarketStart, paperRunTo) {
+		for code := range paperCodes {
+			shares := 1e8 * float64(1+code)
+			// Above the 5% crowded threshold on every session.
+			pct := 5.5 + 0.7*float64(code%4) + 0.05*float64(i%20)
+			_, err := pool.Exec(ctx, `INSERT INTO shorts ("DATE", "PRODUCT", "PRODUCT_CODE", "REPORTED_SHORT_POSITIONS",
+				"TOTAL_PRODUCT_IN_ISSUE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS")
+				VALUES ($1::timestamp, $2, $3, $4, $5, $6)`,
+				report.String(), fmt.Sprintf("%s LIMITED ORDINARY", paperCodes[code]), paperCodes[code],
+				shares*pct/100, shares, pct)
+			require.NoError(t, err)
+		}
+		_, err := pool.Exec(ctx, `INSERT INTO asic_report_ingests (report_date, file_rows, loaded_rows) VALUES ($1::date, 8, 8)`, report.String())
+		require.NoError(t, err)
+	}
+}
+
+// seedPaperCashRate writes the RBA cash rate target monthly: the series the batch
+// forward-fills and the paper track reads per session.
+func seedPaperCashRate(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `INSERT INTO economic_series (series_key) VALUES ($1)`, pgsource.CashRateSeries)
+	require.NoError(t, err)
+	for y, m := 2025, time.January; y < 2026 || m < time.December; m++ {
+		if m > time.December {
+			m, y = time.January, y+1
+		}
+		rate := 4.35
+		if y == 2026 && m >= time.February {
+			rate = 4.10
+		}
+		_, err := pool.Exec(ctx, `INSERT INTO economic_observations (series_id, period, value)
+			SELECT id, $1::date, $2 FROM economic_series WHERE series_key = $3`,
+			civil.Date{Year: y, Month: m, Day: 1}.String(), rate, pgsource.CashRateSeries)
+		require.NoError(t, err)
+	}
+}
+
+// paperEconomicTables creates the economic tables the cash-rate reader selects
+// from, which the source tables of dailyDB do not include.
+func paperEconomicTables(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		CREATE TABLE economic_series (id BIGSERIAL PRIMARY KEY, series_key TEXT UNIQUE NOT NULL);
+		CREATE TABLE economic_observations (series_id BIGINT NOT NULL REFERENCES economic_series(id),
+			period DATE NOT NULL, value DOUBLE PRECISION NOT NULL);`)
+	require.NoError(t, err)
+}
+
+// runPaperDay runs the daily job once for the session of day, as the job does at
+// 14:00 UTC on that weekday, and fails the test on any error.
+func runPaperDay(t *testing.T, pool *pgxpool.Pool, day civil.Date) dailyResult {
+	t.Helper()
+	opts := dailyOptions{
+		Write:  true,
+		Holder: "paper-test",
+		Now:    time.Date(day.Year, day.Month, day.Day, 14, 0, 0, 0, time.UTC),
+		Logf:   func(string, ...any) {},
+		Sleep:  func(context.Context, time.Duration) error { return nil },
+	}
+	res, err := runDaily(context.Background(), pool, opts)
+	require.NoError(t, err, "the daily run for %s", day)
+	return res
+}
