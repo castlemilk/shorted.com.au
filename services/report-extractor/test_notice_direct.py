@@ -353,7 +353,8 @@ def test_the_extractor_needs_a_checker():
 
 # --- systemic failure ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("errors,calls,want", [(4, 100, False), (5, 100, True), (3, 15, True),
+@pytest.mark.parametrize("errors,calls,want", [(4, 100, False), (5, 100, True), (5, 101, False),
+                                               (7, 392, False), (20, 392, True), (3, 15, True),
                                                (3, 16, False), (0, 0, False)])
 def test_model_errors_that_look_systemic(errors, calls, want):
     assert nd.systemic(errors, calls) is want
