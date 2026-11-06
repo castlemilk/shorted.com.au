@@ -223,6 +223,14 @@ export interface StrategyPicksResponseInput {
   fundamentalsCoverageCount?: number;
   fundamentalsRowsCount?: number;
   asOf?: string;
+  viewer?: ViewerDepthInput | null;
+}
+
+/** The depth this caller's access receives (protojson ViewerDepth). */
+export interface ViewerDepthInput {
+  access?: string;
+  clamped?: boolean;
+  limit?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -679,6 +687,10 @@ export interface MappedPicks extends PicksSignals {
   fundamentalsCoverageCount: number;
   fundamentalsRowsCount: number;
   asOf: string;
+  /** The answer is the public top rows, not the whole ranking (see ViewerDepthInput). */
+  clamped: boolean;
+  /** The rows the clamp allows; 0 when unclamped. */
+  depth: number;
 }
 
 /** Everything but the strategy and regime: what both the page and the sort island read. */
@@ -690,6 +702,8 @@ export function mapPicksResponse(response: StrategyPicksResponseInput): MappedPi
     fundamentalsCoverageCount: count(response.fundamentalsCoverageCount),
     fundamentalsRowsCount: count(response.fundamentalsRowsCount),
     asOf: str(response.asOf),
+    clamped: response.viewer?.clamped === true,
+    depth: response.viewer?.clamped === true ? count(response.viewer.limit) : 0,
     ...mapPicksSignals(response),
   };
 }

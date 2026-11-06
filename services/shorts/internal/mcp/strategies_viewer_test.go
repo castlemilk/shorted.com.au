@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -80,5 +81,73 @@ func TestStrategyToolsHandOverTheVerifiedViewer(t *testing.T) {
 				t.Errorf("list_strategies read carried viewer %+v, want %+v", src.gotStrategiesViewer, tc.want)
 			}
 		})
+	}
+}
+
+// A clamped answer (no sign-in) is worded as what it is: the public top rows.
+// "No picks" under the clamp would be false, since matching stocks exist below
+// the depth, and a sorted list is the top of the rank order, not of the metric.
+func TestGetStrategyPicksTextSaysWhatTheClampHides(t *testing.T) {
+	ranked := &shortsv1alpha1.StrategyPick{StockCode: "AAA", Status: "triggered", Rank: 1}
+	clamped := &shortsv1alpha1.ViewerDepth{Access: "anonymous", Clamped: true, Limit: 10}
+
+	run := func(t *testing.T, resp *shortsv1alpha1.GetStrategyPicksResponse, in GetStrategyPicksInput) string {
+		t.Helper()
+		src := &fakeDataSource{strategyPicks: resp, strategies: &shortsv1alpha1.ListStrategiesResponse{}}
+		res, _, err := getStrategyPicksHandler(src)(context.Background(), nil, in)
+		if err != nil {
+			t.Fatalf("get_strategy_picks: %v", err)
+		}
+		text, ok := res.Content[0].(*sdk.TextContent)
+		if !ok {
+			t.Fatalf("content is %T, want text", res.Content[0])
+		}
+		return text.Text
+	}
+
+	t.Run("filter with matches only below the depth", func(t *testing.T) {
+		text := run(t, &shortsv1alpha1.GetStrategyPicksResponse{TotalCount: 25, Viewer: clamped},
+			GetStrategyPicksInput{StrategyID: "minervini-trend-template", Status: "setup"})
+		if strings.Contains(text, "No picks") {
+			t.Errorf("clamped empty filter says no picks: %q", text)
+		}
+		if !strings.Contains(text, "none of the public top 10") || !strings.Contains(text, "25 stocks with that status") {
+			t.Errorf("clamped empty filter does not say what the clamp hides: %q", text)
+		}
+	})
+
+	t.Run("one stock below the depth reads in the singular", func(t *testing.T) {
+		text := run(t, &shortsv1alpha1.GetStrategyPicksResponse{TotalCount: 1, Viewer: clamped},
+			GetStrategyPicksInput{StrategyID: "minervini-trend-template", Status: "setup"})
+		if !strings.Contains(text, "but 1 stock with that status ranks below it") {
+			t.Errorf("one clamped stock is worded in the plural: %q", text)
+		}
+	})
+
+	t.Run("sorted within the public top rows", func(t *testing.T) {
+		text := run(t, &shortsv1alpha1.GetStrategyPicksResponse{
+			Picks: []*shortsv1alpha1.StrategyPick{ranked}, TotalCount: 212, Viewer: clamped,
+		}, GetStrategyPicksInput{StrategyID: "quality-compounders", SortBy: "roe"})
+		if !strings.Contains(text, "Without sign-in only the top 10 of the ranking are served") {
+			t.Errorf("clamped sorted answer does not state its scope: %q", text)
+		}
+	})
+
+	t.Run("unclamped empty filter keeps its wording", func(t *testing.T) {
+		text := run(t, &shortsv1alpha1.GetStrategyPicksResponse{},
+			GetStrategyPicksInput{StrategyID: "minervini-trend-template", Status: "setup"})
+		if !strings.Contains(text, "No picks for") {
+			t.Errorf("unclamped empty filter lost its wording: %q", text)
+		}
+	})
+}
+
+// The description states the depth an anonymous caller and a connector get. The
+// public depth is set in Terraform (strategy_public_signals_limit); a
+// scripts/tests check holds this clause to that number.
+func TestGetStrategyPicksDescriptionStatesTheDepth(t *testing.T) {
+	const clause = "Default 10 picks. Without sign-in, the top 10 only; connected with OAuth, up to 25. Ids and rules: list_strategies."
+	if !strings.Contains(getStrategyPicksDescription, clause) {
+		t.Errorf("description lost its depth clause or its spacing:\n%s", getStrategyPicksDescription)
 	}
 }

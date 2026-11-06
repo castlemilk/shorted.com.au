@@ -11,6 +11,7 @@ import {
   ZANGER,
   pick,
 } from "~/@/components/picks/__tests__/fixtures";
+import { SHORTLIST_MAX_ROWS } from "~/@/lib/strategies/shortlist";
 import type { PickRow } from "~/@/lib/strategies/types";
 import { getStrategyPicks } from "~/app/actions/getStrategyPicks";
 
@@ -57,6 +58,7 @@ function renderView(rows: PickRow[] = PICKS.picks, totalCount = rows.length) {
       totalCount={totalCount}
       rules={RULES}
       basePath="/strategies/zanger-breakout"
+      signalsHref="/strategies/zanger-breakout/signals"
       caption="Zanger Breakout Strategy: ranked ASX picks"
       showFundamentals
     />,
@@ -118,7 +120,7 @@ describe("PicksSortedView: status filter (a request in rank order)", () => {
     // Loading: the shortlist's setup rows, dimmed and aria-busy.
     expect(region()).toHaveAttribute("aria-busy", "true");
     expect(tableCodes()).toEqual([SETUP.code]);
-    expect(summary()).toHaveTextContent(/^Loading every setup stock\./);
+    expect(summary()).toHaveTextContent(/^Loading setup stocks\./);
 
     // The API's answer is the whole status: names the shortlist never held.
     await act(async () =>
@@ -162,7 +164,7 @@ describe("PicksSortedView: status filter (a request in rank order)", () => {
     searchParams = new URLSearchParams("status=triggered");
     fetchMock.mockResolvedValue(jsonResponse({ code: "unavailable" }, 503));
     renderView();
-    await screen.findByText("The full triggered list is unavailable right now.");
+    await screen.findByText("The triggered list is unavailable right now.");
     expect(tableCodes()).toEqual([TRIGGERED.code]);
     expect(region()).not.toHaveAttribute("aria-busy");
   });
@@ -181,6 +183,7 @@ describe("PicksSortedView: status filter (a request in rank order)", () => {
         }}
         rules={RULES}
         basePath="/strategies/zanger-breakout"
+        signalsHref="/strategies/zanger-breakout/signals"
         caption="Zanger Breakout Strategy: ranked ASX picks"
       />,
     );
@@ -207,16 +210,16 @@ describe("PicksSortedView: status filter (a request in rank order)", () => {
   });
 
   it("keeps watch rows out of a shortlist that is already full", () => {
-    const setups = Array.from({ length: 20 }, (_, i) =>
+    const setups = Array.from({ length: SHORTLIST_MAX_ROWS }, (_, i) =>
       pick({
         code: `S${String(i).padStart(2, "0")}`,
         rank: i + 1,
         status: "setup",
       }),
     );
-    renderView([...setups, { ...WATCH, rank: 21 }]);
+    renderView([...setups, { ...WATCH, rank: SHORTLIST_MAX_ROWS + 1 }]);
     const codes = tableCodes();
-    expect(codes).toHaveLength(20);
+    expect(codes).toHaveLength(SHORTLIST_MAX_ROWS);
     expect(codes).not.toContain(WATCH.code);
   });
 
@@ -481,5 +484,72 @@ describe("one mapper for the server action and the sort island", () => {
       offset: 0,
       status: "",
     });
+  });
+});
+
+// The public RPC answers with the public top rows only (viewer.clamped), for every
+// caller, signed in or not.
+// The chips must say so: a status with no row in the top rows is not "no stocks
+// at that status", and a sort is the top of the rank order, not of the metric.
+describe("PicksSortedView: an answer clamped to the public depth", () => {
+  const clamped = { access: "anonymous", clamped: true, limit: 10 };
+
+  it("says the status has no row in the public top, and never that there are none", async () => {
+    searchParams = new URLSearchParams("status=watch");
+    fetchMock.mockResolvedValue(
+      jsonResponse({ ...PROTOJSON_PICKS, picks: [], totalCount: 40, viewer: clamped }),
+    );
+    renderView();
+    await screen.findByText(
+      "None of the public top 10 is watch. 40 watch stocks rank below it.",
+    );
+    expect(screen.queryByText(/No stocks are at watch status today/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Showing the top 0/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText("None of the public top 10 is watch."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "See all signals →" })).toHaveAttribute(
+      "href",
+      "/strategies/zanger-breakout/signals",
+    );
+  });
+
+  it("says the sort orders the public top rows, and never claims the metric's top", async () => {
+    searchParams = new URLSearchParams("sort=roe");
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        ...PROTOJSON_PICKS,
+        picks: [PROTOJSON_PICKS.picks[0], { ...PROTOJSON_PICKS.picks[1], rank: 2 }],
+        totalCount: 212,
+        viewer: clamped,
+      }),
+    );
+    renderView();
+    await screen.findByText("Sorted by ROE within the public top 10 by rank.");
+    expect(summary()).not.toHaveTextContent(/Top 2 of 212/);
+  });
+
+  it("states the status rows it does hold, out of the public top", async () => {
+    searchParams = new URLSearchParams("status=setup");
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        ...PROTOJSON_PICKS,
+        picks: [{ ...PROTOJSON_PICKS.picks[1], rank: 2 }],
+        totalCount: 30,
+        viewer: clamped,
+      }),
+    );
+    renderView();
+    await screen.findByText("1 of the public top 10 is setup. 30 setup stocks in all.");
+    expect(summary()).not.toHaveTextContent(/Showing the top/);
+  });
+});
+
+describe("PicksSortedView: the shortlist's own copy", () => {
+  it("says watch names fill the list to the shortlist's size, not a larger one", () => {
+    renderView([TRIGGERED, WATCH]);
+    expect(summary()).toHaveTextContent(
+      `Showing 2 of 2 ranked stocks. Triggered and setup first; watch names fill the list to ${SHORTLIST_MAX_ROWS}.`,
+    );
   });
 });

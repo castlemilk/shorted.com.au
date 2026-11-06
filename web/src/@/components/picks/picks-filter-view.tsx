@@ -3,7 +3,7 @@ import Link from "next/link";
 import { cn } from "~/@/lib/utils";
 import { formatCount } from "~/@/lib/strategies/format";
 import {
-  SHORTLIST_MIN_ROWS,
+  SHORTLIST_MAX_ROWS,
   STATUS_DESCRIPTIONS,
   STATUS_LABELS,
   countByStatus,
@@ -45,6 +45,9 @@ import { PicksTable, type RuleColumn } from "./picks-table";
  * and until it answers the shortlist's rows of that status stand in. The
  * chip counts over every ranked row come from `counts`, computed once on the
  * server, so the island never has to carry the whole list to label a chip.
+ * An answer clamped to the public depth (SortedPicks.clamped) is worded as
+ * the top rows only, and the "See all signals" link under the table is the
+ * way to the full list (the Signals tab, which carries signed-in depth).
  */
 export interface PicksFilterViewProps {
   /** The shortlist rows the server rendered, ranked. */
@@ -52,14 +55,17 @@ export interface PicksFilterViewProps {
   /** Every ranked pick, before the row limit. */
   totalCount: number;
   /**
-   * Status counts over every ranked row the server fetched (up to the API's
-   * 100). Computed from `rows` when absent, which is only right when `rows`
-   * is the whole list.
+   * The chips' counts: the API's status_counts over every ranked pick
+   * (statusCountsOf), which stay the whole ranking under the public depth.
+   * Computed from `rows` when absent, which is only right when `rows` is the
+   * whole list.
    */
   counts?: Record<PickStatus, StatusCount>;
   rules: RuleColumn[];
   /** The page path the chips link to, e.g. "/strategies/zanger-breakout". */
   basePath: string;
+  /** The Signals tab's href (strategyTabHref), the "See all signals" link. */
+  signalsHref: string;
   caption: string;
   status: PickStatus | null;
   /** See PicksTableProps.showFundamentals. */
@@ -111,6 +117,11 @@ function Chip({
   );
 }
 
+/** The public depth a clamped answer holds, or the rows it has when unknown. */
+function clampDepth(sorted: SortedPicks): number {
+  return sorted.depth !== undefined && sorted.depth > 0 ? sorted.depth : sorted.rows.length;
+}
+
 /** "Top 100 of 1,904 by ROE." and what the order means. */
 export function sortedSummary(
   sorted: SortedPicks,
@@ -121,6 +132,11 @@ export function sortedSummary(
   const shown = sorted.rows.length;
   const total = Math.max(sorted.totalCount, shown);
   const scope = status ? ` ${STATUS_LABELS[status]} stocks only.` : "";
+  // Under the public depth the rows are the top of the RANK order, re-sorted:
+  // the metric's own top ten is not among them, so no "Top N of M by" claim.
+  if (sorted.clamped) {
+    return `Sorted by ${def.phrase} within the public top ${formatCount(clampDepth(sorted))} by rank.${scope}`;
+  }
   // An older API answers in rank order whatever it is asked; the rows it
   // sent were sorted here, so when it sent fewer than it ranked, they are the
   // top of the RANK order, not of the metric.
@@ -135,12 +151,31 @@ function statusSummary(count: string, status: PickStatus): string {
   return `${count} ${STATUS_LABELS[status].toLowerCase()}: ${STATUS_DESCRIPTIONS[status]}`;
 }
 
+/**
+ * A status answered under the public depth holds only the statuses ranked in
+ * the top rows: it says so, rather than "Showing the top 0" or an empty table
+ * beside a count of the whole status.
+ */
+function clampedStatusSummary(sorted: SortedPicks, status: PickStatus): string {
+  const word = STATUS_LABELS[status].toLowerCase();
+  const all = Math.max(sorted.totalCount, sorted.rows.length);
+  const total = formatCount(all);
+  const top = formatCount(clampDepth(sorted));
+  const noun = all === 1 ? "stock" : "stocks";
+  if (sorted.rows.length === 0) {
+    return `None of the public top ${top} is ${word}. ${total} ${word} ${noun} ${all === 1 ? "ranks" : "rank"} below it.`;
+  }
+  const shown = formatCount(sorted.rows.length);
+  return `${shown} of the public top ${top} ${sorted.rows.length === 1 ? "is" : "are"} ${word}. ${total} ${word} ${noun} in all.`;
+}
+
 export function PicksFilterView({
   rows,
   totalCount,
   counts: countsProp,
   rules,
   basePath,
+  signalsHref,
   caption,
   status,
   showFundamentals = false,
@@ -163,6 +198,8 @@ export function PicksFilterView({
   let summary: string;
   if (sort && sorted) {
     summary = sortedSummary(sorted, sort, status);
+  } else if (status && sorted?.clamped) {
+    summary = clampedStatusSummary(sorted, status);
   } else if (status && sorted) {
     const total = Math.max(sorted.totalCount, sorted.rows.length);
     summary =
@@ -173,7 +210,7 @@ export function PicksFilterView({
   } else if (status === null) {
     const total = formatCount(Math.max(totalCount, rows.length));
     summary = `Showing ${visible.length} of ${total} ranked stocks. Triggered and setup first${
-      filled ? `; watch names fill the list to ${SHORTLIST_MIN_ROWS}` : ""
+      filled ? `; watch names fill the list to ${SHORTLIST_MAX_ROWS}` : ""
     }.`;
   } else {
     summary = statusSummary(formatStatusCount(counts[status]), status);
@@ -183,7 +220,7 @@ export function PicksFilterView({
   if (busy) {
     summary = sort
       ? `Sorting by ${pickSortDef(sort).phrase}. ${summary}`
-      : `Loading every ${STATUS_LABELS[status!].toLowerCase()} stock. ${summary}`;
+      : `Loading ${STATUS_LABELS[status!].toLowerCase()} stocks. ${summary}`;
   }
   const statusWord = status ? STATUS_LABELS[status].toLowerCase() : "";
 
@@ -229,7 +266,7 @@ export function PicksFilterView({
             <span className="font-medium text-foreground">
               {sort
                 ? "Sorting is unavailable right now."
-                : `The full ${statusWord} list is unavailable right now.`}
+                : `The ${statusWord} list is unavailable right now.`}
             </span>{" "}
           </>
         ) : null}
@@ -247,11 +284,22 @@ export function PicksFilterView({
             ? busy
               ? `Loading ${statusWord} stocks.`
               : unavailable
-                ? `The full ${statusWord} list is unavailable right now.`
-                : `No stocks are at ${statusWord} status today.`
+                ? `The ${statusWord} list is unavailable right now.`
+                : sorted?.clamped
+                  ? `None of the public top ${formatCount(clampDepth(sorted))} is ${statusWord}.`
+                  : `No stocks are at ${statusWord} status today.`
             : undefined
         }
       />
+      <p className="text-xs">
+        <Link
+          href={signalsHref}
+          prefetch={false}
+          className="font-medium text-primary underline-offset-4 hover:underline"
+        >
+          See all signals →
+        </Link>
+      </p>
       {rowsShowFilingMark(visible) ? (
         <ProvenanceLegend sources={[FILING_SOURCE]} />
       ) : null}

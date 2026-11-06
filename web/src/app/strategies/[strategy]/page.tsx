@@ -16,6 +16,7 @@ import { RuleLegend, type RuleColumn } from "~/@/components/picks/picks-table";
 import { StrategyPanel } from "~/@/components/picks/strategy-panel";
 import { StrategySwitcher } from "~/@/components/picks/strategy-switcher";
 import { STRATEGIES, getStrategy } from "~/@/lib/strategies/registry";
+import { strategyTabHref } from "~/@/lib/strategies/strategy-tabs";
 import {
   STATUS_LABELS,
   statusCountsOf,
@@ -83,9 +84,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-/** How many ranked names go into the ItemList JSON-LD. */
-const ITEM_LIST_LIMIT = 15;
-
 export default async function StrategyPicksPage({ params }: PageProps) {
   const { strategy: slug } = await params;
   const seo = getStrategy(slug);
@@ -110,15 +108,14 @@ export default async function StrategyPicksPage({ params }: PageProps) {
   const strategyName = firstNonEmpty(strategy?.name, seo.label);
   // The shortlist is what the HTML and the island's props carry, so it is
   // bounded (SHORTLIST_MAX_ROWS) and the island gets the status counts over
-  // every ranked row instead of the rows themselves: a status chip fetches
-  // its full list, as a sort chip does.
+  // every ranked row instead of the rows themselves. The ItemList names the
+  // same rows, so it is the shortlist too.
   const shortlist = shortlistRows(rows);
   const counts = statusCountsOf({
     picks: rows,
     totalCount: data?.totalCount ?? 0,
     statusCounts: data?.statusCounts,
   });
-  const listRows = shortlist.slice(0, ITEM_LIST_LIMIT);
 
   const breadcrumbsSchema = [
     { name: "Home", url: siteConfig.url },
@@ -131,6 +128,7 @@ export default async function StrategyPicksPage({ params }: PageProps) {
     totalCount: data?.totalCount ?? 0,
     rules,
     basePath: `/strategies/${seo.slug}`,
+    signalsHref: strategyTabHref(seo.slug, "signals"),
     caption: `${seo.h1}: ranked ASX picks`,
     showFundamentals: data
       ? fundamentalsHeld(data.fundamentalsRowsCount, data.fundamentalsCoverageCount)
@@ -148,11 +146,11 @@ export default async function StrategyPicksPage({ params }: PageProps) {
           dateModified: data && data.asOf.length > 0 ? data.asOf : undefined,
         }}
       />
-      {listRows.length > 0 ? (
+      {shortlist.length > 0 ? (
         <ItemListStructuredData
           name={`${seo.h1}: ASX stock picks`}
           description={seo.description}
-          items={listRows.map((row) => ({
+          items={shortlist.map((row) => ({
             name: `${row.code} - ${row.name || row.code}`,
             url: `${siteConfig.url}/shorts/${row.code}`,
             description: [

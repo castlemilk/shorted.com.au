@@ -312,6 +312,20 @@ describe("mapPickFundamentals", () => {
   });
 });
 
+describe("mapPicksResponse: the caller's depth", () => {
+  it("reads a clamped answer and its limit from the viewer", () => {
+    const mapped = mapPicksResponse({ viewer: { access: "anonymous", clamped: true, limit: 10 } });
+    expect(mapped.clamped).toBe(true);
+    expect(mapped.depth).toBe(10);
+  });
+
+  it("reads an unclamped answer as the whole list", () => {
+    const mapped = mapPicksResponse({ viewer: { access: "premium", clamped: false, limit: 0 } });
+    expect(mapped.clamped).toBe(false);
+    expect(mapped.depth).toBe(0);
+  });
+});
+
 describe("mapPicksResponse", () => {
   it("reads counts that protojson omitted as zero, and truncates nothing else", () => {
     expect(mapPicksResponse({})).toEqual({
@@ -321,6 +335,8 @@ describe("mapPicksResponse", () => {
       fundamentalsCoverageCount: 0,
       fundamentalsRowsCount: 0,
       asOf: "",
+      clamped: false,
+      depth: 0,
     });
     expect(
       mapPicksResponse({

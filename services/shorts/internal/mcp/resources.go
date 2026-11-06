@@ -102,8 +102,8 @@ func Resources() []Resource {
 			URI:   accessURI,
 			Name:  "access",
 			Title: "Access, limits and further reading",
-			Description: "This endpoint is anonymous and unmetered, but sits behind a per-IP abuse " +
-				"ceiling. Covers back-off behaviour, the HTTP API alternative, and the canonical URL " +
+			Description: "This endpoint works without an account, behind a per-IP abuse ceiling. Covers " +
+				"back-off behaviour, the OAuth depth, the HTTP API alternative, and the canonical URL " +
 				"shapes for linking a result back to a human-readable page.",
 			MIMEType: "text/markdown",
 			Text:     accessContent,

@@ -1371,6 +1371,12 @@ module "shorts_api" {
   # modules/shorts-api/variables.tf.
   strategy_source = "views"
 
+  # Public depth of the strategy picks: the top 10 of the default ranking for
+  # every caller of the public GetStrategyPicks, signed in or not, API tokens
+  # included (PR-06b). A bearer token's full depth is GetViewerStrategyPicks,
+  # which this does not touch; the web's Signals tab reads it when signed in.
+  strategy_public_signals_limit = 10
+
   # Internal tier grants. The tfvar lists operator user ids, so revoking one is a
   # tfvar change rather than a code change. The paid-feature probe's identity
   # (web/src/server/paid-probe/constants.ts) is always appended, because the probe

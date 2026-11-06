@@ -114,7 +114,8 @@ JSON parser.
 ## Signing in (optional)
 
 OAuth 2.1 **identifies you**, and raises your limits wherever per-caller quotas
-are applied (see below — they are not, today). It does not unlock tools: all
+are applied (see below — they are not, today). Today it lifts `get_strategy_picks`
+from the top 10 of the ranking to up to 25 rows. It does not unlock tools: all
 thirty work anonymously, and none is reserved for a paid plan. There is
 nothing to configure — point a client at the URL and it does the rest:
 
