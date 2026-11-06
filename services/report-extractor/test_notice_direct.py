@@ -118,6 +118,18 @@ def test_votes_fit_the_share_count_within_the_parsers_tolerance():
     assert nd.votes_consistent(42_500_000, 6.40, 0)                    # no count on record: not checked
 
 
+def test_the_present_figures_must_fit_the_count_within_a_tenth():
+    # EMR, 2026-06-15 (a scan): the page says 61,805,049 votes and 9.35%; both vision readers
+    # read 7.35%, which implies 841m shares against ASIC's 661m (ratio 1.27) and passed the
+    # parser's 0.5..2 band. The present figures take a band of their own.
+    assert nd.present_votes_fit(61_805_049, 9.35, 660_775_844)
+    assert not nd.present_votes_fit(61_805_049, 7.35, 660_775_844)
+    assert nd.present_votes_fit(None, 7.35, 660_775_844) and nd.present_votes_fit(61_805_049, 7.35, 0)
+    assert validate(answer_604(), shares=SHARES * 1.2)[1] == "present_votes_off_count"
+    assert validate(answer_604(), shares=SHARES * 1.05)[0] is not None
+    assert validate(answer_604(), shares=SHARES * 2.5)[1] == "inconsistent_votes"
+
+
 def test_an_event_date_is_kept_only_within_the_year_before_the_release():
     assert nd.plausible_event_date("2026-10-14", "2026-10-16") == "2026-10-14"
     assert nd.plausible_event_date("2026-10-17", "2026-10-16") == "2026-10-17"  # the day after
@@ -161,7 +173,8 @@ def test_a_603_states_the_present_figure_and_no_previous_one():
                .replace("42,500,000 ordinary shares, 6.40%", "55,000,000 ordinary shares, 5.50%")
     a["quotes"]["present_pct"] = "present voting power is 5.50%"
     a["quotes"]["present_votes"] = "55,000,000 ordinary shares"
-    n, why = validate(a, text=text, headline="Becoming a substantial holder from VGI")
+    # 55,000,000 votes at 5.50% is a billion shares on issue: the count the figures are checked against.
+    n, why = validate(a, text=text, headline="Becoming a substantial holder from VGI", shares=1_000_000_000)
     assert why == "" and n.form == "603" and n.previous_pct is None and n.present_pct == 5.5
 
 

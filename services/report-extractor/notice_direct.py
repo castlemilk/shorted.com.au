@@ -83,7 +83,15 @@ SCAN_PAGES = 4
 MIN_TEXT_CHARS = 100          # a page with less text layer than this is a scan (the spec's rule)
 FIVE_PCT = 4.95               # the parser's threshold: 4.995% rounds to 5.00 and is substantial
 MAX_CHANGE_POINTS = 50        # a change of over 50 points is not one a register shows (parser: changeOver50)
-VOTES_RATIO_LOW, VOTES_RATIO_HIGH = 0.5, 2.0   # notices.go votesConsistent
+VOTES_RATIO_LOW, VOTES_RATIO_HIGH = 0.5, 2.0   # notices.go votesConsistent (the previous figures)
+# The PRESENT figures must fit ASIC's count as at the notice's date within a tenth. The parser's
+# band above exists for the previous figures (given as at an earlier notice, before any issue) and
+# for securities ASIC counts differently; on the figures this reader stores it let four misreads
+# through in the first 390 rows (EMR's 9.35% read as 7.35% from a scan, with both vision readers
+# agreeing; CQR, NIC and SCG a wrong votes figure), each 10% to 27% off the count, while 377 of
+# the 390 sat within 10%. A CDI or a listing-day count fails this too and is withheld: the rule
+# is withhold rather than guess.
+PRESENT_RATIO_LOW, PRESENT_RATIO_HIGH = 0.9, 1.1
 # "Ply" where a legal name's "Pty" should be: the OCR misreads the suffix, so the name as written is
 # not the company's. Withheld rather than stored (Go's legal-suffix list is not ours to change, so a
 # suffix rule here would key the holder differently from the Go registry).
@@ -330,13 +338,20 @@ def form_from_headline(headline: str) -> str:
     return ""
 
 
-def votes_consistent(votes: Optional[int], pct: Optional[float], issued: float) -> bool:
+def votes_consistent(votes: Optional[int], pct: Optional[float], issued: float,
+                     low: float = VOTES_RATIO_LOW, high: float = VOTES_RATIO_HIGH) -> bool:
     """notices.go votesConsistent: the share count the votes imply, over the count on issue,
-    within the parser's tolerance. No votes, no percentage, or no count on issue: consistent."""
+    within the band (the parser's tolerance by default). No votes, no percentage, or no count on
+    issue: consistent."""
     if votes is None or pct is None or pct <= 0 or issued <= 0:
         return True
     ratio = (votes * 100.0 / pct) / issued
-    return VOTES_RATIO_LOW <= ratio <= VOTES_RATIO_HIGH
+    return low <= ratio <= high
+
+
+def present_votes_fit(votes: Optional[int], pct: Optional[float], issued: float) -> bool:
+    """The present figures within PRESENT_RATIO_LOW..HIGH of ASIC's count (see the constants)."""
+    return votes_consistent(votes, pct, issued, PRESENT_RATIO_LOW, PRESENT_RATIO_HIGH)
 
 
 def plausible_event_date(event: str, announced: str) -> str:
@@ -780,6 +795,8 @@ def validate_notice(answer: dict, text: str, *, headline: str, announced_on: str
         return None, "inconsistent_votes"
     if not votes_consistent(pres_votes, pres_pct, shares_on_issue):
         return None, "inconsistent_votes"
+    if not present_votes_fit(pres_votes, pres_pct, shares_on_issue):
+        return None, "present_votes_off_count"
 
     # The event date is kept only when its own quote is in the text and states the date. A
     # scan has no quotes, so its date is kept only when both readers agree (same_notice).
