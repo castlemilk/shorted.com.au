@@ -52,7 +52,7 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "1/reports.proto\032\036shorts/v1alpha1/screene" +
       "r.proto\032\034shorts/v1alpha1/search.proto\032\033s" +
       "horts/v1alpha1/stock.proto\032 shorts/v1alp" +
-      "ha1/strategies.proto2\360\234\002\n\024ShortedStocksS" +
+      "ha1/strategies.proto2\304\251\002\n\024ShortedStocksS" +
       "ervice\022\206\003\n\014GetTopShorts\022$.shorts.v1alpha" +
       "1.GetTopShortsRequest\032%.shorts.v1alpha1." +
       "GetTopShortsResponse\"\250\002\332A\023period,limit,o" +
@@ -963,18 +963,59 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "urns including lodged nil returns, with " +
       "the corpus coverage those figures sit in" +
       "side. Money given to a party is never at" +
-      "tributed to a member.\200\265\030\001\032\025\312A\022api.shorte" +
-      "d.com.auB\240\003\n\023com.shorts.v1alpha1B\013Shorts" +
-      "ProtoP\001ZYgithub.com/castlemilk/shorted.c" +
-      "om.au/services/gen/proto/go/shorts/v1alp" +
-      "ha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alph" +
-      "a1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha1\\G" +
-      "PBMetadata\352\002\020Shorts::V1alpha1\272G\302\001\022\177\n\013Sho" +
-      "rted API\022\rShorted API\'s\"(\022\016shorted.com.a" +
-      "u\032\026support@shorted.com.au*3\n\023Proprietary" +
-      " license\022\034https://shorted.com.au/terms2\002" +
-      "v1\032\034\n\032https://api.shorted.com.au*!:\037\n\035\n\t" +
-      "AuthToken\022\020\n\016\n\004http*\006bearerb\006proto3"
+      "tributed to a member.\200\265\030\001\022\203\004\n\024ListStrate" +
+      "gyEvidence\022,.shorts.v1alpha1.ListStrateg" +
+      "yEvidenceRequest\032-.shorts.v1alpha1.ListS" +
+      "trategyEvidenceResponse\"\215\003\272G\205\003\022\026List Str" +
+      "ategy Evidence\032\352\002For every stock-picking" +
+      " strategy: whether a backtest is compute" +
+      "d, required or not computable, its chain" +
+      "ed windows (in-sample to the freeze, the" +
+      "n the recorded paper track), annual retu" +
+      "rns against the S&P/ASX 200 Gross Total " +
+      "Return index, and the paper track since " +
+      "the rules froze. Hypothetical results fr" +
+      "om applied rules, not record trading. No" +
+      "t financial advice.\200\265\030\001\022\350\003\n\016GetBacktestR" +
+      "un\022&.shorts.v1alpha1.GetBacktestRunReque" +
+      "st\032\'.shorts.v1alpha1.GetBacktestRunRespo" +
+      "nse\"\204\003\272G\374\002\022\020Get Backtest Run\032\347\002A publish" +
+      "ed backtest of a stock-picking strategy\'" +
+      "s canonical rules: weekly equity series," +
+      " windows, annual and monthly tables, cov" +
+      "erage by year and month, sensitivity run" +
+      "s, the survivorship statement, recipe li" +
+      "nes, trade summary and run identity. Var" +
+      "iant runs are never served. Hypothetical" +
+      " results from applied rules, not record " +
+      "trading. Not financial advice.\200\265\030\001\022\224\002\n\022L" +
+      "istBacktestTrades\022*.shorts.v1alpha1.List" +
+      "BacktestTradesRequest\032+.shorts.v1alpha1." +
+      "ListBacktestTradesResponse\"\244\001\272G\234\001\022\024List " +
+      "Backtest Trades\032\203\001Trades of one canonica" +
+      "l backtest run, paged and filterable by " +
+      "stock and exit reason. Requires a bearer" +
+      " token. Not financial advice.\200\265\030\002\022\311\002\n\021Co" +
+      "mpareStrategies\022).shorts.v1alpha1.Compar" +
+      "eStrategiesRequest\032*.shorts.v1alpha1.Com" +
+      "pareStrategiesResponse\"\334\001\272G\324\001\022\022Compare S" +
+      "trategies\032\275\001Two or three canonical stock" +
+      "-picking strategies side by side: chaine" +
+      "d windows, weekly curves rebased to 100," +
+      "000 and daily-return correlations. Requi" +
+      "res a bearer token. Not financial advice" +
+      ".\200\265\030\002\032\025\312A\022api.shorted.com.auB\240\003\n\023com.sho" +
+      "rts.v1alpha1B\013ShortsProtoP\001ZYgithub.com/" +
+      "castlemilk/shorted.com.au/services/gen/p" +
+      "roto/go/shorts/v1alpha1;shortsv1alpha1\242\002" +
+      "\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1" +
+      "\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Shorts:" +
+      ":V1alpha1\272G\302\001\022\177\n\013Shorted API\022\rShorted AP" +
+      "I\'s\"(\022\016shorted.com.au\032\026support@shorted.c" +
+      "om.au*3\n\023Proprietary license\022\034https://sh" +
+      "orted.com.au/terms2\002v1\032\034\n\032https://api.sh" +
+      "orted.com.au*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004http*" +
+      "\006bearerb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

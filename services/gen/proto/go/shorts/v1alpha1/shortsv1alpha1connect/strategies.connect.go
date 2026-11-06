@@ -66,6 +66,18 @@ const (
 	// StrategyServiceListSavedStrategiesProcedure is the fully-qualified name of the StrategyService's
 	// ListSavedStrategies RPC.
 	StrategyServiceListSavedStrategiesProcedure = "/shorts.v1alpha1.StrategyService/ListSavedStrategies"
+	// StrategyServiceListStrategyEvidenceProcedure is the fully-qualified name of the StrategyService's
+	// ListStrategyEvidence RPC.
+	StrategyServiceListStrategyEvidenceProcedure = "/shorts.v1alpha1.StrategyService/ListStrategyEvidence"
+	// StrategyServiceGetBacktestRunProcedure is the fully-qualified name of the StrategyService's
+	// GetBacktestRun RPC.
+	StrategyServiceGetBacktestRunProcedure = "/shorts.v1alpha1.StrategyService/GetBacktestRun"
+	// StrategyServiceListBacktestTradesProcedure is the fully-qualified name of the StrategyService's
+	// ListBacktestTrades RPC.
+	StrategyServiceListBacktestTradesProcedure = "/shorts.v1alpha1.StrategyService/ListBacktestTrades"
+	// StrategyServiceCompareStrategiesProcedure is the fully-qualified name of the StrategyService's
+	// CompareStrategies RPC.
+	StrategyServiceCompareStrategiesProcedure = "/shorts.v1alpha1.StrategyService/CompareStrategies"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -82,6 +94,10 @@ var (
 	strategyServiceSaveStrategyMethodDescriptor             = strategyServiceServiceDescriptor.Methods().ByName("SaveStrategy")
 	strategyServiceUnsaveStrategyMethodDescriptor           = strategyServiceServiceDescriptor.Methods().ByName("UnsaveStrategy")
 	strategyServiceListSavedStrategiesMethodDescriptor      = strategyServiceServiceDescriptor.Methods().ByName("ListSavedStrategies")
+	strategyServiceListStrategyEvidenceMethodDescriptor     = strategyServiceServiceDescriptor.Methods().ByName("ListStrategyEvidence")
+	strategyServiceGetBacktestRunMethodDescriptor           = strategyServiceServiceDescriptor.Methods().ByName("GetBacktestRun")
+	strategyServiceListBacktestTradesMethodDescriptor       = strategyServiceServiceDescriptor.Methods().ByName("ListBacktestTrades")
+	strategyServiceCompareStrategiesMethodDescriptor        = strategyServiceServiceDescriptor.Methods().ByName("CompareStrategies")
 )
 
 // StrategyServiceClient is a client for the shorts.v1alpha1.StrategyService service.
@@ -130,6 +146,22 @@ type StrategyServiceClient interface {
 	// The caller's saved strategies, most recent first, each with today's
 	// status counts.
 	ListSavedStrategies(context.Context, *connect.Request[v1alpha1.ListSavedStrategiesRequest]) (*connect.Response[v1alpha1.ListSavedStrategiesResponse], error)
+	// The backtest evidence of every strategy: each strategy's state, its chained windows
+	// (in-sample to live_from, then the recorded paper track), its annual returns, a month-end
+	// curve and its paper-track summary. Public: the same bytes to every caller.
+	ListStrategyEvidence(context.Context, *connect.Request[v1alpha1.ListStrategyEvidenceRequest]) (*connect.Response[v1alpha1.ListStrategyEvidenceResponse], error)
+	// One published canonical backtest run: the series (weekly), windows, annual and monthly
+	// tables, coverage, sensitivity, survivorship, recipe lines, trade summary, identity and the
+	// replay agreement. run_id 0 is the published run of the live version. A variant run_id, or a
+	// run that is not a canonical publish, is NotFound.
+	GetBacktestRun(context.Context, *connect.Request[v1alpha1.GetBacktestRunRequest]) (*connect.Response[v1alpha1.GetBacktestRunResponse], error)
+	// The trades of one canonical run, paged, with optional stock and exit filters. Signed-in
+	// callers only. A variant or unknown run_id is NotFound.
+	ListBacktestTrades(context.Context, *connect.Request[v1alpha1.ListBacktestTradesRequest]) (*connect.Response[v1alpha1.ListBacktestTradesResponse], error)
+	// Two or three canonical strategies side by side over one common window: their chained
+	// windows, weekly curves rebased to 100,000 and daily-return correlations. Signed-in callers
+	// only. Variant references are refused until variant comparison ships.
+	CompareStrategies(context.Context, *connect.Request[v1alpha1.CompareStrategiesRequest]) (*connect.Response[v1alpha1.CompareStrategiesResponse], error)
 }
 
 // NewStrategyServiceClient constructs a client for the shorts.v1alpha1.StrategyService service. By
@@ -208,6 +240,30 @@ func NewStrategyServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(strategyServiceListSavedStrategiesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listStrategyEvidence: connect.NewClient[v1alpha1.ListStrategyEvidenceRequest, v1alpha1.ListStrategyEvidenceResponse](
+			httpClient,
+			baseURL+StrategyServiceListStrategyEvidenceProcedure,
+			connect.WithSchema(strategyServiceListStrategyEvidenceMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getBacktestRun: connect.NewClient[v1alpha1.GetBacktestRunRequest, v1alpha1.GetBacktestRunResponse](
+			httpClient,
+			baseURL+StrategyServiceGetBacktestRunProcedure,
+			connect.WithSchema(strategyServiceGetBacktestRunMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listBacktestTrades: connect.NewClient[v1alpha1.ListBacktestTradesRequest, v1alpha1.ListBacktestTradesResponse](
+			httpClient,
+			baseURL+StrategyServiceListBacktestTradesProcedure,
+			connect.WithSchema(strategyServiceListBacktestTradesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		compareStrategies: connect.NewClient[v1alpha1.CompareStrategiesRequest, v1alpha1.CompareStrategiesResponse](
+			httpClient,
+			baseURL+StrategyServiceCompareStrategiesProcedure,
+			connect.WithSchema(strategyServiceCompareStrategiesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -224,6 +280,10 @@ type strategyServiceClient struct {
 	saveStrategy             *connect.Client[v1alpha1.SaveStrategyRequest, v1alpha1.SaveStrategyResponse]
 	unsaveStrategy           *connect.Client[v1alpha1.UnsaveStrategyRequest, v1alpha1.UnsaveStrategyResponse]
 	listSavedStrategies      *connect.Client[v1alpha1.ListSavedStrategiesRequest, v1alpha1.ListSavedStrategiesResponse]
+	listStrategyEvidence     *connect.Client[v1alpha1.ListStrategyEvidenceRequest, v1alpha1.ListStrategyEvidenceResponse]
+	getBacktestRun           *connect.Client[v1alpha1.GetBacktestRunRequest, v1alpha1.GetBacktestRunResponse]
+	listBacktestTrades       *connect.Client[v1alpha1.ListBacktestTradesRequest, v1alpha1.ListBacktestTradesResponse]
+	compareStrategies        *connect.Client[v1alpha1.CompareStrategiesRequest, v1alpha1.CompareStrategiesResponse]
 }
 
 // ListStrategies calls shorts.v1alpha1.StrategyService.ListStrategies.
@@ -281,6 +341,26 @@ func (c *strategyServiceClient) ListSavedStrategies(ctx context.Context, req *co
 	return c.listSavedStrategies.CallUnary(ctx, req)
 }
 
+// ListStrategyEvidence calls shorts.v1alpha1.StrategyService.ListStrategyEvidence.
+func (c *strategyServiceClient) ListStrategyEvidence(ctx context.Context, req *connect.Request[v1alpha1.ListStrategyEvidenceRequest]) (*connect.Response[v1alpha1.ListStrategyEvidenceResponse], error) {
+	return c.listStrategyEvidence.CallUnary(ctx, req)
+}
+
+// GetBacktestRun calls shorts.v1alpha1.StrategyService.GetBacktestRun.
+func (c *strategyServiceClient) GetBacktestRun(ctx context.Context, req *connect.Request[v1alpha1.GetBacktestRunRequest]) (*connect.Response[v1alpha1.GetBacktestRunResponse], error) {
+	return c.getBacktestRun.CallUnary(ctx, req)
+}
+
+// ListBacktestTrades calls shorts.v1alpha1.StrategyService.ListBacktestTrades.
+func (c *strategyServiceClient) ListBacktestTrades(ctx context.Context, req *connect.Request[v1alpha1.ListBacktestTradesRequest]) (*connect.Response[v1alpha1.ListBacktestTradesResponse], error) {
+	return c.listBacktestTrades.CallUnary(ctx, req)
+}
+
+// CompareStrategies calls shorts.v1alpha1.StrategyService.CompareStrategies.
+func (c *strategyServiceClient) CompareStrategies(ctx context.Context, req *connect.Request[v1alpha1.CompareStrategiesRequest]) (*connect.Response[v1alpha1.CompareStrategiesResponse], error) {
+	return c.compareStrategies.CallUnary(ctx, req)
+}
+
 // StrategyServiceHandler is an implementation of the shorts.v1alpha1.StrategyService service.
 type StrategyServiceHandler interface {
 	// List every strategy with its rules, metadata, caveats and sources, plus
@@ -327,6 +407,22 @@ type StrategyServiceHandler interface {
 	// The caller's saved strategies, most recent first, each with today's
 	// status counts.
 	ListSavedStrategies(context.Context, *connect.Request[v1alpha1.ListSavedStrategiesRequest]) (*connect.Response[v1alpha1.ListSavedStrategiesResponse], error)
+	// The backtest evidence of every strategy: each strategy's state, its chained windows
+	// (in-sample to live_from, then the recorded paper track), its annual returns, a month-end
+	// curve and its paper-track summary. Public: the same bytes to every caller.
+	ListStrategyEvidence(context.Context, *connect.Request[v1alpha1.ListStrategyEvidenceRequest]) (*connect.Response[v1alpha1.ListStrategyEvidenceResponse], error)
+	// One published canonical backtest run: the series (weekly), windows, annual and monthly
+	// tables, coverage, sensitivity, survivorship, recipe lines, trade summary, identity and the
+	// replay agreement. run_id 0 is the published run of the live version. A variant run_id, or a
+	// run that is not a canonical publish, is NotFound.
+	GetBacktestRun(context.Context, *connect.Request[v1alpha1.GetBacktestRunRequest]) (*connect.Response[v1alpha1.GetBacktestRunResponse], error)
+	// The trades of one canonical run, paged, with optional stock and exit filters. Signed-in
+	// callers only. A variant or unknown run_id is NotFound.
+	ListBacktestTrades(context.Context, *connect.Request[v1alpha1.ListBacktestTradesRequest]) (*connect.Response[v1alpha1.ListBacktestTradesResponse], error)
+	// Two or three canonical strategies side by side over one common window: their chained
+	// windows, weekly curves rebased to 100,000 and daily-return correlations. Signed-in callers
+	// only. Variant references are refused until variant comparison ships.
+	CompareStrategies(context.Context, *connect.Request[v1alpha1.CompareStrategiesRequest]) (*connect.Response[v1alpha1.CompareStrategiesResponse], error)
 }
 
 // NewStrategyServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -401,6 +497,30 @@ func NewStrategyServiceHandler(svc StrategyServiceHandler, opts ...connect.Handl
 		connect.WithSchema(strategyServiceListSavedStrategiesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	strategyServiceListStrategyEvidenceHandler := connect.NewUnaryHandler(
+		StrategyServiceListStrategyEvidenceProcedure,
+		svc.ListStrategyEvidence,
+		connect.WithSchema(strategyServiceListStrategyEvidenceMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	strategyServiceGetBacktestRunHandler := connect.NewUnaryHandler(
+		StrategyServiceGetBacktestRunProcedure,
+		svc.GetBacktestRun,
+		connect.WithSchema(strategyServiceGetBacktestRunMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	strategyServiceListBacktestTradesHandler := connect.NewUnaryHandler(
+		StrategyServiceListBacktestTradesProcedure,
+		svc.ListBacktestTrades,
+		connect.WithSchema(strategyServiceListBacktestTradesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	strategyServiceCompareStrategiesHandler := connect.NewUnaryHandler(
+		StrategyServiceCompareStrategiesProcedure,
+		svc.CompareStrategies,
+		connect.WithSchema(strategyServiceCompareStrategiesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.StrategyService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StrategyServiceListStrategiesProcedure:
@@ -425,6 +545,14 @@ func NewStrategyServiceHandler(svc StrategyServiceHandler, opts ...connect.Handl
 			strategyServiceUnsaveStrategyHandler.ServeHTTP(w, r)
 		case StrategyServiceListSavedStrategiesProcedure:
 			strategyServiceListSavedStrategiesHandler.ServeHTTP(w, r)
+		case StrategyServiceListStrategyEvidenceProcedure:
+			strategyServiceListStrategyEvidenceHandler.ServeHTTP(w, r)
+		case StrategyServiceGetBacktestRunProcedure:
+			strategyServiceGetBacktestRunHandler.ServeHTTP(w, r)
+		case StrategyServiceListBacktestTradesProcedure:
+			strategyServiceListBacktestTradesHandler.ServeHTTP(w, r)
+		case StrategyServiceCompareStrategiesProcedure:
+			strategyServiceCompareStrategiesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -476,4 +604,20 @@ func (UnimplementedStrategyServiceHandler) UnsaveStrategy(context.Context, *conn
 
 func (UnimplementedStrategyServiceHandler) ListSavedStrategies(context.Context, *connect.Request[v1alpha1.ListSavedStrategiesRequest]) (*connect.Response[v1alpha1.ListSavedStrategiesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.ListSavedStrategies is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) ListStrategyEvidence(context.Context, *connect.Request[v1alpha1.ListStrategyEvidenceRequest]) (*connect.Response[v1alpha1.ListStrategyEvidenceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.ListStrategyEvidence is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) GetBacktestRun(context.Context, *connect.Request[v1alpha1.GetBacktestRunRequest]) (*connect.Response[v1alpha1.GetBacktestRunResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.GetBacktestRun is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) ListBacktestTrades(context.Context, *connect.Request[v1alpha1.ListBacktestTradesRequest]) (*connect.Response[v1alpha1.ListBacktestTradesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.ListBacktestTrades is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) CompareStrategies(context.Context, *connect.Request[v1alpha1.CompareStrategiesRequest]) (*connect.Response[v1alpha1.CompareStrategiesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.CompareStrategies is not implemented"))
 }

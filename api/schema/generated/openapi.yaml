@@ -4081,6 +4081,85 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStockVerdictResponse'
+  /shorts.v1alpha1.StrategyService/CompareStrategies:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: CompareStrategies
+      description: |-
+        Two or three canonical strategies side by side over one common window: their chained
+         windows, weekly curves rebased to 100,000 and daily-return correlations. Signed-in callers
+         only. Variant references are refused until variant comparison ships.
+      operationId: StrategyService_CompareStrategies
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.CompareStrategiesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.CompareStrategiesResponse'
+  /shorts.v1alpha1.StrategyService/GetBacktestRun:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: GetBacktestRun
+      description: |-
+        One published canonical backtest run: the series (weekly), windows, annual and monthly
+         tables, coverage, sensitivity, survivorship, recipe lines, trade summary, identity and the
+         replay agreement. run_id 0 is the published run of the live version. A variant run_id, or a
+         run that is not a canonical publish, is NotFound.
+      operationId: StrategyService_GetBacktestRun
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetBacktestRunRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetBacktestRunResponse'
   /shorts.v1alpha1.StrategyService/GetStockStrategyFit:
     post:
       tags:
@@ -4279,6 +4358,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStrategyPicksResponse'
+  /shorts.v1alpha1.StrategyService/ListBacktestTrades:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: ListBacktestTrades
+      description: |-
+        The trades of one canonical run, paged, with optional stock and exit filters. Signed-in
+         callers only. A variant or unknown run_id is NotFound.
+      operationId: StrategyService_ListBacktestTrades
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListBacktestTradesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListBacktestTradesResponse'
   /shorts.v1alpha1.StrategyService/ListSavedStrategies:
     post:
       tags:
@@ -4355,6 +4472,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.ListStrategiesResponse'
+  /shorts.v1alpha1.StrategyService/ListStrategyEvidence:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: ListStrategyEvidence
+      description: |-
+        The backtest evidence of every strategy: each strategy's state, its chained windows
+         (in-sample to live_from, then the recorded paper track), its annual returns, a month-end
+         curve and its paper-track summary. Public: the same bytes to every caller.
+      operationId: StrategyService_ListStrategyEvidence
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListStrategyEvidenceRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListStrategyEvidenceResponse'
   /shorts.v1alpha1.StrategyService/ListStrategySignalEvents:
     post:
       tags:
@@ -5098,6 +5254,61 @@ components:
         - ALERT_MONITOR_STATUS_ACTIVE
         - ALERT_MONITOR_STATUS_PAUSED
       description: Alert monitor lifecycle status.
+    shorts.v1alpha1.AnnualReturn:
+      type: object
+      properties:
+        year:
+          type: integer
+          title: year
+          format: int32
+          description: (proto int32)
+        state:
+          type: string
+          title: state
+          description: complete | partial | not_elapsed. (proto string)
+        months:
+          type: string
+          title: months
+          description: '"May-Dec" or "YTD"; "" for a whole year. (proto string)'
+        strategyPct:
+          type: number
+          title: strategy_pct
+          format: double
+          description: (proto double)
+        benchmarkPct:
+          type: number
+          title: benchmark_pct
+          format: double
+          description: (proto double)
+        hasBenchmark:
+          type: boolean
+          title: has_benchmark
+          description: (proto bool)
+        referencePct:
+          type: number
+          title: reference_pct
+          format: double
+          description: (proto double)
+        hasReference:
+          type: boolean
+          title: has_reference
+          description: (proto bool)
+        coveragePct:
+          type: number
+          title: coverage_pct
+          format: double
+          description: Qualifying coverage over the year, the measure this table prints. (proto double)
+        coverageMeasurable:
+          type: boolean
+          title: coverage_measurable
+          description: (proto bool)
+        approximate:
+          type: boolean
+          title: approximate
+          description: An approximate run's year. Nothing sets it in this release. (proto bool)
+      title: AnnualReturn
+      additionalProperties: false
+      description: 'One period of the annual table: the strategy, XJT and the same-data reference.'
     shorts.v1alpha1.AsicReportStatus:
       type: object
       properties:
@@ -5125,6 +5336,320 @@ components:
       title: AsicReportStatus
       additionalProperties: false
       description: One ASIC short-position report as the source dates show it.
+    shorts.v1alpha1.BacktestRun:
+      type: object
+      properties:
+        state:
+          type: string
+          title: state
+          description: computed | run_required | running | not_computable | approximate. (proto string)
+        strategyId:
+          type: string
+          title: strategy_id
+          description: (proto string)
+        computableFrom:
+          type: string
+          title: computable_from
+          description: 'not_computable: "" when the threshold was never met. (proto string)'
+        fiscalLabel:
+          type: string
+          title: fiscal_label
+          description: 'not_computable: the measured label; "" when none. (proto string)'
+        identity:
+          title: identity
+          description: Absent for run_required and running. (proto shorts.v1alpha1.BacktestRunIdentity)
+          $ref: '#/components/schemas/shorts.v1alpha1.BacktestRunIdentity'
+        windows:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.WindowMetrics'
+          title: windows
+          description: Chained windows (5.8). (proto shorts.v1alpha1.WindowMetrics)
+        annual:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.AnnualReturn'
+          title: annual
+          description: Annual table of the since-May-2019 chain. (proto shorts.v1alpha1.AnnualReturn)
+        monthly:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.MonthlyReturn'
+          title: monthly
+          description: Monthly table of the since-May-2019 chain. (proto shorts.v1alpha1.MonthlyReturn)
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SeriesPoint'
+          title: series
+          description: One point per ISO week plus the first, last and trough sessions; at most 500. (proto shorts.v1alpha1.SeriesPoint)
+        coverageByYear:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CoverageYear'
+          title: coverage_by_year
+          description: Both coverage measures, by year. (proto shorts.v1alpha1.CoverageYear)
+        coverageMonthly:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CoverageMonth'
+          title: coverage_monthly
+          description: Both coverage measures, by month. (proto shorts.v1alpha1.CoverageMonth)
+        survivorship:
+          title: survivorship
+          description: (proto shorts.v1alpha1.Survivorship)
+          $ref: '#/components/schemas/shorts.v1alpha1.Survivorship'
+        sensitivity:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.Sensitivity'
+          title: sensitivity
+          description: The five sensitivity runs of the canonical run. (proto shorts.v1alpha1.Sensitivity)
+        recipe:
+          title: recipe
+          description: The recipe prose, preface first. (proto shorts.v1alpha1.RecipeLines)
+          $ref: '#/components/schemas/shorts.v1alpha1.RecipeLines'
+        tradeSummary:
+          title: trade_summary
+          description: The in-sample trades; the paper trades are counted in the windows. (proto shorts.v1alpha1.TradeSummary)
+          $ref: '#/components/schemas/shorts.v1alpha1.TradeSummary'
+        liveVersion:
+          title: live_version
+          description: The live canonical version now. (proto shorts.v1alpha1.StrategyVersionRef)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionRef'
+        rulesMatchLive:
+          type: boolean
+          title: rules_match_live
+          description: The run's rules are the live rules. (proto bool)
+        engineMatchesLive:
+          type: boolean
+          title: engine_matches_live
+          description: The run's engine is the running engine. (proto bool)
+        replayAgreement:
+          type: string
+          title: replay_agreement
+          description: '"Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy". (proto string)'
+        inputChangeNote:
+          type: string
+          title: input_change_note
+          description: The diff note against the previous run; "" when none. (proto string)
+        disclosures:
+          type: array
+          items:
+            type: string
+          title: disclosures
+          description: Printed beside the figures. (proto string)
+        dataNotes:
+          type: array
+          items:
+            type: string
+          title: data_notes
+          description: Data-quality notes of the run. (proto string)
+        runningSince:
+          type: string
+          title: running_since
+          description: 'running: when the request started, RFC 3339. (proto string)'
+        seriesResolution:
+          type: string
+          title: series_resolution
+          description: '"weekly" for a computed run; "" otherwise. (proto string)'
+        computableSharePct:
+          type: number
+          title: computable_share_pct
+          format: double
+          description: 'not_computable: the measured universe share, when measured. (proto double)'
+        hasComputableShare:
+          type: boolean
+          title: has_computable_share
+          description: (proto bool)
+      title: BacktestRun
+      additionalProperties: false
+      description: One canonical backtest run as the API serves it.
+    shorts.v1alpha1.BacktestRunIdentity:
+      type: object
+      properties:
+        runId:
+          type:
+            - integer
+            - string
+          title: run_id
+          format: int64
+          description: (proto int64)
+        runKey:
+          type: string
+          title: run_key
+          description: (proto string)
+        kind:
+          type: string
+          title: kind
+          description: '"publish" for every run the API serves. (proto string)'
+        version:
+          title: version
+          description: (proto shorts.v1alpha1.StrategyVersionRef)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionRef'
+        recipeId:
+          type: string
+          title: recipe_id
+          description: (proto string)
+        recipeHash:
+          type: string
+          title: recipe_hash
+          description: (proto string)
+        engineVersion:
+          type: string
+          title: engine_version
+          description: (proto string)
+        windowStart:
+          type: string
+          title: window_start
+          description: (proto string)
+        windowEnd:
+          type: string
+          title: window_end
+          description: (proto string)
+        returns:
+          type: string
+          title: returns
+          description: '"total". (proto string)'
+        benchmark:
+          type: string
+          title: benchmark
+          description: '"XJT". (proto string)'
+        fundamentals:
+          type: string
+          title: fundamentals
+          description: '"strict" or "approx_period_end_plus_2m". (proto string)'
+        pricesThrough:
+          type: string
+          title: prices_through
+          description: (proto string)
+        asicReportThrough:
+          type: string
+          title: asic_report_through
+          description: (proto string)
+        inSampleUntil:
+          type: string
+          title: in_sample_until
+          description: live_from minus one day. (proto string)
+        finishedAt:
+          type: string
+          title: finished_at
+          description: (proto string)
+        inputHash:
+          type: string
+          title: input_hash
+          description: (proto string)
+        outputHash:
+          type: string
+          title: output_hash
+          description: (proto string)
+        buildRevision:
+          type: string
+          title: build_revision
+          description: (proto string)
+        riskFree:
+          type: string
+          title: risk_free
+          description: The risk-free rate the Sharpe ratio uses, or "none". (proto string)
+        referenceName:
+          type: string
+          title: reference_name
+          description: (proto string)
+        runDate:
+          type: string
+          title: run_date
+          description: The day the run finished (YYYY-MM-DD). (proto string)
+      title: BacktestRunIdentity
+      additionalProperties: false
+      description: A run's fingerprint, provenance and recipe identity.
+    shorts.v1alpha1.BacktestTrade:
+      type: object
+      properties:
+        seq:
+          type: integer
+          title: seq
+          format: int32
+          description: (proto int32)
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        signalDate:
+          type: string
+          title: signal_date
+          description: (proto string)
+        entryDate:
+          type: string
+          title: entry_date
+          description: (proto string)
+        entryPrice:
+          type: number
+          title: entry_price
+          format: double
+          description: (proto double)
+        capturedPivot:
+          type: number
+          title: captured_pivot
+          format: double
+          description: (proto double)
+        hasCapturedPivot:
+          type: boolean
+          title: has_captured_pivot
+          description: (proto bool)
+        entryScore:
+          type: number
+          title: entry_score
+          format: double
+          description: (proto double)
+        exitDate:
+          type: string
+          title: exit_date
+          description: (proto string)
+        exitPrice:
+          type: number
+          title: exit_price
+          format: double
+          description: (proto double)
+        exitReason:
+          type: string
+          title: exit_reason
+          description: (proto string)
+        sessionsHeld:
+          type: integer
+          title: sessions_held
+          format: int32
+          description: (proto int32)
+        grossReturnPct:
+          type: number
+          title: gross_return_pct
+          format: double
+          description: (proto double)
+        netReturnPct:
+          type: number
+          title: net_return_pct
+          format: double
+          description: (proto double)
+        flags:
+          type: array
+          items:
+            type: string
+          title: flags
+          description: (proto string)
+        open:
+          type: boolean
+          title: open
+          description: (proto bool)
+        exitSignalDate:
+          type: string
+          title: exit_signal_date
+          description: (proto string)
+      title: BacktestTrade
+      additionalProperties: false
+      description: A trade of a canonical run. Return columns are percentages.
     shorts.v1alpha1.BattlegroundStock:
       type: object
       properties:
@@ -5355,6 +5880,42 @@ components:
         One income year of ATO corporate-tax transparency data for an entity.
          has_taxable_income / has_tax_payable distinguish a genuine zero from
          "not reported" (the ATO leaves these blank; blank is meaningful, not zero).
+    shorts.v1alpha1.CompareEntry:
+      type: object
+      properties:
+        strategyRef:
+          type: string
+          title: strategy_ref
+          description: (proto string)
+        strategyId:
+          type: string
+          title: strategy_id
+          description: (proto string)
+        name:
+          type: string
+          title: name
+          description: (proto string)
+        state:
+          type: string
+          title: state
+          description: computed when the strategy has a published run; otherwise its state. (proto string)
+        version:
+          title: version
+          description: (proto shorts.v1alpha1.StrategyVersionRef)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionRef'
+        window:
+          title: window
+          description: Absent when the strategy has no curve. (proto shorts.v1alpha1.WindowMetrics)
+          $ref: '#/components/schemas/shorts.v1alpha1.WindowMetrics'
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SeriesPoint'
+          title: series
+          description: Weekly over the common window, rebased to 100,000. (proto shorts.v1alpha1.SeriesPoint)
+      title: CompareEntry
+      additionalProperties: false
+      description: One compared strategy.
     shorts.v1alpha1.CompareFundSnapshotsRequest:
       type: object
       properties:
@@ -5528,6 +6089,48 @@ components:
           description: (proto string)
       title: ComparePoliticiansResponse
       additionalProperties: false
+    shorts.v1alpha1.CompareStrategiesRequest:
+      type: object
+      properties:
+        refs:
+          type: array
+          items:
+            type: string
+          title: refs
+          description: Two or three canonical strategy ids. "variant:<id>" is refused. (proto string)
+      title: CompareStrategiesRequest
+      additionalProperties: false
+      description: Request for CompareStrategies.
+    shorts.v1alpha1.CompareStrategiesResponse:
+      type: object
+      properties:
+        windowId:
+          type: string
+          title: window_id
+          description: '"common": the sessions every compared curve covers. Empty when a strategy has no published run. (proto string)'
+        windowFrom:
+          type: string
+          title: window_from
+          description: (proto string)
+        windowTo:
+          type: string
+          title: window_to
+          description: (proto string)
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CompareEntry'
+          title: entries
+          description: (proto shorts.v1alpha1.CompareEntry)
+        correlations:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StrategyCorrelation'
+          title: correlations
+          description: (proto shorts.v1alpha1.StrategyCorrelation)
+      title: CompareStrategiesResponse
+      additionalProperties: false
+      description: Response for CompareStrategies.
     shorts.v1alpha1.ComparisonBaselines:
       type: object
       properties:
@@ -6193,6 +6796,103 @@ components:
       description: |-
         One council's headline row: the council index table and the council
          choropleth read exactly these fields.
+    shorts.v1alpha1.CoverageMonth:
+      type: object
+      properties:
+        month:
+          type: string
+          title: month
+          description: YYYY-MM. (proto string)
+        qualifyingPct:
+          type: number
+          title: qualifying_pct
+          format: double
+          description: (proto double)
+        hasQualifying:
+          type: boolean
+          title: has_qualifying
+          description: (proto bool)
+        qualifyingPriced:
+          type: integer
+          title: qualifying_priced
+          format: int32
+          description: (proto int32)
+        qualifyingNameDays:
+          type: integer
+          title: qualifying_name_days
+          format: int32
+          description: (proto int32)
+        allReportedPct:
+          type: number
+          title: all_reported_pct
+          format: double
+          description: (proto double)
+        hasAllReported:
+          type: boolean
+          title: has_all_reported
+          description: (proto bool)
+        allReportedPriced:
+          type: integer
+          title: all_reported_priced
+          format: int32
+          description: (proto int32)
+        allReportedNameDays:
+          type: integer
+          title: all_reported_name_days
+          format: int32
+          description: (proto int32)
+      title: CoverageMonth
+      additionalProperties: false
+      description: Coverage by month under both measures.
+    shorts.v1alpha1.CoverageYear:
+      type: object
+      properties:
+        year:
+          type: integer
+          title: year
+          format: int32
+          description: (proto int32)
+        qualifyingPct:
+          type: number
+          title: qualifying_pct
+          format: double
+          description: Priced over qualifying name-days, "qualifying >= 5% short". (proto double)
+        hasQualifying:
+          type: boolean
+          title: has_qualifying
+          description: (proto bool)
+        qualifyingPriced:
+          type: integer
+          title: qualifying_priced
+          format: int32
+          description: (proto int32)
+        qualifyingNameDays:
+          type: integer
+          title: qualifying_name_days
+          format: int32
+          description: (proto int32)
+        allReportedPct:
+          type: number
+          title: all_reported_pct
+          format: double
+          description: Priced over every ordinary reported name-day, "all reported". (proto double)
+        hasAllReported:
+          type: boolean
+          title: has_all_reported
+          description: (proto bool)
+        allReportedPriced:
+          type: integer
+          title: all_reported_priced
+          format: int32
+          description: (proto int32)
+        allReportedNameDays:
+          type: integer
+          title: all_reported_name_days
+          format: int32
+          description: (proto int32)
+      title: CoverageYear
+      additionalProperties: false
+      description: Coverage by year under both measures; each figure names its measure.
     shorts.v1alpha1.CreateAlertMonitorRequest:
       type: object
       properties:
@@ -8501,6 +9201,37 @@ components:
       title: GetAvailableDatesResponse
       additionalProperties: false
       description: Response for GetAvailableDates RPC
+    shorts.v1alpha1.GetBacktestRunRequest:
+      type: object
+      properties:
+        strategyId:
+          type: string
+          title: strategy_id
+          description: 'Required: a canonical strategy id. (proto string)'
+        runId:
+          type:
+            - integer
+            - string
+          title: run_id
+          format: int64
+          description: '0: the published run of the live version. Otherwise a canonical publish run of this strategy. (proto int64)'
+        resolution:
+          type: string
+          title: resolution
+          description: '"weekly" (default) or "daily". Daily is refused: its series would exceed the 500-point budget. (proto string)'
+      title: GetBacktestRunRequest
+      additionalProperties: false
+      description: Request for GetBacktestRun.
+    shorts.v1alpha1.GetBacktestRunResponse:
+      type: object
+      properties:
+        run:
+          title: run
+          description: (proto shorts.v1alpha1.BacktestRun)
+          $ref: '#/components/schemas/shorts.v1alpha1.BacktestRun'
+      title: GetBacktestRunResponse
+      additionalProperties: false
+      description: Response for GetBacktestRun.
     shorts.v1alpha1.GetBattlegroundStocksRequest:
       type: object
       properties:
@@ -12831,6 +13562,57 @@ components:
       title: ListAlertMonitorsResponse
       additionalProperties: false
       description: Response for ListAlertMonitors RPC.
+    shorts.v1alpha1.ListBacktestTradesRequest:
+      type: object
+      properties:
+        runId:
+          type:
+            - integer
+            - string
+          title: run_id
+          format: int64
+          description: 'Required: a canonical publish run. (proto int64)'
+        pageToken:
+          type: string
+          title: page_token
+          description: The next_page_token of the previous page. (proto string)
+        pageSize:
+          type: integer
+          title: page_size
+          format: int32
+          description: 1 to 200; 0 is the default of 50. (proto int32)
+        stockCode:
+          type: string
+          title: stock_code
+          description: 'Optional: one stock''s trades. (proto string)'
+        exitReason:
+          type: string
+          title: exit_reason
+          description: 'Optional: one exit reason. (proto string)'
+      title: ListBacktestTradesRequest
+      additionalProperties: false
+      description: Request for ListBacktestTrades.
+    shorts.v1alpha1.ListBacktestTradesResponse:
+      type: object
+      properties:
+        trades:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.BacktestTrade'
+          title: trades
+          description: In trade order. (proto shorts.v1alpha1.BacktestTrade)
+        nextPageToken:
+          type: string
+          title: next_page_token
+          description: Empty on the last page. (proto string)
+        total:
+          type: integer
+          title: total
+          format: int32
+          description: Trades matching the filters, over every page. (proto int32)
+      title: ListBacktestTradesResponse
+      additionalProperties: false
+      description: Response for ListBacktestTrades.
     shorts.v1alpha1.ListCouncilsRequest:
       type: object
       properties:
@@ -13828,6 +14610,41 @@ components:
       title: ListStrategiesResponse
       additionalProperties: false
       description: Response for ListStrategies.
+    shorts.v1alpha1.ListStrategyEvidenceRequest:
+      type: object
+      title: ListStrategyEvidenceRequest
+      additionalProperties: false
+      description: Request for ListStrategyEvidence. It takes no arguments.
+    shorts.v1alpha1.ListStrategyEvidenceResponse:
+      type: object
+      properties:
+        strategies:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StrategyEvidence'
+          title: strategies
+          description: Every strategy, in registry order. (proto shorts.v1alpha1.StrategyEvidence)
+        windowStart:
+          type: string
+          title: window_start
+          description: 'The canonical windows open here: 2019-05-01, the first full month of XJT. (proto string)'
+        pricesThrough:
+          type: string
+          title: prices_through
+          description: The newest price session the published runs read; "" when none is published. (proto string)
+        benchmarkName:
+          type: string
+          title: benchmark_name
+          description: The benchmark every run is measured against. (proto string)
+        footnotes:
+          type: array
+          items:
+            type: string
+          title: footnotes
+          description: The copy every evidence surface prints beside the figures. (proto string)
+      title: ListStrategyEvidenceResponse
+      additionalProperties: false
+      description: Response for ListStrategyEvidence. Dates are YYYY-MM-DD.
     shorts.v1alpha1.ListStrategySignalEventsRequest:
       type: object
       properties:
@@ -14468,6 +15285,53 @@ components:
           description: (proto string)
       title: MintTokenResponse
       additionalProperties: false
+    shorts.v1alpha1.MonthlyReturn:
+      type: object
+      properties:
+        year:
+          type: integer
+          title: year
+          format: int32
+          description: (proto int32)
+        month:
+          type: integer
+          title: month
+          format: int32
+          description: (proto int32)
+        state:
+          type: string
+          title: state
+          description: complete | partial | not_elapsed. (proto string)
+        strategyPct:
+          type: number
+          title: strategy_pct
+          format: double
+          description: (proto double)
+        benchmarkPct:
+          type: number
+          title: benchmark_pct
+          format: double
+          description: (proto double)
+        hasBenchmark:
+          type: boolean
+          title: has_benchmark
+          description: (proto bool)
+        referencePct:
+          type: number
+          title: reference_pct
+          format: double
+          description: (proto double)
+        hasReference:
+          type: boolean
+          title: has_reference
+          description: (proto bool)
+        label:
+          type: string
+          title: label
+          description: '"from 1 May" for the first month, "MTD" for the current one; "" otherwise. (proto string)'
+      title: MonthlyReturn
+      additionalProperties: false
+      description: One month of the monthly table.
     shorts.v1alpha1.NewlyDeclaredCompany:
       type: object
       properties:
@@ -14977,6 +15841,44 @@ components:
       title: OwnershipStock
       additionalProperties: false
       description: A stock's register as the three sources show it.
+    shorts.v1alpha1.PaperTrackSummary:
+      type: object
+      properties:
+        since:
+          type: string
+          title: since
+          description: live_from, YYYY-MM-DD; "" before the first live session. (proto string)
+        sessions:
+          type: integer
+          title: sessions
+          format: int32
+          description: (proto int32)
+        closedTrades:
+          type: integer
+          title: closed_trades
+          format: int32
+          description: (proto int32)
+        openPositions:
+          type: integer
+          title: open_positions
+          format: int32
+          description: (proto int32)
+        returnPct:
+          type: number
+          title: return_pct
+          format: double
+          description: (proto double)
+        hasReturn:
+          type: boolean
+          title: has_return
+          description: (proto bool)
+        tooShort:
+          type: boolean
+          title: too_short
+          description: Under 63 sessions or 10 closed trades. (proto bool)
+      title: PaperTrackSummary
+      additionalProperties: false
+      description: The recorded paper track since live_from, with its honesty flags.
     shorts.v1alpha1.PartyCount:
       type: object
       properties:
@@ -16100,6 +17002,66 @@ components:
          ('Donation Received', 'Other Receipt', 'Subscription', 'Public Funding',
          'Unspecified' and blank, the last two folded into unspecified_cents), so
          their sum is exactly total_cents and a consumer can prove it.
+    shorts.v1alpha1.RecipeLines:
+      type: object
+      properties:
+        recipeId:
+          type: string
+          title: recipe_id
+          description: (proto string)
+        entry:
+          type: string
+          title: entry
+          description: (proto string)
+        exits:
+          type: array
+          items:
+            type: string
+          title: exits
+          description: (proto string)
+        sizing:
+          type: string
+          title: sizing
+          description: (proto string)
+        brokerage:
+          type: string
+          title: brokerage
+          description: (proto string)
+        spread:
+          type: string
+          title: spread
+          description: (proto string)
+        capacity:
+          type: string
+          title: capacity
+          description: (proto string)
+        dividends:
+          type: string
+          title: dividends
+          description: (proto string)
+        asicData:
+          type: string
+          title: asic_data
+          description: (proto string)
+        delisting:
+          type: string
+          title: delisting
+          description: (proto string)
+        capital:
+          type: string
+          title: capital
+          description: (proto string)
+        cash:
+          type: string
+          title: cash
+          description: (proto string)
+        preface:
+          type: string
+          title: preface
+          description: '"Execution recipe chosen by Shorted to test the screen; the author''s own entries and exits differ." (proto string)'
+      title: RecipeLines
+      additionalProperties: false
+      description: 'The recipe''s prose, one field per line, in print order: preface, entry, exits, then the rest.'
     shorts.v1alpha1.RegisterChangeEvent:
       type: object
       properties:
@@ -16740,6 +17702,59 @@ components:
       title: SearchStocksResponse
       additionalProperties: false
       description: Response for SearchStocks RPC, containing matching stocks.
+    shorts.v1alpha1.Sensitivity:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: costs_x2 | asic_lag_plus_2 | delisting_zero | entry_plus_1 | flat_mockup_costs. (proto string)
+        label:
+          type: string
+          title: label
+          description: (proto string)
+        applies:
+          type: boolean
+          title: applies
+          description: False when the recipe does not take the change; reason says why. (proto bool)
+        reason:
+          type: string
+          title: reason
+          description: (proto string)
+        cagrPct:
+          type: number
+          title: cagr_pct
+          format: double
+          description: (proto double)
+        hasCagr:
+          type: boolean
+          title: has_cagr
+          description: (proto bool)
+        excessVsBenchmarkPct:
+          type: number
+          title: excess_vs_benchmark_pct
+          format: double
+          description: (proto double)
+        hasExcess:
+          type: boolean
+          title: has_excess
+          description: (proto bool)
+        maxDrawdownPct:
+          type: number
+          title: max_drawdown_pct
+          format: double
+          description: (proto double)
+        fragile:
+          type: boolean
+          title: fragile
+          description: A sign flip of the excess CAGR; fragile_chip names it. (proto bool)
+        fragileChip:
+          type: string
+          title: fragile_chip
+          description: '"Fragile to costs", "Fragile to publication timing", "Fragile to entry timing"; "" otherwise. (proto string)'
+      title: Sensitivity
+      additionalProperties: false
+      description: One sensitivity run next to the canonical run.
     shorts.v1alpha1.SeriesCorrelation:
       type: object
       properties:
@@ -16767,6 +17782,48 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.EconomicSeriesInfo'
       title: SeriesCorrelation
       additionalProperties: false
+    shorts.v1alpha1.SeriesPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          title: date
+          description: (proto string)
+        equity:
+          type: number
+          title: equity
+          format: double
+          description: (proto double)
+        benchmark:
+          type: number
+          title: benchmark
+          format: double
+          description: (proto double)
+        reference:
+          type: number
+          title: reference
+          format: double
+          description: (proto double)
+        drawdownPct:
+          type: number
+          title: drawdown_pct
+          format: double
+          description: Negative or zero. (proto double)
+        exposurePct:
+          type: number
+          title: exposure_pct
+          format: double
+          description: (proto double)
+        recorded:
+          type: boolean
+          title: recorded
+          description: A paper-track session, recorded after live_from. (proto bool)
+      title: SeriesPoint
+      additionalProperties: false
+      description: |-
+        One point of a series. Equity is in A$ on the chained curve. Benchmark and reference are
+         index levels, never zero, so zero reads as not measured (the reference is not recorded
+         after the freeze).
     shorts.v1alpha1.SharedDeclaredCompany:
       type: object
       properties:
@@ -17413,6 +18470,101 @@ components:
       title: Strategy
       additionalProperties: false
       description: A named stock-picking strategy and how we evaluate it.
+    shorts.v1alpha1.StrategyCorrelation:
+      type: object
+      properties:
+        a:
+          type: string
+          title: a
+          description: (proto string)
+        b:
+          type: string
+          title: b
+          description: (proto string)
+        correlation:
+          type: number
+          title: correlation
+          format: double
+          description: (proto double)
+        hasCorrelation:
+          type: boolean
+          title: has_correlation
+          description: False when the overlap has too few returns. (proto bool)
+        days:
+          type: integer
+          title: days
+          format: int32
+          description: Daily returns in the overlap. (proto int32)
+      title: StrategyCorrelation
+      additionalProperties: false
+      description: The correlation of two compared strategies' daily returns over the common window.
+    shorts.v1alpha1.StrategyEvidence:
+      type: object
+      properties:
+        strategyId:
+          type: string
+          title: strategy_id
+          description: (proto string)
+        version:
+          title: version
+          description: The live canonical version the evidence is for; absent when none is registered. (proto shorts.v1alpha1.StrategyVersionRef)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionRef'
+        state:
+          type: string
+          title: state
+          description: computed | run_required | running | not_computable | approximate. (proto string)
+        computableFrom:
+          type: string
+          title: computable_from
+          description: 'Not computable: the first month-end the universe is computable; "" when none. (proto string)'
+        fiscalLabel:
+          type: string
+          title: fiscal_label
+          description: 'Not computable: the measured label, e.g. FY2024; "" when none. (proto string)'
+        windows:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.WindowMetrics'
+          title: windows
+          description: The chained windows, in window order. (proto shorts.v1alpha1.WindowMetrics)
+        annual:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.AnnualReturn'
+          title: annual
+          description: The annual table of the since-May-2019 chain. (proto shorts.v1alpha1.AnnualReturn)
+        miniCurve:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SeriesPoint'
+          title: mini_curve
+          description: Month ends of the since-May-2019 chain, at most 96 points. (proto shorts.v1alpha1.SeriesPoint)
+        today:
+          title: today
+          description: Today's counts for the live version; absent when they cannot be read. (proto shorts.v1alpha1.StatusCounts)
+          $ref: '#/components/schemas/shorts.v1alpha1.StatusCounts'
+        paper:
+          title: paper
+          description: The recorded paper track since live_from. (proto shorts.v1alpha1.PaperTrackSummary)
+          $ref: '#/components/schemas/shorts.v1alpha1.PaperTrackSummary'
+        survivorship:
+          type: string
+          title: survivorship
+          description: The survivorship statement's copy. (proto string)
+        runId:
+          type:
+            - integer
+            - string
+          title: run_id
+          format: int64
+          description: The published run the figures come from; 0 when none. (proto int64)
+        latestScreen:
+          type: string
+          title: latest_screen
+          description: The session the today counts are as at (YYYY-MM-DD); "" when none. (proto string)
+      title: StrategyEvidence
+      additionalProperties: false
+      description: One strategy's backtest evidence on the live version.
     shorts.v1alpha1.StrategyFit:
       type: object
       properties:
@@ -19220,6 +20372,28 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.SuburbSeifa'
       title: SuburbSummary
       additionalProperties: false
+    shorts.v1alpha1.Survivorship:
+      type: object
+      properties:
+        measurement:
+          type: string
+          title: measurement
+          description: measured | asic_reported_only | not_measurable. (proto string)
+        direction:
+          type: string
+          title: direction
+          description: flatters. (proto string)
+        statement:
+          type: string
+          title: statement
+          description: The copy the run prints. (proto string)
+        caveat:
+          type: string
+          title: caveat
+          description: The extra line some recipes print; "" otherwise. (proto string)
+      title: Survivorship
+      additionalProperties: false
+      description: Survivorship block. Measurement is machine-readable.
     shorts.v1alpha1.SyncRun:
       type: object
       properties:
@@ -19428,6 +20602,79 @@ components:
          donor_name is VERBATIM as lodged — the source is unnormalised and one entity
          can appear under several spellings. donor_name_norm is the key those spellings
          were grouped by, published so a reader can see exactly what was combined.
+    shorts.v1alpha1.TradeSummary:
+      type: object
+      properties:
+        closed:
+          type: integer
+          title: closed
+          format: int32
+          description: (proto int32)
+        openAtEnd:
+          type: integer
+          title: open_at_end
+          format: int32
+          description: (proto int32)
+        winRatePct:
+          type: number
+          title: win_rate_pct
+          format: double
+          description: (proto double)
+        avgHoldSessions:
+          type: number
+          title: avg_hold_sessions
+          format: double
+          description: (proto double)
+        avgWinPct:
+          type: number
+          title: avg_win_pct
+          format: double
+          description: (proto double)
+        avgLossPct:
+          type: number
+          title: avg_loss_pct
+          format: double
+          description: (proto double)
+        bestPct:
+          type: number
+          title: best_pct
+          format: double
+          description: (proto double)
+        worstPct:
+          type: number
+          title: worst_pct
+          format: double
+          description: (proto double)
+        exitsByReason:
+          type: object
+          title: exits_by_reason
+          additionalProperties:
+            type: integer
+            title: value
+            format: int32
+            description: (proto int32)
+          description: (proto shorts.v1alpha1.TradeSummary.ExitsByReasonEntry)
+        hasWinRate:
+          type: boolean
+          title: has_win_rate
+          description: (proto bool)
+      title: TradeSummary
+      additionalProperties: false
+      description: The closed-trade statistics a run publishes.
+    shorts.v1alpha1.TradeSummary.ExitsByReasonEntry:
+      type: object
+      properties:
+        key:
+          type: string
+          title: key
+          description: (proto string)
+        value:
+          type: integer
+          title: value
+          format: int32
+          description: (proto int32)
+      title: ExitsByReasonEntry
+      additionalProperties: false
     shorts.v1alpha1.UnsaveStrategyRequest:
       type: object
       properties:
@@ -19909,6 +21156,129 @@ components:
       title: WeeklyReportTrendInsight
       additionalProperties: false
       description: Structured trend insight for a riser or faller
+    shorts.v1alpha1.WindowMetrics:
+      type: object
+      properties:
+        window:
+          type: string
+          title: window
+          description: since_may_2019 | since_2023 | last_12_months | live_since_freeze. (proto string)
+        from:
+          type: string
+          title: from
+          description: YYYY-MM-DD, the window's first session. (proto string)
+        to:
+          type: string
+          title: to
+          description: YYYY-MM-DD, the window's last session. (proto string)
+        totalReturnPct:
+          type: number
+          title: total_return_pct
+          format: double
+          description: (proto double)
+        cagrPct:
+          type: number
+          title: cagr_pct
+          format: double
+          description: (proto double)
+        hasCagr:
+          type: boolean
+          title: has_cagr
+          description: False below 365 calendar days; the return is then not annualised. (proto bool)
+        benchmarkCagrPct:
+          type: number
+          title: benchmark_cagr_pct
+          format: double
+          description: (proto double)
+        hasBenchmark:
+          type: boolean
+          title: has_benchmark
+          description: (proto bool)
+        referenceCagrPct:
+          type: number
+          title: reference_cagr_pct
+          format: double
+          description: (proto double)
+        hasReference:
+          type: boolean
+          title: has_reference
+          description: (proto bool)
+        maxDrawdownPct:
+          type: number
+          title: max_drawdown_pct
+          format: double
+          description: Negative; zero when the curve never falls. (proto double)
+        sharpe:
+          type: number
+          title: sharpe
+          format: double
+          description: (proto double)
+        sharpeSe:
+          type: number
+          title: sharpe_se
+          format: double
+          description: Lo (2002) standard error of the annual Sharpe ratio. (proto double)
+        hasSharpe:
+          type: boolean
+          title: has_sharpe
+          description: 'False below 126 daily returns: "n/m". (proto bool)'
+        closedTrades:
+          type: integer
+          title: closed_trades
+          format: int32
+          description: Trades whose exit executed inside the window. (proto int32)
+        winRatePct:
+          type: number
+          title: win_rate_pct
+          format: double
+          description: (proto double)
+        hasWinRate:
+          type: boolean
+          title: has_win_rate
+          description: False when the window includes paper trades, which carry no net return here. (proto bool)
+        exposurePct:
+          type: number
+          title: exposure_pct
+          format: double
+          description: (proto double)
+        recordedTail:
+          type: boolean
+          title: recorded_tail
+          description: The window ends in the paper track, recorded after live_from. (proto bool)
+        label:
+          type: string
+          title: label
+          description: The window's name, e.g. "Since May 2019". (proto string)
+        note:
+          type: string
+          title: note
+          description: '"in-sample to 2026-11-23, recorded after", or "paper track only, recorded". (proto string)'
+        notAnnualised:
+          type: boolean
+          title: not_annualised
+          description: (proto bool)
+        sessions:
+          type: integer
+          title: sessions
+          format: int32
+          description: (proto int32)
+        calendarDays:
+          type: integer
+          title: calendar_days
+          format: int32
+          description: (proto int32)
+        volatilityPct:
+          type: number
+          title: volatility_pct
+          format: double
+          description: Annualised daily volatility. (proto double)
+        hasVolatility:
+          type: boolean
+          title: has_volatility
+          description: (proto bool)
+      title: WindowMetrics
+      additionalProperties: false
+      description: One window's metrics on the chained curve.
     shorts.v1alpha1.WithheldOutcome:
       type: object
       properties:

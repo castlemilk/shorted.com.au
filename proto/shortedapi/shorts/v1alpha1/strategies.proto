@@ -91,6 +91,36 @@ service StrategyService {
   rpc ListSavedStrategies (ListSavedStrategiesRequest) returns (ListSavedStrategiesResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
   }
+
+  // ==================== Backtests ====================
+
+  // The backtest evidence of every strategy: each strategy's state, its chained windows
+  // (in-sample to live_from, then the recorded paper track), its annual returns, a month-end
+  // curve and its paper-track summary. Public: the same bytes to every caller.
+  rpc ListStrategyEvidence (ListStrategyEvidenceRequest) returns (ListStrategyEvidenceResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // One published canonical backtest run: the series (weekly), windows, annual and monthly
+  // tables, coverage, sensitivity, survivorship, recipe lines, trade summary, identity and the
+  // replay agreement. run_id 0 is the published run of the live version. A variant run_id, or a
+  // run that is not a canonical publish, is NotFound.
+  rpc GetBacktestRun (GetBacktestRunRequest) returns (GetBacktestRunResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // The trades of one canonical run, paged, with optional stock and exit filters. Signed-in
+  // callers only. A variant or unknown run_id is NotFound.
+  rpc ListBacktestTrades (ListBacktestTradesRequest) returns (ListBacktestTradesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Two or three canonical strategies side by side over one common window: their chained
+  // windows, weekly curves rebased to 100,000 and daily-return correlations. Signed-in callers
+  // only. Variant references are refused until variant comparison ships.
+  rpc CompareStrategies (CompareStrategiesRequest) returns (CompareStrategiesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
 }
 
 // ==================== Strategy Messages ====================
@@ -537,4 +567,337 @@ message StrategySignalEvent {
   bool has_pivot = 10;
   repeated RuleResult rules = 11;   // The rule results recorded that session (values and proximities as stored).
   string rules_hash = 12;
+}
+
+// ==================== Backtest Messages ====================
+
+// Request for ListStrategyEvidence. It takes no arguments.
+message ListStrategyEvidenceRequest {}
+
+// Response for ListStrategyEvidence. Dates are YYYY-MM-DD.
+message ListStrategyEvidenceResponse {
+  repeated StrategyEvidence strategies = 1;   // Every strategy, in registry order.
+  string window_start = 2;                    // The canonical windows open here: 2019-05-01, the first full month of XJT.
+  string prices_through = 3;                  // The newest price session the published runs read; "" when none is published.
+  string benchmark_name = 4;                  // The benchmark every run is measured against.
+  repeated string footnotes = 5;              // The copy every evidence surface prints beside the figures.
+}
+
+// One strategy's backtest evidence on the live version.
+message StrategyEvidence {
+  string strategy_id = 1;
+  StrategyVersionRef version = 2;        // The live canonical version the evidence is for; absent when none is registered.
+  string state = 3;                      // computed | run_required | running | not_computable | approximate.
+  string computable_from = 4;            // Not computable: the first month-end the universe is computable; "" when none.
+  string fiscal_label = 5;               // Not computable: the measured label, e.g. FY2024; "" when none.
+  repeated WindowMetrics windows = 6;    // The chained windows, in window order.
+  repeated AnnualReturn annual = 7;      // The annual table of the since-May-2019 chain.
+  repeated SeriesPoint mini_curve = 8;   // Month ends of the since-May-2019 chain, at most 96 points.
+  StatusCounts today = 9;                // Today's counts for the live version; absent when they cannot be read.
+  PaperTrackSummary paper = 10;          // The recorded paper track since live_from.
+  string survivorship = 11;              // The survivorship statement's copy.
+  int64 run_id = 12;                     // The published run the figures come from; 0 when none.
+  string latest_screen = 13;             // The session the today counts are as at (YYYY-MM-DD); "" when none.
+}
+
+// Request for GetBacktestRun.
+message GetBacktestRunRequest {
+  string strategy_id = 1;    // Required: a canonical strategy id.
+  int64 run_id = 2;          // 0: the published run of the live version. Otherwise a canonical publish run of this strategy.
+  string resolution = 3;     // "weekly" (default) or "daily". Daily is refused: its series would exceed the 500-point budget.
+}
+
+// Response for GetBacktestRun.
+message GetBacktestRunResponse {
+  BacktestRun run = 1;
+}
+
+// One canonical backtest run as the API serves it.
+message BacktestRun {
+  string state = 1;                              // computed | run_required | running | not_computable | approximate.
+  string strategy_id = 2;
+  string computable_from = 3;                    // not_computable: "" when the threshold was never met.
+  string fiscal_label = 4;                       // not_computable: the measured label; "" when none.
+  BacktestRunIdentity identity = 5;              // Absent for run_required and running.
+  repeated WindowMetrics windows = 6;            // Chained windows (5.8).
+  repeated AnnualReturn annual = 7;              // Annual table of the since-May-2019 chain.
+  repeated MonthlyReturn monthly = 8;            // Monthly table of the since-May-2019 chain.
+  repeated SeriesPoint series = 9;               // One point per ISO week plus the first, last and trough sessions; at most 500.
+  repeated CoverageYear coverage_by_year = 10;   // Both coverage measures, by year.
+  repeated CoverageMonth coverage_monthly = 11;  // Both coverage measures, by month.
+  Survivorship survivorship = 12;
+  repeated Sensitivity sensitivity = 13;         // The five sensitivity runs of the canonical run.
+  RecipeLines recipe = 14;                       // The recipe prose, preface first.
+  TradeSummary trade_summary = 15;               // The in-sample trades; the paper trades are counted in the windows.
+  StrategyVersionRef live_version = 16;          // The live canonical version now.
+  bool rules_match_live = 17;                    // The run's rules are the live rules.
+  bool engine_matches_live = 18;                 // The run's engine is the running engine.
+  string replay_agreement = 19;                  // "Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy".
+  string input_change_note = 20;                 // The diff note against the previous run; "" when none.
+  repeated string disclosures = 21;              // Printed beside the figures.
+  repeated string data_notes = 22;               // Data-quality notes of the run.
+  string running_since = 23;                     // running: when the request started, RFC 3339.
+  string series_resolution = 24;                 // "weekly" for a computed run; "" otherwise.
+  double computable_share_pct = 25;              // not_computable: the measured universe share, when measured.
+  bool has_computable_share = 26;
+}
+
+// A run's fingerprint, provenance and recipe identity.
+message BacktestRunIdentity {
+  int64 run_id = 1;
+  string run_key = 2;
+  string kind = 3;                    // "publish" for every run the API serves.
+  StrategyVersionRef version = 4;
+  string recipe_id = 5;
+  string recipe_hash = 6;
+  string engine_version = 7;
+  string window_start = 8;
+  string window_end = 9;
+  string returns = 10;                // "total".
+  string benchmark = 11;              // "XJT".
+  string fundamentals = 12;           // "strict" or "approx_period_end_plus_2m".
+  string prices_through = 13;
+  string asic_report_through = 14;
+  string in_sample_until = 15;        // live_from minus one day.
+  string finished_at = 16;
+  string input_hash = 17;
+  string output_hash = 18;
+  string build_revision = 19;
+  string risk_free = 20;              // The risk-free rate the Sharpe ratio uses, or "none".
+  string reference_name = 21;
+  string run_date = 22;               // The day the run finished (YYYY-MM-DD).
+}
+
+// One window's metrics on the chained curve.
+message WindowMetrics {
+  string window = 1;               // since_may_2019 | since_2023 | last_12_months | live_since_freeze.
+  string from = 2;                 // YYYY-MM-DD, the window's first session.
+  string to = 3;                   // YYYY-MM-DD, the window's last session.
+  double total_return_pct = 4;
+  double cagr_pct = 5;
+  bool has_cagr = 6;               // False below 365 calendar days; the return is then not annualised.
+  double benchmark_cagr_pct = 7;
+  bool has_benchmark = 8;
+  double reference_cagr_pct = 9;
+  bool has_reference = 10;
+  double max_drawdown_pct = 11;    // Negative; zero when the curve never falls.
+  double sharpe = 12;
+  double sharpe_se = 13;           // Lo (2002) standard error of the annual Sharpe ratio.
+  bool has_sharpe = 14;            // False below 126 daily returns: "n/m".
+  int32 closed_trades = 15;        // Trades whose exit executed inside the window.
+  double win_rate_pct = 16;
+  bool has_win_rate = 17;          // False when the window includes paper trades, which carry no net return here.
+  double exposure_pct = 18;
+  bool recorded_tail = 19;         // The window ends in the paper track, recorded after live_from.
+  string label = 20;               // The window's name, e.g. "Since May 2019".
+  string note = 21;                // "in-sample to 2026-11-23, recorded after", or "paper track only, recorded".
+  bool not_annualised = 22;
+  int32 sessions = 23;
+  int32 calendar_days = 24;
+  double volatility_pct = 25;      // Annualised daily volatility.
+  bool has_volatility = 26;
+}
+
+// One period of the annual table: the strategy, XJT and the same-data reference.
+message AnnualReturn {
+  int32 year = 1;
+  string state = 2;                // complete | partial | not_elapsed.
+  string months = 3;               // "May-Dec" or "YTD"; "" for a whole year.
+  double strategy_pct = 4;
+  double benchmark_pct = 5;
+  bool has_benchmark = 6;
+  double reference_pct = 7;
+  bool has_reference = 8;
+  double coverage_pct = 9;         // Qualifying coverage over the year, the measure this table prints.
+  bool coverage_measurable = 10;
+  bool approximate = 11;           // An approximate run's year. Nothing sets it in this release.
+}
+
+// One month of the monthly table.
+message MonthlyReturn {
+  int32 year = 1;
+  int32 month = 2;
+  string state = 3;                // complete | partial | not_elapsed.
+  double strategy_pct = 4;
+  double benchmark_pct = 5;
+  bool has_benchmark = 6;
+  double reference_pct = 7;
+  bool has_reference = 8;
+  string label = 9;                // "from 1 May" for the first month, "MTD" for the current one; "" otherwise.
+}
+
+// Coverage by year under both measures; each figure names its measure.
+message CoverageYear {
+  int32 year = 1;
+  double qualifying_pct = 2;       // Priced over qualifying name-days, "qualifying >= 5% short".
+  bool has_qualifying = 3;
+  int32 qualifying_priced = 4;
+  int32 qualifying_name_days = 5;
+  double all_reported_pct = 6;     // Priced over every ordinary reported name-day, "all reported".
+  bool has_all_reported = 7;
+  int32 all_reported_priced = 8;
+  int32 all_reported_name_days = 9;
+}
+
+// Coverage by month under both measures.
+message CoverageMonth {
+  string month = 1;                // YYYY-MM.
+  double qualifying_pct = 2;
+  bool has_qualifying = 3;
+  int32 qualifying_priced = 4;
+  int32 qualifying_name_days = 5;
+  double all_reported_pct = 6;
+  bool has_all_reported = 7;
+  int32 all_reported_priced = 8;
+  int32 all_reported_name_days = 9;
+}
+
+// Survivorship block. Measurement is machine-readable.
+message Survivorship {
+  string measurement = 1;          // measured | asic_reported_only | not_measurable.
+  string direction = 2;            // flatters.
+  string statement = 3;            // The copy the run prints.
+  string caveat = 4;               // The extra line some recipes print; "" otherwise.
+}
+
+// One sensitivity run next to the canonical run.
+message Sensitivity {
+  string id = 1;                   // costs_x2 | asic_lag_plus_2 | delisting_zero | entry_plus_1 | flat_mockup_costs.
+  string label = 2;
+  bool applies = 3;                // False when the recipe does not take the change; reason says why.
+  string reason = 4;
+  double cagr_pct = 5;
+  bool has_cagr = 6;
+  double excess_vs_benchmark_pct = 7;
+  bool has_excess = 8;
+  double max_drawdown_pct = 9;
+  bool fragile = 10;               // A sign flip of the excess CAGR; fragile_chip names it.
+  string fragile_chip = 11;        // "Fragile to costs", "Fragile to publication timing", "Fragile to entry timing"; "" otherwise.
+}
+
+// One point of a series. Equity is in A$ on the chained curve. Benchmark and reference are
+// index levels, never zero, so zero reads as not measured (the reference is not recorded
+// after the freeze).
+message SeriesPoint {
+  string date = 1;
+  double equity = 2;
+  double benchmark = 3;
+  double reference = 4;
+  double drawdown_pct = 5;         // Negative or zero.
+  double exposure_pct = 6;
+  bool recorded = 7;               // A paper-track session, recorded after live_from.
+}
+
+// The recipe's prose, one field per line, in print order: preface, entry, exits, then the rest.
+message RecipeLines {
+  string recipe_id = 1;
+  string entry = 2;
+  repeated string exits = 3;
+  string sizing = 4;
+  string brokerage = 5;
+  string spread = 6;
+  string capacity = 7;
+  string dividends = 8;
+  string asic_data = 9;
+  string delisting = 10;
+  string capital = 11;
+  string cash = 12;
+  string preface = 13;             // "Execution recipe chosen by Shorted to test the screen; the author's own entries and exits differ."
+}
+
+// The closed-trade statistics a run publishes.
+message TradeSummary {
+  int32 closed = 1;
+  int32 open_at_end = 2;
+  double win_rate_pct = 3;
+  double avg_hold_sessions = 4;
+  double avg_win_pct = 5;
+  double avg_loss_pct = 6;
+  double best_pct = 7;
+  double worst_pct = 8;
+  map<string, int32> exits_by_reason = 9;
+  bool has_win_rate = 10;
+}
+
+// A trade of a canonical run. Return columns are percentages.
+message BacktestTrade {
+  int32 seq = 1;
+  string stock_code = 2;
+  string company_name = 3;
+  string signal_date = 4;
+  string entry_date = 5;
+  double entry_price = 6;
+  double captured_pivot = 7;
+  bool has_captured_pivot = 8;
+  double entry_score = 9;
+  string exit_date = 10;
+  double exit_price = 11;
+  string exit_reason = 12;
+  int32 sessions_held = 13;
+  double gross_return_pct = 14;
+  double net_return_pct = 15;
+  repeated string flags = 16;
+  bool open = 17;
+  string exit_signal_date = 18;
+}
+
+// The recorded paper track since live_from, with its honesty flags.
+message PaperTrackSummary {
+  string since = 1;                // live_from, YYYY-MM-DD; "" before the first live session.
+  int32 sessions = 2;
+  int32 closed_trades = 3;
+  int32 open_positions = 4;
+  double return_pct = 5;
+  bool has_return = 6;
+  bool too_short = 7;              // Under 63 sessions or 10 closed trades.
+}
+
+// Request for ListBacktestTrades.
+message ListBacktestTradesRequest {
+  int64 run_id = 1;                // Required: a canonical publish run.
+  string page_token = 2;           // The next_page_token of the previous page.
+  int32 page_size = 3;             // 1 to 200; 0 is the default of 50.
+  string stock_code = 4;           // Optional: one stock's trades.
+  string exit_reason = 5;          // Optional: one exit reason.
+}
+
+// Response for ListBacktestTrades.
+message ListBacktestTradesResponse {
+  repeated BacktestTrade trades = 1;   // In trade order.
+  string next_page_token = 2;          // Empty on the last page.
+  int32 total = 3;                     // Trades matching the filters, over every page.
+}
+
+// Request for CompareStrategies.
+message CompareStrategiesRequest {
+  repeated string refs = 1;        // Two or three canonical strategy ids. "variant:<id>" is refused.
+}
+
+// Response for CompareStrategies.
+message CompareStrategiesResponse {
+  string window_id = 1;            // "common": the sessions every compared curve covers. Empty when a strategy has no published run.
+  string window_from = 2;
+  string window_to = 3;
+  repeated CompareEntry entries = 4;
+  repeated StrategyCorrelation correlations = 5;
+}
+
+// One compared strategy.
+message CompareEntry {
+  string strategy_ref = 1;
+  string strategy_id = 2;
+  string name = 3;
+  string state = 4;                // computed when the strategy has a published run; otherwise its state.
+  StrategyVersionRef version = 5;
+  WindowMetrics window = 6;        // Absent when the strategy has no curve.
+  repeated SeriesPoint series = 7; // Weekly over the common window, rebased to 100,000.
+}
+
+// The correlation of two compared strategies' daily returns over the common window.
+message StrategyCorrelation {
+  string a = 1;
+  string b = 2;
+  double correlation = 3;
+  bool has_correlation = 4;        // False when the overlap has too few returns.
+  int32 days = 5;                  // Daily returns in the overlap.
 }
