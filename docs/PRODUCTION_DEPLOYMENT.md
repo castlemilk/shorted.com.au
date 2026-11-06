@@ -177,14 +177,13 @@ The live API is the Cloud Run service `shorts` in `australia-southeast2`. The Te
 Before you shift, know what is still coming. Every push to `main` deploys, and each deploy's `terraform-apply` job sets 100% of traffic back to the newest revision, so it undoes a shift. Two traps:
 
 - A deploy that is queued is not in the Cuttlefish runs list. The workflow's concurrency group holds one run at a time (`deploy-refs/heads/main`), and a push that lands while a deploy runs only starts once that whole run ends, after `deploy-vercel-prod`, not after its `terraform-apply`.
-- So "no `terraform-apply` running" is not enough. The shift holds only when the newest revision was built from `main`'s current head and no `gha-terraform-deploy-*` run is RUNNING:
+- So "no `terraform-apply` running" is not enough. Compare `main`'s head with the build of the newest revision:
 
   ```bash
   git ls-remote https://github.com/castlemilk/shorted.com.au refs/heads/main | cut -c1-8   # main's head
-  # compare with the newest revision's SERVICE_VERSION (main-<first 8 of the sha>), read as in step 1
   ```
 
-  Until the two match, another deploy is coming. Re-check after each deploy (step 3).
+  The newest revision's `SERVICE_VERSION` (read as in step 1) is `main-<first 8 of the sha>` after a push deploy and `manual-<full sha>` after a dispatched one (`cuttle gha dispatch`). Take the sha after the prefix and compare its first 8 characters with `main`'s head. While they differ, a deploy is still coming, running or queued, unless the deploy of `main`'s head has already ended without a `terraform-apply`: red tests or a failed build skip that job, so check that deploy's runs. When they match and no `gha-terraform-deploy-*` run is RUNNING, the shift holds, but only until the next push to `main` (step 3).
 
 If users are affected now, shift now anyway, and keep re-checking as step 3 says.
 
@@ -197,14 +196,22 @@ gcloud run revisions list --service shorts \
 
 Revisions are named `shorts-NNNNN-xxx`, newest first. The revision marked `ACTIVE yes` is the one serving now. `revisions list` does not show traffic percentages; `gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.traffic)'` does.
 
-Choose by change, not by position. Every deploy of `main` creates a revision, whether or not the API changed (16 in 19 hours on 2026-11-05/06), and revisions are cumulative: once any later deploy lands, "the revision before the active one" contains the bad change too. Find the commit that introduced the problem, then take the newest revision whose build does not contain it:
+Choose by change, not by position. Every deploy of `main` creates a revision, whether or not the API changed (16 in 19 hours on 2026-11-05/06), and revisions are cumulative: once any later deploy lands, "the revision before the active one" contains the bad change too. Find the commit that introduced the problem, then take the newest revision whose build does not contain it. In a checkout of this repository:
 
 ```bash
-# for each candidate revision, newest first: read its SERVICE_VERSION (main-<sha8>, see below), then
-git merge-base --is-ancestor <bad commit> <sha8> && echo "contains the bad change" || echo "safe"
+git fetch -q origin main
+# For each candidate revision, newest first: SHA is the sha after "main-" or "manual-"
+# in its SERVICE_VERSION (below).
+git merge-base --is-ancestor <bad commit> "$SHA"; case $? in
+  0) echo "contains the bad change" ;;
+  1) echo "safe" ;;
+  *) echo "git could not answer: fetch again and check both shas" ;;
+esac
 ```
 
-The first revision that prints `safe` is the one to return to. If the bad commit is unknown, take the newest revision deployed before the problem started, comparing each revision's `DEPLOYED` time with when errors began.
+The first revision that prints `safe` is the one to return to. Fetch first and never read an error as `safe`: git exits 128 for a sha it does not have, and a clone without the newest commits lacks exactly the newest revisions, the ones most likely to carry the bad change.
+
+If the bad commit is unknown, the suspect is the newest revision whose `DEPLOYED` time is before the errors began: it was serving when they started. Return to the revision before the suspect. If the errors began long after the suspect was deployed, a code change may not be the cause: read the logs and the database status before shifting.
 
 To see which build a revision runs, read its `SERVICE_VERSION` environment variable. Terraform sets it to the image tag from this change onward:
 
@@ -233,7 +240,7 @@ Then confirm the build on the `run.app` host, which is not cached at the edge (`
 curl -sI https://<run.app host>/health | grep -i x-shorted-build
 ```
 
-The value should equal the `SERVICE_VERSION` you read from the revision. That confirms which revision is serving, not that the bad code is gone: only choosing the revision by change (step 1) does that. Then run the Connect call in "Post-Deployment Verification". Keep watching the uptime alerts until both checks pass.
+The value should equal the `SERVICE_VERSION` you read from the revision. A revision with no `SERVICE_VERSION` predates the build header (they arrived together) and answers with no `X-Shorted-Build` at all: for those, confirm with `status.traffic` (above) instead. Either check confirms which revision is serving, not that the bad code is gone: only choosing the revision by change (step 1) does that. Then run the Connect call in "Post-Deployment Verification". Keep watching the uptime alerts until both checks pass.
 
 ### 3. The next deploy undoes the shift
 
@@ -244,7 +251,9 @@ A traffic shift is not a code change. Terraform still declares `shorts` to route
 
 Until one of these lands, `terraform plan` shows drift on the traffic. That is expected during a rollback.
 
-A shift also does not survive a deploy that is already running or queued. Its `terraform-apply` job sets traffic back to the newest revision, and the shift is then gone without any sign in the rollback itself. After each deploy's `terraform-apply` job finishes, re-check `gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.traffic)'`, and if traffic has moved back, shift again to the same revision you chose in step 1 (the newest revision now carries the bad change too). Stop re-checking only when the newest revision's `SERVICE_VERSION` matches `main`'s head and no `gha-terraform-deploy-*` run is RUNNING, or when the fix or revert has deployed.
+A shift also does not survive a deploy that is already running or queued. Its `terraform-apply` job sets traffic back to the newest revision, and the shift is then gone without any sign in the rollback itself. After each deploy's `terraform-apply` job finishes, re-check `gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.traffic)'`. If traffic has moved back to the newest revision, first check whether that revision carries the fix or the revert: run the step 1 test with the fix or revert commit in place of the bad commit, against the newest revision's sha (`contains` means it carries it). The bad commit's test cannot tell you this, because a revert's build still contains the bad commit. If it carries the fix, stop: the fix is serving, so run "Post-Deployment Verification". If it does not, shift again to the revision you chose in step 1.
+
+Keep re-checking after every deploy until the fix or the revert is serving, or hold merges to `main` until then. A match between `main`'s head and the newest revision says only that the shift holds for now: the next push to `main`, for any change, undoes it.
 
 ## Monitoring
 
@@ -275,7 +284,7 @@ Each has an alert policy. It fires when the check fails from two or more checker
 3. Read the answer:
    Read `X-Shorted-Cache` before `X-Shorted-Build`. The edge worker rebuilds the headers of every copy it serves, so a copy never carries `X-Shorted-Build`, whatever the API answered when it was cached:
    - `X-Shorted-Cache: HOT`, `HIT` or `KV`: an edge copy. It proves nothing about the origin. A cached `{}` is the API's empty answer, so check `mv_top_shorts` and the fallback query. Copies live for their TTL, so a check that fails once they expire has reached the origin.
-   - `X-Shorted-Cache: BYPASS` or `MISS` with no `X-Shorted-Build`: Cloud Run's front end answered, for a crash, a memory-limit kill or no instance available. Read the `shorts` service's logs.
+   - `X-Shorted-Cache: BYPASS` or `MISS` with no `X-Shorted-Build`: Cloud Run's front end answered, for a crash, a memory-limit kill or no instance available. Read the `shorts` service's logs. The exception is a rollback to a revision with no `SERVICE_VERSION`: it predates the header and never sends it, so check `status.traffic` first.
    - `X-Shorted-Build` present: the app answered. A 5xx is an app error, and the Cloud Run logs and the database are next. A `403` with JSON `permission_denied` ("automated access detected") is the API's user-agent filter, `services/pkg/ratelimit/useragent.go`. The checker's User-Agent must stay allowed there, and `TestUptimeCheckerUserAgentPasses` pins it. A `429` with an `X-RateLimit-Detail` header is the app's per-minute limiter.
    - A `429` with `X-RateLimit-Bucket` is the edge worker's bucket (anonymous callers get 10 requests per 10 seconds per IP).
    - A `524`, or a `cf-mitigated` header, or an HTML "Just a moment" page with no `X-Shorted-Cache`: Cloudflare answered. A `524` is Cloudflare's origin timeout; a challenge or zone rule is the other case.
