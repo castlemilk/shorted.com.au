@@ -52,23 +52,36 @@ func TestValidateGetStockPriceRequest(t *testing.T) {
 				StockCode: "AB",
 			},
 			expectError: true,
-			errorMsg:    "stock code must be 3-4 uppercase letters",
+			errorMsg:    "stock code must be 3-6 uppercase letters or digits",
 		},
 		{
 			name: "stock code too long",
 			request: &marketdatav1.GetStockPriceRequest{
-				StockCode: "ABCDE",
+				StockCode: "ABCDEFG",
 			},
 			expectError: true,
-			errorMsg:    "stock code must be 3-4 uppercase letters",
+			errorMsg:    "stock code must be 3-6 uppercase letters or digits",
 		},
 		{
-			name: "stock code with numbers",
+			name: "stock code with a digit (L1G, S32, A2M)",
 			request: &marketdatav1.GetStockPriceRequest{
-				StockCode: "AB1",
+				StockCode: "L1G",
 			},
-			expectError: true,
-			errorMsg:    "stock code must be 3-4 uppercase letters",
+			expectError: false,
+		},
+		{
+			name: "all-digit code (360)",
+			request: &marketdatav1.GetStockPriceRequest{
+				StockCode: "360",
+			},
+			expectError: false,
+		},
+		{
+			name: "six-character code (GSBE47)",
+			request: &marketdatav1.GetStockPriceRequest{
+				StockCode: "GSBE47",
+			},
+			expectError: false,
 		},
 		{
 			name: "stock code with special characters",
@@ -76,7 +89,7 @@ func TestValidateGetStockPriceRequest(t *testing.T) {
 				StockCode: "CB@",
 			},
 			expectError: true,
-			errorMsg:    "stock code must be 3-4 uppercase letters",
+			errorMsg:    "stock code must be 3-6 uppercase letters or digits",
 		},
 		{
 			name: "stock code with spaces",
@@ -115,6 +128,14 @@ func TestValidateGetHistoricalPricesRequest(t *testing.T) {
 			request: &marketdatav1.GetHistoricalPricesRequest{
 				StockCode: "CBA",
 				Period:    "1m",
+			},
+			expectError: false,
+		},
+		{
+			name: "code with a digit and a period (the stock page's L1G read)",
+			request: &marketdatav1.GetHistoricalPricesRequest{
+				StockCode: "L1G",
+				Period:    "1y",
 			},
 			expectError: false,
 		},
