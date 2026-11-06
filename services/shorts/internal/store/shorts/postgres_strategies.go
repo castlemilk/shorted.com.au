@@ -105,7 +105,7 @@ func logMissingRelationOnce(method string, err error) {
 
 // finite drops NaN and ±Inf. Postgres happily stores and returns them
 // (float8 'NaN', 'Infinity'); encoding/json refuses them, so one bad row
-// would fail the whole MCP payload (key_metrics_finite.go has the history).
+// would fail the whole MCP payload (services/pkg/keymetrics/finite.go has the history).
 func finite(v *float64) *float64 {
 	if v == nil || math.IsNaN(*v) || math.IsInf(*v, 0) {
 		return nil

@@ -30,7 +30,7 @@ import "strings"
 //	  shorts-data-sync, signals-collector, weekly-report-generator
 //	us-central1 jobs: asx-discovery
 //	scheduler-only (target HTTP services, not Cloud Run Jobs): market-data-sync-daily,
-//	  stock-price-daily-sync, stock-price-weekly-sync, key-metrics-daily-sync
+//	  stock-price-daily-sync, stock-price-weekly-sync
 type catalogEntry struct {
 	// DisplayName overrides the derived title-cased resource name.
 	DisplayName string
@@ -201,11 +201,6 @@ var catalog = map[string]catalogEntry{
 		DisplayName: "Stock Prices — Weekly Backfill",
 		Category:    "Market data",
 		Note:        "Scheduler → stock-price-ingestion service; status is trigger-level only",
-	},
-	"key-metrics-daily-sync": {
-		DisplayName: "Key Metrics Sync",
-		Category:    "Market data",
-		Note:        "Scheduler → market-data service; status is trigger-level only",
 	},
 }
 
