@@ -319,3 +319,24 @@ class TestGeminiReplyShapes(unittest.TestCase):
         self.assertEqual(rows[0]["declared_text"], "Not Applicable")
         self.assertEqual(rows[0]["holder"], "dependent children")
         self.assertEqual(rows[0]["secondary_text"], "")
+
+
+def test_a_page_the_size_of_a_photo_is_rendered_within_the_pixel_cap(tmp_path):
+    # A Codan cessation notice carried two 59 x 79 inch pages (a phone photo at its own size):
+    # 106 MP each at 150dpi, 60 MB of PNG and 933 MB of memory, which killed the reader's pod
+    # at 1 GiB. The page renders at the dpi that fits MAX_PAGE_PIXELS; an A4 page is untouched.
+    import pymupdf
+    import register_vision as rv
+
+    assert rv.page_dpi(595, 842) == rv.VISION_RASTER_DPI                      # A4
+    assert rv.page_dpi(842, 1191) == rv.VISION_RASTER_DPI                     # A3 (4.4 MP)
+    assert 18 <= rv.page_dpi(59.5 * 72, 79.3 * 72) < 40
+    doc = pymupdf.open()
+    doc.new_page(width=59.5 * 72, height=79.3 * 72)
+    doc.new_page(width=595, height=842)
+    src = tmp_path / "big.pdf"
+    doc.save(str(src))
+    out = rv.rasterise(str(src), [1, 2], str(tmp_path))
+    big, a4 = pymupdf.Pixmap(out[1]), pymupdf.Pixmap(out[2])
+    assert big.width * big.height <= rv.MAX_PAGE_PIXELS
+    assert a4.width * a4.height > 2_000_000
