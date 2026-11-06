@@ -11,6 +11,8 @@ import {
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
 import { RegimeBanner } from "~/@/components/picks/regime-banner";
+import { ExplorerIsland } from "~/@/components/strategies/explorer-island";
+import { buildExplorerModel, registryStrategy } from "~/@/lib/strategies/explorer";
 import { PicksProvenance } from "~/@/components/picks/picks-provenance";
 import { RuleLegend, StatusLamp } from "~/@/components/picks/picks-table";
 import { StatusChain } from "~/@/components/picks/status-chain";
@@ -27,6 +29,7 @@ import {
 } from "~/@/lib/strategies/shortlist";
 import { PICK_STATUSES } from "~/@/lib/strategies/types";
 import { getStrategies } from "~/app/actions/getStrategies";
+import { getStrategyEvidence } from "~/app/actions/strategies/getStrategyEvidence";
 import {
   getStrategyPicks,
   type StrategyPicksResult,
@@ -74,7 +77,10 @@ export const metadata: Metadata = {
   },
 };
 
-// Static ISR, like /themes/[slug]: the hub fans out to the API six ways
+// Static ISR, like /themes/[slug]: the explorer reads the list, the backtest evidence
+// and the five picks for the rack, each cached for an hour. The explorer's
+// filters, window, selection and compare tray are read on the client under
+// <Suspense> (ExplorerIsland), so the page reads no searchParams. The hub fans out to the API six ways
 // (the list plus one picks read per strategy), which is worth paying per hour,
 // not per request. The picks reads share their cache entries with the
 // strategy pages. A cold or failed read is handled by bailOnEmptyRender()
@@ -119,15 +125,17 @@ function cardFor(
 }
 
 export default async function PicksHubPage() {
-  const [list, ...picks] = await Promise.all([
+  const [list, evidence, ...picks] = await Promise.all([
     getStrategies(),
+    getStrategyEvidence(),
     ...STRATEGY_SLUGS.map((slug) => getStrategyPicks(slug)),
   ]);
 
   // Any failed read would bake a degraded hub (no regime, cards without
-  // counts) into the route cache for the whole hour: shorten this render's
-  // lifetime instead so a recovered API shows up within a minute.
-  if (!list || picks.some((result) => result === null)) {
+  // counts, an explorer without its figures) into the route cache for the whole
+  // hour: shorten this render's lifetime instead so a recovered API shows up
+  // within a minute. The explorer still draws what it has.
+  if (!list || !evidence || picks.some((result) => result === null)) {
     await bailOnEmptyRender();
   }
 
@@ -137,6 +145,33 @@ export default async function PicksHubPage() {
   );
   const provenanceSource = picks.find((result): result is StrategyPicksResult =>
     Boolean(result),
+  );
+  // A render with no list (the build, an outage) still names every strategy: the
+  // registry supplies the names, so the table's rows are never missing from the HTML.
+  const explorer = buildExplorerModel({
+    strategies: list?.strategies ?? STRATEGY_SLUGS.map(registryStrategy),
+    evidence,
+  });
+
+  const header = (
+    <section className="border-b border-border/40 pb-6 motion-safe:animate-phosphor-warm">
+      <p className={cn(eyebrow, "mb-2 font-medium")}>Stock picker</p>
+      <h1 className={cn(pageTitle, "leading-[1.1]")}>Strategies</h1>
+      <p className={cn(lede, "max-w-3xl")}>
+        Choose a named strategy, then see the market regime and the ASX
+        stocks that currently meet its rules. Every rule is shown for every
+        stock as pass, fail or unknown, so you can see exactly why a name
+        made the list and what it is still missing.
+      </p>
+      <div className="mt-3">
+        <PicksProvenance
+          asOf={provenanceSource?.asOf ?? ""}
+          coverage={provenanceSource?.fundamentalsCoverageCount ?? 0}
+          rowsCount={provenanceSource?.fundamentalsRowsCount ?? 0}
+          universe={provenanceSource?.universeCount ?? 0}
+        />
+      </div>
+    </section>
   );
 
   return (
@@ -158,26 +193,7 @@ export default async function PicksHubPage() {
           <Breadcrumbs items={[{ label: "Strategies", href: "/strategies" }]} />
         </div>
 
-        {/* The desk switches on: a 320ms phosphor warm-up from 0.45 opacity,
-            so the H1 is painted (and is the LCP) from the first frame. */}
-        <section className="border-b border-border/40 pb-6 motion-safe:animate-phosphor-warm">
-          <p className={cn(eyebrow, "mb-2 font-medium")}>Stock picker</p>
-          <h1 className={cn(pageTitle, "leading-[1.1]")}>Strategies</h1>
-          <p className={cn(lede, "max-w-3xl")}>
-            Choose a named strategy, then see the market regime and the ASX
-            stocks that currently meet its rules. Every rule is shown for every
-            stock as pass, fail or unknown, so you can see exactly why a name
-            made the list and what it is still missing.
-          </p>
-          <div className="mt-3">
-            <PicksProvenance
-              asOf={provenanceSource?.asOf ?? ""}
-              coverage={provenanceSource?.fundamentalsCoverageCount ?? 0}
-              rowsCount={provenanceSource?.fundamentalsRowsCount ?? 0}
-              universe={provenanceSource?.universeCount ?? 0}
-            />
-          </div>
-        </section>
+        <ExplorerIsland model={explorer} header={header} />
 
         <RegimeBanner regime={list?.regime ?? null} />
 

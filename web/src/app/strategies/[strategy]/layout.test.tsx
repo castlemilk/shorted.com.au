@@ -131,10 +131,11 @@ describe("StrategyLayout", () => {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
     }
-    // Saves ships with My strategies and is on; every other capability stays dark.
+    // Saves (My strategies) and compare (PR-20) are on; the rest stay dark. The profile
+    // header draws no Compare control yet, so the test above still holds.
     expect(
       Object.entries(STRATEGY_CAPABILITIES)
-        .filter(([name]) => name !== "saves")
+        .filter(([name]) => name !== "saves" && name !== "compare")
         .every(([, on]) => on === false),
     ).toBe(true);
   });

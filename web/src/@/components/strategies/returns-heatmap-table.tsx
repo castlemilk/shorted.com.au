@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { NOT_AVAILABLE, formatSigned } from "@/lib/strategies/format";
 import {
@@ -40,11 +41,15 @@ export type ReturnsHeatmapCell =
 export interface ReturnsHeatmapColumn {
   key: string;
   label: string;
+  /** A line under the header, e.g. "from 1 May" for a first year that starts part way through. */
+  note?: string;
 }
 
 /** A window metric shown after the year columns (CAGR, max drawdown). */
 export interface ReturnsHeatmapMetric {
   key: string;
+  /** A line under the figure, e.g. "total return, not annualised". */
+  note?: string;
   /** The figure as printed. Negative figures are set in the red text token. */
   text: string;
   value: number | null;
@@ -52,11 +57,14 @@ export interface ReturnsHeatmapMetric {
 
 export interface ReturnsHeatmapRow {
   key: string;
-  name: string;
+  /** The name as drawn: text, or a control that selects the row. */
+  name: ReactNode;
   /** A line under the name, e.g. the strategy's breakout family. */
   sublabel?: string;
   cells: ReturnsHeatmapCell[];
   metrics?: ReturnsHeatmapMetric[];
+  /** The cell before the name (a selection checkbox, say); drawn only when the table has a `leading` header. */
+  lead?: ReactNode;
 }
 
 export interface ReturnsHeatmapTableProps {
@@ -69,6 +77,8 @@ export interface ReturnsHeatmapTableProps {
   rows: ReturnsHeatmapRow[];
   /** The window metric columns, after the year columns. */
   metricColumns?: ReturnsHeatmapColumn[];
+  /** A column before the row names. Its header is read by a screen reader only. */
+  leading?: { header: string };
 }
 
 const CELL = "px-1.5 py-1 text-right tabular-nums whitespace-nowrap";
@@ -156,6 +166,11 @@ function MetricCell({ metric }: { metric: ReturnsHeatmapMetric }) {
       style={negative ? { color: "var(--semantic-red-text)" } : undefined}
     >
       {metric.text}
+      {metric.note ? (
+        <span className="block font-mono text-[10px] leading-tight text-muted-foreground">
+          {metric.note}
+        </span>
+      ) : null}
     </td>
   );
 }
@@ -174,6 +189,7 @@ export function ReturnsHeatmapTable({
   columns,
   rows,
   metricColumns = [],
+  leading,
 }: ReturnsHeatmapTableProps) {
   return (
     <div
@@ -189,6 +205,11 @@ export function ReturnsHeatmapTable({
         </caption>
         <thead>
           <tr>
+            {leading ? (
+              <th scope="col" className="w-8 px-1.5 py-1 font-normal">
+                <span className="sr-only">{leading.header}</span>
+              </th>
+            ) : null}
             <th
               scope="col"
               className="px-1.5 py-1 text-left font-mono font-normal text-muted-foreground"
@@ -202,6 +223,9 @@ export function ReturnsHeatmapTable({
                 className="px-1.5 py-1 text-right font-mono font-normal text-muted-foreground tabular-nums"
               >
                 {c.label}
+                {c.note ? (
+                  <span className="block text-[10px] font-normal leading-tight">{c.note}</span>
+                ) : null}
               </th>
             ))}
             {metricColumns.map((c) => (
@@ -246,6 +270,9 @@ export function ReturnsHeatmapTable({
             });
             return (
               <tr key={row.key} className="border-t border-border/60">
+                {leading ? (
+                  <td className="w-8 px-1.5 py-1 align-middle">{row.lead ?? null}</td>
+                ) : null}
                 <th scope="row" className="px-1.5 py-1 text-left font-normal">
                   <span className="block">{row.name}</span>
                   {row.sublabel ? (

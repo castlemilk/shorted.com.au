@@ -128,6 +128,9 @@ const BUDGETS = {
     // My strategies (PR-22): the static shell and its signed-in island. Measured at 129 kB
     // on the production build; the budget is the spec's figure.
     "/strategies/my": 180,
+    // The compare page (PR-20): a static shell and its signed-in island. Measured at
+    // 125 kB on the production build; the budget is the spec's figure (design 10.8).
+    "/strategies/compare": 180,
     "/screener": 250,
     "/dashboards": 280,
     // Known-heavy / non-public routes — guarded at current + headroom. These
