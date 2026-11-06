@@ -20,28 +20,37 @@ type field struct {
 	key      string // the key in company-metadata.key_metrics
 	module   string // the quoteSummary module that carries it
 	yahooKey string // the field name inside that module
+	// fallback is a second field name in the same module, read when yahooKey is
+	// absent. ETFs and trusts carry their yield as summaryDetail.yield only.
+	fallback string
+	// percent is set when Yahoo's raw value is a fraction but the stored key is
+	// a percent (dividend_yield): the value is multiplied by 100 and rounded to
+	// two decimals, which is what Yahoo's v7 quote, and so yfinance, reported.
+	percent bool
 }
 
 // fields is the key_metrics contract. Its keys and units are the ones the
 // Python script wrote (services/shorts/scripts/fetch_key_metrics.py, now
-// retired): market_cap in dollars, dividend_yield and profit_margin and
-// return_on_equity as fractions, debt_to_equity as Yahoo states it.
+// retired): market_cap in dollars, dividend_yield as a PERCENT (4.35 means
+// 4.35%, the unit the screener, the peers card, MCP and the weekly report read),
+// profit_margin and return_on_equity as fractions, debt_to_equity as Yahoo
+// states it.
 var fields = []field{
-	{"market_cap", "price", "marketCap"},
-	{"pe_ratio", "summaryDetail", "trailingPE"},
-	{"forward_pe", "summaryDetail", "forwardPE"},
-	{"eps", "defaultKeyStatistics", "trailingEps"},
-	{"dividend_yield", "summaryDetail", "dividendYield"},
-	{"book_value", "defaultKeyStatistics", "bookValue"},
-	{"price_to_book", "defaultKeyStatistics", "priceToBook"},
-	{"revenue", "financialData", "totalRevenue"},
-	{"profit_margin", "defaultKeyStatistics", "profitMargins"},
-	{"debt_to_equity", "financialData", "debtToEquity"},
-	{"return_on_equity", "financialData", "returnOnEquity"},
-	{"fifty_two_week_high", "summaryDetail", "fiftyTwoWeekHigh"},
-	{"fifty_two_week_low", "summaryDetail", "fiftyTwoWeekLow"},
-	{"avg_volume", "summaryDetail", "averageVolume"},
-	{"beta", "summaryDetail", "beta"},
+	{key: "market_cap", module: "price", yahooKey: "marketCap"},
+	{key: "pe_ratio", module: "summaryDetail", yahooKey: "trailingPE"},
+	{key: "forward_pe", module: "summaryDetail", yahooKey: "forwardPE"},
+	{key: "eps", module: "defaultKeyStatistics", yahooKey: "trailingEps"},
+	{key: "dividend_yield", module: "summaryDetail", yahooKey: "dividendYield", fallback: "yield", percent: true},
+	{key: "book_value", module: "defaultKeyStatistics", yahooKey: "bookValue"},
+	{key: "price_to_book", module: "defaultKeyStatistics", yahooKey: "priceToBook"},
+	{key: "revenue", module: "financialData", yahooKey: "totalRevenue"},
+	{key: "profit_margin", module: "defaultKeyStatistics", yahooKey: "profitMargins"},
+	{key: "debt_to_equity", module: "financialData", yahooKey: "debtToEquity"},
+	{key: "return_on_equity", module: "financialData", yahooKey: "returnOnEquity"},
+	{key: "fifty_two_week_high", module: "summaryDetail", yahooKey: "fiftyTwoWeekHigh"},
+	{key: "fifty_two_week_low", module: "summaryDetail", yahooKey: "fiftyTwoWeekLow"},
+	{key: "avg_volume", module: "summaryDetail", yahooKey: "averageVolume"},
+	{key: "beta", module: "summaryDetail", yahooKey: "beta"},
 }
 
 // ErrNoData is returned by Build when Yahoo's answer carries no quote: no
@@ -67,6 +76,12 @@ func Build(code string, result json.RawMessage) (map[string]any, error) {
 	measured := 0
 	for _, f := range fields {
 		v, ok := numericField(mods, f.module, f.yahooKey)
+		if !ok && f.fallback != "" {
+			v, ok = numericField(mods, f.module, f.fallback)
+		}
+		if ok && f.percent {
+			v = percentOf(v)
+		}
 		if ok {
 			measured++
 			out[f.key] = v
@@ -78,6 +93,12 @@ func Build(code string, result json.RawMessage) (map[string]any, error) {
 		return nil, ErrNoData
 	}
 	return out, nil
+}
+
+// percentOf turns a fraction into a percent, rounded to two decimals so the
+// stored value carries no float noise (0.0435 becomes 4.35, not 4.3500000000000005).
+func percentOf(fraction float64) float64 {
+	return math.Round(fraction*100*100) / 100
 }
 
 // decodeModules splits the result into its modules. A module that is absent or

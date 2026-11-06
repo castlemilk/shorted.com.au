@@ -45,7 +45,7 @@ func TestBuildMatchesThePythonContractOnRecordedBHP(t *testing.T) {
 		"pe_ratio":            18.858086,
 		"forward_pe":          15.591521,
 		"eps":                 3.03,
-		"dividend_yield":      0.0435,
+		"dividend_yield":      4.35, // Yahoo's 0.0435 fraction, as the percent the readers expect
 		"book_value":          14.261122,
 		"price_to_book":       4.006697,
 		"revenue":             58759999488.0,
@@ -204,4 +204,51 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func TestDividendYieldIsAPercentAndFallsBackToYieldForFunds(t *testing.T) {
+	// A stock carries summaryDetail.dividendYield (a fraction); a fund or trust
+	// carries only summaryDetail.yield. Both are stored as a percent, rounded to
+	// two decimals, the unit v7 reported and the readers print.
+	stockResult := json.RawMessage(`{
+		"price": {"regularMarketPrice": {"raw": 100}},
+		"summaryDetail": {"dividendYield": {"raw": 0.0304, "fmt": "3.04%"}, "yield": {"raw": 0.9}}
+	}`)
+	got, err := Build("CBA", stockResult)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["dividend_yield"] != 3.04 {
+		t.Errorf("stock dividend_yield = %v, want 3.04 (dividendYield wins over yield)", got["dividend_yield"])
+	}
+
+	fundResult := json.RawMessage(`{
+		"price": {"regularMarketPrice": {"raw": 100}},
+		"summaryDetail": {"yield": {"raw": 0.0295, "fmt": "2.95%"}}
+	}`)
+	got, err = Build("VAS", fundResult)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["dividend_yield"] != 2.95 {
+		t.Errorf("fund dividend_yield = %v, want 2.95 from summaryDetail.yield", got["dividend_yield"])
+	}
+
+	noYield := json.RawMessage(`{"price": {"regularMarketPrice": {"raw": 1}}, "summaryDetail": {"beta": {"raw": 1}}}`)
+	got, err = Build("NOY", noYield)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["dividend_yield"] != nil {
+		t.Errorf("dividend_yield = %v, want null when neither field is present", got["dividend_yield"])
+	}
+}
+
+func TestPercentOfRoundsWithoutFloatNoise(t *testing.T) {
+	cases := map[float64]float64{0.0435: 4.35, 0.0304: 3.04, 0.0007: 0.07, 0: 0, 0.12345: 12.35, -0.01: -1}
+	for in, want := range cases {
+		if got := percentOf(in); got != want {
+			t.Errorf("percentOf(%v) = %v, want %v", in, got, want)
+		}
+	}
 }
