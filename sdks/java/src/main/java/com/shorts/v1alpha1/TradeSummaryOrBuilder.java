@@ -95,4 +95,34 @@ public interface TradeSummaryOrBuilder extends
    * @return The hasWinRate.
    */
   boolean getHasWinRate();
+
+  /**
+   * <code>bool has_avg_hold = 11 [json_name = "hasAvgHold"];</code>
+   * @return The hasAvgHold.
+   */
+  boolean getHasAvgHold();
+
+  /**
+   * <code>bool has_avg_win = 12 [json_name = "hasAvgWin"];</code>
+   * @return The hasAvgWin.
+   */
+  boolean getHasAvgWin();
+
+  /**
+   * <code>bool has_avg_loss = 13 [json_name = "hasAvgLoss"];</code>
+   * @return The hasAvgLoss.
+   */
+  boolean getHasAvgLoss();
+
+  /**
+   * <code>bool has_best = 14 [json_name = "hasBest"];</code>
+   * @return The hasBest.
+   */
+  boolean getHasBest();
+
+  /**
+   * <code>bool has_worst = 15 [json_name = "hasWorst"];</code>
+   * @return The hasWorst.
+   */
+  boolean getHasWorst();
 }

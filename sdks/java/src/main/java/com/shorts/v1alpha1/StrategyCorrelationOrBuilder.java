@@ -42,7 +42,7 @@ public interface StrategyCorrelationOrBuilder extends
 
   /**
    * <pre>
-   * False when the overlap has too few returns.
+   * False when the overlap is too short or one curve is flat.
    * </pre>
    *
    * <code>bool has_correlation = 4 [json_name = "hasCorrelation"];</code>

@@ -42,7 +42,7 @@ public interface SeriesPointOrBuilder extends
 
   /**
    * <pre>
-   * Negative or zero.
+   * Negative or zero, two decimals.
    * </pre>
    *
    * <code>double drawdown_pct = 5 [json_name = "drawdownPct"];</code>

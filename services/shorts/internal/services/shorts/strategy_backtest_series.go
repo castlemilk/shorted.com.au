@@ -13,12 +13,11 @@ import (
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
-// The pure side of the backtest rpcs: the chained curve of a published run (5.8), the
-// weekly decimation of its series (5.18), the period tables (5.10), the window trade
-// counts (5.9) and the replay agreement (5.13). Nothing here reads a store, so every rule
-// is tested on its own.
+// The pure side of the backtest rpcs: the chained curve of a published run (5.8), the decimation
+// of its series (5.18), the period tables (5.10), the window trade counts (5.9) and the replay
+// agreement (5.13). Nothing here reads a store, so every rule is tested on its own.
 
-// weeklyPointCap bounds a series: at most this many points reach the wire (5.18).
+// weeklyPointCap bounds a served series: at most this many points reach the wire (5.18).
 const weeklyPointCap = 500
 
 // evidenceMonthCap bounds the evidence card's month-end curve (5.18: at most 96 points).
@@ -30,9 +29,13 @@ const (
 	paperMinClosed   = 10
 )
 
-// storedSeries is a run's series document, as the job writes it: parallel arrays of the
-// daily sessions. E, B and R are index levels for equity, XJT and the reference; DD and
-// X are fractions (drawdown from the peak, and invested over equity).
+// minCorrelationDays is the fewest overlapping daily returns a correlation is stated over.
+const minCorrelationDays = 20
+
+// storedSeries is a run's series document, as the job writes it: parallel arrays of the daily
+// sessions. E, B and R are index levels for equity, XJT and the reference; DD and X are fractions
+// (drawdown from the peak, and invested over equity). R is zero on runs published before the
+// reference was written into the records; those carry no daily reference.
 type storedSeries struct {
 	D  []string  `json:"d"`
 	E  []float64 `json:"e"`
@@ -56,28 +59,26 @@ type chainDay struct {
 	recorded bool
 }
 
-// chainedRun is a published run's curve after the chaining of 5.8: the in-sample sessions
-// before live_from, then the paper track rebased onto the last in-sample session.
+// chainedRun is a published run's curve after the chaining of 5.8: the in-sample sessions before
+// live_from, then the paper track rebased onto the last in-sample session.
 type chainedRun struct {
+	// days are the chained sessions: the in-sample ones, then the paper track's.
 	days []chainDay
-	// bt and paper are the two curves the backtest package's Windows chains. paper is nil
-	// when no paper session is recorded (or the run has no live_from), and Windows then
-	// ends its curve at the freeze.
+	// bt and paper are the two curves the backtest package's Windows chains. paper is nil when no
+	// paper session chains (or the run has no live_from).
 	bt    backtest.Series
 	paper *backtest.Series
-	// liveFrom is the first session of the paper track; hasLive is false for a run with no
-	// live_from, which has no in-sample/paper split.
+	// liveFrom is the first session of the paper track; hasLive is false for a run with no live
+	// split, which has no in-sample/paper boundary.
 	liveFrom civil.Date
 	hasLive  bool
-	// paperRows are the paper track's rows the chain used, for trade and exposure figures.
-	paperRows []shortsstore.PaperEquityRow
 }
 
-// buildChainedRun chains a run's stored series with its paper track. inSampleUntil is the
-// run's in_sample_until (live_from minus one day); "" means the run has no live split.
+// buildChainedRun chains a run's stored series with its paper track. inSampleUntil is the run's
+// in_sample_until (live_from minus one day); "" means the run has no live split.
 func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsstore.PaperEquityRow) (chainedRun, error) {
 	n := len(series.D)
-	if n == 0 || len(series.E) != n || len(series.B) != n || len(series.R) != n || len(series.X) != n {
+	if n == 0 || len(series.E) != n || len(series.B) != n || len(series.X) != n {
 		return chainedRun{}, fmt.Errorf("the series document is malformed: %d dates, %d equity points", n, len(series.E))
 	}
 	dates := make([]civil.Date, n)
@@ -91,8 +92,7 @@ func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsst
 	out := chainedRun{
 		bt: backtest.Series{Basis: backtest.BasisTotal, Curve: backtest.Curve{Dates: dates, Values: series.E}},
 	}
-	last := dates[n-1]
-	out.liveFrom = last.AddDays(1)
+	out.liveFrom = dates[n-1].AddDays(1)
 	if inSampleUntil != "" {
 		until, err := civil.ParseDate(inSampleUntil)
 		if err != nil {
@@ -101,8 +101,8 @@ func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsst
 		out.liveFrom, out.hasLive = until.AddDays(1), true
 	}
 
-	// The in-sample sessions are the backtest's before live_from. Without a live split
-	// every session is in-sample.
+	// The in-sample sessions are the backtest's before live_from. Without a live split every
+	// session is in-sample.
 	i := n
 	if out.hasLive {
 		i = sort.Search(n, func(k int) bool { return !dates[k].Before(out.liveFrom) })
@@ -115,7 +115,7 @@ func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsst
 		days = append(days, chainDay{
 			date: dates[k], equity: series.E[k],
 			bench: series.B[k], hasBench: series.B[k] > 0,
-			ref: series.R[k], hasRef: series.R[k] > 0,
+			ref: refAt(series, k), hasRef: refAt(series, k) > 0,
 			exposure: series.X[k],
 		})
 	}
@@ -131,11 +131,10 @@ func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsst
 			pc.Values = append(pc.Values, row.Equity)
 		}
 		ps := backtest.Series{Basis: backtest.BasisTotal, Curve: pc}
-		// Chain is the 5.8 formula. A paper track that cannot be chained (no session on or
-		// after live_from, or no in-sample session to start from) is left out, not guessed.
+		// Chain is the 5.8 formula. A paper track that cannot be chained (no session on or after
+		// live_from, or no in-sample session to start from) is left out, not guessed.
 		if _, err := backtest.Chain(out.bt, ps, out.liveFrom); err == nil {
 			out.paper = &ps
-			out.paperRows = paper
 			days = append(days, paperDays(paper, pc, out.liveFrom, series, i)...)
 		}
 	}
@@ -143,33 +142,31 @@ func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsst
 	return out, nil
 }
 
-// paperDays are the paper track's sessions on or after live_from, rebased as Chain
-// rebases them: equity E(t) = E_bt(live_from-1) x paper(t) / paper(start). The benchmark
-// is rebased the same way when the paper track records one; the reference is not recorded
-// after the freeze, so those sessions carry none.
+// refAt is the stored reference level of session k, or zero when the series carries none.
+func refAt(series storedSeries, k int) float64 {
+	if k < len(series.R) {
+		return series.R[k]
+	}
+	return 0
+}
+
+// paperDays are the paper track's sessions on or after live_from, rebased as Chain rebases them:
+// E(t) = E_bt(live_from-1) x paper(t) / paper(start). The paper track's own first session is the
+// base of the rebase, and the last in-sample session carries the level the chain starts from.
 func paperDays(paper []shortsstore.PaperEquityRow, pc backtest.Curve, liveFrom civil.Date, series storedSeries, i int) []chainDay {
 	j := sort.Search(len(pc.Dates), func(m int) bool { return !pc.Dates[m].Before(liveFrom) })
 	base := series.E[i-1]
 	start := pc.Values[j]
-	baseBench := series.B[i-1]
-	var startBench float64
-	if paper[j].Benchmark != nil {
-		startBench = *paper[j].Benchmark
-	}
 	out := make([]chainDay, 0, len(pc.Dates)-j)
 	for m := j; m < len(pc.Dates); m++ {
 		row := paper[m]
 		day := chainDay{
 			date:     pc.Dates[m],
 			equity:   base * pc.Values[m] / start,
-			exposure: 0,
 			recorded: true,
 		}
 		if row.Equity > 0 {
 			day.exposure = (row.Equity - row.Cash) / row.Equity
-		}
-		if row.Benchmark != nil && *row.Benchmark > 0 && startBench > 0 && baseBench > 0 {
-			day.bench, day.hasBench = baseBench**row.Benchmark/startBench, true
 		}
 		out = append(out, day)
 	}
@@ -201,65 +198,69 @@ func isoWeekKey(d civil.Date) string {
 	return fmt.Sprintf("%04d-W%02d", y, w)
 }
 
-// keptSessions is the decimation of 5.18: the last session of each ISO week, the first and
-// last sessions, and the trough. When the result would exceed the cap, every k-th week is
-// kept, and the first, last and trough sessions always are.
-func keptSessions(days []chainDay, trough int) []int {
+// keptSessions is the decimation of 5.18: the last session of each ISO week, plus the must-keep
+// sessions (the first and last sessions, and whichever the caller names: each window's peak and
+// trough, and the sessions either side of live_from). The result is at most weeklyPointCap points.
+// When the weekly list is too long, the free weeks are thinned by a stride that leaves room for
+// every must-keep session, so the count never exceeds the cap.
+func keptSessions(days []chainDay, must []int) []int {
 	n := len(days)
 	if n == 0 {
 		return nil
 	}
-	must := map[int]bool{0: true, n - 1: true}
-	if trough >= 0 {
-		must[trough] = true
+	mustSet := map[int]bool{0: true, n - 1: true}
+	for _, m := range must {
+		if m >= 0 && m < n {
+			mustSet[m] = true
+		}
 	}
-	var weekly []int
+	var free []int
 	for k := 0; k < n; k++ {
-		if k == n-1 || isoWeekKey(days[k].date) != isoWeekKey(days[k+1].date) {
-			weekly = append(weekly, k)
+		if (k == n-1 || isoWeekKey(days[k].date) != isoWeekKey(days[k+1].date)) && !mustSet[k] {
+			free = append(free, k)
 		}
 	}
-	for m := range must {
-		if !containsInt(weekly, m) {
-			weekly = append(weekly, m)
+	budget := weeklyPointCap - len(mustSet)
+	if budget < 0 {
+		budget = 0
+	}
+	picked := free
+	if len(free) > budget {
+		picked = nil
+		if budget > 0 {
+			stride := (len(free) + budget - 1) / budget
+			for p := 0; p < len(free); p += stride {
+				picked = append(picked, free[p])
+			}
 		}
 	}
-	sort.Ints(weekly)
-	if len(weekly) <= weeklyPointCap {
-		return weekly
+	out := make([]int, 0, len(mustSet)+len(picked))
+	for k := range mustSet {
+		out = append(out, k)
 	}
-	stride := (len(weekly) + weeklyPointCap - 1) / weeklyPointCap
-	out := make([]int, 0, weeklyPointCap)
-	for p, k := range weekly {
-		if p%stride == 0 || must[k] {
-			out = append(out, k)
-		}
-	}
+	out = append(out, picked...)
+	sort.Ints(out)
 	return out
 }
 
-func containsInt(xs []int, x int) bool {
-	for _, v := range xs {
-		if v == x {
-			return true
-		}
-	}
-	return false
-}
+// round0, round2 and round4 round to whole dollars and to two and four decimals.
+func round0(v float64) float64 { return math.Round(v) }
+func round2(v float64) float64 { return math.Round(v*1e2) / 1e2 }
+func round4(v float64) float64 { return math.Round(v*1e4) / 1e4 }
 
-// seriesOf turns the kept sessions into series points. The drawdown of each is taken on
-// the chained curve, so the drawn fall reaches the reported maximum. The figures are rounded
-// to the precision a reader can use (cents of A$, two decimals on the index levels, four on
-// the drawdown): a series of about 400 points is what the 60 KB payload budget is spent on.
-func seriesOf(days []chainDay, idx []int) []*shortsv1alpha1.SeriesPoint {
-	dd, _ := drawdowns(days)
+// seriesOf turns the kept sessions of a served span into series points. The drawdown is taken on
+// the served span itself, so a window's drawn fall reaches its own reported maximum. The figures
+// are rounded to what a reader can use: whole A$ for equity, two decimals elsewhere, which keeps a
+// 500-point series near 50 KB.
+func seriesOf(served []chainDay, idx []int) []*shortsv1alpha1.SeriesPoint {
+	dd, _ := drawdowns(served)
 	out := make([]*shortsv1alpha1.SeriesPoint, 0, len(idx))
 	for _, k := range idx {
-		d := days[k]
+		d := served[k]
 		p := &shortsv1alpha1.SeriesPoint{
 			Date:        d.date.String(),
-			Equity:      round2(d.equity),
-			DrawdownPct: round4(dd[k] * 100),
+			Equity:      round0(d.equity),
+			DrawdownPct: round2(dd[k] * 100),
 			ExposurePct: round2(d.exposure * 100),
 			Recorded:    d.recorded,
 		}
@@ -274,17 +275,8 @@ func seriesOf(days []chainDay, idx []int) []*shortsv1alpha1.SeriesPoint {
 	return out
 }
 
-// round2 and round4 round to two and four decimals.
-func round2(v float64) float64 { return math.Round(v*1e2) / 1e2 }
-func round4(v float64) float64 { return math.Round(v*1e4) / 1e4 }
-
-// round6 rounds to the millionth, the precision the stored series keeps.
-func round6(v float64) float64 {
-	return math.Round(v*1e6) / 1e6
-}
-
-// periodRow is one year or month of the chained curve: the sessions it spans and their
-// base (the last session of the period before, or the window's first session).
+// periodRow is one year or month of the chained curve: the sessions it spans and the session its
+// return is measured from (the last session of the period before, or the first session).
 type periodRow struct {
 	key   string
 	first int
@@ -309,9 +301,9 @@ func periodsOf(days []chainDay, key func(civil.Date) string) []periodRow {
 	return out
 }
 
-// periodReturn is the return of a period measured from its base, and whether the benchmark
-// and the reference are measured over the same span.
-func periodReturn(days []chainDay, p periodRow) (strategy float64, bench float64, hasBench bool, ref float64, hasRef bool) {
+// periodReturn is the return of a period measured from its base. The benchmark and the reference
+// are reported only where both ends carry their level.
+func periodReturn(days []chainDay, p periodRow) (strategy, bench float64, hasBench bool, ref float64, hasRef bool) {
 	b, l := days[p.base], days[p.last]
 	strategy = (l.equity/b.equity - 1) * 100
 	if b.hasBench && l.hasBench {
@@ -323,31 +315,61 @@ func periodReturn(days []chainDay, p periodRow) (strategy float64, bench float64
 	return strategy, bench, hasBench, ref, hasRef
 }
 
-// periodTables builds the annual and monthly tables (5.10). The first period is measured from
-// the window's first session and is partial; the current period is measured to date and is
-// not elapsed. Coverage on the annual rows is the qualifying measure's, which is what the
-// table prints (the coverage tables carry both).
-func periodTables(days []chainDay, cov backtest.Coverage) ([]*shortsv1alpha1.AnnualReturn, []*shortsv1alpha1.MonthlyReturn) {
+// coverageMeasure names the measure an annual row's coverage uses (5.11, 1.5). A measured run uses
+// the qualifying measure; an ASIC-reported-only run (Minervini) uses all reported names, and marks
+// every year before 2025 not measurable, as the cells do ("?" before 2025); an unmeasurable run has
+// no coverage.
+const (
+	measureQualifying      = "qualifying_5pct_short"
+	measureAllReported     = "all_reported"
+	measureNotMeasured     = "not_measurable"
+	coverageMeasurableFrom = 2025
+)
+
+// annualCoverage is the coverage of one year under the measure the run's survivorship names.
+func annualCoverage(year int, measurement string, cov backtest.Coverage) (pct float64, measurable bool, measure string) {
+	switch measurement {
+	case backtest.MeasurementMeasured:
+		c, ok := coverageByKey(cov.Qualifying.Years)[fmt.Sprintf("%04d", year)]
+		if ok && c.Qualifying > 0 {
+			return round2(c.Ratio * 100), true, measureQualifying
+		}
+		return 0, false, measureQualifying
+	case backtest.MeasurementASICOnly:
+		if year < coverageMeasurableFrom {
+			return 0, false, measureNotMeasured
+		}
+		c, ok := coverageByKey(cov.AllReported.Years)[fmt.Sprintf("%04d", year)]
+		if ok && c.Qualifying > 0 {
+			return round2(c.Ratio * 100), true, measureAllReported
+		}
+		return 0, false, measureAllReported
+	}
+	return 0, false, measureNotMeasured
+}
+
+// periodTables builds the annual and monthly tables (5.10). The first period is measured from the
+// window's first session and is partial; the current period is measured to date (state to_date).
+// Coverage on the annual rows follows the run's survivorship measurement.
+func periodTables(days []chainDay, cov backtest.Coverage, measurement string) ([]*shortsv1alpha1.AnnualReturn, []*shortsv1alpha1.MonthlyReturn) {
 	if len(days) == 0 {
 		return nil, nil
 	}
 	latest := days[len(days)-1].date
 	first := days[0].date
 
-	covYears := coverageByKey(cov.Qualifying.Years)
-
 	var annual []*shortsv1alpha1.AnnualReturn
 	for _, p := range periodsOf(days, func(d civil.Date) string { return fmt.Sprintf("%04d", d.Year) }) {
 		year := days[p.first].date.Year
 		strat, bench, hasBench, ref, hasRef := periodReturn(days, p)
 		row := &shortsv1alpha1.AnnualReturn{
-			Year: int32(year), StrategyPct: round6(strat),
-			BenchmarkPct: round6(bench), HasBenchmark: hasBench,
-			ReferencePct: round6(ref), HasReference: hasRef,
+			Year: int32(year), StrategyPct: round2(strat),
+			BenchmarkPct: round2(bench), HasBenchmark: hasBench,
+			ReferencePct: round2(ref), HasReference: hasRef,
 		}
 		switch year {
 		case latest.Year:
-			row.State = "not_elapsed"
+			row.State = "to_date"
 			row.Months = "YTD"
 		case first.Year:
 			row.State = "partial"
@@ -355,9 +377,7 @@ func periodTables(days []chainDay, cov backtest.Coverage) ([]*shortsv1alpha1.Ann
 		default:
 			row.State = "complete"
 		}
-		if c, ok := covYears[p.key]; ok && c.Qualifying > 0 {
-			row.CoveragePct, row.CoverageMeasurable = round6(c.Ratio*100), true
-		}
+		row.CoveragePct, row.CoverageMeasurable, row.CoverageMeasure = annualCoverage(year, measurement, cov)
 		annual = append(annual, row)
 	}
 
@@ -366,13 +386,13 @@ func periodTables(days []chainDay, cov backtest.Coverage) ([]*shortsv1alpha1.Ann
 		d := days[p.first].date
 		strat, bench, hasBench, ref, hasRef := periodReturn(days, p)
 		row := &shortsv1alpha1.MonthlyReturn{
-			Year: int32(d.Year), Month: int32(d.Month), StrategyPct: round6(strat),
-			BenchmarkPct: round6(bench), HasBenchmark: hasBench,
-			ReferencePct: round6(ref), HasReference: hasRef,
+			Year: int32(d.Year), Month: int32(d.Month), StrategyPct: round2(strat),
+			BenchmarkPct: round2(bench), HasBenchmark: hasBench,
+			ReferencePct: round2(ref), HasReference: hasRef,
 		}
 		switch {
 		case p.key == fmt.Sprintf("%04d-%02d", latest.Year, latest.Month):
-			row.State = "not_elapsed"
+			row.State = "to_date"
 			row.Label = "MTD"
 		case p.key == fmt.Sprintf("%04d-%02d", first.Year, first.Month):
 			row.State = "partial"
@@ -398,50 +418,18 @@ func monthName(m time.Month) string {
 	return m.String()[:3]
 }
 
-// windowTrade is one trade's share in the window figures: its exit session and, for an
-// in-sample trade, its net return. A paper trade carries no net return here, so it does not
-// count toward a win rate.
+// windowTrade is one trade's share in a window's figures: its exit session and, for an in-sample
+// trade, its net return. A paper trade carries no net return on this path, so it does not count
+// toward a win rate.
 type windowTrade struct {
-	exit     civil.Date
-	net      float64
-	hasNet   bool
-	inSample bool
+	exit   civil.Date
+	net    float64
+	hasNet bool
 }
 
-// windowTrades is the chained trades: the in-sample trades that closed before live_from
-// (the paper track replaces the rest) and, when a paper track is recorded, its closed
-// trades.
-func windowTrades(run []shortsstore.BacktestTradeRow, paper []shortsstore.PaperTradeRow, liveFrom civil.Date, hasLive, hasPaper bool) []windowTrade {
-	var out []windowTrade
-	for _, t := range run {
-		if t.Open || t.ExitDate == "" {
-			continue
-		}
-		exit, err := civil.ParseDate(t.ExitDate)
-		if err != nil || (hasLive && !exit.Before(liveFrom)) {
-			continue
-		}
-		out = append(out, windowTrade{exit: exit, net: t.NetReturnPct / 100, hasNet: true, inSample: true})
-	}
-	if !hasPaper {
-		return out
-	}
-	for _, t := range paper {
-		if t.Status != "closed" || t.ExitDate == "" {
-			continue
-		}
-		exit, err := civil.ParseDate(t.ExitDate)
-		if err != nil {
-			continue
-		}
-		out = append(out, windowTrade{exit: exit})
-	}
-	return out
-}
-
-// closedAndWinRate counts the trades that exited inside [from, to]. The win rate is over the
-// in-sample trades only, and is withheld (hasWin false) when the window holds paper sessions,
-// since the paper trades carry no net return.
+// closedAndWinRate counts the trades that exited inside [from, to]. The win rate is over the trades
+// that carry a net return, and is withheld when the window holds paper sessions (paper trades carry
+// no net return until the paper track records one).
 func closedAndWinRate(trades []windowTrade, from, to civil.Date, windowHasPaper bool) (closed int, winRate float64, hasWin bool) {
 	var wins, withNet int
 	for _, t := range trades {
@@ -462,37 +450,86 @@ func closedAndWinRate(trades []windowTrade, from, to civil.Date, windowHasPaper 
 	return closed, float64(wins) / float64(withNet) * 100, true
 }
 
-// replayAgreement compares the run's trades since live_from with the paper track on (code,
-// entry date, exit date) (5.13). comparable is false when the run's fundamentals policy is
-// not the live one: such a run is never compared.
-func replayAgreement(run []shortsstore.BacktestTradeRow, paper []shortsstore.PaperTradeRow, liveFrom civil.Date, hasLive, comparable bool) string {
+// replayPaperTrade is one paper trade as the replay compares it.
+type replayPaperTrade struct {
+	code, entry, exit string
+	open              bool
+}
+
+// replayAgreement compares the run's trades with the paper track (5.13). Only entries in
+// [live_from, end] are compared, where end is the earlier of the run's window end and the paper
+// track's last session: a trade the paper track has not reached yet is not compared. The count is
+// over the union of the two sides, so a paper trade the run does not have is a disagreement. A run
+// trade open at the run's end agrees with a paper trade that is still open or that exits after the
+// run's window end. A run whose fundamentals policy is not the live one is never compared.
+func replayAgreement(run []shortsstore.BacktestTradeRow, paper []shortsstore.PaperTradeRow, liveFrom civil.Date, hasLive bool, runEnd, paperEnd civil.Date, comparable bool) string {
 	if !comparable {
 		return "Replay not comparable: different fundamentals policy"
 	}
 	if !hasLive {
 		return ""
 	}
-	type key struct{ code, entry, exit string }
-	have := map[key]int{}
-	for _, p := range paper {
-		have[key{p.StockCode, p.EntryDate, p.ExitDate}]++
+	if paperEnd.IsZero() {
+		return "No paper track to compare yet"
 	}
+	end := runEnd
+	if paperEnd.Before(end) {
+		end = paperEnd
+	}
+	inRange := func(entry civil.Date) bool { return !entry.Before(liveFrom) && !entry.After(end) }
+
+	var ps []replayPaperTrade
+	for _, p := range paper {
+		entry, err := civil.ParseDate(p.EntryDate)
+		if err != nil || !inRange(entry) {
+			continue
+		}
+		ps = append(ps, replayPaperTrade{code: p.StockCode, entry: p.EntryDate, exit: p.ExitDate, open: p.ExitDate == ""})
+	}
+	used := make([]bool, len(ps))
 	total, agree := 0, 0
 	for _, t := range run {
 		entry, err := civil.ParseDate(t.EntryDate)
-		if err != nil || entry.Before(liveFrom) {
+		if err != nil || !inRange(entry) {
 			continue
 		}
+		// A run trade that exits after the paper track's last session has not happened on the paper
+		// side yet: it is not compared.
+		if !t.Open && t.ExitDate != "" {
+			exit, err := civil.ParseDate(t.ExitDate)
+			if err == nil && exit.After(end) {
+				continue
+			}
+		}
 		total++
-		k := key{t.StockCode, t.EntryDate, t.ExitDate}
-		if have[k] > 0 {
-			have[k]--
+		matched := false
+		for i, p := range ps {
+			if used[i] || p.code != t.StockCode || p.entry != t.EntryDate {
+				continue
+			}
+			var ok bool
+			if t.Open {
+				ok = p.open || (p.exit != "" && p.exit > runEndString(runEnd))
+			} else {
+				ok = p.exit == t.ExitDate
+			}
+			if ok {
+				used[i], matched = true, true
+				break
+			}
+		}
+		if matched {
 			agree++
+		}
+	}
+	for i := range ps {
+		if !used[i] {
+			total++
 		}
 	}
 	switch {
 	case total == 0:
-		return fmt.Sprintf("No trades since %s to compare", liveFrom)
+		return fmt.Sprintf("No trades entered between %s and %s to compare", liveFrom, end)
 	case agree == total:
 		return fmt.Sprintf("Replay agrees: %d of %d trades", agree, total)
 	default:
@@ -500,12 +537,15 @@ func replayAgreement(run []shortsstore.BacktestTradeRow, paper []shortsstore.Pap
 	}
 }
 
-// tradeSummaryOf is the public trade summary of a run's in-sample trades (5.10).
+// runEndString is the run's end as the YYYY-MM-DD string the paper exits are compared by.
+func runEndString(d civil.Date) string { return d.String() }
+
+// tradeSummaryOf is the public trade summary of the closed trades the caller passes (the in-sample
+// trades, by 1.5). Each figure carries a has_ flag that is false when no trade supports it.
 func tradeSummaryOf(run []shortsstore.BacktestTradeRow) *shortsv1alpha1.TradeSummary {
 	out := &shortsv1alpha1.TradeSummary{ExitsByReason: map[string]int32{}}
 	var wins, losses int
 	var winSum, lossSum, holdSum float64
-	first := true
 	for _, t := range run {
 		if t.ExitReason != "" {
 			out.ExitsByReason[t.ExitReason]++
@@ -523,24 +563,24 @@ func tradeSummaryOf(run []shortsstore.BacktestTradeRow) *shortsv1alpha1.TradeSum
 			losses++
 			lossSum += t.NetReturnPct
 		}
-		if first || t.NetReturnPct > out.BestPct {
-			out.BestPct = round6(t.NetReturnPct)
+		if !out.HasBest || t.NetReturnPct > out.BestPct {
+			out.BestPct, out.HasBest = round2(t.NetReturnPct), true
 		}
-		if first || t.NetReturnPct < out.WorstPct {
-			out.WorstPct = round6(t.NetReturnPct)
+		if !out.HasWorst || t.NetReturnPct < out.WorstPct {
+			out.WorstPct, out.HasWorst = round2(t.NetReturnPct), true
 		}
-		first = false
 	}
 	if out.Closed > 0 {
-		out.AvgHoldSessions = round6(holdSum / float64(out.Closed))
-		out.WinRatePct = round6(float64(wins) / float64(out.Closed) * 100)
+		out.AvgHoldSessions = round2(holdSum / float64(out.Closed))
+		out.HasAvgHold = true
+		out.WinRatePct = round2(float64(wins) / float64(out.Closed) * 100)
 		out.HasWinRate = true
 	}
 	if wins > 0 {
-		out.AvgWinPct = round6(winSum / float64(wins))
+		out.AvgWinPct, out.HasAvgWin = round2(winSum/float64(wins)), true
 	}
 	if losses > 0 {
-		out.AvgLossPct = round6(lossSum / float64(losses))
+		out.AvgLossPct, out.HasAvgLoss = round2(lossSum/float64(losses)), true
 	}
 	return out
 }
@@ -557,15 +597,14 @@ func paperSummaryOf(since string, rows []shortsstore.PaperEquityRow, trades []sh
 		}
 	}
 	if len(rows) >= 2 && rows[0].Equity > 0 {
-		out.ReturnPct = round6((rows[len(rows)-1].Equity/rows[0].Equity - 1) * 100)
+		out.ReturnPct = round2((rows[len(rows)-1].Equity/rows[0].Equity - 1) * 100)
 		out.HasReturn = true
 	}
 	out.TooShort = len(rows) < paperMinSessions || int(out.ClosedTrades) < paperMinClosed
 	return out
 }
 
-// monthEnds are the last session of each month, at most evidenceMonthCap of them, the
-// newest kept. The evidence card's mini curve is drawn from them.
+// monthEnds are the last session of each month, at most cap of them, the newest kept.
 func monthEnds(days []chainDay, cap int) []int {
 	var out []int
 	for k := range days {
@@ -587,4 +626,50 @@ func curveOf(days []chainDay) backtest.Curve {
 		c.Values = append(c.Values, d.equity)
 	}
 	return c
+}
+
+// dailyReturns is each session's return on the previous one, keyed by session.
+func dailyReturns(days []chainDay) map[civil.Date]float64 {
+	out := make(map[civil.Date]float64, len(days))
+	for k := 1; k < len(days); k++ {
+		if days[k-1].equity > 0 {
+			out[days[k].date] = days[k].equity/days[k-1].equity - 1
+		}
+	}
+	return out
+}
+
+// correlate is the Pearson correlation of two return series over the sessions both hold. The
+// overlap is taken in date order, so the result never depends on map iteration. ok is false when
+// the overlap is shorter than minCorrelationDays or one series has no variance.
+func correlate(a, b map[civil.Date]float64) (float64, int, bool) {
+	dates := make([]civil.Date, 0, len(a))
+	for d := range a {
+		if _, ok := b[d]; ok {
+			dates = append(dates, d)
+		}
+	}
+	sort.Slice(dates, func(i, j int) bool { return dates[i].Before(dates[j]) })
+	n := len(dates)
+	if n < minCorrelationDays {
+		return 0, n, false
+	}
+	var mx, my float64
+	for _, d := range dates {
+		mx += a[d]
+		my += b[d]
+	}
+	mx /= float64(n)
+	my /= float64(n)
+	var sxy, sxx, syy float64
+	for _, d := range dates {
+		dx, dy := a[d]-mx, b[d]-my
+		sxy += dx * dy
+		sxx += dx * dx
+		syy += dy * dy
+	}
+	if sxx == 0 || syy == 0 {
+		return 0, n, false
+	}
+	return sxy / math.Sqrt(sxx*syy), n, true
 }

@@ -18,7 +18,7 @@ public interface AnnualReturnOrBuilder extends
 
   /**
    * <pre>
-   * complete | partial | not_elapsed.
+   * complete | partial | to_date (the current year, measured to date).
    * </pre>
    *
    * <code>string state = 2 [json_name = "state"];</code>
@@ -27,7 +27,7 @@ public interface AnnualReturnOrBuilder extends
   java.lang.String getState();
   /**
    * <pre>
-   * complete | partial | not_elapsed.
+   * complete | partial | to_date (the current year, measured to date).
    * </pre>
    *
    * <code>string state = 2 [json_name = "state"];</code>
@@ -37,67 +37,55 @@ public interface AnnualReturnOrBuilder extends
       getStateBytes();
 
   /**
+   * <code>double strategy_pct = 3 [json_name = "strategyPct"];</code>
+   * @return The strategyPct.
+   */
+  double getStrategyPct();
+
+  /**
+   * <code>double benchmark_pct = 4 [json_name = "benchmarkPct"];</code>
+   * @return The benchmarkPct.
+   */
+  double getBenchmarkPct();
+
+  /**
+   * <code>double reference_pct = 5 [json_name = "referencePct"];</code>
+   * @return The referencePct.
+   */
+  double getReferencePct();
+
+  /**
    * <pre>
-   * "May-Dec" or "YTD"; "" for a whole year.
+   * "May-Dec" for a partial first year, "YTD" for the current; "" for a whole year.
    * </pre>
    *
-   * <code>string months = 3 [json_name = "months"];</code>
+   * <code>string months = 6 [json_name = "months"];</code>
    * @return The months.
    */
   java.lang.String getMonths();
   /**
    * <pre>
-   * "May-Dec" or "YTD"; "" for a whole year.
+   * "May-Dec" for a partial first year, "YTD" for the current; "" for a whole year.
    * </pre>
    *
-   * <code>string months = 3 [json_name = "months"];</code>
+   * <code>string months = 6 [json_name = "months"];</code>
    * @return The bytes for months.
    */
   com.google.protobuf.ByteString
       getMonthsBytes();
 
   /**
-   * <code>double strategy_pct = 4 [json_name = "strategyPct"];</code>
-   * @return The strategyPct.
-   */
-  double getStrategyPct();
-
-  /**
-   * <code>double benchmark_pct = 5 [json_name = "benchmarkPct"];</code>
-   * @return The benchmarkPct.
-   */
-  double getBenchmarkPct();
-
-  /**
-   * <code>bool has_benchmark = 6 [json_name = "hasBenchmark"];</code>
-   * @return The hasBenchmark.
-   */
-  boolean getHasBenchmark();
-
-  /**
-   * <code>double reference_pct = 7 [json_name = "referencePct"];</code>
-   * @return The referencePct.
-   */
-  double getReferencePct();
-
-  /**
-   * <code>bool has_reference = 8 [json_name = "hasReference"];</code>
-   * @return The hasReference.
-   */
-  boolean getHasReference();
-
-  /**
    * <pre>
-   * Qualifying coverage over the year, the measure this table prints.
+   * Coverage under coverage_measure.
    * </pre>
    *
-   * <code>double coverage_pct = 9 [json_name = "coveragePct"];</code>
+   * <code>double coverage_pct = 7 [json_name = "coveragePct"];</code>
    * @return The coveragePct.
    */
   double getCoveragePct();
 
   /**
-   * <code>bool coverage_measurable = 10 [json_name = "coverageMeasurable"];</code>
+   * <code>bool coverage_measurable = 8 [json_name = "coverageMeasurable"];</code>
    * @return The coverageMeasurable.
    */
   boolean getCoverageMeasurable();
@@ -107,8 +95,40 @@ public interface AnnualReturnOrBuilder extends
    * An approximate run's year. Nothing sets it in this release.
    * </pre>
    *
-   * <code>bool approximate = 11 [json_name = "approximate"];</code>
+   * <code>bool approximate = 9 [json_name = "approximate"];</code>
    * @return The approximate.
    */
   boolean getApproximate();
+
+  /**
+   * <code>bool has_benchmark = 10 [json_name = "hasBenchmark"];</code>
+   * @return The hasBenchmark.
+   */
+  boolean getHasBenchmark();
+
+  /**
+   * <code>bool has_reference = 11 [json_name = "hasReference"];</code>
+   * @return The hasReference.
+   */
+  boolean getHasReference();
+
+  /**
+   * <pre>
+   * qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses.
+   * </pre>
+   *
+   * <code>string coverage_measure = 12 [json_name = "coverageMeasure"];</code>
+   * @return The coverageMeasure.
+   */
+  java.lang.String getCoverageMeasure();
+  /**
+   * <pre>
+   * qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses.
+   * </pre>
+   *
+   * <code>string coverage_measure = 12 [json_name = "coverageMeasure"];</code>
+   * @return The bytes for coverageMeasure.
+   */
+  com.google.protobuf.ByteString
+      getCoverageMeasureBytes();
 }

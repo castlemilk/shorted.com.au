@@ -242,6 +242,16 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_BacktestRun_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_DataQuality_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_DataQuality_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_DataQuality_CancelledEntriesEntry_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_DataQuality_CancelledEntriesEntry_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_shorts_v1alpha1_BacktestRunIdentity_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -341,6 +351,11 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_StrategyCorrelation_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_RuleDiff_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_RuleDiff_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -617,7 +632,7 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       "es\022!\n\014window_start\030\002 \001(\tR\013windowStart\022%\n" +
       "\016prices_through\030\003 \001(\tR\rpricesThrough\022%\n\016" +
       "benchmark_name\030\004 \001(\tR\rbenchmarkName\022\034\n\tf" +
-      "ootnotes\030\005 \003(\tR\tfootnotes\"\321\004\n\020StrategyEv" +
+      "ootnotes\030\005 \003(\tR\tfootnotes\"\375\005\n\020StrategyEv" +
       "idence\022\037\n\013strategy_id\030\001 \001(\tR\nstrategyId\022" +
       "=\n\007version\030\002 \001(\0132#.shorts.v1alpha1.Strat" +
       "egyVersionRefR\007version\022\024\n\005state\030\003 \001(\tR\005s" +
@@ -632,258 +647,300 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       "(\0132\".shorts.v1alpha1.PaperTrackSummaryR\005" +
       "paper\022\"\n\014survivorship\030\013 \001(\tR\014survivorshi" +
       "p\022\025\n\006run_id\030\014 \001(\003R\005runId\022#\n\rlatest_scree" +
-      "n\030\r \001(\tR\014latestScreen\"o\n\025GetBacktestRunR" +
-      "equest\022\037\n\013strategy_id\030\001 \001(\tR\nstrategyId\022" +
-      "\025\n\006run_id\030\002 \001(\003R\005runId\022\036\n\nresolution\030\003 \001" +
-      "(\tR\nresolution\"H\n\026GetBacktestRunResponse" +
-      "\022.\n\003run\030\001 \001(\0132\034.shorts.v1alpha1.Backtest" +
-      "RunR\003run\"\264\n\n\013BacktestRun\022\024\n\005state\030\001 \001(\tR" +
-      "\005state\022\037\n\013strategy_id\030\002 \001(\tR\nstrategyId\022" +
-      "\'\n\017computable_from\030\003 \001(\tR\016computableFrom" +
-      "\022!\n\014fiscal_label\030\004 \001(\tR\013fiscalLabel\022@\n\010i" +
-      "dentity\030\005 \001(\0132$.shorts.v1alpha1.Backtest" +
-      "RunIdentityR\010identity\0228\n\007windows\030\006 \003(\0132\036" +
-      ".shorts.v1alpha1.WindowMetricsR\007windows\022" +
-      "5\n\006annual\030\007 \003(\0132\035.shorts.v1alpha1.Annual" +
-      "ReturnR\006annual\0228\n\007monthly\030\010 \003(\0132\036.shorts" +
-      ".v1alpha1.MonthlyReturnR\007monthly\0224\n\006seri" +
-      "es\030\t \003(\0132\034.shorts.v1alpha1.SeriesPointR\006" +
-      "series\022G\n\020coverage_by_year\030\n \003(\0132\035.short" +
-      "s.v1alpha1.CoverageYearR\016coverageByYear\022" +
-      "I\n\020coverage_monthly\030\013 \003(\0132\036.shorts.v1alp" +
-      "ha1.CoverageMonthR\017coverageMonthly\022A\n\014su" +
-      "rvivorship\030\014 \001(\0132\035.shorts.v1alpha1.Survi" +
-      "vorshipR\014survivorship\022>\n\013sensitivity\030\r \003" +
-      "(\0132\034.shorts.v1alpha1.SensitivityR\013sensit" +
-      "ivity\0224\n\006recipe\030\016 \001(\0132\034.shorts.v1alpha1." +
-      "RecipeLinesR\006recipe\022B\n\rtrade_summary\030\017 \001" +
-      "(\0132\035.shorts.v1alpha1.TradeSummaryR\014trade" +
-      "Summary\022F\n\014live_version\030\020 \001(\0132#.shorts.v" +
-      "1alpha1.StrategyVersionRefR\013liveVersion\022" +
-      "(\n\020rules_match_live\030\021 \001(\010R\016rulesMatchLiv" +
-      "e\022.\n\023engine_matches_live\030\022 \001(\010R\021engineMa" +
-      "tchesLive\022)\n\020replay_agreement\030\023 \001(\tR\017rep" +
-      "layAgreement\022*\n\021input_change_note\030\024 \001(\tR" +
-      "\017inputChangeNote\022 \n\013disclosures\030\025 \003(\tR\013d" +
-      "isclosures\022\035\n\ndata_notes\030\026 \003(\tR\tdataNote" +
-      "s\022#\n\rrunning_since\030\027 \001(\tR\014runningSince\022+" +
-      "\n\021series_resolution\030\030 \001(\tR\020seriesResolut" +
-      "ion\0220\n\024computable_share_pct\030\031 \001(\001R\022compu" +
-      "tableSharePct\0220\n\024has_computable_share\030\032 " +
-      "\001(\010R\022hasComputableShare\"\201\006\n\023BacktestRunI" +
-      "dentity\022\025\n\006run_id\030\001 \001(\003R\005runId\022\027\n\007run_ke" +
-      "y\030\002 \001(\tR\006runKey\022\022\n\004kind\030\003 \001(\tR\004kind\022=\n\007v" +
-      "ersion\030\004 \001(\0132#.shorts.v1alpha1.StrategyV" +
-      "ersionRefR\007version\022\033\n\trecipe_id\030\005 \001(\tR\010r" +
-      "ecipeId\022\037\n\013recipe_hash\030\006 \001(\tR\nrecipeHash" +
-      "\022%\n\016engine_version\030\007 \001(\tR\rengineVersion\022" +
-      "!\n\014window_start\030\010 \001(\tR\013windowStart\022\035\n\nwi" +
-      "ndow_end\030\t \001(\tR\twindowEnd\022\030\n\007returns\030\n \001" +
-      "(\tR\007returns\022\034\n\tbenchmark\030\013 \001(\tR\tbenchmar" +
-      "k\022\"\n\014fundamentals\030\014 \001(\tR\014fundamentals\022%\n" +
-      "\016prices_through\030\r \001(\tR\rpricesThrough\022.\n\023" +
-      "asic_report_through\030\016 \001(\tR\021asicReportThr" +
-      "ough\022&\n\017in_sample_until\030\017 \001(\tR\rinSampleU" +
-      "ntil\022\037\n\013finished_at\030\020 \001(\tR\nfinishedAt\022\035\n" +
-      "\ninput_hash\030\021 \001(\tR\tinputHash\022\037\n\013output_h" +
-      "ash\030\022 \001(\tR\noutputHash\022%\n\016build_revision\030" +
-      "\023 \001(\tR\rbuildRevision\022\033\n\trisk_free\030\024 \001(\tR" +
-      "\010riskFree\022%\n\016reference_name\030\025 \001(\tR\rrefer" +
-      "enceName\022\031\n\010run_date\030\026 \001(\tR\007runDate\"\340\006\n\r" +
-      "WindowMetrics\022\026\n\006window\030\001 \001(\tR\006window\022\022\n" +
-      "\004from\030\002 \001(\tR\004from\022\016\n\002to\030\003 \001(\tR\002to\022(\n\020tot" +
-      "al_return_pct\030\004 \001(\001R\016totalReturnPct\022\031\n\010c" +
-      "agr_pct\030\005 \001(\001R\007cagrPct\022\031\n\010has_cagr\030\006 \001(\010" +
-      "R\007hasCagr\022,\n\022benchmark_cagr_pct\030\007 \001(\001R\020b" +
-      "enchmarkCagrPct\022#\n\rhas_benchmark\030\010 \001(\010R\014" +
-      "hasBenchmark\022,\n\022reference_cagr_pct\030\t \001(\001" +
-      "R\020referenceCagrPct\022#\n\rhas_reference\030\n \001(" +
-      "\010R\014hasReference\022(\n\020max_drawdown_pct\030\013 \001(" +
-      "\001R\016maxDrawdownPct\022\026\n\006sharpe\030\014 \001(\001R\006sharp" +
-      "e\022\033\n\tsharpe_se\030\r \001(\001R\010sharpeSe\022\035\n\nhas_sh" +
-      "arpe\030\016 \001(\010R\thasSharpe\022#\n\rclosed_trades\030\017" +
-      " \001(\005R\014closedTrades\022 \n\014win_rate_pct\030\020 \001(\001" +
-      "R\nwinRatePct\022 \n\014has_win_rate\030\021 \001(\010R\nhasW" +
-      "inRate\022!\n\014exposure_pct\030\022 \001(\001R\013exposurePc" +
-      "t\022#\n\rrecorded_tail\030\023 \001(\010R\014recordedTail\022\024" +
-      "\n\005label\030\024 \001(\tR\005label\022\022\n\004note\030\025 \001(\tR\004note" +
-      "\022%\n\016not_annualised\030\026 \001(\010R\rnotAnnualised\022" +
-      "\032\n\010sessions\030\027 \001(\005R\010sessions\022#\n\rcalendar_" +
-      "days\030\030 \001(\005R\014calendarDays\022%\n\016volatility_p" +
-      "ct\030\031 \001(\001R\rvolatilityPct\022%\n\016has_volatilit" +
-      "y\030\032 \001(\010R\rhasVolatility\"\375\002\n\014AnnualReturn\022" +
-      "\022\n\004year\030\001 \001(\005R\004year\022\024\n\005state\030\002 \001(\tR\005stat" +
-      "e\022\026\n\006months\030\003 \001(\tR\006months\022!\n\014strategy_pc" +
-      "t\030\004 \001(\001R\013strategyPct\022#\n\rbenchmark_pct\030\005 " +
-      "\001(\001R\014benchmarkPct\022#\n\rhas_benchmark\030\006 \001(\010" +
-      "R\014hasBenchmark\022#\n\rreference_pct\030\007 \001(\001R\014r" +
-      "eferencePct\022#\n\rhas_reference\030\010 \001(\010R\014hasR" +
-      "eference\022!\n\014coverage_pct\030\t \001(\001R\013coverage" +
-      "Pct\022/\n\023coverage_measurable\030\n \001(\010R\022covera" +
-      "geMeasurable\022 \n\013approximate\030\013 \001(\010R\013appro" +
-      "ximate\"\234\002\n\rMonthlyReturn\022\022\n\004year\030\001 \001(\005R\004" +
+      "n\030\r \001(\tR\014latestScreen\022!\n\014state_reason\030\016 " +
+      "\001(\tR\013stateReason\022#\n\rrunning_since\030\017 \001(\tR" +
+      "\014runningSince\0220\n\024computable_share_pct\030\020 " +
+      "\001(\001R\022computableSharePct\0220\n\024has_computabl" +
+      "e_share\030\021 \001(\010R\022hasComputableShare\"\207\001\n\025Ge" +
+      "tBacktestRunRequest\022\037\n\013strategy_id\030\001 \001(\t" +
+      "R\nstrategyId\022\025\n\006run_id\030\002 \001(\003R\005runId\022\036\n\nr" +
+      "esolution\030\003 \001(\tR\nresolution\022\026\n\006window\030\004 " +
+      "\001(\tR\006window\"H\n\026GetBacktestRunResponse\022.\n" +
+      "\003run\030\001 \001(\0132\034.shorts.v1alpha1.BacktestRun" +
+      "R\003run\"\326\013\n\013BacktestRun\022\024\n\005state\030\001 \001(\tR\005st" +
+      "ate\022!\n\014state_reason\030\002 \001(\tR\013stateReason\022\'" +
+      "\n\017computable_from\030\003 \001(\tR\016computableFrom\022" +
+      "!\n\014fiscal_label\030\004 \001(\tR\013fiscalLabel\022@\n\010id" +
+      "entity\030\005 \001(\0132$.shorts.v1alpha1.BacktestR" +
+      "unIdentityR\010identity\0228\n\007windows\030\006 \003(\0132\036." +
+      "shorts.v1alpha1.WindowMetricsR\007windows\0225" +
+      "\n\006annual\030\007 \003(\0132\035.shorts.v1alpha1.AnnualR" +
+      "eturnR\006annual\0228\n\007monthly\030\010 \003(\0132\036.shorts." +
+      "v1alpha1.MonthlyReturnR\007monthly\0224\n\006serie" +
+      "s\030\t \003(\0132\034.shorts.v1alpha1.SeriesPointR\006s" +
+      "eries\0229\n\010coverage\030\n \003(\0132\035.shorts.v1alpha" +
+      "1.CoverageYearR\010coverage\022I\n\020coverage_mon" +
+      "thly\030\013 \003(\0132\036.shorts.v1alpha1.CoverageMon" +
+      "thR\017coverageMonthly\022A\n\014survivorship\030\014 \001(" +
+      "\0132\035.shorts.v1alpha1.SurvivorshipR\014surviv" +
+      "orship\022>\n\013sensitivity\030\r \003(\0132\034.shorts.v1a" +
+      "lpha1.SensitivityR\013sensitivity\0224\n\006recipe" +
+      "\030\016 \001(\0132\034.shorts.v1alpha1.RecipeLinesR\006re" +
+      "cipe\022B\n\rtrade_summary\030\017 \001(\0132\035.shorts.v1a" +
+      "lpha1.TradeSummaryR\014tradeSummary\022F\n\014live" +
+      "_version\030\020 \001(\0132#.shorts.v1alpha1.Strateg" +
+      "yVersionRefR\013liveVersion\022(\n\020rules_match_" +
+      "live\030\021 \001(\010R\016rulesMatchLive\022.\n\023engine_mat" +
+      "ches_live\030\022 \001(\010R\021engineMatchesLive\022)\n\020re" +
+      "play_agreement\030\023 \001(\tR\017replayAgreement\022*\n" +
+      "\021input_change_note\030\024 \001(\tR\017inputChangeNot" +
+      "e\022 \n\013disclosures\030\025 \003(\tR\013disclosures\022\035\n\nd" +
+      "ata_notes\030\026 \003(\tR\tdataNotes\022\037\n\013strategy_i" +
+      "d\030\027 \001(\tR\nstrategyId\022#\n\rrunning_since\030\030 \001" +
+      "(\tR\014runningSince\022+\n\021series_resolution\030\031 " +
+      "\001(\tR\020seriesResolution\0220\n\024computable_shar" +
+      "e_pct\030\032 \001(\001R\022computableSharePct\0220\n\024has_c" +
+      "omputable_share\030\033 \001(\010R\022hasComputableShar" +
+      "e\022?\n\014data_quality\030\034 \001(\0132\034.shorts.v1alpha" +
+      "1.DataQualityR\013dataQuality\022\033\n\twindow_id\030" +
+      "\035 \001(\tR\010windowId\022-\n\022fundamentals_label\030\036 " +
+      "\001(\tR\021fundamentalsLabel\"\342\004\n\013DataQuality\022\'" +
+      "\n\017delisting_exits\030\001 \001(\005R\016delistingExits\022" +
+      "4\n\026corporate_action_exits\030\002 \001(\005R\024corpora" +
+      "teActionExits\022\037\n\013ca_suspects\030\003 \001(\005R\ncaSu" +
+      "spects\022%\n\016fallback_close\030\004 \001(\005R\rfallback" +
+      "Close\022.\n\023price_return_trades\030\005 \001(\005R\021pric" +
+      "eReturnTrades\022\'\n\017capacity_capped\030\006 \001(\005R\016" +
+      "capacityCapped\022*\n\021stale_mark_trades\030\007 \001(" +
+      "\005R\017staleMarkTrades\022#\n\rdelayed_exits\030\010 \001(" +
+      "\005R\014delayedExits\022_\n\021cancelled_entries\030\t \003" +
+      "(\01322.shorts.v1alpha1.DataQuality.Cancell" +
+      "edEntriesEntryR\020cancelledEntries\022-\n\022divi" +
+      "dends_credited\030\n \001(\005R\021dividendsCredited\022" +
+      "-\n\022consolidation_note\030\013 \001(\tR\021consolidati" +
+      "onNote\032C\n\025CancelledEntriesEntry\022\020\n\003key\030\001" +
+      " \001(\tR\003key\022\024\n\005value\030\002 \001(\005R\005value:\0028\001\"\201\006\n\023" +
+      "BacktestRunIdentity\022\025\n\006run_id\030\001 \001(\003R\005run" +
+      "Id\022\027\n\007run_key\030\002 \001(\tR\006runKey\022\022\n\004kind\030\003 \001(" +
+      "\tR\004kind\022=\n\007version\030\004 \001(\0132#.shorts.v1alph" +
+      "a1.StrategyVersionRefR\007version\022\033\n\trecipe" +
+      "_id\030\005 \001(\tR\010recipeId\022\037\n\013recipe_hash\030\006 \001(\t" +
+      "R\nrecipeHash\022%\n\016engine_version\030\007 \001(\tR\ren" +
+      "gineVersion\022!\n\014window_start\030\010 \001(\tR\013windo" +
+      "wStart\022\035\n\nwindow_end\030\t \001(\tR\twindowEnd\022\030\n" +
+      "\007returns\030\n \001(\tR\007returns\022\034\n\tbenchmark\030\013 \001" +
+      "(\tR\tbenchmark\022\"\n\014fundamentals\030\014 \001(\tR\014fun" +
+      "damentals\022%\n\016prices_through\030\r \001(\tR\rprice" +
+      "sThrough\022.\n\023asic_report_through\030\016 \001(\tR\021a" +
+      "sicReportThrough\022&\n\017in_sample_until\030\017 \001(" +
+      "\tR\rinSampleUntil\022\037\n\013finished_at\030\020 \001(\tR\nf" +
+      "inishedAt\022\035\n\ninput_hash\030\021 \001(\tR\tinputHash" +
+      "\022\037\n\013output_hash\030\022 \001(\tR\noutputHash\022%\n\016bui" +
+      "ld_revision\030\023 \001(\tR\rbuildRevision\022\033\n\trisk" +
+      "_free\030\024 \001(\tR\010riskFree\022%\n\016reference_name\030" +
+      "\025 \001(\tR\rreferenceName\022\031\n\010run_date\030\026 \001(\tR\007" +
+      "runDate\"\341\t\n\rWindowMetrics\022\026\n\006window\030\001 \001(" +
+      "\tR\006window\022\022\n\004from\030\002 \001(\tR\004from\022\016\n\002to\030\003 \001(" +
+      "\tR\002to\022(\n\020total_return_pct\030\004 \001(\001R\016totalRe" +
+      "turnPct\022\031\n\010cagr_pct\030\005 \001(\001R\007cagrPct\022\031\n\010ha" +
+      "s_cagr\030\006 \001(\010R\007hasCagr\022,\n\022benchmark_cagr_" +
+      "pct\030\007 \001(\001R\020benchmarkCagrPct\022#\n\rhas_bench" +
+      "mark\030\010 \001(\010R\014hasBenchmark\022,\n\022reference_ca" +
+      "gr_pct\030\t \001(\001R\020referenceCagrPct\022#\n\rhas_re" +
+      "ference\030\n \001(\010R\014hasReference\022(\n\020max_drawd" +
+      "own_pct\030\013 \001(\001R\016maxDrawdownPct\022\026\n\006sharpe\030" +
+      "\014 \001(\001R\006sharpe\022\033\n\tsharpe_se\030\r \001(\001R\010sharpe" +
+      "Se\022\035\n\nhas_sharpe\030\016 \001(\010R\thasSharpe\022#\n\rclo" +
+      "sed_trades\030\017 \001(\005R\014closedTrades\022 \n\014win_ra" +
+      "te_pct\030\020 \001(\001R\nwinRatePct\022 \n\014has_win_rate" +
+      "\030\021 \001(\010R\nhasWinRate\022!\n\014exposure_pct\030\022 \001(\001" +
+      "R\013exposurePct\022#\n\rrecorded_tail\030\023 \001(\010R\014re" +
+      "cordedTail\022\024\n\005label\030\024 \001(\tR\005label\022\022\n\004note" +
+      "\030\025 \001(\tR\004note\022%\n\016not_annualised\030\026 \001(\010R\rno" +
+      "tAnnualised\022\032\n\010sessions\030\027 \001(\005R\010sessions\022" +
+      "#\n\rcalendar_days\030\030 \001(\005R\014calendarDays\022%\n\016" +
+      "volatility_pct\030\031 \001(\001R\rvolatilityPct\022%\n\016h" +
+      "as_volatility\030\032 \001(\010R\rhasVolatility\022(\n\020ha" +
+      "s_total_return\030\033 \001(\010R\016hasTotalReturn\022\033\n\t" +
+      "peak_date\030\034 \001(\tR\010peakDate\022\037\n\013trough_date" +
+      "\030\035 \001(\tR\ntroughDate\022#\n\rrecovery_date\030\036 \001(" +
+      "\tR\014recoveryDate\022;\n\032benchmark_total_retur" +
+      "n_pct\030\037 \001(\001R\027benchmarkTotalReturnPct\022;\n\032" +
+      "has_benchmark_total_return\030  \001(\010R\027hasBen" +
+      "chmarkTotalReturn\022;\n\032reference_total_ret" +
+      "urn_pct\030! \001(\001R\027referenceTotalReturnPct\022;" +
+      "\n\032has_reference_total_return\030\" \001(\010R\027hasR" +
+      "eferenceTotalReturn\"\250\003\n\014AnnualReturn\022\022\n\004" +
+      "year\030\001 \001(\005R\004year\022\024\n\005state\030\002 \001(\tR\005state\022!" +
+      "\n\014strategy_pct\030\003 \001(\001R\013strategyPct\022#\n\rben" +
+      "chmark_pct\030\004 \001(\001R\014benchmarkPct\022#\n\rrefere" +
+      "nce_pct\030\005 \001(\001R\014referencePct\022\026\n\006months\030\006 ",
+      "\001(\tR\006months\022!\n\014coverage_pct\030\007 \001(\001R\013cover" +
+      "agePct\022/\n\023coverage_measurable\030\010 \001(\010R\022cov" +
+      "erageMeasurable\022 \n\013approximate\030\t \001(\010R\013ap" +
+      "proximate\022#\n\rhas_benchmark\030\n \001(\010R\014hasBen" +
+      "chmark\022#\n\rhas_reference\030\013 \001(\010R\014hasRefere" +
+      "nce\022)\n\020coverage_measure\030\014 \001(\tR\017coverageM" +
+      "easure\"\234\002\n\rMonthlyReturn\022\022\n\004year\030\001 \001(\005R\004" +
       "year\022\024\n\005month\030\002 \001(\005R\005month\022\024\n\005state\030\003 \001(" +
       "\tR\005state\022!\n\014strategy_pct\030\004 \001(\001R\013strategy" +
       "Pct\022#\n\rbenchmark_pct\030\005 \001(\001R\014benchmarkPct" +
-      "\022#\n\rhas_benchmark\030\006 \001(\010R\014hasBenchmark\022#\n" +
-      "\rreference_pct\030\007 \001(\001R\014referencePct\022#\n\rha" +
+      "\022#\n\rreference_pct\030\006 \001(\001R\014referencePct\022#\n" +
+      "\rhas_benchmark\030\007 \001(\010R\014hasBenchmark\022#\n\rha" +
       "s_reference\030\010 \001(\010R\014hasReference\022\024\n\005label" +
-      "\030\t \001(\tR\005label\"\210\003\n\014CoverageYear\022\022\n\004year\030\001" +
-      " \001(\005R\004year\022%\n\016qualifying_pct\030\002 \001(\001R\rqual" +
-      "ifyingPct\022%\n\016has_qualifying\030\003 \001(\010R\rhasQu" +
-      "alifying\022+\n\021qualifying_priced\030\004 \001(\005R\020qua" +
-      "lifyingPriced\0220\n\024qualifying_name_days\030\005 " +
-      "\001(\005R\022qualifyingNameDays\022(\n\020all_reported_" +
-      "pct\030\006 \001(\001R\016allReportedPct\022(\n\020has_all_rep" +
-      "orted\030\007 \001(\010R\016hasAllReported\022.\n\023all_repor" +
-      "ted_priced\030\010 \001(\005R\021allReportedPriced\0223\n\026a" +
-      "ll_reported_name_days\030\t \001(\005R\023allReported" +
-      "NameDays\"\213\003\n\rCoverageMonth\022\024\n\005month\030\001 \001(" +
-      "\tR\005month\022%\n\016qualifying_pct\030\002 \001(\001R\rqualif" +
-      "yingPct\022%\n\016has_qualifying\030\003 \001(\010R\rhasQual" +
-      "ifying\022+\n\021qualifying_priced\030\004 \001(\005R\020quali" +
-      "fyingPriced\0220\n\024qualifying_name_days\030\005 \001(" +
-      "\005R\022qualifyingNameDays\022(\n\020all_reported_pc" +
-      "t\030\006 \001(\001R\016allReportedPct\022(\n\020has_all_repor" +
-      "ted\030\007 \001(\010R\016hasAllReported\022.\n\023all_reporte" +
-      "d_priced\030\010 \001(\005R\021allReportedPriced\0223\n\026all" +
-      "_reported_name_days\030\t \001(\005R\023allReportedNa" +
-      "meDays\"\204\001\n\014Survivorship\022 \n\013measurement\030\001" +
-      " \001(\tR\013measurement\022\034\n\tdirection\030\002 \001(\tR\tdi",
-      "rection\022\034\n\tstatement\030\003 \001(\tR\tstatement\022\026\n" +
-      "\006caveat\030\004 \001(\tR\006caveat\"\330\002\n\013Sensitivity\022\016\n" +
-      "\002id\030\001 \001(\tR\002id\022\024\n\005label\030\002 \001(\tR\005label\022\030\n\007a" +
-      "pplies\030\003 \001(\010R\007applies\022\026\n\006reason\030\004 \001(\tR\006r" +
-      "eason\022\031\n\010cagr_pct\030\005 \001(\001R\007cagrPct\022\031\n\010has_" +
-      "cagr\030\006 \001(\010R\007hasCagr\0225\n\027excess_vs_benchma" +
-      "rk_pct\030\007 \001(\001R\024excessVsBenchmarkPct\022\035\n\nha" +
-      "s_excess\030\010 \001(\010R\thasExcess\022(\n\020max_drawdow" +
-      "n_pct\030\t \001(\001R\016maxDrawdownPct\022\030\n\007fragile\030\n" +
-      " \001(\010R\007fragile\022!\n\014fragile_chip\030\013 \001(\tR\013fra" +
-      "gileChip\"\327\001\n\013SeriesPoint\022\022\n\004date\030\001 \001(\tR\004" +
-      "date\022\026\n\006equity\030\002 \001(\001R\006equity\022\034\n\tbenchmar" +
-      "k\030\003 \001(\001R\tbenchmark\022\034\n\treference\030\004 \001(\001R\tr" +
-      "eference\022!\n\014drawdown_pct\030\005 \001(\001R\013drawdown" +
-      "Pct\022!\n\014exposure_pct\030\006 \001(\001R\013exposurePct\022\032" +
-      "\n\010recorded\030\007 \001(\010R\010recorded\"\341\002\n\013RecipeLin" +
-      "es\022\033\n\trecipe_id\030\001 \001(\tR\010recipeId\022\024\n\005entry" +
-      "\030\002 \001(\tR\005entry\022\024\n\005exits\030\003 \003(\tR\005exits\022\026\n\006s" +
-      "izing\030\004 \001(\tR\006sizing\022\034\n\tbrokerage\030\005 \001(\tR\t" +
-      "brokerage\022\026\n\006spread\030\006 \001(\tR\006spread\022\032\n\010cap" +
-      "acity\030\007 \001(\tR\010capacity\022\034\n\tdividends\030\010 \001(\t" +
-      "R\tdividends\022\033\n\tasic_data\030\t \001(\tR\010asicData" +
-      "\022\034\n\tdelisting\030\n \001(\tR\tdelisting\022\030\n\007capita" +
-      "l\030\013 \001(\tR\007capital\022\022\n\004cash\030\014 \001(\tR\004cash\022\030\n\007" +
-      "preface\030\r \001(\tR\007preface\"\314\003\n\014TradeSummary\022" +
-      "\026\n\006closed\030\001 \001(\005R\006closed\022\036\n\013open_at_end\030\002" +
-      " \001(\005R\topenAtEnd\022 \n\014win_rate_pct\030\003 \001(\001R\nw" +
-      "inRatePct\022*\n\021avg_hold_sessions\030\004 \001(\001R\017av" +
-      "gHoldSessions\022\036\n\013avg_win_pct\030\005 \001(\001R\tavgW" +
-      "inPct\022 \n\014avg_loss_pct\030\006 \001(\001R\navgLossPct\022" +
-      "\031\n\010best_pct\030\007 \001(\001R\007bestPct\022\033\n\tworst_pct\030" +
-      "\010 \001(\001R\010worstPct\022X\n\017exits_by_reason\030\t \003(\013" +
-      "20.shorts.v1alpha1.TradeSummary.ExitsByR" +
-      "easonEntryR\rexitsByReason\022 \n\014has_win_rat" +
-      "e\030\n \001(\010R\nhasWinRate\032@\n\022ExitsByReasonEntr" +
-      "y\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\005R\005valu" +
-      "e:\0028\001\"\340\004\n\rBacktestTrade\022\020\n\003seq\030\001 \001(\005R\003se" +
-      "q\022\035\n\nstock_code\030\002 \001(\tR\tstockCode\022!\n\014comp" +
-      "any_name\030\003 \001(\tR\013companyName\022\037\n\013signal_da" +
-      "te\030\004 \001(\tR\nsignalDate\022\035\n\nentry_date\030\005 \001(\t" +
-      "R\tentryDate\022\037\n\013entry_price\030\006 \001(\001R\nentryP" +
-      "rice\022%\n\016captured_pivot\030\007 \001(\001R\rcapturedPi" +
-      "vot\022,\n\022has_captured_pivot\030\010 \001(\010R\020hasCapt" +
-      "uredPivot\022\037\n\013entry_score\030\t \001(\001R\nentrySco" +
-      "re\022\033\n\texit_date\030\n \001(\tR\010exitDate\022\035\n\nexit_" +
-      "price\030\013 \001(\001R\texitPrice\022\037\n\013exit_reason\030\014 " +
-      "\001(\tR\nexitReason\022#\n\rsessions_held\030\r \001(\005R\014" +
-      "sessionsHeld\022(\n\020gross_return_pct\030\016 \001(\001R\016" +
-      "grossReturnPct\022$\n\016net_return_pct\030\017 \001(\001R\014" +
-      "netReturnPct\022\024\n\005flags\030\020 \003(\tR\005flags\022\022\n\004op" +
-      "en\030\021 \001(\010R\004open\022(\n\020exit_signal_date\030\022 \001(\t" +
-      "R\016exitSignalDate\"\354\001\n\021PaperTrackSummary\022\024" +
-      "\n\005since\030\001 \001(\tR\005since\022\032\n\010sessions\030\002 \001(\005R\010" +
-      "sessions\022#\n\rclosed_trades\030\003 \001(\005R\014closedT" +
-      "rades\022%\n\016open_positions\030\004 \001(\005R\ropenPosit" +
-      "ions\022\035\n\nreturn_pct\030\005 \001(\001R\treturnPct\022\035\n\nh" +
-      "as_return\030\006 \001(\010R\thasReturn\022\033\n\ttoo_short\030" +
-      "\007 \001(\010R\010tooShort\"\256\001\n\031ListBacktestTradesRe" +
-      "quest\022\025\n\006run_id\030\001 \001(\003R\005runId\022\035\n\npage_tok" +
-      "en\030\002 \001(\tR\tpageToken\022\033\n\tpage_size\030\003 \001(\005R\010" +
-      "pageSize\022\035\n\nstock_code\030\004 \001(\tR\tstockCode\022" +
-      "\037\n\013exit_reason\030\005 \001(\tR\nexitReason\"\222\001\n\032Lis" +
-      "tBacktestTradesResponse\0226\n\006trades\030\001 \003(\0132" +
-      "\036.shorts.v1alpha1.BacktestTradeR\006trades\022" +
-      "&\n\017next_page_token\030\002 \001(\tR\rnextPageToken\022" +
-      "\024\n\005total\030\003 \001(\005R\005total\".\n\030CompareStrategi" +
-      "esRequest\022\022\n\004refs\030\001 \003(\tR\004refs\"\371\001\n\031Compar" +
-      "eStrategiesResponse\022\033\n\twindow_id\030\001 \001(\tR\010" +
-      "windowId\022\037\n\013window_from\030\002 \001(\tR\nwindowFro" +
-      "m\022\033\n\twindow_to\030\003 \001(\tR\010windowTo\0227\n\007entrie" +
-      "s\030\004 \003(\0132\035.shorts.v1alpha1.CompareEntryR\007" +
-      "entries\022H\n\014correlations\030\005 \003(\0132$.shorts.v" +
-      "1alpha1.StrategyCorrelationR\014correlation" +
-      "s\"\251\002\n\014CompareEntry\022!\n\014strategy_ref\030\001 \001(\t" +
-      "R\013strategyRef\022\037\n\013strategy_id\030\002 \001(\tR\nstra" +
-      "tegyId\022\022\n\004name\030\003 \001(\tR\004name\022\024\n\005state\030\004 \001(" +
-      "\tR\005state\022=\n\007version\030\005 \001(\0132#.shorts.v1alp" +
-      "ha1.StrategyVersionRefR\007version\0226\n\006windo" +
-      "w\030\006 \001(\0132\036.shorts.v1alpha1.WindowMetricsR" +
-      "\006window\0224\n\006series\030\007 \003(\0132\034.shorts.v1alpha" +
-      "1.SeriesPointR\006series\"\220\001\n\023StrategyCorrel" +
-      "ation\022\014\n\001a\030\001 \001(\tR\001a\022\014\n\001b\030\002 \001(\tR\001b\022 \n\013cor" +
-      "relation\030\003 \001(\001R\013correlation\022\'\n\017has_corre" +
-      "lation\030\004 \001(\010R\016hasCorrelation\022\022\n\004days\030\005 \001" +
-      "(\005R\004days2\333\r\n\017StrategyService\022g\n\016ListStra" +
-      "tegies\022&.shorts.v1alpha1.ListStrategiesR" +
-      "equest\032\'.shorts.v1alpha1.ListStrategiesR" +
-      "esponse\"\004\200\265\030\001\022m\n\020GetStrategyPicks\022(.shor" +
-      "ts.v1alpha1.GetStrategyPicksRequest\032).sh" +
-      "orts.v1alpha1.GetStrategyPicksResponse\"\004" +
-      "\200\265\030\001\022s\n\026GetViewerStrategyPicks\022(.shorts." +
-      "v1alpha1.GetStrategyPicksRequest\032).short" +
-      "s.v1alpha1.GetStrategyPicksResponse\"\004\200\265\030" +
-      "\002\022v\n\023GetStockStrategyFit\022+.shorts.v1alph" +
-      "a1.GetStockStrategyFitRequest\032,.shorts.v" +
-      "1alpha1.GetStockStrategyFitResponse\"\004\200\265\030" +
-      "\001\022s\n\022GetStrategyVersion\022*.shorts.v1alpha" +
-      "1.GetStrategyVersionRequest\032+.shorts.v1a" +
-      "lpha1.GetStrategyVersionResponse\"\004\200\265\030\001\022y" +
-      "\n\024ListStrategyVersions\022,.shorts.v1alpha1" +
-      ".ListStrategyVersionsRequest\032-.shorts.v1" +
-      "alpha1.ListStrategyVersionsResponse\"\004\200\265\030" +
-      "\001\022|\n\025GetStrategyDataStatus\022-.shorts.v1al" +
-      "pha1.GetStrategyDataStatusRequest\032..shor" +
-      "ts.v1alpha1.GetStrategyDataStatusRespons" +
-      "e\"\004\200\265\030\001\022\205\001\n\030ListStrategySignalEvents\0220.s" +
-      "horts.v1alpha1.ListStrategySignalEventsR" +
-      "equest\0321.shorts.v1alpha1.ListStrategySig" +
-      "nalEventsResponse\"\004\200\265\030\002\022a\n\014SaveStrategy\022" +
-      "$.shorts.v1alpha1.SaveStrategyRequest\032%." +
-      "shorts.v1alpha1.SaveStrategyResponse\"\004\200\265" +
-      "\030\002\022g\n\016UnsaveStrategy\022&.shorts.v1alpha1.U" +
-      "nsaveStrategyRequest\032\'.shorts.v1alpha1.U" +
-      "nsaveStrategyResponse\"\004\200\265\030\002\022v\n\023ListSaved" +
-      "Strategies\022+.shorts.v1alpha1.ListSavedSt" +
-      "rategiesRequest\032,.shorts.v1alpha1.ListSa" +
-      "vedStrategiesResponse\"\004\200\265\030\002\022y\n\024ListStrat" +
-      "egyEvidence\022,.shorts.v1alpha1.ListStrate" +
-      "gyEvidenceRequest\032-.shorts.v1alpha1.List" +
-      "StrategyEvidenceResponse\"\004\200\265\030\001\022g\n\016GetBac" +
-      "ktestRun\022&.shorts.v1alpha1.GetBacktestRu" +
-      "nRequest\032\'.shorts.v1alpha1.GetBacktestRu" +
-      "nResponse\"\004\200\265\030\001\022s\n\022ListBacktestTrades\022*." +
-      "shorts.v1alpha1.ListBacktestTradesReques" +
-      "t\032+.shorts.v1alpha1.ListBacktestTradesRe" +
-      "sponse\"\004\200\265\030\002\022p\n\021CompareStrategies\022).shor" +
-      "ts.v1alpha1.CompareStrategiesRequest\032*.s" +
-      "horts.v1alpha1.CompareStrategiesResponse" +
-      "\"\004\200\265\030\002B\336\001\n\023com.shorts.v1alpha1B\017Strategi" +
-      "esProtoP\001ZYgithub.com/castlemilk/shorted" +
-      ".com.au/services/gen/proto/go/shorts/v1a" +
-      "lpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1al" +
-      "pha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha1" +
-      "\\GPBMetadata\352\002\020Shorts::V1alpha1b\006proto3"
+      "\030\t \001(\tR\005label\"\336\003\n\014CoverageYear\022\022\n\004year\030\001" +
+      " \001(\005R\004year\022\036\n\nmeasurable\030\002 \001(\010R\nmeasurab" +
+      "le\0220\n\024qualifying_name_days\030\003 \001(\003R\022qualif" +
+      "yingNameDays\022(\n\020priced_name_days\030\004 \001(\003R\016" +
+      "pricedNameDays\022!\n\014coverage_pct\030\005 \001(\001R\013co" +
+      "veragePct\022(\n\020all_reported_pct\030\006 \001(\001R\016all" +
+      "ReportedPct\022\'\n\017delisting_exits\030\007 \001(\005R\016de" +
+      "listingExits\022\031\n\010ca_exits\030\010 \001(\005R\007caExits\022" +
+      "6\n\027all_reported_measurable\030\013 \001(\010R\025allRep" +
+      "ortedMeasurable\0223\n\026all_reported_name_day" +
+      "s\030\014 \001(\003R\023allReportedNameDays\022@\n\035all_repo" +
+      "rted_priced_name_days\030\r \001(\003R\031allReported" +
+      "PricedNameDays\"\312\001\n\rCoverageMonth\022\024\n\005mont" +
+      "h\030\001 \001(\tR\005month\022!\n\014coverage_pct\030\002 \001(\001R\013co" +
+      "veragePct\022\036\n\nmeasurable\030\003 \001(\010R\nmeasurabl" +
+      "e\022(\n\020all_reported_pct\030\004 \001(\001R\016allReported" +
+      "Pct\0226\n\027all_reported_measurable\030\005 \001(\010R\025al" +
+      "lReportedMeasurable\"\204\001\n\014Survivorship\022 \n\013" +
+      "measurement\030\001 \001(\tR\013measurement\022\034\n\tdirect" +
+      "ion\030\002 \001(\tR\tdirection\022\034\n\tstatement\030\003 \001(\tR" +
+      "\tstatement\022\026\n\006caveat\030\004 \001(\tR\006caveat\"\330\002\n\013S" +
+      "ensitivity\022\016\n\002id\030\001 \001(\tR\002id\022\024\n\005label\030\002 \001(" +
+      "\tR\005label\022\031\n\010cagr_pct\030\003 \001(\001R\007cagrPct\022\031\n\010h" +
+      "as_cagr\030\004 \001(\010R\007hasCagr\0225\n\027excess_vs_benc" +
+      "hmark_pct\030\005 \001(\001R\024excessVsBenchmarkPct\022(\n" +
+      "\020max_drawdown_pct\030\006 \001(\001R\016maxDrawdownPct\022" +
+      "\030\n\007fragile\030\007 \001(\010R\007fragile\022\030\n\007applies\030\010 \001" +
+      "(\010R\007applies\022\026\n\006reason\030\t \001(\tR\006reason\022\035\n\nh" +
+      "as_excess\030\n \001(\010R\thasExcess\022!\n\014fragile_ch" +
+      "ip\030\013 \001(\tR\013fragileChip\"\327\001\n\013SeriesPoint\022\022\n" +
+      "\004date\030\001 \001(\tR\004date\022\026\n\006equity\030\002 \001(\001R\006equit" +
+      "y\022\034\n\tbenchmark\030\003 \001(\001R\tbenchmark\022\034\n\trefer" +
+      "ence\030\004 \001(\001R\treference\022!\n\014drawdown_pct\030\005 " +
+      "\001(\001R\013drawdownPct\022!\n\014exposure_pct\030\006 \001(\001R\013" +
+      "exposurePct\022\032\n\010recorded\030\007 \001(\010R\010recorded\"" +
+      "\341\002\n\013RecipeLines\022\033\n\trecipe_id\030\001 \001(\tR\010reci" +
+      "peId\022\024\n\005entry\030\002 \001(\tR\005entry\022\024\n\005exits\030\003 \003(" +
+      "\tR\005exits\022\026\n\006sizing\030\004 \001(\tR\006sizing\022\034\n\tbrok" +
+      "erage\030\005 \001(\tR\tbrokerage\022\026\n\006spread\030\006 \001(\tR\006" +
+      "spread\022\032\n\010capacity\030\007 \001(\tR\010capacity\022\034\n\tdi" +
+      "vidends\030\010 \001(\tR\tdividends\022\033\n\tasic_data\030\t " +
+      "\001(\tR\010asicData\022\034\n\tdelisting\030\n \001(\tR\tdelist" +
+      "ing\022\030\n\007capital\030\013 \001(\tR\007capital\022\022\n\004cash\030\014 " +
+      "\001(\tR\004cash\022\030\n\007preface\030\r \001(\tR\007preface\"\350\004\n\014" +
+      "TradeSummary\022\026\n\006closed\030\001 \001(\005R\006closed\022\036\n\013" +
+      "open_at_end\030\002 \001(\005R\topenAtEnd\022 \n\014win_rate" +
+      "_pct\030\003 \001(\001R\nwinRatePct\022*\n\021avg_hold_sessi" +
+      "ons\030\004 \001(\001R\017avgHoldSessions\022\036\n\013avg_win_pc" +
+      "t\030\005 \001(\001R\tavgWinPct\022 \n\014avg_loss_pct\030\006 \001(\001" +
+      "R\navgLossPct\022\031\n\010best_pct\030\007 \001(\001R\007bestPct\022" +
+      "\033\n\tworst_pct\030\010 \001(\001R\010worstPct\022X\n\017exits_by" +
+      "_reason\030\t \003(\01320.shorts.v1alpha1.TradeSum" +
+      "mary.ExitsByReasonEntryR\rexitsByReason\022 " +
+      "\n\014has_win_rate\030\n \001(\010R\nhasWinRate\022 \n\014has_" +
+      "avg_hold\030\013 \001(\010R\nhasAvgHold\022\036\n\013has_avg_wi" +
+      "n\030\014 \001(\010R\thasAvgWin\022 \n\014has_avg_loss\030\r \001(\010" +
+      "R\nhasAvgLoss\022\031\n\010has_best\030\016 \001(\010R\007hasBest\022" +
+      "\033\n\thas_worst\030\017 \001(\010R\010hasWorst\032@\n\022ExitsByR" +
+      "easonEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 " +
+      "\001(\005R\005value:\0028\001\"\340\004\n\rBacktestTrade\022\020\n\003seq\030" +
+      "\001 \001(\005R\003seq\022\035\n\nstock_code\030\002 \001(\tR\tstockCod" +
+      "e\022!\n\014company_name\030\003 \001(\tR\013companyName\022\037\n\013" +
+      "signal_date\030\004 \001(\tR\nsignalDate\022\035\n\nentry_d" +
+      "ate\030\005 \001(\tR\tentryDate\022\037\n\013entry_price\030\006 \001(" +
+      "\001R\nentryPrice\022%\n\016captured_pivot\030\007 \001(\001R\rc" +
+      "apturedPivot\022,\n\022has_captured_pivot\030\010 \001(\010" +
+      "R\020hasCapturedPivot\022\037\n\013entry_score\030\t \001(\001R" +
+      "\nentryScore\022\033\n\texit_date\030\n \001(\tR\010exitDate" +
+      "\022\035\n\nexit_price\030\013 \001(\001R\texitPrice\022\037\n\013exit_" +
+      "reason\030\014 \001(\tR\nexitReason\022#\n\rsessions_hel" +
+      "d\030\r \001(\005R\014sessionsHeld\022(\n\020gross_return_pc" +
+      "t\030\016 \001(\001R\016grossReturnPct\022$\n\016net_return_pc" +
+      "t\030\017 \001(\001R\014netReturnPct\022\024\n\005flags\030\020 \003(\tR\005fl" +
+      "ags\022\022\n\004open\030\021 \001(\010R\004open\022(\n\020exit_signal_d" +
+      "ate\030\022 \001(\tR\016exitSignalDate\"\354\001\n\021PaperTrack" +
+      "Summary\022\024\n\005since\030\001 \001(\tR\005since\022\032\n\010session" +
+      "s\030\002 \001(\005R\010sessions\022#\n\rclosed_trades\030\003 \001(\005" +
+      "R\014closedTrades\022%\n\016open_positions\030\004 \001(\005R\r" +
+      "openPositions\022\035\n\nreturn_pct\030\005 \001(\001R\tretur" +
+      "nPct\022\035\n\nhas_return\030\006 \001(\010R\thasReturn\022\033\n\tt" +
+      "oo_short\030\007 \001(\010R\010tooShort\"\256\001\n\031ListBacktes" +
+      "tTradesRequest\022\025\n\006run_id\030\001 \001(\003R\005runId\022\035\n" +
+      "\npage_token\030\002 \001(\tR\tpageToken\022\033\n\tpage_siz" +
+      "e\030\003 \001(\005R\010pageSize\022\035\n\nstock_code\030\004 \001(\tR\ts" +
+      "tockCode\022\037\n\013exit_reason\030\005 \001(\tR\nexitReaso" +
+      "n\"\222\001\n\032ListBacktestTradesResponse\0226\n\006trad" +
+      "es\030\001 \003(\0132\036.shorts.v1alpha1.BacktestTrade" +
+      "R\006trades\022&\n\017next_page_token\030\002 \001(\tR\rnextP" +
+      "ageToken\022\024\n\005total\030\003 \001(\005R\005total\".\n\030Compar" +
+      "eStrategiesRequest\022\022\n\004refs\030\001 \003(\tR\004refs\"\263" +
+      "\002\n\031CompareStrategiesResponse\022\033\n\twindow_i" +
+      "d\030\001 \001(\tR\010windowId\022\037\n\013window_from\030\002 \001(\tR\n" +
+      "windowFrom\022\033\n\twindow_to\030\003 \001(\tR\010windowTo\022" +
+      "7\n\007entries\030\004 \003(\0132\035.shorts.v1alpha1.Compa" +
+      "reEntryR\007entries\022H\n\014correlations\030\005 \003(\0132$" +
+      ".shorts.v1alpha1.StrategyCorrelationR\014co" +
+      "rrelations\0228\n\nrule_diffs\030\006 \003(\0132\031.shorts." +
+      "v1alpha1.RuleDiffR\truleDiffs\"\314\002\n\014Compare" +
+      "Entry\022!\n\014strategy_ref\030\001 \001(\tR\013strategyRef" +
+      "\022\037\n\013strategy_id\030\002 \001(\tR\nstrategyId\022\022\n\004nam" +
+      "e\030\003 \001(\tR\004name\022\024\n\005state\030\004 \001(\tR\005state\022=\n\007v" +
+      "ersion\030\005 \001(\0132#.shorts.v1alpha1.StrategyV" +
+      "ersionRefR\007version\0226\n\006window\030\006 \001(\0132\036.sho" +
+      "rts.v1alpha1.WindowMetricsR\006window\0224\n\006se" +
+      "ries\030\007 \003(\0132\034.shorts.v1alpha1.SeriesPoint" +
+      "R\006series\022!\n\014state_reason\030\010 \001(\tR\013stateRea" +
+      "son\"\220\001\n\023StrategyCorrelation\022\014\n\001a\030\001 \001(\tR\001" +
+      "a\022\014\n\001b\030\002 \001(\tR\001b\022 \n\013correlation\030\003 \001(\001R\013co" +
+      "rrelation\022\'\n\017has_correlation\030\004 \001(\010R\016hasC" +
+      "orrelation\022\022\n\004days\030\005 \001(\005R\004days\"n\n\010RuleDi" +
+      "ff\022\014\n\001a\030\001 \001(\tR\001a\022\014\n\001b\030\002 \001(\tR\001b\022\024\n\005field\030" +
+      "\003 \001(\tR\005field\022\027\n\007a_value\030\004 \001(\tR\006aValue\022\027\n" +
+      "\007b_value\030\005 \001(\tR\006bValue2\333\r\n\017StrategyServi" +
+      "ce\022g\n\016ListStrategies\022&.shorts.v1alpha1.L" +
+      "istStrategiesRequest\032\'.shorts.v1alpha1.L" +
+      "istStrategiesResponse\"\004\200\265\030\001\022m\n\020GetStrate" +
+      "gyPicks\022(.shorts.v1alpha1.GetStrategyPic" +
+      "ksRequest\032).shorts.v1alpha1.GetStrategyP" +
+      "icksResponse\"\004\200\265\030\001\022s\n\026GetViewerStrategyP" +
+      "icks\022(.shorts.v1alpha1.GetStrategyPicksR" +
+      "equest\032).shorts.v1alpha1.GetStrategyPick" +
+      "sResponse\"\004\200\265\030\002\022v\n\023GetStockStrategyFit\022+" +
+      ".shorts.v1alpha1.GetStockStrategyFitRequ" +
+      "est\032,.shorts.v1alpha1.GetStockStrategyFi" +
+      "tResponse\"\004\200\265\030\001\022s\n\022GetStrategyVersion\022*." +
+      "shorts.v1alpha1.GetStrategyVersionReques" +
+      "t\032+.shorts.v1alpha1.GetStrategyVersionRe" +
+      "sponse\"\004\200\265\030\001\022y\n\024ListStrategyVersions\022,.s" +
+      "horts.v1alpha1.ListStrategyVersionsReque" +
+      "st\032-.shorts.v1alpha1.ListStrategyVersion" +
+      "sResponse\"\004\200\265\030\001\022|\n\025GetStrategyDataStatus" +
+      "\022-.shorts.v1alpha1.GetStrategyDataStatus" +
+      "Request\032..shorts.v1alpha1.GetStrategyDat" +
+      "aStatusResponse\"\004\200\265\030\001\022\205\001\n\030ListStrategySi" +
+      "gnalEvents\0220.shorts.v1alpha1.ListStrateg" +
+      "ySignalEventsRequest\0321.shorts.v1alpha1.L" +
+      "istStrategySignalEventsResponse\"\004\200\265\030\002\022a\n" +
+      "\014SaveStrategy\022$.shorts.v1alpha1.SaveStra" +
+      "tegyRequest\032%.shorts.v1alpha1.SaveStrate" +
+      "gyResponse\"\004\200\265\030\002\022g\n\016UnsaveStrategy\022&.sho" +
+      "rts.v1alpha1.UnsaveStrategyRequest\032\'.sho" +
+      "rts.v1alpha1.UnsaveStrategyResponse\"\004\200\265\030" +
+      "\002\022v\n\023ListSavedStrategies\022+.shorts.v1alph" +
+      "a1.ListSavedStrategiesRequest\032,.shorts.v" +
+      "1alpha1.ListSavedStrategiesResponse\"\004\200\265\030" +
+      "\002\022y\n\024ListStrategyEvidence\022,.shorts.v1alp" +
+      "ha1.ListStrategyEvidenceRequest\032-.shorts" +
+      ".v1alpha1.ListStrategyEvidenceResponse\"\004" +
+      "\200\265\030\001\022g\n\016GetBacktestRun\022&.shorts.v1alpha1" +
+      ".GetBacktestRunRequest\032\'.shorts.v1alpha1" +
+      ".GetBacktestRunResponse\"\004\200\265\030\001\022s\n\022ListBac" +
+      "ktestTrades\022*.shorts.v1alpha1.ListBackte" +
+      "stTradesRequest\032+.shorts.v1alpha1.ListBa" +
+      "cktestTradesResponse\"\004\200\265\030\002\022p\n\021CompareStr" +
+      "ategies\022).shorts.v1alpha1.CompareStrateg" +
+      "iesRequest\032*.shorts.v1alpha1.CompareStra" +
+      "tegiesResponse\"\004\200\265\030\002B\336\001\n\023com.shorts.v1al" +
+      "pha1B\017StrategiesProtoP\001ZYgithub.com/cast" +
+      "lemilk/shorted.com.au/services/gen/proto" +
+      "/go/shorts/v1alpha1;shortsv1alpha1\242\002\003SXX" +
+      "\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033S" +
+      "horts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V1a" +
+      "lpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -1129,13 +1186,13 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_StrategyEvidence_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StrategyEvidence_descriptor,
-        new java.lang.String[] { "StrategyId", "Version", "State", "ComputableFrom", "FiscalLabel", "Windows", "Annual", "MiniCurve", "Today", "Paper", "Survivorship", "RunId", "LatestScreen", });
+        new java.lang.String[] { "StrategyId", "Version", "State", "ComputableFrom", "FiscalLabel", "Windows", "Annual", "MiniCurve", "Today", "Paper", "Survivorship", "RunId", "LatestScreen", "StateReason", "RunningSince", "ComputableSharePct", "HasComputableShare", });
     internal_static_shorts_v1alpha1_GetBacktestRunRequest_descriptor =
       getDescriptor().getMessageType(40);
     internal_static_shorts_v1alpha1_GetBacktestRunRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetBacktestRunRequest_descriptor,
-        new java.lang.String[] { "StrategyId", "RunId", "Resolution", });
+        new java.lang.String[] { "StrategyId", "RunId", "Resolution", "Window", });
     internal_static_shorts_v1alpha1_GetBacktestRunResponse_descriptor =
       getDescriptor().getMessageType(41);
     internal_static_shorts_v1alpha1_GetBacktestRunResponse_fieldAccessorTable = new
@@ -1147,73 +1204,85 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_BacktestRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_BacktestRun_descriptor,
-        new java.lang.String[] { "State", "StrategyId", "ComputableFrom", "FiscalLabel", "Identity", "Windows", "Annual", "Monthly", "Series", "CoverageByYear", "CoverageMonthly", "Survivorship", "Sensitivity", "Recipe", "TradeSummary", "LiveVersion", "RulesMatchLive", "EngineMatchesLive", "ReplayAgreement", "InputChangeNote", "Disclosures", "DataNotes", "RunningSince", "SeriesResolution", "ComputableSharePct", "HasComputableShare", });
-    internal_static_shorts_v1alpha1_BacktestRunIdentity_descriptor =
+        new java.lang.String[] { "State", "StateReason", "ComputableFrom", "FiscalLabel", "Identity", "Windows", "Annual", "Monthly", "Series", "Coverage", "CoverageMonthly", "Survivorship", "Sensitivity", "Recipe", "TradeSummary", "LiveVersion", "RulesMatchLive", "EngineMatchesLive", "ReplayAgreement", "InputChangeNote", "Disclosures", "DataNotes", "StrategyId", "RunningSince", "SeriesResolution", "ComputableSharePct", "HasComputableShare", "DataQuality", "WindowId", "FundamentalsLabel", });
+    internal_static_shorts_v1alpha1_DataQuality_descriptor =
       getDescriptor().getMessageType(43);
+    internal_static_shorts_v1alpha1_DataQuality_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_DataQuality_descriptor,
+        new java.lang.String[] { "DelistingExits", "CorporateActionExits", "CaSuspects", "FallbackClose", "PriceReturnTrades", "CapacityCapped", "StaleMarkTrades", "DelayedExits", "CancelledEntries", "DividendsCredited", "ConsolidationNote", });
+    internal_static_shorts_v1alpha1_DataQuality_CancelledEntriesEntry_descriptor =
+      internal_static_shorts_v1alpha1_DataQuality_descriptor.getNestedType(0);
+    internal_static_shorts_v1alpha1_DataQuality_CancelledEntriesEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_DataQuality_CancelledEntriesEntry_descriptor,
+        new java.lang.String[] { "Key", "Value", });
+    internal_static_shorts_v1alpha1_BacktestRunIdentity_descriptor =
+      getDescriptor().getMessageType(44);
     internal_static_shorts_v1alpha1_BacktestRunIdentity_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_BacktestRunIdentity_descriptor,
         new java.lang.String[] { "RunId", "RunKey", "Kind", "Version", "RecipeId", "RecipeHash", "EngineVersion", "WindowStart", "WindowEnd", "Returns", "Benchmark", "Fundamentals", "PricesThrough", "AsicReportThrough", "InSampleUntil", "FinishedAt", "InputHash", "OutputHash", "BuildRevision", "RiskFree", "ReferenceName", "RunDate", });
     internal_static_shorts_v1alpha1_WindowMetrics_descriptor =
-      getDescriptor().getMessageType(44);
+      getDescriptor().getMessageType(45);
     internal_static_shorts_v1alpha1_WindowMetrics_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_WindowMetrics_descriptor,
-        new java.lang.String[] { "Window", "From", "To", "TotalReturnPct", "CagrPct", "HasCagr", "BenchmarkCagrPct", "HasBenchmark", "ReferenceCagrPct", "HasReference", "MaxDrawdownPct", "Sharpe", "SharpeSe", "HasSharpe", "ClosedTrades", "WinRatePct", "HasWinRate", "ExposurePct", "RecordedTail", "Label", "Note", "NotAnnualised", "Sessions", "CalendarDays", "VolatilityPct", "HasVolatility", });
+        new java.lang.String[] { "Window", "From", "To", "TotalReturnPct", "CagrPct", "HasCagr", "BenchmarkCagrPct", "HasBenchmark", "ReferenceCagrPct", "HasReference", "MaxDrawdownPct", "Sharpe", "SharpeSe", "HasSharpe", "ClosedTrades", "WinRatePct", "HasWinRate", "ExposurePct", "RecordedTail", "Label", "Note", "NotAnnualised", "Sessions", "CalendarDays", "VolatilityPct", "HasVolatility", "HasTotalReturn", "PeakDate", "TroughDate", "RecoveryDate", "BenchmarkTotalReturnPct", "HasBenchmarkTotalReturn", "ReferenceTotalReturnPct", "HasReferenceTotalReturn", });
     internal_static_shorts_v1alpha1_AnnualReturn_descriptor =
-      getDescriptor().getMessageType(45);
+      getDescriptor().getMessageType(46);
     internal_static_shorts_v1alpha1_AnnualReturn_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_AnnualReturn_descriptor,
-        new java.lang.String[] { "Year", "State", "Months", "StrategyPct", "BenchmarkPct", "HasBenchmark", "ReferencePct", "HasReference", "CoveragePct", "CoverageMeasurable", "Approximate", });
+        new java.lang.String[] { "Year", "State", "StrategyPct", "BenchmarkPct", "ReferencePct", "Months", "CoveragePct", "CoverageMeasurable", "Approximate", "HasBenchmark", "HasReference", "CoverageMeasure", });
     internal_static_shorts_v1alpha1_MonthlyReturn_descriptor =
-      getDescriptor().getMessageType(46);
+      getDescriptor().getMessageType(47);
     internal_static_shorts_v1alpha1_MonthlyReturn_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_MonthlyReturn_descriptor,
-        new java.lang.String[] { "Year", "Month", "State", "StrategyPct", "BenchmarkPct", "HasBenchmark", "ReferencePct", "HasReference", "Label", });
+        new java.lang.String[] { "Year", "Month", "State", "StrategyPct", "BenchmarkPct", "ReferencePct", "HasBenchmark", "HasReference", "Label", });
     internal_static_shorts_v1alpha1_CoverageYear_descriptor =
-      getDescriptor().getMessageType(47);
+      getDescriptor().getMessageType(48);
     internal_static_shorts_v1alpha1_CoverageYear_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_CoverageYear_descriptor,
-        new java.lang.String[] { "Year", "QualifyingPct", "HasQualifying", "QualifyingPriced", "QualifyingNameDays", "AllReportedPct", "HasAllReported", "AllReportedPriced", "AllReportedNameDays", });
+        new java.lang.String[] { "Year", "Measurable", "QualifyingNameDays", "PricedNameDays", "CoveragePct", "AllReportedPct", "DelistingExits", "CaExits", "AllReportedMeasurable", "AllReportedNameDays", "AllReportedPricedNameDays", });
     internal_static_shorts_v1alpha1_CoverageMonth_descriptor =
-      getDescriptor().getMessageType(48);
+      getDescriptor().getMessageType(49);
     internal_static_shorts_v1alpha1_CoverageMonth_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_CoverageMonth_descriptor,
-        new java.lang.String[] { "Month", "QualifyingPct", "HasQualifying", "QualifyingPriced", "QualifyingNameDays", "AllReportedPct", "HasAllReported", "AllReportedPriced", "AllReportedNameDays", });
+        new java.lang.String[] { "Month", "CoveragePct", "Measurable", "AllReportedPct", "AllReportedMeasurable", });
     internal_static_shorts_v1alpha1_Survivorship_descriptor =
-      getDescriptor().getMessageType(49);
+      getDescriptor().getMessageType(50);
     internal_static_shorts_v1alpha1_Survivorship_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_Survivorship_descriptor,
         new java.lang.String[] { "Measurement", "Direction", "Statement", "Caveat", });
     internal_static_shorts_v1alpha1_Sensitivity_descriptor =
-      getDescriptor().getMessageType(50);
+      getDescriptor().getMessageType(51);
     internal_static_shorts_v1alpha1_Sensitivity_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_Sensitivity_descriptor,
-        new java.lang.String[] { "Id", "Label", "Applies", "Reason", "CagrPct", "HasCagr", "ExcessVsBenchmarkPct", "HasExcess", "MaxDrawdownPct", "Fragile", "FragileChip", });
+        new java.lang.String[] { "Id", "Label", "CagrPct", "HasCagr", "ExcessVsBenchmarkPct", "MaxDrawdownPct", "Fragile", "Applies", "Reason", "HasExcess", "FragileChip", });
     internal_static_shorts_v1alpha1_SeriesPoint_descriptor =
-      getDescriptor().getMessageType(51);
+      getDescriptor().getMessageType(52);
     internal_static_shorts_v1alpha1_SeriesPoint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SeriesPoint_descriptor,
         new java.lang.String[] { "Date", "Equity", "Benchmark", "Reference", "DrawdownPct", "ExposurePct", "Recorded", });
     internal_static_shorts_v1alpha1_RecipeLines_descriptor =
-      getDescriptor().getMessageType(52);
+      getDescriptor().getMessageType(53);
     internal_static_shorts_v1alpha1_RecipeLines_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_RecipeLines_descriptor,
         new java.lang.String[] { "RecipeId", "Entry", "Exits", "Sizing", "Brokerage", "Spread", "Capacity", "Dividends", "AsicData", "Delisting", "Capital", "Cash", "Preface", });
     internal_static_shorts_v1alpha1_TradeSummary_descriptor =
-      getDescriptor().getMessageType(53);
+      getDescriptor().getMessageType(54);
     internal_static_shorts_v1alpha1_TradeSummary_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_TradeSummary_descriptor,
-        new java.lang.String[] { "Closed", "OpenAtEnd", "WinRatePct", "AvgHoldSessions", "AvgWinPct", "AvgLossPct", "BestPct", "WorstPct", "ExitsByReason", "HasWinRate", });
+        new java.lang.String[] { "Closed", "OpenAtEnd", "WinRatePct", "AvgHoldSessions", "AvgWinPct", "AvgLossPct", "BestPct", "WorstPct", "ExitsByReason", "HasWinRate", "HasAvgHold", "HasAvgWin", "HasAvgLoss", "HasBest", "HasWorst", });
     internal_static_shorts_v1alpha1_TradeSummary_ExitsByReasonEntry_descriptor =
       internal_static_shorts_v1alpha1_TradeSummary_descriptor.getNestedType(0);
     internal_static_shorts_v1alpha1_TradeSummary_ExitsByReasonEntry_fieldAccessorTable = new
@@ -1221,53 +1290,59 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
         internal_static_shorts_v1alpha1_TradeSummary_ExitsByReasonEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_shorts_v1alpha1_BacktestTrade_descriptor =
-      getDescriptor().getMessageType(54);
+      getDescriptor().getMessageType(55);
     internal_static_shorts_v1alpha1_BacktestTrade_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_BacktestTrade_descriptor,
         new java.lang.String[] { "Seq", "StockCode", "CompanyName", "SignalDate", "EntryDate", "EntryPrice", "CapturedPivot", "HasCapturedPivot", "EntryScore", "ExitDate", "ExitPrice", "ExitReason", "SessionsHeld", "GrossReturnPct", "NetReturnPct", "Flags", "Open", "ExitSignalDate", });
     internal_static_shorts_v1alpha1_PaperTrackSummary_descriptor =
-      getDescriptor().getMessageType(55);
+      getDescriptor().getMessageType(56);
     internal_static_shorts_v1alpha1_PaperTrackSummary_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_PaperTrackSummary_descriptor,
         new java.lang.String[] { "Since", "Sessions", "ClosedTrades", "OpenPositions", "ReturnPct", "HasReturn", "TooShort", });
     internal_static_shorts_v1alpha1_ListBacktestTradesRequest_descriptor =
-      getDescriptor().getMessageType(56);
+      getDescriptor().getMessageType(57);
     internal_static_shorts_v1alpha1_ListBacktestTradesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListBacktestTradesRequest_descriptor,
         new java.lang.String[] { "RunId", "PageToken", "PageSize", "StockCode", "ExitReason", });
     internal_static_shorts_v1alpha1_ListBacktestTradesResponse_descriptor =
-      getDescriptor().getMessageType(57);
+      getDescriptor().getMessageType(58);
     internal_static_shorts_v1alpha1_ListBacktestTradesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListBacktestTradesResponse_descriptor,
         new java.lang.String[] { "Trades", "NextPageToken", "Total", });
     internal_static_shorts_v1alpha1_CompareStrategiesRequest_descriptor =
-      getDescriptor().getMessageType(58);
+      getDescriptor().getMessageType(59);
     internal_static_shorts_v1alpha1_CompareStrategiesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_CompareStrategiesRequest_descriptor,
         new java.lang.String[] { "Refs", });
     internal_static_shorts_v1alpha1_CompareStrategiesResponse_descriptor =
-      getDescriptor().getMessageType(59);
+      getDescriptor().getMessageType(60);
     internal_static_shorts_v1alpha1_CompareStrategiesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_CompareStrategiesResponse_descriptor,
-        new java.lang.String[] { "WindowId", "WindowFrom", "WindowTo", "Entries", "Correlations", });
+        new java.lang.String[] { "WindowId", "WindowFrom", "WindowTo", "Entries", "Correlations", "RuleDiffs", });
     internal_static_shorts_v1alpha1_CompareEntry_descriptor =
-      getDescriptor().getMessageType(60);
+      getDescriptor().getMessageType(61);
     internal_static_shorts_v1alpha1_CompareEntry_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_CompareEntry_descriptor,
-        new java.lang.String[] { "StrategyRef", "StrategyId", "Name", "State", "Version", "Window", "Series", });
+        new java.lang.String[] { "StrategyRef", "StrategyId", "Name", "State", "Version", "Window", "Series", "StateReason", });
     internal_static_shorts_v1alpha1_StrategyCorrelation_descriptor =
-      getDescriptor().getMessageType(61);
+      getDescriptor().getMessageType(62);
     internal_static_shorts_v1alpha1_StrategyCorrelation_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StrategyCorrelation_descriptor,
         new java.lang.String[] { "A", "B", "Correlation", "HasCorrelation", "Days", });
+    internal_static_shorts_v1alpha1_RuleDiff_descriptor =
+      getDescriptor().getMessageType(63);
+    internal_static_shorts_v1alpha1_RuleDiff_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_RuleDiff_descriptor,
+        new java.lang.String[] { "A", "B", "Field", "AValue", "BValue", });
     descriptor.resolveAllFeaturesImmutable();
     com.shortedapi.options.v1.OptionsProto.getDescriptor();
     com.google.protobuf.ExtensionRegistry registry =

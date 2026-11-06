@@ -12,7 +12,7 @@ public interface CompareStrategiesResponseOrBuilder extends
 
   /**
    * <pre>
-   * "common": the sessions every compared curve covers. Empty when a strategy has no published run.
+   * "common": the sessions every compared curve covers.
    * </pre>
    *
    * <code>string window_id = 1 [json_name = "windowId"];</code>
@@ -21,7 +21,7 @@ public interface CompareStrategiesResponseOrBuilder extends
   java.lang.String getWindowId();
   /**
    * <pre>
-   * "common": the sessions every compared curve covers. Empty when a strategy has no published run.
+   * "common": the sessions every compared curve covers.
    * </pre>
    *
    * <code>string window_id = 1 [json_name = "windowId"];</code>
@@ -100,5 +100,49 @@ public interface CompareStrategiesResponseOrBuilder extends
    * <code>repeated .shorts.v1alpha1.StrategyCorrelation correlations = 5 [json_name = "correlations"];</code>
    */
   com.shorts.v1alpha1.StrategyCorrelationOrBuilder getCorrelationsOrBuilder(
+      int index);
+
+  /**
+   * <pre>
+   * The recipe lines that differ between each pair of compared strategies.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.RuleDiff> 
+      getRuleDiffsList();
+  /**
+   * <pre>
+   * The recipe lines that differ between each pair of compared strategies.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+   */
+  com.shorts.v1alpha1.RuleDiff getRuleDiffs(int index);
+  /**
+   * <pre>
+   * The recipe lines that differ between each pair of compared strategies.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+   */
+  int getRuleDiffsCount();
+  /**
+   * <pre>
+   * The recipe lines that differ between each pair of compared strategies.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.RuleDiffOrBuilder> 
+      getRuleDiffsOrBuilderList();
+  /**
+   * <pre>
+   * The recipe lines that differ between each pair of compared strategies.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+   */
+  com.shorts.v1alpha1.RuleDiffOrBuilder getRuleDiffsOrBuilder(
       int index);
 }

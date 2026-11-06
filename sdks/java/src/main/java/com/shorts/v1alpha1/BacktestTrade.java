@@ -264,6 +264,10 @@ private static final long serialVersionUID = 0L;
   public static final int ENTRY_SCORE_FIELD_NUMBER = 9;
   private double entryScore_ = 0D;
   /**
+   * <pre>
+   * One decimal.
+   * </pre>
+   *
    * <code>double entry_score = 9 [json_name = "entryScore"];</code>
    * @return The entryScore.
    */
@@ -1627,6 +1631,10 @@ private static final long serialVersionUID = 0L;
 
     private double entryScore_ ;
     /**
+     * <pre>
+     * One decimal.
+     * </pre>
+     *
      * <code>double entry_score = 9 [json_name = "entryScore"];</code>
      * @return The entryScore.
      */
@@ -1635,6 +1643,10 @@ private static final long serialVersionUID = 0L;
       return entryScore_;
     }
     /**
+     * <pre>
+     * One decimal.
+     * </pre>
+     *
      * <code>double entry_score = 9 [json_name = "entryScore"];</code>
      * @param value The entryScore to set.
      * @return This builder for chaining.
@@ -1647,6 +1659,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * One decimal.
+     * </pre>
+     *
      * <code>double entry_score = 9 [json_name = "entryScore"];</code>
      * @return This builder for chaining.
      */

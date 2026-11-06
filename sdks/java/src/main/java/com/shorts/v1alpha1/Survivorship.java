@@ -7,7 +7,7 @@ package com.shorts.v1alpha1;
 
 /**
  * <pre>
- * Survivorship block. Measurement is machine-readable.
+ * Survivorship block. Measurement is one of 8.2's values: measured | partial | not_measurable.
  * </pre>
  *
  * Protobuf type {@code shorts.v1alpha1.Survivorship}
@@ -60,10 +60,6 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private volatile java.lang.Object measurement_ = "";
   /**
-   * <pre>
-   * measured | asic_reported_only | not_measurable.
-   * </pre>
-   *
    * <code>string measurement = 1 [json_name = "measurement"];</code>
    * @return The measurement.
    */
@@ -81,10 +77,6 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <pre>
-   * measured | asic_reported_only | not_measurable.
-   * </pre>
-   *
    * <code>string measurement = 1 [json_name = "measurement"];</code>
    * @return The bytes for measurement.
    */
@@ -436,7 +428,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Survivorship block. Measurement is machine-readable.
+   * Survivorship block. Measurement is one of 8.2's values: measured | partial | not_measurable.
    * </pre>
    *
    * Protobuf type {@code shorts.v1alpha1.Survivorship}
@@ -620,10 +612,6 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object measurement_ = "";
     /**
-     * <pre>
-     * measured | asic_reported_only | not_measurable.
-     * </pre>
-     *
      * <code>string measurement = 1 [json_name = "measurement"];</code>
      * @return The measurement.
      */
@@ -640,10 +628,6 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <pre>
-     * measured | asic_reported_only | not_measurable.
-     * </pre>
-     *
      * <code>string measurement = 1 [json_name = "measurement"];</code>
      * @return The bytes for measurement.
      */
@@ -661,10 +645,6 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <pre>
-     * measured | asic_reported_only | not_measurable.
-     * </pre>
-     *
      * <code>string measurement = 1 [json_name = "measurement"];</code>
      * @param value The measurement to set.
      * @return This builder for chaining.
@@ -678,10 +658,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <pre>
-     * measured | asic_reported_only | not_measurable.
-     * </pre>
-     *
      * <code>string measurement = 1 [json_name = "measurement"];</code>
      * @return This builder for chaining.
      */
@@ -692,10 +668,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <pre>
-     * measured | asic_reported_only | not_measurable.
-     * </pre>
-     *
      * <code>string measurement = 1 [json_name = "measurement"];</code>
      * @param value The bytes for measurement to set.
      * @return This builder for chaining.

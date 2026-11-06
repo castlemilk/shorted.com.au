@@ -3294,9 +3294,10 @@ const PUBLIC_READ_RPCS = {
     "GetOwnershipOverview", "ListInstitutions", "GetInstitution", "GetStockOwnership", "ListSubstantialNotices",
     "ListStockRegisters", "GetOwnershipMap", "GetOwnershipFlows", "GetOwnershipActivity", "ListFundPositionChanges",
     "GetStockFundSeries", "ListFunds", "GetFundPortfolio", "CompareFundSnapshots",
-    // The backtest reads (PR-18), mirrored from StrategyService: canonical runs only, one
-    // answer to every caller.
-    "GetBacktestRun", "ListStrategyEvidence",
+    // The public strategy reads (PR-18 added the rules-version, evidence and backtest reads
+    // to the edge cache), mirrored from StrategyService: caller-invariant, canonical only.
+    "ListStrategies", "GetStrategyPicks", "GetStockStrategyFit", "GetStrategyVersion",
+    "ListStrategyVersions", "ListStrategyEvidence", "GetBacktestRun", "GetStrategyDataStatus",
   ],
   "shorts.v1alpha1.OwnershipService": [
     "GetOwnershipOverview", "ListInstitutions", "GetInstitution", "GetStockOwnership", "ListSubstantialNotices",
@@ -3307,9 +3308,13 @@ const PUBLIC_READ_RPCS = {
     "GetStock", "GetStockDetails", "GetStockData", "GetStockPrices",
     "GetStockFinancialHighlights", "GetDirectorTrades", "GetDividendHistory", "GetPeerComparison",
   ],
-  // The public backtest reads. ListBacktestTrades and CompareStrategies are private and
-  // never listed: they answer for a signed-in caller, so their bytes must never be shared.
-  "shorts.v1alpha1.StrategyService": ["GetBacktestRun", "ListStrategyEvidence"],
+  // The public strategy reads (2.6 item 3). GetViewerStrategyPicks, ListBacktestTrades,
+  // CompareStrategies and the other private reads are never listed: they answer for a
+  // signed-in caller, so their bytes must never be shared.
+  "shorts.v1alpha1.StrategyService": [
+    "ListStrategies", "GetStrategyPicks", "GetStockStrategyFit", "GetStrategyVersion",
+    "ListStrategyVersions", "ListStrategyEvidence", "GetBacktestRun", "GetStrategyDataStatus",
+  ],
   "shorts.v1alpha1.NewsService": ["GetStockNews", "GetMarketNews"],
   "shorts.v1alpha1.MarketService": ["GetTopShorts", "GetIndustryTreeMap", "GetMarketByDate", "GetAvailableDates"],
   "shorts.v1alpha1.ReportsService": ["GetWeeklyReport"],

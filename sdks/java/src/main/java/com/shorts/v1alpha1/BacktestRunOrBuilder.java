@@ -12,7 +12,7 @@ public interface BacktestRunOrBuilder extends
 
   /**
    * <pre>
-   * computed | run_required | running | not_computable | approximate.
+   * published | approximate | run_required | running | not_computable.
    * </pre>
    *
    * <code>string state = 1 [json_name = "state"];</code>
@@ -21,7 +21,7 @@ public interface BacktestRunOrBuilder extends
   java.lang.String getState();
   /**
    * <pre>
-   * computed | run_required | running | not_computable | approximate.
+   * published | approximate | run_required | running | not_computable.
    * </pre>
    *
    * <code>string state = 1 [json_name = "state"];</code>
@@ -31,20 +31,28 @@ public interface BacktestRunOrBuilder extends
       getStateBytes();
 
   /**
-   * <code>string strategy_id = 2 [json_name = "strategyId"];</code>
-   * @return The strategyId.
+   * <pre>
+   * Why the state is what it is, in words.
+   * </pre>
+   *
+   * <code>string state_reason = 2 [json_name = "stateReason"];</code>
+   * @return The stateReason.
    */
-  java.lang.String getStrategyId();
+  java.lang.String getStateReason();
   /**
-   * <code>string strategy_id = 2 [json_name = "strategyId"];</code>
-   * @return The bytes for strategyId.
+   * <pre>
+   * Why the state is what it is, in words.
+   * </pre>
+   *
+   * <code>string state_reason = 2 [json_name = "stateReason"];</code>
+   * @return The bytes for stateReason.
    */
   com.google.protobuf.ByteString
-      getStrategyIdBytes();
+      getStateReasonBytes();
 
   /**
    * <pre>
-   * not_computable: "" when the threshold was never met.
+   * not_computable: "" when the 50% threshold was never met.
    * </pre>
    *
    * <code>string computable_from = 3 [json_name = "computableFrom"];</code>
@@ -53,7 +61,7 @@ public interface BacktestRunOrBuilder extends
   java.lang.String getComputableFrom();
   /**
    * <pre>
-   * not_computable: "" when the threshold was never met.
+   * not_computable: "" when the 50% threshold was never met.
    * </pre>
    *
    * <code>string computable_from = 3 [json_name = "computableFrom"];</code>
@@ -84,7 +92,7 @@ public interface BacktestRunOrBuilder extends
 
   /**
    * <pre>
-   * Absent for run_required and running.
+   * Absent for run_required, running and not_computable.
    * </pre>
    *
    * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -93,7 +101,7 @@ public interface BacktestRunOrBuilder extends
   boolean hasIdentity();
   /**
    * <pre>
-   * Absent for run_required and running.
+   * Absent for run_required, running and not_computable.
    * </pre>
    *
    * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -102,7 +110,7 @@ public interface BacktestRunOrBuilder extends
   com.shorts.v1alpha1.BacktestRunIdentity getIdentity();
   /**
    * <pre>
-   * Absent for run_required and running.
+   * Absent for run_required, running and not_computable.
    * </pre>
    *
    * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -243,7 +251,7 @@ public interface BacktestRunOrBuilder extends
 
   /**
    * <pre>
-   * One point per ISO week plus the first, last and trough sessions; at most 500.
+   * The served window's points: daily or weekly, at most 500.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -252,7 +260,7 @@ public interface BacktestRunOrBuilder extends
       getSeriesList();
   /**
    * <pre>
-   * One point per ISO week plus the first, last and trough sessions; at most 500.
+   * The served window's points: daily or weekly, at most 500.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -260,7 +268,7 @@ public interface BacktestRunOrBuilder extends
   com.shorts.v1alpha1.SeriesPoint getSeries(int index);
   /**
    * <pre>
-   * One point per ISO week plus the first, last and trough sessions; at most 500.
+   * The served window's points: daily or weekly, at most 500.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -268,7 +276,7 @@ public interface BacktestRunOrBuilder extends
   int getSeriesCount();
   /**
    * <pre>
-   * One point per ISO week plus the first, last and trough sessions; at most 500.
+   * The served window's points: daily or weekly, at most 500.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -277,7 +285,7 @@ public interface BacktestRunOrBuilder extends
       getSeriesOrBuilderList();
   /**
    * <pre>
-   * One point per ISO week plus the first, last and trough sessions; at most 500.
+   * The served window's points: daily or weekly, at most 500.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -290,43 +298,43 @@ public interface BacktestRunOrBuilder extends
    * Both coverage measures, by year.
    * </pre>
    *
-   * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+   * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
    */
   java.util.List<com.shorts.v1alpha1.CoverageYear> 
-      getCoverageByYearList();
+      getCoverageList();
   /**
    * <pre>
    * Both coverage measures, by year.
    * </pre>
    *
-   * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+   * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
    */
-  com.shorts.v1alpha1.CoverageYear getCoverageByYear(int index);
+  com.shorts.v1alpha1.CoverageYear getCoverage(int index);
   /**
    * <pre>
    * Both coverage measures, by year.
    * </pre>
    *
-   * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+   * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
    */
-  int getCoverageByYearCount();
+  int getCoverageCount();
   /**
    * <pre>
    * Both coverage measures, by year.
    * </pre>
    *
-   * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+   * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
    */
   java.util.List<? extends com.shorts.v1alpha1.CoverageYearOrBuilder> 
-      getCoverageByYearOrBuilderList();
+      getCoverageOrBuilderList();
   /**
    * <pre>
    * Both coverage measures, by year.
    * </pre>
    *
-   * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+   * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
    */
-  com.shorts.v1alpha1.CoverageYearOrBuilder getCoverageByYearOrBuilder(
+  com.shorts.v1alpha1.CoverageYearOrBuilder getCoverageOrBuilder(
       int index);
 
   /**
@@ -461,7 +469,7 @@ public interface BacktestRunOrBuilder extends
 
   /**
    * <pre>
-   * The in-sample trades; the paper trades are counted in the windows.
+   * Closed trades that exited before live_from (in-sample).
    * </pre>
    *
    * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -470,7 +478,7 @@ public interface BacktestRunOrBuilder extends
   boolean hasTradeSummary();
   /**
    * <pre>
-   * The in-sample trades; the paper trades are counted in the windows.
+   * Closed trades that exited before live_from (in-sample).
    * </pre>
    *
    * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -479,7 +487,7 @@ public interface BacktestRunOrBuilder extends
   com.shorts.v1alpha1.TradeSummary getTradeSummary();
   /**
    * <pre>
-   * The in-sample trades; the paper trades are counted in the windows.
+   * Closed trades that exited before live_from (in-sample).
    * </pre>
    *
    * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -515,7 +523,7 @@ public interface BacktestRunOrBuilder extends
 
   /**
    * <pre>
-   * The run's rules are the live rules.
+   * The run's rules and recipe are the live ones.
    * </pre>
    *
    * <code>bool rules_match_live = 17 [json_name = "rulesMatchLive"];</code>
@@ -535,7 +543,7 @@ public interface BacktestRunOrBuilder extends
 
   /**
    * <pre>
-   * "Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy".
+   * "Replay agrees: 14 of 15 trades", or why it is not comparable.
    * </pre>
    *
    * <code>string replay_agreement = 19 [json_name = "replayAgreement"];</code>
@@ -544,7 +552,7 @@ public interface BacktestRunOrBuilder extends
   java.lang.String getReplayAgreement();
   /**
    * <pre>
-   * "Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy".
+   * "Replay agrees: 14 of 15 trades", or why it is not comparable.
    * </pre>
    *
    * <code>string replay_agreement = 19 [json_name = "replayAgreement"];</code>
@@ -616,7 +624,7 @@ public interface BacktestRunOrBuilder extends
 
   /**
    * <pre>
-   * Data-quality notes of the run.
+   * Data-quality notes of the run, as prose.
    * </pre>
    *
    * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -626,7 +634,7 @@ public interface BacktestRunOrBuilder extends
       getDataNotesList();
   /**
    * <pre>
-   * Data-quality notes of the run.
+   * Data-quality notes of the run, as prose.
    * </pre>
    *
    * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -635,7 +643,7 @@ public interface BacktestRunOrBuilder extends
   int getDataNotesCount();
   /**
    * <pre>
-   * Data-quality notes of the run.
+   * Data-quality notes of the run, as prose.
    * </pre>
    *
    * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -645,7 +653,7 @@ public interface BacktestRunOrBuilder extends
   java.lang.String getDataNotes(int index);
   /**
    * <pre>
-   * Data-quality notes of the run.
+   * Data-quality notes of the run, as prose.
    * </pre>
    *
    * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -656,11 +664,23 @@ public interface BacktestRunOrBuilder extends
       getDataNotesBytes(int index);
 
   /**
+   * <code>string strategy_id = 23 [json_name = "strategyId"];</code>
+   * @return The strategyId.
+   */
+  java.lang.String getStrategyId();
+  /**
+   * <code>string strategy_id = 23 [json_name = "strategyId"];</code>
+   * @return The bytes for strategyId.
+   */
+  com.google.protobuf.ByteString
+      getStrategyIdBytes();
+
+  /**
    * <pre>
    * running: when the request started, RFC 3339.
    * </pre>
    *
-   * <code>string running_since = 23 [json_name = "runningSince"];</code>
+   * <code>string running_since = 24 [json_name = "runningSince"];</code>
    * @return The runningSince.
    */
   java.lang.String getRunningSince();
@@ -669,7 +689,7 @@ public interface BacktestRunOrBuilder extends
    * running: when the request started, RFC 3339.
    * </pre>
    *
-   * <code>string running_since = 23 [json_name = "runningSince"];</code>
+   * <code>string running_since = 24 [json_name = "runningSince"];</code>
    * @return The bytes for runningSince.
    */
   com.google.protobuf.ByteString
@@ -677,19 +697,19 @@ public interface BacktestRunOrBuilder extends
 
   /**
    * <pre>
-   * "weekly" for a computed run; "" otherwise.
+   * "daily" or "weekly": what the series carries.
    * </pre>
    *
-   * <code>string series_resolution = 24 [json_name = "seriesResolution"];</code>
+   * <code>string series_resolution = 25 [json_name = "seriesResolution"];</code>
    * @return The seriesResolution.
    */
   java.lang.String getSeriesResolution();
   /**
    * <pre>
-   * "weekly" for a computed run; "" otherwise.
+   * "daily" or "weekly": what the series carries.
    * </pre>
    *
-   * <code>string series_resolution = 24 [json_name = "seriesResolution"];</code>
+   * <code>string series_resolution = 25 [json_name = "seriesResolution"];</code>
    * @return The bytes for seriesResolution.
    */
   com.google.protobuf.ByteString
@@ -700,14 +720,81 @@ public interface BacktestRunOrBuilder extends
    * not_computable: the measured universe share, when measured.
    * </pre>
    *
-   * <code>double computable_share_pct = 25 [json_name = "computableSharePct"];</code>
+   * <code>double computable_share_pct = 26 [json_name = "computableSharePct"];</code>
    * @return The computableSharePct.
    */
   double getComputableSharePct();
 
   /**
-   * <code>bool has_computable_share = 26 [json_name = "hasComputableShare"];</code>
+   * <code>bool has_computable_share = 27 [json_name = "hasComputableShare"];</code>
    * @return The hasComputableShare.
    */
   boolean getHasComputableShare();
+
+  /**
+   * <pre>
+   * The run's data-quality counts, as fields.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+   * @return Whether the dataQuality field is set.
+   */
+  boolean hasDataQuality();
+  /**
+   * <pre>
+   * The run's data-quality counts, as fields.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+   * @return The dataQuality.
+   */
+  com.shorts.v1alpha1.DataQuality getDataQuality();
+  /**
+   * <pre>
+   * The run's data-quality counts, as fields.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+   */
+  com.shorts.v1alpha1.DataQualityOrBuilder getDataQualityOrBuilder();
+
+  /**
+   * <pre>
+   * The window the series and window tables are served for.
+   * </pre>
+   *
+   * <code>string window_id = 29 [json_name = "windowId"];</code>
+   * @return The windowId.
+   */
+  java.lang.String getWindowId();
+  /**
+   * <pre>
+   * The window the series and window tables are served for.
+   * </pre>
+   *
+   * <code>string window_id = 29 [json_name = "windowId"];</code>
+   * @return The bytes for windowId.
+   */
+  com.google.protobuf.ByteString
+      getWindowIdBytes();
+
+  /**
+   * <pre>
+   * The fundamentals policy, in words the surfaces print.
+   * </pre>
+   *
+   * <code>string fundamentals_label = 30 [json_name = "fundamentalsLabel"];</code>
+   * @return The fundamentalsLabel.
+   */
+  java.lang.String getFundamentalsLabel();
+  /**
+   * <pre>
+   * The fundamentals policy, in words the surfaces print.
+   * </pre>
+   *
+   * <code>string fundamentals_label = 30 [json_name = "fundamentalsLabel"];</code>
+   * @return The bytes for fundamentalsLabel.
+   */
+  com.google.protobuf.ByteString
+      getFundamentalsLabelBytes();
 }

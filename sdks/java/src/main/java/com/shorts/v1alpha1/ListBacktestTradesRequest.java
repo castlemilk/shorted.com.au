@@ -59,7 +59,7 @@ private static final long serialVersionUID = 0L;
   private long runId_ = 0L;
   /**
    * <pre>
-   * Required: a canonical publish run.
+   * Required: a canonical run.
    * </pre>
    *
    * <code>int64 run_id = 1 [json_name = "runId"];</code>
@@ -626,7 +626,7 @@ private static final long serialVersionUID = 0L;
     private long runId_ ;
     /**
      * <pre>
-     * Required: a canonical publish run.
+     * Required: a canonical run.
      * </pre>
      *
      * <code>int64 run_id = 1 [json_name = "runId"];</code>
@@ -638,7 +638,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Required: a canonical publish run.
+     * Required: a canonical run.
      * </pre>
      *
      * <code>int64 run_id = 1 [json_name = "runId"];</code>
@@ -654,7 +654,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Required: a canonical publish run.
+     * Required: a canonical run.
      * </pre>
      *
      * <code>int64 run_id = 1 [json_name = "runId"];</code>

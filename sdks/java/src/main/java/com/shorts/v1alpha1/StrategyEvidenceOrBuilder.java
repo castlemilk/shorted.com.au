@@ -24,7 +24,7 @@ public interface StrategyEvidenceOrBuilder extends
 
   /**
    * <pre>
-   * The live canonical version the evidence is for; absent when none is registered.
+   * The live canonical version; absent when none is registered.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -33,7 +33,7 @@ public interface StrategyEvidenceOrBuilder extends
   boolean hasVersion();
   /**
    * <pre>
-   * The live canonical version the evidence is for; absent when none is registered.
+   * The live canonical version; absent when none is registered.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -42,7 +42,7 @@ public interface StrategyEvidenceOrBuilder extends
   com.shorts.v1alpha1.StrategyVersionRef getVersion();
   /**
    * <pre>
-   * The live canonical version the evidence is for; absent when none is registered.
+   * The live canonical version; absent when none is registered.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -51,7 +51,7 @@ public interface StrategyEvidenceOrBuilder extends
 
   /**
    * <pre>
-   * computed | run_required | running | not_computable | approximate.
+   * published | approximate | run_required | running | not_computable.
    * </pre>
    *
    * <code>string state = 3 [json_name = "state"];</code>
@@ -60,7 +60,7 @@ public interface StrategyEvidenceOrBuilder extends
   java.lang.String getState();
   /**
    * <pre>
-   * computed | run_required | running | not_computable | approximate.
+   * published | approximate | run_required | running | not_computable.
    * </pre>
    *
    * <code>string state = 3 [json_name = "state"];</code>
@@ -71,7 +71,7 @@ public interface StrategyEvidenceOrBuilder extends
 
   /**
    * <pre>
-   * Not computable: the first month-end the universe is computable; "" when none.
+   * not_computable: the first month-end the universe is computable; "" when none.
    * </pre>
    *
    * <code>string computable_from = 4 [json_name = "computableFrom"];</code>
@@ -80,7 +80,7 @@ public interface StrategyEvidenceOrBuilder extends
   java.lang.String getComputableFrom();
   /**
    * <pre>
-   * Not computable: the first month-end the universe is computable; "" when none.
+   * not_computable: the first month-end the universe is computable; "" when none.
    * </pre>
    *
    * <code>string computable_from = 4 [json_name = "computableFrom"];</code>
@@ -91,7 +91,7 @@ public interface StrategyEvidenceOrBuilder extends
 
   /**
    * <pre>
-   * Not computable: the measured label, e.g. FY2024; "" when none.
+   * not_computable: the measured label, e.g. FY2024; "" when none.
    * </pre>
    *
    * <code>string fiscal_label = 5 [json_name = "fiscalLabel"];</code>
@@ -100,7 +100,7 @@ public interface StrategyEvidenceOrBuilder extends
   java.lang.String getFiscalLabel();
   /**
    * <pre>
-   * Not computable: the measured label, e.g. FY2024; "" when none.
+   * not_computable: the measured label, e.g. FY2024; "" when none.
    * </pre>
    *
    * <code>string fiscal_label = 5 [json_name = "fiscalLabel"];</code>
@@ -297,7 +297,7 @@ public interface StrategyEvidenceOrBuilder extends
 
   /**
    * <pre>
-   * The survivorship statement's copy.
+   * The survivorship statement, with the measurement caveat where one applies.
    * </pre>
    *
    * <code>string survivorship = 11 [json_name = "survivorship"];</code>
@@ -306,7 +306,7 @@ public interface StrategyEvidenceOrBuilder extends
   java.lang.String getSurvivorship();
   /**
    * <pre>
-   * The survivorship statement's copy.
+   * The survivorship statement, with the measurement caveat where one applies.
    * </pre>
    *
    * <code>string survivorship = 11 [json_name = "survivorship"];</code>
@@ -344,4 +344,60 @@ public interface StrategyEvidenceOrBuilder extends
    */
   com.google.protobuf.ByteString
       getLatestScreenBytes();
+
+  /**
+   * <pre>
+   * Why the state is what it is, in words the explorer can print.
+   * </pre>
+   *
+   * <code>string state_reason = 14 [json_name = "stateReason"];</code>
+   * @return The stateReason.
+   */
+  java.lang.String getStateReason();
+  /**
+   * <pre>
+   * Why the state is what it is, in words the explorer can print.
+   * </pre>
+   *
+   * <code>string state_reason = 14 [json_name = "stateReason"];</code>
+   * @return The bytes for stateReason.
+   */
+  com.google.protobuf.ByteString
+      getStateReasonBytes();
+
+  /**
+   * <pre>
+   * running: when the request started, RFC 3339.
+   * </pre>
+   *
+   * <code>string running_since = 15 [json_name = "runningSince"];</code>
+   * @return The runningSince.
+   */
+  java.lang.String getRunningSince();
+  /**
+   * <pre>
+   * running: when the request started, RFC 3339.
+   * </pre>
+   *
+   * <code>string running_since = 15 [json_name = "runningSince"];</code>
+   * @return The bytes for runningSince.
+   */
+  com.google.protobuf.ByteString
+      getRunningSinceBytes();
+
+  /**
+   * <pre>
+   * not_computable: the measured universe share, when measured.
+   * </pre>
+   *
+   * <code>double computable_share_pct = 16 [json_name = "computableSharePct"];</code>
+   * @return The computableSharePct.
+   */
+  double getComputableSharePct();
+
+  /**
+   * <code>bool has_computable_share = 17 [json_name = "hasComputableShare"];</code>
+   * @return The hasComputableShare.
+   */
+  boolean getHasComputableShare();
 }

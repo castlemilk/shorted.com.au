@@ -31,50 +31,30 @@ public interface CoverageMonthOrBuilder extends
       getMonthBytes();
 
   /**
-   * <code>double qualifying_pct = 2 [json_name = "qualifyingPct"];</code>
-   * @return The qualifyingPct.
+   * <pre>
+   * Qualifying coverage.
+   * </pre>
+   *
+   * <code>double coverage_pct = 2 [json_name = "coveragePct"];</code>
+   * @return The coveragePct.
    */
-  double getQualifyingPct();
+  double getCoveragePct();
 
   /**
-   * <code>bool has_qualifying = 3 [json_name = "hasQualifying"];</code>
-   * @return The hasQualifying.
+   * <code>bool measurable = 3 [json_name = "measurable"];</code>
+   * @return The measurable.
    */
-  boolean getHasQualifying();
+  boolean getMeasurable();
 
   /**
-   * <code>int32 qualifying_priced = 4 [json_name = "qualifyingPriced"];</code>
-   * @return The qualifyingPriced.
-   */
-  int getQualifyingPriced();
-
-  /**
-   * <code>int32 qualifying_name_days = 5 [json_name = "qualifyingNameDays"];</code>
-   * @return The qualifyingNameDays.
-   */
-  int getQualifyingNameDays();
-
-  /**
-   * <code>double all_reported_pct = 6 [json_name = "allReportedPct"];</code>
+   * <code>double all_reported_pct = 4 [json_name = "allReportedPct"];</code>
    * @return The allReportedPct.
    */
   double getAllReportedPct();
 
   /**
-   * <code>bool has_all_reported = 7 [json_name = "hasAllReported"];</code>
-   * @return The hasAllReported.
+   * <code>bool all_reported_measurable = 5 [json_name = "allReportedMeasurable"];</code>
+   * @return The allReportedMeasurable.
    */
-  boolean getHasAllReported();
-
-  /**
-   * <code>int32 all_reported_priced = 8 [json_name = "allReportedPriced"];</code>
-   * @return The allReportedPriced.
-   */
-  int getAllReportedPriced();
-
-  /**
-   * <code>int32 all_reported_name_days = 9 [json_name = "allReportedNameDays"];</code>
-   * @return The allReportedNameDays.
-   */
-  int getAllReportedNameDays();
+  boolean getAllReportedMeasurable();
 }

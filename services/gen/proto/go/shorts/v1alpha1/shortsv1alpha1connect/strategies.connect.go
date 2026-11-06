@@ -146,21 +146,21 @@ type StrategyServiceClient interface {
 	// The caller's saved strategies, most recent first, each with today's
 	// status counts.
 	ListSavedStrategies(context.Context, *connect.Request[v1alpha1.ListSavedStrategiesRequest]) (*connect.Response[v1alpha1.ListSavedStrategiesResponse], error)
-	// The backtest evidence of every strategy: each strategy's state, its chained windows
-	// (in-sample to live_from, then the recorded paper track), its annual returns, a month-end
-	// curve and its paper-track summary. Public: the same bytes to every caller.
+	// The backtest evidence of every strategy: each strategy's state, its chained windows (in-sample
+	// to live_from, then the recorded paper track), its annual returns, a month-end curve and its
+	// paper-track summary. Public: the same bytes to every caller, cached per instance.
 	ListStrategyEvidence(context.Context, *connect.Request[v1alpha1.ListStrategyEvidenceRequest]) (*connect.Response[v1alpha1.ListStrategyEvidenceResponse], error)
-	// One published canonical backtest run: the series (weekly), windows, annual and monthly
-	// tables, coverage, sensitivity, survivorship, recipe lines, trade summary, identity and the
-	// replay agreement. run_id 0 is the published run of the live version. A variant run_id, or a
-	// run that is not a canonical publish, is NotFound.
+	// One canonical backtest run: the live version's published run (run_id 0), or a canonical run by
+	// id. A variant run, a gate-refused run or an unknown id is NotFound. A not-computable outcome
+	// fetched by id returns its stored state. The series is daily for windows of 500 sessions or
+	// fewer, weekly otherwise (series_resolution says which). Public and cached per instance.
 	GetBacktestRun(context.Context, *connect.Request[v1alpha1.GetBacktestRunRequest]) (*connect.Response[v1alpha1.GetBacktestRunResponse], error)
-	// The trades of one canonical run, paged, with optional stock and exit filters. Signed-in
-	// callers only. A variant or unknown run_id is NotFound.
+	// The trades of one canonical run, keyset-paged and filterable by stock and exit reason. Signed-in
+	// callers only. A variant, gate-refused or unknown run is NotFound.
 	ListBacktestTrades(context.Context, *connect.Request[v1alpha1.ListBacktestTradesRequest]) (*connect.Response[v1alpha1.ListBacktestTradesResponse], error)
-	// Two or three canonical strategies side by side over one common window: their chained
-	// windows, weekly curves rebased to 100,000 and daily-return correlations. Signed-in callers
-	// only. Variant references are refused until variant comparison ships.
+	// Two or three canonical strategies over their common window: windows, rebased weekly curves,
+	// daily-return correlations and the rule differences. Signed-in callers only. Variant references
+	// are refused until variant comparison ships.
 	CompareStrategies(context.Context, *connect.Request[v1alpha1.CompareStrategiesRequest]) (*connect.Response[v1alpha1.CompareStrategiesResponse], error)
 }
 
@@ -407,21 +407,21 @@ type StrategyServiceHandler interface {
 	// The caller's saved strategies, most recent first, each with today's
 	// status counts.
 	ListSavedStrategies(context.Context, *connect.Request[v1alpha1.ListSavedStrategiesRequest]) (*connect.Response[v1alpha1.ListSavedStrategiesResponse], error)
-	// The backtest evidence of every strategy: each strategy's state, its chained windows
-	// (in-sample to live_from, then the recorded paper track), its annual returns, a month-end
-	// curve and its paper-track summary. Public: the same bytes to every caller.
+	// The backtest evidence of every strategy: each strategy's state, its chained windows (in-sample
+	// to live_from, then the recorded paper track), its annual returns, a month-end curve and its
+	// paper-track summary. Public: the same bytes to every caller, cached per instance.
 	ListStrategyEvidence(context.Context, *connect.Request[v1alpha1.ListStrategyEvidenceRequest]) (*connect.Response[v1alpha1.ListStrategyEvidenceResponse], error)
-	// One published canonical backtest run: the series (weekly), windows, annual and monthly
-	// tables, coverage, sensitivity, survivorship, recipe lines, trade summary, identity and the
-	// replay agreement. run_id 0 is the published run of the live version. A variant run_id, or a
-	// run that is not a canonical publish, is NotFound.
+	// One canonical backtest run: the live version's published run (run_id 0), or a canonical run by
+	// id. A variant run, a gate-refused run or an unknown id is NotFound. A not-computable outcome
+	// fetched by id returns its stored state. The series is daily for windows of 500 sessions or
+	// fewer, weekly otherwise (series_resolution says which). Public and cached per instance.
 	GetBacktestRun(context.Context, *connect.Request[v1alpha1.GetBacktestRunRequest]) (*connect.Response[v1alpha1.GetBacktestRunResponse], error)
-	// The trades of one canonical run, paged, with optional stock and exit filters. Signed-in
-	// callers only. A variant or unknown run_id is NotFound.
+	// The trades of one canonical run, keyset-paged and filterable by stock and exit reason. Signed-in
+	// callers only. A variant, gate-refused or unknown run is NotFound.
 	ListBacktestTrades(context.Context, *connect.Request[v1alpha1.ListBacktestTradesRequest]) (*connect.Response[v1alpha1.ListBacktestTradesResponse], error)
-	// Two or three canonical strategies side by side over one common window: their chained
-	// windows, weekly curves rebased to 100,000 and daily-return correlations. Signed-in callers
-	// only. Variant references are refused until variant comparison ships.
+	// Two or three canonical strategies over their common window: windows, rebased weekly curves,
+	// daily-return correlations and the rule differences. Signed-in callers only. Variant references
+	// are refused until variant comparison ships.
 	CompareStrategies(context.Context, *connect.Request[v1alpha1.CompareStrategiesRequest]) (*connect.Response[v1alpha1.CompareStrategiesResponse], error)
 }
 

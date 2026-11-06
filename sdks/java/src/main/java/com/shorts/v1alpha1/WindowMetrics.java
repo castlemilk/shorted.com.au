@@ -37,6 +37,9 @@ private static final long serialVersionUID = 0L;
     to_ = "";
     label_ = "";
     note_ = "";
+    peakDate_ = "";
+    troughDate_ = "";
+    recoveryDate_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -62,7 +65,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object window_ = "";
   /**
    * <pre>
-   * since_may_2019 | since_2023 | last_12_months | live_since_freeze.
+   * since_2019_05 | since_2023 | trailing_12m | live.
    * </pre>
    *
    * <code>string window = 1 [json_name = "window"];</code>
@@ -83,7 +86,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * since_may_2019 | since_2023 | last_12_months | live_since_freeze.
+   * since_2019_05 | since_2023 | trailing_12m | live.
    * </pre>
    *
    * <code>string window = 1 [json_name = "window"];</code>
@@ -364,10 +367,6 @@ private static final long serialVersionUID = 0L;
   public static final int HAS_WIN_RATE_FIELD_NUMBER = 17;
   private boolean hasWinRate_ = false;
   /**
-   * <pre>
-   * False when the window includes paper trades, which carry no net return here.
-   * </pre>
-   *
    * <code>bool has_win_rate = 17 [json_name = "hasWinRate"];</code>
    * @return The hasWinRate.
    */
@@ -555,6 +554,206 @@ private static final long serialVersionUID = 0L;
     return hasVolatility_;
   }
 
+  public static final int HAS_TOTAL_RETURN_FIELD_NUMBER = 27;
+  private boolean hasTotalReturn_ = false;
+  /**
+   * <code>bool has_total_return = 27 [json_name = "hasTotalReturn"];</code>
+   * @return The hasTotalReturn.
+   */
+  @java.lang.Override
+  public boolean getHasTotalReturn() {
+    return hasTotalReturn_;
+  }
+
+  public static final int PEAK_DATE_FIELD_NUMBER = 28;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object peakDate_ = "";
+  /**
+   * <pre>
+   * The session of the window's deepest peak; "" when the curve never falls.
+   * </pre>
+   *
+   * <code>string peak_date = 28 [json_name = "peakDate"];</code>
+   * @return The peakDate.
+   */
+  @java.lang.Override
+  public java.lang.String getPeakDate() {
+    java.lang.Object ref = peakDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      peakDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The session of the window's deepest peak; "" when the curve never falls.
+   * </pre>
+   *
+   * <code>string peak_date = 28 [json_name = "peakDate"];</code>
+   * @return The bytes for peakDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPeakDateBytes() {
+    java.lang.Object ref = peakDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      peakDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int TROUGH_DATE_FIELD_NUMBER = 29;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object troughDate_ = "";
+  /**
+   * <pre>
+   * The session of the deepest fall.
+   * </pre>
+   *
+   * <code>string trough_date = 29 [json_name = "troughDate"];</code>
+   * @return The troughDate.
+   */
+  @java.lang.Override
+  public java.lang.String getTroughDate() {
+    java.lang.Object ref = troughDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      troughDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The session of the deepest fall.
+   * </pre>
+   *
+   * <code>string trough_date = 29 [json_name = "troughDate"];</code>
+   * @return The bytes for troughDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getTroughDateBytes() {
+    java.lang.Object ref = troughDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      troughDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int RECOVERY_DATE_FIELD_NUMBER = 30;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object recoveryDate_ = "";
+  /**
+   * <pre>
+   * The first session back at the peak; "not recovered" when it has not; "" when none.
+   * </pre>
+   *
+   * <code>string recovery_date = 30 [json_name = "recoveryDate"];</code>
+   * @return The recoveryDate.
+   */
+  @java.lang.Override
+  public java.lang.String getRecoveryDate() {
+    java.lang.Object ref = recoveryDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      recoveryDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The first session back at the peak; "not recovered" when it has not; "" when none.
+   * </pre>
+   *
+   * <code>string recovery_date = 30 [json_name = "recoveryDate"];</code>
+   * @return The bytes for recoveryDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRecoveryDateBytes() {
+    java.lang.Object ref = recoveryDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      recoveryDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int BENCHMARK_TOTAL_RETURN_PCT_FIELD_NUMBER = 31;
+  private double benchmarkTotalReturnPct_ = 0D;
+  /**
+   * <pre>
+   * XJT over the window: shown for every window, annualised or not.
+   * </pre>
+   *
+   * <code>double benchmark_total_return_pct = 31 [json_name = "benchmarkTotalReturnPct"];</code>
+   * @return The benchmarkTotalReturnPct.
+   */
+  @java.lang.Override
+  public double getBenchmarkTotalReturnPct() {
+    return benchmarkTotalReturnPct_;
+  }
+
+  public static final int HAS_BENCHMARK_TOTAL_RETURN_FIELD_NUMBER = 32;
+  private boolean hasBenchmarkTotalReturn_ = false;
+  /**
+   * <code>bool has_benchmark_total_return = 32 [json_name = "hasBenchmarkTotalReturn"];</code>
+   * @return The hasBenchmarkTotalReturn.
+   */
+  @java.lang.Override
+  public boolean getHasBenchmarkTotalReturn() {
+    return hasBenchmarkTotalReturn_;
+  }
+
+  public static final int REFERENCE_TOTAL_RETURN_PCT_FIELD_NUMBER = 33;
+  private double referenceTotalReturnPct_ = 0D;
+  /**
+   * <code>double reference_total_return_pct = 33 [json_name = "referenceTotalReturnPct"];</code>
+   * @return The referenceTotalReturnPct.
+   */
+  @java.lang.Override
+  public double getReferenceTotalReturnPct() {
+    return referenceTotalReturnPct_;
+  }
+
+  public static final int HAS_REFERENCE_TOTAL_RETURN_FIELD_NUMBER = 34;
+  private boolean hasReferenceTotalReturn_ = false;
+  /**
+   * <code>bool has_reference_total_return = 34 [json_name = "hasReferenceTotalReturn"];</code>
+   * @return The hasReferenceTotalReturn.
+   */
+  @java.lang.Override
+  public boolean getHasReferenceTotalReturn() {
+    return hasReferenceTotalReturn_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -646,6 +845,30 @@ private static final long serialVersionUID = 0L;
     }
     if (hasVolatility_ != false) {
       output.writeBool(26, hasVolatility_);
+    }
+    if (hasTotalReturn_ != false) {
+      output.writeBool(27, hasTotalReturn_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(peakDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 28, peakDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(troughDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 29, troughDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(recoveryDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 30, recoveryDate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(benchmarkTotalReturnPct_) != 0) {
+      output.writeDouble(31, benchmarkTotalReturnPct_);
+    }
+    if (hasBenchmarkTotalReturn_ != false) {
+      output.writeBool(32, hasBenchmarkTotalReturn_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(referenceTotalReturnPct_) != 0) {
+      output.writeDouble(33, referenceTotalReturnPct_);
+    }
+    if (hasReferenceTotalReturn_ != false) {
+      output.writeBool(34, hasReferenceTotalReturn_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -750,6 +973,39 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(26, hasVolatility_);
     }
+    if (hasTotalReturn_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(27, hasTotalReturn_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(peakDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(28, peakDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(troughDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(29, troughDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(recoveryDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(30, recoveryDate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(benchmarkTotalReturnPct_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(31, benchmarkTotalReturnPct_);
+    }
+    if (hasBenchmarkTotalReturn_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(32, hasBenchmarkTotalReturn_);
+    }
+    return size;
+  }
+  private int computeSerializedSize_1() {
+    int size = 0;
+    if (java.lang.Double.doubleToRawLongBits(referenceTotalReturnPct_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(33, referenceTotalReturnPct_);
+    }
+    if (hasReferenceTotalReturn_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(34, hasReferenceTotalReturn_);
+    }
     return size;
   }
   @java.lang.Override
@@ -759,6 +1015,7 @@ private static final long serialVersionUID = 0L;
 
     size = 0;
     size += computeSerializedSize_0();
+    size += computeSerializedSize_1();
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -836,6 +1093,24 @@ private static final long serialVersionUID = 0L;
             other.getVolatilityPct())) return false;
     if (getHasVolatility()
         != other.getHasVolatility()) return false;
+    if (getHasTotalReturn()
+        != other.getHasTotalReturn()) return false;
+    if (!getPeakDate()
+        .equals(other.getPeakDate())) return false;
+    if (!getTroughDate()
+        .equals(other.getTroughDate())) return false;
+    if (!getRecoveryDate()
+        .equals(other.getRecoveryDate())) return false;
+    if (java.lang.Double.doubleToLongBits(getBenchmarkTotalReturnPct())
+        != java.lang.Double.doubleToLongBits(
+            other.getBenchmarkTotalReturnPct())) return false;
+    if (getHasBenchmarkTotalReturn()
+        != other.getHasBenchmarkTotalReturn()) return false;
+    if (java.lang.Double.doubleToLongBits(getReferenceTotalReturnPct())
+        != java.lang.Double.doubleToLongBits(
+            other.getReferenceTotalReturnPct())) return false;
+    if (getHasReferenceTotalReturn()
+        != other.getHasReferenceTotalReturn()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -917,6 +1192,27 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_VOLATILITY_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasVolatility());
+    hash = (37 * hash) + HAS_TOTAL_RETURN_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasTotalReturn());
+    hash = (37 * hash) + PEAK_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getPeakDate().hashCode();
+    hash = (37 * hash) + TROUGH_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getTroughDate().hashCode();
+    hash = (37 * hash) + RECOVERY_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getRecoveryDate().hashCode();
+    hash = (37 * hash) + BENCHMARK_TOTAL_RETURN_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getBenchmarkTotalReturnPct()));
+    hash = (37 * hash) + HAS_BENCHMARK_TOTAL_RETURN_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasBenchmarkTotalReturn());
+    hash = (37 * hash) + REFERENCE_TOTAL_RETURN_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getReferenceTotalReturnPct()));
+    hash = (37 * hash) + HAS_REFERENCE_TOTAL_RETURN_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasReferenceTotalReturn());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1052,6 +1348,7 @@ private static final long serialVersionUID = 0L;
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
+      bitField1_ = 0;
       window_ = "";
       from_ = "";
       to_ = "";
@@ -1078,6 +1375,14 @@ private static final long serialVersionUID = 0L;
       calendarDays_ = 0;
       volatilityPct_ = 0D;
       hasVolatility_ = false;
+      hasTotalReturn_ = false;
+      peakDate_ = "";
+      troughDate_ = "";
+      recoveryDate_ = "";
+      benchmarkTotalReturnPct_ = 0D;
+      hasBenchmarkTotalReturn_ = false;
+      referenceTotalReturnPct_ = 0D;
+      hasReferenceTotalReturn_ = false;
       return this;
     }
 
@@ -1105,6 +1410,7 @@ private static final long serialVersionUID = 0L;
     public com.shorts.v1alpha1.WindowMetrics buildPartial() {
       com.shorts.v1alpha1.WindowMetrics result = new com.shorts.v1alpha1.WindowMetrics(this);
       if (bitField0_ != 0) { buildPartial0(result); }
+      if (bitField1_ != 0) { buildPartial1(result); }
       onBuilt();
       return result;
     }
@@ -1188,6 +1494,34 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x02000000) != 0)) {
         result.hasVolatility_ = hasVolatility_;
+      }
+      if (((from_bitField0_ & 0x04000000) != 0)) {
+        result.hasTotalReturn_ = hasTotalReturn_;
+      }
+      if (((from_bitField0_ & 0x08000000) != 0)) {
+        result.peakDate_ = peakDate_;
+      }
+      if (((from_bitField0_ & 0x10000000) != 0)) {
+        result.troughDate_ = troughDate_;
+      }
+      if (((from_bitField0_ & 0x20000000) != 0)) {
+        result.recoveryDate_ = recoveryDate_;
+      }
+      if (((from_bitField0_ & 0x40000000) != 0)) {
+        result.benchmarkTotalReturnPct_ = benchmarkTotalReturnPct_;
+      }
+      if (((from_bitField0_ & 0x80000000) != 0)) {
+        result.hasBenchmarkTotalReturn_ = hasBenchmarkTotalReturn_;
+      }
+    }
+
+    private void buildPartial1(com.shorts.v1alpha1.WindowMetrics result) {
+      int from_bitField1_ = bitField1_;
+      if (((from_bitField1_ & 0x00000001) != 0)) {
+        result.referenceTotalReturnPct_ = referenceTotalReturnPct_;
+      }
+      if (((from_bitField1_ & 0x00000002) != 0)) {
+        result.hasReferenceTotalReturn_ = hasReferenceTotalReturn_;
       }
     }
 
@@ -1290,6 +1624,36 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasVolatility() != false) {
         setHasVolatility(other.getHasVolatility());
+      }
+      if (other.getHasTotalReturn() != false) {
+        setHasTotalReturn(other.getHasTotalReturn());
+      }
+      if (!other.getPeakDate().isEmpty()) {
+        peakDate_ = other.peakDate_;
+        bitField0_ |= 0x08000000;
+        onChanged();
+      }
+      if (!other.getTroughDate().isEmpty()) {
+        troughDate_ = other.troughDate_;
+        bitField0_ |= 0x10000000;
+        onChanged();
+      }
+      if (!other.getRecoveryDate().isEmpty()) {
+        recoveryDate_ = other.recoveryDate_;
+        bitField0_ |= 0x20000000;
+        onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getBenchmarkTotalReturnPct()) != 0) {
+        setBenchmarkTotalReturnPct(other.getBenchmarkTotalReturnPct());
+      }
+      if (other.getHasBenchmarkTotalReturn() != false) {
+        setHasBenchmarkTotalReturn(other.getHasBenchmarkTotalReturn());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getReferenceTotalReturnPct()) != 0) {
+        setReferenceTotalReturnPct(other.getReferenceTotalReturnPct());
+      }
+      if (other.getHasReferenceTotalReturn() != false) {
+        setHasReferenceTotalReturn(other.getHasReferenceTotalReturn());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1447,6 +1811,46 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x02000000;
               break;
             } // case 208
+            case 216: {
+              hasTotalReturn_ = input.readBool();
+              bitField0_ |= 0x04000000;
+              break;
+            } // case 216
+            case 226: {
+              peakDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x08000000;
+              break;
+            } // case 226
+            case 234: {
+              troughDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x10000000;
+              break;
+            } // case 234
+            case 242: {
+              recoveryDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x20000000;
+              break;
+            } // case 242
+            case 249: {
+              benchmarkTotalReturnPct_ = input.readDouble();
+              bitField0_ |= 0x40000000;
+              break;
+            } // case 249
+            case 256: {
+              hasBenchmarkTotalReturn_ = input.readBool();
+              bitField0_ |= 0x80000000;
+              break;
+            } // case 256
+            case 265: {
+              referenceTotalReturnPct_ = input.readDouble();
+              bitField1_ |= 0x00000001;
+              break;
+            } // case 265
+            case 272: {
+              hasReferenceTotalReturn_ = input.readBool();
+              bitField1_ |= 0x00000002;
+              break;
+            } // case 272
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1463,11 +1867,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     private int bitField0_;
+    private int bitField1_;
 
     private java.lang.Object window_ = "";
     /**
      * <pre>
-     * since_may_2019 | since_2023 | last_12_months | live_since_freeze.
+     * since_2019_05 | since_2023 | trailing_12m | live.
      * </pre>
      *
      * <code>string window = 1 [json_name = "window"];</code>
@@ -1487,7 +1892,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * since_may_2019 | since_2023 | last_12_months | live_since_freeze.
+     * since_2019_05 | since_2023 | trailing_12m | live.
      * </pre>
      *
      * <code>string window = 1 [json_name = "window"];</code>
@@ -1508,7 +1913,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * since_may_2019 | since_2023 | last_12_months | live_since_freeze.
+     * since_2019_05 | since_2023 | trailing_12m | live.
      * </pre>
      *
      * <code>string window = 1 [json_name = "window"];</code>
@@ -1525,7 +1930,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * since_may_2019 | since_2023 | last_12_months | live_since_freeze.
+     * since_2019_05 | since_2023 | trailing_12m | live.
      * </pre>
      *
      * <code>string window = 1 [json_name = "window"];</code>
@@ -1539,7 +1944,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * since_may_2019 | since_2023 | last_12_months | live_since_freeze.
+     * since_2019_05 | since_2023 | trailing_12m | live.
      * </pre>
      *
      * <code>string window = 1 [json_name = "window"];</code>
@@ -2218,10 +2623,6 @@ private static final long serialVersionUID = 0L;
 
     private boolean hasWinRate_ ;
     /**
-     * <pre>
-     * False when the window includes paper trades, which carry no net return here.
-     * </pre>
-     *
      * <code>bool has_win_rate = 17 [json_name = "hasWinRate"];</code>
      * @return The hasWinRate.
      */
@@ -2230,10 +2631,6 @@ private static final long serialVersionUID = 0L;
       return hasWinRate_;
     }
     /**
-     * <pre>
-     * False when the window includes paper trades, which carry no net return here.
-     * </pre>
-     *
      * <code>bool has_win_rate = 17 [json_name = "hasWinRate"];</code>
      * @param value The hasWinRate to set.
      * @return This builder for chaining.
@@ -2246,10 +2643,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <pre>
-     * False when the window includes paper trades, which carry no net return here.
-     * </pre>
-     *
      * <code>bool has_win_rate = 17 [json_name = "hasWinRate"];</code>
      * @return This builder for chaining.
      */
@@ -2688,6 +3081,454 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasVolatility() {
       bitField0_ = (bitField0_ & ~0x02000000);
       hasVolatility_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasTotalReturn_ ;
+    /**
+     * <code>bool has_total_return = 27 [json_name = "hasTotalReturn"];</code>
+     * @return The hasTotalReturn.
+     */
+    @java.lang.Override
+    public boolean getHasTotalReturn() {
+      return hasTotalReturn_;
+    }
+    /**
+     * <code>bool has_total_return = 27 [json_name = "hasTotalReturn"];</code>
+     * @param value The hasTotalReturn to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasTotalReturn(boolean value) {
+
+      hasTotalReturn_ = value;
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_total_return = 27 [json_name = "hasTotalReturn"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasTotalReturn() {
+      bitField0_ = (bitField0_ & ~0x04000000);
+      hasTotalReturn_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object peakDate_ = "";
+    /**
+     * <pre>
+     * The session of the window's deepest peak; "" when the curve never falls.
+     * </pre>
+     *
+     * <code>string peak_date = 28 [json_name = "peakDate"];</code>
+     * @return The peakDate.
+     */
+    public java.lang.String getPeakDate() {
+      java.lang.Object ref = peakDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        peakDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The session of the window's deepest peak; "" when the curve never falls.
+     * </pre>
+     *
+     * <code>string peak_date = 28 [json_name = "peakDate"];</code>
+     * @return The bytes for peakDate.
+     */
+    public com.google.protobuf.ByteString
+        getPeakDateBytes() {
+      java.lang.Object ref = peakDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        peakDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The session of the window's deepest peak; "" when the curve never falls.
+     * </pre>
+     *
+     * <code>string peak_date = 28 [json_name = "peakDate"];</code>
+     * @param value The peakDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPeakDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      peakDate_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The session of the window's deepest peak; "" when the curve never falls.
+     * </pre>
+     *
+     * <code>string peak_date = 28 [json_name = "peakDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPeakDate() {
+      peakDate_ = getDefaultInstance().getPeakDate();
+      bitField0_ = (bitField0_ & ~0x08000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The session of the window's deepest peak; "" when the curve never falls.
+     * </pre>
+     *
+     * <code>string peak_date = 28 [json_name = "peakDate"];</code>
+     * @param value The bytes for peakDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPeakDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      peakDate_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object troughDate_ = "";
+    /**
+     * <pre>
+     * The session of the deepest fall.
+     * </pre>
+     *
+     * <code>string trough_date = 29 [json_name = "troughDate"];</code>
+     * @return The troughDate.
+     */
+    public java.lang.String getTroughDate() {
+      java.lang.Object ref = troughDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        troughDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The session of the deepest fall.
+     * </pre>
+     *
+     * <code>string trough_date = 29 [json_name = "troughDate"];</code>
+     * @return The bytes for troughDate.
+     */
+    public com.google.protobuf.ByteString
+        getTroughDateBytes() {
+      java.lang.Object ref = troughDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        troughDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The session of the deepest fall.
+     * </pre>
+     *
+     * <code>string trough_date = 29 [json_name = "troughDate"];</code>
+     * @param value The troughDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTroughDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      troughDate_ = value;
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The session of the deepest fall.
+     * </pre>
+     *
+     * <code>string trough_date = 29 [json_name = "troughDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTroughDate() {
+      troughDate_ = getDefaultInstance().getTroughDate();
+      bitField0_ = (bitField0_ & ~0x10000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The session of the deepest fall.
+     * </pre>
+     *
+     * <code>string trough_date = 29 [json_name = "troughDate"];</code>
+     * @param value The bytes for troughDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTroughDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      troughDate_ = value;
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object recoveryDate_ = "";
+    /**
+     * <pre>
+     * The first session back at the peak; "not recovered" when it has not; "" when none.
+     * </pre>
+     *
+     * <code>string recovery_date = 30 [json_name = "recoveryDate"];</code>
+     * @return The recoveryDate.
+     */
+    public java.lang.String getRecoveryDate() {
+      java.lang.Object ref = recoveryDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        recoveryDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The first session back at the peak; "not recovered" when it has not; "" when none.
+     * </pre>
+     *
+     * <code>string recovery_date = 30 [json_name = "recoveryDate"];</code>
+     * @return The bytes for recoveryDate.
+     */
+    public com.google.protobuf.ByteString
+        getRecoveryDateBytes() {
+      java.lang.Object ref = recoveryDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        recoveryDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The first session back at the peak; "not recovered" when it has not; "" when none.
+     * </pre>
+     *
+     * <code>string recovery_date = 30 [json_name = "recoveryDate"];</code>
+     * @param value The recoveryDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRecoveryDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      recoveryDate_ = value;
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The first session back at the peak; "not recovered" when it has not; "" when none.
+     * </pre>
+     *
+     * <code>string recovery_date = 30 [json_name = "recoveryDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRecoveryDate() {
+      recoveryDate_ = getDefaultInstance().getRecoveryDate();
+      bitField0_ = (bitField0_ & ~0x20000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The first session back at the peak; "not recovered" when it has not; "" when none.
+     * </pre>
+     *
+     * <code>string recovery_date = 30 [json_name = "recoveryDate"];</code>
+     * @param value The bytes for recoveryDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRecoveryDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      recoveryDate_ = value;
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+
+    private double benchmarkTotalReturnPct_ ;
+    /**
+     * <pre>
+     * XJT over the window: shown for every window, annualised or not.
+     * </pre>
+     *
+     * <code>double benchmark_total_return_pct = 31 [json_name = "benchmarkTotalReturnPct"];</code>
+     * @return The benchmarkTotalReturnPct.
+     */
+    @java.lang.Override
+    public double getBenchmarkTotalReturnPct() {
+      return benchmarkTotalReturnPct_;
+    }
+    /**
+     * <pre>
+     * XJT over the window: shown for every window, annualised or not.
+     * </pre>
+     *
+     * <code>double benchmark_total_return_pct = 31 [json_name = "benchmarkTotalReturnPct"];</code>
+     * @param value The benchmarkTotalReturnPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBenchmarkTotalReturnPct(double value) {
+
+      benchmarkTotalReturnPct_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * XJT over the window: shown for every window, annualised or not.
+     * </pre>
+     *
+     * <code>double benchmark_total_return_pct = 31 [json_name = "benchmarkTotalReturnPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBenchmarkTotalReturnPct() {
+      bitField0_ = (bitField0_ & ~0x40000000);
+      benchmarkTotalReturnPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasBenchmarkTotalReturn_ ;
+    /**
+     * <code>bool has_benchmark_total_return = 32 [json_name = "hasBenchmarkTotalReturn"];</code>
+     * @return The hasBenchmarkTotalReturn.
+     */
+    @java.lang.Override
+    public boolean getHasBenchmarkTotalReturn() {
+      return hasBenchmarkTotalReturn_;
+    }
+    /**
+     * <code>bool has_benchmark_total_return = 32 [json_name = "hasBenchmarkTotalReturn"];</code>
+     * @param value The hasBenchmarkTotalReturn to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasBenchmarkTotalReturn(boolean value) {
+
+      hasBenchmarkTotalReturn_ = value;
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_benchmark_total_return = 32 [json_name = "hasBenchmarkTotalReturn"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasBenchmarkTotalReturn() {
+      bitField0_ = (bitField0_ & ~0x80000000);
+      hasBenchmarkTotalReturn_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double referenceTotalReturnPct_ ;
+    /**
+     * <code>double reference_total_return_pct = 33 [json_name = "referenceTotalReturnPct"];</code>
+     * @return The referenceTotalReturnPct.
+     */
+    @java.lang.Override
+    public double getReferenceTotalReturnPct() {
+      return referenceTotalReturnPct_;
+    }
+    /**
+     * <code>double reference_total_return_pct = 33 [json_name = "referenceTotalReturnPct"];</code>
+     * @param value The referenceTotalReturnPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setReferenceTotalReturnPct(double value) {
+
+      referenceTotalReturnPct_ = value;
+      bitField1_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double reference_total_return_pct = 33 [json_name = "referenceTotalReturnPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearReferenceTotalReturnPct() {
+      bitField1_ = (bitField1_ & ~0x00000001);
+      referenceTotalReturnPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasReferenceTotalReturn_ ;
+    /**
+     * <code>bool has_reference_total_return = 34 [json_name = "hasReferenceTotalReturn"];</code>
+     * @return The hasReferenceTotalReturn.
+     */
+    @java.lang.Override
+    public boolean getHasReferenceTotalReturn() {
+      return hasReferenceTotalReturn_;
+    }
+    /**
+     * <code>bool has_reference_total_return = 34 [json_name = "hasReferenceTotalReturn"];</code>
+     * @param value The hasReferenceTotalReturn to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasReferenceTotalReturn(boolean value) {
+
+      hasReferenceTotalReturn_ = value;
+      bitField1_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_reference_total_return = 34 [json_name = "hasReferenceTotalReturn"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasReferenceTotalReturn() {
+      bitField1_ = (bitField1_ & ~0x00000002);
+      hasReferenceTotalReturn_ = false;
       onChanged();
       return this;
     }

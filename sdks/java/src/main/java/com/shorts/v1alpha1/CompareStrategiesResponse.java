@@ -37,6 +37,7 @@ private static final long serialVersionUID = 0L;
     windowTo_ = "";
     entries_ = java.util.Collections.emptyList();
     correlations_ = java.util.Collections.emptyList();
+    ruleDiffs_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -62,7 +63,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object windowId_ = "";
   /**
    * <pre>
-   * "common": the sessions every compared curve covers. Empty when a strategy has no published run.
+   * "common": the sessions every compared curve covers.
    * </pre>
    *
    * <code>string window_id = 1 [json_name = "windowId"];</code>
@@ -83,7 +84,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * "common": the sessions every compared curve covers. Empty when a strategy has no published run.
+   * "common": the sessions every compared curve covers.
    * </pre>
    *
    * <code>string window_id = 1 [json_name = "windowId"];</code>
@@ -264,6 +265,67 @@ private static final long serialVersionUID = 0L;
     return correlations_.get(index);
   }
 
+  public static final int RULE_DIFFS_FIELD_NUMBER = 6;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.RuleDiff> ruleDiffs_;
+  /**
+   * <pre>
+   * The recipe lines that differ between each pair of compared strategies.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.RuleDiff> getRuleDiffsList() {
+    return ruleDiffs_;
+  }
+  /**
+   * <pre>
+   * The recipe lines that differ between each pair of compared strategies.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.RuleDiffOrBuilder> 
+      getRuleDiffsOrBuilderList() {
+    return ruleDiffs_;
+  }
+  /**
+   * <pre>
+   * The recipe lines that differ between each pair of compared strategies.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+   */
+  @java.lang.Override
+  public int getRuleDiffsCount() {
+    return ruleDiffs_.size();
+  }
+  /**
+   * <pre>
+   * The recipe lines that differ between each pair of compared strategies.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.RuleDiff getRuleDiffs(int index) {
+    return ruleDiffs_.get(index);
+  }
+  /**
+   * <pre>
+   * The recipe lines that differ between each pair of compared strategies.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.RuleDiffOrBuilder getRuleDiffsOrBuilder(
+      int index) {
+    return ruleDiffs_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -293,6 +355,9 @@ private static final long serialVersionUID = 0L;
     for (int i = 0; i < correlations_.size(); i++) {
       output.writeMessage(5, correlations_.get(i));
     }
+    for (int i = 0; i < ruleDiffs_.size(); i++) {
+      output.writeMessage(6, ruleDiffs_.get(i));
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -321,6 +386,15 @@ private static final long serialVersionUID = 0L;
           for (int i = 0; i < count; i++) {
             size += com.google.protobuf.CodedOutputStream
               .computeMessageSizeNoTag(correlations_.get(i));
+          }
+          size += 1 * count;
+        }
+
+        {
+          final int count = ruleDiffs_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(ruleDiffs_.get(i));
           }
           size += 1 * count;
         }
@@ -358,6 +432,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getEntriesList())) return false;
     if (!getCorrelationsList()
         .equals(other.getCorrelationsList())) return false;
+    if (!getRuleDiffsList()
+        .equals(other.getRuleDiffsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -382,6 +458,10 @@ private static final long serialVersionUID = 0L;
     if (getCorrelationsCount() > 0) {
       hash = (37 * hash) + CORRELATIONS_FIELD_NUMBER;
       hash = (53 * hash) + getCorrelationsList().hashCode();
+    }
+    if (getRuleDiffsCount() > 0) {
+      hash = (37 * hash) + RULE_DIFFS_FIELD_NUMBER;
+      hash = (53 * hash) + getRuleDiffsList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -535,6 +615,13 @@ private static final long serialVersionUID = 0L;
         correlationsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000010);
+      if (ruleDiffsBuilder_ == null) {
+        ruleDiffs_ = java.util.Collections.emptyList();
+      } else {
+        ruleDiffs_ = null;
+        ruleDiffsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000020);
       return this;
     }
 
@@ -585,6 +672,15 @@ private static final long serialVersionUID = 0L;
         result.correlations_ = correlations_;
       } else {
         result.correlations_ = correlationsBuilder_.build();
+      }
+      if (ruleDiffsBuilder_ == null) {
+        if (((bitField0_ & 0x00000020) != 0)) {
+          ruleDiffs_ = java.util.Collections.unmodifiableList(ruleDiffs_);
+          bitField0_ = (bitField0_ & ~0x00000020);
+        }
+        result.ruleDiffs_ = ruleDiffs_;
+      } else {
+        result.ruleDiffs_ = ruleDiffsBuilder_.build();
       }
     }
 
@@ -680,6 +776,32 @@ private static final long serialVersionUID = 0L;
           }
         }
       }
+      if (ruleDiffsBuilder_ == null) {
+        if (!other.ruleDiffs_.isEmpty()) {
+          if (ruleDiffs_.isEmpty()) {
+            ruleDiffs_ = other.ruleDiffs_;
+            bitField0_ = (bitField0_ & ~0x00000020);
+          } else {
+            ensureRuleDiffsIsMutable();
+            ruleDiffs_.addAll(other.ruleDiffs_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.ruleDiffs_.isEmpty()) {
+          if (ruleDiffsBuilder_.isEmpty()) {
+            ruleDiffsBuilder_.dispose();
+            ruleDiffsBuilder_ = null;
+            ruleDiffs_ = other.ruleDiffs_;
+            bitField0_ = (bitField0_ & ~0x00000020);
+            ruleDiffsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetRuleDiffsFieldBuilder() : null;
+          } else {
+            ruleDiffsBuilder_.addAllMessages(other.ruleDiffs_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -747,6 +869,19 @@ private static final long serialVersionUID = 0L;
               }
               break;
             } // case 42
+            case 50: {
+              com.shorts.v1alpha1.RuleDiff m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.RuleDiff.parser(),
+                      extensionRegistry);
+              if (ruleDiffsBuilder_ == null) {
+                ensureRuleDiffsIsMutable();
+                ruleDiffs_.add(m);
+              } else {
+                ruleDiffsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 50
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -767,7 +902,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object windowId_ = "";
     /**
      * <pre>
-     * "common": the sessions every compared curve covers. Empty when a strategy has no published run.
+     * "common": the sessions every compared curve covers.
      * </pre>
      *
      * <code>string window_id = 1 [json_name = "windowId"];</code>
@@ -787,7 +922,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "common": the sessions every compared curve covers. Empty when a strategy has no published run.
+     * "common": the sessions every compared curve covers.
      * </pre>
      *
      * <code>string window_id = 1 [json_name = "windowId"];</code>
@@ -808,7 +943,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "common": the sessions every compared curve covers. Empty when a strategy has no published run.
+     * "common": the sessions every compared curve covers.
      * </pre>
      *
      * <code>string window_id = 1 [json_name = "windowId"];</code>
@@ -825,7 +960,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "common": the sessions every compared curve covers. Empty when a strategy has no published run.
+     * "common": the sessions every compared curve covers.
      * </pre>
      *
      * <code>string window_id = 1 [json_name = "windowId"];</code>
@@ -839,7 +974,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "common": the sessions every compared curve covers. Empty when a strategy has no published run.
+     * "common": the sessions every compared curve covers.
      * </pre>
      *
      * <code>string window_id = 1 [json_name = "windowId"];</code>
@@ -1478,6 +1613,318 @@ private static final long serialVersionUID = 0L;
         correlations_ = null;
       }
       return correlationsBuilder_;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.RuleDiff> ruleDiffs_ =
+      java.util.Collections.emptyList();
+    private void ensureRuleDiffsIsMutable() {
+      if (!((bitField0_ & 0x00000020) != 0)) {
+        ruleDiffs_ = new java.util.ArrayList<com.shorts.v1alpha1.RuleDiff>(ruleDiffs_);
+        bitField0_ |= 0x00000020;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.RuleDiff, com.shorts.v1alpha1.RuleDiff.Builder, com.shorts.v1alpha1.RuleDiffOrBuilder> ruleDiffsBuilder_;
+
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.RuleDiff> getRuleDiffsList() {
+      if (ruleDiffsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(ruleDiffs_);
+      } else {
+        return ruleDiffsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public int getRuleDiffsCount() {
+      if (ruleDiffsBuilder_ == null) {
+        return ruleDiffs_.size();
+      } else {
+        return ruleDiffsBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public com.shorts.v1alpha1.RuleDiff getRuleDiffs(int index) {
+      if (ruleDiffsBuilder_ == null) {
+        return ruleDiffs_.get(index);
+      } else {
+        return ruleDiffsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public Builder setRuleDiffs(
+        int index, com.shorts.v1alpha1.RuleDiff value) {
+      if (ruleDiffsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureRuleDiffsIsMutable();
+        ruleDiffs_.set(index, value);
+        onChanged();
+      } else {
+        ruleDiffsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public Builder setRuleDiffs(
+        int index, com.shorts.v1alpha1.RuleDiff.Builder builderForValue) {
+      if (ruleDiffsBuilder_ == null) {
+        ensureRuleDiffsIsMutable();
+        ruleDiffs_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        ruleDiffsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public Builder addRuleDiffs(com.shorts.v1alpha1.RuleDiff value) {
+      if (ruleDiffsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureRuleDiffsIsMutable();
+        ruleDiffs_.add(value);
+        onChanged();
+      } else {
+        ruleDiffsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public Builder addRuleDiffs(
+        int index, com.shorts.v1alpha1.RuleDiff value) {
+      if (ruleDiffsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureRuleDiffsIsMutable();
+        ruleDiffs_.add(index, value);
+        onChanged();
+      } else {
+        ruleDiffsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public Builder addRuleDiffs(
+        com.shorts.v1alpha1.RuleDiff.Builder builderForValue) {
+      if (ruleDiffsBuilder_ == null) {
+        ensureRuleDiffsIsMutable();
+        ruleDiffs_.add(builderForValue.build());
+        onChanged();
+      } else {
+        ruleDiffsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public Builder addRuleDiffs(
+        int index, com.shorts.v1alpha1.RuleDiff.Builder builderForValue) {
+      if (ruleDiffsBuilder_ == null) {
+        ensureRuleDiffsIsMutable();
+        ruleDiffs_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        ruleDiffsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public Builder addAllRuleDiffs(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.RuleDiff> values) {
+      if (ruleDiffsBuilder_ == null) {
+        ensureRuleDiffsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, ruleDiffs_);
+        onChanged();
+      } else {
+        ruleDiffsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public Builder clearRuleDiffs() {
+      if (ruleDiffsBuilder_ == null) {
+        ruleDiffs_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000020);
+        onChanged();
+      } else {
+        ruleDiffsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public Builder removeRuleDiffs(int index) {
+      if (ruleDiffsBuilder_ == null) {
+        ensureRuleDiffsIsMutable();
+        ruleDiffs_.remove(index);
+        onChanged();
+      } else {
+        ruleDiffsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public com.shorts.v1alpha1.RuleDiff.Builder getRuleDiffsBuilder(
+        int index) {
+      return internalGetRuleDiffsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public com.shorts.v1alpha1.RuleDiffOrBuilder getRuleDiffsOrBuilder(
+        int index) {
+      if (ruleDiffsBuilder_ == null) {
+        return ruleDiffs_.get(index);  } else {
+        return ruleDiffsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.RuleDiffOrBuilder> 
+         getRuleDiffsOrBuilderList() {
+      if (ruleDiffsBuilder_ != null) {
+        return ruleDiffsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(ruleDiffs_);
+      }
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public com.shorts.v1alpha1.RuleDiff.Builder addRuleDiffsBuilder() {
+      return internalGetRuleDiffsFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.RuleDiff.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public com.shorts.v1alpha1.RuleDiff.Builder addRuleDiffsBuilder(
+        int index) {
+      return internalGetRuleDiffsFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.RuleDiff.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The recipe lines that differ between each pair of compared strategies.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.RuleDiff rule_diffs = 6 [json_name = "ruleDiffs"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.RuleDiff.Builder> 
+         getRuleDiffsBuilderList() {
+      return internalGetRuleDiffsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.RuleDiff, com.shorts.v1alpha1.RuleDiff.Builder, com.shorts.v1alpha1.RuleDiffOrBuilder> 
+        internalGetRuleDiffsFieldBuilder() {
+      if (ruleDiffsBuilder_ == null) {
+        ruleDiffsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.RuleDiff, com.shorts.v1alpha1.RuleDiff.Builder, com.shorts.v1alpha1.RuleDiffOrBuilder>(
+                ruleDiffs_,
+                ((bitField0_ & 0x00000020) != 0),
+                getParentForChildren(),
+                isClean());
+        ruleDiffs_ = null;
+      }
+      return ruleDiffsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.CompareStrategiesResponse)

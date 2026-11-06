@@ -7,7 +7,7 @@ package com.shorts.v1alpha1;
 
 /**
  * <pre>
- * The closed-trade statistics a run publishes.
+ * The closed-trade statistics of a run, over the trades that exited before live_from (in-sample).
  * </pre>
  *
  * Protobuf type {@code shorts.v1alpha1.TradeSummary}
@@ -240,6 +240,61 @@ private static final long serialVersionUID = 0L;
     return hasWinRate_;
   }
 
+  public static final int HAS_AVG_HOLD_FIELD_NUMBER = 11;
+  private boolean hasAvgHold_ = false;
+  /**
+   * <code>bool has_avg_hold = 11 [json_name = "hasAvgHold"];</code>
+   * @return The hasAvgHold.
+   */
+  @java.lang.Override
+  public boolean getHasAvgHold() {
+    return hasAvgHold_;
+  }
+
+  public static final int HAS_AVG_WIN_FIELD_NUMBER = 12;
+  private boolean hasAvgWin_ = false;
+  /**
+   * <code>bool has_avg_win = 12 [json_name = "hasAvgWin"];</code>
+   * @return The hasAvgWin.
+   */
+  @java.lang.Override
+  public boolean getHasAvgWin() {
+    return hasAvgWin_;
+  }
+
+  public static final int HAS_AVG_LOSS_FIELD_NUMBER = 13;
+  private boolean hasAvgLoss_ = false;
+  /**
+   * <code>bool has_avg_loss = 13 [json_name = "hasAvgLoss"];</code>
+   * @return The hasAvgLoss.
+   */
+  @java.lang.Override
+  public boolean getHasAvgLoss() {
+    return hasAvgLoss_;
+  }
+
+  public static final int HAS_BEST_FIELD_NUMBER = 14;
+  private boolean hasBest_ = false;
+  /**
+   * <code>bool has_best = 14 [json_name = "hasBest"];</code>
+   * @return The hasBest.
+   */
+  @java.lang.Override
+  public boolean getHasBest() {
+    return hasBest_;
+  }
+
+  public static final int HAS_WORST_FIELD_NUMBER = 15;
+  private boolean hasWorst_ = false;
+  /**
+   * <code>bool has_worst = 15 [json_name = "hasWorst"];</code>
+   * @return The hasWorst.
+   */
+  @java.lang.Override
+  public boolean getHasWorst() {
+    return hasWorst_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -286,6 +341,21 @@ private static final long serialVersionUID = 0L;
         9);
     if (hasWinRate_ != false) {
       output.writeBool(10, hasWinRate_);
+    }
+    if (hasAvgHold_ != false) {
+      output.writeBool(11, hasAvgHold_);
+    }
+    if (hasAvgWin_ != false) {
+      output.writeBool(12, hasAvgWin_);
+    }
+    if (hasAvgLoss_ != false) {
+      output.writeBool(13, hasAvgLoss_);
+    }
+    if (hasBest_ != false) {
+      output.writeBool(14, hasBest_);
+    }
+    if (hasWorst_ != false) {
+      output.writeBool(15, hasWorst_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -337,6 +407,26 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(10, hasWinRate_);
     }
+    if (hasAvgHold_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(11, hasAvgHold_);
+    }
+    if (hasAvgWin_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(12, hasAvgWin_);
+    }
+    if (hasAvgLoss_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(13, hasAvgLoss_);
+    }
+    if (hasBest_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(14, hasBest_);
+    }
+    if (hasWorst_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(15, hasWorst_);
+    }
     return size;
   }
   @java.lang.Override
@@ -387,6 +477,16 @@ private static final long serialVersionUID = 0L;
         other.internalGetExitsByReason())) return false;
     if (getHasWinRate()
         != other.getHasWinRate()) return false;
+    if (getHasAvgHold()
+        != other.getHasAvgHold()) return false;
+    if (getHasAvgWin()
+        != other.getHasAvgWin()) return false;
+    if (getHasAvgLoss()
+        != other.getHasAvgLoss()) return false;
+    if (getHasBest()
+        != other.getHasBest()) return false;
+    if (getHasWorst()
+        != other.getHasWorst()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -427,6 +527,21 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_WIN_RATE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasWinRate());
+    hash = (37 * hash) + HAS_AVG_HOLD_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasAvgHold());
+    hash = (37 * hash) + HAS_AVG_WIN_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasAvgWin());
+    hash = (37 * hash) + HAS_AVG_LOSS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasAvgLoss());
+    hash = (37 * hash) + HAS_BEST_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasBest());
+    hash = (37 * hash) + HAS_WORST_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasWorst());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -526,7 +641,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The closed-trade statistics a run publishes.
+   * The closed-trade statistics of a run, over the trades that exited before live_from (in-sample).
    * </pre>
    *
    * Protobuf type {@code shorts.v1alpha1.TradeSummary}
@@ -594,6 +709,11 @@ private static final long serialVersionUID = 0L;
       worstPct_ = 0D;
       internalGetMutableExitsByReason().clear();
       hasWinRate_ = false;
+      hasAvgHold_ = false;
+      hasAvgWin_ = false;
+      hasAvgLoss_ = false;
+      hasBest_ = false;
+      hasWorst_ = false;
       return this;
     }
 
@@ -658,6 +778,21 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000200) != 0)) {
         result.hasWinRate_ = hasWinRate_;
       }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.hasAvgHold_ = hasAvgHold_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.hasAvgWin_ = hasAvgWin_;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.hasAvgLoss_ = hasAvgLoss_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.hasBest_ = hasBest_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.hasWorst_ = hasWorst_;
+      }
     }
 
     @java.lang.Override
@@ -701,6 +836,21 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00000100;
       if (other.getHasWinRate() != false) {
         setHasWinRate(other.getHasWinRate());
+      }
+      if (other.getHasAvgHold() != false) {
+        setHasAvgHold(other.getHasAvgHold());
+      }
+      if (other.getHasAvgWin() != false) {
+        setHasAvgWin(other.getHasAvgWin());
+      }
+      if (other.getHasAvgLoss() != false) {
+        setHasAvgLoss(other.getHasAvgLoss());
+      }
+      if (other.getHasBest() != false) {
+        setHasBest(other.getHasBest());
+      }
+      if (other.getHasWorst() != false) {
+        setHasWorst(other.getHasWorst());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -782,6 +932,31 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000200;
               break;
             } // case 80
+            case 88: {
+              hasAvgHold_ = input.readBool();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 88
+            case 96: {
+              hasAvgWin_ = input.readBool();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 96
+            case 104: {
+              hasAvgLoss_ = input.readBool();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 104
+            case 112: {
+              hasBest_ = input.readBool();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 112
+            case 120: {
+              hasWorst_ = input.readBool();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 120
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1208,6 +1383,166 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasWinRate() {
       bitField0_ = (bitField0_ & ~0x00000200);
       hasWinRate_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasAvgHold_ ;
+    /**
+     * <code>bool has_avg_hold = 11 [json_name = "hasAvgHold"];</code>
+     * @return The hasAvgHold.
+     */
+    @java.lang.Override
+    public boolean getHasAvgHold() {
+      return hasAvgHold_;
+    }
+    /**
+     * <code>bool has_avg_hold = 11 [json_name = "hasAvgHold"];</code>
+     * @param value The hasAvgHold to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasAvgHold(boolean value) {
+
+      hasAvgHold_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_avg_hold = 11 [json_name = "hasAvgHold"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasAvgHold() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      hasAvgHold_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasAvgWin_ ;
+    /**
+     * <code>bool has_avg_win = 12 [json_name = "hasAvgWin"];</code>
+     * @return The hasAvgWin.
+     */
+    @java.lang.Override
+    public boolean getHasAvgWin() {
+      return hasAvgWin_;
+    }
+    /**
+     * <code>bool has_avg_win = 12 [json_name = "hasAvgWin"];</code>
+     * @param value The hasAvgWin to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasAvgWin(boolean value) {
+
+      hasAvgWin_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_avg_win = 12 [json_name = "hasAvgWin"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasAvgWin() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      hasAvgWin_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasAvgLoss_ ;
+    /**
+     * <code>bool has_avg_loss = 13 [json_name = "hasAvgLoss"];</code>
+     * @return The hasAvgLoss.
+     */
+    @java.lang.Override
+    public boolean getHasAvgLoss() {
+      return hasAvgLoss_;
+    }
+    /**
+     * <code>bool has_avg_loss = 13 [json_name = "hasAvgLoss"];</code>
+     * @param value The hasAvgLoss to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasAvgLoss(boolean value) {
+
+      hasAvgLoss_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_avg_loss = 13 [json_name = "hasAvgLoss"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasAvgLoss() {
+      bitField0_ = (bitField0_ & ~0x00001000);
+      hasAvgLoss_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasBest_ ;
+    /**
+     * <code>bool has_best = 14 [json_name = "hasBest"];</code>
+     * @return The hasBest.
+     */
+    @java.lang.Override
+    public boolean getHasBest() {
+      return hasBest_;
+    }
+    /**
+     * <code>bool has_best = 14 [json_name = "hasBest"];</code>
+     * @param value The hasBest to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasBest(boolean value) {
+
+      hasBest_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_best = 14 [json_name = "hasBest"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasBest() {
+      bitField0_ = (bitField0_ & ~0x00002000);
+      hasBest_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasWorst_ ;
+    /**
+     * <code>bool has_worst = 15 [json_name = "hasWorst"];</code>
+     * @return The hasWorst.
+     */
+    @java.lang.Override
+    public boolean getHasWorst() {
+      return hasWorst_;
+    }
+    /**
+     * <code>bool has_worst = 15 [json_name = "hasWorst"];</code>
+     * @param value The hasWorst to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasWorst(boolean value) {
+
+      hasWorst_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_worst = 15 [json_name = "hasWorst"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasWorst() {
+      bitField0_ = (bitField0_ & ~0x00004000);
+      hasWorst_ = false;
       onChanged();
       return this;
     }

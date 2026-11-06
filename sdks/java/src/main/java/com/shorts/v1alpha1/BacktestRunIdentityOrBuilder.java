@@ -296,11 +296,19 @@ public interface BacktestRunIdentityOrBuilder extends
       getRiskFreeBytes();
 
   /**
+   * <pre>
+   * The recipe's reference universe, named.
+   * </pre>
+   *
    * <code>string reference_name = 21 [json_name = "referenceName"];</code>
    * @return The referenceName.
    */
   java.lang.String getReferenceName();
   /**
+   * <pre>
+   * The recipe's reference universe, named.
+   * </pre>
+   *
    * <code>string reference_name = 21 [json_name = "referenceName"];</code>
    * @return The bytes for referenceName.
    */
@@ -309,7 +317,7 @@ public interface BacktestRunIdentityOrBuilder extends
 
   /**
    * <pre>
-   * The day the run finished (YYYY-MM-DD).
+   * The day the run finished, Sydney time (YYYY-MM-DD).
    * </pre>
    *
    * <code>string run_date = 22 [json_name = "runDate"];</code>
@@ -318,7 +326,7 @@ public interface BacktestRunIdentityOrBuilder extends
   java.lang.String getRunDate();
   /**
    * <pre>
-   * The day the run finished (YYYY-MM-DD).
+   * The day the run finished, Sydney time (YYYY-MM-DD).
    * </pre>
    *
    * <code>string run_date = 22 [json_name = "runDate"];</code>

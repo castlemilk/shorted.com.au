@@ -7,9 +7,9 @@ package com.shorts.v1alpha1;
 
 /**
  * <pre>
- * One point of a series. Equity is in A$ on the chained curve. Benchmark and reference are
- * index levels, never zero, so zero reads as not measured (the reference is not recorded
- * after the freeze).
+ * One point of a series. Equity is in A$ on the chained curve, rounded to whole dollars. Benchmark and
+ * reference are index levels, never zero, so zero reads as not measured (the reference is not recorded
+ * after the freeze, and runs published before the reference fix carry none).
  * </pre>
  *
  * Protobuf type {@code shorts.v1alpha1.SeriesPoint}
@@ -131,7 +131,7 @@ private static final long serialVersionUID = 0L;
   private double drawdownPct_ = 0D;
   /**
    * <pre>
-   * Negative or zero.
+   * Negative or zero, two decimals.
    * </pre>
    *
    * <code>double drawdown_pct = 5 [json_name = "drawdownPct"];</code>
@@ -407,9 +407,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * One point of a series. Equity is in A$ on the chained curve. Benchmark and reference are
-   * index levels, never zero, so zero reads as not measured (the reference is not recorded
-   * after the freeze).
+   * One point of a series. Equity is in A$ on the chained curve, rounded to whole dollars. Benchmark and
+   * reference are index levels, never zero, so zero reads as not measured (the reference is not recorded
+   * after the freeze, and runs published before the reference fix carry none).
    * </pre>
    *
    * Protobuf type {@code shorts.v1alpha1.SeriesPoint}
@@ -792,7 +792,7 @@ private static final long serialVersionUID = 0L;
     private double drawdownPct_ ;
     /**
      * <pre>
-     * Negative or zero.
+     * Negative or zero, two decimals.
      * </pre>
      *
      * <code>double drawdown_pct = 5 [json_name = "drawdownPct"];</code>
@@ -804,7 +804,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Negative or zero.
+     * Negative or zero, two decimals.
      * </pre>
      *
      * <code>double drawdown_pct = 5 [json_name = "drawdownPct"];</code>
@@ -820,7 +820,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Negative or zero.
+     * Negative or zero, two decimals.
      * </pre>
      *
      * <code>double drawdown_pct = 5 [json_name = "drawdownPct"];</code>

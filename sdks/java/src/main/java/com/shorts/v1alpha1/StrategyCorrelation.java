@@ -147,7 +147,7 @@ private static final long serialVersionUID = 0L;
   private boolean hasCorrelation_ = false;
   /**
    * <pre>
-   * False when the overlap has too few returns.
+   * False when the overlap is too short or one curve is flat.
    * </pre>
    *
    * <code>bool has_correlation = 4 [json_name = "hasCorrelation"];</code>
@@ -750,7 +750,7 @@ private static final long serialVersionUID = 0L;
     private boolean hasCorrelation_ ;
     /**
      * <pre>
-     * False when the overlap has too few returns.
+     * False when the overlap is too short or one curve is flat.
      * </pre>
      *
      * <code>bool has_correlation = 4 [json_name = "hasCorrelation"];</code>
@@ -762,7 +762,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * False when the overlap has too few returns.
+     * False when the overlap is too short or one curve is flat.
      * </pre>
      *
      * <code>bool has_correlation = 4 [json_name = "hasCorrelation"];</code>
@@ -778,7 +778,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * False when the overlap has too few returns.
+     * False when the overlap is too short or one curve is flat.
      * </pre>
      *
      * <code>bool has_correlation = 4 [json_name = "hasCorrelation"];</code>

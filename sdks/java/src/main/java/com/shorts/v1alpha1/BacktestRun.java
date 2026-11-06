@@ -33,14 +33,14 @@ private static final long serialVersionUID = 0L;
   }
   private BacktestRun() {
     state_ = "";
-    strategyId_ = "";
+    stateReason_ = "";
     computableFrom_ = "";
     fiscalLabel_ = "";
     windows_ = java.util.Collections.emptyList();
     annual_ = java.util.Collections.emptyList();
     monthly_ = java.util.Collections.emptyList();
     series_ = java.util.Collections.emptyList();
-    coverageByYear_ = java.util.Collections.emptyList();
+    coverage_ = java.util.Collections.emptyList();
     coverageMonthly_ = java.util.Collections.emptyList();
     sensitivity_ = java.util.Collections.emptyList();
     replayAgreement_ = "";
@@ -49,8 +49,11 @@ private static final long serialVersionUID = 0L;
         com.google.protobuf.LazyStringArrayList.emptyList();
     dataNotes_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+    strategyId_ = "";
     runningSince_ = "";
     seriesResolution_ = "";
+    windowId_ = "";
+    fundamentalsLabel_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -77,7 +80,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object state_ = "";
   /**
    * <pre>
-   * computed | run_required | running | not_computable | approximate.
+   * published | approximate | run_required | running | not_computable.
    * </pre>
    *
    * <code>string state = 1 [json_name = "state"];</code>
@@ -98,7 +101,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * computed | run_required | running | not_computable | approximate.
+   * published | approximate | run_required | running | not_computable.
    * </pre>
    *
    * <code>string state = 1 [json_name = "state"];</code>
@@ -119,39 +122,47 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int STRATEGY_ID_FIELD_NUMBER = 2;
+  public static final int STATE_REASON_FIELD_NUMBER = 2;
   @SuppressWarnings("serial")
-  private volatile java.lang.Object strategyId_ = "";
+  private volatile java.lang.Object stateReason_ = "";
   /**
-   * <code>string strategy_id = 2 [json_name = "strategyId"];</code>
-   * @return The strategyId.
+   * <pre>
+   * Why the state is what it is, in words.
+   * </pre>
+   *
+   * <code>string state_reason = 2 [json_name = "stateReason"];</code>
+   * @return The stateReason.
    */
   @java.lang.Override
-  public java.lang.String getStrategyId() {
-    java.lang.Object ref = strategyId_;
+  public java.lang.String getStateReason() {
+    java.lang.Object ref = stateReason_;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
       com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
-      strategyId_ = s;
+      stateReason_ = s;
       return s;
     }
   }
   /**
-   * <code>string strategy_id = 2 [json_name = "strategyId"];</code>
-   * @return The bytes for strategyId.
+   * <pre>
+   * Why the state is what it is, in words.
+   * </pre>
+   *
+   * <code>string state_reason = 2 [json_name = "stateReason"];</code>
+   * @return The bytes for stateReason.
    */
   @java.lang.Override
   public com.google.protobuf.ByteString
-      getStrategyIdBytes() {
-    java.lang.Object ref = strategyId_;
+      getStateReasonBytes() {
+    java.lang.Object ref = stateReason_;
     if (ref instanceof java.lang.String) {
       com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
-      strategyId_ = b;
+      stateReason_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -163,7 +174,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object computableFrom_ = "";
   /**
    * <pre>
-   * not_computable: "" when the threshold was never met.
+   * not_computable: "" when the 50% threshold was never met.
    * </pre>
    *
    * <code>string computable_from = 3 [json_name = "computableFrom"];</code>
@@ -184,7 +195,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * not_computable: "" when the threshold was never met.
+   * not_computable: "" when the 50% threshold was never met.
    * </pre>
    *
    * <code>string computable_from = 3 [json_name = "computableFrom"];</code>
@@ -256,7 +267,7 @@ private static final long serialVersionUID = 0L;
   private com.shorts.v1alpha1.BacktestRunIdentity identity_;
   /**
    * <pre>
-   * Absent for run_required and running.
+   * Absent for run_required, running and not_computable.
    * </pre>
    *
    * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -268,7 +279,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Absent for run_required and running.
+   * Absent for run_required, running and not_computable.
    * </pre>
    *
    * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -280,7 +291,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Absent for run_required and running.
+   * Absent for run_required, running and not_computable.
    * </pre>
    *
    * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -478,7 +489,7 @@ private static final long serialVersionUID = 0L;
   private java.util.List<com.shorts.v1alpha1.SeriesPoint> series_;
   /**
    * <pre>
-   * One point per ISO week plus the first, last and trough sessions; at most 500.
+   * The served window's points: daily or weekly, at most 500.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -489,7 +500,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * One point per ISO week plus the first, last and trough sessions; at most 500.
+   * The served window's points: daily or weekly, at most 500.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -501,7 +512,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * One point per ISO week plus the first, last and trough sessions; at most 500.
+   * The served window's points: daily or weekly, at most 500.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -512,7 +523,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * One point per ISO week plus the first, last and trough sessions; at most 500.
+   * The served window's points: daily or weekly, at most 500.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -523,7 +534,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * One point per ISO week plus the first, last and trough sessions; at most 500.
+   * The served window's points: daily or weekly, at most 500.
    * </pre>
    *
    * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -534,65 +545,65 @@ private static final long serialVersionUID = 0L;
     return series_.get(index);
   }
 
-  public static final int COVERAGE_BY_YEAR_FIELD_NUMBER = 10;
+  public static final int COVERAGE_FIELD_NUMBER = 10;
   @SuppressWarnings("serial")
-  private java.util.List<com.shorts.v1alpha1.CoverageYear> coverageByYear_;
+  private java.util.List<com.shorts.v1alpha1.CoverageYear> coverage_;
   /**
    * <pre>
    * Both coverage measures, by year.
    * </pre>
    *
-   * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+   * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
    */
   @java.lang.Override
-  public java.util.List<com.shorts.v1alpha1.CoverageYear> getCoverageByYearList() {
-    return coverageByYear_;
+  public java.util.List<com.shorts.v1alpha1.CoverageYear> getCoverageList() {
+    return coverage_;
   }
   /**
    * <pre>
    * Both coverage measures, by year.
    * </pre>
    *
-   * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+   * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
    */
   @java.lang.Override
   public java.util.List<? extends com.shorts.v1alpha1.CoverageYearOrBuilder> 
-      getCoverageByYearOrBuilderList() {
-    return coverageByYear_;
+      getCoverageOrBuilderList() {
+    return coverage_;
   }
   /**
    * <pre>
    * Both coverage measures, by year.
    * </pre>
    *
-   * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+   * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
    */
   @java.lang.Override
-  public int getCoverageByYearCount() {
-    return coverageByYear_.size();
+  public int getCoverageCount() {
+    return coverage_.size();
   }
   /**
    * <pre>
    * Both coverage measures, by year.
    * </pre>
    *
-   * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+   * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
    */
   @java.lang.Override
-  public com.shorts.v1alpha1.CoverageYear getCoverageByYear(int index) {
-    return coverageByYear_.get(index);
+  public com.shorts.v1alpha1.CoverageYear getCoverage(int index) {
+    return coverage_.get(index);
   }
   /**
    * <pre>
    * Both coverage measures, by year.
    * </pre>
    *
-   * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+   * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
    */
   @java.lang.Override
-  public com.shorts.v1alpha1.CoverageYearOrBuilder getCoverageByYearOrBuilder(
+  public com.shorts.v1alpha1.CoverageYearOrBuilder getCoverageOrBuilder(
       int index) {
-    return coverageByYear_.get(index);
+    return coverage_.get(index);
   }
 
   public static final int COVERAGE_MONTHLY_FIELD_NUMBER = 11;
@@ -785,7 +796,7 @@ private static final long serialVersionUID = 0L;
   private com.shorts.v1alpha1.TradeSummary tradeSummary_;
   /**
    * <pre>
-   * The in-sample trades; the paper trades are counted in the windows.
+   * Closed trades that exited before live_from (in-sample).
    * </pre>
    *
    * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -797,7 +808,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The in-sample trades; the paper trades are counted in the windows.
+   * Closed trades that exited before live_from (in-sample).
    * </pre>
    *
    * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -809,7 +820,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The in-sample trades; the paper trades are counted in the windows.
+   * Closed trades that exited before live_from (in-sample).
    * </pre>
    *
    * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -861,7 +872,7 @@ private static final long serialVersionUID = 0L;
   private boolean rulesMatchLive_ = false;
   /**
    * <pre>
-   * The run's rules are the live rules.
+   * The run's rules and recipe are the live ones.
    * </pre>
    *
    * <code>bool rules_match_live = 17 [json_name = "rulesMatchLive"];</code>
@@ -892,7 +903,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object replayAgreement_ = "";
   /**
    * <pre>
-   * "Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy".
+   * "Replay agrees: 14 of 15 trades", or why it is not comparable.
    * </pre>
    *
    * <code>string replay_agreement = 19 [json_name = "replayAgreement"];</code>
@@ -913,7 +924,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * "Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy".
+   * "Replay agrees: 14 of 15 trades", or why it is not comparable.
    * </pre>
    *
    * <code>string replay_agreement = 19 [json_name = "replayAgreement"];</code>
@@ -1040,7 +1051,7 @@ private static final long serialVersionUID = 0L;
       com.google.protobuf.LazyStringArrayList.emptyList();
   /**
    * <pre>
-   * Data-quality notes of the run.
+   * Data-quality notes of the run, as prose.
    * </pre>
    *
    * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -1052,7 +1063,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Data-quality notes of the run.
+   * Data-quality notes of the run, as prose.
    * </pre>
    *
    * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -1063,7 +1074,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Data-quality notes of the run.
+   * Data-quality notes of the run, as prose.
    * </pre>
    *
    * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -1075,7 +1086,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Data-quality notes of the run.
+   * Data-quality notes of the run, as prose.
    * </pre>
    *
    * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -1087,7 +1098,46 @@ private static final long serialVersionUID = 0L;
     return dataNotes_.getByteString(index);
   }
 
-  public static final int RUNNING_SINCE_FIELD_NUMBER = 23;
+  public static final int STRATEGY_ID_FIELD_NUMBER = 23;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object strategyId_ = "";
+  /**
+   * <code>string strategy_id = 23 [json_name = "strategyId"];</code>
+   * @return The strategyId.
+   */
+  @java.lang.Override
+  public java.lang.String getStrategyId() {
+    java.lang.Object ref = strategyId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      strategyId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string strategy_id = 23 [json_name = "strategyId"];</code>
+   * @return The bytes for strategyId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getStrategyIdBytes() {
+    java.lang.Object ref = strategyId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      strategyId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int RUNNING_SINCE_FIELD_NUMBER = 24;
   @SuppressWarnings("serial")
   private volatile java.lang.Object runningSince_ = "";
   /**
@@ -1095,7 +1145,7 @@ private static final long serialVersionUID = 0L;
    * running: when the request started, RFC 3339.
    * </pre>
    *
-   * <code>string running_since = 23 [json_name = "runningSince"];</code>
+   * <code>string running_since = 24 [json_name = "runningSince"];</code>
    * @return The runningSince.
    */
   @java.lang.Override
@@ -1116,7 +1166,7 @@ private static final long serialVersionUID = 0L;
    * running: when the request started, RFC 3339.
    * </pre>
    *
-   * <code>string running_since = 23 [json_name = "runningSince"];</code>
+   * <code>string running_since = 24 [json_name = "runningSince"];</code>
    * @return The bytes for runningSince.
    */
   @java.lang.Override
@@ -1134,15 +1184,15 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int SERIES_RESOLUTION_FIELD_NUMBER = 24;
+  public static final int SERIES_RESOLUTION_FIELD_NUMBER = 25;
   @SuppressWarnings("serial")
   private volatile java.lang.Object seriesResolution_ = "";
   /**
    * <pre>
-   * "weekly" for a computed run; "" otherwise.
+   * "daily" or "weekly": what the series carries.
    * </pre>
    *
-   * <code>string series_resolution = 24 [json_name = "seriesResolution"];</code>
+   * <code>string series_resolution = 25 [json_name = "seriesResolution"];</code>
    * @return The seriesResolution.
    */
   @java.lang.Override
@@ -1160,10 +1210,10 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * "weekly" for a computed run; "" otherwise.
+   * "daily" or "weekly": what the series carries.
    * </pre>
    *
-   * <code>string series_resolution = 24 [json_name = "seriesResolution"];</code>
+   * <code>string series_resolution = 25 [json_name = "seriesResolution"];</code>
    * @return The bytes for seriesResolution.
    */
   @java.lang.Override
@@ -1181,14 +1231,14 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int COMPUTABLE_SHARE_PCT_FIELD_NUMBER = 25;
+  public static final int COMPUTABLE_SHARE_PCT_FIELD_NUMBER = 26;
   private double computableSharePct_ = 0D;
   /**
    * <pre>
    * not_computable: the measured universe share, when measured.
    * </pre>
    *
-   * <code>double computable_share_pct = 25 [json_name = "computableSharePct"];</code>
+   * <code>double computable_share_pct = 26 [json_name = "computableSharePct"];</code>
    * @return The computableSharePct.
    */
   @java.lang.Override
@@ -1196,15 +1246,147 @@ private static final long serialVersionUID = 0L;
     return computableSharePct_;
   }
 
-  public static final int HAS_COMPUTABLE_SHARE_FIELD_NUMBER = 26;
+  public static final int HAS_COMPUTABLE_SHARE_FIELD_NUMBER = 27;
   private boolean hasComputableShare_ = false;
   /**
-   * <code>bool has_computable_share = 26 [json_name = "hasComputableShare"];</code>
+   * <code>bool has_computable_share = 27 [json_name = "hasComputableShare"];</code>
    * @return The hasComputableShare.
    */
   @java.lang.Override
   public boolean getHasComputableShare() {
     return hasComputableShare_;
+  }
+
+  public static final int DATA_QUALITY_FIELD_NUMBER = 28;
+  private com.shorts.v1alpha1.DataQuality dataQuality_;
+  /**
+   * <pre>
+   * The run's data-quality counts, as fields.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+   * @return Whether the dataQuality field is set.
+   */
+  @java.lang.Override
+  public boolean hasDataQuality() {
+    return ((bitField0_ & 0x00000020) != 0);
+  }
+  /**
+   * <pre>
+   * The run's data-quality counts, as fields.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+   * @return The dataQuality.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.DataQuality getDataQuality() {
+    return dataQuality_ == null ? com.shorts.v1alpha1.DataQuality.getDefaultInstance() : dataQuality_;
+  }
+  /**
+   * <pre>
+   * The run's data-quality counts, as fields.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.DataQualityOrBuilder getDataQualityOrBuilder() {
+    return dataQuality_ == null ? com.shorts.v1alpha1.DataQuality.getDefaultInstance() : dataQuality_;
+  }
+
+  public static final int WINDOW_ID_FIELD_NUMBER = 29;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object windowId_ = "";
+  /**
+   * <pre>
+   * The window the series and window tables are served for.
+   * </pre>
+   *
+   * <code>string window_id = 29 [json_name = "windowId"];</code>
+   * @return The windowId.
+   */
+  @java.lang.Override
+  public java.lang.String getWindowId() {
+    java.lang.Object ref = windowId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      windowId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The window the series and window tables are served for.
+   * </pre>
+   *
+   * <code>string window_id = 29 [json_name = "windowId"];</code>
+   * @return The bytes for windowId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getWindowIdBytes() {
+    java.lang.Object ref = windowId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      windowId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int FUNDAMENTALS_LABEL_FIELD_NUMBER = 30;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object fundamentalsLabel_ = "";
+  /**
+   * <pre>
+   * The fundamentals policy, in words the surfaces print.
+   * </pre>
+   *
+   * <code>string fundamentals_label = 30 [json_name = "fundamentalsLabel"];</code>
+   * @return The fundamentalsLabel.
+   */
+  @java.lang.Override
+  public java.lang.String getFundamentalsLabel() {
+    java.lang.Object ref = fundamentalsLabel_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      fundamentalsLabel_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The fundamentals policy, in words the surfaces print.
+   * </pre>
+   *
+   * <code>string fundamentals_label = 30 [json_name = "fundamentalsLabel"];</code>
+   * @return The bytes for fundamentalsLabel.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getFundamentalsLabelBytes() {
+    java.lang.Object ref = fundamentalsLabel_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      fundamentalsLabel_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
   }
 
   private byte memoizedIsInitialized = -1;
@@ -1224,8 +1406,8 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(state_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 1, state_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(strategyId_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 2, strategyId_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(stateReason_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 2, stateReason_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(computableFrom_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 3, computableFrom_);
@@ -1248,8 +1430,8 @@ private static final long serialVersionUID = 0L;
     for (int i = 0; i < series_.size(); i++) {
       output.writeMessage(9, series_.get(i));
     }
-    for (int i = 0; i < coverageByYear_.size(); i++) {
-      output.writeMessage(10, coverageByYear_.get(i));
+    for (int i = 0; i < coverage_.size(); i++) {
+      output.writeMessage(10, coverage_.get(i));
     }
     for (int i = 0; i < coverageMonthly_.size(); i++) {
       output.writeMessage(11, coverageMonthly_.get(i));
@@ -1287,17 +1469,29 @@ private static final long serialVersionUID = 0L;
     for (int i = 0; i < dataNotes_.size(); i++) {
       com.google.protobuf.GeneratedMessage.writeString(output, 22, dataNotes_.getRaw(i));
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(strategyId_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 23, strategyId_);
+    }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(runningSince_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 23, runningSince_);
+      com.google.protobuf.GeneratedMessage.writeString(output, 24, runningSince_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(seriesResolution_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 24, seriesResolution_);
+      com.google.protobuf.GeneratedMessage.writeString(output, 25, seriesResolution_);
     }
     if (java.lang.Double.doubleToRawLongBits(computableSharePct_) != 0) {
-      output.writeDouble(25, computableSharePct_);
+      output.writeDouble(26, computableSharePct_);
     }
     if (hasComputableShare_ != false) {
-      output.writeBool(26, hasComputableShare_);
+      output.writeBool(27, hasComputableShare_);
+    }
+    if (((bitField0_ & 0x00000020) != 0)) {
+      output.writeMessage(28, getDataQuality());
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(windowId_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 29, windowId_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundamentalsLabel_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 30, fundamentalsLabel_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1306,8 +1500,8 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(state_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(1, state_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(strategyId_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(2, strategyId_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(stateReason_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(2, stateReason_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(computableFrom_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(3, computableFrom_);
@@ -1357,10 +1551,10 @@ private static final long serialVersionUID = 0L;
         }
 
         {
-          final int count = coverageByYear_.size();
+          final int count = coverage_.size();
           for (int i = 0; i < count; i++) {
             size += com.google.protobuf.CodedOutputStream
-              .computeMessageSizeNoTag(coverageByYear_.get(i));
+              .computeMessageSizeNoTag(coverage_.get(i));
           }
           size += 1 * count;
         }
@@ -1428,19 +1622,32 @@ private static final long serialVersionUID = 0L;
       size += dataSize;
       size += 2 * getDataNotesList().size();
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(strategyId_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(23, strategyId_);
+    }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(runningSince_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(23, runningSince_);
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(24, runningSince_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(seriesResolution_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(24, seriesResolution_);
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(25, seriesResolution_);
     }
     if (java.lang.Double.doubleToRawLongBits(computableSharePct_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(25, computableSharePct_);
+        .computeDoubleSize(26, computableSharePct_);
     }
     if (hasComputableShare_ != false) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(26, hasComputableShare_);
+        .computeBoolSize(27, hasComputableShare_);
+    }
+    if (((bitField0_ & 0x00000020) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(28, getDataQuality());
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(windowId_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(29, windowId_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fundamentalsLabel_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(30, fundamentalsLabel_);
     }
     return size;
   }
@@ -1468,8 +1675,8 @@ private static final long serialVersionUID = 0L;
 
     if (!getState()
         .equals(other.getState())) return false;
-    if (!getStrategyId()
-        .equals(other.getStrategyId())) return false;
+    if (!getStateReason()
+        .equals(other.getStateReason())) return false;
     if (!getComputableFrom()
         .equals(other.getComputableFrom())) return false;
     if (!getFiscalLabel()
@@ -1487,8 +1694,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getMonthlyList())) return false;
     if (!getSeriesList()
         .equals(other.getSeriesList())) return false;
-    if (!getCoverageByYearList()
-        .equals(other.getCoverageByYearList())) return false;
+    if (!getCoverageList()
+        .equals(other.getCoverageList())) return false;
     if (!getCoverageMonthlyList()
         .equals(other.getCoverageMonthlyList())) return false;
     if (hasSurvivorship() != other.hasSurvivorship()) return false;
@@ -1525,6 +1732,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getDisclosuresList())) return false;
     if (!getDataNotesList()
         .equals(other.getDataNotesList())) return false;
+    if (!getStrategyId()
+        .equals(other.getStrategyId())) return false;
     if (!getRunningSince()
         .equals(other.getRunningSince())) return false;
     if (!getSeriesResolution()
@@ -1534,6 +1743,15 @@ private static final long serialVersionUID = 0L;
             other.getComputableSharePct())) return false;
     if (getHasComputableShare()
         != other.getHasComputableShare()) return false;
+    if (hasDataQuality() != other.hasDataQuality()) return false;
+    if (hasDataQuality()) {
+      if (!getDataQuality()
+          .equals(other.getDataQuality())) return false;
+    }
+    if (!getWindowId()
+        .equals(other.getWindowId())) return false;
+    if (!getFundamentalsLabel()
+        .equals(other.getFundamentalsLabel())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1547,8 +1765,8 @@ private static final long serialVersionUID = 0L;
     hash = (19 * hash) + getDescriptor().hashCode();
     hash = (37 * hash) + STATE_FIELD_NUMBER;
     hash = (53 * hash) + getState().hashCode();
-    hash = (37 * hash) + STRATEGY_ID_FIELD_NUMBER;
-    hash = (53 * hash) + getStrategyId().hashCode();
+    hash = (37 * hash) + STATE_REASON_FIELD_NUMBER;
+    hash = (53 * hash) + getStateReason().hashCode();
     hash = (37 * hash) + COMPUTABLE_FROM_FIELD_NUMBER;
     hash = (53 * hash) + getComputableFrom().hashCode();
     hash = (37 * hash) + FISCAL_LABEL_FIELD_NUMBER;
@@ -1573,9 +1791,9 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + SERIES_FIELD_NUMBER;
       hash = (53 * hash) + getSeriesList().hashCode();
     }
-    if (getCoverageByYearCount() > 0) {
-      hash = (37 * hash) + COVERAGE_BY_YEAR_FIELD_NUMBER;
-      hash = (53 * hash) + getCoverageByYearList().hashCode();
+    if (getCoverageCount() > 0) {
+      hash = (37 * hash) + COVERAGE_FIELD_NUMBER;
+      hash = (53 * hash) + getCoverageList().hashCode();
     }
     if (getCoverageMonthlyCount() > 0) {
       hash = (37 * hash) + COVERAGE_MONTHLY_FIELD_NUMBER;
@@ -1619,6 +1837,8 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + DATA_NOTES_FIELD_NUMBER;
       hash = (53 * hash) + getDataNotesList().hashCode();
     }
+    hash = (37 * hash) + STRATEGY_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getStrategyId().hashCode();
     hash = (37 * hash) + RUNNING_SINCE_FIELD_NUMBER;
     hash = (53 * hash) + getRunningSince().hashCode();
     hash = (37 * hash) + SERIES_RESOLUTION_FIELD_NUMBER;
@@ -1629,6 +1849,14 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_COMPUTABLE_SHARE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasComputableShare());
+    if (hasDataQuality()) {
+      hash = (37 * hash) + DATA_QUALITY_FIELD_NUMBER;
+      hash = (53 * hash) + getDataQuality().hashCode();
+    }
+    hash = (37 * hash) + WINDOW_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getWindowId().hashCode();
+    hash = (37 * hash) + FUNDAMENTALS_LABEL_FIELD_NUMBER;
+    hash = (53 * hash) + getFundamentalsLabel().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1768,13 +1996,14 @@ private static final long serialVersionUID = 0L;
         internalGetAnnualFieldBuilder();
         internalGetMonthlyFieldBuilder();
         internalGetSeriesFieldBuilder();
-        internalGetCoverageByYearFieldBuilder();
+        internalGetCoverageFieldBuilder();
         internalGetCoverageMonthlyFieldBuilder();
         internalGetSurvivorshipFieldBuilder();
         internalGetSensitivityFieldBuilder();
         internalGetRecipeFieldBuilder();
         internalGetTradeSummaryFieldBuilder();
         internalGetLiveVersionFieldBuilder();
+        internalGetDataQualityFieldBuilder();
       }
     }
     @java.lang.Override
@@ -1782,7 +2011,7 @@ private static final long serialVersionUID = 0L;
       super.clear();
       bitField0_ = 0;
       state_ = "";
-      strategyId_ = "";
+      stateReason_ = "";
       computableFrom_ = "";
       fiscalLabel_ = "";
       identity_ = null;
@@ -1818,11 +2047,11 @@ private static final long serialVersionUID = 0L;
         seriesBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000100);
-      if (coverageByYearBuilder_ == null) {
-        coverageByYear_ = java.util.Collections.emptyList();
+      if (coverageBuilder_ == null) {
+        coverage_ = java.util.Collections.emptyList();
       } else {
-        coverageByYear_ = null;
-        coverageByYearBuilder_.clear();
+        coverage_ = null;
+        coverageBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000200);
       if (coverageMonthlyBuilder_ == null) {
@@ -1867,10 +2096,18 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.LazyStringArrayList.emptyList();
       dataNotes_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
+      strategyId_ = "";
       runningSince_ = "";
       seriesResolution_ = "";
       computableSharePct_ = 0D;
       hasComputableShare_ = false;
+      dataQuality_ = null;
+      if (dataQualityBuilder_ != null) {
+        dataQualityBuilder_.dispose();
+        dataQualityBuilder_ = null;
+      }
+      windowId_ = "";
+      fundamentalsLabel_ = "";
       return this;
     }
 
@@ -1940,14 +2177,14 @@ private static final long serialVersionUID = 0L;
       } else {
         result.series_ = seriesBuilder_.build();
       }
-      if (coverageByYearBuilder_ == null) {
+      if (coverageBuilder_ == null) {
         if (((bitField0_ & 0x00000200) != 0)) {
-          coverageByYear_ = java.util.Collections.unmodifiableList(coverageByYear_);
+          coverage_ = java.util.Collections.unmodifiableList(coverage_);
           bitField0_ = (bitField0_ & ~0x00000200);
         }
-        result.coverageByYear_ = coverageByYear_;
+        result.coverage_ = coverage_;
       } else {
-        result.coverageByYear_ = coverageByYearBuilder_.build();
+        result.coverage_ = coverageBuilder_.build();
       }
       if (coverageMonthlyBuilder_ == null) {
         if (((bitField0_ & 0x00000400) != 0)) {
@@ -1975,7 +2212,7 @@ private static final long serialVersionUID = 0L;
         result.state_ = state_;
       }
       if (((from_bitField0_ & 0x00000002) != 0)) {
-        result.strategyId_ = strategyId_;
+        result.stateReason_ = stateReason_;
       }
       if (((from_bitField0_ & 0x00000004) != 0)) {
         result.computableFrom_ = computableFrom_;
@@ -2035,16 +2272,31 @@ private static final long serialVersionUID = 0L;
         result.dataNotes_ = dataNotes_;
       }
       if (((from_bitField0_ & 0x00400000) != 0)) {
-        result.runningSince_ = runningSince_;
+        result.strategyId_ = strategyId_;
       }
       if (((from_bitField0_ & 0x00800000) != 0)) {
-        result.seriesResolution_ = seriesResolution_;
+        result.runningSince_ = runningSince_;
       }
       if (((from_bitField0_ & 0x01000000) != 0)) {
-        result.computableSharePct_ = computableSharePct_;
+        result.seriesResolution_ = seriesResolution_;
       }
       if (((from_bitField0_ & 0x02000000) != 0)) {
+        result.computableSharePct_ = computableSharePct_;
+      }
+      if (((from_bitField0_ & 0x04000000) != 0)) {
         result.hasComputableShare_ = hasComputableShare_;
+      }
+      if (((from_bitField0_ & 0x08000000) != 0)) {
+        result.dataQuality_ = dataQualityBuilder_ == null
+            ? dataQuality_
+            : dataQualityBuilder_.build();
+        to_bitField0_ |= 0x00000020;
+      }
+      if (((from_bitField0_ & 0x10000000) != 0)) {
+        result.windowId_ = windowId_;
+      }
+      if (((from_bitField0_ & 0x20000000) != 0)) {
+        result.fundamentalsLabel_ = fundamentalsLabel_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -2066,8 +2318,8 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000001;
         onChanged();
       }
-      if (!other.getStrategyId().isEmpty()) {
-        strategyId_ = other.strategyId_;
+      if (!other.getStateReason().isEmpty()) {
+        stateReason_ = other.stateReason_;
         bitField0_ |= 0x00000002;
         onChanged();
       }
@@ -2188,29 +2440,29 @@ private static final long serialVersionUID = 0L;
           }
         }
       }
-      if (coverageByYearBuilder_ == null) {
-        if (!other.coverageByYear_.isEmpty()) {
-          if (coverageByYear_.isEmpty()) {
-            coverageByYear_ = other.coverageByYear_;
+      if (coverageBuilder_ == null) {
+        if (!other.coverage_.isEmpty()) {
+          if (coverage_.isEmpty()) {
+            coverage_ = other.coverage_;
             bitField0_ = (bitField0_ & ~0x00000200);
           } else {
-            ensureCoverageByYearIsMutable();
-            coverageByYear_.addAll(other.coverageByYear_);
+            ensureCoverageIsMutable();
+            coverage_.addAll(other.coverage_);
           }
           onChanged();
         }
       } else {
-        if (!other.coverageByYear_.isEmpty()) {
-          if (coverageByYearBuilder_.isEmpty()) {
-            coverageByYearBuilder_.dispose();
-            coverageByYearBuilder_ = null;
-            coverageByYear_ = other.coverageByYear_;
+        if (!other.coverage_.isEmpty()) {
+          if (coverageBuilder_.isEmpty()) {
+            coverageBuilder_.dispose();
+            coverageBuilder_ = null;
+            coverage_ = other.coverage_;
             bitField0_ = (bitField0_ & ~0x00000200);
-            coverageByYearBuilder_ = 
+            coverageBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
-                 internalGetCoverageByYearFieldBuilder() : null;
+                 internalGetCoverageFieldBuilder() : null;
           } else {
-            coverageByYearBuilder_.addAllMessages(other.coverageByYear_);
+            coverageBuilder_.addAllMessages(other.coverage_);
           }
         }
       }
@@ -2314,14 +2566,19 @@ private static final long serialVersionUID = 0L;
         }
         onChanged();
       }
+      if (!other.getStrategyId().isEmpty()) {
+        strategyId_ = other.strategyId_;
+        bitField0_ |= 0x00400000;
+        onChanged();
+      }
       if (!other.getRunningSince().isEmpty()) {
         runningSince_ = other.runningSince_;
-        bitField0_ |= 0x00400000;
+        bitField0_ |= 0x00800000;
         onChanged();
       }
       if (!other.getSeriesResolution().isEmpty()) {
         seriesResolution_ = other.seriesResolution_;
-        bitField0_ |= 0x00800000;
+        bitField0_ |= 0x01000000;
         onChanged();
       }
       if (java.lang.Double.doubleToRawLongBits(other.getComputableSharePct()) != 0) {
@@ -2329,6 +2586,19 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasComputableShare() != false) {
         setHasComputableShare(other.getHasComputableShare());
+      }
+      if (other.hasDataQuality()) {
+        mergeDataQuality(other.getDataQuality());
+      }
+      if (!other.getWindowId().isEmpty()) {
+        windowId_ = other.windowId_;
+        bitField0_ |= 0x10000000;
+        onChanged();
+      }
+      if (!other.getFundamentalsLabel().isEmpty()) {
+        fundamentalsLabel_ = other.fundamentalsLabel_;
+        bitField0_ |= 0x20000000;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -2362,7 +2632,7 @@ private static final long serialVersionUID = 0L;
               break;
             } // case 10
             case 18: {
-              strategyId_ = input.readStringRequireUtf8();
+              stateReason_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000002;
               break;
             } // case 18
@@ -2440,11 +2710,11 @@ private static final long serialVersionUID = 0L;
                   input.readMessage(
                       com.shorts.v1alpha1.CoverageYear.parser(),
                       extensionRegistry);
-              if (coverageByYearBuilder_ == null) {
-                ensureCoverageByYearIsMutable();
-                coverageByYear_.add(m);
+              if (coverageBuilder_ == null) {
+                ensureCoverageIsMutable();
+                coverage_.add(m);
               } else {
-                coverageByYearBuilder_.addMessage(m);
+                coverageBuilder_.addMessage(m);
               }
               break;
             } // case 82
@@ -2533,25 +2803,47 @@ private static final long serialVersionUID = 0L;
               break;
             } // case 178
             case 186: {
-              runningSince_ = input.readStringRequireUtf8();
+              strategyId_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00400000;
               break;
             } // case 186
             case 194: {
-              seriesResolution_ = input.readStringRequireUtf8();
+              runningSince_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00800000;
               break;
             } // case 194
-            case 201: {
-              computableSharePct_ = input.readDouble();
+            case 202: {
+              seriesResolution_ = input.readStringRequireUtf8();
               bitField0_ |= 0x01000000;
               break;
-            } // case 201
-            case 208: {
-              hasComputableShare_ = input.readBool();
+            } // case 202
+            case 209: {
+              computableSharePct_ = input.readDouble();
               bitField0_ |= 0x02000000;
               break;
-            } // case 208
+            } // case 209
+            case 216: {
+              hasComputableShare_ = input.readBool();
+              bitField0_ |= 0x04000000;
+              break;
+            } // case 216
+            case 226: {
+              input.readMessage(
+                  internalGetDataQualityFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x08000000;
+              break;
+            } // case 226
+            case 234: {
+              windowId_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x10000000;
+              break;
+            } // case 234
+            case 242: {
+              fundamentalsLabel_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x20000000;
+              break;
+            } // case 242
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2572,7 +2864,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object state_ = "";
     /**
      * <pre>
-     * computed | run_required | running | not_computable | approximate.
+     * published | approximate | run_required | running | not_computable.
      * </pre>
      *
      * <code>string state = 1 [json_name = "state"];</code>
@@ -2592,7 +2884,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * computed | run_required | running | not_computable | approximate.
+     * published | approximate | run_required | running | not_computable.
      * </pre>
      *
      * <code>string state = 1 [json_name = "state"];</code>
@@ -2613,7 +2905,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * computed | run_required | running | not_computable | approximate.
+     * published | approximate | run_required | running | not_computable.
      * </pre>
      *
      * <code>string state = 1 [json_name = "state"];</code>
@@ -2630,7 +2922,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * computed | run_required | running | not_computable | approximate.
+     * published | approximate | run_required | running | not_computable.
      * </pre>
      *
      * <code>string state = 1 [json_name = "state"];</code>
@@ -2644,7 +2936,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * computed | run_required | running | not_computable | approximate.
+     * published | approximate | run_required | running | not_computable.
      * </pre>
      *
      * <code>string state = 1 [json_name = "state"];</code>
@@ -2661,73 +2953,93 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private java.lang.Object strategyId_ = "";
+    private java.lang.Object stateReason_ = "";
     /**
-     * <code>string strategy_id = 2 [json_name = "strategyId"];</code>
-     * @return The strategyId.
+     * <pre>
+     * Why the state is what it is, in words.
+     * </pre>
+     *
+     * <code>string state_reason = 2 [json_name = "stateReason"];</code>
+     * @return The stateReason.
      */
-    public java.lang.String getStrategyId() {
-      java.lang.Object ref = strategyId_;
+    public java.lang.String getStateReason() {
+      java.lang.Object ref = stateReason_;
       if (!(ref instanceof java.lang.String)) {
         com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
-        strategyId_ = s;
+        stateReason_ = s;
         return s;
       } else {
         return (java.lang.String) ref;
       }
     }
     /**
-     * <code>string strategy_id = 2 [json_name = "strategyId"];</code>
-     * @return The bytes for strategyId.
+     * <pre>
+     * Why the state is what it is, in words.
+     * </pre>
+     *
+     * <code>string state_reason = 2 [json_name = "stateReason"];</code>
+     * @return The bytes for stateReason.
      */
     public com.google.protobuf.ByteString
-        getStrategyIdBytes() {
-      java.lang.Object ref = strategyId_;
+        getStateReasonBytes() {
+      java.lang.Object ref = stateReason_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        strategyId_ = b;
+        stateReason_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
       }
     }
     /**
-     * <code>string strategy_id = 2 [json_name = "strategyId"];</code>
-     * @param value The strategyId to set.
+     * <pre>
+     * Why the state is what it is, in words.
+     * </pre>
+     *
+     * <code>string state_reason = 2 [json_name = "stateReason"];</code>
+     * @param value The stateReason to set.
      * @return This builder for chaining.
      */
-    public Builder setStrategyId(
+    public Builder setStateReason(
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
-      strategyId_ = value;
+      stateReason_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
     /**
-     * <code>string strategy_id = 2 [json_name = "strategyId"];</code>
+     * <pre>
+     * Why the state is what it is, in words.
+     * </pre>
+     *
+     * <code>string state_reason = 2 [json_name = "stateReason"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearStrategyId() {
-      strategyId_ = getDefaultInstance().getStrategyId();
+    public Builder clearStateReason() {
+      stateReason_ = getDefaultInstance().getStateReason();
       bitField0_ = (bitField0_ & ~0x00000002);
       onChanged();
       return this;
     }
     /**
-     * <code>string strategy_id = 2 [json_name = "strategyId"];</code>
-     * @param value The bytes for strategyId to set.
+     * <pre>
+     * Why the state is what it is, in words.
+     * </pre>
+     *
+     * <code>string state_reason = 2 [json_name = "stateReason"];</code>
+     * @param value The bytes for stateReason to set.
      * @return This builder for chaining.
      */
-    public Builder setStrategyIdBytes(
+    public Builder setStateReasonBytes(
         com.google.protobuf.ByteString value) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
-      strategyId_ = value;
+      stateReason_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
@@ -2736,7 +3048,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object computableFrom_ = "";
     /**
      * <pre>
-     * not_computable: "" when the threshold was never met.
+     * not_computable: "" when the 50% threshold was never met.
      * </pre>
      *
      * <code>string computable_from = 3 [json_name = "computableFrom"];</code>
@@ -2756,7 +3068,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * not_computable: "" when the threshold was never met.
+     * not_computable: "" when the 50% threshold was never met.
      * </pre>
      *
      * <code>string computable_from = 3 [json_name = "computableFrom"];</code>
@@ -2777,7 +3089,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * not_computable: "" when the threshold was never met.
+     * not_computable: "" when the 50% threshold was never met.
      * </pre>
      *
      * <code>string computable_from = 3 [json_name = "computableFrom"];</code>
@@ -2794,7 +3106,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * not_computable: "" when the threshold was never met.
+     * not_computable: "" when the 50% threshold was never met.
      * </pre>
      *
      * <code>string computable_from = 3 [json_name = "computableFrom"];</code>
@@ -2808,7 +3120,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * not_computable: "" when the threshold was never met.
+     * not_computable: "" when the 50% threshold was never met.
      * </pre>
      *
      * <code>string computable_from = 3 [json_name = "computableFrom"];</code>
@@ -2922,7 +3234,7 @@ private static final long serialVersionUID = 0L;
         com.shorts.v1alpha1.BacktestRunIdentity, com.shorts.v1alpha1.BacktestRunIdentity.Builder, com.shorts.v1alpha1.BacktestRunIdentityOrBuilder> identityBuilder_;
     /**
      * <pre>
-     * Absent for run_required and running.
+     * Absent for run_required, running and not_computable.
      * </pre>
      *
      * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -2933,7 +3245,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Absent for run_required and running.
+     * Absent for run_required, running and not_computable.
      * </pre>
      *
      * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -2948,7 +3260,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Absent for run_required and running.
+     * Absent for run_required, running and not_computable.
      * </pre>
      *
      * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -2968,7 +3280,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Absent for run_required and running.
+     * Absent for run_required, running and not_computable.
      * </pre>
      *
      * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -2986,7 +3298,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Absent for run_required and running.
+     * Absent for run_required, running and not_computable.
      * </pre>
      *
      * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -3011,7 +3323,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Absent for run_required and running.
+     * Absent for run_required, running and not_computable.
      * </pre>
      *
      * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -3028,7 +3340,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Absent for run_required and running.
+     * Absent for run_required, running and not_computable.
      * </pre>
      *
      * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -3040,7 +3352,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Absent for run_required and running.
+     * Absent for run_required, running and not_computable.
      * </pre>
      *
      * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -3055,7 +3367,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Absent for run_required and running.
+     * Absent for run_required, running and not_computable.
      * </pre>
      *
      * <code>.shorts.v1alpha1.BacktestRunIdentity identity = 5 [json_name = "identity"];</code>
@@ -4024,7 +4336,7 @@ private static final long serialVersionUID = 0L;
 
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4038,7 +4350,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4052,7 +4364,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4066,7 +4378,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4087,7 +4399,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4105,7 +4417,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4125,7 +4437,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4146,7 +4458,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4164,7 +4476,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4182,7 +4494,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4201,7 +4513,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4218,7 +4530,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4235,7 +4547,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4246,7 +4558,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4260,7 +4572,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4275,7 +4587,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4286,7 +4598,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4298,7 +4610,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * One point per ISO week plus the first, last and trough sessions; at most 500.
+     * The served window's points: daily or weekly, at most 500.
      * </pre>
      *
      * <code>repeated .shorts.v1alpha1.SeriesPoint series = 9 [json_name = "series"];</code>
@@ -4322,30 +4634,30 @@ private static final long serialVersionUID = 0L;
       return seriesBuilder_;
     }
 
-    private java.util.List<com.shorts.v1alpha1.CoverageYear> coverageByYear_ =
+    private java.util.List<com.shorts.v1alpha1.CoverageYear> coverage_ =
       java.util.Collections.emptyList();
-    private void ensureCoverageByYearIsMutable() {
+    private void ensureCoverageIsMutable() {
       if (!((bitField0_ & 0x00000200) != 0)) {
-        coverageByYear_ = new java.util.ArrayList<com.shorts.v1alpha1.CoverageYear>(coverageByYear_);
+        coverage_ = new java.util.ArrayList<com.shorts.v1alpha1.CoverageYear>(coverage_);
         bitField0_ |= 0x00000200;
        }
     }
 
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.CoverageYear, com.shorts.v1alpha1.CoverageYear.Builder, com.shorts.v1alpha1.CoverageYearOrBuilder> coverageByYearBuilder_;
+        com.shorts.v1alpha1.CoverageYear, com.shorts.v1alpha1.CoverageYear.Builder, com.shorts.v1alpha1.CoverageYearOrBuilder> coverageBuilder_;
 
     /**
      * <pre>
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.CoverageYear> getCoverageByYearList() {
-      if (coverageByYearBuilder_ == null) {
-        return java.util.Collections.unmodifiableList(coverageByYear_);
+    public java.util.List<com.shorts.v1alpha1.CoverageYear> getCoverageList() {
+      if (coverageBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(coverage_);
       } else {
-        return coverageByYearBuilder_.getMessageList();
+        return coverageBuilder_.getMessageList();
       }
     }
     /**
@@ -4353,13 +4665,13 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public int getCoverageByYearCount() {
-      if (coverageByYearBuilder_ == null) {
-        return coverageByYear_.size();
+    public int getCoverageCount() {
+      if (coverageBuilder_ == null) {
+        return coverage_.size();
       } else {
-        return coverageByYearBuilder_.getCount();
+        return coverageBuilder_.getCount();
       }
     }
     /**
@@ -4367,13 +4679,13 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public com.shorts.v1alpha1.CoverageYear getCoverageByYear(int index) {
-      if (coverageByYearBuilder_ == null) {
-        return coverageByYear_.get(index);
+    public com.shorts.v1alpha1.CoverageYear getCoverage(int index) {
+      if (coverageBuilder_ == null) {
+        return coverage_.get(index);
       } else {
-        return coverageByYearBuilder_.getMessage(index);
+        return coverageBuilder_.getMessage(index);
       }
     }
     /**
@@ -4381,19 +4693,19 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public Builder setCoverageByYear(
+    public Builder setCoverage(
         int index, com.shorts.v1alpha1.CoverageYear value) {
-      if (coverageByYearBuilder_ == null) {
+      if (coverageBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        ensureCoverageByYearIsMutable();
-        coverageByYear_.set(index, value);
+        ensureCoverageIsMutable();
+        coverage_.set(index, value);
         onChanged();
       } else {
-        coverageByYearBuilder_.setMessage(index, value);
+        coverageBuilder_.setMessage(index, value);
       }
       return this;
     }
@@ -4402,16 +4714,16 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public Builder setCoverageByYear(
+    public Builder setCoverage(
         int index, com.shorts.v1alpha1.CoverageYear.Builder builderForValue) {
-      if (coverageByYearBuilder_ == null) {
-        ensureCoverageByYearIsMutable();
-        coverageByYear_.set(index, builderForValue.build());
+      if (coverageBuilder_ == null) {
+        ensureCoverageIsMutable();
+        coverage_.set(index, builderForValue.build());
         onChanged();
       } else {
-        coverageByYearBuilder_.setMessage(index, builderForValue.build());
+        coverageBuilder_.setMessage(index, builderForValue.build());
       }
       return this;
     }
@@ -4420,18 +4732,18 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public Builder addCoverageByYear(com.shorts.v1alpha1.CoverageYear value) {
-      if (coverageByYearBuilder_ == null) {
+    public Builder addCoverage(com.shorts.v1alpha1.CoverageYear value) {
+      if (coverageBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        ensureCoverageByYearIsMutable();
-        coverageByYear_.add(value);
+        ensureCoverageIsMutable();
+        coverage_.add(value);
         onChanged();
       } else {
-        coverageByYearBuilder_.addMessage(value);
+        coverageBuilder_.addMessage(value);
       }
       return this;
     }
@@ -4440,19 +4752,19 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public Builder addCoverageByYear(
+    public Builder addCoverage(
         int index, com.shorts.v1alpha1.CoverageYear value) {
-      if (coverageByYearBuilder_ == null) {
+      if (coverageBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
         }
-        ensureCoverageByYearIsMutable();
-        coverageByYear_.add(index, value);
+        ensureCoverageIsMutable();
+        coverage_.add(index, value);
         onChanged();
       } else {
-        coverageByYearBuilder_.addMessage(index, value);
+        coverageBuilder_.addMessage(index, value);
       }
       return this;
     }
@@ -4461,16 +4773,16 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public Builder addCoverageByYear(
+    public Builder addCoverage(
         com.shorts.v1alpha1.CoverageYear.Builder builderForValue) {
-      if (coverageByYearBuilder_ == null) {
-        ensureCoverageByYearIsMutable();
-        coverageByYear_.add(builderForValue.build());
+      if (coverageBuilder_ == null) {
+        ensureCoverageIsMutable();
+        coverage_.add(builderForValue.build());
         onChanged();
       } else {
-        coverageByYearBuilder_.addMessage(builderForValue.build());
+        coverageBuilder_.addMessage(builderForValue.build());
       }
       return this;
     }
@@ -4479,16 +4791,16 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public Builder addCoverageByYear(
+    public Builder addCoverage(
         int index, com.shorts.v1alpha1.CoverageYear.Builder builderForValue) {
-      if (coverageByYearBuilder_ == null) {
-        ensureCoverageByYearIsMutable();
-        coverageByYear_.add(index, builderForValue.build());
+      if (coverageBuilder_ == null) {
+        ensureCoverageIsMutable();
+        coverage_.add(index, builderForValue.build());
         onChanged();
       } else {
-        coverageByYearBuilder_.addMessage(index, builderForValue.build());
+        coverageBuilder_.addMessage(index, builderForValue.build());
       }
       return this;
     }
@@ -4497,17 +4809,17 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public Builder addAllCoverageByYear(
+    public Builder addAllCoverage(
         java.lang.Iterable<? extends com.shorts.v1alpha1.CoverageYear> values) {
-      if (coverageByYearBuilder_ == null) {
-        ensureCoverageByYearIsMutable();
+      if (coverageBuilder_ == null) {
+        ensureCoverageIsMutable();
         com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, coverageByYear_);
+            values, coverage_);
         onChanged();
       } else {
-        coverageByYearBuilder_.addAllMessages(values);
+        coverageBuilder_.addAllMessages(values);
       }
       return this;
     }
@@ -4516,15 +4828,15 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public Builder clearCoverageByYear() {
-      if (coverageByYearBuilder_ == null) {
-        coverageByYear_ = java.util.Collections.emptyList();
+    public Builder clearCoverage() {
+      if (coverageBuilder_ == null) {
+        coverage_ = java.util.Collections.emptyList();
         bitField0_ = (bitField0_ & ~0x00000200);
         onChanged();
       } else {
-        coverageByYearBuilder_.clear();
+        coverageBuilder_.clear();
       }
       return this;
     }
@@ -4533,15 +4845,15 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public Builder removeCoverageByYear(int index) {
-      if (coverageByYearBuilder_ == null) {
-        ensureCoverageByYearIsMutable();
-        coverageByYear_.remove(index);
+    public Builder removeCoverage(int index) {
+      if (coverageBuilder_ == null) {
+        ensureCoverageIsMutable();
+        coverage_.remove(index);
         onChanged();
       } else {
-        coverageByYearBuilder_.remove(index);
+        coverageBuilder_.remove(index);
       }
       return this;
     }
@@ -4550,24 +4862,24 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public com.shorts.v1alpha1.CoverageYear.Builder getCoverageByYearBuilder(
+    public com.shorts.v1alpha1.CoverageYear.Builder getCoverageBuilder(
         int index) {
-      return internalGetCoverageByYearFieldBuilder().getBuilder(index);
+      return internalGetCoverageFieldBuilder().getBuilder(index);
     }
     /**
      * <pre>
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public com.shorts.v1alpha1.CoverageYearOrBuilder getCoverageByYearOrBuilder(
+    public com.shorts.v1alpha1.CoverageYearOrBuilder getCoverageOrBuilder(
         int index) {
-      if (coverageByYearBuilder_ == null) {
-        return coverageByYear_.get(index);  } else {
-        return coverageByYearBuilder_.getMessageOrBuilder(index);
+      if (coverageBuilder_ == null) {
+        return coverage_.get(index);  } else {
+        return coverageBuilder_.getMessageOrBuilder(index);
       }
     }
     /**
@@ -4575,14 +4887,14 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
     public java.util.List<? extends com.shorts.v1alpha1.CoverageYearOrBuilder> 
-         getCoverageByYearOrBuilderList() {
-      if (coverageByYearBuilder_ != null) {
-        return coverageByYearBuilder_.getMessageOrBuilderList();
+         getCoverageOrBuilderList() {
+      if (coverageBuilder_ != null) {
+        return coverageBuilder_.getMessageOrBuilderList();
       } else {
-        return java.util.Collections.unmodifiableList(coverageByYear_);
+        return java.util.Collections.unmodifiableList(coverage_);
       }
     }
     /**
@@ -4590,10 +4902,10 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public com.shorts.v1alpha1.CoverageYear.Builder addCoverageByYearBuilder() {
-      return internalGetCoverageByYearFieldBuilder().addBuilder(
+    public com.shorts.v1alpha1.CoverageYear.Builder addCoverageBuilder() {
+      return internalGetCoverageFieldBuilder().addBuilder(
           com.shorts.v1alpha1.CoverageYear.getDefaultInstance());
     }
     /**
@@ -4601,11 +4913,11 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
-    public com.shorts.v1alpha1.CoverageYear.Builder addCoverageByYearBuilder(
+    public com.shorts.v1alpha1.CoverageYear.Builder addCoverageBuilder(
         int index) {
-      return internalGetCoverageByYearFieldBuilder().addBuilder(
+      return internalGetCoverageFieldBuilder().addBuilder(
           index, com.shorts.v1alpha1.CoverageYear.getDefaultInstance());
     }
     /**
@@ -4613,25 +4925,25 @@ private static final long serialVersionUID = 0L;
      * Both coverage measures, by year.
      * </pre>
      *
-     * <code>repeated .shorts.v1alpha1.CoverageYear coverage_by_year = 10 [json_name = "coverageByYear"];</code>
+     * <code>repeated .shorts.v1alpha1.CoverageYear coverage = 10 [json_name = "coverage"];</code>
      */
     public java.util.List<com.shorts.v1alpha1.CoverageYear.Builder> 
-         getCoverageByYearBuilderList() {
-      return internalGetCoverageByYearFieldBuilder().getBuilderList();
+         getCoverageBuilderList() {
+      return internalGetCoverageFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
         com.shorts.v1alpha1.CoverageYear, com.shorts.v1alpha1.CoverageYear.Builder, com.shorts.v1alpha1.CoverageYearOrBuilder> 
-        internalGetCoverageByYearFieldBuilder() {
-      if (coverageByYearBuilder_ == null) {
-        coverageByYearBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+        internalGetCoverageFieldBuilder() {
+      if (coverageBuilder_ == null) {
+        coverageBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
             com.shorts.v1alpha1.CoverageYear, com.shorts.v1alpha1.CoverageYear.Builder, com.shorts.v1alpha1.CoverageYearOrBuilder>(
-                coverageByYear_,
+                coverage_,
                 ((bitField0_ & 0x00000200) != 0),
                 getParentForChildren(),
                 isClean());
-        coverageByYear_ = null;
+        coverage_ = null;
       }
-      return coverageByYearBuilder_;
+      return coverageBuilder_;
     }
 
     private java.util.List<com.shorts.v1alpha1.CoverageMonth> coverageMonthly_ =
@@ -5541,7 +5853,7 @@ private static final long serialVersionUID = 0L;
         com.shorts.v1alpha1.TradeSummary, com.shorts.v1alpha1.TradeSummary.Builder, com.shorts.v1alpha1.TradeSummaryOrBuilder> tradeSummaryBuilder_;
     /**
      * <pre>
-     * The in-sample trades; the paper trades are counted in the windows.
+     * Closed trades that exited before live_from (in-sample).
      * </pre>
      *
      * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -5552,7 +5864,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The in-sample trades; the paper trades are counted in the windows.
+     * Closed trades that exited before live_from (in-sample).
      * </pre>
      *
      * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -5567,7 +5879,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The in-sample trades; the paper trades are counted in the windows.
+     * Closed trades that exited before live_from (in-sample).
      * </pre>
      *
      * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -5587,7 +5899,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The in-sample trades; the paper trades are counted in the windows.
+     * Closed trades that exited before live_from (in-sample).
      * </pre>
      *
      * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -5605,7 +5917,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The in-sample trades; the paper trades are counted in the windows.
+     * Closed trades that exited before live_from (in-sample).
      * </pre>
      *
      * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -5630,7 +5942,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The in-sample trades; the paper trades are counted in the windows.
+     * Closed trades that exited before live_from (in-sample).
      * </pre>
      *
      * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -5647,7 +5959,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The in-sample trades; the paper trades are counted in the windows.
+     * Closed trades that exited before live_from (in-sample).
      * </pre>
      *
      * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -5659,7 +5971,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The in-sample trades; the paper trades are counted in the windows.
+     * Closed trades that exited before live_from (in-sample).
      * </pre>
      *
      * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -5674,7 +5986,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The in-sample trades; the paper trades are counted in the windows.
+     * Closed trades that exited before live_from (in-sample).
      * </pre>
      *
      * <code>.shorts.v1alpha1.TradeSummary trade_summary = 15 [json_name = "tradeSummary"];</code>
@@ -5853,7 +6165,7 @@ private static final long serialVersionUID = 0L;
     private boolean rulesMatchLive_ ;
     /**
      * <pre>
-     * The run's rules are the live rules.
+     * The run's rules and recipe are the live ones.
      * </pre>
      *
      * <code>bool rules_match_live = 17 [json_name = "rulesMatchLive"];</code>
@@ -5865,7 +6177,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The run's rules are the live rules.
+     * The run's rules and recipe are the live ones.
      * </pre>
      *
      * <code>bool rules_match_live = 17 [json_name = "rulesMatchLive"];</code>
@@ -5881,7 +6193,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The run's rules are the live rules.
+     * The run's rules and recipe are the live ones.
      * </pre>
      *
      * <code>bool rules_match_live = 17 [json_name = "rulesMatchLive"];</code>
@@ -5941,7 +6253,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object replayAgreement_ = "";
     /**
      * <pre>
-     * "Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy".
+     * "Replay agrees: 14 of 15 trades", or why it is not comparable.
      * </pre>
      *
      * <code>string replay_agreement = 19 [json_name = "replayAgreement"];</code>
@@ -5961,7 +6273,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy".
+     * "Replay agrees: 14 of 15 trades", or why it is not comparable.
      * </pre>
      *
      * <code>string replay_agreement = 19 [json_name = "replayAgreement"];</code>
@@ -5982,7 +6294,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy".
+     * "Replay agrees: 14 of 15 trades", or why it is not comparable.
      * </pre>
      *
      * <code>string replay_agreement = 19 [json_name = "replayAgreement"];</code>
@@ -5999,7 +6311,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy".
+     * "Replay agrees: 14 of 15 trades", or why it is not comparable.
      * </pre>
      *
      * <code>string replay_agreement = 19 [json_name = "replayAgreement"];</code>
@@ -6013,7 +6325,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy".
+     * "Replay agrees: 14 of 15 trades", or why it is not comparable.
      * </pre>
      *
      * <code>string replay_agreement = 19 [json_name = "replayAgreement"];</code>
@@ -6279,7 +6591,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Data-quality notes of the run.
+     * Data-quality notes of the run, as prose.
      * </pre>
      *
      * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -6292,7 +6604,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Data-quality notes of the run.
+     * Data-quality notes of the run, as prose.
      * </pre>
      *
      * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -6303,7 +6615,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Data-quality notes of the run.
+     * Data-quality notes of the run, as prose.
      * </pre>
      *
      * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -6315,7 +6627,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Data-quality notes of the run.
+     * Data-quality notes of the run, as prose.
      * </pre>
      *
      * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -6328,7 +6640,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Data-quality notes of the run.
+     * Data-quality notes of the run, as prose.
      * </pre>
      *
      * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -6347,7 +6659,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Data-quality notes of the run.
+     * Data-quality notes of the run, as prose.
      * </pre>
      *
      * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -6365,7 +6677,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Data-quality notes of the run.
+     * Data-quality notes of the run, as prose.
      * </pre>
      *
      * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -6383,7 +6695,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Data-quality notes of the run.
+     * Data-quality notes of the run, as prose.
      * </pre>
      *
      * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -6398,7 +6710,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Data-quality notes of the run.
+     * Data-quality notes of the run, as prose.
      * </pre>
      *
      * <code>repeated string data_notes = 22 [json_name = "dataNotes"];</code>
@@ -6416,13 +6728,85 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private java.lang.Object strategyId_ = "";
+    /**
+     * <code>string strategy_id = 23 [json_name = "strategyId"];</code>
+     * @return The strategyId.
+     */
+    public java.lang.String getStrategyId() {
+      java.lang.Object ref = strategyId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        strategyId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string strategy_id = 23 [json_name = "strategyId"];</code>
+     * @return The bytes for strategyId.
+     */
+    public com.google.protobuf.ByteString
+        getStrategyIdBytes() {
+      java.lang.Object ref = strategyId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        strategyId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string strategy_id = 23 [json_name = "strategyId"];</code>
+     * @param value The strategyId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStrategyId(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      strategyId_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string strategy_id = 23 [json_name = "strategyId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStrategyId() {
+      strategyId_ = getDefaultInstance().getStrategyId();
+      bitField0_ = (bitField0_ & ~0x00400000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string strategy_id = 23 [json_name = "strategyId"];</code>
+     * @param value The bytes for strategyId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStrategyIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      strategyId_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+
     private java.lang.Object runningSince_ = "";
     /**
      * <pre>
      * running: when the request started, RFC 3339.
      * </pre>
      *
-     * <code>string running_since = 23 [json_name = "runningSince"];</code>
+     * <code>string running_since = 24 [json_name = "runningSince"];</code>
      * @return The runningSince.
      */
     public java.lang.String getRunningSince() {
@@ -6442,7 +6826,7 @@ private static final long serialVersionUID = 0L;
      * running: when the request started, RFC 3339.
      * </pre>
      *
-     * <code>string running_since = 23 [json_name = "runningSince"];</code>
+     * <code>string running_since = 24 [json_name = "runningSince"];</code>
      * @return The bytes for runningSince.
      */
     public com.google.protobuf.ByteString
@@ -6463,7 +6847,7 @@ private static final long serialVersionUID = 0L;
      * running: when the request started, RFC 3339.
      * </pre>
      *
-     * <code>string running_since = 23 [json_name = "runningSince"];</code>
+     * <code>string running_since = 24 [json_name = "runningSince"];</code>
      * @param value The runningSince to set.
      * @return This builder for chaining.
      */
@@ -6471,7 +6855,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       runningSince_ = value;
-      bitField0_ |= 0x00400000;
+      bitField0_ |= 0x00800000;
       onChanged();
       return this;
     }
@@ -6480,12 +6864,12 @@ private static final long serialVersionUID = 0L;
      * running: when the request started, RFC 3339.
      * </pre>
      *
-     * <code>string running_since = 23 [json_name = "runningSince"];</code>
+     * <code>string running_since = 24 [json_name = "runningSince"];</code>
      * @return This builder for chaining.
      */
     public Builder clearRunningSince() {
       runningSince_ = getDefaultInstance().getRunningSince();
-      bitField0_ = (bitField0_ & ~0x00400000);
+      bitField0_ = (bitField0_ & ~0x00800000);
       onChanged();
       return this;
     }
@@ -6494,7 +6878,7 @@ private static final long serialVersionUID = 0L;
      * running: when the request started, RFC 3339.
      * </pre>
      *
-     * <code>string running_since = 23 [json_name = "runningSince"];</code>
+     * <code>string running_since = 24 [json_name = "runningSince"];</code>
      * @param value The bytes for runningSince to set.
      * @return This builder for chaining.
      */
@@ -6503,7 +6887,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       runningSince_ = value;
-      bitField0_ |= 0x00400000;
+      bitField0_ |= 0x00800000;
       onChanged();
       return this;
     }
@@ -6511,10 +6895,10 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object seriesResolution_ = "";
     /**
      * <pre>
-     * "weekly" for a computed run; "" otherwise.
+     * "daily" or "weekly": what the series carries.
      * </pre>
      *
-     * <code>string series_resolution = 24 [json_name = "seriesResolution"];</code>
+     * <code>string series_resolution = 25 [json_name = "seriesResolution"];</code>
      * @return The seriesResolution.
      */
     public java.lang.String getSeriesResolution() {
@@ -6531,10 +6915,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "weekly" for a computed run; "" otherwise.
+     * "daily" or "weekly": what the series carries.
      * </pre>
      *
-     * <code>string series_resolution = 24 [json_name = "seriesResolution"];</code>
+     * <code>string series_resolution = 25 [json_name = "seriesResolution"];</code>
      * @return The bytes for seriesResolution.
      */
     public com.google.protobuf.ByteString
@@ -6552,10 +6936,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "weekly" for a computed run; "" otherwise.
+     * "daily" or "weekly": what the series carries.
      * </pre>
      *
-     * <code>string series_resolution = 24 [json_name = "seriesResolution"];</code>
+     * <code>string series_resolution = 25 [json_name = "seriesResolution"];</code>
      * @param value The seriesResolution to set.
      * @return This builder for chaining.
      */
@@ -6563,30 +6947,30 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       seriesResolution_ = value;
-      bitField0_ |= 0x00800000;
+      bitField0_ |= 0x01000000;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * "weekly" for a computed run; "" otherwise.
+     * "daily" or "weekly": what the series carries.
      * </pre>
      *
-     * <code>string series_resolution = 24 [json_name = "seriesResolution"];</code>
+     * <code>string series_resolution = 25 [json_name = "seriesResolution"];</code>
      * @return This builder for chaining.
      */
     public Builder clearSeriesResolution() {
       seriesResolution_ = getDefaultInstance().getSeriesResolution();
-      bitField0_ = (bitField0_ & ~0x00800000);
+      bitField0_ = (bitField0_ & ~0x01000000);
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * "weekly" for a computed run; "" otherwise.
+     * "daily" or "weekly": what the series carries.
      * </pre>
      *
-     * <code>string series_resolution = 24 [json_name = "seriesResolution"];</code>
+     * <code>string series_resolution = 25 [json_name = "seriesResolution"];</code>
      * @param value The bytes for seriesResolution to set.
      * @return This builder for chaining.
      */
@@ -6595,7 +6979,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       seriesResolution_ = value;
-      bitField0_ |= 0x00800000;
+      bitField0_ |= 0x01000000;
       onChanged();
       return this;
     }
@@ -6606,7 +6990,7 @@ private static final long serialVersionUID = 0L;
      * not_computable: the measured universe share, when measured.
      * </pre>
      *
-     * <code>double computable_share_pct = 25 [json_name = "computableSharePct"];</code>
+     * <code>double computable_share_pct = 26 [json_name = "computableSharePct"];</code>
      * @return The computableSharePct.
      */
     @java.lang.Override
@@ -6618,14 +7002,14 @@ private static final long serialVersionUID = 0L;
      * not_computable: the measured universe share, when measured.
      * </pre>
      *
-     * <code>double computable_share_pct = 25 [json_name = "computableSharePct"];</code>
+     * <code>double computable_share_pct = 26 [json_name = "computableSharePct"];</code>
      * @param value The computableSharePct to set.
      * @return This builder for chaining.
      */
     public Builder setComputableSharePct(double value) {
 
       computableSharePct_ = value;
-      bitField0_ |= 0x01000000;
+      bitField0_ |= 0x02000000;
       onChanged();
       return this;
     }
@@ -6634,11 +7018,11 @@ private static final long serialVersionUID = 0L;
      * not_computable: the measured universe share, when measured.
      * </pre>
      *
-     * <code>double computable_share_pct = 25 [json_name = "computableSharePct"];</code>
+     * <code>double computable_share_pct = 26 [json_name = "computableSharePct"];</code>
      * @return This builder for chaining.
      */
     public Builder clearComputableSharePct() {
-      bitField0_ = (bitField0_ & ~0x01000000);
+      bitField0_ = (bitField0_ & ~0x02000000);
       computableSharePct_ = 0D;
       onChanged();
       return this;
@@ -6646,7 +7030,7 @@ private static final long serialVersionUID = 0L;
 
     private boolean hasComputableShare_ ;
     /**
-     * <code>bool has_computable_share = 26 [json_name = "hasComputableShare"];</code>
+     * <code>bool has_computable_share = 27 [json_name = "hasComputableShare"];</code>
      * @return The hasComputableShare.
      */
     @java.lang.Override
@@ -6654,24 +7038,365 @@ private static final long serialVersionUID = 0L;
       return hasComputableShare_;
     }
     /**
-     * <code>bool has_computable_share = 26 [json_name = "hasComputableShare"];</code>
+     * <code>bool has_computable_share = 27 [json_name = "hasComputableShare"];</code>
      * @param value The hasComputableShare to set.
      * @return This builder for chaining.
      */
     public Builder setHasComputableShare(boolean value) {
 
       hasComputableShare_ = value;
-      bitField0_ |= 0x02000000;
+      bitField0_ |= 0x04000000;
       onChanged();
       return this;
     }
     /**
-     * <code>bool has_computable_share = 26 [json_name = "hasComputableShare"];</code>
+     * <code>bool has_computable_share = 27 [json_name = "hasComputableShare"];</code>
      * @return This builder for chaining.
      */
     public Builder clearHasComputableShare() {
-      bitField0_ = (bitField0_ & ~0x02000000);
+      bitField0_ = (bitField0_ & ~0x04000000);
       hasComputableShare_ = false;
+      onChanged();
+      return this;
+    }
+
+    private com.shorts.v1alpha1.DataQuality dataQuality_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.DataQuality, com.shorts.v1alpha1.DataQuality.Builder, com.shorts.v1alpha1.DataQualityOrBuilder> dataQualityBuilder_;
+    /**
+     * <pre>
+     * The run's data-quality counts, as fields.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+     * @return Whether the dataQuality field is set.
+     */
+    public boolean hasDataQuality() {
+      return ((bitField0_ & 0x08000000) != 0);
+    }
+    /**
+     * <pre>
+     * The run's data-quality counts, as fields.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+     * @return The dataQuality.
+     */
+    public com.shorts.v1alpha1.DataQuality getDataQuality() {
+      if (dataQualityBuilder_ == null) {
+        return dataQuality_ == null ? com.shorts.v1alpha1.DataQuality.getDefaultInstance() : dataQuality_;
+      } else {
+        return dataQualityBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * The run's data-quality counts, as fields.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+     */
+    public Builder setDataQuality(com.shorts.v1alpha1.DataQuality value) {
+      if (dataQualityBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        dataQuality_ = value;
+      } else {
+        dataQualityBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's data-quality counts, as fields.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+     */
+    public Builder setDataQuality(
+        com.shorts.v1alpha1.DataQuality.Builder builderForValue) {
+      if (dataQualityBuilder_ == null) {
+        dataQuality_ = builderForValue.build();
+      } else {
+        dataQualityBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's data-quality counts, as fields.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+     */
+    public Builder mergeDataQuality(com.shorts.v1alpha1.DataQuality value) {
+      if (dataQualityBuilder_ == null) {
+        if (((bitField0_ & 0x08000000) != 0) &&
+          dataQuality_ != null &&
+          dataQuality_ != com.shorts.v1alpha1.DataQuality.getDefaultInstance()) {
+          getDataQualityBuilder().mergeFrom(value);
+        } else {
+          dataQuality_ = value;
+        }
+      } else {
+        dataQualityBuilder_.mergeFrom(value);
+      }
+      if (dataQuality_ != null) {
+        bitField0_ |= 0x08000000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's data-quality counts, as fields.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+     */
+    public Builder clearDataQuality() {
+      bitField0_ = (bitField0_ & ~0x08000000);
+      dataQuality_ = null;
+      if (dataQualityBuilder_ != null) {
+        dataQualityBuilder_.dispose();
+        dataQualityBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's data-quality counts, as fields.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+     */
+    public com.shorts.v1alpha1.DataQuality.Builder getDataQualityBuilder() {
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return internalGetDataQualityFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * The run's data-quality counts, as fields.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+     */
+    public com.shorts.v1alpha1.DataQualityOrBuilder getDataQualityOrBuilder() {
+      if (dataQualityBuilder_ != null) {
+        return dataQualityBuilder_.getMessageOrBuilder();
+      } else {
+        return dataQuality_ == null ?
+            com.shorts.v1alpha1.DataQuality.getDefaultInstance() : dataQuality_;
+      }
+    }
+    /**
+     * <pre>
+     * The run's data-quality counts, as fields.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.DataQuality data_quality = 28 [json_name = "dataQuality"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.DataQuality, com.shorts.v1alpha1.DataQuality.Builder, com.shorts.v1alpha1.DataQualityOrBuilder> 
+        internalGetDataQualityFieldBuilder() {
+      if (dataQualityBuilder_ == null) {
+        dataQualityBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.DataQuality, com.shorts.v1alpha1.DataQuality.Builder, com.shorts.v1alpha1.DataQualityOrBuilder>(
+                getDataQuality(),
+                getParentForChildren(),
+                isClean());
+        dataQuality_ = null;
+      }
+      return dataQualityBuilder_;
+    }
+
+    private java.lang.Object windowId_ = "";
+    /**
+     * <pre>
+     * The window the series and window tables are served for.
+     * </pre>
+     *
+     * <code>string window_id = 29 [json_name = "windowId"];</code>
+     * @return The windowId.
+     */
+    public java.lang.String getWindowId() {
+      java.lang.Object ref = windowId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        windowId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The window the series and window tables are served for.
+     * </pre>
+     *
+     * <code>string window_id = 29 [json_name = "windowId"];</code>
+     * @return The bytes for windowId.
+     */
+    public com.google.protobuf.ByteString
+        getWindowIdBytes() {
+      java.lang.Object ref = windowId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        windowId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The window the series and window tables are served for.
+     * </pre>
+     *
+     * <code>string window_id = 29 [json_name = "windowId"];</code>
+     * @param value The windowId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setWindowId(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      windowId_ = value;
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The window the series and window tables are served for.
+     * </pre>
+     *
+     * <code>string window_id = 29 [json_name = "windowId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearWindowId() {
+      windowId_ = getDefaultInstance().getWindowId();
+      bitField0_ = (bitField0_ & ~0x10000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The window the series and window tables are served for.
+     * </pre>
+     *
+     * <code>string window_id = 29 [json_name = "windowId"];</code>
+     * @param value The bytes for windowId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setWindowIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      windowId_ = value;
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object fundamentalsLabel_ = "";
+    /**
+     * <pre>
+     * The fundamentals policy, in words the surfaces print.
+     * </pre>
+     *
+     * <code>string fundamentals_label = 30 [json_name = "fundamentalsLabel"];</code>
+     * @return The fundamentalsLabel.
+     */
+    public java.lang.String getFundamentalsLabel() {
+      java.lang.Object ref = fundamentalsLabel_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        fundamentalsLabel_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The fundamentals policy, in words the surfaces print.
+     * </pre>
+     *
+     * <code>string fundamentals_label = 30 [json_name = "fundamentalsLabel"];</code>
+     * @return The bytes for fundamentalsLabel.
+     */
+    public com.google.protobuf.ByteString
+        getFundamentalsLabelBytes() {
+      java.lang.Object ref = fundamentalsLabel_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        fundamentalsLabel_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The fundamentals policy, in words the surfaces print.
+     * </pre>
+     *
+     * <code>string fundamentals_label = 30 [json_name = "fundamentalsLabel"];</code>
+     * @param value The fundamentalsLabel to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundamentalsLabel(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      fundamentalsLabel_ = value;
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The fundamentals policy, in words the surfaces print.
+     * </pre>
+     *
+     * <code>string fundamentals_label = 30 [json_name = "fundamentalsLabel"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundamentalsLabel() {
+      fundamentalsLabel_ = getDefaultInstance().getFundamentalsLabel();
+      bitField0_ = (bitField0_ & ~0x20000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The fundamentals policy, in words the surfaces print.
+     * </pre>
+     *
+     * <code>string fundamentals_label = 30 [json_name = "fundamentalsLabel"];</code>
+     * @param value The bytes for fundamentalsLabel to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundamentalsLabelBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      fundamentalsLabel_ = value;
+      bitField0_ |= 0x20000000;
       onChanged();
       return this;
     }

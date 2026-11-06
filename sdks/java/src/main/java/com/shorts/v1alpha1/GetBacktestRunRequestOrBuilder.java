@@ -32,7 +32,7 @@ public interface GetBacktestRunRequestOrBuilder extends
 
   /**
    * <pre>
-   * 0: the published run of the live version. Otherwise a canonical publish run of this strategy.
+   * 0: the published run of the live version. Otherwise a canonical run of this strategy.
    * </pre>
    *
    * <code>int64 run_id = 2 [json_name = "runId"];</code>
@@ -42,7 +42,7 @@ public interface GetBacktestRunRequestOrBuilder extends
 
   /**
    * <pre>
-   * "weekly" (default) or "daily". Daily is refused: its series would exceed the 500-point budget.
+   * "weekly" (default) or "daily". Daily is served for windows of 500 sessions or fewer.
    * </pre>
    *
    * <code>string resolution = 3 [json_name = "resolution"];</code>
@@ -51,7 +51,7 @@ public interface GetBacktestRunRequestOrBuilder extends
   java.lang.String getResolution();
   /**
    * <pre>
-   * "weekly" (default) or "daily". Daily is refused: its series would exceed the 500-point budget.
+   * "weekly" (default) or "daily". Daily is served for windows of 500 sessions or fewer.
    * </pre>
    *
    * <code>string resolution = 3 [json_name = "resolution"];</code>
@@ -59,4 +59,24 @@ public interface GetBacktestRunRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getResolutionBytes();
+
+  /**
+   * <pre>
+   * since_2019_05 (default) | since_2023 | trailing_12m | live. live needs a paper track.
+   * </pre>
+   *
+   * <code>string window = 4 [json_name = "window"];</code>
+   * @return The window.
+   */
+  java.lang.String getWindow();
+  /**
+   * <pre>
+   * since_2019_05 (default) | since_2023 | trailing_12m | live. live needs a paper track.
+   * </pre>
+   *
+   * <code>string window = 4 [json_name = "window"];</code>
+   * @return The bytes for window.
+   */
+  com.google.protobuf.ByteString
+      getWindowBytes();
 }

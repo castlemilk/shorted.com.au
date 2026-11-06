@@ -83,6 +83,10 @@ public interface BacktestTradeOrBuilder extends
   boolean getHasCapturedPivot();
 
   /**
+   * <pre>
+   * One decimal.
+   * </pre>
+   *
    * <code>double entry_score = 9 [json_name = "entryScore"];</code>
    * @return The entryScore.
    */

@@ -12,7 +12,7 @@ public interface WindowMetricsOrBuilder extends
 
   /**
    * <pre>
-   * since_may_2019 | since_2023 | last_12_months | live_since_freeze.
+   * since_2019_05 | since_2023 | trailing_12m | live.
    * </pre>
    *
    * <code>string window = 1 [json_name = "window"];</code>
@@ -21,7 +21,7 @@ public interface WindowMetricsOrBuilder extends
   java.lang.String getWindow();
   /**
    * <pre>
-   * since_may_2019 | since_2023 | last_12_months | live_since_freeze.
+   * since_2019_05 | since_2023 | trailing_12m | live.
    * </pre>
    *
    * <code>string window = 1 [json_name = "window"];</code>
@@ -169,10 +169,6 @@ public interface WindowMetricsOrBuilder extends
   double getWinRatePct();
 
   /**
-   * <pre>
-   * False when the window includes paper trades, which carry no net return here.
-   * </pre>
-   *
    * <code>bool has_win_rate = 17 [json_name = "hasWinRate"];</code>
    * @return The hasWinRate.
    */
@@ -267,4 +263,98 @@ public interface WindowMetricsOrBuilder extends
    * @return The hasVolatility.
    */
   boolean getHasVolatility();
+
+  /**
+   * <code>bool has_total_return = 27 [json_name = "hasTotalReturn"];</code>
+   * @return The hasTotalReturn.
+   */
+  boolean getHasTotalReturn();
+
+  /**
+   * <pre>
+   * The session of the window's deepest peak; "" when the curve never falls.
+   * </pre>
+   *
+   * <code>string peak_date = 28 [json_name = "peakDate"];</code>
+   * @return The peakDate.
+   */
+  java.lang.String getPeakDate();
+  /**
+   * <pre>
+   * The session of the window's deepest peak; "" when the curve never falls.
+   * </pre>
+   *
+   * <code>string peak_date = 28 [json_name = "peakDate"];</code>
+   * @return The bytes for peakDate.
+   */
+  com.google.protobuf.ByteString
+      getPeakDateBytes();
+
+  /**
+   * <pre>
+   * The session of the deepest fall.
+   * </pre>
+   *
+   * <code>string trough_date = 29 [json_name = "troughDate"];</code>
+   * @return The troughDate.
+   */
+  java.lang.String getTroughDate();
+  /**
+   * <pre>
+   * The session of the deepest fall.
+   * </pre>
+   *
+   * <code>string trough_date = 29 [json_name = "troughDate"];</code>
+   * @return The bytes for troughDate.
+   */
+  com.google.protobuf.ByteString
+      getTroughDateBytes();
+
+  /**
+   * <pre>
+   * The first session back at the peak; "not recovered" when it has not; "" when none.
+   * </pre>
+   *
+   * <code>string recovery_date = 30 [json_name = "recoveryDate"];</code>
+   * @return The recoveryDate.
+   */
+  java.lang.String getRecoveryDate();
+  /**
+   * <pre>
+   * The first session back at the peak; "not recovered" when it has not; "" when none.
+   * </pre>
+   *
+   * <code>string recovery_date = 30 [json_name = "recoveryDate"];</code>
+   * @return The bytes for recoveryDate.
+   */
+  com.google.protobuf.ByteString
+      getRecoveryDateBytes();
+
+  /**
+   * <pre>
+   * XJT over the window: shown for every window, annualised or not.
+   * </pre>
+   *
+   * <code>double benchmark_total_return_pct = 31 [json_name = "benchmarkTotalReturnPct"];</code>
+   * @return The benchmarkTotalReturnPct.
+   */
+  double getBenchmarkTotalReturnPct();
+
+  /**
+   * <code>bool has_benchmark_total_return = 32 [json_name = "hasBenchmarkTotalReturn"];</code>
+   * @return The hasBenchmarkTotalReturn.
+   */
+  boolean getHasBenchmarkTotalReturn();
+
+  /**
+   * <code>double reference_total_return_pct = 33 [json_name = "referenceTotalReturnPct"];</code>
+   * @return The referenceTotalReturnPct.
+   */
+  double getReferenceTotalReturnPct();
+
+  /**
+   * <code>bool has_reference_total_return = 34 [json_name = "hasReferenceTotalReturn"];</code>
+   * @return The hasReferenceTotalReturn.
+   */
+  boolean getHasReferenceTotalReturn();
 }

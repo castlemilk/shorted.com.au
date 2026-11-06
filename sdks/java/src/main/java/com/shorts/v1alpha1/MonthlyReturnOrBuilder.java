@@ -24,7 +24,7 @@ public interface MonthlyReturnOrBuilder extends
 
   /**
    * <pre>
-   * complete | partial | not_elapsed.
+   * complete | partial | to_date.
    * </pre>
    *
    * <code>string state = 3 [json_name = "state"];</code>
@@ -33,7 +33,7 @@ public interface MonthlyReturnOrBuilder extends
   java.lang.String getState();
   /**
    * <pre>
-   * complete | partial | not_elapsed.
+   * complete | partial | to_date.
    * </pre>
    *
    * <code>string state = 3 [json_name = "state"];</code>
@@ -55,16 +55,16 @@ public interface MonthlyReturnOrBuilder extends
   double getBenchmarkPct();
 
   /**
-   * <code>bool has_benchmark = 6 [json_name = "hasBenchmark"];</code>
-   * @return The hasBenchmark.
-   */
-  boolean getHasBenchmark();
-
-  /**
-   * <code>double reference_pct = 7 [json_name = "referencePct"];</code>
+   * <code>double reference_pct = 6 [json_name = "referencePct"];</code>
    * @return The referencePct.
    */
   double getReferencePct();
+
+  /**
+   * <code>bool has_benchmark = 7 [json_name = "hasBenchmark"];</code>
+   * @return The hasBenchmark.
+   */
+  boolean getHasBenchmark();
 
   /**
    * <code>bool has_reference = 8 [json_name = "hasReference"];</code>

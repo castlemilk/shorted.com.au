@@ -142,14 +142,73 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int APPLIES_FIELD_NUMBER = 3;
+  public static final int CAGR_PCT_FIELD_NUMBER = 3;
+  private double cagrPct_ = 0D;
+  /**
+   * <code>double cagr_pct = 3 [json_name = "cagrPct"];</code>
+   * @return The cagrPct.
+   */
+  @java.lang.Override
+  public double getCagrPct() {
+    return cagrPct_;
+  }
+
+  public static final int HAS_CAGR_FIELD_NUMBER = 4;
+  private boolean hasCagr_ = false;
+  /**
+   * <code>bool has_cagr = 4 [json_name = "hasCagr"];</code>
+   * @return The hasCagr.
+   */
+  @java.lang.Override
+  public boolean getHasCagr() {
+    return hasCagr_;
+  }
+
+  public static final int EXCESS_VS_BENCHMARK_PCT_FIELD_NUMBER = 5;
+  private double excessVsBenchmarkPct_ = 0D;
+  /**
+   * <code>double excess_vs_benchmark_pct = 5 [json_name = "excessVsBenchmarkPct"];</code>
+   * @return The excessVsBenchmarkPct.
+   */
+  @java.lang.Override
+  public double getExcessVsBenchmarkPct() {
+    return excessVsBenchmarkPct_;
+  }
+
+  public static final int MAX_DRAWDOWN_PCT_FIELD_NUMBER = 6;
+  private double maxDrawdownPct_ = 0D;
+  /**
+   * <code>double max_drawdown_pct = 6 [json_name = "maxDrawdownPct"];</code>
+   * @return The maxDrawdownPct.
+   */
+  @java.lang.Override
+  public double getMaxDrawdownPct() {
+    return maxDrawdownPct_;
+  }
+
+  public static final int FRAGILE_FIELD_NUMBER = 7;
+  private boolean fragile_ = false;
+  /**
+   * <pre>
+   * A sign flip of the excess CAGR; fragile_chip names it.
+   * </pre>
+   *
+   * <code>bool fragile = 7 [json_name = "fragile"];</code>
+   * @return The fragile.
+   */
+  @java.lang.Override
+  public boolean getFragile() {
+    return fragile_;
+  }
+
+  public static final int APPLIES_FIELD_NUMBER = 8;
   private boolean applies_ = false;
   /**
    * <pre>
    * False when the recipe does not take the change; reason says why.
    * </pre>
    *
-   * <code>bool applies = 3 [json_name = "applies"];</code>
+   * <code>bool applies = 8 [json_name = "applies"];</code>
    * @return The applies.
    */
   @java.lang.Override
@@ -157,11 +216,11 @@ private static final long serialVersionUID = 0L;
     return applies_;
   }
 
-  public static final int REASON_FIELD_NUMBER = 4;
+  public static final int REASON_FIELD_NUMBER = 9;
   @SuppressWarnings("serial")
   private volatile java.lang.Object reason_ = "";
   /**
-   * <code>string reason = 4 [json_name = "reason"];</code>
+   * <code>string reason = 9 [json_name = "reason"];</code>
    * @return The reason.
    */
   @java.lang.Override
@@ -178,7 +237,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string reason = 4 [json_name = "reason"];</code>
+   * <code>string reason = 9 [json_name = "reason"];</code>
    * @return The bytes for reason.
    */
   @java.lang.Override
@@ -196,74 +255,15 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int CAGR_PCT_FIELD_NUMBER = 5;
-  private double cagrPct_ = 0D;
-  /**
-   * <code>double cagr_pct = 5 [json_name = "cagrPct"];</code>
-   * @return The cagrPct.
-   */
-  @java.lang.Override
-  public double getCagrPct() {
-    return cagrPct_;
-  }
-
-  public static final int HAS_CAGR_FIELD_NUMBER = 6;
-  private boolean hasCagr_ = false;
-  /**
-   * <code>bool has_cagr = 6 [json_name = "hasCagr"];</code>
-   * @return The hasCagr.
-   */
-  @java.lang.Override
-  public boolean getHasCagr() {
-    return hasCagr_;
-  }
-
-  public static final int EXCESS_VS_BENCHMARK_PCT_FIELD_NUMBER = 7;
-  private double excessVsBenchmarkPct_ = 0D;
-  /**
-   * <code>double excess_vs_benchmark_pct = 7 [json_name = "excessVsBenchmarkPct"];</code>
-   * @return The excessVsBenchmarkPct.
-   */
-  @java.lang.Override
-  public double getExcessVsBenchmarkPct() {
-    return excessVsBenchmarkPct_;
-  }
-
-  public static final int HAS_EXCESS_FIELD_NUMBER = 8;
+  public static final int HAS_EXCESS_FIELD_NUMBER = 10;
   private boolean hasExcess_ = false;
   /**
-   * <code>bool has_excess = 8 [json_name = "hasExcess"];</code>
+   * <code>bool has_excess = 10 [json_name = "hasExcess"];</code>
    * @return The hasExcess.
    */
   @java.lang.Override
   public boolean getHasExcess() {
     return hasExcess_;
-  }
-
-  public static final int MAX_DRAWDOWN_PCT_FIELD_NUMBER = 9;
-  private double maxDrawdownPct_ = 0D;
-  /**
-   * <code>double max_drawdown_pct = 9 [json_name = "maxDrawdownPct"];</code>
-   * @return The maxDrawdownPct.
-   */
-  @java.lang.Override
-  public double getMaxDrawdownPct() {
-    return maxDrawdownPct_;
-  }
-
-  public static final int FRAGILE_FIELD_NUMBER = 10;
-  private boolean fragile_ = false;
-  /**
-   * <pre>
-   * A sign flip of the excess CAGR; fragile_chip names it.
-   * </pre>
-   *
-   * <code>bool fragile = 10 [json_name = "fragile"];</code>
-   * @return The fragile.
-   */
-  @java.lang.Override
-  public boolean getFragile() {
-    return fragile_;
   }
 
   public static final int FRAGILE_CHIP_FIELD_NUMBER = 11;
@@ -333,29 +333,29 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(label_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 2, label_);
     }
-    if (applies_ != false) {
-      output.writeBool(3, applies_);
-    }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 4, reason_);
-    }
     if (java.lang.Double.doubleToRawLongBits(cagrPct_) != 0) {
-      output.writeDouble(5, cagrPct_);
+      output.writeDouble(3, cagrPct_);
     }
     if (hasCagr_ != false) {
-      output.writeBool(6, hasCagr_);
+      output.writeBool(4, hasCagr_);
     }
     if (java.lang.Double.doubleToRawLongBits(excessVsBenchmarkPct_) != 0) {
-      output.writeDouble(7, excessVsBenchmarkPct_);
-    }
-    if (hasExcess_ != false) {
-      output.writeBool(8, hasExcess_);
+      output.writeDouble(5, excessVsBenchmarkPct_);
     }
     if (java.lang.Double.doubleToRawLongBits(maxDrawdownPct_) != 0) {
-      output.writeDouble(9, maxDrawdownPct_);
+      output.writeDouble(6, maxDrawdownPct_);
     }
     if (fragile_ != false) {
-      output.writeBool(10, fragile_);
+      output.writeBool(7, fragile_);
+    }
+    if (applies_ != false) {
+      output.writeBool(8, applies_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 9, reason_);
+    }
+    if (hasExcess_ != false) {
+      output.writeBool(10, hasExcess_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fragileChip_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 11, fragileChip_);
@@ -370,36 +370,36 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(label_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(2, label_);
     }
-    if (applies_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(3, applies_);
-    }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, reason_);
-    }
     if (java.lang.Double.doubleToRawLongBits(cagrPct_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(5, cagrPct_);
+        .computeDoubleSize(3, cagrPct_);
     }
     if (hasCagr_ != false) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(6, hasCagr_);
+        .computeBoolSize(4, hasCagr_);
     }
     if (java.lang.Double.doubleToRawLongBits(excessVsBenchmarkPct_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(7, excessVsBenchmarkPct_);
-    }
-    if (hasExcess_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(8, hasExcess_);
+        .computeDoubleSize(5, excessVsBenchmarkPct_);
     }
     if (java.lang.Double.doubleToRawLongBits(maxDrawdownPct_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(9, maxDrawdownPct_);
+        .computeDoubleSize(6, maxDrawdownPct_);
     }
     if (fragile_ != false) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(10, fragile_);
+        .computeBoolSize(7, fragile_);
+    }
+    if (applies_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(8, applies_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(reason_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(9, reason_);
+    }
+    if (hasExcess_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(10, hasExcess_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fragileChip_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(11, fragileChip_);
@@ -432,10 +432,6 @@ private static final long serialVersionUID = 0L;
         .equals(other.getId())) return false;
     if (!getLabel()
         .equals(other.getLabel())) return false;
-    if (getApplies()
-        != other.getApplies()) return false;
-    if (!getReason()
-        .equals(other.getReason())) return false;
     if (java.lang.Double.doubleToLongBits(getCagrPct())
         != java.lang.Double.doubleToLongBits(
             other.getCagrPct())) return false;
@@ -444,13 +440,17 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getExcessVsBenchmarkPct())
         != java.lang.Double.doubleToLongBits(
             other.getExcessVsBenchmarkPct())) return false;
-    if (getHasExcess()
-        != other.getHasExcess()) return false;
     if (java.lang.Double.doubleToLongBits(getMaxDrawdownPct())
         != java.lang.Double.doubleToLongBits(
             other.getMaxDrawdownPct())) return false;
     if (getFragile()
         != other.getFragile()) return false;
+    if (getApplies()
+        != other.getApplies()) return false;
+    if (!getReason()
+        .equals(other.getReason())) return false;
+    if (getHasExcess()
+        != other.getHasExcess()) return false;
     if (!getFragileChip()
         .equals(other.getFragileChip())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
@@ -468,11 +468,6 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getId().hashCode();
     hash = (37 * hash) + LABEL_FIELD_NUMBER;
     hash = (53 * hash) + getLabel().hashCode();
-    hash = (37 * hash) + APPLIES_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getApplies());
-    hash = (37 * hash) + REASON_FIELD_NUMBER;
-    hash = (53 * hash) + getReason().hashCode();
     hash = (37 * hash) + CAGR_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getCagrPct()));
@@ -482,15 +477,20 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + EXCESS_VS_BENCHMARK_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getExcessVsBenchmarkPct()));
-    hash = (37 * hash) + HAS_EXCESS_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getHasExcess());
     hash = (37 * hash) + MAX_DRAWDOWN_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getMaxDrawdownPct()));
     hash = (37 * hash) + FRAGILE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getFragile());
+    hash = (37 * hash) + APPLIES_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getApplies());
+    hash = (37 * hash) + REASON_FIELD_NUMBER;
+    hash = (53 * hash) + getReason().hashCode();
+    hash = (37 * hash) + HAS_EXCESS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasExcess());
     hash = (37 * hash) + FRAGILE_CHIP_FIELD_NUMBER;
     hash = (53 * hash) + getFragileChip().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
@@ -630,14 +630,14 @@ private static final long serialVersionUID = 0L;
       bitField0_ = 0;
       id_ = "";
       label_ = "";
-      applies_ = false;
-      reason_ = "";
       cagrPct_ = 0D;
       hasCagr_ = false;
       excessVsBenchmarkPct_ = 0D;
-      hasExcess_ = false;
       maxDrawdownPct_ = 0D;
       fragile_ = false;
+      applies_ = false;
+      reason_ = "";
+      hasExcess_ = false;
       fragileChip_ = "";
       return this;
     }
@@ -679,28 +679,28 @@ private static final long serialVersionUID = 0L;
         result.label_ = label_;
       }
       if (((from_bitField0_ & 0x00000004) != 0)) {
-        result.applies_ = applies_;
-      }
-      if (((from_bitField0_ & 0x00000008) != 0)) {
-        result.reason_ = reason_;
-      }
-      if (((from_bitField0_ & 0x00000010) != 0)) {
         result.cagrPct_ = cagrPct_;
       }
-      if (((from_bitField0_ & 0x00000020) != 0)) {
+      if (((from_bitField0_ & 0x00000008) != 0)) {
         result.hasCagr_ = hasCagr_;
       }
-      if (((from_bitField0_ & 0x00000040) != 0)) {
+      if (((from_bitField0_ & 0x00000010) != 0)) {
         result.excessVsBenchmarkPct_ = excessVsBenchmarkPct_;
       }
-      if (((from_bitField0_ & 0x00000080) != 0)) {
-        result.hasExcess_ = hasExcess_;
-      }
-      if (((from_bitField0_ & 0x00000100) != 0)) {
+      if (((from_bitField0_ & 0x00000020) != 0)) {
         result.maxDrawdownPct_ = maxDrawdownPct_;
       }
-      if (((from_bitField0_ & 0x00000200) != 0)) {
+      if (((from_bitField0_ & 0x00000040) != 0)) {
         result.fragile_ = fragile_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.applies_ = applies_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.reason_ = reason_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.hasExcess_ = hasExcess_;
       }
       if (((from_bitField0_ & 0x00000400) != 0)) {
         result.fragileChip_ = fragileChip_;
@@ -729,14 +729,6 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000002;
         onChanged();
       }
-      if (other.getApplies() != false) {
-        setApplies(other.getApplies());
-      }
-      if (!other.getReason().isEmpty()) {
-        reason_ = other.reason_;
-        bitField0_ |= 0x00000008;
-        onChanged();
-      }
       if (java.lang.Double.doubleToRawLongBits(other.getCagrPct()) != 0) {
         setCagrPct(other.getCagrPct());
       }
@@ -746,14 +738,22 @@ private static final long serialVersionUID = 0L;
       if (java.lang.Double.doubleToRawLongBits(other.getExcessVsBenchmarkPct()) != 0) {
         setExcessVsBenchmarkPct(other.getExcessVsBenchmarkPct());
       }
-      if (other.getHasExcess() != false) {
-        setHasExcess(other.getHasExcess());
-      }
       if (java.lang.Double.doubleToRawLongBits(other.getMaxDrawdownPct()) != 0) {
         setMaxDrawdownPct(other.getMaxDrawdownPct());
       }
       if (other.getFragile() != false) {
         setFragile(other.getFragile());
+      }
+      if (other.getApplies() != false) {
+        setApplies(other.getApplies());
+      }
+      if (!other.getReason().isEmpty()) {
+        reason_ = other.reason_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      if (other.getHasExcess() != false) {
+        setHasExcess(other.getHasExcess());
       }
       if (!other.getFragileChip().isEmpty()) {
         fragileChip_ = other.fragileChip_;
@@ -796,43 +796,43 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 18
-            case 24: {
-              applies_ = input.readBool();
+            case 25: {
+              cagrPct_ = input.readDouble();
               bitField0_ |= 0x00000004;
               break;
-            } // case 24
-            case 34: {
-              reason_ = input.readStringRequireUtf8();
+            } // case 25
+            case 32: {
+              hasCagr_ = input.readBool();
               bitField0_ |= 0x00000008;
               break;
-            } // case 34
+            } // case 32
             case 41: {
-              cagrPct_ = input.readDouble();
+              excessVsBenchmarkPct_ = input.readDouble();
               bitField0_ |= 0x00000010;
               break;
             } // case 41
-            case 48: {
-              hasCagr_ = input.readBool();
+            case 49: {
+              maxDrawdownPct_ = input.readDouble();
               bitField0_ |= 0x00000020;
               break;
-            } // case 48
-            case 57: {
-              excessVsBenchmarkPct_ = input.readDouble();
+            } // case 49
+            case 56: {
+              fragile_ = input.readBool();
               bitField0_ |= 0x00000040;
               break;
-            } // case 57
+            } // case 56
             case 64: {
-              hasExcess_ = input.readBool();
+              applies_ = input.readBool();
               bitField0_ |= 0x00000080;
               break;
             } // case 64
-            case 73: {
-              maxDrawdownPct_ = input.readDouble();
+            case 74: {
+              reason_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000100;
               break;
-            } // case 73
+            } // case 74
             case 80: {
-              fragile_ = input.readBool();
+              hasExcess_ = input.readBool();
               bitField0_ |= 0x00000200;
               break;
             } // case 80
@@ -1022,13 +1022,185 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private double cagrPct_ ;
+    /**
+     * <code>double cagr_pct = 3 [json_name = "cagrPct"];</code>
+     * @return The cagrPct.
+     */
+    @java.lang.Override
+    public double getCagrPct() {
+      return cagrPct_;
+    }
+    /**
+     * <code>double cagr_pct = 3 [json_name = "cagrPct"];</code>
+     * @param value The cagrPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCagrPct(double value) {
+
+      cagrPct_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double cagr_pct = 3 [json_name = "cagrPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCagrPct() {
+      bitField0_ = (bitField0_ & ~0x00000004);
+      cagrPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasCagr_ ;
+    /**
+     * <code>bool has_cagr = 4 [json_name = "hasCagr"];</code>
+     * @return The hasCagr.
+     */
+    @java.lang.Override
+    public boolean getHasCagr() {
+      return hasCagr_;
+    }
+    /**
+     * <code>bool has_cagr = 4 [json_name = "hasCagr"];</code>
+     * @param value The hasCagr to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasCagr(boolean value) {
+
+      hasCagr_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_cagr = 4 [json_name = "hasCagr"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasCagr() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      hasCagr_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double excessVsBenchmarkPct_ ;
+    /**
+     * <code>double excess_vs_benchmark_pct = 5 [json_name = "excessVsBenchmarkPct"];</code>
+     * @return The excessVsBenchmarkPct.
+     */
+    @java.lang.Override
+    public double getExcessVsBenchmarkPct() {
+      return excessVsBenchmarkPct_;
+    }
+    /**
+     * <code>double excess_vs_benchmark_pct = 5 [json_name = "excessVsBenchmarkPct"];</code>
+     * @param value The excessVsBenchmarkPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setExcessVsBenchmarkPct(double value) {
+
+      excessVsBenchmarkPct_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double excess_vs_benchmark_pct = 5 [json_name = "excessVsBenchmarkPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearExcessVsBenchmarkPct() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      excessVsBenchmarkPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double maxDrawdownPct_ ;
+    /**
+     * <code>double max_drawdown_pct = 6 [json_name = "maxDrawdownPct"];</code>
+     * @return The maxDrawdownPct.
+     */
+    @java.lang.Override
+    public double getMaxDrawdownPct() {
+      return maxDrawdownPct_;
+    }
+    /**
+     * <code>double max_drawdown_pct = 6 [json_name = "maxDrawdownPct"];</code>
+     * @param value The maxDrawdownPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMaxDrawdownPct(double value) {
+
+      maxDrawdownPct_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double max_drawdown_pct = 6 [json_name = "maxDrawdownPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMaxDrawdownPct() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      maxDrawdownPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean fragile_ ;
+    /**
+     * <pre>
+     * A sign flip of the excess CAGR; fragile_chip names it.
+     * </pre>
+     *
+     * <code>bool fragile = 7 [json_name = "fragile"];</code>
+     * @return The fragile.
+     */
+    @java.lang.Override
+    public boolean getFragile() {
+      return fragile_;
+    }
+    /**
+     * <pre>
+     * A sign flip of the excess CAGR; fragile_chip names it.
+     * </pre>
+     *
+     * <code>bool fragile = 7 [json_name = "fragile"];</code>
+     * @param value The fragile to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFragile(boolean value) {
+
+      fragile_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * A sign flip of the excess CAGR; fragile_chip names it.
+     * </pre>
+     *
+     * <code>bool fragile = 7 [json_name = "fragile"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFragile() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      fragile_ = false;
+      onChanged();
+      return this;
+    }
+
     private boolean applies_ ;
     /**
      * <pre>
      * False when the recipe does not take the change; reason says why.
      * </pre>
      *
-     * <code>bool applies = 3 [json_name = "applies"];</code>
+     * <code>bool applies = 8 [json_name = "applies"];</code>
      * @return The applies.
      */
     @java.lang.Override
@@ -1040,14 +1212,14 @@ private static final long serialVersionUID = 0L;
      * False when the recipe does not take the change; reason says why.
      * </pre>
      *
-     * <code>bool applies = 3 [json_name = "applies"];</code>
+     * <code>bool applies = 8 [json_name = "applies"];</code>
      * @param value The applies to set.
      * @return This builder for chaining.
      */
     public Builder setApplies(boolean value) {
 
       applies_ = value;
-      bitField0_ |= 0x00000004;
+      bitField0_ |= 0x00000080;
       onChanged();
       return this;
     }
@@ -1056,11 +1228,11 @@ private static final long serialVersionUID = 0L;
      * False when the recipe does not take the change; reason says why.
      * </pre>
      *
-     * <code>bool applies = 3 [json_name = "applies"];</code>
+     * <code>bool applies = 8 [json_name = "applies"];</code>
      * @return This builder for chaining.
      */
     public Builder clearApplies() {
-      bitField0_ = (bitField0_ & ~0x00000004);
+      bitField0_ = (bitField0_ & ~0x00000080);
       applies_ = false;
       onChanged();
       return this;
@@ -1068,7 +1240,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object reason_ = "";
     /**
-     * <code>string reason = 4 [json_name = "reason"];</code>
+     * <code>string reason = 9 [json_name = "reason"];</code>
      * @return The reason.
      */
     public java.lang.String getReason() {
@@ -1084,7 +1256,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string reason = 4 [json_name = "reason"];</code>
+     * <code>string reason = 9 [json_name = "reason"];</code>
      * @return The bytes for reason.
      */
     public com.google.protobuf.ByteString
@@ -1101,7 +1273,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string reason = 4 [json_name = "reason"];</code>
+     * <code>string reason = 9 [json_name = "reason"];</code>
      * @param value The reason to set.
      * @return This builder for chaining.
      */
@@ -1109,22 +1281,22 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       reason_ = value;
-      bitField0_ |= 0x00000008;
+      bitField0_ |= 0x00000100;
       onChanged();
       return this;
     }
     /**
-     * <code>string reason = 4 [json_name = "reason"];</code>
+     * <code>string reason = 9 [json_name = "reason"];</code>
      * @return This builder for chaining.
      */
     public Builder clearReason() {
       reason_ = getDefaultInstance().getReason();
-      bitField0_ = (bitField0_ & ~0x00000008);
+      bitField0_ = (bitField0_ & ~0x00000100);
       onChanged();
       return this;
     }
     /**
-     * <code>string reason = 4 [json_name = "reason"];</code>
+     * <code>string reason = 9 [json_name = "reason"];</code>
      * @param value The bytes for reason to set.
      * @return This builder for chaining.
      */
@@ -1133,110 +1305,14 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       reason_ = value;
-      bitField0_ |= 0x00000008;
-      onChanged();
-      return this;
-    }
-
-    private double cagrPct_ ;
-    /**
-     * <code>double cagr_pct = 5 [json_name = "cagrPct"];</code>
-     * @return The cagrPct.
-     */
-    @java.lang.Override
-    public double getCagrPct() {
-      return cagrPct_;
-    }
-    /**
-     * <code>double cagr_pct = 5 [json_name = "cagrPct"];</code>
-     * @param value The cagrPct to set.
-     * @return This builder for chaining.
-     */
-    public Builder setCagrPct(double value) {
-
-      cagrPct_ = value;
-      bitField0_ |= 0x00000010;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double cagr_pct = 5 [json_name = "cagrPct"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearCagrPct() {
-      bitField0_ = (bitField0_ & ~0x00000010);
-      cagrPct_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private boolean hasCagr_ ;
-    /**
-     * <code>bool has_cagr = 6 [json_name = "hasCagr"];</code>
-     * @return The hasCagr.
-     */
-    @java.lang.Override
-    public boolean getHasCagr() {
-      return hasCagr_;
-    }
-    /**
-     * <code>bool has_cagr = 6 [json_name = "hasCagr"];</code>
-     * @param value The hasCagr to set.
-     * @return This builder for chaining.
-     */
-    public Builder setHasCagr(boolean value) {
-
-      hasCagr_ = value;
-      bitField0_ |= 0x00000020;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>bool has_cagr = 6 [json_name = "hasCagr"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearHasCagr() {
-      bitField0_ = (bitField0_ & ~0x00000020);
-      hasCagr_ = false;
-      onChanged();
-      return this;
-    }
-
-    private double excessVsBenchmarkPct_ ;
-    /**
-     * <code>double excess_vs_benchmark_pct = 7 [json_name = "excessVsBenchmarkPct"];</code>
-     * @return The excessVsBenchmarkPct.
-     */
-    @java.lang.Override
-    public double getExcessVsBenchmarkPct() {
-      return excessVsBenchmarkPct_;
-    }
-    /**
-     * <code>double excess_vs_benchmark_pct = 7 [json_name = "excessVsBenchmarkPct"];</code>
-     * @param value The excessVsBenchmarkPct to set.
-     * @return This builder for chaining.
-     */
-    public Builder setExcessVsBenchmarkPct(double value) {
-
-      excessVsBenchmarkPct_ = value;
-      bitField0_ |= 0x00000040;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double excess_vs_benchmark_pct = 7 [json_name = "excessVsBenchmarkPct"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearExcessVsBenchmarkPct() {
-      bitField0_ = (bitField0_ & ~0x00000040);
-      excessVsBenchmarkPct_ = 0D;
+      bitField0_ |= 0x00000100;
       onChanged();
       return this;
     }
 
     private boolean hasExcess_ ;
     /**
-     * <code>bool has_excess = 8 [json_name = "hasExcess"];</code>
+     * <code>bool has_excess = 10 [json_name = "hasExcess"];</code>
      * @return The hasExcess.
      */
     @java.lang.Override
@@ -1244,100 +1320,24 @@ private static final long serialVersionUID = 0L;
       return hasExcess_;
     }
     /**
-     * <code>bool has_excess = 8 [json_name = "hasExcess"];</code>
+     * <code>bool has_excess = 10 [json_name = "hasExcess"];</code>
      * @param value The hasExcess to set.
      * @return This builder for chaining.
      */
     public Builder setHasExcess(boolean value) {
 
       hasExcess_ = value;
-      bitField0_ |= 0x00000080;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>bool has_excess = 8 [json_name = "hasExcess"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearHasExcess() {
-      bitField0_ = (bitField0_ & ~0x00000080);
-      hasExcess_ = false;
-      onChanged();
-      return this;
-    }
-
-    private double maxDrawdownPct_ ;
-    /**
-     * <code>double max_drawdown_pct = 9 [json_name = "maxDrawdownPct"];</code>
-     * @return The maxDrawdownPct.
-     */
-    @java.lang.Override
-    public double getMaxDrawdownPct() {
-      return maxDrawdownPct_;
-    }
-    /**
-     * <code>double max_drawdown_pct = 9 [json_name = "maxDrawdownPct"];</code>
-     * @param value The maxDrawdownPct to set.
-     * @return This builder for chaining.
-     */
-    public Builder setMaxDrawdownPct(double value) {
-
-      maxDrawdownPct_ = value;
-      bitField0_ |= 0x00000100;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double max_drawdown_pct = 9 [json_name = "maxDrawdownPct"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearMaxDrawdownPct() {
-      bitField0_ = (bitField0_ & ~0x00000100);
-      maxDrawdownPct_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private boolean fragile_ ;
-    /**
-     * <pre>
-     * A sign flip of the excess CAGR; fragile_chip names it.
-     * </pre>
-     *
-     * <code>bool fragile = 10 [json_name = "fragile"];</code>
-     * @return The fragile.
-     */
-    @java.lang.Override
-    public boolean getFragile() {
-      return fragile_;
-    }
-    /**
-     * <pre>
-     * A sign flip of the excess CAGR; fragile_chip names it.
-     * </pre>
-     *
-     * <code>bool fragile = 10 [json_name = "fragile"];</code>
-     * @param value The fragile to set.
-     * @return This builder for chaining.
-     */
-    public Builder setFragile(boolean value) {
-
-      fragile_ = value;
       bitField0_ |= 0x00000200;
       onChanged();
       return this;
     }
     /**
-     * <pre>
-     * A sign flip of the excess CAGR; fragile_chip names it.
-     * </pre>
-     *
-     * <code>bool fragile = 10 [json_name = "fragile"];</code>
+     * <code>bool has_excess = 10 [json_name = "hasExcess"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearFragile() {
+    public Builder clearHasExcess() {
       bitField0_ = (bitField0_ & ~0x00000200);
-      fragile_ = false;
+      hasExcess_ = false;
       onChanged();
       return this;
     }

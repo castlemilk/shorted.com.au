@@ -7,7 +7,7 @@ package com.shorts.v1alpha1;
 
 /**
  * <pre>
- * Coverage by month under both measures.
+ * Coverage by month under both measures. Counts are not served: the percentages are.
  * </pre>
  *
  * Protobuf type {@code shorts.v1alpha1.CoverageMonth}
@@ -100,54 +100,36 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int QUALIFYING_PCT_FIELD_NUMBER = 2;
-  private double qualifyingPct_ = 0D;
+  public static final int COVERAGE_PCT_FIELD_NUMBER = 2;
+  private double coveragePct_ = 0D;
   /**
-   * <code>double qualifying_pct = 2 [json_name = "qualifyingPct"];</code>
-   * @return The qualifyingPct.
+   * <pre>
+   * Qualifying coverage.
+   * </pre>
+   *
+   * <code>double coverage_pct = 2 [json_name = "coveragePct"];</code>
+   * @return The coveragePct.
    */
   @java.lang.Override
-  public double getQualifyingPct() {
-    return qualifyingPct_;
+  public double getCoveragePct() {
+    return coveragePct_;
   }
 
-  public static final int HAS_QUALIFYING_FIELD_NUMBER = 3;
-  private boolean hasQualifying_ = false;
+  public static final int MEASURABLE_FIELD_NUMBER = 3;
+  private boolean measurable_ = false;
   /**
-   * <code>bool has_qualifying = 3 [json_name = "hasQualifying"];</code>
-   * @return The hasQualifying.
+   * <code>bool measurable = 3 [json_name = "measurable"];</code>
+   * @return The measurable.
    */
   @java.lang.Override
-  public boolean getHasQualifying() {
-    return hasQualifying_;
+  public boolean getMeasurable() {
+    return measurable_;
   }
 
-  public static final int QUALIFYING_PRICED_FIELD_NUMBER = 4;
-  private int qualifyingPriced_ = 0;
-  /**
-   * <code>int32 qualifying_priced = 4 [json_name = "qualifyingPriced"];</code>
-   * @return The qualifyingPriced.
-   */
-  @java.lang.Override
-  public int getQualifyingPriced() {
-    return qualifyingPriced_;
-  }
-
-  public static final int QUALIFYING_NAME_DAYS_FIELD_NUMBER = 5;
-  private int qualifyingNameDays_ = 0;
-  /**
-   * <code>int32 qualifying_name_days = 5 [json_name = "qualifyingNameDays"];</code>
-   * @return The qualifyingNameDays.
-   */
-  @java.lang.Override
-  public int getQualifyingNameDays() {
-    return qualifyingNameDays_;
-  }
-
-  public static final int ALL_REPORTED_PCT_FIELD_NUMBER = 6;
+  public static final int ALL_REPORTED_PCT_FIELD_NUMBER = 4;
   private double allReportedPct_ = 0D;
   /**
-   * <code>double all_reported_pct = 6 [json_name = "allReportedPct"];</code>
+   * <code>double all_reported_pct = 4 [json_name = "allReportedPct"];</code>
    * @return The allReportedPct.
    */
   @java.lang.Override
@@ -155,37 +137,15 @@ private static final long serialVersionUID = 0L;
     return allReportedPct_;
   }
 
-  public static final int HAS_ALL_REPORTED_FIELD_NUMBER = 7;
-  private boolean hasAllReported_ = false;
+  public static final int ALL_REPORTED_MEASURABLE_FIELD_NUMBER = 5;
+  private boolean allReportedMeasurable_ = false;
   /**
-   * <code>bool has_all_reported = 7 [json_name = "hasAllReported"];</code>
-   * @return The hasAllReported.
+   * <code>bool all_reported_measurable = 5 [json_name = "allReportedMeasurable"];</code>
+   * @return The allReportedMeasurable.
    */
   @java.lang.Override
-  public boolean getHasAllReported() {
-    return hasAllReported_;
-  }
-
-  public static final int ALL_REPORTED_PRICED_FIELD_NUMBER = 8;
-  private int allReportedPriced_ = 0;
-  /**
-   * <code>int32 all_reported_priced = 8 [json_name = "allReportedPriced"];</code>
-   * @return The allReportedPriced.
-   */
-  @java.lang.Override
-  public int getAllReportedPriced() {
-    return allReportedPriced_;
-  }
-
-  public static final int ALL_REPORTED_NAME_DAYS_FIELD_NUMBER = 9;
-  private int allReportedNameDays_ = 0;
-  /**
-   * <code>int32 all_reported_name_days = 9 [json_name = "allReportedNameDays"];</code>
-   * @return The allReportedNameDays.
-   */
-  @java.lang.Override
-  public int getAllReportedNameDays() {
-    return allReportedNameDays_;
+  public boolean getAllReportedMeasurable() {
+    return allReportedMeasurable_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -205,29 +165,17 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(month_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 1, month_);
     }
-    if (java.lang.Double.doubleToRawLongBits(qualifyingPct_) != 0) {
-      output.writeDouble(2, qualifyingPct_);
+    if (java.lang.Double.doubleToRawLongBits(coveragePct_) != 0) {
+      output.writeDouble(2, coveragePct_);
     }
-    if (hasQualifying_ != false) {
-      output.writeBool(3, hasQualifying_);
-    }
-    if (qualifyingPriced_ != 0) {
-      output.writeInt32(4, qualifyingPriced_);
-    }
-    if (qualifyingNameDays_ != 0) {
-      output.writeInt32(5, qualifyingNameDays_);
+    if (measurable_ != false) {
+      output.writeBool(3, measurable_);
     }
     if (java.lang.Double.doubleToRawLongBits(allReportedPct_) != 0) {
-      output.writeDouble(6, allReportedPct_);
+      output.writeDouble(4, allReportedPct_);
     }
-    if (hasAllReported_ != false) {
-      output.writeBool(7, hasAllReported_);
-    }
-    if (allReportedPriced_ != 0) {
-      output.writeInt32(8, allReportedPriced_);
-    }
-    if (allReportedNameDays_ != 0) {
-      output.writeInt32(9, allReportedNameDays_);
+    if (allReportedMeasurable_ != false) {
+      output.writeBool(5, allReportedMeasurable_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -236,37 +184,21 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(month_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(1, month_);
     }
-    if (java.lang.Double.doubleToRawLongBits(qualifyingPct_) != 0) {
+    if (java.lang.Double.doubleToRawLongBits(coveragePct_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(2, qualifyingPct_);
+        .computeDoubleSize(2, coveragePct_);
     }
-    if (hasQualifying_ != false) {
+    if (measurable_ != false) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(3, hasQualifying_);
-    }
-    if (qualifyingPriced_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(4, qualifyingPriced_);
-    }
-    if (qualifyingNameDays_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(5, qualifyingNameDays_);
+        .computeBoolSize(3, measurable_);
     }
     if (java.lang.Double.doubleToRawLongBits(allReportedPct_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(6, allReportedPct_);
+        .computeDoubleSize(4, allReportedPct_);
     }
-    if (hasAllReported_ != false) {
+    if (allReportedMeasurable_ != false) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(7, hasAllReported_);
-    }
-    if (allReportedPriced_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(8, allReportedPriced_);
-    }
-    if (allReportedNameDays_ != 0) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(9, allReportedNameDays_);
+        .computeBoolSize(5, allReportedMeasurable_);
     }
     return size;
   }
@@ -294,24 +226,16 @@ private static final long serialVersionUID = 0L;
 
     if (!getMonth()
         .equals(other.getMonth())) return false;
-    if (java.lang.Double.doubleToLongBits(getQualifyingPct())
+    if (java.lang.Double.doubleToLongBits(getCoveragePct())
         != java.lang.Double.doubleToLongBits(
-            other.getQualifyingPct())) return false;
-    if (getHasQualifying()
-        != other.getHasQualifying()) return false;
-    if (getQualifyingPriced()
-        != other.getQualifyingPriced()) return false;
-    if (getQualifyingNameDays()
-        != other.getQualifyingNameDays()) return false;
+            other.getCoveragePct())) return false;
+    if (getMeasurable()
+        != other.getMeasurable()) return false;
     if (java.lang.Double.doubleToLongBits(getAllReportedPct())
         != java.lang.Double.doubleToLongBits(
             other.getAllReportedPct())) return false;
-    if (getHasAllReported()
-        != other.getHasAllReported()) return false;
-    if (getAllReportedPriced()
-        != other.getAllReportedPriced()) return false;
-    if (getAllReportedNameDays()
-        != other.getAllReportedNameDays()) return false;
+    if (getAllReportedMeasurable()
+        != other.getAllReportedMeasurable()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -325,26 +249,18 @@ private static final long serialVersionUID = 0L;
     hash = (19 * hash) + getDescriptor().hashCode();
     hash = (37 * hash) + MONTH_FIELD_NUMBER;
     hash = (53 * hash) + getMonth().hashCode();
-    hash = (37 * hash) + QUALIFYING_PCT_FIELD_NUMBER;
+    hash = (37 * hash) + COVERAGE_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-        java.lang.Double.doubleToLongBits(getQualifyingPct()));
-    hash = (37 * hash) + HAS_QUALIFYING_FIELD_NUMBER;
+        java.lang.Double.doubleToLongBits(getCoveragePct()));
+    hash = (37 * hash) + MEASURABLE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getHasQualifying());
-    hash = (37 * hash) + QUALIFYING_PRICED_FIELD_NUMBER;
-    hash = (53 * hash) + getQualifyingPriced();
-    hash = (37 * hash) + QUALIFYING_NAME_DAYS_FIELD_NUMBER;
-    hash = (53 * hash) + getQualifyingNameDays();
+        getMeasurable());
     hash = (37 * hash) + ALL_REPORTED_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getAllReportedPct()));
-    hash = (37 * hash) + HAS_ALL_REPORTED_FIELD_NUMBER;
+    hash = (37 * hash) + ALL_REPORTED_MEASURABLE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getHasAllReported());
-    hash = (37 * hash) + ALL_REPORTED_PRICED_FIELD_NUMBER;
-    hash = (53 * hash) + getAllReportedPriced();
-    hash = (37 * hash) + ALL_REPORTED_NAME_DAYS_FIELD_NUMBER;
-    hash = (53 * hash) + getAllReportedNameDays();
+        getAllReportedMeasurable());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -444,7 +360,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Coverage by month under both measures.
+   * Coverage by month under both measures. Counts are not served: the percentages are.
    * </pre>
    *
    * Protobuf type {@code shorts.v1alpha1.CoverageMonth}
@@ -481,14 +397,10 @@ private static final long serialVersionUID = 0L;
       super.clear();
       bitField0_ = 0;
       month_ = "";
-      qualifyingPct_ = 0D;
-      hasQualifying_ = false;
-      qualifyingPriced_ = 0;
-      qualifyingNameDays_ = 0;
+      coveragePct_ = 0D;
+      measurable_ = false;
       allReportedPct_ = 0D;
-      hasAllReported_ = false;
-      allReportedPriced_ = 0;
-      allReportedNameDays_ = 0;
+      allReportedMeasurable_ = false;
       return this;
     }
 
@@ -526,28 +438,16 @@ private static final long serialVersionUID = 0L;
         result.month_ = month_;
       }
       if (((from_bitField0_ & 0x00000002) != 0)) {
-        result.qualifyingPct_ = qualifyingPct_;
+        result.coveragePct_ = coveragePct_;
       }
       if (((from_bitField0_ & 0x00000004) != 0)) {
-        result.hasQualifying_ = hasQualifying_;
+        result.measurable_ = measurable_;
       }
       if (((from_bitField0_ & 0x00000008) != 0)) {
-        result.qualifyingPriced_ = qualifyingPriced_;
-      }
-      if (((from_bitField0_ & 0x00000010) != 0)) {
-        result.qualifyingNameDays_ = qualifyingNameDays_;
-      }
-      if (((from_bitField0_ & 0x00000020) != 0)) {
         result.allReportedPct_ = allReportedPct_;
       }
-      if (((from_bitField0_ & 0x00000040) != 0)) {
-        result.hasAllReported_ = hasAllReported_;
-      }
-      if (((from_bitField0_ & 0x00000080) != 0)) {
-        result.allReportedPriced_ = allReportedPriced_;
-      }
-      if (((from_bitField0_ & 0x00000100) != 0)) {
-        result.allReportedNameDays_ = allReportedNameDays_;
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.allReportedMeasurable_ = allReportedMeasurable_;
       }
     }
 
@@ -568,29 +468,17 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000001;
         onChanged();
       }
-      if (java.lang.Double.doubleToRawLongBits(other.getQualifyingPct()) != 0) {
-        setQualifyingPct(other.getQualifyingPct());
+      if (java.lang.Double.doubleToRawLongBits(other.getCoveragePct()) != 0) {
+        setCoveragePct(other.getCoveragePct());
       }
-      if (other.getHasQualifying() != false) {
-        setHasQualifying(other.getHasQualifying());
-      }
-      if (other.getQualifyingPriced() != 0) {
-        setQualifyingPriced(other.getQualifyingPriced());
-      }
-      if (other.getQualifyingNameDays() != 0) {
-        setQualifyingNameDays(other.getQualifyingNameDays());
+      if (other.getMeasurable() != false) {
+        setMeasurable(other.getMeasurable());
       }
       if (java.lang.Double.doubleToRawLongBits(other.getAllReportedPct()) != 0) {
         setAllReportedPct(other.getAllReportedPct());
       }
-      if (other.getHasAllReported() != false) {
-        setHasAllReported(other.getHasAllReported());
-      }
-      if (other.getAllReportedPriced() != 0) {
-        setAllReportedPriced(other.getAllReportedPriced());
-      }
-      if (other.getAllReportedNameDays() != 0) {
-        setAllReportedNameDays(other.getAllReportedNameDays());
+      if (other.getAllReportedMeasurable() != false) {
+        setAllReportedMeasurable(other.getAllReportedMeasurable());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -624,45 +512,25 @@ private static final long serialVersionUID = 0L;
               break;
             } // case 10
             case 17: {
-              qualifyingPct_ = input.readDouble();
+              coveragePct_ = input.readDouble();
               bitField0_ |= 0x00000002;
               break;
             } // case 17
             case 24: {
-              hasQualifying_ = input.readBool();
+              measurable_ = input.readBool();
               bitField0_ |= 0x00000004;
               break;
             } // case 24
-            case 32: {
-              qualifyingPriced_ = input.readInt32();
+            case 33: {
+              allReportedPct_ = input.readDouble();
               bitField0_ |= 0x00000008;
               break;
-            } // case 32
+            } // case 33
             case 40: {
-              qualifyingNameDays_ = input.readInt32();
+              allReportedMeasurable_ = input.readBool();
               bitField0_ |= 0x00000010;
               break;
             } // case 40
-            case 49: {
-              allReportedPct_ = input.readDouble();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 49
-            case 56: {
-              hasAllReported_ = input.readBool();
-              bitField0_ |= 0x00000040;
-              break;
-            } // case 56
-            case 64: {
-              allReportedPriced_ = input.readInt32();
-              bitField0_ |= 0x00000080;
-              break;
-            } // case 64
-            case 72: {
-              allReportedNameDays_ = input.readInt32();
-              bitField0_ |= 0x00000100;
-              break;
-            } // case 72
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -772,137 +640,85 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private double qualifyingPct_ ;
+    private double coveragePct_ ;
     /**
-     * <code>double qualifying_pct = 2 [json_name = "qualifyingPct"];</code>
-     * @return The qualifyingPct.
+     * <pre>
+     * Qualifying coverage.
+     * </pre>
+     *
+     * <code>double coverage_pct = 2 [json_name = "coveragePct"];</code>
+     * @return The coveragePct.
      */
     @java.lang.Override
-    public double getQualifyingPct() {
-      return qualifyingPct_;
+    public double getCoveragePct() {
+      return coveragePct_;
     }
     /**
-     * <code>double qualifying_pct = 2 [json_name = "qualifyingPct"];</code>
-     * @param value The qualifyingPct to set.
+     * <pre>
+     * Qualifying coverage.
+     * </pre>
+     *
+     * <code>double coverage_pct = 2 [json_name = "coveragePct"];</code>
+     * @param value The coveragePct to set.
      * @return This builder for chaining.
      */
-    public Builder setQualifyingPct(double value) {
+    public Builder setCoveragePct(double value) {
 
-      qualifyingPct_ = value;
+      coveragePct_ = value;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }
     /**
-     * <code>double qualifying_pct = 2 [json_name = "qualifyingPct"];</code>
+     * <pre>
+     * Qualifying coverage.
+     * </pre>
+     *
+     * <code>double coverage_pct = 2 [json_name = "coveragePct"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearQualifyingPct() {
+    public Builder clearCoveragePct() {
       bitField0_ = (bitField0_ & ~0x00000002);
-      qualifyingPct_ = 0D;
+      coveragePct_ = 0D;
       onChanged();
       return this;
     }
 
-    private boolean hasQualifying_ ;
+    private boolean measurable_ ;
     /**
-     * <code>bool has_qualifying = 3 [json_name = "hasQualifying"];</code>
-     * @return The hasQualifying.
+     * <code>bool measurable = 3 [json_name = "measurable"];</code>
+     * @return The measurable.
      */
     @java.lang.Override
-    public boolean getHasQualifying() {
-      return hasQualifying_;
+    public boolean getMeasurable() {
+      return measurable_;
     }
     /**
-     * <code>bool has_qualifying = 3 [json_name = "hasQualifying"];</code>
-     * @param value The hasQualifying to set.
+     * <code>bool measurable = 3 [json_name = "measurable"];</code>
+     * @param value The measurable to set.
      * @return This builder for chaining.
      */
-    public Builder setHasQualifying(boolean value) {
+    public Builder setMeasurable(boolean value) {
 
-      hasQualifying_ = value;
+      measurable_ = value;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
     /**
-     * <code>bool has_qualifying = 3 [json_name = "hasQualifying"];</code>
+     * <code>bool measurable = 3 [json_name = "measurable"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearHasQualifying() {
+    public Builder clearMeasurable() {
       bitField0_ = (bitField0_ & ~0x00000004);
-      hasQualifying_ = false;
-      onChanged();
-      return this;
-    }
-
-    private int qualifyingPriced_ ;
-    /**
-     * <code>int32 qualifying_priced = 4 [json_name = "qualifyingPriced"];</code>
-     * @return The qualifyingPriced.
-     */
-    @java.lang.Override
-    public int getQualifyingPriced() {
-      return qualifyingPriced_;
-    }
-    /**
-     * <code>int32 qualifying_priced = 4 [json_name = "qualifyingPriced"];</code>
-     * @param value The qualifyingPriced to set.
-     * @return This builder for chaining.
-     */
-    public Builder setQualifyingPriced(int value) {
-
-      qualifyingPriced_ = value;
-      bitField0_ |= 0x00000008;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>int32 qualifying_priced = 4 [json_name = "qualifyingPriced"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearQualifyingPriced() {
-      bitField0_ = (bitField0_ & ~0x00000008);
-      qualifyingPriced_ = 0;
-      onChanged();
-      return this;
-    }
-
-    private int qualifyingNameDays_ ;
-    /**
-     * <code>int32 qualifying_name_days = 5 [json_name = "qualifyingNameDays"];</code>
-     * @return The qualifyingNameDays.
-     */
-    @java.lang.Override
-    public int getQualifyingNameDays() {
-      return qualifyingNameDays_;
-    }
-    /**
-     * <code>int32 qualifying_name_days = 5 [json_name = "qualifyingNameDays"];</code>
-     * @param value The qualifyingNameDays to set.
-     * @return This builder for chaining.
-     */
-    public Builder setQualifyingNameDays(int value) {
-
-      qualifyingNameDays_ = value;
-      bitField0_ |= 0x00000010;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>int32 qualifying_name_days = 5 [json_name = "qualifyingNameDays"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearQualifyingNameDays() {
-      bitField0_ = (bitField0_ & ~0x00000010);
-      qualifyingNameDays_ = 0;
+      measurable_ = false;
       onChanged();
       return this;
     }
 
     private double allReportedPct_ ;
     /**
-     * <code>double all_reported_pct = 6 [json_name = "allReportedPct"];</code>
+     * <code>double all_reported_pct = 4 [json_name = "allReportedPct"];</code>
      * @return The allReportedPct.
      */
     @java.lang.Override
@@ -910,120 +726,56 @@ private static final long serialVersionUID = 0L;
       return allReportedPct_;
     }
     /**
-     * <code>double all_reported_pct = 6 [json_name = "allReportedPct"];</code>
+     * <code>double all_reported_pct = 4 [json_name = "allReportedPct"];</code>
      * @param value The allReportedPct to set.
      * @return This builder for chaining.
      */
     public Builder setAllReportedPct(double value) {
 
       allReportedPct_ = value;
-      bitField0_ |= 0x00000020;
+      bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
     /**
-     * <code>double all_reported_pct = 6 [json_name = "allReportedPct"];</code>
+     * <code>double all_reported_pct = 4 [json_name = "allReportedPct"];</code>
      * @return This builder for chaining.
      */
     public Builder clearAllReportedPct() {
-      bitField0_ = (bitField0_ & ~0x00000020);
+      bitField0_ = (bitField0_ & ~0x00000008);
       allReportedPct_ = 0D;
       onChanged();
       return this;
     }
 
-    private boolean hasAllReported_ ;
+    private boolean allReportedMeasurable_ ;
     /**
-     * <code>bool has_all_reported = 7 [json_name = "hasAllReported"];</code>
-     * @return The hasAllReported.
+     * <code>bool all_reported_measurable = 5 [json_name = "allReportedMeasurable"];</code>
+     * @return The allReportedMeasurable.
      */
     @java.lang.Override
-    public boolean getHasAllReported() {
-      return hasAllReported_;
+    public boolean getAllReportedMeasurable() {
+      return allReportedMeasurable_;
     }
     /**
-     * <code>bool has_all_reported = 7 [json_name = "hasAllReported"];</code>
-     * @param value The hasAllReported to set.
+     * <code>bool all_reported_measurable = 5 [json_name = "allReportedMeasurable"];</code>
+     * @param value The allReportedMeasurable to set.
      * @return This builder for chaining.
      */
-    public Builder setHasAllReported(boolean value) {
+    public Builder setAllReportedMeasurable(boolean value) {
 
-      hasAllReported_ = value;
-      bitField0_ |= 0x00000040;
+      allReportedMeasurable_ = value;
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }
     /**
-     * <code>bool has_all_reported = 7 [json_name = "hasAllReported"];</code>
+     * <code>bool all_reported_measurable = 5 [json_name = "allReportedMeasurable"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearHasAllReported() {
-      bitField0_ = (bitField0_ & ~0x00000040);
-      hasAllReported_ = false;
-      onChanged();
-      return this;
-    }
-
-    private int allReportedPriced_ ;
-    /**
-     * <code>int32 all_reported_priced = 8 [json_name = "allReportedPriced"];</code>
-     * @return The allReportedPriced.
-     */
-    @java.lang.Override
-    public int getAllReportedPriced() {
-      return allReportedPriced_;
-    }
-    /**
-     * <code>int32 all_reported_priced = 8 [json_name = "allReportedPriced"];</code>
-     * @param value The allReportedPriced to set.
-     * @return This builder for chaining.
-     */
-    public Builder setAllReportedPriced(int value) {
-
-      allReportedPriced_ = value;
-      bitField0_ |= 0x00000080;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>int32 all_reported_priced = 8 [json_name = "allReportedPriced"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearAllReportedPriced() {
-      bitField0_ = (bitField0_ & ~0x00000080);
-      allReportedPriced_ = 0;
-      onChanged();
-      return this;
-    }
-
-    private int allReportedNameDays_ ;
-    /**
-     * <code>int32 all_reported_name_days = 9 [json_name = "allReportedNameDays"];</code>
-     * @return The allReportedNameDays.
-     */
-    @java.lang.Override
-    public int getAllReportedNameDays() {
-      return allReportedNameDays_;
-    }
-    /**
-     * <code>int32 all_reported_name_days = 9 [json_name = "allReportedNameDays"];</code>
-     * @param value The allReportedNameDays to set.
-     * @return This builder for chaining.
-     */
-    public Builder setAllReportedNameDays(int value) {
-
-      allReportedNameDays_ = value;
-      bitField0_ |= 0x00000100;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>int32 all_reported_name_days = 9 [json_name = "allReportedNameDays"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearAllReportedNameDays() {
-      bitField0_ = (bitField0_ & ~0x00000100);
-      allReportedNameDays_ = 0;
+    public Builder clearAllReportedMeasurable() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      allReportedMeasurable_ = false;
       onChanged();
       return this;
     }

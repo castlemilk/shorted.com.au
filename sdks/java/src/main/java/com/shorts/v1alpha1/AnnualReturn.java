@@ -34,6 +34,7 @@ private static final long serialVersionUID = 0L;
   private AnnualReturn() {
     state_ = "";
     months_ = "";
+    coverageMeasure_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -70,7 +71,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object state_ = "";
   /**
    * <pre>
-   * complete | partial | not_elapsed.
+   * complete | partial | to_date (the current year, measured to date).
    * </pre>
    *
    * <code>string state = 2 [json_name = "state"];</code>
@@ -91,7 +92,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * complete | partial | not_elapsed.
+   * complete | partial | to_date (the current year, measured to date).
    * </pre>
    *
    * <code>string state = 2 [json_name = "state"];</code>
@@ -112,15 +113,48 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int MONTHS_FIELD_NUMBER = 3;
+  public static final int STRATEGY_PCT_FIELD_NUMBER = 3;
+  private double strategyPct_ = 0D;
+  /**
+   * <code>double strategy_pct = 3 [json_name = "strategyPct"];</code>
+   * @return The strategyPct.
+   */
+  @java.lang.Override
+  public double getStrategyPct() {
+    return strategyPct_;
+  }
+
+  public static final int BENCHMARK_PCT_FIELD_NUMBER = 4;
+  private double benchmarkPct_ = 0D;
+  /**
+   * <code>double benchmark_pct = 4 [json_name = "benchmarkPct"];</code>
+   * @return The benchmarkPct.
+   */
+  @java.lang.Override
+  public double getBenchmarkPct() {
+    return benchmarkPct_;
+  }
+
+  public static final int REFERENCE_PCT_FIELD_NUMBER = 5;
+  private double referencePct_ = 0D;
+  /**
+   * <code>double reference_pct = 5 [json_name = "referencePct"];</code>
+   * @return The referencePct.
+   */
+  @java.lang.Override
+  public double getReferencePct() {
+    return referencePct_;
+  }
+
+  public static final int MONTHS_FIELD_NUMBER = 6;
   @SuppressWarnings("serial")
   private volatile java.lang.Object months_ = "";
   /**
    * <pre>
-   * "May-Dec" or "YTD"; "" for a whole year.
+   * "May-Dec" for a partial first year, "YTD" for the current; "" for a whole year.
    * </pre>
    *
-   * <code>string months = 3 [json_name = "months"];</code>
+   * <code>string months = 6 [json_name = "months"];</code>
    * @return The months.
    */
   @java.lang.Override
@@ -138,10 +172,10 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * "May-Dec" or "YTD"; "" for a whole year.
+   * "May-Dec" for a partial first year, "YTD" for the current; "" for a whole year.
    * </pre>
    *
-   * <code>string months = 3 [json_name = "months"];</code>
+   * <code>string months = 6 [json_name = "months"];</code>
    * @return The bytes for months.
    */
   @java.lang.Override
@@ -159,69 +193,14 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int STRATEGY_PCT_FIELD_NUMBER = 4;
-  private double strategyPct_ = 0D;
-  /**
-   * <code>double strategy_pct = 4 [json_name = "strategyPct"];</code>
-   * @return The strategyPct.
-   */
-  @java.lang.Override
-  public double getStrategyPct() {
-    return strategyPct_;
-  }
-
-  public static final int BENCHMARK_PCT_FIELD_NUMBER = 5;
-  private double benchmarkPct_ = 0D;
-  /**
-   * <code>double benchmark_pct = 5 [json_name = "benchmarkPct"];</code>
-   * @return The benchmarkPct.
-   */
-  @java.lang.Override
-  public double getBenchmarkPct() {
-    return benchmarkPct_;
-  }
-
-  public static final int HAS_BENCHMARK_FIELD_NUMBER = 6;
-  private boolean hasBenchmark_ = false;
-  /**
-   * <code>bool has_benchmark = 6 [json_name = "hasBenchmark"];</code>
-   * @return The hasBenchmark.
-   */
-  @java.lang.Override
-  public boolean getHasBenchmark() {
-    return hasBenchmark_;
-  }
-
-  public static final int REFERENCE_PCT_FIELD_NUMBER = 7;
-  private double referencePct_ = 0D;
-  /**
-   * <code>double reference_pct = 7 [json_name = "referencePct"];</code>
-   * @return The referencePct.
-   */
-  @java.lang.Override
-  public double getReferencePct() {
-    return referencePct_;
-  }
-
-  public static final int HAS_REFERENCE_FIELD_NUMBER = 8;
-  private boolean hasReference_ = false;
-  /**
-   * <code>bool has_reference = 8 [json_name = "hasReference"];</code>
-   * @return The hasReference.
-   */
-  @java.lang.Override
-  public boolean getHasReference() {
-    return hasReference_;
-  }
-
-  public static final int COVERAGE_PCT_FIELD_NUMBER = 9;
+  public static final int COVERAGE_PCT_FIELD_NUMBER = 7;
   private double coveragePct_ = 0D;
   /**
    * <pre>
-   * Qualifying coverage over the year, the measure this table prints.
+   * Coverage under coverage_measure.
    * </pre>
    *
-   * <code>double coverage_pct = 9 [json_name = "coveragePct"];</code>
+   * <code>double coverage_pct = 7 [json_name = "coveragePct"];</code>
    * @return The coveragePct.
    */
   @java.lang.Override
@@ -229,10 +208,10 @@ private static final long serialVersionUID = 0L;
     return coveragePct_;
   }
 
-  public static final int COVERAGE_MEASURABLE_FIELD_NUMBER = 10;
+  public static final int COVERAGE_MEASURABLE_FIELD_NUMBER = 8;
   private boolean coverageMeasurable_ = false;
   /**
-   * <code>bool coverage_measurable = 10 [json_name = "coverageMeasurable"];</code>
+   * <code>bool coverage_measurable = 8 [json_name = "coverageMeasurable"];</code>
    * @return The coverageMeasurable.
    */
   @java.lang.Override
@@ -240,19 +219,88 @@ private static final long serialVersionUID = 0L;
     return coverageMeasurable_;
   }
 
-  public static final int APPROXIMATE_FIELD_NUMBER = 11;
+  public static final int APPROXIMATE_FIELD_NUMBER = 9;
   private boolean approximate_ = false;
   /**
    * <pre>
    * An approximate run's year. Nothing sets it in this release.
    * </pre>
    *
-   * <code>bool approximate = 11 [json_name = "approximate"];</code>
+   * <code>bool approximate = 9 [json_name = "approximate"];</code>
    * @return The approximate.
    */
   @java.lang.Override
   public boolean getApproximate() {
     return approximate_;
+  }
+
+  public static final int HAS_BENCHMARK_FIELD_NUMBER = 10;
+  private boolean hasBenchmark_ = false;
+  /**
+   * <code>bool has_benchmark = 10 [json_name = "hasBenchmark"];</code>
+   * @return The hasBenchmark.
+   */
+  @java.lang.Override
+  public boolean getHasBenchmark() {
+    return hasBenchmark_;
+  }
+
+  public static final int HAS_REFERENCE_FIELD_NUMBER = 11;
+  private boolean hasReference_ = false;
+  /**
+   * <code>bool has_reference = 11 [json_name = "hasReference"];</code>
+   * @return The hasReference.
+   */
+  @java.lang.Override
+  public boolean getHasReference() {
+    return hasReference_;
+  }
+
+  public static final int COVERAGE_MEASURE_FIELD_NUMBER = 12;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object coverageMeasure_ = "";
+  /**
+   * <pre>
+   * qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses.
+   * </pre>
+   *
+   * <code>string coverage_measure = 12 [json_name = "coverageMeasure"];</code>
+   * @return The coverageMeasure.
+   */
+  @java.lang.Override
+  public java.lang.String getCoverageMeasure() {
+    java.lang.Object ref = coverageMeasure_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      coverageMeasure_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses.
+   * </pre>
+   *
+   * <code>string coverage_measure = 12 [json_name = "coverageMeasure"];</code>
+   * @return The bytes for coverageMeasure.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getCoverageMeasureBytes() {
+    java.lang.Object ref = coverageMeasure_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      coverageMeasure_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
   }
 
   private byte memoizedIsInitialized = -1;
@@ -275,32 +323,35 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(state_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 2, state_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(months_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 3, months_);
-    }
     if (java.lang.Double.doubleToRawLongBits(strategyPct_) != 0) {
-      output.writeDouble(4, strategyPct_);
+      output.writeDouble(3, strategyPct_);
     }
     if (java.lang.Double.doubleToRawLongBits(benchmarkPct_) != 0) {
-      output.writeDouble(5, benchmarkPct_);
-    }
-    if (hasBenchmark_ != false) {
-      output.writeBool(6, hasBenchmark_);
+      output.writeDouble(4, benchmarkPct_);
     }
     if (java.lang.Double.doubleToRawLongBits(referencePct_) != 0) {
-      output.writeDouble(7, referencePct_);
+      output.writeDouble(5, referencePct_);
     }
-    if (hasReference_ != false) {
-      output.writeBool(8, hasReference_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(months_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 6, months_);
     }
     if (java.lang.Double.doubleToRawLongBits(coveragePct_) != 0) {
-      output.writeDouble(9, coveragePct_);
+      output.writeDouble(7, coveragePct_);
     }
     if (coverageMeasurable_ != false) {
-      output.writeBool(10, coverageMeasurable_);
+      output.writeBool(8, coverageMeasurable_);
     }
     if (approximate_ != false) {
-      output.writeBool(11, approximate_);
+      output.writeBool(9, approximate_);
+    }
+    if (hasBenchmark_ != false) {
+      output.writeBool(10, hasBenchmark_);
+    }
+    if (hasReference_ != false) {
+      output.writeBool(11, hasReference_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(coverageMeasure_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 12, coverageMeasure_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -313,40 +364,43 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(state_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(2, state_);
     }
-    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(months_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(3, months_);
-    }
     if (java.lang.Double.doubleToRawLongBits(strategyPct_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(4, strategyPct_);
+        .computeDoubleSize(3, strategyPct_);
     }
     if (java.lang.Double.doubleToRawLongBits(benchmarkPct_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(5, benchmarkPct_);
-    }
-    if (hasBenchmark_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(6, hasBenchmark_);
+        .computeDoubleSize(4, benchmarkPct_);
     }
     if (java.lang.Double.doubleToRawLongBits(referencePct_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(7, referencePct_);
+        .computeDoubleSize(5, referencePct_);
     }
-    if (hasReference_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(8, hasReference_);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(months_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(6, months_);
     }
     if (java.lang.Double.doubleToRawLongBits(coveragePct_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(9, coveragePct_);
+        .computeDoubleSize(7, coveragePct_);
     }
     if (coverageMeasurable_ != false) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(10, coverageMeasurable_);
+        .computeBoolSize(8, coverageMeasurable_);
     }
     if (approximate_ != false) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(11, approximate_);
+        .computeBoolSize(9, approximate_);
+    }
+    if (hasBenchmark_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(10, hasBenchmark_);
+    }
+    if (hasReference_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(11, hasReference_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(coverageMeasure_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(12, coverageMeasure_);
     }
     return size;
   }
@@ -376,21 +430,17 @@ private static final long serialVersionUID = 0L;
         != other.getYear()) return false;
     if (!getState()
         .equals(other.getState())) return false;
-    if (!getMonths()
-        .equals(other.getMonths())) return false;
     if (java.lang.Double.doubleToLongBits(getStrategyPct())
         != java.lang.Double.doubleToLongBits(
             other.getStrategyPct())) return false;
     if (java.lang.Double.doubleToLongBits(getBenchmarkPct())
         != java.lang.Double.doubleToLongBits(
             other.getBenchmarkPct())) return false;
-    if (getHasBenchmark()
-        != other.getHasBenchmark()) return false;
     if (java.lang.Double.doubleToLongBits(getReferencePct())
         != java.lang.Double.doubleToLongBits(
             other.getReferencePct())) return false;
-    if (getHasReference()
-        != other.getHasReference()) return false;
+    if (!getMonths()
+        .equals(other.getMonths())) return false;
     if (java.lang.Double.doubleToLongBits(getCoveragePct())
         != java.lang.Double.doubleToLongBits(
             other.getCoveragePct())) return false;
@@ -398,6 +448,12 @@ private static final long serialVersionUID = 0L;
         != other.getCoverageMeasurable()) return false;
     if (getApproximate()
         != other.getApproximate()) return false;
+    if (getHasBenchmark()
+        != other.getHasBenchmark()) return false;
+    if (getHasReference()
+        != other.getHasReference()) return false;
+    if (!getCoverageMeasure()
+        .equals(other.getCoverageMeasure())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -413,23 +469,17 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getYear();
     hash = (37 * hash) + STATE_FIELD_NUMBER;
     hash = (53 * hash) + getState().hashCode();
-    hash = (37 * hash) + MONTHS_FIELD_NUMBER;
-    hash = (53 * hash) + getMonths().hashCode();
     hash = (37 * hash) + STRATEGY_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getStrategyPct()));
     hash = (37 * hash) + BENCHMARK_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getBenchmarkPct()));
-    hash = (37 * hash) + HAS_BENCHMARK_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getHasBenchmark());
     hash = (37 * hash) + REFERENCE_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getReferencePct()));
-    hash = (37 * hash) + HAS_REFERENCE_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getHasReference());
+    hash = (37 * hash) + MONTHS_FIELD_NUMBER;
+    hash = (53 * hash) + getMonths().hashCode();
     hash = (37 * hash) + COVERAGE_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getCoveragePct()));
@@ -439,6 +489,14 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + APPROXIMATE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getApproximate());
+    hash = (37 * hash) + HAS_BENCHMARK_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasBenchmark());
+    hash = (37 * hash) + HAS_REFERENCE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasReference());
+    hash = (37 * hash) + COVERAGE_MEASURE_FIELD_NUMBER;
+    hash = (53 * hash) + getCoverageMeasure().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -576,15 +634,16 @@ private static final long serialVersionUID = 0L;
       bitField0_ = 0;
       year_ = 0;
       state_ = "";
-      months_ = "";
       strategyPct_ = 0D;
       benchmarkPct_ = 0D;
-      hasBenchmark_ = false;
       referencePct_ = 0D;
-      hasReference_ = false;
+      months_ = "";
       coveragePct_ = 0D;
       coverageMeasurable_ = false;
       approximate_ = false;
+      hasBenchmark_ = false;
+      hasReference_ = false;
+      coverageMeasure_ = "";
       return this;
     }
 
@@ -625,31 +684,34 @@ private static final long serialVersionUID = 0L;
         result.state_ = state_;
       }
       if (((from_bitField0_ & 0x00000004) != 0)) {
-        result.months_ = months_;
-      }
-      if (((from_bitField0_ & 0x00000008) != 0)) {
         result.strategyPct_ = strategyPct_;
       }
-      if (((from_bitField0_ & 0x00000010) != 0)) {
+      if (((from_bitField0_ & 0x00000008) != 0)) {
         result.benchmarkPct_ = benchmarkPct_;
       }
-      if (((from_bitField0_ & 0x00000020) != 0)) {
-        result.hasBenchmark_ = hasBenchmark_;
-      }
-      if (((from_bitField0_ & 0x00000040) != 0)) {
+      if (((from_bitField0_ & 0x00000010) != 0)) {
         result.referencePct_ = referencePct_;
       }
-      if (((from_bitField0_ & 0x00000080) != 0)) {
-        result.hasReference_ = hasReference_;
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.months_ = months_;
       }
-      if (((from_bitField0_ & 0x00000100) != 0)) {
+      if (((from_bitField0_ & 0x00000040) != 0)) {
         result.coveragePct_ = coveragePct_;
       }
-      if (((from_bitField0_ & 0x00000200) != 0)) {
+      if (((from_bitField0_ & 0x00000080) != 0)) {
         result.coverageMeasurable_ = coverageMeasurable_;
       }
-      if (((from_bitField0_ & 0x00000400) != 0)) {
+      if (((from_bitField0_ & 0x00000100) != 0)) {
         result.approximate_ = approximate_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.hasBenchmark_ = hasBenchmark_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.hasReference_ = hasReference_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.coverageMeasure_ = coverageMeasure_;
       }
     }
 
@@ -673,25 +735,19 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000002;
         onChanged();
       }
-      if (!other.getMonths().isEmpty()) {
-        months_ = other.months_;
-        bitField0_ |= 0x00000004;
-        onChanged();
-      }
       if (java.lang.Double.doubleToRawLongBits(other.getStrategyPct()) != 0) {
         setStrategyPct(other.getStrategyPct());
       }
       if (java.lang.Double.doubleToRawLongBits(other.getBenchmarkPct()) != 0) {
         setBenchmarkPct(other.getBenchmarkPct());
       }
-      if (other.getHasBenchmark() != false) {
-        setHasBenchmark(other.getHasBenchmark());
-      }
       if (java.lang.Double.doubleToRawLongBits(other.getReferencePct()) != 0) {
         setReferencePct(other.getReferencePct());
       }
-      if (other.getHasReference() != false) {
-        setHasReference(other.getHasReference());
+      if (!other.getMonths().isEmpty()) {
+        months_ = other.months_;
+        bitField0_ |= 0x00000020;
+        onChanged();
       }
       if (java.lang.Double.doubleToRawLongBits(other.getCoveragePct()) != 0) {
         setCoveragePct(other.getCoveragePct());
@@ -701,6 +757,17 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getApproximate() != false) {
         setApproximate(other.getApproximate());
+      }
+      if (other.getHasBenchmark() != false) {
+        setHasBenchmark(other.getHasBenchmark());
+      }
+      if (other.getHasReference() != false) {
+        setHasReference(other.getHasReference());
+      }
+      if (!other.getCoverageMeasure().isEmpty()) {
+        coverageMeasure_ = other.coverageMeasure_;
+        bitField0_ |= 0x00000800;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -738,51 +805,56 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 18
-            case 26: {
-              months_ = input.readStringRequireUtf8();
+            case 25: {
+              strategyPct_ = input.readDouble();
               bitField0_ |= 0x00000004;
               break;
-            } // case 26
+            } // case 25
             case 33: {
-              strategyPct_ = input.readDouble();
+              benchmarkPct_ = input.readDouble();
               bitField0_ |= 0x00000008;
               break;
             } // case 33
             case 41: {
-              benchmarkPct_ = input.readDouble();
+              referencePct_ = input.readDouble();
               bitField0_ |= 0x00000010;
               break;
             } // case 41
-            case 48: {
-              hasBenchmark_ = input.readBool();
+            case 50: {
+              months_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000020;
               break;
-            } // case 48
+            } // case 50
             case 57: {
-              referencePct_ = input.readDouble();
+              coveragePct_ = input.readDouble();
               bitField0_ |= 0x00000040;
               break;
             } // case 57
             case 64: {
-              hasReference_ = input.readBool();
+              coverageMeasurable_ = input.readBool();
               bitField0_ |= 0x00000080;
               break;
             } // case 64
-            case 73: {
-              coveragePct_ = input.readDouble();
+            case 72: {
+              approximate_ = input.readBool();
               bitField0_ |= 0x00000100;
               break;
-            } // case 73
+            } // case 72
             case 80: {
-              coverageMeasurable_ = input.readBool();
+              hasBenchmark_ = input.readBool();
               bitField0_ |= 0x00000200;
               break;
             } // case 80
             case 88: {
-              approximate_ = input.readBool();
+              hasReference_ = input.readBool();
               bitField0_ |= 0x00000400;
               break;
             } // case 88
+            case 98: {
+              coverageMeasure_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -835,7 +907,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object state_ = "";
     /**
      * <pre>
-     * complete | partial | not_elapsed.
+     * complete | partial | to_date (the current year, measured to date).
      * </pre>
      *
      * <code>string state = 2 [json_name = "state"];</code>
@@ -855,7 +927,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | not_elapsed.
+     * complete | partial | to_date (the current year, measured to date).
      * </pre>
      *
      * <code>string state = 2 [json_name = "state"];</code>
@@ -876,7 +948,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | not_elapsed.
+     * complete | partial | to_date (the current year, measured to date).
      * </pre>
      *
      * <code>string state = 2 [json_name = "state"];</code>
@@ -893,7 +965,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | not_elapsed.
+     * complete | partial | to_date (the current year, measured to date).
      * </pre>
      *
      * <code>string state = 2 [json_name = "state"];</code>
@@ -907,7 +979,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | not_elapsed.
+     * complete | partial | to_date (the current year, measured to date).
      * </pre>
      *
      * <code>string state = 2 [json_name = "state"];</code>
@@ -924,13 +996,109 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private double strategyPct_ ;
+    /**
+     * <code>double strategy_pct = 3 [json_name = "strategyPct"];</code>
+     * @return The strategyPct.
+     */
+    @java.lang.Override
+    public double getStrategyPct() {
+      return strategyPct_;
+    }
+    /**
+     * <code>double strategy_pct = 3 [json_name = "strategyPct"];</code>
+     * @param value The strategyPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStrategyPct(double value) {
+
+      strategyPct_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double strategy_pct = 3 [json_name = "strategyPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStrategyPct() {
+      bitField0_ = (bitField0_ & ~0x00000004);
+      strategyPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double benchmarkPct_ ;
+    /**
+     * <code>double benchmark_pct = 4 [json_name = "benchmarkPct"];</code>
+     * @return The benchmarkPct.
+     */
+    @java.lang.Override
+    public double getBenchmarkPct() {
+      return benchmarkPct_;
+    }
+    /**
+     * <code>double benchmark_pct = 4 [json_name = "benchmarkPct"];</code>
+     * @param value The benchmarkPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBenchmarkPct(double value) {
+
+      benchmarkPct_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double benchmark_pct = 4 [json_name = "benchmarkPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBenchmarkPct() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      benchmarkPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double referencePct_ ;
+    /**
+     * <code>double reference_pct = 5 [json_name = "referencePct"];</code>
+     * @return The referencePct.
+     */
+    @java.lang.Override
+    public double getReferencePct() {
+      return referencePct_;
+    }
+    /**
+     * <code>double reference_pct = 5 [json_name = "referencePct"];</code>
+     * @param value The referencePct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setReferencePct(double value) {
+
+      referencePct_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double reference_pct = 5 [json_name = "referencePct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearReferencePct() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      referencePct_ = 0D;
+      onChanged();
+      return this;
+    }
+
     private java.lang.Object months_ = "";
     /**
      * <pre>
-     * "May-Dec" or "YTD"; "" for a whole year.
+     * "May-Dec" for a partial first year, "YTD" for the current; "" for a whole year.
      * </pre>
      *
-     * <code>string months = 3 [json_name = "months"];</code>
+     * <code>string months = 6 [json_name = "months"];</code>
      * @return The months.
      */
     public java.lang.String getMonths() {
@@ -947,10 +1115,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "May-Dec" or "YTD"; "" for a whole year.
+     * "May-Dec" for a partial first year, "YTD" for the current; "" for a whole year.
      * </pre>
      *
-     * <code>string months = 3 [json_name = "months"];</code>
+     * <code>string months = 6 [json_name = "months"];</code>
      * @return The bytes for months.
      */
     public com.google.protobuf.ByteString
@@ -968,10 +1136,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "May-Dec" or "YTD"; "" for a whole year.
+     * "May-Dec" for a partial first year, "YTD" for the current; "" for a whole year.
      * </pre>
      *
-     * <code>string months = 3 [json_name = "months"];</code>
+     * <code>string months = 6 [json_name = "months"];</code>
      * @param value The months to set.
      * @return This builder for chaining.
      */
@@ -979,30 +1147,30 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       months_ = value;
-      bitField0_ |= 0x00000004;
+      bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * "May-Dec" or "YTD"; "" for a whole year.
+     * "May-Dec" for a partial first year, "YTD" for the current; "" for a whole year.
      * </pre>
      *
-     * <code>string months = 3 [json_name = "months"];</code>
+     * <code>string months = 6 [json_name = "months"];</code>
      * @return This builder for chaining.
      */
     public Builder clearMonths() {
       months_ = getDefaultInstance().getMonths();
-      bitField0_ = (bitField0_ & ~0x00000004);
+      bitField0_ = (bitField0_ & ~0x00000020);
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * "May-Dec" or "YTD"; "" for a whole year.
+     * "May-Dec" for a partial first year, "YTD" for the current; "" for a whole year.
      * </pre>
      *
-     * <code>string months = 3 [json_name = "months"];</code>
+     * <code>string months = 6 [json_name = "months"];</code>
      * @param value The bytes for months to set.
      * @return This builder for chaining.
      */
@@ -1011,167 +1179,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       months_ = value;
-      bitField0_ |= 0x00000004;
-      onChanged();
-      return this;
-    }
-
-    private double strategyPct_ ;
-    /**
-     * <code>double strategy_pct = 4 [json_name = "strategyPct"];</code>
-     * @return The strategyPct.
-     */
-    @java.lang.Override
-    public double getStrategyPct() {
-      return strategyPct_;
-    }
-    /**
-     * <code>double strategy_pct = 4 [json_name = "strategyPct"];</code>
-     * @param value The strategyPct to set.
-     * @return This builder for chaining.
-     */
-    public Builder setStrategyPct(double value) {
-
-      strategyPct_ = value;
-      bitField0_ |= 0x00000008;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double strategy_pct = 4 [json_name = "strategyPct"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearStrategyPct() {
-      bitField0_ = (bitField0_ & ~0x00000008);
-      strategyPct_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private double benchmarkPct_ ;
-    /**
-     * <code>double benchmark_pct = 5 [json_name = "benchmarkPct"];</code>
-     * @return The benchmarkPct.
-     */
-    @java.lang.Override
-    public double getBenchmarkPct() {
-      return benchmarkPct_;
-    }
-    /**
-     * <code>double benchmark_pct = 5 [json_name = "benchmarkPct"];</code>
-     * @param value The benchmarkPct to set.
-     * @return This builder for chaining.
-     */
-    public Builder setBenchmarkPct(double value) {
-
-      benchmarkPct_ = value;
-      bitField0_ |= 0x00000010;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double benchmark_pct = 5 [json_name = "benchmarkPct"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearBenchmarkPct() {
-      bitField0_ = (bitField0_ & ~0x00000010);
-      benchmarkPct_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private boolean hasBenchmark_ ;
-    /**
-     * <code>bool has_benchmark = 6 [json_name = "hasBenchmark"];</code>
-     * @return The hasBenchmark.
-     */
-    @java.lang.Override
-    public boolean getHasBenchmark() {
-      return hasBenchmark_;
-    }
-    /**
-     * <code>bool has_benchmark = 6 [json_name = "hasBenchmark"];</code>
-     * @param value The hasBenchmark to set.
-     * @return This builder for chaining.
-     */
-    public Builder setHasBenchmark(boolean value) {
-
-      hasBenchmark_ = value;
       bitField0_ |= 0x00000020;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>bool has_benchmark = 6 [json_name = "hasBenchmark"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearHasBenchmark() {
-      bitField0_ = (bitField0_ & ~0x00000020);
-      hasBenchmark_ = false;
-      onChanged();
-      return this;
-    }
-
-    private double referencePct_ ;
-    /**
-     * <code>double reference_pct = 7 [json_name = "referencePct"];</code>
-     * @return The referencePct.
-     */
-    @java.lang.Override
-    public double getReferencePct() {
-      return referencePct_;
-    }
-    /**
-     * <code>double reference_pct = 7 [json_name = "referencePct"];</code>
-     * @param value The referencePct to set.
-     * @return This builder for chaining.
-     */
-    public Builder setReferencePct(double value) {
-
-      referencePct_ = value;
-      bitField0_ |= 0x00000040;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>double reference_pct = 7 [json_name = "referencePct"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearReferencePct() {
-      bitField0_ = (bitField0_ & ~0x00000040);
-      referencePct_ = 0D;
-      onChanged();
-      return this;
-    }
-
-    private boolean hasReference_ ;
-    /**
-     * <code>bool has_reference = 8 [json_name = "hasReference"];</code>
-     * @return The hasReference.
-     */
-    @java.lang.Override
-    public boolean getHasReference() {
-      return hasReference_;
-    }
-    /**
-     * <code>bool has_reference = 8 [json_name = "hasReference"];</code>
-     * @param value The hasReference to set.
-     * @return This builder for chaining.
-     */
-    public Builder setHasReference(boolean value) {
-
-      hasReference_ = value;
-      bitField0_ |= 0x00000080;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>bool has_reference = 8 [json_name = "hasReference"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearHasReference() {
-      bitField0_ = (bitField0_ & ~0x00000080);
-      hasReference_ = false;
       onChanged();
       return this;
     }
@@ -1179,10 +1187,10 @@ private static final long serialVersionUID = 0L;
     private double coveragePct_ ;
     /**
      * <pre>
-     * Qualifying coverage over the year, the measure this table prints.
+     * Coverage under coverage_measure.
      * </pre>
      *
-     * <code>double coverage_pct = 9 [json_name = "coveragePct"];</code>
+     * <code>double coverage_pct = 7 [json_name = "coveragePct"];</code>
      * @return The coveragePct.
      */
     @java.lang.Override
@@ -1191,30 +1199,30 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Qualifying coverage over the year, the measure this table prints.
+     * Coverage under coverage_measure.
      * </pre>
      *
-     * <code>double coverage_pct = 9 [json_name = "coveragePct"];</code>
+     * <code>double coverage_pct = 7 [json_name = "coveragePct"];</code>
      * @param value The coveragePct to set.
      * @return This builder for chaining.
      */
     public Builder setCoveragePct(double value) {
 
       coveragePct_ = value;
-      bitField0_ |= 0x00000100;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * Qualifying coverage over the year, the measure this table prints.
+     * Coverage under coverage_measure.
      * </pre>
      *
-     * <code>double coverage_pct = 9 [json_name = "coveragePct"];</code>
+     * <code>double coverage_pct = 7 [json_name = "coveragePct"];</code>
      * @return This builder for chaining.
      */
     public Builder clearCoveragePct() {
-      bitField0_ = (bitField0_ & ~0x00000100);
+      bitField0_ = (bitField0_ & ~0x00000040);
       coveragePct_ = 0D;
       onChanged();
       return this;
@@ -1222,7 +1230,7 @@ private static final long serialVersionUID = 0L;
 
     private boolean coverageMeasurable_ ;
     /**
-     * <code>bool coverage_measurable = 10 [json_name = "coverageMeasurable"];</code>
+     * <code>bool coverage_measurable = 8 [json_name = "coverageMeasurable"];</code>
      * @return The coverageMeasurable.
      */
     @java.lang.Override
@@ -1230,23 +1238,23 @@ private static final long serialVersionUID = 0L;
       return coverageMeasurable_;
     }
     /**
-     * <code>bool coverage_measurable = 10 [json_name = "coverageMeasurable"];</code>
+     * <code>bool coverage_measurable = 8 [json_name = "coverageMeasurable"];</code>
      * @param value The coverageMeasurable to set.
      * @return This builder for chaining.
      */
     public Builder setCoverageMeasurable(boolean value) {
 
       coverageMeasurable_ = value;
-      bitField0_ |= 0x00000200;
+      bitField0_ |= 0x00000080;
       onChanged();
       return this;
     }
     /**
-     * <code>bool coverage_measurable = 10 [json_name = "coverageMeasurable"];</code>
+     * <code>bool coverage_measurable = 8 [json_name = "coverageMeasurable"];</code>
      * @return This builder for chaining.
      */
     public Builder clearCoverageMeasurable() {
-      bitField0_ = (bitField0_ & ~0x00000200);
+      bitField0_ = (bitField0_ & ~0x00000080);
       coverageMeasurable_ = false;
       onChanged();
       return this;
@@ -1258,7 +1266,7 @@ private static final long serialVersionUID = 0L;
      * An approximate run's year. Nothing sets it in this release.
      * </pre>
      *
-     * <code>bool approximate = 11 [json_name = "approximate"];</code>
+     * <code>bool approximate = 9 [json_name = "approximate"];</code>
      * @return The approximate.
      */
     @java.lang.Override
@@ -1270,14 +1278,14 @@ private static final long serialVersionUID = 0L;
      * An approximate run's year. Nothing sets it in this release.
      * </pre>
      *
-     * <code>bool approximate = 11 [json_name = "approximate"];</code>
+     * <code>bool approximate = 9 [json_name = "approximate"];</code>
      * @param value The approximate to set.
      * @return This builder for chaining.
      */
     public Builder setApproximate(boolean value) {
 
       approximate_ = value;
-      bitField0_ |= 0x00000400;
+      bitField0_ |= 0x00000100;
       onChanged();
       return this;
     }
@@ -1286,12 +1294,168 @@ private static final long serialVersionUID = 0L;
      * An approximate run's year. Nothing sets it in this release.
      * </pre>
      *
-     * <code>bool approximate = 11 [json_name = "approximate"];</code>
+     * <code>bool approximate = 9 [json_name = "approximate"];</code>
      * @return This builder for chaining.
      */
     public Builder clearApproximate() {
-      bitField0_ = (bitField0_ & ~0x00000400);
+      bitField0_ = (bitField0_ & ~0x00000100);
       approximate_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasBenchmark_ ;
+    /**
+     * <code>bool has_benchmark = 10 [json_name = "hasBenchmark"];</code>
+     * @return The hasBenchmark.
+     */
+    @java.lang.Override
+    public boolean getHasBenchmark() {
+      return hasBenchmark_;
+    }
+    /**
+     * <code>bool has_benchmark = 10 [json_name = "hasBenchmark"];</code>
+     * @param value The hasBenchmark to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasBenchmark(boolean value) {
+
+      hasBenchmark_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_benchmark = 10 [json_name = "hasBenchmark"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasBenchmark() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      hasBenchmark_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasReference_ ;
+    /**
+     * <code>bool has_reference = 11 [json_name = "hasReference"];</code>
+     * @return The hasReference.
+     */
+    @java.lang.Override
+    public boolean getHasReference() {
+      return hasReference_;
+    }
+    /**
+     * <code>bool has_reference = 11 [json_name = "hasReference"];</code>
+     * @param value The hasReference to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasReference(boolean value) {
+
+      hasReference_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_reference = 11 [json_name = "hasReference"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasReference() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      hasReference_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object coverageMeasure_ = "";
+    /**
+     * <pre>
+     * qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses.
+     * </pre>
+     *
+     * <code>string coverage_measure = 12 [json_name = "coverageMeasure"];</code>
+     * @return The coverageMeasure.
+     */
+    public java.lang.String getCoverageMeasure() {
+      java.lang.Object ref = coverageMeasure_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        coverageMeasure_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses.
+     * </pre>
+     *
+     * <code>string coverage_measure = 12 [json_name = "coverageMeasure"];</code>
+     * @return The bytes for coverageMeasure.
+     */
+    public com.google.protobuf.ByteString
+        getCoverageMeasureBytes() {
+      java.lang.Object ref = coverageMeasure_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        coverageMeasure_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses.
+     * </pre>
+     *
+     * <code>string coverage_measure = 12 [json_name = "coverageMeasure"];</code>
+     * @param value The coverageMeasure to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCoverageMeasure(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      coverageMeasure_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses.
+     * </pre>
+     *
+     * <code>string coverage_measure = 12 [json_name = "coverageMeasure"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCoverageMeasure() {
+      coverageMeasure_ = getDefaultInstance().getCoverageMeasure();
+      bitField0_ = (bitField0_ & ~0x00000800);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses.
+     * </pre>
+     *
+     * <code>string coverage_measure = 12 [json_name = "coverageMeasure"];</code>
+     * @param value The bytes for coverageMeasure to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCoverageMeasureBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      coverageMeasure_ = value;
+      bitField0_ |= 0x00000800;
       onChanged();
       return this;
     }

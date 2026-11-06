@@ -43,53 +43,25 @@ public interface SensitivityOrBuilder extends
       getLabelBytes();
 
   /**
-   * <pre>
-   * False when the recipe does not take the change; reason says why.
-   * </pre>
-   *
-   * <code>bool applies = 3 [json_name = "applies"];</code>
-   * @return The applies.
-   */
-  boolean getApplies();
-
-  /**
-   * <code>string reason = 4 [json_name = "reason"];</code>
-   * @return The reason.
-   */
-  java.lang.String getReason();
-  /**
-   * <code>string reason = 4 [json_name = "reason"];</code>
-   * @return The bytes for reason.
-   */
-  com.google.protobuf.ByteString
-      getReasonBytes();
-
-  /**
-   * <code>double cagr_pct = 5 [json_name = "cagrPct"];</code>
+   * <code>double cagr_pct = 3 [json_name = "cagrPct"];</code>
    * @return The cagrPct.
    */
   double getCagrPct();
 
   /**
-   * <code>bool has_cagr = 6 [json_name = "hasCagr"];</code>
+   * <code>bool has_cagr = 4 [json_name = "hasCagr"];</code>
    * @return The hasCagr.
    */
   boolean getHasCagr();
 
   /**
-   * <code>double excess_vs_benchmark_pct = 7 [json_name = "excessVsBenchmarkPct"];</code>
+   * <code>double excess_vs_benchmark_pct = 5 [json_name = "excessVsBenchmarkPct"];</code>
    * @return The excessVsBenchmarkPct.
    */
   double getExcessVsBenchmarkPct();
 
   /**
-   * <code>bool has_excess = 8 [json_name = "hasExcess"];</code>
-   * @return The hasExcess.
-   */
-  boolean getHasExcess();
-
-  /**
-   * <code>double max_drawdown_pct = 9 [json_name = "maxDrawdownPct"];</code>
+   * <code>double max_drawdown_pct = 6 [json_name = "maxDrawdownPct"];</code>
    * @return The maxDrawdownPct.
    */
   double getMaxDrawdownPct();
@@ -99,10 +71,38 @@ public interface SensitivityOrBuilder extends
    * A sign flip of the excess CAGR; fragile_chip names it.
    * </pre>
    *
-   * <code>bool fragile = 10 [json_name = "fragile"];</code>
+   * <code>bool fragile = 7 [json_name = "fragile"];</code>
    * @return The fragile.
    */
   boolean getFragile();
+
+  /**
+   * <pre>
+   * False when the recipe does not take the change; reason says why.
+   * </pre>
+   *
+   * <code>bool applies = 8 [json_name = "applies"];</code>
+   * @return The applies.
+   */
+  boolean getApplies();
+
+  /**
+   * <code>string reason = 9 [json_name = "reason"];</code>
+   * @return The reason.
+   */
+  java.lang.String getReason();
+  /**
+   * <code>string reason = 9 [json_name = "reason"];</code>
+   * @return The bytes for reason.
+   */
+  com.google.protobuf.ByteString
+      getReasonBytes();
+
+  /**
+   * <code>bool has_excess = 10 [json_name = "hasExcess"];</code>
+   * @return The hasExcess.
+   */
+  boolean getHasExcess();
 
   /**
    * <pre>

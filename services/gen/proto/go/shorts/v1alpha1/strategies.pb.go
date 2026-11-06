@@ -3650,22 +3650,26 @@ func (x *ListStrategyEvidenceResponse) GetFootnotes() []string {
 
 // One strategy's backtest evidence on the live version.
 type StrategyEvidence struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	StrategyId     string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"`
-	Version        *StrategyVersionRef    `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`                                     // The live canonical version the evidence is for; absent when none is registered.
-	State          string                 `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`                                         // computed | run_required | running | not_computable | approximate.
-	ComputableFrom string                 `protobuf:"bytes,4,opt,name=computable_from,json=computableFrom,proto3" json:"computable_from,omitempty"` // Not computable: the first month-end the universe is computable; "" when none.
-	FiscalLabel    string                 `protobuf:"bytes,5,opt,name=fiscal_label,json=fiscalLabel,proto3" json:"fiscal_label,omitempty"`          // Not computable: the measured label, e.g. FY2024; "" when none.
-	Windows        []*WindowMetrics       `protobuf:"bytes,6,rep,name=windows,proto3" json:"windows,omitempty"`                                     // The chained windows, in window order.
-	Annual         []*AnnualReturn        `protobuf:"bytes,7,rep,name=annual,proto3" json:"annual,omitempty"`                                       // The annual table of the since-May-2019 chain.
-	MiniCurve      []*SeriesPoint         `protobuf:"bytes,8,rep,name=mini_curve,json=miniCurve,proto3" json:"mini_curve,omitempty"`                // Month ends of the since-May-2019 chain, at most 96 points.
-	Today          *StatusCounts          `protobuf:"bytes,9,opt,name=today,proto3" json:"today,omitempty"`                                         // Today's counts for the live version; absent when they cannot be read.
-	Paper          *PaperTrackSummary     `protobuf:"bytes,10,opt,name=paper,proto3" json:"paper,omitempty"`                                        // The recorded paper track since live_from.
-	Survivorship   string                 `protobuf:"bytes,11,opt,name=survivorship,proto3" json:"survivorship,omitempty"`                          // The survivorship statement's copy.
-	RunId          int64                  `protobuf:"varint,12,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`                          // The published run the figures come from; 0 when none.
-	LatestScreen   string                 `protobuf:"bytes,13,opt,name=latest_screen,json=latestScreen,proto3" json:"latest_screen,omitempty"`      // The session the today counts are as at (YYYY-MM-DD); "" when none.
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	StrategyId         string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"`
+	Version            *StrategyVersionRef    `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`                                                      // The live canonical version; absent when none is registered.
+	State              string                 `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`                                                          // published | approximate | run_required | running | not_computable.
+	ComputableFrom     string                 `protobuf:"bytes,4,opt,name=computable_from,json=computableFrom,proto3" json:"computable_from,omitempty"`                  // not_computable: the first month-end the universe is computable; "" when none.
+	FiscalLabel        string                 `protobuf:"bytes,5,opt,name=fiscal_label,json=fiscalLabel,proto3" json:"fiscal_label,omitempty"`                           // not_computable: the measured label, e.g. FY2024; "" when none.
+	Windows            []*WindowMetrics       `protobuf:"bytes,6,rep,name=windows,proto3" json:"windows,omitempty"`                                                      // The chained windows, in window order.
+	Annual             []*AnnualReturn        `protobuf:"bytes,7,rep,name=annual,proto3" json:"annual,omitempty"`                                                        // The annual table of the since-May-2019 chain.
+	MiniCurve          []*SeriesPoint         `protobuf:"bytes,8,rep,name=mini_curve,json=miniCurve,proto3" json:"mini_curve,omitempty"`                                 // Month ends of the since-May-2019 chain, at most 96 points.
+	Today              *StatusCounts          `protobuf:"bytes,9,opt,name=today,proto3" json:"today,omitempty"`                                                          // Today's counts for the live version; absent when they cannot be read.
+	Paper              *PaperTrackSummary     `protobuf:"bytes,10,opt,name=paper,proto3" json:"paper,omitempty"`                                                         // The recorded paper track since live_from.
+	Survivorship       string                 `protobuf:"bytes,11,opt,name=survivorship,proto3" json:"survivorship,omitempty"`                                           // The survivorship statement, with the measurement caveat where one applies.
+	RunId              int64                  `protobuf:"varint,12,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`                                           // The published run the figures come from; 0 when none.
+	LatestScreen       string                 `protobuf:"bytes,13,opt,name=latest_screen,json=latestScreen,proto3" json:"latest_screen,omitempty"`                       // The session the today counts are as at (YYYY-MM-DD); "" when none.
+	StateReason        string                 `protobuf:"bytes,14,opt,name=state_reason,json=stateReason,proto3" json:"state_reason,omitempty"`                          // Why the state is what it is, in words the explorer can print.
+	RunningSince       string                 `protobuf:"bytes,15,opt,name=running_since,json=runningSince,proto3" json:"running_since,omitempty"`                       // running: when the request started, RFC 3339.
+	ComputableSharePct float64                `protobuf:"fixed64,16,opt,name=computable_share_pct,json=computableSharePct,proto3" json:"computable_share_pct,omitempty"` // not_computable: the measured universe share, when measured.
+	HasComputableShare bool                   `protobuf:"varint,17,opt,name=has_computable_share,json=hasComputableShare,proto3" json:"has_computable_share,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *StrategyEvidence) Reset() {
@@ -3789,12 +3793,41 @@ func (x *StrategyEvidence) GetLatestScreen() string {
 	return ""
 }
 
+func (x *StrategyEvidence) GetStateReason() string {
+	if x != nil {
+		return x.StateReason
+	}
+	return ""
+}
+
+func (x *StrategyEvidence) GetRunningSince() string {
+	if x != nil {
+		return x.RunningSince
+	}
+	return ""
+}
+
+func (x *StrategyEvidence) GetComputableSharePct() float64 {
+	if x != nil {
+		return x.ComputableSharePct
+	}
+	return 0
+}
+
+func (x *StrategyEvidence) GetHasComputableShare() bool {
+	if x != nil {
+		return x.HasComputableShare
+	}
+	return false
+}
+
 // Request for GetBacktestRun.
 type GetBacktestRunRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	StrategyId    string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"` // Required: a canonical strategy id.
-	RunId         int64                  `protobuf:"varint,2,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`               // 0: the published run of the live version. Otherwise a canonical publish run of this strategy.
-	Resolution    string                 `protobuf:"bytes,3,opt,name=resolution,proto3" json:"resolution,omitempty"`                   // "weekly" (default) or "daily". Daily is refused: its series would exceed the 500-point budget.
+	RunId         int64                  `protobuf:"varint,2,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`               // 0: the published run of the live version. Otherwise a canonical run of this strategy.
+	Resolution    string                 `protobuf:"bytes,3,opt,name=resolution,proto3" json:"resolution,omitempty"`                   // "weekly" (default) or "daily". Daily is served for windows of 500 sessions or fewer.
+	Window        string                 `protobuf:"bytes,4,opt,name=window,proto3" json:"window,omitempty"`                           // since_2019_05 (default) | since_2023 | trailing_12m | live. live needs a paper track.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3850,6 +3883,13 @@ func (x *GetBacktestRunRequest) GetResolution() string {
 	return ""
 }
 
+func (x *GetBacktestRunRequest) GetWindow() string {
+	if x != nil {
+		return x.Window
+	}
+	return ""
+}
+
 // Response for GetBacktestRun.
 type GetBacktestRunResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -3898,32 +3938,36 @@ func (x *GetBacktestRunResponse) GetRun() *BacktestRun {
 // One canonical backtest run as the API serves it.
 type BacktestRun struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
-	State              string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"` // computed | run_required | running | not_computable | approximate.
-	StrategyId         string                 `protobuf:"bytes,2,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"`
-	ComputableFrom     string                 `protobuf:"bytes,3,opt,name=computable_from,json=computableFrom,proto3" json:"computable_from,omitempty"`     // not_computable: "" when the threshold was never met.
+	State              string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`                                             // published | approximate | run_required | running | not_computable.
+	StateReason        string                 `protobuf:"bytes,2,opt,name=state_reason,json=stateReason,proto3" json:"state_reason,omitempty"`              // Why the state is what it is, in words.
+	ComputableFrom     string                 `protobuf:"bytes,3,opt,name=computable_from,json=computableFrom,proto3" json:"computable_from,omitempty"`     // not_computable: "" when the 50% threshold was never met.
 	FiscalLabel        string                 `protobuf:"bytes,4,opt,name=fiscal_label,json=fiscalLabel,proto3" json:"fiscal_label,omitempty"`              // not_computable: the measured label; "" when none.
-	Identity           *BacktestRunIdentity   `protobuf:"bytes,5,opt,name=identity,proto3" json:"identity,omitempty"`                                       // Absent for run_required and running.
+	Identity           *BacktestRunIdentity   `protobuf:"bytes,5,opt,name=identity,proto3" json:"identity,omitempty"`                                       // Absent for run_required, running and not_computable.
 	Windows            []*WindowMetrics       `protobuf:"bytes,6,rep,name=windows,proto3" json:"windows,omitempty"`                                         // Chained windows (5.8).
 	Annual             []*AnnualReturn        `protobuf:"bytes,7,rep,name=annual,proto3" json:"annual,omitempty"`                                           // Annual table of the since-May-2019 chain.
 	Monthly            []*MonthlyReturn       `protobuf:"bytes,8,rep,name=monthly,proto3" json:"monthly,omitempty"`                                         // Monthly table of the since-May-2019 chain.
-	Series             []*SeriesPoint         `protobuf:"bytes,9,rep,name=series,proto3" json:"series,omitempty"`                                           // One point per ISO week plus the first, last and trough sessions; at most 500.
-	CoverageByYear     []*CoverageYear        `protobuf:"bytes,10,rep,name=coverage_by_year,json=coverageByYear,proto3" json:"coverage_by_year,omitempty"`  // Both coverage measures, by year.
+	Series             []*SeriesPoint         `protobuf:"bytes,9,rep,name=series,proto3" json:"series,omitempty"`                                           // The served window's points: daily or weekly, at most 500.
+	Coverage           []*CoverageYear        `protobuf:"bytes,10,rep,name=coverage,proto3" json:"coverage,omitempty"`                                      // Both coverage measures, by year.
 	CoverageMonthly    []*CoverageMonth       `protobuf:"bytes,11,rep,name=coverage_monthly,json=coverageMonthly,proto3" json:"coverage_monthly,omitempty"` // Both coverage measures, by month.
 	Survivorship       *Survivorship          `protobuf:"bytes,12,opt,name=survivorship,proto3" json:"survivorship,omitempty"`
-	Sensitivity        []*Sensitivity         `protobuf:"bytes,13,rep,name=sensitivity,proto3" json:"sensitivity,omitempty"`                                             // The five sensitivity runs of the canonical run.
-	Recipe             *RecipeLines           `protobuf:"bytes,14,opt,name=recipe,proto3" json:"recipe,omitempty"`                                                       // The recipe prose, preface first.
-	TradeSummary       *TradeSummary          `protobuf:"bytes,15,opt,name=trade_summary,json=tradeSummary,proto3" json:"trade_summary,omitempty"`                       // The in-sample trades; the paper trades are counted in the windows.
-	LiveVersion        *StrategyVersionRef    `protobuf:"bytes,16,opt,name=live_version,json=liveVersion,proto3" json:"live_version,omitempty"`                          // The live canonical version now.
-	RulesMatchLive     bool                   `protobuf:"varint,17,opt,name=rules_match_live,json=rulesMatchLive,proto3" json:"rules_match_live,omitempty"`              // The run's rules are the live rules.
-	EngineMatchesLive  bool                   `protobuf:"varint,18,opt,name=engine_matches_live,json=engineMatchesLive,proto3" json:"engine_matches_live,omitempty"`     // The run's engine is the running engine.
-	ReplayAgreement    string                 `protobuf:"bytes,19,opt,name=replay_agreement,json=replayAgreement,proto3" json:"replay_agreement,omitempty"`              // "Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy".
-	InputChangeNote    string                 `protobuf:"bytes,20,opt,name=input_change_note,json=inputChangeNote,proto3" json:"input_change_note,omitempty"`            // The diff note against the previous run; "" when none.
-	Disclosures        []string               `protobuf:"bytes,21,rep,name=disclosures,proto3" json:"disclosures,omitempty"`                                             // Printed beside the figures.
-	DataNotes          []string               `protobuf:"bytes,22,rep,name=data_notes,json=dataNotes,proto3" json:"data_notes,omitempty"`                                // Data-quality notes of the run.
-	RunningSince       string                 `protobuf:"bytes,23,opt,name=running_since,json=runningSince,proto3" json:"running_since,omitempty"`                       // running: when the request started, RFC 3339.
-	SeriesResolution   string                 `protobuf:"bytes,24,opt,name=series_resolution,json=seriesResolution,proto3" json:"series_resolution,omitempty"`           // "weekly" for a computed run; "" otherwise.
-	ComputableSharePct float64                `protobuf:"fixed64,25,opt,name=computable_share_pct,json=computableSharePct,proto3" json:"computable_share_pct,omitempty"` // not_computable: the measured universe share, when measured.
-	HasComputableShare bool                   `protobuf:"varint,26,opt,name=has_computable_share,json=hasComputableShare,proto3" json:"has_computable_share,omitempty"`
+	Sensitivity        []*Sensitivity         `protobuf:"bytes,13,rep,name=sensitivity,proto3" json:"sensitivity,omitempty"`                                         // The five sensitivity runs of the canonical run.
+	Recipe             *RecipeLines           `protobuf:"bytes,14,opt,name=recipe,proto3" json:"recipe,omitempty"`                                                   // The recipe prose, preface first.
+	TradeSummary       *TradeSummary          `protobuf:"bytes,15,opt,name=trade_summary,json=tradeSummary,proto3" json:"trade_summary,omitempty"`                   // Closed trades that exited before live_from (in-sample).
+	LiveVersion        *StrategyVersionRef    `protobuf:"bytes,16,opt,name=live_version,json=liveVersion,proto3" json:"live_version,omitempty"`                      // The live canonical version now.
+	RulesMatchLive     bool                   `protobuf:"varint,17,opt,name=rules_match_live,json=rulesMatchLive,proto3" json:"rules_match_live,omitempty"`          // The run's rules and recipe are the live ones.
+	EngineMatchesLive  bool                   `protobuf:"varint,18,opt,name=engine_matches_live,json=engineMatchesLive,proto3" json:"engine_matches_live,omitempty"` // The run's engine is the running engine.
+	ReplayAgreement    string                 `protobuf:"bytes,19,opt,name=replay_agreement,json=replayAgreement,proto3" json:"replay_agreement,omitempty"`          // "Replay agrees: 14 of 15 trades", or why it is not comparable.
+	InputChangeNote    string                 `protobuf:"bytes,20,opt,name=input_change_note,json=inputChangeNote,proto3" json:"input_change_note,omitempty"`        // The diff note against the previous run; "" when none.
+	Disclosures        []string               `protobuf:"bytes,21,rep,name=disclosures,proto3" json:"disclosures,omitempty"`                                         // Printed beside the figures.
+	DataNotes          []string               `protobuf:"bytes,22,rep,name=data_notes,json=dataNotes,proto3" json:"data_notes,omitempty"`                            // Data-quality notes of the run, as prose.
+	StrategyId         string                 `protobuf:"bytes,23,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"`
+	RunningSince       string                 `protobuf:"bytes,24,opt,name=running_since,json=runningSince,proto3" json:"running_since,omitempty"`                       // running: when the request started, RFC 3339.
+	SeriesResolution   string                 `protobuf:"bytes,25,opt,name=series_resolution,json=seriesResolution,proto3" json:"series_resolution,omitempty"`           // "daily" or "weekly": what the series carries.
+	ComputableSharePct float64                `protobuf:"fixed64,26,opt,name=computable_share_pct,json=computableSharePct,proto3" json:"computable_share_pct,omitempty"` // not_computable: the measured universe share, when measured.
+	HasComputableShare bool                   `protobuf:"varint,27,opt,name=has_computable_share,json=hasComputableShare,proto3" json:"has_computable_share,omitempty"`
+	DataQuality        *DataQuality           `protobuf:"bytes,28,opt,name=data_quality,json=dataQuality,proto3" json:"data_quality,omitempty"`                   // The run's data-quality counts, as fields.
+	WindowId           string                 `protobuf:"bytes,29,opt,name=window_id,json=windowId,proto3" json:"window_id,omitempty"`                            // The window the series and window tables are served for.
+	FundamentalsLabel  string                 `protobuf:"bytes,30,opt,name=fundamentals_label,json=fundamentalsLabel,proto3" json:"fundamentals_label,omitempty"` // The fundamentals policy, in words the surfaces print.
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -3965,9 +4009,9 @@ func (x *BacktestRun) GetState() string {
 	return ""
 }
 
-func (x *BacktestRun) GetStrategyId() string {
+func (x *BacktestRun) GetStateReason() string {
 	if x != nil {
-		return x.StrategyId
+		return x.StateReason
 	}
 	return ""
 }
@@ -4021,9 +4065,9 @@ func (x *BacktestRun) GetSeries() []*SeriesPoint {
 	return nil
 }
 
-func (x *BacktestRun) GetCoverageByYear() []*CoverageYear {
+func (x *BacktestRun) GetCoverage() []*CoverageYear {
 	if x != nil {
-		return x.CoverageByYear
+		return x.Coverage
 	}
 	return nil
 }
@@ -4112,6 +4156,13 @@ func (x *BacktestRun) GetDataNotes() []string {
 	return nil
 }
 
+func (x *BacktestRun) GetStrategyId() string {
+	if x != nil {
+		return x.StrategyId
+	}
+	return ""
+}
+
 func (x *BacktestRun) GetRunningSince() string {
 	if x != nil {
 		return x.RunningSince
@@ -4140,6 +4191,153 @@ func (x *BacktestRun) GetHasComputableShare() bool {
 	return false
 }
 
+func (x *BacktestRun) GetDataQuality() *DataQuality {
+	if x != nil {
+		return x.DataQuality
+	}
+	return nil
+}
+
+func (x *BacktestRun) GetWindowId() string {
+	if x != nil {
+		return x.WindowId
+	}
+	return ""
+}
+
+func (x *BacktestRun) GetFundamentalsLabel() string {
+	if x != nil {
+		return x.FundamentalsLabel
+	}
+	return ""
+}
+
+// A run's data-quality counts (5.11). Every count the run stores is served here, so no reader has to
+// parse the prose.
+type DataQuality struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	DelistingExits       int32                  `protobuf:"varint,1,opt,name=delisting_exits,json=delistingExits,proto3" json:"delisting_exits,omitempty"`
+	CorporateActionExits int32                  `protobuf:"varint,2,opt,name=corporate_action_exits,json=corporateActionExits,proto3" json:"corporate_action_exits,omitempty"`
+	CaSuspects           int32                  `protobuf:"varint,3,opt,name=ca_suspects,json=caSuspects,proto3" json:"ca_suspects,omitempty"`                        // Corporate-action suspects: ASIC share steps with an unconfirmed price.
+	FallbackClose        int32                  `protobuf:"varint,4,opt,name=fallback_close,json=fallbackClose,proto3" json:"fallback_close,omitempty"`               // Held bars that fell back to a close price.
+	PriceReturnTrades    int32                  `protobuf:"varint,5,opt,name=price_return_trades,json=priceReturnTrades,proto3" json:"price_return_trades,omitempty"` // Trades holding a bar on price return (4.8).
+	CapacityCapped       int32                  `protobuf:"varint,6,opt,name=capacity_capped,json=capacityCapped,proto3" json:"capacity_capped,omitempty"`
+	StaleMarkTrades      int32                  `protobuf:"varint,7,opt,name=stale_mark_trades,json=staleMarkTrades,proto3" json:"stale_mark_trades,omitempty"`
+	DelayedExits         int32                  `protobuf:"varint,8,opt,name=delayed_exits,json=delayedExits,proto3" json:"delayed_exits,omitempty"`
+	CancelledEntries     map[string]int32       `protobuf:"bytes,9,rep,name=cancelled_entries,json=cancelledEntries,proto3" json:"cancelled_entries,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"` // Entries cancelled, by reason.
+	DividendsCredited    int32                  `protobuf:"varint,10,opt,name=dividends_credited,json=dividendsCredited,proto3" json:"dividends_credited,omitempty"`                                                                       // Ex-dates credited in cash.
+	ConsolidationNote    string                 `protobuf:"bytes,11,opt,name=consolidation_note,json=consolidationNote,proto3" json:"consolidation_note,omitempty"`                                                                        // The 5.11 note on pre-re-sync consolidations.
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *DataQuality) Reset() {
+	*x = DataQuality{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DataQuality) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DataQuality) ProtoMessage() {}
+
+func (x *DataQuality) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DataQuality.ProtoReflect.Descriptor instead.
+func (*DataQuality) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *DataQuality) GetDelistingExits() int32 {
+	if x != nil {
+		return x.DelistingExits
+	}
+	return 0
+}
+
+func (x *DataQuality) GetCorporateActionExits() int32 {
+	if x != nil {
+		return x.CorporateActionExits
+	}
+	return 0
+}
+
+func (x *DataQuality) GetCaSuspects() int32 {
+	if x != nil {
+		return x.CaSuspects
+	}
+	return 0
+}
+
+func (x *DataQuality) GetFallbackClose() int32 {
+	if x != nil {
+		return x.FallbackClose
+	}
+	return 0
+}
+
+func (x *DataQuality) GetPriceReturnTrades() int32 {
+	if x != nil {
+		return x.PriceReturnTrades
+	}
+	return 0
+}
+
+func (x *DataQuality) GetCapacityCapped() int32 {
+	if x != nil {
+		return x.CapacityCapped
+	}
+	return 0
+}
+
+func (x *DataQuality) GetStaleMarkTrades() int32 {
+	if x != nil {
+		return x.StaleMarkTrades
+	}
+	return 0
+}
+
+func (x *DataQuality) GetDelayedExits() int32 {
+	if x != nil {
+		return x.DelayedExits
+	}
+	return 0
+}
+
+func (x *DataQuality) GetCancelledEntries() map[string]int32 {
+	if x != nil {
+		return x.CancelledEntries
+	}
+	return nil
+}
+
+func (x *DataQuality) GetDividendsCredited() int32 {
+	if x != nil {
+		return x.DividendsCredited
+	}
+	return 0
+}
+
+func (x *DataQuality) GetConsolidationNote() string {
+	if x != nil {
+		return x.ConsolidationNote
+	}
+	return ""
+}
+
 // A run's fingerprint, provenance and recipe identity.
 type BacktestRunIdentity struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
@@ -4162,16 +4360,16 @@ type BacktestRunIdentity struct {
 	InputHash         string                 `protobuf:"bytes,17,opt,name=input_hash,json=inputHash,proto3" json:"input_hash,omitempty"`
 	OutputHash        string                 `protobuf:"bytes,18,opt,name=output_hash,json=outputHash,proto3" json:"output_hash,omitempty"`
 	BuildRevision     string                 `protobuf:"bytes,19,opt,name=build_revision,json=buildRevision,proto3" json:"build_revision,omitempty"`
-	RiskFree          string                 `protobuf:"bytes,20,opt,name=risk_free,json=riskFree,proto3" json:"risk_free,omitempty"` // The risk-free rate the Sharpe ratio uses, or "none".
-	ReferenceName     string                 `protobuf:"bytes,21,opt,name=reference_name,json=referenceName,proto3" json:"reference_name,omitempty"`
-	RunDate           string                 `protobuf:"bytes,22,opt,name=run_date,json=runDate,proto3" json:"run_date,omitempty"` // The day the run finished (YYYY-MM-DD).
+	RiskFree          string                 `protobuf:"bytes,20,opt,name=risk_free,json=riskFree,proto3" json:"risk_free,omitempty"`                // The risk-free rate the Sharpe ratio uses, or "none".
+	ReferenceName     string                 `protobuf:"bytes,21,opt,name=reference_name,json=referenceName,proto3" json:"reference_name,omitempty"` // The recipe's reference universe, named.
+	RunDate           string                 `protobuf:"bytes,22,opt,name=run_date,json=runDate,proto3" json:"run_date,omitempty"`                   // The day the run finished, Sydney time (YYYY-MM-DD).
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
 
 func (x *BacktestRunIdentity) Reset() {
 	*x = BacktestRunIdentity{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[43]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4183,7 +4381,7 @@ func (x *BacktestRunIdentity) String() string {
 func (*BacktestRunIdentity) ProtoMessage() {}
 
 func (x *BacktestRunIdentity) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[43]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4196,7 +4394,7 @@ func (x *BacktestRunIdentity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BacktestRunIdentity.ProtoReflect.Descriptor instead.
 func (*BacktestRunIdentity) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{43}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *BacktestRunIdentity) GetRunId() int64 {
@@ -4355,40 +4553,48 @@ func (x *BacktestRunIdentity) GetRunDate() string {
 
 // One window's metrics on the chained curve.
 type WindowMetrics struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Window           string                 `protobuf:"bytes,1,opt,name=window,proto3" json:"window,omitempty"` // since_may_2019 | since_2023 | last_12_months | live_since_freeze.
-	From             string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`     // YYYY-MM-DD, the window's first session.
-	To               string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`         // YYYY-MM-DD, the window's last session.
-	TotalReturnPct   float64                `protobuf:"fixed64,4,opt,name=total_return_pct,json=totalReturnPct,proto3" json:"total_return_pct,omitempty"`
-	CagrPct          float64                `protobuf:"fixed64,5,opt,name=cagr_pct,json=cagrPct,proto3" json:"cagr_pct,omitempty"`
-	HasCagr          bool                   `protobuf:"varint,6,opt,name=has_cagr,json=hasCagr,proto3" json:"has_cagr,omitempty"` // False below 365 calendar days; the return is then not annualised.
-	BenchmarkCagrPct float64                `protobuf:"fixed64,7,opt,name=benchmark_cagr_pct,json=benchmarkCagrPct,proto3" json:"benchmark_cagr_pct,omitempty"`
-	HasBenchmark     bool                   `protobuf:"varint,8,opt,name=has_benchmark,json=hasBenchmark,proto3" json:"has_benchmark,omitempty"`
-	ReferenceCagrPct float64                `protobuf:"fixed64,9,opt,name=reference_cagr_pct,json=referenceCagrPct,proto3" json:"reference_cagr_pct,omitempty"`
-	HasReference     bool                   `protobuf:"varint,10,opt,name=has_reference,json=hasReference,proto3" json:"has_reference,omitempty"`
-	MaxDrawdownPct   float64                `protobuf:"fixed64,11,opt,name=max_drawdown_pct,json=maxDrawdownPct,proto3" json:"max_drawdown_pct,omitempty"` // Negative; zero when the curve never falls.
-	Sharpe           float64                `protobuf:"fixed64,12,opt,name=sharpe,proto3" json:"sharpe,omitempty"`
-	SharpeSe         float64                `protobuf:"fixed64,13,opt,name=sharpe_se,json=sharpeSe,proto3" json:"sharpe_se,omitempty"`            // Lo (2002) standard error of the annual Sharpe ratio.
-	HasSharpe        bool                   `protobuf:"varint,14,opt,name=has_sharpe,json=hasSharpe,proto3" json:"has_sharpe,omitempty"`          // False below 126 daily returns: "n/m".
-	ClosedTrades     int32                  `protobuf:"varint,15,opt,name=closed_trades,json=closedTrades,proto3" json:"closed_trades,omitempty"` // Trades whose exit executed inside the window.
-	WinRatePct       float64                `protobuf:"fixed64,16,opt,name=win_rate_pct,json=winRatePct,proto3" json:"win_rate_pct,omitempty"`
-	HasWinRate       bool                   `protobuf:"varint,17,opt,name=has_win_rate,json=hasWinRate,proto3" json:"has_win_rate,omitempty"` // False when the window includes paper trades, which carry no net return here.
-	ExposurePct      float64                `protobuf:"fixed64,18,opt,name=exposure_pct,json=exposurePct,proto3" json:"exposure_pct,omitempty"`
-	RecordedTail     bool                   `protobuf:"varint,19,opt,name=recorded_tail,json=recordedTail,proto3" json:"recorded_tail,omitempty"` // The window ends in the paper track, recorded after live_from.
-	Label            string                 `protobuf:"bytes,20,opt,name=label,proto3" json:"label,omitempty"`                                    // The window's name, e.g. "Since May 2019".
-	Note             string                 `protobuf:"bytes,21,opt,name=note,proto3" json:"note,omitempty"`                                      // "in-sample to 2026-11-23, recorded after", or "paper track only, recorded".
-	NotAnnualised    bool                   `protobuf:"varint,22,opt,name=not_annualised,json=notAnnualised,proto3" json:"not_annualised,omitempty"`
-	Sessions         int32                  `protobuf:"varint,23,opt,name=sessions,proto3" json:"sessions,omitempty"`
-	CalendarDays     int32                  `protobuf:"varint,24,opt,name=calendar_days,json=calendarDays,proto3" json:"calendar_days,omitempty"`
-	VolatilityPct    float64                `protobuf:"fixed64,25,opt,name=volatility_pct,json=volatilityPct,proto3" json:"volatility_pct,omitempty"` // Annualised daily volatility.
-	HasVolatility    bool                   `protobuf:"varint,26,opt,name=has_volatility,json=hasVolatility,proto3" json:"has_volatility,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Window                  string                 `protobuf:"bytes,1,opt,name=window,proto3" json:"window,omitempty"` // since_2019_05 | since_2023 | trailing_12m | live.
+	From                    string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`     // YYYY-MM-DD, the window's first session.
+	To                      string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`         // YYYY-MM-DD, the window's last session.
+	TotalReturnPct          float64                `protobuf:"fixed64,4,opt,name=total_return_pct,json=totalReturnPct,proto3" json:"total_return_pct,omitempty"`
+	CagrPct                 float64                `protobuf:"fixed64,5,opt,name=cagr_pct,json=cagrPct,proto3" json:"cagr_pct,omitempty"`
+	HasCagr                 bool                   `protobuf:"varint,6,opt,name=has_cagr,json=hasCagr,proto3" json:"has_cagr,omitempty"` // False below 365 calendar days; the return is then not annualised.
+	BenchmarkCagrPct        float64                `protobuf:"fixed64,7,opt,name=benchmark_cagr_pct,json=benchmarkCagrPct,proto3" json:"benchmark_cagr_pct,omitempty"`
+	HasBenchmark            bool                   `protobuf:"varint,8,opt,name=has_benchmark,json=hasBenchmark,proto3" json:"has_benchmark,omitempty"`
+	ReferenceCagrPct        float64                `protobuf:"fixed64,9,opt,name=reference_cagr_pct,json=referenceCagrPct,proto3" json:"reference_cagr_pct,omitempty"`
+	HasReference            bool                   `protobuf:"varint,10,opt,name=has_reference,json=hasReference,proto3" json:"has_reference,omitempty"`
+	MaxDrawdownPct          float64                `protobuf:"fixed64,11,opt,name=max_drawdown_pct,json=maxDrawdownPct,proto3" json:"max_drawdown_pct,omitempty"` // Negative; zero when the curve never falls.
+	Sharpe                  float64                `protobuf:"fixed64,12,opt,name=sharpe,proto3" json:"sharpe,omitempty"`
+	SharpeSe                float64                `protobuf:"fixed64,13,opt,name=sharpe_se,json=sharpeSe,proto3" json:"sharpe_se,omitempty"`            // Lo (2002) standard error of the annual Sharpe ratio.
+	HasSharpe               bool                   `protobuf:"varint,14,opt,name=has_sharpe,json=hasSharpe,proto3" json:"has_sharpe,omitempty"`          // False below 126 daily returns: "n/m".
+	ClosedTrades            int32                  `protobuf:"varint,15,opt,name=closed_trades,json=closedTrades,proto3" json:"closed_trades,omitempty"` // Trades whose exit executed inside the window.
+	WinRatePct              float64                `protobuf:"fixed64,16,opt,name=win_rate_pct,json=winRatePct,proto3" json:"win_rate_pct,omitempty"`
+	HasWinRate              bool                   `protobuf:"varint,17,opt,name=has_win_rate,json=hasWinRate,proto3" json:"has_win_rate,omitempty"`
+	ExposurePct             float64                `protobuf:"fixed64,18,opt,name=exposure_pct,json=exposurePct,proto3" json:"exposure_pct,omitempty"`
+	RecordedTail            bool                   `protobuf:"varint,19,opt,name=recorded_tail,json=recordedTail,proto3" json:"recorded_tail,omitempty"` // The window ends in the paper track, recorded after live_from.
+	Label                   string                 `protobuf:"bytes,20,opt,name=label,proto3" json:"label,omitempty"`                                    // The window's name, e.g. "Since May 2019".
+	Note                    string                 `protobuf:"bytes,21,opt,name=note,proto3" json:"note,omitempty"`                                      // "in-sample to 2026-11-23, recorded after", or "paper track only, recorded".
+	NotAnnualised           bool                   `protobuf:"varint,22,opt,name=not_annualised,json=notAnnualised,proto3" json:"not_annualised,omitempty"`
+	Sessions                int32                  `protobuf:"varint,23,opt,name=sessions,proto3" json:"sessions,omitempty"`
+	CalendarDays            int32                  `protobuf:"varint,24,opt,name=calendar_days,json=calendarDays,proto3" json:"calendar_days,omitempty"`
+	VolatilityPct           float64                `protobuf:"fixed64,25,opt,name=volatility_pct,json=volatilityPct,proto3" json:"volatility_pct,omitempty"` // Annualised daily volatility.
+	HasVolatility           bool                   `protobuf:"varint,26,opt,name=has_volatility,json=hasVolatility,proto3" json:"has_volatility,omitempty"`
+	HasTotalReturn          bool                   `protobuf:"varint,27,opt,name=has_total_return,json=hasTotalReturn,proto3" json:"has_total_return,omitempty"`
+	PeakDate                string                 `protobuf:"bytes,28,opt,name=peak_date,json=peakDate,proto3" json:"peak_date,omitempty"`                                                    // The session of the window's deepest peak; "" when the curve never falls.
+	TroughDate              string                 `protobuf:"bytes,29,opt,name=trough_date,json=troughDate,proto3" json:"trough_date,omitempty"`                                              // The session of the deepest fall.
+	RecoveryDate            string                 `protobuf:"bytes,30,opt,name=recovery_date,json=recoveryDate,proto3" json:"recovery_date,omitempty"`                                        // The first session back at the peak; "not recovered" when it has not; "" when none.
+	BenchmarkTotalReturnPct float64                `protobuf:"fixed64,31,opt,name=benchmark_total_return_pct,json=benchmarkTotalReturnPct,proto3" json:"benchmark_total_return_pct,omitempty"` // XJT over the window: shown for every window, annualised or not.
+	HasBenchmarkTotalReturn bool                   `protobuf:"varint,32,opt,name=has_benchmark_total_return,json=hasBenchmarkTotalReturn,proto3" json:"has_benchmark_total_return,omitempty"`
+	ReferenceTotalReturnPct float64                `protobuf:"fixed64,33,opt,name=reference_total_return_pct,json=referenceTotalReturnPct,proto3" json:"reference_total_return_pct,omitempty"`
+	HasReferenceTotalReturn bool                   `protobuf:"varint,34,opt,name=has_reference_total_return,json=hasReferenceTotalReturn,proto3" json:"has_reference_total_return,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *WindowMetrics) Reset() {
 	*x = WindowMetrics{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[44]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4400,7 +4606,7 @@ func (x *WindowMetrics) String() string {
 func (*WindowMetrics) ProtoMessage() {}
 
 func (x *WindowMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[44]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4413,7 +4619,7 @@ func (x *WindowMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WindowMetrics.ProtoReflect.Descriptor instead.
 func (*WindowMetrics) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{44}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *WindowMetrics) GetWindow() string {
@@ -4598,27 +4804,84 @@ func (x *WindowMetrics) GetHasVolatility() bool {
 	return false
 }
 
+func (x *WindowMetrics) GetHasTotalReturn() bool {
+	if x != nil {
+		return x.HasTotalReturn
+	}
+	return false
+}
+
+func (x *WindowMetrics) GetPeakDate() string {
+	if x != nil {
+		return x.PeakDate
+	}
+	return ""
+}
+
+func (x *WindowMetrics) GetTroughDate() string {
+	if x != nil {
+		return x.TroughDate
+	}
+	return ""
+}
+
+func (x *WindowMetrics) GetRecoveryDate() string {
+	if x != nil {
+		return x.RecoveryDate
+	}
+	return ""
+}
+
+func (x *WindowMetrics) GetBenchmarkTotalReturnPct() float64 {
+	if x != nil {
+		return x.BenchmarkTotalReturnPct
+	}
+	return 0
+}
+
+func (x *WindowMetrics) GetHasBenchmarkTotalReturn() bool {
+	if x != nil {
+		return x.HasBenchmarkTotalReturn
+	}
+	return false
+}
+
+func (x *WindowMetrics) GetReferenceTotalReturnPct() float64 {
+	if x != nil {
+		return x.ReferenceTotalReturnPct
+	}
+	return 0
+}
+
+func (x *WindowMetrics) GetHasReferenceTotalReturn() bool {
+	if x != nil {
+		return x.HasReferenceTotalReturn
+	}
+	return false
+}
+
 // One period of the annual table: the strategy, XJT and the same-data reference.
 type AnnualReturn struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	Year               int32                  `protobuf:"varint,1,opt,name=year,proto3" json:"year,omitempty"`
-	State              string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`   // complete | partial | not_elapsed.
-	Months             string                 `protobuf:"bytes,3,opt,name=months,proto3" json:"months,omitempty"` // "May-Dec" or "YTD"; "" for a whole year.
-	StrategyPct        float64                `protobuf:"fixed64,4,opt,name=strategy_pct,json=strategyPct,proto3" json:"strategy_pct,omitempty"`
-	BenchmarkPct       float64                `protobuf:"fixed64,5,opt,name=benchmark_pct,json=benchmarkPct,proto3" json:"benchmark_pct,omitempty"`
-	HasBenchmark       bool                   `protobuf:"varint,6,opt,name=has_benchmark,json=hasBenchmark,proto3" json:"has_benchmark,omitempty"`
-	ReferencePct       float64                `protobuf:"fixed64,7,opt,name=reference_pct,json=referencePct,proto3" json:"reference_pct,omitempty"`
-	HasReference       bool                   `protobuf:"varint,8,opt,name=has_reference,json=hasReference,proto3" json:"has_reference,omitempty"`
-	CoveragePct        float64                `protobuf:"fixed64,9,opt,name=coverage_pct,json=coveragePct,proto3" json:"coverage_pct,omitempty"` // Qualifying coverage over the year, the measure this table prints.
-	CoverageMeasurable bool                   `protobuf:"varint,10,opt,name=coverage_measurable,json=coverageMeasurable,proto3" json:"coverage_measurable,omitempty"`
-	Approximate        bool                   `protobuf:"varint,11,opt,name=approximate,proto3" json:"approximate,omitempty"` // An approximate run's year. Nothing sets it in this release.
+	State              string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"` // complete | partial | to_date (the current year, measured to date).
+	StrategyPct        float64                `protobuf:"fixed64,3,opt,name=strategy_pct,json=strategyPct,proto3" json:"strategy_pct,omitempty"`
+	BenchmarkPct       float64                `protobuf:"fixed64,4,opt,name=benchmark_pct,json=benchmarkPct,proto3" json:"benchmark_pct,omitempty"`
+	ReferencePct       float64                `protobuf:"fixed64,5,opt,name=reference_pct,json=referencePct,proto3" json:"reference_pct,omitempty"`
+	Months             string                 `protobuf:"bytes,6,opt,name=months,proto3" json:"months,omitempty"`                                // "May-Dec" for a partial first year, "YTD" for the current; "" for a whole year.
+	CoveragePct        float64                `protobuf:"fixed64,7,opt,name=coverage_pct,json=coveragePct,proto3" json:"coverage_pct,omitempty"` // Coverage under coverage_measure.
+	CoverageMeasurable bool                   `protobuf:"varint,8,opt,name=coverage_measurable,json=coverageMeasurable,proto3" json:"coverage_measurable,omitempty"`
+	Approximate        bool                   `protobuf:"varint,9,opt,name=approximate,proto3" json:"approximate,omitempty"` // An approximate run's year. Nothing sets it in this release.
+	HasBenchmark       bool                   `protobuf:"varint,10,opt,name=has_benchmark,json=hasBenchmark,proto3" json:"has_benchmark,omitempty"`
+	HasReference       bool                   `protobuf:"varint,11,opt,name=has_reference,json=hasReference,proto3" json:"has_reference,omitempty"`
+	CoverageMeasure    string                 `protobuf:"bytes,12,opt,name=coverage_measure,json=coverageMeasure,proto3" json:"coverage_measure,omitempty"` // qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses.
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *AnnualReturn) Reset() {
 	*x = AnnualReturn{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[45]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4630,7 +4893,7 @@ func (x *AnnualReturn) String() string {
 func (*AnnualReturn) ProtoMessage() {}
 
 func (x *AnnualReturn) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[45]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4643,7 +4906,7 @@ func (x *AnnualReturn) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnnualReturn.ProtoReflect.Descriptor instead.
 func (*AnnualReturn) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{45}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *AnnualReturn) GetYear() int32 {
@@ -4656,13 +4919,6 @@ func (x *AnnualReturn) GetYear() int32 {
 func (x *AnnualReturn) GetState() string {
 	if x != nil {
 		return x.State
-	}
-	return ""
-}
-
-func (x *AnnualReturn) GetMonths() string {
-	if x != nil {
-		return x.Months
 	}
 	return ""
 }
@@ -4681,13 +4937,6 @@ func (x *AnnualReturn) GetBenchmarkPct() float64 {
 	return 0
 }
 
-func (x *AnnualReturn) GetHasBenchmark() bool {
-	if x != nil {
-		return x.HasBenchmark
-	}
-	return false
-}
-
 func (x *AnnualReturn) GetReferencePct() float64 {
 	if x != nil {
 		return x.ReferencePct
@@ -4695,11 +4944,11 @@ func (x *AnnualReturn) GetReferencePct() float64 {
 	return 0
 }
 
-func (x *AnnualReturn) GetHasReference() bool {
+func (x *AnnualReturn) GetMonths() string {
 	if x != nil {
-		return x.HasReference
+		return x.Months
 	}
-	return false
+	return ""
 }
 
 func (x *AnnualReturn) GetCoveragePct() float64 {
@@ -4723,16 +4972,37 @@ func (x *AnnualReturn) GetApproximate() bool {
 	return false
 }
 
+func (x *AnnualReturn) GetHasBenchmark() bool {
+	if x != nil {
+		return x.HasBenchmark
+	}
+	return false
+}
+
+func (x *AnnualReturn) GetHasReference() bool {
+	if x != nil {
+		return x.HasReference
+	}
+	return false
+}
+
+func (x *AnnualReturn) GetCoverageMeasure() string {
+	if x != nil {
+		return x.CoverageMeasure
+	}
+	return ""
+}
+
 // One month of the monthly table.
 type MonthlyReturn struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Year          int32                  `protobuf:"varint,1,opt,name=year,proto3" json:"year,omitempty"`
 	Month         int32                  `protobuf:"varint,2,opt,name=month,proto3" json:"month,omitempty"`
-	State         string                 `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"` // complete | partial | not_elapsed.
+	State         string                 `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"` // complete | partial | to_date.
 	StrategyPct   float64                `protobuf:"fixed64,4,opt,name=strategy_pct,json=strategyPct,proto3" json:"strategy_pct,omitempty"`
 	BenchmarkPct  float64                `protobuf:"fixed64,5,opt,name=benchmark_pct,json=benchmarkPct,proto3" json:"benchmark_pct,omitempty"`
-	HasBenchmark  bool                   `protobuf:"varint,6,opt,name=has_benchmark,json=hasBenchmark,proto3" json:"has_benchmark,omitempty"`
-	ReferencePct  float64                `protobuf:"fixed64,7,opt,name=reference_pct,json=referencePct,proto3" json:"reference_pct,omitempty"`
+	ReferencePct  float64                `protobuf:"fixed64,6,opt,name=reference_pct,json=referencePct,proto3" json:"reference_pct,omitempty"`
+	HasBenchmark  bool                   `protobuf:"varint,7,opt,name=has_benchmark,json=hasBenchmark,proto3" json:"has_benchmark,omitempty"`
 	HasReference  bool                   `protobuf:"varint,8,opt,name=has_reference,json=hasReference,proto3" json:"has_reference,omitempty"`
 	Label         string                 `protobuf:"bytes,9,opt,name=label,proto3" json:"label,omitempty"` // "from 1 May" for the first month, "MTD" for the current one; "" otherwise.
 	unknownFields protoimpl.UnknownFields
@@ -4741,7 +5011,7 @@ type MonthlyReturn struct {
 
 func (x *MonthlyReturn) Reset() {
 	*x = MonthlyReturn{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[46]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4753,7 +5023,7 @@ func (x *MonthlyReturn) String() string {
 func (*MonthlyReturn) ProtoMessage() {}
 
 func (x *MonthlyReturn) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[46]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4766,7 +5036,7 @@ func (x *MonthlyReturn) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonthlyReturn.ProtoReflect.Descriptor instead.
 func (*MonthlyReturn) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{46}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *MonthlyReturn) GetYear() int32 {
@@ -4804,18 +5074,18 @@ func (x *MonthlyReturn) GetBenchmarkPct() float64 {
 	return 0
 }
 
-func (x *MonthlyReturn) GetHasBenchmark() bool {
-	if x != nil {
-		return x.HasBenchmark
-	}
-	return false
-}
-
 func (x *MonthlyReturn) GetReferencePct() float64 {
 	if x != nil {
 		return x.ReferencePct
 	}
 	return 0
+}
+
+func (x *MonthlyReturn) GetHasBenchmark() bool {
+	if x != nil {
+		return x.HasBenchmark
+	}
+	return false
 }
 
 func (x *MonthlyReturn) GetHasReference() bool {
@@ -4832,25 +5102,28 @@ func (x *MonthlyReturn) GetLabel() string {
 	return ""
 }
 
-// Coverage by year under both measures; each figure names its measure.
+// Coverage by year. The qualifying measure (name-days of at least 5% short) and the all-reported measure
+// (every ordinary name in the report) are both served; each figure names its measure.
 type CoverageYear struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	Year                int32                  `protobuf:"varint,1,opt,name=year,proto3" json:"year,omitempty"`
-	QualifyingPct       float64                `protobuf:"fixed64,2,opt,name=qualifying_pct,json=qualifyingPct,proto3" json:"qualifying_pct,omitempty"` // Priced over qualifying name-days, "qualifying >= 5% short".
-	HasQualifying       bool                   `protobuf:"varint,3,opt,name=has_qualifying,json=hasQualifying,proto3" json:"has_qualifying,omitempty"`
-	QualifyingPriced    int32                  `protobuf:"varint,4,opt,name=qualifying_priced,json=qualifyingPriced,proto3" json:"qualifying_priced,omitempty"`
-	QualifyingNameDays  int32                  `protobuf:"varint,5,opt,name=qualifying_name_days,json=qualifyingNameDays,proto3" json:"qualifying_name_days,omitempty"`
-	AllReportedPct      float64                `protobuf:"fixed64,6,opt,name=all_reported_pct,json=allReportedPct,proto3" json:"all_reported_pct,omitempty"` // Priced over every ordinary reported name-day, "all reported".
-	HasAllReported      bool                   `protobuf:"varint,7,opt,name=has_all_reported,json=hasAllReported,proto3" json:"has_all_reported,omitempty"`
-	AllReportedPriced   int32                  `protobuf:"varint,8,opt,name=all_reported_priced,json=allReportedPriced,proto3" json:"all_reported_priced,omitempty"`
-	AllReportedNameDays int32                  `protobuf:"varint,9,opt,name=all_reported_name_days,json=allReportedNameDays,proto3" json:"all_reported_name_days,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	Year                      int32                  `protobuf:"varint,1,opt,name=year,proto3" json:"year,omitempty"`
+	Measurable                bool                   `protobuf:"varint,2,opt,name=measurable,proto3" json:"measurable,omitempty"` // The qualifying measure has name-days in the year.
+	QualifyingNameDays        int64                  `protobuf:"varint,3,opt,name=qualifying_name_days,json=qualifyingNameDays,proto3" json:"qualifying_name_days,omitempty"`
+	PricedNameDays            int64                  `protobuf:"varint,4,opt,name=priced_name_days,json=pricedNameDays,proto3" json:"priced_name_days,omitempty"`
+	CoveragePct               float64                `protobuf:"fixed64,5,opt,name=coverage_pct,json=coveragePct,proto3" json:"coverage_pct,omitempty"`            // Qualifying coverage: priced over qualifying name-days.
+	AllReportedPct            float64                `protobuf:"fixed64,6,opt,name=all_reported_pct,json=allReportedPct,proto3" json:"all_reported_pct,omitempty"` // All-reported coverage.
+	DelistingExits            int32                  `protobuf:"varint,7,opt,name=delisting_exits,json=delistingExits,proto3" json:"delisting_exits,omitempty"`    // Delisting exits of trades that exited in the year.
+	CaExits                   int32                  `protobuf:"varint,8,opt,name=ca_exits,json=caExits,proto3" json:"ca_exits,omitempty"`                         // Corporate-action exits of trades that exited in the year.
+	AllReportedMeasurable     bool                   `protobuf:"varint,11,opt,name=all_reported_measurable,json=allReportedMeasurable,proto3" json:"all_reported_measurable,omitempty"`
+	AllReportedNameDays       int64                  `protobuf:"varint,12,opt,name=all_reported_name_days,json=allReportedNameDays,proto3" json:"all_reported_name_days,omitempty"`
+	AllReportedPricedNameDays int64                  `protobuf:"varint,13,opt,name=all_reported_priced_name_days,json=allReportedPricedNameDays,proto3" json:"all_reported_priced_name_days,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *CoverageYear) Reset() {
 	*x = CoverageYear{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[47]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4862,7 +5135,7 @@ func (x *CoverageYear) String() string {
 func (*CoverageYear) ProtoMessage() {}
 
 func (x *CoverageYear) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[47]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4875,7 +5148,7 @@ func (x *CoverageYear) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoverageYear.ProtoReflect.Descriptor instead.
 func (*CoverageYear) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{47}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *CoverageYear) GetYear() int32 {
@@ -4885,30 +5158,30 @@ func (x *CoverageYear) GetYear() int32 {
 	return 0
 }
 
-func (x *CoverageYear) GetQualifyingPct() float64 {
+func (x *CoverageYear) GetMeasurable() bool {
 	if x != nil {
-		return x.QualifyingPct
-	}
-	return 0
-}
-
-func (x *CoverageYear) GetHasQualifying() bool {
-	if x != nil {
-		return x.HasQualifying
+		return x.Measurable
 	}
 	return false
 }
 
-func (x *CoverageYear) GetQualifyingPriced() int32 {
+func (x *CoverageYear) GetQualifyingNameDays() int64 {
 	if x != nil {
-		return x.QualifyingPriced
+		return x.QualifyingNameDays
 	}
 	return 0
 }
 
-func (x *CoverageYear) GetQualifyingNameDays() int32 {
+func (x *CoverageYear) GetPricedNameDays() int64 {
 	if x != nil {
-		return x.QualifyingNameDays
+		return x.PricedNameDays
+	}
+	return 0
+}
+
+func (x *CoverageYear) GetCoveragePct() float64 {
+	if x != nil {
+		return x.CoveragePct
 	}
 	return 0
 }
@@ -4920,46 +5193,56 @@ func (x *CoverageYear) GetAllReportedPct() float64 {
 	return 0
 }
 
-func (x *CoverageYear) GetHasAllReported() bool {
+func (x *CoverageYear) GetDelistingExits() int32 {
 	if x != nil {
-		return x.HasAllReported
-	}
-	return false
-}
-
-func (x *CoverageYear) GetAllReportedPriced() int32 {
-	if x != nil {
-		return x.AllReportedPriced
+		return x.DelistingExits
 	}
 	return 0
 }
 
-func (x *CoverageYear) GetAllReportedNameDays() int32 {
+func (x *CoverageYear) GetCaExits() int32 {
+	if x != nil {
+		return x.CaExits
+	}
+	return 0
+}
+
+func (x *CoverageYear) GetAllReportedMeasurable() bool {
+	if x != nil {
+		return x.AllReportedMeasurable
+	}
+	return false
+}
+
+func (x *CoverageYear) GetAllReportedNameDays() int64 {
 	if x != nil {
 		return x.AllReportedNameDays
 	}
 	return 0
 }
 
-// Coverage by month under both measures.
+func (x *CoverageYear) GetAllReportedPricedNameDays() int64 {
+	if x != nil {
+		return x.AllReportedPricedNameDays
+	}
+	return 0
+}
+
+// Coverage by month under both measures. Counts are not served: the percentages are.
 type CoverageMonth struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	Month               string                 `protobuf:"bytes,1,opt,name=month,proto3" json:"month,omitempty"` // YYYY-MM.
-	QualifyingPct       float64                `protobuf:"fixed64,2,opt,name=qualifying_pct,json=qualifyingPct,proto3" json:"qualifying_pct,omitempty"`
-	HasQualifying       bool                   `protobuf:"varint,3,opt,name=has_qualifying,json=hasQualifying,proto3" json:"has_qualifying,omitempty"`
-	QualifyingPriced    int32                  `protobuf:"varint,4,opt,name=qualifying_priced,json=qualifyingPriced,proto3" json:"qualifying_priced,omitempty"`
-	QualifyingNameDays  int32                  `protobuf:"varint,5,opt,name=qualifying_name_days,json=qualifyingNameDays,proto3" json:"qualifying_name_days,omitempty"`
-	AllReportedPct      float64                `protobuf:"fixed64,6,opt,name=all_reported_pct,json=allReportedPct,proto3" json:"all_reported_pct,omitempty"`
-	HasAllReported      bool                   `protobuf:"varint,7,opt,name=has_all_reported,json=hasAllReported,proto3" json:"has_all_reported,omitempty"`
-	AllReportedPriced   int32                  `protobuf:"varint,8,opt,name=all_reported_priced,json=allReportedPriced,proto3" json:"all_reported_priced,omitempty"`
-	AllReportedNameDays int32                  `protobuf:"varint,9,opt,name=all_reported_name_days,json=allReportedNameDays,proto3" json:"all_reported_name_days,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Month                 string                 `protobuf:"bytes,1,opt,name=month,proto3" json:"month,omitempty"`                                  // YYYY-MM.
+	CoveragePct           float64                `protobuf:"fixed64,2,opt,name=coverage_pct,json=coveragePct,proto3" json:"coverage_pct,omitempty"` // Qualifying coverage.
+	Measurable            bool                   `protobuf:"varint,3,opt,name=measurable,proto3" json:"measurable,omitempty"`
+	AllReportedPct        float64                `protobuf:"fixed64,4,opt,name=all_reported_pct,json=allReportedPct,proto3" json:"all_reported_pct,omitempty"`
+	AllReportedMeasurable bool                   `protobuf:"varint,5,opt,name=all_reported_measurable,json=allReportedMeasurable,proto3" json:"all_reported_measurable,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *CoverageMonth) Reset() {
 	*x = CoverageMonth{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[48]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4971,7 +5254,7 @@ func (x *CoverageMonth) String() string {
 func (*CoverageMonth) ProtoMessage() {}
 
 func (x *CoverageMonth) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[48]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4984,7 +5267,7 @@ func (x *CoverageMonth) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoverageMonth.ProtoReflect.Descriptor instead.
 func (*CoverageMonth) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{48}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *CoverageMonth) GetMonth() string {
@@ -4994,32 +5277,18 @@ func (x *CoverageMonth) GetMonth() string {
 	return ""
 }
 
-func (x *CoverageMonth) GetQualifyingPct() float64 {
+func (x *CoverageMonth) GetCoveragePct() float64 {
 	if x != nil {
-		return x.QualifyingPct
+		return x.CoveragePct
 	}
 	return 0
 }
 
-func (x *CoverageMonth) GetHasQualifying() bool {
+func (x *CoverageMonth) GetMeasurable() bool {
 	if x != nil {
-		return x.HasQualifying
+		return x.Measurable
 	}
 	return false
-}
-
-func (x *CoverageMonth) GetQualifyingPriced() int32 {
-	if x != nil {
-		return x.QualifyingPriced
-	}
-	return 0
-}
-
-func (x *CoverageMonth) GetQualifyingNameDays() int32 {
-	if x != nil {
-		return x.QualifyingNameDays
-	}
-	return 0
 }
 
 func (x *CoverageMonth) GetAllReportedPct() float64 {
@@ -5029,41 +5298,27 @@ func (x *CoverageMonth) GetAllReportedPct() float64 {
 	return 0
 }
 
-func (x *CoverageMonth) GetHasAllReported() bool {
+func (x *CoverageMonth) GetAllReportedMeasurable() bool {
 	if x != nil {
-		return x.HasAllReported
+		return x.AllReportedMeasurable
 	}
 	return false
 }
 
-func (x *CoverageMonth) GetAllReportedPriced() int32 {
-	if x != nil {
-		return x.AllReportedPriced
-	}
-	return 0
-}
-
-func (x *CoverageMonth) GetAllReportedNameDays() int32 {
-	if x != nil {
-		return x.AllReportedNameDays
-	}
-	return 0
-}
-
-// Survivorship block. Measurement is machine-readable.
+// Survivorship block. Measurement is one of 8.2's values: measured | partial | not_measurable.
 type Survivorship struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Measurement   string                 `protobuf:"bytes,1,opt,name=measurement,proto3" json:"measurement,omitempty"` // measured | asic_reported_only | not_measurable.
-	Direction     string                 `protobuf:"bytes,2,opt,name=direction,proto3" json:"direction,omitempty"`     // flatters.
-	Statement     string                 `protobuf:"bytes,3,opt,name=statement,proto3" json:"statement,omitempty"`     // The copy the run prints.
-	Caveat        string                 `protobuf:"bytes,4,opt,name=caveat,proto3" json:"caveat,omitempty"`           // The extra line some recipes print; "" otherwise.
+	Measurement   string                 `protobuf:"bytes,1,opt,name=measurement,proto3" json:"measurement,omitempty"`
+	Direction     string                 `protobuf:"bytes,2,opt,name=direction,proto3" json:"direction,omitempty"` // flatters.
+	Statement     string                 `protobuf:"bytes,3,opt,name=statement,proto3" json:"statement,omitempty"` // The copy the run prints.
+	Caveat        string                 `protobuf:"bytes,4,opt,name=caveat,proto3" json:"caveat,omitempty"`       // The extra line some recipes print; "" otherwise.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Survivorship) Reset() {
 	*x = Survivorship{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[49]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5075,7 +5330,7 @@ func (x *Survivorship) String() string {
 func (*Survivorship) ProtoMessage() {}
 
 func (x *Survivorship) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[49]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5088,7 +5343,7 @@ func (x *Survivorship) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Survivorship.ProtoReflect.Descriptor instead.
 func (*Survivorship) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{49}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *Survivorship) GetMeasurement() string {
@@ -5124,14 +5379,14 @@ type Sensitivity struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
 	Id                   string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // costs_x2 | asic_lag_plus_2 | delisting_zero | entry_plus_1 | flat_mockup_costs.
 	Label                string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
-	Applies              bool                   `protobuf:"varint,3,opt,name=applies,proto3" json:"applies,omitempty"` // False when the recipe does not take the change; reason says why.
-	Reason               string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
-	CagrPct              float64                `protobuf:"fixed64,5,opt,name=cagr_pct,json=cagrPct,proto3" json:"cagr_pct,omitempty"`
-	HasCagr              bool                   `protobuf:"varint,6,opt,name=has_cagr,json=hasCagr,proto3" json:"has_cagr,omitempty"`
-	ExcessVsBenchmarkPct float64                `protobuf:"fixed64,7,opt,name=excess_vs_benchmark_pct,json=excessVsBenchmarkPct,proto3" json:"excess_vs_benchmark_pct,omitempty"`
-	HasExcess            bool                   `protobuf:"varint,8,opt,name=has_excess,json=hasExcess,proto3" json:"has_excess,omitempty"`
-	MaxDrawdownPct       float64                `protobuf:"fixed64,9,opt,name=max_drawdown_pct,json=maxDrawdownPct,proto3" json:"max_drawdown_pct,omitempty"`
-	Fragile              bool                   `protobuf:"varint,10,opt,name=fragile,proto3" json:"fragile,omitempty"`                           // A sign flip of the excess CAGR; fragile_chip names it.
+	CagrPct              float64                `protobuf:"fixed64,3,opt,name=cagr_pct,json=cagrPct,proto3" json:"cagr_pct,omitempty"`
+	HasCagr              bool                   `protobuf:"varint,4,opt,name=has_cagr,json=hasCagr,proto3" json:"has_cagr,omitempty"`
+	ExcessVsBenchmarkPct float64                `protobuf:"fixed64,5,opt,name=excess_vs_benchmark_pct,json=excessVsBenchmarkPct,proto3" json:"excess_vs_benchmark_pct,omitempty"`
+	MaxDrawdownPct       float64                `protobuf:"fixed64,6,opt,name=max_drawdown_pct,json=maxDrawdownPct,proto3" json:"max_drawdown_pct,omitempty"`
+	Fragile              bool                   `protobuf:"varint,7,opt,name=fragile,proto3" json:"fragile,omitempty"` // A sign flip of the excess CAGR; fragile_chip names it.
+	Applies              bool                   `protobuf:"varint,8,opt,name=applies,proto3" json:"applies,omitempty"` // False when the recipe does not take the change; reason says why.
+	Reason               string                 `protobuf:"bytes,9,opt,name=reason,proto3" json:"reason,omitempty"`
+	HasExcess            bool                   `protobuf:"varint,10,opt,name=has_excess,json=hasExcess,proto3" json:"has_excess,omitempty"`
 	FragileChip          string                 `protobuf:"bytes,11,opt,name=fragile_chip,json=fragileChip,proto3" json:"fragile_chip,omitempty"` // "Fragile to costs", "Fragile to publication timing", "Fragile to entry timing"; "" otherwise.
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
@@ -5139,7 +5394,7 @@ type Sensitivity struct {
 
 func (x *Sensitivity) Reset() {
 	*x = Sensitivity{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[50]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5151,7 +5406,7 @@ func (x *Sensitivity) String() string {
 func (*Sensitivity) ProtoMessage() {}
 
 func (x *Sensitivity) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[50]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5164,7 +5419,7 @@ func (x *Sensitivity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Sensitivity.ProtoReflect.Descriptor instead.
 func (*Sensitivity) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{50}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *Sensitivity) GetId() string {
@@ -5177,20 +5432,6 @@ func (x *Sensitivity) GetId() string {
 func (x *Sensitivity) GetLabel() string {
 	if x != nil {
 		return x.Label
-	}
-	return ""
-}
-
-func (x *Sensitivity) GetApplies() bool {
-	if x != nil {
-		return x.Applies
-	}
-	return false
-}
-
-func (x *Sensitivity) GetReason() string {
-	if x != nil {
-		return x.Reason
 	}
 	return ""
 }
@@ -5216,13 +5457,6 @@ func (x *Sensitivity) GetExcessVsBenchmarkPct() float64 {
 	return 0
 }
 
-func (x *Sensitivity) GetHasExcess() bool {
-	if x != nil {
-		return x.HasExcess
-	}
-	return false
-}
-
 func (x *Sensitivity) GetMaxDrawdownPct() float64 {
 	if x != nil {
 		return x.MaxDrawdownPct
@@ -5237,6 +5471,27 @@ func (x *Sensitivity) GetFragile() bool {
 	return false
 }
 
+func (x *Sensitivity) GetApplies() bool {
+	if x != nil {
+		return x.Applies
+	}
+	return false
+}
+
+func (x *Sensitivity) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *Sensitivity) GetHasExcess() bool {
+	if x != nil {
+		return x.HasExcess
+	}
+	return false
+}
+
 func (x *Sensitivity) GetFragileChip() string {
 	if x != nil {
 		return x.FragileChip
@@ -5244,16 +5499,16 @@ func (x *Sensitivity) GetFragileChip() string {
 	return ""
 }
 
-// One point of a series. Equity is in A$ on the chained curve. Benchmark and reference are
-// index levels, never zero, so zero reads as not measured (the reference is not recorded
-// after the freeze).
+// One point of a series. Equity is in A$ on the chained curve, rounded to whole dollars. Benchmark and
+// reference are index levels, never zero, so zero reads as not measured (the reference is not recorded
+// after the freeze, and runs published before the reference fix carry none).
 type SeriesPoint struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Date          string                 `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"`
 	Equity        float64                `protobuf:"fixed64,2,opt,name=equity,proto3" json:"equity,omitempty"`
 	Benchmark     float64                `protobuf:"fixed64,3,opt,name=benchmark,proto3" json:"benchmark,omitempty"`
 	Reference     float64                `protobuf:"fixed64,4,opt,name=reference,proto3" json:"reference,omitempty"`
-	DrawdownPct   float64                `protobuf:"fixed64,5,opt,name=drawdown_pct,json=drawdownPct,proto3" json:"drawdown_pct,omitempty"` // Negative or zero.
+	DrawdownPct   float64                `protobuf:"fixed64,5,opt,name=drawdown_pct,json=drawdownPct,proto3" json:"drawdown_pct,omitempty"` // Negative or zero, two decimals.
 	ExposurePct   float64                `protobuf:"fixed64,6,opt,name=exposure_pct,json=exposurePct,proto3" json:"exposure_pct,omitempty"`
 	Recorded      bool                   `protobuf:"varint,7,opt,name=recorded,proto3" json:"recorded,omitempty"` // A paper-track session, recorded after live_from.
 	unknownFields protoimpl.UnknownFields
@@ -5262,7 +5517,7 @@ type SeriesPoint struct {
 
 func (x *SeriesPoint) Reset() {
 	*x = SeriesPoint{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[51]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5274,7 +5529,7 @@ func (x *SeriesPoint) String() string {
 func (*SeriesPoint) ProtoMessage() {}
 
 func (x *SeriesPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[51]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5287,7 +5542,7 @@ func (x *SeriesPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SeriesPoint.ProtoReflect.Descriptor instead.
 func (*SeriesPoint) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{51}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *SeriesPoint) GetDate() string {
@@ -5361,7 +5616,7 @@ type RecipeLines struct {
 
 func (x *RecipeLines) Reset() {
 	*x = RecipeLines{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[52]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5373,7 +5628,7 @@ func (x *RecipeLines) String() string {
 func (*RecipeLines) ProtoMessage() {}
 
 func (x *RecipeLines) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[52]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5386,7 +5641,7 @@ func (x *RecipeLines) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecipeLines.ProtoReflect.Descriptor instead.
 func (*RecipeLines) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{52}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *RecipeLines) GetRecipeId() string {
@@ -5480,7 +5735,7 @@ func (x *RecipeLines) GetPreface() string {
 	return ""
 }
 
-// The closed-trade statistics a run publishes.
+// The closed-trade statistics of a run, over the trades that exited before live_from (in-sample).
 type TradeSummary struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Closed          int32                  `protobuf:"varint,1,opt,name=closed,proto3" json:"closed,omitempty"`
@@ -5493,13 +5748,18 @@ type TradeSummary struct {
 	WorstPct        float64                `protobuf:"fixed64,8,opt,name=worst_pct,json=worstPct,proto3" json:"worst_pct,omitempty"`
 	ExitsByReason   map[string]int32       `protobuf:"bytes,9,rep,name=exits_by_reason,json=exitsByReason,proto3" json:"exits_by_reason,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	HasWinRate      bool                   `protobuf:"varint,10,opt,name=has_win_rate,json=hasWinRate,proto3" json:"has_win_rate,omitempty"`
+	HasAvgHold      bool                   `protobuf:"varint,11,opt,name=has_avg_hold,json=hasAvgHold,proto3" json:"has_avg_hold,omitempty"`
+	HasAvgWin       bool                   `protobuf:"varint,12,opt,name=has_avg_win,json=hasAvgWin,proto3" json:"has_avg_win,omitempty"`
+	HasAvgLoss      bool                   `protobuf:"varint,13,opt,name=has_avg_loss,json=hasAvgLoss,proto3" json:"has_avg_loss,omitempty"`
+	HasBest         bool                   `protobuf:"varint,14,opt,name=has_best,json=hasBest,proto3" json:"has_best,omitempty"`
+	HasWorst        bool                   `protobuf:"varint,15,opt,name=has_worst,json=hasWorst,proto3" json:"has_worst,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *TradeSummary) Reset() {
 	*x = TradeSummary{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[53]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5511,7 +5771,7 @@ func (x *TradeSummary) String() string {
 func (*TradeSummary) ProtoMessage() {}
 
 func (x *TradeSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[53]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5524,7 +5784,7 @@ func (x *TradeSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TradeSummary.ProtoReflect.Descriptor instead.
 func (*TradeSummary) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{53}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *TradeSummary) GetClosed() int32 {
@@ -5597,6 +5857,41 @@ func (x *TradeSummary) GetHasWinRate() bool {
 	return false
 }
 
+func (x *TradeSummary) GetHasAvgHold() bool {
+	if x != nil {
+		return x.HasAvgHold
+	}
+	return false
+}
+
+func (x *TradeSummary) GetHasAvgWin() bool {
+	if x != nil {
+		return x.HasAvgWin
+	}
+	return false
+}
+
+func (x *TradeSummary) GetHasAvgLoss() bool {
+	if x != nil {
+		return x.HasAvgLoss
+	}
+	return false
+}
+
+func (x *TradeSummary) GetHasBest() bool {
+	if x != nil {
+		return x.HasBest
+	}
+	return false
+}
+
+func (x *TradeSummary) GetHasWorst() bool {
+	if x != nil {
+		return x.HasWorst
+	}
+	return false
+}
+
 // A trade of a canonical run. Return columns are percentages.
 type BacktestTrade struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
@@ -5608,7 +5903,7 @@ type BacktestTrade struct {
 	EntryPrice       float64                `protobuf:"fixed64,6,opt,name=entry_price,json=entryPrice,proto3" json:"entry_price,omitempty"`
 	CapturedPivot    float64                `protobuf:"fixed64,7,opt,name=captured_pivot,json=capturedPivot,proto3" json:"captured_pivot,omitempty"`
 	HasCapturedPivot bool                   `protobuf:"varint,8,opt,name=has_captured_pivot,json=hasCapturedPivot,proto3" json:"has_captured_pivot,omitempty"`
-	EntryScore       float64                `protobuf:"fixed64,9,opt,name=entry_score,json=entryScore,proto3" json:"entry_score,omitempty"`
+	EntryScore       float64                `protobuf:"fixed64,9,opt,name=entry_score,json=entryScore,proto3" json:"entry_score,omitempty"` // One decimal.
 	ExitDate         string                 `protobuf:"bytes,10,opt,name=exit_date,json=exitDate,proto3" json:"exit_date,omitempty"`
 	ExitPrice        float64                `protobuf:"fixed64,11,opt,name=exit_price,json=exitPrice,proto3" json:"exit_price,omitempty"`
 	ExitReason       string                 `protobuf:"bytes,12,opt,name=exit_reason,json=exitReason,proto3" json:"exit_reason,omitempty"`
@@ -5624,7 +5919,7 @@ type BacktestTrade struct {
 
 func (x *BacktestTrade) Reset() {
 	*x = BacktestTrade{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[54]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5636,7 +5931,7 @@ func (x *BacktestTrade) String() string {
 func (*BacktestTrade) ProtoMessage() {}
 
 func (x *BacktestTrade) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[54]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5649,7 +5944,7 @@ func (x *BacktestTrade) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BacktestTrade.ProtoReflect.Descriptor instead.
 func (*BacktestTrade) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{54}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *BacktestTrade) GetSeq() int32 {
@@ -5794,7 +6089,7 @@ type PaperTrackSummary struct {
 
 func (x *PaperTrackSummary) Reset() {
 	*x = PaperTrackSummary{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[55]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5806,7 +6101,7 @@ func (x *PaperTrackSummary) String() string {
 func (*PaperTrackSummary) ProtoMessage() {}
 
 func (x *PaperTrackSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[55]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5819,7 +6114,7 @@ func (x *PaperTrackSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PaperTrackSummary.ProtoReflect.Descriptor instead.
 func (*PaperTrackSummary) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{55}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *PaperTrackSummary) GetSince() string {
@@ -5874,7 +6169,7 @@ func (x *PaperTrackSummary) GetTooShort() bool {
 // Request for ListBacktestTrades.
 type ListBacktestTradesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	RunId         int64                  `protobuf:"varint,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`               // Required: a canonical publish run.
+	RunId         int64                  `protobuf:"varint,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`               // Required: a canonical run.
 	PageToken     string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`    // The next_page_token of the previous page.
 	PageSize      int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`      // 1 to 200; 0 is the default of 50.
 	StockCode     string                 `protobuf:"bytes,4,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`    // Optional: one stock's trades.
@@ -5885,7 +6180,7 @@ type ListBacktestTradesRequest struct {
 
 func (x *ListBacktestTradesRequest) Reset() {
 	*x = ListBacktestTradesRequest{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[56]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5897,7 +6192,7 @@ func (x *ListBacktestTradesRequest) String() string {
 func (*ListBacktestTradesRequest) ProtoMessage() {}
 
 func (x *ListBacktestTradesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[56]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5910,7 +6205,7 @@ func (x *ListBacktestTradesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBacktestTradesRequest.ProtoReflect.Descriptor instead.
 func (*ListBacktestTradesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{56}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ListBacktestTradesRequest) GetRunId() int64 {
@@ -5960,7 +6255,7 @@ type ListBacktestTradesResponse struct {
 
 func (x *ListBacktestTradesResponse) Reset() {
 	*x = ListBacktestTradesResponse{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[57]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5972,7 +6267,7 @@ func (x *ListBacktestTradesResponse) String() string {
 func (*ListBacktestTradesResponse) ProtoMessage() {}
 
 func (x *ListBacktestTradesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[57]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5985,7 +6280,7 @@ func (x *ListBacktestTradesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBacktestTradesResponse.ProtoReflect.Descriptor instead.
 func (*ListBacktestTradesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{57}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ListBacktestTradesResponse) GetTrades() []*BacktestTrade {
@@ -6019,7 +6314,7 @@ type CompareStrategiesRequest struct {
 
 func (x *CompareStrategiesRequest) Reset() {
 	*x = CompareStrategiesRequest{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[58]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6031,7 +6326,7 @@ func (x *CompareStrategiesRequest) String() string {
 func (*CompareStrategiesRequest) ProtoMessage() {}
 
 func (x *CompareStrategiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[58]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6044,7 +6339,7 @@ func (x *CompareStrategiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompareStrategiesRequest.ProtoReflect.Descriptor instead.
 func (*CompareStrategiesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{58}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *CompareStrategiesRequest) GetRefs() []string {
@@ -6057,18 +6352,19 @@ func (x *CompareStrategiesRequest) GetRefs() []string {
 // Response for CompareStrategies.
 type CompareStrategiesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	WindowId      string                 `protobuf:"bytes,1,opt,name=window_id,json=windowId,proto3" json:"window_id,omitempty"` // "common": the sessions every compared curve covers. Empty when a strategy has no published run.
+	WindowId      string                 `protobuf:"bytes,1,opt,name=window_id,json=windowId,proto3" json:"window_id,omitempty"` // "common": the sessions every compared curve covers.
 	WindowFrom    string                 `protobuf:"bytes,2,opt,name=window_from,json=windowFrom,proto3" json:"window_from,omitempty"`
 	WindowTo      string                 `protobuf:"bytes,3,opt,name=window_to,json=windowTo,proto3" json:"window_to,omitempty"`
 	Entries       []*CompareEntry        `protobuf:"bytes,4,rep,name=entries,proto3" json:"entries,omitempty"`
 	Correlations  []*StrategyCorrelation `protobuf:"bytes,5,rep,name=correlations,proto3" json:"correlations,omitempty"`
+	RuleDiffs     []*RuleDiff            `protobuf:"bytes,6,rep,name=rule_diffs,json=ruleDiffs,proto3" json:"rule_diffs,omitempty"` // The recipe lines that differ between each pair of compared strategies.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CompareStrategiesResponse) Reset() {
 	*x = CompareStrategiesResponse{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[59]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6080,7 +6376,7 @@ func (x *CompareStrategiesResponse) String() string {
 func (*CompareStrategiesResponse) ProtoMessage() {}
 
 func (x *CompareStrategiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[59]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6093,7 +6389,7 @@ func (x *CompareStrategiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompareStrategiesResponse.ProtoReflect.Descriptor instead.
 func (*CompareStrategiesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{59}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *CompareStrategiesResponse) GetWindowId() string {
@@ -6131,23 +6427,31 @@ func (x *CompareStrategiesResponse) GetCorrelations() []*StrategyCorrelation {
 	return nil
 }
 
+func (x *CompareStrategiesResponse) GetRuleDiffs() []*RuleDiff {
+	if x != nil {
+		return x.RuleDiffs
+	}
+	return nil
+}
+
 // One compared strategy.
 type CompareEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	StrategyRef   string                 `protobuf:"bytes,1,opt,name=strategy_ref,json=strategyRef,proto3" json:"strategy_ref,omitempty"`
 	StrategyId    string                 `protobuf:"bytes,2,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"`
 	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	State         string                 `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"` // computed when the strategy has a published run; otherwise its state.
+	State         string                 `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"` // published, or the state the strategy is in.
 	Version       *StrategyVersionRef    `protobuf:"bytes,5,opt,name=version,proto3" json:"version,omitempty"`
 	Window        *WindowMetrics         `protobuf:"bytes,6,opt,name=window,proto3" json:"window,omitempty"` // Absent when the strategy has no curve.
 	Series        []*SeriesPoint         `protobuf:"bytes,7,rep,name=series,proto3" json:"series,omitempty"` // Weekly over the common window, rebased to 100,000.
+	StateReason   string                 `protobuf:"bytes,8,opt,name=state_reason,json=stateReason,proto3" json:"state_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CompareEntry) Reset() {
 	*x = CompareEntry{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[60]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6159,7 +6463,7 @@ func (x *CompareEntry) String() string {
 func (*CompareEntry) ProtoMessage() {}
 
 func (x *CompareEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[60]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6172,7 +6476,7 @@ func (x *CompareEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompareEntry.ProtoReflect.Descriptor instead.
 func (*CompareEntry) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{60}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *CompareEntry) GetStrategyRef() string {
@@ -6224,13 +6528,20 @@ func (x *CompareEntry) GetSeries() []*SeriesPoint {
 	return nil
 }
 
+func (x *CompareEntry) GetStateReason() string {
+	if x != nil {
+		return x.StateReason
+	}
+	return ""
+}
+
 // The correlation of two compared strategies' daily returns over the common window.
 type StrategyCorrelation struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	A              string                 `protobuf:"bytes,1,opt,name=a,proto3" json:"a,omitempty"`
 	B              string                 `protobuf:"bytes,2,opt,name=b,proto3" json:"b,omitempty"`
 	Correlation    float64                `protobuf:"fixed64,3,opt,name=correlation,proto3" json:"correlation,omitempty"`
-	HasCorrelation bool                   `protobuf:"varint,4,opt,name=has_correlation,json=hasCorrelation,proto3" json:"has_correlation,omitempty"` // False when the overlap has too few returns.
+	HasCorrelation bool                   `protobuf:"varint,4,opt,name=has_correlation,json=hasCorrelation,proto3" json:"has_correlation,omitempty"` // False when the overlap is too short or one curve is flat.
 	Days           int32                  `protobuf:"varint,5,opt,name=days,proto3" json:"days,omitempty"`                                           // Daily returns in the overlap.
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -6238,7 +6549,7 @@ type StrategyCorrelation struct {
 
 func (x *StrategyCorrelation) Reset() {
 	*x = StrategyCorrelation{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[61]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6250,7 +6561,7 @@ func (x *StrategyCorrelation) String() string {
 func (*StrategyCorrelation) ProtoMessage() {}
 
 func (x *StrategyCorrelation) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[61]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6263,7 +6574,7 @@ func (x *StrategyCorrelation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StrategyCorrelation.ProtoReflect.Descriptor instead.
 func (*StrategyCorrelation) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{61}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *StrategyCorrelation) GetA() string {
@@ -6299,6 +6610,83 @@ func (x *StrategyCorrelation) GetDays() int32 {
 		return x.Days
 	}
 	return 0
+}
+
+// One recipe line that differs between two compared strategies.
+type RuleDiff struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	A             string                 `protobuf:"bytes,1,opt,name=a,proto3" json:"a,omitempty"`         // The first strategy id.
+	B             string                 `protobuf:"bytes,2,opt,name=b,proto3" json:"b,omitempty"`         // The second strategy id.
+	Field         string                 `protobuf:"bytes,3,opt,name=field,proto3" json:"field,omitempty"` // The recipe line, e.g. "entry", "exits", "sizing".
+	AValue        string                 `protobuf:"bytes,4,opt,name=a_value,json=aValue,proto3" json:"a_value,omitempty"`
+	BValue        string                 `protobuf:"bytes,5,opt,name=b_value,json=bValue,proto3" json:"b_value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RuleDiff) Reset() {
+	*x = RuleDiff{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RuleDiff) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RuleDiff) ProtoMessage() {}
+
+func (x *RuleDiff) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RuleDiff.ProtoReflect.Descriptor instead.
+func (*RuleDiff) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *RuleDiff) GetA() string {
+	if x != nil {
+		return x.A
+	}
+	return ""
+}
+
+func (x *RuleDiff) GetB() string {
+	if x != nil {
+		return x.B
+	}
+	return ""
+}
+
+func (x *RuleDiff) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *RuleDiff) GetAValue() string {
+	if x != nil {
+		return x.AValue
+	}
+	return ""
+}
+
+func (x *RuleDiff) GetBValue() string {
+	if x != nil {
+		return x.BValue
+	}
+	return ""
 }
 
 var File_shorts_v1alpha1_strategies_proto protoreflect.FileDescriptor
@@ -6670,7 +7058,7 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\fwindow_start\x18\x02 \x01(\tR\vwindowStart\x12%\n" +
 	"\x0eprices_through\x18\x03 \x01(\tR\rpricesThrough\x12%\n" +
 	"\x0ebenchmark_name\x18\x04 \x01(\tR\rbenchmarkName\x12\x1c\n" +
-	"\tfootnotes\x18\x05 \x03(\tR\tfootnotes\"\xd1\x04\n" +
+	"\tfootnotes\x18\x05 \x03(\tR\tfootnotes\"\xfd\x05\n" +
 	"\x10StrategyEvidence\x12\x1f\n" +
 	"\vstrategy_id\x18\x01 \x01(\tR\n" +
 	"strategyId\x12=\n" +
@@ -6687,30 +7075,33 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	" \x01(\v2\".shorts.v1alpha1.PaperTrackSummaryR\x05paper\x12\"\n" +
 	"\fsurvivorship\x18\v \x01(\tR\fsurvivorship\x12\x15\n" +
 	"\x06run_id\x18\f \x01(\x03R\x05runId\x12#\n" +
-	"\rlatest_screen\x18\r \x01(\tR\flatestScreen\"o\n" +
+	"\rlatest_screen\x18\r \x01(\tR\flatestScreen\x12!\n" +
+	"\fstate_reason\x18\x0e \x01(\tR\vstateReason\x12#\n" +
+	"\rrunning_since\x18\x0f \x01(\tR\frunningSince\x120\n" +
+	"\x14computable_share_pct\x18\x10 \x01(\x01R\x12computableSharePct\x120\n" +
+	"\x14has_computable_share\x18\x11 \x01(\bR\x12hasComputableShare\"\x87\x01\n" +
 	"\x15GetBacktestRunRequest\x12\x1f\n" +
 	"\vstrategy_id\x18\x01 \x01(\tR\n" +
 	"strategyId\x12\x15\n" +
 	"\x06run_id\x18\x02 \x01(\x03R\x05runId\x12\x1e\n" +
 	"\n" +
 	"resolution\x18\x03 \x01(\tR\n" +
-	"resolution\"H\n" +
+	"resolution\x12\x16\n" +
+	"\x06window\x18\x04 \x01(\tR\x06window\"H\n" +
 	"\x16GetBacktestRunResponse\x12.\n" +
-	"\x03run\x18\x01 \x01(\v2\x1c.shorts.v1alpha1.BacktestRunR\x03run\"\xb4\n" +
-	"\n" +
+	"\x03run\x18\x01 \x01(\v2\x1c.shorts.v1alpha1.BacktestRunR\x03run\"\xd6\v\n" +
 	"\vBacktestRun\x12\x14\n" +
-	"\x05state\x18\x01 \x01(\tR\x05state\x12\x1f\n" +
-	"\vstrategy_id\x18\x02 \x01(\tR\n" +
-	"strategyId\x12'\n" +
+	"\x05state\x18\x01 \x01(\tR\x05state\x12!\n" +
+	"\fstate_reason\x18\x02 \x01(\tR\vstateReason\x12'\n" +
 	"\x0fcomputable_from\x18\x03 \x01(\tR\x0ecomputableFrom\x12!\n" +
 	"\ffiscal_label\x18\x04 \x01(\tR\vfiscalLabel\x12@\n" +
 	"\bidentity\x18\x05 \x01(\v2$.shorts.v1alpha1.BacktestRunIdentityR\bidentity\x128\n" +
 	"\awindows\x18\x06 \x03(\v2\x1e.shorts.v1alpha1.WindowMetricsR\awindows\x125\n" +
 	"\x06annual\x18\a \x03(\v2\x1d.shorts.v1alpha1.AnnualReturnR\x06annual\x128\n" +
 	"\amonthly\x18\b \x03(\v2\x1e.shorts.v1alpha1.MonthlyReturnR\amonthly\x124\n" +
-	"\x06series\x18\t \x03(\v2\x1c.shorts.v1alpha1.SeriesPointR\x06series\x12G\n" +
-	"\x10coverage_by_year\x18\n" +
-	" \x03(\v2\x1d.shorts.v1alpha1.CoverageYearR\x0ecoverageByYear\x12I\n" +
+	"\x06series\x18\t \x03(\v2\x1c.shorts.v1alpha1.SeriesPointR\x06series\x129\n" +
+	"\bcoverage\x18\n" +
+	" \x03(\v2\x1d.shorts.v1alpha1.CoverageYearR\bcoverage\x12I\n" +
 	"\x10coverage_monthly\x18\v \x03(\v2\x1e.shorts.v1alpha1.CoverageMonthR\x0fcoverageMonthly\x12A\n" +
 	"\fsurvivorship\x18\f \x01(\v2\x1d.shorts.v1alpha1.SurvivorshipR\fsurvivorship\x12>\n" +
 	"\vsensitivity\x18\r \x03(\v2\x1c.shorts.v1alpha1.SensitivityR\vsensitivity\x124\n" +
@@ -6723,11 +7114,33 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x11input_change_note\x18\x14 \x01(\tR\x0finputChangeNote\x12 \n" +
 	"\vdisclosures\x18\x15 \x03(\tR\vdisclosures\x12\x1d\n" +
 	"\n" +
-	"data_notes\x18\x16 \x03(\tR\tdataNotes\x12#\n" +
-	"\rrunning_since\x18\x17 \x01(\tR\frunningSince\x12+\n" +
-	"\x11series_resolution\x18\x18 \x01(\tR\x10seriesResolution\x120\n" +
-	"\x14computable_share_pct\x18\x19 \x01(\x01R\x12computableSharePct\x120\n" +
-	"\x14has_computable_share\x18\x1a \x01(\bR\x12hasComputableShare\"\x81\x06\n" +
+	"data_notes\x18\x16 \x03(\tR\tdataNotes\x12\x1f\n" +
+	"\vstrategy_id\x18\x17 \x01(\tR\n" +
+	"strategyId\x12#\n" +
+	"\rrunning_since\x18\x18 \x01(\tR\frunningSince\x12+\n" +
+	"\x11series_resolution\x18\x19 \x01(\tR\x10seriesResolution\x120\n" +
+	"\x14computable_share_pct\x18\x1a \x01(\x01R\x12computableSharePct\x120\n" +
+	"\x14has_computable_share\x18\x1b \x01(\bR\x12hasComputableShare\x12?\n" +
+	"\fdata_quality\x18\x1c \x01(\v2\x1c.shorts.v1alpha1.DataQualityR\vdataQuality\x12\x1b\n" +
+	"\twindow_id\x18\x1d \x01(\tR\bwindowId\x12-\n" +
+	"\x12fundamentals_label\x18\x1e \x01(\tR\x11fundamentalsLabel\"\xe2\x04\n" +
+	"\vDataQuality\x12'\n" +
+	"\x0fdelisting_exits\x18\x01 \x01(\x05R\x0edelistingExits\x124\n" +
+	"\x16corporate_action_exits\x18\x02 \x01(\x05R\x14corporateActionExits\x12\x1f\n" +
+	"\vca_suspects\x18\x03 \x01(\x05R\n" +
+	"caSuspects\x12%\n" +
+	"\x0efallback_close\x18\x04 \x01(\x05R\rfallbackClose\x12.\n" +
+	"\x13price_return_trades\x18\x05 \x01(\x05R\x11priceReturnTrades\x12'\n" +
+	"\x0fcapacity_capped\x18\x06 \x01(\x05R\x0ecapacityCapped\x12*\n" +
+	"\x11stale_mark_trades\x18\a \x01(\x05R\x0fstaleMarkTrades\x12#\n" +
+	"\rdelayed_exits\x18\b \x01(\x05R\fdelayedExits\x12_\n" +
+	"\x11cancelled_entries\x18\t \x03(\v22.shorts.v1alpha1.DataQuality.CancelledEntriesEntryR\x10cancelledEntries\x12-\n" +
+	"\x12dividends_credited\x18\n" +
+	" \x01(\x05R\x11dividendsCredited\x12-\n" +
+	"\x12consolidation_note\x18\v \x01(\tR\x11consolidationNote\x1aC\n" +
+	"\x15CancelledEntriesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\x81\x06\n" +
 	"\x13BacktestRunIdentity\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\x03R\x05runId\x12\x17\n" +
 	"\arun_key\x18\x02 \x01(\tR\x06runKey\x12\x12\n" +
@@ -6756,7 +7169,7 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x0ebuild_revision\x18\x13 \x01(\tR\rbuildRevision\x12\x1b\n" +
 	"\trisk_free\x18\x14 \x01(\tR\briskFree\x12%\n" +
 	"\x0ereference_name\x18\x15 \x01(\tR\rreferenceName\x12\x19\n" +
-	"\brun_date\x18\x16 \x01(\tR\arunDate\"\xe0\x06\n" +
+	"\brun_date\x18\x16 \x01(\tR\arunDate\"\xe1\t\n" +
 	"\rWindowMetrics\x12\x16\n" +
 	"\x06window\x18\x01 \x01(\tR\x06window\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
@@ -6787,50 +7200,62 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\bsessions\x18\x17 \x01(\x05R\bsessions\x12#\n" +
 	"\rcalendar_days\x18\x18 \x01(\x05R\fcalendarDays\x12%\n" +
 	"\x0evolatility_pct\x18\x19 \x01(\x01R\rvolatilityPct\x12%\n" +
-	"\x0ehas_volatility\x18\x1a \x01(\bR\rhasVolatility\"\xfd\x02\n" +
+	"\x0ehas_volatility\x18\x1a \x01(\bR\rhasVolatility\x12(\n" +
+	"\x10has_total_return\x18\x1b \x01(\bR\x0ehasTotalReturn\x12\x1b\n" +
+	"\tpeak_date\x18\x1c \x01(\tR\bpeakDate\x12\x1f\n" +
+	"\vtrough_date\x18\x1d \x01(\tR\n" +
+	"troughDate\x12#\n" +
+	"\rrecovery_date\x18\x1e \x01(\tR\frecoveryDate\x12;\n" +
+	"\x1abenchmark_total_return_pct\x18\x1f \x01(\x01R\x17benchmarkTotalReturnPct\x12;\n" +
+	"\x1ahas_benchmark_total_return\x18  \x01(\bR\x17hasBenchmarkTotalReturn\x12;\n" +
+	"\x1areference_total_return_pct\x18! \x01(\x01R\x17referenceTotalReturnPct\x12;\n" +
+	"\x1ahas_reference_total_return\x18\" \x01(\bR\x17hasReferenceTotalReturn\"\xa8\x03\n" +
 	"\fAnnualReturn\x12\x12\n" +
 	"\x04year\x18\x01 \x01(\x05R\x04year\x12\x14\n" +
-	"\x05state\x18\x02 \x01(\tR\x05state\x12\x16\n" +
-	"\x06months\x18\x03 \x01(\tR\x06months\x12!\n" +
-	"\fstrategy_pct\x18\x04 \x01(\x01R\vstrategyPct\x12#\n" +
-	"\rbenchmark_pct\x18\x05 \x01(\x01R\fbenchmarkPct\x12#\n" +
-	"\rhas_benchmark\x18\x06 \x01(\bR\fhasBenchmark\x12#\n" +
-	"\rreference_pct\x18\a \x01(\x01R\freferencePct\x12#\n" +
-	"\rhas_reference\x18\b \x01(\bR\fhasReference\x12!\n" +
-	"\fcoverage_pct\x18\t \x01(\x01R\vcoveragePct\x12/\n" +
-	"\x13coverage_measurable\x18\n" +
-	" \x01(\bR\x12coverageMeasurable\x12 \n" +
-	"\vapproximate\x18\v \x01(\bR\vapproximate\"\x9c\x02\n" +
+	"\x05state\x18\x02 \x01(\tR\x05state\x12!\n" +
+	"\fstrategy_pct\x18\x03 \x01(\x01R\vstrategyPct\x12#\n" +
+	"\rbenchmark_pct\x18\x04 \x01(\x01R\fbenchmarkPct\x12#\n" +
+	"\rreference_pct\x18\x05 \x01(\x01R\freferencePct\x12\x16\n" +
+	"\x06months\x18\x06 \x01(\tR\x06months\x12!\n" +
+	"\fcoverage_pct\x18\a \x01(\x01R\vcoveragePct\x12/\n" +
+	"\x13coverage_measurable\x18\b \x01(\bR\x12coverageMeasurable\x12 \n" +
+	"\vapproximate\x18\t \x01(\bR\vapproximate\x12#\n" +
+	"\rhas_benchmark\x18\n" +
+	" \x01(\bR\fhasBenchmark\x12#\n" +
+	"\rhas_reference\x18\v \x01(\bR\fhasReference\x12)\n" +
+	"\x10coverage_measure\x18\f \x01(\tR\x0fcoverageMeasure\"\x9c\x02\n" +
 	"\rMonthlyReturn\x12\x12\n" +
 	"\x04year\x18\x01 \x01(\x05R\x04year\x12\x14\n" +
 	"\x05month\x18\x02 \x01(\x05R\x05month\x12\x14\n" +
 	"\x05state\x18\x03 \x01(\tR\x05state\x12!\n" +
 	"\fstrategy_pct\x18\x04 \x01(\x01R\vstrategyPct\x12#\n" +
 	"\rbenchmark_pct\x18\x05 \x01(\x01R\fbenchmarkPct\x12#\n" +
-	"\rhas_benchmark\x18\x06 \x01(\bR\fhasBenchmark\x12#\n" +
-	"\rreference_pct\x18\a \x01(\x01R\freferencePct\x12#\n" +
+	"\rreference_pct\x18\x06 \x01(\x01R\freferencePct\x12#\n" +
+	"\rhas_benchmark\x18\a \x01(\bR\fhasBenchmark\x12#\n" +
 	"\rhas_reference\x18\b \x01(\bR\fhasReference\x12\x14\n" +
-	"\x05label\x18\t \x01(\tR\x05label\"\x88\x03\n" +
+	"\x05label\x18\t \x01(\tR\x05label\"\xde\x03\n" +
 	"\fCoverageYear\x12\x12\n" +
-	"\x04year\x18\x01 \x01(\x05R\x04year\x12%\n" +
-	"\x0equalifying_pct\x18\x02 \x01(\x01R\rqualifyingPct\x12%\n" +
-	"\x0ehas_qualifying\x18\x03 \x01(\bR\rhasQualifying\x12+\n" +
-	"\x11qualifying_priced\x18\x04 \x01(\x05R\x10qualifyingPriced\x120\n" +
-	"\x14qualifying_name_days\x18\x05 \x01(\x05R\x12qualifyingNameDays\x12(\n" +
-	"\x10all_reported_pct\x18\x06 \x01(\x01R\x0eallReportedPct\x12(\n" +
-	"\x10has_all_reported\x18\a \x01(\bR\x0ehasAllReported\x12.\n" +
-	"\x13all_reported_priced\x18\b \x01(\x05R\x11allReportedPriced\x123\n" +
-	"\x16all_reported_name_days\x18\t \x01(\x05R\x13allReportedNameDays\"\x8b\x03\n" +
+	"\x04year\x18\x01 \x01(\x05R\x04year\x12\x1e\n" +
+	"\n" +
+	"measurable\x18\x02 \x01(\bR\n" +
+	"measurable\x120\n" +
+	"\x14qualifying_name_days\x18\x03 \x01(\x03R\x12qualifyingNameDays\x12(\n" +
+	"\x10priced_name_days\x18\x04 \x01(\x03R\x0epricedNameDays\x12!\n" +
+	"\fcoverage_pct\x18\x05 \x01(\x01R\vcoveragePct\x12(\n" +
+	"\x10all_reported_pct\x18\x06 \x01(\x01R\x0eallReportedPct\x12'\n" +
+	"\x0fdelisting_exits\x18\a \x01(\x05R\x0edelistingExits\x12\x19\n" +
+	"\bca_exits\x18\b \x01(\x05R\acaExits\x126\n" +
+	"\x17all_reported_measurable\x18\v \x01(\bR\x15allReportedMeasurable\x123\n" +
+	"\x16all_reported_name_days\x18\f \x01(\x03R\x13allReportedNameDays\x12@\n" +
+	"\x1dall_reported_priced_name_days\x18\r \x01(\x03R\x19allReportedPricedNameDays\"\xca\x01\n" +
 	"\rCoverageMonth\x12\x14\n" +
-	"\x05month\x18\x01 \x01(\tR\x05month\x12%\n" +
-	"\x0equalifying_pct\x18\x02 \x01(\x01R\rqualifyingPct\x12%\n" +
-	"\x0ehas_qualifying\x18\x03 \x01(\bR\rhasQualifying\x12+\n" +
-	"\x11qualifying_priced\x18\x04 \x01(\x05R\x10qualifyingPriced\x120\n" +
-	"\x14qualifying_name_days\x18\x05 \x01(\x05R\x12qualifyingNameDays\x12(\n" +
-	"\x10all_reported_pct\x18\x06 \x01(\x01R\x0eallReportedPct\x12(\n" +
-	"\x10has_all_reported\x18\a \x01(\bR\x0ehasAllReported\x12.\n" +
-	"\x13all_reported_priced\x18\b \x01(\x05R\x11allReportedPriced\x123\n" +
-	"\x16all_reported_name_days\x18\t \x01(\x05R\x13allReportedNameDays\"\x84\x01\n" +
+	"\x05month\x18\x01 \x01(\tR\x05month\x12!\n" +
+	"\fcoverage_pct\x18\x02 \x01(\x01R\vcoveragePct\x12\x1e\n" +
+	"\n" +
+	"measurable\x18\x03 \x01(\bR\n" +
+	"measurable\x12(\n" +
+	"\x10all_reported_pct\x18\x04 \x01(\x01R\x0eallReportedPct\x126\n" +
+	"\x17all_reported_measurable\x18\x05 \x01(\bR\x15allReportedMeasurable\"\x84\x01\n" +
 	"\fSurvivorship\x12 \n" +
 	"\vmeasurement\x18\x01 \x01(\tR\vmeasurement\x12\x1c\n" +
 	"\tdirection\x18\x02 \x01(\tR\tdirection\x12\x1c\n" +
@@ -6838,17 +7263,17 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x06caveat\x18\x04 \x01(\tR\x06caveat\"\xd8\x02\n" +
 	"\vSensitivity\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05label\x18\x02 \x01(\tR\x05label\x12\x18\n" +
-	"\aapplies\x18\x03 \x01(\bR\aapplies\x12\x16\n" +
-	"\x06reason\x18\x04 \x01(\tR\x06reason\x12\x19\n" +
-	"\bcagr_pct\x18\x05 \x01(\x01R\acagrPct\x12\x19\n" +
-	"\bhas_cagr\x18\x06 \x01(\bR\ahasCagr\x125\n" +
-	"\x17excess_vs_benchmark_pct\x18\a \x01(\x01R\x14excessVsBenchmarkPct\x12\x1d\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x19\n" +
+	"\bcagr_pct\x18\x03 \x01(\x01R\acagrPct\x12\x19\n" +
+	"\bhas_cagr\x18\x04 \x01(\bR\ahasCagr\x125\n" +
+	"\x17excess_vs_benchmark_pct\x18\x05 \x01(\x01R\x14excessVsBenchmarkPct\x12(\n" +
+	"\x10max_drawdown_pct\x18\x06 \x01(\x01R\x0emaxDrawdownPct\x12\x18\n" +
+	"\afragile\x18\a \x01(\bR\afragile\x12\x18\n" +
+	"\aapplies\x18\b \x01(\bR\aapplies\x12\x16\n" +
+	"\x06reason\x18\t \x01(\tR\x06reason\x12\x1d\n" +
 	"\n" +
-	"has_excess\x18\b \x01(\bR\thasExcess\x12(\n" +
-	"\x10max_drawdown_pct\x18\t \x01(\x01R\x0emaxDrawdownPct\x12\x18\n" +
-	"\afragile\x18\n" +
-	" \x01(\bR\afragile\x12!\n" +
+	"has_excess\x18\n" +
+	" \x01(\bR\thasExcess\x12!\n" +
 	"\ffragile_chip\x18\v \x01(\tR\vfragileChip\"\xd7\x01\n" +
 	"\vSeriesPoint\x12\x12\n" +
 	"\x04date\x18\x01 \x01(\tR\x04date\x12\x16\n" +
@@ -6872,7 +7297,7 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	" \x01(\tR\tdelisting\x12\x18\n" +
 	"\acapital\x18\v \x01(\tR\acapital\x12\x12\n" +
 	"\x04cash\x18\f \x01(\tR\x04cash\x12\x18\n" +
-	"\apreface\x18\r \x01(\tR\apreface\"\xcc\x03\n" +
+	"\apreface\x18\r \x01(\tR\apreface\"\xe8\x04\n" +
 	"\fTradeSummary\x12\x16\n" +
 	"\x06closed\x18\x01 \x01(\x05R\x06closed\x12\x1e\n" +
 	"\vopen_at_end\x18\x02 \x01(\x05R\topenAtEnd\x12 \n" +
@@ -6887,7 +7312,14 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x0fexits_by_reason\x18\t \x03(\v20.shorts.v1alpha1.TradeSummary.ExitsByReasonEntryR\rexitsByReason\x12 \n" +
 	"\fhas_win_rate\x18\n" +
 	" \x01(\bR\n" +
-	"hasWinRate\x1a@\n" +
+	"hasWinRate\x12 \n" +
+	"\fhas_avg_hold\x18\v \x01(\bR\n" +
+	"hasAvgHold\x12\x1e\n" +
+	"\vhas_avg_win\x18\f \x01(\bR\thasAvgWin\x12 \n" +
+	"\fhas_avg_loss\x18\r \x01(\bR\n" +
+	"hasAvgLoss\x12\x19\n" +
+	"\bhas_best\x18\x0e \x01(\bR\ahasBest\x12\x1b\n" +
+	"\thas_worst\x18\x0f \x01(\bR\bhasWorst\x1a@\n" +
 	"\x12ExitsByReasonEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xe0\x04\n" +
@@ -6942,14 +7374,16 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x14\n" +
 	"\x05total\x18\x03 \x01(\x05R\x05total\".\n" +
 	"\x18CompareStrategiesRequest\x12\x12\n" +
-	"\x04refs\x18\x01 \x03(\tR\x04refs\"\xf9\x01\n" +
+	"\x04refs\x18\x01 \x03(\tR\x04refs\"\xb3\x02\n" +
 	"\x19CompareStrategiesResponse\x12\x1b\n" +
 	"\twindow_id\x18\x01 \x01(\tR\bwindowId\x12\x1f\n" +
 	"\vwindow_from\x18\x02 \x01(\tR\n" +
 	"windowFrom\x12\x1b\n" +
 	"\twindow_to\x18\x03 \x01(\tR\bwindowTo\x127\n" +
 	"\aentries\x18\x04 \x03(\v2\x1d.shorts.v1alpha1.CompareEntryR\aentries\x12H\n" +
-	"\fcorrelations\x18\x05 \x03(\v2$.shorts.v1alpha1.StrategyCorrelationR\fcorrelations\"\xa9\x02\n" +
+	"\fcorrelations\x18\x05 \x03(\v2$.shorts.v1alpha1.StrategyCorrelationR\fcorrelations\x128\n" +
+	"\n" +
+	"rule_diffs\x18\x06 \x03(\v2\x19.shorts.v1alpha1.RuleDiffR\truleDiffs\"\xcc\x02\n" +
 	"\fCompareEntry\x12!\n" +
 	"\fstrategy_ref\x18\x01 \x01(\tR\vstrategyRef\x12\x1f\n" +
 	"\vstrategy_id\x18\x02 \x01(\tR\n" +
@@ -6958,13 +7392,20 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x05state\x18\x04 \x01(\tR\x05state\x12=\n" +
 	"\aversion\x18\x05 \x01(\v2#.shorts.v1alpha1.StrategyVersionRefR\aversion\x126\n" +
 	"\x06window\x18\x06 \x01(\v2\x1e.shorts.v1alpha1.WindowMetricsR\x06window\x124\n" +
-	"\x06series\x18\a \x03(\v2\x1c.shorts.v1alpha1.SeriesPointR\x06series\"\x90\x01\n" +
+	"\x06series\x18\a \x03(\v2\x1c.shorts.v1alpha1.SeriesPointR\x06series\x12!\n" +
+	"\fstate_reason\x18\b \x01(\tR\vstateReason\"\x90\x01\n" +
 	"\x13StrategyCorrelation\x12\f\n" +
 	"\x01a\x18\x01 \x01(\tR\x01a\x12\f\n" +
 	"\x01b\x18\x02 \x01(\tR\x01b\x12 \n" +
 	"\vcorrelation\x18\x03 \x01(\x01R\vcorrelation\x12'\n" +
 	"\x0fhas_correlation\x18\x04 \x01(\bR\x0ehasCorrelation\x12\x12\n" +
-	"\x04days\x18\x05 \x01(\x05R\x04days2\xdb\r\n" +
+	"\x04days\x18\x05 \x01(\x05R\x04days\"n\n" +
+	"\bRuleDiff\x12\f\n" +
+	"\x01a\x18\x01 \x01(\tR\x01a\x12\f\n" +
+	"\x01b\x18\x02 \x01(\tR\x01b\x12\x14\n" +
+	"\x05field\x18\x03 \x01(\tR\x05field\x12\x17\n" +
+	"\aa_value\x18\x04 \x01(\tR\x06aValue\x12\x17\n" +
+	"\ab_value\x18\x05 \x01(\tR\x06bValue2\xdb\r\n" +
 	"\x0fStrategyService\x12g\n" +
 	"\x0eListStrategies\x12&.shorts.v1alpha1.ListStrategiesRequest\x1a'.shorts.v1alpha1.ListStrategiesResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
 	"\x10GetStrategyPicks\x12(.shorts.v1alpha1.GetStrategyPicksRequest\x1a).shorts.v1alpha1.GetStrategyPicksResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
@@ -6995,7 +7436,7 @@ func file_shorts_v1alpha1_strategies_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_strategies_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_strategies_proto_msgTypes = make([]protoimpl.MessageInfo, 63)
+var file_shorts_v1alpha1_strategies_proto_msgTypes = make([]protoimpl.MessageInfo, 66)
 var file_shorts_v1alpha1_strategies_proto_goTypes = []any{
 	(*Strategy)(nil),                         // 0: shorts.v1alpha1.Strategy
 	(*StrategyRule)(nil),                     // 1: shorts.v1alpha1.StrategyRule
@@ -7040,26 +7481,29 @@ var file_shorts_v1alpha1_strategies_proto_goTypes = []any{
 	(*GetBacktestRunRequest)(nil),            // 40: shorts.v1alpha1.GetBacktestRunRequest
 	(*GetBacktestRunResponse)(nil),           // 41: shorts.v1alpha1.GetBacktestRunResponse
 	(*BacktestRun)(nil),                      // 42: shorts.v1alpha1.BacktestRun
-	(*BacktestRunIdentity)(nil),              // 43: shorts.v1alpha1.BacktestRunIdentity
-	(*WindowMetrics)(nil),                    // 44: shorts.v1alpha1.WindowMetrics
-	(*AnnualReturn)(nil),                     // 45: shorts.v1alpha1.AnnualReturn
-	(*MonthlyReturn)(nil),                    // 46: shorts.v1alpha1.MonthlyReturn
-	(*CoverageYear)(nil),                     // 47: shorts.v1alpha1.CoverageYear
-	(*CoverageMonth)(nil),                    // 48: shorts.v1alpha1.CoverageMonth
-	(*Survivorship)(nil),                     // 49: shorts.v1alpha1.Survivorship
-	(*Sensitivity)(nil),                      // 50: shorts.v1alpha1.Sensitivity
-	(*SeriesPoint)(nil),                      // 51: shorts.v1alpha1.SeriesPoint
-	(*RecipeLines)(nil),                      // 52: shorts.v1alpha1.RecipeLines
-	(*TradeSummary)(nil),                     // 53: shorts.v1alpha1.TradeSummary
-	(*BacktestTrade)(nil),                    // 54: shorts.v1alpha1.BacktestTrade
-	(*PaperTrackSummary)(nil),                // 55: shorts.v1alpha1.PaperTrackSummary
-	(*ListBacktestTradesRequest)(nil),        // 56: shorts.v1alpha1.ListBacktestTradesRequest
-	(*ListBacktestTradesResponse)(nil),       // 57: shorts.v1alpha1.ListBacktestTradesResponse
-	(*CompareStrategiesRequest)(nil),         // 58: shorts.v1alpha1.CompareStrategiesRequest
-	(*CompareStrategiesResponse)(nil),        // 59: shorts.v1alpha1.CompareStrategiesResponse
-	(*CompareEntry)(nil),                     // 60: shorts.v1alpha1.CompareEntry
-	(*StrategyCorrelation)(nil),              // 61: shorts.v1alpha1.StrategyCorrelation
-	nil,                                      // 62: shorts.v1alpha1.TradeSummary.ExitsByReasonEntry
+	(*DataQuality)(nil),                      // 43: shorts.v1alpha1.DataQuality
+	(*BacktestRunIdentity)(nil),              // 44: shorts.v1alpha1.BacktestRunIdentity
+	(*WindowMetrics)(nil),                    // 45: shorts.v1alpha1.WindowMetrics
+	(*AnnualReturn)(nil),                     // 46: shorts.v1alpha1.AnnualReturn
+	(*MonthlyReturn)(nil),                    // 47: shorts.v1alpha1.MonthlyReturn
+	(*CoverageYear)(nil),                     // 48: shorts.v1alpha1.CoverageYear
+	(*CoverageMonth)(nil),                    // 49: shorts.v1alpha1.CoverageMonth
+	(*Survivorship)(nil),                     // 50: shorts.v1alpha1.Survivorship
+	(*Sensitivity)(nil),                      // 51: shorts.v1alpha1.Sensitivity
+	(*SeriesPoint)(nil),                      // 52: shorts.v1alpha1.SeriesPoint
+	(*RecipeLines)(nil),                      // 53: shorts.v1alpha1.RecipeLines
+	(*TradeSummary)(nil),                     // 54: shorts.v1alpha1.TradeSummary
+	(*BacktestTrade)(nil),                    // 55: shorts.v1alpha1.BacktestTrade
+	(*PaperTrackSummary)(nil),                // 56: shorts.v1alpha1.PaperTrackSummary
+	(*ListBacktestTradesRequest)(nil),        // 57: shorts.v1alpha1.ListBacktestTradesRequest
+	(*ListBacktestTradesResponse)(nil),       // 58: shorts.v1alpha1.ListBacktestTradesResponse
+	(*CompareStrategiesRequest)(nil),         // 59: shorts.v1alpha1.CompareStrategiesRequest
+	(*CompareStrategiesResponse)(nil),        // 60: shorts.v1alpha1.CompareStrategiesResponse
+	(*CompareEntry)(nil),                     // 61: shorts.v1alpha1.CompareEntry
+	(*StrategyCorrelation)(nil),              // 62: shorts.v1alpha1.StrategyCorrelation
+	(*RuleDiff)(nil),                         // 63: shorts.v1alpha1.RuleDiff
+	nil,                                      // 64: shorts.v1alpha1.DataQuality.CancelledEntriesEntry
+	nil,                                      // 65: shorts.v1alpha1.TradeSummary.ExitsByReasonEntry
 }
 var file_shorts_v1alpha1_strategies_proto_depIdxs = []int32{
 	1,  // 0: shorts.v1alpha1.Strategy.rules:type_name -> shorts.v1alpha1.StrategyRule
@@ -7093,67 +7537,70 @@ var file_shorts_v1alpha1_strategies_proto_depIdxs = []int32{
 	4,  // 28: shorts.v1alpha1.StrategySignalEvent.rules:type_name -> shorts.v1alpha1.RuleResult
 	39, // 29: shorts.v1alpha1.ListStrategyEvidenceResponse.strategies:type_name -> shorts.v1alpha1.StrategyEvidence
 	10, // 30: shorts.v1alpha1.StrategyEvidence.version:type_name -> shorts.v1alpha1.StrategyVersionRef
-	44, // 31: shorts.v1alpha1.StrategyEvidence.windows:type_name -> shorts.v1alpha1.WindowMetrics
-	45, // 32: shorts.v1alpha1.StrategyEvidence.annual:type_name -> shorts.v1alpha1.AnnualReturn
-	51, // 33: shorts.v1alpha1.StrategyEvidence.mini_curve:type_name -> shorts.v1alpha1.SeriesPoint
+	45, // 31: shorts.v1alpha1.StrategyEvidence.windows:type_name -> shorts.v1alpha1.WindowMetrics
+	46, // 32: shorts.v1alpha1.StrategyEvidence.annual:type_name -> shorts.v1alpha1.AnnualReturn
+	52, // 33: shorts.v1alpha1.StrategyEvidence.mini_curve:type_name -> shorts.v1alpha1.SeriesPoint
 	11, // 34: shorts.v1alpha1.StrategyEvidence.today:type_name -> shorts.v1alpha1.StatusCounts
-	55, // 35: shorts.v1alpha1.StrategyEvidence.paper:type_name -> shorts.v1alpha1.PaperTrackSummary
+	56, // 35: shorts.v1alpha1.StrategyEvidence.paper:type_name -> shorts.v1alpha1.PaperTrackSummary
 	42, // 36: shorts.v1alpha1.GetBacktestRunResponse.run:type_name -> shorts.v1alpha1.BacktestRun
-	43, // 37: shorts.v1alpha1.BacktestRun.identity:type_name -> shorts.v1alpha1.BacktestRunIdentity
-	44, // 38: shorts.v1alpha1.BacktestRun.windows:type_name -> shorts.v1alpha1.WindowMetrics
-	45, // 39: shorts.v1alpha1.BacktestRun.annual:type_name -> shorts.v1alpha1.AnnualReturn
-	46, // 40: shorts.v1alpha1.BacktestRun.monthly:type_name -> shorts.v1alpha1.MonthlyReturn
-	51, // 41: shorts.v1alpha1.BacktestRun.series:type_name -> shorts.v1alpha1.SeriesPoint
-	47, // 42: shorts.v1alpha1.BacktestRun.coverage_by_year:type_name -> shorts.v1alpha1.CoverageYear
-	48, // 43: shorts.v1alpha1.BacktestRun.coverage_monthly:type_name -> shorts.v1alpha1.CoverageMonth
-	49, // 44: shorts.v1alpha1.BacktestRun.survivorship:type_name -> shorts.v1alpha1.Survivorship
-	50, // 45: shorts.v1alpha1.BacktestRun.sensitivity:type_name -> shorts.v1alpha1.Sensitivity
-	52, // 46: shorts.v1alpha1.BacktestRun.recipe:type_name -> shorts.v1alpha1.RecipeLines
-	53, // 47: shorts.v1alpha1.BacktestRun.trade_summary:type_name -> shorts.v1alpha1.TradeSummary
+	44, // 37: shorts.v1alpha1.BacktestRun.identity:type_name -> shorts.v1alpha1.BacktestRunIdentity
+	45, // 38: shorts.v1alpha1.BacktestRun.windows:type_name -> shorts.v1alpha1.WindowMetrics
+	46, // 39: shorts.v1alpha1.BacktestRun.annual:type_name -> shorts.v1alpha1.AnnualReturn
+	47, // 40: shorts.v1alpha1.BacktestRun.monthly:type_name -> shorts.v1alpha1.MonthlyReturn
+	52, // 41: shorts.v1alpha1.BacktestRun.series:type_name -> shorts.v1alpha1.SeriesPoint
+	48, // 42: shorts.v1alpha1.BacktestRun.coverage:type_name -> shorts.v1alpha1.CoverageYear
+	49, // 43: shorts.v1alpha1.BacktestRun.coverage_monthly:type_name -> shorts.v1alpha1.CoverageMonth
+	50, // 44: shorts.v1alpha1.BacktestRun.survivorship:type_name -> shorts.v1alpha1.Survivorship
+	51, // 45: shorts.v1alpha1.BacktestRun.sensitivity:type_name -> shorts.v1alpha1.Sensitivity
+	53, // 46: shorts.v1alpha1.BacktestRun.recipe:type_name -> shorts.v1alpha1.RecipeLines
+	54, // 47: shorts.v1alpha1.BacktestRun.trade_summary:type_name -> shorts.v1alpha1.TradeSummary
 	10, // 48: shorts.v1alpha1.BacktestRun.live_version:type_name -> shorts.v1alpha1.StrategyVersionRef
-	10, // 49: shorts.v1alpha1.BacktestRunIdentity.version:type_name -> shorts.v1alpha1.StrategyVersionRef
-	62, // 50: shorts.v1alpha1.TradeSummary.exits_by_reason:type_name -> shorts.v1alpha1.TradeSummary.ExitsByReasonEntry
-	54, // 51: shorts.v1alpha1.ListBacktestTradesResponse.trades:type_name -> shorts.v1alpha1.BacktestTrade
-	60, // 52: shorts.v1alpha1.CompareStrategiesResponse.entries:type_name -> shorts.v1alpha1.CompareEntry
-	61, // 53: shorts.v1alpha1.CompareStrategiesResponse.correlations:type_name -> shorts.v1alpha1.StrategyCorrelation
-	10, // 54: shorts.v1alpha1.CompareEntry.version:type_name -> shorts.v1alpha1.StrategyVersionRef
-	44, // 55: shorts.v1alpha1.CompareEntry.window:type_name -> shorts.v1alpha1.WindowMetrics
-	51, // 56: shorts.v1alpha1.CompareEntry.series:type_name -> shorts.v1alpha1.SeriesPoint
-	16, // 57: shorts.v1alpha1.StrategyService.ListStrategies:input_type -> shorts.v1alpha1.ListStrategiesRequest
-	7,  // 58: shorts.v1alpha1.StrategyService.GetStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
-	7,  // 59: shorts.v1alpha1.StrategyService.GetViewerStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
-	12, // 60: shorts.v1alpha1.StrategyService.GetStockStrategyFit:input_type -> shorts.v1alpha1.GetStockStrategyFitRequest
-	18, // 61: shorts.v1alpha1.StrategyService.GetStrategyVersion:input_type -> shorts.v1alpha1.GetStrategyVersionRequest
-	20, // 62: shorts.v1alpha1.StrategyService.ListStrategyVersions:input_type -> shorts.v1alpha1.ListStrategyVersionsRequest
-	31, // 63: shorts.v1alpha1.StrategyService.GetStrategyDataStatus:input_type -> shorts.v1alpha1.GetStrategyDataStatusRequest
-	34, // 64: shorts.v1alpha1.StrategyService.ListStrategySignalEvents:input_type -> shorts.v1alpha1.ListStrategySignalEventsRequest
-	24, // 65: shorts.v1alpha1.StrategyService.SaveStrategy:input_type -> shorts.v1alpha1.SaveStrategyRequest
-	26, // 66: shorts.v1alpha1.StrategyService.UnsaveStrategy:input_type -> shorts.v1alpha1.UnsaveStrategyRequest
-	28, // 67: shorts.v1alpha1.StrategyService.ListSavedStrategies:input_type -> shorts.v1alpha1.ListSavedStrategiesRequest
-	37, // 68: shorts.v1alpha1.StrategyService.ListStrategyEvidence:input_type -> shorts.v1alpha1.ListStrategyEvidenceRequest
-	40, // 69: shorts.v1alpha1.StrategyService.GetBacktestRun:input_type -> shorts.v1alpha1.GetBacktestRunRequest
-	56, // 70: shorts.v1alpha1.StrategyService.ListBacktestTrades:input_type -> shorts.v1alpha1.ListBacktestTradesRequest
-	58, // 71: shorts.v1alpha1.StrategyService.CompareStrategies:input_type -> shorts.v1alpha1.CompareStrategiesRequest
-	17, // 72: shorts.v1alpha1.StrategyService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
-	8,  // 73: shorts.v1alpha1.StrategyService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
-	8,  // 74: shorts.v1alpha1.StrategyService.GetViewerStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
-	15, // 75: shorts.v1alpha1.StrategyService.GetStockStrategyFit:output_type -> shorts.v1alpha1.GetStockStrategyFitResponse
-	19, // 76: shorts.v1alpha1.StrategyService.GetStrategyVersion:output_type -> shorts.v1alpha1.GetStrategyVersionResponse
-	21, // 77: shorts.v1alpha1.StrategyService.ListStrategyVersions:output_type -> shorts.v1alpha1.ListStrategyVersionsResponse
-	32, // 78: shorts.v1alpha1.StrategyService.GetStrategyDataStatus:output_type -> shorts.v1alpha1.GetStrategyDataStatusResponse
-	35, // 79: shorts.v1alpha1.StrategyService.ListStrategySignalEvents:output_type -> shorts.v1alpha1.ListStrategySignalEventsResponse
-	25, // 80: shorts.v1alpha1.StrategyService.SaveStrategy:output_type -> shorts.v1alpha1.SaveStrategyResponse
-	27, // 81: shorts.v1alpha1.StrategyService.UnsaveStrategy:output_type -> shorts.v1alpha1.UnsaveStrategyResponse
-	29, // 82: shorts.v1alpha1.StrategyService.ListSavedStrategies:output_type -> shorts.v1alpha1.ListSavedStrategiesResponse
-	38, // 83: shorts.v1alpha1.StrategyService.ListStrategyEvidence:output_type -> shorts.v1alpha1.ListStrategyEvidenceResponse
-	41, // 84: shorts.v1alpha1.StrategyService.GetBacktestRun:output_type -> shorts.v1alpha1.GetBacktestRunResponse
-	57, // 85: shorts.v1alpha1.StrategyService.ListBacktestTrades:output_type -> shorts.v1alpha1.ListBacktestTradesResponse
-	59, // 86: shorts.v1alpha1.StrategyService.CompareStrategies:output_type -> shorts.v1alpha1.CompareStrategiesResponse
-	72, // [72:87] is the sub-list for method output_type
-	57, // [57:72] is the sub-list for method input_type
-	57, // [57:57] is the sub-list for extension type_name
-	57, // [57:57] is the sub-list for extension extendee
-	0,  // [0:57] is the sub-list for field type_name
+	43, // 49: shorts.v1alpha1.BacktestRun.data_quality:type_name -> shorts.v1alpha1.DataQuality
+	64, // 50: shorts.v1alpha1.DataQuality.cancelled_entries:type_name -> shorts.v1alpha1.DataQuality.CancelledEntriesEntry
+	10, // 51: shorts.v1alpha1.BacktestRunIdentity.version:type_name -> shorts.v1alpha1.StrategyVersionRef
+	65, // 52: shorts.v1alpha1.TradeSummary.exits_by_reason:type_name -> shorts.v1alpha1.TradeSummary.ExitsByReasonEntry
+	55, // 53: shorts.v1alpha1.ListBacktestTradesResponse.trades:type_name -> shorts.v1alpha1.BacktestTrade
+	61, // 54: shorts.v1alpha1.CompareStrategiesResponse.entries:type_name -> shorts.v1alpha1.CompareEntry
+	62, // 55: shorts.v1alpha1.CompareStrategiesResponse.correlations:type_name -> shorts.v1alpha1.StrategyCorrelation
+	63, // 56: shorts.v1alpha1.CompareStrategiesResponse.rule_diffs:type_name -> shorts.v1alpha1.RuleDiff
+	10, // 57: shorts.v1alpha1.CompareEntry.version:type_name -> shorts.v1alpha1.StrategyVersionRef
+	45, // 58: shorts.v1alpha1.CompareEntry.window:type_name -> shorts.v1alpha1.WindowMetrics
+	52, // 59: shorts.v1alpha1.CompareEntry.series:type_name -> shorts.v1alpha1.SeriesPoint
+	16, // 60: shorts.v1alpha1.StrategyService.ListStrategies:input_type -> shorts.v1alpha1.ListStrategiesRequest
+	7,  // 61: shorts.v1alpha1.StrategyService.GetStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
+	7,  // 62: shorts.v1alpha1.StrategyService.GetViewerStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
+	12, // 63: shorts.v1alpha1.StrategyService.GetStockStrategyFit:input_type -> shorts.v1alpha1.GetStockStrategyFitRequest
+	18, // 64: shorts.v1alpha1.StrategyService.GetStrategyVersion:input_type -> shorts.v1alpha1.GetStrategyVersionRequest
+	20, // 65: shorts.v1alpha1.StrategyService.ListStrategyVersions:input_type -> shorts.v1alpha1.ListStrategyVersionsRequest
+	31, // 66: shorts.v1alpha1.StrategyService.GetStrategyDataStatus:input_type -> shorts.v1alpha1.GetStrategyDataStatusRequest
+	34, // 67: shorts.v1alpha1.StrategyService.ListStrategySignalEvents:input_type -> shorts.v1alpha1.ListStrategySignalEventsRequest
+	24, // 68: shorts.v1alpha1.StrategyService.SaveStrategy:input_type -> shorts.v1alpha1.SaveStrategyRequest
+	26, // 69: shorts.v1alpha1.StrategyService.UnsaveStrategy:input_type -> shorts.v1alpha1.UnsaveStrategyRequest
+	28, // 70: shorts.v1alpha1.StrategyService.ListSavedStrategies:input_type -> shorts.v1alpha1.ListSavedStrategiesRequest
+	37, // 71: shorts.v1alpha1.StrategyService.ListStrategyEvidence:input_type -> shorts.v1alpha1.ListStrategyEvidenceRequest
+	40, // 72: shorts.v1alpha1.StrategyService.GetBacktestRun:input_type -> shorts.v1alpha1.GetBacktestRunRequest
+	57, // 73: shorts.v1alpha1.StrategyService.ListBacktestTrades:input_type -> shorts.v1alpha1.ListBacktestTradesRequest
+	59, // 74: shorts.v1alpha1.StrategyService.CompareStrategies:input_type -> shorts.v1alpha1.CompareStrategiesRequest
+	17, // 75: shorts.v1alpha1.StrategyService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
+	8,  // 76: shorts.v1alpha1.StrategyService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
+	8,  // 77: shorts.v1alpha1.StrategyService.GetViewerStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
+	15, // 78: shorts.v1alpha1.StrategyService.GetStockStrategyFit:output_type -> shorts.v1alpha1.GetStockStrategyFitResponse
+	19, // 79: shorts.v1alpha1.StrategyService.GetStrategyVersion:output_type -> shorts.v1alpha1.GetStrategyVersionResponse
+	21, // 80: shorts.v1alpha1.StrategyService.ListStrategyVersions:output_type -> shorts.v1alpha1.ListStrategyVersionsResponse
+	32, // 81: shorts.v1alpha1.StrategyService.GetStrategyDataStatus:output_type -> shorts.v1alpha1.GetStrategyDataStatusResponse
+	35, // 82: shorts.v1alpha1.StrategyService.ListStrategySignalEvents:output_type -> shorts.v1alpha1.ListStrategySignalEventsResponse
+	25, // 83: shorts.v1alpha1.StrategyService.SaveStrategy:output_type -> shorts.v1alpha1.SaveStrategyResponse
+	27, // 84: shorts.v1alpha1.StrategyService.UnsaveStrategy:output_type -> shorts.v1alpha1.UnsaveStrategyResponse
+	29, // 85: shorts.v1alpha1.StrategyService.ListSavedStrategies:output_type -> shorts.v1alpha1.ListSavedStrategiesResponse
+	38, // 86: shorts.v1alpha1.StrategyService.ListStrategyEvidence:output_type -> shorts.v1alpha1.ListStrategyEvidenceResponse
+	41, // 87: shorts.v1alpha1.StrategyService.GetBacktestRun:output_type -> shorts.v1alpha1.GetBacktestRunResponse
+	58, // 88: shorts.v1alpha1.StrategyService.ListBacktestTrades:output_type -> shorts.v1alpha1.ListBacktestTradesResponse
+	60, // 89: shorts.v1alpha1.StrategyService.CompareStrategies:output_type -> shorts.v1alpha1.CompareStrategiesResponse
+	75, // [75:90] is the sub-list for method output_type
+	60, // [60:75] is the sub-list for method input_type
+	60, // [60:60] is the sub-list for extension type_name
+	60, // [60:60] is the sub-list for extension extendee
+	0,  // [0:60] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_strategies_proto_init() }
@@ -7167,7 +7614,7 @@ func file_shorts_v1alpha1_strategies_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_strategies_proto_rawDesc), len(file_shorts_v1alpha1_strategies_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   63,
+			NumMessages:   66,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

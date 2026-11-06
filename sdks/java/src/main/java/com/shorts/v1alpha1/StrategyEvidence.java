@@ -41,6 +41,8 @@ private static final long serialVersionUID = 0L;
     miniCurve_ = java.util.Collections.emptyList();
     survivorship_ = "";
     latestScreen_ = "";
+    stateReason_ = "";
+    runningSince_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -105,7 +107,7 @@ private static final long serialVersionUID = 0L;
   private com.shorts.v1alpha1.StrategyVersionRef version_;
   /**
    * <pre>
-   * The live canonical version the evidence is for; absent when none is registered.
+   * The live canonical version; absent when none is registered.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -117,7 +119,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The live canonical version the evidence is for; absent when none is registered.
+   * The live canonical version; absent when none is registered.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -129,7 +131,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The live canonical version the evidence is for; absent when none is registered.
+   * The live canonical version; absent when none is registered.
    * </pre>
    *
    * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -144,7 +146,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object state_ = "";
   /**
    * <pre>
-   * computed | run_required | running | not_computable | approximate.
+   * published | approximate | run_required | running | not_computable.
    * </pre>
    *
    * <code>string state = 3 [json_name = "state"];</code>
@@ -165,7 +167,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * computed | run_required | running | not_computable | approximate.
+   * published | approximate | run_required | running | not_computable.
    * </pre>
    *
    * <code>string state = 3 [json_name = "state"];</code>
@@ -191,7 +193,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object computableFrom_ = "";
   /**
    * <pre>
-   * Not computable: the first month-end the universe is computable; "" when none.
+   * not_computable: the first month-end the universe is computable; "" when none.
    * </pre>
    *
    * <code>string computable_from = 4 [json_name = "computableFrom"];</code>
@@ -212,7 +214,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Not computable: the first month-end the universe is computable; "" when none.
+   * not_computable: the first month-end the universe is computable; "" when none.
    * </pre>
    *
    * <code>string computable_from = 4 [json_name = "computableFrom"];</code>
@@ -238,7 +240,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object fiscalLabel_ = "";
   /**
    * <pre>
-   * Not computable: the measured label, e.g. FY2024; "" when none.
+   * not_computable: the measured label, e.g. FY2024; "" when none.
    * </pre>
    *
    * <code>string fiscal_label = 5 [json_name = "fiscalLabel"];</code>
@@ -259,7 +261,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Not computable: the measured label, e.g. FY2024; "" when none.
+   * not_computable: the measured label, e.g. FY2024; "" when none.
    * </pre>
    *
    * <code>string fiscal_label = 5 [json_name = "fiscalLabel"];</code>
@@ -544,7 +546,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object survivorship_ = "";
   /**
    * <pre>
-   * The survivorship statement's copy.
+   * The survivorship statement, with the measurement caveat where one applies.
    * </pre>
    *
    * <code>string survivorship = 11 [json_name = "survivorship"];</code>
@@ -565,7 +567,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The survivorship statement's copy.
+   * The survivorship statement, with the measurement caveat where one applies.
    * </pre>
    *
    * <code>string survivorship = 11 [json_name = "survivorship"];</code>
@@ -648,6 +650,126 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int STATE_REASON_FIELD_NUMBER = 14;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object stateReason_ = "";
+  /**
+   * <pre>
+   * Why the state is what it is, in words the explorer can print.
+   * </pre>
+   *
+   * <code>string state_reason = 14 [json_name = "stateReason"];</code>
+   * @return The stateReason.
+   */
+  @java.lang.Override
+  public java.lang.String getStateReason() {
+    java.lang.Object ref = stateReason_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      stateReason_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Why the state is what it is, in words the explorer can print.
+   * </pre>
+   *
+   * <code>string state_reason = 14 [json_name = "stateReason"];</code>
+   * @return The bytes for stateReason.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getStateReasonBytes() {
+    java.lang.Object ref = stateReason_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      stateReason_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int RUNNING_SINCE_FIELD_NUMBER = 15;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object runningSince_ = "";
+  /**
+   * <pre>
+   * running: when the request started, RFC 3339.
+   * </pre>
+   *
+   * <code>string running_since = 15 [json_name = "runningSince"];</code>
+   * @return The runningSince.
+   */
+  @java.lang.Override
+  public java.lang.String getRunningSince() {
+    java.lang.Object ref = runningSince_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      runningSince_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * running: when the request started, RFC 3339.
+   * </pre>
+   *
+   * <code>string running_since = 15 [json_name = "runningSince"];</code>
+   * @return The bytes for runningSince.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRunningSinceBytes() {
+    java.lang.Object ref = runningSince_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      runningSince_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int COMPUTABLE_SHARE_PCT_FIELD_NUMBER = 16;
+  private double computableSharePct_ = 0D;
+  /**
+   * <pre>
+   * not_computable: the measured universe share, when measured.
+   * </pre>
+   *
+   * <code>double computable_share_pct = 16 [json_name = "computableSharePct"];</code>
+   * @return The computableSharePct.
+   */
+  @java.lang.Override
+  public double getComputableSharePct() {
+    return computableSharePct_;
+  }
+
+  public static final int HAS_COMPUTABLE_SHARE_FIELD_NUMBER = 17;
+  private boolean hasComputableShare_ = false;
+  /**
+   * <code>bool has_computable_share = 17 [json_name = "hasComputableShare"];</code>
+   * @return The hasComputableShare.
+   */
+  @java.lang.Override
+  public boolean getHasComputableShare() {
+    return hasComputableShare_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -700,6 +822,18 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(latestScreen_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 13, latestScreen_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(stateReason_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 14, stateReason_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(runningSince_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 15, runningSince_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(computableSharePct_) != 0) {
+      output.writeDouble(16, computableSharePct_);
+    }
+    if (hasComputableShare_ != false) {
+      output.writeBool(17, hasComputableShare_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -766,6 +900,20 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(latestScreen_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(13, latestScreen_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(stateReason_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(14, stateReason_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(runningSince_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(15, runningSince_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(computableSharePct_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(16, computableSharePct_);
+    }
+    if (hasComputableShare_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(17, hasComputableShare_);
+    }
     return size;
   }
   @java.lang.Override
@@ -825,6 +973,15 @@ private static final long serialVersionUID = 0L;
         != other.getRunId()) return false;
     if (!getLatestScreen()
         .equals(other.getLatestScreen())) return false;
+    if (!getStateReason()
+        .equals(other.getStateReason())) return false;
+    if (!getRunningSince()
+        .equals(other.getRunningSince())) return false;
+    if (java.lang.Double.doubleToLongBits(getComputableSharePct())
+        != java.lang.Double.doubleToLongBits(
+            other.getComputableSharePct())) return false;
+    if (getHasComputableShare()
+        != other.getHasComputableShare()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -875,6 +1032,16 @@ private static final long serialVersionUID = 0L;
         getRunId());
     hash = (37 * hash) + LATEST_SCREEN_FIELD_NUMBER;
     hash = (53 * hash) + getLatestScreen().hashCode();
+    hash = (37 * hash) + STATE_REASON_FIELD_NUMBER;
+    hash = (53 * hash) + getStateReason().hashCode();
+    hash = (37 * hash) + RUNNING_SINCE_FIELD_NUMBER;
+    hash = (53 * hash) + getRunningSince().hashCode();
+    hash = (37 * hash) + COMPUTABLE_SHARE_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getComputableSharePct()));
+    hash = (37 * hash) + HAS_COMPUTABLE_SHARE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasComputableShare());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1064,6 +1231,10 @@ private static final long serialVersionUID = 0L;
       survivorship_ = "";
       runId_ = 0L;
       latestScreen_ = "";
+      stateReason_ = "";
+      runningSince_ = "";
+      computableSharePct_ = 0D;
+      hasComputableShare_ = false;
       return this;
     }
 
@@ -1167,6 +1338,18 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00001000) != 0)) {
         result.latestScreen_ = latestScreen_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.stateReason_ = stateReason_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.runningSince_ = runningSince_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.computableSharePct_ = computableSharePct_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.hasComputableShare_ = hasComputableShare_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1303,6 +1486,22 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00001000;
         onChanged();
       }
+      if (!other.getStateReason().isEmpty()) {
+        stateReason_ = other.stateReason_;
+        bitField0_ |= 0x00002000;
+        onChanged();
+      }
+      if (!other.getRunningSince().isEmpty()) {
+        runningSince_ = other.runningSince_;
+        bitField0_ |= 0x00004000;
+        onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getComputableSharePct()) != 0) {
+        setComputableSharePct(other.getComputableSharePct());
+      }
+      if (other.getHasComputableShare() != false) {
+        setHasComputableShare(other.getHasComputableShare());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1424,6 +1623,26 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00001000;
               break;
             } // case 106
+            case 114: {
+              stateReason_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 114
+            case 122: {
+              runningSince_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 122
+            case 129: {
+              computableSharePct_ = input.readDouble();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 129
+            case 136: {
+              hasComputableShare_ = input.readBool();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 136
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1518,7 +1737,7 @@ private static final long serialVersionUID = 0L;
         com.shorts.v1alpha1.StrategyVersionRef, com.shorts.v1alpha1.StrategyVersionRef.Builder, com.shorts.v1alpha1.StrategyVersionRefOrBuilder> versionBuilder_;
     /**
      * <pre>
-     * The live canonical version the evidence is for; absent when none is registered.
+     * The live canonical version; absent when none is registered.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -1529,7 +1748,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The live canonical version the evidence is for; absent when none is registered.
+     * The live canonical version; absent when none is registered.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -1544,7 +1763,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The live canonical version the evidence is for; absent when none is registered.
+     * The live canonical version; absent when none is registered.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -1564,7 +1783,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The live canonical version the evidence is for; absent when none is registered.
+     * The live canonical version; absent when none is registered.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -1582,7 +1801,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The live canonical version the evidence is for; absent when none is registered.
+     * The live canonical version; absent when none is registered.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -1607,7 +1826,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The live canonical version the evidence is for; absent when none is registered.
+     * The live canonical version; absent when none is registered.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -1624,7 +1843,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The live canonical version the evidence is for; absent when none is registered.
+     * The live canonical version; absent when none is registered.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -1636,7 +1855,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The live canonical version the evidence is for; absent when none is registered.
+     * The live canonical version; absent when none is registered.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -1651,7 +1870,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The live canonical version the evidence is for; absent when none is registered.
+     * The live canonical version; absent when none is registered.
      * </pre>
      *
      * <code>.shorts.v1alpha1.StrategyVersionRef version = 2 [json_name = "version"];</code>
@@ -1673,7 +1892,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object state_ = "";
     /**
      * <pre>
-     * computed | run_required | running | not_computable | approximate.
+     * published | approximate | run_required | running | not_computable.
      * </pre>
      *
      * <code>string state = 3 [json_name = "state"];</code>
@@ -1693,7 +1912,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * computed | run_required | running | not_computable | approximate.
+     * published | approximate | run_required | running | not_computable.
      * </pre>
      *
      * <code>string state = 3 [json_name = "state"];</code>
@@ -1714,7 +1933,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * computed | run_required | running | not_computable | approximate.
+     * published | approximate | run_required | running | not_computable.
      * </pre>
      *
      * <code>string state = 3 [json_name = "state"];</code>
@@ -1731,7 +1950,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * computed | run_required | running | not_computable | approximate.
+     * published | approximate | run_required | running | not_computable.
      * </pre>
      *
      * <code>string state = 3 [json_name = "state"];</code>
@@ -1745,7 +1964,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * computed | run_required | running | not_computable | approximate.
+     * published | approximate | run_required | running | not_computable.
      * </pre>
      *
      * <code>string state = 3 [json_name = "state"];</code>
@@ -1765,7 +1984,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object computableFrom_ = "";
     /**
      * <pre>
-     * Not computable: the first month-end the universe is computable; "" when none.
+     * not_computable: the first month-end the universe is computable; "" when none.
      * </pre>
      *
      * <code>string computable_from = 4 [json_name = "computableFrom"];</code>
@@ -1785,7 +2004,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Not computable: the first month-end the universe is computable; "" when none.
+     * not_computable: the first month-end the universe is computable; "" when none.
      * </pre>
      *
      * <code>string computable_from = 4 [json_name = "computableFrom"];</code>
@@ -1806,7 +2025,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Not computable: the first month-end the universe is computable; "" when none.
+     * not_computable: the first month-end the universe is computable; "" when none.
      * </pre>
      *
      * <code>string computable_from = 4 [json_name = "computableFrom"];</code>
@@ -1823,7 +2042,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Not computable: the first month-end the universe is computable; "" when none.
+     * not_computable: the first month-end the universe is computable; "" when none.
      * </pre>
      *
      * <code>string computable_from = 4 [json_name = "computableFrom"];</code>
@@ -1837,7 +2056,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Not computable: the first month-end the universe is computable; "" when none.
+     * not_computable: the first month-end the universe is computable; "" when none.
      * </pre>
      *
      * <code>string computable_from = 4 [json_name = "computableFrom"];</code>
@@ -1857,7 +2076,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object fiscalLabel_ = "";
     /**
      * <pre>
-     * Not computable: the measured label, e.g. FY2024; "" when none.
+     * not_computable: the measured label, e.g. FY2024; "" when none.
      * </pre>
      *
      * <code>string fiscal_label = 5 [json_name = "fiscalLabel"];</code>
@@ -1877,7 +2096,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Not computable: the measured label, e.g. FY2024; "" when none.
+     * not_computable: the measured label, e.g. FY2024; "" when none.
      * </pre>
      *
      * <code>string fiscal_label = 5 [json_name = "fiscalLabel"];</code>
@@ -1898,7 +2117,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Not computable: the measured label, e.g. FY2024; "" when none.
+     * not_computable: the measured label, e.g. FY2024; "" when none.
      * </pre>
      *
      * <code>string fiscal_label = 5 [json_name = "fiscalLabel"];</code>
@@ -1915,7 +2134,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Not computable: the measured label, e.g. FY2024; "" when none.
+     * not_computable: the measured label, e.g. FY2024; "" when none.
      * </pre>
      *
      * <code>string fiscal_label = 5 [json_name = "fiscalLabel"];</code>
@@ -1929,7 +2148,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Not computable: the measured label, e.g. FY2024; "" when none.
+     * not_computable: the measured label, e.g. FY2024; "" when none.
      * </pre>
      *
      * <code>string fiscal_label = 5 [json_name = "fiscalLabel"];</code>
@@ -3199,7 +3418,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object survivorship_ = "";
     /**
      * <pre>
-     * The survivorship statement's copy.
+     * The survivorship statement, with the measurement caveat where one applies.
      * </pre>
      *
      * <code>string survivorship = 11 [json_name = "survivorship"];</code>
@@ -3219,7 +3438,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The survivorship statement's copy.
+     * The survivorship statement, with the measurement caveat where one applies.
      * </pre>
      *
      * <code>string survivorship = 11 [json_name = "survivorship"];</code>
@@ -3240,7 +3459,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The survivorship statement's copy.
+     * The survivorship statement, with the measurement caveat where one applies.
      * </pre>
      *
      * <code>string survivorship = 11 [json_name = "survivorship"];</code>
@@ -3257,7 +3476,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The survivorship statement's copy.
+     * The survivorship statement, with the measurement caveat where one applies.
      * </pre>
      *
      * <code>string survivorship = 11 [json_name = "survivorship"];</code>
@@ -3271,7 +3490,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The survivorship statement's copy.
+     * The survivorship statement, with the measurement caveat where one applies.
      * </pre>
      *
      * <code>string survivorship = 11 [json_name = "survivorship"];</code>
@@ -3420,6 +3639,266 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       latestScreen_ = value;
       bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object stateReason_ = "";
+    /**
+     * <pre>
+     * Why the state is what it is, in words the explorer can print.
+     * </pre>
+     *
+     * <code>string state_reason = 14 [json_name = "stateReason"];</code>
+     * @return The stateReason.
+     */
+    public java.lang.String getStateReason() {
+      java.lang.Object ref = stateReason_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        stateReason_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Why the state is what it is, in words the explorer can print.
+     * </pre>
+     *
+     * <code>string state_reason = 14 [json_name = "stateReason"];</code>
+     * @return The bytes for stateReason.
+     */
+    public com.google.protobuf.ByteString
+        getStateReasonBytes() {
+      java.lang.Object ref = stateReason_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        stateReason_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Why the state is what it is, in words the explorer can print.
+     * </pre>
+     *
+     * <code>string state_reason = 14 [json_name = "stateReason"];</code>
+     * @param value The stateReason to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStateReason(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      stateReason_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Why the state is what it is, in words the explorer can print.
+     * </pre>
+     *
+     * <code>string state_reason = 14 [json_name = "stateReason"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStateReason() {
+      stateReason_ = getDefaultInstance().getStateReason();
+      bitField0_ = (bitField0_ & ~0x00002000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Why the state is what it is, in words the explorer can print.
+     * </pre>
+     *
+     * <code>string state_reason = 14 [json_name = "stateReason"];</code>
+     * @param value The bytes for stateReason to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStateReasonBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      stateReason_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object runningSince_ = "";
+    /**
+     * <pre>
+     * running: when the request started, RFC 3339.
+     * </pre>
+     *
+     * <code>string running_since = 15 [json_name = "runningSince"];</code>
+     * @return The runningSince.
+     */
+    public java.lang.String getRunningSince() {
+      java.lang.Object ref = runningSince_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        runningSince_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * running: when the request started, RFC 3339.
+     * </pre>
+     *
+     * <code>string running_since = 15 [json_name = "runningSince"];</code>
+     * @return The bytes for runningSince.
+     */
+    public com.google.protobuf.ByteString
+        getRunningSinceBytes() {
+      java.lang.Object ref = runningSince_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runningSince_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * running: when the request started, RFC 3339.
+     * </pre>
+     *
+     * <code>string running_since = 15 [json_name = "runningSince"];</code>
+     * @param value The runningSince to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRunningSince(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      runningSince_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * running: when the request started, RFC 3339.
+     * </pre>
+     *
+     * <code>string running_since = 15 [json_name = "runningSince"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRunningSince() {
+      runningSince_ = getDefaultInstance().getRunningSince();
+      bitField0_ = (bitField0_ & ~0x00004000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * running: when the request started, RFC 3339.
+     * </pre>
+     *
+     * <code>string running_since = 15 [json_name = "runningSince"];</code>
+     * @param value The bytes for runningSince to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRunningSinceBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      runningSince_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    private double computableSharePct_ ;
+    /**
+     * <pre>
+     * not_computable: the measured universe share, when measured.
+     * </pre>
+     *
+     * <code>double computable_share_pct = 16 [json_name = "computableSharePct"];</code>
+     * @return The computableSharePct.
+     */
+    @java.lang.Override
+    public double getComputableSharePct() {
+      return computableSharePct_;
+    }
+    /**
+     * <pre>
+     * not_computable: the measured universe share, when measured.
+     * </pre>
+     *
+     * <code>double computable_share_pct = 16 [json_name = "computableSharePct"];</code>
+     * @param value The computableSharePct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setComputableSharePct(double value) {
+
+      computableSharePct_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * not_computable: the measured universe share, when measured.
+     * </pre>
+     *
+     * <code>double computable_share_pct = 16 [json_name = "computableSharePct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearComputableSharePct() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      computableSharePct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasComputableShare_ ;
+    /**
+     * <code>bool has_computable_share = 17 [json_name = "hasComputableShare"];</code>
+     * @return The hasComputableShare.
+     */
+    @java.lang.Override
+    public boolean getHasComputableShare() {
+      return hasComputableShare_;
+    }
+    /**
+     * <code>bool has_computable_share = 17 [json_name = "hasComputableShare"];</code>
+     * @param value The hasComputableShare to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasComputableShare(boolean value) {
+
+      hasComputableShare_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_computable_share = 17 [json_name = "hasComputableShare"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasComputableShare() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      hasComputableShare_ = false;
       onChanged();
       return this;
     }

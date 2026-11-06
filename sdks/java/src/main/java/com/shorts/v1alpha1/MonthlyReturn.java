@@ -81,7 +81,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object state_ = "";
   /**
    * <pre>
-   * complete | partial | not_elapsed.
+   * complete | partial | to_date.
    * </pre>
    *
    * <code>string state = 3 [json_name = "state"];</code>
@@ -102,7 +102,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * complete | partial | not_elapsed.
+   * complete | partial | to_date.
    * </pre>
    *
    * <code>string state = 3 [json_name = "state"];</code>
@@ -145,26 +145,26 @@ private static final long serialVersionUID = 0L;
     return benchmarkPct_;
   }
 
-  public static final int HAS_BENCHMARK_FIELD_NUMBER = 6;
-  private boolean hasBenchmark_ = false;
-  /**
-   * <code>bool has_benchmark = 6 [json_name = "hasBenchmark"];</code>
-   * @return The hasBenchmark.
-   */
-  @java.lang.Override
-  public boolean getHasBenchmark() {
-    return hasBenchmark_;
-  }
-
-  public static final int REFERENCE_PCT_FIELD_NUMBER = 7;
+  public static final int REFERENCE_PCT_FIELD_NUMBER = 6;
   private double referencePct_ = 0D;
   /**
-   * <code>double reference_pct = 7 [json_name = "referencePct"];</code>
+   * <code>double reference_pct = 6 [json_name = "referencePct"];</code>
    * @return The referencePct.
    */
   @java.lang.Override
   public double getReferencePct() {
     return referencePct_;
+  }
+
+  public static final int HAS_BENCHMARK_FIELD_NUMBER = 7;
+  private boolean hasBenchmark_ = false;
+  /**
+   * <code>bool has_benchmark = 7 [json_name = "hasBenchmark"];</code>
+   * @return The hasBenchmark.
+   */
+  @java.lang.Override
+  public boolean getHasBenchmark() {
+    return hasBenchmark_;
   }
 
   public static final int HAS_REFERENCE_FIELD_NUMBER = 8;
@@ -254,11 +254,11 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(benchmarkPct_) != 0) {
       output.writeDouble(5, benchmarkPct_);
     }
-    if (hasBenchmark_ != false) {
-      output.writeBool(6, hasBenchmark_);
-    }
     if (java.lang.Double.doubleToRawLongBits(referencePct_) != 0) {
-      output.writeDouble(7, referencePct_);
+      output.writeDouble(6, referencePct_);
+    }
+    if (hasBenchmark_ != false) {
+      output.writeBool(7, hasBenchmark_);
     }
     if (hasReference_ != false) {
       output.writeBool(8, hasReference_);
@@ -289,13 +289,13 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(5, benchmarkPct_);
     }
-    if (hasBenchmark_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(6, hasBenchmark_);
-    }
     if (java.lang.Double.doubleToRawLongBits(referencePct_) != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeDoubleSize(7, referencePct_);
+        .computeDoubleSize(6, referencePct_);
+    }
+    if (hasBenchmark_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(7, hasBenchmark_);
     }
     if (hasReference_ != false) {
       size += com.google.protobuf.CodedOutputStream
@@ -340,11 +340,11 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getBenchmarkPct())
         != java.lang.Double.doubleToLongBits(
             other.getBenchmarkPct())) return false;
-    if (getHasBenchmark()
-        != other.getHasBenchmark()) return false;
     if (java.lang.Double.doubleToLongBits(getReferencePct())
         != java.lang.Double.doubleToLongBits(
             other.getReferencePct())) return false;
+    if (getHasBenchmark()
+        != other.getHasBenchmark()) return false;
     if (getHasReference()
         != other.getHasReference()) return false;
     if (!getLabel()
@@ -372,12 +372,12 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + BENCHMARK_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getBenchmarkPct()));
-    hash = (37 * hash) + HAS_BENCHMARK_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getHasBenchmark());
     hash = (37 * hash) + REFERENCE_PCT_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getReferencePct()));
+    hash = (37 * hash) + HAS_BENCHMARK_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasBenchmark());
     hash = (37 * hash) + HAS_REFERENCE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasReference());
@@ -523,8 +523,8 @@ private static final long serialVersionUID = 0L;
       state_ = "";
       strategyPct_ = 0D;
       benchmarkPct_ = 0D;
-      hasBenchmark_ = false;
       referencePct_ = 0D;
+      hasBenchmark_ = false;
       hasReference_ = false;
       label_ = "";
       return this;
@@ -576,10 +576,10 @@ private static final long serialVersionUID = 0L;
         result.benchmarkPct_ = benchmarkPct_;
       }
       if (((from_bitField0_ & 0x00000020) != 0)) {
-        result.hasBenchmark_ = hasBenchmark_;
+        result.referencePct_ = referencePct_;
       }
       if (((from_bitField0_ & 0x00000040) != 0)) {
-        result.referencePct_ = referencePct_;
+        result.hasBenchmark_ = hasBenchmark_;
       }
       if (((from_bitField0_ & 0x00000080) != 0)) {
         result.hasReference_ = hasReference_;
@@ -618,11 +618,11 @@ private static final long serialVersionUID = 0L;
       if (java.lang.Double.doubleToRawLongBits(other.getBenchmarkPct()) != 0) {
         setBenchmarkPct(other.getBenchmarkPct());
       }
-      if (other.getHasBenchmark() != false) {
-        setHasBenchmark(other.getHasBenchmark());
-      }
       if (java.lang.Double.doubleToRawLongBits(other.getReferencePct()) != 0) {
         setReferencePct(other.getReferencePct());
+      }
+      if (other.getHasBenchmark() != false) {
+        setHasBenchmark(other.getHasBenchmark());
       }
       if (other.getHasReference() != false) {
         setHasReference(other.getHasReference());
@@ -683,16 +683,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 41
-            case 48: {
-              hasBenchmark_ = input.readBool();
+            case 49: {
+              referencePct_ = input.readDouble();
               bitField0_ |= 0x00000020;
               break;
-            } // case 48
-            case 57: {
-              referencePct_ = input.readDouble();
+            } // case 49
+            case 56: {
+              hasBenchmark_ = input.readBool();
               bitField0_ |= 0x00000040;
               break;
-            } // case 57
+            } // case 56
             case 64: {
               hasReference_ = input.readBool();
               bitField0_ |= 0x00000080;
@@ -787,7 +787,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object state_ = "";
     /**
      * <pre>
-     * complete | partial | not_elapsed.
+     * complete | partial | to_date.
      * </pre>
      *
      * <code>string state = 3 [json_name = "state"];</code>
@@ -807,7 +807,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | not_elapsed.
+     * complete | partial | to_date.
      * </pre>
      *
      * <code>string state = 3 [json_name = "state"];</code>
@@ -828,7 +828,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | not_elapsed.
+     * complete | partial | to_date.
      * </pre>
      *
      * <code>string state = 3 [json_name = "state"];</code>
@@ -845,7 +845,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | not_elapsed.
+     * complete | partial | to_date.
      * </pre>
      *
      * <code>string state = 3 [json_name = "state"];</code>
@@ -859,7 +859,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | not_elapsed.
+     * complete | partial | to_date.
      * </pre>
      *
      * <code>string state = 3 [json_name = "state"];</code>
@@ -940,41 +940,9 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean hasBenchmark_ ;
-    /**
-     * <code>bool has_benchmark = 6 [json_name = "hasBenchmark"];</code>
-     * @return The hasBenchmark.
-     */
-    @java.lang.Override
-    public boolean getHasBenchmark() {
-      return hasBenchmark_;
-    }
-    /**
-     * <code>bool has_benchmark = 6 [json_name = "hasBenchmark"];</code>
-     * @param value The hasBenchmark to set.
-     * @return This builder for chaining.
-     */
-    public Builder setHasBenchmark(boolean value) {
-
-      hasBenchmark_ = value;
-      bitField0_ |= 0x00000020;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>bool has_benchmark = 6 [json_name = "hasBenchmark"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearHasBenchmark() {
-      bitField0_ = (bitField0_ & ~0x00000020);
-      hasBenchmark_ = false;
-      onChanged();
-      return this;
-    }
-
     private double referencePct_ ;
     /**
-     * <code>double reference_pct = 7 [json_name = "referencePct"];</code>
+     * <code>double reference_pct = 6 [json_name = "referencePct"];</code>
      * @return The referencePct.
      */
     @java.lang.Override
@@ -982,24 +950,56 @@ private static final long serialVersionUID = 0L;
       return referencePct_;
     }
     /**
-     * <code>double reference_pct = 7 [json_name = "referencePct"];</code>
+     * <code>double reference_pct = 6 [json_name = "referencePct"];</code>
      * @param value The referencePct to set.
      * @return This builder for chaining.
      */
     public Builder setReferencePct(double value) {
 
       referencePct_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double reference_pct = 6 [json_name = "referencePct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearReferencePct() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      referencePct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasBenchmark_ ;
+    /**
+     * <code>bool has_benchmark = 7 [json_name = "hasBenchmark"];</code>
+     * @return The hasBenchmark.
+     */
+    @java.lang.Override
+    public boolean getHasBenchmark() {
+      return hasBenchmark_;
+    }
+    /**
+     * <code>bool has_benchmark = 7 [json_name = "hasBenchmark"];</code>
+     * @param value The hasBenchmark to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasBenchmark(boolean value) {
+
+      hasBenchmark_ = value;
       bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }
     /**
-     * <code>double reference_pct = 7 [json_name = "referencePct"];</code>
+     * <code>bool has_benchmark = 7 [json_name = "hasBenchmark"];</code>
      * @return This builder for chaining.
      */
-    public Builder clearReferencePct() {
+    public Builder clearHasBenchmark() {
       bitField0_ = (bitField0_ & ~0x00000040);
-      referencePct_ = 0D;
+      hasBenchmark_ = false;
       onChanged();
       return this;
     }

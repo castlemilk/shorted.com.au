@@ -222,6 +222,27 @@ func vdPublicReads() []vdPublicRead {
 			resp.Msg.NextUpdateUtc = ""
 			return resp.Msg
 		}},
+		// The rules-version and backtest reads (PR-18 added the last three to the edge allowlist).
+		{"GetStrategyVersion", false, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			resp, err := srv.GetStrategyVersion(ctx, connect.NewRequest(&shortsv1alpha1.GetStrategyVersionRequest{StrategyId: id}))
+			require.NoError(t, err)
+			return resp.Msg
+		}},
+		{"ListStrategyVersions", false, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			resp, err := srv.ListStrategyVersions(ctx, connect.NewRequest(&shortsv1alpha1.ListStrategyVersionsRequest{}))
+			require.NoError(t, err)
+			return resp.Msg
+		}},
+		{"ListStrategyEvidence", false, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			resp, err := srv.ListStrategyEvidence(ctx, connect.NewRequest(&shortsv1alpha1.ListStrategyEvidenceRequest{}))
+			require.NoError(t, err)
+			return resp.Msg
+		}},
+		{"GetBacktestRun", false, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			resp, err := srv.GetBacktestRun(ctx, connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: id}))
+			require.NoError(t, err)
+			return resp.Msg
+		}},
 	}
 }
 

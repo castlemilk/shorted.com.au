@@ -12,7 +12,7 @@ public interface ListBacktestTradesRequestOrBuilder extends
 
   /**
    * <pre>
-   * Required: a canonical publish run.
+   * Required: a canonical run.
    * </pre>
    *
    * <code>int64 run_id = 1 [json_name = "runId"];</code>

@@ -864,6 +864,10 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private volatile java.lang.Object referenceName_ = "";
   /**
+   * <pre>
+   * The recipe's reference universe, named.
+   * </pre>
+   *
    * <code>string reference_name = 21 [json_name = "referenceName"];</code>
    * @return The referenceName.
    */
@@ -881,6 +885,10 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
+   * <pre>
+   * The recipe's reference universe, named.
+   * </pre>
+   *
    * <code>string reference_name = 21 [json_name = "referenceName"];</code>
    * @return The bytes for referenceName.
    */
@@ -904,7 +912,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object runDate_ = "";
   /**
    * <pre>
-   * The day the run finished (YYYY-MM-DD).
+   * The day the run finished, Sydney time (YYYY-MM-DD).
    * </pre>
    *
    * <code>string run_date = 22 [json_name = "runDate"];</code>
@@ -925,7 +933,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * The day the run finished (YYYY-MM-DD).
+   * The day the run finished, Sydney time (YYYY-MM-DD).
    * </pre>
    *
    * <code>string run_date = 22 [json_name = "runDate"];</code>
@@ -3344,6 +3352,10 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object referenceName_ = "";
     /**
+     * <pre>
+     * The recipe's reference universe, named.
+     * </pre>
+     *
      * <code>string reference_name = 21 [json_name = "referenceName"];</code>
      * @return The referenceName.
      */
@@ -3360,6 +3372,10 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * The recipe's reference universe, named.
+     * </pre>
+     *
      * <code>string reference_name = 21 [json_name = "referenceName"];</code>
      * @return The bytes for referenceName.
      */
@@ -3377,6 +3393,10 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * The recipe's reference universe, named.
+     * </pre>
+     *
      * <code>string reference_name = 21 [json_name = "referenceName"];</code>
      * @param value The referenceName to set.
      * @return This builder for chaining.
@@ -3390,6 +3410,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The recipe's reference universe, named.
+     * </pre>
+     *
      * <code>string reference_name = 21 [json_name = "referenceName"];</code>
      * @return This builder for chaining.
      */
@@ -3400,6 +3424,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The recipe's reference universe, named.
+     * </pre>
+     *
      * <code>string reference_name = 21 [json_name = "referenceName"];</code>
      * @param value The bytes for referenceName to set.
      * @return This builder for chaining.
@@ -3417,7 +3445,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object runDate_ = "";
     /**
      * <pre>
-     * The day the run finished (YYYY-MM-DD).
+     * The day the run finished, Sydney time (YYYY-MM-DD).
      * </pre>
      *
      * <code>string run_date = 22 [json_name = "runDate"];</code>
@@ -3437,7 +3465,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The day the run finished (YYYY-MM-DD).
+     * The day the run finished, Sydney time (YYYY-MM-DD).
      * </pre>
      *
      * <code>string run_date = 22 [json_name = "runDate"];</code>
@@ -3458,7 +3486,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The day the run finished (YYYY-MM-DD).
+     * The day the run finished, Sydney time (YYYY-MM-DD).
      * </pre>
      *
      * <code>string run_date = 22 [json_name = "runDate"];</code>
@@ -3475,7 +3503,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The day the run finished (YYYY-MM-DD).
+     * The day the run finished, Sydney time (YYYY-MM-DD).
      * </pre>
      *
      * <code>string run_date = 22 [json_name = "runDate"];</code>
@@ -3489,7 +3517,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The day the run finished (YYYY-MM-DD).
+     * The day the run finished, Sydney time (YYYY-MM-DD).
      * </pre>
      *
      * <code>string run_date = 22 [json_name = "runDate"];</code>

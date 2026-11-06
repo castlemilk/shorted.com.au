@@ -48,7 +48,7 @@ public interface CompareEntryOrBuilder extends
 
   /**
    * <pre>
-   * computed when the strategy has a published run; otherwise its state.
+   * published, or the state the strategy is in.
    * </pre>
    *
    * <code>string state = 4 [json_name = "state"];</code>
@@ -57,7 +57,7 @@ public interface CompareEntryOrBuilder extends
   java.lang.String getState();
   /**
    * <pre>
-   * computed when the strategy has a published run; otherwise its state.
+   * published, or the state the strategy is in.
    * </pre>
    *
    * <code>string state = 4 [json_name = "state"];</code>
@@ -151,4 +151,16 @@ public interface CompareEntryOrBuilder extends
    */
   com.shorts.v1alpha1.SeriesPointOrBuilder getSeriesOrBuilder(
       int index);
+
+  /**
+   * <code>string state_reason = 8 [json_name = "stateReason"];</code>
+   * @return The stateReason.
+   */
+  java.lang.String getStateReason();
+  /**
+   * <code>string state_reason = 8 [json_name = "stateReason"];</code>
+   * @return The bytes for stateReason.
+   */
+  com.google.protobuf.ByteString
+      getStateReasonBytes();
 }

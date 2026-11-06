@@ -18,35 +18,39 @@ public interface CoverageYearOrBuilder extends
 
   /**
    * <pre>
-   * Priced over qualifying name-days, "qualifying &gt;= 5% short".
+   * The qualifying measure has name-days in the year.
    * </pre>
    *
-   * <code>double qualifying_pct = 2 [json_name = "qualifyingPct"];</code>
-   * @return The qualifyingPct.
+   * <code>bool measurable = 2 [json_name = "measurable"];</code>
+   * @return The measurable.
    */
-  double getQualifyingPct();
+  boolean getMeasurable();
 
   /**
-   * <code>bool has_qualifying = 3 [json_name = "hasQualifying"];</code>
-   * @return The hasQualifying.
-   */
-  boolean getHasQualifying();
-
-  /**
-   * <code>int32 qualifying_priced = 4 [json_name = "qualifyingPriced"];</code>
-   * @return The qualifyingPriced.
-   */
-  int getQualifyingPriced();
-
-  /**
-   * <code>int32 qualifying_name_days = 5 [json_name = "qualifyingNameDays"];</code>
+   * <code>int64 qualifying_name_days = 3 [json_name = "qualifyingNameDays"];</code>
    * @return The qualifyingNameDays.
    */
-  int getQualifyingNameDays();
+  long getQualifyingNameDays();
+
+  /**
+   * <code>int64 priced_name_days = 4 [json_name = "pricedNameDays"];</code>
+   * @return The pricedNameDays.
+   */
+  long getPricedNameDays();
 
   /**
    * <pre>
-   * Priced over every ordinary reported name-day, "all reported".
+   * Qualifying coverage: priced over qualifying name-days.
+   * </pre>
+   *
+   * <code>double coverage_pct = 5 [json_name = "coveragePct"];</code>
+   * @return The coveragePct.
+   */
+  double getCoveragePct();
+
+  /**
+   * <pre>
+   * All-reported coverage.
    * </pre>
    *
    * <code>double all_reported_pct = 6 [json_name = "allReportedPct"];</code>
@@ -55,20 +59,45 @@ public interface CoverageYearOrBuilder extends
   double getAllReportedPct();
 
   /**
-   * <code>bool has_all_reported = 7 [json_name = "hasAllReported"];</code>
-   * @return The hasAllReported.
+   * <pre>
+   * Delisting exits of trades that exited in the year.
+   * </pre>
+   *
+   * <code>int32 delisting_exits = 7 [json_name = "delistingExits"];</code>
+   * @return The delistingExits.
    */
-  boolean getHasAllReported();
+  int getDelistingExits();
 
   /**
-   * <code>int32 all_reported_priced = 8 [json_name = "allReportedPriced"];</code>
-   * @return The allReportedPriced.
+   * <pre>
+   * Corporate-action exits of trades that exited in the year.
+   * </pre>
+   *
+   * <code>int32 ca_exits = 8 [json_name = "caExits"];</code>
+   * @return The caExits.
    */
-  int getAllReportedPriced();
+  int getCaExits();
 
   /**
-   * <code>int32 all_reported_name_days = 9 [json_name = "allReportedNameDays"];</code>
+   * <code>bool all_reported_measurable = 11 [json_name = "allReportedMeasurable"];</code>
+   * @return The allReportedMeasurable.
+   */
+  boolean getAllReportedMeasurable();
+
+  /**
+   * <code>int64 all_reported_name_days = 12 [json_name = "allReportedNameDays"];</code>
    * @return The allReportedNameDays.
    */
-  int getAllReportedNameDays();
+  long getAllReportedNameDays();
+
+  /**
+   * <pre>
+   * 9 and 10 (flat-bar cancellations, dividend-step suspects) are not stored per year; they are run totals
+   * in DataQuality and are not repeated here.
+   * </pre>
+   *
+   * <code>int64 all_reported_priced_name_days = 13 [json_name = "allReportedPricedNameDays"];</code>
+   * @return The allReportedPricedNameDays.
+   */
+  long getAllReportedPricedNameDays();
 }

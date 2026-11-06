@@ -11,19 +11,11 @@ public interface SurvivorshipOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <pre>
-   * measured | asic_reported_only | not_measurable.
-   * </pre>
-   *
    * <code>string measurement = 1 [json_name = "measurement"];</code>
    * @return The measurement.
    */
   java.lang.String getMeasurement();
   /**
-   * <pre>
-   * measured | asic_reported_only | not_measurable.
-   * </pre>
-   *
    * <code>string measurement = 1 [json_name = "measurement"];</code>
    * @return The bytes for measurement.
    */

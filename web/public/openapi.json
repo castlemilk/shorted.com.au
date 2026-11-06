@@ -381,8 +381,13 @@
             "title": "coverage_measurable",
             "type": "boolean"
           },
+          "coverageMeasure": {
+            "description": "qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses. (proto string)",
+            "title": "coverage_measure",
+            "type": "string"
+          },
           "coveragePct": {
-            "description": "Qualifying coverage over the year, the measure this table prints. (proto double)",
+            "description": "Coverage under coverage_measure. (proto double)",
             "format": "double",
             "title": "coverage_pct",
             "type": "number"
@@ -398,7 +403,7 @@
             "type": "boolean"
           },
           "months": {
-            "description": "\"May-Dec\" or \"YTD\"; \"\" for a whole year. (proto string)",
+            "description": "\"May-Dec\" for a partial first year, \"YTD\" for the current; \"\" for a whole year. (proto string)",
             "title": "months",
             "type": "string"
           },
@@ -409,7 +414,7 @@
             "type": "number"
           },
           "state": {
-            "description": "complete | partial | not_elapsed. (proto string)",
+            "description": "complete | partial | to_date (the current year, measured to date). (proto string)",
             "title": "state",
             "type": "string"
           },
@@ -476,7 +481,7 @@
             "type": "array"
           },
           "computableFrom": {
-            "description": "not_computable: \"\" when the threshold was never met. (proto string)",
+            "description": "not_computable: \"\" when the 50% threshold was never met. (proto string)",
             "title": "computable_from",
             "type": "string"
           },
@@ -486,12 +491,12 @@
             "title": "computable_share_pct",
             "type": "number"
           },
-          "coverageByYear": {
+          "coverage": {
             "description": "Both coverage measures, by year. (proto shorts.v1alpha1.CoverageYear)",
             "items": {
               "$ref": "#/components/schemas/shorts.v1alpha1.CoverageYear"
             },
-            "title": "coverage_by_year",
+            "title": "coverage",
             "type": "array"
           },
           "coverageMonthly": {
@@ -503,12 +508,17 @@
             "type": "array"
           },
           "dataNotes": {
-            "description": "Data-quality notes of the run. (proto string)",
+            "description": "Data-quality notes of the run, as prose. (proto string)",
             "items": {
               "type": "string"
             },
             "title": "data_notes",
             "type": "array"
+          },
+          "dataQuality": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.DataQuality",
+            "description": "The run's data-quality counts, as fields. (proto shorts.v1alpha1.DataQuality)",
+            "title": "data_quality"
           },
           "disclosures": {
             "description": "Printed beside the figures. (proto string)",
@@ -528,6 +538,11 @@
             "title": "fiscal_label",
             "type": "string"
           },
+          "fundamentalsLabel": {
+            "description": "The fundamentals policy, in words the surfaces print. (proto string)",
+            "title": "fundamentals_label",
+            "type": "string"
+          },
           "hasComputableShare": {
             "description": "(proto bool)",
             "title": "has_computable_share",
@@ -535,7 +550,7 @@
           },
           "identity": {
             "$ref": "#/components/schemas/shorts.v1alpha1.BacktestRunIdentity",
-            "description": "Absent for run_required and running. (proto shorts.v1alpha1.BacktestRunIdentity)",
+            "description": "Absent for run_required, running and not_computable. (proto shorts.v1alpha1.BacktestRunIdentity)",
             "title": "identity"
           },
           "inputChangeNote": {
@@ -562,12 +577,12 @@
             "title": "recipe"
           },
           "replayAgreement": {
-            "description": "\"Replay agrees: 14 of 15 trades\", or \"Replay not comparable: different fundamentals policy\". (proto string)",
+            "description": "\"Replay agrees: 14 of 15 trades\", or why it is not comparable. (proto string)",
             "title": "replay_agreement",
             "type": "string"
           },
           "rulesMatchLive": {
-            "description": "The run's rules are the live rules. (proto bool)",
+            "description": "The run's rules and recipe are the live ones. (proto bool)",
             "title": "rules_match_live",
             "type": "boolean"
           },
@@ -585,7 +600,7 @@
             "type": "array"
           },
           "series": {
-            "description": "One point per ISO week plus the first, last and trough sessions; at most 500. (proto shorts.v1alpha1.SeriesPoint)",
+            "description": "The served window's points: daily or weekly, at most 500. (proto shorts.v1alpha1.SeriesPoint)",
             "items": {
               "$ref": "#/components/schemas/shorts.v1alpha1.SeriesPoint"
             },
@@ -593,13 +608,18 @@
             "type": "array"
           },
           "seriesResolution": {
-            "description": "\"weekly\" for a computed run; \"\" otherwise. (proto string)",
+            "description": "\"daily\" or \"weekly\": what the series carries. (proto string)",
             "title": "series_resolution",
             "type": "string"
           },
           "state": {
-            "description": "computed | run_required | running | not_computable | approximate. (proto string)",
+            "description": "published | approximate | run_required | running | not_computable. (proto string)",
             "title": "state",
+            "type": "string"
+          },
+          "stateReason": {
+            "description": "Why the state is what it is, in words. (proto string)",
+            "title": "state_reason",
             "type": "string"
           },
           "strategyId": {
@@ -614,8 +634,13 @@
           },
           "tradeSummary": {
             "$ref": "#/components/schemas/shorts.v1alpha1.TradeSummary",
-            "description": "The in-sample trades; the paper trades are counted in the windows. (proto shorts.v1alpha1.TradeSummary)",
+            "description": "Closed trades that exited before live_from (in-sample). (proto shorts.v1alpha1.TradeSummary)",
             "title": "trade_summary"
+          },
+          "windowId": {
+            "description": "The window the series and window tables are served for. (proto string)",
+            "title": "window_id",
+            "type": "string"
           },
           "windows": {
             "description": "Chained windows (5.8). (proto shorts.v1alpha1.WindowMetrics)",
@@ -699,7 +724,7 @@
             "type": "string"
           },
           "referenceName": {
-            "description": "(proto string)",
+            "description": "The recipe's reference universe, named. (proto string)",
             "title": "reference_name",
             "type": "string"
           },
@@ -714,7 +739,7 @@
             "type": "string"
           },
           "runDate": {
-            "description": "The day the run finished (YYYY-MM-DD). (proto string)",
+            "description": "The day the run finished, Sydney time (YYYY-MM-DD). (proto string)",
             "title": "run_date",
             "type": "string"
           },
@@ -2037,13 +2062,12 @@
       },
       "shorts.v1alpha1.CoverageMonth": {
         "additionalProperties": false,
-        "description": "Coverage by month under both measures.",
+        "description": "Coverage by month under both measures. Counts are not served: the percentages are.",
         "properties": {
-          "allReportedNameDays": {
-            "description": "(proto int32)",
-            "format": "int32",
-            "title": "all_reported_name_days",
-            "type": "integer"
+          "allReportedMeasurable": {
+            "description": "(proto bool)",
+            "title": "all_reported_measurable",
+            "type": "boolean"
           },
           "allReportedPct": {
             "description": "(proto double)",
@@ -2051,44 +2075,21 @@
             "title": "all_reported_pct",
             "type": "number"
           },
-          "allReportedPriced": {
-            "description": "(proto int32)",
-            "format": "int32",
-            "title": "all_reported_priced",
-            "type": "integer"
+          "coveragePct": {
+            "description": "Qualifying coverage. (proto double)",
+            "format": "double",
+            "title": "coverage_pct",
+            "type": "number"
           },
-          "hasAllReported": {
+          "measurable": {
             "description": "(proto bool)",
-            "title": "has_all_reported",
-            "type": "boolean"
-          },
-          "hasQualifying": {
-            "description": "(proto bool)",
-            "title": "has_qualifying",
+            "title": "measurable",
             "type": "boolean"
           },
           "month": {
             "description": "YYYY-MM. (proto string)",
             "title": "month",
             "type": "string"
-          },
-          "qualifyingNameDays": {
-            "description": "(proto int32)",
-            "format": "int32",
-            "title": "qualifying_name_days",
-            "type": "integer"
-          },
-          "qualifyingPct": {
-            "description": "(proto double)",
-            "format": "double",
-            "title": "qualifying_pct",
-            "type": "number"
-          },
-          "qualifyingPriced": {
-            "description": "(proto int32)",
-            "format": "int32",
-            "title": "qualifying_priced",
-            "type": "integer"
           }
         },
         "title": "CoverageMonth",
@@ -2096,53 +2097,77 @@
       },
       "shorts.v1alpha1.CoverageYear": {
         "additionalProperties": false,
-        "description": "Coverage by year under both measures; each figure names its measure.",
+        "description": "Coverage by year. The qualifying measure (name-days of at least 5% short) and the all-reported measure\n (every ordinary name in the report) are both served; each figure names its measure.",
         "properties": {
+          "allReportedMeasurable": {
+            "description": "(proto bool)",
+            "title": "all_reported_measurable",
+            "type": "boolean"
+          },
           "allReportedNameDays": {
-            "description": "(proto int32)",
-            "format": "int32",
+            "description": "(proto int64)",
+            "format": "int64",
             "title": "all_reported_name_days",
-            "type": "integer"
+            "type": [
+              "integer",
+              "string"
+            ]
           },
           "allReportedPct": {
-            "description": "Priced over every ordinary reported name-day, \"all reported\". (proto double)",
+            "description": "All-reported coverage. (proto double)",
             "format": "double",
             "title": "all_reported_pct",
             "type": "number"
           },
-          "allReportedPriced": {
-            "description": "(proto int32)",
+          "allReportedPricedNameDays": {
+            "description": "9 and 10 (flat-bar cancellations, dividend-step suspects) are not stored per year; they are run totals\n in DataQuality and are not repeated here. (proto int64)",
+            "format": "int64",
+            "title": "all_reported_priced_name_days",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "caExits": {
+            "description": "Corporate-action exits of trades that exited in the year. (proto int32)",
             "format": "int32",
-            "title": "all_reported_priced",
+            "title": "ca_exits",
             "type": "integer"
           },
-          "hasAllReported": {
-            "description": "(proto bool)",
-            "title": "has_all_reported",
-            "type": "boolean"
-          },
-          "hasQualifying": {
-            "description": "(proto bool)",
-            "title": "has_qualifying",
-            "type": "boolean"
-          },
-          "qualifyingNameDays": {
-            "description": "(proto int32)",
-            "format": "int32",
-            "title": "qualifying_name_days",
-            "type": "integer"
-          },
-          "qualifyingPct": {
-            "description": "Priced over qualifying name-days, \"qualifying \u003e= 5% short\". (proto double)",
+          "coveragePct": {
+            "description": "Qualifying coverage: priced over qualifying name-days. (proto double)",
             "format": "double",
-            "title": "qualifying_pct",
+            "title": "coverage_pct",
             "type": "number"
           },
-          "qualifyingPriced": {
-            "description": "(proto int32)",
+          "delistingExits": {
+            "description": "Delisting exits of trades that exited in the year. (proto int32)",
             "format": "int32",
-            "title": "qualifying_priced",
+            "title": "delisting_exits",
             "type": "integer"
+          },
+          "measurable": {
+            "description": "The qualifying measure has name-days in the year. (proto bool)",
+            "title": "measurable",
+            "type": "boolean"
+          },
+          "pricedNameDays": {
+            "description": "(proto int64)",
+            "format": "int64",
+            "title": "priced_name_days",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "qualifyingNameDays": {
+            "description": "(proto int64)",
+            "format": "int64",
+            "title": "qualifying_name_days",
+            "type": [
+              "integer",
+              "string"
+            ]
           },
           "year": {
             "description": "(proto int32)",
@@ -2152,6 +2177,84 @@
           }
         },
         "title": "CoverageYear",
+        "type": "object"
+      },
+      "shorts.v1alpha1.DataQuality": {
+        "additionalProperties": false,
+        "description": "A run's data-quality counts (5.11). Every count the run stores is served here, so no reader has to\n parse the prose.",
+        "properties": {
+          "caSuspects": {
+            "description": "Corporate-action suspects: ASIC share steps with an unconfirmed price. (proto int32)",
+            "format": "int32",
+            "title": "ca_suspects",
+            "type": "integer"
+          },
+          "cancelledEntries": {
+            "additionalProperties": {
+              "description": "(proto int32)",
+              "format": "int32",
+              "title": "value",
+              "type": "integer"
+            },
+            "description": "Entries cancelled, by reason. (proto shorts.v1alpha1.DataQuality.CancelledEntriesEntry)",
+            "title": "cancelled_entries",
+            "type": "object"
+          },
+          "capacityCapped": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "capacity_capped",
+            "type": "integer"
+          },
+          "consolidationNote": {
+            "description": "The 5.11 note on pre-re-sync consolidations. (proto string)",
+            "title": "consolidation_note",
+            "type": "string"
+          },
+          "corporateActionExits": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "corporate_action_exits",
+            "type": "integer"
+          },
+          "delayedExits": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "delayed_exits",
+            "type": "integer"
+          },
+          "delistingExits": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "delisting_exits",
+            "type": "integer"
+          },
+          "dividendsCredited": {
+            "description": "Ex-dates credited in cash. (proto int32)",
+            "format": "int32",
+            "title": "dividends_credited",
+            "type": "integer"
+          },
+          "fallbackClose": {
+            "description": "Held bars that fell back to a close price. (proto int32)",
+            "format": "int32",
+            "title": "fallback_close",
+            "type": "integer"
+          },
+          "priceReturnTrades": {
+            "description": "Trades holding a bar on price return (4.8). (proto int32)",
+            "format": "int32",
+            "title": "price_return_trades",
+            "type": "integer"
+          },
+          "staleMarkTrades": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "stale_mark_trades",
+            "type": "integer"
+          }
+        },
+        "title": "DataQuality",
         "type": "object"
       },
       "shorts.v1alpha1.DeclaredInterest": {
@@ -4706,12 +4809,12 @@
         "description": "Request for GetBacktestRun.",
         "properties": {
           "resolution": {
-            "description": "\"weekly\" (default) or \"daily\". Daily is refused: its series would exceed the 500-point budget. (proto string)",
+            "description": "\"weekly\" (default) or \"daily\". Daily is served for windows of 500 sessions or fewer. (proto string)",
             "title": "resolution",
             "type": "string"
           },
           "runId": {
-            "description": "0: the published run of the live version. Otherwise a canonical publish run of this strategy. (proto int64)",
+            "description": "0: the published run of the live version. Otherwise a canonical run of this strategy. (proto int64)",
             "format": "int64",
             "title": "run_id",
             "type": [
@@ -4722,6 +4825,11 @@
           "strategyId": {
             "description": "Required: a canonical strategy id. (proto string)",
             "title": "strategy_id",
+            "type": "string"
+          },
+          "window": {
+            "description": "since_2019_05 (default) | since_2023 | trailing_12m | live. live needs a paper track. (proto string)",
+            "title": "window",
             "type": "string"
           }
         },
@@ -11466,7 +11574,7 @@
             "type": "number"
           },
           "state": {
-            "description": "complete | partial | not_elapsed. (proto string)",
+            "description": "complete | partial | to_date. (proto string)",
             "title": "state",
             "type": "string"
           },
@@ -14320,7 +14428,7 @@
       },
       "shorts.v1alpha1.SeriesPoint": {
         "additionalProperties": false,
-        "description": "One point of a series. Equity is in A$ on the chained curve. Benchmark and reference are\n index levels, never zero, so zero reads as not measured (the reference is not recorded\n after the freeze).",
+        "description": "One point of a series. Equity is in A$ on the chained curve, rounded to whole dollars. Benchmark and\n reference are index levels, never zero, so zero reads as not measured (the reference is not recorded\n after the freeze, and runs published before the reference fix carry none).",
         "properties": {
           "benchmark": {
             "description": "(proto double)",
@@ -14334,7 +14442,7 @@
             "type": "string"
           },
           "drawdownPct": {
-            "description": "Negative or zero. (proto double)",
+            "description": "Negative or zero, two decimals. (proto double)",
             "format": "double",
             "title": "drawdown_pct",
             "type": "number"
@@ -15162,14 +15270,25 @@
             "type": "array"
           },
           "computableFrom": {
-            "description": "Not computable: the first month-end the universe is computable; \"\" when none. (proto string)",
+            "description": "not_computable: the first month-end the universe is computable; \"\" when none. (proto string)",
             "title": "computable_from",
             "type": "string"
           },
+          "computableSharePct": {
+            "description": "not_computable: the measured universe share, when measured. (proto double)",
+            "format": "double",
+            "title": "computable_share_pct",
+            "type": "number"
+          },
           "fiscalLabel": {
-            "description": "Not computable: the measured label, e.g. FY2024; \"\" when none. (proto string)",
+            "description": "not_computable: the measured label, e.g. FY2024; \"\" when none. (proto string)",
             "title": "fiscal_label",
             "type": "string"
+          },
+          "hasComputableShare": {
+            "description": "(proto bool)",
+            "title": "has_computable_share",
+            "type": "boolean"
           },
           "latestScreen": {
             "description": "The session the today counts are as at (YYYY-MM-DD); \"\" when none. (proto string)",
@@ -15198,9 +15317,19 @@
               "string"
             ]
           },
+          "runningSince": {
+            "description": "running: when the request started, RFC 3339. (proto string)",
+            "title": "running_since",
+            "type": "string"
+          },
           "state": {
-            "description": "computed | run_required | running | not_computable | approximate. (proto string)",
+            "description": "published | approximate | run_required | running | not_computable. (proto string)",
             "title": "state",
+            "type": "string"
+          },
+          "stateReason": {
+            "description": "Why the state is what it is, in words the explorer can print. (proto string)",
+            "title": "state_reason",
             "type": "string"
           },
           "strategyId": {
@@ -15209,7 +15338,7 @@
             "type": "string"
           },
           "survivorship": {
-            "description": "The survivorship statement's copy. (proto string)",
+            "description": "The survivorship statement, with the measurement caveat where one applies. (proto string)",
             "title": "survivorship",
             "type": "string"
           },
@@ -15220,7 +15349,7 @@
           },
           "version": {
             "$ref": "#/components/schemas/shorts.v1alpha1.StrategyVersionRef",
-            "description": "The live canonical version the evidence is for; absent when none is registered. (proto shorts.v1alpha1.StrategyVersionRef)",
+            "description": "The live canonical version; absent when none is registered. (proto shorts.v1alpha1.StrategyVersionRef)",
             "title": "version"
           },
           "windows": {
@@ -17222,7 +17351,7 @@
       },
       "shorts.v1alpha1.Survivorship": {
         "additionalProperties": false,
-        "description": "Survivorship block. Measurement is machine-readable.",
+        "description": "Survivorship block. Measurement is one of 8.2's values: measured | partial | not_measurable.",
         "properties": {
           "caveat": {
             "description": "The extra line some recipes print; \"\" otherwise. (proto string)",
@@ -17235,7 +17364,7 @@
             "type": "string"
           },
           "measurement": {
-            "description": "measured | asic_reported_only | not_measurable. (proto string)",
+            "description": "(proto string)",
             "title": "measurement",
             "type": "string"
           },
@@ -17392,7 +17521,7 @@
       },
       "shorts.v1alpha1.TradeSummary": {
         "additionalProperties": false,
-        "description": "The closed-trade statistics a run publishes.",
+        "description": "The closed-trade statistics of a run, over the trades that exited before live_from (in-sample).",
         "properties": {
           "avgHoldSessions": {
             "description": "(proto double)",
@@ -17435,9 +17564,34 @@
             "title": "exits_by_reason",
             "type": "object"
           },
+          "hasAvgHold": {
+            "description": "(proto bool)",
+            "title": "has_avg_hold",
+            "type": "boolean"
+          },
+          "hasAvgLoss": {
+            "description": "(proto bool)",
+            "title": "has_avg_loss",
+            "type": "boolean"
+          },
+          "hasAvgWin": {
+            "description": "(proto bool)",
+            "title": "has_avg_win",
+            "type": "boolean"
+          },
+          "hasBest": {
+            "description": "(proto bool)",
+            "title": "has_best",
+            "type": "boolean"
+          },
           "hasWinRate": {
             "description": "(proto bool)",
             "title": "has_win_rate",
+            "type": "boolean"
+          },
+          "hasWorst": {
+            "description": "(proto bool)",
+            "title": "has_worst",
             "type": "boolean"
           },
           "openAtEnd": {
@@ -17972,6 +18126,12 @@
             "title": "benchmark_cagr_pct",
             "type": "number"
           },
+          "benchmarkTotalReturnPct": {
+            "description": "XJT over the window: shown for every window, annualised or not. (proto double)",
+            "format": "double",
+            "title": "benchmark_total_return_pct",
+            "type": "number"
+          },
           "cagrPct": {
             "description": "(proto double)",
             "format": "double",
@@ -18006,6 +18166,11 @@
             "title": "has_benchmark",
             "type": "boolean"
           },
+          "hasBenchmarkTotalReturn": {
+            "description": "(proto bool)",
+            "title": "has_benchmark_total_return",
+            "type": "boolean"
+          },
           "hasCagr": {
             "description": "False below 365 calendar days; the return is then not annualised. (proto bool)",
             "title": "has_cagr",
@@ -18016,9 +18181,19 @@
             "title": "has_reference",
             "type": "boolean"
           },
+          "hasReferenceTotalReturn": {
+            "description": "(proto bool)",
+            "title": "has_reference_total_return",
+            "type": "boolean"
+          },
           "hasSharpe": {
             "description": "False below 126 daily returns: \"n/m\". (proto bool)",
             "title": "has_sharpe",
+            "type": "boolean"
+          },
+          "hasTotalReturn": {
+            "description": "(proto bool)",
+            "title": "has_total_return",
             "type": "boolean"
           },
           "hasVolatility": {
@@ -18027,7 +18202,7 @@
             "type": "boolean"
           },
           "hasWinRate": {
-            "description": "False when the window includes paper trades, which carry no net return here. (proto bool)",
+            "description": "(proto bool)",
             "title": "has_win_rate",
             "type": "boolean"
           },
@@ -18052,15 +18227,31 @@
             "title": "note",
             "type": "string"
           },
+          "peakDate": {
+            "description": "The session of the window's deepest peak; \"\" when the curve never falls. (proto string)",
+            "title": "peak_date",
+            "type": "string"
+          },
           "recordedTail": {
             "description": "The window ends in the paper track, recorded after live_from. (proto bool)",
             "title": "recorded_tail",
             "type": "boolean"
           },
+          "recoveryDate": {
+            "description": "The first session back at the peak; \"not recovered\" when it has not; \"\" when none. (proto string)",
+            "title": "recovery_date",
+            "type": "string"
+          },
           "referenceCagrPct": {
             "description": "(proto double)",
             "format": "double",
             "title": "reference_cagr_pct",
+            "type": "number"
+          },
+          "referenceTotalReturnPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "reference_total_return_pct",
             "type": "number"
           },
           "sessions": {
@@ -18092,6 +18283,11 @@
             "title": "total_return_pct",
             "type": "number"
           },
+          "troughDate": {
+            "description": "The session of the deepest fall. (proto string)",
+            "title": "trough_date",
+            "type": "string"
+          },
           "volatilityPct": {
             "description": "Annualised daily volatility. (proto double)",
             "format": "double",
@@ -18105,7 +18301,7 @@
             "type": "number"
           },
           "window": {
-            "description": "since_may_2019 | since_2023 | last_12_months | live_since_freeze. (proto string)",
+            "description": "since_2019_05 | since_2023 | trailing_12m | live. (proto string)",
             "title": "window",
             "type": "string"
           }
@@ -24254,7 +24450,7 @@
     },
     "/shorts.v1alpha1.StrategyService/GetBacktestRun": {
       "post": {
-        "description": "One published canonical backtest run: the series (weekly), windows, annual and monthly\n tables, coverage, sensitivity, survivorship, recipe lines, trade summary, identity and the\n replay agreement. run_id 0 is the published run of the live version. A variant run_id, or a\n run that is not a canonical publish, is NotFound.",
+        "description": "One canonical backtest run: the live version's published run (run_id 0), or a canonical run by\n id. A variant run, a gate-refused run or an unknown id is NotFound. A not-computable outcome\n fetched by id returns its stored state. The series is daily for windows of 500 sessions or\n fewer, weekly otherwise (series_resolution says which). Public and cached per instance.",
         "operationId": "StrategyService_GetBacktestRun",
         "parameters": [
           {
@@ -24608,7 +24804,7 @@
     },
     "/shorts.v1alpha1.StrategyService/ListStrategyEvidence": {
       "post": {
-        "description": "The backtest evidence of every strategy: each strategy's state, its chained windows\n (in-sample to live_from, then the recorded paper track), its annual returns, a month-end\n curve and its paper-track summary. Public: the same bytes to every caller.",
+        "description": "The backtest evidence of every strategy: each strategy's state, its chained windows (in-sample\n to live_from, then the recorded paper track), its annual returns, a month-end curve and its\n paper-track summary. Public: the same bytes to every caller, cached per instance.",
         "operationId": "StrategyService_ListStrategyEvidence",
         "parameters": [
           {

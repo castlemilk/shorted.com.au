@@ -4087,9 +4087,9 @@ paths:
         - shorts.v1alpha1.StrategyService
       summary: CompareStrategies
       description: |-
-        Two or three canonical strategies side by side over one common window: their chained
-         windows, weekly curves rebased to 100,000 and daily-return correlations. Signed-in callers
-         only. Variant references are refused until variant comparison ships.
+        Two or three canonical strategies over their common window: windows, rebased weekly curves,
+         daily-return correlations and the rule differences. Signed-in callers only. Variant references
+         are refused until variant comparison ships.
       operationId: StrategyService_CompareStrategies
       parameters:
         - name: Connect-Protocol-Version
@@ -4126,10 +4126,10 @@ paths:
         - shorts.v1alpha1.StrategyService
       summary: GetBacktestRun
       description: |-
-        One published canonical backtest run: the series (weekly), windows, annual and monthly
-         tables, coverage, sensitivity, survivorship, recipe lines, trade summary, identity and the
-         replay agreement. run_id 0 is the published run of the live version. A variant run_id, or a
-         run that is not a canonical publish, is NotFound.
+        One canonical backtest run: the live version's published run (run_id 0), or a canonical run by
+         id. A variant run, a gate-refused run or an unknown id is NotFound. A not-computable outcome
+         fetched by id returns its stored state. The series is daily for windows of 500 sessions or
+         fewer, weekly otherwise (series_resolution says which). Public and cached per instance.
       operationId: StrategyService_GetBacktestRun
       parameters:
         - name: Connect-Protocol-Version
@@ -4364,8 +4364,8 @@ paths:
         - shorts.v1alpha1.StrategyService
       summary: ListBacktestTrades
       description: |-
-        The trades of one canonical run, paged, with optional stock and exit filters. Signed-in
-         callers only. A variant or unknown run_id is NotFound.
+        The trades of one canonical run, keyset-paged and filterable by stock and exit reason. Signed-in
+         callers only. A variant, gate-refused or unknown run is NotFound.
       operationId: StrategyService_ListBacktestTrades
       parameters:
         - name: Connect-Protocol-Version
@@ -4478,9 +4478,9 @@ paths:
         - shorts.v1alpha1.StrategyService
       summary: ListStrategyEvidence
       description: |-
-        The backtest evidence of every strategy: each strategy's state, its chained windows
-         (in-sample to live_from, then the recorded paper track), its annual returns, a month-end
-         curve and its paper-track summary. Public: the same bytes to every caller.
+        The backtest evidence of every strategy: each strategy's state, its chained windows (in-sample
+         to live_from, then the recorded paper track), its annual returns, a month-end curve and its
+         paper-track summary. Public: the same bytes to every caller, cached per instance.
       operationId: StrategyService_ListStrategyEvidence
       parameters:
         - name: Connect-Protocol-Version
@@ -5265,11 +5265,7 @@ components:
         state:
           type: string
           title: state
-          description: complete | partial | not_elapsed. (proto string)
-        months:
-          type: string
-          title: months
-          description: '"May-Dec" or "YTD"; "" for a whole year. (proto string)'
+          description: complete | partial | to_date (the current year, measured to date). (proto string)
         strategyPct:
           type: number
           title: strategy_pct
@@ -5280,24 +5276,20 @@ components:
           title: benchmark_pct
           format: double
           description: (proto double)
-        hasBenchmark:
-          type: boolean
-          title: has_benchmark
-          description: (proto bool)
         referencePct:
           type: number
           title: reference_pct
           format: double
           description: (proto double)
-        hasReference:
-          type: boolean
-          title: has_reference
-          description: (proto bool)
+        months:
+          type: string
+          title: months
+          description: '"May-Dec" for a partial first year, "YTD" for the current; "" for a whole year. (proto string)'
         coveragePct:
           type: number
           title: coverage_pct
           format: double
-          description: Qualifying coverage over the year, the measure this table prints. (proto double)
+          description: Coverage under coverage_measure. (proto double)
         coverageMeasurable:
           type: boolean
           title: coverage_measurable
@@ -5306,6 +5298,18 @@ components:
           type: boolean
           title: approximate
           description: An approximate run's year. Nothing sets it in this release. (proto bool)
+        hasBenchmark:
+          type: boolean
+          title: has_benchmark
+          description: (proto bool)
+        hasReference:
+          type: boolean
+          title: has_reference
+          description: (proto bool)
+        coverageMeasure:
+          type: string
+          title: coverage_measure
+          description: 'qualifying_5pct_short | all_reported | not_measurable: the measure the coverage uses. (proto string)'
       title: AnnualReturn
       additionalProperties: false
       description: 'One period of the annual table: the strategy, XJT and the same-data reference.'
@@ -5342,22 +5346,22 @@ components:
         state:
           type: string
           title: state
-          description: computed | run_required | running | not_computable | approximate. (proto string)
-        strategyId:
+          description: published | approximate | run_required | running | not_computable. (proto string)
+        stateReason:
           type: string
-          title: strategy_id
-          description: (proto string)
+          title: state_reason
+          description: Why the state is what it is, in words. (proto string)
         computableFrom:
           type: string
           title: computable_from
-          description: 'not_computable: "" when the threshold was never met. (proto string)'
+          description: 'not_computable: "" when the 50% threshold was never met. (proto string)'
         fiscalLabel:
           type: string
           title: fiscal_label
           description: 'not_computable: the measured label; "" when none. (proto string)'
         identity:
           title: identity
-          description: Absent for run_required and running. (proto shorts.v1alpha1.BacktestRunIdentity)
+          description: Absent for run_required, running and not_computable. (proto shorts.v1alpha1.BacktestRunIdentity)
           $ref: '#/components/schemas/shorts.v1alpha1.BacktestRunIdentity'
         windows:
           type: array
@@ -5382,12 +5386,12 @@ components:
           items:
             $ref: '#/components/schemas/shorts.v1alpha1.SeriesPoint'
           title: series
-          description: One point per ISO week plus the first, last and trough sessions; at most 500. (proto shorts.v1alpha1.SeriesPoint)
-        coverageByYear:
+          description: 'The served window''s points: daily or weekly, at most 500. (proto shorts.v1alpha1.SeriesPoint)'
+        coverage:
           type: array
           items:
             $ref: '#/components/schemas/shorts.v1alpha1.CoverageYear'
-          title: coverage_by_year
+          title: coverage
           description: Both coverage measures, by year. (proto shorts.v1alpha1.CoverageYear)
         coverageMonthly:
           type: array
@@ -5411,7 +5415,7 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.RecipeLines'
         tradeSummary:
           title: trade_summary
-          description: The in-sample trades; the paper trades are counted in the windows. (proto shorts.v1alpha1.TradeSummary)
+          description: Closed trades that exited before live_from (in-sample). (proto shorts.v1alpha1.TradeSummary)
           $ref: '#/components/schemas/shorts.v1alpha1.TradeSummary'
         liveVersion:
           title: live_version
@@ -5420,7 +5424,7 @@ components:
         rulesMatchLive:
           type: boolean
           title: rules_match_live
-          description: The run's rules are the live rules. (proto bool)
+          description: The run's rules and recipe are the live ones. (proto bool)
         engineMatchesLive:
           type: boolean
           title: engine_matches_live
@@ -5428,7 +5432,7 @@ components:
         replayAgreement:
           type: string
           title: replay_agreement
-          description: '"Replay agrees: 14 of 15 trades", or "Replay not comparable: different fundamentals policy". (proto string)'
+          description: '"Replay agrees: 14 of 15 trades", or why it is not comparable. (proto string)'
         inputChangeNote:
           type: string
           title: input_change_note
@@ -5444,7 +5448,11 @@ components:
           items:
             type: string
           title: data_notes
-          description: Data-quality notes of the run. (proto string)
+          description: Data-quality notes of the run, as prose. (proto string)
+        strategyId:
+          type: string
+          title: strategy_id
+          description: (proto string)
         runningSince:
           type: string
           title: running_since
@@ -5452,7 +5460,7 @@ components:
         seriesResolution:
           type: string
           title: series_resolution
-          description: '"weekly" for a computed run; "" otherwise. (proto string)'
+          description: '"daily" or "weekly": what the series carries. (proto string)'
         computableSharePct:
           type: number
           title: computable_share_pct
@@ -5462,6 +5470,18 @@ components:
           type: boolean
           title: has_computable_share
           description: (proto bool)
+        dataQuality:
+          title: data_quality
+          description: The run's data-quality counts, as fields. (proto shorts.v1alpha1.DataQuality)
+          $ref: '#/components/schemas/shorts.v1alpha1.DataQuality'
+        windowId:
+          type: string
+          title: window_id
+          description: The window the series and window tables are served for. (proto string)
+        fundamentalsLabel:
+          type: string
+          title: fundamentals_label
+          description: The fundamentals policy, in words the surfaces print. (proto string)
       title: BacktestRun
       additionalProperties: false
       description: One canonical backtest run as the API serves it.
@@ -5554,11 +5574,11 @@ components:
         referenceName:
           type: string
           title: reference_name
-          description: (proto string)
+          description: The recipe's reference universe, named. (proto string)
         runDate:
           type: string
           title: run_date
-          description: The day the run finished (YYYY-MM-DD). (proto string)
+          description: The day the run finished, Sydney time (YYYY-MM-DD). (proto string)
       title: BacktestRunIdentity
       additionalProperties: false
       description: A run's fingerprint, provenance and recipe identity.
@@ -5604,7 +5624,7 @@ components:
           type: number
           title: entry_score
           format: double
-          description: (proto double)
+          description: One decimal. (proto double)
         exitDate:
           type: string
           title: exit_date
@@ -5898,7 +5918,7 @@ components:
         state:
           type: string
           title: state
-          description: computed when the strategy has a published run; otherwise its state. (proto string)
+          description: published, or the state the strategy is in. (proto string)
         version:
           title: version
           description: (proto shorts.v1alpha1.StrategyVersionRef)
@@ -5913,6 +5933,10 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.SeriesPoint'
           title: series
           description: Weekly over the common window, rebased to 100,000. (proto shorts.v1alpha1.SeriesPoint)
+        stateReason:
+          type: string
+          title: state_reason
+          description: (proto string)
       title: CompareEntry
       additionalProperties: false
       description: One compared strategy.
@@ -6107,7 +6131,7 @@ components:
         windowId:
           type: string
           title: window_id
-          description: '"common": the sessions every compared curve covers. Empty when a strategy has no published run. (proto string)'
+          description: '"common": the sessions every compared curve covers. (proto string)'
         windowFrom:
           type: string
           title: window_from
@@ -6128,6 +6152,12 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.StrategyCorrelation'
           title: correlations
           description: (proto shorts.v1alpha1.StrategyCorrelation)
+        ruleDiffs:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.RuleDiff'
+          title: rule_diffs
+          description: The recipe lines that differ between each pair of compared strategies. (proto shorts.v1alpha1.RuleDiff)
       title: CompareStrategiesResponse
       additionalProperties: false
       description: Response for CompareStrategies.
@@ -6803,47 +6833,27 @@ components:
           type: string
           title: month
           description: YYYY-MM. (proto string)
-        qualifyingPct:
+        coveragePct:
           type: number
-          title: qualifying_pct
+          title: coverage_pct
           format: double
-          description: (proto double)
-        hasQualifying:
+          description: Qualifying coverage. (proto double)
+        measurable:
           type: boolean
-          title: has_qualifying
+          title: measurable
           description: (proto bool)
-        qualifyingPriced:
-          type: integer
-          title: qualifying_priced
-          format: int32
-          description: (proto int32)
-        qualifyingNameDays:
-          type: integer
-          title: qualifying_name_days
-          format: int32
-          description: (proto int32)
         allReportedPct:
           type: number
           title: all_reported_pct
           format: double
           description: (proto double)
-        hasAllReported:
+        allReportedMeasurable:
           type: boolean
-          title: has_all_reported
+          title: all_reported_measurable
           description: (proto bool)
-        allReportedPriced:
-          type: integer
-          title: all_reported_priced
-          format: int32
-          description: (proto int32)
-        allReportedNameDays:
-          type: integer
-          title: all_reported_name_days
-          format: int32
-          description: (proto int32)
       title: CoverageMonth
       additionalProperties: false
-      description: Coverage by month under both measures.
+      description: 'Coverage by month under both measures. Counts are not served: the percentages are.'
     shorts.v1alpha1.CoverageYear:
       type: object
       properties:
@@ -6852,47 +6862,69 @@ components:
           title: year
           format: int32
           description: (proto int32)
-        qualifyingPct:
-          type: number
-          title: qualifying_pct
-          format: double
-          description: Priced over qualifying name-days, "qualifying >= 5% short". (proto double)
-        hasQualifying:
+        measurable:
           type: boolean
-          title: has_qualifying
-          description: (proto bool)
-        qualifyingPriced:
-          type: integer
-          title: qualifying_priced
-          format: int32
-          description: (proto int32)
+          title: measurable
+          description: The qualifying measure has name-days in the year. (proto bool)
         qualifyingNameDays:
-          type: integer
+          type:
+            - integer
+            - string
           title: qualifying_name_days
-          format: int32
-          description: (proto int32)
+          format: int64
+          description: (proto int64)
+        pricedNameDays:
+          type:
+            - integer
+            - string
+          title: priced_name_days
+          format: int64
+          description: (proto int64)
+        coveragePct:
+          type: number
+          title: coverage_pct
+          format: double
+          description: 'Qualifying coverage: priced over qualifying name-days. (proto double)'
         allReportedPct:
           type: number
           title: all_reported_pct
           format: double
-          description: Priced over every ordinary reported name-day, "all reported". (proto double)
-        hasAllReported:
+          description: All-reported coverage. (proto double)
+        delistingExits:
+          type: integer
+          title: delisting_exits
+          format: int32
+          description: Delisting exits of trades that exited in the year. (proto int32)
+        caExits:
+          type: integer
+          title: ca_exits
+          format: int32
+          description: Corporate-action exits of trades that exited in the year. (proto int32)
+        allReportedMeasurable:
           type: boolean
-          title: has_all_reported
+          title: all_reported_measurable
           description: (proto bool)
-        allReportedPriced:
-          type: integer
-          title: all_reported_priced
-          format: int32
-          description: (proto int32)
         allReportedNameDays:
-          type: integer
+          type:
+            - integer
+            - string
           title: all_reported_name_days
-          format: int32
-          description: (proto int32)
+          format: int64
+          description: (proto int64)
+        allReportedPricedNameDays:
+          type:
+            - integer
+            - string
+          title: all_reported_priced_name_days
+          format: int64
+          description: |-
+            9 and 10 (flat-bar cancellations, dividend-step suspects) are not stored per year; they are run totals
+             in DataQuality and are not repeated here. (proto int64)
       title: CoverageYear
       additionalProperties: false
-      description: Coverage by year under both measures; each figure names its measure.
+      description: |-
+        Coverage by year. The qualifying measure (name-days of at least 5% short) and the all-reported measure
+         (every ordinary name in the report) are both served; each figure names its measure.
     shorts.v1alpha1.CreateAlertMonitorRequest:
       type: object
       properties:
@@ -6934,6 +6966,86 @@ components:
       title: CreateAlertMonitorResponse
       additionalProperties: false
       description: Response for CreateAlertMonitor RPC.
+    shorts.v1alpha1.DataQuality:
+      type: object
+      properties:
+        delistingExits:
+          type: integer
+          title: delisting_exits
+          format: int32
+          description: (proto int32)
+        corporateActionExits:
+          type: integer
+          title: corporate_action_exits
+          format: int32
+          description: (proto int32)
+        caSuspects:
+          type: integer
+          title: ca_suspects
+          format: int32
+          description: 'Corporate-action suspects: ASIC share steps with an unconfirmed price. (proto int32)'
+        fallbackClose:
+          type: integer
+          title: fallback_close
+          format: int32
+          description: Held bars that fell back to a close price. (proto int32)
+        priceReturnTrades:
+          type: integer
+          title: price_return_trades
+          format: int32
+          description: Trades holding a bar on price return (4.8). (proto int32)
+        capacityCapped:
+          type: integer
+          title: capacity_capped
+          format: int32
+          description: (proto int32)
+        staleMarkTrades:
+          type: integer
+          title: stale_mark_trades
+          format: int32
+          description: (proto int32)
+        delayedExits:
+          type: integer
+          title: delayed_exits
+          format: int32
+          description: (proto int32)
+        cancelledEntries:
+          type: object
+          title: cancelled_entries
+          additionalProperties:
+            type: integer
+            title: value
+            format: int32
+            description: (proto int32)
+          description: Entries cancelled, by reason. (proto shorts.v1alpha1.DataQuality.CancelledEntriesEntry)
+        dividendsCredited:
+          type: integer
+          title: dividends_credited
+          format: int32
+          description: Ex-dates credited in cash. (proto int32)
+        consolidationNote:
+          type: string
+          title: consolidation_note
+          description: The 5.11 note on pre-re-sync consolidations. (proto string)
+      title: DataQuality
+      additionalProperties: false
+      description: |-
+        A run's data-quality counts (5.11). Every count the run stores is served here, so no reader has to
+         parse the prose.
+    shorts.v1alpha1.DataQuality.CancelledEntriesEntry:
+      type: object
+      properties:
+        key:
+          type: string
+          title: key
+          description: (proto string)
+        value:
+          type: integer
+          title: value
+          format: int32
+          description: (proto int32)
+      title: CancelledEntriesEntry
+      additionalProperties: false
     shorts.v1alpha1.DeclaredInterest:
       type: object
       properties:
@@ -9214,11 +9326,15 @@ components:
             - string
           title: run_id
           format: int64
-          description: '0: the published run of the live version. Otherwise a canonical publish run of this strategy. (proto int64)'
+          description: '0: the published run of the live version. Otherwise a canonical run of this strategy. (proto int64)'
         resolution:
           type: string
           title: resolution
-          description: '"weekly" (default) or "daily". Daily is refused: its series would exceed the 500-point budget. (proto string)'
+          description: '"weekly" (default) or "daily". Daily is served for windows of 500 sessions or fewer. (proto string)'
+        window:
+          type: string
+          title: window
+          description: since_2019_05 (default) | since_2023 | trailing_12m | live. live needs a paper track. (proto string)
       title: GetBacktestRunRequest
       additionalProperties: false
       description: Request for GetBacktestRun.
@@ -13571,7 +13687,7 @@ components:
             - string
           title: run_id
           format: int64
-          description: 'Required: a canonical publish run. (proto int64)'
+          description: 'Required: a canonical run. (proto int64)'
         pageToken:
           type: string
           title: page_token
@@ -15301,7 +15417,7 @@ components:
         state:
           type: string
           title: state
-          description: complete | partial | not_elapsed. (proto string)
+          description: complete | partial | to_date. (proto string)
         strategyPct:
           type: number
           title: strategy_pct
@@ -15312,15 +15428,15 @@ components:
           title: benchmark_pct
           format: double
           description: (proto double)
-        hasBenchmark:
-          type: boolean
-          title: has_benchmark
-          description: (proto bool)
         referencePct:
           type: number
           title: reference_pct
           format: double
           description: (proto double)
+        hasBenchmark:
+          type: boolean
+          title: has_benchmark
+          description: (proto bool)
         hasReference:
           type: boolean
           title: has_reference
@@ -17305,6 +17421,32 @@ components:
       title: ReportListItem
       additionalProperties: false
       description: Summary of a published report for archive/index pages
+    shorts.v1alpha1.RuleDiff:
+      type: object
+      properties:
+        a:
+          type: string
+          title: a
+          description: The first strategy id. (proto string)
+        b:
+          type: string
+          title: b
+          description: The second strategy id. (proto string)
+        field:
+          type: string
+          title: field
+          description: The recipe line, e.g. "entry", "exits", "sizing". (proto string)
+        aValue:
+          type: string
+          title: a_value
+          description: (proto string)
+        bValue:
+          type: string
+          title: b_value
+          description: (proto string)
+      title: RuleDiff
+      additionalProperties: false
+      description: One recipe line that differs between two compared strategies.
     shorts.v1alpha1.RuleParam:
       type: object
       properties:
@@ -17713,14 +17855,6 @@ components:
           type: string
           title: label
           description: (proto string)
-        applies:
-          type: boolean
-          title: applies
-          description: False when the recipe does not take the change; reason says why. (proto bool)
-        reason:
-          type: string
-          title: reason
-          description: (proto string)
         cagrPct:
           type: number
           title: cagr_pct
@@ -17735,10 +17869,6 @@ components:
           title: excess_vs_benchmark_pct
           format: double
           description: (proto double)
-        hasExcess:
-          type: boolean
-          title: has_excess
-          description: (proto bool)
         maxDrawdownPct:
           type: number
           title: max_drawdown_pct
@@ -17748,6 +17878,18 @@ components:
           type: boolean
           title: fragile
           description: A sign flip of the excess CAGR; fragile_chip names it. (proto bool)
+        applies:
+          type: boolean
+          title: applies
+          description: False when the recipe does not take the change; reason says why. (proto bool)
+        reason:
+          type: string
+          title: reason
+          description: (proto string)
+        hasExcess:
+          type: boolean
+          title: has_excess
+          description: (proto bool)
         fragileChip:
           type: string
           title: fragile_chip
@@ -17808,7 +17950,7 @@ components:
           type: number
           title: drawdown_pct
           format: double
-          description: Negative or zero. (proto double)
+          description: Negative or zero, two decimals. (proto double)
         exposurePct:
           type: number
           title: exposure_pct
@@ -17821,9 +17963,9 @@ components:
       title: SeriesPoint
       additionalProperties: false
       description: |-
-        One point of a series. Equity is in A$ on the chained curve. Benchmark and reference are
-         index levels, never zero, so zero reads as not measured (the reference is not recorded
-         after the freeze).
+        One point of a series. Equity is in A$ on the chained curve, rounded to whole dollars. Benchmark and
+         reference are index levels, never zero, so zero reads as not measured (the reference is not recorded
+         after the freeze, and runs published before the reference fix carry none).
     shorts.v1alpha1.SharedDeclaredCompany:
       type: object
       properties:
@@ -18489,7 +18631,7 @@ components:
         hasCorrelation:
           type: boolean
           title: has_correlation
-          description: False when the overlap has too few returns. (proto bool)
+          description: False when the overlap is too short or one curve is flat. (proto bool)
         days:
           type: integer
           title: days
@@ -18507,20 +18649,20 @@ components:
           description: (proto string)
         version:
           title: version
-          description: The live canonical version the evidence is for; absent when none is registered. (proto shorts.v1alpha1.StrategyVersionRef)
+          description: The live canonical version; absent when none is registered. (proto shorts.v1alpha1.StrategyVersionRef)
           $ref: '#/components/schemas/shorts.v1alpha1.StrategyVersionRef'
         state:
           type: string
           title: state
-          description: computed | run_required | running | not_computable | approximate. (proto string)
+          description: published | approximate | run_required | running | not_computable. (proto string)
         computableFrom:
           type: string
           title: computable_from
-          description: 'Not computable: the first month-end the universe is computable; "" when none. (proto string)'
+          description: 'not_computable: the first month-end the universe is computable; "" when none. (proto string)'
         fiscalLabel:
           type: string
           title: fiscal_label
-          description: 'Not computable: the measured label, e.g. FY2024; "" when none. (proto string)'
+          description: 'not_computable: the measured label, e.g. FY2024; "" when none. (proto string)'
         windows:
           type: array
           items:
@@ -18550,7 +18692,7 @@ components:
         survivorship:
           type: string
           title: survivorship
-          description: The survivorship statement's copy. (proto string)
+          description: The survivorship statement, with the measurement caveat where one applies. (proto string)
         runId:
           type:
             - integer
@@ -18562,6 +18704,23 @@ components:
           type: string
           title: latest_screen
           description: The session the today counts are as at (YYYY-MM-DD); "" when none. (proto string)
+        stateReason:
+          type: string
+          title: state_reason
+          description: Why the state is what it is, in words the explorer can print. (proto string)
+        runningSince:
+          type: string
+          title: running_since
+          description: 'running: when the request started, RFC 3339. (proto string)'
+        computableSharePct:
+          type: number
+          title: computable_share_pct
+          format: double
+          description: 'not_computable: the measured universe share, when measured. (proto double)'
+        hasComputableShare:
+          type: boolean
+          title: has_computable_share
+          description: (proto bool)
       title: StrategyEvidence
       additionalProperties: false
       description: One strategy's backtest evidence on the live version.
@@ -20378,7 +20537,7 @@ components:
         measurement:
           type: string
           title: measurement
-          description: measured | asic_reported_only | not_measurable. (proto string)
+          description: (proto string)
         direction:
           type: string
           title: direction
@@ -20393,7 +20552,7 @@ components:
           description: The extra line some recipes print; "" otherwise. (proto string)
       title: Survivorship
       additionalProperties: false
-      description: Survivorship block. Measurement is machine-readable.
+      description: 'Survivorship block. Measurement is one of 8.2''s values: measured | partial | not_measurable.'
     shorts.v1alpha1.SyncRun:
       type: object
       properties:
@@ -20658,9 +20817,29 @@ components:
           type: boolean
           title: has_win_rate
           description: (proto bool)
+        hasAvgHold:
+          type: boolean
+          title: has_avg_hold
+          description: (proto bool)
+        hasAvgWin:
+          type: boolean
+          title: has_avg_win
+          description: (proto bool)
+        hasAvgLoss:
+          type: boolean
+          title: has_avg_loss
+          description: (proto bool)
+        hasBest:
+          type: boolean
+          title: has_best
+          description: (proto bool)
+        hasWorst:
+          type: boolean
+          title: has_worst
+          description: (proto bool)
       title: TradeSummary
       additionalProperties: false
-      description: The closed-trade statistics a run publishes.
+      description: The closed-trade statistics of a run, over the trades that exited before live_from (in-sample).
     shorts.v1alpha1.TradeSummary.ExitsByReasonEntry:
       type: object
       properties:
@@ -21162,7 +21341,7 @@ components:
         window:
           type: string
           title: window
-          description: since_may_2019 | since_2023 | last_12_months | live_since_freeze. (proto string)
+          description: since_2019_05 | since_2023 | trailing_12m | live. (proto string)
         from:
           type: string
           title: from
@@ -21235,7 +21414,7 @@ components:
         hasWinRate:
           type: boolean
           title: has_win_rate
-          description: False when the window includes paper trades, which carry no net return here. (proto bool)
+          description: (proto bool)
         exposurePct:
           type: number
           title: exposure_pct
@@ -21275,6 +21454,40 @@ components:
         hasVolatility:
           type: boolean
           title: has_volatility
+          description: (proto bool)
+        hasTotalReturn:
+          type: boolean
+          title: has_total_return
+          description: (proto bool)
+        peakDate:
+          type: string
+          title: peak_date
+          description: The session of the window's deepest peak; "" when the curve never falls. (proto string)
+        troughDate:
+          type: string
+          title: trough_date
+          description: The session of the deepest fall. (proto string)
+        recoveryDate:
+          type: string
+          title: recovery_date
+          description: The first session back at the peak; "not recovered" when it has not; "" when none. (proto string)
+        benchmarkTotalReturnPct:
+          type: number
+          title: benchmark_total_return_pct
+          format: double
+          description: 'XJT over the window: shown for every window, annualised or not. (proto double)'
+        hasBenchmarkTotalReturn:
+          type: boolean
+          title: has_benchmark_total_return
+          description: (proto bool)
+        referenceTotalReturnPct:
+          type: number
+          title: reference_total_return_pct
+          format: double
+          description: (proto double)
+        hasReferenceTotalReturn:
+          type: boolean
+          title: has_reference_total_return
           description: (proto bool)
       title: WindowMetrics
       additionalProperties: false
