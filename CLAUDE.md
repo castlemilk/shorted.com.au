@@ -1982,6 +1982,10 @@ empty, the channel is destroyed and those alerts notify no one.
   `CLUSTER` and takes its runs from Telesis (`jobmonitor/cluster.go`). Without
   `TELESIS_API_TOKEN` those jobs read as paused and overdue. Keep CronJob names
   matching their old trigger names, or the overlay cannot find them.
+- **Key metrics are a scheduled job here.** `shorted-key-metrics` (VKE-native, daily
+  19:40 UTC) refreshes `"company-metadata".key_metrics` from Yahoo quoteSummary; its
+  contract, breakers and dry-run default are in `services/jobs/README.md` "key-metrics".
+  The shorts API's `SyncKeyMetrics` RPC is retired (FailedPrecondition, no writes).
 
 ## Blog MDX palette (project-owned figures)
 
@@ -2279,11 +2283,6 @@ GitHub Actions workflow at `.github/workflows/twitter-bot.yml` exists but is **m
 - **Cloudflare API rate limit**: rapid bursts to `api.shorted.com.au` trigger the Cloudflare edge `http_ratelimit` rule before origin. For trusted E2E/load tests, use the Terraform-managed bypass: set `TF_VAR_rate_limit_testing_bypass_secret`, apply `terraform/environments/prod`, then send both `User-Agent: Shorted-E2E/1.0` and `X-Shorted-Testing-Bypass: <secret>`. Never make this UA-only; the rule must require both UA and secret header.
 - **Refresh token rotation**: every X API call mints a new token. Local cron handles this automatically (writes to `.env`). CI needs a PAT-based persistence step (documented in OPERATIONS.md §2.2).
 - **Edge worker hot-cache bug** (fixed in PR #139): if the bot returns the same stock's data for every productCode, the Cloudflare worker's hot cache key may have regressed — verify `buildHotCacheKey` in `services/edge-worker/worker.js` is hashing the POST body.
-
-- **Key metrics run here too.** `shorted-key-metrics` (VKE-native, daily 19:40 UTC)
-  refreshes `"company-metadata".key_metrics` from Yahoo quoteSummary; its contract,
-  breakers and dry-run default are in `services/jobs/README.md` "key-metrics". The
-  shorts API's `SyncKeyMetrics` RPC is retired (FailedPrecondition, no writes).
 
 ## Short-interest alerts (`shorted alerts`)
 

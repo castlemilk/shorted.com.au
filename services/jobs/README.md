@@ -882,79 +882,131 @@ procedure: `internal/jobs/shortdatasync/README.md`.
 quoteSummary. It replaces the shorts API's `SyncKeyMetrics` RPC, which forked
 `python3` and `yfinance` once per stock inside the serving process. That never
 finished: the instance was killed for memory 3 to 30 seconds after each 17:00 UTC
-trigger, so no run completed in seven days (2026-11-03 to 05; the Cloud Logging
-evidence is in the 2026-11 infra notes). The RPC now answers
-`FailedPrecondition` and does nothing.
+trigger, so the key metrics have been frozen since 2026-08-22 (the day the Python
+sync lineage was deleted). The RPC now answers `FailedPrecondition` and does
+nothing; the proto stays for API compatibility.
 
 **What it writes.** One `UPDATE` per stock of `key_metrics` (JSONB) and
-`key_metrics_updated_at`, after `keymetrics.Sanitise` (the API's ±Inf/NaN guard,
-now in `services/pkg/keymetrics`). The object has exactly the keys the Python
-script wrote, in the same units: `stock_code` plus `market_cap`, `pe_ratio`,
-`forward_pe`, `eps`, `dividend_yield`, `book_value`, `price_to_book`, `revenue`,
-`profit_margin`, `debt_to_equity`, `return_on_equity`, `fifty_two_week_high`,
-`fifty_two_week_low`, `avg_volume`, `beta`. Each is the Yahoo `raw` number, or
-`null` when missing, a string, or non-finite. The fields come from the `price`,
-`summaryDetail`, `defaultKeyStatistics` and `financialData` modules; a field
-missing from its own module is looked up in the others, as yfinance's merged
-`info` was. The fetch goes through `services/pkg/yahoo` (the crumb, the cookies
-and the 401 refresh) over the stealth client, the path Yahoo does not answer
-429 on.
+`key_metrics_updated_at`, after `keymetrics.Sanitise` (the shared ±Inf/NaN guard
+in `services/pkg/keymetrics`, the same one the API used). The object has exactly
+the keys the Python script wrote, in the same units: `stock_code` plus
+`market_cap`, `pe_ratio`, `forward_pe`, `eps`, `dividend_yield`, `book_value`,
+`price_to_book`, `revenue`, `profit_margin`, `debt_to_equity`,
+`return_on_equity`, `fifty_two_week_high`, `fifty_two_week_low`, `avg_volume`,
+`beta`. Units, as the readers expect them:
+
+- `dividend_yield` is a **percent** (4.35 means 4.35%), rounded to two decimals.
+  Yahoo's `summaryDetail.dividendYield` is a fraction, so it is multiplied by 100;
+  a fund or trust with no `dividendYield` takes `summaryDetail.yield` instead.
+  The screener, the peers card, MCP and the weekly report all read a percent.
+- `market_cap` is in dollars; `profit_margin` and `return_on_equity` are fractions;
+  `debt_to_equity` is as Yahoo states it (50.473 for BHP).
+- Every other key is the Yahoo `raw` number.
+
+Each value is the `raw` number, or `null` when missing, a string, or non-finite.
+The fields come from the `price`, `summaryDetail`, `defaultKeyStatistics` and
+`financialData` modules; a field missing from its own module is looked up in the
+others, as yfinance's merged `info` was. The fetch goes through
+`services/pkg/yahoo` (the crumb, the cookies and the 401 refresh) over the stealth
+client, the path Yahoo does not answer 429 on.
 
 **What it leaves alone.** A stock Yahoo answers with no `regularMarketPrice`, or
 with no measured field at all, is *no data*: its row is not written. A 404
 ("quote not found") is also no data. A transport failure, a 429 or a 5xx is a
-*failure*: the row is not written. A failed `UPDATE` is counted and the run
-continues. The row is never overwritten with an empty object.
+*failure*: the row is not written. A failed `UPDATE` is a write failure and the
+row keeps its old values. The row is never overwritten with an empty object. The
+`stock_code` key is kept whatever its value (NAN and INF are real ASX codes).
 
-**Order and skips.** The universe is ordered stalest first:
-`key_metrics_updated_at ASC NULLS FIRST, stock_code`. A stock refreshed within the
-last 20 hours is skipped (`skipped_fresh`) unless `-force`. `-codes BHP,CBA`
-restricts the universe (the skips and the breakers still apply).
+**Universe.** The stocks with a price row in the last 90 days
+(`stock_prices`, served by `idx_stock_prices_stock_date`). A code Yahoo has no
+quote for (delisted, or never listed) never gets a stamp, so without this filter
+it would sort first on every run and take the whole budget. About 2,100 such
+codes exist in prod (measured 2026-11-06, of 4,577 `company-metadata` rows); they
+are not requested. Codes keep their stored spelling, so a padded row such as
+`"FXG "` is stamped as its own row; `-codes` matches by the trimmed code.
+
+**Order and skips.** Stalest first: `key_metrics_updated_at ASC NULLS FIRST`,
+then `stock_code`. A stock refreshed within the last 20 hours is skipped
+(`skipped_fresh`) unless `-force`. `-codes BHP,CBA` restricts the universe (the
+skips and the breakers still apply).
 
 **Budget and pacing.** It takes no new stock once the time budget is spent:
 `-budget-min` or `KEY_METRICS_BUDGET_MIN`, default 40 minutes. The budget is
 checked after the pacing wait, so no request starts once it is spent. Requests are
-paced about one a second, jittered by ±250 ms. At that pace one run covers about
-2,400 stocks, so the universe (about 4,500) cycles over two daily runs. A
-stock that answers "no data" keeps its old timestamp, so it sorts first again on
-the next run and costs one request each run. That is a known cost of keeping the
-row untouched; a large no-data set would need a separate attempt record.
+paced about one a second, jittered by ±250 ms. A Yahoo answer takes about 0.15 s,
+so a run covers about 2,000 stocks, and the ~2,200-stock universe cycles in about
+one and a bit daily runs, stalest first. A failed or no-data stock keeps its
+timestamp, so it is retried on the next run; the universe filter keeps the
+no-data set small.
 
-**Breakers** (the picks job's). Stop before the next stock after 25 consecutive
-Yahoo failures, or once more than 30% of the last 100 Yahoo requests have failed
-(evaluated when the window is full). "No data" and 404 answers are not failures.
+**Breakers.** The Yahoo breakers are the picks job's: stop before the next stock
+after 25 consecutive Yahoo failures, or once more than 30% of the last 100 Yahoo
+requests have failed (evaluated when the window is full). "No data" and 404
+answers are not failures. The **write breaker** stops the run after 5 database
+write failures in a row (`stopped=db`), so a refused pooler does not spend the
+budget on quotes it cannot store. A write success resets it.
 
 **Dry run.** Dry run is the default. `KEY_METRICS_DRY_RUN` unset, or any value
-other than `false`, fetches and logs the object it *would* write
-(`key-metrics: dry run, would write BHP: {...}`) and writes nothing. The chart
-sets `KEY_METRICS_DRY_RUN: "false"`. The global `shorted -dry-run key-metrics`
-flag also forces a dry run.
+other than exactly `false` (after trimming), fetches and logs the object it
+*would* write (`key-metrics: dry run, would write BHP: {...}`) and writes nothing.
+The chart sets `KEY_METRICS_DRY_RUN: "false"`. The global `shorted -dry-run
+key-metrics` flag also forces a dry run.
 
 **Exit codes** (`runner.ExitCodeError`, code 1). `0`: the run completed, or every
-stock was fresh, or it attempted stocks and wrote at least one. `1`: the breaker
-tripped, or it attempted stocks and wrote none (a database or Yahoo outage pages
-the monitor). A database connection error and a cancelled run are also exit 1.
+stock was fresh, or it attempted stocks and wrote at least one, or the budget was
+spent with writes. `1`: the Yahoo breaker tripped, the write breaker tripped, or
+it attempted stocks and wrote none (a database or Yahoo outage pages the
+monitor). A database connection error and a cancelled run are also exit 1.
+
+**Summary line.** Every run logs one line:
+`key-metrics: summary dry_run=… attempted=… written=… no_data=… failed=… write_failed=… skipped_fresh=… budget_left=… stopped=…`.
+`failed` counts Yahoo fetch failures and `write_failed` database write failures;
+`stopped` is `none`, `budget`, `breaker` (Yahoo), `db` (writes) or `cancelled`.
 
 **Schedule.** VKE CronJob `shorted-key-metrics` (`deploy/kubernetes/jobs/chart/values.yaml`,
-`vkeNative`, no Cloud Run twin): daily at **19:40 UTC** (05:40 AEST), 40-minute budget,
-3000 s deadline, `maxRetries: 0` (a retry reruns the same refusals; the next daily
-run is the retry). 19:40 keeps clear of the Yahoo traffic already on the cluster
-and on Cloud Run: the price sweeps (08:00 and 10:00 UTC on weekdays), the index sync
-(11:30 UTC) and the picks fundamentals (15:00 to about 18:30 UTC, budget 170 minutes).
-The budget ends by about 20:25 UTC, before the news cluster at 20:30 and the hourly
-alerts run at :55.
+`vkeNative`, no Cloud Run twin): daily at **19:40 UTC** (05:40 AEST, 06:40 AEDT),
+40-minute budget, 3000 s deadline, `maxRetries: 0` (a retry reruns the same
+refusals; the next daily run is the retry). 19:40 keeps clear of the Yahoo traffic
+already on the cluster and on Cloud Run: the price sweeps (08:00 and 10:00 UTC on
+weekdays), the index sync (11:30 UTC) and the picks fundamentals (15:00 to about
+18:30 UTC, budget 170 minutes). The budget ends about 20:20 UTC. The hourly alerts
+run at :55 on weekdays overlaps its tail; they share no rows (alerts reads
+`company-metadata` for logos only). The news cluster run at 20:30 is after it.
 
-**Monitor.** Telesis cron monitor `shorted-key-metrics` (registered from the chart
-by `deploy/kubernetes/jobs/scripts/register-monitors.py`). It pages on a failed,
-missed or timed-out run, which is the exit-1 contract above.
+**Monitor.** Telesis cron monitor `shorted-key-metrics`, registered from the chart
+by `deploy/kubernetes/jobs/scripts/register-monitors.py` (`TELESIS_ORG_ID`
+`2571efb1-144c-4ec4-9757-30cdc23c920f`, `telesis login` first). The script reads
+`chart/values.yaml` from the local checkout, so run it from an up-to-date `main`
+after the merge: an old checkout plans no new monitor. The monitor pages on a
+failed, missed or timed-out run, which is the exit-1 contract above.
+
+**First run by hand (VKE, read-only evidence first).**
+
+1. A dry run on a few codes, which writes nothing:
+   `kubectl -n shorted-jobs get cronjob shorted-key-metrics -o json`, then edit
+   the copy so the container's args are `["key-metrics","-codes","BHP,CBA,EML","-force"]`,
+   `KEY_METRICS_DRY_RUN` is `"true"`, the name is unique (`km-dry-<date>`) and
+   the `schedule`/`status` fields are dropped; `kubectl create -f <file>`, then
+   `kubectl -n shorted-jobs logs job/km-dry-<date>`. Each `would write` line is the
+   object the live run would store: compare BHP and CBA with the stored rows
+   (`task db:prod:psql`, one read-only SELECT of `key_metrics`).
+2. A live smoke on the same three codes with `KEY_METRICS_DRY_RUN` `"false"` (the
+   same manifest, `-codes` as above), outside 19:30 to 20:30 UTC so it does not
+   share the scheduled run's Yahoo budget. Then delete the Job.
+3. Register the monitor (above) before the first scheduled run, or a failed run
+   only logs a WARN.
 
 **Tests.** `go test ./internal/jobs/keymetrics/` covers the field mapping on a
-recorded quoteSummary (`testdata/quote_bhp.json`, `quote_eml.json`), the
-sanitiser, the ordering, the fresh skip, pacing, the budget stop, both breakers,
-no-data and failure keeping the row, dry run, the exit codes. `make test-keymetrics-pg`
-runs the write against a real Postgres (one UPDATE stamps the row, a database
-refusal leaves the old row as it was, an unknown stock is an error, the universe
-is stalest first).
+recorded quoteSummary (`testdata/quote_bhp.json`, `quote_eml.json`), a fund's
+`yield` fallback, the percent unit, the sanitiser, the ordering and the fresh
+skip, pacing, the budget stop, both Yahoo breakers, the write breaker, no-data and
+failure keeping the row, dry run and its flag default, the exit codes.
+`make test-keymetrics-pg` runs the write and the universe filter against a real
+Postgres (one UPDATE stamps the row, a database refusal leaves the old row as it
+was, an unknown stock is an error, a padded code stamps its own row, the NAN code
+survives the sanitiser, codes with no recent price are excluded, a dead head does
+not hide the listed stale stocks). It gates the deploy in `terraform-deploy.yml`
+and runs in `scripts/local-verify.sh`.
 
 ## picks
 

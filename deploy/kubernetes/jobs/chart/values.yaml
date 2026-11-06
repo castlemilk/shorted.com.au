@@ -630,11 +630,13 @@ jobs:
   # services/jobs/internal/jobs/keymetrics: the daily key_metrics refresh of "company-metadata"
   # (`shorted key-metrics`). It replaces the shorts API's SyncKeyMetrics, which forked python3 and
   # yfinance inside the serving process and was killed for memory before it finished. VKE-native
-  # (vkeNative): no Cloud Run twin. Runs daily at 19:40 UTC (05:40 AEST), which keeps clear of the
-  # Yahoo traffic already on this cluster and on Cloud Run: the price sweep (08:00 and 10:00 UTC on
-  # weekdays), the index sync (11:30), the picks fundamentals (15:00 to about 18:30). Its own budget
-  # is 40 minutes, so the job ends by about 20:25 UTC, before the news cluster run at 20:30 and the
-  # hourly alerts run at :55. KEY_METRICS_DRY_RUN is "false": the job's own default is a dry run.
+  # (vkeNative): no Cloud Run twin. Runs daily at 19:40 UTC (05:40 AEST, 06:40 AEDT). The slot
+  # keeps clear of the Yahoo traffic already on this cluster and on Cloud Run: the price sweep
+  # (08:00 and 10:00 UTC on weekdays), the index sync (11:30 UTC) and the picks fundamentals
+  # (`shorted picks -mode all`, Cloud Run, 15:00 to about 18:30 UTC). Its 40-minute budget ends
+  # about 20:20 UTC, so the job overlaps the hourly alerts run at :55 on weekdays. They share no
+  # rows: alerts reads company-metadata for logos only. The news cluster run at 20:30 is after it.
+  # KEY_METRICS_DRY_RUN is "false": the job's own default is a dry run.
   # maxRetries 0: a retry would only rerun the same universe (a breaker trip reruns into the same
   # refusals), and the next daily run is the retry. The 3000 s deadline sits above the 40-minute
   # budget with room for the last in-flight request and the database connection.

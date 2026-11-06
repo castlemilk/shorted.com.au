@@ -311,7 +311,7 @@ refresh. Only the ASIC tier moves:
 |---|---|
 | ASIC index → CSV → upsert `shorts` → health report → MV refresh → revalidate → Algolia → `sync_status` | `shorted short-data-sync` |
 | `stock_prices` (yfinance + Alpha Vantage, 500-stock batches, gap fill) | `shorted market-data serve\|sync` (Phase 2c) — already ported and deployed; deliberately NOT ported twice |
-| `key_metrics` on `"company-metadata"` (yfinance `ticker.info`) | the shorts API's `SyncKeyMetrics` RPC + daily `key-metrics-scheduler` (shorts-api TF module, enabled in prod) — the Python job was a duplicate writer |
+| `key_metrics` on `"company-metadata"` (yfinance `ticker.info`) | (as of this plan: the shorts API's `SyncKeyMetrics` RPC + daily `key-metrics-scheduler`; both retired 2026-11, now `shorted key-metrics`, see `services/jobs/README.md`) — the Python job was a duplicate writer |
 
 ### Cutover checklist — short-data-sync
 
@@ -577,9 +577,9 @@ untouched, so no dashboard, log filter or alert needs repointing.
 - **Shadow parity 6/6.** `shorted short-data-sync -shadow` against six ASIC
   dates reported `would_insert = 0`, `would_update = rows_parsed` and a
   byte-identical checksum on every one. Cutover approved on that basis.
-- **key-metrics is covered.** The shorts API's daily `key-metrics-scheduler`
-  (`enable_key_metrics_scheduler = true` in prod) is **confirmed ENABLED**, so
-  dropping the Python job's duplicate `key_metrics` writer loses nothing.
+- **key-metrics is covered.** (At the time of this plan the shorts API's daily
+  `key-metrics-scheduler` was confirmed ENABLED; it has since been retired, and
+  `shorted key-metrics` is the one writer. See `services/jobs/README.md`.)
 - **Prices are covered.** `market-data-sync`'s weekday scheduler (Phase 2c, live
   since slice 3) owns `stock_prices`; the Go job is deliberately shorts-only.
 
