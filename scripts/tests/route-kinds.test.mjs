@@ -65,10 +65,10 @@ function staticOwnershipRoutes() {
   return ownershipPageRoutes().filter((route) => !route.includes("["));
 }
 
-// The private My strategies shell is a static page the gate does not list: it exports no revalidate,
-// so Next prerenders it once with no ISR window, and robots.txt disallows it. The list it draws is per
-// viewer and comes from the client island, so the ISR gate has nothing to check there.
-const PRIVATE_STATIC_SHELLS = ["/strategies/my"];
+// The private My strategies and Compare shells are static pages the gate does not list: they export no
+// revalidate, so Next prerenders each once with no ISR window, and robots.txt disallows both. The lists
+// they draw are per viewer and come from the client islands, so the ISR gate has nothing to check there.
+const PRIVATE_STATIC_SHELLS = ["/strategies/my", "/strategies/compare"];
 
 function strategyPageRoutes() {
   return pageRoutes(STRATEGIES_DIR, "/strategies").filter((route) => !PRIVATE_STATIC_SHELLS.includes(route));
