@@ -3,11 +3,16 @@
 --   strategy_paper_trades        one row per paper trade: a signal's pending entry, then its open position,
 --                                its pending exit and its close, or its cancellation. A row only moves
 --                                forward (pending_entry -> open -> pending_exit -> closed, or
---                                pending_entry -> cancelled), and the job refuses any other move.
---   strategy_paper_equity        one row per live version and recipe per session. Never updated.
+--                                pending_entry -> cancelled), and the job refuses any other move. The trade
+--                                economics (score, sessions held, gross and net return, fees, dividends) are
+--                                filled on close, as the batch's strategy_backtest_trades carries them.
+--   strategy_paper_equity        one row per live version and recipe per session, with the engine that computed
+--                                it and the benchmark level (XJT, NULL before its first bar). Never updated.
 --   strategy_paper_checkpoints   the simulator's state after the last recorded session, one row per version and
 --                                recipe, replaced by each session's. The paper track starts each session from it.
---                                It is not an outcome: nothing reads it but the paper track.
+--                                It records the engine of its last session, the state layout it was written in
+--                                (inside the JSON) and stopped_on, the superseded_on of a version that has
+--                                stopped being stepped. It is not an outcome: nothing reads it but the paper track.
 --
 -- LOCK ON FIRST APPLY, NONE ON REPLAY. Prod replays every allowlisted migration on every deploy
 -- (.github/workflows/terraform-deploy.yml). Every table is CREATE TABLE IF NOT EXISTS. The first apply's
@@ -41,6 +46,12 @@ CREATE TABLE IF NOT EXISTS strategy_paper_trades (
   exit_price      double precision,
   exit_reason     text,
   flags           text[] NOT NULL DEFAULT '{}',
+  entry_score     real,
+  sessions_held   integer,
+  gross_return_pct double precision,
+  net_return_pct  double precision,
+  fees            double precision,
+  dividends       double precision,
   status          text NOT NULL CHECK (status IN ('pending_entry','open','pending_exit','closed','cancelled')),
   recorded_at     timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now(),
@@ -55,6 +66,7 @@ CREATE TABLE IF NOT EXISTS strategy_paper_equity (
   cash        double precision NOT NULL,
   positions   smallint NOT NULL,
   benchmark   double precision,
+  engine_version text NOT NULL,
   recorded_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (rules_hash, recipe_hash, as_of)
 );
@@ -64,6 +76,8 @@ CREATE TABLE IF NOT EXISTS strategy_paper_checkpoints (
   recipe_hash text NOT NULL REFERENCES strategy_recipes(recipe_hash),
   as_of       date NOT NULL,
   checkpoint  jsonb NOT NULL,
+  engine_version text NOT NULL,
+  stopped_on  date,
   updated_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (rules_hash, recipe_hash)
 );

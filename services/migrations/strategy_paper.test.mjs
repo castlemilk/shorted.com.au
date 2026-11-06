@@ -59,6 +59,33 @@ test("the equity table is keyed by version, recipe and session, and the checkpoi
   assert.match(flat, /PRIMARY KEY \(rules_hash, recipe_hash\)/);
 });
 
+test("every equity row and checkpoint records the engine that computed it", () => {
+  const equity = flat.slice(flat.indexOf("CREATE TABLE IF NOT EXISTS strategy_paper_equity"));
+  assert.match(equity.slice(0, equity.indexOf(");")), /engine_version text NOT NULL/);
+  const checkpoints = flat.slice(flat.indexOf("CREATE TABLE IF NOT EXISTS strategy_paper_checkpoints"));
+  assert.match(checkpoints.slice(0, checkpoints.indexOf(");")), /engine_version text NOT NULL/);
+});
+
+test("a checkpoint records the stop of a superseded track, nullable until it stops", () => {
+  const checkpoints = flat.slice(flat.indexOf("CREATE TABLE IF NOT EXISTS strategy_paper_checkpoints"));
+  assert.match(checkpoints.slice(0, checkpoints.indexOf(");")), /stopped_on date,/);
+});
+
+test("a trade carries the economics the batch trade table carries", () => {
+  const trades = flat.slice(flat.indexOf("CREATE TABLE IF NOT EXISTS strategy_paper_trades"));
+  const body = trades.slice(0, trades.indexOf(");"));
+  for (const column of [
+    "entry_score real",
+    "sessions_held integer",
+    "gross_return_pct double precision",
+    "net_return_pct double precision",
+    "fees double precision",
+    "dividends double precision",
+  ]) {
+    assert.ok(body.includes(column), `${column} is a trade column`);
+  }
+});
+
 test("the trades and the checkpoints reference the version and the recipe; the equity table does not", () => {
   assert.match(flat, /rules_hash text NOT NULL REFERENCES strategy_rule_versions\(rules_hash\)/);
   assert.match(flat, /recipe_hash text NOT NULL REFERENCES strategy_recipes\(recipe_hash\)/);
