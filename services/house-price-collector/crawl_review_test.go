@@ -242,14 +242,16 @@ func TestQueueDeferredBeforeSendReusesAnUnstoredKey(t *testing.T) {
 		now:   time.Now,
 	}
 	runStubRound(context.Background(), ir, stubDomainFetcher(), stubListingsConfig())
-	if pending, _, attempts, submits := q.state(); !pending || attempts != 0 || submits[0]["status"] != "deferred" {
+	// Indexed only after the length check: an empty submits (the round claimed nothing)
+	// once panicked here, and a panic ends the whole package's run, not this test.
+	if pending, _, attempts, submits := q.state(); !pending || attempts != 0 || len(submits) == 0 || submits[0]["status"] != "deferred" {
 		t.Fatalf("token failure before any send: pending=%v attempts=%d submits=%v, want deferred with the attempt refunded", pending, attempts, submits)
 	}
 
 	ir2 := newStubIngestRound(crawlSinkIngest, ingestSrv.URL, bbSrv.URL, stubTokens("tok"), nil)
 	runStubRound(context.Background(), ir2, stubDomainFetcher(), stubListingsConfig())
 	_, terminal, attempts, submits := q.state()
-	if !terminal || attempts != 1 || submits[len(submits)-1]["status"] != "succeeded" {
+	if !terminal || attempts != 1 || len(submits) == 0 || submits[len(submits)-1]["status"] != "succeeded" {
 		t.Fatalf("after the deferral: terminal=%v attempts=%d last=%v, want the same attempt applied", terminal, attempts, submits[len(submits)-1])
 	}
 	ing.mu.Lock()

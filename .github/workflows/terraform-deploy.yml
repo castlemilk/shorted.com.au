@@ -252,7 +252,19 @@ jobs:
           PLATFORM: linux/amd64
           STEALTH_PAT: ${{ secrets.STEALTH_PAT }}
         run: |
-          docker buildx bake --file docker-bake.hcl --builder shorted-builder --push --progress plain
+          # The bake builds every image in one BuildKit session, so a retry
+          # costs only the layers that did not push: a push to Artifact Registry
+          # once died on "failed to authorize: DeadlineExceeded" after the
+          # whole build had succeeded (2026-11-05, main-6d684029).
+          for attempt in 1 2 3; do
+            if docker buildx bake --file docker-bake.hcl --builder shorted-builder --push --progress plain; then
+              exit 0
+            fi
+            echo "::warning::bake attempt $attempt failed; retrying in $((attempt * 30))s"
+            sleep $((attempt * 30))
+          done
+          echo "::error::bake failed on every attempt"
+          exit 1
 
   # Same images, second home: rigs pull task images from the Cuttlefish
   # registry with their control-plane token, so nothing on a rig needs a cloud
@@ -1202,6 +1214,12 @@ jobs:
           TF_VAR_rate_limit_testing_bypass_secret: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
           TF_VAR_rate_limit_ssr_bypass_secret: ${{ secrets.CLOUDFLARE_SSR_BYPASS_SECRET }}
         run: |
+          # Two attempts: an apply that fails on a transient provider error
+          # (Cloudflare answered 503 to a GET of the worker script mid-apply,
+          # 2026-11-06, main-499a9197) re-plans from the state the first attempt
+          # left and converges. Nothing here is a saved plan, so the second
+          # attempt is a fresh plan and apply of the same inputs.
+          apply() {
           terraform apply \
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
@@ -1219,6 +1237,11 @@ jobs:
             -var="take_writer_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/take-writer:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve
+          }
+          if apply; then exit 0; fi
+          echo "::warning::terraform apply failed; re-planning and applying once more in 60s"
+          sleep 60
+          apply
 
       - name: Get Terraform Outputs
         id: outputs
@@ -1990,12 +2013,14 @@ jobs:
       # limiting, workload auth, ingest auth. unit-tests in go-quality.yml runs
       # the same command on PRs; this step is what gates the deploy. About 110s,
       # in parallel with terraform-plan.
+      # A package that fails is run once more on its own (scripts/ci/go-test-rerun.sh):
+      # a flake passes with a warning naming its tests, a regression fails twice.
       - name: Run services unit tests (gates the deploy)
         working-directory: services
         env:
           GOWORK: "off"
           GOPRIVATE: github.com/skunkworq/*
-        run: go test ./... -short
+        run: ../scripts/ci/go-test-rerun.sh ./... -short
 
       # The index sync's write (services/jobs/internal/jobs/marketdata): one
       # series' upsert and bounded clean-up in one transaction, against a real
