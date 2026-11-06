@@ -1,4 +1,4 @@
-package shorts
+package keymetrics
 
 import (
 	"encoding/json"
@@ -11,7 +11,7 @@ import (
 // The shapes a non-finite value can arrive in, and the one property that
 // actually matters.
 //
-// THE PROPERTY: nothing that survives sanitiseKeyMetrics may be a value that
+// THE PROPERTY: nothing that survives Sanitise may be a value that
 // Postgres would parse into ±Inf or NaN at `::double precision`. That cast is
 // what mv_screener_data does, and it is where a harmless-looking JSON string
 // becomes a float nobody downstream can represent.
@@ -39,7 +39,7 @@ var postgresFloatSpellings = []string{
 func TestEverySpellingPostgresWouldAcceptIsDropped(t *testing.T) {
 	for _, spelling := range postgresFloatSpellings {
 		t.Run(strconv.Quote(spelling), func(t *testing.T) {
-			out := sanitiseKeyMetrics(map[string]any{
+			out := Sanitise(map[string]any{
 				"pe_ratio":   spelling,
 				"market_cap": 1234.5, // a sane sibling, to prove we drop one key not all
 			})
@@ -107,13 +107,13 @@ func TestFloat32NonFiniteValuesAreDropped(t *testing.T) {
 		"-Inf": float32(math.Inf(-1)),
 		"NaN":  float32(math.NaN()),
 	} {
-		out := sanitiseKeyMetrics(map[string]any{"pe_ratio": v})
+		out := Sanitise(map[string]any{"pe_ratio": v})
 		if _, present := out["pe_ratio"]; present {
 			t.Errorf("float32 %s survived", name)
 		}
 	}
 	// And a finite float32 is kept.
-	out := sanitiseKeyMetrics(map[string]any{"pe_ratio": float32(12.5)})
+	out := Sanitise(map[string]any{"pe_ratio": float32(12.5)})
 	if _, present := out["pe_ratio"]; !present {
 		t.Error("a finite float32 was dropped")
 	}
@@ -129,7 +129,7 @@ func TestProseThatMentionsInfinityIsKept(t *testing.T) {
 		"description": "Infinity Mining Ltd is an ASX-listed explorer.",
 		"ticker":      "INF", // a real ASX-style code that parses as a float!
 	}
-	out := sanitiseKeyMetrics(metrics)
+	out := Sanitise(metrics)
 
 	for k := range metrics {
 		if k == "ticker" {
@@ -150,7 +150,7 @@ func TestProseThatMentionsInfinityIsKept(t *testing.T) {
 // likely to be a broken float than a ticker. If a genuinely textual key ever
 // needs to hold "INF", it does not belong in key_metrics.
 func TestTheAmbiguousShortFormIsDroppedAndThatIsDeliberate(t *testing.T) {
-	out := sanitiseKeyMetrics(map[string]any{"ticker": "INF"})
+	out := Sanitise(map[string]any{"ticker": "INF"})
 	if _, present := out["ticker"]; present {
 		t.Error("\"INF\" survived; if this changed deliberately, update the comment above")
 	}
@@ -174,7 +174,7 @@ func TestFiniteAndNonNumericValuesSurvive(t *testing.T) {
 		"a_nested_map":   map[string]any{"x": 1.0},
 		"numeric_string": "15.2",
 	}
-	out := sanitiseKeyMetrics(metrics)
+	out := Sanitise(metrics)
 
 	if len(out) != len(metrics) {
 		for k := range metrics {
@@ -191,7 +191,7 @@ func TestFiniteAndNonNumericValuesSurvive(t *testing.T) {
 // defect. This test states the boundary so a future reader does not assume
 // recursion that is not there.
 func TestNestedValuesAreNotInspected(t *testing.T) {
-	out := sanitiseKeyMetrics(map[string]any{
+	out := Sanitise(map[string]any{
 		"nested": map[string]any{"pe_ratio": "Infinity"},
 	})
 	nested, ok := out["nested"].(map[string]any)
@@ -204,10 +204,10 @@ func TestNestedValuesAreNotInspected(t *testing.T) {
 }
 
 func TestNilAndEmptyInputsAreHandled(t *testing.T) {
-	if out := sanitiseKeyMetrics(nil); out != nil {
+	if out := Sanitise(nil); out != nil {
 		t.Errorf("nil in, %v out — a nil map must stay nil so the column is untouched", out)
 	}
-	if out := sanitiseKeyMetrics(map[string]any{}); len(out) != 0 {
+	if out := Sanitise(map[string]any{}); len(out) != 0 {
 		t.Errorf("empty in, %v out", out)
 	}
 }
@@ -224,7 +224,7 @@ func TestWhateverSurvivesCanActuallyBeMarshalled(t *testing.T) {
 		"market_cap":  1.2e12,
 		"description": "An infinity of possibilities.",
 	}
-	if _, err := json.Marshal(sanitiseKeyMetrics(metrics)); err != nil {
+	if _, err := json.Marshal(Sanitise(metrics)); err != nil {
 		t.Fatalf("the sanitised map still will not marshal: %v", err)
 	}
 	// And prove the input genuinely would have failed, so this is not vacuous.

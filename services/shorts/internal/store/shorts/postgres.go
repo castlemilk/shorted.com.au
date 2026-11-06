@@ -18,6 +18,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
+	"github.com/castlemilk/shorted.com.au/services/pkg/keymetrics"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/instrument"
@@ -1284,8 +1285,8 @@ func (s *postgresStore) UpdateKeyMetrics(stockCode string, metrics map[string]an
 	// Strip ±Inf/NaN before they reach JSONB. mv_screener_data casts this
 	// column with ::double precision, so a stored "Infinity" string becomes a
 	// float Infinity at the view and breaks every consumer downstream — see
-	// sanitiseKeyMetrics for the full rationale.
-	metricsJSON, err := json.Marshal(sanitiseKeyMetrics(metrics))
+	// keymetrics.Sanitise for the full rationale.
+	metricsJSON, err := json.Marshal(keymetrics.Sanitise(metrics))
 	if err != nil {
 		return fmt.Errorf("failed to marshal metrics: %w", err)
 	}
