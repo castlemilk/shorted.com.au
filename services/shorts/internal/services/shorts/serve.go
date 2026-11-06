@@ -53,7 +53,7 @@ func withCORS(h http.Handler) http.Handler {
 		AllowedOrigins: []string{"http://localhost:3000", "http://localhost:3001", "http://localhost:3020", "https://*.vercel.app", "https://*.shorted.com.au", "https://shorted.com.au"},
 		AllowedMethods: connectcors.AllowedMethods(),
 		AllowedHeaders: append([]string{"Authorization"}, connectcors.AllowedHeaders()...),
-		ExposedHeaders: connectcors.ExposedHeaders(),
+		ExposedHeaders: append(connectcors.ExposedHeaders(), BuildHeader),
 	})
 	return middleware.Handler(h)
 }
@@ -1248,7 +1248,9 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 
 	// Wrap the mux with OTel HTTP middleware for non-RPC endpoints
 	// (health, search, admin, docs), then with h2c for HTTP/2 support.
-	handler := shortedotel.HTTPMiddleware(mux)
+	// withBuildHeader is outermost: every response, including /health, Connect
+	// errors, 404s and the MCP and OAuth routes, carries X-Shorted-Build.
+	handler := withBuildHeader(shortedotel.HTTPMiddleware(mux))
 
 	srv := &http.Server{
 		Addr: address,
