@@ -18,6 +18,8 @@ terraform {
 
 locals {
   service_name = "shorts"
+  # The image tag after the last ":" (the deploy passes ...shorted/shorts:<tag>).
+  image_tag = element(split(":", var.image_url), length(split(":", var.image_url)) - 1)
   labels = {
     service     = "shorts-api"
     environment = var.environment
@@ -353,6 +355,21 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       env {
         name  = "ENVIRONMENT"
         value = var.environment
+      }
+
+      # The image tag, read by the API as SERVICE_VERSION: the OTel service
+      # version and the X-Shorted-Build header on every response, so a deploy
+      # can check what is serving. Derived from the full image reference.
+      env {
+        name  = "SERVICE_VERSION"
+        value = local.image_tag
+      }
+
+      # Go's soft memory limit, under the 1Gi container limit below. The
+      # python child of SyncKeyMetrics has the rest of the headroom.
+      env {
+        name  = "GOMEMLIMIT"
+        value = "800MiB"
       }
 
       env {
@@ -750,11 +767,16 @@ resource "google_cloud_run_v2_service" "shorts_api" {
 
       resources {
         limits = {
-          # Sized to accommodate the Go runtime AND a transient python+yfinance
-          # subprocess fork during SyncKeyMetrics (containers were OOMing at
-          # 128Mi when the daily key-metrics scheduler fired).
+          # 1Gi, up from 256Mi. At 256Mi the p95 instance used about 96% of
+          # its memory and Cloud Run killed one instance 110 to 235 times a day
+          # ("Memory limit of 256 MiB exceeded", 2026-10-29 to 2026-11-05), and
+          # each kill dropped its in-flight requests. GOMEMLIMIT (800MiB, above)
+          # keeps the Go heap under the container limit and leaves the rest for
+          # the python+yfinance child of SyncKeyMetrics. That job still needs
+          # its own fix (it does not finish in 7 days, 2026-11-06). cpu is
+          # unchanged.
           cpu    = "1"
-          memory = "256Mi"
+          memory = "1Gi"
         }
         cpu_idle          = true # Throttle CPU when idle to reduce costs
         startup_cpu_boost = true

@@ -1951,6 +1951,9 @@ polls main and renders the chart into namespace `shorted-jobs`. The
 turns every Job's lifecycle into Telesis cron-monitor check-ins, and Telesis
 alerts on failed, missed and timed-out runs. That replaces the GCP
 `job-monitoring` policies for scheduled runs.
+The job-monitoring email channel also notifies the shorts API uptime alerts
+(`terraform/modules/shorts-api/uptime.tf`), so keep `ALERT_RECIPIENT_EMAIL` set;
+empty, the channel is destroyed and those alerts notify no one.
 
 - **Cutover is two lists that must match**: `enabled:` in
   `deploy/kubernetes/jobs/chart/values.yaml` (unsuspends the CronJob) and

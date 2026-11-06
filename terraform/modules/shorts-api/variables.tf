@@ -247,3 +247,9 @@ variable "otel_metrics" {
     error_message = "Enabled metrics routing requires an HTTPS /v1/metrics endpoint without credentials/query and a dedicated Secret Manager header-secret ID; generic Grafana credentials must not be reused."
   }
 }
+
+variable "notification_channel_ids" {
+  description = "Monitoring notification channel IDs for the API uptime alerts (the job-monitoring module's email channel, wired from prod). Empty creates the checks without a notification target."
+  type        = list(string)
+  default     = []
+}
