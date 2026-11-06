@@ -3294,6 +3294,9 @@ const PUBLIC_READ_RPCS = {
     "GetOwnershipOverview", "ListInstitutions", "GetInstitution", "GetStockOwnership", "ListSubstantialNotices",
     "ListStockRegisters", "GetOwnershipMap", "GetOwnershipFlows", "GetOwnershipActivity", "ListFundPositionChanges",
     "GetStockFundSeries", "ListFunds", "GetFundPortfolio", "CompareFundSnapshots",
+    // The backtest reads (PR-18), mirrored from StrategyService: canonical runs only, one
+    // answer to every caller.
+    "GetBacktestRun", "ListStrategyEvidence",
   ],
   "shorts.v1alpha1.OwnershipService": [
     "GetOwnershipOverview", "ListInstitutions", "GetInstitution", "GetStockOwnership", "ListSubstantialNotices",
@@ -3304,6 +3307,9 @@ const PUBLIC_READ_RPCS = {
     "GetStock", "GetStockDetails", "GetStockData", "GetStockPrices",
     "GetStockFinancialHighlights", "GetDirectorTrades", "GetDividendHistory", "GetPeerComparison",
   ],
+  // The public backtest reads. ListBacktestTrades and CompareStrategies are private and
+  // never listed: they answer for a signed-in caller, so their bytes must never be shared.
+  "shorts.v1alpha1.StrategyService": ["GetBacktestRun", "ListStrategyEvidence"],
   "shorts.v1alpha1.NewsService": ["GetStockNews", "GetMarketNews"],
   "shorts.v1alpha1.MarketService": ["GetTopShorts", "GetIndustryTreeMap", "GetMarketByDate", "GetAvailableDates"],
   "shorts.v1alpha1.ReportsService": ["GetWeeklyReport"],
