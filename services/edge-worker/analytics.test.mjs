@@ -833,6 +833,8 @@ test("GetIndustryIntelligence joins the daily-data cache tiers", async () => {
     ),
     defaults.cacheTtlTopShorts,
   );
+  assert.equal(resolveShortsTtl("/shorts.v1alpha1.OwnershipService/GetOwnershipMap", defaults), defaults.cacheTtlTopShorts);
+  assert.equal(resolveShortsTtl("/shorts.v1alpha1.OwnershipService/ListFundsHistory", defaults), defaults.cacheTtlDefault);
 
   const request = new Request("https://api.shorted.com.au/rpc", {
     method: "POST",

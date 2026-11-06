@@ -196,6 +196,30 @@ test("allowlisted reads share one entry across callers", async () => {
   });
 });
 
+test("an ownership read shares one entry across callers and keeps feed pages apart", async () => {
+  // OwnershipService's fourteen reads (and their ShortedStocksService mirrors) are
+  // read-only and caller-invariant: each assembles its answer from the one universe
+  // the API caches, and none reads a caller. A feed page's cursor is in the body.
+  const path = "/shorts.v1alpha1.OwnershipService/ListSubstantialNotices";
+  const first = JSON.stringify({ window: 30, limit: 50 });
+  const second = JSON.stringify({ window: 30, limit: 50, cursor: "2026-10-01|https://x/1.pdf" });
+
+  await withEdge(jsonOrigin, async ({ send, state }) => {
+    const a = await send(rpc(path, first, { Authorization: "Bearer caller-a" }));
+    assert.equal(a.headers.get("X-Shorted-Cache"), "MISS");
+    const b = await send(rpc(path, first));
+    assert.equal(b.headers.get("X-Shorted-Cache"), "HOT");
+    assert.equal(await b.text(), await a.text());
+    const c = await send(rpc(path, second));
+    assert.equal(c.headers.get("X-Shorted-Cache"), "MISS");
+    assert.equal(state.originCalls.length, 2);
+  });
+  for (const service of ["OwnershipService", "ShortedStocksService"]) {
+    assert.equal(isPublicReadEndpoint(`/shorts.v1alpha1.${service}/GetStockOwnership`), true);
+    assert.equal(isPublicReadEndpoint(`/shorts.v1alpha1.${service}/GetStockOwnershipHistory`), false);
+  }
+});
+
 test("a KV-cacheable read is stored under a SHA-256 body key", async () => {
   const path = `${SHORTS}/GetStockData`;
   const body = JSON.stringify({ product_code: "KVX1", period: "3m" });
@@ -388,25 +412,53 @@ const REVIEWED_PUBLIC_READS = [
   "/shorts.v1alpha1.MarketService/GetTopShorts",
   "/shorts.v1alpha1.NewsService/GetMarketNews",
   "/shorts.v1alpha1.NewsService/GetStockNews",
+  "/shorts.v1alpha1.OwnershipService/CompareFundSnapshots",
+  "/shorts.v1alpha1.OwnershipService/GetFundPortfolio",
+  "/shorts.v1alpha1.OwnershipService/GetInstitution",
+  "/shorts.v1alpha1.OwnershipService/GetOwnershipActivity",
+  "/shorts.v1alpha1.OwnershipService/GetOwnershipFlows",
+  "/shorts.v1alpha1.OwnershipService/GetOwnershipMap",
+  "/shorts.v1alpha1.OwnershipService/GetOwnershipOverview",
+  "/shorts.v1alpha1.OwnershipService/GetStockFundSeries",
+  "/shorts.v1alpha1.OwnershipService/GetStockOwnership",
+  "/shorts.v1alpha1.OwnershipService/ListFundPositionChanges",
+  "/shorts.v1alpha1.OwnershipService/ListFunds",
+  "/shorts.v1alpha1.OwnershipService/ListInstitutions",
+  "/shorts.v1alpha1.OwnershipService/ListStockRegisters",
+  "/shorts.v1alpha1.OwnershipService/ListSubstantialNotices",
   "/shorts.v1alpha1.ReportsService/GetWeeklyReport",
+  "/shorts.v1alpha1.ShortedStocksService/CompareFundSnapshots",
   "/shorts.v1alpha1.ShortedStocksService/GetAnnouncement",
   "/shorts.v1alpha1.ShortedStocksService/GetAvailableDates",
   "/shorts.v1alpha1.ShortedStocksService/GetDirectorTrades",
   "/shorts.v1alpha1.ShortedStocksService/GetDividendHistory",
+  "/shorts.v1alpha1.ShortedStocksService/GetFundPortfolio",
   "/shorts.v1alpha1.ShortedStocksService/GetIndustryIntelligence",
   "/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap",
+  "/shorts.v1alpha1.ShortedStocksService/GetInstitution",
   "/shorts.v1alpha1.ShortedStocksService/GetMarketByDate",
   "/shorts.v1alpha1.ShortedStocksService/GetMarketNews",
   "/shorts.v1alpha1.ShortedStocksService/GetNews",
+  "/shorts.v1alpha1.ShortedStocksService/GetOwnershipActivity",
+  "/shorts.v1alpha1.ShortedStocksService/GetOwnershipFlows",
+  "/shorts.v1alpha1.ShortedStocksService/GetOwnershipMap",
+  "/shorts.v1alpha1.ShortedStocksService/GetOwnershipOverview",
   "/shorts.v1alpha1.ShortedStocksService/GetPeerComparison",
   "/shorts.v1alpha1.ShortedStocksService/GetStock",
   "/shorts.v1alpha1.ShortedStocksService/GetStockData",
   "/shorts.v1alpha1.ShortedStocksService/GetStockDetails",
   "/shorts.v1alpha1.ShortedStocksService/GetStockFinancialHighlights",
+  "/shorts.v1alpha1.ShortedStocksService/GetStockFundSeries",
   "/shorts.v1alpha1.ShortedStocksService/GetStockNews",
+  "/shorts.v1alpha1.ShortedStocksService/GetStockOwnership",
   "/shorts.v1alpha1.ShortedStocksService/GetStockPrices",
   "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
   "/shorts.v1alpha1.ShortedStocksService/GetWeeklyReport",
+  "/shorts.v1alpha1.ShortedStocksService/ListFundPositionChanges",
+  "/shorts.v1alpha1.ShortedStocksService/ListFunds",
+  "/shorts.v1alpha1.ShortedStocksService/ListInstitutions",
+  "/shorts.v1alpha1.ShortedStocksService/ListStockRegisters",
+  "/shorts.v1alpha1.ShortedStocksService/ListSubstantialNotices",
   "/shorts.v1alpha1.StockService/GetDirectorTrades",
   "/shorts.v1alpha1.StockService/GetDividendHistory",
   "/shorts.v1alpha1.StockService/GetPeerComparison",

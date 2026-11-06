@@ -62,7 +62,10 @@ whatever headers it carries.
 - The list is matched on the full `/<package>.<Service>/<Method>` path, never on
   a substring.
 - A method joins the list only with a test showing that its response does not
-  depend on the caller. `cache-identity.test.mjs` pins the reviewed set, as a
+  depend on the caller. The fourteen `OwnershipService` reads (and their
+  `ShortedStocksService` mirrors) joined on 2026-11-06 at the ASIC TTL: each
+  assembles its answer from the one universe the API caches for ten minutes,
+  none reads a caller, and a feed page's cursor is in the body. `cache-identity.test.mjs` pins the reviewed set, as a
   literal checked against `publicReadPaths()`, and checks each shorts read
   against its proto visibility annotation.
 - Cache keys hash the raw request body bytes with SHA-256. The hot, Cache API and

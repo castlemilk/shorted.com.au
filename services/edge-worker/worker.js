@@ -2815,6 +2815,9 @@ export function resolveShortsTtl(path, defaults) {
   if (/GetTopShorts|GetIndustryTreeMap|GetIndustryIntelligence|GetWeeklyReport|GetMarketByDate|GetAvailableDates/.test(path)) {
     return defaults.cacheTtlTopShorts; // 300s (5min) — safe for ASIC data
   }
+  if (/\/(GetOwnershipOverview|ListInstitutions|GetInstitution|GetStockOwnership|ListSubstantialNotices|ListStockRegisters|GetOwnershipMap|GetOwnershipFlows|GetOwnershipActivity|ListFundPositionChanges|GetStockFundSeries|ListFunds|GetFundPortfolio|CompareFundSnapshots)$/.test(path)) {
+    return defaults.cacheTtlTopShorts; // 300s: the ownership record changes once a day, and the API's own universe lasts ten minutes
+  }
   if (/GetNews|GetAnnouncement|GetMarketNews/.test(path)) {
     return defaults.cacheTtlNews; // 300s (5min)
   }
@@ -3284,6 +3287,18 @@ const PUBLIC_READ_RPCS = {
     "GetStock", "GetStockDetails", "GetStockData", "GetStockPrices", "GetStockNews",
     "GetStockFinancialHighlights", "GetNews", "GetAnnouncement", "GetMarketNews",
     "GetDirectorTrades", "GetDividendHistory", "GetPeerComparison",
+    // The ownership reads (the register, the desk, the funds), mirrored from
+    // OwnershipService: every one assembles its answer from one universe the API
+    // caches for ten minutes, and none reads a caller. A feed page's cursor is in
+    // the body, so each page is its own entry.
+    "GetOwnershipOverview", "ListInstitutions", "GetInstitution", "GetStockOwnership", "ListSubstantialNotices",
+    "ListStockRegisters", "GetOwnershipMap", "GetOwnershipFlows", "GetOwnershipActivity", "ListFundPositionChanges",
+    "GetStockFundSeries", "ListFunds", "GetFundPortfolio", "CompareFundSnapshots",
+  ],
+  "shorts.v1alpha1.OwnershipService": [
+    "GetOwnershipOverview", "ListInstitutions", "GetInstitution", "GetStockOwnership", "ListSubstantialNotices",
+    "ListStockRegisters", "GetOwnershipMap", "GetOwnershipFlows", "GetOwnershipActivity", "ListFundPositionChanges",
+    "GetStockFundSeries", "ListFunds", "GetFundPortfolio", "CompareFundSnapshots",
   ],
   "shorts.v1alpha1.StockService": [
     "GetStock", "GetStockDetails", "GetStockData", "GetStockPrices",
