@@ -163,3 +163,57 @@ func TestLedgerAccessorsFollowTheLifecycle(t *testing.T) {
 		t.Fatalf("holding lost its signal: %+v", h[0])
 	}
 }
+
+// TestCheckpointCarriesEverySimulatorField fails when the simulator's state gains
+// a field the checkpoint does not decide about. Every field of the state types is
+// either carried by the checkpoint (Checkpoint writes it and RestoreState reads
+// it) or named here as an output or configuration that a restore takes from
+// elsewhere. A new field must be added to one list, so a field the paper track
+// would silently lose across runs cannot appear unnoticed.
+func TestCheckpointCarriesEverySimulatorField(t *testing.T) {
+	carried := map[string][]string{
+		"State":        {"cash", "lastEquity", "peak", "lastIndex", "dividendsDue", "codes", "positions", "exits", "entries"},
+		"perCode":      {"mult", "prev", "hasPrev", "lastRaw", "lastPL", "lastPLDate", "prevStatus", "hasPrevStatus", "lastExitIdx", "hasExit", "caKnownIdx", "hasCA", "traded"},
+		"position":     {"code", "signalDate", "breakout", "entryDate", "entryIdx", "entryRaw", "entryPL", "qty", "pivot", "score", "dv20", "entryFee", "dividends", "missing", "ruleCount", "flags", "marks"},
+		"pendingEntry": {"code", "score", "pivot", "dv20", "signalDate", "breakout", "lag"},
+		"pendingExit":  {"code", "reason", "signalDate", "dv20"},
+		"mark":         {"date", "raw", "pl"},
+	}
+	// Not carried: the configuration (the caller supplies it with the recipe) and
+	// the outputs the paper track writes out from each step (trades, events and
+	// records).
+	notCarried := map[string][]string{
+		"State": {"cfg", "trades", "events", "records"},
+	}
+	types := map[string]reflect.Type{
+		"State":        reflect.TypeOf(State{}),
+		"perCode":      reflect.TypeOf(perCode{}),
+		"position":     reflect.TypeOf(position{}),
+		"pendingEntry": reflect.TypeOf(pendingEntry{}),
+		"pendingExit":  reflect.TypeOf(pendingExit{}),
+		"mark":         reflect.TypeOf(mark{}),
+	}
+	for name, typ := range types {
+		want := map[string]bool{}
+		for _, f := range carried[name] {
+			want[f] = true
+		}
+		for _, f := range notCarried[name] {
+			want[f] = true
+		}
+		got := map[string]bool{}
+		for i := 0; i < typ.NumField(); i++ {
+			got[typ.Field(i).Name] = true
+		}
+		for f := range got {
+			if !want[f] {
+				t.Errorf("%s gained field %q: the checkpoint must carry it (Checkpoint and RestoreState) or list it as not carried", name, f)
+			}
+		}
+		for f := range want {
+			if !got[f] {
+				t.Errorf("%s lists field %q, which it no longer has", name, f)
+			}
+		}
+	}
+}
