@@ -72,7 +72,7 @@ func (s store) releaseLease(holder string, logf func(string, ...any)) {
 }
 
 // phaseNames is the phases a session completes, in the order the job runs them.
-var phaseNames = []string{phaseFeatures, phaseEvaluation, phaseEvents}
+var phaseNames = []string{phaseFeatures, phaseEvaluation, phaseEvents, phasePaper}
 
 // completedPhases returns which of the session's phases completed.
 func (s store) completedPhases(ctx context.Context, d civil.Date) (map[string]bool, error) {

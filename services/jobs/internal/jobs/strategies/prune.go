@@ -42,14 +42,19 @@ func pruneCutoff(completed []civil.Date, guards []civil.Date) civil.Date {
 }
 
 // paperGuardSessions is, for each live canonical version except v0, the session
-// before its first live session, from the data calendar. The paper track
-// will replace this with the newest session it has recorded; until then the
-// guard keeps the session the track's first step reads. A version with no
-// live_from has no guard.
-func paperGuardSessions(liveFrom map[string]civil.Date, labels map[string]string) []civil.Date {
+// the paper track reads next: the newest session it has recorded, or, before
+// its first recorded session, the session before its live_from on the data
+// calendar (the seed the track starts from). A version with no live_from has no
+// guard. recorded is the newest recorded session per rules hash; a version
+// without one is absent from it, and a version with no recipe never has one.
+func paperGuardSessions(liveFrom map[string]civil.Date, labels map[string]string, recorded map[string]civil.Date) []civil.Date {
 	var out []civil.Date
 	for hash, from := range liveFrom {
 		if labels[hash] == "v0" || from.IsZero() {
+			continue
+		}
+		if last, ok := recorded[hash]; ok {
+			out = append(out, last)
 			continue
 		}
 		out = append(out, prevTradingDay(from))

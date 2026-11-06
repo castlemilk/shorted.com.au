@@ -310,27 +310,36 @@ func runSession(ctx context.Context, pool *pgxpool.Pool, st store, s civil.Date,
 	// stored rows. A version's first session is a baseline with no events.
 	if done[phaseEvents] {
 		logf("strategies: session %s events already completed", s)
-		return nil, nil
-	}
-	prev, err := st.completedSessions(ctx, s, false, 1)
-	if err != nil {
-		return nil, err
-	}
-	events, err := diffSession(ctx, pool, s, prev, live, evals, baseline, logf)
-	if err != nil {
-		return nil, err
-	}
-	res.Events += len(events)
-	eventCounts, err := counts(map[string]any{"events": len(events)})
-	if err != nil {
-		return nil, err
-	}
-	if opts.Write {
-		if err := writeEvents(ctx, pool, st, s, rulesHashes, events, eventCounts); err != nil {
+	} else {
+		prev, err := st.completedSessions(ctx, s, false, 1)
+		if err != nil {
 			return nil, err
 		}
+		events, err := diffSession(ctx, pool, s, prev, live, evals, baseline, logf)
+		if err != nil {
+			return nil, err
+		}
+		res.Events += len(events)
+		eventCounts, err := counts(map[string]any{"events": len(events)})
+		if err != nil {
+			return nil, err
+		}
+		if opts.Write {
+			if err := writeEvents(ctx, pool, st, s, rulesHashes, events, eventCounts); err != nil {
+				return nil, err
+			}
+		}
+		logf("strategies: session %s events: %d event(s)", s, len(events))
 	}
-	logf("strategies: session %s complete (%d event(s))", s, len(events))
+
+	// Paper track: each live version with a recipe steps through s from the
+	// stored rows (paper.go). A completed phase is not stepped again.
+	if done[phasePaper] {
+		logf("strategies: session %s paper track already completed", s)
+	} else if err := runPaperPhase(ctx, pool, st, s, opts.Write, logf); err != nil {
+		return nil, err
+	}
+	logf("strategies: session %s complete", s)
 	return nil, nil
 }
 
@@ -789,5 +798,9 @@ func pruneAfter(ctx context.Context, pool *pgxpool.Pool, st store, d civil.Date,
 		liveFrom[h] = v.LiveFrom
 		labels[h] = v.Label
 	}
-	return pruneRun(ctx, pool, pruneCutoff(completed, paperGuardSessions(liveFrom, labels)), logf)
+	recorded, err := st.paperRecordedAsOf(ctx)
+	if err != nil {
+		return err
+	}
+	return pruneRun(ctx, pool, pruneCutoff(completed, paperGuardSessions(liveFrom, labels, recorded)), logf)
 }
