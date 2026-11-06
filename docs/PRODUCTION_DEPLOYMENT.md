@@ -202,7 +202,7 @@ Choose by change, not by position. Every deploy of `main` creates a revision, wh
 git fetch -q origin main
 # For each candidate revision, newest first: SHA is the sha after "main-" or "manual-"
 # in its SERVICE_VERSION (below).
-git merge-base --is-ancestor <bad commit> "$SHA"; case $? in
+git merge-base --is-ancestor "<bad commit>" "$SHA"; case $? in
   0) echo "contains the bad change" ;;
   1) echo "safe" ;;
   *) echo "git could not answer: fetch again and check both shas" ;;
@@ -251,7 +251,7 @@ A traffic shift is not a code change. Terraform still declares `shorts` to route
 
 Until one of these lands, `terraform plan` shows drift on the traffic. That is expected during a rollback.
 
-A shift also does not survive a deploy that is already running or queued. Its `terraform-apply` job sets traffic back to the newest revision, and the shift is then gone without any sign in the rollback itself. After each deploy's `terraform-apply` job finishes, re-check `gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.traffic)'`. If traffic has moved back to the newest revision, first check whether that revision carries the fix or the revert: run the step 1 test with the fix or revert commit in place of the bad commit, against the newest revision's sha (`contains` means it carries it). The bad commit's test cannot tell you this, because a revert's build still contains the bad commit. If it carries the fix, stop: the fix is serving, so run "Post-Deployment Verification". If it does not, shift again to the revision you chose in step 1.
+A shift also does not survive a deploy that is already running or queued. Its `terraform-apply` job sets traffic back to the newest revision, and the shift is then gone without any sign in the rollback itself. After each deploy's `terraform-apply` job finishes, re-check `gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.traffic)'`. If traffic has moved back to the newest revision, first check whether that revision carries the fix or the revert: run the step 1 test with the fix or revert commit in place of the bad commit, against the newest revision's sha (`contains` means it carries it). The bad commit's test cannot tell you this, because a revert's build still contains the bad commit. If it carries the fix or the revert, stop: it is serving, so run "Post-Deployment Verification". If it does not, shift again to the revision you chose in step 1.
 
 Keep re-checking after every deploy until the fix or the revert is serving, or hold merges to `main` until then. A match between `main`'s head and the newest revision says only that the shift holds for now: the next push to `main`, for any change, undoes it.
 
