@@ -404,6 +404,24 @@ func TestPublicReadersNeverReturnVariants(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, events.Msg.Events, 1, "the variant's row is dropped")
 	assert.Equal(t, liveHash, events.Msg.Events[0].RulesHash, "only the live version's row is served")
+
+	// The backtest readers (PR-18): a variant or foreign run id is not found, and the
+	// evidence names canonical versions only. The fake holds canonical publish runs only, as
+	// the store's queries do, so no variant run can reach the answer.
+	srv.strategyBacktests = newBacktestFake()
+	fake.EXPECT().ListStrategyCandidates(gomock.Any()).Return(nil, errors.New("no candidate universe in this test")).AnyTimes()
+	_, err = srv.GetBacktestRun(context.Background(), connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{
+		StrategyId: spec.StrategyZangerBreakout, RunId: 999,
+	}))
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err), "a variant run id is not a published run")
+	evidence, err := srv.ListStrategyEvidence(context.Background(), connect.NewRequest(&shortsv1alpha1.ListStrategyEvidenceRequest{}))
+	require.NoError(t, err)
+	for _, e := range evidence.Msg.Strategies {
+		if e.Version != nil {
+			assert.Equal(t, "canonical", e.Version.Kind, e.StrategyId)
+		}
+		assert.NotEqual(t, variant, e.Version.GetRulesHash())
+	}
 }
 
 // The snapshot's stored publication date is the one the picks show: a short date

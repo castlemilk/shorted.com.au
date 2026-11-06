@@ -537,9 +537,10 @@ func TestClampLeavesCountsGlobal(t *testing.T) {
 }
 
 // Every method on StrategyService is either public or private, and only the
-// public reads are public: the three picker reads, the two rules-version reads
-// and the source dates. GetViewerStrategyPicks and ListStrategySignalEvents are
-// private, so a signed-in caller can read them and an anonymous caller cannot.
+// public reads are public: the three picker reads, the two rules-version reads,
+// the source dates and the two backtest reads (PR-18). GetViewerStrategyPicks,
+// ListStrategySignalEvents, ListBacktestTrades and CompareStrategies are private,
+// so a signed-in caller can read them and an anonymous caller cannot.
 func TestStrategyMethodsVisibility(t *testing.T) {
 	desc, err := protoregistry.GlobalFiles.FindDescriptorByName("shorts.v1alpha1.StrategyService")
 	require.NoError(t, err)
@@ -552,6 +553,8 @@ func TestStrategyMethodsVisibility(t *testing.T) {
 		"GetStrategyVersion":    true,
 		"ListStrategyVersions":  true,
 		"GetStrategyDataStatus": true,
+		"ListStrategyEvidence":  true,
+		"GetBacktestRun":        true,
 	}
 	methods := service.Methods()
 	seen := map[string]bool{}

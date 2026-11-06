@@ -177,3 +177,10 @@ func riskFreeSeries(c Curve, cash []features.RatePoint) []float64 {
 	}
 	return rf
 }
+
+// WindowOf measures one window of a curve with the figures Windows reports for its
+// own windows: the return, CAGR (from 365 calendar days), the drawdown, the volatility
+// and the Sharpe ratio (from 126 daily returns). The curve must hold a session.
+func WindowOf(id, label string, s Series, cash []features.RatePoint, note string) WindowFigures {
+	return figuresOfWindow(id, label, s.Basis, s.Curve, cash, note)
+}

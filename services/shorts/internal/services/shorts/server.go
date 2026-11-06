@@ -58,6 +58,9 @@ type ShortsServer struct {
 	// strategySaves serves the saved-strategy rpcs (migration 000157). Nil when
 	// the store is not Postgres; those rpcs then answer unavailable.
 	strategySaves shorts.StrategySavesStore
+	// strategyBacktests serves the backtest rpcs (migrations 000158 and 000159). Nil when
+	// the store is not Postgres; those rpcs then answer run_required or unavailable.
+	strategyBacktests shorts.StrategyBacktestStore
 	// ownershipUniverse is the whole register, read once per ownershipTTL and
 	// shared by every ownership rpc (ownership_universe.go). Set exactly when
 	// ownershipStore is.
@@ -156,6 +159,7 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	peopleStore, _ := storeImpl.(shorts.PeopleStore)
 	ownershipStore, _ := storeImpl.(shorts.OwnershipStore)
 	strategySaves, _ := storeImpl.(shorts.StrategySavesStore)
+	strategyBacktests, _ := storeImpl.(shorts.StrategyBacktestStore)
 
 	var rateLimiter ratelimit.RateLimiter
 	if cfg.RateLimitConfig.Enabled {
@@ -197,6 +201,7 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		peopleStore:       peopleStore,
 		ownershipStore:    ownershipStore,
 		strategySaves:     strategySaves,
+		strategyBacktests: strategyBacktests,
 	}
 	if ownershipStore != nil {
 		srv.ownershipUniverse = newServerOwnershipUniverse(srv)
