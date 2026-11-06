@@ -154,11 +154,15 @@ gcloud run services describe shorts --project rosy-clover-477102-t5 --region aus
 # Shorts API health check
 curl https://shorts-HASH.australia-southeast2.run.app/health
 
-# Test search
+# Test search (replace shorts-HASH with the run.app host from
+# gcloud run services describe shorts --format='value(status.url)')
 curl -X POST https://shorts-HASH.australia-southeast2.run.app/shorts.v1alpha1.MarketService/GetTopShorts \
+  -A "shorted-ops-check/1.0" \
   -H "Content-Type: application/json" \
-  -d '{"limit": 5}'
+  -d '{"limit": 1}'
 ```
+
+Expect HTTP 200 and a body containing `"timeSeries"`. The `-A` is needed: the API's user-agent filter refuses curl's default User-Agent, and any script's, with HTTP 403 `permission_denied` ("automated access detected") on every revision, good or bad. That is the filter, not a broken revision.
 
 ### 3. Verify Scheduled Jobs
 
@@ -168,7 +172,9 @@ gcloud scheduler jobs list --project rosy-clover-477102-t5 --location australia-
 
 ## Rollback Procedure
 
-The live API is the Cloud Run service `shorts` (Terraform module `terraform/modules/shorts-api`, which is where the name `shorts-api` appears in the repo). Rolling back is a traffic shift to an earlier revision of that service.
+The live API is the Cloud Run service `shorts` in `australia-southeast2`. The Terraform module that defines it is `terraform/modules/shorts-api`, which is why that directory name appears here. Rolling back is a traffic shift to an earlier revision of that service.
+
+Before you shift, check the deploy queue. A `gha-terraform-deploy-*` run that is running or queued for `main` re-applies the newest image within minutes and undoes the shift. Let it finish first, or wait for it to start and then shift.
 
 ### 1. Find the revision to return to
 
@@ -177,15 +183,17 @@ gcloud run revisions list --service shorts \
   --project rosy-clover-477102-t5 --region australia-southeast2
 ```
 
-Revisions are named `shorts-NNNNN-xxx`, newest first. The one serving now has 100% of traffic. Pick the newest revision before it. To confirm which image a revision runs:
+Revisions are named `shorts-NNNNN-xxx`, newest first. The revision marked `ACTIVE yes` is the one serving now. `revisions list` does not show traffic percentages; `gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.traffic)'` does. Take the revision before the active one.
+
+To see which build a revision runs, read its `SERVICE_VERSION` environment variable. Terraform sets it to the image tag from this change onward:
 
 ```bash
 gcloud run revisions describe REVISION \
   --project rosy-clover-477102-t5 --region australia-southeast2 \
-  --format='value(spec.containers[0].image)'
+  --format=json | jq -r '.spec.containers[0].env[] | select(.name=="SERVICE_VERSION") | .value'
 ```
 
-The image tag is also what the API reports in its `X-Shorted-Build` response header, so after the shift `curl -sI https://api.shorted.com.au/health | grep -i x-shorted-build` shows which build answers.
+Revisions created before that change have no `SERVICE_VERSION`. For those, `--format='value(spec.containers[0].image)'` prints a digest, not a tag. Map it to its tag with `gcloud artifacts docker images list australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/shorts --include-tags --filter='version~^sha256:<digest>'`.
 
 ### 2. Shift 100% of traffic to that revision
 
@@ -196,7 +204,15 @@ gcloud run services update-traffic shorts \
   --to-revisions=REVISION=100
 ```
 
-Check the rolled-back service on `/health` and one Connect call (see "Post-Deployment Verification") before you stop watching the uptime alerts.
+A revision is immutable and carries its own image, memory and environment, so the shift restores all of them. A revision from before the 1Gi change has 256Mi and no `GOMEMLIMIT`, and it brings back the memory-limit kills for as long as the rollback holds.
+
+Then confirm the build on the `run.app` host, which is not cached at the edge (`gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.url)'`):
+
+```bash
+curl -sI https://<run.app host>/health | grep -i x-shorted-build
+```
+
+The value should equal the `SERVICE_VERSION` you read from the revision. Then run the Connect call in "Post-Deployment Verification". Keep watching the uptime alerts until both checks pass.
 
 ### 3. The next deploy undoes the shift
 
@@ -205,7 +221,7 @@ A traffic shift is not a code change. Terraform still declares `shorts` to route
 - Ship the fix: merge the code fix to `main` and let it deploy.
 - Revert the bad change on `main` (a `git revert` of the offending commit), so the next deploy builds the previous behaviour.
 
-Note the drift in `terraform plan` until one of these lands. That is expected during a rollback.
+Until one of these lands, `terraform plan` shows drift on the traffic. That is expected during a rollback.
 
 ## Monitoring
 
@@ -215,14 +231,31 @@ Note the drift in `terraform plan` until one of these lands. That is expected du
 
 ## Uptime checks
 
-Two checks watch the API from outside the cluster, so they still report when the cluster or the deploy tooling is down. They are in `terraform/modules/shorts-api/uptime.tf`:
+Two checks watch the API from outside the cluster, so they still report when the cluster or the deploy tooling is down. They are defined in `terraform/modules/shorts-api/uptime.tf`:
 
-- `api.shorted.com.au`, a real Connect call (`GetTopShorts`, `{"limit":1}`), every 5 minutes.
-- The Cloud Run `/health`, every minute.
+- `api.shorted.com.au`, a real Connect call (`GetTopShorts`, `{"limit":1}`), every 5 minutes. A response passes when it is HTTP 200 and its body contains `"timeSeries"` (protojson omits an empty list, so a 200 without it means there is no data).
+- The Cloud Run `/health` on the `run.app` host, every minute. It passes on HTTP 200 and `OK`.
 
-Each has an alert policy that fires when its check fails from two or more checker regions for 5 minutes, and emails the job-monitoring channel. The check results are under Cloud Monitoring, Uptime checks.
+Each has an alert policy. It fires when the check fails from two or more checker regions for 5 minutes. Both notify the job-monitoring email channel, which exists only when `ALERT_RECIPIENT_EMAIL` is set. Check results are under Cloud Monitoring, Uptime checks.
 
-If the public check fails and `/health` passes, look at its response first. A `403`, a `429` or a "Just a moment" page is Cloudflare challenging or rate-limiting the checkers (the edge worker's anonymous bucket is 10 requests per 10 seconds per IP). Do not add a WAF bypass in response without reading the security events for the checkers' address ranges.
+### When the public check fails
+
+1. Open the check's latest results by region. The first results appear about 10 minutes after a deploy.
+2. Repeat the request the way the checker sends it:
+
+   ```bash
+   curl -i -A 'GoogleStackdriverMonitoring-UptimeChecks(https://cloud.google.com/monitoring)' \
+     -X POST https://api.shorted.com.au/shorts.v1alpha1.MarketService/GetTopShorts \
+     -H 'Content-Type: application/json' -d '{"limit":1}'
+   ```
+
+3. Read the answer:
+   - An `X-Shorted-Build` header is present: the API answered. A 5xx or a timeout means the Cloud Run logs and the database (`/health` can pass while this check fails). A `403` with JSON `permission_denied` ("automated access detected") is the API's user-agent filter, `services/pkg/ratelimit/useragent.go`. The checker's User-Agent must stay allowed there, and `TestUptimeCheckerUserAgentPasses` pins it. A `429` with an `X-RateLimit-Detail` header is the app's per-minute limiter.
+   - A `429` with `X-RateLimit-Bucket` is the edge worker's bucket (anonymous callers get 10 requests per 10 seconds per IP).
+   - No `X-Shorted-Build` header, a `cf-mitigated` header, or an HTML "Just a moment" page: Cloudflare answered, with a challenge or a zone rule.
+4. If `/health` on the `run.app` host passes and the public check fails, the problem is on the Cloudflare path. If both fail, it is the service: describe the `shorts` service and read its logs.
+
+Do not add a WAF bypass in response to a challenge without a reviewed change to the Cloudflare Terraform. The options and their order are in the Phase 0 PR description.
 
 ## Troubleshooting
 
