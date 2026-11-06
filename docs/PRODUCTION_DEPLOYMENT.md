@@ -145,17 +145,17 @@ The smoke run includes the Firebase Google sign-in bootstrap check and must fail
 gcloud run services list --project rosy-clover-477102-t5 --region australia-southeast2
 
 # Check specific service
-gcloud run services describe shorts-api --project rosy-clover-477102-t5 --region australia-southeast2
+gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2
 ```
 
 ### 2. Test Endpoints
 
 ```bash
 # Shorts API health check
-curl https://shorts-api-HASH.australia-southeast2.run.app/health
+curl https://shorts-HASH.australia-southeast2.run.app/health
 
 # Test search
-curl -X POST https://shorts-api-HASH.australia-southeast2.run.app/v1/topShorts \
+curl -X POST https://shorts-HASH.australia-southeast2.run.app/shorts.v1alpha1.MarketService/GetTopShorts \
   -H "Content-Type: application/json" \
   -d '{"limit": 5}'
 ```
@@ -168,28 +168,61 @@ gcloud scheduler jobs list --project rosy-clover-477102-t5 --location australia-
 
 ## Rollback Procedure
 
-### Quick Rollback (Traffic Shift)
+The live API is the Cloud Run service `shorts` (Terraform module `terraform/modules/shorts-api`, which is where the name `shorts-api` appears in the repo). Rolling back is a traffic shift to an earlier revision of that service.
+
+### 1. Find the revision to return to
 
 ```bash
-# Route traffic back to previous revision
-gcloud run services update-traffic shorts-api \
+gcloud run revisions list --service shorts \
+  --project rosy-clover-477102-t5 --region australia-southeast2
+```
+
+Revisions are named `shorts-NNNNN-xxx`, newest first. The one serving now has 100% of traffic. Pick the newest revision before it. To confirm which image a revision runs:
+
+```bash
+gcloud run revisions describe REVISION \
+  --project rosy-clover-477102-t5 --region australia-southeast2 \
+  --format='value(spec.containers[0].image)'
+```
+
+The image tag is also what the API reports in its `X-Shorted-Build` response header, so after the shift `curl -sI https://api.shorted.com.au/health | grep -i x-shorted-build` shows which build answers.
+
+### 2. Shift 100% of traffic to that revision
+
+```bash
+gcloud run services update-traffic shorts \
   --project rosy-clover-477102-t5 \
   --region australia-southeast2 \
-  --to-revisions=PREVIOUS_REVISION=100
+  --to-revisions=REVISION=100
 ```
 
-### Full Rollback (Redeploy Previous Tag)
+Check the rolled-back service on `/health` and one Connect call (see "Post-Deployment Verification") before you stop watching the uptime alerts.
 
-```bash
-# Trigger workflow dispatch with previous release tag
-# Or create a new release from the previous stable commit
-```
+### 3. The next deploy undoes the shift
+
+A traffic shift is not a code change. Terraform still declares `shorts` to route 100% to the latest revision, and every push to `main` runs `terraform-deploy`, which applies the newest image again. A rollback therefore holds only until the next deploy. Before the next push to `main`, do one of the following:
+
+- Ship the fix: merge the code fix to `main` and let it deploy.
+- Revert the bad change on `main` (a `git revert` of the offending commit), so the next deploy builds the previous behaviour.
+
+Note the drift in `terraform plan` until one of these lands. That is expected during a rollback.
 
 ## Monitoring
 
 - **Cloud Run Console**: https://console.cloud.google.com/run?project=rosy-clover-477102-t5
 - **Logs**: https://console.cloud.google.com/logs?project=rosy-clover-477102-t5
 - **Vercel Dashboard**: https://vercel.com/team_xE5DMN3hIo8aPqyHNkBybg8r/shorted-com-au
+
+## Uptime checks
+
+Two checks watch the API from outside the cluster, so they still report when the cluster or the deploy tooling is down. They are in `terraform/modules/shorts-api/uptime.tf`:
+
+- `api.shorted.com.au`, a real Connect call (`GetTopShorts`, `{"limit":1}`), every 5 minutes.
+- The Cloud Run `/health`, every minute.
+
+Each has an alert policy that fires when its check fails from two or more checker regions for 5 minutes, and emails the job-monitoring channel. The check results are under Cloud Monitoring, Uptime checks.
+
+If the public check fails and `/health` passes, look at its response first. A `403`, a `429` or a "Just a moment" page is Cloudflare challenging or rate-limiting the checkers (the edge worker's anonymous bucket is 10 requests per 10 seconds per IP). Do not add a WAF bypass in response without reading the security events for the checkers' address ranges.
 
 ## Troubleshooting
 
