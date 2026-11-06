@@ -58,6 +58,7 @@ declare -A want_schedule=(
   [financial-report-extractor]="0 14 * * *"
   [asx-discovery]="0 12 * * 0"
   [shorted-alerts]="55 * * * 1-5"
+  [shorted-key-metrics]="40 19 * * *"
   [shorted-strategies-daily]="0,20,40 13-16 * * 1-5"
   [shorted-strategies-backtest]="20 * * * *"
 )
@@ -109,6 +110,18 @@ shorts_url="$(field "${tmp}/default.yaml" "${alerts}" '.spec.jobTemplate.spec.te
 [[ -z "$(field "${tmp}/default.yaml" "${alerts}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
   || fail "shorted-alerts: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
 pass "shorted-alerts: live, Resend and entitlement secrets isolated, origin URL, no WIF"
+
+# shorted-key-metrics: writes only when KEY_METRICS_DRY_RUN is "false" (the job defaults to a dry run), one
+# attempt (a retry reruns the same refusals; the next daily run is the retry), a 3000-second deadline above the
+# 40-minute budget, VKE-native, no GCS identity.
+km=shorted-key-metrics
+[[ "$(field "${tmp}/default.yaml" "${km}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "KEY_METRICS_DRY_RUN") | .value')" == "false" ]] \
+  || fail "shorted-key-metrics: KEY_METRICS_DRY_RUN must be \"false\" in the chart"
+[[ "$(field "${tmp}/default.yaml" "${km}" '.spec.jobTemplate.spec.backoffLimitPerIndex')" == "0" ]] || fail "shorted-key-metrics: backoffLimitPerIndex must be 0"
+[[ "$(field "${tmp}/default.yaml" "${km}" '.spec.jobTemplate.spec.template.spec.activeDeadlineSeconds')" == "3000" ]] || fail "shorted-key-metrics: per-attempt activeDeadlineSeconds must be 3000"
+[[ -z "$(field "${tmp}/default.yaml" "${km}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
+  || fail "shorted-key-metrics: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
+pass "shorted-key-metrics: writes only on KEY_METRICS_DRY_RUN=false, one attempt, 3000s deadline, no WIF"
 
 # shorted-strategies-daily: writes only when STRATEGIES_DRY_RUN is "false" (the job itself defaults to a dry run),
 # is VKE-native, has no GCS identity, and its per-attempt deadline is one hour.

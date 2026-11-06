@@ -163,6 +163,10 @@ var catalog = map[string]catalogEntry{
 		DisplayName: "Strategy Backtest",
 		Category:    "Strategies",
 	},
+	"shorted-key-metrics": {
+		DisplayName: "Key Metrics Refresh",
+		Category:    "Market data",
+	},
 
 	// --- Retired: deployed + manually executable, schedulers paused ON PURPOSE --
 	// terraform/environments/prod/main.tf marks both modules SUPERSEDED and sets
