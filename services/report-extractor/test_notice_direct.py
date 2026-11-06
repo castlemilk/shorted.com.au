@@ -642,7 +642,7 @@ def test_model_errors_are_counted_and_never_recorded(monkeypatch):
 
 def test_a_zero_budget_starts_nothing(monkeypatch):
     monkeypatch.setattr(nd, "fetch_pdf", lambda url, session=None: make_pdf([TEXT]))
-    conn = FakeConn([row("https://www.asx.com.au/asxpdf/1.pdf")])
+    conn = FakeConn([row("https://www.asx.com.au/asxpdf/1.pdf")], shares=664_000_000)
     counts = nd.run(conn, extractor({"P": answer_604(), "C": answer_604()}), limit=0, workers=1,
                     budget_min=0, since="", dry_run=True)
     assert counts.get("recovered:agree") is None and counts["not_started"] == 1
@@ -950,7 +950,7 @@ def test_a_missing_share_count_is_pending_not_recorded(monkeypatch):
     conn = FakeConn([row("https://www.asx.com.au/asxpdf/7.pdf")], shares=0)
     ex = extractor({"P": answer_604(), "C": answer_604()})
     counts = nd.run(conn, ex, limit=0, workers=1, budget_min=10, since="", dry_run=False)
-    assert counts["no_share_count"] == 1
+    assert counts["no_share_count_skipped"] == 1 and counts["selected"] == 0
     assert conn.commits == 0
     assert not any("read_by = 'model'" in s for s in conn.statements), "a gap in our data is not an attempt"
 
@@ -995,6 +995,23 @@ def test_a_notice_with_no_share_count_is_neither_fetched_nor_read(monkeypatch):
     assert ex.client.calls == [], "no model is called for a notice whose votes cannot be checked"
 
 
+def test_the_limit_counts_readable_notices_only(monkeypatch):
+    # Nothing is recorded for a notice with no share count on record, so with the limit in the
+    # SQL the same notices headed every batch (287 of 400 in the seventh batch, 51 written).
+    # The selection reads past them: the limit is filled with notices that can be read.
+    seen = []
+    monkeypatch.setattr(nd, "read_one", lambda ex, cand, *a, **k: seen.append(cand.url) or {"kind": "fetch_failed", "reason": "x"})
+    rows = [row("https://www.asx.com.au/asxpdf/1.pdf", code="NOC"), row("https://www.asx.com.au/asxpdf/2.pdf"),
+            row("https://www.asx.com.au/asxpdf/3.pdf", code="NOC", headline="Ceasing to be a substantial holder"),
+            row("https://www.asx.com.au/asxpdf/4.pdf"), row("https://www.asx.com.au/asxpdf/5.pdf")]
+    conn = FakeConn(rows, shares={"ZIP": 664_000_000, "NOC": 0})
+    counts = nd.run(conn, extractor({}), limit=3, workers=1, budget_min=10, since="", dry_run=False)
+    assert seen == ["https://www.asx.com.au/asxpdf/2.pdf", "https://www.asx.com.au/asxpdf/3.pdf", "https://www.asx.com.au/asxpdf/4.pdf"]
+    assert counts["selected"] == 3 and counts["no_share_count_skipped"] == 1
+    select = next(p for p in conn.params if isinstance(p, dict) and "limit" in p)
+    assert select["limit"] == 10**9, "the SQL limit is no longer the batch's limit"
+
+
 def test_a_605_with_no_share_count_is_still_read_because_it_states_no_votes(monkeypatch):
     monkeypatch.setattr(nd, "fetch_pdf", lambda url, session=None: make_pdf([CEASE_TEXT]))
     ex = extractor({"P": answer_605(), "C": answer_605()})
@@ -1011,7 +1028,7 @@ def test_a_run_counts_a_notice_with_no_count_as_no_share_count_with_no_fetch_cal
     monkeypatch.setattr(nd, "fetch_pdf", no_fetch)
     conn = FakeConn([row("https://www.asx.com.au/asxpdf/11.pdf")], shares=0)
     counts = nd.run(conn, extractor({}), limit=0, workers=1, budget_min=10, since="", dry_run=False)
-    assert counts["no_share_count"] == 1 and counts.get("crashed") is None
+    assert counts["no_share_count_skipped"] == 1 and counts.get("crashed") is None
     assert counts["model_calls"] == 0 and counts["systemic"] == 0
     assert conn.commits == 0
     assert not any("read_by = 'model'" in s for s in conn.statements), "not an attempt, not written"

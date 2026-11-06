@@ -1178,12 +1178,21 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
     watchdog_arm(budget_min * 60 + BUDGET_GRACE_S + WATCHDOG_MARGIN_S)
     with conn.cursor() as cur:
         bound(cur)
-        cur.execute(SELECT_SQL, {"since": since or None, "limit": limit if limit > 0 else 10**9})
+        # The limit is on notices that CAN be read. A notice with no share count on record under
+        # any of its codes is neither fetched nor read (read_one), and nothing is recorded for it,
+        # so with the limit in the SQL the same notices headed every batch: the seventh batch of
+        # 2026-11-06 selected 400, 287 of them without a count, and wrote 51. The selection reads
+        # on past them until the limit is full of readable notices (a 605 states no votes and is
+        # always readable).
+        cur.execute(SELECT_SQL, {"since": since or None, "limit": 10**9})
         rows = cur.fetchall()
         institutions = institution_index(institution_rows(cur))
         reference = load_reference(cur)
         cands = []
+        want = limit if limit > 0 else 10**9
         for url, code, outcome, detail, announced, headline, cap, company, listed in rows:
+            if len(cands) >= want:
+                break
             announced = announced or ""
             own_codes = unique_codes([code])
             own = own_codes[0] if own_codes else ""
@@ -1194,6 +1203,9 @@ def run(conn, extractor: NoticeExtractor, *, limit: int, workers: int, budget_mi
             listed_codes = unique_codes(list(listed or [])) or unique_codes([own])
             codes = unique_codes([own, *listed_codes])
             shares = {c: shares_on_issue(cur, c, announced) for c in codes}
+            if not any(v > 0 for v in shares.values()) and form_from_headline(headline or "") != "605":
+                counts["no_share_count_skipped"] += 1
+                continue
             cands.append(Candidate(url, own, outcome, detail, announced, headline or "", cap,
                                    shares=shares.get(own, 0.0), company_name=company or "",
                                    listed_codes=tuple(listed_codes), shares_by_code=shares))
