@@ -127,11 +127,22 @@ func Windows(bt Series, paper *Series, liveFrom civil.Date, cash []features.Rate
 	}
 	add(WindowSinceMay2019, "Since May 2019", chained, windowStartMay2019, note)
 	add(WindowSince2023, "Since 2023", chained, windowStart2023, note)
-	add(WindowLast12Months, "Last 12 months", chained, latest.AddDays(-lastYearDays), note)
+	add(WindowLast12Months, "Last 12 months", chained, lastOnOrBefore(chained.Curve, latest.AddDays(-lastYearDays)), note)
 	if paper != nil {
 		add(WindowLiveSinceFreeze, "Live since freeze", sinceFreeze, liveFrom, "paper track only, recorded")
 	}
 	return out, nil
+}
+
+// lastOnOrBefore is the last session of c on or before d. The Last 12 months window opens
+// there, so a Monday or a day after a holiday keeps its annualised CAGR, which needs at least
+// 365 calendar days between its first and last sessions.
+func lastOnOrBefore(c Curve, d civil.Date) civil.Date {
+	i := sort.Search(len(c.Dates), func(i int) bool { return c.Dates[i].After(d) })
+	if i == 0 {
+		return c.Dates[0]
+	}
+	return c.Dates[i-1]
 }
 
 // truncateBefore keeps the sessions before from.
