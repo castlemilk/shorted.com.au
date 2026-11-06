@@ -562,3 +562,15 @@ func TestRunFlagsDefaultToDryRunAndTheEnvDefaultHolds(t *testing.T) {
 		t.Fatal("a positional argument was accepted")
 	}
 }
+
+func TestMissingCodesAreTheRequestedOnesNotInTheUniverse(t *testing.T) {
+	// A requested code with no price row in the window is dropped, and says so: the
+	// run must not look like an empty universe. The padded row matches its trimmed code.
+	got := missingCodes([]Stock{stock("BHP", nil), stock("FXG ", nil)}, map[string]bool{"BHP": true, "FXG": true, "NEWCO": true, "KIK": true})
+	if strings.Join(got, ",") != "KIK,NEWCO" {
+		t.Fatalf("missing = %v, want KIK and NEWCO, sorted", got)
+	}
+	if missingCodes(nil, nil) != nil {
+		t.Fatal("no -codes flag means nothing is missing")
+	}
+}

@@ -183,7 +183,7 @@ func parseRunArgs(args []string, dryDefault bool, budgetDefault int) (config, er
 	dryRun := fs.Bool("dry-run", dryDefault, "fetch and log what would be written; write nothing (env KEY_METRICS_DRY_RUN, default true; only \"false\" writes)")
 	force := fs.Bool("force", false, "refresh stocks refreshed within the last 20 hours too")
 	budgetMin := fs.Int("budget-min", budgetDefault, "stop taking new stocks after this many minutes (env KEY_METRICS_BUDGET_MIN)")
-	codesFlag := fs.String("codes", "", "comma-separated codes to refresh instead of the universe (the skips and the breakers still apply)")
+	codesFlag := fs.String("codes", "", "comma-separated codes to restrict the universe to (a code needs a stock_prices row in the last 90 days; the skips and the breakers still apply)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return config{}, runner.ErrUsage
@@ -248,6 +248,9 @@ func runKeyMetrics(ctx context.Context, cfg config, d deps) (Summary, error) {
 		return Summary{}, fmt.Errorf("key-metrics: universe: %w", err)
 	}
 	stocks := order(universe, cfg.codes)
+	for _, c := range missingCodes(universe, cfg.codes) {
+		d.logf("key-metrics: -codes %s is not in the universe (no stock_prices row in the last 90 days), skipped", c)
+	}
 
 	mode := "live"
 	if cfg.dryRun {
@@ -377,6 +380,22 @@ func order(universe []Stock, codes map[string]bool) []Stock {
 		}
 		return a.Code < b.Code
 	})
+	return out
+}
+
+// missingCodes is the -codes entries the universe does not hold, sorted.
+func missingCodes(universe []Stock, codes map[string]bool) []string {
+	have := make(map[string]bool, len(universe))
+	for _, s := range universe {
+		have[normCode(s.Code)] = true
+	}
+	var out []string
+	for c := range codes {
+		if !have[c] {
+			out = append(out, c)
+		}
+	}
+	sort.Strings(out)
 	return out
 }
 
