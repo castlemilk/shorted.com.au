@@ -811,8 +811,8 @@ test-keymetrics-pg: test-integration-images
 
 # The strategy daily snapshot suite (services/jobs/internal/jobs/strategies): migrations 000156 and 000159
 # applied to a throwaway database, one session written, a dry run that writes nothing, a re-run that writes the
-# same rows, and a second session diffed against the first. The paper track (migration 000159, the paper phase)
-# runs in the same database: the step equals the batch run over the stored snapshots, a catch-up after a gap, an
+# same rows, and a second session diffed against the first. The paper track (migration 000159, a catch-up after
+# the snapshot work) runs in the same database: the step equals the batch run over the stored snapshots, a catch-up after a gap, an
 # idempotent rerun, the append-only rules and a price re-sync that leaves the recorded equity alone. Gates the
 # deploy beside the capture suite.
 .PHONY: test-strategies-daily-pg

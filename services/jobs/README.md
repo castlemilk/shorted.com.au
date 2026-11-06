@@ -1124,21 +1124,46 @@ that reads, computes and logs. Check: `task db:prod:psql -- -At -c "select strat
 **Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migrations 000156 and 000159).
 Runs as `shorted-strategies-daily` (VKE CronJob, weekdays at :00, :20 and :40 past 13 to 16 UTC). It writes
 when `STRATEGIES_DRY_RUN=false`, holds a session it cannot yet read whole, backfills held sessions oldest
-first (ten per run), and exits 10 once at the 16:40 UTC run when a session is still held. A session's phases
-are features, evaluation, events and paper, and a session completes only when all four have.
-
-- **Paper track (phase `paper`, PR-15, migration 000159).** For each live canonical version that has a recipe
-  (`backtestTargets`, the same resolution the backtest job uses) the job steps `backtest.Step` through the
-  session from its stored snapshot rows of the session and the one before it. It never reads `stock_prices`.
-  The RBA cash rate is read from the stored series as of the session, since the snapshot rows do not carry it.
-  Each session's equity row, its trade rows and the simulator's checkpoint are written in one transaction.
-  Trades move forward only (`pending_entry`, `open`, `pending_exit`, `closed`, or `cancelled`), and the job refuses
-  any other move. The checkpoint (`strategy_paper_checkpoints`, one row per version and recipe, replaced each
-  session) is the state the next session starts from: 000159 adds it beyond the table list in the design. A version
-  starts on its `live_from`, or on the first session after it whose previous session has rows. A run catches up
-  over every session after the last recorded one. With no live version that has a recipe the phase completes
-  with nothing to do. Prune keeps the snapshot rows the track reads next (the newest recorded session).
-
+first (ten per run), and exits 10 once at the 16:40 UTC run when a session is still held. A session is complete
+when its three snapshot phases (features, evaluation, events) completed. The paper track is not a phase of
+completion: its record is its own tables (see "Paper track" below).
+- **Paper track (PR-15, migration 000159).** After the snapshot work of a run, every canonical version the database
+  records as live or superseded that has a registered recipe (`paperVersions`) is stepped through the complete
+  sessions of the snapshot with `backtest.Step`. It reads each session's stored rows and the one before, never
+  `stock_prices`. The RBA cash rate and the XJT level are read as of the session (the benchmark is the XJT close
+  on or before it, NULL when none exists). The equity row, the trade rows and the simulator's checkpoint are
+  written in one transaction per session. Each track fails on its own: its error comes back at the end of the
+  run, after the snapshot work is committed, and the other tracks still step. A missing paper table idles the
+  phase with one log line. The paper phase writes no `strategy_daily_runs` row.
+- **Trades move forward only**: `pending_entry`, `open`, `pending_exit`, `closed`, or `cancelled`. An entry that
+  fills and has its exit decided the same session goes through `open`. Flags may grow without a status move. A
+  closed trade carries its score, sessions held, gross and net return (percent), fees and dividends.
+- **Engine versions.** A track continues across engine bumps. Every equity row and checkpoint records the engine
+  that computed it (`engine_version`). The checkpoint carries the simulator's state layout version: a checkpoint
+  in another layout fails only its own track, with the layout named in the error. A test pins every field of the
+  simulator's state to "carried" or "not carried", so a new field cannot slip past the checkpoint.
+- **Checks on load.** A checkpoint's `as_of` must equal its track's newest equity row, or the track fails.
+- **How a track ends.** A superseded version is stepped through the sessions before its `superseded_on`, then its
+  checkpoint records `stopped_on`. Its open and pending trades keep their last recorded status: no exit is
+  fabricated. A later re-promotion of a stopped version does not resume its track; the job logs that once and
+  writes nothing for it.
+- **Stale exits** are `delisted_exit`. The paper track cannot see future bars, so it never labels a stale exit
+  `suspended_exit` (the batch can, from its loaded data).
+- **Corporate actions.** The features phase stores each suspect with the session it became known (`ca_known`, in
+  the snapshot's features). The paper track admits suspects with the batch's rules, and only for a version whose
+  universe has the CA guard or whose short source is the latest complete published report (the batch's own
+  condition, `pipeline.NewIndex`).
+- **Snapshot retention.** A track's prune guard is two sessions before its next step (or before its `live_from`
+  with no checkpoint); a stopped track has none. Only registered recipes count, so a dead recipe never pins pruning.
+- **Recipes** are registered on every run that writes, outside the evaluation phase's skip, so a checkpoint or
+  trade never references a recipe row that does not exist.
+- **Ex-dividends** are stored on the first session on or after the ex-date, so a weekend ex-date is credited on the
+  Monday, as the batch credits it.
+- **Tests.** `TestStepEqualsRun` runs the real features phase over a fixture market and compares every recorded
+  session and trade with one production batch run (`pgsource.LoadBacktestInputs`, `backtest.Run`). Each version
+  whose batch the fixture can run is compared; the fundamentals versions need fundamentals history the fixture does
+  not have, and are skipped with a log line. `TestPaperSessionsEqualTheBatchSessions` compares the session-level
+  inputs. Run the suite with `make test-strategies-daily-pg`.
 - **Index dates are fixed in the tree (#860).** The index sync dates each bar by its Sydney session and removes
   stored rows in a re-fetched window that are not sessions (the weekend rows). The job reads stored XJO dates for
   the data calendar, the regime and RS. Rows inside the scheduled index window (`-years 2`, which covers the job's
