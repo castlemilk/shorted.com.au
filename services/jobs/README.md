@@ -24,6 +24,8 @@ services/jobs/
   internal/jobs/influence/    `shorted influence`  (was services/influence-collector)
   internal/jobs/marketdata/   `shorted market-data serve|sync|audit-gaps|historical-backfill`
                               (was services/market-data-sync)
+  internal/jobs/keymetrics/   `shorted key-metrics`  daily key_metrics refresh of company-metadata
+                              from Yahoo quoteSummary (new; replaces the API's SyncKeyMetrics fork)
   internal/jobs/news/         `shorted news`       (was services/news-aggregator)
   internal/jobs/picks/        `shorted picks`      stock-picker data: full statements, filing
                               half-years + refresh_strategy_views() (new, not a port)
@@ -847,10 +849,9 @@ procedure: `internal/jobs/shortdatasync/README.md`.
   is ported here (download → parse → upsert → health report → MV refresh →
   revalidate → Algolia → `sync_status`). The `stock_prices` sweep is ALREADY
   `shorted market-data serve|sync` (Phase 2c) and is deliberately not ported a
-  second time. The `key_metrics` refresh of `"company-metadata"` is already owned
-  by the shorts API's `SyncKeyMetrics` RPC + daily `key-metrics-scheduler`
-  (enabled in prod); the Python job was a duplicate writer, so the cutover PR
-  only needs to confirm that scheduler is healthy.
+  second time. The `key_metrics` refresh of `"company-metadata"` is the
+  `shorted key-metrics` job (the `key-metrics` section below), on VKE; the
+  shorts API's `SyncKeyMetrics` RPC is retired.
 - **Exit code 2 retires with the stock loop.** It existed so Cloud Run would
   retry a run that had finished only part of its 500-stock batch. Shorts-only
   runs have no partial state: exit 0 / exit 1 like every other job. The Cloud
@@ -873,6 +874,87 @@ procedure: `internal/jobs/shortdatasync/README.md`.
   parity summary (per-date counts, would-insert/would-update, a
   sorted-tuple checksum) on stdout for diffing against the Python's actual
   writes. 46 offline tests, including golden fixtures cut from real ASIC files.
+
+## key-metrics
+
+`shorted key-metrics` (`internal/jobs/keymetrics`) refreshes
+`"company-metadata".key_metrics` and `key_metrics_updated_at` from Yahoo's
+quoteSummary. It replaces the shorts API's `SyncKeyMetrics` RPC, which forked
+`python3` and `yfinance` once per stock inside the serving process. That never
+finished: the instance was killed for memory 3 to 30 seconds after each 17:00 UTC
+trigger, so no run completed in seven days (2026-11-03 to 05; the Cloud Logging
+evidence is in the 2026-11 infra notes). The RPC now answers
+`FailedPrecondition` and does nothing.
+
+**What it writes.** One `UPDATE` per stock of `key_metrics` (JSONB) and
+`key_metrics_updated_at`, after `keymetrics.Sanitise` (the API's ±Inf/NaN guard,
+now in `services/pkg/keymetrics`). The object has exactly the keys the Python
+script wrote, in the same units: `stock_code` plus `market_cap`, `pe_ratio`,
+`forward_pe`, `eps`, `dividend_yield`, `book_value`, `price_to_book`, `revenue`,
+`profit_margin`, `debt_to_equity`, `return_on_equity`, `fifty_two_week_high`,
+`fifty_two_week_low`, `avg_volume`, `beta`. Each is the Yahoo `raw` number, or
+`null` when missing, a string, or non-finite. The fields come from the `price`,
+`summaryDetail`, `defaultKeyStatistics` and `financialData` modules; a field
+missing from its own module is looked up in the others, as yfinance's merged
+`info` was. The fetch goes through `services/pkg/yahoo` (the crumb, the cookies
+and the 401 refresh) over the stealth client, the path Yahoo does not answer
+429 on.
+
+**What it leaves alone.** A stock Yahoo answers with no `regularMarketPrice`, or
+with no measured field at all, is *no data*: its row is not written. A 404
+("quote not found") is also no data. A transport failure, a 429 or a 5xx is a
+*failure*: the row is not written. A failed `UPDATE` is counted and the run
+continues. The row is never overwritten with an empty object.
+
+**Order and skips.** The universe is ordered stalest first:
+`key_metrics_updated_at ASC NULLS FIRST, stock_code`. A stock refreshed within the
+last 20 hours is skipped (`skipped_fresh`) unless `-force`. `-codes BHP,CBA`
+restricts the universe (the skips and the breakers still apply).
+
+**Budget and pacing.** It takes no new stock once the time budget is spent:
+`-budget-min` or `KEY_METRICS_BUDGET_MIN`, default 40 minutes. The budget is
+checked after the pacing wait, so no request starts once it is spent. Requests are
+paced about one a second, jittered by ±250 ms. At that pace one run covers about
+2,400 stocks, so the universe (about 4,500) cycles over two daily runs. A
+stock that answers "no data" keeps its old timestamp, so it sorts first again on
+the next run and costs one request each run. That is a known cost of keeping the
+row untouched; a large no-data set would need a separate attempt record.
+
+**Breakers** (the picks job's). Stop before the next stock after 25 consecutive
+Yahoo failures, or once more than 30% of the last 100 Yahoo requests have failed
+(evaluated when the window is full). "No data" and 404 answers are not failures.
+
+**Dry run.** Dry run is the default. `KEY_METRICS_DRY_RUN` unset, or any value
+other than `false`, fetches and logs the object it *would* write
+(`key-metrics: dry run, would write BHP: {...}`) and writes nothing. The chart
+sets `KEY_METRICS_DRY_RUN: "false"`. The global `shorted -dry-run key-metrics`
+flag also forces a dry run.
+
+**Exit codes** (`runner.ExitCodeError`, code 1). `0`: the run completed, or every
+stock was fresh, or it attempted stocks and wrote at least one. `1`: the breaker
+tripped, or it attempted stocks and wrote none (a database or Yahoo outage pages
+the monitor). A database connection error and a cancelled run are also exit 1.
+
+**Schedule.** VKE CronJob `shorted-key-metrics` (`deploy/kubernetes/jobs/chart/values.yaml`,
+`vkeNative`, no Cloud Run twin): daily at **19:40 UTC** (05:40 AEST), 40-minute budget,
+3000 s deadline, `maxRetries: 0` (a retry reruns the same refusals; the next daily
+run is the retry). 19:40 keeps clear of the Yahoo traffic already on the cluster
+and on Cloud Run: the price sweeps (08:00 and 10:00 UTC on weekdays), the index sync
+(11:30 UTC) and the picks fundamentals (15:00 to about 18:30 UTC, budget 170 minutes).
+The budget ends by about 20:25 UTC, before the news cluster at 20:30 and the hourly
+alerts run at :55.
+
+**Monitor.** Telesis cron monitor `shorted-key-metrics` (registered from the chart
+by `deploy/kubernetes/jobs/scripts/register-monitors.py`). It pages on a failed,
+missed or timed-out run, which is the exit-1 contract above.
+
+**Tests.** `go test ./internal/jobs/keymetrics/` covers the field mapping on a
+recorded quoteSummary (`testdata/quote_bhp.json`, `quote_eml.json`), the
+sanitiser, the ordering, the fresh skip, pacing, the budget stop, both breakers,
+no-data and failure keeping the row, dry run, the exit codes. `make test-keymetrics-pg`
+runs the write against a real Postgres (one UPDATE stamps the row, a database
+refusal leaves the old row as it was, an unknown stock is an error, the universe
+is stalest first).
 
 ## picks
 
