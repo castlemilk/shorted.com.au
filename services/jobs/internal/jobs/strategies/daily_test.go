@@ -167,11 +167,11 @@ func TestSessionsToProcessBackfillsOldestFirstWithinTheLimit(t *testing.T) {
 }
 
 func TestAllPhasesDone(t *testing.T) {
-	if allPhasesDone(map[string]bool{phaseFeatures: true, phaseEvaluation: true}) {
-		t.Error("two of three phases must not count as done")
+	if allPhasesDone(map[string]bool{phaseFeatures: true, phaseEvaluation: true, phaseEvents: true}) {
+		t.Error("a session without its paper phase must not count as done")
 	}
-	if !allPhasesDone(map[string]bool{phaseFeatures: true, phaseEvaluation: true, phaseEvents: true}) {
-		t.Error("all three phases must count as done")
+	if !allPhasesDone(map[string]bool{phaseFeatures: true, phaseEvaluation: true, phaseEvents: true, phasePaper: true}) {
+		t.Error("all four phases must count as done")
 	}
 }
 
@@ -243,6 +243,7 @@ func TestPaperGuardIsTheSessionBeforeLiveFromOnTheDataCalendar(t *testing.T) {
 	guards := paperGuardSessions(
 		map[string]civil.Date{"live-v1": monday, "v0-hash": monday, "no-date": {}},
 		map[string]string{"live-v1": "v1", "v0-hash": "v0", "no-date": "v2"},
+		nil,
 	)
 	if len(guards) != 1 || guards[0] != friday {
 		t.Fatalf("paper guards = %v, want [%s]: v0 and a version without live_from carry none", guards, friday)
