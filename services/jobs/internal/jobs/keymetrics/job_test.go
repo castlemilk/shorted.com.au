@@ -398,16 +398,18 @@ func TestRateBreakerTripsOnAFullWindowAboveThirtyPercent(t *testing.T) {
 	}
 }
 
-func TestRateBreakerIgnoresThirtyPercent(t *testing.T) {
-	// One failure in four: exactly 25 of every 100, not more than 30: no trip.
+// rateRun runs failEvery(pos) over 120 stocks in code order, one Yahoo request
+// each, and returns the summary.
+func rateRun(t *testing.T, prefix string, failed func(pos int) bool) Summary {
+	t.Helper()
 	var universe []Stock
 	q := &fakeQuoter{answers: map[string]func() (json.RawMessage, error){}}
 	for i := 0; i < 120; i++ {
-		c := fmt.Sprintf("Q%03d", i)
+		c := fmt.Sprintf("%s%03d", prefix, i)
 		universe = append(universe, stock(c, nil))
 		pos := i
 		q.answers[c+".AX"] = func() (json.RawMessage, error) {
-			if pos%4 == 0 {
+			if failed(pos) {
 				return nil, errors.New("503")
 			}
 			return goodResult(t), nil
@@ -417,8 +419,26 @@ func TestRateBreakerIgnoresThirtyPercent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sum.Stopped == stopBreaker || sum.Attempted != 120 {
-		t.Fatalf("summary %+v, want all 120 attempted with no breaker", sum)
+	return sum
+}
+
+func TestRateBreakerAtExactlyThirtyPercentDoesNotTrip(t *testing.T) {
+	// Exactly 30 failures in every 100 consecutive requests (the first three of
+	// each ten): the window never holds more than 30, so no trip, and all 120 run.
+	// Failures never run longer than three, so the consecutive breaker is idle too.
+	sum := rateRun(t, "Q", func(pos int) bool { return pos%10 < 3 })
+	if sum.Stopped == stopBreaker || sum.Attempted != 120 || sum.Failed != 36 {
+		t.Fatalf("summary %+v, want all 120 attempted (36 failed) and no breaker at exactly 30%%", sum)
+	}
+}
+
+func TestRateBreakerTripsAtThirtyOnePercentOfAWindow(t *testing.T) {
+	// 31 failures in every 100 requests (the first three of each ten, plus the
+	// hundredth), never more than four in a row: any 100 consecutive requests hold
+	// exactly 31, so the breaker trips when the window first fills at request 100.
+	sum := rateRun(t, "P", func(pos int) bool { return pos%10 < 3 || pos%100 == 99 })
+	if sum.Stopped != stopBreaker || sum.Attempted != rateWindow {
+		t.Fatalf("summary %+v, want the rate breaker at a full window of %d with 31%% failing", sum, rateWindow)
 	}
 }
 
