@@ -1080,13 +1080,22 @@ ORDER BY CASE WHEN a.detail LIKE 'model: error%%' THEN 1 ELSE 0 END,
 LIMIT %(limit)s
 """
 
-SHARES_SQL = """
+# The share-count window, store.go's SharesWindowBefore / SharesWindowAfter (days): the latest count
+# on or before the date (three days later for ASIC's lag, up to BEFORE days earlier), else the
+# earliest within AFTER days after it. A code is in ASIC's daily report only on days a short
+# position is reported against it, so 45 days back reached 30 of the 2,627 unread notices on
+# 2026-11-06 and this window 699. The present-figure gate withholds a notice a moved count would
+# misjudge.
+SHARES_WINDOW_BEFORE_DAYS = 150
+SHARES_WINDOW_AFTER_DAYS = 60
+SHARES_SQL = f"""
 SELECT "TOTAL_PRODUCT_IN_ISSUE"
 FROM shorts
 WHERE "PRODUCT_CODE" = %s
-  AND "DATE" <= %s::date + 3 AND "DATE" >= %s::date - 45
+  AND "DATE" <= %s::date + {SHARES_WINDOW_AFTER_DAYS} AND "DATE" >= %s::date - {SHARES_WINDOW_BEFORE_DAYS}
   AND "TOTAL_PRODUCT_IN_ISSUE" > 0
-ORDER BY "DATE" DESC
+ORDER BY CASE WHEN "DATE" <= %s::date + 3 THEN 0 ELSE 1 END,
+         abs("DATE"::date - %s::date)
 LIMIT 1
 """
 
@@ -1170,7 +1179,7 @@ def watchdog_disarm() -> None:
 
 
 def shares_on_issue(cur, code: str, on: str) -> float:
-    cur.execute(SHARES_SQL, (code, on, on))
+    cur.execute(SHARES_SQL, (code, on, on, on, on))
     row = cur.fetchone()
     return float(row[0]) if row else 0.0
 

@@ -959,6 +959,18 @@ def test_the_selection_and_writes_run_against_postgres(monkeypatch):
         conn.close()
 
 
+def test_the_share_count_window_is_the_go_constant():
+    src = (HERE.parent / "jobs" / "internal" / "jobs" / "ownership" / "store.go").read_text()
+    before = int(re.search(r"SharesWindowBefore\s*=\s*(\d+)", src).group(1))
+    after = int(re.search(r"SharesWindowAfter\s*=\s*(\d+)", src).group(1))
+    assert (nd.SHARES_WINDOW_BEFORE_DAYS, nd.SHARES_WINDOW_AFTER_DAYS) == (before, after)
+    assert f"+ {after} AND" in nd.SHARES_SQL and f"- {before}" in nd.SHARES_SQL
+    assert nd.SHARES_SQL.count("%s") == 5
+    cur = FakeCursor(fetch=(1.0,))
+    nd.shares_on_issue(cur, "ZIP", "2026-01-01")
+    assert cur.sql[0][1] == ("ZIP", "2026-01-01", "2026-01-01", "2026-01-01", "2026-01-01")
+
+
 def test_the_parser_version_is_the_go_constant():
     src = (HERE.parent / "jobs" / "internal" / "jobs" / "ownership" / "notice.go").read_text()
     m = re.search(r"const noticeParserVersion = (\d+)", src)

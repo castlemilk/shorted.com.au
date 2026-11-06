@@ -196,22 +196,38 @@ func (s *pgStore) Companies(ctx context.Context) (map[string]company, error) {
 	return out, rows.Err()
 }
 
+// SharesWindowBefore and SharesWindowAfter bound SharesOnIssue (days). A code
+// is in ASIC's daily report only on days a short position is reported against
+// it, so a count 45 days back reached 30 of the 2,627 notices the model reader
+// had left unread on 2026-11-06 and 150 days back reached 503; the earliest
+// count up to 60 days after reached 699. A count moves over 10% in about a
+// sixth of five-month spans, so the reader's present-figure gate (within a
+// tenth of the count) withholds a notice a moved count would misjudge; the
+// parser's own band is 0.5 to 2. notice_direct.py's SHARES_SQL carries the
+// same window, pinned by test_the_share_count_window_is_the_go_constant.
+const (
+	SharesWindowBefore = 150
+	SharesWindowAfter  = 60
+)
+
 // SharesOnIssue is a code's total product in issue from ASIC's short position
-// report as at a date: the latest report on or before it (up to 45 days
-// earlier, three days later for ASIC's lag). Zero when ASIC has none, which
-// skips the check. Dated, because a consolidation or a scrip takeover changes
-// the count: a notice from before one is checked against the count it was
-// written against.
+// report as at a date: the latest report on or before it (three days later for
+// ASIC's lag, up to SharesWindowBefore days earlier), else the earliest report
+// after it within SharesWindowAfter days. Zero when ASIC has none, which skips
+// the check. Dated, because a consolidation or a scrip takeover changes the
+// count: a notice from before one is checked against the count it was written
+// against.
 func (s *pgStore) SharesOnIssue(ctx context.Context, code, on string) (float64, error) {
 	var issued float64
 	err := s.db.QueryRow(ctx, `
 		SELECT "TOTAL_PRODUCT_IN_ISSUE"
 		FROM shorts
 		WHERE "PRODUCT_CODE" = $1
-		  AND "DATE" <= $2::date + 3 AND "DATE" >= $2::date - 45
+		  AND "DATE" <= $2::date + $4 AND "DATE" >= $2::date - $3
 		  AND "TOTAL_PRODUCT_IN_ISSUE" > 0
-		ORDER BY "DATE" DESC
-		LIMIT 1`, code, on).Scan(&issued)
+		ORDER BY CASE WHEN "DATE" <= $2::date + 3 THEN 0 ELSE 1 END,
+		         abs("DATE"::date - $2::date)
+		LIMIT 1`, code, on, SharesWindowBefore, SharesWindowAfter).Scan(&issued)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, nil
 	}
