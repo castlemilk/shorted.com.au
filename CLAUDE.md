@@ -1698,6 +1698,15 @@ must never fire from a deploy). `make register-photos` / `register-index`.
   lacks and every politician read path 500s.
 - `run-tests` is `if: github.event_name != 'pull_request'` — Go tests gate the
   DEPLOY, not the PR. **golangci-lint runs in no CI job at all.**
+- **A Go package that fails is run once more on its own** (`scripts/ci/go-test-rerun.sh`,
+  the two go-quality unit-test steps and the deploy's `run-tests`). A package that
+  passes the rerun is a flake: the job passes and a `::warning::` names the package
+  and its failed tests, so look at the run's annotations, not just its colour. A
+  package that fails twice fails the job. Four deploy-gating runs over 2026-11-05
+  and 06 failed on four different collector tests (a stray descriptor close in
+  `crawl_proxy_test.go`, since fixed, and the runner's own timing). The bake push
+  and `terraform apply` retry once on a transient failure for the same reason.
+  `scripts/tests/go-test-rerun.test.mjs` pins the wiring.
 - An **empty KV entry used to be served as a hit**, pinning zeros for 24h;
   `readCached` now takes a non-emptiness predicate. Unblock with
   `?flush=politicians`.

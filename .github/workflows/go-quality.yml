@@ -144,19 +144,24 @@ jobs:
       # -short is what scripts/local-verify.sh runs, and it is what keeps this
       # job free of Docker and live network: the testcontainer and RUN_LIVE
       # suites stay in the integration job.
+      # go-test-rerun.sh runs a package that failed once more on its own and
+      # prints a workflow warning naming it and its failed tests; a package that
+      # fails twice fails the job. Four deploy-gating runs failed on four
+      # different collector tests over 2026-11-05 and 06, each green locally and
+      # on the runs before and after.
       - name: services module
         working-directory: services
         env:
           GOWORK: off
           GOPRIVATE: github.com/skunkworq/*
-        run: go test ./... -short
+        run: ../scripts/ci/go-test-rerun.sh ./... -short
 
       - name: services/jobs module
         working-directory: services/jobs
         env:
           GOWORK: off
           GOPRIVATE: github.com/skunkworq/*
-        run: go test ./... -short
+        run: ../../scripts/ci/go-test-rerun.sh ./... -short
 
   # Extended lane: the slow suites that used to sit on the PR and deploy gates.
   # Three independent jobs, so one failure never skips the others. They run on

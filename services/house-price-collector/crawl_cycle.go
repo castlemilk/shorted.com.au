@@ -446,6 +446,7 @@ type cycleRunner struct {
 	decided      bool
 	finalOutcome string
 	finalCode    int
+	finalized    chan struct{} // closed once the first finalize has printed the summary
 }
 
 // newCycleRunner builds a runner. Nothing starts until execute.
@@ -466,6 +467,7 @@ func newCycleRunner(cfg cycleConfig, deps cycleDeps) *cycleRunner {
 		ctx:       ctx,
 		cancel:    cancel,
 		stop:      newStopSignal(),
+		finalized: make(chan struct{}),
 		startPPID: os.Getppid(),
 		preLock:   lockUnknown,
 		preDriver: lockUnknown,
@@ -1957,9 +1959,15 @@ func (c *cycleRunner) finalize(outcome string, code int) int {
 		// The summary is written first. A later path that blocks on the events flush (a stalled
 		// reader), or a second signal during it, can then no longer skip the summary.
 		c.printSummary(o, cd)
+		close(c.finalized)
 		c.emit("cycle_done", map[string]any{"outcome": o, "exit_code": cd})
 		c.pump.close(cycleEventPumpCloseWait)
+		return cd
 	}
+	// A later caller returns only once the summary is on stdout. The second signal finalizes
+	// on the signal goroutine while the main path returns through here: the main path's
+	// caller (runCycleMode, a test) read an empty stdout when it got here first (2026-11-06).
+	<-c.finalized
 	return cd
 }
 
