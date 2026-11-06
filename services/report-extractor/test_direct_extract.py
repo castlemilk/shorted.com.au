@@ -217,6 +217,21 @@ def test_extractor_primary_failure_raises_so_nothing_is_stored():
         ex.extract(ADH, "ADH")
 
 
+def test_parse_answer_is_linear_in_a_run_of_whitespace_and_refuses_an_endless_reply():
+    import time
+
+    # A degenerate reply (a model looping on whitespace) once took the regex `\\s*```$` 107
+    # minutes, with the GIL held: a whole process frozen on one thread. Three million spaces
+    # inside the object, and before it, parse in well under a second now.
+    for s in ("{" + " " * 3_000_000 + "}", " " * 3_000_000 + '{"a": 1}'):
+        t = time.monotonic()
+        assert dx.parse_answer(s) in ({}, {"a": 1})
+        assert time.monotonic() - t < 1.0
+    assert dx.strip_fence("```JSON\n{}\n```") == "{}" and dx.strip_fence("```\n{}```") == "{}"
+    assert dx.strip_fence(" {} ") == "{}" and dx.strip_fence("```") == ""
+    assert dx.parse_answer('{"a": 1}' + " " * (dx.ANSWER_MAX_CHARS + 1)) == {}
+
+
 def test_parse_answer_tolerates_fences_and_prose():
     assert dx.parse_answer('```json\n{"figures": []}\n```') == {"figures": []}
     assert dx.parse_answer('Here you go: {"a": 1} thanks') == {"a": 1}
