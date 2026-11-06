@@ -174,7 +174,7 @@ gcloud scheduler jobs list --project rosy-clover-477102-t5 --location australia-
 
 The live API is the Cloud Run service `shorts` in `australia-southeast2`. The Terraform module that defines it is `terraform/modules/shorts-api`, which is why that directory name appears here. Rolling back is a traffic shift to an earlier revision of that service.
 
-Before you shift, check the deploy queue. A `gha-terraform-deploy-*` run that is running or queued for `main` re-applies the newest image within minutes and undoes the shift. Let it finish first, or wait for it to start and then shift.
+Before you shift, check the deploy queue: look for `gha-terraform-deploy-*` runs for `main` in the Cuttlefish runs list for project `shorted`. A running or queued deploy re-applies the newest image, and its `terraform-apply` job sets 100% of traffic back to the newest revision, so a shift made before that job finishes is undone. Waiting for the queued run to start does not help, because its apply job runs too. The shift holds only when it is made after the last pending `terraform-apply` job has finished. If users are affected now, shift now and then follow the rule in step 3.
 
 ### 1. Find the revision to return to
 
@@ -223,6 +223,8 @@ A traffic shift is not a code change. Terraform still declares `shorts` to route
 
 Until one of these lands, `terraform plan` shows drift on the traffic. That is expected during a rollback.
 
+A shift also does not survive a deploy that is already running. Its `terraform-apply` job sets traffic back to the newest revision, and the shift is then gone without any sign in the rollback itself. After any running or queued deploy's `terraform-apply` job finishes, re-check `gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.traffic)'`, and shift again if traffic has moved back to the newest revision.
+
 ## Monitoring
 
 - **Cloud Run Console**: https://console.cloud.google.com/run?project=rosy-clover-477102-t5
@@ -250,12 +252,15 @@ Each has an alert policy. It fires when the check fails from two or more checker
    ```
 
 3. Read the answer:
-   - An `X-Shorted-Build` header is present: the API answered. A 5xx or a timeout means the Cloud Run logs and the database (`/health` can pass while this check fails). A `403` with JSON `permission_denied` ("automated access detected") is the API's user-agent filter, `services/pkg/ratelimit/useragent.go`. The checker's User-Agent must stay allowed there, and `TestUptimeCheckerUserAgentPasses` pins it. A `429` with an `X-RateLimit-Detail` header is the app's per-minute limiter.
+   Read `X-Shorted-Cache` before `X-Shorted-Build`. The edge worker rebuilds the headers of every copy it serves, so a copy never carries `X-Shorted-Build`, whatever the API answered when it was cached:
+   - `X-Shorted-Cache: HOT`, `HIT` or `KV`: an edge copy. It proves nothing about the origin. A cached `{}` is the API's empty answer, so check `mv_top_shorts` and the fallback query. Copies live for their TTL, so a check that fails once they expire has reached the origin.
+   - `X-Shorted-Cache: BYPASS` or `MISS` with no `X-Shorted-Build`: Cloud Run's front end answered, for a crash, a memory-limit kill or no instance available. Read the `shorts` service's logs.
+   - `X-Shorted-Build` present: the app answered. A 5xx is an app error, and the Cloud Run logs and the database are next. A `403` with JSON `permission_denied` ("automated access detected") is the API's user-agent filter, `services/pkg/ratelimit/useragent.go`. The checker's User-Agent must stay allowed there, and `TestUptimeCheckerUserAgentPasses` pins it. A `429` with an `X-RateLimit-Detail` header is the app's per-minute limiter.
    - A `429` with `X-RateLimit-Bucket` is the edge worker's bucket (anonymous callers get 10 requests per 10 seconds per IP).
-   - No `X-Shorted-Build` header, a `cf-mitigated` header, or an HTML "Just a moment" page: Cloudflare answered, with a challenge or a zone rule.
-4. If `/health` on the `run.app` host passes and the public check fails, the problem is on the Cloudflare path. If both fail, it is the service: describe the `shorts` service and read its logs.
+   - A `524`, or a `cf-mitigated` header, or an HTML "Just a moment" page with no `X-Shorted-Cache`: Cloudflare answered. A `524` is Cloudflare's origin timeout; a challenge or zone rule is the other case.
+4. Repeat the same `GetTopShorts` call against the `run.app` host, with the same `-A` User-Agent. If it fails there too, the service or the database is the problem: read the `shorts` service's logs and the Supabase status. If it passes there and fails through `api.shorted.com.au`, the problem is on the Cloudflare path. `/health` alone does not decide it, because it touches neither the handlers nor the database.
 
-Do not add a WAF bypass in response to a challenge without a reviewed change to the Cloudflare Terraform. The options and their order are in the Phase 0 PR description.
+Do not add a WAF bypass in response to a challenge without a reviewed change to the Cloudflare Terraform. If Cloudflare challenges the checkers, the options in order are: keep the check on `/health` only, which leaves the public path unmonitored; ask for a Cloudflare allowlist scoped to the checkers' published source ranges and this one path; or move the check to a path the edge does not challenge.
 
 ## Troubleshooting
 
