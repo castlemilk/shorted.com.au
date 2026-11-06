@@ -113,3 +113,31 @@ func TestStrategyStatusCarriesCanonicalRunsAndTheQueueOnly(t *testing.T) {
 	require.Equal(t, "publish", st.BacktestQueue[0].Kind)
 	require.Equal(t, int64(1), st.BacktestQueue[0].Count)
 }
+
+// TestStrategyStatusCompletionCountsOnlyTheSnapshotPhases: a session is complete when
+// its features, evaluation and events phases completed. A session with a completed
+// paper row and no events is not complete, and a paper row never makes one complete.
+func TestStrategyStatusCompletionCountsOnlyTheSnapshotPhases(t *testing.T) {
+	s := strategyAdminTestStore(t)
+	ctx := context.Background()
+	_, err := s.db.Exec(ctx, `
+		INSERT INTO strategy_daily_runs (as_of, phase, status, engine_version) VALUES
+		  ('2026-11-10', 'features', 'completed', '1'),
+		  ('2026-11-10', 'evaluation', 'completed', '1'),
+		  ('2026-11-10', 'events', 'completed', '1'),
+		  ('2026-11-11', 'features', 'completed', '1'),
+		  ('2026-11-11', 'evaluation', 'completed', '1'),
+		  ('2026-11-11', 'paper', 'completed', '1')`)
+	require.NoError(t, err)
+
+	st, err := s.StrategyDailyStatus(ctx, 3)
+	require.NoError(t, err)
+	require.Equal(t, "2026-11-10", st.LastCompleted, "the paper row does not complete 2026-11-11")
+
+	_, err = s.db.Exec(ctx, `INSERT INTO strategy_daily_runs (as_of, phase, status, engine_version)
+		VALUES ('2026-11-11', 'events', 'completed', '1')`)
+	require.NoError(t, err)
+	st, err = s.StrategyDailyStatus(ctx, 3)
+	require.NoError(t, err)
+	require.Equal(t, "2026-11-11", st.LastCompleted, "the three snapshot phases complete the session, with or without paper")
+}
