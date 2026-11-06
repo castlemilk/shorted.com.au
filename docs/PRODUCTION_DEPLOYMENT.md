@@ -174,7 +174,19 @@ gcloud scheduler jobs list --project rosy-clover-477102-t5 --location australia-
 
 The live API is the Cloud Run service `shorts` in `australia-southeast2`. The Terraform module that defines it is `terraform/modules/shorts-api`, which is why that directory name appears here. Rolling back is a traffic shift to an earlier revision of that service.
 
-Before you shift, check the deploy queue: look for `gha-terraform-deploy-*` runs for `main` in the Cuttlefish runs list for project `shorted`. A running or queued deploy re-applies the newest image, and its `terraform-apply` job sets 100% of traffic back to the newest revision, so a shift made before that job finishes is undone. Waiting for the queued run to start does not help, because its apply job runs too. The shift holds only when it is made after the last pending `terraform-apply` job has finished. If users are affected now, shift now and then follow the rule in step 3.
+Before you shift, know what is still coming. Every push to `main` deploys, and each deploy's `terraform-apply` job sets 100% of traffic back to the newest revision, so it undoes a shift. Two traps:
+
+- A deploy that is queued is not in the Cuttlefish runs list. The workflow's concurrency group holds one run at a time (`deploy-refs/heads/main`), and a push that lands while a deploy runs only starts once that whole run ends, after `deploy-vercel-prod`, not after its `terraform-apply`.
+- So "no `terraform-apply` running" is not enough. The shift holds only when the newest revision was built from `main`'s current head and no `gha-terraform-deploy-*` run is RUNNING:
+
+  ```bash
+  git ls-remote https://github.com/castlemilk/shorted.com.au refs/heads/main | cut -c1-8   # main's head
+  # compare with the newest revision's SERVICE_VERSION (main-<first 8 of the sha>), read as in step 1
+  ```
+
+  Until the two match, another deploy is coming. Re-check after each deploy (step 3).
+
+If users are affected now, shift now anyway, and keep re-checking as step 3 says.
 
 ### 1. Find the revision to return to
 
@@ -183,7 +195,16 @@ gcloud run revisions list --service shorts \
   --project rosy-clover-477102-t5 --region australia-southeast2
 ```
 
-Revisions are named `shorts-NNNNN-xxx`, newest first. The revision marked `ACTIVE yes` is the one serving now. `revisions list` does not show traffic percentages; `gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.traffic)'` does. Take the revision before the active one.
+Revisions are named `shorts-NNNNN-xxx`, newest first. The revision marked `ACTIVE yes` is the one serving now. `revisions list` does not show traffic percentages; `gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.traffic)'` does.
+
+Choose by change, not by position. Every deploy of `main` creates a revision, whether or not the API changed (16 in 19 hours on 2026-11-05/06), and revisions are cumulative: once any later deploy lands, "the revision before the active one" contains the bad change too. Find the commit that introduced the problem, then take the newest revision whose build does not contain it:
+
+```bash
+# for each candidate revision, newest first: read its SERVICE_VERSION (main-<sha8>, see below), then
+git merge-base --is-ancestor <bad commit> <sha8> && echo "contains the bad change" || echo "safe"
+```
+
+The first revision that prints `safe` is the one to return to. If the bad commit is unknown, take the newest revision deployed before the problem started, comparing each revision's `DEPLOYED` time with when errors began.
 
 To see which build a revision runs, read its `SERVICE_VERSION` environment variable. Terraform sets it to the image tag from this change onward:
 
@@ -212,7 +233,7 @@ Then confirm the build on the `run.app` host, which is not cached at the edge (`
 curl -sI https://<run.app host>/health | grep -i x-shorted-build
 ```
 
-The value should equal the `SERVICE_VERSION` you read from the revision. Then run the Connect call in "Post-Deployment Verification". Keep watching the uptime alerts until both checks pass.
+The value should equal the `SERVICE_VERSION` you read from the revision. That confirms which revision is serving, not that the bad code is gone: only choosing the revision by change (step 1) does that. Then run the Connect call in "Post-Deployment Verification". Keep watching the uptime alerts until both checks pass.
 
 ### 3. The next deploy undoes the shift
 
@@ -223,7 +244,7 @@ A traffic shift is not a code change. Terraform still declares `shorts` to route
 
 Until one of these lands, `terraform plan` shows drift on the traffic. That is expected during a rollback.
 
-A shift also does not survive a deploy that is already running. Its `terraform-apply` job sets traffic back to the newest revision, and the shift is then gone without any sign in the rollback itself. After any running or queued deploy's `terraform-apply` job finishes, re-check `gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.traffic)'`, and shift again if traffic has moved back to the newest revision.
+A shift also does not survive a deploy that is already running or queued. Its `terraform-apply` job sets traffic back to the newest revision, and the shift is then gone without any sign in the rollback itself. After each deploy's `terraform-apply` job finishes, re-check `gcloud run services describe shorts --project rosy-clover-477102-t5 --region australia-southeast2 --format='value(status.traffic)'`, and if traffic has moved back, shift again to the same revision you chose in step 1 (the newest revision now carries the bad change too). Stop re-checking only when the newest revision's `SERVICE_VERSION` matches `main`'s head and no `gha-terraform-deploy-*` run is RUNNING, or when the fix or revert has deployed.
 
 ## Monitoring
 
