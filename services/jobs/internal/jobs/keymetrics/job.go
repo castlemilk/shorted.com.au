@@ -7,11 +7,11 @@
 // the key metrics stopped updating. Here the work runs in a VKE CronJob with a
 // time budget, so the universe cycles over days instead of failing in one run.
 //
-// Per run (docs/... see services/jobs/README.md "key-metrics"):
+// Per run (services/jobs/README.md "key-metrics" has the full contract):
 //
-//   - the universe ordered stalest first (key_metrics_updated_at NULLS FIRST,
-//     then oldest, then code); a stock refreshed within the last 20 hours is
-//     skipped unless -force;
+//   - the universe of stocks with a price row in the last 90 days, ordered
+//     stalest first (key_metrics_updated_at NULLS FIRST, then oldest, then
+//     code); a stock refreshed within the last 20 hours is skipped unless -force;
 //   - one quoteSummary GET per stock, paced about one a second with jitter,
 //     through the shared yahoo.Session (crumb and cookies, stealth client);
 //   - a stock Yahoo answers with no quote (no regularMarketPrice, or not one
@@ -19,12 +19,12 @@
 //   - a good record is one UPDATE of key_metrics and key_metrics_updated_at,
 //     through keymetrics.Sanitise like the API's guard;
 //   - it stops taking new stocks when the time budget (default 40 minutes) is
-//     spent, or when a breaker trips: 25 consecutive Yahoo failures, or more
-//     than 30% of the last 100 Yahoo requests.
+//     spent, or when a breaker trips: 25 consecutive Yahoo failures, more than
+//     30% of the last 100 Yahoo requests, or 5 database write failures in a row.
 //
 // Dry run is the default: KEY_METRICS_DRY_RUN unset or anything but "false"
 // fetches and logs what it would write, and writes nothing. Exit codes
-// (runner.ExitCodeError, code 1 both ways): the breaker tripped, or the run
+// (runner.ExitCodeError, code 1 both ways): a breaker tripped, or the run
 // attempted stocks and wrote none of them. Otherwise exit 0, including a run
 // that found every stock fresh.
 package keymetrics
@@ -51,8 +51,10 @@ import (
 
 const (
 	// defaultBudget stops new stocks after 40 minutes (KEY_METRICS_BUDGET_MIN or
-	// -budget-min). At about one request a second that is roughly 2,400 stocks, so
-	// a 4,500-stock universe cycles in two runs.
+	// -budget-min). At about 1.15 seconds a stock (the pace plus Yahoo's ~0.15 s
+	// answer) that is roughly 2,000 stocks. The universe is the ~2,200 codes with
+	// a recent price (store.go), so it cycles in about one and a bit daily runs,
+	// stalest first.
 	defaultBudget = 40 * time.Minute
 	// freshWindow: a stock whose key_metrics_updated_at is newer than this is
 	// skipped, so a retried or re-run CronJob does not refetch the universe.
@@ -62,10 +64,13 @@ const (
 	pace       = time.Second
 	paceJitter = 250 * time.Millisecond
 
-	// Breakers (the picks job's, fundamentals.go).
-	maxConsecutiveFailures = 25
-	rateWindow             = 100
-	rateMaxFailures        = 30
+	// Breakers (the picks job's, fundamentals.go) cover Yahoo. The write breaker
+	// covers the database: a pooler that refuses writes stops the run after this
+	// many in a row instead of spending the budget on quotes it cannot store.
+	maxConsecutiveFailures      = 25
+	rateWindow                  = 100
+	rateMaxFailures             = 30
+	maxConsecutiveWriteFailures = 5
 
 	yahooSuffix = ".AX"
 )
@@ -101,12 +106,14 @@ type Quoter interface {
 	QuoteSummary(ctx context.Context, symbol string, modules []string) (json.RawMessage, error)
 }
 
-// Summary is the run's count, logged as one line.
+// Summary is the run's count, logged as one line. Failed counts Yahoo fetch
+// failures; WriteFailed counts database write failures, reported apart.
 type Summary struct {
 	Attempted    int
 	Written      int // written, or would be written in a dry run
 	NoData       int
 	Failed       int
+	WriteFailed  int
 	SkippedFresh int
 	BudgetLeft   time.Duration
 	Stopped      string // "" for the whole universe, else why it stopped early
@@ -133,36 +140,11 @@ type deps struct {
 // Run executes the key-metrics job.
 func Run(parent context.Context, args []string) error {
 	g := runner.FromContext(parent)
-	fs := flag.NewFlagSet("key-metrics", flag.ContinueOnError)
-	dryRun := fs.Bool("dry-run", g.DryRun || envDryRun(), "fetch and log what would be written; write nothing (env KEY_METRICS_DRY_RUN, default true; only \"false\" writes)")
-	force := fs.Bool("force", false, "refresh stocks refreshed within the last 20 hours too")
-	budgetMin := fs.Int("budget-min", envPositiveInt("KEY_METRICS_BUDGET_MIN", int(defaultBudget/time.Minute)), "stop taking new stocks after this many minutes (env KEY_METRICS_BUDGET_MIN)")
-	codesFlag := fs.String("codes", "", "comma-separated codes to refresh instead of the universe (the skips and the breakers still apply)")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return runner.ErrUsage
-		}
+	cfg, err := parseRunArgs(args,
+		g.DryRun || dryRunFromEnv(os.Getenv("KEY_METRICS_DRY_RUN")),
+		envPositiveInt("KEY_METRICS_BUDGET_MIN", int(defaultBudget/time.Minute)))
+	if err != nil {
 		return err
-	}
-	if fs.NArg() > 0 {
-		return fmt.Errorf("unexpected arguments: %v", fs.Args())
-	}
-	if *budgetMin <= 0 {
-		return fmt.Errorf("-budget-min must be positive, got %d", *budgetMin)
-	}
-
-	cfg := config{
-		dryRun: *dryRun,
-		force:  *force,
-		budget: time.Duration(*budgetMin) * time.Minute,
-	}
-	if strings.TrimSpace(*codesFlag) != "" {
-		cfg.codes = map[string]bool{}
-		for _, c := range strings.Split(*codesFlag, ",") {
-			if c = strings.ToUpper(strings.TrimSpace(c)); c != "" {
-				cfg.codes[c] = true
-			}
-		}
 	}
 
 	pool, err := platform.ConnectFromEnv(parent)
@@ -193,6 +175,44 @@ func Run(parent context.Context, args []string) error {
 	return verdict(sum, err)
 }
 
+// parseRunArgs reads the job's flags. dryDefault is the default of -dry-run
+// (the global -dry-run, or KEY_METRICS_DRY_RUN unless it is exactly "false");
+// budgetDefault is the default of -budget-min in minutes.
+func parseRunArgs(args []string, dryDefault bool, budgetDefault int) (config, error) {
+	fs := flag.NewFlagSet("key-metrics", flag.ContinueOnError)
+	dryRun := fs.Bool("dry-run", dryDefault, "fetch and log what would be written; write nothing (env KEY_METRICS_DRY_RUN, default true; only \"false\" writes)")
+	force := fs.Bool("force", false, "refresh stocks refreshed within the last 20 hours too")
+	budgetMin := fs.Int("budget-min", budgetDefault, "stop taking new stocks after this many minutes (env KEY_METRICS_BUDGET_MIN)")
+	codesFlag := fs.String("codes", "", "comma-separated codes to refresh instead of the universe (the skips and the breakers still apply)")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return config{}, runner.ErrUsage
+		}
+		return config{}, err
+	}
+	if fs.NArg() > 0 {
+		return config{}, fmt.Errorf("unexpected arguments: %v", fs.Args())
+	}
+	if *budgetMin <= 0 {
+		return config{}, fmt.Errorf("-budget-min must be positive, got %d", *budgetMin)
+	}
+
+	cfg := config{
+		dryRun: *dryRun,
+		force:  *force,
+		budget: time.Duration(*budgetMin) * time.Minute,
+	}
+	if strings.TrimSpace(*codesFlag) != "" {
+		cfg.codes = map[string]bool{}
+		for _, c := range strings.Split(*codesFlag, ",") {
+			if c = normCode(c); c != "" {
+				cfg.codes[c] = true
+			}
+		}
+	}
+	return cfg, nil
+}
+
 // verdict maps the run to its exit code. A breaker trip, or attempts with no
 // write, is exit 1 so the monitor pages; a cancelled run is an error too.
 func verdict(sum Summary, err error) error {
@@ -202,8 +222,11 @@ func verdict(sum Summary, err error) error {
 	if sum.Stopped == stopBreaker {
 		return &runner.ExitCodeError{Code: 1, Err: fmt.Errorf("key-metrics: Yahoo breaker tripped after %d attempts", sum.Attempted)}
 	}
+	if sum.Stopped == stopDB {
+		return &runner.ExitCodeError{Code: 1, Err: fmt.Errorf("key-metrics: database write breaker tripped after %d write failures", sum.WriteFailed)}
+	}
 	if sum.Attempted > 0 && sum.Written == 0 {
-		return &runner.ExitCodeError{Code: 1, Err: fmt.Errorf("key-metrics: %d attempted, none written (%d no data, %d failed)", sum.Attempted, sum.NoData, sum.Failed)}
+		return &runner.ExitCodeError{Code: 1, Err: fmt.Errorf("key-metrics: %d attempted, none written (%d no data, %d failed, %d write failed)", sum.Attempted, sum.NoData, sum.Failed, sum.WriteFailed)}
 	}
 	return nil
 }
@@ -211,6 +234,7 @@ func verdict(sum Summary, err error) error {
 const (
 	stopBudget  = "budget"
 	stopBreaker = "breaker"
+	stopDB      = "db"
 )
 
 // runKeyMetrics is the run, free of the process: the universe, the skips, the
@@ -233,6 +257,7 @@ func runKeyMetrics(ctx context.Context, cfg config, d deps) (Summary, error) {
 
 	var sum Summary
 	var brk breaker
+	var writeFails int // consecutive database write failures
 	requested := false
 	for _, s := range stocks {
 		if err := ctx.Err(); err != nil {
@@ -267,7 +292,7 @@ func runKeyMetrics(ctx context.Context, cfg config, d deps) (Summary, error) {
 		requested = true
 		sum.Attempted++
 
-		raw, err := d.quoter.QuoteSummary(ctx, s.Code+yahooSuffix, modules)
+		raw, err := d.quoter.QuoteSummary(ctx, yahooSymbol(s.Code), modules)
 		if err != nil && ctx.Err() != nil {
 			sum.Attempted--
 			sum.Stopped = "cancelled"
@@ -309,10 +334,17 @@ func runKeyMetrics(ctx context.Context, cfg config, d deps) (Summary, error) {
 			continue
 		}
 		if err := d.store.WriteKeyMetrics(ctx, s.Code, metrics); err != nil {
-			sum.Failed++
+			sum.WriteFailed++
+			writeFails++
 			d.logf("key-metrics: %s: write failed, row kept: %v", s.Code, err)
+			if writeFails >= maxConsecutiveWriteFailures {
+				d.logf("key-metrics: database write breaker: %d write failures in a row, stopping", writeFails)
+				sum.Stopped = stopDB
+				break
+			}
 			continue
 		}
+		writeFails = 0
 		sum.Written++
 	}
 
@@ -323,13 +355,14 @@ func runKeyMetrics(ctx context.Context, cfg config, d deps) (Summary, error) {
 
 // order is the universe in refresh order: never written first, then the oldest
 // key_metrics_updated_at, then code. A non-empty codes set restricts it first.
+// Codes keep their stored spelling (a padded "FXG " is its own row, and the
+// UPDATE must match that row); only the Yahoo symbol is normalised.
 func order(universe []Stock, codes map[string]bool) []Stock {
 	out := make([]Stock, 0, len(universe))
 	for _, s := range universe {
-		if codes != nil && !codes[strings.ToUpper(s.Code)] {
+		if codes != nil && !codes[normCode(s.Code)] {
 			continue
 		}
-		s.Code = strings.ToUpper(strings.TrimSpace(s.Code))
 		out = append(out, s)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
@@ -347,6 +380,17 @@ func order(universe []Stock, codes map[string]bool) []Stock {
 	return out
 }
 
+// normCode is a stock code as Yahoo and the -codes flag spell it: trimmed and
+// upper-cased.
+func normCode(code string) string {
+	return strings.ToUpper(strings.TrimSpace(code))
+}
+
+// yahooSymbol is the quoteSummary symbol for a stored code.
+func yahooSymbol(code string) string {
+	return normCode(code) + yahooSuffix
+}
+
 func remaining(d deps, deadline time.Time) time.Duration {
 	if left := deadline.Sub(d.now()); left > 0 {
 		return left.Round(time.Second)
@@ -355,8 +399,8 @@ func remaining(d deps, deadline time.Time) time.Duration {
 }
 
 func summaryLine(s Summary, dryRun bool) string {
-	return fmt.Sprintf("key-metrics: summary dry_run=%v attempted=%d written=%d no_data=%d failed=%d skipped_fresh=%d budget_left=%s stopped=%s",
-		dryRun, s.Attempted, s.Written, s.NoData, s.Failed, s.SkippedFresh, s.BudgetLeft, orNone(s.Stopped))
+	return fmt.Sprintf("key-metrics: summary dry_run=%v attempted=%d written=%d no_data=%d failed=%d write_failed=%d skipped_fresh=%d budget_left=%s stopped=%s",
+		dryRun, s.Attempted, s.Written, s.NoData, s.Failed, s.WriteFailed, s.SkippedFresh, s.BudgetLeft, orNone(s.Stopped))
 }
 
 func orNone(s string) string {
@@ -430,8 +474,10 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 	}
 }
 
-func envDryRun() bool {
-	return strings.TrimSpace(os.Getenv("KEY_METRICS_DRY_RUN")) != "false"
+// dryRunFromEnv is the KEY_METRICS_DRY_RUN rule: a dry run unless the value is
+// exactly "false" (after trimming). Unset, empty, "False" and "0" all dry-run.
+func dryRunFromEnv(v string) bool {
+	return strings.TrimSpace(v) != "false"
 }
 
 func envPositiveInt(key string, fallback int) int {

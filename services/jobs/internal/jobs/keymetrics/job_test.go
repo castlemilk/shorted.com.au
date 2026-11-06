@@ -117,10 +117,44 @@ func TestOrderIsNeverWrittenFirstThenOldestThenCode(t *testing.T) {
 }
 
 func TestOrderRestrictsToTheCodesFlag(t *testing.T) {
-	got := order([]Stock{stock("bhp", nil), stock("CBA", nil), stock("EML", nil)}, map[string]bool{"BHP": true, "EML": true})
+	got := order([]Stock{stock("BHP", nil), stock("CBA", nil), stock("EML", nil)}, map[string]bool{"BHP": true, "EML": true})
 	if len(got) != 2 || got[0].Code != "BHP" || got[1].Code != "EML" {
-		t.Fatalf("order = %+v, want BHP and EML upper-cased", got)
+		t.Fatalf("order = %+v, want BHP and EML", got)
 	}
+}
+
+func TestOrderKeepsTheStoredSpellingAndMatchesTheFlagTrimmed(t *testing.T) {
+	// A padded row keeps its stored code, so the UPDATE stamps that row; the -codes
+	// flag matches it by its trimmed, upper-cased form.
+	got := order([]Stock{stock("FXG ", nil), stock("cba", nil)}, map[string]bool{"FXG": true})
+	if len(got) != 1 || got[0].Code != "FXG " {
+		t.Fatalf("order = %+v, want the padded FXG row as stored", got)
+	}
+	if yahooSymbol("FXG ") != "FXG.AX" || yahooSymbol("cba") != "CBA.AX" {
+		t.Fatalf("symbols = %q %q, want FXG.AX and CBA.AX", yahooSymbol("FXG "), yahooSymbol("cba"))
+	}
+}
+
+func TestPaddedRowIsFetchedAndWrittenUnderItsStoredCode(t *testing.T) {
+	st := &fakeStore{universe: []Stock{stock("FXG ", nil)}}
+	sum, err := runKeyMetrics(context.Background(), baseCfg(), testDeps(okQuoter(t, "FXG"), st, &clock{t: t0}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum.Written != 1 {
+		t.Fatalf("summary %+v, want the padded row written", sum)
+	}
+	if _, ok := st.writes["FXG "]; !ok {
+		t.Fatalf("writes = %v, want the write keyed by the stored code 'FXG '", keysOfWrites(st))
+	}
+}
+
+func keysOfWrites(st *fakeStore) []string {
+	var out []string
+	for k := range st.writes {
+		out = append(out, k)
+	}
+	return out
 }
 
 func TestFreshStocksAreSkippedUnlessForced(t *testing.T) {
@@ -200,8 +234,56 @@ func TestAWriteErrorIsCountedAndTheRunGoesOn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sum.Failed != 1 || sum.Written != 1 {
-		t.Fatalf("summary %+v, want 1 failed write and 1 written", sum)
+	if sum.WriteFailed != 1 || sum.Failed != 0 || sum.Written != 1 {
+		t.Fatalf("summary %+v, want 1 write failure (not a Yahoo failure) and 1 written", sum)
+	}
+}
+
+func TestWriteBreakerStopsAfterFiveWriteFailuresInARow(t *testing.T) {
+	var universe []Stock
+	writeErr := map[string]error{}
+	var codes []string
+	for i := 0; i < 20; i++ {
+		c := fmt.Sprintf("W%02d", i)
+		universe = append(universe, stock(c, nil))
+		writeErr[c] = errors.New("pool: connection refused")
+		codes = append(codes, c)
+	}
+	st := &fakeStore{universe: universe, writeErr: writeErr}
+	q := okQuoter(t, codes...)
+	sum, err := runKeyMetrics(context.Background(), baseCfg(), testDeps(q, st, &clock{t: t0}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum.Stopped != stopDB || sum.WriteFailed != maxConsecutiveWriteFailures || sum.Attempted != maxConsecutiveWriteFailures {
+		t.Fatalf("summary %+v, want the write breaker after %d failures", sum, maxConsecutiveWriteFailures)
+	}
+	if len(q.calls) != maxConsecutiveWriteFailures {
+		t.Errorf("calls = %d, want %d: no quote fetched after the write breaker trips", len(q.calls), maxConsecutiveWriteFailures)
+	}
+	if err := verdict(sum, nil); runner.ExitCodeOf(err) != 1 {
+		t.Fatalf("verdict = %v, want exit 1 so the monitor pages", err)
+	}
+}
+
+func TestAWriteSuccessResetsTheWriteBreaker(t *testing.T) {
+	var universe []Stock
+	writeErr := map[string]error{}
+	var codes []string
+	for i := 0; i < 12; i++ {
+		c := fmt.Sprintf("X%02d", i)
+		universe = append(universe, stock(c, nil))
+		codes = append(codes, c)
+		if i%2 == 0 {
+			writeErr[c] = errors.New("boom") // every other write, never two in a row
+		}
+	}
+	sum, err := runKeyMetrics(context.Background(), baseCfg(), testDeps(okQuoter(t, codes...), &fakeStore{universe: universe, writeErr: writeErr}, &clock{t: t0}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum.Stopped == stopDB || sum.Attempted != 12 || sum.WriteFailed != 6 || sum.Written != 6 {
+		t.Fatalf("summary %+v, want all 12 attempted, 6 written, 6 write failed, no breaker", sum)
 	}
 }
 
@@ -370,6 +452,8 @@ func TestVerdictExitCodes(t *testing.T) {
 		{name: "breaker tripped", sum: Summary{Attempted: 25, Failed: 25, Stopped: stopBreaker, Written: 3}, wantCode: 1},
 		{name: "attempted, none written", sum: Summary{Attempted: 7, Failed: 7}, wantCode: 1},
 		{name: "attempted, all no data", sum: Summary{Attempted: 7, NoData: 7}, wantCode: 1},
+		{name: "attempted, all write failed", sum: Summary{Attempted: 5, WriteFailed: 5}, wantCode: 1},
+		{name: "database write breaker", sum: Summary{Attempted: 5, WriteFailed: 5, Stopped: stopDB, Written: 9}, wantCode: 1},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -415,5 +499,46 @@ func TestBreakerTripOnlyCountsYahooFailures(t *testing.T) {
 	b.record(false)
 	if _, tripped := b.tripped(); tripped {
 		t.Fatal("one answer should reset the consecutive count")
+	}
+}
+
+func TestDryRunFromEnvIsDryUnlessExactlyFalse(t *testing.T) {
+	cases := map[string]bool{
+		"":        true, // unset
+		"true":    true, // explicit
+		"False":   true, // a capital is not the word
+		"0":       true, // not a boolean the job knows
+		"no":      true,
+		"false":   false, // the only value that writes
+		" false ": false, // trimmed
+	}
+	for v, want := range cases {
+		if got := dryRunFromEnv(v); got != want {
+			t.Errorf("dryRunFromEnv(%q) = %v, want %v", v, got, want)
+		}
+	}
+}
+
+func TestRunFlagsDefaultToDryRunAndTheEnvDefaultHolds(t *testing.T) {
+	cfg, err := parseRunArgs(nil, dryRunFromEnv(""), 40)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.dryRun || cfg.budget != 40*time.Minute || cfg.force {
+		t.Fatalf("defaults = %+v, want dry run, 40 minutes, no force", cfg)
+	}
+	cfg, err = parseRunArgs([]string{"-dry-run=false"}, dryRunFromEnv(""), 40)
+	if err != nil || cfg.dryRun {
+		t.Fatalf("-dry-run=false = %+v, %v; want a live run", cfg, err)
+	}
+	cfg, err = parseRunArgs([]string{"-codes", "bhp, cba ,"}, dryRunFromEnv("false"), 5)
+	if err != nil || cfg.dryRun || cfg.budget != 5*time.Minute || !cfg.codes["BHP"] || !cfg.codes["CBA"] || len(cfg.codes) != 2 {
+		t.Fatalf("env=false with -codes = %+v, %v", cfg, err)
+	}
+	if _, err := parseRunArgs([]string{"-budget-min", "0"}, true, 40); err == nil {
+		t.Fatal("-budget-min 0 accepted")
+	}
+	if _, err := parseRunArgs([]string{"extra"}, true, 40); err == nil {
+		t.Fatal("a positional argument was accepted")
 	}
 }
