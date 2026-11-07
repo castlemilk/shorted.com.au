@@ -30,6 +30,7 @@ jest.mock("../trending-this-week", () => ({ TrendingThisWeek: () => null }));
 jest.mock("../short-flow-narrative", () => ({ ShortFlowNarrative: () => null }));
 jest.mock("../latest-from-blog", () => ({ LatestFromBlog: () => null }));
 jest.mock("../latest-market-news", () => ({ LatestMarketNews: () => null }));
+jest.mock("../latest-market-moves", () => ({ LatestMarketMoves: () => null }));
 jest.mock("~/@/components/premium/premium-upsell-banner", () => ({
   PremiumUpsellBanner: () => null,
 }));

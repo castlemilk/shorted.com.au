@@ -61,6 +61,18 @@ type ShortsServer struct {
 	// strategyBacktests serves the backtest rpcs (migrations 000158 and 000159). Nil when
 	// the store is not Postgres; those rpcs then answer run_required or unavailable.
 	strategyBacktests shorts.StrategyBacktestStore
+	// marketMoves serves the market-moves writer and ListMarketMoves (migration
+	// 000160). Nil when the store is not Postgres: posts answer unavailable and
+	// the read answers empty.
+	marketMoves shorts.MarketMovesStore
+	// marketMovesTokenStore holds the console-created posting tokens, and
+	// marketMovesTokens verifies a presented one (market_moves_tokens.go). Nil
+	// when the store is not Postgres: tokens are then refused with a 503.
+	marketMovesTokenStore shorts.MarketMovesTokenStore
+	marketMovesTokens     *marketMovesTokenVerifier
+	// marketMovesRevalidator pings the web tier after a move changes. Nil (a
+	// no-op) without REVALIDATION_URL and REVALIDATION_SECRET.
+	marketMovesRevalidator *marketMovesRevalidator
 	// ownershipUniverse is the whole register, read once per ownershipTTL and
 	// shared by every ownership rpc (ownership_universe.go). Set exactly when
 	// ownershipStore is.
@@ -160,6 +172,8 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	ownershipStore, _ := storeImpl.(shorts.OwnershipStore)
 	strategySaves, _ := storeImpl.(shorts.StrategySavesStore)
 	strategyBacktests, _ := storeImpl.(shorts.StrategyBacktestStore)
+	marketMoves, _ := storeImpl.(shorts.MarketMovesStore)
+	marketMovesTokenStore, _ := storeImpl.(shorts.MarketMovesTokenStore)
 
 	var rateLimiter ratelimit.RateLimiter
 	if cfg.RateLimitConfig.Enabled {
@@ -202,7 +216,11 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		ownershipStore:    ownershipStore,
 		strategySaves:     strategySaves,
 		strategyBacktests: strategyBacktests,
+		marketMoves:       marketMoves,
 	}
+	srv.marketMovesRevalidator = newMarketMovesRevalidator(logger)
+	srv.marketMovesTokenStore = marketMovesTokenStore
+	srv.marketMovesTokens = newMarketMovesTokenVerifier(marketMovesTokenStore, logger)
 	if ownershipStore != nil {
 		srv.ownershipUniverse = newServerOwnershipUniverse(srv)
 		srv.ownershipFundFlow = &fundFlowHolder{}

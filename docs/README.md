@@ -46,6 +46,7 @@
 | ---------------------------------------------------- | --------------------------- |
 | [API Reference](../web/public/docs/api-reference.md) | Public API documentation    |
 | [LLM Context](../web/public/docs/llm-context.md)     | LLM-optimized documentation |
+| [Market moves](feature/market-moves/README.md)       | Posting market moves from a Claude workflow: the endpoint, the token, the MCP tools, the rules |
 
 ## Testing
 

@@ -53,6 +53,92 @@ service MarketService {
   rpc GetShortCampaignScoreboard (GetShortCampaignScoreboardRequest) returns (GetShortCampaignScoreboardResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // Internal note, not published: moves are written through the private
+  // POST /v1/market-moves (docs/feature/market-moves/README.md); this rpc only
+  // reads them.
+
+  // List market moves: what moved, by how much, when it was observed and why,
+  // newest observation first. Published moves only, each with its own
+  // observation time and sources.
+  rpc ListMarketMoves (ListMarketMovesRequest) returns (ListMarketMovesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+}
+
+// One market move. Every figure carries its own date (observed_at), and a
+// figure the poster did not give travels with has_* false, never as 0.
+message MarketMove {
+  // The poster's own key for the move. A re-post of the same key updates the
+  // move in place and raises revision.
+  string move_key = 1;
+  // stock | index | sector | market.
+  string kind = 2;
+  // The stock the move is about (kind stock), and its name when we hold one.
+  string stock_code = 3;
+  string company_name = 4;
+  // The index the move is about (kind index), e.g. XJO.
+  string index_code = 5;
+  // The sector the move is about (kind sector), as the poster named it.
+  string sector = 6;
+  // Other ASX codes the move names, each one we hold.
+  repeated string related_codes = 7;
+  // up | down | flat | mixed.
+  string direction = 8;
+  // The move in percent (-3.2 is a 3.2% fall).
+  double change_pct = 9;
+  bool has_change_pct = 10;
+  // The price (or index level) at observed_at.
+  double price = 11;
+  bool has_price = 12;
+  // Volume against its usual level (2.5 = two and a half times).
+  double volume_ratio = 13;
+  bool has_volume_ratio = 14;
+  // Plain text. Never HTML or markdown.
+  string headline = 15;
+  string summary = 16;
+  repeated MarketMoveSource sources = 17;
+  repeated string tags = 18;
+  // 1 (minor) to 5 (market-wide event).
+  int32 significance = 19;
+  // RFC 3339, when the poster observed the move.
+  string observed_at = 20;
+  // YYYY-MM-DD, the Sydney calendar date of observed_at.
+  string market_date = 21;
+  int32 revision = 22;
+  // RFC 3339, when the move was first posted and when it last changed.
+  string published_at = 23;
+  string updated_at = 24;
+  // The model that wrote the move, when the poster named it.
+  string model = 25;
+}
+
+// A source the move cites. https only.
+message MarketMoveSource {
+  string title = 1;
+  string url = 2;
+  string publisher = 3;
+}
+
+message ListMarketMovesRequest {
+  // Moves about this stock or naming it among related_codes.
+  string stock_code = 1;
+  // stock | index | sector | market; empty for every kind.
+  string kind = 2;
+  // YYYY-MM-DD (Sydney); empty for every date.
+  string market_date = 3;
+  // 1 to 5; 0 for every move.
+  int32 min_significance = 4;
+  // Default 20, at most 100.
+  int32 limit = 5;
+  // next_cursor from the previous page; empty for the first page.
+  string cursor = 6;
+}
+
+message ListMarketMovesResponse {
+  repeated MarketMove moves = 1;
+  // Empty on the last page.
+  string next_cursor = 2;
 }
 
 // Request for Top10 RPC, specifying the period of time.

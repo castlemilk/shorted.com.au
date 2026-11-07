@@ -77,6 +77,10 @@ plugins:
       - services=shorts.v1alpha1.PoliticiansService
       - services=shorts.v1alpha1.AlertsService
       - services=shorts.v1alpha1.BillingService
+      # Every method is admin-only, so the public document prunes all of it; it
+      # is generated for the private reference (openapi-postprocess -visibility
+      # private), which TestThePrivateReferenceIsGeneratedForEveryPrivateMethod holds whole.
+      - services=shorts.v1alpha1.EnrichmentService
       - services=shorts.v1alpha1.StrategyService
       - services=shorts.v1alpha1.OwnershipService
       - trim-unused-types

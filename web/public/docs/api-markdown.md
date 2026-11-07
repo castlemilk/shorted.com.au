@@ -804,6 +804,31 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/ListIndic
   -d '{}'
 ```
 
+#### `POST /shorts.v1alpha1.MarketService/ListMarketMoves`
+
+List market moves: what moved, by how much, when it was observed and why,
+ newest observation first. Published moves only, each with its own
+ observation time and sources.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `cursor` | string | no | next_cursor from the previous page; empty for the first page. (proto string) |
+| `kind` | string | no | stock \| index \| sector \| market; empty for every kind. (proto string) |
+| `limit` | integer (int32) | no | Default 20, at most 100. (proto int32) |
+| `marketDate` | string | no | YYYY-MM-DD (Sydney); empty for every date. (proto string) |
+| `minSignificance` | integer (int32) | no | 1 to 5; 0 for every move. (proto int32) |
+| `stockCode` | string | no | Moves about this stock or naming it among related_codes. (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/ListMarketMoves' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 ### shorts.v1alpha1.NewsService
 
 #### `POST /shorts.v1alpha1.NewsService/GetEditorialTake`

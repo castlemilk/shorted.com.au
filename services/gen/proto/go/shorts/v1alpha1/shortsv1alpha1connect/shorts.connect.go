@@ -187,6 +187,9 @@ const (
 	// ShortedStocksServiceGetShortCampaignScoreboardProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetShortCampaignScoreboard RPC.
 	ShortedStocksServiceGetShortCampaignScoreboardProcedure = "/shorts.v1alpha1.ShortedStocksService/GetShortCampaignScoreboard"
+	// ShortedStocksServiceListMarketMovesProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListMarketMoves RPC.
+	ShortedStocksServiceListMarketMovesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListMarketMoves"
 	// ShortedStocksServiceGetStockGraphProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetStockGraph RPC.
 	ShortedStocksServiceGetStockGraphProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockGraph"
@@ -474,6 +477,7 @@ var (
 	shortedStocksServiceGetBattlegroundStocksMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetBattlegroundStocks")
 	shortedStocksServiceGetStockVerdictMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockVerdict")
 	shortedStocksServiceGetShortCampaignScoreboardMethodDescriptor      = shortedStocksServiceServiceDescriptor.Methods().ByName("GetShortCampaignScoreboard")
+	shortedStocksServiceListMarketMovesMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("ListMarketMoves")
 	shortedStocksServiceGetStockGraphMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockGraph")
 	shortedStocksServiceGetEventTimelineMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEventTimeline")
 	shortedStocksServiceGetStockSignalsMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockSignals")
@@ -659,6 +663,8 @@ type ShortedStocksServiceClient interface {
 	GetStockVerdict(context.Context, *connect.Request[v1alpha1.GetStockVerdictRequest]) (*connect.Response[v1alpha1.GetStockVerdictResponse], error)
 	// Get the short-seller scoreboard: historic short campaigns and whether shorts won
 	GetShortCampaignScoreboard(context.Context, *connect.Request[v1alpha1.GetShortCampaignScoreboardRequest]) (*connect.Response[v1alpha1.GetShortCampaignScoreboardResponse], error)
+	// List market moves: what moved, by how much, when it was observed and why
+	ListMarketMoves(context.Context, *connect.Request[v1alpha1.ListMarketMovesRequest]) (*connect.Response[v1alpha1.ListMarketMovesResponse], error)
 	// Get a stock's people (with their other companies) and narrative-similar companies
 	GetStockGraph(context.Context, *connect.Request[v1alpha1.GetStockGraphRequest]) (*connect.Response[v1alpha1.GetStockGraphResponse], error)
 	// Get a chronological feed of events for a stock (announcements, director trades, news, short spikes)
@@ -1143,6 +1149,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			httpClient,
 			baseURL+ShortedStocksServiceGetShortCampaignScoreboardProcedure,
 			connect.WithSchema(shortedStocksServiceGetShortCampaignScoreboardMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listMarketMoves: connect.NewClient[v1alpha1.ListMarketMovesRequest, v1alpha1.ListMarketMovesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListMarketMovesProcedure,
+			connect.WithSchema(shortedStocksServiceListMarketMovesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockGraph: connect.NewClient[v1alpha1.GetStockGraphRequest, v1alpha1.GetStockGraphResponse](
@@ -1663,6 +1675,7 @@ type shortedStocksServiceClient struct {
 	getBattlegroundStocks           *connect.Client[v1alpha1.GetBattlegroundStocksRequest, v1alpha1.GetBattlegroundStocksResponse]
 	getStockVerdict                 *connect.Client[v1alpha1.GetStockVerdictRequest, v1alpha1.GetStockVerdictResponse]
 	getShortCampaignScoreboard      *connect.Client[v1alpha1.GetShortCampaignScoreboardRequest, v1alpha1.GetShortCampaignScoreboardResponse]
+	listMarketMoves                 *connect.Client[v1alpha1.ListMarketMovesRequest, v1alpha1.ListMarketMovesResponse]
 	getStockGraph                   *connect.Client[v1alpha1.GetStockGraphRequest, v1alpha1.GetStockGraphResponse]
 	getEventTimeline                *connect.Client[v1alpha1.GetEventTimelineRequest, v1alpha1.GetEventTimelineResponse]
 	getStockSignals                 *connect.Client[v1alpha1.GetStockSignalsRequest, v1alpha1.GetStockSignalsResponse]
@@ -1998,6 +2011,11 @@ func (c *shortedStocksServiceClient) GetStockVerdict(ctx context.Context, req *c
 // GetShortCampaignScoreboard calls shorts.v1alpha1.ShortedStocksService.GetShortCampaignScoreboard.
 func (c *shortedStocksServiceClient) GetShortCampaignScoreboard(ctx context.Context, req *connect.Request[v1alpha1.GetShortCampaignScoreboardRequest]) (*connect.Response[v1alpha1.GetShortCampaignScoreboardResponse], error) {
 	return c.getShortCampaignScoreboard.CallUnary(ctx, req)
+}
+
+// ListMarketMoves calls shorts.v1alpha1.ShortedStocksService.ListMarketMoves.
+func (c *shortedStocksServiceClient) ListMarketMoves(ctx context.Context, req *connect.Request[v1alpha1.ListMarketMovesRequest]) (*connect.Response[v1alpha1.ListMarketMovesResponse], error) {
+	return c.listMarketMoves.CallUnary(ctx, req)
 }
 
 // GetStockGraph calls shorts.v1alpha1.ShortedStocksService.GetStockGraph.
@@ -2494,6 +2512,8 @@ type ShortedStocksServiceHandler interface {
 	GetStockVerdict(context.Context, *connect.Request[v1alpha1.GetStockVerdictRequest]) (*connect.Response[v1alpha1.GetStockVerdictResponse], error)
 	// Get the short-seller scoreboard: historic short campaigns and whether shorts won
 	GetShortCampaignScoreboard(context.Context, *connect.Request[v1alpha1.GetShortCampaignScoreboardRequest]) (*connect.Response[v1alpha1.GetShortCampaignScoreboardResponse], error)
+	// List market moves: what moved, by how much, when it was observed and why
+	ListMarketMoves(context.Context, *connect.Request[v1alpha1.ListMarketMovesRequest]) (*connect.Response[v1alpha1.ListMarketMovesResponse], error)
 	// Get a stock's people (with their other companies) and narrative-similar companies
 	GetStockGraph(context.Context, *connect.Request[v1alpha1.GetStockGraphRequest]) (*connect.Response[v1alpha1.GetStockGraphResponse], error)
 	// Get a chronological feed of events for a stock (announcements, director trades, news, short spikes)
@@ -2974,6 +2994,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		ShortedStocksServiceGetShortCampaignScoreboardProcedure,
 		svc.GetShortCampaignScoreboard,
 		connect.WithSchema(shortedStocksServiceGetShortCampaignScoreboardMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListMarketMovesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListMarketMovesProcedure,
+		svc.ListMarketMoves,
+		connect.WithSchema(shortedStocksServiceListMarketMovesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockGraphHandler := connect.NewUnaryHandler(
@@ -3542,6 +3568,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetStockVerdictHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetShortCampaignScoreboardProcedure:
 			shortedStocksServiceGetShortCampaignScoreboardHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListMarketMovesProcedure:
+			shortedStocksServiceListMarketMovesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetStockGraphProcedure:
 			shortedStocksServiceGetStockGraphHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetEventTimelineProcedure:
@@ -3907,6 +3935,10 @@ func (UnimplementedShortedStocksServiceHandler) GetStockVerdict(context.Context,
 
 func (UnimplementedShortedStocksServiceHandler) GetShortCampaignScoreboard(context.Context, *connect.Request[v1alpha1.GetShortCampaignScoreboardRequest]) (*connect.Response[v1alpha1.GetShortCampaignScoreboardResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetShortCampaignScoreboard is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListMarketMoves(context.Context, *connect.Request[v1alpha1.ListMarketMovesRequest]) (*connect.Response[v1alpha1.ListMarketMovesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListMarketMoves is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetStockGraph(context.Context, *connect.Request[v1alpha1.GetStockGraphRequest]) (*connect.Response[v1alpha1.GetStockGraphResponse], error) {

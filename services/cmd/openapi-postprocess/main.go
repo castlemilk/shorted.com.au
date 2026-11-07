@@ -21,11 +21,21 @@ func main() {
 	in := flag.String("in", "", "raw generated OpenAPI YAML")
 	basePath := flag.String("base", "", "api/schema/base.yaml — source of the info block")
 	outJSON := flag.String("out-json", "", "canonical JSON output path")
-	outYAML := flag.String("out-yaml", "", "canonical YAML output path")
+	outYAML := flag.String("out-yaml", "", "canonical YAML output path (public only)")
+	visibility := flag.String("visibility", "public", "public (the published reference) or private (the admin console's, JSON only)")
 	flag.Parse()
 
-	if *in == "" || *basePath == "" || *outJSON == "" || *outYAML == "" {
-		log.Fatal("-in, -base, -out-json and -out-yaml are all required")
+	switch *visibility {
+	case "public":
+		if *in == "" || *basePath == "" || *outJSON == "" || *outYAML == "" {
+			log.Fatal("-in, -base, -out-json and -out-yaml are all required")
+		}
+	case "private":
+		if *in == "" || *basePath == "" || *outJSON == "" || *outYAML != "" {
+			log.Fatal("-visibility private takes -in, -base and -out-json, and no -out-yaml")
+		}
+	default:
+		log.Fatalf("-visibility must be public or private, not %q", *visibility)
 	}
 
 	raw, err := os.ReadFile(*in)
@@ -48,7 +58,11 @@ func main() {
 		log.Fatalf("parse %s: %v", *basePath, err)
 	}
 
-	if err := Transform(spec, PublicMethodPaths(), base); err != nil {
+	if *visibility == "private" {
+		if err := TransformPrivate(spec, PrivateMethodAccess(), base); err != nil {
+			log.Fatalf("transform private: %v", err)
+		}
+	} else if err := Transform(spec, PublicMethodPaths(), base); err != nil {
 		log.Fatalf("transform: %v", err)
 	}
 
@@ -59,6 +73,11 @@ func main() {
 	}
 	if err := os.WriteFile(*outJSON, append(encoded, '\n'), 0o644); err != nil {
 		log.Fatalf("write %s: %v", *outJSON, err)
+	}
+	if *visibility == "private" {
+		paths, _ := spec["paths"].(map[string]any)
+		log.Printf("wrote %d private paths to %s", len(paths), *outJSON)
+		return
 	}
 
 	asYAML, err := yaml.Marshal(spec)

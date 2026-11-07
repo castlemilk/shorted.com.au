@@ -474,6 +474,15 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// quota diffing GetAvailableDates, and charging it more would defeat that.
 	mux.Handle(LatestPath, withCORS(s.LatestHandler()))
 
+	// The market-moves workflow's write routes (market_moves_http.go). A
+	// console-created market-moves token or the internal secret; never CORS: no
+	// browser posts here. The moves are read through MarketService/ListMarketMoves.
+	mux.HandleFunc(MarketMovesPath, s.MarketMovesPublishHandler())
+	mux.HandleFunc(MarketMovesRetractPath, s.MarketMovesRetractHandler())
+	// The admin console's token routes (market_moves_tokens.go), internal secret only.
+	mux.HandleFunc(MarketMovesTokensPath, s.MarketMovesTokensHandler())
+	mux.HandleFunc(MarketMovesTokenRevokePath, s.MarketMovesTokenRevokeHandler())
+
 	// Resend delivery feedback: a permanent bounce or a complaint marks the alert
 	// delivery and suppresses the address. Inert (503) until RESEND_WEBHOOK_SECRET is set.
 	mux.Handle(ResendWebhookPath, NewResendWebhookHandler(ResendWebhookConfig{

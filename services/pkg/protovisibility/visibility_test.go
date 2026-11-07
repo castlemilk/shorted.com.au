@@ -96,3 +96,32 @@ func TestNamesAndPathsAgree(t *testing.T) {
 		}
 	}
 }
+
+// The private set and the public set partition the domain methods: every
+// method is in exactly one, and the private one carries each method's role.
+func TestPrivateMethodAccessPartitionsTheDomainMethods(t *testing.T) {
+	public := PublicMethodPaths()
+	private := PrivateMethodAccess()
+	if len(private) == 0 {
+		t.Fatal("no private methods found; is the registry empty?")
+	}
+	for path := range private {
+		if public[path] {
+			t.Errorf("%s is both public and private", path)
+		}
+	}
+	if role, ok := private["/shorts.v1alpha1.MarketService/GetSyncStatus"]; !ok || role != "admin" {
+		t.Errorf("GetSyncStatus = %q, %v; want an admin method", role, ok)
+	}
+	if role, ok := private["/shorts.v1alpha1.StrategyService/SaveStrategy"]; !ok || role != "" {
+		t.Errorf("SaveStrategy = %q, %v; want a signed-in method", role, ok)
+	}
+	if _, ok := private["/shorts.v1alpha1.MarketService/ListMarketMoves"]; ok {
+		t.Error("ListMarketMoves is public and must not be in the private set")
+	}
+	for path := range private {
+		if strings.HasPrefix(path, "/"+LegacyService+"/") {
+			t.Errorf("%s: the legacy service is excluded", path)
+		}
+	}
+}

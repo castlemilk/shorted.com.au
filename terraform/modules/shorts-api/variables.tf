@@ -122,6 +122,18 @@ variable "unsubscribe_secret_exists" {
   default     = false
 }
 
+variable "revalidation_secret_exists" {
+  description = "Whether the web's REVALIDATION_SECRET exists in Secret Manager (gates the secret env binding the market-moves revalidation ping uses)."
+  type        = bool
+  default     = false
+}
+
+variable "revalidation_url" {
+  description = "The web tier's /api/revalidate endpoint, pinged after a market move changes. Empty disables the ping."
+  type        = string
+  default     = ""
+}
+
 variable "broadcast_from" {
   description = "From header for newsletter broadcasts."
   type        = string

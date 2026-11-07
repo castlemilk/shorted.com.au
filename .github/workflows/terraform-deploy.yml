@@ -1080,6 +1080,13 @@ jobs:
             #   task db:prod:apply FILE=services/migrations/000159_strategy_paper.up.sql CONFIRM=prod
             run_psql_session -f /migrations/000159_strategy_paper.up.sql
 
+            # 000160 (market moves) adds the tables the market-moves workflow posts to and posts with: the
+            # moves (POST /v1/market-moves, the admin MCP post_market_move tool) and the console-created
+            # tokens. CREATE TABLE IF NOT EXISTS on new tables and their IF NOT EXISTS indexes, no row, no lock
+            # on an existing table, so it replays freely. The readers answer empty until it exists and the
+            # writer answers 503.
+            run_psql_session -f /migrations/000160_market_moves.up.sql
+
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
             # tables, views, materialized views, sequences and functions there,
@@ -2103,6 +2110,15 @@ jobs:
           echo "🧪 Running the saved strategies suite (postgres container)..."
           cd services
           make test-strategy-saves-pg
+
+      # The market-moves store (migration 000160): revisions, the final retraction, the caps, a race of
+      # two first posts, the list's paging and a replay of the migration. The handler tests fake the
+      # store, so the SQL gates the deploy here.
+      - name: Run market moves container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the market moves suite (postgres container)..."
+          cd services
+          make test-market-moves-pg
 
       # The daily snapshot's API reads (migration 000156): the newest completed session, the unmigrated
       # fallback, canonical and live-only signal events, and the source dates. The variant guard is a

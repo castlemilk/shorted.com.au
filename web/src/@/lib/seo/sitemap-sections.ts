@@ -499,6 +499,9 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
   // (historical data is immutable once published).
   const marketRoutes: SitemapEntry[] = [
     { url: `${baseUrl}/market`, lastModified: latestDataDate },
+    // The market-moves feed changes whenever the workflow posts; no date it
+    // can state, so no lastmod.
+    { url: `${baseUrl}/market-moves` },
     ...marketDates.map((date) => ({
       url: `${baseUrl}/market/${date}`,
       lastModified: new Date(`${date}T00:00:00Z`).toISOString(),

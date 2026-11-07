@@ -16,12 +16,24 @@ import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 
+// --private renders the PRIVATE reference (the signed-in and admin methods)
+// from src/server/private-docs/openapi.private.json into
+// src/server/private-docs/private-api.md, for the admin console's private docs
+// (/admin/api-docs). It is never written under public/: nothing serves it
+// without the admin login. `make openapi` runs both modes.
+const PRIVATE = process.argv.includes("--private");
+const IN_FILE = PRIVATE ? "src/server/private-docs/openapi.private.json" : "public/openapi.json";
+const OUT_DIR = PRIVATE ? "src/server/private-docs" : "public/docs";
+const OUT_FILE = PRIVATE ? "private-api.md" : "api-markdown.md";
+const ACCESS_LABEL = {
+  admin: "an administrator (`admin` role)",
+  "signed-in": "any signed-in account",
+};
+
 // Every sample sets a User-Agent because the edge 403s curl's default one.
 // A placeholder a reader is meant to replace with their own app's name.
 const SAMPLE_USER_AGENT = "my-app/1.0";
-const spec = JSON.parse(
-  readFileSync(path.join(root, "public/openapi.json"), "utf8"),
-);
+const spec = JSON.parse(readFileSync(path.join(root, IN_FILE), "utf8"));
 
 const HTTP_METHODS = [
   "get",
@@ -152,12 +164,36 @@ if (spec.info.license?.name) {
     "",
   );
 }
-lines.push(
-  "This file is the JS-free twin of the HTML API reference at",
-  "https://shorted.com.au/docs/api. The machine-readable source is",
-  "https://shorted.com.au/openapi.json — this document is generated from it.",
-  "",
-);
+if (PRIVATE) {
+  lines.push(
+    "PRIVATE: generated for the Shorted admin console (/admin/api-docs) from the",
+    "protos, with every method that needs a credential. Not published. Regenerate",
+    "with `make openapi`.",
+    "",
+    "## Authentication",
+    "",
+    "Every method here needs `Authorization: Bearer <credential>`; each one states",
+    "who may call it.",
+    "",
+    "- **Any signed-in account**: a Shorted API token (minted at",
+    "  https://shorted.com.au/account) or a Firebase ID token.",
+    "- **An administrator**: an administrator's Firebase ID token (a verified",
+    "  address on the admin allowlist), or the web tier's internal secret",
+    "  asserting the admin role.",
+    "",
+    "A missing or bad credential is `unauthenticated`; a good one without the",
+    "role is `permission_denied`. Market moves are posted over plain HTTP, not",
+    "Connect: see the Market moves posting API document.",
+    "",
+  );
+} else {
+  lines.push(
+    "This file is the JS-free twin of the HTML API reference at",
+    "https://shorted.com.au/docs/api. The machine-readable source is",
+    "https://shorted.com.au/openapi.json — this document is generated from it.",
+    "",
+  );
+}
 
 lines.push("## Base URL", "");
 lines.push("```");
@@ -169,39 +205,41 @@ lines.push(
   "",
 );
 
+if (!PRIVATE) {
 // ---- Rate limits -----------------------------------------------------------
-// Source of truth: DefaultConfig in services/pkg/ratelimit/config.go.
-// API and BROWSER limits are different columns of the same tier and must never
-// be conflated: paid BROWSER access is unlimited, paid API access is not.
-lines.push("## Rate limits", "");
-lines.push(
-  "Every tier has two independent budgets: **API** (programmatic, via an API",
-  "token) and **browser** (the web app, via Firebase auth). They are different",
-  "numbers — a paid *browser* session is unlimited, a paid *API* key is not.",
-  "",
-);
-lines.push("| Tier | API per minute | API per month | Browser per minute | Browser per month |");
-lines.push("| --- | --- | --- | --- | --- |");
-lines.push("| anonymous | 30 | 500 | 60 | 5,000 |");
-lines.push("| free | 60 | 1,000 | 120 | 10,000 |");
-lines.push("| pro / premium (paid) | 120 | 10,000 | unlimited | unlimited |");
-lines.push("| enterprise | 300 | 50,000 | unlimited | unlimited |");
-lines.push("");
-lines.push(
-  "Per-minute limits are enforced in process, per API instance; monthly quotas",
-  "are accounted centrally. An unlimited window emits no `X-RateLimit-*` headers",
-  "for that window at all (a limit of `0` would read as \"zero requests allowed\").",
-  "",
-);
-lines.push(
-  "Successful responses carry `X-RateLimit-Limit` / `-Remaining` / `-Reset` and",
-  "the `X-RateLimit-Monthly-*` equivalents. A 429 from the API carries",
-  "`X-RateLimit-Detail`: compact JSON naming which limit fired (`kind`), the",
-  "ceiling, consumption, `reset_at`, `retry_after_seconds`, `tier`, `access`",
-  "(`api` or `browser`) and an absolute `upgrade_url`. A 429 from the CDN edge",
-  "has no `X-RateLimit-Detail` — branch on its presence to tell the two apart.",
-  "",
-);
+  // Source of truth: DefaultConfig in services/pkg/ratelimit/config.go.
+  // API and BROWSER limits are different columns of the same tier and must never
+  // be conflated: paid BROWSER access is unlimited, paid API access is not.
+  lines.push("## Rate limits", "");
+  lines.push(
+    "Every tier has two independent budgets: **API** (programmatic, via an API",
+    "token) and **browser** (the web app, via Firebase auth). They are different",
+    "numbers — a paid *browser* session is unlimited, a paid *API* key is not.",
+    "",
+  );
+  lines.push("| Tier | API per minute | API per month | Browser per minute | Browser per month |");
+  lines.push("| --- | --- | --- | --- | --- |");
+  lines.push("| anonymous | 30 | 500 | 60 | 5,000 |");
+  lines.push("| free | 60 | 1,000 | 120 | 10,000 |");
+  lines.push("| pro / premium (paid) | 120 | 10,000 | unlimited | unlimited |");
+  lines.push("| enterprise | 300 | 50,000 | unlimited | unlimited |");
+  lines.push("");
+  lines.push(
+    "Per-minute limits are enforced in process, per API instance; monthly quotas",
+    "are accounted centrally. An unlimited window emits no `X-RateLimit-*` headers",
+    "for that window at all (a limit of `0` would read as \"zero requests allowed\").",
+    "",
+  );
+  lines.push(
+    "Successful responses carry `X-RateLimit-Limit` / `-Remaining` / `-Reset` and",
+    "the `X-RateLimit-Monthly-*` equivalents. A 429 from the API carries",
+    "`X-RateLimit-Detail`: compact JSON naming which limit fired (`kind`), the",
+    "ceiling, consumption, `reset_at`, `retry_after_seconds`, `tier`, `access`",
+    "(`api` or `browser`) and an absolute `upgrade_url`. A 429 from the CDN edge",
+    "has no `X-RateLimit-Detail` — branch on its presence to tell the two apart.",
+    "",
+  );
+}
 
 // ---- Endpoints -------------------------------------------------------------
 lines.push("## Endpoints", "");
@@ -239,6 +277,10 @@ for (const [tag, entries] of [...byTag.entries()].sort(([a], [b]) =>
     }
     if (baseUrl !== defaultBaseUrl) {
       lines.push(`Base URL: \`${baseUrl}\` (not the API host).`, "");
+    }
+    if (PRIVATE) {
+      const access = op["x-shorted-access"];
+      lines.push(`Who may call it: ${ACCESS_LABEL[access] ?? `the \`${access}\` role`}.`, "");
     }
 
     const params = visibleParams(item, op);
@@ -283,6 +325,7 @@ for (const [tag, entries] of [...byTag.entries()].sort(([a], [b]) =>
     if (hasBody) {
       lines.push(`curl -X ${verb} '${baseUrl}${route}' \\`);
       lines.push(`  -A '${SAMPLE_USER_AGENT}' \\`);
+      if (PRIVATE) lines.push(`  -H "Authorization: Bearer $SHORTED_API_TOKEN" \\`);
       lines.push("  -H 'Content-Type: application/json' \\");
       lines.push("  -H 'Connect-Protocol-Version: 1' \\");
       lines.push(`  -d '${requestBodyExample(op)}'`);
@@ -300,24 +343,26 @@ for (const [tag, entries] of [...byTag.entries()].sort(([a], [b]) =>
   }
 }
 
-lines.push("## Model Context Protocol", "");
-lines.push(
-  "A hosted MCP server exposes this data to MCP-capable clients over streamable",
-  "HTTP at `https://api.shorted.com.au/mcp` (protocol 2026-07-28). Point an MCP",
-  "client at that URL; no account, token or install step is required.",
-  "",
-  "The live tool catalog is at `https://api.shorted.com.au/mcp/catalog.json`, and",
-  "connection instructions for Claude, ChatGPT and generic clients are at",
-  "https://shorted.com.au/docs/mcp.md",
-  "",
-  "`https://shorted.com.au/api/mcp/mcp` still responds but is DEPRECATED: it is a",
-  "four-tool shim kept alive for existing client configurations.",
-  "",
-);
+if (!PRIVATE) {
+  lines.push("## Model Context Protocol", "");
+  lines.push(
+    "A hosted MCP server exposes this data to MCP-capable clients over streamable",
+    "HTTP at `https://api.shorted.com.au/mcp` (protocol 2026-07-28). Point an MCP",
+    "client at that URL; no account, token or install step is required.",
+    "",
+    "The live tool catalog is at `https://api.shorted.com.au/mcp/catalog.json`, and",
+    "connection instructions for Claude, ChatGPT and generic clients are at",
+    "https://shorted.com.au/docs/mcp.md",
+    "",
+    "`https://shorted.com.au/api/mcp/mcp` still responds but is DEPRECATED: it is a",
+    "four-tool shim kept alive for existing client configurations.",
+    "",
+  );
+}
 
-const outDir = path.join(root, "public/docs");
+const outDir = path.join(root, OUT_DIR);
 mkdirSync(outDir, { recursive: true });
-writeFileSync(path.join(outDir, "api-markdown.md"), `${lines.join("\n").trimEnd()}\n`);
+writeFileSync(path.join(outDir, OUT_FILE), `${lines.join("\n").trimEnd()}\n`);
 console.log(
-  `wrote public/docs/api-markdown.md (${operationCount} endpoints across ${Object.keys(spec.paths).length} paths)`,
+  `wrote ${OUT_DIR}/${OUT_FILE} (${operationCount} endpoints across ${Object.keys(spec.paths).length} paths)`,
 );

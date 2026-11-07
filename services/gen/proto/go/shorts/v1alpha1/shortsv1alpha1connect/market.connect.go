@@ -61,6 +61,9 @@ const (
 	// MarketServiceGetShortCampaignScoreboardProcedure is the fully-qualified name of the
 	// MarketService's GetShortCampaignScoreboard RPC.
 	MarketServiceGetShortCampaignScoreboardProcedure = "/shorts.v1alpha1.MarketService/GetShortCampaignScoreboard"
+	// MarketServiceListMarketMovesProcedure is the fully-qualified name of the MarketService's
+	// ListMarketMoves RPC.
+	MarketServiceListMarketMovesProcedure = "/shorts.v1alpha1.MarketService/ListMarketMoves"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -75,6 +78,7 @@ var (
 	marketServiceGetSyncStatusMethodDescriptor              = marketServiceServiceDescriptor.Methods().ByName("GetSyncStatus")
 	marketServiceGetBattlegroundStocksMethodDescriptor      = marketServiceServiceDescriptor.Methods().ByName("GetBattlegroundStocks")
 	marketServiceGetShortCampaignScoreboardMethodDescriptor = marketServiceServiceDescriptor.Methods().ByName("GetShortCampaignScoreboard")
+	marketServiceListMarketMovesMethodDescriptor            = marketServiceServiceDescriptor.Methods().ByName("ListMarketMoves")
 )
 
 // MarketServiceClient is a client for the shorts.v1alpha1.MarketService service.
@@ -97,6 +101,10 @@ type MarketServiceClient interface {
 	GetBattlegroundStocks(context.Context, *connect.Request[v1alpha1.GetBattlegroundStocksRequest]) (*connect.Response[v1alpha1.GetBattlegroundStocksResponse], error)
 	// Get the short-seller scoreboard: historic short campaigns and whether shorts won
 	GetShortCampaignScoreboard(context.Context, *connect.Request[v1alpha1.GetShortCampaignScoreboardRequest]) (*connect.Response[v1alpha1.GetShortCampaignScoreboardResponse], error)
+	// List market moves: what moved, by how much, when it was observed and why,
+	// newest observation first. Published moves only, each with its own
+	// observation time and sources.
+	ListMarketMoves(context.Context, *connect.Request[v1alpha1.ListMarketMovesRequest]) (*connect.Response[v1alpha1.ListMarketMovesResponse], error)
 }
 
 // NewMarketServiceClient constructs a client for the shorts.v1alpha1.MarketService service. By
@@ -163,6 +171,12 @@ func NewMarketServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(marketServiceGetShortCampaignScoreboardMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listMarketMoves: connect.NewClient[v1alpha1.ListMarketMovesRequest, v1alpha1.ListMarketMovesResponse](
+			httpClient,
+			baseURL+MarketServiceListMarketMovesProcedure,
+			connect.WithSchema(marketServiceListMarketMovesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -177,6 +191,7 @@ type marketServiceClient struct {
 	getSyncStatus              *connect.Client[v1alpha1.GetSyncStatusRequest, v1alpha1.GetSyncStatusResponse]
 	getBattlegroundStocks      *connect.Client[v1alpha1.GetBattlegroundStocksRequest, v1alpha1.GetBattlegroundStocksResponse]
 	getShortCampaignScoreboard *connect.Client[v1alpha1.GetShortCampaignScoreboardRequest, v1alpha1.GetShortCampaignScoreboardResponse]
+	listMarketMoves            *connect.Client[v1alpha1.ListMarketMovesRequest, v1alpha1.ListMarketMovesResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.MarketService.GetTopShorts.
@@ -224,6 +239,11 @@ func (c *marketServiceClient) GetShortCampaignScoreboard(ctx context.Context, re
 	return c.getShortCampaignScoreboard.CallUnary(ctx, req)
 }
 
+// ListMarketMoves calls shorts.v1alpha1.MarketService.ListMarketMoves.
+func (c *marketServiceClient) ListMarketMoves(ctx context.Context, req *connect.Request[v1alpha1.ListMarketMovesRequest]) (*connect.Response[v1alpha1.ListMarketMovesResponse], error) {
+	return c.listMarketMoves.CallUnary(ctx, req)
+}
+
 // MarketServiceHandler is an implementation of the shorts.v1alpha1.MarketService service.
 type MarketServiceHandler interface {
 	// Shows top 10 short positions on the ASX over different periods of time.
@@ -244,6 +264,10 @@ type MarketServiceHandler interface {
 	GetBattlegroundStocks(context.Context, *connect.Request[v1alpha1.GetBattlegroundStocksRequest]) (*connect.Response[v1alpha1.GetBattlegroundStocksResponse], error)
 	// Get the short-seller scoreboard: historic short campaigns and whether shorts won
 	GetShortCampaignScoreboard(context.Context, *connect.Request[v1alpha1.GetShortCampaignScoreboardRequest]) (*connect.Response[v1alpha1.GetShortCampaignScoreboardResponse], error)
+	// List market moves: what moved, by how much, when it was observed and why,
+	// newest observation first. Published moves only, each with its own
+	// observation time and sources.
+	ListMarketMoves(context.Context, *connect.Request[v1alpha1.ListMarketMovesRequest]) (*connect.Response[v1alpha1.ListMarketMovesResponse], error)
 }
 
 // NewMarketServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -306,6 +330,12 @@ func NewMarketServiceHandler(svc MarketServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(marketServiceGetShortCampaignScoreboardMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	marketServiceListMarketMovesHandler := connect.NewUnaryHandler(
+		MarketServiceListMarketMovesProcedure,
+		svc.ListMarketMoves,
+		connect.WithSchema(marketServiceListMarketMovesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.MarketService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case MarketServiceGetTopShortsProcedure:
@@ -326,6 +356,8 @@ func NewMarketServiceHandler(svc MarketServiceHandler, opts ...connect.HandlerOp
 			marketServiceGetBattlegroundStocksHandler.ServeHTTP(w, r)
 		case MarketServiceGetShortCampaignScoreboardProcedure:
 			marketServiceGetShortCampaignScoreboardHandler.ServeHTTP(w, r)
+		case MarketServiceListMarketMovesProcedure:
+			marketServiceListMarketMovesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -369,4 +401,8 @@ func (UnimplementedMarketServiceHandler) GetBattlegroundStocks(context.Context, 
 
 func (UnimplementedMarketServiceHandler) GetShortCampaignScoreboard(context.Context, *connect.Request[v1alpha1.GetShortCampaignScoreboardRequest]) (*connect.Response[v1alpha1.GetShortCampaignScoreboardResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.MarketService.GetShortCampaignScoreboard is not implemented"))
+}
+
+func (UnimplementedMarketServiceHandler) ListMarketMoves(context.Context, *connect.Request[v1alpha1.ListMarketMovesRequest]) (*connect.Response[v1alpha1.ListMarketMovesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.MarketService.ListMarketMoves is not implemented"))
 }

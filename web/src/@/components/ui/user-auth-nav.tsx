@@ -121,6 +121,22 @@ export const UserAuthNav = () => {
                   Admin: Register review
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                className="cursor-pointer focus:bg-secondary text-orange-700 dark:text-orange-300 font-medium"
+              >
+                <Link href="/admin/market-moves" className="w-full">
+                  Admin: Market moves tokens
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                asChild
+                className="cursor-pointer focus:bg-secondary text-orange-700 dark:text-orange-300 font-medium"
+              >
+                <Link href="/admin/api-docs" className="w-full">
+                  Admin: Private API docs
+                </Link>
+              </DropdownMenuItem>
             </>
           )}
         </div>

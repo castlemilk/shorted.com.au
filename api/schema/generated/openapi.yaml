@@ -773,6 +773,296 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.ListStateCompaniesResponse'
+  /shorts.v1alpha1.EnrichmentService/EnrichStock:
+    post:
+      tags:
+        - shorts.v1alpha1.EnrichmentService
+      summary: EnrichStock
+      description: |-
+        Trigger enrichment for a specific stock. Admin only.
+         Returns enrichment data for review before applying to company-metadata.
+      operationId: EnrichmentService_EnrichStock
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.EnrichStockRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.EnrichStockResponse'
+  /shorts.v1alpha1.EnrichmentService/GetEnrichmentJobStatus:
+    post:
+      tags:
+        - shorts.v1alpha1.EnrichmentService
+      summary: GetEnrichmentJobStatus
+      description: Get enrichment job status by job ID. Admin only.
+      operationId: EnrichmentService_GetEnrichmentJobStatus
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetEnrichmentJobStatusRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetEnrichmentJobStatusResponse'
+  /shorts.v1alpha1.EnrichmentService/GetPendingEnrichment:
+    post:
+      tags:
+        - shorts.v1alpha1.EnrichmentService
+      summary: GetPendingEnrichment
+      description: Get a specific pending enrichment by ID. Admin only.
+      operationId: EnrichmentService_GetPendingEnrichment
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetPendingEnrichmentRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetPendingEnrichmentResponse'
+  /shorts.v1alpha1.EnrichmentService/GetTopStocksForEnrichment:
+    post:
+      tags:
+        - shorts.v1alpha1.EnrichmentService
+      summary: GetTopStocksForEnrichment
+      description: Get top stocks for enrichment batching/prioritization. Admin only.
+      operationId: EnrichmentService_GetTopStocksForEnrichment
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetTopStocksForEnrichmentRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetTopStocksForEnrichmentResponse'
+  /shorts.v1alpha1.EnrichmentService/ListEnrichmentJobs:
+    post:
+      tags:
+        - shorts.v1alpha1.EnrichmentService
+      summary: ListEnrichmentJobs
+      description: List enrichment jobs with optional status filter. Admin only.
+      operationId: EnrichmentService_ListEnrichmentJobs
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListEnrichmentJobsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListEnrichmentJobsResponse'
+  /shorts.v1alpha1.EnrichmentService/ListPendingEnrichments:
+    post:
+      tags:
+        - shorts.v1alpha1.EnrichmentService
+      summary: ListPendingEnrichments
+      description: List pending enrichments awaiting review. Admin only.
+      operationId: EnrichmentService_ListPendingEnrichments
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListPendingEnrichmentsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListPendingEnrichmentsResponse'
+  /shorts.v1alpha1.EnrichmentService/ReviewEnrichment:
+    post:
+      tags:
+        - shorts.v1alpha1.EnrichmentService
+      summary: ReviewEnrichment
+      description: Approve or reject a pending enrichment. Admin only.
+      operationId: EnrichmentService_ReviewEnrichment
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ReviewEnrichmentRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ReviewEnrichmentResponse'
+  /shorts.v1alpha1.EnrichmentService/SyncKeyMetrics:
+    post:
+      tags:
+        - shorts.v1alpha1.EnrichmentService
+      summary: SyncKeyMetrics
+      description: Trigger key metrics sync for specific stocks. Admin only.
+      operationId: EnrichmentService_SyncKeyMetrics
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.SyncKeyMetricsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.SyncKeyMetricsResponse'
   /shorts.v1alpha1.HousingService/FilterSuburbs:
     post:
       tags:
@@ -1749,6 +2039,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.ListIndicesResponse'
+  /shorts.v1alpha1.MarketService/ListMarketMoves:
+    post:
+      tags:
+        - shorts.v1alpha1.MarketService
+      summary: ListMarketMoves
+      description: |-
+        List market moves: what moved, by how much, when it was observed and why,
+         newest observation first. Published moves only, each with its own
+         observation time and sources.
+      operationId: MarketService_ListMarketMoves
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListMarketMovesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListMarketMovesResponse'
   /shorts.v1alpha1.NewsService/DeleteEditorialTake:
     post:
       tags:
@@ -7752,6 +8081,190 @@ components:
       description: |-
         A stretch of the paper track written by one engine version. A track continues across an engine bump; the
          segments say where it changed, so a surface can mark the change.
+    shorts.v1alpha1.EnrichStockRequest:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: Stock code to enrich (e.g., "CBA") (proto string)
+        force:
+          type: boolean
+          title: force
+          description: If true, re-enrich even if already enriched (proto bool)
+      title: EnrichStockRequest
+      additionalProperties: false
+      description: Enrichment request
+    shorts.v1alpha1.EnrichStockResponse:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        jobId:
+          type: string
+          title: job_id
+          description: Job ID for tracking async enrichment (proto string)
+        message:
+          type: string
+          title: message
+          description: Status message (proto string)
+      title: EnrichStockResponse
+      additionalProperties: false
+      description: Enrichment response with job ID (async processing)
+    shorts.v1alpha1.EnrichmentData:
+      type: object
+      properties:
+        enhancedSummary:
+          type: string
+          title: enhanced_summary
+          description: (proto string)
+        companyHistory:
+          type: string
+          title: company_history
+          description: (proto string)
+        keyPeople:
+          type: array
+          items:
+            $ref: '#/components/schemas/stocks.v1alpha1.CompanyPerson'
+          title: key_people
+          description: (proto stocks.v1alpha1.CompanyPerson)
+        financialReports:
+          type: array
+          items:
+            $ref: '#/components/schemas/stocks.v1alpha1.FinancialReport'
+          title: financial_reports
+          description: (proto stocks.v1alpha1.FinancialReport)
+        competitiveAdvantages:
+          type: string
+          title: competitive_advantages
+          description: (proto string)
+        riskFactors:
+          type: array
+          items:
+            type: string
+          title: risk_factors
+          description: (proto string)
+        recentDevelopments:
+          type: string
+          title: recent_developments
+          description: (proto string)
+        socialMediaLinks:
+          title: social_media_links
+          description: (proto stocks.v1alpha1.SocialMediaLinks)
+          $ref: '#/components/schemas/stocks.v1alpha1.SocialMediaLinks'
+        tags:
+          type: array
+          items:
+            type: string
+          title: tags
+          description: (proto string)
+        logoGcsUrl:
+          type: string
+          title: logo_gcs_url
+          description: Logo URLs (staged for review, applied on approval) Full logo PNG URL (background removed) (proto string)
+        logoIconGcsUrl:
+          type: string
+          title: logo_icon_gcs_url
+          description: Icon-only logo PNG URL (proto string)
+        logoSvgGcsUrl:
+          type: string
+          title: logo_svg_gcs_url
+          description: Original SVG logo URL (if discovered as SVG) (proto string)
+        logoSourceUrl:
+          type: string
+          title: logo_source_url
+          description: Original URL where the logo was found (proto string)
+        logoFormat:
+          type: string
+          title: logo_format
+          description: Original format of discovered logo (svg, png, etc) (proto string)
+        discoveredWebsite:
+          type: string
+          title: discovered_website
+          description: Website discovery (when original metadata lacks website) Website URL discovered during enrichment (proto string)
+      title: EnrichmentData
+      additionalProperties: false
+      description: Enrichment data structure
+    shorts.v1alpha1.EnrichmentJob:
+      type: object
+      properties:
+        jobId:
+          type: string
+          title: job_id
+          description: (proto string)
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        status:
+          title: status
+          description: (proto shorts.v1alpha1.EnrichmentJobStatus)
+          $ref: '#/components/schemas/shorts.v1alpha1.EnrichmentJobStatus'
+        priority:
+          type: integer
+          title: priority
+          format: int32
+          description: (proto int32)
+        force:
+          type: boolean
+          title: force
+          description: (proto bool)
+        createdAt:
+          title: created_at
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        startedAt:
+          title: started_at
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        completedAt:
+          title: completed_at
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        errorMessage:
+          type: string
+          title: error_message
+          description: (proto string)
+        enrichmentId:
+          type: string
+          title: enrichment_id
+          description: Set when job completes and enrichment is saved (proto string)
+      title: EnrichmentJob
+      additionalProperties: false
+      description: Enrichment job record
+    shorts.v1alpha1.EnrichmentJobStatus:
+      type: string
+      title: EnrichmentJobStatus
+      enum:
+        - ENRICHMENT_JOB_STATUS_UNSPECIFIED
+        - ENRICHMENT_JOB_STATUS_QUEUED
+        - ENRICHMENT_JOB_STATUS_PROCESSING
+        - ENRICHMENT_JOB_STATUS_COMPLETED
+        - ENRICHMENT_JOB_STATUS_FAILED
+        - ENRICHMENT_JOB_STATUS_CANCELLED
+      description: Enrichment job status enum
+    shorts.v1alpha1.EnrichmentPriority:
+      type: string
+      title: EnrichmentPriority
+      enum:
+        - ENRICHMENT_PRIORITY_UNSPECIFIED
+        - ENRICHMENT_PRIORITY_MARKET_CAP
+        - ENRICHMENT_PRIORITY_SHORT_POSITION
+        - ENRICHMENT_PRIORITY_UNENRICHED
+        - ENRICHMENT_PRIORITY_STALE
+      description: Enrichment priority
+    shorts.v1alpha1.EnrichmentStatus:
+      type: string
+      title: EnrichmentStatus
+      enum:
+        - ENRICHMENT_STATUS_UNSPECIFIED
+        - ENRICHMENT_STATUS_PENDING_REVIEW
+        - ENRICHMENT_STATUS_COMPLETED
+        - ENRICHMENT_STATUS_FAILED
+        - ENRICHMENT_STATUS_REJECTED
+      description: Enrichment status
     shorts.v1alpha1.FilterSuburbsRequest:
       type: object
       properties:
@@ -9713,6 +10226,26 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.EditorialTake'
       title: GetEditorialTakeResponse
       additionalProperties: false
+    shorts.v1alpha1.GetEnrichmentJobStatusRequest:
+      type: object
+      properties:
+        jobId:
+          type: string
+          title: job_id
+          description: (proto string)
+      title: GetEnrichmentJobStatusRequest
+      additionalProperties: false
+      description: Get enrichment job status request
+    shorts.v1alpha1.GetEnrichmentJobStatusResponse:
+      type: object
+      properties:
+        job:
+          title: job
+          description: (proto shorts.v1alpha1.EnrichmentJob)
+          $ref: '#/components/schemas/shorts.v1alpha1.EnrichmentJob'
+      title: GetEnrichmentJobStatusResponse
+      additionalProperties: false
+      description: Get enrichment job status response
     shorts.v1alpha1.GetEventTimelineRequest:
       type: object
       properties:
@@ -10692,6 +11225,26 @@ components:
       title: GetPeerComparisonResponse
       additionalProperties: false
       description: Response for GetPeerComparison RPC
+    shorts.v1alpha1.GetPendingEnrichmentRequest:
+      type: object
+      properties:
+        enrichmentId:
+          type: string
+          title: enrichment_id
+          description: (proto string)
+      title: GetPendingEnrichmentRequest
+      additionalProperties: false
+      description: Get a pending enrichment request
+    shorts.v1alpha1.GetPendingEnrichmentResponse:
+      type: object
+      properties:
+        pending:
+          title: pending
+          description: (proto shorts.v1alpha1.PendingEnrichment)
+          $ref: '#/components/schemas/shorts.v1alpha1.PendingEnrichment'
+      title: GetPendingEnrichmentResponse
+      additionalProperties: false
+      description: Get a pending enrichment response
     shorts.v1alpha1.GetPoliticianAnalyticsRequest:
       type: object
       properties:
@@ -12455,6 +13008,33 @@ components:
       title: GetTopShortsResponse
       additionalProperties: false
       description: Response for Top10 RPC, including time series data for each of the top 10 short positions.
+    shorts.v1alpha1.GetTopStocksForEnrichmentRequest:
+      type: object
+      properties:
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: 'Number of stocks to return (default: 100) (proto int32)'
+        priority:
+          title: priority
+          description: How to prioritize stocks (proto shorts.v1alpha1.EnrichmentPriority)
+          $ref: '#/components/schemas/shorts.v1alpha1.EnrichmentPriority'
+      title: GetTopStocksForEnrichmentRequest
+      additionalProperties: false
+      description: Get top stocks for enrichment request
+    shorts.v1alpha1.GetTopStocksForEnrichmentResponse:
+      type: object
+      properties:
+        stocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StockEnrichmentCandidate'
+          title: stocks
+          description: (proto shorts.v1alpha1.StockEnrichmentCandidate)
+      title: GetTopStocksForEnrichmentResponse
+      additionalProperties: false
+      description: Get top stocks response
     shorts.v1alpha1.GetWeeklyReportRequest:
       type: object
       properties:
@@ -13212,6 +13792,52 @@ components:
       title: InlineImage
       additionalProperties: false
       description: Inline image embedded in a Take body.
+    shorts.v1alpha1.KeyMetricsData:
+      type: object
+      properties:
+        marketCap:
+          type: number
+          title: market_cap
+          format: double
+          description: (proto double)
+        peRatio:
+          type: number
+          title: pe_ratio
+          format: double
+          description: (proto double)
+        eps:
+          type: number
+          title: eps
+          format: double
+          description: (proto double)
+        dividendYield:
+          type: number
+          title: dividend_yield
+          format: double
+          description: (proto double)
+        beta:
+          type: number
+          title: beta
+          format: double
+          description: (proto double)
+        fiftyTwoWeekHigh:
+          type: number
+          title: fifty_two_week_high
+          format: double
+          description: (proto double)
+        fiftyTwoWeekLow:
+          type: number
+          title: fifty_two_week_low
+          format: double
+          description: (proto double)
+        avgVolume:
+          type: number
+          title: avg_volume
+          format: double
+          description: (proto double)
+      title: KeyMetricsData
+      additionalProperties: false
+      description: Key metrics data structure
     shorts.v1alpha1.KindShare:
       type: object
       properties:
@@ -13951,6 +14577,43 @@ components:
           description: (proto int32)
       title: ListEditorialTakesResponse
       additionalProperties: false
+    shorts.v1alpha1.ListEnrichmentJobsRequest:
+      type: object
+      properties:
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: 'Default: 100 (proto int32)'
+        offset:
+          type: integer
+          title: offset
+          format: int32
+          description: 'Default: 0 (proto int32)'
+        status:
+          title: status
+          description: Optional filter by status (proto shorts.v1alpha1.EnrichmentJobStatus)
+          $ref: '#/components/schemas/shorts.v1alpha1.EnrichmentJobStatus'
+      title: ListEnrichmentJobsRequest
+      additionalProperties: false
+      description: List enrichment jobs request
+    shorts.v1alpha1.ListEnrichmentJobsResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.EnrichmentJob'
+          title: jobs
+          description: (proto shorts.v1alpha1.EnrichmentJob)
+        totalCount:
+          type: integer
+          title: total_count
+          format: int32
+          description: (proto int32)
+      title: ListEnrichmentJobsResponse
+      additionalProperties: false
+      description: List enrichment jobs response
     shorts.v1alpha1.ListFundPositionChangesRequest:
       type: object
       properties:
@@ -14102,6 +14765,52 @@ components:
           description: (proto int32)
       title: ListInstitutionsResponse
       additionalProperties: false
+    shorts.v1alpha1.ListMarketMovesRequest:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: Moves about this stock or naming it among related_codes. (proto string)
+        kind:
+          type: string
+          title: kind
+          description: stock | index | sector | market; empty for every kind. (proto string)
+        marketDate:
+          type: string
+          title: market_date
+          description: YYYY-MM-DD (Sydney); empty for every date. (proto string)
+        minSignificance:
+          type: integer
+          title: min_significance
+          format: int32
+          description: 1 to 5; 0 for every move. (proto int32)
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: Default 20, at most 100. (proto int32)
+        cursor:
+          type: string
+          title: cursor
+          description: next_cursor from the previous page; empty for the first page. (proto string)
+      title: ListMarketMovesRequest
+      additionalProperties: false
+    shorts.v1alpha1.ListMarketMovesResponse:
+      type: object
+      properties:
+        moves:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.MarketMove'
+          title: moves
+          description: (proto shorts.v1alpha1.MarketMove)
+        nextCursor:
+          type: string
+          title: next_cursor
+          description: Empty on the last page. (proto string)
+      title: ListMarketMovesResponse
+      additionalProperties: false
     shorts.v1alpha1.ListPartyFundingRequest:
       type: object
       properties:
@@ -14185,6 +14894,34 @@ components:
           $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: ListPartyFundingResponse
       additionalProperties: false
+    shorts.v1alpha1.ListPendingEnrichmentsRequest:
+      type: object
+      properties:
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: 'Default: 100 (proto int32)'
+        offset:
+          type: integer
+          title: offset
+          format: int32
+          description: 'Default: 0 (proto int32)'
+      title: ListPendingEnrichmentsRequest
+      additionalProperties: false
+      description: List pending enrichments request
+    shorts.v1alpha1.ListPendingEnrichmentsResponse:
+      type: object
+      properties:
+        enrichments:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.PendingEnrichmentSummary'
+          title: enrichments
+          description: (proto shorts.v1alpha1.PendingEnrichmentSummary)
+      title: ListPendingEnrichmentsResponse
+      additionalProperties: false
+      description: List pending enrichments response
     shorts.v1alpha1.ListPoliticianStocksRequest:
       type: object
       properties:
@@ -15334,6 +16071,145 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.EditorialTake'
       title: MarkTakeTweetPublishedResponse
       additionalProperties: false
+    shorts.v1alpha1.MarketMove:
+      type: object
+      properties:
+        moveKey:
+          type: string
+          title: move_key
+          description: |-
+            The poster's own key for the move. A re-post of the same key updates the
+             move in place and raises revision. (proto string)
+        kind:
+          type: string
+          title: kind
+          description: stock | index | sector | market. (proto string)
+        stockCode:
+          type: string
+          title: stock_code
+          description: The stock the move is about (kind stock), and its name when we hold one. (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        indexCode:
+          type: string
+          title: index_code
+          description: The index the move is about (kind index), e.g. XJO. (proto string)
+        sector:
+          type: string
+          title: sector
+          description: The sector the move is about (kind sector), as the poster named it. (proto string)
+        relatedCodes:
+          type: array
+          items:
+            type: string
+          title: related_codes
+          description: Other ASX codes the move names, each one we hold. (proto string)
+        direction:
+          type: string
+          title: direction
+          description: up | down | flat | mixed. (proto string)
+        changePct:
+          type: number
+          title: change_pct
+          format: double
+          description: The move in percent (-3.2 is a 3.2% fall). (proto double)
+        hasChangePct:
+          type: boolean
+          title: has_change_pct
+          description: (proto bool)
+        price:
+          type: number
+          title: price
+          format: double
+          description: The price (or index level) at observed_at. (proto double)
+        hasPrice:
+          type: boolean
+          title: has_price
+          description: (proto bool)
+        volumeRatio:
+          type: number
+          title: volume_ratio
+          format: double
+          description: Volume against its usual level (2.5 = two and a half times). (proto double)
+        hasVolumeRatio:
+          type: boolean
+          title: has_volume_ratio
+          description: (proto bool)
+        headline:
+          type: string
+          title: headline
+          description: Plain text. Never HTML or markdown. (proto string)
+        summary:
+          type: string
+          title: summary
+          description: (proto string)
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.MarketMoveSource'
+          title: sources
+          description: (proto shorts.v1alpha1.MarketMoveSource)
+        tags:
+          type: array
+          items:
+            type: string
+          title: tags
+          description: (proto string)
+        significance:
+          type: integer
+          title: significance
+          format: int32
+          description: 1 (minor) to 5 (market-wide event). (proto int32)
+        observedAt:
+          type: string
+          title: observed_at
+          description: RFC 3339, when the poster observed the move. (proto string)
+        marketDate:
+          type: string
+          title: market_date
+          description: YYYY-MM-DD, the Sydney calendar date of observed_at. (proto string)
+        revision:
+          type: integer
+          title: revision
+          format: int32
+          description: (proto int32)
+        publishedAt:
+          type: string
+          title: published_at
+          description: RFC 3339, when the move was first posted and when it last changed. (proto string)
+        updatedAt:
+          type: string
+          title: updated_at
+          description: (proto string)
+        model:
+          type: string
+          title: model
+          description: The model that wrote the move, when the poster named it. (proto string)
+      title: MarketMove
+      additionalProperties: false
+      description: |-
+        One market move. Every figure carries its own date (observed_at), and a
+         figure the poster did not give travels with has_* false, never as 0.
+    shorts.v1alpha1.MarketMoveSource:
+      type: object
+      properties:
+        title:
+          type: string
+          title: title
+          description: (proto string)
+        url:
+          type: string
+          title: url
+          description: (proto string)
+        publisher:
+          type: string
+          title: publisher
+          description: (proto string)
+      title: MarketMoveSource
+      additionalProperties: false
+      description: A source the move cites. https only.
     shorts.v1alpha1.MarketRegime:
       type: object
       properties:
@@ -16318,6 +17194,74 @@ components:
       title: PeerStock
       additionalProperties: false
       description: A peer stock for comparison
+    shorts.v1alpha1.PendingEnrichment:
+      type: object
+      properties:
+        enrichmentId:
+          type: string
+          title: enrichment_id
+          description: (proto string)
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        status:
+          title: status
+          description: (proto shorts.v1alpha1.EnrichmentStatus)
+          $ref: '#/components/schemas/shorts.v1alpha1.EnrichmentStatus'
+        data:
+          title: data
+          description: (proto shorts.v1alpha1.EnrichmentData)
+          $ref: '#/components/schemas/shorts.v1alpha1.EnrichmentData'
+        qualityScore:
+          title: quality_score
+          description: (proto shorts.v1alpha1.QualityScore)
+          $ref: '#/components/schemas/shorts.v1alpha1.QualityScore'
+        createdAt:
+          title: created_at
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        reviewedAt:
+          title: reviewed_at
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        reviewedBy:
+          type: string
+          title: reviewed_by
+          description: (proto string)
+        reviewNotes:
+          type: string
+          title: review_notes
+          description: (proto string)
+      title: PendingEnrichment
+      additionalProperties: false
+      description: Full pending enrichment record (for review UI)
+    shorts.v1alpha1.PendingEnrichmentSummary:
+      type: object
+      properties:
+        enrichmentId:
+          type: string
+          title: enrichment_id
+          description: (proto string)
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        status:
+          title: status
+          description: (proto shorts.v1alpha1.EnrichmentStatus)
+          $ref: '#/components/schemas/shorts.v1alpha1.EnrichmentStatus'
+        createdAt:
+          title: created_at
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        qualityScore:
+          title: quality_score
+          description: (proto shorts.v1alpha1.QualityScore)
+          $ref: '#/components/schemas/shorts.v1alpha1.QualityScore'
+      title: PendingEnrichmentSummary
+      additionalProperties: false
+      description: A summary view of a pending enrichment (for listing)
     shorts.v1alpha1.PickFundamentals:
       type: object
       properties:
@@ -17090,6 +18034,39 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.EditorialTake'
       title: PublishEditorialTakeResponse
       additionalProperties: false
+    shorts.v1alpha1.QualityScore:
+      type: object
+      properties:
+        overallScore:
+          type: number
+          title: overall_score
+          format: double
+          description: 0.0 to 1.0 (proto double)
+        completenessScore:
+          type: number
+          title: completeness_score
+          format: double
+          description: How complete is the data (proto double)
+        accuracyScore:
+          type: number
+          title: accuracy_score
+          format: double
+          description: Estimated accuracy (proto double)
+        warnings:
+          type: array
+          items:
+            type: string
+          title: warnings
+          description: Quality warnings (proto string)
+        strengths:
+          type: array
+          items:
+            type: string
+          title: strengths
+          description: Quality strengths (proto string)
+      title: QualityScore
+      additionalProperties: false
+      description: Quality score for enrichment data
     shorts.v1alpha1.RangeFilter:
       type: object
       properties:
@@ -17464,6 +18441,46 @@ components:
       title: ReportListItem
       additionalProperties: false
       description: Summary of a published report for archive/index pages
+    shorts.v1alpha1.ReviewEnrichmentRequest:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        enrichmentId:
+          type: string
+          title: enrichment_id
+          description: ID from EnrichStockResponse (proto string)
+        approve:
+          type: boolean
+          title: approve
+          description: true to approve, false to reject (proto bool)
+        reviewNotes:
+          type: string
+          title: review_notes
+          description: Optional notes about the review (proto string)
+      title: ReviewEnrichmentRequest
+      additionalProperties: false
+      description: Review enrichment request
+    shorts.v1alpha1.ReviewEnrichmentResponse:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        approved:
+          type: boolean
+          title: approved
+          description: (proto bool)
+        message:
+          type: string
+          title: message
+          description: (proto string)
+      title: ReviewEnrichmentResponse
+      additionalProperties: false
+      description: Review enrichment response
     shorts.v1alpha1.RuleDiff:
       type: object
       properties:
@@ -18490,6 +19507,47 @@ components:
       title: StatusCounts
       additionalProperties: false
       description: Counts of ranked picks by status.
+    shorts.v1alpha1.StockEnrichmentCandidate:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        marketCap:
+          type: number
+          title: market_cap
+          format: double
+          description: (proto double)
+        shortPositionPercent:
+          type: number
+          title: short_position_percent
+          format: double
+          description: (proto double)
+        enrichmentStatus:
+          type: string
+          title: enrichment_status
+          description: (proto string)
+        lastEnriched:
+          title: last_enriched
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        priorityScore:
+          type: integer
+          title: priority_score
+          format: int32
+          description: Higher = more important to enrich (proto int32)
+      title: StockEnrichmentCandidate
+      additionalProperties: false
+      description: Stock candidate for enrichment
     shorts.v1alpha1.StockFinancialHighlights:
       type: object
       properties:
@@ -18601,6 +19659,28 @@ components:
       title: StockSignal
       additionalProperties: false
       description: A single reputation/risk signal for a stock
+    shorts.v1alpha1.StockSyncResult:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        success:
+          type: boolean
+          title: success
+          description: (proto bool)
+        errorMessage:
+          type: string
+          title: error_message
+          description: (proto string)
+        metrics:
+          title: metrics
+          description: The synced metrics if successful (proto shorts.v1alpha1.KeyMetricsData)
+          $ref: '#/components/schemas/shorts.v1alpha1.KeyMetricsData'
+      title: StockSyncResult
+      additionalProperties: false
+      description: Result for a single stock sync
     shorts.v1alpha1.Strategy:
       type: object
       properties:
@@ -20604,6 +21684,54 @@ components:
       title: Survivorship
       additionalProperties: false
       description: 'Survivorship block. Measurement is one of 8.2''s values: measured | partial | not_measurable.'
+    shorts.v1alpha1.SyncKeyMetricsRequest:
+      type: object
+      properties:
+        stockCodes:
+          type: array
+          items:
+            type: string
+          title: stock_codes
+          description: Stock codes to sync (e.g., ["CVN", "CBA"]). Empty = sync all. (proto string)
+        force:
+          type: boolean
+          title: force
+          description: 'Force sync even if recently updated (default: false) (proto bool)'
+      title: SyncKeyMetricsRequest
+      additionalProperties: false
+      description: Request for SyncKeyMetrics RPC
+    shorts.v1alpha1.SyncKeyMetricsResponse:
+      type: object
+      properties:
+        totalRequested:
+          type: integer
+          title: total_requested
+          format: int32
+          description: (proto int32)
+        successfullySynced:
+          type: integer
+          title: successfully_synced
+          format: int32
+          description: (proto int32)
+        failed:
+          type: integer
+          title: failed
+          format: int32
+          description: (proto int32)
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StockSyncResult'
+          title: results
+          description: (proto shorts.v1alpha1.StockSyncResult)
+        durationSeconds:
+          type: number
+          title: duration_seconds
+          format: double
+          description: (proto double)
+      title: SyncKeyMetricsResponse
+      additionalProperties: false
+      description: Response for SyncKeyMetrics RPC
     shorts.v1alpha1.SyncRun:
       type: object
       properties:

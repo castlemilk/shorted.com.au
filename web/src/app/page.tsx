@@ -34,6 +34,7 @@ import { TrendingThisWeek } from "./trending-this-week";
 import { ShortFlowNarrative } from "./short-flow-narrative";
 import { LatestFromBlog } from "./latest-from-blog";
 import { LatestMarketNews } from "./latest-market-news";
+import { LatestMarketMoves } from "./latest-market-moves";
 import { FeaturedStory } from "~/@/components/news/masthead/featured-story";
 import { FEATURED } from "~/@/components/news/masthead/featured";
 
@@ -255,6 +256,12 @@ export default async function Page() {
       {/* Premium upsell for authenticated free-tier users */}
       <Suspense fallback={null}>
         <PremiumUpsellBanner />
+      </Suspense>
+
+      {/* Market moves — what moved and why, as the market-moves workflow
+          posts it (the API revalidates this page after each change) */}
+      <Suspense fallback={null}>
+        <LatestMarketMoves />
       </Suspense>
 
       {/* Market news — freshest cross-market coverage, directly under the

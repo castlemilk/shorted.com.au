@@ -117,6 +117,8 @@ var scopeDescriptions = map[string]string{
 	"crawl:read": "View the housing crawl's rig, queue, ledger and job state, and read a rig's logs",
 	// Admin resource: smoke-test the housing crawl. Starts one enqueue and sends a rig a drain.
 	"crawl:operate": "Smoke-test the housing crawl: enqueue one suburb and send a rig a drain",
+	// Admin resource: post and retract market moves, which go live on the public site at once.
+	"moves:write": "Post market moves to shorted.com.au (live at once, labelled AI-written) and retract them",
 }
 
 // DescribeScopes turns a space-delimited grant into ordered, human-readable

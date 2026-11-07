@@ -23,11 +23,11 @@ claude.ai → Settings → Connectors → **Add custom connector** →
 `https://api.shorted.com.au/mcp/admin`. Claude discovers the OAuth server,
 sends you to the Shorted consent screen, you sign in with your normal account
 and approve **jobs:read**, **news:publish**, **jobs:run**, **users:read**,
-**crawl:authorize**, **crawl:read** and **crawl:operate**.
+**crawl:authorize**, **crawl:read**, **crawl:operate** and **moves:write**.
 For a monitoring-only client, request only `jobs:read`; leave out `users:read`,
-`crawl:authorize`, `crawl:read` and `crawl:operate` unless the client needs personal
-data or the housing crawl. The connector then appears in every Claude session (including Claude
-Code on the web) with thirty-three tools:
+`crawl:authorize`, `crawl:read`, `crawl:operate` and `moves:write` unless the client needs personal
+data, the housing crawl or market moves. The connector then appears in every Claude session (including Claude
+Code on the web) with thirty-five tools:
 
 | Tool | Scope | What it does |
 |---|---|---|
@@ -64,6 +64,8 @@ Code on the web) with thirty-three tools:
 | `housing_crawl_smoke` `{rig_id, confirm: true, suburb?, smoke_id?}` | `crawl:operate` | **LIVE CRAWL: this starts a live drain on the rig.** Enqueues ONE catalog suburb on both portals at queue priority 100, waits up to 50 seconds for the enqueue, then sends the rig one live `housing_crawl_run {job: drain, dry_run: false}`. That drain is a FULL drain: it works through the whole backlog, not only the smoke job, and it uses one of the rig's live runs (four per six hours). If the rig is already draining, no second drain is sent. A suburb with open jobs is `already_queued` and nothing is sent. A collector dedupe is `deduplicated`, not a failure. A 429 is `rate_limited`. Returns a `smoke_id`. Call it again with `smoke_id` to continue a run that stopped before its drain: the drain is keyed by the run, so it is sent at most once. |
 | `housing_crawl_smoke_status` `{smoke_id}` | `crawl:operate` | The verdict for one smoke run, derived from its state alone: `passed` (every job has an applied COMPLETE or PARTIAL receipt with listings), `failed` (with the failure classes), or `waiting` (with what it waits on). Read-only. |
 | `housing_crawl_authorize` `{rig_id \| subject, enabled, note?, confirm?}` | `crawl:authorize` | Turns a BrandBrain rig's housing crawl on or off. Give **exactly one** of `rig_id` or `subject`. Enabling needs `rig_id`, `confirm: true`, and runs GET, then PUT of the grant, then the shorted allowlist write for the `workload_subject` BrandBrain returns. Disabling by `rig_id` writes shorted first, then revokes the grant, and still revokes when shorted fails. Disabling by `subject` (`rig:<id>`, from `housing_crawl_rigs`) changes only shorted's row and never calls BrandBrain (`brandbrain: not_attempted`), so it works while BrandBrain is down. Reports each side (`shorted`, `brandbrain`) separately. A PUT with an unknown outcome is reported as `unknown` and never retried. Idempotent. Reports `ingest_admits` (whether the deployed housing-ingest admits the subject); it never refuses a change. |
+| `post_market_move` `{move_key, kind, stock_code?, index_code?, sector?, related_codes?, direction, change_pct?, price?, volume_ratio?, headline, summary, sources?, tags?, significance?, observed_at, model?, run_id?}` | `moves:write` | **LIVE: publishes at once** to `/market-moves`, the homepage strip and the named stocks' Overview cards, labelled AI-written. The same core and rules as `POST /v1/market-moves` (docs/feature/market-moves/README.md); re-posting a `move_key` revises it, identical content is `unchanged`. A refusal is a tool error listing every field at fault. |
+| `retract_market_move` `{move_key, reason?}` | `moves:write` | Takes one move off the site. Final: the key cannot be posted again. Idempotent. |
 
 Only merged articles can be published — the job image bakes `content/news` in
 at build time, and the tool takes a slug, never a body. Likewise the picks tool
@@ -648,7 +650,7 @@ the Vercel origin, because Cloudflare challenges non-browser POSTs to the apex).
 
 - **Separate OAuth resource.** Tokens are audience-bound to exactly one
   resource: a `/mcp` token is refused on `/mcp/admin` and vice versa.
-- **Separate scope vocabulary.** `news:publish`, `jobs:run`, `jobs:read`, `users:read`, `crawl:authorize`, `crawl:read` and `crawl:operate` are not in
+- **Separate scope vocabulary.** `news:publish`, `jobs:run`, `jobs:read`, `users:read`, `crawl:authorize`, `crawl:read`, `crawl:operate` and `moves:write` are not in
   `mcp.Scopes`; an empty scope request on `/mcp` still gets only the `:read`
   scopes, and an absent `resource` still defaults to `/mcp` — nothing ever
   defaults to the admin resource (`oauth/resources.go`). Admin scopes name
