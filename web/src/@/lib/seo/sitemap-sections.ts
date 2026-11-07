@@ -72,6 +72,8 @@ import { SCAN_SLUGS } from "~/@/lib/scans/registry";
 import { THEME_SLUGS } from "~/@/lib/themes/registry";
 import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 import { enabledStrategyTabs } from "~/@/lib/strategies/strategy-tabs";
+import { isIndexableBacktest } from "~/@/lib/strategies/backtest-windows";
+import { getStrategyEvidence } from "~/app/actions/strategies/getStrategyEvidence";
 import {
   HOUSING_RANKINGS,
   HOUSING_RANKING_SLUGS,
@@ -345,6 +347,12 @@ function latestDataDateOf(marketDates: string[]): string | undefined {
 export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
   const marketDates = await getMarketDates();
   const latestDataDate = latestDataDateOf(marketDates);
+  // The Backtest tab is listed for a strategy only while its published run is
+  // indexable (10.9). A failed evidence read lists none, never a guess.
+  const evidence = await getStrategyEvidence().catch(() => null);
+  const backtestSlugs = (evidence?.strategies ?? [])
+    .filter((s) => isIndexableBacktest(s.state, s.windows))
+    .map((s) => s.strategyId);
 
   // Static marketing/documentation pages: no reliable change signal, so no
   // lastModified (omitting is valid and better than a fabricated date).
@@ -403,6 +411,11 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     ...(enabledStrategyTabs().some((tab) => tab.id === "rules")
       ? STRATEGY_SLUGS.map((slug) => ({
           url: `${baseUrl}/strategies/${slug}/rules`,
+        }))
+      : []),
+    ...(enabledStrategyTabs().some((tab) => tab.id === "backtest")
+      ? backtestSlugs.map((slug) => ({
+          url: `${baseUrl}/strategies/${slug}/backtest`,
         }))
       : []),
     { url: `${baseUrl}/strategies/changelog` },
