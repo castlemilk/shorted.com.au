@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  BookOpen,
   Building2,
   CodeXml,
   ExternalLink,
@@ -10,6 +11,7 @@ import {
   User,
 } from "lucide-react";
 import { SpotlightCard } from "~/@/components/marketing/spotlight-card";
+import { XIcon } from "~/@/components/ui/social-icons";
 import { siteConfig } from "~/@/config/site";
 import { PLANS, planPricePerMonth } from "~/@/config/pricing";
 
@@ -94,6 +96,18 @@ export function CompanySection() {
                       href={siteConfig.founder.linkedin}
                       icon={<Linkedin className="w-4 h-4" />}
                       label="LinkedIn"
+                      external
+                    />
+                    <FounderLink
+                      href={siteConfig.founder.twitter}
+                      icon={<XIcon className="w-4 h-4" />}
+                      label={`X (${siteConfig.founder.twitterHandle})`}
+                      external
+                    />
+                    <FounderLink
+                      href={siteConfig.founder.blog}
+                      icon={<BookOpen className="w-4 h-4" />}
+                      label="Blog"
                       external
                     />
                     <FounderLink

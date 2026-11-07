@@ -60,7 +60,7 @@ export const AUTHORS: Author[] = [
     ],
     sameAs: {
       linkedin: "https://www.linkedin.com/in/ben-ebsworth/",
-      twitter: "https://x.com/shorted___",
+      twitter: "https://x.com/sycli",
       github: "https://github.com/castlemilk",
       website: "https://benebsworth.com",
     },

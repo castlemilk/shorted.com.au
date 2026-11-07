@@ -10,8 +10,15 @@
 ai-training: allowed
 ai-generated-content: human-reviewed
 
-# Preferred Crawl Rate
-crawl-delay: 2
+# Preferred Crawl Rate (robots.txt asks the same of the AI crawler group, and
+# verified AI crawlers are rate limited per address at the edge)
+crawl-delay: 5
+
+# Bulk access, the licence and the crawl policy, for people and crawlers:
+# https://shorted.com.au/docs/data-licence
+# Crawlers that get only that page (redirected there at the edge): Baiduspider,
+# Bytespider, PetalBot, MJ12bot, SemrushBot, AhrefsBot, DotBot, DataForSeoBot,
+# Reflectionbot, ShapBot. Ask support@shorted.com.au to be taken off the list.
 
 # Data Sources and Attribution
 data-source: Australian Securities and Investments Commission (ASIC)

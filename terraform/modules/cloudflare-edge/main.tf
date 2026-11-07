@@ -1053,7 +1053,7 @@ resource "cloudflare_ruleset" "rate_limit_api" {
   kind        = "zone"
   phase       = "http_ratelimit"
 
-  rules = [
+  rules = concat([
     {
       action      = "block"
       description = "Rate limit — API host usage"
@@ -1071,6 +1071,90 @@ resource "cloudflare_ruleset" "rate_limit_api" {
         period              = var.api_rate_limit_period
         requests_per_period = var.api_rate_limit_requests
         mitigation_timeout  = var.api_rate_limit_period
+      }
+    }
+    ], var.ai_crawler_rate_limit_enabled ? [
+    {
+      # Verified AI crawlers and AI search bots on the HTML host, per address.
+      # The welcome ones (robots.txt's AI group) are asked for a Crawl-delay;
+      # this is the ceiling for the ones that do not honour it. AI assistants
+      # (ChatGPT-User, Claude-User, Perplexity-User) fetch on a reader's behalf
+      # and are not in it.
+      action      = "block"
+      description = "Rate limit — verified AI crawlers"
+      enabled     = true
+      expression  = local.ai_crawler_rate_limit_expression
+      action_parameters = {
+        response = {
+          status_code  = 429
+          content_type = "text/plain"
+          content      = "Too Many Requests. Crawl policy and bulk access: https://shorted.com.au/docs/data-licence"
+        }
+      }
+      ratelimit = {
+        characteristics     = ["ip.src", "cf.colo.id"]
+        period              = var.ai_crawler_rate_limit_period
+        requests_per_period = var.ai_crawler_rate_limit_requests
+        mitigation_timeout  = 60
+      }
+    }
+  ] : [])
+}
+
+# =============================================================================
+# Crawler policy — the edge half of robots.txt
+# =============================================================================
+# robots.txt (web/src/app/robots.txt/route.ts) steers the agents in
+# var.crawler_redirect_user_agents to the data-licence page and asks the AI
+# group for a Crawl-delay. These rules hold for the agents that ignore it. A
+# Single Redirect answers at the edge, so a steered crawler never costs an
+# origin request; robots.txt, the licence page and its static assets are left
+# alone so the crawler can read the policy it is being sent to.
+
+locals {
+  crawler_redirect_target_path = trimprefix(var.crawler_redirect_target, "https://shorted.com.au")
+  crawler_redirect_agent_expression = join(
+    " or ",
+    [for ua in var.crawler_redirect_user_agents : format("http.user_agent contains %q", ua)],
+  )
+  crawler_redirect_expression = <<-EOT
+    (http.host eq "shorted.com.au" or http.host eq "www.shorted.com.au")
+    and (${local.crawler_redirect_agent_expression})
+    and not (
+      http.request.uri.path eq "/robots.txt"
+      or http.request.uri.path eq "${local.crawler_redirect_target_path}"
+      or starts_with(http.request.uri.path, "/_next/static/")
+    )
+  EOT
+  ai_crawler_rate_limit_expression = <<-EOT
+    (http.host eq "shorted.com.au" or http.host eq "www.shorted.com.au")
+    and (cf.verified_bot_category eq "AI Crawler" or cf.verified_bot_category eq "AI Search")
+  EOT
+}
+
+resource "cloudflare_ruleset" "crawler_redirects" {
+  count = var.crawler_redirect_enabled ? 1 : 0
+
+  zone_id     = var.cloudflare_zone_id
+  name        = "shorted-crawler-redirects"
+  description = "Steer the crawlers robots.txt disallows to the data-licence page"
+  kind        = "zone"
+  phase       = "http_request_dynamic_redirect"
+
+  rules = [
+    {
+      action      = "redirect"
+      description = "Steer the crawlers robots.txt disallows to the data-licence page"
+      enabled     = true
+      expression  = local.crawler_redirect_expression
+      action_parameters = {
+        from_value = {
+          status_code = 302
+          target_url = {
+            value = var.crawler_redirect_target
+          }
+          preserve_query_string = false
+        }
       }
     }
   ]

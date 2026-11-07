@@ -1,6 +1,7 @@
 import React from "react";
 import { siteConfig } from "../../config/site";
 import { JsonLd } from "~/@/components/seo/json-ld";
+import { brandImages } from "~/@/lib/seo/brand-images";
 
 /**
  * Enhanced structured data for richer Google search results
@@ -214,6 +215,9 @@ export function EnhancedOrganizationSchema() {
       width: siteConfig.logo.width,
       height: siteConfig.logo.height,
     },
+    // The Organization's own images, so the page's structured data names a
+    // brand image before any person's (see lib/seo/brand-images.ts).
+    image: brandImages,
     description: siteConfig.description,
     foundingDate: siteConfig.company.foundingDate,
     foundingLocation: {
@@ -226,15 +230,19 @@ export function EnhancedOrganizationSchema() {
       addressRegion: siteConfig.company.region,
       addressCountry: siteConfig.company.country,
     },
+    // No `image` on the founder here: with it, the headshot was the only
+    // `image` in the homepage's structured data and Google used it as the
+    // homepage's search thumbnail (2026-11-07). The author page and /about
+    // carry the photo.
     founder: {
       "@type": "Person",
       name: siteConfig.founder.name,
       jobTitle: siteConfig.founder.jobTitle,
       url: `${siteConfig.url}${siteConfig.founder.profilePath}`,
-      image: siteConfig.founder.image,
       sameAs: [
         siteConfig.founder.website,
         siteConfig.founder.linkedin,
+        siteConfig.founder.twitter,
         siteConfig.founder.github,
       ],
     },

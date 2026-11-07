@@ -518,6 +518,7 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     { url: `${baseUrl}/docs/api-reference` },
     { url: `${baseUrl}/docs/api` },
     { url: `${baseUrl}/docs/discord` },
+    { url: `${baseUrl}/docs/data-licence` },
     ...API_CLIENT_LANGUAGES.map((language) => ({
       url: `${baseUrl}/docs/api/clients/${language}`,
     })),

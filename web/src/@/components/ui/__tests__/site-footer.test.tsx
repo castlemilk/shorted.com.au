@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { useSession } from "next-auth/react";
 
 import SiteFooter from "../site-footer";
@@ -39,5 +39,55 @@ describe("SiteFooter auth-only links", () => {
 
     expect(footerLink("/dashboards")).not.toHaveAttribute("rel");
     expect(footerLink("/portfolio")).not.toHaveAttribute("rel");
+  });
+});
+
+describe("SiteFooter socials", () => {
+  beforeEach(() =>
+    mockUseSession.mockReturnValue({ data: null, status: "unauthenticated" }),
+  );
+  afterEach(() => mockUseSession.mockReset());
+
+  it("links the founder's LinkedIn, X, blog and GitHub as named profiles", () => {
+    render(<SiteFooter />);
+
+    const founder = screen.getByRole("list", { name: "Ben Ebsworth on the web" });
+    const links = within(founder).getAllByRole("link");
+    expect(links.map((l) => l.getAttribute("href"))).toEqual([
+      "https://www.linkedin.com/in/ben-ebsworth/",
+      "https://x.com/sycli",
+      "https://benebsworth.com/blog/",
+      "https://github.com/castlemilk",
+    ]);
+    expect(links.map((l) => l.getAttribute("aria-label"))).toEqual([
+      "Ben Ebsworth on LinkedIn",
+      "Ben Ebsworth on X (@sycli)",
+      "Ben Ebsworth's blog",
+      "Ben Ebsworth on GitHub",
+    ]);
+    for (const link of links) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener me");
+    }
+  });
+
+  it("links Shorted's X account and the RSS feed", () => {
+    render(<SiteFooter />);
+
+    const brand = screen.getByRole("list", { name: "Shorted on the web" });
+    expect(
+      within(brand).getByRole("link", { name: "Shorted on X (@shorted___)" }),
+    ).toHaveAttribute("href", "https://twitter.com/shorted___");
+    const rss = within(brand).getByRole("link", { name: "RSS feed" });
+    expect(rss).toHaveAttribute("href", "/feed.xml");
+    expect(rss).not.toHaveAttribute("target");
+  });
+
+  it("names the founder's site from the credit line", () => {
+    render(<SiteFooter />);
+    expect(screen.getByRole("link", { name: "Ben Ebsworth" })).toHaveAttribute(
+      "href",
+      "https://benebsworth.com",
+    );
   });
 });

@@ -19,6 +19,12 @@ interface LLMMetaProps {
    *  two nodes disagreeing on datePublished is worse than one. */
   datePublished?: string;
   requiresAuth?: boolean;
+  /**
+   * The page's own images (schema.org ImageObjects). The first is also its
+   * `primaryImageOfPage`, the stated thumbnail candidate. Omitted, the
+   * output is unchanged, which the ASIC byte-for-byte test pins.
+   */
+  image?: ReadonlyArray<Record<string, unknown>>;
 }
 
 /**
@@ -111,6 +117,7 @@ export function LLMMeta({
   lastUpdated,
   datePublished,
   requiresAuth = false,
+  image,
 }: LLMMetaProps) {
   // Provenance is derived from `dataSource` so non-ASIC surfaces (housing,
   // economy, news) don't emit false ASIC/regulatory structured data. The
@@ -199,6 +206,12 @@ export function LLMMeta({
     // Usage rights
     license: "https://shorted.com.au/terms",
     isAccessibleForFree: !requiresAuth,
+
+    // The page's images, logo first, so a search thumbnail has a brand
+    // candidate (the homepage once offered only the founder's headshot).
+    ...(image && image.length > 0
+      ? { image: [...image], primaryImageOfPage: image[0] }
+      : {}),
 
     // Domain-specific context (see `about` above) — only present for ASIC
     // short-position surfaces.

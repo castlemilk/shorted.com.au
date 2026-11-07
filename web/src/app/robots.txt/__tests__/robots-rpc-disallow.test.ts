@@ -17,6 +17,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { GET } from "../route";
+import { groupFor, isAllowed, parseRobotsGroups } from "../robots-groups";
 
 async function robotsBody(): Promise<string> {
   const res = GET();
@@ -59,17 +60,17 @@ describe("robots.txt", () => {
     expect(body).not.toContain("Disallow: /_next");
   });
 
-  it("never disallows an indexable content surface", () => {
-    for (const p of [
-      "Disallow: /shorts/",
-      "Disallow: /housing",
-      "Disallow: /reports",
-      "Disallow: /compare",
-      "Disallow: /economy",
-      "Disallow: /top",
-      "Disallow: /\n",
-    ]) {
-      expect(body).not.toContain(p);
+  it("never disallows an indexable content surface for search engines", () => {
+    // The `*` group is the one Googlebot obeys. The AI group ends with
+    // `Disallow: /` on purpose (crawl-policy.test.ts), so this reads the group,
+    // not the file.
+    const everyone = groupFor(parseRobotsGroups(body), "*")!;
+    expect(everyone.disallows).not.toContain("/");
+    for (const p of ["/shorts/", "/housing", "/reports", "/compare", "/economy", "/top"]) {
+      expect(everyone.disallows).not.toContain(p);
+    }
+    for (const path of ["/shorts/BHP", "/housing/nsw/bondi", "/reports/2026-W40", "/compare", "/economy/vic", "/top"]) {
+      expect({ path, allowed: isAllowed(everyone, path) }).toEqual({ path, allowed: true });
     }
   });
 
@@ -101,14 +102,12 @@ describe("robots.txt", () => {
   // The page keeps itself out of the index with a noindex meta instead.
   // /embed/ stays disallowed: it is the iframe, not the thing people share.
   it("lets unfurlers fetch chart share links and their cards", () => {
-    const disallows = body
-      .split("\n")
-      .filter((line) => line.startsWith("Disallow:"))
-      .map((line) => line.slice("Disallow:".length).trim());
-    for (const path of ["/chart/WBT", "/chart/WBT/image"]) {
-      expect(disallows.some((d) => path.startsWith(d))).toBe(false);
+    // Twitterbot and Slackbot obey the `*` group.
+    const everyone = groupFor(parseRobotsGroups(body), "*")!;
+    for (const path of ["/chart/WBT", "/chart/WBT/image", "/chart/WBT?view=short&period=3m"]) {
+      expect({ path, allowed: isAllowed(everyone, path) }).toEqual({ path, allowed: true });
     }
-    expect(disallows).toContain("/embed/");
+    expect(everyone.disallows).toContain("/embed/");
   });
 
   // The share page's noindex also goes out as a header (next.config.mjs), so a

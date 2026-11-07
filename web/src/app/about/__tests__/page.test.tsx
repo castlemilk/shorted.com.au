@@ -64,6 +64,7 @@ jest.mock("lucide-react", () => ({
   Activity: () => <span data-testid="icon-activity" />,
   ChartColumn: () => <span data-testid="icon-barchart3" />,
   Bell: () => <span data-testid="icon-bell" />,
+  BookOpen: () => <span data-testid="icon-book-open" />,
   Bot: () => <span data-testid="icon-bot" />,
   Building2: () => <span data-testid="icon-building2" />,
   ChevronRight: () => <span data-testid="icon-chevron-right" />,
@@ -176,6 +177,14 @@ describe("About Page", () => {
       expect(screen.getByRole("link", { name: /LinkedIn/i })).toHaveAttribute(
         "href",
         "https://www.linkedin.com/in/ben-ebsworth/"
+      );
+      expect(screen.getByRole("link", { name: /^X \(@sycli\)/ })).toHaveAttribute(
+        "href",
+        "https://x.com/sycli"
+      );
+      expect(screen.getByRole("link", { name: /^Blog/ })).toHaveAttribute(
+        "href",
+        "https://benebsworth.com/blog/"
       );
       expect(screen.getByRole("link", { name: /Author profile/i })).toHaveAttribute(
         "href",

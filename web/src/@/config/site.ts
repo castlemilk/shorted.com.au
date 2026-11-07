@@ -57,6 +57,8 @@ export const siteConfig = {
   links: {
     twitter: "https://twitter.com/shorted___",
     github: "https://github.com/shorted",
+    // The site's RSS feed (app/feed.xml), linked from <head> and the footer.
+    rss: "/feed.xml",
   },
   contact: {
     email: "support@shorted.com.au",
@@ -81,7 +83,12 @@ export const siteConfig = {
     // 224px square (2x of the 112px avatar on /about), ~11KB.
     avatar: "/assets/blog/authors/ben-ebsworth-avatar.jpg",
     website: "https://benebsworth.com",
+    // The founder's own writing, on his site (the product's blog is /blog).
+    blog: "https://benebsworth.com/blog/",
     linkedin: "https://www.linkedin.com/in/ben-ebsworth/",
+    // Personal X handle; the product's is `twitterHandle` above.
+    twitter: "https://x.com/sycli",
+    twitterHandle: "@sycli",
     github: "https://github.com/castlemilk",
   },
 };

@@ -23,6 +23,7 @@ import {
   DatasetStructuredData,
   EnhancedOrganizationSchema,
 } from "~/@/components/seo/enhanced-structured-data";
+import { brandImages } from "~/@/lib/seo/brand-images";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { HomepageFaq } from "~/@/components/home/homepage-faq";
 import { Disclosure } from "~/@/components/ui/disclosure";
@@ -203,6 +204,7 @@ export default async function Page() {
         dataSource="ASIC"
         dataFrequency="daily"
         content="homepage"
+        image={brandImages}
       />
 
       {/* Page header with SEO-optimized content. The hero is deliberately

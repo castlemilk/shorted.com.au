@@ -1,12 +1,25 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GitCommitHorizontal, CircleAlert, Lock } from "lucide-react";
+import {
+  BookOpen,
+  GitCommitHorizontal,
+  CircleAlert,
+  Lock,
+  Rss,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 import { siteConfig } from "~/@/config/site";
 import { Badge } from "~/@/components/ui/badge";
 import { Icons } from "~/@/components/ui/icons";
+import {
+  GitHubIcon,
+  LinkedInIcon,
+  XIcon,
+} from "~/@/components/ui/social-icons";
+import { eyebrow } from "~/@/lib/typography";
 import { cn, isPlainLeftClick } from "~/@/lib/utils";
 
 interface FooterLink {
@@ -52,6 +65,12 @@ const legalLinks: FooterLink[] = [
   { title: "API Docs", href: "/docs/api" },
 ];
 
+const columns: { title: string; links: FooterLink[] }[] = [
+  { title: "Product", links: productLinks },
+  { title: "Resources", links: resourceLinks },
+  { title: "Legal & Dev", links: legalLinks },
+];
+
 function FooterLinkItem({
   link,
   isLocked,
@@ -85,18 +104,45 @@ function FooterLinkItem({
             );
           }
         }}
-        className={cn(
-          "text-sm transition-colors inline-flex items-center gap-1.5",
-          isLocked
-            ? "text-muted-foreground hover:text-foreground"
-            : "text-muted-foreground hover:text-foreground"
-        )}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         {link.title}
-        {isLocked && (
-          <Lock className="h-2.5 w-2.5" aria-hidden="true" />
-        )}
+        {isLocked && <Lock className="h-2.5 w-2.5" aria-hidden="true" />}
       </Link>
+    </li>
+  );
+}
+
+/**
+ * A square icon control for a profile or feed: 32px drawn (over the 24px
+ * floor), a hairline border, and the label in `aria-label` and `title`, so
+ * the icon can stay decorative. `external` opens a new tab with `rel="me"`,
+ * which names the profile as this site's own (IndieAuth, Mastodon
+ * verification) alongside `noopener`.
+ */
+function SocialLink({
+  href,
+  label,
+  icon,
+  external = true,
+}: {
+  href: string;
+  label: string;
+  icon: ReactNode;
+  external?: boolean;
+}) {
+  return (
+    <li>
+      <a
+        href={href}
+        aria-label={label}
+        title={label}
+        target={external ? "_blank" : undefined}
+        rel={external ? "noopener me" : undefined}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        {icon}
+      </a>
     </li>
   );
 }
@@ -119,120 +165,133 @@ const SiteFooter = () => {
   return (
     <footer className="relative z-10 border-t border-border/40 bg-background">
       <div className="container px-4 md:px-6 py-12 md:py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
+        <div className="grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))] md:gap-x-10 lg:gap-x-14">
           {/* Brand column */}
           <div className="col-span-2 md:col-span-1">
             <Link
               href="/"
-              className="flex items-center space-x-2 mb-4 transition-opacity hover:opacity-80"
+              className="mb-4 inline-flex items-center gap-2 transition-opacity hover:opacity-80"
             >
               <Icons.logo className="h-6 w-6" />
-              <span className="font-bold tracking-tight text-lg">
+              <span className="text-lg font-bold tracking-tight">
                 {siteConfig.name}
               </span>
             </Link>
-            <p className="text-sm text-muted-foreground mb-4 max-w-[280px]">
+            <p className="mb-3 max-w-[300px] text-sm text-muted-foreground">
               Official ASIC short position data for ASX stocks. Updated daily
               with T+4 delay.
             </p>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
-              <CircleAlert className="h-3 w-3 flex-shrink-0" />
+            <p className="mb-6 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CircleAlert className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
               <span>Not financial advice.</span>
-            </div>
-            <p className="text-sm text-muted-foreground mb-3">
-              Built in {siteConfig.company.city} by{" "}
-              <a
-                href={siteConfig.founder.website}
-                target="_blank"
-                rel="noopener me"
-                className="font-medium underline underline-offset-4 hover:text-foreground transition-colors"
-              >
-                {siteConfig.founder.name}
-              </a>
-              <span aria-hidden="true"> · </span>
-              <a
-                href={siteConfig.founder.linkedin}
-                target="_blank"
-                rel="noopener me"
-                className="underline underline-offset-4 hover:text-foreground transition-colors"
-              >
-                LinkedIn
-              </a>
             </p>
-            <Badge
-              variant="secondary"
-              className="cursor-help"
-              title={
-                buildTitleParts.length > 0
-                  ? buildTitleParts.join("\n")
-                  : "Build info not available"
-              }
+
+            <p className={cn(eyebrow, "mb-3")}>Follow Shorted</p>
+            <ul className="flex items-center gap-2" aria-label="Shorted on the web">
+              <SocialLink
+                href={siteConfig.links.twitter}
+                label={`Shorted on X (${siteConfig.twitterHandle})`}
+                icon={<XIcon className="h-4 w-4" />}
+              />
+              <SocialLink
+                href={siteConfig.links.rss}
+                label="RSS feed"
+                icon={<Rss className="h-4 w-4" aria-hidden="true" />}
+                external={false}
+              />
+            </ul>
+          </div>
+
+          {columns.map((column) => (
+            <nav key={column.title} aria-label={column.title}>
+              <p className={cn(eyebrow, "mb-4")}>{column.title}</p>
+              <ul className="space-y-2.5">
+                {column.links.map((link) => (
+                  <FooterLinkItem
+                    key={link.href + link.title}
+                    link={link}
+                    isLocked={!!link.requiresAuth && !session}
+                  />
+                ))}
+              </ul>
+            </nav>
+          ))}
+        </div>
+
+        {/* Founder band */}
+        <div className="mt-12 flex flex-col gap-4 border-t border-border/40 pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Built in {siteConfig.company.city} by{" "}
+            <a
+              href={siteConfig.founder.website}
+              target="_blank"
+              rel="noopener me"
+              className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
             >
-              <GitCommitHorizontal className="w-3 h-3 mr-1" />
-              {version}
-            </Badge>
-          </div>
-
-          {/* Product */}
-          <div>
-            <p className="text-sm font-semibold mb-4">Product</p>
-            <ul className="space-y-2.5">
-              {productLinks.map((link) => (
-                <FooterLinkItem
-                  key={link.href + link.title}
-                  link={link}
-                  isLocked={!!link.requiresAuth && !session}
-                />
-              ))}
-            </ul>
-          </div>
-
-          {/* Resources */}
-          <div>
-            <p className="text-sm font-semibold mb-4">Resources</p>
-            <ul className="space-y-2.5">
-              {resourceLinks.map((link) => (
-                <FooterLinkItem
-                  key={link.href + link.title}
-                  link={link}
-                  isLocked={!!link.requiresAuth && !session}
-                />
-              ))}
-            </ul>
-          </div>
-
-          {/* Legal & Dev */}
-          <div>
-            <p className="text-sm font-semibold mb-4">Legal & Dev</p>
-            <ul className="space-y-2.5">
-              {legalLinks.map((link) => (
-                <FooterLinkItem
-                  key={link.href + link.title}
-                  link={link}
-                  isLocked={!!link.requiresAuth && !session}
-                />
-              ))}
-            </ul>
-          </div>
+              {siteConfig.founder.name}
+            </a>
+            , {siteConfig.founder.jobTitle.toLowerCase()}.
+          </p>
+          <ul
+            className="flex items-center gap-2"
+            aria-label={`${siteConfig.founder.name} on the web`}
+          >
+            <SocialLink
+              href={siteConfig.founder.linkedin}
+              label={`${siteConfig.founder.name} on LinkedIn`}
+              icon={<LinkedInIcon className="h-4 w-4" />}
+            />
+            <SocialLink
+              href={siteConfig.founder.twitter}
+              label={`${siteConfig.founder.name} on X (${siteConfig.founder.twitterHandle})`}
+              icon={<XIcon className="h-4 w-4" />}
+            />
+            <SocialLink
+              href={siteConfig.founder.blog}
+              label={`${siteConfig.founder.name}'s blog`}
+              icon={<BookOpen className="h-4 w-4" aria-hidden="true" />}
+            />
+            <SocialLink
+              href={siteConfig.founder.github}
+              label={`${siteConfig.founder.name} on GitHub`}
+              icon={<GitHubIcon className="h-4 w-4" />}
+            />
+          </ul>
         </div>
       </div>
 
       {/* Bottom bar */}
       <div className="border-t border-border/40">
-        <div className="container px-4 md:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+        <div className="container flex flex-col gap-3 px-4 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between md:px-6">
           <p>
             Data sourced from{" "}
             <a
               href="https://asic.gov.au/regulatory-resources/markets/short-selling/short-position-reports-table/"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-foreground transition-colors"
+              className="underline underline-offset-2 transition-colors hover:text-foreground"
             >
               ASIC
             </a>{" "}
             with T+4 trading day delay. Not financial advice.
           </p>
-          <p>&copy; {new Date().getFullYear()} Shorted</p>
+          <div className="flex items-center gap-3">
+            <Badge
+              variant="secondary"
+              className="cursor-help font-normal"
+              title={
+                buildTitleParts.length > 0
+                  ? buildTitleParts.join("\n")
+                  : "Build info not available"
+              }
+            >
+              <GitCommitHorizontal className="mr-1 h-3 w-3" aria-hidden="true" />
+              {version}
+            </Badge>
+            <p className="whitespace-nowrap">
+              &copy; {new Date().getFullYear()} {siteConfig.name}
+            </p>
+          </div>
         </div>
       </div>
     </footer>
