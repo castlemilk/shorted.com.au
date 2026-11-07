@@ -1,0 +1,168 @@
+---
+title: "Backtests for the ASX Stock Picker: What Its Fixed Rules Would Have Done Since 2019"
+excerpt: "Shorted's stock picker now has backtests: each strategy's rules, frozen as version 1, replayed over ASX prices since May 2019 after costs. Crowded-Short Breakout lost 5.6% a year and Minervini Trend Template 16.3%, while the ASX 200 returned 8.7% a year. What the runs show, and why even these figures flatter the rules."
+standfirst: "Two of the stock picker's five strategies can be tested on prices and short positions, and neither made money after costs in the seven and a half years to November 2026. The three that read company results show \"Not computable\" rather than a guess."
+coverImage: "/assets/blog/asx-strategy-backtests/cover-editorial-v1.webp"
+thumbnailImage: "/assets/blog/asx-strategy-backtests/thumbnail-editorial-v1.webp"
+coverAlt: "A burnt-amber wax phonograph cylinder on a steel mandrel against deep green, finely grooved along two thirds of its length and smooth beyond, with a steel reproducer arm resting its needle exactly where the grooves end."
+date: "2026-11-07"
+category: product
+tags: ["strategies", "backtests", "stock picker", "short interest", "ASX"]
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben-ebsworth.jpg"
+ogImage:
+  url: "/assets/blog/asx-strategy-backtests/cover-editorial-v1.webp"
+---
+
+# Backtests for the stock picker
+
+Shorted's stock picker runs five named strategies over every ASX stock each trading day and shows which stocks pass their rules. That tells you what the rules see today. It does not tell you what they would have done. Now each strategy has a backtest: its rules, frozen as version 1, replayed over ASX history from 1 May 2019 to 5 November 2026, the last session before the rules went live. The replay trades under a written execution recipe, after brokerage, spread and market impact.
+
+Two of the five can be tested on prices and short positions alone, and both have a published backtest. The three that read company results cannot be tested fairly on the data we hold, so they show "Not computable" instead of a number.
+
+It is free, at **[shorted.com.au/strategies](/strategies)**.
+
+<GraphStat
+  title="Crowded-Short Breakout, rules v1, 1 May 2019 to 5 November 2026, after costs"
+  items='[
+    {"value":"−5.6%","label":"a year, compound (CAGR)","hint":"A$100,000 became A$64,696","accent":true},
+    {"value":"8.7%","label":"S&P/ASX 200 total return (XJT), a year"},
+    {"value":"−2.7%","label":"same-data reference, a year","hint":"every stock at least 5% short, equal weight, no costs"},
+    {"value":"−39.2%","label":"largest fall from a peak","hint":"from 30 July 2019, not recovered"},
+    {"value":"468","label":"closed trades","hint":"26% made money"}
+  ]'
+/>
+
+## What the backtests found
+
+Neither strategy that can be tested made money. Crowded-Short Breakout lost 5.6% a year after costs, turning A$100,000 into A$64,696, while the S&P/ASX 200 total return index (XJT) gained 8.7% a year. Minervini Trend Template lost 16.3% a year.
+
+<GraphTable title="The two published runs, rules v1, 1 May 2019 to 5 November 2026, as published on 7 November 2026">
+
+| | Crowded-Short Breakout | Minervini Trend Template |
+| --- | --- | --- |
+| CAGR after costs | −5.6% | −16.3% |
+| XJT CAGR | 8.7% | 8.7% |
+| Same-data reference CAGR | −2.7% | 10.1% |
+| Largest fall | −39.2% | −88.7% |
+| Sharpe | −0.65 (± 0.36) | −0.34 (± 0.36) |
+| Closed trades | 468 | 1,169 |
+| Trades that made money | 26% | 26% |
+| Invested, on average | 23% | 97% |
+
+</GraphTable>
+
+Zanger Breakout, CAN SLIM and Quality Compounders show "Not computable before FY2023" in place of a result, for reasons set out below.
+
+### Crowded-Short Breakout
+
+The strategy buys a heavily shorted stock when it breaks out of a base on heavy volume, and sells when it closes back below the breakout level or after 20 sessions. Most breakouts failed: 355 of its 468 trades ended with a close back below the pivot, and only 26% made money. The winners averaged a gain of 10.8% and the losers a loss of 5.3%, so the average trade lost about 1.2%. On average only 23% of the portfolio was invested; the rest sat in cash earning the RBA rate.
+
+The reference shows the backdrop. It holds every stock with at least 5% of its shares reported short and at least A$250,000 traded a day, in equal weights reset each month, priced from the same history and charged no costs. It lost 2.7% a year while XJT gained 8.7%, so over these years heavily shorted stocks as a group lagged the index by more than 11 points a year. Buying their breakouts did worse again, even on the flat costs of our first mockup (−4.5% a year).
+
+### Minervini Trend Template
+
+On our recipe, Minervini's template lost 16.3% a year and fell 88.7% from its peak in February 2020 without recovering. It traded far more: 1,169 trades, about 155 a year, each 10% of the portfolio, often in smaller stocks where the spread is wide. A quarter of them made money. Costs did much of the damage. With the flat costs our first mockup assumed, the loss is 7.5% a year, and with costs doubled the portfolio is wiped out. Entering one session later turns it into a gain of 1.7% a year, still far behind the index.
+
+A result that moves that much with a one-day delay says more about the recipe than about Minervini's method. He buys when a stock's volatility contracts, which the recipe does not detect, not on the first day a stock passes the template.
+
+<GraphTable title="Return in each calendar year after costs, from the published runs">
+
+| Year | Crowded-Short Breakout | Minervini Trend Template | XJT |
+| --- | --- | --- | --- |
+| 2019 (May to Dec) | −0.1% | +26.0% | +7.8% |
+| 2020 | −12.6% | −13.6% | +1.4% |
+| 2021 | +2.0% | −28.7% | +17.2% |
+| 2022 | −8.6% | −43.1% | −1.1% |
+| 2023 | −2.9% | −47.6% | +12.4% |
+| 2024 | +3.1% | +13.9% | +11.4% |
+| 2025 | −9.8% | +7.8% | +10.3% |
+| 2026 (to 5 Nov) | −11.9% | −7.4% | +7.1% |
+
+</GraphTable>
+
+<GraphTable title="The sensitivity runs: CAGR since 1 May 2019 when one assumption changes">
+
+| Change | Crowded-Short Breakout | Minervini Trend Template |
+| --- | --- | --- |
+| None (the published run) | −5.6% | −16.3% |
+| Costs doubled | −9.1% | Wiped out |
+| ASIC data two sessions later | −5.4% | Does not apply |
+| Delisted positions exit at zero | −5.6% | −19.1% |
+| Entry one session later | −7.1% | +1.7% |
+| Flat costs of 10 + 5 bps a side (our first mockup's) | −4.5% | −7.5% |
+
+</GraphTable>
+
+No result is marked fragile, because the flag is for a strategy that beats the index in the main run, and neither does.
+
+## The rules came first
+
+A backtest is easy to flatter. Try enough thresholds on the same history and one of them will look brilliant. So the order it is built in matters more than the result.
+
+Each strategy's rules were fixed before its backtest ran, as rules version 1 (v1). A version is identified by a hash of every threshold, weight and data rule in it, and the hashes are published. v1 was fixed in the early hours of 6 November 2026, before that day's session opened, and is live from that session. Changing a threshold now makes a new version, with its own hash, its own backtest and its own entry in the [changelog](/strategies/changelog). The results of the old version stay as they were.
+
+Fixing the rules first does not make the history out of sample. The rules were written with these years in view, so every figure before 6 November 2026 is in-sample: it shows how the rules fit the past, not that they can predict. Every page that shows a result says so. What is out of sample starts now. A paper track records the same rules forward, one session at a time, and the Backtest chart marks the point where the replay ends and the record begins.
+
+## How a backtest trades
+
+A screen says which stocks pass. It does not say when to buy or sell them. So each strategy runs with an execution recipe, chosen by Shorted to test the screen. The author's own entries and exits differ, and the recipe says that before anything else.
+
+<GraphTable title="The execution recipes, shared terms and each strategy's entry and exits">
+
+| | Crowded-Short Breakout | Minervini Trend Template |
+| --- | --- | --- |
+| Entry | The next session's open after a stock becomes triggered, for a breakout not traded before. Skipped when that open is more than 10% above the pivot | The next session's open after a stock first passes the template. Minervini waits for a volatility contraction that we do not detect |
+| Exits | A close below the captured pivot, or 20 sessions after entry | An 8% stop, a close below the 50-day average, or a status that falls to watch or out of the list |
+| Positions | Up to 10, each 10% of equity, highest score first | The same |
+| Size limit | At most 5% of the stock's 20-session dollar volume | The same |
+| Costs | Brokerage 10 bps a side (A$10 minimum), plus spread and impact of 5 to 75 bps a side by liquidity | The same |
+| Dividends | Total return, franking excluded | The same |
+| Short positions | The latest complete ASIC report published by each session, four sessions after the position date | — |
+| Delistings | A delisted stock exits at its last close | The same |
+| Cash | A$100,000 to start; idle cash earns the RBA cash rate | The same |
+
+</GraphTable>
+
+Exits are checked at each close in the order listed, and the first to hit sells at the next traded open. The benchmark is the S&P/ASX 200 Gross Total Return index (XJT), franking excluded.
+
+## Why the results flatter the rules
+
+Three things make a backtest look better than trading the same rules would have been. The Backtest tab names each one beside the figures.
+
+**Survivorship.** Our price history is missing companies that delisted before about 2025. Heavily shorted companies that later failed are over-represented among them, so a strategy that buys heavily shorted stocks never meets some of its worst outcomes. The effect is largest in the earliest years. How large it is cannot be measured from data we do not have.
+
+**Coverage.** Each year shows how much of the strategy's universe had a price on each session, and a year under 80% is hatched. A missing price is a stock the backtest could not trade, for better or worse.
+
+**The reference.** Beside the index, each chart draws a reference: an equal-weighted portfolio of the strategy's own universe, built from the same price history with the same gaps. If a strategy beats the ASX 200 but not the reference, the edge may be in the data rather than in the rules. Gaps are uneven across stocks, so subtracting the reference does not remove survivorship bias either.
+
+Each run is then repeated five ways: with costs doubled, with ASIC data two sessions later, with delisted positions exiting at zero, with entries one session later, and with the flat costs our first mockup assumed (10 plus 5 bps a side), which flatter small-company breakouts. A strategy that beats the index in the main run but not with costs doubled, ASIC data later or entries later is marked fragile to that change.
+
+## Not computable, rather than guessed
+
+Zanger Breakout, CAN SLIM and Quality Compounders read company results: growth in earnings and revenue, return on equity, debt. A fair test needs each figure as it was known on each day.
+
+The backtest job checks, at every month end since May 2019, how much of a strategy's universe has the statements its rules need. Zanger Breakout and CAN SLIM compare growth over like periods, so they need results for two matching periods a year apart. Half their universe is first covered on 28 March 2024, once FY2023 results are in, and the share never passes 61%. Quality Compounders needs one year's results and a balance sheet, and gets there sooner, on 31 August 2023, reaching 89%. Before those dates there is too little to test the rules on. After them, a test is possible only by assuming when each result became known, and by using results as later restated rather than as first released. Either way it would read the future into the past.
+
+So all three show "Not computable before FY2023" in place of a number, and no backtest is published for them.
+
+## Where to see it
+
+The explorer at [/strategies](/strategies) opens on a returns table. Each row is a strategy; each column is a calendar year's return after costs, followed by the compound annual growth rate (CAGR) and the maximum drawdown over the selected window, and how long the rules have been recorded live. A menu switches the window between since May 2019, since 2023 and the last 12 months. Selecting a strategy fills the panel beside the table with its evidence, and signed-in users can tick two or more to compare them.
+
+![The Shorted strategies explorer's "Historical returns by year" table. Minervini Trend Template and Crowded-Short Breakout show a return for each year since May 2019, with their CAGR and largest fall; Zanger Breakout, CAN SLIM and Quality Compounders read "Not computable before FY2023". The panel beside the table shows Crowded-Short Breakout's evidence, and a bar at the foot shows two strategies ticked to compare.](/assets/blog/asx-strategy-backtests/explorer-returns-2026-11-07.webp)
+
+_Screenshot: the explorer at shorted.com.au/strategies on 7 November 2026, with two strategies ticked to compare. Backtests run on prices to 6 November 2026; a year whose coverage is under 80% is hatched._
+
+Each strategy's Backtest tab has the whole run: growth of A$100,000 against the index and the reference, the drawdown, monthly returns, coverage by year, the five sensitivity runs and the execution recipe. The run's input and output hashes are printed under it, so a later run of the same rules on the same data can be checked against it. The Trades tab lists every simulated trade for signed-in users.
+
+![Crowded-Short Breakout's Backtest tab: growth of A$100,000 since May 2019, with the strategy at A$64,696 against XJT at A$187,732 and the same-data reference at A$81,163; the drawdown to −39.2%; monthly coverage; and the run summary, with a net CAGR of −5.6% and 468 closed trades.](/assets/blog/asx-strategy-backtests/crowded-short-backtest-2026-11-07.webp)
+
+_Screenshot: Crowded-Short Breakout's Backtest tab on 7 November 2026, showing the run published that day, with prices to 6 November 2026._
+
+<Callout type="warning" title="A backtest is not a forecast">
+Every figure here is hypothetical: rules applied to past prices, not a record of trading. The years to 5 November 2026 are in-sample, the price history leaves out companies that delisted before about 2025, and the execution recipe is ours, not the strategy author's. The paper track is the test that counts, and it has not yet recorded a session.
+</Callout>
+
+_This content is for informational purposes only and does not constitute financial advice. Backtest figures are hypothetical and in-sample: Shorted's rules version 1 and r1 execution recipes applied to prices from 1 May 2019 to 5 November 2026, computed on 7 November 2026, as total return with franking excluded and after modelled costs. Short positions are from ASIC's daily reports, used four trading days after the position date. Past performance, real or simulated, is not a reliable indicator of future performance. Always conduct your own research before making investment decisions._
