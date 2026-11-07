@@ -4,7 +4,7 @@ import { join } from "path";
 import { render, screen, within } from "@testing-library/react";
 
 import { CoveragePanel, UNMEASURED_COPY } from "../coverage-panel";
-import { mapCoverageYear, mapBacktestRun } from "~/@/lib/strategies/map-backtest";
+import { mapBacktestRun, mapCoverageMonth, mapCoverageYear } from "~/@/lib/strategies/map-backtest";
 import { fixturePublishedRun } from "~/@/lib/strategies/__tests__/backtest-fixtures";
 
 // Minervini: the qualifying measure sees 2025 only; all-reported is served for every year.
@@ -106,3 +106,47 @@ describe("the Minervini golden: one measure, the column its heading names", () =
     }
   });
 });
+
+// An ASIC-reported run as the API serves it: the qualifying measure is not served, and before 2025 the
+// all-reported measure is not measurable (the delisted names that were never shorted cannot be counted).
+const minerviniYears = [
+  mapCoverageYear({ year: 2019, measurable: false, allReportedMeasurable: false }),
+  mapCoverageYear({
+    year: 2025, measurable: true, qualifyingNameDays: 0, pricedNameDays: 0,
+    allReportedMeasurable: true, allReportedPct: 97.81, allReportedNameDays: 153672, allReportedPricedNameDays: 150302,
+  }),
+];
+
+describe("an all-reported run's name-days column reads the all-reported measure (item d2)", () => {
+  it("prints the all-reported name-days beside its percentage, and '?' for a year the measure cannot see, never 0 of 0", () => {
+    render(<CoveragePanel years={minerviniYears} months={[]} survivorship={partialSurvivorship} dataQuality={null} dataNotes={[]} />);
+    const table = screen.getByRole("region", { name: "Coverage by year" });
+    const rows = within(table).getAllByRole("row");
+    const row2025 = rows.find((r) => r.querySelector("th")?.textContent === "2025");
+    const row2019 = rows.find((r) => r.querySelector("th")?.textContent === "2019");
+    expect(row2025?.textContent).toContain("150,302 of 153,672");
+    expect(row2025?.textContent).not.toContain("0 of 0");
+    expect(row2019?.textContent).not.toMatch(/\d+ of \d+/);
+    expect(row2019?.querySelector('[data-unmeasured=""]')).not.toBeNull();
+  });
+});
+
+describe("an all-reported run's monthly strip reads the all-reported measure (item d2)", () => {
+  it("draws a measured month from the all-reported figure, and a month the measure cannot see as not measurable, never 0% and never hatched", () => {
+    const months = [
+      mapCoverageMonth({ month: "2019-05", allReportedMeasurable: false }),
+      mapCoverageMonth({ month: "2025-01", allReportedMeasurable: true, allReportedPct: 96 }),
+    ];
+    render(<CoveragePanel years={minerviniYears} months={months} survivorship={partialSurvivorship} dataQuality={null} dataNotes={[]} />);
+    const strip = screen.getByRole("list", { name: "Monthly all reported coverage" });
+    const [notMeasured, measured] = within(strip).getAllByRole("listitem");
+    // Not measurable: no bar, no hatch, the mark rather than a figure.
+    expect(notMeasured?.hasAttribute("data-hatched")).toBe(false);
+    expect(notMeasured?.getAttribute("title")).toBe("2019-05: ?");
+    expect(notMeasured?.querySelector('span[aria-hidden="true"]')?.getAttribute("style") ?? "").toContain("0%");
+    // Measured: the all-reported 96% bar, not hatched (at or above 80%).
+    expect(measured?.hasAttribute("data-hatched")).toBe(false);
+    expect(measured?.querySelector('span[aria-hidden="true"]')?.getAttribute("style") ?? "").toContain("96%");
+  });
+});
+

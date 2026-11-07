@@ -4,11 +4,12 @@
 // run earns) are tested without a DOM.
 
 import type {
+  CoverageMonthView,
   CoverageYearView,
   MonthlyReturnView,
   SensitivityView,
 } from "./map-backtest";
-import { formatSigned } from "./format";
+import { formatCount, formatSigned } from "./format";
 
 export const MONTH_NAMES = [
   "Jan",
@@ -206,6 +207,46 @@ export function yearCoverage(year: CoverageYearView, measure: CoverageMeasureKey
   if (measure === "qualifying") return year.measurable ? year.coveragePct : null;
   if (measure === "all_reported") return year.measurable && year.allReportedMeasurable ? year.allReportedPct : null;
   return null;
+}
+
+/**
+ * A year's priced name-days under the run's one measure, as "priced of names", or null when the measure has
+ * no name-days for the year. The column sits beside the percentage, so it counts the name-days that
+ * percentage is the ratio of: the all-reported name-days for an all-reported run, never the qualifying ones.
+ */
+export function namedDaysFigure(year: CoverageYearView, measure: CoverageMeasureKey): string | null {
+  if (measure === "qualifying") {
+    return year.measurable ? `${formatCount(year.pricedNameDays)} of ${formatCount(year.qualifyingNameDays)}` : null;
+  }
+  if (measure === "all_reported") {
+    return year.allReportedMeasurable
+      ? `${formatCount(year.allReportedPricedNameDays)} of ${formatCount(year.allReportedNameDays)}`
+      : null;
+  }
+  return null;
+}
+
+/** One month's coverage under the run's one measure: the figure the strip and the chart draw for it. */
+export interface MonthCoverageUnderMeasure {
+  month: string;
+  coveragePct: number | null;
+  measurable: boolean;
+}
+
+/** Every month a run carries, under the run's one measure. A month the measure cannot see has no figure. */
+export function monthlyCoverageUnderMeasure(
+  months: readonly CoverageMonthView[],
+  measure: CoverageMeasureKey,
+): MonthCoverageUnderMeasure[] {
+  return months.map((m) => {
+    if (measure === "all_reported") {
+      return { month: m.month, coveragePct: m.allReportedMeasurable ? m.allReportedPct : null, measurable: m.allReportedMeasurable };
+    }
+    if (measure === "qualifying") {
+      return { month: m.month, coveragePct: m.measurable ? m.coveragePct : null, measurable: m.measurable };
+    }
+    return { month: m.month, coveragePct: null, measurable: false };
+  });
 }
 
 /** The "?" mark on a year the run's measure cannot measure (1.5, 1.7); null for every measured year. */

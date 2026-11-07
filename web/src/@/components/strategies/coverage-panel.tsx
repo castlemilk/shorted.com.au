@@ -12,13 +12,16 @@ import {
   coverageMeasureName,
   coverageMeasureOf,
   lowestCoverageYear,
+  monthlyCoverageUnderMeasure,
+  namedDaysFigure,
+  isUnmeasuredYear,
+  UNMEASURED_MARK,
 } from "@/lib/strategies/backtest-tables";
 import { COVERAGE_NOT_MEASURABLE_COPY, lowCoverageCopy } from "@/lib/strategies/backtest-copy";
-import { UNMEASURED_MARK, isUnmeasuredYear } from "@/lib/strategies/backtest-tables";
 
 /** The explanation of "?" (1.7): its title, its accessible text and the legend line. */
 export const UNMEASURED_COPY = COVERAGE_NOT_MEASURABLE_COPY;
-import { NOT_AVAILABLE, formatCount } from "@/lib/strategies/format";
+import { NOT_AVAILABLE } from "@/lib/strategies/format";
 import { sectionTitle } from "@/lib/typography";
 
 export interface CoveragePanelProps {
@@ -56,6 +59,8 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
   const lowest = lowestCoverageYear(years, measure);
   const hasMark = years.some((year) => isUnmeasuredYear(year, measure));
   const chip = coverageChip(years, measure);
+  // The sub-headings name the run's measure; the strips' labels carry its full name.
+  const measureTitle = measure === "all_reported" ? "All reported" : "Qualifying";
   return (
     <section id="coverage" aria-labelledby="coverage-heading" className="scroll-mt-[124px] space-y-6">
       <h2 id="coverage-heading" className={sectionTitle}>
@@ -107,7 +112,9 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
                         <th scope="col" className="py-1.5 pr-3 text-right font-normal">All reported</th>
                       </>
                     )}
-                    <th scope="col" className="py-1.5 pr-3 text-right font-normal">Priced name-days</th>
+                    <th scope="col" className="py-1.5 pr-3 text-right font-normal">
+                      {measure === "all_reported" ? "Priced name-days (all reported)" : "Priced name-days"}
+                    </th>
                     <th scope="col" className="py-1.5 pr-3 text-right font-normal">Delisting exits</th>
                     <th scope="col" className="py-1.5 text-right font-normal">CA exits</th>
                   </tr>
@@ -136,7 +143,12 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
                         </>
                       )}
                       <td className="py-1.5 pr-3 text-right">
-                        {year.measurable ? `${formatCount(year.pricedNameDays)} of ${formatCount(year.qualifyingNameDays)}` : NOT_AVAILABLE}
+                        {namedDaysFigure(year, measure) ??
+                          (isUnmeasuredYear(year, measure) ? (
+                            <span title={UNMEASURED_COPY} data-unmeasured="">{UNMEASURED_MARK}</span>
+                          ) : (
+                            NOT_AVAILABLE
+                          ))}
                       </td>
                       <td className="py-1.5 pr-3 text-right">{year.delistingExits}</td>
                       <td className="py-1.5 text-right">{year.caExits}</td>
@@ -146,7 +158,7 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
               </table>
           </div>
           <div className="space-y-2">
-            <p className="font-mono text-xs text-muted-foreground">Qualifying coverage by year</p>
+            <p className="font-mono text-xs text-muted-foreground">{measureTitle} coverage by year</p>
             <CoverageStrip
               label={`${coverageMeasureName(measure)} coverage by year`}
               items={coverageBars(years, measure).map((bar) => ({ ...bar, markTitle: bar.mark ? UNMEASURED_COPY : undefined }))}
@@ -162,14 +174,18 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
 
       {months.length > 0 ? (
         <div className="space-y-2">
-          <p className="font-mono text-xs text-muted-foreground">Monthly qualifying coverage: hatched under 80%</p>
+          <p className="font-mono text-xs text-muted-foreground">
+            Monthly {measure === "all_reported" ? "all reported" : "qualifying"} coverage: hatched under 80%
+          </p>
           <CoverageStrip
-            label="Monthly qualifying coverage"
+            label={`Monthly ${coverageMeasureName(measure)} coverage`}
             layout="columns"
-            items={months.map((m) => ({
+            items={monthlyCoverageUnderMeasure(months, measure).map((m) => ({
               key: m.month,
               label: m.month,
               coverage: m.measurable && m.coveragePct !== null ? m.coveragePct / 100 : null,
+              // A month the all-reported measure cannot see is marked "?", as its year is; never a figure.
+              ...(measure === "all_reported" && !m.measurable ? { mark: UNMEASURED_MARK, markTitle: UNMEASURED_COPY } : {}),
             }))}
           />
         </div>

@@ -1,3 +1,4 @@
+import { monthlyCoverageUnderMeasure, namedDaysFigure } from "../backtest-tables";
 import {
   costsCopy,
   HOUSE_COSTS_FALLBACK,
@@ -18,7 +19,7 @@ import {
   sensitivityFigures,
   splitMonthlyYears,
 } from "../backtest-tables";
-import { mapBacktestRun, mapCoverageYear, mapMonthlyReturn, mapSensitivity } from "../map-backtest";
+import { mapBacktestRun, mapCoverageMonth, mapCoverageYear, mapMonthlyReturn, mapSensitivity } from "../map-backtest";
 import { fixtureMinerviniRun, fixturePublishedRun } from "./backtest-fixtures";
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -216,3 +217,39 @@ describe("a wiped-out sensitivity run (5.12, item a)", () => {
     expect(sensitivityFigures(mapSensitivity({ id: "costs_x2", label: "Costs doubled", applies: true, maxDrawdownPct: -100.01, hasCagr: true, cagrPct: -100, hasCagr: true })).cagr).toMatch(/^[−-]100\.0%$/);
   });
 });
+
+describe("the name-days column and the monthly strip use the run's own measure", () => {
+  it("states an all-reported year's priced name-days under the all-reported measure, never the qualifying 0 of 0", () => {
+    // Minervini 2025: the qualifying fields are 0 (the measure is not this strategy's); the all-reported ones are real.
+    const row = mapCoverageYear({
+      year: 2025, measurable: true, qualifyingNameDays: 0, pricedNameDays: 0,
+      allReportedMeasurable: true, allReportedPct: 97.81, allReportedNameDays: 153672, allReportedPricedNameDays: 150302,
+    });
+    expect(namedDaysFigure(row, "all_reported")).toBe("150,302 of 153,672");
+  });
+
+  it("gives no name-days figure for a year the measure cannot see (the cell reads '?', never a number)", () => {
+    const pre2025 = mapCoverageYear({ year: 2019, measurable: false, allReportedMeasurable: false });
+    expect(namedDaysFigure(pre2025, "all_reported")).toBeNull();
+    expect(namedDaysFigure(pre2025, "qualifying")).toBeNull();
+  });
+
+  it("gives a measured run's name-days from the qualifying fields, as before", () => {
+    const measured = mapCoverageYear({ year: 2025, measurable: true, qualifyingNameDays: 10203, pricedNameDays: 10203, coveragePct: 100 });
+    expect(namedDaysFigure(measured, "qualifying")).toBe("10,203 of 10,203");
+    expect(namedDaysFigure(measured, "all_reported")).toBeNull();
+  });
+
+  it("maps every month under the run's measure: a month the measure cannot see has no figure", () => {
+    const months = [
+      mapCoverageMonth({ month: "2019-05", allReportedMeasurable: false }),
+      mapCoverageMonth({ month: "2025-01", allReportedMeasurable: true, allReportedPct: 96 }),
+    ];
+    expect(monthlyCoverageUnderMeasure(months, "all_reported")).toEqual([
+      { month: "2019-05", coveragePct: null, measurable: false },
+      { month: "2025-01", coveragePct: 96, measurable: true },
+    ]);
+    expect(monthlyCoverageUnderMeasure(months, "qualifying").map((m) => m.measurable)).toEqual([false, false]);
+  });
+});
+
