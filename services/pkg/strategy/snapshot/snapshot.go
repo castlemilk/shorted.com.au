@@ -27,11 +27,12 @@ type Row struct {
 // are stored beside them, filled by the daily snapshot's session rows
 // (services/jobs/internal/jobs/strategies).
 type Features struct {
-	Bar   Bar                    `json:"bar"`    // the as-of bar
-	ExDiv float64                `json:"ex_div"` // ex-dividend cash per share on the as-of session; 0 when none
-	FS1   features.PriceFeatures `json:"fs1"`    // keys are the view's column names
-	SF0   features.ShortReading  `json:"sf0"`    // the v0 short reading (with its days to cover)
-	SF1   features.ShortReading  `json:"sf1"`    // the v1 short reading
+	Bar   Bar     `json:"bar"`    // the as-of bar
+	ExDiv float64 `json:"ex_div"` // ex-dividend cash per share on the first session on or after each ex-date since the
+	// previous session; 0 when none
+	FS1 features.PriceFeatures `json:"fs1"` // keys are the view's column names
+	SF0 features.ShortReading  `json:"sf0"` // the v0 short reading (with its days to cover)
+	SF1 features.ShortReading  `json:"sf1"` // the v1 short reading
 	// CASuspects are the corporate-action suspects known by the session, each
 	// with the session it became known (ca_known_at). The paper track reads the
 	// suspects it admits and blocks from them, with the batch's own rules, so it
