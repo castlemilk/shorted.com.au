@@ -89,7 +89,7 @@ type StrategyServiceClient interface {
 	// List every strategy with its rules, metadata, caveats and sources, plus
 	// the current market regime (S&P/ASX 200).
 	ListStrategies(context.Context, *connect.Request[v1alpha1.ListStrategiesRequest]) (*connect.Response[v1alpha1.ListStrategiesResponse], error)
-	// Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+	// Ranked picks for one strategy: status (triggered, setup, unknown, watch), a 0-100
 	// score and a per-rule pass / fail / unknown breakdown for each stock. The
 	// answer is the same bytes to every HTTP caller. When the public depth
 	// limit is set, the rows are the top of the default ranking only, for every
@@ -286,7 +286,7 @@ type StrategyServiceHandler interface {
 	// List every strategy with its rules, metadata, caveats and sources, plus
 	// the current market regime (S&P/ASX 200).
 	ListStrategies(context.Context, *connect.Request[v1alpha1.ListStrategiesRequest]) (*connect.Response[v1alpha1.ListStrategiesResponse], error)
-	// Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+	// Ranked picks for one strategy: status (triggered, setup, unknown, watch), a 0-100
 	// score and a per-rule pass / fail / unknown breakdown for each stock. The
 	// answer is the same bytes to every HTTP caller. When the public depth
 	// limit is set, the rows are the top of the default ranking only, for every

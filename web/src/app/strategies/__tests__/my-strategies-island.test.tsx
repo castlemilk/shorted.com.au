@@ -74,7 +74,7 @@ describe("MyStrategiesIsland", () => {
       "/strategies/canslim/signals",
     );
     expect(screen.getByText("2 of 20 saved")).toBeInTheDocument();
-    expect(screen.getByText(/2 triggered · 1 setup · 9 watch/)).toBeInTheDocument();
+    expect(screen.getByText(/2 triggered · 1 setup · 4 unknown · 9 watch/)).toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
 

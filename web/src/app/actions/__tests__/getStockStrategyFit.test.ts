@@ -72,7 +72,7 @@ describe("getStockStrategyFit", () => {
     mockListStrategies.mockReset();
   });
 
-  it("caches under ['stock-strategy-fit', code, 'v3'] for an hour with the strategy-picks tag", async () => {
+  it("caches under ['stock-strategy-fit', code, 'v4'] for an hour with the strategy-picks tag", async () => {
     mockGetStockStrategyFit.mockResolvedValue(fitResponse());
     mockListStrategies.mockResolvedValue({
       strategies: [
@@ -82,7 +82,7 @@ describe("getStockStrategyFit", () => {
     const fit = await getStockStrategyFit("bhp");
 
     const [, key, opts] = cacheCalls.find(([, k]) => k[0] === "stock-strategy-fit")!;
-    expect(key).toEqual(["stock-strategy-fit", "BHP", "v3"]);
+    expect(key).toEqual(["stock-strategy-fit", "BHP", "v4"]);
     expect(opts.revalidate).toBe(3600);
     expect(opts.tags).toEqual(["strategy-picks", "shorts-data", "stock-page:strategy-fit:bhp"]);
 

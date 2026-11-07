@@ -97,7 +97,11 @@ func TestCanonicalEncodingIsStable(t *testing.T) {
 // version per strategy is live, ids and hashes are unique, and the strategies
 // are in the published order.
 func TestRegistryLifecycle(t *testing.T) {
-	order := []string{StrategyZangerBreakout, StrategyCANSLIM, StrategyMinerviniTrend, StrategyCrowdedShortBreakout, StrategyQualityCompounders}
+	// Each strategy publishes v0 then v1, so the order names every strategy twice.
+	var order []string
+	for _, id := range []string{StrategyZangerBreakout, StrategyCANSLIM, StrategyMinerviniTrend, StrategyCrowdedShortBreakout, StrategyQualityCompounders} {
+		order = append(order, id, id)
+	}
 	reg := Registry()
 	if len(reg) != len(order) {
 		t.Fatalf("registry has %d versions, want %d", len(reg), len(order))
@@ -129,7 +133,8 @@ func TestRegistryLifecycle(t *testing.T) {
 		}
 		labels[key] = true
 	}
-	for _, id := range order {
+	for i := 0; i < len(order); i += 2 {
+		id := order[i]
 		if live[id] != 1 {
 			t.Errorf("%s has %d live versions, want exactly 1", id, live[id])
 		}

@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/snapshot"
 )
 
 // GetStockStrategyFit returns how one stock reads against every strategy
@@ -40,9 +41,13 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 	resp.SessionDate = u.asOf
 	resp.Stale = staleBehind(u.asOf, u.regime)
 	if _, ok := u.index[code]; !ok {
-		// A stock with no price features has fewer than 60 sessions in the last
-		// 400 days (mv_price_features), which is short_history.
-		resp.IneligibleReason = "short_history"
+		// The reason the snapshot stored for the stock. A stock the snapshot holds
+		// no row for, or the views answered, has fewer than 60 sessions in the
+		// last 400 days (mv_price_features), which is short_history.
+		resp.IneligibleReason = u.ineligible[code]
+		if resp.IneligibleReason == "" {
+			resp.IneligibleReason = snapshot.ReasonShortHistory
+		}
 		return connect.NewResponse(resp), nil
 	}
 	resp.InUniverse = true
@@ -61,7 +66,8 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 			StrategyId:   st.ID,
 			StrategyName: st.Name,
 			TotalCount:   int32(len(eval.picks)),
-			VersionHash:  liveRulesHash(st.ID),
+			// The evaluation's version: the statuses above come from the same fill.
+			VersionHash: eval.version.GetRulesHash(),
 		}
 		if i, ok := eval.index[code]; ok {
 			p := &eval.picks[i]
@@ -77,6 +83,7 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 			if !ok {
 				eu, ci = u, u.index[code]
 			}
+			st.UnknownStatus = eu.served[st.ID].reg.Spec.Ladder.UnknownStatus
 			p, _ := engine.EvaluateOne(st, eu.candidates[ci], eu.env)
 			fit.Status = string(engine.StatusNone)
 			fit.Rules = ruleResultsProto(p.Rules)

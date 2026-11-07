@@ -52,7 +52,7 @@ func TestGetStrategyVersionLiveAndByHash(t *testing.T) {
 		v := resp.Msg.Version
 		require.NotNil(t, v)
 		assert.Equal(t, live.RulesHash, v.Version.RulesHash)
-		assert.Equal(t, "v0", v.Version.Label)
+		assert.Equal(t, "v1", v.Version.Label, "the live version is v1")
 	}
 }
 
@@ -86,20 +86,25 @@ func TestListStrategyVersionsIsTheChangelog(t *testing.T) {
 
 	all, err := srv.ListStrategyVersions(ctx, connect.NewRequest(&shortsv1alpha1.ListStrategyVersionsRequest{}))
 	require.NoError(t, err)
-	require.Len(t, all.Msg.Versions, len(engine.Registry()), "one v0 per strategy")
+	require.Len(t, all.Msg.Versions, len(spec.Registry()), "a v0 and a v1 per strategy")
 
 	one, err := srv.ListStrategyVersions(ctx, connect.NewRequest(&shortsv1alpha1.ListStrategyVersionsRequest{StrategyId: "crowded-short-breakout"}))
 	require.NoError(t, err)
-	require.Len(t, one.Msg.Versions, 1)
-	v := one.Msg.Versions[0]
+	require.Len(t, one.Msg.Versions, 2)
+	old := one.Msg.Versions[0]
+	assert.Equal(t, "v0", old.Version.Label)
+	assert.Equal(t, "superseded", old.Version.Status)
+	assert.Len(t, old.KnownIssues, 6, "v0's six known issues stay published")
+
+	v := one.Msg.Versions[1]
 	assert.Equal(t, "crowded-short-breakout", v.Version.StrategyId)
-	assert.Equal(t, "v0", v.Version.Label)
+	assert.Equal(t, "v1", v.Version.Label)
 	assert.Equal(t, "live", v.Version.Status)
 	assert.Empty(t, v.SupersededOn)
 	assert.Empty(t, v.RetiredOn)
 	assert.NotEmpty(t, v.Params)
-	assert.Contains(t, v.Policies, "There is no freshness check: a code keeps its last features after its price stops.")
-	assert.Len(t, v.KnownIssues, 6, "v0's six known issues are published before v1")
+	assert.Contains(t, v.Policies, "A price bar on the session is required; a suspended or delisted code is not evaluated.")
+	assert.Empty(t, v.KnownIssues, "v1 publishes no known issues of its own")
 	assert.NotEmpty(t, v.Changes)
 
 	// The canonical JSON is the spec the hash names.
@@ -128,17 +133,24 @@ func TestStrategyResponsesNameTheLiveVersion(t *testing.T) {
 	ctx := context.Background()
 	live := liveVersion("zanger-breakout")
 
+	// On the views path (this test server's source) the responses name the
+	// version the views evaluate, v0; on the snapshot path they name the live one.
+	served := servedRefOf(srv.servedVersionOf(ctx, "zanger-breakout"))
+	require.NotNil(t, served)
+	assert.Equal(t, "v0", served.Label)
+	assert.Equal(t, live.RulesHash, liveRulesHash("zanger-breakout"))
+
 	picks, err := srv.GetStrategyPicks(ctx, connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{StrategyId: "zanger-breakout"}))
 	require.NoError(t, err)
 	require.NotNil(t, picks.Msg.Version)
-	assert.Equal(t, live.RulesHash, picks.Msg.Version.RulesHash)
+	assert.Equal(t, served.RulesHash, picks.Msg.Version.RulesHash)
 	assert.Equal(t, "v0", picks.Msg.Version.Label)
 
 	fit, err := srv.GetStockStrategyFit(ctx, connect.NewRequest(&shortsv1alpha1.GetStockStrategyFitRequest{StockCode: "SET"}))
 	require.NoError(t, err)
 	require.NotEmpty(t, fit.Msg.Fits)
 	for _, f := range fit.Msg.Fits {
-		assert.Equal(t, liveRulesHash(f.StrategyId), f.VersionHash, f.StrategyId)
+		assert.Equal(t, srv.servedRulesHash(ctx, f.StrategyId), f.VersionHash, f.StrategyId)
 		assert.NotEmpty(t, f.VersionHash)
 	}
 
@@ -146,7 +158,7 @@ func TestStrategyResponsesNameTheLiveVersion(t *testing.T) {
 	require.NoError(t, err)
 	for _, st := range list.Msg.Strategies {
 		require.NotNil(t, st.Version, st.Id)
-		assert.Equal(t, liveVersion(st.Id).RulesHash, st.Version.RulesHash)
+		assert.Equal(t, srv.servedRulesHash(ctx, st.Id), st.Version.RulesHash)
 	}
 }
 

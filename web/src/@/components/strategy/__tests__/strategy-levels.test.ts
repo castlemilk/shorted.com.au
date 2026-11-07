@@ -77,7 +77,7 @@ describe("FIT_STATUS_STRENGTH", () => {
     const strongestFirst = [...statuses].sort(
       (a, b) => FIT_STATUS_STRENGTH[b] - FIT_STATUS_STRENGTH[a],
     );
-    expect(strongestFirst).toEqual(["triggered", "setup", "watch", "none"]);
+    expect(strongestFirst).toEqual(["triggered", "setup", "unknown", "watch", "none"]);
   });
 });
 

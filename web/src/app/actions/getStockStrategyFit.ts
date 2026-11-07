@@ -25,7 +25,7 @@ import type { MarketRegimeView, RuleResultRow } from "~/@/lib/strategies/types";
 // StrategyService.GetStockStrategyFit.
 //
 // Contract, all of it load-bearing:
-//   - unstable_cache key ['stock-strategy-fit', code, 'v3'], revalidate 3600,
+//   - unstable_cache key ['stock-strategy-fit', code, 'v4'], revalidate 3600,
 //     tags ['strategy-picks', ...stockPageCacheTags('strategy-fit', code)];
 //   - a serverFetchOutsideNextCache transport with a 4 s abort, so a slow API
 //     costs the card, never the render;
@@ -46,11 +46,12 @@ export const STRATEGY_FIT_TIMEOUT_MS = 4000;
  * The cache version of one stock's fit entry. v2 added priceFeatures and
  * regime: a v1 entry has neither key, so it must not be read back as the
  * current shape. v3 added the signal fields (eligibility, the session and
- * short dates, rule values, reasons and proximity): a v2 entry has none.
+ * short dates, rule values, reasons and proximity): a v2 entry has none. v4
+ * added the 'unknown' status: a v3 entry can read a stale pick as setup.
  */
-export const STRATEGY_FIT_CACHE_VERSION = "v3";
+export const STRATEGY_FIT_CACHE_VERSION = "v4";
 
-export type StrategyFitStatus = "triggered" | "setup" | "watch" | "none";
+export type StrategyFitStatus = "triggered" | "setup" | "unknown" | "watch" | "none";
 export type StrategyFitRuleStatus = "pass" | "fail" | "unknown";
 
 /** One rule's result on a stock's fit: the shared rule row. */
@@ -203,7 +204,7 @@ function text(value: string | undefined | null): string {
 
 function toStatus(value: string | undefined): StrategyFitStatus {
   const status = text(value).toLowerCase();
-  return status === "triggered" || status === "setup" || status === "watch"
+  return status === "triggered" || status === "setup" || status === "unknown" || status === "watch"
     ? status
     : "none";
 }

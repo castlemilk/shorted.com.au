@@ -432,6 +432,8 @@ func evaluateVersion(rows []snapshot.Row, blobs map[string]features.Fundamentals
 	if !ok {
 		return out, fmt.Errorf("no engine strategy for %s", v.Spec.StrategyID)
 	}
+	// The version's own status ladder: v0 reads an unknown trigger as setup, v1 as unknown.
+	strategy.UnknownStatus = v.Spec.Ladder.UnknownStatus
 	for i := range cands {
 		pick, isPick := engine.EvaluateOne(strategy, cands[i], env)
 		if !isPick {

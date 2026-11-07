@@ -23,7 +23,7 @@ export const SHORTLIST_MAX_ROWS = 10;
 
 /**
  * The rows shown with no ?status= filter (Zanger's "concentrate" rule, plan §1,
- * rule 5: the table is a short list). Triggered and setup rows come first, then
+ * rule 5: the table is a short list). Triggered, setup and unknown rows come first, then
  * watch rows fill the table up to SHORTLIST_MAX_ROWS, so a quiet day still shows
  * the nearest candidates instead of an empty page.
  */
@@ -97,6 +97,7 @@ export function statusCountsOf(picks: {
   return {
     triggered: { count: api.triggered, atLeast: false },
     setup: { count: api.setup, atLeast: false },
+    unknown: { count: api.unknown, atLeast: false },
     watch: { count: api.watch, atLeast: false },
   };
 }
@@ -109,11 +110,14 @@ export function formatStatusCount({ count, atLeast }: StatusCount): string {
 export const STATUS_LABELS: Record<PickStatus, string> = {
   triggered: "Triggered",
   setup: "Setup",
+  unknown: "Unknown",
   watch: "Watch",
 };
 
 export const STATUS_DESCRIPTIONS: Record<PickStatus, string> = {
   triggered: "Every core rule passes.",
   setup: "Every core rule passes except the trigger, which has not happened yet.",
+  unknown:
+    "No core rule other than the trigger fails, and at least one core rule cannot be tested yet, so the stock may still qualify.",
   watch: "Some rules pass; ranked below the setups.",
 };

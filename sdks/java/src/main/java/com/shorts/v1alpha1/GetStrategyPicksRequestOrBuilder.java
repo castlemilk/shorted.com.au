@@ -57,7 +57,7 @@ public interface GetStrategyPicksRequestOrBuilder extends
 
   /**
    * <pre>
-   * Optional filter: "triggered" | "setup" | "watch".
+   * Optional filter: "triggered" | "setup" | "unknown" | "watch".
    * </pre>
    *
    * <code>string status = 4 [json_name = "status"];</code>
@@ -66,7 +66,7 @@ public interface GetStrategyPicksRequestOrBuilder extends
   java.lang.String getStatus();
   /**
    * <pre>
-   * Optional filter: "triggered" | "setup" | "watch".
+   * Optional filter: "triggered" | "setup" | "unknown" | "watch".
    * </pre>
    *
    * <code>string status = 4 [json_name = "status"];</code>

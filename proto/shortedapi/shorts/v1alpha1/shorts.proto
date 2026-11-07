@@ -959,7 +959,7 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Strategy Picks",
-      description: "Ranked ASX stocks for one strategy: status (triggered, setup, watch), a 0-100 score, a pass / fail / unknown result for every rule, and the reported fundamentals behind each pick. Unknown means the data is missing or not meaningful for the company and never counts as a pass. Optional sort_by orders by a fundamentals metric. Not financial advice. When the public depth limit is set, the rows are the top of the default ranking for every HTTP caller, API-token holders included; the viewer field says so. Full depth: GetViewerStrategyPicks."
+      description: "Ranked ASX stocks for one strategy: status (triggered, setup, unknown, watch), a 0-100 score, a pass / fail / unknown result for every rule, and the reported fundamentals behind each pick. Unknown means the data is missing or not meaningful for the company and never counts as a pass. Optional sort_by orders by a fundamentals metric. Not financial advice. When the public depth limit is set, the rows are the top of the default ranking for every HTTP caller, API-token holders included; the viewer field says so. Full depth: GetViewerStrategyPicks."
     };
   }
 
@@ -979,7 +979,7 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Stock Strategy Fit",
-      description: "How one ASX stock reads against every stock-picking strategy: status (triggered, setup, watch, or none when it is not a candidate), score, rank and a pass / fail / unknown result for every rule. Not financial advice."
+      description: "How one ASX stock reads against every stock-picking strategy: status (triggered, setup, unknown, watch, or none when it is not a candidate), score, rank and a pass / fail / unknown result for every rule. Not financial advice."
     };
   }
 

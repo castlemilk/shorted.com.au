@@ -168,6 +168,10 @@ var (
 	_ shorts.AdminAlertsStore    = (*StoreAdapter)(nil)
 	_ shorts.IngestRigAdminStore = (*StoreAdapter)(nil)
 	_ shorts.CrawlOpsAdminStore  = (*StoreAdapter)(nil)
+
+	// The version reads the served version and the version RPCs take by type assertion.
+	_ shorts.StrategyLiveReader    = (*StoreAdapter)(nil)
+	_ shorts.StrategyVersionReader = (*StoreAdapter)(nil)
 )
 
 type crawlLedgerStore struct{ shorts.Store }

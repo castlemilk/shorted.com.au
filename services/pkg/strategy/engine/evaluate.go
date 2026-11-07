@@ -259,12 +259,20 @@ func evaluateRule(id string, c *Candidate, env *evalEnv) outcome {
 	return fn(c, env)
 }
 
-// Ladder applies the status ladder to one stock's rule results:
+// Ladder applies the status ladder to one stock's rule results. The ladder
+// is the version's (Strategy.UnknownStatus):
 //
+// v0 (UnknownStatus false):
 //   - triggered: every core rule passes (an unknown core rule is not a pass);
-//   - setup: every core rule OUTSIDE strategy.TriggerRules passes, and at
-//     least one trigger rule has not (yet);
+//   - setup: every core rule OUTSIDE the trigger rules passes, and at least one
+//     trigger rule has not (yet), unknown included;
 //   - watch: anything else.
+//
+// v1 (UnknownStatus true), in order:
+//   - watch: a core non-trigger rule fails;
+//   - unknown: otherwise, a core rule is unknown;
+//   - setup: otherwise, a trigger rule fails;
+//   - triggered: otherwise.
 //
 // A core rule with no result at all counts as not passing.
 func Ladder(strategy Strategy, results []RuleResult) PickStatus {
@@ -275,6 +283,9 @@ func Ladder(strategy Strategy, results []RuleResult) PickStatus {
 	trigger := make(map[string]bool, len(strategy.TriggerRules))
 	for _, id := range strategy.TriggerRules {
 		trigger[id] = true
+	}
+	if strategy.UnknownStatus {
+		return ladderV1(strategy, status, trigger)
 	}
 	allCore, setupCore := true, true
 	for _, rule := range strategy.Rules {
@@ -293,6 +304,37 @@ func Ladder(strategy Strategy, results []RuleResult) PickStatus {
 		return StatusSetup
 	default:
 		return StatusWatch
+	}
+}
+
+// ladderV1 is the v1 status ladder over the rule statuses (see Ladder).
+func ladderV1(strategy Strategy, status map[string]RuleStatus, trigger map[string]bool) PickStatus {
+	anyUnknown, anyTriggerFail := false, false
+	for _, rule := range strategy.Rules {
+		if !rule.Core {
+			continue
+		}
+		st, ok := status[rule.ID]
+		if !ok {
+			st = RuleFail
+		}
+		switch {
+		case st == RulePass:
+		case !trigger[rule.ID] && st == RuleFail:
+			return StatusWatch
+		case st == RuleUnknown:
+			anyUnknown = true
+		case trigger[rule.ID]:
+			anyTriggerFail = true
+		}
+	}
+	switch {
+	case anyUnknown:
+		return StatusUnknown
+	case anyTriggerFail:
+		return StatusSetup
+	default:
+		return StatusTriggered
 	}
 }
 

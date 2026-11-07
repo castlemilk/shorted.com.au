@@ -213,8 +213,8 @@ func candidateAt(code string, t civil.Date, idx *index) (engine.Candidate, *Inel
 
 	c := candidateFromPrice(code, pf)
 	c.CompanyName = company
-	c.ShortPct = sr.Pct
-	c.DaysToCover = sr.DaysToCover
+	ApplyShortReading(&c, sr)
+	c.InASICReport = sr.InReport != nil && *sr.InReport
 	c.ShortReportDate = timePtr(sr.ReportDate)
 	applyFundamentals(&c, in.Fundamentals[code])
 	return c, nil
@@ -308,6 +308,20 @@ func CandidateFromPrice(code string, p features.PriceFeatures) engine.Candidate 
 // without fundamentals.
 func ApplyFundamentals(c *engine.Candidate, f features.Fundamentals) {
 	applyFundamentals(c, f)
+}
+
+// ApplyShortReading puts a short reading on a candidate: the figure and the
+// days to cover, and the reasons the short rules are unknown. A stale or
+// unavailable reading (v1) keeps its reason, so the rules read unknown rather
+// than fail; an absent or zero reading has no reason and reads as a fail.
+func ApplyShortReading(c *engine.Candidate, sr features.ShortReading) {
+	c.ShortPct = sr.Pct
+	c.DaysToCover = sr.DaysToCover
+	c.ShortReason = ""
+	if sr.Status == features.StatusStale || sr.Status == features.StatusUnavailable {
+		c.ShortReason = sr.Reason
+	}
+	c.DaysToCoverReason = sr.DaysToCoverReason
 }
 
 // candidateFromPrice maps one price-feature row onto the evaluator's candidate.

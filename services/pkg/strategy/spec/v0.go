@@ -175,7 +175,7 @@ func v0(strategyID string) Registered {
 	}
 	return Registered{
 		Label: "v0",
-		Live:  true,
+		Live:  false,
 		Spec: Spec{
 			Schema:      SchemaVersion,
 			EngineMajor: EngineMajor,

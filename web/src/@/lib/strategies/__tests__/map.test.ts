@@ -537,3 +537,10 @@ describe("isoDateOrNull", () => {
     expect(isoDateOrNull("soon")).toBeNull();
   });
 });
+
+describe("unknown picks", () => {
+  it("keep the unknown status, so the Unknown filter and pill see them", () => {
+    const row = mapPick(protoPick({ status: "unknown" } as unknown as Partial<StrategyPick>));
+    expect(row.status).toBe("unknown");
+  });
+});

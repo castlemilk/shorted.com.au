@@ -202,7 +202,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object status_ = "";
   /**
    * <pre>
-   * "triggered" | "setup" | "watch".
+   * "triggered" | "setup" | "unknown" | "watch".
    * </pre>
    *
    * <code>string status = 5 [json_name = "status"];</code>
@@ -223,7 +223,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * "triggered" | "setup" | "watch".
+   * "triggered" | "setup" | "unknown" | "watch".
    * </pre>
    *
    * <code>string status = 5 [json_name = "status"];</code>
@@ -2633,7 +2633,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object status_ = "";
     /**
      * <pre>
-     * "triggered" | "setup" | "watch".
+     * "triggered" | "setup" | "unknown" | "watch".
      * </pre>
      *
      * <code>string status = 5 [json_name = "status"];</code>
@@ -2653,7 +2653,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "triggered" | "setup" | "watch".
+     * "triggered" | "setup" | "unknown" | "watch".
      * </pre>
      *
      * <code>string status = 5 [json_name = "status"];</code>
@@ -2674,7 +2674,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "triggered" | "setup" | "watch".
+     * "triggered" | "setup" | "unknown" | "watch".
      * </pre>
      *
      * <code>string status = 5 [json_name = "status"];</code>
@@ -2691,7 +2691,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "triggered" | "setup" | "watch".
+     * "triggered" | "setup" | "unknown" | "watch".
      * </pre>
      *
      * <code>string status = 5 [json_name = "status"];</code>
@@ -2705,7 +2705,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "triggered" | "setup" | "watch".
+     * "triggered" | "setup" | "unknown" | "watch".
      * </pre>
      *
      * <code>string status = 5 [json_name = "status"];</code>

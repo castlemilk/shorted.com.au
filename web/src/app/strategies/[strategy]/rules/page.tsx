@@ -8,7 +8,11 @@ import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-dat
 import { getStrategy } from "~/@/lib/strategies/registry";
 import { buildRuleParamRows } from "~/@/lib/strategies/rules-view";
 import { formatIsoDate, firstNonEmpty } from "~/@/lib/strategies/format";
-import { shortRulesHash, versionFullText } from "~/@/lib/strategies/versions";
+import {
+  shortRulesHash,
+  versionFullText,
+  versionStatusNote,
+} from "~/@/lib/strategies/versions";
 import type {
   StrategyRuleDef,
   StrategyVersionDetailView,
@@ -160,9 +164,7 @@ function RulesBody({
         </h2>
         <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
           <dt className="text-muted-foreground">Rules</dt>
-          <dd className="font-mono tabular-nums">
-            {versionFullText(version)}
-          </dd>
+          <dd className="font-mono tabular-nums">{versionFullText(version)}</dd>
           <dt className="text-muted-foreground">Rules hash</dt>
           <dd className="break-all font-mono text-xs">{version.rulesHash}</dd>
           {liveFrom ? (
@@ -306,8 +308,8 @@ function RulesBody({
                 </h3>
                 <p className="font-mono text-xs text-muted-foreground">
                   {shortRulesHash(entry.version.rulesHash)}
-                  {entry.supersededOn
-                    ? ` · superseded ${formatIsoDate(entry.supersededOn)}`
+                  {versionStatusNote(entry.version, entry.supersededOn)
+                    ? ` · ${versionStatusNote(entry.version, entry.supersededOn)}`
                     : ""}
                 </p>
               </header>

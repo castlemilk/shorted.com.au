@@ -181,9 +181,10 @@ function SavedList() {
   );
 }
 
-/** "2 triggered · 1 setup · 9 watch": the three statuses a strategy's list carries. */
+/** "2 triggered · 1 setup · 9 watch": the statuses a strategy's list carries; unknown only when some. */
 export function countsLine(counts: StatusCountsView): string {
-  return `${counts.triggered} triggered · ${counts.setup} setup · ${counts.watch} watch`;
+  const unknown = counts.unknown > 0 ? ` · ${counts.unknown} unknown` : "";
+  return `${counts.triggered} triggered · ${counts.setup} setup${unknown} · ${counts.watch} watch`;
 }
 
 function formatSaved(savedAt: string): string {

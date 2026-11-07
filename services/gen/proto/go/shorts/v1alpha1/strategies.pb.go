@@ -467,7 +467,8 @@ type RuleResult struct {
 	Value    float64                `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`                      // The number the rule tested, when there is one.
 	HasValue bool                   `protobuf:"varint,5,opt,name=has_value,json=hasValue,proto3" json:"has_value,omitempty"` // False when value is absent (unknown), never read value then.
 	// Why an unknown rule could not be tested: "no_price_history", "no_volume",
-	// "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+	// "no_index", "no_fundamentals", "not_meaningful", "asic_report_stale",
+	// "asic_value_missing" or "basis_change". Empty for pass and fail.
 	Reason string `protobuf:"bytes,6,opt,name=reason,proto3" json:"reason,omitempty"`
 	// For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far
 	// distance. Meaningful only when has_proximity.
@@ -580,7 +581,7 @@ type StrategyPick struct {
 	StockCode   string                 `protobuf:"bytes,2,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
 	CompanyName string                 `protobuf:"bytes,3,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
 	Industry    string                 `protobuf:"bytes,4,opt,name=industry,proto3" json:"industry,omitempty"`
-	Status      string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"` // "triggered" | "setup" | "watch".
+	Status      string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"` // "triggered" | "setup" | "unknown" | "watch".
 	Score       float64                `protobuf:"fixed64,6,opt,name=score,proto3" json:"score,omitempty"` // 0-100, orders rows within a status.
 	Rules       []*RuleResult          `protobuf:"bytes,7,rep,name=rules,proto3" json:"rules,omitempty"`
 	// Headline numbers for the table.
@@ -1169,7 +1170,7 @@ type GetStrategyPicksRequest struct {
 	// full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks
 	// for the rows beyond the public depth.
 	Offset int32  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
-	Status string `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // Optional filter: "triggered" | "setup" | "watch".
+	Status string `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // Optional filter: "triggered" | "setup" | "unknown" | "watch".
 	// Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
 	// "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
 	// sort last; growth above +500% or below -95% sorts after every measured value.
@@ -1734,7 +1735,7 @@ type StrategyFit struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	StrategyId    string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"`
 	StrategyName  string                 `protobuf:"bytes,2,opt,name=strategy_name,json=strategyName,proto3" json:"strategy_name,omitempty"`
-	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`                            // "triggered" | "setup" | "watch" | "none" (not a candidate).
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`                            // "triggered" | "setup" | "unknown" | "watch" | "none" (not a candidate).
 	Score         float64                `protobuf:"fixed64,4,opt,name=score,proto3" json:"score,omitempty"`                            // 0-100; 0 when status is "none".
 	Rank          int32                  `protobuf:"varint,5,opt,name=rank,proto3" json:"rank,omitempty"`                               // 1-based rank among the strategy's picks; 0 when status is "none".
 	TotalCount    int32                  `protobuf:"varint,6,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"` // Picks the strategy has in total.

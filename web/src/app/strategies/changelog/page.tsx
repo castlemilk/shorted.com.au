@@ -8,7 +8,10 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { STRATEGIES, STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
-import { versionFullText } from "~/@/lib/strategies/versions";
+import {
+  versionFullText,
+  versionStatusNote,
+} from "~/@/lib/strategies/versions";
 import type { StrategyVersionDetailView } from "~/@/lib/strategies/types";
 import { listStrategyVersions } from "~/app/actions/strategies/listStrategyVersions";
 import { bailOnEmptyRender } from "~/app/actions/config";
@@ -107,64 +110,77 @@ export default async function StrategyChangelogPage() {
                   {STRATEGIES[slug]?.h1 ?? slug}
                 </Link>
               </h2>
-              {list.map((entry) => (
-                <article
-                  key={entry.version.rulesHash}
-                  id={entry.version.rulesHash}
-                  className="scroll-mt-[124px] space-y-4 rounded-md border border-border/60 bg-card p-4 sm:p-6"
-                >
-                  <header className="space-y-1">
-                    <h3 className="text-lg font-semibold">
-                      {entry.version.label}
-                      {entry.version.status === "live" ? (
-                        <span className="ml-2 align-middle text-xs font-normal uppercase tracking-wide text-muted-foreground">
-                          Live
-                        </span>
-                      ) : null}
-                    </h3>
-                    <p className="font-mono text-xs text-muted-foreground break-all">
-                      rules_hash {entry.version.rulesHash}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {versionFullText(entry.version)} · feature set{" "}
-                      {entry.version.featureSet || "unknown"}
-                    </p>
-                  </header>
+              {list.map((entry) => {
+                const note = versionStatusNote(
+                  entry.version,
+                  entry.supersededOn,
+                );
+                return (
+                  <article
+                    key={entry.version.rulesHash}
+                    id={entry.version.rulesHash}
+                    className="scroll-mt-[124px] space-y-4 rounded-md border border-border/60 bg-card p-4 sm:p-6"
+                  >
+                    <header className="space-y-1">
+                      <h3 className="text-lg font-semibold">
+                        {entry.version.label}
+                        {entry.version.status === "live" ? (
+                          <span className="ml-2 align-middle text-xs font-normal uppercase tracking-wide text-muted-foreground">
+                            Live
+                          </span>
+                        ) : null}
+                        {note ? (
+                          <span className="ml-2 align-middle text-xs font-normal text-muted-foreground">
+                            {note}
+                          </span>
+                        ) : null}
+                      </h3>
+                      <p className="font-mono text-xs text-muted-foreground break-all">
+                        rules_hash {entry.version.rulesHash}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {versionFullText(entry.version)} · feature set{" "}
+                        {entry.version.featureSet || "unknown"}
+                      </p>
+                    </header>
 
-                  {entry.changes.length > 0 ? (
-                    <div className="space-y-2">
-                      <h4 className="font-medium">What changed</h4>
-                      <ul className="list-disc space-y-1 pl-5 text-sm">
-                        {entry.changes.map((line) => (
-                          <li key={line}>{line}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
+                    {entry.changes.length > 0 ? (
+                      <div className="space-y-2">
+                        <h4 className="font-medium">What changed</h4>
+                        <ul className="list-disc space-y-1 pl-5 text-sm">
+                          {entry.changes.map((line) => (
+                            <li key={line}>{line}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
 
-                  {entry.knownIssues.length > 0 ? (
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Known issues</h4>
-                      <ul className="list-disc space-y-1 pl-5 text-sm">
-                        {entry.knownIssues.map((line) => (
-                          <li key={line}>{line}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
+                    {entry.knownIssues.length > 0 ? (
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Known issues</h4>
+                        <ul className="list-disc space-y-1 pl-5 text-sm">
+                          {entry.knownIssues.map((line) => (
+                            <li key={line}>{line}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
 
-                  {entry.policies.length > 0 ? (
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Universe and data policy</h4>
-                      <ul className="list-disc space-y-1 pl-5 text-sm">
-                        {entry.policies.map((line) => (
-                          <li key={line}>{line}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                </article>
-              ))}
+                    {entry.policies.length > 0 ? (
+                      <div className="space-y-2">
+                        <h4 className="font-medium">
+                          Universe and data policy
+                        </h4>
+                        <ul className="list-disc space-y-1 pl-5 text-sm">
+                          {entry.policies.map((line) => (
+                            <li key={line}>{line}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
             </section>
           ))
         )}

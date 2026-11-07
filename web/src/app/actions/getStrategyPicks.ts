@@ -78,7 +78,7 @@ export async function getStrategyPicks(
         }
         return result;
       },
-      [`strategy-picks-${id}-v3`],
+      [`strategy-picks-${id}-v4`],
       { tags: ["strategy-picks", `strategy-${id}`], revalidate: 3600 },
     )();
   } catch (err) {

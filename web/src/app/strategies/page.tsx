@@ -209,17 +209,17 @@ export default async function PicksHubPage() {
             tested every trading day against daily prices, the S&amp;P/ASX 200,
             reported company fundamentals and ASIC short positions. A rule is
             unknown when the data is missing, or when the figure is not
-            meaningful for the company (a bank&apos;s cash conversion, say),
-            and unknown never counts as a pass. Stocks are ranked by status
-            first, then by a 0 to 100 score: a rule earns more of its weight
-            the more decisively it passes, and a setup earns part of its
-            trigger rule&apos;s weight for how close its measure is to the
-            trigger, so the names nearest to firing rank first.
+            meaningful for the company (a bank&apos;s cash conversion, say), and
+            unknown never counts as a pass. Stocks are ranked by status first,
+            then by a 0 to 100 score: a rule earns more of its weight the more
+            decisively it passes, and a setup earns part of its trigger
+            rule&apos;s weight for how close its measure is to the trigger, so
+            the names nearest to firing rank first.
           </p>
           {/* The printed key: each status beside what it looks like as rule
               outcomes, and the dot marks themselves, so both are taught
               before a reader reaches a table. */}
-          <dl className="grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-2 lg:grid-cols-4">
+          <dl className="grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-2 xl:grid-cols-5">
             {PICK_STATUSES.map((status) => (
               <div key={status} className="bg-card p-4">
                 <dt className="flex items-center gap-2 text-sm font-semibold">
@@ -232,7 +232,7 @@ export default async function PicksHubPage() {
                 </dd>
               </div>
             ))}
-            <div className="bg-card p-4">
+            <div className="bg-card p-4 sm:col-span-2 xl:col-span-1">
               <dt className="text-sm font-semibold">Rule marks</dt>
               <dd className="mt-1">
                 <RuleLegend rules={[]} />
@@ -253,7 +253,10 @@ export default async function PicksHubPage() {
               the screener
             </Link>
             {" · "}
-            <Link href="/battlegrounds" className="text-primary hover:underline">
+            <Link
+              href="/battlegrounds"
+              className="text-primary hover:underline"
+            >
               short squeeze candidates
             </Link>
             .

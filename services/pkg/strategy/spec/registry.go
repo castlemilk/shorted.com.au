@@ -32,12 +32,12 @@ type Registered struct {
 }
 
 // Registry returns every canonical version ever published, in publication
-// order within each strategy, freshly allocated on every call so the caller
-// may not mutate the shared definitions.
+// order within each strategy (the strategies in strategyOrder), freshly
+// allocated on every call so the caller may not mutate the shared definitions.
 func Registry() []Registered {
-	out := make([]Registered, 0, 5)
+	out := make([]Registered, 0, 2*len(strategyOrder))
 	for _, id := range strategyOrder {
-		out = append(out, v0(id))
+		out = append(out, v0(id), v1(id))
 	}
 	return out
 }
@@ -46,6 +46,18 @@ func Registry() []Registered {
 func Live(strategyID string) (Registered, bool) {
 	for _, r := range Registry() {
 		if r.Live && r.Spec.StrategyID == strategyID {
+			return r, true
+		}
+	}
+	return Registered{}, false
+}
+
+// Version returns the registered canonical version of a strategy with the
+// given label ("v0", "v1"). It is how a test or a comparison names a version
+// that is not the live one.
+func Version(strategyID, label string) (Registered, bool) {
+	for _, r := range Registry() {
+		if r.Spec.StrategyID == strategyID && r.Label == label {
 			return r, true
 		}
 	}

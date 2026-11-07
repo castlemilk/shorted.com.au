@@ -2,14 +2,17 @@ package shorts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
 // Rules versions on the wire. A version is the registered canonical spec of a
@@ -19,31 +22,333 @@ import (
 // what was published, so a response can never name a version the API cannot
 // describe. Variants (kind "variant") are never served here.
 
-// versionRefOf is the wire reference to one registered version.
+// versionTable is the table's state of every canonical version, keyed by rules
+// hash. known is false when the table is not migrated or the store has no
+// reader: the registry's live flag then states the status, and no version
+// carries a date.
+type versionTable struct {
+	known bool
+	rows  map[string]shortsstore.CanonicalRuleVersion
+}
+
+// versionState is one version's status and dates as the table states them.
+type versionState struct {
+	status       string
+	liveFrom     string
+	supersededOn string
+	retiredOn    string
+}
+
+// stateOf is a registered version's state. A version the table does not record
+// yet is a draft; without the table, the registry's live flag answers.
+func (t versionTable) stateOf(r spec.Registered, hash string) versionState {
+	if !t.known {
+		if r.Live {
+			return versionState{status: "live"}
+		}
+		return versionState{status: "superseded"}
+	}
+	row, ok := t.rows[hash]
+	if !ok {
+		return versionState{status: "draft"}
+	}
+	return versionState{status: row.Status, liveFrom: row.LiveFrom, supersededOn: row.SupersededOn, retiredOn: row.RetiredOn}
+}
+
+// servedOn is the canonical row a strategy was live under on a session: live
+// from on or before it and not yet superseded by it. ok is false when none is.
+func (t versionTable) servedOn(strategyID, session string) (shortsstore.LiveRuleVersion, bool) {
+	var best shortsstore.CanonicalRuleVersion
+	found := false
+	for _, row := range t.rows {
+		if row.StrategyID != strategyID || row.LiveFrom == "" || row.LiveFrom > session {
+			continue
+		}
+		if row.SupersededOn != "" && row.SupersededOn <= session {
+			continue
+		}
+		if !found || row.LiveFrom > best.LiveFrom {
+			best, found = row, true
+		}
+	}
+	if !found {
+		return shortsstore.LiveRuleVersion{}, false
+	}
+	return shortsstore.LiveRuleVersion{StrategyID: best.StrategyID, RulesHash: best.RulesHash, Label: best.Label, LiveFrom: best.LiveFrom}, true
+}
+
+// liveRulesHash is the rules hash the table marks live for a strategy. Without
+// a live row (or without the table) it is the registry's live version.
+func (t versionTable) liveRulesHash(strategyID string) string {
+	for hash, row := range t.rows {
+		if row.StrategyID == strategyID && row.Status == "live" {
+			return hash
+		}
+	}
+	return liveRulesHash(strategyID)
+}
+
+// strategyVersionTableKey and its TTL: the table moves when the job promotes, a
+// few times a year, so a read per instance every few minutes is enough.
+const (
+	strategyVersionTableKey = "strategy_version_table"
+	strategyVersionTableTTL = 5 * time.Minute
+)
+
+// readVersionTable is the version table, cached per instance. An error is the
+// caller's to answer (Unavailable); a missing table is known=false, not an error.
+func (s *ShortsServer) readVersionTable(ctx context.Context) (versionTable, error) {
+	reader, ok := s.store.(shortsstore.StrategyVersionReader)
+	if !ok {
+		return versionTable{}, nil
+	}
+	load := func() (any, error) {
+		rows, err := reader.ReadCanonicalRuleVersions(context.WithoutCancel(ctx))
+		switch {
+		case errors.Is(err, shortsstore.ErrStrategySnapshotUnavailable):
+			return versionTable{}, nil
+		case err != nil:
+			return nil, err
+		}
+		t := versionTable{known: true, rows: make(map[string]shortsstore.CanonicalRuleVersion, len(rows))}
+		for _, r := range rows {
+			t.rows[r.RulesHash] = r
+		}
+		return t, nil
+	}
+	if s.cache == nil {
+		v, err := load()
+		if err != nil {
+			return versionTable{}, err
+		}
+		return v.(versionTable), nil
+	}
+	v, err := s.cache.GetOrSetWithTTL(strategyVersionTableKey, strategyVersionTableTTL, load)
+	if err != nil {
+		return versionTable{}, err
+	}
+	return v.(versionTable), nil
+}
+
+// versionRefOf is the registry's wire reference to one registered version (no
+// table: the status is the registry's live flag, and no date is stated).
 func versionRefOf(r spec.Registered) (*shortsv1alpha1.StrategyVersionRef, error) {
 	hash, err := spec.RulesHash(r.Spec)
 	if err != nil {
 		return nil, err
 	}
-	status := "superseded"
-	if r.Live {
-		status = "live"
-	}
+	return versionRefWith(r, hash, versionTable{}.stateOf(r, hash)), nil
+}
+
+// versionRefWith is the wire reference to a registered version in a given state.
+func versionRefWith(r spec.Registered, hash string, st versionState) *shortsv1alpha1.StrategyVersionRef {
 	return &shortsv1alpha1.StrategyVersionRef{
 		StrategyId:    r.Spec.StrategyID,
 		Label:         r.Label,
 		RulesHash:     hash,
 		EngineVersion: engine.Version,
 		FeatureSet:    r.Spec.FeatureSet,
-		Status:        status,
+		Status:        st.status,
+		LiveFrom:      st.liveFrom,
 		Kind:          r.Spec.Kind,
-	}, nil
+	}
 }
 
-// liveVersion is the reference to the version a strategy is evaluated under
-// now, or nil when no version is registered for it. The registry guarantees one
-// live version per strategy (TestEveryStrategyHasALiveVersion), so nil is a
-// programming error that the tests catch, not a state a reader can reach.
+// servedVersion is the registered version one strategy's picks are read under,
+// and the session the version went live (the table's live_from; "" when the
+// version is the registry's fallback or the views' v0).
+type servedVersion struct {
+	reg      spec.Registered
+	liveFrom string
+}
+
+// strategyLiveStore is the live-version read the API resolves against. The
+// store implements it beside the snapshot reader; a store without it (a test
+// fake) resolves to the registry's live flag.
+type strategyLiveStore interface {
+	ReadLiveRuleVersions(ctx context.Context) ([]shortsstore.LiveRuleVersion, error)
+}
+
+// readLiveVersions is the table's live row per strategy under the snapshot
+// source. nil means the table is not migrated, or the store has no reader, so
+// the registry's live flag answers. Any other failure is an error: a served
+// version is never guessed from a failed read.
+func (s *ShortsServer) readLiveVersions(ctx context.Context) (map[string]shortsstore.LiveRuleVersion, error) {
+	reader, ok := s.store.(strategyLiveStore)
+	if !ok {
+		return nil, nil
+	}
+	rows, err := reader.ReadLiveRuleVersions(ctx)
+	switch {
+	case errors.Is(err, shortsstore.ErrStrategySnapshotUnavailable):
+		return nil, nil
+	case err != nil:
+		return nil, err
+	}
+	out := make(map[string]shortsstore.LiveRuleVersion, len(rows))
+	for _, r := range rows {
+		out[r.StrategyID] = r
+	}
+	return out, nil
+}
+
+// sessionLiveVersions holds each live row to the session the snapshot is as at.
+// The job commits a promotion (live_from is the session it promotes on) before
+// the session's events are written, so a snapshot read in between has a live_from
+// after its own session. That session was evaluated under the version live on it,
+// so the version it is served under is that row, not the promotion's. A live row
+// with no earlier version to fall back to is kept as it is.
+func (s *ShortsServer) sessionLiveVersions(ctx context.Context, asOf string, live map[string]shortsstore.LiveRuleVersion) (map[string]shortsstore.LiveRuleVersion, error) {
+	var table versionTable
+	loaded := false
+	for id, row := range live {
+		if row.LiveFrom == "" || row.LiveFrom <= asOf {
+			continue
+		}
+		if !loaded {
+			t, err := s.readVersionTable(ctx)
+			if err != nil {
+				return nil, err
+			}
+			table, loaded = t, true
+		}
+		if prev, ok := table.servedOn(id, asOf); ok {
+			live[id] = prev
+		}
+	}
+	return live, nil
+}
+
+// resolveServedOne is the version one strategy is served under for a source.
+// Views serve v0 whatever the config says: the views implement v0 only, so a
+// fallback from the snapshot never labels v0 output as live. The snapshot
+// serves the version the table marks live (the job's promotion, not the
+// deploy), and falls back to the registry's live flag only when the table
+// has no row for the strategy or the table is not migrated.
+func resolveServedOne(strategyID, source string, live map[string]shortsstore.LiveRuleVersion) servedVersion {
+	if source != StrategySourceSnapshot {
+		r, _ := spec.Version(strategyID, "v0")
+		return servedVersion{reg: r}
+	}
+	if row, ok := live[strategyID]; ok {
+		if r, ok := spec.ByHash(row.RulesHash); ok && r.Spec.StrategyID == strategyID {
+			return servedVersion{reg: r, liveFrom: row.LiveFrom}
+		}
+	}
+	r, _ := spec.Live(strategyID)
+	return servedVersion{reg: r}
+}
+
+// resolveServed resolves every strategy the engine evaluates.
+func resolveServed(source string, live map[string]shortsstore.LiveRuleVersion) map[string]servedVersion {
+	out := make(map[string]servedVersion, len(engine.Registry()))
+	for _, st := range engine.Registry() {
+		out[st.ID] = resolveServedOne(st.ID, source, live)
+	}
+	return out
+}
+
+// servedRefOf is the wire reference to the version a response names: its status
+// is live, because it is the version served now. nil when no version is known
+// (a failed read names none rather than a guessed one).
+func servedRefOf(v servedVersion) *shortsv1alpha1.StrategyVersionRef {
+	if v.reg.Spec.StrategyID == "" {
+		return nil
+	}
+	ref, err := versionRefOf(v.reg)
+	if err != nil {
+		return nil
+	}
+	ref.Status = "live"
+	ref.LiveFrom = v.liveFrom
+	return ref
+}
+
+// servedVersionOf is the version a strategy is served under right now. Views
+// and a missing universe answer without a read; the snapshot takes the
+// universe's resolution so every response names the same version.
+func (s *ShortsServer) servedVersionOf(ctx context.Context, strategyID string) servedVersion {
+	if s.config.StrategySource != StrategySourceSnapshot {
+		return resolveServedOne(strategyID, s.config.StrategySource, nil)
+	}
+	u, err := s.loadStrategyUniverse(ctx)
+	if err != nil {
+		s.logger.Warnf("served version of %s unavailable, naming the table's live version: %v", strategyID, err)
+		return s.tableServedVersion(ctx, strategyID)
+	}
+	return u.served[strategyID]
+}
+
+// tableServedVersion is the served version read from the table alone, for a
+// universe that cannot be read.
+func (s *ShortsServer) tableServedVersion(ctx context.Context, strategyID string) servedVersion {
+	t, err := s.readVersionTable(ctx)
+	return servedFromTable(t, err, strategyID)
+}
+
+// servedFromTable is the served version from the table's read. It is the
+// table's live row; the registry's live flag only when the table is known to be
+// absent or has no row for the strategy. A failed read names no version (the
+// zero value, whose reference is nil): a served version is never guessed.
+func servedFromTable(t versionTable, err error, strategyID string) servedVersion {
+	if err != nil {
+		return servedVersion{}
+	}
+	if !t.known {
+		return resolveServedOne(strategyID, StrategySourceSnapshot, nil)
+	}
+	hash := t.liveRulesHash(strategyID)
+	if r, ok := spec.ByHash(hash); ok && r.Spec.StrategyID == strategyID {
+		return servedVersion{reg: r, liveFrom: t.rows[hash].LiveFrom}
+	}
+	return resolveServedOne(strategyID, StrategySourceSnapshot, nil)
+}
+
+// servedRefs is the served version of every strategy, resolved once per
+// request: one universe read (cached once it succeeds), or one table read when
+// the universe cannot be read, so a failing read is not repeated per strategy.
+func (s *ShortsServer) servedRefs(ctx context.Context) map[string]*shortsv1alpha1.StrategyVersionRef {
+	out := make(map[string]*shortsv1alpha1.StrategyVersionRef, len(engine.Registry()))
+	if s.config.StrategySource != StrategySourceSnapshot {
+		for _, st := range engine.Registry() {
+			out[st.ID] = servedRefOf(resolveServedOne(st.ID, s.config.StrategySource, nil))
+		}
+		return out
+	}
+	u, err := s.loadStrategyUniverse(ctx)
+	if err != nil {
+		s.logger.Warnf("served versions unavailable, naming the table's live versions: %v", err)
+	}
+	var table versionTable
+	var tableErr error
+	if u == nil {
+		table, tableErr = s.readVersionTable(ctx)
+	}
+	for _, st := range engine.Registry() {
+		if u != nil {
+			out[st.ID] = servedRefOf(u.served[st.ID])
+			continue
+		}
+		out[st.ID] = servedRefOf(servedFromTable(table, tableErr, st.ID))
+	}
+	return out
+}
+
+// servedRef is the wire reference to the version served for a strategy, nil
+// when none is registered.
+func (s *ShortsServer) servedRef(ctx context.Context, strategyID string) *shortsv1alpha1.StrategyVersionRef {
+	return servedRefOf(s.servedVersionOf(ctx, strategyID))
+}
+
+// servedRulesHash is the rules hash of the version a response names, "" when none.
+func (s *ShortsServer) servedRulesHash(ctx context.Context, strategyID string) string {
+	return s.servedRef(ctx, strategyID).GetRulesHash()
+}
+
+// liveVersion is the reference to the registry's live version of a strategy,
+// or nil when none is registered (the registry guarantees one, see
+// TestEveryStrategyHasALiveVersion). Served responses use servedRef; this is
+// the registry's own answer, for tests and the registry's listing.
 func liveVersion(strategyID string) *shortsv1alpha1.StrategyVersionRef {
 	r, ok := spec.Live(strategyID)
 	if !ok {
@@ -56,8 +361,7 @@ func liveVersion(strategyID string) *shortsv1alpha1.StrategyVersionRef {
 	return ref
 }
 
-// liveRulesHash is the rules hash of the live version of a strategy, "" when
-// none is registered.
+// liveRulesHash is the registry's live rules hash of a strategy, "" when none.
 func liveRulesHash(strategyID string) string {
 	if ref := liveVersion(strategyID); ref != nil {
 		return ref.GetRulesHash()
@@ -82,22 +386,25 @@ func canonicalVersions(strategyID string) []spec.Registered {
 }
 
 // versionDetail renders one registered version for the changelog and the
-// version RPCs.
-func versionDetail(r spec.Registered) (*shortsv1alpha1.StrategyVersionDetail, error) {
-	ref, err := versionRefOf(r)
+// version RPCs, its status and dates as the table states them.
+func versionDetail(r spec.Registered, t versionTable) (*shortsv1alpha1.StrategyVersionDetail, error) {
+	hash, err := spec.RulesHash(r.Spec)
 	if err != nil {
 		return nil, err
 	}
+	st := t.stateOf(r, hash)
 	canonical, err := spec.Canonical(r.Spec)
 	if err != nil {
 		return nil, err
 	}
 	return &shortsv1alpha1.StrategyVersionDetail{
-		Version:       ref,
+		Version:       versionRefWith(r, hash, st),
 		Params:        ruleParams(r.Spec),
 		Policies:      policyLines(r.Spec),
 		Changes:       append([]string(nil), r.Changes...),
 		KnownIssues:   append([]string(nil), r.KnownIssues...),
+		SupersededOn:  st.supersededOn,
+		RetiredOn:     st.retiredOn,
 		CanonicalJson: string(canonical),
 	}, nil
 }
@@ -189,14 +496,20 @@ func (s *ShortsServer) GetStrategyVersion(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", req.Msg.StrategyId, strategyIDList()))
 	}
 	hash := strings.ToLower(strings.TrimSpace(req.Msg.VersionHash))
+	table, err := s.readVersionTable(ctx)
+	if err != nil {
+		s.logger.Errorf("GetStrategyVersion: reading the version table for %s failed: %v", id, err)
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("strategy version is not available"))
+	}
+	liveHash := table.liveRulesHash(id)
 	for _, r := range canonicalVersions(id) {
 		h, err := spec.RulesHash(r.Spec)
 		if err != nil {
 			s.logger.Errorf("GetStrategyVersion: hashing %s failed: %v", id, err)
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read strategy version"))
 		}
-		if (hash == "" && r.Live) || (hash != "" && h == hash) {
-			detail, err := versionDetail(r)
+		if (hash == "" && h == liveHash) || (hash != "" && h == hash) {
+			detail, err := versionDetail(r, table)
 			if err != nil {
 				s.logger.Errorf("GetStrategyVersion: rendering %s failed: %v", id, err)
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read strategy version"))
@@ -220,9 +533,14 @@ func (s *ShortsServer) ListStrategyVersions(ctx context.Context, req *connect.Re
 			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", req.Msg.StrategyId, strategyIDList()))
 		}
 	}
+	table, err := s.readVersionTable(ctx)
+	if err != nil {
+		s.logger.Errorf("ListStrategyVersions: reading the version table failed: %v", err)
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("strategy versions are not available"))
+	}
 	resp := &shortsv1alpha1.ListStrategyVersionsResponse{Versions: []*shortsv1alpha1.StrategyVersionDetail{}}
 	for _, r := range canonicalVersions(id) {
-		detail, err := versionDetail(r)
+		detail, err := versionDetail(r, table)
 		if err != nil {
 			s.logger.Errorf("ListStrategyVersions: rendering %s failed: %v", r.Spec.StrategyID, err)
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list strategy versions"))

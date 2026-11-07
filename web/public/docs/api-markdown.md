@@ -2017,7 +2017,7 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetStra
 
 #### `POST /shorts.v1alpha1.StrategyService/GetStrategyPicks`
 
-Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+Ranked picks for one strategy: status (triggered, setup, unknown, watch), a 0-100
  score and a per-rule pass / fail / unknown breakdown for each stock. The
  answer is the same bytes to every HTTP caller. When the public depth
  limit is set, the rows are the top of the default ranking only, for every
@@ -2032,7 +2032,7 @@ Request body fields:
 | `offset` | integer (int32) | no | Rows to skip. Under the public depth limit an offset other than 0 is refused with PermissionDenied (the X-Entitlement-Detail names full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks for the rows beyond the public depth. (proto int32) |
 | `requireFundamentals` | boolean | no | Only stocks with a fundamentals row. (proto bool) |
 | `sortBy` | string | no | Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe", "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values sort last; growth above +500% or below -95% sorts after every measured value. rank keeps the strategy's own ranking whatever the order. (proto string) |
-| `status` | string | no | Optional filter: "triggered" \| "setup" \| "watch". (proto string) |
+| `status` | string | no | Optional filter: "triggered" \| "setup" \| "unknown" \| "watch". (proto string) |
 | `strategyId` | string | no | Required, e.g. "zanger-breakout". (proto string) |
 
 ```bash

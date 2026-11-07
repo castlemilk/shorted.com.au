@@ -1,6 +1,7 @@
 package strategies
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -128,9 +129,9 @@ func TestEvaluateVersionRebuildsTheUniverseFromStoredRows(t *testing.T) {
 	d := civil.Date{Year: 2026, Month: time.November, Day: 12}
 	fs, _ := featureParams()
 	out := buildSessionRows(sessionFixture(t, d), fs)
-	v, ok := spec.Live(spec.StrategyZangerBreakout)
+	v, ok := spec.Version(spec.StrategyZangerBreakout, "v0")
 	if !ok {
-		t.Fatal("no live zanger version")
+		t.Fatal("no v0 zanger version")
 	}
 	ev, err := evaluateVersion(out.Rows, out.Blobs, out.Regime, v)
 	if err != nil {
@@ -148,6 +149,28 @@ func TestEvaluateVersionRebuildsTheUniverseFromStoredRows(t *testing.T) {
 		if code == "NEW" {
 			t.Errorf("an ineligible code cannot be a pick")
 		}
+	}
+}
+
+// The live version's universe is the ordinary shares: v1 drops the exchange
+// traded product that v0 evaluates, so the stored rows read under v1 are fewer.
+func TestEvaluateVersionUnderV1DropsTheProduct(t *testing.T) {
+	d := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	fs, _ := featureParams()
+	out := buildSessionRows(sessionFixture(t, d), fs)
+	v1, ok := spec.Version(spec.StrategyZangerBreakout, "v1")
+	if !ok {
+		t.Fatal("no v1 zanger version")
+	}
+	ev, err := evaluateVersion(out.Rows, out.Blobs, out.Regime, v1)
+	if err != nil {
+		t.Fatalf("evaluateVersion: %v", err)
+	}
+	if ev.Eligible != 1 {
+		t.Errorf("eligible under v1 = %d, want 1 (AAA; the ETF is not an ordinary share)", ev.Eligible)
+	}
+	if _, ok := ev.Picks["ETF"]; ok {
+		t.Errorf("the exchange traded product cannot be a v1 pick")
 	}
 }
 
@@ -322,4 +345,101 @@ func TestStoredUniverseReasonsAgreeWithThePipeline(t *testing.T) {
 	bars := in.Bars["AAA"]
 	bars[len(bars)-1].Close = 0
 	check("zero close on the session", in)
+}
+
+// The stored up-jump guard reads the date the v1 policy names, so the features
+// the daily job writes and the policy the pipeline reads cannot drift apart.
+func TestCAUpjumpFromIsTheV1Policy(t *testing.T) {
+	v1, ok := spec.Version(spec.StrategyZangerBreakout, "v1")
+	if !ok {
+		t.Fatal("no v1 version for zanger-breakout")
+	}
+	if v1.Spec.Data.CAUpjumpFrom != caUpjumpFrom {
+		t.Fatalf("v1 ca_upjump_from = %q, the daily job reads %q", v1.Spec.Data.CAUpjumpFrom, caUpjumpFrom)
+	}
+}
+
+// The stored short reading and its staleness read the v1 policy's publication
+// lag and maximum report age, so a change to either constant is a change to v1.
+func TestStoredShortReadingIsTheV1Policy(t *testing.T) {
+	v1, ok := spec.Version(spec.StrategyZangerBreakout, "v1")
+	if !ok {
+		t.Fatal("no v1 version for zanger-breakout")
+	}
+	if v1.Spec.Data.PublicationLagSessions != snapshotPublicationLag {
+		t.Fatalf("v1 publication_lag_sessions = %d, the daily job stores %d", v1.Spec.Data.PublicationLagSessions, snapshotPublicationLag)
+	}
+	if v1.Spec.Data.MaxReportAgeSessions != features.StaleAfterSessions {
+		t.Fatalf("v1 max_report_age_sessions = %d, the daily job stores %d", v1.Spec.Data.MaxReportAgeSessions, features.StaleAfterSessions)
+	}
+}
+
+// v1 changes the universe, the short data and the ladder, never the thresholds:
+// its rules, score, regime and features are v0's, as the changelog says.
+func TestV1KeepsV0sThresholds(t *testing.T) {
+	for _, id := range []string{spec.StrategyZangerBreakout, spec.StrategyCrowdedShortBreakout} {
+		v0, ok0 := spec.Version(id, "v0")
+		v1, ok1 := spec.Version(id, "v1")
+		if !ok0 || !ok1 {
+			t.Fatalf("%s: missing v0 or v1", id)
+		}
+		if !reflect.DeepEqual(v0.Spec.Rules, v1.Spec.Rules) || !reflect.DeepEqual(v0.Spec.Score, v1.Spec.Score) ||
+			!reflect.DeepEqual(v0.Spec.Regime, v1.Spec.Regime) || !reflect.DeepEqual(v0.Spec.Features, v1.Spec.Features) {
+			t.Fatalf("%s: v1 thresholds differ from v0's", id)
+		}
+	}
+}
+
+// flatThenBreakout is a stock that sat flat for its whole history, then closed
+// above the pivot on heavy volume in its last sessions: its base and breakout
+// pass, so with no fundamentals only the growth rule is unknown.
+func flatThenBreakout(d civil.Date) []features.Bar {
+	bars := weekdayBars(d, 320, 10, 0)
+	n := len(bars)
+	for i := n - 6; i < n; i++ {
+		c := 10 + 0.2*float64(i-(n-6)+1)
+		bars[i].Open, bars[i].Close, bars[i].AdjClose = c, c, c
+		bars[i].High, bars[i].Low = c*1.01, c*0.99
+		bars[i].Volume = 3_000_000
+	}
+	return bars
+}
+
+// The job applies each version's own ladder: with no fundamentals every growth
+// rule is unknown, so v1 reads a pick whose other core rules pass as unknown,
+// and v0 never does. Both read the same stored rows.
+func TestEvaluateVersionAppliesItsOwnLadder(t *testing.T) {
+	d := civil.Date{Year: 2026, Month: time.November, Day: 12}
+	fs, _ := featureParams()
+	in := sessionFixture(t, d)
+	in.Bars["AAA"] = flatThenBreakout(d)
+	out := buildSessionRows(in, fs)
+	v1, ok := spec.Version(spec.StrategyZangerBreakout, "v1")
+	if !ok {
+		t.Fatal("no v1 zanger version")
+	}
+	v0, ok := spec.Version(spec.StrategyZangerBreakout, "v0")
+	if !ok {
+		t.Fatal("no v0 zanger version")
+	}
+	noFundamentals := map[string]features.Fundamentals{}
+
+	ev1, err := evaluateVersion(out.Rows, noFundamentals, out.Regime, v1)
+	if err != nil {
+		t.Fatalf("evaluateVersion v1: %v", err)
+	}
+	ev0, err := evaluateVersion(out.Rows, noFundamentals, out.Regime, v0)
+	if err != nil {
+		t.Fatalf("evaluateVersion v0: %v", err)
+	}
+	p1, ok := ev1.Picks["AAA"]
+	if !ok {
+		t.Fatalf("AAA is not a v1 pick: %v", ev1.Picks)
+	}
+	if p1.Status != string(engine.StatusUnknown) {
+		t.Errorf("v1 AAA status = %q, want unknown (its growth rule is unknown and no core rule fails)", p1.Status)
+	}
+	if p0, ok := ev0.Picks["AAA"]; !ok || p0.Status == string(engine.StatusUnknown) {
+		t.Errorf("v0 AAA = %+v, want its own ladder's setup or watch, never unknown", p0)
+	}
 }

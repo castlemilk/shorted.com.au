@@ -41,6 +41,13 @@ export function reasonText(reason: string | undefined | null): string {
 /** Why a stock the API did not evaluate is not read, as the stock page words it. */
 export const INELIGIBLE_TEXT: Readonly<Record<string, string>> = {
   short_history: "not enough trading history to read its signals",
+  no_bar_on_session: "no trade on the session",
+  exchange_traded_product: "an exchange-traded product",
+  debt_or_hybrid: "a debt or hybrid security",
+  secondary_line: "a secondary line of the company",
+  corporate_action_guard:
+    "a possible unadjusted share consolidation or split is recent",
+  not_in_asic_report: "not in ASIC's latest complete short report",
 };
 
 /** "3 Nov 2026" becomes "3 Nov"; "" when the date is not a real day. */
@@ -80,10 +87,8 @@ export function evidenceHeadline(
     }
     return "Waiting for the trigger rule";
   }
-  // An unknown status arrives with the v1 ladder; the API does not send it
-  // before then, and the copy is ready for it without widening the shared
-  // status type here.
-  if ((pick.status as string) === "unknown") {
+  // An unknown status is served under the v1 ladder: a core rule cannot be tested.
+  if (pick.status === "unknown") {
     const unknown = firstCore(
       pick.rules,
       rules,
@@ -312,6 +317,25 @@ export function notEvaluatedCopy(
       : "");
   const lead = date ? `Not evaluated on ${date}` : "Not evaluated";
   return why ? `${lead}: ${why}.` : `${lead}.`;
+}
+
+/**
+ * The heading of a stock the picker did not read. "yet" only where a later
+ * session can read it: a short history, a missing bar, or a recent corporate
+ * action that grows out of the guard. An exchange-traded product, a debt or
+ * hybrid security and a secondary line are never evaluated, so their heading
+ * does not promise an evaluation.
+ */
+const CLEARABLE_INELIGIBLE: ReadonlySet<string> = new Set([
+  "short_history",
+  "no_bar_on_session",
+  "corporate_action_guard",
+]);
+
+export function notEvaluatedHeading(reason: string | undefined | null): string {
+  return !reason || CLEARABLE_INELIGIBLE.has(reason)
+    ? "Not evaluated yet"
+    : "Not evaluated";
 }
 
 /**

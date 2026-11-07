@@ -38,6 +38,9 @@ const (
 	// rules (the breakout, or the new-high / leadership rules), which have
 	// not happened yet. This is the watchlist.
 	StatusSetup PickStatus = "setup"
+	// StatusUnknown (the v1 ladder only): no core non-trigger rule fails and
+	// at least one core rule cannot be tested, so the stock may yet qualify.
+	StatusUnknown PickStatus = "unknown"
 	// StatusWatch: at least one rule passes, but the stock is not a setup.
 	StatusWatch PickStatus = "watch"
 	// StatusNone: the stock is in the evaluated universe but is not one of
@@ -52,15 +55,17 @@ func statusRank(s PickStatus) int {
 		return 0
 	case StatusSetup:
 		return 1
-	default:
+	case StatusUnknown:
 		return 2
+	default:
+		return 3
 	}
 }
 
 // ValidPickStatus reports whether s is a status a caller may filter on.
 func ValidPickStatus(s string) bool {
 	switch PickStatus(s) {
-	case StatusTriggered, StatusSetup, StatusWatch:
+	case StatusTriggered, StatusSetup, StatusUnknown, StatusWatch:
 		return true
 	}
 	return false
@@ -79,6 +84,14 @@ const (
 	ReasonNoFundamentals = "no_fundamentals"
 	// ReasonNotMeaningful: the ratio is not meaningful for this kind of company.
 	ReasonNotMeaningful = "not_meaningful"
+	// ReasonASICReportStale: no complete ASIC report within the policy's
+	// age limit, so the short rules cannot be tested.
+	ReasonASICReportStale = "asic_report_stale"
+	// ReasonASICValueMissing: the stock's row in the report has no usable figure.
+	ReasonASICValueMissing = "asic_value_missing"
+	// ReasonBasisChange: a share consolidation or split after the report makes
+	// its positions and the post-event volume incomparable.
+	ReasonBasisChange = "basis_change"
 )
 
 // Regime labels, as mv_market_regime.regime stores them.
@@ -288,7 +301,18 @@ type Candidate struct {
 	LogoURL     string
 	ShortPct    *float64 // nil when the stock has no reported short position
 	DaysToCover *float64 // nil when there is no volume to divide by
-	MarketCap   *float64 // nil when unknown (the screener's figure; see ResolvedMarketCap)
+	// ShortReason is why the short reading cannot be tested (a Reason* code:
+	// asic_report_stale, asic_value_missing), empty when it can or when the
+	// stock has no report. Only v1 readings set it.
+	ShortReason string
+	// DaysToCoverReason is why days to cover cannot be measured when the
+	// reading exists (no_volume, basis_change), empty otherwise.
+	DaysToCoverReason string
+	// InASICReport is whether the stock has a row in the short reading's
+	// report. A version whose universe names the report (Crowded-Short, v1)
+	// keeps only these.
+	InASICReport bool
+	MarketCap    *float64 // nil when unknown (the screener's figure; see ResolvedMarketCap)
 }
 
 // HasFundamentalsRow reports whether the stock has any reported

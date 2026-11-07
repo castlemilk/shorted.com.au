@@ -660,5 +660,34 @@ func (s *StoreAdapter) ListStrategySignalEvents(ctx context.Context, f shorts.St
 	return r.ListStrategySignalEvents(ctx, f)
 }
 
+// ReadLiveRuleVersions reads the table's live row per strategy (the store's
+// StrategyLiveReader). A store without it answers unavailable, so the API
+// falls back to the registry's live flag, as it does for a test fake.
+func (s *StoreAdapter) ReadLiveRuleVersions(ctx context.Context) ([]shorts.LiveRuleVersion, error) {
+	r, ok := s.store.(shorts.StrategyLiveReader)
+	if !ok {
+		return nil, shorts.ErrStrategySnapshotUnavailable
+	}
+	return r.ReadLiveRuleVersions(ctx)
+}
+
+// ReadCanonicalRuleVersions reads every canonical version the table records,
+// with its status and dates (the store's StrategyVersionReader).
+func (s *StoreAdapter) ReadCanonicalRuleVersions(ctx context.Context) ([]shorts.CanonicalRuleVersion, error) {
+	r, ok := s.store.(shorts.StrategyVersionReader)
+	if !ok {
+		return nil, shorts.ErrStrategySnapshotUnavailable
+	}
+	return r.ReadCanonicalRuleVersions(ctx)
+}
+
 // StoreAdapter serves the snapshot read the stock picker uses when its source is "snapshot".
 var _ strategySnapshotStore = (*StoreAdapter)(nil)
+
+// The version reads the API resolves served versions and version RPCs against. A
+// method missing here reads as an unmigrated table in production while the
+// fakes that implement the readers directly pass.
+var (
+	_ strategyLiveStore            = (*StoreAdapter)(nil)
+	_ shorts.StrategyVersionReader = (*StoreAdapter)(nil)
+)

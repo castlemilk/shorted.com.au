@@ -63,8 +63,9 @@ const SESSION_DAYS = 7 / 5;
 export const FIT_STATUS_STRENGTH: Readonly<
   Record<StockStrategyFitRow["status"], number>
 > = {
-  triggered: 3,
-  setup: 2,
+  triggered: 4,
+  setup: 3,
+  unknown: 2,
   watch: 1,
   none: 0,
 };

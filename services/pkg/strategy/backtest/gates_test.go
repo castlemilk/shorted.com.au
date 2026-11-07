@@ -304,6 +304,7 @@ func TestStepEqualsRun(t *testing.T) {
 	if !ok {
 		t.Fatal("no strategy")
 	}
+	strategy.UnknownStatus = s.Ladder.UnknownStatus
 	pin, mkt, err := pipelineInputs(in)
 	if err != nil {
 		t.Fatal(err)
@@ -455,6 +456,7 @@ func snapshotPicks(t *testing.T, s spec.Spec, pin *pipeline.Inputs, mkt Market, 
 	if !ok {
 		t.Fatal("no strategy")
 	}
+	strategy.UnknownStatus = s.Ladder.UnknownStatus
 	cands, stats, _ := pipeline.BuildCandidates(d, pin, s)
 	for i := range cands {
 		cands[i].Industry = mkt.Industry[cands[i].StockCode]

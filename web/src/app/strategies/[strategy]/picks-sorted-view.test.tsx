@@ -252,6 +252,7 @@ describe("PicksSortedView: status filter (a request in rank order)", () => {
       "/strategies/zanger-breakout",
       "/strategies/zanger-breakout?status=triggered",
       "/strategies/zanger-breakout?status=setup",
+      "/strategies/zanger-breakout?status=unknown",
       "/strategies/zanger-breakout?status=watch",
     ]);
     expect(
@@ -282,6 +283,7 @@ describe("PicksSortedView: sorting", () => {
       "/strategies/zanger-breakout?sort=roe",
       "/strategies/zanger-breakout?status=triggered&sort=roe",
       "/strategies/zanger-breakout?status=setup&sort=roe",
+      "/strategies/zanger-breakout?status=unknown&sort=roe",
       "/strategies/zanger-breakout?status=watch&sort=roe",
     ]);
     const sort = screen.getByRole("navigation", { name: "Sort picks" });
@@ -549,7 +551,7 @@ describe("PicksSortedView: the shortlist's own copy", () => {
   it("says watch names fill the list to the shortlist's size, not a larger one", () => {
     renderView([TRIGGERED, WATCH]);
     expect(summary()).toHaveTextContent(
-      `Showing 2 of 2 ranked stocks. Triggered and setup first; watch names fill the list to ${SHORTLIST_MAX_ROWS}.`,
+      `Showing 2 of 2 ranked stocks. Triggered, setup and unknown first; watch names fill the list to ${SHORTLIST_MAX_ROWS}.`,
     );
   });
 });

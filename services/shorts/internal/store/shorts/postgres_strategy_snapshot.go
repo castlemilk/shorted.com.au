@@ -10,10 +10,13 @@ import (
 	"cloud.google.com/go/civil"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/calendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/snapshot"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 )
 
 // The daily snapshot (migration 000156) read by the API. The picks, the
@@ -80,6 +83,10 @@ type AsicReportRow struct {
 	FirstIngestedAt time.Time
 	FileRows        *int
 	LoadedRows      int
+	// AvailableDate is when the report became public on the calendar the
+	// snapshot's short reading uses (reportAvailability). nil for a report the
+	// holiday table does not cover, or when the calendar has no session for it.
+	AvailableDate *civil.Date
 }
 
 // StrategySignalEventsFilter selects one rules version's status changes. Ordering
@@ -250,6 +257,9 @@ func (s *postgresStore) ReadStrategyDataStatus(ctx context.Context) (StrategyDat
 	if err != nil {
 		return StrategyDataStatus{}, err
 	}
+	if err := reportAvailability(ctx, s.db, reports); err != nil {
+		return StrategyDataStatus{}, err
+	}
 	out.AsicReports = reports
 
 	sessions, err := completedStrategySessions(ctx, s.db, 1)
@@ -308,6 +318,121 @@ func latestPriceSweepCompletion(ctx context.Context, db fundamentalsDB) (*time.T
 		return nil, fmt.Errorf("read the newest price sweep: %w", err)
 	}
 	return at, nil
+}
+
+// reportAvailability sets each report's publication date from the calendar the
+// snapshot's short reading is built on: the index sessions and the distinct
+// report dates of the shorts table, at the v1 publication lag. The job reads the
+// same two inputs, with the same filters (pgsource.IndexBars and
+// pgsource.ASICRows), but at its own session: this reads them as they are now.
+// The date matches the stored reading while no report day was loaded or
+// backfilled after that session; a later load can move it by a session, and the
+// stored reading remains the authority. The reports listed are the newest, and a
+// report's lag reads only the sessions after it.
+func reportAvailability(ctx context.Context, db fundamentalsDB, reports []AsicReportRow) error {
+	if len(reports) == 0 {
+		return nil
+	}
+	oldest := reports[len(reports)-1].ReportDate
+	xjo, err := allIndexSessionDates(ctx, db, engine.DefaultIndexCode, oldest)
+	if err != nil {
+		return err
+	}
+	asic, err := shortsReportDates(ctx, db, oldest)
+	if err != nil {
+		return err
+	}
+	cal := calendar.New(xjo, asic, publicationLagSessions())
+	for i := range reports {
+		if reports[i].ReportDate.Year < asxcalendar.HolidayCoverageStartYear {
+			continue
+		}
+		if p, ok := cal.PublishedOn(reports[i].ReportDate); ok {
+			published := p
+			reports[i].AvailableDate = &published
+		}
+	}
+	return nil
+}
+
+// shortsReportDates returns the distinct report dates of the shorts table from
+// `from` on, ascending: the report dates the job's calendar is built from.
+func shortsReportDates(ctx context.Context, db fundamentalsDB, from civil.Date) ([]civil.Date, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+	rows, err := db.Query(ctx, `
+		SELECT DISTINCT "DATE"::date::text FROM shorts
+		 WHERE "DATE" >= $1::date AND "PRODUCT_CODE" IS NOT NULL
+		 ORDER BY 1`, from.String())
+	if err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ReadStrategyDataStatus.shorts", err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read ASIC report dates: %w", err)
+	}
+	defer rows.Close()
+	var out []civil.Date
+	for rows.Next() {
+		var day string
+		if err := rows.Scan(&day); err != nil {
+			return nil, fmt.Errorf("scan ASIC report date: %w", err)
+		}
+		d, err := civil.ParseDate(day)
+		if err != nil {
+			return nil, fmt.Errorf("parse ASIC report date %q: %w", day, err)
+		}
+		out = append(out, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate ASIC report dates: %w", err)
+	}
+	return out, nil
+}
+
+// allIndexSessionDates returns every index bar date from `from` on, ascending,
+// as pgsource.IndexBars reads them (no close filter). A missing index table
+// reads as no sessions.
+func allIndexSessionDates(ctx context.Context, db fundamentalsDB, indexCode string, from civil.Date) ([]civil.Date, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+	rows, err := db.Query(ctx, `
+		SELECT DISTINCT date::date::text FROM index_prices
+		 WHERE index_code = $1 AND date >= $2::date
+		 ORDER BY 1`, indexCode, from.String())
+	if err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ReadStrategyDataStatus.index", err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read index sessions: %w", err)
+	}
+	defer rows.Close()
+	var out []civil.Date
+	for rows.Next() {
+		var day string
+		if err := rows.Scan(&day); err != nil {
+			return nil, fmt.Errorf("scan index session: %w", err)
+		}
+		d, err := civil.ParseDate(day)
+		if err != nil {
+			return nil, fmt.Errorf("parse index session %q: %w", day, err)
+		}
+		out = append(out, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate index sessions: %w", err)
+	}
+	return out, nil
+}
+
+// publicationLagSessions is the v1 policy's publication lag, read from the
+// registered version rather than restated.
+func publicationLagSessions() int {
+	if r, ok := spec.Version(spec.StrategyZangerBreakout, "v1"); ok {
+		return r.Spec.Data.PublicationLagSessions
+	}
+	return calendar.PublicationLagSessions
 }
 
 // recentAsicReports reads the newest n ASIC reports, newest first. A database
@@ -394,6 +519,117 @@ func (s *postgresStore) ListStrategySignalEvents(ctx context.Context, f Strategy
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate strategy signal events: %w", err)
+	}
+	return out, nil
+}
+
+// LiveRuleVersion is the canonical version strategy_rule_versions marks live for
+// one strategy: the rules hash the daily job evaluates under, and the first
+// session it was live (YYYY-MM-DD, "" when the row has none).
+type LiveRuleVersion struct {
+	StrategyID string
+	RulesHash  string
+	Label      string
+	LiveFrom   string
+}
+
+// StrategyLiveReader is the live-version read the API serves picks under.
+// Store implements it beside the snapshot reader; a store without it (a test
+// fake) serves the registry's live flag.
+type StrategyLiveReader interface {
+	ReadLiveRuleVersions(ctx context.Context) ([]LiveRuleVersion, error)
+}
+
+// CanonicalRuleVersion is one canonical version strategy_rule_versions records,
+// with the status and the dates the version RPCs state (YYYY-MM-DD, "" when the
+// row has none).
+type CanonicalRuleVersion struct {
+	RulesHash    string
+	StrategyID   string
+	Label        string
+	Status       string
+	LiveFrom     string
+	SupersededOn string
+	RetiredOn    string
+}
+
+// StrategyVersionReader is the version read the version RPCs state their
+// status and dates from. Store implements it beside the live reader.
+type StrategyVersionReader interface {
+	ReadCanonicalRuleVersions(ctx context.Context) ([]CanonicalRuleVersion, error)
+}
+
+// The Postgres store serves both version reads; the API reaches them by type
+// assertion, so a method lost here serves the registry instead of the table.
+var (
+	_ StrategyLiveReader    = (*postgresStore)(nil)
+	_ StrategyVersionReader = (*postgresStore)(nil)
+)
+
+// ReadCanonicalRuleVersions returns every canonical version the table records,
+// whatever its status. A database without the table answers
+// ErrStrategySnapshotUnavailable.
+func (s *postgresStore) ReadCanonicalRuleVersions(ctx context.Context) ([]CanonicalRuleVersion, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+	rows, err := s.db.Query(ctx, `
+		SELECT rules_hash, strategy_id, label, status,
+		       COALESCE(live_from::text, ''), COALESCE(superseded_on::text, ''), COALESCE(retired_on::text, '')
+		  FROM strategy_rule_versions
+		 WHERE kind = 'canonical'
+		 ORDER BY strategy_id, rules_hash`)
+	if err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ReadCanonicalRuleVersions", err)
+			return nil, ErrStrategySnapshotUnavailable
+		}
+		return nil, fmt.Errorf("read canonical rule versions: %w", err)
+	}
+	defer rows.Close()
+	var out []CanonicalRuleVersion
+	for rows.Next() {
+		var v CanonicalRuleVersion
+		if err := rows.Scan(&v.RulesHash, &v.StrategyID, &v.Label, &v.Status, &v.LiveFrom, &v.SupersededOn, &v.RetiredOn); err != nil {
+			return nil, fmt.Errorf("scan canonical rule version: %w", err)
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read canonical rule versions: %w", err)
+	}
+	return out, nil
+}
+
+// ReadLiveRuleVersions returns the live canonical version of every strategy the
+// table records, the version the job last promoted (the table is written by the
+// daily job, so the served version changes when the job promotes, not at
+// deploy). A database without the table answers ErrStrategySnapshotUnavailable.
+func (s *postgresStore) ReadLiveRuleVersions(ctx context.Context) ([]LiveRuleVersion, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+	rows, err := s.db.Query(ctx, `
+		SELECT strategy_id, rules_hash, label, COALESCE(live_from::text, '')
+		  FROM strategy_rule_versions
+		 WHERE kind = 'canonical' AND status = 'live'
+		 ORDER BY strategy_id`)
+	if err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ReadLiveRuleVersions", err)
+			return nil, ErrStrategySnapshotUnavailable
+		}
+		return nil, fmt.Errorf("read live rule versions: %w", err)
+	}
+	defer rows.Close()
+	var out []LiveRuleVersion
+	for rows.Next() {
+		var v LiveRuleVersion
+		if err := rows.Scan(&v.StrategyID, &v.RulesHash, &v.Label, &v.LiveFrom); err != nil {
+			return nil, fmt.Errorf("scan live rule version: %w", err)
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read live rule versions: %w", err)
 	}
 	return out, nil
 }

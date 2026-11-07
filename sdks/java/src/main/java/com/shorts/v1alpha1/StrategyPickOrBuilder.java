@@ -58,7 +58,7 @@ public interface StrategyPickOrBuilder extends
 
   /**
    * <pre>
-   * "triggered" | "setup" | "watch".
+   * "triggered" | "setup" | "unknown" | "watch".
    * </pre>
    *
    * <code>string status = 5 [json_name = "status"];</code>
@@ -67,7 +67,7 @@ public interface StrategyPickOrBuilder extends
   java.lang.String getStatus();
   /**
    * <pre>
-   * "triggered" | "setup" | "watch".
+   * "triggered" | "setup" | "unknown" | "watch".
    * </pre>
    *
    * <code>string status = 5 [json_name = "status"];</code>

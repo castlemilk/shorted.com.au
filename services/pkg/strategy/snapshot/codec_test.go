@@ -104,9 +104,9 @@ func TestMetaKeysAreTheStoredNames(t *testing.T) {
 
 func v0Spec(t *testing.T) spec.Spec {
 	t.Helper()
-	reg, ok := spec.Live(spec.StrategyZangerBreakout)
+	reg, ok := spec.Version(spec.StrategyZangerBreakout, "v0")
 	if !ok {
-		t.Fatal("no live version")
+		t.Fatal("no v0 version")
 	}
 	return reg.Spec
 }

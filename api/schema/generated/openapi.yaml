@@ -4164,7 +4164,7 @@ paths:
         - shorts.v1alpha1.StrategyService
       summary: GetStrategyPicks
       description: |-
-        Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+        Ranked picks for one strategy: status (triggered, setup, unknown, watch), a 0-100
          score and a per-rule pass / fail / unknown breakdown for each stock. The
          answer is the same bytes to every HTTP caller. When the public depth
          limit is set, the rows are the top of the default ranking only, for every
@@ -11238,7 +11238,7 @@ components:
         status:
           type: string
           title: status
-          description: 'Optional filter: "triggered" | "setup" | "watch". (proto string)'
+          description: 'Optional filter: "triggered" | "setup" | "unknown" | "watch". (proto string)'
         sortBy:
           type: string
           title: sort_by
@@ -16391,7 +16391,8 @@ components:
           title: reason
           description: |-
             Why an unknown rule could not be tested: "no_price_history", "no_volume",
-             "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail. (proto string)
+             "no_index", "no_fundamentals", "not_meaningful", "asic_report_stale",
+             "asic_value_missing" or "basis_change". Empty for pass and fail. (proto string)
         proximity:
           type: number
           title: proximity
@@ -17426,7 +17427,7 @@ components:
         status:
           type: string
           title: status
-          description: '"triggered" | "setup" | "watch" | "none" (not a candidate). (proto string)'
+          description: '"triggered" | "setup" | "unknown" | "watch" | "none" (not a candidate). (proto string)'
         score:
           type: number
           title: score
@@ -17509,7 +17510,7 @@ components:
         status:
           type: string
           title: status
-          description: '"triggered" | "setup" | "watch". (proto string)'
+          description: '"triggered" | "setup" | "unknown" | "watch". (proto string)'
         score:
           type: number
           title: score
