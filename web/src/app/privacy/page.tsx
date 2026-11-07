@@ -33,7 +33,7 @@ export default function PrivacyPage() {
       <div className="space-y-4 mb-12">
         <h1 className="text-4xl font-bold tracking-tight">Privacy Policy</h1>
         <p className="text-lg text-muted-foreground">
-          Last updated: February 2025
+          Last updated: November 2026
         </p>
         <Separator className="my-6" />
       </div>
@@ -101,6 +101,14 @@ export default function PrivacyPage() {
               Cookies and similar tracking technologies (see Section 5 below)
             </li>
           </ul>
+          <p className="text-base leading-7">
+            We use Flaggr to measure page performance and diagnose browser
+            errors. It receives page URLs and referrers, browser and device
+            details, performance timings, and error messages and stack traces.
+            These may include information contained in a URL or error message.
+            Flaggr uses a temporary browser-tab identifier and respects the
+            browser&apos;s Do Not Track setting.
+          </p>
         </section>
 
         {/* How We Use Your Information */}

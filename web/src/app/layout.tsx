@@ -23,6 +23,7 @@ import { WebVitalsReporter } from "~/@/components/web-vitals-reporter";
 import { Suspense } from "react";
 import { DeferredGoogleAnalytics } from "~/@/components/deferred-google-analytics";
 import { CloudflareWebAnalytics } from "~/@/components/cloudflare-web-analytics";
+import { FlaggrAnalytics } from "~/@/components/flaggr-analytics";
 import { CloudflareJsDetections } from "~/@/components/cloudflare-js-detections";
 import { JsonLd } from "~/@/components/seo/json-ld";
 
@@ -186,6 +187,7 @@ export default function RootLayout({
           suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: discordActivityHeadScript() }}
         />
+        <FlaggrAnalytics />
         {/* Inline critical CSS to prevent render-blocking */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />
         {/* Pre-paint session sniff: mark html.anon when no next-auth cookie is
