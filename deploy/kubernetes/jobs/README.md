@@ -32,6 +32,8 @@ replace Cloud Scheduler → Cloud Run Jobs, one job at a time.
 | `scripts/bump-image-tag.sh` | Called by CI after each main deploy |
 | `services/jobs/internal/jobs/cronreporter/` | The reporter's source |
 
+A job may set an optional `nodeSelector` in its `chart/values.yaml` entry, which the template renders onto the pod spec. `shorted-strategies-backtest` pins itself to the `core-large` pool (8 GB nodes) because its ~2.5 GiB working set does not fit the 4 GB `core` nodes, and on 2026-11-07 a run took one of them NotReady for 17 minutes.
+
 ## What moved, what stayed
 
 Every **scheduled** Cloud Run job has a CronJob. One Cloud Run job with several

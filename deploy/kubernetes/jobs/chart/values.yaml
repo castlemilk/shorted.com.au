@@ -724,6 +724,9 @@ jobs:
     timeoutSeconds: 3300
     maxRetries: 0
     resources: { cpuRequest: "1", memoryRequest: 1536Mi, memory: 3Gi }
+    # The ~2.5 GiB working set does not fit in the 4 GB `core` node's free memory. On 2026-11-07 a
+    # run took core-ef6b2792fa9a NotReady for 17 minutes. The core-large nodes are 8 GB.
+    nodeSelector: { vke.vultr.com/node-pool: core-large }
     profiles: [db, revalidate]
     env:
       # Writes only when this is "false"; the dry run is the default everywhere else.
