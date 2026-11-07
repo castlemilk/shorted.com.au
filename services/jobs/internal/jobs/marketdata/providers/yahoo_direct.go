@@ -86,7 +86,8 @@ func (p *YahooFinanceDirectProvider) GetRateLimit() time.Duration {
 type yahooChartResponse struct {
 	Chart struct {
 		Result []struct {
-			Timestamp  []int64 `json:"timestamp"`
+			Meta       yahooChartMeta `json:"meta"`
+			Timestamp  []int64        `json:"timestamp"`
 			Indicators struct {
 				Quote []struct {
 					Open   []*float64 `json:"open"`
@@ -105,6 +106,38 @@ type yahooChartResponse struct {
 			Description string `json:"description"`
 		} `json:"error"`
 	} `json:"chart"`
+}
+
+// yahooChartMeta is the listing a chart was answered for. Yahoo resolves a
+// symbol itself, so `CODE.AX` is only the ASX listing if Yahoo says so here.
+type yahooChartMeta struct {
+	Symbol       string `json:"symbol"`
+	Currency     string `json:"currency"`
+	ExchangeName string `json:"exchangeName"`
+}
+
+// verifyListing refuses a chart that is not the ASX listing, in AUD, of the code
+// asked for. Storing one writes a price for another company under an ASX code:
+// the SLM bar for the 2025-12-24 session is SLM Corp (NASDAQ, ~US$27) under
+// ASX:SLM (~$0.04), last written 2026-01-02.
+//
+// A chart for another listing is a "no data" answer for the ASX code, so the
+// chain ends. A chart that names no listing at all cannot be identified, so it
+// is a failure: it is neither stored nor counted as a strike against the stock.
+func verifyListing(meta yahooChartMeta, symbol string) error {
+	code := strings.ToUpper(strings.TrimSuffix(strings.ToUpper(strings.TrimSpace(symbol)), ".AX"))
+	if meta.Symbol == "" || meta.Currency == "" || meta.ExchangeName == "" {
+		return fmt.Errorf("yahoo %s: chart names no listing (symbol %q, exchange %q, currency %q): refusing an unidentified price",
+			symbol, meta.Symbol, meta.ExchangeName, meta.Currency)
+	}
+	// Yahoo reports the ticker as CODE.AX on the ASX. The exchange and currency
+	// are what make it the ASX listing; the ticker must name the same code.
+	got := strings.TrimSuffix(strings.ToUpper(meta.Symbol), ".AX")
+	if got != code || meta.ExchangeName != "ASX" || meta.Currency != "AUD" {
+		return NewNoDataError(symbol, fmt.Sprintf("yahoo answered for %s on %s in %s, not %s.AX on the ASX in AUD",
+			meta.Symbol, meta.ExchangeName, meta.Currency, code))
+	}
+	return nil
 }
 
 // FetchHistoricalData returns the sessions from startDate's day to endDate's
@@ -211,6 +244,9 @@ func parseYahooChart(body []byte, symbol string) ([]PriceRecord, error) {
 		return nil, NewNoDataError(symbol, "yahoo: no quote data")
 	}
 	res := doc.Chart.Result[0]
+	if err := verifyListing(res.Meta, symbol); err != nil {
+		return nil, err
+	}
 	quote := res.Indicators.Quote[0]
 	var adj []*float64
 	if len(res.Indicators.AdjClose) > 0 {
