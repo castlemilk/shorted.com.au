@@ -73,9 +73,11 @@ export function RunSummary({ window, paper, avgHoldSessions, referenceName }: Ru
         <Metric label="Max drawdown" value={formatSigned(window.maxDrawdownPct, "%")} negative={window.maxDrawdownPct < 0} large />
         <Metric
           label="Sharpe"
-          value={sharpe && window.sharpe !== null ? `${window.sharpe.toFixed(2)}${window.sharpeSe !== null ? ` (± ${window.sharpeSe.toFixed(2)})` : ""}` : "n/m"}
+          // The value may wrap between the figure and its bracket, never inside the
+          // bracket (a no-break space after ±): unwrapped, "−0.65 (± 0.36)" ran into
+          // the next column at 1280 px.
+          value={sharpe && window.sharpe !== null ? `${window.sharpe.toFixed(2)}${window.sharpeSe !== null ? ` (± ${window.sharpeSe.toFixed(2)})` : ""}` : "n/m"}
           note={sharpe ? undefined : `under ${SHARPE_MIN_RETURNS} daily returns`}
-          nowrap
         />
         <Metric label="Closed trades" value={formatCount(window.closedTrades)} />
         <Metric label="Win rate" value={window.winRatePct === null ? NOT_AVAILABLE : formatPct(window.winRatePct, 0)} />
