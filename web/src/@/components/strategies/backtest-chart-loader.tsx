@@ -19,7 +19,8 @@ export function BacktestChartSkeleton() {
   return (
     <div
       aria-hidden="true"
-      className="h-[390px] animate-pulse rounded-lg bg-muted/40"
+      className="w-full animate-pulse rounded-lg bg-muted/40"
+      style={{ aspectRatio: "100 / 66" }}
     />
   );
 }

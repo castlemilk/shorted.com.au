@@ -122,6 +122,7 @@ describe("strategy components stay server-safe, however indirectly", () => {
   // chunk. None imports the protobuf runtime (the walk below checks that).
   const CLIENT_KIT_FILES = [
     "backtest-chart-loader.tsx",
+    "backtest-chart.tsx",
     "strategies-sub-nav.tsx",
     "strategy-tab-nav.tsx",
   ];
@@ -149,4 +150,28 @@ describe("strategy components stay server-safe, however indirectly", () => {
       ]),
     );
   });
+});
+
+// The client islands under app/strategies/ (the Backtest panel and the trade list) reach the
+// protobuf runtime only through their server actions, never through a generated module or a
+// connect import of their own: the same walk, from each island's own file.
+const SRC_APP_STRATEGIES = join(SRC_DIR, "app", "strategies");
+const ISLANDS = [
+  join(SRC_APP_STRATEGIES, "[strategy]", "backtest", "backtest-panel.tsx"),
+  join(SRC_APP_STRATEGIES, "[strategy]", "trades", "trades-island.tsx"),
+];
+
+// An island may call its own server action (app/actions): that is the RPC boundary, and the
+// action imports the generated client on the server. So the walk stops at actions and checks
+// the island's own imports for the protobuf runtime, Connect and the generated modules.
+describe("the Backtest and Trades islands stay client-safe", () => {
+  it.each(ISLANDS.map((file) => [relative(SRC_DIR, file), file] as const))(
+    "%s imports no protobuf runtime, @connectrpc or ~/gen directly",
+    (_name, file) => {
+      const source = readFileSync(file, "utf8");
+      const specs = [...source.matchAll(IMPORT_RE), ...source.matchAll(DYNAMIC_IMPORT_RE)].map((m) => m[2] ?? m[1]!);
+      const bad = specs.filter((spec) => FORBIDDEN_PACKAGES.test(spec) || spec.startsWith("~/gen"));
+      expect(bad).toEqual([]);
+    },
+  );
 });

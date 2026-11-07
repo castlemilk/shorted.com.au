@@ -3,7 +3,6 @@ import { NOT_AVAILABLE, formatCount, formatPct, formatSigned } from "@/lib/strat
 import type {
   BacktestWindowView,
   PaperTrackView,
-  TradeSummaryView,
 } from "@/lib/strategies/map-backtest";
 import {
   SHARPE_MIN_RETURNS,
@@ -11,90 +10,73 @@ import {
   sharpeShown,
   windowLabel,
 } from "@/lib/strategies/backtest-windows";
-import { outOfSampleLine, tooShortCopy } from "@/lib/strategies/backtest-copy";
+import { outOfSampleLine, shortDate, tooShortCopy } from "@/lib/strategies/backtest-copy";
 
 export interface RunSummaryProps {
   /** The window the page is showing. */
   window: BacktestWindowView | null;
   /** The recorded paper track since the freeze, or null when the run has none. */
   paper: PaperTrackView | null;
-  /** The in-sample closed-trade statistics of the run (average hold). */
-  tradeSummary: TradeSummaryView | null;
-  /** The reference's name, when the run carries a reference line. */
+  /** The in-sample average hold, in sessions; null when the run does not state it. */
+  avgHoldSessions: number | null;
+  /** The same-data reference's name, for the reference gap's note. */
   referenceName: string;
 }
 
 /**
- * The run summary of the selected window (design 1.5): the headline figures, the
- * Sharpe with its standard error, the trade counts, and the out-of-sample row that
- * appears once the paper track can be judged. A figure the API does not state
- * prints "n/a", never zero; CAGR appears only over a year or more, and Sharpe only
- * over 126 returns (5.8).
+ * The run summary of the selected window (design 1.5): the headline figures, the Sharpe
+ * with its standard error, the trade counts, and the out-of-sample row. A figure the API
+ * does not state prints "n/a", never zero. CAGR appears only over a year or more; under a
+ * year the window's total return is shown beside XJT's and the reference's (item 17).
  */
-export function RunSummary({
-  window,
-  paper,
-  tradeSummary,
-  referenceName,
-}: RunSummaryProps) {
+export function RunSummary({ window, paper, avgHoldSessions, referenceName }: RunSummaryProps) {
   if (!window) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        No figures for this window in the run.
-      </p>
-    );
+    return <p className="text-sm text-muted-foreground">No figures for this window in the run.</p>;
   }
   const annualised = cagrShown(window);
   const sharpe = sharpeShown(window);
   const referenceGap =
-    window.cagrPct !== null && window.referenceCagrPct !== null
-      ? window.cagrPct - window.referenceCagrPct
-      : null;
+    window.cagrPct !== null && window.referenceCagrPct !== null ? window.cagrPct - window.referenceCagrPct : null;
   return (
     <div className="space-y-4" data-window-summary={window.window}>
       <p className="font-mono text-xs text-muted-foreground">
         {windowLabel(window.window)}
-        {window.from && window.to ? ` · ${window.from} to ${window.to}` : ""}
+        {window.from && window.to ? ` · ${shortDate(window.from)} to ${shortDate(window.to)}` : ""}
         {window.note ? ` · ${window.note}` : ""}
       </p>
       <dl className="grid grid-cols-3 gap-x-4 gap-y-4">
-        <Metric
-          label={annualised ? "Net CAGR" : "Total return"}
-          value={
-            annualised
-              ? formatPct(window.cagrPct)
-              : window.totalReturnPct === null
-                ? NOT_AVAILABLE
-                : formatSigned(window.totalReturnPct, "%")
-          }
-          note={annualised ? undefined : "not annualised"}
-          large
-        />
-        <Metric
-          label="Benchmark CAGR"
-          value={window.benchmarkCagrPct === null ? NOT_AVAILABLE : formatPct(window.benchmarkCagrPct)}
-          large
-        />
+        {annualised ? (
+          <Metric label="Net CAGR" value={formatPct(window.cagrPct)} large />
+        ) : (
+          <Metric
+            label="Total return"
+            value={window.totalReturnPct === null ? NOT_AVAILABLE : formatSigned(window.totalReturnPct, "%")}
+            note="not annualised"
+            large
+          />
+        )}
+        {annualised ? (
+          <Metric label="Benchmark CAGR" value={window.benchmarkCagrPct === null ? NOT_AVAILABLE : formatPct(window.benchmarkCagrPct)} large />
+        ) : (
+          <Metric
+            label="XJT total return"
+            value={window.benchmarkTotalReturnPct === null ? NOT_AVAILABLE : formatSigned(window.benchmarkTotalReturnPct, "%")}
+            large
+          />
+        )}
         <Metric label="Max drawdown" value={formatSigned(window.maxDrawdownPct, "%")} negative={window.maxDrawdownPct < 0} large />
         <Metric
           label="Sharpe"
-          value={
-            sharpe && window.sharpe !== null
-              ? `${window.sharpe.toFixed(2)}${window.sharpeSe !== null ? ` (± ${window.sharpeSe.toFixed(2)})` : ""}`
-              : "n/m"
-          }
+          value={sharpe && window.sharpe !== null ? `${window.sharpe.toFixed(2)}${window.sharpeSe !== null ? ` (± ${window.sharpeSe.toFixed(2)})` : ""}` : "n/m"}
           note={sharpe ? undefined : `under ${SHARPE_MIN_RETURNS} daily returns`}
+          nowrap
         />
         <Metric label="Closed trades" value={formatCount(window.closedTrades)} />
         <Metric label="Win rate" value={window.winRatePct === null ? NOT_AVAILABLE : formatPct(window.winRatePct, 0)} />
         <Metric label="Exposure" value={formatPct(window.exposurePct, 0)} />
         <Metric
           label="Average hold"
-          value={
-            tradeSummary?.avgHoldSessions != null
-              ? `${Math.round(tradeSummary.avgHoldSessions)} sessions`
-              : NOT_AVAILABLE
-          }
+          value={avgHoldSessions === null ? NOT_AVAILABLE : `${Math.round(avgHoldSessions)} sessions`}
           note="in-sample trades"
         />
         <Metric
@@ -133,12 +115,14 @@ function Metric({
   note,
   negative,
   large,
+  nowrap,
 }: {
   label: string;
   value: string;
   note?: string;
   negative?: boolean;
   large?: boolean;
+  nowrap?: boolean;
 }) {
   return (
     <div className="min-w-0">
@@ -147,6 +131,7 @@ function Metric({
         className={cn(
           "font-mono tabular-nums",
           large ? "text-2xl leading-tight" : "text-base",
+          nowrap && "whitespace-nowrap",
           negative && "text-[color:var(--semantic-red-text)]",
         )}
       >

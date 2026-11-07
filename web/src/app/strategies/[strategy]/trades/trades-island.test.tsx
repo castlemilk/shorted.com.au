@@ -7,6 +7,9 @@ import { mapBacktestTradesPage } from "~/@/lib/strategies/map-backtest";
 const useSession = jest.fn();
 const listBacktestTrades = jest.fn();
 
+jest.mock("next/navigation", () => ({
+  usePathname: () => "/strategies/crowded-short-breakout/trades",
+}));
 jest.mock("next-auth/react", () => ({
   useSession: () => useSession(),
 }));
@@ -43,7 +46,10 @@ describe("the trades island", () => {
     useSession.mockReturnValue({ data: null, status: "unauthenticated" });
     render(<TradesIsland runId={42} exitReasons={["pivot_stop"]} />);
     expect(screen.getByText(TRADES_SIGN_IN_COPY)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/signin");
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/signin?callbackUrl=%2Fstrategies%2Fcrowded-short-breakout%2Ftrades",
+    );
     expect(listBacktestTrades).not.toHaveBeenCalled();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });

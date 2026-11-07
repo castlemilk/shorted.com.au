@@ -268,3 +268,73 @@ export function nextDay(iso: string): string {
   if (!Number.isFinite(t)) return "";
   return new Date(t + 86_400_000).toISOString().slice(0, 10);
 }
+
+/**
+ * The height a drawn growth chart takes at a given width (CSS pixels). The placeholder
+ * uses the same ratio, so the mount moves nothing (item 4).
+ */
+export const CHART_ASPECT = 0.66;
+export function chartHeightFor(width: number): number {
+  return Math.max(260, Math.round(width * CHART_ASPECT));
+}
+
+/**
+ * Month-start ticks inside the points' span, for windows under a year: each month that
+ * starts inside the span, labelled "Mon YY". Pure.
+ */
+export function monthTicks(points: readonly GrowthPoint[]): Array<{ t: number; label: string }> {
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (!first || !last) return [];
+  const d0 = new Date(first.t);
+  const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const ticks: Array<{ t: number; label: string }> = [];
+  for (let y = d0.getUTCFullYear(), m = d0.getUTCMonth(); ; m++) {
+    if (m > 11) {
+      m = 0;
+      y++;
+    }
+    const t = Date.UTC(y, m, 1);
+    if (t > last.t) break;
+    if (t >= first.t) ticks.push({ t, label: `${names[m]} ${String(y).slice(2)}` });
+  }
+  return ticks;
+}
+
+/** One month of the coverage strip: its span on the time scale and its coverage (percent). */
+export interface CoverageBand {
+  month: string;
+  t0: number;
+  t1: number;
+  coveragePct: number | null;
+}
+
+/**
+ * The monthly coverage bands clipped to the points' span. A month without a measured
+ * coverage keeps its span with a null coverage, so the strip says "not measured" there.
+ */
+export function coverageBands(
+  months: ReadonlyArray<{ month: string; coveragePct: number | null; measurable: boolean }>,
+  points: readonly GrowthPoint[],
+): CoverageBand[] {
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (!first || !last) return [];
+  return months.flatMap((m) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(m.month);
+    if (!match) return [];
+    const t0 = Date.UTC(Number(match[1]), Number(match[2]) - 1, 1);
+    const t1 = Date.UTC(Number(match[1]), Number(match[2]), 1);
+    if (t1 < first.t || t0 > last.t) return [];
+    return [{ month: m.month, t0: Math.max(t0, first.t), t1: Math.min(t1, last.t), coveragePct: m.measurable ? m.coveragePct : null }];
+  });
+}
+
+/**
+ * The y-axis tick formatter's precision: enough decimals that neighbouring ticks never
+ * print the same label ("$100.0k, $99.5k"). Pure.
+ */
+export function moneyTickDecimals(step: number): number {
+  if (step >= 1000) return 0;
+  return step >= 100 ? 1 : 2;
+}

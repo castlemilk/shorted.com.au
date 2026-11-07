@@ -57,16 +57,25 @@ describe("listBacktestTrades (the signed-in trade list)", () => {
     });
   });
 
-  it("clamps the page size to 200, and passes a stock code only when it is one", async () => {
+  it("clamps the page size to 200, and normalises a valid stock code", async () => {
     auth.mockResolvedValue({ user: { id: "u1" } });
     await listBacktestTrades({ runId: 42, pageSize: 9999, stockCode: "bhp", exitReason: "pivot_stop" });
     expect(listCall).toHaveBeenLastCalledWith(
       expect.objectContaining({ pageSize: 200, stockCode: "BHP", exitReason: "pivot_stop" }),
     );
-    await listBacktestTrades({ runId: 42, stockCode: "BH P!", exitReason: "x y" });
-    expect(listCall).toHaveBeenLastCalledWith(
-      expect.objectContaining({ stockCode: "", exitReason: "" }),
-    );
+  });
+
+  it("reports an invalid filter or page token, and sends nothing", async () => {
+    auth.mockResolvedValue({ user: { id: "u1" } });
+    await expect(listBacktestTrades({ runId: 42, stockCode: "BH P!" })).resolves.toEqual({ ok: false, reason: "invalid", error: "stock" });
+    await expect(listBacktestTrades({ runId: 42, exitReason: "x y" })).resolves.toEqual({ ok: false, reason: "invalid", error: "reason" });
+    await expect(listBacktestTrades({ runId: 42, pageToken: "a b" })).resolves.toEqual({ ok: false, reason: "invalid", error: "token" });
+    expect(listCall).not.toHaveBeenCalled();
+  });
+
+  it("keeps a non-string stock code inside the try: a failure is an answer, never a throw", async () => {
+    auth.mockResolvedValue({ user: { id: "u1" } });
+    await expect(listBacktestTrades({ runId: 42, stockCode: 7 as unknown as string })).resolves.toEqual({ ok: false, reason: "invalid", error: "stock" });
   });
 
   it("answers unavailable when the API fails, and never throws to the page", async () => {

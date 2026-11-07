@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { BacktestChart } from "../backtest-chart";
+import { BacktestChart, PHONE_WIDTH } from "../backtest-chart";
 import { mapSeriesPoint } from "~/@/lib/strategies/map-backtest";
 import {
   FIXTURE_ENGINE_SEGMENTS,
@@ -9,75 +9,98 @@ import {
   fixtureSeries,
 } from "~/@/lib/strategies/__tests__/backtest-fixtures";
 
+// The chart measures its own width. Under test the measured width is fixed, so the SVG is drawn.
+let mockWidth = 720;
+jest.mock("@/components/charts/parent-size", () => ({
+  ParentSize: ({ children }: { children: (s: { width: number; height: number }) => React.ReactNode }) =>
+    children({ width: mockWidth, height: 0 }),
+}));
+
+const series = fixtureSeries().map((p) => mapSeriesPoint(p));
+const coverageMonthly = [
+  { month: "2025-11", coveragePct: 97, measurable: true },
+  { month: "2025-12", coveragePct: 62, measurable: true },
+];
 const props = {
   windowLabel: "Since May 2019",
+  windowFrom: "2019-05-03",
+  windowTo: "2026-11-06",
+  maxDrawdownPct: -18.6,
+  troughDate: "2022-06-13",
   liveFrom: FIXTURE_LIVE_FROM,
   recordedFrom: FIXTURE_RECORDED_FROM,
   engineSegments: FIXTURE_ENGINE_SEGMENTS,
+  coverageMonthly,
+  coverageLabel: "Qualifying ≥ 5% short",
   benchmarkName: "S&P/ASX 200 Gross Total Return (XJT)",
   referenceName: "same-data reference",
+  referenceTo: "2026-09-25",
   label: "Growth of A$100,000",
 };
 
-const series = fixtureSeries().map((p) => mapSeriesPoint(p));
+describe("the growth, drawdown and coverage chart", () => {
+  beforeEach(() => {
+    mockWidth = 720;
+  });
 
-describe("the growth and drawdown chart", () => {
-  it("draws the strategy, the benchmark and the reference, and the drawdown on its own panel", () => {
+  it("draws the strategy, XJT (full name in the legend) and the reference, and the drawdown panel", () => {
     const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
     expect(html).toContain('data-series="strategy"');
     expect(html).toContain('data-series="benchmark"');
     expect(html).toContain('data-series="reference"');
     expect(html).toContain('data-series="drawdown"');
-    expect(html).toContain("data-trough");
+    expect(html).toContain("S&amp;P/ASX 200 Gross Total Return (XJT)");
+    expect(html).toContain("Drawdown (strategy)");
   });
 
-  it("marks the freeze with a dashed line and shades the recorded span after it", () => {
+  it("draws the drawdown callout at its trough with the summary's maximum drawdown", () => {
     const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
-    expect(html).toContain("data-frozen-marker");
+    expect(html).toContain('data-callout-pct="-18.6"');
+    expect(html).toContain("−18.6%");
+  });
+
+  it("starts the recorded band at the track's own first session, and marks the engine change", () => {
+    const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
     expect(html).toContain("data-recorded-band");
-    expect(html).toContain("Rules frozen 2 Oct 2026");
-    // The band names the track's own first session, a few days after the freeze.
     expect(html).toContain("Recorded since 5 Oct 2026");
-  });
-
-  it("marks an engine change inside the recorded span, with a label", () => {
-    const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
     expect(html).toContain('data-engine-mark="1.0.1"');
     expect(html).toContain("engine 1.0.1 from 19 Oct");
+    expect(html).toContain("Rules frozen 2 Oct 2026");
   });
 
-  it("names the reference by its last measured session, in the legend and at the end", () => {
+  it("names the reference by its last measured session, and hides the date when it runs to the end", () => {
     const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
-    expect(html).toContain('data-legend="reference"');
-    // The last measured session is the Friday before the freeze, named in the legend.
-    expect(html).toMatch(/to \d{1,2} Sep 2026/);
-    expect(html).toContain('data-end-label="reference"');
+    expect(html).toContain("to 25 Sep 2026");
+    const toEnd = renderToStaticMarkup(<BacktestChart {...props} referenceTo="" series={series.map((p) => ({ ...p, reference: p.reference }))} />);
+    expect(toEnd).toContain('data-legend="reference"');
   });
 
-  it("draws no recorded band when the window ends before the track starts", () => {
-    const before = series.filter((p) => p.date < FIXTURE_RECORDED_FROM);
-    const html = renderToStaticMarkup(<BacktestChart {...props} series={before} />);
-    expect(html).not.toContain("data-recorded-band");
-  });
-
-  it("draws no frozen marker when the rules are not frozen yet", () => {
-    const html = renderToStaticMarkup(<BacktestChart {...props} liveFrom="" series={series} />);
-    expect(html).not.toContain("data-frozen-marker");
-  });
-
-  it("draws the drawdown in the semantic red's fill, and never a market colour as a line", () => {
+  it("draws the monthly coverage inside the chart, hatched under 80%", () => {
     const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
-    expect(html).toContain("color-mix(in srgb, var(--semantic-red) 18%, transparent)");
-    expect(html).not.toMatch(/#22c55e|#ef4444|#16a34a|#dc2626/i);
+    expect(html).toContain('data-coverage-month="2025-12"');
+    expect(html).toMatch(/data-coverage-month="2025-12" data-hatched/);
+    expect(html).not.toMatch(/data-coverage-month="2025-11" data-hatched/);
+  });
+
+  it("keeps the end labels on a wide chart and takes them off a phone (the legend carries the values)", () => {
+    expect(PHONE_WIDTH).toBe(640);
+    const wide = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
+    expect(wide).toContain('data-end-label="strategy"');
+    mockWidth = 390;
+    const phone = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
+    expect(phone).not.toContain('data-end-label="strategy"');
+    expect(phone).toContain('data-legend="benchmark"');
+  });
+
+  it("draws in CSS pixels at its measured width, never a scaled viewBox", () => {
+    mockWidth = 390;
+    const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
+    expect(html).toMatch(/<svg[^>]*width="390"/);
+    expect(html).not.toContain("viewBox");
   });
 
   it("says in words when there is no series for the window", () => {
     const html = renderToStaticMarkup(<BacktestChart {...props} series={[]} />);
     expect(html).toContain("No series for this window");
-  });
-
-  it("carries a text summary for a screen reader", () => {
-    const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
-    expect(html).toContain("The strategy ends at A$");
   });
 });

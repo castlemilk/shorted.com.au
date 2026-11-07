@@ -34,7 +34,9 @@ export function MonthlyReturnsTable({
   if (years.length === 0) {
     return <p className="text-sm text-muted-foreground">No monthly returns in this run.</p>;
   }
+  // Oldest first, as the mockup reads: the newest three years show, the earlier ones sit behind the disclosure.
   const { recent, earlier } = splitMonthlyYears(years);
+  const ascending = (list: readonly number[]) => [...list].sort((a, b) => a - b);
   const rowsFor = (list: readonly number[]): ReturnsHeatmapRow[] =>
     list.map((year) => ({
       key: String(year),
@@ -44,7 +46,7 @@ export function MonthlyReturnsTable({
           ? {
               state: "value" as const,
               value: cell.value,
-              marker: cell.current ? { glyph: "*", label: "Month to date" } : undefined,
+              marker: cell.current ? { glyph: "MTD", label: "Month to date" } : undefined,
             }
           : { state: "hatched" as const, label: cell.label },
       ),
@@ -57,7 +59,7 @@ export function MonthlyReturnsTable({
         rowHeader="Year"
         scale="monthly"
         columns={columns}
-        rows={rowsFor(recent)}
+        rows={rowsFor(ascending(recent))}
       />
       {earlier.length > 0 ? (
         <details className="group">
@@ -70,7 +72,7 @@ export function MonthlyReturnsTable({
               rowHeader="Year"
               scale="monthly"
               columns={columns}
-              rows={rowsFor(earlier)}
+              rows={rowsFor(ascending(earlier))}
             />
           </div>
         </details>

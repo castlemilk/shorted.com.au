@@ -113,17 +113,20 @@ export function outOfSampleLine(paper: PaperTrackView): string {
 export function runIdentityLine(identity: BacktestIdentityView): string {
   const parts = [
     identity.runDate ? `Run ${shortDate(identity.runDate)}` : "Run",
-    identity.version
-      ? `${identity.version.label} ${identity.version.rulesHash.slice(0, 8)}`
-      : "",
+    identity.pricesThrough ? `prices to ${dayMonth(identity.pricesThrough)}` : "",
+  ];
+  return parts.filter(Boolean).join(" · ");
+}
+
+/** The full identity: rules, recipe, engine and the ASIC report, the disclosure's first line (1.8 item 1). */
+export function runIdentityDetail(identity: BacktestIdentityView): string {
+  const parts = [
+    identity.version ? `rules ${identity.version.label} ${identity.version.rulesHash.slice(0, 8)}` : "",
     identity.recipeId
       ? `recipe ${identity.recipeId}${identity.recipeHash ? ` ${identity.recipeHash.slice(0, 8)}` : ""}`
       : "",
     identity.engineVersion ? `engine ${identity.engineVersion}` : "",
-    identity.pricesThrough ? `prices to ${dayMonth(identity.pricesThrough)}` : "",
-    identity.asicReportThrough
-      ? `ASIC report to ${dayMonth(identity.asicReportThrough)}`
-      : "",
+    identity.asicReportThrough ? `ASIC report to ${dayMonth(identity.asicReportThrough)}` : "",
   ];
   return parts.filter(Boolean).join(" · ");
 }
@@ -193,4 +196,10 @@ export function engineChangeLabel(engineVersion: string, firstSession: string): 
   const date = dayMonth(firstSession);
   const version = engineVersion ? `engine ${engineVersion}` : "engine change";
   return date ? `${version} from ${date}` : version;
+}
+
+/** The live window's chip (1.8 item 2): "Recorded since <recorded_from>". "" when there is no track. */
+export function recordedFromCopy(recordedFrom: string): string {
+  const date = shortDate(recordedFrom);
+  return date ? `Recorded since ${date}` : "";
 }

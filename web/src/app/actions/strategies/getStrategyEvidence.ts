@@ -38,8 +38,8 @@ async function fetchStrategyEvidence(): Promise<StrategyEvidenceListView> {
 export async function getStrategyEvidence(): Promise<StrategyEvidenceListView | null> {
   if (skipForBuild()) return null;
   try {
-    return await unstable_cache(fetchStrategyEvidence, ["strategy-evidence-v1"], {
-      tags: ["strategy-backtests"],
+    return await unstable_cache(fetchStrategyEvidence, ["strategy-evidence-v2"], {
+      tags: ["strategy-backtests", "strategy-picks"],
       revalidate: 3600,
     })();
   } catch (err) {

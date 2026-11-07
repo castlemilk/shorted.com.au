@@ -16,7 +16,12 @@ import {
   runRequiredCopy,
   runningCopy,
 } from "~/@/lib/strategies/backtest-copy";
-import type { BacktestRunView } from "~/@/lib/strategies/map-backtest";
+import type { BacktestRunView, BacktestWindowId, PaperTrackView } from "~/@/lib/strategies/map-backtest";
+import { DEFAULT_BACKTEST_WINDOW, orderedWindows } from "~/@/lib/strategies/backtest-windows";
+import { firstNonEmpty } from "~/@/lib/strategies/format";
+import { APPROXIMATE_CHIP, inSampleChip, recordedFromCopy } from "~/@/lib/strategies/backtest-copy";
+import { nextDay } from "~/@/lib/strategies/backtest-series";
+import { coverageChip, coverageMeasureName, coverageMeasureOf, fragileChips } from "~/@/lib/strategies/backtest-tables";
 import { AssumptionsList } from "~/@/components/strategies/assumptions-list";
 import { CoveragePanel } from "~/@/components/strategies/coverage-panel";
 import { MonthlyReturnsTable } from "~/@/components/strategies/monthly-returns-table";
@@ -118,7 +123,7 @@ export default async function StrategyBacktestPage({ params }: PageProps) {
           The backtest for this strategy is temporarily unavailable; it refreshes automatically. Not financial advice.
         </section>
       ) : run.state === "published" || run.state === "approximate" ? (
-        <PublishedBacktest slug={seo.slug} strategyId={seo.slug} strategyName={seo.h1} run={run} universe={universe} />
+        <PublishedBacktest slug={seo.slug} strategyName={seo.h1} run={run} universe={universe} />
       ) : (
         <StateCard slug={seo.slug} run={run} />
       )}
@@ -128,27 +133,67 @@ export default async function StrategyBacktestPage({ params }: PageProps) {
 
 function PublishedBacktest({
   slug,
-  strategyId,
   strategyName,
   run,
   universe,
 }: {
   slug: string;
-  strategyId: string;
   strategyName: string;
   run: BacktestRunView;
   universe: string;
 }) {
-  const recipe = run.recipe;
   const identity = run.identity;
+  const recipe = run.recipe;
+  const measure = coverageMeasureOf(run.survivorship?.measurement);
+  // The chart's monthly strip reads the same measure as the table and the chip (one measure).
+  const coverageMonthly = run.coverageMonthly.map((m) =>
+    measure === "all_reported"
+      ? { month: m.month, coveragePct: m.allReportedPct, measurable: m.allReportedMeasurable }
+      : { month: m.month, coveragePct: m.coveragePct, measurable: m.measurable },
+  );
+  const liveVersion = run.liveVersion ?? identity?.version ?? null;
+  const subtitle = [
+    liveVersion ? `Rules ${liveVersion.label} (${liveVersion.rulesHash.slice(0, 8)})` : "",
+    identity?.recipeId ? `Recipe ${identity.recipeId}${identity.recipeHash ? ` (${identity.recipeHash.slice(0, 8)})` : ""}` : "",
+    identity?.engineVersion ? `engine ${identity.engineVersion}` : "",
+    "Long only",
+  ].filter(Boolean).join(" · ");
+  const liveFrom = identity?.inSampleUntil ? nextDay(identity.inSampleUntil) : "";
+  const chips = [
+    coverageChip(run.coverageByYear, measure),
+    run.state === "approximate" ? APPROXIMATE_CHIP : "",
+    "Hypothetical · after costs",
+    ...fragileChips(run.sensitivity),
+  ].filter(Boolean);
+  const windows = orderedWindows(run.windows);
+  const paper = livePaper(run);
+
   return (
     <div className="space-y-10">
-      {identity ? <RunIdentity identity={identity} inputChangeNote={run.inputChangeNote} /> : null}
-
+      <p className="font-mono text-xs text-muted-foreground" data-subtitle>{subtitle}</p>
       <BacktestPanel
-        strategyId={strategyId}
-        run={run}
-        universe={universe}
+        strategyId={slug}
+        urlWindow=""
+        served={(run.windowId as BacktestWindowId) || DEFAULT_BACKTEST_WINDOW}
+        servedSeries={run.series}
+        windows={windows}
+        universeLabel={universe}
+        universeTitle={universe}
+        chips={chips}
+        frozenChip={liveFrom ? inSampleChip(liveFrom) : "In-sample backtest"}
+        recordedChip={recordedFromCopy(run.paperStart)}
+        disclosures={run.disclosures}
+        liveFrom={liveFrom}
+        recordedFrom={run.paperStart}
+        engineSegments={run.paperEngineSegments}
+        coverageMonthly={coverageMonthly}
+        coverageLabel={coverageMeasureName(measure)}
+        benchmarkName={firstNonEmpty(identity?.benchmark, "S&P/ASX 200 Gross Total Return (XJT)")}
+        referenceName={firstNonEmpty(identity?.referenceName, "same-data reference")}
+        referenceTo={run.series.filter((p) => p.reference !== null).at(-1)?.date ?? ""}
+        paper={paper}
+        avgHoldSessions={run.tradeSummary?.avgHoldSessions ?? null}
+        identity={identity ? <RunIdentity identity={identity} inputChangeNote={run.inputChangeNote} /> : null}
         main={
           <div className="space-y-12">
             <section aria-labelledby="monthly-heading" className="space-y-3">
@@ -168,10 +213,24 @@ function PublishedBacktest({
               dataQuality={run.dataQuality}
               dataNotes={run.dataNotes}
             />
+            {identity ? (
+              <dl className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-x-4 gap-y-1 font-mono text-xs" data-coverage-identity>
+                <dt className="text-muted-foreground">Input hash</dt>
+                <dd className="break-all">{identity.inputHash}</dd>
+                <dt className="text-muted-foreground">Output hash</dt>
+                <dd className="break-all">{identity.outputHash}</dd>
+                {run.inputChangeNote ? (
+                  <>
+                    <dt className="text-muted-foreground">Since the previous run</dt>
+                    <dd>{run.inputChangeNote}</dd>
+                  </>
+                ) : null}
+              </dl>
+            ) : null}
 
             <section aria-labelledby="sensitivity-heading" className="space-y-3">
               <h2 id="sensitivity-heading" className={sectionTitle}>Sensitivity runs</h2>
-              <SensitivityTable rows={run.sensitivity} />
+              <SensitivityTable rows={run.sensitivity} baseBeatsXjt={baseBeatsXjt(run)} />
             </section>
 
             {run.replayAgreement ? (
@@ -207,6 +266,29 @@ function PublishedBacktest({
       />
     </div>
   );
+}
+
+/** Whether the base run beats XJT over its full window (the sensitivity column's words). */
+function baseBeatsXjt(run: BacktestRunView): boolean | null {
+  const full = run.windows.find((w) => w.window === "since_2019_05");
+  if (full?.cagrPct == null || full.benchmarkCagrPct == null) return null;
+  return full.cagrPct > full.benchmarkCagrPct;
+}
+
+/** The paper track for the run summary: its real first session, and the too-short rule (5.9). */
+function livePaper(run: BacktestRunView): PaperTrackView | null {
+  const live = run.windows.find((w) => w.window === "live");
+  if (!live || live.sessions === 0 || !run.paperStart) return null;
+  return {
+    since: nextDay(run.identity?.inSampleUntil ?? ""),
+    recordedFrom: run.paperStart,
+    sessions: live.sessions,
+    closedTrades: live.closedTrades,
+    openPositions: 0,
+    returnPct: live.totalReturnPct,
+    tooShort: live.sessions < 63 || live.closedTrades < 10,
+    engineSegments: run.paperEngineSegments,
+  };
 }
 
 /** The four non-published states, each in its own words (1.7). */

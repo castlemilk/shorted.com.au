@@ -100,37 +100,8 @@ export function monthCells(
   });
 }
 
-/** One coverage bar's figure as the page prints it: a percent, or "n/a" when not measurable. */
-export function coverageFigure(year: CoverageYearView): string {
-  if (!year.measurable || year.coveragePct === null) return "not measurable";
-  return `${Math.round(year.coveragePct)}%`;
-}
 
-/**
- * The coverage of every year, as the bars the strip draws: a fraction of the names
- * (the API's coverage is a percent; the strip takes 0 to 1). A null bar is not measured.
- */
-export function coverageBars(
-  years: readonly CoverageYearView[],
-): Array<{ key: string; label: string; coverage: number | null }> {
-  return years.map((year) => ({
-    key: String(year.year),
-    label: String(year.year),
-    coverage: year.measurable && year.coveragePct !== null ? year.coveragePct / 100 : null,
-  }));
-}
 
-/** The lowest measured coverage year: the one the survivorship line says flatters most. */
-export function lowestCoverageYear(
-  years: readonly CoverageYearView[],
-): CoverageYearView | null {
-  let lowest: CoverageYearView | null = null;
-  for (const year of years) {
-    if (!year.measurable || year.coveragePct === null) continue;
-    if (lowest === null || (lowest.coveragePct ?? 1) > year.coveragePct) lowest = year;
-  }
-  return lowest;
-}
 
 /** The sensitivity rows' figures. A run that does not take a change says why, and prints no figure. */
 export function sensitivityFigures(row: SensitivityView): {
@@ -158,38 +129,90 @@ export function fragileChips(sensitivity: readonly SensitivityView[]): string[] 
   return chips;
 }
 
+
 /**
- * The coverage chip the header prints (1.5, 1.8 item 3): the first and last measured years
- * on the qualifying measure, and the survivorship caveat in words. A strategy whose
- * qualifying measure cannot be measured (Minervini: the whole ASX universe) prints the
- * all-reported measure with its own caveat (1.7, "Coverage not measurable"). "" when no
- * year is measured on either measure, so the chip is omitted rather than guessed.
+ * The ONE coverage measure a run uses, read from the survivorship statement (10.3, B1):
+ * `measured` is the qualifying measure (name-days of at least 5% short); `partial` and
+ * `not_measurable` are the all-reported measure (every ordinary name in the report). A run
+ * with no survivorship block names none.
  */
-export function coverageChip(years: readonly CoverageYearView[]): string {
-  const qualifying = years
-    .filter((y) => y.measurable && y.coveragePct !== null)
-    .sort((a, b) => a.year - b.year);
-  // A run whose qualifying measure cannot be measured for any year (Minervini before 2025)
-  // states the all-reported figures and their caveat, never one measurable year as the span.
-  const qualifyingWhole = years.length > 0 && years.every((y) => y.measurable);
-  if (qualifying.length > 0 && qualifyingWhole) {
-    const first = qualifying[0]!;
-    const last = qualifying[qualifying.length - 1]!;
-    const span =
-      first.year === last.year
-        ? `Coverage ${Math.round(first.coveragePct ?? 0)}% (${first.year})`
-        : `Coverage ${Math.round(first.coveragePct ?? 0)}% (${first.year}) → ${Math.round(last.coveragePct ?? 0)}% (${last.year})`;
-    return `${span} · flatters results; by how much cannot be measured`;
+export type CoverageMeasureKey = "qualifying" | "all_reported" | "";
+
+export function coverageMeasureOf(measurement: string | null | undefined): CoverageMeasureKey {
+  if (measurement === "measured") return "qualifying";
+  if (measurement === "partial" || measurement === "not_measurable") return "all_reported";
+  return "";
+}
+
+/** The measure's name as the page prints it, for the chip, the bars and the sentence. */
+export function coverageMeasureName(measure: CoverageMeasureKey): string {
+  return measure === "qualifying" ? "qualifying ≥ 5% short" : measure === "all_reported" ? "all reported" : "";
+}
+
+/** A year's figure under the run's one measure, in percent, or null when that measure cannot see the year. */
+export function yearCoverage(year: CoverageYearView, measure: CoverageMeasureKey): number | null {
+  if (measure === "qualifying") return year.measurable ? year.coveragePct : null;
+  if (measure === "all_reported") return year.allReportedMeasurable ? year.allReportedPct : null;
+  return null;
+}
+
+/** A year's printed figure under the measure: "64%", "58% ?" for a year the qualifying measure cannot see, or "n/a". */
+export function coverageFigure(year: CoverageYearView, measure: CoverageMeasureKey): string {
+  const figure = yearCoverage(year, measure);
+  if (figure === null) return "n/a";
+  // Under the all-reported measure a year the qualifying measure cannot see keeps its figure,
+  // marked "?": the 1.7 copy beside the table says why.
+  const unmarked = measure === "all_reported" && !year.measurable ? " ?" : "";
+  return `${Math.round(figure)}%${unmarked}`;
+}
+
+/** The bars for the yearly strip (fractions 0 to 1) under the run's one measure. */
+export function coverageBars(
+  years: readonly CoverageYearView[],
+  measure: CoverageMeasureKey,
+): Array<{ key: string; label: string; coverage: number | null }> {
+  return years.map((year) => {
+    const figure = yearCoverage(year, measure);
+    return { key: String(year.year), label: String(year.year), coverage: figure === null ? null : figure / 100 };
+  });
+}
+
+/** The lowest measured year under the run's one measure: the one the survivorship line names. */
+export function lowestCoverageYear(
+  years: readonly CoverageYearView[],
+  measure: CoverageMeasureKey,
+): { year: number; coveragePct: number } | null {
+  let lowest: { year: number; coveragePct: number } | null = null;
+  for (const year of years) {
+    const figure = yearCoverage(year, measure);
+    if (figure === null) continue;
+    if (lowest === null || lowest.coveragePct > figure) lowest = { year: year.year, coveragePct: figure };
   }
-  const reported = years
-    .filter((y) => y.allReportedMeasurable && y.allReportedPct !== null)
+  return lowest;
+}
+
+/**
+ * The chip the header prints (1.5, 1.8 item 3), under the run's one measure. The qualifying
+ * measure reads "Coverage (qualifying ≥ 5% short) 64% (2019) → 96% (2025) · flatters results;
+ * by how much cannot be measured". The all-reported measure adds that the gap cannot be
+ * measured for companies that were never reported short. "" when no year is measured.
+ */
+export function coverageChip(years: readonly CoverageYearView[], measure: CoverageMeasureKey): string {
+  const measured = years
+    .map((y) => ({ year: y.year, figure: yearCoverage(y, measure) }))
+    .filter((y): y is { year: number; figure: number } => y.figure !== null)
     .sort((a, b) => a.year - b.year);
-  const first = reported[0];
-  const last = reported[reported.length - 1];
-  if (!first || !last || first.allReportedPct === null || last.allReportedPct === null) return "";
+  const first = measured[0];
+  const last = measured[measured.length - 1];
+  if (!first || !last || measure === "") return "";
+  const name = measure === "qualifying" ? "qualifying ≥ 5% short" : "all reported";
   const span =
     first.year === last.year
-      ? `Coverage (all reported) ${Math.round(first.allReportedPct)}% (${first.year})`
-      : `Coverage (all reported) ${Math.round(first.allReportedPct)}% (${first.year}) → ${Math.round(last.allReportedPct)}% (${last.year})`;
-  return `${span} · measured on ASIC-reported names only; delisted companies never shorted cannot be counted`;
+      ? `Coverage (${name}) ${Math.round(first.figure)}% (${first.year})`
+      : `Coverage (${name}) ${Math.round(first.figure)}% (${first.year}) → ${Math.round(last.figure)}% (${last.year})`;
+  const tail = "flatters results; by how much cannot be measured";
+  if (measure === "all_reported") {
+    return `${span} · ${tail}; the gap cannot be measured for companies that were never reported short`;
+  }
+  return `${span} · ${tail}`;
 }

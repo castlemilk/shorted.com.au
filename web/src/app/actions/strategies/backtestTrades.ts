@@ -18,7 +18,8 @@ import { createSignedInTransport } from "../auth-transport";
 
 export type BacktestTradesResult =
   | { ok: true; page: BacktestTradesPageView }
-  | { ok: false; reason: "signed-out" | "unavailable" };
+  | { ok: false; reason: "signed-out" | "unavailable" }
+  | { ok: false; reason: "invalid"; error: TradesFilterError };
 
 export interface BacktestTradesInput {
   runId: number;
@@ -30,38 +31,64 @@ export interface BacktestTradesInput {
 
 const PAGE_SIZE_MAX = 200;
 const PAGE_SIZE_DEFAULT = 50;
-const STOCK_CODE = /^[A-Z0-9]{1,6}$/;
-const EXIT_REASON = /^[a-z_]{1,64}$/;
+/** A stock code is one to six letters or digits (the ASX code form). */
+export const STOCK_CODE_PATTERN = /^[A-Z0-9]{1,6}$/;
+/** An exit reason is a snake_case word the engine writes (5.10). */
+export const EXIT_REASON_PATTERN = /^[a-z_]{1,64}$/;
+/** The page token is the API's opaque token: bounded, and no characters outside its alphabet. */
+export const PAGE_TOKEN_PATTERN = /^[A-Za-z0-9_\-=+/]{0,512}$/;
+
+/** Filter feedback, named so the island can print it (never a silent drop). */
+export type TradesFilterError = "stock" | "reason" | "token";
+
+export function validateTradesFilters(input: {
+  stockCode?: string;
+  exitReason?: string;
+  pageToken?: string;
+}): { ok: true; stockCode: string; exitReason: string; pageToken: string } | { ok: false; error: TradesFilterError } {
+  // A value that is not a string is a bad filter, reported as one (never a thrown TypeError).
+  if (input.stockCode !== undefined && typeof input.stockCode !== "string") return { ok: false, error: "stock" };
+  if (input.exitReason !== undefined && typeof input.exitReason !== "string") return { ok: false, error: "reason" };
+  if (input.pageToken !== undefined && typeof input.pageToken !== "string") return { ok: false, error: "token" };
+  const stockCode = (input.stockCode ?? "").trim().toUpperCase();
+  const exitReason = (input.exitReason ?? "").trim();
+  const pageToken = input.pageToken ?? "";
+  if (stockCode !== "" && !STOCK_CODE_PATTERN.test(stockCode)) return { ok: false, error: "stock" };
+  if (exitReason !== "" && !EXIT_REASON_PATTERN.test(exitReason)) return { ok: false, error: "reason" };
+  if (!PAGE_TOKEN_PATTERN.test(pageToken)) return { ok: false, error: "token" };
+  return { ok: true, stockCode, exitReason, pageToken };
+}
 
 export async function listBacktestTrades(
   input: BacktestTradesInput,
 ): Promise<BacktestTradesResult> {
-  const runId = Number(input?.runId);
-  if (!Number.isInteger(runId) || runId <= 0) return { ok: false, reason: "unavailable" };
-
-  const session = await auth();
-  if (!session?.user?.id) return { ok: false, reason: "signed-out" };
-
-  const pageSize = Math.min(
-    PAGE_SIZE_MAX,
-    Math.max(1, Math.trunc(Number(input.pageSize) || PAGE_SIZE_DEFAULT)),
-  );
-  const stockCode = (input.stockCode ?? "").trim().toUpperCase();
-  const exitReason = (input.exitReason ?? "").trim();
   try {
+    const runId = Number(input?.runId);
+    if (!Number.isInteger(runId) || runId <= 0) return { ok: false, reason: "unavailable" };
+
+    const session = await auth();
+    if (!session?.user?.id) return { ok: false, reason: "signed-out" };
+
+    const filters = validateTradesFilters(input);
+    if (!filters.ok) return { ok: false, reason: "invalid", error: filters.error };
+
+    const pageSize = Math.min(
+      PAGE_SIZE_MAX,
+      Math.max(1, Math.trunc(Number(input.pageSize) || PAGE_SIZE_DEFAULT)),
+    );
     // Identity only: this read never sends the address or the verification flag.
     const { transport } = await createSignedInTransport({ withEmail: false });
     const client = createClient(StrategyService, transport);
     const response = await client.listBacktestTrades({
       runId: BigInt(runId),
-      pageToken: input.pageToken ?? "",
+      pageToken: filters.pageToken,
       pageSize,
-      stockCode: STOCK_CODE.test(stockCode) ? stockCode : "",
-      exitReason: EXIT_REASON.test(exitReason) ? exitReason : "",
+      stockCode: filters.stockCode,
+      exitReason: filters.exitReason,
     });
     return { ok: true, page: mapBacktestTradesPage(response) };
   } catch (err) {
-    console.warn(`[listBacktestTrades] unavailable for run ${runId}:`, err);
+    console.warn(`[listBacktestTrades] unavailable for run ${input?.runId}:`, err);
     return { ok: false, reason: "unavailable" };
   }
 }

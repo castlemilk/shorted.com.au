@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useFocusClearance } from "~/@/hooks/use-focus-clearance";
 import { cn, isPlainLeftClick } from "~/@/lib/utils";
 import {
@@ -42,6 +42,27 @@ export function StrategyTabNav({ slug }: { slug: string }) {
   const active = activeStrategyTab(pathname ?? "");
   const prefetched = useRef<Set<string>>(new Set());
   const navRef = useRef<HTMLElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState<{ start: boolean; end: boolean }>({ start: false, end: false });
+
+  /** Which edge of the bar can still scroll: the fade marks it, as the stock page's tab bar does. */
+  const updateEdges = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setEdges({ start: el.scrollLeft > 1, end: max - el.scrollLeft > 1 });
+  }, []);
+
+  // The active tab is brought into the bar's view (on the bar only; the page does not scroll).
+  useIsomorphicLayoutEffect(() => {
+    const el = scrollRef.current;
+    const link = el?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (el && link) {
+      const target = link.offsetLeft - (el.clientWidth - link.offsetWidth) / 2;
+      el.scrollLeft = Math.max(0, Math.min(target, el.scrollWidth - el.clientWidth));
+    }
+    updateEdges();
+  }, [active, updateEdges]);
   const sentinelRef = useRef<HTMLDivElement>(null);
   // Set by a click on a tab, consumed when the active tab changes.
   const pendingClick = useRef(false);
@@ -87,7 +108,14 @@ export function StrategyTabNav({ slug }: { slug: string }) {
         aria-label="Strategy sections"
         className="sticky top-16 z-30 -mx-8 mb-4 border-b border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75"
       >
-        <div className="flex h-11 scroll-px-8 items-stretch gap-1 overflow-x-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          ref={scrollRef}
+          onScroll={updateEdges}
+          data-scroll-start={edges.start ? "" : undefined}
+          data-scroll-end={edges.end ? "" : undefined}
+          style={edgeMask(edges)}
+          className="flex h-11 scroll-px-8 items-stretch gap-1 overflow-x-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {enabledStrategyTabs().map((tab) => {
             const href = strategyTabHref(slug, tab.id);
             const isActive = tab.id === active;
@@ -126,4 +154,13 @@ export function StrategyTabNav({ slug }: { slug: string }) {
       </nav>
     </>
   );
+}
+
+/** The fade that marks a scrollable edge: a 40px mask on the side that still scrolls. */
+function edgeMask(edges: { start: boolean; end: boolean }): React.CSSProperties | undefined {
+  if (!edges.start && !edges.end) return undefined;
+  const left = edges.start ? "transparent, #000 40px" : "#000 0";
+  const right = edges.end ? "#000 calc(100% - 40px), transparent" : "#000 100%";
+  const mask = `linear-gradient(to right, ${left}, ${right})`;
+  return { maskImage: mask, WebkitMaskImage: mask };
 }

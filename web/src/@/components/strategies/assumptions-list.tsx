@@ -21,6 +21,7 @@ export function AssumptionsList({ recipe }: AssumptionsListProps) {
     { key: "dividends", label: "Dividends", text: recipe.dividends },
     { key: "asic", label: "ASIC data", text: recipe.asicData },
     { key: "delisting", label: "Delisting", text: recipe.delisting },
+    { key: "capital", label: "Capital", text: recipe.capital || "Starting capital A$100,000." },
     { key: "cash", label: "Cash", text: recipe.cash },
   ];
   return (

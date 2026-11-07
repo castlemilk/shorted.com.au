@@ -1,23 +1,36 @@
+"use client";
+
+// The growth, drawdown and monthly-coverage chart of the Backtest tab (design 1.5, 10.6).
+// It is a client module: it measures its own width with ParentSize and draws in CSS
+// pixels, so its text is the size the reader reads (never a scaled viewBox). Its loader
+// (backtest-chart-loader.tsx) keeps it out of the first HTML.
+
+import { ParentSize } from "@/components/charts/parent-size";
+import { layoutEndLabels } from "@/components/charts/end-labels";
 import {
   areaPath,
+  chartHeightFor,
+  coverageBands,
   dateToMs,
   engineMarks,
   growthOf,
   linePath,
+  monthTicks,
+  moneyTickDecimals,
   niceTicks,
   paddedDomain,
   recordedBand,
   timeScale,
-  troughOf,
   valueScale,
   yearTicks,
   type GrowthPoint,
-  type PlotBox,
 } from "@/lib/strategies/backtest-series";
-import type { EngineSegmentView, SeriesPointView } from "@/lib/strategies/map-backtest";
+import type {
+  EngineSegmentView,
+  SeriesPointView,
+} from "@/lib/strategies/map-backtest";
 import { drawdownFill, drawdownStroke } from "@/lib/strategies/returns-scale";
 import {
-  GROWTH_TITLE,
   engineChangeLabel,
   frozenLabel,
   growthSummary,
@@ -29,34 +42,42 @@ import { formatSigned } from "@/lib/strategies/format";
 export interface BacktestChartProps {
   /** The served window's points, oldest first. */
   series: readonly SeriesPointView[];
-  /** The window's name, read in the chart's summary and legend. */
+  /** The window's name, read in the chart's summary. */
   windowLabel: string;
+  /** The window's first and last sessions (YYYY-MM-DD). */
+  windowFrom: string;
+  windowTo: string;
+  /** The window's own deepest fall: its figure and the session it falls on (the callout). */
+  maxDrawdownPct: number;
+  troughDate: string | null;
   /** YYYY-MM-DD: the session the rules froze (in-sample end plus one day). "" when not frozen. */
   liveFrom: string;
   /** YYYY-MM-DD: the paper track's first recorded session. "" when the run has no track. */
   recordedFrom: string;
-  /** The engine segments of the paper track, in order; a change inside the span is marked. */
   engineSegments: readonly EngineSegmentView[];
-  /** XJT's name for the legend, e.g. "S&P/ASX 200 Gross Total Return (XJT)". */
+  /** Monthly coverage (percent) for the strip under the drawdown. */
+  coverageMonthly: ReadonlyArray<{ month: string; coveragePct: number | null; measurable: boolean }>;
+  /** The coverage measure's name, printed on the strip. */
+  coverageLabel: string;
+  /** XJT's full name for the legend (never the bare code). */
   benchmarkName: string;
-  /** The same-data reference's name for the legend. */
+  /** The same-data reference's name, and the session its line runs to. */
   referenceName: string;
+  referenceTo: string;
   /** The chart's accessible name. */
   label: string;
 }
 
-const WIDTH = 720;
-const BOX: PlotBox = { width: WIDTH, height: 0, left: 58, right: 112, top: 12, bottom: 0 };
-const GROWTH_TOP = 12;
-const GROWTH_BOTTOM = 246;
-const DD_TOP = 268;
-const DD_BOTTOM = 352;
-const AXIS_Y = 378;
-const HEIGHT = 390;
+/** Below this width the end labels leave the plot: the legend carries the values (item 4). */
+export const PHONE_WIDTH = 640;
 
-/** A dollar figure on the axis: "$80k" for a thousand and over, otherwise whole dollars. */
-export function axisMoney(value: number): string {
-  if (Math.abs(value) >= 1000) return `$${Math.round(value / 1000)}k`;
+const TOP = 12;
+const BOTTOM = 30;
+const LEFT = 56;
+
+/** Money on the axis: "$80k" from a thousand up, with the decimals that keep ticks distinct. */
+export function axisMoney(value: number, step = 1000): string {
+  if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(moneyTickDecimals(step))}k`;
   return `$${Math.round(value)}`;
 }
 
@@ -68,48 +89,78 @@ export function axisPercent(value: number): string {
 
 const dollars = (v: number) => `A$${Math.round(v).toLocaleString("en-AU")}`;
 
-/**
- * The growth of A$100,000 against XJT and the same-data reference, with the drawdown
- * beneath on the same time axis (design 1.5, 10.6). A server-rendered SVG with no script.
- *
- * Lines: the strategy (primary, solid), XJT (muted, dashed), the reference (ink, dotted).
- * The reference is not recorded after the freeze, so its line, legend figure and end
- * label all stop at its last measured session, named in the label. The recorded band starts
- * at the paper track's own first session (recorded_from), and each engine change inside it
- * is a tick with a label.
- */
-export function BacktestChart({
+/** The chart with its own measured width. */
+export function BacktestChart(props: BacktestChartProps) {
+  return (
+    <ParentSize debounceTime={150} enableDebounceLeadingCall>
+      {({ width }) =>
+        width > 0 ? (
+          <ChartBody {...props} width={Math.round(width)} />
+        ) : (
+          <div aria-hidden="true" className="w-full" style={{ aspectRatio: `100 / ${Math.round(CHART_ASPECT_PERCENT)}` }} />
+        )
+      }
+    </ParentSize>
+  );
+}
+
+const CHART_ASPECT_PERCENT = 66;
+
+function ChartBody({
+  width,
   series,
   windowLabel,
+  windowFrom,
+  windowTo,
+  maxDrawdownPct,
+  troughDate,
   liveFrom,
   recordedFrom,
   engineSegments,
+  coverageMonthly,
+  coverageLabel,
   benchmarkName,
   referenceName,
+  referenceTo,
   label,
-}: BacktestChartProps) {
+}: BacktestChartProps & { width: number }) {
   const points = growthOf(series);
+  const height = chartHeightFor(width);
   if (points.length < 2) {
     return (
       <div
         role="img"
         aria-label={`${label}: no series for this window`}
-        className="hatch-empty flex h-[300px] items-center justify-center rounded-sm font-mono text-xs text-foreground"
+        style={{ height }}
+        className="hatch-empty flex items-center justify-center rounded-sm font-mono text-xs text-foreground"
       >
         No series for this window
       </div>
     );
   }
+  const phone = width < PHONE_WIDTH;
+  const right = phone ? 8 : 112;
+  const box = { width, height, left: LEFT, right, top: TOP, bottom: BOTTOM };
+  const plotW = width - LEFT - right;
 
-  const box = { ...BOX, height: HEIGHT };
+  // Vertical bands, as fractions of the plot height: growth, drawdown, then coverage.
+  const plotH = height - TOP - BOTTOM;
+  const gTop = TOP;
+  const gBottom = TOP + plotH * 0.58;
+  const dTop = TOP + plotH * 0.64;
+  const dBottom = TOP + plotH * 0.86;
+  const cTop = TOP + plotH * 0.9;
+  const cBottom = TOP + plotH;
+
   const x = timeScale(points, box);
   const growthDomain = paddedDomain(
     points.flatMap((p) => [p.strategy, p.benchmark, p.reference].filter((v): v is number => v !== null)),
   );
-  const yG = valueScale(growthDomain, GROWTH_TOP, GROWTH_BOTTOM);
+  const growthStep = niceTicks(growthDomain[0], growthDomain[1], 4);
+  const yG = valueScale(growthDomain, gTop, gBottom);
   const minDd = Math.min(-1, ...points.map((p) => p.drawdownPct));
   const ddDomain: [number, number] = [Math.floor(minDd / 5) * 5, 0];
-  const yD = valueScale(ddDomain, DD_TOP, DD_BOTTOM);
+  const yD = valueScale(ddDomain, dTop, dBottom);
 
   const strategyPath = linePath(points, (p) => p.strategy, x, yG);
   const benchmarkPath = linePath(points, (p) => p.benchmark, x, yG);
@@ -117,28 +168,37 @@ export function BacktestChart({
   const ddPath = areaPath(points, x, yD);
   const ddLine = linePath(points, (p) => p.drawdownPct, x, yD);
   const band = recordedBand(points, x, box, recordedFrom);
-  const marks = engineMarks(engineSegments, points, x);
-  const trough = troughOf(points);
+  const marks = engineMarks(engineSegments.map((s) => ({ engineVersion: s.engineVersion, firstSession: s.firstSession })), points, x);
   const frozenT = liveFrom ? dateToMs(liveFrom) : Number.NaN;
   const frozenX =
-    Number.isFinite(frozenT) && frozenT > points[0]!.t && frozenT <= points[points.length - 1]!.t
-      ? x(frozenT)
-      : null;
+    Number.isFinite(frozenT) && frozenT > points[0]!.t && frozenT <= points[points.length - 1]!.t ? x(frozenT) : null;
+
+  // The callout: the summary's maximum drawdown, placed on its trough session.
+  const troughT = troughDate ? dateToMs(troughDate) : Number.NaN;
+  const troughInWindow = Number.isFinite(troughT) && troughT >= points[0]!.t && troughT <= points[points.length - 1]!.t;
+  const calloutX = troughInWindow ? x(troughT) : null;
 
   const last = points[points.length - 1]!;
   const lastBenchmark = lastDefined(points, (p) => p.benchmark);
   const lastReference = lastDefined(points, (p) => p.reference);
-  const endStrategy = yG(last.strategy);
-  const endBenchmark = lastBenchmark ? yG(lastBenchmark.value) : null;
-  const endReference = lastReference ? yG(lastReference.value) : null;
-  const right = WIDTH - BOX.right + 6;
-  const referenceLabel = lastReference
-    ? `${referenceName}, to ${shortDate(lastReference.point.date)}`
-    : referenceName;
+  const endLabels = layoutEndLabels(
+    [
+      { id: "strategy", y: yG(last.strategy) - gTop, text: dollars(last.strategy), color: "hsl(var(--primary))" },
+      ...(lastBenchmark ? [{ id: "benchmark", y: yG(lastBenchmark.value) - gTop, text: dollars(lastBenchmark.value), color: "hsl(var(--muted-foreground))" }] : []),
+      ...(lastReference ? [{ id: "reference", y: yG(lastReference.value) - gTop, text: dollars(lastReference.value), color: "hsl(var(--foreground) / 0.7)" }] : []),
+    ],
+    { innerW: plotW, innerH: gBottom - gTop },
+  );
+
+  const bands = coverageBands(coverageMonthly, points);
+  const yearLabels = windowIsUnderYear(windowFrom, windowTo) ? monthTicks(points) : yearTicks(points);
+  const step = growthStep.length > 1 ? growthStep[1]! - growthStep[0]! : 1000;
+  const refEnd = lastReference ? shortDate(lastReference.point.date) : "";
+  const refToEnd = lastReference && lastReference.point.date === last.date;
 
   return (
     <figure className="m-0 space-y-2">
-      <figcaption className="sr-only">{growthSummary(points, series[0]?.date ?? "", last.date)}</figcaption>
+      <figcaption className="sr-only">{growthSummary(points, windowFrom, windowTo)}</figcaption>
       <ul className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs" aria-label={`Lines in ${windowLabel}`}>
         <li className="flex items-center gap-2">
           <span aria-hidden="true" className="inline-block h-0.5 w-6 bg-primary" />
@@ -155,7 +215,10 @@ export function BacktestChart({
         {lastReference ? (
           <li className="flex items-center gap-2" data-legend="reference">
             <span aria-hidden="true" className="inline-block w-6 border-t border-dotted border-foreground/70" />
-            <span>{referenceLabel}</span>
+            <span>
+              {referenceName}
+              {refToEnd ? "" : `, to ${refEnd}`}
+            </span>
             <span className="tabular-nums text-muted-foreground">{dollars(lastReference.value)}</span>
           </li>
         ) : null}
@@ -163,24 +226,24 @@ export function BacktestChart({
       </ul>
       <svg
         role="img"
-        aria-label={`${label}: ${GROWTH_TITLE}, ${windowLabel}, with drawdown beneath`}
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        className="block h-auto w-full overflow-visible font-mono text-[10px] tabular-nums"
+        aria-label={`${label}: ${windowLabel}, with drawdown and monthly coverage beneath`}
+        width={width}
+        height={height}
+        className="block font-mono text-[11px] tabular-nums"
         data-backtest-chart
       >
-        {niceTicks(growthDomain[0], growthDomain[1], 4).map((v) => (
+        <text x={LEFT} y={gTop - 2} className="fill-muted-foreground" fontSize={11}>Growth</text>
+        {growthStep.map((v) => (
           <g key={`g-${v}`}>
-            <line x1={BOX.left} x2={WIDTH - BOX.right} y1={yG(v)} y2={yG(v)} stroke="hsl(var(--border))" strokeDasharray="2 3" />
-            <text x={BOX.left - 6} y={yG(v) + 3} textAnchor="end" fill="hsl(var(--muted-foreground))">
-              {axisMoney(v)}
-            </text>
+            <line x1={LEFT} x2={width - right} y1={yG(v)} y2={yG(v)} stroke="hsl(var(--border))" strokeDasharray="2 3" />
+            <text x={LEFT - 6} y={yG(v) + 4} textAnchor="end" fill="hsl(var(--muted-foreground))">{axisMoney(v, step)}</text>
           </g>
         ))}
 
         {band ? (
           <g data-recorded-band>
-            <rect x={band.x} y={GROWTH_TOP} width={band.width} height={DD_BOTTOM - GROWTH_TOP} fill="hsl(var(--muted-foreground) / 0.08)" />
-            <text x={band.x + band.width - 6} y={GROWTH_TOP + 12} textAnchor="end" fill="hsl(var(--muted-foreground))">
+            <rect x={band.x} y={gTop} width={band.width} height={cBottom - gTop} fill="hsl(var(--muted-foreground) / 0.08)" />
+            <text x={band.x + band.width - 6} y={gTop + 12} textAnchor="end" fill="hsl(var(--muted-foreground))">
               {recordedSinceLabel(recordedFrom)}
             </text>
           </g>
@@ -188,14 +251,8 @@ export function BacktestChart({
 
         {marks.map((mark) => (
           <g key={`engine-${mark.firstSession}`} data-engine-mark={mark.engineVersion}>
-            <line x1={mark.x} x2={mark.x} y1={GROWTH_TOP} y2={DD_BOTTOM} stroke="hsl(var(--foreground) / 0.6)" strokeWidth={1} />
-            <path d={`M${mark.x - 4},${DD_BOTTOM} L${mark.x},${DD_BOTTOM - 6} L${mark.x + 4},${DD_BOTTOM} Z`} fill="hsl(var(--foreground) / 0.6)" />
-            <text
-              x={mark.x > WIDTH - BOX.right - 130 ? mark.x - 4 : mark.x + 4}
-              y={GROWTH_TOP + 24}
-              textAnchor={mark.x > WIDTH - BOX.right - 130 ? "end" : "start"}
-              fill="hsl(var(--foreground) / 0.8)"
-            >
+            <line x1={mark.x} x2={mark.x} y1={gTop} y2={cBottom} stroke="hsl(var(--foreground) / 0.6)" strokeWidth={1} />
+            <text x={mark.x > width - right - 120 ? mark.x - 4 : mark.x + 4} y={gTop + 24} textAnchor={mark.x > width - right - 120 ? "end" : "start"} fill="hsl(var(--foreground) / 0.8)">
               {engineChangeLabel(mark.engineVersion, mark.firstSession)}
             </text>
           </g>
@@ -203,10 +260,8 @@ export function BacktestChart({
 
         {frozenX !== null ? (
           <g data-frozen-marker>
-            <line x1={frozenX} x2={frozenX} y1={GROWTH_TOP} y2={DD_BOTTOM} stroke="hsl(var(--foreground) / 0.5)" strokeDasharray="4 3" />
-            <text x={frozenX - 6} y={GROWTH_BOTTOM - 6} textAnchor="end" fill="hsl(var(--foreground) / 0.8)">
-              {frozenLabel(liveFrom)}
-            </text>
+            <line x1={frozenX} x2={frozenX} y1={gTop} y2={cBottom} stroke="hsl(var(--foreground) / 0.5)" strokeDasharray="4 3" />
+            <text x={frozenX - 6} y={gBottom - 6} textAnchor="end" fill="hsl(var(--foreground) / 0.8)">{frozenLabel(liveFrom)}</text>
           </g>
         ) : null}
 
@@ -218,63 +273,67 @@ export function BacktestChart({
         ) : null}
         <path d={strategyPath} fill="none" stroke="hsl(var(--primary))" strokeWidth={1.75} strokeLinejoin="round" data-series="strategy" />
 
-        <text x={right} y={endStrategy + 3} fill="hsl(var(--primary))" fontWeight={600}>
-          {dollars(last.strategy)}
-        </text>
-        {endBenchmark !== null && lastBenchmark ? (
-          <text
-            x={right}
-            y={endBenchmark + (Math.abs(endBenchmark - endStrategy) < 12 ? 14 : 3)}
-            fill="hsl(var(--muted-foreground))"
-          >
-            {dollars(lastBenchmark.value)}
-          </text>
-        ) : null}
-        {endReference !== null && lastReference ? (
-          <text
-            x={right}
-            y={endReference + (endBenchmark !== null && Math.abs(endReference - endStrategy) < 12 ? 28 : 3)}
-            fill="hsl(var(--foreground) / 0.7)"
-            data-end-label="reference"
-          >
-            {dollars(lastReference.value)}
-          </text>
-        ) : null}
+        {phone
+          ? null
+          : endLabels.map((l) => (
+              <text key={l.id} x={width - right + 6} y={l.y + gTop} fill={l.color} fontWeight={l.id === "strategy" ? 600 : 400} data-end-label={l.id}>
+                {l.text}
+              </text>
+            ))}
 
-        <line x1={BOX.left} x2={WIDTH - BOX.right} y1={yD(0)} y2={yD(0)} stroke="hsl(var(--border))" />
+        {/* drawdown panel on the same time scale; its callout is the window's summary figure */}
+        <text x={LEFT} y={dTop - 4} fill="hsl(var(--muted-foreground))" fontSize={11}>Drawdown (strategy)</text>
+        <line x1={LEFT} x2={width - right} y1={yD(0)} y2={yD(0)} stroke="hsl(var(--border))" />
         {niceTicks(ddDomain[0], ddDomain[1], 3).map((v) => (
-          <text key={`d-${v}`} x={BOX.left - 6} y={yD(v) + 3} textAnchor="end" fill="hsl(var(--muted-foreground))">
-            {axisPercent(v)}
-          </text>
+          <text key={`d-${v}`} x={LEFT - 6} y={yD(v) + 4} textAnchor="end" fill="hsl(var(--muted-foreground))">{axisPercent(v)}</text>
         ))}
         <path d={ddPath} fill={drawdownFill()} data-series="drawdown" />
         <path d={ddLine} fill="none" stroke={drawdownStroke()} strokeWidth={1} data-series="drawdown-line" />
-        {trough ? (
-          <g data-trough>
-            <circle cx={x(trough.t)} cy={yD(trough.drawdownPct)} r={2.5} fill="hsl(var(--foreground))" />
-            <text x={x(trough.t) + 6} y={yD(trough.drawdownPct) + 4} fill="hsl(var(--foreground))">
-              {formatSigned(trough.drawdownPct, "%")}
-            </text>
+        {calloutX !== null ? (
+          <g data-trough data-callout-pct={maxDrawdownPct}>
+            <circle cx={calloutX} cy={yD(maxDrawdownPct)} r={2.5} fill="hsl(var(--foreground))" />
+            <text x={calloutX + 6} y={yD(maxDrawdownPct) + 4} fill="hsl(var(--foreground))">{formatSigned(maxDrawdownPct, "%")}</text>
           </g>
         ) : null}
 
-        {yearTicks(points).map((tick) => (
+        {/* monthly coverage, inside the chart, each month across its dates; hatched under 80% */}
+        <text x={LEFT} y={cTop - 3} fill="hsl(var(--muted-foreground))" fontSize={11}>{coverageLabel}, monthly</text>
+        {bands.map((b) => {
+          const bx = x(b.t0);
+          const bw = Math.max(1, x(b.t1) - bx - 0.5);
+          const hatched = b.coveragePct !== null && b.coveragePct < 80;
+          return (
+            <g key={b.month} data-coverage-month={b.month} data-hatched={hatched ? "" : undefined}>
+              <rect x={bx} y={cTop} width={bw} height={cBottom - cTop} fill="hsl(var(--muted))" />
+              {b.coveragePct !== null ? (
+                <rect x={bx} y={cTop + (cBottom - cTop) * (1 - b.coveragePct / 100)} width={bw} height={(cBottom - cTop) * (b.coveragePct / 100)} className={hatched ? "hatch-bar" : undefined} fill={hatched ? undefined : "hsl(var(--muted-foreground) / 0.6)"} />
+              ) : null}
+            </g>
+          );
+        })}
+
+        {yearLabels.map((tick) => (
           <g key={`y-${tick.label}`}>
-            <line x1={x(tick.t)} x2={x(tick.t)} y1={DD_BOTTOM} y2={DD_BOTTOM + 4} stroke="hsl(var(--border))" />
-            <text x={x(tick.t)} y={AXIS_Y} textAnchor="middle" fill="hsl(var(--muted-foreground))">
-              {tick.label}
-            </text>
+            <line x1={x(tick.t)} x2={x(tick.t)} y1={cBottom} y2={cBottom + 4} stroke="hsl(var(--border))" />
+            <text x={x(tick.t)} y={cBottom + 16} textAnchor="middle" fill="hsl(var(--muted-foreground))">{tick.label}</text>
           </g>
         ))}
       </svg>
-      <p className="font-mono text-[10px] text-muted-foreground">
+      <p className="font-mono text-[11px] text-muted-foreground">
         Drawdown is measured from the window&rsquo;s own peak, on the same time axis.
       </p>
     </figure>
   );
 }
 
-/** The last point, read from the end, whose value is defined, with its value. */
+const DAYS_IN_YEAR = 366;
+function windowIsUnderYear(from: string, to: string): boolean {
+  const a = dateToMs(from);
+  const b = dateToMs(to);
+  return Number.isFinite(a) && Number.isFinite(b) && b - a < DAYS_IN_YEAR * 86_400_000;
+}
+
+/** The last point, read from the end, whose value is defined. */
 function lastDefined(
   points: readonly GrowthPoint[],
   value: (p: GrowthPoint) => number | null,

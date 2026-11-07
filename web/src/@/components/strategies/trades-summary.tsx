@@ -47,7 +47,7 @@ export function exitReasonLabel(reason: string): string {
     pivot_stop: "Closed below the captured pivot",
     time_stop: "Time stop",
     stop_loss: "Stop loss",
-    sma_stop: "Closed below the 200-day average",
+    sma_stop: "Closed below the moving average",
     status_exit: "Left the screen",
     delisted_exit: "Delisted",
     suspended_exit: "Suspended",

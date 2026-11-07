@@ -27,7 +27,6 @@ import { fundamentalsHeld } from "~/@/lib/strategies/coverage";
 import { EvidenceCard } from "~/@/components/strategies/evidence-card";
 import { getStrategyPicks } from "~/app/actions/getStrategyPicks";
 import { getStrategyEvidence } from "~/app/actions/strategies/getStrategyEvidence";
-import { getBacktestRun } from "~/app/actions/strategies/getBacktestRun";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { PicksSortedView } from "./picks-sorted-view";
 
@@ -94,10 +93,9 @@ export default async function StrategyPicksPage({ params }: PageProps) {
     notFound();
   }
 
-  const [data, evidenceList, backtest] = await Promise.all([
+  const [data, evidenceList] = await Promise.all([
     getStrategyPicks(seo.slug),
     getStrategyEvidence(),
-    getBacktestRun(seo.slug),
   ]);
   // A failed or cold read must not bake the copy-only shell into the route
   // cache for the whole revalidate window. An empty-but-valid universe (the
@@ -227,10 +225,8 @@ export default async function StrategyPicksPage({ params }: PageProps) {
               </p>
             </section>
 
+            {evidence ? <EvidenceCard slug={seo.slug} evidence={evidence} /> : null}
             {strategy ? <StrategyPanel strategy={strategy} /> : null}
-            {evidence ? (
-              <EvidenceCard slug={seo.slug} evidence={evidence} run={backtest} />
-            ) : null}
           </>
         ) : (
           <section className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground">

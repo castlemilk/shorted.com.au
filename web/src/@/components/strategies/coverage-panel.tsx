@@ -9,6 +9,8 @@ import {
   coverageBars,
   coverageChip,
   coverageFigure,
+  coverageMeasureName,
+  coverageMeasureOf,
   lowestCoverageYear,
 } from "@/lib/strategies/backtest-tables";
 import { COVERAGE_NOT_MEASURABLE_COPY, lowCoverageCopy } from "@/lib/strategies/backtest-copy";
@@ -23,19 +25,20 @@ export interface CoveragePanelProps {
   dataNotes: readonly string[];
 }
 
-/** The survivorship line's words for each measurement the API states (8.2). */
-export function survivorshipMeasureLabel(measurement: string): string {
+/** The survivorship line's heading, from the measurement (item 10): the copy names what the figures measure. */
+export function coverageHeading(measurement: string): string {
   switch (measurement) {
     case "measured":
-      return "Survivorship measured";
+      return "Coverage measured · flatters results";
     case "partial":
-      return "Survivorship partly measured";
+      return "Coverage measured on ASIC-reported names only · flatters results";
     case "not_measurable":
-      return "Survivorship not measurable";
+      return "Coverage not measurable · flatters results";
     default:
       return "";
   }
 }
+
 
 /**
  * The coverage and survivorship block the Backtest tab's "Full recipe & data coverage"
@@ -45,9 +48,10 @@ export function survivorshipMeasureLabel(measurement: string): string {
  * run's own copy.
  */
 export function CoveragePanel({ years, months, survivorship, dataQuality, dataNotes }: CoveragePanelProps) {
-  const lowest = lowestCoverageYear(years);
+  const measure = coverageMeasureOf(survivorship?.measurement);
+  const lowest = lowestCoverageYear(years, measure);
   const anyUnmeasurable = years.some((year) => !year.measurable);
-  const chip = coverageChip(years);
+  const chip = coverageChip(years, measure);
   return (
     <section id="coverage" aria-labelledby="coverage-heading" className="scroll-mt-[124px] space-y-6">
       <h2 id="coverage-heading" className={sectionTitle}>
@@ -56,9 +60,9 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
 
       {survivorship ? (
         <div className="space-y-2 rounded-md border border-border/60 p-4 text-sm" data-survivorship={survivorship.measurement}>
-          {survivorshipMeasureLabel(survivorship.measurement) ? (
+          {coverageHeading(survivorship.measurement) ? (
             <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
-              {survivorshipMeasureLabel(survivorship.measurement)}
+              {coverageHeading(survivorship.measurement)}
             </p>
           ) : null}
           <p>{survivorship.statement || NOT_AVAILABLE}</p>
@@ -69,7 +73,11 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
       {chip ? <p className="text-sm" data-coverage-chip>{chip}</p> : null}
 
       {lowest ? (
-        <p className="text-sm text-muted-foreground">{lowCoverageCopy(lowest.year, lowest.coveragePct ?? 0)}</p>
+        lowest.coveragePct < 80 ? (
+          <p className="text-sm text-muted-foreground" data-lowest-coverage>
+            {lowCoverageCopy(lowest.year, lowest.coveragePct)} ({coverageMeasureName(measure)}.)
+          </p>
+        ) : null
       ) : null}
 
       {years.length > 0 ? (
@@ -77,14 +85,18 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
           <h3 className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
             By year: each measure named
           </h3>
-          <div className="overflow-x-auto">
+          <div
+            role="region"
+            aria-label="Coverage by year"
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- A scroll region needs focus for arrow-key scrolling.
+            tabIndex={0} className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
             <table className="w-full min-w-[560px] border-collapse text-xs">
               <caption className="sr-only">Coverage by year under both measures, with the exits behind it</caption>
               <thead>
                 <tr className="border-b border-border/60 text-left text-muted-foreground">
                   <th scope="col" className="py-1.5 pr-3 font-normal">Year</th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-normal">Qualifying (&ge; 5% short)</th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-normal">All reported</th>
+                  <th scope="col" className="py-1.5 pr-3 text-right font-normal">{measure === "qualifying" ? "Qualifying (≥ 5% short), the run's measure" : "Qualifying (≥ 5% short)"}</th>
+                  <th scope="col" className="py-1.5 pr-3 text-right font-normal">{measure === "all_reported" ? "All reported, the run's measure" : "All reported"}</th>
                   <th scope="col" className="py-1.5 pr-3 text-right font-normal">Priced name-days</th>
                   <th scope="col" className="py-1.5 pr-3 text-right font-normal">Delisting exits</th>
                   <th scope="col" className="py-1.5 text-right font-normal">CA exits</th>
@@ -94,7 +106,7 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
                 {years.map((year) => (
                   <tr key={year.year} className="border-b border-border/40 font-mono tabular-nums">
                     <th scope="row" className="py-1.5 pr-3 text-left font-normal">{year.year}</th>
-                    <td className="py-1.5 pr-3 text-right">{coverageFigure(year)}</td>
+                    <td className="py-1.5 pr-3 text-right">{coverageFigure(year, measure)}</td>
                     <td className="py-1.5 pr-3 text-right">
                       {year.allReportedPct === null ? "not measurable" : `${Math.round(year.allReportedPct)}%`}
                     </td>
@@ -110,7 +122,7 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
           </div>
           <div className="space-y-2">
             <p className="font-mono text-xs text-muted-foreground">Qualifying coverage by year</p>
-            <CoverageStrip label="Qualifying coverage by year" items={coverageBars(years)} />
+            <CoverageStrip label={`${coverageMeasureName(measure)} coverage by year`} items={coverageBars(years, measure)} />
           </div>
           {anyUnmeasurable ? (
             <p className="text-xs text-muted-foreground" data-not-measurable>{COVERAGE_NOT_MEASURABLE_COPY}</p>

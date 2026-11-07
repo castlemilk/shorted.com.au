@@ -32,9 +32,20 @@ jest.mock("~/app/actions/getStrategies", () => ({
 jest.mock("~/app/actions/strategies/backtestSeries", () => ({
   loadBacktestSeries: jest.fn(async () => null),
 }));
+// The chart measures its width; under test the width is fixed so the SVG draws.
+jest.mock("@/components/charts/parent-size", () => ({
+  ParentSize: ({ children }: { children: (s: { width: number; height: number }) => React.ReactNode }) =>
+    children({ width: 720, height: 0 }),
+}));
 jest.mock("~/@/components/seo/enhanced-structured-data", () => ({
   BreadcrumbListSchema: () => null,
 }));
+// The panel's props are the client's payload: captured here, so the test asserts what the
+// client receives (not the fixture's shape). The panel itself is the real one.
+jest.mock("./backtest-panel", () => {
+  const actual = jest.requireActual("./backtest-panel");
+  return { ...actual, BacktestPanel: jest.fn(actual.BacktestPanel) };
+});
 // The chart is client-only in production (a lazy chunk); in jest it is the real
 // chart, drawn synchronously, so its markup is under test.
 jest.mock("~/@/components/strategies/backtest-chart-loader", () => ({
@@ -86,15 +97,15 @@ describe("the Backtest tab", () => {
 
   it("opens on the since-May-2019 window and names the others as the four windows of 5.8", async () => {
     await renderPage();
-    const group = screen.getByRole("radiogroup", { name: "Window" });
+    const group = screen.getByRole("group", { name: "Window" });
     const radios = within(group).getAllByRole("radio");
-    expect(radios.map((r) => r.textContent)).toEqual([
+    expect(radios.map((r) => r.closest("label")?.textContent)).toEqual([
       "Since May 2019",
       "Since 2023",
       "Last 12 months",
       "Live since freeze",
     ]);
-    expect(within(group).getByRole("radio", { name: "Since May 2019" })).toHaveAttribute("aria-checked", "true");
+    expect(within(group).getByRole("radio", { name: "Since May 2019" })).toBeChecked();
   });
 
   it("draws the recorded span and the frozen date on the chart", async () => {
@@ -121,7 +132,7 @@ describe("the Backtest tab", () => {
 
   it("prints the strategy's universe beside the window controls, from the registry", async () => {
     await renderPage();
-    expect(screen.getByText("Universe: ASX ordinary shares")).toBeInTheDocument();
+    expect(screen.getByText("ASX ordinary shares")).toBeInTheDocument();
   });
 
   it("prints the data-quality counts the run serves, as fields", async () => {
@@ -138,7 +149,7 @@ describe("the Backtest tab", () => {
   it("prints the honesty chips: in-sample with the freeze date, the coverage and the costs", async () => {
     await renderPage();
     expect(screen.getByText("In-sample backtest · rules frozen 2 Oct 2026")).toBeInTheDocument();
-    expect(screen.getAllByText(/Coverage 64% \(2019\) → 96% \(2025\)/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Coverage \(qualifying ≥ 5% short\) 64% \(2019\) → 96% \(2025\)/).length).toBeGreaterThan(0);
     expect(screen.getByText("Hypothetical · after costs")).toBeInTheDocument();
   });
 
@@ -176,7 +187,7 @@ describe("the Backtest tab", () => {
       await renderPage();
       expect(screen.getByText("This version has no recipe yet, so no run can be published.")).toBeInTheDocument();
       expect(screen.queryByText(/point-in-time/)).not.toBeInTheDocument();
-      expect(screen.queryByRole("radiogroup", { name: "Window" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Window" })).not.toBeInTheDocument();
       const meta = await generateMetadata({ params: params("crowded-short-breakout") });
       expect(meta.robots).toEqual({ index: false, follow: true });
     });
@@ -253,5 +264,22 @@ describe("the Backtest tab", () => {
   it("404s a strategy the registry does not hold, without reading the API", async () => {
     await expect(StrategyBacktestPage({ params: params("not-a-strategy") })).rejects.toThrow("NEXT_NOT_FOUND");
     expect(getBacktestRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("the Backtest page's client payload", () => {
+  it("passes at most 500 series points and a small serialisable payload, the tables staying on the server", async () => {
+    getBacktestRun.mockResolvedValue(runOf({}));
+    await renderPage();
+    const { BacktestPanel } = await import("./backtest-panel");
+    const panelProps = (BacktestPanel as unknown as jest.Mock).mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(panelProps).toBeDefined();
+    const servedSeries = panelProps.servedSeries as unknown[];
+    expect(servedSeries.length).toBeLessThanOrEqual(500);
+    // The tables (monthly, annual, recipe, data quality) are not in the client's props; the
+    // serialisable part, without the server-rendered slots, stays under the budget.
+    const { main: _main, sidebar: _sidebar, identity: _identity, ...serialisable } = panelProps;
+    expect(JSON.stringify(serialisable).length).toBeLessThan(120_000);
+    expect(panelProps).not.toHaveProperty("run");
   });
 });

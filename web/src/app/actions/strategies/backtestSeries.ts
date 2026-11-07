@@ -13,7 +13,7 @@ import {
 } from "./getBacktestRun";
 import type { SeriesPointView } from "~/@/lib/strategies/map-backtest";
 
-const STRATEGY_ID = /^[a-z0-9-]{1,64}$/;
+import { getStrategy } from "~/@/lib/strategies/registry";
 
 export interface BacktestSeriesResult {
   series: SeriesPointView[];
@@ -33,7 +33,8 @@ export async function loadBacktestSeries(
   resolution: BacktestResolution,
   window: BacktestWindowRequest,
 ): Promise<BacktestSeriesResult | null> {
-  if (typeof strategyId !== "string" || !STRATEGY_ID.test(strategyId)) return null;
+  // The slug is checked against the registry the pages are built from, not a pattern.
+  if (typeof strategyId !== "string" || !getStrategy(strategyId)) return null;
   if (resolution !== "weekly" && resolution !== "daily") return null;
   if (!WINDOWS.includes(window)) return null;
   const run = await getBacktestRun(strategyId, resolution, window);

@@ -2,6 +2,16 @@
 // ListBacktestTrades). The contract is proto/shortedapi/shorts/v1alpha1/strategies.proto
 // (design 8.2 as revised by PR-18).
 //
+// EXPORTS FOR THE EXPLORER AND COMPARE (PR-20 reads these; there is one set of names).
+//   StrategyEvidenceView / StrategyEvidenceListView   ListStrategyEvidence, one strategy / all
+//   StatusCountsView                                  today's counts (PR-20's `today`)
+//   PaperTrackView                                    the recorded track (recordedFrom, engine segments)
+//   BacktestRunView                                   GetBacktestRun
+//   CompareStrategiesView, CompareEntryView, RuleDiffView, StrategyCorrelationView
+//   mapStrategyEvidence, mapStrategyEvidenceList, mapCompareStrategies
+// Units: every coverage figure in a view is a PERCENT (64.2 is 64.2%), as the API sends it.
+// A consumer that draws a fraction divides at the drawing, never in the view.
+//
 // THE ONE PLACE the backtest's proto names live. Like map.ts, this file imports nothing
 // from the generated modules: its input types are structural, all optional and
 // JSON-compatible, so a protobuf-es message satisfies them and so does Connect's JSON.
@@ -238,6 +248,14 @@ export interface StrategyEvidenceInput {
   runningSince?: string;
   computableSharePct?: WireDouble;
   hasComputableShare?: boolean;
+  today?: StatusCountsInput | null;
+}
+
+export interface StatusCountsInput {
+  triggered?: number;
+  setup?: number;
+  watch?: number;
+  unknown?: number;
 }
 
 export interface ListStrategyEvidenceInput {
@@ -631,6 +649,15 @@ export interface StrategyEvidenceView {
   latestScreen: string | null;
   runningSince: string;
   computableSharePct: number | null;
+  /** Today's status counts for the live version; null when they cannot be read. */
+  today: StatusCountsView | null;
+}
+
+export interface StatusCountsView {
+  triggered: number;
+  setup: number;
+  watch: number;
+  unknown: number;
 }
 
 export interface StrategyEvidenceListView {
@@ -848,7 +875,7 @@ export function mapSensitivity(input: SensitivityInput): SensitivityView {
   return {
     id: str(input.id),
     label: str(input.label),
-    applies: input.applies !== false,
+    applies: input.applies === true,
     reason: str(input.reason),
     cagrPct: flagged(input.cagrPct, input.hasCagr),
     excessVsBenchmarkPct: flagged(input.excessVsBenchmarkPct, input.hasExcess),
@@ -1051,6 +1078,17 @@ export function mapStrategyEvidence(input: StrategyEvidenceInput): StrategyEvide
     latestScreen: ymd(input.latestScreen) || null,
     runningSince: str(input.runningSince),
     computableSharePct: flagged(input.computableSharePct, input.hasComputableShare),
+    today: mapStatusCounts(input.today),
+  };
+}
+
+function mapStatusCounts(input: StatusCountsInput | null | undefined): StatusCountsView | null {
+  if (!input) return null;
+  return {
+    triggered: int(input.triggered),
+    setup: int(input.setup),
+    watch: int(input.watch),
+    unknown: int(input.unknown),
   };
 }
 
@@ -1073,5 +1111,93 @@ export function mapBacktestTradesPage(
     trades: (input.trades ?? []).map(mapBacktestTrade),
     nextPageToken: str(input.nextPageToken),
     total: int(input.total),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Compare (CompareStrategies, signed-in): the compare page reads these.
+// ---------------------------------------------------------------------------
+
+export interface CompareStrategiesInput {
+  windowId?: string;
+  windowFrom?: string;
+  windowTo?: string;
+  entries?: ReadonlyArray<{
+    strategyRef?: string;
+    strategyId?: string;
+    name?: string;
+    state?: string;
+    stateReason?: string;
+    version?: StrategyVersionInput | null;
+    window?: WindowMetricsInput | null;
+    series?: readonly SeriesPointInput[];
+  }>;
+  ruleDiffs?: ReadonlyArray<{ a?: string; b?: string; field?: string; aValue?: string; bValue?: string }>;
+  correlations?: ReadonlyArray<{ a?: string; b?: string; correlation?: WireDouble; hasCorrelation?: boolean; days?: number }>;
+}
+
+export interface RuleDiffView {
+  a: string;
+  b: string;
+  field: string;
+  aValue: string;
+  bValue: string;
+}
+
+export interface CompareEntryView {
+  strategyRef: string;
+  strategyId: string;
+  name: string;
+  state: string;
+  stateReason: string;
+  version: StrategyVersionDef | null;
+  window: BacktestWindowView | null;
+  series: SeriesPointView[];
+}
+
+export interface StrategyCorrelationView {
+  a: string;
+  b: string;
+  correlation: number | null;
+  days: number;
+}
+
+export interface CompareStrategiesView {
+  windowId: string;
+  windowFrom: string;
+  windowTo: string;
+  entries: CompareEntryView[];
+  ruleDiffs: RuleDiffView[];
+  correlations: StrategyCorrelationView[];
+}
+
+export function mapCompareStrategies(input: CompareStrategiesInput): CompareStrategiesView {
+  return {
+    windowId: str(input.windowId),
+    windowFrom: ymd(input.windowFrom),
+    windowTo: ymd(input.windowTo),
+    entries: (input.entries ?? []).map((entry) => ({
+      strategyRef: str(entry.strategyRef),
+      strategyId: str(entry.strategyId),
+      name: str(entry.name),
+      state: str(entry.state),
+      stateReason: str(entry.stateReason),
+      version: mapStrategyVersion(entry.version),
+      window: entry.window ? mapWindowMetrics(entry.window) : null,
+      series: (entry.series ?? []).map(mapSeriesPoint),
+    })),
+    ruleDiffs: (input.ruleDiffs ?? []).map((d) => ({
+      a: str(d.a),
+      b: str(d.b),
+      field: str(d.field),
+      aValue: str(d.aValue),
+      bValue: str(d.bValue),
+    })),
+    correlations: (input.correlations ?? []).map((pair) => ({
+      a: str(pair.a),
+      b: str(pair.b),
+      correlation: pair.hasCorrelation === true ? numOrNull(pair.correlation) : null,
+      days: int(pair.days),
+    })),
   };
 }

@@ -1,5 +1,5 @@
 import type { BacktestIdentityView } from "@/lib/strategies/map-backtest";
-import { runIdentityLine, shortDate } from "@/lib/strategies/backtest-copy";
+import { runIdentityDetail, runIdentityLine, shortDate } from "@/lib/strategies/backtest-copy";
 
 export interface RunIdentityProps {
   identity: BacktestIdentityView;
@@ -35,6 +35,7 @@ export function RunIdentity({ identity, inputChangeNote }: RunIdentityProps) {
         {runIdentityLine(identity)}
       </summary>
       <div className="space-y-3 border-t border-border/60 px-3 py-3">
+        <p className="font-mono text-xs">{runIdentityDetail(identity)}</p>
         <dl className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-x-4 gap-y-1.5 font-mono text-xs">
           {rows.map(([label, value]) => (
             <div key={label} className="contents">

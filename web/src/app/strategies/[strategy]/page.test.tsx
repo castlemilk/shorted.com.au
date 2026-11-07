@@ -103,6 +103,39 @@ function rowFor(code: string): HTMLElement {
   return row;
 }
 
+describe("the Overview's Evidence card", () => {
+  it("draws the card under the ranked picks from a realistic evidence answer", async () => {
+    getStrategyPicks.mockResolvedValueOnce(PICKS);
+    const { mapStrategyEvidenceList } = await import("~/@/lib/strategies/map-backtest");
+    const { fixtureEvidence } = await import("~/@/lib/strategies/__tests__/backtest-fixtures");
+    getStrategyEvidence.mockResolvedValueOnce(
+      mapStrategyEvidenceList({
+        strategies: [
+          fixtureEvidence({
+            annual: [{ year: 2025, state: "complete", coverageMeasurable: true, coveragePct: 96, coverageMeasure: "qualifying_5pct_short" }],
+          }),
+        ],
+        windowStart: "2019-05-01",
+        pricesThrough: "2026-11-06",
+        benchmarkName: "S&P/ASX 200 Gross Total Return (XJT)",
+        footnotes: [],
+      }),
+    );
+    const el = await StrategyPicksPage({ params: params("crowded-short-breakout") });
+    render(el);
+    expect(screen.getByRole("heading", { name: "Backtest evidence" })).toBeInTheDocument();
+    expect(bailOnEmptyRender).not.toHaveBeenCalled();
+  });
+
+  it("bails the render when the evidence read fails, so a degraded page is not cached for an hour", async () => {
+    getStrategyEvidence.mockResolvedValueOnce(null);
+    const el = await StrategyPicksPage({ params: params("crowded-short-breakout") });
+    render(el);
+    expect(bailOnEmptyRender).toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Backtest evidence" })).not.toBeInTheDocument();
+  });
+});
+
 describe("StrategyPicksPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();

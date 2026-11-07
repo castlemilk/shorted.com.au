@@ -20,7 +20,7 @@ describe("the monthly returns table", () => {
     const tables = container.querySelectorAll("table");
     expect(tables).toHaveLength(2);
     const recent = within(tables[0]!).getAllByRole("rowheader").map((th) => th.textContent);
-    expect(recent).toEqual(["2026", "2025", "2024"]);
+    expect(recent).toEqual(["2024", "2025", "2026"]);
     const earlier = within(tables[1]!).getAllByRole("rowheader").map((th) => th.textContent);
     expect(earlier).toEqual(["2023"]);
     expect(screen.getByText(/Earlier years \(1\)/)).toBeInTheDocument();

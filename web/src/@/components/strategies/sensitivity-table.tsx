@@ -4,6 +4,19 @@ import { NOT_AVAILABLE } from "@/lib/strategies/format";
 
 export interface SensitivityTableProps {
   rows: readonly SensitivityView[];
+  /** Whether the base run beats XJT over its full window; null when not stated. */
+  baseBeatsXjt: boolean | null;
+}
+
+/** The costs line, verbatim from 1.8 item 6. */
+export const COSTS_COPY =
+  "Costs: 10 bps brokerage (min A$10) + 5-50 bps spread by liquidity, per side. The flat 10 + 5 bps alternative is labelled \"the mockup's flat costs flatter small-cap breakouts\".";
+
+/** The reading of a row that holds: whether the base run beats XJT (never "Holds"). */
+export function holdReading(baseBeatsXjt: boolean | null): string {
+  if (baseBeatsXjt === true) return "Beats XJT";
+  if (baseBeatsXjt === false) return "Does not beat XJT";
+  return "n/a";
 }
 
 /**
@@ -11,12 +24,18 @@ export interface SensitivityTableProps {
  * A run that does not take a change says why in the row; a fragile result carries
  * its chip ("Fragile to costs") in words, never in red or green.
  */
-export function SensitivityTable({ rows }: SensitivityTableProps) {
+export function SensitivityTable({ rows, baseBeatsXjt }: SensitivityTableProps) {
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">No sensitivity runs are stored for this run.</p>;
   }
   return (
-    <div className="overflow-x-auto">
+    <div
+      role="region"
+      aria-label="Sensitivity runs"
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- A scroll region needs focus for arrow-key scrolling.
+      tabIndex={0}
+      className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
       <table className="w-full min-w-[480px] border-collapse text-sm">
         <caption className="sr-only">Sensitivity runs: each change, the CAGR it gives and its excess over the benchmark</caption>
         <thead>
@@ -45,7 +64,7 @@ export function SensitivityTable({ rows }: SensitivityTableProps) {
                   ) : row.excessVsBenchmarkPct === null ? (
                     <span className="text-muted-foreground">{NOT_AVAILABLE}</span>
                   ) : (
-                    <span className="text-muted-foreground">Holds</span>
+                    <span className="text-muted-foreground">{holdReading(baseBeatsXjt)}</span>
                   )}
                 </td>
               </tr>
@@ -53,7 +72,7 @@ export function SensitivityTable({ rows }: SensitivityTableProps) {
           })}
         </tbody>
       </table>
-      <p className="mt-2 text-xs text-muted-foreground">Costs at 10 bps brokerage (min A$10) and 5 to 50 bps spread by liquidity, per side. The flat 10 + 5 bps alternative flatters small-cap breakouts.</p>
+      <p className="mt-2 text-xs text-muted-foreground">{COSTS_COPY}</p>
     </div>
   );
 }
