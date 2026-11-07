@@ -1170,6 +1170,9 @@ completion: its record is its own tables (see "Paper track" below).
   session), and `backtest.Run` refuses any date window for one. So there is no batch trading run to compare a
   fundamentals track with. Its paper track still steps over the snapshot every session, and the test that checks
   it (`TestPaperQualityCompoundersStepsOverItsSnapshot`) says the fixture writes no fundamentals blobs.
+- **Operational note (rollout).** A paper error makes every daily run exit 1, which pages, while the snapshot keeps
+  completing. Readers judging the rollout's health must read the snapshot from its completed phases (the admin
+  `strategy_status` `lastCompletedSession`), not from the job's exit code.
 - **Accepted limitations** (documented, not changed):
   - A version superseded and re-promoted between two runs resumes its track: the stop is recorded only by a
     catch-up that sees the version superseded.
@@ -1177,12 +1180,15 @@ completion: its record is its own tables (see "Paper track" below).
     track is repaired. The snapshot work is not held.
   - The benchmark is read from `index_prices` on or before the session at the time of the paper step, not from a
     stored snapshot. A later XJT re-sync does not change a recorded row (rows are never updated).
+  - The RBA cash rate is read live at step time too (`pgsource.CashRate` as of the session), not from a stored
+    snapshot. A later correction to the cash series does not change a recorded row, but would change a fresh batch
+    run's interest. Rows are never updated.
 - **Tests.** `TestStepEqualsRun` runs the real features phase over a fixture market (`paper_fixture_test.go`) and
   compares every recorded session's equity, cash and benchmark, and every closed and open trade's fields, with one
   production batch run (`pgsource.LoadBacktestInputs`, `backtest.Run`). The fixture trades crowded-short-breakout
   (closed and open trades), has a stale exit (`delisted_exit`, DDD) and a corporate-action suspect on a code the
-  batch steps (HHH, compared in `TestPaperSessionsEqualTheBatchSessions`), a cash dividend and a NULL close on a
-  held code. The fundamentals versions with a `computable_from` window are not batch-compared (see above).
+  batch steps (AAA, whose entries are blocked for sixty sessions, and HHH, whose held position exits through
+  `corporate_action_exit`), a cash dividend and a NULL close on a held code. The fundamentals versions with a `computable_from` window are not batch-compared (see above).
   Run the suite with `make test-strategies-daily-pg`.
 - **Index dates are fixed in the tree (#860).** The index sync dates each bar by its Sydney session and removes
   stored rows in a re-fetched window that are not sessions (the weekend rows). The job reads stored XJO dates for
