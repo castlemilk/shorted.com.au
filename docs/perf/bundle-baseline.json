@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-11-07T01:39:46.076Z",
+  "capturedAt": "2026-11-07T03:35:07.864Z",
   "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 112,
@@ -752,7 +752,7 @@
       "firstLoadKB": 202
     },
     "/strategies": {
-      "firstLoadKB": 124
+      "firstLoadKB": 148
     },
     "/strategies/[strategy]": {
       "firstLoadKB": 134
@@ -774,6 +774,9 @@
     },
     "/strategies/changelog": {
       "firstLoadKB": 118
+    },
+    "/strategies/compare": {
+      "firstLoadKB": 137
     },
     "/strategies/my": {
       "firstLoadKB": 130
