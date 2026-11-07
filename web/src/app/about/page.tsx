@@ -63,6 +63,7 @@ const aboutPageSchema = {
     sameAs: [
       siteConfig.founder.website,
       siteConfig.founder.linkedin,
+      siteConfig.founder.twitter,
       siteConfig.founder.github,
     ],
   },

@@ -11,6 +11,7 @@ import { PastDueBanner } from "~/@/components/billing/past-due-banner-loader";
 import { ChatSidebar } from "~/@/components/chat/chat-sidebar-loader";
 import { ThemeSwitcher } from "~/@/components/theme-switcher";
 import { ConditionalHeader } from "./conditional-header";
+import { brandLogoImageObject } from "~/@/lib/seo/brand-images";
 import { ConditionalFooter } from "./conditional-footer";
 import { NextAuthProvider } from "./next-auth-provider";
 import { siteConfig } from "~/@/config/site";
@@ -233,6 +234,7 @@ export default function RootLayout({
           name: "Shorted",
           alternateName: "Shorted.com.au",
           url: "https://shorted.com.au",
+          image: brandLogoImageObject,
           description:
             "Australia's ASX short-selling data platform — ASIC short positions, sentiment, and analysis.",
           inLanguage: "en-AU",

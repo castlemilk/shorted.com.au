@@ -817,3 +817,69 @@ variable "manage_dnssec" {
   type        = bool
   default     = true
 }
+
+# =============================================================================
+# Crawler policy — the edge half of web/src/app/robots.txt/route.ts
+# =============================================================================
+# Measured in zone analytics over the 7 days to 2026-11-07: AI crawlers were
+# 107k requests and AI search 77k; Baidu alone 109k, mostly a JS-rendering bot
+# pulling topojson and chunks; Reflectionbot fetched each housing state page
+# ~1,100 times a day; ShapBot hit /signin 2k times. robots.txt now steers the
+# named agents to the data-licence page and caps the AI group with a
+# Crawl-delay, and these two rules hold for the agents that ignore it.
+
+variable "crawler_redirect_enabled" {
+  description = "Redirect the steered crawlers to the data-licence page at the edge (a zone Single Redirect; no origin request)."
+  type        = bool
+  default     = true
+}
+
+variable "crawler_redirect_user_agents" {
+  description = <<-EOT
+    User-agent substrings redirected to `crawler_redirect_target` on the HTML
+    host. Must equal STEERED_CRAWLERS in web/src/@/lib/seo/crawl-policy.ts
+    (crawler-policy.test.mjs holds them equal): a crawler robots.txt steers is
+    steered here, and one steered here is told so in robots.txt.
+  EOT
+  type        = list(string)
+  default = [
+    "Baiduspider",
+    "Bytespider",
+    "PetalBot",
+    "MJ12bot",
+    "SemrushBot",
+    "AhrefsBot",
+    "DotBot",
+    "DataForSeoBot",
+    "Reflectionbot",
+    "ShapBot",
+  ]
+}
+
+variable "crawler_redirect_target" {
+  description = "Where a steered crawler is sent: the page that explains the licence, the API and the crawl policy. Must be the robots route's DATA_LICENCE_PATH on the apex."
+  type        = string
+  default     = "https://shorted.com.au/docs/data-licence"
+}
+
+variable "ai_crawler_rate_limit_enabled" {
+  description = "Rate limit verified AI crawlers and AI search bots on the HTML host, per address. Needs rate_limit_enabled; the Pro plan allows two rate limiting rules and this is the second."
+  type        = bool
+  default     = true
+}
+
+variable "ai_crawler_rate_limit_requests" {
+  description = "Requests per period per address for a verified AI crawler before it is answered 429 for the mitigation timeout. OpenAI's search bot averaged ~20/min across many addresses in the week measured; 60 leaves a polite crawler alone and catches a loop."
+  type        = number
+  default     = 60
+}
+
+variable "ai_crawler_rate_limit_period" {
+  description = "Window in seconds for ai_crawler_rate_limit_requests. Cloudflare's rate limiting rules accept 10 or 60 on the Pro plan."
+  type        = number
+  default     = 60
+  validation {
+    condition     = contains([10, 60], var.ai_crawler_rate_limit_period)
+    error_message = "ai_crawler_rate_limit_period must be 10 or 60."
+  }
+}

@@ -169,3 +169,32 @@ describe("LLMMeta provenance", () => {
     ]);
   });
 });
+
+describe("LLMMeta page images", () => {
+  const logo = { "@type": "ImageObject", url: "https://shorted.com.au/icon-512.png", width: 512, height: 512 };
+  const card = { "@type": "ImageObject", url: "https://shorted.com.au/opengraph-image", width: 1200, height: 630 };
+
+  it("names the images and the first as the primary image of the page", () => {
+    const { data } = renderLd({
+      title: "Home",
+      description: "d",
+      dataSource: "ASIC",
+      lastUpdated: "2026-11-07",
+      image: [logo, card],
+    });
+    expect(data.image).toEqual([logo, card]);
+    expect(data.primaryImageOfPage).toEqual(logo);
+  });
+
+  it("emits neither key without images", () => {
+    const { data } = renderLd({
+      title: "Home",
+      description: "d",
+      dataSource: "ASIC",
+      lastUpdated: "2026-11-07",
+      image: [],
+    });
+    expect(data).not.toHaveProperty("image");
+    expect(data).not.toHaveProperty("primaryImageOfPage");
+  });
+});

@@ -1,5 +1,6 @@
 import { siteConfig } from "~/@/config/site";
 import { SITEMAP_CHILDREN } from "~/@/lib/seo/sitemap-xml";
+import { DATA_LICENCE_PATH, STEERED_CRAWLERS } from "~/@/lib/seo/crawl-policy";
 
 export const dynamic = "force-static";
 
@@ -60,6 +61,16 @@ const RPC_PATHS = [
   "/register.v1.",
 ];
 
+/**
+ * Views that are one page under many URLs. The workspace selection (`?sel=`),
+ * the strategy status and sort chips, and the notices feed's window are read
+ * by islands and change nothing a crawler can index, yet every link that
+ * carries one is a fresh URL to fetch. Disallowed for every agent. `?period=`
+ * and `?view=` are NOT here: the chart share links carry them and must stay
+ * fetchable by unfurlers (robots-rpc-disallow.test.ts).
+ */
+const PARAMETERISED_VIEWS = ["/*?sel=", "/*?status=", "/*?sort=", "/*?window="];
+
 const AI_CRAWLERS = [
   "GPTBot",
   "ChatGPT-User",
@@ -70,8 +81,15 @@ const AI_CRAWLERS = [
   "CCBot",
 ];
 
+/**
+ * The sections an AI crawler may read. The group ends with `Disallow: /`, so
+ * this list is the whole of what those agents get; under RFC 9309 the longest
+ * matching rule wins, so each Allow beats that Disallow for its own prefix.
+ * The homepage is `/$` on purpose: a bare `Allow: /` is a prefix of every
+ * path and would allow everything (which it did until 2026-11-07).
+ */
 const AI_ALLOWED_PATHS = [
-  "/",
+  "/$",
   "/shorts/",
   "/top",
   "/battlegrounds",
@@ -91,6 +109,12 @@ const AI_ALLOWED_PATHS = [
   "/directory",
   "/housing/",
   "/housing",
+  "/economy/",
+  "/economy",
+  "/ownership/",
+  "/ownership",
+  "/politicians/",
+  "/politicians",
   "/features/",
   "/glossary/",
   "/learn/",
@@ -118,6 +142,15 @@ const AI_ALLOWED_PATHS = [
 ];
 
 /**
+ * Seconds between fetches asked of the AI group. ClaudeBot, Bingbot and CCBot
+ * document honouring Crawl-delay; GPTBot does not, so this is a partial lever.
+ * The edge rate limit on verified AI crawlers (terraform/modules/cloudflare-edge)
+ * is the one that holds for every agent.
+ */
+const AI_CRAWL_DELAY_SECONDS = 5;
+
+
+/**
  * Carved out of `Disallow: /api/` for EVERY user-agent.
  *
  * The MCP server lives at /api/mcp/mcp, inside the private `/api/` prefix. MCP
@@ -137,7 +170,7 @@ export function GET() {
   // RPC paths are disallowed for AI crawlers too — the same reasoning applies:
   // the indexable content is in the HTML, and protobuf-JSON is not useful to
   // them either.
-  const disallows = [...PRIVATE_PATHS, ...RPC_PATHS]
+  const disallows = [...PRIVATE_PATHS, ...RPC_PATHS, ...PARAMETERISED_VIEWS]
     .map((p) => `Disallow: ${p}`)
     .join("\n");
   const machineAllows = MACHINE_ALLOWED_PATHS.map((p) => `Allow: ${p}`).join(
@@ -147,6 +180,7 @@ export function GET() {
   const body = `# robots.txt for ${siteConfig.url}
 # Official ASIC short position data for ASX stocks — we WANT this content
 # discoverable and usable by search engines and AI systems (see /ai.txt).
+# Bulk or programmatic access: ${siteConfig.url}${DATA_LICENCE_PATH}
 
 User-Agent: *
 Allow: /
@@ -156,11 +190,18 @@ ${disallows}
 # Content Signals (https://contentsignals.org/) — consistent with /ai.txt
 Content-Signal: search=yes, ai-input=yes, ai-train=yes
 
-# AI crawlers — explicitly welcome
+# AI crawlers — welcome on the content sections listed, nowhere else.
 ${AI_CRAWLERS.map((ua) => `User-Agent: ${ua}`).join("\n")}
+Crawl-delay: ${AI_CRAWL_DELAY_SECONDS}
 ${AI_ALLOWED_PATHS.map((p) => `Allow: ${p}`).join("\n")}
 ${machineAllows}
 ${disallows}
+Disallow: /
+
+# Crawlers steered to the data-licence page (the edge redirects them there too).
+${STEERED_CRAWLERS.map((ua) => `User-Agent: ${ua}`).join("\n")}
+Allow: ${DATA_LICENCE_PATH}
+Disallow: /
 
 Host: ${siteConfig.url}
 # /sitemap.xml is a sitemapindex; the children are listed too so a crawler that

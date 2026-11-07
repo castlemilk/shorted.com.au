@@ -11,6 +11,7 @@
  * runs against every registry slug.
  */
 import { GET } from "../route";
+import { groupFor, parseRobotsGroups } from "../robots-groups";
 import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 
 const EXPECTED_PRIVATE_STRATEGY_PATHS = [
@@ -23,11 +24,17 @@ async function robotsBody(): Promise<string> {
   return await GET().text();
 }
 
+/**
+ * The Disallow lines of the `*` group and the AI group: the two groups a
+ * search engine or a welcome AI crawler obeys. The AI group's closing
+ * `Disallow: /` is left out here: it is the point of that group
+ * (crawl-policy.test.ts), and it is a prefix of every URL by design.
+ */
 function disallowLines(body: string): string[] {
-  return body
-    .split("\n")
-    .filter((line) => line.startsWith("Disallow: "))
-    .map((line) => line.slice("Disallow: ".length).trim());
+  const groups = parseRobotsGroups(body);
+  const everyone = groupFor(groups, "*")!;
+  const ai = groupFor(groups, "GPTBot")!;
+  return [...everyone.disallows, ...ai.disallows.filter((d) => d !== "/")];
 }
 
 describe("robots.txt strategy private paths", () => {
