@@ -83,7 +83,9 @@ done
 ```
 
 Without the bearer both calls answer 401, and the shells stay empty until the
-hourly repair cron runs.
+repair cron runs (every six hours, `web/vercel.json`). A `mode=repair` answer
+of 202 means it found a shell and invalidated it again: call it once more after
+about 20 seconds, as the workflow does.
 
 Newsroom takes do not ride the web release at all: `shorted-news-publish`'s
 image is built only by the disabled workflow, so a merged `content/news`

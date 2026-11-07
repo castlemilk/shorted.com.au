@@ -13,7 +13,7 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { getAvailableDates } from "~/app/actions/market/getMarketByDate";
-import { skipForBuild } from "~/app/actions/config";
+import { bailOnEmptyRender, skipForBuild } from "~/app/actions/config";
 
 export const metadata: Metadata = {
   title: "Daily ASX Short Position Snapshots",
@@ -79,6 +79,12 @@ export default async function MarketIndexPage() {
       console.error("Failed to fetch available dates:", error);
     }
   }
+
+  // A failed or empty read must not bake the "no data" shell into the route
+  // cache for the hour: it is cached for a minute, then regenerated. It was the
+  // one empty-shell page without this guard, so only the hourly
+  // /api/static-pages/warm-cache sweep could clear it.
+  if (dates.length === 0) await bailOnEmptyRender();
 
   const breadcrumbItems = [
     { label: "Market", href: "/market" },

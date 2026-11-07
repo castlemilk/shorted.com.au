@@ -1568,13 +1568,20 @@ jobs:
 
       # Decide before any cloud lookup or build whether production still needs
       # this commit. A production that already serves a descendant skips the
-      # rest of this job successfully. Fails closed when production cannot be read.
+      # rest of this job successfully. So does a push that changes no web input
+      # since the commit production serves (scripts/vercel-release.mjs,
+      # isWebInput): a new deployment would rebuild the same app and start from
+      # an empty ISR cache. That case sets web-current=true, and the release
+      # smoke still runs against production. A dispatch, a release or a re-run
+      # always deploys. Fails closed when production cannot be read.
       - name: Decide whether production needs this release
         id: release-check
         timeout-minutes: 5
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           GH_TOKEN: ${{ github.token }}
+          # The run attempt comes from the runner's own GITHUB_RUN_ATTEMPT.
+          RELEASE_EVENT: ${{ github.event_name }}
         run: node scripts/vercel-release.mjs check-promotion
 
       - name: Authenticate to Google Cloud
@@ -1883,19 +1890,44 @@ jobs:
             "https://shorted.com.au/api/static-pages/warm-cache?mode=deploy"
           # Await the invalidation response before fetching: Next commits it
           # after the handler returns. This second request primes real data.
-          curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
-            "https://shorted.com.au/api/static-pages/warm-cache?mode=repair"
+          # A repair that still found a shell answers 202 (it invalidated it
+          # again) and one whose read failed answers 503: read once more after
+          # the regenerations it started have landed. The scheduled sweep runs
+          # only every six hours (web/vercel.json), so a release should not
+          # leave a build shell for it to find.
+          status=000
+          for attempt in 1 2; do
+            status=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" \
+              --max-time 145 "${CURL_ARGS[@]}" \
+              "https://shorted.com.au/api/static-pages/warm-cache?mode=repair") || status=000
+            echo "Shell repair attempt ${attempt}: HTTP ${status}"
+            if [ "$status" = "200" ]; then
+              break
+            fi
+            if [ "$attempt" = "1" ]; then
+              sleep 20
+            fi
+          done
+          if [ "$status" != "200" ] && [ "$status" != "202" ]; then
+            exit 1
+          fi
 
       # Gate the release on smoke AFTER the actual promotion, not a parallel
       # push workflow with a guessed sleep. Failure leaves the deployed release
       # visible for investigation; it does not silently roll back production.
+      # A release that left the web as it was (web-current) is smoked too: it
+      # still shipped API, infrastructure or job changes behind that web.
+      - name: Install web dependencies for the smoke
+        if: ${{ success() && steps.release-check.outputs.web-current == 'true' }}
+        run: npm --prefix web ci --ignore-scripts
+
       - name: Install production smoke browser
-        if: ${{ success() && steps.vercel-promote.outputs.promoted == 'true' }}
+        if: ${{ success() && (steps.vercel-promote.outputs.promoted == 'true' || steps.release-check.outputs.web-current == 'true') }}
         working-directory: web
         run: npx playwright install --with-deps chromium
 
       - name: Verify promoted production release
-        if: ${{ success() && steps.vercel-promote.outputs.promoted == 'true' }}
+        if: ${{ success() && (steps.vercel-promote.outputs.promoted == 'true' || steps.release-check.outputs.web-current == 'true') }}
         working-directory: web
         timeout-minutes: 12
         env:
