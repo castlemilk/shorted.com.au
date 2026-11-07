@@ -125,9 +125,11 @@ describe("StrategyLayout", () => {
     expect(links[0]).toHaveAttribute("aria-current", "page");
   });
 
-  it("renders no Compare, Create alert or Alert-me control", async () => {
+  it("draws the header's Compare link to the compare page with this strategy ticked, and no Create alert or Alert-me control", async () => {
     await renderLayout("canslim");
-    for (const name of [/compare/i, /create alert/i, /alert me/i]) {
+    const compare = screen.getByRole("link", { name: "Compare" });
+    expect(compare).toHaveAttribute("href", "/strategies/compare?ids=canslim");
+    for (const name of [/create alert/i, /alert me/i]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
     }

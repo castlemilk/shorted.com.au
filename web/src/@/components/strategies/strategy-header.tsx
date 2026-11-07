@@ -8,6 +8,8 @@ import {
   hasStrategyArt,
 } from "~/@/components/picks/strategy-art";
 import { StrategyBezel } from "~/@/components/picks/strategy-glyph";
+import { buttonVariants } from "~/@/components/ui/button";
+import { strategyCapabilityEnabled } from "~/@/lib/strategies/capabilities";
 
 /**
  * The strategy profile's faceplate: the glyph in its bezel beside the serif H1
@@ -18,8 +20,9 @@ import { StrategyBezel } from "~/@/components/picks/strategy-glyph";
  * static, so the layout that renders it reads nothing and cannot fail a render.
  * The author, the provenance and the rest of the data belong to the Overview.
  *
- * Action buttons (Compare, Create alert) are not rendered here: each one arrives
- * with the capability it needs (lib/strategies/capabilities.ts), and none is on.
+ * The Compare button is drawn only while the `compare` capability is on
+ * (lib/strategies/capabilities.ts); it opens the compare page with this strategy ticked.
+ * Create alert arrives with its own capability and is not drawn yet.
  */
 export function StrategyHeader({ slug }: { slug: string }) {
   const seo = getStrategy(slug);
@@ -47,6 +50,15 @@ export function StrategyHeader({ slug }: { slug: string }) {
           </p>
           <h1 className={cn(pageTitle, "leading-[1.1]")}>{seo.h1}</h1>
         </div>
+        {strategyCapabilityEnabled("compare") ? (
+          <Link
+            href={`/strategies/compare?ids=${seo.slug}`}
+            prefetch={false}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "ml-auto shrink-0")}
+          >
+            Compare
+          </Link>
+        ) : null}
       </div>
       <p className="relative mt-3 max-w-3xl text-muted-foreground">{seo.dek}</p>
     </section>
