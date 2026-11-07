@@ -1159,11 +1159,31 @@ completion: its record is its own tables (see "Paper track" below).
   trade never references a recipe row that does not exist.
 - **Ex-dividends** are stored on the first session on or after the ex-date, so a weekend ex-date is credited on the
   Monday, as the batch credits it.
-- **Tests.** `TestStepEqualsRun` runs the real features phase over a fixture market and compares every recorded
-  session and trade with one production batch run (`pgsource.LoadBacktestInputs`, `backtest.Run`). Each version
-  whose batch the fixture can run is compared; the fundamentals versions need fundamentals history the fixture does
-  not have, and are skipped with a log line. `TestPaperSessionsEqualTheBatchSessions` compares the session-level
-  inputs. Run the suite with `make test-strategies-daily-pg`.
+- **Start rule.** A track starts only on a seed row whose features carry `ca_known` (every row written since the
+  suspects were stored carries the key, null when none is known). If the seed row lacks it, the track waits for
+  the first later session whose previous row has it, and logs the wait once. Rows written before that change
+  are never backfilled. Records start at the first session after the seed: with live_from L, a deploy that
+  writes rows from L on starts the track at L+1 (its seed L carries the key) or, when the row for L predates
+  it, at L+2. The start is logged once with its date and reason.
+- **Fundamentals strategies.** The production batch never simulates a strategy whose window is `computable_from`
+  (`publishRequest` stores the derivation only, because a simulation would read today's fundamentals at every
+  session), and `backtest.Run` refuses any date window for one. So there is no batch trading run to compare a
+  fundamentals track with. Its paper track still steps over the snapshot every session, and the test that checks
+  it (`TestPaperQualityCompoundersStepsOverItsSnapshot`) says the fixture writes no fundamentals blobs.
+- **Accepted limitations** (documented, not changed):
+  - A version superseded and re-promoted between two runs resumes its track: the stop is recorded only by a
+    catch-up that sees the version superseded.
+  - A corrupt checkpoint stops pruning: the guard read fails, the run exits non-zero (so the job pages) until the
+    track is repaired. The snapshot work is not held.
+  - The benchmark is read from `index_prices` on or before the session at the time of the paper step, not from a
+    stored snapshot. A later XJT re-sync does not change a recorded row (rows are never updated).
+- **Tests.** `TestStepEqualsRun` runs the real features phase over a fixture market (`paper_fixture_test.go`) and
+  compares every recorded session's equity, cash and benchmark, and every closed and open trade's fields, with one
+  production batch run (`pgsource.LoadBacktestInputs`, `backtest.Run`). The fixture trades crowded-short-breakout
+  (closed and open trades), has a stale exit (`delisted_exit`, DDD) and a corporate-action suspect on a code the
+  batch steps (HHH, compared in `TestPaperSessionsEqualTheBatchSessions`), a cash dividend and a NULL close on a
+  held code. The fundamentals versions with a `computable_from` window are not batch-compared (see above).
+  Run the suite with `make test-strategies-daily-pg`.
 - **Index dates are fixed in the tree (#860).** The index sync dates each bar by its Sydney session and removes
   stored rows in a re-fetched window that are not sessions (the weekend rows). The job reads stored XJO dates for
   the data calendar, the regime and RS. Rows inside the scheduled index window (`-years 2`, which covers the job's
