@@ -10,6 +10,9 @@ import { EvidencePanel } from "~/@/components/strategies/evidence-panel";
 import { SignalsMatrix } from "~/@/components/strategies/signals-matrix";
 import { SaveStrategyButton } from "~/app/strategies/save-strategy-button";
 import { SignalsProvenance } from "~/@/components/strategies/signals-provenance";
+import { SourceDatesPopover } from "~/@/components/strategies/source-dates-popover";
+import { getStrategyDataStatus } from "~/app/actions/strategies/dataStatus";
+import { SignalChanges } from "./signal-changes";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { sectionTitle } from "~/@/lib/typography";
 import { cn } from "~/@/lib/utils";
@@ -478,6 +481,9 @@ function SignalsView({
           version={props.version}
           stale={props.stale}
           regime={props.regime}
+          sourceDates={
+            <SourceDatesPopover load={() => getStrategyDataStatus()} />
+          }
         />
       </div>
 
@@ -653,6 +659,20 @@ function SignalsView({
               openHref={
                 selectedCode ? stockTabHref(selectedCode, "strategy") : null
               }
+              history={
+                selectedCode ? (
+                  <SignalChanges
+                    key={selectedCode}
+                    strategyId={props.slug}
+                    stockCode={selectedCode}
+                    versionHash={props.version?.rulesHash ?? ""}
+                    title="This stock's signal history"
+                    returnPath={`/strategies/${props.slug}/signals?sel=stock:${selectedCode}`}
+                    emptyCopy="This stock has not changed status in this strategy yet."
+                    compact
+                  />
+                ) : null
+              }
               chart={
                 selectedCode ? (
                   <StrategyLevelsChart
@@ -681,6 +701,17 @@ function SignalsView({
           </div>
         </div>
       )}
+
+      {/* Under every state of the tab (the list is read on its own), and below the matrix so the evidence panel's heading stays under the matrix. */}
+      <div className="mt-6">
+        <SignalChanges
+          strategyId={props.slug}
+          versionHash={props.version?.rulesHash ?? ""}
+          title="Recent changes"
+          returnPath={`/strategies/${props.slug}/signals`}
+          emptyCopy="No stock has changed status in this strategy under these rules yet."
+        />
+      </div>
     </div>
   );
 }

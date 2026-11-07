@@ -297,3 +297,52 @@ export interface StrategiesResult {
   /** Strategy-neutral verdict. */
   regime: MarketRegimeView | null;
 }
+
+/** One ASIC short-position report as the data status lists it. */
+export interface AsicReportStatusView {
+  /** YYYY-MM-DD, the report's as-at date. */
+  reportDate: string;
+  /** YYYY-MM-DD, when the report became public. */
+  availableDate: string;
+  /** YYYY-MM-DD in Sydney time, when we first saw it; "" when not recorded. */
+  firstIngestedAt: string;
+  rows: number;
+  complete: boolean;
+}
+
+/** GetStrategyDataStatus: what the picks are read from, and when. */
+export interface StrategyDataStatusView {
+  latestSession: string;
+  pricesCompletedAt: string;
+  snapshotAsOf: string;
+  snapshotCompletedAt: string;
+  /** The newest ASIC reports, newest first. */
+  asicReports: AsicReportStatusView[];
+  nextUpdateUtc: string;
+  pricedCodes: number;
+}
+
+/** One stock's status change under one rules version (ListStrategySignalEvents). */
+export interface StrategySignalEventView {
+  stockCode: string;
+  companyName: string;
+  /** YYYY-MM-DD the status changed on. */
+  sessionDate: string;
+  /** YYYY-MM-DD it changed from; "" when none. */
+  prevSessionDate: string;
+  fromStatus: string;
+  toStatus: string;
+  score: number;
+  close?: number;
+  pivot?: number;
+  rules: RuleResultRow[];
+  rulesHash: string;
+}
+
+/** One page of signal events, newest first. */
+export interface SignalEventsPage {
+  events: StrategySignalEventView[];
+  /** "" on the last page. */
+  nextPageToken: string;
+  version: StrategyVersionDef | null;
+}

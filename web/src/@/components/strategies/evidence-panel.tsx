@@ -33,6 +33,8 @@ export interface EvidencePanelProps {
   chart: ReactNode;
   /** The stock page's strategy tab; no link when there is no stock. */
   openHref: string | null;
+  /** The stock's signal history, drawn by the island (signed-in only); after the actions. */
+  history?: ReactNode;
 }
 
 export function EvidencePanel({
@@ -43,6 +45,7 @@ export function EvidencePanel({
   notice,
   chart,
   openHref,
+  history,
 }: EvidencePanelProps) {
   const coreRules = rules.filter((rule) => rule.core);
   const shortReport = shortDayLabel(pick?.shortReportDate);
@@ -139,6 +142,9 @@ export function EvidencePanel({
           </Link>
         </div>
       ) : null}
+
+      {/* After the actions, so a long history never moves "Open stock" below the sticky panel's fold. */}
+      {history ? <div className="border-t pt-4">{history}</div> : null}
     </section>
   );
 }

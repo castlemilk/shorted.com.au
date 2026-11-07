@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { RegimePill } from "~/@/components/picks/regime-banner";
 import { shortDayLabel } from "~/@/lib/strategies/evidence";
 import type {
@@ -17,6 +19,7 @@ export function SignalsProvenance({
   version,
   stale,
   regime,
+  sourceDates,
 }: {
   asOf: string;
   shortReportDate?: string;
@@ -24,6 +27,11 @@ export function SignalsProvenance({
   version?: StrategyVersionDef;
   stale: boolean;
   regime: MarketRegimeView | null;
+  /**
+   * The "View source dates" control, drawn by the island (a client module). Its
+   * panel is positioned against this line, which is `relative`: keep it so.
+   */
+  sourceDates?: ReactNode;
 }) {
   const price = shortDayLabel(asOf);
   const report = shortDayLabel(shortReportDate);
@@ -43,7 +51,7 @@ export function SignalsProvenance({
     rules,
   ].filter(Boolean);
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
+    <div className="relative flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
       <p>
         {facts.map((fact, index) => (
           <span key={fact}>
@@ -52,7 +60,10 @@ export function SignalsProvenance({
           </span>
         ))}
       </p>
-      {regime ? <RegimePill regime={regime.regime} /> : null}
+      <div className="flex flex-wrap items-center gap-3">
+        {sourceDates}
+        {regime ? <RegimePill regime={regime.regime} /> : null}
+      </div>
     </div>
   );
 }
