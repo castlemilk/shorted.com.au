@@ -1232,10 +1232,11 @@ func TestPayloadOfARealisticRunStaysNearItsBudget(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("GetBacktestRun (7.5 years, weekly, two-measure monthly coverage): %d bytes, %d series points, %d monthly coverage rows",
 		len(b), len(resp.Msg.Run.Series), len(resp.Msg.Run.CoverageMonthly))
-	// The target is 60 KB. The measured run is 78.6 KB with the five sensitivity runs of 5.12 and the overlap fields
-	// served: the 398 weekly points are about 42 KB of it, the monthly table about 13 KB and the monthly coverage
-	// about 9 KB, with the fixed copy and identity the rest. The guard holds that figure; the target is not met.
-	assert.LessOrEqual(t, len(b), 80*1024, "the realistic run stays within 80 KB (the target is 60 KB)")
+	// The target is 60 KB. The measured run is 82.4 KB: the five sensitivity runs of 5.12 (required), the two identity
+	// fingerprints, and the overlap fields of the windows (required, PR-19 review item 1) added about 4 KB to the
+	// 78.6 KB measured before. The 398 weekly points are about 42 KB of it, the monthly table about 13 KB and the
+	// monthly coverage about 9 KB. The guard holds the measured figure with headroom; the target is not met.
+	assert.LessOrEqual(t, len(b), 84*1024, "the realistic run stays within 84 KB (the target is 60 KB)")
 }
 
 // paperFrom is the paper track from a session on or after from, with the raw XJT level truth(m) on each
