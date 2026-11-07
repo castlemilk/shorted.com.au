@@ -53,6 +53,7 @@ export function exitReasonLabel(reason: string): string {
     suspended_exit: "Suspended",
     corporate_action_exit: "Corporate action",
     open_at_end: "Open at the end of the run",
+    wiped_out: "Wiped out",
   };
   const label = known[reason];
   if (label) return label;

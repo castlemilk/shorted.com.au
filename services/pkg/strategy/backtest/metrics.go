@@ -34,6 +34,7 @@ func EquityCurve(recs []Record) Curve {
 }
 
 // TotalReturn is E_end/E_start - 1. It is false when the start is not positive.
+// A wipe-out ends at zero, so its total return is -1.
 func TotalReturn(c Curve) (float64, bool) {
 	n := len(c.Values)
 	if n < 2 || c.Values[0] <= 0 {
@@ -43,15 +44,19 @@ func TotalReturn(c Curve) (float64, bool) {
 }
 
 // CAGR is (E_end/E_start)^(365.25/calendar days) - 1. It is shown only for a
-// window of at least CAGRMinCalendarDays calendar days.
+// window of at least CAGRMinCalendarDays calendar days. A curve that starts above
+// zero and ends at exactly zero is a wipe-out, whose annualised return is -1.
 func CAGR(c Curve) (float64, bool) {
 	n := len(c.Values)
-	if n < 2 || c.Values[0] <= 0 || c.Values[n-1] <= 0 {
+	if n < 2 || c.Values[0] <= 0 || c.Values[n-1] < 0 {
 		return 0, false
 	}
 	days := calendarDays(c.Dates[0], c.Dates[n-1])
 	if days < CAGRMinCalendarDays {
 		return 0, false
+	}
+	if c.Values[n-1] == 0 {
+		return -1, true
 	}
 	return math.Pow(c.Values[n-1]/c.Values[0], 365.25/float64(days)) - 1, true
 }
@@ -82,6 +87,9 @@ func MaxDrawdown(c Curve) Drawdown {
 		if v > c.Values[peak] {
 			peak = i
 		}
+		if c.Values[peak] <= 0 {
+			continue
+		}
 		if dd := v/c.Values[peak] - 1; dd < d.Depth {
 			d.Depth, d.Peak, d.Trough = dd, peak, i
 		}
@@ -98,21 +106,31 @@ func MaxDrawdown(c Curve) Drawdown {
 	return d
 }
 
-// dailyReturns is r_t = E_t/E_{t-1} - 1. A non-positive prior value yields zero
-// rather than a non-finite return.
+// dailyReturns is r_t = E_t/E_{t-1} - 1 for each pair whose prior value is
+// positive. A pair from a non-positive value has no return: a wiped-out curve
+// stays at zero and has no daily return to measure.
 func dailyReturns(values []float64) []float64 {
+	r, _ := dailyReturnsAt(values)
+	return r
+}
+
+// dailyReturnsAt is dailyReturns with the index of each return's prior value, so a
+// daily series aligned to the pairs (a risk-free rate) can be read at the same
+// index.
+func dailyReturnsAt(values []float64) (r []float64, prev []int) {
 	if len(values) < 2 {
-		return nil
+		return nil, nil
 	}
-	r := make([]float64, 0, len(values)-1)
+	r = make([]float64, 0, len(values)-1)
+	prev = make([]int, 0, len(values)-1)
 	for i := 1; i < len(values); i++ {
 		if values[i-1] <= 0 {
-			r = append(r, 0)
 			continue
 		}
 		r = append(r, values[i]/values[i-1]-1)
+		prev = append(prev, i-1)
 	}
-	return r
+	return r, prev
 }
 
 func mean(xs []float64) float64 {
@@ -170,19 +188,21 @@ type SharpeResult struct {
 // Sharpe is the Sharpe ratio of daily returns over the daily risk-free rates
 // rf, one rate per return. A nil or mismatched rf means no risk-free series.
 func Sharpe(c Curve, rf []float64) SharpeResult {
-	r := dailyReturns(c.Values)
+	r, prev := dailyReturnsAt(c.Values)
 	res := SharpeResult{N: len(r)}
 	if len(r) < 2 {
 		res.RiskFreeNone = true
 		return res
 	}
-	useRF := len(rf) == len(r)
+	// rf has one rate per session pair, so each return reads the rate of its prior
+	// session; the pairs left out of r (from a wiped-out value) are left out of both.
+	useRF := len(rf) == len(c.Values)-1
 	res.RiskFreeNone = !useRF
 	excess := make([]float64, len(r))
 	for i := range r {
 		excess[i] = r[i]
 		if useRF {
-			excess[i] -= rf[i]
+			excess[i] -= rf[prev[i]]
 		}
 	}
 	// A window with no spread in its excess return (an all-cash window, where the

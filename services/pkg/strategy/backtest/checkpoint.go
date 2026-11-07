@@ -21,8 +21,12 @@ import (
 // round-trip form and the dates in their text form.
 
 // checkpointVersion names the layout. A reader refuses any other value rather
-// than guessing at a field it does not know.
-const checkpointVersion = 1
+// than guessing at a field it does not know. Version 2 adds Ruined; a version 1
+// checkpoint predates ruin, so it reads as not ruined.
+const checkpointVersion = 2
+
+// checkpointVersionV1 is the layout before Ruined was added.
+const checkpointVersionV1 = 1
 
 type checkpoint struct {
 	Version      int                       `json:"version"`
@@ -31,6 +35,7 @@ type checkpoint struct {
 	Peak         float64                   `json:"peak"`
 	LastIndex    int                       `json:"last_index"`
 	DividendsDue float64                   `json:"dividends_due"`
+	Ruined       bool                      `json:"ruined,omitempty"`
 	Codes        map[string]codeCheckpoint `json:"codes"`
 	Positions    []positionCheckpoint      `json:"positions"`
 	Exits        []exitCheckpoint          `json:"exits"`
@@ -137,6 +142,7 @@ func (st *State) Checkpoint() ([]byte, error) {
 		Peak:         st.peak,
 		LastIndex:    st.lastIndex,
 		DividendsDue: st.dividendsDue,
+		Ruined:       st.ruined,
 		Codes:        make(map[string]codeCheckpoint, len(st.codes)),
 	}
 	for code, cs := range st.codes {
@@ -189,8 +195,8 @@ func RestoreState(cfg Config, raw []byte) (*State, error) {
 	if err := json.Unmarshal(raw, &cp); err != nil {
 		return nil, fmt.Errorf("decode the simulator checkpoint: %w", err)
 	}
-	if cp.Version != checkpointVersion {
-		return nil, fmt.Errorf("simulator checkpoint version %d; this build reads %d", cp.Version, checkpointVersion)
+	if cp.Version != checkpointVersion && cp.Version != checkpointVersionV1 {
+		return nil, fmt.Errorf("simulator checkpoint version %d; this build reads %d and %d", cp.Version, checkpointVersionV1, checkpointVersion)
 	}
 	st := NewState(cfg)
 	st.cash = cp.Cash
@@ -198,6 +204,7 @@ func RestoreState(cfg Config, raw []byte) (*State, error) {
 	st.peak = cp.Peak
 	st.lastIndex = cp.LastIndex
 	st.dividendsDue = cp.DividendsDue
+	st.ruined = cp.Ruined
 	for code, cc := range cp.Codes {
 		cs := &perCode{
 			mult:          cc.Mult,

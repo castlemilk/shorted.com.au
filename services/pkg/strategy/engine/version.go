@@ -10,7 +10,7 @@ package engine
 // TestEngineVersionBumpedWithGoldens fails when the engine goldens
 // (testdata/evaluate.golden) change without this version changing; a rules-hash
 // change alone does not bump it.
-const Version = "1.1.1"
+const Version = "1.1.2"
 
 // Major is the major component of Version.
 const Major = 1

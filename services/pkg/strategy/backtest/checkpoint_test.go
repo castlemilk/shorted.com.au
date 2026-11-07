@@ -2,6 +2,7 @@ package backtest
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -129,9 +130,10 @@ func TestRestoreRefusesAnUnknownLayout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bumped := strings.Replace(string(raw), `"version":1`, `"version":2`, 1)
-	if _, err := RestoreState(testConfig(), []byte(bumped)); err == nil || !strings.Contains(err.Error(), "version 2") {
-		t.Fatalf("restore of version 2 = %v, want a version error", err)
+	next := checkpointVersion + 1
+	bumped := strings.Replace(string(raw), fmt.Sprintf(`"version":%d`, checkpointVersion), fmt.Sprintf(`"version":%d`, next), 1)
+	if _, err := RestoreState(testConfig(), []byte(bumped)); err == nil || !strings.Contains(err.Error(), fmt.Sprintf("version %d", next)) {
+		t.Fatalf("restore of version %d = %v, want a version error", next, err)
 	}
 	var probe map[string]any
 	if err := json.Unmarshal(raw, &probe); err != nil {
@@ -172,7 +174,7 @@ func TestLedgerAccessorsFollowTheLifecycle(t *testing.T) {
 // would silently lose across runs cannot appear unnoticed.
 func TestCheckpointCarriesEverySimulatorField(t *testing.T) {
 	carried := map[string][]string{
-		"State":        {"cash", "lastEquity", "peak", "lastIndex", "dividendsDue", "codes", "positions", "exits", "entries"},
+		"State":        {"cash", "lastEquity", "peak", "lastIndex", "dividendsDue", "ruined", "codes", "positions", "exits", "entries"},
 		"perCode":      {"mult", "prev", "hasPrev", "lastRaw", "lastPL", "lastPLDate", "prevStatus", "hasPrevStatus", "lastExitIdx", "hasExit", "caKnownIdx", "hasCA", "traded"},
 		"position":     {"code", "signalDate", "breakout", "entryDate", "entryIdx", "entryRaw", "entryPL", "qty", "pivot", "score", "dv20", "entryFee", "dividends", "missing", "ruleCount", "flags", "marks"},
 		"pendingEntry": {"code", "score", "pivot", "dv20", "signalDate", "breakout", "lag"},

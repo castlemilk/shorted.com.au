@@ -153,7 +153,7 @@ describe("the backtest mapper: the paper track", () => {
   it("maps the engine segments in order, and the run's paper start", () => {
     const run = mapBacktestRun(fixturePublishedRun());
     expect(run.paperStart).toBe(FIXTURE_RECORDED_FROM);
-    expect(run.paperEngineSegments.map((s) => s.engineVersion)).toEqual(["1.1.0", "1.1.1"]);
+    expect(run.paperEngineSegments.map((s) => s.engineVersion)).toEqual(["1.1.0", "1.1.2"]);
     expect(run.paperEngineSegments[1]?.firstSession).toBe(FIXTURE_ENGINE_SEGMENTS[1]?.firstSession);
   });
 });
