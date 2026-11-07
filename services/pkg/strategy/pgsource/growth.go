@@ -114,7 +114,7 @@ var GrowthQuery = `
 // GetGrowth returns the mv_fundamentals_growth row for a stock, or nil when
 // there is none (or the view does not exist yet).
 func GetGrowth(ctx context.Context, db DB, code string) (*engine.Growth, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	var g engine.Growth

@@ -79,7 +79,7 @@ describe("the honesty labels (1.8)", () => {
     expect(run.identity).not.toBeNull();
     expect(runIdentityLine(run.identity!)).toBe("Run 6 Nov 2026 · prices to 5 Nov");
     expect(runIdentityDetail(run.identity!)).toBe(
-      `rules v1 04b4e5e8 · recipe csb-r1 ${FIXTURE_RECIPE_HASH.slice(0, 8)} · engine 1.1.1 · ASIC report to 2 Nov`,
+      `rules v1 04b4e5e8 · recipe csb-r1 ${FIXTURE_RECIPE_HASH.slice(0, 8)} · engine 1.1.2 · ASIC report to 2 Nov`,
     );
   });
 

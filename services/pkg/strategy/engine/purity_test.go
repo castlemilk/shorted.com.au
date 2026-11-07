@@ -14,7 +14,8 @@ import (
 
 // TestNoClockNoIONoRand holds the strategy packages to a purity rule: an output
 // is a function of the inputs alone. Every non-test file under
-// services/pkg/strategy (pgsource excepted, the one package that does I/O) may
+// services/pkg/strategy (pgsource excepted, the one package that does I/O, and
+// the btprof developer tool) may
 // import only the standard-library packages in pureImports, and may not read the
 // clock, sleep, wait on a timer, load a time zone, print, or draw random
 // numbers. The check parses the source rather than trusting review, so a new
@@ -32,7 +33,9 @@ func TestNoClockNoIONoRand(t *testing.T) {
 				return err
 			}
 			if d.IsDir() {
-				if d.Name() == "pgsource" {
+				// btprof is a developer's replay tool: it reads a dump file and prints,
+				// and no strategy package imports it.
+				if d.Name() == "pgsource" || d.Name() == "btprof" {
 					return filepath.SkipDir
 				}
 				return nil

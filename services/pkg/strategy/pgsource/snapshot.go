@@ -135,7 +135,7 @@ func WriteFundamentalsBlobs(ctx context.Context, w Writer, blobs map[string]feat
 // ReadFeatureRows reads one session's feature rows of a feature set, in code
 // order. A missing table is an empty result: the daily job has not run yet.
 func ReadFeatureRows(ctx context.Context, db DB, asOf civil.Date, featureSet string) ([]snapshot.Row, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 	rows, err := db.Query(ctx, `
 		SELECT as_of, feature_set, stock_code, bar_date, ordinary_fresh_60, ineligible_reason,
@@ -200,7 +200,7 @@ func ReadFundamentalsBlobs(ctx context.Context, db DB, hashes []string) (map[str
 	if len(hashes) == 0 {
 		return out, nil
 	}
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 	rows, err := db.Query(ctx, `SELECT hash, body::text FROM strategy_fundamentals_blobs WHERE hash = ANY($1)`, hashes)
 	if err != nil {
@@ -248,7 +248,7 @@ func WriteRegime(ctx context.Context, w Writer, asOf civil.Date, indexCode strin
 // ReadRegime reads one index's regime for a session. ok is false when no row
 // exists for the session.
 func ReadRegime(ctx context.Context, db DB, asOf civil.Date, indexCode string) (engine.Regime, bool, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 	var (
 		close, sma50, sma200, pct, r1, r3 *float64

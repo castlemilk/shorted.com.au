@@ -21,7 +21,7 @@
       "today": {},
       "universeKind": "asx_ordinary",
       "version": {
-        "engineVersion": "1.1.1",
+        "engineVersion": "1.1.2",
         "featureSet": "fs1",
         "kind": "canonical",
         "label": "v1",
@@ -40,7 +40,7 @@
       "today": {},
       "universeKind": "asx_ordinary",
       "version": {
-        "engineVersion": "1.1.1",
+        "engineVersion": "1.1.2",
         "featureSet": "fs1",
         "kind": "canonical",
         "label": "v1",
@@ -831,7 +831,7 @@
       "today": {},
       "universeKind": "asx_ordinary",
       "version": {
-        "engineVersion": "1.1.1",
+        "engineVersion": "1.1.2",
         "featureSet": "fs1",
         "kind": "canonical",
         "label": "v1",
@@ -1759,7 +1759,7 @@
             "sessions": 12
           },
           {
-            "engineVersion": "1.1.1",
+            "engineVersion": "1.1.2",
             "firstSession": "2026-10-20",
             "lastSession": "2026-11-05",
             "sessions": 13
@@ -1780,7 +1780,7 @@
       "today": {},
       "universeKind": "asic_reported",
       "version": {
-        "engineVersion": "1.1.1",
+        "engineVersion": "1.1.2",
         "featureSet": "fs1",
         "kind": "canonical",
         "label": "v1",
@@ -1944,7 +1944,7 @@
       "today": {},
       "universeKind": "asx_ordinary",
       "version": {
-        "engineVersion": "1.1.1",
+        "engineVersion": "1.1.2",
         "featureSet": "fs1",
         "kind": "canonical",
         "label": "v1",

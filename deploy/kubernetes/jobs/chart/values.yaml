@@ -731,5 +731,8 @@ jobs:
     env:
       # Writes only when this is "false"; the dry run is the default everywhere else.
       STRATEGIES_DRY_RUN: "false"
-      # A soft ceiling below the 3Gi limit: the collector runs harder before the kernel kills the job.
-      GOMEMLIMIT: "2600MiB"
+      # A soft ceiling about 1.3x the measured live peak (2026-11-07, on a dump of the real inputs:
+      # ~1.07 GiB live for Minervini, ~0.83 GiB for Crowded-Short, peak RSS ~1.6-1.7 GiB at this limit),
+      # so the job stays near its 1536Mi request; the 3Gi limit stays the hard stop. It was 2600MiB while
+      # the job held ~2.1 GiB live (report-set copies) and took a 4 GB node NotReady.
+      GOMEMLIMIT: "1400MiB"

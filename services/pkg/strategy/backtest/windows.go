@@ -73,8 +73,14 @@ func Chain(bt, paper Series, liveFrom civil.Date) (Series, error) {
 	}
 	base := bt.Curve.Values[i-1]
 	start := paper.Curve.Values[j]
-	if !(base > 0) || !(start > 0) {
-		return Series{}, fmt.Errorf("backtest: cannot chain from a non-positive equity")
+	// A base of zero is a wiped-out in-sample run: the chained track stays at zero,
+	// which is what a ruined run is worth. A negative base never happens (a
+	// ruined run records zero), so it is refused.
+	if !(base >= 0) {
+		return Series{}, fmt.Errorf("backtest: cannot chain from a negative equity")
+	}
+	if !(start > 0) {
+		return Series{}, fmt.Errorf("backtest: cannot chain onto a non-positive paper equity")
 	}
 	out := Series{Basis: bt.Basis}
 	out.Curve.Dates = append(out.Curve.Dates, bt.Curve.Dates[:i]...)

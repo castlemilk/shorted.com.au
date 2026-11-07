@@ -33,6 +33,34 @@ type DB interface {
 // strategiesQueryTimeout matches the screener's per-query budget.
 const strategiesQueryTimeout = 10 * time.Second
 
+// backtestBulkQueryTimeout is the per-query budget of the backtest's bulk
+// loader. It reads whole tables (every stored ASIC row since 2000, every bar),
+// which take far longer than a request's read: a 10 second budget fails on a
+// laptop and will fail in the cluster as the table grows. Only LoadBacktestInputs
+// sets it; the API's readers keep strategiesQueryTimeout.
+const backtestBulkQueryTimeout = 2 * time.Minute
+
+// queryBudgetKey carries a per-query budget on a context. It is unexported: the
+// only setter is this package's bulk loader.
+type queryBudgetKey struct{}
+
+// withQueryBudget returns ctx carrying d as the per-query budget of every reader
+// that runs under it.
+func withQueryBudget(ctx context.Context, d time.Duration) context.Context {
+	return context.WithValue(ctx, queryBudgetKey{}, d)
+}
+
+// queryContext bounds one query by the budget ctx carries, or by
+// strategiesQueryTimeout when it carries none. Every reader wraps its query in
+// it, so a bulk load and a request differ only in the budget they were given.
+func queryContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	d := strategiesQueryTimeout
+	if v, ok := ctx.Value(queryBudgetKey{}).(time.Duration); ok && v > 0 {
+		d = v
+	}
+	return context.WithTimeout(ctx, d)
+}
+
 // isUndefinedTable reports a Postgres undefined_table (42P01) error.
 func isUndefinedTable(err error) bool {
 	var pgErr *pgconn.PgError

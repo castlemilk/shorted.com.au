@@ -22,6 +22,10 @@ const (
 	ReasonSuspended       = "suspended_exit"
 	ReasonCorporateAction = "corporate_action_exit"
 	ReasonOpenAtEnd       = "open_at_end"
+	// ReasonWipedOut closes what a run still holds when its equity reaches zero:
+	// the position is sold at its last mark with no exit cost, and the run is
+	// ruined for good (see record).
+	ReasonWipedOut = "wiped_out"
 )
 
 // Flags on a trade.
@@ -317,6 +321,10 @@ type State struct {
 	trades       []Trade
 	events       []Event
 	records      []Record
+	// ruined is set when a session's equity reaches zero. A long-only cash
+	// portfolio cannot be worth less than nothing, so a ruined run stays at zero
+	// (see wipeOut).
+	ruined bool
 }
 
 // NewState starts a run with Capital in cash. It panics when Price4dpFrom is
@@ -396,6 +404,10 @@ func Step(st *State, s Session) {
 	}
 	codes := sortedKeys(by)
 
+	if st.ruined {
+		st.recordWipedOut(s)
+		return
+	}
 	basis := st.classify(s, by, codes)
 	if s.Seed {
 		st.advance(s, by)
@@ -840,6 +852,10 @@ func (st *State) record(s Session) {
 		invested += float64(st.positions[code].qty * st.codeState(code).lastPL)
 	}
 	equity := st.cash + invested
+	if equity <= 0 {
+		st.wipeOut(s)
+		return
+	}
 	exposure := 0.0
 	if equity > 0 {
 		exposure = invested / equity
@@ -863,6 +879,48 @@ func (st *State) record(s Session) {
 		Reference: s.Reference,
 	})
 	st.lastEquity = equity
+}
+
+// wipeOut ends a run whose equity has reached zero. Every open position is sold
+// at its last mark as a wiped_out trade with no exit cost, the cash and the
+// queued exits and entries are cleared, and the session is recorded at zero
+// equity (a drawdown of exactly -1). The run is ruined from then on: recordWipedOut
+// is all that later sessions do.
+func (st *State) wipeOut(s Session) {
+	for _, code := range sortedKeys(st.positions) {
+		pos := st.positions[code]
+		cs := st.codeState(code)
+		var signal civil.Date
+		if px, ok := st.exits[code]; ok {
+			signal = px.signalDate
+		}
+		st.trades = append(st.trades, pos.trade(s.Date, s.Index, cs.lastRaw, cs.lastPL, ReasonWipedOut, signal, 0, false))
+		st.event(s.Date, code, EventExitFilled, ReasonWipedOut)
+	}
+	st.positions = map[string]*position{}
+	st.exits = map[string]pendingExit{}
+	st.entries = nil
+	st.cash = 0
+	st.dividendsDue = 0
+	st.ruined = true
+	st.recordWipedOut(s)
+}
+
+// recordWipedOut records a session of a ruined run: zero equity and cash, nothing
+// invested, and a drawdown of exactly -1.
+func (st *State) recordWipedOut(s Session) {
+	st.records = append(st.records, Record{
+		Date:      s.Date,
+		Index:     s.Index,
+		Equity:    0,
+		Cash:      0,
+		Invested:  0,
+		Exposure:  0,
+		Drawdown:  -1,
+		Benchmark: s.Benchmark,
+		Reference: s.Reference,
+	})
+	st.lastEquity = 0
 }
 
 // advance keeps the state the next session classifies against: each code's
