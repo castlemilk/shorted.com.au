@@ -32,40 +32,48 @@ var (
 )
 
 // paperCodes are the fixture's stocks. Their roles:
-//   - CCC: a NULL close on one day (a priced-bar check; the batch steps it).
+//   - CCC: a dividend with a Saturday ex-date, and a NULL close on one day while held.
 //   - CCC: a dividend with a Saturday ex-date (credited on the Monday).
-//   - FFF: stops trading in mid-July, so a position held then exits stale.
+//   - DDD: its last bar is its fill day, so its exit is a stale exit (delisted_exit).
 //   - GGG: no volume on three days (a triggered entry can cancel as untraded).
+//   - AAA: a corporate-action suspect on 22 July (a zero-volume level shift); its
+//     6 August entry is blocked for sixty sessions.
 //   - the rest: sawtooth cycles that set new highs, so the rules trigger.
 var paperCodes = []string{"AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH"}
 
+// paperStaleCode is held from its entry on paperStaleLast and has no bar after it:
+// its missing sessions reach the stale limit before the 20-session time stop, so
+// the exit is delisted_exit.
+const paperStaleCode = "DDD"
+
 // paperNullCode is the code with the NULL close: one the batch steps, so the NULL
 // close reaches the simulator's session.
-const paperNullCode = "EEE"
+const paperNullCode = "CCC"
 
 // paperCrash is BBB's fall: a 40% level drop from this session on. BBB is entered
 // in July and held through it, so an exit rule closes the trade (a closed trade
 // with its exit reason, flags and economics).
 var paperCrash = civil.Date{Year: 2026, Month: time.August, Day: 3}
 
-// paperCASuspect is HHH's corporate-action suspect (a stepped code: it triggers): a level shift of 1.9 from this
+// paperCASuspect is AAA's corporate-action suspect. AAA enters crowded-short on 6
+// August, inside the sixty sessions a suspect blocks new entries for.: a level shift of 1.9 from this
 // session on, with no volume on the day. The features phase flags the bar as a
 // zero-volume suspect, known on the day, so a position entered before it is
 // excluded and no entry is taken for the next sixty sessions.
-var paperCASuspect = civil.Date{Year: 2026, Month: time.July, Day: 6}
+var paperCASuspect = civil.Date{Year: 2026, Month: time.July, Day: 22}
 
-// paperNullClose is paperNullCode's day with no close, paperFFFLast FFF's last bar.
+// paperNullClose is paperNullCode's day with no close.
 var (
-	paperNullClose = civil.Date{Year: 2026, Month: time.July, Day: 28}
-	paperFFFLast   = civil.Date{Year: 2026, Month: time.July, Day: 14}
-	paperDividend  = civil.Date{Year: 2026, Month: time.July, Day: 11} // a Saturday
+	paperNullClose = civil.Date{Year: 2026, Month: time.July, Day: 24}
+	paperStaleLast = civil.Date{Year: 2026, Month: time.June, Day: 23} // the code's fill day: the next 20 sessions have no bar, a stale exit
+	paperDividend  = civil.Date{Year: 2026, Month: time.July, Day: 18} // a Saturday
 )
 
 // paperZeroVolume are GGG's days with no volume.
 var paperZeroVolume = map[civil.Date]bool{
-	{Year: 2026, Month: time.June, Day: 17}:  true,
-	{Year: 2026, Month: time.June, Day: 29}:  true,
-	{Year: 2026, Month: time.August, Day: 5}: true,
+	{Year: 2026, Month: time.June, Day: 17}:     true,
+	{Year: 2026, Month: time.August, Day: 12}:   true,
+	{Year: 2026, Month: time.September, Day: 8}: true,
 }
 
 // paperTradingDays are the ASX sessions from from to to, inclusive, oldest first.
@@ -86,7 +94,7 @@ func paperPrice(code, k int) float64 {
 	period := 12 + code
 	phase := k % period
 	trend := base * math.Exp(drift*float64(k))
-	if paperCodes[code] == "HHH" && k >= paperCAIndex() {
+	if paperCodes[code] == "AAA" && k >= paperCAIndex() {
 		trend *= 1.9 // the level shift of the corporate-action suspect
 	}
 	if paperCodes[code] == "BBB" && k >= paperCrashIndex() {
@@ -147,7 +155,7 @@ func seedPaperMarket(t *testing.T, pool *pgxpool.Pool) {
 	var priceRows, indexRows [][]any
 	for i, d := range days {
 		for code := range paperCodes {
-			if paperCodes[code] == "FFF" && d.After(paperFFFLast) {
+			if paperCodes[code] == paperStaleCode && d.After(paperStaleLast) {
 				continue
 			}
 			c := paperPrice(code, i)
@@ -157,14 +165,16 @@ func seedPaperMarket(t *testing.T, pool *pgxpool.Pool) {
 			}
 			// A session that closes at a 20-session high trades heavily: the volume
 			// behind a breakout.
+			// The heavy session is one in four of the highs: the 50-session average
+			// stays near the base, so the heavy day clears 1.5 times it.
 			volume := int64(1000000)
-			if paperIsHigh(code, i) {
-				volume = 3000000
+			if paperIsHigh(code, i) && i%4 == 0 {
+				volume = 4000000
 			}
 			if paperCodes[code] == "GGG" && paperZeroVolume[d] {
 				volume = 0
 			}
-			if paperCodes[code] == "HHH" && d == paperCASuspect {
+			if paperCodes[code] == "AAA" && d == paperCASuspect {
 				volume = 0
 			}
 			open := c * (1 + 0.002*math.Cos(float64(i)))

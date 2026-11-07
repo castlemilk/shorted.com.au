@@ -60,11 +60,11 @@ func paperFirstRecorded(t *testing.T) civil.Date {
 }
 
 // batchableVersion is a version whose batch the fixture can run and that has
-// trades: the non-fundamentals version the fixture trades (minervini).
+// closed and open trades: the flagship, crowded-short.
 func batchableVersion(t *testing.T, pool *pgxpool.Pool) paperVersion {
 	t.Helper()
 	for _, v := range versionsOf(t, pool) {
-		if !batchNeedsComputableFrom(t, v) && v.Target.Reg.Spec.StrategyID == "minervini-trend-template" {
+		if !batchNeedsComputableFrom(t, v) && v.Target.Reg.Spec.StrategyID == "crowded-short-breakout" {
 			return v
 		}
 	}
@@ -244,15 +244,35 @@ func TestStepEqualsRun(t *testing.T) {
 		traded[v.Target.Reg.Spec.StrategyID] = len(closed) + len(open)
 		t.Logf("%s: %d closed, %d open trades in the batch", v.Target.Reg.Spec.StrategyID, len(closed), len(open))
 	}
-	// The fixture has no fundamentals, so the fundamentals versions are not compared
-	// (batchNeedsComputableFrom), and crowded-short triggers on none of its sessions.
-	// Minervini is the version this fixture makes trade, so it must.
-	require.Greater(t, traded["minervini-trend-template"], 0, "the fixture makes a version trade")
+	// The flagship must trade both ways: a closed and an open trade, compared above.
+	crowded := crowdedClosedOpen(t, pool)
+	require.Greater(t, crowded[0], 0, "crowded-short-breakout has a closed trade in the fixture")
+	require.Greater(t, crowded[1], 0, "crowded-short-breakout has an open trade in the fixture")
+	// The corporate-action block is exercised: AAA's suspect is known on 22 July, and
+	// no trade of any version enters AAA in the sixty sessions after it (its 6 August
+	// entry would otherwise be taken).
+	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_paper_trades
+		WHERE stock_code = 'AAA' AND entry_date BETWEEN '2026-07-22' AND '2026-09-18'`),
+		"the suspect blocks AAA's entries for sixty sessions")
+	// A held code went 20 sessions without a bar: its exit is a stale exit, compared
+	// end to end (the batch and the paper track both label it delisted_exit).
+	require.Greater(t, countRows(t, pool, `SELECT count(*) FROM strategy_paper_trades WHERE exit_reason = 'delisted_exit'`), 0,
+		"a stale exit (delisted_exit) is in the fixture and compared")
 	// The NULL close is on a held code: some trade holds it on that session.
 	held := countRows(t, pool, `SELECT count(*) FROM strategy_paper_trades
 		WHERE stock_code = $1 AND entry_date <= $2::date AND (exit_date IS NULL OR exit_date >= $2::date)`,
 		paperNullCode, paperNullClose.String())
 	require.Greater(t, held, 0, "the NULL close falls on a session where %s is held", paperNullCode)
+}
+
+// crowdedClosedOpen counts the flagship's stored closed and open trades.
+func crowdedClosedOpen(t *testing.T, pool *pgxpool.Pool) [2]int {
+	t.Helper()
+	var closed, open int
+	require.NoError(t, pool.QueryRow(context.Background(), `
+		SELECT count(*) FILTER (WHERE status = 'closed'), count(*) FILTER (WHERE status IN ('open','pending_exit'))
+		  FROM strategy_paper_trades WHERE strategy_id = 'crowded-short-breakout'`).Scan(&closed, &open))
+	return [2]int{closed, open}
 }
 
 // batchNeedsComputableFrom reports whether a version's recipe starts where its
@@ -307,7 +327,7 @@ func TestPaperSessionsEqualTheBatchSessions(t *testing.T) {
 	// Run to mid-July: the retained snapshot (the newest fifteen sessions) then
 	// still holds the fixture's suspect, dividend and NULL close. A later run would
 	// prune them, and this comparison reads only what the snapshot keeps.
-	last := civil.Date{Year: 2026, Month: time.July, Day: 29}
+	last := civil.Date{Year: 2026, Month: time.August, Day: 7}
 	runPaperThrough(t, pool, last)
 	in, err := pgsource.LoadBacktestInputs(ctx, pool, last)
 	require.NoError(t, err)
@@ -319,10 +339,7 @@ func TestPaperSessionsEqualTheBatchSessions(t *testing.T) {
 	defer func() {
 		require.GreaterOrEqual(t, compared, 10, "the sessions the retention keeps are compared (pruned %d)", pruned)
 		// The comparison proves the paths only if the fixture reaches them.
-		// No version the fixture can batch-run has a corporate-action guard that
-		// trades, so the suspect's end-to-end admissions are not compared here: its
-		// admission rule has its own test (TestCAForSessionAdmitsWhatTheBatchAdmits).
-		_ = caSeen
+		require.Greater(t, caSeen, 0, "a corporate-action suspect is known on a code the batch steps")
 		require.Greater(t, divSeen, 0, "a cash dividend is credited in a compared session")
 		require.Greater(t, nullSeen, 0, "a NULL close is in a compared session")
 	}()
@@ -747,13 +764,12 @@ func TestPaperPriceResyncLeavesRecordedEquityUnchanged(t *testing.T) {
 	v := batchableVersion(t, pool)
 	before := paperEquityOf(t, pool, v)
 
-	// EEE's history from 15 July to the recorded session is re-adjusted (EEE is held
-	// from 9 July, so its marks change and the batch's equity with them). A rescale
-	// of a whole interval that holds the entry would leave the P&L unchanged. A uniform
-	// rescale would leave every return, and so the equity, unchanged.
+	// FFF's history from 3 August to the recorded session is re-adjusted (FFF is held
+	// from 6 August, so its marks change and the batch's equity with them). A rescale
+	// of a whole interval that holds the entry would leave the P&L unchanged.
 	_, err := pool.Exec(ctx, `UPDATE stock_prices SET open = open * 0.8, high = high * 0.8, low = low * 0.8,
 		close = close * 0.8, adjusted_close = adjusted_close * 0.8
-		WHERE stock_code = 'EEE' AND date > '2026-07-15' AND date <= $1::date`, days[50].String())
+		WHERE stock_code = 'FFF' AND date > '2026-08-03' AND date <= $1::date`, days[50].String())
 	require.NoError(t, err)
 	runPaperThrough(t, pool, days[60])
 
@@ -770,4 +786,103 @@ func TestPaperPriceResyncLeavesRecordedEquityUnchanged(t *testing.T) {
 	require.NotEmpty(t, rerun.Records)
 	require.NotEqual(t, before[days[50]].Equity, rerun.Records[len(rerun.Records)-1].Equity,
 		"a batch run over the re-synced prices differs on the recorded session: the re-sync is a real change")
+}
+
+// TestPaperStartsOnTheFirstSeedThatCarriesCAKnown: rows written before the
+// suspects were stored are not backfilled, and a track does not start on one. With
+// live_from L, rows for L-1 and L are pre-change and the row for L+1 is not, so the
+// track's first recorded session is L+2: its seed is L+1, the first seed that
+// carries ca_known. The start is logged once, with its reason.
+func TestPaperStartsOnTheFirstSeedThatCarriesCAKnown(t *testing.T) {
+	pool := paperDB(t)
+	ctx := context.Background()
+	days := paperTradingDays(paperRunFrom, paperRunTo)
+	L, pre, post := days[9], []civil.Date{days[8], days[9]}, days[10]
+
+	// The snapshot runs before the paper tables exist, as before the deploy.
+	for _, table := range []string{"strategy_paper_trades", "strategy_paper_equity", "strategy_paper_checkpoints"} {
+		_, err := pool.Exec(ctx, "DROP TABLE "+table+" CASCADE")
+		require.NoError(t, err)
+	}
+	runPaperThrough(t, pool, L)
+	// The rows of L-1 and L predate the suspects: the features rows lack ca_known.
+	_, err := pool.Exec(ctx, `UPDATE strategy_features_daily SET features = features - 'ca_known'
+		WHERE as_of = ANY($1::date[])`, []string{pre[0].String(), pre[1].String()})
+	require.NoError(t, err)
+	b, err := os.ReadFile(filepath.Join(dailyMigrationsDir, "000159_strategy_paper.up.sql"))
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, string(b))
+	require.NoError(t, err)
+	// The promotion day is L: the live versions take it as their live_from.
+	_, err = pool.Exec(ctx, `UPDATE strategy_rule_versions SET live_from = $1::date WHERE status = 'live' AND kind = 'canonical'`, L.String())
+	require.NoError(t, err)
+
+	var lines []string
+	logf := func(f string, a ...any) { lines = append(lines, fmt.Sprintf(f, a...)) }
+	for _, d := range []civil.Date{post, days[11]} {
+		opts := dailyOptions{Write: true, Holder: "paper-test", Now: dayAt14(d), Logf: logf,
+			Sleep: func(context.Context, time.Duration) error { return nil }}
+		_, err := runDaily(ctx, pool, opts)
+		require.NoError(t, err)
+	}
+
+	first := days[11]
+	for _, v := range versionsOf(t, pool) {
+		eq := paperEquityOf(t, pool, v)
+		var earliest civil.Date
+		for d := range eq {
+			if earliest.IsZero() || d.Before(earliest) {
+				earliest = d
+			}
+		}
+		require.Equal(t, first.String(), earliest.String(), "%s: the first recorded session is L+2", v.Target.Reg.Spec.StrategyID)
+	}
+	starts, waits := 0, 0
+	for _, l := range lines {
+		if strings.Contains(l, "starts: first recorded session") {
+			starts++
+		}
+		if strings.Contains(l, "waits to start") {
+			waits++
+		}
+	}
+	require.Greater(t, starts, 0, "the start is logged with its reason")
+	require.Greater(t, waits, 0, "the wait for a seed that carries ca_known is logged")
+	require.LessOrEqual(t, waits, len(versionsOf(t, pool)), "the wait line prints once per version")
+}
+
+// TestPaperQualityCompoundersStepsOverItsSnapshot is the weaker check for a
+// fundamentals strategy. The production batch never simulates a fundamentals
+// strategy whose window is computable_from (backtest.go publishRequest stores the
+// derivation only, because a simulation would read today's fundamentals at every
+// session), and backtest.Run refuses any date window for it, so there is no batch
+// trading run to compare. The fixture writes no fundamentals blobs, so the
+// snapshot carries none: the test checks that the paper track steps the strategy
+// over those rows without error and records one equity row per recorded session.
+func TestPaperQualityCompoundersStepsOverItsSnapshot(t *testing.T) {
+	pool := paperDB(t)
+	days := runPaperThrough(t, pool, paperRunTo)
+	first := paperFirstRecorded(t)
+	var q *paperVersion
+	for _, v := range versionsOf(t, pool) {
+		if v.Target.Reg.Spec.StrategyID == "quality-compounders" {
+			vv := v
+			q = &vv
+		}
+	}
+	require.NotNil(t, q, "quality-compounders is a live version")
+	require.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM strategy_fundamentals_blobs`),
+		"the fixture writes no fundamentals blobs: the snapshot carries none")
+	var want []civil.Date
+	for _, d := range days {
+		if !d.Before(first) {
+			want = append(want, d)
+		}
+	}
+	eq := paperEquityOf(t, pool, *q)
+	require.Len(t, eq, len(want), "one equity row per recorded session")
+	for _, d := range want {
+		require.Contains(t, eq, d)
+		require.Equal(t, engine.Version, eq[d].Engine)
+	}
 }
