@@ -48,7 +48,7 @@ func computedBacktestFixture() *shortsv1alpha1.BacktestRun {
 			Year: 2019, Measurable: true, CoveragePct: 64, AllReportedMeasurable: true, AllReportedPct: 70,
 		}},
 		Survivorship: &shortsv1alpha1.Survivorship{Measurement: "measured", Direction: "flatters", Statement: "Prices are missing for companies that delisted."},
-		Recipe:       &shortsv1alpha1.RecipeLines{Brokerage: "10 bps brokerage", Spread: "5 to 50 bps spread", Entry: "Buys on a breakout."},
+		Recipe:       &shortsv1alpha1.RecipeLines{Brokerage: "10 bps brokerage", Spread: "5 to 75 bps spread", Entry: "Buys on a breakout."},
 		Sensitivity: []*shortsv1alpha1.Sensitivity{{
 			Id: "costs_x2", Label: "Costs doubled", CagrPct: 9.1, HasCagr: true, ExcessVsBenchmarkPct: 1.2, HasExcess: true,
 			Fragile: true, FragileChip: "Fragile to costs", Applies: true,
