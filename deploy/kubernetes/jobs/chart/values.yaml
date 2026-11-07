@@ -723,7 +723,10 @@ jobs:
     schedule: "20 * * * *"
     timeoutSeconds: 3300
     maxRetries: 0
-    resources: { cpuRequest: "1", memoryRequest: 1536Mi, memory: 3Gi }
+    # 500m, not a whole core: the core-large nodes have ~0.85 core unrequested each (requests, not use:
+    # they run at 11-15% CPU), and a 1-core request left the 2026-11-07 republish unschedulable. No CPU
+    # limit is set, so the job still uses spare CPU; a publish takes a few minutes either way.
+    resources: { cpuRequest: 500m, memoryRequest: 1536Mi, memory: 3Gi }
     # The ~2.5 GiB working set does not fit in the 4 GB `core` node's free memory. On 2026-11-07 a
     # run took core-ef6b2792fa9a NotReady for 17 minutes. The core-large nodes are 8 GB.
     nodeSelector: { vke.vultr.com/node-pool: core-large }
