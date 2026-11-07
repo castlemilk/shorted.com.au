@@ -146,9 +146,9 @@ bt=shorted-strategies-backtest
 [[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].resources.limits.memory')" == "3Gi" ]] || fail "shorted-strategies-backtest: memory limit must be 3Gi"
 [[ -z "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
   || fail "shorted-strategies-backtest: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
-[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOMEMLIMIT") | .value')" == "2600MiB" ]] \
-  || fail "shorted-strategies-backtest: GOMEMLIMIT must be 2600MiB (a soft ceiling under the 3Gi limit)"
-pass "shorted-strategies-backtest: writes only on STRATEGIES_DRY_RUN=false, one attempt, 1536Mi/3Gi, GOMEMLIMIT 2600MiB, no WIF"
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOMEMLIMIT") | .value')" == "1400MiB" ]] \
+  || fail "shorted-strategies-backtest: GOMEMLIMIT must be 1400MiB (about 1.3x the measured live peak, so the job stays near its 1536Mi request; 3Gi stays the hard stop)"
+pass "shorted-strategies-backtest: writes only on STRATEGIES_DRY_RUN=false, one attempt, 1536Mi/3Gi, GOMEMLIMIT 1400MiB, no WIF"
 
 # --- 2. Nothing runs by default; enabling is per job and needs suspendAll=false.
 # Exactly the jobs in `enabled` run (none while suspendAll is true).
