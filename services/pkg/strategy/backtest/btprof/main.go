@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"runtime/metrics"
 	"runtime/pprof"
 	"syscall"
 	"time"
@@ -104,6 +105,7 @@ func run(args []string) error {
 	cpu := fs.String("cpu", "", "CPU profile to write")
 	mem := fs.String("mem", "", "heap profile to write (after Disclose, before GC of its result)")
 	liveFromArg := fs.String("live-from", "2026-11-06", "the version's live_from")
+	peak := fs.String("peak", "", "heap profile to write at each new peak of the live heap (sampled every 500 ms)")
 	_ = fs.Parse(args)
 
 	t0 := time.Now()
@@ -147,11 +149,18 @@ func run(args []string) error {
 		defer pprof.StopCPUProfile()
 	}
 	t1 := time.Now()
+	var stopPeak func() uint64
+	if *peak != "" {
+		stopPeak = startPeakSampler(*peak)
+	}
 	disc, base, err := backtest.Disclose(d.In, reg.Spec, *reg.Recipe, liveFrom, nil, d.WindowEnd, "btprof", "")
 	if err != nil {
 		return fmt.Errorf("disclose: %w", err)
 	}
 	elapsed := time.Since(t1)
+	if stopPeak != nil {
+		fmt.Printf("peak live heap %d MiB (sampled)\n", stopPeak()>>20)
+	}
 	if *cpu != "" {
 		pprof.StopCPUProfile()
 	}
@@ -179,4 +188,40 @@ func run(args []string) error {
 			s.ID, s.Applies, s.Figures.CAGR, s.Figures.HasCAGR, s.Figures.MaxDrawdown, s.Figures.ClosedTrades)
 	}
 	return nil
+}
+
+// startPeakSampler reads the live heap (after each collection) every 500 ms and
+// writes a heap profile to path each time it reaches a new high, so the file
+// holds the profile at the peak. The returned function stops the sampler and
+// reports the highest live heap seen, in bytes.
+func startPeakSampler(path string) func() uint64 {
+	done := make(chan struct{})
+	stopped := make(chan uint64)
+	go func() {
+		sample := []metrics.Sample{{Name: "/gc/heap/live:bytes"}}
+		var high uint64
+		t := time.NewTicker(500 * time.Millisecond)
+		defer t.Stop()
+		for {
+			select {
+			case <-done:
+				stopped <- high
+				return
+			case <-t.C:
+				metrics.Read(sample)
+				v := sample[0].Value.Uint64()
+				if v > high {
+					high = v
+					if f, err := os.Create(path); err == nil {
+						_ = pprof.WriteHeapProfile(f)
+						_ = f.Close()
+					}
+				}
+			}
+		}
+	}()
+	return func() uint64 {
+		close(done)
+		return <-stopped
+	}
 }

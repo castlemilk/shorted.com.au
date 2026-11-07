@@ -36,96 +36,136 @@ const (
 	ReasonNoVolume         = "no_volume"
 )
 
-type rowKey struct {
-	code string
-	date civil.Date
+// ReportCompleteness holds what the completeness rule reads of the ASIC reports:
+// the distinct report dates, the rows each report carries with a finite
+// percentage, and the ingests. It holds no copy of the rows, so a caller that
+// only asks whether a report is complete (the backtest's coverage and reference)
+// builds it without the rows' memory. Reports.Complete is this rule.
+type ReportCompleteness struct {
+	dates   []civil.Date // distinct report dates, ascending
+	pos     map[civil.Date]int
+	count   map[civil.Date]int // rows per report date, all codes
+	ingests map[civil.Date]ReportIngest
+}
+
+// NewReportCompleteness counts each report's rows. A (code, date) pair that
+// appears twice counts once, with its last row, as Reports keeps it; a row counts
+// toward its report's size only with a finite percentage, the rows the alerts job
+// loads. Input order does not change the result except through that last row. A
+// report's ingest is the last one given for its date.
+func NewReportCompleteness(rows []ASICRow, ingests []ReportIngest) ReportCompleteness {
+	c := ReportCompleteness{
+		pos:     map[civil.Date]int{},
+		count:   map[civil.Date]int{},
+		ingests: make(map[civil.Date]ReportIngest, len(ingests)),
+	}
+	byDate := map[civil.Date][]int32{}
+	for i := range rows {
+		d := rows[i].ReportDate
+		byDate[d] = append(byDate[d], int32(i))
+	}
+	for d := range byDate {
+		c.dates = append(c.dates, d)
+	}
+	sort.Slice(c.dates, func(i, j int) bool { return c.dates[i].Before(c.dates[j]) })
+	for i, d := range c.dates {
+		c.pos[d] = i
+		// The last row of each code on the date is the one the rule counts.
+		last := make(map[string]bool, len(byDate[d]))
+		for _, idx := range byDate[d] {
+			row := &rows[idx]
+			last[row.Code] = row.Percent != nil && finite(*row.Percent)
+		}
+		n := 0
+		for _, finiteRow := range last {
+			if finiteRow {
+				n++
+			}
+		}
+		c.count[d] = n
+	}
+	for _, in := range ingests {
+		c.ingests[in.ReportDate] = in
+	}
+	return c
 }
 
 // Reports is the ASIC report history the readings read: the rows of every code
 // for the report dates needed, zero rows included, with the completeness facts
 // of each report. Build it once per run and share it across codes.
 type Reports struct {
-	dates   []civil.Date // distinct report dates, ascending
-	pos     map[civil.Date]int
-	count   map[civil.Date]int // rows per report date, all codes
-	ingests map[civil.Date]ReportIngest
-	rows    map[rowKey]ASICRow
-	byCode  map[string][]ASICRow // each code's rows, date ascending
+	comp ReportCompleteness
+	// rows is the input slice, shared with the caller and not copied: the caller
+	// must not change it after NewReports.
+	rows   []ASICRow
+	byCode map[string][]int32 // each code's indices into rows: one per date (the last given), date ascending
 }
 
 // NewReports indexes the ASIC rows and the report ingests. Input order does not
 // matter; a code's row on a date that appears twice keeps the last one.
 func NewReports(rows []ASICRow, ingests []ReportIngest) *Reports {
 	r := &Reports{
-		pos:     map[civil.Date]int{},
-		count:   map[civil.Date]int{},
-		ingests: make(map[civil.Date]ReportIngest, len(ingests)),
-		rows:    make(map[rowKey]ASICRow, len(rows)),
-		byCode:  map[string][]ASICRow{},
+		comp:   NewReportCompleteness(rows, ingests),
+		rows:   rows,
+		byCode: map[string][]int32{},
 	}
-	for _, row := range rows {
-		r.rows[rowKey{row.Code, row.ReportDate}] = row
+	for i := range rows {
+		r.byCode[rows[i].Code] = append(r.byCode[rows[i].Code], int32(i))
 	}
-	// The map above holds one row per code and date, so the counts and the
-	// per-code lists below do not depend on the order the rows arrived in.
-	// A row counts toward its report's size only with a finite percentage, the
-	// rows the alerts job loads, so the two jobs agree on which reports are partial.
-	seen := map[civil.Date]bool{}
-	for key, row := range r.rows {
-		if !seen[key.date] {
-			seen[key.date] = true
-			r.dates = append(r.dates, key.date)
+	// A stable sort by date keeps input order among a date's rows, so the last of
+	// each date run is the last given, which is the row a (code, date) pair keeps.
+	for code, idxs := range r.byCode {
+		sort.SliceStable(idxs, func(a, b int) bool { return rows[idxs[a]].ReportDate.Before(rows[idxs[b]].ReportDate) })
+		kept := idxs[:0]
+		for k, i := range idxs {
+			if k+1 < len(idxs) && rows[idxs[k+1]].ReportDate == rows[i].ReportDate {
+				continue
+			}
+			kept = append(kept, i)
 		}
-		if row.Percent != nil && finite(*row.Percent) {
-			r.count[key.date]++
-		}
-		r.byCode[key.code] = append(r.byCode[key.code], row)
-	}
-	sort.Slice(r.dates, func(i, j int) bool { return r.dates[i].Before(r.dates[j]) })
-	for i, d := range r.dates {
-		r.pos[d] = i
-	}
-	for code := range r.byCode {
-		rs := r.byCode[code]
-		sort.Slice(rs, func(i, j int) bool { return rs[i].ReportDate.Before(rs[j].ReportDate) })
-	}
-	for _, in := range ingests {
-		r.ingests[in.ReportDate] = in
+		r.byCode[code] = kept
 	}
 	return r
 }
+
+// Complete is ReportCompleteness.Complete over the reports' own rows.
+func (r *Reports) Complete(date civil.Date) bool { return r.comp.Complete(date) }
 
 // Complete reports whether the report for date reached shorts in full. When an
 // ingest row records the file's row count, the rule is loaded rows at least the
 // file's rows; rows a revised file no longer lists are never deleted, which is
 // why the comparison is >=. Otherwise the alerts job's rule applies: a report
 // with fewer than half the previous report's rows is partial.
-func (r *Reports) Complete(date civil.Date) bool {
-	if in, ok := r.ingests[date]; ok && in.FileRows != nil {
+func (c ReportCompleteness) Complete(date civil.Date) bool {
+	if in, ok := c.ingests[date]; ok && in.FileRows != nil {
 		return in.LoadedRows >= *in.FileRows
 	}
-	i, ok := r.pos[date]
+	i, ok := c.pos[date]
 	if !ok {
 		return false
 	}
 	if i == 0 {
 		return true
 	}
-	prev := r.dates[i-1]
-	return 2*r.count[date] >= r.count[prev]
+	prev := c.dates[i-1]
+	return 2*c.count[date] >= c.count[prev]
 }
 
 func (r *Reports) row(code string, date civil.Date) (ASICRow, bool) {
-	row, ok := r.rows[rowKey{code, date}]
-	return row, ok
+	idxs := r.byCode[code]
+	i := sort.Search(len(idxs), func(i int) bool { return !r.rows[idxs[i]].ReportDate.Before(date) })
+	if i < len(idxs) && r.rows[idxs[i]].ReportDate == date {
+		return r.rows[idxs[i]], true
+	}
+	return ASICRow{}, false
 }
 
 // LatestUsable returns R*(asOf): the newest complete report public at asOf,
 // with no age limit. A report that is public but partial is skipped, as is one
 // not yet public.
 func (r *Reports) LatestUsable(asOf civil.Date, cal *calendar.Calendar) (civil.Date, bool) {
-	for i := len(r.dates) - 1; i >= 0; i-- {
-		d := r.dates[i]
+	for i := len(r.comp.dates) - 1; i >= 0; i-- {
+		d := r.comp.dates[i]
 		if d.After(asOf) || !cal.Usable(d, asOf) || !r.Complete(d) {
 			continue
 		}
@@ -212,9 +252,9 @@ func ShortReadingV1(code string, asOf civil.Date, cal *calendar.Calendar, report
 // 000080 does not do (it takes +Inf and NaN as positive); that is a known
 // exclusion, not a figure.
 func ShortReadingV0(code string, asOf civil.Date, cal *calendar.Calendar, reports *Reports, bars []Bar) ShortReading {
-	rows := reports.byCode[code]
-	for i := len(rows) - 1; i >= 0; i-- {
-		row := rows[i]
+	idxs := reports.byCode[code]
+	for i := len(idxs) - 1; i >= 0; i-- {
+		row := reports.rows[idxs[i]]
 		if row.ReportDate.After(asOf) || !finiteRow(row) || *row.Percent <= 0 {
 			continue
 		}

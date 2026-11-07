@@ -9,7 +9,6 @@ import (
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/instrument"
-	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pipeline"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 )
 
@@ -96,25 +95,22 @@ func Reference(in Inputs, s spec.Spec, r spec.Recipe, sessions []civil.Date) (Se
 	if len(sessions) == 0 {
 		return Series{}, errNoSessions
 	}
-	pin, mkt, err := pipelineInputs(in)
-	if err != nil {
-		return Series{}, err
-	}
 	rs, err := newReportSet(in, s)
 	if err != nil {
 		return Series{}, err
 	}
+	return referenceFrom(rs, s, r, sessions)
+}
+
+// referenceFrom is Reference over a report set built for the run.
+func referenceFrom(rs *reportSet, s spec.Spec, r spec.Recipe, sessions []civil.Date) (Series, error) {
+	if len(sessions) == 0 {
+		return Series{}, errNoSessions
+	}
+	pin := rs.pin
 	price4dp, err := civil.ParseDate(s.Data.Price4dpFrom)
 	if err != nil || price4dp.IsZero() {
 		return Series{}, errors.New("backtest: the version has no price_4dp_from")
-	}
-	asic := map[string][]features.ASICRow{}
-	for _, row := range pin.ASIC {
-		asic[row.Code] = append(asic[row.Code], row)
-	}
-	for code := range asic {
-		rows := asic[code]
-		sort.SliceStable(rows, func(i, j int) bool { return rows[i].ReportDate.Before(rows[j].ReportDate) })
 	}
 	tracks := make(map[string]refTrack, len(pin.Codes))
 	for _, code := range pin.Codes {
@@ -122,7 +118,7 @@ func Reference(in Inputs, s spec.Spec, r spec.Recipe, sessions []civil.Date) (Se
 	}
 
 	members := func(k int, t civil.Date) []string {
-		return referenceMembers(in, mkt, pin, rs, asic, s, r, t, k, tracks)
+		return referenceMembers(rs, s, r, t, k, tracks)
 	}
 	return Series{Basis: BasisTotal, Curve: referenceCurve(r.Capital, sessions, tracks, members)}, nil
 }
@@ -188,12 +184,12 @@ func referenceCurve(capital float64, sessions []civil.Date, tracks map[string]re
 // the session's 20-session dollar volume, and, for the Crowded-Short reference,
 // reporting at least the qualifying short position in R*(t). The result is sorted,
 // so equal weight never depends on map order.
-func referenceMembers(in Inputs, mkt Market, pin *pipeline.Inputs, rs *reportSet, asic map[string][]features.ASICRow,
-	s spec.Spec, r spec.Recipe, t civil.Date, k int, tracks map[string]refTrack) []string {
+func referenceMembers(rs *reportSet, s spec.Spec, r spec.Recipe, t civil.Date, k int, tracks map[string]refTrack) []string {
+	pin := rs.pin
 	var qual map[string]bool
 	if r.Reference == spec.ReferenceCrowdedShorts {
 		qual = map[string]bool{}
-		for _, code := range qualifying(rs.ordinaryRows(in, t), CoverageMinPct) {
+		for _, code := range rs.qualifying(rs.ordinaryRows(t), CoverageMinPct) {
 			qual[code] = true
 		}
 	}
@@ -205,8 +201,8 @@ func referenceMembers(in Inputs, mkt Market, pin *pipeline.Inputs, rs *reportSet
 		if qual != nil && !qual[code] {
 			continue
 		}
-		row, _ := newestRow(asic, code, t)
-		if instrument.IneligibleReason(code, row.Product, mkt.Names[code], row.Issued, mkt.ETPs, true) != "" {
+		row, _ := rs.newestRow(code, t)
+		if instrument.IneligibleReason(code, row.Product, rs.mkt.Names[code], row.Issued, rs.mkt.ETPs, true) != "" {
 			continue
 		}
 		pf, ok := features.AsOf(pin.Bars[code], pin.XJO, t, s.Features)
@@ -220,11 +216,11 @@ func referenceMembers(in Inputs, mkt Market, pin *pipeline.Inputs, rs *reportSet
 
 // newestRow is the code's newest ASIC row dated on or before t, the row the
 // universe reads for its product and shares. ok is false when there is none.
-func newestRow(rows map[string][]features.ASICRow, code string, t civil.Date) (features.ASICRow, bool) {
-	rs := rows[code]
-	i := sort.Search(len(rs), func(i int) bool { return rs[i].ReportDate.After(t) })
+func (rs *reportSet) newestRow(code string, t civil.Date) (features.ASICRow, bool) {
+	idxs := rs.byCode[code]
+	i := sort.Search(len(idxs), func(i int) bool { return rs.mkt.ASIC[idxs[i]].ReportDate.After(t) })
 	if i == 0 {
 		return features.ASICRow{}, false
 	}
-	return rs[i-1], true
+	return rs.mkt.ASIC[idxs[i-1]], true
 }

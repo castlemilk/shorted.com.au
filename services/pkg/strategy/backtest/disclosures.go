@@ -60,14 +60,16 @@ func Disclose(in Inputs, s spec.Spec, r spec.Recipe, liveFrom civil.Date, paper 
 	if err != nil {
 		return Disclosures{}, Result{}, err
 	}
-	d.Coverage, err = MeasureCoverage(in, s, base.Sessions, CoverageMinPct)
+	// The report set is built once and shared by the coverage and the reference.
+	rs, err := newReportSet(in, s)
 	if err != nil {
 		return Disclosures{}, Result{}, err
 	}
+	d.Coverage = measureCoverage(rs, base.Sessions, CoverageMinPct)
 	d.Survivorship = SurvivorshipOf(r)
 	d.DataQuality = DataQualityOf(base)
 
-	ref, err := Reference(in, s, r, base.Sessions)
+	ref, err := referenceFrom(rs, s, r, base.Sessions)
 	if err != nil {
 		return Disclosures{}, Result{}, err
 	}
