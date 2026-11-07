@@ -16,7 +16,9 @@ func TestFeaturesKeysAreTheStoredNames(t *testing.T) {
 	if err := json.Unmarshal(raw, &got); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"bar", "ex_div", "fs1", "sf0", "sf1"}
+	// ca_known is always written (null when no suspect is known): its presence marks
+	// a row the paper track may start on.
+	want := []string{"bar", "ca_known", "ex_div", "fs1", "sf0", "sf1"}
 	if len(got) != len(want) {
 		t.Fatalf("features keys = %v, want exactly %v", keysOf(got), want)
 	}

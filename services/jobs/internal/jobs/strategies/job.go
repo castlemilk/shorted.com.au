@@ -9,10 +9,12 @@
 //	              each weekday refresh, log-only (STRATEGY_PARITY_SHADOW=on).
 //	-mode daily   Snapshots one session (today's, or the last trading day's):
 //	              the feature rows, the regime and the fundamentals blobs, then
-//	              the canonical versions' evaluation and their signal events.
-//	              It backfills a held or missed session oldest first, and
-//	              writes only when STRATEGIES_DRY_RUN=false (daily.go). The
-//	              default is a dry run: it reads, computes and logs.
+//	              the canonical versions' evaluation and their signal events,
+//	              then a catch-up of the paper track (paper.go) over the
+//	              complete sessions. It backfills a held or
+//	              missed session oldest first, and writes only when
+//	              STRATEGIES_DRY_RUN=false (daily.go). The default is a dry
+//	              run: it reads, computes and logs.
 //	-mode backtest  Runs the live canonical versions' recipes over the stored
 //	              history: the queue, one REPEATABLE READ read per batch, the
 //	              verify pass on a key's first publish and the publication

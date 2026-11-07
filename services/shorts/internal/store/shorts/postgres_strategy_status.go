@@ -96,7 +96,8 @@ func (s *postgresStore) StrategyDailyStatus(ctx context.Context, sessions int) (
 		var last *time.Time
 		if err := tx.QueryRow(ctx, `
 			SELECT max(as_of) FROM (
-			  SELECT as_of FROM strategy_daily_runs WHERE status = 'completed'
+			  SELECT as_of FROM strategy_daily_runs
+			   WHERE status = 'completed' AND phase IN ('features', 'evaluation', 'events')
 			  GROUP BY as_of HAVING count(DISTINCT phase) = 3) complete`).Scan(&last); err != nil {
 			return err
 		}

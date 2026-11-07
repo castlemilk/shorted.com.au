@@ -824,7 +824,12 @@ recipe fields on the wire (PR-12a).
   not completed after 05:30 UTC, priced codes under 85% of the prior median, no
   XJO bar, a weekend-dated XJO bar in its window) and backfills held sessions
   oldest first. Dry run unless `STRATEGIES_DRY_RUN=false`. Container suite:
-  `make test-strategies-daily-pg`. Admin `strategy_status` (`jobs:read`) reports
+  `make test-strategies-daily-pg`. **Paper track (PR-15, migration 000159; a catch-up after the snapshot work, not part of a session's completion, which is its three snapshot phases):**
+  each live canonical version with a recipe steps `backtest.Step` through the session from the stored snapshot
+  rows of that session and the one before, never `stock_prices`; equity, trades (forward-only lifecycle) and the
+  simulator checkpoint (`strategy_paper_checkpoints`) are written in one transaction per session. Each track
+  fails on its own; its error returns after the snapshot work. Superseded tracks stop at `superseded_on`. It catches up
+  from the checkpoint and idles while no live version has a recipe. Prune keeps the snapshot rows each track reads. Admin `strategy_status` (`jobs:read`) reports
   the phases, holds and table sizes, and the backtest queue and runs (see the
   backtest job below), aggregates only.
   **Index dates are fixed in the tree (#860).** The job reads stored XJO dates for the data calendar, the regime

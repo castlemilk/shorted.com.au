@@ -41,23 +41,6 @@ func pruneCutoff(completed []civil.Date, guards []civil.Date) civil.Date {
 	return cut
 }
 
-// paperGuardSessions is, for each live canonical version except v0, the session
-// before its first live session, from the data calendar. The paper track
-// will replace this with the newest session it has recorded; until then the
-// guard keeps the session the track's first step reads. A version with no
-// live_from has no guard.
-func paperGuardSessions(liveFrom map[string]civil.Date, labels map[string]string) []civil.Date {
-	var out []civil.Date
-	for hash, from := range liveFrom {
-		if labels[hash] == "v0" || from.IsZero() {
-			continue
-		}
-		out = append(out, prevTradingDay(from))
-	}
-	sortDates(out)
-	return out
-}
-
 // pruneRun deletes the snapshot rows the cut-off and the retention rules no
 // longer need. Each statement runs in its own transaction with its own timeout,
 // so a long one cannot hold the others.

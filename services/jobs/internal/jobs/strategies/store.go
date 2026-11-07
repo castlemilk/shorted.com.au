@@ -71,8 +71,13 @@ func (s store) releaseLease(holder string, logf func(string, ...any)) {
 	}
 }
 
-// phaseNames is the phases a session completes, in the order the job runs them.
-var phaseNames = []string{phaseFeatures, phaseEvaluation, phaseEvents}
+// snapshotPhases are the phases that make a session complete, in the order the
+// job runs them. The paper track is not one of them: it is a consumer of
+// complete sessions, and its record is its own tables (strategy_paper_*), so a
+// session with no paper rows yet is still complete (paper.go). A session must
+// be complete before the events phase diffs against it, or the first session
+// after a deploy would record a baseline and lose its events.
+var snapshotPhases = []string{phaseFeatures, phaseEvaluation, phaseEvents}
 
 // completedPhases returns which of the session's phases completed.
 func (s store) completedPhases(ctx context.Context, d civil.Date) (map[string]bool, error) {
@@ -97,7 +102,7 @@ func (s store) completedPhases(ctx context.Context, d civil.Date) (map[string]bo
 
 // completedSessions returns the sessions whose every phase completed, newest
 // first, up to the given date (inclusive when inclusive is true, else before it).
-// A session is complete only when all phaseNames completed.
+// A session is complete only when all snapshotPhases completed.
 func (s store) completedSessions(ctx context.Context, upTo civil.Date, inclusive bool, limit int) ([]civil.Date, error) {
 	op := "<"
 	if inclusive {
@@ -109,7 +114,7 @@ func (s store) completedSessions(ctx context.Context, upTo civil.Date, inclusive
 		 GROUP BY as_of
 		HAVING count(DISTINCT phase) = $3
 		 ORDER BY as_of DESC
-		 LIMIT $4`, op), upTo.String(), phaseNames, len(phaseNames), limit)
+		 LIMIT $4`, op), upTo.String(), snapshotPhases, len(snapshotPhases), limit)
 	if err != nil {
 		if isUndefinedTable(err) {
 			return nil, nil

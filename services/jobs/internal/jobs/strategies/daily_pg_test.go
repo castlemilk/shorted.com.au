@@ -91,6 +91,10 @@ func dailyDB(t *testing.T) *pgxpool.Pool {
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, string(b))
 	require.NoError(t, err, "applying 000156")
+	b, err = os.ReadFile(filepath.Join(dailyMigrationsDir, "000159_strategy_paper.up.sql"))
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, string(b))
+	require.NoError(t, err, "applying 000159")
 	_, err = pool.Exec(ctx, dailySourceTables)
 	require.NoError(t, err, "creating the source tables")
 	return pool
@@ -683,7 +687,7 @@ func TestDailySnapshotPruneDeletesWhatTheRetentionRulesNoLongerNeed(t *testing.T
 		require.NoError(t, err)
 	}
 	for i := 0; i <= keepSessions; i++ {
-		for _, p := range phaseNames {
+		for _, p := range snapshotPhases {
 			_, err := pool.Exec(ctx, `INSERT INTO strategy_daily_runs (as_of, phase, status, engine_version)
 				VALUES ($1::date, $2, 'completed', 'test')`, day(i), p)
 			require.NoError(t, err)

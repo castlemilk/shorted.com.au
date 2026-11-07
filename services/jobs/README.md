@@ -1121,11 +1121,75 @@ the load). A weekend-dated XJO or XJT row holds the batch (exit 0) until the one
 history. A request that fails for another reason exits 1. `STRATEGIES_DRY_RUN=false` writes; the default is a dry run
 that reads, computes and logs. Check: `task db:prod:psql -- -At -c "select strategy_id, kind, status, published, window_start, prices_through from strategy_backtest_runs order by started_at desc limit 8"`.
 
-**Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migration 000156).
+**Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migrations 000156 and 000159).
 Runs as `shorted-strategies-daily` (VKE CronJob, weekdays at :00, :20 and :40 past 13 to 16 UTC). It writes
 when `STRATEGIES_DRY_RUN=false`, holds a session it cannot yet read whole, backfills held sessions oldest
-first (ten per run), and exits 10 once at the 16:40 UTC run when a session is still held.
-
+first (ten per run), and exits 10 once at the 16:40 UTC run when a session is still held. A session is complete
+when its three snapshot phases (features, evaluation, events) completed. The paper track is not a phase of
+completion: its record is its own tables (see "Paper track" below).
+- **Paper track (PR-15, migration 000159).** After the snapshot work of a run, every canonical version the database
+  records as live or superseded that has a registered recipe (`paperVersions`) is stepped through the complete
+  sessions of the snapshot with `backtest.Step`. It reads each session's stored rows and the one before, never
+  `stock_prices`. The RBA cash rate and the XJT level are read as of the session (the benchmark is the XJT close
+  on or before it, NULL when none exists). The equity row, the trade rows and the simulator's checkpoint are
+  written in one transaction per session. Each track fails on its own: its error comes back at the end of the
+  run, after the snapshot work is committed, and the other tracks still step. A missing paper table idles the
+  phase with one log line. The paper phase writes no `strategy_daily_runs` row.
+- **Trades move forward only**: `pending_entry`, `open`, `pending_exit`, `closed`, or `cancelled`. An entry that
+  fills and has its exit decided the same session goes through `open`. Flags may grow without a status move. A
+  closed trade carries its score, sessions held, gross and net return (percent), fees and dividends.
+- **Engine versions.** A track continues across engine bumps. Every equity row and checkpoint records the engine
+  that computed it (`engine_version`). The checkpoint carries the simulator's state layout version: a checkpoint
+  in another layout fails only its own track, with the layout named in the error. A test pins every field of the
+  simulator's state to "carried" or "not carried", so a new field cannot slip past the checkpoint.
+- **Checks on load.** A checkpoint's `as_of` must equal its track's newest equity row, or the track fails.
+- **How a track ends.** A superseded version is stepped through the sessions before its `superseded_on`, then its
+  checkpoint records `stopped_on`. Its open and pending trades keep their last recorded status: no exit is
+  fabricated. A later re-promotion of a stopped version does not resume its track; the job logs that once and
+  writes nothing for it.
+- **Stale exits** are `delisted_exit`. The paper track cannot see future bars, so it never labels a stale exit
+  `suspended_exit` (the batch can, from its loaded data).
+- **Corporate actions.** The features phase stores each suspect with the session it became known (`ca_known`, in
+  the snapshot's features). The paper track admits suspects with the batch's rules, and only for a version whose
+  universe has the CA guard or whose short source is the latest complete published report (the batch's own
+  condition, `pipeline.NewIndex`).
+- **Snapshot retention.** A track's prune guard is two sessions before its next step (or before its `live_from`
+  with no checkpoint); a stopped track has none. Only registered recipes count, so a dead recipe never pins pruning.
+- **Recipes** are registered on every run that writes, outside the evaluation phase's skip, so a checkpoint or
+  trade never references a recipe row that does not exist.
+- **Ex-dividends** are stored on the first session on or after the ex-date, so a weekend ex-date is credited on the
+  Monday, as the batch credits it.
+- **Start rule.** A track starts only on a seed row whose features carry `ca_known` (every row written since the
+  suspects were stored carries the key, null when none is known). If the seed row lacks it, the track waits for
+  the first later session whose previous row has it, and logs the wait once. Rows written before that change
+  are never backfilled. Records start at the first session after the seed: with live_from L, a deploy that
+  writes rows from L on starts the track at L+1 (its seed L carries the key) or, when the row for L predates
+  it, at L+2. The start is logged once with its date and reason.
+- **Fundamentals strategies.** The production batch never simulates a strategy whose window is `computable_from`
+  (`publishRequest` stores the derivation only, because a simulation would read today's fundamentals at every
+  session), and `backtest.Run` refuses any date window for one. So there is no batch trading run to compare a
+  fundamentals track with. Its paper track still steps over the snapshot every session, and the test that checks
+  it (`TestPaperQualityCompoundersStepsOverItsSnapshot`) says the fixture writes no fundamentals blobs.
+- **Operational note (rollout).** A paper error makes every daily run exit 1, which pages, while the snapshot keeps
+  completing. Readers judging the rollout's health must read the snapshot from its completed phases (the admin
+  `strategy_status` `lastCompletedSession`), not from the job's exit code.
+- **Accepted limitations** (documented, not changed):
+  - A version superseded and re-promoted between two runs resumes its track: the stop is recorded only by a
+    catch-up that sees the version superseded.
+  - A corrupt checkpoint stops pruning: the guard read fails, the run exits non-zero (so the job pages) until the
+    track is repaired. The snapshot work is not held.
+  - The benchmark is read from `index_prices` on or before the session at the time of the paper step, not from a
+    stored snapshot. A later XJT re-sync does not change a recorded row (rows are never updated).
+  - The RBA cash rate is read live at step time too (`pgsource.CashRate` as of the session), not from a stored
+    snapshot. A later correction to the cash series does not change a recorded row, but would change a fresh batch
+    run's interest. Rows are never updated.
+- **Tests.** `TestStepEqualsRun` runs the real features phase over a fixture market (`paper_fixture_test.go`) and
+  compares every recorded session's equity, cash and benchmark, and every closed and open trade's fields, with one
+  production batch run (`pgsource.LoadBacktestInputs`, `backtest.Run`). The fixture trades crowded-short-breakout
+  (closed and open trades), has a stale exit (`delisted_exit`, DDD) and a corporate-action suspect on a code the
+  batch steps (AAA, whose entries are blocked for sixty sessions, and HHH, whose held position exits through
+  `corporate_action_exit`), a cash dividend and a NULL close on a held code. The fundamentals versions with a `computable_from` window are not batch-compared (see above).
+  Run the suite with `make test-strategies-daily-pg`.
 - **Index dates are fixed in the tree (#860).** The index sync dates each bar by its Sydney session and removes
   stored rows in a re-fetched window that are not sessions (the weekend rows). The job reads stored XJO dates for
   the data calendar, the regime and RS. Rows inside the scheduled index window (`-years 2`, which covers the job's

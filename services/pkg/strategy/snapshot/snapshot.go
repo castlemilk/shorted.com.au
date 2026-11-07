@@ -27,11 +27,27 @@ type Row struct {
 // are stored beside them, filled by the daily snapshot's session rows
 // (services/jobs/internal/jobs/strategies).
 type Features struct {
-	Bar   Bar                    `json:"bar"`    // the as-of bar
-	ExDiv float64                `json:"ex_div"` // ex-dividend cash per share on the as-of session; 0 when none
-	FS1   features.PriceFeatures `json:"fs1"`    // keys are the view's column names
-	SF0   features.ShortReading  `json:"sf0"`    // the v0 short reading (with its days to cover)
-	SF1   features.ShortReading  `json:"sf1"`    // the v1 short reading
+	Bar   Bar     `json:"bar"`    // the as-of bar
+	ExDiv float64 `json:"ex_div"` // ex-dividend cash per share on the first session on or after each ex-date since the
+	// previous session; 0 when none
+	FS1 features.PriceFeatures `json:"fs1"` // keys are the view's column names
+	SF0 features.ShortReading  `json:"sf0"` // the v0 short reading (with its days to cover)
+	SF1 features.ShortReading  `json:"sf1"` // the v1 short reading
+	// CASuspects are the corporate-action suspects known by the session, each
+	// with the session it became known (ca_known_at). The paper track reads the
+	// suspects it admits and blocks from them, with the batch's own rules, so it
+	// needs each suspect's known date, which the ca_suspect_date column does not
+	// carry. Every row written after this field was added carries the key ca_known
+	// (null when none is known); rows written before it do not, and the paper
+	// track does not start on one (paper.go, the start rule).
+	CASuspects []CAKnown `json:"ca_known,omitempty"`
+}
+
+// CAKnown is one corporate-action suspect known by a session: the bar it sits
+// on and the session it became known.
+type CAKnown struct {
+	Date    civil.Date `json:"date"`
+	KnownAt civil.Date `json:"known_at"`
 }
 
 // Bar is the as-of bar: open, high, low, close, adjusted close and volume.
@@ -54,8 +70,11 @@ func (f Features) MarshalJSON() ([]byte, error) {
 		FS1   *features.PriceFeatures `json:"fs1"`
 		SF0   features.ShortReading   `json:"sf0"`
 		SF1   features.ShortReading   `json:"sf1"`
+		// Always written, null when no suspect is known: the key marks a row
+		// written after the suspects were stored (the paper track's start rule).
+		CAKnown []CAKnown `json:"ca_known"`
 	}
-	w := wire{Bar: f.Bar, ExDiv: f.ExDiv, SF0: f.SF0, SF1: f.SF1}
+	w := wire{Bar: f.Bar, ExDiv: f.ExDiv, SF0: f.SF0, SF1: f.SF1, CAKnown: f.CASuspects}
 	if !f.FS1.AsOf.IsZero() {
 		fs1 := f.FS1
 		w.FS1 = &fs1
