@@ -117,6 +117,9 @@ export default async function StrategyPicksPage({ params }: PageProps) {
   }));
   const pageUrl = `${siteConfig.url}/strategies/${seo.slug}`;
   const strategyName = firstNonEmpty(strategy?.name, seo.label);
+  // The evidence card reads the evidence answer alone, so it renders whether the picks read
+  // succeeded or not (both branches draw this one element).
+  const card = evidence ? <EvidenceCard slug={seo.slug} evidence={evidence} /> : null;
   // The shortlist is what the HTML and the island's props carry, so it is
   // bounded (SHORTLIST_MAX_ROWS) and the island gets the status counts over
   // every ranked row instead of the rows themselves. The ItemList names the
@@ -225,14 +228,17 @@ export default async function StrategyPicksPage({ params }: PageProps) {
               </p>
             </section>
 
-            {evidence ? <EvidenceCard slug={seo.slug} evidence={evidence} /> : null}
+            {card}
             {strategy ? <StrategyPanel strategy={strategy} /> : null}
           </>
         ) : (
-          <section className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground">
-            Picks for this strategy are temporarily unavailable; they refresh
-            automatically. Not financial advice.
-          </section>
+          <>
+            <section className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground">
+              Picks for this strategy are temporarily unavailable; they refresh
+              automatically. Not financial advice.
+            </section>
+            {card}
+          </>
         )}
 
         <section

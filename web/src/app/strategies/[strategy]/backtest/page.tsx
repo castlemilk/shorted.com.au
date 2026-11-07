@@ -225,10 +225,18 @@ function PublishedBacktest({
             />
             {identity ? (
               <dl className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-x-4 gap-y-1 font-mono text-xs" data-coverage-identity>
-                <dt className="text-muted-foreground">Input hash</dt>
-                <dd className="break-all">{identity.inputHash}</dd>
-                <dt className="text-muted-foreground">Output hash</dt>
-                <dd className="break-all">{identity.outputHash}</dd>
+                {identity.inputHash ? (
+                  <>
+                    <dt className="text-muted-foreground">Input hash</dt>
+                    <dd className="break-all">{identity.inputHash}</dd>
+                  </>
+                ) : null}
+                {identity.outputHash ? (
+                  <>
+                    <dt className="text-muted-foreground">Output hash</dt>
+                    <dd className="break-all">{identity.outputHash}</dd>
+                  </>
+                ) : null}
                 {run.inputChangeNote ? (
                   <>
                     <dt className="text-muted-foreground">Since the previous run</dt>

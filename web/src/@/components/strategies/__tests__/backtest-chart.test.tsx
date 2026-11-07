@@ -1,6 +1,8 @@
+import { render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { BacktestChart, PHONE_WIDTH } from "../backtest-chart";
+import { boxesOverlap, labelBox, type LabelBox } from "../chart-labels";
 import { mapSeriesPoint } from "~/@/lib/strategies/map-backtest";
 import {
   FIXTURE_ENGINE_SEGMENTS,
@@ -37,6 +39,42 @@ const props = {
   referenceTo: "2026-10-30",
   label: "Growth of A$100,000",
 };
+
+// The drawn text boxes of the chart's in-plot labels, from the SVG the browser builds. The box is
+// the estimate chart-labels.ts uses; the Playwright check in the report measures the real glyphs.
+function inPlotBoxes(container: HTMLElement): { recorded: LabelBox | null; engine: LabelBox[] } {
+  const texts = Array.from(container.querySelectorAll("[data-backtest-chart] text"));
+  const boxOf = (el: Element): LabelBox =>
+    labelBox(
+      el.textContent ?? "",
+      Number(el.getAttribute("x")),
+      Number(el.getAttribute("y")),
+      el.getAttribute("text-anchor") === "end" ? "end" : "start",
+    );
+  const recordedEl = texts.find((el) => (el.textContent ?? "").startsWith("Recorded since"));
+  return {
+    recorded: recordedEl ? boxOf(recordedEl) : null,
+    engine: texts.filter((el) => el.hasAttribute("data-engine-label")).map(boxOf),
+  };
+}
+
+describe("the in-plot labels at the right edge do not collide", () => {
+  beforeEach(() => {
+    mockWidth = 720;
+  });
+
+  for (const width of [1280, 390]) {
+    it(`at ${width}px, the engine labels clear the recorded label and each other`, () => {
+      mockWidth = width;
+      const { container } = render(<BacktestChart {...props} series={series} />);
+      const { recorded, engine } = inPlotBoxes(container);
+      expect(recorded).not.toBeNull();
+      expect(engine.length).toBeGreaterThan(0);
+      for (const box of engine) expect(boxesOverlap(box, recorded!)).toBe(false);
+      engine.forEach((a, i) => engine.slice(i + 1).forEach((b) => expect(boxesOverlap(a, b)).toBe(false)));
+    });
+  }
+});
 
 describe("the growth, drawdown and coverage chart", () => {
   beforeEach(() => {

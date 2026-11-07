@@ -95,43 +95,55 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
             // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- A scroll region needs focus for arrow-key scrolling.
             tabIndex={0} className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
             <table className="w-full min-w-[560px] border-collapse text-xs">
-              <caption className="sr-only">Coverage by year under both measures, with the exits behind it</caption>
-              <thead>
-                <tr className="border-b border-border/60 text-left text-muted-foreground">
-                  <th scope="col" className="py-1.5 pr-3 font-normal">Year</th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-normal">{measure === "qualifying" ? "Qualifying (≥ 5% short), the run's measure" : "Qualifying (≥ 5% short)"}</th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-normal">{measure === "all_reported" ? "All reported, the run's measure" : "All reported"}</th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-normal">Priced name-days</th>
-                  <th scope="col" className="py-1.5 pr-3 text-right font-normal">Delisting exits</th>
-                  <th scope="col" className="py-1.5 text-right font-normal">CA exits</th>
-                </tr>
-              </thead>
-              <tbody>
-                {years.map((year) => (
-                  <tr key={year.year} className="border-b border-border/40 font-mono tabular-nums">
-                    <th scope="row" className="py-1.5 pr-3 text-left font-normal">{year.year}</th>
-                    <td className="py-1.5 pr-3 text-right">
-                      {isUnmeasuredYear(year, measure) ? (
-                        <span title={UNMEASURED_COPY} data-unmeasured="">
-                          {coverageFigure(year, measure)}
-                          <span className="sr-only"> ({UNMEASURED_COPY})</span>
-                        </span>
-                      ) : (
-                        coverageFigure(year, measure)
-                      )}
-                    </td>
-                    <td className="py-1.5 pr-3 text-right">
-                      {year.allReportedPct === null ? "not measurable" : `${Math.round(year.allReportedPct)}%`}
-                    </td>
-                    <td className="py-1.5 pr-3 text-right">
-                      {year.measurable ? `${formatCount(year.pricedNameDays)} of ${formatCount(year.qualifyingNameDays)}` : NOT_AVAILABLE}
-                    </td>
-                    <td className="py-1.5 pr-3 text-right">{year.delistingExits}</td>
-                    <td className="py-1.5 text-right">{year.caExits}</td>
+                <caption className="sr-only">Coverage by year under this strategy's measure, and the exits behind it</caption>
+                <thead>
+                  <tr className="border-b border-border/60 text-left text-muted-foreground">
+                    <th scope="col" className="py-1.5 pr-3 font-normal">Year</th>
+                    {measure === "all_reported" ? (
+                      <th scope="col" className="py-1.5 pr-3 text-right font-normal">All reported (this strategy&rsquo;s measure)</th>
+                    ) : (
+                      <>
+                        <th scope="col" className="py-1.5 pr-3 text-right font-normal">Qualifying (≥ 5% short)</th>
+                        <th scope="col" className="py-1.5 pr-3 text-right font-normal">All reported</th>
+                      </>
+                    )}
+                    <th scope="col" className="py-1.5 pr-3 text-right font-normal">Priced name-days</th>
+                    <th scope="col" className="py-1.5 pr-3 text-right font-normal">Delisting exits</th>
+                    <th scope="col" className="py-1.5 text-right font-normal">CA exits</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {years.map((year) => (
+                    <tr key={year.year} className="border-b border-border/40 font-mono tabular-nums">
+                      <th scope="row" className="py-1.5 pr-3 text-left font-normal">{year.year}</th>
+                      {measure === "all_reported" ? (
+                        <td className="py-1.5 pr-3 text-right">
+                          {isUnmeasuredYear(year, measure) ? (
+                            <span title={UNMEASURED_COPY} data-unmeasured="">
+                              {coverageFigure(year, measure)}
+                              <span className="sr-only"> ({UNMEASURED_COPY})</span>
+                            </span>
+                          ) : (
+                            coverageFigure(year, measure)
+                          )}
+                        </td>
+                      ) : (
+                        <>
+                          <td className="py-1.5 pr-3 text-right">{coverageFigure(year, "qualifying")}</td>
+                          <td className="py-1.5 pr-3 text-right">
+                            {year.allReportedPct === null ? "not measurable" : `${Math.round(year.allReportedPct)}%`}
+                          </td>
+                        </>
+                      )}
+                      <td className="py-1.5 pr-3 text-right">
+                        {year.measurable ? `${formatCount(year.pricedNameDays)} of ${formatCount(year.qualifyingNameDays)}` : NOT_AVAILABLE}
+                      </td>
+                      <td className="py-1.5 pr-3 text-right">{year.delistingExits}</td>
+                      <td className="py-1.5 text-right">{year.caExits}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
           </div>
           <div className="space-y-2">
             <p className="font-mono text-xs text-muted-foreground">Qualifying coverage by year</p>

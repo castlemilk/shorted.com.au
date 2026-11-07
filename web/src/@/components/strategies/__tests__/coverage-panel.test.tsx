@@ -83,3 +83,18 @@ describe("the Minervini golden: '?' on the pre-2025 years, figures from 2025", (
     expect(chip).not.toMatch(/\(2019\)|\(2020\)|\(2021\)|\(2022\)|\(2023\)|\(2024\)/);
   });
 });
+
+describe("the Minervini golden: one measure, the column its heading names", () => {
+  it("has no qualifying column, and the golden's qualifying figure appears nowhere in the table", () => {
+    const { fixtureMinerviniRun } = require("~/@/lib/strategies/__tests__/backtest-fixtures") as typeof import("~/@/lib/strategies/__tests__/backtest-fixtures");
+    const run = mapBacktestRun(fixtureMinerviniRun());
+    const qualifyingFigure = run.coverageByYear.find((y) => y.coveragePct !== null)?.coveragePct;
+    render(<CoveragePanel years={run.coverageByYear} months={[]} survivorship={run.survivorship} dataQuality={null} dataNotes={[]} />);
+    const table = screen.getByRole("region", { name: "Coverage by year" });
+    const headers = within(table).getAllByRole("columnheader").map((h) => h.textContent ?? "");
+    expect(headers.some((h) => h.startsWith("Qualifying"))).toBe(false);
+    expect(headers.some((h) => h.startsWith("All reported"))).toBe(true);
+    expect(qualifyingFigure).toBeDefined();
+    expect(table.textContent).not.toContain(`${Math.round(qualifyingFigure!)}%`);
+  });
+});

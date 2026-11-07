@@ -31,7 +31,8 @@ interface GoldenRun {
 
 const CROWDED_RUN = read<GoldenRun>("backtest_run_crowded_short.json").run;
 const MINERVINI_RUN = read<GoldenRun>("backtest_run_minervini.json").run;
-const ZANGER_RUN = read<BacktestRunInput>("backtest_run_zanger_not_computable.json");
+// The golden is the whole GetBacktestRunResponse; the data module reads its `run`, and so do the tests.
+const ZANGER_RUN = read<GoldenRun>("backtest_run_zanger_not_computable.json").run;
 const EVIDENCE = read<{
   strategies: StrategyEvidenceInput[];
   windowStart: string;

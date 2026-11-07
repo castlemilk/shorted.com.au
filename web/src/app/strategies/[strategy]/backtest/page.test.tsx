@@ -139,6 +139,18 @@ describe("the Backtest tab", () => {
     expect(identity?.textContent).toContain("prices to 5 Nov");
   });
 
+  it("never prints an empty hash row: a run without its input or output hash shows the other only", async () => {
+    const { identity } = fixturePublishedRun();
+    getBacktestRun.mockResolvedValue(runOf({ identity: { ...identity, inputHash: "", outputHash: "" } }));
+    const { container } = await renderPage();
+    expect(container.querySelector("[data-coverage-identity]")).not.toBeNull();
+    expect(screen.queryByText("Input hash")).toBeNull();
+    expect(screen.queryByText("Output hash")).toBeNull();
+    container.querySelectorAll("[data-coverage-identity] dd").forEach((dd) => {
+      expect(dd.textContent?.trim()).not.toBe("");
+    });
+  });
+
   it("prints the strategy's universe beside the window controls, from the registry", async () => {
     await renderPage();
     expect(screen.getByText("Universe: ASIC-reported names")).toBeInTheDocument();
@@ -273,6 +285,18 @@ describe("the Backtest tab", () => {
   it("404s a strategy the registry does not hold, without reading the API", async () => {
     await expect(StrategyBacktestPage({ params: params("not-a-strategy") })).rejects.toThrow("NEXT_NOT_FOUND");
     expect(getBacktestRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("the Zanger golden through the real mapper path", () => {
+  it("shows the 1.7 not-computable headline with the measured FY2024 label, noindex", async () => {
+    const { fixtureZangerRun } = await import("~/@/lib/strategies/__tests__/backtest-fixtures");
+    // The data module maps response.run with mapBacktestRun; the same call here.
+    getBacktestRun.mockResolvedValue(mapBacktestRun(fixtureZangerRun()));
+    await renderPage("zanger-breakout");
+    expect(screen.getByRole("heading", { level: 2, name: /^Not computable before FY2024\. From FY2024/ })).toBeInTheDocument();
+    const meta = await generateMetadata({ params: params("zanger-breakout") });
+    expect(meta.robots).toEqual({ index: false, follow: true });
   });
 });
 

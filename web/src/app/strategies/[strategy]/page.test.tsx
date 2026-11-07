@@ -127,6 +127,24 @@ describe("the Overview's Evidence card", () => {
     expect(bailOnEmptyRender).not.toHaveBeenCalled();
   });
 
+  it("still shows the card when the picks read fails", async () => {
+    getStrategyPicks.mockResolvedValueOnce(null);
+    const { mapStrategyEvidenceList } = await import("~/@/lib/strategies/map-backtest");
+    const { fixtureEvidenceList } = await import("~/@/lib/strategies/__tests__/backtest-fixtures");
+    getStrategyEvidence.mockResolvedValueOnce(mapStrategyEvidenceList(fixtureEvidenceList()));
+    render(await StrategyPicksPage({ params: params("crowded-short-breakout") }));
+    expect(screen.getByRole("heading", { name: "Backtest evidence" })).toBeInTheDocument();
+    expect(screen.getByText(/temporarily unavailable/)).toBeInTheDocument();
+  });
+
+  it("still shows the picks when the evidence read fails, without a card", async () => {
+    getStrategyPicks.mockResolvedValueOnce(PICKS);
+    getStrategyEvidence.mockResolvedValueOnce(null);
+    render(await StrategyPicksPage({ params: params("crowded-short-breakout") }));
+    expect(screen.queryByRole("heading", { name: "Backtest evidence" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ranked picks" })).toBeInTheDocument();
+  });
+
   it("bails the render when the evidence read fails, so a degraded page is not cached for an hour", async () => {
     getStrategyEvidence.mockResolvedValueOnce(null);
     const el = await StrategyPicksPage({ params: params("crowded-short-breakout") });

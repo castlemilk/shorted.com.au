@@ -7,6 +7,7 @@
 
 import { ParentSize } from "@/components/charts/parent-size";
 import { layoutEndLabels } from "@/components/charts/end-labels";
+import { CHART_LABEL_ROW_PX, labelBox, placeLabel, type LabelBox, type PlacedLabel } from "./chart-labels";
 import {
   areaPath,
   chartHeightFor,
@@ -190,6 +191,30 @@ function ChartBody({
     { innerW: plotW, innerH: gBottom - gTop },
   );
 
+  // The in-plot labels at the right edge: the recorded band's, the frozen marker's and each engine
+  // change's. Each takes the first row that clears the boxes placed before it (chart-labels.ts).
+  const taken: LabelBox[] = [];
+  let recordedLabel: PlacedLabel | null = null;
+  if (band) {
+    recordedLabel = placeLabel(recordedSinceLabel(recordedFrom), band.x + band.width - 6, "end", gTop + 12, CHART_LABEL_ROW_PX, gTop + 12, taken);
+    taken.push(recordedLabel.box);
+  }
+  if (frozenX !== null) taken.push(labelBox(frozenLabel(liveFrom), frozenX - 6, gBottom - 6, "end"));
+  const engineLabels = marks.map((mark) => {
+    const nearEdge = mark.x > width - right - 120;
+    const placed = placeLabel(
+      engineChangeLabel(mark.engineVersion, mark.firstSession),
+      nearEdge ? mark.x - 4 : mark.x + 4,
+      nearEdge ? "end" : "start",
+      gTop + 24,
+      CHART_LABEL_ROW_PX,
+      gBottom - 12,
+      taken,
+    );
+    taken.push(placed.box);
+    return placed;
+  });
+
   const bands = coverageBands(coverageMonthly, points);
   const yearLabels = windowIsUnderYear(windowFrom, windowTo) ? monthTicks(points) : yearTicks(points);
   const step = growthStep.length > 1 ? growthStep[1]! - growthStep[0]! : 1000;
@@ -243,20 +268,23 @@ function ChartBody({
         {band ? (
           <g data-recorded-band>
             <rect x={band.x} y={gTop} width={band.width} height={cBottom - gTop} fill="hsl(var(--muted-foreground) / 0.08)" />
-            <text x={band.x + band.width - 6} y={gTop + 12} textAnchor="end" fill="hsl(var(--muted-foreground))">
+            <text x={recordedLabel?.x ?? 0} y={recordedLabel?.y ?? gTop + 12} textAnchor="end" fill="hsl(var(--muted-foreground))">
               {recordedSinceLabel(recordedFrom)}
             </text>
           </g>
         ) : null}
 
-        {marks.map((mark) => (
-          <g key={`engine-${mark.firstSession}`} data-engine-mark={mark.engineVersion}>
-            <line x1={mark.x} x2={mark.x} y1={gTop} y2={cBottom} stroke="hsl(var(--foreground) / 0.6)" strokeWidth={1} />
-            <text x={mark.x > width - right - 120 ? mark.x - 4 : mark.x + 4} y={gTop + 24} textAnchor={mark.x > width - right - 120 ? "end" : "start"} fill="hsl(var(--foreground) / 0.8)">
-              {engineChangeLabel(mark.engineVersion, mark.firstSession)}
-            </text>
-          </g>
-        ))}
+        {marks.map((mark, i) => {
+          const placed = engineLabels[i]!;
+          return (
+            <g key={`engine-${mark.firstSession}`} data-engine-mark={mark.engineVersion}>
+              <line x1={mark.x} x2={mark.x} y1={gTop} y2={cBottom} stroke="hsl(var(--foreground) / 0.6)" strokeWidth={1} />
+              <text x={placed.x} y={placed.y} textAnchor={placed.anchor} fill="hsl(var(--foreground) / 0.8)" data-engine-label>
+                {engineChangeLabel(mark.engineVersion, mark.firstSession)}
+              </text>
+            </g>
+          );
+        })}
 
         {frozenX !== null ? (
           <g data-frozen-marker>
