@@ -133,6 +133,11 @@ func (s store) snapshotSessions(ctx context.Context, from, to civil.Date) ([]civ
 
 // indexLevelOn is the index's close on or before t, zero when no bar exists on or
 // before t. It is the batch's levelOn: a newer bar is never read.
+//
+// Accepted limitation: the benchmark is read from index_prices at the time of the
+// paper step, not from a stored snapshot, so a later re-sync of XJT before t would
+// not change a recorded row (rows are never updated) but would change a fresh
+// batch run's benchmark. Documented in services/jobs/README.md, "Paper track".
 func (s store) indexLevelOn(ctx context.Context, code string, t civil.Date) (float64, error) {
 	var close *float64
 	err := s.pool.QueryRow(ctx, `
@@ -354,4 +359,17 @@ func flagsArg(flags []string) []string {
 		return []string{}
 	}
 	return flags
+}
+
+// snapshotCARecorded reports whether a session's feature rows were all written after
+// the corporate-action suspects were stored: each carries the ca_known key. A
+// session with no rows reads false.
+func (s store) snapshotCARecorded(ctx context.Context, d civil.Date) (bool, error) {
+	var all *bool
+	if err := s.pool.QueryRow(ctx, `
+		SELECT bool_and(features ? 'ca_known') FROM strategy_features_daily
+		 WHERE as_of = $1::date AND feature_set = $2`, d.String(), snapshotFeatureSet).Scan(&all); err != nil {
+		return false, fmt.Errorf("read the ca_known rows of %s: %w", d, err)
+	}
+	return all != nil && *all, nil
 }

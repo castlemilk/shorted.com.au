@@ -149,6 +149,10 @@ func runDaily(ctx context.Context, pool *pgxpool.Pool, opts dailyOptions) (daily
 			logf("strategies: revalidation skipped (%v); pages self-heal on their ISR TTL", err)
 		}
 	}
+	// Accepted limitation: a track with a corrupt checkpoint makes the guard read fail,
+	// so pruning stops and this run exits non-zero (the job pages) until the track is
+	// repaired. The snapshot work is not held. Documented in services/jobs/README.md,
+	// "Paper track".
 	if opts.Write {
 		if err := pruneAfter(ctx, pool, st, d, logf); err != nil {
 			return res, errors.Join(paperErr, err)

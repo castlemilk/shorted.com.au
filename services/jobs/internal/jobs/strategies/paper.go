@@ -355,7 +355,8 @@ func paperCatchUp(ctx context.Context, pool *pgxpool.Pool, st store, d civil.Dat
 	if err != nil {
 		return err
 	}
-	c := &paperRun{pool: pool, st: st, write: write, logf: logf, snaps: map[civil.Date]paperSnapped{}, bench: map[civil.Date]float64{}}
+	c := &paperRun{pool: pool, st: st, write: write, logf: logf, snaps: map[civil.Date]paperSnapped{},
+		bench: map[civil.Date]float64{}, caRecord: map[civil.Date]bool{}}
 	var errs []error
 	for _, v := range versions {
 		if err := ctx.Err(); err != nil {
@@ -372,12 +373,26 @@ func paperCatchUp(ctx context.Context, pool *pgxpool.Pool, st store, d civil.Dat
 // paperRun is one catch-up's shared reads: the snapshot sessions and the levels
 // are read once however many tracks step through them.
 type paperRun struct {
-	pool  *pgxpool.Pool
-	st    store
-	write bool
-	logf  func(string, ...any)
-	snaps map[civil.Date]paperSnapped
-	bench map[civil.Date]float64
+	pool     *pgxpool.Pool
+	st       store
+	write    bool
+	logf     func(string, ...any)
+	snaps    map[civil.Date]paperSnapped
+	bench    map[civil.Date]float64
+	caRecord map[civil.Date]bool
+}
+
+// caRecorded is whether a session's rows were written after the suspects were stored.
+func (c *paperRun) caRecorded(ctx context.Context, d civil.Date) (bool, error) {
+	if v, seen := c.caRecord[d]; seen {
+		return v, nil
+	}
+	v, err := c.st.snapshotCARecorded(ctx, d)
+	if err != nil {
+		return false, err
+	}
+	c.caRecord[d] = v
+	return v, nil
 }
 
 type paperSnapped struct {
@@ -447,6 +462,10 @@ func (c *paperRun) track(ctx context.Context, v paperVersion, sessions []civil.D
 			return fmt.Errorf("session %s: %w", x, err)
 		}
 	}
+	// Accepted limitation: the stop is recorded only by a catch-up that sees the
+	// version superseded. A version superseded and re-promoted between two runs is
+	// never seen as superseded, so its track resumes (the catch-up steps the sessions
+	// in between). Documented in services/jobs/README.md, "Paper track".
 	if v.Status == "superseded" && c.write && !tr.asOf.IsZero() {
 		if err := c.st.paperStop(ctx, v.Target.RulesHash, v.Target.RecipeHash, v.SupersededOn); err != nil {
 			return err
@@ -479,6 +498,21 @@ func (c *paperRun) step(ctx context.Context, tr *paperTrack, x civil.Date) (bool
 		if !havePrev {
 			return false, nil
 		}
+		// The start rule. A track starts only on a seed whose rows carry ca_known.
+		// Rows written before the suspects were stored do not, and they are never
+		// backfilled: the track waits for the first session whose seed carries it.
+		recorded, err := c.caRecorded(ctx, prev)
+		if err != nil {
+			return false, err
+		}
+		if !recorded {
+			logOnce("paper-start-wait-"+tr.v.Target.RulesHash, c.logf,
+				"strategies: paper track %s %s waits to start: its seed rows predate ca_known (rows written before the suspects were stored do not carry it, and are not backfilled)",
+				reg.Spec.StrategyID, reg.Label)
+			return false, nil
+		}
+		c.logf("strategies: paper track %s %s starts: first recorded session %s, seed %s carries ca_known",
+			reg.Spec.StrategyID, reg.Label, x, prev)
 		// The track starts here: the previous session is the seed, which classifies
 		// the bars and records the statuses and suspects, and fills and records nothing.
 		seedRate, err := c.rate(ctx, prev)
