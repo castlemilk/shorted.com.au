@@ -20,10 +20,12 @@ import type { BacktestRunView } from "~/@/lib/strategies/map-backtest";
 // response with no run at all, is refused: it throws, so the cache keeps nothing.
 
 export type BacktestResolution = "weekly" | "daily";
+export type BacktestWindowRequest = "since_2019_05" | "since_2023" | "trailing_12m" | "live";
 
 async function fetchBacktestRun(
   strategyId: string,
   resolution: BacktestResolution,
+  window: BacktestWindowRequest,
 ): Promise<BacktestRunView> {
   const transport = createConnectTransport({
     fetch: serverFetchOutsideNextCache,
@@ -34,6 +36,7 @@ async function fetchBacktestRun(
     strategyId,
     runId: BigInt(0),
     resolution,
+    window,
   });
   if (!response.run) {
     throw new Error(`GetBacktestRun returned no run for ${strategyId}`);
@@ -44,12 +47,13 @@ async function fetchBacktestRun(
 export async function getBacktestRun(
   strategyId: string,
   resolution: BacktestResolution = "weekly",
+  window: BacktestWindowRequest = "since_2019_05",
 ): Promise<BacktestRunView | null> {
   if (skipForBuild()) return null;
   try {
     return await unstable_cache(
-      () => fetchBacktestRun(strategyId, resolution),
-      [`strategy-backtest-run-v1-${strategyId}-${resolution}`],
+      () => fetchBacktestRun(strategyId, resolution, window),
+      [`strategy-backtest-run-v2-${strategyId}-${resolution}-${window}`],
       { tags: ["strategy-backtests"], revalidate: 3600 },
     )();
   } catch (err) {

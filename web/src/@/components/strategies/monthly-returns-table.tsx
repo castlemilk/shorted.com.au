@@ -14,6 +14,9 @@ export interface MonthlyReturnsTableProps {
   monthly: readonly MonthlyReturnView[];
   /** The strategy's name, for the table's caption. */
   strategyName: string;
+  /** The run's window, YYYY-MM-DD: months outside it say "Before window" or "Not elapsed". */
+  windowStart: string;
+  windowEnd: string;
 }
 
 /**
@@ -21,7 +24,12 @@ export interface MonthlyReturnsTableProps {
  * years show; the earlier years sit behind a disclosure, in the same table
  * markup. A month the run has no figure for says why in its cell (1.7).
  */
-export function MonthlyReturnsTable({ monthly, strategyName }: MonthlyReturnsTableProps) {
+export function MonthlyReturnsTable({
+  monthly,
+  strategyName,
+  windowStart,
+  windowEnd,
+}: MonthlyReturnsTableProps) {
   const years = monthlyYears(monthly);
   if (years.length === 0) {
     return <p className="text-sm text-muted-foreground">No monthly returns in this run.</p>;
@@ -31,7 +39,7 @@ export function MonthlyReturnsTable({ monthly, strategyName }: MonthlyReturnsTab
     list.map((year) => ({
       key: String(year),
       name: String(year),
-      cells: monthCells(monthly, year).map((cell) =>
+      cells: monthCells(monthly, year, windowStart, windowEnd).map((cell) =>
         cell.kind === "value"
           ? {
               state: "value" as const,

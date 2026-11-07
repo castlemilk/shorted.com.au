@@ -74,7 +74,7 @@ describe("the honesty labels (1.8)", () => {
     const run = mapBacktestRun(fixturePublishedRun());
     expect(run.identity).not.toBeNull();
     expect(runIdentityLine(run.identity!)).toBe(
-      "Run 8 Nov 2026 · v1 3f9a1c2e · recipe csb-r1 a91b2c04 · engine 1.0.0 · prices to 6 Nov · ASIC report to 3 Nov",
+      "Run 8 Nov 2026 · v1 3f9a1c2e · recipe csb-r1 a91b2c04 · engine 1.0.1 · prices to 6 Nov · ASIC report to 3 Nov",
     );
   });
 

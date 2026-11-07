@@ -196,17 +196,51 @@ function round(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** The band a recorded (paper-track) span covers, from its first point to the end. */
+/**
+ * The band a recorded (paper-track) span covers, from the track's first recorded session
+ * to the end of the plot. `recordedFrom` (the API's recorded_from) is the start the design
+ * names; without it the first recorded point is used. Null when the span is empty.
+ */
 export function recordedBand(
   points: readonly GrowthPoint[],
   x: LinearMap,
   box: PlotBox,
+  recordedFrom = "",
 ): { x: number; width: number } | null {
-  const first = firstRecorded(points);
+  const first = recordedFrom
+    ? points.find((p) => p.date >= recordedFrom) ?? null
+    : firstRecorded(points);
   if (!first) return null;
   const start = x(first.t);
   const end = box.width - box.right;
   return end > start ? { x: round(start), width: round(end - start) } : null;
+}
+
+/** An engine change inside the track: the x of the session the new engine first wrote, and its label source. */
+export interface EngineMark {
+  x: number;
+  engineVersion: string;
+  firstSession: string;
+}
+
+/**
+ * The engine changes inside a paper track, as marks on the chart: every segment after the
+ * first starts at a change, so the first segment is not marked. A segment whose start the
+ * window does not show is skipped.
+ */
+export function engineMarks(
+  segments: ReadonlyArray<{ engineVersion: string; firstSession: string }>,
+  points: readonly GrowthPoint[],
+  x: LinearMap,
+): EngineMark[] {
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (!first || !last) return [];
+  return segments.slice(1).flatMap((segment) => {
+    const t = dateToMs(segment.firstSession);
+    if (!Number.isFinite(t) || t < first.t || t > last.t) return [];
+    return [{ x: round(x(t)), engineVersion: segment.engineVersion, firstSession: segment.firstSession }];
+  });
 }
 
 /**

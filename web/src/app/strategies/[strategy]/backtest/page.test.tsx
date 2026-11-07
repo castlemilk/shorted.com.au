@@ -21,6 +21,14 @@ jest.mock("~/app/actions/strategies/getBacktestRun", () => ({
 jest.mock("~/app/actions/config", () => ({
   bailOnEmptyRender: () => bailOnEmptyRender(),
 }));
+// The universe is the registry's own StrategyMetadata.universe, read with the catalogue.
+const getStrategies = jest.fn(async () => ({
+  strategies: [{ id: "crowded-short-breakout", metadata: { universe: "ASX ordinary shares" } }],
+  regime: null,
+}));
+jest.mock("~/app/actions/getStrategies", () => ({
+  getStrategies: () => getStrategies(),
+}));
 jest.mock("~/app/actions/strategies/backtestSeries", () => ({
   loadBacktestSeries: jest.fn(async () => null),
 }));
@@ -111,10 +119,26 @@ describe("the Backtest tab", () => {
     expect(identity?.textContent).toContain("prices to 6 Nov");
   });
 
+  it("prints the strategy's universe beside the window controls, from the registry", async () => {
+    await renderPage();
+    expect(screen.getByText("Universe: ASX ordinary shares")).toBeInTheDocument();
+  });
+
+  it("prints the data-quality counts the run serves, as fields", async () => {
+    await renderPage();
+    expect(screen.getAllByText("Delisting exits").length).toBeGreaterThan(0);
+    expect(screen.getByText("Ex-dates credited in cash")).toBeInTheDocument();
+  });
+
+  it("starts the recorded band at the track's own first session, not the freeze", async () => {
+    const { container } = await renderPage();
+    expect(container.querySelector("[data-recorded-band]")?.textContent).toContain("Recorded since 5 Oct 2026");
+  });
+
   it("prints the honesty chips: in-sample with the freeze date, the coverage and the costs", async () => {
     await renderPage();
     expect(screen.getByText("In-sample backtest · rules frozen 2 Oct 2026")).toBeInTheDocument();
-    expect(screen.getByText(/Coverage 64% \(2019\) → 96% \(2025\)/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Coverage 64% \(2019\) → 96% \(2025\)/).length).toBeGreaterThan(0);
     expect(screen.getByText("Hypothetical · after costs")).toBeInTheDocument();
   });
 

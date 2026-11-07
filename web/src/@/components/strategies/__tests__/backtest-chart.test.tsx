@@ -2,14 +2,20 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { BacktestChart } from "../backtest-chart";
 import { mapSeriesPoint } from "~/@/lib/strategies/map-backtest";
-import { FIXTURE_LIVE_FROM, fixtureSeries } from "~/@/lib/strategies/__tests__/backtest-fixtures";
+import {
+  FIXTURE_ENGINE_SEGMENTS,
+  FIXTURE_LIVE_FROM,
+  FIXTURE_RECORDED_FROM,
+  fixtureSeries,
+} from "~/@/lib/strategies/__tests__/backtest-fixtures";
 
 const props = {
   windowLabel: "Since May 2019",
   liveFrom: FIXTURE_LIVE_FROM,
+  recordedFrom: FIXTURE_RECORDED_FROM,
+  engineSegments: FIXTURE_ENGINE_SEGMENTS,
   benchmarkName: "S&P/ASX 200 Gross Total Return (XJT)",
   referenceName: "same-data reference",
-  hasReference: true,
   label: "Growth of A$100,000",
 };
 
@@ -30,11 +36,26 @@ describe("the growth and drawdown chart", () => {
     expect(html).toContain("data-frozen-marker");
     expect(html).toContain("data-recorded-band");
     expect(html).toContain("Rules frozen 2 Oct 2026");
-    expect(html).toContain("Recorded since 2 Oct 2026");
+    // The band names the track's own first session, a few days after the freeze.
+    expect(html).toContain("Recorded since 5 Oct 2026");
   });
 
-  it("draws no recorded band when the window ends before the freeze", () => {
-    const before = series.filter((p) => !p.recorded);
+  it("marks an engine change inside the recorded span, with a label", () => {
+    const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
+    expect(html).toContain('data-engine-mark="1.0.1"');
+    expect(html).toContain("engine 1.0.1 from 19 Oct");
+  });
+
+  it("names the reference by its last measured session, in the legend and at the end", () => {
+    const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
+    expect(html).toContain('data-legend="reference"');
+    // The last measured session is the Friday before the freeze, named in the legend.
+    expect(html).toMatch(/to \d{1,2} Sep 2026/);
+    expect(html).toContain('data-end-label="reference"');
+  });
+
+  it("draws no recorded band when the window ends before the track starts", () => {
+    const before = series.filter((p) => p.date < FIXTURE_RECORDED_FROM);
     const html = renderToStaticMarkup(<BacktestChart {...props} series={before} />);
     expect(html).not.toContain("data-recorded-band");
   });

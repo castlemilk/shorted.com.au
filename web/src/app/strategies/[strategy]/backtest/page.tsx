@@ -23,6 +23,7 @@ import { MonthlyReturnsTable } from "~/@/components/strategies/monthly-returns-t
 import { RunIdentity } from "~/@/components/strategies/run-identity";
 import { SensitivityTable } from "~/@/components/strategies/sensitivity-table";
 import { getBacktestRun } from "~/app/actions/strategies/getBacktestRun";
+import { getStrategies } from "~/app/actions/getStrategies";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { BacktestPanel } from "./backtest-panel";
 
@@ -95,9 +96,11 @@ export default async function StrategyBacktestPage({ params }: PageProps) {
   const seo = getStrategy(slug);
   if (!seo) notFound();
 
-  const run = await getBacktestRun(seo.slug);
+  const [run, catalogue] = await Promise.all([getBacktestRun(seo.slug), getStrategies()]);
   // A failed read must not bake an empty tab into the route cache (60 s, not an hour).
   if (!run) await bailOnEmptyRender();
+  const universe =
+    catalogue?.strategies.find((strategy) => strategy.id === seo.slug)?.metadata?.universe ?? "";
 
   const pageUrl = `${siteConfig.url}/strategies/${seo.slug}/backtest`;
   const breadcrumbs = [
@@ -115,7 +118,7 @@ export default async function StrategyBacktestPage({ params }: PageProps) {
           The backtest for this strategy is temporarily unavailable; it refreshes automatically. Not financial advice.
         </section>
       ) : run.state === "published" || run.state === "approximate" ? (
-        <PublishedBacktest slug={seo.slug} strategyId={seo.slug} strategyName={seo.h1} run={run} />
+        <PublishedBacktest slug={seo.slug} strategyId={seo.slug} strategyName={seo.h1} run={run} universe={universe} />
       ) : (
         <StateCard slug={seo.slug} run={run} />
       )}
@@ -128,11 +131,13 @@ function PublishedBacktest({
   strategyId,
   strategyName,
   run,
+  universe,
 }: {
   slug: string;
   strategyId: string;
   strategyName: string;
   run: BacktestRunView;
+  universe: string;
 }) {
   const recipe = run.recipe;
   const identity = run.identity;
@@ -143,17 +148,24 @@ function PublishedBacktest({
       <BacktestPanel
         strategyId={strategyId}
         run={run}
+        universe={universe}
         main={
           <div className="space-y-12">
             <section aria-labelledby="monthly-heading" className="space-y-3">
               <h2 id="monthly-heading" className={sectionTitle}>Monthly returns</h2>
-              <MonthlyReturnsTable monthly={run.monthly} strategyName={strategyName} />
+              <MonthlyReturnsTable
+                monthly={run.monthly}
+                strategyName={strategyName}
+                windowStart={identity?.windowStart ?? ""}
+                windowEnd={identity?.windowEnd ?? ""}
+              />
             </section>
 
             <CoveragePanel
               years={run.coverageByYear}
               months={run.coverageMonthly}
               survivorship={run.survivorship}
+              dataQuality={run.dataQuality}
               dataNotes={run.dataNotes}
             />
 

@@ -6,7 +6,6 @@
 import type {
   CoverageYearView,
   MonthlyReturnView,
-  PeriodState,
   SensitivityView,
 } from "./map-backtest";
 import { formatSigned } from "./format";
@@ -34,20 +33,30 @@ export type MonthCell =
   | { kind: "value"; value: number; current: boolean }
   | { kind: "hatched"; label: string };
 
-/** The words a period with no figure carries, per state (1.7). */
-export function periodWords(state: PeriodState): string {
-  switch (state) {
-    case "not_elapsed":
-      return "Not elapsed";
-    case "before_window":
-      return "Before window";
-    case "run_required":
-      return "Run required";
-    case "not_computable":
-      return "Not computable";
-    default:
-      return "n/a";
-  }
+/**
+ * The words of a month with no figure (1.7). The API omits a month that has not
+ * elapsed or falls before the window, so the words follow from the window's bounds:
+ * a month after the window's last session is "Not elapsed", one before its first is
+ * "Before window". A month inside the window with no row reads "n/a", never a figure.
+ */
+export function monthWords(
+  year: number,
+  month: number,
+  windowStart: string,
+  windowEnd: string,
+): string {
+  const key = year * 100 + month;
+  const startKey = monthKey(windowStart);
+  const endKey = monthKey(windowEnd);
+  if (startKey !== null && key < startKey) return "Before window";
+  if (endKey !== null && key > endKey) return "Not elapsed";
+  return "n/a";
+}
+
+/** YYYYMM of a YYYY-MM-DD date, or null. */
+function monthKey(iso: string): number | null {
+  const m = /^(\d{4})-(\d{2})/.exec(iso);
+  return m ? Number(m[1]) * 100 + Number(m[2]) : null;
 }
 
 /** The years a run's monthly table carries, newest first. */
@@ -66,29 +75,34 @@ export function splitMonthlyYears(years: readonly number[]): {
   };
 }
 
-/** The twelve cells of one year, January first. A month the run does not carry is "n/a", never a figure. */
+/**
+ * The twelve cells of one year, January first. A figure where the API served one;
+ * otherwise the words of monthWords. The current month (to_date, or labelled MTD)
+ * is marked so the table can say it is month to date.
+ */
 export function monthCells(
   monthly: readonly MonthlyReturnView[],
   year: number,
+  windowStart: string,
+  windowEnd: string,
 ): MonthCell[] {
   return MONTH_NAMES.map((_, index) => {
     const month = index + 1;
     const row = monthly.find((m) => m.year === year && m.month === month);
-    if (!row) return { kind: "hatched", label: "n/a" };
-    if (row.strategyPct !== null && (row.state === "complete" || row.state === "partial" || row.state === "current")) {
-      return {
-        kind: "value",
-        value: row.strategyPct,
-        current: row.state === "current" || row.label === "MTD",
-      };
+    if (!row || row.state === "unknown" || row.strategyPct === null) {
+      return { kind: "hatched", label: monthWords(year, month, windowStart, windowEnd) };
     }
-    return { kind: "hatched", label: periodWords(row.state) };
+    return {
+      kind: "value",
+      value: row.strategyPct,
+      current: row.state === "to_date" || row.label === "MTD",
+    };
   });
 }
 
 /** One coverage bar's figure as the page prints it: a percent, or "n/a" when not measurable. */
 export function coverageFigure(year: CoverageYearView): string {
-  if (!year.measurable || year.coveragePct === null) return "n/a";
+  if (!year.measurable || year.coveragePct === null) return "not measurable";
   return `${Math.round(year.coveragePct)}%`;
 }
 
@@ -145,20 +159,37 @@ export function fragileChips(sensitivity: readonly SensitivityView[]): string[] 
 }
 
 /**
- * The coverage chip the header prints (1.5, 1.8 item 3): the first and last measured
- * years on the qualifying measure, and the survivorship caveat in words. "" when no
- * year is measured, so the chip is omitted rather than printed with a guess.
+ * The coverage chip the header prints (1.5, 1.8 item 3): the first and last measured years
+ * on the qualifying measure, and the survivorship caveat in words. A strategy whose
+ * qualifying measure cannot be measured (Minervini: the whole ASX universe) prints the
+ * all-reported measure with its own caveat (1.7, "Coverage not measurable"). "" when no
+ * year is measured on either measure, so the chip is omitted rather than guessed.
  */
 export function coverageChip(years: readonly CoverageYearView[]): string {
-  const measured = years
+  const qualifying = years
     .filter((y) => y.measurable && y.coveragePct !== null)
     .sort((a, b) => a.year - b.year);
-  const first = measured[0];
-  const last = measured[measured.length - 1];
-  if (!first || !last || first.coveragePct === null || last.coveragePct === null) return "";
+  // A run whose qualifying measure cannot be measured for any year (Minervini before 2025)
+  // states the all-reported figures and their caveat, never one measurable year as the span.
+  const qualifyingWhole = years.length > 0 && years.every((y) => y.measurable);
+  if (qualifying.length > 0 && qualifyingWhole) {
+    const first = qualifying[0]!;
+    const last = qualifying[qualifying.length - 1]!;
+    const span =
+      first.year === last.year
+        ? `Coverage ${Math.round(first.coveragePct ?? 0)}% (${first.year})`
+        : `Coverage ${Math.round(first.coveragePct ?? 0)}% (${first.year}) → ${Math.round(last.coveragePct ?? 0)}% (${last.year})`;
+    return `${span} · flatters results; by how much cannot be measured`;
+  }
+  const reported = years
+    .filter((y) => y.allReportedMeasurable && y.allReportedPct !== null)
+    .sort((a, b) => a.year - b.year);
+  const first = reported[0];
+  const last = reported[reported.length - 1];
+  if (!first || !last || first.allReportedPct === null || last.allReportedPct === null) return "";
   const span =
     first.year === last.year
-      ? `Coverage ${Math.round(first.coveragePct)}% (${first.year})`
-      : `Coverage ${Math.round(first.coveragePct)}% (${first.year}) → ${Math.round(last.coveragePct)}% (${last.year})`;
-  return `${span} · flatters results; by how much cannot be measured`;
+      ? `Coverage (all reported) ${Math.round(first.allReportedPct)}% (${first.year})`
+      : `Coverage (all reported) ${Math.round(first.allReportedPct)}% (${first.year}) → ${Math.round(last.allReportedPct)}% (${last.year})`;
+  return `${span} · measured on ASIC-reported names only; delisted companies never shorted cannot be counted`;
 }

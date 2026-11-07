@@ -86,10 +86,10 @@ export function EvidenceCard({ slug, evidence, run }: EvidenceCardProps) {
         Since May 2019{window.to ? `, to ${shortDate(window.to)}` : ""}.
         {evidence.paper ? (
           evidence.paper.tooShort ? (
-            <> Recorded since {shortDate(evidence.paper.since) || "the freeze"}: too short to judge.</>
+            <> Recorded since {shortDate(evidence.paper.recordedFrom || evidence.paper.since) || "the freeze"}: too short to judge.</>
           ) : (
             <>
-              {" "}Recorded since {shortDate(evidence.paper.since)}
+              {" "}Recorded since {shortDate(evidence.paper.recordedFrom || evidence.paper.since)}
               {evidence.paper.returnPct !== null ? <>: {formatSigned(evidence.paper.returnPct, "%")}</> : null}.
             </>
           )

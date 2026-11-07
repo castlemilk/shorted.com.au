@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useTransition, type ReactNode } from "react";
+import { Suspense, useEffect, useState, useTransition, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { BacktestChart } from "~/@/components/strategies/backtest-chart-loader";
@@ -14,10 +14,7 @@ import {
   windowFromParam,
   type BacktestWindowId,
 } from "~/@/lib/strategies/backtest-windows";
-import {
-  seriesInWindow,
-  nextDay,
-} from "~/@/lib/strategies/backtest-series";
+import { nextDay } from "~/@/lib/strategies/backtest-series";
 import {
   APPROXIMATE_CHIP,
   GROWTH_TITLE,
@@ -26,12 +23,10 @@ import {
   RETURN_BASIS_COPY,
   inSampleChip,
 } from "~/@/lib/strategies/backtest-copy";
-import {
-  coverageChip,
-  fragileChips,
-} from "~/@/lib/strategies/backtest-tables";
+import { coverageChip, fragileChips } from "~/@/lib/strategies/backtest-tables";
 import type {
   BacktestRunView,
+  PaperTrackView,
   SeriesPointView,
 } from "~/@/lib/strategies/map-backtest";
 import { sectionTitle } from "~/@/lib/typography";
@@ -43,21 +38,30 @@ export interface BacktestPanelProps {
   strategyId: string;
   /** The published run of the live version (state "published" or "approximate"). */
   run: BacktestRunView;
-  /** The monthly returns, the coverage and the rest of the left column, rendered on the server. */
+  /** The strategy's universe, as the registry states it (StrategyMetadata.universe). */
+  universe: string;
+  /** The monthly returns, coverage and the rest of the left column, rendered on the server. */
   main: ReactNode;
-  /** The right column below the run summary: the assumptions, the recipe link, the callouts. */
+  /** The right column below the run summary: assumptions, the recipe link and the callouts. */
   sidebar: ReactNode;
+}
+
+/** A served series, keyed by what was asked for. */
+interface SeriesState {
+  window: BacktestWindowId;
+  resolution: Resolution;
+  series: SeriesPointView[];
+  served: string;
 }
 
 /**
  * The Backtest tab's interactive core: the window (in the URL, `?window=`), the
- * Daily/Weekly resolution and the growth chart beside its run summary. Everything
- * else on the page is server-rendered into the HTML and passed in as `main` and
- * `sidebar`, so the figures are in the first response.
+ * resolution and the growth chart beside its run summary. The API serves a series per
+ * window, so changing the window asks for that window's series. Everything else on the
+ * page is server-rendered into the HTML and passed in as `main` and `sidebar`.
  *
- * The window is read under a Suspense boundary, and the boundary's fallback is the
- * default window, so the first HTML already shows the since-May-2019 figures and
- * a reader who opens `?window=` sees that window once the client has read the URL.
+ * The window is read under a Suspense boundary whose fallback is the default window, so
+ * the first HTML already shows the since-May-2019 figures.
  */
 export function BacktestPanel(props: BacktestPanelProps) {
   return (
@@ -76,24 +80,57 @@ function WindowFromUrl(props: BacktestPanelProps) {
 function PanelBody({
   strategyId,
   run,
+  universe,
   main,
   sidebar,
   windowId,
 }: BacktestPanelProps & { windowId: BacktestWindowId }) {
+  const served: BacktestWindowId =
+    (run.windowId as BacktestWindowId) || DEFAULT_BACKTEST_WINDOW;
   const [resolution, setResolution] = useState<Resolution>("weekly");
-  const [daily, setDaily] = useState<{ series: SeriesPointView[]; resolution: string } | null>(null);
+  const [cache, setCache] = useState<SeriesState | null>(null);
   const [pending, startTransition] = useTransition();
 
   const identity = run.identity;
   const liveFrom = identity?.inSampleUntil ? nextDay(identity.inSampleUntil) : "";
   const benchmarkName = identity?.benchmark ? identity.benchmark : "S&P/ASX 200 Gross Total Return (XJT)";
   const referenceName = identity?.referenceName ? identity.referenceName : "same-data reference";
-  const hasReference = run.series.some((p) => p.reference !== null);
+  const recordedFrom = run.paperStart;
 
-  const activeSeries = daily?.series ?? run.series;
+  // The series on screen: the one this window and resolution were served as, else the run's own.
+  const current: SeriesState | null =
+    cache && cache.window === windowId && cache.resolution === resolution
+      ? cache
+      : windowId === served && resolution === "weekly"
+        ? { window: served, resolution: "weekly", series: run.series, served: run.seriesResolution }
+        : null;
+
+  const fetchSeries = (nextWindow: BacktestWindowId, nextResolution: Resolution) => {
+    startTransition(async () => {
+      const result = await loadBacktestSeries(strategyId, nextResolution, nextWindow);
+      if (result) {
+        setCache({
+          window: nextWindow,
+          resolution: nextResolution,
+          series: result.series,
+          served: result.seriesResolution,
+        });
+      }
+    });
+  };
+
+  // A reader who opens ?window= asks for that window's series once the client has read it.
+  useEffect(() => {
+    if (windowId !== served) fetchSeries(windowId, resolution);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the window is read from the URL once per change.
+  }, [windowId]);
+
   const windows = orderedWindows(run.windows);
-  const current = windows.find((w) => w.window === windowId) ?? windows[0] ?? null;
-  const windowed = current ? seriesInWindow(activeSeries, current.from, current.to) : [];
+  const meta = windows.find((w) => w.window === windowId) ?? windows[0] ?? null;
+  const available = windows.filter((w) => w.sessions > 0).map((w) => w.window as BacktestWindowId);
+  const series = current?.series ?? [];
+  const windowed = meta ? series.filter((p) => !meta.from || p.date >= meta.from) : series;
+  const paper: PaperTrackView | null = livePaper(run);
   const chips = [
     liveFrom ? inSampleChip(liveFrom) : "In-sample backtest",
     coverageChip(run.coverageByYear),
@@ -103,38 +140,32 @@ function PanelBody({
   ].filter(Boolean);
 
   const setWindow = (next: BacktestWindowId) => {
-    // The address follows the choice without a navigation: the page is static, so
-    // the replaced history entry is the only change, and useSearchParams reads it.
+    // The address follows the choice without a navigation (the page is static); the replaced
+    // history entry is the only change, and useSearchParams reads it.
     const url = new URL(window.location.href);
     url.searchParams.set(BACKTEST_WINDOW_PARAM, next);
     window.history.replaceState(window.history.state, "", url);
+    if (next !== served || resolution !== "weekly") fetchSeries(next, resolution);
   };
 
   const choose = (next: Resolution) => {
     setResolution(next);
-    if (next === "weekly") {
-      setDaily(null);
-      return;
-    }
-    startTransition(async () => {
-      const result = await loadBacktestSeries(strategyId, "daily");
-      if (result) setDaily({ series: result.series, resolution: result.seriesResolution });
-      else setResolution("weekly");
-    });
+    if (next === "weekly" && windowId === served) return;
+    fetchSeries(windowId, next);
   };
 
-  const served = daily?.resolution ?? run.seriesResolution ?? "weekly";
+  const servedAs = current?.served ?? run.seriesResolution;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="min-w-0 space-y-8">
         <div className="space-y-3">
-          <WindowSelector
-            value={windowId}
-            onChange={setWindow}
-            available={run.windows.map((w) => w.window as BacktestWindowId)}
-            label="Window"
-          />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <p className="font-mono text-xs text-muted-foreground" data-universe>
+              Universe: {universe || "as the registry states"}
+            </p>
+          </div>
+          <WindowSelector value={windowId} onChange={setWindow} available={available} label="Window" />
           <div className="flex flex-wrap items-center gap-2">
             <div role="group" aria-label="Series resolution" className="flex gap-1">
               {(["weekly", "daily"] as const).map((option) => (
@@ -156,10 +187,12 @@ function PanelBody({
             </div>
             <span className="font-mono text-[11px] text-muted-foreground" aria-live="polite">
               {pending
-                ? "Loading daily points"
-                : served === "daily"
+                ? "Loading the series"
+                : servedAs === "daily"
                   ? "Daily points"
-                  : "Weekly points: daily is served for windows of 500 sessions or fewer"}
+                  : resolution === "daily"
+                    ? "Weekly points: daily is served for windows of 500 sessions or fewer"
+                    : "Weekly points"}
             </span>
           </div>
           <IntegrityChips chips={chips} />
@@ -172,15 +205,20 @@ function PanelBody({
             </h2>
             <p className="font-mono text-xs text-muted-foreground">{GROWTH_UNIT}</p>
           </div>
-          <BacktestChart
-            series={windowed}
-            windowLabel={current?.label ?? ""}
-            liveFrom={liveFrom}
-            benchmarkName={benchmarkName}
-            referenceName={referenceName}
-            hasReference={hasReference}
-            label={`${GROWTH_TITLE} against ${benchmarkName}`}
-          />
+          {current ? (
+            <BacktestChart
+              series={windowed}
+              windowLabel={meta?.label ?? ""}
+              liveFrom={liveFrom}
+              recordedFrom={recordedFrom}
+              engineSegments={run.paperEngineSegments}
+              benchmarkName={benchmarkName}
+              referenceName={referenceName}
+              label={`${GROWTH_TITLE} against ${benchmarkName}`}
+            />
+          ) : (
+            <div aria-busy="true" className="h-[390px] animate-pulse rounded-lg bg-muted/40" />
+          )}
           <p className="text-xs text-muted-foreground">{HYPOTHETICAL_COPY}</p>
           <p className="text-xs text-muted-foreground">{RETURN_BASIS_COPY}</p>
         </section>
@@ -191,12 +229,7 @@ function PanelBody({
       <aside className="min-w-0 space-y-6" aria-label="Run summary">
         <div className="space-y-2">
           <h2 className={sectionTitle}>Run summary</h2>
-          <RunSummary
-            window={current}
-            paper={livePaper(run)}
-            tradeSummary={run.tradeSummary}
-            referenceName={referenceName}
-          />
+          <RunSummary window={meta} paper={paper} tradeSummary={run.tradeSummary} referenceName={referenceName} />
         </div>
         {sidebar}
       </aside>
@@ -205,19 +238,21 @@ function PanelBody({
 }
 
 /**
- * The paper track for the run summary, read from the live window (recorded_tail
- * windows carry it). The summary's out-of-sample row needs its counts, which the
- * run's live window states.
+ * The paper track for the run summary: its real first session (recorded_from), its
+ * sessions and closed trades from the live window, and the too-short rule (under 63
+ * sessions or 10 closed trades, 5.9). Null when the run carries no track.
  */
-function livePaper(run: BacktestRunView) {
+function livePaper(run: BacktestRunView): PaperTrackView | null {
   const live = run.windows.find((w) => w.window === "live");
-  if (!live || live.sessions === 0) return null;
+  if (!live || live.sessions === 0 || !run.paperStart) return null;
   return {
-    since: run.identity?.inSampleUntil ? nextDay(run.identity.inSampleUntil) : "",
+    since: nextDay(run.identity?.inSampleUntil ?? ""),
+    recordedFrom: run.paperStart,
     sessions: live.sessions,
     closedTrades: live.closedTrades,
     openPositions: 0,
     returnPct: live.totalReturnPct,
     tooShort: live.sessions < 63 || live.closedTrades < 10,
+    engineSegments: run.paperEngineSegments,
   };
 }

@@ -95,7 +95,9 @@ export const COVERAGE_NOT_MEASURABLE_COPY =
 
 /** The paper track before it can be judged (1.7). */
 export function tooShortCopy(paper: PaperTrackView): string {
-  const since = shortDate(paper.since);
+  // The track's actual first recorded session (recorded_from) is the date it is recorded
+  // from; live_from is the freeze, which can differ.
+  const since = shortDate(paper.recordedFrom || paper.since);
   const lead = since ? `Recorded since ${since}` : "Recorded";
   return `${lead}: ${paper.sessions} sessions, ${paper.closedTrades} trades, too short to judge`;
 }
@@ -184,4 +186,11 @@ export function growthSummary(
   const span = `${shortDate(from) || first.date} to ${shortDate(to) || last.date}`;
   const end = Math.round(last.strategy).toLocaleString("en-AU");
   return `${GROWTH_TITLE}, ${span}. The strategy ends at A$${end}.`;
+}
+
+/** The chart's mark for an engine change inside the recorded span (design 5.13, 1.8). */
+export function engineChangeLabel(engineVersion: string, firstSession: string): string {
+  const date = dayMonth(firstSession);
+  const version = engineVersion ? `engine ${engineVersion}` : "engine change";
+  return date ? `${version} from ${date}` : version;
 }

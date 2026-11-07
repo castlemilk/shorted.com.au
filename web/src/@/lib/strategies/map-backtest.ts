@@ -1,27 +1,16 @@
-// StrategyService's backtest reads -> plain rows (ListStrategyEvidence,
-// GetBacktestRun, ListBacktestTrades).
+// StrategyService's backtest reads -> plain rows (ListStrategyEvidence, GetBacktestRun,
+// ListBacktestTrades). The contract is proto/shortedapi/shorts/v1alpha1/strategies.proto
+// (design 8.2 as revised by PR-18).
 //
-// THE ONE PLACE the backtest's proto names live. Like map.ts, this file imports
-// nothing from the generated modules: its input types are structural, all
-// optional and JSON-compatible, so a protobuf-es message satisfies them and so
-// does Connect's JSON. Every component, page and test below this file reads the
-// camelCase view types it exports, so a change to the API's field names (the
-// rebase onto the PR-18 revision, design 8.2) touches this file and nothing else.
+// THE ONE PLACE the backtest's proto names live. Like map.ts, this file imports nothing
+// from the generated modules: its input types are structural, all optional and
+// JSON-compatible, so a protobuf-es message satisfies them and so does Connect's JSON.
+// Components, pages and tests read the camelCase view types exported here.
 //
-// Vocabulary follows design 8.2: run and evidence states `published`,
-// `approximate`, `run_required`, `running`, `not_computable` (plus `state_reason`
-// on a run); window ids `since_2019_05`, `since_2023`, `trailing_12m`, `live`;
-// survivorship measurement `measured`, `partial`, `not_measurable`; annual and
-// monthly states `complete`, `partial`, `current` (the MTD or YTD period),
-// `not_elapsed`, `before_window`, `not_computable`, `run_required`.
-//
-// Where the PR-18 head names a field differently, the input accepts that name
-// as a fallback (marked FALLBACK below); the rebase removes it.
-//
-// The one place proto3's "0 means missing" is resolved: a figure with a has_*
-// flag is null unless the flag is set (a measured zero survives); a benchmark or
-// reference level of zero is "not measured" (the reference is not recorded after
-// the freeze); a non-finite double (the JSON string "NaN") is never a number.
+// Where proto3 says "0 means missing", the has_* flag decides: a figure with a flag is
+// null unless the flag is set, so a measured zero survives. Benchmark and reference
+// levels are index levels, never zero, so zero is "not measured". A non-finite double
+// (the JSON string "NaN") is never a number.
 
 import { mapStrategyVersion, type StrategyVersionInput } from "./map";
 import type { StrategyVersionDef } from "./types";
@@ -36,8 +25,9 @@ export type WireInt64 = number | string | bigint;
 // ---------------------------------------------------------------------------
 
 export interface WindowMetricsInput {
-  /** since_2019_05 | since_2023 | trailing_12m | live. */
   window?: string;
+  label?: string;
+  note?: string;
   from?: string;
   to?: string;
   totalReturnPct?: WireDouble;
@@ -48,11 +38,15 @@ export interface WindowMetricsInput {
   hasBenchmark?: boolean;
   referenceCagrPct?: WireDouble;
   hasReference?: boolean;
+  benchmarkTotalReturnPct?: WireDouble;
+  hasBenchmarkTotalReturn?: boolean;
+  referenceTotalReturnPct?: WireDouble;
+  hasReferenceTotalReturn?: boolean;
   maxDrawdownPct?: WireDouble;
-  /** The session the peak was set on, the trough, and the recovery ("" when not recovered). */
-  drawdownPeak?: string;
-  drawdownTrough?: string;
-  drawdownRecovery?: string;
+  peakDate?: string;
+  troughDate?: string;
+  /** The session back at the peak; "not recovered" while it has not; "" when none. */
+  recoveryDate?: string;
   sharpe?: WireDouble;
   sharpeSe?: WireDouble;
   hasSharpe?: boolean;
@@ -61,8 +55,6 @@ export interface WindowMetricsInput {
   hasWinRate?: boolean;
   exposurePct?: WireDouble;
   recordedTail?: boolean;
-  label?: string;
-  note?: string;
   notAnnualised?: boolean;
   sessions?: number;
   calendarDays?: number;
@@ -72,6 +64,7 @@ export interface WindowMetricsInput {
 
 export interface AnnualReturnInput {
   year?: number;
+  /** complete | partial | to_date. */
   state?: string;
   months?: string;
   strategyPct?: WireDouble;
@@ -81,7 +74,7 @@ export interface AnnualReturnInput {
   hasReference?: boolean;
   coveragePct?: WireDouble;
   coverageMeasurable?: boolean;
-  /** The measure the coverage figure names: "qualifying" (>= 5% short) or "all_reported". */
+  /** qualifying_5pct_short | all_reported | not_measurable. */
   coverageMeasure?: string;
   approximate?: boolean;
 }
@@ -89,6 +82,7 @@ export interface AnnualReturnInput {
 export interface MonthlyReturnInput {
   year?: number;
   month?: number;
+  /** complete | partial | to_date. Months that have not elapsed, or fall before the window, are absent. */
   state?: string;
   strategyPct?: WireDouble;
   benchmarkPct?: WireDouble;
@@ -100,35 +94,25 @@ export interface MonthlyReturnInput {
 
 export interface CoverageYearInput {
   year?: number;
-  /** Coverage on the qualifying measure, its name-days and the priced ones. */
+  /** The qualifying measure (name-days of at least 5% short) has name-days in the year. */
   measurable?: boolean;
+  qualifyingNameDays?: WireInt64;
+  pricedNameDays?: WireInt64;
   coveragePct?: WireDouble;
-  hasCoverage?: boolean;
-  qualifyingNameDays?: WireDouble;
-  pricedNameDays?: WireDouble;
   allReportedPct?: WireDouble;
-  hasAllReported?: boolean;
+  allReportedMeasurable?: boolean;
+  allReportedNameDays?: WireInt64;
+  allReportedPricedNameDays?: WireInt64;
   delistingExits?: number;
   caExits?: number;
-  flatBarCancels?: number;
-  dividendStepSuspects?: number;
-  /** FALLBACK (PR-18 head names): qualifying_pct and friends. */
-  qualifyingPct?: WireDouble;
-  hasQualifying?: boolean;
-  qualifyingPriced?: number;
-  allReportedPriced?: number;
 }
 
 export interface CoverageMonthInput {
   month?: string;
   coveragePct?: WireDouble;
-  hasCoverage?: boolean;
   measurable?: boolean;
-  /** FALLBACK (PR-18 head names). */
-  qualifyingPct?: WireDouble;
-  hasQualifying?: boolean;
   allReportedPct?: WireDouble;
-  hasAllReported?: boolean;
+  allReportedMeasurable?: boolean;
 }
 
 export interface SurvivorshipInput {
@@ -142,14 +126,14 @@ export interface SurvivorshipInput {
 export interface SensitivityInput {
   id?: string;
   label?: string;
-  applies?: boolean;
-  reason?: string;
   cagrPct?: WireDouble;
   hasCagr?: boolean;
   excessVsBenchmarkPct?: WireDouble;
   hasExcess?: boolean;
   maxDrawdownPct?: WireDouble;
   fragile?: boolean;
+  applies?: boolean;
+  reason?: string;
   fragileChip?: string;
 }
 
@@ -185,10 +169,15 @@ export interface TradeSummaryInput {
   winRatePct?: WireDouble;
   hasWinRate?: boolean;
   avgHoldSessions?: WireDouble;
+  hasAvgHold?: boolean;
   avgWinPct?: WireDouble;
+  hasAvgWin?: boolean;
   avgLossPct?: WireDouble;
+  hasAvgLoss?: boolean;
   bestPct?: WireDouble;
+  hasBest?: boolean;
   worstPct?: WireDouble;
+  hasWorst?: boolean;
   exitsByReason?: Readonly<Record<string, number>>;
 }
 
@@ -213,6 +202,13 @@ export interface BacktestTradeInput {
   open?: boolean;
 }
 
+export interface EngineSegmentInput {
+  engineVersion?: string;
+  firstSession?: string;
+  lastSession?: string;
+  sessions?: number;
+}
+
 export interface PaperTrackInput {
   since?: string;
   sessions?: number;
@@ -221,12 +217,15 @@ export interface PaperTrackInput {
   returnPct?: WireDouble;
   hasReturn?: boolean;
   tooShort?: boolean;
+  recordedFrom?: string;
+  engineSegments?: readonly EngineSegmentInput[];
 }
 
 export interface StrategyEvidenceInput {
   strategyId?: string;
   version?: StrategyVersionInput | null;
   state?: string;
+  stateReason?: string;
   computableFrom?: string;
   fiscalLabel?: string;
   windows?: readonly WindowMetricsInput[];
@@ -274,9 +273,22 @@ export interface BacktestIdentityInput {
   runDate?: string;
 }
 
+export interface DataQualityInput {
+  delistingExits?: number;
+  corporateActionExits?: number;
+  caSuspects?: number;
+  fallbackClose?: number;
+  priceReturnTrades?: number;
+  capacityCapped?: number;
+  staleMarkTrades?: number;
+  delayedExits?: number;
+  cancelledEntries?: Readonly<Record<string, number>>;
+  dividendsCredited?: number;
+  consolidationNote?: string;
+}
+
 export interface BacktestRunInput {
   state?: string;
-  /** Why the run is in this state, in words the page prints (run_required, not_computable). */
   stateReason?: string;
   strategyId?: string;
   computableFrom?: string;
@@ -286,9 +298,7 @@ export interface BacktestRunInput {
   annual?: readonly AnnualReturnInput[];
   monthly?: readonly MonthlyReturnInput[];
   series?: readonly SeriesPointInput[];
-  /** FALLBACK (PR-18 head name): coverageByYear. */
   coverage?: readonly CoverageYearInput[];
-  coverageByYear?: readonly CoverageYearInput[];
   coverageMonthly?: readonly CoverageMonthInput[];
   survivorship?: SurvivorshipInput | null;
   sensitivity?: readonly SensitivityInput[];
@@ -305,6 +315,11 @@ export interface BacktestRunInput {
   seriesResolution?: string;
   computableSharePct?: WireDouble;
   hasComputableShare?: boolean;
+  dataQuality?: DataQualityInput | null;
+  windowId?: string;
+  fundamentalsLabel?: string;
+  paperStart?: string;
+  paperEngineSegments?: readonly EngineSegmentInput[];
 }
 
 export interface GetBacktestRunInput {
@@ -318,10 +333,10 @@ export interface ListBacktestTradesInput {
 }
 
 // ---------------------------------------------------------------------------
-// Views (camelCase, nulls where a figure is not measured)
+// Views (camelCase; nulls where a figure is not measured)
 // ---------------------------------------------------------------------------
 
-/** The states of a run or an evidence read (8.2). Anything else is "unavailable". */
+/** The states of a run or an evidence read. Anything else is "unavailable". */
 export type BacktestState =
   | "published"
   | "approximate"
@@ -330,19 +345,17 @@ export type BacktestState =
   | "not_computable"
   | "unavailable";
 
-/** The window ids of 5.8, as 8.2 names them. */
+/** The window ids of 5.8, as the API names them. */
 export type BacktestWindowId = "since_2019_05" | "since_2023" | "trailing_12m" | "live";
 
-/** The states an annual or monthly period can be in. */
-export type PeriodState =
-  | "complete"
-  | "partial"
-  | "current"
-  | "not_elapsed"
-  | "before_window"
-  | "not_computable"
-  | "run_required"
-  | "unknown";
+/**
+ * A period's state. The API serves complete | partial | to_date; a period that has not
+ * elapsed, or that falls before the window, is absent from the table and the page
+ * derives its words (see backtest-tables.ts).
+ */
+export type PeriodState = "complete" | "partial" | "to_date" | "unknown";
+
+export type CoverageMeasure = "qualifying_5pct_short" | "all_reported" | "not_measurable" | "";
 
 export interface BacktestWindowView {
   window: string;
@@ -357,11 +370,14 @@ export interface BacktestWindowView {
   notAnnualised: boolean;
   benchmarkCagrPct: number | null;
   referenceCagrPct: number | null;
+  /** XJT and the reference over the window, total return, shown for every window. */
+  benchmarkTotalReturnPct: number | null;
+  referenceTotalReturnPct: number | null;
   maxDrawdownPct: number;
-  drawdownPeak: string | null;
-  drawdownTrough: string | null;
-  /** Null when the drawdown has not recovered. */
-  drawdownRecovery: string | null;
+  peakDate: string | null;
+  troughDate: string | null;
+  /** A session, "not recovered", or null when the curve never fell. */
+  recoveryDate: string | null;
   sharpe: number | null;
   sharpeSe: number | null;
   closedTrades: number;
@@ -376,15 +392,14 @@ export interface BacktestWindowView {
 export interface AnnualReturnView {
   year: number;
   state: PeriodState;
-  /** "May-Dec" from the window start, "YTD" for the current year, "" for a whole year. */
+  /** "May-Dec" for a partial first year, "YTD" for the current one; "" for a whole year. */
   months: string;
   strategyPct: number | null;
   benchmarkPct: number | null;
   referencePct: number | null;
   coveragePct: number | null;
   coverageMeasurable: boolean;
-  /** "qualifying" (>= 5% short) or "all_reported"; "" when the API states none. */
-  coverageMeasure: string;
+  coverageMeasure: CoverageMeasure;
   approximate: boolean;
 }
 
@@ -399,24 +414,20 @@ export interface MonthlyReturnView {
   label: string;
 }
 
-export interface CoverageDataQualityView {
-  delistingExits: number;
-  caExits: number;
-  flatBarCancels: number;
-  dividendStepSuspects: number;
-}
-
 export interface CoverageYearView {
   year: number;
-  /** Measurable on the qualifying measure; false (Minervini before 2025) reads "not measurable". */
+  /** The qualifying measure has name-days in the year; false reads "not measurable". */
   measurable: boolean;
-  /** Priced over qualifying name-days ("qualifying >= 5% short"). */
+  /** Qualifying coverage, in percent. Null when not measurable. */
   coveragePct: number | null;
   qualifyingNameDays: number;
   pricedNameDays: number;
-  /** Priced over every ordinary reported name-day ("all reported"). */
   allReportedPct: number | null;
-  dataQuality: CoverageDataQualityView;
+  allReportedMeasurable: boolean;
+  allReportedNameDays: number;
+  allReportedPricedNameDays: number;
+  delistingExits: number;
+  caExits: number;
 }
 
 export interface CoverageMonthView {
@@ -425,6 +436,7 @@ export interface CoverageMonthView {
   coveragePct: number | null;
   measurable: boolean;
   allReportedPct: number | null;
+  allReportedMeasurable: boolean;
 }
 
 export interface SurvivorshipView {
@@ -450,7 +462,7 @@ export interface SensitivityView {
 export interface SeriesPointView {
   /** YYYY-MM-DD. */
   date: string;
-  /** A$ on the chained curve. */
+  /** A$ on the chained curve, whole dollars. */
   equity: number;
   /** Index level, or null when not measured. */
   benchmark: number | null;
@@ -509,6 +521,13 @@ export interface BacktestTradeView {
   open: boolean;
 }
 
+export interface EngineSegmentView {
+  engineVersion: string;
+  firstSession: string;
+  lastSession: string;
+  sessions: number;
+}
+
 export interface PaperTrackView {
   since: string;
   sessions: number;
@@ -516,6 +535,23 @@ export interface PaperTrackView {
   openPositions: number;
   returnPct: number | null;
   tooShort: boolean;
+  /** The track's first recorded session: the freeze the recorded band starts at. */
+  recordedFrom: string;
+  engineSegments: EngineSegmentView[];
+}
+
+export interface DataQualityView {
+  delistingExits: number;
+  corporateActionExits: number;
+  caSuspects: number;
+  fallbackClose: number;
+  priceReturnTrades: number;
+  capacityCapped: number;
+  staleMarkTrades: number;
+  delayedExits: number;
+  cancelledEntries: Record<string, number>;
+  dividendsCredited: number;
+  consolidationNote: string;
 }
 
 export interface BacktestIdentityView {
@@ -553,13 +589,17 @@ export interface BacktestRunView {
   windows: BacktestWindowView[];
   annual: AnnualReturnView[];
   monthly: MonthlyReturnView[];
+  /** The served window's points, daily or weekly, as `seriesResolution` says. */
   series: SeriesPointView[];
+  windowId: string;
+  seriesResolution: string;
   coverageByYear: CoverageYearView[];
   coverageMonthly: CoverageMonthView[];
   survivorship: SurvivorshipView | null;
   sensitivity: SensitivityView[];
   recipe: RecipeLinesView | null;
   tradeSummary: TradeSummaryView | null;
+  dataQuality: DataQualityView | null;
   liveVersion: StrategyVersionDef | null;
   rulesMatchLive: boolean;
   engineMatchesLive: boolean;
@@ -568,15 +608,18 @@ export interface BacktestRunView {
   disclosures: string[];
   dataNotes: string[];
   runningSince: string;
-  /** "weekly" or "daily": what the series carries. */
-  seriesResolution: string;
   computableSharePct: number | null;
+  fundamentalsLabel: string;
+  /** The paper track's first recorded session: where the recorded band starts. "" when none. */
+  paperStart: string;
+  paperEngineSegments: EngineSegmentView[];
 }
 
 export interface StrategyEvidenceView {
   strategyId: string;
   version: StrategyVersionDef | null;
   state: BacktestState;
+  stateReason: string;
   computableFrom: string | null;
   fiscalLabel: string | null;
   windows: BacktestWindowView[];
@@ -662,6 +705,13 @@ function runIdOf(value: WireInt64 | undefined): number {
   return Number.isFinite(n) ? Math.trunc(n) : 0;
 }
 
+/** A recovery date: a session, the words "not recovered", or null when the field is empty. */
+function recoveryOf(value: unknown): string | null {
+  const text = str(value).trim();
+  if (text === "") return null;
+  return ymd(text) || text;
+}
+
 const KNOWN_STATES: readonly BacktestState[] = [
   "published",
   "approximate",
@@ -675,23 +725,20 @@ export function toBacktestState(value: unknown): BacktestState {
   return KNOWN_STATES.find((s) => s === value) ?? "unavailable";
 }
 
-const KNOWN_PERIOD_STATES: readonly PeriodState[] = [
-  "complete",
-  "partial",
-  "current",
-  "not_elapsed",
-  "before_window",
-  "not_computable",
-  "run_required",
-];
-
 function toPeriodState(value: unknown): PeriodState {
-  return KNOWN_PERIOD_STATES.find((s) => s === value) ?? "unknown";
+  return value === "complete" || value === "partial" || value === "to_date"
+    ? value
+    : "unknown";
 }
 
-/** A period's own figures are read only when the period was measured (complete, partial or current). */
-function measuredPeriod(state: PeriodState): boolean {
-  return state === "complete" || state === "partial" || state === "current";
+const KNOWN_MEASURES: readonly CoverageMeasure[] = [
+  "qualifying_5pct_short",
+  "all_reported",
+  "not_measurable",
+];
+
+function toCoverageMeasure(value: unknown): CoverageMeasure {
+  return KNOWN_MEASURES.find((m) => m === value) ?? "";
 }
 
 // ---------------------------------------------------------------------------
@@ -699,7 +746,6 @@ function measuredPeriod(state: PeriodState): boolean {
 // ---------------------------------------------------------------------------
 
 export function mapWindowMetrics(input: WindowMetricsInput): BacktestWindowView {
-  const recovery = ymd(input.drawdownRecovery);
   return {
     window: str(input.window),
     label: str(input.label),
@@ -711,10 +757,12 @@ export function mapWindowMetrics(input: WindowMetricsInput): BacktestWindowView 
     notAnnualised: input.notAnnualised === true,
     benchmarkCagrPct: flagged(input.benchmarkCagrPct, input.hasBenchmark),
     referenceCagrPct: flagged(input.referenceCagrPct, input.hasReference),
+    benchmarkTotalReturnPct: flagged(input.benchmarkTotalReturnPct, input.hasBenchmarkTotalReturn),
+    referenceTotalReturnPct: flagged(input.referenceTotalReturnPct, input.hasReferenceTotalReturn),
     maxDrawdownPct: num(input.maxDrawdownPct),
-    drawdownPeak: ymd(input.drawdownPeak) || null,
-    drawdownTrough: ymd(input.drawdownTrough) || null,
-    drawdownRecovery: recovery || null,
+    peakDate: ymd(input.peakDate) || null,
+    troughDate: ymd(input.troughDate) || null,
+    recoveryDate: recoveryOf(input.recoveryDate),
     sharpe: flagged(input.sharpe, input.hasSharpe),
     sharpeSe: flagged(input.sharpeSe, input.hasSharpe),
     closedTrades: int(input.closedTrades),
@@ -729,70 +777,59 @@ export function mapWindowMetrics(input: WindowMetricsInput): BacktestWindowView 
 
 export function mapAnnualReturn(input: AnnualReturnInput): AnnualReturnView {
   const state = toPeriodState(input.state);
-  const measured = measuredPeriod(state);
   return {
     year: int(input.year),
     state,
     months: str(input.months),
-    strategyPct: measured ? numOrNull(input.strategyPct) : null,
-    benchmarkPct: measured ? flagged(input.benchmarkPct, input.hasBenchmark) : null,
-    referencePct: measured ? flagged(input.referencePct, input.hasReference) : null,
+    strategyPct: numOrNull(input.strategyPct),
+    benchmarkPct: flagged(input.benchmarkPct, input.hasBenchmark),
+    referencePct: flagged(input.referencePct, input.hasReference),
     coveragePct: input.coverageMeasurable === true ? numOrNull(input.coveragePct) : null,
     coverageMeasurable: input.coverageMeasurable === true,
-    coverageMeasure: str(input.coverageMeasure),
+    coverageMeasure: toCoverageMeasure(input.coverageMeasure),
     approximate: input.approximate === true,
   };
 }
 
 export function mapMonthlyReturn(input: MonthlyReturnInput): MonthlyReturnView {
-  const state = toPeriodState(input.state);
-  const measured = measuredPeriod(state);
   return {
     year: int(input.year),
     month: int(input.month),
-    state,
-    strategyPct: measured ? numOrNull(input.strategyPct) : null,
-    benchmarkPct: measured ? flagged(input.benchmarkPct, input.hasBenchmark) : null,
-    referencePct: measured ? flagged(input.referencePct, input.hasReference) : null,
+    state: toPeriodState(input.state),
+    strategyPct: numOrNull(input.strategyPct),
+    benchmarkPct: flagged(input.benchmarkPct, input.hasBenchmark),
+    referencePct: flagged(input.referencePct, input.hasReference),
     label: str(input.label),
   };
 }
 
 export function mapCoverageYear(input: CoverageYearInput): CoverageYearView {
-  // FALLBACK (PR-18 head): the flag-style names, read only where the 8.2 names are absent.
-  const measurable =
-    input.measurable !== undefined ? input.measurable === true : input.hasQualifying === true;
-  const coverage =
-    input.coveragePct !== undefined || input.hasCoverage !== undefined
-      ? flagged(input.coveragePct, input.hasCoverage ?? true)
-      : flagged(input.qualifyingPct, input.hasQualifying);
+  const measurable = input.measurable === true;
+  const allMeasurable = input.allReportedMeasurable === true;
   return {
     year: int(input.year),
     measurable,
-    coveragePct: measurable ? coverage : null,
+    coveragePct: measurable ? numOrNull(input.coveragePct) : null,
     qualifyingNameDays: int(input.qualifyingNameDays),
-    pricedNameDays: int(input.pricedNameDays ?? input.qualifyingPriced),
-    allReportedPct: flagged(input.allReportedPct, input.hasAllReported),
-    dataQuality: {
-      delistingExits: int(input.delistingExits),
-      caExits: int(input.caExits),
-      flatBarCancels: int(input.flatBarCancels),
-      dividendStepSuspects: int(input.dividendStepSuspects),
-    },
+    pricedNameDays: int(input.pricedNameDays),
+    allReportedPct: allMeasurable ? numOrNull(input.allReportedPct) : null,
+    allReportedMeasurable: allMeasurable,
+    allReportedNameDays: int(input.allReportedNameDays),
+    allReportedPricedNameDays: int(input.allReportedPricedNameDays),
+    delistingExits: int(input.delistingExits),
+    caExits: int(input.caExits),
   };
 }
 
 export function mapCoverageMonth(input: CoverageMonthInput): CoverageMonthView {
-  const measurable = input.measurable !== false;
-  const coverage =
-    input.coveragePct !== undefined || input.hasCoverage !== undefined
-      ? flagged(input.coveragePct, input.hasCoverage ?? true)
-      : flagged(input.qualifyingPct, input.hasQualifying);
+  const measurable = input.measurable === true;
+  const allMeasurable = input.allReportedMeasurable === true;
   return {
     month: /^\d{4}-\d{2}$/.test(str(input.month)) ? str(input.month) : "",
-    coveragePct: measurable ? coverage : null,
+    coveragePct: measurable ? numOrNull(input.coveragePct) : null,
     measurable,
-    allReportedPct: flagged(input.allReportedPct, input.hasAllReported),
+    allReportedPct: allMeasurable ? numOrNull(input.allReportedPct) : null,
+    allReportedMeasurable: allMeasurable,
   };
 }
 
@@ -858,11 +895,11 @@ export function mapTradeSummary(input: TradeSummaryInput): TradeSummaryView {
     closed: int(input.closed),
     openAtEnd: int(input.openAtEnd),
     winRatePct: flagged(input.winRatePct, input.hasWinRate),
-    avgHoldSessions: numOrNull(input.avgHoldSessions),
-    avgWinPct: numOrNull(input.avgWinPct),
-    avgLossPct: numOrNull(input.avgLossPct),
-    bestPct: numOrNull(input.bestPct),
-    worstPct: numOrNull(input.worstPct),
+    avgHoldSessions: flagged(input.avgHoldSessions, input.hasAvgHold),
+    avgWinPct: flagged(input.avgWinPct, input.hasAvgWin),
+    avgLossPct: flagged(input.avgLossPct, input.hasAvgLoss),
+    bestPct: flagged(input.bestPct, input.hasBest),
+    worstPct: flagged(input.worstPct, input.hasWorst),
     exitsByReason: exits,
   };
 }
@@ -889,6 +926,15 @@ export function mapBacktestTrade(input: BacktestTradeInput): BacktestTradeView {
   };
 }
 
+export function mapEngineSegment(input: EngineSegmentInput): EngineSegmentView {
+  return {
+    engineVersion: str(input.engineVersion),
+    firstSession: ymd(input.firstSession),
+    lastSession: ymd(input.lastSession),
+    sessions: int(input.sessions),
+  };
+}
+
 export function mapPaperTrack(input: PaperTrackInput): PaperTrackView {
   return {
     since: ymd(input.since),
@@ -897,6 +943,28 @@ export function mapPaperTrack(input: PaperTrackInput): PaperTrackView {
     openPositions: int(input.openPositions),
     returnPct: flagged(input.returnPct, input.hasReturn),
     tooShort: input.tooShort === true,
+    recordedFrom: ymd(input.recordedFrom),
+    engineSegments: (input.engineSegments ?? []).map(mapEngineSegment),
+  };
+}
+
+export function mapDataQuality(input: DataQualityInput): DataQualityView {
+  const cancelled: Record<string, number> = {};
+  for (const [reason, count] of Object.entries(input.cancelledEntries ?? {})) {
+    cancelled[reason] = int(count);
+  }
+  return {
+    delistingExits: int(input.delistingExits),
+    corporateActionExits: int(input.corporateActionExits),
+    caSuspects: int(input.caSuspects),
+    fallbackClose: int(input.fallbackClose),
+    priceReturnTrades: int(input.priceReturnTrades),
+    capacityCapped: int(input.capacityCapped),
+    staleMarkTrades: int(input.staleMarkTrades),
+    delayedExits: int(input.delayedExits),
+    cancelledEntries: cancelled,
+    dividendsCredited: int(input.dividendsCredited),
+    consolidationNote: str(input.consolidationNote),
   };
 }
 
@@ -929,7 +997,6 @@ function mapIdentity(input: BacktestIdentityInput): BacktestIdentityView {
 
 /** One canonical run as the page draws it. A run with no series still maps; the page decides what to show. */
 export function mapBacktestRun(input: BacktestRunInput): BacktestRunView {
-  const share = flagged(input.computableSharePct, input.hasComputableShare);
   return {
     state: toBacktestState(input.state),
     stateReason: str(input.stateReason),
@@ -941,12 +1008,15 @@ export function mapBacktestRun(input: BacktestRunInput): BacktestRunView {
     annual: (input.annual ?? []).map(mapAnnualReturn),
     monthly: (input.monthly ?? []).map(mapMonthlyReturn),
     series: (input.series ?? []).map(mapSeriesPoint),
-    coverageByYear: (input.coverage ?? input.coverageByYear ?? []).map(mapCoverageYear),
+    windowId: str(input.windowId),
+    seriesResolution: str(input.seriesResolution) || "weekly",
+    coverageByYear: (input.coverage ?? []).map(mapCoverageYear),
     coverageMonthly: (input.coverageMonthly ?? []).map(mapCoverageMonth),
     survivorship: input.survivorship ? mapSurvivorship(input.survivorship) : null,
     sensitivity: (input.sensitivity ?? []).map(mapSensitivity),
     recipe: input.recipe ? mapRecipeLines(input.recipe) : null,
     tradeSummary: input.tradeSummary ? mapTradeSummary(input.tradeSummary) : null,
+    dataQuality: input.dataQuality ? mapDataQuality(input.dataQuality) : null,
     liveVersion: mapStrategyVersion(input.liveVersion),
     rulesMatchLive: input.rulesMatchLive === true,
     engineMatchesLive: input.engineMatchesLive === true,
@@ -955,8 +1025,10 @@ export function mapBacktestRun(input: BacktestRunInput): BacktestRunView {
     disclosures: strings(input.disclosures),
     dataNotes: strings(input.dataNotes),
     runningSince: str(input.runningSince),
-    seriesResolution: str(input.seriesResolution),
-    computableSharePct: share,
+    computableSharePct: flagged(input.computableSharePct, input.hasComputableShare),
+    fundamentalsLabel: str(input.fundamentalsLabel),
+    paperStart: ymd(input.paperStart),
+    paperEngineSegments: (input.paperEngineSegments ?? []).map(mapEngineSegment),
   };
 }
 
@@ -965,6 +1037,7 @@ export function mapStrategyEvidence(input: StrategyEvidenceInput): StrategyEvide
     strategyId: str(input.strategyId),
     version: mapStrategyVersion(input.version),
     state: toBacktestState(input.state),
+    stateReason: str(input.stateReason),
     computableFrom: ymd(input.computableFrom) || null,
     fiscalLabel: str(input.fiscalLabel) || null,
     windows: (input.windows ?? []).map(mapWindowMetrics),

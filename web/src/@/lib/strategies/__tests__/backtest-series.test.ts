@@ -2,6 +2,7 @@ import {
   GROWTH_BASE,
   areaPath,
   dateToMs,
+  engineMarks,
   firstRecorded,
   growthOf,
   linePath,
@@ -138,5 +139,38 @@ describe("dates and windows", () => {
 
   it("reads a zero benchmark as not measured", () => {
     expect(mapSeriesPoint({ date: "2024-01-05", equity: 1, benchmark: 0, reference: 0 })).toMatchObject({ benchmark: null, reference: null });
+  });
+});
+
+describe("the recorded band and engine marks (the contract's dates)", () => {
+  const box = { width: 720, height: 0, left: 58, right: 104, top: 0, bottom: 0 };
+  const g = growthOf(fixtureSeries());
+
+  it("starts the band at recorded_from when it is given, not at the freeze", () => {
+    const x = timeScale(g, box);
+    const fromFreeze = recordedBand(g, x, box, "2026-10-02");
+    const fromTrack = recordedBand(g, x, box, "2026-10-09");
+    expect(fromFreeze).not.toBeNull();
+    expect(fromTrack!.x).toBeGreaterThan(fromFreeze!.x);
+  });
+
+  it("marks each engine change after the first segment, at its first session", () => {
+    const x = timeScale(g, box);
+    const marks = engineMarks(
+      [
+        { engineVersion: "1.0.0", firstSession: "2026-10-05" },
+        { engineVersion: "1.0.1", firstSession: "2026-10-19" },
+      ],
+      g,
+      x,
+    );
+    expect(marks).toHaveLength(1);
+    expect(marks[0]?.engineVersion).toBe("1.0.1");
+    expect(marks[0]?.x).toBeGreaterThan(0);
+  });
+
+  it("skips an engine change the window does not show", () => {
+    const x = timeScale(g, box);
+    expect(engineMarks([{ engineVersion: "1.0.0", firstSession: "2020-01-03" }, { engineVersion: "1.0.1", firstSession: "2001-01-05" }], g, x)).toEqual([]);
   });
 });
