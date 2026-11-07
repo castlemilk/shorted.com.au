@@ -63,12 +63,23 @@ func TestPostgresStoreWritesOnlyAHashOfTheCode(t *testing.T) {
 		t.Fatalf("unknown client = %v, %v; want nil, nil", unknown, err)
 	}
 
-	// Drive the real handler so the code is the one a client would receive.
+	// Drive the real handler with the same one-use consent proof a client
+	// receives after approval; grants without it must remain unavailable.
+	ticket := "integration-consent-" + clientID
+	if err := store.CreateConsentTicket(ctx, ConsentTicket{
+		TicketHash: HashConsentTicket(ticket), UserID: "itest-uid", ClientID: clientID,
+		RedirectURI: redirect, CodeChallenge: testChallenge,
+		Resource: testAPIBase + "/mcp", Scope: "shorts:read", ExpiresAt: time.Now().Add(ConsentTicketTTL),
+	}); err != nil {
+		t.Fatalf("seeding consent ticket: %v", err)
+	}
 	rec := post(t, NewGrantHandler(GrantConfig{
 		Endpoints: Endpoints{APIBaseURL: testAPIBase},
 		Identity:  &fakeIdentity{userID: "itest-uid"},
 		Store:     store,
+		Consent:   store,
 	}), map[string]any{
+		"consent_ticket":        ticket,
 		"id_token":              "firebase-id-token",
 		"client_id":             clientID,
 		"redirect_uri":          redirect,

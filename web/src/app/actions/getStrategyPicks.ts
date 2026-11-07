@@ -14,7 +14,7 @@ import {
 } from "~/@/lib/strategies/map";
 import type { StrategyPicksResult } from "~/@/lib/strategies/types";
 
-// One strategy's ranked picks for /picks/[strategy] and the /picks hub cards.
+// One strategy's ranked picks for /strategies/[strategy] and the /strategies hub cards.
 //
 // The getScanResults pattern exactly: the connect call runs inside
 // unstable_cache on a serverFetchOutsideNextCache transport (a bare connect
@@ -32,6 +32,9 @@ import type { StrategyPicksResult } from "~/@/lib/strategies/types";
 // Cache key v2: PickRow gained `fundamentals` and the result gained
 // fundamentalsRowsCount (docs/plans/fundamentals-coverage.md §7.2). A v1 entry
 // has neither, and would render every row as "No fundamentals held".
+//
+// Cache key v3: PickRow, RuleResultRow and the rule definitions gained the
+// signal fields. A v2 entry has none of them.
 
 export type { StrategyPicksResult } from "~/@/lib/strategies/types";
 
@@ -75,7 +78,7 @@ export async function getStrategyPicks(
         }
         return result;
       },
-      [`strategy-picks-${id}-v2`],
+      [`strategy-picks-${id}-v3`],
       { tags: ["strategy-picks", `strategy-${id}`], revalidate: 3600 },
     )();
   } catch (err) {

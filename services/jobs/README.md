@@ -24,9 +24,15 @@ services/jobs/
   internal/jobs/influence/    `shorted influence`  (was services/influence-collector)
   internal/jobs/marketdata/   `shorted market-data serve|sync|audit-gaps|historical-backfill`
                               (was services/market-data-sync)
+  internal/jobs/keymetrics/   `shorted key-metrics`  daily key_metrics refresh of company-metadata
+                              from Yahoo quoteSummary (new; replaces the API's SyncKeyMetrics fork)
   internal/jobs/news/         `shorted news`       (was services/news-aggregator)
   internal/jobs/picks/        `shorted picks`      stock-picker data: full statements, filing
                               half-years + refresh_strategy_views() (new, not a port)
+  internal/jobs/strategies/   `shorted strategies`  strategy engine: `-mode parity`, the read-only
+                              comparison of the Go feature port with the views; `-mode daily`,
+                              the session's snapshot and its signal events (writes only with
+                              `STRATEGIES_DRY_RUN=false`)
   internal/jobs/ownership/    `shorted ownership`  who holds ASX stocks: substantial holder
                               notices, ETF + super fund holdings (new, not a port)
   internal/jobs/reportextract/`shorted report-extract concurrent|sequential`
@@ -53,6 +59,7 @@ services/jobs/
 | `economy` | `services/economy-collector` | yes — `shorted-economy` (cutover 1; old scheduler paused) |
 | ~~`house-prices`~~ | `services/house-price-collector` | **retired 2026-09-24** — the port was never scheduled and was deleted; `services/house-price-collector` is the only copy. See "Phase 2d (house-prices) — retired" |
 | `influence` | `services/influence-collector` | no — laptop-only tool |
+| `key-metrics` | — (new job; replaces the shorts API's `SyncKeyMetrics` RPC, which forked Python in the serving process) | VKE-native CronJob `shorted-key-metrics` (`deploy/kubernetes/jobs/chart/values.yaml`, no Cloud Run twin): daily 19:40 UTC, `KEY_METRICS_DRY_RUN: "false"`. Live from the merge's `deploy/vke-jobs` bump. See "key-metrics" |
 | `market-data serve` | `services/market-data-sync` (default mode) | yes — the EXISTING `market-data-sync` Cloud Run SERVICE now runs the `shorted-jobs` image with args `["market-data","serve"]` (cutover 3, in-place revision swap; same URI/SA/scheduler) |
 | `market-data sync` | `services/market-data-sync -cli` | yes — `shorted-price-sync`, the daily price sweep (weekdays 10:00 UTC); the `market-data-sync-daily` scheduler that drove `serve`'s `POST /api/sync/all` is paused. See "Daily price sweep" |
 | `market-data audit-gaps` | `services/market-data-sync/cmd/audit-gaps` | no — laptop-only tool |
@@ -69,6 +76,7 @@ services/jobs/
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
 | `review` | — (new job, data review) | no — laptop tool, read-only: `task data:review` |
 | `short-data-sync` | `services/daily-sync` (Python, **DELETED**) — **ASIC shorts tier only** | yes — `shorts-data-sync` (cutover 4, in-place image swap; Python source deleted in the cleanup slice) |
+| `strategies` | — (new job, strategy engine) | yes for `-mode daily`: `shorted-strategies-daily` (VKE-native, weekdays at :00, :20 and :40 past 13 to 16 UTC; `STRATEGIES_DRY_RUN=false` writes; the 16:40 run exits 10 when any session is still held). `-mode parity` runs by hand. `-mode backtest` (`shorted-strategies-backtest`, hourly) idles until a version beyond v0 is live. The picks refresh runs the same comparison as a log-only shadow when `STRATEGY_PARITY_SHADOW=on` (see "Parity shadow" under "picks"). Index dates are fixed in the tree (#860); writes wait for the index sync to re-date the window and the XJO weekend-row gate to clear, see "Strategy daily snapshot" |
 | `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
 | `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
 
@@ -165,6 +173,113 @@ tests came across with it. `audit-gaps` is the one place this *tightens*
 behaviour: the standalone `cmd/audit-gaps` used a bare `pgxpool.New` (extended
 protocol, default pool size) against the same Supabase pooler, and now shares the
 tuned config.
+
+### Benchmark indices (`market-data index-sync`, job `shorted-index-sync`)
+
+XJO, XAO, XKO and XJT are fetched from Yahoo into `index_prices` (migration
+000117), with the series registry in `index_metadata`. The scheduled CronJob
+runs `-years 2` daily at 11:30 UTC, and it re-dates only that two-year window.
+
+**Dating.** A bar is dated by its ASX session, the Sydney date of its open
+(`providers.SessionDate`). Yahoo stamps a session at 10:00 Sydney, which is the
+previous UTC day under daylight saving, so the old UTC dating filed every
+daylight-saving session one day early: a Monday's close sat under the Sunday.
+The symptoms in production were weekend rows (XJO 481, XAO 483, XKO 324,
+XJT 177 before the fix), no Friday rows in daylight-saving history (the newest
+Friday is filed correctly while it is Yahoo's last bar), and each weekday
+holding the next session's close.
+
+**Write.** Per series, the upsert and a bounded clean-up run in one
+transaction. The clean-up removes only this series' stored rows dated inside
+the response's first and last session stamp that the response does not stamp.
+A session Yahoo stamps without a close counts as stamped, so its stored row
+survives. Rows outside the window are never touched. An empty or failed
+response writes and removes nothing.
+
+**Ceiling.** A write whose clean-up would remove more than 15% of the series'
+stored rows in the window is refused: nothing is written for that series, the
+run logs `refused, nothing written`, and the series counts as failed. The
+other series are still written, and then the run exits 1, so the scheduled job
+retries and alerts: a refusal is never silent. The legitimate re-date removes
+about one row in ten, so a refusal means the response is gappy or something else
+is wrong. Stop and look before retrying.
+
+**Dry run.** `-dry-run` fetches, then logs for each code how many stored rows
+the write would remove and how many stored rows are in the window, and whether
+that is within the ceiling. It writes nothing.
+
+**One-off operator step, after the deploy that carries this change.** The
+scheduled two-year window re-dates only its own rows. History older than two
+years stays one session early in daylight-saving months until the full history
+is re-fetched once. Until then it is wrong, not missing.
+
+Run the steps in this order, and not at 11:30 UTC, when the scheduled run
+starts.
+
+1. Read the baseline, which is what the clean-up is about to change:
+
+   ```sql
+   SELECT index_code, count(*) FILTER (WHERE extract(isodow FROM date) > 5) AS weekend, count(*) AS rows
+   FROM index_prices GROUP BY 1 ORDER BY 1;
+   ```
+
+   (`task db:prod:psql -- -At -c "<the query>"`.)
+
+2. Back up the whole table before any write. The backup is SQL, one statement
+   per stored row, written through the read-only wrapper: a `\copy` is refused
+   there, so do not use one. Keep the file outside the repo:
+
+   ```bash
+   task db:prod:psql -- -At -c "SELECT format('INSERT INTO index_prices (index_code,date,open,high,low,close,volume,created_at,updated_at) VALUES (%L,%L,%L,%L,%L,%L,%L,%L,%L) ON CONFLICT (index_code,date) DO UPDATE SET open=EXCLUDED.open, high=EXCLUDED.high, low=EXCLUDED.low, close=EXCLUDED.close, volume=EXCLUDED.volume, created_at=EXCLUDED.created_at, updated_at=EXCLUDED.updated_at;', index_code, date, open, high, low, close, volume, created_at, updated_at) FROM index_prices ORDER BY index_code, date" > ~/index_prices-YYYYMMDD.sql
+   wc -l ~/index_prices-YYYYMMDD.sql   # must equal the sum of the rows column in step 1
+   head -c 120 ~/index_prices-YYYYMMDD.sql   # must start with INSERT INTO
+   ```
+
+   The file is the only record of a removed row: the run logs counts, not rows.
+
+   Restore with `task db:prod:apply FILE=~/index_prices-YYYYMMDD.sql CONFIRM=prod`.
+   It re-upserts every backed-up row, which puts back each removed row and each
+   changed close, in one transaction. It does not delete the rows the re-date
+   added: those are sessions Yahoo stamped in the window that the backup did not
+   have. To list them, select the rows of a series whose dates are not in the
+   backup's dates for that series.
+
+3. Dry run each command, and read its log lines in the execution:
+
+   ```bash
+   gcloud run jobs execute shorted-index-sync --region australia-southeast2 --wait \
+     --args="market-data,index-sync,-years,21,-dry-run"
+   gcloud run jobs execute shorted-index-sync --region australia-southeast2 --wait \
+     --args="market-data,index-sync,-code,XJT,-years,8,-dry-run"
+   ```
+
+   Each `[dry-run]` line should show a count close to the weekend rows from step
+   1 for that series, plus a few dozen holiday-dated weekday rows. Stop if a
+   count is far above that, or any line says `OVER`.
+
+4. Write, with the same two commands without `-dry-run`. The XJT run is
+   separate on purpose: Yahoo answers 400 to a `-years 21` window for XJT, which
+   is logged as a fetch failure and writes nothing for XJT, while XJO, XAO and
+   XKO still run. Confirm a log line `<code> N sessions written (...), M stale
+   rows removed` for each of XJO, XAO, XKO and XJT, and no `refused` line. A
+   refused series exits 1. XJT's fetch failure exits 0 while the others write,
+   so the exit code does not prove that a series was written: read the lines.
+
+5. Check: no weekend rows remain.
+
+   ```sql
+   SELECT index_code, count(*) FROM index_prices WHERE extract(isodow FROM date) > 5 GROUP BY 1;
+   ```
+
+   It must return no rows.
+
+Do not run the full-history command with `kubectl create job --from=cronjob/...`:
+the CronJob's args are `-years 2`, so that would re-run the scheduled window
+and not the full history. Only the Cloud Run job takes the overridden args
+above.
+
+Its test suite is `make test-indexsync-pg` (`services/jobs/internal/jobs/marketdata/index_sync_pg_test.go`).
+It gates the deploy in `terraform-deploy.yml`'s `run-tests` job.
 
 ### `discovery` — env-only, browser image
 
@@ -735,10 +850,9 @@ procedure: `internal/jobs/shortdatasync/README.md`.
   is ported here (download → parse → upsert → health report → MV refresh →
   revalidate → Algolia → `sync_status`). The `stock_prices` sweep is ALREADY
   `shorted market-data serve|sync` (Phase 2c) and is deliberately not ported a
-  second time. The `key_metrics` refresh of `"company-metadata"` is already owned
-  by the shorts API's `SyncKeyMetrics` RPC + daily `key-metrics-scheduler`
-  (enabled in prod); the Python job was a duplicate writer, so the cutover PR
-  only needs to confirm that scheduler is healthy.
+  second time. The `key_metrics` refresh of `"company-metadata"` is the
+  `shorted key-metrics` job (the `key-metrics` section below), on VKE; the
+  shorts API's `SyncKeyMetrics` RPC is retired.
 - **Exit code 2 retires with the stock loop.** It existed so Cloud Run would
   retry a run that had finished only part of its 500-stock batch. Shorts-only
   runs have no partial state: exit 0 / exit 1 like every other job. The Cloud
@@ -762,6 +876,155 @@ procedure: `internal/jobs/shortdatasync/README.md`.
   sorted-tuple checksum) on stdout for diffing against the Python's actual
   writes. 46 offline tests, including golden fixtures cut from real ASIC files.
 
+## key-metrics
+
+`shorted key-metrics` (`internal/jobs/keymetrics`) refreshes
+`"company-metadata".key_metrics` and `key_metrics_updated_at` from Yahoo's
+quoteSummary. It replaces the shorts API's `SyncKeyMetrics` RPC, which forked
+`python3` and `yfinance` once per stock inside the serving process. That never
+finished: the instance was killed for memory 3 to 30 seconds after each 17:00 UTC
+trigger, so the key metrics have been frozen since 2026-08-22 (the day the Python
+sync lineage was deleted). The RPC now answers `FailedPrecondition` and does
+nothing; the proto stays for API compatibility.
+
+**What it writes.** One `UPDATE` per stock of `key_metrics` (JSONB) and
+`key_metrics_updated_at`, after `keymetrics.Sanitise` (the shared ±Inf/NaN guard
+in `services/pkg/keymetrics`, the same one the API used). The object has exactly
+the keys the Python script wrote, in the same units: `stock_code` plus
+`market_cap`, `pe_ratio`, `forward_pe`, `eps`, `dividend_yield`, `book_value`,
+`price_to_book`, `revenue`, `profit_margin`, `debt_to_equity`,
+`return_on_equity`, `fifty_two_week_high`, `fifty_two_week_low`, `avg_volume`,
+`beta`. Units, as the readers expect them:
+
+- `dividend_yield` is a **percent** (4.35 means 4.35%), rounded to two decimals.
+  Yahoo's `summaryDetail.dividendYield` is a fraction, so it is multiplied by 100;
+  a fund or trust with no `dividendYield` takes `summaryDetail.yield` instead.
+  The screener, the peers card, MCP and the weekly report all read a percent.
+- `market_cap` is in dollars; `profit_margin` and `return_on_equity` are fractions;
+  `debt_to_equity` is as Yahoo states it (50.473 for BHP).
+- Every other key is the Yahoo `raw` number.
+
+Each value is the `raw` number, or `null` when missing, a string, or non-finite.
+The fields come from the `price`, `summaryDetail`, `defaultKeyStatistics` and
+`financialData` modules; a field missing from its own module is looked up in the
+others, as yfinance's merged `info` was. The fetch goes through
+`services/pkg/yahoo` (the crumb, the cookies and the 401 refresh) over the stealth
+client, the path Yahoo does not answer 429 on.
+
+**What it leaves alone.** A stock Yahoo answers with no `regularMarketPrice`, or
+with no measured field at all, is *no data*: its row is not written. A 404
+("quote not found") is also no data. A transport failure, a 429 or a 5xx is a
+*failure*: the row is not written. A failed `UPDATE` is a write failure and the
+row keeps its old values. The row is never overwritten with an empty object. The
+`stock_code` key is kept whatever its value (NAN and INF are real ASX codes).
+
+**Universe.** The stocks with a price row in the last 90 days
+(`stock_prices`, served by `idx_stock_prices_stock_date`). A code Yahoo has no
+quote for (delisted, or never listed) never gets a stamp, so without this filter
+it would sort first on every run and take the whole budget. About 2,100 such
+codes exist in prod (measured 2026-11-06, of 4,577 `company-metadata` rows); they
+are not requested. Codes keep their stored spelling, so a padded row such as
+`"FXG "` is stamped as its own row; `-codes` matches by the trimmed code.
+
+**Order and skips.** Stalest first: `key_metrics_updated_at ASC NULLS FIRST`,
+then `stock_code`. A stock refreshed within the last 20 hours is skipped
+(`skipped_fresh`) unless `-force`. `-codes BHP,CBA` restricts the universe (the
+skips and the breakers still apply).
+
+**Budget and pacing.** It takes no new stock once the time budget is spent:
+`-budget-min` or `KEY_METRICS_BUDGET_MIN`, default 40 minutes. The budget is
+checked after the pacing wait, so no request starts once it is spent. Requests are
+paced about one a second, jittered by ±250 ms. A Yahoo answer takes about 0.15 s,
+so a run covers about 2,000 stocks, and the ~2,200-stock universe cycles in about
+one and a bit daily runs, stalest first. A failed or no-data stock keeps its
+timestamp, so it is retried on the next run; the universe filter keeps the
+no-data set small.
+
+**Breakers.** The Yahoo breakers are the picks job's: stop before the next stock
+after 25 consecutive Yahoo failures, or once more than 30% of the last 100 Yahoo
+requests have failed (evaluated when the window is full). "No data" and 404
+answers are not failures. The **write breaker** stops the run after 5 database
+write failures in a row (`stopped=db`), so a refused pooler does not spend the
+budget on quotes it cannot store. A write success resets it.
+
+**Dry run.** Dry run is the default. `KEY_METRICS_DRY_RUN` unset, or any value
+other than exactly `false` (after trimming), fetches and logs the object it
+*would* write (`key-metrics: dry run, would write BHP: {...}`) and writes nothing.
+The chart sets `KEY_METRICS_DRY_RUN: "false"`. The global `shorted -dry-run
+key-metrics` flag also forces a dry run.
+
+**Exit codes** (`runner.ExitCodeError`, code 1). `0`: the run completed, or every
+stock was fresh, or it attempted stocks and wrote at least one, or the budget was
+spent with writes. `1`: the Yahoo breaker tripped, the write breaker tripped, or
+it attempted stocks and wrote none (a database or Yahoo outage pages the
+monitor). A database connection error and a cancelled run are also exit 1.
+
+**Summary line.** Every run logs one line:
+`key-metrics: summary dry_run=… attempted=… written=… no_data=… failed=… write_failed=… skipped_fresh=… budget_left=… stopped=…`.
+`failed` counts Yahoo fetch failures and `write_failed` database write failures;
+`stopped` is `none`, `budget`, `breaker` (Yahoo), `db` (writes) or `cancelled`.
+
+**Schedule.** VKE CronJob `shorted-key-metrics` (`deploy/kubernetes/jobs/chart/values.yaml`,
+`vkeNative`, no Cloud Run twin): daily at **19:40 UTC** (05:40 AEST, 06:40 AEDT),
+40-minute budget, 3000 s deadline, `maxRetries: 0` (a retry reruns the same
+refusals; the next daily run is the retry). 19:40 keeps clear of the Yahoo traffic
+already on the cluster and on Cloud Run: the price sweeps (08:00 and 10:00 UTC on
+weekdays), the index sync (11:30 UTC) and the picks fundamentals (15:00 to about
+18:30 UTC, budget 170 minutes). The budget ends about 20:20 UTC. The hourly alerts
+run at :55 on weekdays overlaps its tail; they share no rows (alerts reads
+`company-metadata` for logos only). The news cluster run at 20:30 is after it.
+
+**Monitor.** Telesis cron monitor `shorted-key-metrics`, registered from the chart
+by `deploy/kubernetes/jobs/scripts/register-monitors.py` (`TELESIS_ORG_ID`
+`2571efb1-144c-4ec4-9757-30cdc23c920f`, `telesis login` first). The script reads
+`chart/values.yaml` from the local checkout, so run it from an up-to-date `main`
+after the merge: an old checkout plans no new monitor. The monitor pages on a
+failed, missed or timed-out run, which is the exit-1 contract above.
+
+**First run by hand (VKE, read-only evidence first).** A one-off Job is built from
+the CronJob's own pod template, so it runs the same image and env. The `jq` drops
+the `shorted.com.au/cronjob` label (cronjob-reporter checks a labelled run in to the
+Telesis monitor, so an unlabelled smoke stays off it), takes `.spec.jobTemplate.spec`
+(a Job has no `schedule`), and overrides the args and `KEY_METRICS_DRY_RUN`. Each
+smoke gets its own name. The recipe was checked against `helm template` of the chart.
+
+```bash
+export KUBECONFIG=~/projects/paprika/terraform/omega.kubeconfig
+DRY=true                                  # false only for the live smoke, after the dry run is read
+N=km-smoke-$(date -u +%Y%m%d%H%M)
+kubectl -n shorted-jobs get cronjob shorted-key-metrics -o json \
+  | jq --arg n "$N" --arg dry "$DRY" 'walk(if type == "object" then del(.["shorted.com.au/cronjob"]) else . end)
+      | {apiVersion: "batch/v1", kind: "Job", metadata: {name: $n}, spec: (.spec.jobTemplate.spec
+         | .template.spec.containers[0].args = ["key-metrics", "-codes", "BHP,CBA,EML", "-force"]
+         | .template.spec.containers[0].env |= map(if .name == "KEY_METRICS_DRY_RUN" then .value = $dry else . end))}' \
+  | kubectl -n shorted-jobs create -f -
+kubectl -n shorted-jobs logs -f "job/$N"
+kubectl -n shorted-jobs delete job "$N"
+```
+
+1. **Dry run** (`DRY=true`, writes nothing). Expect `dry_run=true`, three
+   `would write` lines whose `dividend_yield` is a percent (BHP about 4, not 0.04),
+   `written=3` (a dry run counts what it would write) and `failed=0`. Compare BHP
+   and CBA with the stored rows: one read-only SELECT of `key_metrics` through
+   `task db:prod:psql`.
+2. **Live smoke** (`DRY=false`, the same command, three rows written), outside
+   19:30 to 20:30 UTC so it does not share the scheduled run's Yahoo budget. Read
+   the summary line: `stopped=none`, `written=3`.
+3. **Register the monitor** (above) before the first scheduled run, or a failed run
+   only logs a WARN.
+
+**Tests.** `go test ./internal/jobs/keymetrics/` covers the field mapping on a
+recorded quoteSummary (`testdata/quote_bhp.json`, `quote_eml.json`), a fund's
+`yield` fallback, the percent unit, the sanitiser, the ordering and the fresh
+skip, pacing, the budget stop, both Yahoo breakers, the write breaker, no-data and
+failure keeping the row, dry run and its flag default, the exit codes.
+`make test-keymetrics-pg` runs the write and the universe filter against a real
+Postgres (one UPDATE stamps the row, a database refusal leaves the old row as it
+was, an unknown stock is an error, a padded code stamps its own row, the NAN code
+survives the sanitiser, codes with no recent price are excluded, a dead head does
+not hide the listed stale stocks). It gates the deploy in `terraform-deploy.yml`
+and runs in `scripts/local-verify.sh`.
+
 ## picks
 
 `shorted picks` is the data layer of the stock picker
@@ -778,9 +1041,181 @@ procedure: `internal/jobs/shortdatasync/README.md`.
 **Schedule** (`module "shorted_job_picks"` in `terraform/environments/prod/main.tf`):
 `-mode refresh` weekdays 13:30 UTC, after the 10:00 UTC price sweep; `-mode
 all` daily 15:00 UTC. `timeout_seconds = 12600`, `max_retries = 1`, env
-`PICKS_FUNDAMENTALS_BUDGET_MIN = "170"` and `REVALIDATION_URL`, secrets
+`PICKS_FUNDAMENTALS_BUDGET_MIN = "170"`, `REVALIDATION_URL` and
+`STRATEGY_PARITY_SHADOW = "on"` (see "Parity shadow" below), secrets
 `DATABASE_URL` and `REVALIDATION_SECRET`. `PICKS_FUNDAMENTALS_MAX_CODES` is
 deliberately not set.
+
+**Parity shadow** (`STRATEGY_PARITY_SHADOW=on`, `services/jobs/internal/jobs/strategies`).
+After a successful live `-mode refresh`, the job runs the parity comparison
+and logs one line, `strategy_parity d=<D> codes=… only_view=… only_go=…
+mismatches=… fields=… examples=… conclusive=true`. It is log-only: a failure or
+panic is logged as `picks: strategy parity shadow failed`, and the picks exit
+code is unchanged. `-mode all` never runs it. A run is `conclusive=false
+inconclusive=<reason>` and counts for nothing when the newest price sweep row
+(`sync_status`, `environment`/`hostname` NULL, `checkpoint_stocks_total > 1`)
+is not `completed`, has no finish time, or finished after the refresh began
+(`no_sweep_row`, `sweep_<status>`, `sweep_unfinished`, `sweep_after_refresh`);
+the comparison still runs and is logged in full.
+The comparison reads inside one REPEATABLE READ, READ ONLY transaction and
+holds fs1 to `mv_price_features`, the regime to `mv_market_regime` (XJO) and
+sf0's days to cover to the `latest_shorts` and `avg_volume` CTEs of 000080
+(the view's own days-to-cover expression, run at parity time). The view side
+has no age limit, as 000080 has none: the Go side reads the last 60 days of
+shorts rows, and a code that window does not answer is read with its whole
+history of positive rows, so an old newest row is compared, not dropped. The
+CTE text is copied into `screener_ctes.go` because the image carries no
+migrations; `TestScreenerCTEsMatchMigration` holds it to 000080.
+`mv_screener_data` is read for one informational line, `strategy_parity_info`
+(its days to cover, counted apart and never in the verdict), because its own
+refresh runs at another time from the CTEs.
+
+An inconclusive run keeps its numbers: the same `strategy_parity ...` line,
+marked `conclusive=false inconclusive=<reason>`. The shadow runs on its own
+goroutine while the picks job waits out its 16-minute revalidation, so the
+revalidation fires on the same schedule with or without it; a panic in the
+shadow is recovered and logged. `-mode parity` takes a `-dry-run` flag for the
+common job flag; it changes nothing.
+
+By hand: `shorted strategies -mode parity` (read-only, needs `DATABASE_URL`).
+It uses its own start time as the refresh start, so it cannot see a sweep that
+finished after the views were last refreshed: trust the scheduled line for
+that. It exits 10 when a conclusive run disagrees.
+
+**Go-live check.** One full weekday of conclusive 13:30 UTC lines with
+`mismatches=0 only_view=0 only_go=0`, read with the admin MCP's
+`list_job_executions` and `get_job_execution`, and the picks exit code
+unchanged. Any mismatch is fixed before the daily snapshot job is built on it.
+
+**Strategy backtest** (`shorted strategies -mode backtest`, `services/jobs/internal/jobs/strategies/backtest.go`,
+migration 000158). Runs as `shorted-strategies-backtest` (VKE CronJob, hourly at :20; 1536Mi request, 3Gi limit). It
+idles, exiting 0 in milliseconds, until a live canonical version other than v0 has a recipe. Each run takes the
+`strategies-backtest` lease, queues each live version's weekly publish request (keyed by ISO week), queues one
+immediately (keyed by day) for a key with no succeeded run and no request queued or running, fails any request a
+SIGKILLed execution left running (error "the execution that claimed it did not finish"), and processes at most five
+requests or 20 minutes of work over one `REPEATABLE READ, READ ONLY` read of the stored history. A publish's first
+attempt for a given input and output runs a verify pass in the same transaction: a second read must reproduce the input
+hash and the output hash, or the publish fails as a determinism failure (exit 10). A request an execution was
+SIGKILLed on (an out-of-memory kill, or a kill after its deadline) is failed, not requeued: requeueing it would rerun it
+every hour. A SIGTERM (a drain, or the 3300 s deadline) is different: the run unwinds and requeues the batch's open
+requests, the one that was running included, so a request that always runs past its deadline is taken again each hour.
+Nothing bounds that loop yet. A key with no succeeded run gets the day's immediate request once its weekly request has
+failed, and one each UTC day while it keeps failing; a key that has one waits for the next ISO week's. A batch that
+stops on an error, is held (a weekend-dated XJO or XJT row), or finds no completed features session is put back in the
+queue. A run
+publishes only when the publication gate passes: a verify pass reproduced the run, coverage is computed under both measures,
+all five sensitivity runs are present (or say why they do not apply) and the same-data reference is computed. A publish
+also stores its diff note against the previously published run of its key on the same engine: the codes whose price
+history up to that run's cut-off was rewritten, the ASIC revisions to reports that run read (up to its ASIC through-date),
+recorded after its snapshot (from `shorts_revisions`; the snapshot time is `diagnostics.read_at`), and the CAGR shift
+over the shared window. The diff's current curve is compared as stored, rounded. The ASIC list has one known gap: the
+reconcile records a revision and then repairs the report's row in separate writes, so a snapshot taken between them reads
+the old value and a revision recorded before that snapshot is not listed (the state and the shift still show the change).
+The gap is one reconcile's write interval; closing it needs both writes in one transaction, which is outside this job. Retention keeps the two newest
+published runs of each key (ranked by `published_at`, across engines), so the next diff can read the run it replaced. A fundamentals recipe whose window is `computable_from` derives that date from
+`stock_fundamentals` (the first month end on which half the universe is computable) and labels it with the fiscal year
+of the median code's bringing period. Its strict policy stores that outcome as one unpublished row (pass 1 only): it
+never simulates the window, which would read today's fundamentals at every session. A version or recipe the daily
+snapshot has not recorded leaves its request queued, after the run has read the history (the readiness check comes after
+the load). A weekend-dated XJO or XJT row holds the batch (exit 0) until the one-off index re-fetch has re-dated the
+history. A request that fails for another reason exits 1. `STRATEGIES_DRY_RUN=false` writes; the default is a dry run
+that reads, computes and logs. Check: `task db:prod:psql -- -At -c "select strategy_id, kind, status, published, window_start, prices_through from strategy_backtest_runs order by started_at desc limit 8"`.
+
+**Strategy daily snapshot** (`shorted strategies -mode daily`, `services/jobs/internal/jobs/strategies`, migration 000156).
+Runs as `shorted-strategies-daily` (VKE CronJob, weekdays at :00, :20 and :40 past 13 to 16 UTC). It writes
+when `STRATEGIES_DRY_RUN=false`, holds a session it cannot yet read whole, backfills held sessions oldest
+first (ten per run), and exits 10 once at the 16:40 UTC run when a session is still held.
+
+- **Index dates are fixed in the tree (#860).** The index sync dates each bar by its Sydney session and removes
+  stored rows in a re-fetched window that are not sessions (the weekend rows). The job reads stored XJO dates for
+  the data calendar, the regime and RS. Rows inside the scheduled index window (`-years 2`, which covers the job's
+  420-day window) are dated by session once the sync has run; older history waits for the one-off `-years 21`
+  (XJO) and `-years 8` (XJT) re-fetch. Readiness rule (e) holds the job with `xjo_weekend_rows` while any XJO bar
+  in the window is dated on a weekend, so a deploy ahead of the re-sync holds rather than writes. Gate before
+  enabling writes, after the one-off XJO re-fetch as well:
+  `task db:prod:psql -- -At -c "SELECT count(*) FROM index_prices WHERE index_code = 'XJO' AND EXTRACT(ISODOW FROM date) > 5"`
+  must return 0.
+- **Signal event evidence** (`strategy_signal_events.evidence`, compact JSON): `r` is one string with one
+  character per rule in the rules version's rule order (`P` pass, `F` fail, `U` unknown; the rule ids are not
+  stored, the event's `rules_hash` pins the order), `v` and `p` the per-rule value and proximity in the same
+  order (null where a rule has none), then `close`, `pivot`, `short_report`, `short_available` and `regime`.
+  An exit (`to_status` none) has `r` "", `v` [] and `p` []. A rule status other than pass, fail or unknown fails
+  the run rather than storing a wrong character, and so does a pick whose rules are not the version's rule list
+  id for id in order (the run fails before any event of that session is written). Example: `{"r":"PFU","v":[9.5,null,null],"p":[null,0.82,null],
+  "close":41.2,"pivot":41.64,"short_report":"2026-10-28","short_available":"2026-11-03","regime":"neutral"}`.
+- **Recompute from session X.** A completed session is read back, never recomputed, and events are insert-only
+  in practice (no trigger forbids a delete). Recompute only for a bug that changed a stored row, and only when
+  every precondition below holds; each is a read-only probe (`task db:prod:psql -- -At -c "..."`):
+  1. The CronJob is not running: no `picks_run_lease` row named `strategies-daily`
+     (`SELECT count(*) FROM picks_run_lease WHERE name = 'strategies-daily'` = 0), and the change is not made
+     on a weekday between 13:00 and 16:59 UTC (the job's runs are at :00, :20 and :40).
+  2. X is inside the kept window and has a completed session before it that still has feature rows:
+     `SELECT min(as_of) FROM strategy_features_daily` is before X, and
+     `SELECT count(*) FROM strategy_features_daily WHERE as_of = (SELECT max(as_of) FROM strategy_daily_runs WHERE phase = 'features' AND status = 'completed' AND as_of < 'X')` is above 0.
+     Pruning keeps feature rows for the newest 15 completed sessions only, so an older X cannot be diffed.
+     With no such session, the recomputed session has no previous to diff against and every later one is lost.
+  3. No canonical version was promoted or superseded on or after X:
+     `SELECT count(*) FROM strategy_rule_versions WHERE kind = 'canonical' AND (live_from >= 'X' OR superseded_on >= 'X')` = 0.
+     Otherwise the superseded version's events in [X, live_from) are deleted and the backfill, which evaluates live
+     versions only, never rebuilds them.
+
+  Back up the four tables and the fundamentals blobs they reference, first, outside the repo. Each file is SQL
+  that `task db:prod:apply` replays: one `INSERT` per row through `jsonb_populate_record`, so every column keeps
+  its type and the events keep their `id`. Make the directory first, then generate each file through the
+  read-only probe (`X` is the session, written as a date in every line):
+
+  ```sh
+  mkdir -p ~/strategy-recompute-X
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_fundamentals_blobs SELECT * FROM jsonb_populate_record(NULL::strategy_fundamentals_blobs, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_fundamentals_blobs t WHERE t.hash IN (SELECT fundamentals_hash FROM strategy_features_daily WHERE as_of >= 'X' AND fundamentals_hash IS NOT NULL)" > ~/strategy-recompute-X/blobs.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_regime_daily SELECT * FROM jsonb_populate_record(NULL::strategy_regime_daily, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_regime_daily t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/regime.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_features_daily SELECT * FROM jsonb_populate_record(NULL::strategy_features_daily, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_features_daily t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/features.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_daily_runs SELECT * FROM jsonb_populate_record(NULL::strategy_daily_runs, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_daily_runs t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/runs.sql
+  task db:prod:psql -- -At -c "SELECT 'INSERT INTO strategy_signal_events SELECT * FROM jsonb_populate_record(NULL::strategy_signal_events, ' || quote_literal(to_jsonb(t)::text) || '::jsonb) ON CONFLICT DO NOTHING;' FROM strategy_signal_events t WHERE t.as_of >= 'X'" > ~/strategy-recompute-X/events.sql
+  ```
+
+  Count what each file holds before the change: `grep -c '^INSERT' ~/strategy-recompute-X/*.sql` must match
+  `SELECT count(*)` for the same rows (the blobs are the ones the feature rows reference). Then write the
+  deletes, with the same `X`, into `~/strategy-recompute-X/restore-delete.sql`:
+
+  ```sql
+  DELETE FROM strategy_signal_events WHERE as_of >= 'X';
+  DELETE FROM strategy_daily_runs WHERE as_of >= 'X';
+  DELETE FROM strategy_features_daily WHERE as_of >= 'X';
+  DELETE FROM strategy_regime_daily WHERE as_of >= 'X';
+  ```
+
+  The recompute starts with the deletes alone, applied as one transaction (`task db:prod:apply` wraps the file
+  in `--single-transaction`, with the statement timeout off). The next scheduled runs then rewrite X. To undo
+  it, apply the restore file, which is those deletes followed by the backup inserts. The blobs go first, because
+  the feature rows reference them:
+
+  ```sh
+  cat ~/strategy-recompute-X/restore-delete.sql ~/strategy-recompute-X/blobs.sql ~/strategy-recompute-X/regime.sql \
+      ~/strategy-recompute-X/features.sql ~/strategy-recompute-X/runs.sql ~/strategy-recompute-X/events.sql \
+      > ~/strategy-recompute-X/restore.sql
+  task db:prod:apply FILE="$HOME/strategy-recompute-X/restore.sql" CONFIRM=prod
+  ```
+
+  The restore file is also the way back: run it on its own, under precondition 1, to put the session exactly
+  as it was backed up (its deletes remove whatever the recompute wrote for X first, so the inserts never meet a
+  conflicting row). Blobs the recompute added and no restored row references are removed by the next run's
+  prune. Verify the counts against the backups before the next run.
+
+  The next scheduled runs backfill from the newest remaining complete session, ten per run. Those sessions take
+  today's fundamentals, metadata, ETP set and dividends, not what was known on their day, so every recomputed
+  session is written with `late=true` in its features `counts`. Blobs are not kept for good: each run's prune
+  deletes every blob no feature row references (`prune.go`, the fundamentals blobs step). A recomputed session
+  whose fundamentals changed leaves its old blobs unreferenced, so the next run removes them. That is why the
+  backup holds the blobs its rows reference, and why the restore puts them back before the feature rows that
+  point at them.
+- **A session that can never pass.** A closure missing from `asxcalendar` is a trading day to the job. It fails
+  readiness rule (c) (`no_priced_codes`) on every run, so every later run stops at that date and the 16:40 run
+  pages. The job has no operator flag to skip a session: add the closure to `asxcalendar` (a code change). The
+  day then leaves the session list, and the next run backfills from the last complete session.
+- **Spot check.** After the 13:30 UTC picks refresh:
+  `task db:prod:psql -- -P pager=off -f scripts/strategy-daily-spot-check.sql`. Every row reads `equal`: the
+  stored `fs1` features against `mv_price_features`, and the stored XJO regime against `mv_market_regime`, for
+  three codes on the newest completed session.
 
 **Run lease.** `-mode fundamentals`, `filings` and `all` claim the one
 `picks_run_lease` row (`name = 'picks'`, 4 hours, extended every 100 codes,
@@ -1121,6 +1556,7 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
 | `etf` | Holdings files of 11 Australian-equity index ETFs (iShares JSON, Vanguard JSON, SPDR xlsx, Betashares CSV) | `fund_holding_snapshots`, `fund_holdings`, `security_identifiers` |
 | `phd` | 11 super funds' portfolio holdings disclosures (one option each, the default or balanced; semi-annual, `phdPeriod` = latest 30 Jun / 31 Dec at least 90 days ago, else the period before) | same |
 | `notices` | Substantial holding notices (Forms 603/604/605, NZ disclosures) selected from `asx_announcements` by headline, read from their PDFs | `substantial_holder_notices`, `substantial_holder_notice_attempts` |
+| `resolve-unavailable` | the notices ASX did not give us: every `fetch_error` attempt, and each `unavailable` attempt recorded before parser version 3 (the API path, `apiPathVersion`), when one of its listed codes is live (a code with a `shorts` row in the last 30 days). The listed codes are all kept for the target rule, delisted ones included. Each is read again through ASX's announcements API (`asx.api.markitdigital.com/asx-research/1.0`: the company's list of its most recent announcements, which the API cuts short (5 items for BHP on 2026-11-05; see the notices bullets), the item with the notice's Sydney day and headline, then `/file/<documentKey>`). A recovered notice is parsed and stored as the nightly pass stores one. The rest are marked `unavailable` when ASX's display page says it cannot display the PDF and the API either does not know the code or lists no document in a list that reaches back before the notice's day; any other failure, a transport failure included, stays `fetch_error`, so a short list that cannot show the notice's day is never set aside. The API recovers only a notice inside the window its list reaches back over, so an older notice stays `fetch_error`. Logs recovered, unavailable and still-`fetch_error` counts. Dry run by default (`OWNERSHIP_DRY_RUN`). Run by hand, once, then as needed | `substantial_holder_notices`, `substantial_holder_notice_attempts`, as `notices` does. Not in `all` |
 | `all` | all of the above, in that order (the scheduled run) | |
 | `repair-placeholders` | the stored notices (`substantial_holder_notices`), judged by the placeholder rule and by the change rule (a 604 whose stated change is over 50 points) and listed one line each; no PDFs are read | with `-apply` and `-dry-run=false`, removes their rows and attempts in one transaction, so the next `notices` run reads them again (rows keyed to an institution are kept). Not in `all` |
 
@@ -1140,13 +1576,64 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
   institution, so a re-read would store it again, and removing a ceased notice
   would bring an earlier holding back as current in
   `v_substantial_holdings_current`.
+- **The announcements API is asked once per notice.** A notice the nightly
+  pass has not yet asked (no attempt, or an attempt below parser version 3)
+  gets one request to ASX's announcements API when its display page fails for
+  any reason but a refusal. An attempt at version 3 or later records that the
+  API was asked, so the nightly pass retries its `fetch_error` from the display
+  page only; `resolve-unavailable` asks the API for every notice it selects.
+  An attempt recorded while the API gave no answer (the run's cap, a refusal
+  of the API, a transport failure, a list cut before the day, a same-day item
+  the list cannot download, another notice of the same headline on the day in
+  the feed, or a display refusal that kept the API from being asked) is recorded
+  at version 2, so the nightly pass asks the API again
+  on the notice's next retry. A "not listed" answer is an answer and records
+  version 3. API requests share one pace of 400 ms across the run
+  (`asxAPIPace`), and a run makes at most 600. An unanswered outcome counts as an attempt like any other, so after three attempts the nightly pass no longer selects it, and `resolve-unavailable` (which selects every `fetch_error` whatever its attempts) is its recovery path. Parser version 3 re-reads the
+  `ambiguous_target` refusals of earlier versions, as version 2 did.
+  `TestNoticeSelectionsAgainstPostgres`
+  runs the notice selections in a rolled-back transaction when
+  `OWNERSHIP_TEST_POSTGRES_URL` is set, and is skipped otherwise.
+- **The API matches a headline, so the feed guards the match.** The API finds
+  a notice by its code, Sydney day and headline, and a generic headline such as
+  "Becoming a substantial holder" is shared by every holder's notice of that
+  day. The URL cannot name the document: the document key's middle segment is
+  not the display page's idsId. `idsId=03151740` answers a PDF dated 2026-10-13,
+  while the key `2924-03151740-3A704697` is BHP's results of its 2026 AGM,
+  dated 2026-10-22. So before the API is asked, the pass counts the notices the
+  feed (`asx_announcements`) holds under the codes on the day with the headline
+  (`SharedHeadlineNotices`). Two or more, and the API is not asked: the notice is
+  `fetch_error`, recorded at version 2 and asked again on its next retry. The
+  guard sees another holder's notice only when the feed holds it. The
+  announcements job reads ASX's per-code announcement pages, which list the same
+  notices, but a notice those pages never listed is not seen. A match also needs
+  the list to reach back before the day (`ErrASXListCut`), and a same-day item
+  the list cannot download (no document key, or no date) withholds it
+  (`ErrASXUnreadable`), since that item may be the notice. Both are recorded
+  at version 2.
 - **A notice is withheld rather than guessed.** Every refusal is an attempt row
   with an outcome: `no_text` (scanned, retried after 7 days, at most 3 times),
+  `fetch_error` (the display page gave neither a PDF nor ASX's refusal; retried
+  after 7 days, at most 3 times), `unavailable` (ASX's display page says "Sorry,
+  cannot display PDF." (matched after markup, entities and case are folded)
+  and the announcements API either does not know its code, or lists no document in a list that reaches back before the notice's day: set aside, never retried by the nightly pass, counted apart as "not
+  available from ASX"; the detail is "ASX cannot display the PDF". A notice an earlier run recorded as `fetch_error` is asked of the API again before the display page can set it aside, so a set-aside always has both of ASX's answers in one run. A display
+  page that failed for any other reason, and an API answer that proves nothing
+  (a list too short to reach back before the day, or a notice with no
+  well-formed listed code), is not `unavailable`: the API lists only as many
+  announcements as it chooses (5 for BHP on 2026-11-05), so a miss in such a
+  list proves nothing, and the notice stays `fetch_error`),
   `no_voting_power` (the figure is only in an annexure, or the form is an
   unflattened AcroForm), `implausible` (a 603 under 5%, a 604 whose previous
   holding was under 5%), `not_a_notice`, `no_holder`, `ambiguous_target` (the
   headline names a company not on record: the code it is listed under is then
-  the holder's), `inconsistent_votes` (votes over voting power implies a share
+  the holder's; or the notice is listed under several codes and its own company
+  name settles none of them. The name is compared folded (case, brackets and
+  punctuation gone, and the trailing Limited, Ltd, Pty, Corporation, Corp,
+  Group, Holdings, NL, Inc and Co dropped: "ZIP CO LIMITED" is "Zip Co Ltd").
+  When exactly one listed code is live (a `shorts` row in the last 30 days) and
+  its folded name matches, that code is the target; two live codes with the
+  name, or none, stay ambiguous), `inconsistent_votes` (votes over voting power implies a share
   count outside 0.5-2x ASIC's total product in issue AS AT THE NOTICE'S DATE,
   so a consolidation or a scrip takeover never rejects an older notice).
   A placeholder section 1 name is `no_holder` and is never read from the
@@ -1162,7 +1649,39 @@ Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
   opening words: "Refer Annexure A for Vanguard Group entities" and "SEE ANNEXURE
   A (BlackRock Inc. and its subsidiaries)" parse, and "SEE ANNEXURE 1", "Refer to
   Annexure A" and "N/A" stay withheld.
-  Refusals are re-read only after `noticeParserVersion` rises.
+  `noticeParserVersion` is 3. Version 2 is the live-code and name rule (above),
+  which changed which code an ambiguous notice is filed under. Version 3 is the
+  announcements API path (`apiPathVersion`). Versions 2 and 3 both re-read the
+  `ambiguous_target` refusals of earlier versions, and only those, through the
+  nightly pass. An outcome recorded while the API gave no answer is recorded at
+  version 2 (`unansweredVersion`), and is asked of the API again (see the API
+  bullets below). `staleRereads` (in
+  `store.go`) maps each version to the outcomes it changed; a refusal from an
+  older version is read again only when its outcome is in the current
+  version's entry. A bump with no entry re-reads nothing, so a bump that changes
+  a verdict must add its outcome there. Every other refusal is read again only
+  by hand: a bump would otherwise re-download all of them to learn the same
+  verdict.
+- **ASX's display page is asked first, and the announcements API second.** A
+  notice whose display page fails is looked up in ASX's announcements API: one
+  list request per code per run (cached), one file request per recovered
+  notice, and one pace of 400 ms shared by every worker of the run
+  (`asxAPIPace`). A list still in flight is shared by the workers that need it,
+  so two workers never request the same code's list at once. A code the API
+  does not know ("Symbol not found", a delisted code) is `unavailable` at once, when the display page also says it cannot display the PDF; with any other display failure it stays `fetch_error`, asked again on its next retry. A notice with no well-formed listed code is never asked of the API (`ErrASXNoCode`).
+  The API's list is as long as the API chooses, not the 200 asked for
+  (`asxAPIListCount`; 5 items for BHP on 2026-11-05, for `count=200`, `count=20`
+  and `itemsPerPage=50` alike). A list is used for a notice only when its oldest
+  item falls on an earlier Sydney day than the notice's, whatever its size;
+  otherwise the notice is not listed
+  (`ErrASXListCut`) and stays `fetch_error`, recorded at version 2, even when the display page says it
+  cannot display the PDF, because the cut list may hold the document. A refusal
+  of the display page (401, 403, 429) is a result: it is
+  recorded as `fetch_error` and the API is not asked around it. A refusal of
+  the API (401, 403, 429) ends the API for the rest of the run, and the run
+  makes at most 600 API requests (`asxAPIRunCap`); past either, a notice stays
+  `fetch_error`, recorded at version 2, and is read in a later run. A transport
+  failure of the API stays `fetch_error` and is recorded the same way.
 - **PDFs are read in a child process** (package `pdfchild`, mode `layout`,
   the same binary): `ledongthuc/pdf` loops on some malformed streams and
   pdfcpu decrypts AES-256 notices at about 32x the file's size. Each child

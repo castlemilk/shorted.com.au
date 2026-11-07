@@ -55,7 +55,7 @@ describe("StrategyFitStrip", () => {
   it("renders one row per strategy with status, score, rank and the picks link", () => {
     render(<StrategyFitStrip fit={fit} />);
     const region = screen.getByRole("region", { name: "Strategy fit" });
-    expect(within(region).getByRole("link", { name: "CAN SLIM" })).toHaveAttribute("href", "/picks/canslim");
+    expect(within(region).getByRole("link", { name: "CAN SLIM" })).toHaveAttribute("href", "/strategies/canslim");
     expect(within(region).getByText("rank 18 of 40")).toBeInTheDocument();
     expect(within(region).getByText("41")).toBeInTheDocument();
     expect(within(region).getByText("Not a candidate")).toBeInTheDocument();
@@ -77,7 +77,7 @@ describe("StrategyFitStrip", () => {
     expect(within(canslim).queryByText("Not a candidate")).not.toBeInTheDocument();
 
     const zanger = screen.getByRole("link", { name: "Zanger Breakout" }).closest("li")!;
-    expect(within(zanger).getByRole("link", { name: "Zanger Breakout" })).toHaveAttribute("href", "/picks/zanger-breakout");
+    expect(within(zanger).getByRole("link", { name: "Zanger Breakout" })).toHaveAttribute("href", "/strategies/zanger-breakout");
     expect(within(zanger).getByText("Not a candidate")).toBeInTheDocument();
     expect(within(zanger).queryByText(/Score/)).not.toBeInTheDocument();
     expect(within(zanger).queryByText(/rank/)).not.toBeInTheDocument();

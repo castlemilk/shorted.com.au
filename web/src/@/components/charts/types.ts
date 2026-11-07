@@ -35,17 +35,25 @@ export interface ChartSeriesSpec {
   measureMode?: "relative" | "absolute";
   /** Suffix for the change in "absolute" mode (e.g. "pp"), after a space. Default "". */
   measureUnit?: string;
+  /** The stroke's dash pattern (stroke-dasharray), e.g. "4,3". Solid when absent. */
+  dash?: string;
+  /** Label the series' final value at its right end, above the line. Off when absent. */
+  endLabel?: boolean;
 }
 
 /**
  * A shaded time-span drawn UNDER the series (full plot height). Generic on
  * purpose — the caller decides what a region means (e.g. short-vs-price
  * divergence) and the core just paints it by `tone`.
+ *
+ * "bearish" and "bullish" are the divergence pair and keep their fixed fills.
+ * "live" is a neutral token tint for a span that is not a market direction
+ * (the recorded track after a strategy's rules were frozen).
  */
 export interface ChartRegion {
   start: number; // epoch ms (inclusive)
   end: number; // epoch ms (inclusive)
-  tone: "bearish" | "bullish";
+  tone: "bearish" | "bullish" | "live";
   label?: string;
 }
 
@@ -86,6 +94,27 @@ export interface OscillatorSpec {
   caption?: string;
   /** Additional lines on the same panel (e.g. STOCH %D, ADX +DI/-DI). */
   extraLines?: { values: (number | null)[]; color: string; dash?: string }[];
+  /**
+   * "area" fills the line down to the panel's zero (or its floor when zero is
+   * off the domain), draws the chart's regions in the panel, and labels its
+   * ticks: a drawdown. Default "line".
+   */
+  kind?: "line" | "area";
+  /** Suffix for the tick labels, e.g. "%". Default none. */
+  unit?: string;
+  /**
+   * Value callouts on the panel, read against its own domain: a drawdown's
+   * trough ("−18.6%" at −18.6). Drawn in the panel with its scale, not on the
+   * plot's. Off when absent.
+   */
+  annotations?: readonly OscillatorAnnotation[];
+}
+
+/** A dot and callout on an oscillator panel at a session, read on the panel's domain. */
+export interface OscillatorAnnotation {
+  t: number; // epoch ms
+  v: number;
+  label: string;
 }
 
 export interface StockChartProps {
@@ -101,6 +130,10 @@ export interface StockChartProps {
   bands?: readonly ChartBand[];
   /** Vertical session markers (a breakout). */
   markers?: readonly ChartMarker[];
+  /** Dots on a series at a session (an entry, an exit). Off when absent. */
+  events?: readonly ChartEvent[];
+  /** Value callouts beside a point (a trough). Off when absent. */
+  annotations?: readonly ChartAnnotation[];
   leftAxis?: AxisSpec;
   rightAxis?: AxisSpec;
   viewMode?: "absolute" | "normalized"; // default "absolute"
@@ -135,6 +168,13 @@ export interface StockChartProps {
    */
   readoutReserveSeries?: number;
   /**
+   * Draw the volume bars at a phone width too (at or under 500px the chart
+   * otherwise drops them). For a panel that is narrow by design, where the
+   * volume is the only context the price line has. Nothing changes on a compact
+   * chart, which never draws volume.
+   */
+  keepVolumeOnNarrow?: boolean;
+  /**
    * Draw the indicators' names as a legend inside the plot, at its top left. Not
    * drawn on a compact chart.
    */
@@ -155,6 +195,30 @@ export interface ChartLevel {
   dash?: string;
   from?: number; // epoch ms
   to?: number; // epoch ms
+  /** Box the label on a card-coloured tag, so a level reads as a price (a pivot, a last close). */
+  tag?: boolean;
+}
+
+/**
+ * A dot on a series at a point in time: a session the reader should see, such as
+ * an entry (amber) or an exit (clay rust). `neutral` is the foreground.
+ */
+export interface ChartEvent {
+  t: number; // epoch ms
+  v: number;
+  tone: "entry" | "exit" | "neutral";
+  label?: string;
+  /** Which axis `v` is read against. Default "left". */
+  axis?: "left" | "right";
+}
+
+/** A value callout beside a point, such as a drawdown's trough. */
+export interface ChartAnnotation {
+  t: number; // epoch ms
+  v: number;
+  label: string;
+  /** Which axis `v` is read against. Default "left". */
+  axis?: "left" | "right";
 }
 
 /** A shaded value band between `low` and `high` over a time span. */

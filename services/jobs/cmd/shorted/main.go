@@ -29,6 +29,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/discovery"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/economy"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/influence"
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/keymetrics"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/marketdata"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/news"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/ownership"
@@ -38,6 +39,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/review"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/shortdatasync"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/signals"
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/strategies"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/weeklyreport"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/pdfchild"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
@@ -53,6 +55,7 @@ func jobs() *runner.Registry {
 		economy.Job(),
 		reportextract.DirectorTradesJob(),
 		influence.Job(),
+		keymetrics.Job(),
 		marketdata.Group(),
 		news.Job(),
 		ownership.Job(),
@@ -61,6 +64,7 @@ func jobs() *runner.Registry {
 		reports.Group(),
 		review.Job(),
 		shortdatasync.Job(),
+		strategies.Job(),
 		signals.Job(),
 		weeklyreport.Job(),
 	)

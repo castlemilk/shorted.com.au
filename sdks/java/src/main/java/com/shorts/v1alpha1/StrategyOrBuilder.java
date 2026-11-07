@@ -243,4 +243,31 @@ public interface StrategyOrBuilder extends
    */
   com.google.protobuf.ByteString
       getSourcesBytes(int index);
+
+  /**
+   * <pre>
+   * The live rules version this definition is evaluated under.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   * @return Whether the version field is set.
+   */
+  boolean hasVersion();
+  /**
+   * <pre>
+   * The live rules version this definition is evaluated under.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   * @return The version.
+   */
+  com.shorts.v1alpha1.StrategyVersionRef getVersion();
+  /**
+   * <pre>
+   * The live rules version this definition is evaluated under.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.StrategyVersionRef version = 10 [json_name = "version"];</code>
+   */
+  com.shorts.v1alpha1.StrategyVersionRefOrBuilder getVersionOrBuilder();
 }

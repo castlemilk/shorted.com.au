@@ -27,7 +27,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { DeskRangeInput, OwnershipFlowsPage } from "~/app/actions/ownershipDesk";
 import { SourceControl } from "./source-control";
 import { ViewDisclosure } from "../workspace/view-disclosure";
-import { TOOLBAR_ROW_CLASS, ToolbarSelect, type ToolbarFold } from "../workspace/toolbar";
+import { TOOLBAR_ROW_CLASS, ToolbarSelect, type ToolbarFold } from "~/@/components/workspace/toolbar";
 import { writeWindowInPlace } from "../workspace/window-select";
 import {
   OwnershipFlowsView,

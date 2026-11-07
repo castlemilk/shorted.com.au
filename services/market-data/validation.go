@@ -11,7 +11,11 @@ import (
 )
 
 var (
-	stockCodeRegex = regexp.MustCompile(`^[A-Z]{3,4}$`)
+	// An ASX code is 3 to 6 upper-case letters or digits. Digits are ordinary
+	// (L1G, S32, A2M, 360) and the stored series run to six characters
+	// (GSBE47, AN3PJ); letters-only once refused every such code before the
+	// database was read, so their price charts drew empty.
+	stockCodeRegex = regexp.MustCompile(`^[A-Z0-9]{3,6}$`)
 	validPeriods   = map[string]bool{
 		"1d": true, "1w": true, "1m": true,
 		"3m": true, "6m": true, "1y": true,
@@ -34,7 +38,7 @@ func ValidateGetStockPriceRequest(req *marketdatav1.GetStockPriceRequest) error 
 	if !stockCodeRegex.MatchString(stockCode) {
 		return connect.NewError(
 			connect.CodeInvalidArgument,
-			fmt.Errorf("stock code must be 3-4 uppercase letters (e.g., CBA, BHP)"),
+			fmt.Errorf("stock code must be 3-6 uppercase letters or digits (e.g., CBA, BHP, L1G)"),
 		)
 	}
 
@@ -55,7 +59,7 @@ func ValidateGetHistoricalPricesRequest(req *marketdatav1.GetHistoricalPricesReq
 	if !stockCodeRegex.MatchString(stockCode) {
 		return connect.NewError(
 			connect.CodeInvalidArgument,
-			fmt.Errorf("stock code must be 3-4 uppercase letters"),
+			fmt.Errorf("stock code must be 3-6 uppercase letters or digits"),
 		)
 	}
 
@@ -96,7 +100,7 @@ func ValidateGetMultipleStockPricesRequest(req *marketdatav1.GetMultipleStockPri
 		if !stockCodeRegex.MatchString(stockCode) {
 			return connect.NewError(
 				connect.CodeInvalidArgument,
-				fmt.Errorf("invalid stock code '%s': must be 3-4 uppercase letters", code),
+				fmt.Errorf("invalid stock code '%s': must be 3-6 uppercase letters or digits", code),
 			)
 		}
 	}
@@ -127,7 +131,7 @@ func ValidateGetStockCorrelationsRequest(req *marketdatav1.GetStockCorrelationsR
 		if !stockCodeRegex.MatchString(stockCode) {
 			return connect.NewError(
 				connect.CodeInvalidArgument,
-				fmt.Errorf("invalid stock code '%s': must be 3-4 uppercase letters", code),
+				fmt.Errorf("invalid stock code '%s': must be 3-6 uppercase letters or digits", code),
 			)
 		}
 	}

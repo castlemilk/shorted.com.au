@@ -56,18 +56,6 @@ variable "otel_endpoint" {
   default     = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
 }
 
-variable "scheduler_region" {
-  description = "Region for Cloud Scheduler (must be australia-southeast1)"
-  type        = string
-  default     = "australia-southeast1"
-}
-
-variable "enable_key_metrics_scheduler" {
-  description = "Enable daily Cloud Scheduler for key metrics sync"
-  type        = bool
-  default     = false
-}
-
 variable "resend_secret_exists" {
   description = "Whether the RESEND_API_KEY secret exists in Secret Manager. Gates binding the secret env (so apply doesn't fail before it's provisioned). The handler no-ops when the key is absent."
   type        = bool
@@ -172,6 +160,28 @@ variable "rate_limit_enabled" {
   default     = false
 }
 
+variable "strategy_public_signals_limit" {
+  description = "Depth an anonymous HTTP caller gets on the public strategy picks list: the top N rows of the default ranking, for every HTTP caller (API-token holders included). 0 is off, which is today's behaviour. Signed-in depth comes from GetViewerStrategyPicks whatever this is set to."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.strategy_public_signals_limit >= 0 && var.strategy_public_signals_limit <= 100 && floor(var.strategy_public_signals_limit) == var.strategy_public_signals_limit
+    error_message = "strategy_public_signals_limit must be a whole number from 0 to 100."
+  }
+}
+
+variable "strategy_source" {
+  description = "Where the stock picker reads its evaluation inputs. \"views\" serves the SQL views (mv_price_features, mv_market_regime); \"snapshot\" evaluates the newest completed session of the daily snapshot (migration 000156) through the engine. A database without the snapshot tables serves the views either way. Delivered as STRATEGY_SOURCE."
+  type        = string
+  default     = "views"
+
+  validation {
+    condition     = contains(["views", "snapshot"], var.strategy_source)
+    error_message = "strategy_source must be \"views\" or \"snapshot\"."
+  }
+}
+
 variable "rate_limit_ssr_bypass_secret" {
   description = "Shared secret proving a first-party marker really is our own Vercel SSR. Same value the Cloudflare worker gets. Empty leaves every first-party request in the unverified (monthly-metered) class, which is degraded but never throttled."
   type        = string
@@ -224,4 +234,10 @@ variable "otel_metrics" {
     )
     error_message = "Enabled metrics routing requires an HTTPS /v1/metrics endpoint without credentials/query and a dedicated Secret Manager header-secret ID; generic Grafana credentials must not be reused."
   }
+}
+
+variable "notification_channel_ids" {
+  description = "Monitoring notification channel IDs for the API uptime alerts (the job-monitoring module's email channel, wired from prod). Empty creates the checks without a notification target."
+  type        = list(string)
+  default     = []
 }

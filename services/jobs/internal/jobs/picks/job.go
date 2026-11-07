@@ -32,6 +32,10 @@
 //	                    fundamentals when this execution changed them).
 //	-mode all           fundamentals, then filings, then refresh.
 //
+// After a successful -mode refresh on a live run, STRATEGY_PARITY_SHADOW=on
+// adds a log-only parity comparison (strategies.RunParity). It never changes
+// the exit code, and -mode all does not run it.
+//
 // fundamentals, filings and all take the picks_run_lease row first, so two
 // executions never write at once; a run that finds it held logs the holder and
 // exits 0. refresh does not take it.
@@ -65,6 +69,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/strategies"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 )
@@ -137,18 +142,20 @@ func Run(parent context.Context, args []string) error {
 	// checking the upstream from a laptop). Everything else opens the pool,
 	// including a dry run of -mode filings, which reads (never writes).
 	var st store
+	var pool *pgxpool.Pool
 	needDB := !*dryRun || len(codes) == 0 || *mode != modeFundamentals
 	if needDB {
 		notices := &noticeLog{}
 		if *verbose {
 			notices.logf = log.Printf
 		}
-		pool, err := platform.ConnectFromEnv(ctx, platform.PoolOption(func(cfg *pgxpool.Config) {
+		p, err := platform.ConnectFromEnv(ctx, platform.PoolOption(func(cfg *pgxpool.Config) {
 			cfg.ConnConfig.OnNotice = notices.handle
 		}))
 		if err != nil {
 			return fmt.Errorf("db connect: %w", err)
 		}
+		pool = p
 		defer pool.Close()
 		st = &pgStore{pool: pool, notices: notices, logf: log.Printf}
 	}
@@ -224,14 +231,60 @@ func Run(parent context.Context, args []string) error {
 
 	// The refresh runs even after a degraded or failed pull: whatever did
 	// land should reach the views, and the stale-view check is its own verdict.
+	refreshStart := time.Now()
 	err := runRefresh(ctx, st, *dryRun, log.Printf)
+	// The shadow runs beside the revalidation wait, so the revalidation fires on
+	// the same schedule with or without it. It is joined before the job returns.
+	var shadowDone chan struct{}
+	if err == nil && parityShadowDue(*mode, *dryRun, os.Getenv) {
+		shadowDone = make(chan struct{})
+		go func() {
+			defer close(shadowDone)
+			runParityShadow(ctx, pool, refreshStart)
+		}()
+	}
 	if err == nil && !*dryRun {
 		revalidateAfterRefresh(ctx, defaultRevalidator(), fundamentalsChanged, log.Printf)
+	}
+	if shadowDone != nil {
+		<-shadowDone
 	}
 	if *mode == modeRefresh {
 		return err
 	}
 	return worstError(append(stepErrs, stepError("refresh", err))...)
+}
+
+// parityShadowEnv switches the shadow parity on. The shadow is log-only: it
+// reads the views and the stored bars, and nothing it finds changes the exit
+// code of this job.
+const parityShadowEnv = "STRATEGY_PARITY_SHADOW"
+
+// parityShadowDue says whether this execution runs the shadow parity: only a
+// live -mode refresh (never -mode all, whose timeout leaves no room for a second
+// full comparison), only after the views really refreshed, and only when the
+// switch is on.
+func parityShadowDue(mode string, dryRun bool, getenv func(string) string) bool {
+	return mode == modeRefresh && !dryRun && strings.TrimSpace(getenv(parityShadowEnv)) == "on"
+}
+
+// runParityShadow runs the comparison and reports its failure in the log. A
+// failure, or a panic inside the comparison, never fails the picks run. It runs
+// on its own goroutine, so the recover here is what keeps a panic from ending
+// the process.
+func runParityShadow(ctx context.Context, pool *pgxpool.Pool, refreshStart time.Time) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("picks: strategy parity shadow failed; the picks run is unaffected: panic: %v", r)
+		}
+	}()
+	if pool == nil {
+		log.Printf("picks: strategy parity shadow skipped: no database")
+		return
+	}
+	if _, err := strategies.RunParity(ctx, pool, refreshStart, log.Printf); err != nil {
+		log.Printf("picks: strategy parity shadow failed; the picks run is unaffected: %v", err)
+	}
 }
 
 // fundamentalsBudget is PICKS_FUNDAMENTALS_BUDGET_MIN (default 170), capped

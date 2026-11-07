@@ -1,7 +1,7 @@
 // StrategyService response -> plain rows (./types.ts).
 //
 // ONE mapper for every surface (docs/plans/fundamentals-coverage.md §7.2): the
-// server actions call it on protobuf-es messages, and the /picks sort island
+// server actions call it on protobuf-es messages, and the /strategies sort island
 // calls it on the protojson a browser POST gets back. So its input types are
 // STRUCTURAL, ALL-OPTIONAL and JSON-COMPATIBLE, and this file imports nothing
 // from the generated modules (not even types): a message satisfies these
@@ -20,13 +20,20 @@
 import type {
   GrowthBasis,
   MarketRegimeView,
+  PicksSignals,
   PickFundamentalsView,
   PickRow,
   PickStatus,
   RegimeLabel,
+  RuleParamView,
+  RuleSettingView,
   RuleResultRow,
   RuleStatus,
+  StatusCountsView,
   StrategyDef,
+  StrategyRuleDef,
+  StrategyVersionDef,
+  StrategyVersionDetailView,
 } from "./types";
 
 /** A protojson double: a number, or "NaN" / "Infinity" / "-Infinity". */
@@ -39,6 +46,12 @@ export interface StrategyRuleInput {
   evaluation?: string;
   core?: boolean;
   dataSource?: string;
+  trigger?: boolean;
+  weight?: WireDouble;
+  threshold?: WireDouble;
+  hasThreshold?: boolean;
+  unit?: string;
+  comparator?: string;
 }
 
 export interface StrategyMetadataInput {
@@ -60,6 +73,25 @@ export interface StrategyInput {
   metadata?: StrategyMetadataInput | null;
   caveats?: readonly string[];
   sources?: readonly string[];
+  version?: StrategyVersionInput | null;
+}
+
+export interface RuleParamInput {
+  ruleId?: string;
+  name?: string;
+  value?: WireDouble;
+}
+
+export interface StrategyVersionDetailInput {
+  version?: StrategyVersionInput | null;
+  params?: readonly RuleParamInput[];
+  /** The version's canonical spec as JSON text (the hashed one). */
+  canonicalJson?: string;
+  policies?: readonly string[];
+  changes?: readonly string[];
+  knownIssues?: readonly string[];
+  supersededOn?: string;
+  retiredOn?: string;
 }
 
 export interface MarketRegimeInput {
@@ -77,6 +109,31 @@ export interface RuleResultInput {
   ruleId?: string;
   status?: string;
   detail?: string;
+  value?: WireDouble;
+  hasValue?: boolean;
+  reason?: string;
+  proximity?: WireDouble;
+  hasProximity?: boolean;
+  waiting?: boolean;
+}
+
+export interface StatusCountsInput {
+  triggered?: number;
+  setup?: number;
+  watch?: number;
+  unknown?: number;
+}
+
+export interface StrategyVersionInput {
+  strategyId?: string;
+  label?: string;
+  rulesHash?: string;
+  engineVersion?: string;
+  featureSet?: string;
+  status?: string;
+  liveFrom?: string;
+  kind?: string;
+  variantId?: string;
 }
 
 export interface PickFundamentalsInput {
@@ -130,6 +187,21 @@ export interface StrategyPickInput {
   hasMarketCap?: boolean;
   hasClose?: boolean;
   fundamentals?: PickFundamentalsInput | null;
+  pctOff52wHigh?: WireDouble;
+  hasPctOff52wHigh?: boolean;
+  daysToCover?: WireDouble;
+  hasDaysToCover?: boolean;
+  rs6mPct?: WireDouble;
+  hasRs6mPct?: boolean;
+  rs6mPercentile?: WireDouble;
+  hasRs6mPercentile?: boolean;
+  dollarVolume20d?: WireDouble;
+  hasDollarVolume20d?: boolean;
+  breakoutDate?: string;
+  shortReportDate?: string;
+  shortAvailableDate?: string;
+  shortStatus?: string;
+  caSuspectDate?: string;
 }
 
 /** The GetStrategyPicks response fields the picker reads. */
@@ -137,11 +209,28 @@ export interface StrategyPicksResponseInput {
   strategy?: StrategyInput | null;
   regime?: MarketRegimeInput | null;
   picks?: readonly StrategyPickInput[];
+  statusCounts?: StatusCountsInput | null;
+  sessionDate?: string;
+  shortReportDate?: string;
+  shortAvailableDate?: string;
+  stale?: boolean;
+  rsQuantileThreshold?: WireDouble;
+  hasRsQuantileThreshold?: boolean;
+  universeLabel?: string;
+  version?: StrategyVersionInput | null;
   totalCount?: number;
   universeCount?: number;
   fundamentalsCoverageCount?: number;
   fundamentalsRowsCount?: number;
   asOf?: string;
+  viewer?: ViewerDepthInput | null;
+}
+
+/** The depth this caller's access receives (protojson ViewerDepth). */
+export interface ViewerDepthInput {
+  access?: string;
+  clamped?: boolean;
+  limit?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -211,9 +300,24 @@ function isoDate(value: unknown): string {
   return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : "";
 }
 
+/** A YYYY-MM-DD date, or null when the value is absent or not a date. */
+export function isoDateOrNull(value: unknown): string | null {
+  return isoDate(value) || null;
+}
+
 /** The one decimal every picker ratio prints; formatting it again is a no-op. */
 function oneDecimal(value: number): number {
   return Number(value.toFixed(1));
+}
+
+/**
+ * Rounds down to a display step. A figure read against a cut-off (the
+ * rs_leader percentile, the liquidity floor) must not print at the cut-off
+ * when it sits just under it, so the step never moves a value up.
+ */
+function floorTo(value: number, places: number): number {
+  const scale = 10 ** places;
+  return Math.floor(value * scale) / scale;
 }
 
 let sydneyParts: Intl.DateTimeFormat | null = null;
@@ -260,6 +364,7 @@ export function sydneyIsoDate(rfc3339: unknown): string {
 export function mapStrategy(strategy: StrategyInput): StrategyDef {
   const metadata = strategy.metadata;
   const rules = strategy.rules ?? [];
+  const version = mapStrategyVersion(strategy.version);
   return {
     id: str(strategy.id),
     name: str(strategy.name),
@@ -273,6 +378,7 @@ export function mapStrategy(strategy: StrategyInput): StrategyDef {
       evaluation: str(rule.evaluation),
       core: rule.core === true,
       dataSource: str(rule.dataSource),
+      ...mapRuleSignals(rule),
     })),
     metadata: metadata
       ? {
@@ -286,6 +392,53 @@ export function mapStrategy(strategy: StrategyInput): StrategyDef {
       : null,
     caveats: strings(strategy.caveats),
     sources: strings(strategy.sources),
+    ...(version ? { version } : {}),
+  };
+}
+
+/** One published rules version for the changelog, or null when it names no version. */
+/**
+ * Each rule's role and weight from a version's canonical spec. A rule without a
+ * finite weight is dropped (its share is unknown, never zero); unparseable JSON
+ * gives no rules, and the page then bails rather than showing roles it cannot
+ * stand behind.
+ */
+export function mapRuleSettings(canonicalJson: string | undefined): RuleSettingView[] {
+  if (!canonicalJson) return [];
+  let spec: unknown;
+  try {
+    spec = JSON.parse(canonicalJson);
+  } catch {
+    return [];
+  }
+  const rules = (spec as { rules?: unknown } | null)?.rules;
+  if (!Array.isArray(rules)) return [];
+  return rules.flatMap((rule: unknown) => {
+    if (!rule || typeof rule !== "object") return [];
+    const r = rule as Record<string, unknown>;
+    const ruleId = str(r.id);
+    if (!ruleId || typeof r.weight !== "number" || !Number.isFinite(r.weight)) return [];
+    return [{ ruleId, core: r.core === true, trigger: r.trigger === true, weight: r.weight }];
+  });
+}
+
+export function mapStrategyVersionDetail(
+  input: StrategyVersionDetailInput,
+): StrategyVersionDetailView | null {
+  const version = mapStrategyVersion(input.version);
+  if (!version) return null;
+  return {
+    version,
+    params: (input.params ?? []).flatMap((param) => {
+      const mapped = mapRuleParam(param);
+      return mapped ? [mapped] : [];
+    }),
+    rules: mapRuleSettings(input.canonicalJson),
+    policies: strings(input.policies),
+    changes: strings(input.changes),
+    knownIssues: strings(input.knownIssues),
+    supersededOn: isoDateOrNull(input.supersededOn) ?? "",
+    retiredOn: isoDateOrNull(input.retiredOn) ?? "",
   };
 }
 
@@ -307,12 +460,137 @@ export function mapRegime(
   };
 }
 
-function mapRuleResult(result: RuleResultInput): RuleResultRow {
-  return {
+/** A rule's definition signals: the trigger flag, weight and the threshold it tests. */
+function mapRuleSignals(rule: StrategyRuleInput): Partial<StrategyRuleDef> {
+  const out: Partial<StrategyRuleDef> = {
+    trigger: rule.trigger === true,
+    weight: finiteOrNull(rule.weight) ?? 0,
+    unit: str(rule.unit),
+    comparator: str(rule.comparator),
+  };
+  const threshold = flagged(rule.threshold, rule.hasThreshold);
+  if (threshold !== null) out.threshold = threshold;
+  return out;
+}
+
+/**
+ * One rule result. The value, proximity and reason are present only when the
+ * API sends them, so a rule with no value has no value key, not a zero.
+ */
+export function mapRuleResult(result: RuleResultInput): RuleResultRow {
+  const row: RuleResultRow = {
     ruleId: str(result.ruleId),
     status: toRuleStatus(result.status),
     detail: str(result.detail),
   };
+  // The value keeps the API's precision: a threshold test is read from it,
+  // and a rounded value could print on the wrong side of its threshold.
+  const value = flagged(result.value, result.hasValue);
+  if (value !== null) row.value = value;
+  const reason = str(result.reason).trim();
+  if (reason) row.reason = reason;
+  const proximity = flagged(result.proximity, result.hasProximity);
+  if (proximity !== null) row.proximity = Math.round(proximity * 100) / 100;
+  if (result.waiting === true) row.waiting = true;
+  return row;
+}
+
+/** A pick's signal fields, present only where the has_* flag or the value says so. */
+function mapPickSignals(pick: StrategyPickInput): Partial<PickRow> {
+  const out: Record<string, unknown> = {};
+  const percentile = flagged(pick.rs6mPercentile, pick.hasRs6mPercentile);
+  const turnover = flagged(pick.dollarVolume20d, pick.hasDollarVolume20d);
+  const numbers: Array<[keyof PickRow, number | null]> = [
+    ["pctOff52wHigh", flagged(pick.pctOff52wHigh, pick.hasPctOff52wHigh)],
+    ["daysToCover", flagged(pick.daysToCover, pick.hasDaysToCover)],
+    ["rs6mPct", flagged(pick.rs6mPct, pick.hasRs6mPct)],
+    // Top quartile is 75 or more: one decimal, rounded down, so 74.96 is not 75.0.
+    ["rs6mPercentile", percentile === null ? null : floorTo(percentile, 1)],
+    // The A$250k liquidity floor: whole dollars, rounded down.
+    ["dollarVolume20d", turnover === null ? null : floorTo(turnover, 0)],
+  ];
+  for (const [key, value] of numbers) {
+    if (value !== null) out[key] = value;
+  }
+  const dates: Array<[keyof PickRow, unknown]> = [
+    ["breakoutDate", pick.breakoutDate],
+    ["shortReportDate", pick.shortReportDate],
+    ["shortAvailableDate", pick.shortAvailableDate],
+    ["caSuspectDate", pick.caSuspectDate],
+  ];
+  for (const [key, value] of dates) {
+    const date = isoDateOrNull(value);
+    if (date !== null) out[key] = date;
+  }
+  const shortStatus = str(pick.shortStatus).trim();
+  if (shortStatus) out.shortStatus = shortStatus;
+  return out as Partial<PickRow>;
+}
+
+function mapStatusCounts(
+  input: StatusCountsInput | null | undefined,
+): StatusCountsView | null {
+  if (!input) return null;
+  return {
+    triggered: count(input.triggered),
+    setup: count(input.setup),
+    watch: count(input.watch),
+    unknown: count(input.unknown),
+  };
+}
+
+/** One rule parameter, or null when it has no name or no finite value. */
+function mapRuleParam(input: RuleParamInput): RuleParamView | null {
+  const name = str(input.name);
+  // A protojson zero is absent, so finiteOrNull reads a missing value as 0.
+  const value = finiteOrNull(input.value);
+  if (!name || value === null) return null;
+  return { ruleId: str(input.ruleId), name, value };
+}
+
+/** The rules version, or null when the API names none. */
+function mapStrategyVersion(
+  input: StrategyVersionInput | null | undefined,
+): StrategyVersionDef | null {
+  if (!input) return null;
+  const version: StrategyVersionDef = {
+    strategyId: str(input.strategyId),
+    label: str(input.label),
+    rulesHash: str(input.rulesHash),
+    engineVersion: str(input.engineVersion),
+    featureSet: str(input.featureSet),
+    status: str(input.status),
+    liveFrom: str(input.liveFrom),
+    kind: str(input.kind),
+    variantId: str(input.variantId),
+  };
+  return version.label || version.rulesHash ? version : null;
+}
+
+/** The response-level signals; each present only when the API carries it. */
+function mapPicksSignals(response: StrategyPicksResponseInput): PicksSignals {
+  // stale is set only when the API says so: the index has closed a session the
+  // prices have not reached. An absent flag is not a claim of freshness.
+  const out: PicksSignals = {};
+  if (response.stale === true) out.stale = true;
+  const counts = mapStatusCounts(response.statusCounts);
+  if (counts) out.statusCounts = counts;
+  const sessionDate = isoDateOrNull(response.sessionDate);
+  if (sessionDate) out.sessionDate = sessionDate;
+  const shortReportDate = isoDateOrNull(response.shortReportDate);
+  if (shortReportDate) out.shortReportDate = shortReportDate;
+  const shortAvailableDate = isoDateOrNull(response.shortAvailableDate);
+  if (shortAvailableDate) out.shortAvailableDate = shortAvailableDate;
+  const threshold = flagged(
+    response.rsQuantileThreshold,
+    response.hasRsQuantileThreshold,
+  );
+  if (threshold !== null) out.rsQuantileThreshold = threshold;
+  const universeLabel = str(response.universeLabel).trim();
+  if (universeLabel) out.universeLabel = universeLabel;
+  const version = mapStrategyVersion(response.version);
+  if (version) out.version = version;
+  return out;
 }
 
 /** The ratios the row shows that the API can withhold as not meaningful. */
@@ -395,19 +673,24 @@ export function mapPick(pick: StrategyPickInput): PickRow {
     marketCap: pick.hasMarketCap === true ? positiveOrNull(pick.marketCap) : null,
     logoUrl: str(pick.logoUrl),
   };
+  Object.assign(row, mapPickSignals(pick));
   const fundamentals = mapPickFundamentals(pick.fundamentals);
   if (fundamentals) row.fundamentals = fundamentals;
   return row;
 }
 
 /** The rows and counts of one GetStrategyPicks response. */
-export interface MappedPicks {
+export interface MappedPicks extends PicksSignals {
   picks: PickRow[];
   totalCount: number;
   universeCount: number;
   fundamentalsCoverageCount: number;
   fundamentalsRowsCount: number;
   asOf: string;
+  /** The answer is the public top rows, not the whole ranking (see ViewerDepthInput). */
+  clamped: boolean;
+  /** The rows the clamp allows; 0 when unclamped. */
+  depth: number;
 }
 
 /** Everything but the strategy and regime: what both the page and the sort island read. */
@@ -419,5 +702,8 @@ export function mapPicksResponse(response: StrategyPicksResponseInput): MappedPi
     fundamentalsCoverageCount: count(response.fundamentalsCoverageCount),
     fundamentalsRowsCount: count(response.fundamentalsRowsCount),
     asOf: str(response.asOf),
+    clamped: response.viewer?.clamped === true,
+    depth: response.viewer?.clamped === true ? count(response.viewer.limit) : 0,
+    ...mapPicksSignals(response),
   };
 }

@@ -1,0 +1,7 @@
+# Recipe hashes of the r1 recipes: strategy id, recipe id, recipe_hash.
+# Regenerate only with a new recipe id (see TestRecipeHashesArePinned): a frozen recipe never changes in place.
+crowded-short-breakout csb-r1 7eff8b4682a32f71b5801f3458d8a3d0db20cd67daf15140ff114b61767e33d5
+minervini-trend-template mtt-r1 a408739b0e93d45d271b533bae4898f033f308473ee87057d6dc8bf53fd5756a
+zanger-breakout zb-r1 24f6ea255ee030580be0cba30824b555bbc777abb9af1ad944b40d13aeca40d6
+canslim cs-r1 61e6b5c01f51dffe8173afa7686cc2f4e3957d6fb36f3c568514c72c01ec209a
+quality-compounders qc-r1 0198c27707d5af271548eae79ceb7546bdb08d5af8f41b9aa6557287e64e3f64

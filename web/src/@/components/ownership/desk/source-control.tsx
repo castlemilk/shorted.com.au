@@ -1,6 +1,6 @@
 "use client";
 
-import { ToolbarSelect } from "../workspace/toolbar";
+import { ToolbarSelect } from "~/@/components/workspace/toolbar";
 
 /** Why the index fund option is disabled (spec 14.8): its figures are files, not notices. */
 export const INDEX_SOURCE_TITLE = "Index fund holdings are files, not notices";

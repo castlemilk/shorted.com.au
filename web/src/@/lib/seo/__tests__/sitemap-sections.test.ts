@@ -312,7 +312,7 @@ describe("sitemap children", () => {
       ["/authors/", "sitemap-core.xml"],
       ["/scans/", "sitemap-core.xml"],
       ["/themes/", "sitemap-core.xml"],
-      ["/picks/", "sitemap-core.xml"],
+      ["/strategies/", "sitemap-core.xml"],
       ["/directory/", "sitemap-core.xml"],
       ["/market/", "sitemap-core.xml"],
       ["/industry/", "sitemap-core.xml"],
@@ -370,7 +370,13 @@ describe("sitemap children", () => {
   // fetches, so they carry no lastmod rather than a borrowed one.
   it("lists the stock picker hub and every registry strategy without a fabricated lastmod", async () => {
     const core = await buildCoreSitemap();
-    const urls = ["/picks", ...STRATEGY_SLUGS.map((slug) => `/picks/${slug}`)];
+    const urls = [
+      "/strategies",
+      ...STRATEGY_SLUGS.map((slug) => `/strategies/${slug}`),
+      // The Rules tab is enabled, so each strategy's rules page is listed too.
+      ...STRATEGY_SLUGS.map((slug) => `/strategies/${slug}/rules`),
+      "/strategies/changelog",
+    ];
     for (const path of urls) {
       const entry = core.find((e) => e.url === `https://shorted.com.au${path}`);
       expect(entry).toBeDefined();

@@ -11,7 +11,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/strategies.proto.
  */
 export const file_shorts_v1alpha1_strategies: GenFile = /*@__PURE__*/
-  fileDesc("CiBzaG9ydHMvdjFhbHBoYTEvc3RyYXRlZ2llcy5wcm90bxIPc2hvcnRzLnYxYWxwaGExIuoBCghTdHJhdGVneRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmF1dGhvchgDIAEoCRIPCgd0YWdsaW5lGAQgASgJEh4KFmRlc2NyaXB0aW9uX3BhcmFncmFwaHMYBSADKAkSLAoFcnVsZXMYBiADKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lSdWxlEjMKCG1ldGFkYXRhGAcgASgLMiEuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5TWV0YWRhdGESDwoHY2F2ZWF0cxgIIAMoCRIPCgdzb3VyY2VzGAkgAygJInMKDFN0cmF0ZWd5UnVsZRIKCgJpZBgBIAEoCRINCgV0aXRsZRgCIAEoCRIRCglydWxlX3RleHQYAyABKAkSEgoKZXZhbHVhdGlvbhgEIAEoCRIMCgRjb3JlGAUgASgIEhMKC2RhdGFfc291cmNlGAYgASgJIo4BChBTdHJhdGVneU1ldGFkYXRhEg0KBXN0eWxlGAEgASgJEhYKDmhvbGRpbmdfcGVyaW9kGAIgASgJEhQKDHJpc2tfcG9zdHVyZRgDIAEoCRIQCgh1bml2ZXJzZRgEIAEoCRIXCg9yZWZyZXNoX2NhZGVuY2UYBSABKAkSEgoKcnVsZV9jb3VudBgGIAEoBSKaAQoMTWFya2V0UmVnaW1lEhIKCmluZGV4X2NvZGUYASABKAkSDQoFYXNfb2YYAiABKAkSDgoGcmVnaW1lGAMgASgJEg0KBWNsb3NlGAQgASgBEg0KBXNtYTUwGAUgASgBEg4KBnNtYTIwMBgGIAEoARIYChBwY3Rfb2ZmXzUyd19oaWdoGAcgASgBEg8KB3ZlcmRpY3QYCCABKAkiXwoKUnVsZVJlc3VsdBIPCgdydWxlX2lkGAEgASgJEg4KBnN0YXR1cxgCIAEoCRIOCgZkZXRhaWwYAyABKAkSDQoFdmFsdWUYBCABKAESEQoJaGFzX3ZhbHVlGAUgASgIIvAECgxTdHJhdGVneVBpY2sSDAoEcmFuaxgBIAEoBRISCgpzdG9ja19jb2RlGAIgASgJEhQKDGNvbXBhbnlfbmFtZRgDIAEoCRIQCghpbmR1c3RyeRgEIAEoCRIOCgZzdGF0dXMYBSABKAkSDQoFc2NvcmUYBiABKAESKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdBINCgVjbG9zZRgIIAEoARINCgVhc19vZhgJIAEoCRIYChBwY3Rfb2ZmXzUyd19oaWdoGAogASgBEhgKEHZvbHVtZV9yYXRpb181MGQYCyABKAESFgoOYmFzZV9kZXB0aF9wY3QYDCABKAESGAoQYmFzZV9sZW5ndGhfZGF5cxgNIAEoBRINCgVwaXZvdBgOIAEoARIXCg9yZXZlbnVlX3lveV9wY3QYDyABKAESFwoPaGFzX3JldmVudWVfeW95GBAgASgIEhMKC2Vwc195b3lfcGN0GBEgASgBEhMKC2hhc19lcHNfeW95GBIgASgIEhEKCXJzXzNtX3BjdBgTIAEoARIRCglzaG9ydF9wY3QYFCABKAESEgoKbWFya2V0X2NhcBgVIAEoARIQCghsb2dvX3VybBgWIAEoCRIVCg1oYXNfcnNfM21fcGN0GBcgASgIEhUKDWhhc19zaG9ydF9wY3QYGCABKAgSFgoOaGFzX21hcmtldF9jYXAYGSABKAgSEQoJaGFzX2Nsb3NlGBogASgIEjcKDGZ1bmRhbWVudGFscxgbIAEoCzIhLnNob3J0cy52MWFscGhhMS5QaWNrRnVuZGFtZW50YWxzIqMEChBQaWNrRnVuZGFtZW50YWxzEiEKGXJldmVudWVfYmFzaXNfcGVyaW9kX3R5cGUYASABKAkSGgoScmV2ZW51ZV9wZXJpb2RfZW5kGAIgASgJEh0KFWVwc19iYXNpc19wZXJpb2RfdHlwZRgDIAEoCRIWCg5lcHNfcGVyaW9kX2VuZBgEIAEoCRIQCghjdXJyZW5jeRgFIAEoCRISCgpmZXRjaGVkX2F0GAYgASgJEhwKFHJldmVudWVfYmFzaXNfc291cmNlGAcgASgJEhgKEGVwc19iYXNpc19zb3VyY2UYCCABKAkSFgoObmV0X21hcmdpbl9wY3QYCSABKAESGgoSaGFzX25ldF9tYXJnaW5fcGN0GAogASgIEg8KB3JvZV9wY3QYCyABKAESEwoLaGFzX3JvZV9wY3QYDCABKAgSFgoOZmNmX21hcmdpbl9wY3QYDSABKAESGgoSaGFzX2ZjZl9tYXJnaW5fcGN0GA4gASgIEhoKEm5ldF9kZWJ0X3RvX2ViaXRkYRgPIAEoARIeChZoYXNfbmV0X2RlYnRfdG9fZWJpdGRhGBAgASgIEhAKCHBlX3JhdGlvGBEgASgBEhQKDGhhc19wZV9yYXRpbxgSIAEoCBIUCgxpc19maW5hbmNpYWwYEyABKAgSGwoTbmV0X2luY29tZV9wb3NpdGl2ZRgUIAEoCBIWCg5ub3RfbWVhbmluZ2Z1bBgVIAMoCSKMAQoXR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QSEwoLc3RyYXRlZ3lfaWQYASABKAkSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFEg4KBnN0YXR1cxgEIAEoCRIPCgdzb3J0X2J5GAUgASgJEhwKFHJlcXVpcmVfZnVuZGFtZW50YWxzGAYgASgIIqYCChhHZXRTdHJhdGVneVBpY2tzUmVzcG9uc2USKwoIc3RyYXRlZ3kYASABKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZRIsCgVwaWNrcxgDIAMoCzIdLnNob3J0cy52MWFscGhhMS5TdHJhdGVneVBpY2sSEwoLdG90YWxfY291bnQYBCABKAUSFgoOdW5pdmVyc2VfY291bnQYBSABKAUSIwobZnVuZGFtZW50YWxzX2NvdmVyYWdlX2NvdW50GAYgASgFEg0KBWFzX29mGAcgASgJEh8KF2Z1bmRhbWVudGFsc19yb3dzX2NvdW50GAggASgFIjAKGkdldFN0b2NrU3RyYXRlZ3lGaXRSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkipwEKC1N0cmF0ZWd5Rml0EhMKC3N0cmF0ZWd5X2lkGAEgASgJEhUKDXN0cmF0ZWd5X25hbWUYAiABKAkSDgoGc3RhdHVzGAMgASgJEg0KBXNjb3JlGAQgASgBEgwKBHJhbmsYBSABKAUSEwoLdG90YWxfY291bnQYBiABKAUSKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdCKtBQoNUHJpY2VGZWF0dXJlcxINCgVhc19vZhgBIAEoCRINCgVjbG9zZRgCIAEoARINCgVzbWE1MBgDIAEoARIRCgloYXNfc21hNTAYBCABKAgSDgoGc21hMTUwGAUgASgBEhIKCmhhc19zbWExNTAYBiABKAgSDgoGc21hMjAwGAcgASgBEhIKCmhhc19zbWEyMDAYCCABKAgSGgoSc21hMjAwX3ByaW9yX21vbnRoGAkgASgBEh4KFmhhc19zbWEyMDBfcHJpb3JfbW9udGgYCiABKAgSDwoHaGlnaDUydxgLIAEoARITCgtoYXNfaGlnaDUydxgMIAEoCBIOCgZsb3c1MncYDSABKAESEgoKaGFzX2xvdzUydxgOIAEoCBIRCgliYXNlX2hpZ2gYDyABKAESFQoNaGFzX2Jhc2VfaGlnaBgQIAEoCBIQCghiYXNlX2xvdxgRIAEoARIUCgxoYXNfYmFzZV9sb3cYEiABKAgSFgoOYmFzZV9kZXB0aF9wY3QYEyABKAESGgoSaGFzX2Jhc2VfZGVwdGhfcGN0GBQgASgIEhgKEGJhc2VfbGVuZ3RoX2RheXMYFSABKAUSHAoUaGFzX2Jhc2VfbGVuZ3RoX2RheXMYFiABKAgSFwoPYnJlYWtvdXRfcmVjZW50GBcgASgIEhUKDWJyZWFrb3V0X2RhdGUYGCABKAkSEAoIcnMzbV9wY3QYGSABKAESFAoMaGFzX3JzM21fcGN0GBogASgIEhAKCHJzNm1fcGN0GBsgASgBEhQKDGhhc19yczZtX3BjdBgcIAEoCBIXCg92b2x1bWVfcmF0aW81MGQYHSABKAESGwoTaGFzX3ZvbHVtZV9yYXRpbzUwZBgeIAEoCBIaChJzZXNzaW9uc19hdmFpbGFibGUYHyABKAUi6AEKG0dldFN0b2NrU3RyYXRlZ3lGaXRSZXNwb25zZRISCgpzdG9ja19jb2RlGAEgASgJEg0KBWFzX29mGAIgASgJEi0KBnJlZ2ltZRgDIAEoCzIdLnNob3J0cy52MWFscGhhMS5NYXJrZXRSZWdpbWUSKgoEZml0cxgEIAMoCzIcLnNob3J0cy52MWFscGhhMS5TdHJhdGVneUZpdBITCgtpbl91bml2ZXJzZRgFIAEoCBI2Cg5wcmljZV9mZWF0dXJlcxgGIAEoCzIeLnNob3J0cy52MWFscGhhMS5QcmljZUZlYXR1cmVzIhcKFUxpc3RTdHJhdGVnaWVzUmVxdWVzdCJ2ChZMaXN0U3RyYXRlZ2llc1Jlc3BvbnNlEi0KCnN0cmF0ZWdpZXMYASADKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZTLhAgoPU3RyYXRlZ3lTZXJ2aWNlEmcKDkxpc3RTdHJhdGVnaWVzEiYuc2hvcnRzLnYxYWxwaGExLkxpc3RTdHJhdGVnaWVzUmVxdWVzdBonLnNob3J0cy52MWFscGhhMS5MaXN0U3RyYXRlZ2llc1Jlc3BvbnNlIgSAtRgBEm0KEEdldFN0cmF0ZWd5UGlja3MSKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1Jlc3BvbnNlIgSAtRgBEnYKE0dldFN0b2NrU3RyYXRlZ3lGaXQSKy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlcXVlc3QaLC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlc3BvbnNlIgSAtRgBQt4BChNjb20uc2hvcnRzLnYxYWxwaGExQg9TdHJhdGVnaWVzUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_options_v1_options]);
+  fileDesc("CiBzaG9ydHMvdjFhbHBoYTEvc3RyYXRlZ2llcy5wcm90bxIPc2hvcnRzLnYxYWxwaGExIqACCghTdHJhdGVneRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmF1dGhvchgDIAEoCRIPCgd0YWdsaW5lGAQgASgJEh4KFmRlc2NyaXB0aW9uX3BhcmFncmFwaHMYBSADKAkSLAoFcnVsZXMYBiADKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lSdWxlEjMKCG1ldGFkYXRhGAcgASgLMiEuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5TWV0YWRhdGESDwoHY2F2ZWF0cxgIIAMoCRIPCgdzb3VyY2VzGAkgAygJEjQKB3ZlcnNpb24YCiABKAsyIy5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lWZXJzaW9uUmVmIuABCgxTdHJhdGVneVJ1bGUSCgoCaWQYASABKAkSDQoFdGl0bGUYAiABKAkSEQoJcnVsZV90ZXh0GAMgASgJEhIKCmV2YWx1YXRpb24YBCABKAkSDAoEY29yZRgFIAEoCBITCgtkYXRhX3NvdXJjZRgGIAEoCRIPCgd0cmlnZ2VyGAcgASgIEg4KBndlaWdodBgIIAEoARIRCgl0aHJlc2hvbGQYCSABKAESFQoNaGFzX3RocmVzaG9sZBgKIAEoCBIMCgR1bml0GAsgASgJEhIKCmNvbXBhcmF0b3IYDCABKAkijgEKEFN0cmF0ZWd5TWV0YWRhdGESDQoFc3R5bGUYASABKAkSFgoOaG9sZGluZ19wZXJpb2QYAiABKAkSFAoMcmlza19wb3N0dXJlGAMgASgJEhAKCHVuaXZlcnNlGAQgASgJEhcKD3JlZnJlc2hfY2FkZW5jZRgFIAEoCRISCgpydWxlX2NvdW50GAYgASgFIpoBCgxNYXJrZXRSZWdpbWUSEgoKaW5kZXhfY29kZRgBIAEoCRINCgVhc19vZhgCIAEoCRIOCgZyZWdpbWUYAyABKAkSDQoFY2xvc2UYBCABKAESDQoFc21hNTAYBSABKAESDgoGc21hMjAwGAYgASgBEhgKEHBjdF9vZmZfNTJ3X2hpZ2gYByABKAESDwoHdmVyZGljdBgIIAEoCSKqAQoKUnVsZVJlc3VsdBIPCgdydWxlX2lkGAEgASgJEg4KBnN0YXR1cxgCIAEoCRIOCgZkZXRhaWwYAyABKAkSDQoFdmFsdWUYBCABKAESEQoJaGFzX3ZhbHVlGAUgASgIEg4KBnJlYXNvbhgGIAEoCRIRCglwcm94aW1pdHkYByABKAESFQoNaGFzX3Byb3hpbWl0eRgIIAEoCBIPCgd3YWl0aW5nGAkgASgIItsHCgxTdHJhdGVneVBpY2sSDAoEcmFuaxgBIAEoBRISCgpzdG9ja19jb2RlGAIgASgJEhQKDGNvbXBhbnlfbmFtZRgDIAEoCRIQCghpbmR1c3RyeRgEIAEoCRIOCgZzdGF0dXMYBSABKAkSDQoFc2NvcmUYBiABKAESKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdBINCgVjbG9zZRgIIAEoARINCgVhc19vZhgJIAEoCRIYChBwY3Rfb2ZmXzUyd19oaWdoGAogASgBEhgKEHZvbHVtZV9yYXRpb181MGQYCyABKAESFgoOYmFzZV9kZXB0aF9wY3QYDCABKAESGAoQYmFzZV9sZW5ndGhfZGF5cxgNIAEoBRINCgVwaXZvdBgOIAEoARIXCg9yZXZlbnVlX3lveV9wY3QYDyABKAESFwoPaGFzX3JldmVudWVfeW95GBAgASgIEhMKC2Vwc195b3lfcGN0GBEgASgBEhMKC2hhc19lcHNfeW95GBIgASgIEhEKCXJzXzNtX3BjdBgTIAEoARIRCglzaG9ydF9wY3QYFCABKAESEgoKbWFya2V0X2NhcBgVIAEoARIQCghsb2dvX3VybBgWIAEoCRIVCg1oYXNfcnNfM21fcGN0GBcgASgIEhUKDWhhc19zaG9ydF9wY3QYGCABKAgSFgoOaGFzX21hcmtldF9jYXAYGSABKAgSEQoJaGFzX2Nsb3NlGBogASgIEjcKDGZ1bmRhbWVudGFscxgbIAEoCzIhLnNob3J0cy52MWFscGhhMS5QaWNrRnVuZGFtZW50YWxzEhUKDWRheXNfdG9fY292ZXIYHCABKAESGQoRaGFzX2RheXNfdG9fY292ZXIYHSABKAgSEQoJcnNfNm1fcGN0GB4gASgBEhUKDWhhc19yc182bV9wY3QYHyABKAgSGAoQcnNfNm1fcGVyY2VudGlsZRggIAEoARIcChRoYXNfcnNfNm1fcGVyY2VudGlsZRghIAEoCBIZChFkb2xsYXJfdm9sdW1lXzIwZBgiIAEoARIdChVoYXNfZG9sbGFyX3ZvbHVtZV8yMGQYIyABKAgSFQoNYnJlYWtvdXRfZGF0ZRgkIAEoCRIZChFzaG9ydF9yZXBvcnRfZGF0ZRglIAEoCRIcChRzaG9ydF9hdmFpbGFibGVfZGF0ZRgmIAEoCRIUCgxzaG9ydF9zdGF0dXMYJyABKAkSHAoUaGFzX3BjdF9vZmZfNTJ3X2hpZ2gYKCABKAgSFwoPY2Ffc3VzcGVjdF9kYXRlGCkgASgJIqMEChBQaWNrRnVuZGFtZW50YWxzEiEKGXJldmVudWVfYmFzaXNfcGVyaW9kX3R5cGUYASABKAkSGgoScmV2ZW51ZV9wZXJpb2RfZW5kGAIgASgJEh0KFWVwc19iYXNpc19wZXJpb2RfdHlwZRgDIAEoCRIWCg5lcHNfcGVyaW9kX2VuZBgEIAEoCRIQCghjdXJyZW5jeRgFIAEoCRISCgpmZXRjaGVkX2F0GAYgASgJEhwKFHJldmVudWVfYmFzaXNfc291cmNlGAcgASgJEhgKEGVwc19iYXNpc19zb3VyY2UYCCABKAkSFgoObmV0X21hcmdpbl9wY3QYCSABKAESGgoSaGFzX25ldF9tYXJnaW5fcGN0GAogASgIEg8KB3JvZV9wY3QYCyABKAESEwoLaGFzX3JvZV9wY3QYDCABKAgSFgoOZmNmX21hcmdpbl9wY3QYDSABKAESGgoSaGFzX2ZjZl9tYXJnaW5fcGN0GA4gASgIEhoKEm5ldF9kZWJ0X3RvX2ViaXRkYRgPIAEoARIeChZoYXNfbmV0X2RlYnRfdG9fZWJpdGRhGBAgASgIEhAKCHBlX3JhdGlvGBEgASgBEhQKDGhhc19wZV9yYXRpbxgSIAEoCBIUCgxpc19maW5hbmNpYWwYEyABKAgSGwoTbmV0X2luY29tZV9wb3NpdGl2ZRgUIAEoCBIWCg5ub3RfbWVhbmluZ2Z1bBgVIAMoCSKMAQoXR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QSEwoLc3RyYXRlZ3lfaWQYASABKAkSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFEg4KBnN0YXR1cxgEIAEoCRIPCgdzb3J0X2J5GAUgASgJEhwKFHJlcXVpcmVfZnVuZGFtZW50YWxzGAYgASgIIvgEChhHZXRTdHJhdGVneVBpY2tzUmVzcG9uc2USKwoIc3RyYXRlZ3kYASABKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZRIsCgVwaWNrcxgDIAMoCzIdLnNob3J0cy52MWFscGhhMS5TdHJhdGVneVBpY2sSEwoLdG90YWxfY291bnQYBCABKAUSFgoOdW5pdmVyc2VfY291bnQYBSABKAUSIwobZnVuZGFtZW50YWxzX2NvdmVyYWdlX2NvdW50GAYgASgFEg0KBWFzX29mGAcgASgJEh8KF2Z1bmRhbWVudGFsc19yb3dzX2NvdW50GAggASgFEjQKDXN0YXR1c19jb3VudHMYCSABKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RhdHVzQ291bnRzEjQKB3ZlcnNpb24YCiABKAsyIy5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lWZXJzaW9uUmVmEhQKDHNlc3Npb25fZGF0ZRgLIAEoCRIZChFzaG9ydF9yZXBvcnRfZGF0ZRgMIAEoCRIcChRzaG9ydF9hdmFpbGFibGVfZGF0ZRgNIAEoCRINCgVzdGFsZRgOIAEoCBIdChVyc19xdWFudGlsZV90aHJlc2hvbGQYECABKAESIQoZaGFzX3JzX3F1YW50aWxlX3RocmVzaG9sZBgRIAEoCBIWCg51bml2ZXJzZV9sYWJlbBgSIAEoCRIsCgZ2aWV3ZXIYDyABKAsyHC5zaG9ydHMudjFhbHBoYTEuVmlld2VyRGVwdGgiVgoLVmlld2VyRGVwdGgSDgoGYWNjZXNzGAEgASgJEg8KB2NsYW1wZWQYAiABKAgSFwoPcmVxdWlyZWRfYWNjZXNzGAMgASgJEg0KBWxpbWl0GAQgASgFIr4BChJTdHJhdGVneVZlcnNpb25SZWYSEwoLc3RyYXRlZ3lfaWQYASABKAkSDQoFbGFiZWwYAiABKAkSEgoKcnVsZXNfaGFzaBgDIAEoCRIWCg5lbmdpbmVfdmVyc2lvbhgEIAEoCRITCgtmZWF0dXJlX3NldBgFIAEoCRIOCgZzdGF0dXMYBiABKAkSEQoJbGl2ZV9mcm9tGAcgASgJEgwKBGtpbmQYCCABKAkSEgoKdmFyaWFudF9pZBgJIAEoCSJQCgxTdGF0dXNDb3VudHMSEQoJdHJpZ2dlcmVkGAEgASgFEg0KBXNldHVwGAIgASgFEg0KBXdhdGNoGAMgASgFEg8KB3Vua25vd24YBCABKAUiMAoaR2V0U3RvY2tTdHJhdGVneUZpdFJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCSK9AQoLU3RyYXRlZ3lGaXQSEwoLc3RyYXRlZ3lfaWQYASABKAkSFQoNc3RyYXRlZ3lfbmFtZRgCIAEoCRIOCgZzdGF0dXMYAyABKAkSDQoFc2NvcmUYBCABKAESDAoEcmFuaxgFIAEoBRITCgt0b3RhbF9jb3VudBgGIAEoBRIqCgVydWxlcxgHIAMoCzIbLnNob3J0cy52MWFscGhhMS5SdWxlUmVzdWx0EhQKDHZlcnNpb25faGFzaBgIIAEoCSKtBQoNUHJpY2VGZWF0dXJlcxINCgVhc19vZhgBIAEoCRINCgVjbG9zZRgCIAEoARINCgVzbWE1MBgDIAEoARIRCgloYXNfc21hNTAYBCABKAgSDgoGc21hMTUwGAUgASgBEhIKCmhhc19zbWExNTAYBiABKAgSDgoGc21hMjAwGAcgASgBEhIKCmhhc19zbWEyMDAYCCABKAgSGgoSc21hMjAwX3ByaW9yX21vbnRoGAkgASgBEh4KFmhhc19zbWEyMDBfcHJpb3JfbW9udGgYCiABKAgSDwoHaGlnaDUydxgLIAEoARITCgtoYXNfaGlnaDUydxgMIAEoCBIOCgZsb3c1MncYDSABKAESEgoKaGFzX2xvdzUydxgOIAEoCBIRCgliYXNlX2hpZ2gYDyABKAESFQoNaGFzX2Jhc2VfaGlnaBgQIAEoCBIQCghiYXNlX2xvdxgRIAEoARIUCgxoYXNfYmFzZV9sb3cYEiABKAgSFgoOYmFzZV9kZXB0aF9wY3QYEyABKAESGgoSaGFzX2Jhc2VfZGVwdGhfcGN0GBQgASgIEhgKEGJhc2VfbGVuZ3RoX2RheXMYFSABKAUSHAoUaGFzX2Jhc2VfbGVuZ3RoX2RheXMYFiABKAgSFwoPYnJlYWtvdXRfcmVjZW50GBcgASgIEhUKDWJyZWFrb3V0X2RhdGUYGCABKAkSEAoIcnMzbV9wY3QYGSABKAESFAoMaGFzX3JzM21fcGN0GBogASgIEhAKCHJzNm1fcGN0GBsgASgBEhQKDGhhc19yczZtX3BjdBgcIAEoCBIXCg92b2x1bWVfcmF0aW81MGQYHSABKAESGwoTaGFzX3ZvbHVtZV9yYXRpbzUwZBgeIAEoCBIaChJzZXNzaW9uc19hdmFpbGFibGUYHyABKAUi8wIKG0dldFN0b2NrU3RyYXRlZ3lGaXRSZXNwb25zZRISCgpzdG9ja19jb2RlGAEgASgJEg0KBWFzX29mGAIgASgJEi0KBnJlZ2ltZRgDIAEoCzIdLnNob3J0cy52MWFscGhhMS5NYXJrZXRSZWdpbWUSKgoEZml0cxgEIAMoCzIcLnNob3J0cy52MWFscGhhMS5TdHJhdGVneUZpdBITCgtpbl91bml2ZXJzZRgFIAEoCBI2Cg5wcmljZV9mZWF0dXJlcxgGIAEoCzIeLnNob3J0cy52MWFscGhhMS5QcmljZUZlYXR1cmVzEhQKDHNlc3Npb25fZGF0ZRgHIAEoCRIZChFzaG9ydF9yZXBvcnRfZGF0ZRgIIAEoCRIcChRzaG9ydF9hdmFpbGFibGVfZGF0ZRgJIAEoCRINCgVzdGFsZRgKIAEoCBIQCghlbGlnaWJsZRgLIAEoCBIZChFpbmVsaWdpYmxlX3JlYXNvbhgMIAEoCSIXChVMaXN0U3RyYXRlZ2llc1JlcXVlc3QidgoWTGlzdFN0cmF0ZWdpZXNSZXNwb25zZRItCgpzdHJhdGVnaWVzGAEgAygLMhkuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5Ei0KBnJlZ2ltZRgCIAEoCzIdLnNob3J0cy52MWFscGhhMS5NYXJrZXRSZWdpbWUiRgoZR2V0U3RyYXRlZ3lWZXJzaW9uUmVxdWVzdBITCgtzdHJhdGVneV9pZBgBIAEoCRIUCgx2ZXJzaW9uX2hhc2gYAiABKAkiVQoaR2V0U3RyYXRlZ3lWZXJzaW9uUmVzcG9uc2USNwoHdmVyc2lvbhgBIAEoCzImLnNob3J0cy52MWFscGhhMS5TdHJhdGVneVZlcnNpb25EZXRhaWwiMgobTGlzdFN0cmF0ZWd5VmVyc2lvbnNSZXF1ZXN0EhMKC3N0cmF0ZWd5X2lkGAEgASgJIlgKHExpc3RTdHJhdGVneVZlcnNpb25zUmVzcG9uc2USOAoIdmVyc2lvbnMYASADKAsyJi5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lWZXJzaW9uRGV0YWlsIvUBChVTdHJhdGVneVZlcnNpb25EZXRhaWwSNAoHdmVyc2lvbhgBIAEoCzIjLnNob3J0cy52MWFscGhhMS5TdHJhdGVneVZlcnNpb25SZWYSKgoGcGFyYW1zGAIgAygLMhouc2hvcnRzLnYxYWxwaGExLlJ1bGVQYXJhbRIQCghwb2xpY2llcxgDIAMoCRIPCgdjaGFuZ2VzGAYgAygJEhQKDGtub3duX2lzc3VlcxgHIAMoCRIVCg1zdXBlcnNlZGVkX29uGAggASgJEhIKCnJldGlyZWRfb24YCSABKAkSFgoOY2Fub25pY2FsX2pzb24YCiABKAkiOQoJUnVsZVBhcmFtEg8KB3J1bGVfaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgV2YWx1ZRgDIAEoASIrChNTYXZlU3RyYXRlZ3lSZXF1ZXN0EhQKDHN0cmF0ZWd5X3JlZhgBIAEoCSJFChRTYXZlU3RyYXRlZ3lSZXNwb25zZRItCgVzYXZlZBgBIAEoCzIeLnNob3J0cy52MWFscGhhMS5TYXZlZFN0cmF0ZWd5Ii0KFVVuc2F2ZVN0cmF0ZWd5UmVxdWVzdBIUCgxzdHJhdGVneV9yZWYYASABKAkiGAoWVW5zYXZlU3RyYXRlZ3lSZXNwb25zZSIcChpMaXN0U2F2ZWRTdHJhdGVnaWVzUmVxdWVzdCJgChtMaXN0U2F2ZWRTdHJhdGVnaWVzUmVzcG9uc2USMgoKc3RyYXRlZ2llcxgBIAMoCzIeLnNob3J0cy52MWFscGhhMS5TYXZlZFN0cmF0ZWd5Eg0KBWxpbWl0GAIgASgFItwBCg1TYXZlZFN0cmF0ZWd5EhQKDHN0cmF0ZWd5X3JlZhgBIAEoCRITCgtzdHJhdGVneV9pZBgCIAEoCRIMCgRuYW1lGAMgASgJEhAKCHNhdmVkX2F0GAQgASgJEjQKDXN0YXR1c19jb3VudHMYBSABKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RhdHVzQ291bnRzEjQKB3ZlcnNpb24YBiABKAsyIy5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lWZXJzaW9uUmVmEhQKDHNlc3Npb25fZGF0ZRgHIAEoCSIeChxHZXRTdHJhdGVneURhdGFTdGF0dXNSZXF1ZXN0IvMBCh1HZXRTdHJhdGVneURhdGFTdGF0dXNSZXNwb25zZRIWCg5sYXRlc3Rfc2Vzc2lvbhgBIAEoCRIbChNwcmljZXNfY29tcGxldGVkX2F0GAIgASgJEhYKDnNuYXBzaG90X2FzX29mGAMgASgJEh0KFXNuYXBzaG90X2NvbXBsZXRlZF9hdBgEIAEoCRI3Cgxhc2ljX3JlcG9ydHMYBSADKAsyIS5zaG9ydHMudjFhbHBoYTEuQXNpY1JlcG9ydFN0YXR1cxIXCg9uZXh0X3VwZGF0ZV91dGMYBiABKAkSFAoMcHJpY2VkX2NvZGVzGAcgASgFInoKEEFzaWNSZXBvcnRTdGF0dXMSEwoLcmVwb3J0X2RhdGUYASABKAkSFgoOYXZhaWxhYmxlX2RhdGUYAiABKAkSGQoRZmlyc3RfaW5nZXN0ZWRfYXQYAyABKAkSDAoEcm93cxgEIAEoBRIQCghjb21wbGV0ZRgFIAEoCCKWAQofTGlzdFN0cmF0ZWd5U2lnbmFsRXZlbnRzUmVxdWVzdBITCgtzdHJhdGVneV9pZBgBIAEoCRIUCgx2ZXJzaW9uX2hhc2gYAiABKAkSEgoKc3RvY2tfY29kZRgDIAEoCRINCgVzaW5jZRgEIAEoCRISCgpwYWdlX3Rva2VuGAUgASgJEhEKCXBhZ2Vfc2l6ZRgGIAEoBSKnAQogTGlzdFN0cmF0ZWd5U2lnbmFsRXZlbnRzUmVzcG9uc2USNAoGZXZlbnRzGAEgAygLMiQuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5U2lnbmFsRXZlbnQSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEjQKB3ZlcnNpb24YAyABKAsyIy5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lWZXJzaW9uUmVmIpgCChNTdHJhdGVneVNpZ25hbEV2ZW50EhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhQKDHNlc3Npb25fZGF0ZRgDIAEoCRIZChFwcmV2X3Nlc3Npb25fZGF0ZRgEIAEoCRITCgtmcm9tX3N0YXR1cxgFIAEoCRIRCgl0b19zdGF0dXMYBiABKAkSDQoFc2NvcmUYByABKAESDQoFY2xvc2UYCCABKAESDQoFcGl2b3QYCSABKAESEQoJaGFzX3Bpdm90GAogASgIEioKBXJ1bGVzGAsgAygLMhsuc2hvcnRzLnYxYWxwaGExLlJ1bGVSZXN1bHQSEgoKcnVsZXNfaGFzaBgMIAEoCTKQCgoPU3RyYXRlZ3lTZXJ2aWNlEmcKDkxpc3RTdHJhdGVnaWVzEiYuc2hvcnRzLnYxYWxwaGExLkxpc3RTdHJhdGVnaWVzUmVxdWVzdBonLnNob3J0cy52MWFscGhhMS5MaXN0U3RyYXRlZ2llc1Jlc3BvbnNlIgSAtRgBEm0KEEdldFN0cmF0ZWd5UGlja3MSKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1Jlc3BvbnNlIgSAtRgBEnMKFkdldFZpZXdlclN0cmF0ZWd5UGlja3MSKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1Jlc3BvbnNlIgSAtRgCEnYKE0dldFN0b2NrU3RyYXRlZ3lGaXQSKy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlcXVlc3QaLC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlc3BvbnNlIgSAtRgBEnMKEkdldFN0cmF0ZWd5VmVyc2lvbhIqLnNob3J0cy52MWFscGhhMS5HZXRTdHJhdGVneVZlcnNpb25SZXF1ZXN0Gisuc2hvcnRzLnYxYWxwaGExLkdldFN0cmF0ZWd5VmVyc2lvblJlc3BvbnNlIgSAtRgBEnkKFExpc3RTdHJhdGVneVZlcnNpb25zEiwuc2hvcnRzLnYxYWxwaGExLkxpc3RTdHJhdGVneVZlcnNpb25zUmVxdWVzdBotLnNob3J0cy52MWFscGhhMS5MaXN0U3RyYXRlZ3lWZXJzaW9uc1Jlc3BvbnNlIgSAtRgBEnwKFUdldFN0cmF0ZWd5RGF0YVN0YXR1cxItLnNob3J0cy52MWFscGhhMS5HZXRTdHJhdGVneURhdGFTdGF0dXNSZXF1ZXN0Gi4uc2hvcnRzLnYxYWxwaGExLkdldFN0cmF0ZWd5RGF0YVN0YXR1c1Jlc3BvbnNlIgSAtRgBEoUBChhMaXN0U3RyYXRlZ3lTaWduYWxFdmVudHMSMC5zaG9ydHMudjFhbHBoYTEuTGlzdFN0cmF0ZWd5U2lnbmFsRXZlbnRzUmVxdWVzdBoxLnNob3J0cy52MWFscGhhMS5MaXN0U3RyYXRlZ3lTaWduYWxFdmVudHNSZXNwb25zZSIEgLUYAhJhCgxTYXZlU3RyYXRlZ3kSJC5zaG9ydHMudjFhbHBoYTEuU2F2ZVN0cmF0ZWd5UmVxdWVzdBolLnNob3J0cy52MWFscGhhMS5TYXZlU3RyYXRlZ3lSZXNwb25zZSIEgLUYAhJnCg5VbnNhdmVTdHJhdGVneRImLnNob3J0cy52MWFscGhhMS5VbnNhdmVTdHJhdGVneVJlcXVlc3QaJy5zaG9ydHMudjFhbHBoYTEuVW5zYXZlU3RyYXRlZ3lSZXNwb25zZSIEgLUYAhJ2ChNMaXN0U2F2ZWRTdHJhdGVnaWVzEisuc2hvcnRzLnYxYWxwaGExLkxpc3RTYXZlZFN0cmF0ZWdpZXNSZXF1ZXN0Giwuc2hvcnRzLnYxYWxwaGExLkxpc3RTYXZlZFN0cmF0ZWdpZXNSZXNwb25zZSIEgLUYAkLeAQoTY29tLnNob3J0cy52MWFscGhhMUIPU3RyYXRlZ2llc1Byb3RvUAFaWWdpdGh1Yi5jb20vY2FzdGxlbWlsay9zaG9ydGVkLmNvbS5hdS9zZXJ2aWNlcy9nZW4vcHJvdG8vZ28vc2hvcnRzL3YxYWxwaGExO3Nob3J0c3YxYWxwaGExogIDU1hYqgIPU2hvcnRzLlYxYWxwaGExygIPU2hvcnRzXFYxYWxwaGEx4gIbU2hvcnRzXFYxYWxwaGExXEdQQk1ldGFkYXRh6gIQU2hvcnRzOjpWMWFscGhhMWIGcHJvdG8z", [file_options_v1_options]);
 
 /**
  * A named stock-picking strategy and how we evaluate it.
@@ -75,6 +75,13 @@ export type Strategy = Message<"shorts.v1alpha1.Strategy"> & {
    * @generated from field: repeated string sources = 9;
    */
   sources: string[];
+
+  /**
+   * The live rules version this definition is evaluated under.
+   *
+   * @generated from field: shorts.v1alpha1.StrategyVersionRef version = 10;
+   */
+  version?: StrategyVersionRef;
 };
 
 /**
@@ -129,6 +136,48 @@ export type StrategyRule = Message<"shorts.v1alpha1.StrategyRule"> & {
    * @generated from field: string data_source = 6;
    */
   dataSource: string;
+
+  /**
+   * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
+   *
+   * @generated from field: bool trigger = 7;
+   */
+  trigger: boolean;
+
+  /**
+   * Share of the score this rule carries, 0-1; the weights of a strategy sum to 1.
+   *
+   * @generated from field: double weight = 8;
+   */
+  weight: number;
+
+  /**
+   * The number the rule tests, in unit. Meaningful only when has_threshold.
+   *
+   * @generated from field: double threshold = 9;
+   */
+  threshold: number;
+
+  /**
+   * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth).
+   *
+   * @generated from field: bool has_threshold = 10;
+   */
+  hasThreshold: boolean;
+
+  /**
+   * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+   *
+   * @generated from field: string unit = 11;
+   */
+  unit: string;
+
+  /**
+   * ">=", "<=" or ">". Meaningful only when has_threshold.
+   *
+   * @generated from field: string comparator = 12;
+   */
+  comparator: string;
 };
 
 /**
@@ -292,6 +341,35 @@ export type RuleResult = Message<"shorts.v1alpha1.RuleResult"> & {
    * @generated from field: bool has_value = 5;
    */
   hasValue: boolean;
+
+  /**
+   * Why an unknown rule could not be tested: "no_price_history", "no_volume",
+   * "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+   *
+   * @generated from field: string reason = 6;
+   */
+  reason: string;
+
+  /**
+   * For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far
+   * distance. Meaningful only when has_proximity.
+   *
+   * @generated from field: double proximity = 7;
+   */
+  proximity: number;
+
+  /**
+   * @generated from field: bool has_proximity = 8;
+   */
+  hasProximity: boolean;
+
+  /**
+   * True when this is a failing trigger rule on a setup row: the stock is
+   * waiting for the trigger, not yet triggered.
+   *
+   * @generated from field: bool waiting = 9;
+   */
+  waiting: boolean;
 };
 
 /**
@@ -473,6 +551,99 @@ export type StrategyPick = Message<"shorts.v1alpha1.StrategyPick"> & {
    * @generated from field: shorts.v1alpha1.PickFundamentals fundamentals = 27;
    */
   fundamentals?: PickFundamentals;
+
+  /**
+   * Signal evidence (display-only in this release where noted).
+   *
+   * Meaningful only when has_days_to_cover.
+   *
+   * @generated from field: double days_to_cover = 28;
+   */
+  daysToCover: number;
+
+  /**
+   * @generated from field: bool has_days_to_cover = 29;
+   */
+  hasDaysToCover: boolean;
+
+  /**
+   * Meaningful only when has_rs_6m_pct.
+   *
+   * @generated from field: double rs_6m_pct = 30;
+   */
+  rs6mPct: number;
+
+  /**
+   * @generated from field: bool has_rs_6m_pct = 31;
+   */
+  hasRs6mPct: boolean;
+
+  /**
+   * Rank of rs_6m_pct across the evaluated universe on the quartile's own scale, 0-100 (75 or more is the top quartile).
+   *
+   * @generated from field: double rs_6m_percentile = 32;
+   */
+  rs6mPercentile: number;
+
+  /**
+   * @generated from field: bool has_rs_6m_percentile = 33;
+   */
+  hasRs6mPercentile: boolean;
+
+  /**
+   * Average daily turnover over 20 sessions, A$. Meaningful only when has_dollar_volume_20d.
+   *
+   * @generated from field: double dollar_volume_20d = 34;
+   */
+  dollarVolume20d: number;
+
+  /**
+   * @generated from field: bool has_dollar_volume_20d = 35;
+   */
+  hasDollarVolume20d: boolean;
+
+  /**
+   * YYYY-MM-DD of the breakout session; empty when there was none.
+   *
+   * @generated from field: string breakout_date = 36;
+   */
+  breakoutDate: string;
+
+  /**
+   * YYYY-MM-DD of the ASIC report the short figure came from; empty when there is no short figure.
+   *
+   * @generated from field: string short_report_date = 37;
+   */
+  shortReportDate: string;
+
+  /**
+   * YYYY-MM-DD the report became public; empty with no report, or a report dated before 2026.
+   *
+   * @generated from field: string short_available_date = 38;
+   */
+  shortAvailableDate: string;
+
+  /**
+   * "reported" when the stock has a short figure; empty otherwise.
+   *
+   * @generated from field: string short_status = 39;
+   */
+  shortStatus: string;
+
+  /**
+   * Meaningful only when has_pct_off_52w_high. pct_off_52w_high is 0 at the high,
+   * so a stock with no 52-week high yet must not read as "at the high".
+   *
+   * @generated from field: bool has_pct_off_52w_high = 40;
+   */
+  hasPctOff52wHigh: boolean;
+
+  /**
+   * Corporate-action suspect date; empty until the basis check ships.
+   *
+   * @generated from field: string ca_suspect_date = 41;
+   */
+  caSuspectDate: string;
 };
 
 /**
@@ -643,13 +814,20 @@ export type GetStrategyPicksRequest = Message<"shorts.v1alpha1.GetStrategyPicksR
   strategyId: string;
 
   /**
-   * Default 20, max 100.
+   * Default 20, max 100. Under the public depth limit every HTTP caller, API
+   * tokens included, gets at most that many rows of the default ranking; a
+   * larger limit is clamped to it. GetViewerStrategyPicks is not clamped.
    *
    * @generated from field: int32 limit = 2;
    */
   limit: number;
 
   /**
+   * Rows to skip. Under the public depth limit an offset other than 0 is
+   * refused with PermissionDenied (the X-Entitlement-Detail names
+   * full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks
+   * for the rows beyond the public depth.
+   *
    * @generated from field: int32 offset = 3;
    */
   offset: number;
@@ -741,6 +919,76 @@ export type GetStrategyPicksResponse = Message<"shorts.v1alpha1.GetStrategyPicks
    * @generated from field: int32 fundamentals_rows_count = 8;
    */
   fundamentalsRowsCount: number;
+
+  /**
+   * Counts of every pick by status, over the whole ranked list before the
+   * status filter, the fundamentals filter and paging.
+   *
+   * @generated from field: shorts.v1alpha1.StatusCounts status_counts = 9;
+   */
+  statusCounts?: StatusCounts;
+
+  /**
+   * The live rules version that produced these picks.
+   *
+   * @generated from field: shorts.v1alpha1.StrategyVersionRef version = 10;
+   */
+  version?: StrategyVersionRef;
+
+  /**
+   * YYYY-MM-DD of the session the picks are as at.
+   *
+   * @generated from field: string session_date = 11;
+   */
+  sessionDate: string;
+
+  /**
+   * Newest ASIC report date behind the short figures; empty when none.
+   *
+   * @generated from field: string short_report_date = 12;
+   */
+  shortReportDate: string;
+
+  /**
+   * When that report became public; empty for a report dated before 2026.
+   *
+   * @generated from field: string short_available_date = 13;
+   */
+  shortAvailableDate: string;
+
+  /**
+   * True when the index has closed a session the prices have not reached (the data is delayed).
+   *
+   * @generated from field: bool stale = 14;
+   */
+  stale: boolean;
+
+  /**
+   * The session's top-quartile cut-off of rs_6m_pct (rs_leader reads it).
+   *
+   * @generated from field: double rs_quantile_threshold = 16;
+   */
+  rsQuantileThreshold: number;
+
+  /**
+   * @generated from field: bool has_rs_quantile_threshold = 17;
+   */
+  hasRsQuantileThreshold: boolean;
+
+  /**
+   * The universe the picks were drawn from, as the strategy names it.
+   *
+   * @generated from field: string universe_label = 18;
+   */
+  universeLabel: string;
+
+  /**
+   * Whose depth this answer is. A clamp is not an error: clamped is true when
+   * more rows exist than this access receives.
+   *
+   * @generated from field: shorts.v1alpha1.ViewerDepth viewer = 15;
+   */
+  viewer?: ViewerDepth;
 };
 
 /**
@@ -749,6 +997,153 @@ export type GetStrategyPicksResponse = Message<"shorts.v1alpha1.GetStrategyPicks
  */
 export const GetStrategyPicksResponseSchema: GenMessage<GetStrategyPicksResponse> = /*@__PURE__*/
   messageDesc(file_shorts_v1alpha1_strategies, 8);
+
+/**
+ * The depth the caller's access receives on a picks list.
+ *
+ * @generated from message shorts.v1alpha1.ViewerDepth
+ */
+export type ViewerDepth = Message<"shorts.v1alpha1.ViewerDepth"> & {
+  /**
+   * "anonymous" | "free" | "premium".
+   *
+   * @generated from field: string access = 1;
+   */
+  access: string;
+
+  /**
+   * More rows exist than this access returns.
+   *
+   * @generated from field: bool clamped = 2;
+   */
+  clamped: boolean;
+
+  /**
+   * The access that lifts the clamp ("free").
+   *
+   * @generated from field: string required_access = 3;
+   */
+  requiredAccess: string;
+
+  /**
+   * Rows this access may receive; 0 means unlimited.
+   *
+   * @generated from field: int32 limit = 4;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ViewerDepth.
+ * Use `create(ViewerDepthSchema)` to create a new message.
+ */
+export const ViewerDepthSchema: GenMessage<ViewerDepth> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 9);
+
+/**
+ * The version of a strategy's rules that produced a set of picks.
+ *
+ * @generated from message shorts.v1alpha1.StrategyVersionRef
+ */
+export type StrategyVersionRef = Message<"shorts.v1alpha1.StrategyVersionRef"> & {
+  /**
+   * @generated from field: string strategy_id = 1;
+   */
+  strategyId: string;
+
+  /**
+   * "v0", "v1", "custom".
+   *
+   * @generated from field: string label = 2;
+   */
+  label: string;
+
+  /**
+   * 64 hex characters; UIs show the first 8.
+   *
+   * @generated from field: string rules_hash = 3;
+   */
+  rulesHash: string;
+
+  /**
+   * @generated from field: string engine_version = 4;
+   */
+  engineVersion: string;
+
+  /**
+   * "fs1".
+   *
+   * @generated from field: string feature_set = 5;
+   */
+  featureSet: string;
+
+  /**
+   * "draft" | "live" | "superseded" | "retired".
+   *
+   * @generated from field: string status = 6;
+   */
+  status: string;
+
+  /**
+   * YYYY-MM-DD; empty before the first live session.
+   *
+   * @generated from field: string live_from = 7;
+   */
+  liveFrom: string;
+
+  /**
+   * "canonical" | "variant".
+   *
+   * @generated from field: string kind = 8;
+   */
+  kind: string;
+
+  /**
+   * @generated from field: string variant_id = 9;
+   */
+  variantId: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.StrategyVersionRef.
+ * Use `create(StrategyVersionRefSchema)` to create a new message.
+ */
+export const StrategyVersionRefSchema: GenMessage<StrategyVersionRef> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 10);
+
+/**
+ * Counts of ranked picks by status.
+ *
+ * @generated from message shorts.v1alpha1.StatusCounts
+ */
+export type StatusCounts = Message<"shorts.v1alpha1.StatusCounts"> & {
+  /**
+   * @generated from field: int32 triggered = 1;
+   */
+  triggered: number;
+
+  /**
+   * @generated from field: int32 setup = 2;
+   */
+  setup: number;
+
+  /**
+   * @generated from field: int32 watch = 3;
+   */
+  watch: number;
+
+  /**
+   * @generated from field: int32 unknown = 4;
+   */
+  unknown: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.StatusCounts.
+ * Use `create(StatusCountsSchema)` to create a new message.
+ */
+export const StatusCountsSchema: GenMessage<StatusCounts> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 11);
 
 /**
  * Request for GetStockStrategyFit.
@@ -769,7 +1164,7 @@ export type GetStockStrategyFitRequest = Message<"shorts.v1alpha1.GetStockStrate
  * Use `create(GetStockStrategyFitRequestSchema)` to create a new message.
  */
 export const GetStockStrategyFitRequestSchema: GenMessage<GetStockStrategyFitRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 9);
+  messageDesc(file_shorts_v1alpha1_strategies, 12);
 
 /**
  * One strategy's reading of one stock.
@@ -819,6 +1214,13 @@ export type StrategyFit = Message<"shorts.v1alpha1.StrategyFit"> & {
    * @generated from field: repeated shorts.v1alpha1.RuleResult rules = 7;
    */
   rules: RuleResult[];
+
+  /**
+   * rules_hash of the live version this reading was evaluated under.
+   *
+   * @generated from field: string version_hash = 8;
+   */
+  versionHash: string;
 };
 
 /**
@@ -826,7 +1228,7 @@ export type StrategyFit = Message<"shorts.v1alpha1.StrategyFit"> & {
  * Use `create(StrategyFitSchema)` to create a new message.
  */
 export const StrategyFitSchema: GenMessage<StrategyFit> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 10);
+  messageDesc(file_shorts_v1alpha1_strategies, 13);
 
 /**
  * The price features the evaluator read for one stock (mv_price_features),
@@ -1003,7 +1405,7 @@ export type PriceFeatures = Message<"shorts.v1alpha1.PriceFeatures"> & {
  * Use `create(PriceFeaturesSchema)` to create a new message.
  */
 export const PriceFeaturesSchema: GenMessage<PriceFeatures> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 11);
+  messageDesc(file_shorts_v1alpha1_strategies, 14);
 
 /**
  * Response for GetStockStrategyFit.
@@ -1046,6 +1448,48 @@ export type GetStockStrategyFitResponse = Message<"shorts.v1alpha1.GetStockStrat
    * @generated from field: shorts.v1alpha1.PriceFeatures price_features = 6;
    */
   priceFeatures?: PriceFeatures;
+
+  /**
+   * YYYY-MM-DD of the session the readings are as at.
+   *
+   * @generated from field: string session_date = 7;
+   */
+  sessionDate: string;
+
+  /**
+   * Newest ASIC report date behind the short figures; empty when none.
+   *
+   * @generated from field: string short_report_date = 8;
+   */
+  shortReportDate: string;
+
+  /**
+   * When that report became public; empty for a report dated before 2026.
+   *
+   * @generated from field: string short_available_date = 9;
+   */
+  shortAvailableDate: string;
+
+  /**
+   * True when the index has closed a session the prices have not reached (the data is delayed).
+   *
+   * @generated from field: bool stale = 10;
+   */
+  stale: boolean;
+
+  /**
+   * False when the stock cannot be read against the strategies at all.
+   *
+   * @generated from field: bool eligible = 11;
+   */
+  eligible: boolean;
+
+  /**
+   * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
+   *
+   * @generated from field: string ineligible_reason = 12;
+   */
+  ineligibleReason: string;
 };
 
 /**
@@ -1053,7 +1497,7 @@ export type GetStockStrategyFitResponse = Message<"shorts.v1alpha1.GetStockStrat
  * Use `create(GetStockStrategyFitResponseSchema)` to create a new message.
  */
 export const GetStockStrategyFitResponseSchema: GenMessage<GetStockStrategyFitResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 12);
+  messageDesc(file_shorts_v1alpha1_strategies, 15);
 
 /**
  * Request for ListStrategies.
@@ -1068,7 +1512,7 @@ export type ListStrategiesRequest = Message<"shorts.v1alpha1.ListStrategiesReque
  * Use `create(ListStrategiesRequestSchema)` to create a new message.
  */
 export const ListStrategiesRequestSchema: GenMessage<ListStrategiesRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 13);
+  messageDesc(file_shorts_v1alpha1_strategies, 16);
 
 /**
  * Response for ListStrategies.
@@ -1094,7 +1538,680 @@ export type ListStrategiesResponse = Message<"shorts.v1alpha1.ListStrategiesResp
  * Use `create(ListStrategiesResponseSchema)` to create a new message.
  */
 export const ListStrategiesResponseSchema: GenMessage<ListStrategiesResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 14);
+  messageDesc(file_shorts_v1alpha1_strategies, 17);
+
+/**
+ * Request for GetStrategyVersion.
+ *
+ * @generated from message shorts.v1alpha1.GetStrategyVersionRequest
+ */
+export type GetStrategyVersionRequest = Message<"shorts.v1alpha1.GetStrategyVersionRequest"> & {
+  /**
+   * Required, e.g. "zanger-breakout".
+   *
+   * @generated from field: string strategy_id = 1;
+   */
+  strategyId: string;
+
+  /**
+   * rules_hash of a published version; empty for the live version.
+   *
+   * @generated from field: string version_hash = 2;
+   */
+  versionHash: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStrategyVersionRequest.
+ * Use `create(GetStrategyVersionRequestSchema)` to create a new message.
+ */
+export const GetStrategyVersionRequestSchema: GenMessage<GetStrategyVersionRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 18);
+
+/**
+ * Response for GetStrategyVersion.
+ *
+ * @generated from message shorts.v1alpha1.GetStrategyVersionResponse
+ */
+export type GetStrategyVersionResponse = Message<"shorts.v1alpha1.GetStrategyVersionResponse"> & {
+  /**
+   * @generated from field: shorts.v1alpha1.StrategyVersionDetail version = 1;
+   */
+  version?: StrategyVersionDetail;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStrategyVersionResponse.
+ * Use `create(GetStrategyVersionResponseSchema)` to create a new message.
+ */
+export const GetStrategyVersionResponseSchema: GenMessage<GetStrategyVersionResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 19);
+
+/**
+ * Request for ListStrategyVersions.
+ *
+ * @generated from message shorts.v1alpha1.ListStrategyVersionsRequest
+ */
+export type ListStrategyVersionsRequest = Message<"shorts.v1alpha1.ListStrategyVersionsRequest"> & {
+  /**
+   * Empty for every strategy's versions.
+   *
+   * @generated from field: string strategy_id = 1;
+   */
+  strategyId: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListStrategyVersionsRequest.
+ * Use `create(ListStrategyVersionsRequestSchema)` to create a new message.
+ */
+export const ListStrategyVersionsRequestSchema: GenMessage<ListStrategyVersionsRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 20);
+
+/**
+ * Response for ListStrategyVersions.
+ *
+ * @generated from message shorts.v1alpha1.ListStrategyVersionsResponse
+ */
+export type ListStrategyVersionsResponse = Message<"shorts.v1alpha1.ListStrategyVersionsResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.StrategyVersionDetail versions = 1;
+   */
+  versions: StrategyVersionDetail[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListStrategyVersionsResponse.
+ * Use `create(ListStrategyVersionsResponseSchema)` to create a new message.
+ */
+export const ListStrategyVersionsResponseSchema: GenMessage<ListStrategyVersionsResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 21);
+
+/**
+ * One published version of a strategy's rules, as the changelog states it.
+ * Recipe and recipe_hash (4 and 5) arrive with the recipe schema.
+ *
+ * @generated from message shorts.v1alpha1.StrategyVersionDetail
+ */
+export type StrategyVersionDetail = Message<"shorts.v1alpha1.StrategyVersionDetail"> & {
+  /**
+   * @generated from field: shorts.v1alpha1.StrategyVersionRef version = 1;
+   */
+  version?: StrategyVersionRef;
+
+  /**
+   * Every numeric parameter of every rule, in rule order.
+   *
+   * @generated from field: repeated shorts.v1alpha1.RuleParam params = 2;
+   */
+  params: RuleParam[];
+
+  /**
+   * Universe and data policy, one rendered sentence each.
+   *
+   * @generated from field: repeated string policies = 3;
+   */
+  policies: string[];
+
+  /**
+   * What this version changed from the one before it.
+   *
+   * @generated from field: repeated string changes = 6;
+   */
+  changes: string[];
+
+  /**
+   * What this version gets wrong, worded as defects.
+   *
+   * @generated from field: repeated string known_issues = 7;
+   */
+  knownIssues: string[];
+
+  /**
+   * YYYY-MM-DD the next version went live; empty while live.
+   *
+   * @generated from field: string superseded_on = 8;
+   */
+  supersededOn: string;
+
+  /**
+   * YYYY-MM-DD the version was retired; empty while it is still evaluated.
+   *
+   * @generated from field: string retired_on = 9;
+   */
+  retiredOn: string;
+
+  /**
+   * The hashed spec in canonical form, for audit.
+   *
+   * @generated from field: string canonical_json = 10;
+   */
+  canonicalJson: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.StrategyVersionDetail.
+ * Use `create(StrategyVersionDetailSchema)` to create a new message.
+ */
+export const StrategyVersionDetailSchema: GenMessage<StrategyVersionDetail> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 22);
+
+/**
+ * One numeric parameter of one rule in a version.
+ *
+ * @generated from message shorts.v1alpha1.RuleParam
+ */
+export type RuleParam = Message<"shorts.v1alpha1.RuleParam"> & {
+  /**
+   * @generated from field: string rule_id = 1;
+   */
+  ruleId: string;
+
+  /**
+   * The parameter's key, e.g. "min_pct".
+   *
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: double value = 3;
+   */
+  value: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.RuleParam.
+ * Use `create(RuleParamSchema)` to create a new message.
+ */
+export const RuleParamSchema: GenMessage<RuleParam> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 23);
+
+/**
+ * Request for SaveStrategy.
+ *
+ * @generated from message shorts.v1alpha1.SaveStrategyRequest
+ */
+export type SaveStrategyRequest = Message<"shorts.v1alpha1.SaveStrategyRequest"> & {
+  /**
+   * A canonical strategy id, or "variant:<id>" for a variant the caller owns.
+   *
+   * @generated from field: string strategy_ref = 1;
+   */
+  strategyRef: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.SaveStrategyRequest.
+ * Use `create(SaveStrategyRequestSchema)` to create a new message.
+ */
+export const SaveStrategyRequestSchema: GenMessage<SaveStrategyRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 24);
+
+/**
+ * Response for SaveStrategy.
+ *
+ * @generated from message shorts.v1alpha1.SaveStrategyResponse
+ */
+export type SaveStrategyResponse = Message<"shorts.v1alpha1.SaveStrategyResponse"> & {
+  /**
+   * The entry as ListSavedStrategies lists it.
+   *
+   * @generated from field: shorts.v1alpha1.SavedStrategy saved = 1;
+   */
+  saved?: SavedStrategy;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.SaveStrategyResponse.
+ * Use `create(SaveStrategyResponseSchema)` to create a new message.
+ */
+export const SaveStrategyResponseSchema: GenMessage<SaveStrategyResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 25);
+
+/**
+ * Request for UnsaveStrategy.
+ *
+ * @generated from message shorts.v1alpha1.UnsaveStrategyRequest
+ */
+export type UnsaveStrategyRequest = Message<"shorts.v1alpha1.UnsaveStrategyRequest"> & {
+  /**
+   * The reference SaveStrategy was given.
+   *
+   * @generated from field: string strategy_ref = 1;
+   */
+  strategyRef: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.UnsaveStrategyRequest.
+ * Use `create(UnsaveStrategyRequestSchema)` to create a new message.
+ */
+export const UnsaveStrategyRequestSchema: GenMessage<UnsaveStrategyRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 26);
+
+/**
+ * Response for UnsaveStrategy.
+ *
+ * @generated from message shorts.v1alpha1.UnsaveStrategyResponse
+ */
+export type UnsaveStrategyResponse = Message<"shorts.v1alpha1.UnsaveStrategyResponse"> & {
+};
+
+/**
+ * Describes the message shorts.v1alpha1.UnsaveStrategyResponse.
+ * Use `create(UnsaveStrategyResponseSchema)` to create a new message.
+ */
+export const UnsaveStrategyResponseSchema: GenMessage<UnsaveStrategyResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 27);
+
+/**
+ * Request for ListSavedStrategies.
+ *
+ * @generated from message shorts.v1alpha1.ListSavedStrategiesRequest
+ */
+export type ListSavedStrategiesRequest = Message<"shorts.v1alpha1.ListSavedStrategiesRequest"> & {
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListSavedStrategiesRequest.
+ * Use `create(ListSavedStrategiesRequestSchema)` to create a new message.
+ */
+export const ListSavedStrategiesRequestSchema: GenMessage<ListSavedStrategiesRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 28);
+
+/**
+ * Response for ListSavedStrategies.
+ *
+ * @generated from message shorts.v1alpha1.ListSavedStrategiesResponse
+ */
+export type ListSavedStrategiesResponse = Message<"shorts.v1alpha1.ListSavedStrategiesResponse"> & {
+  /**
+   * Most recent save first.
+   *
+   * @generated from field: repeated shorts.v1alpha1.SavedStrategy strategies = 1;
+   */
+  strategies: SavedStrategy[];
+
+  /**
+   * The most strategies one caller may save.
+   *
+   * @generated from field: int32 limit = 2;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListSavedStrategiesResponse.
+ * Use `create(ListSavedStrategiesResponseSchema)` to create a new message.
+ */
+export const ListSavedStrategiesResponseSchema: GenMessage<ListSavedStrategiesResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 29);
+
+/**
+ * One strategy the signed-in caller saved.
+ *
+ * @generated from message shorts.v1alpha1.SavedStrategy
+ */
+export type SavedStrategy = Message<"shorts.v1alpha1.SavedStrategy"> & {
+  /**
+   * A canonical strategy id, or "variant:<id>".
+   *
+   * @generated from field: string strategy_ref = 1;
+   */
+  strategyRef: string;
+
+  /**
+   * The canonical id; empty for a variant.
+   *
+   * @generated from field: string strategy_id = 2;
+   */
+  strategyId: string;
+
+  /**
+   * The strategy's name; empty when it is not in the registry.
+   *
+   * @generated from field: string name = 3;
+   */
+  name: string;
+
+  /**
+   * RFC 3339 time of the first save.
+   *
+   * @generated from field: string saved_at = 4;
+   */
+  savedAt: string;
+
+  /**
+   * Today's counts; absent for a variant or when they cannot be read.
+   *
+   * @generated from field: shorts.v1alpha1.StatusCounts status_counts = 5;
+   */
+  statusCounts?: StatusCounts;
+
+  /**
+   * The live rules version the counts were evaluated under; absent for a variant or when unknown.
+   *
+   * @generated from field: shorts.v1alpha1.StrategyVersionRef version = 6;
+   */
+  version?: StrategyVersionRef;
+
+  /**
+   * The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+   *
+   * @generated from field: string session_date = 7;
+   */
+  sessionDate: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.SavedStrategy.
+ * Use `create(SavedStrategySchema)` to create a new message.
+ */
+export const SavedStrategySchema: GenMessage<SavedStrategy> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 30);
+
+/**
+ * Request for GetStrategyDataStatus.
+ *
+ * @generated from message shorts.v1alpha1.GetStrategyDataStatusRequest
+ */
+export type GetStrategyDataStatusRequest = Message<"shorts.v1alpha1.GetStrategyDataStatusRequest"> & {
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStrategyDataStatusRequest.
+ * Use `create(GetStrategyDataStatusRequestSchema)` to create a new message.
+ */
+export const GetStrategyDataStatusRequestSchema: GenMessage<GetStrategyDataStatusRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 31);
+
+/**
+ * Response for GetStrategyDataStatus. Dates are YYYY-MM-DD; times are RFC 3339 UTC.
+ *
+ * @generated from message shorts.v1alpha1.GetStrategyDataStatusResponse
+ */
+export type GetStrategyDataStatusResponse = Message<"shorts.v1alpha1.GetStrategyDataStatusResponse"> & {
+  /**
+   * The newest index session the price data reaches; "" when unknown.
+   *
+   * @generated from field: string latest_session = 1;
+   */
+  latestSession: string;
+
+  /**
+   * When the newest completed price sweep finished; "" when none.
+   *
+   * @generated from field: string prices_completed_at = 2;
+   */
+  pricesCompletedAt: string;
+
+  /**
+   * The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views.
+   *
+   * @generated from field: string snapshot_as_of = 3;
+   */
+  snapshotAsOf: string;
+
+  /**
+   * When that session's last phase completed.
+   *
+   * @generated from field: string snapshot_completed_at = 4;
+   */
+  snapshotCompletedAt: string;
+
+  /**
+   * The newest ASIC short-position reports, newest first (at most 10).
+   *
+   * @generated from field: repeated shorts.v1alpha1.AsicReportStatus asic_reports = 5;
+   */
+  asicReports: AsicReportStatus[];
+
+  /**
+   * The next scheduled refresh of the picks.
+   *
+   * @generated from field: string next_update_utc = 6;
+   */
+  nextUpdateUtc: string;
+
+  /**
+   * Codes the snapshot session priced.
+   *
+   * @generated from field: int32 priced_codes = 7;
+   */
+  pricedCodes: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStrategyDataStatusResponse.
+ * Use `create(GetStrategyDataStatusResponseSchema)` to create a new message.
+ */
+export const GetStrategyDataStatusResponseSchema: GenMessage<GetStrategyDataStatusResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 32);
+
+/**
+ * One ASIC short-position report as the source dates show it.
+ *
+ * @generated from message shorts.v1alpha1.AsicReportStatus
+ */
+export type AsicReportStatus = Message<"shorts.v1alpha1.AsicReportStatus"> & {
+  /**
+   * The report's as-at date.
+   *
+   * @generated from field: string report_date = 1;
+   */
+  reportDate: string;
+
+  /**
+   * When the report became public (T+ the publication lag).
+   *
+   * @generated from field: string available_date = 2;
+   */
+  availableDate: string;
+
+  /**
+   * When we first saw the report; "" when not recorded.
+   *
+   * @generated from field: string first_ingested_at = 3;
+   */
+  firstIngestedAt: string;
+
+  /**
+   * Codes of the report that are loaded.
+   *
+   * @generated from field: int32 rows = 4;
+   */
+  rows: number;
+
+  /**
+   * Every code the report carries is loaded.
+   *
+   * @generated from field: bool complete = 5;
+   */
+  complete: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.AsicReportStatus.
+ * Use `create(AsicReportStatusSchema)` to create a new message.
+ */
+export const AsicReportStatusSchema: GenMessage<AsicReportStatus> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 33);
+
+/**
+ * Request for ListStrategySignalEvents.
+ *
+ * @generated from message shorts.v1alpha1.ListStrategySignalEventsRequest
+ */
+export type ListStrategySignalEventsRequest = Message<"shorts.v1alpha1.ListStrategySignalEventsRequest"> & {
+  /**
+   * Required: a canonical strategy id.
+   *
+   * @generated from field: string strategy_id = 1;
+   */
+  strategyId: string;
+
+  /**
+   * Empty for the live version; else a live or superseded canonical rules hash.
+   *
+   * @generated from field: string version_hash = 2;
+   */
+  versionHash: string;
+
+  /**
+   * Optional: one stock's events only.
+   *
+   * @generated from field: string stock_code = 3;
+   */
+  stockCode: string;
+
+  /**
+   * Optional YYYY-MM-DD, inclusive.
+   *
+   * @generated from field: string since = 4;
+   */
+  since: string;
+
+  /**
+   * The next_page_token of the previous page.
+   *
+   * @generated from field: string page_token = 5;
+   */
+  pageToken: string;
+
+  /**
+   * 1 to 200; 0 is the default of 50.
+   *
+   * @generated from field: int32 page_size = 6;
+   */
+  pageSize: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListStrategySignalEventsRequest.
+ * Use `create(ListStrategySignalEventsRequestSchema)` to create a new message.
+ */
+export const ListStrategySignalEventsRequestSchema: GenMessage<ListStrategySignalEventsRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 34);
+
+/**
+ * Response for ListStrategySignalEvents.
+ *
+ * @generated from message shorts.v1alpha1.ListStrategySignalEventsResponse
+ */
+export type ListStrategySignalEventsResponse = Message<"shorts.v1alpha1.ListStrategySignalEventsResponse"> & {
+  /**
+   * Newest first.
+   *
+   * @generated from field: repeated shorts.v1alpha1.StrategySignalEvent events = 1;
+   */
+  events: StrategySignalEvent[];
+
+  /**
+   * Empty on the last page.
+   *
+   * @generated from field: string next_page_token = 2;
+   */
+  nextPageToken: string;
+
+  /**
+   * The rules version the events belong to.
+   *
+   * @generated from field: shorts.v1alpha1.StrategyVersionRef version = 3;
+   */
+  version?: StrategyVersionRef;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListStrategySignalEventsResponse.
+ * Use `create(ListStrategySignalEventsResponseSchema)` to create a new message.
+ */
+export const ListStrategySignalEventsResponseSchema: GenMessage<ListStrategySignalEventsResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 35);
+
+/**
+ * One status change of one stock under one canonical rules version.
+ *
+ * @generated from message shorts.v1alpha1.StrategySignalEvent
+ */
+export type StrategySignalEvent = Message<"shorts.v1alpha1.StrategySignalEvent"> & {
+  /**
+   * @generated from field: string stock_code = 1;
+   */
+  stockCode: string;
+
+  /**
+   * @generated from field: string company_name = 2;
+   */
+  companyName: string;
+
+  /**
+   * The session the status changed on (YYYY-MM-DD).
+   *
+   * @generated from field: string session_date = 3;
+   */
+  sessionDate: string;
+
+  /**
+   * The session it changed from; "" when none.
+   *
+   * @generated from field: string prev_session_date = 4;
+   */
+  prevSessionDate: string;
+
+  /**
+   * triggered, setup, unknown, watch or none.
+   *
+   * @generated from field: string from_status = 5;
+   */
+  fromStatus: string;
+
+  /**
+   * triggered, setup, unknown, watch or none.
+   *
+   * @generated from field: string to_status = 6;
+   */
+  toStatus: string;
+
+  /**
+   * @generated from field: double score = 7;
+   */
+  score: number;
+
+  /**
+   * @generated from field: double close = 8;
+   */
+  close: number;
+
+  /**
+   * @generated from field: double pivot = 9;
+   */
+  pivot: number;
+
+  /**
+   * @generated from field: bool has_pivot = 10;
+   */
+  hasPivot: boolean;
+
+  /**
+   * The rule results recorded that session (values and proximities as stored).
+   *
+   * @generated from field: repeated shorts.v1alpha1.RuleResult rules = 11;
+   */
+  rules: RuleResult[];
+
+  /**
+   * @generated from field: string rules_hash = 12;
+   */
+  rulesHash: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.StrategySignalEvent.
+ * Use `create(StrategySignalEventSchema)` to create a new message.
+ */
+export const StrategySignalEventSchema: GenMessage<StrategySignalEvent> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 36);
 
 /**
  * Named, rule-based stock-picking strategies evaluated daily against ASX
@@ -1120,11 +2237,28 @@ export const StrategyService: GenService<{
   },
   /**
    * Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
-   * score and a per-rule pass / fail / unknown breakdown for each stock.
+   * score and a per-rule pass / fail / unknown breakdown for each stock. The
+   * answer is the same bytes to every HTTP caller. When the public depth
+   * limit is set, the rows are the top of the default ranking only, for every
+   * HTTP caller, API-token holders included: a bearer token does not lift it.
+   * Full depth comes from GetViewerStrategyPicks, which accepts a bearer token.
    *
    * @generated from rpc shorts.v1alpha1.StrategyService.GetStrategyPicks
    */
   getStrategyPicks: {
+    methodKind: "unary";
+    input: typeof GetStrategyPicksRequestSchema;
+    output: typeof GetStrategyPicksResponseSchema;
+  },
+  /**
+   * The same ranked picks as GetStrategyPicks, at the caller's full depth. It
+   * needs a signed-in caller (a bearer token, or the web's session) and is never
+   * clamped: the viewer field reports access "free" or "premium" and clamped
+   * false.
+   *
+   * @generated from rpc shorts.v1alpha1.StrategyService.GetViewerStrategyPicks
+   */
+  getViewerStrategyPicks: {
     methodKind: "unary";
     input: typeof GetStrategyPicksRequestSchema;
     output: typeof GetStrategyPicksResponseSchema;
@@ -1140,6 +2274,87 @@ export const StrategyService: GenService<{
     methodKind: "unary";
     input: typeof GetStockStrategyFitRequestSchema;
     output: typeof GetStockStrategyFitResponseSchema;
+  },
+  /**
+   * One published version of a strategy's rules: its parameters, what changed
+   * from the version before, and its known issues. An empty version_hash is
+   * the live version. Canonical versions only; an unknown hash is NotFound.
+   *
+   * @generated from rpc shorts.v1alpha1.StrategyService.GetStrategyVersion
+   */
+  getStrategyVersion: {
+    methodKind: "unary";
+    input: typeof GetStrategyVersionRequestSchema;
+    output: typeof GetStrategyVersionResponseSchema;
+  },
+  /**
+   * Every published canonical version of a strategy (all strategies when
+   * strategy_id is empty), in publication order: the rules changelog.
+   *
+   * @generated from rpc shorts.v1alpha1.StrategyService.ListStrategyVersions
+   */
+  listStrategyVersions: {
+    methodKind: "unary";
+    input: typeof ListStrategyVersionsRequestSchema;
+    output: typeof ListStrategyVersionsResponseSchema;
+  },
+  /**
+   * Where the readings come from: the latest session, the newest completed
+   * snapshot session, the newest ASIC short reports and the next update time.
+   *
+   * @generated from rpc shorts.v1alpha1.StrategyService.GetStrategyDataStatus
+   */
+  getStrategyDataStatus: {
+    methodKind: "unary";
+    input: typeof GetStrategyDataStatusRequestSchema;
+    output: typeof GetStrategyDataStatusResponseSchema;
+  },
+  /**
+   * The status changes of one strategy's canonical rules version, newest first:
+   * a stock entering or leaving a status, with the rule results that day.
+   *
+   * @generated from rpc shorts.v1alpha1.StrategyService.ListStrategySignalEvents
+   */
+  listStrategySignalEvents: {
+    methodKind: "unary";
+    input: typeof ListStrategySignalEventsRequestSchema;
+    output: typeof ListStrategySignalEventsResponseSchema;
+  },
+  /**
+   * Save a strategy to the signed-in caller's list. Saving a strategy that is
+   * already saved succeeds and keeps its first save time. The list holds at
+   * most 20; a save past that is refused with PermissionDenied and the
+   * X-Entitlement-Detail metadata (capability cap_reached, with the limit), and
+   * a repeat save at the cap still succeeds.
+   *
+   * @generated from rpc shorts.v1alpha1.StrategyService.SaveStrategy
+   */
+  saveStrategy: {
+    methodKind: "unary";
+    input: typeof SaveStrategyRequestSchema;
+    output: typeof SaveStrategyResponseSchema;
+  },
+  /**
+   * Remove a strategy from the caller's list. Removing one that is not saved
+   * succeeds.
+   *
+   * @generated from rpc shorts.v1alpha1.StrategyService.UnsaveStrategy
+   */
+  unsaveStrategy: {
+    methodKind: "unary";
+    input: typeof UnsaveStrategyRequestSchema;
+    output: typeof UnsaveStrategyResponseSchema;
+  },
+  /**
+   * The caller's saved strategies, most recent first, each with today's
+   * status counts.
+   *
+   * @generated from rpc shorts.v1alpha1.StrategyService.ListSavedStrategies
+   */
+  listSavedStrategies: {
+    methodKind: "unary";
+    input: typeof ListSavedStrategiesRequestSchema;
+    output: typeof ListSavedStrategiesResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_shorts_v1alpha1_strategies, 0);

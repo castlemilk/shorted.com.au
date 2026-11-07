@@ -252,7 +252,19 @@ jobs:
           PLATFORM: linux/amd64
           STEALTH_PAT: ${{ secrets.STEALTH_PAT }}
         run: |
-          docker buildx bake --file docker-bake.hcl --builder shorted-builder --push --progress plain
+          # The bake builds every image in one BuildKit session, so a retry
+          # costs only the layers that did not push: a push to Artifact Registry
+          # once died on "failed to authorize: DeadlineExceeded" after the
+          # whole build had succeeded (2026-11-05, main-6d684029).
+          for attempt in 1 2 3; do
+            if docker buildx bake --file docker-bake.hcl --builder shorted-builder --push --progress plain; then
+              exit 0
+            fi
+            echo "::warning::bake attempt $attempt failed; retrying in $((attempt * 30))s"
+            sleep $((attempt * 30))
+          done
+          echo "::error::bake failed on every attempt"
+          exit 1
 
   # Same images, second home: rigs pull task images from the Cuttlefish
   # registry with their control-plane token, so nothing on a rig needs a cloud
@@ -1021,6 +1033,42 @@ jobs:
             # run id and by suburb slug. Plain builds in one transaction under lock_timeout, like 000150 to
             # 000152. The tables are small and pruned, and a replay touches nothing once the indexes exist.
             run_psql_session -f /migrations/000153_add_crawl_ops_indexes.up.sql
+            # 000154 (notice read_by, coverage spec 2.3) adds read_by TEXT NOT NULL DEFAULT 'parser'
+            # to substantial_holder_notices and substantial_holder_notice_attempts, and a CHECK on
+            # each, every one added only when the catalog lacks it, so a replay takes no lock and
+            # touches no rows (a constant default is catalog-only). The API reads read_by, so it
+            # runs before the image swap, under lock_timeout on the session pooler.
+            run_psql_session -f /migrations/000154_notice_read_by.up.sql
+            # 000155 (strategy workspace) adds the ASIC report ingest log, the ASIC revision log and the
+            # stock_fundamentals vintage history with its trigger and one-time baseline. Every step is
+            # catalog-guarded, so a replay that has done its work takes no lock on stock_fundamentals. The
+            # first application takes SHARE ROW EXCLUSIVE on it to create the trigger, so it must not run
+            # during the picks window (15:00-18:30 UTC). Session pooler, under lock_timeout 5s. If the first
+            # apply times out on that lock, apply it by hand in a quiet window, then re-run the deploy:
+            #   task db:prod:apply FILE=services/migrations/000155_strategy_capture.up.sql CONFIRM=prod
+            run_psql_session -f /migrations/000155_strategy_capture.up.sql
+            # 000156 (strategy engine) adds the daily snapshot: rule versions, recipes, the daily run log, the
+            # regime, the fundamentals blobs, the per-session feature rows and the signal events. Every table is
+            # CREATE TABLE IF NOT EXISTS and every index is catalog-guarded, so a replay writes no row and
+            # takes no lock on an existing table. Nothing reads these tables until the job first runs.
+            # Session pooler, under lock_timeout 15s. If it cannot apply, apply it by hand in a quiet window,
+            # then re-run the deploy:
+            #   task db:prod:apply FILE=services/migrations/000156_strategy_engine.up.sql CONFIRM=prod
+            run_psql_session -f /migrations/000156_strategy_engine.up.sql
+            # 000157 (strategy workspace) adds the saved-strategies table of the My strategies list. One
+            # CREATE TABLE IF NOT EXISTS, no row, no lock beyond the catalog check, so it replays freely.
+            # The save and list RPCs read it, and the signed-in list reads it as empty until it exists.
+            run_psql_session -f /migrations/000157_strategy_saves.up.sql
+
+            # 000158 (strategy backtests) adds the four backtest tables: runs, series, trades and the request
+            # queue. CREATE TABLE IF NOT EXISTS and catalog-guarded indexes. The FIRST apply takes SHARE ROW
+            # EXCLUSIVE on strategy_rule_versions and strategy_recipes (its REFERENCES clauses), so do not merge
+            # while shorted-strategies-daily is running (weekdays 13:00-16:40 UTC). A replay takes no lock.
+            # Nothing reads them until shorted-strategies-backtest runs, and that CronJob is not live until the
+            # chart's VKE branch moves after this apply. Session pooler, under lock_timeout 15s. If it cannot
+            # apply, apply it by hand outside that window, then re-run the deploy:
+            #   task db:prod:apply FILE=services/migrations/000158_strategy_backtests.up.sql CONFIRM=prod
+            run_psql_session -f /migrations/000158_strategy_backtests.up.sql
 
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
@@ -1166,6 +1214,12 @@ jobs:
           TF_VAR_rate_limit_testing_bypass_secret: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
           TF_VAR_rate_limit_ssr_bypass_secret: ${{ secrets.CLOUDFLARE_SSR_BYPASS_SECRET }}
         run: |
+          # Two attempts: an apply that fails on a transient provider error
+          # (Cloudflare answered 503 to a GET of the worker script mid-apply,
+          # 2026-11-06, main-499a9197) re-plans from the state the first attempt
+          # left and converges. Nothing here is a saved plan, so the second
+          # attempt is a fresh plan and apply of the same inputs.
+          apply() {
           terraform apply \
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
@@ -1183,6 +1237,11 @@ jobs:
             -var="take_writer_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/take-writer:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve
+          }
+          if apply; then exit 0; fi
+          echo "::warning::terraform apply failed; re-planning and applying once more in 60s"
+          sleep 60
+          apply
 
       - name: Get Terraform Outputs
         id: outputs
@@ -1954,12 +2013,24 @@ jobs:
       # limiting, workload auth, ingest auth. unit-tests in go-quality.yml runs
       # the same command on PRs; this step is what gates the deploy. About 110s,
       # in parallel with terraform-plan.
+      # A package that fails is run once more on its own (scripts/ci/go-test-rerun.sh):
+      # a flake passes with a warning naming its tests, a regression fails twice.
       - name: Run services unit tests (gates the deploy)
         working-directory: services
         env:
           GOWORK: "off"
           GOPRIVATE: github.com/skunkworq/*
-        run: go test ./... -short
+        run: ../scripts/ci/go-test-rerun.sh ./... -short
+
+      # The index sync's write (services/jobs/internal/jobs/marketdata): one
+      # series' upsert and bounded clean-up in one transaction, against a real
+      # postgres. The clean-up is a DELETE on the production index_prices table,
+      # so it gates the deploy like the alerts suite. About 10s.
+      - name: Run index sync clean-up suite (gates the deploy)
+        run: |
+          echo "🧪 Running the index sync write suite (postgres container)..."
+          cd services
+          make test-indexsync-pg
 
       # The alerts evaluator's cross-user and fail-closed checks (owner isolation,
       # the pause link, the owner lookup and billing failing closed). Kept on the
@@ -1969,6 +2040,68 @@ jobs:
           echo "🧪 Running the alerts evaluator end-to-end suite (postgres container)..."
           cd services
           make test-alerts-e2e
+
+      # The strategy capture suite (migration 000155): the vintage trigger, its replay and the ingest
+      # writer's SQL, against a real Postgres. It guards the table every stock_fundamentals write now also
+      # writes, so it gates the deploy like the alerts suite.
+      - name: Run strategy capture container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the strategy capture suite (postgres container)..."
+          cd services
+          make test-shortdatasync-pg
+
+      # The strategy daily snapshot suite (migration 000156): one session written, a dry run that writes nothing,
+      # a re-run that writes the same rows, and a second session diffed against the first, on a real Postgres.
+      - name: Run strategy daily snapshot container suite (gates the deploy)
+        run: |
+          echo "Running the strategy daily snapshot suite (postgres container)..."
+          cd services
+          make test-strategies-daily-pg
+
+      # The key-metrics suite (services/jobs/internal/jobs/keymetrics): the one UPDATE that writes
+      # company-metadata.key_metrics, a failed write leaving the old row, the universe's price filter
+      # and the stored-code write, on a real Postgres. The job runs daily on VKE, so the write gates the deploy.
+      - name: Run key-metrics container suite (gates the deploy)
+        run: |
+          echo "Running the key-metrics suite (postgres container)..."
+          cd services
+          make test-keymetrics-pg
+
+      # The strategy feature parity suite (services/pkg/strategy/features): the Go port of
+      # mv_price_features and mv_market_regime against migration 000130's views at fixed anchors.
+      # It gates the deploy so that a change to either side fails here, not in a later PR.
+      - name: Run strategy feature parity container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the strategy feature parity suite (postgres container)..."
+          cd services
+          make test-strategy-parity
+
+      # The strategy reader suite (services/pkg/strategy/pgsource): the feature pipeline's readers and the
+      # picker's metadata, dividend and cash-rate reads, against a real Postgres. It gates the deploy so a
+      # reader's SQL or scan types cannot drift from the tables unnoticed.
+      - name: Run strategy reader container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the strategy reader suite (postgres container)..."
+          cd services
+          make test-pgsource-pg
+
+      # The saved-strategy store (migration 000157): the cap under concurrent saves, the bounded lock wait,
+      # the variant owner guard and replay. The cap is a guarantee the handler tests cannot see (they fake
+      # the store), so it gates the deploy like the suites above.
+      - name: Run saved strategies container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the saved strategies suite (postgres container)..."
+          cd services
+          make test-strategy-saves-pg
+
+      # The daily snapshot's API reads (migration 000156): the newest completed session, the unmigrated
+      # fallback, canonical and live-only signal events, and the source dates. The variant guard is a
+      # guarantee the handler tests cannot see (they fake the store), so it gates the deploy too.
+      - name: Run strategy snapshot API container suite (gates the deploy)
+        run: |
+          echo "🧪 Running the strategy snapshot API suite (postgres container)..."
+          cd services
+          make test-strategy-snapshot-pg
 
       # Workflow pins: the apply gate and the smoke ordering are asserted here,
       # and nothing else ran these tests in CI. The test imports `yaml`, a root

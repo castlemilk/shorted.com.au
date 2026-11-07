@@ -107,6 +107,23 @@ const BUDGETS = {
     "/shorts/[stockCode]/news": 140,
     "/shorts/[stockCode]/community": 150,
     "/news/[slug]": 190,
+    // The strategy profile (2026-11-05): the profile route is its Overview tab
+    // with the faceplate and the tab bar in the layout, and /strategies is the
+    // hub. Measured first load on the production build that day: 133 kB for the
+    // profile and 124 kB for the hub. The budgets are the profile spec's figures;
+    // the matching ISR gate is scripts/route-kinds.mjs.
+    "/strategies/[strategy]": 140,
+    "/strategies": 160,
+    // The Signals tab (PR-06): the matrix and the evidence panel's chart, which
+    // is a lazy chunk. The budget is the profile spec's figure, measured on build.
+    "/strategies/[strategy]/signals": 150,
+    // The Rules tab (PR-13a): static parameter tables and the changelog, no client
+    // island. Measured first load on the production build: 115 kB.
+    "/strategies/[strategy]/rules": 130,
+
+    // My strategies (PR-22): the static shell and its signed-in island. Measured at 129 kB
+    // on the production build; the budget is the spec's figure.
+    "/strategies/my": 180,
     "/screener": 250,
     "/dashboards": 280,
     // Known-heavy / non-public routes — guarded at current + headroom. These

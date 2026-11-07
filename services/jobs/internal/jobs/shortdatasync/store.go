@@ -85,6 +85,180 @@ func (s *pgStore) UpsertRows(ctx context.Context, rows []shortsRow) (int, error)
 	return written, nil
 }
 
+// The three ways the writer loads a file. They are the asic_report_ingests.mode values (000155).
+const (
+	modeDaily     = "daily"
+	modePoll      = "poll"
+	modeReconcile = "reconcile"
+)
+
+// ingestRecord is one ASIC report file as the writer has just left it: the date
+// it is for, the distinct product codes it parsed, and how it was loaded.
+type ingestRecord struct {
+	ReportDate time.Time
+	Codes      []string
+	SourceFile string
+	Mode       string
+}
+
+// loadedCodesSQL reads the distinct product codes shorts holds for the date, after
+// the write. The codes come back as stored, padding and all: RecordIngest trims
+// them in Go with strings.TrimSpace, the same trim RowsOnDate applies, so a padded
+// legacy row ("WBT ") counts as its code under both readers. SQL trimming would
+// trim a narrower set of characters than Go does, and the two would disagree on
+// a non-space padding. The date range is the same half-open day range rowsOnDateSQL
+// uses, so the (DATE, PRODUCT_CODE) index serves it.
+const loadedCodesSQL = `
+        SELECT COALESCE(array_agg(DISTINCT "PRODUCT_CODE"), '{}')
+        FROM shorts
+        WHERE "DATE" >= $1 AND "DATE" < $2 AND "PRODUCT_CODE" IS NOT NULL`
+
+// upsertIngestSQL records one file. first_ingested_at and mode are the
+// observation that must survive a later load, so the update leaves them alone.
+const upsertIngestSQL = `
+        INSERT INTO asic_report_ingests (report_date, file_rows, loaded_rows, source_file, mode, last_mode)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (report_date) DO UPDATE SET
+            last_ingested_at = now(),
+            file_rows        = EXCLUDED.file_rows,
+            loaded_rows      = EXCLUDED.loaded_rows,
+            source_file      = EXCLUDED.source_file,
+            last_mode        = EXCLUDED.last_mode`
+
+// RecordIngest upserts the report's asic_report_ingests row. file_rows is the
+// number of distinct codes the file parsed. loaded_rows is recounted from shorts
+// here, never taken from the writer's own write count, so a row that failed to
+// write is not counted and a row written by an earlier run is. That recount is
+// the completeness fact: a report is complete when loaded_rows >= file_rows.
+//
+// A file that parsed to no codes records file_rows NULL, not 0. Zero is a
+// complete report by that rule, so a file whose every record failed to parse
+// (a format change, say) would read as complete and mark every code absent in a
+// strategy read. NULL leaves completeness unknown, which is the truth.
+func (s *pgStore) RecordIngest(ctx context.Context, rec ingestRecord) error {
+	day := truncateDay(rec.ReportDate)
+	var fileRows *int
+	loaded := 0
+	if len(rec.Codes) > 0 {
+		n := len(distinctTrimmed(rec.Codes))
+		fileRows = &n
+		var stored []string
+		if err := s.db.QueryRow(ctx, loadedCodesSQL,
+			day, day.AddDate(0, 0, 1),
+		).Scan(&stored); err != nil {
+			return fmt.Errorf("ingest %s: count loaded rows: %w", day.Format("2006-01-02"), err)
+		}
+		loaded = countPresent(rec.Codes, stored)
+	}
+	if _, err := s.db.Exec(ctx, upsertIngestSQL,
+		day, fileRows, loaded, rec.SourceFile, rec.Mode, rec.Mode,
+	); err != nil {
+		return fmt.Errorf("ingest %s: upsert: %w", day.Format("2006-01-02"), err)
+	}
+	return nil
+}
+
+// countPresent counts the distinct file codes that appear among the stored codes,
+// comparing both sides trimmed the way RowsOnDate trims them.
+func countPresent(fileCodes, stored []string) int {
+	have := make(map[string]struct{}, len(stored))
+	for _, c := range stored {
+		have[strings.TrimSpace(c)] = struct{}{}
+	}
+	n := 0
+	for _, c := range distinctTrimmed(fileCodes) {
+		if _, ok := have[c]; ok {
+			n++
+		}
+	}
+	return n
+}
+
+// distinctTrimmed returns the trimmed codes once each.
+func distinctTrimmed(codes []string) []string {
+	seen := make(map[string]struct{}, len(codes))
+	out := make([]string, 0, len(codes))
+	for _, c := range codes {
+		t := strings.TrimSpace(c)
+		if _, ok := seen[t]; ok {
+			continue
+		}
+		seen[t] = struct{}{}
+		out = append(out, t)
+	}
+	return out
+}
+
+// revisionRecord is one stored row that ASIC's current file changed: the stored
+// values and the file's. A NULL stored value is a revision too: it is a repair.
+type revisionRecord struct {
+	Date                                time.Time
+	Code                                string
+	OldPositions, OldShares, OldPercent *float64
+	NewPositions, NewShares, NewPercent float64
+}
+
+// insertRevisionSQL is one shorts_revisions row. It is written by the writer, not a
+// trigger: shorts holds about 2.1M rows and must not gain one.
+//
+// It is idempotent against the latest revision the table holds for the same date
+// and code. When a revision landed but the row's own upsert then failed, the row
+// stays changed and the next run finds the same difference again; without this
+// guard that run would insert the same revision a second time. A revision equal to
+// the latest one is therefore skipped. An earlier revision with the same values
+// does not count, so a value that moves A to B and back to A and to B again still
+// records every move.
+const insertRevisionSQL = `
+        INSERT INTO shorts_revisions (
+            report_date, product_code,
+            old_positions, new_positions, old_shares, new_shares, old_percent, new_percent)
+        SELECT $1::date, $2::text, $3::float8, $4::float8, $5::float8, $6::float8, $7::float8, $8::float8
+        WHERE NOT EXISTS (
+            SELECT 1 FROM (
+                SELECT old_positions, new_positions, old_shares, new_shares, old_percent, new_percent
+                FROM shorts_revisions
+                WHERE report_date = $1::date AND product_code = $2::text
+                ORDER BY id DESC
+                LIMIT 1) last
+            WHERE last.old_positions IS NOT DISTINCT FROM $3::float8
+              AND last.new_positions IS NOT DISTINCT FROM $4::float8
+              AND last.old_shares IS NOT DISTINCT FROM $5::float8
+              AND last.new_shares IS NOT DISTINCT FROM $6::float8
+              AND last.old_percent IS NOT DISTINCT FROM $7::float8
+              AND last.new_percent IS NOT DISTINCT FROM $8::float8)`
+
+// InsertRevisions records one row per revision. It is row-at-a-time in autocommit,
+// like UpsertRows, so a row that fails does not stop the rest. It returns the
+// revisions it could not write, and the caller keeps those rows out of the repair:
+// a row whose revision did not land is not overwritten, so ASIC's replaced value
+// is still stored when the next run comes back for it. Cancellation is respected
+// between rows and returned as an error.
+func (s *pgStore) InsertRevisions(ctx context.Context, revs []revisionRecord) ([]revisionRecord, error) {
+	var unwritten []revisionRecord
+	for _, r := range revs {
+		if err := ctx.Err(); err != nil {
+			return unwritten, err
+		}
+		_, err := s.db.Exec(ctx, insertRevisionSQL,
+			truncateDay(r.Date), r.Code,
+			r.OldPositions, r.NewPositions, r.OldShares, r.NewShares, r.OldPercent, r.NewPercent,
+		)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return unwritten, err
+			}
+			if len(unwritten) == 0 {
+				log.Printf("   revision insert error (first of batch): %v", err)
+			}
+			unwritten = append(unwritten, r)
+		}
+	}
+	if len(unwritten) > 0 {
+		log.Printf("   ⚠️  %d revision row(s) failed to write; their rows are left as they were", len(unwritten))
+	}
+	return unwritten, nil
+}
+
 // LastShortsDate returns MAX("DATE") from shorts, and false when the table is
 // empty (the Python's initial-load branch).
 func (s *pgStore) LastShortsDate(ctx context.Context) (time.Time, bool, error) {

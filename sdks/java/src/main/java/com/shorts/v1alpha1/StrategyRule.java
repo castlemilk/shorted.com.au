@@ -37,6 +37,8 @@ private static final long serialVersionUID = 0L;
     ruleText_ = "";
     evaluation_ = "";
     dataSource_ = "";
+    unit_ = "";
+    comparator_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -299,6 +301,160 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int TRIGGER_FIELD_NUMBER = 7;
+  private boolean trigger_ = false;
+  /**
+   * <pre>
+   * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
+   * </pre>
+   *
+   * <code>bool trigger = 7 [json_name = "trigger"];</code>
+   * @return The trigger.
+   */
+  @java.lang.Override
+  public boolean getTrigger() {
+    return trigger_;
+  }
+
+  public static final int WEIGHT_FIELD_NUMBER = 8;
+  private double weight_ = 0D;
+  /**
+   * <pre>
+   * Share of the score this rule carries, 0-1; the weights of a strategy sum to 1.
+   * </pre>
+   *
+   * <code>double weight = 8 [json_name = "weight"];</code>
+   * @return The weight.
+   */
+  @java.lang.Override
+  public double getWeight() {
+    return weight_;
+  }
+
+  public static final int THRESHOLD_FIELD_NUMBER = 9;
+  private double threshold_ = 0D;
+  /**
+   * <pre>
+   * The number the rule tests, in unit. Meaningful only when has_threshold.
+   * </pre>
+   *
+   * <code>double threshold = 9 [json_name = "threshold"];</code>
+   * @return The threshold.
+   */
+  @java.lang.Override
+  public double getThreshold() {
+    return threshold_;
+  }
+
+  public static final int HAS_THRESHOLD_FIELD_NUMBER = 10;
+  private boolean hasThreshold_ = false;
+  /**
+   * <pre>
+   * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth).
+   * </pre>
+   *
+   * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>
+   * @return The hasThreshold.
+   */
+  @java.lang.Override
+  public boolean getHasThreshold() {
+    return hasThreshold_;
+  }
+
+  public static final int UNIT_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object unit_ = "";
+  /**
+   * <pre>
+   * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+   * </pre>
+   *
+   * <code>string unit = 11 [json_name = "unit"];</code>
+   * @return The unit.
+   */
+  @java.lang.Override
+  public java.lang.String getUnit() {
+    java.lang.Object ref = unit_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      unit_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+   * </pre>
+   *
+   * <code>string unit = 11 [json_name = "unit"];</code>
+   * @return The bytes for unit.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getUnitBytes() {
+    java.lang.Object ref = unit_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      unit_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int COMPARATOR_FIELD_NUMBER = 12;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object comparator_ = "";
+  /**
+   * <pre>
+   * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
+   * </pre>
+   *
+   * <code>string comparator = 12 [json_name = "comparator"];</code>
+   * @return The comparator.
+   */
+  @java.lang.Override
+  public java.lang.String getComparator() {
+    java.lang.Object ref = comparator_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      comparator_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
+   * </pre>
+   *
+   * <code>string comparator = 12 [json_name = "comparator"];</code>
+   * @return The bytes for comparator.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getComparatorBytes() {
+    java.lang.Object ref = comparator_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      comparator_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -331,6 +487,24 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(dataSource_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 6, dataSource_);
     }
+    if (trigger_ != false) {
+      output.writeBool(7, trigger_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(weight_) != 0) {
+      output.writeDouble(8, weight_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(threshold_) != 0) {
+      output.writeDouble(9, threshold_);
+    }
+    if (hasThreshold_ != false) {
+      output.writeBool(10, hasThreshold_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(unit_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, unit_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(comparator_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 12, comparator_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -353,6 +527,28 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(dataSource_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(6, dataSource_);
+    }
+    if (trigger_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(7, trigger_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(weight_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(8, weight_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(threshold_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(9, threshold_);
+    }
+    if (hasThreshold_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(10, hasThreshold_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(unit_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, unit_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(comparator_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(12, comparator_);
     }
     return size;
   }
@@ -390,6 +586,20 @@ private static final long serialVersionUID = 0L;
         != other.getCore()) return false;
     if (!getDataSource()
         .equals(other.getDataSource())) return false;
+    if (getTrigger()
+        != other.getTrigger()) return false;
+    if (java.lang.Double.doubleToLongBits(getWeight())
+        != java.lang.Double.doubleToLongBits(
+            other.getWeight())) return false;
+    if (java.lang.Double.doubleToLongBits(getThreshold())
+        != java.lang.Double.doubleToLongBits(
+            other.getThreshold())) return false;
+    if (getHasThreshold()
+        != other.getHasThreshold()) return false;
+    if (!getUnit()
+        .equals(other.getUnit())) return false;
+    if (!getComparator()
+        .equals(other.getComparator())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -414,6 +624,22 @@ private static final long serialVersionUID = 0L;
         getCore());
     hash = (37 * hash) + DATA_SOURCE_FIELD_NUMBER;
     hash = (53 * hash) + getDataSource().hashCode();
+    hash = (37 * hash) + TRIGGER_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getTrigger());
+    hash = (37 * hash) + WEIGHT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getWeight()));
+    hash = (37 * hash) + THRESHOLD_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getThreshold()));
+    hash = (37 * hash) + HAS_THRESHOLD_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasThreshold());
+    hash = (37 * hash) + UNIT_FIELD_NUMBER;
+    hash = (53 * hash) + getUnit().hashCode();
+    hash = (37 * hash) + COMPARATOR_FIELD_NUMBER;
+    hash = (53 * hash) + getComparator().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -555,6 +781,12 @@ private static final long serialVersionUID = 0L;
       evaluation_ = "";
       core_ = false;
       dataSource_ = "";
+      trigger_ = false;
+      weight_ = 0D;
+      threshold_ = 0D;
+      hasThreshold_ = false;
+      unit_ = "";
+      comparator_ = "";
       return this;
     }
 
@@ -606,6 +838,24 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.dataSource_ = dataSource_;
       }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.trigger_ = trigger_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.weight_ = weight_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.threshold_ = threshold_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.hasThreshold_ = hasThreshold_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.unit_ = unit_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.comparator_ = comparator_;
+      }
     }
 
     @java.lang.Override
@@ -646,6 +896,28 @@ private static final long serialVersionUID = 0L;
       if (!other.getDataSource().isEmpty()) {
         dataSource_ = other.dataSource_;
         bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      if (other.getTrigger() != false) {
+        setTrigger(other.getTrigger());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getWeight()) != 0) {
+        setWeight(other.getWeight());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getThreshold()) != 0) {
+        setThreshold(other.getThreshold());
+      }
+      if (other.getHasThreshold() != false) {
+        setHasThreshold(other.getHasThreshold());
+      }
+      if (!other.getUnit().isEmpty()) {
+        unit_ = other.unit_;
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      if (!other.getComparator().isEmpty()) {
+        comparator_ = other.comparator_;
+        bitField0_ |= 0x00000800;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -704,6 +976,36 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000020;
               break;
             } // case 50
+            case 56: {
+              trigger_ = input.readBool();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 56
+            case 65: {
+              weight_ = input.readDouble();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 65
+            case 73: {
+              threshold_ = input.readDouble();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 73
+            case 80: {
+              hasThreshold_ = input.readBool();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 80
+            case 90: {
+              unit_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
+            case 98: {
+              comparator_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1201,6 +1503,366 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       dataSource_ = value;
       bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private boolean trigger_ ;
+    /**
+     * <pre>
+     * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
+     * </pre>
+     *
+     * <code>bool trigger = 7 [json_name = "trigger"];</code>
+     * @return The trigger.
+     */
+    @java.lang.Override
+    public boolean getTrigger() {
+      return trigger_;
+    }
+    /**
+     * <pre>
+     * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
+     * </pre>
+     *
+     * <code>bool trigger = 7 [json_name = "trigger"];</code>
+     * @param value The trigger to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTrigger(boolean value) {
+
+      trigger_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
+     * </pre>
+     *
+     * <code>bool trigger = 7 [json_name = "trigger"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTrigger() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      trigger_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double weight_ ;
+    /**
+     * <pre>
+     * Share of the score this rule carries, 0-1; the weights of a strategy sum to 1.
+     * </pre>
+     *
+     * <code>double weight = 8 [json_name = "weight"];</code>
+     * @return The weight.
+     */
+    @java.lang.Override
+    public double getWeight() {
+      return weight_;
+    }
+    /**
+     * <pre>
+     * Share of the score this rule carries, 0-1; the weights of a strategy sum to 1.
+     * </pre>
+     *
+     * <code>double weight = 8 [json_name = "weight"];</code>
+     * @param value The weight to set.
+     * @return This builder for chaining.
+     */
+    public Builder setWeight(double value) {
+
+      weight_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Share of the score this rule carries, 0-1; the weights of a strategy sum to 1.
+     * </pre>
+     *
+     * <code>double weight = 8 [json_name = "weight"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearWeight() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      weight_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double threshold_ ;
+    /**
+     * <pre>
+     * The number the rule tests, in unit. Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>double threshold = 9 [json_name = "threshold"];</code>
+     * @return The threshold.
+     */
+    @java.lang.Override
+    public double getThreshold() {
+      return threshold_;
+    }
+    /**
+     * <pre>
+     * The number the rule tests, in unit. Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>double threshold = 9 [json_name = "threshold"];</code>
+     * @param value The threshold to set.
+     * @return This builder for chaining.
+     */
+    public Builder setThreshold(double value) {
+
+      threshold_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The number the rule tests, in unit. Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>double threshold = 9 [json_name = "threshold"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearThreshold() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      threshold_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasThreshold_ ;
+    /**
+     * <pre>
+     * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth).
+     * </pre>
+     *
+     * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>
+     * @return The hasThreshold.
+     */
+    @java.lang.Override
+    public boolean getHasThreshold() {
+      return hasThreshold_;
+    }
+    /**
+     * <pre>
+     * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth).
+     * </pre>
+     *
+     * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>
+     * @param value The hasThreshold to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasThreshold(boolean value) {
+
+      hasThreshold_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth).
+     * </pre>
+     *
+     * <code>bool has_threshold = 10 [json_name = "hasThreshold"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasThreshold() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      hasThreshold_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object unit_ = "";
+    /**
+     * <pre>
+     * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>string unit = 11 [json_name = "unit"];</code>
+     * @return The unit.
+     */
+    public java.lang.String getUnit() {
+      java.lang.Object ref = unit_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        unit_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>string unit = 11 [json_name = "unit"];</code>
+     * @return The bytes for unit.
+     */
+    public com.google.protobuf.ByteString
+        getUnitBytes() {
+      java.lang.Object ref = unit_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        unit_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>string unit = 11 [json_name = "unit"];</code>
+     * @param value The unit to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUnit(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      unit_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>string unit = 11 [json_name = "unit"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearUnit() {
+      unit_ = getDefaultInstance().getUnit();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>string unit = 11 [json_name = "unit"];</code>
+     * @param value The bytes for unit to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUnitBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      unit_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object comparator_ = "";
+    /**
+     * <pre>
+     * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>string comparator = 12 [json_name = "comparator"];</code>
+     * @return The comparator.
+     */
+    public java.lang.String getComparator() {
+      java.lang.Object ref = comparator_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        comparator_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>string comparator = 12 [json_name = "comparator"];</code>
+     * @return The bytes for comparator.
+     */
+    public com.google.protobuf.ByteString
+        getComparatorBytes() {
+      java.lang.Object ref = comparator_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        comparator_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>string comparator = 12 [json_name = "comparator"];</code>
+     * @param value The comparator to set.
+     * @return This builder for chaining.
+     */
+    public Builder setComparator(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      comparator_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>string comparator = 12 [json_name = "comparator"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearComparator() {
+      comparator_ = getDefaultInstance().getComparator();
+      bitField0_ = (bitField0_ & ~0x00000800);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "&gt;=", "&lt;=" or "&gt;". Meaningful only when has_threshold.
+     * </pre>
+     *
+     * <code>string comparator = 12 [json_name = "comparator"];</code>
+     * @param value The bytes for comparator to set.
+     * @return This builder for chaining.
+     */
+    public Builder setComparatorBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      comparator_ = value;
+      bitField0_ |= 0x00000800;
       onChanged();
       return this;
     }

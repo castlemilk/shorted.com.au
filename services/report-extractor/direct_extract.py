@@ -41,6 +41,7 @@ token counts and OpenRouter's billed cost go into the run's TokenUsage.
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -124,6 +125,14 @@ class ModelCallError(Exception):
     retries, blocked or empty response)."""
 
 
+class ReplyError(ModelCallError):
+    """The model answered, and the answer holds no JSON object (prose, an array of several
+    objects, a reply looping past ANSWER_MAX_CHARS). The model is up, so it says nothing
+    about the run; and it is the model's reading of THIS document, so asking the same model
+    again gives the same answer (Flash-Lite answered an array for twelve Xanadu Mines notices
+    and looped to 1.5 MB on an Allan Gray one, batch after batch, 2026-11-06)."""
+
+
 # --- transport -------------------------------------------------------------
 
 
@@ -149,13 +158,20 @@ class OpenRouter:
         return s
 
     def chat(self, model: str, system: str, user: str, usage: Optional[TokenUsage] = None,
-             temperature: float = 0.0) -> str:
-        """The assistant message content. Raises ModelCallError."""
+             temperature: float = 0.0, images: Optional[list[bytes]] = None) -> str:
+        """The assistant message content. Raises ModelCallError. images (PNG bytes) are sent
+        beside the text as image_url parts, for a scanned document (notice_direct.py)."""
         with self._lock:
             reasoning = {"effort": "minimal"} if model in self._min_reasoning else {"enabled": False}
+        content: object = user
+        if images:
+            content = [{"type": "text", "text": user}] + [
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(im).decode("ascii")}}
+                for im in images
+            ]
         body = {
             "model": model,
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
             "temperature": temperature,
             "response_format": {"type": "json_object"},
             "reasoning": reasoning,
@@ -472,11 +488,34 @@ def _bare_figure(quote: str, c: str) -> bool:
     return False
 
 
+# A reply longer than this is a model failure (a loop of whitespace or prose), never an answer:
+# the largest real answer, a full statement's figures, is a few tens of thousands of characters.
+ANSWER_MAX_CHARS = 400_000
+
+
+def strip_fence(s: str) -> str:
+    """The text inside a Markdown code fence, or s itself. String operations only: the regex
+    `\\s*```$` this replaced is quadratic in a run of whitespace (0.3 s at 20,000 spaces, hours
+    at a few million), and the regex engine holds the GIL for the whole call, so one degenerate
+    reply froze every thread of the notice reader, its budget stop included, for 107 minutes
+    (2026-11-05, caught by the watchdog's stack dump the next run)."""
+    s = s.strip()
+    if s.startswith("```"):
+        s = s[3:]
+        if s[:4].lower() == "json":
+            s = s[4:]
+        s = s.lstrip()
+    if s.endswith("```"):
+        s = s[:-3].rstrip()
+    return s
+
+
 def parse_answer(content: str) -> dict:
-    """The JSON object in a model's answer ({} when there is none)."""
-    s = (content or "").strip()
-    s = re.sub(r"^```(?:json)?\s*", "", s)
-    s = re.sub(r"\s*```$", "", s)
+    """The JSON object in a model's answer ({} when there is none, or when the reply is over
+    ANSWER_MAX_CHARS)."""
+    if len(content or "") > ANSWER_MAX_CHARS:
+        return {}
+    s = strip_fence(content or "")
     # Some models wrap the object in a one-element array ([{...}]): unwrap it.
     if s.startswith("["):
         try:

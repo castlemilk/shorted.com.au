@@ -107,4 +107,24 @@ public interface StrategyFitOrBuilder extends
    */
   com.shorts.v1alpha1.RuleResultOrBuilder getRulesOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * rules_hash of the live version this reading was evaluated under.
+   * </pre>
+   *
+   * <code>string version_hash = 8 [json_name = "versionHash"];</code>
+   * @return The versionHash.
+   */
+  java.lang.String getVersionHash();
+  /**
+   * <pre>
+   * rules_hash of the live version this reading was evaluated under.
+   * </pre>
+   *
+   * <code>string version_hash = 8 [json_name = "versionHash"];</code>
+   * @return The bytes for versionHash.
+   */
+  com.google.protobuf.ByteString
+      getVersionHashBytes();
 }

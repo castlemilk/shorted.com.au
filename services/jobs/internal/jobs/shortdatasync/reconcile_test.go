@@ -42,14 +42,69 @@ func fileRow(i int) (short, issue, pct float64) {
 }
 
 // fakeReconcileStore is an in-memory shorts table: date → code AS STORED → row.
+// It also keeps the asic_report_ingests and shorts_revisions it is asked to write.
 type fakeReconcileStore struct {
-	rows    map[string]map[string]storedRow
-	readErr map[string]error
-	upserts [][]shortsRow
+	rows      map[string]map[string]storedRow
+	readErr   map[string]error
+	upserts   [][]shortsRow
+	ingests   []fakeIngest
+	revisions []revisionRecord
+	// ingestErr makes RecordIngest fail, as a missing table would.
+	ingestErr error
+	// revisionErr names the codes whose revision insert fails.
+	revisionErr map[string]error
+}
+
+// fakeIngest is one asic_report_ingests write, with the loaded count it recounted.
+type fakeIngest struct {
+	Date, File, Mode string
+	FileRows, Loaded int
 }
 
 func newFakeReconcileStore() *fakeReconcileStore {
 	return &fakeReconcileStore{rows: map[string]map[string]storedRow{}, readErr: map[string]error{}}
+}
+
+// RecordIngest mirrors pgStore.RecordIngest: loaded is the count of the file's codes the
+// table holds for the date at the moment of the write, recounted, never the writer's own count.
+func (f *fakeReconcileStore) RecordIngest(ctx context.Context, rec ingestRecord) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if f.ingestErr != nil {
+		return f.ingestErr
+	}
+	day := rec.ReportDate.Format("2006-01-02")
+	loaded := 0
+	for _, c := range rec.Codes {
+		for stored := range f.rows[day] {
+			if strings.TrimSpace(stored) == c {
+				loaded++
+				break
+			}
+		}
+	}
+	f.ingests = append(f.ingests, fakeIngest{
+		Date: day, File: rec.SourceFile, Mode: rec.Mode, FileRows: len(rec.Codes), Loaded: loaded,
+	})
+	return nil
+}
+
+// InsertRevisions records each revision as given, except the codes in revisionErr, which
+// it returns as unwritten, as a failed insert would.
+func (f *fakeReconcileStore) InsertRevisions(ctx context.Context, revs []revisionRecord) ([]revisionRecord, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var unwritten []revisionRecord
+	for _, r := range revs {
+		if _, failed := f.revisionErr[r.Code]; failed {
+			unwritten = append(unwritten, r)
+			continue
+		}
+		f.revisions = append(f.revisions, r)
+	}
+	return unwritten, nil
 }
 
 // holds stores codes with the values asicCSV would give them at the same

@@ -1,0 +1,7 @@
+# Rules hashes of every registered canonical version: strategy id, label, rules_hash.
+# Regenerate only with a changelog entry in the same commit (see TestSpecHashesArePinned).
+zanger-breakout v0 92fef15b56e50c3c5a821da7c9045517c666c2b2ad34957b6593d257f208d422
+canslim v0 450c11a06a2b731503274f50e473f3f8cada956103d47ed78b969a032fafb282
+minervini-trend-template v0 7c3e713dc721ecaca5a9f6f1e2ebdf5c07222dbca502bd89bcbf1a4309acb0f8
+crowded-short-breakout v0 e115c1762021bde5a4b897975ab3bef4cb228d3cd9f46a0255ebeb1484857cc2
+quality-compounders v0 3defd5c51dcb728791e10c01d859326a7e1d960f95db709a9682c67869fe19cc

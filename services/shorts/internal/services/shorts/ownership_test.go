@@ -44,7 +44,8 @@ func ownershipFixture() *ownershipData {
 		},
 		funds: []shortsstore.OwnershipFundRow{
 			{FundKey: "abn:1", Name: "Hostplus", FundType: "super_fund", InstitutionSlug: "hostplus", Size: new(1.2e11)},
-			{FundKey: "asx:VAS", Name: "VAS", FundType: "etf", InstitutionSlug: "vanguard", Size: new(2.1e10)},
+			{FundKey: "asx:VAS", Name: "VAS", FundType: "etf", InstitutionSlug: "vanguard", Size: new(2.1e10), Category: "Equity - Australia / ETF"},
+			{FundKey: "asx:NDQ", Name: "NDQ", FundType: "etf", InstitutionSlug: "betashares", Size: new(5e9), Category: "Equity - Global / ETF"},
 			{FundKey: "asx:AFI", Name: "AFIC", FundType: "lic", Size: new(8e9)},
 		},
 		shorts: map[string]shortsstore.ShortPosition{
@@ -117,7 +118,8 @@ func TestBuildOwnershipOverview(t *testing.T) {
 	assert.EqualValues(t, 1, out.SuperConsensus[0].SuperOptions)
 
 	assert.EqualValues(t, 1, out.SuperFunds)
-	assert.EqualValues(t, 1, out.Etfs)
+	assert.EqualValues(t, 2, out.Etfs)
+	assert.EqualValues(t, 1, out.EtfsAustralianEquity, "NDQ is global equity, so only VAS counts")
 	assert.EqualValues(t, 1, out.Lics)
 	assert.InDelta(t, 1.2e11, out.SuperAssetsAud, 1)
 	assert.EqualValues(t, 9, out.NoticesParsed)

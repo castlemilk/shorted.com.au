@@ -1,13 +1,15 @@
 package shorts
 
 import (
+	"context"
 	"errors"
 	"math"
 	"regexp"
 	"strings"
 	"testing"
 
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -63,7 +65,7 @@ func TestStrategyQueriesScanEveryColumn(t *testing.T) {
 	if got, want := len(selectList(t, strategyCandidatesQuery)), len(row.targets()); got != want {
 		t.Errorf("strategyCandidatesQuery selects %d columns, candidateRow scans %d", got, want)
 	}
-	var g strategies.Growth
+	var g engine.Growth
 	if got, want := len(selectList(t, fundamentalsGrowthQuery)), len(growthScanTargets(&g)); got != want {
 		t.Errorf("fundamentalsGrowthQuery selects %d columns, growthScanTargets scans %d", got, want)
 	}
@@ -213,15 +215,15 @@ func TestFiniteDropsNonFiniteValues(t *testing.T) {
 		t.Error("finite values pass through")
 	}
 
-	c := strategies.Candidate{Close: math.NaN(), SMA50: v(math.Inf(1)), ShortPct: v(7), MarketCap: v(math.NaN())}
+	c := engine.Candidate{Close: math.NaN(), SMA50: v(math.Inf(1)), ShortPct: v(7), MarketCap: v(math.NaN())}
 	sanitiseCandidate(&c)
 	if c.Close != 0 || c.SMA50 != nil || c.MarketCap != nil || c.ShortPct == nil {
 		t.Errorf("sanitiseCandidate: %+v", c)
 	}
-	g := strategies.Growth{RevenueYoYPct: v(math.Inf(1)), EPSYoYPct: v(12)}
-	sanitiseGrowth(&g)
+	g := engine.Growth{RevenueYoYPct: v(math.Inf(1)), EPSYoYPct: v(12)}
+	pgsource.SanitiseGrowth(&g)
 	if g.RevenueYoYPct != nil || g.EPSYoYPct == nil {
-		t.Errorf("sanitiseGrowth: %+v", g)
+		t.Errorf("SanitiseGrowth: %+v", g)
 	}
 }
 
@@ -237,5 +239,33 @@ func TestUndefinedTableDetectionIsTheOnlyEmptyPath(t *testing.T) {
 	// Logging once per method must not panic when called repeatedly.
 	for range 3 {
 		logMissingRelationOnce("TestMethod", errors.New("relation does not exist"))
+	}
+}
+
+// The index series' newest session is read from the series itself, with the
+// session's level required; a schema without the relation reads as no session.
+func TestLatestIndexSessionReadsTheSeries(t *testing.T) {
+	ctx := context.Background()
+	db := &fakeDB{respond: func(sql string) ([][]any, error) {
+		if strings.Contains(sql, latestIndexSessionQuery) {
+			return [][]any{{tp("2026-09-28")}}, nil
+		}
+		return nil, errors.New("unexpected query")
+	}}
+	got, err := latestIndexSession(context.Background(), db, "XJO")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || !got.Equal(*tp("2026-09-28")) {
+		t.Errorf("latest session = %v, want 2026-09-28", got)
+	}
+	if !strings.Contains(latestIndexSessionQuery, "index_prices") || !strings.Contains(latestIndexSessionQuery, "close > 0") {
+		t.Error("latestIndexSessionQuery must read the index's own series, with a level")
+	}
+
+	missing := &fakeDB{respond: func(string) ([][]any, error) { return nil, pgErr("42P01") }}
+	got, err = latestIndexSession(ctx, missing, "XJO")
+	if err != nil || got != nil {
+		t.Errorf("missing relation: session %v, err %v; want nil, nil", got, err)
 	}
 }

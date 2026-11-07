@@ -54,15 +54,19 @@ Shorted.com.au uses Cloudflare as an edge gateway with a Worker (`shorted-edge-c
 
 ## Edge Worker Caching
 
+### Cached reads
+Only the public reads listed in `PUBLIC_READ_RPCS` (`services/edge-worker/worker.js`) are cached, and only as a POST with a JSON body. The rule and its tests are in `services/edge-worker/README.md` ("Caching — allowlisted public reads only").
+
 ### Cache TTLs
 | Endpoint Pattern | TTL | Description |
 |------------------|-----|-------------|
-| GetTopShorts, GetShortsTreeMap, GetWeeklyReport, GetMarketByDate | 300s | Top shorted stocks, treemaps, reports |
-| GetStock, GetTimeSeries, GetSearch, GetStockDetails, GetWatchlist | 120s | Stock details, time series, search |
+| GetTopShorts, GetWeeklyReport, GetMarketByDate | 300s | Top shorted stocks, reports |
+| GetStock, GetStockDetails, GetDirectorTrades | 120s | Stock details, trades |
 | GetNews, GetAnnouncement | 300s | News and announcements |
-| Default | 60s | All other endpoints |
+| Default | 60s | Allowlisted reads that match no pattern above |
 
 ### Bypass (Never Cached)
+- Every `/shorts.v1alpha1.` and `/marketdata.v1.` request that is not an allowlisted read
 - `/health`, `/healthz` — Health checks → Shorts API
 - `/chat.v1.*` — Chat streaming → Chat Service
 - `/register.v1.*` — Auth endpoints → Shorts API

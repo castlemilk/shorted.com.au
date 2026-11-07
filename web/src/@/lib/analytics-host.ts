@@ -1,6 +1,8 @@
 /** Production measurement must never include localhost or preview traffic. */
+export const PRODUCTION_ANALYTICS_HOSTS = ["shorted.com.au", "www.shorted.com.au"] as const;
+
 export function isProductionAnalyticsHost(hostname: string): boolean {
-  return hostname === "shorted.com.au" || hostname === "www.shorted.com.au";
+  return PRODUCTION_ANALYTICS_HOSTS.some((host) => host === hostname);
 }
 
 export function canCollectAnalytics(): boolean {

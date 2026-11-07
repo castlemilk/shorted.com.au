@@ -950,11 +950,27 @@ service ShortedStocksService {
   }
 
   // Ranked picks for one strategy with a per-rule breakdown.
+  //
+  // The answer is the same bytes to every HTTP caller. When the public depth
+  // limit is set, the rows are the top of the default ranking only, for every
+  // HTTP caller, API-token holders included: a bearer token does not lift it.
+  // Full depth comes from GetViewerStrategyPicks, which accepts a bearer token.
   rpc GetStrategyPicks (GetStrategyPicksRequest) returns (GetStrategyPicksResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Strategy Picks",
-      description: "Ranked ASX stocks for one strategy: status (triggered, setup, watch), a 0-100 score, a pass / fail / unknown result for every rule, and the reported fundamentals behind each pick. Unknown means the data is missing or not meaningful for the company and never counts as a pass. Optional sort_by orders by a fundamentals metric. Not financial advice."
+      description: "Ranked ASX stocks for one strategy: status (triggered, setup, watch), a 0-100 score, a pass / fail / unknown result for every rule, and the reported fundamentals behind each pick. Unknown means the data is missing or not meaningful for the company and never counts as a pass. Optional sort_by orders by a fundamentals metric. Not financial advice. When the public depth limit is set, the rows are the top of the default ranking for every HTTP caller, API-token holders included; the viewer field says so. Full depth: GetViewerStrategyPicks."
+    };
+  }
+
+  // The same ranked picks as GetStrategyPicks, at the caller's full depth.
+  // Needs a signed-in caller (a bearer token) and is never clamped; the viewer
+  // field reports access "free" or "premium" and clamped false.
+  rpc GetViewerStrategyPicks (GetStrategyPicksRequest) returns (GetStrategyPicksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Viewer Strategy Picks",
+      description: "The ranked picks of GetStrategyPicks at the signed-in caller's full depth, with the same status, sort, filter and paging. Requires a bearer token. Not clamped: the viewer field reports access free or premium. Not financial advice."
     };
   }
 
@@ -964,6 +980,73 @@ service ShortedStocksService {
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Stock Strategy Fit",
       description: "How one ASX stock reads against every stock-picking strategy: status (triggered, setup, watch, or none when it is not a candidate), score, rank and a pass / fail / unknown result for every rule. Not financial advice."
+    };
+  }
+
+  // One published version of a strategy's rules, with its parameters, changes and known issues.
+  rpc GetStrategyVersion (GetStrategyVersionRequest) returns (GetStrategyVersionResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Strategy Version",
+      description: "One published version of a strategy's rules, identified by its rules hash (empty for the live version): every numeric parameter, the policies it applies, what changed from the version before, and its known issues. An unknown hash is NotFound. Not financial advice."
+    };
+  }
+
+  // Every published version of the strategies' rules, in publication order (the rules changelog).
+  rpc ListStrategyVersions (ListStrategyVersionsRequest) returns (ListStrategyVersionsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Strategy Versions",
+      description: "Every published version of the stock-picking strategies' rules, with its rules hash, engine version, status and known issues. Filter by strategy_id; empty lists every strategy. Not financial advice."
+    };
+  }
+
+  // Mirrored from StrategyService (data status and signal events); the parity test enforces the visibility match.
+
+  // Where the readings come from: the latest session, the snapshot and the newest ASIC reports.
+  rpc GetStrategyDataStatus (GetStrategyDataStatusRequest) returns (GetStrategyDataStatusResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Strategy Data Status",
+      description: "Where the stock-picking strategies' readings come from: the latest price session and when its price sweep completed, the newest completed snapshot session (the picks read it once the source is the snapshot) and when it completed, the newest ASIC short-position reports with their availability and completeness, and the next scheduled update. Not financial advice."
+    };
+  }
+
+  // The status changes of one strategy's canonical rules version, newest first.
+  rpc ListStrategySignalEvents (ListStrategySignalEventsRequest) returns (ListStrategySignalEventsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Strategy Signal Events",
+      description: "Status changes of one stock-picking strategy's canonical rules version, newest first, from the daily snapshot. Signed-in callers only. Variant versions are never listed. Not financial advice."
+    };
+  }
+
+  // Mirrored from StrategyService (saved strategies); the parity test enforces the visibility match.
+
+  // Save a strategy to the signed-in caller's list (at most 20).
+  rpc SaveStrategy (SaveStrategyRequest) returns (SaveStrategyResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Save Strategy",
+      description: "Save a stock-picking strategy to the signed-in caller's list. Requires a bearer token. Saving one already saved succeeds. A save past the list's limit of 20 is refused. Not financial advice."
+    };
+  }
+
+  // Remove a strategy from the signed-in caller's list.
+  rpc UnsaveStrategy (UnsaveStrategyRequest) returns (UnsaveStrategyResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Unsave Strategy",
+      description: "Remove a stock-picking strategy from the signed-in caller's list. Requires a bearer token. Removing one that is not saved succeeds."
+    };
+  }
+
+  // The signed-in caller's saved strategies, with today's status counts.
+  rpc ListSavedStrategies (ListSavedStrategiesRequest) returns (ListSavedStrategiesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Saved Strategies",
+      description: "The signed-in caller's saved stock-picking strategies, most recent first, each with today's status counts. Requires a bearer token. Not financial advice."
     };
   }
 

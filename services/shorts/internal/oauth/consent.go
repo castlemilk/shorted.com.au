@@ -108,7 +108,7 @@ var scopeDescriptions = map[string]string{
 	// Admin resource (/mcp/admin) only — grantable to administrators alone.
 	"news:publish": "Publish merged articles to shorted.com.au/news, including generating their images",
 	"jobs:read":    "View asynchronous jobs, execution history, queue status and operational errors",
-	"jobs:run":     "Start on-demand runs of the stock picker data job (fundamentals, filings, view refresh)",
+	"jobs:run":     "Start on-demand job runs: the stock picker data job (fundamentals, filings, view refresh), strategy backtests, and the alert and paid-feature smoke tests",
 	"users:read":   "View personal data: signed-up accounts, paying subscribers and mailing list addresses",
 	// Admin resource: lets a BrandBrain rig push housing listings into shorted, and
 	// revokes that. Changes which rig may write listing data, so it is a write scope.

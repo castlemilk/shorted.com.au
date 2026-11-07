@@ -10,7 +10,8 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -335,7 +336,7 @@ func realisticStrategySource(src *fakeDataSource) {
 			"so no stock can trigger until the trend turns.",
 	}
 
-	registry := strategies.Registry()
+	registry := engine.Registry()
 	list := make([]*shortsv1alpha1.Strategy, 0, len(registry))
 	widest := registry[0]
 	for _, st := range registry {
@@ -359,26 +360,35 @@ func realisticStrategySource(src *fakeDataSource) {
 			case j == 0:
 				status = "unknown"
 			}
-			rules = append(rules, &shortsv1alpha1.RuleResult{
-				RuleId: r.ID, Status: status, Detail: evidence, Value: 12.3456, HasValue: true,
-			})
+			result := &shortsv1alpha1.RuleResult{RuleId: r.ID, Status: status, Detail: evidence}
+			if status == "unknown" {
+				result.Reason = "no_fundamentals"
+			} else {
+				result.Value, result.HasValue = 12.3456, true
+			}
+			rules = append(rules, result)
 		}
 		picks = append(picks, &shortsv1alpha1.StrategyPick{
 			Rank: int32(i + 1), StockCode: fmt.Sprintf("PK%02d", i), CompanyName: "PILBARA MINERALS LIMITED",
 			Industry: "Metals & Mining", Status: "watch", Score: 41.2345, Rules: rules,
-			Close: 12.3456, AsOf: "2026-09-25", PctOff_52WHigh: -31.2345, VolumeRatio_50D: 1.8765,
+			Close: 12.3456, AsOf: "2026-09-25", PctOff_52WHigh: -31.2345, HasPctOff_52WHigh: true, VolumeRatio_50D: 1.8765,
 			BaseDepthPct: 18.7654, BaseLengthDays: 87, Pivot: 14.5678,
 			RevenueYoyPct: 41.2345, HasRevenueYoy: true, EpsYoyPct: -12.3456, HasEpsYoy: true,
 			Rs_3MPct: -8.7654, ShortPct: 6.5432, MarketCap: 7_123_456_789,
 			HasClose: true, HasRs_3MPct: true, HasShortPct: true, HasMarketCap: true,
+			DaysToCover: 3.4567, HasDaysToCover: true, Rs_6MPct: -4.3210, HasRs_6MPct: true,
+			Rs_6MPercentile: 18.5, HasRs_6MPercentile: true, DollarVolume_20D: 4_321_000, HasDollarVolume_20D: true,
+			BreakoutDate: "2026-09-18", ShortReportDate: "2026-09-18", ShortAvailableDate: "2026-09-21", ShortStatus: "reported",
 			LogoUrl:      "https://storage.googleapis.com/shorted/logos/pls.png",
 			Fundamentals: pickFundamentalsFixture(),
 		})
 	}
 	src.strategyPicks = &shortsv1alpha1.GetStrategyPicksResponse{
-		Strategy: strategyFixture(widest), Regime: regime, Picks: picks,
+		Strategy: strategyFixture(widest), Version: liveVersionFixture(widest.ID), Regime: regime, Picks: picks,
 		TotalCount: 212, UniverseCount: 1_234, FundamentalsCoverageCount: 987, FundamentalsRowsCount: 1_101,
-		AsOf: "2026-09-25",
+		AsOf: "2026-09-25", SessionDate: "2026-09-25", ShortReportDate: "2026-09-18", ShortAvailableDate: "2026-09-21",
+		StatusCounts:        &shortsv1alpha1.StatusCounts{Triggered: 0, Setup: 14, Watch: 198},
+		RsQuantileThreshold: 9.8765, HasRsQuantileThreshold: true, UniverseLabel: "ASX 300 ex-LIC",
 	}
 
 	// More periods than the tool publishes: the fake ignores the limit, so the
@@ -415,7 +425,7 @@ func realisticStrategySource(src *fakeDataSource) {
 			IsFinancial: true, Source: "yahoo-timeseries", OperatingCashFlowDerived: true,
 			MarketCap: 331_234_567_890.12, HasMarketCap: true, PeRatio: 14.23456, HasPeRatio: true,
 			PriceToBook: 3.123456, HasPriceToBook: true, PriceAsOf: "2026-09-25", BalanceCurrency: "USD",
-			NotMeaningful: strategies.NotMeaningfulForFinancials(), IsProperty: true, BalanceLagMonths: 6,
+			NotMeaningful: engine.NotMeaningfulForFinancials(), IsProperty: true, BalanceLagMonths: 6,
 			SharesAsOf: "2026-06-30", PeEpsPeriodEnd: "2026-06-30", PeEpsBasis: "diluted",
 			ValuationNote: "listed-unit",
 		},
@@ -477,23 +487,45 @@ func pickFundamentalsFixture() *shortsv1alpha1.PickFundamentals {
 		NetMarginPct: -22.1234, HasNetMarginPct: true, RoePct: -123.4567, HasRoePct: true,
 		FcfMarginPct: 17.7654, HasFcfMarginPct: true, NetDebtToEbitda: 0.412345, HasNetDebtToEbitda: true,
 		PeRatio: 14.23456, HasPeRatio: true, IsFinancial: true, NetIncomePositive: true,
-		NotMeaningful: strategies.NotMeaningfulForFinancials(),
+		NotMeaningful: engine.NotMeaningfulForFinancials(),
+	}
+}
+
+// liveVersionFixture is the wire reference the handler attaches to a strategy's
+// live version: the same hash, label, engine and feature set, built from the
+// registry so the fixture cannot drift from what production sends.
+func liveVersionFixture(strategyID string) *shortsv1alpha1.StrategyVersionRef {
+	r, ok := spec.Live(strategyID)
+	if !ok {
+		panic("no live rules version for " + strategyID)
+	}
+	hash, err := spec.RulesHash(r.Spec)
+	if err != nil {
+		panic(err)
+	}
+	return &shortsv1alpha1.StrategyVersionRef{
+		StrategyId: strategyID, Label: r.Label, RulesHash: hash,
+		EngineVersion: engine.Version, FeatureSet: r.Spec.FeatureSet,
+		Status: "live", Kind: r.Spec.Kind,
 	}
 }
 
 // strategyFixture renders a registry strategy the way the handler does, prose
 // and all, so the list fixture costs what production costs.
-func strategyFixture(st strategies.Strategy) *shortsv1alpha1.Strategy {
+func strategyFixture(st engine.Strategy) *shortsv1alpha1.Strategy {
 	rules := make([]*shortsv1alpha1.StrategyRule, 0, len(st.Rules))
 	for _, r := range st.Rules {
 		rules = append(rules, &shortsv1alpha1.StrategyRule{
 			Id: r.ID, Title: r.Title, RuleText: r.RuleText, Evaluation: r.Evaluation,
 			Core: r.Core, DataSource: r.DataSource,
+			Trigger: r.Trigger, Weight: r.Weight, Threshold: r.Threshold, HasThreshold: r.HasThreshold,
+			Unit: r.Unit, Comparator: r.Comparator,
 		})
 	}
 	return &shortsv1alpha1.Strategy{
 		Id: st.ID, Name: st.Name, Author: st.Author, Tagline: st.Tagline,
 		DescriptionParagraphs: st.Description, Rules: rules,
+		Version: liveVersionFixture(st.ID),
 		Metadata: &shortsv1alpha1.StrategyMetadata{
 			Style: st.Metadata.Style, HoldingPeriod: st.Metadata.HoldingPeriod,
 			RiskPosture: st.Metadata.RiskPosture, Universe: st.Metadata.Universe,

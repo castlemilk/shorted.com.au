@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -352,7 +352,7 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		require.NotNil(t, q.SMA200)
 		assert.Less(t, *q.SMA200, 15.0)
 		require.NotNil(t, q.DollarVolume20d)
-		assert.Greater(t, *q.DollarVolume20d, strategies.LiquidityFloorAUD)
+		assert.Greater(t, *q.DollarVolume20d, engine.LiquidityFloorAUD)
 		assert.GreaterOrEqual(t, q.SessionsAvailable, int32(260))
 		assert.Equal(t, "Capital Goods", q.Industry)
 		require.NotNil(t, q.ShortPct)
@@ -488,13 +488,13 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 	t.Run("valuation and quality-compounders over the real reads", func(t *testing.T) {
 		cands, err := listStrategyCandidates(ctx, pool)
 		require.NoError(t, err)
-		strategies.PrepareCandidates(cands)
+		engine.PrepareCandidates(cands)
 		byCode := migratedByCode(cands)
 
 		qv := byCode["QCO"].Valuation
 		migratedNum(t, qv.MarketCap, 15*200e6, "QCO market cap: our close x shares")
 		migratedNum(t, qv.PERatio, 15/0.395, "QCO P/E on the diluted TTM EPS")
-		assert.Equal(t, strategies.PEBasisDiluted, qv.PEEPSBasis)
+		assert.Equal(t, engine.PEBasisDiluted, qv.PEEPSBasis)
 		migratedDate(t, qv.PEEPSPeriodEnd, E, "pe eps period end")
 		migratedNum(t, qv.PriceToBook, 15*200e6/420e6, "QCO P/B on the aligned equity")
 		assert.Equal(t, "", qv.Note)
@@ -505,7 +505,7 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		migratedNum(t, bv.PriceToBook, 32*1.67e9/78e9, "BNK P/B")
 		assert.True(t, byCode["BNK"].Quality.IsFinancial)
 		assert.Nil(t, byCode["BNK"].Quality.NetDebt, "not meaningful for a bank")
-		assert.Equal(t, strategies.NotMeaningfulForFinancials(), byCode["BNK"].Quality.NotMeaningful)
+		assert.Equal(t, engine.NotMeaningfulForFinancials(), byCode["BNK"].Quality.NotMeaningful)
 		bankROE := 10.0 / ((78 + 75) / 2.0) * 100
 		migratedNum(t, byCode["BNK"].Quality.ROEPct, bankROE, "BNK ROE: the view's formula without its 10% equity-to-assets guard")
 
@@ -513,65 +513,65 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		migratedNum(t, uv.MarketCap, 36*5.07e8, "USX market cap (AUD: a price times a count)")
 		assert.Nil(t, uv.PERatio, "USD statements")
 		assert.Nil(t, uv.PriceToBook)
-		assert.Equal(t, strategies.ValuationNoteNonAUD, uv.Note)
+		assert.Equal(t, engine.ValuationNoteNonAUD, uv.Note)
 
 		fv := byCode["FXC"].Valuation
 		migratedNum(t, fv.MarketCap, 5.5*1.5e8, "FXC market cap")
 		assert.Nil(t, fv.PERatio, "an FX-converted code gets no P/E")
 		assert.Nil(t, fv.PriceToBook)
-		assert.Equal(t, strategies.ValuationNoteNonAUD, fv.Note)
+		assert.Equal(t, engine.ValuationNoteNonAUD, fv.Note)
 
 		migratedNum(t, byCode["PLN"].ResolvedMarketCap(), 4.4e8, "no shares held: the key_metrics fallback")
-		assert.Equal(t, 4, strategies.FundamentalsRows(cands), "QCO BNK USX FXC hold rows; PLN none")
-		assert.Equal(t, 3, strategies.QualityCoverage(cands),
+		assert.Equal(t, 4, engine.FundamentalsRows(cands), "QCO BNK USX FXC hold rows; PLN none")
+		assert.Equal(t, 3, engine.QualityCoverage(cands),
 			"QCO BNK USX have statements to compute ratios from; FXC's EPS-only rows do not")
 
-		st, ok := strategies.Lookup(strategies.IDQualityCompounders)
+		st, ok := engine.Lookup(engine.IDQualityCompounders)
 		require.True(t, ok)
 		regime, err := (&postgresStore{db: pool}).GetMarketRegime(ctx, "XJO")
 		require.NoError(t, err)
-		assert.Equal(t, strategies.RegimeUptrend, regime.Label, "XJO rose steadily over 270 sessions")
-		env := strategies.NewEnv(cands, regime)
-		picks := strategies.EvaluateWithEnv(st, cands, env)
-		byPick := map[string]strategies.Pick{}
+		assert.Equal(t, engine.RegimeUptrend, regime.Label, "XJO rose steadily over 270 sessions")
+		env := engine.NewEnv(cands, regime)
+		picks := engine.EvaluateWithEnv(st, cands, env)
+		byPick := map[string]engine.Pick{}
 		for _, p := range picks {
 			byPick[p.Candidate.StockCode] = p
 		}
 
 		qp, ok := byPick["QCO"]
 		require.True(t, ok)
-		assert.Equal(t, strategies.StatusTriggered, qp.Status, "%+v", qp.Rules)
+		assert.Equal(t, engine.StatusTriggered, qp.Status, "%+v", qp.Rules)
 		assert.Equal(t, 1, qp.Rank)
 		for _, r := range qp.Rules {
-			assert.Equal(t, strategies.RulePass, r.Status, "QCO %s: %s", r.RuleID, r.Detail)
+			assert.Equal(t, engine.RulePass, r.Status, "QCO %s: %s", r.RuleID, r.Detail)
 		}
 
 		up, ok := byPick["USX"]
 		require.True(t, ok)
-		assert.Equal(t, strategies.StatusSetup, up.Status, "every quality rule passes; the price is below its 200-day average")
-		assert.Equal(t, strategies.RuleFail, migratedRule(t, up, strategies.RuleAboveSMA200).Status)
-		assert.Equal(t, strategies.RuleFail, migratedRule(t, up, strategies.RuleRevenueNotShrinking).Status)
+		assert.Equal(t, engine.StatusSetup, up.Status, "every quality rule passes; the price is below its 200-day average")
+		assert.Equal(t, engine.RuleFail, migratedRule(t, up, engine.RuleAboveSMA200).Status)
+		assert.Equal(t, engine.RuleFail, migratedRule(t, up, engine.RuleRevenueNotShrinking).Status)
 
 		bp, ok := byPick["BNK"]
 		require.True(t, ok)
-		assert.Equal(t, strategies.StatusWatch, bp.Status, "a bank ranks as watch at most")
-		for _, id := range []string{strategies.RuleCashConversion, strategies.RuleLeverage} {
-			assert.Equal(t, strategies.RuleUnknown, migratedRule(t, bp, id).Status, "BNK %s", id)
+		assert.Equal(t, engine.StatusWatch, bp.Status, "a bank ranks as watch at most")
+		for _, id := range []string{engine.RuleCashConversion, engine.RuleLeverage} {
+			assert.Equal(t, engine.RuleUnknown, migratedRule(t, bp, id).Status, "BNK %s", id)
 		}
-		roeRule := migratedRule(t, bp, strategies.RuleROE)
-		assert.Equal(t, strategies.RuleFail, roeRule.Status, "a bank is judged on its return like anyone else: %s", roeRule.Detail)
+		roeRule := migratedRule(t, bp, engine.RuleROE)
+		assert.Equal(t, engine.RuleFail, roeRule.Status, "a bank is judged on its return like anyone else: %s", roeRule.Detail)
 		assert.True(t, roeRule.HasValue)
 		assert.InDelta(t, bankROE, roeRule.Value, 1e-9)
-		assert.Equal(t, strategies.RulePass, migratedRule(t, bp, strategies.RuleNetMargin).Status)
+		assert.Equal(t, engine.RulePass, migratedRule(t, bp, engine.RuleNetMargin).Status)
 
 		fp, ok := byPick["FXC"]
 		require.True(t, ok)
-		for _, id := range []string{strategies.RuleROE, strategies.RuleNetMargin, strategies.RuleCashConversion, strategies.RuleLeverage} {
-			assert.Equal(t, strategies.RuleUnknown, migratedRule(t, fp, id).Status, "FXC %s: unknown, never a pass", id)
+		for _, id := range []string{engine.RuleROE, engine.RuleNetMargin, engine.RuleCashConversion, engine.RuleLeverage} {
+			assert.Equal(t, engine.RuleUnknown, migratedRule(t, fp, id).Status, "FXC %s: unknown, never a pass", id)
 		}
 
 		// EvaluateOne (GetStockStrategyFit's path) agrees with the ranked list.
-		one, _ := strategies.EvaluateOne(st, *byCode["QCO"], env)
+		one, _ := engine.EvaluateOne(st, *byCode["QCO"], env)
 		assert.Equal(t, qp.Status, one.Status)
 		assert.Equal(t, qp.Score, one.Score)
 		assert.Equal(t, qp.Rules, one.Rules)
@@ -585,8 +585,8 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 			require.NotNil(t, e, code)
 			return e
 		}
-		value := func(e *FundamentalsExtras) strategies.Valuation {
-			return strategies.Valuate(10, asOf, &e.Valuation, e.Quality)
+		value := func(e *FundamentalsExtras) engine.Valuation {
+			return engine.Valuate(10, asOf, &e.Valuation, e.Quality)
 		}
 		screener := 7.7e8
 
@@ -599,8 +599,8 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		assert.False(t, ipo.Valuation.KFarFromOne, "k 0.775 is inside [1/3, 3]")
 		v := value(ipo)
 		assert.False(t, v.HasAny())
-		assert.Equal(t, strategies.ValuationNoteNoShares, v.Note)
-		ipoCand := strategies.Candidate{Valuation: v, MarketCap: &screener}
+		assert.Equal(t, engine.ValuationNoteNoShares, v.Note)
+		ipoCand := engine.Candidate{Valuation: v, MarketCap: &screener}
 		migratedNum(t, ipoCand.ResolvedMarketCap(), screener, "a recent issuer keeps the screener's market cap")
 
 		// CDI: k about 10 contradicts the listing; nothing is borrowed.
@@ -609,8 +609,8 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		assert.True(t, cdi.Valuation.KFarFromOne)
 		v = value(cdi)
 		assert.False(t, v.HasAny())
-		assert.Equal(t, strategies.ValuationNoteListedUnit, v.Note)
-		cdiCand := strategies.Candidate{Valuation: v, MarketCap: &screener}
+		assert.Equal(t, engine.ValuationNoteListedUnit, v.Note)
+		cdiCand := engine.Candidate{Valuation: v, MarketCap: &screener}
 		assert.Nil(t, cdiCand.ResolvedMarketCap())
 
 		// RAI: three years, one between the bands, median_k NULL on its sync
@@ -620,7 +620,7 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		assert.Equal(t, int32(3), rai.Valuation.KPeriods)
 		assert.False(t, rai.Valuation.KConsistent)
 		assert.False(t, rai.Valuation.KFarFromOne)
-		assert.Equal(t, strategies.ValuationNoteNoShares, value(rai).Note)
+		assert.Equal(t, engine.ValuationNoteNoShares, value(rai).Note)
 
 		// FX: an unmeasured code whose vendor rows carry converted values is
 		// FX-converted (P/E withheld; market cap, a price times a count,
@@ -632,7 +632,7 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		lfx := value(read("LFX"))
 		migratedNum(t, lfx.MarketCap, 10*153e6, "LFX market cap")
 		assert.Nil(t, lfx.PERatio, "an AUD close over converted EPS is not a P/E")
-		assert.Equal(t, strategies.ValuationNoteNonAUD, lfx.Note)
+		assert.Equal(t, engine.ValuationNoteNonAUD, lfx.Note)
 		lfs := value(read("LFS"))
 		migratedNum(t, lfs.PERatio, 10/0.134, "measured native: P/E stands")
 		assert.Equal(t, "", lfs.Note)
@@ -695,7 +695,7 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		assert.Equal(t, "vendor", e.RevenueBasisSource)
 		require.NotNil(t, e.Quality)
 		migratedNum(t, e.Quality.ROEPct, 20, "roe_pct")
-		v := strategies.Valuate(*e.Close, *e.PriceAsOf, &e.Valuation, e.Quality)
+		v := engine.Valuate(*e.Close, *e.PriceAsOf, &e.Valuation, e.Quality)
 		migratedNum(t, v.MarketCap, 3e9, "the page's market cap equals the picker's")
 
 		// OLD: outside mv_price_features, and its last stock_prices close is
@@ -708,7 +708,7 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		assert.Nil(t, old.PriceAsOf)
 		require.NotNil(t, old.Quality)
 		migratedNum(t, old.Quality.NetMarginPct, 10, "OLD net margin")
-		assert.Equal(t, strategies.ValuationNoteNoPrice, strategies.Valuate(0, time.Time{}, &old.Valuation, old.Quality).Note)
+		assert.Equal(t, engine.ValuationNoteNoPrice, engine.Valuate(0, time.Time{}, &old.Valuation, old.Quality).Note)
 
 		none, err := getFundamentalsExtras(ctx, pool, "PEN")
 		require.NoError(t, err)
@@ -827,21 +827,6 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 			t.Log("no CREATEROLE: owner and grant carry were not exercised")
 		}
 	})
-}
-
-// TestExtrasQualityRowNeedsAFlowBasis pins, without a database, what the
-// real-migration test above found: mv_fundamentals_quality has a row for an
-// EPS-only stock whose every column but stock_code is NULL, and the store
-// must not read that row as a quality row.
-func TestExtrasQualityRowNeedsAFlowBasis(t *testing.T) {
-	var r extrasRow
-	for _, c := range fundamentalsExtrasColumns {
-		if c.target(&r) == any(&r.hasQuality) {
-			assert.Equal(t, `(q.stock_code IS NOT NULL AND q.basis_period_end IS NOT NULL)`, c.expr)
-			return
-		}
-	}
-	t.Fatal("no extras column scans into hasQuality")
 }
 
 // ---------------------------------------------------------------- helpers
@@ -1061,15 +1046,15 @@ func migratedMonthEnd(e time.Time, n int) time.Time {
 	return first.AddDate(0, 0, -1)
 }
 
-func migratedByCode(cands []strategies.Candidate) map[string]*strategies.Candidate {
-	out := map[string]*strategies.Candidate{}
+func migratedByCode(cands []engine.Candidate) map[string]*engine.Candidate {
+	out := map[string]*engine.Candidate{}
 	for i := range cands {
 		out[cands[i].StockCode] = &cands[i]
 	}
 	return out
 }
 
-func migratedRule(t *testing.T, p strategies.Pick, id string) strategies.RuleResult {
+func migratedRule(t *testing.T, p engine.Pick, id string) engine.RuleResult {
 	t.Helper()
 	for _, r := range p.Rules {
 		if r.RuleID == id {
@@ -1077,7 +1062,7 @@ func migratedRule(t *testing.T, p strategies.Pick, id string) strategies.RuleRes
 		}
 	}
 	t.Fatalf("%s has no %s result", p.Candidate.StockCode, id)
-	return strategies.RuleResult{}
+	return engine.RuleResult{}
 }
 
 func migratedColumn(t *testing.T, name string) fundamentalsColumn {

@@ -761,6 +761,16 @@ backfill.historical-test: ## Test backfill with limited stocks (usage: make back
 		cd market-data-sync && go run ./cmd/historical-backfill -years=$(or $(YEARS),2) -limit=$(or $(LIMIT),10) \
 	'
 
+# The index sync's write (services/jobs/internal/jobs/marketdata): one series' upsert plus removal of the
+# stored rows inside the fetched window that the response does not stamp, in one transaction. Rows outside
+# the window and other series are kept; a removal above the ceiling, a failed delete, an empty response and
+# a dry run change nothing. The Sydney dating is covered by the package's unit tests, which need no server.
+.PHONY: test-indexsync-pg
+test-indexsync-pg: test-integration-images
+	@set -e; \
+	cd jobs && GOWORK=off CGO_ENABLED=0 INDEXSYNC_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run IndexSyncPG ./internal/jobs/marketdata/
+
 # Alerts evaluator end-to-end suite (services/jobs/internal/jobs/alerts) and the
 # shorts API's alert store tests (services/shorts/internal/store/shorts, -tags=integration).
 # ALERTS_E2E_TESTCONTAINERS=1 with -tags=testcontainers has each test binary start one
@@ -781,6 +791,84 @@ test-alerts-e2e: test-integration-images
 		go test -count=1 -tags=integration,testcontainers -run 'Alert|ReportWindow' ./shorts/internal/store/shorts/; \
 	cd jobs && GOWORK=off CGO_ENABLED=0 ALERTS_E2E_TESTCONTAINERS=1 \
 		go test -count=1 -tags=testcontainers -run TestAlertsE2E ./internal/jobs/alerts/
+
+# The strategy capture suite (migration 000155): the vintage trigger and its replay, and the ingest writer's
+# SQL, against a throwaway postgres:15 container. Gates the deploy beside test-alerts-e2e.
+.PHONY: test-shortdatasync-pg
+test-shortdatasync-pg: test-integration-images
+	@set -e; \
+	cd jobs && GOWORK=off CGO_ENABLED=0 SHORTDATASYNC_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run 'StrategyCapture|IngestWriter' ./internal/jobs/shortdatasync/
+
+# The key-metrics write (services/jobs/internal/jobs/keymetrics): one UPDATE per stock stamps the row, a good
+# record replaces it, a database refusal leaves the old row untouched, and the universe is stalest first. The
+# Yahoo mapping and the run's breakers need no server and run in the plain go test of the package.
+.PHONY: test-keymetrics-pg
+test-keymetrics-pg: test-integration-images
+	@set -e; \
+	cd jobs && GOWORK=off CGO_ENABLED=0 KEY_METRICS_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run KeyMetricsPG ./internal/jobs/keymetrics/
+
+# The strategy daily snapshot suite (services/jobs/internal/jobs/strategies): migration 000156 applied to a
+# throwaway database, one session written, a dry run that writes nothing, a re-run that writes the same rows,
+# and a second session diffed against the first. Gates the deploy beside the capture suite.
+.PHONY: test-strategies-daily-pg
+test-strategies-daily-pg: test-integration-images
+	@set -e; \
+	cd jobs && GOWORK=off CGO_ENABLED=0 STRATEGIES_DAILY_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run DailySnapshot ./internal/jobs/strategies/
+
+# The strategy backtest job (services/jobs/internal/jobs/strategies, -mode backtest): migrations 000156 and
+# 000158 applied to a throwaway database, the queue's order and dedupe, the run-key skip, the publish flip, the
+# verify pass's determinism check, the strict computable_from on stored statements and the golden dataset read
+# back through the production readers, which must reproduce the committed output hash. Opt-in, like the other
+# container suites; STRATEGIES_BACKTEST_DATABASE_URL uses a server you started.
+.PHONY: test-strategies-backtest-pg
+test-strategies-backtest-pg: test-integration-images
+	@set -e; \
+	cd jobs && GOWORK=off CGO_ENABLED=0 STRATEGIES_BACKTEST_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run Backtest ./internal/jobs/strategies/
+
+# The saved-strategy store (migration 000157) against a throwaway postgres:15 container: the cap under
+# concurrent saves, the repeat save, the variant owner guard and replay of the migration. The admin
+# backtest queue and status (migration 000158) run in the same container: the variant refusal, the
+# dedupe and the canonical-only status join. Opt-in, like the other container suites;
+# STRATEGY_SAVES_TEST_DATABASE_URL uses a server you started.
+.PHONY: test-strategy-saves-pg
+test-strategy-saves-pg: test-integration-images
+	@set -e; \
+	GOWORK=off CGO_ENABLED=0 STRATEGY_SAVES_TESTCONTAINERS=1 STRATEGY_ADMIN_TESTCONTAINERS=1 \
+		go test -count=1 -tags=integration,testcontainers -run 'StrategySaves|StrategyBacktestQueue|StrategyStatusCarries' ./shorts/internal/store/shorts/
+
+# The daily snapshot's API reads (migration 000156) against a throwaway postgres:15 container: the newest
+# completed session and the one before it, the unmigrated fallback, canonical and live-only signal events and
+# the source dates. Opt-in, like the other container suites; STRATEGY_SNAPSHOT_TEST_DATABASE_URL uses a server
+# you started.
+.PHONY: test-strategy-snapshot-pg
+test-strategy-snapshot-pg: test-integration-images
+	@set -e; \
+	GOWORK=off CGO_ENABLED=0 STRATEGY_SNAPSHOT_TESTCONTAINERS=1 \
+		go test -count=1 -tags=integration,testcontainers -run 'StrategySnapshot|StrategySignalEvents|StrategyDataStatus' ./shorts/internal/store/shorts/
+
+# The strategy feature parity suite (services/pkg/strategy/features): the Go port of
+# mv_price_features and mv_market_regime against migration 000130's own views, at fixed
+# anchors and the real date, on a throwaway postgres:15 container. Opt-in, like the
+# other container suites; set FEATURES_PARITY_DATABASE_URL to use a server you started.
+.PHONY: test-strategy-parity
+test-strategy-parity: test-integration-images
+	@set -e; \
+	GOWORK=off CGO_ENABLED=0 FEATURES_PARITY_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers -run TestPriceFeaturesParity ./pkg/strategy/features/
+
+# The strategy reader suite (services/pkg/strategy/pgsource): the feature
+# pipeline's readers and the picker's metadata, dividend and cash-rate reads,
+# scanned against a real Postgres in the production table shapes. It gates
+# the deploy and task check beside the parity suite.
+.PHONY: test-pgsource-pg
+test-pgsource-pg: test-integration-images
+	@set -e; \
+	GOWORK=off CGO_ENABLED=0 PGSOURCE_TESTCONTAINERS=1 \
+		go test -count=1 -tags=testcontainers ./pkg/strategy/pgsource/
 
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench

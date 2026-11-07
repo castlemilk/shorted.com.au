@@ -41,11 +41,30 @@ type Config struct {
 
 	// Rate limiting configuration
 	RateLimitConfig ratelimit.Config `json:"rate_limit" yaml:"rate_limit" mapstructure:"rate_limit"`
+
+	// StrategyPublicSignalsLimit is the depth an anonymous HTTP caller gets on
+	// the public strategy picks list: the top N rows of the default ranking,
+	// for every HTTP caller, API-token holders included. 0 turns the clamp off,
+	// which is today's behaviour. Signed-in depth comes from
+	// GetViewerStrategyPicks whatever this is set to.
+	StrategyPublicSignalsLimit int `json:"strategy_public_signals_limit" yaml:"strategy_public_signals_limit" mapstructure:"strategy_public_signals_limit" validate:"gte=0,lte=100"`
+
+	// StrategySource names where the stock picker reads its evaluation inputs:
+	// "views" (the SQL views, mv_price_features and mv_market_regime) or
+	// "snapshot" (the newest completed session of the daily snapshot, 000156).
+	// A database without the snapshot tables falls back to the views either way.
+	StrategySource string `json:"strategy_source" yaml:"strategy_source" mapstructure:"strategy_source" validate:"oneof=views snapshot"`
 }
 
 const (
 	defaultInsecure = true
 	defaultPort     = 9091
+)
+
+// The values of Config.StrategySource.
+const (
+	StrategySourceViews    = "views"
+	StrategySourceSnapshot = "snapshot"
 )
 
 func DefaultConfig() Config {
@@ -57,6 +76,7 @@ func DefaultConfig() Config {
 		APIBaseURL:        mcp.DefaultAPIBaseURL,
 		OAuthConsentURL:   oauth.DefaultConsentURL,
 		RateLimitConfig:   ratelimit.DefaultConfig(),
+		StrategySource:    StrategySourceViews,
 	}
 }
 
@@ -79,6 +99,12 @@ func Env(v *viper.Viper, cfgPrefix, envPrefix string) {
 
 	// The Next.js consent screen this authorization server sends humans to.
 	_ = v.BindEnv(fmt.Sprintf("%s.oauth_consent_url", cfgPrefix), "OAUTH_CONSENT_URL")
+
+	// Public strategy depth clamp (0 = off). Terraform sets it per environment.
+	_ = v.BindEnv(fmt.Sprintf("%s.strategy_public_signals_limit", cfgPrefix), "STRATEGY_PUBLIC_SIGNALS_LIMIT")
+
+	// Where the stock picker reads its inputs (views | snapshot). Terraform sets it.
+	_ = v.BindEnv(fmt.Sprintf("%s.strategy_source", cfgPrefix), "STRATEGY_SOURCE")
 
 	// Rate limiting configuration.
 	//

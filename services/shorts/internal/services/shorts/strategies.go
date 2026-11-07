@@ -8,7 +8,8 @@ import (
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 )
 
 // Stock picker handlers (StrategyService; docs/plans/stock-picker.md §3 and
@@ -16,7 +17,7 @@ import (
 //
 // The universe (every candidate + the market regime) is read once per cache
 // fill, prepared once (the financials decision and valuation,
-// strategies.PrepareCandidates) and shared by all strategies; each strategy's
+// engine.PrepareCandidates) and shared by all strategies; each strategy's
 // FULL ranked pick list is evaluated once per fill and cached, then filtered,
 // sorted and paged in memory. Cached values are read-only: filtering and
 // sorting always work on copies. The inputs change once a day (after the
@@ -31,21 +32,29 @@ const (
 // strategyUniverse is one cache fill of the evaluator's inputs. Read-only once
 // cached.
 type strategyUniverse struct {
-	candidates []strategies.Candidate
+	candidates []engine.Candidate
 	// index maps an upper-case stock code to its candidates position.
 	index map[string]int
 	// env is the evaluation environment (regime + the universe's rs_6m
 	// quartile) every strategy and GetStockStrategyFit share.
-	env             *strategies.Env
-	regime          strategies.Regime
+	env             *engine.Env
+	regime          engine.Regime
 	coverage        int    // candidates with at least one growth figure
 	qualityCoverage int    // candidates with a quality row
 	rowsCount       int    // candidates with any fundamentals row
 	asOf            string // newest price date, YYYY-MM-DD ("" when empty)
+	// shortReportDate is the newest short report date across the universe
+	// (zero when no stock has one).
+	shortReportDate time.Time
+	// shortAvailable is the stored publication date of the newest report's
+	// candidates (nil on the views path, or when none is stored).
+	shortAvailable *time.Time
+	// source names what answered the universe: "views" or "snapshot".
+	source string
 }
 
 // coverageFor is the count a strategy's coverage caveat quotes.
-func (u *strategyUniverse) coverageFor(st strategies.Strategy) int {
+func (u *strategyUniverse) coverageFor(st engine.Strategy) int {
 	if st.UsesQualityRules() {
 		return u.qualityCoverage
 	}
@@ -54,7 +63,7 @@ func (u *strategyUniverse) coverageFor(st strategies.Strategy) int {
 
 // strategyEvaluation is one strategy's full ranked pick list, cached.
 type strategyEvaluation struct {
-	picks []strategies.Pick
+	picks []engine.Pick
 	// index maps an upper-case stock code to its picks position.
 	index    map[string]int
 	universe *strategyUniverse
@@ -64,16 +73,16 @@ type strategyEvaluation struct {
 // The definitions are static, so a regime read failure degrades to an
 // unknown regime rather than failing the whole call.
 func (s *ShortsServer) ListStrategies(ctx context.Context, req *connect.Request[shortsv1alpha1.ListStrategiesRequest]) (*connect.Response[shortsv1alpha1.ListStrategiesResponse], error) {
-	regime, err := s.loadMarketRegime(ctx)
+	regime, err := s.listStrategiesRegime(ctx)
 	if err != nil {
 		s.logger.Warnf("ListStrategies: market regime unavailable, serving it as unknown: %v", err)
-		regime = strategies.Regime{IndexCode: strategies.DefaultIndexCode}
+		regime = engine.Regime{IndexCode: engine.DefaultIndexCode}
 	}
 
-	registry := strategies.Registry()
+	registry := engine.Registry()
 	resp := &shortsv1alpha1.ListStrategiesResponse{
 		Strategies: make([]*shortsv1alpha1.Strategy, 0, len(registry)),
-		Regime:     marketRegimeProto(regime, strategies.NeutralRegimeVerdict(regime)),
+		Regime:     marketRegimeProto(regime, engine.NeutralRegimeVerdict(regime)),
 	}
 	for _, st := range registry {
 		resp.Strategies = append(resp.Strategies, strategyProto(st, st.CaveatsWithCoverage(0, -1)))
@@ -81,80 +90,202 @@ func (s *ShortsServer) ListStrategies(ctx context.Context, req *connect.Request[
 	return connect.NewResponse(resp), nil
 }
 
-// GetStrategyPicks returns one strategy's ranked picks, filtered by status
-// (and, on request, to stocks with a fundamentals row), optionally sorted by a
-// fundamentals figure, and paged. Rank is always the evaluator's rank.
-func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error) {
-	id := strings.ToLower(strings.TrimSpace(req.Msg.StrategyId))
+// picksQuery is a validated GetStrategyPicks request. The public and the
+// private rpc share it, so the same request is refused the same way for every
+// caller.
+type picksQuery struct {
+	st                  engine.Strategy
+	status              string
+	sortBy              string
+	requireFundamentals bool
+	limit               int
+	offset              int
+}
+
+// picksDepth is how much of a ranked list one caller receives.
+type picksDepth struct {
+	access Access
+	// limit is how many top rows of the default ranking the caller may page.
+	// 0 is unlimited.
+	limit int
+}
+
+// parsePicksQuery validates a GetStrategyPicks request. It reads no depth, so
+// a refusal here is the same for every caller.
+func parsePicksQuery(msg *shortsv1alpha1.GetStrategyPicksRequest) (picksQuery, error) {
+	id := strings.ToLower(strings.TrimSpace(msg.StrategyId))
 	if id == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("strategy_id is required (one of %s)", strategyIDList()))
+		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("strategy_id is required (one of %s)", strategyIDList()))
 	}
-	st, ok := strategies.Lookup(id)
+	st, ok := engine.Lookup(id)
 	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", req.Msg.StrategyId, strategyIDList()))
+		return picksQuery{}, connect.NewError(connect.CodeNotFound, fmt.Errorf("unknown strategy_id %q (one of %s)", msg.StrategyId, strategyIDList()))
 	}
-	status := strings.ToLower(strings.TrimSpace(req.Msg.Status))
-	if status != "" && !strategies.ValidPickStatus(status) {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("status must be one of triggered, setup or watch"))
+	status := strings.ToLower(strings.TrimSpace(msg.Status))
+	if status != "" && !engine.ValidPickStatus(status) {
+		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("status must be one of triggered, setup or watch"))
 	}
-	sortBy := strings.ToLower(strings.TrimSpace(req.Msg.SortBy))
-	if sortBy != "" && !strategies.ValidSortBy(sortBy) {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("sort_by must be one of %s", strings.Join(strategies.SortKeys(), ", ")))
+	sortBy := strings.ToLower(strings.TrimSpace(msg.SortBy))
+	if sortBy != "" && !engine.ValidSortBy(sortBy) {
+		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("sort_by must be one of %s", strings.Join(engine.SortKeys(), ", ")))
 	}
-	if req.Msg.Limit < 0 || req.Msg.Limit > strategyPicksMaxLimit {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be between 0 and %d", strategyPicksMaxLimit))
+	if msg.Limit < 0 || msg.Limit > strategyPicksMaxLimit {
+		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be between 0 and %d", strategyPicksMaxLimit))
 	}
-	if req.Msg.Offset < 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("offset must not be negative"))
+	if msg.Offset < 0 {
+		return picksQuery{}, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("offset must not be negative"))
 	}
-	limit := int(req.Msg.Limit)
+	limit := int(msg.Limit)
 	if limit == 0 {
 		limit = strategyPicksDefaultLimit
 	}
+	return picksQuery{
+		st:                  st,
+		status:              status,
+		sortBy:              sortBy,
+		requireFundamentals: msg.RequireFundamentals,
+		limit:               limit,
+		offset:              int(msg.Offset),
+	}, nil
+}
 
-	s.logger.Debugf("strategy picks: strategy_id=%s status=%s sort_by=%s require_fundamentals=%v limit=%d offset=%d",
-		id, status, sortBy, req.Msg.RequireFundamentals, limit, req.Msg.Offset)
-
-	eval, err := s.loadStrategyEvaluation(ctx, st)
+// GetStrategyPicks returns one strategy's ranked picks, filtered by status
+// (and, on request, to stocks with a fundamentals row), optionally sorted by a
+// fundamentals figure, and paged. Rank is always the evaluator's rank.
+//
+// The answer is the same bytes to every HTTP caller, API tokens included.
+// When the public depth limit is set, only the top of the default ranking is
+// served, and any offset other than 0 is refused. Depth is read after the
+// cached evaluation, never inside its fill.
+func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error) {
+	q, err := parsePicksQuery(req.Msg)
 	if err != nil {
-		s.logger.Errorf("database error in GetStrategyPicks: strategy_id=%s err=%v", id, err)
+		return nil, err
+	}
+	s.logger.Debugf("strategy picks: strategy_id=%s status=%s sort_by=%s require_fundamentals=%v limit=%d offset=%d",
+		q.st.ID, q.status, q.sortBy, q.requireFundamentals, q.limit, q.offset)
+
+	eval, err := s.loadStrategyEvaluation(ctx, q.st)
+	if err != nil {
+		s.logger.Errorf("database error in GetStrategyPicks: strategy_id=%s err=%v", q.st.ID, err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to evaluate strategy"))
+	}
+
+	depth := s.publicPicksDepth(ctx)
+	if depth.limit > 0 && q.offset != 0 {
+		return nil, fullSignalListRefused(depth.access, depth.limit)
+	}
+	return connect.NewResponse(picksResponse(eval, q, depth)), nil
+}
+
+// GetViewerStrategyPicks is GetStrategyPicks at the caller's full depth. It
+// needs a verified identity and is never clamped.
+func (s *ShortsServer) GetViewerStrategyPicks(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error) {
+	access, _, err := privateAccess(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q, err := parsePicksQuery(req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	s.logger.Debugf("viewer strategy picks: strategy_id=%s access=%s status=%s sort_by=%s require_fundamentals=%v limit=%d offset=%d",
+		q.st.ID, access, q.status, q.sortBy, q.requireFundamentals, q.limit, q.offset)
+
+	eval, err := s.loadStrategyEvaluation(ctx, q.st)
+	if err != nil {
+		s.logger.Errorf("database error in GetViewerStrategyPicks: strategy_id=%s err=%v", q.st.ID, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to evaluate strategy"))
+	}
+	return connect.NewResponse(picksResponse(eval, q, picksDepth{access: access})), nil
+}
+
+// publicPicksDepth is the depth a public read gives its caller. An anonymous
+// caller gets the clamp when the flag is set; a verified MCP viewer does not.
+func (s *ShortsServer) publicPicksDepth(ctx context.Context) picksDepth {
+	access := publicDepth(ctx)
+	if access != AccessAnonymous {
+		return picksDepth{access: access}
+	}
+	return picksDepth{access: access, limit: s.config.StrategyPublicSignalsLimit}
+}
+
+// picksResponse builds one caller's answer from the cached evaluation. The
+// cached list is read-only: the clamp, the filter and the sort all work on
+// slices of it, never on the list itself.
+//
+// Under a clamp the rows come from the top of the default ranking only, and
+// the filter and sort apply within them. The counts and the total stay global,
+// since they reveal no names.
+func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *shortsv1alpha1.GetStrategyPicksResponse {
+	u := eval.universe
+	ranked := eval.picks
+	limit := q.limit
+	if depth.limit > 0 {
+		if len(ranked) > depth.limit {
+			ranked = ranked[:depth.limit]
+		}
+		limit = min(limit, depth.limit)
 	}
 
 	// Both steps leave the cached list untouched: the filter builds a new
 	// slice, and SortPicks sorts a copy (or returns its input unchanged for
 	// the default rank order, which is only ever read below).
-	matching := strategies.SortPicks(filterPicks(eval.picks, status, req.Msg.RequireFundamentals), sortBy)
+	matching := engine.SortPicks(filterPicks(ranked, q.status, q.requireFundamentals), q.sortBy)
 	total := len(matching)
-	start := min(int(req.Msg.Offset), total)
-	end := min(start+limit, total)
+	// clamped says a row that matches this query exists beyond the depth, so
+	// a filter that the top of the list fully answers reads false.
+	clamped := false
+	if depth.limit > 0 {
+		total = len(filterPicks(eval.picks, q.status, q.requireFundamentals))
+		clamped = total > len(matching)
+	}
+	start := min(q.offset, len(matching))
+	end := min(start+limit, len(matching))
 
-	u := eval.universe
 	resp := &shortsv1alpha1.GetStrategyPicksResponse{
-		Strategy:                  strategyProto(st, st.CaveatsWithCoverage(u.coverageFor(st), len(u.candidates))),
-		Regime:                    marketRegimeProto(u.regime, st.RegimeVerdict(u.regime)),
+		Strategy:                  strategyProto(q.st, q.st.CaveatsWithCoverage(u.coverageFor(q.st), len(u.candidates))),
+		Regime:                    marketRegimeProto(u.regime, q.st.RegimeVerdict(u.regime)),
 		Picks:                     make([]*shortsv1alpha1.StrategyPick, 0, end-start),
 		TotalCount:                int32(total),
 		UniverseCount:             int32(len(u.candidates)),
 		FundamentalsCoverageCount: int32(u.coverage),
 		FundamentalsRowsCount:     int32(u.rowsCount),
 		AsOf:                      u.asOf,
+		StatusCounts:              statusCounts(eval.picks),
+		SessionDate:               u.asOf,
+		ShortReportDate:           dateOrEmpty(u.shortReportDate),
+		UniverseLabel:             q.st.Metadata.Universe,
+		Stale:                     staleBehind(u.asOf, u.regime),
+		Viewer: &shortsv1alpha1.ViewerDepth{
+			Access:         depth.access.String(),
+			Clamped:        clamped,
+			RequiredAccess: AccessFree.String(),
+			Limit:          int32(depth.limit),
+		},
+		Version: liveVersion(q.st.ID),
+	}
+	if thr, ok := u.env.RSQuantileThreshold(); ok {
+		resp.RsQuantileThreshold, resp.HasRsQuantileThreshold = thr, true
+	}
+	if !u.shortReportDate.IsZero() {
+		_, resp.ShortAvailableDate = shortDatesProto(&u.shortReportDate, u.shortAvailable)
 	}
 	for i := start; i < end; i++ {
 		resp.Picks = append(resp.Picks, strategyPickProto(&matching[i]))
 	}
-	return connect.NewResponse(resp), nil
+	return resp
 }
 
 // filterPicks keeps the picks with the given status (all when "") and, when
 // requireFundamentals, only stocks with a fundamentals row. With no filter it
 // returns picks itself; otherwise a new slice, never a view that could alias
 // the cache.
-func filterPicks(picks []strategies.Pick, status string, requireFundamentals bool) []strategies.Pick {
+func filterPicks(picks []engine.Pick, status string, requireFundamentals bool) []engine.Pick {
 	if status == "" && !requireFundamentals {
 		return picks
 	}
-	out := make([]strategies.Pick, 0, len(picks))
+	out := make([]engine.Pick, 0, len(picks))
 	for i := range picks {
 		p := &picks[i]
 		if status != "" && string(p.Status) != status {
@@ -168,26 +299,50 @@ func filterPicks(picks []strategies.Pick, status string, requireFundamentals boo
 	return out
 }
 
+// listStrategiesRegime is the regime the hub's banner reads. Under the snapshot
+// source it is the regime the picks were evaluated against (the universe's), so
+// the banner and the cards name the same session; a failed universe read falls
+// back to the views' regime.
+func (s *ShortsServer) listStrategiesRegime(ctx context.Context) (engine.Regime, error) {
+	if s.config.StrategySource == StrategySourceSnapshot {
+		u, err := s.loadStrategyUniverse(ctx)
+		if err == nil {
+			return u.regime, nil
+		}
+		s.logger.Warnf("ListStrategies: snapshot universe unavailable, reading the views' regime: %v", err)
+	}
+	return s.loadMarketRegime(ctx)
+}
+
 // loadMarketRegime returns the XJO regime, cached for strategyCacheTTL.
-func (s *ShortsServer) loadMarketRegime(ctx context.Context) (strategies.Regime, error) {
+func (s *ShortsServer) loadMarketRegime(ctx context.Context) (engine.Regime, error) {
 	// The fill outlives the request that triggered it (singleflight shares it
 	// with concurrent callers), so it must not inherit that request's
 	// cancellation. The store applies its own timeout.
 	fillCtx := context.WithoutCancel(ctx)
-	v, err := s.cache.GetOrSetWithTTL(s.cache.GetMarketRegimeKey(strategies.DefaultIndexCode), strategyCacheTTL, func() (any, error) {
-		return s.store.GetMarketRegime(fillCtx, strategies.DefaultIndexCode)
+	v, err := s.cache.GetOrSetWithTTL(s.cache.GetMarketRegimeKey(engine.DefaultIndexCode), strategyCacheTTL, func() (any, error) {
+		return s.store.GetMarketRegime(fillCtx, engine.DefaultIndexCode)
 	})
 	if err != nil {
-		return strategies.Regime{}, err
+		return engine.Regime{}, err
 	}
-	return v.(strategies.Regime), nil
+	return v.(engine.Regime), nil
 }
 
 // loadStrategyUniverse returns every candidate plus the regime, prepared and
-// indexed, cached for strategyCacheTTL and shared by all strategies.
+// indexed, cached for strategyCacheTTL and shared by all strategies. The source
+// is the daily snapshot when STRATEGY_SOURCE says so and it has a completed
+// session, else the views.
 func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUniverse, error) {
 	fillCtx := context.WithoutCancel(ctx)
 	v, err := s.cache.GetOrSetWithTTL(s.cache.GetStrategyUniverseKey(), strategyCacheTTL, func() (any, error) {
+		u, ok, err := s.snapshotUniverse(fillCtx)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			return u, nil
+		}
 		cands, err := s.store.ListStrategyCandidates(fillCtx)
 		if err != nil {
 			return nil, err
@@ -196,25 +351,11 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 		if err != nil {
 			return nil, err
 		}
-		// Once per fill, before any rule reads a candidate: the financials
-		// decision (withholding not-meaningful ratios) and valuation.
-		strategies.PrepareCandidates(cands)
-		u := &strategyUniverse{
-			candidates:      cands,
-			index:           make(map[string]int, len(cands)),
-			env:             strategies.NewEnv(cands, regime),
-			regime:          regime,
-			coverage:        strategies.FundamentalsCoverage(cands),
-			qualityCoverage: strategies.QualityCoverage(cands),
-			rowsCount:       strategies.FundamentalsRows(cands),
+		asOf := ""
+		if latest := engine.LatestAsOf(cands); !latest.IsZero() {
+			asOf = latest.Format("2006-01-02")
 		}
-		for i := range cands {
-			u.index[strings.ToUpper(cands[i].StockCode)] = i
-		}
-		if latest := strategies.LatestAsOf(cands); !latest.IsZero() {
-			u.asOf = latest.Format("2006-01-02")
-		}
-		return u, nil
+		return newStrategyUniverse(cands, regime, asOf, StrategySourceViews), nil
 	})
 	if err != nil {
 		return nil, err
@@ -222,15 +363,42 @@ func (s *ShortsServer) loadStrategyUniverse(ctx context.Context) (*strategyUnive
 	return v.(*strategyUniverse), nil
 }
 
+// newStrategyUniverse prepares the candidates (the financials decision and
+// valuation, once per fill, before any rule reads a candidate) and indexes them
+// with the universe's shared environment. asOf is the session the universe is
+// as at, "" when unknown.
+func newStrategyUniverse(cands []engine.Candidate, regime engine.Regime, asOf, source string) *strategyUniverse {
+	engine.PrepareCandidates(cands)
+	u := &strategyUniverse{
+		candidates:      cands,
+		index:           make(map[string]int, len(cands)),
+		env:             engine.NewEnvFromStats(regime, engine.UniverseStatsOf(cands)),
+		regime:          regime,
+		coverage:        engine.FundamentalsCoverage(cands),
+		qualityCoverage: engine.QualityCoverage(cands),
+		rowsCount:       engine.FundamentalsRows(cands),
+		asOf:            asOf,
+		source:          source,
+	}
+	for i := range cands {
+		u.index[strings.ToUpper(cands[i].StockCode)] = i
+		if d := cands[i].ShortReportDate; d != nil && d.After(u.shortReportDate) {
+			u.shortReportDate = *d
+			u.shortAvailable = cands[i].ShortAvailableDate
+		}
+	}
+	return u
+}
+
 // loadStrategyEvaluation returns one strategy's full ranked pick list,
 // evaluated once per cache fill against the universe's shared environment.
-func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st strategies.Strategy) (*strategyEvaluation, error) {
+func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st engine.Strategy) (*strategyEvaluation, error) {
 	v, err := s.cache.GetOrSetWithTTL(s.cache.GetStrategyPicksKey(st.ID), strategyCacheTTL, func() (any, error) {
 		u, err := s.loadStrategyUniverse(ctx)
 		if err != nil {
 			return nil, err
 		}
-		picks := strategies.EvaluateWithEnv(st, u.candidates, u.env)
+		picks := engine.EvaluateWithEnv(st, u.candidates, u.env)
 		index := make(map[string]int, len(picks))
 		for i := range picks {
 			index[strings.ToUpper(picks[i].Candidate.StockCode)] = i
@@ -243,24 +411,93 @@ func (s *ShortsServer) loadStrategyEvaluation(ctx context.Context, st strategies
 	return v.(*strategyEvaluation), nil
 }
 
+// statusCounts counts a ranked list by status: the whole list the caller
+// filters and pages, never the filtered page.
+func statusCounts(picks []engine.Pick) *shortsv1alpha1.StatusCounts {
+	out := &shortsv1alpha1.StatusCounts{}
+	for i := range picks {
+		switch picks[i].Status {
+		case engine.StatusTriggered:
+			out.Triggered++
+		case engine.StatusSetup:
+			out.Setup++
+		case engine.StatusWatch:
+			out.Watch++
+		}
+	}
+	return out
+}
+
+// dateOrEmpty is a YYYY-MM-DD day, or "" for the zero time (absent).
+func dateOrEmpty(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format("2006-01-02")
+}
+
+// shortDatesProto returns a short position's report date and the date it
+// became public. Both are empty when the stock has no report. The publication
+// date is the stored one when the snapshot holds it (stored non-nil), so the
+// page shows the date the reading was gated on; otherwise the ASX calendar's.
+// Neither names a date for a report the holiday table does not cover, so the
+// snapshot answers as the views do.
+func shortDatesProto(report, stored *time.Time) (reported, available string) {
+	if report == nil {
+		return "", ""
+	}
+	if _, covered := asxcalendar.AvailableFromCovered(*report); !covered {
+		return dateOrEmpty(*report), ""
+	}
+	if stored != nil {
+		return dateOrEmpty(*report), dateOrEmpty(*stored)
+	}
+	published, _ := asxcalendar.AvailableFromCovered(*report)
+	return dateOrEmpty(*report), dateOrEmpty(published)
+}
+
+// staleBehind reports whether the market index has closed a session the
+// prices have not reached yet (the "data delayed" state): the picks or the
+// readings are then older than the market they are read against. The index's
+// own newest session counts, so a refresh that never ran is still reported;
+// the regime's date alone would agree with the prices, since both views move
+// together.
+func staleBehind(asOf string, regime engine.Regime) bool {
+	if asOf == "" {
+		return false
+	}
+	for _, day := range []*time.Time{regime.AsOf, regime.LatestSession} {
+		if day != nil && day.Format("2006-01-02") > asOf {
+			return true
+		}
+	}
+	return false
+}
+
 func strategyIDList() string {
 	var ids []string
-	for _, st := range strategies.Registry() {
+	for _, st := range engine.Registry() {
 		ids = append(ids, st.ID)
 	}
 	return strings.Join(ids, ", ")
 }
 
-func strategyProto(st strategies.Strategy, caveats []string) *shortsv1alpha1.Strategy {
+func strategyProto(st engine.Strategy, caveats []string) *shortsv1alpha1.Strategy {
 	rules := make([]*shortsv1alpha1.StrategyRule, 0, len(st.Rules))
 	for _, r := range st.Rules {
 		rules = append(rules, &shortsv1alpha1.StrategyRule{
-			Id:         r.ID,
-			Title:      r.Title,
-			RuleText:   r.RuleText,
-			Evaluation: r.Evaluation,
-			Core:       r.Core,
-			DataSource: r.DataSource,
+			Id:           r.ID,
+			Title:        r.Title,
+			RuleText:     r.RuleText,
+			Evaluation:   r.Evaluation,
+			Core:         r.Core,
+			DataSource:   r.DataSource,
+			Trigger:      r.Trigger,
+			Weight:       r.Weight,
+			Threshold:    r.Threshold,
+			HasThreshold: r.HasThreshold,
+			Unit:         r.Unit,
+			Comparator:   r.Comparator,
 		})
 	}
 	return &shortsv1alpha1.Strategy{
@@ -280,10 +517,11 @@ func strategyProto(st strategies.Strategy, caveats []string) *shortsv1alpha1.Str
 		},
 		Caveats: append([]string(nil), caveats...),
 		Sources: append([]string(nil), st.Sources...),
+		Version: liveVersion(st.ID),
 	}
 }
 
-func marketRegimeProto(r strategies.Regime, verdict string) *shortsv1alpha1.MarketRegime {
+func marketRegimeProto(r engine.Regime, verdict string) *shortsv1alpha1.MarketRegime {
 	out := &shortsv1alpha1.MarketRegime{
 		IndexCode:      r.IndexCode,
 		Regime:         r.Label,
@@ -294,7 +532,7 @@ func marketRegimeProto(r strategies.Regime, verdict string) *shortsv1alpha1.Mark
 		Verdict:        verdict,
 	}
 	if out.IndexCode == "" {
-		out.IndexCode = strategies.DefaultIndexCode
+		out.IndexCode = engine.DefaultIndexCode
 	}
 	if !r.Known() {
 		out.Regime = ""
@@ -305,7 +543,7 @@ func marketRegimeProto(r strategies.Regime, verdict string) *shortsv1alpha1.Mark
 	return out
 }
 
-func strategyPickProto(p *strategies.Pick) *shortsv1alpha1.StrategyPick {
+func strategyPickProto(p *engine.Pick) *shortsv1alpha1.StrategyPick {
 	c := &p.Candidate
 	marketCap := c.ResolvedMarketCap()
 	out := &shortsv1alpha1.StrategyPick{
@@ -340,6 +578,18 @@ func strategyPickProto(p *strategies.Pick) *shortsv1alpha1.StrategyPick {
 	if !c.AsOf.IsZero() {
 		out.AsOf = c.AsOf.Format("2006-01-02")
 	}
+	out.HasPctOff_52WHigh = c.PctOff52wHigh != nil
+	out.DaysToCover, out.HasDaysToCover = optional(c.DaysToCover)
+	out.Rs_6MPct, out.HasRs_6MPct = optional(c.RS6mPct)
+	out.Rs_6MPercentile, out.HasRs_6MPercentile = optional(p.RS6mPercentile)
+	out.DollarVolume_20D, out.HasDollarVolume_20D = optional(c.DollarVolume20d)
+	out.BreakoutDate = dateString(c.BreakoutDate)
+	out.ShortReportDate, out.ShortAvailableDate = shortDatesProto(c.ShortReportDate, c.ShortAvailableDate)
+	// The date is the report the figure came from, so the status follows the
+	// figure. A figure with no matching report row has no date.
+	if c.ShortPct != nil {
+		out.ShortStatus = "reported"
+	}
 	if c.BaseLengthDays != nil {
 		out.BaseLengthDays = *c.BaseLengthDays
 	}
@@ -354,15 +604,19 @@ func strategyPickProto(p *strategies.Pick) *shortsv1alpha1.StrategyPick {
 	return out
 }
 
-func ruleResultsProto(results []strategies.RuleResult) []*shortsv1alpha1.RuleResult {
+func ruleResultsProto(results []engine.RuleResult) []*shortsv1alpha1.RuleResult {
 	out := make([]*shortsv1alpha1.RuleResult, 0, len(results))
 	for _, r := range results {
 		out = append(out, &shortsv1alpha1.RuleResult{
-			RuleId:   r.RuleID,
-			Status:   string(r.Status),
-			Detail:   r.Detail,
-			Value:    r.Value,
-			HasValue: r.HasValue,
+			RuleId:       r.RuleID,
+			Status:       string(r.Status),
+			Detail:       r.Detail,
+			Value:        r.Value,
+			HasValue:     r.HasValue,
+			Reason:       r.Reason,
+			Proximity:    r.Proximity,
+			HasProximity: r.HasProximity,
+			Waiting:      r.Waiting,
 		})
 	}
 	return out
@@ -373,7 +627,7 @@ func ruleResultsProto(results []strategies.RuleResult) []*shortsv1alpha1.RuleRes
 // fundamentals-coverage.md §5.2). nil when the stock has no fundamentals row.
 // The candidate is prepared (financials decided, valuation computed), so a
 // not-meaningful ratio is already absent here and named in not_meaningful.
-func pickFundamentalsProto(c *strategies.Candidate) *shortsv1alpha1.PickFundamentals {
+func pickFundamentalsProto(c *engine.Candidate) *shortsv1alpha1.PickFundamentals {
 	if !c.HasFundamentalsRow() {
 		return nil
 	}
@@ -409,7 +663,7 @@ func pickFundamentalsProto(c *strategies.Candidate) *shortsv1alpha1.PickFundamen
 		out.NetDebtToEbitda, out.HasNetDebtToEbitda = optional(q.NetDebtToEBITDA)
 	}
 	out.PeRatio, out.HasPeRatio = optional(c.Valuation.PERatio)
-	out.IsFinancial, _, out.NotMeaningful = strategies.FinancialFlags(c.Quality, c.Industry)
+	out.IsFinancial, _, out.NotMeaningful = engine.FinancialFlags(c.Quality, c.Industry)
 	if fetched != nil {
 		out.FetchedAt = fetched.UTC().Format(time.RFC3339)
 	}
@@ -418,7 +672,7 @@ func pickFundamentalsProto(c *strategies.Candidate) *shortsv1alpha1.PickFundamen
 
 // revenueBasisPeriodType is the series revenue growth used; a growth row from
 // before the half basis existed carries no type and was always annual.
-func revenueBasisPeriodType(g *strategies.Growth) string {
+func revenueBasisPeriodType(g *engine.Growth) string {
 	if g.RevenueBasisPeriodType == "" {
 		return "annual"
 	}
@@ -427,7 +681,7 @@ func revenueBasisPeriodType(g *strategies.Growth) string {
 
 // revenuePeriodEnd is the end of the latest period in the revenue pair: the
 // view's own column when 000132 supplies it, else the date the basis implies.
-func revenuePeriodEnd(g *strategies.Growth) *time.Time {
+func revenuePeriodEnd(g *engine.Growth) *time.Time {
 	if g.RevenueLatestPeriodEnd != nil {
 		return g.RevenueLatestPeriodEnd
 	}

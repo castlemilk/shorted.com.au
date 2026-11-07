@@ -32,6 +32,22 @@ test("local verifier keeps frontend builds backend-free and exposes testcontaine
   assert.doesNotMatch(verifier, /docker compose up -d postgres/);
 });
 
+test("every make target local-verify runs exists where it is invoked", () => {
+  const verifier = read("scripts/local-verify.sh");
+  // Only the commands handed to run(): `run "<label>" make [-C dir] <target>`.
+  const targets = [...verifier.matchAll(/^\s*run\s+"[^"]*"\s+make\s+(?:-C\s+(\S+)\s+)?([a-z][a-z0-9-]*)\s*$/gm)];
+
+  assert.ok(targets.length > 0);
+  for (const [, dir, target] of targets) {
+    const makefile = read(dir ? `${dir}/Makefile` : "Makefile");
+    assert.match(
+      makefile,
+      new RegExp(`^${target}\\s*:`, "m"),
+      `make ${dir ? `-C ${dir} ` : ""}${target} is not defined in ${dir ?? "the repo root"}`,
+    );
+  }
+});
+
 test("testcontainers integration targets force real uncached runs", () => {
   const servicesMakefile = read("services/Makefile");
 

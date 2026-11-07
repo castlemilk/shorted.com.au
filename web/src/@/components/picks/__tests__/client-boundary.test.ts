@@ -1,7 +1,7 @@
 /**
  * The stock picker kit must stay composable from a client island.
  *
- * app/picks/[strategy]/picks-sorted-view.tsx is a "use client" island that
+ * app/strategies/[strategy]/picks-sorted-view.tsx is a "use client" island that
  * renders the filter view and the table (and the stock page's Strategy fit
  * card renders the table's pills and dots), and any future island may compose
  * the strategy panel. If a kit file imported
@@ -23,8 +23,8 @@ import { dirname, join, relative, resolve } from "node:path";
 const COMPONENT_DIR = join(__dirname, "..");
 /** `src/`: the root every path alias in tsconfig.json resolves against. */
 const SRC_DIR = join(__dirname, "..", "..", "..", "..");
-/** The /picks/[strategy] route: the sort island and its lazy fetch module. */
-const ROUTE_DIR = join(SRC_DIR, "app", "picks", "[strategy]");
+/** The /strategies/[strategy] route: the sort island and its lazy fetch module. */
+const ROUTE_DIR = join(SRC_DIR, "app", "strategies", "[strategy]");
 const ISLAND = join(ROUTE_DIR, "picks-sorted-view.tsx");
 const SORT_FETCH = join(ROUTE_DIR, "picks-sort-fetch.ts");
 
@@ -133,7 +133,7 @@ describe("stock picker component boundary", () => {
     }
   });
 
-  // The sort island lives with its route (app/picks/[strategy]); the kit
+  // The sort island lives with its route (app/strategies/[strategy]); the kit
   // itself is server-safe, props-only components, with ONE exception: the
   // strategy scene's canvas animation and the lazy module that loads it
   // (strategy-scene.tsx renders the still on the server and mounts the
@@ -168,7 +168,7 @@ describe("stock picker component boundary", () => {
   });
 });
 
-describe("/picks sort island boundary", () => {
+describe("/strategies sort island boundary", () => {
   it("is a client component, and the only one in the route", () => {
     expect(readFileSync(ISLAND, "utf8")).toMatch(/^\s*["']use client["']/);
     const clientFiles = readdirSync(ROUTE_DIR)

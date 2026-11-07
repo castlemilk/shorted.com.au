@@ -6,8 +6,8 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 //go:generate mockgen -source=interfaces.go -destination=mocks/mock_interfaces.go -package=mocks
@@ -116,10 +116,10 @@ type ShortsStore interface {
 	GetStockVerdictInputs(productCode string) (*shortsstore.VerdictInputs, error)
 
 	// Stock picker methods (strategies.go, fundamentals.go)
-	ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error)
-	GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error)
+	ListStrategyCandidates(ctx context.Context) ([]engine.Candidate, error)
+	GetMarketRegime(ctx context.Context, indexCode string) (engine.Regime, error)
 	GetStockFundamentals(ctx context.Context, code, periodType string, limit int32) ([]shortsstore.FundamentalsPeriodRow, error)
-	GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error)
+	GetFundamentalsGrowth(ctx context.Context, code string) (*engine.Growth, error)
 	// Fundamentals coverage (fundamentals.go; plan fundamentals-coverage.md
 	// §5.3). nil, never an error, on a database without migration 000132.
 	GetFundamentalsExtras(ctx context.Context, code string) (*shortsstore.FundamentalsExtras, error)
@@ -325,4 +325,14 @@ type Logger interface {
 	Infof(format string, args ...any)
 	Warnf(format string, args ...any)
 	Errorf(format string, args ...any)
+}
+
+// strategySnapshotStore is the daily snapshot the stock picker reads when the
+// source is "snapshot", and the source dates it reports. The store's
+// StrategySnapshotReader is reached through StoreAdapter, which implements it;
+// a store without the snapshot (a test fake) does not, so the views answer.
+type strategySnapshotStore interface {
+	ReadStrategySnapshot(ctx context.Context) (shortsstore.StrategySnapshot, error)
+	ReadStrategyDataStatus(ctx context.Context) (shortsstore.StrategyDataStatus, error)
+	ListStrategySignalEvents(ctx context.Context, f shortsstore.StrategySignalEventsFilter) ([]shortsstore.StrategySignalEventRow, error)
 }

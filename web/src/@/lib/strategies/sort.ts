@@ -4,8 +4,9 @@
 //
 // The API sorts (GetStrategyPicks sort_by). This module holds the web's half:
 // the closed set of keys a URL may carry, their labels, and ONE comparator that
-// mirrors services/shorts/internal/strategies/sort.go exactly, used only when
-// an older API ignores sort_by and answers in rank order.
+// mirrors services/pkg/strategy/engine/sort.go exactly. It sorts the rows it is
+// given in two places: when an older API ignores sort_by and answers in rank
+// order, and in the Signals island, which sorts the signed-in list it holds.
 
 import type { PickRow } from "./types";
 
@@ -30,6 +31,15 @@ export interface SortedPicks {
    * sorted here: they are the top of the rank order, sorted.
    */
   clientSorted: boolean;
+  /**
+   * The answer is clamped to the public depth, which every caller of the
+   * public RPC gets, signed in or not: the rows
+   * are the top of the rank order, sorted or filtered within it, and the
+   * totals are the whole ranking's.
+   */
+  clamped?: boolean;
+  /** The rows the clamp allows (the public depth); 0 when unclamped. */
+  depth?: number;
 }
 
 export interface PickSortDef {

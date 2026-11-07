@@ -53,7 +53,7 @@ func withCORS(h http.Handler) http.Handler {
 		AllowedOrigins: []string{"http://localhost:3000", "http://localhost:3001", "http://localhost:3020", "https://*.vercel.app", "https://*.shorted.com.au", "https://shorted.com.au"},
 		AllowedMethods: connectcors.AllowedMethods(),
 		AllowedHeaders: append([]string{"Authorization"}, connectcors.AllowedHeaders()...),
-		ExposedHeaders: connectcors.ExposedHeaders(),
+		ExposedHeaders: append(connectcors.ExposedHeaders(), BuildHeader),
 	})
 	return middleware.Handler(h)
 }
@@ -1246,10 +1246,12 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	}
 	mux.Handle("/api/docs/", withCORS(http.StripPrefix("/api/docs/", http.FileServer(statikFS))))
 
-	// Wrap the mux with OTel HTTP middleware for non-RPC endpoints
-	// (health, search, admin, docs), then with h2c for HTTP/2 support.
-	handler := shortedotel.HTTPMiddleware(mux)
-
+	// rootHandler wraps the mux with OTel HTTP middleware for non-RPC endpoints
+	// (health, search, admin, docs) and the build header, outermost: every
+	// response, including /health, Connect errors, 404s and the MCP and OAuth
+	// routes, carries X-Shorted-Build. It sits INSIDE h2c so that HTTP/2 streams
+	// served over prior knowledge pass through the same wrapper.
+	//
 	srv := &http.Server{
 		Addr: address,
 		// Use h2c so we can serve HTTP/2 without TLS.
@@ -1261,7 +1263,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		// Swapping it is a change to how this API negotiates every connection and
 		// belongs in its own change with its own verification, not here.
 		//nolint:staticcheck // SA1019: see above — deliberate, tracked separately.
-		Handler: h2c.NewHandler(handler, &http2.Server{}),
+		Handler: h2c.NewHandler(rootHandler(mux), &http2.Server{}),
 	}
 	ln, err := net.Listen("tcp", address)
 	if err != nil {

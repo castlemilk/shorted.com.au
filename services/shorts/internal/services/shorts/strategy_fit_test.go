@@ -12,8 +12,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/mocks"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 func TestPriceFeaturesProto_MapsPresentFieldsAndFlagsAbsentOnes(t *testing.T) {
@@ -54,7 +54,7 @@ func TestPriceFeaturesProto_MapsPresentFieldsAndFlagsAbsentOnes(t *testing.T) {
 func TestPriceFeaturesProto_NilCandidateAndEmptyDatesAreSafe(t *testing.T) {
 	assert.Nil(t, priceFeaturesProto(nil))
 
-	c := strategies.Candidate{StockCode: "NEW", Close: 1.5, SessionsAvailable: 12}
+	c := engine.Candidate{StockCode: "NEW", Close: 1.5, SessionsAvailable: 12}
 	pf := priceFeaturesProto(&c)
 	require.NotNil(t, pf)
 	assert.Equal(t, "", pf.AsOf, "a zero AsOf is empty, not 0001-01-01")
@@ -68,7 +68,7 @@ func TestPriceFeaturesProto_ReadsEveryFieldFromItsOwnSource(t *testing.T) {
 	breakout := spDate("2026-07-01")
 	// Every figure is different, so two copied lines that read the wrong
 	// source cannot go unnoticed (the fixture above leaves five absent).
-	c := strategies.Candidate{
+	c := engine.Candidate{
 		StockCode:         "ALL",
 		AsOf:              spDate("2026-09-25"),
 		Close:             12.5,
@@ -129,7 +129,7 @@ func TestPriceFeaturesProto_ReadsEveryFieldFromItsOwnSource(t *testing.T) {
 
 func TestPriceFeaturesProto_AMeasuredZeroIsPresentAndAZeroDateIsEmpty(t *testing.T) {
 	var zeroDay time.Time
-	c := strategies.Candidate{
+	c := engine.Candidate{
 		StockCode:      "FLAT",
 		Close:          2,
 		BaseDepthPct:   new(float64(0)), // a flat base is measured, not missing

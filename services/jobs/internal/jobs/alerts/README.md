@@ -58,7 +58,7 @@ runbook, which covers the prod smoke test, is `docs/alerts-runbook.md`.
   shorted.com.au. Narrowing this is a follow-up: a credential the internal branch accepts only
   for `BillingService.GetMySubscription`, and a Resend key limited to sending on shorted.com.au.
 - **Entitlement is the API's rule, not a copy of it.** The job maps `ACTIVE` and `TRIALING` to
-  entitled (`entitlement.go`). The contract test
+  entitled (`services/jobs/internal/entitlementcheck/entitlement.go`). The contract test
   `services/shorts/internal/services/shorts/subscriptions_entitlement_contract_test.go` fails if
   the API's `ResolveEntitlement` stops agreeing.
 - **Rotating `UNSUBSCRIBE_SECRET` invalidates alert and newsletter links alike, and takes two

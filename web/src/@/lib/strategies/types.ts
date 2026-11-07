@@ -26,6 +26,16 @@ export interface StrategyRuleDef {
   core: boolean;
   /** "stock_fundamentals" | "stock_prices" | "index_prices" | "asic_shorts". */
   dataSource: string;
+  /** A trigger: a core rule a setup may still fail (the breakout, the new-high or leadership rule). */
+  trigger?: boolean;
+  /** Share of the score this rule carries, 0-1. */
+  weight?: number;
+  /** The number the rule tests, in `unit`; absent for a rule with no single number. */
+  threshold?: number;
+  /** "pct", "pp", "aud", "days", "x" or empty; the display symbol is the web's. */
+  unit?: string;
+  /** ">=", "<=" or ">". */
+  comparator?: string;
 }
 
 export interface StrategyMetadataDef {
@@ -47,6 +57,47 @@ export interface StrategyDef {
   metadata: StrategyMetadataDef | null;
   caveats: string[];
   sources: string[];
+  /** The live rules version the definition is evaluated under; absent when the API names none. */
+  version?: StrategyVersionDef;
+}
+
+/** One numeric parameter of one rule in a rules version: a threshold or window, never a weight. */
+export interface RuleParamView {
+  ruleId: string;
+  /** The parameter's key, e.g. "min_pct". */
+  name: string;
+  value: number;
+}
+
+/**
+ * One rule's role and score weight in a rules version, read from the version's
+ * canonical (hashed) spec, so it cannot disagree with the version's hash.
+ */
+export interface RuleSettingView {
+  ruleId: string;
+  core: boolean;
+  trigger: boolean;
+  /** Share of the score this rule carries, 0-1. */
+  weight: number;
+}
+
+/** One published rules version, as the changelog states it. */
+export interface StrategyVersionDetailView {
+  version: StrategyVersionDef;
+  /** Every numeric parameter of every rule, in rule order. */
+  params: RuleParamView[];
+  /** Every rule's role and weight in this version, in rule order. */
+  rules: RuleSettingView[];
+  /** Universe and data policy, one sentence each. */
+  policies: string[];
+  /** What this version changed from the one before it. */
+  changes: string[];
+  /** What this version gets wrong, worded as defects. */
+  knownIssues: string[];
+  /** YYYY-MM-DD the next version went live; "" while it is live. */
+  supersededOn: string;
+  /** YYYY-MM-DD the version was retired; "" while it is still evaluated. */
+  retiredOn: string;
 }
 
 export interface MarketRegimeView {
@@ -67,6 +118,14 @@ export interface RuleResultRow {
   status: RuleStatus;
   /** Human-readable evidence, e.g. "Revenue +41% YoY". */
   detail: string;
+  /** The measured value the rule tested; absent when the rule has none. */
+  value?: number;
+  /** Why an unknown result could not be tested, e.g. "no_fundamentals". */
+  reason?: string;
+  /** For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far distance. */
+  proximity?: number;
+  /** True for a failing trigger on a setup row: the stock is waiting for it. */
+  waiting?: boolean;
 }
 
 /** A growth series: "annual" (FY), "half" (HY) or "ttm" (trailing 12 months). */
@@ -150,9 +209,69 @@ export interface PickRow {
    * business (StrategyPicksResult.fundamentalsRowsCount, fundamentalsHeld).
    */
   fundamentals?: PickFundamentalsView;
+  /** Percent below the 52-week high; 0 is at the high. Absent with no 52-week high yet. */
+  pctOff52wHigh?: number;
+  /** Short position over average daily volume, in days. */
+  daysToCover?: number;
+  /** Stock return minus the index return over 6 months, in points. */
+  rs6mPct?: number;
+  /** Rank of this stock's rs_6m across the evaluated universe, 0-100; 75 or more is the top quartile (a type-7 rank, not a share of stocks). */
+  rs6mPercentile?: number;
+  /** Average daily turnover over 20 sessions, A$. */
+  dollarVolume20d?: number;
+  /** YYYY-MM-DD of the breakout session. */
+  breakoutDate?: string;
+  /** YYYY-MM-DD of the ASIC report the short figure came from. */
+  shortReportDate?: string;
+  /** YYYY-MM-DD the short report became public. */
+  shortAvailableDate?: string;
+  /** "reported" when the stock has a short position in ASIC's report; absent otherwise. */
+  shortStatus?: string;
+  /** YYYY-MM-DD of a corporate action that may have changed the share basis; absent until that check ships. */
+  caSuspectDate?: string;
 }
 
-export interface StrategyPicksResult {
+/** The count of picks in each status, over the whole ranked list. */
+export interface StatusCountsView {
+  triggered: number;
+  setup: number;
+  watch: number;
+  unknown: number;
+}
+
+/** A strategy rules version: the picks, the fit and the definition name the same one. */
+export interface StrategyVersionDef {
+  strategyId: string;
+  label: string;
+  rulesHash: string;
+  engineVersion: string;
+  featureSet: string;
+  status: string;
+  liveFrom: string;
+  kind: string;
+  variantId: string;
+}
+
+/** The response-level signal fields of GetStrategyPicks. Absent when the API predates them. */
+export interface PicksSignals {
+  /** Picks by status over the whole ranked list, before any filter or page. */
+  statusCounts?: StatusCountsView;
+  /** YYYY-MM-DD of the session the picks are as at. */
+  sessionDate?: string;
+  /** YYYY-MM-DD of the newest ASIC report behind the short figures. */
+  shortReportDate?: string;
+  /** YYYY-MM-DD the newest short report became public. */
+  shortAvailableDate?: string;
+  /** True when the index has closed a session the prices have not reached (the data is delayed). */
+  stale?: boolean;
+  /** The universe's top-quartile cut-off of rs_6m_pct, which rs_leader reads. */
+  rsQuantileThreshold?: number;
+  /** The universe the picks were drawn from, as the strategy names it. */
+  universeLabel?: string;
+  version?: StrategyVersionDef;
+}
+
+export interface StrategyPicksResult extends PicksSignals {
   strategy: StrategyDef;
   regime: MarketRegimeView | null;
   /** At most 100 rows, ranked (status first, then score). */

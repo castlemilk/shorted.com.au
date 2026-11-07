@@ -59,6 +59,10 @@ enabled:
   - shorted-news-digest
   - shorted-economy
   - shorted-alerts
+  - shorted-ownership
+  - shorted-strategies-daily
+  - shorted-strategies-backtest
+  - shorted-key-metrics
 
 # Jobs that exist ONLY on the cluster: no Cloud Run twin, no Cloud Scheduler
 # trigger, so no `cloudRun` mapping and no local.jobs_on_vke entry. Their schedule
@@ -66,6 +70,9 @@ enabled:
 # names from the twin checks and pin that they have no twin.
 vkeNative:
   - shorted-alerts
+  - shorted-strategies-daily
+  - shorted-key-metrics
+  - shorted-strategies-backtest
 
 # Google Workload Identity Federation for the jobs that write to GCS. Keyless:
 # a projected Kubernetes token is exchanged for a short-lived token of the SAME
@@ -347,6 +354,7 @@ jobs:
     profiles: [db, gcpProject, revalidate]
     env:
       PICKS_FUNDAMENTALS_BUDGET_MIN: "170"
+      STRATEGY_PARITY_SHADOW: "on"
 
   shorted-picks-fundamentals:
     # The Cloud Run job whose executions report to this monitor while
@@ -361,6 +369,7 @@ jobs:
     profiles: [db, gcpProject, revalidate]
     env:
       PICKS_FUNDAMENTALS_BUDGET_MIN: "170"
+      STRATEGY_PARITY_SHADOW: "on"
 
   shorted-ownership:
     # The Cloud Run job whose executions report to this monitor while
@@ -618,6 +627,30 @@ jobs:
     # Writes asx-stocks/latest.csv to gs://shorted-short-selling-data-prod.
     gcpServiceAccount: asx-discovery@rosy-clover-477102-t5.iam.gserviceaccount.com
 
+  # services/jobs/internal/jobs/keymetrics: the daily key_metrics refresh of "company-metadata"
+  # (`shorted key-metrics`). It replaces the shorts API's SyncKeyMetrics, which forked python3 and
+  # yfinance inside the serving process and was killed for memory before it finished. VKE-native
+  # (vkeNative): no Cloud Run twin. Runs daily at 19:40 UTC (05:40 AEST, 06:40 AEDT). The slot
+  # keeps clear of the Yahoo traffic already on this cluster and on Cloud Run: the price sweep
+  # (08:00 and 10:00 UTC on weekdays), the index sync (11:30 UTC) and the picks fundamentals
+  # (`shorted picks -mode all`, Cloud Run, 15:00 to about 18:30 UTC). Its 40-minute budget ends
+  # about 20:20 UTC, so the job overlaps the hourly alerts run at :55 on weekdays. They share no
+  # rows: alerts reads company-metadata for logos only. The news cluster run at 20:30 is after it.
+  # KEY_METRICS_DRY_RUN is "false": the job's own default is a dry run.
+  # maxRetries 0: a retry would only rerun the same universe (a breaker trip reruns into the same
+  # refusals), and the next daily run is the retry. The 3000 s deadline sits above the 40-minute
+  # budget with room for the last in-flight request and the database connection.
+  shorted-key-metrics:
+    image: jobs
+    args: ["key-metrics"]
+    schedule: "40 19 * * *"
+    timeoutSeconds: 3000
+    maxRetries: 0
+    profiles: [db]
+    env:
+      KEY_METRICS_DRY_RUN: "false"
+      KEY_METRICS_BUDGET_MIN: "40"
+
   # services/jobs/internal/jobs/alerts — short-interest alert evaluator. VKE-native
   # (vkeNative): no Cloud Run twin. Hourly on weekdays at :55 UTC. ASIC data lands
   # ~00:35/01:35 UTC (poll at 11:32/11:37/11:47 Sydney), with a late tail to 05:15
@@ -645,3 +678,55 @@ jobs:
       RESEND_API_KEY: RESEND_API_KEY
       INTERNAL_SERVICE_SECRET: INTERNAL_SERVICE_SECRET
       UNSUBSCRIBE_SECRET: UNSUBSCRIBE_SECRET
+
+  # services/jobs/internal/jobs/strategies: the strategy engine's daily snapshot (-mode daily).
+  # VKE-native (vkeNative): no Cloud Run twin. It runs at :00, :20 and :40 past 13 to 16 UTC on
+  # weekdays, so the first run follows the price sweep (about 12:37 UTC) and the last one, at 16:40,
+  # is the deadline: a session still held then exits 10 once, so the monitor pages once. A held
+  # session is retried by the next run and backfilled oldest first. maxRetries 0: the next scheduled
+  # run is the retry, and a Kubernetes retry would take the lease the run already holds.
+  # Index dates are fixed in the tree (#860): the job reads stored XJO dates, the index sync dates
+  # each bar by its ASX session, and history older than the scheduled window waits for the one-off
+  # -years 21 (XJO) and -years 8 (XJT) re-fetch. Readiness rule (e) holds every session
+  # (xjo_weekend_rows) while a weekend-dated XJO bar remains in the window, rather than writing
+  # shifted figures. The runbook gate before enabling writes is in services/jobs/README.md
+  # ("Strategy daily snapshot").
+  shorted-strategies-daily:
+    image: jobs
+    args: ["strategies", "-mode", "daily"]
+    schedule: "0,20,40 13-16 * * 1-5"
+    timeoutSeconds: 3600
+    maxRetries: 0
+    resources: { cpuRequest: 500m, memoryRequest: 768Mi, memory: 1536Mi }
+    profiles: [db, revalidate]
+    env:
+      # Writes only when this is "false"; the dry run is the default everywhere else.
+      STRATEGIES_DRY_RUN: "false"
+
+  # services/jobs/internal/jobs/strategies: the strategy backtest (-mode backtest). VKE-native (vkeNative):
+  # no Cloud Run twin. Hourly at :20, after the daily snapshot's first run. It idles, exiting 0 in
+  # milliseconds, until a live canonical version other than v0 has a recipe (v1 is not live yet). Each
+  # execution takes the strategies-backtest lease, queues the weekly publish request of each live
+  # version and recipe (and one immediately when a key has no succeeded run), runs at most five
+  # requests or 20 minutes of work over one REPEATABLE READ read, and publishes only what the
+  # publication gate passes. maxRetries 0: a Kubernetes retry would only meet the attempt's lease
+  # (2 h TTL) and exit 0. An errored batch is requeued for the next hourly run; a SIGKILLed attempt's
+  # running request is failed by the next lease holder and retried by its key's next request (the
+  # day's, or the next ISO week's). Memory: the whole history is held for one batch, and a
+  # verify pass holds one more copy only after the first is released. GOMEMLIMIT is a soft ceiling
+  # under the 3Gi limit, so the collector works harder before the kernel kills the process. The job logs
+  # its peak RSS on every publish that verifies: the live check records that line, not a dry run's.
+  # The Telesis monitor shorted-strategies-backtest is registered by the owner.
+  shorted-strategies-backtest:
+    image: jobs
+    args: ["strategies", "-mode", "backtest"]
+    schedule: "20 * * * *"
+    timeoutSeconds: 3300
+    maxRetries: 0
+    resources: { cpuRequest: "1", memoryRequest: 1536Mi, memory: 3Gi }
+    profiles: [db, revalidate]
+    env:
+      # Writes only when this is "false"; the dry run is the default everywhere else.
+      STRATEGIES_DRY_RUN: "false"
+      # A soft ceiling below the 3Gi limit: the collector runs harder before the kernel kills the job.
+      GOMEMLIMIT: "2600MiB"

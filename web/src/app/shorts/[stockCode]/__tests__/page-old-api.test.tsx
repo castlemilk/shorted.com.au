@@ -229,7 +229,7 @@ describe("stock page against an older API", () => {
     const card = screen.getByRole("region", { name: "Strategy fit" });
     expect(within(card).getByRole("link", { name: "CAN SLIM" })).toHaveAttribute(
       "href",
-      "/picks/canslim",
+      "/strategies/canslim",
     );
     expect(within(card).getByText("rank 18 of 40")).toBeInTheDocument();
     expect(

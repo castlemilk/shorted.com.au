@@ -11,15 +11,21 @@ import {
   normalizeStockPageCacheCode,
   stockPageCacheTags,
 } from "./stockPageCache";
-import { mapRegime, type MarketRegimeInput } from "~/@/lib/strategies/map";
-import type { MarketRegimeView } from "~/@/lib/strategies/types";
+import {
+  isoDateOrNull,
+  mapRegime,
+  mapRuleResult,
+  type MarketRegimeInput,
+  type RuleResultInput,
+} from "~/@/lib/strategies/map";
+import type { MarketRegimeView, RuleResultRow } from "~/@/lib/strategies/types";
 
 // How every picker strategy reads one stock, for the Strategy fit card in the
 // stock page's Overview (docs/plans/fundamentals-coverage.md §7.1), from
 // StrategyService.GetStockStrategyFit.
 //
 // Contract, all of it load-bearing:
-//   - unstable_cache key ['stock-strategy-fit', code, 'v2'], revalidate 3600,
+//   - unstable_cache key ['stock-strategy-fit', code, 'v3'], revalidate 3600,
 //     tags ['strategy-picks', ...stockPageCacheTags('strategy-fit', code)];
 //   - a serverFetchOutsideNextCache transport with a 4 s abort, so a slow API
 //     costs the card, never the render;
@@ -39,19 +45,16 @@ export const STRATEGY_FIT_TIMEOUT_MS = 4000;
 /**
  * The cache version of one stock's fit entry. v2 added priceFeatures and
  * regime: a v1 entry has neither key, so it must not be read back as the
- * current shape.
+ * current shape. v3 added the signal fields (eligibility, the session and
+ * short dates, rule values, reasons and proximity): a v2 entry has none.
  */
-export const STRATEGY_FIT_CACHE_VERSION = "v2";
+export const STRATEGY_FIT_CACHE_VERSION = "v3";
 
 export type StrategyFitStatus = "triggered" | "setup" | "watch" | "none";
 export type StrategyFitRuleStatus = "pass" | "fail" | "unknown";
 
-export interface StrategyFitRule {
-  ruleId: string;
-  status: StrategyFitRuleStatus;
-  /** Human-readable evidence. */
-  detail: string;
-}
+/** One rule's result on a stock's fit: the shared rule row. */
+export type StrategyFitRule = RuleResultRow;
 
 export interface StrategyFitRuleColumn {
   id: string;
@@ -111,6 +114,18 @@ export interface StockStrategyFit {
   /** Null when absent: an API without the field, or a stock outside the universe. */
   priceFeatures: StockPriceFeatures | null;
   regime: MarketRegimeView | null;
+  /** Whether the stock can be read against the strategies at all. */
+  eligible?: boolean;
+  /** Why it cannot, e.g. "short_history"; absent when eligible. */
+  ineligibleReason?: string;
+  /** YYYY-MM-DD the readings are as at. */
+  sessionDate?: string;
+  /** YYYY-MM-DD of the stock's own short report; absent when it has none. */
+  shortReportDate?: string;
+  /** YYYY-MM-DD the short report became public. */
+  shortAvailableDate?: string;
+  /** True when the index has closed a session the prices have not reached (the data is delayed). */
+  stale?: boolean;
 }
 
 /** strategy id -> rule id -> title. */
@@ -127,10 +142,16 @@ export interface StockStrategyFitResponseLike {
     score?: number;
     rank?: number;
     totalCount?: number;
-    rules?: ReadonlyArray<{ ruleId?: string; status?: string; detail?: string }>;
+    rules?: ReadonlyArray<RuleResultInput>;
   }>;
   regime?: MarketRegimeInput | null;
   priceFeatures?: PriceFeaturesLike | null;
+  eligible?: boolean;
+  ineligibleReason?: string;
+  sessionDate?: string;
+  shortReportDate?: string;
+  shortAvailableDate?: string;
+  stale?: boolean;
 }
 
 /** The PriceFeatures fields the mapper reads (the message satisfies it). */
@@ -185,11 +206,6 @@ function toStatus(value: string | undefined): StrategyFitStatus {
   return status === "triggered" || status === "setup" || status === "watch"
     ? status
     : "none";
-}
-
-function toRuleStatus(value: string | undefined): StrategyFitRuleStatus {
-  const status = text(value).toLowerCase();
-  return status === "pass" || status === "fail" ? status : "unknown";
 }
 
 function positiveInt(value: number | undefined): number | null {
@@ -269,12 +285,8 @@ export function mapStockStrategyFit(
       const status = toStatus(fit.status);
       const candidate = status !== "none";
       const rules = (fit.rules ?? [])
-        .filter((rule) => text(rule.ruleId) !== "")
-        .map((rule) => ({
-          ruleId: text(rule.ruleId),
-          status: toRuleStatus(rule.status),
-          detail: text(rule.detail),
-        }));
+        .map(mapRuleResult)
+        .filter((rule) => rule.ruleId !== "");
       const strategyId = text(fit.strategyId);
       const strategyTitles = titles[strategyId] ?? {};
       return {
@@ -303,6 +315,12 @@ export function mapStockStrategyFit(
     fits,
     priceFeatures: mapPriceFeatures(response.priceFeatures),
     regime: mapRegime(response.regime),
+    eligible: response.eligible === true,
+    ineligibleReason: text(response.ineligibleReason) || undefined,
+    sessionDate: text(response.sessionDate),
+    shortReportDate: isoDateOrNull(response.shortReportDate) ?? undefined,
+    shortAvailableDate: isoDateOrNull(response.shortAvailableDate) ?? undefined,
+    ...(response.stale === true ? { stale: true } : {}),
   };
 }
 

@@ -28,7 +28,7 @@ import {
   marketCapsOf,
 } from "~/@/components/ownership/holders/holder-tree";
 import { HolderInspector } from "~/@/components/ownership/workspace/inspectors/holder-inspector";
-import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { WorkspacePage } from "~/@/components/workspace/workspace-page";
 import { loadOwnershipMap } from "~/app/actions/ownershipDesk";
 import { loadHolderConnections, loadHolderWeekNotices, resolveHolderInspector } from "~/app/actions/ownershipHolders";
 import type { GetInstitutionResponse, SubstantialHolding } from "~/gen/shorts/v1alpha1/ownership_pb";

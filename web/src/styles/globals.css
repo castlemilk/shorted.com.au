@@ -67,6 +67,14 @@
 
     --secondary-text: 93 40% 26%;      /* Deep olive - 6.6:1 on --card (--secondary is a fill, 2.6:1) */
 
+    /* Returns heatmap cells (lib/strategies/returns-scale.ts). A cell is a
+       colour-mix of the signal over the paper, with the ink on top. Light:
+       ink on paper. The pair flips in dark: a signal mixed over the dark paper
+       falls to 1.3-2.6:1 under any light ink at 40-60%, so the cells tint
+       toward the light paper and take the dark ink (8:1 or better, every bin). */
+    --returns-ink: 19 18% 24%;
+    --returns-paper: 40 25% 97%;
+
     /* Terminal effect variables */
     --glow-color: 32 100% 65%;
     --scanline-opacity: 0.03;
@@ -172,6 +180,10 @@
     --semantic-red-text: #f87171;
 
     --secondary-text: 96 33% 63%;      /* 8.0:1 on --card */
+
+    /* Returns heatmap: dark ink on a tint of the light paper (see :root). */
+    --returns-ink: 0 0% 5%;
+    --returns-paper: 48 52% 81%;
 
     /* Terminal effects - enhanced in dark mode */
     --glow-color: 32 100% 65%;
@@ -504,6 +516,43 @@
     rgba(0, 0, 0, var(--scanline-opacity)) 4px
   );
   z-index: 100;
+}
+
+/* A cell for a state with no figure (run required, not elapsed, before the
+   window, coverage under 80%). The hatch is a texture only: the cell's text
+   says what the state is. */
+.hatch-empty {
+  background-color: hsl(var(--muted) / 0.6);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    hsl(var(--muted-foreground) / 0.22) 0 1px,
+    transparent 1px 6px
+  );
+}
+
+/* A coverage hatch laid over a filled returns cell: stripes only, so the fill
+   shows through. The stripes are the returns paper token, lighter than every
+   fill, so the ink on them is never less readable than on the bare fill
+   (returns-scale.test.ts checks every bin in both themes). */
+.hatch-on-fill {
+  background-color: transparent;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    hsl(var(--returns-paper) / 0.6) 0 1px,
+    transparent 1px 6px
+  );
+}
+
+/* A coverage bar under the hatch line. Its base is the solid bar's ink, so its
+   length reads against the track as a solid bar's does; the light stripes mark
+   it as hatched. (.hatch-empty's base is the track's own colour, which hid it.) */
+.hatch-bar {
+  background-color: hsl(var(--muted-foreground) / 0.6);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    hsl(var(--background) / 0.45) 0 1px,
+    transparent 1px 6px
+  );
 }
 
 /* Amber glow effect for text */

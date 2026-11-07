@@ -18,7 +18,7 @@ import type { MouseEvent, ReactNode } from "react";
 
 import { NOT_AVAILABLE, formatPct } from "~/@/lib/fundamentals/format";
 import { cn } from "~/@/lib/utils";
-import { ToolbarSelect } from "../workspace/toolbar";
+import { ToolbarSelect } from "~/@/components/workspace/toolbar";
 import { BIN_COUNT, lensFill, type LensScale } from "./desk-scales";
 import { DESK_LENSES, type DeskLens } from "./desk-state";
 

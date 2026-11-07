@@ -3,6 +3,7 @@ module github.com/castlemilk/shorted.com.au/services
 go 1.27.0
 
 require (
+	cloud.google.com/go v0.123.0
 	cloud.google.com/go/pubsub v1.51.1
 	cloud.google.com/go/storage v1.70.0
 	connectrpc.com/connect v1.21.1
@@ -67,7 +68,6 @@ require (
 
 require (
 	cel.dev/expr v0.25.3 // indirect
-	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/ai v0.8.0 // indirect
 	cloud.google.com/go/auth v0.24.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.3.0 // indirect

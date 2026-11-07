@@ -14,8 +14,8 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/mocks"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 // StrategyService is mounted from serve.go; this makes a missing handler a
@@ -30,15 +30,15 @@ func spDate(s string) time.Time {
 	return t
 }
 
-func spUptrend() strategies.Regime {
+func spUptrend() engine.Regime {
 	asOf := spDate("2026-09-25")
-	return strategies.Regime{IndexCode: "XJO", AsOf: &asOf, Close: new(float64(8800)), SMA50: new(float64(8600)), SMA200: new(float64(8200)), PctOff52wHigh: new(-1.5), Label: strategies.RegimeUptrend}
+	return engine.Regime{IndexCode: "XJO", AsOf: &asOf, Close: new(float64(8800)), SMA50: new(float64(8600)), SMA200: new(float64(8200)), PctOff52wHigh: new(-1.5), Label: engine.RegimeUptrend}
 }
 
 // spReady passes every Zanger rule.
-func spReady(code string) strategies.Candidate {
+func spReady(code string) engine.Candidate {
 	breakout := spDate("2026-09-24")
-	return strategies.Candidate{
+	return engine.Candidate{
 		StockCode:       code,
 		AsOf:            spDate("2026-09-25"),
 		Close:           10,
@@ -52,7 +52,7 @@ func spReady(code string) strategies.Candidate {
 		BreakoutDate:    &breakout,
 		DollarVolume20d: new(float64(5_000_000)),
 		RS3mPct:         new(float64(10)),
-		Growth:          &strategies.Growth{RevenueYoYPct: new(float64(40)), EPSYoYPct: new(float64(50)), BasisPeriodType: "ttm"},
+		Growth:          &engine.Growth{RevenueYoYPct: new(float64(40)), EPSYoYPct: new(float64(50)), BasisPeriodType: "ttm"},
 		CompanyName:     code + " Ltd",
 		Industry:        "Materials",
 		LogoURL:         "https://example.test/" + code + ".png",
@@ -61,7 +61,7 @@ func spReady(code string) strategies.Candidate {
 	}
 }
 
-func spUniverse() []strategies.Candidate {
+func spUniverse() []engine.Candidate {
 	setup := spReady("SET")
 	setup.BreakoutRecent = new(false)
 	setup.AsOf = spDate("2026-09-24")
@@ -71,8 +71,8 @@ func spUniverse() []strategies.Candidate {
 	watch.ShortPct = nil
 	watch.MarketCap = nil
 
-	nothing := strategies.Candidate{StockCode: "NIL", AsOf: spDate("2026-09-25"), Close: 1}
-	return []strategies.Candidate{nothing, watch, setup, spReady("RDY")}
+	nothing := engine.Candidate{StockCode: "NIL", AsOf: spDate("2026-09-25"), Close: 1}
+	return []engine.Candidate{nothing, watch, setup, spReady("RDY")}
 }
 
 func TestListStrategies_ReturnsTheRegistryAndANeutralRegime(t *testing.T) {
@@ -85,8 +85,8 @@ func TestListStrategies_ReturnsTheRegistryAndANeutralRegime(t *testing.T) {
 		resp, err := srv.ListStrategies(context.Background(), connect.NewRequest(&shortsv1alpha1.ListStrategiesRequest{}))
 		require.NoError(t, err)
 
-		require.Len(t, resp.Msg.Strategies, len(strategies.Registry()))
-		for j, st := range strategies.Registry() {
+		require.Len(t, resp.Msg.Strategies, len(engine.Registry()))
+		for j, st := range engine.Registry() {
 			got := resp.Msg.Strategies[j]
 			assert.Equal(t, st.ID, got.Id)
 			assert.Equal(t, st.Name, got.Name)
@@ -105,7 +105,7 @@ func TestListStrategies_ReturnsTheRegistryAndANeutralRegime(t *testing.T) {
 				assert.Equal(t, st.CaveatsWithCoverage(0, -1)[0], got.Caveats[0], "unmeasured coverage caveat first")
 			}
 			if st.UsesQualityRules() {
-				assert.Equal(t, strategies.QualityCoverageCaveat(0, -1), got.Caveats[0], "quality strategies quote statement coverage")
+				assert.Equal(t, engine.QualityCoverageCaveat(0, -1), got.Caveats[0], "quality strategies quote statement coverage")
 			}
 		}
 
@@ -124,11 +124,11 @@ func TestListStrategies_ReturnsTheRegistryAndANeutralRegime(t *testing.T) {
 func TestListStrategies_RegimeFailureDegradesToUnknown(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := mocks.NewMockShortsStore(ctrl)
-	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(strategies.Regime{}, errors.New("timeout"))
+	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(engine.Regime{}, errors.New("timeout"))
 
 	resp, err := newTestServer(t, mockStore).ListStrategies(context.Background(), connect.NewRequest(&shortsv1alpha1.ListStrategiesRequest{}))
 	require.NoError(t, err, "the definitions are static; a regime failure must not fail the call")
-	assert.Len(t, resp.Msg.Strategies, len(strategies.Registry()))
+	assert.Len(t, resp.Msg.Strategies, len(engine.Registry()))
 	assert.Equal(t, "XJO", resp.Msg.Regime.IndexCode)
 	assert.Equal(t, "", resp.Msg.Regime.Regime)
 	assert.True(t, strings.HasPrefix(resp.Msg.Regime.Verdict, "Market regime unavailable"), resp.Msg.Regime.Verdict)
@@ -162,7 +162,7 @@ func TestGetStrategyPicks_RejectsBadRequestsWithoutTouchingTheStore(t *testing.T
 	}
 	// The NotFound message lists the valid ids, so a caller can recover.
 	_, err := srv.GetStrategyPicks(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{StrategyId: "nope"}))
-	for _, st := range strategies.Registry() {
+	for _, st := range engine.Registry() {
 		assert.Contains(t, err.Error(), st.ID)
 	}
 }
@@ -184,7 +184,7 @@ func TestGetStrategyPicks_RanksEvaluatesAndMapsEveryField(t *testing.T) {
 	assert.Equal(t, int32(2), msg.FundamentalsCoverageCount, "RDY and SET carry growth data; WAT and NIL do not")
 	assert.Equal(t, "2026-09-25", msg.AsOf)
 	assert.Equal(t, int32(3), msg.TotalCount, "the stock passing no stock-specific rule is not a pick")
-	assert.Equal(t, strategies.CoverageCaveat(2, 4), msg.Strategy.Caveats[0])
+	assert.Equal(t, engine.CoverageCaveat(2, 4), msg.Strategy.Caveats[0])
 	assert.True(t, strings.HasPrefix(msg.Regime.Verdict, "Green light: XJO"), msg.Regime.Verdict)
 
 	require.Len(t, msg.Picks, 3)
@@ -220,7 +220,7 @@ func TestGetStrategyPicks_RanksEvaluatesAndMapsEveryField(t *testing.T) {
 	assert.Greater(t, rdy.Score, 60.0)
 	assert.LessOrEqual(t, rdy.Score, 100.0)
 
-	zanger, _ := strategies.Lookup(strategies.IDZangerBreakout)
+	zanger, _ := engine.Lookup(engine.IDZangerBreakout)
 	require.Len(t, rdy.Rules, len(zanger.Rules))
 	for i, r := range rdy.Rules {
 		assert.Equal(t, zanger.Rules[i].ID, r.RuleId)
@@ -238,7 +238,7 @@ func TestGetStrategyPicks_RanksEvaluatesAndMapsEveryField(t *testing.T) {
 	assert.True(t, wat.HasRs_3MPct)
 	assert.True(t, wat.HasClose)
 	for _, r := range wat.Rules {
-		if r.RuleId == strategies.RuleGrowth {
+		if r.RuleId == engine.RuleGrowth {
 			assert.Equal(t, "unknown", r.Status)
 			assert.False(t, r.HasValue)
 		}
@@ -283,7 +283,7 @@ func TestGetStrategyPicks_FiltersByStatusAndPagesInMemory(t *testing.T) {
 }
 
 func TestGetStrategyPicks_DefaultLimitIsTwenty(t *testing.T) {
-	var cands []strategies.Candidate
+	var cands []engine.Candidate
 	for _, code := range []string{"A01", "A02", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10",
 		"A11", "A12", "A13", "A14", "A15", "A16", "A17", "A18", "A19", "A20", "A21", "A22", "A23", "A24", "A25"} {
 		cands = append(cands, spReady(code))
@@ -311,7 +311,7 @@ func TestGetStrategyPicks_StrategiesShareOneUniverseRead(t *testing.T) {
 	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(spUptrend(), nil).Times(1)
 	srv := newTestServer(t, mockStore)
 
-	for _, st := range strategies.Registry() {
+	for _, st := range engine.Registry() {
 		resp, err := srv.GetStrategyPicks(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{StrategyId: st.ID}))
 		require.NoError(t, err, st.ID)
 		assert.Equal(t, st.ID, resp.Msg.Strategy.Id)
@@ -327,8 +327,8 @@ func TestGetStrategyPicks_StrategiesShareOneUniverseRead(t *testing.T) {
 func TestGetStrategyPicks_MissingViewsServeAnEmptyUniverse(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := mocks.NewMockShortsStore(ctrl)
-	mockStore.EXPECT().ListStrategyCandidates(gomock.Any()).Return([]strategies.Candidate{}, nil)
-	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(strategies.Regime{IndexCode: "XJO"}, nil)
+	mockStore.EXPECT().ListStrategyCandidates(gomock.Any()).Return([]engine.Candidate{}, nil)
+	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(engine.Regime{IndexCode: "XJO"}, nil)
 
 	resp, err := newTestServer(t, mockStore).GetStrategyPicks(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{StrategyId: "canslim"}))
 	require.NoError(t, err)
@@ -341,7 +341,7 @@ func TestGetStrategyPicks_MissingViewsServeAnEmptyUniverse(t *testing.T) {
 	assert.Equal(t, "", msg.Regime.Regime)
 	assert.Equal(t, "XJO", msg.Regime.IndexCode)
 	assert.True(t, strings.HasPrefix(msg.Regime.Verdict, "Market regime unavailable"), msg.Regime.Verdict)
-	assert.Equal(t, strategies.CoverageCaveat(0, 0), msg.Strategy.Caveats[0])
+	assert.Equal(t, engine.CoverageCaveat(0, 0), msg.Strategy.Caveats[0])
 	assert.NotContains(t, msg.Strategy.Caveats[0], "0 of the 0")
 }
 
@@ -349,7 +349,7 @@ func TestGetStrategyPicks_DowntrendVerdictAndNoTriggers(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	mockStore.EXPECT().ListStrategyCandidates(gomock.Any()).Return(spUniverse(), nil)
-	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(strategies.Regime{IndexCode: "XJO", Label: strategies.RegimeDowntrend}, nil)
+	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(engine.Regime{IndexCode: "XJO", Label: engine.RegimeDowntrend}, nil)
 
 	resp, err := newTestServer(t, mockStore).GetStrategyPicks(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{StrategyId: "zanger-breakout"}))
 	require.NoError(t, err)
@@ -385,7 +385,7 @@ func TestGetStrategyPicks_RegimeErrorFailsTheFill(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	mockStore.EXPECT().ListStrategyCandidates(gomock.Any()).Return(spUniverse(), nil)
-	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(strategies.Regime{}, errors.New("timeout"))
+	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").Return(engine.Regime{}, errors.New("timeout"))
 
 	_, err := newTestServer(t, mockStore).GetStrategyPicks(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{StrategyId: "zanger-breakout"}))
 	require.Error(t, err)
@@ -397,15 +397,15 @@ func TestGetStrategyPicks_RegimeErrorFailsTheFill(t *testing.T) {
 func TestGetStrategyPicks_FillIgnoresTheTriggeringRequestsCancellation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockStore := mocks.NewMockShortsStore(ctrl)
-	mockStore.EXPECT().ListStrategyCandidates(gomock.Any()).DoAndReturn(func(ctx context.Context) ([]strategies.Candidate, error) {
+	mockStore.EXPECT().ListStrategyCandidates(gomock.Any()).DoAndReturn(func(ctx context.Context) ([]engine.Candidate, error) {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
 		return spUniverse(), nil
 	})
-	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").DoAndReturn(func(ctx context.Context, _ string) (strategies.Regime, error) {
+	mockStore.EXPECT().GetMarketRegime(gomock.Any(), "XJO").DoAndReturn(func(ctx context.Context, _ string) (engine.Regime, error) {
 		if ctx.Err() != nil {
-			return strategies.Regime{}, ctx.Err()
+			return engine.Regime{}, ctx.Err()
 		}
 		return spUptrend(), nil
 	})
@@ -457,7 +457,7 @@ func TestStrategyPickProto_PresenceFlagsFollowThePointerNotTheValue(t *testing.T
 	known.RS3mPct = new(float64(0))   // exactly in line with XJO
 	known.ShortPct = new(float64(0))  // an ASIC row reporting no short position
 	known.MarketCap = new(float64(0)) // an explicit zero is still a reported value
-	got := strategyPickProto(&strategies.Pick{Candidate: known})
+	got := strategyPickProto(&engine.Pick{Candidate: known})
 	assert.True(t, got.HasRs_3MPct)
 	assert.True(t, got.HasShortPct)
 	assert.True(t, got.HasMarketCap)
@@ -465,8 +465,8 @@ func TestStrategyPickProto_PresenceFlagsFollowThePointerNotTheValue(t *testing.T
 	assert.Equal(t, float64(0), got.Rs_3MPct)
 	assert.Equal(t, float64(0), got.ShortPct)
 
-	unknown := strategies.Candidate{StockCode: "UNK"} // no pointers set, no price
-	got = strategyPickProto(&strategies.Pick{Candidate: unknown})
+	unknown := engine.Candidate{StockCode: "UNK"} // no pointers set, no price
+	got = strategyPickProto(&engine.Pick{Candidate: unknown})
 	assert.False(t, got.HasRs_3MPct)
 	assert.False(t, got.HasShortPct)
 	assert.False(t, got.HasMarketCap)

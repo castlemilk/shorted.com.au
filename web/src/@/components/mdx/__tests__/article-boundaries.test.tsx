@@ -7,7 +7,7 @@ import Info from "~/@/components/ui/info";
 import { Timeline, TimelineEvent } from "~/@/components/news/mdx/timeline";
 import { PullQuote } from "~/@/components/news/mdx/pull-quote";
 import { Figure } from "~/@/components/news/mdx/figure";
-import { GraphCompare, GraphSlope } from "../article-figures";
+import { GraphCompare, GraphRank, GraphSlope } from "../article-figures";
 
 describe("article component boundaries", () => {
   it("keeps production prose spacing outside legacy callouts, timelines and quotes", () => {
@@ -65,5 +65,11 @@ describe("article component boundaries", () => {
   it("uses each figure title to label its scroll region", () => {
     render(<GraphCompare title="Strategy comparison" columns='["Growth"]' rows='[{"label":"Momentum","values":[true]}]' />);
     expect(screen.getByRole("region", { name: "Strategy comparison" })).toHaveAttribute("tabindex", "0");
+  });
+
+  it("keeps a rank's figure whole beside a label long enough to wrap", () => {
+    // At 390px a long label used to squeeze the figure until "1,840" broke as "1,8 / 40".
+    render(<GraphRank title="Reasons" items='[{"label":"Voting power not stated, or only in an annexure","value":1840,"display":"1,840"}]' />);
+    expect(screen.getByText("1,840")).toHaveClass("shrink-0", "whitespace-nowrap");
   });
 });

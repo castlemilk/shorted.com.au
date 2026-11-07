@@ -158,7 +158,8 @@ export function GraphRank({ items, max, children, ...frame }: GraphRankProps) {
             <li key={index}>
               <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
                 <span>{rank.label}</span>
-                <span className="font-medium tabular-nums">{rank.display ?? format(number(rank.value))}</span>
+                {/* A figure never breaks: a long label wraps beside it instead. */}
+                <span className="shrink-0 whitespace-nowrap font-medium tabular-nums">{rank.display ?? format(number(rank.value))}</span>
               </div>
               <div aria-hidden="true" className="h-2 overflow-hidden rounded-full bg-muted">
                 <div className={`h-full rounded-full ${rank.accent ? "bg-primary" : "bg-primary/70"}`} style={{ width: `${Math.abs(number(rank.value)) / scale * 100}%` }} />

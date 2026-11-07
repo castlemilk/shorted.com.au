@@ -1,37 +1,38 @@
 // Row selection and counting for the picks table and the hub cards. Pure,
 // serialisable-in / serialisable-out, safe on both sides of the RSC boundary.
 
-import { PICK_STATUSES, type PickRow, type PickStatus } from "./types";
+import {
+  PICK_STATUSES,
+  type PickRow,
+  type PickStatus,
+  type StatusCountsView,
+} from "./types";
 
 /**
- * Zanger's "concentrate" rule (plan §1, rule 5): the table is a short list.
- * Triggered and setup rows always show; watch rows only fill the table up to
- * this many rows, so a quiet day still shows the nearest candidates instead of
- * an empty page, and a busy day is not padded with near-misses.
+ * The most rows the shortlist renders: the anonymous public depth (the API's
+ * STRATEGY_PUBLIC_SIGNALS_LIMIT, 10 in production), so the Overview shows what
+ * an anonymous caller can read from the API. Every row is rendered THREE times
+ * on its way to a reader (the HTML, the RSC tree of the Suspense fallback, and
+ * the sort island's props), each with a fundamentals disclosure, so the list
+ * is bounded here as well: measured 2026-10-07, /strategies/minervini-trend-
+ * template served 100 rows as 1.85 MB of HTML (115 KB gzipped). The rest of a
+ * status is on the Signals tab, which carries signed-in depth, and in the API
+ * for any caller with the depth.
  */
-export const SHORTLIST_MIN_ROWS = 20;
+export const SHORTLIST_MAX_ROWS = 10;
 
 /**
- * The most rows the shortlist renders. Every row is rendered THREE times on
- * its way to a reader (the HTML, the RSC tree of the Suspense fallback, and
- * the sort island's props), each with a fundamentals disclosure, so a busy
- * strategy is bounded here rather than by the API's 100: measured
- * 2026-10-07, /picks/minervini-trend-template served 100 rows as 1.85 MB of
- * HTML (115 KB gzipped) and /picks/crowded-short-breakout 1.35 MB. The rest
- * of a status stays one chip away (the island fetches it) and in the API.
+ * The rows shown with no ?status= filter (Zanger's "concentrate" rule, plan §1,
+ * rule 5: the table is a short list). Triggered and setup rows come first, then
+ * watch rows fill the table up to SHORTLIST_MAX_ROWS, so a quiet day still shows
+ * the nearest candidates instead of an empty page.
  */
-export const SHORTLIST_MAX_ROWS = 40;
-
-/** The rows shown with no ?status= filter. */
 export function shortlistRows(rows: PickRow[]): PickRow[] {
-  const primary = rows.filter((row) => row.status !== "watch");
-  if (primary.length >= SHORTLIST_MIN_ROWS) {
-    return primary.slice(0, SHORTLIST_MAX_ROWS);
-  }
-  const fill = rows
-    .filter((row) => row.status === "watch")
-    .slice(0, SHORTLIST_MIN_ROWS - primary.length);
-  return [...primary, ...fill];
+  const ordered = [
+    ...rows.filter((row) => row.status !== "watch"),
+    ...rows.filter((row) => row.status === "watch"),
+  ];
+  return ordered.slice(0, SHORTLIST_MAX_ROWS);
 }
 
 /** The rows for a given filter: null is the shortlist. */
@@ -79,6 +80,25 @@ export function countByStatus(
     };
   }
   return result;
+}
+
+/**
+ * The per-status counts a page prints: the API's status_counts when it sent
+ * them (exact over every ranked row, so a clamped row list does not shrink
+ * them), otherwise the count of the rows the page holds.
+ */
+export function statusCountsOf(picks: {
+  picks: PickRow[];
+  totalCount: number;
+  statusCounts?: StatusCountsView;
+}): Record<PickStatus, StatusCount> {
+  const api = picks.statusCounts;
+  if (!api) return countByStatus(picks.picks, picks.totalCount);
+  return {
+    triggered: { count: api.triggered, atLeast: false },
+    setup: { count: api.setup, atLeast: false },
+    watch: { count: api.watch, atLeast: false },
+  };
 }
 
 /** "12", or "100+" when the count is a floor. */

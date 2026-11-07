@@ -32,8 +32,9 @@ type Strategy struct {
 	DescriptionParagraphs []string               `protobuf:"bytes,5,rep,name=description_paragraphs,json=descriptionParagraphs,proto3" json:"description_paragraphs,omitempty"` // 2-4 paragraphs, plain text.
 	Rules                 []*StrategyRule        `protobuf:"bytes,6,rep,name=rules,proto3" json:"rules,omitempty"`
 	Metadata              *StrategyMetadata      `protobuf:"bytes,7,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	Caveats               []string               `protobuf:"bytes,8,rep,name=caveats,proto3" json:"caveats,omitempty"` // What our data cannot see.
-	Sources               []string               `protobuf:"bytes,9,rep,name=sources,proto3" json:"sources,omitempty"` // Attribution lines.
+	Caveats               []string               `protobuf:"bytes,8,rep,name=caveats,proto3" json:"caveats,omitempty"`  // What our data cannot see.
+	Sources               []string               `protobuf:"bytes,9,rep,name=sources,proto3" json:"sources,omitempty"`  // Attribution lines.
+	Version               *StrategyVersionRef    `protobuf:"bytes,10,opt,name=version,proto3" json:"version,omitempty"` // The live rules version this definition is evaluated under.
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -131,15 +132,28 @@ func (x *Strategy) GetSources() []string {
 	return nil
 }
 
+func (x *Strategy) GetVersion() *StrategyVersionRef {
+	if x != nil {
+		return x.Version
+	}
+	return nil
+}
+
 // One rule of a strategy: the author's version and exactly how we test it.
 type StrategyRule struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // e.g. "growth", "base", "breakout", "regime", "rs", "liquidity", "short_interest".
 	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	RuleText      string                 `protobuf:"bytes,3,opt,name=rule_text,json=ruleText,proto3" json:"rule_text,omitempty"`       // The rule in the author's terms.
-	Evaluation    string                 `protobuf:"bytes,4,opt,name=evaluation,proto3" json:"evaluation,omitempty"`                   // Exactly how we test it, with thresholds.
-	Core          bool                   `protobuf:"varint,5,opt,name=core,proto3" json:"core,omitempty"`                              // Must pass for status "triggered".
-	DataSource    string                 `protobuf:"bytes,6,opt,name=data_source,json=dataSource,proto3" json:"data_source,omitempty"` // "stock_fundamentals", "stock_prices", "index_prices" or "asic_shorts".
+	RuleText      string                 `protobuf:"bytes,3,opt,name=rule_text,json=ruleText,proto3" json:"rule_text,omitempty"`               // The rule in the author's terms.
+	Evaluation    string                 `protobuf:"bytes,4,opt,name=evaluation,proto3" json:"evaluation,omitempty"`                           // Exactly how we test it, with thresholds.
+	Core          bool                   `protobuf:"varint,5,opt,name=core,proto3" json:"core,omitempty"`                                      // Must pass for status "triggered".
+	DataSource    string                 `protobuf:"bytes,6,opt,name=data_source,json=dataSource,proto3" json:"data_source,omitempty"`         // "stock_fundamentals", "stock_prices", "index_prices" or "asic_shorts".
+	Trigger       bool                   `protobuf:"varint,7,opt,name=trigger,proto3" json:"trigger,omitempty"`                                // A trigger: a core rule a setup may still fail (e.g. breakout, near_high, rs_leader, above_sma200).
+	Weight        float64                `protobuf:"fixed64,8,opt,name=weight,proto3" json:"weight,omitempty"`                                 // Share of the score this rule carries, 0-1; the weights of a strategy sum to 1.
+	Threshold     float64                `protobuf:"fixed64,9,opt,name=threshold,proto3" json:"threshold,omitempty"`                           // The number the rule tests, in unit. Meaningful only when has_threshold.
+	HasThreshold  bool                   `protobuf:"varint,10,opt,name=has_threshold,json=hasThreshold,proto3" json:"has_threshold,omitempty"` // False for a rule with no single number to test (breakout, regime, trend_stack, rs_leader), or one that passes on more than one condition (base, growth, eps_growth).
+	Unit          string                 `protobuf:"bytes,11,opt,name=unit,proto3" json:"unit,omitempty"`                                      // "pct", "pp", "aud", "days", "x" or empty. Meaningful only when has_threshold.
+	Comparator    string                 `protobuf:"bytes,12,opt,name=comparator,proto3" json:"comparator,omitempty"`                          // ">=", "<=" or ">". Meaningful only when has_threshold.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -212,6 +226,48 @@ func (x *StrategyRule) GetCore() bool {
 func (x *StrategyRule) GetDataSource() string {
 	if x != nil {
 		return x.DataSource
+	}
+	return ""
+}
+
+func (x *StrategyRule) GetTrigger() bool {
+	if x != nil {
+		return x.Trigger
+	}
+	return false
+}
+
+func (x *StrategyRule) GetWeight() float64 {
+	if x != nil {
+		return x.Weight
+	}
+	return 0
+}
+
+func (x *StrategyRule) GetThreshold() float64 {
+	if x != nil {
+		return x.Threshold
+	}
+	return 0
+}
+
+func (x *StrategyRule) GetHasThreshold() bool {
+	if x != nil {
+		return x.HasThreshold
+	}
+	return false
+}
+
+func (x *StrategyRule) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *StrategyRule) GetComparator() string {
+	if x != nil {
+		return x.Comparator
 	}
 	return ""
 }
@@ -404,12 +460,22 @@ func (x *MarketRegime) GetVerdict() string {
 
 // The outcome of one rule for one stock.
 type RuleResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RuleId        string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
-	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`                      // "pass" | "fail" | "unknown".
-	Detail        string                 `protobuf:"bytes,3,opt,name=detail,proto3" json:"detail,omitempty"`                      // Human-readable evidence, e.g. "Revenue +41% YoY (FY to 2026-06-30)".
-	Value         float64                `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`                      // The number the rule tested, when there is one.
-	HasValue      bool                   `protobuf:"varint,5,opt,name=has_value,json=hasValue,proto3" json:"has_value,omitempty"` // False when value is absent (unknown), never read value then.
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	RuleId   string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	Status   string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`                      // "pass" | "fail" | "unknown".
+	Detail   string                 `protobuf:"bytes,3,opt,name=detail,proto3" json:"detail,omitempty"`                      // Human-readable evidence, e.g. "Revenue +41% YoY (FY to 2026-06-30)".
+	Value    float64                `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`                      // The number the rule tested, when there is one.
+	HasValue bool                   `protobuf:"varint,5,opt,name=has_value,json=hasValue,proto3" json:"has_value,omitempty"` // False when value is absent (unknown), never read value then.
+	// Why an unknown rule could not be tested: "no_price_history", "no_volume",
+	// "no_index", "no_fundamentals" or "not_meaningful". Empty for pass and fail.
+	Reason string `protobuf:"bytes,6,opt,name=reason,proto3" json:"reason,omitempty"`
+	// For a failing trigger rule: 0-1, 1 at the trigger line and 0 at the far
+	// distance. Meaningful only when has_proximity.
+	Proximity    float64 `protobuf:"fixed64,7,opt,name=proximity,proto3" json:"proximity,omitempty"`
+	HasProximity bool    `protobuf:"varint,8,opt,name=has_proximity,json=hasProximity,proto3" json:"has_proximity,omitempty"`
+	// True when this is a failing trigger rule on a setup row: the stock is
+	// waiting for the trigger, not yet triggered.
+	Waiting       bool `protobuf:"varint,9,opt,name=waiting,proto3" json:"waiting,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -479,6 +545,34 @@ func (x *RuleResult) GetHasValue() bool {
 	return false
 }
 
+func (x *RuleResult) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *RuleResult) GetProximity() float64 {
+	if x != nil {
+		return x.Proximity
+	}
+	return 0
+}
+
+func (x *RuleResult) GetHasProximity() bool {
+	if x != nil {
+		return x.HasProximity
+	}
+	return false
+}
+
+func (x *RuleResult) GetWaiting() bool {
+	if x != nil {
+		return x.Waiting
+	}
+	return false
+}
+
 // One ranked stock for a strategy.
 type StrategyPick struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
@@ -516,9 +610,26 @@ type StrategyPick struct {
 	// Reported fundamentals behind the growth cells, with their basis and
 	// provenance, plus headline ratios. Absent when the stock has no
 	// fundamentals row at all.
-	Fundamentals  *PickFundamentals `protobuf:"bytes,27,opt,name=fundamentals,proto3" json:"fundamentals,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Fundamentals *PickFundamentals `protobuf:"bytes,27,opt,name=fundamentals,proto3" json:"fundamentals,omitempty"`
+	// Signal evidence (display-only in this release where noted).
+	DaysToCover         float64 `protobuf:"fixed64,28,opt,name=days_to_cover,json=daysToCover,proto3" json:"days_to_cover,omitempty"` // Meaningful only when has_days_to_cover.
+	HasDaysToCover      bool    `protobuf:"varint,29,opt,name=has_days_to_cover,json=hasDaysToCover,proto3" json:"has_days_to_cover,omitempty"`
+	Rs_6MPct            float64 `protobuf:"fixed64,30,opt,name=rs_6m_pct,json=rs6mPct,proto3" json:"rs_6m_pct,omitempty"` // Meaningful only when has_rs_6m_pct.
+	HasRs_6MPct         bool    `protobuf:"varint,31,opt,name=has_rs_6m_pct,json=hasRs6mPct,proto3" json:"has_rs_6m_pct,omitempty"`
+	Rs_6MPercentile     float64 `protobuf:"fixed64,32,opt,name=rs_6m_percentile,json=rs6mPercentile,proto3" json:"rs_6m_percentile,omitempty"` // Rank of rs_6m_pct across the evaluated universe on the quartile's own scale, 0-100 (75 or more is the top quartile).
+	HasRs_6MPercentile  bool    `protobuf:"varint,33,opt,name=has_rs_6m_percentile,json=hasRs6mPercentile,proto3" json:"has_rs_6m_percentile,omitempty"`
+	DollarVolume_20D    float64 `protobuf:"fixed64,34,opt,name=dollar_volume_20d,json=dollarVolume20d,proto3" json:"dollar_volume_20d,omitempty"` // Average daily turnover over 20 sessions, A$. Meaningful only when has_dollar_volume_20d.
+	HasDollarVolume_20D bool    `protobuf:"varint,35,opt,name=has_dollar_volume_20d,json=hasDollarVolume20d,proto3" json:"has_dollar_volume_20d,omitempty"`
+	BreakoutDate        string  `protobuf:"bytes,36,opt,name=breakout_date,json=breakoutDate,proto3" json:"breakout_date,omitempty"`                     // YYYY-MM-DD of the breakout session; empty when there was none.
+	ShortReportDate     string  `protobuf:"bytes,37,opt,name=short_report_date,json=shortReportDate,proto3" json:"short_report_date,omitempty"`          // YYYY-MM-DD of the ASIC report the short figure came from; empty when there is no short figure.
+	ShortAvailableDate  string  `protobuf:"bytes,38,opt,name=short_available_date,json=shortAvailableDate,proto3" json:"short_available_date,omitempty"` // YYYY-MM-DD the report became public; empty with no report, or a report dated before 2026.
+	ShortStatus         string  `protobuf:"bytes,39,opt,name=short_status,json=shortStatus,proto3" json:"short_status,omitempty"`                        // "reported" when the stock has a short figure; empty otherwise.
+	// Meaningful only when has_pct_off_52w_high. pct_off_52w_high is 0 at the high,
+	// so a stock with no 52-week high yet must not read as "at the high".
+	HasPctOff_52WHigh bool   `protobuf:"varint,40,opt,name=has_pct_off_52w_high,json=hasPctOff52wHigh,proto3" json:"has_pct_off_52w_high,omitempty"`
+	CaSuspectDate     string `protobuf:"bytes,41,opt,name=ca_suspect_date,json=caSuspectDate,proto3" json:"ca_suspect_date,omitempty"` // Corporate-action suspect date; empty until the basis check ships.
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *StrategyPick) Reset() {
@@ -740,6 +851,104 @@ func (x *StrategyPick) GetFundamentals() *PickFundamentals {
 	return nil
 }
 
+func (x *StrategyPick) GetDaysToCover() float64 {
+	if x != nil {
+		return x.DaysToCover
+	}
+	return 0
+}
+
+func (x *StrategyPick) GetHasDaysToCover() bool {
+	if x != nil {
+		return x.HasDaysToCover
+	}
+	return false
+}
+
+func (x *StrategyPick) GetRs_6MPct() float64 {
+	if x != nil {
+		return x.Rs_6MPct
+	}
+	return 0
+}
+
+func (x *StrategyPick) GetHasRs_6MPct() bool {
+	if x != nil {
+		return x.HasRs_6MPct
+	}
+	return false
+}
+
+func (x *StrategyPick) GetRs_6MPercentile() float64 {
+	if x != nil {
+		return x.Rs_6MPercentile
+	}
+	return 0
+}
+
+func (x *StrategyPick) GetHasRs_6MPercentile() bool {
+	if x != nil {
+		return x.HasRs_6MPercentile
+	}
+	return false
+}
+
+func (x *StrategyPick) GetDollarVolume_20D() float64 {
+	if x != nil {
+		return x.DollarVolume_20D
+	}
+	return 0
+}
+
+func (x *StrategyPick) GetHasDollarVolume_20D() bool {
+	if x != nil {
+		return x.HasDollarVolume_20D
+	}
+	return false
+}
+
+func (x *StrategyPick) GetBreakoutDate() string {
+	if x != nil {
+		return x.BreakoutDate
+	}
+	return ""
+}
+
+func (x *StrategyPick) GetShortReportDate() string {
+	if x != nil {
+		return x.ShortReportDate
+	}
+	return ""
+}
+
+func (x *StrategyPick) GetShortAvailableDate() string {
+	if x != nil {
+		return x.ShortAvailableDate
+	}
+	return ""
+}
+
+func (x *StrategyPick) GetShortStatus() string {
+	if x != nil {
+		return x.ShortStatus
+	}
+	return ""
+}
+
+func (x *StrategyPick) GetHasPctOff_52WHigh() bool {
+	if x != nil {
+		return x.HasPctOff_52WHigh
+	}
+	return false
+}
+
+func (x *StrategyPick) GetCaSuspectDate() string {
+	if x != nil {
+		return x.CaSuspectDate
+	}
+	return ""
+}
+
 // Fundamentals for one pick. Every ratio is computed within one reporting
 // currency from one flow period and an aligned balance sheet; has_* is false
 // when an input is missing or the ratio is not meaningful for the company.
@@ -951,9 +1160,16 @@ func (x *PickFundamentals) GetNotMeaningful() []string {
 type GetStrategyPicksRequest struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	StrategyId string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"` // Required, e.g. "zanger-breakout".
-	Limit      int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`                            // Default 20, max 100.
-	Offset     int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
-	Status     string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // Optional filter: "triggered" | "setup" | "watch".
+	// Default 20, max 100. Under the public depth limit every HTTP caller, API
+	// tokens included, gets at most that many rows of the default ranking; a
+	// larger limit is clamped to it. GetViewerStrategyPicks is not clamped.
+	Limit int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Rows to skip. Under the public depth limit an offset other than 0 is
+	// refused with PermissionDenied (the X-Entitlement-Detail names
+	// full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks
+	// for the rows beyond the public depth.
+	Offset int32  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
+	Status string `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // Optional filter: "triggered" | "setup" | "watch".
 	// Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
 	// "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
 	// sort last; growth above +500% or below -95% sorts after every measured value.
@@ -1047,8 +1263,22 @@ type GetStrategyPicksResponse struct {
 	FundamentalsCoverageCount int32                  `protobuf:"varint,6,opt,name=fundamentals_coverage_count,json=fundamentalsCoverageCount,proto3" json:"fundamentals_coverage_count,omitempty"` // Evaluated stocks with growth data.
 	AsOf                      string                 `protobuf:"bytes,7,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`                                                                   // YYYY-MM-DD of the latest price in the universe.
 	FundamentalsRowsCount     int32                  `protobuf:"varint,8,opt,name=fundamentals_rows_count,json=fundamentalsRowsCount,proto3" json:"fundamentals_rows_count,omitempty"`             // Evaluated stocks with any reported fundamentals row.
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// Counts of every pick by status, over the whole ranked list before the
+	// status filter, the fundamentals filter and paging.
+	StatusCounts           *StatusCounts       `protobuf:"bytes,9,opt,name=status_counts,json=statusCounts,proto3" json:"status_counts,omitempty"`
+	Version                *StrategyVersionRef `protobuf:"bytes,10,opt,name=version,proto3" json:"version,omitempty"`                                                        // The live rules version that produced these picks.
+	SessionDate            string              `protobuf:"bytes,11,opt,name=session_date,json=sessionDate,proto3" json:"session_date,omitempty"`                             // YYYY-MM-DD of the session the picks are as at.
+	ShortReportDate        string              `protobuf:"bytes,12,opt,name=short_report_date,json=shortReportDate,proto3" json:"short_report_date,omitempty"`               // Newest ASIC report date behind the short figures; empty when none.
+	ShortAvailableDate     string              `protobuf:"bytes,13,opt,name=short_available_date,json=shortAvailableDate,proto3" json:"short_available_date,omitempty"`      // When that report became public; empty for a report dated before 2026.
+	Stale                  bool                `protobuf:"varint,14,opt,name=stale,proto3" json:"stale,omitempty"`                                                           // True when the index has closed a session the prices have not reached (the data is delayed).
+	RsQuantileThreshold    float64             `protobuf:"fixed64,16,opt,name=rs_quantile_threshold,json=rsQuantileThreshold,proto3" json:"rs_quantile_threshold,omitempty"` // The session's top-quartile cut-off of rs_6m_pct (rs_leader reads it).
+	HasRsQuantileThreshold bool                `protobuf:"varint,17,opt,name=has_rs_quantile_threshold,json=hasRsQuantileThreshold,proto3" json:"has_rs_quantile_threshold,omitempty"`
+	UniverseLabel          string              `protobuf:"bytes,18,opt,name=universe_label,json=universeLabel,proto3" json:"universe_label,omitempty"` // The universe the picks were drawn from, as the strategy names it.
+	// Whose depth this answer is. A clamp is not an error: clamped is true when
+	// more rows exist than this access receives.
+	Viewer        *ViewerDepth `protobuf:"bytes,15,opt,name=viewer,proto3" json:"viewer,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetStrategyPicksResponse) Reset() {
@@ -1137,6 +1367,323 @@ func (x *GetStrategyPicksResponse) GetFundamentalsRowsCount() int32 {
 	return 0
 }
 
+func (x *GetStrategyPicksResponse) GetStatusCounts() *StatusCounts {
+	if x != nil {
+		return x.StatusCounts
+	}
+	return nil
+}
+
+func (x *GetStrategyPicksResponse) GetVersion() *StrategyVersionRef {
+	if x != nil {
+		return x.Version
+	}
+	return nil
+}
+
+func (x *GetStrategyPicksResponse) GetSessionDate() string {
+	if x != nil {
+		return x.SessionDate
+	}
+	return ""
+}
+
+func (x *GetStrategyPicksResponse) GetShortReportDate() string {
+	if x != nil {
+		return x.ShortReportDate
+	}
+	return ""
+}
+
+func (x *GetStrategyPicksResponse) GetShortAvailableDate() string {
+	if x != nil {
+		return x.ShortAvailableDate
+	}
+	return ""
+}
+
+func (x *GetStrategyPicksResponse) GetStale() bool {
+	if x != nil {
+		return x.Stale
+	}
+	return false
+}
+
+func (x *GetStrategyPicksResponse) GetRsQuantileThreshold() float64 {
+	if x != nil {
+		return x.RsQuantileThreshold
+	}
+	return 0
+}
+
+func (x *GetStrategyPicksResponse) GetHasRsQuantileThreshold() bool {
+	if x != nil {
+		return x.HasRsQuantileThreshold
+	}
+	return false
+}
+
+func (x *GetStrategyPicksResponse) GetUniverseLabel() string {
+	if x != nil {
+		return x.UniverseLabel
+	}
+	return ""
+}
+
+func (x *GetStrategyPicksResponse) GetViewer() *ViewerDepth {
+	if x != nil {
+		return x.Viewer
+	}
+	return nil
+}
+
+// The depth the caller's access receives on a picks list.
+type ViewerDepth struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Access         string                 `protobuf:"bytes,1,opt,name=access,proto3" json:"access,omitempty"`                                       // "anonymous" | "free" | "premium".
+	Clamped        bool                   `protobuf:"varint,2,opt,name=clamped,proto3" json:"clamped,omitempty"`                                    // More rows exist than this access returns.
+	RequiredAccess string                 `protobuf:"bytes,3,opt,name=required_access,json=requiredAccess,proto3" json:"required_access,omitempty"` // The access that lifts the clamp ("free").
+	Limit          int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`                                        // Rows this access may receive; 0 means unlimited.
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ViewerDepth) Reset() {
+	*x = ViewerDepth{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ViewerDepth) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ViewerDepth) ProtoMessage() {}
+
+func (x *ViewerDepth) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ViewerDepth.ProtoReflect.Descriptor instead.
+func (*ViewerDepth) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ViewerDepth) GetAccess() string {
+	if x != nil {
+		return x.Access
+	}
+	return ""
+}
+
+func (x *ViewerDepth) GetClamped() bool {
+	if x != nil {
+		return x.Clamped
+	}
+	return false
+}
+
+func (x *ViewerDepth) GetRequiredAccess() string {
+	if x != nil {
+		return x.RequiredAccess
+	}
+	return ""
+}
+
+func (x *ViewerDepth) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+// The version of a strategy's rules that produced a set of picks.
+type StrategyVersionRef struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StrategyId    string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`                          // "v0", "v1", "custom".
+	RulesHash     string                 `protobuf:"bytes,3,opt,name=rules_hash,json=rulesHash,proto3" json:"rules_hash,omitempty"` // 64 hex characters; UIs show the first 8.
+	EngineVersion string                 `protobuf:"bytes,4,opt,name=engine_version,json=engineVersion,proto3" json:"engine_version,omitempty"`
+	FeatureSet    string                 `protobuf:"bytes,5,opt,name=feature_set,json=featureSet,proto3" json:"feature_set,omitempty"` // "fs1".
+	Status        string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`                           // "draft" | "live" | "superseded" | "retired".
+	LiveFrom      string                 `protobuf:"bytes,7,opt,name=live_from,json=liveFrom,proto3" json:"live_from,omitempty"`       // YYYY-MM-DD; empty before the first live session.
+	Kind          string                 `protobuf:"bytes,8,opt,name=kind,proto3" json:"kind,omitempty"`                               // "canonical" | "variant".
+	VariantId     string                 `protobuf:"bytes,9,opt,name=variant_id,json=variantId,proto3" json:"variant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StrategyVersionRef) Reset() {
+	*x = StrategyVersionRef{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StrategyVersionRef) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StrategyVersionRef) ProtoMessage() {}
+
+func (x *StrategyVersionRef) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StrategyVersionRef.ProtoReflect.Descriptor instead.
+func (*StrategyVersionRef) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *StrategyVersionRef) GetStrategyId() string {
+	if x != nil {
+		return x.StrategyId
+	}
+	return ""
+}
+
+func (x *StrategyVersionRef) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *StrategyVersionRef) GetRulesHash() string {
+	if x != nil {
+		return x.RulesHash
+	}
+	return ""
+}
+
+func (x *StrategyVersionRef) GetEngineVersion() string {
+	if x != nil {
+		return x.EngineVersion
+	}
+	return ""
+}
+
+func (x *StrategyVersionRef) GetFeatureSet() string {
+	if x != nil {
+		return x.FeatureSet
+	}
+	return ""
+}
+
+func (x *StrategyVersionRef) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *StrategyVersionRef) GetLiveFrom() string {
+	if x != nil {
+		return x.LiveFrom
+	}
+	return ""
+}
+
+func (x *StrategyVersionRef) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *StrategyVersionRef) GetVariantId() string {
+	if x != nil {
+		return x.VariantId
+	}
+	return ""
+}
+
+// Counts of ranked picks by status.
+type StatusCounts struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Triggered     int32                  `protobuf:"varint,1,opt,name=triggered,proto3" json:"triggered,omitempty"`
+	Setup         int32                  `protobuf:"varint,2,opt,name=setup,proto3" json:"setup,omitempty"`
+	Watch         int32                  `protobuf:"varint,3,opt,name=watch,proto3" json:"watch,omitempty"`
+	Unknown       int32                  `protobuf:"varint,4,opt,name=unknown,proto3" json:"unknown,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StatusCounts) Reset() {
+	*x = StatusCounts{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StatusCounts) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StatusCounts) ProtoMessage() {}
+
+func (x *StatusCounts) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StatusCounts.ProtoReflect.Descriptor instead.
+func (*StatusCounts) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *StatusCounts) GetTriggered() int32 {
+	if x != nil {
+		return x.Triggered
+	}
+	return 0
+}
+
+func (x *StatusCounts) GetSetup() int32 {
+	if x != nil {
+		return x.Setup
+	}
+	return 0
+}
+
+func (x *StatusCounts) GetWatch() int32 {
+	if x != nil {
+		return x.Watch
+	}
+	return 0
+}
+
+func (x *StatusCounts) GetUnknown() int32 {
+	if x != nil {
+		return x.Unknown
+	}
+	return 0
+}
+
 // Request for GetStockStrategyFit.
 type GetStockStrategyFitRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1147,7 +1694,7 @@ type GetStockStrategyFitRequest struct {
 
 func (x *GetStockStrategyFitRequest) Reset() {
 	*x = GetStockStrategyFitRequest{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1159,7 +1706,7 @@ func (x *GetStockStrategyFitRequest) String() string {
 func (*GetStockStrategyFitRequest) ProtoMessage() {}
 
 func (x *GetStockStrategyFitRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1172,7 +1719,7 @@ func (x *GetStockStrategyFitRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockStrategyFitRequest.ProtoReflect.Descriptor instead.
 func (*GetStockStrategyFitRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{9}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetStockStrategyFitRequest) GetStockCode() string {
@@ -1192,13 +1739,14 @@ type StrategyFit struct {
 	Rank          int32                  `protobuf:"varint,5,opt,name=rank,proto3" json:"rank,omitempty"`                               // 1-based rank among the strategy's picks; 0 when status is "none".
 	TotalCount    int32                  `protobuf:"varint,6,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"` // Picks the strategy has in total.
 	Rules         []*RuleResult          `protobuf:"bytes,7,rep,name=rules,proto3" json:"rules,omitempty"`
+	VersionHash   string                 `protobuf:"bytes,8,opt,name=version_hash,json=versionHash,proto3" json:"version_hash,omitempty"` // rules_hash of the live version this reading was evaluated under.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StrategyFit) Reset() {
 	*x = StrategyFit{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1210,7 +1758,7 @@ func (x *StrategyFit) String() string {
 func (*StrategyFit) ProtoMessage() {}
 
 func (x *StrategyFit) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1223,7 +1771,7 @@ func (x *StrategyFit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StrategyFit.ProtoReflect.Descriptor instead.
 func (*StrategyFit) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{10}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *StrategyFit) GetStrategyId() string {
@@ -1275,6 +1823,13 @@ func (x *StrategyFit) GetRules() []*RuleResult {
 	return nil
 }
 
+func (x *StrategyFit) GetVersionHash() string {
+	if x != nil {
+		return x.VersionHash
+	}
+	return ""
+}
+
 // The price features the evaluator read for one stock (mv_price_features),
 // so a chart can draw the levels the rules tested. Every nullable number
 // travels with a has_ flag; read the value only when its flag is true.
@@ -1318,7 +1873,7 @@ type PriceFeatures struct {
 
 func (x *PriceFeatures) Reset() {
 	*x = PriceFeatures{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1330,7 +1885,7 @@ func (x *PriceFeatures) String() string {
 func (*PriceFeatures) ProtoMessage() {}
 
 func (x *PriceFeatures) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1343,7 +1898,7 @@ func (x *PriceFeatures) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PriceFeatures.ProtoReflect.Descriptor instead.
 func (*PriceFeatures) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{11}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *PriceFeatures) GetAsOf() string {
@@ -1565,20 +2120,26 @@ func (x *PriceFeatures) GetSessionsAvailable() int32 {
 
 // Response for GetStockStrategyFit.
 type GetStockStrategyFitResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	StockCode     string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
-	AsOf          string                 `protobuf:"bytes,2,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"` // YYYY-MM-DD of the latest price in the universe.
-	Regime        *MarketRegime          `protobuf:"bytes,3,opt,name=regime,proto3" json:"regime,omitempty"`
-	Fits          []*StrategyFit         `protobuf:"bytes,4,rep,name=fits,proto3" json:"fits,omitempty"` // One per strategy; empty when the stock is outside the universe.
-	InUniverse    bool                   `protobuf:"varint,5,opt,name=in_universe,json=inUniverse,proto3" json:"in_universe,omitempty"`
-	PriceFeatures *PriceFeatures         `protobuf:"bytes,6,opt,name=price_features,json=priceFeatures,proto3" json:"price_features,omitempty"` // Set only when in_universe is true.
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	StockCode          string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	AsOf               string                 `protobuf:"bytes,2,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"` // YYYY-MM-DD of the latest price in the universe.
+	Regime             *MarketRegime          `protobuf:"bytes,3,opt,name=regime,proto3" json:"regime,omitempty"`
+	Fits               []*StrategyFit         `protobuf:"bytes,4,rep,name=fits,proto3" json:"fits,omitempty"` // One per strategy; empty when the stock is outside the universe.
+	InUniverse         bool                   `protobuf:"varint,5,opt,name=in_universe,json=inUniverse,proto3" json:"in_universe,omitempty"`
+	PriceFeatures      *PriceFeatures         `protobuf:"bytes,6,opt,name=price_features,json=priceFeatures,proto3" json:"price_features,omitempty"`                  // Set only when in_universe is true.
+	SessionDate        string                 `protobuf:"bytes,7,opt,name=session_date,json=sessionDate,proto3" json:"session_date,omitempty"`                        // YYYY-MM-DD of the session the readings are as at.
+	ShortReportDate    string                 `protobuf:"bytes,8,opt,name=short_report_date,json=shortReportDate,proto3" json:"short_report_date,omitempty"`          // Newest ASIC report date behind the short figures; empty when none.
+	ShortAvailableDate string                 `protobuf:"bytes,9,opt,name=short_available_date,json=shortAvailableDate,proto3" json:"short_available_date,omitempty"` // When that report became public; empty for a report dated before 2026.
+	Stale              bool                   `protobuf:"varint,10,opt,name=stale,proto3" json:"stale,omitempty"`                                                     // True when the index has closed a session the prices have not reached (the data is delayed).
+	Eligible           bool                   `protobuf:"varint,11,opt,name=eligible,proto3" json:"eligible,omitempty"`                                               // False when the stock cannot be read against the strategies at all.
+	IneligibleReason   string                 `protobuf:"bytes,12,opt,name=ineligible_reason,json=ineligibleReason,proto3" json:"ineligible_reason,omitempty"`        // Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *GetStockStrategyFitResponse) Reset() {
 	*x = GetStockStrategyFitResponse{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1590,7 +2151,7 @@ func (x *GetStockStrategyFitResponse) String() string {
 func (*GetStockStrategyFitResponse) ProtoMessage() {}
 
 func (x *GetStockStrategyFitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1603,7 +2164,7 @@ func (x *GetStockStrategyFitResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockStrategyFitResponse.ProtoReflect.Descriptor instead.
 func (*GetStockStrategyFitResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{12}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetStockStrategyFitResponse) GetStockCode() string {
@@ -1648,6 +2209,48 @@ func (x *GetStockStrategyFitResponse) GetPriceFeatures() *PriceFeatures {
 	return nil
 }
 
+func (x *GetStockStrategyFitResponse) GetSessionDate() string {
+	if x != nil {
+		return x.SessionDate
+	}
+	return ""
+}
+
+func (x *GetStockStrategyFitResponse) GetShortReportDate() string {
+	if x != nil {
+		return x.ShortReportDate
+	}
+	return ""
+}
+
+func (x *GetStockStrategyFitResponse) GetShortAvailableDate() string {
+	if x != nil {
+		return x.ShortAvailableDate
+	}
+	return ""
+}
+
+func (x *GetStockStrategyFitResponse) GetStale() bool {
+	if x != nil {
+		return x.Stale
+	}
+	return false
+}
+
+func (x *GetStockStrategyFitResponse) GetEligible() bool {
+	if x != nil {
+		return x.Eligible
+	}
+	return false
+}
+
+func (x *GetStockStrategyFitResponse) GetIneligibleReason() string {
+	if x != nil {
+		return x.IneligibleReason
+	}
+	return ""
+}
+
 // Request for ListStrategies.
 type ListStrategiesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1657,7 +2260,7 @@ type ListStrategiesRequest struct {
 
 func (x *ListStrategiesRequest) Reset() {
 	*x = ListStrategiesRequest{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1669,7 +2272,7 @@ func (x *ListStrategiesRequest) String() string {
 func (*ListStrategiesRequest) ProtoMessage() {}
 
 func (x *ListStrategiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1682,7 +2285,7 @@ func (x *ListStrategiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStrategiesRequest.ProtoReflect.Descriptor instead.
 func (*ListStrategiesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{13}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{16}
 }
 
 // Response for ListStrategies.
@@ -1696,7 +2299,7 @@ type ListStrategiesResponse struct {
 
 func (x *ListStrategiesResponse) Reset() {
 	*x = ListStrategiesResponse{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1708,7 +2311,7 @@ func (x *ListStrategiesResponse) String() string {
 func (*ListStrategiesResponse) ProtoMessage() {}
 
 func (x *ListStrategiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1721,7 +2324,7 @@ func (x *ListStrategiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStrategiesResponse.ProtoReflect.Descriptor instead.
 func (*ListStrategiesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{14}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListStrategiesResponse) GetStrategies() []*Strategy {
@@ -1738,11 +2341,1203 @@ func (x *ListStrategiesResponse) GetRegime() *MarketRegime {
 	return nil
 }
 
+// Request for GetStrategyVersion.
+type GetStrategyVersionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StrategyId    string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"`    // Required, e.g. "zanger-breakout".
+	VersionHash   string                 `protobuf:"bytes,2,opt,name=version_hash,json=versionHash,proto3" json:"version_hash,omitempty"` // rules_hash of a published version; empty for the live version.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetStrategyVersionRequest) Reset() {
+	*x = GetStrategyVersionRequest{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStrategyVersionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStrategyVersionRequest) ProtoMessage() {}
+
+func (x *GetStrategyVersionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStrategyVersionRequest.ProtoReflect.Descriptor instead.
+func (*GetStrategyVersionRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetStrategyVersionRequest) GetStrategyId() string {
+	if x != nil {
+		return x.StrategyId
+	}
+	return ""
+}
+
+func (x *GetStrategyVersionRequest) GetVersionHash() string {
+	if x != nil {
+		return x.VersionHash
+	}
+	return ""
+}
+
+// Response for GetStrategyVersion.
+type GetStrategyVersionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Version       *StrategyVersionDetail `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetStrategyVersionResponse) Reset() {
+	*x = GetStrategyVersionResponse{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStrategyVersionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStrategyVersionResponse) ProtoMessage() {}
+
+func (x *GetStrategyVersionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStrategyVersionResponse.ProtoReflect.Descriptor instead.
+func (*GetStrategyVersionResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *GetStrategyVersionResponse) GetVersion() *StrategyVersionDetail {
+	if x != nil {
+		return x.Version
+	}
+	return nil
+}
+
+// Request for ListStrategyVersions.
+type ListStrategyVersionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StrategyId    string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"` // Empty for every strategy's versions.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListStrategyVersionsRequest) Reset() {
+	*x = ListStrategyVersionsRequest{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListStrategyVersionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListStrategyVersionsRequest) ProtoMessage() {}
+
+func (x *ListStrategyVersionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListStrategyVersionsRequest.ProtoReflect.Descriptor instead.
+func (*ListStrategyVersionsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ListStrategyVersionsRequest) GetStrategyId() string {
+	if x != nil {
+		return x.StrategyId
+	}
+	return ""
+}
+
+// Response for ListStrategyVersions.
+type ListStrategyVersionsResponse struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Versions      []*StrategyVersionDetail `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListStrategyVersionsResponse) Reset() {
+	*x = ListStrategyVersionsResponse{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListStrategyVersionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListStrategyVersionsResponse) ProtoMessage() {}
+
+func (x *ListStrategyVersionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListStrategyVersionsResponse.ProtoReflect.Descriptor instead.
+func (*ListStrategyVersionsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ListStrategyVersionsResponse) GetVersions() []*StrategyVersionDetail {
+	if x != nil {
+		return x.Versions
+	}
+	return nil
+}
+
+// One published version of a strategy's rules, as the changelog states it.
+// Recipe and recipe_hash (4 and 5) arrive with the recipe schema.
+type StrategyVersionDetail struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Version       *StrategyVersionRef    `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	Params        []*RuleParam           `protobuf:"bytes,2,rep,name=params,proto3" json:"params,omitempty"`                                     // Every numeric parameter of every rule, in rule order.
+	Policies      []string               `protobuf:"bytes,3,rep,name=policies,proto3" json:"policies,omitempty"`                                 // Universe and data policy, one rendered sentence each.
+	Changes       []string               `protobuf:"bytes,6,rep,name=changes,proto3" json:"changes,omitempty"`                                   // What this version changed from the one before it.
+	KnownIssues   []string               `protobuf:"bytes,7,rep,name=known_issues,json=knownIssues,proto3" json:"known_issues,omitempty"`        // What this version gets wrong, worded as defects.
+	SupersededOn  string                 `protobuf:"bytes,8,opt,name=superseded_on,json=supersededOn,proto3" json:"superseded_on,omitempty"`     // YYYY-MM-DD the next version went live; empty while live.
+	RetiredOn     string                 `protobuf:"bytes,9,opt,name=retired_on,json=retiredOn,proto3" json:"retired_on,omitempty"`              // YYYY-MM-DD the version was retired; empty while it is still evaluated.
+	CanonicalJson string                 `protobuf:"bytes,10,opt,name=canonical_json,json=canonicalJson,proto3" json:"canonical_json,omitempty"` // The hashed spec in canonical form, for audit.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StrategyVersionDetail) Reset() {
+	*x = StrategyVersionDetail{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StrategyVersionDetail) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StrategyVersionDetail) ProtoMessage() {}
+
+func (x *StrategyVersionDetail) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StrategyVersionDetail.ProtoReflect.Descriptor instead.
+func (*StrategyVersionDetail) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *StrategyVersionDetail) GetVersion() *StrategyVersionRef {
+	if x != nil {
+		return x.Version
+	}
+	return nil
+}
+
+func (x *StrategyVersionDetail) GetParams() []*RuleParam {
+	if x != nil {
+		return x.Params
+	}
+	return nil
+}
+
+func (x *StrategyVersionDetail) GetPolicies() []string {
+	if x != nil {
+		return x.Policies
+	}
+	return nil
+}
+
+func (x *StrategyVersionDetail) GetChanges() []string {
+	if x != nil {
+		return x.Changes
+	}
+	return nil
+}
+
+func (x *StrategyVersionDetail) GetKnownIssues() []string {
+	if x != nil {
+		return x.KnownIssues
+	}
+	return nil
+}
+
+func (x *StrategyVersionDetail) GetSupersededOn() string {
+	if x != nil {
+		return x.SupersededOn
+	}
+	return ""
+}
+
+func (x *StrategyVersionDetail) GetRetiredOn() string {
+	if x != nil {
+		return x.RetiredOn
+	}
+	return ""
+}
+
+func (x *StrategyVersionDetail) GetCanonicalJson() string {
+	if x != nil {
+		return x.CanonicalJson
+	}
+	return ""
+}
+
+// One numeric parameter of one rule in a version.
+type RuleParam struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RuleId        string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"` // The parameter's key, e.g. "min_pct".
+	Value         float64                `protobuf:"fixed64,3,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RuleParam) Reset() {
+	*x = RuleParam{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RuleParam) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RuleParam) ProtoMessage() {}
+
+func (x *RuleParam) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RuleParam.ProtoReflect.Descriptor instead.
+func (*RuleParam) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *RuleParam) GetRuleId() string {
+	if x != nil {
+		return x.RuleId
+	}
+	return ""
+}
+
+func (x *RuleParam) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RuleParam) GetValue() float64 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+// Request for SaveStrategy.
+type SaveStrategyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StrategyRef   string                 `protobuf:"bytes,1,opt,name=strategy_ref,json=strategyRef,proto3" json:"strategy_ref,omitempty"` // A canonical strategy id, or "variant:<id>" for a variant the caller owns.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveStrategyRequest) Reset() {
+	*x = SaveStrategyRequest{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveStrategyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveStrategyRequest) ProtoMessage() {}
+
+func (x *SaveStrategyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveStrategyRequest.ProtoReflect.Descriptor instead.
+func (*SaveStrategyRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *SaveStrategyRequest) GetStrategyRef() string {
+	if x != nil {
+		return x.StrategyRef
+	}
+	return ""
+}
+
+// Response for SaveStrategy.
+type SaveStrategyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Saved         *SavedStrategy         `protobuf:"bytes,1,opt,name=saved,proto3" json:"saved,omitempty"` // The entry as ListSavedStrategies lists it.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveStrategyResponse) Reset() {
+	*x = SaveStrategyResponse{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveStrategyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveStrategyResponse) ProtoMessage() {}
+
+func (x *SaveStrategyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveStrategyResponse.ProtoReflect.Descriptor instead.
+func (*SaveStrategyResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *SaveStrategyResponse) GetSaved() *SavedStrategy {
+	if x != nil {
+		return x.Saved
+	}
+	return nil
+}
+
+// Request for UnsaveStrategy.
+type UnsaveStrategyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StrategyRef   string                 `protobuf:"bytes,1,opt,name=strategy_ref,json=strategyRef,proto3" json:"strategy_ref,omitempty"` // The reference SaveStrategy was given.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnsaveStrategyRequest) Reset() {
+	*x = UnsaveStrategyRequest{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnsaveStrategyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnsaveStrategyRequest) ProtoMessage() {}
+
+func (x *UnsaveStrategyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnsaveStrategyRequest.ProtoReflect.Descriptor instead.
+func (*UnsaveStrategyRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *UnsaveStrategyRequest) GetStrategyRef() string {
+	if x != nil {
+		return x.StrategyRef
+	}
+	return ""
+}
+
+// Response for UnsaveStrategy.
+type UnsaveStrategyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnsaveStrategyResponse) Reset() {
+	*x = UnsaveStrategyResponse{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnsaveStrategyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnsaveStrategyResponse) ProtoMessage() {}
+
+func (x *UnsaveStrategyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnsaveStrategyResponse.ProtoReflect.Descriptor instead.
+func (*UnsaveStrategyResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{27}
+}
+
+// Request for ListSavedStrategies.
+type ListSavedStrategiesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSavedStrategiesRequest) Reset() {
+	*x = ListSavedStrategiesRequest{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSavedStrategiesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSavedStrategiesRequest) ProtoMessage() {}
+
+func (x *ListSavedStrategiesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSavedStrategiesRequest.ProtoReflect.Descriptor instead.
+func (*ListSavedStrategiesRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{28}
+}
+
+// Response for ListSavedStrategies.
+type ListSavedStrategiesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Strategies    []*SavedStrategy       `protobuf:"bytes,1,rep,name=strategies,proto3" json:"strategies,omitempty"` // Most recent save first.
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`          // The most strategies one caller may save.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSavedStrategiesResponse) Reset() {
+	*x = ListSavedStrategiesResponse{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSavedStrategiesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSavedStrategiesResponse) ProtoMessage() {}
+
+func (x *ListSavedStrategiesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSavedStrategiesResponse.ProtoReflect.Descriptor instead.
+func (*ListSavedStrategiesResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ListSavedStrategiesResponse) GetStrategies() []*SavedStrategy {
+	if x != nil {
+		return x.Strategies
+	}
+	return nil
+}
+
+func (x *ListSavedStrategiesResponse) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+// One strategy the signed-in caller saved.
+type SavedStrategy struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StrategyRef   string                 `protobuf:"bytes,1,opt,name=strategy_ref,json=strategyRef,proto3" json:"strategy_ref,omitempty"`    // A canonical strategy id, or "variant:<id>".
+	StrategyId    string                 `protobuf:"bytes,2,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"`       // The canonical id; empty for a variant.
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`                                     // The strategy's name; empty when it is not in the registry.
+	SavedAt       string                 `protobuf:"bytes,4,opt,name=saved_at,json=savedAt,proto3" json:"saved_at,omitempty"`                // RFC 3339 time of the first save.
+	StatusCounts  *StatusCounts          `protobuf:"bytes,5,opt,name=status_counts,json=statusCounts,proto3" json:"status_counts,omitempty"` // Today's counts; absent for a variant or when they cannot be read.
+	Version       *StrategyVersionRef    `protobuf:"bytes,6,opt,name=version,proto3" json:"version,omitempty"`                               // The live rules version the counts were evaluated under; absent for a variant or when unknown.
+	SessionDate   string                 `protobuf:"bytes,7,opt,name=session_date,json=sessionDate,proto3" json:"session_date,omitempty"`    // The session the counts are as at (YYYY-MM-DD); empty when the counts are absent.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SavedStrategy) Reset() {
+	*x = SavedStrategy{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SavedStrategy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SavedStrategy) ProtoMessage() {}
+
+func (x *SavedStrategy) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SavedStrategy.ProtoReflect.Descriptor instead.
+func (*SavedStrategy) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *SavedStrategy) GetStrategyRef() string {
+	if x != nil {
+		return x.StrategyRef
+	}
+	return ""
+}
+
+func (x *SavedStrategy) GetStrategyId() string {
+	if x != nil {
+		return x.StrategyId
+	}
+	return ""
+}
+
+func (x *SavedStrategy) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SavedStrategy) GetSavedAt() string {
+	if x != nil {
+		return x.SavedAt
+	}
+	return ""
+}
+
+func (x *SavedStrategy) GetStatusCounts() *StatusCounts {
+	if x != nil {
+		return x.StatusCounts
+	}
+	return nil
+}
+
+func (x *SavedStrategy) GetVersion() *StrategyVersionRef {
+	if x != nil {
+		return x.Version
+	}
+	return nil
+}
+
+func (x *SavedStrategy) GetSessionDate() string {
+	if x != nil {
+		return x.SessionDate
+	}
+	return ""
+}
+
+// Request for GetStrategyDataStatus.
+type GetStrategyDataStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetStrategyDataStatusRequest) Reset() {
+	*x = GetStrategyDataStatusRequest{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStrategyDataStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStrategyDataStatusRequest) ProtoMessage() {}
+
+func (x *GetStrategyDataStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStrategyDataStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetStrategyDataStatusRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{31}
+}
+
+// Response for GetStrategyDataStatus. Dates are YYYY-MM-DD; times are RFC 3339 UTC.
+type GetStrategyDataStatusResponse struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	LatestSession       string                 `protobuf:"bytes,1,opt,name=latest_session,json=latestSession,proto3" json:"latest_session,omitempty"`                     // The newest index session the price data reaches; "" when unknown.
+	PricesCompletedAt   string                 `protobuf:"bytes,2,opt,name=prices_completed_at,json=pricesCompletedAt,proto3" json:"prices_completed_at,omitempty"`       // When the newest completed price sweep finished; "" when none.
+	SnapshotAsOf        string                 `protobuf:"bytes,3,opt,name=snapshot_as_of,json=snapshotAsOf,proto3" json:"snapshot_as_of,omitempty"`                      // The newest completed daily snapshot session; "" when none is completed. The picks read it once the source is the snapshot; until then they read the views.
+	SnapshotCompletedAt string                 `protobuf:"bytes,4,opt,name=snapshot_completed_at,json=snapshotCompletedAt,proto3" json:"snapshot_completed_at,omitempty"` // When that session's last phase completed.
+	AsicReports         []*AsicReportStatus    `protobuf:"bytes,5,rep,name=asic_reports,json=asicReports,proto3" json:"asic_reports,omitempty"`                           // The newest ASIC short-position reports, newest first (at most 10).
+	NextUpdateUtc       string                 `protobuf:"bytes,6,opt,name=next_update_utc,json=nextUpdateUtc,proto3" json:"next_update_utc,omitempty"`                   // The next scheduled refresh of the picks.
+	PricedCodes         int32                  `protobuf:"varint,7,opt,name=priced_codes,json=pricedCodes,proto3" json:"priced_codes,omitempty"`                          // Codes the snapshot session priced.
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *GetStrategyDataStatusResponse) Reset() {
+	*x = GetStrategyDataStatusResponse{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStrategyDataStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStrategyDataStatusResponse) ProtoMessage() {}
+
+func (x *GetStrategyDataStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStrategyDataStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetStrategyDataStatusResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *GetStrategyDataStatusResponse) GetLatestSession() string {
+	if x != nil {
+		return x.LatestSession
+	}
+	return ""
+}
+
+func (x *GetStrategyDataStatusResponse) GetPricesCompletedAt() string {
+	if x != nil {
+		return x.PricesCompletedAt
+	}
+	return ""
+}
+
+func (x *GetStrategyDataStatusResponse) GetSnapshotAsOf() string {
+	if x != nil {
+		return x.SnapshotAsOf
+	}
+	return ""
+}
+
+func (x *GetStrategyDataStatusResponse) GetSnapshotCompletedAt() string {
+	if x != nil {
+		return x.SnapshotCompletedAt
+	}
+	return ""
+}
+
+func (x *GetStrategyDataStatusResponse) GetAsicReports() []*AsicReportStatus {
+	if x != nil {
+		return x.AsicReports
+	}
+	return nil
+}
+
+func (x *GetStrategyDataStatusResponse) GetNextUpdateUtc() string {
+	if x != nil {
+		return x.NextUpdateUtc
+	}
+	return ""
+}
+
+func (x *GetStrategyDataStatusResponse) GetPricedCodes() int32 {
+	if x != nil {
+		return x.PricedCodes
+	}
+	return 0
+}
+
+// One ASIC short-position report as the source dates show it.
+type AsicReportStatus struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ReportDate      string                 `protobuf:"bytes,1,opt,name=report_date,json=reportDate,proto3" json:"report_date,omitempty"`                  // The report's as-at date.
+	AvailableDate   string                 `protobuf:"bytes,2,opt,name=available_date,json=availableDate,proto3" json:"available_date,omitempty"`         // When the report became public (T+ the publication lag).
+	FirstIngestedAt string                 `protobuf:"bytes,3,opt,name=first_ingested_at,json=firstIngestedAt,proto3" json:"first_ingested_at,omitempty"` // When we first saw the report; "" when not recorded.
+	Rows            int32                  `protobuf:"varint,4,opt,name=rows,proto3" json:"rows,omitempty"`                                               // Codes of the report that are loaded.
+	Complete        bool                   `protobuf:"varint,5,opt,name=complete,proto3" json:"complete,omitempty"`                                       // Every code the report carries is loaded.
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *AsicReportStatus) Reset() {
+	*x = AsicReportStatus{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AsicReportStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AsicReportStatus) ProtoMessage() {}
+
+func (x *AsicReportStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AsicReportStatus.ProtoReflect.Descriptor instead.
+func (*AsicReportStatus) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *AsicReportStatus) GetReportDate() string {
+	if x != nil {
+		return x.ReportDate
+	}
+	return ""
+}
+
+func (x *AsicReportStatus) GetAvailableDate() string {
+	if x != nil {
+		return x.AvailableDate
+	}
+	return ""
+}
+
+func (x *AsicReportStatus) GetFirstIngestedAt() string {
+	if x != nil {
+		return x.FirstIngestedAt
+	}
+	return ""
+}
+
+func (x *AsicReportStatus) GetRows() int32 {
+	if x != nil {
+		return x.Rows
+	}
+	return 0
+}
+
+func (x *AsicReportStatus) GetComplete() bool {
+	if x != nil {
+		return x.Complete
+	}
+	return false
+}
+
+// Request for ListStrategySignalEvents.
+type ListStrategySignalEventsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StrategyId    string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"`    // Required: a canonical strategy id.
+	VersionHash   string                 `protobuf:"bytes,2,opt,name=version_hash,json=versionHash,proto3" json:"version_hash,omitempty"` // Empty for the live version; else a live or superseded canonical rules hash.
+	StockCode     string                 `protobuf:"bytes,3,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`       // Optional: one stock's events only.
+	Since         string                 `protobuf:"bytes,4,opt,name=since,proto3" json:"since,omitempty"`                                // Optional YYYY-MM-DD, inclusive.
+	PageToken     string                 `protobuf:"bytes,5,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`       // The next_page_token of the previous page.
+	PageSize      int32                  `protobuf:"varint,6,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`         // 1 to 200; 0 is the default of 50.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListStrategySignalEventsRequest) Reset() {
+	*x = ListStrategySignalEventsRequest{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListStrategySignalEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListStrategySignalEventsRequest) ProtoMessage() {}
+
+func (x *ListStrategySignalEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListStrategySignalEventsRequest.ProtoReflect.Descriptor instead.
+func (*ListStrategySignalEventsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *ListStrategySignalEventsRequest) GetStrategyId() string {
+	if x != nil {
+		return x.StrategyId
+	}
+	return ""
+}
+
+func (x *ListStrategySignalEventsRequest) GetVersionHash() string {
+	if x != nil {
+		return x.VersionHash
+	}
+	return ""
+}
+
+func (x *ListStrategySignalEventsRequest) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *ListStrategySignalEventsRequest) GetSince() string {
+	if x != nil {
+		return x.Since
+	}
+	return ""
+}
+
+func (x *ListStrategySignalEventsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListStrategySignalEventsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+// Response for ListStrategySignalEvents.
+type ListStrategySignalEventsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Events        []*StrategySignalEvent `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`                                      // Newest first.
+	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"` // Empty on the last page.
+	Version       *StrategyVersionRef    `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`                                    // The rules version the events belong to.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListStrategySignalEventsResponse) Reset() {
+	*x = ListStrategySignalEventsResponse{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListStrategySignalEventsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListStrategySignalEventsResponse) ProtoMessage() {}
+
+func (x *ListStrategySignalEventsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListStrategySignalEventsResponse.ProtoReflect.Descriptor instead.
+func (*ListStrategySignalEventsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ListStrategySignalEventsResponse) GetEvents() []*StrategySignalEvent {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *ListStrategySignalEventsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *ListStrategySignalEventsResponse) GetVersion() *StrategyVersionRef {
+	if x != nil {
+		return x.Version
+	}
+	return nil
+}
+
+// One status change of one stock under one canonical rules version.
+type StrategySignalEvent struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	StockCode       string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	CompanyName     string                 `protobuf:"bytes,2,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	SessionDate     string                 `protobuf:"bytes,3,opt,name=session_date,json=sessionDate,proto3" json:"session_date,omitempty"`               // The session the status changed on (YYYY-MM-DD).
+	PrevSessionDate string                 `protobuf:"bytes,4,opt,name=prev_session_date,json=prevSessionDate,proto3" json:"prev_session_date,omitempty"` // The session it changed from; "" when none.
+	FromStatus      string                 `protobuf:"bytes,5,opt,name=from_status,json=fromStatus,proto3" json:"from_status,omitempty"`                  // triggered, setup, unknown, watch or none.
+	ToStatus        string                 `protobuf:"bytes,6,opt,name=to_status,json=toStatus,proto3" json:"to_status,omitempty"`                        // triggered, setup, unknown, watch or none.
+	Score           float64                `protobuf:"fixed64,7,opt,name=score,proto3" json:"score,omitempty"`
+	Close           float64                `protobuf:"fixed64,8,opt,name=close,proto3" json:"close,omitempty"`
+	Pivot           float64                `protobuf:"fixed64,9,opt,name=pivot,proto3" json:"pivot,omitempty"`
+	HasPivot        bool                   `protobuf:"varint,10,opt,name=has_pivot,json=hasPivot,proto3" json:"has_pivot,omitempty"`
+	Rules           []*RuleResult          `protobuf:"bytes,11,rep,name=rules,proto3" json:"rules,omitempty"` // The rule results recorded that session (values and proximities as stored).
+	RulesHash       string                 `protobuf:"bytes,12,opt,name=rules_hash,json=rulesHash,proto3" json:"rules_hash,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *StrategySignalEvent) Reset() {
+	*x = StrategySignalEvent{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StrategySignalEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StrategySignalEvent) ProtoMessage() {}
+
+func (x *StrategySignalEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StrategySignalEvent.ProtoReflect.Descriptor instead.
+func (*StrategySignalEvent) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *StrategySignalEvent) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *StrategySignalEvent) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *StrategySignalEvent) GetSessionDate() string {
+	if x != nil {
+		return x.SessionDate
+	}
+	return ""
+}
+
+func (x *StrategySignalEvent) GetPrevSessionDate() string {
+	if x != nil {
+		return x.PrevSessionDate
+	}
+	return ""
+}
+
+func (x *StrategySignalEvent) GetFromStatus() string {
+	if x != nil {
+		return x.FromStatus
+	}
+	return ""
+}
+
+func (x *StrategySignalEvent) GetToStatus() string {
+	if x != nil {
+		return x.ToStatus
+	}
+	return ""
+}
+
+func (x *StrategySignalEvent) GetScore() float64 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+func (x *StrategySignalEvent) GetClose() float64 {
+	if x != nil {
+		return x.Close
+	}
+	return 0
+}
+
+func (x *StrategySignalEvent) GetPivot() float64 {
+	if x != nil {
+		return x.Pivot
+	}
+	return 0
+}
+
+func (x *StrategySignalEvent) GetHasPivot() bool {
+	if x != nil {
+		return x.HasPivot
+	}
+	return false
+}
+
+func (x *StrategySignalEvent) GetRules() []*RuleResult {
+	if x != nil {
+		return x.Rules
+	}
+	return nil
+}
+
+func (x *StrategySignalEvent) GetRulesHash() string {
+	if x != nil {
+		return x.RulesHash
+	}
+	return ""
+}
+
 var File_shorts_v1alpha1_strategies_proto protoreflect.FileDescriptor
 
 const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\n" +
-	" shorts/v1alpha1/strategies.proto\x12\x0fshorts.v1alpha1\x1a\x18options/v1/options.proto\"\xbf\x02\n" +
+	" shorts/v1alpha1/strategies.proto\x12\x0fshorts.v1alpha1\x1a\x18options/v1/options.proto\"\xfe\x02\n" +
 	"\bStrategy\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
@@ -1752,7 +3547,9 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x05rules\x18\x06 \x03(\v2\x1d.shorts.v1alpha1.StrategyRuleR\x05rules\x12=\n" +
 	"\bmetadata\x18\a \x01(\v2!.shorts.v1alpha1.StrategyMetadataR\bmetadata\x12\x18\n" +
 	"\acaveats\x18\b \x03(\tR\acaveats\x12\x18\n" +
-	"\asources\x18\t \x03(\tR\asources\"\xa6\x01\n" +
+	"\asources\x18\t \x03(\tR\asources\x12=\n" +
+	"\aversion\x18\n" +
+	" \x01(\v2#.shorts.v1alpha1.StrategyVersionRefR\aversion\"\xcf\x02\n" +
 	"\fStrategyRule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x1b\n" +
@@ -1762,7 +3559,16 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"evaluation\x12\x12\n" +
 	"\x04core\x18\x05 \x01(\bR\x04core\x12\x1f\n" +
 	"\vdata_source\x18\x06 \x01(\tR\n" +
-	"dataSource\"\xd6\x01\n" +
+	"dataSource\x12\x18\n" +
+	"\atrigger\x18\a \x01(\bR\atrigger\x12\x16\n" +
+	"\x06weight\x18\b \x01(\x01R\x06weight\x12\x1c\n" +
+	"\tthreshold\x18\t \x01(\x01R\tthreshold\x12#\n" +
+	"\rhas_threshold\x18\n" +
+	" \x01(\bR\fhasThreshold\x12\x12\n" +
+	"\x04unit\x18\v \x01(\tR\x04unit\x12\x1e\n" +
+	"\n" +
+	"comparator\x18\f \x01(\tR\n" +
+	"comparator\"\xd6\x01\n" +
 	"\x10StrategyMetadata\x12\x14\n" +
 	"\x05style\x18\x01 \x01(\tR\x05style\x12%\n" +
 	"\x0eholding_period\x18\x02 \x01(\tR\rholdingPeriod\x12!\n" +
@@ -1780,14 +3586,18 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x05sma50\x18\x05 \x01(\x01R\x05sma50\x12\x16\n" +
 	"\x06sma200\x18\x06 \x01(\x01R\x06sma200\x12'\n" +
 	"\x10pct_off_52w_high\x18\a \x01(\x01R\rpctOff52wHigh\x12\x18\n" +
-	"\averdict\x18\b \x01(\tR\averdict\"\x88\x01\n" +
+	"\averdict\x18\b \x01(\tR\averdict\"\xfd\x01\n" +
 	"\n" +
 	"RuleResult\x12\x17\n" +
 	"\arule_id\x18\x01 \x01(\tR\x06ruleId\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x16\n" +
 	"\x06detail\x18\x03 \x01(\tR\x06detail\x12\x14\n" +
 	"\x05value\x18\x04 \x01(\x01R\x05value\x12\x1b\n" +
-	"\thas_value\x18\x05 \x01(\bR\bhasValue\"\x99\a\n" +
+	"\thas_value\x18\x05 \x01(\bR\bhasValue\x12\x16\n" +
+	"\x06reason\x18\x06 \x01(\tR\x06reason\x12\x1c\n" +
+	"\tproximity\x18\a \x01(\x01R\tproximity\x12#\n" +
+	"\rhas_proximity\x18\b \x01(\bR\fhasProximity\x12\x18\n" +
+	"\awaiting\x18\t \x01(\bR\awaiting\"\xdf\v\n" +
 	"\fStrategyPick\x12\x12\n" +
 	"\x04rank\x18\x01 \x01(\x05R\x04rank\x12\x1d\n" +
 	"\n" +
@@ -1819,7 +3629,22 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\rhas_short_pct\x18\x18 \x01(\bR\vhasShortPct\x12$\n" +
 	"\x0ehas_market_cap\x18\x19 \x01(\bR\fhasMarketCap\x12\x1b\n" +
 	"\thas_close\x18\x1a \x01(\bR\bhasClose\x12E\n" +
-	"\ffundamentals\x18\x1b \x01(\v2!.shorts.v1alpha1.PickFundamentalsR\ffundamentals\"\xe2\x06\n" +
+	"\ffundamentals\x18\x1b \x01(\v2!.shorts.v1alpha1.PickFundamentalsR\ffundamentals\x12\"\n" +
+	"\rdays_to_cover\x18\x1c \x01(\x01R\vdaysToCover\x12)\n" +
+	"\x11has_days_to_cover\x18\x1d \x01(\bR\x0ehasDaysToCover\x12\x1a\n" +
+	"\trs_6m_pct\x18\x1e \x01(\x01R\ars6mPct\x12!\n" +
+	"\rhas_rs_6m_pct\x18\x1f \x01(\bR\n" +
+	"hasRs6mPct\x12(\n" +
+	"\x10rs_6m_percentile\x18  \x01(\x01R\x0ers6mPercentile\x12/\n" +
+	"\x14has_rs_6m_percentile\x18! \x01(\bR\x11hasRs6mPercentile\x12*\n" +
+	"\x11dollar_volume_20d\x18\" \x01(\x01R\x0fdollarVolume20d\x121\n" +
+	"\x15has_dollar_volume_20d\x18# \x01(\bR\x12hasDollarVolume20d\x12#\n" +
+	"\rbreakout_date\x18$ \x01(\tR\fbreakoutDate\x12*\n" +
+	"\x11short_report_date\x18% \x01(\tR\x0fshortReportDate\x120\n" +
+	"\x14short_available_date\x18& \x01(\tR\x12shortAvailableDate\x12!\n" +
+	"\fshort_status\x18' \x01(\tR\vshortStatus\x12.\n" +
+	"\x14has_pct_off_52w_high\x18( \x01(\bR\x10hasPctOff52wHigh\x12&\n" +
+	"\x0fca_suspect_date\x18) \x01(\tR\rcaSuspectDate\"\xe2\x06\n" +
 	"\x10PickFundamentals\x129\n" +
 	"\x19revenue_basis_period_type\x18\x01 \x01(\tR\x16revenueBasisPeriodType\x12,\n" +
 	"\x12revenue_period_end\x18\x02 \x01(\tR\x10revenuePeriodEnd\x121\n" +
@@ -1852,7 +3677,7 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12\x16\n" +
 	"\x06status\x18\x04 \x01(\tR\x06status\x12\x17\n" +
 	"\asort_by\x18\x05 \x01(\tR\x06sortBy\x121\n" +
-	"\x14require_fundamentals\x18\x06 \x01(\bR\x13requireFundamentals\"\x92\x03\n" +
+	"\x14require_fundamentals\x18\x06 \x01(\bR\x13requireFundamentals\"\xf8\x06\n" +
 	"\x18GetStrategyPicksResponse\x125\n" +
 	"\bstrategy\x18\x01 \x01(\v2\x19.shorts.v1alpha1.StrategyR\bstrategy\x125\n" +
 	"\x06regime\x18\x02 \x01(\v2\x1d.shorts.v1alpha1.MarketRegimeR\x06regime\x123\n" +
@@ -1862,10 +3687,45 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x0euniverse_count\x18\x05 \x01(\x05R\runiverseCount\x12>\n" +
 	"\x1bfundamentals_coverage_count\x18\x06 \x01(\x05R\x19fundamentalsCoverageCount\x12\x13\n" +
 	"\x05as_of\x18\a \x01(\tR\x04asOf\x126\n" +
-	"\x17fundamentals_rows_count\x18\b \x01(\x05R\x15fundamentalsRowsCount\";\n" +
+	"\x17fundamentals_rows_count\x18\b \x01(\x05R\x15fundamentalsRowsCount\x12B\n" +
+	"\rstatus_counts\x18\t \x01(\v2\x1d.shorts.v1alpha1.StatusCountsR\fstatusCounts\x12=\n" +
+	"\aversion\x18\n" +
+	" \x01(\v2#.shorts.v1alpha1.StrategyVersionRefR\aversion\x12!\n" +
+	"\fsession_date\x18\v \x01(\tR\vsessionDate\x12*\n" +
+	"\x11short_report_date\x18\f \x01(\tR\x0fshortReportDate\x120\n" +
+	"\x14short_available_date\x18\r \x01(\tR\x12shortAvailableDate\x12\x14\n" +
+	"\x05stale\x18\x0e \x01(\bR\x05stale\x122\n" +
+	"\x15rs_quantile_threshold\x18\x10 \x01(\x01R\x13rsQuantileThreshold\x129\n" +
+	"\x19has_rs_quantile_threshold\x18\x11 \x01(\bR\x16hasRsQuantileThreshold\x12%\n" +
+	"\x0euniverse_label\x18\x12 \x01(\tR\runiverseLabel\x124\n" +
+	"\x06viewer\x18\x0f \x01(\v2\x1c.shorts.v1alpha1.ViewerDepthR\x06viewer\"~\n" +
+	"\vViewerDepth\x12\x16\n" +
+	"\x06access\x18\x01 \x01(\tR\x06access\x12\x18\n" +
+	"\aclamped\x18\x02 \x01(\bR\aclamped\x12'\n" +
+	"\x0frequired_access\x18\x03 \x01(\tR\x0erequiredAccess\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\"\x9a\x02\n" +
+	"\x12StrategyVersionRef\x12\x1f\n" +
+	"\vstrategy_id\x18\x01 \x01(\tR\n" +
+	"strategyId\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x1d\n" +
+	"\n" +
+	"rules_hash\x18\x03 \x01(\tR\trulesHash\x12%\n" +
+	"\x0eengine_version\x18\x04 \x01(\tR\rengineVersion\x12\x1f\n" +
+	"\vfeature_set\x18\x05 \x01(\tR\n" +
+	"featureSet\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12\x1b\n" +
+	"\tlive_from\x18\a \x01(\tR\bliveFrom\x12\x12\n" +
+	"\x04kind\x18\b \x01(\tR\x04kind\x12\x1d\n" +
+	"\n" +
+	"variant_id\x18\t \x01(\tR\tvariantId\"r\n" +
+	"\fStatusCounts\x12\x1c\n" +
+	"\ttriggered\x18\x01 \x01(\x05R\ttriggered\x12\x14\n" +
+	"\x05setup\x18\x02 \x01(\x05R\x05setup\x12\x14\n" +
+	"\x05watch\x18\x03 \x01(\x05R\x05watch\x12\x18\n" +
+	"\aunknown\x18\x04 \x01(\x05R\aunknown\";\n" +
 	"\x1aGetStockStrategyFitRequest\x12\x1d\n" +
 	"\n" +
-	"stock_code\x18\x01 \x01(\tR\tstockCode\"\xe9\x01\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\"\x8c\x02\n" +
 	"\vStrategyFit\x12\x1f\n" +
 	"\vstrategy_id\x18\x01 \x01(\tR\n" +
 	"strategyId\x12#\n" +
@@ -1875,7 +3735,8 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x04rank\x18\x05 \x01(\x05R\x04rank\x12\x1f\n" +
 	"\vtotal_count\x18\x06 \x01(\x05R\n" +
 	"totalCount\x121\n" +
-	"\x05rules\x18\a \x03(\v2\x1b.shorts.v1alpha1.RuleResultR\x05rules\"\xac\b\n" +
+	"\x05rules\x18\a \x03(\v2\x1b.shorts.v1alpha1.RuleResultR\x05rules\x12!\n" +
+	"\fversion_hash\x18\b \x01(\tR\vversionHash\"\xac\b\n" +
 	"\rPriceFeatures\x12\x13\n" +
 	"\x05as_of\x18\x01 \x01(\tR\x04asOf\x12\x14\n" +
 	"\x05close\x18\x02 \x01(\x01R\x05close\x12\x14\n" +
@@ -1915,7 +3776,7 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"hasRs6mPct\x12'\n" +
 	"\x0fvolume_ratio50d\x18\x1d \x01(\x01R\x0evolumeRatio50d\x12.\n" +
 	"\x13has_volume_ratio50d\x18\x1e \x01(\bR\x11hasVolumeRatio50d\x12-\n" +
-	"\x12sessions_available\x18\x1f \x01(\x05R\x11sessionsAvailable\"\xa2\x02\n" +
+	"\x12sessions_available\x18\x1f \x01(\x05R\x11sessionsAvailable\"\x82\x04\n" +
 	"\x1bGetStockStrategyFitResponse\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12\x13\n" +
@@ -1924,17 +3785,128 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x04fits\x18\x04 \x03(\v2\x1c.shorts.v1alpha1.StrategyFitR\x04fits\x12\x1f\n" +
 	"\vin_universe\x18\x05 \x01(\bR\n" +
 	"inUniverse\x12E\n" +
-	"\x0eprice_features\x18\x06 \x01(\v2\x1e.shorts.v1alpha1.PriceFeaturesR\rpriceFeatures\"\x17\n" +
+	"\x0eprice_features\x18\x06 \x01(\v2\x1e.shorts.v1alpha1.PriceFeaturesR\rpriceFeatures\x12!\n" +
+	"\fsession_date\x18\a \x01(\tR\vsessionDate\x12*\n" +
+	"\x11short_report_date\x18\b \x01(\tR\x0fshortReportDate\x120\n" +
+	"\x14short_available_date\x18\t \x01(\tR\x12shortAvailableDate\x12\x14\n" +
+	"\x05stale\x18\n" +
+	" \x01(\bR\x05stale\x12\x1a\n" +
+	"\beligible\x18\v \x01(\bR\beligible\x12+\n" +
+	"\x11ineligible_reason\x18\f \x01(\tR\x10ineligibleReason\"\x17\n" +
 	"\x15ListStrategiesRequest\"\x8a\x01\n" +
 	"\x16ListStrategiesResponse\x129\n" +
 	"\n" +
 	"strategies\x18\x01 \x03(\v2\x19.shorts.v1alpha1.StrategyR\n" +
 	"strategies\x125\n" +
-	"\x06regime\x18\x02 \x01(\v2\x1d.shorts.v1alpha1.MarketRegimeR\x06regime2\xe1\x02\n" +
+	"\x06regime\x18\x02 \x01(\v2\x1d.shorts.v1alpha1.MarketRegimeR\x06regime\"_\n" +
+	"\x19GetStrategyVersionRequest\x12\x1f\n" +
+	"\vstrategy_id\x18\x01 \x01(\tR\n" +
+	"strategyId\x12!\n" +
+	"\fversion_hash\x18\x02 \x01(\tR\vversionHash\"^\n" +
+	"\x1aGetStrategyVersionResponse\x12@\n" +
+	"\aversion\x18\x01 \x01(\v2&.shorts.v1alpha1.StrategyVersionDetailR\aversion\">\n" +
+	"\x1bListStrategyVersionsRequest\x12\x1f\n" +
+	"\vstrategy_id\x18\x01 \x01(\tR\n" +
+	"strategyId\"b\n" +
+	"\x1cListStrategyVersionsResponse\x12B\n" +
+	"\bversions\x18\x01 \x03(\v2&.shorts.v1alpha1.StrategyVersionDetailR\bversions\"\xce\x02\n" +
+	"\x15StrategyVersionDetail\x12=\n" +
+	"\aversion\x18\x01 \x01(\v2#.shorts.v1alpha1.StrategyVersionRefR\aversion\x122\n" +
+	"\x06params\x18\x02 \x03(\v2\x1a.shorts.v1alpha1.RuleParamR\x06params\x12\x1a\n" +
+	"\bpolicies\x18\x03 \x03(\tR\bpolicies\x12\x18\n" +
+	"\achanges\x18\x06 \x03(\tR\achanges\x12!\n" +
+	"\fknown_issues\x18\a \x03(\tR\vknownIssues\x12#\n" +
+	"\rsuperseded_on\x18\b \x01(\tR\fsupersededOn\x12\x1d\n" +
+	"\n" +
+	"retired_on\x18\t \x01(\tR\tretiredOn\x12%\n" +
+	"\x0ecanonical_json\x18\n" +
+	" \x01(\tR\rcanonicalJson\"N\n" +
+	"\tRuleParam\x12\x17\n" +
+	"\arule_id\x18\x01 \x01(\tR\x06ruleId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\x01R\x05value\"8\n" +
+	"\x13SaveStrategyRequest\x12!\n" +
+	"\fstrategy_ref\x18\x01 \x01(\tR\vstrategyRef\"L\n" +
+	"\x14SaveStrategyResponse\x124\n" +
+	"\x05saved\x18\x01 \x01(\v2\x1e.shorts.v1alpha1.SavedStrategyR\x05saved\":\n" +
+	"\x15UnsaveStrategyRequest\x12!\n" +
+	"\fstrategy_ref\x18\x01 \x01(\tR\vstrategyRef\"\x18\n" +
+	"\x16UnsaveStrategyResponse\"\x1c\n" +
+	"\x1aListSavedStrategiesRequest\"s\n" +
+	"\x1bListSavedStrategiesResponse\x12>\n" +
+	"\n" +
+	"strategies\x18\x01 \x03(\v2\x1e.shorts.v1alpha1.SavedStrategyR\n" +
+	"strategies\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"\xa8\x02\n" +
+	"\rSavedStrategy\x12!\n" +
+	"\fstrategy_ref\x18\x01 \x01(\tR\vstrategyRef\x12\x1f\n" +
+	"\vstrategy_id\x18\x02 \x01(\tR\n" +
+	"strategyId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x19\n" +
+	"\bsaved_at\x18\x04 \x01(\tR\asavedAt\x12B\n" +
+	"\rstatus_counts\x18\x05 \x01(\v2\x1d.shorts.v1alpha1.StatusCountsR\fstatusCounts\x12=\n" +
+	"\aversion\x18\x06 \x01(\v2#.shorts.v1alpha1.StrategyVersionRefR\aversion\x12!\n" +
+	"\fsession_date\x18\a \x01(\tR\vsessionDate\"\x1e\n" +
+	"\x1cGetStrategyDataStatusRequest\"\xe1\x02\n" +
+	"\x1dGetStrategyDataStatusResponse\x12%\n" +
+	"\x0elatest_session\x18\x01 \x01(\tR\rlatestSession\x12.\n" +
+	"\x13prices_completed_at\x18\x02 \x01(\tR\x11pricesCompletedAt\x12$\n" +
+	"\x0esnapshot_as_of\x18\x03 \x01(\tR\fsnapshotAsOf\x122\n" +
+	"\x15snapshot_completed_at\x18\x04 \x01(\tR\x13snapshotCompletedAt\x12D\n" +
+	"\fasic_reports\x18\x05 \x03(\v2!.shorts.v1alpha1.AsicReportStatusR\vasicReports\x12&\n" +
+	"\x0fnext_update_utc\x18\x06 \x01(\tR\rnextUpdateUtc\x12!\n" +
+	"\fpriced_codes\x18\a \x01(\x05R\vpricedCodes\"\xb6\x01\n" +
+	"\x10AsicReportStatus\x12\x1f\n" +
+	"\vreport_date\x18\x01 \x01(\tR\n" +
+	"reportDate\x12%\n" +
+	"\x0eavailable_date\x18\x02 \x01(\tR\ravailableDate\x12*\n" +
+	"\x11first_ingested_at\x18\x03 \x01(\tR\x0ffirstIngestedAt\x12\x12\n" +
+	"\x04rows\x18\x04 \x01(\x05R\x04rows\x12\x1a\n" +
+	"\bcomplete\x18\x05 \x01(\bR\bcomplete\"\xd6\x01\n" +
+	"\x1fListStrategySignalEventsRequest\x12\x1f\n" +
+	"\vstrategy_id\x18\x01 \x01(\tR\n" +
+	"strategyId\x12!\n" +
+	"\fversion_hash\x18\x02 \x01(\tR\vversionHash\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x03 \x01(\tR\tstockCode\x12\x14\n" +
+	"\x05since\x18\x04 \x01(\tR\x05since\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x05 \x01(\tR\tpageToken\x12\x1b\n" +
+	"\tpage_size\x18\x06 \x01(\x05R\bpageSize\"\xc7\x01\n" +
+	" ListStrategySignalEventsResponse\x12<\n" +
+	"\x06events\x18\x01 \x03(\v2$.shorts.v1alpha1.StrategySignalEventR\x06events\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12=\n" +
+	"\aversion\x18\x03 \x01(\v2#.shorts.v1alpha1.StrategyVersionRefR\aversion\"\x95\x03\n" +
+	"\x13StrategySignalEvent\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +
+	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12!\n" +
+	"\fsession_date\x18\x03 \x01(\tR\vsessionDate\x12*\n" +
+	"\x11prev_session_date\x18\x04 \x01(\tR\x0fprevSessionDate\x12\x1f\n" +
+	"\vfrom_status\x18\x05 \x01(\tR\n" +
+	"fromStatus\x12\x1b\n" +
+	"\tto_status\x18\x06 \x01(\tR\btoStatus\x12\x14\n" +
+	"\x05score\x18\a \x01(\x01R\x05score\x12\x14\n" +
+	"\x05close\x18\b \x01(\x01R\x05close\x12\x14\n" +
+	"\x05pivot\x18\t \x01(\x01R\x05pivot\x12\x1b\n" +
+	"\thas_pivot\x18\n" +
+	" \x01(\bR\bhasPivot\x121\n" +
+	"\x05rules\x18\v \x03(\v2\x1b.shorts.v1alpha1.RuleResultR\x05rules\x12\x1d\n" +
+	"\n" +
+	"rules_hash\x18\f \x01(\tR\trulesHash2\x90\n" +
+	"\n" +
 	"\x0fStrategyService\x12g\n" +
 	"\x0eListStrategies\x12&.shorts.v1alpha1.ListStrategiesRequest\x1a'.shorts.v1alpha1.ListStrategiesResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
-	"\x10GetStrategyPicks\x12(.shorts.v1alpha1.GetStrategyPicksRequest\x1a).shorts.v1alpha1.GetStrategyPicksResponse\"\x04\x80\xb5\x18\x01\x12v\n" +
-	"\x13GetStockStrategyFit\x12+.shorts.v1alpha1.GetStockStrategyFitRequest\x1a,.shorts.v1alpha1.GetStockStrategyFitResponse\"\x04\x80\xb5\x18\x01B\xde\x01\n" +
+	"\x10GetStrategyPicks\x12(.shorts.v1alpha1.GetStrategyPicksRequest\x1a).shorts.v1alpha1.GetStrategyPicksResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
+	"\x16GetViewerStrategyPicks\x12(.shorts.v1alpha1.GetStrategyPicksRequest\x1a).shorts.v1alpha1.GetStrategyPicksResponse\"\x04\x80\xb5\x18\x02\x12v\n" +
+	"\x13GetStockStrategyFit\x12+.shorts.v1alpha1.GetStockStrategyFitRequest\x1a,.shorts.v1alpha1.GetStockStrategyFitResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
+	"\x12GetStrategyVersion\x12*.shorts.v1alpha1.GetStrategyVersionRequest\x1a+.shorts.v1alpha1.GetStrategyVersionResponse\"\x04\x80\xb5\x18\x01\x12y\n" +
+	"\x14ListStrategyVersions\x12,.shorts.v1alpha1.ListStrategyVersionsRequest\x1a-.shorts.v1alpha1.ListStrategyVersionsResponse\"\x04\x80\xb5\x18\x01\x12|\n" +
+	"\x15GetStrategyDataStatus\x12-.shorts.v1alpha1.GetStrategyDataStatusRequest\x1a..shorts.v1alpha1.GetStrategyDataStatusResponse\"\x04\x80\xb5\x18\x01\x12\x85\x01\n" +
+	"\x18ListStrategySignalEvents\x120.shorts.v1alpha1.ListStrategySignalEventsRequest\x1a1.shorts.v1alpha1.ListStrategySignalEventsResponse\"\x04\x80\xb5\x18\x02\x12a\n" +
+	"\fSaveStrategy\x12$.shorts.v1alpha1.SaveStrategyRequest\x1a%.shorts.v1alpha1.SaveStrategyResponse\"\x04\x80\xb5\x18\x02\x12g\n" +
+	"\x0eUnsaveStrategy\x12&.shorts.v1alpha1.UnsaveStrategyRequest\x1a'.shorts.v1alpha1.UnsaveStrategyResponse\"\x04\x80\xb5\x18\x02\x12v\n" +
+	"\x13ListSavedStrategies\x12+.shorts.v1alpha1.ListSavedStrategiesRequest\x1a,.shorts.v1alpha1.ListSavedStrategiesResponse\"\x04\x80\xb5\x18\x02B\xde\x01\n" +
 	"\x13com.shorts.v1alpha1B\x0fStrategiesProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
@@ -1949,49 +3921,103 @@ func file_shorts_v1alpha1_strategies_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_strategies_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_strategies_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_shorts_v1alpha1_strategies_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_shorts_v1alpha1_strategies_proto_goTypes = []any{
-	(*Strategy)(nil),                    // 0: shorts.v1alpha1.Strategy
-	(*StrategyRule)(nil),                // 1: shorts.v1alpha1.StrategyRule
-	(*StrategyMetadata)(nil),            // 2: shorts.v1alpha1.StrategyMetadata
-	(*MarketRegime)(nil),                // 3: shorts.v1alpha1.MarketRegime
-	(*RuleResult)(nil),                  // 4: shorts.v1alpha1.RuleResult
-	(*StrategyPick)(nil),                // 5: shorts.v1alpha1.StrategyPick
-	(*PickFundamentals)(nil),            // 6: shorts.v1alpha1.PickFundamentals
-	(*GetStrategyPicksRequest)(nil),     // 7: shorts.v1alpha1.GetStrategyPicksRequest
-	(*GetStrategyPicksResponse)(nil),    // 8: shorts.v1alpha1.GetStrategyPicksResponse
-	(*GetStockStrategyFitRequest)(nil),  // 9: shorts.v1alpha1.GetStockStrategyFitRequest
-	(*StrategyFit)(nil),                 // 10: shorts.v1alpha1.StrategyFit
-	(*PriceFeatures)(nil),               // 11: shorts.v1alpha1.PriceFeatures
-	(*GetStockStrategyFitResponse)(nil), // 12: shorts.v1alpha1.GetStockStrategyFitResponse
-	(*ListStrategiesRequest)(nil),       // 13: shorts.v1alpha1.ListStrategiesRequest
-	(*ListStrategiesResponse)(nil),      // 14: shorts.v1alpha1.ListStrategiesResponse
+	(*Strategy)(nil),                         // 0: shorts.v1alpha1.Strategy
+	(*StrategyRule)(nil),                     // 1: shorts.v1alpha1.StrategyRule
+	(*StrategyMetadata)(nil),                 // 2: shorts.v1alpha1.StrategyMetadata
+	(*MarketRegime)(nil),                     // 3: shorts.v1alpha1.MarketRegime
+	(*RuleResult)(nil),                       // 4: shorts.v1alpha1.RuleResult
+	(*StrategyPick)(nil),                     // 5: shorts.v1alpha1.StrategyPick
+	(*PickFundamentals)(nil),                 // 6: shorts.v1alpha1.PickFundamentals
+	(*GetStrategyPicksRequest)(nil),          // 7: shorts.v1alpha1.GetStrategyPicksRequest
+	(*GetStrategyPicksResponse)(nil),         // 8: shorts.v1alpha1.GetStrategyPicksResponse
+	(*ViewerDepth)(nil),                      // 9: shorts.v1alpha1.ViewerDepth
+	(*StrategyVersionRef)(nil),               // 10: shorts.v1alpha1.StrategyVersionRef
+	(*StatusCounts)(nil),                     // 11: shorts.v1alpha1.StatusCounts
+	(*GetStockStrategyFitRequest)(nil),       // 12: shorts.v1alpha1.GetStockStrategyFitRequest
+	(*StrategyFit)(nil),                      // 13: shorts.v1alpha1.StrategyFit
+	(*PriceFeatures)(nil),                    // 14: shorts.v1alpha1.PriceFeatures
+	(*GetStockStrategyFitResponse)(nil),      // 15: shorts.v1alpha1.GetStockStrategyFitResponse
+	(*ListStrategiesRequest)(nil),            // 16: shorts.v1alpha1.ListStrategiesRequest
+	(*ListStrategiesResponse)(nil),           // 17: shorts.v1alpha1.ListStrategiesResponse
+	(*GetStrategyVersionRequest)(nil),        // 18: shorts.v1alpha1.GetStrategyVersionRequest
+	(*GetStrategyVersionResponse)(nil),       // 19: shorts.v1alpha1.GetStrategyVersionResponse
+	(*ListStrategyVersionsRequest)(nil),      // 20: shorts.v1alpha1.ListStrategyVersionsRequest
+	(*ListStrategyVersionsResponse)(nil),     // 21: shorts.v1alpha1.ListStrategyVersionsResponse
+	(*StrategyVersionDetail)(nil),            // 22: shorts.v1alpha1.StrategyVersionDetail
+	(*RuleParam)(nil),                        // 23: shorts.v1alpha1.RuleParam
+	(*SaveStrategyRequest)(nil),              // 24: shorts.v1alpha1.SaveStrategyRequest
+	(*SaveStrategyResponse)(nil),             // 25: shorts.v1alpha1.SaveStrategyResponse
+	(*UnsaveStrategyRequest)(nil),            // 26: shorts.v1alpha1.UnsaveStrategyRequest
+	(*UnsaveStrategyResponse)(nil),           // 27: shorts.v1alpha1.UnsaveStrategyResponse
+	(*ListSavedStrategiesRequest)(nil),       // 28: shorts.v1alpha1.ListSavedStrategiesRequest
+	(*ListSavedStrategiesResponse)(nil),      // 29: shorts.v1alpha1.ListSavedStrategiesResponse
+	(*SavedStrategy)(nil),                    // 30: shorts.v1alpha1.SavedStrategy
+	(*GetStrategyDataStatusRequest)(nil),     // 31: shorts.v1alpha1.GetStrategyDataStatusRequest
+	(*GetStrategyDataStatusResponse)(nil),    // 32: shorts.v1alpha1.GetStrategyDataStatusResponse
+	(*AsicReportStatus)(nil),                 // 33: shorts.v1alpha1.AsicReportStatus
+	(*ListStrategySignalEventsRequest)(nil),  // 34: shorts.v1alpha1.ListStrategySignalEventsRequest
+	(*ListStrategySignalEventsResponse)(nil), // 35: shorts.v1alpha1.ListStrategySignalEventsResponse
+	(*StrategySignalEvent)(nil),              // 36: shorts.v1alpha1.StrategySignalEvent
 }
 var file_shorts_v1alpha1_strategies_proto_depIdxs = []int32{
 	1,  // 0: shorts.v1alpha1.Strategy.rules:type_name -> shorts.v1alpha1.StrategyRule
 	2,  // 1: shorts.v1alpha1.Strategy.metadata:type_name -> shorts.v1alpha1.StrategyMetadata
-	4,  // 2: shorts.v1alpha1.StrategyPick.rules:type_name -> shorts.v1alpha1.RuleResult
-	6,  // 3: shorts.v1alpha1.StrategyPick.fundamentals:type_name -> shorts.v1alpha1.PickFundamentals
-	0,  // 4: shorts.v1alpha1.GetStrategyPicksResponse.strategy:type_name -> shorts.v1alpha1.Strategy
-	3,  // 5: shorts.v1alpha1.GetStrategyPicksResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
-	5,  // 6: shorts.v1alpha1.GetStrategyPicksResponse.picks:type_name -> shorts.v1alpha1.StrategyPick
-	4,  // 7: shorts.v1alpha1.StrategyFit.rules:type_name -> shorts.v1alpha1.RuleResult
-	3,  // 8: shorts.v1alpha1.GetStockStrategyFitResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
-	10, // 9: shorts.v1alpha1.GetStockStrategyFitResponse.fits:type_name -> shorts.v1alpha1.StrategyFit
-	11, // 10: shorts.v1alpha1.GetStockStrategyFitResponse.price_features:type_name -> shorts.v1alpha1.PriceFeatures
-	0,  // 11: shorts.v1alpha1.ListStrategiesResponse.strategies:type_name -> shorts.v1alpha1.Strategy
-	3,  // 12: shorts.v1alpha1.ListStrategiesResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
-	13, // 13: shorts.v1alpha1.StrategyService.ListStrategies:input_type -> shorts.v1alpha1.ListStrategiesRequest
-	7,  // 14: shorts.v1alpha1.StrategyService.GetStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
-	9,  // 15: shorts.v1alpha1.StrategyService.GetStockStrategyFit:input_type -> shorts.v1alpha1.GetStockStrategyFitRequest
-	14, // 16: shorts.v1alpha1.StrategyService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
-	8,  // 17: shorts.v1alpha1.StrategyService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
-	12, // 18: shorts.v1alpha1.StrategyService.GetStockStrategyFit:output_type -> shorts.v1alpha1.GetStockStrategyFitResponse
-	16, // [16:19] is the sub-list for method output_type
-	13, // [13:16] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	10, // 2: shorts.v1alpha1.Strategy.version:type_name -> shorts.v1alpha1.StrategyVersionRef
+	4,  // 3: shorts.v1alpha1.StrategyPick.rules:type_name -> shorts.v1alpha1.RuleResult
+	6,  // 4: shorts.v1alpha1.StrategyPick.fundamentals:type_name -> shorts.v1alpha1.PickFundamentals
+	0,  // 5: shorts.v1alpha1.GetStrategyPicksResponse.strategy:type_name -> shorts.v1alpha1.Strategy
+	3,  // 6: shorts.v1alpha1.GetStrategyPicksResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
+	5,  // 7: shorts.v1alpha1.GetStrategyPicksResponse.picks:type_name -> shorts.v1alpha1.StrategyPick
+	11, // 8: shorts.v1alpha1.GetStrategyPicksResponse.status_counts:type_name -> shorts.v1alpha1.StatusCounts
+	10, // 9: shorts.v1alpha1.GetStrategyPicksResponse.version:type_name -> shorts.v1alpha1.StrategyVersionRef
+	9,  // 10: shorts.v1alpha1.GetStrategyPicksResponse.viewer:type_name -> shorts.v1alpha1.ViewerDepth
+	4,  // 11: shorts.v1alpha1.StrategyFit.rules:type_name -> shorts.v1alpha1.RuleResult
+	3,  // 12: shorts.v1alpha1.GetStockStrategyFitResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
+	13, // 13: shorts.v1alpha1.GetStockStrategyFitResponse.fits:type_name -> shorts.v1alpha1.StrategyFit
+	14, // 14: shorts.v1alpha1.GetStockStrategyFitResponse.price_features:type_name -> shorts.v1alpha1.PriceFeatures
+	0,  // 15: shorts.v1alpha1.ListStrategiesResponse.strategies:type_name -> shorts.v1alpha1.Strategy
+	3,  // 16: shorts.v1alpha1.ListStrategiesResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
+	22, // 17: shorts.v1alpha1.GetStrategyVersionResponse.version:type_name -> shorts.v1alpha1.StrategyVersionDetail
+	22, // 18: shorts.v1alpha1.ListStrategyVersionsResponse.versions:type_name -> shorts.v1alpha1.StrategyVersionDetail
+	10, // 19: shorts.v1alpha1.StrategyVersionDetail.version:type_name -> shorts.v1alpha1.StrategyVersionRef
+	23, // 20: shorts.v1alpha1.StrategyVersionDetail.params:type_name -> shorts.v1alpha1.RuleParam
+	30, // 21: shorts.v1alpha1.SaveStrategyResponse.saved:type_name -> shorts.v1alpha1.SavedStrategy
+	30, // 22: shorts.v1alpha1.ListSavedStrategiesResponse.strategies:type_name -> shorts.v1alpha1.SavedStrategy
+	11, // 23: shorts.v1alpha1.SavedStrategy.status_counts:type_name -> shorts.v1alpha1.StatusCounts
+	10, // 24: shorts.v1alpha1.SavedStrategy.version:type_name -> shorts.v1alpha1.StrategyVersionRef
+	33, // 25: shorts.v1alpha1.GetStrategyDataStatusResponse.asic_reports:type_name -> shorts.v1alpha1.AsicReportStatus
+	36, // 26: shorts.v1alpha1.ListStrategySignalEventsResponse.events:type_name -> shorts.v1alpha1.StrategySignalEvent
+	10, // 27: shorts.v1alpha1.ListStrategySignalEventsResponse.version:type_name -> shorts.v1alpha1.StrategyVersionRef
+	4,  // 28: shorts.v1alpha1.StrategySignalEvent.rules:type_name -> shorts.v1alpha1.RuleResult
+	16, // 29: shorts.v1alpha1.StrategyService.ListStrategies:input_type -> shorts.v1alpha1.ListStrategiesRequest
+	7,  // 30: shorts.v1alpha1.StrategyService.GetStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
+	7,  // 31: shorts.v1alpha1.StrategyService.GetViewerStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
+	12, // 32: shorts.v1alpha1.StrategyService.GetStockStrategyFit:input_type -> shorts.v1alpha1.GetStockStrategyFitRequest
+	18, // 33: shorts.v1alpha1.StrategyService.GetStrategyVersion:input_type -> shorts.v1alpha1.GetStrategyVersionRequest
+	20, // 34: shorts.v1alpha1.StrategyService.ListStrategyVersions:input_type -> shorts.v1alpha1.ListStrategyVersionsRequest
+	31, // 35: shorts.v1alpha1.StrategyService.GetStrategyDataStatus:input_type -> shorts.v1alpha1.GetStrategyDataStatusRequest
+	34, // 36: shorts.v1alpha1.StrategyService.ListStrategySignalEvents:input_type -> shorts.v1alpha1.ListStrategySignalEventsRequest
+	24, // 37: shorts.v1alpha1.StrategyService.SaveStrategy:input_type -> shorts.v1alpha1.SaveStrategyRequest
+	26, // 38: shorts.v1alpha1.StrategyService.UnsaveStrategy:input_type -> shorts.v1alpha1.UnsaveStrategyRequest
+	28, // 39: shorts.v1alpha1.StrategyService.ListSavedStrategies:input_type -> shorts.v1alpha1.ListSavedStrategiesRequest
+	17, // 40: shorts.v1alpha1.StrategyService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
+	8,  // 41: shorts.v1alpha1.StrategyService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
+	8,  // 42: shorts.v1alpha1.StrategyService.GetViewerStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
+	15, // 43: shorts.v1alpha1.StrategyService.GetStockStrategyFit:output_type -> shorts.v1alpha1.GetStockStrategyFitResponse
+	19, // 44: shorts.v1alpha1.StrategyService.GetStrategyVersion:output_type -> shorts.v1alpha1.GetStrategyVersionResponse
+	21, // 45: shorts.v1alpha1.StrategyService.ListStrategyVersions:output_type -> shorts.v1alpha1.ListStrategyVersionsResponse
+	32, // 46: shorts.v1alpha1.StrategyService.GetStrategyDataStatus:output_type -> shorts.v1alpha1.GetStrategyDataStatusResponse
+	35, // 47: shorts.v1alpha1.StrategyService.ListStrategySignalEvents:output_type -> shorts.v1alpha1.ListStrategySignalEventsResponse
+	25, // 48: shorts.v1alpha1.StrategyService.SaveStrategy:output_type -> shorts.v1alpha1.SaveStrategyResponse
+	27, // 49: shorts.v1alpha1.StrategyService.UnsaveStrategy:output_type -> shorts.v1alpha1.UnsaveStrategyResponse
+	29, // 50: shorts.v1alpha1.StrategyService.ListSavedStrategies:output_type -> shorts.v1alpha1.ListSavedStrategiesResponse
+	40, // [40:51] is the sub-list for method output_type
+	29, // [29:40] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_strategies_proto_init() }
@@ -2005,7 +4031,7 @@ func file_shorts_v1alpha1_strategies_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_strategies_proto_rawDesc), len(file_shorts_v1alpha1_strategies_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

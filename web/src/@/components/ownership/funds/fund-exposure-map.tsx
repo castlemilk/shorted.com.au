@@ -9,7 +9,8 @@ import { industryLabel } from "~/@/lib/industry-placeholder";
 import { binFill, binOf, labelOnBin, lensFill, type LensScale } from "../desk/desk-scales";
 import { HolderLogo } from "../workspace/holder-logo";
 import { SortControl } from "../workspace/sort-control";
-import { TOOLBAR_SELECT_CLASS, Toolbar, ToolbarSelect } from "../workspace/toolbar";
+import { TOOLBAR_SELECT_CLASS, Toolbar, ToolbarSelect } from "~/@/components/workspace/toolbar";
+import { SelectionTray } from "~/@/components/workspace/selection-tray";
 import { ViewDisclosure } from "../workspace/view-disclosure";
 import { SectorIcon } from "../workspace/sector-icon";
 import { StockLogoBox } from "../workspace/stock-logo-box";
@@ -33,6 +34,7 @@ import {
   toggleFundKey,
   type FundRow,
   fundLabel,
+  FUND_COMPARE_MAX,
 } from "./fund-model";
 
 /**
@@ -386,30 +388,16 @@ export function FundExposureMapView({
         </div>
       )}
 
-      {selected.length > 0 ? (
-        <div
-          role="region"
-          aria-label="Selected funds"
-          className="sticky bottom-4 flex flex-wrap items-center gap-3 rounded-md border border-border bg-card px-4 py-3 font-mono text-sm"
-        >
-          <p>
-            {selected.length} {selected.length === 1 ? "fund" : "funds"} selected
-          </p>
-          <ul className="flex flex-wrap gap-1.5">
-            {selected.map((key) => (
-              <li key={key}>
-                <button
-                  type="button"
-                  aria-label={`Remove ${tickerOf(key)}`}
-                  onClick={() => setSelected(selected.filter((k) => k !== key))}
-                  className="rounded-[var(--radius)] border border-border px-2 py-0.5 text-xs hover:border-primary"
-                >
-                  {tickerOf(key)} ×
-                </button>
-              </li>
-            ))}
-          </ul>
-          {selected.length === 1 ? <p className="text-xs text-muted-foreground">Tick one more to compare them.</p> : null}
+      <SelectionTray
+        label="Selected funds"
+        items={selected.map((key) => ({ key, label: tickerOf(key) }))}
+        max={FUND_COMPARE_MAX}
+        noun={["fund", "funds"]}
+        onRemove={(key) => setSelected(selected.filter((k) => k !== key))}
+        note={
+          selected.length === 1 ? <p className="text-xs text-muted-foreground">Tick one more to compare them.</p> : null
+        }
+        cta={
           <Link
             href={compareChangesHref(selected[0] ?? "")}
             prefetch={false}
@@ -417,8 +405,8 @@ export function FundExposureMapView({
           >
             Compare portfolios →
           </Link>
-        </div>
-      ) : null}
+        }
+      />
     </div>
   );
 }

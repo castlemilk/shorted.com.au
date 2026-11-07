@@ -226,7 +226,7 @@ func AdminRegistry() []AdminTool {
 	tools := []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool(),
 		listAsyncJobsTool(), listJobExecutionsTool(), getJobExecutionTool(), listEnrichmentJobsTool(), searchJobMentionsTool(),
 		peopleOverviewTool(), listUsersTool(), listPayingUsersTool(), listMailingListTool(), lookupPersonTool(),
-		checkSubscriptionTool(), billingExceptionsTool(), paidFeatureStatusTool(), runPaidProbeTool()}
+		checkSubscriptionTool(), billingExceptionsTool(), paidFeatureStatusTool(), runPaidProbeTool(), strategyStatusTool(), queueStrategyBacktestTool()}
 	tools = append(tools, alertsAdminTools()...)
 	tools = append(tools, crawlAdminTools()...)
 	tools = append(tools, crawlOpsAdminTools()...)
@@ -429,7 +429,7 @@ func picksNextStep(mode jobmonitor.PicksMode) string {
 	case jobmonitor.PicksModeFilings:
 		return "Run refresh so the rebuilt filing rows reach mv_fundamentals_growth and mv_fundamentals_quality. Exit 10 means the rebuild was refused (a read failed or found no extractions) and nothing was written."
 	case jobmonitor.PicksModeRefresh:
-		return "The run waits 16 minutes after the refresh (the API's strategy cache), then asks the picks pages to revalidate (best effort), so get_strategy_picks reads the refreshed views once it succeeds and /picks follows."
+		return "The run waits 16 minutes after the refresh (the API's strategy cache), then asks the picks pages to revalidate (best effort), so get_strategy_picks reads the refreshed views once it succeeds and /strategies follows."
 	case jobmonitor.PicksModeAll:
 		return "Nothing: this is the nightly sequence. Check get_strategy_picks for fundamentals_rows_count (stocks with any fundamentals) and fundamentals_coverage_count (those with growth figures)."
 	}
@@ -443,7 +443,7 @@ func runPicksJobTool() AdminTool {
 			Name:  t.Name,
 			Title: "Run the stock picker data job",
 			Description: "Start one execution of the shorted-picks Cloud Run job (`shorted picks -mode <mode>`), the data layer behind " +
-				"https://shorted.com.au/picks and the public list_strategies / get_strategy_picks / get_stock_fundamentals tools. " +
+				"https://shorted.com.au/strategies and the public list_strategies / get_strategy_picks / get_stock_fundamentals tools. " +
 				"Use it to build or top up fundamentals coverage without waiting for the nightly 15:00 UTC schedule. " +
 				"Writes to stock_fundamentals and refreshes materialized views; refuses to start while another picks run is in flight. " +
 				"Poll picks_job_status with the returned execution_name.",
@@ -536,6 +536,8 @@ func adminToolError(err error) *sdk.CallToolResult {
 		msg = "that job is not deployed as a runnable Cloud Run Job in this environment"
 	case errors.Is(err, jobmonitor.ErrNoProject), errors.Is(err, jobmonitor.ErrOverridesUnsupported):
 		msg = "job execution is not configured in this deployment"
+	case errors.Is(err, ErrStrategyBacktestRefused):
+		msg = err.Error()
 	}
 	res := &sdk.CallToolResult{}
 	res.SetError(errors.New(msg))

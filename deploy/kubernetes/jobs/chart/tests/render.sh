@@ -58,6 +58,9 @@ declare -A want_schedule=(
   [financial-report-extractor]="0 14 * * *"
   [asx-discovery]="0 12 * * 0"
   [shorted-alerts]="55 * * * 1-5"
+  [shorted-key-metrics]="40 19 * * *"
+  [shorted-strategies-daily]="0,20,40 13-16 * * 1-5"
+  [shorted-strategies-backtest]="20 * * * *"
 )
 
 got_names="$(cronjobs "${tmp}/default.yaml")"
@@ -107,6 +110,45 @@ shorts_url="$(field "${tmp}/default.yaml" "${alerts}" '.spec.jobTemplate.spec.te
 [[ -z "$(field "${tmp}/default.yaml" "${alerts}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
   || fail "shorted-alerts: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
 pass "shorted-alerts: live, Resend and entitlement secrets isolated, origin URL, no WIF"
+
+# shorted-key-metrics: writes only when KEY_METRICS_DRY_RUN is "false" (the job defaults to a dry run), one
+# attempt (a retry reruns the same refusals; the next daily run is the retry), a 3000-second deadline above the
+# 40-minute budget, VKE-native, no GCS identity.
+km=shorted-key-metrics
+[[ "$(field "${tmp}/default.yaml" "${km}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "KEY_METRICS_DRY_RUN") | .value')" == "false" ]] \
+  || fail "shorted-key-metrics: KEY_METRICS_DRY_RUN must be \"false\" in the chart"
+[[ "$(field "${tmp}/default.yaml" "${km}" '.spec.jobTemplate.spec.backoffLimitPerIndex')" == "0" ]] || fail "shorted-key-metrics: backoffLimitPerIndex must be 0"
+[[ "$(field "${tmp}/default.yaml" "${km}" '.spec.jobTemplate.spec.template.spec.activeDeadlineSeconds')" == "3000" ]] || fail "shorted-key-metrics: per-attempt activeDeadlineSeconds must be 3000"
+[[ -z "$(field "${tmp}/default.yaml" "${km}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
+  || fail "shorted-key-metrics: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
+pass "shorted-key-metrics: writes only on KEY_METRICS_DRY_RUN=false, one attempt, 3000s deadline, no WIF"
+
+# shorted-strategies-daily: writes only when STRATEGIES_DRY_RUN is "false" (the job itself defaults to a dry run),
+# is VKE-native, has no GCS identity, and its per-attempt deadline is one hour.
+strat=shorted-strategies-daily
+[[ "$(field "${tmp}/default.yaml" "${strat}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "STRATEGIES_DRY_RUN") | .value')" == "false" ]] \
+  || fail "shorted-strategies-daily: STRATEGIES_DRY_RUN must be \"false\" in the chart"
+[[ "$(field "${tmp}/default.yaml" "${strat}" '.spec.jobTemplate.spec.backoffLimitPerIndex')" == "0" ]] || fail "shorted-strategies-daily: backoffLimitPerIndex must be 0"
+[[ "$(field "${tmp}/default.yaml" "${strat}" '.spec.jobTemplate.spec.template.spec.activeDeadlineSeconds')" == "3600" ]] || fail "shorted-strategies-daily: per-attempt activeDeadlineSeconds must be 3600"
+[[ -z "$(field "${tmp}/default.yaml" "${strat}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
+  || fail "shorted-strategies-daily: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
+pass "shorted-strategies-daily: writes only on STRATEGIES_DRY_RUN=false, one attempt, no WIF"
+
+# shorted-strategies-backtest: writes only when STRATEGIES_DRY_RUN is "false" (the job itself defaults to a
+# dry run), one attempt, a 3300-second deadline, a 1536Mi request and a 3Gi limit (the whole history of a
+# batch is held in memory), VKE-native, no GCS identity.
+bt=shorted-strategies-backtest
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "STRATEGIES_DRY_RUN") | .value')" == "false" ]] \
+  || fail "shorted-strategies-backtest: STRATEGIES_DRY_RUN must be \"false\" in the chart"
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.backoffLimitPerIndex')" == "0" ]] || fail "shorted-strategies-backtest: backoffLimitPerIndex must be 0"
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.activeDeadlineSeconds')" == "3300" ]] || fail "shorted-strategies-backtest: per-attempt activeDeadlineSeconds must be 3300"
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].resources.requests.memory')" == "1536Mi" ]] || fail "shorted-strategies-backtest: memory request must be 1536Mi"
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].resources.limits.memory')" == "3Gi" ]] || fail "shorted-strategies-backtest: memory limit must be 3Gi"
+[[ -z "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS") | .name')" ]] \
+  || fail "shorted-strategies-backtest: writes no GCS, so it must have no GOOGLE_APPLICATION_CREDENTIALS"
+[[ "$(field "${tmp}/default.yaml" "${bt}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOMEMLIMIT") | .value')" == "2600MiB" ]] \
+  || fail "shorted-strategies-backtest: GOMEMLIMIT must be 2600MiB (a soft ceiling under the 3Gi limit)"
+pass "shorted-strategies-backtest: writes only on STRATEGIES_DRY_RUN=false, one attempt, 1536Mi/3Gi, GOMEMLIMIT 2600MiB, no WIF"
 
 # --- 2. Nothing runs by default; enabling is per job and needs suspendAll=false.
 # Exactly the jobs in `enabled` run (none while suspendAll is true).
@@ -169,6 +211,20 @@ unlabelled="$(yq -N 'select(.kind == "CronJob") | select(.spec.jobTemplate.metad
 [[ -z "${unlabelled}" ]] && pass "every CronJob is opted into the reporter" || fail "not monitored: ${unlabelled}"
 [[ "$(yq -N 'select(.kind == "Deployment" and .metadata.name == "cronjob-reporter") | .spec.template.spec.containers[0].args[0]' "${tmp}/default.yaml")" == "cronjob-reporter" ]] \
   && pass "reporter Deployment renders" || fail "reporter Deployment missing"
+
+# --- 5b. The picker's shadow parity: on in both CronJobs and in Terraform. --
+# Both picks CronJobs run one Cloud Run job, so they must carry the same env
+# (CLAUDE.md: change args/env in BOTH). The switch only has meaning in
+# -mode refresh; the job itself gates on that.
+for picks_job in shorted-picks shorted-picks-fundamentals; do
+  [[ "$(field "${tmp}/default.yaml" "${picks_job}" '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "STRATEGY_PARITY_SHADOW") | .value')" == "on" ]] \
+    && pass "${picks_job} runs the parity shadow" || fail "${picks_job}: STRATEGY_PARITY_SHADOW is not on"
+done
+# Only inside module "shorted_job_picks": the same line in another module would
+# pass a check that names the picks job.
+awk '/^module "shorted_job_picks" \{/{f=1} f{print} f && /^\}/{exit}' "${repo_root}/terraform/environments/prod/main.tf" \
+  | grep -qE '^ *STRATEGY_PARITY_SHADOW *= *"on"$' \
+  && pass "Terraform's picks job sets STRATEGY_PARITY_SHADOW" || fail "terraform/environments/prod/main.tf: STRATEGY_PARITY_SHADOW is not on for the picks job"
 
 # --- 6. Render-time guards fail loudly. -------------------------------------
 render --set 'jobs.shorted-news.image=nope' >/dev/null 2>&1 && fail "unknown image key rendered" || pass "unknown image key fails the render"

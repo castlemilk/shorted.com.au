@@ -212,6 +212,12 @@ run_testcontainers_integration() {
   fi
 
   run "Testcontainers integration" make test-integration-local
+  run "Strategy parity container suite" make -C services test-strategy-parity
+  run "Strategy reader container suite" make -C services test-pgsource-pg
+  run "Strategy daily snapshot container suite" make -C services test-strategies-daily-pg
+  run "Strategy snapshot API container suite" make -C services test-strategy-snapshot-pg
+  run "Strategy backtest container suite" make -C services test-strategies-backtest-pg
+  run "Key-metrics container suite" make -C services test-keymetrics-pg
 }
 
 run_fast() {

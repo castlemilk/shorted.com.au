@@ -7,6 +7,7 @@ await import("./src/env.js");
 
 import packageJson from "./package.json" with { type: "json" };
 import { legacyTabRedirects } from "./src/config/stock-tab-redirects.mjs";
+import { strategyRedirects } from "./src/config/strategy-redirects.mjs";
 import { discordActivityRedirect } from "./src/config/discord-activity.mjs";
 import { buildIdentityEnv } from "./src/config/build-identity.mjs";
 import { execSync } from "child_process";
@@ -167,7 +168,7 @@ const config = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://va.vercel-scripts.com https://*.cloudflareinsights.com https://apis.google.com https://accounts.google.com https://www.gstatic.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://va.vercel-scripts.com https://*.cloudflareinsights.com https://cdn.flaggr.dev https://apis.google.com https://accounts.google.com https://www.gstatic.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data: https://fonts.gstatic.com",
@@ -291,7 +292,7 @@ const config = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://va.vercel-scripts.com https://*.cloudflareinsights.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://va.vercel-scripts.com https://*.cloudflareinsights.com https://cdn.flaggr.dev",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data: https://fonts.gstatic.com",
@@ -319,6 +320,9 @@ const config = {
       // entry: it renders the Overview like any value outside the map. The map
       // and the reasoning live in src/config/stock-tab-redirects.mjs.
       ...legacyTabRedirects(),
+      // The stock picker moved from `/picks` to `/strategies`: every old URL is a
+      // permanent redirect (src/config/strategy-redirects.mjs).
+      ...strategyRedirects(),
       // The Discord Activity loads `/` with its launch parameters; only those
       // requests go to the Activity page (src/config/discord-activity.mjs).
       discordActivityRedirect(),

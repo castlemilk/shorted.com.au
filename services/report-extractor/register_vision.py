@@ -92,6 +92,13 @@ _COMPACT_HOLDER = {"s": "self", "p": "spouse/partner", "c": "dependent children"
 # 100% accuracy in the probe. Higher costs latency for no measured gain.
 VISION_RASTER_DPI = 150
 
+# The most pixels one rendered page may hold. An A4 page at 150dpi is 2.2 MP and an A3 one 4.4
+# MP; a page wider than that is a photo embedded at its own size (a 59 x 79 inch page in a
+# Codan cessation notice rendered to 106 MP per page, 60 MB of PNG for two pages and 933 MB of
+# memory, which killed the notice reader's pod at its 1 GiB limit, 2026-11-06). Such a page is
+# rendered at the dpi that fits the cap instead: the text is as legible as on an A3 page.
+MAX_PAGE_PIXELS = 4_500_000
+
 # BATCHING IS THE THROUGHPUT LEVER, NOT CONCURRENCY. ~10-16s of the per-call cost
 # is fixed CLI startup, so 4 pages per call measured 7.8s/page against 12.9s/page
 # one-at-a-time. 4 also keeps a table that spans a page break inside one context.
@@ -605,11 +612,21 @@ def rasterise(pdf_path: str, page_numbers: list[int], outdir: str, dpi: int = VI
         for page_no in page_numbers:
             if page_no < 1 or page_no > doc.page_count:
                 continue
-            pix = doc[page_no - 1].get_pixmap(dpi=dpi)
+            page = doc[page_no - 1]
+            pix = page.get_pixmap(dpi=page_dpi(page.rect.width, page.rect.height, dpi))
             path = os.path.join(outdir, f"page{page_no:04d}.png")
             pix.save(path)
             out[page_no] = path
     return out
+
+
+def page_dpi(width_pt: float, height_pt: float, dpi: int = VISION_RASTER_DPI) -> int:
+    """The dpi that renders a page of this size (PDF points) within MAX_PAGE_PIXELS: dpi itself
+    for any ordinary page, lower for a page that is really a photo at its own size."""
+    pixels = (width_pt / 72 * dpi) * (height_pt / 72 * dpi)
+    if pixels <= MAX_PAGE_PIXELS or pixels <= 0:
+        return dpi
+    return max(18, int(dpi * (MAX_PAGE_PIXELS / pixels) ** 0.5))
 
 
 def batches(items: list[int], size: int) -> list[list[int]]:

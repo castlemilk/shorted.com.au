@@ -179,7 +179,7 @@ describe("StrategyFitPanel", () => {
     const panel = screen.getByRole("region", { name: "CAN SLIM" });
     expect(
       within(panel).getByRole("link", { name: "CAN SLIM" }),
-    ).toHaveAttribute("href", "/picks/canslim");
+    ).toHaveAttribute("href", "/strategies/canslim");
     expect(
       within(panel).getByRole("heading", { level: 2, name: "CAN SLIM" }),
     ).toBeInTheDocument();

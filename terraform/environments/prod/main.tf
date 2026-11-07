@@ -340,6 +340,7 @@ locals {
     "shorted-news-resolve-googlenews",
     "shorted-news-digest",
     "shorted-economy",
+    "shorted-ownership",
   ]
 }
 
@@ -905,6 +906,7 @@ module "shorted_job_picks" {
     GCP_PROJECT                   = var.project_id
     PICKS_FUNDAMENTALS_BUDGET_MIN = "170"
     REVALIDATION_URL              = "https://shorted.com.au/api/revalidate"
+    STRATEGY_PARITY_SHADOW        = "on"
   }
 
   secret_env = {
@@ -1347,6 +1349,10 @@ module "shorts_api" {
   # (roles/run.viewer on that one service; mcp_admin_ingest.go).
   housing_ingest_service_name = module.housing_ingest.service_name
 
+  # The API's uptime alerts (uptime.tf) notify the same email channel as the
+  # Cloud Run Job alerts. Empty when alert_recipient_email is unset.
+  notification_channel_ids = compact([module.job_monitoring.notification_channel_id])
+
   project_id        = var.project_id
   region            = var.region
   environment       = "production"
@@ -1364,6 +1370,17 @@ module "shorts_api" {
   rate_limit_ssr_bypass_header_name = var.rate_limit_ssr_bypass_header_name
   rate_limit_ssr_bypass_user_agent  = var.rate_limit_ssr_bypass_user_agent
 
+  # Where the stock picker reads its inputs: the daily snapshot (PR-11b, after a
+  # clean, conclusive parity weekday on 2026-11-06). Rollback: set "views" and
+  # deploy. See modules/shorts-api/variables.tf.
+  strategy_source = "snapshot"
+
+  # Public depth of the strategy picks: the top 10 of the default ranking for
+  # every caller of the public GetStrategyPicks, signed in or not, API tokens
+  # included (PR-06b). A bearer token's full depth is GetViewerStrategyPicks,
+  # which this does not touch; the web's Signals tab reads it when signed in.
+  strategy_public_signals_limit = 10
+
   # Internal tier grants. The tfvar lists operator user ids, so revoking one is a
   # tfvar change rather than a code change. The paid-feature probe's identity
   # (web/src/server/paid-probe/constants.ts) is always appended, because the probe
@@ -1373,9 +1390,6 @@ module "shorts_api" {
   # api_subscriptions row, so the owner's access no longer depends on a row that
   # Stripe can overwrite.
   internal_tier_user_ids = join(",", compact(concat(split(",", var.internal_tier_user_ids), ["svc-paid-probe", "JhKP8T9HoITH07eNBs4BOidsszP2"])))
-
-  scheduler_region             = "australia-southeast1"
-  enable_key_metrics_scheduler = true
 
   # Where GET /api/admin/jobs/validate-sync reads a validation report from.
   # Same bucket the sync job writes it to — see the local above.

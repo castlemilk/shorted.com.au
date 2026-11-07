@@ -1,4 +1,4 @@
-// Strategy SEO registry: the single source of truth for the /picks URL set.
+// Strategy SEO registry: the single source of truth for the /strategies URL set.
 //
 // One entry per strategy id in docs/plans/stock-picker.md §1 plus
 // quality-compounders (docs/plans/fundamentals-coverage.md §5.4); the ids are
@@ -9,7 +9,7 @@
 // It deliberately carries NO prose about the rules. The method, every rule in
 // the author's terms, how we test it, the caveats and the sources all come
 // from the API (ListStrategies / GetStrategyPicks), whose Go registry
-// (services/shorts/internal/strategies/registry.go) is the one place that
+// (services/pkg/strategy/engine/registry.go) is the one place that
 // prose lives. Duplicating it here would let the page and the API disagree
 // about what a rule means, which is the one thing a rules-shown product
 // cannot do.

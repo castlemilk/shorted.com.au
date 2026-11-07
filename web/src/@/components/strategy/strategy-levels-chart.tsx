@@ -44,6 +44,18 @@ export interface StrategyLevelsChartProps {
   fits: StockStrategyFitRow[];
   priceFeatures: StockPriceFeatures | null;
   initialStrategyId?: string | null;
+  /**
+   * Hides the strategy toggle. The Signals tab's evidence panel is about the
+   * page's strategy, so the chart draws `initialStrategyId` and offers no other.
+   */
+  hideSelector?: boolean;
+  /**
+   * Keeps the volume bars at a phone width. The Signals evidence panel is
+   * narrow on every breakpoint, and the chart would otherwise drop its volume.
+   */
+  keepVolumeOnNarrow?: boolean;
+  /** Tags the last close as a level (the Signals evidence panel). */
+  tagLastClose?: boolean;
 }
 
 export function StrategyLevelsChart({
@@ -51,11 +63,14 @@ export function StrategyLevelsChart({
   fits,
   priceFeatures,
   initialStrategyId,
+  hideSelector = false,
+  keepVolumeOnNarrow = false,
+  tagLastClose = false,
 }: StrategyLevelsChartProps) {
   const [selected, setSelected] = useState<string | null>(
     () => initialStrategyId ?? defaultStrategyId(fits),
   );
-  const { price, short, anyLoading, isError } = useStockChartData(
+  const { price, short, volume, anyLoading, isError } = useStockChartData(
     stockCode,
     PERIOD,
   );
@@ -65,8 +80,12 @@ export function StrategyLevelsChart({
     (r) => r.ruleId === "short_interest",
   )?.detail;
   const levelSet = useMemo(
-    () => strategyLevelSet(selected ?? "", priceFeatures, { shortRuleDetail }),
-    [selected, priceFeatures, shortRuleDetail],
+    () =>
+      strategyLevelSet(selected ?? "", priceFeatures, {
+        shortRuleDetail,
+        tagLastClose,
+      }),
+    [selected, priceFeatures, shortRuleDetail, tagLastClose],
   );
 
   // The levels are as at the picker's last refresh, while the prices are
@@ -132,28 +151,30 @@ export function StrategyLevelsChart({
 
   return (
     <div className="flex flex-col gap-3" data-strategy-chart={selected ?? ""}>
-      <div
-        className="flex flex-wrap items-center gap-1 rounded-md border p-0.5"
-        role="group"
-        aria-label="Strategy levels"
-      >
-        {fits.map((f) => (
-          <button
-            key={f.strategyId}
-            type="button"
-            onClick={() => setSelected(f.strategyId)}
-            aria-pressed={selected === f.strategyId}
-            className={cn(
-              "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-              selected === f.strategyId
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-            )}
-          >
-            {f.strategyName}
-          </button>
-        ))}
-      </div>
+      {hideSelector ? null : (
+        <div
+          className="flex flex-wrap items-center gap-1 rounded-md border p-0.5"
+          role="group"
+          aria-label="Strategy levels"
+        >
+          {fits.map((f) => (
+            <button
+              key={f.strategyId}
+              type="button"
+              onClick={() => setSelected(f.strategyId)}
+              aria-pressed={selected === f.strategyId}
+              className={cn(
+                "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                selected === f.strategyId
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              )}
+            >
+              {f.strategyName}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isError ? (
         <div className="flex h-[360px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
@@ -162,6 +183,7 @@ export function StrategyLevelsChart({
       ) : series.length ? (
         <StockChart
           series={series}
+          volume={volume}
           indicators={indicators}
           levels={levelSet.levels}
           bands={levelSet.bands}
@@ -174,6 +196,7 @@ export function StrategyLevelsChart({
           }
           height={360}
           showBrush={false}
+          keepVolumeOnNarrow={keepVolumeOnNarrow}
         />
       ) : anyLoading ? (
         <div

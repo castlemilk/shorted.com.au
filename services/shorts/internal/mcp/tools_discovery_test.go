@@ -13,7 +13,7 @@ import (
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -768,7 +768,7 @@ func TestListStrategiesHandlesEmptyErrorsAndNilBodies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an empty list is a result, not an error: %v", err)
 	}
-	if out.Count != 0 || out.Strategies == nil || out.Regime.IndexCode != strategies.DefaultIndexCode {
+	if out.Count != 0 || out.Strategies == nil || out.Regime.IndexCode != engine.DefaultIndexCode {
 		t.Errorf("empty result malformed: %+v", out)
 	}
 	if !strings.Contains(textOf(t, res), "No strategies") {
@@ -875,7 +875,7 @@ func TestGetStrategyPicksSchemaNamesEverySortKey(t *testing.T) {
 		t.Fatal("no SortBy field")
 	}
 	tag := field.Tag.Get("jsonschema")
-	keys := strategies.SortKeys()
+	keys := engine.SortKeys()
 	if len(keys) == 0 {
 		t.Fatal("no sort keys: this test would pass vacuously")
 	}
@@ -893,7 +893,7 @@ func TestGetStrategyPicksSchemaNamesEverySortKey(t *testing.T) {
 // Every strategy the registry holds is named in list_strategies' description,
 // by the name the registry gives it.
 func TestListStrategiesDescriptionNamesEveryStrategy(t *testing.T) {
-	reg := strategies.Registry()
+	reg := engine.Registry()
 	if len(reg) == 0 {
 		t.Fatal("registry is empty: this test would pass vacuously")
 	}
@@ -993,7 +993,7 @@ func TestGetStrategyPicksProjectsOutcomesAndOmitsUnknownFigures(t *testing.T) {
 
 	text := textOf(t, res)
 	for _, want := range []string{"2 picks for Zanger Breakout: 1 triggered, 0 setup", "of 40 matching", "neutral",
-		"First: PLS", "pivot A$2.20", "Fundamentals cover 900 of 1200", "https://shorted.com.au/picks/zanger-breakout",
+		"First: PLS", "pivot A$2.20", "Fundamentals cover 900 of 1200", "https://shorted.com.au/strategies/zanger-breakout",
 		"Not financial advice"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("summary missing %q: %q", want, text)

@@ -63,7 +63,7 @@ export function StrategyArtBand({
       )}
       {/* The scrim: the page surface fading out to the right, so the
           faceplate sits on paper and the scene shows where there is no
-          text. The second fade keeps the provenance plate legible. */}
+          text. The second fade keeps the dek legible. */}
       <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/80 to-background/30" />
       <div className="absolute inset-0 bg-gradient-to-t from-background/70 to-transparent" />
     </div>

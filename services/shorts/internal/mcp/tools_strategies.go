@@ -7,7 +7,8 @@ import (
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/viewerctx"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -78,7 +79,7 @@ const (
 // error a model reads when it guesses one.
 func strategyIDs() []string {
 	var ids []string
-	for _, st := range strategies.Registry() {
+	for _, st := range engine.Registry() {
 		ids = append(ids, st.ID)
 	}
 	return ids
@@ -95,7 +96,7 @@ type MarketRegimeSummary struct {
 
 func projectRegime(r *shortsv1alpha1.MarketRegime) MarketRegimeSummary {
 	return MarketRegimeSummary{
-		IndexCode: nonEmpty(r.GetIndexCode(), strategies.DefaultIndexCode),
+		IndexCode: nonEmpty(r.GetIndexCode(), engine.DefaultIndexCode),
 		AsOf:      r.GetAsOf(),
 		Regime:    r.GetRegime(),
 		Verdict:   r.GetVerdict(),
@@ -123,7 +124,22 @@ type StrategySummary struct {
 	Tagline       string                `json:"tagline"`
 	Style         string                `json:"style,omitempty"`
 	HoldingPeriod string                `json:"holding_period,omitempty"`
+	RulesVersion  string                `json:"rules_version,omitempty" jsonschema:"The live rules version."`
 	Rules         []StrategyRuleSummary `json:"rules"`
+}
+
+// rulesVersionText names a rules version the way a reader quotes it: the label,
+// the first eight characters of its hash and the engine version. "" when the
+// API sent no version, which is absent, never a guessed label.
+func rulesVersionText(v *shortsv1alpha1.StrategyVersionRef) string {
+	hash := v.GetRulesHash()
+	if hash == "" {
+		return ""
+	}
+	if len(hash) > 8 {
+		hash = hash[:8]
+	}
+	return fmt.Sprintf("%s %s · engine %s", v.GetLabel(), hash, v.GetEngineVersion())
 }
 
 type ListStrategiesOutput struct {
@@ -155,7 +171,8 @@ func listStrategiesTool() Tool {
 }
 
 func listStrategiesHandler(src DataSource) sdk.ToolHandlerFor[ListStrategiesInput, ListStrategiesOutput] {
-	return func(ctx context.Context, _ *sdk.CallToolRequest, _ ListStrategiesInput) (*sdk.CallToolResult, ListStrategiesOutput, error) {
+	return func(ctx context.Context, req *sdk.CallToolRequest, _ ListStrategiesInput) (*sdk.CallToolResult, ListStrategiesOutput, error) {
+		ctx = mcpViewerContext(ctx, req)
 		res, err := src.ListStrategies(ctx, connect.NewRequest(&shortsv1alpha1.ListStrategiesRequest{}))
 		if err != nil {
 			return nil, ListStrategiesOutput{}, fmt.Errorf("could not list strategies: %w", err)
@@ -167,7 +184,7 @@ func listStrategiesHandler(src DataSource) sdk.ToolHandlerFor[ListStrategiesInpu
 		// Projected: the proto also carries each strategy's description
 		// paragraphs, the author's rule text, our evaluation prose, caveats and
 		// sources — several KB per strategy, and the page at
-		// shorted.com.au/picks/{id} is the place to read them.
+		// shorted.com.au/strategies/{id} is the place to read them.
 		out := ListStrategiesOutput{
 			Strategies: []StrategySummary{},
 			Regime:     projectRegime(res.Msg.GetRegime()),
@@ -183,6 +200,7 @@ func listStrategiesHandler(src DataSource) sdk.ToolHandlerFor[ListStrategiesInpu
 				Tagline:       st.GetTagline(),
 				Style:         st.GetMetadata().GetStyle(),
 				HoldingPeriod: st.GetMetadata().GetHoldingPeriod(),
+				RulesVersion:  rulesVersionText(st.GetVersion()),
 				Rules:         []StrategyRuleSummary{},
 			}
 			for _, r := range st.GetRules() {
@@ -204,11 +222,21 @@ func listStrategiesHandler(src DataSource) sdk.ToolHandlerFor[ListStrategiesInpu
 				ids = append(ids, st.ID)
 			}
 			text = fmt.Sprintf("%d strategies: %s. %s Call get_strategy_picks with one of these ids for its ranked stocks. "+
-				"Full rules and method: https://shorted.com.au/picks. Not financial advice.",
+				"Full rules and method: https://shorted.com.au/strategies. Not financial advice.",
 				out.Count, strings.Join(ids, ", "), describeRegime(out.Regime))
 		}
 		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: text}}}, out, nil
 	}
+}
+
+// mcpViewerContext carries a verified MCP caller into the strategy reads, so a
+// signed-in MCP caller gets the depth the connector is owed. The viewer comes
+// from the token the SDK verified, never from the tool arguments, and only the
+// in-process call sees it: the strategy reads take it from the context, and
+// the HTTP handlers never can. An anonymous caller has no token and keeps the
+// public depth.
+func mcpViewerContext(ctx context.Context, req *sdk.CallToolRequest) context.Context {
+	return viewerctx.WithMCPUser(ctx, tokenUserID(req))
 }
 
 // describeRegime renders the regime for a text fallback.
@@ -279,6 +307,7 @@ type GetStrategyPicksOutput struct {
 	FundamentalsRowsCount     int                 `json:"fundamentals_rows_count" jsonschema:"Evaluated stocks with any reported fundamentals."`
 	FundamentalsCoverageCount int                 `json:"fundamentals_coverage_count" jsonschema:"Of those, with a growth figure."`
 	TotalCount                int                 `json:"total_count" jsonschema:"Before the limit."`
+	RulesVersion              string              `json:"rules_version,omitempty"`
 	Count                     int                 `json:"count"`
 	DetailTrimmed             bool                `json:"detail_trimmed,omitempty" jsonschema:"Evidence ran out part-way down the list."`
 	Picks                     []StrategyPickRow   `json:"picks"`
@@ -292,7 +321,7 @@ const getStrategyPicksDescription = "Ranked ASX stocks for one named strategy, w
 	"and EPS growth year on year, return on equity and net margin, 3-month return relative to the S&P/ASX 200 and ASIC " +
 	"short percent; a figure is absent when unknown, never zero. Also the market regime with this strategy's verdict " +
 	"(a downtrend means stand aside, it does not hide picks) and how many evaluated stocks hold fundamentals: without " +
-	"them fundamentals rules read unknown and a stock cannot trigger. Default 10 picks, maximum 25. Ids and rules: " +
+	"them fundamentals rules read unknown and a stock cannot trigger. Default 10 picks. Without sign-in, the top 10 only; connected with OAuth, up to 25. Ids and rules: " +
 	"list_strategies. A pick's statements and ratios: get_stock_fundamentals. End-of-day data; short data is T+4. A " +
 	"rules-based screen, not financial advice."
 
@@ -311,27 +340,28 @@ func getStrategyPicksTool() Tool {
 }
 
 func getStrategyPicksHandler(src DataSource) sdk.ToolHandlerFor[GetStrategyPicksInput, GetStrategyPicksOutput] {
-	return func(ctx context.Context, _ *sdk.CallToolRequest, in GetStrategyPicksInput) (*sdk.CallToolResult, GetStrategyPicksOutput, error) {
+	return func(ctx context.Context, req *sdk.CallToolRequest, in GetStrategyPicksInput) (*sdk.CallToolResult, GetStrategyPicksOutput, error) {
+		ctx = mcpViewerContext(ctx, req)
 		id := strings.ToLower(strings.TrimSpace(in.StrategyID))
 		if id == "" {
 			return nil, GetStrategyPicksOutput{}, fmt.Errorf(
 				"strategy_id is required: use one of %s, or call list_strategies", strings.Join(strategyIDs(), ", "))
 		}
-		if _, ok := strategies.Lookup(id); !ok {
+		if _, ok := engine.Lookup(id); !ok {
 			return nil, GetStrategyPicksOutput{}, fmt.Errorf(
 				"%q is not a strategy id: use one of %s", in.StrategyID, strings.Join(strategyIDs(), ", "))
 		}
 		status := strings.ToLower(strings.TrimSpace(in.Status))
-		if status != "" && !strategies.ValidPickStatus(status) {
+		if status != "" && !engine.ValidPickStatus(status) {
 			return nil, GetStrategyPicksOutput{}, fmt.Errorf(
 				"%q is not a pick status: use triggered, setup or watch, or omit it for all", in.Status)
 		}
 		// Validated against the evaluator's own closed set, so a typo is a
 		// message naming the choices rather than an InvalidArgument to decode.
 		sortBy := strings.ToLower(strings.TrimSpace(in.SortBy))
-		if sortBy != "" && !strategies.ValidSortBy(sortBy) {
+		if sortBy != "" && !engine.ValidSortBy(sortBy) {
 			return nil, GetStrategyPicksOutput{}, fmt.Errorf(
-				"%q is not a sort_by value: use one of %s, or omit it for rank order", in.SortBy, strings.Join(strategies.SortKeys(), ", "))
+				"%q is not a sort_by value: use one of %s, or omit it for rank order", in.SortBy, strings.Join(engine.SortKeys(), ", "))
 		}
 		limit := clampLimit(in.Limit, defaultStrategyPicksLimit, maxStrategyPicksLimit)
 
@@ -363,6 +393,7 @@ func getStrategyPicksHandler(src DataSource) sdk.ToolHandlerFor[GetStrategyPicks
 			FundamentalsRowsCount:     int(msg.GetFundamentalsRowsCount()),
 			FundamentalsCoverageCount: int(msg.GetFundamentalsCoverageCount()),
 			TotalCount:                int(msg.GetTotalCount()),
+			RulesVersion:              rulesVersionText(msg.GetVersion()),
 			Picks:                     []StrategyPickRow{},
 		}
 
@@ -401,7 +432,13 @@ func getStrategyPicksHandler(src DataSource) sdk.ToolHandlerFor[GetStrategyPicks
 		}
 		out.Count = len(out.Picks)
 
-		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: describePicks(out, status, sortBy, st)}}}, out, nil
+		// Without sign-in the read is clamped to the public depth; the text
+		// says so, so a clamped answer is never read as the whole ranking.
+		public := 0
+		if v := msg.GetViewer(); v.GetClamped() {
+			public = int(v.GetLimit())
+		}
+		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: describePicks(out, status, sortBy, st, public)}}}, out, nil
 	}
 }
 
@@ -483,7 +520,7 @@ func pickFundamentalsSource(f *shortsv1alpha1.PickFundamentals) string {
 // zero-picks explanation follows what the server evaluated.
 func usesFundamentals(st *shortsv1alpha1.Strategy) bool {
 	for _, r := range st.GetRules() {
-		if r.GetDataSource() == strategies.SourceFundamentals {
+		if r.GetDataSource() == engine.SourceFundamentals {
 			return true
 		}
 	}
@@ -494,7 +531,7 @@ func usesFundamentals(st *shortsv1alpha1.Strategy) bool {
 // unknown: the quality ratios for a strategy built on them, the growth figures
 // otherwise. Read from the registry, which is what the server evaluated.
 func fundamentalsRuleKind(id string) string {
-	if st, ok := strategies.Lookup(id); ok && st.UsesQualityRules() {
+	if st, ok := engine.Lookup(id); ok && st.UsesQualityRules() {
 		return "quality"
 	}
 	return "growth"
@@ -510,17 +547,17 @@ func fundamentalsRuleKind(id string) string {
 func describeSort(sortBy string) string {
 	var s string
 	switch sortBy {
-	case "", strategies.SortScore:
+	case "", engine.SortScore:
 		return ""
-	case strategies.SortPE:
+	case engine.SortPE:
 		s = " Sorted by pe, lowest first, unknowns last; rank is still the strategy's."
 	default:
 		s = " Sorted by " + sortBy + ", highest first, unknowns last; rank is still the strategy's."
 	}
 	switch sortBy {
-	case strategies.SortFCFMargin, strategies.SortPE:
+	case engine.SortFCFMargin, engine.SortPE:
 		s += " Each stock's " + sortBy + " figure is in get_stock_fundamentals."
-	case strategies.SortMarketCap:
+	case engine.SortMarketCap:
 		s += " Market cap is the latest close x shares on issue, in AUD (get_stock_fundamentals' market_cap), " +
 			"or the screener's figure where we hold no share count."
 	}
@@ -539,10 +576,22 @@ func describeCoverage(out GetStrategyPicksOutput, kind string) string {
 		out.FundamentalsCoverageCount, out.UniverseCount, kind)
 }
 
-func describePicks(out GetStrategyPicksOutput, status, sortBy string, st *shortsv1alpha1.Strategy) string {
+func describePicks(out GetStrategyPicksOutput, status, sortBy string, st *shortsv1alpha1.Strategy, public int) string {
 	name := out.Strategy.Name
 	kind := fundamentalsRuleKind(out.Strategy.ID)
 	var b strings.Builder
+	if public > 0 && status != "" && out.TotalCount > 0 && out.Count == 0 {
+		// The filter matched stocks, but none ranks in the public top rows the
+		// clamp serves: "no picks" would be false, and the advice would be wrong.
+		noun, verb := "stocks", "rank"
+		if out.TotalCount == 1 {
+			noun, verb = "stock", "ranks"
+		}
+		fmt.Fprintf(&b, "%s: none of the public top %d of the ranking has status %s, but %d %s with that status %s below it. Connected with OAuth, up to 25 rows.",
+			name, public, status, out.TotalCount, noun, verb)
+		b.WriteString(" " + describeRegime(out.Regime))
+		return b.String()
+	}
 	if out.Count == 0 {
 		b.WriteString("No picks for " + name)
 		if status != "" {
@@ -581,6 +630,9 @@ func describePicks(out GetStrategyPicksOutput, status, sortBy string, st *shorts
 	}
 	b.WriteString(".")
 	b.WriteString(describeSort(sortBy))
+	if public > 0 {
+		fmt.Fprintf(&b, " Without sign-in only the top %d of the ranking are served; the status and sort apply within them.", public)
+	}
 	b.WriteString(" " + describeRegime(out.Regime))
 
 	first := out.Picks[0]
@@ -598,6 +650,6 @@ func describePicks(out GetStrategyPicksOutput, status, sortBy string, st *shorts
 	if out.AsOf != "" {
 		b.WriteString(" Prices to " + out.AsOf + ".")
 	}
-	b.WriteString(" Method: https://shorted.com.au/picks/" + out.Strategy.ID + ". Not financial advice.")
+	b.WriteString(" Method: https://shorted.com.au/strategies/" + out.Strategy.ID + ". Not financial advice.")
 	return b.String()
 }

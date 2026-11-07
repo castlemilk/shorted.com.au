@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -33,6 +34,10 @@ const RefreshTokenTTL = 30 * 24 * time.Hour
 // refreshEntropyBytes — 256 bits. A refresh token is a bearer credential for a
 // month; it must be unguessable, not merely unique.
 const refreshEntropyBytes = 32
+
+// errRefreshExpired distinguishes normal expiry while waiting for a store
+// lock from replay, which must revoke the refresh family.
+var errRefreshExpired = errors.New("refresh token expired before rotation")
 
 // PKCE verifier bounds, RFC 7636 §4.1.
 const (
@@ -124,7 +129,8 @@ type TokenStore interface {
 	// It returns (nil, nil) when the presented token does not exist, was
 	// already rotated, or was revoked. The caller must treat that as a possible
 	// REUSE and revoke the family — this method deliberately does not decide
-	// that, so the policy lives in one readable place.
+	// that, so the policy lives in one readable place. errRefreshExpired means
+	// the token expired while waiting for the family lock, not a replay.
 	RotateRefreshToken(ctx context.Context, presentedHash, successorHash string, successorExpiresAt time.Time) (*RefreshToken, error)
 
 	// RevokeRefreshTokenFamily revokes every token sharing a family with the
@@ -562,7 +568,19 @@ func (h *tokenHandler) refresh(w http.ResponseWriter, r *http.Request) {
 		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not issue a token")
 		return
 	}
+	// Mint before spending the one-time refresh token. If signing is
+	// temporarily unavailable, the client can retry the same grant.
+	access, err := h.mintAccessToken(parent.UserID, parent.Resource, scope)
+	if err != nil {
+		log.Errorf("oauth token: minting access token: %v", err)
+		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not issue a token")
+		return
+	}
 	rotated, err := h.store.RotateRefreshToken(ctx, presentedHash, HashCode(successor), h.now().Add(RefreshTokenTTL))
+	if errors.Is(err, errRefreshExpired) {
+		writeOAuthError(w, http.StatusBadRequest, "invalid_grant", "the refresh token has expired")
+		return
+	}
 	if err != nil {
 		log.Errorf("oauth token: rotating refresh token: %v", err)
 		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not rotate the token")
@@ -579,8 +597,14 @@ func (h *tokenHandler) refresh(w http.ResponseWriter, r *http.Request) {
 			"the refresh token is invalid, expired or has already been used")
 		return
 	}
-
-	h.issue(w, r, rotated.UserID, rotated.ClientID, rotated.Resource, scope, successor)
+	// Grant fields are immutable in normal operation. Do not return a token
+	// minted from a stale read if storage was modified between read and rotate.
+	if rotated.UserID != parent.UserID || rotated.ClientID != parent.ClientID || rotated.Resource != parent.Resource || rotated.Scope != parent.Scope {
+		h.revokeFamily(ctx, presentedHash, "refresh grant changed during rotation")
+		writeOAuthError(w, http.StatusServiceUnavailable, "temporarily_unavailable", "refresh grant changed during rotation")
+		return
+	}
+	h.writeTokens(w, access, successor, scope)
 }
 
 // revokeFamily is best effort and never changes the response: a failure to
@@ -597,12 +621,8 @@ func (h *tokenHandler) revokeFamily(ctx context.Context, presentedHash, why stri
 	}
 }
 
-// issue mints the access token and, when refreshToken is empty, a brand new
-// refresh token family. Both grants converge here so the response shape and the
-// audience rule have exactly one definition.
-func (h *tokenHandler) issue(w http.ResponseWriter, r *http.Request, userID, clientID, resource, scope, refreshToken string) {
-	ctx := r.Context()
-
+// mintAccessToken centralizes the audience and tier rules for both grants.
+func (h *tokenHandler) mintAccessToken(userID, resource, scope string) (string, error) {
 	// Tier at mint time, from api_subscriptions. A failed lookup degrades to
 	// "free" — the LEAST privilege — rather than failing the exchange, because
 	// the interceptor re-resolves tier on every request anyway and the token's
@@ -616,7 +636,7 @@ func (h *tokenHandler) issue(w http.ResponseWriter, r *http.Request, userID, cli
 		}
 	}
 
-	access, err := h.minter.MintAccessToken(AccessTokenRequest{
+	return h.minter.MintAccessToken(AccessTokenRequest{
 		UserID: userID,
 		Tier:   tier,
 		Scope:  scope,
@@ -632,6 +652,12 @@ func (h *tokenHandler) issue(w http.ResponseWriter, r *http.Request, userID, cli
 		Audience: []string{resource},
 		TTL:      AccessTokenTTL,
 	})
+}
+
+// issue creates the initial refresh family after minting the access token.
+func (h *tokenHandler) issue(w http.ResponseWriter, r *http.Request, userID, clientID, resource, scope, refreshToken string) {
+	ctx := r.Context()
+	access, err := h.mintAccessToken(userID, resource, scope)
 	if err != nil {
 		log.Errorf("oauth token: minting access token: %v", err)
 		writeOAuthError(w, http.StatusInternalServerError, "server_error", "could not issue a token")
@@ -661,6 +687,10 @@ func (h *tokenHandler) issue(w http.ResponseWriter, r *http.Request, userID, cli
 		}
 	}
 
+	h.writeTokens(w, access, refreshToken, scope)
+}
+
+func (h *tokenHandler) writeTokens(w http.ResponseWriter, access, refreshToken, scope string) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"access_token":  access,

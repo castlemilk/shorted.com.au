@@ -39,17 +39,49 @@ const (
 	// StrategyServiceGetStrategyPicksProcedure is the fully-qualified name of the StrategyService's
 	// GetStrategyPicks RPC.
 	StrategyServiceGetStrategyPicksProcedure = "/shorts.v1alpha1.StrategyService/GetStrategyPicks"
+	// StrategyServiceGetViewerStrategyPicksProcedure is the fully-qualified name of the
+	// StrategyService's GetViewerStrategyPicks RPC.
+	StrategyServiceGetViewerStrategyPicksProcedure = "/shorts.v1alpha1.StrategyService/GetViewerStrategyPicks"
 	// StrategyServiceGetStockStrategyFitProcedure is the fully-qualified name of the StrategyService's
 	// GetStockStrategyFit RPC.
 	StrategyServiceGetStockStrategyFitProcedure = "/shorts.v1alpha1.StrategyService/GetStockStrategyFit"
+	// StrategyServiceGetStrategyVersionProcedure is the fully-qualified name of the StrategyService's
+	// GetStrategyVersion RPC.
+	StrategyServiceGetStrategyVersionProcedure = "/shorts.v1alpha1.StrategyService/GetStrategyVersion"
+	// StrategyServiceListStrategyVersionsProcedure is the fully-qualified name of the StrategyService's
+	// ListStrategyVersions RPC.
+	StrategyServiceListStrategyVersionsProcedure = "/shorts.v1alpha1.StrategyService/ListStrategyVersions"
+	// StrategyServiceGetStrategyDataStatusProcedure is the fully-qualified name of the
+	// StrategyService's GetStrategyDataStatus RPC.
+	StrategyServiceGetStrategyDataStatusProcedure = "/shorts.v1alpha1.StrategyService/GetStrategyDataStatus"
+	// StrategyServiceListStrategySignalEventsProcedure is the fully-qualified name of the
+	// StrategyService's ListStrategySignalEvents RPC.
+	StrategyServiceListStrategySignalEventsProcedure = "/shorts.v1alpha1.StrategyService/ListStrategySignalEvents"
+	// StrategyServiceSaveStrategyProcedure is the fully-qualified name of the StrategyService's
+	// SaveStrategy RPC.
+	StrategyServiceSaveStrategyProcedure = "/shorts.v1alpha1.StrategyService/SaveStrategy"
+	// StrategyServiceUnsaveStrategyProcedure is the fully-qualified name of the StrategyService's
+	// UnsaveStrategy RPC.
+	StrategyServiceUnsaveStrategyProcedure = "/shorts.v1alpha1.StrategyService/UnsaveStrategy"
+	// StrategyServiceListSavedStrategiesProcedure is the fully-qualified name of the StrategyService's
+	// ListSavedStrategies RPC.
+	StrategyServiceListSavedStrategiesProcedure = "/shorts.v1alpha1.StrategyService/ListSavedStrategies"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	strategyServiceServiceDescriptor                   = v1alpha1.File_shorts_v1alpha1_strategies_proto.Services().ByName("StrategyService")
-	strategyServiceListStrategiesMethodDescriptor      = strategyServiceServiceDescriptor.Methods().ByName("ListStrategies")
-	strategyServiceGetStrategyPicksMethodDescriptor    = strategyServiceServiceDescriptor.Methods().ByName("GetStrategyPicks")
-	strategyServiceGetStockStrategyFitMethodDescriptor = strategyServiceServiceDescriptor.Methods().ByName("GetStockStrategyFit")
+	strategyServiceServiceDescriptor                        = v1alpha1.File_shorts_v1alpha1_strategies_proto.Services().ByName("StrategyService")
+	strategyServiceListStrategiesMethodDescriptor           = strategyServiceServiceDescriptor.Methods().ByName("ListStrategies")
+	strategyServiceGetStrategyPicksMethodDescriptor         = strategyServiceServiceDescriptor.Methods().ByName("GetStrategyPicks")
+	strategyServiceGetViewerStrategyPicksMethodDescriptor   = strategyServiceServiceDescriptor.Methods().ByName("GetViewerStrategyPicks")
+	strategyServiceGetStockStrategyFitMethodDescriptor      = strategyServiceServiceDescriptor.Methods().ByName("GetStockStrategyFit")
+	strategyServiceGetStrategyVersionMethodDescriptor       = strategyServiceServiceDescriptor.Methods().ByName("GetStrategyVersion")
+	strategyServiceListStrategyVersionsMethodDescriptor     = strategyServiceServiceDescriptor.Methods().ByName("ListStrategyVersions")
+	strategyServiceGetStrategyDataStatusMethodDescriptor    = strategyServiceServiceDescriptor.Methods().ByName("GetStrategyDataStatus")
+	strategyServiceListStrategySignalEventsMethodDescriptor = strategyServiceServiceDescriptor.Methods().ByName("ListStrategySignalEvents")
+	strategyServiceSaveStrategyMethodDescriptor             = strategyServiceServiceDescriptor.Methods().ByName("SaveStrategy")
+	strategyServiceUnsaveStrategyMethodDescriptor           = strategyServiceServiceDescriptor.Methods().ByName("UnsaveStrategy")
+	strategyServiceListSavedStrategiesMethodDescriptor      = strategyServiceServiceDescriptor.Methods().ByName("ListSavedStrategies")
 )
 
 // StrategyServiceClient is a client for the shorts.v1alpha1.StrategyService service.
@@ -58,12 +90,46 @@ type StrategyServiceClient interface {
 	// the current market regime (S&P/ASX 200).
 	ListStrategies(context.Context, *connect.Request[v1alpha1.ListStrategiesRequest]) (*connect.Response[v1alpha1.ListStrategiesResponse], error)
 	// Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
-	// score and a per-rule pass / fail / unknown breakdown for each stock.
+	// score and a per-rule pass / fail / unknown breakdown for each stock. The
+	// answer is the same bytes to every HTTP caller. When the public depth
+	// limit is set, the rows are the top of the default ranking only, for every
+	// HTTP caller, API-token holders included: a bearer token does not lift it.
+	// Full depth comes from GetViewerStrategyPicks, which accepts a bearer token.
 	GetStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error)
+	// The same ranked picks as GetStrategyPicks, at the caller's full depth. It
+	// needs a signed-in caller (a bearer token, or the web's session) and is never
+	// clamped: the viewer field reports access "free" or "premium" and clamped
+	// false.
+	GetViewerStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error)
 	// How one stock reads against every strategy: status, score, rank and the
 	// per-rule pass / fail / unknown breakdown. A stock that is not a candidate
 	// for a strategy still gets its rule results, with status "none".
 	GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error)
+	// One published version of a strategy's rules: its parameters, what changed
+	// from the version before, and its known issues. An empty version_hash is
+	// the live version. Canonical versions only; an unknown hash is NotFound.
+	GetStrategyVersion(context.Context, *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error)
+	// Every published canonical version of a strategy (all strategies when
+	// strategy_id is empty), in publication order: the rules changelog.
+	ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error)
+	// Where the readings come from: the latest session, the newest completed
+	// snapshot session, the newest ASIC short reports and the next update time.
+	GetStrategyDataStatus(context.Context, *connect.Request[v1alpha1.GetStrategyDataStatusRequest]) (*connect.Response[v1alpha1.GetStrategyDataStatusResponse], error)
+	// The status changes of one strategy's canonical rules version, newest first:
+	// a stock entering or leaving a status, with the rule results that day.
+	ListStrategySignalEvents(context.Context, *connect.Request[v1alpha1.ListStrategySignalEventsRequest]) (*connect.Response[v1alpha1.ListStrategySignalEventsResponse], error)
+	// Save a strategy to the signed-in caller's list. Saving a strategy that is
+	// already saved succeeds and keeps its first save time. The list holds at
+	// most 20; a save past that is refused with PermissionDenied and the
+	// X-Entitlement-Detail metadata (capability cap_reached, with the limit), and
+	// a repeat save at the cap still succeeds.
+	SaveStrategy(context.Context, *connect.Request[v1alpha1.SaveStrategyRequest]) (*connect.Response[v1alpha1.SaveStrategyResponse], error)
+	// Remove a strategy from the caller's list. Removing one that is not saved
+	// succeeds.
+	UnsaveStrategy(context.Context, *connect.Request[v1alpha1.UnsaveStrategyRequest]) (*connect.Response[v1alpha1.UnsaveStrategyResponse], error)
+	// The caller's saved strategies, most recent first, each with today's
+	// status counts.
+	ListSavedStrategies(context.Context, *connect.Request[v1alpha1.ListSavedStrategiesRequest]) (*connect.Response[v1alpha1.ListSavedStrategiesResponse], error)
 }
 
 // NewStrategyServiceClient constructs a client for the shorts.v1alpha1.StrategyService service. By
@@ -88,10 +154,58 @@ func NewStrategyServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(strategyServiceGetStrategyPicksMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getViewerStrategyPicks: connect.NewClient[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse](
+			httpClient,
+			baseURL+StrategyServiceGetViewerStrategyPicksProcedure,
+			connect.WithSchema(strategyServiceGetViewerStrategyPicksMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getStockStrategyFit: connect.NewClient[v1alpha1.GetStockStrategyFitRequest, v1alpha1.GetStockStrategyFitResponse](
 			httpClient,
 			baseURL+StrategyServiceGetStockStrategyFitProcedure,
 			connect.WithSchema(strategyServiceGetStockStrategyFitMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getStrategyVersion: connect.NewClient[v1alpha1.GetStrategyVersionRequest, v1alpha1.GetStrategyVersionResponse](
+			httpClient,
+			baseURL+StrategyServiceGetStrategyVersionProcedure,
+			connect.WithSchema(strategyServiceGetStrategyVersionMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listStrategyVersions: connect.NewClient[v1alpha1.ListStrategyVersionsRequest, v1alpha1.ListStrategyVersionsResponse](
+			httpClient,
+			baseURL+StrategyServiceListStrategyVersionsProcedure,
+			connect.WithSchema(strategyServiceListStrategyVersionsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getStrategyDataStatus: connect.NewClient[v1alpha1.GetStrategyDataStatusRequest, v1alpha1.GetStrategyDataStatusResponse](
+			httpClient,
+			baseURL+StrategyServiceGetStrategyDataStatusProcedure,
+			connect.WithSchema(strategyServiceGetStrategyDataStatusMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listStrategySignalEvents: connect.NewClient[v1alpha1.ListStrategySignalEventsRequest, v1alpha1.ListStrategySignalEventsResponse](
+			httpClient,
+			baseURL+StrategyServiceListStrategySignalEventsProcedure,
+			connect.WithSchema(strategyServiceListStrategySignalEventsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		saveStrategy: connect.NewClient[v1alpha1.SaveStrategyRequest, v1alpha1.SaveStrategyResponse](
+			httpClient,
+			baseURL+StrategyServiceSaveStrategyProcedure,
+			connect.WithSchema(strategyServiceSaveStrategyMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		unsaveStrategy: connect.NewClient[v1alpha1.UnsaveStrategyRequest, v1alpha1.UnsaveStrategyResponse](
+			httpClient,
+			baseURL+StrategyServiceUnsaveStrategyProcedure,
+			connect.WithSchema(strategyServiceUnsaveStrategyMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listSavedStrategies: connect.NewClient[v1alpha1.ListSavedStrategiesRequest, v1alpha1.ListSavedStrategiesResponse](
+			httpClient,
+			baseURL+StrategyServiceListSavedStrategiesProcedure,
+			connect.WithSchema(strategyServiceListSavedStrategiesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -99,9 +213,17 @@ func NewStrategyServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 
 // strategyServiceClient implements StrategyServiceClient.
 type strategyServiceClient struct {
-	listStrategies      *connect.Client[v1alpha1.ListStrategiesRequest, v1alpha1.ListStrategiesResponse]
-	getStrategyPicks    *connect.Client[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse]
-	getStockStrategyFit *connect.Client[v1alpha1.GetStockStrategyFitRequest, v1alpha1.GetStockStrategyFitResponse]
+	listStrategies           *connect.Client[v1alpha1.ListStrategiesRequest, v1alpha1.ListStrategiesResponse]
+	getStrategyPicks         *connect.Client[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse]
+	getViewerStrategyPicks   *connect.Client[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse]
+	getStockStrategyFit      *connect.Client[v1alpha1.GetStockStrategyFitRequest, v1alpha1.GetStockStrategyFitResponse]
+	getStrategyVersion       *connect.Client[v1alpha1.GetStrategyVersionRequest, v1alpha1.GetStrategyVersionResponse]
+	listStrategyVersions     *connect.Client[v1alpha1.ListStrategyVersionsRequest, v1alpha1.ListStrategyVersionsResponse]
+	getStrategyDataStatus    *connect.Client[v1alpha1.GetStrategyDataStatusRequest, v1alpha1.GetStrategyDataStatusResponse]
+	listStrategySignalEvents *connect.Client[v1alpha1.ListStrategySignalEventsRequest, v1alpha1.ListStrategySignalEventsResponse]
+	saveStrategy             *connect.Client[v1alpha1.SaveStrategyRequest, v1alpha1.SaveStrategyResponse]
+	unsaveStrategy           *connect.Client[v1alpha1.UnsaveStrategyRequest, v1alpha1.UnsaveStrategyResponse]
+	listSavedStrategies      *connect.Client[v1alpha1.ListSavedStrategiesRequest, v1alpha1.ListSavedStrategiesResponse]
 }
 
 // ListStrategies calls shorts.v1alpha1.StrategyService.ListStrategies.
@@ -114,9 +236,49 @@ func (c *strategyServiceClient) GetStrategyPicks(ctx context.Context, req *conne
 	return c.getStrategyPicks.CallUnary(ctx, req)
 }
 
+// GetViewerStrategyPicks calls shorts.v1alpha1.StrategyService.GetViewerStrategyPicks.
+func (c *strategyServiceClient) GetViewerStrategyPicks(ctx context.Context, req *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error) {
+	return c.getViewerStrategyPicks.CallUnary(ctx, req)
+}
+
 // GetStockStrategyFit calls shorts.v1alpha1.StrategyService.GetStockStrategyFit.
 func (c *strategyServiceClient) GetStockStrategyFit(ctx context.Context, req *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error) {
 	return c.getStockStrategyFit.CallUnary(ctx, req)
+}
+
+// GetStrategyVersion calls shorts.v1alpha1.StrategyService.GetStrategyVersion.
+func (c *strategyServiceClient) GetStrategyVersion(ctx context.Context, req *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error) {
+	return c.getStrategyVersion.CallUnary(ctx, req)
+}
+
+// ListStrategyVersions calls shorts.v1alpha1.StrategyService.ListStrategyVersions.
+func (c *strategyServiceClient) ListStrategyVersions(ctx context.Context, req *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error) {
+	return c.listStrategyVersions.CallUnary(ctx, req)
+}
+
+// GetStrategyDataStatus calls shorts.v1alpha1.StrategyService.GetStrategyDataStatus.
+func (c *strategyServiceClient) GetStrategyDataStatus(ctx context.Context, req *connect.Request[v1alpha1.GetStrategyDataStatusRequest]) (*connect.Response[v1alpha1.GetStrategyDataStatusResponse], error) {
+	return c.getStrategyDataStatus.CallUnary(ctx, req)
+}
+
+// ListStrategySignalEvents calls shorts.v1alpha1.StrategyService.ListStrategySignalEvents.
+func (c *strategyServiceClient) ListStrategySignalEvents(ctx context.Context, req *connect.Request[v1alpha1.ListStrategySignalEventsRequest]) (*connect.Response[v1alpha1.ListStrategySignalEventsResponse], error) {
+	return c.listStrategySignalEvents.CallUnary(ctx, req)
+}
+
+// SaveStrategy calls shorts.v1alpha1.StrategyService.SaveStrategy.
+func (c *strategyServiceClient) SaveStrategy(ctx context.Context, req *connect.Request[v1alpha1.SaveStrategyRequest]) (*connect.Response[v1alpha1.SaveStrategyResponse], error) {
+	return c.saveStrategy.CallUnary(ctx, req)
+}
+
+// UnsaveStrategy calls shorts.v1alpha1.StrategyService.UnsaveStrategy.
+func (c *strategyServiceClient) UnsaveStrategy(ctx context.Context, req *connect.Request[v1alpha1.UnsaveStrategyRequest]) (*connect.Response[v1alpha1.UnsaveStrategyResponse], error) {
+	return c.unsaveStrategy.CallUnary(ctx, req)
+}
+
+// ListSavedStrategies calls shorts.v1alpha1.StrategyService.ListSavedStrategies.
+func (c *strategyServiceClient) ListSavedStrategies(ctx context.Context, req *connect.Request[v1alpha1.ListSavedStrategiesRequest]) (*connect.Response[v1alpha1.ListSavedStrategiesResponse], error) {
+	return c.listSavedStrategies.CallUnary(ctx, req)
 }
 
 // StrategyServiceHandler is an implementation of the shorts.v1alpha1.StrategyService service.
@@ -125,12 +287,46 @@ type StrategyServiceHandler interface {
 	// the current market regime (S&P/ASX 200).
 	ListStrategies(context.Context, *connect.Request[v1alpha1.ListStrategiesRequest]) (*connect.Response[v1alpha1.ListStrategiesResponse], error)
 	// Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
-	// score and a per-rule pass / fail / unknown breakdown for each stock.
+	// score and a per-rule pass / fail / unknown breakdown for each stock. The
+	// answer is the same bytes to every HTTP caller. When the public depth
+	// limit is set, the rows are the top of the default ranking only, for every
+	// HTTP caller, API-token holders included: a bearer token does not lift it.
+	// Full depth comes from GetViewerStrategyPicks, which accepts a bearer token.
 	GetStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error)
+	// The same ranked picks as GetStrategyPicks, at the caller's full depth. It
+	// needs a signed-in caller (a bearer token, or the web's session) and is never
+	// clamped: the viewer field reports access "free" or "premium" and clamped
+	// false.
+	GetViewerStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error)
 	// How one stock reads against every strategy: status, score, rank and the
 	// per-rule pass / fail / unknown breakdown. A stock that is not a candidate
 	// for a strategy still gets its rule results, with status "none".
 	GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error)
+	// One published version of a strategy's rules: its parameters, what changed
+	// from the version before, and its known issues. An empty version_hash is
+	// the live version. Canonical versions only; an unknown hash is NotFound.
+	GetStrategyVersion(context.Context, *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error)
+	// Every published canonical version of a strategy (all strategies when
+	// strategy_id is empty), in publication order: the rules changelog.
+	ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error)
+	// Where the readings come from: the latest session, the newest completed
+	// snapshot session, the newest ASIC short reports and the next update time.
+	GetStrategyDataStatus(context.Context, *connect.Request[v1alpha1.GetStrategyDataStatusRequest]) (*connect.Response[v1alpha1.GetStrategyDataStatusResponse], error)
+	// The status changes of one strategy's canonical rules version, newest first:
+	// a stock entering or leaving a status, with the rule results that day.
+	ListStrategySignalEvents(context.Context, *connect.Request[v1alpha1.ListStrategySignalEventsRequest]) (*connect.Response[v1alpha1.ListStrategySignalEventsResponse], error)
+	// Save a strategy to the signed-in caller's list. Saving a strategy that is
+	// already saved succeeds and keeps its first save time. The list holds at
+	// most 20; a save past that is refused with PermissionDenied and the
+	// X-Entitlement-Detail metadata (capability cap_reached, with the limit), and
+	// a repeat save at the cap still succeeds.
+	SaveStrategy(context.Context, *connect.Request[v1alpha1.SaveStrategyRequest]) (*connect.Response[v1alpha1.SaveStrategyResponse], error)
+	// Remove a strategy from the caller's list. Removing one that is not saved
+	// succeeds.
+	UnsaveStrategy(context.Context, *connect.Request[v1alpha1.UnsaveStrategyRequest]) (*connect.Response[v1alpha1.UnsaveStrategyResponse], error)
+	// The caller's saved strategies, most recent first, each with today's
+	// status counts.
+	ListSavedStrategies(context.Context, *connect.Request[v1alpha1.ListSavedStrategiesRequest]) (*connect.Response[v1alpha1.ListSavedStrategiesResponse], error)
 }
 
 // NewStrategyServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -151,10 +347,58 @@ func NewStrategyServiceHandler(svc StrategyServiceHandler, opts ...connect.Handl
 		connect.WithSchema(strategyServiceGetStrategyPicksMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	strategyServiceGetViewerStrategyPicksHandler := connect.NewUnaryHandler(
+		StrategyServiceGetViewerStrategyPicksProcedure,
+		svc.GetViewerStrategyPicks,
+		connect.WithSchema(strategyServiceGetViewerStrategyPicksMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	strategyServiceGetStockStrategyFitHandler := connect.NewUnaryHandler(
 		StrategyServiceGetStockStrategyFitProcedure,
 		svc.GetStockStrategyFit,
 		connect.WithSchema(strategyServiceGetStockStrategyFitMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	strategyServiceGetStrategyVersionHandler := connect.NewUnaryHandler(
+		StrategyServiceGetStrategyVersionProcedure,
+		svc.GetStrategyVersion,
+		connect.WithSchema(strategyServiceGetStrategyVersionMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	strategyServiceListStrategyVersionsHandler := connect.NewUnaryHandler(
+		StrategyServiceListStrategyVersionsProcedure,
+		svc.ListStrategyVersions,
+		connect.WithSchema(strategyServiceListStrategyVersionsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	strategyServiceGetStrategyDataStatusHandler := connect.NewUnaryHandler(
+		StrategyServiceGetStrategyDataStatusProcedure,
+		svc.GetStrategyDataStatus,
+		connect.WithSchema(strategyServiceGetStrategyDataStatusMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	strategyServiceListStrategySignalEventsHandler := connect.NewUnaryHandler(
+		StrategyServiceListStrategySignalEventsProcedure,
+		svc.ListStrategySignalEvents,
+		connect.WithSchema(strategyServiceListStrategySignalEventsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	strategyServiceSaveStrategyHandler := connect.NewUnaryHandler(
+		StrategyServiceSaveStrategyProcedure,
+		svc.SaveStrategy,
+		connect.WithSchema(strategyServiceSaveStrategyMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	strategyServiceUnsaveStrategyHandler := connect.NewUnaryHandler(
+		StrategyServiceUnsaveStrategyProcedure,
+		svc.UnsaveStrategy,
+		connect.WithSchema(strategyServiceUnsaveStrategyMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	strategyServiceListSavedStrategiesHandler := connect.NewUnaryHandler(
+		StrategyServiceListSavedStrategiesProcedure,
+		svc.ListSavedStrategies,
+		connect.WithSchema(strategyServiceListSavedStrategiesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.StrategyService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -163,8 +407,24 @@ func NewStrategyServiceHandler(svc StrategyServiceHandler, opts ...connect.Handl
 			strategyServiceListStrategiesHandler.ServeHTTP(w, r)
 		case StrategyServiceGetStrategyPicksProcedure:
 			strategyServiceGetStrategyPicksHandler.ServeHTTP(w, r)
+		case StrategyServiceGetViewerStrategyPicksProcedure:
+			strategyServiceGetViewerStrategyPicksHandler.ServeHTTP(w, r)
 		case StrategyServiceGetStockStrategyFitProcedure:
 			strategyServiceGetStockStrategyFitHandler.ServeHTTP(w, r)
+		case StrategyServiceGetStrategyVersionProcedure:
+			strategyServiceGetStrategyVersionHandler.ServeHTTP(w, r)
+		case StrategyServiceListStrategyVersionsProcedure:
+			strategyServiceListStrategyVersionsHandler.ServeHTTP(w, r)
+		case StrategyServiceGetStrategyDataStatusProcedure:
+			strategyServiceGetStrategyDataStatusHandler.ServeHTTP(w, r)
+		case StrategyServiceListStrategySignalEventsProcedure:
+			strategyServiceListStrategySignalEventsHandler.ServeHTTP(w, r)
+		case StrategyServiceSaveStrategyProcedure:
+			strategyServiceSaveStrategyHandler.ServeHTTP(w, r)
+		case StrategyServiceUnsaveStrategyProcedure:
+			strategyServiceUnsaveStrategyHandler.ServeHTTP(w, r)
+		case StrategyServiceListSavedStrategiesProcedure:
+			strategyServiceListSavedStrategiesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -182,6 +442,38 @@ func (UnimplementedStrategyServiceHandler) GetStrategyPicks(context.Context, *co
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.GetStrategyPicks is not implemented"))
 }
 
+func (UnimplementedStrategyServiceHandler) GetViewerStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.GetViewerStrategyPicks is not implemented"))
+}
+
 func (UnimplementedStrategyServiceHandler) GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.GetStockStrategyFit is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) GetStrategyVersion(context.Context, *connect.Request[v1alpha1.GetStrategyVersionRequest]) (*connect.Response[v1alpha1.GetStrategyVersionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.GetStrategyVersion is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) ListStrategyVersions(context.Context, *connect.Request[v1alpha1.ListStrategyVersionsRequest]) (*connect.Response[v1alpha1.ListStrategyVersionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.ListStrategyVersions is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) GetStrategyDataStatus(context.Context, *connect.Request[v1alpha1.GetStrategyDataStatusRequest]) (*connect.Response[v1alpha1.GetStrategyDataStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.GetStrategyDataStatus is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) ListStrategySignalEvents(context.Context, *connect.Request[v1alpha1.ListStrategySignalEventsRequest]) (*connect.Response[v1alpha1.ListStrategySignalEventsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.ListStrategySignalEvents is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) SaveStrategy(context.Context, *connect.Request[v1alpha1.SaveStrategyRequest]) (*connect.Response[v1alpha1.SaveStrategyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.SaveStrategy is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) UnsaveStrategy(context.Context, *connect.Request[v1alpha1.UnsaveStrategyRequest]) (*connect.Response[v1alpha1.UnsaveStrategyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.UnsaveStrategy is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) ListSavedStrategies(context.Context, *connect.Request[v1alpha1.ListSavedStrategiesRequest]) (*connect.Response[v1alpha1.ListSavedStrategiesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.ListSavedStrategies is not implemented"))
 }

@@ -35,6 +35,10 @@ private static final long serialVersionUID = 0L;
     stockCode_ = "";
     asOf_ = "";
     fits_ = java.util.Collections.emptyList();
+    sessionDate_ = "";
+    shortReportDate_ = "";
+    shortAvailableDate_ = "";
+    ineligibleReason_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -278,6 +282,224 @@ private static final long serialVersionUID = 0L;
     return priceFeatures_ == null ? com.shorts.v1alpha1.PriceFeatures.getDefaultInstance() : priceFeatures_;
   }
 
+  public static final int SESSION_DATE_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object sessionDate_ = "";
+  /**
+   * <pre>
+   * YYYY-MM-DD of the session the readings are as at.
+   * </pre>
+   *
+   * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+   * @return The sessionDate.
+   */
+  @java.lang.Override
+  public java.lang.String getSessionDate() {
+    java.lang.Object ref = sessionDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      sessionDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * YYYY-MM-DD of the session the readings are as at.
+   * </pre>
+   *
+   * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+   * @return The bytes for sessionDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getSessionDateBytes() {
+    java.lang.Object ref = sessionDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      sessionDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SHORT_REPORT_DATE_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object shortReportDate_ = "";
+  /**
+   * <pre>
+   * Newest ASIC report date behind the short figures; empty when none.
+   * </pre>
+   *
+   * <code>string short_report_date = 8 [json_name = "shortReportDate"];</code>
+   * @return The shortReportDate.
+   */
+  @java.lang.Override
+  public java.lang.String getShortReportDate() {
+    java.lang.Object ref = shortReportDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      shortReportDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Newest ASIC report date behind the short figures; empty when none.
+   * </pre>
+   *
+   * <code>string short_report_date = 8 [json_name = "shortReportDate"];</code>
+   * @return The bytes for shortReportDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getShortReportDateBytes() {
+    java.lang.Object ref = shortReportDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      shortReportDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SHORT_AVAILABLE_DATE_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object shortAvailableDate_ = "";
+  /**
+   * <pre>
+   * When that report became public; empty for a report dated before 2026.
+   * </pre>
+   *
+   * <code>string short_available_date = 9 [json_name = "shortAvailableDate"];</code>
+   * @return The shortAvailableDate.
+   */
+  @java.lang.Override
+  public java.lang.String getShortAvailableDate() {
+    java.lang.Object ref = shortAvailableDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      shortAvailableDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * When that report became public; empty for a report dated before 2026.
+   * </pre>
+   *
+   * <code>string short_available_date = 9 [json_name = "shortAvailableDate"];</code>
+   * @return The bytes for shortAvailableDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getShortAvailableDateBytes() {
+    java.lang.Object ref = shortAvailableDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      shortAvailableDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int STALE_FIELD_NUMBER = 10;
+  private boolean stale_ = false;
+  /**
+   * <pre>
+   * True when the index has closed a session the prices have not reached (the data is delayed).
+   * </pre>
+   *
+   * <code>bool stale = 10 [json_name = "stale"];</code>
+   * @return The stale.
+   */
+  @java.lang.Override
+  public boolean getStale() {
+    return stale_;
+  }
+
+  public static final int ELIGIBLE_FIELD_NUMBER = 11;
+  private boolean eligible_ = false;
+  /**
+   * <pre>
+   * False when the stock cannot be read against the strategies at all.
+   * </pre>
+   *
+   * <code>bool eligible = 11 [json_name = "eligible"];</code>
+   * @return The eligible.
+   */
+  @java.lang.Override
+  public boolean getEligible() {
+    return eligible_;
+  }
+
+  public static final int INELIGIBLE_REASON_FIELD_NUMBER = 12;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object ineligibleReason_ = "";
+  /**
+   * <pre>
+   * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
+   * </pre>
+   *
+   * <code>string ineligible_reason = 12 [json_name = "ineligibleReason"];</code>
+   * @return The ineligibleReason.
+   */
+  @java.lang.Override
+  public java.lang.String getIneligibleReason() {
+    java.lang.Object ref = ineligibleReason_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      ineligibleReason_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
+   * </pre>
+   *
+   * <code>string ineligible_reason = 12 [json_name = "ineligibleReason"];</code>
+   * @return The bytes for ineligibleReason.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getIneligibleReasonBytes() {
+    java.lang.Object ref = ineligibleReason_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      ineligibleReason_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -310,6 +532,24 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000002) != 0)) {
       output.writeMessage(6, getPriceFeatures());
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, sessionDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortReportDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 8, shortReportDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortAvailableDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 9, shortAvailableDate_);
+    }
+    if (stale_ != false) {
+      output.writeBool(10, stale_);
+    }
+    if (eligible_ != false) {
+      output.writeBool(11, eligible_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(ineligibleReason_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 12, ineligibleReason_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -340,6 +580,26 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000002) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(6, getPriceFeatures());
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sessionDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, sessionDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortReportDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(8, shortReportDate_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(shortAvailableDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(9, shortAvailableDate_);
+    }
+    if (stale_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(10, stale_);
+    }
+    if (eligible_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(11, eligible_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(ineligibleReason_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(12, ineligibleReason_);
     }
     return size;
   }
@@ -383,6 +643,18 @@ private static final long serialVersionUID = 0L;
       if (!getPriceFeatures()
           .equals(other.getPriceFeatures())) return false;
     }
+    if (!getSessionDate()
+        .equals(other.getSessionDate())) return false;
+    if (!getShortReportDate()
+        .equals(other.getShortReportDate())) return false;
+    if (!getShortAvailableDate()
+        .equals(other.getShortAvailableDate())) return false;
+    if (getStale()
+        != other.getStale()) return false;
+    if (getEligible()
+        != other.getEligible()) return false;
+    if (!getIneligibleReason()
+        .equals(other.getIneligibleReason())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -413,6 +685,20 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + PRICE_FEATURES_FIELD_NUMBER;
       hash = (53 * hash) + getPriceFeatures().hashCode();
     }
+    hash = (37 * hash) + SESSION_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getSessionDate().hashCode();
+    hash = (37 * hash) + SHORT_REPORT_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getShortReportDate().hashCode();
+    hash = (37 * hash) + SHORT_AVAILABLE_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getShortAvailableDate().hashCode();
+    hash = (37 * hash) + STALE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getStale());
+    hash = (37 * hash) + ELIGIBLE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getEligible());
+    hash = (37 * hash) + INELIGIBLE_REASON_FIELD_NUMBER;
+    hash = (53 * hash) + getIneligibleReason().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -576,6 +862,12 @@ private static final long serialVersionUID = 0L;
         priceFeaturesBuilder_.dispose();
         priceFeaturesBuilder_ = null;
       }
+      sessionDate_ = "";
+      shortReportDate_ = "";
+      shortAvailableDate_ = "";
+      stale_ = false;
+      eligible_ = false;
+      ineligibleReason_ = "";
       return this;
     }
 
@@ -644,6 +936,24 @@ private static final long serialVersionUID = 0L;
             : priceFeaturesBuilder_.build();
         to_bitField0_ |= 0x00000002;
       }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.sessionDate_ = sessionDate_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.shortReportDate_ = shortReportDate_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.shortAvailableDate_ = shortAvailableDate_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.stale_ = stale_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.eligible_ = eligible_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.ineligibleReason_ = ineligibleReason_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -703,6 +1013,32 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasPriceFeatures()) {
         mergePriceFeatures(other.getPriceFeatures());
+      }
+      if (!other.getSessionDate().isEmpty()) {
+        sessionDate_ = other.sessionDate_;
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      if (!other.getShortReportDate().isEmpty()) {
+        shortReportDate_ = other.shortReportDate_;
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (!other.getShortAvailableDate().isEmpty()) {
+        shortAvailableDate_ = other.shortAvailableDate_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      if (other.getStale() != false) {
+        setStale(other.getStale());
+      }
+      if (other.getEligible() != false) {
+        setEligible(other.getEligible());
+      }
+      if (!other.getIneligibleReason().isEmpty()) {
+        ineligibleReason_ = other.ineligibleReason_;
+        bitField0_ |= 0x00000800;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -772,6 +1108,36 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000020;
               break;
             } // case 50
+            case 58: {
+              sessionDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
+            case 66: {
+              shortReportDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 74: {
+              shortAvailableDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
+            case 80: {
+              stale_ = input.readBool();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 80
+            case 88: {
+              eligible_ = input.readBool();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 88
+            case 98: {
+              ineligibleReason_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1573,6 +1939,462 @@ private static final long serialVersionUID = 0L;
         priceFeatures_ = null;
       }
       return priceFeaturesBuilder_;
+    }
+
+    private java.lang.Object sessionDate_ = "";
+    /**
+     * <pre>
+     * YYYY-MM-DD of the session the readings are as at.
+     * </pre>
+     *
+     * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+     * @return The sessionDate.
+     */
+    public java.lang.String getSessionDate() {
+      java.lang.Object ref = sessionDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        sessionDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the session the readings are as at.
+     * </pre>
+     *
+     * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+     * @return The bytes for sessionDate.
+     */
+    public com.google.protobuf.ByteString
+        getSessionDateBytes() {
+      java.lang.Object ref = sessionDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sessionDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the session the readings are as at.
+     * </pre>
+     *
+     * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+     * @param value The sessionDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSessionDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      sessionDate_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the session the readings are as at.
+     * </pre>
+     *
+     * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSessionDate() {
+      sessionDate_ = getDefaultInstance().getSessionDate();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the session the readings are as at.
+     * </pre>
+     *
+     * <code>string session_date = 7 [json_name = "sessionDate"];</code>
+     * @param value The bytes for sessionDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSessionDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      sessionDate_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object shortReportDate_ = "";
+    /**
+     * <pre>
+     * Newest ASIC report date behind the short figures; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 8 [json_name = "shortReportDate"];</code>
+     * @return The shortReportDate.
+     */
+    public java.lang.String getShortReportDate() {
+      java.lang.Object ref = shortReportDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        shortReportDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Newest ASIC report date behind the short figures; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 8 [json_name = "shortReportDate"];</code>
+     * @return The bytes for shortReportDate.
+     */
+    public com.google.protobuf.ByteString
+        getShortReportDateBytes() {
+      java.lang.Object ref = shortReportDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        shortReportDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Newest ASIC report date behind the short figures; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 8 [json_name = "shortReportDate"];</code>
+     * @param value The shortReportDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortReportDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      shortReportDate_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Newest ASIC report date behind the short figures; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 8 [json_name = "shortReportDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShortReportDate() {
+      shortReportDate_ = getDefaultInstance().getShortReportDate();
+      bitField0_ = (bitField0_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Newest ASIC report date behind the short figures; empty when none.
+     * </pre>
+     *
+     * <code>string short_report_date = 8 [json_name = "shortReportDate"];</code>
+     * @param value The bytes for shortReportDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortReportDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      shortReportDate_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object shortAvailableDate_ = "";
+    /**
+     * <pre>
+     * When that report became public; empty for a report dated before 2026.
+     * </pre>
+     *
+     * <code>string short_available_date = 9 [json_name = "shortAvailableDate"];</code>
+     * @return The shortAvailableDate.
+     */
+    public java.lang.String getShortAvailableDate() {
+      java.lang.Object ref = shortAvailableDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        shortAvailableDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * When that report became public; empty for a report dated before 2026.
+     * </pre>
+     *
+     * <code>string short_available_date = 9 [json_name = "shortAvailableDate"];</code>
+     * @return The bytes for shortAvailableDate.
+     */
+    public com.google.protobuf.ByteString
+        getShortAvailableDateBytes() {
+      java.lang.Object ref = shortAvailableDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        shortAvailableDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * When that report became public; empty for a report dated before 2026.
+     * </pre>
+     *
+     * <code>string short_available_date = 9 [json_name = "shortAvailableDate"];</code>
+     * @param value The shortAvailableDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortAvailableDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      shortAvailableDate_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * When that report became public; empty for a report dated before 2026.
+     * </pre>
+     *
+     * <code>string short_available_date = 9 [json_name = "shortAvailableDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShortAvailableDate() {
+      shortAvailableDate_ = getDefaultInstance().getShortAvailableDate();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * When that report became public; empty for a report dated before 2026.
+     * </pre>
+     *
+     * <code>string short_available_date = 9 [json_name = "shortAvailableDate"];</code>
+     * @param value The bytes for shortAvailableDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShortAvailableDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      shortAvailableDate_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private boolean stale_ ;
+    /**
+     * <pre>
+     * True when the index has closed a session the prices have not reached (the data is delayed).
+     * </pre>
+     *
+     * <code>bool stale = 10 [json_name = "stale"];</code>
+     * @return The stale.
+     */
+    @java.lang.Override
+    public boolean getStale() {
+      return stale_;
+    }
+    /**
+     * <pre>
+     * True when the index has closed a session the prices have not reached (the data is delayed).
+     * </pre>
+     *
+     * <code>bool stale = 10 [json_name = "stale"];</code>
+     * @param value The stale to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStale(boolean value) {
+
+      stale_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when the index has closed a session the prices have not reached (the data is delayed).
+     * </pre>
+     *
+     * <code>bool stale = 10 [json_name = "stale"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStale() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      stale_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean eligible_ ;
+    /**
+     * <pre>
+     * False when the stock cannot be read against the strategies at all.
+     * </pre>
+     *
+     * <code>bool eligible = 11 [json_name = "eligible"];</code>
+     * @return The eligible.
+     */
+    @java.lang.Override
+    public boolean getEligible() {
+      return eligible_;
+    }
+    /**
+     * <pre>
+     * False when the stock cannot be read against the strategies at all.
+     * </pre>
+     *
+     * <code>bool eligible = 11 [json_name = "eligible"];</code>
+     * @param value The eligible to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEligible(boolean value) {
+
+      eligible_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * False when the stock cannot be read against the strategies at all.
+     * </pre>
+     *
+     * <code>bool eligible = 11 [json_name = "eligible"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEligible() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      eligible_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object ineligibleReason_ = "";
+    /**
+     * <pre>
+     * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
+     * </pre>
+     *
+     * <code>string ineligible_reason = 12 [json_name = "ineligibleReason"];</code>
+     * @return The ineligibleReason.
+     */
+    public java.lang.String getIneligibleReason() {
+      java.lang.Object ref = ineligibleReason_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        ineligibleReason_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
+     * </pre>
+     *
+     * <code>string ineligible_reason = 12 [json_name = "ineligibleReason"];</code>
+     * @return The bytes for ineligibleReason.
+     */
+    public com.google.protobuf.ByteString
+        getIneligibleReasonBytes() {
+      java.lang.Object ref = ineligibleReason_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        ineligibleReason_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
+     * </pre>
+     *
+     * <code>string ineligible_reason = 12 [json_name = "ineligibleReason"];</code>
+     * @param value The ineligibleReason to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIneligibleReason(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ineligibleReason_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
+     * </pre>
+     *
+     * <code>string ineligible_reason = 12 [json_name = "ineligibleReason"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIneligibleReason() {
+      ineligibleReason_ = getDefaultInstance().getIneligibleReason();
+      bitField0_ = (bitField0_ & ~0x00000800);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Why not eligible, e.g. "short_history" (fewer than 60 sessions in the last 400 days); empty when eligible.
+     * </pre>
+     *
+     * <code>string ineligible_reason = 12 [json_name = "ineligibleReason"];</code>
+     * @param value The bytes for ineligibleReason to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIneligibleReasonBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ineligibleReason_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetStockStrategyFitResponse)

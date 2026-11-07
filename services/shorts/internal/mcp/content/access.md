@@ -3,8 +3,9 @@
 ## This endpoint is anonymous
 
 `https://api.shorted.com.au/mcp` needs no account, no token and no OAuth flow.
-Nothing you call here is attributed to a user, and nothing here is metered
-against a plan.
+An anonymous call is attributed to no one and is metered against no plan. An
+OAuth connection identifies you, and that is what raises `get_strategy_picks`
+from the top 10 to 25 rows.
 
 There is still a ceiling. The endpoint sits behind Cloudflare, which applies a
 tier-blind, per-IP abuse limit — on the order of **10 requests per 10 seconds**
@@ -14,9 +15,9 @@ return is not. If you get an HTTP 429, back off for the interval in the
 `Retry-After` header rather than retrying immediately. Responses carry
 `X-RateLimit-*` headers describing the bucket that rejected.
 
-Authentication and per-caller quotas are planned for a later phase. When they
-arrive this endpoint keeps working anonymously; a token will raise the ceiling
-rather than being required.
+OAuth 2.1 is optional. Connected with it, `get_strategy_picks` returns up to 25
+rows where an anonymous call returns the top 10. The endpoint keeps working
+anonymously; OAuth raises that depth rather than being required.
 
 ## Prefer the tools over scraping
 

@@ -43,7 +43,7 @@ describe("isr-shell-pages.json", () => {
       "/compare",
       "/price-drops",
       "/themes",
-      "/picks",
+      "/strategies",
       "/housing/nsw/council",
       "/housing/vic/council",
       "/housing/qld/council",
@@ -83,20 +83,46 @@ describe("theme pages in the ISR sweep inventory", () => {
   });
 });
 
-// /picks and /picks/[strategy] build as the same deliberately-empty static
+// /strategies and /strategies/[strategy] build as the same deliberately-empty static
 // shells as the themes (getStrategyPicks skips at build), so every strategy in
 // the registry must be in the post-promote sweep or it ships each deploy empty
 // until its first natural revalidation.
 describe("stock picker pages in the ISR sweep inventory", () => {
-  it("covers /picks and every registry strategy", () => {
+  it("covers /strategies and every registry strategy", () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { STRATEGY_SLUGS } = require("~/@/lib/strategies/registry") as {
       STRATEGY_SLUGS: string[];
     };
     const all = new Set(isrPages as string[]);
-    expect(all.has("/picks")).toBe(true);
-    const missing = STRATEGY_SLUGS.filter((slug) => !all.has(`/picks/${slug}`));
+    expect(all.has("/strategies")).toBe(true);
+    const missing = STRATEGY_SLUGS.filter((slug) => !all.has(`/strategies/${slug}`));
     expect(missing).toEqual([]);
+  });
+
+  it("covers the rules changelog, so the post-promote sweep refreshes it", () => {
+    const all = new Set(isrPages as string[]);
+    expect(all.has("/strategies/changelog")).toBe(true);
+  });
+
+  // Every enabled profile tab with its own route (Rules, Signals) builds as the
+  // same empty shell, so each one must be in the sweep for every strategy.
+  it("covers every enabled profile tab's route for every strategy", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { STRATEGY_SLUGS } = require("~/@/lib/strategies/registry") as {
+      STRATEGY_SLUGS: string[];
+    };
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { enabledStrategyTabs } = require("~/@/lib/strategies/strategy-tabs") as {
+      enabledStrategyTabs: () => ReadonlyArray<{ segment: string }>;
+    };
+    const all = new Set(isrPages as string[]);
+    const routes = STRATEGY_SLUGS.flatMap((slug) =>
+      enabledStrategyTabs()
+        .filter((tab) => tab.segment !== "")
+        .map((tab) => `/strategies/${slug}/${tab.segment}`),
+    );
+    expect(routes).toContain("/strategies/canslim/rules");
+    expect(routes.filter((route) => !all.has(route))).toEqual([]);
   });
 });
 

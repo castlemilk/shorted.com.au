@@ -18,6 +18,8 @@ terraform {
 
 locals {
   service_name = "shorts"
+  # The image tag after the last ":" (the deploy passes ...shorted/shorts:<tag>).
+  image_tag = element(split(":", var.image_url), length(split(":", var.image_url)) - 1)
   labels = {
     service     = "shorts-api"
     environment = var.environment
@@ -353,6 +355,21 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       env {
         name  = "ENVIRONMENT"
         value = var.environment
+      }
+
+      # The image tag, read by the API as SERVICE_VERSION: the OTel service
+      # version and the X-Shorted-Build header on every response, so a deploy
+      # can check what is serving. Derived from the full image reference.
+      env {
+        name  = "SERVICE_VERSION"
+        value = local.image_tag
+      }
+
+      # Go's soft memory limit, under the 1Gi container limit below, so the
+      # runtime collects before Cloud Run kills the container.
+      env {
+        name  = "GOMEMLIMIT"
+        value = "800MiB"
       }
 
       env {
@@ -696,6 +713,19 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         value = var.rate_limit_enabled ? "true" : "false"
       }
 
+      # Public strategy picks depth clamp (0 = off). Read by the public
+      # StrategyService reads only; see variables.tf.
+      env {
+        name  = "STRATEGY_PUBLIC_SIGNALS_LIMIT"
+        value = tostring(var.strategy_public_signals_limit)
+      }
+
+      # Where the stock picker reads its inputs (views | snapshot); see variables.tf.
+      env {
+        name  = "STRATEGY_SOURCE"
+        value = var.strategy_source
+      }
+
       # The first-party marker, which MUST agree with the edge worker's bindings
       # of the same names. If the two layers disagree about what our own traffic
       # looks like, one of them meters our SSR fleet as anonymous.
@@ -737,11 +767,15 @@ resource "google_cloud_run_v2_service" "shorts_api" {
 
       resources {
         limits = {
-          # Sized to accommodate the Go runtime AND a transient python+yfinance
-          # subprocess fork during SyncKeyMetrics (containers were OOMing at
-          # 128Mi when the daily key-metrics scheduler fired).
+          # 1Gi, up from 256Mi. At 256Mi the p95 instance used about 96% of
+          # its memory and Cloud Run killed one instance 110 to 235 times a day
+          # ("Memory limit of 256 MiB exceeded", 2026-10-29 to 2026-11-05), and
+          # each kill dropped its in-flight requests. GOMEMLIMIT (800MiB, above)
+          # keeps the Go heap under the container limit. Key metrics no longer
+          # run here (the shorted key-metrics CronJob on VKE does the refresh).
+          # cpu is unchanged.
           cpu    = "1"
-          memory = "256Mi"
+          memory = "1Gi"
         }
         cpu_idle          = true # Throttle CPU when idle to reduce costs
         startup_cpu_boost = true
@@ -813,83 +847,3 @@ resource "google_cloud_run_v2_service_iam_member" "public_access" {
   member   = "allUsers"
 }
 
-# --- Key Metrics Daily Sync Scheduler ---
-
-# Service account for the scheduler to invoke the shorts API
-resource "google_service_account" "key_metrics_scheduler" {
-  count        = var.enable_key_metrics_scheduler ? 1 : 0
-  account_id   = "key-metrics-scheduler"
-  display_name = "Key Metrics Scheduler"
-  description  = "Service account for Cloud Scheduler to trigger daily key metrics sync"
-  project      = var.project_id
-}
-
-# Grant Cloud Run Invoker role to scheduler service account
-resource "google_cloud_run_v2_service_iam_member" "key_metrics_scheduler_invoker" {
-  count    = var.enable_key_metrics_scheduler ? 1 : 0
-  name     = google_cloud_run_v2_service.shorts_api.name
-  location = google_cloud_run_v2_service.shorts_api.location
-  project  = var.project_id
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.key_metrics_scheduler[0].email}"
-}
-
-# Read the internal service secret for key-metrics scheduler auth
-data "google_secret_manager_secret_version" "internal_service_secret" {
-  count   = var.enable_key_metrics_scheduler ? 1 : 0
-  secret  = "INTERNAL_SERVICE_SECRET"
-  project = var.project_id
-}
-
-# Grant Secret Manager access to the key-metrics scheduler SA
-resource "google_secret_manager_secret_iam_member" "key_metrics_secret_access" {
-  count     = var.enable_key_metrics_scheduler ? 1 : 0
-  secret_id = "INTERNAL_SERVICE_SECRET"
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.key_metrics_scheduler[0].email}"
-  project   = var.project_id
-}
-
-# Cloud Scheduler Job - Daily Key Metrics Sync at 3 AM AEST (5 PM UTC previous day)
-resource "google_cloud_scheduler_job" "key_metrics_daily" {
-  count            = var.enable_key_metrics_scheduler ? 1 : 0
-  name             = "key-metrics-daily-sync"
-  description      = "Daily sync of key financial metrics for all stocks"
-  schedule         = "0 17 * * *" # 3 AM AEST (5 PM UTC previous day)
-  time_zone        = "UTC"
-  attempt_deadline = "1800s"
-  region           = var.scheduler_region
-  project          = var.project_id
-
-  retry_config {
-    retry_count          = 2
-    max_retry_duration   = "3600s"
-    min_backoff_duration = "30s"
-    max_backoff_duration = "1800s"
-  }
-
-  http_target {
-    http_method = "POST"
-    uri         = "${google_cloud_run_v2_service.shorts_api.uri}/shorts.v1alpha1.ShortedStocksService/SyncKeyMetrics"
-    body        = base64encode("{}")
-
-    headers = {
-      "Content-Type"      = "application/json"
-      "x-internal-secret" = data.google_secret_manager_secret_version.internal_service_secret[0].secret_data
-      "x-user-email"      = "scheduler@shorted.com.au"
-      "x-user-id"         = "scheduler"
-      "x-user-roles"      = "admin"
-    }
-
-    oidc_token {
-      service_account_email = google_service_account.key_metrics_scheduler[0].email
-      audience              = google_cloud_run_v2_service.shorts_api.uri
-    }
-  }
-
-  depends_on = [
-    google_cloud_run_v2_service.shorts_api,
-    google_cloud_run_v2_service_iam_member.key_metrics_scheduler_invoker,
-    google_secret_manager_secret_iam_member.key_metrics_secret_access
-  ]
-}

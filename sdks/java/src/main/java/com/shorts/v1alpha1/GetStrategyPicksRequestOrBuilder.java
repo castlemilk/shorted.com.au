@@ -32,7 +32,9 @@ public interface GetStrategyPicksRequestOrBuilder extends
 
   /**
    * <pre>
-   * Default 20, max 100.
+   * Default 20, max 100. Under the public depth limit every HTTP caller, API
+   * tokens included, gets at most that many rows of the default ranking; a
+   * larger limit is clamped to it. GetViewerStrategyPicks is not clamped.
    * </pre>
    *
    * <code>int32 limit = 2 [json_name = "limit"];</code>
@@ -41,6 +43,13 @@ public interface GetStrategyPicksRequestOrBuilder extends
   int getLimit();
 
   /**
+   * <pre>
+   * Rows to skip. Under the public depth limit an offset other than 0 is
+   * refused with PermissionDenied (the X-Entitlement-Detail names
+   * full_signal_list and GetViewerStrategyPicks); use GetViewerStrategyPicks
+   * for the rows beyond the public depth.
+   * </pre>
+   *
    * <code>int32 offset = 3 [json_name = "offset"];</code>
    * @return The offset.
    */

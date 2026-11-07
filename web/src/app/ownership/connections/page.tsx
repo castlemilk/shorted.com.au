@@ -3,7 +3,7 @@ import Link from "next/link";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { OwnershipFlows } from "~/@/components/ownership/desk/ownership-flows";
 import { Inspector } from "~/@/components/ownership/workspace/inspector";
-import { WorkspacePage } from "~/@/components/ownership/workspace/workspace-page";
+import { WorkspacePage } from "~/@/components/workspace/workspace-page";
 import { MethodDisclosure } from "~/@/components/ownership/workspace/method-disclosure";
 import { lede, pageTitle } from "@/lib/typography";
 import { bailOnEmptyRender } from "~/app/actions/config";

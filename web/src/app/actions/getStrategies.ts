@@ -11,13 +11,14 @@ import { mapRegime, mapStrategy } from "~/@/lib/strategies/map";
 import type { StrategiesResult } from "~/@/lib/strategies/types";
 
 // Every strategy's definition plus the strategy-neutral market regime, for
-// the /picks hub. Same pattern as getStrategyPicks / getScanResults: connect
+// the /strategies hub. Same pattern as getStrategyPicks / getScanResults: connect
 // inside unstable_cache, an SSR-marked transport, skipped at build, null on
 // failure so the hub falls back to its registry copy.
 //
-// Cache key v2 alongside strategy-picks-*-v2: a v1 entry was filled by an API
-// with four strategies, and would leave the quality-compounders card on
-// registry copy until it expired.
+// Cache key v3 alongside strategy-picks-*-v3: a v2 entry has no rule definition
+// signals (trigger, weight, threshold), and a v1 entry was filled by an API with
+// four strategies, which would leave the quality-compounders card on registry
+// copy until it expired.
 
 export type { StrategiesResult } from "~/@/lib/strategies/types";
 
@@ -47,7 +48,7 @@ export async function getStrategies(): Promise<StrategiesResult | null> {
         }
         return result;
       },
-      ["strategies-list-v2"],
+      ["strategies-list-v3"],
       { tags: ["strategy-picks", "strategies-list"], revalidate: 3600 },
     )();
   } catch (err) {

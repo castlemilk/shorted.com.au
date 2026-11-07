@@ -168,6 +168,21 @@ func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	// Explicit destructiveHint/openWorldHint booleans are required by the
 	// public review importer. They take the wire catalog to 101,858 bytes;
 	// retain a tight 100 KiB ceiling without dropping data provenance.
+	//
+	// 5 Nov 2026, PR-04b (viewer context; no schema change, no new tool): tools/list
+	// measures 101,858 bytes across 33 tools, 542 bytes under the 102,400-byte ceiling.
+	// Rules versions (rules_version on list_strategies, one per strategy, and
+	// on get_strategy_picks) take the list to 102,034 bytes, 366 under the
+	// ceiling: the next strategy tool field needs a trim elsewhere first.
+	//
+	// 5 Nov 2026, PR-06b (the anonymous clause in get_strategy_picks' description; no
+	// schema change): tools/list measures 102,087 bytes, 313 under the ceiling. The
+	// clause says that without sign-in the list is the top 10 and that OAuth reaches 25.
+	//
+	// 5 Nov 2026, PR-06b review round 1: the clause is paid for by dropping the
+	// rules_version field's description (it restated the field name), and the
+	// missing space before "list_strategies" is restored. tools/list measures
+	// 102,020 bytes, 380 under the ceiling: 14 bytes below the figure before PR-06b.
 	const budget = 100 * 1024
 
 	ctx := context.Background()

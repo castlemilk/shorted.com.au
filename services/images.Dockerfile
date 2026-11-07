@@ -133,13 +133,12 @@ RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@1.61.1 install 
 COPY --from=builder /out/shorted /shorted
 ENTRYPOINT ["/shorted"]
 
-# shorts — the API (Connect-RPC + MCP), with the yfinance key-metrics helper.
+# shorts — the API (Connect-RPC + MCP). No Python: key metrics are refreshed by
+# the `shorted key-metrics` job on VKE, not by a fork in this process.
 FROM alpine:3.19 AS shorts
-RUN apk --no-cache add ca-certificates python3 py3-pip
-RUN pip3 install --no-cache-dir yfinance --break-system-packages
+RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 COPY --from=builder /out/shorts-service .
-COPY shorts/scripts/fetch_key_metrics.py /app/scripts/fetch_key_metrics.py
 EXPOSE 9091
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:9091/health || exit 1

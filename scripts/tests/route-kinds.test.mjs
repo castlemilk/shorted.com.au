@@ -6,10 +6,17 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import { OWNERSHIP_ROUTES, OWNERSHIP_STATIC_ROUTES, STOCK_ROUTES } from "../../web/scripts/route-kinds.mjs";
+import {
+  OWNERSHIP_ROUTES,
+  OWNERSHIP_STATIC_ROUTES,
+  STOCK_ROUTES,
+  STRATEGY_ROUTES,
+  STRATEGY_STATIC_ROUTES,
+} from "../../web/scripts/route-kinds.mjs";
 
 const script = fileURLToPath(new URL("../../web/scripts/route-kinds.mjs", import.meta.url));
 const OWNERSHIP_DIR = fileURLToPath(new URL("../../web/src/app/ownership/", import.meta.url));
+const STRATEGIES_DIR = fileURLToPath(new URL("../../web/src/app/strategies/", import.meta.url));
 
 // The stock routes that exist, read from the one registry of stock tabs instead of copied
 // here. The registry is TypeScript and this job installs no web dependencies, so it is read
@@ -31,18 +38,22 @@ function registryRoutes() {
 
 const EXPECTED = registryRoutes();
 
-// The same drift check for the ownership section: a page the gate does not list is never checked
-// for ISR, so the routes are read from the tree rather than restated here. A __tests__ folder
-// holds no page. A page.tsx under a dynamic segment is a dynamic route, and any other is static.
-function ownershipPageRoutes(dir = OWNERSHIP_DIR, prefix = "/ownership") {
+// The same drift check for the ownership and strategy sections: a page the gate does not list is
+// never checked for ISR, so the routes are read from the tree rather than restated here. A __tests__
+// folder holds no page. A page.tsx under a dynamic segment is a dynamic route, and any other is static.
+function pageRoutes(dir, prefix) {
   return readdirSync(dir, { withFileTypes: true })
     .flatMap((entry) => {
       if (entry.isDirectory()) {
-        return entry.name === "__tests__" ? [] : ownershipPageRoutes(join(dir, entry.name), `${prefix}/${entry.name}`);
+        return entry.name === "__tests__" ? [] : pageRoutes(join(dir, entry.name), `${prefix}/${entry.name}`);
       }
       return entry.name === "page.tsx" ? [prefix] : [];
     })
     .sort();
+}
+
+function ownershipPageRoutes() {
+  return pageRoutes(OWNERSHIP_DIR, "/ownership");
 }
 
 function dynamicOwnershipRoutes() {
@@ -54,6 +65,15 @@ function staticOwnershipRoutes() {
   return ownershipPageRoutes().filter((route) => !route.includes("["));
 }
 
+// The private My strategies shell is a static page the gate does not list: it exports no revalidate,
+// so Next prerenders it once with no ISR window, and robots.txt disallows it. The list it draws is per
+// viewer and comes from the client island, so the ISR gate has nothing to check there.
+const PRIVATE_STATIC_SHELLS = ["/strategies/my"];
+
+function strategyPageRoutes() {
+  return pageRoutes(STRATEGIES_DIR, "/strategies").filter((route) => !PRIVATE_STATIC_SHELLS.includes(route));
+}
+
 function run(t, manifest) {
   const dir = mkdtempSync(join(tmpdir(), "shorted-route-kinds-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -62,10 +82,20 @@ function run(t, manifest) {
   return spawnSync(process.execPath, [script, "--manifest", path], { encoding: "utf8" });
 }
 
-// The static ownership pages as Next writes them under `routes`: each with the revalidate it exports.
+// Every dynamic route the gate checks, as Next lists it under `dynamicRoutes`. The strategy profile
+// is closed (dynamicParams = false), so its entry carries fallback: false; the rest are on-demand ISR.
+const ALL_DYNAMIC = [...EXPECTED, ...OWNERSHIP_ROUTES, ...STRATEGY_ROUTES];
+function dynamicFixture(routes) {
+  return Object.fromEntries(
+    routes.map((r) => [r, { fallback: STRATEGY_ROUTES.includes(r) ? false : null, routeRegex: "x", dataRoute: "y" }]),
+  );
+}
+
+// The static pages as Next writes them under `routes`: each with the revalidate it exports. The
+// ownership pages and the strategies hub are each listed on their own.
 function staticRoutes() {
   return Object.fromEntries(
-    OWNERSHIP_STATIC_ROUTES.map((route) => [
+    [...OWNERSHIP_STATIC_ROUTES, ...STRATEGY_STATIC_ROUTES].map((route) => [
       route,
       { initialRevalidateSeconds: 3600, srcRoute: route, dataRoute: `${route}.rsc` },
     ]),
@@ -99,32 +129,36 @@ test("the gate checks exactly the static ownership pages on disk, the hub includ
   );
 });
 
-test("passes when every stock and dynamic ownership route is listed and every static ownership page has a revalidate", (t) => {
-  const routes = [...EXPECTED, ...OWNERSHIP_ROUTES];
-  const dynamicRoutes = Object.fromEntries(routes.map((r) => [r, { fallback: null, routeRegex: "x", dataRoute: "y" }]));
-  const result = run(t, { version: 4, routes: staticRoutes(), dynamicRoutes });
+test("the gate checks exactly the strategy routes on disk, the dynamic profile and the static hub", () => {
+  assert.deepEqual([...STRATEGY_ROUTES].sort(), strategyPageRoutes().filter((r) => r.includes("[")));
+  assert.deepEqual([...STRATEGY_STATIC_ROUTES].sort(), strategyPageRoutes().filter((r) => !r.includes("[")));
+});
+
+test("passes when every stock, dynamic ownership and strategy route is listed and every static page has a revalidate", (t) => {
+  const result = run(t, { version: 4, routes: staticRoutes(), dynamicRoutes: dynamicFixture(ALL_DYNAMIC) });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, new RegExp(`${EXPECTED.length} stock routes are ISR`));
   assert.match(result.stdout, new RegExp(`${OWNERSHIP_ROUTES.length} ownership routes are ISR`));
   assert.match(result.stdout, new RegExp(`${OWNERSHIP_STATIC_ROUTES.length} static ownership routes are ISR`));
+  assert.match(result.stdout, new RegExp(`${STRATEGY_ROUTES.length} strategy routes are ISR`));
+  assert.match(result.stdout, new RegExp(`${STRATEGY_STATIC_ROUTES.length} strategy hub routes are ISR`));
 });
 
-// Only the stock check can supply the exit 1 here: every ownership check gets the routes it needs,
+// Only the stock check can supply the exit 1 here: every other check gets the routes it needs,
 // so the stdout lines below show them passing.
 test("fails and names the route when one has slipped to per-request rendering", (t) => {
   const kept = EXPECTED.filter((r) => !r.endsWith("/strategy"));
-  const dynamicRoutes = Object.fromEntries([...kept, ...OWNERSHIP_ROUTES].map((r) => [r, { fallback: null }]));
-  const result = run(t, { version: 4, routes: staticRoutes(), dynamicRoutes });
+  const result = run(t, { version: 4, routes: staticRoutes(), dynamicRoutes: dynamicFixture([...kept, ...OWNERSHIP_ROUTES, ...STRATEGY_ROUTES]) });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /\/shorts\/\[stockCode\]\/strategy/);
   assert.match(result.stdout, new RegExp(`${OWNERSHIP_ROUTES.length} ownership routes are ISR`));
   assert.match(result.stdout, new RegExp(`${OWNERSHIP_STATIC_ROUTES.length} static ownership routes are ISR`));
+  assert.match(result.stdout, new RegExp(`${STRATEGY_ROUTES.length} strategy routes are ISR`));
 });
 
 test("fails and names the ownership route when one has slipped to per-request rendering", (t) => {
   const kept = OWNERSHIP_ROUTES.filter((r) => r !== "/ownership/stocks/[code]");
-  const dynamicRoutes = Object.fromEntries([...EXPECTED, ...kept].map((r) => [r, { fallback: null }]));
-  const result = run(t, { version: 4, routes: staticRoutes(), dynamicRoutes });
+  const result = run(t, { version: 4, routes: staticRoutes(), dynamicRoutes: dynamicFixture([...EXPECTED, ...kept, ...STRATEGY_ROUTES]) });
   assert.equal(result.status, 1);
   // The stock and static routes are all present, so only the dynamic ownership check fails.
   assert.match(result.stdout, new RegExp(`${EXPECTED.length} stock routes are ISR`));
@@ -132,11 +166,32 @@ test("fails and names the ownership route when one has slipped to per-request re
   assert.match(result.stderr, /\/ownership\/stocks\/\[code\]/);
 });
 
+// The profile route is closed by its layout. Losing the layout's dynamicParams = false leaves the
+// entry in dynamicRoutes with fallback null: the route still looks ISR to a presence check, and an
+// unknown slug would render on demand. Only the fallback field tells the two apart.
+test("fails and names the strategy profile when it is listed but no longer closed (fallback null)", (t) => {
+  const dynamicRoutes = dynamicFixture(ALL_DYNAMIC);
+  dynamicRoutes["/strategies/[strategy]"] = { fallback: null };
+  const result = run(t, { version: 4, routes: staticRoutes(), dynamicRoutes });
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.split("\n").includes("  /strategies/[strategy]"), result.stderr);
+  assert.match(result.stderr, /dynamicParams = false/);
+  assert.match(result.stdout, new RegExp(`${EXPECTED.length} stock routes are ISR`));
+});
+
+test("fails and names the strategies hub when it is no longer a static ISR page", (t) => {
+  const withoutHub = Object.fromEntries(Object.entries(staticRoutes()).filter(([r]) => r !== "/strategies"));
+  const result = run(t, { version: 4, routes: withoutHub, dynamicRoutes: dynamicFixture(ALL_DYNAMIC) });
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.split("\n").includes("  /strategies"), result.stderr);
+  assert.match(result.stdout, new RegExp(`${OWNERSHIP_STATIC_ROUTES.length} static ownership routes are ISR`));
+});
+
 // A static page is ISR only as `routes` lists it with its revalidate. Each way of losing that is
 // its own case: an export of false (no revalidate), no entry at all, and a listing under dynamicRoutes.
 // Every static page is tried, the hub included, since each one is listed in the manifest on its own.
 test("fails and names each static ownership page when the manifest does not list it as ISR", (t) => {
-  const dynamicRoutes = Object.fromEntries([...EXPECTED, ...OWNERSHIP_ROUTES].map((r) => [r, { fallback: null }]));
+  const dynamicRoutes = dynamicFixture(ALL_DYNAMIC);
   for (const route of OWNERSHIP_STATIC_ROUTES) {
     const withoutRoute = Object.fromEntries(Object.entries(staticRoutes()).filter(([r]) => r !== route));
     const cases = [
@@ -175,7 +230,7 @@ test("names the stock, ownership and static ownership routes together when all h
   assert.equal(result.stdout, "", "a failing gate prints no pass line");
   // Each missing route is printed alone on an indented line, so the whole line is compared.
   const lines = result.stderr.split("\n");
-  for (const route of [...EXPECTED, ...OWNERSHIP_ROUTES, ...OWNERSHIP_STATIC_ROUTES]) {
+  for (const route of [...EXPECTED, ...OWNERSHIP_ROUTES, ...OWNERSHIP_STATIC_ROUTES, ...STRATEGY_ROUTES, ...STRATEGY_STATIC_ROUTES]) {
     assert.ok(lines.includes(`  ${route}`), `${route} is missing from the failure, so a second CI round would be needed to find it`);
   }
 });
@@ -222,7 +277,7 @@ test("the failure hint and the header point at the source scan for dynamic-API r
 test("the ownership failure hint and the header point at the ownership source scan", (t) => {
   const scan = "web/src/app/ownership/__tests__/isr-source-safety.test.ts";
   assert.ok(existsSync(new URL(`../../${scan}`, import.meta.url)), `${scan} is gone, but the gate points at it`);
-  const dynamicRoutes = Object.fromEntries(EXPECTED.map((r) => [r, { fallback: null }]));
+  const dynamicRoutes = dynamicFixture([...EXPECTED, ...STRATEGY_ROUTES]);
   const result = run(t, { version: 4, routes: staticRoutes(), dynamicRoutes });
   assert.equal(result.status, 1);
   assert.match(result.stdout, new RegExp(`${OWNERSHIP_STATIC_ROUTES.length} static ownership routes are ISR`));
@@ -238,7 +293,7 @@ test("the ownership failure hint and the header point at the ownership source sc
 test("the static failure hint names the static ownership pages, both outcomes and the ownership source scan", (t) => {
   const scan = "web/src/app/ownership/__tests__/isr-source-safety.test.ts";
   assert.ok(existsSync(new URL(`../../${scan}`, import.meta.url)), `${scan} is gone, but the gate points at it`);
-  const dynamicRoutes = Object.fromEntries([...EXPECTED, ...OWNERSHIP_ROUTES].map((r) => [r, { fallback: null }]));
+  const dynamicRoutes = dynamicFixture(ALL_DYNAMIC);
   const result = run(t, { version: 4, routes: {}, dynamicRoutes });
   assert.equal(result.status, 1, result.stderr);
   // The stock and dynamic ownership routes pass, so the static check is the one that fails.

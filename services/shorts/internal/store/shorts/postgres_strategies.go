@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/pgsource"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -104,7 +105,7 @@ func logMissingRelationOnce(method string, err error) {
 
 // finite drops NaN and ±Inf. Postgres happily stores and returns them
 // (float8 'NaN', 'Infinity'); encoding/json refuses them, so one bad row
-// would fail the whole MCP payload (key_metrics_finite.go has the history).
+// would fail the whole MCP payload (services/pkg/keymetrics/finite.go has the history).
 func finite(v *float64) *float64 {
 	if v == nil || math.IsNaN(*v) || math.IsInf(*v, 0) {
 		return nil
@@ -118,84 +119,12 @@ func finiteAll(vs ...**float64) {
 	}
 }
 
-// growthColumns selects every mv_fundamentals_growth column (plan §2.2) the
-// evaluator reads, in scanGrowth order, from the alias g. Numeric columns are
-// cast to float8 so the scan types do not depend on how the view declares
-// them. The column list is fixed (never built from input).
-const growthColumns = `
-	COALESCE(g.basis_period_type::text, ''),
-	g.latest_period_end::date,
-	g.latest_annual_period_end::date,
-	g.revenue_latest::float8,
-	g.revenue_prior::float8,
-	g.revenue_yoy_pct::float8,
-	g.revenue_yoy_prior_pct::float8,
-	g.eps_latest::float8,
-	g.eps_prior::float8,
-	g.eps_yoy_pct::float8,
-	g.eps_yoy_prior_pct::float8,
-	g.net_income_latest::float8,
-	g.net_income_prior::float8,
-	g.net_income_positive,
-	g.operating_cash_flow_latest::float8,
-	g.revenue_ttm::float8,
-	g.net_income_ttm::float8,
-	g.eps_ttm::float8,
-	g.revenue_half_delta::float8,
-	g.net_income_half_delta::float8,
-	COALESCE(g.currency::text, ''),
-	COALESCE(g.periods_available, 0)::int4,
-	g.fetched_at::timestamptz,
-	COALESCE(g.revenue_basis_period_type::text, ''),
-	g.revenue_half_yoy_pct::float8,
-	g.net_income_half_yoy_pct::float8,
-	g.eps_half_yoy_pct::float8,
-	g.half_latest_period_end::date`
+// growthColumns is the mv_fundamentals_growth select list, owned by pgsource.
+const growthColumns = pgsource.GrowthColumns
 
-// growthScanTargets returns the scan destinations matching growthColumns.
-func growthScanTargets(g *strategies.Growth) []any {
-	return []any{
-		&g.BasisPeriodType,
-		&g.LatestPeriodEnd,
-		&g.LatestAnnualPeriodEnd,
-		&g.RevenueLatest,
-		&g.RevenuePrior,
-		&g.RevenueYoYPct,
-		&g.RevenueYoYPriorPct,
-		&g.EPSLatest,
-		&g.EPSPrior,
-		&g.EPSYoYPct,
-		&g.EPSYoYPriorPct,
-		&g.NetIncomeLatest,
-		&g.NetIncomePrior,
-		&g.NetIncomePositive,
-		&g.OperatingCashFlowLatest,
-		&g.RevenueTTM,
-		&g.NetIncomeTTM,
-		&g.EPSTTM,
-		&g.RevenueHalfDelta,
-		&g.NetIncomeHalfDelta,
-		&g.Currency,
-		&g.PeriodsAvailable,
-		&g.FetchedAt,
-		&g.RevenueBasisPeriodType,
-		&g.RevenueHalfYoYPct,
-		&g.NetIncomeHalfYoYPct,
-		&g.EPSHalfYoYPct,
-		&g.HalfLatestPeriodEnd,
-	}
-}
-
-func sanitiseGrowth(g *strategies.Growth) {
-	finiteAll(
-		&g.RevenueLatest, &g.RevenuePrior, &g.RevenueYoYPct, &g.RevenueYoYPriorPct,
-		&g.EPSLatest, &g.EPSPrior, &g.EPSYoYPct, &g.EPSYoYPriorPct,
-		&g.NetIncomeLatest, &g.NetIncomePrior, &g.OperatingCashFlowLatest,
-		&g.RevenueTTM, &g.NetIncomeTTM, &g.EPSTTM,
-		&g.RevenueHalfDelta, &g.NetIncomeHalfDelta,
-		&g.RevenueHalfYoYPct, &g.NetIncomeHalfYoYPct, &g.EPSHalfYoYPct,
-	)
-}
+// growthScanTargets and growthColumns are pgsource's; the candidates query
+// below selects the same columns.
+var growthScanTargets = pgsource.GrowthScanTargets
 
 // strategyCandidatesQuery is ONE query over the evaluator's universe: every
 // row of mv_price_features, LEFT JOIN mv_fundamentals_growth (growth), LEFT
@@ -261,8 +190,8 @@ var strategyCandidatesQuery = `
 
 // candidateRow holds one scanned row of strategyCandidatesQuery.
 type candidateRow struct {
-	c         strategies.Candidate
-	g         strategies.Growth
+	c         engine.Candidate
+	g         engine.Growth
 	hasGrowth bool
 	// as_of and close are NOT NULL by construction of the view, but a NULL
 	// in one row must cost that row's numbers, not the whole universe.
@@ -289,6 +218,86 @@ func (r *candidateRow) targets() []any {
 	return append(t, &c.CompanyName, &c.Industry, &c.LogoURL, &c.ShortPct, &c.DaysToCover, &c.MarketCap)
 }
 
+// strategyShortDatesQuery is, for each stock in mv_screener_data, the report
+// its short figure came from: the newest row that 000080's latest_shorts
+// admits and that carries the view's own figure, with no age limit. The
+// figure is part of the match because the live shorts table can hold a newer
+// report than the view has loaded (the view refreshes after the load): the
+// date then falls back to the newest report with that same figure, never to
+// a newer report's date beside an older figure. An ETF, a deferred product or
+// a percent-coupon bond has neither a figure nor a date, and a figure a year
+// old keeps its date. Driving on the view's codes also keeps a NULL
+// PRODUCT_CODE out of the scan.
+const strategyShortDatesQuery = `
+	SELECT sd.stock_code::text, ls."DATE"::date
+	FROM mv_screener_data sd
+	CROSS JOIN LATERAL (
+		SELECT s."DATE"
+		FROM shorts s
+		WHERE s."PRODUCT_CODE" = sd.stock_code
+			AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+			AND s."PRODUCT" !~~* '%DEFERRED%'
+			AND s."PRODUCT" !~* 'ETF\M'
+			AND length(s."PRODUCT_CODE") <= 4
+			AND s."PRODUCT" !~ '[0-9]+(\.[0-9]+)?\s*%'
+			AND (s."TOTAL_PRODUCT_IN_ISSUE" IS NULL OR s."TOTAL_PRODUCT_IN_ISSUE" >= 5000000)
+			AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" = sd.short_pct
+		ORDER BY s."DATE" DESC
+		LIMIT 1
+	) ls
+`
+
+// listStrategyShortDates returns each stock's newest non-zero short report
+// date, keyed by upper-case code. A missing shorts relation is an empty map.
+func listStrategyShortDates(ctx context.Context, db fundamentalsDB) (map[string]time.Time, error) {
+	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	defer cancel()
+
+	rows, err := db.Query(ctx, strategyShortDatesQuery)
+	if err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ListStrategyCandidates.shortDates", err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to query short report dates: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]time.Time{}
+	for rows.Next() {
+		var (
+			code string
+			day  time.Time
+		)
+		if err := rows.Scan(&code, &day); err != nil {
+			return nil, fmt.Errorf("failed to scan short report date: %w", err)
+		}
+		out[strings.ToUpper(code)] = day
+	}
+	if err := rows.Err(); err != nil {
+		if isUndefinedTable(err) {
+			logMissingRelationOnce("ListStrategyCandidates.shortDates", err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error iterating short report dates: %w", err)
+	}
+	return out, nil
+}
+
+// mergeShortDates attaches each candidate's short report date by code. Only a
+// stock with a short figure gets one: the date is the report that figure came
+// from, so a stock with no figure has no date either.
+func mergeShortDates(cands []engine.Candidate, dates map[string]time.Time) {
+	for i := range cands {
+		if cands[i].ShortPct == nil {
+			continue
+		}
+		if d, ok := dates[strings.ToUpper(cands[i].StockCode)]; ok {
+			d := d
+			cands[i].ShortReportDate = &d
+		}
+	}
+}
+
 // ListStrategyCandidates returns the evaluator's universe, one Candidate per
 // stock in mv_price_features, ordered by stock code. A missing relation
 // yields an empty universe, never an error.
@@ -298,24 +307,29 @@ func (r *candidateRow) targets() []any {
 // by stock code, so strategyCandidatesQuery keeps its 000129/000130 column
 // list and a database without 000132 still serves the whole universe, with
 // nil extras (plan fundamentals-coverage.md §5.3).
-func (s *postgresStore) ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error) {
+func (s *postgresStore) ListStrategyCandidates(ctx context.Context) ([]engine.Candidate, error) {
 	return listStrategyCandidates(ctx, s.db)
 }
 
-func listStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategies.Candidate, error) {
+func listStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]engine.Candidate, error) {
 	out, err := queryStrategyCandidates(ctx, db)
 	if err != nil || len(out) == 0 {
 		return out, err
 	}
-	extras, err := listFundamentalsExtras(ctx, db)
+	extras, err := pgsource.ListExtras(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-	mergeFundamentalsExtras(out, extras)
+	pgsource.MergeExtras(out, extras)
+	shortDates, err := listStrategyShortDates(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	mergeShortDates(out, shortDates)
 	return out, nil
 }
 
-func queryStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategies.Candidate, error) {
+func queryStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]engine.Candidate, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
 
@@ -323,13 +337,13 @@ func queryStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategi
 	if err != nil {
 		if isUndefinedTable(err) {
 			logMissingRelationOnce("ListStrategyCandidates", err)
-			return []strategies.Candidate{}, nil
+			return []engine.Candidate{}, nil
 		}
 		return nil, fmt.Errorf("failed to query strategy candidates: %w", err)
 	}
 	defer rows.Close()
 
-	out := make([]strategies.Candidate, 0, 2048)
+	out := make([]engine.Candidate, 0, 2048)
 	for rows.Next() {
 		var (
 			row  candidateRow
@@ -347,7 +361,7 @@ func queryStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategi
 		}
 		sanitiseCandidate(c)
 		if row.hasGrowth {
-			sanitiseGrowth(grow)
+			pgsource.SanitiseGrowth(grow)
 			c.Growth = grow
 		}
 		out = append(out, *c)
@@ -355,14 +369,14 @@ func queryStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategi
 	if err := rows.Err(); err != nil {
 		if isUndefinedTable(err) {
 			logMissingRelationOnce("ListStrategyCandidates", err)
-			return []strategies.Candidate{}, nil
+			return []engine.Candidate{}, nil
 		}
 		return nil, fmt.Errorf("error iterating strategy candidates: %w", err)
 	}
 	return out, nil
 }
 
-func sanitiseCandidate(c *strategies.Candidate) {
+func sanitiseCandidate(c *engine.Candidate) {
 	if math.IsNaN(c.Close) || math.IsInf(c.Close, 0) {
 		c.Close = 0
 	}
@@ -394,26 +408,57 @@ const marketRegimeQuery = `
 // GetMarketRegime returns the mv_market_regime row for indexCode. A missing
 // row or relation yields a Regime with an empty Label (read as unknown by
 // every regime rule), never an error.
-func (s *postgresStore) GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error) {
+func (s *postgresStore) GetMarketRegime(ctx context.Context, indexCode string) (engine.Regime, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
 
 	code := strings.ToUpper(strings.TrimSpace(indexCode))
-	r := strategies.Regime{IndexCode: code}
+	r := engine.Regime{IndexCode: code}
 	err := s.db.QueryRow(ctx, marketRegimeQuery, code).Scan(
 		&r.IndexCode, &r.AsOf, &r.Close, &r.SMA50, &r.SMA200, &r.PctOff52wHigh, &r.Ret1mPct, &r.Ret3mPct, &r.Label,
 	)
 	switch {
 	case err == nil:
 		finiteAll(&r.Close, &r.SMA50, &r.SMA200, &r.PctOff52wHigh, &r.Ret1mPct, &r.Ret3mPct)
-		return r, nil
 	case errors.Is(err, pgx.ErrNoRows):
-		return strategies.Regime{IndexCode: code}, nil
+		r = engine.Regime{IndexCode: code}
 	case isUndefinedTable(err):
 		logMissingRelationOnce("GetMarketRegime", err)
-		return strategies.Regime{IndexCode: code}, nil
+		r = engine.Regime{IndexCode: code}
 	default:
-		return strategies.Regime{}, fmt.Errorf("failed to query market regime: %w", err)
+		return engine.Regime{}, fmt.Errorf("failed to query market regime: %w", err)
+	}
+	// The index's own newest session, read live: the view can lag the series
+	// when its refresh has not run, and that lag is what "data delayed" reports.
+	latest, err := latestIndexSession(ctx, s.db, code)
+	if err != nil {
+		return engine.Regime{}, err
+	}
+	r.LatestSession = latest
+	return r, nil
+}
+
+// latestIndexSessionQuery is the newest session of an index's price series
+// with a level, read from the series itself rather than the regime view.
+const latestIndexSessionQuery = `
+	SELECT max(date)::date
+	FROM index_prices
+	WHERE index_code = $1 AND close > 0
+`
+
+// latestIndexSession returns the newest session of indexCode's price series,
+// nil when the series has none. A missing relation is nil, never an error.
+func latestIndexSession(ctx context.Context, db fundamentalsDB, indexCode string) (*time.Time, error) {
+	var day *time.Time
+	err := db.QueryRow(ctx, latestIndexSessionQuery, indexCode).Scan(&day)
+	switch {
+	case err == nil:
+		return day, nil
+	case isUndefinedTable(err):
+		logMissingRelationOnce("GetMarketRegime.latestSession", err)
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("failed to query the index's latest session: %w", err)
 	}
 }
 
@@ -611,30 +656,11 @@ func readFundamentalsPeriods(ctx context.Context, db fundamentalsDB, query strin
 	return out, nil
 }
 
-var fundamentalsGrowthQuery = `
-	SELECT` + growthColumns + `
-	FROM mv_fundamentals_growth g
-	WHERE g.stock_code = $1
-`
+// fundamentalsGrowthQuery is the single-stock growth read, owned by pgsource.
+var fundamentalsGrowthQuery = pgsource.GrowthQuery
 
 // GetFundamentalsGrowth returns the mv_fundamentals_growth row for a stock,
 // or nil when there is none (or the view does not exist yet).
-func (s *postgresStore) GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
-	defer cancel()
-
-	var g strategies.Growth
-	err := s.db.QueryRow(ctx, fundamentalsGrowthQuery, code).Scan(growthScanTargets(&g)...)
-	switch {
-	case err == nil:
-		sanitiseGrowth(&g)
-		return &g, nil
-	case errors.Is(err, pgx.ErrNoRows):
-		return nil, nil
-	case isUndefinedTable(err):
-		logMissingRelationOnce("GetFundamentalsGrowth", err)
-		return nil, nil
-	default:
-		return nil, fmt.Errorf("failed to query fundamentals growth: %w", err)
-	}
+func (s *postgresStore) GetFundamentalsGrowth(ctx context.Context, code string) (*engine.Growth, error) {
+	return pgsource.GetGrowth(ctx, s.db, code)
 }

@@ -10,6 +10,7 @@ proxy) and `shorted.com.au` (transparent proxy to Vercel).
 | `wrangler.toml` | Local dev / dry-run config (**not** the production deploy path) |
 | `prewarm-wrangler.toml` | Same, for the prewarm worker |
 | `analytics.test.mjs` | Edge analytics event tests |
+| `cache-identity.test.mjs` | Which requests each cache tier may store, and that the keys agree with `prewarm.js` |
 | `ratelimit.test.mjs` | Edge rate limiting tests |
 
 ```bash
@@ -44,6 +45,36 @@ Consequences:
 - Shipping a worker change = merging to `main` and letting terraform-deploy
   apply. To verify the script parses before that:
   `cd services/edge-worker && npx wrangler deploy --dry-run`.
+
+---
+
+## Caching — allowlisted public reads only
+
+The worker stores a response on any tier (hot memory, Cache API, KV) only when
+the request is a `POST` to an allowlisted public read: a Connect method listed in
+`PUBLIC_READ_RPCS` in `worker.js`. Those methods are read-only and
+caller-invariant, so one entry serves every caller. Every other request to
+`/shorts.v1alpha1.` or `/marketdata.v1.` passes through to its origin uncached,
+whatever headers it carries.
+
+- The request body must be JSON (`application/json`, parameters allowed). Any
+  other media type passes through uncached.
+- The list is matched on the full `/<package>.<Service>/<Method>` path, never on
+  a substring.
+- A method joins the list only with a test showing that its response does not
+  depend on the caller. The fourteen `OwnershipService` reads (and their
+  `ShortedStocksService` mirrors) joined on 2026-11-06 at the ASIC TTL: each
+  assembles its answer from the one universe the API caches for ten minutes,
+  none reads a caller, and a feed page's cursor is in the body. `cache-identity.test.mjs` pins the reviewed set, as a
+  literal checked against `publicReadPaths()`, and checks each shorts read
+  against its proto visibility annotation.
+- Cache keys hash the raw request body bytes with SHA-256. The hot, Cache API and
+  KV keys carry no caller credential.
+- `prewarm.js` writes KV under the same key that `buildKvCacheKey` reads. The two
+  must change together, and `cache-identity.test.mjs` checks that they agree.
+- The list and the key format take effect when the worker deploys. Bump the cache
+  version (`POST /api/cache/purge` with the purge secret) to drop entries stored
+  before a change.
 
 ---
 

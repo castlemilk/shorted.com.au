@@ -28,8 +28,17 @@ func setCycleChildMarkers(t *testing.T) {
 	if err := syscall.Pipe(fds[:]); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = syscall.Close(fds[0]) })
-	go func() { _, _ = io.Copy(io.Discard, os.NewFile(uintptr(fds[0]), "drain")) }()
+	// The read end is owned by ONE *os.File, closed through it. It used to be
+	// wrapped by os.NewFile for the drain AND closed raw in the cleanup: an
+	// *os.File closes its descriptor again from its finalizer, and by then the
+	// number belonged to whatever had reused it. In CI that was a temp dir's
+	// handle ("TempDir RemoveAll cleanup: bad file descriptor", four runs on
+	// 2026-11-05 and 06, in whichever test was cleaning up) and twice a test
+	// server's listening socket (a claim and a token refresh dialled
+	// 127.0.0.1 and were refused by a server the test had just started).
+	drain := os.NewFile(uintptr(fds[0]), "drain")
+	t.Cleanup(func() { _ = drain.Close() })
+	go func() { _, _ = io.Copy(io.Discard, drain) }()
 	t.Setenv(crawlEventsFDEnv, strconv.Itoa(fds[1]))
 	t.Setenv("CRAWL_CYCLE_ID", "cyc-proxy-test")
 }

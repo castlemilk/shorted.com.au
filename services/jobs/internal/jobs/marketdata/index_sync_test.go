@@ -1,10 +1,14 @@
 package marketdata
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 	"time"
+	_ "time/tzdata" // the zone the session-date tests are written in, on any host
+
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/marketdata/providers"
 )
 
 func chartJSON(body string) []byte { return []byte(body) }
@@ -16,7 +20,7 @@ const twoSessions = `{"chart":{"result":[{"meta":{"symbol":"^AXJO","currency":"A
  "low":[7290.0,7300.1],"close":[7310.4,7325.9],"volume":[1000,2000]}]}}],"error":null}}`
 
 func TestParseIndexChart(t *testing.T) {
-	bars, currency, err := parseIndexChart(chartJSON(twoSessions))
+	bars, currency, err := parseBars(chartJSON(twoSessions))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -46,7 +50,7 @@ func TestParseIndexChartDropsSessionsWithNoClose(t *testing.T) {
 	 "indicators":{"quote":[{"open":[7300.1,null,7320.0],"high":[7320.5,null,7340.0],
 	 "low":[7290.0,null,7310.0],"close":[7310.4,null,7335.0],"volume":[1000,null,3000]}]}}],"error":null}}`
 
-	bars, _, err := parseIndexChart(chartJSON(withHole))
+	bars, _, err := parseBars(chartJSON(withHole))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -58,6 +62,16 @@ func TestParseIndexChartDropsSessionsWithNoClose(t *testing.T) {
 			t.Errorf("a bar survived with no usable close: %+v", b)
 		}
 	}
+
+	// The session with no close is still a session the response describes, so
+	// it stays in Sessions: the clean-up must not remove its stored row.
+	ch, err := parseIndexChart(chartJSON(withHole))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := len(ch.Sessions); got != 3 {
+		t.Fatalf("Sessions = %d stamps, want all 3 including the one with no close", got)
+	}
 }
 
 // XJT only exists from 2019, so a longer window legitimately errors for it
@@ -66,7 +80,7 @@ func TestParseIndexChartDropsSessionsWithNoClose(t *testing.T) {
 // leave a benchmark unpopulated.
 func TestParseIndexChartSurfacesUpstreamErrors(t *testing.T) {
 	const upstreamErr = `{"chart":{"result":null,"error":{"code":"Not Found","description":"No data found, symbol may be delisted"}}}`
-	_, _, err := parseIndexChart(chartJSON(upstreamErr))
+	_, _, err := parseBars(chartJSON(upstreamErr))
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -77,8 +91,8 @@ func TestParseIndexChartSurfacesUpstreamErrors(t *testing.T) {
 
 func TestParseIndexChartRejectsGarbage(t *testing.T) {
 	for _, body := range []string{``, `not json`, `{}`, `{"chart":{"result":[]}}`} {
-		if _, _, err := parseIndexChart(chartJSON(body)); err == nil {
-			t.Errorf("parseIndexChart(%q) returned no error", body)
+		if _, _, err := parseBars(chartJSON(body)); err == nil {
+			t.Errorf("parseBars(%q) returned no error", body)
 		}
 	}
 }
@@ -87,7 +101,7 @@ func TestParseIndexChartRejectsGarbage(t *testing.T) {
 // simply has no sessions in the window.
 func TestParseIndexChartHandlesAnEmptyWindow(t *testing.T) {
 	const empty = `{"chart":{"result":[{"meta":{"symbol":"^AXJT","currency":"AUD"},"timestamp":[],"indicators":{"quote":[]}}],"error":null}}`
-	bars, currency, err := parseIndexChart(chartJSON(empty))
+	bars, currency, err := parseBars(chartJSON(empty))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -171,4 +185,69 @@ func TestSubcommandsDoNotBypassThePoolBuilder(t *testing.T) {
 			"against Supabase's transaction pooler — use buildDBPoolConfig + "+
 			"pgxpool.NewWithConfig:\n  %s", strings.Join(offenders, "\n  "))
 	}
+}
+
+// sydney is the zone the session-date tests state their sessions in.
+var sydney = func() *time.Location {
+	loc, err := time.LoadLocation("Australia/Sydney")
+	if err != nil {
+		panic(err)
+	}
+	return loc
+}()
+
+// Yahoo stamps a session at its 10:00 Sydney open. Under daylight saving that
+// instant is the previous UTC day, and the session must still date to its own
+// weekday. A Monday filed under the Sunday before it is the defect this pins.
+func TestSessionDateUsesTheSydneyDayUnderDaylightSaving(t *testing.T) {
+	cases := []struct {
+		name string
+		open time.Time // the session's 10:00 Sydney open
+		want string
+	}{
+		{"Monday in daylight time", time.Date(2026, 11, 2, 10, 0, 0, 0, sydney), "2026-11-02"},
+		{"Tuesday in daylight time", time.Date(2026, 11, 3, 10, 0, 0, 0, sydney), "2026-11-03"},
+		{"Monday in standard time", time.Date(2026, 7, 6, 10, 0, 0, 0, sydney), "2026-07-06"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := providers.SessionDate(c.open.Unix()).Format("2006-01-02"); got != c.want {
+				t.Errorf("providers.SessionDate(%s) = %s, want %s", c.open, got, c.want)
+			}
+		})
+	}
+	// A stamp at midnight UTC is the same session in standard time: 10:00 AEST.
+	if got := providers.SessionDate(time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC).Unix()).Format("2006-01-02"); got != "2026-07-06" {
+		t.Errorf("midnight-UTC stamp dated %s, want 2026-07-06", got)
+	}
+}
+
+// A two-session daylight-time response: Monday and Tuesday must stay on their
+// own weekdays, not shift onto Sunday and Monday.
+func TestParseIndexChartDatesDaylightSessionsOnTheirOwnWeekday(t *testing.T) {
+	mon := time.Date(2026, 11, 2, 10, 0, 0, 0, sydney).Unix()
+	tue := time.Date(2026, 11, 3, 10, 0, 0, 0, sydney).Unix()
+	body := fmt.Sprintf(`{"chart":{"result":[{"meta":{"symbol":"^AXJO","currency":"AUD"},
+	 "timestamp":[%d,%d],
+	 "indicators":{"quote":[{"open":[1,2],"high":[1,2],"low":[1,2],"close":[8880.1,8886.8],"volume":[1,2]}]}}],"error":null}}`, mon, tue)
+	bars, _, err := parseBars([]byte(body))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(bars) != 2 {
+		t.Fatalf("got %d bars, want 2", len(bars))
+	}
+	if got := bars[0].Date.Format("2006-01-02"); got != "2026-11-02" {
+		t.Errorf("Monday's session dated %s", got)
+	}
+	if got := bars[1].Date.Format("2006-01-02"); got != "2026-11-03" {
+		t.Errorf("Tuesday's session dated %s", got)
+	}
+}
+
+// parseBars is the bars and currency view of parseIndexChart, for the tests
+// that do not look at the session stamps.
+func parseBars(body []byte) ([]indexBar, string, error) {
+	ch, err := parseIndexChart(body)
+	return ch.Bars, ch.Currency, err
 }

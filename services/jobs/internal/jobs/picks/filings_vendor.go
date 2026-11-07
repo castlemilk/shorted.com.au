@@ -114,7 +114,7 @@ func newVendorContext(rows []vendorRow) vendorContext {
 
 // listedUnitMinK / listedUnitMaxK bound k = net income / (EPS x shares) for a
 // vendor whose EPS is per ordinary share: valuation's band (plan §5.3,
-// strategies.listedUnitMinK / listedUnitMaxK).
+// engine.listedUnitMinK / listedUnitMaxK).
 const (
 	listedUnitMinK = 0.8
 	listedUnitMaxK = 1.25

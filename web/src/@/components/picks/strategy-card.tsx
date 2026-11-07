@@ -13,7 +13,7 @@ import { StrategyArtPlate, hasStrategyArt } from "./strategy-art";
 import { StrategyGlyph } from "./strategy-glyph";
 
 /**
- * One strategy on the /picks hub: one instrument in the rack. The rack is a
+ * One strategy on the /strategies hub: one instrument in the rack. The rack is a
  * single hairline-divided chassis (the hub's <ol>), and each row carries the
  * bare engraved glyph at the left, who the strategy comes from and what it
  * looks for, two recessed readouts (how many stocks are triggered and set up
@@ -43,7 +43,11 @@ export interface StrategyCardProps {
   tagline: string;
   /** Null when the picks could not be read. */
   counts: Record<PickStatus, StatusCount> | null;
-  /** Ranked rows the counts were taken over (the API's page, at most 100). */
+  /**
+   * How many ranked stocks the counts describe: the whole list when the counts
+   * are the API's exact tallies, or the rows served when they are taken from
+   * those rows alone.
+   */
   ranked?: number;
   leaders: StrategyCardLeader[];
 }
@@ -52,8 +56,9 @@ export interface StrategyCardProps {
  * The tape: one hairline band under the readouts, divided in proportion to
  * the ranked list's statuses (lit for triggered, hollow amber for setup,
  * muted for watch), so a row shows the shape of its list before a reader
- * counts. Decorative: the readouts above it carry the numbers. Nothing is
- * drawn for an empty list.
+ * counts. `ranked` caps each status, so counts taken from a shorter list
+ * never draw more than that list holds. Decorative: the readouts above it
+ * carry the numbers. Nothing is drawn for an empty list.
  */
 export function StatusTape({
   counts,
@@ -129,7 +134,7 @@ export function StrategyCard({
   ranked = 0,
   leaders,
 }: StrategyCardProps) {
-  const href = `/picks/${slug}`;
+  const href = `/strategies/${slug}`;
   // With art (the strategy's scene, or baked brandbrain art) the row gains
   // a plate column on md+ beside the glyph; without any, the grid is what
   // it was.
