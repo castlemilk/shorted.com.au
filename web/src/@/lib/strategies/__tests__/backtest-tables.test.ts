@@ -1,3 +1,10 @@
+import { monthlyCoverageUnderMeasure, namedDaysFigure } from "../backtest-tables";
+import {
+  costsCopy,
+  HOUSE_COSTS_FALLBACK,
+  isWipedOut,
+  spreadRangeBps,
+} from "../backtest-tables";
 import {
   coverageBars,
   coverageChip,
@@ -12,8 +19,10 @@ import {
   sensitivityFigures,
   splitMonthlyYears,
 } from "../backtest-tables";
-import { mapBacktestRun, mapCoverageYear, mapMonthlyReturn, mapSensitivity } from "../map-backtest";
-import { fixturePublishedRun } from "./backtest-fixtures";
+import { mapBacktestRun, mapCoverageMonth, mapCoverageYear, mapMonthlyReturn, mapSensitivity } from "../map-backtest";
+import { fixtureMinerviniRun, fixturePublishedRun } from "./backtest-fixtures";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 const WINDOW_START = "2019-05-01";
 const WINDOW_END = "2026-11-06";
@@ -158,3 +167,89 @@ describe("sensitivity", () => {
     expect(fragileChips(rows)).toEqual(["Fragile to costs", "Fragile to publication timing"]);
   });
 });
+
+describe("the costs note is read from the run's recipe (5.4, item c)", () => {
+  it("prints the brokerage and the spread range the recipe's own tiers give, not a fixed range", () => {
+    const recipe = mapBacktestRun(fixtureMinerviniRun()).recipe;
+    expect(recipe).not.toBeNull();
+    const copy = costsCopy(recipe);
+    // The r1 house tiers are 5, 10, 25, 50 and 75 bps per side.
+    expect(copy).toContain("10 bps brokerage (min A$10) + 5-75 bps spread by liquidity, per side.");
+    expect(copy).not.toContain("5-50");
+  });
+
+  it("reads the range from whatever tiers the spread line prints", () => {
+    expect(spreadRangeBps("Spread and impact per side by 20-session dollar volume at the decision close: A$20,000,000 and over at 3 bps; under A$1,000,000 at 40 bps.")).toEqual({ min: 3, max: 40 });
+    expect(costsCopy({ brokerage: "Brokerage 10 bps per side, at least A$10 per fill.", spread: "Spread and impact per side by 20-session dollar volume at the decision close: A$20,000,000 and over at 3 bps; under A$1,000,000 at 40 bps." })).toContain("3-40 bps spread by liquidity");
+  });
+
+  it("never prints a range from the flat sensitivity line, and falls back to the house wording with no recipe", () => {
+    expect(spreadRangeBps("Mockup costs (flat 10 + 5 bps per side) flatter small-cap breakouts. Flat slippage of 5 bps per side replaces the spread tiers: this is a sensitivity, not the house model.")).toBeNull();
+    expect(costsCopy(null)).toBe(HOUSE_COSTS_FALLBACK);
+    expect(costsCopy({ brokerage: "", spread: "no tiers here" })).toBe(HOUSE_COSTS_FALLBACK);
+  });
+
+  it("no statement of the house spread range in the web app still says 5-50 bps", () => {
+    const webSrc = join(__dirname, "..", "..", "..", "..");
+    const files = [
+      join(webSrc, "@", "lib", "strategies", "explorer.ts"),
+      join(webSrc, "@", "components", "strategies", "sensitivity-table.tsx"),
+      join(webSrc, "@", "lib", "strategies", "backtest-tables.ts"),
+    ];
+    for (const f of files) {
+      expect({ file: f, has: /5\s*(-|to)\s*50\s*bps/.test(readFileSync(f, "utf8")) }).toEqual({ file: f, has: false });
+    }
+  });
+});
+
+describe("a wiped-out sensitivity run (5.12, item a)", () => {
+  it("is wiped out when its drawdown reaches -100%, and not otherwise", () => {
+    const wiped = mapSensitivity({ id: "costs_x2", label: "Costs doubled", applies: true, maxDrawdownPct: -100.01 });
+    expect(isWipedOut(wiped)).toBe(true);
+    expect(isWipedOut(mapSensitivity({ id: "costs_x2", label: "Costs doubled", applies: true, maxDrawdownPct: -100 }))).toBe(true);
+    expect(isWipedOut(mapSensitivity({ id: "costs_x2", label: "Costs doubled", applies: true, maxDrawdownPct: -99.9 }))).toBe(false);
+    // A row that does not apply is not a wipe-out: it says why it does not apply.
+    expect(isWipedOut(mapSensitivity({ id: "asic_lag_plus_2", label: "x", applies: false, maxDrawdownPct: -100 }))).toBe(false);
+  });
+
+  it("keeps the served CAGR: n/a today, the figure once the engine serves one", () => {
+    expect(sensitivityFigures(mapSensitivity({ id: "costs_x2", label: "Costs doubled", applies: true, maxDrawdownPct: -100.01 })).cagr).toBe("n/a");
+    expect(sensitivityFigures(mapSensitivity({ id: "costs_x2", label: "Costs doubled", applies: true, maxDrawdownPct: -100.01, hasCagr: true, cagrPct: -100, hasCagr: true })).cagr).toMatch(/^[−-]100\.0%$/);
+  });
+});
+
+describe("the name-days column and the monthly strip use the run's own measure", () => {
+  it("states an all-reported year's priced name-days under the all-reported measure, never the qualifying 0 of 0", () => {
+    // Minervini 2025: the qualifying fields are 0 (the measure is not this strategy's); the all-reported ones are real.
+    const row = mapCoverageYear({
+      year: 2025, measurable: true, qualifyingNameDays: 0, pricedNameDays: 0,
+      allReportedMeasurable: true, allReportedPct: 97.81, allReportedNameDays: 153672, allReportedPricedNameDays: 150302,
+    });
+    expect(namedDaysFigure(row, "all_reported")).toBe("150,302 of 153,672");
+  });
+
+  it("gives no name-days figure for a year the measure cannot see (the cell reads '?', never a number)", () => {
+    const pre2025 = mapCoverageYear({ year: 2019, measurable: false, allReportedMeasurable: false });
+    expect(namedDaysFigure(pre2025, "all_reported")).toBeNull();
+    expect(namedDaysFigure(pre2025, "qualifying")).toBeNull();
+  });
+
+  it("gives a measured run's name-days from the qualifying fields, as before", () => {
+    const measured = mapCoverageYear({ year: 2025, measurable: true, qualifyingNameDays: 10203, pricedNameDays: 10203, coveragePct: 100 });
+    expect(namedDaysFigure(measured, "qualifying")).toBe("10,203 of 10,203");
+    expect(namedDaysFigure(measured, "all_reported")).toBeNull();
+  });
+
+  it("maps every month under the run's measure: a month the measure cannot see has no figure", () => {
+    const months = [
+      mapCoverageMonth({ month: "2019-05", allReportedMeasurable: false }),
+      mapCoverageMonth({ month: "2025-01", allReportedMeasurable: true, allReportedPct: 96 }),
+    ];
+    expect(monthlyCoverageUnderMeasure(months, "all_reported")).toEqual([
+      { month: "2019-05", coveragePct: null, measurable: false },
+      { month: "2025-01", coveragePct: 96, measurable: true },
+    ]);
+    expect(monthlyCoverageUnderMeasure(months, "qualifying").map((m) => m.measurable)).toEqual([false, false]);
+  });
+});
+
