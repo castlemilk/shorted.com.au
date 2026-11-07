@@ -102,6 +102,30 @@ func readFS1(p spec.FeatureSpec) fs1 {
 	}
 }
 
+// windowBuffers is a free list of the window buffers AsOf reads. AsOf runs once
+// per stock per session in a backtest, and a fresh window per call was most of its
+// allocation. It is a channel rather than a sync.Pool: this package may import
+// only the pure standard-library packages the engine's purity rule allows, and a
+// channel is part of the language. A full list drops the buffer to the collector.
+var windowBuffers = make(chan *[]pt, 64)
+
+func getWindow() *[]pt {
+	select {
+	case wp := <-windowBuffers:
+		return wp
+	default:
+		s := make([]pt, 0, 512)
+		return &s
+	}
+}
+
+func putWindow(wp *[]pt) {
+	select {
+	case windowBuffers <- wp:
+	default:
+	}
+}
+
 // Fixed windows of 000130 that the spec does not parameterise: the moving
 // averages and the 200-session average one month back.
 var smaWindows = [...]int{10, 20, 50, 150, 200}
@@ -120,7 +144,7 @@ const (
 //
 // The newest bar in the window (rank 1) is the feature date; it can be before D
 // when the stock did not trade on D. Calls are pure: they read the window
-// through a binary search and allocate only its points.
+// through a binary search, into a pooled buffer that no result aliases.
 func AsOf(bars []Bar, xjo []IndexBar, D civil.Date, p spec.FeatureSpec) (PriceFeatures, bool) {
 	f := readFS1(p)
 
@@ -130,7 +154,16 @@ func AsOf(bars []Bar, xjo []IndexBar, D civil.Date, p spec.FeatureSpec) (PriceFe
 	from := windowStart(D, f.history)
 	lo := sort.Search(len(bars), func(i int) bool { return !bars[i].Date.Before(from) })
 	hi := sort.Search(len(bars), func(i int) bool { return bars[i].Date.After(D) })
-	w := make([]pt, 0, max(hi-lo, 0))
+	//
+	// The window buffer is pooled: nothing AsOf returns points into it (every
+	// result field is a value or a pointer to a local), so it is handed back
+	// after the last read.
+	wp := getWindow()
+	w := (*wp)[:0]
+	defer func() {
+		*wp = w[:0]
+		putWindow(wp)
+	}()
 	for i := lo; i < hi; i++ {
 		b := &bars[i]
 		if !validPrice(b.Close) {
