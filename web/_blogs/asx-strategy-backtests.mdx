@@ -1,6 +1,6 @@
 ---
 title: "Backtests for the ASX Stock Picker: What Its Fixed Rules Would Have Done Since 2019"
-excerpt: "Shorted's stock picker now has backtests: its strategies' rules, frozen as version 1, replayed over ASX prices since May 2019 after costs. Crowded-Short Breakout lost 5.6% a year and Minervini Trend Template 16.3%, while the ASX 200 returned 8.7% a year. What the runs show, and why even these figures flatter the rules."
+excerpt: "Shorted's stock picker now has backtests: its strategies' rules, frozen as version 1, replayed over ASX prices since May 2019 after costs. Crowded-Short Breakout lost 5.6% a year and Minervini Trend Template 15.9%, while the ASX 200 returned 8.7% a year. What the runs show, and why even these figures flatter the rules."
 standfirst: "Two of the stock picker's five strategies can be tested on prices and short positions, and neither made money after costs in the seven and a half years to November 2026. The three that read company results show \"Not computable\" rather than a guess."
 coverImage: "/assets/blog/asx-strategy-backtests/cover-editorial-v1.webp"
 thumbnailImage: "/assets/blog/asx-strategy-backtests/thumbnail-editorial-v1.webp"
@@ -36,18 +36,18 @@ It is free, at **[shorted.com.au/strategies](/strategies)**.
 
 ## What the backtests found
 
-Neither strategy that can be tested made money. Crowded-Short Breakout lost 5.6% a year after costs, turning A$100,000 into A$64,696, while the S&P/ASX 200 total return index (XJT) gained 8.7% a year. Minervini Trend Template lost 16.3% a year.
+Neither strategy that can be tested made money. Crowded-Short Breakout lost 5.6% a year after costs, turning A$100,000 into A$64,696, while the S&P/ASX 200 total return index (XJT) gained 8.7% a year. Minervini Trend Template lost 15.9% a year.
 
-<GraphTable title="The two published runs, rules v1, 1 May 2019 to 5 November 2026, as published on 7 November 2026">
+<GraphTable title="The two published runs, rules v1, 1 May 2019 to 5 November 2026, as recomputed on 8 November 2026">
 
 | | Crowded-Short Breakout | Minervini Trend Template |
 | --- | --- | --- |
-| CAGR after costs | −5.6% | −16.3% |
+| CAGR after costs | −5.6% | −15.9% |
 | XJT CAGR | 8.7% | 8.7% |
 | Same-data reference CAGR | −2.7% | 10.1% |
-| Largest fall | −39.2% | −88.7% |
-| Sharpe | −0.65 (± 0.36) | −0.34 (± 0.36) |
-| Closed trades | 468 | 1,169 |
+| Largest fall | −39.2% | −88.5% |
+| Sharpe | −0.65 (± 0.36) | −0.33 (± 0.36) |
+| Closed trades | 468 | 1,174 |
 | Trades that made money | 26% | 26% |
 | Invested, on average | 23% | 97% |
 
@@ -63,7 +63,7 @@ The reference shows the backdrop. It holds every stock with at least 5% of its s
 
 ### Minervini Trend Template
 
-On our recipe, Minervini's template lost 16.3% a year and fell 88.7% from its peak in February 2020 without recovering. It traded far more than Crowded-Short: 1,169 trades, about 155 a year, each 10% of the portfolio, almost half of them in stocks priced under a dollar. A quarter made money. Costs did much of the damage. Before costs the average trade gained 0.4%; after them it lost 1.1%, because a round trip cost about 1.5% of the position, nearly three times Crowded-Short's 0.5%. With the flat costs our first mockup assumed, the loss is 7.5% a year, and with costs doubled the portfolio is wiped out. Entering one session later turns it into a gain of 1.7% a year, still far behind the index.
+On our recipe, Minervini's template lost 15.9% a year and fell 88.5% from its peak in February 2020 without recovering. It traded far more than Crowded-Short: 1,174 trades, about 156 a year, each 10% of the portfolio, almost half of them in stocks priced under a dollar. A quarter made money. Costs did much of the damage. Before costs the average trade gained 0.3%; after them it lost 1.2%, because a round trip cost about 1.5% of the position, nearly three times Crowded-Short's 0.5%. With the flat costs our first mockup assumed, the loss is 7.2% a year, and with costs doubled the portfolio is wiped out. Entering one session later turns it into a gain of 3.3% a year, still far behind the index.
 
 A result that moves that much with a one-day delay says more about the recipe than about Minervini's method. He buys a breakout from a volatility contraction, which the recipe does not detect, not the first day a stock passes the template.
 
@@ -76,9 +76,9 @@ A result that moves that much with a one-day delay says more about the recipe th
 | 2021 | +2.0% | −28.7% | +17.2% |
 | 2022 | −8.6% | −43.1% | −1.1% |
 | 2023 | −2.9% | −47.6% | +12.4% |
-| 2024 | +3.1% | +13.9% | +11.4% |
-| 2025 | −9.8% | +7.8% | +10.3% |
-| 2026 (to 5 Nov) | −11.9% | −7.4% | +7.1% |
+| 2024 | +3.1% | +12.2% | +11.4% |
+| 2025 | −9.8% | +13.8% | +10.3% |
+| 2026 (to 5 Nov) | −11.9% | −7.7% | +7.1% |
 
 </GraphTable>
 
@@ -86,12 +86,12 @@ A result that moves that much with a one-day delay says more about the recipe th
 
 | Change | Crowded-Short Breakout | Minervini Trend Template |
 | --- | --- | --- |
-| None (the published run) | −5.6% | −16.3% |
-| Costs doubled | −9.1% | Wiped out |
+| None (the published run) | −5.6% | −15.9% |
+| Costs doubled | −9.1% | −100% (wiped out) |
 | ASIC data two sessions later | −5.4% | Does not apply |
-| Delisted positions exit at zero | −5.6% | −19.1% |
-| Entry one session later | −7.1% | +1.7% |
-| Flat costs of 10 + 5 bps a side (our first mockup's) | −4.5% | −7.5% |
+| Delisted positions exit at zero | −5.6% | −19.0% |
+| Entry one session later | −7.1% | +3.3% |
+| Flat costs of 10 + 5 bps a side (our first mockup's) | −4.5% | −7.2% |
 
 </GraphTable>
 
@@ -153,16 +153,18 @@ The explorer at [/strategies](/strategies) opens on a returns table. Each row is
 
 ![The Shorted strategies explorer's "Historical returns by year" table. Minervini Trend Template and Crowded-Short Breakout show a return for each year since May 2019, with their CAGR and largest fall; Zanger Breakout, CAN SLIM and Quality Compounders read "Not computable before FY2023". The panel beside the table shows Crowded-Short Breakout's evidence, and a bar at the foot shows two strategies ticked to compare.](/assets/blog/asx-strategy-backtests/explorer-returns-2026-11-07.webp)
 
-_Screenshot: the explorer at shorted.com.au/strategies on 7 November 2026, with two strategies ticked to compare. Backtests run on prices to 6 November 2026; a year whose coverage is under 80% is hatched._
+_Screenshot: the explorer at shorted.com.au/strategies on 8 November 2026, with two strategies ticked to compare. Backtests run on prices to 6 November 2026; a year whose coverage is under 80% is hatched._
 
 A published strategy's Backtest tab has the whole run: growth of A$100,000 against the index and the reference, the drawdown, monthly returns, coverage by year, the five sensitivity runs and the execution recipe. The run's input and output hashes are printed under it, so a later run of the same rules on the same data can be checked against it. The Trades tab lists every simulated trade for signed-in users.
 
 ![Crowded-Short Breakout's Backtest tab: growth of A$100,000 since May 2019, with the strategy at A$64,696 against XJT at A$187,732 and the same-data reference at A$81,163; the drawdown to −39.2%; monthly coverage; and the run summary, with a net CAGR of −5.6% and 468 closed trades.](/assets/blog/asx-strategy-backtests/crowded-short-backtest-2026-11-07.webp)
 
-_Screenshot: Crowded-Short Breakout's Backtest tab on 7 November 2026, showing the run published that day, with prices to 6 November 2026._
+_Screenshot: Crowded-Short Breakout's Backtest tab on 8 November 2026, showing the recomputed run, with prices to 6 November 2026._
 
 <Callout type="warning" title="A backtest is not a forecast">
 Every figure here is hypothetical: rules applied to past prices, not a record of trading. The years to 5 November 2026 are in-sample, the price history leaves out companies that delisted before about 2025, and the execution recipe is ours, not the strategy author's. The paper track is the test that counts, and it has not yet recorded a session.
 </Callout>
 
-_This content is for informational purposes only and does not constitute financial advice. Backtest figures are hypothetical and in-sample: Shorted's rules version 1 and r1 execution recipes applied to prices from 1 May 2019 to 5 November 2026, computed on 7 November 2026, as total return with franking excluded and after modelled costs. Short positions are from ASIC's daily reports, used four trading days after the position date. Past performance, real or simulated, is not a reliable indicator of future performance. Always conduct your own research before making investment decisions._
+_Updated 8 November 2026: both backtests were recomputed after we deleted 51 price bars that were not the ASX listing's prices, three of them the US-listed SLM Corp's bars stored under ASX:SLM, and after a fix that reports a run whose equity reaches zero as wiped out. Crowded-Short Breakout's results did not change. Minervini Trend Template's moved slightly (CAGR from −16.3% to −15.9% a year), and its costs-doubled run now reads −100%. The figures above are the recomputed ones._
+
+_This content is for informational purposes only and does not constitute financial advice. Backtest figures are hypothetical and in-sample: Shorted's rules version 1 and r1 execution recipes applied to prices from 1 May 2019 to 5 November 2026, recomputed on 8 November 2026, as total return with franking excluded and after modelled costs. Short positions are from ASIC's daily reports, used four trading days after the position date. Past performance, real or simulated, is not a reliable indicator of future performance. Always conduct your own research before making investment decisions._
