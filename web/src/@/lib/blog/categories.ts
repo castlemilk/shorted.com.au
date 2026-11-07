@@ -88,7 +88,7 @@ const HEURISTICS: ReadonlyArray<{ test: RegExp; slug: BlogCategorySlug }> = [
     slug: "housing",
   },
   {
-    test: /^shorted-|(^|-)(platform|mcp|releases?|hello-world|introducing|changelog)(-|$)/i,
+    test: /^shorted-|(^|-)(platform|mcp|releases?|hello-world|introducing|changelog|backtests?)(-|$)/i,
     slug: "product",
   },
   {
