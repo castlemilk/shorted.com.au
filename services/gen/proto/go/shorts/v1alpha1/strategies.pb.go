@@ -4620,8 +4620,16 @@ type WindowMetrics struct {
 	HasBenchmarkTotalReturn bool                   `protobuf:"varint,32,opt,name=has_benchmark_total_return,json=hasBenchmarkTotalReturn,proto3" json:"has_benchmark_total_return,omitempty"`
 	ReferenceTotalReturnPct float64                `protobuf:"fixed64,33,opt,name=reference_total_return_pct,json=referenceTotalReturnPct,proto3" json:"reference_total_return_pct,omitempty"`
 	HasReferenceTotalReturn bool                   `protobuf:"varint,34,opt,name=has_reference_total_return,json=hasReferenceTotalReturn,proto3" json:"has_reference_total_return,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	// The reference over the overlap: the sessions of the window where the same-data reference exists. The
+	// reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+	// the run's last session carries no reference, so the window's own figures stop there.
+	ReferenceTo                   string  `protobuf:"bytes,35,opt,name=reference_to,json=referenceTo,proto3" json:"reference_to,omitempty"`                                                               // The last session the reference is measured to; "" when there is no reference.
+	StrategyOverlapTotalReturnPct float64 `protobuf:"fixed64,36,opt,name=strategy_overlap_total_return_pct,json=strategyOverlapTotalReturnPct,proto3" json:"strategy_overlap_total_return_pct,omitempty"` // The strategy's total return over the same overlap, for a like-for-like comparison.
+	HasStrategyOverlapTotalReturn bool    `protobuf:"varint,37,opt,name=has_strategy_overlap_total_return,json=hasStrategyOverlapTotalReturn,proto3" json:"has_strategy_overlap_total_return,omitempty"`
+	StrategyOverlapCagrPct        float64 `protobuf:"fixed64,38,opt,name=strategy_overlap_cagr_pct,json=strategyOverlapCagrPct,proto3" json:"strategy_overlap_cagr_pct,omitempty"` // The strategy's CAGR over the overlap, from 365 calendar days.
+	HasStrategyOverlapCagr        bool    `protobuf:"varint,39,opt,name=has_strategy_overlap_cagr,json=hasStrategyOverlapCagr,proto3" json:"has_strategy_overlap_cagr,omitempty"`
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
 }
 
 func (x *WindowMetrics) Reset() {
@@ -4888,6 +4896,41 @@ func (x *WindowMetrics) GetReferenceTotalReturnPct() float64 {
 func (x *WindowMetrics) GetHasReferenceTotalReturn() bool {
 	if x != nil {
 		return x.HasReferenceTotalReturn
+	}
+	return false
+}
+
+func (x *WindowMetrics) GetReferenceTo() string {
+	if x != nil {
+		return x.ReferenceTo
+	}
+	return ""
+}
+
+func (x *WindowMetrics) GetStrategyOverlapTotalReturnPct() float64 {
+	if x != nil {
+		return x.StrategyOverlapTotalReturnPct
+	}
+	return 0
+}
+
+func (x *WindowMetrics) GetHasStrategyOverlapTotalReturn() bool {
+	if x != nil {
+		return x.HasStrategyOverlapTotalReturn
+	}
+	return false
+}
+
+func (x *WindowMetrics) GetStrategyOverlapCagrPct() float64 {
+	if x != nil {
+		return x.StrategyOverlapCagrPct
+	}
+	return 0
+}
+
+func (x *WindowMetrics) GetHasStrategyOverlapCagr() bool {
+	if x != nil {
+		return x.HasStrategyOverlapCagr
 	}
 	return false
 }
@@ -7292,7 +7335,7 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x0ebuild_revision\x18\x13 \x01(\tR\rbuildRevision\x12\x1b\n" +
 	"\trisk_free\x18\x14 \x01(\tR\briskFree\x12%\n" +
 	"\x0ereference_name\x18\x15 \x01(\tR\rreferenceName\x12\x19\n" +
-	"\brun_date\x18\x16 \x01(\tR\arunDate\"\xe1\t\n" +
+	"\brun_date\x18\x16 \x01(\tR\arunDate\"\x8e\f\n" +
 	"\rWindowMetrics\x12\x16\n" +
 	"\x06window\x18\x01 \x01(\tR\x06window\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
@@ -7332,7 +7375,12 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x1abenchmark_total_return_pct\x18\x1f \x01(\x01R\x17benchmarkTotalReturnPct\x12;\n" +
 	"\x1ahas_benchmark_total_return\x18  \x01(\bR\x17hasBenchmarkTotalReturn\x12;\n" +
 	"\x1areference_total_return_pct\x18! \x01(\x01R\x17referenceTotalReturnPct\x12;\n" +
-	"\x1ahas_reference_total_return\x18\" \x01(\bR\x17hasReferenceTotalReturn\"\xa8\x03\n" +
+	"\x1ahas_reference_total_return\x18\" \x01(\bR\x17hasReferenceTotalReturn\x12!\n" +
+	"\freference_to\x18# \x01(\tR\vreferenceTo\x12H\n" +
+	"!strategy_overlap_total_return_pct\x18$ \x01(\x01R\x1dstrategyOverlapTotalReturnPct\x12H\n" +
+	"!has_strategy_overlap_total_return\x18% \x01(\bR\x1dhasStrategyOverlapTotalReturn\x129\n" +
+	"\x19strategy_overlap_cagr_pct\x18& \x01(\x01R\x16strategyOverlapCagrPct\x129\n" +
+	"\x19has_strategy_overlap_cagr\x18' \x01(\bR\x16hasStrategyOverlapCagr\"\xa8\x03\n" +
 	"\fAnnualReturn\x12\x12\n" +
 	"\x04year\x18\x01 \x01(\x05R\x04year\x12\x14\n" +
 	"\x05state\x18\x02 \x01(\tR\x05state\x12!\n" +

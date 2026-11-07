@@ -398,12 +398,11 @@ func windowMetrics(f backtest.WindowFigures, days []chainDay, trades []windowTra
 	}
 	var exposure float64
 	recorded := false
-	allBench, allRef := len(days) > 0, len(days) > 0
+	allBench := len(days) > 0
 	for _, d := range days {
 		exposure += d.exposure
 		recorded = recorded || d.recorded
 		allBench = allBench && d.hasBench
-		allRef = allRef && d.hasRef
 	}
 	if len(days) > 0 {
 		m.ExposurePct = round2(exposure / float64(len(days)) * 100)
@@ -416,13 +415,7 @@ func windowMetrics(f backtest.WindowFigures, days []chainDay, trades []windowTra
 		m.BenchmarkTotalReturnPct = round2((days[len(days)-1].bench/days[0].bench - 1) * 100)
 		m.HasBenchmarkTotalReturn = true
 	}
-	if allRef {
-		if cagr, ok := backtest.CAGR(curveOfField(days, func(d chainDay) float64 { return d.ref })); ok {
-			m.ReferenceCagrPct, m.HasReference = round2(cagr*100), true
-		}
-		m.ReferenceTotalReturnPct = round2((days[len(days)-1].ref/days[0].ref - 1) * 100)
-		m.HasReferenceTotalReturn = true
-	}
+	setReferenceOverlap(m, days)
 	closed, win, hasWin := closedAndWinRate(trades, f.Start, f.End)
 	m.ClosedTrades = int32(closed)
 	m.WinRatePct, m.HasWinRate = round2(win), hasWin
@@ -465,6 +458,41 @@ func applyWindowNotes(wins []*shortsv1alpha1.WindowMetrics, c *computedRun) {
 	}
 }
 
+// referenceOverlap is the leading run of the window's sessions that carry the same-data reference: the
+// overlap the reference figures are measured over. A paper tail after the run's last reference session is
+// not in it. The overlap is contiguous from the window's first session by construction (the run's own
+// sessions come first); a window that starts after the reference ends has none.
+func referenceOverlap(days []chainDay) []chainDay {
+	n := 0
+	for n < len(days) && days[n].hasRef {
+		n++
+	}
+	return days[:n]
+}
+
+// setReferenceOverlap measures the reference and the strategy over the reference overlap of a window. The
+// reference's total return is served whenever the overlap spans two sessions; its CAGR only when the overlap
+// spans 365 calendar days (the CAGR rule), so a shorter overlap is a total return marked not annualised.
+func setReferenceOverlap(m *shortsv1alpha1.WindowMetrics, days []chainDay) {
+	ov := referenceOverlap(days)
+	if len(ov) < 2 {
+		return
+	}
+	first, last := ov[0], ov[len(ov)-1]
+	m.ReferenceTo = last.date.String()
+	m.ReferenceTotalReturnPct = round2((last.ref/first.ref - 1) * 100)
+	m.HasReferenceTotalReturn = true
+	m.StrategyOverlapTotalReturnPct = round2((last.equity/first.equity - 1) * 100)
+	m.HasStrategyOverlapTotalReturn = true
+	refCAGR, okRef := backtest.CAGR(curveOfField(ov, func(d chainDay) float64 { return d.ref }))
+	if okRef {
+		m.ReferenceCagrPct, m.HasReference = round2(refCAGR*100), true
+	}
+	if stratCAGR, ok := backtest.CAGR(curveOfField(ov, func(d chainDay) float64 { return d.equity })); ok {
+		m.StrategyOverlapCagrPct, m.HasStrategyOverlapCagr = round2(stratCAGR*100), true
+	}
+}
+
 // applyReferenceFallback gives the since-May-2019 window the reference figures the summary states, when
 // its daily series carries no reference (runs published before the reference was written into the
 // records). The summary's figures are the whole run's, which is the since-2019 window; the other windows
@@ -481,7 +509,24 @@ func applyReferenceFallback(wins []*shortsv1alpha1.WindowMetrics, days []chainDa
 		if sum.Reference.HasCAGR {
 			w.ReferenceCagrPct, w.HasReference = round2(sum.Reference.CAGR*100), true
 		}
+		// The summary's reference runs to its own end; the strategy is measured over the same sessions.
+		end := sum.Reference.End.String()
+		w.ReferenceTo = end
+		ov := daysUpTo(days, sum.Reference.End)
+		if len(ov) >= 2 {
+			w.StrategyOverlapTotalReturnPct = round2((ov[len(ov)-1].equity/ov[0].equity - 1) * 100)
+			w.HasStrategyOverlapTotalReturn = true
+		}
 	}
+}
+
+// daysUpTo is the sessions of days on or before end.
+func daysUpTo(days []chainDay, end civil.Date) []chainDay {
+	n := 0
+	for n < len(days) && !days[n].date.After(end) {
+		n++
+	}
+	return days[:n]
 }
 
 // dateAt is the session at index k of days, "" when k is outside it.

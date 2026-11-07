@@ -357,4 +357,60 @@ public interface WindowMetricsOrBuilder extends
    * @return The hasReferenceTotalReturn.
    */
   boolean getHasReferenceTotalReturn();
+
+  /**
+   * <pre>
+   * The reference over the overlap: the sessions of the window where the same-data reference exists. The
+   * reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+   * the run's last session carries no reference, so the window's own figures stop there.
+   * </pre>
+   *
+   * <code>string reference_to = 35 [json_name = "referenceTo"];</code>
+   * @return The referenceTo.
+   */
+  java.lang.String getReferenceTo();
+  /**
+   * <pre>
+   * The reference over the overlap: the sessions of the window where the same-data reference exists. The
+   * reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+   * the run's last session carries no reference, so the window's own figures stop there.
+   * </pre>
+   *
+   * <code>string reference_to = 35 [json_name = "referenceTo"];</code>
+   * @return The bytes for referenceTo.
+   */
+  com.google.protobuf.ByteString
+      getReferenceToBytes();
+
+  /**
+   * <pre>
+   * The strategy's total return over the same overlap, for a like-for-like comparison.
+   * </pre>
+   *
+   * <code>double strategy_overlap_total_return_pct = 36 [json_name = "strategyOverlapTotalReturnPct"];</code>
+   * @return The strategyOverlapTotalReturnPct.
+   */
+  double getStrategyOverlapTotalReturnPct();
+
+  /**
+   * <code>bool has_strategy_overlap_total_return = 37 [json_name = "hasStrategyOverlapTotalReturn"];</code>
+   * @return The hasStrategyOverlapTotalReturn.
+   */
+  boolean getHasStrategyOverlapTotalReturn();
+
+  /**
+   * <pre>
+   * The strategy's CAGR over the overlap, from 365 calendar days.
+   * </pre>
+   *
+   * <code>double strategy_overlap_cagr_pct = 38 [json_name = "strategyOverlapCagrPct"];</code>
+   * @return The strategyOverlapCagrPct.
+   */
+  double getStrategyOverlapCagrPct();
+
+  /**
+   * <code>bool has_strategy_overlap_cagr = 39 [json_name = "hasStrategyOverlapCagr"];</code>
+   * @return The hasStrategyOverlapCagr.
+   */
+  boolean getHasStrategyOverlapCagr();
 }

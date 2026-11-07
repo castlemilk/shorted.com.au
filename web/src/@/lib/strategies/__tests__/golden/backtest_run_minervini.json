@@ -1,0 +1,4942 @@
+{
+  "run": {
+    "annual": [
+      {
+        "benchmarkPct": 1.74,
+        "coverageMeasure": "not_measurable",
+        "hasBenchmark": true,
+        "hasReference": true,
+        "months": "May-Dec",
+        "referencePct": 2.09,
+        "state": "partial",
+        "strategyPct": 0.64,
+        "year": 2019
+      },
+      {
+        "benchmarkPct": 2.58,
+        "coverageMeasure": "not_measurable",
+        "hasBenchmark": true,
+        "hasReference": true,
+        "referencePct": 3.08,
+        "state": "complete",
+        "strategyPct": 5.18,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 2.5,
+        "coverageMeasure": "not_measurable",
+        "hasBenchmark": true,
+        "hasReference": true,
+        "referencePct": 2.98,
+        "state": "complete",
+        "strategyPct": 5.38,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 2.43,
+        "coverageMeasure": "not_measurable",
+        "hasBenchmark": true,
+        "hasReference": true,
+        "referencePct": 2.88,
+        "state": "complete",
+        "strategyPct": 5.51,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 2.37,
+        "coverageMeasure": "not_measurable",
+        "hasBenchmark": true,
+        "hasReference": true,
+        "referencePct": 2.8,
+        "state": "complete",
+        "strategyPct": 5.66,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 2.34,
+        "coverageMeasure": "not_measurable",
+        "hasBenchmark": true,
+        "hasReference": true,
+        "referencePct": 2.74,
+        "state": "complete",
+        "strategyPct": 5.94,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 2.27,
+        "coverageMeasurable": true,
+        "coverageMeasure": "all_reported",
+        "coveragePct": 90,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "referencePct": 2.66,
+        "state": "complete",
+        "strategyPct": 6,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 1.66,
+        "coverageMeasurable": true,
+        "coverageMeasure": "all_reported",
+        "coveragePct": 90,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "months": "YTD",
+        "referencePct": 1.94,
+        "state": "to_date",
+        "strategyPct": 2.44,
+        "year": 2026
+      }
+    ],
+    "coverage": [
+      {
+        "allReportedMeasurable": true,
+        "allReportedNameDays": "40",
+        "allReportedPct": 90,
+        "allReportedPricedNameDays": "36",
+        "coveragePct": 70,
+        "measurable": true,
+        "pricedNameDays": "7",
+        "qualifyingNameDays": "10",
+        "year": 2019
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedNameDays": "40",
+        "allReportedPct": 90,
+        "allReportedPricedNameDays": "36",
+        "coveragePct": 70,
+        "measurable": true,
+        "pricedNameDays": "7",
+        "qualifyingNameDays": "10",
+        "year": 2020
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedNameDays": "40",
+        "allReportedPct": 90,
+        "allReportedPricedNameDays": "36",
+        "coveragePct": 70,
+        "measurable": true,
+        "pricedNameDays": "7",
+        "qualifyingNameDays": "10",
+        "year": 2021
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedNameDays": "40",
+        "allReportedPct": 90,
+        "allReportedPricedNameDays": "36",
+        "coveragePct": 70,
+        "measurable": true,
+        "pricedNameDays": "7",
+        "qualifyingNameDays": "10",
+        "year": 2022
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedNameDays": "40",
+        "allReportedPct": 90,
+        "allReportedPricedNameDays": "36",
+        "coveragePct": 70,
+        "measurable": true,
+        "pricedNameDays": "7",
+        "qualifyingNameDays": "10",
+        "year": 2023
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedNameDays": "40",
+        "allReportedPct": 90,
+        "allReportedPricedNameDays": "36",
+        "coveragePct": 70,
+        "measurable": true,
+        "pricedNameDays": "7",
+        "qualifyingNameDays": "10",
+        "year": 2024
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedNameDays": "40",
+        "allReportedPct": 90,
+        "allReportedPricedNameDays": "36",
+        "coveragePct": 70,
+        "measurable": true,
+        "pricedNameDays": "7",
+        "qualifyingNameDays": "10",
+        "year": 2025
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedNameDays": "40",
+        "allReportedPct": 90,
+        "allReportedPricedNameDays": "36",
+        "coveragePct": 70,
+        "measurable": true,
+        "pricedNameDays": "7",
+        "qualifyingNameDays": "10",
+        "year": 2026
+      }
+    ],
+    "coverageMonthly": [
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2019-05"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2019-06"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2019-07"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2019-08"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2019-09"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2019-10"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2019-11"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2019-12"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-01"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-02"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-03"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-04"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-05"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-06"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-07"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-08"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-09"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-10"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-11"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2020-12"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-01"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-02"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-03"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-04"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-05"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-06"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-07"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-08"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-09"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-10"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-11"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2021-12"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-01"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-02"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-03"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-04"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-05"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-06"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-07"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-08"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-09"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-10"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-11"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2022-12"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-01"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-02"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-03"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-04"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-05"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-06"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-07"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-08"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-09"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-10"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-11"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2023-12"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-01"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-02"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-03"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-04"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-05"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-06"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-07"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-08"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-09"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-10"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-11"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2024-12"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-01"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-02"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-03"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-04"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-05"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-06"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-07"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-08"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-09"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-10"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-11"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2025-12"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2026-01"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2026-02"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2026-03"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2026-04"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2026-05"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2026-06"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2026-07"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2026-08"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2026-09"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2026-10"
+      },
+      {
+        "allReportedMeasurable": true,
+        "allReportedPct": 90,
+        "coveragePct": 75,
+        "measurable": true,
+        "month": "2026-11"
+      }
+    ],
+    "dataNotes": [
+      "2 positions exited at their last close after a delisting.",
+      "1 positions exited on a corporate action.",
+      "3 held bars fell back to a close price.",
+      "Pre-re-sync consolidations (an ASIC share step of 1.8x or more with a continuous vendor price): days to cover before them is overstated by the factor. It is a non-core ranking input for Crowded-Short, and no decision uses the later step."
+    ],
+    "dataQuality": {
+      "cancelledEntries": {
+        "liquidity": 4
+      },
+      "consolidationNote": "Pre-re-sync consolidations (an ASIC share step of 1.8x or more with a continuous vendor price): days to cover before them is overstated by the factor. It is a non-core ranking input for Crowded-Short, and no decision uses the later step.",
+      "corporateActionExits": 1,
+      "delistingExits": 2,
+      "fallbackClose": 3
+    },
+    "disclosures": [
+      "Hypothetical results from rules applied to historical data, not a record of trading. Not financial advice.",
+      "Total return: dividends as adjusted by the price vendor, or credited in cash on the ex-date from ASX dividend notices where the vendor has not adjusted them (notices from 11 Sep 2024); franking excluded; vs S\u0026P/ASX 200 Gross Total Return.",
+      "ASIC basis: Latest complete ASIC report published by each session (T+4 sessions on a calendar derived from the data; assumed for the whole history); values as later revised; original publications not kept.",
+      "Reference: The reference is built from the same price history with the same gaps. If a strategy beats the ASX 200 but not the reference, the edge may be the data rather than the rules. Gaps are uneven across stocks, so subtracting the reference does not remove survivorship bias.",
+      "Survivorship: Prices are missing for companies that delisted before about 2025. Heavily shorted companies that later failed are over-represented among them, so these results flatter the strategy, most in the earlier years; by how much cannot be measured.",
+      "Coverage is measured on ASIC-reported names only; the gap cannot be measured for companies that were never reported short.",
+      "In-sample · rules frozen 2026-10-01: the figures to 2026-09-30 are in-sample; the recorded paper track follows."
+    ],
+    "engineMatchesLive": true,
+    "fundamentalsLabel": "Point-in-time fundamentals from the capture date (strict policy)",
+    "identity": {
+      "asicReportThrough": "2026-11-02",
+      "benchmark": "XJT",
+      "engineVersion": "1.1.1",
+      "finishedAt": "2026-11-06T03:00:00Z",
+      "fundamentals": "strict",
+      "inSampleUntil": "2026-09-30",
+      "kind": "publish",
+      "pricesThrough": "2026-11-05",
+      "recipeHash": "a408739b0e93d45d271b533bae4898f033f308473ee87057d6dc8bf53fd5756a",
+      "recipeId": "mtt-r1",
+      "referenceName": "Same-data reference: liquid ordinary shares, equal weight",
+      "returns": "total",
+      "riskFree": "RBA cash rate",
+      "runDate": "2026-11-06",
+      "runId": "201",
+      "runKey": "key-201",
+      "version": {
+        "engineVersion": "1.1.1",
+        "featureSet": "fs1",
+        "kind": "canonical",
+        "label": "v1",
+        "rulesHash": "fc794d1113053010e01e8482e6246ecbcdaf833c82e143f1a7af05642117e659",
+        "status": "live",
+        "strategyId": "minervini-trend-template"
+      },
+      "windowEnd": "2026-11-05",
+      "windowStart": "2019-05-01"
+    },
+    "liveVersion": {
+      "engineVersion": "1.1.1",
+      "featureSet": "fs1",
+      "kind": "canonical",
+      "label": "v1",
+      "rulesHash": "fc794d1113053010e01e8482e6246ecbcdaf833c82e143f1a7af05642117e659",
+      "status": "live",
+      "strategyId": "minervini-trend-template"
+    },
+    "monthly": [
+      {
+        "benchmarkPct": 0.22,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "label": "from 1 May",
+        "month": 5,
+        "referencePct": 0.26,
+        "state": "partial",
+        "strategyPct": 2.02,
+        "year": 2019
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 6,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": 1.42,
+        "year": 2019
+      },
+      {
+        "benchmarkPct": 0.23,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 7,
+        "referencePct": 0.27,
+        "state": "complete",
+        "strategyPct": 0.85,
+        "year": 2019
+      },
+      {
+        "benchmarkPct": 0.22,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 8,
+        "referencePct": 0.26,
+        "state": "complete",
+        "strategyPct": -0.07,
+        "year": 2019
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 9,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": -0.74,
+        "year": 2019
+      },
+      {
+        "benchmarkPct": 0.23,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 10,
+        "referencePct": 0.27,
+        "state": "complete",
+        "strategyPct": -1.21,
+        "year": 2019
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 11,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": -1.03,
+        "year": 2019
+      },
+      {
+        "benchmarkPct": 0.22,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 12,
+        "referencePct": 0.26,
+        "state": "complete",
+        "strategyPct": -0.55,
+        "year": 2019
+      },
+      {
+        "benchmarkPct": 0.23,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 1,
+        "referencePct": 0.27,
+        "state": "complete",
+        "strategyPct": 0.33,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 2,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": 1.09,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.22,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 3,
+        "referencePct": 0.26,
+        "state": "complete",
+        "strategyPct": 1.84,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 4,
+        "referencePct": 0.26,
+        "state": "complete",
+        "strategyPct": 2.09,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 5,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": 1.78,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 6,
+        "referencePct": 0.26,
+        "state": "complete",
+        "strategyPct": 1.25,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.22,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 7,
+        "referencePct": 0.27,
+        "state": "complete",
+        "strategyPct": 0.41,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 8,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": -0.42,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 9,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": -1,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 10,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": -1.18,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 11,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": -0.85,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.22,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 12,
+        "referencePct": 0.26,
+        "state": "complete",
+        "strategyPct": -0.19,
+        "year": 2020
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 1,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": 0.69,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 2,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": 1.36,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.22,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 3,
+        "referencePct": 0.26,
+        "state": "complete",
+        "strategyPct": 2.09,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 4,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": 2.05,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 5,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": 1.55,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 6,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": 0.89,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 7,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": 0.03,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 8,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": -0.72,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 9,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": -1.14,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 10,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": -1.06,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 11,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": -0.64,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.22,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 12,
+        "referencePct": 0.26,
+        "state": "complete",
+        "strategyPct": 0.21,
+        "year": 2021
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 1,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": 1.06,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 2,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": 1.62,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 3,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": 2.18,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 4,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": 1.83,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 5,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": 1.34,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 6,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": 0.51,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 7,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": -0.3,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 8,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": -0.98,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 9,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": -1.18,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 10,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": -0.91,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 11,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": -0.31,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 12,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": 0.59,
+        "year": 2022
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 1,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": 1.44,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.18,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 2,
+        "referencePct": 0.21,
+        "state": "complete",
+        "strategyPct": 1.79,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 3,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": 2.16,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.18,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 4,
+        "referencePct": 0.21,
+        "state": "complete",
+        "strategyPct": 1.56,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 5,
+        "referencePct": 0.25,
+        "state": "complete",
+        "strategyPct": 1.06,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 6,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": 0.13,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 7,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": -0.6,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 8,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": -1.15,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 9,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": -1.09,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 10,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": -0.72,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 11,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": 0.07,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 12,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": 0.92,
+        "year": 2023
+      },
+      {
+        "benchmarkPct": 0.21,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 1,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": 1.8,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 2,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": 1.98,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 3,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": 1.87,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 4,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": 1.43,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 5,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": 0.63,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.18,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 6,
+        "referencePct": 0.21,
+        "state": "complete",
+        "strategyPct": -0.21,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 7,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": -0.92,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 8,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": -1.18,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.18,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 9,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": -0.96,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 10,
+        "referencePct": 0.24,
+        "state": "complete",
+        "strategyPct": -0.4,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.18,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 11,
+        "referencePct": 0.21,
+        "state": "complete",
+        "strategyPct": 0.48,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 12,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": 1.35,
+        "year": 2024
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 1,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": 2.04,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.17,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 2,
+        "referencePct": 0.2,
+        "state": "complete",
+        "strategyPct": 1.89,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.18,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 3,
+        "referencePct": 0.21,
+        "state": "complete",
+        "strategyPct": 1.69,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 4,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": 1.09,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 5,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": 0.23,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.18,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 6,
+        "referencePct": 0.21,
+        "state": "complete",
+        "strategyPct": -0.52,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 7,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": -1.11,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.18,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 8,
+        "referencePct": 0.21,
+        "state": "complete",
+        "strategyPct": -1.11,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 9,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": -0.79,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 10,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": -0.01,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.17,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 11,
+        "referencePct": 0.2,
+        "state": "complete",
+        "strategyPct": 0.8,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.2,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 12,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": 1.72,
+        "year": 2025
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 1,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": 2.06,
+        "year": 2026
+      },
+      {
+        "benchmarkPct": 0.17,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 2,
+        "referencePct": 0.2,
+        "state": "complete",
+        "strategyPct": 1.81,
+        "year": 2026
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 3,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": 1.51,
+        "year": 2026
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 4,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": 0.72,
+        "year": 2026
+      },
+      {
+        "benchmarkPct": 0.18,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 5,
+        "referencePct": 0.21,
+        "state": "complete",
+        "strategyPct": -0.11,
+        "year": 2026
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 6,
+        "referencePct": 0.22,
+        "state": "complete",
+        "strategyPct": -0.81,
+        "year": 2026
+      },
+      {
+        "benchmarkPct": 0.19,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 7,
+        "referencePct": 0.23,
+        "state": "complete",
+        "strategyPct": -1.22,
+        "year": 2026
+      },
+      {
+        "benchmarkPct": 0.18,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "month": 8,
+        "referencePct": 0.21,
+        "state": "complete",
+        "strategyPct": -1,
+        "year": 2026
+      },
+      {
+        "benchmarkPct": 0.18,
+        "hasBenchmark": true,
+        "hasReference": true,
+        "label": "MTD",
+        "month": 9,
+        "referencePct": 0.21,
+        "state": "to_date",
+        "strategyPct": -0.49,
+        "year": 2026
+      }
+    ],
+    "recipe": {
+      "asicData": "Short positions: the latest complete ASIC report published by each session (T+4 sessions on a calendar derived from the data; assumed for the whole history); values as later revised; original publications not kept.",
+      "brokerage": "Brokerage 10 bps per side, at least A$10 per fill.",
+      "capacity": "Notional at most 5% of the 20-session dollar volume at the decision close.",
+      "capital": "Starting capital A$100,000.",
+      "cash": "Idle cash earns the RBA cash rate.",
+      "delisting": "A delisted stock exits at its last close.",
+      "dividends": "Total return: dividends as adjusted by the price vendor, or credited in cash on the ex-date from ASX dividend notices where the vendor has not adjusted them (notices from 11 Sep 2024); franking excluded.",
+      "entry": "Buys at the next session's open after the close on which a stock becomes triggered, when that session trades; otherwise the order is cancelled. After an exit, no re-entry for 10 sessions. Buys the session a stock first passes the template; Minervini waits for a volatility-contraction entry we do not detect.",
+      "exits": [
+        "Stop loss: exits at a close at or below 8% under the entry price.",
+        "Exits at a close below the 50-day average.",
+        "Exits when the status falls to watch or none.",
+        "Rules are checked at each close in the order listed; the first to hit exits, filled at the next traded open.",
+        "A stock with no bar for 20 sessions exits at its last close."
+      ],
+      "preface": "Execution recipe chosen by Shorted to test the screen; the author's own entries and exits differ.",
+      "recipeId": "mtt-r1",
+      "sizing": "Up to 10 positions, each 10% of equity at the decision close, taken in rank order: highest score first, then code ascending.",
+      "spread": "Spread and impact per side by 20-session dollar volume at the decision close: A$20,000,000 and over at 5 bps; A$5,000,000 to under A$20,000,000 at 10 bps; A$1,000,000 to under A$5,000,000 at 25 bps; A$250,000 to under A$1,000,000 at 50 bps; under A$250,000 at 75 bps."
+    },
+    "replayAgreement": "No paper track to compare yet",
+    "rulesMatchLive": true,
+    "series": [
+      {
+        "benchmark": 5000,
+        "date": "2019-05-01",
+        "equity": 100000,
+        "exposurePct": 60,
+        "reference": 1000
+      },
+      {
+        "benchmark": 5001,
+        "date": "2019-05-03",
+        "equity": 100190,
+        "exposurePct": 60,
+        "reference": 1000.24
+      },
+      {
+        "benchmark": 5003.5,
+        "date": "2019-05-10",
+        "equity": 100663,
+        "exposurePct": 60,
+        "reference": 1000.84
+      },
+      {
+        "benchmark": 5006,
+        "date": "2019-05-17",
+        "equity": 101129,
+        "exposurePct": 60,
+        "reference": 1001.44
+      },
+      {
+        "benchmark": 5008.5,
+        "date": "2019-05-24",
+        "equity": 101582,
+        "exposurePct": 60,
+        "reference": 1002.04
+      },
+      {
+        "benchmark": 5011,
+        "date": "2019-05-31",
+        "equity": 102016,
+        "exposurePct": 60,
+        "reference": 1002.64
+      },
+      {
+        "benchmark": 5013.5,
+        "date": "2019-06-07",
+        "equity": 102426,
+        "exposurePct": 60,
+        "reference": 1003.24
+      },
+      {
+        "benchmark": 5016,
+        "date": "2019-06-14",
+        "equity": 102808,
+        "exposurePct": 60,
+        "reference": 1003.84
+      },
+      {
+        "benchmark": 5018.5,
+        "date": "2019-06-21",
+        "equity": 103156,
+        "exposurePct": 60,
+        "reference": 1004.44
+      },
+      {
+        "benchmark": 5021,
+        "date": "2019-06-28",
+        "equity": 103468,
+        "exposurePct": 60,
+        "reference": 1005.04
+      },
+      {
+        "benchmark": 5023.5,
+        "date": "2019-07-05",
+        "equity": 103739,
+        "exposurePct": 60,
+        "reference": 1005.64
+      },
+      {
+        "benchmark": 5026,
+        "date": "2019-07-12",
+        "equity": 103966,
+        "exposurePct": 60,
+        "reference": 1006.24
+      },
+      {
+        "benchmark": 5028.5,
+        "date": "2019-07-19",
+        "equity": 104149,
+        "exposurePct": 60,
+        "reference": 1006.84
+      },
+      {
+        "benchmark": 5031,
+        "date": "2019-07-26",
+        "equity": 104284,
+        "exposurePct": 60,
+        "reference": 1007.44
+      },
+      {
+        "benchmark": 5033.5,
+        "date": "2019-08-02",
+        "equity": 104373,
+        "exposurePct": 60,
+        "reference": 1008.04
+      },
+      {
+        "benchmark": 5036,
+        "date": "2019-08-09",
+        "equity": 104414,
+        "exposurePct": 60,
+        "reference": 1008.64
+      },
+      {
+        "benchmark": 5037,
+        "date": "2019-08-13",
+        "equity": 104418,
+        "exposurePct": 60,
+        "reference": 1008.88
+      },
+      {
+        "benchmark": 5038.5,
+        "date": "2019-08-16",
+        "drawdownPct": -0.01,
+        "equity": 104409,
+        "exposurePct": 60,
+        "reference": 1009.24
+      },
+      {
+        "benchmark": 5041,
+        "date": "2019-08-23",
+        "drawdownPct": -0.06,
+        "equity": 104359,
+        "exposurePct": 60,
+        "reference": 1009.84
+      },
+      {
+        "benchmark": 5043.5,
+        "date": "2019-08-30",
+        "drawdownPct": -0.14,
+        "equity": 104267,
+        "exposurePct": 60,
+        "reference": 1010.44
+      },
+      {
+        "benchmark": 5046,
+        "date": "2019-09-06",
+        "drawdownPct": -0.27,
+        "equity": 104136,
+        "exposurePct": 60,
+        "reference": 1011.04
+      },
+      {
+        "benchmark": 5048.5,
+        "date": "2019-09-13",
+        "drawdownPct": -0.43,
+        "equity": 103968,
+        "exposurePct": 60,
+        "reference": 1011.64
+      },
+      {
+        "benchmark": 5051,
+        "date": "2019-09-20",
+        "drawdownPct": -0.62,
+        "equity": 103768,
+        "exposurePct": 60,
+        "reference": 1012.24
+      },
+      {
+        "benchmark": 5053.5,
+        "date": "2019-09-27",
+        "drawdownPct": -0.84,
+        "equity": 103542,
+        "exposurePct": 60,
+        "reference": 1012.84
+      },
+      {
+        "benchmark": 5056,
+        "date": "2019-10-04",
+        "drawdownPct": -1.08,
+        "equity": 103293,
+        "exposurePct": 60,
+        "reference": 1013.44
+      },
+      {
+        "benchmark": 5058.5,
+        "date": "2019-10-11",
+        "drawdownPct": -1.33,
+        "equity": 103027,
+        "exposurePct": 60,
+        "reference": 1014.04
+      },
+      {
+        "benchmark": 5061,
+        "date": "2019-10-18",
+        "drawdownPct": -1.6,
+        "equity": 102751,
+        "exposurePct": 60,
+        "reference": 1014.64
+      },
+      {
+        "benchmark": 5063.5,
+        "date": "2019-10-25",
+        "drawdownPct": -1.87,
+        "equity": 102469,
+        "exposurePct": 60,
+        "reference": 1015.24
+      },
+      {
+        "benchmark": 5066,
+        "date": "2019-11-01",
+        "drawdownPct": -2.13,
+        "equity": 102189,
+        "exposurePct": 60,
+        "reference": 1015.84
+      },
+      {
+        "benchmark": 5068.5,
+        "date": "2019-11-08",
+        "drawdownPct": -2.4,
+        "equity": 101915,
+        "exposurePct": 60,
+        "reference": 1016.44
+      },
+      {
+        "benchmark": 5071,
+        "date": "2019-11-15",
+        "drawdownPct": -2.65,
+        "equity": 101655,
+        "exposurePct": 60,
+        "reference": 1017.04
+      },
+      {
+        "benchmark": 5073.5,
+        "date": "2019-11-22",
+        "drawdownPct": -2.88,
+        "equity": 101412,
+        "exposurePct": 60,
+        "reference": 1017.64
+      },
+      {
+        "benchmark": 5076,
+        "date": "2019-11-29",
+        "drawdownPct": -3.09,
+        "equity": 101194,
+        "exposurePct": 60,
+        "reference": 1018.24
+      },
+      {
+        "benchmark": 5078.5,
+        "date": "2019-12-06",
+        "drawdownPct": -3.27,
+        "equity": 101005,
+        "exposurePct": 60,
+        "reference": 1018.84
+      },
+      {
+        "benchmark": 5081,
+        "date": "2019-12-13",
+        "drawdownPct": -3.42,
+        "equity": 100849,
+        "exposurePct": 60,
+        "reference": 1019.44
+      },
+      {
+        "benchmark": 5083.5,
+        "date": "2019-12-20",
+        "drawdownPct": -3.53,
+        "equity": 100731,
+        "exposurePct": 60,
+        "reference": 1020.04
+      },
+      {
+        "benchmark": 5086,
+        "date": "2019-12-27",
+        "drawdownPct": -3.6,
+        "equity": 100655,
+        "exposurePct": 60,
+        "reference": 1020.64
+      },
+      {
+        "benchmark": 5088.5,
+        "date": "2020-01-03",
+        "drawdownPct": -3.63,
+        "equity": 100622,
+        "exposurePct": 60,
+        "reference": 1021.24
+      },
+      {
+        "benchmark": 5089,
+        "date": "2020-01-06",
+        "drawdownPct": -3.64,
+        "equity": 100621,
+        "exposurePct": 60,
+        "reference": 1021.36
+      },
+      {
+        "benchmark": 5091,
+        "date": "2020-01-10",
+        "drawdownPct": -3.62,
+        "equity": 100636,
+        "exposurePct": 60,
+        "reference": 1021.84
+      },
+      {
+        "benchmark": 5093.5,
+        "date": "2020-01-17",
+        "drawdownPct": -3.56,
+        "equity": 100698,
+        "exposurePct": 60,
+        "reference": 1022.44
+      },
+      {
+        "benchmark": 5096,
+        "date": "2020-01-24",
+        "drawdownPct": -3.46,
+        "equity": 100809,
+        "exposurePct": 60,
+        "reference": 1023.04
+      },
+      {
+        "benchmark": 5098.5,
+        "date": "2020-01-31",
+        "drawdownPct": -3.3,
+        "equity": 100968,
+        "exposurePct": 60,
+        "reference": 1023.64
+      },
+      {
+        "benchmark": 5101,
+        "date": "2020-02-07",
+        "drawdownPct": -3.11,
+        "equity": 101175,
+        "exposurePct": 60,
+        "reference": 1024.24
+      },
+      {
+        "benchmark": 5103.5,
+        "date": "2020-02-14",
+        "drawdownPct": -2.86,
+        "equity": 101428,
+        "exposurePct": 60,
+        "reference": 1024.84
+      },
+      {
+        "benchmark": 5106,
+        "date": "2020-02-21",
+        "drawdownPct": -2.58,
+        "equity": 101726,
+        "exposurePct": 60,
+        "reference": 1025.44
+      },
+      {
+        "benchmark": 5108.5,
+        "date": "2020-02-28",
+        "drawdownPct": -2.25,
+        "equity": 102064,
+        "exposurePct": 60,
+        "reference": 1026.04
+      },
+      {
+        "benchmark": 5111,
+        "date": "2020-03-06",
+        "drawdownPct": -1.89,
+        "equity": 102441,
+        "exposurePct": 60,
+        "reference": 1026.64
+      },
+      {
+        "benchmark": 5113.5,
+        "date": "2020-03-13",
+        "drawdownPct": -1.5,
+        "equity": 102850,
+        "exposurePct": 60,
+        "reference": 1027.24
+      },
+      {
+        "benchmark": 5116,
+        "date": "2020-03-20",
+        "drawdownPct": -1.08,
+        "equity": 103289,
+        "exposurePct": 60,
+        "reference": 1027.84
+      },
+      {
+        "benchmark": 5118.5,
+        "date": "2020-03-27",
+        "drawdownPct": -0.64,
+        "equity": 103751,
+        "exposurePct": 60,
+        "reference": 1028.44
+      },
+      {
+        "benchmark": 5121,
+        "date": "2020-04-03",
+        "drawdownPct": -0.18,
+        "equity": 104231,
+        "exposurePct": 60,
+        "reference": 1029.04
+      },
+      {
+        "benchmark": 5123.5,
+        "date": "2020-04-10",
+        "equity": 104723,
+        "exposurePct": 60,
+        "reference": 1029.64
+      },
+      {
+        "benchmark": 5126,
+        "date": "2020-04-17",
+        "equity": 105222,
+        "exposurePct": 60,
+        "reference": 1030.24
+      },
+      {
+        "benchmark": 5128.5,
+        "date": "2020-04-24",
+        "equity": 105720,
+        "exposurePct": 60,
+        "reference": 1030.84
+      },
+      {
+        "benchmark": 5131,
+        "date": "2020-05-01",
+        "equity": 106213,
+        "exposurePct": 60,
+        "reference": 1031.44
+      },
+      {
+        "benchmark": 5133.5,
+        "date": "2020-05-08",
+        "equity": 106693,
+        "exposurePct": 60,
+        "reference": 1032.04
+      },
+      {
+        "benchmark": 5136,
+        "date": "2020-05-15",
+        "equity": 107155,
+        "exposurePct": 60,
+        "reference": 1032.64
+      },
+      {
+        "benchmark": 5138.5,
+        "date": "2020-05-22",
+        "equity": 107594,
+        "exposurePct": 60,
+        "reference": 1033.24
+      },
+      {
+        "benchmark": 5141,
+        "date": "2020-05-29",
+        "equity": 108004,
+        "exposurePct": 60,
+        "reference": 1033.84
+      },
+      {
+        "benchmark": 5143.5,
+        "date": "2020-06-05",
+        "equity": 108380,
+        "exposurePct": 60,
+        "reference": 1034.44
+      },
+      {
+        "benchmark": 5146,
+        "date": "2020-06-12",
+        "equity": 108718,
+        "exposurePct": 60,
+        "reference": 1035.04
+      },
+      {
+        "benchmark": 5148.5,
+        "date": "2020-06-19",
+        "equity": 109014,
+        "exposurePct": 60,
+        "reference": 1035.64
+      },
+      {
+        "benchmark": 5151,
+        "date": "2020-06-26",
+        "equity": 109266,
+        "exposurePct": 60,
+        "reference": 1036.24
+      },
+      {
+        "benchmark": 5153.5,
+        "date": "2020-07-03",
+        "equity": 109471,
+        "exposurePct": 60,
+        "reference": 1036.84
+      },
+      {
+        "benchmark": 5156,
+        "date": "2020-07-10",
+        "equity": 109627,
+        "exposurePct": 60,
+        "reference": 1037.44
+      },
+      {
+        "benchmark": 5158.5,
+        "date": "2020-07-17",
+        "equity": 109733,
+        "exposurePct": 60,
+        "reference": 1038.04
+      },
+      {
+        "benchmark": 5161,
+        "date": "2020-07-24",
+        "equity": 109789,
+        "exposurePct": 60,
+        "reference": 1038.64
+      },
+      {
+        "benchmark": 5163.5,
+        "date": "2020-07-31",
+        "equity": 109797,
+        "exposurePct": 60,
+        "reference": 1039.24
+      },
+      {
+        "benchmark": 5166,
+        "date": "2020-08-07",
+        "drawdownPct": -0.04,
+        "equity": 109757,
+        "exposurePct": 60,
+        "reference": 1039.84
+      },
+      {
+        "benchmark": 5168.5,
+        "date": "2020-08-14",
+        "drawdownPct": -0.12,
+        "equity": 109672,
+        "exposurePct": 60,
+        "reference": 1040.44
+      },
+      {
+        "benchmark": 5171,
+        "date": "2020-08-21",
+        "drawdownPct": -0.23,
+        "equity": 109544,
+        "exposurePct": 60,
+        "reference": 1041.04
+      },
+      {
+        "benchmark": 5173.5,
+        "date": "2020-08-28",
+        "drawdownPct": -0.38,
+        "equity": 109377,
+        "exposurePct": 60,
+        "reference": 1041.64
+      },
+      {
+        "benchmark": 5176,
+        "date": "2020-09-04",
+        "drawdownPct": -0.57,
+        "equity": 109176,
+        "exposurePct": 60,
+        "reference": 1042.24
+      },
+      {
+        "benchmark": 5178.5,
+        "date": "2020-09-11",
+        "drawdownPct": -0.78,
+        "equity": 108944,
+        "exposurePct": 60,
+        "reference": 1042.84
+      },
+      {
+        "benchmark": 5181,
+        "date": "2020-09-18",
+        "drawdownPct": -1.01,
+        "equity": 108688,
+        "exposurePct": 60,
+        "reference": 1043.44
+      },
+      {
+        "benchmark": 5183.5,
+        "date": "2020-09-25",
+        "drawdownPct": -1.26,
+        "equity": 108413,
+        "exposurePct": 60,
+        "reference": 1044.04
+      },
+      {
+        "benchmark": 5186,
+        "date": "2020-10-02",
+        "drawdownPct": -1.53,
+        "equity": 108125,
+        "exposurePct": 60,
+        "reference": 1044.64
+      },
+      {
+        "benchmark": 5188.5,
+        "date": "2020-10-09",
+        "drawdownPct": -1.79,
+        "equity": 107830,
+        "exposurePct": 60,
+        "reference": 1045.24
+      },
+      {
+        "benchmark": 5191,
+        "date": "2020-10-16",
+        "drawdownPct": -2.06,
+        "equity": 107534,
+        "exposurePct": 60,
+        "reference": 1045.84
+      },
+      {
+        "benchmark": 5193.5,
+        "date": "2020-10-23",
+        "drawdownPct": -2.33,
+        "equity": 107244,
+        "exposurePct": 60,
+        "reference": 1046.44
+      },
+      {
+        "benchmark": 5196,
+        "date": "2020-10-30",
+        "drawdownPct": -2.58,
+        "equity": 106966,
+        "exposurePct": 60,
+        "reference": 1047.04
+      },
+      {
+        "benchmark": 5198.5,
+        "date": "2020-11-06",
+        "drawdownPct": -2.82,
+        "equity": 106705,
+        "exposurePct": 60,
+        "reference": 1047.64
+      },
+      {
+        "benchmark": 5201,
+        "date": "2020-11-13",
+        "drawdownPct": -3.03,
+        "equity": 106468,
+        "exposurePct": 60,
+        "reference": 1048.24
+      },
+      {
+        "benchmark": 5203.5,
+        "date": "2020-11-20",
+        "drawdownPct": -3.22,
+        "equity": 106261,
+        "exposurePct": 60,
+        "reference": 1048.84
+      },
+      {
+        "benchmark": 5206,
+        "date": "2020-11-27",
+        "drawdownPct": -3.38,
+        "equity": 106087,
+        "exposurePct": 60,
+        "reference": 1049.44
+      },
+      {
+        "benchmark": 5208.5,
+        "date": "2020-12-04",
+        "drawdownPct": -3.5,
+        "equity": 105952,
+        "exposurePct": 60,
+        "reference": 1050.04
+      },
+      {
+        "benchmark": 5211,
+        "date": "2020-12-11",
+        "drawdownPct": -3.59,
+        "equity": 105860,
+        "exposurePct": 60,
+        "reference": 1050.64
+      },
+      {
+        "benchmark": 5213.5,
+        "date": "2020-12-18",
+        "drawdownPct": -3.63,
+        "equity": 105813,
+        "exposurePct": 60,
+        "reference": 1051.24
+      },
+      {
+        "benchmark": 5216,
+        "date": "2020-12-25",
+        "drawdownPct": -3.63,
+        "equity": 105815,
+        "exposurePct": 60,
+        "reference": 1051.84
+      },
+      {
+        "benchmark": 5218.5,
+        "date": "2021-01-01",
+        "drawdownPct": -3.58,
+        "equity": 105867,
+        "exposurePct": 60,
+        "reference": 1052.44
+      },
+      {
+        "benchmark": 5221,
+        "date": "2021-01-08",
+        "drawdownPct": -3.49,
+        "equity": 105969,
+        "exposurePct": 60,
+        "reference": 1053.04
+      },
+      {
+        "benchmark": 5223.5,
+        "date": "2021-01-15",
+        "drawdownPct": -3.35,
+        "equity": 106123,
+        "exposurePct": 60,
+        "reference": 1053.64
+      },
+      {
+        "benchmark": 5226,
+        "date": "2021-01-22",
+        "drawdownPct": -3.16,
+        "equity": 106327,
+        "exposurePct": 60,
+        "reference": 1054.24
+      },
+      {
+        "benchmark": 5228.5,
+        "date": "2021-01-29",
+        "drawdownPct": -2.93,
+        "equity": 106581,
+        "exposurePct": 60,
+        "reference": 1054.84
+      },
+      {
+        "benchmark": 5231,
+        "date": "2021-02-05",
+        "drawdownPct": -2.66,
+        "equity": 106882,
+        "exposurePct": 60,
+        "reference": 1055.44
+      },
+      {
+        "benchmark": 5233.5,
+        "date": "2021-02-12",
+        "drawdownPct": -2.34,
+        "equity": 107227,
+        "exposurePct": 60,
+        "reference": 1056.04
+      },
+      {
+        "benchmark": 5236,
+        "date": "2021-02-19",
+        "drawdownPct": -1.99,
+        "equity": 107612,
+        "exposurePct": 60,
+        "reference": 1056.64
+      },
+      {
+        "benchmark": 5238.5,
+        "date": "2021-02-26",
+        "drawdownPct": -1.61,
+        "equity": 108034,
+        "exposurePct": 60,
+        "reference": 1057.24
+      },
+      {
+        "benchmark": 5241,
+        "date": "2021-03-05",
+        "drawdownPct": -1.19,
+        "equity": 108488,
+        "exposurePct": 60,
+        "reference": 1057.84
+      },
+      {
+        "benchmark": 5243.5,
+        "date": "2021-03-12",
+        "drawdownPct": -0.76,
+        "equity": 108968,
+        "exposurePct": 60,
+        "reference": 1058.44
+      },
+      {
+        "benchmark": 5246,
+        "date": "2021-03-19",
+        "drawdownPct": -0.3,
+        "equity": 109468,
+        "exposurePct": 60,
+        "reference": 1059.04
+      },
+      {
+        "benchmark": 5248.5,
+        "date": "2021-03-26",
+        "equity": 109983,
+        "exposurePct": 60,
+        "reference": 1059.64
+      },
+      {
+        "benchmark": 5251,
+        "date": "2021-04-02",
+        "equity": 110506,
+        "exposurePct": 60,
+        "reference": 1060.24
+      },
+      {
+        "benchmark": 5253.5,
+        "date": "2021-04-09",
+        "equity": 111031,
+        "exposurePct": 60,
+        "reference": 1060.84
+      },
+      {
+        "benchmark": 5256,
+        "date": "2021-04-16",
+        "equity": 111551,
+        "exposurePct": 60,
+        "reference": 1061.44
+      },
+      {
+        "benchmark": 5258.5,
+        "date": "2021-04-23",
+        "equity": 112060,
+        "exposurePct": 60,
+        "reference": 1062.04
+      },
+      {
+        "benchmark": 5261,
+        "date": "2021-04-30",
+        "equity": 112552,
+        "exposurePct": 60,
+        "reference": 1062.64
+      },
+      {
+        "benchmark": 5263.5,
+        "date": "2021-05-07",
+        "equity": 113020,
+        "exposurePct": 60,
+        "reference": 1063.24
+      },
+      {
+        "benchmark": 5266,
+        "date": "2021-05-14",
+        "equity": 113460,
+        "exposurePct": 60,
+        "reference": 1063.84
+      },
+      {
+        "benchmark": 5268.5,
+        "date": "2021-05-21",
+        "equity": 113865,
+        "exposurePct": 60,
+        "reference": 1064.44
+      },
+      {
+        "benchmark": 5271,
+        "date": "2021-05-28",
+        "equity": 114232,
+        "exposurePct": 60,
+        "reference": 1065.04
+      },
+      {
+        "benchmark": 5273.5,
+        "date": "2021-06-04",
+        "equity": 114555,
+        "exposurePct": 60,
+        "reference": 1065.64
+      },
+      {
+        "benchmark": 5276,
+        "date": "2021-06-11",
+        "equity": 114833,
+        "exposurePct": 60,
+        "reference": 1066.24
+      },
+      {
+        "benchmark": 5278.5,
+        "date": "2021-06-18",
+        "equity": 115061,
+        "exposurePct": 60,
+        "reference": 1066.84
+      },
+      {
+        "benchmark": 5281,
+        "date": "2021-06-25",
+        "equity": 115239,
+        "exposurePct": 60,
+        "reference": 1067.44
+      },
+      {
+        "benchmark": 5283.5,
+        "date": "2021-07-02",
+        "equity": 115365,
+        "exposurePct": 60,
+        "reference": 1068.04
+      },
+      {
+        "benchmark": 5286,
+        "date": "2021-07-09",
+        "equity": 115438,
+        "exposurePct": 60,
+        "reference": 1068.64
+      },
+      {
+        "benchmark": 5288.5,
+        "date": "2021-07-16",
+        "equity": 115459,
+        "exposurePct": 60,
+        "reference": 1069.24
+      },
+      {
+        "benchmark": 5291,
+        "date": "2021-07-23",
+        "drawdownPct": -0.03,
+        "equity": 115430,
+        "exposurePct": 60,
+        "reference": 1069.84
+      },
+      {
+        "benchmark": 5293.5,
+        "date": "2021-07-30",
+        "drawdownPct": -0.09,
+        "equity": 115353,
+        "exposurePct": 60,
+        "reference": 1070.44
+      },
+      {
+        "benchmark": 5296,
+        "date": "2021-08-06",
+        "drawdownPct": -0.2,
+        "equity": 115230,
+        "exposurePct": 60,
+        "reference": 1071.04
+      },
+      {
+        "benchmark": 5298.5,
+        "date": "2021-08-13",
+        "drawdownPct": -0.34,
+        "equity": 115065,
+        "exposurePct": 60,
+        "reference": 1071.64
+      },
+      {
+        "benchmark": 5301,
+        "date": "2021-08-20",
+        "drawdownPct": -0.52,
+        "equity": 114863,
+        "exposurePct": 60,
+        "reference": 1072.24
+      },
+      {
+        "benchmark": 5303.5,
+        "date": "2021-08-27",
+        "drawdownPct": -0.72,
+        "equity": 114627,
+        "exposurePct": 60,
+        "reference": 1072.84
+      },
+      {
+        "benchmark": 5306,
+        "date": "2021-09-03",
+        "drawdownPct": -0.95,
+        "equity": 114364,
+        "exposurePct": 60,
+        "reference": 1073.44
+      },
+      {
+        "benchmark": 5308.5,
+        "date": "2021-09-10",
+        "drawdownPct": -1.19,
+        "equity": 114080,
+        "exposurePct": 60,
+        "reference": 1074.04
+      },
+      {
+        "benchmark": 5311,
+        "date": "2021-09-17",
+        "drawdownPct": -1.45,
+        "equity": 113780,
+        "exposurePct": 60,
+        "reference": 1074.64
+      },
+      {
+        "benchmark": 5313.5,
+        "date": "2021-09-24",
+        "drawdownPct": -1.72,
+        "equity": 113471,
+        "exposurePct": 60,
+        "reference": 1075.24
+      },
+      {
+        "benchmark": 5316,
+        "date": "2021-10-01",
+        "drawdownPct": -1.99,
+        "equity": 113159,
+        "exposurePct": 60,
+        "reference": 1075.84
+      },
+      {
+        "benchmark": 5318.5,
+        "date": "2021-10-08",
+        "drawdownPct": -2.26,
+        "equity": 112852,
+        "exposurePct": 60,
+        "reference": 1076.44
+      },
+      {
+        "benchmark": 5321,
+        "date": "2021-10-15",
+        "drawdownPct": -2.52,
+        "equity": 112555,
+        "exposurePct": 60,
+        "reference": 1077.04
+      },
+      {
+        "benchmark": 5323.5,
+        "date": "2021-10-22",
+        "drawdownPct": -2.76,
+        "equity": 112276,
+        "exposurePct": 60,
+        "reference": 1077.64
+      },
+      {
+        "benchmark": 5326,
+        "date": "2021-10-29",
+        "drawdownPct": -2.98,
+        "equity": 112020,
+        "exposurePct": 60,
+        "reference": 1078.24
+      },
+      {
+        "benchmark": 5328.5,
+        "date": "2021-11-05",
+        "drawdownPct": -3.18,
+        "equity": 111793,
+        "exposurePct": 60,
+        "reference": 1078.84
+      },
+      {
+        "benchmark": 5331,
+        "date": "2021-11-12",
+        "drawdownPct": -3.34,
+        "equity": 111600,
+        "exposurePct": 60,
+        "reference": 1079.44
+      },
+      {
+        "benchmark": 5333.5,
+        "date": "2021-11-19",
+        "drawdownPct": -3.47,
+        "equity": 111447,
+        "exposurePct": 60,
+        "reference": 1080.04
+      },
+      {
+        "benchmark": 5336,
+        "date": "2021-11-26",
+        "drawdownPct": -3.57,
+        "equity": 111338,
+        "exposurePct": 60,
+        "reference": 1080.64
+      },
+      {
+        "benchmark": 5338.5,
+        "date": "2021-12-03",
+        "drawdownPct": -3.62,
+        "equity": 111276,
+        "exposurePct": 60,
+        "reference": 1081.24
+      },
+      {
+        "benchmark": 5341,
+        "date": "2021-12-10",
+        "drawdownPct": -3.63,
+        "equity": 111264,
+        "exposurePct": 60,
+        "reference": 1081.84
+      },
+      {
+        "benchmark": 5343.5,
+        "date": "2021-12-17",
+        "drawdownPct": -3.6,
+        "equity": 111304,
+        "exposurePct": 60,
+        "reference": 1082.44
+      },
+      {
+        "benchmark": 5346,
+        "date": "2021-12-24",
+        "drawdownPct": -3.52,
+        "equity": 111397,
+        "exposurePct": 60,
+        "reference": 1083.04
+      },
+      {
+        "benchmark": 5348.5,
+        "date": "2021-12-31",
+        "drawdownPct": -3.39,
+        "equity": 111545,
+        "exposurePct": 60,
+        "reference": 1083.64
+      },
+      {
+        "benchmark": 5351,
+        "date": "2022-01-07",
+        "drawdownPct": -3.22,
+        "equity": 111746,
+        "exposurePct": 60,
+        "reference": 1084.24
+      },
+      {
+        "benchmark": 5353.5,
+        "date": "2022-01-14",
+        "drawdownPct": -3,
+        "equity": 111999,
+        "exposurePct": 60,
+        "reference": 1084.84
+      },
+      {
+        "benchmark": 5356,
+        "date": "2022-01-21",
+        "drawdownPct": -2.73,
+        "equity": 112302,
+        "exposurePct": 60,
+        "reference": 1085.44
+      },
+      {
+        "benchmark": 5358.5,
+        "date": "2022-01-28",
+        "drawdownPct": -2.43,
+        "equity": 112653,
+        "exposurePct": 60,
+        "reference": 1086.04
+      },
+      {
+        "benchmark": 5361,
+        "date": "2022-02-04",
+        "drawdownPct": -2.09,
+        "equity": 113048,
+        "exposurePct": 60,
+        "reference": 1086.64
+      },
+      {
+        "benchmark": 5363.5,
+        "date": "2022-02-11",
+        "drawdownPct": -1.71,
+        "equity": 113482,
+        "exposurePct": 60,
+        "reference": 1087.24
+      },
+      {
+        "benchmark": 5366,
+        "date": "2022-02-18",
+        "drawdownPct": -1.31,
+        "equity": 113950,
+        "exposurePct": 60,
+        "reference": 1087.84
+      },
+      {
+        "benchmark": 5368.5,
+        "date": "2022-02-25",
+        "drawdownPct": -0.88,
+        "equity": 114448,
+        "exposurePct": 60,
+        "reference": 1088.44
+      },
+      {
+        "benchmark": 5371,
+        "date": "2022-03-04",
+        "drawdownPct": -0.42,
+        "equity": 114969,
+        "exposurePct": 60,
+        "reference": 1089.04
+      },
+      {
+        "benchmark": 5373.5,
+        "date": "2022-03-11",
+        "equity": 115507,
+        "exposurePct": 60,
+        "reference": 1089.64
+      },
+      {
+        "benchmark": 5376,
+        "date": "2022-03-18",
+        "equity": 116055,
+        "exposurePct": 60,
+        "reference": 1090.24
+      },
+      {
+        "benchmark": 5378.5,
+        "date": "2022-03-25",
+        "equity": 116608,
+        "exposurePct": 60,
+        "reference": 1090.84
+      },
+      {
+        "benchmark": 5381,
+        "date": "2022-04-01",
+        "equity": 117156,
+        "exposurePct": 60,
+        "reference": 1091.44
+      },
+      {
+        "benchmark": 5383.5,
+        "date": "2022-04-08",
+        "equity": 117696,
+        "exposurePct": 60,
+        "reference": 1092.04
+      },
+      {
+        "benchmark": 5386,
+        "date": "2022-04-15",
+        "equity": 118218,
+        "exposurePct": 60,
+        "reference": 1092.64
+      },
+      {
+        "benchmark": 5388.5,
+        "date": "2022-04-22",
+        "equity": 118718,
+        "exposurePct": 60,
+        "reference": 1093.24
+      },
+      {
+        "benchmark": 5391,
+        "date": "2022-04-29",
+        "equity": 119189,
+        "exposurePct": 60,
+        "reference": 1093.84
+      },
+      {
+        "benchmark": 5393.5,
+        "date": "2022-05-06",
+        "equity": 119625,
+        "exposurePct": 60,
+        "reference": 1094.44
+      },
+      {
+        "benchmark": 5396,
+        "date": "2022-05-13",
+        "equity": 120022,
+        "exposurePct": 60,
+        "reference": 1095.04
+      },
+      {
+        "benchmark": 5398.5,
+        "date": "2022-05-20",
+        "equity": 120374,
+        "exposurePct": 60,
+        "reference": 1095.64
+      },
+      {
+        "benchmark": 5401,
+        "date": "2022-05-27",
+        "equity": 120679,
+        "exposurePct": 60,
+        "reference": 1096.24
+      },
+      {
+        "benchmark": 5403.5,
+        "date": "2022-06-03",
+        "equity": 120933,
+        "exposurePct": 60,
+        "reference": 1096.84
+      },
+      {
+        "benchmark": 5406,
+        "date": "2022-06-10",
+        "equity": 121135,
+        "exposurePct": 60,
+        "reference": 1097.44
+      },
+      {
+        "benchmark": 5408.5,
+        "date": "2022-06-17",
+        "equity": 121281,
+        "exposurePct": 60,
+        "reference": 1098.04
+      },
+      {
+        "benchmark": 5411,
+        "date": "2022-06-24",
+        "equity": 121373,
+        "exposurePct": 60,
+        "reference": 1098.64
+      },
+      {
+        "benchmark": 5413.5,
+        "date": "2022-07-01",
+        "equity": 121410,
+        "exposurePct": 60,
+        "reference": 1099.24
+      },
+      {
+        "benchmark": 5416,
+        "date": "2022-07-08",
+        "drawdownPct": -0.01,
+        "equity": 121393,
+        "exposurePct": 60,
+        "reference": 1099.84
+      },
+      {
+        "benchmark": 5418.5,
+        "date": "2022-07-15",
+        "drawdownPct": -0.07,
+        "equity": 121325,
+        "exposurePct": 60,
+        "reference": 1100.44
+      },
+      {
+        "benchmark": 5421,
+        "date": "2022-07-22",
+        "drawdownPct": -0.17,
+        "equity": 121208,
+        "exposurePct": 60,
+        "reference": 1101.04
+      },
+      {
+        "benchmark": 5423.5,
+        "date": "2022-07-29",
+        "drawdownPct": -0.3,
+        "equity": 121046,
+        "exposurePct": 60,
+        "reference": 1101.64
+      },
+      {
+        "benchmark": 5426,
+        "date": "2022-08-05",
+        "drawdownPct": -0.47,
+        "equity": 120843,
+        "exposurePct": 60,
+        "reference": 1102.24
+      },
+      {
+        "benchmark": 5428.5,
+        "date": "2022-08-12",
+        "drawdownPct": -0.66,
+        "equity": 120604,
+        "exposurePct": 60,
+        "reference": 1102.84
+      },
+      {
+        "benchmark": 5431,
+        "date": "2022-08-19",
+        "drawdownPct": -0.89,
+        "equity": 120335,
+        "exposurePct": 60,
+        "reference": 1103.44
+      },
+      {
+        "benchmark": 5433.5,
+        "date": "2022-08-26",
+        "drawdownPct": -1.13,
+        "equity": 120041,
+        "exposurePct": 60,
+        "reference": 1104.04
+      },
+      {
+        "benchmark": 5436,
+        "date": "2022-09-02",
+        "drawdownPct": -1.38,
+        "equity": 119730,
+        "exposurePct": 60,
+        "reference": 1104.64
+      },
+      {
+        "benchmark": 5438.5,
+        "date": "2022-09-09",
+        "drawdownPct": -1.65,
+        "equity": 119407,
+        "exposurePct": 60,
+        "reference": 1105.24
+      },
+      {
+        "benchmark": 5441,
+        "date": "2022-09-16",
+        "drawdownPct": -1.92,
+        "equity": 119079,
+        "exposurePct": 60,
+        "reference": 1105.84
+      },
+      {
+        "benchmark": 5443.5,
+        "date": "2022-09-23",
+        "drawdownPct": -2.19,
+        "equity": 118754,
+        "exposurePct": 60,
+        "reference": 1106.44
+      },
+      {
+        "benchmark": 5446,
+        "date": "2022-09-30",
+        "drawdownPct": -2.45,
+        "equity": 118438,
+        "exposurePct": 60,
+        "reference": 1107.04
+      },
+      {
+        "benchmark": 5448.5,
+        "date": "2022-10-07",
+        "drawdownPct": -2.69,
+        "equity": 118139,
+        "exposurePct": 60,
+        "reference": 1107.64
+      },
+      {
+        "benchmark": 5451,
+        "date": "2022-10-14",
+        "drawdownPct": -2.92,
+        "equity": 117862,
+        "exposurePct": 60,
+        "reference": 1108.24
+      },
+      {
+        "benchmark": 5453.5,
+        "date": "2022-10-21",
+        "drawdownPct": -3.13,
+        "equity": 117615,
+        "exposurePct": 60,
+        "reference": 1108.84
+      },
+      {
+        "benchmark": 5456,
+        "date": "2022-10-28",
+        "drawdownPct": -3.3,
+        "equity": 117402,
+        "exposurePct": 60,
+        "reference": 1109.44
+      },
+      {
+        "benchmark": 5458.5,
+        "date": "2022-11-04",
+        "drawdownPct": -3.44,
+        "equity": 117230,
+        "exposurePct": 60,
+        "reference": 1110.04
+      },
+      {
+        "benchmark": 5461,
+        "date": "2022-11-11",
+        "drawdownPct": -3.55,
+        "equity": 117103,
+        "exposurePct": 60,
+        "reference": 1110.64
+      },
+      {
+        "benchmark": 5463.5,
+        "date": "2022-11-18",
+        "drawdownPct": -3.61,
+        "equity": 117024,
+        "exposurePct": 60,
+        "reference": 1111.24
+      },
+      {
+        "benchmark": 5466,
+        "date": "2022-11-25",
+        "drawdownPct": -3.64,
+        "equity": 116997,
+        "exposurePct": 60,
+        "reference": 1111.84
+      },
+      {
+        "benchmark": 5468.5,
+        "date": "2022-12-02",
+        "drawdownPct": -3.61,
+        "equity": 117024,
+        "exposurePct": 60,
+        "reference": 1112.44
+      },
+      {
+        "benchmark": 5471,
+        "date": "2022-12-09",
+        "drawdownPct": -3.54,
+        "equity": 117108,
+        "exposurePct": 60,
+        "reference": 1113.04
+      },
+      {
+        "benchmark": 5473.5,
+        "date": "2022-12-16",
+        "drawdownPct": -3.43,
+        "equity": 117248,
+        "exposurePct": 60,
+        "reference": 1113.64
+      },
+      {
+        "benchmark": 5476,
+        "date": "2022-12-23",
+        "drawdownPct": -3.27,
+        "equity": 117444,
+        "exposurePct": 60,
+        "reference": 1114.24
+      },
+      {
+        "benchmark": 5478.5,
+        "date": "2022-12-30",
+        "drawdownPct": -3.06,
+        "equity": 117696,
+        "exposurePct": 60,
+        "reference": 1114.84
+      },
+      {
+        "benchmark": 5481,
+        "date": "2023-01-06",
+        "drawdownPct": -2.81,
+        "equity": 118001,
+        "exposurePct": 60,
+        "reference": 1115.44
+      },
+      {
+        "benchmark": 5483.5,
+        "date": "2023-01-13",
+        "drawdownPct": -2.52,
+        "equity": 118357,
+        "exposurePct": 60,
+        "reference": 1116.04
+      },
+      {
+        "benchmark": 5486,
+        "date": "2023-01-20",
+        "drawdownPct": -2.18,
+        "equity": 118760,
+        "exposurePct": 60,
+        "reference": 1116.64
+      },
+      {
+        "benchmark": 5488.5,
+        "date": "2023-01-27",
+        "drawdownPct": -1.82,
+        "equity": 119206,
+        "exposurePct": 60,
+        "reference": 1117.24
+      },
+      {
+        "benchmark": 5491,
+        "date": "2023-02-03",
+        "drawdownPct": -1.42,
+        "equity": 119690,
+        "exposurePct": 60,
+        "reference": 1117.84
+      },
+      {
+        "benchmark": 5493.5,
+        "date": "2023-02-10",
+        "drawdownPct": -0.99,
+        "equity": 120206,
+        "exposurePct": 60,
+        "reference": 1118.44
+      },
+      {
+        "benchmark": 5496,
+        "date": "2023-02-17",
+        "drawdownPct": -0.55,
+        "equity": 120748,
+        "exposurePct": 60,
+        "reference": 1119.04
+      },
+      {
+        "benchmark": 5498.5,
+        "date": "2023-02-24",
+        "drawdownPct": -0.08,
+        "equity": 121309,
+        "exposurePct": 60,
+        "reference": 1119.64
+      },
+      {
+        "benchmark": 5501,
+        "date": "2023-03-03",
+        "equity": 121884,
+        "exposurePct": 60,
+        "reference": 1120.24
+      },
+      {
+        "benchmark": 5503.5,
+        "date": "2023-03-10",
+        "equity": 122464,
+        "exposurePct": 60,
+        "reference": 1120.84
+      },
+      {
+        "benchmark": 5506,
+        "date": "2023-03-17",
+        "equity": 123043,
+        "exposurePct": 60,
+        "reference": 1121.44
+      },
+      {
+        "benchmark": 5508.5,
+        "date": "2023-03-24",
+        "equity": 123613,
+        "exposurePct": 60,
+        "reference": 1122.04
+      },
+      {
+        "benchmark": 5511,
+        "date": "2023-03-31",
+        "equity": 124168,
+        "exposurePct": 60,
+        "reference": 1122.64
+      },
+      {
+        "benchmark": 5513.5,
+        "date": "2023-04-07",
+        "equity": 124700,
+        "exposurePct": 60,
+        "reference": 1123.24
+      },
+      {
+        "benchmark": 5516,
+        "date": "2023-04-14",
+        "equity": 125204,
+        "exposurePct": 60,
+        "reference": 1123.84
+      },
+      {
+        "benchmark": 5518.5,
+        "date": "2023-04-21",
+        "equity": 125673,
+        "exposurePct": 60,
+        "reference": 1124.44
+      },
+      {
+        "benchmark": 5521,
+        "date": "2023-04-28",
+        "equity": 126102,
+        "exposurePct": 60,
+        "reference": 1125.04
+      },
+      {
+        "benchmark": 5523.5,
+        "date": "2023-05-05",
+        "equity": 126485,
+        "exposurePct": 60,
+        "reference": 1125.64
+      },
+      {
+        "benchmark": 5526,
+        "date": "2023-05-12",
+        "equity": 126820,
+        "exposurePct": 60,
+        "reference": 1126.24
+      },
+      {
+        "benchmark": 5528.5,
+        "date": "2023-05-19",
+        "equity": 127101,
+        "exposurePct": 60,
+        "reference": 1126.84
+      },
+      {
+        "benchmark": 5531,
+        "date": "2023-05-26",
+        "equity": 127328,
+        "exposurePct": 60,
+        "reference": 1127.44
+      },
+      {
+        "benchmark": 5533.5,
+        "date": "2023-06-02",
+        "equity": 127497,
+        "exposurePct": 60,
+        "reference": 1128.04
+      },
+      {
+        "benchmark": 5536,
+        "date": "2023-06-09",
+        "equity": 127609,
+        "exposurePct": 60,
+        "reference": 1128.64
+      },
+      {
+        "benchmark": 5538.5,
+        "date": "2023-06-16",
+        "equity": 127663,
+        "exposurePct": 60,
+        "reference": 1129.24
+      },
+      {
+        "benchmark": 5541,
+        "date": "2023-06-23",
+        "drawdownPct": -0.01,
+        "equity": 127661,
+        "exposurePct": 60,
+        "reference": 1129.84
+      },
+      {
+        "benchmark": 5543.5,
+        "date": "2023-06-30",
+        "drawdownPct": -0.05,
+        "equity": 127603,
+        "exposurePct": 60,
+        "reference": 1130.44
+      },
+      {
+        "benchmark": 5546,
+        "date": "2023-07-07",
+        "drawdownPct": -0.14,
+        "equity": 127493,
+        "exposurePct": 60,
+        "reference": 1131.04
+      },
+      {
+        "benchmark": 5548.5,
+        "date": "2023-07-14",
+        "drawdownPct": -0.26,
+        "equity": 127335,
+        "exposurePct": 60,
+        "reference": 1131.64
+      },
+      {
+        "benchmark": 5551,
+        "date": "2023-07-21",
+        "drawdownPct": -0.42,
+        "equity": 127133,
+        "exposurePct": 60,
+        "reference": 1132.24
+      },
+      {
+        "benchmark": 5553.5,
+        "date": "2023-07-28",
+        "drawdownPct": -0.61,
+        "equity": 126891,
+        "exposurePct": 60,
+        "reference": 1132.84
+      },
+      {
+        "benchmark": 5556,
+        "date": "2023-08-04",
+        "drawdownPct": -0.82,
+        "equity": 126616,
+        "exposurePct": 60,
+        "reference": 1133.44
+      },
+      {
+        "benchmark": 5558.5,
+        "date": "2023-08-11",
+        "drawdownPct": -1.06,
+        "equity": 126313,
+        "exposurePct": 60,
+        "reference": 1134.04
+      },
+      {
+        "benchmark": 5561,
+        "date": "2023-08-18",
+        "drawdownPct": -1.32,
+        "equity": 125990,
+        "exposurePct": 60,
+        "reference": 1134.64
+      },
+      {
+        "benchmark": 5563.5,
+        "date": "2023-08-25",
+        "drawdownPct": -1.58,
+        "equity": 125652,
+        "exposurePct": 60,
+        "reference": 1135.24
+      },
+      {
+        "benchmark": 5566,
+        "date": "2023-09-01",
+        "drawdownPct": -1.85,
+        "equity": 125308,
+        "exposurePct": 60,
+        "reference": 1135.84
+      },
+      {
+        "benchmark": 5568.5,
+        "date": "2023-09-08",
+        "drawdownPct": -2.12,
+        "equity": 124965,
+        "exposurePct": 60,
+        "reference": 1136.44
+      },
+      {
+        "benchmark": 5571,
+        "date": "2023-09-15",
+        "drawdownPct": -2.38,
+        "equity": 124630,
+        "exposurePct": 60,
+        "reference": 1137.04
+      },
+      {
+        "benchmark": 5573.5,
+        "date": "2023-09-22",
+        "drawdownPct": -2.63,
+        "equity": 124310,
+        "exposurePct": 60,
+        "reference": 1137.64
+      },
+      {
+        "benchmark": 5576,
+        "date": "2023-09-29",
+        "drawdownPct": -2.86,
+        "equity": 124012,
+        "exposurePct": 60,
+        "reference": 1138.24
+      },
+      {
+        "benchmark": 5578.5,
+        "date": "2023-10-06",
+        "drawdownPct": -3.07,
+        "equity": 123743,
+        "exposurePct": 60,
+        "reference": 1138.84
+      },
+      {
+        "benchmark": 5581,
+        "date": "2023-10-13",
+        "drawdownPct": -3.26,
+        "equity": 123509,
+        "exposurePct": 60,
+        "reference": 1139.44
+      },
+      {
+        "benchmark": 5583.5,
+        "date": "2023-10-20",
+        "drawdownPct": -3.41,
+        "equity": 123316,
+        "exposurePct": 60,
+        "reference": 1140.04
+      },
+      {
+        "benchmark": 5586,
+        "date": "2023-10-27",
+        "drawdownPct": -3.52,
+        "equity": 123169,
+        "exposurePct": 60,
+        "reference": 1140.64
+      },
+      {
+        "benchmark": 5588.5,
+        "date": "2023-11-03",
+        "drawdownPct": -3.6,
+        "equity": 123072,
+        "exposurePct": 60,
+        "reference": 1141.24
+      },
+      {
+        "benchmark": 5591,
+        "date": "2023-11-10",
+        "drawdownPct": -3.63,
+        "equity": 123029,
+        "exposurePct": 60,
+        "reference": 1141.84
+      },
+      {
+        "benchmark": 5593.5,
+        "date": "2023-11-17",
+        "drawdownPct": -3.62,
+        "equity": 123043,
+        "exposurePct": 60,
+        "reference": 1142.44
+      },
+      {
+        "benchmark": 5596,
+        "date": "2023-11-24",
+        "drawdownPct": -3.57,
+        "equity": 123115,
+        "exposurePct": 60,
+        "reference": 1143.04
+      },
+      {
+        "benchmark": 5598.5,
+        "date": "2023-12-01",
+        "drawdownPct": -3.46,
+        "equity": 123246,
+        "exposurePct": 60,
+        "reference": 1143.64
+      },
+      {
+        "benchmark": 5601,
+        "date": "2023-12-08",
+        "drawdownPct": -3.31,
+        "equity": 123437,
+        "exposurePct": 60,
+        "reference": 1144.24
+      },
+      {
+        "benchmark": 5603.5,
+        "date": "2023-12-15",
+        "drawdownPct": -3.12,
+        "equity": 123687,
+        "exposurePct": 60,
+        "reference": 1144.84
+      },
+      {
+        "benchmark": 5606,
+        "date": "2023-12-22",
+        "drawdownPct": -2.88,
+        "equity": 123993,
+        "exposurePct": 60,
+        "reference": 1145.44
+      },
+      {
+        "benchmark": 5608.5,
+        "date": "2023-12-29",
+        "drawdownPct": -2.6,
+        "equity": 124354,
+        "exposurePct": 60,
+        "reference": 1146.04
+      },
+      {
+        "benchmark": 5611,
+        "date": "2024-01-05",
+        "drawdownPct": -2.27,
+        "equity": 124765,
+        "exposurePct": 60,
+        "reference": 1146.64
+      },
+      {
+        "benchmark": 5613.5,
+        "date": "2024-01-12",
+        "drawdownPct": -1.92,
+        "equity": 125222,
+        "exposurePct": 60,
+        "reference": 1147.24
+      },
+      {
+        "benchmark": 5616,
+        "date": "2024-01-19",
+        "drawdownPct": -1.53,
+        "equity": 125721,
+        "exposurePct": 60,
+        "reference": 1147.84
+      },
+      {
+        "benchmark": 5618.5,
+        "date": "2024-01-26",
+        "drawdownPct": -1.11,
+        "equity": 126255,
+        "exposurePct": 60,
+        "reference": 1148.44
+      },
+      {
+        "benchmark": 5621,
+        "date": "2024-02-02",
+        "drawdownPct": -0.67,
+        "equity": 126818,
+        "exposurePct": 60,
+        "reference": 1149.04
+      },
+      {
+        "benchmark": 5623.5,
+        "date": "2024-02-09",
+        "drawdownPct": -0.21,
+        "equity": 127404,
+        "exposurePct": 60,
+        "reference": 1149.64
+      },
+      {
+        "benchmark": 5626,
+        "date": "2024-02-16",
+        "equity": 128005,
+        "exposurePct": 60,
+        "reference": 1150.24
+      },
+      {
+        "benchmark": 5628.5,
+        "date": "2024-02-23",
+        "equity": 128614,
+        "exposurePct": 60,
+        "reference": 1150.84
+      },
+      {
+        "benchmark": 5631,
+        "date": "2024-03-01",
+        "equity": 129224,
+        "exposurePct": 60,
+        "reference": 1151.44
+      },
+      {
+        "benchmark": 5633.5,
+        "date": "2024-03-08",
+        "equity": 129827,
+        "exposurePct": 60,
+        "reference": 1152.04
+      },
+      {
+        "benchmark": 5636,
+        "date": "2024-03-15",
+        "equity": 130415,
+        "exposurePct": 60,
+        "reference": 1152.64
+      },
+      {
+        "benchmark": 5638.5,
+        "date": "2024-03-22",
+        "equity": 130982,
+        "exposurePct": 60,
+        "reference": 1153.24
+      },
+      {
+        "benchmark": 5641,
+        "date": "2024-03-29",
+        "equity": 131520,
+        "exposurePct": 60,
+        "reference": 1153.84
+      },
+      {
+        "benchmark": 5643.5,
+        "date": "2024-04-05",
+        "equity": 132024,
+        "exposurePct": 60,
+        "reference": 1154.44
+      },
+      {
+        "benchmark": 5646,
+        "date": "2024-04-12",
+        "equity": 132486,
+        "exposurePct": 60,
+        "reference": 1155.04
+      },
+      {
+        "benchmark": 5648.5,
+        "date": "2024-04-19",
+        "equity": 132903,
+        "exposurePct": 60,
+        "reference": 1155.64
+      },
+      {
+        "benchmark": 5651,
+        "date": "2024-04-26",
+        "equity": 133268,
+        "exposurePct": 60,
+        "reference": 1156.24
+      },
+      {
+        "benchmark": 5653.5,
+        "date": "2024-05-03",
+        "equity": 133580,
+        "exposurePct": 60,
+        "reference": 1156.84
+      },
+      {
+        "benchmark": 5656,
+        "date": "2024-05-10",
+        "equity": 133833,
+        "exposurePct": 60,
+        "reference": 1157.44
+      },
+      {
+        "benchmark": 5658.5,
+        "date": "2024-05-17",
+        "equity": 134028,
+        "exposurePct": 60,
+        "reference": 1158.04
+      },
+      {
+        "benchmark": 5661,
+        "date": "2024-05-24",
+        "equity": 134161,
+        "exposurePct": 60,
+        "reference": 1158.64
+      },
+      {
+        "benchmark": 5663.5,
+        "date": "2024-05-31",
+        "equity": 134234,
+        "exposurePct": 60,
+        "reference": 1159.24
+      },
+      {
+        "benchmark": 5666,
+        "date": "2024-06-07",
+        "equity": 134247,
+        "exposurePct": 60,
+        "reference": 1159.84
+      },
+      {
+        "benchmark": 5668.5,
+        "date": "2024-06-14",
+        "drawdownPct": -0.04,
+        "equity": 134202,
+        "exposurePct": 60,
+        "reference": 1160.44
+      },
+      {
+        "benchmark": 5671,
+        "date": "2024-06-21",
+        "drawdownPct": -0.11,
+        "equity": 134101,
+        "exposurePct": 60,
+        "reference": 1161.04
+      },
+      {
+        "benchmark": 5673.5,
+        "date": "2024-06-28",
+        "drawdownPct": -0.22,
+        "equity": 133948,
+        "exposurePct": 60,
+        "reference": 1161.64
+      },
+      {
+        "benchmark": 5676,
+        "date": "2024-07-05",
+        "drawdownPct": -0.37,
+        "equity": 133747,
+        "exposurePct": 60,
+        "reference": 1162.24
+      },
+      {
+        "benchmark": 5678.5,
+        "date": "2024-07-12",
+        "drawdownPct": -0.56,
+        "equity": 133503,
+        "exposurePct": 60,
+        "reference": 1162.84
+      },
+      {
+        "benchmark": 5681,
+        "date": "2024-07-19",
+        "drawdownPct": -0.77,
+        "equity": 133222,
+        "exposurePct": 60,
+        "reference": 1163.44
+      },
+      {
+        "benchmark": 5683.5,
+        "date": "2024-07-26",
+        "drawdownPct": -1,
+        "equity": 132911,
+        "exposurePct": 60,
+        "reference": 1164.04
+      },
+      {
+        "benchmark": 5686,
+        "date": "2024-08-02",
+        "drawdownPct": -1.25,
+        "equity": 132576,
+        "exposurePct": 60,
+        "reference": 1164.64
+      },
+      {
+        "benchmark": 5688.5,
+        "date": "2024-08-09",
+        "drawdownPct": -1.51,
+        "equity": 132224,
+        "exposurePct": 60,
+        "reference": 1165.24
+      },
+      {
+        "benchmark": 5691,
+        "date": "2024-08-16",
+        "drawdownPct": -1.78,
+        "equity": 131864,
+        "exposurePct": 60,
+        "reference": 1165.84
+      },
+      {
+        "benchmark": 5693.5,
+        "date": "2024-08-23",
+        "drawdownPct": -2.05,
+        "equity": 131502,
+        "exposurePct": 60,
+        "reference": 1166.44
+      },
+      {
+        "benchmark": 5696,
+        "date": "2024-08-30",
+        "drawdownPct": -2.31,
+        "equity": 131146,
+        "exposurePct": 60,
+        "reference": 1167.04
+      },
+      {
+        "benchmark": 5698.5,
+        "date": "2024-09-06",
+        "drawdownPct": -2.57,
+        "equity": 130805,
+        "exposurePct": 60,
+        "reference": 1167.64
+      },
+      {
+        "benchmark": 5701,
+        "date": "2024-09-13",
+        "drawdownPct": -2.8,
+        "equity": 130485,
+        "exposurePct": 60,
+        "reference": 1168.24
+      },
+      {
+        "benchmark": 5703.5,
+        "date": "2024-09-20",
+        "drawdownPct": -3.02,
+        "equity": 130193,
+        "exposurePct": 60,
+        "reference": 1168.84
+      },
+      {
+        "benchmark": 5706,
+        "date": "2024-09-27",
+        "drawdownPct": -3.21,
+        "equity": 129937,
+        "exposurePct": 60,
+        "reference": 1169.44
+      },
+      {
+        "benchmark": 5708.5,
+        "date": "2024-10-04",
+        "drawdownPct": -3.37,
+        "equity": 129722,
+        "exposurePct": 60,
+        "reference": 1170.04
+      },
+      {
+        "benchmark": 5711,
+        "date": "2024-10-11",
+        "drawdownPct": -3.5,
+        "equity": 129554,
+        "exposurePct": 60,
+        "reference": 1170.64
+      },
+      {
+        "benchmark": 5713.5,
+        "date": "2024-10-18",
+        "drawdownPct": -3.58,
+        "equity": 129438,
+        "exposurePct": 60,
+        "reference": 1171.24
+      },
+      {
+        "benchmark": 5716,
+        "date": "2024-10-25",
+        "drawdownPct": -3.63,
+        "equity": 129377,
+        "exposurePct": 60,
+        "reference": 1171.84
+      },
+      {
+        "benchmark": 5718.5,
+        "date": "2024-11-01",
+        "drawdownPct": -3.63,
+        "equity": 129376,
+        "exposurePct": 60,
+        "reference": 1172.44
+      },
+      {
+        "benchmark": 5721,
+        "date": "2024-11-08",
+        "drawdownPct": -3.59,
+        "equity": 129435,
+        "exposurePct": 60,
+        "reference": 1173.04
+      },
+      {
+        "benchmark": 5723.5,
+        "date": "2024-11-15",
+        "drawdownPct": -3.5,
+        "equity": 129556,
+        "exposurePct": 60,
+        "reference": 1173.64
+      },
+      {
+        "benchmark": 5726,
+        "date": "2024-11-22",
+        "drawdownPct": -3.36,
+        "equity": 129741,
+        "exposurePct": 60,
+        "reference": 1174.24
+      },
+      {
+        "benchmark": 5728.5,
+        "date": "2024-11-29",
+        "drawdownPct": -3.18,
+        "equity": 129987,
+        "exposurePct": 60,
+        "reference": 1174.84
+      },
+      {
+        "benchmark": 5731,
+        "date": "2024-12-06",
+        "drawdownPct": -2.95,
+        "equity": 130293,
+        "exposurePct": 60,
+        "reference": 1175.44
+      },
+      {
+        "benchmark": 5733.5,
+        "date": "2024-12-13",
+        "drawdownPct": -2.68,
+        "equity": 130657,
+        "exposurePct": 60,
+        "reference": 1176.04
+      },
+      {
+        "benchmark": 5736,
+        "date": "2024-12-20",
+        "drawdownPct": -2.36,
+        "equity": 131076,
+        "exposurePct": 60,
+        "reference": 1176.64
+      },
+      {
+        "benchmark": 5738.5,
+        "date": "2024-12-27",
+        "drawdownPct": -2.01,
+        "equity": 131544,
+        "exposurePct": 60,
+        "reference": 1177.24
+      },
+      {
+        "benchmark": 5741,
+        "date": "2025-01-03",
+        "drawdownPct": -1.63,
+        "equity": 132058,
+        "exposurePct": 60,
+        "reference": 1177.84
+      },
+      {
+        "benchmark": 5743.5,
+        "date": "2025-01-10",
+        "drawdownPct": -1.22,
+        "equity": 132610,
+        "exposurePct": 60,
+        "reference": 1178.44
+      },
+      {
+        "benchmark": 5746,
+        "date": "2025-01-17",
+        "drawdownPct": -0.79,
+        "equity": 133195,
+        "exposurePct": 60,
+        "reference": 1179.04
+      },
+      {
+        "benchmark": 5748.5,
+        "date": "2025-01-24",
+        "drawdownPct": -0.33,
+        "equity": 133805,
+        "exposurePct": 60,
+        "reference": 1179.64
+      },
+      {
+        "benchmark": 5751,
+        "date": "2025-01-31",
+        "equity": 134434,
+        "exposurePct": 60,
+        "reference": 1180.24
+      },
+      {
+        "benchmark": 5753.5,
+        "date": "2025-02-07",
+        "equity": 135073,
+        "exposurePct": 60,
+        "reference": 1180.84
+      },
+      {
+        "benchmark": 5756,
+        "date": "2025-02-14",
+        "equity": 135715,
+        "exposurePct": 60,
+        "reference": 1181.44
+      },
+      {
+        "benchmark": 5758.5,
+        "date": "2025-02-21",
+        "equity": 136352,
+        "exposurePct": 60,
+        "reference": 1182.04
+      },
+      {
+        "benchmark": 5761,
+        "date": "2025-02-28",
+        "equity": 136975,
+        "exposurePct": 60,
+        "reference": 1182.64
+      },
+      {
+        "benchmark": 5763.5,
+        "date": "2025-03-07",
+        "equity": 137578,
+        "exposurePct": 60,
+        "reference": 1183.24
+      },
+      {
+        "benchmark": 5766,
+        "date": "2025-03-14",
+        "equity": 138153,
+        "exposurePct": 60,
+        "reference": 1183.84
+      },
+      {
+        "benchmark": 5768.5,
+        "date": "2025-03-21",
+        "equity": 138692,
+        "exposurePct": 60,
+        "reference": 1184.44
+      },
+      {
+        "benchmark": 5771,
+        "date": "2025-03-28",
+        "equity": 139191,
+        "exposurePct": 60,
+        "reference": 1185.04
+      },
+      {
+        "benchmark": 5773.5,
+        "date": "2025-04-04",
+        "equity": 139642,
+        "exposurePct": 60,
+        "reference": 1185.64
+      },
+      {
+        "benchmark": 5776,
+        "date": "2025-04-11",
+        "equity": 140041,
+        "exposurePct": 60,
+        "reference": 1186.24
+      },
+      {
+        "benchmark": 5778.5,
+        "date": "2025-04-18",
+        "equity": 140384,
+        "exposurePct": 60,
+        "reference": 1186.84
+      },
+      {
+        "benchmark": 5781,
+        "date": "2025-04-25",
+        "equity": 140667,
+        "exposurePct": 60,
+        "reference": 1187.44
+      },
+      {
+        "benchmark": 5783.5,
+        "date": "2025-05-02",
+        "equity": 140888,
+        "exposurePct": 60,
+        "reference": 1188.04
+      },
+      {
+        "benchmark": 5786,
+        "date": "2025-05-09",
+        "equity": 141046,
+        "exposurePct": 60,
+        "reference": 1188.64
+      },
+      {
+        "benchmark": 5788.5,
+        "date": "2025-05-16",
+        "equity": 141139,
+        "exposurePct": 60,
+        "reference": 1189.24
+      },
+      {
+        "benchmark": 5791,
+        "date": "2025-05-23",
+        "equity": 141170,
+        "exposurePct": 60,
+        "reference": 1189.84
+      },
+      {
+        "benchmark": 5793.5,
+        "date": "2025-05-30",
+        "drawdownPct": -0.02,
+        "equity": 141138,
+        "exposurePct": 60,
+        "reference": 1190.44
+      },
+      {
+        "benchmark": 5796,
+        "date": "2025-06-06",
+        "drawdownPct": -0.09,
+        "equity": 141047,
+        "exposurePct": 60,
+        "reference": 1191.04
+      },
+      {
+        "benchmark": 5798.5,
+        "date": "2025-06-13",
+        "drawdownPct": -0.19,
+        "equity": 140900,
+        "exposurePct": 60,
+        "reference": 1191.64
+      },
+      {
+        "benchmark": 5801,
+        "date": "2025-06-20",
+        "drawdownPct": -0.33,
+        "equity": 140701,
+        "exposurePct": 60,
+        "reference": 1192.24
+      },
+      {
+        "benchmark": 5803.5,
+        "date": "2025-06-27",
+        "drawdownPct": -0.51,
+        "equity": 140456,
+        "exposurePct": 60,
+        "reference": 1192.84
+      },
+      {
+        "benchmark": 5806,
+        "date": "2025-07-04",
+        "drawdownPct": -0.71,
+        "equity": 140171,
+        "exposurePct": 60,
+        "reference": 1193.44
+      },
+      {
+        "benchmark": 5808.5,
+        "date": "2025-07-11",
+        "drawdownPct": -0.93,
+        "equity": 139851,
+        "exposurePct": 60,
+        "reference": 1194.04
+      },
+      {
+        "benchmark": 5811,
+        "date": "2025-07-18",
+        "drawdownPct": -1.18,
+        "equity": 139505,
+        "exposurePct": 60,
+        "reference": 1194.64
+      },
+      {
+        "benchmark": 5813.5,
+        "date": "2025-07-25",
+        "drawdownPct": -1.44,
+        "equity": 139139,
+        "exposurePct": 60,
+        "reference": 1195.24
+      },
+      {
+        "benchmark": 5816,
+        "date": "2025-08-01",
+        "drawdownPct": -1.71,
+        "equity": 138762,
+        "exposurePct": 60,
+        "reference": 1195.84
+      },
+      {
+        "benchmark": 5818.5,
+        "date": "2025-08-08",
+        "drawdownPct": -1.98,
+        "equity": 138381,
+        "exposurePct": 60,
+        "reference": 1196.44
+      },
+      {
+        "benchmark": 5821,
+        "date": "2025-08-15",
+        "drawdownPct": -2.24,
+        "equity": 138004,
+        "exposurePct": 60,
+        "reference": 1197.04
+      },
+      {
+        "benchmark": 5823.5,
+        "date": "2025-08-22",
+        "drawdownPct": -2.5,
+        "equity": 137641,
+        "exposurePct": 60,
+        "reference": 1197.64
+      },
+      {
+        "benchmark": 5826,
+        "date": "2025-08-29",
+        "drawdownPct": -2.74,
+        "equity": 137297,
+        "exposurePct": 60,
+        "reference": 1198.24
+      },
+      {
+        "benchmark": 5828.5,
+        "date": "2025-09-05",
+        "drawdownPct": -2.97,
+        "equity": 136982,
+        "exposurePct": 60,
+        "reference": 1198.84
+      },
+      {
+        "benchmark": 5831,
+        "date": "2025-09-12",
+        "drawdownPct": -3.16,
+        "equity": 136702,
+        "exposurePct": 60,
+        "reference": 1199.44
+      },
+      {
+        "benchmark": 5833.5,
+        "date": "2025-09-19",
+        "drawdownPct": -3.33,
+        "equity": 136464,
+        "exposurePct": 60,
+        "reference": 1200.04
+      },
+      {
+        "benchmark": 5836,
+        "date": "2025-09-26",
+        "drawdownPct": -3.47,
+        "equity": 136274,
+        "exposurePct": 60,
+        "reference": 1200.64
+      },
+      {
+        "benchmark": 5838.5,
+        "date": "2025-10-03",
+        "drawdownPct": -3.57,
+        "equity": 136137,
+        "exposurePct": 60,
+        "reference": 1201.24
+      },
+      {
+        "benchmark": 5841,
+        "date": "2025-10-10",
+        "drawdownPct": -3.62,
+        "equity": 136057,
+        "exposurePct": 60,
+        "reference": 1201.84
+      },
+      {
+        "benchmark": 5843.5,
+        "date": "2025-10-17",
+        "drawdownPct": -3.63,
+        "equity": 136038,
+        "exposurePct": 60,
+        "reference": 1202.44
+      },
+      {
+        "benchmark": 5846,
+        "date": "2025-10-24",
+        "drawdownPct": -3.6,
+        "equity": 136084,
+        "exposurePct": 60,
+        "reference": 1203.04
+      },
+      {
+        "benchmark": 5848.5,
+        "date": "2025-10-31",
+        "drawdownPct": -3.52,
+        "equity": 136194,
+        "exposurePct": 60,
+        "reference": 1203.64
+      },
+      {
+        "benchmark": 5851,
+        "date": "2025-11-07",
+        "drawdownPct": -3.4,
+        "equity": 136370,
+        "exposurePct": 60,
+        "reference": 1204.24
+      },
+      {
+        "benchmark": 5853.5,
+        "date": "2025-11-14",
+        "drawdownPct": -3.23,
+        "equity": 136612,
+        "exposurePct": 60,
+        "reference": 1204.84
+      },
+      {
+        "benchmark": 5856,
+        "date": "2025-11-21",
+        "drawdownPct": -3.01,
+        "equity": 136918,
+        "exposurePct": 60,
+        "reference": 1205.44
+      },
+      {
+        "benchmark": 5858.5,
+        "date": "2025-11-28",
+        "drawdownPct": -2.75,
+        "equity": 137285,
+        "exposurePct": 60,
+        "reference": 1206.04
+      },
+      {
+        "benchmark": 5861,
+        "date": "2025-12-05",
+        "drawdownPct": -2.45,
+        "equity": 137710,
+        "exposurePct": 60,
+        "reference": 1206.64
+      },
+      {
+        "benchmark": 5863.5,
+        "date": "2025-12-12",
+        "drawdownPct": -2.11,
+        "equity": 138189,
+        "exposurePct": 60,
+        "reference": 1207.24
+      },
+      {
+        "benchmark": 5866,
+        "date": "2025-12-19",
+        "drawdownPct": -1.74,
+        "equity": 138717,
+        "exposurePct": 60,
+        "reference": 1207.84
+      },
+      {
+        "benchmark": 5868.5,
+        "date": "2025-12-26",
+        "drawdownPct": -1.33,
+        "equity": 139288,
+        "exposurePct": 60,
+        "reference": 1208.44
+      },
+      {
+        "benchmark": 5871,
+        "date": "2026-01-02",
+        "drawdownPct": -0.9,
+        "equity": 139894,
+        "exposurePct": 60,
+        "reference": 1209.04
+      },
+      {
+        "benchmark": 5873.5,
+        "date": "2026-01-09",
+        "drawdownPct": -0.45,
+        "equity": 140530,
+        "exposurePct": 60,
+        "reference": 1209.64
+      },
+      {
+        "benchmark": 5876,
+        "date": "2026-01-16",
+        "equity": 141186,
+        "exposurePct": 60,
+        "reference": 1210.24
+      },
+      {
+        "benchmark": 5878.5,
+        "date": "2026-01-23",
+        "equity": 141856,
+        "exposurePct": 60,
+        "reference": 1210.84
+      },
+      {
+        "benchmark": 5881,
+        "date": "2026-01-30",
+        "equity": 142531,
+        "exposurePct": 60,
+        "reference": 1211.44
+      },
+      {
+        "benchmark": 5883.5,
+        "date": "2026-02-06",
+        "equity": 143203,
+        "exposurePct": 60,
+        "reference": 1212.04
+      },
+      {
+        "benchmark": 5886,
+        "date": "2026-02-13",
+        "equity": 143863,
+        "exposurePct": 60,
+        "reference": 1212.64
+      },
+      {
+        "benchmark": 5888.5,
+        "date": "2026-02-20",
+        "equity": 144504,
+        "exposurePct": 60,
+        "reference": 1213.24
+      },
+      {
+        "benchmark": 5891,
+        "date": "2026-02-27",
+        "equity": 145116,
+        "exposurePct": 60,
+        "reference": 1213.84
+      },
+      {
+        "benchmark": 5893.5,
+        "date": "2026-03-06",
+        "equity": 145694,
+        "exposurePct": 60,
+        "reference": 1214.44
+      },
+      {
+        "benchmark": 5896,
+        "date": "2026-03-13",
+        "equity": 146231,
+        "exposurePct": 60,
+        "reference": 1215.04
+      },
+      {
+        "benchmark": 5898.5,
+        "date": "2026-03-20",
+        "equity": 146719,
+        "exposurePct": 60,
+        "reference": 1215.64
+      },
+      {
+        "benchmark": 5901,
+        "date": "2026-03-27",
+        "equity": 147154,
+        "exposurePct": 60,
+        "reference": 1216.24
+      },
+      {
+        "benchmark": 5903.5,
+        "date": "2026-04-03",
+        "equity": 147530,
+        "exposurePct": 60,
+        "reference": 1216.84
+      },
+      {
+        "benchmark": 5906,
+        "date": "2026-04-10",
+        "equity": 147845,
+        "exposurePct": 60,
+        "reference": 1217.44
+      },
+      {
+        "benchmark": 5908.5,
+        "date": "2026-04-17",
+        "equity": 148095,
+        "exposurePct": 60,
+        "reference": 1218.04
+      },
+      {
+        "benchmark": 5911,
+        "date": "2026-04-24",
+        "equity": 148279,
+        "exposurePct": 60,
+        "reference": 1218.64
+      },
+      {
+        "benchmark": 5913.5,
+        "date": "2026-05-01",
+        "equity": 148395,
+        "exposurePct": 60,
+        "reference": 1219.24
+      },
+      {
+        "benchmark": 5916,
+        "date": "2026-05-08",
+        "equity": 148444,
+        "exposurePct": 60,
+        "reference": 1219.84
+      },
+      {
+        "benchmark": 5918.5,
+        "date": "2026-05-15",
+        "drawdownPct": -0.01,
+        "equity": 148428,
+        "exposurePct": 60,
+        "reference": 1220.44
+      },
+      {
+        "benchmark": 5921,
+        "date": "2026-05-22",
+        "drawdownPct": -0.07,
+        "equity": 148348,
+        "exposurePct": 60,
+        "reference": 1221.04
+      },
+      {
+        "benchmark": 5923.5,
+        "date": "2026-05-29",
+        "drawdownPct": -0.16,
+        "equity": 148209,
+        "exposurePct": 60,
+        "reference": 1221.64
+      },
+      {
+        "benchmark": 5926,
+        "date": "2026-06-05",
+        "drawdownPct": -0.29,
+        "equity": 148014,
+        "exposurePct": 60,
+        "reference": 1222.24
+      },
+      {
+        "benchmark": 5928.5,
+        "date": "2026-06-12",
+        "drawdownPct": -0.46,
+        "equity": 147769,
+        "exposurePct": 60,
+        "reference": 1222.84
+      },
+      {
+        "benchmark": 5931,
+        "date": "2026-06-19",
+        "drawdownPct": -0.65,
+        "equity": 147479,
+        "exposurePct": 60,
+        "reference": 1223.44
+      },
+      {
+        "benchmark": 5933.5,
+        "date": "2026-06-26",
+        "drawdownPct": -0.87,
+        "equity": 147152,
+        "exposurePct": 60,
+        "reference": 1224.04
+      },
+      {
+        "benchmark": 5936,
+        "date": "2026-07-03",
+        "drawdownPct": -1.11,
+        "equity": 146795,
+        "exposurePct": 60,
+        "reference": 1224.64
+      },
+      {
+        "benchmark": 5938.5,
+        "date": "2026-07-10",
+        "drawdownPct": -1.37,
+        "equity": 146415,
+        "exposurePct": 60,
+        "reference": 1225.24
+      },
+      {
+        "benchmark": 5941,
+        "date": "2026-07-17",
+        "drawdownPct": -1.63,
+        "equity": 146020,
+        "exposurePct": 60,
+        "reference": 1225.84
+      },
+      {
+        "benchmark": 5943.5,
+        "date": "2026-07-24",
+        "drawdownPct": -1.9,
+        "equity": 145620,
+        "exposurePct": 60,
+        "reference": 1226.44
+      },
+      {
+        "benchmark": 5946,
+        "date": "2026-07-31",
+        "drawdownPct": -2.17,
+        "equity": 145222,
+        "exposurePct": 60,
+        "reference": 1227.04
+      },
+      {
+        "benchmark": 5948.5,
+        "date": "2026-08-07",
+        "drawdownPct": -2.43,
+        "equity": 144835,
+        "exposurePct": 60,
+        "reference": 1227.64
+      },
+      {
+        "benchmark": 5951,
+        "date": "2026-08-14",
+        "drawdownPct": -2.68,
+        "equity": 144468,
+        "exposurePct": 60,
+        "reference": 1228.24
+      },
+      {
+        "benchmark": 5953.5,
+        "date": "2026-08-21",
+        "drawdownPct": -2.91,
+        "equity": 144128,
+        "exposurePct": 60,
+        "reference": 1228.84
+      },
+      {
+        "benchmark": 5956,
+        "date": "2026-08-28",
+        "drawdownPct": -3.11,
+        "equity": 143823,
+        "exposurePct": 60,
+        "reference": 1229.44
+      },
+      {
+        "benchmark": 5958.5,
+        "date": "2026-09-04",
+        "drawdownPct": -3.29,
+        "equity": 143560,
+        "exposurePct": 60,
+        "reference": 1230.04
+      },
+      {
+        "benchmark": 5961,
+        "date": "2026-09-11",
+        "drawdownPct": -3.44,
+        "equity": 143346,
+        "exposurePct": 60,
+        "reference": 1230.64
+      },
+      {
+        "benchmark": 5963.5,
+        "date": "2026-09-18",
+        "drawdownPct": -3.54,
+        "equity": 143186,
+        "exposurePct": 60,
+        "reference": 1231.24
+      },
+      {
+        "benchmark": 5966,
+        "date": "2026-09-25",
+        "drawdownPct": -3.61,
+        "equity": 143086,
+        "exposurePct": 60,
+        "reference": 1231.84
+      },
+      {
+        "benchmark": 5967.5,
+        "date": "2026-09-30",
+        "drawdownPct": -3.63,
+        "equity": 143056,
+        "exposurePct": 60,
+        "reference": 1232.2
+      }
+    ],
+    "seriesResolution": "weekly",
+    "state": "published",
+    "strategyId": "minervini-trend-template",
+    "survivorship": {
+      "caveat": "Coverage is measured on ASIC-reported names only; the gap cannot be measured for companies that were never reported short.",
+      "direction": "flatters",
+      "measurement": "partial",
+      "statement": "Prices are missing for companies that delisted before about 2025."
+    },
+    "tradeSummary": {
+      "avgHoldSessions": 20,
+      "avgLossPct": -5.5,
+      "avgWinPct": 9.5,
+      "bestPct": 9.5,
+      "closed": 2,
+      "exitsByReason": {
+        "pivot_stop": 1,
+        "stop_loss": 1
+      },
+      "hasAvgHold": true,
+      "hasAvgLoss": true,
+      "hasAvgWin": true,
+      "hasBest": true,
+      "hasWinRate": true,
+      "hasWorst": true,
+      "winRatePct": 50,
+      "worstPct": -5.5
+    },
+    "windowId": "since_2019_05",
+    "windows": [
+      {
+        "benchmarkCagrPct": 2.41,
+        "benchmarkTotalReturnPct": 19.35,
+        "cagrPct": 4.95,
+        "calendarDays": 2709,
+        "closedTrades": 2,
+        "exposurePct": 60,
+        "from": "2019-05-01",
+        "hasBenchmark": true,
+        "hasBenchmarkTotalReturn": true,
+        "hasCagr": true,
+        "hasReference": true,
+        "hasReferenceTotalReturn": true,
+        "hasSharpe": true,
+        "hasStrategyOverlapCagr": true,
+        "hasStrategyOverlapTotalReturn": true,
+        "hasTotalReturn": true,
+        "hasVolatility": true,
+        "hasWinRate": true,
+        "label": "Since May 2019",
+        "maxDrawdownPct": -3.64,
+        "note": "in-sample to 2026-09-30",
+        "peakDate": "2019-08-13",
+        "recoveryDate": "2020-04-07",
+        "referenceCagrPct": 2.86,
+        "referenceTo": "2026-09-30",
+        "referenceTotalReturnPct": 23.22,
+        "sessions": 1936,
+        "sharpe": 3.76,
+        "sharpeSe": 0.37,
+        "strategyOverlapCagrPct": 4.95,
+        "strategyOverlapTotalReturnPct": 43.06,
+        "to": "2026-09-30",
+        "totalReturnPct": 43.06,
+        "troughDate": "2020-01-06",
+        "volatilityPct": 0.84,
+        "winRatePct": 50,
+        "window": "since_2019_05"
+      },
+      {
+        "benchmarkCagrPct": 2.31,
+        "benchmarkTotalReturnPct": 8.91,
+        "cagrPct": 5.33,
+        "calendarDays": 1366,
+        "closedTrades": 2,
+        "exposurePct": 60,
+        "from": "2023-01-03",
+        "hasBenchmark": true,
+        "hasBenchmarkTotalReturn": true,
+        "hasCagr": true,
+        "hasReference": true,
+        "hasReferenceTotalReturn": true,
+        "hasSharpe": true,
+        "hasStrategyOverlapCagr": true,
+        "hasStrategyOverlapTotalReturn": true,
+        "hasTotalReturn": true,
+        "hasVolatility": true,
+        "hasWinRate": true,
+        "label": "Since 2023",
+        "maxDrawdownPct": -3.64,
+        "note": "in-sample to 2026-09-30",
+        "peakDate": "2025-05-23",
+        "recoveryDate": "2026-01-16",
+        "referenceCagrPct": 2.71,
+        "referenceTo": "2026-09-30",
+        "referenceTotalReturnPct": 10.5,
+        "sessions": 977,
+        "sharpe": 4.13,
+        "sharpeSe": 0.52,
+        "strategyOverlapCagrPct": 5.33,
+        "strategyOverlapTotalReturnPct": 21.43,
+        "to": "2026-09-30",
+        "totalReturnPct": 21.43,
+        "troughDate": "2025-10-16",
+        "volatilityPct": 0.85,
+        "winRatePct": 50,
+        "window": "since_2023"
+      },
+      {
+        "benchmarkCagrPct": 2.24,
+        "benchmarkTotalReturnPct": 2.24,
+        "cagrPct": 5.03,
+        "calendarDays": 365,
+        "exposurePct": 60,
+        "from": "2025-09-30",
+        "hasBenchmark": true,
+        "hasBenchmarkTotalReturn": true,
+        "hasCagr": true,
+        "hasReference": true,
+        "hasReferenceTotalReturn": true,
+        "hasSharpe": true,
+        "hasStrategyOverlapCagr": true,
+        "hasStrategyOverlapTotalReturn": true,
+        "hasTotalReturn": true,
+        "hasVolatility": true,
+        "label": "Last 12 months",
+        "maxDrawdownPct": -3.63,
+        "note": "in-sample to 2026-09-30",
+        "peakDate": "2026-05-11",
+        "recoveryDate": "not recovered",
+        "referenceCagrPct": 2.61,
+        "referenceTo": "2026-09-30",
+        "referenceTotalReturnPct": 2.61,
+        "sessions": 262,
+        "sharpe": 3.89,
+        "sharpeSe": 1,
+        "strategyOverlapCagrPct": 5.03,
+        "strategyOverlapTotalReturnPct": 5.02,
+        "to": "2026-09-30",
+        "totalReturnPct": 5.02,
+        "troughDate": "2026-09-30",
+        "volatilityPct": 0.83,
+        "window": "trailing_12m"
+      }
+    ]
+  }
+}

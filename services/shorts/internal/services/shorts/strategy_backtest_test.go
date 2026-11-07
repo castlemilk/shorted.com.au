@@ -172,6 +172,8 @@ type backtestStoreFake struct {
 	trades        map[int64][]shortsstore.BacktestTradeRow
 	paperEq       []shortsstore.PaperEquityRow
 	paperTrades   []shortsstore.PaperTradeRow
+	// paperRules is the rules hash the paper track belongs to: other strategies have no track in the fake.
+	paperRules string
 	cash          []features.RatePoint
 	seriesReads   int
 	// failNextSeries makes the next series read fail, to prove an error is not cached.
@@ -207,6 +209,7 @@ func (f *backtestStoreFake) publishWith(t *testing.T, id string, runID int64, me
 	f.series[runID] = series
 	f.trades[runID] = trades
 	f.paperEq = fixturePaper(weekdays(civil.Date{Year: 2026, Month: time.September, Day: 1}, civil.Date{Year: 2026, Month: time.November, Day: 5}))
+	f.paperRules = row.RulesHash
 	f.paperTrades = []shortsstore.PaperTradeRow{
 		{StockCode: "RIO", SignalDate: "2026-10-20", EntryDate: "2026-10-21", EntryPrice: 90, ExitDate: "2026-10-30", ExitPrice: 95, ExitReason: "pivot_stop", Status: "closed"},
 	}
@@ -324,16 +327,22 @@ func (f *backtestStoreFake) ReadBacktestTradesPage(_ context.Context, runID int6
 	return out, nil
 }
 
-func (f *backtestStoreFake) ReadPaperEquity(_ context.Context, _, _ string) ([]shortsstore.PaperEquityRow, error) {
+func (f *backtestStoreFake) ReadPaperEquity(_ context.Context, rules, _ string) ([]shortsstore.PaperEquityRow, error) {
 	if err := f.schemaOr(true); err != nil {
 		return nil, err
+	}
+	if rules != f.paperRules {
+		return nil, nil
 	}
 	return f.paperEq, nil
 }
 
-func (f *backtestStoreFake) ReadPaperTrades(_ context.Context, _, _ string) ([]shortsstore.PaperTradeRow, error) {
+func (f *backtestStoreFake) ReadPaperTrades(_ context.Context, rules, _ string) ([]shortsstore.PaperTradeRow, error) {
 	if err := f.schemaOr(true); err != nil {
 		return nil, err
+	}
+	if rules != f.paperRules {
+		return nil, nil
 	}
 	return f.paperTrades, nil
 }
@@ -1356,4 +1365,90 @@ func TestPaperTrackSpanningAnEngineBumpIsOneTrack(t *testing.T) {
 	resp, err := srv.GetBacktestRun(anonymousContext(), connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: spec.StrategyCrowdedShortBreakout}))
 	require.NoError(t, err)
 	assert.Len(t, resp.Msg.Run.PaperEngineSegments, 2, "the run marks the engine change")
+}
+
+// truncateSeries keeps the fake run's stored series up to and including end: a run whose own sessions stop
+// before its paper track does, as in production (the run's window end is the prices it read).
+func truncateSeries(t *testing.T, fake *backtestStoreFake, runID int64, end civil.Date) {
+	t.Helper()
+	var series storedSeries
+	require.NoError(t, json.Unmarshal(fake.series[runID], &series))
+	keep := 0
+	for keep < len(series.D) {
+		d, err := civil.ParseDate(series.D[keep])
+		require.NoError(t, err)
+		if d.After(end) {
+			break
+		}
+		keep++
+	}
+	series.D, series.E, series.B, series.R, series.DD, series.X = series.D[:keep], series.E[:keep], series.B[:keep], series.R[:keep], series.DD[:keep], series.X[:keep]
+	raw, err := json.Marshal(series)
+	require.NoError(t, err)
+	fake.series[runID] = raw
+}
+
+// windowByID is the served window with the given id.
+func windowByID(t *testing.T, run *shortsv1alpha1.BacktestRun, id string) *shortsv1alpha1.WindowMetrics {
+	t.Helper()
+	for _, w := range run.Windows {
+		if w.Window == id {
+			return w
+		}
+	}
+	t.Fatalf("window %s is not served", id)
+	return nil
+}
+
+// The default window has a paper tail after the run's last reference session. The reference figures are measured
+// over the overlap, which ends at reference_to, and the strategy is measured over the same overlap (item 1).
+func TestReferenceIsMeasuredOverTheOverlapWhenThePaperTrackHasATail(t *testing.T) {
+	fake := newBacktestFake()
+	fake.publish(t, spec.StrategyCrowdedShortBreakout, 101)
+	truncateSeries(t, fake, 101, civil.Date{Year: 2026, Month: time.October, Day: 30})
+	srv := backtestServer(t, fake)
+	resp, err := srv.GetBacktestRun(anonymousContext(), connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: spec.StrategyCrowdedShortBreakout}))
+	require.NoError(t, err)
+	w := windowByID(t, resp.Msg.Run, windowSince2019)
+
+	assert.Equal(t, "2026-10-30", w.ReferenceTo, "the reference is measured to the run's last reference session")
+	assert.Less(t, w.ReferenceTo, w.To, "the paper tail is after the reference")
+	assert.True(t, w.HasReference, "the overlap spans more than 365 days, so the reference CAGR is served")
+	assert.True(t, w.HasReferenceTotalReturn)
+	assert.True(t, w.HasStrategyOverlapTotalReturn, "the strategy's figure is over the same overlap")
+	assert.True(t, w.HasStrategyOverlapCagr)
+	assert.NotEqual(t, w.TotalReturnPct, w.StrategyOverlapTotalReturnPct, "the overlap is not the whole window")
+	assert.Greater(t, w.StrategyOverlapCagrPct, 0.0)
+}
+
+// A window that begins after the reference ends has no reference: no figure and no reference_to.
+func TestWindowAfterTheReferenceEndsHasNoReference(t *testing.T) {
+	fake := newBacktestFake()
+	fake.publish(t, spec.StrategyCrowdedShortBreakout, 101)
+	truncateSeries(t, fake, 101, civil.Date{Year: 2026, Month: time.September, Day: 15})
+	srv := backtestServer(t, fake)
+	resp, err := srv.GetBacktestRun(anonymousContext(), connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: spec.StrategyCrowdedShortBreakout}))
+	require.NoError(t, err)
+	live := windowByID(t, resp.Msg.Run, windowLive)
+	assert.False(t, live.HasReference)
+	assert.False(t, live.HasReferenceTotalReturn)
+	assert.False(t, live.HasStrategyOverlapTotalReturn)
+	assert.Empty(t, live.ReferenceTo)
+	assert.True(t, live.HasTotalReturn, "the strategy's own figures still stand")
+}
+
+// An overlap shorter than 365 calendar days is served as a total return with no CAGR (item 1, the CAGR rule).
+func TestShortOverlapIsATotalReturnWithoutACAGR(t *testing.T) {
+	fake := newBacktestFake()
+	fake.publish(t, spec.StrategyCrowdedShortBreakout, 101)
+	truncateSeries(t, fake, 101, civil.Date{Year: 2026, Month: time.March, Day: 2})
+	srv := backtestServer(t, fake)
+	resp, err := srv.GetBacktestRun(anonymousContext(), connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: spec.StrategyCrowdedShortBreakout, Window: "trailing_12m"}))
+	require.NoError(t, err)
+	w := windowByID(t, resp.Msg.Run, windowTrailing12)
+	assert.True(t, w.HasReferenceTotalReturn, "the overlap is a total return")
+	assert.False(t, w.HasReference, "under 365 days there is no reference CAGR")
+	assert.Equal(t, "2026-03-02", w.ReferenceTo)
+	assert.True(t, w.HasStrategyOverlapTotalReturn)
+	assert.False(t, w.HasStrategyOverlapCagr)
 }

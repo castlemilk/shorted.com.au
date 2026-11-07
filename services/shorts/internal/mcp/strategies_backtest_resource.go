@@ -81,22 +81,25 @@ type backtestCovYear struct {
 }
 
 type backtestWindow struct {
-	Window                  string   `json:"window"`
-	Label                   string   `json:"label"`
-	From                    string   `json:"from"`
-	To                      string   `json:"to"`
-	TotalReturnPct          *float64 `json:"total_return_pct,omitempty"`
-	CagrPct                 *float64 `json:"cagr_pct,omitempty"`
-	NotAnnualised           bool     `json:"not_annualised"`
-	BenchmarkCagrPct        *float64 `json:"benchmark_cagr_pct,omitempty"`
-	ReferenceCagrPct        *float64 `json:"reference_cagr_pct,omitempty"`
-	BenchmarkTotalReturnPct *float64 `json:"benchmark_total_return_pct,omitempty"`
-	MaxDrawdownPct          float64  `json:"max_drawdown_pct"`
-	Sharpe                  *float64 `json:"sharpe,omitempty"`
-	SharpeSE                *float64 `json:"sharpe_se,omitempty"`
-	ClosedTrades            int32    `json:"closed_trades"`
-	WinRatePct              *float64 `json:"win_rate_pct,omitempty"`
-	Note                    string   `json:"note,omitempty"`
+	Window                        string   `json:"window"`
+	Label                         string   `json:"label"`
+	From                          string   `json:"from"`
+	To                            string   `json:"to"`
+	TotalReturnPct                *float64 `json:"total_return_pct,omitempty"`
+	CagrPct                       *float64 `json:"cagr_pct,omitempty"`
+	NotAnnualised                 bool     `json:"not_annualised"`
+	BenchmarkCagrPct              *float64 `json:"benchmark_cagr_pct,omitempty"`
+	ReferenceCagrPct              *float64 `json:"reference_cagr_pct,omitempty"`
+	BenchmarkTotalReturnPct       *float64 `json:"benchmark_total_return_pct,omitempty"`
+	ReferenceTotalReturnPct       *float64 `json:"reference_total_return_pct,omitempty"`
+	ReferenceTo                   string   `json:"reference_to,omitempty"`
+	StrategyOverlapTotalReturnPct *float64 `json:"strategy_overlap_total_return_pct,omitempty"`
+	MaxDrawdownPct                float64  `json:"max_drawdown_pct"`
+	Sharpe                        *float64 `json:"sharpe,omitempty"`
+	SharpeSE                      *float64 `json:"sharpe_se,omitempty"`
+	ClosedTrades                  int32    `json:"closed_trades"`
+	WinRatePct                    *float64 `json:"win_rate_pct,omitempty"`
+	Note                          string   `json:"note,omitempty"`
 }
 
 type backtestSens struct {
@@ -184,6 +187,15 @@ func fillComputed(body *backtestBody, run *shortsv1alpha1.BacktestRun) {
 		}
 		if w.GetHasBenchmarkTotalReturn() {
 			row.BenchmarkTotalReturnPct = ptr(w.GetBenchmarkTotalReturnPct())
+		}
+		// The reference is measured over the overlap that ends at reference_to; the strategy's figure over the
+		// same sessions is served beside it, so a comparison is like for like.
+		if w.GetHasReferenceTotalReturn() {
+			row.ReferenceTotalReturnPct = ptr(w.GetReferenceTotalReturnPct())
+			row.ReferenceTo = w.GetReferenceTo()
+		}
+		if w.GetHasStrategyOverlapTotalReturn() {
+			row.StrategyOverlapTotalReturnPct = ptr(w.GetStrategyOverlapTotalReturnPct())
 		}
 		if w.GetHasSharpe() {
 			row.Sharpe = ptr(w.GetSharpe())

@@ -40,6 +40,7 @@ private static final long serialVersionUID = 0L;
     peakDate_ = "";
     troughDate_ = "";
     recoveryDate_ = "";
+    referenceTo_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -754,6 +755,109 @@ private static final long serialVersionUID = 0L;
     return hasReferenceTotalReturn_;
   }
 
+  public static final int REFERENCE_TO_FIELD_NUMBER = 35;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object referenceTo_ = "";
+  /**
+   * <pre>
+   * The reference over the overlap: the sessions of the window where the same-data reference exists. The
+   * reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+   * the run's last session carries no reference, so the window's own figures stop there.
+   * </pre>
+   *
+   * <code>string reference_to = 35 [json_name = "referenceTo"];</code>
+   * @return The referenceTo.
+   */
+  @java.lang.Override
+  public java.lang.String getReferenceTo() {
+    java.lang.Object ref = referenceTo_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      referenceTo_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The reference over the overlap: the sessions of the window where the same-data reference exists. The
+   * reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+   * the run's last session carries no reference, so the window's own figures stop there.
+   * </pre>
+   *
+   * <code>string reference_to = 35 [json_name = "referenceTo"];</code>
+   * @return The bytes for referenceTo.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getReferenceToBytes() {
+    java.lang.Object ref = referenceTo_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      referenceTo_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int STRATEGY_OVERLAP_TOTAL_RETURN_PCT_FIELD_NUMBER = 36;
+  private double strategyOverlapTotalReturnPct_ = 0D;
+  /**
+   * <pre>
+   * The strategy's total return over the same overlap, for a like-for-like comparison.
+   * </pre>
+   *
+   * <code>double strategy_overlap_total_return_pct = 36 [json_name = "strategyOverlapTotalReturnPct"];</code>
+   * @return The strategyOverlapTotalReturnPct.
+   */
+  @java.lang.Override
+  public double getStrategyOverlapTotalReturnPct() {
+    return strategyOverlapTotalReturnPct_;
+  }
+
+  public static final int HAS_STRATEGY_OVERLAP_TOTAL_RETURN_FIELD_NUMBER = 37;
+  private boolean hasStrategyOverlapTotalReturn_ = false;
+  /**
+   * <code>bool has_strategy_overlap_total_return = 37 [json_name = "hasStrategyOverlapTotalReturn"];</code>
+   * @return The hasStrategyOverlapTotalReturn.
+   */
+  @java.lang.Override
+  public boolean getHasStrategyOverlapTotalReturn() {
+    return hasStrategyOverlapTotalReturn_;
+  }
+
+  public static final int STRATEGY_OVERLAP_CAGR_PCT_FIELD_NUMBER = 38;
+  private double strategyOverlapCagrPct_ = 0D;
+  /**
+   * <pre>
+   * The strategy's CAGR over the overlap, from 365 calendar days.
+   * </pre>
+   *
+   * <code>double strategy_overlap_cagr_pct = 38 [json_name = "strategyOverlapCagrPct"];</code>
+   * @return The strategyOverlapCagrPct.
+   */
+  @java.lang.Override
+  public double getStrategyOverlapCagrPct() {
+    return strategyOverlapCagrPct_;
+  }
+
+  public static final int HAS_STRATEGY_OVERLAP_CAGR_FIELD_NUMBER = 39;
+  private boolean hasStrategyOverlapCagr_ = false;
+  /**
+   * <code>bool has_strategy_overlap_cagr = 39 [json_name = "hasStrategyOverlapCagr"];</code>
+   * @return The hasStrategyOverlapCagr.
+   */
+  @java.lang.Override
+  public boolean getHasStrategyOverlapCagr() {
+    return hasStrategyOverlapCagr_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -869,6 +973,21 @@ private static final long serialVersionUID = 0L;
     }
     if (hasReferenceTotalReturn_ != false) {
       output.writeBool(34, hasReferenceTotalReturn_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(referenceTo_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 35, referenceTo_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(strategyOverlapTotalReturnPct_) != 0) {
+      output.writeDouble(36, strategyOverlapTotalReturnPct_);
+    }
+    if (hasStrategyOverlapTotalReturn_ != false) {
+      output.writeBool(37, hasStrategyOverlapTotalReturn_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(strategyOverlapCagrPct_) != 0) {
+      output.writeDouble(38, strategyOverlapCagrPct_);
+    }
+    if (hasStrategyOverlapCagr_ != false) {
+      output.writeBool(39, hasStrategyOverlapCagr_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1006,6 +1125,25 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(34, hasReferenceTotalReturn_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(referenceTo_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(35, referenceTo_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(strategyOverlapTotalReturnPct_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(36, strategyOverlapTotalReturnPct_);
+    }
+    if (hasStrategyOverlapTotalReturn_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(37, hasStrategyOverlapTotalReturn_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(strategyOverlapCagrPct_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(38, strategyOverlapCagrPct_);
+    }
+    if (hasStrategyOverlapCagr_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(39, hasStrategyOverlapCagr_);
+    }
     return size;
   }
   @java.lang.Override
@@ -1111,6 +1249,18 @@ private static final long serialVersionUID = 0L;
             other.getReferenceTotalReturnPct())) return false;
     if (getHasReferenceTotalReturn()
         != other.getHasReferenceTotalReturn()) return false;
+    if (!getReferenceTo()
+        .equals(other.getReferenceTo())) return false;
+    if (java.lang.Double.doubleToLongBits(getStrategyOverlapTotalReturnPct())
+        != java.lang.Double.doubleToLongBits(
+            other.getStrategyOverlapTotalReturnPct())) return false;
+    if (getHasStrategyOverlapTotalReturn()
+        != other.getHasStrategyOverlapTotalReturn()) return false;
+    if (java.lang.Double.doubleToLongBits(getStrategyOverlapCagrPct())
+        != java.lang.Double.doubleToLongBits(
+            other.getStrategyOverlapCagrPct())) return false;
+    if (getHasStrategyOverlapCagr()
+        != other.getHasStrategyOverlapCagr()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1213,6 +1363,20 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_REFERENCE_TOTAL_RETURN_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasReferenceTotalReturn());
+    hash = (37 * hash) + REFERENCE_TO_FIELD_NUMBER;
+    hash = (53 * hash) + getReferenceTo().hashCode();
+    hash = (37 * hash) + STRATEGY_OVERLAP_TOTAL_RETURN_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getStrategyOverlapTotalReturnPct()));
+    hash = (37 * hash) + HAS_STRATEGY_OVERLAP_TOTAL_RETURN_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasStrategyOverlapTotalReturn());
+    hash = (37 * hash) + STRATEGY_OVERLAP_CAGR_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getStrategyOverlapCagrPct()));
+    hash = (37 * hash) + HAS_STRATEGY_OVERLAP_CAGR_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasStrategyOverlapCagr());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1383,6 +1547,11 @@ private static final long serialVersionUID = 0L;
       hasBenchmarkTotalReturn_ = false;
       referenceTotalReturnPct_ = 0D;
       hasReferenceTotalReturn_ = false;
+      referenceTo_ = "";
+      strategyOverlapTotalReturnPct_ = 0D;
+      hasStrategyOverlapTotalReturn_ = false;
+      strategyOverlapCagrPct_ = 0D;
+      hasStrategyOverlapCagr_ = false;
       return this;
     }
 
@@ -1523,6 +1692,21 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField1_ & 0x00000002) != 0)) {
         result.hasReferenceTotalReturn_ = hasReferenceTotalReturn_;
       }
+      if (((from_bitField1_ & 0x00000004) != 0)) {
+        result.referenceTo_ = referenceTo_;
+      }
+      if (((from_bitField1_ & 0x00000008) != 0)) {
+        result.strategyOverlapTotalReturnPct_ = strategyOverlapTotalReturnPct_;
+      }
+      if (((from_bitField1_ & 0x00000010) != 0)) {
+        result.hasStrategyOverlapTotalReturn_ = hasStrategyOverlapTotalReturn_;
+      }
+      if (((from_bitField1_ & 0x00000020) != 0)) {
+        result.strategyOverlapCagrPct_ = strategyOverlapCagrPct_;
+      }
+      if (((from_bitField1_ & 0x00000040) != 0)) {
+        result.hasStrategyOverlapCagr_ = hasStrategyOverlapCagr_;
+      }
     }
 
     @java.lang.Override
@@ -1654,6 +1838,23 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasReferenceTotalReturn() != false) {
         setHasReferenceTotalReturn(other.getHasReferenceTotalReturn());
+      }
+      if (!other.getReferenceTo().isEmpty()) {
+        referenceTo_ = other.referenceTo_;
+        bitField1_ |= 0x00000004;
+        onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getStrategyOverlapTotalReturnPct()) != 0) {
+        setStrategyOverlapTotalReturnPct(other.getStrategyOverlapTotalReturnPct());
+      }
+      if (other.getHasStrategyOverlapTotalReturn() != false) {
+        setHasStrategyOverlapTotalReturn(other.getHasStrategyOverlapTotalReturn());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getStrategyOverlapCagrPct()) != 0) {
+        setStrategyOverlapCagrPct(other.getStrategyOverlapCagrPct());
+      }
+      if (other.getHasStrategyOverlapCagr() != false) {
+        setHasStrategyOverlapCagr(other.getHasStrategyOverlapCagr());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1851,6 +2052,31 @@ private static final long serialVersionUID = 0L;
               bitField1_ |= 0x00000002;
               break;
             } // case 272
+            case 282: {
+              referenceTo_ = input.readStringRequireUtf8();
+              bitField1_ |= 0x00000004;
+              break;
+            } // case 282
+            case 289: {
+              strategyOverlapTotalReturnPct_ = input.readDouble();
+              bitField1_ |= 0x00000008;
+              break;
+            } // case 289
+            case 296: {
+              hasStrategyOverlapTotalReturn_ = input.readBool();
+              bitField1_ |= 0x00000010;
+              break;
+            } // case 296
+            case 305: {
+              strategyOverlapCagrPct_ = input.readDouble();
+              bitField1_ |= 0x00000020;
+              break;
+            } // case 305
+            case 312: {
+              hasStrategyOverlapCagr_ = input.readBool();
+              bitField1_ |= 0x00000040;
+              break;
+            } // case 312
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3529,6 +3755,260 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasReferenceTotalReturn() {
       bitField1_ = (bitField1_ & ~0x00000002);
       hasReferenceTotalReturn_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object referenceTo_ = "";
+    /**
+     * <pre>
+     * The reference over the overlap: the sessions of the window where the same-data reference exists. The
+     * reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+     * the run's last session carries no reference, so the window's own figures stop there.
+     * </pre>
+     *
+     * <code>string reference_to = 35 [json_name = "referenceTo"];</code>
+     * @return The referenceTo.
+     */
+    public java.lang.String getReferenceTo() {
+      java.lang.Object ref = referenceTo_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        referenceTo_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The reference over the overlap: the sessions of the window where the same-data reference exists. The
+     * reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+     * the run's last session carries no reference, so the window's own figures stop there.
+     * </pre>
+     *
+     * <code>string reference_to = 35 [json_name = "referenceTo"];</code>
+     * @return The bytes for referenceTo.
+     */
+    public com.google.protobuf.ByteString
+        getReferenceToBytes() {
+      java.lang.Object ref = referenceTo_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        referenceTo_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The reference over the overlap: the sessions of the window where the same-data reference exists. The
+     * reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+     * the run's last session carries no reference, so the window's own figures stop there.
+     * </pre>
+     *
+     * <code>string reference_to = 35 [json_name = "referenceTo"];</code>
+     * @param value The referenceTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setReferenceTo(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      referenceTo_ = value;
+      bitField1_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The reference over the overlap: the sessions of the window where the same-data reference exists. The
+     * reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+     * the run's last session carries no reference, so the window's own figures stop there.
+     * </pre>
+     *
+     * <code>string reference_to = 35 [json_name = "referenceTo"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearReferenceTo() {
+      referenceTo_ = getDefaultInstance().getReferenceTo();
+      bitField1_ = (bitField1_ & ~0x00000004);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The reference over the overlap: the sessions of the window where the same-data reference exists. The
+     * reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+     * the run's last session carries no reference, so the window's own figures stop there.
+     * </pre>
+     *
+     * <code>string reference_to = 35 [json_name = "referenceTo"];</code>
+     * @param value The bytes for referenceTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setReferenceToBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      referenceTo_ = value;
+      bitField1_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+
+    private double strategyOverlapTotalReturnPct_ ;
+    /**
+     * <pre>
+     * The strategy's total return over the same overlap, for a like-for-like comparison.
+     * </pre>
+     *
+     * <code>double strategy_overlap_total_return_pct = 36 [json_name = "strategyOverlapTotalReturnPct"];</code>
+     * @return The strategyOverlapTotalReturnPct.
+     */
+    @java.lang.Override
+    public double getStrategyOverlapTotalReturnPct() {
+      return strategyOverlapTotalReturnPct_;
+    }
+    /**
+     * <pre>
+     * The strategy's total return over the same overlap, for a like-for-like comparison.
+     * </pre>
+     *
+     * <code>double strategy_overlap_total_return_pct = 36 [json_name = "strategyOverlapTotalReturnPct"];</code>
+     * @param value The strategyOverlapTotalReturnPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStrategyOverlapTotalReturnPct(double value) {
+
+      strategyOverlapTotalReturnPct_ = value;
+      bitField1_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The strategy's total return over the same overlap, for a like-for-like comparison.
+     * </pre>
+     *
+     * <code>double strategy_overlap_total_return_pct = 36 [json_name = "strategyOverlapTotalReturnPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStrategyOverlapTotalReturnPct() {
+      bitField1_ = (bitField1_ & ~0x00000008);
+      strategyOverlapTotalReturnPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasStrategyOverlapTotalReturn_ ;
+    /**
+     * <code>bool has_strategy_overlap_total_return = 37 [json_name = "hasStrategyOverlapTotalReturn"];</code>
+     * @return The hasStrategyOverlapTotalReturn.
+     */
+    @java.lang.Override
+    public boolean getHasStrategyOverlapTotalReturn() {
+      return hasStrategyOverlapTotalReturn_;
+    }
+    /**
+     * <code>bool has_strategy_overlap_total_return = 37 [json_name = "hasStrategyOverlapTotalReturn"];</code>
+     * @param value The hasStrategyOverlapTotalReturn to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasStrategyOverlapTotalReturn(boolean value) {
+
+      hasStrategyOverlapTotalReturn_ = value;
+      bitField1_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_strategy_overlap_total_return = 37 [json_name = "hasStrategyOverlapTotalReturn"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasStrategyOverlapTotalReturn() {
+      bitField1_ = (bitField1_ & ~0x00000010);
+      hasStrategyOverlapTotalReturn_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double strategyOverlapCagrPct_ ;
+    /**
+     * <pre>
+     * The strategy's CAGR over the overlap, from 365 calendar days.
+     * </pre>
+     *
+     * <code>double strategy_overlap_cagr_pct = 38 [json_name = "strategyOverlapCagrPct"];</code>
+     * @return The strategyOverlapCagrPct.
+     */
+    @java.lang.Override
+    public double getStrategyOverlapCagrPct() {
+      return strategyOverlapCagrPct_;
+    }
+    /**
+     * <pre>
+     * The strategy's CAGR over the overlap, from 365 calendar days.
+     * </pre>
+     *
+     * <code>double strategy_overlap_cagr_pct = 38 [json_name = "strategyOverlapCagrPct"];</code>
+     * @param value The strategyOverlapCagrPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStrategyOverlapCagrPct(double value) {
+
+      strategyOverlapCagrPct_ = value;
+      bitField1_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The strategy's CAGR over the overlap, from 365 calendar days.
+     * </pre>
+     *
+     * <code>double strategy_overlap_cagr_pct = 38 [json_name = "strategyOverlapCagrPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStrategyOverlapCagrPct() {
+      bitField1_ = (bitField1_ & ~0x00000020);
+      strategyOverlapCagrPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasStrategyOverlapCagr_ ;
+    /**
+     * <code>bool has_strategy_overlap_cagr = 39 [json_name = "hasStrategyOverlapCagr"];</code>
+     * @return The hasStrategyOverlapCagr.
+     */
+    @java.lang.Override
+    public boolean getHasStrategyOverlapCagr() {
+      return hasStrategyOverlapCagr_;
+    }
+    /**
+     * <code>bool has_strategy_overlap_cagr = 39 [json_name = "hasStrategyOverlapCagr"];</code>
+     * @param value The hasStrategyOverlapCagr to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasStrategyOverlapCagr(boolean value) {
+
+      hasStrategyOverlapCagr_ = value;
+      bitField1_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_strategy_overlap_cagr = 39 [json_name = "hasStrategyOverlapCagr"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasStrategyOverlapCagr() {
+      bitField1_ = (bitField1_ & ~0x00000040);
+      hasStrategyOverlapCagr_ = false;
       onChanged();
       return this;
     }

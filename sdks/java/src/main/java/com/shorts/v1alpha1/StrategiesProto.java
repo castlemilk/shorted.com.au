@@ -738,8 +738,8 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       "t_hash\030\022 \001(\tR\noutputHash\022%\n\016build_revisi" +
       "on\030\023 \001(\tR\rbuildRevision\022\033\n\trisk_free\030\024 \001" +
       "(\tR\010riskFree\022%\n\016reference_name\030\025 \001(\tR\rre" +
-      "ferenceName\022\031\n\010run_date\030\026 \001(\tR\007runDate\"\341" +
-      "\t\n\rWindowMetrics\022\026\n\006window\030\001 \001(\tR\006window" +
+      "ferenceName\022\031\n\010run_date\030\026 \001(\tR\007runDate\"\216" +
+      "\014\n\rWindowMetrics\022\026\n\006window\030\001 \001(\tR\006window" +
       "\022\022\n\004from\030\002 \001(\tR\004from\022\016\n\002to\030\003 \001(\tR\002to\022(\n\020" +
       "total_return_pct\030\004 \001(\001R\016totalReturnPct\022\031" +
       "\n\010cagr_pct\030\005 \001(\001R\007cagrPct\022\031\n\010has_cagr\030\006 " +
@@ -770,193 +770,201 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       "alReturn\022;\n\032reference_total_return_pct\030!" +
       " \001(\001R\027referenceTotalReturnPct\022;\n\032has_ref" +
       "erence_total_return\030\" \001(\010R\027hasReferenceT",
-      "otalReturn\"\250\003\n\014AnnualReturn\022\022\n\004year\030\001 \001(" +
-      "\005R\004year\022\024\n\005state\030\002 \001(\tR\005state\022!\n\014strateg" +
-      "y_pct\030\003 \001(\001R\013strategyPct\022#\n\rbenchmark_pc" +
-      "t\030\004 \001(\001R\014benchmarkPct\022#\n\rreference_pct\030\005" +
-      " \001(\001R\014referencePct\022\026\n\006months\030\006 \001(\tR\006mont" +
-      "hs\022!\n\014coverage_pct\030\007 \001(\001R\013coveragePct\022/\n" +
-      "\023coverage_measurable\030\010 \001(\010R\022coverageMeas" +
-      "urable\022 \n\013approximate\030\t \001(\010R\013approximate" +
-      "\022#\n\rhas_benchmark\030\n \001(\010R\014hasBenchmark\022#\n" +
-      "\rhas_reference\030\013 \001(\010R\014hasReference\022)\n\020co" +
-      "verage_measure\030\014 \001(\tR\017coverageMeasure\"\234\002" +
-      "\n\rMonthlyReturn\022\022\n\004year\030\001 \001(\005R\004year\022\024\n\005m" +
-      "onth\030\002 \001(\005R\005month\022\024\n\005state\030\003 \001(\tR\005state\022" +
-      "!\n\014strategy_pct\030\004 \001(\001R\013strategyPct\022#\n\rbe" +
-      "nchmark_pct\030\005 \001(\001R\014benchmarkPct\022#\n\rrefer" +
-      "ence_pct\030\006 \001(\001R\014referencePct\022#\n\rhas_benc" +
-      "hmark\030\007 \001(\010R\014hasBenchmark\022#\n\rhas_referen" +
-      "ce\030\010 \001(\010R\014hasReference\022\024\n\005label\030\t \001(\tR\005l" +
-      "abel\"\336\003\n\014CoverageYear\022\022\n\004year\030\001 \001(\005R\004yea" +
-      "r\022\036\n\nmeasurable\030\002 \001(\010R\nmeasurable\0220\n\024qua" +
-      "lifying_name_days\030\003 \001(\003R\022qualifyingNameD" +
-      "ays\022(\n\020priced_name_days\030\004 \001(\003R\016pricedNam" +
-      "eDays\022!\n\014coverage_pct\030\005 \001(\001R\013coveragePct" +
-      "\022(\n\020all_reported_pct\030\006 \001(\001R\016allReportedP" +
-      "ct\022\'\n\017delisting_exits\030\007 \001(\005R\016delistingEx" +
-      "its\022\031\n\010ca_exits\030\010 \001(\005R\007caExits\0226\n\027all_re" +
-      "ported_measurable\030\013 \001(\010R\025allReportedMeas" +
-      "urable\0223\n\026all_reported_name_days\030\014 \001(\003R\023" +
-      "allReportedNameDays\022@\n\035all_reported_pric" +
-      "ed_name_days\030\r \001(\003R\031allReportedPricedNam" +
-      "eDays\"\312\001\n\rCoverageMonth\022\024\n\005month\030\001 \001(\tR\005" +
-      "month\022!\n\014coverage_pct\030\002 \001(\001R\013coveragePct" +
-      "\022\036\n\nmeasurable\030\003 \001(\010R\nmeasurable\022(\n\020all_" +
-      "reported_pct\030\004 \001(\001R\016allReportedPct\0226\n\027al" +
-      "l_reported_measurable\030\005 \001(\010R\025allReported" +
-      "Measurable\"\204\001\n\014Survivorship\022 \n\013measureme" +
-      "nt\030\001 \001(\tR\013measurement\022\034\n\tdirection\030\002 \001(\t" +
-      "R\tdirection\022\034\n\tstatement\030\003 \001(\tR\tstatemen" +
-      "t\022\026\n\006caveat\030\004 \001(\tR\006caveat\"\330\002\n\013Sensitivit" +
-      "y\022\016\n\002id\030\001 \001(\tR\002id\022\024\n\005label\030\002 \001(\tR\005label\022" +
-      "\031\n\010cagr_pct\030\003 \001(\001R\007cagrPct\022\031\n\010has_cagr\030\004" +
-      " \001(\010R\007hasCagr\0225\n\027excess_vs_benchmark_pct" +
-      "\030\005 \001(\001R\024excessVsBenchmarkPct\022(\n\020max_draw" +
-      "down_pct\030\006 \001(\001R\016maxDrawdownPct\022\030\n\007fragil" +
-      "e\030\007 \001(\010R\007fragile\022\030\n\007applies\030\010 \001(\010R\007appli" +
-      "es\022\026\n\006reason\030\t \001(\tR\006reason\022\035\n\nhas_excess" +
-      "\030\n \001(\010R\thasExcess\022!\n\014fragile_chip\030\013 \001(\tR" +
-      "\013fragileChip\"\327\001\n\013SeriesPoint\022\022\n\004date\030\001 \001" +
-      "(\tR\004date\022\026\n\006equity\030\002 \001(\001R\006equity\022\034\n\tbenc" +
-      "hmark\030\003 \001(\001R\tbenchmark\022\034\n\treference\030\004 \001(" +
-      "\001R\treference\022!\n\014drawdown_pct\030\005 \001(\001R\013draw" +
-      "downPct\022!\n\014exposure_pct\030\006 \001(\001R\013exposureP" +
-      "ct\022\032\n\010recorded\030\007 \001(\010R\010recorded\"\341\002\n\013Recip" +
-      "eLines\022\033\n\trecipe_id\030\001 \001(\tR\010recipeId\022\024\n\005e" +
-      "ntry\030\002 \001(\tR\005entry\022\024\n\005exits\030\003 \003(\tR\005exits\022" +
-      "\026\n\006sizing\030\004 \001(\tR\006sizing\022\034\n\tbrokerage\030\005 \001" +
-      "(\tR\tbrokerage\022\026\n\006spread\030\006 \001(\tR\006spread\022\032\n" +
-      "\010capacity\030\007 \001(\tR\010capacity\022\034\n\tdividends\030\010" +
-      " \001(\tR\tdividends\022\033\n\tasic_data\030\t \001(\tR\010asic" +
-      "Data\022\034\n\tdelisting\030\n \001(\tR\tdelisting\022\030\n\007ca" +
-      "pital\030\013 \001(\tR\007capital\022\022\n\004cash\030\014 \001(\tR\004cash" +
-      "\022\030\n\007preface\030\r \001(\tR\007preface\"\350\004\n\014TradeSumm" +
-      "ary\022\026\n\006closed\030\001 \001(\005R\006closed\022\036\n\013open_at_e" +
-      "nd\030\002 \001(\005R\topenAtEnd\022 \n\014win_rate_pct\030\003 \001(" +
-      "\001R\nwinRatePct\022*\n\021avg_hold_sessions\030\004 \001(\001" +
-      "R\017avgHoldSessions\022\036\n\013avg_win_pct\030\005 \001(\001R\t" +
-      "avgWinPct\022 \n\014avg_loss_pct\030\006 \001(\001R\navgLoss" +
-      "Pct\022\031\n\010best_pct\030\007 \001(\001R\007bestPct\022\033\n\tworst_" +
-      "pct\030\010 \001(\001R\010worstPct\022X\n\017exits_by_reason\030\t" +
-      " \003(\01320.shorts.v1alpha1.TradeSummary.Exit" +
-      "sByReasonEntryR\rexitsByReason\022 \n\014has_win" +
-      "_rate\030\n \001(\010R\nhasWinRate\022 \n\014has_avg_hold\030" +
-      "\013 \001(\010R\nhasAvgHold\022\036\n\013has_avg_win\030\014 \001(\010R\t" +
-      "hasAvgWin\022 \n\014has_avg_loss\030\r \001(\010R\nhasAvgL" +
-      "oss\022\031\n\010has_best\030\016 \001(\010R\007hasBest\022\033\n\thas_wo" +
-      "rst\030\017 \001(\010R\010hasWorst\032@\n\022ExitsByReasonEntr" +
-      "y\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\005R\005valu" +
-      "e:\0028\001\"\340\004\n\rBacktestTrade\022\020\n\003seq\030\001 \001(\005R\003se" +
-      "q\022\035\n\nstock_code\030\002 \001(\tR\tstockCode\022!\n\014comp" +
-      "any_name\030\003 \001(\tR\013companyName\022\037\n\013signal_da" +
-      "te\030\004 \001(\tR\nsignalDate\022\035\n\nentry_date\030\005 \001(\t" +
-      "R\tentryDate\022\037\n\013entry_price\030\006 \001(\001R\nentryP" +
-      "rice\022%\n\016captured_pivot\030\007 \001(\001R\rcapturedPi" +
-      "vot\022,\n\022has_captured_pivot\030\010 \001(\010R\020hasCapt" +
-      "uredPivot\022\037\n\013entry_score\030\t \001(\001R\nentrySco" +
-      "re\022\033\n\texit_date\030\n \001(\tR\010exitDate\022\035\n\nexit_" +
-      "price\030\013 \001(\001R\texitPrice\022\037\n\013exit_reason\030\014 " +
-      "\001(\tR\nexitReason\022#\n\rsessions_held\030\r \001(\005R\014" +
-      "sessionsHeld\022(\n\020gross_return_pct\030\016 \001(\001R\016" +
-      "grossReturnPct\022$\n\016net_return_pct\030\017 \001(\001R\014" +
-      "netReturnPct\022\024\n\005flags\030\020 \003(\tR\005flags\022\022\n\004op" +
-      "en\030\021 \001(\010R\004open\022(\n\020exit_signal_date\030\022 \001(\t" +
-      "R\016exitSignalDate\"\332\002\n\021PaperTrackSummary\022\024" +
-      "\n\005since\030\001 \001(\tR\005since\022\032\n\010sessions\030\002 \001(\005R\010" +
-      "sessions\022#\n\rclosed_trades\030\003 \001(\005R\014closedT" +
-      "rades\022%\n\016open_positions\030\004 \001(\005R\ropenPosit" +
-      "ions\022\035\n\nreturn_pct\030\005 \001(\001R\treturnPct\022\035\n\nh" +
-      "as_return\030\006 \001(\010R\thasReturn\022\033\n\ttoo_short\030" +
-      "\007 \001(\010R\010tooShort\022#\n\rrecorded_from\030\010 \001(\tR\014" +
-      "recordedFrom\022G\n\017engine_segments\030\t \003(\0132\036." +
-      "shorts.v1alpha1.EngineSegmentR\016engineSeg" +
-      "ments\"\232\001\n\rEngineSegment\022%\n\016engine_versio" +
-      "n\030\001 \001(\tR\rengineVersion\022#\n\rfirst_session\030" +
-      "\002 \001(\tR\014firstSession\022!\n\014last_session\030\003 \001(" +
-      "\tR\013lastSession\022\032\n\010sessions\030\004 \001(\005R\010sessio" +
-      "ns\"\256\001\n\031ListBacktestTradesRequest\022\025\n\006run_" +
-      "id\030\001 \001(\003R\005runId\022\035\n\npage_token\030\002 \001(\tR\tpag" +
-      "eToken\022\033\n\tpage_size\030\003 \001(\005R\010pageSize\022\035\n\ns" +
-      "tock_code\030\004 \001(\tR\tstockCode\022\037\n\013exit_reaso" +
-      "n\030\005 \001(\tR\nexitReason\"\222\001\n\032ListBacktestTrad" +
-      "esResponse\0226\n\006trades\030\001 \003(\0132\036.shorts.v1al" +
-      "pha1.BacktestTradeR\006trades\022&\n\017next_page_" +
-      "token\030\002 \001(\tR\rnextPageToken\022\024\n\005total\030\003 \001(" +
-      "\005R\005total\".\n\030CompareStrategiesRequest\022\022\n\004" +
-      "refs\030\001 \003(\tR\004refs\"\263\002\n\031CompareStrategiesRe" +
-      "sponse\022\033\n\twindow_id\030\001 \001(\tR\010windowId\022\037\n\013w" +
-      "indow_from\030\002 \001(\tR\nwindowFrom\022\033\n\twindow_t" +
-      "o\030\003 \001(\tR\010windowTo\0227\n\007entries\030\004 \003(\0132\035.sho" +
-      "rts.v1alpha1.CompareEntryR\007entries\022H\n\014co" +
-      "rrelations\030\005 \003(\0132$.shorts.v1alpha1.Strat" +
-      "egyCorrelationR\014correlations\0228\n\nrule_dif" +
-      "fs\030\006 \003(\0132\031.shorts.v1alpha1.RuleDiffR\trul" +
-      "eDiffs\"\314\002\n\014CompareEntry\022!\n\014strategy_ref\030" +
-      "\001 \001(\tR\013strategyRef\022\037\n\013strategy_id\030\002 \001(\tR" +
-      "\nstrategyId\022\022\n\004name\030\003 \001(\tR\004name\022\024\n\005state" +
-      "\030\004 \001(\tR\005state\022=\n\007version\030\005 \001(\0132#.shorts." +
-      "v1alpha1.StrategyVersionRefR\007version\0226\n\006" +
-      "window\030\006 \001(\0132\036.shorts.v1alpha1.WindowMet" +
-      "ricsR\006window\0224\n\006series\030\007 \003(\0132\034.shorts.v1" +
-      "alpha1.SeriesPointR\006series\022!\n\014state_reas" +
-      "on\030\010 \001(\tR\013stateReason\"\220\001\n\023StrategyCorrel" +
-      "ation\022\014\n\001a\030\001 \001(\tR\001a\022\014\n\001b\030\002 \001(\tR\001b\022 \n\013cor" +
-      "relation\030\003 \001(\001R\013correlation\022\'\n\017has_corre" +
-      "lation\030\004 \001(\010R\016hasCorrelation\022\022\n\004days\030\005 \001" +
-      "(\005R\004days\"n\n\010RuleDiff\022\014\n\001a\030\001 \001(\tR\001a\022\014\n\001b\030" +
-      "\002 \001(\tR\001b\022\024\n\005field\030\003 \001(\tR\005field\022\027\n\007a_valu" +
-      "e\030\004 \001(\tR\006aValue\022\027\n\007b_value\030\005 \001(\tR\006bValue" +
-      "2\333\r\n\017StrategyService\022g\n\016ListStrategies\022&" +
-      ".shorts.v1alpha1.ListStrategiesRequest\032\'" +
-      ".shorts.v1alpha1.ListStrategiesResponse\"" +
-      "\004\200\265\030\001\022m\n\020GetStrategyPicks\022(.shorts.v1alp" +
-      "ha1.GetStrategyPicksRequest\032).shorts.v1a" +
-      "lpha1.GetStrategyPicksResponse\"\004\200\265\030\001\022s\n\026" +
-      "GetViewerStrategyPicks\022(.shorts.v1alpha1" +
-      ".GetStrategyPicksRequest\032).shorts.v1alph" +
-      "a1.GetStrategyPicksResponse\"\004\200\265\030\002\022v\n\023Get" +
-      "StockStrategyFit\022+.shorts.v1alpha1.GetSt" +
-      "ockStrategyFitRequest\032,.shorts.v1alpha1." +
-      "GetStockStrategyFitResponse\"\004\200\265\030\001\022s\n\022Get" +
-      "StrategyVersion\022*.shorts.v1alpha1.GetStr" +
-      "ategyVersionRequest\032+.shorts.v1alpha1.Ge" +
-      "tStrategyVersionResponse\"\004\200\265\030\001\022y\n\024ListSt" +
-      "rategyVersions\022,.shorts.v1alpha1.ListStr" +
-      "ategyVersionsRequest\032-.shorts.v1alpha1.L" +
-      "istStrategyVersionsResponse\"\004\200\265\030\001\022|\n\025Get" +
-      "StrategyDataStatus\022-.shorts.v1alpha1.Get" +
-      "StrategyDataStatusRequest\032..shorts.v1alp" +
-      "ha1.GetStrategyDataStatusResponse\"\004\200\265\030\001\022" +
-      "\205\001\n\030ListStrategySignalEvents\0220.shorts.v1" +
-      "alpha1.ListStrategySignalEventsRequest\0321" +
-      ".shorts.v1alpha1.ListStrategySignalEvent" +
-      "sResponse\"\004\200\265\030\002\022a\n\014SaveStrategy\022$.shorts" +
-      ".v1alpha1.SaveStrategyRequest\032%.shorts.v" +
-      "1alpha1.SaveStrategyResponse\"\004\200\265\030\002\022g\n\016Un" +
-      "saveStrategy\022&.shorts.v1alpha1.UnsaveStr" +
-      "ategyRequest\032\'.shorts.v1alpha1.UnsaveStr" +
-      "ategyResponse\"\004\200\265\030\002\022v\n\023ListSavedStrategi" +
-      "es\022+.shorts.v1alpha1.ListSavedStrategies" +
-      "Request\032,.shorts.v1alpha1.ListSavedStrat" +
-      "egiesResponse\"\004\200\265\030\002\022y\n\024ListStrategyEvide" +
-      "nce\022,.shorts.v1alpha1.ListStrategyEviden" +
-      "ceRequest\032-.shorts.v1alpha1.ListStrategy" +
-      "EvidenceResponse\"\004\200\265\030\001\022g\n\016GetBacktestRun" +
-      "\022&.shorts.v1alpha1.GetBacktestRunRequest" +
-      "\032\'.shorts.v1alpha1.GetBacktestRunRespons" +
-      "e\"\004\200\265\030\001\022s\n\022ListBacktestTrades\022*.shorts.v" +
-      "1alpha1.ListBacktestTradesRequest\032+.shor" +
-      "ts.v1alpha1.ListBacktestTradesResponse\"\004" +
-      "\200\265\030\002\022p\n\021CompareStrategies\022).shorts.v1alp" +
-      "ha1.CompareStrategiesRequest\032*.shorts.v1" +
-      "alpha1.CompareStrategiesResponse\"\004\200\265\030\002B\336" +
-      "\001\n\023com.shorts.v1alpha1B\017StrategiesProtoP" +
-      "\001ZYgithub.com/castlemilk/shorted.com.au/" +
-      "services/gen/proto/go/shorts/v1alpha1;sh" +
-      "ortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017S" +
-      "horts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMeta" +
-      "data\352\002\020Shorts::V1alpha1b\006proto3"
+      "otalReturn\022!\n\014reference_to\030# \001(\tR\013refere" +
+      "nceTo\022H\n!strategy_overlap_total_return_p" +
+      "ct\030$ \001(\001R\035strategyOverlapTotalReturnPct\022" +
+      "H\n!has_strategy_overlap_total_return\030% \001" +
+      "(\010R\035hasStrategyOverlapTotalReturn\0229\n\031str" +
+      "ategy_overlap_cagr_pct\030& \001(\001R\026strategyOv" +
+      "erlapCagrPct\0229\n\031has_strategy_overlap_cag" +
+      "r\030\' \001(\010R\026hasStrategyOverlapCagr\"\250\003\n\014Annu" +
+      "alReturn\022\022\n\004year\030\001 \001(\005R\004year\022\024\n\005state\030\002 " +
+      "\001(\tR\005state\022!\n\014strategy_pct\030\003 \001(\001R\013strate" +
+      "gyPct\022#\n\rbenchmark_pct\030\004 \001(\001R\014benchmarkP" +
+      "ct\022#\n\rreference_pct\030\005 \001(\001R\014referencePct\022" +
+      "\026\n\006months\030\006 \001(\tR\006months\022!\n\014coverage_pct\030" +
+      "\007 \001(\001R\013coveragePct\022/\n\023coverage_measurabl" +
+      "e\030\010 \001(\010R\022coverageMeasurable\022 \n\013approxima" +
+      "te\030\t \001(\010R\013approximate\022#\n\rhas_benchmark\030\n" +
+      " \001(\010R\014hasBenchmark\022#\n\rhas_reference\030\013 \001(" +
+      "\010R\014hasReference\022)\n\020coverage_measure\030\014 \001(" +
+      "\tR\017coverageMeasure\"\234\002\n\rMonthlyReturn\022\022\n\004" +
+      "year\030\001 \001(\005R\004year\022\024\n\005month\030\002 \001(\005R\005month\022\024" +
+      "\n\005state\030\003 \001(\tR\005state\022!\n\014strategy_pct\030\004 \001" +
+      "(\001R\013strategyPct\022#\n\rbenchmark_pct\030\005 \001(\001R\014" +
+      "benchmarkPct\022#\n\rreference_pct\030\006 \001(\001R\014ref" +
+      "erencePct\022#\n\rhas_benchmark\030\007 \001(\010R\014hasBen" +
+      "chmark\022#\n\rhas_reference\030\010 \001(\010R\014hasRefere" +
+      "nce\022\024\n\005label\030\t \001(\tR\005label\"\336\003\n\014CoverageYe" +
+      "ar\022\022\n\004year\030\001 \001(\005R\004year\022\036\n\nmeasurable\030\002 \001" +
+      "(\010R\nmeasurable\0220\n\024qualifying_name_days\030\003" +
+      " \001(\003R\022qualifyingNameDays\022(\n\020priced_name_" +
+      "days\030\004 \001(\003R\016pricedNameDays\022!\n\014coverage_p" +
+      "ct\030\005 \001(\001R\013coveragePct\022(\n\020all_reported_pc" +
+      "t\030\006 \001(\001R\016allReportedPct\022\'\n\017delisting_exi" +
+      "ts\030\007 \001(\005R\016delistingExits\022\031\n\010ca_exits\030\010 \001" +
+      "(\005R\007caExits\0226\n\027all_reported_measurable\030\013" +
+      " \001(\010R\025allReportedMeasurable\0223\n\026all_repor" +
+      "ted_name_days\030\014 \001(\003R\023allReportedNameDays" +
+      "\022@\n\035all_reported_priced_name_days\030\r \001(\003R" +
+      "\031allReportedPricedNameDays\"\312\001\n\rCoverageM" +
+      "onth\022\024\n\005month\030\001 \001(\tR\005month\022!\n\014coverage_p" +
+      "ct\030\002 \001(\001R\013coveragePct\022\036\n\nmeasurable\030\003 \001(" +
+      "\010R\nmeasurable\022(\n\020all_reported_pct\030\004 \001(\001R" +
+      "\016allReportedPct\0226\n\027all_reported_measurab" +
+      "le\030\005 \001(\010R\025allReportedMeasurable\"\204\001\n\014Surv" +
+      "ivorship\022 \n\013measurement\030\001 \001(\tR\013measureme" +
+      "nt\022\034\n\tdirection\030\002 \001(\tR\tdirection\022\034\n\tstat" +
+      "ement\030\003 \001(\tR\tstatement\022\026\n\006caveat\030\004 \001(\tR\006" +
+      "caveat\"\330\002\n\013Sensitivity\022\016\n\002id\030\001 \001(\tR\002id\022\024" +
+      "\n\005label\030\002 \001(\tR\005label\022\031\n\010cagr_pct\030\003 \001(\001R\007" +
+      "cagrPct\022\031\n\010has_cagr\030\004 \001(\010R\007hasCagr\0225\n\027ex" +
+      "cess_vs_benchmark_pct\030\005 \001(\001R\024excessVsBen" +
+      "chmarkPct\022(\n\020max_drawdown_pct\030\006 \001(\001R\016max" +
+      "DrawdownPct\022\030\n\007fragile\030\007 \001(\010R\007fragile\022\030\n" +
+      "\007applies\030\010 \001(\010R\007applies\022\026\n\006reason\030\t \001(\tR" +
+      "\006reason\022\035\n\nhas_excess\030\n \001(\010R\thasExcess\022!" +
+      "\n\014fragile_chip\030\013 \001(\tR\013fragileChip\"\327\001\n\013Se" +
+      "riesPoint\022\022\n\004date\030\001 \001(\tR\004date\022\026\n\006equity\030" +
+      "\002 \001(\001R\006equity\022\034\n\tbenchmark\030\003 \001(\001R\tbenchm" +
+      "ark\022\034\n\treference\030\004 \001(\001R\treference\022!\n\014dra" +
+      "wdown_pct\030\005 \001(\001R\013drawdownPct\022!\n\014exposure" +
+      "_pct\030\006 \001(\001R\013exposurePct\022\032\n\010recorded\030\007 \001(" +
+      "\010R\010recorded\"\341\002\n\013RecipeLines\022\033\n\trecipe_id" +
+      "\030\001 \001(\tR\010recipeId\022\024\n\005entry\030\002 \001(\tR\005entry\022\024" +
+      "\n\005exits\030\003 \003(\tR\005exits\022\026\n\006sizing\030\004 \001(\tR\006si" +
+      "zing\022\034\n\tbrokerage\030\005 \001(\tR\tbrokerage\022\026\n\006sp" +
+      "read\030\006 \001(\tR\006spread\022\032\n\010capacity\030\007 \001(\tR\010ca" +
+      "pacity\022\034\n\tdividends\030\010 \001(\tR\tdividends\022\033\n\t" +
+      "asic_data\030\t \001(\tR\010asicData\022\034\n\tdelisting\030\n" +
+      " \001(\tR\tdelisting\022\030\n\007capital\030\013 \001(\tR\007capita" +
+      "l\022\022\n\004cash\030\014 \001(\tR\004cash\022\030\n\007preface\030\r \001(\tR\007" +
+      "preface\"\350\004\n\014TradeSummary\022\026\n\006closed\030\001 \001(\005" +
+      "R\006closed\022\036\n\013open_at_end\030\002 \001(\005R\topenAtEnd" +
+      "\022 \n\014win_rate_pct\030\003 \001(\001R\nwinRatePct\022*\n\021av" +
+      "g_hold_sessions\030\004 \001(\001R\017avgHoldSessions\022\036" +
+      "\n\013avg_win_pct\030\005 \001(\001R\tavgWinPct\022 \n\014avg_lo" +
+      "ss_pct\030\006 \001(\001R\navgLossPct\022\031\n\010best_pct\030\007 \001" +
+      "(\001R\007bestPct\022\033\n\tworst_pct\030\010 \001(\001R\010worstPct" +
+      "\022X\n\017exits_by_reason\030\t \003(\01320.shorts.v1alp" +
+      "ha1.TradeSummary.ExitsByReasonEntryR\rexi" +
+      "tsByReason\022 \n\014has_win_rate\030\n \001(\010R\nhasWin" +
+      "Rate\022 \n\014has_avg_hold\030\013 \001(\010R\nhasAvgHold\022\036" +
+      "\n\013has_avg_win\030\014 \001(\010R\thasAvgWin\022 \n\014has_av" +
+      "g_loss\030\r \001(\010R\nhasAvgLoss\022\031\n\010has_best\030\016 \001" +
+      "(\010R\007hasBest\022\033\n\thas_worst\030\017 \001(\010R\010hasWorst" +
+      "\032@\n\022ExitsByReasonEntry\022\020\n\003key\030\001 \001(\tR\003key" +
+      "\022\024\n\005value\030\002 \001(\005R\005value:\0028\001\"\340\004\n\rBacktestT" +
+      "rade\022\020\n\003seq\030\001 \001(\005R\003seq\022\035\n\nstock_code\030\002 \001" +
+      "(\tR\tstockCode\022!\n\014company_name\030\003 \001(\tR\013com" +
+      "panyName\022\037\n\013signal_date\030\004 \001(\tR\nsignalDat" +
+      "e\022\035\n\nentry_date\030\005 \001(\tR\tentryDate\022\037\n\013entr" +
+      "y_price\030\006 \001(\001R\nentryPrice\022%\n\016captured_pi" +
+      "vot\030\007 \001(\001R\rcapturedPivot\022,\n\022has_captured" +
+      "_pivot\030\010 \001(\010R\020hasCapturedPivot\022\037\n\013entry_" +
+      "score\030\t \001(\001R\nentryScore\022\033\n\texit_date\030\n \001" +
+      "(\tR\010exitDate\022\035\n\nexit_price\030\013 \001(\001R\texitPr" +
+      "ice\022\037\n\013exit_reason\030\014 \001(\tR\nexitReason\022#\n\r" +
+      "sessions_held\030\r \001(\005R\014sessionsHeld\022(\n\020gro" +
+      "ss_return_pct\030\016 \001(\001R\016grossReturnPct\022$\n\016n" +
+      "et_return_pct\030\017 \001(\001R\014netReturnPct\022\024\n\005fla" +
+      "gs\030\020 \003(\tR\005flags\022\022\n\004open\030\021 \001(\010R\004open\022(\n\020e" +
+      "xit_signal_date\030\022 \001(\tR\016exitSignalDate\"\332\002" +
+      "\n\021PaperTrackSummary\022\024\n\005since\030\001 \001(\tR\005sinc" +
+      "e\022\032\n\010sessions\030\002 \001(\005R\010sessions\022#\n\rclosed_" +
+      "trades\030\003 \001(\005R\014closedTrades\022%\n\016open_posit" +
+      "ions\030\004 \001(\005R\ropenPositions\022\035\n\nreturn_pct\030" +
+      "\005 \001(\001R\treturnPct\022\035\n\nhas_return\030\006 \001(\010R\tha" +
+      "sReturn\022\033\n\ttoo_short\030\007 \001(\010R\010tooShort\022#\n\r" +
+      "recorded_from\030\010 \001(\tR\014recordedFrom\022G\n\017eng" +
+      "ine_segments\030\t \003(\0132\036.shorts.v1alpha1.Eng" +
+      "ineSegmentR\016engineSegments\"\232\001\n\rEngineSeg" +
+      "ment\022%\n\016engine_version\030\001 \001(\tR\rengineVers" +
+      "ion\022#\n\rfirst_session\030\002 \001(\tR\014firstSession" +
+      "\022!\n\014last_session\030\003 \001(\tR\013lastSession\022\032\n\010s" +
+      "essions\030\004 \001(\005R\010sessions\"\256\001\n\031ListBacktest" +
+      "TradesRequest\022\025\n\006run_id\030\001 \001(\003R\005runId\022\035\n\n" +
+      "page_token\030\002 \001(\tR\tpageToken\022\033\n\tpage_size" +
+      "\030\003 \001(\005R\010pageSize\022\035\n\nstock_code\030\004 \001(\tR\tst" +
+      "ockCode\022\037\n\013exit_reason\030\005 \001(\tR\nexitReason" +
+      "\"\222\001\n\032ListBacktestTradesResponse\0226\n\006trade" +
+      "s\030\001 \003(\0132\036.shorts.v1alpha1.BacktestTradeR" +
+      "\006trades\022&\n\017next_page_token\030\002 \001(\tR\rnextPa" +
+      "geToken\022\024\n\005total\030\003 \001(\005R\005total\".\n\030Compare" +
+      "StrategiesRequest\022\022\n\004refs\030\001 \003(\tR\004refs\"\263\002" +
+      "\n\031CompareStrategiesResponse\022\033\n\twindow_id" +
+      "\030\001 \001(\tR\010windowId\022\037\n\013window_from\030\002 \001(\tR\nw" +
+      "indowFrom\022\033\n\twindow_to\030\003 \001(\tR\010windowTo\0227" +
+      "\n\007entries\030\004 \003(\0132\035.shorts.v1alpha1.Compar" +
+      "eEntryR\007entries\022H\n\014correlations\030\005 \003(\0132$." +
+      "shorts.v1alpha1.StrategyCorrelationR\014cor" +
+      "relations\0228\n\nrule_diffs\030\006 \003(\0132\031.shorts.v" +
+      "1alpha1.RuleDiffR\truleDiffs\"\314\002\n\014CompareE" +
+      "ntry\022!\n\014strategy_ref\030\001 \001(\tR\013strategyRef\022" +
+      "\037\n\013strategy_id\030\002 \001(\tR\nstrategyId\022\022\n\004name" +
+      "\030\003 \001(\tR\004name\022\024\n\005state\030\004 \001(\tR\005state\022=\n\007ve" +
+      "rsion\030\005 \001(\0132#.shorts.v1alpha1.StrategyVe" +
+      "rsionRefR\007version\0226\n\006window\030\006 \001(\0132\036.shor" +
+      "ts.v1alpha1.WindowMetricsR\006window\0224\n\006ser" +
+      "ies\030\007 \003(\0132\034.shorts.v1alpha1.SeriesPointR" +
+      "\006series\022!\n\014state_reason\030\010 \001(\tR\013stateReas" +
+      "on\"\220\001\n\023StrategyCorrelation\022\014\n\001a\030\001 \001(\tR\001a" +
+      "\022\014\n\001b\030\002 \001(\tR\001b\022 \n\013correlation\030\003 \001(\001R\013cor" +
+      "relation\022\'\n\017has_correlation\030\004 \001(\010R\016hasCo" +
+      "rrelation\022\022\n\004days\030\005 \001(\005R\004days\"n\n\010RuleDif" +
+      "f\022\014\n\001a\030\001 \001(\tR\001a\022\014\n\001b\030\002 \001(\tR\001b\022\024\n\005field\030\003" +
+      " \001(\tR\005field\022\027\n\007a_value\030\004 \001(\tR\006aValue\022\027\n\007" +
+      "b_value\030\005 \001(\tR\006bValue2\333\r\n\017StrategyServic" +
+      "e\022g\n\016ListStrategies\022&.shorts.v1alpha1.Li" +
+      "stStrategiesRequest\032\'.shorts.v1alpha1.Li" +
+      "stStrategiesResponse\"\004\200\265\030\001\022m\n\020GetStrateg" +
+      "yPicks\022(.shorts.v1alpha1.GetStrategyPick" +
+      "sRequest\032).shorts.v1alpha1.GetStrategyPi" +
+      "cksResponse\"\004\200\265\030\001\022s\n\026GetViewerStrategyPi" +
+      "cks\022(.shorts.v1alpha1.GetStrategyPicksRe" +
+      "quest\032).shorts.v1alpha1.GetStrategyPicks" +
+      "Response\"\004\200\265\030\002\022v\n\023GetStockStrategyFit\022+." +
+      "shorts.v1alpha1.GetStockStrategyFitReque" +
+      "st\032,.shorts.v1alpha1.GetStockStrategyFit" +
+      "Response\"\004\200\265\030\001\022s\n\022GetStrategyVersion\022*.s" +
+      "horts.v1alpha1.GetStrategyVersionRequest" +
+      "\032+.shorts.v1alpha1.GetStrategyVersionRes" +
+      "ponse\"\004\200\265\030\001\022y\n\024ListStrategyVersions\022,.sh" +
+      "orts.v1alpha1.ListStrategyVersionsReques" +
+      "t\032-.shorts.v1alpha1.ListStrategyVersions" +
+      "Response\"\004\200\265\030\001\022|\n\025GetStrategyDataStatus\022" +
+      "-.shorts.v1alpha1.GetStrategyDataStatusR" +
+      "equest\032..shorts.v1alpha1.GetStrategyData" +
+      "StatusResponse\"\004\200\265\030\001\022\205\001\n\030ListStrategySig" +
+      "nalEvents\0220.shorts.v1alpha1.ListStrategy" +
+      "SignalEventsRequest\0321.shorts.v1alpha1.Li" +
+      "stStrategySignalEventsResponse\"\004\200\265\030\002\022a\n\014" +
+      "SaveStrategy\022$.shorts.v1alpha1.SaveStrat" +
+      "egyRequest\032%.shorts.v1alpha1.SaveStrateg" +
+      "yResponse\"\004\200\265\030\002\022g\n\016UnsaveStrategy\022&.shor" +
+      "ts.v1alpha1.UnsaveStrategyRequest\032\'.shor" +
+      "ts.v1alpha1.UnsaveStrategyResponse\"\004\200\265\030\002" +
+      "\022v\n\023ListSavedStrategies\022+.shorts.v1alpha" +
+      "1.ListSavedStrategiesRequest\032,.shorts.v1" +
+      "alpha1.ListSavedStrategiesResponse\"\004\200\265\030\002" +
+      "\022y\n\024ListStrategyEvidence\022,.shorts.v1alph" +
+      "a1.ListStrategyEvidenceRequest\032-.shorts." +
+      "v1alpha1.ListStrategyEvidenceResponse\"\004\200" +
+      "\265\030\001\022g\n\016GetBacktestRun\022&.shorts.v1alpha1." +
+      "GetBacktestRunRequest\032\'.shorts.v1alpha1." +
+      "GetBacktestRunResponse\"\004\200\265\030\001\022s\n\022ListBack" +
+      "testTrades\022*.shorts.v1alpha1.ListBacktes" +
+      "tTradesRequest\032+.shorts.v1alpha1.ListBac" +
+      "ktestTradesResponse\"\004\200\265\030\002\022p\n\021CompareStra" +
+      "tegies\022).shorts.v1alpha1.CompareStrategi" +
+      "esRequest\032*.shorts.v1alpha1.CompareStrat" +
+      "egiesResponse\"\004\200\265\030\002B\336\001\n\023com.shorts.v1alp" +
+      "ha1B\017StrategiesProtoP\001ZYgithub.com/castl" +
+      "emilk/shorted.com.au/services/gen/proto/" +
+      "go/shorts/v1alpha1;shortsv1alpha1\242\002\003SXX\252" +
+      "\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Sh" +
+      "orts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V1al" +
+      "pha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -1244,7 +1252,7 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_WindowMetrics_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_WindowMetrics_descriptor,
-        new java.lang.String[] { "Window", "From", "To", "TotalReturnPct", "CagrPct", "HasCagr", "BenchmarkCagrPct", "HasBenchmark", "ReferenceCagrPct", "HasReference", "MaxDrawdownPct", "Sharpe", "SharpeSe", "HasSharpe", "ClosedTrades", "WinRatePct", "HasWinRate", "ExposurePct", "RecordedTail", "Label", "Note", "NotAnnualised", "Sessions", "CalendarDays", "VolatilityPct", "HasVolatility", "HasTotalReturn", "PeakDate", "TroughDate", "RecoveryDate", "BenchmarkTotalReturnPct", "HasBenchmarkTotalReturn", "ReferenceTotalReturnPct", "HasReferenceTotalReturn", });
+        new java.lang.String[] { "Window", "From", "To", "TotalReturnPct", "CagrPct", "HasCagr", "BenchmarkCagrPct", "HasBenchmark", "ReferenceCagrPct", "HasReference", "MaxDrawdownPct", "Sharpe", "SharpeSe", "HasSharpe", "ClosedTrades", "WinRatePct", "HasWinRate", "ExposurePct", "RecordedTail", "Label", "Note", "NotAnnualised", "Sessions", "CalendarDays", "VolatilityPct", "HasVolatility", "HasTotalReturn", "PeakDate", "TroughDate", "RecoveryDate", "BenchmarkTotalReturnPct", "HasBenchmarkTotalReturn", "ReferenceTotalReturnPct", "HasReferenceTotalReturn", "ReferenceTo", "StrategyOverlapTotalReturnPct", "HasStrategyOverlapTotalReturn", "StrategyOverlapCagrPct", "HasStrategyOverlapCagr", });
     internal_static_shorts_v1alpha1_AnnualReturn_descriptor =
       getDescriptor().getMessageType(46);
     internal_static_shorts_v1alpha1_AnnualReturn_fieldAccessorTable = new

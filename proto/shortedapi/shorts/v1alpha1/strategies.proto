@@ -733,6 +733,14 @@ message WindowMetrics {
   bool has_benchmark_total_return = 32;
   double reference_total_return_pct = 33;
   bool has_reference_total_return = 34;
+  // The reference over the overlap: the sessions of the window where the same-data reference exists. The
+  // reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+  // the run's last session carries no reference, so the window's own figures stop there.
+  string reference_to = 35;                          // The last session the reference is measured to; "" when there is no reference.
+  double strategy_overlap_total_return_pct = 36;     // The strategy's total return over the same overlap, for a like-for-like comparison.
+  bool has_strategy_overlap_total_return = 37;
+  double strategy_overlap_cagr_pct = 38;             // The strategy's CAGR over the overlap, from 365 calendar days.
+  bool has_strategy_overlap_cagr = 39;
 }
 
 // One period of the annual table: the strategy, XJT and the same-data reference.

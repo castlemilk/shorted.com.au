@@ -21542,6 +21542,31 @@ components:
           type: boolean
           title: has_reference_total_return
           description: (proto bool)
+        referenceTo:
+          type: string
+          title: reference_to
+          description: |-
+            The reference over the overlap: the sessions of the window where the same-data reference exists. The
+             reference fields above are measured over that overlap, which ends at reference_to. A paper-track tail after
+             the run's last session carries no reference, so the window's own figures stop there. The last session the reference is measured to; "" when there is no reference. (proto string)
+        strategyOverlapTotalReturnPct:
+          type: number
+          title: strategy_overlap_total_return_pct
+          format: double
+          description: The strategy's total return over the same overlap, for a like-for-like comparison. (proto double)
+        hasStrategyOverlapTotalReturn:
+          type: boolean
+          title: has_strategy_overlap_total_return
+          description: (proto bool)
+        strategyOverlapCagrPct:
+          type: number
+          title: strategy_overlap_cagr_pct
+          format: double
+          description: The strategy's CAGR over the overlap, from 365 calendar days. (proto double)
+        hasStrategyOverlapCagr:
+          type: boolean
+          title: has_strategy_overlap_cagr
+          description: (proto bool)
       title: WindowMetrics
       additionalProperties: false
       description: One window's metrics on the chained curve.

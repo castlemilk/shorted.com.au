@@ -1,0 +1,11 @@
+{
+  "run": {
+    "computableFrom": "2025-08-31",
+    "computableSharePct": 42,
+    "fiscalLabel": "FY2024",
+    "hasComputableShare": true,
+    "state": "not_computable",
+    "stateReason": "Not computable before FY2024. From FY2024 a test is possible only by assuming when results were known and using restated figures; it is not published.",
+    "strategyId": "zanger-breakout"
+  }
+}
