@@ -1088,7 +1088,7 @@ that. It exits 10 when a conclusive run disagrees.
 unchanged. Any mismatch is fixed before the daily snapshot job is built on it.
 
 **Strategy backtest** (`shorted strategies -mode backtest`, `services/jobs/internal/jobs/strategies/backtest.go`,
-migration 000158). Runs as `shorted-strategies-backtest` (VKE CronJob, hourly at :20; 1536Mi request, 3Gi limit). It
+migration 000158). Runs as `shorted-strategies-backtest` (VKE CronJob, hourly at :20; 1536Mi request, 3Gi limit, pinned to the `core-large` node pool because its ~2.5 GiB working set does not fit a 4 GB `core` node). It
 idles, exiting 0 in milliseconds, until a live canonical version other than v0 has a recipe. Each run takes the
 `strategies-backtest` lease, queues each live version's weekly publish request (keyed by ISO week), queues one
 immediately (keyed by day) for a key with no succeeded run and no request queued or running, fails any request a
