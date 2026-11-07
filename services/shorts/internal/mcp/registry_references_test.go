@@ -184,6 +184,10 @@ func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	// missing space before "list_strategies" is restored. tools/list measures
 	// 102,020 bytes, 380 under the ceiling: 14 bytes below the figure before PR-06b.
 	//
+	// PR-18 (backtest resource template, no tool; backtest_resource on each list_strategies row and one
+	// description sentence): tools/list measures 101,906 bytes, 494 under the ceiling. The template is listed by
+	// resources/templates/list (1,029 bytes, budget 2 KiB).
+	//
 	// PR-12 (rules v1, status unknown): the unknown status and the sort text, with
 	// PR-06b's anonymous clause kept in get_strategy_picks' description, take the list
 	// to 101,813 bytes (587 under the ceiling). The briefing's status schema adds

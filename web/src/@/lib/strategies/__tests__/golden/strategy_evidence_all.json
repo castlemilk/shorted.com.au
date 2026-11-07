@@ -1,0 +1,1958 @@
+{
+  "benchmarkName": "S\u0026P/ASX 200 Gross Total Return (XJT)",
+  "footnotes": [
+    "Hypothetical results from rules applied to historical data, not a record of trading. Not financial advice.",
+    "Total return against the S\u0026P/ASX 200 Gross Total Return index (XJT), franking excluded.",
+    "Since May 2019 is in-sample up to the day the rules froze, then the recorded paper track."
+  ],
+  "pricesThrough": "2026-11-05",
+  "strategies": [
+    {
+      "computableFrom": "2025-08-31",
+      "computableSharePct": 42,
+      "fiscalLabel": "FY2024",
+      "hasComputableShare": true,
+      "paper": {
+        "tooShort": true
+      },
+      "state": "not_computable",
+      "stateReason": "Not computable before FY2024. From FY2024 a test is possible only by assuming when results were known and using restated figures; it is not published.",
+      "strategyId": "zanger-breakout",
+      "today": {},
+      "universeKind": "asx_ordinary",
+      "version": {
+        "engineVersion": "1.1.1",
+        "featureSet": "fs1",
+        "kind": "canonical",
+        "label": "v1",
+        "rulesHash": "32a64df8ac768361e1c4e349b8cd0989c85a8cb7dec8eeee7e19c9df3c040b82",
+        "status": "draft",
+        "strategyId": "zanger-breakout"
+      }
+    },
+    {
+      "paper": {
+        "tooShort": true
+      },
+      "state": "run_required",
+      "stateReason": "No completed backtest for rules v1 d5f1596c yet. It is queued; results usually appear within the hour.",
+      "strategyId": "canslim",
+      "today": {},
+      "universeKind": "asx_ordinary",
+      "version": {
+        "engineVersion": "1.1.1",
+        "featureSet": "fs1",
+        "kind": "canonical",
+        "label": "v1",
+        "rulesHash": "d5f1596c9bd48747aa5818fc9d0ec39b6888071b11c8803c6208532e8579ca5e",
+        "status": "draft",
+        "strategyId": "canslim"
+      }
+    },
+    {
+      "annual": [
+        {
+          "benchmarkPct": 1.74,
+          "coverageMeasure": "not_measurable",
+          "hasBenchmark": true,
+          "hasReference": true,
+          "months": "May-Dec",
+          "referencePct": 2.09,
+          "state": "partial",
+          "strategyPct": 0.64,
+          "year": 2019
+        },
+        {
+          "benchmarkPct": 2.58,
+          "coverageMeasure": "not_measurable",
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 3.08,
+          "state": "complete",
+          "strategyPct": 5.18,
+          "year": 2020
+        },
+        {
+          "benchmarkPct": 2.5,
+          "coverageMeasure": "not_measurable",
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 2.98,
+          "state": "complete",
+          "strategyPct": 5.38,
+          "year": 2021
+        },
+        {
+          "benchmarkPct": 2.43,
+          "coverageMeasure": "not_measurable",
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 2.88,
+          "state": "complete",
+          "strategyPct": 5.51,
+          "year": 2022
+        },
+        {
+          "benchmarkPct": 2.37,
+          "coverageMeasure": "not_measurable",
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 2.8,
+          "state": "complete",
+          "strategyPct": 5.66,
+          "year": 2023
+        },
+        {
+          "benchmarkPct": 2.34,
+          "coverageMeasure": "not_measurable",
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 2.74,
+          "state": "complete",
+          "strategyPct": 5.94,
+          "year": 2024
+        },
+        {
+          "benchmarkPct": 2.27,
+          "coverageMeasurable": true,
+          "coverageMeasure": "all_reported",
+          "coveragePct": 90,
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 2.66,
+          "state": "complete",
+          "strategyPct": 6,
+          "year": 2025
+        },
+        {
+          "benchmarkPct": 1.66,
+          "coverageMeasurable": true,
+          "coverageMeasure": "all_reported",
+          "coveragePct": 90,
+          "hasBenchmark": true,
+          "hasReference": true,
+          "months": "YTD",
+          "referencePct": 1.94,
+          "state": "to_date",
+          "strategyPct": 2.44,
+          "year": 2026
+        }
+      ],
+      "miniCurve": [
+        {
+          "benchmark": 5011,
+          "date": "2019-05-31",
+          "equity": 102016,
+          "exposurePct": 60,
+          "reference": 1002.64
+        },
+        {
+          "benchmark": 5021,
+          "date": "2019-06-28",
+          "equity": 103468,
+          "exposurePct": 60,
+          "reference": 1005.04
+        },
+        {
+          "benchmark": 5032.5,
+          "date": "2019-07-31",
+          "equity": 104343,
+          "exposurePct": 60,
+          "reference": 1007.8
+        },
+        {
+          "benchmark": 5043.5,
+          "date": "2019-08-30",
+          "drawdownPct": -0.14,
+          "equity": 104267,
+          "exposurePct": 60,
+          "reference": 1010.44
+        },
+        {
+          "benchmark": 5054,
+          "date": "2019-09-30",
+          "drawdownPct": -0.89,
+          "equity": 103493,
+          "exposurePct": 60,
+          "reference": 1012.96
+        },
+        {
+          "benchmark": 5065.5,
+          "date": "2019-10-31",
+          "drawdownPct": -2.08,
+          "equity": 102245,
+          "exposurePct": 60,
+          "reference": 1015.72
+        },
+        {
+          "benchmark": 5076,
+          "date": "2019-11-29",
+          "drawdownPct": -3.09,
+          "equity": 101194,
+          "exposurePct": 60,
+          "reference": 1018.24
+        },
+        {
+          "benchmark": 5087,
+          "date": "2019-12-31",
+          "drawdownPct": -3.62,
+          "equity": 100636,
+          "exposurePct": 60,
+          "reference": 1020.88
+        },
+        {
+          "benchmark": 5098.5,
+          "date": "2020-01-31",
+          "drawdownPct": -3.3,
+          "equity": 100968,
+          "exposurePct": 60,
+          "reference": 1023.64
+        },
+        {
+          "benchmark": 5108.5,
+          "date": "2020-02-28",
+          "drawdownPct": -2.25,
+          "equity": 102064,
+          "exposurePct": 60,
+          "reference": 1026.04
+        },
+        {
+          "benchmark": 5119.5,
+          "date": "2020-03-31",
+          "drawdownPct": -0.46,
+          "equity": 103941,
+          "exposurePct": 60,
+          "reference": 1028.68
+        },
+        {
+          "benchmark": 5130.5,
+          "date": "2020-04-30",
+          "equity": 106115,
+          "exposurePct": 60,
+          "reference": 1031.32
+        },
+        {
+          "benchmark": 5141,
+          "date": "2020-05-29",
+          "equity": 108004,
+          "exposurePct": 60,
+          "reference": 1033.84
+        },
+        {
+          "benchmark": 5152,
+          "date": "2020-06-30",
+          "equity": 109354,
+          "exposurePct": 60,
+          "reference": 1036.48
+        },
+        {
+          "benchmark": 5163.5,
+          "date": "2020-07-31",
+          "equity": 109797,
+          "exposurePct": 60,
+          "reference": 1039.24
+        },
+        {
+          "benchmark": 5174,
+          "date": "2020-08-31",
+          "drawdownPct": -0.42,
+          "equity": 109339,
+          "exposurePct": 60,
+          "reference": 1041.76
+        },
+        {
+          "benchmark": 5185,
+          "date": "2020-09-30",
+          "drawdownPct": -1.42,
+          "equity": 108242,
+          "exposurePct": 60,
+          "reference": 1044.4
+        },
+        {
+          "benchmark": 5196,
+          "date": "2020-10-30",
+          "drawdownPct": -2.58,
+          "equity": 106966,
+          "exposurePct": 60,
+          "reference": 1047.04
+        },
+        {
+          "benchmark": 5206.5,
+          "date": "2020-11-30",
+          "drawdownPct": -3.41,
+          "equity": 106057,
+          "exposurePct": 60,
+          "reference": 1049.56
+        },
+        {
+          "benchmark": 5218,
+          "date": "2020-12-31",
+          "drawdownPct": -3.6,
+          "equity": 105852,
+          "exposurePct": 60,
+          "reference": 1052.32
+        },
+        {
+          "benchmark": 5228.5,
+          "date": "2021-01-29",
+          "drawdownPct": -2.93,
+          "equity": 106581,
+          "exposurePct": 60,
+          "reference": 1054.84
+        },
+        {
+          "benchmark": 5238.5,
+          "date": "2021-02-26",
+          "drawdownPct": -1.61,
+          "equity": 108034,
+          "exposurePct": 60,
+          "reference": 1057.24
+        },
+        {
+          "benchmark": 5250,
+          "date": "2021-03-31",
+          "equity": 110296,
+          "exposurePct": 60,
+          "reference": 1060
+        },
+        {
+          "benchmark": 5261,
+          "date": "2021-04-30",
+          "equity": 112552,
+          "exposurePct": 60,
+          "reference": 1062.64
+        },
+        {
+          "benchmark": 5271.5,
+          "date": "2021-05-31",
+          "equity": 114300,
+          "exposurePct": 60,
+          "reference": 1065.16
+        },
+        {
+          "benchmark": 5282.5,
+          "date": "2021-06-30",
+          "equity": 115321,
+          "exposurePct": 60,
+          "reference": 1067.8
+        },
+        {
+          "benchmark": 5293.5,
+          "date": "2021-07-30",
+          "drawdownPct": -0.09,
+          "equity": 115353,
+          "exposurePct": 60,
+          "reference": 1070.44
+        },
+        {
+          "benchmark": 5304.5,
+          "date": "2021-08-31",
+          "drawdownPct": -0.81,
+          "equity": 114525,
+          "exposurePct": 60,
+          "reference": 1073.08
+        },
+        {
+          "benchmark": 5315.5,
+          "date": "2021-09-30",
+          "drawdownPct": -1.94,
+          "equity": 113221,
+          "exposurePct": 60,
+          "reference": 1075.72
+        },
+        {
+          "benchmark": 5326,
+          "date": "2021-10-29",
+          "drawdownPct": -2.98,
+          "equity": 112020,
+          "exposurePct": 60,
+          "reference": 1078.24
+        },
+        {
+          "benchmark": 5337,
+          "date": "2021-11-30",
+          "drawdownPct": -3.6,
+          "equity": 111307,
+          "exposurePct": 60,
+          "reference": 1080.88
+        },
+        {
+          "benchmark": 5348.5,
+          "date": "2021-12-31",
+          "drawdownPct": -3.39,
+          "equity": 111545,
+          "exposurePct": 60,
+          "reference": 1083.64
+        },
+        {
+          "benchmark": 5359,
+          "date": "2022-01-31",
+          "drawdownPct": -2.37,
+          "equity": 112729,
+          "exposurePct": 60,
+          "reference": 1086.16
+        },
+        {
+          "benchmark": 5369,
+          "date": "2022-02-28",
+          "drawdownPct": -0.79,
+          "equity": 114551,
+          "exposurePct": 60,
+          "reference": 1088.56
+        },
+        {
+          "benchmark": 5380.5,
+          "date": "2022-03-31",
+          "equity": 117047,
+          "exposurePct": 60,
+          "reference": 1091.32
+        },
+        {
+          "benchmark": 5391,
+          "date": "2022-04-29",
+          "equity": 119189,
+          "exposurePct": 60,
+          "reference": 1093.84
+        },
+        {
+          "benchmark": 5402,
+          "date": "2022-05-31",
+          "equity": 120787,
+          "exposurePct": 60,
+          "reference": 1096.48
+        },
+        {
+          "benchmark": 5413,
+          "date": "2022-06-30",
+          "equity": 121407,
+          "exposurePct": 60,
+          "reference": 1099.12
+        },
+        {
+          "benchmark": 5423.5,
+          "date": "2022-07-29",
+          "drawdownPct": -0.3,
+          "equity": 121046,
+          "exposurePct": 60,
+          "reference": 1101.64
+        },
+        {
+          "benchmark": 5435,
+          "date": "2022-08-31",
+          "drawdownPct": -1.28,
+          "equity": 119856,
+          "exposurePct": 60,
+          "reference": 1104.4
+        },
+        {
+          "benchmark": 5446,
+          "date": "2022-09-30",
+          "drawdownPct": -2.45,
+          "equity": 118438,
+          "exposurePct": 60,
+          "reference": 1107.04
+        },
+        {
+          "benchmark": 5456.5,
+          "date": "2022-10-31",
+          "drawdownPct": -3.33,
+          "equity": 117365,
+          "exposurePct": 60,
+          "reference": 1109.56
+        },
+        {
+          "benchmark": 5467.5,
+          "date": "2022-11-30",
+          "drawdownPct": -3.63,
+          "equity": 117007,
+          "exposurePct": 60,
+          "reference": 1112.2
+        },
+        {
+          "benchmark": 5478.5,
+          "date": "2022-12-30",
+          "drawdownPct": -3.06,
+          "equity": 117696,
+          "exposurePct": 60,
+          "reference": 1114.84
+        },
+        {
+          "benchmark": 5489.5,
+          "date": "2023-01-31",
+          "drawdownPct": -1.66,
+          "equity": 119395,
+          "exposurePct": 60,
+          "reference": 1117.48
+        },
+        {
+          "benchmark": 5499.5,
+          "date": "2023-02-28",
+          "equity": 121538,
+          "exposurePct": 60,
+          "reference": 1119.88
+        },
+        {
+          "benchmark": 5511,
+          "date": "2023-03-31",
+          "equity": 124168,
+          "exposurePct": 60,
+          "reference": 1122.64
+        },
+        {
+          "benchmark": 5521,
+          "date": "2023-04-28",
+          "equity": 126102,
+          "exposurePct": 60,
+          "reference": 1125.04
+        },
+        {
+          "benchmark": 5532.5,
+          "date": "2023-05-31",
+          "equity": 127436,
+          "exposurePct": 60,
+          "reference": 1127.8
+        },
+        {
+          "benchmark": 5543.5,
+          "date": "2023-06-30",
+          "drawdownPct": -0.05,
+          "equity": 127603,
+          "exposurePct": 60,
+          "reference": 1130.44
+        },
+        {
+          "benchmark": 5554,
+          "date": "2023-07-31",
+          "drawdownPct": -0.65,
+          "equity": 126839,
+          "exposurePct": 60,
+          "reference": 1132.96
+        },
+        {
+          "benchmark": 5565.5,
+          "date": "2023-08-31",
+          "drawdownPct": -1.79,
+          "equity": 125377,
+          "exposurePct": 60,
+          "reference": 1135.72
+        },
+        {
+          "benchmark": 5576,
+          "date": "2023-09-29",
+          "drawdownPct": -2.86,
+          "equity": 124012,
+          "exposurePct": 60,
+          "reference": 1138.24
+        },
+        {
+          "benchmark": 5587,
+          "date": "2023-10-31",
+          "drawdownPct": -3.56,
+          "equity": 123124,
+          "exposurePct": 60,
+          "reference": 1140.88
+        },
+        {
+          "benchmark": 5598,
+          "date": "2023-11-30",
+          "drawdownPct": -3.49,
+          "equity": 123215,
+          "exposurePct": 60,
+          "reference": 1143.52
+        },
+        {
+          "benchmark": 5608.5,
+          "date": "2023-12-29",
+          "drawdownPct": -2.6,
+          "equity": 124354,
+          "exposurePct": 60,
+          "reference": 1146.04
+        },
+        {
+          "benchmark": 5620,
+          "date": "2024-01-31",
+          "drawdownPct": -0.85,
+          "equity": 126590,
+          "exposurePct": 60,
+          "reference": 1148.8
+        },
+        {
+          "benchmark": 5630.5,
+          "date": "2024-02-29",
+          "equity": 129102,
+          "exposurePct": 60,
+          "reference": 1151.32
+        },
+        {
+          "benchmark": 5641,
+          "date": "2024-03-29",
+          "equity": 131520,
+          "exposurePct": 60,
+          "reference": 1153.84
+        },
+        {
+          "benchmark": 5652,
+          "date": "2024-04-30",
+          "equity": 133400,
+          "exposurePct": 60,
+          "reference": 1156.48
+        },
+        {
+          "benchmark": 5663.5,
+          "date": "2024-05-31",
+          "equity": 134234,
+          "exposurePct": 60,
+          "reference": 1159.24
+        },
+        {
+          "benchmark": 5673.5,
+          "date": "2024-06-28",
+          "drawdownPct": -0.22,
+          "equity": 133948,
+          "exposurePct": 60,
+          "reference": 1161.64
+        },
+        {
+          "benchmark": 5685,
+          "date": "2024-07-31",
+          "drawdownPct": -1.15,
+          "equity": 132712,
+          "exposurePct": 60,
+          "reference": 1164.4
+        },
+        {
+          "benchmark": 5696,
+          "date": "2024-08-30",
+          "drawdownPct": -2.31,
+          "equity": 131146,
+          "exposurePct": 60,
+          "reference": 1167.04
+        },
+        {
+          "benchmark": 5706.5,
+          "date": "2024-09-30",
+          "drawdownPct": -3.25,
+          "equity": 129891,
+          "exposurePct": 60,
+          "reference": 1169.56
+        },
+        {
+          "benchmark": 5718,
+          "date": "2024-10-31",
+          "drawdownPct": -3.63,
+          "equity": 129371,
+          "exposurePct": 60,
+          "reference": 1172.32
+        },
+        {
+          "benchmark": 5728.5,
+          "date": "2024-11-29",
+          "drawdownPct": -3.18,
+          "equity": 129987,
+          "exposurePct": 60,
+          "reference": 1174.84
+        },
+        {
+          "benchmark": 5739.5,
+          "date": "2024-12-31",
+          "drawdownPct": -1.87,
+          "equity": 131745,
+          "exposurePct": 60,
+          "reference": 1177.48
+        },
+        {
+          "benchmark": 5751,
+          "date": "2025-01-31",
+          "equity": 134434,
+          "exposurePct": 60,
+          "reference": 1180.24
+        },
+        {
+          "benchmark": 5761,
+          "date": "2025-02-28",
+          "equity": 136975,
+          "exposurePct": 60,
+          "reference": 1182.64
+        },
+        {
+          "benchmark": 5771.5,
+          "date": "2025-03-31",
+          "equity": 139285,
+          "exposurePct": 60,
+          "reference": 1185.16
+        },
+        {
+          "benchmark": 5782.5,
+          "date": "2025-04-30",
+          "equity": 140807,
+          "exposurePct": 60,
+          "reference": 1187.8
+        },
+        {
+          "benchmark": 5793.5,
+          "date": "2025-05-30",
+          "drawdownPct": -0.02,
+          "equity": 141138,
+          "exposurePct": 60,
+          "reference": 1190.44
+        },
+        {
+          "benchmark": 5804,
+          "date": "2025-06-30",
+          "drawdownPct": -0.54,
+          "equity": 140402,
+          "exposurePct": 60,
+          "reference": 1192.96
+        },
+        {
+          "benchmark": 5815.5,
+          "date": "2025-07-31",
+          "drawdownPct": -1.65,
+          "equity": 138838,
+          "exposurePct": 60,
+          "reference": 1195.72
+        },
+        {
+          "benchmark": 5826,
+          "date": "2025-08-29",
+          "drawdownPct": -2.74,
+          "equity": 137297,
+          "exposurePct": 60,
+          "reference": 1198.24
+        },
+        {
+          "benchmark": 5837,
+          "date": "2025-09-30",
+          "drawdownPct": -3.51,
+          "equity": 136212,
+          "exposurePct": 60,
+          "reference": 1200.88
+        },
+        {
+          "benchmark": 5848.5,
+          "date": "2025-10-31",
+          "drawdownPct": -3.52,
+          "equity": 136194,
+          "exposurePct": 60,
+          "reference": 1203.64
+        },
+        {
+          "benchmark": 5858.5,
+          "date": "2025-11-28",
+          "drawdownPct": -2.75,
+          "equity": 137285,
+          "exposurePct": 60,
+          "reference": 1206.04
+        },
+        {
+          "benchmark": 5870,
+          "date": "2025-12-31",
+          "drawdownPct": -1.08,
+          "equity": 139648,
+          "exposurePct": 60,
+          "reference": 1208.8
+        },
+        {
+          "benchmark": 5881,
+          "date": "2026-01-30",
+          "equity": 142531,
+          "exposurePct": 60,
+          "reference": 1211.44
+        },
+        {
+          "benchmark": 5891,
+          "date": "2026-02-27",
+          "equity": 145116,
+          "exposurePct": 60,
+          "reference": 1213.84
+        },
+        {
+          "benchmark": 5902,
+          "date": "2026-03-31",
+          "equity": 147312,
+          "exposurePct": 60,
+          "reference": 1216.48
+        },
+        {
+          "benchmark": 5913,
+          "date": "2026-04-30",
+          "equity": 148377,
+          "exposurePct": 60,
+          "reference": 1219.12
+        },
+        {
+          "benchmark": 5923.5,
+          "date": "2026-05-29",
+          "drawdownPct": -0.16,
+          "equity": 148209,
+          "exposurePct": 60,
+          "reference": 1221.64
+        },
+        {
+          "benchmark": 5934.5,
+          "date": "2026-06-30",
+          "drawdownPct": -0.97,
+          "equity": 147012,
+          "exposurePct": 60,
+          "reference": 1224.28
+        },
+        {
+          "benchmark": 5946,
+          "date": "2026-07-31",
+          "drawdownPct": -2.17,
+          "equity": 145222,
+          "exposurePct": 60,
+          "reference": 1227.04
+        },
+        {
+          "benchmark": 5956.5,
+          "date": "2026-08-31",
+          "drawdownPct": -3.15,
+          "equity": 143766,
+          "exposurePct": 60,
+          "reference": 1229.56
+        },
+        {
+          "benchmark": 5967.5,
+          "date": "2026-09-30",
+          "drawdownPct": -3.63,
+          "equity": 143056,
+          "exposurePct": 60,
+          "reference": 1232.2
+        }
+      ],
+      "paper": {
+        "tooShort": true
+      },
+      "runId": "201",
+      "state": "published",
+      "strategyId": "minervini-trend-template",
+      "survivorship": "Prices are missing for companies that delisted before about 2025. Coverage is measured on ASIC-reported names only; the gap cannot be measured for companies that were never reported short.",
+      "today": {},
+      "universeKind": "asx_ordinary",
+      "version": {
+        "engineVersion": "1.1.1",
+        "featureSet": "fs1",
+        "kind": "canonical",
+        "label": "v1",
+        "rulesHash": "fc794d1113053010e01e8482e6246ecbcdaf833c82e143f1a7af05642117e659",
+        "status": "draft",
+        "strategyId": "minervini-trend-template"
+      },
+      "windows": [
+        {
+          "benchmarkCagrPct": 2.41,
+          "benchmarkTotalReturnPct": 19.35,
+          "cagrPct": 4.95,
+          "calendarDays": 2709,
+          "exposurePct": 60,
+          "from": "2019-05-01",
+          "hasBenchmark": true,
+          "hasBenchmarkTotalReturn": true,
+          "hasCagr": true,
+          "hasReference": true,
+          "hasReferenceTotalReturn": true,
+          "hasSharpe": true,
+          "hasStrategyOverlapCagr": true,
+          "hasStrategyOverlapTotalReturn": true,
+          "hasTotalReturn": true,
+          "hasVolatility": true,
+          "label": "Since May 2019",
+          "maxDrawdownPct": -3.64,
+          "note": "in-sample to 2026-09-30",
+          "peakDate": "2019-08-13",
+          "recoveryDate": "2020-04-07",
+          "referenceCagrPct": 2.86,
+          "referenceTo": "2026-09-30",
+          "referenceTotalReturnPct": 23.22,
+          "sessions": 1936,
+          "sharpe": 3.76,
+          "sharpeSe": 0.37,
+          "strategyOverlapCagrPct": 4.95,
+          "strategyOverlapTotalReturnPct": 43.06,
+          "to": "2026-09-30",
+          "totalReturnPct": 43.06,
+          "troughDate": "2020-01-06",
+          "volatilityPct": 0.84,
+          "window": "since_2019_05"
+        },
+        {
+          "benchmarkCagrPct": 2.31,
+          "benchmarkTotalReturnPct": 8.91,
+          "cagrPct": 5.33,
+          "calendarDays": 1366,
+          "exposurePct": 60,
+          "from": "2023-01-03",
+          "hasBenchmark": true,
+          "hasBenchmarkTotalReturn": true,
+          "hasCagr": true,
+          "hasReference": true,
+          "hasReferenceTotalReturn": true,
+          "hasSharpe": true,
+          "hasStrategyOverlapCagr": true,
+          "hasStrategyOverlapTotalReturn": true,
+          "hasTotalReturn": true,
+          "hasVolatility": true,
+          "label": "Since 2023",
+          "maxDrawdownPct": -3.64,
+          "note": "in-sample to 2026-09-30",
+          "peakDate": "2025-05-23",
+          "recoveryDate": "2026-01-16",
+          "referenceCagrPct": 2.71,
+          "referenceTo": "2026-09-30",
+          "referenceTotalReturnPct": 10.5,
+          "sessions": 977,
+          "sharpe": 4.13,
+          "sharpeSe": 0.52,
+          "strategyOverlapCagrPct": 5.33,
+          "strategyOverlapTotalReturnPct": 21.43,
+          "to": "2026-09-30",
+          "totalReturnPct": 21.43,
+          "troughDate": "2025-10-16",
+          "volatilityPct": 0.85,
+          "window": "since_2023"
+        },
+        {
+          "benchmarkCagrPct": 2.24,
+          "benchmarkTotalReturnPct": 2.24,
+          "cagrPct": 5.03,
+          "calendarDays": 365,
+          "exposurePct": 60,
+          "from": "2025-09-30",
+          "hasBenchmark": true,
+          "hasBenchmarkTotalReturn": true,
+          "hasCagr": true,
+          "hasReference": true,
+          "hasReferenceTotalReturn": true,
+          "hasSharpe": true,
+          "hasStrategyOverlapCagr": true,
+          "hasStrategyOverlapTotalReturn": true,
+          "hasTotalReturn": true,
+          "hasVolatility": true,
+          "label": "Last 12 months",
+          "maxDrawdownPct": -3.63,
+          "note": "in-sample to 2026-09-30",
+          "peakDate": "2026-05-11",
+          "recoveryDate": "not recovered",
+          "referenceCagrPct": 2.61,
+          "referenceTo": "2026-09-30",
+          "referenceTotalReturnPct": 2.61,
+          "sessions": 262,
+          "sharpe": 3.89,
+          "sharpeSe": 1,
+          "strategyOverlapCagrPct": 5.03,
+          "strategyOverlapTotalReturnPct": 5.02,
+          "to": "2026-09-30",
+          "totalReturnPct": 5.02,
+          "troughDate": "2026-09-30",
+          "volatilityPct": 0.83,
+          "window": "trailing_12m"
+        }
+      ]
+    },
+    {
+      "annual": [
+        {
+          "benchmarkPct": 1.74,
+          "coverageMeasurable": true,
+          "coverageMeasure": "qualifying_5pct_short",
+          "coveragePct": 70,
+          "hasBenchmark": true,
+          "hasReference": true,
+          "months": "May-Dec",
+          "referencePct": 2.09,
+          "state": "partial",
+          "strategyPct": 0.64,
+          "year": 2019
+        },
+        {
+          "benchmarkPct": 2.58,
+          "coverageMeasurable": true,
+          "coverageMeasure": "qualifying_5pct_short",
+          "coveragePct": 70,
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 3.08,
+          "state": "complete",
+          "strategyPct": 5.18,
+          "year": 2020
+        },
+        {
+          "benchmarkPct": 2.5,
+          "coverageMeasurable": true,
+          "coverageMeasure": "qualifying_5pct_short",
+          "coveragePct": 70,
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 2.98,
+          "state": "complete",
+          "strategyPct": 5.38,
+          "year": 2021
+        },
+        {
+          "benchmarkPct": 2.43,
+          "coverageMeasurable": true,
+          "coverageMeasure": "qualifying_5pct_short",
+          "coveragePct": 70,
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 2.88,
+          "state": "complete",
+          "strategyPct": 5.51,
+          "year": 2022
+        },
+        {
+          "benchmarkPct": 2.37,
+          "coverageMeasurable": true,
+          "coverageMeasure": "qualifying_5pct_short",
+          "coveragePct": 70,
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 2.8,
+          "state": "complete",
+          "strategyPct": 5.66,
+          "year": 2023
+        },
+        {
+          "benchmarkPct": 2.34,
+          "coverageMeasurable": true,
+          "coverageMeasure": "qualifying_5pct_short",
+          "coveragePct": 70,
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 2.74,
+          "state": "complete",
+          "strategyPct": 5.94,
+          "year": 2024
+        },
+        {
+          "benchmarkPct": 2.27,
+          "coverageMeasurable": true,
+          "coverageMeasure": "qualifying_5pct_short",
+          "coveragePct": 70,
+          "hasBenchmark": true,
+          "hasReference": true,
+          "referencePct": 2.66,
+          "state": "complete",
+          "strategyPct": 6,
+          "year": 2025
+        },
+        {
+          "benchmarkPct": -14.41,
+          "coverageMeasurable": true,
+          "coverageMeasure": "qualifying_5pct_short",
+          "coveragePct": 70,
+          "hasBenchmark": true,
+          "months": "YTD",
+          "state": "to_date",
+          "strategyPct": 3.42,
+          "year": 2026
+        }
+      ],
+      "miniCurve": [
+        {
+          "benchmark": 5011,
+          "date": "2019-05-31",
+          "equity": 102016,
+          "exposurePct": 60,
+          "reference": 1002.64
+        },
+        {
+          "benchmark": 5021,
+          "date": "2019-06-28",
+          "equity": 103468,
+          "exposurePct": 60,
+          "reference": 1005.04
+        },
+        {
+          "benchmark": 5032.5,
+          "date": "2019-07-31",
+          "equity": 104343,
+          "exposurePct": 60,
+          "reference": 1007.8
+        },
+        {
+          "benchmark": 5043.5,
+          "date": "2019-08-30",
+          "drawdownPct": -0.14,
+          "equity": 104267,
+          "exposurePct": 60,
+          "reference": 1010.44
+        },
+        {
+          "benchmark": 5054,
+          "date": "2019-09-30",
+          "drawdownPct": -0.89,
+          "equity": 103493,
+          "exposurePct": 60,
+          "reference": 1012.96
+        },
+        {
+          "benchmark": 5065.5,
+          "date": "2019-10-31",
+          "drawdownPct": -2.08,
+          "equity": 102245,
+          "exposurePct": 60,
+          "reference": 1015.72
+        },
+        {
+          "benchmark": 5076,
+          "date": "2019-11-29",
+          "drawdownPct": -3.09,
+          "equity": 101194,
+          "exposurePct": 60,
+          "reference": 1018.24
+        },
+        {
+          "benchmark": 5087,
+          "date": "2019-12-31",
+          "drawdownPct": -3.62,
+          "equity": 100636,
+          "exposurePct": 60,
+          "reference": 1020.88
+        },
+        {
+          "benchmark": 5098.5,
+          "date": "2020-01-31",
+          "drawdownPct": -3.3,
+          "equity": 100968,
+          "exposurePct": 60,
+          "reference": 1023.64
+        },
+        {
+          "benchmark": 5108.5,
+          "date": "2020-02-28",
+          "drawdownPct": -2.25,
+          "equity": 102064,
+          "exposurePct": 60,
+          "reference": 1026.04
+        },
+        {
+          "benchmark": 5119.5,
+          "date": "2020-03-31",
+          "drawdownPct": -0.46,
+          "equity": 103941,
+          "exposurePct": 60,
+          "reference": 1028.68
+        },
+        {
+          "benchmark": 5130.5,
+          "date": "2020-04-30",
+          "equity": 106115,
+          "exposurePct": 60,
+          "reference": 1031.32
+        },
+        {
+          "benchmark": 5141,
+          "date": "2020-05-29",
+          "equity": 108004,
+          "exposurePct": 60,
+          "reference": 1033.84
+        },
+        {
+          "benchmark": 5152,
+          "date": "2020-06-30",
+          "equity": 109354,
+          "exposurePct": 60,
+          "reference": 1036.48
+        },
+        {
+          "benchmark": 5163.5,
+          "date": "2020-07-31",
+          "equity": 109797,
+          "exposurePct": 60,
+          "reference": 1039.24
+        },
+        {
+          "benchmark": 5174,
+          "date": "2020-08-31",
+          "drawdownPct": -0.42,
+          "equity": 109339,
+          "exposurePct": 60,
+          "reference": 1041.76
+        },
+        {
+          "benchmark": 5185,
+          "date": "2020-09-30",
+          "drawdownPct": -1.42,
+          "equity": 108242,
+          "exposurePct": 60,
+          "reference": 1044.4
+        },
+        {
+          "benchmark": 5196,
+          "date": "2020-10-30",
+          "drawdownPct": -2.58,
+          "equity": 106966,
+          "exposurePct": 60,
+          "reference": 1047.04
+        },
+        {
+          "benchmark": 5206.5,
+          "date": "2020-11-30",
+          "drawdownPct": -3.41,
+          "equity": 106057,
+          "exposurePct": 60,
+          "reference": 1049.56
+        },
+        {
+          "benchmark": 5218,
+          "date": "2020-12-31",
+          "drawdownPct": -3.6,
+          "equity": 105852,
+          "exposurePct": 60,
+          "reference": 1052.32
+        },
+        {
+          "benchmark": 5228.5,
+          "date": "2021-01-29",
+          "drawdownPct": -2.93,
+          "equity": 106581,
+          "exposurePct": 60,
+          "reference": 1054.84
+        },
+        {
+          "benchmark": 5238.5,
+          "date": "2021-02-26",
+          "drawdownPct": -1.61,
+          "equity": 108034,
+          "exposurePct": 60,
+          "reference": 1057.24
+        },
+        {
+          "benchmark": 5250,
+          "date": "2021-03-31",
+          "equity": 110296,
+          "exposurePct": 60,
+          "reference": 1060
+        },
+        {
+          "benchmark": 5261,
+          "date": "2021-04-30",
+          "equity": 112552,
+          "exposurePct": 60,
+          "reference": 1062.64
+        },
+        {
+          "benchmark": 5271.5,
+          "date": "2021-05-31",
+          "equity": 114300,
+          "exposurePct": 60,
+          "reference": 1065.16
+        },
+        {
+          "benchmark": 5282.5,
+          "date": "2021-06-30",
+          "equity": 115321,
+          "exposurePct": 60,
+          "reference": 1067.8
+        },
+        {
+          "benchmark": 5293.5,
+          "date": "2021-07-30",
+          "drawdownPct": -0.09,
+          "equity": 115353,
+          "exposurePct": 60,
+          "reference": 1070.44
+        },
+        {
+          "benchmark": 5304.5,
+          "date": "2021-08-31",
+          "drawdownPct": -0.81,
+          "equity": 114525,
+          "exposurePct": 60,
+          "reference": 1073.08
+        },
+        {
+          "benchmark": 5315.5,
+          "date": "2021-09-30",
+          "drawdownPct": -1.94,
+          "equity": 113221,
+          "exposurePct": 60,
+          "reference": 1075.72
+        },
+        {
+          "benchmark": 5326,
+          "date": "2021-10-29",
+          "drawdownPct": -2.98,
+          "equity": 112020,
+          "exposurePct": 60,
+          "reference": 1078.24
+        },
+        {
+          "benchmark": 5337,
+          "date": "2021-11-30",
+          "drawdownPct": -3.6,
+          "equity": 111307,
+          "exposurePct": 60,
+          "reference": 1080.88
+        },
+        {
+          "benchmark": 5348.5,
+          "date": "2021-12-31",
+          "drawdownPct": -3.39,
+          "equity": 111545,
+          "exposurePct": 60,
+          "reference": 1083.64
+        },
+        {
+          "benchmark": 5359,
+          "date": "2022-01-31",
+          "drawdownPct": -2.37,
+          "equity": 112729,
+          "exposurePct": 60,
+          "reference": 1086.16
+        },
+        {
+          "benchmark": 5369,
+          "date": "2022-02-28",
+          "drawdownPct": -0.79,
+          "equity": 114551,
+          "exposurePct": 60,
+          "reference": 1088.56
+        },
+        {
+          "benchmark": 5380.5,
+          "date": "2022-03-31",
+          "equity": 117047,
+          "exposurePct": 60,
+          "reference": 1091.32
+        },
+        {
+          "benchmark": 5391,
+          "date": "2022-04-29",
+          "equity": 119189,
+          "exposurePct": 60,
+          "reference": 1093.84
+        },
+        {
+          "benchmark": 5402,
+          "date": "2022-05-31",
+          "equity": 120787,
+          "exposurePct": 60,
+          "reference": 1096.48
+        },
+        {
+          "benchmark": 5413,
+          "date": "2022-06-30",
+          "equity": 121407,
+          "exposurePct": 60,
+          "reference": 1099.12
+        },
+        {
+          "benchmark": 5423.5,
+          "date": "2022-07-29",
+          "drawdownPct": -0.3,
+          "equity": 121046,
+          "exposurePct": 60,
+          "reference": 1101.64
+        },
+        {
+          "benchmark": 5435,
+          "date": "2022-08-31",
+          "drawdownPct": -1.28,
+          "equity": 119856,
+          "exposurePct": 60,
+          "reference": 1104.4
+        },
+        {
+          "benchmark": 5446,
+          "date": "2022-09-30",
+          "drawdownPct": -2.45,
+          "equity": 118438,
+          "exposurePct": 60,
+          "reference": 1107.04
+        },
+        {
+          "benchmark": 5456.5,
+          "date": "2022-10-31",
+          "drawdownPct": -3.33,
+          "equity": 117365,
+          "exposurePct": 60,
+          "reference": 1109.56
+        },
+        {
+          "benchmark": 5467.5,
+          "date": "2022-11-30",
+          "drawdownPct": -3.63,
+          "equity": 117007,
+          "exposurePct": 60,
+          "reference": 1112.2
+        },
+        {
+          "benchmark": 5478.5,
+          "date": "2022-12-30",
+          "drawdownPct": -3.06,
+          "equity": 117696,
+          "exposurePct": 60,
+          "reference": 1114.84
+        },
+        {
+          "benchmark": 5489.5,
+          "date": "2023-01-31",
+          "drawdownPct": -1.66,
+          "equity": 119395,
+          "exposurePct": 60,
+          "reference": 1117.48
+        },
+        {
+          "benchmark": 5499.5,
+          "date": "2023-02-28",
+          "equity": 121538,
+          "exposurePct": 60,
+          "reference": 1119.88
+        },
+        {
+          "benchmark": 5511,
+          "date": "2023-03-31",
+          "equity": 124168,
+          "exposurePct": 60,
+          "reference": 1122.64
+        },
+        {
+          "benchmark": 5521,
+          "date": "2023-04-28",
+          "equity": 126102,
+          "exposurePct": 60,
+          "reference": 1125.04
+        },
+        {
+          "benchmark": 5532.5,
+          "date": "2023-05-31",
+          "equity": 127436,
+          "exposurePct": 60,
+          "reference": 1127.8
+        },
+        {
+          "benchmark": 5543.5,
+          "date": "2023-06-30",
+          "drawdownPct": -0.05,
+          "equity": 127603,
+          "exposurePct": 60,
+          "reference": 1130.44
+        },
+        {
+          "benchmark": 5554,
+          "date": "2023-07-31",
+          "drawdownPct": -0.65,
+          "equity": 126839,
+          "exposurePct": 60,
+          "reference": 1132.96
+        },
+        {
+          "benchmark": 5565.5,
+          "date": "2023-08-31",
+          "drawdownPct": -1.79,
+          "equity": 125377,
+          "exposurePct": 60,
+          "reference": 1135.72
+        },
+        {
+          "benchmark": 5576,
+          "date": "2023-09-29",
+          "drawdownPct": -2.86,
+          "equity": 124012,
+          "exposurePct": 60,
+          "reference": 1138.24
+        },
+        {
+          "benchmark": 5587,
+          "date": "2023-10-31",
+          "drawdownPct": -3.56,
+          "equity": 123124,
+          "exposurePct": 60,
+          "reference": 1140.88
+        },
+        {
+          "benchmark": 5598,
+          "date": "2023-11-30",
+          "drawdownPct": -3.49,
+          "equity": 123215,
+          "exposurePct": 60,
+          "reference": 1143.52
+        },
+        {
+          "benchmark": 5608.5,
+          "date": "2023-12-29",
+          "drawdownPct": -2.6,
+          "equity": 124354,
+          "exposurePct": 60,
+          "reference": 1146.04
+        },
+        {
+          "benchmark": 5620,
+          "date": "2024-01-31",
+          "drawdownPct": -0.85,
+          "equity": 126590,
+          "exposurePct": 60,
+          "reference": 1148.8
+        },
+        {
+          "benchmark": 5630.5,
+          "date": "2024-02-29",
+          "equity": 129102,
+          "exposurePct": 60,
+          "reference": 1151.32
+        },
+        {
+          "benchmark": 5641,
+          "date": "2024-03-29",
+          "equity": 131520,
+          "exposurePct": 60,
+          "reference": 1153.84
+        },
+        {
+          "benchmark": 5652,
+          "date": "2024-04-30",
+          "equity": 133400,
+          "exposurePct": 60,
+          "reference": 1156.48
+        },
+        {
+          "benchmark": 5663.5,
+          "date": "2024-05-31",
+          "equity": 134234,
+          "exposurePct": 60,
+          "reference": 1159.24
+        },
+        {
+          "benchmark": 5673.5,
+          "date": "2024-06-28",
+          "drawdownPct": -0.22,
+          "equity": 133948,
+          "exposurePct": 60,
+          "reference": 1161.64
+        },
+        {
+          "benchmark": 5685,
+          "date": "2024-07-31",
+          "drawdownPct": -1.15,
+          "equity": 132712,
+          "exposurePct": 60,
+          "reference": 1164.4
+        },
+        {
+          "benchmark": 5696,
+          "date": "2024-08-30",
+          "drawdownPct": -2.31,
+          "equity": 131146,
+          "exposurePct": 60,
+          "reference": 1167.04
+        },
+        {
+          "benchmark": 5706.5,
+          "date": "2024-09-30",
+          "drawdownPct": -3.25,
+          "equity": 129891,
+          "exposurePct": 60,
+          "reference": 1169.56
+        },
+        {
+          "benchmark": 5718,
+          "date": "2024-10-31",
+          "drawdownPct": -3.63,
+          "equity": 129371,
+          "exposurePct": 60,
+          "reference": 1172.32
+        },
+        {
+          "benchmark": 5728.5,
+          "date": "2024-11-29",
+          "drawdownPct": -3.18,
+          "equity": 129987,
+          "exposurePct": 60,
+          "reference": 1174.84
+        },
+        {
+          "benchmark": 5739.5,
+          "date": "2024-12-31",
+          "drawdownPct": -1.87,
+          "equity": 131745,
+          "exposurePct": 60,
+          "reference": 1177.48
+        },
+        {
+          "benchmark": 5751,
+          "date": "2025-01-31",
+          "equity": 134434,
+          "exposurePct": 60,
+          "reference": 1180.24
+        },
+        {
+          "benchmark": 5761,
+          "date": "2025-02-28",
+          "equity": 136975,
+          "exposurePct": 60,
+          "reference": 1182.64
+        },
+        {
+          "benchmark": 5771.5,
+          "date": "2025-03-31",
+          "equity": 139285,
+          "exposurePct": 60,
+          "reference": 1185.16
+        },
+        {
+          "benchmark": 5782.5,
+          "date": "2025-04-30",
+          "equity": 140807,
+          "exposurePct": 60,
+          "reference": 1187.8
+        },
+        {
+          "benchmark": 5793.5,
+          "date": "2025-05-30",
+          "drawdownPct": -0.02,
+          "equity": 141138,
+          "exposurePct": 60,
+          "reference": 1190.44
+        },
+        {
+          "benchmark": 5804,
+          "date": "2025-06-30",
+          "drawdownPct": -0.54,
+          "equity": 140402,
+          "exposurePct": 60,
+          "reference": 1192.96
+        },
+        {
+          "benchmark": 5815.5,
+          "date": "2025-07-31",
+          "drawdownPct": -1.65,
+          "equity": 138838,
+          "exposurePct": 60,
+          "reference": 1195.72
+        },
+        {
+          "benchmark": 5826,
+          "date": "2025-08-29",
+          "drawdownPct": -2.74,
+          "equity": 137297,
+          "exposurePct": 60,
+          "reference": 1198.24
+        },
+        {
+          "benchmark": 5837,
+          "date": "2025-09-30",
+          "drawdownPct": -3.51,
+          "equity": 136212,
+          "exposurePct": 60,
+          "reference": 1200.88
+        },
+        {
+          "benchmark": 5848.5,
+          "date": "2025-10-31",
+          "drawdownPct": -3.52,
+          "equity": 136194,
+          "exposurePct": 60,
+          "reference": 1203.64
+        },
+        {
+          "benchmark": 5858.5,
+          "date": "2025-11-28",
+          "drawdownPct": -2.75,
+          "equity": 137285,
+          "exposurePct": 60,
+          "reference": 1206.04
+        },
+        {
+          "benchmark": 5870,
+          "date": "2025-12-31",
+          "drawdownPct": -1.08,
+          "equity": 139648,
+          "exposurePct": 60,
+          "reference": 1208.8
+        },
+        {
+          "benchmark": 5881,
+          "date": "2026-01-30",
+          "equity": 142531,
+          "exposurePct": 60,
+          "reference": 1211.44
+        },
+        {
+          "benchmark": 5891,
+          "date": "2026-02-27",
+          "equity": 145116,
+          "exposurePct": 60,
+          "reference": 1213.84
+        },
+        {
+          "benchmark": 5902,
+          "date": "2026-03-31",
+          "equity": 147312,
+          "exposurePct": 60,
+          "reference": 1216.48
+        },
+        {
+          "benchmark": 5913,
+          "date": "2026-04-30",
+          "equity": 148377,
+          "exposurePct": 60,
+          "reference": 1219.12
+        },
+        {
+          "benchmark": 5923.5,
+          "date": "2026-05-29",
+          "drawdownPct": -0.16,
+          "equity": 148209,
+          "exposurePct": 60,
+          "reference": 1221.64
+        },
+        {
+          "benchmark": 5934.5,
+          "date": "2026-06-30",
+          "drawdownPct": -0.97,
+          "equity": 147012,
+          "exposurePct": 60,
+          "reference": 1224.28
+        },
+        {
+          "benchmark": 5946,
+          "date": "2026-07-31",
+          "drawdownPct": -2.17,
+          "equity": 145222,
+          "exposurePct": 60,
+          "reference": 1227.04
+        },
+        {
+          "benchmark": 5956.5,
+          "date": "2026-08-31",
+          "drawdownPct": -3.15,
+          "equity": 143766,
+          "exposurePct": 60,
+          "reference": 1229.56
+        },
+        {
+          "benchmark": 5967.5,
+          "date": "2026-09-30",
+          "drawdownPct": -3.63,
+          "equity": 143056,
+          "exposurePct": 60,
+          "reference": 1232.2
+        },
+        {
+          "benchmark": 5978.5,
+          "date": "2026-10-30",
+          "drawdownPct": -2.86,
+          "equity": 144201,
+          "exposurePct": 90.08,
+          "recorded": true,
+          "reference": 1234.84
+        },
+        {
+          "benchmark": 5024,
+          "date": "2026-11-05",
+          "drawdownPct": -2.71,
+          "equity": 144430,
+          "exposurePct": 90.1,
+          "recorded": true
+        }
+      ],
+      "paper": {
+        "closedTrades": 12,
+        "engineSegments": [
+          {
+            "engineVersion": "1.1.0",
+            "firstSession": "2026-10-02",
+            "lastSession": "2026-10-19",
+            "sessions": 12
+          },
+          {
+            "engineVersion": "1.1.1",
+            "firstSession": "2026-10-20",
+            "lastSession": "2026-11-05",
+            "sessions": 13
+          }
+        ],
+        "hasReturn": true,
+        "openPositions": 2,
+        "recordedFrom": "2026-10-02",
+        "returnPct": 0.96,
+        "sessions": 25,
+        "since": "2026-10-01",
+        "tooShort": true
+      },
+      "runId": "101",
+      "state": "published",
+      "strategyId": "crowded-short-breakout",
+      "survivorship": "Prices are missing for companies that delisted before about 2025.",
+      "today": {},
+      "universeKind": "asic_reported",
+      "version": {
+        "engineVersion": "1.1.1",
+        "featureSet": "fs1",
+        "kind": "canonical",
+        "label": "v1",
+        "liveFrom": "2026-10-01",
+        "rulesHash": "04b4e5e8a151bf1b8ad4a6e18d05fe76d5e449860d2e00acb2f8afc865d4664a",
+        "status": "live",
+        "strategyId": "crowded-short-breakout"
+      },
+      "windows": [
+        {
+          "benchmarkCagrPct": 0.06,
+          "benchmarkTotalReturnPct": 0.48,
+          "cagrPct": 5.01,
+          "calendarDays": 2745,
+          "closedTrades": 56,
+          "exposurePct": 60.38,
+          "from": "2019-05-01",
+          "hasBenchmark": true,
+          "hasBenchmarkTotalReturn": true,
+          "hasCagr": true,
+          "hasReference": true,
+          "hasReferenceTotalReturn": true,
+          "hasSharpe": true,
+          "hasStrategyOverlapCagr": true,
+          "hasStrategyOverlapTotalReturn": true,
+          "hasTotalReturn": true,
+          "hasVolatility": true,
+          "hasWinRate": true,
+          "label": "Since May 2019",
+          "maxDrawdownPct": -3.64,
+          "note": "in-sample to 2026-09-30, recorded from 2026-10-02; no figures from 2026-10-01 to 2026-10-01",
+          "peakDate": "2019-08-13",
+          "recordedTail": true,
+          "recoveryDate": "2020-04-07",
+          "referenceCagrPct": 2.85,
+          "referenceTo": "2026-10-30",
+          "referenceTotalReturnPct": 23.48,
+          "sessions": 1961,
+          "sharpe": 3.86,
+          "sharpeSe": 0.36,
+          "strategyOverlapCagrPct": 5,
+          "strategyOverlapTotalReturnPct": 44.2,
+          "to": "2026-11-05",
+          "totalReturnPct": 44.43,
+          "troughDate": "2020-01-06",
+          "volatilityPct": 0.84,
+          "winRatePct": 58.93,
+          "window": "since_2019_05"
+        },
+        {
+          "benchmarkCagrPct": -2.24,
+          "benchmarkTotalReturnPct": -8.31,
+          "cagrPct": 5.45,
+          "calendarDays": 1402,
+          "closedTrades": 27,
+          "exposurePct": 60.75,
+          "from": "2023-01-03",
+          "hasBenchmark": true,
+          "hasBenchmarkTotalReturn": true,
+          "hasCagr": true,
+          "hasReference": true,
+          "hasReferenceTotalReturn": true,
+          "hasSharpe": true,
+          "hasStrategyOverlapCagr": true,
+          "hasStrategyOverlapTotalReturn": true,
+          "hasTotalReturn": true,
+          "hasVolatility": true,
+          "hasWinRate": true,
+          "label": "Since 2023",
+          "maxDrawdownPct": -3.64,
+          "note": "in-sample to 2026-09-30, recorded from 2026-10-02; no figures from 2026-10-01 to 2026-10-01",
+          "peakDate": "2025-05-23",
+          "recordedTail": true,
+          "recoveryDate": "2026-01-16",
+          "referenceCagrPct": 2.71,
+          "referenceTo": "2026-10-30",
+          "referenceTotalReturnPct": 10.74,
+          "sessions": 1002,
+          "sharpe": 4.31,
+          "sharpeSe": 0.51,
+          "strategyOverlapCagrPct": 5.43,
+          "strategyOverlapTotalReturnPct": 22.4,
+          "to": "2026-11-05",
+          "totalReturnPct": 22.59,
+          "troughDate": "2025-10-16",
+          "volatilityPct": 0.84,
+          "winRatePct": 59.26,
+          "window": "since_2023"
+        },
+        {
+          "benchmarkCagrPct": -14.13,
+          "benchmarkTotalReturnPct": -14.12,
+          "cagrPct": 5.98,
+          "calendarDays": 365,
+          "closedTrades": 12,
+          "exposurePct": 62.88,
+          "from": "2025-11-05",
+          "hasBenchmark": true,
+          "hasBenchmarkTotalReturn": true,
+          "hasCagr": true,
+          "hasReferenceTotalReturn": true,
+          "hasSharpe": true,
+          "hasStrategyOverlapTotalReturn": true,
+          "hasTotalReturn": true,
+          "hasVolatility": true,
+          "hasWinRate": true,
+          "label": "Last 12 months",
+          "maxDrawdownPct": -3.63,
+          "note": "in-sample to 2026-09-30, recorded from 2026-10-02; no figures from 2026-10-01 to 2026-10-01",
+          "peakDate": "2026-05-11",
+          "recordedTail": true,
+          "recoveryDate": "not recovered",
+          "referenceTo": "2026-10-30",
+          "referenceTotalReturnPct": 2.56,
+          "sessions": 261,
+          "sharpe": 4.96,
+          "sharpeSe": 1.01,
+          "strategyOverlapTotalReturnPct": 5.8,
+          "to": "2026-11-05",
+          "totalReturnPct": 5.97,
+          "troughDate": "2026-09-30",
+          "volatilityPct": 0.83,
+          "winRatePct": 66.67,
+          "window": "trailing_12m"
+        },
+        {
+          "benchmarkTotalReturnPct": -15.82,
+          "calendarDays": 34,
+          "closedTrades": 12,
+          "exposurePct": 90.05,
+          "from": "2026-10-02",
+          "hasBenchmarkTotalReturn": true,
+          "hasReferenceTotalReturn": true,
+          "hasStrategyOverlapTotalReturn": true,
+          "hasTotalReturn": true,
+          "hasVolatility": true,
+          "hasWinRate": true,
+          "label": "Live since freeze",
+          "notAnnualised": true,
+          "note": "paper track only, recorded from 2026-10-02",
+          "recordedTail": true,
+          "referenceTo": "2026-10-30",
+          "referenceTotalReturnPct": 0.19,
+          "sessions": 25,
+          "sharpe": 4801.61,
+          "strategyOverlapTotalReturnPct": 0.8,
+          "to": "2026-11-05",
+          "totalReturnPct": 0.96,
+          "winRatePct": 66.67,
+          "window": "live"
+        }
+      ]
+    },
+    {
+      "paper": {
+        "tooShort": true
+      },
+      "state": "run_required",
+      "stateReason": "No completed backtest for rules v1 2aab9531 yet. It is queued; results usually appear within the hour.",
+      "strategyId": "quality-compounders",
+      "today": {},
+      "universeKind": "asx_ordinary",
+      "version": {
+        "engineVersion": "1.1.1",
+        "featureSet": "fs1",
+        "kind": "canonical",
+        "label": "v1",
+        "rulesHash": "2aab95317745f2a124e377aa7349af82a703cebd5585fd5c3f1851f4899be233",
+        "status": "draft",
+        "strategyId": "quality-compounders"
+      }
+    }
+  ],
+  "windowStart": "2019-05-01"
+}

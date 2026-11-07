@@ -75,6 +75,8 @@ type DataSource interface {
 	GetStrategyPicks(context.Context, *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error)
 	// GetStockStrategyFit: shorts.v1alpha1.StrategyService.GetStockStrategyFit
 	GetStockStrategyFit(context.Context, *connect.Request[shortsv1alpha1.GetStockStrategyFitRequest]) (*connect.Response[shortsv1alpha1.GetStockStrategyFitResponse], error)
+	// GetBacktestRun: shorts.v1alpha1.StrategyService.GetBacktestRun (the backtest resource template)
+	GetBacktestRun(context.Context, *connect.Request[shortsv1alpha1.GetBacktestRunRequest]) (*connect.Response[shortsv1alpha1.GetBacktestRunResponse], error)
 
 	// --- NewsService ---
 

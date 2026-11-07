@@ -1357,4 +1357,42 @@ service ShortedStocksService {
       description: "AEC returns that NAME one member: their annual member/senator returns and their election candidate returns including lodged nil returns, with the corpus coverage those figures sit inside. Money given to a party is never attributed to a member."
     };
   }
+
+  // Mirrored from StrategyService (backtests); the parity test enforces the visibility match.
+
+  // The backtest evidence of every stock-picking strategy: state, chained windows, annual returns and the paper track.
+  rpc ListStrategyEvidence (ListStrategyEvidenceRequest) returns (ListStrategyEvidenceResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Strategy Evidence",
+      description: "For every stock-picking strategy: whether a backtest is computed, required or not computable, its chained windows (in-sample to the freeze, then the recorded paper track), annual returns against the S&P/ASX 200 Gross Total Return index, and the paper track since the rules froze. Hypothetical results from rules applied to historical data, not a record of trading. Not financial advice."
+    };
+  }
+
+  // One published canonical backtest run of a stock-picking strategy, or the live version's published run.
+  rpc GetBacktestRun (GetBacktestRunRequest) returns (GetBacktestRunResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Backtest Run",
+      description: "A published backtest of a stock-picking strategy's canonical rules: weekly equity series, windows, annual and monthly tables, coverage by year and month, sensitivity runs, the survivorship statement, recipe lines, trade summary and run identity. Variant runs are never served. Hypothetical results from rules applied to historical data, not a record of trading. Not financial advice."
+    };
+  }
+
+  // The trades of one canonical backtest run. Signed-in callers only.
+  rpc ListBacktestTrades (ListBacktestTradesRequest) returns (ListBacktestTradesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Backtest Trades",
+      description: "Trades of one canonical backtest run, paged and filterable by stock and exit reason. Requires a bearer token. Not financial advice."
+    };
+  }
+
+  // Two or three canonical stock-picking strategies over one common window. Signed-in callers only.
+  rpc CompareStrategies (CompareStrategiesRequest) returns (CompareStrategiesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Compare Strategies",
+      description: "Two or three canonical stock-picking strategies side by side: chained windows, weekly curves rebased to 100,000 and daily-return correlations. Requires a bearer token. Not financial advice."
+    };
+  }
 }

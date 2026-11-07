@@ -222,6 +222,27 @@ func vdPublicReads() []vdPublicRead {
 			resp.Msg.NextUpdateUtc = ""
 			return resp.Msg
 		}},
+		// The rules-version and backtest reads (PR-18 added the last three to the edge allowlist).
+		{"GetStrategyVersion", false, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			resp, err := srv.GetStrategyVersion(ctx, connect.NewRequest(&shortsv1alpha1.GetStrategyVersionRequest{StrategyId: id}))
+			require.NoError(t, err)
+			return resp.Msg
+		}},
+		{"ListStrategyVersions", false, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			resp, err := srv.ListStrategyVersions(ctx, connect.NewRequest(&shortsv1alpha1.ListStrategyVersionsRequest{}))
+			require.NoError(t, err)
+			return resp.Msg
+		}},
+		{"ListStrategyEvidence", false, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			resp, err := srv.ListStrategyEvidence(ctx, connect.NewRequest(&shortsv1alpha1.ListStrategyEvidenceRequest{}))
+			require.NoError(t, err)
+			return resp.Msg
+		}},
+		{"GetBacktestRun", false, func(t *testing.T, srv *ShortsServer, ctx context.Context) proto.Message {
+			resp, err := srv.GetBacktestRun(ctx, connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: id}))
+			require.NoError(t, err)
+			return resp.Msg
+		}},
 	}
 }
 
@@ -537,9 +558,10 @@ func TestClampLeavesCountsGlobal(t *testing.T) {
 }
 
 // Every method on StrategyService is either public or private, and only the
-// public reads are public: the three picker reads, the two rules-version reads
-// and the source dates. GetViewerStrategyPicks and ListStrategySignalEvents are
-// private, so a signed-in caller can read them and an anonymous caller cannot.
+// public reads are public: the three picker reads, the two rules-version reads,
+// the source dates and the two backtest reads (PR-18). GetViewerStrategyPicks,
+// ListStrategySignalEvents, ListBacktestTrades and CompareStrategies are private,
+// so a signed-in caller can read them and an anonymous caller cannot.
 func TestStrategyMethodsVisibility(t *testing.T) {
 	desc, err := protoregistry.GlobalFiles.FindDescriptorByName("shorts.v1alpha1.StrategyService")
 	require.NoError(t, err)
@@ -552,6 +574,8 @@ func TestStrategyMethodsVisibility(t *testing.T) {
 		"GetStrategyVersion":    true,
 		"ListStrategyVersions":  true,
 		"GetStrategyDataStatus": true,
+		"ListStrategyEvidence":  true,
+		"GetBacktestRun":        true,
 	}
 	methods := service.Methods()
 	seen := map[string]bool{}

@@ -121,7 +121,7 @@ func TestProximityAndWaitingFollowTheRuleKind(t *testing.T) {
 func TestStrategyRuleDefinitionsCarryTheEngineThresholds(t *testing.T) {
 	var withThreshold int
 	for _, st := range engine.Registry() {
-		got := strategyProto(st, nil, nil).Rules
+		got := strategyProto(st, nil, nil, "").Rules
 		require.Len(t, got, len(st.Rules), st.ID)
 		for i, r := range st.Rules {
 			g := got[i]
@@ -147,7 +147,7 @@ func TestStrategyRuleDefinitionsCarryTheEngineThresholds(t *testing.T) {
 		st, ok := engine.Lookup(id)
 		require.True(t, ok, id)
 		var sawRSLeader bool
-		for _, g := range strategyProto(st, nil, nil).Rules {
+		for _, g := range strategyProto(st, nil, nil, "").Rules {
 			if g.Id != engine.RuleRSLeader {
 				continue
 			}

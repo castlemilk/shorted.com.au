@@ -118,14 +118,16 @@ type StrategyRuleSummary struct {
 }
 
 type StrategySummary struct {
-	ID            string                `json:"id"`
-	Name          string                `json:"name"`
-	Author        string                `json:"author"`
-	Tagline       string                `json:"tagline"`
-	Style         string                `json:"style,omitempty"`
-	HoldingPeriod string                `json:"holding_period,omitempty"`
-	RulesVersion  string                `json:"rules_version,omitempty" jsonschema:"The live rules version."`
-	Rules         []StrategyRuleSummary `json:"rules"`
+	ID string `json:"id"`
+	// BacktestResource is the resource that reads this strategy's published backtest (PR-18).
+	BacktestResource string                `json:"backtest_resource,omitempty"`
+	Name             string                `json:"name"`
+	Author           string                `json:"author"`
+	Tagline          string                `json:"tagline"`
+	Style            string                `json:"style,omitempty"`
+	HoldingPeriod    string                `json:"holding_period,omitempty"`
+	RulesVersion     string                `json:"rules_version,omitempty" jsonschema:"The live rules version."`
+	Rules            []StrategyRuleSummary `json:"rules"`
 }
 
 // rulesVersionText names a rules version the way a reader quotes it: the label,
@@ -153,8 +155,8 @@ const listStrategiesDescription = "The named stock-picking strategies evaluated 
 	"Breakout (on ASIC short interest) and Quality compounders (return on equity, margins, cash conversion and debt from " +
 	"reported statements), each with author, summary, style, holding period and rules, marked core or not: every core " +
 	"rule must pass for a stock to be triggered. Also the current S&P/ASX 200 market regime. Call get_strategy_picks " +
-	"next with an id for the ranked stocks. A rules-based screen over end-of-day data, not financial advice. Takes no " +
-	"arguments."
+	"next with an id for the ranked stocks. Each backtest_resource reads that strategy's backtest. A rules-based screen " +
+	"over end-of-day data, not financial advice. Takes no arguments."
 
 func listStrategiesTool() Tool {
 	tool := Tool{
@@ -194,14 +196,15 @@ func listStrategiesHandler(src DataSource) sdk.ToolHandlerFor[ListStrategiesInpu
 				continue
 			}
 			row := StrategySummary{
-				ID:            st.GetId(),
-				Name:          st.GetName(),
-				Author:        st.GetAuthor(),
-				Tagline:       st.GetTagline(),
-				Style:         st.GetMetadata().GetStyle(),
-				HoldingPeriod: st.GetMetadata().GetHoldingPeriod(),
-				RulesVersion:  rulesVersionText(st.GetVersion()),
-				Rules:         []StrategyRuleSummary{},
+				ID:               st.GetId(),
+				Name:             st.GetName(),
+				Author:           st.GetAuthor(),
+				Tagline:          st.GetTagline(),
+				Style:            st.GetMetadata().GetStyle(),
+				HoldingPeriod:    st.GetMetadata().GetHoldingPeriod(),
+				RulesVersion:     rulesVersionText(st.GetVersion()),
+				BacktestResource: "shorted://strategies/" + st.GetId() + "/backtest",
+				Rules:            []StrategyRuleSummary{},
 			}
 			for _, r := range st.GetRules() {
 				if r == nil {

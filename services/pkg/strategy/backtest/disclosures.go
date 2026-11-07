@@ -72,6 +72,12 @@ func Disclose(in Inputs, s spec.Spec, r spec.Recipe, liveFrom civil.Date, paper 
 		return Disclosures{}, Result{}, err
 	}
 	d.Reference = figuresOfWindow("reference", "Same-data reference", ref.Basis, ref.Curve, nil, "")
+	// The reference level of every recorded session is part of the run's stored series, so a
+	// published run carries the curve it is compared with, aligned by date (the reference is
+	// the same sessions as the run, so a mismatch is a bug and refused).
+	if err := withReference(base.Records, ref.Curve); err != nil {
+		return Disclosures{}, Result{}, err
+	}
 
 	bt := Series{Basis: BasisTotal, Curve: EquityCurve(base.Records)}
 	d.Windows, err = Windows(bt, paper, liveFrom, in.Market().CashRate)
@@ -102,4 +108,18 @@ func Disclose(in Inputs, s spec.Spec, r spec.Recipe, liveFrom civil.Date, paper 
 		BuildRevision: build,
 	}
 	return d, base, nil
+}
+
+// withReference writes the reference curve's level into each record of the run, by date.
+func withReference(recs []Record, ref Curve) error {
+	if len(recs) != len(ref.Dates) {
+		return fmt.Errorf("backtest: the reference covers %d sessions, the run records %d", len(ref.Dates), len(recs))
+	}
+	for i := range recs {
+		if recs[i].Date != ref.Dates[i] {
+			return fmt.Errorf("backtest: the reference is not aligned with the run at %s", recs[i].Date)
+		}
+		recs[i].Reference = ref.Values[i]
+	}
+	return nil
 }

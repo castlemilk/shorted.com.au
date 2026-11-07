@@ -1980,6 +1980,30 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockVe
 
 ### shorts.v1alpha1.StrategyService
 
+#### `POST /shorts.v1alpha1.StrategyService/GetBacktestRun`
+
+One canonical backtest run: the live version's published run (run_id 0), or a canonical run by
+ id. A variant run, a gate-refused run or an unknown id is NotFound. A not-computable outcome
+ fetched by id returns its stored state. The series is daily for windows of 500 sessions or
+ fewer, weekly otherwise (series_resolution says which). Public and cached per instance.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `resolution` | string | no | "weekly" (default) or "daily". Daily is served for windows of 500 sessions or fewer. (proto string) |
+| `runId` | integer,string (int64) | no | 0: the published run of the live version. Otherwise a canonical run of this strategy. (proto int64) |
+| `strategyId` | string | no | Required: a canonical strategy id. (proto string) |
+| `window` | string | no | since_2019_05 (default) \| since_2023 \| trailing_12m \| live. live needs a paper track. (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetBacktestRun' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.StrategyService/GetStockStrategyFit`
 
 How one stock reads against every strategy: status, score, rank and the
@@ -2073,6 +2097,22 @@ Request body: an empty JSON object, `{}`.
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/ListStrategies' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.StrategyService/ListStrategyEvidence`
+
+The backtest evidence of every strategy: each strategy's state, its chained windows (in-sample
+ to live_from, then the recorded paper track), its annual returns, a month-end curve and its
+ paper-track summary. Public: the same bytes to every caller, cached per instance.
+
+Request body: an empty JSON object, `{}`.
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/ListStrategyEvidence' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \

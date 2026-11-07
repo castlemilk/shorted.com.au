@@ -430,6 +430,7 @@ const REVIEWED_PUBLIC_READS = [
   "/shorts.v1alpha1.ShortedStocksService/CompareFundSnapshots",
   "/shorts.v1alpha1.ShortedStocksService/GetAnnouncement",
   "/shorts.v1alpha1.ShortedStocksService/GetAvailableDates",
+  "/shorts.v1alpha1.ShortedStocksService/GetBacktestRun",
   "/shorts.v1alpha1.ShortedStocksService/GetDirectorTrades",
   "/shorts.v1alpha1.ShortedStocksService/GetDividendHistory",
   "/shorts.v1alpha1.ShortedStocksService/GetFundPortfolio",
@@ -452,12 +453,19 @@ const REVIEWED_PUBLIC_READS = [
   "/shorts.v1alpha1.ShortedStocksService/GetStockNews",
   "/shorts.v1alpha1.ShortedStocksService/GetStockOwnership",
   "/shorts.v1alpha1.ShortedStocksService/GetStockPrices",
+  "/shorts.v1alpha1.ShortedStocksService/GetStockStrategyFit",
+  "/shorts.v1alpha1.ShortedStocksService/GetStrategyDataStatus",
+  "/shorts.v1alpha1.ShortedStocksService/GetStrategyPicks",
+  "/shorts.v1alpha1.ShortedStocksService/GetStrategyVersion",
   "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
   "/shorts.v1alpha1.ShortedStocksService/GetWeeklyReport",
   "/shorts.v1alpha1.ShortedStocksService/ListFundPositionChanges",
   "/shorts.v1alpha1.ShortedStocksService/ListFunds",
   "/shorts.v1alpha1.ShortedStocksService/ListInstitutions",
   "/shorts.v1alpha1.ShortedStocksService/ListStockRegisters",
+  "/shorts.v1alpha1.ShortedStocksService/ListStrategies",
+  "/shorts.v1alpha1.ShortedStocksService/ListStrategyEvidence",
+  "/shorts.v1alpha1.ShortedStocksService/ListStrategyVersions",
   "/shorts.v1alpha1.ShortedStocksService/ListSubstantialNotices",
   "/shorts.v1alpha1.StockService/GetDirectorTrades",
   "/shorts.v1alpha1.StockService/GetDividendHistory",
@@ -467,6 +475,14 @@ const REVIEWED_PUBLIC_READS = [
   "/shorts.v1alpha1.StockService/GetStockDetails",
   "/shorts.v1alpha1.StockService/GetStockFinancialHighlights",
   "/shorts.v1alpha1.StockService/GetStockPrices",
+  "/shorts.v1alpha1.StrategyService/GetBacktestRun",
+  "/shorts.v1alpha1.StrategyService/GetStockStrategyFit",
+  "/shorts.v1alpha1.StrategyService/GetStrategyDataStatus",
+  "/shorts.v1alpha1.StrategyService/GetStrategyPicks",
+  "/shorts.v1alpha1.StrategyService/GetStrategyVersion",
+  "/shorts.v1alpha1.StrategyService/ListStrategies",
+  "/shorts.v1alpha1.StrategyService/ListStrategyEvidence",
+  "/shorts.v1alpha1.StrategyService/ListStrategyVersions",
 ];
 
 test("the allowlist is exactly the reviewed set of public reads", () => {
@@ -560,4 +576,34 @@ test("a read outside the allowlist is never served from a seeded tier", async ()
       assert.deepEqual(state.kvReads.filter(isPrewarmKey), [], path);
     });
   }
+});
+
+// PR-18: the two public backtest reads are allowlisted under both services, and the private
+// backtest and comparison reads never are. The anchored list keeps a private read out even
+// when its name ends like a public one, and the private rpcs share no cache entry.
+test("the backtest reads are public and the private backtest reads are never cached", () => {
+  for (const service of ["shorts.v1alpha1.StrategyService", "shorts.v1alpha1.ShortedStocksService"]) {
+    assert.equal(isPublicReadEndpoint(`/${service}/GetBacktestRun`), true, service);
+    assert.equal(isPublicReadEndpoint(`/${service}/ListStrategyEvidence`), true, service);
+    for (const method of ["ListBacktestTrades", "CompareStrategies", "GetViewerStrategyPicks", "ListStrategySignalEvents", "SaveStrategy", "ListSavedStrategies"]) {
+      assert.equal(isPublicReadEndpoint(`/${service}/${method}`), false, `${service}/${method}`);
+    }
+  }
+  assert.equal(isPublicReadEndpoint("/shorts.v1alpha1.StrategyService/GetBacktestRunExtra"), false);
+  assert.equal(isPublicReadEndpoint("/shorts.v1alpha1.StrategyService/GetViewerStrategyPicks"), false);
+});
+
+test("a backtest read is cached for every caller, and a private one is bypassed whatever its headers", () => {
+  const request = (headers) =>
+    new Request(`${API}/shorts.v1alpha1.StrategyService/GetBacktestRun`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({ strategyId: "crowded-short-breakout" }),
+    });
+  const path = "/shorts.v1alpha1.StrategyService/GetBacktestRun";
+  assert.equal(isCacheableRpc(request({}), path), true);
+  assert.equal(isCacheableRpc(request({ authorization: "Bearer x" }), path), true, "the public read is one answer, whoever asks");
+  const privatePath = "/shorts.v1alpha1.StrategyService/ListBacktestTrades";
+  assert.equal(isCacheableRpc(request({ "x-user-id": "u1" }), privatePath), false);
+  assert.equal(isCacheableRpc(request({ "x-internal-secret": "s" }), privatePath), false);
 });

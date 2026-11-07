@@ -406,6 +406,18 @@ const (
 	// ShortedStocksServiceGetPoliticianFundingProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetPoliticianFunding RPC.
 	ShortedStocksServiceGetPoliticianFundingProcedure = "/shorts.v1alpha1.ShortedStocksService/GetPoliticianFunding"
+	// ShortedStocksServiceListStrategyEvidenceProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListStrategyEvidence RPC.
+	ShortedStocksServiceListStrategyEvidenceProcedure = "/shorts.v1alpha1.ShortedStocksService/ListStrategyEvidence"
+	// ShortedStocksServiceGetBacktestRunProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetBacktestRun RPC.
+	ShortedStocksServiceGetBacktestRunProcedure = "/shorts.v1alpha1.ShortedStocksService/GetBacktestRun"
+	// ShortedStocksServiceListBacktestTradesProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListBacktestTrades RPC.
+	ShortedStocksServiceListBacktestTradesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListBacktestTrades"
+	// ShortedStocksServiceCompareStrategiesProcedure is the fully-qualified name of the
+	// ShortedStocksService's CompareStrategies RPC.
+	ShortedStocksServiceCompareStrategiesProcedure = "/shorts.v1alpha1.ShortedStocksService/CompareStrategies"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -535,6 +547,10 @@ var (
 	shortedStocksServiceListTopDonorsMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("ListTopDonors")
 	shortedStocksServiceListPartyFundingMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPartyFunding")
 	shortedStocksServiceGetPoliticianFundingMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPoliticianFunding")
+	shortedStocksServiceListStrategyEvidenceMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStrategyEvidence")
+	shortedStocksServiceGetBacktestRunMethodDescriptor                  = shortedStocksServiceServiceDescriptor.Methods().ByName("GetBacktestRun")
+	shortedStocksServiceListBacktestTradesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListBacktestTrades")
+	shortedStocksServiceCompareStrategiesMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("CompareStrategies")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -803,6 +819,14 @@ type ShortedStocksServiceClient interface {
 	ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error)
 	// The funding returns that name one member.
 	GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error)
+	// The backtest evidence of every stock-picking strategy: state, chained windows, annual returns and the paper track.
+	ListStrategyEvidence(context.Context, *connect.Request[v1alpha1.ListStrategyEvidenceRequest]) (*connect.Response[v1alpha1.ListStrategyEvidenceResponse], error)
+	// One published canonical backtest run of a stock-picking strategy, or the live version's published run.
+	GetBacktestRun(context.Context, *connect.Request[v1alpha1.GetBacktestRunRequest]) (*connect.Response[v1alpha1.GetBacktestRunResponse], error)
+	// The trades of one canonical backtest run. Signed-in callers only.
+	ListBacktestTrades(context.Context, *connect.Request[v1alpha1.ListBacktestTradesRequest]) (*connect.Response[v1alpha1.ListBacktestTradesResponse], error)
+	// Two or three canonical stock-picking strategies over one common window. Signed-in callers only.
+	CompareStrategies(context.Context, *connect.Request[v1alpha1.CompareStrategiesRequest]) (*connect.Response[v1alpha1.CompareStrategiesResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -1559,6 +1583,30 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetPoliticianFundingMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listStrategyEvidence: connect.NewClient[v1alpha1.ListStrategyEvidenceRequest, v1alpha1.ListStrategyEvidenceResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListStrategyEvidenceProcedure,
+			connect.WithSchema(shortedStocksServiceListStrategyEvidenceMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getBacktestRun: connect.NewClient[v1alpha1.GetBacktestRunRequest, v1alpha1.GetBacktestRunResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetBacktestRunProcedure,
+			connect.WithSchema(shortedStocksServiceGetBacktestRunMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listBacktestTrades: connect.NewClient[v1alpha1.ListBacktestTradesRequest, v1alpha1.ListBacktestTradesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListBacktestTradesProcedure,
+			connect.WithSchema(shortedStocksServiceListBacktestTradesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		compareStrategies: connect.NewClient[v1alpha1.CompareStrategiesRequest, v1alpha1.CompareStrategiesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceCompareStrategiesProcedure,
+			connect.WithSchema(shortedStocksServiceCompareStrategiesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1688,6 +1736,10 @@ type shortedStocksServiceClient struct {
 	listTopDonors                   *connect.Client[v1alpha1.ListTopDonorsRequest, v1alpha1.ListTopDonorsResponse]
 	listPartyFunding                *connect.Client[v1alpha1.ListPartyFundingRequest, v1alpha1.ListPartyFundingResponse]
 	getPoliticianFunding            *connect.Client[v1alpha1.GetPoliticianFundingRequest, v1alpha1.GetPoliticianFundingResponse]
+	listStrategyEvidence            *connect.Client[v1alpha1.ListStrategyEvidenceRequest, v1alpha1.ListStrategyEvidenceResponse]
+	getBacktestRun                  *connect.Client[v1alpha1.GetBacktestRunRequest, v1alpha1.GetBacktestRunResponse]
+	listBacktestTrades              *connect.Client[v1alpha1.ListBacktestTradesRequest, v1alpha1.ListBacktestTradesResponse]
+	compareStrategies               *connect.Client[v1alpha1.CompareStrategiesRequest, v1alpha1.CompareStrategiesResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -2315,6 +2367,26 @@ func (c *shortedStocksServiceClient) GetPoliticianFunding(ctx context.Context, r
 	return c.getPoliticianFunding.CallUnary(ctx, req)
 }
 
+// ListStrategyEvidence calls shorts.v1alpha1.ShortedStocksService.ListStrategyEvidence.
+func (c *shortedStocksServiceClient) ListStrategyEvidence(ctx context.Context, req *connect.Request[v1alpha1.ListStrategyEvidenceRequest]) (*connect.Response[v1alpha1.ListStrategyEvidenceResponse], error) {
+	return c.listStrategyEvidence.CallUnary(ctx, req)
+}
+
+// GetBacktestRun calls shorts.v1alpha1.ShortedStocksService.GetBacktestRun.
+func (c *shortedStocksServiceClient) GetBacktestRun(ctx context.Context, req *connect.Request[v1alpha1.GetBacktestRunRequest]) (*connect.Response[v1alpha1.GetBacktestRunResponse], error) {
+	return c.getBacktestRun.CallUnary(ctx, req)
+}
+
+// ListBacktestTrades calls shorts.v1alpha1.ShortedStocksService.ListBacktestTrades.
+func (c *shortedStocksServiceClient) ListBacktestTrades(ctx context.Context, req *connect.Request[v1alpha1.ListBacktestTradesRequest]) (*connect.Response[v1alpha1.ListBacktestTradesResponse], error) {
+	return c.listBacktestTrades.CallUnary(ctx, req)
+}
+
+// CompareStrategies calls shorts.v1alpha1.ShortedStocksService.CompareStrategies.
+func (c *shortedStocksServiceClient) CompareStrategies(ctx context.Context, req *connect.Request[v1alpha1.CompareStrategiesRequest]) (*connect.Response[v1alpha1.CompareStrategiesResponse], error) {
+	return c.compareStrategies.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -2582,6 +2654,14 @@ type ShortedStocksServiceHandler interface {
 	ListPartyFunding(context.Context, *connect.Request[v1alpha1.ListPartyFundingRequest]) (*connect.Response[v1alpha1.ListPartyFundingResponse], error)
 	// The funding returns that name one member.
 	GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error)
+	// The backtest evidence of every stock-picking strategy: state, chained windows, annual returns and the paper track.
+	ListStrategyEvidence(context.Context, *connect.Request[v1alpha1.ListStrategyEvidenceRequest]) (*connect.Response[v1alpha1.ListStrategyEvidenceResponse], error)
+	// One published canonical backtest run of a stock-picking strategy, or the live version's published run.
+	GetBacktestRun(context.Context, *connect.Request[v1alpha1.GetBacktestRunRequest]) (*connect.Response[v1alpha1.GetBacktestRunResponse], error)
+	// The trades of one canonical backtest run. Signed-in callers only.
+	ListBacktestTrades(context.Context, *connect.Request[v1alpha1.ListBacktestTradesRequest]) (*connect.Response[v1alpha1.ListBacktestTradesResponse], error)
+	// Two or three canonical stock-picking strategies over one common window. Signed-in callers only.
+	CompareStrategies(context.Context, *connect.Request[v1alpha1.CompareStrategiesRequest]) (*connect.Response[v1alpha1.CompareStrategiesResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -3334,6 +3414,30 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetPoliticianFundingMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceListStrategyEvidenceHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListStrategyEvidenceProcedure,
+		svc.ListStrategyEvidence,
+		connect.WithSchema(shortedStocksServiceListStrategyEvidenceMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetBacktestRunHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetBacktestRunProcedure,
+		svc.GetBacktestRun,
+		connect.WithSchema(shortedStocksServiceGetBacktestRunMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListBacktestTradesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListBacktestTradesProcedure,
+		svc.ListBacktestTrades,
+		connect.WithSchema(shortedStocksServiceListBacktestTradesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceCompareStrategiesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceCompareStrategiesProcedure,
+		svc.CompareStrategies,
+		connect.WithSchema(shortedStocksServiceCompareStrategiesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -3584,6 +3688,14 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceListPartyFundingHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetPoliticianFundingProcedure:
 			shortedStocksServiceGetPoliticianFundingHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListStrategyEvidenceProcedure:
+			shortedStocksServiceListStrategyEvidenceHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetBacktestRunProcedure:
+			shortedStocksServiceGetBacktestRunHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListBacktestTradesProcedure:
+			shortedStocksServiceListBacktestTradesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceCompareStrategiesProcedure:
+			shortedStocksServiceCompareStrategiesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -4087,4 +4199,20 @@ func (UnimplementedShortedStocksServiceHandler) ListPartyFunding(context.Context
 
 func (UnimplementedShortedStocksServiceHandler) GetPoliticianFunding(context.Context, *connect.Request[v1alpha1.GetPoliticianFundingRequest]) (*connect.Response[v1alpha1.GetPoliticianFundingResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetPoliticianFunding is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListStrategyEvidence(context.Context, *connect.Request[v1alpha1.ListStrategyEvidenceRequest]) (*connect.Response[v1alpha1.ListStrategyEvidenceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListStrategyEvidence is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetBacktestRun(context.Context, *connect.Request[v1alpha1.GetBacktestRunRequest]) (*connect.Response[v1alpha1.GetBacktestRunResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetBacktestRun is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListBacktestTrades(context.Context, *connect.Request[v1alpha1.ListBacktestTradesRequest]) (*connect.Response[v1alpha1.ListBacktestTradesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListBacktestTrades is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) CompareStrategies(context.Context, *connect.Request[v1alpha1.CompareStrategiesRequest]) (*connect.Response[v1alpha1.CompareStrategiesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.CompareStrategies is not implemented"))
 }
