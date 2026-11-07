@@ -18,6 +18,7 @@
       "state": "not_computable",
       "stateReason": "Not computable before FY2024. From FY2024 a test is possible only by assuming when results were known and using restated figures; it is not published.",
       "strategyId": "zanger-breakout",
+      "today": {},
       "universeKind": "asx_ordinary",
       "version": {
         "engineVersion": "1.1.1",
@@ -25,7 +26,7 @@
         "kind": "canonical",
         "label": "v1",
         "rulesHash": "32a64df8ac768361e1c4e349b8cd0989c85a8cb7dec8eeee7e19c9df3c040b82",
-        "status": "live",
+        "status": "draft",
         "strategyId": "zanger-breakout"
       }
     },
@@ -36,6 +37,7 @@
       "state": "run_required",
       "stateReason": "No completed backtest for rules v1 d5f1596c yet. It is queued; results usually appear within the hour.",
       "strategyId": "canslim",
+      "today": {},
       "universeKind": "asx_ordinary",
       "version": {
         "engineVersion": "1.1.1",
@@ -43,7 +45,7 @@
         "kind": "canonical",
         "label": "v1",
         "rulesHash": "d5f1596c9bd48747aa5818fc9d0ec39b6888071b11c8803c6208532e8579ca5e",
-        "status": "live",
+        "status": "draft",
         "strategyId": "canslim"
       }
     },
@@ -826,6 +828,7 @@
       "state": "published",
       "strategyId": "minervini-trend-template",
       "survivorship": "Prices are missing for companies that delisted before about 2025. Coverage is measured on ASIC-reported names only; the gap cannot be measured for companies that were never reported short.",
+      "today": {},
       "universeKind": "asx_ordinary",
       "version": {
         "engineVersion": "1.1.1",
@@ -833,7 +836,7 @@
         "kind": "canonical",
         "label": "v1",
         "rulesHash": "fc794d1113053010e01e8482e6246ecbcdaf833c82e143f1a7af05642117e659",
-        "status": "live",
+        "status": "draft",
         "strategyId": "minervini-trend-template"
       },
       "windows": [
@@ -1732,7 +1735,7 @@
           "benchmark": 5978.5,
           "date": "2026-10-30",
           "drawdownPct": -2.86,
-          "equity": 144196,
+          "equity": 144201,
           "exposurePct": 90.08,
           "recorded": true,
           "reference": 1234.84
@@ -1741,13 +1744,13 @@
           "benchmark": 5024,
           "date": "2026-11-05",
           "drawdownPct": -2.71,
-          "equity": 144425,
+          "equity": 144430,
           "exposurePct": 90.1,
           "recorded": true
         }
       ],
       "paper": {
-        "closedTrades": 1,
+        "closedTrades": 12,
         "engineSegments": [
           {
             "engineVersion": "1.1.0",
@@ -1763,21 +1766,25 @@
           }
         ],
         "hasReturn": true,
+        "openPositions": 2,
         "recordedFrom": "2026-10-02",
         "returnPct": 0.96,
         "sessions": 25,
+        "since": "2026-10-01",
         "tooShort": true
       },
       "runId": "101",
       "state": "published",
       "strategyId": "crowded-short-breakout",
       "survivorship": "Prices are missing for companies that delisted before about 2025.",
+      "today": {},
       "universeKind": "asic_reported",
       "version": {
         "engineVersion": "1.1.1",
         "featureSet": "fs1",
         "kind": "canonical",
         "label": "v1",
+        "liveFrom": "2026-10-01",
         "rulesHash": "04b4e5e8a151bf1b8ad4a6e18d05fe76d5e449860d2e00acb2f8afc865d4664a",
         "status": "live",
         "strategyId": "crowded-short-breakout"
@@ -1788,7 +1795,7 @@
           "benchmarkTotalReturnPct": 0.48,
           "cagrPct": 5.01,
           "calendarDays": 2745,
-          "closedTrades": 3,
+          "closedTrades": 56,
           "exposurePct": 60.38,
           "from": "2019-05-01",
           "hasBenchmark": true,
@@ -1804,23 +1811,23 @@
           "hasWinRate": true,
           "label": "Since May 2019",
           "maxDrawdownPct": -3.64,
-          "note": "in-sample to 2026-10-01, recorded from 2026-10-02",
+          "note": "in-sample to 2026-09-30, recorded from 2026-10-02; no figures from 2026-10-01 to 2026-10-01",
           "peakDate": "2019-08-13",
           "recordedTail": true,
           "recoveryDate": "2020-04-07",
           "referenceCagrPct": 2.85,
           "referenceTo": "2026-10-30",
           "referenceTotalReturnPct": 23.48,
-          "sessions": 1962,
+          "sessions": 1961,
           "sharpe": 3.86,
           "sharpeSe": 0.36,
           "strategyOverlapCagrPct": 5,
           "strategyOverlapTotalReturnPct": 44.2,
           "to": "2026-11-05",
-          "totalReturnPct": 44.42,
+          "totalReturnPct": 44.43,
           "troughDate": "2020-01-06",
           "volatilityPct": 0.84,
-          "winRatePct": 66.67,
+          "winRatePct": 58.93,
           "window": "since_2019_05"
         },
         {
@@ -1828,7 +1835,7 @@
           "benchmarkTotalReturnPct": -8.31,
           "cagrPct": 5.45,
           "calendarDays": 1402,
-          "closedTrades": 3,
+          "closedTrades": 27,
           "exposurePct": 60.75,
           "from": "2023-01-03",
           "hasBenchmark": true,
@@ -1844,32 +1851,32 @@
           "hasWinRate": true,
           "label": "Since 2023",
           "maxDrawdownPct": -3.64,
-          "note": "in-sample to 2026-10-01, recorded from 2026-10-02",
+          "note": "in-sample to 2026-09-30, recorded from 2026-10-02; no figures from 2026-10-01 to 2026-10-01",
           "peakDate": "2025-05-23",
           "recordedTail": true,
           "recoveryDate": "2026-01-16",
           "referenceCagrPct": 2.71,
           "referenceTo": "2026-10-30",
           "referenceTotalReturnPct": 10.74,
-          "sessions": 1003,
+          "sessions": 1002,
           "sharpe": 4.31,
           "sharpeSe": 0.51,
           "strategyOverlapCagrPct": 5.43,
-          "strategyOverlapTotalReturnPct": 22.39,
+          "strategyOverlapTotalReturnPct": 22.4,
           "to": "2026-11-05",
           "totalReturnPct": 22.59,
           "troughDate": "2025-10-16",
           "volatilityPct": 0.84,
-          "winRatePct": 66.67,
+          "winRatePct": 59.26,
           "window": "since_2023"
         },
         {
           "benchmarkCagrPct": -14.13,
           "benchmarkTotalReturnPct": -14.12,
-          "cagrPct": 5.97,
+          "cagrPct": 5.98,
           "calendarDays": 365,
-          "closedTrades": 1,
-          "exposurePct": 62.87,
+          "closedTrades": 12,
+          "exposurePct": 62.88,
           "from": "2025-11-05",
           "hasBenchmark": true,
           "hasBenchmarkTotalReturn": true,
@@ -1882,27 +1889,27 @@
           "hasWinRate": true,
           "label": "Last 12 months",
           "maxDrawdownPct": -3.63,
-          "note": "in-sample to 2026-10-01, recorded from 2026-10-02",
+          "note": "in-sample to 2026-09-30, recorded from 2026-10-02; no figures from 2026-10-01 to 2026-10-01",
           "peakDate": "2026-05-11",
           "recordedTail": true,
           "recoveryDate": "not recovered",
           "referenceTo": "2026-10-30",
           "referenceTotalReturnPct": 2.56,
-          "sessions": 262,
-          "sharpe": 4.94,
+          "sessions": 261,
+          "sharpe": 4.96,
           "sharpeSe": 1.01,
           "strategyOverlapTotalReturnPct": 5.8,
           "to": "2026-11-05",
           "totalReturnPct": 5.97,
-          "troughDate": "2026-10-01",
+          "troughDate": "2026-09-30",
           "volatilityPct": 0.83,
-          "winRatePct": 100,
+          "winRatePct": 66.67,
           "window": "trailing_12m"
         },
         {
           "benchmarkTotalReturnPct": -15.82,
           "calendarDays": 34,
-          "closedTrades": 1,
+          "closedTrades": 12,
           "exposurePct": 90.05,
           "from": "2026-10-02",
           "hasBenchmarkTotalReturn": true,
@@ -1922,7 +1929,7 @@
           "strategyOverlapTotalReturnPct": 0.8,
           "to": "2026-11-05",
           "totalReturnPct": 0.96,
-          "winRatePct": 100,
+          "winRatePct": 66.67,
           "window": "live"
         }
       ]
@@ -1934,6 +1941,7 @@
       "state": "run_required",
       "stateReason": "No completed backtest for rules v1 2aab9531 yet. It is queued; results usually appear within the hour.",
       "strategyId": "quality-compounders",
+      "today": {},
       "universeKind": "asx_ordinary",
       "version": {
         "engineVersion": "1.1.1",
@@ -1941,7 +1949,7 @@
         "kind": "canonical",
         "label": "v1",
         "rulesHash": "2aab95317745f2a124e377aa7349af82a703cebd5585fd5c3f1851f4899be233",
-        "status": "live",
+        "status": "draft",
         "strategyId": "quality-compounders"
       }
     }

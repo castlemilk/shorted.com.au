@@ -90,69 +90,21 @@
     ],
     "coverage": [
       {
-        "allReportedMeasurable": true,
-        "allReportedNameDays": "40",
-        "allReportedPct": 90,
-        "allReportedPricedNameDays": "36",
-        "coveragePct": 70,
-        "measurable": true,
-        "pricedNameDays": "7",
-        "qualifyingNameDays": "10",
         "year": 2019
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedNameDays": "40",
-        "allReportedPct": 90,
-        "allReportedPricedNameDays": "36",
-        "coveragePct": 70,
-        "measurable": true,
-        "pricedNameDays": "7",
-        "qualifyingNameDays": "10",
         "year": 2020
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedNameDays": "40",
-        "allReportedPct": 90,
-        "allReportedPricedNameDays": "36",
-        "coveragePct": 70,
-        "measurable": true,
-        "pricedNameDays": "7",
-        "qualifyingNameDays": "10",
         "year": 2021
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedNameDays": "40",
-        "allReportedPct": 90,
-        "allReportedPricedNameDays": "36",
-        "coveragePct": 70,
-        "measurable": true,
-        "pricedNameDays": "7",
-        "qualifyingNameDays": "10",
         "year": 2022
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedNameDays": "40",
-        "allReportedPct": 90,
-        "allReportedPricedNameDays": "36",
-        "coveragePct": 70,
-        "measurable": true,
-        "pricedNameDays": "7",
-        "qualifyingNameDays": "10",
         "year": 2023
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedNameDays": "40",
-        "allReportedPct": 90,
-        "allReportedPricedNameDays": "36",
-        "coveragePct": 70,
-        "measurable": true,
-        "pricedNameDays": "7",
-        "qualifyingNameDays": "10",
         "year": 2024
       },
       {
@@ -160,10 +112,6 @@
         "allReportedNameDays": "40",
         "allReportedPct": 90,
         "allReportedPricedNameDays": "36",
-        "coveragePct": 70,
-        "measurable": true,
-        "pricedNameDays": "7",
-        "qualifyingNameDays": "10",
         "year": 2025
       },
       {
@@ -171,649 +119,327 @@
         "allReportedNameDays": "40",
         "allReportedPct": 90,
         "allReportedPricedNameDays": "36",
-        "coveragePct": 70,
-        "measurable": true,
-        "pricedNameDays": "7",
-        "qualifyingNameDays": "10",
         "year": 2026
       }
     ],
     "coverageMonthly": [
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2019-05"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2019-06"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2019-07"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2019-08"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2019-09"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2019-10"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2019-11"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2019-12"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-01"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-02"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-03"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-04"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-05"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-06"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-07"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-08"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-09"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-10"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-11"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2020-12"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-01"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-02"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-03"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-04"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-05"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-06"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-07"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-08"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-09"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-10"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-11"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2021-12"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-01"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-02"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-03"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-04"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-05"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-06"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-07"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-08"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-09"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-10"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-11"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2022-12"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-01"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-02"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-03"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-04"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-05"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-06"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-07"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-08"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-09"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-10"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-11"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2023-12"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-01"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-02"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-03"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-04"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-05"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-06"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-07"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-08"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-09"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-10"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-11"
       },
       {
-        "allReportedMeasurable": true,
-        "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2024-12"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-01"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-02"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-03"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-04"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-05"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-06"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-07"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-08"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-09"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-10"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-11"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2025-12"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2026-01"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2026-02"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2026-03"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2026-04"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2026-05"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2026-06"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2026-07"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2026-08"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2026-09"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2026-10"
       },
       {
         "allReportedMeasurable": true,
         "allReportedPct": 90,
-        "coveragePct": 75,
-        "measurable": true,
         "month": "2026-11"
       }
     ],
@@ -839,18 +465,21 @@
       "Reference: The reference is built from the same price history with the same gaps. If a strategy beats the ASX 200 but not the reference, the edge may be the data rather than the rules. Gaps are uneven across stocks, so subtracting the reference does not remove survivorship bias.",
       "Survivorship: Prices are missing for companies that delisted before about 2025. Heavily shorted companies that later failed are over-represented among them, so these results flatter the strategy, most in the earlier years; by how much cannot be measured.",
       "Coverage is measured on ASIC-reported names only; the gap cannot be measured for companies that were never reported short.",
-      "In-sample · rules frozen 2026-10-01: the figures to 2026-09-30 are in-sample; the recorded paper track follows."
+      "In-sample · rules frozen 2026-10-01: the figures to 2026-09-30 are in-sample; no paper track is recorded yet."
     ],
     "engineMatchesLive": true,
     "fundamentalsLabel": "Point-in-time fundamentals from the capture date (strict policy)",
     "identity": {
       "asicReportThrough": "2026-11-02",
       "benchmark": "XJT",
+      "buildRevision": "fixture",
       "engineVersion": "1.1.1",
       "finishedAt": "2026-11-06T03:00:00Z",
       "fundamentals": "strict",
       "inSampleUntil": "2026-09-30",
+      "inputHash": "1111111111111111111111111111111111111111111111111111111111111111",
       "kind": "publish",
+      "outputHash": "2222222222222222222222222222222222222222222222222222222222222222",
       "pricesThrough": "2026-11-05",
       "recipeHash": "a408739b0e93d45d271b533bae4898f033f308473ee87057d6dc8bf53fd5756a",
       "recipeId": "mtt-r1",
@@ -866,7 +495,7 @@
         "kind": "canonical",
         "label": "v1",
         "rulesHash": "fc794d1113053010e01e8482e6246ecbcdaf833c82e143f1a7af05642117e659",
-        "status": "live",
+        "status": "draft",
         "strategyId": "minervini-trend-template"
       },
       "windowEnd": "2026-11-05",
@@ -878,7 +507,7 @@
       "kind": "canonical",
       "label": "v1",
       "rulesHash": "fc794d1113053010e01e8482e6246ecbcdaf833c82e143f1a7af05642117e659",
-      "status": "live",
+      "status": "draft",
       "strategyId": "minervini-trend-template"
     },
     "monthly": [
@@ -1798,6 +1427,60 @@
     },
     "replayAgreement": "No paper track to compare yet",
     "rulesMatchLive": true,
+    "sensitivity": [
+      {
+        "applies": true,
+        "cagrPct": 9,
+        "excessVsBenchmarkPct": -1,
+        "fragile": true,
+        "fragileChip": "Fragile to costs",
+        "hasCagr": true,
+        "hasExcess": true,
+        "id": "costs_x2",
+        "label": "Costs doubled",
+        "maxDrawdownPct": -33
+      },
+      {
+        "applies": true,
+        "cagrPct": 11,
+        "excessVsBenchmarkPct": 3,
+        "hasCagr": true,
+        "hasExcess": true,
+        "id": "asic_lag_plus_2",
+        "label": "ASIC publication two sessions later",
+        "maxDrawdownPct": -32
+      },
+      {
+        "applies": true,
+        "cagrPct": 11,
+        "excessVsBenchmarkPct": 4,
+        "hasCagr": true,
+        "hasExcess": true,
+        "id": "delisting_zero",
+        "label": "Delisted positions exit at zero",
+        "maxDrawdownPct": -32
+      },
+      {
+        "applies": true,
+        "cagrPct": 10,
+        "excessVsBenchmarkPct": 2,
+        "hasCagr": true,
+        "hasExcess": true,
+        "id": "entry_plus_1",
+        "label": "Entry one session later",
+        "maxDrawdownPct": -30
+      },
+      {
+        "applies": true,
+        "cagrPct": 11,
+        "excessVsBenchmarkPct": 3,
+        "hasCagr": true,
+        "hasExcess": true,
+        "id": "flat_mockup_costs",
+        "label": "Mockup costs (flat 10 + 5 bps per side) flatter small-cap breakouts",
+        "maxDrawdownPct": -31
+      }
+    ],
     "series": [
       {
         "benchmark": 5000,

@@ -5265,7 +5265,7 @@ components:
         state:
           type: string
           title: state
-          description: complete | partial | to_date (the current year, measured to date). (proto string)
+          description: 'complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run). (proto string)'
         strategyPct:
           type: number
           title: strategy_pct
@@ -6927,9 +6927,7 @@ components:
             - string
           title: all_reported_priced_name_days
           format: int64
-          description: |-
-            9 and 10 (flat-bar cancellations, dividend-step suspects) are not stored per year; they are run totals
-             in DataQuality and are not repeated here. (proto int64)
+          description: (proto int64)
       title: CoverageYear
       additionalProperties: false
       description: |-
@@ -15452,7 +15450,7 @@ components:
         state:
           type: string
           title: state
-          description: complete | partial | to_date. (proto string)
+          description: 'complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run). (proto string)'
         strategyPct:
           type: number
           title: strategy_pct

@@ -24,7 +24,7 @@ public interface MonthlyReturnOrBuilder extends
 
   /**
    * <pre>
-   * complete | partial | to_date.
+   * complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
    * </pre>
    *
    * <code>string state = 3 [json_name = "state"];</code>
@@ -33,7 +33,7 @@ public interface MonthlyReturnOrBuilder extends
   java.lang.String getState();
   /**
    * <pre>
-   * complete | partial | to_date.
+   * complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
    * </pre>
    *
    * <code>string state = 3 [json_name = "state"];</code>

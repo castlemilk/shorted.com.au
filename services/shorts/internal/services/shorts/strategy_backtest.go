@@ -19,6 +19,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/backtest"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/features"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
@@ -337,6 +338,9 @@ type computedRun struct {
 	chain  chainedRun
 	paper  paperTrack
 	figs   []backtest.WindowFigures
+	// cashCovered is true when the RBA cash series covers the run's first session and pays a rate: only then is
+	// the Sharpe ratio's risk-free rate the cash rate (5.9). Otherwise the identity says "none".
+	cashCovered bool
 }
 
 // assembleRun chains a run with its paper track and measures its windows.
@@ -346,17 +350,17 @@ func (s *ShortsServer) assembleRun(ctx context.Context, sr *storedRun, pt paperT
 		return nil, fmt.Errorf("backtest run %d: %w", sr.row.ID, err)
 	}
 	latest := chain.days[len(chain.days)-1].date
+	// A failed cash read is an error for the whole answer: a Sharpe ratio computed against zero is not cached as
+	// if it were the run's, so the next request reads again (the fill's error is never stored).
 	cash, err := s.strategyBacktests.ReadCashRate(ctx, latest)
 	if err != nil {
-		// Without the cash series the Sharpe ratio has no risk-free rate, which the identity states.
-		s.logger.Warnf("backtest run %d: the cash rate is unavailable, the Sharpe ratio has no risk-free rate: %v", sr.row.ID, err)
-		cash = nil
+		return nil, fmt.Errorf("backtest run %d: read the cash rate: %w", sr.row.ID, err)
 	}
 	figs, err := backtest.Windows(chain.bt, chain.paper, chain.liveFrom, cash)
 	if err != nil {
 		return nil, fmt.Errorf("backtest run %d: %w", sr.row.ID, err)
 	}
-	return &computedRun{stored: sr, chain: chain, paper: pt, figs: figs}, nil
+	return &computedRun{stored: sr, chain: chain, paper: pt, figs: figs, cashCovered: cashCovers(cash, chain.days[0].date)}, nil
 }
 
 // spanOf is the sessions of one window the run serves: the window's own sessions, from its first to its
@@ -430,25 +434,39 @@ func (c *computedRun) paperStart() string {
 	return c.chain.startAt.String()
 }
 
+// cashCovers is true when the cash series covers the session from and pays a rate on the way (5.9): the rate
+// is then the risk-free rate of the Sharpe ratio, and a series that starts later, or is all zero, is "none".
+func cashCovers(cash []features.RatePoint, from civil.Date) bool {
+	if len(cash) == 0 || cash[0].Date.After(from) {
+		return false
+	}
+	for _, r := range cash {
+		if r.Rate > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // windowNote is the note a window carries (item 7). Before the paper track starts, the window is in-sample
 // to the day before live_from. Once a track chains, the windows that span it say so, and name the track's
 // actual first session when that is after live_from. The live window is the track alone.
 func (c *computedRun) windowNote(windowID string) string {
 	if windowID == windowLive {
-		if c.chain.hasPaper {
-			return fmt.Sprintf("paper track only, recorded from %s", c.chain.startAt)
-		}
-		return "paper track only, recorded"
+		return "paper track only, recorded from " + c.chain.startAt.String()
 	}
-	switch {
-	case c.chain.hasPaper && c.chain.startAt.After(c.chain.frozenAt):
-		return fmt.Sprintf("in-sample to %s, recorded from %s", c.chain.frozenAt, c.chain.startAt)
-	case c.chain.hasPaper:
-		return fmt.Sprintf("in-sample to %s, recorded after", c.chain.frozenAt.AddDays(-1))
-	case c.chain.hasLive:
-		return fmt.Sprintf("in-sample to %s", c.chain.frozenAt.AddDays(-1))
+	if !c.chain.hasLive {
+		return ""
 	}
-	return ""
+	if !c.chain.hasPaper {
+		return fmt.Sprintf("in-sample to %s", c.chain.inSampleEnd)
+	}
+	note := fmt.Sprintf("in-sample to %s, recorded from %s", c.chain.inSampleEnd, c.chain.startAt)
+	if c.chain.hasGap {
+		// A gap is named, never bridged: no figure stands for these sessions.
+		note += fmt.Sprintf("; no figures from %s to %s", c.chain.gapFrom, c.chain.gapTo)
+	}
+	return note
 }
 
 // applyWindowNotes sets each window's note from the run's paper track.
@@ -569,6 +587,24 @@ func daysBetween(days []chainDay, from, to civil.Date) []chainDay {
 	return days[lo:hi]
 }
 
+// rebasedDays is a span with its equity rebased to 100,000 on its first session (item 4), so the compared
+// strategies start from one level. The benchmark and the reference are not carried: their levels are index
+// levels, not the strategies' own.
+func rebasedDays(days []chainDay) []chainDay {
+	out := make([]chainDay, len(days))
+	if len(days) == 0 {
+		return out
+	}
+	base := days[0].equity
+	for k, d := range days {
+		out[k] = d
+		out[k].equity = d.equity / base * 100000
+		out[k].bench, out[k].hasBench = 0, false
+		out[k].ref, out[k].hasRef = 0, false
+	}
+	return out
+}
+
 // servedSeries is the series a request gets: the chosen window's sessions, decimated to daily when
 // they are at most weeklyPointCap, and to weekly otherwise.
 type servedSeries struct {
@@ -595,7 +631,9 @@ func (c *computedRun) serveSeries(specID, resolution string) servedSeries {
 		}
 	}
 	if fig == nil {
-		return servedSeries{windowID: specID}
+		// The window has no sessions (a live window with no paper track yet): no points, and the resolution
+		// says so, rather than an empty string.
+		return servedSeries{windowID: specID, resolution: "none"}
 	}
 	days := c.spanOf(*fig)
 	out := servedSeries{windowID: specID, window: fig, days: days}
@@ -624,7 +662,12 @@ func (c *computedRun) serveSeries(specID, resolution string) servedSeries {
 
 // coverageRows are both measures by year and by month. A year or month a measure does not carry reads as
 // not measurable, not zero. The per-year exit counts come from the trades that exited in the year.
-func coverageRows(cov backtest.Coverage, trades []shortsstore.BacktestTradeRow) ([]*shortsv1alpha1.CoverageYear, []*shortsv1alpha1.CoverageMonth) {
+// coverageRows serves the coverage of a run by year and by month under the measures its survivorship names.
+// One measure per strategy (item 7): a measured run serves both measures, each named; an ASIC-reported run
+// (Minervini) serves only the all-reported measure, which is the measure its annual figures use, and the
+// qualifying figures are left out rather than served beside it as if they were this strategy's.
+func coverageRows(cov backtest.Coverage, trades []shortsstore.BacktestTradeRow, measurement string) ([]*shortsv1alpha1.CoverageYear, []*shortsv1alpha1.CoverageMonth) {
+	asicOnly := measurement == backtest.MeasurementASICOnly
 	type pair struct{ q, a *backtest.CoveragePeriod }
 	years := map[string]*pair{}
 	months := map[string]*pair{}
@@ -676,6 +719,14 @@ func coverageRows(cov backtest.Coverage, trades []shortsstore.BacktestTradeRow) 
 		row := &shortsv1alpha1.CoverageYear{Year: int32(y), DelistingExits: delisted[y], CaExits: cas[y]}
 		row.Measurable, row.QualifyingNameDays, row.PricedNameDays, row.CoveragePct = measureOf(e.q)
 		row.AllReportedMeasurable, row.AllReportedNameDays, row.AllReportedPricedNameDays, row.AllReportedPct = measureOf(e.a)
+		if asicOnly {
+			// The qualifying measure is not this strategy's: it is not served. The all-reported measure is
+			// measurable from 2025, and not before (the cells' "?" marker).
+			row.Measurable, row.QualifyingNameDays, row.PricedNameDays, row.CoveragePct = false, 0, 0, 0
+			if y < coverageMeasurableFrom {
+				row.AllReportedMeasurable, row.AllReportedNameDays, row.AllReportedPricedNameDays, row.AllReportedPct = false, 0, 0, 0
+			}
+		}
 		outY = append(outY, row)
 	}
 	var outM []*shortsv1alpha1.CoverageMonth
@@ -684,6 +735,12 @@ func coverageRows(cov backtest.Coverage, trades []shortsstore.BacktestTradeRow) 
 		row := &shortsv1alpha1.CoverageMonth{Month: k}
 		row.Measurable, _, _, row.CoveragePct = measureOf(e.q)
 		row.AllReportedMeasurable, _, _, row.AllReportedPct = measureOf(e.a)
+		if asicOnly {
+			row.Measurable, row.CoveragePct = false, 0
+			if y, err := strconv.Atoi(k[:4]); err == nil && y < coverageMeasurableFrom {
+				row.AllReportedMeasurable, row.AllReportedPct = false, 0
+			}
+		}
 		outM = append(outM, row)
 	}
 	return outY, outM
@@ -788,7 +845,7 @@ func recipeLinesOf(r spec.Recipe) *shortsv1alpha1.RecipeLines {
 }
 
 // disclosuresOf is the copy every run prints beside its figures (1.8), verbatim where the spec fixes it.
-func disclosuresOf(inSampleUntil, liveFrom, caveat string) []string {
+func disclosuresOf(c chainedRun, inSampleUntil, caveat string) []string {
 	out := []string{
 		"Hypothetical results from rules applied to historical data, not a record of trading. Not financial advice.",
 		"Total return: dividends as adjusted by the price vendor, or credited in cash on the ex-date from ASX dividend notices where the vendor has not adjusted them (notices from 11 Sep 2024); franking excluded; vs S&P/ASX 200 Gross Total Return.",
@@ -800,7 +857,15 @@ func disclosuresOf(inSampleUntil, liveFrom, caveat string) []string {
 		out = append(out, caveat)
 	}
 	if inSampleUntil != "" {
-		out = append(out, fmt.Sprintf("In-sample · rules frozen %s: the figures to %s are in-sample; the recorded paper track follows.", liveFrom, inSampleUntil))
+		// The freeze is live_from; the in-sample figures end the session before it, and the same dates the window
+		// notes and the paper summary carry (a late-starting track is named with its own first session).
+		line := fmt.Sprintf("In-sample · rules frozen %s: the figures to %s are in-sample", c.frozenAt, c.inSampleEnd)
+		if c.hasPaper {
+			line += fmt.Sprintf("; the recorded paper track follows from %s", c.startAt)
+		} else {
+			line += "; no paper track is recorded yet"
+		}
+		out = append(out, line+".")
 	}
 	return out
 }
@@ -862,10 +927,10 @@ func recipeIDOf(hash string) string {
 }
 
 // runIdentityOf is a run's identity. The run date is the Sydney date the run finished on.
-func runIdentityOf(sr *storedRun, lb liveBacktest) *shortsv1alpha1.BacktestRunIdentity {
+func runIdentityOf(sr *storedRun, lb liveBacktest, cashCovered bool) *shortsv1alpha1.BacktestRunIdentity {
 	row := sr.row
 	risk := "none"
-	if row.Fundamentals != "" {
+	if cashCovered {
 		risk = "RBA cash rate"
 	}
 	ref := ""
@@ -932,7 +997,7 @@ func (s *ShortsServer) runFromStored(ctx context.Context, lb liveBacktest, sr *s
 	applyWindowNotes(wins, c)
 	served := c.serveSeries(specWin, resolution)
 	annual, monthly := periodTables(c.chain.days, sr.summary.Coverage, sr.summary.Survivorship.Measurement)
-	covYears, covMonths := coverageRows(sr.summary.Coverage, sr.trades)
+	covYears, covMonths := coverageRows(sr.summary.Coverage, sr.trades, sr.summary.Survivorship.Measurement)
 
 	// The in-sample trades are the ones that exited before live_from (1.5); the paper track counts in
 	// the windows, not here.
@@ -946,7 +1011,7 @@ func (s *ShortsServer) runFromStored(ctx context.Context, lb liveBacktest, sr *s
 		State:               state,
 		StateReason:         reason,
 		StrategyId:          sr.row.StrategyID,
-		Identity:            runIdentityOf(sr, lb),
+		Identity:            runIdentityOf(sr, lb, c.cashCovered),
 		Windows:             wins,
 		Annual:              annual,
 		Monthly:             monthly,
@@ -962,7 +1027,7 @@ func (s *ShortsServer) runFromStored(ctx context.Context, lb liveBacktest, sr *s
 		EngineMatchesLive:   sr.row.EngineVersion == engine.Version,
 		ReplayAgreement:     s.replayFor(c, lb),
 		InputChangeNote:     diffNoteOf(sr.summary.Diff),
-		Disclosures:         disclosuresOf(sr.row.InSampleUntil, c.chain.liveFromString(), sr.summary.Survivorship.Caveat),
+		Disclosures:         disclosuresOf(c.chain, sr.row.InSampleUntil, sr.summary.Survivorship.Caveat),
 		DataNotes:           dataNotesOf(sr.summary.DataQuality),
 		DataQuality:         dataQualityOf(sr.summary.DataQuality),
 		SeriesResolution:    served.resolution,
@@ -970,6 +1035,9 @@ func (s *ShortsServer) runFromStored(ctx context.Context, lb liveBacktest, sr *s
 		FundamentalsLabel:   fundamentalsLabel(sr.row.Fundamentals),
 		PaperStart:          c.paperStart(),
 		PaperEngineSegments: engineSegmentsOf(pt.equity),
+	}
+	if served.resolution == "none" {
+		run.DataNotes = append(run.DataNotes, "The live window has no sessions: the paper track has not recorded any since the rules froze.")
 	}
 	return run, nil
 }
@@ -1004,14 +1072,6 @@ func recipeLinesOfHash(hash string) *shortsv1alpha1.RecipeLines {
 		return nil
 	}
 	return recipeLinesOf(r)
-}
-
-// liveFromString is the chain's live_from as a date, "" for a run with no live split.
-func (c chainedRun) liveFromString() string {
-	if !c.hasLive {
-		return ""
-	}
-	return c.liveFrom.String()
 }
 
 // replayFor is the replay line of a run (5.13). A run whose fundamentals policy is not the live recipe's
@@ -1181,9 +1241,23 @@ func (s *ShortsServer) publishedRun(ctx context.Context, lb liveBacktest, row sh
 // its annual returns, its month-end curve and the paper track. A read that fails fails the whole list; a
 // state is never guessed for one strategy. Cached per instance.
 func (s *ShortsServer) ListStrategyEvidence(ctx context.Context, _ *connect.Request[shortsv1alpha1.ListStrategyEvidenceRequest]) (*connect.Response[shortsv1alpha1.ListStrategyEvidenceResponse], error) {
+	// Only a complete answer is cached (item 18): an answer whose today counts are missing is served once and
+	// read again by the next request, so a transient universe failure does not persist for 15 minutes.
+	var incomplete *shortsv1alpha1.ListStrategyEvidenceResponse
 	v, err := s.cachedBacktest("backtest_evidence", func() (any, error) {
-		return s.evidenceResponse(context.WithoutCancel(ctx))
+		resp, complete, err := s.evidenceResponse(context.WithoutCancel(ctx))
+		if err != nil {
+			return nil, err
+		}
+		if !complete {
+			incomplete = resp
+			return nil, errEvidenceIncomplete
+		}
+		return resp, nil
 	})
+	if errors.Is(err, errEvidenceIncomplete) {
+		return connect.NewResponse(proto.Clone(incomplete).(*shortsv1alpha1.ListStrategyEvidenceResponse)), nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1191,7 +1265,12 @@ func (s *ShortsServer) ListStrategyEvidence(ctx context.Context, _ *connect.Requ
 }
 
 // evidenceResponse is the uncached answer of ListStrategyEvidence.
-func (s *ShortsServer) evidenceResponse(ctx context.Context) (*shortsv1alpha1.ListStrategyEvidenceResponse, error) {
+// errEvidenceIncomplete is the fill's signal that an answer is served but not cached.
+var errEvidenceIncomplete = errors.New("strategy evidence is incomplete")
+
+// evidenceResponse is the uncached answer of ListStrategyEvidence. complete is false when any strategy's today
+// counts could not be read.
+func (s *ShortsServer) evidenceResponse(ctx context.Context) (*shortsv1alpha1.ListStrategyEvidenceResponse, bool, error) {
 	out := &shortsv1alpha1.ListStrategyEvidenceResponse{
 		WindowStart:   backtestWindowStart,
 		BenchmarkName: benchmarkName,
@@ -1201,18 +1280,22 @@ func (s *ShortsServer) evidenceResponse(ctx context.Context) (*shortsv1alpha1.Li
 			"Since May 2019 is in-sample up to the day the rules froze, then the recorded paper track.",
 		},
 	}
+	complete := true
 	for _, st := range engine.Registry() {
 		ev, prices, err := s.strategyEvidence(ctx, st)
 		if err != nil {
 			s.logger.Errorf("ListStrategyEvidence: %s failed: %v", st.ID, err)
-			return nil, connect.NewError(connect.CodeUnavailable, errors.New("strategy evidence is not available"))
+			return nil, false, connect.NewError(connect.CodeUnavailable, errors.New("strategy evidence is not available"))
+		}
+		if ev.Today == nil {
+			complete = false
 		}
 		if prices > out.PricesThrough {
 			out.PricesThrough = prices
 		}
 		out.Strategies = append(out.Strategies, ev)
 	}
-	return out, nil
+	return out, complete, nil
 }
 
 // strategyEvidence assembles one strategy's evidence and the price session its run read.
@@ -1225,7 +1308,7 @@ func (s *ShortsServer) strategyEvidence(ctx context.Context, st engine.Strategy)
 	if err != nil {
 		return nil, "", err
 	}
-	ev := &shortsv1alpha1.StrategyEvidence{StrategyId: st.ID, State: bs.state, StateReason: bs.reason, UniverseKind: universeKindOf(st.ID)}
+	ev := &shortsv1alpha1.StrategyEvidence{StrategyId: st.ID, State: bs.state, StateReason: bs.reason, UniverseKind: universeKindOfLive(lb.reg, lb.found)}
 	if lb.found {
 		ev.Version = versionRefWith(lb.reg, lb.hash, lb.table.stateOf(lb.reg, lb.hash))
 	}
@@ -1491,7 +1574,7 @@ func (s *ShortsServer) CompareStrategies(ctx context.Context, req *connect.Reque
 		f := backtest.WindowOf("common", "Common window", series, nil, "")
 		trades := windowTradesFor(p.c.stored.trades, p.c.paper.trades, p.c.chain.liveFrom, p.c.chain.hasLive, p.c.chain.paper != nil)
 		p.entry.Window = windowMetrics(f, sub, trades)
-		p.entry.Series = seriesOf(sub, keptSessions(sub, nil))
+		p.entry.Series = seriesOf(rebasedDays(sub), keptSessions(sub, nil))
 		returns[p.entry.StrategyId] = dailyReturns(sub)
 		out.Entries = append(out.Entries, p.entry)
 	}

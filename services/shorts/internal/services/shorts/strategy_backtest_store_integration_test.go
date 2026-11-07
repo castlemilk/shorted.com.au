@@ -107,7 +107,7 @@ func TestPublicReadersNeverReturnVariantsAgainstThePostgresStore(t *testing.T) {
 	require.NoError(t, err)
 	reader, ok := st.(shortsstore.StrategyBacktestStore)
 	require.True(t, ok, "the Postgres store is the backtest reader")
-	srv := newTestServer(t, newBacktestStoresMock(t))
+	srv := newTestServer(t, newBacktestStoresMock(t, fixtureVersionRows(t)))
 	srv.strategyBacktests = reader
 
 	// The publishable run is served, and only it.

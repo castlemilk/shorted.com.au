@@ -95,6 +95,24 @@ func liveKeys(t *testing.T, id string) (string, string) {
 	return rules, recipe
 }
 
+// fixtureSensitivities are the five sensitivity runs of a canonical run (5.12), in the table's order. Only the
+// costs run is fragile.
+func fixtureSensitivities() backtest.Sensitivities {
+	fig := func(cagr, excess, dd float64) backtest.Figures {
+		return backtest.Figures{CAGR: cagr, HasCAGR: true, Excess: excess, HasExcess: true, MaxDrawdown: dd}
+	}
+	return backtest.Sensitivities{
+		Base: fig(0.12, 0.05, -0.31),
+		Runs: []backtest.Sensitivity{
+			{ID: backtest.SensCostsX2, Label: "Costs doubled", Applies: true, Figures: fig(0.09, -0.01, -0.33), Fragile: backtest.FragileCosts},
+			{ID: backtest.SensASICLagPlus2, Label: "ASIC publication two sessions later", Applies: true, Figures: fig(0.11, 0.03, -0.32)},
+			{ID: backtest.SensDelistingZero, Label: "Delisted positions exit at zero", Applies: true, Figures: fig(0.11, 0.04, -0.32)},
+			{ID: backtest.SensEntryPlus1, Label: "Entry one session later", Applies: true, Figures: fig(0.10, 0.02, -0.30)},
+			{ID: backtest.SensFlatMockup, Label: "Mockup costs (flat 10 + 5 bps per side) flatter small-cap breakouts", Applies: true, Figures: fig(0.11, 0.03, -0.31)},
+		},
+	}
+}
+
 // fixtureRun is a publishable canonical run of a strategy's live key, with its series, summary and trades
 // encoded the way the job writes them. measurement is the summary's survivorship measurement.
 func fixtureRun(t *testing.T, id string, runID int64, measurement string) (shortsstore.BacktestRunRow, []byte, []shortsstore.BacktestTradeRow) {
@@ -135,10 +153,13 @@ func fixtureRun(t *testing.T, id string, runID int64, measurement string) (short
 	if measurement == backtest.MeasurementASICOnly {
 		sum.Survivorship.Caveat = "Coverage is measured on ASIC-reported names only; the gap cannot be measured for companies that were never reported short."
 	}
+	// The five sensitivity runs of 5.12, with one fragile (a sign flip of the excess CAGR under costs doubled).
+	sum.Sensitivity = fixtureSensitivities()
 	rawSummary, err := json.Marshal(sum)
 	require.NoError(t, err)
 	row := shortsstore.BacktestRunRow{
 		ID: runID, RunKey: fmt.Sprintf("key-%d", runID), Kind: "publish", StrategyID: id,
+		InputHash: strings.Repeat("1", 64), OutputHash: strings.Repeat("2", 64), BuildRevision: "fixture",
 		RulesHash: rules, RecipeHash: recipe, EngineVersion: engine.Version, Published: true,
 		WindowStart: "2019-05-01", WindowEnd: "2026-11-05", Fundamentals: "strict",
 		PricesThrough: "2026-11-05", ASICThrough: "2026-11-02", IndexThrough: "2026-11-05",
@@ -173,13 +194,18 @@ type backtestStoreFake struct {
 	paperEq       []shortsstore.PaperEquityRow
 	paperTrades   []shortsstore.PaperTradeRow
 	// paperRules is the rules hash the paper track belongs to: other strategies have no track in the fake.
-	paperRules string
-	cash          []features.RatePoint
-	seriesReads   int
+	paperRules  string
+	cash        []features.RatePoint
+	seriesReads int
 	// failNextSeries makes the next series read fail, to prove an error is not cached.
 	failNextSeries bool
 	// schemaErr makes every read answer a missing migration, as an unmigrated schema does.
 	schemaErr bool
+	// publishedReads counts the published-run reads: one per evidence strategy and request.
+	publishedReads int
+	// cashErr makes the cash-rate read fail, so a request that needs it fails rather than caching a Sharpe ratio
+	// computed without one.
+	cashErr bool
 }
 
 func newBacktestFake() *backtestStoreFake {
@@ -230,6 +256,7 @@ func (f *backtestStoreFake) schemaOr(ok bool) error {
 }
 
 func (f *backtestStoreFake) ReadPublishedBacktest(_ context.Context, id, rules, recipe string) (shortsstore.BacktestRunRow, bool, error) {
+	f.publishedReads++
 	if err := f.schemaOr(true); err != nil {
 		return shortsstore.BacktestRunRow{}, false, err
 	}
@@ -348,24 +375,57 @@ func (f *backtestStoreFake) ReadPaperTrades(_ context.Context, rules, _ string) 
 }
 
 func (f *backtestStoreFake) ReadCashRate(_ context.Context, _ civil.Date) ([]features.RatePoint, error) {
+	if f.cashErr {
+		return nil, errors.New("the cash series is unreadable")
+	}
 	return f.cash, nil
 }
 
-// backtestServer is a server whose backtest reads are the fake, with a candidate universe that fails (the
-// today counts are then left out, as for any unreadable universe).
+// versionedStore is the test store: the mock, with the canonical version table the version RPCs and the live
+// version read from. Its rows are the table's rows; a strategy with no row falls back to the registry.
+type versionedStore struct {
+	*mocks.MockShortsStore
+	rows []shortsstore.CanonicalRuleVersion
+}
+
+// ReadCanonicalRuleVersions is the table.
+func (v *versionedStore) ReadCanonicalRuleVersions(context.Context) ([]shortsstore.CanonicalRuleVersion, error) {
+	return v.rows, nil
+}
+
+// fixtureVersionRows is the table of the fixture: Crowded-Short's live version went live on the day the rules
+// froze (live_from 2026-10-01, the freeze the fixture's run is in-sample to the day before).
+func fixtureVersionRows(t *testing.T) []shortsstore.CanonicalRuleVersion {
+	t.Helper()
+	rules, _ := liveKeys(t, spec.StrategyCrowdedShortBreakout)
+	return []shortsstore.CanonicalRuleVersion{
+		{RulesHash: rules, StrategyID: spec.StrategyCrowdedShortBreakout, Label: "v1", Status: "live", LiveFrom: "2026-10-01"},
+	}
+}
+
+// backtestServer is a server whose backtest reads are the fake, with the fixture's version table. Its candidate
+// universe is empty and its market regime is neutral, so the today counts are complete.
 func backtestServer(t *testing.T, fake *backtestStoreFake) *ShortsServer {
 	t.Helper()
-	srv := newTestServer(t, newBacktestStoresMock(t))
+	return backtestServerWithRows(t, fake, fixtureVersionRows(t))
+}
+
+// backtestServerWithRows is backtestServer with a given version table.
+func backtestServerWithRows(t *testing.T, fake *backtestStoreFake, rows []shortsstore.CanonicalRuleVersion) *ShortsServer {
+	t.Helper()
+	srv := newTestServer(t, newBacktestStoresMock(t, rows))
 	srv.strategyBacktests = fake
 	return srv
 }
 
-// newBacktestStoresMock is the store mock: its candidate read fails, which the evidence tolerates.
-func newBacktestStoresMock(t *testing.T) ShortsStore {
+// newBacktestStoresMock is the store the server reads: the mock with an empty candidate universe and a neutral
+// regime, so the today counts are computed, plus the given version table.
+func newBacktestStoresMock(t *testing.T, rows []shortsstore.CanonicalRuleVersion) ShortsStore {
 	t.Helper()
 	m := mocks.NewMockShortsStore(gomock.NewController(t))
-	m.EXPECT().ListStrategyCandidates(gomock.Any()).Return(nil, errors.New("no candidate universe in this test")).AnyTimes()
-	return m
+	m.EXPECT().ListStrategyCandidates(gomock.Any()).Return([]engine.Candidate{}, nil).AnyTimes()
+	m.EXPECT().GetMarketRegime(gomock.Any(), gomock.Any()).Return(engine.Regime{}, nil).AnyTimes()
+	return &versionedStore{MockShortsStore: m, rows: rows}
 }
 
 // anonymousContext is a request with no verified identity.
@@ -1009,10 +1069,10 @@ func TestListStrategyEvidenceIsCached(t *testing.T) {
 	srv := backtestServer(t, fake)
 	_, err := srv.ListStrategyEvidence(anonymousContext(), connect.NewRequest(&shortsv1alpha1.ListStrategyEvidenceRequest{}))
 	require.NoError(t, err)
-	reads := fake.seriesReads
+	reads := fake.publishedReads
 	_, err = srv.ListStrategyEvidence(anonymousContext(), connect.NewRequest(&shortsv1alpha1.ListStrategyEvidenceRequest{}))
 	require.NoError(t, err)
-	assert.Equal(t, reads, fake.seriesReads)
+	assert.Equal(t, reads, fake.publishedReads, "a complete answer is served from the cache")
 }
 
 // Degraded schema (1.7): a database without the backtest or paper tables reads as run_required, never an error.
@@ -1172,9 +1232,9 @@ func TestPayloadOfARealisticRunStaysNearItsBudget(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("GetBacktestRun (7.5 years, weekly, two-measure monthly coverage): %d bytes, %d series points, %d monthly coverage rows",
 		len(b), len(resp.Msg.Run.Series), len(resp.Msg.Run.CoverageMonthly))
-	// The target is 60 KB. The measured run is 75 to 79 KB: the 398 weekly points are about 42 KB of it, the
-	// monthly table about 13 KB and the monthly coverage about 9 KB, with the fixed copy and identity the rest.
-	// This guard holds the measured figure; it is not the target (reported as not met).
+	// The target is 60 KB. The measured run is 78.6 KB with the five sensitivity runs of 5.12 and the overlap fields
+	// served: the 398 weekly points are about 42 KB of it, the monthly table about 13 KB and the monthly coverage
+	// about 9 KB, with the fixed copy and identity the rest. The guard holds that figure; the target is not met.
 	assert.LessOrEqual(t, len(b), 80*1024, "the realistic run stays within 80 KB (the target is 60 KB)")
 }
 
@@ -1196,9 +1256,9 @@ func paperFrom(dates []civil.Date, from civil.Date, truth func(m int) float64, e
 	return out
 }
 
-// The paper track chains at its actual first session, not at live_from: a track that starts a session late
-// is rebased on the in-sample level before it, the in-sample curve runs to the day before the start, and the
-// window and the run say where the track starts (item 7, point 1).
+// The paper track is kept from live_from and chains at its actual first session. The in-sample curve ends the
+// session before live_from, and the sessions between that and the track's first are a named gap, never a bridge
+// (items 1 and 17). A track that starts a session late is rebased on the last in-sample level.
 func TestPaperTrackChainsAtItsActualStart(t *testing.T) {
 	dates := weekdays(civil.Date{Year: 2026, Month: time.September, Day: 1}, civil.Date{Year: 2026, Month: time.October, Day: 15})
 	series := fixtureSeries(dates)
@@ -1207,25 +1267,31 @@ func TestPaperTrackChainsAtItsActualStart(t *testing.T) {
 	chain, err := buildChainedRun(series, backtestFixtureLiveFrom.AddDays(-1).String(), paper)
 	require.NoError(t, err)
 	require.True(t, chain.hasPaper)
-	assert.Equal(t, actual, chain.startAt)
-	assert.Equal(t, actual, chain.liveFrom, "the cut is the actual start")
-	assert.Equal(t, backtestFixtureLiveFrom, chain.frozenAt, "live_from is kept for the label")
+	assert.Equal(t, backtestFixtureLiveFrom, chain.liveFrom, "the freeze is live_from")
+	assert.Equal(t, backtestFixtureLiveFrom, chain.frozenAt)
+	assert.Equal(t, backtestFixtureLiveFrom.AddDays(-1), chain.inSampleEnd, "the in-sample figures end the session before live_from")
+	assert.Equal(t, actual, chain.startAt, "the paper track is recorded from its actual start")
+	assert.True(t, chain.hasGap)
+	assert.Equal(t, backtestFixtureLiveFrom, chain.gapFrom)
+	assert.Equal(t, backtestFixtureLiveFrom, chain.gapTo)
 
 	var baseIdx int
 	for k, d := range dates {
-		if d == backtestFixtureLiveFrom {
+		if d == backtestFixtureLiveFrom.AddDays(-1) {
 			baseIdx = k
 		}
 	}
+	var sawLiveFrom bool
 	for _, d := range chain.days {
+		if d.date == backtestFixtureLiveFrom {
+			sawLiveFrom = true
+		}
 		if d.date == actual {
-			assert.InDelta(t, series.E[baseIdx], d.equity, 1e-9, "the track's first session starts at the in-sample level before it")
+			assert.InDelta(t, series.E[baseIdx], d.equity, 1e-9, "the track's first session starts at the last in-sample level")
 			assert.True(t, d.recorded)
 		}
-		if d.date == backtestFixtureLiveFrom {
-			assert.False(t, d.recorded, "live_from itself is in-sample: the track had not started")
-		}
 	}
+	assert.False(t, sawLiveFrom, "live_from itself is in the gap: no figure stands for it")
 	figs, err := backtest.Windows(chain.bt, chain.paper, chain.liveFrom, nil)
 	require.NoError(t, err)
 	for _, f := range figs {
@@ -1234,7 +1300,7 @@ func TestPaperTrackChainsAtItsActualStart(t *testing.T) {
 		}
 	}
 
-	// The run states the start, and the since window's note names both dates.
+	// The run states the start, and the since window's note names the in-sample end, the start and the gap.
 	fake := newBacktestFake()
 	fake.publish(t, spec.StrategyCrowdedShortBreakout, 101)
 	fake.paperEq = paper
@@ -1244,9 +1310,45 @@ func TestPaperTrackChainsAtItsActualStart(t *testing.T) {
 	assert.Equal(t, actual.String(), resp.Msg.Run.PaperStart)
 	for _, w := range resp.Msg.Run.Windows {
 		if w.Window == windowSince2019 {
-			assert.Equal(t, "in-sample to 2026-10-01, recorded from 2026-10-02", w.Note)
+			assert.Equal(t, "in-sample to 2026-09-30, recorded from 2026-10-02; no figures from 2026-10-01 to 2026-10-01", w.Note)
 		}
 	}
+}
+
+// Freeze, in-sample end, track start and the notes agree, the same way, in every place the run states them
+// (item 1): the disclosure, the window notes, the identity and the paper summary.
+func TestLateStartedTrackAgreesAcrossDisclosureNotesIdentityAndSummary(t *testing.T) {
+	fake := newBacktestFake()
+	fake.publish(t, spec.StrategyCrowdedShortBreakout, 101)
+	dates := weekdays(civil.Date{Year: 2026, Month: time.September, Day: 1}, civil.Date{Year: 2026, Month: time.November, Day: 5})
+	fake.paperEq = paperFrom(dates, backtestFixtureLiveFrom.AddDays(1), func(m int) float64 { return 5000 }, engine.Version)
+	srv := backtestServer(t, fake)
+	resp, err := srv.GetBacktestRun(anonymousContext(), connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: spec.StrategyCrowdedShortBreakout}))
+	require.NoError(t, err)
+	run := resp.Msg.Run
+
+	disclosure := ""
+	for _, d := range run.Disclosures {
+		if strings.HasPrefix(d, "In-sample ·") {
+			disclosure = d
+		}
+	}
+	assert.Equal(t, "In-sample · rules frozen 2026-10-01: the figures to 2026-09-30 are in-sample; the recorded paper track follows from 2026-10-02.", disclosure)
+	assert.Equal(t, "2026-09-30", run.Identity.InSampleUntil, "identity: the last in-sample session is live_from minus one")
+	assert.Equal(t, "2026-10-02", run.PaperStart)
+	for _, w := range run.Windows {
+		if w.Window == windowSince2019 {
+			assert.Contains(t, w.Note, "in-sample to 2026-09-30, recorded from 2026-10-02")
+		}
+		if w.Window == windowLive {
+			assert.Equal(t, "paper track only, recorded from 2026-10-02", w.Note)
+		}
+	}
+	ev, err := srv.ListStrategyEvidence(anonymousContext(), connect.NewRequest(&shortsv1alpha1.ListStrategyEvidenceRequest{}))
+	require.NoError(t, err)
+	paper := findEvidence(t, ev.Msg.Strategies, spec.StrategyCrowdedShortBreakout).Paper
+	assert.Equal(t, "2026-10-01", paper.Since, "the summary's since is the freeze")
+	assert.Equal(t, "2026-10-02", paper.RecordedFrom, "the summary's recorded_from is the track's first session")
 }
 
 // The probe: a benchmark that rises 1% a session. Chained from the raw XJT close on each paper session, the

@@ -105,7 +105,7 @@ func (s *ShortsServer) ListStrategies(ctx context.Context, req *connect.Request[
 	}
 	served := s.servedRefs(ctx)
 	for _, st := range registry {
-		resp.Strategies = append(resp.Strategies, strategyProto(st, st.CaveatsWithCoverage(0, -1), served[st.ID]))
+		resp.Strategies = append(resp.Strategies, strategyProto(st, st.CaveatsWithCoverage(0, -1), served[st.ID], s.liveUniverseKind(ctx, st.ID)))
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -195,7 +195,7 @@ func (s *ShortsServer) GetStrategyPicks(ctx context.Context, req *connect.Reques
 	if depth.limit > 0 && q.offset != 0 {
 		return nil, fullSignalListRefused(depth.access, depth.limit)
 	}
-	return connect.NewResponse(picksResponse(eval, q, depth)), nil
+	return connect.NewResponse(picksResponse(eval, q, depth, s.liveUniverseKind(ctx, q.st.ID))), nil
 }
 
 // GetViewerStrategyPicks is GetStrategyPicks at the caller's full depth. It
@@ -217,7 +217,7 @@ func (s *ShortsServer) GetViewerStrategyPicks(ctx context.Context, req *connect.
 		s.logger.Errorf("database error in GetViewerStrategyPicks: strategy_id=%s err=%v", q.st.ID, err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to evaluate strategy"))
 	}
-	return connect.NewResponse(picksResponse(eval, q, picksDepth{access: access})), nil
+	return connect.NewResponse(picksResponse(eval, q, picksDepth{access: access}, s.liveUniverseKind(ctx, q.st.ID))), nil
 }
 
 // publicPicksDepth is the depth a public read gives its caller. An anonymous
@@ -237,7 +237,7 @@ func (s *ShortsServer) publicPicksDepth(ctx context.Context) picksDepth {
 // Under a clamp the rows come from the top of the default ranking only, and
 // the filter and sort apply within them. The counts and the total stay global,
 // since they reveal no names.
-func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *shortsv1alpha1.GetStrategyPicksResponse {
+func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth, universeKind string) *shortsv1alpha1.GetStrategyPicksResponse {
 	u := eval.universe
 	ranked := eval.picks
 	limit := q.limit
@@ -264,7 +264,7 @@ func picksResponse(eval *strategyEvaluation, q picksQuery, depth picksDepth) *sh
 	end := min(start+limit, len(matching))
 
 	resp := &shortsv1alpha1.GetStrategyPicksResponse{
-		Strategy:                  strategyProto(q.st, q.st.CaveatsWithCoverage(eval.coverageFor(q.st), eval.candidates), eval.version),
+		Strategy:                  strategyProto(q.st, q.st.CaveatsWithCoverage(eval.coverageFor(q.st), eval.candidates), eval.version, universeKind),
 		Regime:                    marketRegimeProto(u.regime, q.st.RegimeVerdict(u.regime)),
 		Picks:                     make([]*shortsv1alpha1.StrategyPick, 0, end-start),
 		TotalCount:                int32(total),
@@ -533,7 +533,7 @@ func strategyIDList() string {
 	return strings.Join(ids, ", ")
 }
 
-func strategyProto(st engine.Strategy, caveats []string, version *shortsv1alpha1.StrategyVersionRef) *shortsv1alpha1.Strategy {
+func strategyProto(st engine.Strategy, caveats []string, version *shortsv1alpha1.StrategyVersionRef, universeKind string) *shortsv1alpha1.Strategy {
 	rules := make([]*shortsv1alpha1.StrategyRule, 0, len(st.Rules))
 	for _, r := range st.Rules {
 		rules = append(rules, &shortsv1alpha1.StrategyRule{
@@ -565,7 +565,7 @@ func strategyProto(st engine.Strategy, caveats []string, version *shortsv1alpha1
 			Universe:       st.Metadata.Universe,
 			RefreshCadence: st.Metadata.RefreshCadence,
 			RuleCount:      int32(len(st.Rules)),
-			UniverseKind:   universeKindOf(st.ID),
+			UniverseKind:   universeKind,
 		},
 		Caveats: append([]string(nil), caveats...),
 		Sources: append([]string(nil), st.Sources...),
@@ -573,19 +573,30 @@ func strategyProto(st engine.Strategy, caveats []string, version *shortsv1alpha1
 	}
 }
 
-// universeKindOf is the structured universe of a strategy's live canonical version: asic_reported when its
-// candidates are the names in the latest ASIC report (UniverseSpec.ASICReported), else asx_ordinary. It reads
-// the registry's live entry, the same version the registry names as live under every source, so a v0 served
-// read still classifies by the live rules. A strategy with no live entry has no kind ("") rather than a guess.
-func universeKindOf(strategyID string) string {
-	live, ok := spec.Live(strategyID)
-	if !ok {
+// universeKindOfLive is the structured universe of a live canonical version: asic_reported when its candidates
+// are the names in the latest ASIC report (UniverseSpec.ASICReported), else asx_ordinary. found is false when no
+// live version is known, and the kind is "" rather than a guess. The live version is the version table's live
+// row, falling back to the registry only when the table has none (liveBacktestOf), so the kind and the version
+// the evidence names are one answer.
+func universeKindOfLive(reg spec.Registered, found bool) string {
+	if !found {
 		return ""
 	}
-	if live.Spec.Universe.ASICReported {
+	if reg.Spec.Universe.ASICReported {
 		return universeASICReported
 	}
 	return universeASXOrdinary
+}
+
+// liveUniverseKind is a strategy's universe kind from its live version as the table names it (item 6). A
+// table that cannot be read leaves the kind absent, the same as an unknown strategy.
+func (s *ShortsServer) liveUniverseKind(ctx context.Context, strategyID string) string {
+	lb, err := s.liveBacktestOf(ctx, strategyID)
+	if err != nil {
+		s.logger.Warnf("universe kind of %s unavailable: %v", strategyID, err)
+		return ""
+	}
+	return universeKindOfLive(lb.reg, lb.found)
 }
 
 // The structured universe kinds the explorer filters by (StrategyMetadata.universe_kind).

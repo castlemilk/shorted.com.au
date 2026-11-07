@@ -94,6 +94,7 @@ type backtestWindow struct {
 	ReferenceTotalReturnPct       *float64 `json:"reference_total_return_pct,omitempty"`
 	ReferenceTo                   string   `json:"reference_to,omitempty"`
 	StrategyOverlapTotalReturnPct *float64 `json:"strategy_overlap_total_return_pct,omitempty"`
+	StrategyOverlapCagrPct        *float64 `json:"strategy_overlap_cagr_pct,omitempty"`
 	MaxDrawdownPct                float64  `json:"max_drawdown_pct"`
 	Sharpe                        *float64 `json:"sharpe,omitempty"`
 	SharpeSE                      *float64 `json:"sharpe_se,omitempty"`
@@ -196,6 +197,9 @@ func fillComputed(body *backtestBody, run *shortsv1alpha1.BacktestRun) {
 		}
 		if w.GetHasStrategyOverlapTotalReturn() {
 			row.StrategyOverlapTotalReturnPct = ptr(w.GetStrategyOverlapTotalReturnPct())
+		}
+		if w.GetHasStrategyOverlapCagr() {
+			row.StrategyOverlapCagrPct = ptr(w.GetStrategyOverlapCagrPct())
 		}
 		if w.GetHasSharpe() {
 			row.Sharpe = ptr(w.GetSharpe())

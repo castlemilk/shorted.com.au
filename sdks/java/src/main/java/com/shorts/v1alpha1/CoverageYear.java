@@ -186,11 +186,6 @@ private static final long serialVersionUID = 0L;
   public static final int ALL_REPORTED_PRICED_NAME_DAYS_FIELD_NUMBER = 13;
   private long allReportedPricedNameDays_ = 0L;
   /**
-   * <pre>
-   * 9 and 10 (flat-bar cancellations, dividend-step suspects) are not stored per year; they are run totals
-   * in DataQuality and are not repeated here.
-   * </pre>
-   *
    * <code>int64 all_reported_priced_name_days = 13 [json_name = "allReportedPricedNameDays"];</code>
    * @return The allReportedPricedNameDays.
    */
@@ -1123,11 +1118,6 @@ private static final long serialVersionUID = 0L;
 
     private long allReportedPricedNameDays_ ;
     /**
-     * <pre>
-     * 9 and 10 (flat-bar cancellations, dividend-step suspects) are not stored per year; they are run totals
-     * in DataQuality and are not repeated here.
-     * </pre>
-     *
      * <code>int64 all_reported_priced_name_days = 13 [json_name = "allReportedPricedNameDays"];</code>
      * @return The allReportedPricedNameDays.
      */
@@ -1136,11 +1126,6 @@ private static final long serialVersionUID = 0L;
       return allReportedPricedNameDays_;
     }
     /**
-     * <pre>
-     * 9 and 10 (flat-bar cancellations, dividend-step suspects) are not stored per year; they are run totals
-     * in DataQuality and are not repeated here.
-     * </pre>
-     *
      * <code>int64 all_reported_priced_name_days = 13 [json_name = "allReportedPricedNameDays"];</code>
      * @param value The allReportedPricedNameDays to set.
      * @return This builder for chaining.
@@ -1153,11 +1138,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <pre>
-     * 9 and 10 (flat-bar cancellations, dividend-step suspects) are not stored per year; they are run totals
-     * in DataQuality and are not repeated here.
-     * </pre>
-     *
      * <code>int64 all_reported_priced_name_days = 13 [json_name = "allReportedPricedNameDays"];</code>
      * @return This builder for chaining.
      */

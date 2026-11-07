@@ -4939,7 +4939,7 @@ func (x *WindowMetrics) GetHasStrategyOverlapCagr() bool {
 type AnnualReturn struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	Year               int32                  `protobuf:"varint,1,opt,name=year,proto3" json:"year,omitempty"`
-	State              string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"` // complete | partial | to_date (the current year, measured to date).
+	State              string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"` // complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
 	StrategyPct        float64                `protobuf:"fixed64,3,opt,name=strategy_pct,json=strategyPct,proto3" json:"strategy_pct,omitempty"`
 	BenchmarkPct       float64                `protobuf:"fixed64,4,opt,name=benchmark_pct,json=benchmarkPct,proto3" json:"benchmark_pct,omitempty"`
 	ReferencePct       float64                `protobuf:"fixed64,5,opt,name=reference_pct,json=referencePct,proto3" json:"reference_pct,omitempty"`
@@ -5073,7 +5073,7 @@ type MonthlyReturn struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Year          int32                  `protobuf:"varint,1,opt,name=year,proto3" json:"year,omitempty"`
 	Month         int32                  `protobuf:"varint,2,opt,name=month,proto3" json:"month,omitempty"`
-	State         string                 `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"` // complete | partial | to_date.
+	State         string                 `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"` // complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
 	StrategyPct   float64                `protobuf:"fixed64,4,opt,name=strategy_pct,json=strategyPct,proto3" json:"strategy_pct,omitempty"`
 	BenchmarkPct  float64                `protobuf:"fixed64,5,opt,name=benchmark_pct,json=benchmarkPct,proto3" json:"benchmark_pct,omitempty"`
 	ReferencePct  float64                `protobuf:"fixed64,6,opt,name=reference_pct,json=referencePct,proto3" json:"reference_pct,omitempty"`
@@ -7404,7 +7404,7 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\rreference_pct\x18\x06 \x01(\x01R\freferencePct\x12#\n" +
 	"\rhas_benchmark\x18\a \x01(\bR\fhasBenchmark\x12#\n" +
 	"\rhas_reference\x18\b \x01(\bR\fhasReference\x12\x14\n" +
-	"\x05label\x18\t \x01(\tR\x05label\"\xde\x03\n" +
+	"\x05label\x18\t \x01(\tR\x05label\"\xea\x03\n" +
 	"\fCoverageYear\x12\x12\n" +
 	"\x04year\x18\x01 \x01(\x05R\x04year\x12\x1e\n" +
 	"\n" +
@@ -7418,7 +7418,9 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\bca_exits\x18\b \x01(\x05R\acaExits\x126\n" +
 	"\x17all_reported_measurable\x18\v \x01(\bR\x15allReportedMeasurable\x123\n" +
 	"\x16all_reported_name_days\x18\f \x01(\x03R\x13allReportedNameDays\x12@\n" +
-	"\x1dall_reported_priced_name_days\x18\r \x01(\x03R\x19allReportedPricedNameDays\"\xca\x01\n" +
+	"\x1dall_reported_priced_name_days\x18\r \x01(\x03R\x19allReportedPricedNameDaysJ\x04\b\t\x10\n" +
+	"J\x04\b\n" +
+	"\x10\v\"\xca\x01\n" +
 	"\rCoverageMonth\x12\x14\n" +
 	"\x05month\x18\x01 \x01(\tR\x05month\x12!\n" +
 	"\fcoverage_pct\x18\x02 \x01(\x01R\vcoveragePct\x12\x1e\n" +

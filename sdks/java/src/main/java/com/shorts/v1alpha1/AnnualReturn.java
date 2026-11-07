@@ -71,7 +71,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object state_ = "";
   /**
    * <pre>
-   * complete | partial | to_date (the current year, measured to date).
+   * complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
    * </pre>
    *
    * <code>string state = 2 [json_name = "state"];</code>
@@ -92,7 +92,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * complete | partial | to_date (the current year, measured to date).
+   * complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
    * </pre>
    *
    * <code>string state = 2 [json_name = "state"];</code>
@@ -907,7 +907,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object state_ = "";
     /**
      * <pre>
-     * complete | partial | to_date (the current year, measured to date).
+     * complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
      * </pre>
      *
      * <code>string state = 2 [json_name = "state"];</code>
@@ -927,7 +927,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | to_date (the current year, measured to date).
+     * complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
      * </pre>
      *
      * <code>string state = 2 [json_name = "state"];</code>
@@ -948,7 +948,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | to_date (the current year, measured to date).
+     * complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
      * </pre>
      *
      * <code>string state = 2 [json_name = "state"];</code>
@@ -965,7 +965,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | to_date (the current year, measured to date).
+     * complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
      * </pre>
      *
      * <code>string state = 2 [json_name = "state"];</code>
@@ -979,7 +979,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * complete | partial | to_date (the current year, measured to date).
+     * complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
      * </pre>
      *
      * <code>string state = 2 [json_name = "state"];</code>

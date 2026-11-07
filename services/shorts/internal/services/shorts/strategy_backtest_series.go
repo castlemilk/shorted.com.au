@@ -59,8 +59,9 @@ type chainDay struct {
 	recorded bool
 }
 
-// chainedRun is a published run's curve after the chaining of 5.8. The in-sample sessions are the
-// backtest's before the cut; the paper track follows from its actual first recorded session.
+// chainedRun is a published run's curve after the chaining of 5.8. The rules froze on live_from: the
+// in-sample curve is the backtest's up to live_from-1, and the paper track is recorded from its actual first
+// session. Any sessions between the two are not recorded and are flagged as a gap, never silently bridged.
 type chainedRun struct {
 	// days are the chained sessions: the in-sample ones, then the paper track's.
 	days []chainDay
@@ -68,23 +69,29 @@ type chainedRun struct {
 	// session chains.
 	bt    backtest.Series
 	paper *backtest.Series
-	// liveFrom is the cut: the paper track's actual first session when a track chains, else live_from.
-	// The windows, the trades and the replay count from it.
+	// liveFrom is the freeze: live_from when the run has a live split. Windows, trades and the replay count
+	// from it.
 	liveFrom civil.Date
 	hasLive  bool
-	// frozenAt is live_from, the day the rules froze. startAt is the paper track's actual first session
-	// (zero when no track chains); hasPaper says whether one does.
-	frozenAt civil.Date
+	// frozenAt is live_from (the day the rules froze); inSampleEnd is the last in-sample session the curve
+	// holds (live_from-1 when the series covers it).
+	frozenAt    civil.Date
+	inSampleEnd civil.Date
+	// startAt is the paper track's actual first recorded session; hasPaper says whether a track chains.
 	startAt  civil.Date
 	hasPaper bool
+	// hasGap marks sessions with no figures between the last in-sample session and the paper track's
+	// first session: gapFrom to gapTo, both weekdays.
+	hasGap  bool
+	gapFrom civil.Date
+	gapTo   civil.Date
 }
 
-// buildChainedRun chains a run's stored series with its paper track (5.8, item 7). The in-sample curve is
-// the backtest's up to the day before the paper track's actual first session, and the track is rebased onto
-// that level: E(t) = E_bt(start-1) x paper_E(t) / paper_E(start). A track whose first session is after
-// live_from is chained at that session, not at live_from. Benchmark: the run's own XJT level where the run
-// has one for the session, else the paper track's raw XJT close. Nothing is rebased from paper[live_from],
-// so a +1% session in the index reads 1.00 against the truth, not 0.9901.
+// buildChainedRun chains a run's stored series with its paper track (5.8, item 7). The in-sample curve runs up
+// to the day before live_from. The paper track is kept from live_from on, and it chains at its actual first
+// session: E(t) = E_bt(last in-sample) x paper_E(t) / paper_E(start). Benchmark: the run's own XJT level where
+// the run has one for the session, else the paper track's raw XJT close, so nothing is rebased from paper[live_from]
+// and a +1% a session index reads exactly the truth.
 func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsstore.PaperEquityRow) (chainedRun, error) {
 	n := len(series.D)
 	if n == 0 || len(series.E) != n || len(series.B) != n || len(series.X) != n {
@@ -111,29 +118,41 @@ func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsst
 	}
 	out.liveFrom = out.frozenAt
 
-	// The paper track chains at its actual first session, when that session is on or after live_from and
-	// the backtest has an in-sample session before it.
-	var start civil.Date
-	chainable := false
-	if out.hasLive && len(paper) > 0 {
-		var err error
-		if start, err = civil.ParseDate(paper[0].AsOf); err != nil {
-			return chainedRun{}, fmt.Errorf("the paper date %q: %w", paper[0].AsOf, err)
-		}
-		chainable = !start.Before(out.frozenAt) && sort.Search(n, func(k int) bool { return !dates[k].Before(start) }) > 0
-	}
-	if chainable {
-		out.liveFrom, out.startAt, out.hasPaper = start, start, true
-	}
-
-	// The in-sample sessions are the backtest's before the cut. Without a live split every session is.
+	// The in-sample sessions are the backtest's before the freeze. Without a live split every session is.
 	i := n
 	if out.hasLive {
-		i = sort.Search(n, func(k int) bool { return !dates[k].Before(out.liveFrom) })
+		i = sort.Search(n, func(k int) bool { return !dates[k].Before(out.frozenAt) })
 	}
 	if i == 0 {
-		return chainedRun{}, fmt.Errorf("the run has no in-sample session before %s", out.liveFrom)
+		return chainedRun{}, fmt.Errorf("the run has no in-sample session before %s", out.frozenAt)
 	}
+	out.inSampleEnd = dates[i-1]
+
+	// The paper track is recorded from live_from on: rows before the freeze are not post-freeze record.
+	var recorded []shortsstore.PaperEquityRow
+	for _, row := range paper {
+		d, err := civil.ParseDate(row.AsOf)
+		if err != nil {
+			return chainedRun{}, fmt.Errorf("the paper date %q: %w", row.AsOf, err)
+		}
+		if out.hasLive && d.Before(out.frozenAt) {
+			continue
+		}
+		recorded = append(recorded, row)
+	}
+	if out.hasLive && len(recorded) > 0 {
+		start, err := civil.ParseDate(recorded[0].AsOf)
+		if err != nil {
+			return chainedRun{}, fmt.Errorf("the paper date %q: %w", recorded[0].AsOf, err)
+		}
+		out.startAt, out.hasPaper = start, true
+		// The sessions between the last in-sample session and the track's first are not on record. A weekday
+		// count is the gap (a holiday inside it is named too): the note says so rather than bridging silently.
+		if w := nextWeekday(out.inSampleEnd); w.Before(start) {
+			out.hasGap, out.gapFrom, out.gapTo = true, w, prevWeekday(start)
+		}
+	}
+
 	days := make([]chainDay, 0, n)
 	for k := 0; k < i; k++ {
 		days = append(days, chainDay{
@@ -146,24 +165,43 @@ func buildChainedRun(series storedSeries, inSampleUntil string, paper []shortsst
 
 	if out.hasPaper {
 		pc := backtest.Curve{}
-		for _, row := range paper {
-			d, err := civil.ParseDate(row.AsOf)
-			if err != nil {
-				return chainedRun{}, fmt.Errorf("the paper date %q: %w", row.AsOf, err)
-			}
+		for _, row := range recorded {
+			d, _ := civil.ParseDate(row.AsOf)
 			pc.Dates = append(pc.Dates, d)
 			pc.Values = append(pc.Values, row.Equity)
 		}
 		ps := backtest.Series{Basis: backtest.BasisTotal, Curve: pc}
-		// Chain is the 5.8 formula, checked by the backtest package at the same cut.
+		// Chain is the 5.8 formula, checked by the backtest package at the same freeze.
 		if _, err := backtest.Chain(out.bt, ps, out.liveFrom); err != nil {
 			return chainedRun{}, fmt.Errorf("the paper track does not chain: %w", err)
 		}
 		out.paper = &ps
-		days = append(days, paperDays(paper, dates, series, i)...)
+		days = append(days, paperDays(recorded, dates, series, i)...)
 	}
 	out.days = days
 	return out, nil
+}
+
+// nextWeekday is the first Monday-to-Friday day after d.
+func nextWeekday(d civil.Date) civil.Date {
+	d = d.AddDays(1)
+	for wd := weekdayOf(d); wd == time.Saturday || wd == time.Sunday; wd = weekdayOf(d) {
+		d = d.AddDays(1)
+	}
+	return d
+}
+
+// prevWeekday is the last Monday-to-Friday day before d.
+func prevWeekday(d civil.Date) civil.Date {
+	d = d.AddDays(-1)
+	for wd := weekdayOf(d); wd == time.Saturday || wd == time.Sunday; wd = weekdayOf(d) {
+		d = d.AddDays(-1)
+	}
+	return d
+}
+
+func weekdayOf(d civil.Date) time.Weekday {
+	return time.Date(d.Year, d.Month, d.Day, 0, 0, 0, 0, time.UTC).Weekday()
 }
 
 // refAt is the stored reference level of session k, or zero when the series carries none.
@@ -522,11 +560,18 @@ func replayAgreement(run []shortsstore.BacktestTradeRow, paper []shortsstore.Pap
 		if err != nil || !inRange(entry) {
 			continue
 		}
-		// A run trade that exits after the paper track's last session has not happened on the paper
-		// side yet: it is not compared.
+		// A run trade that exits after the paper track's last session has not happened on the paper side yet:
+		// it is not compared. Its paper counterpart, still open on the track, is the same trade, so it is marked
+		// used here and is not counted as a paper-only trade.
 		if !t.Open && t.ExitDate != "" {
 			exit, err := civil.ParseDate(t.ExitDate)
 			if err == nil && exit.After(end) {
+				for i, p := range ps {
+					if !used[i] && p.code == t.StockCode && p.entry == t.EntryDate && p.open {
+						used[i] = true
+						break
+					}
+				}
 				continue
 			}
 		}

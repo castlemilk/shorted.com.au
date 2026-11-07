@@ -746,7 +746,7 @@ message WindowMetrics {
 // One period of the annual table: the strategy, XJT and the same-data reference.
 message AnnualReturn {
   int32 year = 1;
-  string state = 2;                // complete | partial | to_date (the current year, measured to date).
+  string state = 2;                // complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
   double strategy_pct = 3;
   double benchmark_pct = 4;
   double reference_pct = 5;
@@ -763,7 +763,7 @@ message AnnualReturn {
 message MonthlyReturn {
   int32 year = 1;
   int32 month = 2;
-  string state = 3;                // complete | partial | to_date.
+  string state = 3;                // complete | partial | to_date. to_date is the current period, measured to date: a partial period, distinct from the "Not elapsed" cell of 1.7 (a month outside the run).
   double strategy_pct = 4;
   double benchmark_pct = 5;
   double reference_pct = 6;
@@ -786,8 +786,9 @@ message CoverageYear {
   bool all_reported_measurable = 11;
   int64 all_reported_name_days = 12;
   int64 all_reported_priced_name_days = 13;
-  // 9 and 10 (flat-bar cancellations, dividend-step suspects) are not stored per year; they are run totals
-  // in DataQuality and are not repeated here.
+  // 9 and 10 are reserved: flat-bar cancellations and dividend-step suspects are run totals (DataQuality), not
+  // per-year counts, and the numbers are not reused.
+  reserved 9, 10;
 }
 
 // Coverage by month under both measures. Counts are not served: the percentages are.

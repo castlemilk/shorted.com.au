@@ -59,48 +59,78 @@ func compareGolden(t *testing.T, name string, got []byte) {
 	require.Equal(t, string(want), string(got), "%s has drifted from the handler: run go test -run TestBacktestGoldens -update and review the diff", name)
 }
 
-// goldenCrowdedShort is Crowded-Short published, with a paper tail that starts after live_from, two engine
-// versions across the track, the disclosures, one fragile sensitivity row, and both coverage measures.
+// goldenCrowdedShort is Crowded-Short published the way production reads: the run's own record stops at the end
+// of October, the paper track starts the session after live_from, the track is written by two engine versions,
+// the run and the track agree on the post-freeze trades, and the in-sample record has dozens of closed trades
+// across the exit reasons.
 func goldenCrowdedShort(t *testing.T) *backtestStoreFake {
 	t.Helper()
 	fake := newBacktestFake()
 	id := spec.StrategyCrowdedShortBreakout
 	fake.publish(t, id, 101)
-	// The run's own sessions stop at the end of October; the track runs on to November.
 	truncateSeries(t, fake, 101, civil.Date{Year: 2026, Month: time.October, Day: 30})
 
-	// The track starts the session after live_from, and its second half is written by the next engine.
+	// The track starts the session after live_from. Its first half is written by engine 1.1.0, the rest by the
+	// running engine: one track, two engine segments.
 	dates := weekdays(civil.Date{Year: 2026, Month: time.September, Day: 1}, civil.Date{Year: 2026, Month: time.November, Day: 5})
-	// The first half of the track was written by engine 1.1.0, the rest by the running engine: one track, two
-	// engine segments.
 	paper := paperFrom(dates, backtestFixtureLiveFrom.AddDays(1), func(m int) float64 { return 5000 * (1 + 0.0002*float64(m)) }, "1.1.0")
 	for k := len(paper) / 2; k < len(paper); k++ {
 		paper[k].EngineVersion = engine.Version
 	}
 	fake.paperEq = paper
-	fake.paperTrades = []shortsstore.PaperTradeRow{
-		{StockCode: "RIO", SignalDate: "2026-10-20", EntryDate: "2026-10-21", EntryPrice: 90, ExitDate: "2026-10-30", ExitPrice: 95,
-			ExitReason: "pivot_stop", Status: "closed", EntryScore: 75.4, SessionsHeld: 7, GrossReturnPct: 5.6, NetReturnPct: 5.1, HasNet: true},
-	}
 
-	// The summary carries a sensitivity set with one fragile row (a sign flip of the excess CAGR).
-	row := fake.published[id]
-	var sum storedSummary
-	require.NoError(t, json.Unmarshal(row.Summary, &sum))
-	sum.Sensitivity = backtest.Sensitivities{
-		Base: backtest.Figures{CAGR: 0.12, HasCAGR: true, Excess: 0.05, HasExcess: true, MaxDrawdown: -0.31},
-		Runs: []backtest.Sensitivity{
-			{ID: backtest.SensCostsX2, Label: "Costs doubled", Applies: true,
-				Figures: backtest.Figures{CAGR: 0.09, HasCAGR: true, Excess: -0.01, HasExcess: true, MaxDrawdown: -0.33}, Fragile: backtest.FragileCosts},
-			{ID: backtest.SensDelistingZero, Label: "Delisted positions exit at zero", Applies: true,
-				Figures: backtest.Figures{CAGR: 0.11, HasCAGR: true, Excess: 0.04, HasExcess: true, MaxDrawdown: -0.32}},
-		},
+	reasons := []string{"pivot_stop", "time_stop", "stop_loss", "sma_stop", "status_exit", "delisted_exit", "corporate_action_exit"}
+	codes := []string{"BHP", "CBA", "WBC", "NAB", "ANZ", "RIO", "FMG", "WES", "CSL", "TLS", "WOW", "QBE"}
+
+	// The in-sample record: forty-two closed trades that entered and exited before live_from.
+	var inSample []shortsstore.BacktestTradeRow
+	for k := 0; k < 42; k++ {
+		entry := civil.Date{Year: 2019, Month: time.June, Day: 3}.AddDays(45 * k)
+		exit := entry.AddDays(5 + k%20)
+		net := float64((k*37)%61-25) / 3
+		inSample = append(inSample, shortsstore.BacktestTradeRow{
+			Seq: 10 + k, StockCode: codes[k%len(codes)], SignalDate: entry.AddDays(-2).String(), EntryDate: entry.String(),
+			EntryPrice: 20 + float64(k), EntryScore: 55 + float64(k%40), ExitSignalDate: exit.AddDays(-1).String(), ExitDate: exit.String(),
+			ExitPrice: 20 + float64(k) + net/10, ExitReason: reasons[k%len(reasons)], SessionsHeld: 5 + k%20,
+			GrossReturnPct: net + 0.2, NetReturnPct: net, Flags: []string{},
+		})
 	}
-	raw, err := json.Marshal(sum)
-	require.NoError(t, err)
-	row.Summary = raw
-	fake.published[id] = row
-	fake.runs[101] = row
+	fake.trades[101] = append(fake.trades[101], inSample...)
+
+	// The post-freeze record: sixteen trades the track also took (run and track agree), and one open on both.
+	days := weekdays(civil.Date{Year: 2026, Month: time.October, Day: 2}, civil.Date{Year: 2026, Month: time.October, Day: 30})
+	var track []shortsstore.PaperTradeRow
+	var runPost []shortsstore.BacktestTradeRow
+	for k := 0; k < 12; k++ {
+		entry := days[k]
+		exit := days[k+3+k%5]
+		net := float64((k*13)%17) - 5
+		code := codes[(k+3)%len(codes)]
+		track = append(track, shortsstore.PaperTradeRow{
+			StockCode: code, SignalDate: entry.AddDays(-1).String(), EntryDate: entry.String(), EntryPrice: 40 + float64(k),
+			ExitDate: exit.String(), ExitPrice: 40 + float64(k) + net/10, ExitReason: reasons[k%3], Status: "closed",
+			EntryScore: 60 + float64(k), SessionsHeld: 3 + k%5, GrossReturnPct: net + 0.2, NetReturnPct: net, HasNet: true,
+		})
+		runPost = append(runPost, shortsstore.BacktestTradeRow{
+			Seq: 100 + k, StockCode: code, SignalDate: entry.AddDays(-1).String(), EntryDate: entry.String(), EntryPrice: 40 + float64(k),
+			ExitDate: exit.String(), ExitPrice: 40 + float64(k) + net/10, ExitReason: reasons[k%3], SessionsHeld: 3 + k%5,
+			GrossReturnPct: net + 0.2, NetReturnPct: net, EntryScore: 60 + float64(k), Flags: []string{},
+		})
+	}
+	open := days[13]
+	track = append(track, shortsstore.PaperTradeRow{
+		StockCode: "MQG", SignalDate: open.AddDays(-1).String(), EntryDate: open.String(), EntryPrice: 180, Status: "open", EntryScore: 72,
+	})
+	runPost = append(runPost, shortsstore.BacktestTradeRow{
+		Seq: 120, StockCode: "MQG", SignalDate: open.AddDays(-1).String(), EntryDate: open.String(), EntryPrice: 180,
+		ExitReason: "open_at_end", Open: true, EntryScore: 72, Flags: []string{},
+	})
+	// The fixture's own open RIO trade (entered 21 October) is on the track too, so the record agrees.
+	track = append(track, shortsstore.PaperTradeRow{
+		StockCode: "RIO", SignalDate: "2026-10-20", EntryDate: "2026-10-21", EntryPrice: 90, Status: "open", EntryScore: 75,
+	})
+	fake.paperTrades = track
+	fake.trades[101] = append(fake.trades[101], runPost...)
 	return fake
 }
 
@@ -132,6 +162,11 @@ func TestBacktestGoldens(t *testing.T) {
 
 	crowdRun, err := srv.GetBacktestRun(ctx, connect.NewRequest(&shortsv1alpha1.GetBacktestRunRequest{StrategyId: spec.StrategyCrowdedShortBreakout}))
 	require.NoError(t, err)
+	// The golden must look like production: a real trade count across the exit reasons, so the summary, the win
+	// rate and the exits by reason mean something.
+	require.GreaterOrEqual(t, crowdRun.Msg.Run.TradeSummary.Closed, int32(30), "the in-sample record has dozens of closed trades")
+	require.GreaterOrEqual(t, len(crowdRun.Msg.Run.TradeSummary.ExitsByReason), 4, "trades exit for several reasons")
+	require.Len(t, crowdRun.Msg.Run.Sensitivity, 5, "all five sensitivity runs")
 	compareGolden(t, "backtest_run_crowded_short.json", goldenJSON(t, crowdRun.Msg))
 
 	mini := goldenMinervini(t)
