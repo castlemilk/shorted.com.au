@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
 )
 
 func rowsFor(codes ...string) []shortsRow {
@@ -142,5 +145,103 @@ func TestReconcileRecordsOnlyWhatItWrote(t *testing.T) {
 	}
 	if len(dryRep.changed.codes) != 0 {
 		t.Fatalf("a dry pass writes nothing, so records nothing: %v", dryRep.changed.codes)
+	}
+}
+
+func manyCodes(n int) []string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = fmt.Sprintf("C%04d", i)
+	}
+	return out
+}
+
+// TestNarrowRequestsAreChunked: 600 stocks go as three requests. Only the first
+// carries the tag, the newest-snapshot paths and the KV flush; every chunk
+// carries every date; together they name each stock once.
+func TestNarrowRequestsAreChunked(t *testing.T) {
+	changes := &changeSet{}
+	changes.add(utcDay(2026, time.November, 3), rowsFor(manyCodes(600)...))
+	changes.add(utcDay(2026, time.October, 28), rowsFor("C0001"))
+	reqs := revalidateRequests(changes)
+	if len(reqs) != 3 {
+		t.Fatalf("600 stocks in chunks of %d = 3 requests, got %d", narrowChunkCodes, len(reqs))
+	}
+	var named []string
+	for i, req := range reqs {
+		body, ok := req.Body.(shortsChangeBody)
+		if !ok {
+			t.Fatalf("request %d has no change set", i+1)
+		}
+		if len(body.Shorts.Codes) > narrowChunkCodes {
+			t.Fatalf("request %d names %d stocks", i+1, len(body.Shorts.Codes))
+		}
+		if !slices.Equal(body.Shorts.Dates, []string{"2026-10-28", "2026-11-03"}) {
+			t.Fatalf("request %d dates = %v", i+1, body.Shorts.Dates)
+		}
+		named = append(named, body.Shorts.Codes...)
+		if i == 0 {
+			if req.Tag != "scan-results" || req.Flush != "shorts" || len(req.Paths) == 0 {
+				t.Fatalf("the first request carries the tag, paths and flush: %+v", req)
+			}
+		} else if req.Tag != "" || req.Flush != "" || len(req.Paths) != 0 {
+			t.Fatalf("request %d must carry only its stocks (one KV flush per run): %+v", i+1, req)
+		}
+	}
+	if !slices.Equal(named, manyCodes(600)) {
+		t.Fatalf("the chunks must name each stock once, in order")
+	}
+
+	small := &changeSet{}
+	small.add(utcDay(2026, time.November, 3), rowsFor("BHP"))
+	if got := revalidateRequests(small); len(got) != 1 || got[0].Flush != "shorts" {
+		t.Fatalf("a small set is one request: %+v", got)
+	}
+}
+
+// TestFailedNarrowChunkFallsBackToBroad: when any chunk is refused, the broad
+// request follows and nothing after the failed chunk is sent.
+func TestFailedNarrowChunkFallsBackToBroad(t *testing.T) {
+	changes := &changeSet{}
+	changes.add(utcDay(2026, time.November, 3), rowsFor(manyCodes(600)...))
+	var sent []string
+	pingRevalidation(changes, func(req platform.RevalidateRequest) bool {
+		sent = append(sent, req.Reason+"|"+req.Tag)
+		return !strings.HasSuffix(req.Reason, "2/3")
+	})
+	want := []string{
+		"short-data-sync 1/3|scan-results",
+		"short-data-sync 2/3|",
+		"short-data-sync|shorts-data,scan-results",
+	}
+	if !slices.Equal(sent, want) {
+		t.Fatalf("sent %v, want %v", sent, want)
+	}
+}
+
+// TestNarrowPingSendsEveryChunkWhenAllSucceed, and a broad set sends exactly
+// the broad request once.
+func TestNarrowPingSendsEveryChunkWhenAllSucceed(t *testing.T) {
+	changes := &changeSet{}
+	changes.add(utcDay(2026, time.November, 3), rowsFor(manyCodes(600)...))
+	n := 0
+	pingRevalidation(changes, func(req platform.RevalidateRequest) bool {
+		n++
+		if req.Body == nil {
+			t.Fatalf("no broad request when every chunk succeeds: %+v", req)
+		}
+		return true
+	})
+	if n != 3 {
+		t.Fatalf("sent %d requests, want 3", n)
+	}
+
+	var broad []platform.RevalidateRequest
+	pingRevalidation(nil, func(req platform.RevalidateRequest) bool {
+		broad = append(broad, req)
+		return false
+	})
+	if len(broad) != 1 || broad[0].Tag != "shorts-data,scan-results" {
+		t.Fatalf("a broad run sends the broad request once, even when it fails: %+v", broad)
 	}
 }

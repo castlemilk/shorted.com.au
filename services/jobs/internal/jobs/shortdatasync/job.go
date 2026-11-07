@@ -478,15 +478,9 @@ func finishRun(ctx context.Context, cfg config, store *pgStore, client *http.Cli
 	store.RefreshMaterializedViews(ctx)
 
 	// Event-driven ISR bust, only when data actually changed. Best-effort by
-	// construction (platform.PingRevalidate never returns an error).
+	// construction: nothing here can fail the run.
 	if recordCount > 0 {
-		req := revalidateRequest(changes)
-		if codes, dates, reason := changes.narrow(); reason == "" {
-			log.Printf("🔄 Revalidating %d stock(s) over %d date(s): %s", len(codes), len(dates), strings.Join(dates, ", "))
-		} else {
-			log.Printf("🔄 Revalidating every stock page (broad): %s", reason)
-		}
-		platform.PingRevalidate(req)
+		pingRevalidation(changes, platform.PingRevalidateOK)
 	} else {
 		log.Printf("No new shorts records; skipping cache revalidation.")
 	}
@@ -971,6 +965,66 @@ type shortsChangeBody struct {
 type shortsChange struct {
 	Codes []string `json:"codes"`
 	Dates []string `json:"dates"`
+}
+
+// narrowChunkCodes is how many stocks one narrow request names. A routine day
+// (~800 stocks) is four requests. Each request's per-stock tags reach Vercel as
+// one batch of revalidations, and Vercel documents no ceiling on a batch, so
+// the batch is kept small; a failed request falls back to the broad one.
+const narrowChunkCodes = 250
+
+// pingRevalidation sends the run's cache bust. A narrow change set goes as
+// chunks of narrowChunkCodes stocks; the first chunk also carries the
+// newest-snapshot paths and the KV flush, and every chunk carries every date.
+// If any chunk is refused or unreachable, the broad request follows, so a
+// failed narrow bust can never leave a stock's page on old data for its whole
+// window (a day for most tabs).
+func pingRevalidation(changes *changeSet, ping func(platform.RevalidateRequest) bool) {
+	reqs := revalidateRequests(changes)
+	if len(reqs) == 1 && reqs[0].Body == nil {
+		_, _, reason := changes.narrow()
+		log.Printf("🔄 Revalidating every stock page (broad): %s", reason)
+		ping(reqs[0])
+		return
+	}
+	codes, dates, _ := changes.narrow()
+	log.Printf("🔄 Revalidating %d stock(s) over %d date(s) in %d request(s): %s",
+		len(codes), len(dates), len(reqs), strings.Join(dates, ", "))
+	for i, req := range reqs {
+		if !ping(req) {
+			log.Printf("⚠️  Narrow revalidation request %d/%d failed; revalidating every stock page instead", i+1, len(reqs))
+			ping(revalidateRequest(nil))
+			return
+		}
+	}
+}
+
+// revalidateRequests is revalidateRequest split for sending: the broad request
+// alone, or one narrow request per narrowChunkCodes stocks.
+func revalidateRequests(changes *changeSet) []platform.RevalidateRequest {
+	first := revalidateRequest(changes)
+	body, ok := first.Body.(shortsChangeBody)
+	if !ok || len(body.Shorts.Codes) <= narrowChunkCodes {
+		return []platform.RevalidateRequest{first}
+	}
+	codes := body.Shorts.Codes
+	total := (len(codes) + narrowChunkCodes - 1) / narrowChunkCodes
+	reqs := make([]platform.RevalidateRequest, 0, total)
+	for i := 0; i < len(codes); i += narrowChunkCodes {
+		chunk := shortsChangeBody{Shorts: shortsChange{
+			Codes: codes[i:min(i+narrowChunkCodes, len(codes))],
+			Dates: body.Shorts.Dates,
+		}}
+		req := platform.RevalidateRequest{
+			Reason: fmt.Sprintf("short-data-sync %d/%d", len(reqs)+1, total),
+			Body:   chunk,
+		}
+		if i == 0 {
+			req.Tag, req.Paths, req.Flush = first.Tag, first.Paths, first.Flush
+		}
+		reqs = append(reqs, req)
+	}
+	return reqs
 }
 
 // revalidateRequest is the cache-bust contract, sent with the

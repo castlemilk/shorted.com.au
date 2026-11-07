@@ -43,7 +43,10 @@ nothing). After a successful write it:
 - the newest-snapshot paths in the query, and the shorts Redis family.
 
 A routine day writes one date of ~800 codes, so the other ~3,600 stocks' cached
-pages are left alone. A run that cannot name what it wrote (an initial load), or
+pages are left alone. The change set goes in requests of at most 250 stocks
+(only the first carries the paths and the Redis flush); if any of them is
+refused or unreachable, the job sends the broad request below instead, so a
+failed narrow bust never leaves a stock on old data for its day-long window. A run that cannot name what it wrote (an initial load), or
 names more than 2,000 codes or 45 dates, sends the **broad** request instead:
 `tag=shorts-data,scan-results` plus the same paths and `/shorts/[stockCode]`,
 which expires every stock page, every market date and every report. So does any

@@ -219,6 +219,48 @@ func TestPingRevalidateTransportErrorRedactsURL(t *testing.T) {
 	}
 }
 
+// TestPingRevalidateOKReportsTheOutcome: a caller that falls back to a broader
+// request on failure needs to know a 2xx from anything else. Unconfigured is
+// success: there is nothing to bust.
+func TestPingRevalidateOKReportsTheOutcome(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		err    error
+		want   bool
+	}{
+		{"2xx", http.StatusOK, nil, true},
+		{"refused", http.StatusInternalServerError, nil, false},
+		{"rate limited", http.StatusTooManyRequests, nil, false},
+		{"unreachable", 0, errors.New("dial failed"), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			usePlatformTransport(t, func(r *http.Request) (*http.Response, error) {
+				if tc.err != nil {
+					return nil, tc.err
+				}
+				return platformResponse(tc.status, "{}"), nil
+			})
+			t.Setenv("REVALIDATION_URL", "https://revalidate.invalid")
+			t.Setenv("REVALIDATION_SECRET", testSecret)
+			var got bool
+			captureLog(t, func() { got = PingRevalidateOK(RevalidateRequest{Reason: "t", Paths: []string{"/"}}) })
+			if got != tc.want {
+				t.Fatalf("PingRevalidateOK = %v, want %v", got, tc.want)
+			}
+		})
+	}
+	t.Run("unconfigured", func(t *testing.T) {
+		t.Setenv("REVALIDATION_URL", "")
+		t.Setenv("REVALIDATION_SECRET", "")
+		var got bool
+		captureLog(t, func() { got = PingRevalidateOK(RevalidateRequest{Reason: "t"}) })
+		if !got {
+			t.Fatal("an unconfigured ping has nothing to bust and must not trigger a fallback")
+		}
+	})
+}
+
 func TestGetEnv(t *testing.T) {
 	tests := []struct {
 		name, set, def, want string

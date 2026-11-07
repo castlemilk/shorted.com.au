@@ -51,11 +51,20 @@ type RevalidateRequest struct {
 // finish, and the cache bust for ALREADY-persisted data must not be killed by
 // that deadline firing between the write and the ping.
 func PingRevalidate(req RevalidateRequest) {
+	PingRevalidateOK(req)
+}
+
+// PingRevalidateOK is PingRevalidate that also reports whether the web tier
+// answered 2xx. Unset REVALIDATION_URL / REVALIDATION_SECRET counts as success:
+// there is nothing to bust and no fallback would reach anything either. A
+// caller uses the answer to fall back to a broader request; it never fails a
+// run on it.
+func PingRevalidateOK(req RevalidateRequest) bool {
 	endpoint := os.Getenv("REVALIDATION_URL")
 	secret := os.Getenv("REVALIDATION_SECRET")
 	if endpoint == "" || secret == "" {
 		log.Printf("[revalidate:%s] REVALIDATION_URL/REVALIDATION_SECRET not set; skipping cache bust", req.Reason)
-		return
+		return true
 	}
 
 	q := url.Values{}
@@ -75,7 +84,7 @@ func PingRevalidate(req RevalidateRequest) {
 		encoded, err := json.Marshal(req.Body)
 		if err != nil {
 			log.Printf("[revalidate:%s] WARNING: encode body failed: %v", req.Reason, err)
-			return
+			return false
 		}
 		body = bytes.NewReader(encoded)
 	}
@@ -86,7 +95,7 @@ func PingRevalidate(req RevalidateRequest) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, body)
 	if err != nil {
 		log.Printf("[revalidate:%s] WARNING: build request failed: %v", req.Reason, redactURLError(err))
-		return
+		return false
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("X-Revalidate-Secret", secret)
@@ -94,7 +103,7 @@ func PingRevalidate(req RevalidateRequest) {
 	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		log.Printf("[revalidate:%s] WARNING: revalidation ping failed: %v", req.Reason, redactURLError(err))
-		return
+		return false
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -102,9 +111,10 @@ func PingRevalidate(req RevalidateRequest) {
 		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 200))
 		log.Printf("[revalidate:%s] WARNING: revalidation ping non-2xx (status %d): %s",
 			req.Reason, resp.StatusCode, strings.TrimSpace(string(snippet)))
-		return
+		return false
 	}
 	log.Printf("[revalidate:%s] cache bust ok (status %d)", req.Reason, resp.StatusCode)
+	return true
 }
 
 // redactURLError keeps endpoint details out of transport-error logs. The secret

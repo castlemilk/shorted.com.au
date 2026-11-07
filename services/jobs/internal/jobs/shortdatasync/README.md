@@ -141,9 +141,11 @@ newest-snapshot paths and `flush=shorts`. The web route expires those stocks,
 dates and report periods only; see `docs/caching-architecture.md`. An initial
 load, a file whose date does not parse, or a set past 2,000 codes or 45 dates
 sends the Python's broad request unchanged (`tag=shorts-data,scan-results`,
-`/shorts/[stockCode]` among the paths), which expires every stock page. The run
-log says which it sent: `Revalidating N stock(s) over M date(s)` or
-`Revalidating every stock page (broad): <reason>`.
+`/shorts/[stockCode]` among the paths), which expires every stock page. A narrow set goes in requests of
+at most 250 stocks; if one fails, the broad request follows. The run log says
+which it sent: `Revalidating N stock(s) over M date(s) in K request(s)`,
+`Narrow revalidation request i/K failed; revalidating every stock page
+instead`, or `Revalidating every stock page (broad): <reason>`.
 
 ## Reconcile — keeping the table converged on ASIC's archive
 
