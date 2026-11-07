@@ -300,6 +300,11 @@ export function yearsOf(
   return { years, columns };
 }
 
+/** The fiscal label as copy, or the year when the label is empty. */
+function labelOrYear(label: string | null | undefined, year: number): string {
+  return label !== undefined && label !== null && label !== "" ? label : String(year);
+}
+
 /** A hatched cell over `span` year columns. */
 const hatched = (label: string, span = 1, title?: string): ReturnsHeatmapCell => ({
   state: "hatched",
@@ -366,7 +371,7 @@ export function notComputableCells(
         : `Not computable: needs point-in-time fundamentals (fundamentals for ${Math.round(share)}% of the universe)`;
     return [hatched(label, years.length)];
   }
-  const copyLabel = evidence.fiscalLabel || String(cfYear);
+  const copyLabel = labelOrYear(evidence.fiscalLabel, cfYear);
   const before = years.filter((year) => year < cfYear).length;
   const after = years.length - before;
   const cells: ReturnsHeatmapCell[] = [];
@@ -511,7 +516,7 @@ function stateLineOf(evidence: StrategyEvidenceView | null, evidenceAvailable: b
           ? EXPLORER_COPY.notComputable
           : `${EXPLORER_COPY.notComputable} (fundamentals for ${Math.round(share)}% of the universe)`;
       }
-      const label = evidence.fiscalLabel || String(cfYear);
+      const label = labelOrYear(evidence.fiscalLabel, cfYear);
       return `${EXPLORER_COPY.notComputableBefore(label)}. ${EXPLORER_COPY.notComputableSecond(label)}`;
     }
     case "approximate":
