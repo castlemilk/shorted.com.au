@@ -1,0 +1,111 @@
+---
+title: "Why ASX Short Interest Figures Differ Between Websites"
+excerpt: "Resolve conflicting ASX short interest figures by checking dates, share counts, denominators and source reports, with a worked reconciliation example."
+standfirst: "Two websites can show different short percentages for the same ASX stock without either calculation being wrong. Match the position date, security and denominator before deciding which figure answers your question."
+coverImage: "/assets/blog/why-asx-short-interest-data-differs/cover-editorial-v1.webp"
+thumbnailImage: "/assets/blog/why-asx-short-interest-data-differs/thumbnail-editorial-v1.webp"
+coverAlt: "A curled ivory record sheet reveals a second perforated sheet and an amber tab on a dark green surface."
+date: "2026-11-07"
+category: guides
+tags: ["ASX short interest", "ASIC reports", "data quality", "short position tracking", "free float"]
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben-ebsworth.jpg"
+ogImage:
+  url: "/assets/blog/why-asx-short-interest-data-differs/cover-editorial-v1.webp"
+---
+
+# Why ASX Short Interest Figures Differ Between Websites
+
+One page says a stock is 5.62% short. Another says 7.03%. Before treating the difference as an error, check what each percentage divides by. The same reported position can produce both numbers if one uses all shares on issue and the other uses a smaller free-float estimate.
+
+Disagreements also come from different dates, rounding and source revisions. A useful check starts with the underlying record. It should end with either a reconciliation you can reproduce or a specific discrepancy you can report.
+
+## Match the position date before the website timestamp
+
+<Steps title="From a held position to the page you read" corner="Three different dates">
+
+1. **Position date**
+
+   When the reported position was held. Match this date across both records.
+
+2. **Publication date**
+
+   When the source made that observation available to readers.
+
+3. **Website refresh time**
+
+   When a page retrieved or displayed the data. A newer refresh time does not establish a newer position date.
+
+</Steps>
+
+ASIC's [short position reporting guidance](https://www.asic.gov.au/regulatory-resources/markets/short-selling/short-selling-reporting-short-position-reporting) specifies publication on T+4, four reporting days after the date being reported. Refreshing a website today does not turn that observation into today's positioning.
+
+Compare the actual position dates on both pages. If one is newer, open the older observation on the other site before comparing percentages. If a page provides only an “updated” timestamp, the date of its underlying position remains unresolved.
+
+A screenshot taken last week and a page opened today are also different records. Save the observation date alongside a quoted number; the date you read it belongs in your research notes separately.
+
+## Check the security and the measure
+
+Match the product code and full security description. The company name alone is insufficient: ordinary shares, another share class and a depositary interest need not describe the same pool of securities. A historical ticker change also needs checking before joining two series.
+
+Then read the label above the number. A count of outstanding reported short positions, a short percentage and the proportion of a day's trading marked short answer different questions. Our [short interest versus short-sale volume guide](/blog/short-interest-vs-short-volume-asx) explains that distinction. Comparing a transaction percentage with a position percentage will not reveal which provider has the better position data.
+
+For a practical check, start from a specific security such as [BHP's short-position page](/shorts/BHP), note the date shown, and find that security in the corresponding [ASIC report](https://www.asic.gov.au/short-position-reports). A position ranking on [Shorted's most shorted list](/top) is a starting point for that investigation; the dated stock record is the comparison you need.
+
+## A worked reconciliation: four displays, three explanations
+
+The following figures are invented to illustrate the arithmetic. They are not observations of any company or comparisons of named websites.
+
+Assume a company has **5,624,000 shares reported short**, **100 million shares on issue**, and a hypothetical free-float estimate of **80 million shares** on the same position date. Its previous observation recorded 5.5 million shares short against the same issued capital.
+
+<GraphTable title="Reconcile the inputs before comparing percentages" corner="Hypothetical example">
+
+| Display | Figure shown | Inputs used | Explanation |
+| --- | ---: | --- | --- |
+| A | 5.62% | 5,624,000 ÷ 100,000,000 | Current position, rounded to two decimal places |
+| B | 5.624% | 5,624,000 ÷ 100,000,000 | Same position, one extra decimal place |
+| C | 7.03% | 5,624,000 ÷ 80,000,000 | Same short count, free-float denominator |
+| D | 5.50% | 5,500,000 ÷ 100,000,000 | Previous observation |
+
+</GraphTable>
+
+Multiply each division by 100 to express it as a percentage. A and B agree. C measures the position against a different share base. D describes another date. Choosing the biggest figure would conceal all three explanations.
+
+Only after these inputs match should a remaining discrepancy become a suspected data error. For example, a figure of 6.10% cannot be reproduced from the current short count and either denominator in this example. That is a reason to ask which inputs produced it.
+
+## Issued capital and free float need their own labels
+
+The denominator used for ASIC's short percentage is total product in issue. A free-float calculation uses an estimate of the shares available for public trading; its exclusions depend on the methodology. A site presenting that calculation should identify its float source and date.
+
+Do not replace a historical denominator with today's shares on issue. If a company issued new shares between the two dates, you would create a percentage that belongs to neither record. The short count might be unchanged even as the percentage falls. The worked examples in [why short interest falls without covering](/blog/why-short-interest-falls-without-covering) show how to separate those effects.
+
+Units deserve the same attention. “5.62 million shares” is a count, “5.62%” is a fraction of a stated share base, and a dollar value needs a price and valuation date. They cannot substitute for one another.
+
+## Treat missing data and zero as different observations
+
+<Callout type="warning" title="A blank is not a measured zero">
+
+A blank can mean an unavailable observation; **0.00%** can be a rounded value. Check the underlying share count and the site's explanation before recording either as zero shares short.
+
+</Callout>
+
+The public dataset also has reporting limits. Section 15 of the current [ASIC Short Selling Instrument](https://www.legislation.gov.au/F2018L01356/2026-02-03/2026-02-03/text/original/pdf) provides relief where a seller's position does not exceed **both A$100,000 and 0.01% of that class of securities**. It is an exemption from reporting, not a rule that every smaller position must be absent.
+
+Consequently, an absent entry does not establish that nobody holds a short position. Keep “no observation found” separate from “a reported count of zero” in any spreadsheet or research note.
+
+## Check source notices before explaining a sudden discrepancy
+
+ASIC says its aggregates depend on reports submitted by short sellers and that it cannot verify every submission or whether every required report has been lodged. Its [report page](https://www.asic.gov.au/short-position-reports) also warns that technical issues can affect comparisons between days.
+
+There are documented examples. ASIC's [affected-reports notices](https://www.asic.gov.au/regulatory-resources/markets/short-selling) identify out-of-date BHP issued capital for 31 January and 1 February 2022. They also record the resolution of an issue affecting News Corporation's NWSLV daily reports in November 2022. A source correction can therefore change a historical comparison without a new trade occurring on that historical date.
+
+Recheck the source record when investigating a mismatch. A previously downloaded file, an old screenshot and a newly retrieved report may represent different versions. Keep the files and retrieval dates if your work needs to be reproducible.
+
+## Make a discrepancy easy to investigate
+
+Shorted's [methodology](/methodology) explains the basis of its displayed figures, and the [data hub](/data) links to datasets and access documentation. Use them alongside the source report when checking a number.
+
+If the difference remains, record the security code, position date, both page addresses, displayed values and retrieval times. Attach the relevant source row with its short count and denominator. State the calculation you expected. That evidence turns “the numbers look wrong” into a discrepancy someone can locate and reproduce.
+
+_Sources checked 7 November 2026. Examples are hypothetical. This article explains data comparison for general education; it is not financial advice._
