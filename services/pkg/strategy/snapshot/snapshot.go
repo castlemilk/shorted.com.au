@@ -36,7 +36,9 @@ type Features struct {
 	// with the session it became known (ca_known_at). The paper track reads the
 	// suspects it admits and blocks from them, with the batch's own rules, so it
 	// needs each suspect's known date, which the ca_suspect_date column does not
-	// carry. Omitted when none is known.
+	// carry. Every row written after this field was added carries the key ca_known
+	// (null when none is known); rows written before it do not, and the paper
+	// track does not start on one (paper.go, the start rule).
 	CASuspects []CAKnown `json:"ca_known,omitempty"`
 }
 
@@ -67,7 +69,9 @@ func (f Features) MarshalJSON() ([]byte, error) {
 		FS1   *features.PriceFeatures `json:"fs1"`
 		SF0   features.ShortReading   `json:"sf0"`
 		SF1   features.ShortReading   `json:"sf1"`
-		CAKnown []CAKnown             `json:"ca_known,omitempty"`
+		// Always written, null when no suspect is known: the key marks a row
+		// written after the suspects were stored (the paper track's start rule).
+		CAKnown []CAKnown `json:"ca_known"`
 	}
 	w := wire{Bar: f.Bar, ExDiv: f.ExDiv, SF0: f.SF0, SF1: f.SF1, CAKnown: f.CASuspects}
 	if !f.FS1.AsOf.IsZero() {
