@@ -837,7 +837,7 @@ variable "crawler_redirect_enabled" {
 variable "crawler_redirect_user_agents" {
   description = <<-EOT
     User-agent substrings redirected to `crawler_redirect_target` on the HTML
-    host. Must equal STEERED_CRAWLERS in web/src/app/robots.txt/route.ts
+    host. Must equal STEERED_CRAWLERS in web/src/@/lib/seo/crawl-policy.ts
     (crawler-policy.test.mjs holds them equal): a crawler robots.txt steers is
     steered here, and one steered here is told so in robots.txt.
   EOT

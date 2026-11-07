@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 
 import DataLicencePage, { metadata, revalidate } from "../page";
-import { STEERED_CRAWLERS } from "~/app/robots.txt/route";
+import { STEERED_CRAWLERS } from "~/@/lib/seo/crawl-policy";
 
 jest.mock("next/link", () => ({
   __esModule: true,

@@ -8,7 +8,8 @@
  * homepage is `/$`, the group carries a Crawl-delay, the parameterised views
  * are disallowed for everyone, and the steered crawlers get one page.
  */
-import { GET, STEERED_CRAWLERS, DATA_LICENCE_PATH } from "../route";
+import { GET } from "../route";
+import { DATA_LICENCE_PATH, STEERED_CRAWLERS } from "~/@/lib/seo/crawl-policy";
 import { groupFor, isAllowed, parseRobotsGroups, type RobotsGroup } from "../robots-groups";
 
 describe("robots.txt crawl policy", () => {

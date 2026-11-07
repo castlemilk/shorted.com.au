@@ -7,7 +7,7 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { siteConfig } from "~/@/config/site";
 import { eyebrow, lede, pageTitle, sectionTitle } from "~/@/lib/typography";
-import { STEERED_CRAWLERS } from "~/app/robots.txt/route";
+import { STEERED_CRAWLERS } from "~/@/lib/seo/crawl-policy";
 
 export const revalidate = 86400;
 

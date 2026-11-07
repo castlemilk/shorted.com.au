@@ -1,5 +1,6 @@
 import { siteConfig } from "~/@/config/site";
 import { SITEMAP_CHILDREN } from "~/@/lib/seo/sitemap-xml";
+import { DATA_LICENCE_PATH, STEERED_CRAWLERS } from "~/@/lib/seo/crawl-policy";
 
 export const dynamic = "force-static";
 
@@ -148,37 +149,6 @@ const AI_ALLOWED_PATHS = [
  */
 const AI_CRAWL_DELAY_SECONDS = 5;
 
-/**
- * Crawlers that get nothing here but the data-licence page. Each is either of
- * no use to an Australian finance audience, or was measured misbehaving
- * (Cloudflare zone analytics, 7 days to 2026-11-07):
- *   - Baiduspider: 109k requests, most of them a JS-rendering bot pulling
- *     suburb topojson and script chunks.
- *   - Reflectionbot: 59k, half of them redirect pairs; it fetched each housing
- *     state page about 1,100 times a day.
- *   - ShapBot: 40k, 2k of them on /signin and the session endpoint.
- *   - Bytespider, PetalBot, MJ12bot, SemrushBot, AhrefsBot, DotBot,
- *     DataForSeoBot: training or SEO scrapers that send no readers.
- * The Cloudflare redirect rule (`crawler_redirect_user_agents`) carries the
- * same list and steers them to /docs/data-licence at the edge, so one that
- * ignores robots.txt still never reaches the origin. A Terraform test holds
- * the two lists equal.
- */
-export const STEERED_CRAWLERS = [
-  "Baiduspider",
-  "Bytespider",
-  "PetalBot",
-  "MJ12bot",
-  "SemrushBot",
-  "AhrefsBot",
-  "DotBot",
-  "DataForSeoBot",
-  "Reflectionbot",
-  "ShapBot",
-];
-
-/** Where a steered crawler is sent, and the one page it may read. */
-export const DATA_LICENCE_PATH = "/docs/data-licence";
 
 /**
  * Carved out of `Disallow: /api/` for EVERY user-agent.

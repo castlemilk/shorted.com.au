@@ -18,7 +18,7 @@ import { test } from "node:test";
 const mainTf = readFileSync(new URL("./main.tf", import.meta.url), "utf8");
 const variablesTf = readFileSync(new URL("./variables.tf", import.meta.url), "utf8");
 const robotsRoute = readFileSync(
-  new URL("../../../web/src/app/robots.txt/route.ts", import.meta.url),
+  new URL("../../../web/src/@/lib/seo/crawl-policy.ts", import.meta.url),
   "utf8",
 );
 
