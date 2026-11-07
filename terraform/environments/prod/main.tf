@@ -1890,6 +1890,14 @@ module "edge" {
   javascript_detections_enabled = false
   markdown_for_agents           = "on"
 
+  # The crawler Single Redirect (http_request_dynamic_redirect phase) needs
+  # "Zone > Single Redirect: Edit" on the deploy token, which it lacks: the
+  # 2026-11-07 apply got 403 "request is not authorized" creating the ruleset,
+  # failing terraform-apply and so every deploy behind it. Off until the token
+  # carries that permission; robots.txt still steers these crawlers, and the
+  # AI crawler rate limit (an existing ruleset) applied.
+  crawler_redirect_enabled = false
+
   # DNS hardening — SPF (Google Workspace) + DMARC (p=quarantine, pct=100) + DNSSEC
   # signing. DNSSEC is not enforced until the DS record (edge_dnssec_ds_record
   # output) is published at the .com.au registrar.
