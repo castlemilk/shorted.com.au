@@ -21,7 +21,7 @@ import (
 // A code with no bar in the range is absent, so the parity universe is the set
 // of codes the Go port could feature.
 func BarCodes(ctx context.Context, db DB, from, to civil.Date) ([]string, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `
@@ -51,7 +51,7 @@ func BarCodes(ctx context.Context, db DB, from, to civil.Date) ([]string, error)
 // the picker reads, a missing view is an error: the parity check cannot say
 // anything about a view that is not there.
 func PriceView(ctx context.Context, db DB) (map[string]features.ViewPrice, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `
@@ -91,7 +91,7 @@ func PriceView(ctx context.Context, db DB) (map[string]features.ViewPrice, error
 // RegimeView reads the XJO row of mv_market_regime. ok is false when the view
 // has no XJO row, which the parity check reports rather than reads as a match.
 func RegimeView(ctx context.Context, db DB) (v features.ViewRegime, ok bool, err error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	var asOf *time.Time

@@ -23,7 +23,7 @@ const BacktestIndexBenchmark = "XJT"
 // the last day the snapshot's stored rows describe. ok is false when no session
 // has completed yet, or the strategy tables are absent.
 func BacktestWindowEnd(ctx context.Context, db DB) (civil.Date, bool, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 	var t *time.Time
 	err := db.QueryRow(ctx, `
@@ -82,7 +82,7 @@ func BacktestStatements(ctx context.Context, db DB, to civil.Date) (map[string][
 		logMissingSchemaOnce("BacktestStatements", fmt.Errorf("stock_fundamentals is absent"))
 		return map[string][]backtest.Statement{}, nil
 	}
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 	rows, err := db.Query(ctx, `
 		SELECT stock_code::text, period_type::text, period_end::date,
@@ -135,9 +135,11 @@ func BacktestStatements(ctx context.Context, db DB, to civil.Date) (map[string][
 // LoadBacktestInputs reads every row a backtest over the sessions up to to reads,
 // into the in-memory form the pure package runs on. It issues only SELECTs, so
 // a caller holding a REPEATABLE READ, READ ONLY transaction gets one snapshot
-// for the whole load: db is then that transaction. Each reader keeps its
-// own 10 second budget; a timeout is an error, never a shorter history.
+// for the whole load: db is then that transaction. Each read has the bulk
+// budget (backtestBulkQueryTimeout), not the request budget; a timeout is an
+// error, never a shorter history.
 func LoadBacktestInputs(ctx context.Context, db DB, to civil.Date) (*backtest.MemoryInputs, error) {
+	ctx = withQueryBudget(ctx, backtestBulkQueryTimeout)
 	from := BacktestHistoryFrom
 	codes, err := BarCodes(ctx, db, from, to)
 	if err != nil {
