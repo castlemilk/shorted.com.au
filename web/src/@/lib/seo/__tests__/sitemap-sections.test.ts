@@ -66,6 +66,28 @@ jest.mock("@connectrpc/connect", () => ({
   }),
 }));
 
+// The Backtest tab's sitemap lines come from the evidence read: a published run
+// with at least 60 sessions in its since-May-2019 window (10.9). Only
+// crowded-short-breakout qualifies here.
+const mockEvidenceList = {
+  strategies: [
+    {
+      strategyId: "crowded-short-breakout",
+      state: "published",
+      windows: [{ window: "since_2019_05", sessions: 1800 }],
+    },
+    { strategyId: "zanger-breakout", state: "not_computable", windows: [] },
+    {
+      strategyId: "canslim",
+      state: "published",
+      windows: [{ window: "since_2019_05", sessions: 59 }],
+    },
+  ],
+};
+jest.mock("~/app/actions/strategies/getStrategyEvidence", () => ({
+  getStrategyEvidence: async () => mockEvidenceList,
+}));
+
 jest.mock("~/app/actions/config", () => {
   const serverFetch = async (input: string) => {
     const url = String(input);
@@ -382,6 +404,16 @@ describe("sitemap children", () => {
       expect(entry).toBeDefined();
       expect(entry!.lastModified).toBeUndefined();
     }
+  });
+
+  it("lists a backtest page only where the published run has at least 60 sessions", async () => {
+    const core = await buildCoreSitemap();
+    const has = (path: string) => core.some((e) => e.url === `https://shorted.com.au${path}`);
+    expect(has("/strategies/crowded-short-breakout/backtest")).toBe(true);
+    expect(has("/strategies/zanger-breakout/backtest")).toBe(false);
+    expect(has("/strategies/canslim/backtest")).toBe(false);
+    // The Trades tab is noindex, so it is never listed.
+    expect(has("/strategies/crowded-short-breakout/trades")).toBe(false);
   });
 
   it("lists every published economy topic pair in the core sitemap without a fabricated lastmod", async () => {

@@ -181,7 +181,7 @@ export function ReturnsHeatmapTable({
       aria-label={caption}
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- A scroll region needs focus for arrow-key scrolling.
       tabIndex={0}
-      className="max-w-full overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      className="relative max-w-full overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       <table className="w-full border-collapse text-xs">
         <caption className="mb-2 text-left font-mono text-xs text-muted-foreground">

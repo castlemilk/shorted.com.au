@@ -129,3 +129,18 @@ export function coverageHatched(coverage: number | null | undefined): boolean {
   if (coverage == null || !Number.isFinite(coverage)) return false;
   return coverage < COVERAGE_HATCH_BELOW;
 }
+
+/**
+ * The fill under a drawdown curve (the drawdown panel of the Backtest tab): the
+ * semantic red at 18%, over the card, so the area reads as a loss without a solid
+ * market colour. Lives here with the other fills because this is the one module
+ * allowed to name the mark token (components/strategies/__tests__/colour-rules).
+ */
+export function drawdownFill(): string {
+  return "color-mix(in srgb, var(--semantic-red) 18%, transparent)";
+}
+
+/** The line of a drawdown curve: the same semantic red, at full strength. */
+export function drawdownStroke(): string {
+  return "var(--semantic-red)";
+}

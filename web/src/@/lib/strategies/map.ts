@@ -554,7 +554,7 @@ function mapRuleParam(input: RuleParamInput): RuleParamView | null {
 }
 
 /** The rules version, or null when the API names none. */
-function mapStrategyVersion(
+export function mapStrategyVersion(
   input: StrategyVersionInput | null | undefined,
 ): StrategyVersionDef | null {
   if (!input) return null;

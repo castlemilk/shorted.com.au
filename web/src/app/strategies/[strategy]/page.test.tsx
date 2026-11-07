@@ -11,6 +11,15 @@ import { SHORTLIST_MAX_ROWS } from "~/@/lib/strategies/shortlist";
 import { PICKS, UPTREND, pick } from "~/@/components/picks/__tests__/fixtures";
 
 const getStrategyPicks = jest.fn();
+// A read that answered with no card for this strategy: not a failed read.
+const getStrategyEvidence = jest.fn(async () => ({
+  strategies: [],
+  windowStart: "",
+  pricesThrough: "",
+  benchmarkName: "",
+  footnotes: [],
+}));
+const getBacktestRun = jest.fn(async () => null);
 const bailOnEmptyRender = jest.fn();
 const notFound = jest.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
@@ -60,6 +69,14 @@ jest.mock("~/app/actions/config", () => ({
 jest.mock("~/app/actions/getStrategyPicks", () => ({
   getStrategyPicks: (...args: unknown[]) => getStrategyPicks(...args),
 }));
+// The Evidence card's reads: absent by default, so the card is left out and the
+// Overview's assertions hold; the card's own cases set them.
+jest.mock("~/app/actions/strategies/getStrategyEvidence", () => ({
+  getStrategyEvidence: () => getStrategyEvidence(),
+}));
+jest.mock("~/app/actions/strategies/getBacktestRun", () => ({
+  getBacktestRun: () => getBacktestRun(),
+}));
 
 const params = (strategy: string) => Promise.resolve({ strategy });
 
@@ -85,6 +102,57 @@ function rowFor(code: string): HTMLElement {
   if (!row) throw new Error(`no table row for ${code}`);
   return row;
 }
+
+describe("the Overview's Evidence card", () => {
+  it("draws the card under the ranked picks from a realistic evidence answer", async () => {
+    getStrategyPicks.mockResolvedValueOnce(PICKS);
+    const { mapStrategyEvidenceList } = await import("~/@/lib/strategies/map-backtest");
+    const { fixtureEvidence } = await import("~/@/lib/strategies/__tests__/backtest-fixtures");
+    getStrategyEvidence.mockResolvedValueOnce(
+      mapStrategyEvidenceList({
+        strategies: [
+          fixtureEvidence({
+            annual: [{ year: 2025, state: "complete", coverageMeasurable: true, coveragePct: 96, coverageMeasure: "qualifying_5pct_short" }],
+          }),
+        ],
+        windowStart: "2019-05-01",
+        pricesThrough: "2026-11-06",
+        benchmarkName: "S&P/ASX 200 Gross Total Return (XJT)",
+        footnotes: [],
+      }),
+    );
+    const el = await StrategyPicksPage({ params: params("crowded-short-breakout") });
+    render(el);
+    expect(screen.getByRole("heading", { name: "Backtest evidence" })).toBeInTheDocument();
+    expect(bailOnEmptyRender).not.toHaveBeenCalled();
+  });
+
+  it("still shows the card when the picks read fails", async () => {
+    getStrategyPicks.mockResolvedValueOnce(null);
+    const { mapStrategyEvidenceList } = await import("~/@/lib/strategies/map-backtest");
+    const { fixtureEvidenceList } = await import("~/@/lib/strategies/__tests__/backtest-fixtures");
+    getStrategyEvidence.mockResolvedValueOnce(mapStrategyEvidenceList(fixtureEvidenceList()));
+    render(await StrategyPicksPage({ params: params("crowded-short-breakout") }));
+    expect(screen.getByRole("heading", { name: "Backtest evidence" })).toBeInTheDocument();
+    expect(screen.getByText(/temporarily unavailable/)).toBeInTheDocument();
+  });
+
+  it("still shows the picks when the evidence read fails, without a card", async () => {
+    getStrategyPicks.mockResolvedValueOnce(PICKS);
+    getStrategyEvidence.mockResolvedValueOnce(null);
+    render(await StrategyPicksPage({ params: params("crowded-short-breakout") }));
+    expect(screen.queryByRole("heading", { name: "Backtest evidence" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ranked picks" })).toBeInTheDocument();
+  });
+
+  it("bails the render when the evidence read fails, so a degraded page is not cached for an hour", async () => {
+    getStrategyEvidence.mockResolvedValueOnce(null);
+    const el = await StrategyPicksPage({ params: params("crowded-short-breakout") });
+    render(el);
+    expect(bailOnEmptyRender).toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Backtest evidence" })).not.toBeInTheDocument();
+  });
+});
 
 describe("StrategyPicksPage", () => {
   beforeEach(() => {

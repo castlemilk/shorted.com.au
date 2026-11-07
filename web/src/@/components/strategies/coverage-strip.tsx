@@ -13,6 +13,10 @@ export interface CoverageStripItem {
   label: string;
   /** The share of the names measured, 0 to 1. Null (or NaN) when not known: no bar, the word "n/a". */
   coverage: number | null;
+  /** Printed in place of the figure when there is none (the "?" of a year the measure cannot see). */
+  mark?: string;
+  /** The mark's explanation, as its title and accessible text. */
+  markTitle?: string;
 }
 
 export interface CoverageStripProps {
@@ -59,7 +63,7 @@ export function CoverageStrip({
               key={item.key}
               data-hatched={bar.hatched ? "" : undefined}
               className="relative h-full min-w-0 flex-1 overflow-hidden rounded-[1px] bg-muted"
-              title={`${item.label}: ${bar.pct === null ? NOT_AVAILABLE : `${bar.pct}%`}`}
+              title={`${item.label}: ${bar.pct === null ? (item.mark ?? NOT_AVAILABLE) : `${bar.pct}%`}`}
             >
               <span
                 aria-hidden="true"
@@ -107,7 +111,13 @@ export function CoverageStrip({
               />
             </span>
             <span className="text-right">
-              {bar.pct === null ? NOT_AVAILABLE : `${bar.pct}%`}
+              {bar.pct === null ? (
+                <span title={item.markTitle} data-unmeasured={item.mark ? "" : undefined}>
+                  {item.mark ?? NOT_AVAILABLE}
+                </span>
+              ) : (
+                `${bar.pct}%`
+              )}
               {bar.hatched ? (
                 <span className="sr-only"> (under 80%)</span>
               ) : null}

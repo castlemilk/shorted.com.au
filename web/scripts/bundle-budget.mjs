@@ -120,6 +120,10 @@ const BUDGETS = {
     // The Rules tab (PR-13a): static parameter tables and the changelog, no client
     // island. Measured first load on the production build: 115 kB.
     "/strategies/[strategy]/rules": 130,
+    // The Backtest tab (PR-19): the growth chart is a lazy chunk, the tables are server
+    // markup. The budget is the spec's figure (10.8); re-baseline after the build.
+    "/strategies/[strategy]/backtest": 150,
+    "/strategies/[strategy]/trades": 130,
 
     // My strategies (PR-22): the static shell and its signed-in island. Measured at 129 kB
     // on the production build; the budget is the spec's figure.

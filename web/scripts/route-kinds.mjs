@@ -99,6 +99,8 @@ export const OWNERSHIP_STATIC_ROUTES = [
 export const STRATEGY_ROUTES = [
   "/strategies/[strategy]",
   "/strategies/[strategy]/rules",
+  "/strategies/[strategy]/backtest",
+  "/strategies/[strategy]/trades",
   "/strategies/[strategy]/signals",
 ];
 

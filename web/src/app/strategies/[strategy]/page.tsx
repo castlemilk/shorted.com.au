@@ -24,7 +24,9 @@ import {
 } from "~/@/lib/strategies/shortlist";
 import { firstNonEmpty, formatPrice } from "~/@/lib/strategies/format";
 import { fundamentalsHeld } from "~/@/lib/strategies/coverage";
+import { EvidenceCard } from "~/@/components/strategies/evidence-card";
 import { getStrategyPicks } from "~/app/actions/getStrategyPicks";
+import { getStrategyEvidence } from "~/app/actions/strategies/getStrategyEvidence";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { PicksSortedView } from "./picks-sorted-view";
 
@@ -91,11 +93,20 @@ export default async function StrategyPicksPage({ params }: PageProps) {
     notFound();
   }
 
-  const data = await getStrategyPicks(seo.slug);
+  const [data, evidenceList] = await Promise.all([
+    getStrategyPicks(seo.slug),
+    getStrategyEvidence(),
+  ]);
   // A failed or cold read must not bake the copy-only shell into the route
   // cache for the whole revalidate window. An empty-but-valid universe (the
   // views have data, nothing qualifies) is a real answer and is cached.
   if (!data) await bailOnEmptyRender();
+  // The Evidence card is the Backtest tab's summary: a failed evidence read
+  // shortens this route's revalidate like the picks read does, and the card is
+  // left out rather than drawn from a guess.
+  if (!evidenceList) await bailOnEmptyRender();
+  const evidence =
+    evidenceList?.strategies.find((s) => s.strategyId === seo.slug) ?? null;
 
   const strategy = data?.strategy ?? null;
   const rows = data?.picks ?? [];
@@ -106,6 +117,9 @@ export default async function StrategyPicksPage({ params }: PageProps) {
   }));
   const pageUrl = `${siteConfig.url}/strategies/${seo.slug}`;
   const strategyName = firstNonEmpty(strategy?.name, seo.label);
+  // The evidence card reads the evidence answer alone, so it renders whether the picks read
+  // succeeded or not (both branches draw this one element).
+  const card = evidence ? <EvidenceCard slug={seo.slug} evidence={evidence} /> : null;
   // The shortlist is what the HTML and the island's props carry, so it is
   // bounded (SHORTLIST_MAX_ROWS) and the island gets the status counts over
   // every ranked row instead of the rows themselves. The ItemList names the
@@ -214,13 +228,17 @@ export default async function StrategyPicksPage({ params }: PageProps) {
               </p>
             </section>
 
+            {card}
             {strategy ? <StrategyPanel strategy={strategy} /> : null}
           </>
         ) : (
-          <section className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground">
-            Picks for this strategy are temporarily unavailable; they refresh
-            automatically. Not financial advice.
-          </section>
+          <>
+            <section className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground">
+              Picks for this strategy are temporarily unavailable; they refresh
+              automatically. Not financial advice.
+            </section>
+            {card}
+          </>
         )}
 
         <section

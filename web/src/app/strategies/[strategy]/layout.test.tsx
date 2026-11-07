@@ -116,11 +116,11 @@ describe("StrategyLayout", () => {
     expect(container.querySelectorAll("h1")).toHaveLength(1);
   });
 
-  it("lists the Overview, Rules and Signals tabs, the ones whose pages ship", async () => {
+  it("lists the tabs whose pages ship: Overview, Rules, Backtest, Signals and Trades", async () => {
     await renderLayout("canslim");
     const bar = screen.getByRole("navigation", { name: "Strategy sections" });
     const links = within(bar).getAllByRole("link");
-    expect(links.map((a) => a.textContent)).toEqual(["Overview", "Rules", "Signals"]);
+    expect(links.map((a) => a.textContent)).toEqual(["Overview", "Rules", "Backtest", "Signals", "Trades"]);
     expect(links[0]).toHaveAttribute("href", "/strategies/canslim");
     expect(links[0]).toHaveAttribute("aria-current", "page");
   });

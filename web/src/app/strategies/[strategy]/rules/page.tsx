@@ -116,6 +116,7 @@ export default async function StrategyRulesPage({ params }: PageProps) {
           strategyName={strategyName}
           live={live}
           titles={definition?.rules ?? []}
+          universe={definition?.metadata?.universe ?? ""}
           changelog={(history ?? []).filter(
             (entry) => entry.version.strategyId === seo.slug,
           )}
@@ -176,6 +177,8 @@ interface RulesBodyProps {
   strategyName: string;
   live: StrategyVersionDetailView;
   titles: readonly StrategyRuleDef[];
+  /** The registry's sentence for the universe the strategy screens (StrategyMetadata.universe). */
+  universe: string;
   changelog: StrategyVersionDetailView[];
   changelogAvailable: boolean;
 }
@@ -184,6 +187,7 @@ function RulesBody({
   strategyName,
   live,
   titles,
+  universe,
   changelog,
   changelogAvailable,
 }: RulesBodyProps) {
@@ -198,6 +202,11 @@ function RulesBody({
         stock. The rule wording is on the Overview. Weights are each
         rule&rsquo;s share of the score.
       </p>
+      {universe ? (
+        <p className="max-w-3xl text-sm" data-universe>
+          Universe: {universe}
+        </p>
+      ) : null}
 
       <section aria-labelledby="rules-version" className="space-y-3">
         <h2 id="rules-version" className={sectionTitle}>
