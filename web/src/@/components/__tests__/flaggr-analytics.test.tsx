@@ -1,7 +1,7 @@
 import { runInNewContext } from "node:vm";
 import { flaggrAnalyticsBootstrap, FlaggrAnalytics } from "../flaggr-analytics";
 
-function runBootstrap(hostname: string, doNotTrack = "0", userAgent = "Mozilla/5.0") {
+function runBootstrap(hostname: string, doNotTrack = "0", userAgent = "Mozilla/5.0", webdriver = false) {
   const scripts: Array<HTMLScriptElement> = [];
   const document = {
     getElementById: (id: string) => scripts.find((script) => script.id === id),
@@ -14,7 +14,7 @@ function runBootstrap(hostname: string, doNotTrack = "0", userAgent = "Mozilla/5
     },
     head: { appendChild: (script: HTMLScriptElement) => scripts.push(script) },
   };
-  const context = { window: { location: { hostname } }, navigator: { doNotTrack, userAgent }, document };
+  const context = { window: { location: { hostname } }, navigator: { doNotTrack, userAgent, webdriver }, document };
   runInNewContext(flaggrAnalyticsBootstrap, context);
   return { scripts, context };
 }
@@ -46,6 +46,10 @@ describe("Flaggr browser analytics", () => {
 
   it("excludes the marked production smoke-test browser", () => {
     expect(runBootstrap("shorted.com.au", "0", "Mozilla/5.0 Shorted-E2E/1.0").scripts).toHaveLength(0);
+  });
+
+  it("excludes WebDriver-controlled browsers", () => {
+    expect(runBootstrap("shorted.com.au", "0", "Mozilla/5.0", true).scripts).toHaveLength(0);
   });
 
   it("cannot prevent rendering when script insertion fails", () => {

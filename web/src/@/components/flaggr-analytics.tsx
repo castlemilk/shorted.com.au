@@ -12,7 +12,8 @@ const FLAGGR_INTEGRITY =
 export const flaggrAnalyticsBootstrap = `(() => {
   try {
     if (!${JSON.stringify(PRODUCTION_ANALYTICS_HOSTS)}.includes(window.location.hostname) ||
-        navigator.doNotTrack === "1" || navigator.userAgent.includes("Shorted-E2E") ||
+        navigator.doNotTrack === "1" || navigator.webdriver === true ||
+        navigator.userAgent.includes("Shorted-E2E") ||
         document.getElementById("flaggr-analytics")) return;
     var script = document.createElement("script");
     script.id = "flaggr-analytics";
