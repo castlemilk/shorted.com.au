@@ -18,11 +18,13 @@ describe("strategy profile tabs", () => {
     ]);
   });
 
-  it("renders the tabs whose pages ship: the Overview, Rules and Signals", () => {
+  it("renders the tabs whose pages ship: the Overview, Rules, Backtest, Signals and Trades", () => {
     expect(enabledStrategyTabs().map((tab) => tab.id)).toEqual([
       "overview",
       "rules",
+      "backtest",
       "signals",
+      "trades",
     ]);
   });
 

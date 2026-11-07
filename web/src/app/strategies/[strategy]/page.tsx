@@ -24,7 +24,10 @@ import {
 } from "~/@/lib/strategies/shortlist";
 import { firstNonEmpty, formatPrice } from "~/@/lib/strategies/format";
 import { fundamentalsHeld } from "~/@/lib/strategies/coverage";
+import { EvidenceCard } from "~/@/components/strategies/evidence-card";
 import { getStrategyPicks } from "~/app/actions/getStrategyPicks";
+import { getStrategyEvidence } from "~/app/actions/strategies/getStrategyEvidence";
+import { getBacktestRun } from "~/app/actions/strategies/getBacktestRun";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { PicksSortedView } from "./picks-sorted-view";
 
@@ -91,11 +94,21 @@ export default async function StrategyPicksPage({ params }: PageProps) {
     notFound();
   }
 
-  const data = await getStrategyPicks(seo.slug);
+  const [data, evidenceList, backtest] = await Promise.all([
+    getStrategyPicks(seo.slug),
+    getStrategyEvidence(),
+    getBacktestRun(seo.slug),
+  ]);
   // A failed or cold read must not bake the copy-only shell into the route
   // cache for the whole revalidate window. An empty-but-valid universe (the
   // views have data, nothing qualifies) is a real answer and is cached.
   if (!data) await bailOnEmptyRender();
+  // The Evidence card is the Backtest tab's summary: a failed evidence read
+  // shortens this route's revalidate like the picks read does, and the card is
+  // left out rather than drawn from a guess.
+  if (!evidenceList) await bailOnEmptyRender();
+  const evidence =
+    evidenceList?.strategies.find((s) => s.strategyId === seo.slug) ?? null;
 
   const strategy = data?.strategy ?? null;
   const rows = data?.picks ?? [];
@@ -215,6 +228,9 @@ export default async function StrategyPicksPage({ params }: PageProps) {
             </section>
 
             {strategy ? <StrategyPanel strategy={strategy} /> : null}
+            {evidence ? (
+              <EvidenceCard slug={seo.slug} evidence={evidence} run={backtest} />
+            ) : null}
           </>
         ) : (
           <section className="rounded-lg border border-border/60 bg-card p-6 text-sm text-muted-foreground">

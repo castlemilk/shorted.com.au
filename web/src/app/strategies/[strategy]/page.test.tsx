@@ -11,6 +11,15 @@ import { SHORTLIST_MAX_ROWS } from "~/@/lib/strategies/shortlist";
 import { PICKS, UPTREND, pick } from "~/@/components/picks/__tests__/fixtures";
 
 const getStrategyPicks = jest.fn();
+// A read that answered with no card for this strategy: not a failed read.
+const getStrategyEvidence = jest.fn(async () => ({
+  strategies: [],
+  windowStart: "",
+  pricesThrough: "",
+  benchmarkName: "",
+  footnotes: [],
+}));
+const getBacktestRun = jest.fn(async () => null);
 const bailOnEmptyRender = jest.fn();
 const notFound = jest.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
@@ -59,6 +68,14 @@ jest.mock("~/app/actions/config", () => ({
 }));
 jest.mock("~/app/actions/getStrategyPicks", () => ({
   getStrategyPicks: (...args: unknown[]) => getStrategyPicks(...args),
+}));
+// The Evidence card's reads: absent by default, so the card is left out and the
+// Overview's assertions hold; the card's own cases set them.
+jest.mock("~/app/actions/strategies/getStrategyEvidence", () => ({
+  getStrategyEvidence: () => getStrategyEvidence(),
+}));
+jest.mock("~/app/actions/strategies/getBacktestRun", () => ({
+  getBacktestRun: () => getBacktestRun(),
 }));
 
 const params = (strategy: string) => Promise.resolve({ strategy });

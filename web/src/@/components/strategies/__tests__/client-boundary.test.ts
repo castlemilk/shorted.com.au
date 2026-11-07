@@ -115,13 +115,18 @@ describe("strategy components stay server-safe, however indirectly", () => {
     );
   });
 
-  // The kit is server markup, with two exceptions: the profile's tab bar and the
+  // The kit is server markup, with three exceptions. The profile's tab bar and the
   // workspace sub-nav read the pathname (usePathname) and prefetch on intent, so
-  // they are client modules. Neither imports the protobuf runtime (the walk below
-  // checks that), and they are the only ones.
-  const CLIENT_KIT_FILES = ["strategies-sub-nav.tsx", "strategy-tab-nav.tsx"];
+  // they are client modules. The Backtest chart's loader is the one place
+  // next/dynamic with ssr: false may live (design 10.4), so the chart is a lazy
+  // chunk. None imports the protobuf runtime (the walk below checks that).
+  const CLIENT_KIT_FILES = [
+    "backtest-chart-loader.tsx",
+    "strategies-sub-nav.tsx",
+    "strategy-tab-nav.tsx",
+  ];
 
-  it("marks no kit file as a client component beyond the two tab bars", () => {
+  it("marks no kit file as a client component beyond the two tab bars and the chart loader", () => {
     const clientFiles = KIT_FILES.filter((file) =>
       /^\s*["']use client["']/m.test(readFileSync(file, "utf8")),
     ).map((file) => relative(COMPONENT_DIR, file));

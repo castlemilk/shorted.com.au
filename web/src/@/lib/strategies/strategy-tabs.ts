@@ -24,9 +24,9 @@ export interface StrategyTab {
 export const STRATEGY_TABS: readonly StrategyTab[] = [
   { id: "overview", label: "Overview", segment: "", enabled: true },
   { id: "rules", label: "Rules", segment: "rules", enabled: true },
-  { id: "backtest", label: "Backtest", segment: "backtest", enabled: false },
+  { id: "backtest", label: "Backtest", segment: "backtest", enabled: true },
   { id: "signals", label: "Signals", segment: "signals", enabled: true },
-  { id: "trades", label: "Trades", segment: "trades", enabled: false },
+  { id: "trades", label: "Trades", segment: "trades", enabled: true },
 ];
 
 /** The tabs the tab bar renders, in display order. */
