@@ -99,7 +99,7 @@ export const EXPLORER_COPY = {
   hypothetical:
     "Hypothetical results from rules applied to historical data, not a record of trading. Not financial advice.",
   costs:
-    "Costs: 10 bps brokerage (min A$10) + 5-50 bps spread by liquidity, per side. Returns are total return after costs.",
+    "Costs: 10 bps brokerage (min A$10) + 5-75 bps spread by liquidity, per side. Returns are total return after costs.",
   ytd: "YTD",
 } as const;
 

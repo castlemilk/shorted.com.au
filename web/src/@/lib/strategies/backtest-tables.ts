@@ -116,6 +116,53 @@ export function sensitivityFigures(row: SensitivityView): {
 }
 
 /**
+ * A run that lost its capital (5.12): the drawdown reaches -100%. Its reading says so in words; the
+ * CAGR cell still shows what the API serves (n/a today, -100% once the engine floors equity at zero).
+ */
+export function isWipedOut(row: SensitivityView): boolean {
+  return row.applies && Number.isFinite(row.maxDrawdownPct) && row.maxDrawdownPct <= -100;
+}
+
+/** The fallback costs line when a run serves no recipe: the house model, with no figure it could drift from. */
+export const HOUSE_COSTS_FALLBACK =
+  "Costs: the house cost model, per side: brokerage, and spread and impact by 20-session dollar volume.";
+
+/** Every "N bps" figure in a recipe line, in the order the line prints them. */
+function bpsFiguresOf(text: string): number[] {
+  return [...text.matchAll(/(\d+(?:\.\d+)?) bps/g)].map((m) => Number(m[1]));
+}
+
+/**
+ * The spread range a recipe prints, from its own spread line: the lowest and highest tier, in bps per
+ * side. A flat-slippage sensitivity line ("Mockup costs ...") is not the house model, so it has no range.
+ */
+export function spreadRangeBps(spread: string): { min: number; max: number } | null {
+  if (/^\s*Mockup costs/i.test(spread)) return null;
+  const tiers = bpsFiguresOf(spread);
+  if (tiers.length === 0) return null;
+  return { min: Math.min(...tiers), max: Math.max(...tiers) };
+}
+
+/**
+ * The costs line under the sensitivity table, read from the run's own recipe (the brokerage and the spread
+ * tiers the recipe prints), so it cannot drift from the model the run used. A run with no recipe, or a
+ * recipe whose spread has no tiers, gets the house fallback rather than a figure.
+ */
+export function costsCopy(recipe: { brokerage: string; spread: string } | null | undefined): string {
+  if (!recipe) return HOUSE_COSTS_FALLBACK;
+  const range = spreadRangeBps(recipe.spread);
+  if (!range) return HOUSE_COSTS_FALLBACK;
+  const brokerage = bpsFiguresOf(recipe.brokerage)[0];
+  const minimum = /at least A\$([\d,]+)/.exec(recipe.brokerage)?.[1];
+  const brokerageText = [
+    brokerage !== undefined ? `${brokerage} bps brokerage` : "brokerage",
+    minimum ? `(min A$${minimum})` : "",
+  ].filter(Boolean).join(" ");
+  const spreadText = `${range.min}-${range.max} bps spread by liquidity`;
+  return `Costs: ${brokerageText} + ${spreadText}, per side. The flat 10 + 5 bps alternative is labelled "the mockup's flat costs flatter small-cap breakouts".`;
+}
+
+/**
  * The chips a run earns from its sensitivity runs (5.12): one per fragile
  * sensitivity, in the order the API sent them, de-duplicated.
  */

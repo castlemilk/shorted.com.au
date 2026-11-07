@@ -1,4 +1,10 @@
 import {
+  costsCopy,
+  HOUSE_COSTS_FALLBACK,
+  isWipedOut,
+  spreadRangeBps,
+} from "../backtest-tables";
+import {
   coverageBars,
   coverageChip,
   coverageFigure,
@@ -13,7 +19,9 @@ import {
   splitMonthlyYears,
 } from "../backtest-tables";
 import { mapBacktestRun, mapCoverageYear, mapMonthlyReturn, mapSensitivity } from "../map-backtest";
-import { fixturePublishedRun } from "./backtest-fixtures";
+import { fixtureMinerviniRun, fixturePublishedRun } from "./backtest-fixtures";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 const WINDOW_START = "2019-05-01";
 const WINDOW_END = "2026-11-06";
@@ -156,5 +164,55 @@ describe("sensitivity", () => {
       mapSensitivity({ id: "d", fragile: true, fragileChip: "Fragile to publication timing" }),
     ];
     expect(fragileChips(rows)).toEqual(["Fragile to costs", "Fragile to publication timing"]);
+  });
+});
+
+describe("the costs note is read from the run's recipe (5.4, item c)", () => {
+  it("prints the brokerage and the spread range the recipe's own tiers give, not a fixed range", () => {
+    const recipe = mapBacktestRun(fixtureMinerviniRun()).recipe;
+    expect(recipe).not.toBeNull();
+    const copy = costsCopy(recipe);
+    // The r1 house tiers are 5, 10, 25, 50 and 75 bps per side.
+    expect(copy).toContain("10 bps brokerage (min A$10) + 5-75 bps spread by liquidity, per side.");
+    expect(copy).not.toContain("5-50");
+  });
+
+  it("reads the range from whatever tiers the spread line prints", () => {
+    expect(spreadRangeBps("Spread and impact per side by 20-session dollar volume at the decision close: A$20,000,000 and over at 3 bps; under A$1,000,000 at 40 bps.")).toEqual({ min: 3, max: 40 });
+    expect(costsCopy({ brokerage: "Brokerage 10 bps per side, at least A$10 per fill.", spread: "Spread and impact per side by 20-session dollar volume at the decision close: A$20,000,000 and over at 3 bps; under A$1,000,000 at 40 bps." })).toContain("3-40 bps spread by liquidity");
+  });
+
+  it("never prints a range from the flat sensitivity line, and falls back to the house wording with no recipe", () => {
+    expect(spreadRangeBps("Mockup costs (flat 10 + 5 bps per side) flatter small-cap breakouts. Flat slippage of 5 bps per side replaces the spread tiers: this is a sensitivity, not the house model.")).toBeNull();
+    expect(costsCopy(null)).toBe(HOUSE_COSTS_FALLBACK);
+    expect(costsCopy({ brokerage: "", spread: "no tiers here" })).toBe(HOUSE_COSTS_FALLBACK);
+  });
+
+  it("no statement of the house spread range in the web app still says 5-50 bps", () => {
+    const webSrc = join(__dirname, "..", "..", "..", "..");
+    const files = [
+      join(webSrc, "@", "lib", "strategies", "explorer.ts"),
+      join(webSrc, "@", "components", "strategies", "sensitivity-table.tsx"),
+      join(webSrc, "@", "lib", "strategies", "backtest-tables.ts"),
+    ];
+    for (const f of files) {
+      expect({ file: f, has: /5\s*(-|to)\s*50\s*bps/.test(readFileSync(f, "utf8")) }).toEqual({ file: f, has: false });
+    }
+  });
+});
+
+describe("a wiped-out sensitivity run (5.12, item a)", () => {
+  it("is wiped out when its drawdown reaches -100%, and not otherwise", () => {
+    const wiped = mapSensitivity({ id: "costs_x2", label: "Costs doubled", applies: true, maxDrawdownPct: -100.01 });
+    expect(isWipedOut(wiped)).toBe(true);
+    expect(isWipedOut(mapSensitivity({ id: "costs_x2", label: "Costs doubled", applies: true, maxDrawdownPct: -100 }))).toBe(true);
+    expect(isWipedOut(mapSensitivity({ id: "costs_x2", label: "Costs doubled", applies: true, maxDrawdownPct: -99.9 }))).toBe(false);
+    // A row that does not apply is not a wipe-out: it says why it does not apply.
+    expect(isWipedOut(mapSensitivity({ id: "asic_lag_plus_2", label: "x", applies: false, maxDrawdownPct: -100 }))).toBe(false);
+  });
+
+  it("keeps the served CAGR: n/a today, the figure once the engine serves one", () => {
+    expect(sensitivityFigures(mapSensitivity({ id: "costs_x2", label: "Costs doubled", applies: true, maxDrawdownPct: -100.01 })).cagr).toBe("n/a");
+    expect(sensitivityFigures(mapSensitivity({ id: "costs_x2", label: "Costs doubled", applies: true, maxDrawdownPct: -100.01, hasCagr: true, cagrPct: -100, hasCagr: true })).cagr).toMatch(/^[−-]100\.0%$/);
   });
 });
