@@ -5,6 +5,7 @@ import { type GetEditorialTakeResponse, type ListEditorialTakesResponse } from "
 import { cache } from "react";
 import { SERVER_SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { withRetryAndNotFound, withRetryAndThrowNotFound } from "./withRetry";
+import { shortsLatestCacheTags } from "./stockPageCache";
 
 // ISR-safe fetch — same bug class as screenStocks.ts: with no explicit `next`
 // (or `cache`) option, serverFetchWithUserAgent forces `cache: "no-store"` on
@@ -18,7 +19,7 @@ import { withRetryAndNotFound, withRetryAndThrowNotFound } from "./withRetry";
 const isrEditorialFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, {
     ...init,
-    next: { revalidate: 600, tags: ["shorts-data"] },
+    next: { revalidate: 600, tags: shortsLatestCacheTags() },
   } as RequestInit);
 
 function createEditorialClient() {

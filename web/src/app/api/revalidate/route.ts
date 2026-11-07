@@ -11,6 +11,13 @@ import {
   POLITICIANS_DATA_CACHE_PREFIXES,
   SHORTS_DATA_CACHE_PREFIXES,
 } from "~/@/lib/kv-cache";
+import { SHORTS_DATA_CACHE_TAG } from "~/app/actions/stockPageCache";
+import {
+  broadShortsRevalidation,
+  narrowShortsRevalidation,
+  parseShortsChange,
+  type ShortsChangeRead,
+} from "./shorts-change";
 
 // Redis prefix sets flushable via ?flush=<name>[,<name>...]. Each name maps to
 // the family of keys busted together on that data-change event.
@@ -34,6 +41,28 @@ function revalidationSecretsMatch(
 }
 
 /**
+ * The body's change set, if it carries one. A missing or empty body is the
+ * normal case for every caller but the shorts sync. A body that cannot be read
+ * or parsed names no change set, so it is `none`: a shorts sync always sends
+ * `flush=shorts` as well, which on its own is the broad revalidation, and a
+ * caller that is not a shorts sync must not trigger one by sending a body.
+ */
+async function readShortsChange(request: NextRequest): Promise<ShortsChangeRead> {
+  let text = "";
+  try {
+    text = typeof request.text === "function" ? await request.text() : "";
+  } catch {
+    return { kind: "none" };
+  }
+  if (text.trim() === "") return { kind: "none" };
+  try {
+    return parseShortsChange(JSON.parse(text) as unknown);
+  } catch {
+    return { kind: "none" };
+  }
+}
+
+/**
  * On-demand revalidation endpoint (event-driven caching).
  *
  * Called by the data pipeline when underlying data actually changes (e.g. the
@@ -50,6 +79,15 @@ function revalidationSecretsMatch(
  *        &flush=shorts,housing                 (comma-separated Redis-prefix
  *                                                 families to flush; `shorts` and
  *                                                 `housing` are the current names)
+ *        body (optional, JSON): {"shorts": {"codes": [...], "dates": [...]}}
+ *
+ * Shorts data has two scopes. BROAD (`tag=shorts-data`, or `flush=shorts`
+ * without a change set) expires every stock page, market date and report, as
+ * the deploy sweep and operators want. NARROW (a change set in the body, no
+ * `tag=shorts-data`) is what the sync sends: it expires only the stocks it
+ * wrote, the newest-snapshot reads, and the market dates and report periods it
+ * wrote, so a day that writes one date of ~800 codes leaves the other ~3,600
+ * stocks' cached pages alone. See shorts-change.ts.
  *
  * The legacy `?secret=` input remains a temporary one-release fallback for old
  * jobs. A supplied header always wins, including when it is invalid.
@@ -73,9 +111,13 @@ export async function POST(request: NextRequest) {
   const tagSet = new Set(split(sp.get("tag")));
   const pathSet = new Set(split(sp.get("path")));
   const flushTargets = split(sp.get("flush"));
+  const shortsChange = await readShortsChange(request);
 
   // A newly published report must replace a previously cached 404 and update
   // the archive/navigation. Keep existing generator jobs (report-<slug>) valid.
+  // Only the caller's own tags pass through here: a narrow shorts change adds
+  // report tags below, and a corrected date is not a new report, so it must
+  // not expire the archive (and every Overview tab, which lists the latest).
   for (const tag of tagSet) {
     const slug = tag.replace(/^report-/, "");
     let reportPath: string | undefined;
@@ -98,20 +140,26 @@ export async function POST(request: NextRequest) {
     if (tag === "market-index") pathSet.add("/market");
   }
 
-  // An ASIC ingest can correct any historical snapshot, including a date that
-  // previously had no data. Negative route entries have no data-tag dependency,
-  // so invalidate the patterns as well as the shared data cache.
-  if (tagSet.has("shorts-data") || flushTargets.includes("shorts")) {
-    tagSet.add("shorts-data");
-    tagSet.add("market-index");
-    pathSet.add("/market");
-    for (const path of [
-      "/market/[date]",
-      "/reports/weekly/[slug]",
-      "/reports/monthly/[slug]",
-      "/reports/yearly/[slug]",
-    ]) pathSet.add(path);
+  // An explicit tag=shorts-data always means broad: it is how an operator or
+  // the deploy sweep says "I cannot name what changed".
+  const shortsEvent =
+    tagSet.has(SHORTS_DATA_CACHE_TAG) ||
+    flushTargets.includes("shorts") ||
+    shortsChange.kind !== "none";
+  const narrow =
+    shortsEvent &&
+    shortsChange.kind === "narrow" &&
+    !tagSet.has(SHORTS_DATA_CACHE_TAG);
+  const shortsPlan = !shortsEvent
+    ? null
+    : narrow && shortsChange.kind === "narrow"
+      ? narrowShortsRevalidation(shortsChange.change)
+      : broadShortsRevalidation();
+  if (shortsPlan) {
+    for (const tag of shortsPlan.tags) tagSet.add(tag);
+    for (const path of [...shortsPlan.paths, ...shortsPlan.patterns]) pathSet.add(path);
   }
+  const stockTags = shortsPlan?.stockTags ?? [];
   const tags = Array.from(tagSet);
   const paths = Array.from(pathSet);
 
@@ -123,6 +171,7 @@ export async function POST(request: NextRequest) {
   }
 
   for (const tag of tags) revalidateTag(tag);
+  for (const tag of stockTags) revalidateTag(tag);
   for (const path of paths) {
     // A path containing "[" is a dynamic route pattern (e.g. /shorts/[stockCode]).
     // The stock segment is a LAYOUT with seven tab pages beneath it, so it is
@@ -177,6 +226,19 @@ export async function POST(request: NextRequest) {
     revalidated: flushErrors.length === 0,
     tags,
     paths,
+    // The per-stock tags are counted, not listed: a routine day names ~800.
+    shorts: shortsPlan
+      ? narrow && shortsChange.kind === "narrow"
+        ? {
+            scope: "narrow",
+            stocks: stockTags.length,
+            dates: shortsChange.change.dates,
+          }
+        : {
+            scope: "broad",
+            ...(shortsChange.kind === "broad" ? { reason: shortsChange.reason } : {}),
+          }
+      : null,
     flushedKeys,
     flushScanCommands,
     flushErrors,

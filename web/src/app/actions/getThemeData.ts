@@ -13,6 +13,7 @@ import {
   skipForBuild,
 } from "./config";
 import { getTheme } from "~/@/lib/themes/registry";
+import { shortsLatestCacheTags } from "~/app/actions/stockPageCache";
 import {
   buildThemeShortSeries,
   normalizeConstituentPoints,
@@ -216,7 +217,7 @@ export async function getThemeSnapshot(
         return snapshot;
       },
       [`theme-snapshot-${slug}-v1`],
-      { tags: ["shorts-data", "theme-snapshot", `theme-${slug}`], revalidate: 3600 },
+      { tags: shortsLatestCacheTags("theme-snapshot", `theme-${slug}`), revalidate: 3600 },
     )();
   } catch (err) {
     console.error(`[getThemeSnapshot] failed for ${slug}:`, err);
@@ -312,7 +313,7 @@ export async function getThemeHubStats(
         return stats;
       },
       [`theme-hub-stats-v1-${key}`],
-      { tags: ["shorts-data", "theme-snapshot"], revalidate: 3600 },
+      { tags: shortsLatestCacheTags("theme-snapshot"), revalidate: 3600 },
     )();
   } catch (err) {
     console.error("[getThemeHubStats] failed:", err);

@@ -9,19 +9,20 @@ import { formatPeriodForAPI } from "~/lib/period-utils";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS, HOMEPAGE_TTL } from "~/@/lib/kv-cache";
 import { withRetry } from "./withRetry";
+import { SHORTS_LATEST_CACHE_TAG, shortsLatestCacheTags } from "./stockPageCache";
 
 // ISR-tagged transport (getBattlegrounds' isrBattlegroundsFetch pattern). The
 // `next` option is LOAD-BEARING: without it serverFetchWithUserAgent forces
 // `cache: "no-store"` on this POST at Vercel runtime, and inside the homepage's
 // static render that fetch throws DynamicServerError, so a regeneration that
 // missed the KV and the edge read was discarded. Only the warm-cache route
-// keeping the KV filled hid it. Tagged `shorts-data` so the daily sync's
-// revalidation busts it with the other ASIC reads; the lifetime is the KV's,
-// which is also the homepage's revalidate.
+// keeping the KV filled hid it. Tagged shorts-latest (with the broad
+// shorts-data) so every sync that writes busts it with the other ASIC reads;
+// the lifetime is the KV's, which is also the homepage's revalidate.
 const isrTreeMapFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, {
     ...init,
-    next: { revalidate: HOMEPAGE_TTL, tags: ["shorts-data"] },
+    next: { revalidate: HOMEPAGE_TTL, tags: shortsLatestCacheTags() },
   } as RequestInit);
 
 // React cache() provides request deduplication during a single render
@@ -51,6 +52,7 @@ export const getIndustryTreeMap = cache(
               limit,
               viewMode,
             },
+            [SHORTS_LATEST_CACHE_TAG],
           );
           if (edgeResponse) return edgeResponse;
 

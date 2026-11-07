@@ -73,7 +73,7 @@ describe("/shorts/[stockCode]/financials", () => {
   });
 
   it("is on-demand ISR", () => {
-    expect(revalidate).toBe(3600);
+    expect(revalidate).toBe(86400);
     expect(dynamicParams).toBe(true);
     expect(generateStaticParams()).toEqual([]);
   });

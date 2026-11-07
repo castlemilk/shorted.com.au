@@ -2,6 +2,7 @@ import {
   normalizeApiBaseUrl,
   serverFetchWithUserAgent,
 } from "./config";
+import { SHORTS_DATA_CACHE_TAG } from "./stockPageCache";
 
 type QueryValue = string | number | boolean | null | undefined;
 type QueryParams = Record<string, QueryValue>;
@@ -9,6 +10,15 @@ type QueryParams = Record<string, QueryValue>;
 const DEFAULT_EDGE_API_URL = "https://api.shorted.com.au";
 const EDGE_READ_TIMEOUT_MS = 1500;
 const EDGE_READ_REVALIDATE_SECONDS = 86400;
+
+export interface EdgeReadOptions {
+  /**
+   * The data-cache window, in seconds. Defaults to a day: almost every edge
+   * read is ASIC-derived and refreshed by a tag when the sync writes. A read
+   * whose source changes on its own schedule (news) passes that schedule.
+   */
+  revalidate?: number;
+}
 
 export function getEdgeReadApiUrl(): string | undefined {
   if (process.env.SHORTED_ENABLE_EDGE_READS === "false") {
@@ -44,10 +54,17 @@ export function buildEdgeReadUrl(
   return url.toString();
 }
 
+/**
+ * `scopeTags` name what a narrow sync expires this read by: stockCodeCacheTag
+ * for a per-stock read, SHORTS_LATEST_CACHE_TAG for one built from the newest
+ * snapshot, market-date / market-index for the market pages. The broad
+ * shorts-data tag is always added.
+ */
 export async function fetchEdgeReadJson<T>(
   path: string,
   params: QueryParams = {},
-  additionalTags: string[] = [],
+  scopeTags: string[] = [],
+  options: EdgeReadOptions = {},
 ): Promise<T | undefined> {
   const baseUrl = getEdgeReadApiUrl();
   if (!baseUrl) return undefined;
@@ -65,13 +82,14 @@ export async function fetchEdgeReadJson<T>(
     // stacked staleness keeping /top on old data for a day after every sync
     // (found 2026-08-21: page cache busted, KV flushed, edge fresh, and the
     // regen still read this entry). Every edge-read consumer is shorts-derived,
-    // so the daily sync's revalidation (tag=shorts-data) now busts them all.
+    // so a broad revalidation (tag=shorts-data) busts them all, and the scope
+    // tags let a narrow sync bust only what it wrote.
     next: {
-      revalidate: EDGE_READ_REVALIDATE_SECONDS,
+      revalidate: options.revalidate ?? EDGE_READ_REVALIDATE_SECONDS,
       // Per-snapshot tags must reach this inner fetch cache as well as any
       // outer unstable_cache; otherwise a targeted correction rereads stale
       // data here until the shared shorts-data tag is invalidated.
-      tags: Array.from(new Set(["shorts-data", ...additionalTags])),
+      tags: Array.from(new Set([SHORTS_DATA_CACHE_TAG, ...scopeTags])),
     },
   };
 

@@ -15,6 +15,7 @@ import {
   skipForBuild,
 } from "./config";
 import { getAvailableDates } from "./market/getMarketByDate";
+import { shortsLatestCacheTags } from "./stockPageCache";
 import { industryLabel } from "~/@/lib/industry-placeholder";
 
 // Aggregate market-wide short-selling statistics for /statistics — the
@@ -173,7 +174,7 @@ function getReportCodes(date: string): Promise<string[]> {
       return [...codes].sort();
     },
     ["asic-report-codes-v1", date],
-    { tags: ["shorts-data"], revalidate: 86400 },
+    { tags: shortsLatestCacheTags(), revalidate: 86400 },
   )();
 }
 

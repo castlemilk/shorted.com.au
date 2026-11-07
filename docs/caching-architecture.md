@@ -8,7 +8,7 @@ and refresh **on the data-change event** rather than on a timer.
 | Layer | Holds | TTL ceiling | Busted on change by |
 |---|---|---|---|
 | **Next.js ISR / Full Route Cache** | rendered SSR pages (`/`, `/top`, `/news`, `/shorts/[code]`) | 24h (`export const revalidate = 86400`) | `revalidatePath` via `/api/revalidate` |
-| **Next.js Data Cache** | per-stock core RPC data (`GetStock`, `GetStockDetails`, `GetStockData`, enriched metadata) | 24h (`STOCK_PAGE_CACHE_SECONDS`) | `revalidateTag("shorts-data")` via `/api/revalidate?tag=shorts-data` |
+| **Next.js Data Cache** | per-stock core RPC data (`GetStock`, `GetStockDetails`, `GetStockData`, enriched metadata) | 24h (`STOCK_PAGE_CACHE_SECONDS`) | per stock: `revalidateTag("stock:<CODE>")` from the sync's change set; everything: `revalidateTag("shorts-data")` via `/api/revalidate?tag=shorts-data` |
 | **Redis (Upstash/ioredis)** | API responses (`getOrSetCached`) | 24h (`HOMEPAGE_TTL`…) | `deleteCachedByPrefix` via `/api/revalidate?flush=shorts` |
 | **Cloudflare edge** | API responses and public `/shorts/[code]` HTML | API: 2–5m; stock HTML: 24h | API self-expires; stock HTML follows cache rule + daily revalidation/purge path |
 
@@ -21,16 +21,40 @@ first uncached request can still render on demand and then be cached.
 
 ## The data-change event
 
-`short-data-sync` only processes **new** ASIC CSVs, so `records > 0` **is** the
-"data actually changed" signal (a no-new-files run does nothing). After a
-successful write it:
+`short-data-sync` writes only rows that are new or that ASIC changed, so
+`records > 0` **is** the "data actually changed" signal (a no-new-files run does
+nothing). After a successful write it:
 1. `SELECT refresh_all_materialized_views()` — so the MVs reflect the new data.
-2. `POST $REVALIDATION_URL?secret=…&tag=shorts-data&path=/,/top,/news,/screener,/industry,/shorts/[stockCode]&flush=shorts`.
+2. `POST $REVALIDATION_URL?tag=scan-results&path=/,/top,/news,/screener,/industry,/statistics,/scans&flush=shorts`
+   (secret in `X-Revalidate-Secret`) with the run's change set as the body:
+   `{"shorts": {"codes": [...], "dates": [...]}}` — every code on a row it
+   wrote and every report date those rows are for.
 
-`/api/revalidate` (enhanced) then invalidates the shared stock data tag,
-`revalidatePath`s each page (patterns with `[..]` bust the whole dynamic route),
-and prefix-flushes the shorts-data Redis keys. Backward-compatible with the
-existing single-`tag` callers (weekly-report-generator still works).
+`/api/revalidate` then expires, and only expires (`app/api/revalidate/shorts-change.ts`):
+- `stock:<CODE>` for each written stock: its data reads and, through the tags
+  each page collects from its reads, every tab of `/shorts/<CODE>`, its OG card,
+  its chart share page and any comparison that includes it;
+- `shorts-latest`: reads built from the newest snapshot across all stocks (top
+  shorts, the treemap, the screener, statistics, themes, battlegrounds);
+- `market-index`, and `market-date:<date>` + `/market/<date>` for each written
+  date (a date that was a cached 404 becomes real);
+- the weekly, monthly and yearly report covering each written date, by
+  `report-<slug>` tag and by path;
+- the newest-snapshot paths in the query, and the shorts Redis family.
+
+A routine day writes one date of ~800 codes, so the other ~3,600 stocks' cached
+pages are left alone. The change set goes in requests of at most 250 stocks
+(only the first carries the paths and the Redis flush); if any of them is
+refused or unreachable, the job sends the broad request below instead, so a
+failed narrow bust never leaves a stock on old data for its day-long window. A run that cannot name what it wrote (an initial load), or
+names more than 2,000 codes or 45 dates, sends the **broad** request instead:
+`tag=shorts-data,scan-results` plus the same paths and `/shorts/[stockCode]`,
+which expires every stock page, every market date and every report. So does any
+caller that sends `tag=shorts-data` or `flush=shorts` without a change set (the
+deploy sweep, an operator). Every shorts read keeps the broad `shorts-data` tag
+beside its narrow one; `web/src/app/actions/__tests__/shorts-tag-scopes.test.ts`
+fails on a read tagged only `shorts-data`, which a narrow sync would never
+refresh.
 
 ## GetTopShorts payload
 

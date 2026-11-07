@@ -121,6 +121,9 @@ type reconcileReport struct {
 	// Failed names the files that could not be fetched, parsed or compared.
 	// They are retried by a later run, whose window covers them again.
 	Failed []string
+	// changed is every date and code the pass wrote, for the revalidation
+	// ping. Not part of the stored report.
+	changed changeSet
 }
 
 // reconcileDate is one date's difference from its current ASIC file.
@@ -361,6 +364,9 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 		}
 		written, err := store.UpsertRows(ctx, write)
 		rep.RowsWritten += written
+		if written > 0 {
+			rep.changed.add(obsDate, write)
+		}
 		if err != nil {
 			// UpsertRows returns only cancellation; a failed row is counted,
 			// logged by UpsertRows, and retried by a later run's window.

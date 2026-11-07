@@ -14,11 +14,19 @@ import { unstable_cache } from "next/cache";
  * (/industry), a list every stock page ranks against. A read one route makes
  * per regeneration takes the route policy instead (`next` on
  * serverFetchWithUserAgent, applyRoutePolicy in config.ts).
+ *
+ * `tags` let a revalidation ping refresh the entry before its window ends.
+ * Every page that reads the entry carries them too, so a tag busted on every
+ * sync expires every one of those pages.
  */
 export function sharedRead<T>(
   keyParts: string[],
   revalidate: number,
   read: () => Promise<T>,
+  tags?: string[],
 ): Promise<T> {
-  return unstable_cache(read, keyParts, { revalidate })();
+  return unstable_cache(read, keyParts, {
+    revalidate,
+    ...(tags && tags.length > 0 ? { tags } : {}),
+  })();
 }

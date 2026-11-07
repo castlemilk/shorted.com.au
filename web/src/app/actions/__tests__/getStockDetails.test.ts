@@ -92,6 +92,8 @@ describe("getStockDetails", () => {
     expect(result).toEqual(edgeStockDetails);
     expect(mockFetchEdgeReadJson).toHaveBeenCalledWith(
       "/edge/v1/stock/BHP/details",
+      {},
+      ["stock:BHP"],
     );
     expect(mockClient.getStockDetails).not.toHaveBeenCalled();
   });

@@ -24,7 +24,9 @@ import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 
 // On-demand ISR: the empty generateStaticParams is what makes the segment
 // statically optimisable; without it revalidate is inert (see the overview).
-export const revalidate = 3600;
+// A day: everything here is ASIC data the sync expires by stock:<CODE> when it
+// writes this stock (see layout.tsx).
+export const revalidate = 86400;
 export const dynamicParams = true;
 export function generateStaticParams(): Array<{ stockCode: string }> {
   return [];

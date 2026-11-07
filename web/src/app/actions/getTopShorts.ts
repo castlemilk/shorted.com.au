@@ -6,6 +6,7 @@ import { formatPeriodForAPI } from "~/lib/period-utils";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { cache } from "react";
 import { fetchEdgeReadJson } from "./edgeRead";
+import { SHORTS_LATEST_CACHE_TAG, shortsLatestCacheTags } from "./stockPageCache";
 import {
   CACHE_KEYS,
   HOMEPAGE_TTL,
@@ -71,6 +72,7 @@ export const getTopShortsData = cache(
               limit,
               offset: offset > 0 ? offset : undefined,
             },
+            [SHORTS_LATEST_CACHE_TAG],
           );
           if (edgeResponse) return edgeResponse;
 
@@ -110,7 +112,7 @@ export const getTopShortsData = cache(
 );
 
 // The connect fallback's data-cache lifetime. Same as the edge read's: the
-// entry is refreshed by the daily sync's `shorts-data` tag revalidation, not by
+// entry is refreshed by the sync's shorts-latest tag revalidation, not by
 // time, and a shorter figure here would silently lower the ISR interval of
 // every page that calls getTopShortsData (Next takes the minimum fetch
 // revalidate as the route's).
@@ -120,14 +122,14 @@ export const TOP_SHORTS_FALLBACK_REVALIDATE_SECONDS = 86400;
 // connect POST forces cache:'no-store' at Vercel runtime, which would opt the
 // caller's route out of static generation (e.g. flip /industry-intelligence from
 // ○ static to ƒ dynamic). Mirrors getIndustryData / fetchIndustryByCode.
-// Tagged `shorts-data` so the sync's revalidation ping busts the entry the same
+// Tagged shorts-latest so the sync's revalidation ping busts the entry the same
 // way it busts the edge-read entries (edgeRead.ts) — an untagged entry would
 // live its full lifetime regardless of revalidateTag.
 function createIsrTopShortsClient(revalidateSeconds: number) {
   const isrFetch: typeof fetch = (input, init) =>
     serverFetchWithUserAgent(input, {
       ...init,
-      next: { revalidate: revalidateSeconds, tags: ["shorts-data"] },
+      next: { revalidate: revalidateSeconds, tags: shortsLatestCacheTags() },
     } as RequestInit);
   const transport = createConnectTransport({
     fetch: isrFetch,

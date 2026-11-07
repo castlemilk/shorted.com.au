@@ -190,7 +190,7 @@ describe("getStockRegisterStrip", () => {
     const [, key, opts] = cacheCalls.find(([, k]) => k[0] === "stock-register-strip")!;
     expect(key).toEqual(["stock-register-strip", "BHP", "v1"]);
     expect(opts.revalidate).toBe(3600);
-    expect(opts.tags).toEqual(["shorts-data", "stock-page:register-strip:bhp"]);
+    expect(opts.tags).toEqual(["shorts-data", "stock:BHP", "stock-page:register-strip:bhp"]);
     expect(opts.tags).not.toContain("ownership");
   });
 

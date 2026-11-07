@@ -977,7 +977,8 @@ They are in place so the chart and table code is reviewed once.
 
 `/shorts/[stockCode]` is a shared server `layout.tsx` (breadcrumbs, then
 `StockHeader`, then the sticky `StockTabNav`) with seven ISR pages beneath it
-(3600 s; `/news` 600 s): `/` (Overview digest), `/short-interest`,
+(layout, Short interest, Financials and Community 86400 s; Overview, Strategy,
+Company and News 3600 s, held there by what they read): `/` (Overview digest), `/short-interest`,
 `/strategy`, `/financials`, `/company`, `/news` and `/community`. The thread
 pages at `community/[threadId]` render under the same layout but stay
 per-request. The tab list lives ONCE in
@@ -1252,8 +1253,18 @@ follows the same rules. `ChatSidebar` and both environment banners read
   unmapped value. No client-side reader exists any more. Under `next start` the
   redirect's `Location` keeps the stale `?tab=`, so the e2e test compares its
   pathname.
-- **The sync's `/shorts/[stockCode]` path is revalidated with type `layout`**
-  (`/api/revalidate`), which expires every tab for every code in one call. An
+- **The sync expires only the stocks it wrote.** It sends its change set
+  (codes + report dates) in the `/api/revalidate` body; the route expires
+  `stock:<CODE>` per written stock, `shorts-latest` (newest-snapshot reads), and
+  each written date's `/market/<date>` and covering reports
+  (`app/api/revalidate/shorts-change.ts`). Every per-stock read carries
+  `stock:<CODE>` through `stockPageCacheTags`; every newest-snapshot read carries
+  `shorts-latest` through `shortsLatestCacheTags`; a bare `shorts-data` tag fails
+  `shorts-tag-scopes.test.ts`. `tag=shorts-data` (or `flush=shorts` with no
+  change set) is still the BROAD bust: every tab of every code, as the deploy
+  sweep and an initial load or a large repair send it. A route's window is the
+  shortest its segments and reads declare, so a read with a short window (the
+  Overview's related stocks were 1800 s) quietly shortens the whole tab. An
   expired page regenerates only when it is next visited.
 - **A chart is no longer one DOM node across the tabs.** Each chart tab mounts
   its own, so a return to one within 30 minutes (the chart queries'

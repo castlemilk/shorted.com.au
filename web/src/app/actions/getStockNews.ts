@@ -6,8 +6,18 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { SERVER_SHORTS_API_URL, serverFetchOutsideNextCache } from "./config";
 import { fetchEdgeReadJson } from "./edgeRead";
-import { STOCK_PAGE_CACHE_SECONDS } from "./stockPageCache";
+import {
+  SHORTS_LATEST_CACHE_TAG,
+  STOCK_PAGE_CACHE_SECONDS,
+  normalizeStockPageCacheCode,
+  stockPageCacheTags,
+} from "./stockPageCache";
 import { withRetryAndNotFound } from "./withRetry";
+
+/** A stock's news reads, apart from its ASIC reads (news is not ASIC data). */
+export function stockNewsCacheTag(stockCode: string): string {
+  return `stock-news:${normalizeStockPageCacheCode(stockCode)}`;
+}
 
 function createNewsClient() {
   const transport = createConnectTransport({
@@ -22,11 +32,14 @@ export const getStockNews = cache(
     async (
       stockCode: string,
       limit: number = 20, // eslint-disable-line @typescript-eslint/no-inferrable-types
+      revalidateSeconds: number = STOCK_PAGE_CACHE_SECONDS, // eslint-disable-line @typescript-eslint/no-inferrable-types
     ): Promise<GetStockNewsResponse> => {
       const normalizedStockCode = stockCode.trim().toUpperCase();
       const edgeResponse = await fetchEdgeReadJson<GetStockNewsResponse>(
         `/edge/v1/stock/${encodeURIComponent(normalizedStockCode)}/news`,
         { limit },
+        [stockNewsCacheTag(normalizedStockCode)],
+        { revalidate: revalidateSeconds },
       );
       if (edgeResponse) return edgeResponse;
 
@@ -84,6 +97,7 @@ export const getStockHeadlines = cache(
           const edgeResponse = await fetchEdgeReadJson<GetStockNewsResponse>(
             `/edge/v1/stock/${encodeURIComponent(code)}/news`,
             { limit },
+            [stockNewsCacheTag(code)],
           );
           const response =
             edgeResponse ??
@@ -101,7 +115,7 @@ export const getStockHeadlines = cache(
         },
         ["stock-headlines", code, String(limit)],
         {
-          tags: ["shorts-data", `stock-page:${code}`],
+          tags: [...stockPageCacheTags("headlines", code), `stock-page:${code}`],
           revalidate: STOCK_PAGE_CACHE_SECONDS,
         },
       )();
@@ -124,6 +138,9 @@ export const getMarketNews = cache(
           limit,
           priceSensitiveOnly: priceSensitiveOnly ? true : undefined,
         },
+        // Every sync used to refresh this through the broad tag; a narrow
+        // sync keeps doing so through shorts-latest.
+        [SHORTS_LATEST_CACHE_TAG],
       );
       if (edgeResponse) return edgeResponse;
 
