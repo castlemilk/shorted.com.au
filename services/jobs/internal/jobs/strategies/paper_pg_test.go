@@ -74,7 +74,7 @@ func batchableVersion(t *testing.T, pool *pgxpool.Pool) paperVersion {
 
 func versionsOf(t *testing.T, pool *pgxpool.Pool) []paperVersion {
 	t.Helper()
-	versions, err := paperVersions(context.Background(), store{pool: pool}, t.Logf)
+	versions, err := paperVersions(context.Background(), store{pool: pool}, t.Logf, newOnce())
 	require.NoError(t, err)
 	require.NotEmpty(t, versions, "a live version with a recipe")
 	return versions
@@ -248,6 +248,17 @@ func TestStepEqualsRun(t *testing.T) {
 	crowded := crowdedClosedOpen(t, pool)
 	require.Greater(t, crowded[0], 0, "crowded-short-breakout has a closed trade in the fixture")
 	require.Greater(t, crowded[1], 0, "crowded-short-breakout has an open trade in the fixture")
+	// A position HELD when a suspect becomes known exits through corporate_action_exit
+	// (HHH, held from 27 July, suspect on 10 August), compared with the batch above.
+	require.Greater(t, countRows(t, pool, `SELECT count(*) FROM strategy_paper_trades
+		WHERE exit_reason = 'corporate_action_exit'`), 0, "a held position exits on a suspect")
+	// A minervini exit on its stop-loss, and one cancelled entry (GGG, untraded on its
+	// entry day), are in the fixture and compared.
+	require.Greater(t, countRows(t, pool, `SELECT count(*) FROM strategy_paper_trades
+		WHERE strategy_id = 'minervini-trend-template' AND status = 'closed' AND exit_reason = 'sma_stop'`), 0,
+		"a minervini exit on a price rule (CCC's fall past its stop and its 50-day average) is in the fixture")
+	require.Greater(t, countRows(t, pool, `SELECT count(*) FROM strategy_paper_trades WHERE status = 'cancelled'`), 0,
+		"a cancelled entry is in the fixture and compared")
 	// The corporate-action block is exercised: AAA's suspect is known on 22 July, and
 	// no trade of any version enters AAA in the sixty sessions after it (its 6 August
 	// entry would otherwise be taken).
@@ -324,9 +335,10 @@ func requireSameTrade(t *testing.T, v paperVersion, got storedTrade, want backte
 func TestPaperSessionsEqualTheBatchSessions(t *testing.T) {
 	pool := paperDB(t)
 	ctx := context.Background()
-	// Run to mid-July: the retained snapshot (the newest fifteen sessions) then
-	// still holds the fixture's suspect, dividend and NULL close. A later run would
-	// prune them, and this comparison reads only what the snapshot keeps.
+	// Run to 7 August: the retained snapshot (the newest fifteen sessions) then still
+	// holds the fixture's suspect, dividend and NULL close (the earliest of them is
+	// 18 July). A later run would prune them, and this comparison reads only what the
+	// snapshot keeps.
 	last := civil.Date{Year: 2026, Month: time.August, Day: 7}
 	runPaperThrough(t, pool, last)
 	in, err := pgsource.LoadBacktestInputs(ctx, pool, last)
@@ -613,7 +625,8 @@ func TestPaperSupersededTrackStopsAndRepromotionDoesNotResume(t *testing.T) {
 			relog++
 		}
 	}
-	require.LessOrEqual(t, relog, 1, "the re-promotion line prints at most once")
+	// A line prints once per run, and the loop above is five runs: at most one line per run.
+	require.LessOrEqual(t, relog, len(days[7:12]), "the re-promotion line prints at most once per run")
 }
 
 // TestPaperRecipesAreRegisteredOnEverySessionRun: a recipe row that is missing is
@@ -848,7 +861,8 @@ func TestPaperStartsOnTheFirstSeedThatCarriesCAKnown(t *testing.T) {
 	}
 	require.Greater(t, starts, 0, "the start is logged with its reason")
 	require.Greater(t, waits, 0, "the wait for a seed that carries ca_known is logged")
-	require.LessOrEqual(t, waits, len(versionsOf(t, pool)), "the wait line prints once per version")
+	// The wait line prints once per version per run: one run per session it waits.
+	require.LessOrEqual(t, waits, len(versionsOf(t, pool))*2, "the wait line prints at most once per version per run")
 }
 
 // TestPaperQualityCompoundersStepsOverItsSnapshot is the weaker check for a

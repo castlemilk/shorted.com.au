@@ -305,3 +305,35 @@ func TestPaperConfigNeverKnowsALaterBar(t *testing.T) {
 		t.Errorf("the paper track's config carries loaded-bar dates %v; a stale exit would then read suspended", cfg.LastLoaded)
 	}
 }
+
+// TestCancelledRowCarriesThePendingEntriesScore: a cancelled entry's score is the
+// score it was signalled with (the pending entry's), not zero.
+func TestCancelledRowCarriesThePendingEntriesScore(t *testing.T) {
+	before := []backtest.PendingEntry{{Code: "BBB", SignalDate: paperDay(10), Pivot: 9, Score: 83.5}}
+	events := []backtest.Event{{Date: paperDay(12), Code: "BBB", Kind: backtest.EventEntryCancelled, Reason: backtest.CancelCash}}
+	rows, err := paperLedgerRows(before, nil, nil, nil, events)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Status != "cancelled" {
+		t.Fatalf("rows = %+v, want one cancelled row", rows)
+	}
+	if rows[0].EntryScore != 83.5 {
+		t.Errorf("cancelled entry_score = %v, want the pending entry's 83.5, not zero", rows[0].EntryScore)
+	}
+}
+
+// TestOncePerRunIsPerRun: a once-set prints a key once in its run and again in
+// another run, so no line depends on the order of the tests.
+func TestOncePerRunIsPerRun(t *testing.T) {
+	var got []string
+	logf := func(f string, a ...any) { got = append(got, f) }
+	run1 := newOnce()
+	run1.logOnce("k", logf, "line")
+	run1.logOnce("k", logf, "line")
+	run2 := newOnce()
+	run2.logOnce("k", logf, "line")
+	if len(got) != 2 {
+		t.Fatalf("printed %d times over two runs, want once per run (2)", len(got))
+	}
+}

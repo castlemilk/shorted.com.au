@@ -32,8 +32,8 @@ var (
 )
 
 // paperCodes are the fixture's stocks. Their roles:
-//   - CCC: a dividend with a Saturday ex-date, and a NULL close on one day while held.
-//   - CCC: a dividend with a Saturday ex-date (credited on the Monday).
+//   - CCC: a dividend with a Saturday ex-date (credited on the Monday), a NULL close
+//     on one day while held, and a 10% fall that is its minervini stop.
 //   - DDD: its last bar is its fill day, so its exit is a stale exit (delisted_exit).
 //   - GGG: no volume on three days (a triggered entry can cancel as untraded).
 //   - AAA: a corporate-action suspect on 22 July (a zero-volume level shift); its
@@ -50,17 +50,23 @@ const paperStaleCode = "DDD"
 // close reaches the simulator's session.
 const paperNullCode = "CCC"
 
-// paperCrash is BBB's fall: a 40% level drop from this session on. BBB is entered
-// in July and held through it, so an exit rule closes the trade (a closed trade
-// with its exit reason, flags and economics).
+// paperCrash is BBB's fall: a 40% level drop from this session on. It is a
+// fixture for the batch's own rules over a large move, not a held position: BBB's
+// crowded-short trade has already closed by then (28 July).
 var paperCrash = civil.Date{Year: 2026, Month: time.August, Day: 3}
 
-// paperCASuspect is AAA's corporate-action suspect. AAA enters crowded-short on 6
-// August, inside the sixty sessions a suspect blocks new entries for.: a level shift of 1.9 from this
-// session on, with no volume on the day. The features phase flags the bar as a
-// zero-volume suspect, known on the day, so a position entered before it is
-// excluded and no entry is taken for the next sixty sessions.
+// paperCASuspect is AAA's corporate-action suspect, on a session where AAA is not
+// held: a level shift of 1.9 from this session on, with no volume on the day. The
+// features phase flags the bar as a zero-volume suspect, known on the day, so no
+// entry is taken on AAA for the next sixty sessions (AAA would enter crowded-short
+// on 6 August).
 var paperCASuspect = civil.Date{Year: 2026, Month: time.July, Day: 22}
+
+// paperHeldSuspect is HHH's corporate-action suspect on a session where HHH is
+// held (crowded-short holds it from 27 July). The bar carries a halving of the
+// level (a log move past the detector's 1.8 factor) and no volume, so the batch exits the position through corporate_action_exit, and a
+// minervini position in HHH meets its 8% stop on the same bar.
+var paperHeldSuspect = civil.Date{Year: 2026, Month: time.August, Day: 10}
 
 // paperNullClose is paperNullCode's day with no close.
 var (
@@ -97,6 +103,12 @@ func paperPrice(code, k int) float64 {
 	if paperCodes[code] == "AAA" && k >= paperCAIndex() {
 		trend *= 1.9 // the level shift of the corporate-action suspect
 	}
+	if paperCodes[code] == "CCC" && k >= paperStopIndex() {
+		trend *= 0.9 // a 10% fall, past minervini's 8% stop and under the suspect detector's move
+	}
+	if paperCodes[code] == "HHH" && k >= paperHeldIndex() {
+		trend *= 0.5 // the level drop of the held-position suspect (a move past caMoveFactor)
+	}
 	if paperCodes[code] == "BBB" && k >= paperCrashIndex() {
 		trend *= 0.6
 	}
@@ -108,6 +120,33 @@ func paperPrice(code, k int) float64 {
 	}
 	return trend * (1 - dip) * (1 + 0.002*math.Sin(float64(k)/3.0+float64(code)))
 }
+
+// paperStopDay is the session CCC falls past its minervini stop-loss (held from 28
+// July): a 10% fall with no suspect, so the stop, not a corporate action, closes it.
+var paperStopDay = civil.Date{Year: 2026, Month: time.August, Day: 12}
+
+// paperStopIndex is the fixture session index of paperStopDay.
+func paperStopIndex() int {
+	for i, d := range paperTradingDays(paperMarketStart, paperRunTo) {
+		if d == paperStopDay {
+			return i
+		}
+	}
+	return -1
+}
+
+// paperHeldIndex is the fixture session index of paperHeldSuspect.
+func paperHeldIndex() int {
+	for i, d := range paperTradingDays(paperMarketStart, paperRunTo) {
+		if d == paperHeldSuspect {
+			return i
+		}
+	}
+	return -1
+}
+
+// paperCancelDay is the session GGG's crowded-short entry is planned for.
+var paperCancelDay = civil.Date{Year: 2026, Month: time.August, Day: 18}
 
 // paperCAIndex is the fixture session index of paperCASuspect.
 func paperCAIndex() int {
@@ -175,6 +214,14 @@ func seedPaperMarket(t *testing.T, pool *pgxpool.Pool) {
 				volume = 0
 			}
 			if paperCodes[code] == "AAA" && d == paperCASuspect {
+				volume = 0
+			}
+			if paperCodes[code] == "HHH" && d == paperHeldSuspect {
+				volume = 0
+			}
+			// GGG is untraded on the day its crowded-short entry is planned: the batch
+			// cancels the entry (cancelled_untraded), and the paper track records it.
+			if paperCodes[code] == "GGG" && d == paperCancelDay {
 				volume = 0
 			}
 			open := c * (1 + 0.002*math.Cos(float64(i)))
