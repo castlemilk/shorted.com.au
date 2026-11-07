@@ -2,7 +2,7 @@ import { type Metadata } from "next";
 import Link from "next/link";
 
 import { cn } from "~/@/lib/utils";
-import { eyebrow, lede, pageTitle, sectionTitle } from "~/@/lib/typography";
+import { lede, pageTitle, sectionTitle } from "~/@/lib/typography";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
@@ -148,34 +148,31 @@ export default async function PicksHubPage() {
   );
   // A render with no list (the build, an outage) still names every strategy: the
   // registry supplies the names, so the table's rows are never missing from the HTML.
+  // The rail's counts and session come from the picks the page already holds; the
+  // evidence's own counts are the fallback (explorer.ts).
+  const today = Object.fromEntries(
+    STRATEGY_SLUGS.map((slug, index) => {
+      const result = picks[index] ?? null;
+      return [slug, result ? { counts: result.statusCounts ?? null, asOf: result.asOf } : undefined];
+    }),
+  );
   const explorer = buildExplorerModel({
     strategies: list?.strategies ?? STRATEGY_SLUGS.map(registryStrategy),
     evidence,
+    today,
   });
 
   const header = (
     <section className="border-b border-border/40 pb-6 motion-safe:animate-phosphor-warm">
-      <p className={cn(eyebrow, "mb-2 font-medium")}>Stock picker</p>
-      <h1 className={cn(pageTitle, "leading-[1.1]")}>Strategies</h1>
+      <h1 className={cn(pageTitle, "leading-[1.1]")}>Explore trading strategies</h1>
       <p className={cn(lede, "max-w-3xl")}>
-        Choose a named strategy, then see the market regime and the ASX
-        stocks that currently meet its rules. Every rule is shown for every
-        stock as pass, fail or unknown, so you can see exactly why a name
-        made the list and what it is still missing.
+        Understand the approach, inspect the evidence, then follow its signals.
       </p>
-      <div className="mt-3">
-        <PicksProvenance
-          asOf={provenanceSource?.asOf ?? ""}
-          coverage={provenanceSource?.fundamentalsCoverageCount ?? 0}
-          rowsCount={provenanceSource?.fundamentalsRowsCount ?? 0}
-          universe={provenanceSource?.universeCount ?? 0}
-        />
-      </div>
     </section>
   );
 
   return (
-    <DashboardLayout>
+    <DashboardLayout fullWidth>
       <BreadcrumbListSchema items={breadcrumbs} />
       <ItemListStructuredData
         name="ASX Stock Picker strategies"
@@ -189,18 +186,38 @@ export default async function PicksHubPage() {
       />
 
       <div className="space-y-8">
-        <div className="mb-4">
+        <div className="mb-4 px-4 sm:px-8">
           <Breadcrumbs items={[{ label: "Strategies", href: "/strategies" }]} />
         </div>
 
         <ExplorerIsland model={explorer} header={header} />
 
-        <RegimeBanner regime={list?.regime ?? null} />
+        <div className="px-4 sm:px-8">
+          <RegimeBanner regime={list?.regime ?? null} />
+        </div>
 
         {/* The rack: one hairline-divided chassis holding the five
             instruments as rows, which differ by glyph, counts and names
             rather than by chrome. One warm-up for the whole rack. */}
-        <section aria-label="Strategies">
+        <section aria-labelledby="rack-intro" className="space-y-3 px-4 sm:px-8">
+          <h2 id="rack-intro" className={sectionTitle}>
+            Strategy pages
+          </h2>
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            Choose a named strategy, then see the market regime and the ASX
+            stocks that currently meet its rules. Every rule is shown for every
+            stock as pass, fail or unknown, so you can see exactly why a name
+            made the list and what it is still missing.
+          </p>
+          <PicksProvenance
+            asOf={provenanceSource?.asOf ?? ""}
+            coverage={provenanceSource?.fundamentalsCoverageCount ?? 0}
+            rowsCount={provenanceSource?.fundamentalsRowsCount ?? 0}
+            universe={provenanceSource?.universeCount ?? 0}
+          />
+        </section>
+
+        <section aria-label="Strategies" className="px-4 sm:px-8">
           <ol className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60 bg-card motion-safe:animate-phosphor-warm motion-safe:[animation-delay:80ms]">
             {cards.map((card) => (
               <li key={card.slug}>
@@ -216,7 +233,7 @@ export default async function PicksHubPage() {
           ) : null}
         </section>
 
-        <section aria-labelledby="how-heading" className="max-w-4xl space-y-3">
+        <section aria-labelledby="how-heading" className="max-w-4xl space-y-3 px-4 sm:px-8">
           <h2 id="how-heading" className={sectionTitle}>
             How the picks work
           </h2>
@@ -257,7 +274,7 @@ export default async function PicksHubPage() {
           </dl>
         </section>
 
-        <section className="border-t border-border/40 pt-6 text-sm text-muted-foreground">
+        <section className="border-t border-border/40 px-4 pt-6 text-sm text-muted-foreground sm:px-8">
           <p>
             Not financial advice: these are mechanical readings of published
             rules, not recommendations. See also:{" "}

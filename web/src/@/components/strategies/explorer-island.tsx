@@ -1,10 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { SideSheet } from "~/@/components/gamma/SideSheet";
+import { strategyCapabilityEnabled } from "~/@/lib/strategies/capabilities";
 import {
   DEFAULT_FILTERS,
   DEFAULT_WINDOW_ID,
@@ -13,6 +14,7 @@ import {
   parseIds,
   parseSelection,
   parseWindow,
+  pickOption,
   toggleId,
   type ExplorerFilters,
   type ExplorerModel,
@@ -40,19 +42,32 @@ interface ExplorerState {
   picked: string[];
 }
 
+/** Below lg the rail is a sheet; the query is the one the rail's own layout uses. */
 const NARROW_QUERY = "(max-width: 1023px)";
 
-/** The state the URL names, validated against the model. */
+/** Whether the viewport is below lg. Starts false, so the server and the first paint agree. */
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia(NARROW_QUERY);
+    const follow = () => setNarrow(mq.matches);
+    follow();
+    mq.addEventListener("change", follow);
+    return () => mq.removeEventListener("change", follow);
+  }, []);
+  return narrow;
+}
+
+/** The state the URL names, validated against the model. Filters take stable keys only. */
 function stateFromParams(params: URLSearchParams, model: ExplorerModel): ExplorerState {
-  const pick = <T extends string>(value: string | null, options: readonly { value: T }[], fallback: T): T =>
-    options.some((o) => o.value === value) ? (value as T) : fallback;
   return {
     filters: {
       query: params.get(KEYS.query) ?? "",
-      style: params.get(KEYS.style) ?? DEFAULT_FILTERS.style,
-      horizon: params.get(KEYS.horizon) ?? DEFAULT_FILTERS.horizon,
-      universe: pick(params.get(KEYS.universe), UNIVERSE_OPTIONS, DEFAULT_FILTERS.universe),
-      evidence: pick(params.get(KEYS.evidence), EVIDENCE_OPTIONS, DEFAULT_FILTERS.evidence),
+      style: pickOption(params.get(KEYS.style), model.styles, DEFAULT_FILTERS.style),
+      horizon: pickOption(params.get(KEYS.horizon), model.horizons, DEFAULT_FILTERS.horizon),
+      universe: pickOption(params.get(KEYS.universe), UNIVERSE_OPTIONS, DEFAULT_FILTERS.universe),
+      evidence: pickOption(params.get(KEYS.evidence), EVIDENCE_OPTIONS, DEFAULT_FILTERS.evidence),
     },
     windowId: parseWindow(params.get(KEYS.window)),
     selectedId: parseSelection(params.get(KEYS.sel), model.rows, model.defaultId),
@@ -61,7 +76,7 @@ function stateFromParams(params: URLSearchParams, model: ExplorerModel): Explore
 }
 
 /** The address for a state: only what differs from the defaults is written. */
-function paramsFor(state: ExplorerState, model: ExplorerModel): string {
+function addressFor(state: ExplorerState, model: ExplorerModel): string {
   const params = new URLSearchParams();
   const { filters } = state;
   if (filters.query.trim()) params.set(KEYS.query, filters.query);
@@ -74,16 +89,16 @@ function paramsFor(state: ExplorerState, model: ExplorerModel): string {
     params.set(KEYS.sel, `strategy:${state.selectedId}`);
   }
   if (state.picked.length > 0) params.set(KEYS.ids, state.picked.join(","));
-  // The ids read as a list, not as an encoded pair: commas stay literal.
+  // Ids read as a list, not as an encoded pair: commas stay literal.
   const query = params.toString().replace(/%2C/gi, ",");
   return query ? `${window.location.pathname}?${query}` : window.location.pathname;
 }
 
 /**
  * The explorer's island. The page draws the static table as the Suspense fallback;
- * after hydration the filters, the window, the selection and the compare tray read
- * and write the URL (`history.replaceState`, so no navigation and no server trip).
- * The URL is read once, when the island mounts: the island owns its state after that.
+ * after hydration the filters, the window, the selection and the compare tray read and
+ * write the URL (`history.replaceState`, so no navigation and no server trip). The URL is
+ * read once, when the island mounts: the island owns its state after that.
  */
 export function ExplorerIsland({ model, header }: { model: ExplorerModel; header: ReactNode }) {
   return (
@@ -96,6 +111,7 @@ export function ExplorerIsland({ model, header }: { model: ExplorerModel; header
           windowId={DEFAULT_WINDOW_ID}
           selectedId={model.defaultId}
           picked={[]}
+          compareEnabled={strategyCapabilityEnabled("compare")}
         />
       }
     >
@@ -107,6 +123,7 @@ export function ExplorerIsland({ model, header }: { model: ExplorerModel; header
 function LiveExplorer({ model, header }: { model: ExplorerModel; header: ReactNode }) {
   const params = useSearchParams();
   const { data: session, status } = useSession();
+  const narrow = useNarrow();
   const [state, setState] = useState<ExplorerState>(() =>
     stateFromParams(new URLSearchParams(params.toString()), model),
   );
@@ -115,12 +132,13 @@ function LiveExplorer({ model, header }: { model: ExplorerModel; header: ReactNo
   const signedIn: boolean | undefined =
     status === "loading" ? undefined : status === "authenticated" && !!session?.user?.id;
 
-  // Each handler computes its next state from this render's state and writes the
-  // address once. Two events in one tick are not a case: a user acts one control at a time.
+  // Each handler computes its next state from this render's state and writes the address
+  // once. The history write takes null, as the ownership islands do: the state is not kept
+  // in history, only in the address.
   const apply = (next: ExplorerState) => {
     setState(next);
     try {
-      window.history.replaceState(window.history.state, "", paramsFor(next, model));
+      window.history.replaceState(null, "", addressFor(next, model));
     } catch {
       // A blocked history write leaves the state in place; only the address is stale.
     }
@@ -129,24 +147,30 @@ function LiveExplorer({ model, header }: { model: ExplorerModel; header: ReactNo
     onFilters: (patch) => apply({ ...state, filters: { ...state.filters, ...patch } }),
     onWindow: (windowId) => apply({ ...state, windowId }),
     onSelect: (id) => {
-      if (window.matchMedia?.(NARROW_QUERY).matches) setSheetOpen(true);
+      if (narrow) setSheetOpen(true);
       apply({ ...state, selectedId: id });
     },
     onToggle: (id) => apply({ ...state, picked: toggleId(state.picked, id) }),
   };
 
   const selected = model.rows.find((row) => row.id === state.selectedId) ?? null;
+  // The sheet is open only below lg. Past lg it is closed, which releases its scroll lock.
   const sheet = selected ? (
     <SideSheet
       side="bottom"
-      open={sheetOpen}
+      open={sheetOpen && narrow}
       onOpenChange={setSheetOpen}
       title={selected.name}
       trigger={null}
       closeLabel="Close the strategy"
       className="lg:hidden"
     >
-      <StrategyInspector id={selected.id} inspector={selected.inspector} benchmarkName={model.benchmarkName} />
+      <StrategyInspector
+        id={selected.id}
+        inspector={selected.inspector}
+        benchmarkName={model.benchmarkName}
+        heading={false}
+      />
     </SideSheet>
   ) : null;
 
@@ -159,6 +183,7 @@ function LiveExplorer({ model, header }: { model: ExplorerModel; header: ReactNo
       selectedId={state.selectedId}
       picked={state.picked}
       signedIn={signedIn}
+      compareEnabled={strategyCapabilityEnabled("compare")}
       controls={controls}
       sheet={sheet}
     />

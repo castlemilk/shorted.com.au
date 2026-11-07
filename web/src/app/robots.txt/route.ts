@@ -18,8 +18,8 @@ const PRIVATE_PATHS = [
   "/chat/",
   "/metrics/",
   "/dashboards/",
-  // Paths reserved for the strategy workspace's private pages. /strategies/my is
-  // built (My strategies); /strategies/alerts and /strategies/compare are not yet.
+  // Paths reserved for the strategy workspace's private pages. /strategies/my and
+  // /strategies/compare are built; /strategies/alerts is not yet.
   // Each path names the whole segment: a bare "/strategies/my" is safe only
   // because no strategy slug starts with it (private-prefix.test.ts), and
   // "/strategies/mine" would have swallowed /strategies/minervini-trend-template.

@@ -94,7 +94,7 @@ describe("PicksHubPage", () => {
     render(await PicksHubPage());
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Strategies" }),
+      screen.getByRole("heading", { level: 1, name: "Explore trading strategies" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Choose a named strategy/)).toBeInTheDocument();
     expect(screen.getByText(NEUTRAL_VERDICT)).toBeInTheDocument();
@@ -189,7 +189,8 @@ describe("PicksHubPage", () => {
   it("states fundamentals coverage from the row count, as the strategy pages do", async () => {
     render(await PicksHubPage());
     // PICKS carries fundamentalsRowsCount 1203 >= fundamentalsCoverageCount 812.
-    const line = screen.getByText(/fundamentals for/).closest("p")!;
+    const line = [...document.querySelectorAll("p")].find((p) => p.textContent?.includes("fundamentals for 1,203")) as HTMLElement;
+    expect(line).toBeDefined();
     expect(line.textContent).toContain(
       "fundamentals for 1,203 of 1,904 stocks (growth figures for 812)",
     );
@@ -250,6 +251,6 @@ describe("PicksHubPage", () => {
     expect(within(table).getByRole("rowheader", { name: /Crowded-Short Breakout/ })).toBeInTheDocument();
     const rack = container.querySelector('section[aria-label="Strategies"]')!;
     expect(table.compareDocumentPosition(rack) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 1, name: "Strategies" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Explore trading strategies" })).toBeInTheDocument();
   });
 });
