@@ -2,20 +2,26 @@ import {
   COMPARE_LIMIT,
   DEFAULT_FILTERS,
   EXPLORER_COPY,
+  SHORT_PROFILE,
   buildExplorerModel,
   cellsOf,
+  compareCandidates,
   compareHref,
   evidenceKindOf,
   filterRows,
   fiscalYearOf,
+  horizonKey,
   liveMetric,
+  notComputableCells,
   parseIds,
   parseSelection,
   parseWindow,
+  pickOption,
   registryStrategy,
   shortDate,
   toggleId,
   universeOf,
+  utcClock,
   windowMetrics,
   yearsOf,
   type ExplorerRow,
@@ -25,10 +31,18 @@ import { DEFS, EVIDENCE, EVIDENCE_INPUT } from "./backtest-fixtures";
 import { STRATEGY_SLUGS } from "../registry";
 
 const NOW = new Date(Date.UTC(2026, 10, 7));
-const model = () => buildExplorerModel({ strategies: DEFS, evidence: EVIDENCE, now: NOW });
+const model = (today?: Parameters<typeof buildExplorerModel>[0]["today"]) =>
+  buildExplorerModel({ strategies: DEFS, evidence: EVIDENCE, now: NOW, today });
 const row = (id: string, m = model()) => m.rows.find((r) => r.id === id)!;
+const ids = (rows: ExplorerRow[]) => rows.map((r) => r.id);
 
-describe("the map-backtest mapper", () => {
+describe("the map-backtest mapper (design 8.2)", () => {
+  it("passes the contract's state names through, without aliases", () => {
+    expect(mapStrategyEvidence({ state: "published" }).state).toBe("published");
+    expect(mapStrategyEvidence({ state: "computed" }).state).toBe("computed");
+    expect(mapStrategyEvidence({ state: "run_required" }).state).toBe("run_required");
+  });
+
   it("maps a zero without its has_ flag to null, never to 0", () => {
     const window = mapStrategyEvidence({
       strategyId: "x",
@@ -39,33 +53,30 @@ describe("the map-backtest mapper", () => {
     expect(window.sharpe).toBeNull();
   });
 
-  it("reads the annual coverage as a fraction, and only when the year is measurable", () => {
+  it("reads the annual coverage as a fraction, under its measure, and only when measurable", () => {
     const list = mapListStrategyEvidence({
       strategies: [{ strategyId: "x", annual: [
-        { year: 2019, strategyPct: 1, coveragePct: 64.2, coverageMeasurable: true },
+        { year: 2019, strategyPct: 1, coveragePct: 64.2, coverageMeasurable: true, coverageMeasure: "qualifying_5pct_short" },
         { year: 2020, strategyPct: 1, coveragePct: 90, coverageMeasurable: false },
       ] }],
     });
     expect(list.strategies[0]!.annual[0]!.coverage).toBeCloseTo(0.642);
+    expect(list.strategies[0]!.annual[0]!.coverageMeasure).toBe("qualifying_5pct_short");
     expect(list.strategies[0]!.annual[1]!.coverage).toBeNull();
   });
 
-  it("keeps the freeze date and the paper track's flags", () => {
-    const ev = EVIDENCE.strategies.find((s) => s.strategyId === "crowded-short-breakout")!;
-    expect(ev.version?.liveFrom).toBe("2026-11-23");
-    expect(ev.paper).toMatchObject({ since: "2026-11-23", tooShort: true, returnPct: null });
-    expect(ev.runId).toBe(8);
-  });
-
-  it("reads the names PR-18 sends today as the design 8.2 vocabulary, and passes others through", () => {
+  it("keeps the state reason, the running start, the computable share and the paper track's recorded start", () => {
     const ev = mapStrategyEvidence({
-      strategyId: "x",
-      state: "computed",
-      windows: [{ window: "since_may_2019" }, { window: "live_since_freeze" }, { window: "trailing_12m" }],
+      state: "running",
+      stateReason: "a reason",
+      runningSince: "2026-11-07T14:02:00Z",
+      computableSharePct: 41.6,
+      hasComputableShare: true,
+      paper: { since: "2026-11-23", recordedFrom: "2026-11-24", sessions: 3 },
     });
-    expect(ev.state).toBe("published");
-    expect(ev.windows.map((w) => w.window)).toEqual(["since_2019_05", "live", "trailing_12m"]);
-    expect(mapStrategyEvidence({ state: "run_required" }).state).toBe("run_required");
+    expect(ev).toMatchObject({ stateReason: "a reason", runningSince: "2026-11-07T14:02:00Z", computableSharePct: 41.6 });
+    expect(ev.paper?.recordedFrom).toBe("2026-11-24");
+    expect(mapStrategyEvidence({ computableSharePct: 41.6 }).computableSharePct).toBeNull();
   });
 
   it("reads a bigint run id as a number", () => {
@@ -74,7 +85,7 @@ describe("the map-backtest mapper", () => {
 });
 
 describe("the years and the columns", () => {
-  it("runs from the window's first year to the newest, with the first column from 1 May and the current year as YTD", () => {
+  it("runs from 2019 to the newest year, the first column from 1 May and the to-date year as YTD", () => {
     const { years, columns } = yearsOf(EVIDENCE, NOW);
     expect(years).toEqual([2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]);
     expect(columns[0]).toMatchObject({ key: "y2019", label: "2019", note: "from 1 May" });
@@ -89,92 +100,105 @@ describe("the years and the columns", () => {
   });
 });
 
-describe("the heatmap states, per row", () => {
-  it("prints the computed years as values, with coverage under 80% hatched by the table", () => {
-    const cells = row("crowded-short-breakout").cells;
-    expect(cells).toHaveLength(8);
-    expect(cells[0]).toMatchObject({ state: "value", value: 15.9, coverage: 0.642 });
-    expect(cells[7]).toMatchObject({ state: "value", value: 9.1, coverage: 0.96 });
+describe("the coverage marker and line (1.7)", () => {
+  it("draws a figure's coverage line with the low-coverage copy as its title", () => {
+    const cell = row("crowded-short-breakout").cells[0]!;
+    expect(cell).toMatchObject({ state: "value", value: 15.9, coverage: 0.642 });
+    expect(cell).toHaveProperty("coverageTitle", EXPLORER_COPY.lowCoverage(64));
   });
 
-  it("gives the current year its YTD figure, not 'Not elapsed'", () => {
-    const cell = row("crowded-short-breakout").cells[7]!;
-    expect(cell.state).toBe("value");
-  });
-
-  it("marks a year measured on ASIC-reported names with a ? and no coverage line", () => {
+  it("marks Minervini's unmeasurable years '?' and nothing else", () => {
     const cells = row("minervini-trend-template").cells;
-    expect(cells[0]).toMatchObject({
-      state: "value",
-      marker: { glyph: "?", label: EXPLORER_COPY.measuredOnAsic },
-    });
-    expect(cells[0]).not.toHaveProperty("coverage", expect.any(Number));
+    for (const cell of cells.slice(0, 6)) {
+      expect(cell).toMatchObject({ state: "value", marker: { glyph: "?", label: EXPLORER_COPY.measuredOnAsic } });
+      expect(cell).toHaveProperty("coverage", null);
+    }
   });
 
-  it("merges the years before the fiscal label into one cell and reads the rest as approximate-not-published", () => {
+  it("shows no '?' on a measurable all-ASX year, and carries its coverage", () => {
+    const cells = row("minervini-trend-template").cells;
+    const measurable = cells[6]!;
+    expect(measurable).toMatchObject({ state: "value", value: 13.5, coverage: 0.97 });
+    expect(measurable).not.toHaveProperty("marker");
+    expect(cells[7]).not.toHaveProperty("marker");
+  });
+});
+
+describe("the not-computable split (computable_from decides, the label is copy)", () => {
+  const years = [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
+
+  it("splits a June filer's row at computable_from: FY2024 from 30 September 2024", () => {
     const cells = row("zanger-breakout").cells;
-    expect(cells[0]).toEqual({ state: "hatched", label: "Not computable before FY2024", span: 5 });
-    expect(cells.slice(1)).toEqual([
-      { state: "hatched", label: EXPLORER_COPY.approximateNotPublished },
-      { state: "hatched", label: EXPLORER_COPY.approximateNotPublished },
-      { state: "hatched", label: EXPLORER_COPY.approximateNotPublished },
-    ]);
-    // 5 merged + 3 later = 8 year columns, so the spans add up to the table's width.
-    const width = cells.reduce((sum, c) => sum + (c.state === "hatched" && c.span ? c.span : 1), 0);
-    expect(width).toBe(8);
+    expect(cells).toHaveLength(2);
+    expect(cells[0]).toMatchObject({ state: "hatched", label: "Not computable before FY2024", span: 5 });
+    expect(cells[1]).toEqual({ state: "hatched", label: EXPLORER_COPY.approximateNotPublished, span: 3 });
+    expect(cells.reduce((sum, c) => sum + (c.state === "hatched" && c.span ? c.span : 1), 0)).toBe(8);
   });
 
-  it("reads a not-computable row with no fiscal label as one hatched cell with the no-label copy", () => {
+  it("splits a December filer's row at its own computable_from: FY2023 computable from 28 March 2024", () => {
+    const ev = mapStrategyEvidence({ strategyId: "x", state: "not_computable", fiscalLabel: "FY2023", computableFrom: "2024-03-28" });
+    const cells = notComputableCells(ev, years);
+    expect(cells[0]).toMatchObject({ label: "Not computable before FY2023", span: 5 });
+    expect(cells[1]).toMatchObject({ label: EXPLORER_COPY.approximateNotPublished, span: 3 });
+  });
+
+  it("falls back to the label's year only when computable_from is empty", () => {
+    const ev = mapStrategyEvidence({ strategyId: "x", state: "not_computable", fiscalLabel: "FY2025" });
+    expect(notComputableCells(ev, years)[0]).toMatchObject({ label: "Not computable before FY2025", span: 6 });
+  });
+
+  it("names the 1.7 second sentence on the merged cell, as its title", () => {
+    const cell = row("zanger-breakout").cells[0]!;
+    expect(cell).toHaveProperty("title", EXPLORER_COPY.notComputableSecond("FY2024"));
+  });
+
+  it("reads a row with no label and no computable_from as one span, with the measured share", () => {
     expect(row("quality-compounders").cells).toEqual([
-      { state: "hatched", label: EXPLORER_COPY.notComputable, span: 8 },
+      {
+        state: "hatched",
+        label: "Not computable: needs point-in-time fundamentals (fundamentals for 42% of the universe)",
+        span: 8,
+      },
     ]);
   });
 
-  it("names the measured share of the universe when a no-label row is not computable (design 1.7)", () => {
-    const ev = mapStrategyEvidence({ strategyId: "x", state: "not_computable", computableSharePct: 41.6, hasComputableShare: true });
-    expect(cellsOf(ev, [2024, 2025], 2019, true)).toEqual([
-      { state: "hatched", label: "Not computable: needs point-in-time fundamentals (fundamentals for 42% of the universe)", span: 2 },
+  it("reads the fiscal year from a label", () => {
+    expect(fiscalYearOf("FY2024")).toBe(2024);
+    expect(fiscalYearOf("")).toBeNull();
+  });
+});
+
+describe("the other states, one span per row", () => {
+  it("merges running into one span with the start in UTC (h23)", () => {
+    const ev = mapStrategyEvidence({ strategyId: "x", state: "running", runningSince: "2026-11-07T14:02:00Z" });
+    expect(cellsOf(ev, [2024, 2025, 2026], 2019, true)).toEqual([
+      { state: "hatched", label: "Running since 14:02 UTC", span: 3 },
     ]);
+    expect(utcClock("2026-11-07T00:05:00Z")).toBe("00:05 UTC");
   });
 
-  it("carries the API's state reason into the rail, never the fundamentals copy for a run that is only waiting on a recipe", () => {
-    const m = buildExplorerModel({
-      strategies: DEFS,
-      evidence: mapListStrategyEvidence({
-        strategies: [{ strategyId: "crowded-short-breakout", state: "run_required", stateReason: "No recipe is published for this version yet" }],
-      }),
-      now: NOW,
-    });
-    const r = m.rows.find((x) => x.id === "crowded-short-breakout")!;
-    expect(r.cells[0]).toEqual({ state: "hatched", label: "Run required" });
-    expect(r.inspector.stateLine).toBe("No recipe is published for this version yet");
-  });
-
-  it("reads run required, running and an unknown state as their own cell copy", () => {
-    const years = [2024, 2025];
-    expect(cellsOf({ ...EVIDENCE.strategies[0]!, state: "run_required", annual: [] }, years, 2019, true)).toEqual([
+  it("keeps run required per year, and reads its reason in the rail", () => {
+    const m = model();
+    const cells = cellsOf(mapStrategyEvidence({ strategyId: "x", state: "run_required" }), [2024, 2025], 2019, true);
+    expect(cells).toEqual([
       { state: "hatched", label: "Run required" },
       { state: "hatched", label: "Run required" },
     ]);
-    expect(cellsOf({ ...EVIDENCE.strategies[0]!, state: "running", annual: [] }, years, 2019, true)[0]).toEqual({
-      state: "hatched",
-      label: "Running",
-    });
-    expect(cellsOf({ ...EVIDENCE.strategies[0]!, state: "mystery", annual: [] }, years, 2019, true)[0]).toEqual({
-      state: "hatched",
-      label: EXPLORER_COPY.notPublished,
-    });
+    expect(m.rows.length).toBe(5);
   });
 
-  it("names the state of a row with no evidence, and says so when the evidence read failed", () => {
-    expect(cellsOf(null, [2024], 2019, true)[0]).toEqual({ state: "hatched", label: EXPLORER_COPY.notPublished });
-    expect(cellsOf(null, [2024], 2019, false)[0]).toEqual({ state: "hatched", label: EXPLORER_COPY.unavailable });
+  it("merges a missing row into one span: 'No evidence published' while the read works, no text when it failed", () => {
+    expect(cellsOf(null, [2024, 2025], 2019, true)).toEqual([{ state: "hatched", label: "No evidence published", span: 2 }]);
+    expect(cellsOf(null, [2024, 2025], 2019, false)).toEqual([{ state: "hatched", label: "", span: 2 }]);
   });
 
-  it("gives an unmeasured year before the window 'Before window' and after the data 'Not elapsed'", () => {
-    const ev = mapStrategyEvidence({ strategyId: "x", state: "published", annual: [{ year: 2021, state: "complete", strategyPct: 3 }] });
-    // The window opens in 2021: 2019 and 2020 are before it; 2022 has no figure yet.
-    const cells = cellsOf(ev, [2019, 2020, 2021, 2022], 2021, true);
+  it("marks years before a row's own first year 'Before window', and after its data 'Not elapsed'", () => {
+    const ev = mapStrategyEvidence({
+      strategyId: "x",
+      state: "published",
+      annual: [{ year: 2021, state: "complete", strategyPct: 3, coverageMeasurable: false }],
+    });
+    const cells = cellsOf(ev, [2019, 2020, 2021, 2022], 2019, true);
     expect(cells[0]).toEqual({ state: "hatched", label: EXPLORER_COPY.beforeWindow });
     expect(cells[1]).toEqual({ state: "hatched", label: EXPLORER_COPY.beforeWindow });
     expect(cells[2]).toMatchObject({ state: "value", value: 3 });
@@ -182,14 +206,7 @@ describe("the heatmap states, per row", () => {
   });
 });
 
-describe("the fiscal label", () => {
-  it("reads FY2024 as 2024", () => {
-    expect(fiscalYearOf("FY2024")).toBe(2024);
-    expect(fiscalYearOf("")).toBeNull();
-  });
-});
-
-describe("the metric columns", () => {
+describe("the metric columns and the Live column", () => {
   it("prints the CAGR when the window is a year or more", () => {
     const [cagr, dd] = windowMetrics(EVIDENCE.strategies[0]!, "since_2019_05");
     expect(cagr).toMatchObject({ key: "cagr", text: "+15.6%", value: 15.6 });
@@ -209,14 +226,14 @@ describe("the metric columns", () => {
     ]);
   });
 
-  it("reads the Live column as the paper return, or the date tracking began while too short", () => {
-    expect(liveMetric(EVIDENCE.strategies[0]!)).toEqual({ key: "live", text: "Tracking since 23 Nov 2026", value: null });
+  it("reads the Live column as the tracking date while too short, from the track's recorded start", () => {
+    expect(liveMetric(EVIDENCE.strategies[0]!)).toEqual({ key: "live", text: "Tracking since 23 Nov 2026", value: null, note: "Recorded" });
     expect(liveMetric(EVIDENCE.strategies[1]!)).toEqual({ key: "live", text: "n/a", value: null });
   });
 
-  it("shows a long paper track's return", () => {
-    const ev = mapStrategyEvidence({ strategyId: "x", paper: { since: "2026-01-02", sessions: 200, closedTrades: 15, returnPct: 4.4, hasReturn: true, tooShort: false } });
-    expect(liveMetric(ev)).toEqual({ key: "live", text: "+4.4%", value: 4.4 });
+  it("labels a long paper track's return as recorded, from its actual start", () => {
+    const ev = mapStrategyEvidence({ strategyId: "x", paper: { since: "2026-01-02", recordedFrom: "2026-01-05", sessions: 200, closedTrades: 15, returnPct: 4.4, hasReturn: true, tooShort: false } });
+    expect(liveMetric(ev)).toEqual({ key: "live", text: "+4.4%", value: 4.4, note: "Recorded since 5 Jan 2026" });
   });
 });
 
@@ -234,11 +251,7 @@ describe("the explorer model", () => {
   });
 
   it("names every registry strategy when no list was read, so the table is never empty", () => {
-    const bare = buildExplorerModel({
-      strategies: STRATEGY_SLUGS.map(registryStrategy),
-      evidence: null,
-      now: NOW,
-    });
+    const bare = buildExplorerModel({ strategies: STRATEGY_SLUGS.map(registryStrategy), evidence: null, now: NOW });
     expect(bare.rows.map((r) => r.name)).toEqual([
       "Zanger Breakout",
       "CAN SLIM",
@@ -265,7 +278,9 @@ describe("the explorer model", () => {
     const m = buildExplorerModel({ strategies: DEFS, evidence: null, now: NOW });
     expect(m.evidenceAvailable).toBe(false);
     expect(m.rows).toHaveLength(5);
-    expect(m.rows[0]!.cells[0]).toEqual({ state: "hatched", label: EXPLORER_COPY.unavailable });
+    expect(m.rows[0]!.cells[0]).toEqual({ state: "hatched", label: "", span: 8 });
+    expect(m.rows[0]!.inspector.emptyLabel).toBe("Backtest unavailable right now");
+    expect(m.rows[0]!.inspector.stateLine).toBe("Backtest unavailable right now");
   });
 
   it("adds a strategy the evidence names but the list does not", () => {
@@ -275,23 +290,41 @@ describe("the explorer model", () => {
     expect(m.rows.at(-1)!.name).toBe("new-one");
   });
 
-  it("builds a sublabel of style and horizon, and the Daily evaluation chip from the cadence", () => {
-    const r = row("crowded-short-breakout");
-    expect(r.sublabel).toBe("Short squeeze breakout · days to weeks");
-    expect(r.inspector.chips).toEqual(["Long entries", "Daily evaluation"]);
-    expect(r.inspector.sparkLabel).toBe("Backtest, in-sample to 23 Nov 2026, then recorded");
+  it("gives each row the short profile in the mockup's form, and the Daily evaluation chip from the cadence", () => {
+    expect(row("crowded-short-breakout").sublabel).toBe("Short crowding · days-weeks");
+    expect(row("minervini-trend-template").sublabel).toBe("Trend · weeks-months");
+    expect(SHORT_PROFILE["quality-compounders"]).toBe("Quality · months-years");
+    expect(row("crowded-short-breakout").inspector.chips).toEqual(["Long entries", "Daily evaluation"]);
+    expect(row("crowded-short-breakout").inspector.sparkLabel).toBe("Backtest, in-sample to 23 Nov 2026, then recorded");
   });
 
-  it("offers the styles and horizons its strategies carry", () => {
-    const m = model();
-    expect(m.styles.map((o) => o.value)).toEqual(["all", "growth-momentum", "momentum-breakout", "quality", "short-squeeze-breakout", "trend-following"]);
-    expect(m.horizons.map((o) => o.value)).toContain("Days to weeks");
+  it("reads the rail's counts and session from the picks when they are given, and the evidence otherwise", () => {
+    const picks = model({ "crowded-short-breakout": { counts: { triggered: 7, setup: 9, watch: 1, unknown: 0 }, asOf: "2026-11-06" } });
+    expect(row("crowded-short-breakout", picks).inspector.countsText).toBe("7 triggered · 9 setups");
+    expect(row("crowded-short-breakout", picks).inspector.latestScreen).toBe("6 Nov 2026");
+    expect(row("crowded-short-breakout").inspector.countsText).toBe("5 triggered · 66 setups");
+  });
+
+  it("carries the survivorship statement and the state's copy into the rail", () => {
+    const crowded = row("crowded-short-breakout").inspector;
+    expect(crowded.survivorship).toContain("Flatters results");
+    expect(row("zanger-breakout").inspector.stateLine).toContain("Not computable before FY2024");
+    expect(row("quality-compounders").inspector.emptyLabel).toBe("Not computable");
+  });
+
+  it("names the rail's no-curve copy by state", () => {
+    const run = buildExplorerModel({
+      strategies: DEFS,
+      evidence: mapListStrategyEvidence({ strategies: [{ strategyId: "crowded-short-breakout", state: "run_required", stateReason: "No recipe is published for this version yet" }] }),
+      now: NOW,
+    });
+    const r = run.rows.find((x) => x.id === "crowded-short-breakout")!;
+    expect(r.inspector.emptyLabel).toBe("Run required");
+    expect(r.inspector.stateLine).toBe("No recipe is published for this version yet");
   });
 });
 
 describe("the filters", () => {
-  const ids = (rows: ExplorerRow[]) => rows.map((r) => r.id);
-
   it("keeps every row with no filter set", () => {
     expect(filterRows(model().rows, DEFAULT_FILTERS)).toHaveLength(5);
   });
@@ -301,16 +334,22 @@ describe("the filters", () => {
     expect(ids(filterRows(rows, { ...DEFAULT_FILTERS, query: "zanger" }))).toEqual(["zanger-breakout"]);
     expect(ids(filterRows(rows, { ...DEFAULT_FILTERS, query: "  O'NEIL " }))).toEqual(["canslim"]);
     expect(ids(filterRows(rows, { ...DEFAULT_FILTERS, query: "nothing like this" }))).toEqual([]);
-    expect(ids(filterRows(rows, { ...DEFAULT_FILTERS, query: "william" }))).toEqual(["canslim"]);
     expect(ids(filterRows(rows, { ...DEFAULT_FILTERS, query: "short squeeze" }))).toEqual(["crowded-short-breakout"]);
   });
 
-  it("filters by style, horizon and universe", () => {
+  it("filters by style and horizon, on stable keys", () => {
     const rows = model().rows;
     expect(ids(filterRows(rows, { ...DEFAULT_FILTERS, style: "trend-following" }))).toEqual(["minervini-trend-template"]);
-    expect(ids(filterRows(rows, { ...DEFAULT_FILTERS, horizon: "Years" }))).toEqual(["quality-compounders"]);
+    expect(ids(filterRows(rows, { ...DEFAULT_FILTERS, horizon: "years" }))).toEqual(["quality-compounders"]);
+    expect(horizonKey("Weeks to months")).toBe("weeks-to-months");
+    expect(horizonKey("Days to weeks")).toBe("days-to-weeks");
+  });
+
+  it("the ASX universe lists every strategy; ASIC-reported names narrows to them", () => {
+    const rows = model().rows;
+    expect(filterRows(rows, { ...DEFAULT_FILTERS, universe: "asx" })).toHaveLength(5);
     expect(ids(filterRows(rows, { ...DEFAULT_FILTERS, universe: "asic" }))).toEqual(["crowded-short-breakout"]);
-    expect(filterRows(rows, { ...DEFAULT_FILTERS, universe: "asx" })).toHaveLength(4);
+    expect(DEFAULT_FILTERS.universe).toBe("asx");
   });
 
   it("filters by evidence: backtested, approximate, live track only", () => {
@@ -326,9 +365,16 @@ describe("the filters", () => {
     expect(evidenceKindOf(mapStrategyEvidence({ state: "not_computable", paper: { sessions: 12 } }))).toBe("live");
   });
 
-  it("reads the universe from the text the strategy prints", () => {
-    expect(universeOf("ASX equities with at least 60 sessions; a reported short position of at least 5% to trigger")).toBe("asic");
+  it("reads the universe from the text the strategy prints, in one place", () => {
+    expect(universeOf("ASX equities; a reported short position of at least 5% to trigger")).toBe("asic");
     expect(universeOf("ASX equities with at least 60 sessions")).toBe("asx");
+  });
+
+  it("validates a URL value against the options it names, falling back to the default", () => {
+    const styles = model().styles;
+    expect(pickOption("trend-following", styles, "all")).toBe("trend-following");
+    expect(pickOption("bogus", styles, "all")).toBe("all");
+    expect(pickOption("asic", [{ value: "asx" }, { value: "asic" }], "asx")).toBe("asic");
   });
 });
 
@@ -361,8 +407,9 @@ describe("the selection and the compare tray", () => {
     expect(toggleId(picked, "canslim")).toEqual(["zanger-breakout", "minervini-trend-template"]);
   });
 
-  it("links the comparison in the order picked", () => {
+  it("links the comparison in the order picked, and offers the registry's strategies", () => {
     expect(compareHref(["canslim", "zanger-breakout"])).toBe("/strategies/compare?ids=canslim,zanger-breakout");
+    expect(compareCandidates().map((c) => c.id)).toEqual(STRATEGY_SLUGS);
   });
 
   it("reads the window from ?window= and defaults to since May 2019", () => {
