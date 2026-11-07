@@ -32,16 +32,16 @@ export interface BacktestTradesInput {
 const PAGE_SIZE_MAX = 200;
 const PAGE_SIZE_DEFAULT = 50;
 /** A stock code is one to six letters or digits (the ASX code form). */
-export const STOCK_CODE_PATTERN = /^[A-Z0-9]{1,6}$/;
+const STOCK_CODE_PATTERN = /^[A-Z0-9]{1,6}$/;
 /** An exit reason is a snake_case word the engine writes (5.10). */
-export const EXIT_REASON_PATTERN = /^[a-z_]{1,64}$/;
+const EXIT_REASON_PATTERN = /^[a-z_]{1,64}$/;
 /** The page token is the API's opaque token: bounded, and no characters outside its alphabet. */
-export const PAGE_TOKEN_PATTERN = /^[A-Za-z0-9_\-=+/]{0,512}$/;
+const PAGE_TOKEN_PATTERN = /^[A-Za-z0-9_\-=+/]{0,512}$/;
 
 /** Filter feedback, named so the island can print it (never a silent drop). */
 export type TradesFilterError = "stock" | "reason" | "token";
 
-export function validateTradesFilters(input: {
+function validateTradesFilters(input: {
   stockCode?: string;
   exitReason?: string;
   pageToken?: string;
