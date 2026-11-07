@@ -22,7 +22,8 @@ jobs:
       # Repair the static, data-backed ISR pages whose empty-at-build
       # shell may survive a failed post-promote prime
       # (see web/src/app/api/static-pages/warm-cache/route.ts). Best-effort: the
-      # page's own revalidate + the hourly repair cron backstop it, so a failed
+      # page's own revalidate + the six-hourly repair cron (offset 3 h from this
+      # schedule) backstop it, so a failed
       # warm must not fail the deploy smoke.
       # This job names no environment, so REVALIDATION_SECRET here is the project-level
       # copy. Without it, and without CACHE_WARM_SECRET, the warm call answers 401, which

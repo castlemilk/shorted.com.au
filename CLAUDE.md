@@ -3323,7 +3323,8 @@ SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
 printf '%s' "$SECRET" | cuttle secrets set CLOUDFLARE_SSR_BYPASS_SECRET --project shorted
 printf '%s' "$SECRET" | gh secret set CLOUDFLARE_SSR_BYPASS_SECRET --repo castlemilk/shorted.com.au
 printf '%s' "$SECRET" | vercel env add SHORTED_SSR_BYPASS_SECRET production
-# then re-run terraform-deploy (or: cd terraform/environments/prod &&
+# then dispatch terraform-deploy, which always rebuilds the web (a push that
+# changes no web input does not); or: cd terraform/environments/prod &&
 # TF_VAR_rate_limit_ssr_bypass_secret="$SECRET" terraform apply)
 ```
 Rotation order: set the new value in Terraform/Cloudflare first, then Vercel —
@@ -3365,8 +3366,20 @@ make install-hooks    # Sets up pre-push hook
 
 Every push to `main` deploys through `terraform-deploy.yml`, which Cuttlefish
 runs (the workflow is disabled on GitHub, so `workflow_dispatch` there fails).
-Its `deploy-vercel-prod` job builds and promotes the whole of `main` on every
-push; there is no path filter. The workflow's concurrency group is
+Its `deploy-vercel-prod` job builds and promotes the whole of `main`, but
+only when something the web build reads changed since the commit production
+serves (`isWebInput` in `scripts/vercel-release.mjs`: `web/` outside its tests,
+`proto/`, `vercel.json`, the deploy workflow and its release scripts). A push
+that changes none of them leaves the web as it is (`web-current=true`; the
+release smoke still runs), because every new deployment starts from an empty
+ISR cache: on 2026-11-06 only 2 of 11 production deployments changed the web,
+and the stock pages' hit ratio was 1-14% after each against 38% six hours into
+one. So `/api/version` reports the last web-relevant commit, not `main`'s head.
+A dispatch or a published release always deploys the web, and so does a re-run
+whose runner reports `GITHUB_RUN_ATTEMPT` above 1 (unverified on Cuttlefish). To
+redeploy the same code, after rotating a build-time secret say, dispatch
+(`cuttle gha dispatch`, below). The
+workflow's concurrency group is
 `deploy-refs/heads/main` with `cancel-in-progress: false`, so a push that lands
 while a deploy is running is QUEUED, as on GitHub: its dispatch exists but has
 no runs until the running deploy finishes, so `cuttlefish_runs_list` shows
