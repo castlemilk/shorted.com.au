@@ -62,22 +62,31 @@ function InlineSelect({
   value,
   options,
   onChange,
+  accessibleName,
+  wide = false,
 }: {
   label: string;
   value: string;
   options: readonly ExplorerOption[];
   onChange?: (value: string) => void;
+  /** The control's full accessible name, when the visible option is shorter than its meaning. */
+  accessibleName?: string;
+  /** Sized to its longest option, not capped: the Window select must not truncate at 1280 px. */
+  wide?: boolean;
 }) {
   return (
     <select
-      aria-label={label}
+      aria-label={accessibleName ?? label}
       value={value}
       disabled={!onChange}
       onChange={(event) => onChange?.(event.target.value)}
-      className="h-8 min-w-0 max-w-[9rem] rounded-sm border border-input bg-background px-2 font-mono text-xs text-foreground disabled:cursor-default"
+      className={cn(
+        "h-8 min-w-0 rounded-sm border border-input bg-background px-2 font-mono text-xs text-foreground disabled:cursor-default",
+        wide ? "w-auto" : "max-w-[9rem]",
+      )}
     >
       {options.map((o) => (
-        <option key={o.value} value={o.value}>
+        <option key={o.value} value={o.value} title={o.title}>
           {label}: {o.label}
         </option>
       ))}
@@ -193,7 +202,8 @@ export function ExplorerView({
     );
   })();
 
-  const universeOptions: ExplorerOption[] = UNIVERSE_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
+  const universeOptions: ExplorerOption[] = UNIVERSE_OPTIONS.map((o) => ({ value: o.value, label: o.label, title: o.name }));
+  const universeName = UNIVERSE_OPTIONS.find((o) => o.value === filters.universe)?.name ?? "";
 
   return (
     <WorkspacePage inspector={<div className="hidden lg:block">{inspector}</div>}>
@@ -216,6 +226,7 @@ export function ExplorerView({
           />
           <InlineSelect
             label="Universe"
+            accessibleName={`Universe: ${universeName}`}
             value={filters.universe}
             options={universeOptions}
             onChange={controls ? (universe) => controls.onFilters({ universe: universe as ExplorerFilters["universe"] }) : undefined}
@@ -239,6 +250,7 @@ export function ExplorerView({
             <div className="ml-auto">
               <InlineSelect
                 label="Window"
+                wide
                 value={windowId}
                 options={WINDOW_OPTIONS.map((w) => ({ value: w.id, label: w.label }))}
                 onChange={controls ? (value) => controls.onWindow(value as WindowId) : undefined}

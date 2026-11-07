@@ -237,6 +237,42 @@ describe("the metric columns and the Live column", () => {
   });
 });
 
+describe("the Live column never prints a label without its date", () => {
+  const paperWith = (over: Record<string, unknown>) =>
+    mapStrategyEvidence({
+      strategyId: "x",
+      paper: { sessions: 10, closedTrades: 2, returnPct: 1.8, hasReturn: false, tooShort: true, since: "2026-11-23", recordedFrom: "2026-11-24", ...over },
+    });
+
+  it("reads n/a for a row with no paper track, and for a track with no start", () => {
+    expect(liveMetric(mapStrategyEvidence({ strategyId: "x" }))).toEqual({ key: "live", text: "n/a", value: null });
+    expect(liveMetric(mapStrategyEvidence({ strategyId: "x", paper: {} }))).toEqual({ key: "live", text: "n/a", value: null });
+  });
+
+  it("uses the track's actual start when recorded_from is empty and since is set, and never prints an empty date", () => {
+    const ev = paperWith({ recordedFrom: "" });
+    expect(liveMetric(ev)).toEqual({ key: "live", text: "Tracking since 23 Nov 2026", value: null, note: "Recorded" });
+  });
+
+  it("reads an RFC 3339 timestamp as its day", () => {
+    expect(liveMetric(paperWith({ recordedFrom: "2026-11-24T09:30:00+11:00" })).text).toBe("Tracking since 24 Nov 2026");
+  });
+
+  it("reads garbage as no date: n/a, not an empty label", () => {
+    expect(liveMetric(paperWith({ recordedFrom: "not-a-date", since: "" }))).toEqual({ key: "live", text: "n/a", value: null });
+    expect(liveMetric(paperWith({ recordedFrom: "2026-13-45", since: "garbage" }))).toEqual({ key: "live", text: "n/a", value: null });
+  });
+
+  it("prints a long track's return as recorded from its actual start", () => {
+    expect(liveMetric(paperWith({ tooShort: false, hasReturn: true, returnPct: 4.4, sessions: 200 }))).toEqual({
+      key: "live",
+      text: "+4.4%",
+      value: 4.4,
+      note: "Recorded since 24 Nov 2026",
+    });
+  });
+});
+
 describe("the explorer model", () => {
   it("lists the strategies in registry order, with names from the registry when the list read failed", () => {
     expect(model().rows.map((r) => r.id)).toEqual([

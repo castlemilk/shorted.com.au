@@ -50,8 +50,8 @@ export type EvidenceFilter = (typeof EVIDENCE_OPTIONS)[number]["value"];
  * names ASIC reports short. There is no "All": the default is the ASX universe.
  */
 export const UNIVERSE_OPTIONS = [
-  { value: "asx", label: "ASX ordinary shares" },
-  { value: "asic", label: "ASIC-reported names" },
+  { value: "asx", label: "ASX", name: "ASX ordinary shares" },
+  { value: "asic", label: "ASIC-reported", name: "ASIC-reported names" },
 ] as const;
 
 export type UniverseFilter = (typeof UNIVERSE_OPTIONS)[number]["value"];
@@ -174,6 +174,8 @@ export interface ExplorerRow {
 export interface ExplorerOption {
   value: string;
   label: string;
+  /** The option's full meaning, as its title. */
+  title?: string;
 }
 
 export interface ExplorerModel {
@@ -443,17 +445,19 @@ export function windowMetrics(
  */
 export function liveMetric(evidence: StrategyEvidenceView | null): ExplorerMetric {
   const paper = evidence?.paper ?? null;
-  if (!paper?.since) return { key: "live", text: NOT_AVAILABLE, value: null };
-  const start = paper.recordedFrom !== "" ? paper.recordedFrom : paper.since;
-  if (!paper.tooShort && paper.returnPct != null) {
+  // The track's first recorded session, else the freeze date. A row with no track, or a start
+  // that does not read as a day, is n/a: the label never prints without its date.
+  const start = shortDate(paper ? (paper.recordedFrom !== "" ? paper.recordedFrom : paper.since) : "");
+  if (!start) return { key: "live", text: NOT_AVAILABLE, value: null };
+  if (!paper?.tooShort && paper?.returnPct != null) {
     return {
       key: "live",
       text: formatSigned(paper.returnPct),
       value: paper.returnPct,
-      note: `Recorded since ${shortDate(start)}`,
+      note: `Recorded since ${start}`,
     };
   }
-  return { key: "live", text: `Tracking since ${shortDate(start)}`, value: null, note: "Recorded" };
+  return { key: "live", text: `Tracking since ${start}`, value: null, note: "Recorded" };
 }
 
 /** The evidence a row is filtered by. */
@@ -618,7 +622,7 @@ export function buildExplorerModel(input: {
       horizonValue: horizon ? horizonKey(horizon) : "",
       horizonLabel: horizon,
       universe,
-      universeLabel: UNIVERSE_OPTIONS.find((o) => o.value === universe)?.label ?? "",
+      universeLabel: UNIVERSE_OPTIONS.find((o) => o.value === universe)?.name ?? "",
       evidenceKind: evidenceKindOf(ev),
       author: def?.author ?? "",
       searchText: [name, id, def?.author ?? "", styleLabel].join(" ").toLowerCase(),

@@ -132,14 +132,18 @@ describe("the explorer's heatmap, row by row", () => {
 describe("the toolbar and the window", () => {
   it("labels each control inside it, with the label as its accessible name", () => {
     view();
-    for (const name of ["Style", "Horizon", "Universe", "Evidence", "Window"]) {
+    for (const name of ["Style", "Horizon", "Evidence", "Window"]) {
       expect(screen.getByRole("combobox", { name })).toBeInTheDocument();
     }
     expect(screen.getByRole("searchbox", { name: "Find a strategy" })).toBeInTheDocument();
-    expect(within(screen.getByRole("combobox", { name: "Universe" })).getAllByRole("option").map((o) => o.textContent)).toEqual([
-      "Universe: ASX ordinary shares",
-      "Universe: ASIC-reported names",
+    // The visible label is short; the accessible name carries the full meaning.
+    const universe = screen.getByRole("combobox", { name: "Universe: ASX ordinary shares" });
+    expect(within(universe).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Universe: ASX",
+      "Universe: ASIC-reported",
     ]);
+    expect(within(universe).getAllByRole("option")[1]).toHaveAttribute("title", "ASIC-reported names");
+    expect(within(universe).getAllByRole("option")[0]).toHaveAttribute("title", "ASX ordinary shares");
   });
 
   it("offers the four windows, and the Window select is inert without controls", () => {
