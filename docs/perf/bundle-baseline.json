@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-11-04T15:11:49.143Z",
+  "capturedAt": "2026-11-07T00:20:45.778Z",
   "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 112,
@@ -242,7 +242,7 @@
       "firstLoadKB": 112
     },
     "/dashboards": {
-      "firstLoadKB": 257
+      "firstLoadKB": 258
     },
     "/data": {
       "firstLoadKB": 118
@@ -512,7 +512,7 @@
       "firstLoadKB": 215
     },
     "/ownership/[slug]": {
-      "firstLoadKB": 163
+      "firstLoadKB": 166
     },
     "/ownership/[slug]/opengraph-image": {
       "firstLoadKB": 112
@@ -554,7 +554,7 @@
       "firstLoadKB": 139
     },
     "/ownership/stocks/[code]": {
-      "firstLoadKB": 132
+      "firstLoadKB": 135
     },
     "/ownership/stocks/[code]/opengraph-image": {
       "firstLoadKB": 112
@@ -650,7 +650,7 @@
       "firstLoadKB": 112
     },
     "/roadmap": {
-      "firstLoadKB": 126
+      "firstLoadKB": 127
     },
     "/robots.txt": {
       "firstLoadKB": 112
@@ -698,7 +698,7 @@
       "firstLoadKB": 152
     },
     "/shorts/[stockCode]/financials": {
-      "firstLoadKB": 137
+      "firstLoadKB": 136
     },
     "/shorts/[stockCode]/news": {
       "firstLoadKB": 124
@@ -757,6 +757,9 @@
     "/strategies/[strategy]": {
       "firstLoadKB": 134
     },
+    "/strategies/[strategy]/backtest": {
+      "firstLoadKB": 129
+    },
     "/strategies/[strategy]/opengraph-image": {
       "firstLoadKB": 112
     },
@@ -764,7 +767,10 @@
       "firstLoadKB": 115
     },
     "/strategies/[strategy]/signals": {
-      "firstLoadKB": 147
+      "firstLoadKB": 150
+    },
+    "/strategies/[strategy]/trades": {
+      "firstLoadKB": 122
     },
     "/strategies/changelog": {
       "firstLoadKB": 118
