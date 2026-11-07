@@ -76,10 +76,9 @@ func TestAlphaVantageMatchIsCaseInsensitive(t *testing.T) {
 	}
 }
 
-func TestAlphaVantageToleratesAbsentMetaData(t *testing.T) {
-	// An older or trimmed payload carries no Meta Data. Absent is not proof of a
-	// mismatch, so it must not become a hard failure — that would take the whole
-	// provider offline on a response-shape change.
+func TestAlphaVantageRefusesAnUnidentifiedResponse(t *testing.T) {
+	// A payload with no Meta Data names no security, so nothing shows it is the
+	// ASX listing. It is refused, and as a failure, not a "no data" strike.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"Time Series (Daily)": map[string]map[string]string{
@@ -92,9 +91,16 @@ func TestAlphaVantageToleratesAbsentMetaData(t *testing.T) {
 	}))
 	defer srv.Close()
 	p := newAlphaVantageForTest(srv.URL, "test-key")
-	if _, err := p.FetchHistoricalData(context.Background(), "XYZ",
-		time.Now().AddDate(0, 0, -7), time.Now()); err != nil {
-		t.Fatalf("absent Meta Data must not fail the fetch: %v", err)
+	recs, err := p.FetchHistoricalData(context.Background(), "XYZ",
+		time.Now().AddDate(0, 0, -7), time.Now())
+	if err == nil {
+		t.Fatal("accepted a price series that names no security")
+	}
+	if IsNoDataError(err) {
+		t.Errorf("an unidentified response is a failure, not a no-data answer: %v", err)
+	}
+	if len(recs) != 0 {
+		t.Fatalf("stored %d records from an unidentified response", len(recs))
 	}
 }
 

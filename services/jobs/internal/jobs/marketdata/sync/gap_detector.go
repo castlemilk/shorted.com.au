@@ -157,6 +157,11 @@ func (g *GapDetector) RepairGap(ctx context.Context, gap Gap) (int, error) {
 			log.Printf("✅ %s: Fetched %d gap records from %s", gap.StockCode, len(records), p.Name())
 			break
 		}
+		// "No data" from the primary ends the chain: a session it does not have
+		// is not a gap for the next provider to fill (see sync.fetch).
+		if syncErr == nil || providers.IsNoDataError(syncErr) {
+			break
+		}
 		if syncErr != nil {
 			log.Printf("⚠️ %s: Provider %s failed for gap repair: %v", gap.StockCode, p.Name(), syncErr)
 		}

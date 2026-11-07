@@ -407,6 +407,12 @@ func fetchPlan(ctx context.Context, dataProviders []providers.DataProvider, symb
 			if err == nil && len(records) > 0 {
 				return records
 			}
+			// A provider's "no data" is an answer: a session the primary does not
+			// have is not a session for the next provider to fill (see sync.fetch).
+			// Asking Alpha Vantage here wrote NASDAQ's SLM over ASX:SLM.
+			if err == nil || providers.IsNoDataError(err) {
+				return nil
+			}
 		}
 		return nil
 	}

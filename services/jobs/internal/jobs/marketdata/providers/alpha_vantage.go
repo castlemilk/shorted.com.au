@@ -132,15 +132,19 @@ func (p *AlphaVantageProvider) FetchHistoricalData(ctx context.Context, symbol s
 	// prod has run this package since the jobs cutover (#359), so the fix never
 	// reached it. It is carried here, where it runs.
 	//
-	// A price for the wrong company is worse than no price. Absent Meta Data is
-	// tolerated: absence is not proof of a mismatch, and failing hard on it would
-	// take the provider offline on any change of response shape.
-	if returned := strings.TrimSpace(data.MetaData["2. Symbol"]); returned != "" {
-		if !strings.EqualFold(returned, avSymbol) {
-			return nil, NewNoDataError(symbol, fmt.Sprintf(
-				"alpha vantage answered for %q when asked for %q: refusing a price for a different security",
-				returned, avSymbol))
-		}
+	// A price for the wrong company is worse than no price, so a response that
+	// does not name the security it is for is refused, not stored. Absent Meta
+	// Data used to be tolerated; that let a response with no identity through as
+	// the price of the code asked for. Refusing it is a failure, so the stock
+	// takes no "no data" strike for it.
+	returned := strings.TrimSpace(data.MetaData["2. Symbol"])
+	if returned == "" {
+		return nil, fmt.Errorf("alpha vantage: response names no symbol for %q: refusing an unidentified price", avSymbol)
+	}
+	if !strings.EqualFold(returned, avSymbol) {
+		return nil, NewNoDataError(symbol, fmt.Sprintf(
+			"alpha vantage answered for %q when asked for %q: refusing a price for a different security",
+			returned, avSymbol))
 	}
 
 	var records []PriceRecord
