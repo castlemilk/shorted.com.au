@@ -95,6 +95,17 @@ function WindowFromUrl(props: BacktestPanelProps) {
   return <PanelBody {...props} urlWindow={urlWindow} initialWindow={parseWindow(urlWindow, props.windows, props.served)} />;
 }
 
+/**
+ * The disclosure lines under the chart, each printed once. The run's own list is the source (the API
+ * already serves the hypothetical and return-basis lines as its first two), so the fixed copies are
+ * only a fallback for a run that serves none. A line the list repeats prints once.
+ */
+export function disclosureLines(served: readonly string[]): string[] {
+  const lines = served.map((line) => line.trim()).filter(Boolean);
+  const source = lines.length > 0 ? lines : [HYPOTHETICAL_COPY, RETURN_BASIS_COPY];
+  return [...new Set(source)];
+}
+
 /** The window a query value names when the run carries it, else the run's served window. */
 export function parseWindow(
   value: string | null,
@@ -267,11 +278,9 @@ function PanelBody({
               </div>
             ) : null}
           </div>
-          {disclosures.map((line) => (
+          {disclosureLines(disclosures).map((line) => (
             <p key={line} className="text-xs text-muted-foreground">{line}</p>
           ))}
-          <p className="text-xs text-muted-foreground">{HYPOTHETICAL_COPY}</p>
-          <p className="text-xs text-muted-foreground">{RETURN_BASIS_COPY}</p>
         </section>
       </div>
 

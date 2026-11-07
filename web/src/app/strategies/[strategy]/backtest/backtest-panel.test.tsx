@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
-import { BacktestPanel, parseWindow, type BacktestPanelProps } from "./backtest-panel";
+import { BacktestPanel, disclosureLines, parseWindow, type BacktestPanelProps } from "./backtest-panel";
+import { HYPOTHETICAL_COPY, RETURN_BASIS_COPY } from "~/@/lib/strategies/backtest-copy";
 import { mapBacktestRun, mapSeriesPoint, type BacktestWindowView, type SeriesPointView } from "~/@/lib/strategies/map-backtest";
 import { orderedWindows } from "~/@/lib/strategies/backtest-windows";
 import { fixturePublishedRun } from "~/@/lib/strategies/__tests__/backtest-fixtures";
@@ -122,6 +123,28 @@ describe("the Backtest panel's window", () => {
     render(<BacktestPanel {...props({ disclosures: ["Served disclosure one.", "Served disclosure two."] })} initialWindow="since_2019_05" />);
     expect(screen.getByText("Served disclosure one.")).toBeInTheDocument();
     expect(screen.getByText("Served disclosure two.")).toBeInTheDocument();
+  });
+
+  it("prints each disclosure once when the run serves the fixed lines too (the API's own list)", () => {
+    // The API serves the hypothetical and return-basis lines as its first two disclosures; the panel
+    // must not print them a second time beside the list.
+    const served = [HYPOTHETICAL_COPY, RETURN_BASIS_COPY, "ASIC basis: the latest complete report.", "Survivorship: flatters."];
+    render(<BacktestPanel {...props({ disclosures: served })} initialWindow="since_2019_05" />);
+    for (const line of served) {
+      expect(screen.getAllByText(line)).toHaveLength(1);
+    }
+  });
+
+  it("falls back to the two fixed lines, each once, only when the run serves no disclosures", () => {
+    render(<BacktestPanel {...props({ disclosures: [] })} initialWindow="since_2019_05" />);
+    expect(screen.getAllByText(HYPOTHETICAL_COPY)).toHaveLength(1);
+    expect(screen.getAllByText(RETURN_BASIS_COPY)).toHaveLength(1);
+  });
+
+  it("disclosureLines de-duplicates a repeated served line and never adds the fixed copy to a served list", () => {
+    expect(disclosureLines(["A line.", "A line.", "B line."])).toEqual(["A line.", "B line."]);
+    expect(disclosureLines(["Served only."])).toEqual(["Served only."]);
+    expect(disclosureLines([])).toEqual([HYPOTHETICAL_COPY, RETURN_BASIS_COPY]);
   });
 
   it("chooses the freeze chip for in-sample windows and the recorded chip for the live window", async () => {
