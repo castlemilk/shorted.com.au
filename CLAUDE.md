@@ -2355,6 +2355,30 @@ Operator runbook (before-merge steps, prod smoke test, troubleshooting):
   is checked in the insert and the resume statement. Paused monitors do not count, and pausing
   is never refused.
 
+## Market moves (`/market-moves`, posted by a Claude workflow)
+
+Full record: **`docs/feature/market-moves/README.md`** (the posting contract, the
+workflow recipe, every landmine). A Claude workflow posts what moved, by how much,
+when it saw it and why; shorted stores it in `market_moves` (migration 000160,
+allowlisted) and draws it on `/market-moves`, a homepage strip and the stock
+Overview card, live at once and labelled AI-written. Two doors to one core
+(`market_moves.go`): `POST /v1/market-moves` (+ `/retract`) with a token an admin
+creates at `/admin/market-moves` (`smm_...`, shown once, stored as its SHA-256 in
+`market_moves_tokens`, revoked there within 30 s), and the admin MCP tools
+`post_market_move` / `retract_market_move` (scope `moves:write`). The read is the
+public `MarketService.ListMarketMoves`.
+
+- **A key is one move**: re-posting a `move_key` revises it in place, identical
+  content is `unchanged`, the subject cannot change, and a retraction is final
+  (the row stays; never `DELETE` one by hand).
+- **Withhold rather than guess**: an unknown code, a direction that contradicts
+  its figure, a non-https source or an unknown JSON field is refused, every
+  problem in one `422`; a missing figure is absent, never 0; text is plain text.
+- **The revalidation tags are a contract** between `market_moves_revalidate.go`
+  and `web/src/app/actions/market-moves/` (`market-moves`, `market-moves:home`,
+  `market-moves:stock:<CODE>`); the API needs `REVALIDATION_URL` and
+  `REVALIDATION_SECRET` or the pages wait out their ISR windows.
+
 ## Known Issues & Gotchas
 
 ### SSR Issues with @connectrpc/connect Imports (CRITICAL)

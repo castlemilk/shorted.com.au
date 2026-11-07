@@ -121,6 +121,465 @@ func (BattlegroundView) EnumDescriptor() ([]byte, []int) {
 	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{1}
 }
 
+// One market move. Every figure carries its own date (observed_at), and a
+// figure the poster did not give travels with has_* false, never as 0.
+type MarketMove struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The poster's own key for the move. A re-post of the same key updates the
+	// move in place and raises revision.
+	MoveKey string `protobuf:"bytes,1,opt,name=move_key,json=moveKey,proto3" json:"move_key,omitempty"`
+	// stock | index | sector | market.
+	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	// The stock the move is about (kind stock), and its name when we hold one.
+	StockCode   string `protobuf:"bytes,3,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	CompanyName string `protobuf:"bytes,4,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	// The index the move is about (kind index), e.g. XJO.
+	IndexCode string `protobuf:"bytes,5,opt,name=index_code,json=indexCode,proto3" json:"index_code,omitempty"`
+	// The sector the move is about (kind sector), as the poster named it.
+	Sector string `protobuf:"bytes,6,opt,name=sector,proto3" json:"sector,omitempty"`
+	// Other ASX codes the move names, each one we hold.
+	RelatedCodes []string `protobuf:"bytes,7,rep,name=related_codes,json=relatedCodes,proto3" json:"related_codes,omitempty"`
+	// up | down | flat | mixed.
+	Direction string `protobuf:"bytes,8,opt,name=direction,proto3" json:"direction,omitempty"`
+	// The move in percent (-3.2 is a 3.2% fall).
+	ChangePct    float64 `protobuf:"fixed64,9,opt,name=change_pct,json=changePct,proto3" json:"change_pct,omitempty"`
+	HasChangePct bool    `protobuf:"varint,10,opt,name=has_change_pct,json=hasChangePct,proto3" json:"has_change_pct,omitempty"`
+	// The price (or index level) at observed_at.
+	Price    float64 `protobuf:"fixed64,11,opt,name=price,proto3" json:"price,omitempty"`
+	HasPrice bool    `protobuf:"varint,12,opt,name=has_price,json=hasPrice,proto3" json:"has_price,omitempty"`
+	// Volume against its usual level (2.5 = two and a half times).
+	VolumeRatio    float64 `protobuf:"fixed64,13,opt,name=volume_ratio,json=volumeRatio,proto3" json:"volume_ratio,omitempty"`
+	HasVolumeRatio bool    `protobuf:"varint,14,opt,name=has_volume_ratio,json=hasVolumeRatio,proto3" json:"has_volume_ratio,omitempty"`
+	// Plain text. Never HTML or markdown.
+	Headline string              `protobuf:"bytes,15,opt,name=headline,proto3" json:"headline,omitempty"`
+	Summary  string              `protobuf:"bytes,16,opt,name=summary,proto3" json:"summary,omitempty"`
+	Sources  []*MarketMoveSource `protobuf:"bytes,17,rep,name=sources,proto3" json:"sources,omitempty"`
+	Tags     []string            `protobuf:"bytes,18,rep,name=tags,proto3" json:"tags,omitempty"`
+	// 1 (minor) to 5 (market-wide event).
+	Significance int32 `protobuf:"varint,19,opt,name=significance,proto3" json:"significance,omitempty"`
+	// RFC 3339, when the poster observed the move.
+	ObservedAt string `protobuf:"bytes,20,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
+	// YYYY-MM-DD, the Sydney calendar date of observed_at.
+	MarketDate string `protobuf:"bytes,21,opt,name=market_date,json=marketDate,proto3" json:"market_date,omitempty"`
+	Revision   int32  `protobuf:"varint,22,opt,name=revision,proto3" json:"revision,omitempty"`
+	// RFC 3339, when the move was first posted and when it last changed.
+	PublishedAt string `protobuf:"bytes,23,opt,name=published_at,json=publishedAt,proto3" json:"published_at,omitempty"`
+	UpdatedAt   string `protobuf:"bytes,24,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// The model that wrote the move, when the poster named it.
+	Model         string `protobuf:"bytes,25,opt,name=model,proto3" json:"model,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MarketMove) Reset() {
+	*x = MarketMove{}
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarketMove) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarketMove) ProtoMessage() {}
+
+func (x *MarketMove) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarketMove.ProtoReflect.Descriptor instead.
+func (*MarketMove) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *MarketMove) GetMoveKey() string {
+	if x != nil {
+		return x.MoveKey
+	}
+	return ""
+}
+
+func (x *MarketMove) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *MarketMove) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *MarketMove) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *MarketMove) GetIndexCode() string {
+	if x != nil {
+		return x.IndexCode
+	}
+	return ""
+}
+
+func (x *MarketMove) GetSector() string {
+	if x != nil {
+		return x.Sector
+	}
+	return ""
+}
+
+func (x *MarketMove) GetRelatedCodes() []string {
+	if x != nil {
+		return x.RelatedCodes
+	}
+	return nil
+}
+
+func (x *MarketMove) GetDirection() string {
+	if x != nil {
+		return x.Direction
+	}
+	return ""
+}
+
+func (x *MarketMove) GetChangePct() float64 {
+	if x != nil {
+		return x.ChangePct
+	}
+	return 0
+}
+
+func (x *MarketMove) GetHasChangePct() bool {
+	if x != nil {
+		return x.HasChangePct
+	}
+	return false
+}
+
+func (x *MarketMove) GetPrice() float64 {
+	if x != nil {
+		return x.Price
+	}
+	return 0
+}
+
+func (x *MarketMove) GetHasPrice() bool {
+	if x != nil {
+		return x.HasPrice
+	}
+	return false
+}
+
+func (x *MarketMove) GetVolumeRatio() float64 {
+	if x != nil {
+		return x.VolumeRatio
+	}
+	return 0
+}
+
+func (x *MarketMove) GetHasVolumeRatio() bool {
+	if x != nil {
+		return x.HasVolumeRatio
+	}
+	return false
+}
+
+func (x *MarketMove) GetHeadline() string {
+	if x != nil {
+		return x.Headline
+	}
+	return ""
+}
+
+func (x *MarketMove) GetSummary() string {
+	if x != nil {
+		return x.Summary
+	}
+	return ""
+}
+
+func (x *MarketMove) GetSources() []*MarketMoveSource {
+	if x != nil {
+		return x.Sources
+	}
+	return nil
+}
+
+func (x *MarketMove) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *MarketMove) GetSignificance() int32 {
+	if x != nil {
+		return x.Significance
+	}
+	return 0
+}
+
+func (x *MarketMove) GetObservedAt() string {
+	if x != nil {
+		return x.ObservedAt
+	}
+	return ""
+}
+
+func (x *MarketMove) GetMarketDate() string {
+	if x != nil {
+		return x.MarketDate
+	}
+	return ""
+}
+
+func (x *MarketMove) GetRevision() int32 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *MarketMove) GetPublishedAt() string {
+	if x != nil {
+		return x.PublishedAt
+	}
+	return ""
+}
+
+func (x *MarketMove) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *MarketMove) GetModel() string {
+	if x != nil {
+		return x.Model
+	}
+	return ""
+}
+
+// A source the move cites. https only.
+type MarketMoveSource struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Title         string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
+	Url           string                 `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	Publisher     string                 `protobuf:"bytes,3,opt,name=publisher,proto3" json:"publisher,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MarketMoveSource) Reset() {
+	*x = MarketMoveSource{}
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarketMoveSource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarketMoveSource) ProtoMessage() {}
+
+func (x *MarketMoveSource) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarketMoveSource.ProtoReflect.Descriptor instead.
+func (*MarketMoveSource) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *MarketMoveSource) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *MarketMoveSource) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *MarketMoveSource) GetPublisher() string {
+	if x != nil {
+		return x.Publisher
+	}
+	return ""
+}
+
+type ListMarketMovesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Moves about this stock or naming it among related_codes.
+	StockCode string `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	// stock | index | sector | market; empty for every kind.
+	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	// YYYY-MM-DD (Sydney); empty for every date.
+	MarketDate string `protobuf:"bytes,3,opt,name=market_date,json=marketDate,proto3" json:"market_date,omitempty"`
+	// 1 to 5; 0 for every move.
+	MinSignificance int32 `protobuf:"varint,4,opt,name=min_significance,json=minSignificance,proto3" json:"min_significance,omitempty"`
+	// Default 20, at most 100.
+	Limit int32 `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
+	// next_cursor from the previous page; empty for the first page.
+	Cursor        string `protobuf:"bytes,6,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMarketMovesRequest) Reset() {
+	*x = ListMarketMovesRequest{}
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMarketMovesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMarketMovesRequest) ProtoMessage() {}
+
+func (x *ListMarketMovesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMarketMovesRequest.ProtoReflect.Descriptor instead.
+func (*ListMarketMovesRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ListMarketMovesRequest) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *ListMarketMovesRequest) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *ListMarketMovesRequest) GetMarketDate() string {
+	if x != nil {
+		return x.MarketDate
+	}
+	return ""
+}
+
+func (x *ListMarketMovesRequest) GetMinSignificance() int32 {
+	if x != nil {
+		return x.MinSignificance
+	}
+	return 0
+}
+
+func (x *ListMarketMovesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListMarketMovesRequest) GetCursor() string {
+	if x != nil {
+		return x.Cursor
+	}
+	return ""
+}
+
+type ListMarketMovesResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Moves []*MarketMove          `protobuf:"bytes,1,rep,name=moves,proto3" json:"moves,omitempty"`
+	// Empty on the last page.
+	NextCursor    string `protobuf:"bytes,2,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMarketMovesResponse) Reset() {
+	*x = ListMarketMovesResponse{}
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMarketMovesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMarketMovesResponse) ProtoMessage() {}
+
+func (x *ListMarketMovesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMarketMovesResponse.ProtoReflect.Descriptor instead.
+func (*ListMarketMovesResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ListMarketMovesResponse) GetMoves() []*MarketMove {
+	if x != nil {
+		return x.Moves
+	}
+	return nil
+}
+
+func (x *ListMarketMovesResponse) GetNextCursor() string {
+	if x != nil {
+		return x.NextCursor
+	}
+	return ""
+}
+
 // Request for Top10 RPC, specifying the period of time.
 type GetTopShortsRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
@@ -142,7 +601,7 @@ type GetTopShortsRequest struct {
 
 func (x *GetTopShortsRequest) Reset() {
 	*x = GetTopShortsRequest{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[0]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -154,7 +613,7 @@ func (x *GetTopShortsRequest) String() string {
 func (*GetTopShortsRequest) ProtoMessage() {}
 
 func (x *GetTopShortsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[0]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -167,7 +626,7 @@ func (x *GetTopShortsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTopShortsRequest.ProtoReflect.Descriptor instead.
 func (*GetTopShortsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{0}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetTopShortsRequest) GetPeriod() string {
@@ -219,7 +678,7 @@ type GetIndustryTreeMapRequest struct {
 
 func (x *GetIndustryTreeMapRequest) Reset() {
 	*x = GetIndustryTreeMapRequest{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[1]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -231,7 +690,7 @@ func (x *GetIndustryTreeMapRequest) String() string {
 func (*GetIndustryTreeMapRequest) ProtoMessage() {}
 
 func (x *GetIndustryTreeMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[1]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -244,7 +703,7 @@ func (x *GetIndustryTreeMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIndustryTreeMapRequest.ProtoReflect.Descriptor instead.
 func (*GetIndustryTreeMapRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{1}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetIndustryTreeMapRequest) GetPeriod() string {
@@ -279,7 +738,7 @@ type GetTopShortsResponse struct {
 
 func (x *GetTopShortsResponse) Reset() {
 	*x = GetTopShortsResponse{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[2]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -291,7 +750,7 @@ func (x *GetTopShortsResponse) String() string {
 func (*GetTopShortsResponse) ProtoMessage() {}
 
 func (x *GetTopShortsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[2]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -304,7 +763,7 @@ func (x *GetTopShortsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTopShortsResponse.ProtoReflect.Descriptor instead.
 func (*GetTopShortsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{2}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetTopShortsResponse) GetTimeSeries() []*v1alpha1.TimeSeriesData {
@@ -331,7 +790,7 @@ type GetSyncStatusRequest struct {
 
 func (x *GetSyncStatusRequest) Reset() {
 	*x = GetSyncStatusRequest{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[3]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -343,7 +802,7 @@ func (x *GetSyncStatusRequest) String() string {
 func (*GetSyncStatusRequest) ProtoMessage() {}
 
 func (x *GetSyncStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[3]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -356,7 +815,7 @@ func (x *GetSyncStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSyncStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetSyncStatusRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{3}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetSyncStatusRequest) GetLimit() int32 {
@@ -376,7 +835,7 @@ type GetSyncStatusResponse struct {
 
 func (x *GetSyncStatusResponse) Reset() {
 	*x = GetSyncStatusResponse{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[4]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -388,7 +847,7 @@ func (x *GetSyncStatusResponse) String() string {
 func (*GetSyncStatusResponse) ProtoMessage() {}
 
 func (x *GetSyncStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[4]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -401,7 +860,7 @@ func (x *GetSyncStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSyncStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetSyncStatusResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{4}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetSyncStatusResponse) GetRuns() []*SyncRun {
@@ -437,7 +896,7 @@ type SyncRun struct {
 
 func (x *SyncRun) Reset() {
 	*x = SyncRun{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[5]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -449,7 +908,7 @@ func (x *SyncRun) String() string {
 func (*SyncRun) ProtoMessage() {}
 
 func (x *SyncRun) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[5]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -462,7 +921,7 @@ func (x *SyncRun) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncRun.ProtoReflect.Descriptor instead.
 func (*SyncRun) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{5}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SyncRun) GetRunId() string {
@@ -610,7 +1069,7 @@ type GetMarketByDateRequest struct {
 
 func (x *GetMarketByDateRequest) Reset() {
 	*x = GetMarketByDateRequest{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[6]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -622,7 +1081,7 @@ func (x *GetMarketByDateRequest) String() string {
 func (*GetMarketByDateRequest) ProtoMessage() {}
 
 func (x *GetMarketByDateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[6]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -635,7 +1094,7 @@ func (x *GetMarketByDateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMarketByDateRequest.ProtoReflect.Descriptor instead.
 func (*GetMarketByDateRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{6}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetMarketByDateRequest) GetDate() string {
@@ -687,7 +1146,7 @@ type GetMarketByDateResponse struct {
 
 func (x *GetMarketByDateResponse) Reset() {
 	*x = GetMarketByDateResponse{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -699,7 +1158,7 @@ func (x *GetMarketByDateResponse) String() string {
 func (*GetMarketByDateResponse) ProtoMessage() {}
 
 func (x *GetMarketByDateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -712,7 +1171,7 @@ func (x *GetMarketByDateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMarketByDateResponse.ProtoReflect.Descriptor instead.
 func (*GetMarketByDateResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{7}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetMarketByDateResponse) GetDate() string {
@@ -761,7 +1220,7 @@ type GetAvailableDatesRequest struct {
 
 func (x *GetAvailableDatesRequest) Reset() {
 	*x = GetAvailableDatesRequest{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -773,7 +1232,7 @@ func (x *GetAvailableDatesRequest) String() string {
 func (*GetAvailableDatesRequest) ProtoMessage() {}
 
 func (x *GetAvailableDatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -786,7 +1245,7 @@ func (x *GetAvailableDatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAvailableDatesRequest.ProtoReflect.Descriptor instead.
 func (*GetAvailableDatesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{8}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetAvailableDatesRequest) GetLimit() int32 {
@@ -816,7 +1275,7 @@ type GetAvailableDatesResponse struct {
 
 func (x *GetAvailableDatesResponse) Reset() {
 	*x = GetAvailableDatesResponse{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -828,7 +1287,7 @@ func (x *GetAvailableDatesResponse) String() string {
 func (*GetAvailableDatesResponse) ProtoMessage() {}
 
 func (x *GetAvailableDatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -841,7 +1300,7 @@ func (x *GetAvailableDatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAvailableDatesResponse.ProtoReflect.Descriptor instead.
 func (*GetAvailableDatesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{9}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetAvailableDatesResponse) GetDates() []string {
@@ -884,7 +1343,7 @@ type GetBattlegroundStocksRequest struct {
 
 func (x *GetBattlegroundStocksRequest) Reset() {
 	*x = GetBattlegroundStocksRequest{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -896,7 +1355,7 @@ func (x *GetBattlegroundStocksRequest) String() string {
 func (*GetBattlegroundStocksRequest) ProtoMessage() {}
 
 func (x *GetBattlegroundStocksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -909,7 +1368,7 @@ func (x *GetBattlegroundStocksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBattlegroundStocksRequest.ProtoReflect.Descriptor instead.
 func (*GetBattlegroundStocksRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{10}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetBattlegroundStocksRequest) GetView() BattlegroundView {
@@ -954,7 +1413,7 @@ type BattlegroundStock struct {
 
 func (x *BattlegroundStock) Reset() {
 	*x = BattlegroundStock{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -966,7 +1425,7 @@ func (x *BattlegroundStock) String() string {
 func (*BattlegroundStock) ProtoMessage() {}
 
 func (x *BattlegroundStock) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -979,7 +1438,7 @@ func (x *BattlegroundStock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BattlegroundStock.ProtoReflect.Descriptor instead.
 func (*BattlegroundStock) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{11}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *BattlegroundStock) GetStockCode() string {
@@ -1077,7 +1536,7 @@ type GetBattlegroundStocksResponse struct {
 
 func (x *GetBattlegroundStocksResponse) Reset() {
 	*x = GetBattlegroundStocksResponse{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1089,7 +1548,7 @@ func (x *GetBattlegroundStocksResponse) String() string {
 func (*GetBattlegroundStocksResponse) ProtoMessage() {}
 
 func (x *GetBattlegroundStocksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1102,7 +1561,7 @@ func (x *GetBattlegroundStocksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBattlegroundStocksResponse.ProtoReflect.Descriptor instead.
 func (*GetBattlegroundStocksResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{12}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetBattlegroundStocksResponse) GetStocks() []*BattlegroundStock {
@@ -1131,7 +1590,7 @@ type GetShortCampaignScoreboardRequest struct {
 
 func (x *GetShortCampaignScoreboardRequest) Reset() {
 	*x = GetShortCampaignScoreboardRequest{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1143,7 +1602,7 @@ func (x *GetShortCampaignScoreboardRequest) String() string {
 func (*GetShortCampaignScoreboardRequest) ProtoMessage() {}
 
 func (x *GetShortCampaignScoreboardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1156,7 +1615,7 @@ func (x *GetShortCampaignScoreboardRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetShortCampaignScoreboardRequest.ProtoReflect.Descriptor instead.
 func (*GetShortCampaignScoreboardRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{13}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetShortCampaignScoreboardRequest) GetLimit() int32 {
@@ -1206,7 +1665,7 @@ type ShortCampaign struct {
 
 func (x *ShortCampaign) Reset() {
 	*x = ShortCampaign{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1218,7 +1677,7 @@ func (x *ShortCampaign) String() string {
 func (*ShortCampaign) ProtoMessage() {}
 
 func (x *ShortCampaign) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1231,7 +1690,7 @@ func (x *ShortCampaign) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShortCampaign.ProtoReflect.Descriptor instead.
 func (*ShortCampaign) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{14}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ShortCampaign) GetStockCode() string {
@@ -1367,7 +1826,7 @@ type GetShortCampaignScoreboardResponse struct {
 
 func (x *GetShortCampaignScoreboardResponse) Reset() {
 	*x = GetShortCampaignScoreboardResponse{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[15]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1379,7 +1838,7 @@ func (x *GetShortCampaignScoreboardResponse) String() string {
 func (*GetShortCampaignScoreboardResponse) ProtoMessage() {}
 
 func (x *GetShortCampaignScoreboardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[15]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1392,7 +1851,7 @@ func (x *GetShortCampaignScoreboardResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetShortCampaignScoreboardResponse.ProtoReflect.Descriptor instead.
 func (*GetShortCampaignScoreboardResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{15}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetShortCampaignScoreboardResponse) GetCampaigns() []*ShortCampaign {
@@ -1457,7 +1916,7 @@ type IndexDefinition struct {
 
 func (x *IndexDefinition) Reset() {
 	*x = IndexDefinition{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[16]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1469,7 +1928,7 @@ func (x *IndexDefinition) String() string {
 func (*IndexDefinition) ProtoMessage() {}
 
 func (x *IndexDefinition) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[16]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1482,7 +1941,7 @@ func (x *IndexDefinition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IndexDefinition.ProtoReflect.Descriptor instead.
 func (*IndexDefinition) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{16}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *IndexDefinition) GetCode() string {
@@ -1542,7 +2001,7 @@ type ListIndicesRequest struct {
 
 func (x *ListIndicesRequest) Reset() {
 	*x = ListIndicesRequest{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[17]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1554,7 +2013,7 @@ func (x *ListIndicesRequest) String() string {
 func (*ListIndicesRequest) ProtoMessage() {}
 
 func (x *ListIndicesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[17]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1567,7 +2026,7 @@ func (x *ListIndicesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIndicesRequest.ProtoReflect.Descriptor instead.
 func (*ListIndicesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{17}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{21}
 }
 
 type ListIndicesResponse struct {
@@ -1579,7 +2038,7 @@ type ListIndicesResponse struct {
 
 func (x *ListIndicesResponse) Reset() {
 	*x = ListIndicesResponse{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[18]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1591,7 +2050,7 @@ func (x *ListIndicesResponse) String() string {
 func (*ListIndicesResponse) ProtoMessage() {}
 
 func (x *ListIndicesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[18]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1604,7 +2063,7 @@ func (x *ListIndicesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIndicesResponse.ProtoReflect.Descriptor instead.
 func (*ListIndicesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{18}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListIndicesResponse) GetIndices() []*IndexDefinition {
@@ -1632,7 +2091,7 @@ type GetIndexSeriesRequest struct {
 
 func (x *GetIndexSeriesRequest) Reset() {
 	*x = GetIndexSeriesRequest{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[19]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1644,7 +2103,7 @@ func (x *GetIndexSeriesRequest) String() string {
 func (*GetIndexSeriesRequest) ProtoMessage() {}
 
 func (x *GetIndexSeriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[19]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1657,7 +2116,7 @@ func (x *GetIndexSeriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIndexSeriesRequest.ProtoReflect.Descriptor instead.
 func (*GetIndexSeriesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{19}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetIndexSeriesRequest) GetIndexCode() string {
@@ -1727,7 +2186,7 @@ type GetIndexSeriesResponse struct {
 
 func (x *GetIndexSeriesResponse) Reset() {
 	*x = GetIndexSeriesResponse{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[20]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1739,7 +2198,7 @@ func (x *GetIndexSeriesResponse) String() string {
 func (*GetIndexSeriesResponse) ProtoMessage() {}
 
 func (x *GetIndexSeriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[20]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1752,7 +2211,7 @@ func (x *GetIndexSeriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIndexSeriesResponse.ProtoReflect.Descriptor instead.
 func (*GetIndexSeriesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{20}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GetIndexSeriesResponse) GetIndex() *IndexDefinition {
@@ -1833,7 +2292,7 @@ type IndexPoint struct {
 
 func (x *IndexPoint) Reset() {
 	*x = IndexPoint{}
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[21]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1845,7 +2304,7 @@ func (x *IndexPoint) String() string {
 func (*IndexPoint) ProtoMessage() {}
 
 func (x *IndexPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_market_proto_msgTypes[21]
+	mi := &file_shorts_v1alpha1_market_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1858,7 +2317,7 @@ func (x *IndexPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IndexPoint.ProtoReflect.Descriptor instead.
 func (*IndexPoint) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{21}
+	return file_shorts_v1alpha1_market_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *IndexPoint) GetDate() string {
@@ -1907,7 +2366,58 @@ var File_shorts_v1alpha1_market_proto protoreflect.FileDescriptor
 
 const file_shorts_v1alpha1_market_proto_rawDesc = "" +
 	"\n" +
-	"\x1cshorts/v1alpha1/market.proto\x12\x0fshorts.v1alpha1\x1a\x1cstocks/v1alpha1/stocks.proto\x1a\x18options/v1/options.proto\"\xa3\x01\n" +
+	"\x1cshorts/v1alpha1/market.proto\x12\x0fshorts.v1alpha1\x1a\x1cstocks/v1alpha1/stocks.proto\x1a\x18options/v1/options.proto\"\x9d\x06\n" +
+	"\n" +
+	"MarketMove\x12\x19\n" +
+	"\bmove_key\x18\x01 \x01(\tR\amoveKey\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x03 \x01(\tR\tstockCode\x12!\n" +
+	"\fcompany_name\x18\x04 \x01(\tR\vcompanyName\x12\x1d\n" +
+	"\n" +
+	"index_code\x18\x05 \x01(\tR\tindexCode\x12\x16\n" +
+	"\x06sector\x18\x06 \x01(\tR\x06sector\x12#\n" +
+	"\rrelated_codes\x18\a \x03(\tR\frelatedCodes\x12\x1c\n" +
+	"\tdirection\x18\b \x01(\tR\tdirection\x12\x1d\n" +
+	"\n" +
+	"change_pct\x18\t \x01(\x01R\tchangePct\x12$\n" +
+	"\x0ehas_change_pct\x18\n" +
+	" \x01(\bR\fhasChangePct\x12\x14\n" +
+	"\x05price\x18\v \x01(\x01R\x05price\x12\x1b\n" +
+	"\thas_price\x18\f \x01(\bR\bhasPrice\x12!\n" +
+	"\fvolume_ratio\x18\r \x01(\x01R\vvolumeRatio\x12(\n" +
+	"\x10has_volume_ratio\x18\x0e \x01(\bR\x0ehasVolumeRatio\x12\x1a\n" +
+	"\bheadline\x18\x0f \x01(\tR\bheadline\x12\x18\n" +
+	"\asummary\x18\x10 \x01(\tR\asummary\x12;\n" +
+	"\asources\x18\x11 \x03(\v2!.shorts.v1alpha1.MarketMoveSourceR\asources\x12\x12\n" +
+	"\x04tags\x18\x12 \x03(\tR\x04tags\x12\"\n" +
+	"\fsignificance\x18\x13 \x01(\x05R\fsignificance\x12\x1f\n" +
+	"\vobserved_at\x18\x14 \x01(\tR\n" +
+	"observedAt\x12\x1f\n" +
+	"\vmarket_date\x18\x15 \x01(\tR\n" +
+	"marketDate\x12\x1a\n" +
+	"\brevision\x18\x16 \x01(\x05R\brevision\x12!\n" +
+	"\fpublished_at\x18\x17 \x01(\tR\vpublishedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x18 \x01(\tR\tupdatedAt\x12\x14\n" +
+	"\x05model\x18\x19 \x01(\tR\x05model\"X\n" +
+	"\x10MarketMoveSource\x12\x14\n" +
+	"\x05title\x18\x01 \x01(\tR\x05title\x12\x10\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\x12\x1c\n" +
+	"\tpublisher\x18\x03 \x01(\tR\tpublisher\"\xc5\x01\n" +
+	"\x16ListMarketMovesRequest\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x1f\n" +
+	"\vmarket_date\x18\x03 \x01(\tR\n" +
+	"marketDate\x12)\n" +
+	"\x10min_significance\x18\x04 \x01(\x05R\x0fminSignificance\x12\x14\n" +
+	"\x05limit\x18\x05 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06cursor\x18\x06 \x01(\tR\x06cursor\"m\n" +
+	"\x17ListMarketMovesResponse\x121\n" +
+	"\x05moves\x18\x01 \x03(\v2\x1b.shorts.v1alpha1.MarketMoveR\x05moves\x12\x1f\n" +
+	"\vnext_cursor\x18\x02 \x01(\tR\n" +
+	"nextCursor\"\xa3\x01\n" +
 	"\x13GetTopShortsRequest\x12\x16\n" +
 	"\x06period\x18\x01 \x01(\tR\x06period\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
@@ -2069,7 +2579,7 @@ const file_shorts_v1alpha1_market_proto_rawDesc = "" +
 	"\x10BattlegroundView\x12!\n" +
 	"\x1dBATTLEGROUND_VIEW_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19BATTLEGROUND_VIEW_SQUEEZE\x10\x01\x12 \n" +
-	"\x1cBATTLEGROUND_VIEW_DIVERGENCE\x10\x022\xfe\a\n" +
+	"\x1cBATTLEGROUND_VIEW_DIVERGENCE\x10\x022\xea\b\n" +
 	"\rMarketService\x12a\n" +
 	"\fGetTopShorts\x12$.shorts.v1alpha1.GetTopShortsRequest\x1a%.shorts.v1alpha1.GetTopShortsResponse\"\x04\x80\xb5\x18\x01\x12h\n" +
 	"\x12GetIndustryTreeMap\x12*.shorts.v1alpha1.GetIndustryTreeMapRequest\x1a .stocks.v1alpha1.IndustryTreeMap\"\x04\x80\xb5\x18\x01\x12j\n" +
@@ -2079,7 +2589,8 @@ const file_shorts_v1alpha1_market_proto_rawDesc = "" +
 	"\vListIndices\x12#.shorts.v1alpha1.ListIndicesRequest\x1a$.shorts.v1alpha1.ListIndicesResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
 	"\rGetSyncStatus\x12%.shorts.v1alpha1.GetSyncStatusRequest\x1a&.shorts.v1alpha1.GetSyncStatusResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12|\n" +
 	"\x15GetBattlegroundStocks\x12-.shorts.v1alpha1.GetBattlegroundStocksRequest\x1a..shorts.v1alpha1.GetBattlegroundStocksResponse\"\x04\x80\xb5\x18\x01\x12\x8b\x01\n" +
-	"\x1aGetShortCampaignScoreboard\x122.shorts.v1alpha1.GetShortCampaignScoreboardRequest\x1a3.shorts.v1alpha1.GetShortCampaignScoreboardResponse\"\x04\x80\xb5\x18\x01B\xda\x01\n" +
+	"\x1aGetShortCampaignScoreboard\x122.shorts.v1alpha1.GetShortCampaignScoreboardRequest\x1a3.shorts.v1alpha1.GetShortCampaignScoreboardResponse\"\x04\x80\xb5\x18\x01\x12j\n" +
+	"\x0fListMarketMoves\x12'.shorts.v1alpha1.ListMarketMovesRequest\x1a(.shorts.v1alpha1.ListMarketMovesResponse\"\x04\x80\xb5\x18\x01B\xda\x01\n" +
 	"\x13com.shorts.v1alpha1B\vMarketProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
@@ -2095,70 +2606,78 @@ func file_shorts_v1alpha1_market_proto_rawDescGZIP() []byte {
 }
 
 var file_shorts_v1alpha1_market_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_shorts_v1alpha1_market_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_shorts_v1alpha1_market_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_shorts_v1alpha1_market_proto_goTypes = []any{
 	(ViewMode)(0),                              // 0: shorts.v1alpha1.ViewMode
 	(BattlegroundView)(0),                      // 1: shorts.v1alpha1.BattlegroundView
-	(*GetTopShortsRequest)(nil),                // 2: shorts.v1alpha1.GetTopShortsRequest
-	(*GetIndustryTreeMapRequest)(nil),          // 3: shorts.v1alpha1.GetIndustryTreeMapRequest
-	(*GetTopShortsResponse)(nil),               // 4: shorts.v1alpha1.GetTopShortsResponse
-	(*GetSyncStatusRequest)(nil),               // 5: shorts.v1alpha1.GetSyncStatusRequest
-	(*GetSyncStatusResponse)(nil),              // 6: shorts.v1alpha1.GetSyncStatusResponse
-	(*SyncRun)(nil),                            // 7: shorts.v1alpha1.SyncRun
-	(*GetMarketByDateRequest)(nil),             // 8: shorts.v1alpha1.GetMarketByDateRequest
-	(*GetMarketByDateResponse)(nil),            // 9: shorts.v1alpha1.GetMarketByDateResponse
-	(*GetAvailableDatesRequest)(nil),           // 10: shorts.v1alpha1.GetAvailableDatesRequest
-	(*GetAvailableDatesResponse)(nil),          // 11: shorts.v1alpha1.GetAvailableDatesResponse
-	(*GetBattlegroundStocksRequest)(nil),       // 12: shorts.v1alpha1.GetBattlegroundStocksRequest
-	(*BattlegroundStock)(nil),                  // 13: shorts.v1alpha1.BattlegroundStock
-	(*GetBattlegroundStocksResponse)(nil),      // 14: shorts.v1alpha1.GetBattlegroundStocksResponse
-	(*GetShortCampaignScoreboardRequest)(nil),  // 15: shorts.v1alpha1.GetShortCampaignScoreboardRequest
-	(*ShortCampaign)(nil),                      // 16: shorts.v1alpha1.ShortCampaign
-	(*GetShortCampaignScoreboardResponse)(nil), // 17: shorts.v1alpha1.GetShortCampaignScoreboardResponse
-	(*IndexDefinition)(nil),                    // 18: shorts.v1alpha1.IndexDefinition
-	(*ListIndicesRequest)(nil),                 // 19: shorts.v1alpha1.ListIndicesRequest
-	(*ListIndicesResponse)(nil),                // 20: shorts.v1alpha1.ListIndicesResponse
-	(*GetIndexSeriesRequest)(nil),              // 21: shorts.v1alpha1.GetIndexSeriesRequest
-	(*GetIndexSeriesResponse)(nil),             // 22: shorts.v1alpha1.GetIndexSeriesResponse
-	(*IndexPoint)(nil),                         // 23: shorts.v1alpha1.IndexPoint
-	(*v1alpha1.TimeSeriesData)(nil),            // 24: stocks.v1alpha1.TimeSeriesData
-	(*v1alpha1.Stock)(nil),                     // 25: stocks.v1alpha1.Stock
-	(*v1alpha1.IndustryTreeMap)(nil),           // 26: stocks.v1alpha1.IndustryTreeMap
+	(*MarketMove)(nil),                         // 2: shorts.v1alpha1.MarketMove
+	(*MarketMoveSource)(nil),                   // 3: shorts.v1alpha1.MarketMoveSource
+	(*ListMarketMovesRequest)(nil),             // 4: shorts.v1alpha1.ListMarketMovesRequest
+	(*ListMarketMovesResponse)(nil),            // 5: shorts.v1alpha1.ListMarketMovesResponse
+	(*GetTopShortsRequest)(nil),                // 6: shorts.v1alpha1.GetTopShortsRequest
+	(*GetIndustryTreeMapRequest)(nil),          // 7: shorts.v1alpha1.GetIndustryTreeMapRequest
+	(*GetTopShortsResponse)(nil),               // 8: shorts.v1alpha1.GetTopShortsResponse
+	(*GetSyncStatusRequest)(nil),               // 9: shorts.v1alpha1.GetSyncStatusRequest
+	(*GetSyncStatusResponse)(nil),              // 10: shorts.v1alpha1.GetSyncStatusResponse
+	(*SyncRun)(nil),                            // 11: shorts.v1alpha1.SyncRun
+	(*GetMarketByDateRequest)(nil),             // 12: shorts.v1alpha1.GetMarketByDateRequest
+	(*GetMarketByDateResponse)(nil),            // 13: shorts.v1alpha1.GetMarketByDateResponse
+	(*GetAvailableDatesRequest)(nil),           // 14: shorts.v1alpha1.GetAvailableDatesRequest
+	(*GetAvailableDatesResponse)(nil),          // 15: shorts.v1alpha1.GetAvailableDatesResponse
+	(*GetBattlegroundStocksRequest)(nil),       // 16: shorts.v1alpha1.GetBattlegroundStocksRequest
+	(*BattlegroundStock)(nil),                  // 17: shorts.v1alpha1.BattlegroundStock
+	(*GetBattlegroundStocksResponse)(nil),      // 18: shorts.v1alpha1.GetBattlegroundStocksResponse
+	(*GetShortCampaignScoreboardRequest)(nil),  // 19: shorts.v1alpha1.GetShortCampaignScoreboardRequest
+	(*ShortCampaign)(nil),                      // 20: shorts.v1alpha1.ShortCampaign
+	(*GetShortCampaignScoreboardResponse)(nil), // 21: shorts.v1alpha1.GetShortCampaignScoreboardResponse
+	(*IndexDefinition)(nil),                    // 22: shorts.v1alpha1.IndexDefinition
+	(*ListIndicesRequest)(nil),                 // 23: shorts.v1alpha1.ListIndicesRequest
+	(*ListIndicesResponse)(nil),                // 24: shorts.v1alpha1.ListIndicesResponse
+	(*GetIndexSeriesRequest)(nil),              // 25: shorts.v1alpha1.GetIndexSeriesRequest
+	(*GetIndexSeriesResponse)(nil),             // 26: shorts.v1alpha1.GetIndexSeriesResponse
+	(*IndexPoint)(nil),                         // 27: shorts.v1alpha1.IndexPoint
+	(*v1alpha1.TimeSeriesData)(nil),            // 28: stocks.v1alpha1.TimeSeriesData
+	(*v1alpha1.Stock)(nil),                     // 29: stocks.v1alpha1.Stock
+	(*v1alpha1.IndustryTreeMap)(nil),           // 30: stocks.v1alpha1.IndustryTreeMap
 }
 var file_shorts_v1alpha1_market_proto_depIdxs = []int32{
-	0,  // 0: shorts.v1alpha1.GetIndustryTreeMapRequest.view_mode:type_name -> shorts.v1alpha1.ViewMode
-	24, // 1: shorts.v1alpha1.GetTopShortsResponse.time_series:type_name -> stocks.v1alpha1.TimeSeriesData
-	7,  // 2: shorts.v1alpha1.GetSyncStatusResponse.runs:type_name -> shorts.v1alpha1.SyncRun
-	25, // 3: shorts.v1alpha1.GetMarketByDateResponse.stocks:type_name -> stocks.v1alpha1.Stock
-	1,  // 4: shorts.v1alpha1.GetBattlegroundStocksRequest.view:type_name -> shorts.v1alpha1.BattlegroundView
-	13, // 5: shorts.v1alpha1.GetBattlegroundStocksResponse.stocks:type_name -> shorts.v1alpha1.BattlegroundStock
-	16, // 6: shorts.v1alpha1.GetShortCampaignScoreboardResponse.campaigns:type_name -> shorts.v1alpha1.ShortCampaign
-	18, // 7: shorts.v1alpha1.ListIndicesResponse.indices:type_name -> shorts.v1alpha1.IndexDefinition
-	18, // 8: shorts.v1alpha1.GetIndexSeriesResponse.index:type_name -> shorts.v1alpha1.IndexDefinition
-	23, // 9: shorts.v1alpha1.GetIndexSeriesResponse.points:type_name -> shorts.v1alpha1.IndexPoint
-	2,  // 10: shorts.v1alpha1.MarketService.GetTopShorts:input_type -> shorts.v1alpha1.GetTopShortsRequest
-	3,  // 11: shorts.v1alpha1.MarketService.GetIndustryTreeMap:input_type -> shorts.v1alpha1.GetIndustryTreeMapRequest
-	8,  // 12: shorts.v1alpha1.MarketService.GetMarketByDate:input_type -> shorts.v1alpha1.GetMarketByDateRequest
-	10, // 13: shorts.v1alpha1.MarketService.GetAvailableDates:input_type -> shorts.v1alpha1.GetAvailableDatesRequest
-	21, // 14: shorts.v1alpha1.MarketService.GetIndexSeries:input_type -> shorts.v1alpha1.GetIndexSeriesRequest
-	19, // 15: shorts.v1alpha1.MarketService.ListIndices:input_type -> shorts.v1alpha1.ListIndicesRequest
-	5,  // 16: shorts.v1alpha1.MarketService.GetSyncStatus:input_type -> shorts.v1alpha1.GetSyncStatusRequest
-	12, // 17: shorts.v1alpha1.MarketService.GetBattlegroundStocks:input_type -> shorts.v1alpha1.GetBattlegroundStocksRequest
-	15, // 18: shorts.v1alpha1.MarketService.GetShortCampaignScoreboard:input_type -> shorts.v1alpha1.GetShortCampaignScoreboardRequest
-	4,  // 19: shorts.v1alpha1.MarketService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
-	26, // 20: shorts.v1alpha1.MarketService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
-	9,  // 21: shorts.v1alpha1.MarketService.GetMarketByDate:output_type -> shorts.v1alpha1.GetMarketByDateResponse
-	11, // 22: shorts.v1alpha1.MarketService.GetAvailableDates:output_type -> shorts.v1alpha1.GetAvailableDatesResponse
-	22, // 23: shorts.v1alpha1.MarketService.GetIndexSeries:output_type -> shorts.v1alpha1.GetIndexSeriesResponse
-	20, // 24: shorts.v1alpha1.MarketService.ListIndices:output_type -> shorts.v1alpha1.ListIndicesResponse
-	6,  // 25: shorts.v1alpha1.MarketService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
-	14, // 26: shorts.v1alpha1.MarketService.GetBattlegroundStocks:output_type -> shorts.v1alpha1.GetBattlegroundStocksResponse
-	17, // 27: shorts.v1alpha1.MarketService.GetShortCampaignScoreboard:output_type -> shorts.v1alpha1.GetShortCampaignScoreboardResponse
-	19, // [19:28] is the sub-list for method output_type
-	10, // [10:19] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	3,  // 0: shorts.v1alpha1.MarketMove.sources:type_name -> shorts.v1alpha1.MarketMoveSource
+	2,  // 1: shorts.v1alpha1.ListMarketMovesResponse.moves:type_name -> shorts.v1alpha1.MarketMove
+	0,  // 2: shorts.v1alpha1.GetIndustryTreeMapRequest.view_mode:type_name -> shorts.v1alpha1.ViewMode
+	28, // 3: shorts.v1alpha1.GetTopShortsResponse.time_series:type_name -> stocks.v1alpha1.TimeSeriesData
+	11, // 4: shorts.v1alpha1.GetSyncStatusResponse.runs:type_name -> shorts.v1alpha1.SyncRun
+	29, // 5: shorts.v1alpha1.GetMarketByDateResponse.stocks:type_name -> stocks.v1alpha1.Stock
+	1,  // 6: shorts.v1alpha1.GetBattlegroundStocksRequest.view:type_name -> shorts.v1alpha1.BattlegroundView
+	17, // 7: shorts.v1alpha1.GetBattlegroundStocksResponse.stocks:type_name -> shorts.v1alpha1.BattlegroundStock
+	20, // 8: shorts.v1alpha1.GetShortCampaignScoreboardResponse.campaigns:type_name -> shorts.v1alpha1.ShortCampaign
+	22, // 9: shorts.v1alpha1.ListIndicesResponse.indices:type_name -> shorts.v1alpha1.IndexDefinition
+	22, // 10: shorts.v1alpha1.GetIndexSeriesResponse.index:type_name -> shorts.v1alpha1.IndexDefinition
+	27, // 11: shorts.v1alpha1.GetIndexSeriesResponse.points:type_name -> shorts.v1alpha1.IndexPoint
+	6,  // 12: shorts.v1alpha1.MarketService.GetTopShorts:input_type -> shorts.v1alpha1.GetTopShortsRequest
+	7,  // 13: shorts.v1alpha1.MarketService.GetIndustryTreeMap:input_type -> shorts.v1alpha1.GetIndustryTreeMapRequest
+	12, // 14: shorts.v1alpha1.MarketService.GetMarketByDate:input_type -> shorts.v1alpha1.GetMarketByDateRequest
+	14, // 15: shorts.v1alpha1.MarketService.GetAvailableDates:input_type -> shorts.v1alpha1.GetAvailableDatesRequest
+	25, // 16: shorts.v1alpha1.MarketService.GetIndexSeries:input_type -> shorts.v1alpha1.GetIndexSeriesRequest
+	23, // 17: shorts.v1alpha1.MarketService.ListIndices:input_type -> shorts.v1alpha1.ListIndicesRequest
+	9,  // 18: shorts.v1alpha1.MarketService.GetSyncStatus:input_type -> shorts.v1alpha1.GetSyncStatusRequest
+	16, // 19: shorts.v1alpha1.MarketService.GetBattlegroundStocks:input_type -> shorts.v1alpha1.GetBattlegroundStocksRequest
+	19, // 20: shorts.v1alpha1.MarketService.GetShortCampaignScoreboard:input_type -> shorts.v1alpha1.GetShortCampaignScoreboardRequest
+	4,  // 21: shorts.v1alpha1.MarketService.ListMarketMoves:input_type -> shorts.v1alpha1.ListMarketMovesRequest
+	8,  // 22: shorts.v1alpha1.MarketService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
+	30, // 23: shorts.v1alpha1.MarketService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
+	13, // 24: shorts.v1alpha1.MarketService.GetMarketByDate:output_type -> shorts.v1alpha1.GetMarketByDateResponse
+	15, // 25: shorts.v1alpha1.MarketService.GetAvailableDates:output_type -> shorts.v1alpha1.GetAvailableDatesResponse
+	26, // 26: shorts.v1alpha1.MarketService.GetIndexSeries:output_type -> shorts.v1alpha1.GetIndexSeriesResponse
+	24, // 27: shorts.v1alpha1.MarketService.ListIndices:output_type -> shorts.v1alpha1.ListIndicesResponse
+	10, // 28: shorts.v1alpha1.MarketService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
+	18, // 29: shorts.v1alpha1.MarketService.GetBattlegroundStocks:output_type -> shorts.v1alpha1.GetBattlegroundStocksResponse
+	21, // 30: shorts.v1alpha1.MarketService.GetShortCampaignScoreboard:output_type -> shorts.v1alpha1.GetShortCampaignScoreboardResponse
+	5,  // 31: shorts.v1alpha1.MarketService.ListMarketMoves:output_type -> shorts.v1alpha1.ListMarketMovesResponse
+	22, // [22:32] is the sub-list for method output_type
+	12, // [12:22] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_market_proto_init() }
@@ -2172,7 +2691,7 @@ func file_shorts_v1alpha1_market_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_market_proto_rawDesc), len(file_shorts_v1alpha1_market_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   22,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

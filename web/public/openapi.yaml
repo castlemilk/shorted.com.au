@@ -8780,6 +8780,55 @@ components:
           type: integer
       title: ListInstitutionsResponse
       type: object
+    shorts.v1alpha1.ListMarketMovesRequest:
+      additionalProperties: false
+      properties:
+        cursor:
+          description: next_cursor from the previous page; empty for the first page.
+            (proto string)
+          title: cursor
+          type: string
+        kind:
+          description: stock | index | sector | market; empty for every kind. (proto
+            string)
+          title: kind
+          type: string
+        limit:
+          description: Default 20, at most 100. (proto int32)
+          format: int32
+          title: limit
+          type: integer
+        marketDate:
+          description: YYYY-MM-DD (Sydney); empty for every date. (proto string)
+          title: market_date
+          type: string
+        minSignificance:
+          description: 1 to 5; 0 for every move. (proto int32)
+          format: int32
+          title: min_significance
+          type: integer
+        stockCode:
+          description: Moves about this stock or naming it among related_codes. (proto
+            string)
+          title: stock_code
+          type: string
+      title: ListMarketMovesRequest
+      type: object
+    shorts.v1alpha1.ListMarketMovesResponse:
+      additionalProperties: false
+      properties:
+        moves:
+          description: (proto shorts.v1alpha1.MarketMove)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.MarketMove'
+          title: moves
+          type: array
+        nextCursor:
+          description: Empty on the last page. (proto string)
+          title: next_cursor
+          type: string
+      title: ListMarketMovesResponse
+      type: object
     shorts.v1alpha1.ListPartyFundingRequest:
       additionalProperties: false
       properties:
@@ -9922,6 +9971,152 @@ components:
           title: stock_code
           type: string
       title: MapStock
+      type: object
+    shorts.v1alpha1.MarketMove:
+      additionalProperties: false
+      description: |-
+        One market move. Every figure carries its own date (observed_at), and a
+         figure the poster did not give travels with has_* false, never as 0.
+      properties:
+        changePct:
+          description: The move in percent (-3.2 is a 3.2% fall). (proto double)
+          format: double
+          title: change_pct
+          type: number
+        companyName:
+          description: (proto string)
+          title: company_name
+          type: string
+        direction:
+          description: up | down | flat | mixed. (proto string)
+          title: direction
+          type: string
+        hasChangePct:
+          description: (proto bool)
+          title: has_change_pct
+          type: boolean
+        hasPrice:
+          description: (proto bool)
+          title: has_price
+          type: boolean
+        hasVolumeRatio:
+          description: (proto bool)
+          title: has_volume_ratio
+          type: boolean
+        headline:
+          description: Plain text. Never HTML or markdown. (proto string)
+          title: headline
+          type: string
+        indexCode:
+          description: The index the move is about (kind index), e.g. XJO. (proto
+            string)
+          title: index_code
+          type: string
+        kind:
+          description: stock | index | sector | market. (proto string)
+          title: kind
+          type: string
+        marketDate:
+          description: YYYY-MM-DD, the Sydney calendar date of observed_at. (proto
+            string)
+          title: market_date
+          type: string
+        model:
+          description: The model that wrote the move, when the poster named it. (proto
+            string)
+          title: model
+          type: string
+        moveKey:
+          description: |-
+            The poster's own key for the move. A re-post of the same key updates the
+             move in place and raises revision. (proto string)
+          title: move_key
+          type: string
+        observedAt:
+          description: RFC 3339, when the poster observed the move. (proto string)
+          title: observed_at
+          type: string
+        price:
+          description: The price (or index level) at observed_at. (proto double)
+          format: double
+          title: price
+          type: number
+        publishedAt:
+          description: RFC 3339, when the move was first posted and when it last changed.
+            (proto string)
+          title: published_at
+          type: string
+        relatedCodes:
+          description: Other ASX codes the move names, each one we hold. (proto string)
+          items:
+            type: string
+          title: related_codes
+          type: array
+        revision:
+          description: (proto int32)
+          format: int32
+          title: revision
+          type: integer
+        sector:
+          description: The sector the move is about (kind sector), as the poster named
+            it. (proto string)
+          title: sector
+          type: string
+        significance:
+          description: 1 (minor) to 5 (market-wide event). (proto int32)
+          format: int32
+          title: significance
+          type: integer
+        sources:
+          description: (proto shorts.v1alpha1.MarketMoveSource)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.MarketMoveSource'
+          title: sources
+          type: array
+        stockCode:
+          description: The stock the move is about (kind stock), and its name when
+            we hold one. (proto string)
+          title: stock_code
+          type: string
+        summary:
+          description: (proto string)
+          title: summary
+          type: string
+        tags:
+          description: (proto string)
+          items:
+            type: string
+          title: tags
+          type: array
+        updatedAt:
+          description: (proto string)
+          title: updated_at
+          type: string
+        volumeRatio:
+          description: Volume against its usual level (2.5 = two and a half times).
+            (proto double)
+          format: double
+          title: volume_ratio
+          type: number
+      title: MarketMove
+      type: object
+    shorts.v1alpha1.MarketMoveSource:
+      additionalProperties: false
+      description: A source the move cites. https only.
+      properties:
+        publisher:
+          description: (proto string)
+          title: publisher
+          type: string
+        title:
+          description: (proto string)
+          title: title
+          type: string
+        url:
+          description: (proto string)
+          title: url
+          type: string
+      title: MarketMoveSource
       type: object
     shorts.v1alpha1.MarketRegime:
       additionalProperties: false
@@ -18021,6 +18216,45 @@ paths:
                 $ref: '#/components/schemas/connect.error'
           description: Error
       summary: ListIndices
+      tags:
+      - shorts.v1alpha1.MarketService
+  /shorts.v1alpha1.MarketService/ListMarketMoves:
+    post:
+      description: |-
+        List market moves: what moved, by how much, when it was observed and why,
+         newest observation first. Published moves only, each with its own
+         observation time and sources.
+      operationId: MarketService_ListMarketMoves
+      parameters:
+      - in: header
+        name: Connect-Protocol-Version
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - in: header
+        name: Connect-Timeout-Ms
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListMarketMovesRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListMarketMovesResponse'
+          description: Success
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+          description: Error
+      summary: ListMarketMoves
       tags:
       - shorts.v1alpha1.MarketService
   /shorts.v1alpha1.NewsService/GetEditorialTake:

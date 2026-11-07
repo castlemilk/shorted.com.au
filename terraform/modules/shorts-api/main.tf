@@ -292,6 +292,20 @@ resource "google_secret_manager_secret_iam_member" "news_publish_token" {
   project   = var.project_id
 }
 
+# REVALIDATION_SECRET lets the API tell the web tier a market move changed, so
+# the homepage, /market-moves and the stock pages re-render at once rather than
+# on their ISR windows (market_moves_revalidate.go). The secret is the web's,
+# shared with the jobs that already ping /api/revalidate. Gated so an apply is
+# safe in a project where it does not exist; without it the pages catch up on
+# their windows.
+resource "google_secret_manager_secret_iam_member" "revalidation_secret" {
+  count     = var.revalidation_secret_exists ? 1 : 0
+  secret_id = "REVALIDATION_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Grant access to token secret (for API token JWT signing)
 resource "google_secret_manager_secret_iam_member" "token_secret" {
   secret_id = "TOKEN_SECRET"
@@ -648,6 +662,27 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         }
       }
 
+      # The web tier's revalidation endpoint, pinged after a market move changes.
+      dynamic "env" {
+        for_each = var.revalidation_url != "" ? [1] : []
+        content {
+          name  = "REVALIDATION_URL"
+          value = var.revalidation_url
+        }
+      }
+      dynamic "env" {
+        for_each = var.revalidation_secret_exists ? [1] : []
+        content {
+          name = "REVALIDATION_SECRET"
+          value_source {
+            secret_key_ref {
+              secret  = "REVALIDATION_SECRET"
+              version = "latest"
+            }
+          }
+        }
+      }
+
       # API token JWT signing secret
       env {
         name = "TOKEN_SECRET"
@@ -831,6 +866,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
     google_secret_manager_secret_iam_member.otel_metrics_headers,
     google_secret_manager_secret_iam_member.news_publish_token,
     google_secret_manager_secret_version.news_publish_token,
+    google_secret_manager_secret_iam_member.revalidation_secret,
     google_secret_manager_secret_iam_member.brandbrain_housing_grant_token,
     time_sleep.brandbrain_housing_grant,
     google_secret_manager_secret_iam_member.brandbrain_fleet_ops_token,

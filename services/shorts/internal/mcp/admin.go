@@ -80,11 +80,15 @@ const (
 	// ScopeCrawlOperate covers the smoke loop (admin_crawl_smoke.go): one enqueue of one
 	// suburb and a drain sent to a rig. It is a write, and the tool needs confirm=true.
 	ScopeCrawlOperate = "crawl:operate"
+	// ScopeMovesWrite covers post_market_move and retract_market_move
+	// (admin_market_moves.go): publishing a market move to shorted.com.au, live
+	// at once, and taking one down. A write to a public page, so its own scope.
+	ScopeMovesWrite = "moves:write"
 )
 
 // AdminScopes is the admin resource's entire scope vocabulary, in published
 // order. An empty scope request against /mcp/admin is granted all of it.
-var AdminScopes = []string{ScopeNewsPublish, ScopeJobsRun, ScopeJobsRead, ScopeUsersRead, ScopeCrawlAuthorize, ScopeCrawlRead, ScopeCrawlOperate}
+var AdminScopes = []string{ScopeNewsPublish, ScopeJobsRun, ScopeJobsRead, ScopeUsersRead, ScopeCrawlAuthorize, ScopeCrawlRead, ScopeCrawlOperate, ScopeMovesWrite}
 
 // AdminProtectedResourceMetadataPath is RFC 9728 §3.1's location for a
 // resource whose identifier has the path /mcp/admin.
@@ -230,6 +234,7 @@ func AdminRegistry() []AdminTool {
 	tools = append(tools, alertsAdminTools()...)
 	tools = append(tools, crawlAdminTools()...)
 	tools = append(tools, crawlOpsAdminTools()...)
+	tools = append(tools, marketMovesAdminTools()...)
 	return append(tools, crawlSmokeAdminTools()...)
 }
 

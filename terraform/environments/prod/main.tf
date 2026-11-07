@@ -1401,6 +1401,12 @@ module "shorts_api" {
 
   # Unsubscribe HMAC secret for broadcast emails — provisioned in prod Secret Manager.
   unsubscribe_secret_exists = true
+
+  # Market moves: after a post or retraction the API pings the web's revalidate
+  # endpoint, so the homepage strip, /market-moves and the stock cards re-render
+  # at once. REVALIDATION_SECRET is already in prod Secret Manager (the jobs use it).
+  revalidation_secret_exists = true
+  revalidation_url           = "https://shorted.com.au/api/revalidate"
   # Set by the workflow only when RESEND_WEBHOOK_SECRET is in Cuttlefish (and so synced
   # to Secret Manager first); unset leaves the bounce webhook at 503.
   resend_webhook_secret_exists = var.resend_webhook_secret_exists

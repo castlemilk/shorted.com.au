@@ -79,6 +79,10 @@ jest.mock("~/app/actions/getStockNews", () => ({
 jest.mock("~/app/actions/getStockRegisterStrip", () => ({
   getStockRegisterStrip: jest.fn(async () => null),
 }));
+// Market moves: a stock with none answers [], so the card is left out.
+jest.mock("~/app/actions/market-moves/getMarketMoves", () => ({
+  getStockMarketMoves: jest.fn(async () => []),
+}));
 jest.mock("~/app/actions/getLatestShortDate", () => ({
   getLatestShortDate: jest.fn(async () => null),
 }));

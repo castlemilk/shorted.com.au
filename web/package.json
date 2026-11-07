@@ -66,6 +66,7 @@
     "algolia:sync": "tsx scripts/sync-algolia.ts",
     "discord": "tsx scripts/discord.ts",
     "docs:api-markdown": "node scripts/generate-api-markdown.mjs",
+    "docs:private": "node scripts/generate-api-markdown.mjs --private && node scripts/generate-private-docs.mjs",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build"
   },

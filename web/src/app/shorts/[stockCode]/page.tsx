@@ -8,6 +8,7 @@ import CompanyInfo, {
 import { FundamentalsSummary } from "~/@/components/stocks/fundamentals-summary";
 import { StrategyFitStrip } from "~/@/components/stocks/strategy-fit-strip";
 import { RegisterStrip } from "~/@/components/stocks/register-strip";
+import { StockMarketMoves } from "~/@/components/market-moves/stock-market-moves";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
 import { SignedOutOnly } from "~/@/components/ui/session-gates";
 import { LoginPromptBanner } from "~/@/components/ui/login-prompt-banner";
@@ -45,6 +46,7 @@ import {
   type StockStrategyFit,
 } from "~/app/actions/getStockStrategyFit";
 import { getStockRegisterStrip } from "~/app/actions/getStockRegisterStrip";
+import { getStockMarketMoves } from "~/app/actions/market-moves/getMarketMoves";
 import {
   ShortInterestSummary,
   getShortInterestDeltas,
@@ -240,6 +242,12 @@ const Page = async ({ params }: PageProps) => {
     console.warn(`[stock page] register strip unavailable for ${stockCode}:`, err);
     return null;
   });
+  // Market moves about the stock or naming it, as the market-moves workflow
+  // posted them. Out of the critical Promise.all like the strips above: the
+  // action never rejects (a 4 s abort, [] on any failure, never cached), so a
+  // slow or older API hides the card and never fails the ISR render. Tagged
+  // market-moves:stock:<CODE>, which the API revalidates after each change.
+  const marketMovesPromise = getStockMarketMoves(stockCode);
   // Three headlines for the digest; the full feed is the News tab.
   const stockNewsPromise = getStockHeadlines(stockCode, 3);
   // Date of the latest ASIC report containing this stock — the schema's
@@ -267,6 +275,7 @@ const Page = async ({ params }: PageProps) => {
   const fundamentals = await fundamentalsPromise;
   const strategyFit = await strategyFitPromise;
   const registerStrip = await registerStripPromise;
+  const marketMoves = await marketMovesPromise;
   const newsArticles = await stockNewsPromise;
   const latestShortDate = await latestShortDatePromise;
   const stockDetails = await stockDetailsPromise;
@@ -547,6 +556,7 @@ const Page = async ({ params }: PageProps) => {
 
           {strategyFit ? <StrategyFitStrip fit={strategyFit} /> : null}
           {registerStrip ? <RegisterStrip strip={registerStrip} /> : null}
+          <StockMarketMoves stockCode={stockCode} moves={marketMoves} />
 
           {/* Crawlable fundamentals paragraph; omitted (never guessed) without
               a held result. The full statements live on the Financials tab. */}

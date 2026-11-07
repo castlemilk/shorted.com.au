@@ -843,6 +843,16 @@ test-strategy-saves-pg: test-integration-images
 	GOWORK=off CGO_ENABLED=0 STRATEGY_SAVES_TESTCONTAINERS=1 STRATEGY_ADMIN_TESTCONTAINERS=1 \
 		go test -count=1 -tags=integration,testcontainers -run 'StrategySaves|StrategyBacktestQueue|StrategyStatusCarries|StrategyStatusCompletion' ./shorts/internal/store/shorts/
 
+# The market-moves store (migration 000160): the upsert's revision and unchanged paths, the final
+# retraction, the subject and cap refusals, two first posts of one key, the list's filters and keyset
+# paging, the table's own checks and a replay of the migration, against a throwaway postgres:15 container.
+# Gates the deploy: the handler tests fake the store. SHORTS_TEST_POSTGRES_URL uses a server you started.
+.PHONY: test-market-moves-pg
+test-market-moves-pg: test-integration-images
+	@set -e; \
+	GOWORK=off CGO_ENABLED=0 MARKET_MOVES_TESTCONTAINERS=1 \
+		go test -count=1 -tags=integration,testcontainers -run 'MarketMoves' ./shorts/internal/store/shorts/
+
 # The daily snapshot's API reads (migration 000156) against a throwaway postgres:15 container: the newest
 # completed session and the one before it, the unmigrated fallback, canonical and live-only signal events and
 # the source dates. Opt-in, like the other container suites; STRATEGY_SNAPSHOT_TEST_DATABASE_URL uses a server

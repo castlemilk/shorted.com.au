@@ -38,6 +38,7 @@ describe("isr-shell-pages.json", () => {
   it("names the shell pages explicitly", () => {
     expect(isrShellPages).toEqual([
       "/market",
+      "/market-moves",
       "/housing",
       "/economy",
       "/compare",

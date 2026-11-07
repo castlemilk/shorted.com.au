@@ -640,6 +640,17 @@ service ShortedStocksService {
     };
   }
 
+  // ==================== Market Moves ====================
+
+  // List market moves: what moved, by how much, when it was observed and why
+  rpc ListMarketMoves (ListMarketMovesRequest) returns (ListMarketMovesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Market Moves",
+      description: "Published market moves (a stock, an index, a sector or the whole market), newest observation first. Each move carries its own observation time, its figures with has_* flags, its sources and the model that wrote it. Filter by stock code (primary or related), kind, Sydney market date and minimum significance; page with next_cursor."
+    };
+  }
+
   // ==================== Stock Graph ====================
 
   // Get a stock's people (with their other companies) and narrative-similar companies

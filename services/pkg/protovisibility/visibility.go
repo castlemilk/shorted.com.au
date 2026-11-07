@@ -78,3 +78,34 @@ func public(key func(service, method string) string) map[string]bool {
 
 	return out
 }
+
+// PrivateMethodAccess returns every domain method that is NOT public, keyed by
+// OpenAPI/Connect path, with the role it requires: "admin" for a method that
+// carries required_role, "" for one any signed-in caller may use. It is the
+// private API reference's method set (services/cmd/openapi-postprocess
+// -visibility private), derived from the same registry walk as the public set
+// so the two partition the domain services exactly.
+func PrivateMethodAccess() map[string]string {
+	out := map[string]string{}
+	protoregistry.GlobalFiles.RangeFilesByPackage(PublicPackage, func(fd protoreflect.FileDescriptor) bool {
+		services := fd.Services()
+		for i := 0; i < services.Len(); i++ {
+			svc := services.Get(i)
+			if string(svc.FullName()) == LegacyService {
+				continue
+			}
+			methods := svc.Methods()
+			for j := 0; j < methods.Len(); j++ {
+				m := methods.Get(j)
+				vis, _ := proto.GetExtension(m.Options(), optionsv1.E_Visibility).(optionsv1.Visibility)
+				if vis == optionsv1.Visibility_VISIBILITY_PUBLIC {
+					continue
+				}
+				role, _ := proto.GetExtension(m.Options(), optionsv1.E_RequiredRole).(string)
+				out["/"+string(svc.FullName())+"/"+string(m.Name())] = role
+			}
+		}
+		return true
+	})
+	return out
+}
