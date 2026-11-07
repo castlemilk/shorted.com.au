@@ -5,7 +5,7 @@
 // flag here before it renders.
 //
 // Every flag is off until its capability ships:
-//   compare        the Compare tray and /strategies/compare
+//   compare        the Compare tray and /strategies/compare (PR-20)
 //   alertBuilder   the alert builder (Save draft only)
 //   alertEnable    "Save & enable" for strategy alerts
 //   alertEmail     the Email delivery checkbox
@@ -26,7 +26,7 @@ export const STRATEGY_CAPABILITY_NAMES = [
 export type StrategyCapability = (typeof STRATEGY_CAPABILITY_NAMES)[number];
 
 export const STRATEGY_CAPABILITIES: Record<StrategyCapability, boolean> = {
-  compare: false,
+  compare: true,
   alertBuilder: false,
   alertEnable: false,
   alertEmail: false,

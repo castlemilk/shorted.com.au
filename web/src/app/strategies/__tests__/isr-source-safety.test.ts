@@ -15,9 +15,10 @@
  *     dynamicParams = false.
  *  3. Every page in the section exports a literal positive revalidate.
  *
- * Excluded: my/, alerts/ and compare/. Those are per-request by design (the
- * signed-in account, the alerts and a compare tray read the query string), so
- * this scan does not apply to them.
+ * Excluded: my/, alerts/ and compare/. They are static shells whose signed-in
+ * data arrives through "use server" actions (never a shared cache), so this
+ * scan does not apply to them. compare/ is a static shell too: its island reads
+ * ?ids= client-side under Suspense, and its page exports no revalidate.
  *
  * Comments do not count: they are blanked with TypeScript's own scanner before
  * the reads are searched for, so a comment that names cookies() to say it is

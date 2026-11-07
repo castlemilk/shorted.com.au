@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import "~/@/components/gamma/gamma-bridge.css";
+import "~/@/components/gamma/gamma.css";
 import { StrategiesSubNav } from "~/@/components/strategies/strategies-sub-nav";
 
 /**
@@ -8,9 +10,9 @@ import { StrategiesSubNav } from "~/@/components/strategies/strategies-sub-nav";
  * Reads no searchParams, cookies, headers or auth(): the sub-nav is a client
  * island that reads the pathname itself, so every route beneath stays ISR.
  *
- * The Gamma stylesheets are not imported here yet: no strategies component
- * renders a Gamma component. The first PR that does adds the gamma-bridge.css,
- * gamma.css and DataTable.css imports to this layout and nowhere else.
+ * The Gamma stylesheets are class-scoped (gamma-bridge.css maps their tokens onto
+ * the house theme). They are imported here for the explorer's rail sheet
+ * (SideSheet, below lg), as app/ownership/layout.tsx does.
  */
 export default function StrategiesLayout({ children }: { children: ReactNode }) {
   return (

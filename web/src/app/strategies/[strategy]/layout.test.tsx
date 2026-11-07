@@ -101,10 +101,9 @@ describe("StrategyLayout", () => {
       screen.getByRole("heading", { level: 1, name: seo.h1 }),
     ).toBeInTheDocument();
     expect(screen.getByText(seo.dek)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Stock picker" })).toHaveAttribute(
-      "href",
-      "/strategies",
-    );
+    // The mockup's header carries no eyebrow: the breadcrumb is the one link back to Strategies.
+    expect(screen.queryByRole("link", { name: "Stock picker" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Stock picker")).not.toBeInTheDocument();
 
     const tabBar = screen.getByRole("navigation", {
       name: "Strategy sections",
@@ -125,16 +124,19 @@ describe("StrategyLayout", () => {
     expect(links[0]).toHaveAttribute("aria-current", "page");
   });
 
-  it("renders no Compare, Create alert or Alert-me control", async () => {
+  it("draws the header's Compare link to the compare page with this strategy ticked, and no Create alert or Alert-me control", async () => {
     await renderLayout("canslim");
-    for (const name of [/compare/i, /create alert/i, /alert me/i]) {
+    const compare = screen.getByRole("link", { name: "Compare" });
+    expect(compare).toHaveAttribute("href", "/strategies/compare?ids=canslim");
+    for (const name of [/create alert/i, /alert me/i]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
     }
-    // Saves ships with My strategies and is on; every other capability stays dark.
+    // Saves (My strategies) and compare (PR-20) are on; the rest stay dark. The profile
+    // header draws no Compare control yet, so the test above still holds.
     expect(
       Object.entries(STRATEGY_CAPABILITIES)
-        .filter(([name]) => name !== "saves")
+        .filter(([name]) => name !== "saves" && name !== "compare")
         .every(([, on]) => on === false),
     ).toBe(true);
   });

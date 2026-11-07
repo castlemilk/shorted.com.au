@@ -2,7 +2,7 @@ import { type Metadata } from "next";
 import Link from "next/link";
 
 import { cn } from "~/@/lib/utils";
-import { eyebrow, lede, pageTitle, sectionTitle } from "~/@/lib/typography";
+import { lede, pageTitle, sectionTitle } from "~/@/lib/typography";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
@@ -11,6 +11,8 @@ import {
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
 import { RegimeBanner } from "~/@/components/picks/regime-banner";
+import { ExplorerIsland } from "~/@/components/strategies/explorer-island";
+import { buildExplorerModel, registryStrategy } from "~/@/lib/strategies/explorer";
 import { PicksProvenance } from "~/@/components/picks/picks-provenance";
 import { RuleLegend, StatusLamp } from "~/@/components/picks/picks-table";
 import { StatusChain } from "~/@/components/picks/status-chain";
@@ -27,6 +29,7 @@ import {
 } from "~/@/lib/strategies/shortlist";
 import { PICK_STATUSES } from "~/@/lib/strategies/types";
 import { getStrategies } from "~/app/actions/getStrategies";
+import { getStrategyEvidence } from "~/app/actions/strategies/getStrategyEvidence";
 import {
   getStrategyPicks,
   type StrategyPicksResult,
@@ -74,7 +77,10 @@ export const metadata: Metadata = {
   },
 };
 
-// Static ISR, like /themes/[slug]: the hub fans out to the API six ways
+// Static ISR, like /themes/[slug]: the explorer reads the list, the backtest evidence
+// and the five picks for the rack, each cached for an hour. The explorer's
+// filters, window, selection and compare tray are read on the client under
+// <Suspense> (ExplorerIsland), so the page reads no searchParams. The hub fans out to the API six ways
 // (the list plus one picks read per strategy), which is worth paying per hour,
 // not per request. The picks reads share their cache entries with the
 // strategy pages. A cold or failed read is handled by bailOnEmptyRender()
@@ -119,15 +125,17 @@ function cardFor(
 }
 
 export default async function PicksHubPage() {
-  const [list, ...picks] = await Promise.all([
+  const [list, evidence, ...picks] = await Promise.all([
     getStrategies(),
+    getStrategyEvidence(),
     ...STRATEGY_SLUGS.map((slug) => getStrategyPicks(slug)),
   ]);
 
   // Any failed read would bake a degraded hub (no regime, cards without
-  // counts) into the route cache for the whole hour: shorten this render's
-  // lifetime instead so a recovered API shows up within a minute.
-  if (!list || picks.some((result) => result === null)) {
+  // counts, an explorer without its figures) into the route cache for the whole
+  // hour: shorten this render's lifetime instead so a recovered API shows up
+  // within a minute. The explorer still draws what it has.
+  if (!list || !evidence || picks.some((result) => result === null)) {
     await bailOnEmptyRender();
   }
 
@@ -138,9 +146,33 @@ export default async function PicksHubPage() {
   const provenanceSource = picks.find((result): result is StrategyPicksResult =>
     Boolean(result),
   );
+  // A render with no list (the build, an outage) still names every strategy: the
+  // registry supplies the names, so the table's rows are never missing from the HTML.
+  // The rail's counts and session come from the picks the page already holds; the
+  // evidence's own counts are the fallback (explorer.ts).
+  const today = Object.fromEntries(
+    STRATEGY_SLUGS.map((slug, index) => {
+      const result = picks[index] ?? null;
+      return [slug, result ? { counts: result.statusCounts ?? null, asOf: result.asOf } : undefined];
+    }),
+  );
+  const explorer = buildExplorerModel({
+    strategies: list?.strategies ?? STRATEGY_SLUGS.map(registryStrategy),
+    evidence,
+    today,
+  });
+
+  const header = (
+    <section className="border-b border-border/40 pb-6 motion-safe:animate-phosphor-warm">
+      <h1 className={cn(pageTitle, "leading-[1.1]")}>Explore trading strategies</h1>
+      <p className={cn(lede, "max-w-3xl")}>
+        Understand the approach, inspect the evidence, then follow its signals.
+      </p>
+    </section>
+  );
 
   return (
-    <DashboardLayout>
+    <DashboardLayout fullWidth>
       <BreadcrumbListSchema items={breadcrumbs} />
       <ItemListStructuredData
         name="ASX Stock Picker strategies"
@@ -154,37 +186,38 @@ export default async function PicksHubPage() {
       />
 
       <div className="space-y-8">
-        <div className="mb-4">
+        <div className="mb-4 px-4 sm:px-8">
           <Breadcrumbs items={[{ label: "Strategies", href: "/strategies" }]} />
         </div>
 
-        {/* The desk switches on: a 320ms phosphor warm-up from 0.45 opacity,
-            so the H1 is painted (and is the LCP) from the first frame. */}
-        <section className="border-b border-border/40 pb-6 motion-safe:animate-phosphor-warm">
-          <p className={cn(eyebrow, "mb-2 font-medium")}>Stock picker</p>
-          <h1 className={cn(pageTitle, "leading-[1.1]")}>Strategies</h1>
-          <p className={cn(lede, "max-w-3xl")}>
+        <ExplorerIsland model={explorer} header={header} />
+
+        <div className="px-4 sm:px-8">
+          <RegimeBanner regime={list?.regime ?? null} />
+        </div>
+
+        {/* The rack: one hairline-divided chassis holding the five
+            instruments as rows, which differ by glyph, counts and names
+            rather than by chrome. One warm-up for the whole rack. */}
+        <section aria-labelledby="rack-intro" className="space-y-3 px-4 sm:px-8">
+          <h2 id="rack-intro" className={sectionTitle}>
+            Strategy pages
+          </h2>
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
             Choose a named strategy, then see the market regime and the ASX
             stocks that currently meet its rules. Every rule is shown for every
             stock as pass, fail or unknown, so you can see exactly why a name
             made the list and what it is still missing.
           </p>
-          <div className="mt-3">
-            <PicksProvenance
-              asOf={provenanceSource?.asOf ?? ""}
-              coverage={provenanceSource?.fundamentalsCoverageCount ?? 0}
-              rowsCount={provenanceSource?.fundamentalsRowsCount ?? 0}
-              universe={provenanceSource?.universeCount ?? 0}
-            />
-          </div>
+          <PicksProvenance
+            asOf={provenanceSource?.asOf ?? ""}
+            coverage={provenanceSource?.fundamentalsCoverageCount ?? 0}
+            rowsCount={provenanceSource?.fundamentalsRowsCount ?? 0}
+            universe={provenanceSource?.universeCount ?? 0}
+          />
         </section>
 
-        <RegimeBanner regime={list?.regime ?? null} />
-
-        {/* The rack: one hairline-divided chassis holding the five
-            instruments as rows, which differ by glyph, counts and names
-            rather than by chrome. One warm-up for the whole rack. */}
-        <section aria-label="Strategies">
+        <section aria-label="Strategies" className="px-4 sm:px-8">
           <ol className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60 bg-card motion-safe:animate-phosphor-warm motion-safe:[animation-delay:80ms]">
             {cards.map((card) => (
               <li key={card.slug}>
@@ -200,7 +233,7 @@ export default async function PicksHubPage() {
           ) : null}
         </section>
 
-        <section aria-labelledby="how-heading" className="max-w-4xl space-y-3">
+        <section aria-labelledby="how-heading" className="max-w-4xl space-y-3 px-4 sm:px-8">
           <h2 id="how-heading" className={sectionTitle}>
             How the picks work
           </h2>
@@ -241,7 +274,7 @@ export default async function PicksHubPage() {
           </dl>
         </section>
 
-        <section className="border-t border-border/40 pt-6 text-sm text-muted-foreground">
+        <section className="border-t border-border/40 px-4 pt-6 text-sm text-muted-foreground sm:px-8">
           <p>
             Not financial advice: these are mechanical readings of published
             rules, not recommendations. See also:{" "}

@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 
 import PicksHubPage, { metadata } from "./page";
+import { EVIDENCE } from "~/@/lib/strategies/__tests__/golden-explorer";
 import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 import {
   PICKS,
@@ -13,7 +14,19 @@ import {
 
 const getStrategies = jest.fn();
 const getStrategyPicks = jest.fn();
+const getStrategyEvidence = jest.fn();
 const bailOnEmptyRender = jest.fn();
+
+// The explorer island reads its address and the session; the page test is a server render of both.
+jest.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
+jest.mock("next-auth/react", () => ({
+  useSession: () => ({ data: null, status: "unauthenticated" }),
+}));
+jest.mock("~/app/actions/strategies/getStrategyEvidence", () => ({
+  getStrategyEvidence: () => getStrategyEvidence(),
+}));
 
 // The scene's canvas loads through next/dynamic, whose resolution in jsdom
 // is an un-acted state update: the still is what these tests look at.
@@ -54,6 +67,7 @@ describe("PicksHubPage", () => {
       strategies: [ZANGER],
       regime: { ...UPTREND, verdict: NEUTRAL_VERDICT },
     });
+    getStrategyEvidence.mockResolvedValue(EVIDENCE);
     getStrategyPicks.mockImplementation(async (id: string) =>
       id === "zanger-breakout"
         ? PICKS
@@ -79,7 +93,7 @@ describe("PicksHubPage", () => {
     render(await PicksHubPage());
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Strategies" }),
+      screen.getByRole("heading", { level: 1, name: "Explore trading strategies" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Choose a named strategy/)).toBeInTheDocument();
     expect(screen.getByText(NEUTRAL_VERDICT)).toBeInTheDocument();
@@ -174,7 +188,8 @@ describe("PicksHubPage", () => {
   it("states fundamentals coverage from the row count, as the strategy pages do", async () => {
     render(await PicksHubPage());
     // PICKS carries fundamentalsRowsCount 1203 >= fundamentalsCoverageCount 812.
-    const line = screen.getByText(/fundamentals for/).closest("p")!;
+    const line = [...document.querySelectorAll("p")].find((p) => p.textContent?.includes("fundamentals for 1,203")) as HTMLElement;
+    expect(line).toBeDefined();
     expect(line.textContent).toContain(
       "fundamentals for 1,203 of 1,904 stocks (growth figures for 812)",
     );
@@ -216,12 +231,25 @@ describe("PicksHubPage", () => {
   it("falls back to registry copy and bails the render when the API is down", async () => {
     getStrategies.mockResolvedValue(null);
     getStrategyPicks.mockResolvedValue(null);
+    getStrategyEvidence.mockResolvedValue(null);
 
     render(await PicksHubPage());
 
     expect(screen.getAllByRole("article")).toHaveLength(STRATEGY_SLUGS.length);
     expect(screen.getByText(/Live picks are temporarily unavailable/)).toBeInTheDocument();
     expect(screen.getByText(/Market regime unavailable/)).toBeInTheDocument();
+    expect(screen.getByText(/Backtest evidence is temporarily unavailable/)).toBeInTheDocument();
     expect(bailOnEmptyRender).toHaveBeenCalledTimes(1);
+  });
+
+  // PR-20: the explorer leads the page, above the rack that keeps the SEO copy and the links.
+  it("leads with the explorer's returns table, then the strategy rack", async () => {
+    const { container } = render(await PicksHubPage());
+    const table = screen.getByRole("table");
+    expect(screen.getByRole("heading", { level: 2, name: "Historical returns by year" })).toBeInTheDocument();
+    expect(within(table).getByRole("rowheader", { name: /Crowded-Short Breakout/ })).toBeInTheDocument();
+    const rack = container.querySelector('section[aria-label="Strategies"]')!;
+    expect(table.compareDocumentPosition(rack) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Explore trading strategies" })).toBeInTheDocument();
   });
 });
