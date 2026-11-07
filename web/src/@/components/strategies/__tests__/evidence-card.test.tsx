@@ -59,3 +59,16 @@ describe("the Overview's Evidence card", () => {
     expect(fixtureVersion().liveFrom).toBe("2026-10-02");
   });
 });
+
+describe("the Overview card's lowest year for a partial run", () => {
+  it("never cites a pre-2025 year: the lowest is the lowest from 2025 on", () => {
+    const annual = [
+      { year: 2019, state: "partial", coverageMeasurable: true, coveragePct: 40, coverageMeasure: "all_reported" },
+      { year: 2024, state: "complete", coverageMeasurable: true, coveragePct: 45, coverageMeasure: "all_reported" },
+      { year: 2025, state: "complete", coverageMeasurable: true, coveragePct: 88, coverageMeasure: "qualifying_5pct_short" },
+    ];
+    // Under 80% is named; 88% from 2025 is not, so no lowest-year line is drawn.
+    const { container } = render(<EvidenceCard slug="minervini-trend-template" evidence={mapStrategyEvidence(fixtureEvidence({ annual, windows: fixtureEvidence().windows }))} />);
+    expect(container.querySelector("[data-lowest-coverage]")).toBeNull();
+  });
+});

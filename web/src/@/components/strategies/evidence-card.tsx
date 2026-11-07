@@ -124,8 +124,13 @@ export function lowestOf(
   measure: CoverageMeasureKey,
 ): { year: number; coveragePct: number } | null {
   let lowest: { year: number; coveragePct: number } | null = null;
+  // Under the all-reported measure only the years from the first the qualifying measure can see
+  // count (the same rule as the Backtest tab): a partial run never cites a pre-2025 year.
+  const qualifying = annual.filter((row) => row.coverageMeasure === "qualifying_5pct_short").map((row) => row.year);
+  const firstQualifying = qualifying.length > 0 ? Math.min(...qualifying) : null;
   for (const row of annual) {
     if (row.coveragePct === null) continue;
+    if (measure === "all_reported" && (firstQualifying === null || row.year < firstQualifying)) continue;
     const rowMeasure = row.coverageMeasure === "qualifying_5pct_short" ? "qualifying" : row.coverageMeasure === "all_reported" ? "all_reported" : "";
     if (!rowMeasure || (measure && rowMeasure !== measure)) continue;
     if (lowest === null || lowest.coveragePct > row.coveragePct) lowest = { year: row.year, coveragePct: row.coveragePct };

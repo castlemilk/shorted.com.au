@@ -267,6 +267,22 @@ describe("the Backtest tab", () => {
   });
 });
 
+describe("the state headlines are the tab's headings (outline: h1 from the layout, h2 here)", () => {
+  it.each([
+    ["run_required", { state: "run_required", stateReason: "The rules have no recipe yet." }, "The rules have no recipe yet."],
+    ["running", { state: "running", runningSince: "2026-11-08T14:02:00Z" }, "Running since 14:02 UTC"],
+    ["not_computable", { state: "not_computable", fiscalLabel: "FY2024" }, /^Not computable before FY2024\./],
+  ] as const)("%s renders its headline as an h2, and no heading is deeper than h2", async (_name, input, text) => {
+    getBacktestRun.mockResolvedValue(mapBacktestRun(input as BacktestRunInput));
+    await renderPage();
+    const headline = screen.getByRole("heading", { level: 2, name: text });
+    expect(headline).toHaveAttribute("id", "backtest-state");
+    const headings = screen.queryAllByRole("heading").map((h) => Number(h.tagName.slice(1)));
+    expect(Math.max(...headings)).toBeLessThanOrEqual(2);
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+  });
+});
+
 describe("the Backtest page's client payload", () => {
   it("passes at most 500 series points and a small serialisable payload, the tables staying on the server", async () => {
     getBacktestRun.mockResolvedValue(runOf({}));

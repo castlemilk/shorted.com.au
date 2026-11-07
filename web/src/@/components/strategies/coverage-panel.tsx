@@ -14,6 +14,10 @@ import {
   lowestCoverageYear,
 } from "@/lib/strategies/backtest-tables";
 import { COVERAGE_NOT_MEASURABLE_COPY, lowCoverageCopy } from "@/lib/strategies/backtest-copy";
+import { UNMEASURED_MARK, isUnmeasuredYear } from "@/lib/strategies/backtest-tables";
+
+/** The explanation of "?" (1.7): its title, its accessible text and the legend line. */
+export const UNMEASURED_COPY = COVERAGE_NOT_MEASURABLE_COPY;
 import { NOT_AVAILABLE, formatCount } from "@/lib/strategies/format";
 import { sectionTitle } from "@/lib/typography";
 
@@ -50,7 +54,7 @@ export function coverageHeading(measurement: string): string {
 export function CoveragePanel({ years, months, survivorship, dataQuality, dataNotes }: CoveragePanelProps) {
   const measure = coverageMeasureOf(survivorship?.measurement);
   const lowest = lowestCoverageYear(years, measure);
-  const anyUnmeasurable = years.some((year) => !year.measurable);
+  const hasMark = years.some((year) => isUnmeasuredYear(year, measure));
   const chip = coverageChip(years, measure);
   return (
     <section id="coverage" aria-labelledby="coverage-heading" className="scroll-mt-[124px] space-y-6">
@@ -106,7 +110,16 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
                 {years.map((year) => (
                   <tr key={year.year} className="border-b border-border/40 font-mono tabular-nums">
                     <th scope="row" className="py-1.5 pr-3 text-left font-normal">{year.year}</th>
-                    <td className="py-1.5 pr-3 text-right">{coverageFigure(year, measure)}</td>
+                    <td className="py-1.5 pr-3 text-right">
+                      {isUnmeasuredYear(year, measure) ? (
+                        <span title={UNMEASURED_COPY} data-unmeasured="">
+                          {coverageFigure(year, measure)}
+                          <span className="sr-only"> ({UNMEASURED_COPY})</span>
+                        </span>
+                      ) : (
+                        coverageFigure(year, measure)
+                      )}
+                    </td>
                     <td className="py-1.5 pr-3 text-right">
                       {year.allReportedPct === null ? "not measurable" : `${Math.round(year.allReportedPct)}%`}
                     </td>
@@ -122,10 +135,15 @@ export function CoveragePanel({ years, months, survivorship, dataQuality, dataNo
           </div>
           <div className="space-y-2">
             <p className="font-mono text-xs text-muted-foreground">Qualifying coverage by year</p>
-            <CoverageStrip label={`${coverageMeasureName(measure)} coverage by year`} items={coverageBars(years, measure)} />
+            <CoverageStrip
+              label={`${coverageMeasureName(measure)} coverage by year`}
+              items={coverageBars(years, measure).map((bar) => ({ ...bar, markTitle: bar.mark ? UNMEASURED_COPY : undefined }))}
+            />
           </div>
-          {anyUnmeasurable ? (
-            <p className="text-xs text-muted-foreground" data-not-measurable>{COVERAGE_NOT_MEASURABLE_COPY}</p>
+          {hasMark ? (
+            <p className="text-xs text-muted-foreground" data-unmeasured-legend>
+              <span aria-hidden="true" className="font-mono">{UNMEASURED_MARK}</span> {UNMEASURED_COPY}
+            </p>
           ) : null}
         </div>
       ) : null}

@@ -314,8 +314,8 @@ function StateCard({ slug, run }: { slug: string; run: BacktestRunView }) {
   }
   return (
     <section aria-labelledby="backtest-state" className="space-y-3 rounded-lg border border-border/60 bg-card p-6">
-      <h2 id="backtest-state" className={sectionTitle}>Backtest</h2>
-      <p className="text-sm">{headline}</p>
+      {/* The state's headline is the tab's section heading: the page's outline is h1 (layout), h2 (this). */}
+      <h2 id="backtest-state" className={sectionTitle}>{headline}</h2>
       {body ? <p className="text-sm text-muted-foreground">{body}</p> : null}
       <p className="text-sm">
         <Link href={strategyTabHref(slug, "overview")} prefetch={false} className="text-primary hover:underline">

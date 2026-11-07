@@ -149,31 +149,54 @@ export function coverageMeasureName(measure: CoverageMeasureKey): string {
   return measure === "qualifying" ? "qualifying ≥ 5% short" : measure === "all_reported" ? "all reported" : "";
 }
 
-/** A year's figure under the run's one measure, in percent, or null when that measure cannot see the year. */
+/**
+ * A year's figure under the run's one measure, in percent, or null when it is not measurable.
+ * Under the all-reported measure a year counts only once the qualifying measure can see it (the
+ * first measurable year, 1.7): a partial run never cites a pre-2025 year in the chip, the bars or
+ * the lowest-year sentence, whatever the all-reported figure there is.
+ */
 export function yearCoverage(year: CoverageYearView, measure: CoverageMeasureKey): number | null {
   if (measure === "qualifying") return year.measurable ? year.coveragePct : null;
-  if (measure === "all_reported") return year.allReportedMeasurable ? year.allReportedPct : null;
+  if (measure === "all_reported") return year.measurable && year.allReportedMeasurable ? year.allReportedPct : null;
   return null;
 }
 
-/** A year's printed figure under the measure: "64%", "58% ?" for a year the qualifying measure cannot see, or "n/a". */
+/** The "?" mark on a year the run's measure cannot measure (1.5, 1.7); null for every measured year. */
+export const UNMEASURED_MARK = "?";
+
+/** Whether a year gets the "?" mark: the all-reported measure runs, and the qualifying one cannot see the year. */
+export function isUnmeasuredYear(year: CoverageYearView, measure: CoverageMeasureKey): boolean {
+  return measure === "all_reported" && !year.measurable;
+}
+
+/**
+ * A year's printed figure in the table. A year the run's measure cannot see reads "?" (beside its
+ * all-reported figure when the API serves one for that year, so no bare number reads as measured);
+ * a measured year reads its percentage; a year with no figure reads "n/a".
+ */
 export function coverageFigure(year: CoverageYearView, measure: CoverageMeasureKey): string {
+  if (isUnmeasuredYear(year, measure)) {
+    return year.allReportedMeasurable && year.allReportedPct !== null
+      ? `${Math.round(year.allReportedPct)}% ${UNMEASURED_MARK}`
+      : UNMEASURED_MARK;
+  }
   const figure = yearCoverage(year, measure);
-  if (figure === null) return "n/a";
-  // Under the all-reported measure a year the qualifying measure cannot see keeps its figure,
-  // marked "?": the 1.7 copy beside the table says why.
-  const unmarked = measure === "all_reported" && !year.measurable ? " ?" : "";
-  return `${Math.round(figure)}%${unmarked}`;
+  return figure === null ? "n/a" : `${Math.round(figure)}%`;
 }
 
 /** The bars for the yearly strip (fractions 0 to 1) under the run's one measure. */
 export function coverageBars(
   years: readonly CoverageYearView[],
   measure: CoverageMeasureKey,
-): Array<{ key: string; label: string; coverage: number | null }> {
+): Array<{ key: string; label: string; coverage: number | null; mark?: string }> {
   return years.map((year) => {
     const figure = yearCoverage(year, measure);
-    return { key: String(year.year), label: String(year.year), coverage: figure === null ? null : figure / 100 };
+    return {
+      key: String(year.year),
+      label: String(year.year),
+      coverage: figure === null ? null : figure / 100,
+      ...(isUnmeasuredYear(year, measure) ? { mark: UNMEASURED_MARK } : {}),
+    };
   });
 }
 

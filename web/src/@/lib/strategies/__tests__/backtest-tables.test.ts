@@ -4,6 +4,7 @@ import {
   coverageFigure,
   coverageMeasureOf,
   fragileChips,
+  isUnmeasuredYear,
   lowestCoverageYear,
   monthCells,
   monthWords,
@@ -71,15 +72,47 @@ describe("coverage: one measure per run", () => {
     );
   });
 
-  it("prints the all-reported chip for Minervini, with the never-reported-short caveat", () => {
+  it("prints the all-reported chip for Minervini from its first measurable year, never a pre-2025 year", () => {
     expect(coverageChip(minervini, "all_reported")).toBe(
-      "Coverage (all reported) 58% (2019) → 93% (2025) · flatters results; by how much cannot be measured; the gap cannot be measured for companies that were never reported short",
+      "Coverage (all reported) 93% (2025) · flatters results; by how much cannot be measured; the gap cannot be measured for companies that were never reported short",
     );
   });
 
-  it("never draws the qualifying figure for a run whose measure is all reported", () => {
-    expect(coverageBars(minervini, "all_reported").map((b) => b.coverage)).toEqual([0.58, 0.93]);
-    expect(lowestCoverageYear(minervini, "all_reported")).toEqual({ year: 2019, coveragePct: 58 });
+  it("never draws or cites a pre-2025 year for an all-reported run: the bar is empty and marked, the lowest is 2025", () => {
+    const bars = coverageBars(minervini, "all_reported");
+    expect(bars.map((b) => b.coverage)).toEqual([null, 0.93]);
+    expect(bars[0]?.mark).toBe("?");
+    expect(bars[1]?.mark).toBeUndefined();
+    expect(lowestCoverageYear(minervini, "all_reported")).toEqual({ year: 2025, coveragePct: 93 });
+  });
+
+  it("marks each year before 2025 of a partial run with '?' and prints figures from 2025", () => {
+    const partial = [2019, 2020, 2021, 2022, 2023, 2024].map((year) =>
+      mapCoverageYear({ year, measurable: false, allReportedMeasurable: true, allReportedPct: 60 }),
+    ).concat(mapCoverageYear({ year: 2025, measurable: true, coveragePct: 88, allReportedMeasurable: true, allReportedPct: 93 }));
+    for (const year of partial.slice(0, 6)) expect(coverageFigure(year, "all_reported")).toMatch(/\?$/);
+    expect(coverageFigure(partial[6]!, "all_reported")).toBe("93%");
+    expect(partial.slice(0, 6).every((y) => isUnmeasuredYear(y, "all_reported"))).toBe(true);
+    expect(isUnmeasuredYear(partial[6]!, "all_reported")).toBe(false);
+  });
+
+  it("gives a measured run (Crowded-Short) no '?' at all", () => {
+    const run = mapBacktestRun(fixturePublishedRun());
+    const measure = coverageMeasureOf(run.survivorship?.measurement);
+    expect(measure).toBe("qualifying");
+    for (const year of run.coverageByYear) {
+      expect(isUnmeasuredYear(year, measure)).toBe(false);
+      expect(coverageFigure(year, measure)).not.toContain("?");
+    }
+    expect(coverageBars(run.coverageByYear, measure).some((b) => b.mark)).toBe(false);
+  });
+
+  it("never names a pre-2025 year in the chip or the lowest-year sentence of a partial run", () => {
+    const partial = [2019, 2024].map((year) => mapCoverageYear({ year, measurable: false, allReportedMeasurable: true, allReportedPct: 40 })).concat(
+      mapCoverageYear({ year: 2025, measurable: true, coveragePct: 88, allReportedMeasurable: true, allReportedPct: 93 }),
+    );
+    expect(coverageChip(partial, "all_reported")).not.toMatch(/2019|2024/);
+    expect(lowestCoverageYear(partial, "all_reported")?.year).toBe(2025);
   });
 
   it("marks an all-reported year the qualifying measure cannot see with a question mark, not a figure", () => {
