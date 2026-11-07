@@ -265,3 +265,31 @@ actual rows. Two prior diagnoses and one implementation report were also wrong.
 page.** Every jest test passed while `next build` failed on a client-boundary
 import; the build passed while the page served zeros from cache. Check the layer
 you are actually claiming works.
+
+## Landmines recorded in CLAUDE.md
+
+Moved here from `CLAUDE.md` on 2026-11-07 (it keeps the short form).
+
+- **The prod deploy does NOT run `migrate up`** — it applies a hardcoded
+  allowlist. Apply new migrations BY HAND (`task db:prod:apply`: session pooler
+  5432, `SET LOCAL statement_timeout = 0`) BEFORE merging, or the API ships selecting columns prod
+  lacks and every politician read path 500s.
+- `run-tests` is `if: github.event_name != 'pull_request'` — Go tests gate the
+  DEPLOY, not the PR. **golangci-lint runs in no CI job at all.**
+- An **empty KV entry used to be served as a hit**, pinning zeros for 24h;
+  `readCached` now takes a non-emptiness predicate. Unblock with
+  `?flush=politicians`.
+- `compliance.tsx` has no `"use client"` and imports generated protobuf —
+  importing it from a client component kills the static build with a minified
+  "Element type is invalid". Use `@/lib/politics/party-palette`.
+- Slugs are minted once and never reassigned; a merge retires a row via
+  `merged_into_id` rather than deleting it.
+- **A new House `source_url` is a SUCCESSION, never a fresh member.** APH moved
+  the 48th Parliament register onto `interests-register-api-public.aph.gov.au`
+  (2026-09: 147/151 rows) and edited 9 name keys in the move (Chalmers James→Jim,
+  Pasin Antony→Tony, Brynes→Byrnes…). `register-discover` links old→new
+  (`superseded_by`, migration 000123 — in the deploy allowlist, applied before
+  the image swap) and `register-load` carries the predecessor's person; resolving
+  the new row by name mints duplicates. The crawl is incremental (re-queue when the listing
+  date ≥ fetch date). Runbook: operations.md "Re-crawling prod".
+

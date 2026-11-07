@@ -8,6 +8,7 @@ Companion docs:
 - `services/edge-worker/README.md` — the edge layer in depth (buckets, windows,
   bypasses, rollout).
 - `CLAUDE.md` → *Rate Limiting* — the landmines, kept short on purpose.
+- `docs/rate-limiting-design.md` — the design record (the August 2026 incident, the edge buckets, the monthly accounting, the 429 payload in full).
 
 Source of truth for every number below is `services/pkg/ratelimit/config.go`
 (`DefaultConfig`). If this document and that file disagree, the file is right and

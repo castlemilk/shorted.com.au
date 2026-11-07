@@ -574,3 +574,147 @@ this repo holds only a client secret.
   turned chart do too: the Activity's (`activitySignInUrl`) and the share
   page's own, while its chart is turned. The share dialog's links do not, so a
   chart shared to a forum opens the way it always did.
+
+## Reference: the pieces, the Activity, the proxy and kept-as-posted charts
+
+Moved out of `CLAUDE.md` on 2026-11-07 so the session context stays small. `CLAUDE.md` keeps the rules that shape every change here and points at this file; the full record lives here. Keep the two in step: a new landmine goes HERE, and only a rule every session needs goes in `CLAUDE.md`.
+
+An HTTP interactions endpoint, not a gateway bot: Discord POSTs every command,
+autocomplete keystroke and button press to `/api/discord/interactions`
+(`web/src/app/api/discord/interactions/route.ts`; a GET reports its status),
+signed with the app's Ed25519 key, and it deploys with the web app. Commands:
+`/stock`, `/chart`, `/search`, `/top`, `/settings`, `/help`. A chart message is the
+`/chart/<CODE>/image` card plus two rows of buttons (period, view) that redraw
+it in place, and an **Interactive** button (`"activity": true`, on since
+2026-10-23) that opens `StockChartEmbed` inside Discord as an Activity
+(`/embed/discord`). Runbook and onboarding: `docs/discord-bot.md`.
+
+| Piece | Where |
+|---|---|
+| Which app (id, public key, Activity switch), committed | `web/src/config/discord-app.json`; env `DISCORD_PUBLIC_KEY` / `DISCORD_ACTIVITY_ENABLED` override it for a second app |
+| Onboarding and checks | `task discord:setup` / `discord:status` / `discord:register` (`web/scripts/discord.ts`; `DISCORD_CLIENT_SECRET` or `DISCORD_BOT_TOKEN` in the repo `.env`, never in Vercel; a client secret registers commands but cannot edit the app, so setup prints the endpoint URL and install settings as portal steps) |
+| Public page (install buttons, commands, privacy) | `/docs/discord` (`web/src/app/docs/discord/page.tsx`); renders from `COMMANDS` and the committed app, so it needs no edit when either changes |
+| Router, 1.5s fast path then defer + webhook edit (`waitUntil`) | `web/src/@/lib/discord/handler.ts` |
+| Messages, commands (registered and handled from one list), button `custom_id` codec | `lib/discord/messages.ts`, `commands.ts`, `custom-id.ts` |
+| Reads: the stock pages' server actions, 6s cap each | `lib/discord/data.ts` |
+| Settings (default stock, view, period, interactive mode; per server or per person) | model `lib/discord/settings.ts`, Firestore `discord_settings` via `settings-store.ts`, signed link `settings-link.ts`, page `app/discord/settings/` (live preview from `buildChartMessage`), interactive-mode hand-off `launch.ts` + `/api/discord/activity/launch` |
+
+### Landmines
+
+- **Buttons carry their chart in `custom_id`** (`chart:p:BHP:short:3m`); old
+  messages keep sending what they were posted with. Add kinds, never change one.
+- **Kept-as-posted charts add three dates to the `custom_id`**: the posting day,
+  the newest short report and the newest close
+  (`chart:p:BHP:short:3m:20261104:20261028:20261103`). The bot reads the report
+  and the close before it draws a new post, and posts live when either is unknown.
+  A press copies the figures from `interaction.message` and never re-reads the
+  stock, and one with no embed is refused privately. The forms without dates stay
+  live, and a form's meaning never changes.
+- **A chart message uploads its card** (`lib/discord/chart-card.ts`) as
+  `attachment://<CODE>-<view>-<period>.png` in the deferred webhook edit; an
+  interaction's HTTP response is JSON and cannot. The card's URL made Discord's
+  media proxy fetch every redraw cold through Cloudflare, and a redrawn chart
+  often stayed blank or stale (2026-10-31). The bot FETCHES the card from
+  `/chart/<CODE>/image` (CDN-cached per day, with the first-party SSR marker and
+  secret) and has the CDN draw the six charts one press away; it draws in its
+  own function only as a fallback, because a render there blocks the function
+  that must answer Discord within three seconds. The URL is the last resort.
+- **The Interactive button hands its chart over by channel** (`launch.ts`):
+  Discord does not pass the pressed button to the Activity, which otherwise
+  opens the server's default stock.
+- **The Activity loads `/`.** Discord's proxy (`<app id>.discordsays.com`,
+  root mapping `shorted.com.au`) always opens the root with `frame_id` and
+  `instance_id`, and `src/config/discord-activity.mjs` redirects those requests
+  to `/embed/discord` (frameable). The proxy follows that redirect on the
+  server, so the browser's address stays `/`. Next's router takes its initial
+  URL from `window.location` (checked on 15.5.28: `createInitialRouterState`
+  reads it before the first render), so every `usePathname()` check (the
+  header, the footer, the corner credit, the banners) reads `/` and the page
+  hydrates as the homepage: the site chrome renders and hydration fails (React
+  #418 and #423). The root layout's inline `discordActivityHeadScript`, in
+  `<head>`, moves the address to `/embed/discord` before the router reads it.
+  The proxy also wraps the script it adds to `<head>` in newlines, and React 19
+  rejects those injected text nodes during hydration (production #418), so on a
+  `.discordsays.com` host the same script removes whitespace-only text from
+  `<head>` before the page hydrates.
+  Keep it a static inline script in `<head>`: the proxy adds a nonce to every
+  inline script in the page, so a script created at runtime is blocked, and
+  next/script, a `type="module"` script, an effect or the body can each run
+  after the router has read the address. A script the proxy adds to `<head>`
+  before this one is a hydration mismatch: on 15.5.28 React 19 logs a
+  recoverable "A tree hydrated but some attributes ... didn't match" for the
+  head's script element, and the Activity still renders. Placed after this
+  script, React logs nothing (measured against `next dev` on 2026-11-03). The
+  proxy case in `chart-surfaces.spec.ts` injects the proxy's real placement,
+  newlines included. It passes on a production build with the sweep, and with
+  the sweep disabled it fails with #418 (checked 2026-11-03). Its guards are
+  `scripts/tests/discord-activity-redirect.test.mjs` (the placement, and the
+  script run in a VM), `web/src/config/__tests__/discord-activity-url.test.ts`
+  (it moves only what the server redirects) and the proxy case in
+  `web/e2e/chart-surfaces.spec.ts` (it runs against a local server and was
+  proved on `next start`; no workflow runs it). Inside the Activity only
+  same-origin requests work, so it uses relative rewrites and opens links
+  through the SDK.
+- **`/api/discord/` is in the Cloudflare SBFM skip** (Discord is an automated
+  client); the signature check is what keeps the route closed. So is the
+  Activity: Discord's proxy fetches it from Discord's servers, and SBFM served
+  it "Just a moment…". Its rule ("Allow the Discord Activity") opens
+  `/embed/discord` and `/` ONLY with both `frame_id` and `instance_id`; keep
+  the homepage itself challenged.
+- **Activities and the URL mapping exist only in the developer portal** (no
+  API field; the env's credential is a client secret, which cannot edit the
+  app). `"activity": true` on an app without them shows a button that fails.
+- **Proxy auth headers are a session pass, not request signing.** The proxy's
+  `X-Discord-Proxy-Payload` signature covers the payload only (not path, method
+  or body), so a valid set replays on any path until `expires_at`. Verify with
+  `verifyDiscordProxyRequest` (signature over the exact bytes FIRST, then the
+  times), never log the headers, and never let them authorise a write alone.
+  Interactions share the key and the header names: `verifyDiscordRequest`
+  accepts only a digits timestamp, which keeps the two messages apart.
+  `/api/discord/activity` only observes today (docs/discord-bot.md, "Proxy
+  authentication").
+- `@vercel/functions` stays on 1.x: 3.x drags in an OIDC chain whose `jose`
+  used to move next-auth's copy. With next-auth beta.32 next-auth resolves
+  `jose` 6 and that chain nests its own `jose` 5 (a lockfile-only resolve,
+  2026-11-03), so re-check the chain itself before moving.
+- **A `/settings` link is a 30-minute bearer grant** for one scope, signed
+  with a key derived from `NEXTAUTH_SECRET` (rotating it voids open links).
+  Who may change a server's settings is Discord's decision (Manage Server, in
+  the signed interaction); the page has no sign-in. `/discord/settings/open`
+  moves the token into an httpOnly cookie scoped to the page, and every action
+  re-reads the grant from it; nothing the browser sends picks the scope.
+- **Nothing in the Activity may navigate the frame.** Discord's mobile webview
+  follows a plain link in place and loaded the whole site inside the Activity
+  (2026-10-29). The embed layout's corner credit is off on `/embed/discord`
+  (`app/embed/embed-brand-link.tsx`), but that check reads `usePathname()`, so it
+  holds only once the address fix above has run: without it the credit shows
+  inside Discord. Links go out through `openExternalLink`. `openOutside` never calls `window.open` inside Discord
+  (`inDiscordFrame`): it waits up to 3 seconds for the SDK, with the pressed control `aria-busy` meanwhile (Open on Shorted, or the menu's sign-in; see the in-flight rule below), and otherwise shows the address as text to
+  copy, drawn in the chart's box (`chartOverlay`, an `absolute z-40` child that turns
+  with a landscape chart; the announcement is an always-mounted `sr-only`
+  status region in the Activity). An SDK that connects after the wait does not open the link afterwards. A later open that goes out clears the address, and so does a stock switch. A command Discord never answers releases the
+  in-flight guard after 10 seconds (`LINK_SETTLE_MS`). While a link is in flight (`linkInFlight`) a press on any control does nothing. `opening` names the control that asked (`"open"`, `"sign-in"` or `"link"`), and only that control shows busy: the menu's sign-in button does so through `IndicatorSignIn.busy` (set from `signInBusy`), and it takes no press while busy. A stock switch releases the guard, clears the address and bumps `generation`, so a link that settles after it reports nothing, while one whose SDK answered in time still goes out.
+  The link interceptor is on from mount, not once the handshake has finished,
+  and it catches `auxclick` for a middle click only (a right click keeps its
+  menu). The Activity renders no `<a>` at all (a test and the e2e spec both
+  count them): search and **Open on Shorted** are buttons in the chart's header
+  row (`headerActions`), and the advanced indicators' sign-in is `onSignIn`,
+  not a link.
+- **The Activity reads the screen once, and then the choice is its own.** A
+  phone's own launch (`platform=mobile`) on a portrait phone starts turned
+  sideways; the Activity holds that in its state (`landscapePref`, passed as the
+  controlled `landscape`), outside the keyed chart, so every stock switch keeps
+  it. It is never read again: a search's on-screen keyboard can reshape the
+  screen mid-switch, and a re-read would turn the new chart upright. A frame's
+  shape says nothing of the device (the `/discord/settings` preview is a portrait
+  frame on a phone, and a desktop window can be narrow).
+- **Search returns focus to its button however the dialog closes.** The Search
+  button carries `aria-haspopup="dialog"` and `aria-expanded`; the dialog's
+  `onCloseAutoFocus` puts focus back on it (`returnFocusTo`), since Radix would
+  return focus to a chart a pick has just replaced.
+- **Discord's in-app browser does not rotate.** **Open on Shorted** links to
+  the share page with `landscape=1`, which opens the chart turned sideways on a
+  phone held upright (`StockChartEmbed` `startLandscape`); only the bot's link
+  carries it, and so does the Activity's sign-in hand-off (`activitySignInUrl`),
+  which returns to the same share page turned sideways.
+

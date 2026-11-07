@@ -1,5 +1,22 @@
 # Documentation
 
+## Features
+
+| Document | Description |
+| --- | --- |
+| [Strategies](feature/strategies/README.md) | The stock picker, signals, backtests, saved strategies: pieces, data, jobs, landmines |
+| [Stock page](feature/stock-page/README.md) | One route per tab: chrome, charts, the readout, indicators, landmines |
+| [Ownership](feature/ownership/README.md) | Who holds ASX stocks: the explorer, the desk, the workspace, landmines |
+| [Housing](feature/housing/README.md) | Tracker, suburb explorer, listings crawl, price-drops |
+| [Economy](economy-architecture.md) | Map explorer, state pages, the economic series platform |
+| [Politicians](feature/politicians/README.md) | The register of interests |
+| [MCP server](mcp-server.md) | OAuth 2.1, the public tools, the rules and landmines; [admin server](mcp-admin.md) |
+| [Share & embed](share-embed.md) | The chart share page, the card, landscape mode, indicators |
+| [Discord bot](discord-bot.md) | Slash commands, live charts, the Activity |
+| [Alerts](alerts-runbook.md) | Short-interest alerts: the job and its runbook |
+| [Rate limiting](rate-limiting.md) | Operator reference; [design record](rate-limiting-design.md) |
+| [React 19 / Next 15](web-react19-next15.md) | The web app upgrade: what changed and what it pins |
+
 ## Deployment
 
 | Document                                          | Description                                |

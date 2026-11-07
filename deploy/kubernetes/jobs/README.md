@@ -274,3 +274,52 @@ kubectl -n shorted-jobs logs deploy/cronjob-reporter           # what was report
 - **Image tags are immutable `main-<sha8>`.** `bump-vke-jobs-image` moves them
   after every successful apply on main. If `deploy/vke-jobs` falls behind the
   last deployed commit, that job did not run: check it before anything else.
+
+## Scheduled jobs on Kubernetes: the full notes
+
+Moved here from `CLAUDE.md` on 2026-11-07 (it keeps the short form).
+
+Scheduled batch jobs are moving from Cloud Scheduler → Cloud Run Jobs to
+Kubernetes CronJobs on the omega VKE cluster: **`deploy/kubernetes/jobs/`**
+(chart + Paprika Application + scripts; runbook in its `README.md`). Paprika
+polls main and renders the chart into namespace `shorted-jobs`. The
+`shorted cronjob-reporter` Deployment (`services/jobs/internal/jobs/cronreporter/`)
+turns every Job's lifecycle into Telesis cron-monitor check-ins, and Telesis
+alerts on failed, missed and timed-out runs. That replaces the GCP
+`job-monitoring` policies for scheduled runs.
+The job-monitoring email channel also notifies the shorts API uptime alerts
+(`terraform/modules/shorts-api/uptime.tf`), so keep `ALERT_RECIPIENT_EMAIL` set;
+empty, the channel is destroyed and those alerts notify no one.
+
+- **Cutover is two lists that must match**: `enabled:` in
+  `deploy/kubernetes/jobs/chart/values.yaml` (unsuspends the CronJob) and
+  `local.jobs_on_vke` in `terraform/environments/prod/main.tf` (pauses the
+  Cloud Scheduler trigger). One without the other runs a job twice or not at
+  all. `scripts/tests/vke-jobs-cutover.test.mjs` enforces it. Ships with both
+  empty and `suspendAll: true`: nothing runs until a job is cut over.
+- **Cloud Run jobs are NOT deleted.** Admin Run now, validation runs, news
+  publish, the freshness/price-sync workflows and rollback all still use them.
+  Until a job's Cloud Run definition is retired, **change its
+  args/env/timeout in BOTH `values.yaml` and Terraform**. `chart/tests/render.sh`
+  only pins schedules.
+- **Cloud Run env is emulated.** `CLOUD_RUN_EXECUTION` = the Job name
+  (short-data-sync resume key, price-sync report key). `CLOUD_RUN_TASK_ATTEMPT` =
+  the Indexed Job's per-index failure count, so the Jobs must stay
+  `completionMode: Indexed` + `backoffLimitPerIndex`.
+- **Paprika tracks the `deploy/vke-jobs` branch, not main.** The deploy's `bump-vke-jobs-image` job moves it only after Terraform applies, so a cutover's CronJob can never go live before its Cloud Scheduler trigger is paused. When the Application tracked main, a failed image push on 2026-09-30 left six jobs live on both schedulers for about an hour.
+- **Jobs still on Cloud Run are tracked too.** `cronjob-reporter` lists their executions through a keyless `vke-cronjob-reporter` identity (job-level `run.viewer`, `local.vke_reporter_watched_jobs`) and reports each run to the same Telesis monitor. An execution matches its monitor only by exact args and env, so keep chart `args` equal to the Cloud Run job's.
+- **An ERROR log with exit 0 no longer pages** (the GCP log-metric policy did).
+  Exit non-zero (`runner.ExitCodeError`) if a path should alert.
+- Telesis **project tokens cannot register cron monitors** (user-role check).
+  `register-monitors.py` needs `telesis login`. A read-role project token CAN
+  read them (skunkworq/uptime project-token read access), which is how the
+  admin job monitor shows cut-over jobs: a PAUSED Cloud Scheduler trigger whose
+  name is a monitor's name (or its name plus `-schedule`) becomes state
+  `CLUSTER` and takes its runs from Telesis (`jobmonitor/cluster.go`). Without
+  `TELESIS_API_TOKEN` those jobs read as paused and overdue. Keep CronJob names
+  matching their old trigger names, or the overlay cannot find them.
+- **Key metrics are a scheduled job here.** `shorted-key-metrics` (VKE-native, daily
+  19:40 UTC) refreshes `"company-metadata".key_metrics` from Yahoo quoteSummary; its
+  contract, breakers and dry-run default are in `services/jobs/README.md` "key-metrics".
+  The shorts API's `SyncKeyMetrics` RPC is retired (FailedPrecondition, no writes).
+

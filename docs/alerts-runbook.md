@@ -319,3 +319,52 @@ rest `pending` and exits 10. Both resume on the next run.
 - The job's `INTERNAL_SERVICE_SECRET` is an admin-grade credential, not a database one. It
   passes the admin middleware on `/api/admin/*`, including the broadcast send. Treat a leak of
   `shorted-jobs-env` as a leak of the newsletter sender and of the API's internal identity.
+
+## The rules, in full
+
+Moved here from `CLAUDE.md` on 2026-11-07 (it keeps the short form).
+
+Monitors a customer creates on `/alerts` are evaluated by `shorted alerts`, a VKE
+CronJob (`shorted-alerts`, hourly on weekdays at :55 UTC). It emails entitled owners
+through Resend, one email per event, each with a signed one-click pause link. Code:
+`services/jobs/internal/jobs/alerts/`. Shared contract: `services/pkg/alertevents`.
+Operator runbook (before-merge steps, prod smoke test, troubleshooting):
+`docs/alerts-runbook.md`.
+
+- **VKE-native, no Cloud Run twin.** The job is in `vkeNative:` in
+  `deploy/kubernetes/jobs/chart/values.yaml`. It has no `cloudRun:` mapping, and it is
+  exempt from the twin checks in `render.sh` and `vke-jobs-cutover.test.mjs`. A
+  second Cloud Run path would be a second way to send customer email.
+- **Dry run is the default.** `ALERTS_DRY_RUN` unset means dry. Only `false` writes.
+  The CronJob sets it.
+- **The newest ASIC sync must have completed.** The gate reads only the ASIC recorder's
+  `sync_status` rows (`environment` and `hostname` set); the market-data price sweep shares
+  the table and is ignored. A failed, partial or unfinished sync
+  can leave its last report part-written. Every unevaluated date is held (exit 10)
+  until a completed sync lands. A running sync under two hours old makes the run wait
+  (exit 0).
+- **Token domain separation.** Alert tokens are `alert-monitor:<id>` signed with
+  `UNSUBSCRIBE_SECRET`, so a newsletter link fails on the alert endpoint and an alert
+  link fails on the newsletter endpoint. Tokens never expire (the Spam Act needs at least
+  30 days). Rotating the secret breaks every link until two things are done: re-run
+  `sync-secrets.sh` (the job keeps its own copy), and roll a new shorts API revision
+  (Cloud Run resolves `latest` only when a revision starts).
+- **Entitlement is the API's rule, pinned.** The job treats `ACTIVE` and `TRIALING` as
+  entitled. `subscriptions_entitlement_contract_test.go` fails if the API's
+  `ResolveEntitlement` disagrees. A customer who is not entitled gets
+  `skipped_unentitled`, never an email.
+- **`SHORTS_API_URL` is the Cloud Run origin**, not `api.shorted.com.au`. A per-user
+  lookup through Cloudflare lands in the anonymous 10/10s bucket.
+- **One owner's failed lookup holds only that owner.** An API-wide failure stops the
+  run before commit. An owner's own failure leaves their events `awaiting_entitlement`,
+  re-checked each run and expired after 48h.
+- **Only a verified address is emailed, enforced in the API.** `Claims.EmailVerified` is set
+  by the interceptor only: from Firebase's `email_verified` claim, or from the web's explicit
+  `x-user-email-verified: true` on the alerts transport. Other web callers send `x-user-email`
+  for their own reasons, so the address alone proves nothing. A bespoke API token is never
+  verified. An unverified address is stored as NULL. The alerts list refreshes stored addresses
+  to the verified one on each visit.
+- **Active monitors are capped at 50 per user** (`shortsstore.MaxActiveAlertMonitors`). The cap
+  is checked in the insert and the resume statement. Paused monitors do not count, and pausing
+  is never refused.
+
