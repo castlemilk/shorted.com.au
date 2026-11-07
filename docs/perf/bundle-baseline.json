@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-11-07T00:43:40.621Z",
+  "capturedAt": "2026-11-07T01:39:46.076Z",
   "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 112,
@@ -650,7 +650,7 @@
       "firstLoadKB": 112
     },
     "/roadmap": {
-      "firstLoadKB": 126
+      "firstLoadKB": 127
     },
     "/robots.txt": {
       "firstLoadKB": 112
@@ -758,7 +758,7 @@
       "firstLoadKB": 134
     },
     "/strategies/[strategy]/backtest": {
-      "firstLoadKB": 129
+      "firstLoadKB": 128
     },
     "/strategies/[strategy]/opengraph-image": {
       "firstLoadKB": 112
