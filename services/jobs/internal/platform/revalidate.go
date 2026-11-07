@@ -1,7 +1,9 @@
 package platform
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -28,6 +30,10 @@ type RevalidateRequest struct {
 	// that bust by tag rather than by path (weekly-report) set this instead of
 	// Paths; the endpoint accepts either.
 	Tag string
+	// Body, when set, is sent as the JSON request body. short-data-sync sends
+	// its change set here ({"shorts": {"codes": [...], "dates": [...]}}): a
+	// list of ~800 codes does not belong in a query string.
+	Body any
 }
 
 // PingRevalidate tells the web tier to bust its long-TTL caches the instant a
@@ -64,10 +70,20 @@ func PingRevalidate(req RevalidateRequest) {
 	}
 	reqURL := endpoint + "?" + q.Encode()
 
+	var body io.Reader
+	if req.Body != nil {
+		encoded, err := json.Marshal(req.Body)
+		if err != nil {
+			log.Printf("[revalidate:%s] WARNING: encode body failed: %v", req.Reason, err)
+			return
+		}
+		body = bytes.NewReader(encoded)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, body)
 	if err != nil {
 		log.Printf("[revalidate:%s] WARNING: build request failed: %v", req.Reason, redactURLError(err))
 		return

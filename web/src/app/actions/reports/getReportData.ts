@@ -8,6 +8,7 @@ import { unstable_cache } from "next/cache";
 import { SHORTS_API_URL, serverFetchOutsideNextCache } from "../config";
 import { withRetry, withRetryAndNotFound, type RetryOptions } from "../withRetry";
 import { withSpan } from "~/@/lib/tracing";
+import { SHORTS_DATA_CACHE_TAG } from "../stockPageCache";
 
 // Shared transport instance — reused across all functions to avoid redundant HTTP/2 connection setup
 function getTransport() {
@@ -135,7 +136,7 @@ function getCachedWeeklyReport(weekSlug: string): Promise<WeeklyReportData> {
   return unstable_cache(
     () => fetchWeeklyReport(weekSlug),
     [`weekly-report-${weekSlug}`, "v2"],
-    { tags: [`report-${weekSlug}`, "shorts-data"], revalidate: 86400 },
+    { tags: [`report-${weekSlug}`, SHORTS_DATA_CACHE_TAG], revalidate: 86400 },
   )();
 }
 
@@ -197,7 +198,7 @@ function getCachedMonthlyReport(monthSlug: string): Promise<MonthlyReportData> {
   return unstable_cache(
     () => fetchMonthlyReport(monthSlug),
     [`monthly-report-${monthSlug}`, "v2"],
-    { tags: [`report-${monthSlug}`, "shorts-data"], revalidate: 86400 },
+    { tags: [`report-${monthSlug}`, SHORTS_DATA_CACHE_TAG], revalidate: 86400 },
   )();
 }
 

@@ -6,6 +6,7 @@ import {
   skipForBuild,
 } from "../config";
 import { sharedRead } from "../shared-read";
+import { shortsLatestCacheTags } from "../stockPageCache";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS } from "~/@/lib/kv-cache";
 import { industryLabel } from "~/@/lib/industry-placeholder";
@@ -16,7 +17,13 @@ const VIEW_MODE_CURRENT_CHANGE = 0;
 
 // Both treemap reads below were `next: { revalidate: 1800 }` POSTs. The window
 // now lives in one shared entry (shared-read.ts), which holds only good answers.
-const TREEMAP_REVALIDATE_SECONDS = 1800;
+//
+// The entry is tagged shorts-latest, so every sync that writes refreshes it at
+// once; the window is only the backstop. It was 1800 and untagged: /industry
+// lagged a sync by up to 30 minutes, and because the stock page's Overview and
+// Company tabs read it (related stocks) and a route takes the shortest window
+// it reads, those two tabs regenerated every 30 minutes rather than hourly.
+const TREEMAP_REVALIDATE_SECONDS = 3600;
 
 // API response types for industry treemap
 interface TreeMapStock {
@@ -96,6 +103,7 @@ function treeMapFor(period: "max" | "3m"): Promise<TreeMapResponse> {
       }
       return response;
     },
+    shortsLatestCacheTags(),
   );
 }
 

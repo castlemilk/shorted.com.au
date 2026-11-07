@@ -11,6 +11,7 @@ import { withRetryAndNotFound } from "./withRetry";
 import {
   STOCK_PAGE_CACHE_SECONDS,
   normalizeStockPageCacheCode,
+  stockCodeCacheTag,
   stockPageCacheTags,
   toNextDataCacheValue,
 } from "./stockPageCache";
@@ -22,6 +23,7 @@ async function fetchStockData(
   const edgeResponse = await fetchEdgeReadJson<TimeSeriesData>(
     `/edge/v1/stock/${encodeURIComponent(productCode)}/data`,
     { period },
+    [stockCodeCacheTag(productCode)],
   );
   if (edgeResponse) return edgeResponse;
 

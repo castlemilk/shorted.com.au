@@ -89,6 +89,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -432,7 +433,14 @@ func runSync(ctx context.Context, cfg config, store *pgStore, client *http.Clien
 		return fail(err)
 	}
 
-	recordCount, err := syncShorts(ctx, cfg, store, client, now, nil)
+	// What this run writes, for the revalidation ping. An initial load writes
+	// every stock on every date in its window: nothing narrow to name.
+	changes := &changeSet{}
+	if !haveData {
+		changes.markBroad()
+	}
+
+	recordCount, err := syncShorts(ctx, cfg, store, client, now, nil, changes)
 	if err != nil {
 		return fail(err)
 	}
@@ -446,17 +454,19 @@ func runSync(ctx context.Context, cfg config, store *pgStore, client *http.Clien
 			return fail(err)
 		}
 		recordCount += rep.RowsWritten
+		changes.merge(rep.changed)
 	}
 
-	finishRun(ctx, cfg, store, client, rec, recordCount)
+	finishRun(ctx, cfg, store, client, rec, recordCount, changes)
 	return nil
 }
 
 // finishRun is every write run's tail, shared by runSync and runPoll: the
 // health report, then (live runs only) the MV refresh, the revalidation ping
 // when rows changed, the optional Algolia trigger and the sync_status
-// completion. Nothing in it can fail the run.
-func finishRun(ctx context.Context, cfg config, store *pgStore, client *http.Client, rec *recorder, recordCount int) {
+// completion. Nothing in it can fail the run. changes is what the run wrote,
+// which the ping names so the web tier expires only those stocks and dates.
+func finishRun(ctx context.Context, cfg config, store *pgStore, client *http.Client, rec *recorder, recordCount int, changes *changeSet) {
 	logHealth(ctx, store)
 
 	if cfg.dryRun {
@@ -470,7 +480,13 @@ func finishRun(ctx context.Context, cfg config, store *pgStore, client *http.Cli
 	// Event-driven ISR bust, only when data actually changed. Best-effort by
 	// construction (platform.PingRevalidate never returns an error).
 	if recordCount > 0 {
-		platform.PingRevalidate(revalidateRequest())
+		req := revalidateRequest(changes)
+		if codes, dates, reason := changes.narrow(); reason == "" {
+			log.Printf("🔄 Revalidating %d stock(s) over %d date(s): %s", len(codes), len(dates), strings.Join(dates, ", "))
+		} else {
+			log.Printf("🔄 Revalidating every stock page (broad): %s", reason)
+		}
+		platform.PingRevalidate(req)
 	} else {
 		log.Printf("No new shorts records; skipping cache revalidation.")
 	}
@@ -556,7 +572,8 @@ func runPoll(ctx context.Context, cfg config, store *pgStore, client *http.Clien
 	if err != nil {
 		return err
 	}
-	recordCount, err := processFiles(ctx, cfg, store, client, files, cutoffDate, nil, modePoll)
+	changes := &changeSet{}
+	recordCount, err := processFiles(ctx, cfg, store, client, files, cutoffDate, nil, modePoll, changes)
 	if err != nil {
 		if rec != nil {
 			rec.Fail(ctx, truncateBytes([]byte(err.Error()), 1000))
@@ -566,7 +583,7 @@ func runPoll(ctx context.Context, cfg config, store *pgStore, client *http.Clien
 	log.Printf("✅ Shorts update complete: %d total records updated", recordCount)
 	log.Printf("⏭️  Poll: skipping the reconcile pass; the daily run owns it")
 
-	finishRun(ctx, cfg, store, client, rec, recordCount)
+	finishRun(ctx, cfg, store, client, rec, recordCount, changes)
 	return nil
 }
 
@@ -577,7 +594,7 @@ func runShadow(ctx context.Context, cfg config, store *pgStore, client *http.Cli
 	if len(cfg.stocks) > 0 {
 		sum.stockFilter = codeSet(cfg.stocks)
 	}
-	if _, err := syncShorts(ctx, cfg, store, client, now, &sum); err != nil {
+	if _, err := syncShorts(ctx, cfg, store, client, now, &sum, nil); err != nil {
 		return sum, err
 	}
 	if len(cfg.stocks) > 0 {
@@ -648,7 +665,7 @@ func syncFileWindow(days int, today, lastDate time.Time, haveData bool) (cutoffD
 // that: its window is the last N published ASIC dates, independent of what is
 // ingested. See validationScan for why. Everything below this fork — the sync,
 // the dry run and the plain `-shadow` parity run — is untouched.
-func syncShorts(ctx context.Context, cfg config, store *pgStore, client *http.Client, now time.Time, sum *shadowSummary) (int, error) {
+func syncShorts(ctx context.Context, cfg config, store *pgStore, client *http.Client, now time.Time, sum *shadowSummary, changes *changeSet) (int, error) {
 	today := truncateDay(now)
 
 	lastDate, haveData, err := store.LastShortsDate(ctx)
@@ -702,7 +719,7 @@ func syncShorts(ctx context.Context, cfg config, store *pgStore, client *http.Cl
 		log.Printf("⚠️  No shorts data files to process")
 		return 0, nil
 	}
-	return processFiles(ctx, cfg, store, client, files, cutoffDate, sum, modeDaily)
+	return processFiles(ctx, cfg, store, client, files, cutoffDate, sum, modeDaily, changes)
 }
 
 // validationScan is the `-stocks` window, and the ONE place the pipeline
@@ -795,7 +812,7 @@ func validationScan(
 	log.Printf("🔎 VALIDATION: %d file(s) over the last %d published ASIC date(s), %s → %s",
 		len(files), cfg.validateDays, win.From, win.To)
 
-	return processFiles(ctx, cfg, store, client, files, first, sum, modeDaily)
+	return processFiles(ctx, cfg, store, client, files, first, sum, modeDaily, nil)
 }
 
 // setValidationCutoff records the window's lower bound in both the emitted
@@ -809,7 +826,8 @@ func setValidationCutoff(sum *shadowSummary, from time.Time) {
 // processFiles downloads, parses and (on a write run) upserts the selected
 // files. `cutoffDate` bounds the shadow run's existing-key read. `mode` is the
 // run's name for each file (daily or poll), recorded in asic_report_ingests once
-// the file's rows are written.
+// the file's rows are written. Every file that wrote rows is added to
+// `changes` (nil records nothing).
 func processFiles(
 	ctx context.Context,
 	cfg config,
@@ -819,6 +837,7 @@ func processFiles(
 	cutoffDate time.Time,
 	sum *shadowSummary,
 	mode string,
+	changes *changeSet,
 ) (int, error) {
 	var err error
 	var existing map[string]struct{}
@@ -903,13 +922,21 @@ func processFiles(
 
 		written, err := store.UpsertRows(ctx, rows)
 		total += written
+		// The file's date is the one parseFile already derived from its name, so this
+		// cannot fail for a file that parsed.
+		obsDate, dateErr := dateFromFileName(name)
+		if written > 0 {
+			if dateErr == nil {
+				changes.add(obsDate, rows)
+			} else {
+				changes.markBroad()
+			}
+		}
 		if err != nil {
 			return total, err
 		}
 		log.Printf("  ✅ Inserted/Updated %d records", written)
-		// The file's date is the one parseFile already derived from its name, so this
-		// cannot fail for a file that parsed.
-		if obsDate, err := dateFromFileName(name); err == nil {
+		if dateErr == nil {
 			recordIngest(ctx, store, name, obsDate, rows, mode, cfg.dryRun)
 		}
 	}
@@ -931,20 +958,54 @@ func sortShadowDates(dates []shadowDate) {
 	}
 }
 
-// revalidateRequest is the cache-bust contract, byte-identical to the Python's
-// trigger_frontend_revalidation(): the same tag list, the same path list and
-// flush=shorts, sent with the X-Revalidate-Secret header (never a query
-// parameter). Changing any of these silently strands an ISR surface on stale
-// data for up to 24h.
-func revalidateRequest() platform.RevalidateRequest {
+// syncPaths are the newest-snapshot pages a sync expires by path. Their data
+// reads carry the shorts-latest tag, which a narrow ping also expires.
+var syncPaths = []string{"/", "/top", "/news", "/screener", "/industry", "/statistics", "/scans"}
+
+// shortsChangeBody is the narrow ping's JSON body; the web route reads it in
+// web/src/app/api/revalidate/shorts-change.ts.
+type shortsChangeBody struct {
+	Shorts shortsChange `json:"shorts"`
+}
+
+type shortsChange struct {
+	Codes []string `json:"codes"`
+	Dates []string `json:"dates"`
+}
+
+// revalidateRequest is the cache-bust contract, sent with the
+// X-Revalidate-Secret header (never a query parameter).
+//
+// NARROW, when the run can name what it wrote: tag=scan-results, the
+// newest-snapshot paths, flush=shorts, and the change set as the body. The web
+// route expires each written stock (stock:<CODE>), the newest-snapshot reads
+// (shorts-latest) and each written date's market page and reports, and leaves
+// every other stock's cached pages alone.
+//
+// BROAD otherwise (an initial load, a set past the ceilings): byte-identical to
+// the Python's trigger_frontend_revalidation(), the same tag list, the same
+// path list and flush=shorts. It expires every stock page, market date and
+// report. Dropping a path or the flush from either contract silently strands an
+// ISR surface on stale data for up to 24h.
+func revalidateRequest(changes *changeSet) platform.RevalidateRequest {
+	codes, dates, reason := changes.narrow()
+	if reason != "" {
+		return platform.RevalidateRequest{
+			Reason: "short-data-sync",
+			Tag:    "shorts-data,scan-results",
+			Paths: []string{
+				"/", "/top", "/news", "/screener", "/industry",
+				"/shorts/[stockCode]", "/statistics", "/scans",
+			},
+			Flush: "shorts",
+		}
+	}
 	return platform.RevalidateRequest{
 		Reason: "short-data-sync",
-		Tag:    "shorts-data,scan-results",
-		Paths: []string{
-			"/", "/top", "/news", "/screener", "/industry",
-			"/shorts/[stockCode]", "/statistics", "/scans",
-		},
-		Flush: "shorts",
+		Tag:    "scan-results",
+		Paths:  slices.Clone(syncPaths),
+		Flush:  "shorts",
+		Body:   shortsChangeBody{Shorts: shortsChange{Codes: codes, Dates: dates}},
 	}
 }
 

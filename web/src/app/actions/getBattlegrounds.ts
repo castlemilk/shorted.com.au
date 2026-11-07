@@ -5,6 +5,7 @@ import { type GetBattlegroundStocksResponse, type BattlegroundView } from "~/gen
 import { cache } from "react";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { withRetryAndNotFound } from "./withRetry";
+import { shortsLatestCacheTags } from "./stockPageCache";
 
 // ISR-tagged transport (getEconomy's isrEconomyFetch pattern). The `next`
 // option is LOAD-BEARING: without it serverFetchWithUserAgent forces
@@ -21,7 +22,7 @@ import { withRetryAndNotFound } from "./withRetry";
 const isrBattlegroundsFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, {
     ...init,
-    next: { revalidate: 3600, tags: ["shorts-data", "battlegrounds"] },
+    next: { revalidate: 3600, tags: shortsLatestCacheTags("battlegrounds") },
   } as RequestInit);
 
 export const getBattlegrounds = cache(

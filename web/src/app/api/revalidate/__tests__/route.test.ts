@@ -40,7 +40,7 @@ describe("POST /api/revalidate", () => {
     else process.env.REVALIDATION_SECRET = originalSecret;
   });
 
-  function request(url: string, headerSecret?: string): NextRequest {
+  function request(url: string, headerSecret?: string, body?: string): NextRequest {
     const parsed = new URL(url);
     return {
       nextUrl: { searchParams: parsed.searchParams },
@@ -49,7 +49,8 @@ describe("POST /api/revalidate", () => {
           ? undefined
           : { "X-Revalidate-Secret": headerSecret },
       ),
-    } as NextRequest;
+      text: () => Promise.resolve(body ?? ""),
+    } as unknown as NextRequest;
   }
 
   it("invalidates shared quotes without scanning the Redis keyspace", async () => {
@@ -202,4 +203,88 @@ describe("POST /api/revalidate", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/market/[date]", "page");
   });
 
+  describe("a shorts sync that names what it wrote", () => {
+    const SYNC =
+      "http://localhost/api/revalidate?tag=scan-results&path=/,/top,/news,/screener,/industry,/statistics,/scans&flush=shorts";
+    const change = (codes: string[], dates: string[]) => JSON.stringify({ shorts: { codes, dates } });
+    const tagsCalled = () => revalidateTagMock.mock.calls.map(([tag]) => tag as string);
+    const pathsCalled = () => revalidatePathMock.mock.calls.map((args) => args as [string, string?]);
+
+    it("expires only the written stocks, dates and report periods", async () => {
+      const res = await POST(
+        request(SYNC, "test-revalidation-secret", change(["BHP", "cba"], ["2026-11-03"])),
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(tagsCalled()).toEqual(
+        expect.arrayContaining([
+          "scan-results",
+          "shorts-latest",
+          "market-index",
+          "market-date:2026-11-03",
+          "report-2026-W45",
+          "report-2026-11",
+          "report-2026",
+          "stock:BHP",
+          "stock:CBA",
+        ]),
+      );
+      expect(tagsCalled()).not.toContain("shorts-data");
+      expect(tagsCalled()).not.toContain("reports-index");
+      expect(pathsCalled()).toEqual(
+        expect.arrayContaining([
+          ["/top"],
+          ["/market"],
+          ["/market/2026-11-03"],
+          ["/reports/weekly/10-most-shorted-asx-stocks-week-45-2026"],
+          ["/reports/monthly/2026-11"],
+          ["/reports/yearly/2026"],
+        ]),
+      );
+      // No pattern: not every stock page, market date or report.
+      expect(pathsCalled().filter(([p]) => p.includes("["))).toEqual([]);
+      // The KV family is still flushed.
+      expect(deleteCachedByPrefixMock).toHaveBeenCalledWith("cache:shorts:");
+      expect(body.shorts).toEqual({ scope: "narrow", stocks: 2, dates: ["2026-11-03"] });
+      // Per-stock tags are counted in the body, not listed.
+      expect(body.tags).not.toContain("stock:BHP");
+    });
+
+    it("goes broad when the caller also asks for the broad tag", async () => {
+      await POST(
+        request(
+          "http://localhost/api/revalidate?tag=shorts-data",
+          "test-revalidation-secret",
+          change(["BHP"], ["2026-11-03"]),
+        ),
+      );
+      expect(tagsCalled()).toContain("shorts-data");
+      expect(tagsCalled()).not.toContain("stock:BHP");
+      expect(revalidatePathMock).toHaveBeenCalledWith("/market/[date]", "page");
+    });
+
+    it("goes broad, and says why, when the change set cannot be trusted", async () => {
+      const res = await POST(
+        request(SYNC, "test-revalidation-secret", change(["BHP"], ["2026-02-30"])),
+      );
+      expect(tagsCalled()).toContain("shorts-data");
+      expect(revalidatePathMock).toHaveBeenCalledWith("/reports/weekly/[slug]", "page");
+      expect((await res.json()).shorts).toEqual({ scope: "broad", reason: "a date is not YYYY-MM-DD" });
+    });
+
+    it("goes broad on flush=shorts with a body that does not parse", async () => {
+      await POST(request(SYNC, "test-revalidation-secret", "{not json"));
+      expect(tagsCalled()).toContain("shorts-data");
+    });
+
+    it("ignores a body that names no change set on a request that is not a shorts event", async () => {
+      const res = await POST(
+        request("http://localhost/api/revalidate?path=/housing", "test-revalidation-secret", "{not json"),
+      );
+      expect(tagsCalled()).toEqual([]);
+      expect(pathsCalled()).toEqual([["/housing"]]);
+      expect((await res.json()).shorts).toBeNull();
+    });
+  });
 });

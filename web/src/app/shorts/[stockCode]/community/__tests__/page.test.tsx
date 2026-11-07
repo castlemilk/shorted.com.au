@@ -33,7 +33,7 @@ describe("/shorts/[stockCode]/community", () => {
   });
 
   it("is ISR, renders the tab, and is never indexed", async () => {
-    expect(revalidate).toBe(3600);
+    expect(revalidate).toBe(86400);
     expect(dynamicParams).toBe(true);
     expect(generateStaticParams()).toEqual([]);
     render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));

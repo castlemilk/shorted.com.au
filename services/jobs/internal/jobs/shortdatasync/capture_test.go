@@ -271,7 +271,7 @@ func TestLoadRecordsItsIngestInTheModeItRanIn(t *testing.T) {
 	for _, mode := range []string{modeDaily, modePoll} {
 		db := loadedDB([]string{"BHP", "CBA"})
 		n, err := processFiles(context.Background(), config{}, &pgStore{db: db}, csvClient(asicCSV("BHP", "CBA")),
-			files(20260203), time.Time{}, nil, mode)
+			files(20260203), time.Time{}, nil, mode, nil)
 		if err != nil {
 			t.Fatalf("%s: processFiles: %v", mode, err)
 		}
@@ -289,7 +289,7 @@ func TestLoadRecordsItsIngestInTheModeItRanIn(t *testing.T) {
 func TestDryRunLoadWritesNoIngest(t *testing.T) {
 	db := loadedDB([]string{"BHP", "CBA"})
 	if _, err := processFiles(context.Background(), config{dryRun: true}, &pgStore{db: db}, csvClient(asicCSV("BHP", "CBA")),
-		files(20260203), time.Time{}, nil, modeDaily); err != nil {
+		files(20260203), time.Time{}, nil, modeDaily, nil); err != nil {
 		t.Fatalf("processFiles: %v", err)
 	}
 	if len(db.calls) != 0 {
@@ -302,7 +302,7 @@ func TestDryRunLoadWritesNoIngest(t *testing.T) {
 func TestFailedIngestDoesNotFailTheLoad(t *testing.T) {
 	db := &fakeDB{rowScan: func(string, []any, []any) error { return errors.New("relation asic_report_ingests does not exist") }}
 	n, err := processFiles(context.Background(), config{}, &pgStore{db: db}, csvClient(asicCSV("BHP", "CBA")),
-		files(20260203), time.Time{}, nil, modeDaily)
+		files(20260203), time.Time{}, nil, modeDaily, nil)
 	if err != nil {
 		t.Fatalf("an ingest error must not fail the load: %v", err)
 	}

@@ -133,6 +133,18 @@ deployed script the same day this port was written: the `SET statement_timeout =
 `trigger_frontend_revalidation` (fires only when `record_count > 0`, never fails
 the run, same tag/path/flush values).
 
+**The ping is now narrow** (2026-11). The run records every report date it wrote
+rows for and every code on those rows, in both the forward window and the
+reconcile pass (`changes.go`), and sends them as the request body
+(`{"shorts": {"codes": [...], "dates": [...]}}`) with `tag=scan-results`, the
+newest-snapshot paths and `flush=shorts`. The web route expires those stocks,
+dates and report periods only; see `docs/caching-architecture.md`. An initial
+load, a file whose date does not parse, or a set past 2,000 codes or 45 dates
+sends the Python's broad request unchanged (`tag=shorts-data,scan-results`,
+`/shorts/[stockCode]` among the paths), which expires every stock page. The run
+log says which it sent: `Revalidating N stock(s) over M date(s)` or
+`Revalidating every stock page (broad): <reason>`.
+
 ## Reconcile — keeping the table converged on ASIC's archive
 
 The forward window is `MAX("DATE") + 1 day → today`. Once ANY row of a date
