@@ -22,10 +22,10 @@ module guarantees about a row it writes:
     verbatim from services/pkg/extractiontrust (FewShotExample, mirrored in its
     testdata/fewshot_example.json). No real filing's own period can be H1
     FY2031, so an echo of the example can never pass as a real result.
-  - Thinking off and tokens counted: every Gemini call (langextract's per-prompt
-    calls through BudgetedGemini, and the digest call) sets
-    thinking_config=ThinkingConfig(thinking_budget=0) and adds its
-    usage_metadata to a TokenUsage.
+  - Thinking configured and tokens counted: direct Gemini 2.5 uses budget zero;
+    explicit 3.5 Flash-Lite uses MINIMAL (not a zero-token guarantee). Every
+    extraction/digest response adds usage_metadata to a TokenUsage. Defaults
+    and the separate OpenRouter backend are unchanged.
   - document_meta from deterministic regexes over the raw text (currency,
     units, entity, ABN, period end and type, report kind), written when the
     column exists.
@@ -1159,7 +1159,7 @@ def extract_financial_data(
 ) -> list[dict]:
     """Grounded financial extractions from report text via langextract.
 
-    The model is a BudgetedGemini (thinking off, tokens summed into `usage`)
+    The model is a BudgetedGemini (model-aware thinking, tokens summed into `usage`)
     unless a pre-built `model` is passed (tests). Unaligned, echoed or
     value-mismatched extractions are dropped before they are returned, so []
     means the model answered and nothing was grounded.
@@ -1247,9 +1247,14 @@ note or administrative document), set confidence below 0.3 and concisely summari
 Output STRICT JSON: {"digest": "...", "confidence": 0.0-1.0, "key_takeaways": ["...", "..."]}"""
 
 
-def digest_config(genai_types: Any) -> Any:
-    """The digest call's GenerateContentConfig: thinking off, like the
-    extraction calls."""
+def digest_config(genai_types: Any, model_id: str = DIGEST_MODEL) -> Any:
+    """The digest call's model-aware generation config, like extraction."""
+    from budgeted_gemini import thinking_config, uses_thinking_levels
+
+    if uses_thinking_levels(model_id):
+        return genai_types.GenerateContentConfig(
+            system_instruction=DIGEST_PROMPT, thinking_config=thinking_config(model_id)
+        )
     return genai_types.GenerateContentConfig(
         system_instruction=DIGEST_PROMPT,
         temperature=0.2,
@@ -1268,7 +1273,7 @@ def summarize_report(
 
     The metrics the prompt sees pass the trust funnel first: entries that are
     not grounded (unaligned, or a few-shot echo stored by an older run) are
-    dropped and the provenance keys are stripped. Thinking is off and the
+    dropped and the provenance keys are stripped. Thinking is model-aware and the
     response's usage_metadata is added to `usage`.
 
     Returns a dict with keys: digest (str), confidence (float), key_takeaways (list[str]).
@@ -1310,7 +1315,7 @@ def summarize_report(
         response = client.models.generate_content(
             model=model_id,
             contents=user_content,
-            config=digest_config(genai_types),
+            config=digest_config(genai_types, model_id),
         )
     except Exception as e:  # noqa: BLE001 - any API failure is a model error
         raise ModelError(f"digest call failed: {e}") from e
@@ -1437,12 +1442,17 @@ def store_extraction(
     document_meta: Optional[dict] = None,
     write_document_meta: bool = False,
     count_attempt: bool = False,
+    digest_model: Optional[str] = None,
 ):
     """Store extraction results in the database (one statement, committed).
 
     document_meta is written only when write_document_meta is True (the
     column exists; see document_meta_column_exists) and a meta dict was
     computed. On conflict the fresh computation replaces the stored one.
+
+    digest_model is the exact model ID selected for the digest request, not
+    the extraction model or a guessed default. Unknown provenance stays NULL;
+    a missing digest always has NULL model provenance.
 
     count_attempt: one more extraction attempt at this document (migration
     000136; pass True only when extraction_attempts_column_exists). The digest
@@ -1475,7 +1485,7 @@ def store_extraction(
         # Only persist confidence alongside an actual digest; a 0.0 from a failed
         # digest call must stay NULL so it isn't confused with a genuine low-confidence one.
         dr.get("confidence") if (dr.get("digest") and dr.get("confidence") is not None) else None,
-        DIGEST_MODEL if dr.get("digest") else None,
+        digest_model if dr.get("digest") else None,
         raw_text_gcs_url,
     ]
     updates = [
@@ -1800,6 +1810,7 @@ def main():
         store_extraction(
             conn, doc, metrics, len(text), args.dry_run,
             digest_result=digest, raw_text_gcs_url=raw_text_gcs_url,
+            digest_model=args.model,
             document_meta=meta, write_document_meta=write_meta,
             count_attempt=count_attempts,
         )

@@ -903,11 +903,17 @@ when the stock is in the pick list, else `strategies.EvaluateOne(st, cand, env)`
   for numeric classes also require the value's digits inside the aligned span.
   Store per metric entry the STRING attributes `alignment`
   (`alignment_status.value`), `char_start`, `char_end`.
-- **Thinking and tokens**: pass `lx.extract(model=BudgetedGemini(...))`, a
-  subclass that adds `thinking_config=ThinkingConfig(thinking_budget=0)` to the
-  per-prompt call and sums `usage_metadata` (prompt, candidates, thoughts) into
-  a run total logged at exit; the digest call sets the same config. A
-  stub-model test asserts the config reaches `generate_content`.
+- **Thinking and tokens**: pass `lx.extract(model=BudgetedGemini(...))`. Direct
+  Gemini 2.5 keeps `thinking_budget=0`; an explicit `gemini-3.5-flash-lite`
+  target uses `thinking_level=MINIMAL` and omits sampling/candidate settings.
+  Minimal does not guarantee zero reasoning tokens. Per-prompt calls and the
+  digest use the same policy and sum `usage_metadata` (prompt, candidates,
+  thoughts) into a run total logged at exit. Stub-model and real-SDK offline
+  transport tests assert configuration, schema, grounding and usage. Default
+  model IDs, deployment routing and the separate OpenRouter backend are not
+  changed by this compatibility support. A rollout must explicitly select
+  the target after runtime verification; unchanged 2.5 callers are not fixed
+  for the December redirect merely by adding this code.
 - **Synthetic few-shot**: the example becomes an obviously fictional document
   ("Quokka Minerals Limited", period "H1 FY2031", values that cannot collide
   with a real filing's own period), identical in Go (`reportextract`) and in
