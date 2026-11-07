@@ -172,6 +172,12 @@ describe("the backtest mapper: run, evidence and data quality", () => {
     expect(run.coverageByYear[0]?.coveragePct).toBe(64);
   });
 
+  it("reads int64 counts that protobuf-es decodes to bigint, as numbers", () => {
+    const year = mapCoverageYear({ year: 2019, measurable: true, qualifyingNameDays: BigInt(500), pricedNameDays: BigInt(320) });
+    expect(year.qualifyingNameDays).toBe(500);
+    expect(year.pricedNameDays).toBe(320);
+  });
+
   it("maps the evidence list with the live version, the paper track and the mini curve", () => {
     const list = mapStrategyEvidenceList({
       strategies: [fixtureEvidence()],

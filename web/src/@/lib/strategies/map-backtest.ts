@@ -653,6 +653,8 @@ export interface BacktestTradesPageView {
 
 /** A finite number, or null: NaN, Infinity, the strings "NaN" and absent values are all null. */
 function numOrNull(value: unknown): number | null {
+  // protobuf-es decodes int64 fields to bigint: a count of name-days is a number to the page.
+  if (typeof value === "bigint") return Number(value);
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value === "string" && value.trim() !== "") {
     const n = Number(value);

@@ -190,7 +190,12 @@ export function BacktestChart({
           <g key={`engine-${mark.firstSession}`} data-engine-mark={mark.engineVersion}>
             <line x1={mark.x} x2={mark.x} y1={GROWTH_TOP} y2={DD_BOTTOM} stroke="hsl(var(--foreground) / 0.6)" strokeWidth={1} />
             <path d={`M${mark.x - 4},${DD_BOTTOM} L${mark.x},${DD_BOTTOM - 6} L${mark.x + 4},${DD_BOTTOM} Z`} fill="hsl(var(--foreground) / 0.6)" />
-            <text x={mark.x + 4} y={GROWTH_TOP + 24} fill="hsl(var(--foreground) / 0.8)">
+            <text
+              x={mark.x > WIDTH - BOX.right - 130 ? mark.x - 4 : mark.x + 4}
+              y={GROWTH_TOP + 24}
+              textAnchor={mark.x > WIDTH - BOX.right - 130 ? "end" : "start"}
+              fill="hsl(var(--foreground) / 0.8)"
+            >
               {engineChangeLabel(mark.engineVersion, mark.firstSession)}
             </text>
           </g>

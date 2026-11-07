@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-11-07T00:20:45.778Z",
+  "capturedAt": "2026-11-07T00:43:40.621Z",
   "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 112,
@@ -650,7 +650,7 @@
       "firstLoadKB": 112
     },
     "/roadmap": {
-      "firstLoadKB": 127
+      "firstLoadKB": 126
     },
     "/robots.txt": {
       "firstLoadKB": 112
