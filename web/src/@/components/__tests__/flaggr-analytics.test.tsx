@@ -52,6 +52,12 @@ describe("Flaggr browser analytics", () => {
     expect(runBootstrap("shorted.com.au", "0", "Mozilla/5.0", true).scripts).toHaveLength(0);
   });
 
+  it("excludes GoogleOther crawler traffic without excluding Android Chrome", () => {
+    const androidChrome = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36";
+    expect(runBootstrap("shorted.com.au", "0", `${androidChrome} (compatible; GoogleOther)`).scripts).toHaveLength(0);
+    expect(runBootstrap("shorted.com.au", "0", androidChrome).scripts).toHaveLength(1);
+  });
+
   it("cannot prevent rendering when script insertion fails", () => {
     expect(() => runInNewContext(flaggrAnalyticsBootstrap, {
       window: { location: { hostname: "shorted.com.au" } },
