@@ -60,11 +60,23 @@ type paperVersion struct {
 	SupersededOn civil.Date // zero while live
 }
 
-// paperLogOnce remembers the log lines that must print once per process.
-var paperLogOnce sync.Map
+// once is the set of log lines a catch-up has printed. It is created per run, so
+// a line prints once per run (not once per process, which would make a test's
+// assertions depend on the order of the tests) and a test starts with none.
+type once struct {
+	mu   sync.Mutex
+	seen map[string]bool
+}
 
-func logOnce(key string, logf func(string, ...any), format string, args ...any) {
-	if _, loaded := paperLogOnce.LoadOrStore(key, true); !loaded {
+func newOnce() *once { return &once{seen: map[string]bool{}} }
+
+// logOnce prints a line the first time its key is seen in this run.
+func (o *once) logOnce(key string, logf func(string, ...any), format string, args ...any) {
+	o.mu.Lock()
+	first := !o.seen[key]
+	o.seen[key] = true
+	o.mu.Unlock()
+	if first {
 		logf(format, args...)
 	}
 }
@@ -73,7 +85,7 @@ func logOnce(key string, logf func(string, ...any), format string, args ...any) 
 // version the database records as live or superseded that has a registered
 // recipe. A version the registry no longer names, or that has no recipe, is
 // skipped with a log line.
-func paperVersions(ctx context.Context, st store, logf func(string, ...any)) ([]paperVersion, error) {
+func paperVersions(ctx context.Context, st store, logf func(string, ...any), o *once) ([]paperVersion, error) {
 	rows, err := st.pool.Query(ctx, `
 		SELECT rules_hash, status, live_from, superseded_on FROM strategy_rule_versions
 		 WHERE kind = 'canonical' AND status IN ('live','superseded') AND live_from IS NOT NULL
@@ -97,7 +109,10 @@ func paperVersions(ctx context.Context, st store, logf func(string, ...any)) ([]
 		}
 		reg, ok := spec.ByHash(hash)
 		if !ok || reg.Recipe == nil {
-			logOnce("paper-skip-"+hash, logf, "strategies: paper track: version %s has no registered recipe in this build; not recorded", hash[:12])
+			// The version is a database row this build does not register (a v0 row
+			// has no recipe). It is named once per run, at debug level: it is not a
+			// fault, and it would otherwise print for every version on every run.
+			o.logOnce("paper-skip-"+hash, logf, "strategies: paper track: version %s has no registered recipe in this build; not recorded (once per run)", hash[:12])
 			continue
 		}
 		rh, err := spec.RecipeHash(*reg.Recipe)
@@ -144,7 +159,14 @@ type paperSnapshot struct {
 
 // readPaperSnapshot reads one session's feature rows, the fundamentals blobs
 // they point at and the regime. ok is false when the session has no rows.
+// paperSnapshotReadHook counts the full-snapshot reads, for the wait's test. It is
+// nil outside tests.
+var paperSnapshotReadHook func()
+
 func readPaperSnapshot(ctx context.Context, pool *pgxpool.Pool, d civil.Date) (paperSnapshot, bool, error) {
+	if paperSnapshotReadHook != nil {
+		paperSnapshotReadHook()
+	}
 	rows, err := pgsource.ReadFeatureRows(ctx, pool, d, snapshotFeatureSet)
 	if err != nil {
 		return paperSnapshot{}, false, fmt.Errorf("read feature rows of %s: %w", d, err)
@@ -337,7 +359,8 @@ func paperCatchUp(ctx context.Context, pool *pgxpool.Pool, st store, d civil.Dat
 		logf("strategies: paper track idle: %s missing (migration 000159 not applied)", strings.Join(missing, ", "))
 		return nil
 	}
-	versions, err := paperVersions(ctx, st, logf)
+	o := newOnce()
+	versions, err := paperVersions(ctx, st, logf, o)
 	if err != nil {
 		return err
 	}
@@ -356,7 +379,7 @@ func paperCatchUp(ctx context.Context, pool *pgxpool.Pool, st store, d civil.Dat
 		return err
 	}
 	c := &paperRun{pool: pool, st: st, write: write, logf: logf, snaps: map[civil.Date]paperSnapped{},
-		bench: map[civil.Date]float64{}, caRecord: map[civil.Date]bool{}}
+		bench: map[civil.Date]float64{}, caRecord: map[civil.Date]bool{}, o: o}
 	var errs []error
 	for _, v := range versions {
 		if err := ctx.Err(); err != nil {
@@ -380,6 +403,7 @@ type paperRun struct {
 	snaps    map[civil.Date]paperSnapped
 	bench    map[civil.Date]float64
 	caRecord map[civil.Date]bool
+	o        *once
 }
 
 // caRecorded is whether a session's rows were written after the suspects were stored.
@@ -412,6 +436,18 @@ func (c *paperRun) snapshot(ctx context.Context, d civil.Date) (paperSnapshot, b
 	return snap, ok, nil
 }
 
+// evict drops the cached snapshots of sessions before d. A catch-up steps its
+// tracks oldest first, and a session's rows are needed only as the previous and
+// current session of the step, so the cache holds the sessions still to read and
+// no more: a whole history of snapshots is never decoded at once.
+func (c *paperRun) evict(before civil.Date) {
+	for d := range c.snaps {
+		if d.Before(before) {
+			delete(c.snaps, d)
+		}
+	}
+}
+
 // track steps one version's track through the sessions it still owes. A stopped
 // track is never stepped. A live track starts on its live_from and resumes from
 // its checkpoint. A superseded track steps the sessions before superseded_on and
@@ -428,7 +464,7 @@ func (c *paperRun) track(ctx context.Context, v paperVersion, sessions []civil.D
 	}
 	if found && !cp.StoppedOn.IsZero() {
 		if v.Status == "live" {
-			logOnce("paper-repromoted-"+v.Target.RulesHash, c.logf,
+			c.o.logOnce("paper-repromoted-"+v.Target.RulesHash, c.logf,
 				"strategies: paper track %s %s was stopped on %s when it was superseded; re-promotion does not resume it, so it records nothing",
 				reg.Spec.StrategyID, reg.Label, cp.StoppedOn)
 		}
@@ -444,12 +480,15 @@ func (c *paperRun) track(ctx context.Context, v paperVersion, sessions []civil.D
 		}
 		tr.asOf = cp.AsOf
 	}
-	bound := d
-	if v.Status == "superseded" {
-		bound = v.SupersededOn.AddDays(-1)
-	}
+	// A superseded track steps the sessions strictly before superseded_on. The bound
+	// is compared with the session itself, not with the calendar day before it: a
+	// superseded_on that follows a weekend has no session on the day before.
+	superseded := v.Status == "superseded"
 	for _, x := range sessions {
-		if x.After(bound) {
+		if x.After(d) {
+			break
+		}
+		if superseded && !x.Before(v.SupersededOn) {
 			break
 		}
 		if !tr.asOf.IsZero() && !x.After(tr.asOf) {
@@ -461,6 +500,10 @@ func (c *paperRun) track(ctx context.Context, v paperVersion, sessions []civil.D
 		if _, err := c.step(ctx, tr, x); err != nil {
 			return fmt.Errorf("session %s: %w", x, err)
 		}
+		// A track reads only its previous and current session: the sessions before
+		// x are not needed again by this track or any later one (tracks step oldest
+		// first from the same sessions).
+		c.evict(prevTradingDay(x))
 	}
 	// Accepted limitation: the stop is recorded only by a catch-up that sees the
 	// version superseded. A version superseded and re-promoted between two runs is
@@ -470,7 +513,7 @@ func (c *paperRun) track(ctx context.Context, v paperVersion, sessions []civil.D
 		if err := c.st.paperStop(ctx, v.Target.RulesHash, v.Target.RecipeHash, v.SupersededOn); err != nil {
 			return err
 		}
-		logOnce("paper-stopped-"+v.Target.RulesHash, c.logf,
+		c.o.logOnce("paper-stopped-"+v.Target.RulesHash, c.logf,
 			"strategies: paper track %s %s stopped at its supersession on %s", reg.Spec.StrategyID, reg.Label, v.SupersededOn)
 	}
 	return nil
@@ -490,25 +533,39 @@ type paperTrack struct {
 func (c *paperRun) step(ctx context.Context, tr *paperTrack, x civil.Date) (bool, error) {
 	reg := tr.v.Target.Reg
 	prev := prevTradingDay(x)
+	// The start rule, read before any snapshot is decoded: a track waits for the
+	// first session whose seed carries ca_known. Rows written before the suspects
+	// were stored do not, and they are never backfilled. The check is one query per
+	// session, so a long wait after a deploy reads no full snapshot.
+	if tr.state == nil {
+		recorded, err := c.caRecorded(ctx, prev)
+		if err != nil {
+			return false, err
+		}
+		if !recorded {
+			c.o.logOnce("paper-start-wait-"+tr.v.Target.RulesHash, c.logf,
+				"strategies: paper track %s %s waits to start: its seed rows predate ca_known (rows written before the suspects were stored do not carry it, and are not backfilled)",
+				reg.Spec.StrategyID, reg.Label)
+			return false, nil
+		}
+	}
+	// Every session a track steps must carry ca_known, not only its seed: a session
+	// written by an image without the suspects would enter an append-only record
+	// with no known suspects and the old ex-dividend rule. Such a session fails its
+	// track only, with its own log line.
+	recorded, err := c.caRecorded(ctx, x)
+	if err != nil {
+		return false, err
+	}
+	if !recorded {
+		return false, fmt.Errorf("session %s predates ca_known: its rows carry no known corporate-action suspects, so the track does not step it", x)
+	}
 	prevSnap, havePrev, err := c.snapshot(ctx, prev)
 	if err != nil {
 		return false, err
 	}
 	if tr.state == nil {
 		if !havePrev {
-			return false, nil
-		}
-		// The start rule. A track starts only on a seed whose rows carry ca_known.
-		// Rows written before the suspects were stored do not, and they are never
-		// backfilled: the track waits for the first session whose seed carries it.
-		recorded, err := c.caRecorded(ctx, prev)
-		if err != nil {
-			return false, err
-		}
-		if !recorded {
-			logOnce("paper-start-wait-"+tr.v.Target.RulesHash, c.logf,
-				"strategies: paper track %s %s waits to start: its seed rows predate ca_known (rows written before the suspects were stored do not carry it, and are not backfilled)",
-				reg.Spec.StrategyID, reg.Label)
 			return false, nil
 		}
 		c.logf("strategies: paper track %s %s starts: first recorded session %s, seed %s carries ca_known",
@@ -698,17 +755,20 @@ func paperLedgerRows(before, pending []backtest.PendingEntry, holdings []backtes
 		if ev.Kind != backtest.EventEntryCancelled {
 			continue
 		}
-		signal, found := civil.Date{}, false
-		for _, p := range before {
-			if p.Code == ev.Code {
-				signal, found = p.SignalDate, true
+		// The cancelled row takes the signal date and score of the pending entry it
+		// cancels: the score is the entry's, not the cancellation's (which has none).
+		var pending *backtest.PendingEntry
+		for i := range before {
+			if before[i].Code == ev.Code {
+				pending = &before[i]
 				break
 			}
 		}
-		if !found {
+		if pending == nil {
 			return nil, fmt.Errorf("entry of %s cancelled with no pending entry", ev.Code)
 		}
-		rows = append(rows, paperTradeRow{Status: "cancelled", Code: ev.Code, SignalDate: signal, Flags: []string{ev.Reason}})
+		rows = append(rows, paperTradeRow{Status: "cancelled", Code: ev.Code, SignalDate: pending.SignalDate,
+			EntryScore: pending.Score, Flags: []string{ev.Reason}})
 	}
 	return rows, nil
 }
@@ -772,7 +832,7 @@ func paperGuards(ctx context.Context, st store, logf func(string, ...any)) ([]ci
 	if len(missing) > 0 {
 		return nil, nil
 	}
-	versions, err := paperVersions(ctx, st, logf)
+	versions, err := paperVersions(ctx, st, logf, newOnce())
 	if err != nil {
 		return nil, err
 	}
@@ -783,6 +843,12 @@ func paperGuards(ctx context.Context, st store, logf func(string, ...any)) ([]ci
 			return nil, err
 		}
 		if found && !cp.StoppedOn.IsZero() {
+			continue
+		}
+		// A superseded version with no checkpoint never started its track (a stopped
+		// one has its checkpoint): its guard would be its live_from, which no track
+		// will read, and which would pin pruning for good.
+		if !found && v.Status == "superseded" {
 			continue
 		}
 		if g := paperGuardOf(cp.AsOf, found, v.LiveFrom); !g.IsZero() {

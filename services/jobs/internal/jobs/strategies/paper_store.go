@@ -138,6 +138,10 @@ func (s store) snapshotSessions(ctx context.Context, from, to civil.Date) ([]civ
 // paper step, not from a stored snapshot, so a later re-sync of XJT before t would
 // not change a recorded row (rows are never updated) but would change a fresh
 // batch run's benchmark. Documented in services/jobs/README.md, "Paper track".
+//
+// The same holds for the RBA cash rate, read by pgsource.CashRate as of the session
+// at step time: a later correction changes a fresh batch run's interest, not a
+// recorded row. Documented in services/jobs/README.md, "Paper track".
 func (s store) indexLevelOn(ctx context.Context, code string, t civil.Date) (float64, error) {
 	var close *float64
 	err := s.pool.QueryRow(ctx, `
