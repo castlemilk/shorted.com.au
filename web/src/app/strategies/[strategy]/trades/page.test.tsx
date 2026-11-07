@@ -1,3 +1,6 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+
 import { render, screen } from "@testing-library/react";
 
 import StrategyTradesPage, { generateMetadata } from "./page";
@@ -54,9 +57,14 @@ describe("the Trades tab", () => {
     expect(screen.getByText("Closed trades")).toBeInTheDocument();
     expect(screen.getByText("Exits by reason")).toBeInTheDocument();
     expect(screen.getByTestId("trades-island")).toBeInTheDocument();
+    // Derived from the golden: its run id and the exit reasons its trade summary counts.
+    const golden = JSON.parse(
+      readFileSync(join(__dirname, "../../../../@/lib/strategies/__tests__/golden/backtest_run_crowded_short.json"), "utf8"),
+    ).run as { identity: { runId: string | number }; tradeSummary: { exitsByReason: Record<string, number> } };
+    // protojson writes int64 as a string; the mapper reads it as a number.
     expect(captured).toEqual({
-      runId: 101,
-      exitReasons: ["pivot_stop", "stop_loss"],
+      runId: Number(golden.identity.runId),
+      exitReasons: Object.keys(golden.tradeSummary.exitsByReason).sort(),
     });
   });
 

@@ -440,7 +440,10 @@ export interface MonthlyReturnView {
 
 export interface CoverageYearView {
   year: number;
-  /** The qualifying measure has name-days in the year; false reads "not measurable". */
+  /**
+   * The year is measurable under the run's measure: the qualifying measure has name-days in it, or
+   * (an all-reported run) its annual row says so. False reads "not measurable".
+   */
   measurable: boolean;
   /** Qualifying coverage, in percent. Null when not measurable. */
   coveragePct: number | null;
@@ -1054,9 +1057,18 @@ export function coverageWithAnnualBoundary(
   const notMeasurable = new Set(
     annual.filter((row) => row.coverageMeasure === "not_measurable").map((row) => int(row.year)),
   );
+  // An all-reported run's annual row says the year is measurable under its own measure. The
+  // qualifying flag on a coverage row is then unset, so the annual row supplies the boundary.
+  const measuredAllReported = new Set(
+    annual
+      .filter((row) => row.coverageMeasurable === true && row.coverageMeasure === "all_reported")
+      .map((row) => int(row.year)),
+  );
   return coverage.map((row) => {
     const mapped = mapCoverageYear(row);
-    return notMeasurable.has(mapped.year) ? { ...mapped, measurable: false, coveragePct: null } : mapped;
+    if (notMeasurable.has(mapped.year)) return { ...mapped, measurable: false, coveragePct: null };
+    if (measuredAllReported.has(mapped.year) && !mapped.measurable) return { ...mapped, measurable: true };
+    return mapped;
   });
 }
 
