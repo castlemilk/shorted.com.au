@@ -10,6 +10,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/engine"
+	"github.com/castlemilk/shorted.com.au/services/pkg/strategy/spec"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
@@ -564,12 +565,34 @@ func strategyProto(st engine.Strategy, caveats []string, version *shortsv1alpha1
 			Universe:       st.Metadata.Universe,
 			RefreshCadence: st.Metadata.RefreshCadence,
 			RuleCount:      int32(len(st.Rules)),
+			UniverseKind:   universeKindOf(st.ID),
 		},
 		Caveats: append([]string(nil), caveats...),
 		Sources: append([]string(nil), st.Sources...),
 		Version: version,
 	}
 }
+
+// universeKindOf is the structured universe of a strategy's live canonical version: asic_reported when its
+// candidates are the names in the latest ASIC report (UniverseSpec.ASICReported), else asx_ordinary. It reads
+// the registry's live entry, the same version the registry names as live under every source, so a v0 served
+// read still classifies by the live rules. A strategy with no live entry has no kind ("") rather than a guess.
+func universeKindOf(strategyID string) string {
+	live, ok := spec.Live(strategyID)
+	if !ok {
+		return ""
+	}
+	if live.Spec.Universe.ASICReported {
+		return universeASICReported
+	}
+	return universeASXOrdinary
+}
+
+// The structured universe kinds the explorer filters by (StrategyMetadata.universe_kind).
+const (
+	universeASICReported = "asic_reported"
+	universeASXOrdinary  = "asx_ordinary"
+)
 
 func marketRegimeProto(r engine.Regime, verdict string) *shortsv1alpha1.MarketRegime {
 	out := &shortsv1alpha1.MarketRegime{

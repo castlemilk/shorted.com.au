@@ -281,6 +281,7 @@ type StrategyMetadata struct {
 	Universe       string                 `protobuf:"bytes,4,opt,name=universe,proto3" json:"universe,omitempty"`                                   // e.g. "ASX equities with at least A$250k daily turnover".
 	RefreshCadence string                 `protobuf:"bytes,5,opt,name=refresh_cadence,json=refreshCadence,proto3" json:"refresh_cadence,omitempty"` // e.g. "daily after the price sweep".
 	RuleCount      int32                  `protobuf:"varint,6,opt,name=rule_count,json=ruleCount,proto3" json:"rule_count,omitempty"`
+	UniverseKind   string                 `protobuf:"bytes,7,opt,name=universe_kind,json=universeKind,proto3" json:"universe_kind,omitempty"` // asic_reported (the candidates are the names in the latest ASIC report) | asx_ordinary (every ordinary ASX share). From the live version.
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -355,6 +356,13 @@ func (x *StrategyMetadata) GetRuleCount() int32 {
 		return x.RuleCount
 	}
 	return 0
+}
+
+func (x *StrategyMetadata) GetUniverseKind() string {
+	if x != nil {
+		return x.UniverseKind
+	}
+	return ""
 }
 
 // The broad market trend, read from an index (the S&P/ASX 200, "XJO").
@@ -3668,6 +3676,7 @@ type StrategyEvidence struct {
 	RunningSince       string                 `protobuf:"bytes,15,opt,name=running_since,json=runningSince,proto3" json:"running_since,omitempty"`                       // running: when the request started, RFC 3339.
 	ComputableSharePct float64                `protobuf:"fixed64,16,opt,name=computable_share_pct,json=computableSharePct,proto3" json:"computable_share_pct,omitempty"` // not_computable: the measured universe share, when measured.
 	HasComputableShare bool                   `protobuf:"varint,17,opt,name=has_computable_share,json=hasComputableShare,proto3" json:"has_computable_share,omitempty"`
+	UniverseKind       string                 `protobuf:"bytes,18,opt,name=universe_kind,json=universeKind,proto3" json:"universe_kind,omitempty"` // asic_reported | asx_ordinary, from the live version's universe.
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -3819,6 +3828,13 @@ func (x *StrategyEvidence) GetHasComputableShare() bool {
 		return x.HasComputableShare
 	}
 	return false
+}
+
+func (x *StrategyEvidence) GetUniverseKind() string {
+	if x != nil {
+		return x.UniverseKind
+	}
+	return ""
 }
 
 // Request for GetBacktestRun.
@@ -6826,7 +6842,7 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x04unit\x18\v \x01(\tR\x04unit\x12\x1e\n" +
 	"\n" +
 	"comparator\x18\f \x01(\tR\n" +
-	"comparator\"\xd6\x01\n" +
+	"comparator\"\xfb\x01\n" +
 	"\x10StrategyMetadata\x12\x14\n" +
 	"\x05style\x18\x01 \x01(\tR\x05style\x12%\n" +
 	"\x0eholding_period\x18\x02 \x01(\tR\rholdingPeriod\x12!\n" +
@@ -6834,7 +6850,8 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\buniverse\x18\x04 \x01(\tR\buniverse\x12'\n" +
 	"\x0frefresh_cadence\x18\x05 \x01(\tR\x0erefreshCadence\x12\x1d\n" +
 	"\n" +
-	"rule_count\x18\x06 \x01(\x05R\truleCount\"\xe1\x01\n" +
+	"rule_count\x18\x06 \x01(\x05R\truleCount\x12#\n" +
+	"\runiverse_kind\x18\a \x01(\tR\funiverseKind\"\xe1\x01\n" +
 	"\fMarketRegime\x12\x1d\n" +
 	"\n" +
 	"index_code\x18\x01 \x01(\tR\tindexCode\x12\x13\n" +
@@ -7160,7 +7177,7 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\fwindow_start\x18\x02 \x01(\tR\vwindowStart\x12%\n" +
 	"\x0eprices_through\x18\x03 \x01(\tR\rpricesThrough\x12%\n" +
 	"\x0ebenchmark_name\x18\x04 \x01(\tR\rbenchmarkName\x12\x1c\n" +
-	"\tfootnotes\x18\x05 \x03(\tR\tfootnotes\"\xfd\x05\n" +
+	"\tfootnotes\x18\x05 \x03(\tR\tfootnotes\"\xa2\x06\n" +
 	"\x10StrategyEvidence\x12\x1f\n" +
 	"\vstrategy_id\x18\x01 \x01(\tR\n" +
 	"strategyId\x12=\n" +
@@ -7181,7 +7198,8 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\fstate_reason\x18\x0e \x01(\tR\vstateReason\x12#\n" +
 	"\rrunning_since\x18\x0f \x01(\tR\frunningSince\x120\n" +
 	"\x14computable_share_pct\x18\x10 \x01(\x01R\x12computableSharePct\x120\n" +
-	"\x14has_computable_share\x18\x11 \x01(\bR\x12hasComputableShare\"\x87\x01\n" +
+	"\x14has_computable_share\x18\x11 \x01(\bR\x12hasComputableShare\x12#\n" +
+	"\runiverse_kind\x18\x12 \x01(\tR\funiverseKind\"\x87\x01\n" +
 	"\x15GetBacktestRunRequest\x12\x1f\n" +
 	"\vstrategy_id\x18\x01 \x01(\tR\n" +
 	"strategyId\x12\x15\n" +

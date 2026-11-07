@@ -115,4 +115,24 @@ public interface StrategyMetadataOrBuilder extends
    * @return The ruleCount.
    */
   int getRuleCount();
+
+  /**
+   * <pre>
+   * asic_reported (the candidates are the names in the latest ASIC report) | asx_ordinary (every ordinary ASX share). From the live version.
+   * </pre>
+   *
+   * <code>string universe_kind = 7 [json_name = "universeKind"];</code>
+   * @return The universeKind.
+   */
+  java.lang.String getUniverseKind();
+  /**
+   * <pre>
+   * asic_reported (the candidates are the names in the latest ASIC report) | asx_ordinary (every ordinary ASX share). From the live version.
+   * </pre>
+   *
+   * <code>string universe_kind = 7 [json_name = "universeKind"];</code>
+   * @return The bytes for universeKind.
+   */
+  com.google.protobuf.ByteString
+      getUniverseKindBytes();
 }

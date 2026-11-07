@@ -400,4 +400,24 @@ public interface StrategyEvidenceOrBuilder extends
    * @return The hasComputableShare.
    */
   boolean getHasComputableShare();
+
+  /**
+   * <pre>
+   * asic_reported | asx_ordinary, from the live version's universe.
+   * </pre>
+   *
+   * <code>string universe_kind = 18 [json_name = "universeKind"];</code>
+   * @return The universeKind.
+   */
+  java.lang.String getUniverseKind();
+  /**
+   * <pre>
+   * asic_reported | asx_ordinary, from the live version's universe.
+   * </pre>
+   *
+   * <code>string universe_kind = 18 [json_name = "universeKind"];</code>
+   * @return The bytes for universeKind.
+   */
+  com.google.protobuf.ByteString
+      getUniverseKindBytes();
 }

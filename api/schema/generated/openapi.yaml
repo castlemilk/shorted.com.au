@@ -18766,6 +18766,10 @@ components:
           type: boolean
           title: has_computable_share
           description: (proto bool)
+        universeKind:
+          type: string
+          title: universe_kind
+          description: asic_reported | asx_ordinary, from the live version's universe. (proto string)
       title: StrategyEvidence
       additionalProperties: false
       description: One strategy's backtest evidence on the live version.
@@ -18840,6 +18844,10 @@ components:
           title: rule_count
           format: int32
           description: (proto int32)
+        universeKind:
+          type: string
+          title: universe_kind
+          description: asic_reported (the candidates are the names in the latest ASIC report) | asx_ordinary (every ordinary ASX share). From the live version. (proto string)
       title: StrategyMetadata
       additionalProperties: false
       description: Descriptive metadata for a strategy.

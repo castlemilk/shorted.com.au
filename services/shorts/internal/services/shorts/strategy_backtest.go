@@ -1180,7 +1180,7 @@ func (s *ShortsServer) strategyEvidence(ctx context.Context, st engine.Strategy)
 	if err != nil {
 		return nil, "", err
 	}
-	ev := &shortsv1alpha1.StrategyEvidence{StrategyId: st.ID, State: bs.state, StateReason: bs.reason}
+	ev := &shortsv1alpha1.StrategyEvidence{StrategyId: st.ID, State: bs.state, StateReason: bs.reason, UniverseKind: universeKindOf(st.ID)}
 	if lb.found {
 		ev.Version = versionRefWith(lb.reg, lb.hash, lb.table.stateOf(lb.reg, lb.hash))
 	}

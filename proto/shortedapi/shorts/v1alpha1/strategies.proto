@@ -163,6 +163,7 @@ message StrategyMetadata {
   string universe = 4;          // e.g. "ASX equities with at least A$250k daily turnover".
   string refresh_cadence = 5;   // e.g. "daily after the price sweep".
   int32 rule_count = 6;
+  string universe_kind = 7;     // asic_reported (the candidates are the names in the latest ASIC report) | asx_ordinary (every ordinary ASX share). From the live version.
 }
 
 // The broad market trend, read from an index (the S&P/ASX 200, "XJO").
@@ -602,6 +603,7 @@ message StrategyEvidence {
   string running_since = 15;             // running: when the request started, RFC 3339.
   double computable_share_pct = 16;      // not_computable: the measured universe share, when measured.
   bool has_computable_share = 17;
+  string universe_kind = 18;             // asic_reported | asx_ordinary, from the live version's universe.
 }
 
 // Request for GetBacktestRun.

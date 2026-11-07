@@ -15402,6 +15402,11 @@
             "description": "Today's counts for the live version; absent when they cannot be read. (proto shorts.v1alpha1.StatusCounts)",
             "title": "today"
           },
+          "universeKind": {
+            "description": "asic_reported | asx_ordinary, from the live version's universe. (proto string)",
+            "title": "universe_kind",
+            "type": "string"
+          },
           "version": {
             "$ref": "#/components/schemas/shorts.v1alpha1.StrategyVersionRef",
             "description": "The live canonical version; absent when none is registered. (proto shorts.v1alpha1.StrategyVersionRef)",
@@ -15506,6 +15511,11 @@
           "universe": {
             "description": "e.g. \"ASX equities with at least A$250k daily turnover\". (proto string)",
             "title": "universe",
+            "type": "string"
+          },
+          "universeKind": {
+            "description": "asic_reported (the candidates are the names in the latest ASIC report) | asx_ordinary (every ordinary ASX share). From the live version. (proto string)",
+            "title": "universe_kind",
             "type": "string"
           }
         },

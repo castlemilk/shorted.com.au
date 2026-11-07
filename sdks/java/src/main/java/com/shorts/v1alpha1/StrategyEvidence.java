@@ -43,6 +43,7 @@ private static final long serialVersionUID = 0L;
     latestScreen_ = "";
     stateReason_ = "";
     runningSince_ = "";
+    universeKind_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -770,6 +771,53 @@ private static final long serialVersionUID = 0L;
     return hasComputableShare_;
   }
 
+  public static final int UNIVERSE_KIND_FIELD_NUMBER = 18;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object universeKind_ = "";
+  /**
+   * <pre>
+   * asic_reported | asx_ordinary, from the live version's universe.
+   * </pre>
+   *
+   * <code>string universe_kind = 18 [json_name = "universeKind"];</code>
+   * @return The universeKind.
+   */
+  @java.lang.Override
+  public java.lang.String getUniverseKind() {
+    java.lang.Object ref = universeKind_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      universeKind_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * asic_reported | asx_ordinary, from the live version's universe.
+   * </pre>
+   *
+   * <code>string universe_kind = 18 [json_name = "universeKind"];</code>
+   * @return The bytes for universeKind.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getUniverseKindBytes() {
+    java.lang.Object ref = universeKind_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      universeKind_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -834,6 +882,9 @@ private static final long serialVersionUID = 0L;
     }
     if (hasComputableShare_ != false) {
       output.writeBool(17, hasComputableShare_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(universeKind_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 18, universeKind_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -914,6 +965,9 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(17, hasComputableShare_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(universeKind_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(18, universeKind_);
+    }
     return size;
   }
   @java.lang.Override
@@ -982,6 +1036,8 @@ private static final long serialVersionUID = 0L;
             other.getComputableSharePct())) return false;
     if (getHasComputableShare()
         != other.getHasComputableShare()) return false;
+    if (!getUniverseKind()
+        .equals(other.getUniverseKind())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1042,6 +1098,8 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_COMPUTABLE_SHARE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasComputableShare());
+    hash = (37 * hash) + UNIVERSE_KIND_FIELD_NUMBER;
+    hash = (53 * hash) + getUniverseKind().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1235,6 +1293,7 @@ private static final long serialVersionUID = 0L;
       runningSince_ = "";
       computableSharePct_ = 0D;
       hasComputableShare_ = false;
+      universeKind_ = "";
       return this;
     }
 
@@ -1350,6 +1409,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00010000) != 0)) {
         result.hasComputableShare_ = hasComputableShare_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.universeKind_ = universeKind_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1502,6 +1564,11 @@ private static final long serialVersionUID = 0L;
       if (other.getHasComputableShare() != false) {
         setHasComputableShare(other.getHasComputableShare());
       }
+      if (!other.getUniverseKind().isEmpty()) {
+        universeKind_ = other.universeKind_;
+        bitField0_ |= 0x00020000;
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1643,6 +1710,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00010000;
               break;
             } // case 136
+            case 146: {
+              universeKind_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00020000;
+              break;
+            } // case 146
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3899,6 +3971,98 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasComputableShare() {
       bitField0_ = (bitField0_ & ~0x00010000);
       hasComputableShare_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object universeKind_ = "";
+    /**
+     * <pre>
+     * asic_reported | asx_ordinary, from the live version's universe.
+     * </pre>
+     *
+     * <code>string universe_kind = 18 [json_name = "universeKind"];</code>
+     * @return The universeKind.
+     */
+    public java.lang.String getUniverseKind() {
+      java.lang.Object ref = universeKind_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        universeKind_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * asic_reported | asx_ordinary, from the live version's universe.
+     * </pre>
+     *
+     * <code>string universe_kind = 18 [json_name = "universeKind"];</code>
+     * @return The bytes for universeKind.
+     */
+    public com.google.protobuf.ByteString
+        getUniverseKindBytes() {
+      java.lang.Object ref = universeKind_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        universeKind_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * asic_reported | asx_ordinary, from the live version's universe.
+     * </pre>
+     *
+     * <code>string universe_kind = 18 [json_name = "universeKind"];</code>
+     * @param value The universeKind to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUniverseKind(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      universeKind_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * asic_reported | asx_ordinary, from the live version's universe.
+     * </pre>
+     *
+     * <code>string universe_kind = 18 [json_name = "universeKind"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearUniverseKind() {
+      universeKind_ = getDefaultInstance().getUniverseKind();
+      bitField0_ = (bitField0_ & ~0x00020000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * asic_reported | asx_ordinary, from the live version's universe.
+     * </pre>
+     *
+     * <code>string universe_kind = 18 [json_name = "universeKind"];</code>
+     * @param value The bytes for universeKind to set.
+     * @return This builder for chaining.
+     */
+    public Builder setUniverseKindBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      universeKind_ = value;
+      bitField0_ |= 0x00020000;
       onChanged();
       return this;
     }
