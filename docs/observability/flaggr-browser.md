@@ -5,7 +5,10 @@ The production site `site_869df5560db33f777d73f0f9` belongs to the
 the pinned Flaggr analytics script on `shorted.com.au` and
 `www.shorted.com.au` only. Preview, local and Discord Activity hosts do not
 send to this site. The bootstrap and Flaggr's script honour the browser's
-`navigator.doNotTrack` setting.
+`navigator.doNotTrack` setting. The bootstrap also skips WebDriver-controlled
+browsers and user agents containing `Shorted-E2E`, so release smoke tests do
+not distort reports. These are analytics filters, not security controls; tests
+that hide both signals can still appear in the reports.
 
 Flaggr collects page views, Core Web Vitals and uncaught JavaScript errors and
 unhandled promise rejections. It follows client-side navigation. Click and
