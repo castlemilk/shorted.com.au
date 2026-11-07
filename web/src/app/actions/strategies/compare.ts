@@ -10,7 +10,7 @@ import { createClient } from "@connectrpc/connect";
 
 import {
   mapCompareStrategies,
-  mapListStrategyEvidence,
+  mapStrategyEvidenceList,
   type CompareStrategiesView,
 } from "~/@/lib/strategies/map-backtest";
 import { StrategyService } from "~/gen/shorts/v1alpha1/strategies_pb";
@@ -92,7 +92,7 @@ export async function compareStrategiesForViewer(refs: readonly string[]): Promi
       client.listStrategyEvidence({}),
     ]);
     const survivorship = Object.fromEntries(
-      mapListStrategyEvidence(evidence).strategies.map((s) => [s.strategyId, s.survivorship]),
+      mapStrategyEvidenceList(evidence).strategies.map((s) => [s.strategyId, s.survivorship]),
     );
     return { ok: true, comparison: mapCompareStrategies(response), survivorship };
   } catch (err) {

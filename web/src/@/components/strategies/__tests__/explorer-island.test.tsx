@@ -3,7 +3,7 @@ import "@testing-library/jest-dom";
 
 import { ExplorerIsland } from "../explorer-island";
 import { buildExplorerModel } from "~/@/lib/strategies/explorer";
-import { DEFS, EVIDENCE } from "~/@/lib/strategies/__tests__/backtest-fixtures";
+import { DEFS, EVIDENCE } from "~/@/lib/strategies/__tests__/golden-explorer";
 
 let mockParams = new URLSearchParams();
 let mockSession: { data: unknown; status: string } = { data: null, status: "unauthenticated" };

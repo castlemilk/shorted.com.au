@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { cn } from "~/@/lib/utils";
-import { eyebrow, pageTitle } from "~/@/lib/typography";
+import { pageTitle } from "~/@/lib/typography";
 import { getStrategy } from "~/@/lib/strategies/registry";
 import {
   StrategyArtBand,
@@ -43,11 +43,6 @@ export function StrategyHeader({ slug }: { slug: string }) {
       <div className="relative flex items-start gap-4 sm:gap-5">
         <StrategyBezel slug={seo.slug} className="mt-1 text-primary" />
         <div className="min-w-0">
-          <p className={cn(eyebrow, "mb-2 font-medium")}>
-            <Link href="/strategies" className="hover:text-foreground">
-              Stock picker
-            </Link>
-          </p>
           <h1 className={cn(pageTitle, "leading-[1.1]")}>{seo.h1}</h1>
         </div>
         {strategyCapabilityEnabled("compare") ? (

@@ -101,10 +101,9 @@ describe("StrategyLayout", () => {
       screen.getByRole("heading", { level: 1, name: seo.h1 }),
     ).toBeInTheDocument();
     expect(screen.getByText(seo.dek)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Stock picker" })).toHaveAttribute(
-      "href",
-      "/strategies",
-    );
+    // The mockup's header carries no eyebrow: the breadcrumb is the one link back to Strategies.
+    expect(screen.queryByRole("link", { name: "Stock picker" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Stock picker")).not.toBeInTheDocument();
 
     const tabBar = screen.getByRole("navigation", {
       name: "Strategy sections",

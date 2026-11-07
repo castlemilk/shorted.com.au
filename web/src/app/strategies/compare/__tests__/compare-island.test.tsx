@@ -61,6 +61,9 @@ const COMPARISON = mapCompareStrategies({
         to: "2026-11-06",
         note: "in-sample to 2026-11-23, recorded after",
         totalReturnPct: 12,
+        // The API sets the flag when it states the total return; the shared mapper reads
+        // an unflagged total as absent (n/a), never as zero.
+        hasTotalReturn: true,
         maxDrawdownPct: -8,
         closedTrades: 90,
       },

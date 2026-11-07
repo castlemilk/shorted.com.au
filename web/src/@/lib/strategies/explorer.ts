@@ -14,6 +14,7 @@ import { DEFAULT_SIGNALS_STRATEGY } from "./workspace-nav";
 import { STRATEGIES, STRATEGY_SLUGS } from "./registry";
 import type { StrategyEvidenceListView, StrategyEvidenceView } from "./map-backtest";
 import type { StatusCountsView, StrategyDef } from "./types";
+import type { UniverseKind } from "./map-backtest";
 
 /** The most strategies the compare tray holds (design 2.2). */
 export const COMPARE_LIMIT = 3;
@@ -50,13 +51,13 @@ export type EvidenceFilter = (typeof EVIDENCE_OPTIONS)[number]["value"];
  * names ASIC reports short. There is no "All": the default is the ASX universe.
  */
 export const UNIVERSE_OPTIONS = [
-  { value: "asx", label: "ASX", name: "ASX ordinary shares" },
-  { value: "asic", label: "ASIC-reported", name: "ASIC-reported names" },
+  { value: "asx_ordinary", label: "ASX", name: "ASX ordinary shares" },
+  { value: "asic_reported", label: "ASIC-reported", name: "ASIC-reported names" },
 ] as const;
 
 export type UniverseFilter = (typeof UNIVERSE_OPTIONS)[number]["value"];
 
-export const DEFAULT_UNIVERSE: UniverseFilter = "asx";
+export const DEFAULT_UNIVERSE: UniverseFilter = "asx_ordinary";
 
 export interface ExplorerFilters {
   query: string;
@@ -248,14 +249,12 @@ export function horizonKey(period: string): string {
 }
 
 /**
- * The universe a strategy names. A strategy whose universe is the names ASIC reports short
- * is "ASIC-reported names"; every other is ASX ordinary shares.
- *
- * TODO(universe_kind): the contract has no universe kind yet. When StrategyEvidence carries
- * `universe_kind`, read it here and delete the text match.
+ * The universe a row is filtered by: the evidence's universe_kind (the contract's
+ * asic_reported | asx_ordinary). A row with no evidence has no kind, so it reads as the
+ * default ASX universe; the filter still lists it under "ASX ordinary shares".
  */
-export function universeOf(universeText: string): UniverseFilter {
-  return /reported short/i.test(universeText) ? "asic" : "asx";
+export function universeOf(kind: UniverseKind | ""): UniverseFilter {
+  return kind === "asic_reported" ? "asic_reported" : "asx_ordinary";
 }
 
 /** "1 May" from "2019-05-01"; "" for 1 January, which needs no note. */
@@ -334,14 +333,13 @@ function computedCells(
       : annual.coverageMeasurable
         ? undefined
         : { glyph: "?", label: EXPLORER_COPY.measuredOnAsic, title: EXPLORER_COPY.measuredOnAsic };
-    const coverageTitle =
-      annual.coverageMeasurable && annual.coverage !== null
-        ? EXPLORER_COPY.lowCoverage(Math.round(annual.coverage * 100))
-        : undefined;
+    // The API's coverage is percent; the table draws a fraction (0 to 1), so the one conversion is here.
+    const measured = annual.coverageMeasurable && annual.coveragePct !== null;
+    const coverageTitle = measured ? EXPLORER_COPY.lowCoverage(Math.round(annual.coveragePct!)) : undefined;
     return {
       state: "value",
       value: annual.strategyPct,
-      coverage: annual.coverageMeasurable ? annual.coverage : null,
+      coverage: measured ? annual.coveragePct! / 100 : null,
       ...(coverageTitle ? { coverageTitle } : {}),
       ...(marker ? { marker } : {}),
     };
@@ -359,7 +357,7 @@ export function notComputableCells(
   years: number[],
 ): ReturnsHeatmapCell[] {
   if (years.length === 0) return [];
-  const cfYear = yearOf(evidence.computableFrom) ?? fiscalYearOf(evidence.fiscalLabel);
+  const cfYear = yearOf(evidence.computableFrom) ?? fiscalYearOf(evidence.fiscalLabel ?? "");
   if (cfYear === null) {
     const share = evidence.computableSharePct;
     const label =
@@ -475,13 +473,22 @@ function countsText(counts: StatusCountsView | null): string {
   return `${counts.triggered} triggered · ${setups} setup${setups === 1 ? "" : "s"}`;
 }
 
+/** Epoch milliseconds of a session date (YYYY-MM-DD), read once for the chart; NaN when it does not parse. */
+export function epochOf(date: string): number {
+  return Date.parse(`${date.slice(0, 10)}T00:00:00Z`);
+}
+
 function sparkOf(evidence: StrategyEvidenceView | null) {
   const points = evidence?.miniCurve ?? [];
   return {
-    strategy: points.flatMap((p) => (p.equity !== null && Number.isFinite(p.t) ? [{ t: p.t, v: p.equity }] : [])),
-    benchmark: points.flatMap((p) =>
-      p.benchmark !== null && Number.isFinite(p.t) ? [{ t: p.t, v: p.benchmark }] : [],
-    ),
+    strategy: points.flatMap((p) => {
+      const t = epochOf(p.date);
+      return Number.isFinite(t) ? [{ t, v: p.equity }] : [];
+    }),
+    benchmark: points.flatMap((p) => {
+      const t = epochOf(p.date);
+      return Number.isFinite(t) && p.benchmark !== null ? [{ t, v: p.benchmark }] : [];
+    }),
   };
 }
 
@@ -497,7 +504,7 @@ function stateLineOf(evidence: StrategyEvidenceView | null, evidenceAvailable: b
       return clock ? `Running since ${clock}` : "Running";
     }
     case "not_computable": {
-      const cfYear = yearOf(evidence.computableFrom) ?? fiscalYearOf(evidence.fiscalLabel);
+      const cfYear = yearOf(evidence.computableFrom) ?? fiscalYearOf(evidence.fiscalLabel ?? "");
       if (cfYear === null) {
         const share = evidence.computableSharePct;
         return share === null
@@ -607,7 +614,7 @@ export function buildExplorerModel(input: {
     const ev = evidenceById.get(id) ?? null;
     const style = def?.metadata?.style ?? "";
     const horizon = def?.metadata?.holdingPeriod ?? "";
-    const universe = universeOf(def?.metadata?.universe ?? "");
+    const universe = universeOf(ev?.universeKind ?? "");
     const name = def?.name ?? (STRATEGIES[id]?.label ?? id);
     const styleLabel = style ? humaniseStyle(style) : "";
     const metricsByWindow = Object.fromEntries(
@@ -684,14 +691,16 @@ export function registryStrategy(id: string): StrategyDef {
   };
 }
 
-/** The rows the filters keep, in their order. Universe "asx" keeps every row; "asic" narrows. */
+/** The rows the filters keep, in their order, on the stable keys. */
 export function filterRows(rows: readonly ExplorerRow[], filters: ExplorerFilters): ExplorerRow[] {
   const query = filters.query.trim().toLowerCase();
   return rows.filter((row) => {
     if (query && !row.searchText.includes(query)) return false;
     if (filters.style !== "all" && row.styleValue !== filters.style) return false;
     if (filters.horizon !== "all" && row.horizonValue !== filters.horizon) return false;
-    if (filters.universe === "asic" && row.universe !== "asic") return false;
+    // "ASX ordinary shares" lists every strategy (the ASIC-reported names are ASX shares too);
+    // "ASIC-reported names" narrows to the strategies whose universe is ASIC's report.
+    if (filters.universe === "asic_reported" && row.universe !== "asic_reported") return false;
     if (filters.evidence !== "all" && row.evidenceKind !== filters.evidence) return false;
     return true;
   });

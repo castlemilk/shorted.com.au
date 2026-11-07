@@ -1,8 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 
 import PicksHubPage, { metadata } from "./page";
-import { EVIDENCE_INPUT } from "~/@/lib/strategies/__tests__/backtest-fixtures";
-import { mapListStrategyEvidence } from "~/@/lib/strategies/map-backtest";
+import { EVIDENCE } from "~/@/lib/strategies/__tests__/golden-explorer";
 import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 import {
   PICKS,
@@ -68,7 +67,7 @@ describe("PicksHubPage", () => {
       strategies: [ZANGER],
       regime: { ...UPTREND, verdict: NEUTRAL_VERDICT },
     });
-    getStrategyEvidence.mockResolvedValue(mapListStrategyEvidence(EVIDENCE_INPUT));
+    getStrategyEvidence.mockResolvedValue(EVIDENCE);
     getStrategyPicks.mockImplementation(async (id: string) =>
       id === "zanger-breakout"
         ? PICKS

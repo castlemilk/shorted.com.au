@@ -13,12 +13,13 @@ import {
   EXPLORER_COPY,
   compareCandidates,
   compareHref,
+  epochOf,
 } from "~/@/lib/strategies/explorer";
 import { formatIsoDate, NOT_AVAILABLE, formatSigned } from "~/@/lib/strategies/format";
 import type {
+  BacktestWindowView,
   CompareEntryView,
   CompareStrategiesView,
-  WindowMetricsView,
 } from "~/@/lib/strategies/map-backtest";
 import {
   compareStrategiesForViewer,
@@ -250,7 +251,7 @@ function FailureNote({ reason, onRetry }: { reason: CompareFailure; onRetry: () 
 function curvesOf(comparison: CompareStrategiesView) {
   const strategies = comparison.entries.map((entry) => ({
     key: entry.strategyRef,
-    points: entry.series.map((p) => ({ t: p.t, v: p.equity })),
+    points: entry.series.map((p) => ({ t: epochOf(p.date), v: p.equity })),
   }));
   // XJT rides on the strategies' own series: its index level, rebased to the same A$100,000 start.
   const first = comparison.entries.find((e) => e.series.some((p) => p.benchmark !== null));
@@ -258,7 +259,7 @@ function curvesOf(comparison: CompareStrategiesView) {
   const base = bench[0]?.benchmark ?? 0;
   const xjt =
     base > 0
-      ? { key: "xjt", points: bench.map((p) => ({ t: p.t, v: (p.benchmark! / base) * AUD_100K })) }
+      ? { key: "xjt", points: bench.map((p) => ({ t: epochOf(p.date), v: (p.benchmark! / base) * AUD_100K })) }
       : null;
   return { strategies, xjt };
 }
@@ -268,7 +269,7 @@ function aud(value: number): string {
 }
 
 /** A window's return line: CAGR when it is annualised, the total marked otherwise. */
-function returnText(window: WindowMetricsView | null): { text: string; note?: string } {
+function returnText(window: BacktestWindowView | null): { text: string; note?: string } {
   if (!window) return { text: NOT_AVAILABLE };
   if (window.cagrPct !== null) return { text: `${formatSigned(window.cagrPct)} a year` };
   if (window.totalReturnPct !== null) {
