@@ -52,6 +52,8 @@ export interface WindowMetricsInput {
   hasBenchmarkTotalReturn?: boolean;
   referenceTotalReturnPct?: WireDouble;
   hasReferenceTotalReturn?: boolean;
+  /** The last session the reference figures are measured to (YYYY-MM-DD); "" when there is no reference. */
+  referenceTo?: string;
   maxDrawdownPct?: WireDouble;
   peakDate?: string;
   troughDate?: string;
@@ -249,6 +251,8 @@ export interface StrategyEvidenceInput {
   computableSharePct?: WireDouble;
   hasComputableShare?: boolean;
   today?: StatusCountsInput | null;
+  /** asic_reported | asx_ordinary: the universe the live version screens (from the live version). */
+  universeKind?: string;
 }
 
 export interface StatusCountsInput {
@@ -388,6 +392,8 @@ export interface BacktestWindowView {
   notAnnualised: boolean;
   benchmarkCagrPct: number | null;
   referenceCagrPct: number | null;
+  /** The last session the reference is measured to: its figures cover the overlap ending here; null when none. */
+  referenceTo: string | null;
   /** XJT and the reference over the window, total return, shown for every window. */
   benchmarkTotalReturnPct: number | null;
   referenceTotalReturnPct: number | null;
@@ -651,6 +657,15 @@ export interface StrategyEvidenceView {
   computableSharePct: number | null;
   /** Today's status counts for the live version; null when they cannot be read. */
   today: StatusCountsView | null;
+  /** asic_reported | asx_ordinary; "" when the API names none. */
+  universeKind: UniverseKind | "";
+}
+
+/** The two universes a live version can screen (the contract's universe_kind). */
+export type UniverseKind = "asic_reported" | "asx_ordinary";
+
+export function toUniverseKind(value: unknown): UniverseKind | "" {
+  return value === "asic_reported" || value === "asx_ordinary" ? value : "";
 }
 
 export interface StatusCountsView {
@@ -788,6 +803,7 @@ export function mapWindowMetrics(input: WindowMetricsInput): BacktestWindowView 
     referenceCagrPct: flagged(input.referenceCagrPct, input.hasReference),
     benchmarkTotalReturnPct: flagged(input.benchmarkTotalReturnPct, input.hasBenchmarkTotalReturn),
     referenceTotalReturnPct: flagged(input.referenceTotalReturnPct, input.hasReferenceTotalReturn),
+    referenceTo: ymd(input.referenceTo) || null,
     maxDrawdownPct: num(input.maxDrawdownPct),
     peakDate: ymd(input.peakDate) || null,
     troughDate: ymd(input.troughDate) || null,
@@ -1025,6 +1041,25 @@ function mapIdentity(input: BacktestIdentityInput): BacktestIdentityView {
 }
 
 /** One canonical run as the page draws it. A run with no series still maps; the page decides what to show. */
+/**
+ * The per-year coverage with the annual table's boundary applied. The annual rows state which
+ * measure each year uses: a year whose annual coverage_measure is not_measurable has no measurable
+ * qualifying figure, whatever the coverage row's flag says (a partial run's pre-2025 years). The
+ * annual rows are the authority for that boundary; the coverage rows' flags are not trusted for it.
+ */
+export function coverageWithAnnualBoundary(
+  coverage: readonly CoverageYearInput[],
+  annual: readonly AnnualReturnInput[],
+): CoverageYearView[] {
+  const notMeasurable = new Set(
+    annual.filter((row) => row.coverageMeasure === "not_measurable").map((row) => int(row.year)),
+  );
+  return coverage.map((row) => {
+    const mapped = mapCoverageYear(row);
+    return notMeasurable.has(mapped.year) ? { ...mapped, measurable: false, coveragePct: null } : mapped;
+  });
+}
+
 export function mapBacktestRun(input: BacktestRunInput): BacktestRunView {
   return {
     state: toBacktestState(input.state),
@@ -1039,7 +1074,7 @@ export function mapBacktestRun(input: BacktestRunInput): BacktestRunView {
     series: (input.series ?? []).map(mapSeriesPoint),
     windowId: str(input.windowId),
     seriesResolution: str(input.seriesResolution) || "weekly",
-    coverageByYear: (input.coverage ?? []).map(mapCoverageYear),
+    coverageByYear: coverageWithAnnualBoundary(input.coverage ?? [], input.annual ?? []),
     coverageMonthly: (input.coverageMonthly ?? []).map(mapCoverageMonth),
     survivorship: input.survivorship ? mapSurvivorship(input.survivorship) : null,
     sensitivity: (input.sensitivity ?? []).map(mapSensitivity),
@@ -1079,6 +1114,7 @@ export function mapStrategyEvidence(input: StrategyEvidenceInput): StrategyEvide
     runningSince: str(input.runningSince),
     computableSharePct: flagged(input.computableSharePct, input.hasComputableShare),
     today: mapStatusCounts(input.today),
+    universeKind: toUniverseKind(input.universeKind),
   };
 }
 

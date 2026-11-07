@@ -55,8 +55,8 @@ describe("the Trades tab", () => {
     expect(screen.getByText("Exits by reason")).toBeInTheDocument();
     expect(screen.getByTestId("trades-island")).toBeInTheDocument();
     expect(captured).toEqual({
-      runId: 42,
-      exitReasons: ["pivot_stop", "time_stop", "status_exit", "delisted_exit", "open_at_end"],
+      runId: 101,
+      exitReasons: ["pivot_stop", "stop_loss"],
     });
   });
 

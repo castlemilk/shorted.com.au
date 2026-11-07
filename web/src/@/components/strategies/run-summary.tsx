@@ -10,7 +10,13 @@ import {
   sharpeShown,
   windowLabel,
 } from "@/lib/strategies/backtest-windows";
-import { outOfSampleLine, shortDate, tooShortCopy } from "@/lib/strategies/backtest-copy";
+import {
+  outOfSampleLine,
+  referenceSpanCopy,
+  referenceUnmeasuredCopy,
+  shortDate,
+  tooShortCopy,
+} from "@/lib/strategies/backtest-copy";
 
 export interface RunSummaryProps {
   /** The window the page is showing. */
@@ -80,8 +86,8 @@ export function RunSummary({ window, paper, avgHoldSessions, referenceName }: Ru
           note="in-sample trades"
         />
         <Metric
-          label="vs same-data reference"
-          value={referenceGap === null ? NOT_AVAILABLE : formatSigned(referenceGap, " pp")}
+          label={`vs same-data reference ${referenceSpanCopy(window.referenceTo)}`.trim()}
+          value={referenceGap === null ? referenceUnmeasuredCopy(window.referenceTo) : formatSigned(referenceGap, " pp")}
           note={referenceGap === null ? undefined : referenceName}
         />
       </dl>

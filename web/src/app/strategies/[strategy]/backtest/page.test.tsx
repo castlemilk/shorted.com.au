@@ -29,6 +29,15 @@ const getStrategies = jest.fn(async () => ({
 jest.mock("~/app/actions/getStrategies", () => ({
   getStrategies: () => getStrategies(),
 }));
+// The evidence read carries the live version's universe_kind; the golden list serves it.
+const getStrategyEvidence = jest.fn(async () => {
+  const { fixtureEvidenceList } = await import("~/@/lib/strategies/__tests__/backtest-fixtures");
+  const { mapStrategyEvidenceList } = await import("~/@/lib/strategies/map-backtest");
+  return mapStrategyEvidenceList(fixtureEvidenceList());
+});
+jest.mock("~/app/actions/strategies/getStrategyEvidence", () => ({
+  getStrategyEvidence: () => getStrategyEvidence(),
+}));
 jest.mock("~/app/actions/strategies/backtestSeries", () => ({
   loadBacktestSeries: jest.fn(async () => null),
 }));
@@ -112,7 +121,7 @@ describe("the Backtest tab", () => {
     const { container } = await renderPage();
     expect(container.querySelector("[data-recorded-band]")).not.toBeNull();
     expect(container.querySelector("[data-frozen-marker]")).not.toBeNull();
-    expect(screen.getByText("Rules frozen 2 Oct 2026", { selector: "text" })).toBeInTheDocument();
+    expect(screen.getByText("Rules frozen 1 Oct 2026", { selector: "text" })).toBeInTheDocument();
   });
 
   it("shows the window the reader asked for in the URL, and its own summary", async () => {
@@ -126,13 +135,13 @@ describe("the Backtest tab", () => {
   it("prints the run identity as one line that opens the full identity", async () => {
     const { container } = await renderPage();
     const identity = container.querySelector("[data-run-identity]");
-    expect(identity?.textContent).toContain("Run 8 Nov 2026");
-    expect(identity?.textContent).toContain("prices to 6 Nov");
+    expect(identity?.textContent).toContain("Run 6 Nov 2026");
+    expect(identity?.textContent).toContain("prices to 5 Nov");
   });
 
   it("prints the strategy's universe beside the window controls, from the registry", async () => {
     await renderPage();
-    expect(screen.getByText("ASX ordinary shares")).toBeInTheDocument();
+    expect(screen.getByText("Universe: ASIC-reported names")).toBeInTheDocument();
   });
 
   it("prints the data-quality counts the run serves, as fields", async () => {
@@ -143,19 +152,19 @@ describe("the Backtest tab", () => {
 
   it("starts the recorded band at the track's own first session, not the freeze", async () => {
     const { container } = await renderPage();
-    expect(container.querySelector("[data-recorded-band]")?.textContent).toContain("Recorded since 5 Oct 2026");
+    expect(container.querySelector("[data-recorded-band]")?.textContent).toContain("Recorded since 2 Oct 2026");
   });
 
   it("prints the honesty chips: in-sample with the freeze date, the coverage and the costs", async () => {
     await renderPage();
-    expect(screen.getByText("In-sample backtest · rules frozen 2 Oct 2026")).toBeInTheDocument();
-    expect(screen.getAllByText(/Coverage \(qualifying ≥ 5% short\) 64% \(2019\) → 96% \(2025\)/).length).toBeGreaterThan(0);
+    expect(screen.getByText("In-sample backtest · rules frozen 1 Oct 2026")).toBeInTheDocument();
+    expect(screen.getAllByText(/Coverage \(qualifying ≥ 5% short\) 70% \(2019\) → 70% \(2026\)/).length).toBeGreaterThan(0);
     expect(screen.getByText("Hypothetical · after costs")).toBeInTheDocument();
   });
 
   it("chips a sensitivity that flips the sign as fragile, in words", async () => {
     await renderPage();
-    expect(screen.getAllByText("Fragile to publication timing").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Fragile to costs").length).toBeGreaterThan(0);
   });
 
   it("prints the survivorship statement the run carries, never a copy of its own", async () => {
@@ -280,6 +289,21 @@ describe("the state headlines are the tab's headings (outline: h1 from the layou
     const headings = screen.queryAllByRole("heading").map((h) => Number(h.tagName.slice(1)));
     expect(Math.max(...headings)).toBeLessThanOrEqual(2);
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+  });
+});
+
+describe("the drawdown callout is the summary's maximum drawdown (golden)", () => {
+  it("draws the callout at the window's trough with exactly the figure the run summary prints", async () => {
+    getBacktestRun.mockResolvedValue(runOf({}));
+    const { container } = await renderPage();
+    const callout = container.querySelector("[data-trough]");
+    expect(callout).not.toBeNull();
+    const summaryFigure = Array.from(container.querySelectorAll("[data-window-summary] dt"))
+      .find((dt) => dt.textContent === "Max drawdown")
+      ?.parentElement?.querySelector("dd")?.textContent;
+    expect(summaryFigure).toBe("−3.6%");
+    expect(callout?.textContent).toBe(summaryFigure);
+    expect(Number(callout?.getAttribute("data-callout-pct"))).toBe(-3.64);
   });
 });
 

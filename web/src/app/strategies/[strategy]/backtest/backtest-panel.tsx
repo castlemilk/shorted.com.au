@@ -66,7 +66,6 @@ export interface BacktestPanelProps {
   coverageLabel: string;
   benchmarkName: string;
   referenceName: string;
-  referenceTo: string;
   paper: PaperTrackView | null;
   avgHoldSessions: number | null;
   /** The run's identity line, opening its disclosure (server-rendered). */
@@ -126,7 +125,6 @@ function PanelBody({
   coverageLabel,
   benchmarkName,
   referenceName,
-  referenceTo,
   paper,
   avgHoldSessions,
   identity,
@@ -251,7 +249,7 @@ function PanelBody({
                 coverageLabel={coverageLabel}
                 benchmarkName={benchmarkName}
                 referenceName={referenceName}
-                referenceTo={referenceTo}
+                referenceTo={meta?.referenceTo ?? ""}
                 label={`${GROWTH_TITLE} against ${benchmarkName}`}
               />
             ) : null}

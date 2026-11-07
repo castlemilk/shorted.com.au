@@ -8,15 +8,18 @@ import {
   notComputableHeadline,
   notComputableNoLabel,
   outOfSampleLine,
+  referenceSpanCopy,
+  referenceUnmeasuredCopy,
   runIdentityDetail,
   runIdentityLine,
+  universeLabel,
   runRequiredCopy,
   runningCopy,
   shortDate,
   tooShortCopy,
 } from "../backtest-copy";
 import { mapBacktestRun, mapPaperTrack } from "../map-backtest";
-import { fixturePublishedRun } from "./backtest-fixtures";
+import { FIXTURE_RECIPE_HASH, fixturePublishedRun } from "./backtest-fixtures";
 
 describe("the states' copy (1.7), verbatim", () => {
   it("prints the not-computable headline with the measured label", () => {
@@ -74,9 +77,9 @@ describe("the honesty labels (1.8)", () => {
   it("prints the run identity line from the run, never from a literal", () => {
     const run = mapBacktestRun(fixturePublishedRun());
     expect(run.identity).not.toBeNull();
-    expect(runIdentityLine(run.identity!)).toBe("Run 8 Nov 2026 · prices to 6 Nov");
+    expect(runIdentityLine(run.identity!)).toBe("Run 6 Nov 2026 · prices to 5 Nov");
     expect(runIdentityDetail(run.identity!)).toBe(
-      "rules v1 3f9a1c2e · recipe csb-r1 a91b2c04 · engine 1.0.1 · ASIC report to 3 Nov",
+      `rules v1 04b4e5e8 · recipe csb-r1 ${FIXTURE_RECIPE_HASH.slice(0, 8)} · engine 1.1.1 · ASIC report to 2 Nov`,
     );
   });
 
@@ -97,5 +100,19 @@ describe("the copy keeps the house style", () => {
   it.each(sources)("%s has no em dash", (file) => {
     const text = readFileSync(join(__dirname, "..", file), "utf8");
     expect(text.includes("\u2014")).toBe(false);
+  });
+});
+
+describe("the universe label and the reference span (golden kinds and dates)", () => {
+  it("labels the universe from universe_kind, and omits it for no kind", () => {
+    expect(universeLabel("asic_reported")).toBe("Universe: ASIC-reported names");
+    expect(universeLabel("asx_ordinary")).toBe("Universe: ASX ordinary shares");
+    expect(universeLabel("")).toBe("");
+  });
+
+  it("prints the reference span to its last measured session, or that it is not measured", () => {
+    expect(referenceSpanCopy("2026-10-30")).toBe("(to 30 Oct)");
+    expect(referenceUnmeasuredCopy("2026-10-30")).toBe("n/a: the reference is measured to 30 Oct");
+    expect(referenceSpanCopy("")).toBe("");
   });
 });

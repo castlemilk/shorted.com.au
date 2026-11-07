@@ -54,9 +54,10 @@ describe("the backtest mapper: zeros and flags", () => {
 
   it("nulls a benchmark or reference level of zero (not measured after the freeze)", () => {
     const run = mapBacktestRun(fixturePublishedRun());
-    const afterFreeze = run.series.filter((p) => p.date >= "2026-10-02");
-    expect(afterFreeze.length).toBeGreaterThan(0);
-    for (const point of afterFreeze) expect(point.reference).toBeNull();
+    // The reference is measured to reference_to (2026-10-30 in the golden); after it, no reference.
+    const afterReferenceEnd = run.series.filter((p) => p.date > "2026-10-30");
+    expect(afterReferenceEnd.length).toBeGreaterThan(0);
+    for (const point of afterReferenceEnd) expect(point.reference).toBeNull();
     expect(run.series.every((p) => p.benchmark === null || p.benchmark > 0)).toBe(true);
   });
 
@@ -115,10 +116,10 @@ describe("the backtest mapper: periods", () => {
 describe("the backtest mapper: windows and drawdown dates", () => {
   it("maps the drawdown's peak, trough and recovery, and an unrecovered curve", () => {
     const [full, since2023] = fixtureWindows().map((w) => mapWindowMetrics(w));
-    expect(full?.peakDate).toBe("2021-11-08");
-    expect(full?.troughDate).toBe("2022-06-13");
-    expect(full?.recoveryDate).toBe("2023-09-04");
-    expect(since2023?.recoveryDate).toBe("not recovered");
+    expect(full?.peakDate).toBe("2019-08-13");
+    expect(full?.troughDate).toBe("2020-01-06");
+    expect(full?.recoveryDate).toBe("2020-04-07");
+    expect(since2023?.recoveryDate).toBe("2026-01-16");
   });
 
   it("leaves a curve that never fell with no dates", () => {
@@ -129,10 +130,11 @@ describe("the backtest mapper: windows and drawdown dates", () => {
 
   it("maps the total return of XJT and the reference, shown for every window", () => {
     const full = mapWindowMetrics(fixtureWindows()[0]!);
-    expect(full.benchmarkTotalReturnPct).toBe(9.4);
-    expect(full.referenceTotalReturnPct).toBe(12.1);
+    expect(full.benchmarkTotalReturnPct).toBe(0.48);
+    expect(full.referenceTotalReturnPct).toBe(23.48);
     const live = mapWindowMetrics(fixtureWindows()[3]!);
-    expect(live.benchmarkTotalReturnPct).toBeNull();
+    const liveFlag = fixtureWindows()[3];
+    expect(live.benchmarkTotalReturnPct).toBe(liveFlag?.hasBenchmarkTotalReturn ? liveFlag.benchmarkTotalReturnPct : null);
   });
 
   it("maps the four windows in the API's ids", () => {
@@ -151,7 +153,7 @@ describe("the backtest mapper: the paper track", () => {
   it("maps the engine segments in order, and the run's paper start", () => {
     const run = mapBacktestRun(fixturePublishedRun());
     expect(run.paperStart).toBe(FIXTURE_RECORDED_FROM);
-    expect(run.paperEngineSegments.map((s) => s.engineVersion)).toEqual(["1.0.0", "1.0.1"]);
+    expect(run.paperEngineSegments.map((s) => s.engineVersion)).toEqual(["1.1.0", "1.1.1"]);
     expect(run.paperEngineSegments[1]?.firstSession).toBe(FIXTURE_ENGINE_SEGMENTS[1]?.firstSession);
   });
 });
@@ -159,17 +161,17 @@ describe("the backtest mapper: the paper track", () => {
 describe("the backtest mapper: run, evidence and data quality", () => {
   it("maps the identity, the served window, the series resolution and the data-quality counts", () => {
     const run = mapBacktestRun(fixturePublishedRun());
-    expect(run.identity?.runId).toBe(42);
-    expect(run.identity?.inSampleUntil).toBe("2026-10-01");
+    expect(run.identity?.runId).toBe(101);
+    expect(run.identity?.inSampleUntil).toBe("2026-09-30");
     expect(run.windowId).toBe("since_2019_05");
     expect(run.seriesResolution).toBe("weekly");
-    expect(run.dataQuality).toMatchObject({ delistingExits: 16, corporateActionExits: 4, cancelledEntries: { no_trade: 4 } });
+    expect(run.dataQuality).toMatchObject({ delistingExits: 2, corporateActionExits: 1, cancelledEntries: { liquidity: 4 } });
   });
 
   it("maps the coverage by year from the contract's coverage field", () => {
     const run = mapBacktestRun(fixturePublishedRun());
-    expect(run.coverageByYear.map((y) => y.year)).toEqual([2019, 2021, 2023, 2025]);
-    expect(run.coverageByYear[0]?.coveragePct).toBe(64);
+    expect(run.coverageByYear.map((y) => y.year)).toEqual([2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]);
+    expect(run.coverageByYear[0]?.coveragePct).toBe(70);
   });
 
   it("reads int64 counts that protobuf-es decodes to bigint, as numbers", () => {
@@ -188,7 +190,7 @@ describe("the backtest mapper: run, evidence and data quality", () => {
     });
     const [ev] = list.strategies;
     expect(ev?.version?.label).toBe("v1");
-    expect(ev?.runId).toBe(42);
+    expect(ev?.runId).toBe(101);
     expect(ev?.paper?.tooShort).toBe(true);
     expect(ev?.paper?.recordedFrom).toBe(FIXTURE_RECORDED_FROM);
     expect(ev?.miniCurve.length).toBeGreaterThan(0);

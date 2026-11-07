@@ -58,3 +58,28 @@ describe("the coverage panel's '?' for a partial run", () => {
     expect(chip).not.toMatch(/\(2019\)|\(2024\)/);
   });
 });
+
+describe("the Minervini golden: '?' on the pre-2025 years, figures from 2025", () => {
+  it("marks 2019-2024, prints 2025 and 2026, and cites no pre-2025 year in the chip", () => {
+    const { fixtureMinerviniRun } = require("~/@/lib/strategies/__tests__/backtest-fixtures") as typeof import("~/@/lib/strategies/__tests__/backtest-fixtures");
+    const run = mapBacktestRun(fixtureMinerviniRun());
+    const { container } = render(
+      <CoveragePanel years={run.coverageByYear} months={[]} survivorship={run.survivorship} dataQuality={null} dataNotes={[]} />,
+    );
+    const table = screen.getByRole("region", { name: "Coverage by year" });
+    const rows = within(table).getAllByRole("row").slice(1);
+    const byYear = Object.fromEntries(rows.map((r) => [r.querySelector("th")?.textContent ?? "", r.textContent ?? ""]));
+    for (const year of ["2019", "2020", "2021", "2022", "2023", "2024"]) {
+      expect(byYear[year]).toContain("?");
+      const row = rows.find((r) => r.querySelector("th")?.textContent === year);
+      expect(row?.querySelector('[data-unmeasured=""]')).not.toBeNull();
+    }
+    expect(byYear["2025"]).not.toContain("?");
+    expect(byYear["2025"]).toContain("90%");
+    expect(byYear["2026"]).toContain("90%");
+    expect(container.querySelectorAll('[data-unmeasured=""]').length).toBeGreaterThanOrEqual(6);
+    const chip = container.querySelector("[data-coverage-chip]")?.textContent ?? "";
+    expect(chip).toContain("Coverage (all reported) 90% (2025) → 90% (2026)");
+    expect(chip).not.toMatch(/\(2019\)|\(2020\)|\(2021\)|\(2022\)|\(2023\)|\(2024\)/);
+  });
+});

@@ -133,7 +133,7 @@ describe("coverage: one measure per run", () => {
 
   it("reads the run's own coverage years under its measure", () => {
     const run = mapBacktestRun(fixturePublishedRun());
-    expect(coverageChip(run.coverageByYear, coverageMeasureOf(run.survivorship?.measurement))).toContain("Coverage (qualifying ≥ 5% short) 64% (2019)");
+    expect(coverageChip(run.coverageByYear, coverageMeasureOf(run.survivorship?.measurement))).toContain("Coverage (qualifying ≥ 5% short) 70% (2019) → 70% (2026)");
   });
 });
 

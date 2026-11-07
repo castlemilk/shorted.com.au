@@ -10,7 +10,7 @@ describe("the run summary of a window", () => {
   it("prints CAGR for a window of a year or more", () => {
     render(<RunSummary window={full} paper={null} avgHoldSessions={null} referenceName="ref" />);
     expect(screen.getByText("Net CAGR")).toBeInTheDocument();
-    expect(screen.getByText("12.4%")).toBeInTheDocument();
+    expect(screen.getByText("5.0%")).toBeInTheDocument();
   });
 
   it("prints total return, marked not annualised, under 365 days", () => {
@@ -23,7 +23,7 @@ describe("the run summary of a window", () => {
 
   it("prints the Sharpe with its standard error at 126 returns, and n/m under it", () => {
     render(<RunSummary window={full} paper={null} avgHoldSessions={null} referenceName="ref" />);
-    expect(screen.getByText("0.82 (± 0.36)")).toBeInTheDocument();
+    expect(screen.getByText("3.86 (± 0.36)")).toBeInTheDocument();
   });
 
   it("prints n/m for Sharpe under 126 returns", () => {
@@ -46,7 +46,7 @@ describe("the run summary of a window", () => {
 
   it("paints a negative max drawdown in the text token, and prints n/a, never 0, for an absent figure", () => {
     render(<RunSummary window={full} paper={null} avgHoldSessions={null} referenceName="ref" />);
-    const dd = screen.getByText("−18.6%");
+    const dd = screen.getByText("−3.6%");
     expect(dd.className).toContain("semantic-red-text");
     expect(screen.getAllByText("n/a").length).toBeGreaterThan(0);
   });

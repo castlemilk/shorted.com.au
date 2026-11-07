@@ -23,10 +23,10 @@ const coverageMonthly = [
 ];
 const props = {
   windowLabel: "Since May 2019",
-  windowFrom: "2019-05-03",
-  windowTo: "2026-11-06",
-  maxDrawdownPct: -18.6,
-  troughDate: "2022-06-13",
+  windowFrom: "2019-05-01",
+  windowTo: "2026-11-05",
+  maxDrawdownPct: -3.64,
+  troughDate: "2020-01-06",
   liveFrom: FIXTURE_LIVE_FROM,
   recordedFrom: FIXTURE_RECORDED_FROM,
   engineSegments: FIXTURE_ENGINE_SEGMENTS,
@@ -34,7 +34,7 @@ const props = {
   coverageLabel: "Qualifying ≥ 5% short",
   benchmarkName: "S&P/ASX 200 Gross Total Return (XJT)",
   referenceName: "same-data reference",
-  referenceTo: "2026-09-25",
+  referenceTo: "2026-10-30",
   label: "Growth of A$100,000",
 };
 
@@ -55,22 +55,22 @@ describe("the growth, drawdown and coverage chart", () => {
 
   it("draws the drawdown callout at its trough with the summary's maximum drawdown", () => {
     const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
-    expect(html).toContain('data-callout-pct="-18.6"');
-    expect(html).toContain("−18.6%");
+    expect(html).toContain('data-callout-pct="-3.64"');
+    expect(html).toContain("−3.6%");
   });
 
   it("starts the recorded band at the track's own first session, and marks the engine change", () => {
     const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
     expect(html).toContain("data-recorded-band");
-    expect(html).toContain("Recorded since 5 Oct 2026");
-    expect(html).toContain('data-engine-mark="1.0.1"');
-    expect(html).toContain("engine 1.0.1 from 19 Oct");
-    expect(html).toContain("Rules frozen 2 Oct 2026");
+    expect(html).toContain("Recorded since 2 Oct 2026");
+    expect(html).toContain('data-engine-mark="1.1.1"');
+    expect(html).toContain("engine 1.1.1 from 20 Oct");
+    expect(html).toContain("Rules frozen 1 Oct 2026");
   });
 
   it("names the reference by its last measured session, and hides the date when it runs to the end", () => {
     const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
-    expect(html).toContain("to 25 Sep 2026");
+    expect(html).toContain("to 30 Oct 2026");
     const toEnd = renderToStaticMarkup(<BacktestChart {...props} referenceTo="" series={series.map((p) => ({ ...p, reference: p.reference }))} />);
     expect(toEnd).toContain('data-legend="reference"');
   });

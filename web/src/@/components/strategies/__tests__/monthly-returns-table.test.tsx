@@ -22,8 +22,8 @@ describe("the monthly returns table", () => {
     const recent = within(tables[0]!).getAllByRole("rowheader").map((th) => th.textContent);
     expect(recent).toEqual(["2024", "2025", "2026"]);
     const earlier = within(tables[1]!).getAllByRole("rowheader").map((th) => th.textContent);
-    expect(earlier).toEqual(["2023"]);
-    expect(screen.getByText(/Earlier years \(1\)/)).toBeInTheDocument();
+    expect(earlier).toEqual(["2019", "2020", "2021", "2022", "2023"]);
+    expect(screen.getByText(/Earlier years \(5\)/)).toBeInTheDocument();
   });
 
   it("says why a month has no figure, in its own words", () => {

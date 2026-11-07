@@ -99,7 +99,8 @@ export function tooShortCopy(paper: PaperTrackView): string {
   // from; live_from is the freeze, which can differ.
   const since = shortDate(paper.recordedFrom || paper.since);
   const lead = since ? `Recorded since ${since}` : "Recorded";
-  return `${lead}: ${paper.sessions} sessions, ${paper.closedTrades} trades, too short to judge`;
+  const trades = paper.closedTrades === 1 ? "trade" : "trades";
+  return `${lead}: ${paper.sessions} sessions, ${paper.closedTrades} ${trades}, too short to judge`;
 }
 
 /** The out-of-sample row (1.5): the recorded figure once it can be judged, else the reason it cannot. */
@@ -202,4 +203,24 @@ export function engineChangeLabel(engineVersion: string, firstSession: string): 
 export function recordedFromCopy(recordedFrom: string): string {
   const date = shortDate(recordedFrom);
   return date ? `Recorded since ${date}` : "";
+}
+
+/** The universe label (item 14): from the live version's universe_kind; "" when the API names none. */
+export function universeLabel(kind: "asic_reported" | "asx_ordinary" | ""): string {
+  if (kind === "asic_reported") return "Universe: ASIC-reported names";
+  if (kind === "asx_ordinary") return "Universe: ASX ordinary shares";
+  return "";
+}
+
+/**
+ * The reference span's copy (item 9): "to 30 Oct" where the reference figures run to that session,
+ * and "n/a: the reference is measured to 30 Oct" where the window has no reference figure.
+ */
+export function referenceSpanCopy(referenceTo: string | null | undefined): string {
+  const day = dayMonth(referenceTo ?? "");
+  return day ? `(to ${day})` : "";
+}
+export function referenceUnmeasuredCopy(referenceTo: string | null | undefined): string {
+  const day = dayMonth(referenceTo ?? "");
+  return day ? `n/a: the reference is measured to ${day}` : "n/a";
 }

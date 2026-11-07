@@ -61,7 +61,7 @@ export interface BacktestChartProps {
   coverageLabel: string;
   /** XJT's full name for the legend (never the bare code). */
   benchmarkName: string;
-  /** The same-data reference's name, and the session its line runs to. */
+  /** The same-data reference's name, and the session its figures run to (reference_to; "" when none). */
   referenceName: string;
   referenceTo: string;
   /** The chart's accessible name. */
@@ -193,8 +193,8 @@ function ChartBody({
   const bands = coverageBands(coverageMonthly, points);
   const yearLabels = windowIsUnderYear(windowFrom, windowTo) ? monthTicks(points) : yearTicks(points);
   const step = growthStep.length > 1 ? growthStep[1]! - growthStep[0]! : 1000;
-  const refEnd = lastReference ? shortDate(lastReference.point.date) : "";
-  const refToEnd = lastReference && lastReference.point.date === last.date;
+  // The reference's line runs to reference_to (item 9); the legend names that session unless it is the last.
+  const refToEnd = Boolean(referenceTo) && referenceTo === last.date;
 
   return (
     <figure className="m-0 space-y-2">
@@ -217,7 +217,7 @@ function ChartBody({
             <span aria-hidden="true" className="inline-block w-6 border-t border-dotted border-foreground/70" />
             <span>
               {referenceName}
-              {refToEnd ? "" : `, to ${refEnd}`}
+              {refToEnd || !referenceTo ? "" : `, to ${shortDate(referenceTo)}`}
             </span>
             <span className="tabular-nums text-muted-foreground">{dollars(lastReference.value)}</span>
           </li>

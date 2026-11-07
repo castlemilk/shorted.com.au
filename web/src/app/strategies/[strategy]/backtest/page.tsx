@@ -29,6 +29,9 @@ import { RunIdentity } from "~/@/components/strategies/run-identity";
 import { SensitivityTable } from "~/@/components/strategies/sensitivity-table";
 import { getBacktestRun } from "~/app/actions/strategies/getBacktestRun";
 import { getStrategies } from "~/app/actions/getStrategies";
+import { getStrategyEvidence } from "~/app/actions/strategies/getStrategyEvidence";
+import type { UniverseKind } from "~/@/lib/strategies/map-backtest";
+import { universeLabel } from "~/@/lib/strategies/backtest-copy";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { BacktestPanel } from "./backtest-panel";
 
@@ -101,11 +104,17 @@ export default async function StrategyBacktestPage({ params }: PageProps) {
   const seo = getStrategy(slug);
   if (!seo) notFound();
 
-  const [run, catalogue] = await Promise.all([getBacktestRun(seo.slug), getStrategies()]);
+  const [run, catalogue, evidence] = await Promise.all([
+    getBacktestRun(seo.slug),
+    getStrategies(),
+    getStrategyEvidence(),
+  ]);
   // A failed read must not bake an empty tab into the route cache (60 s, not an hour).
   if (!run) await bailOnEmptyRender();
-  const universe =
-    catalogue?.strategies.find((strategy) => strategy.id === seo.slug)?.metadata?.universe ?? "";
+  // The label is the live version's universe_kind (from the evidence read); the registry's sentence
+  // is its title. When a read fails the label is omitted, never a degraded text cached for an hour.
+  const universeKind = evidence?.strategies.find((s) => s.strategyId === seo.slug)?.universeKind ?? "";
+  const universeTitle = catalogue?.strategies.find((strategy) => strategy.id === seo.slug)?.metadata?.universe ?? "";
 
   const pageUrl = `${siteConfig.url}/strategies/${seo.slug}/backtest`;
   const breadcrumbs = [
@@ -123,7 +132,7 @@ export default async function StrategyBacktestPage({ params }: PageProps) {
           The backtest for this strategy is temporarily unavailable; it refreshes automatically. Not financial advice.
         </section>
       ) : run.state === "published" || run.state === "approximate" ? (
-        <PublishedBacktest slug={seo.slug} strategyName={seo.h1} run={run} universe={universe} />
+        <PublishedBacktest slug={seo.slug} strategyName={seo.h1} run={run} universeKind={universeKind} universeTitle={universeTitle} />
       ) : (
         <StateCard slug={seo.slug} run={run} />
       )}
@@ -135,12 +144,14 @@ function PublishedBacktest({
   slug,
   strategyName,
   run,
-  universe,
+  universeKind,
+  universeTitle,
 }: {
   slug: string;
   strategyName: string;
   run: BacktestRunView;
-  universe: string;
+  universeKind: UniverseKind | "";
+  universeTitle: string;
 }) {
   const identity = run.identity;
   const recipe = run.recipe;
@@ -177,8 +188,8 @@ function PublishedBacktest({
         served={(run.windowId as BacktestWindowId) || DEFAULT_BACKTEST_WINDOW}
         servedSeries={run.series}
         windows={windows}
-        universeLabel={universe}
-        universeTitle={universe}
+        universeLabel={universeLabel(universeKind)}
+        universeTitle={universeTitle}
         chips={chips}
         frozenChip={liveFrom ? inSampleChip(liveFrom) : "In-sample backtest"}
         recordedChip={recordedFromCopy(run.paperStart)}
@@ -190,7 +201,6 @@ function PublishedBacktest({
         coverageLabel={coverageMeasureName(measure)}
         benchmarkName={firstNonEmpty(identity?.benchmark, "S&P/ASX 200 Gross Total Return (XJT)")}
         referenceName={firstNonEmpty(identity?.referenceName, "same-data reference")}
-        referenceTo={run.series.filter((p) => p.reference !== null).at(-1)?.date ?? ""}
         paper={paper}
         avgHoldSessions={run.tradeSummary?.avgHoldSessions ?? null}
         identity={identity ? <RunIdentity identity={identity} inputChangeNote={run.inputChangeNote} /> : null}
