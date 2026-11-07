@@ -841,7 +841,7 @@ test-strategies-backtest-pg: test-integration-images
 test-strategy-saves-pg: test-integration-images
 	@set -e; \
 	GOWORK=off CGO_ENABLED=0 STRATEGY_SAVES_TESTCONTAINERS=1 STRATEGY_ADMIN_TESTCONTAINERS=1 \
-		go test -count=1 -tags=integration,testcontainers -run 'StrategySaves|StrategyBacktestQueue|StrategyStatusCarries' ./shorts/internal/store/shorts/
+		go test -count=1 -tags=integration,testcontainers -run 'StrategySaves|StrategyBacktestQueue|StrategyStatusCarries|StrategyStatusCompletion' ./shorts/internal/store/shorts/
 
 # The daily snapshot's API reads (migration 000156) against a throwaway postgres:15 container: the newest
 # completed session and the one before it, the unmigrated fallback, canonical and live-only signal events and
