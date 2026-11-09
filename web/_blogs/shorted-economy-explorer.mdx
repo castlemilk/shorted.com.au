@@ -1,0 +1,175 @@
+---
+title: "Australia's Economy by State, and the ASX Stocks in Each"
+excerpt: "Short interest across the ASX companies operating in New South Wales was 2.53% in October 2026 on Shorted's exposure-weighted measure, up from 1.03% a year earlier. Shorted's free economy explorer sets it beside each state's ABS and RBA data: what its 79 pages show, how the measure is built and where it falls short."
+standfirst: "Shorted's economy explorer puts each state's official data beside the ASX companies operating there and how heavily they are shorted. It is free, refreshed monthly, and labels which figures are Shorted's own estimates."
+coverImage: "/assets/blog/shorted-economy-explorer/cover-editorial-v1.webp"
+thumbnailImage: "/assets/blog/shorted-economy-explorer/thumbnail-editorial-v1.webp"
+coverAlt: "A burnt-orange windsock streams out from a brass mast fixed to the top of a stack of three cream card boxes on a pale grey-blue ground."
+date: "2026-11-10"
+category: product
+tags: ["economy", "abs", "rba", "states", "short interest"]
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben-ebsworth.jpg"
+ogImage:
+  url: "/assets/blog/shorted-economy-explorer/cover-editorial-v1.webp"
+---
+
+# Australia's Economy by State
+
+Shorted's [New South Wales economy page](/economy/nsw) puts the state's official figures beside the ASX companies that operate there, and tracks how heavily they are shorted. On Shorted's exposure-weighted measure, short interest across those companies was 2.53% of shares on issue in October 2026, up from 1.03% in October 2025. Four banks, [CBA](/shorts/CBA), [WBC](/shorts/WBC), [NAB](/shorts/NAB) and [ANZ](/shorts/ANZ), carry 30% of the state's weight, and each bank's reported short position at least doubled over the year.
+
+The economy sits on the same page. On 10 November 2026 it showed unemployment of 4.7% in September and construction work done of $24.1 billion in the June quarter. In its [November Statement on Monetary Policy](https://www.rba.gov.au/publications/smp/2026/nov/outlook.html), the Reserve Bank puts most of the data-centre investment pipeline in New South Wales and Victoria, though no series in the explorer separates data centres from other construction. The economy explorer has a page like this for every state and territory, and a hub for the country.
+
+It is free, needs no account and has been live since 21 July 2026, at **[shorted.com.au/economy](/economy)**.
+
+<GraphStat
+  title="The economy explorer, as at 10 November 2026"
+  items='[
+    {"value":"800+","label":"public economic series","hint":"as loaded by the run of 5 November 2026","accent":true},
+    {"value":"22","label":"topics","hint":"from the cash rate to recorded crime"},
+    {"value":"23","label":"sources","hint":"15 ABS, 3 RBA, DCCEEW, World Bank, FRED and 2 derived by Shorted"},
+    {"value":"79","label":"pages","hint":"the hub, 8 state pages and 70 state topic pages"},
+    {"value":"Monthly","label":"refresh, at 17:00 UTC on the 5th","hint":"next run 5 December 2026"}
+  ]'
+/>
+
+## Start with one state
+
+The NSW page leads with three chips: unemployment, state final demand ($215.1 billion, June quarter) and goods exports ($8.3 billion, September). Below come charts, state finances, the short-interest section, the companies operating there, top exports and nine topic pages.
+
+![Shorted's New South Wales page on 10 November 2026, section Local short interest vs the New South Wales economy: exposure-weighted short interest from January 2015 to October 2026, rising through 2026 to about 2.5%, against household spending per capita. Chips above it read r = 0.86, 0.85 and 0.85 over 24 months.](/assets/blog/shorted-economy-explorer/economy-nsw-short-interest-2026-11-10.webp)
+
+_Screenshot: shorted.com.au/economy/nsw on 10 November 2026. The comparison line can be switched to any of 23 series._
+
+### How the short-interest line is built
+
+The line is Shorted's calculation, not an ABS or RBA statistic. For each month it takes every company's last reported short position that month, from ASIC's daily reports, and weights it by two things: Shorted's estimate of the share of the company's operations in the state, and the company's market value. An AI model made those estimates for about 300 of the largest listed companies, from each company's name, industry and a short profile held by Shorted. Other companies count in full in the state of their registered office, marked HQ.
+
+Three things follow:
+
+- **Today's weights run backwards.** Current weights and market values are applied to every month back to January 2015, so the line shows how today's NSW-weighted companies were shorted over time. The page calls this "current-constituent weighting".
+- **Large companies dominate.** Commonwealth Bank alone carries 14.1% of the NSW weight.
+- **Small states and territories rest on a few names.** The ACT, Tasmania and the Northern Territory each have six or seven companies with at least a fifth of their operations there. Electro Optic Systems ([EOS](/shorts/EOS)) carries 39% of the ACT's weight, and its reported short position went from 0.15% of shares on issue on 4 November 2025 to 11.85% on 3 November 2026. By our arithmetic, that one position accounts for most of the ACT line's rise. The Lottery Corporation ([TLC](/shorts/TLC)) has an estimated tenth of its operations in Tasmania, yet carries 35% of the state's weight.
+
+<GraphTable title="The four banks in the NSW line: share of its weight (Shorted's estimate, 10 November 2026) and short position, % of shares on issue">
+
+| Bank | Share of NSW weight | 4 Nov 2025 | 3 Nov 2026 |
+| --- | --- | --- | --- |
+| [CBA](/shorts/CBA) Commonwealth Bank | 14.1% | 0.64% | 2.75% |
+| [WBC](/shorts/WBC) Westpac | 6.3% | 0.60% | 3.19% |
+| [NAB](/shorts/NAB) National Australia Bank | 5.3% | 0.40% | 2.52% |
+| [ANZ](/shorts/ANZ) ANZ Group | 4.4% | 0.82% | 1.83% |
+
+</GraphTable>
+
+Each share is the bank's estimated NSW share of operations times its market value, over the state total. Short positions are from ASIC's files for each date.
+
+<GraphTable title="Shorted's exposure-weighted short interest by state, October 2025 and October 2026, % of shares on issue">
+
+| State | October 2025 | October 2026 | Companies with a fifth or more of operations there |
+| --- | --- | --- | --- |
+| [New South Wales](/economy/nsw) | 1.03% | 2.53% | 542 |
+| [Victoria](/economy/vic) | 0.95% | 2.45% | 410 |
+| [Queensland](/economy/qld) | 1.11% | 2.32% | 216 |
+| [South Australia](/economy/sa) | 1.28% | 2.36% | 73 |
+| [Western Australia](/economy/wa) | 1.79% | 3.02% | 756 |
+| [Tasmania](/economy/tas) | 0.46% | 3.77% | 7 |
+| [Northern Territory](/economy/nt) | 1.99% | 3.33% | 6 |
+| [Australian Capital Territory](/economy/act) | 2.03% | 7.47% | 7 |
+
+</GraphTable>
+
+The line rose in every state. Company counts are as at 10 November and include HQ placements.
+
+## Then the whole country
+
+![The Shorted economy hub on 10 November 2026: nine tiles reading RBA cash rate target 4.60% (Oct 2026), CPI annual change 4.3% (Sept 2026), unemployment rate 4.7% (Sept 2026), goods trade balance +$2.8B (Sept 2026), AUD/USD 0.7014 (Nov 2026), national diesel sales 2.6GL (Aug 2026), gold US$4,105/oz (Oct 2026), Brent crude US$107.03/bbl (Nov 2026) and US 10-year Treasury 4.95% (Nov 2026), above the state map's Colour by chips.](/assets/blog/shorted-economy-explorer/economy-hub-2026-11-10.webp)
+
+_Screenshot: shorted.com.au/economy on 10 November 2026._
+
+The [hub](/economy) opens on nine tiles, from the cash rate to the US 10-year yield; CPI was 4.3% over the year to September, and unemployment 4.7%. Below them:
+
+- **Explore by state:** the states coloured by any of 15 measures, including Shorted's company footprint and local short interest. Click a state to open its page; [this link](/economy?metric=local_short_interest) opens the map on local short interest.
+- **Every state, topic by topic:** links to all 70 topic pages.
+- **Australian charts:** the cash rate, the CPI index, unemployment, the dollar, goods exports and imports, and six petroleum series.
+- **World prices and rates:** 49 charts in seven groups, from World Bank metal and energy prices to US Treasury yields. The World Bank's October averages put iron ore at US$90.8 a dry tonne, copper at US$14,508 a tonne and gold at US$4,105 an ounce ([Pink Sheet, 3 November 2026](https://thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Pink-Sheet-November-2026.pdf)).
+
+A topic page, such as [NSW household spending](/economy/nsw/spending), carries every series in its family with its latest value, change, unit, adjustment, source and licence, explains what the measure does and does not cover, and lists the ASX companies operating in the state. NSW household spending was $25.9 billion in September, 5.6% more than a year earlier. Topic pages date a quarter by its first month, so "Apr 2026" there means the June quarter.
+
+### From a state to a stock
+
+![The Operating here panel on Shorted's NSW page, 10 November 2026: CBA, WBC, NAB, ANZ, WES, TLS, URW (marked HQ) and WOW, with estimated NSW shares of operations and short positions from 1.3% to 3.2%, beside Top export commodities.](/assets/blog/shorted-economy-explorer/economy-nsw-operating-here-2026-11-10.webp)
+
+_Screenshot: shorted.com.au/economy/nsw on 10 November 2026. The exports are for September 2026._
+
+Each code opens its stock page. Commonwealth Bank's header reads 2.75% of shares on issue reported short as of 3 November 2026. Its [Company tab](/shorts/CBA/company) shows the bank's operations exposure in coarse bands, significant in New South Wales and Victoria and some in Queensland and Western Australia, each linking back to that state's page. Stock and topic pages show only the bands, and omit companies placed by their registered office alone.
+
+## What it is built from
+
+The explorer reads 23 registered sources; the hub's charts and the topic pages print each series' licence.
+
+<GraphTable title="The explorer's sources and licences, from each series' own licence field, 10 November 2026">
+
+| Source | Licence | What it supplies |
+| --- | --- | --- |
+| ABS, 15 publications | CC BY 4.0 | Prices, jobs, wages, spending, state final demand, trade, building, lending, business, population, government finance and crime, plus Retail Trade to June 2025 |
+| RBA, 3 sources | CC BY 4.0 | Tables F1.1, F11, I2 and D1: the cash rate, exchange rates, commodity prices and credit |
+| DCCEEW | CC BY 4.0 | Australian Petroleum Statistics |
+| World Bank | CC BY 4.0 | Pink Sheet prices, 23 series |
+| FRED | US government, public domain | US rates and macro, crude oil, exchange rates |
+| FRED, from the OECD | OECD terms, with attribution | China's goods exports and real exchange rate |
+| Shorted, 2 sets | Derived | State short interest and price indexes, industry averages, real wages, trade balances, per-person rates |
+
+</GraphTable>
+
+## How to read it
+
+- **The cash-rate tile is a monthly average.** It reads 4.60% for October from the RBA's table F1.1, a monthly average of the target. The RBA raised the target to 4.85% on 3 November, effective 4 November, on a six to three vote ([RBA, 3 November 2026](https://www.rba.gov.au/media-releases/2026/mr-26-30.html)). November's average, expected with the 5 December run, includes the first days of November at 4.60%, so it will sit a little under 4.85%. For the current target, use the [RBA's cash rate page](https://www.rba.gov.au/statistics/cash-rate/).
+- **It refreshes monthly.** The collector runs at 17:00 UTC on the 5th, early on the 6th in Sydney. The September-quarter Wage Price Index (18 November) and October's Labour Force (19 November), CPI (25 November) and household spending (30 November) wait for the 5 December run. Daily series stop at the run: the AUD/USD tile reads 0.7014, the RBA's rate for 5 November, and its rate for 9 November was 0.6894 ([table F11.1](https://www.rba.gov.au/statistics/tables/csv/f11.1-data.csv)).
+- **Retail turnover stops at June 2025.** The ABS ceased [Retail Trade](https://www.abs.gov.au/statistics/industry/retail-and-wholesale-trade/retail-trade-australia/latest-release) after June 2025, but the state pages still chart its history. Use household spending, which the ABS says covers around 68% of household consumption against Retail Trade's 33%. It is in current prices, so a rise can reflect higher prices rather than more purchases.
+- **The NT and the ACT have no labour pages.** The ABS publishes no seasonally adjusted labour series for them, and a topic page needs at least two series: hence 70 topic pages, not 72.
+- **A correlation is not a cause.** The NSW page's strongest chip pairs the line with household spending per person, r = 0.86 over 24 months, and both rose over those two years. The page's note reads "Correlations are descriptive, not causal".
+
+## Decisions behind it
+
+**Series keys come from codes, never labels.** Each series is named from the publisher's stable codes or a fixed map. Release wording changes, and a key built from it would quietly fork the history.
+
+**A source that fails keeps its last good data.** A source that returns no observations counts as an error, not an empty month, and the run is marked degraded while the other sources still load.
+
+**A failed read falls back to the last good copy.** Pages rebuild at most hourly. If Shorted's API fails during a rebuild, the page uses the last good copy of its data, kept for six hours. With none, its empty page is kept for one minute, not an hour.
+
+## Where it meets the new editorials
+
+Each of the three new editorials has explorer pages to match:
+
+- For [our data-centre analysis](/blog/asx-data-centres-deep-dive): the [NSW](/economy/nsw) and [Victoria](/economy/vic) pages, and [NSW construction work done](/economy/nsw/construction). No explorer series isolates data centres, and it holds no electricity price or demand data.
+- For [our analysis of the rate rises](/blog/asx-rate-hikes-banks-landlords-retailers): the hub's cash-rate and CPI tiles, the state household spending pages and the labour pages, such as [Victoria's](/economy/vic/labour).
+- For [our analysis of the most shorted commodity stocks](/blog/asx-most-shorted-commodity-stocks): the hub's World Bank prices and AUD/USD chart, and the [Western Australia](/economy/wa) and [Queensland](/economy/qld) pages for exports.
+- For housing, the hub links the [house prices tracker](/housing), and [our state-by-state house price guide](/blog/australian-house-prices-2026-state-by-state) covers the March quarter.
+
+## From the explorer to the rest of Shorted
+
+Nothing in the explorer needs an account. The way on runs through the stock pages it links to:
+
+- **With no account:** every economy page, every stock page with its short history, and five chart indicators: SMA 20, SMA 50, EMA 20, WMA 20 and the 30-day short average.
+- **With a free account:** five more indicators (SMA 200, Bollinger Bands, RSI 14, MACD and the 90-day short average) and a portfolio tracker. [The stock page tour](/blog/shorted-stock-pages) walks through each tab.
+- **With Premium, A$4 a month:** an email when a stock's reported short position passes a level you set or rises by an amount you set ([how the alerts work](/blog/shorted-short-interest-alerts), [set one up](/alerts)). Premium also includes Shorted's AI chat. The plans are on [/pricing](/pricing).
+
+## Where to look it up
+
+- [The economy hub](/economy), and any state from it, such as [New South Wales](/economy/nsw) or [Victoria](/economy/vic).
+- [Commonwealth Bank's Company tab](/shorts/CBA/company), for one stock's operations exposure.
+- [ASIC's table of short position reports](https://asic.gov.au/regulatory-resources/markets/short-selling/short-position-reports-table/), for the bank and EOS positions.
+- Through [Shorted's MCP server](/blog/shorted-mcp-server), an AI assistant can call `list_economic_series`, `get_economic_series` and `get_state_company_aggregates`. Use each series' own licence field: the tools' footer names ABS and RBA on every response.
+- The ABS releases for [CPI](https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/latest-release), the [Labour Force](https://www.abs.gov.au/statistics/labour/employment-and-unemployment/labour-force-australia/latest-release), the [Wage Price Index](https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/wage-price-index-australia/latest-release) and [household spending](https://www.abs.gov.au/statistics/economy/finance/monthly-household-spending-indicator/latest-release), and the RBA's [table F1.1](https://www.rba.gov.au/statistics/tables/csv/f1.1-data.csv).
+
+To report a figure that looks wrong, write to [support@shorted.com.au](mailto:support@shorted.com.au).
+
+<Callout type="warning" title="State short interest is Shorted's estimate, not a statistic">
+
+The state lines and company lists rest on Shorted's AI-made estimates of where companies operate, with today's weights applied to every past month. In the ACT, Tasmania and the Northern Territory one or two companies can move the line. A reported short position is a level, not a flow: it can be a hedge, and it says nothing about who holds it or why. None of this is a recommendation.
+
+</Callout>
+
+_This content is for informational purposes only and does not constitute financial advice. Economic figures are as held by Shorted's economy explorer on 10 November 2026, from its 5 November run; ABS, RBA, DCCEEW and World Bank data are CC BY 4.0, and FRED's US series are US government works in the public domain. Short positions are from ASIC's daily reports, the newest for 3 November 2026, published four trading days after the position date; the state short-interest series and shares of weight are Shorted's calculations. A reported position records the size of short interest, not the intentions of those holding it. Always conduct your own research before making investment decisions._

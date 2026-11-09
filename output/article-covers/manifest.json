@@ -13,12 +13,36 @@
       "thumbnail": "web/public/assets/blog/activist-short-sellers-asx/thumbnail-editorial-v2.webp"
     },
     {
+      "slug": "asx-data-centres-deep-dive",
+      "asset": "web/public/assets/blog/asx-data-centres-deep-dive/cover-editorial-v1.webp",
+      "alt": "A tall white porcelain insulator on a burnt-orange flange stands at the near corner of a long row of steel server racks, a taut copper cable clamped to its top, on warm graphite ground.",
+      "prompt": "output/article-covers/asx-data-centres-deep-dive.md",
+      "original": "output/article-covers/asx-data-centres-deep-dive.png",
+      "thumbnail": "web/public/assets/blog/asx-data-centres-deep-dive/thumbnail-editorial-v1.webp"
+    },
+    {
+      "slug": "asx-most-shorted-commodity-stocks",
+      "asset": "web/public/assets/blog/asx-most-shorted-commodity-stocks/cover-editorial-v1.webp",
+      "alt": "A closed brown leather ledger on a grey surface, its pages made of grey-green, rust-red and black rock layers, with an ochre-yellow slab slid out above a few cream paper leaves.",
+      "prompt": "output/article-covers/asx-most-shorted-commodity-stocks.md",
+      "original": "output/article-covers/asx-most-shorted-commodity-stocks.png",
+      "thumbnail": "web/public/assets/blog/asx-most-shorted-commodity-stocks/thumbnail-editorial-v1.webp"
+    },
+    {
       "slug": "asx-oil-shorts-iran-war",
       "asset": "web/public/assets/blog/asx-oil-shorts-iran-war/cover-editorial-v2.webp",
       "alt": "Three petroleum vessels stand before a coal-black oil curl on mineral-blue ground, with rust position discs concentrated around the middle vessel.",
       "prompt": "output/article-covers/asx-oil-shorts-iran-war-v2.md",
       "original": "output/article-covers/asx-oil-shorts-iran-war-v2.png",
       "thumbnail": "web/public/assets/blog/asx-oil-shorts-iran-war/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "asx-rate-hikes-banks-landlords-retailers",
+      "asset": "web/public/assets/blog/asx-rate-hikes-banks-landlords-retailers/cover-editorial-v1.webp",
+      "alt": "An aged-brass screw press brings its round die down on a disc of oxblood sealing wax and an orange-coated key lying on folded cream paper, on pale sand-coloured stone.",
+      "prompt": "output/article-covers/asx-rate-hikes-banks-landlords-retailers.md",
+      "original": "output/article-covers/asx-rate-hikes-banks-landlords-retailers.png",
+      "thumbnail": "web/public/assets/blog/asx-rate-hikes-banks-landlords-retailers/thumbnail-editorial-v1.webp"
     },
     {
       "slug": "asx-reporting-season-short-sellers",
@@ -197,6 +221,14 @@
       "thumbnail": "web/public/assets/blog/shorted-2026-platform-update/thumbnail-editorial-v2.webp"
     },
     {
+      "slug": "shorted-economy-explorer",
+      "asset": "web/public/assets/blog/shorted-economy-explorer/cover-editorial-v1.webp",
+      "alt": "A burnt-orange windsock streams out from a brass mast fixed to the top of a stack of three cream card boxes on a pale grey-blue ground.",
+      "prompt": "output/article-covers/shorted-economy-explorer.md",
+      "original": "output/article-covers/shorted-economy-explorer.png",
+      "thumbnail": "web/public/assets/blog/shorted-economy-explorer/thumbnail-editorial-v1.webp"
+    },
+    {
       "slug": "shorted-for-discord",
       "asset": "web/public/assets/blog/shorted-for-discord/cover-editorial-v1.webp",
       "alt": "A cut-paper split-flap panel on a charcoal field, its upper flap falling to reveal a new ink line, above a row of keys with one amber key pressed down.",
@@ -219,6 +251,22 @@
       "prompt": "output/article-covers/shorted-ownership-explorer.md",
       "original": "output/article-covers/shorted-ownership-explorer.png",
       "thumbnail": "web/public/assets/blog/shorted-ownership-explorer/thumbnail-editorial-v1.webp"
+    },
+    {
+      "slug": "shorted-short-interest-alerts",
+      "asset": "web/public/assets/blog/shorted-short-interest-alerts/cover-editorial-v1.webp",
+      "alt": "A taut vermilion cord runs from a brass pin across a ruled cream page, pushed into a V by a charcoal tag, to a tilted brass bell hanging from a bracket on petrol-teal ground.",
+      "prompt": "output/article-covers/shorted-short-interest-alerts.md",
+      "original": "output/article-covers/shorted-short-interest-alerts.png",
+      "thumbnail": "web/public/assets/blog/shorted-short-interest-alerts/thumbnail-editorial-v1.webp"
+    },
+    {
+      "slug": "shorted-stock-pages",
+      "asset": "web/public/assets/blog/shorted-stock-pages/cover-editorial-v1.webp",
+      "alt": "A manila expanding file against deep plum, with six muted divider tabs level along its top and one burnt-orange divider rising above them.",
+      "prompt": "output/article-covers/shorted-stock-pages.md",
+      "original": "output/article-covers/shorted-stock-pages.png",
+      "thumbnail": "web/public/assets/blog/shorted-stock-pages/thumbnail-editorial-v1.webp"
     },
     {
       "slug": "shorting-australian-bank-stocks",

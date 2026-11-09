@@ -1,0 +1,209 @@
+---
+title: "ASX Short Interest Alerts: ASIC's Daily Data, by Email"
+excerpt: "NEXTDC's reported short interest crossed 10% in ASIC's report for 29 October 2026, published 4 November, and a Shorted alert set at 10% would have emailed that morning. How the alerts work, what each email shows, how often they fire, what Premium costs (A$4 a month) and what alerts cannot tell you."
+standfirst: "Shorted's Premium alerts check each new ASIC short position report against rules you set, for a stock or an industry, and email you when one is met. Premium is A$4 a month; the positions are four trading days old."
+coverImage: "/assets/blog/shorted-short-interest-alerts/cover-editorial-v1.webp"
+thumbnailImage: "/assets/blog/shorted-short-interest-alerts/thumbnail-editorial-v1.webp"
+coverAlt: "A taut vermilion cord runs from a brass pin across a ruled cream page, pushed into a V by a charcoal tag, to a tilted brass bell hanging from a bracket on petrol-teal ground."
+date: "2026-11-10"
+category: product
+tags: ["alerts", "short interest", "premium", "asic", "mcp"]
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben-ebsworth.jpg"
+ogImage:
+  url: "/assets/blog/shorted-short-interest-alerts/cover-editorial-v1.webp"
+---
+
+# ASX Short Interest Alerts
+
+Shorted's alerts answer one request: tell me when the short side of a stock or an industry I watch gets crowded, without my checking ASIC's file every day. You write the rule, such as "[NEXTDC](/shorts/NXT) above 10%" or "any Materials company entering that industry's ten most shorted". Shorted checks it against every new ASIC report and emails you when it is met.
+
+The only input is ASIC's daily aggregate short position report, which ASIC publishes four trading days after the position date (T+4). Every email names the two reports it compares and says how old the positions are. No email can say who holds a position or why.
+
+Alerts are part of Shorted Premium, A$4 a month, at **[shorted.com.au/alerts](/alerts)**.
+
+<GraphStat
+  title="Shorted's replay of a daily 10% alert over ASIC's reports, position dates 22 September to 3 November 2026"
+  items='[
+    {"value":"11","label":"upward crossings of 10% by ASX companies","hint":"ETF lines and the Glencore ASX CDI line left out","accent":true},
+    {"value":"9","label":"companies that crossed","hint":"from Electro Optic Systems on 8 October to Liontown on 30 October"},
+    {"value":"3","label":"crossings by Clarity Pharmaceuticals (CU6)","hint":"13, 20 and 30 October"},
+    {"value":"4","label":"trading days from position date to publication","hint":"every alert describes positions at least that old"}
+  ]'
+/>
+
+## Start with one company: NEXTDC
+
+On 21 October 2026 [NEXTDC](/shorts/NXT) cut its FY27 revenue and earnings guidance after Jemena suspended parts of the grid works for its M3 Melbourne data centre ([NEXTDC's announcement](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03154955); [the newsroom's take](/news/nxt-shorts-8pc-into-40pc-fall-jemena-m3-delay)). Its reported short interest was 8.31% that day and 9.68% on 28 October.
+
+On 29 October it was 10.74%: 81,576,741 of 759,626,698 shares, 8,015,699 more than the day before. The number of shares on issue did not change, so the rise came from more shares being reported short. ASIC published that report on Wednesday 4 November at about 11:30 AEDT. A daily "NXT above 10%" monitor would have fired in Shorted's 11:55 alert run that morning.
+
+In the next session, 5 November, NEXTDC closed at $9.85, 50.8% above the previous close of $6.53. On 9 November NEXTDC said that Ackland Investments No.1, the vehicle Goodman Group and Digital Realty own equally, had bought 75,215,528 NEXTDC shares, a 9.9% interest, between 3 and 6 November ([NEXTDC's release](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03163616); [Goodman and Digital Realty's statement](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03163466)).
+
+The email would have told you that 81.6 million shares were short. It knew nothing about the buyer. An alert reports what ASIC's file shows for a date four trading days earlier. It is not a forecast, and nothing in it pointed to 5 November.
+
+Short interest kept rising, to 11.14% on 30 October and 11.59% on 3 November. The same monitor would have stayed silent, because it fires on a crossing, not on a level. ASIC's report for 5 November, the session of the jump, is due on 11 November. [Our data-centre analysis](/blog/asx-data-centres-deep-dive) follows the rest of NEXTDC's story.
+
+## How it works
+
+A monitor watches one ASX code or a whole industry, as grouped in Shorted's company data (NEXTDC sits in Software & Services). It has one of three triggers:
+
+- **Short interest above X%.** It fires when the previous reading was below X and the latest is at or above it, both rounded to two decimals. Staying above does not fire again; falling below and crossing back does.
+- **Short interest rises by X points.** It fires when the latest reading is at least X percentage points above the previous one. A fall never fires.
+- **New top-ten entry**, for industries only. It fires when a company is among the industry's ten most shorted on the new report but was outside them on its previous reading.
+
+On an industry monitor, "above" and "rises by" apply to every company in the industry, and one email lists each company that met the rule.
+
+Each monitor runs daily or weekly. A daily monitor compares each new report with the one before it. A weekly monitor compares the last report of a week with the last report of the week before, once that week's final report is out. A Friday position is published the following Thursday, so that is when a weekly alert can fire.
+
+<Steps title="From a short position to your inbox: ASIC's timetable and Shorted's schedules at 10 November 2026, Sydney time">
+
+1. Day T, the position date
+
+   ASIC's report adds up the short positions that sellers reported for that trading day.
+
+2. Four trading days later, about 11:30 AEDT
+
+   ASIC publishes the report. Each of the 11 files checked, published from 14 October to 9 November 2026, appeared at 11:30.
+
+3. 11:32, 11:37 and 11:47
+
+   Shorted checks ASIC for the new file, then hourly to 15:15 if it is late, with an evening run as the backstop.
+
+4. 55 minutes past each hour
+
+   On weekdays, Shorted checks every active monitor against any new report. If its import of the file is still running, the report waits for the next hour.
+
+5. About 11:55 AEDT
+
+   The email goes to your verified address.
+
+</Steps>
+
+The 11:55 time is worked out from these schedules. It was not measured from emails sent.
+
+## What the email contains
+
+Each monitor that fires on a report sends one email, from alerts@shorted.com.au. A stock alert has:
+
+- A subject that states the rule and the figure, such as "NXT short interest crossed 10% (now 10.74%)" or "ZIP short interest up 2.68 pts to 15.84%". Weekly alerts start "Weekly:".
+- The company's name, logo and industry.
+- The previous and latest readings, each with its own report day, and the change in points.
+- A chart of up to 130 readings, about six months, with your level drawn as a line on an "above" alert.
+- Shares short and shares on issue, so you can see whether shorting or the share count moved.
+- The stock's most-shorted rank that day, among every line in ASIC's report with a reported position apart from deferred-settlement lines, and the change since the reading 20 reports earlier.
+- A link to the stock's page on Shorted, and a line naming both reports that says "ASIC publishes positions four trading days after they are held."
+- A footer that repeats your rule, with "Pause this alert", "Manage your alerts" and "General information only, not financial advice."
+
+An industry email replaces the chart and figures with a table: code, company, previous, latest and change, or latest with rank before and rank now for a top-ten alert. It lists up to 25 companies and links to the industry's page for the rest.
+
+<GraphTable title="The email a daily 'NXT above 10%' monitor would have sent on 4 November 2026, rebuilt from ASIC's files with the email's own rules">
+
+| Part | Content |
+| --- | --- |
+| Subject | NXT short interest crossed 10% (now 10.74%) |
+| Previous | 9.68%, Wed 28 Oct |
+| Latest | 10.74%, Thu 29 Oct |
+| Change | +1.06 pts |
+| Shares short | 81.6M |
+| Shares on issue | 760M |
+| Most-shorted rank | #17 of 806 |
+| Change since 1 Oct | +2.01 pts |
+
+</GraphTable>
+
+The rank counts every line with a reported position, so the 16 lines above NEXTDC on 29 October include two ETFs and Glencore's CDI line.
+
+## More examples
+
+<GraphTable title="Alerts that would have fired on ASIC's reports for October 2026">
+
+| Monitor | What it would have said | Reports compared | Published |
+| --- | --- | --- | --- |
+| [ZIP](/shorts/ZIP) rises by 2 points, daily | 13.16% to 15.84%, +2.68 points | 23 Oct against 22 Oct | Thu 29 Oct |
+| [VUL](/shorts/VUL) rises by 2 points, weekly | 10.21% to 12.79%, +2.58 points | 30 Oct against 23 Oct | Thu 5 Nov |
+| [Materials](/industry/materials) new top-ten entry, daily | [LTR](/shorts/LTR) entered at #10 (was #11), at 7.47% | 13 Oct against 12 Oct | Mon 19 Oct |
+| [CU6](/shorts/CU6) above 10%, daily | Three crossings, to 10.43%, 10.45% and 10.13% | 13, 20 and 30 Oct, each against the day before | 19 Oct, 26 Oct and 5 Nov |
+
+</GraphTable>
+
+Neither Zip Co's nor Vulcan's share count changed, so both rises were in shares reported short: 33,383,001 more for Zip in one day. The Liontown case and Clarity's first crossing are hypothetical: ASIC published that report on 19 October, before alerts launched.
+
+To see how often a round-number alert fires, Shorted replayed the daily "above 10%" rule over ASIC's files for position dates 22 September to 3 November 2026. Nine companies crossed 10% upward 11 times: [Electro Optic Systems](/shorts/EOS), [Artrya](/shorts/AYA), Clarity Pharmaceuticals (three times), [The Lottery Corporation](/shorts/TLC), [Deep Yellow](/shorts/DYL), [Generation Development Group](/shorts/GDG), Vulcan, NEXTDC and Liontown. The count leaves out ETF lines, where a small fund can swing past 100% (JEME was 150.47% on 30 October), and Glencore's ASX CDI line, whose percentage is of 44 million CDIs, not of Glencore.
+
+Clarity shows what happens at a round number. From 13 October to 3 November its short interest stayed between 9.82% and 10.48%, yet a daily 10% monitor would have sent three emails in three weeks, one each time it crossed back above the line. A "rises by" monitor does not fire on that kind of drift, because it needs a move of the size you set.
+
+## Alerts from Claude or ChatGPT
+
+AI assistants connected to [Shorted's MCP server](/blog/shorted-mcp-server) can manage alerts too. A client that has not signed in sees one alerts tool, `manage_my_alerts`. Calling it starts sign-in: the client opens Shorted's login page, and once you approve the `alerts:write` permission, six tools replace it: `list_my_alerts`, `create_alert`, `pause_alert`, `resume_alert`, `delete_alert` and `list_my_alert_history`.
+
+They apply the same rules as the web page: Premium to create or resume an alert, at most 50 active alerts, and email only to a verified address. One difference: `create_alert` refuses an alert until your address is verified, where the page saves it and holds the email. Each action counts as one call against your usage limit. The [connection guide](/docs/mcp.md) shows how to connect each client and lists the six tools.
+
+## What Premium costs
+
+Premium is A$4 a month, billed monthly in Australian dollars, with no trial, and you can cancel at any time. For alerts it means:
+
+- **Up to 50 active alerts.** Paused alerts do not count towards the limit.
+- **Pausing needs no plan.** Each email's pause link never expires, and a mail program's one-click unsubscribe pauses the alert too. If Premium lapses, you can still stop any alert. Resuming one needs Premium.
+- **A verified address.** Alerts are emailed only to a verified address.
+
+Premium also includes Shorted AI, the chat at [/chat](/chat). It answers from 13 data tools, and its instructions require every figure to come from a tool result in the conversation, with a short position dated by its position date. It allows 40 messages a day and 600 a month.
+
+A free account already includes each strategy's full signal list, saved strategies, dashboards, a portfolio tracker and signed-in access to the MCP server. The A$20 API Access plan is for developers and does not include alerts or the chat.
+
+## What alerts cannot tell you
+
+- **The positions are four trading days old.** ASIC publishes T+4, and the email follows. By the time NEXTDC's crossing was published on 4 November, Ackland had already started buying.
+- **Short interest only.** There are no price, volume or director-trade alerts.
+- **Crossings, not levels.** A monitor created while a stock is already above its level stays silent until the stock drops below it and crosses back. A stock that hovers at the line fires each time it crosses.
+- **The percentage moves with the share count.** A capital raising or buy-back changes it without any change in shorting, and a consolidation rescales both counts, which is why the email shows both. [Why short interest can fall without covering](/blog/why-short-interest-falls-without-covering) works through examples.
+- **A position, not a reason.** ASIC's reports "will not contain short seller details", and a reported short can hedge a convertible note or another holding. [How to read ASX short interest data](/blog/how-to-read-short-interest-data) covers the basics.
+- **Email only, to a verified address.**
+
+## How to set one up
+
+<Steps title="Setting up an alert at shorted.com.au/alerts, as the page works on 10 November 2026">
+
+1. Subscribe to Premium
+
+   Choose Premium on the [pricing page](/pricing).
+
+2. Verify your email address
+
+   The alerts page saves an alert before you verify, but it does not email it until you do.
+
+3. Choose a stock or an industry
+
+   Open [Alerts](/alerts), pick Stock or Industry, and enter the ASX code or the industry.
+
+4. Set the trigger, the threshold and the cadence
+
+   The builder starts at a stock, above 5%, daily. Its summary line reads like "NXT - short interest above 10% - daily".
+
+5. Save the monitor
+
+   The Monitors list shows each alert as active or paused, with Pause, Resume and Delete, the last report it fired on and the latest ASIC report checked.
+
+</Steps>
+
+Signed in, the [Industry Intelligence](/industry-intelligence) page has a Create alert button for each industry, which opens the builder on that industry with New top-ten entry selected.
+
+## Where to look it up
+
+- [Alerts](/alerts) (Premium) and [pricing](/pricing).
+- The stock pages for the companies here: [NEXTDC](/shorts/NXT), [Zip Co](/shorts/ZIP), [Vulcan Energy Resources](/shorts/VUL), [Liontown](/shorts/LTR) and [Clarity Pharmaceuticals](/shorts/CU6). [Our guide to Shorted's stock pages](/blog/shorted-stock-pages) explains each tab.
+- [ASIC's short position reports](https://www.asic.gov.au/regulatory-resources/markets/short-selling/short-position-reports-table/), the daily files every alert reads, and [ASIC's reporting page](https://www.asic.gov.au/regulatory-resources/markets/short-selling/short-selling-reporting-short-position-reporting/), which sets out T+4.
+- NEXTDC's [guidance update of 21 October](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03154955) and [release of 9 November](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03163616), and [Goodman and Digital Realty's statement](https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03163466).
+- [Shorted's MCP server](/blog/shorted-mcp-server) and its [connection guide](/docs/mcp.md).
+- [Our data-centre analysis](/blog/asx-data-centres-deep-dive) and [the newsroom's take on NEXTDC's power delay](/news/nxt-shorts-8pc-into-40pc-fall-jemena-m3-delay).
+
+To report an alert that looks wrong, reply to its email: replies go to support@shorted.com.au.
+
+<Callout type="warning" title="An alert is not a signal">
+
+An alert reports a level in ASIC's data, four trading days after the position date. It names no holder and gives no reason, a reported short can be a hedge, and a crossing is not a forecast of the share price. Neither an alert nor this post is a recommendation.
+
+</Callout>
+
+_This content is for informational purposes only and does not constitute financial advice. Short-position figures are from ASIC's daily aggregate reports, published four trading days after the position date, for position dates 22 September to 3 November 2026. Prices are closes to 9 November 2026 from Shorted's price data. The alert examples replay Shorted's alert rules over ASIC's files: they show what would have fired, not emails that were sent. A reported position records the size of short interest, not the intentions of those holding it. Always conduct your own research before making investment decisions._
