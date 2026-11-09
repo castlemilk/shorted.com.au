@@ -319,7 +319,7 @@ export async function publishTake(opts: PublishOptions): Promise<void> {
  *   gcloud secrets versions access latest --secret=REVALIDATION_SECRET \
  *     --project=rosy-clover-477102-t5
  */
-async function revalidateNewsSurfaces(slug: string): Promise<void> {
+export async function revalidateNewsSurfaces(slug: string): Promise<void> {
   const secret = process.env.REVALIDATION_SECRET;
   const base =
     process.env.REVALIDATION_URL ??

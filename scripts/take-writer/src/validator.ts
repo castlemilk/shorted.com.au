@@ -341,10 +341,21 @@ async function judge(
   return JSON.parse(resp.response.text()) as CohesionVerdict;
 }
 
-export async function validateArticle(slug: string, opts: { rounds?: number; requirePass?: boolean } = {}): Promise<void> {
+/** A header image that is not yet on the take: judged in place of the stored hero. */
+export interface CandidateHero { url: string; caption: string | null }
+
+export async function validateArticle(
+  slug: string,
+  opts: { rounds?: number; requirePass?: boolean; hero?: CandidateHero } = {},
+): Promise<void> {
   const requirePass = opts.requirePass === true;
   if (requirePass && opts.rounds !== undefined && opts.rounds !== PUBLICATION_VISION_LIMITS.rounds) {
     throw new Error("publication vision requires exactly one round");
+  }
+  // A candidate is judged by the publication review only: that mode makes no
+  // writes, so the stored hero is never replaced by a regenerated one here.
+  if (opts.hero && !requirePass) {
+    throw new Error("a candidate hero is judged only by the publication review (requirePass)");
   }
   const maxRounds = requirePass ? PUBLICATION_VISION_LIMITS.rounds : opts.rounds ?? 2;
   const dbUrl = process.env.DATABASE_URL;
@@ -367,8 +378,8 @@ export async function validateArticle(slug: string, opts: { rounds?: number; req
     const row = rows[0];
     if (!row) throw new Error(`no take ${slug}`);
     const layout: LayoutImage[] = row.layout_images ?? [];
-    let heroUrl = row.hero_image_url;
-    let heroCaption = row.hero_caption;
+    let heroUrl = opts.hero ? opts.hero.url : row.hero_image_url;
+    let heroCaption = opts.hero ? opts.hero.caption : row.hero_caption;
     if (requirePass && !heroUrl) throw new Error("publication requires an existing hero image");
     if (!layout.length && !heroUrl) {
       console.log("[validate] no hero_image_url or layout_images on this take");

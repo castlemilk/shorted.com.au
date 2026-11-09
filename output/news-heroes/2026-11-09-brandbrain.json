@@ -1,0 +1,894 @@
+{
+  "made": "2026-11-09",
+  "what": "Header images for the 34 backlog takes and the DRO and TLX October articles, remade through the BrandBrain MCP and swapped in with take-writer set-hero (publication vision review, gemini-3.5-flash, cohesion >= 7).",
+  "generator": "BrandBrain MCP generate_image (api.brandbrain.dev), 16:9, quality high, 1536x1024 WebP",
+  "paid_by": "BrandBrain core workspace's own OpenAI key \"credits\" (pay_with key id), never BrandBrain's key",
+  "calls": 47,
+  "total_cost_usd_estimated": 1.9345,
+  "styles": {
+    "v1": "Shorted newsroom header image. Conceptual editorial illustration with tactile hand-made craft: cut paper with visible cut edges and paper fibre, spare woodcut printmaking, or a materially believable still life. One dominant subject performing one story-specific action; bold silhouette and broad light/dark shapes; a quiet pocket of negative space around the focal point. The subject and its action fill about two thirds of the frame and stay inside the central 80%, so a 16:9 or 3:2 crop keeps them. Colour: warm ivory paper, charcoal and one selective burnt-amber accent, on the field colour the brief names (ink green, mineral blue, oxblood, charcoal or warm paper). Coherent perspective, joins, attachments and contact shadows. Must read clearly at 160x90 pixels. Any position tiles, blocks or tokens are plain and unmarked: blank faces with no symbols, glyphs, game pieces, icons or letters on them. NOT: text, letters, numbers, labels, logos, watermarks, signage, charts, arrows, dollar signs, bulls or bears, people, hands or faces, generic finance wallpaper, glossy 3D or toy render, plastic sheen, lens flare, HDR glow, uniform fake grain, a fabricated photograph of a real place or event.",
+    "v2": "Conceptual editorial illustration with tactile hand-made craft: cut paper with visible cut edges and paper fibre, spare woodcut printmaking, or a materially believable still life. One dominant subject performing one story-specific action; bold silhouette and broad light/dark shapes; a quiet pocket of negative space around the focal point. The subject and its action fill about two thirds of the frame and stay inside the central 80%, so a 16:9 or 3:2 crop keeps them. Colour: warm ivory paper, charcoal and one selective burnt-amber accent, on the field colour the brief names (ink green, mineral blue, oxblood, charcoal or warm paper). Coherent perspective, joins, attachments and contact shadows. Must read clearly at 160x90 pixels. Objects only: no human figures, silhouettes, hands or faces. Any tiles, blocks, drums or containers are plain and unmarked: no symbols, trefoils, glyphs, stencils, icons or letters on them. The image is artwork only, never a page layout: no masthead, headline, title, caption, text, letters, numbers, labels, logos, watermarks, signage, charts or arrows. NOT: dollar signs, bulls or bears, generic finance wallpaper, glossy 3D or toy render, plastic sheen, lens flare, HDR glow, uniform fake grain, a fabricated photograph of a real place or event."
+  },
+  "headers": [
+    {
+      "slug": "4dx-shorts-hit-1236-as-directors-spend-a100k-to-fight-back",
+      "stock_code": "4DX",
+      "caption": "Illustration: A paper lung of stacked share sheets, one small amber block at its base.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/4dx-shorts-hit-1236-as-directors-spend-a100k-to-fight-back-hero-31fdfa8faa61.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/4dx-shorts-hit-1236-as-directors-spend-a100k-to-fight-back-hero.png",
+      "previous_caption": "Illustration: Paper light box frame held steady by a brass wedge support.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A large translucent paper lung, its two lobes built from many thin stacked ivory share sheets, glows on a light box against a charcoal field; the stacks are overfull and spill at the edges, while one small burnt-amber block stands upright at the base. Compositional hook: the glowing lung silhouette and the scale gap between the crowded sheets and the single small block. Cut paper on a light box. Caveat: placements diluted the register and directors bought on-market; no outcome shown, no patient imagery, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_c2679ffc036b",
+        "run_id": "4e9db88084f4a7838503c9c7a9cfe6c3",
+        "image_id": "/api/canvas/sessions/flow_session_c2679ffc036b/runs/4e9db88084f4a7838503c9c7a9cfe6c3/artifacts/artifact-8a501eee1931a0dffe8a21ce84defc114d9128277113f55cbd6d71d35a468fb9"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "4DX"
+    },
+    {
+      "slug": "a4n-alpha-hpa-shorts-hit-816-peak-as-gladstone-developer-slides",
+      "stock_code": "A4N",
+      "caption": "Illustration: A white crystal column erodes into dark powder at its base.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/a4n-alpha-hpa-shorts-hit-816-peak-as-gladstone-developer-slides-hero-1ec36d5a4931.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/a4n-alpha-hpa-shorts-hit-816-peak-as-gladstone-developer-slides-hero.png",
+      "previous_caption": "Illustration: Dark paper wedges pressing inward on a refined industrial tower model.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A tall column of brilliant white crystal cubes, like refined high-purity alumina, rises on a mineral-blue field. Its base is slowly eroding into a soft drift of fine dark powder that spreads across the ground, and the column leans very slightly. One burnt-amber cube sits at the top. Compositional hook: the bright vertical column against the deep blue and the dark drift at its foot. Materially believable still life, raking light. Caveat: a slow slide in valuation, not a collapse or plant failure; no factory, no named site, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_646495ac99a5",
+        "run_id": "e33ca87e0009f90d2f8d0528939a0d01",
+        "image_id": "/api/canvas/sessions/flow_session_646495ac99a5/runs/e33ca87e0009f90d2f8d0528939a0d01/artifacts/artifact-e8b74eda4382cc05823b5cc41a88dc9c7f344d7c7cb6d1f2686409022ccc5af8"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "A4N"
+    },
+    {
+      "slug": "acl-shorts-build-821-position-as-australian-clinical-labs-rallies",
+      "stock_code": "ACL",
+      "caption": "Illustration: One amber sample rises in a rack of dark-stoppered test tubes.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/acl-shorts-build-821-position-as-australian-clinical-labs-rallies-hero-de23e161acad.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/acl-shorts-build-821-position-as-australian-clinical-labs-rallies-hero.png",
+      "previous_caption": "Illustration: Dark paper clamps press down against a rising amber fluid column.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A pathology test-tube rack on a warm ivory paper ground holds a row of glass tubes. In the centre tube a burnt-amber liquid column rises high, while dark charcoal stoppers are pressed into the tubes on either side of it, more stoppers gathering in a neat line. Compositional hook: the tall amber column as the brightest vertical, flanked by the dark stoppers. Materially believable still life, soft daylight, close crop. Caveat: short sellers rebuilding while the share price recovers; no blood, no medical result, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_34e08d280a18",
+        "run_id": "847fa7a59d76cd0b88f86e1eebf200d4",
+        "image_id": "/api/canvas/sessions/flow_session_34e08d280a18/runs/847fa7a59d76cd0b88f86e1eebf200d4/artifacts/artifact-d8fc7bd904465d991ca46778fc9253faf0a09977b67e8a171b2d1a44093d0ecb"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "ACL"
+    },
+    {
+      "slug": "bap-mufg-buying-squeezes-bapcor-shorts-during-21-rally",
+      "stock_code": "BAP",
+      "caption": "Illustration: A car jack lifts an amber brake disc as dark weights slide off.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/bap-mufg-buying-squeezes-bapcor-shorts-during-21-rally-hero-b2732c20635b.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/bap-mufg-buying-squeezes-bapcor-shorts-during-21-rally-hero.png",
+      "previous_caption": "Illustration: A heavy mechanical gear tightening paper fan belts under tension.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A cut-paper hydraulic car jack lifts an oversized burnt-amber brake disc upward along a strong diagonal against an oxblood field. Small plain dark weights that were resting on the disc slide off its tilted rim and fall away. Compositional hook: the rising diagonal of the jack and disc with weights tipping from the edge. Cut paper with visible edges and ink texture. Caveat: a large holder's buying lifted the price and pressured short sellers; no implication of wrongdoing, no logos or brand marks, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_c014a3ace225",
+        "run_id": "55004b26d0f4686a835dc27e2644f0cc",
+        "image_id": "/api/canvas/sessions/flow_session_c014a3ace225/runs/55004b26d0f4686a835dc27e2644f0cc/artifacts/artifact-1990f5c2046c01db2a200c38b217fcbc7f59357cd05ad8c99da3cf1ef509345c"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "BAP"
+    },
+    {
+      "slug": "car-group-shorts-climb-to-12-despite-onplatinum-divestment",
+      "stock_code": "CAR",
+      "caption": "Illustration: A paper car sheds a panel on a turntable as its shadow lengthens.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/car-group-shorts-climb-to-12-despite-onplatinum-divestment-hero-232c9f08e5fc.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/car-group-shorts-climb-to-12-despite-onplatinum-divestment-hero.png",
+      "previous_caption": "Illustration: Heavy paper weights clamp a vehicle frame despite divested attachments.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A sleek ivory cut-paper car stands on a round showroom turntable on a warm paper ground. One side panel has detached and slides away off the platform, yet the car's long dark cast shadow stretches far across the floor. Compositional hook: strong low raking light, with the long dark shadow as the main shape. Cut paper with visible edges. Caveat: a divestment that did not reduce short interest; no brand, badge or number plate, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_04d1f7d330c0",
+        "run_id": "4c7a25f92b5c3a53fd05496fbe7e25a9",
+        "image_id": "/api/canvas/sessions/flow_session_04d1f7d330c0/runs/4c7a25f92b5c3a53fd05496fbe7e25a9/artifacts/artifact-3b5f03e6347fae814316a130d522ad6dc5201a0604acc84a1c6482e9419c1caa"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "CAR"
+    },
+    {
+      "slug": "coh-cochlear-shorts-target-92-as-margin-pressure-shadows-43-rally",
+      "stock_code": "COH",
+      "caption": "Illustration: Amber sound rings rise from a paper cochlea above a dark band.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/coh-cochlear-shorts-target-92-as-margin-pressure-shadows-43-rally-hero-826c46e07192.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/coh-cochlear-shorts-target-92-as-margin-pressure-shadows-43-rally-hero.png",
+      "previous_caption": "Illustration: Slate blocks compressing a tensioned acoustic coil on paper.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 8,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A large ivory cut-paper spiral shaped like the inner ear's cochlea sits on an ink-green field. Concentric burnt-amber sound rings ripple upward and outward from it, while a narrow dark charcoal band wraps around the base of the spiral and draws in. Compositional hook: the expanding amber rings against the tightening dark band. Layered cut paper with soft shadows. Caveat: a strong rally with short sellers betting on margin pressure; no device brand, no anatomy labels, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_c17ba0c15de4",
+        "run_id": "1d0ac7c2e6d8c11fddfa413e73377436",
+        "image_id": "/api/canvas/sessions/flow_session_c17ba0c15de4/runs/1d0ac7c2e6d8c11fddfa413e73377436/artifacts/artifact-0f9fdfa889060edd2b5e9e05591a412a7d740ff51defefed016c1ba6091d81b5"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "COH"
+    },
+    {
+      "slug": "cu6-clarity-shorts-hold-firm-at-82-as-losses-double",
+      "stock_code": "CU6",
+      "caption": "Illustration: A copper-lit vial melts like a candle beside a row of dark tiles.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/cu6-clarity-shorts-hold-firm-at-82-as-losses-double-hero-676d6dbd6ee7.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/cu6-clarity-shorts-hold-firm-at-82-as-losses-double-hero.png",
+      "previous_caption": "Illustration: Heavy vice jaws compressing a radiopharmaceutical capsule above a drop.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 8,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A glass clinical vial with a warm copper glow inside stands on a charcoal field like a candle; its body is melting down into a widening pool of wax as it burns through its fuel. Beside it a neat row of plain dark tiles waits, unmoved. Compositional hook: the warm copper glow and the melting silhouette against the dark ground. Materially believable still life, low light. Caveat: cash burn and widening losses at a clinical-stage company; no implication of trial failure, no radiation symbol, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_aea8b182a74e",
+        "run_id": "7092cb221534fcf8f4ee9454a02d7156",
+        "image_id": "/api/canvas/sessions/flow_session_aea8b182a74e/runs/7092cb221534fcf8f4ee9454a02d7156/artifacts/artifact-681b016c72eae84a3179b85c40ac0188206fbf6be973acc37ec48cc84973ca8f"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "CU6"
+    },
+    {
+      "slug": "cuv-clinuvel-shorts-hold-91-line-despite-a-double-digit-stock-rally",
+      "stock_code": "CUV",
+      "caption": "Illustration: A paper parasol shades an amber stack beside an unmoved dark fence.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/cuv-clinuvel-shorts-hold-91-line-despite-a-double-digit-stock-rally-hero-71aa515e8f88.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/cuv-clinuvel-shorts-hold-91-line-despite-a-double-digit-stock-rally-hero.png",
+      "previous_caption": "Illustration: A heavy oxblood clamp holds its position against a rising amber wedge.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 8.5,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "An ivory paper parasol on a bright warm-paper ground shades a growing burnt-amber stack beneath it from strong sunlight, while a straight dark paper fence line stands unmoved at the edge of the parasol's shadow. Compositional hook: the parasol's broad curved silhouette and its crisp shadow edge meeting the fence. Cut paper, bright daylight. Caveat: shares rallying and cash building while short sellers hold their line; no skin, no people, no medical claims.",
+      "brandbrain": {
+        "project_id": "flow_session_56d296e4005b",
+        "run_id": "6fa81709bc9138ebc2e8ce5d4a988db5",
+        "image_id": "/api/canvas/sessions/flow_session_56d296e4005b/runs/6fa81709bc9138ebc2e8ce5d4a988db5/artifacts/artifact-02202d25b6196372e532418e99ff109561c9a4b99ef99d2c29cbd952382ca8d9"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "CUV"
+    },
+    {
+      "slug": "dmp-quiet-conviction-keeps-dominos-at-14-short-interest",
+      "stock_code": "DMP",
+      "caption": "Illustration: A closed pizza box holds a heavy dark stack as one wisp of steam escapes.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/dmp-quiet-conviction-keeps-dominos-at-14-short-interest-hero-b777c9c69ff6.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/dmp-quiet-conviction-keeps-dominos-at-14-short-interest-hero.png",
+      "previous_caption": "Illustration: Heavy paper wedge clamped tightly despite an empty news cycle.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A closed plain ivory pizza box sits alone in a quiet charcoal field, with a heavy stack of plain dark tiles balanced squarely on its lid. A single thin wisp of burnt-amber steam escapes from one corner of the box. Compositional hook: the stillness of the box and the tall dark stack, with the small amber wisp as the only movement. Materially believable still life, top light. Caveat: short sellers holding their positions through a quiet month; no brand marks, logos or lettering, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_73fbeb23f08f",
+        "run_id": "15cf51fe9078d61802e52026f5997f45",
+        "image_id": "/api/canvas/sessions/flow_session_73fbeb23f08f/runs/15cf51fe9078d61802e52026f5997f45/artifacts/artifact-12a4e7068736bc6c50b1957f5559390ad59a107edb8152145dd07e6b0a97a4c5"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "DMP"
+    },
+    {
+      "slug": "dro-droneshield-shorts-reach-15-during-38-market-correction",
+      "stock_code": "DRO",
+      "caption": "Illustration: A paper drone descends under a heavy hanging weight.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/dro-droneshield-shorts-reach-15-during-38-market-correction-hero-538b8f4594e4.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/dro-droneshield-shorts-reach-15-during-38-market-correction-hero.png",
+      "previous_caption": "Illustration: A heavy cut-paper beam bending a delicate drone frame downwards.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A cut-paper quadcopter drone descends along a steep diagonal across an oxblood field, one rotor arm folded down; a heavy plain dark weight hangs beneath its frame on a short cord, pulling it lower. Compositional hook: the steep descending diagonal and the hanging weight. Cut paper with sharp edges and ink texture. Caveat: a falling share price and the highest short interest on the ASX; no weapons, no explosion, no military scene, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_444d34a42ea0",
+        "run_id": "b8be8c491099658d96cb8af8b3673fce",
+        "image_id": "/api/canvas/sessions/flow_session_444d34a42ea0/runs/b8be8c491099658d96cb8af8b3673fce/artifacts/artifact-ef688b9fa4c60de16cd04fe19c6ee1fd7528ab724cea7c389d433533acbb1811"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "DRO-a"
+    },
+    {
+      "slug": "eld-elders-shorts-hit-105-as-directors-buy-the-26-dip",
+      "stock_code": "ELD",
+      "caption": "Illustration: A farm windmill caught mid-turn, its blades half dark and half amber.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/eld-elders-shorts-hit-105-as-directors-buy-the-26-dip-hero-13c1516c0d40.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/eld-elders-shorts-hit-105-as-directors-buy-the-26-dip-hero.png",
+      "previous_caption": "Illustration: Heavy slate weights pull down an agricultural sack as wooden wedges brace it.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A tall farm windmill on an ivory lattice tower stands against a mineral-blue sky field, its wide fan of blades caught mid-turn: half the blades cut from dark charcoal paper, the other half from burnt-amber paper, so neither colour dominates. Compositional hook: the large circular fan crossing the frame at a slight angle, seen from a low viewpoint. Spare woodcut and screen-print treatment on ivory paper. Caveat: a contest between short sellers and directors buying, with no winner shown; no farmhouse, animals, people or text.",
+      "brandbrain": {
+        "project_id": "flow_session_620e8aac5753",
+        "run_id": "c0f8f0e9d7aade8520002466341717e4",
+        "image_id": "/api/canvas/sessions/flow_session_620e8aac5753/runs/c0f8f0e9d7aade8520002466341717e4/artifacts/artifact-d5b44eb6ca40a8f05857ceffd7a3f77ca818738a619ea6b85f9d1f886941876f"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "ELD"
+    },
+    {
+      "slug": "eos-shorts-hit-88-despite-a-a183k-board-buying-spree",
+      "stock_code": "EOS",
+      "caption": "Illustration: Seven amber lenses focus a beam as a dark shutter slides across it.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/eos-shorts-hit-88-despite-a-a183k-board-buying-spree-hero-5dd149a56689.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/eos-shorts-hit-88-despite-a-a183k-board-buying-spree-hero.png",
+      "previous_caption": "Illustration: Board buying wedges prop an optical assembly against growing short pressure.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "Seven small burnt-amber lenses stand in a row on a steel optical rail on a charcoal field, together focusing a fine beam of light toward the right, while a broad dark shutter slides in from above across the beam's path. Compositional hook: the seven bright lenses and the dark shutter cutting the beam. Materially believable still life, low light. Caveat: seven directors buying while short interest rises; no weapons, no targets, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_bc56511271ea",
+        "run_id": "2da1af44c339233e48660bed38441e1c",
+        "image_id": "/api/canvas/sessions/flow_session_bc56511271ea/runs/2da1af44c339233e48660bed38441e1c/artifacts/artifact-d7f579940e656c8194a60092689dea677249b8ac208f7f05045121ef4fe953ca"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "EOS"
+    },
+    {
+      "slug": "flt-turner-puts-a1-million-on-the-line-against-flight-centre-shorts",
+      "stock_code": "FLT",
+      "caption": "Illustration: A paper plane balanced between an amber block and a dark stack.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/flt-turner-puts-a1-million-on-the-line-against-flight-centre-shorts-hero-c44bd56f7fb0.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/flt-turner-puts-a1-million-on-the-line-against-flight-centre-shorts-hero.png",
+      "previous_caption": "Illustration: A solid wooden wedge driven against an anchor's descending tension.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A large ivory paper aeroplane balances on a narrow fulcrum against a mineral-blue field: one heavy burnt-amber block rests on its nose and a stack of plain dark tiles rests on its tail, holding the plane level. Compositional hook: the long horizontal of the plane balanced on a single point. Cut paper with crisp folds. Caveat: a founder's A$1 million purchase against an 11.5% short position, with the balance undecided; no airline livery, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_4381418a89b8",
+        "run_id": "847edf1fd84858fa4bf6579eb1dbdf41",
+        "image_id": "/api/canvas/sessions/flow_session_4381418a89b8/runs/847edf1fd84858fa4bf6579eb1dbdf41/artifacts/artifact-66c8dcd64d35a0c4cc4fa735079dd81aaa32c7ff808f0872d2b4494ddb739295"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "FLT"
+    },
+    {
+      "slug": "gmd-genesis-shorts-climb-to-938-as-insiders-fight-the-rally",
+      "stock_code": "GMD",
+      "caption": "Illustration: A merged gold ingot is hoisted beside a hanging dark counterweight.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/gmd-genesis-shorts-climb-to-938-as-insiders-fight-the-rally-hero-ad2baf16d18c.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/gmd-genesis-shorts-climb-to-938-as-insiders-fight-the-rally-hero.png",
+      "previous_caption": "Illustration: Heavy paper wedge presses against an ascending gold paper ramp.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "Two gold ingots fuse into one larger ingot as an ivory chain hoist lifts them on an ink-green field, while a plain dark counterweight hangs from the other end of the hoist chain. Compositional hook: the gleaming merged ingot rising against the hanging dark weight. Cut paper with gold foil and ink. Caveat: a merger and rally that short sellers are betting against; no mine, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_1521fe4d8bb7",
+        "run_id": "c01e5effc8d613eb40ab6b9ae3b1d466",
+        "image_id": "/api/canvas/sessions/flow_session_1521fe4d8bb7/runs/c01e5effc8d613eb40ab6b9ae3b1d466/artifacts/artifact-1e76aac0ee39f0a9c55565d8bc01359a9321560bf9d2ba899b2e1c015f0ca312"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "GMD"
+    },
+    {
+      "slug": "gyg-shorts-capitulate-after-pulling-the-pin-on-america",
+      "stock_code": "GYG",
+      "caption": "Illustration: A burrito sits on a long paper ramp that is cut, tipping dark tiles off.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/gyg-shorts-capitulate-after-pulling-the-pin-on-america-hero-0ae440c47f26.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/gyg-shorts-capitulate-after-pulling-the-pin-on-america-hero.png",
+      "previous_caption": "Illustration: Severing a extended arm to reinforce a solid core.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A burrito wrapped in burnt-amber foil sits on a warm ivory paper ground; a long ivory paper ramp that extended from it toward the right edge has been cut, and its far section is falling away while plain dark tiles tumble off the cut edge. Compositional hook: the cut in the long ramp and the falling section. Cut paper. Caveat: a company dropping its overseas expansion and short sellers covering; no flags, no maps, no brand marks, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_ff1de45ee49c",
+        "run_id": "0cdbba3feec87bd545b1d7d77aa6b4ef",
+        "image_id": "/api/canvas/sessions/flow_session_ff1de45ee49c/runs/0cdbba3feec87bd545b1d7d77aa6b4ef/artifacts/artifact-2165180612e19dccf3de7cf43e156c961042759f635b97c26f97bb84691da322"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "GYG"
+    },
+    {
+      "slug": "ipx-iperionx-directors-spend-a197m-to-fight-a-1076-short-position",
+      "stock_code": "IPX",
+      "caption": "Illustration: An amber parachute slows a falling titanium ingot above a dark stack.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/ipx-iperionx-directors-spend-a197m-to-fight-a-1076-short-position-hero-a828c698fe55.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/ipx-iperionx-directors-spend-a197m-to-fight-a-1076-short-position-hero.png",
+      "previous_caption": "Illustration: Conceptual paper tension between downward pressure and defensive structural support.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A bright titanium-grey metal ingot falls diagonally across a warm ivory paper ground, its descent slowed by a burnt-amber paper parachute, toward a stack of plain dark tiles building up from the ground below. Compositional hook: the parachute's dome and the taut cords above the falling ingot. Cut paper with metallic foil. Caveat: directors buying during a 41% price slide while short interest climbed; no implication the fall has stopped, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_5e102e0e47eb",
+        "run_id": "63d7391558be0eac7a1581737a492475",
+        "image_id": "/api/canvas/sessions/flow_session_5e102e0e47eb/runs/63d7391558be0eac7a1581737a492475/artifacts/artifact-6f0135cdf9629f4549245463e1e3aaa562ffb51bc1601546dcdfdfc6769600cb"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "IPX"
+    },
+    {
+      "slug": "lot-lotus-shorts-retreat-8pp-from-peak-as-board-buys",
+      "stock_code": "LOT",
+      "caption": "Illustration: A dark tide recedes from an ivory shore, revealing an amber stone.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/lot-lotus-shorts-retreat-8pp-from-peak-as-board-buys-hero-627836a59a08.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/lot-lotus-shorts-retreat-8pp-from-peak-as-board-buys-hero.png",
+      "previous_caption": "Illustration: A mechanical clamp slackening its grip on a dense mineral cylinder.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A dark charcoal tide recedes from a pale ivory shore, its high-water mark still visible as a dark line, revealing a single burnt-amber stone on the wet sand. Compositional hook: the curve of the retreating water and the high-water line above the stone. Spare woodcut printmaking. Caveat: short interest falling from its peak while still high, as the board buys; no mine, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_aec99a672f77",
+        "run_id": "579cbc8eb5db4617e28fa6f8a50e28fc",
+        "image_id": "/api/canvas/sessions/flow_session_aec99a672f77/runs/579cbc8eb5db4617e28fa6f8a50e28fc/artifacts/artifact-0b74587191a4e25a544fe445d3126995fc64f59df842377914bc37a354952731"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "LOT"
+    },
+    {
+      "slug": "msb-mesoblast-shorts-hold-tight-through-a-16-price-rally",
+      "stock_code": "MSB",
+      "caption": "Illustration: Amber cells rise in a culture flask held at the neck by a dark ring.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/msb-mesoblast-shorts-hold-tight-through-a-16-price-rally-hero-7446f4cbdcbb.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/msb-mesoblast-shorts-hold-tight-through-a-16-price-rally-hero.png",
+      "previous_caption": "Illustration: A heavy clamp holding fast against a rising paper slope.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A tall glass culture flask on an ink-green field holds luminous burnt-amber cells rising upward inside it, while a firm dark charcoal ring circles the flask's neck and holds still. Compositional hook: the rising amber glow against the dark ring at the neck. Materially believable still life, soft light. Caveat: rising product revenue and a rally while short sellers hold; no medical claims, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_6252403658c1",
+        "run_id": "c3a02581f574b1c2eca1a1ea9d52a3ed",
+        "image_id": "/api/canvas/sessions/flow_session_6252403658c1/runs/c3a02581f574b1c2eca1a1ea9d52a3ed/artifacts/artifact-85b2deb1395a4b281912708d96594be7df476433dac62e3ff52fba5ef0265995"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "MSB"
+    },
+    {
+      "slug": "ore-orezone-shorts-surge-72pp-as-operational-updates-draw-heavy-bets",
+      "stock_code": "ORE",
+      "caption": "Illustration: A ladle pours molten gold as dark tiles gather along the mould.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/ore-orezone-shorts-surge-72pp-as-operational-updates-draw-heavy-bets-hero-ee706dde4c06.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/ore-orezone-shorts-surge-72pp-as-operational-updates-draw-heavy-bets-hero.png",
+      "previous_caption": "Illustration: A heavy graphite wedge driving mechanical tension beneath a gold block.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A steel foundry ladle tilts and pours a bright stream of molten burnt-amber gold into an ingot mould on a charcoal field, while plain dark tiles gather quickly along the mould's rim. Compositional hook: the bright pouring stream as the focal diagonal. Materially believable still life, lit only by the glow of the molten metal. Caveat: a rapid build-up of short positions after operational updates; no mine, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_0a0f4bd790a9",
+        "run_id": "e53599b14ec03fbffabc97443c696ab6",
+        "image_id": "/api/canvas/sessions/flow_session_0a0f4bd790a9/runs/e53599b14ec03fbffabc97443c696ab6/artifacts/artifact-20dab774e5b9a6bac1eac69d8a6df3b29edbffc11ef0024271fb304dc2248166"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "ORE"
+    },
+    {
+      "slug": "pdn-paladin-shorts-climb-to-114-as-uranium-narrative-cools",
+      "stock_code": "PDN",
+      "caption": "Illustration: A dark shadow climbs a paper cooling tower as its plume thins.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/pdn-paladin-shorts-climb-to-114-as-uranium-narrative-cools-hero-0f5030245e9c.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/pdn-paladin-shorts-climb-to-114-as-uranium-narrative-cools-hero.png",
+      "previous_caption": "Illustration: Accumulated short positions weighting a suspended industrial paper drum.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A large ivory paper cooling tower stands on a warm ivory ground, its plume thinning to a faint wisp, while a dark shadow climbs up its curved side from the ground. Compositional hook: the tower's curved silhouette and the rising dark shadow. Spare screen-print treatment. Caveat: a cooling uranium narrative and rising short interest; no radiation symbols, no named plant, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_e60635cd4332",
+        "run_id": "6e5658b320a0b8841b10a0d02ca5d614",
+        "image_id": "/api/canvas/sessions/flow_session_e60635cd4332/runs/6e5658b320a0b8841b10a0d02ca5d614/artifacts/artifact-46d8767bf0533aefe93c708c23a1d6d8990c6216e7e587efacd89be4bfa70a23"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "PDN"
+    },
+    {
+      "slug": "pls-pilbara-minerals-shorts-hit-1122-as-directors-trade-places",
+      "stock_code": "PLS",
+      "caption": "Illustration: An amber block replaces an ivory one in a dark ring around a crystal.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/pls-pilbara-minerals-shorts-hit-1122-as-directors-trade-places-hero-1ad3631f2b10.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/pls-pilbara-minerals-shorts-hit-1122-as-directors-trade-places-hero.png",
+      "previous_caption": "Illustration: Conceptual mineral crystal wedged between opposing mechanical force vectors.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 8,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A large pale-green spodumene crystal stands at the centre of an ink-green field, ringed by a low wall of plain dark tiles; at one gap in the ring a burnt-amber tile slides in as an ivory tile slides out. Compositional hook: the crystal's bright faceted silhouette inside the dark ring, with the exchange at the gap. Cut paper and carved stone. Caveat: an executive exit and a director's purchase amid high short interest; no mine site, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_31223c8fa851",
+        "run_id": "795cc019a0ffbc6b0f8864133f88222f",
+        "image_id": "/api/canvas/sessions/flow_session_31223c8fa851/runs/795cc019a0ffbc6b0f8864133f88222f/artifacts/artifact-e293ba36662602aaf8413646c5e3868d82b51d9cb9fac732444b82816f8ce563"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "PLS"
+    },
+    {
+      "slug": "pnv-polynovo-shorts-retreat-31pp-in-a-complete-information-vacuum",
+      "stock_code": "PNV",
+      "caption": "Illustration: Under a bell jar, a dark stack beside a paper mesh is taken apart.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/pnv-polynovo-shorts-retreat-31pp-in-a-complete-information-vacuum-hero-dcb5404a21bf.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/pnv-polynovo-shorts-retreat-31pp-in-a-complete-information-vacuum-hero.png",
+      "previous_caption": "Illustration: Short positions quietly releasing tension from a synthetic medical matrix.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A glass bell jar on a mineral-blue field covers a delicate ivory regenerative mesh on a small plinth; beside the mesh, inside the jar, a stack of plain dark tiles is half dismantled, the removed tiles set neatly in a row. Compositional hook: the bell jar's clear silhouette and the shrinking stack within. Materially believable still life, quiet light. Caveat: short sellers leaving without any announcement; no wound imagery, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_7d7f34699019",
+        "run_id": "8a4e0901568e357c3859fac5345e889b",
+        "image_id": "/api/canvas/sessions/flow_session_7d7f34699019/runs/8a4e0901568e357c3859fac5345e889b/artifacts/artifact-45040bfd4f48167c80e21f9450483f56b73dd14c7407e3e3cad11b07da55eac5"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "PNV"
+    },
+    {
+      "slug": "rio-tinto-shorts-climb-to-87-despite-copper-led-rally",
+      "stock_code": "RIO",
+      "caption": "Illustration: Dark tiles gather in the long shadow of stacked copper plates.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/rio-tinto-shorts-climb-to-87-despite-copper-led-rally-hero-c7453b6ddd48.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/rio-tinto-shorts-climb-to-87-despite-copper-led-rally-hero.png",
+      "previous_caption": "Illustration: Dark charcoal wedges pressing into a glowing copper paper monolith.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A towering stack of copper cathode plates rises along a strong diagonal on a warm ivory paper ground, catching warm light at the top, while a stack of plain dark tiles builds quietly in its long shadow at the base. Compositional hook: the copper's tall diagonal mass and the long shadow. Cut paper with copper foil. Caveat: a copper-led rally while short sellers build a position; no mine, no logo, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_d42cf3bd447c",
+        "run_id": "a151e5ce949216f1aa0def3d72492ea7",
+        "image_id": "/api/canvas/sessions/flow_session_d42cf3bd447c/runs/a151e5ce949216f1aa0def3d72492ea7/artifacts/artifact-1a537ea3f571c82b0d0c8cd1adc8e8dac8091de6c445249ca1a47e8ae4cb8641"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "RIO"
+    },
+    {
+      "slug": "slx-silex-shorts-rise-above-8-while-shares-drop-43",
+      "stock_code": "SLX",
+      "caption": "Illustration: An amber laser splits at a glass prism beside a dark stack.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/slx-silex-shorts-rise-above-8-while-shares-drop-43-hero-2fe06c5bfcfc.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/slx-silex-shorts-rise-above-8-while-shares-drop-43-hero.png",
+      "previous_caption": "Illustration: A heavy slate wedge constricting a focused beam of light.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A precise burnt-amber laser beam crosses a charcoal field and passes through a clear glass prism, splitting into two fine streams of particles; in the lower stream stands a stack of plain dark tiles. Compositional hook: the beam's straight line and the clean split at the prism. Materially believable still life, lit only by the beam. Caveat: a 43% fall with short interest above 8%; no radiation symbol, no nuclear plant, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_0d55f1c15af4",
+        "run_id": "1db2308ca74feb6e16afc570640ed093",
+        "image_id": "/api/canvas/sessions/flow_session_0d55f1c15af4/runs/1db2308ca74feb6e16afc570640ed093/artifacts/artifact-7840b07d7fb6165c54dbb1861f64cc2c07c0f69b1d307fe14f6d03f4c1511353"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "SLX"
+    },
+    {
+      "slug": "tlx-bipass-fast-track-and-short-baseline",
+      "stock_code": "TLX",
+      "caption": "Illustration: An amber vial waits where a faster lane branches off the track.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/tlx-bipass-fast-track-and-short-baseline-hero-7b4545b14261.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/tlx-bipass-fast-track-and-short-baseline-hero.png",
+      "previous_caption": "Illustration: A delayed data sleeve obscuring a regulatory milestone key.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A long ivory paper track runs across an ink-green field and a short new express lane branches off it; a single burnt-amber vial stands at the entrance of the express lane, not at its end, while a stack of plain dark tiles stands earlier on the main track. Compositional hook: the fork in the track and the vial waiting at the new lane's start. Cut paper. Caveat: Fast Track changes the review process and is not an approval, and the short position came first; no agency marks, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_3388aa095998",
+        "run_id": "fe6453dfc2b32f3c21de35ef762fc31f",
+        "image_id": "/api/canvas/sessions/flow_session_3388aa095998/runs/fe6453dfc2b32f3c21de35ef762fc31f/artifacts/artifact-ec706a1e9c491812ba043d8c50e38a882cc138efed8d8f449eabc2633533dc02"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "TLX-a"
+    },
+    {
+      "slug": "wtc-wisetech-shorts-hit-88-as-price-rally-defies-founder-fallout",
+      "stock_code": "WTC",
+      "caption": "Illustration: A crane on a new amber hook lifts a container carrying dark tiles.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/wtc-wisetech-shorts-hit-88-as-price-rally-defies-founder-fallout-hero-454c340750ac.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/wtc-wisetech-shorts-hit-88-as-price-rally-defies-founder-fallout-hero.png",
+      "previous_caption": "Illustration: Heavy short interest weights a cargo box pulled upward by price momentum.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-flare",
+      "style": "v1",
+      "prompt": "A gantry crane on a mineral-blue field lifts an ivory shipping container higher on a newly fitted burnt-amber hook, while a stack of plain dark tiles rides on the container's roof. Compositional hook: the crane's strong geometric silhouette and the lifted container. Cut paper and card. Caveat: a rally and a governance overhaul while short sellers stay; no logos, no port name, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_23fe9aa30b38",
+        "run_id": "f3a2de92cb0deb64cd1ee77a5369f1ee",
+        "image_id": "/api/canvas/sessions/flow_session_23fe9aa30b38/runs/f3a2de92cb0deb64cd1ee77a5369f1ee/artifacts/artifact-5043ff5fe5ebda911b74f6ce5aebe0ef4415d2f66a25692e546a6f7e264ef203"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "WTC"
+    },
+    {
+      "slug": "zip-shorts-creep-to-117-while-directors-cash-out",
+      "stock_code": "ZIP",
+      "caption": "Illustration: An amber zip pull slides down, opening onto a stack of dark tiles.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/zip-shorts-creep-to-117-while-directors-cash-out-hero-6a3c54fa4cb4.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/zip-shorts-creep-to-117-while-directors-cash-out-hero.png",
+      "previous_caption": "Illustration: Heavy downward structural pressure coincides with paper pegs sliding outward.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-sunburst",
+      "style": "v1",
+      "prompt": "An oversized metal zip fastener runs diagonally across a charcoal fabric field. Its burnt-amber pull tab has slid partway down, and the opened teeth part to reveal a dense stack of plain, unmarked dark tiles inside the widening gap. Compositional hook: the taut diagonal of the zip and the opening at the focal point. Material still life of fabric and cut paper, close crop, raking light. Caveat: short interest creeping back while the price falls; no money, no crash imagery, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_b69639df4f06",
+        "run_id": "1a1d1fc61d75a1fc73cc92b3fa399d26",
+        "image_id": "/api/canvas/sessions/flow_session_b69639df4f06/runs/1a1d1fc61d75a1fc73cc92b3fa399d26/artifacts/artifact-75be8e8966a0b899891027d926a5c893310567b75dfab865e5507958fce9017a"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "ZIP"
+    },
+    {
+      "slug": "boe-boss-energy-shorts-flee-as-honeymoon-milestones-trigger-21-surge",
+      "stock_code": "BOE",
+      "caption": "Illustration: A plain steel drum opens on glowing yellowcake as a dark cloth slides off.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/boe-boss-energy-shorts-flee-as-honeymoon-milestones-trigger-21-surge-hero-775b1b2bc660.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/boe-boss-energy-shorts-flee-as-honeymoon-milestones-trigger-21-surge-hero.png",
+      "previous_caption": "Illustration: A dense paper wedge forcing open a tightened mechanical clamp.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-sunburst",
+      "style": "v2",
+      "prompt": "A plain, unmarked, unpainted steel drum stands on a charcoal field; its lid lifts open and warm burnt-amber yellowcake glows inside, lighting the rim. A heavy dark cloth that had been draped over the drum is sliding off its side and falling away. Compositional hook: the bright glow at the opening against the falling dark cloth. Spare woodcut printmaking with ivory and amber inks. Caveat: production milestones while short sellers cover; the drum carries no symbol, stencil or hazard marking of any kind; no people.",
+      "brandbrain": {
+        "project_id": "flow_session_6b0fabc699df",
+        "run_id": "8b8ff0cbfa69e80e59b9ae36940497e3",
+        "image_id": "/api/canvas/sessions/flow_session_6b0fabc699df/runs/8b8ff0cbfa69e80e59b9ae36940497e3/artifacts/artifact-3f3d54a0af2af744e19471b46c31e1ee589e1f1df3d405571451b4f6721e9ffb"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "BOE"
+    },
+    {
+      "slug": "edv-endeavour-directors-spend-a328k-fighting-a-10-short-position",
+      "stock_code": "EDV",
+      "caption": "Illustration: A heavy dark keg rolls down a ramp toward a small amber block.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/edv-endeavour-directors-spend-a328k-fighting-a-10-short-position-hero-4071278d3d69.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/edv-endeavour-directors-spend-a328k-fighting-a-10-short-position-hero.png",
+      "previous_caption": "Illustration: Paper wedges of insider capital pressing against a heavy short wall.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-sunburst",
+      "style": "v2",
+      "prompt": "A large dark charcoal keg rolls down a gentle ramp across a warm ivory paper ground toward a small burnt-amber block set squarely in its path. Compositional hook: the scale gap between the heavy keg and the small block along the ramp diagonal. Cut paper with visible edges and contact shadows. Caveat: directors buying against a record short position, with no outcome shown; artwork only with no words anywhere; no brand marks, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_5e1154cafa4f",
+        "run_id": "038864db38a89bd4484d5b4f37f3df9f",
+        "image_id": "/api/canvas/sessions/flow_session_5e1154cafa4f/runs/038864db38a89bd4484d5b4f37f3df9f/artifacts/artifact-8c177dbafb95b8b9cfdce2fd8ff10d292cf39424746d5ebaad48cbd59cb0c2e8"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "EDV"
+    },
+    {
+      "slug": "nxt-nextdc-insiders-buy-a375k-to-counter-83-short-position",
+      "stock_code": "NXT",
+      "caption": "Illustration: Five amber server blades slide into a tall dark rack.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/nxt-nextdc-insiders-buy-a375k-to-counter-83-short-position-hero-f3dfb1a01f24.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/nxt-nextdc-insiders-buy-a375k-to-counter-83-short-position-hero.png",
+      "previous_caption": "Illustration: Five amber structural supports bracing a dark data tower on a slope.",
+      "swapped": false,
+      "review_outcome": "rejected by the publication review (quality flagged, regeneration asked for); the take keeps its previous header",
+      "review_cohesion": 8.5,
+      "model": "openai/gpt-image-2.5-sunburst",
+      "style": "v2",
+      "prompt": "Five slim burnt-amber server blades are partly inserted into a tall dark charcoal server rack standing on an oxblood field, each blade sliding into its own slot, caught mid-insertion. Compositional hook: the five bright horizontal blades entering the large dark rack. Cut paper and card construction with clean edges. Objects only, no human figures. Caveat: five directors buying against a short position about double the sector average; no brand, no screens, no tangled cables, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_4cd72c24cf80",
+        "run_id": "62ac0adf2cc45104c59b88908b9cf1b0",
+        "image_id": "/api/canvas/sessions/flow_session_4cd72c24cf80/runs/62ac0adf2cc45104c59b88908b9cf1b0/artifacts/artifact-a50c18c8e03d71668e3f599a7ab2007a121b53a5eb37ce740605f09fd8eddf98"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "NXT"
+    },
+    {
+      "slug": "tlx-telix-shorts-retreat-as-behrenbruch-leads-a1m-board-buy",
+      "stock_code": "TLX",
+      "caption": "Illustration: A new block raises an amber vial on its plinth as a dark shadow retreats.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/tlx-telix-shorts-retreat-as-behrenbruch-leads-a1m-board-buy-hero-5a09e1da39f0.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/tlx-telix-shorts-retreat-as-behrenbruch-leads-a1m-board-buy-hero.png",
+      "previous_caption": "Illustration: Anchored molecular glass vial releasing suspended paper tension lines.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-sunburst",
+      "style": "v2",
+      "prompt": "A glowing burnt-amber glass vial stands on a stepped plinth of ivory blocks on a plain oxblood field; a new ivory block is sliding into the base, raising it higher, while a long dark shadow on the floor pulls back away from it. Compositional hook: the rising vial at the top of the plinth and the retreating shadow. Cut paper with a soft glow. Objects only; the background is a plain oxblood field with nothing on it. Caveat: board buying and revenue growth as short interest fell; no words, charts, posters or signs; no people or human shadows.",
+      "brandbrain": {
+        "project_id": "flow_session_50a5e20a903a",
+        "run_id": "b9c32583a332efc8611caa7ec104e5f1",
+        "image_id": "/api/canvas/sessions/flow_session_50a5e20a903a/runs/b9c32583a332efc8611caa7ec104e5f1/artifacts/artifact-9e3c34858cda04a167e5ab93dfde6fcb606b63c888c7bb6b9e371f9f71debdc4"
+      },
+      "cost_usd": 0.04116,
+      "edit": "cropped to 1268x713 (x 268, y 74) to remove a paper hand at the left edge",
+      "brief_name": "TLX-b"
+    },
+    {
+      "slug": "twe-shorts-hold-above-10-despite-recent-price-rally",
+      "stock_code": "TWE",
+      "caption": "Illustration: A wine barrel rolls up a ramp toward a waiting dark stack.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/twe-shorts-hold-above-10-despite-recent-price-rally-hero-0378fd6581c4.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/twe-shorts-hold-above-10-despite-recent-price-rally-hero.png",
+      "previous_caption": "Illustration: A dark glass form rising while a vice grips its neck.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 8,
+      "model": "openai/gpt-image-2.5-sunburst",
+      "style": "v2",
+      "prompt": "A wooden wine barrel rolls up a long ivory ramp on a plain warm-paper ground toward the top, where a stack of plain dark tiles waits. Compositional hook: the ramp rising diagonal and the waiting stack. Cut paper with visible edges, soft daylight, a plain uncluttered background with nothing else in it. Caveat: a price rally while short sellers hold positions above 10%; no people or silhouettes, no charts or lines, no labels or brand marks.",
+      "brandbrain": {
+        "project_id": "flow_session_47d4a2c4f242",
+        "run_id": "a57b3b8beba0d26a75bf682eccca0a70",
+        "image_id": "/api/canvas/sessions/flow_session_47d4a2c4f242/runs/a57b3b8beba0d26a75bf682eccca0a70/artifacts/artifact-b801353d8326c7e674b7bae55a51b9434a1e6dfa5a3c0fcc7b6561fe22934c8b"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "TWE"
+    },
+    {
+      "slug": "bpt-beach-energy-shorts-near-10-as-shares-hit-five-year-low",
+      "stock_code": "BPT",
+      "caption": "Illustration: A dark weight drags a pumpjack head down to the ground.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/bpt-beach-energy-shorts-near-10-as-shares-hit-five-year-low-hero-014a7edec256.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/bpt-beach-energy-shorts-near-10-as-shares-hit-five-year-low-hero.png",
+      "previous_caption": "Illustration: Heavy mineral vessel sliced at its base under short pressure.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 8,
+      "model": "openai/gpt-image-2.5-sunburst",
+      "style": "v2",
+      "prompt": "A cut-paper oil pumpjack on a deep mineral-blue field, its beam tipped steeply so the horsehead is driven all the way down to the ground, dragged by a heavy plain dark weight hanging from it, while the small burnt-amber counterweight is lifted high at the other end. Compositional hook: the beam steep diagonal at its lowest point. Spare screen-print treatment on ivory paper. Caveat: shares at a five-year low with short interest near 10%; no fire, no spill, no named field, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_90dde809b2b6",
+        "run_id": "4f81a859ac9f899b7be8999f399551b3",
+        "image_id": "/api/canvas/sessions/flow_session_90dde809b2b6/runs/4f81a859ac9f899b7be8999f399551b3/artifacts/artifact-8b5caa84bdd5f0bbd761fb9cd47ceb16b9f79fdf22b0a4b70eed88c36f974a1b"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "BPT"
+    },
+    {
+      "slug": "dro-us-idiq-ceiling-and-subscriptions",
+      "stock_code": "DRO",
+      "caption": "Illustration: One small amber crate at the bottom of a tall, empty glass cylinder.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/dro-us-idiq-ceiling-and-subscriptions-hero-d3516bba555f.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/dro-us-idiq-ceiling-and-subscriptions-hero.png",
+      "previous_caption": "Illustration: A massive framework ceiling towering over a single delivered unit.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-sunburst",
+      "style": "v2",
+      "prompt": "A very tall, empty, clear glass cylinder stands on a mineral-blue field with a single small burnt-amber crate resting at its very bottom; beside it a dark stack of plain tiles is already in place. Compositional hook: the scale contrast between the towering empty cylinder and the one small crate. Materially believable still life of glass and card; the glass has no markings, graduations or numbers. Caveat: a procurement ceiling is not orders, and the short position came before the announcement; no flags, no weapons, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_2cef9afe9227",
+        "run_id": "895a753aba8f379d84b7d7985068c671",
+        "image_id": "/api/canvas/sessions/flow_session_2cef9afe9227/runs/895a753aba8f379d84b7d7985068c671/artifacts/artifact-77e874133aafc40a2fac57ca5532ce49c769f646652fa570596e5e815249dafe"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "DRO-b"
+    },
+    {
+      "slug": "dyl-deep-yellow-shorts-hit-87-on-24-price-slide",
+      "stock_code": "DYL",
+      "caption": "Illustration: Frost spreads across a glowing slab of amber yellowcake.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/dyl-deep-yellow-shorts-hit-87-on-24-price-slide-hero-d87e1970bd09.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/dyl-deep-yellow-shorts-hit-87-on-24-price-slide-hero.png",
+      "previous_caption": "Illustration: Heavy mineral mass straining against suspended paper structural supports.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-sunburst",
+      "style": "v2",
+      "prompt": "A slab of glowing burnt-amber yellowcake ore lies on an ink-green field while pale blue-white frost crystals spread across it from one corner, cooling its glow. Compositional hook: the advancing frost edge across the warm amber surface. Spare woodcut printmaking with ivory and pale blue inks. Caveat: cooling sentiment toward uranium developers; not a mountain or landscape; no radiation symbols, no mine site, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_587f38929612",
+        "run_id": "48c64ad64cb927d5c853415f345b26b5",
+        "image_id": "/api/canvas/sessions/flow_session_587f38929612/runs/48c64ad64cb927d5c853415f345b26b5/artifacts/artifact-cd75562554fbab5e558453bc41cab0708551fe4312c7428329115748566e7cf6"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "DYL"
+    },
+    {
+      "slug": "hls-healius-shorts-climb-to-101-despite-27-price-rally",
+      "stock_code": "HLS",
+      "caption": "Illustration: A microscope frames a small amber growth as a dark shadow spreads.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/hls-healius-shorts-climb-to-101-despite-27-price-rally-hero-e584119926ec.webp",
+      "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/hls-healius-shorts-climb-to-101-despite-27-price-rally-hero.png",
+      "previous_caption": "Illustration: Heavy black paper droplets swell against a rising parchment pipette.",
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
+      "model": "openai/gpt-image-2.5-sunburst",
+      "style": "v2",
+      "prompt": "An ivory laboratory microscope on a mineral-blue field frames a glass slide on its stage where a small burnt-amber culture grows upward like calm branching coral, while a dark shadow spreads beneath the stage. Compositional hook: the microscope silhouette with the amber growth at the focal point. Materially believable still life, soft side light. Caveat: a price rally with short interest also rising; the growth is calm and organic, never fire, smoke or an explosion; no medical result, no people.",
+      "brandbrain": {
+        "project_id": "flow_session_6767dbb6d456",
+        "run_id": "b03fe7ff22d1b8795e410486f1b54be9",
+        "image_id": "/api/canvas/sessions/flow_session_6767dbb6d456/runs/b03fe7ff22d1b8795e410486f1b54be9/artifacts/artifact-c44ed54cf5431ce5e64c2dfa7e1d1ef1598507e4b9af72f75124e8a1e2b39c9d"
+      },
+      "cost_usd": 0.04116,
+      "brief_name": "HLS"
+    }
+  ],
+  "rejected_attempts": [
+    {
+      "attempt": "ZIP-flare",
+      "model": "openai/gpt-image-2.5-flare",
+      "brandbrain": {
+        "project_id": "flow_session_c76188b9e77b",
+        "run_id": "6b27f8da941849393e869610b06d2278",
+        "image_id": "/api/canvas/sessions/flow_session_c76188b9e77b/runs/6b27f8da941849393e869610b06d2278/artifacts/artifact-6b42397daee28f1b6db5bac95af80846cb3d9089207c2a687ceb6aab8ef9c26c"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "tiles printed with game symbols (prompt then asked for plain, unmarked tiles)"
+    },
+    {
+      "attempt": "ELD-sunburst",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "brandbrain": {
+        "project_id": "flow_session_a12de6233da2",
+        "run_id": "eacb7a09b88ed205d55441b26cf745db",
+        "image_id": "/api/canvas/sessions/flow_session_a12de6233da2/runs/eacb7a09b88ed205d55441b26cf745db/artifacts/artifact-52b0055a2b0c10e525c951d92ebe8761c211d7c0c45dc257248da5784b30cbe0"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "blades alternate dark and amber instead of splitting half and half; the flare version kept"
+    },
+    {
+      "attempt": "BOE-flare",
+      "model": "openai/gpt-image-2.5-flare",
+      "brandbrain": {
+        "project_id": "flow_session_388f592953e9",
+        "run_id": "6fed60f8f23bf75ffe01befab9c87615",
+        "image_id": "/api/canvas/sessions/flow_session_388f592953e9/runs/6fed60f8f23bf75ffe01befab9c87615/artifacts/artifact-014f950ffe69addab15c7d0f025e368818159fbfd9d0bd3afb3e9b198c4948f9"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "radiation trefoil on the drum, which the brief forbade"
+    },
+    {
+      "attempt": "EDV-flare",
+      "model": "openai/gpt-image-2.5-flare",
+      "brandbrain": {
+        "project_id": "flow_session_843b86bc576a",
+        "run_id": "ae8831586cf43aec395f9e6c78ed9504",
+        "image_id": "/api/canvas/sessions/flow_session_843b86bc576a/runs/ae8831586cf43aec395f9e6c78ed9504/artifacts/artifact-0ec1c597091799bc38668f9bf3cc74aa8fc9715c52042d08322356e4a3b25bb2"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "drew a 'The Shorted Newsroom' masthead, a headline fragment and a chart"
+    },
+    {
+      "attempt": "NXT-flare",
+      "model": "openai/gpt-image-2.5-flare",
+      "brandbrain": {
+        "project_id": "flow_session_2c80468c77aa",
+        "run_id": "ca16258449d7a08152a9cfa70d18916e",
+        "image_id": "/api/canvas/sessions/flow_session_2c80468c77aa/runs/ca16258449d7a08152a9cfa70d18916e/artifacts/artifact-eced9c055c4cfa29c46ffe7da5ea6841b8b465b00c0ab5e74dc5abee79c4f240"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "five businesspeople push the blades in; objects only"
+    },
+    {
+      "attempt": "TLX-b-flare",
+      "model": "openai/gpt-image-2.5-flare",
+      "brandbrain": {
+        "project_id": "flow_session_a5e253490d87",
+        "run_id": "224eb66c5ac4a281523816d8c27a9454",
+        "image_id": "/api/canvas/sessions/flow_session_a5e253490d87/runs/224eb66c5ac4a281523816d8c27a9454/artifacts/artifact-ee45fa5349736b3bd031e570cc2af1c05a7228aeab4e7d3f969bf8ef09f7ef25"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "poster text ('Board buying', 'Short interest'), charts and a human shadow"
+    },
+    {
+      "attempt": "TWE-flare",
+      "model": "openai/gpt-image-2.5-flare",
+      "brandbrain": {
+        "project_id": "flow_session_b690b0565b65",
+        "run_id": "5ff38312363df5f3e05c6af1a0d18c4b",
+        "image_id": "/api/canvas/sessions/flow_session_b690b0565b65/runs/5ff38312363df5f3e05c6af1a0d18c4b/artifacts/artifact-a103a8073ffb3ccf37c0a47d62cff62b278b224247ce981cb8f6f038ba0b33be"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "distressed businesspeople and a falling chart line"
+    },
+    {
+      "attempt": "BPT-flare",
+      "model": "openai/gpt-image-2.5-flare",
+      "brandbrain": {
+        "project_id": "flow_session_a5f8dad9278f",
+        "run_id": "804e2e51dc9a62f38477ad02f91d0685",
+        "image_id": "/api/canvas/sessions/flow_session_a5f8dad9278f/runs/804e2e51dc9a62f38477ad02f91d0685/artifacts/artifact-504d65ef9774e2a17a67e1b0f4a0750376ef198868c532b90a8b5313cac1cfe0"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "weak action: the pumpjack is not bowed to its lowest point"
+    },
+    {
+      "attempt": "DRO-b-flare",
+      "model": "openai/gpt-image-2.5-flare",
+      "brandbrain": {
+        "project_id": "flow_session_a8c17cfebfb8",
+        "run_id": "bd865d097f15309bb128423fd229e67b",
+        "image_id": "/api/canvas/sessions/flow_session_a8c17cfebfb8/runs/bd865d097f15309bb128423fd229e67b/artifacts/artifact-fffc8bef4c4c4e86045447765a3542fda70feb2d6e7f648db050d9f0381642b1"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "the tall empty frame came out as a thin ladder"
+    },
+    {
+      "attempt": "DYL-flare",
+      "model": "openai/gpt-image-2.5-flare",
+      "brandbrain": {
+        "project_id": "flow_session_1805b27a1316",
+        "run_id": "60b0e220c8bcac96a0868dcab969d1cf",
+        "image_id": "/api/canvas/sessions/flow_session_1805b27a1316/runs/60b0e220c8bcac96a0868dcab969d1cf/artifacts/artifact-ecb4ad971512a10c27d250995e663d12e73041873ba8f387bfcc4ac2ce306edc"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "reads as a snow-capped mountain, not a yellowcake mound"
+    },
+    {
+      "attempt": "HLS-flare",
+      "model": "openai/gpt-image-2.5-flare",
+      "brandbrain": {
+        "project_id": "flow_session_fd4096d60cb6",
+        "run_id": "d0fdc9ed78394fad23e6e258dff6a9ff",
+        "image_id": "/api/canvas/sessions/flow_session_fd4096d60cb6/runs/d0fdc9ed78394fad23e6e258dff6a9ff/artifacts/artifact-0ec1dd5992536154cf094773e0def9bf06ba4082da185068c5af310072d27ddf"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "the amber bloom reads as fire or an explosion"
+    }
+  ]
+}
