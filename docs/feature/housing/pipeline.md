@@ -303,13 +303,13 @@ Per-job mapping and the parity rules: `jobDispositionTable` and `parity` in
 
 There are two scopes (`revalidate.go`), chosen by what the write changed.
 
-- **Crawl writes** call `pingCrawlRevalidate`, which POSTs `REVALIDATION_URL?path=/price-drops,/housing&flush=housing`.
+- **Crawl writes** call `pingCrawlRevalidate`, which POSTs `REVALIDATION_URL?path=/price-drops&flush=housing`.
   - The callers are `crawl-finalize`, `agent` (end of run, only when events were committed), `listings` and the drain's `revalidate`.
-- **The official data refresh** calls `pingRevalidate`, which sends the same query plus `&tag=housing`.
+- **The official data refresh** calls `pingRevalidate`, which sends `path=/price-drops,/housing&flush=housing&tag=housing`.
   - `refresh()` is its only caller. It runs from `official`/`all`, `vg-nsw`, `vg-vic`, `crime` and `-mode refresh`.
   - The tag expires the state-suburb index, the capitals and the rankings, and through the index every state and suburb page (~15,000 pages).
 
-A crawl ping never sends the tag, because no tagged read holds crawl data. The suburb profile's `listing_stats` arrives through an untagged read and refreshes on the page's own 24h window. Until 2026-11-09 one function served both scopes, so `crawl-finalize`, running every 30 minutes, expired every suburb page about 20 times a day (architecture.md §10.3). `TestOnlyRefreshSendsTheHousingTag` pins the one sender.
+A crawl ping never sends the tag, because no tagged read holds crawl data. It never names `/housing` either: on Vercel a plain path expires its whole subtree, so `path=/housing` alone expired every state and suburb page (measured 2026-11-09, architecture.md §10.3). The suburb profile's `listing_stats` arrives through an untagged read and refreshes on the page's own 24h window. Until 2026-11-09 one function served both scopes, so `crawl-finalize`, running every 30 minutes, expired every suburb page about 20 times a day (architecture.md §10.3). `TestOnlyRefreshSendsTheHousingTag` pins the one sender.
 
 An operator ingest that does not call `refresh()` (`census`, `amenities`, `seifa`) shows on suburb pages within the index's 24h window. Run `-mode refresh` to show it at once.
 

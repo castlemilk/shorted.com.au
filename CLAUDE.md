@@ -1266,6 +1266,11 @@ follows the same rules. `ChatSidebar` and both environment banners read
   shortest its segments and reads declare, so a read with a short window (the
   Overview's related stocks were 1800 s) quietly shortens the whole tab. An
   expired page regenerates only when it is next visited.
+- **On Vercel, a plain path expires its whole subtree.** `revalidatePath("/housing")`
+  expired every state and suburb page, and `/` expired the whole site on every
+  sync and news publish (measured 2026-11-09). `/api/revalidate` sends `/` as
+  page-typed. Every other caller must send a leaf path or a tag, never a parent
+  (`docs/caching-architecture.md`, "Path revalidation on Vercel").
 - **A chart is no longer one DOM node across the tabs.** Each chart tab mounts
   its own, so a return to one within 30 minutes (the chart queries'
   `DAILY_STALE`, and the client's `gcTime`) re-renders from the TanStack cache

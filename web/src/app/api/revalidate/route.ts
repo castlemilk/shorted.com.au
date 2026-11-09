@@ -178,8 +178,23 @@ export async function POST(request: NextRequest) {
     // expired as a layout: one call covers every tab for every code.
     if (path === "/shorts/[stockCode]") revalidatePath(path, "layout");
     else if (path.includes("[")) revalidatePath(path, "page");
+    else if (path === "/") revalidatePath("/", "page");
     else revalidatePath(path);
   }
+  // Why "/" is page-typed. On Vercel, a plain revalidatePath(p) expires every
+  // page under p as well as p, whatever the docs say. Measured 2026-11-09:
+  // - the collector's crawl ping sent path=/housing and no tag, and every
+  //   /housing/* page it had cached came back REVALIDATED delete_tag
+  //   (12 of 13), while stock, economy and ownership pages kept their entries;
+  // - the shorts sync's narrow ping sent path=/, and economy, ownership and
+  //   strategies pages, which read no tag it names, came back delete_tag.
+  // So a plain "/" expired the whole site on every daily sync and every news
+  // publish (scripts/take-writer). Page-typed, it expires the home page alone
+  // (its derived tag is _N_T_/page). The home page's data carry shorts-latest
+  // and report tags, which those callers already send.
+  // Any other parent path expires its subtree too. Send the narrowest path or
+  // a tag, never a parent, to refresh one page
+  // (docs/caching-architecture.md, "Path revalidation on Vercel").
 
   let flushedKeys = 0;
   // Upstash bills every SCAN round-trip, and a prefix flush is O(total

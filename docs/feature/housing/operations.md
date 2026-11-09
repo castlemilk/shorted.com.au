@@ -489,8 +489,9 @@ fallback: get the secret with `gcloud secrets versions access latest
 --secret=REVALIDATION_SECRET --project rosy-clover-477102-t5`, then send the
 full route list from [Takedown](#takedown) step 3. `flush=housing` busts the
 whole `cache:housing:` prefix. The collector's own call after a run that wrote
-data sends only `path=/price-drops,/housing&flush=housing`
-([pipeline.md](pipeline.md)), so it does not reach the 24h routes.
+data sends only `path=/price-drops&flush=housing` ([pipeline.md](pipeline.md)), so it does
+not reach the 24h routes. Never add `/housing` to it: on Vercel a plain path expires its
+whole subtree, every state and suburb page included (architecture.md §10.3).
 
 ## Takedown
 

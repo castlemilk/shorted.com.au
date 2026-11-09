@@ -191,6 +191,19 @@ describe("POST /api/revalidate", () => {
     expect(revalidatePathMock).not.toHaveBeenCalledWith("/market/[date]", "page");
   });
 
+  // On Vercel a plain revalidatePath("/") expired every page on the site
+  // (measured 2026-11-09). "/" must reach the home page only.
+  it("expires the home page alone for path=/, never the whole site", async () => {
+    const res = await POST(
+      request("http://localhost/api/revalidate?tag=news-index&path=/news,/news/a-take,/", "test-revalidation-secret"),
+    );
+    expect(res.status).toBe(200);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "page");
+    expect(revalidatePathMock).not.toHaveBeenCalledWith("/");
+    expect(revalidatePathMock).not.toHaveBeenCalledWith("/", "layout");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/news/a-take");
+  });
+
   it("expires every tab under a stock with one layout-typed call", async () => {
     const res = await POST(
       request(
@@ -234,6 +247,7 @@ describe("POST /api/revalidate", () => {
       expect(tagsCalled()).not.toContain("reports-index");
       expect(pathsCalled()).toEqual(
         expect.arrayContaining([
+          ["/", "page"],
           ["/top"],
           ["/market"],
           ["/market/2026-11-03"],

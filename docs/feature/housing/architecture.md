@@ -667,15 +667,15 @@ what its data feeds. There are two scopes (`services/house-price-collector/reval
 crawl write (crawl-finalize every 30 min, rig -mode agent / -mode listings / the drain)
   └─ refreshHousingMV()  — SQL refresh of all housing MVs
       └─ pingCrawlRevalidate()
-          POST $REVALIDATION_URL?path=/price-drops,/housing&flush=housing
+          POST $REVALIDATION_URL?path=/price-drops&flush=housing
           X-Revalidate-Secret: $REVALIDATION_SECRET
           (detached 45s ctx; warn-only; NO-OP when env unset)
-              ├─ revalidatePath(/price-drops, /housing)   — busts the ISR route cache
+              ├─ revalidatePath(/price-drops)   — busts the ISR route cache
               └─ flush=housing → deleteCachedByPrefix(cache:housing:*)  — busts KV
                      (flush= takes a comma list; `shorts` and `housing` families exist)
 
 official data refresh (refresh(): the monthly run, -mode vg-nsw / vg-vic, crime, -mode refresh)
-  └─ pingRevalidate() — the crawl's paths and flush, plus &tag=housing
+  └─ pingRevalidate() — the crawl's flush, path=/price-drops,/housing, plus &tag=housing
               └─ revalidateTag(housing) — the state-suburb index, the capital-city prices
                    and the rankings (unstable_cache), and with the index every state and
                    suburb page that read it (~15,000 pages)
@@ -701,6 +701,15 @@ fleet's ingest had written, about 20 times a day. Each one rebuilt every state a
 page. On 2026-11-08 `REVALIDATED delete_tag` was the largest cause of housing re-renders,
 300–470 a half hour against about 30 for the stock pages. `TestOnlyRefreshSendsTheHousingTag`
 pins `refresh()` as the tag's one sender.
+
+**A crawl ping never names `/housing` either.** On Vercel, a plain `revalidatePath(p)`
+expires every page under `p`, not only `p` ([caching-architecture.md](../../caching-architecture.md),
+"Path revalidation on Vercel"). The first tagless crawl pings (#941, 2026-11-09 05:00 and
+05:30) still sent `path=/price-drops,/housing`. After the 05:30 ping, the only one in that
+window, 12 of the 13 `/housing/*` pages cached before it came back `REVALIDATED delete_tag`,
+while stock, economy and ownership pages kept their entries. The hub renders official data
+only, so the crawl scope sends `path=/price-drops` alone. `assertCrawlScope` fails on
+`/housing`.
 
 An operator ingest that changes a state-index field and does not call `refresh()` (`-mode
 census`, `amenities`, `seifa`) shows on suburb pages within the index's 24h window. To show
