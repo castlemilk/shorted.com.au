@@ -123,10 +123,3 @@ export function formatMarketDate(marketDate: string): string {
     year: "numeric",
   });
 }
-
-/** The disclosure every move carries. */
-export function aiDisclosure(model: string | null): string {
-  return model
-    ? `Written by an AI market-moves workflow (${model})`
-    : "Written by an AI market-moves workflow";
-}

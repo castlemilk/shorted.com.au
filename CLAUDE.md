@@ -2372,7 +2372,7 @@ Full record: **`docs/feature/market-moves/README.md`** (the posting contract, th
 workflow recipe, every landmine). A Claude workflow posts what moved, by how much,
 when it saw it and why; shorted stores it in `market_moves` (migration 000160,
 allowlisted) and draws it on `/market-moves`, a homepage strip and the stock
-Overview card, live at once and labelled AI-written. Two doors to one core
+Overview card, live at once (the feed page says they are AI-written; the cards name no author). Two doors to one core
 (`market_moves.go`): `POST /v1/market-moves` (+ `/retract`) with a token an admin
 creates at `/admin/market-moves` (`smm_...`, shown once, stored as its SHA-256 in
 `market_moves_tokens`, revoked there within 30 s), and the admin MCP tools
