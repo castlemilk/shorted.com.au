@@ -91,10 +91,12 @@ func captureRevalidate(t *testing.T, ping func()) *http.Request {
 	return got[0]
 }
 
-// assertCrawlScope checks a crawl write's cache bust: the two routes and the
-// housing KV family, the secret in a header, and NO tag. The `housing` tag
-// expires every state and suburb page. Before this scope was split out, the
-// 30-minute crawl-finalize sent it about 20 times a day.
+// assertCrawlScope checks a crawl write's cache bust: /price-drops and the
+// housing KV family, the secret in a header, and neither the tag nor the
+// /housing path. Each one alone expires every state and suburb page: the tag
+// through the state index, and the path because Vercel expires a plain path's
+// whole subtree (measured 2026-11-09). Before this scope was split out, the
+// 30-minute crawl-finalize sent both about 20 times a day.
 func assertCrawlScope(t *testing.T, r *http.Request) {
 	t.Helper()
 	q := r.URL.Query()
@@ -107,8 +109,8 @@ func assertCrawlScope(t *testing.T, r *http.Request) {
 	if _, ok := q["secret"]; ok {
 		t.Errorf("secret must not ride in query string, got %q", q.Get("secret"))
 	}
-	if q.Get("path") != "/price-drops,/housing" {
-		t.Errorf("path = %q, want /price-drops,/housing", q.Get("path"))
+	if q.Get("path") != "/price-drops" {
+		t.Errorf("path = %q, want /price-drops alone (a crawl ping must not name /housing)", q.Get("path"))
 	}
 	if q.Get("flush") != "housing" {
 		t.Errorf("flush = %q, want housing", q.Get("flush"))

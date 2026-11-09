@@ -20,8 +20,17 @@ import (
 // Those reach the web as /price-drops and the cache:housing:drops: KV entries,
 // and as each suburb profile's listing_stats block. The profile read is
 // untagged, so a suburb page picks up new listing stats on its own 24h ISR
-// window. A crawl ping therefore expires /price-drops, /housing and the housing
-// KV family, and never the `housing` tag.
+// window. A crawl ping therefore expires /price-drops and the housing KV
+// family. It never sends the `housing` tag or the /housing path.
+//
+// The path matters as much as the tag. On Vercel, a plain revalidatePath(p)
+// expires every page under p, not only p. The first crawl pings without the
+// tag (2026-11-09 05:00 and 05:30) still sent path=/housing, and 12 of the 13
+// /housing/* pages cached before the 05:30 ping came back REVALIDATED
+// delete_tag after it. Stock, economy and ownership pages kept their entries.
+// The /housing hub renders official data only (getHousingOverview; its
+// price-drops panel is a client island that reads the flushed KV), so a
+// crawl write has nothing to refresh there.
 //
 // An OFFICIAL data refresh (pingRevalidate, sent only by refresh(): the monthly
 // run, the VG rig modes, crime, -mode refresh) changes sold prices, growth and
@@ -30,7 +39,7 @@ import (
 // Every state and suburb page reads the index, so the tag expires all of them:
 // the ~15,000 suburb pages and the state pages.
 //
-// Keep the tag out of crawl pings. Once the server-side crawl went live
+// Keep the tag and the /housing path out of crawl pings. Once the server-side crawl went live
 // (2026-10-31), crawl-finalize ran every 30 minutes and pinged whenever the
 // fleet's ingest had written, about 20 times a day. Every ping sent the tag, so
 // every suburb page was rebuilt each time for data none of the tagged reads
@@ -52,13 +61,15 @@ import (
 // must not be killed by that deadline firing between the write and the ping.
 // Same rationale as the post-run queue submit in crawl_agent.go.
 
-// crawlRevalidateQuery is the crawl write's cache bust: the two routes that
-// show crawl-derived data at the top level, and the housing KV family. The
-// family is the whole cache:housing: prefix. A narrower drops-only flush would
-// be silently ignored by a web tier that does not know its name yet.
+// crawlRevalidateQuery is the crawl write's cache bust: /price-drops, the one
+// route that renders crawl-derived data on the server, and the housing KV
+// family. The family is the whole cache:housing: prefix. A narrower drops-only
+// flush would be silently ignored by a web tier that does not know its name
+// yet. /price-drops has no pages beneath it but its card, so its expiry stays
+// one page.
 func crawlRevalidateQuery() url.Values {
 	q := url.Values{}
-	q.Set("path", "/price-drops,/housing")
+	q.Set("path", "/price-drops")
 	q.Set("flush", "housing")
 	return q
 }
@@ -69,13 +80,16 @@ func pingCrawlRevalidate(reason string) {
 }
 
 // pingRevalidate sends the official data refresh's cache bust: the crawl's
-// paths and flush plus the `housing` tag. The tag is the only part that reaches
-// Next's data cache: `flush` deletes only Redis keys and `path` rebuilds only
-// those two routes. Without it, after a data refresh every suburb page ranked
-// against yesterday's state index for a full 24h. /api/revalidate calls
-// revalidateTag() only for the tags supplied here. Only refresh() may call this.
+// flush, the /price-drops and /housing paths, and the `housing` tag. The tag is
+// the only part that reaches Next's data cache: `flush` deletes only Redis keys.
+// Without it, after a data refresh every suburb page ranked against yesterday's
+// state index for a full 24h. /api/revalidate calls revalidateTag() only for the
+// tags supplied here. The /housing path rebuilds the hub over the new official
+// figures (on Vercel it also expires the subtree, which the tag expires anyway).
+// Only refresh() may call this.
 func pingRevalidate(reason string) {
 	q := crawlRevalidateQuery()
+	q.Set("path", "/price-drops,/housing")
 	q.Set("tag", "housing")
 	sendRevalidate(reason, "housing", q)
 }

@@ -56,6 +56,40 @@ beside its narrow one; `web/src/app/actions/__tests__/shorts-tag-scopes.test.ts`
 fails on a read tagged only `shorts-data`, which a narrow sync would never
 refresh.
 
+## Path revalidation on Vercel
+
+A plain `revalidatePath(p)`, with no type, expires every page under `p` on Vercel, not only
+the page at `p`. Next's docs and the derived tags in `next/dist/server/lib/implicit-tags.js`
+say it should reach only `p` (`_N_T_/housing` is not among a `/housing/vic` page's tags), but
+production does otherwise. Measured 2026-11-09 from `vercel logs` (`cacheReason`) and the
+collector's own log line:
+
+- **`path=/housing`, no tag.** At 05:30 the `crawl-finalize` ping (`crawl cache bust ok`, the
+  only ping in that window) sent `path=/price-drops,/housing&flush=housing`. Of the 13
+  `/housing/*` pages cached before it and visited after it, 12 came back
+  `REVALIDATED delete_tag` and 1 cold. No stock, economy or ownership page did.
+- **`path=/`.** The shorts sync's narrow bust at 00:33:57 sent `/` among its paths. Economy,
+  ownership and strategies pages came back `delete_tag` within the next 25 minutes. The
+  economy state pages read only `getEconomicSeries` (`economy-state-companies`, otherwise
+  time-based at an hour), and no ping named those. One ownership page was cached at 00:33:28,
+  after the 00:30 crawl ping, so only the sync could have expired it.
+
+So `/` expired the whole site on every daily sync and on every news publish
+(`scripts/take-writer` sends `path=/news,/news/<slug>,/`; there were 9 on 2026-11-09 between
+03:15 and 05:05 UTC). `/api/revalidate` now sends `/` as `revalidatePath("/", "page")`, which
+reaches the home page alone (its derived tag is `_N_T_/page`). The home page's data carry
+`shorts-latest` and report tags, which the sync already expires.
+
+Rules for any caller:
+- To refresh one page, send its exact leaf path, or better a tag its reads carry. Never send a
+  parent path to refresh the parent: `/housing` is every housing page, and `/news` is every
+  article.
+- A pattern with brackets is page- or layout-typed already (`/shorts/[stockCode]` as a layout,
+  others as a page) and behaves as documented.
+- To tell a tag expiry from a path expiry, compare `cacheReason` brackets against
+  `/api/revalidate` timestamps. Pings to `shorted.com.au` come from Cloud Run and VKE; pings
+  to the Vercel origin host come from the rigs and `take-writer`.
+
 ## GetTopShorts payload
 
 The top-shorts list sparklines no longer ship full daily resolution — the
