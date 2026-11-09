@@ -55,8 +55,8 @@ migration 000056 after census" step in older docs is superseded.
 | Mode | Writes | Notes |
 |---|---|---|
 | `official` (alias `abs`) | `house_price_regions`, `house_prices`, run cursors | 16 jobs (below) + `refresh` |
-| `refresh` | sal_code links, 6 housing MVs, revalidate ping | Detached context — a crawl deadline firing must not kill the refresh of committed data |
-| `revalidate` | — (web cache bust only) | The drain's one ping for the `agent` rounds that deferred theirs (`hc_drain_until_empty`, see "Once per drain" below). Needs no DB: dispatched before the `DATABASE_URL` check. Best-effort like every ping, so it always exits 0 and the drain keeps its own code |
+| `refresh` | sal_code links, 6 housing MVs, revalidate ping | Detached context — a crawl deadline firing must not kill the refresh of committed data. The one sender of the official scope (`tag=housing`, which expires every state and suburb page); see "Revalidation ping" |
+| `revalidate` | — (web cache bust only) | The drain's one crawl-scoped ping for the `agent` rounds that deferred theirs (`hc_drain_until_empty`, see "Once per drain" below). Needs no DB: dispatched before the `DATABASE_URL` check. Best-effort like every ping, so it always exits 0 and the drain keeps its own code |
 | `census` | `suburb_demographics` | Needs `CENSUS_DATAPACK_PATH` + `CENSUS_GEO_DIR` (ABS GCP SAL zip + boundary TopoJSON) |
 | `electorates` | `suburb_demographics` federal columns | Needs `ELECTORATES_DIR` (precomputed `web/public/geo/electorates/*.json`) |
 | `banners` | `suburb_demographics.banner_*` | From committed `suburb-archetypes.json` (`ARCHETYPES_FILE`) — no crawl |
@@ -301,18 +301,28 @@ Per-job mapping and the parity rules: `jobDispositionTable` and `parity` in
 
 ## Revalidation ping
 
-`pingRevalidate` POSTs `REVALIDATION_URL?secret=…&path=/price-drops,/housing&flush=housing`
-after data lands — callers: `refresh` (official/crawl), `agent` (end-of-run,
-gated on events actually committed), `listings`. Best-effort: it runs on a
+There are two scopes (`revalidate.go`), chosen by what the write changed.
+
+- **Crawl writes** call `pingCrawlRevalidate`, which POSTs `REVALIDATION_URL?path=/price-drops,/housing&flush=housing`.
+  - The callers are `crawl-finalize`, `agent` (end of run, only when events were committed), `listings` and the drain's `revalidate`.
+- **The official data refresh** calls `pingRevalidate`, which sends the same query plus `&tag=housing`.
+  - `refresh()` is its only caller. It runs from `official`/`all`, `vg-nsw`, `vg-vic`, `crime` and `-mode refresh`.
+  - The tag expires the state-suburb index, the capitals and the rankings, and through the index every state and suburb page (~15,000 pages).
+
+A crawl ping never sends the tag, because no tagged read holds crawl data. The suburb profile's `listing_stats` arrives through an untagged read and refreshes on the page's own 24h window. Until 2026-11-09 one function served both scopes, so `crawl-finalize`, running every 30 minutes, expired every suburb page about 20 times a day (architecture.md §10.3). `TestOnlyRefreshSendsTheHousingTag` pins the one sender.
+
+An operator ingest that does not call `refresh()` (`census`, `amenities`, `seifa`) shows on suburb pages within the index's 24h window. Run `-mode refresh` to show it at once.
+
+Both pings are best-effort: each runs on a
 **detached 45s context** (a `CRAWL_TIMEOUT_MIN` deadline firing between the
 write and the ping must not kill the cache bust) and **no-ops silently** when
 `REVALIDATION_URL`/`REVALIDATION_SECRET` are unset — pages then self-heal on
 the ISR TTL. Rigs read both from `~/.shorted-housing-crawl.env`; the Cloud Run
 job from Terraform (`manage_revalidation_secret`).
 
-**Once per drain, not once per round.** One ping purges `/price-drops`,
-`/housing` and every suburb and state page (tag `housing`) and flushes the
-whole housing KV prefix, and on Next 14 the first request after a purge renders
+**Once per drain, not once per round.** One ping purges `/price-drops` and
+`/housing` and flushes the whole housing KV prefix (until 2026-11-09 it also
+expired every suburb and state page), and the first request after a purge renders
 while the visitor waits. Pinging per `-mode agent` round made nearly every visit
 during a drain that first request (2026-10-21: `/price-drops`, two GETs 20
 minutes apart, both 44s at Age 0). `hc_drain_until_empty` now runs each round

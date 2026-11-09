@@ -119,7 +119,7 @@ func run() int {
 	// deferred theirs (revalidateAfterCrawlWrite). No DB either. Best-effort
 	// like every ping, so it always exits 0 and the drain keeps its own code.
 	if *mode == revalidateMode {
-		pingRevalidate("drain")
+		pingCrawlRevalidate("drain")
 		return 0
 	}
 
@@ -711,8 +711,11 @@ func refresh(_ context.Context, pool *pgxpool.Pool) error {
 	if refErr != nil {
 		log.Printf("suburb reference view refresh failed: %v", refErr)
 	}
-	// Official/crawl ingest refreshed the housing MVs → bust the web tier's
-	// long-TTL housing caches now. Best-effort, never fails the run.
+	// An official refresh changed sold prices, growth or reference data → bust
+	// the web tier's housing caches now, including the `housing` tag that every
+	// state and suburb page reads through the state index. This is the tag's one
+	// sender (TestOnlyRefreshSendsTheHousingTag); crawl writes use
+	// pingCrawlRevalidate. Best-effort, never fails the run.
 	pingRevalidate("refresh")
 	return refErr
 }

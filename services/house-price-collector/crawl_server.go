@@ -667,7 +667,7 @@ func productionFinalizeOps(pool *pgxpool.Pool) finalizeOps {
 		refreshMV: func(ctx context.Context) error {
 			return refreshHousingMVChecked(ctx, pool)
 		},
-		revalidate: pingRevalidate,
+		revalidate: pingCrawlRevalidate,
 	}
 }
 

@@ -251,8 +251,9 @@ hc_acquire_lock() {
 # a comment pinning that contract).
 #
 # Cache revalidation is once per DRAIN, not once per round. A round that wrote
-# data used to ping /api/revalidate itself, and one ping purges /price-drops,
-# /housing and every suburb page and flushes the whole housing KV prefix. A drain
+# data used to ping /api/revalidate itself, and one ping purges /price-drops and
+# /housing and flushes the whole housing KV prefix (until 2026-11-09 it also
+# expired every suburb page; a crawl ping no longer sends the housing tag). A drain
 # of N rounds purged them N times, so nearly every visit during a drain was the
 # first request after a purge, which renders while the visitor waits (2026-10-21:
 # /price-drops, two GETs 20 minutes apart, both 44s at Age 0). Each round now runs
