@@ -50,6 +50,8 @@ interface Args {
   // newsroom
   withImages?: boolean;
   noImages?: boolean;
+  // publish / regen-images: the header image alone, no layout or inline images
+  heroOnly?: boolean;
   // publish
   noValidate?: boolean;
   tweet?: boolean;
@@ -114,6 +116,8 @@ function parseArgs(argv: string[]): Args {
       args.withImages = true;
     } else if (arg === "--no-images") {
       args.noImages = true;
+    } else if (arg === "--hero-only") {
+      args.heroOnly = true;
     } else if (arg === "--no-validate") {
       args.noValidate = true;
     } else if (arg === "--tweet") {
@@ -144,13 +148,14 @@ Commands:
   newsroom        Loop: agenda → top-N narratives → insert as drafts/publish
   newsroom-daily  Investigative daily run: editor -> agentic investigation -> tiered writer
   newsroom-preview Investigate ONE --stock=CODE and print the report (no DB write, no images)
-  regen-images    Generate a hero + inline images for an existing take (--slug=SLUG [--inline=2])
+  regen-images    Generate a hero + inline images for an existing take (--slug=SLUG [--inline=2] [--hero-only])
   validate-article Screenshot + Gemini-vision cohesion check with auto-fix loop (--slug=SLUG [--rounds=2])
   results-watch   List companies that just filed results, ranked by short interest (--since-days=N [--limit=N])
   import-mdx      Upsert a hand-written MDX article as a DRAFT (--file=... | --dir=... [--dry-run])
   publish-content Import ONE content/news article by slug and publish it after required vision review (--slug=SLUG [--dir=...] [--no-images]) — the Cloud Run entrypoint
   list-drafts     List unpublished drafts; --slug=SLUG prints one draft's full body + citations
-  publish         Publish a draft: images → required vision review → set published_at → tweet (--slug=SLUG [--no-images] [--tweet])
+  publish         Publish a draft: images → required vision review → set published_at → tweet (--slug=SLUG [--no-images | --hero-only] [--tweet])
+                  --hero-only: generate (if missing) and review only the header image, no layout images
   narrative Multi-section journalism-engine Take for one --stock=CODE
 
 run flags:
@@ -386,7 +391,7 @@ async function main(): Promise<void> {
     }
     case "regen-images": {
       if (!args.slug && !args.stockCode) throw new Error("--slug=SLUG required for regen-images");
-      await regenerateImages({ slug: args.slug ?? "", inlineCount: args.inline });
+      await regenerateImages({ slug: args.slug ?? "", inlineCount: args.inline, heroOnly: args.heroOnly });
       break;
     }
     case "validate-article": {
@@ -428,6 +433,7 @@ async function main(): Promise<void> {
       await publishTake({
         slug: args.slug,
         noImages: args.noImages,
+        heroOnly: args.heroOnly,
         noValidate: args.noValidate,
         tweet: args.tweet,
       });
