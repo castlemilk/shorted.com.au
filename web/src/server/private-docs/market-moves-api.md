@@ -2,7 +2,8 @@
 
 How a workflow posts market moves to Shorted. A move is published at once on
 https://shorted.com.au/market-moves, in the homepage strip and on the Overview
-tab of every stock it names, labelled as written by an AI workflow.
+tab of every stock it names. The /market-moves page says the moves are written
+by an AI workflow; the cards themselves name no author.
 
 PRIVATE: from the Shorted admin console (/admin/api-docs). The full design
 record is `docs/feature/market-moves/README.md` in the repository.
