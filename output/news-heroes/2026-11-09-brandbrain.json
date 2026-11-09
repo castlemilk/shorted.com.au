@@ -1,10 +1,10 @@
 {
   "made": "2026-11-09",
-  "what": "Header images for the 34 backlog takes and the DRO and TLX October articles, remade through the BrandBrain MCP and swapped in with take-writer set-hero (publication vision review, gemini-3.5-flash, cohesion >= 7).",
+  "what": "Header images (36 of 36 swapped) for the 34 backlog takes and the DRO and TLX October articles, remade through the BrandBrain MCP and swapped in with take-writer set-hero (publication vision review, gemini-3.5-flash, cohesion >= 7).",
   "generator": "BrandBrain MCP generate_image (api.brandbrain.dev), 16:9, quality high, 1536x1024 WebP",
   "paid_by": "BrandBrain core workspace's own OpenAI key \"credits\" (pay_with key id), never BrandBrain's key",
-  "calls": 47,
-  "total_cost_usd_estimated": 1.9345,
+  "calls": 48,
+  "total_cost_usd_estimated": 1.9757,
   "styles": {
     "v1": "Shorted newsroom header image. Conceptual editorial illustration with tactile hand-made craft: cut paper with visible cut edges and paper fibre, spare woodcut printmaking, or a materially believable still life. One dominant subject performing one story-specific action; bold silhouette and broad light/dark shapes; a quiet pocket of negative space around the focal point. The subject and its action fill about two thirds of the frame and stay inside the central 80%, so a 16:9 or 3:2 crop keeps them. Colour: warm ivory paper, charcoal and one selective burnt-amber accent, on the field colour the brief names (ink green, mineral blue, oxblood, charcoal or warm paper). Coherent perspective, joins, attachments and contact shadows. Must read clearly at 160x90 pixels. Any position tiles, blocks or tokens are plain and unmarked: blank faces with no symbols, glyphs, game pieces, icons or letters on them. NOT: text, letters, numbers, labels, logos, watermarks, signage, charts, arrows, dollar signs, bulls or bears, people, hands or faces, generic finance wallpaper, glossy 3D or toy render, plastic sheen, lens flare, HDR glow, uniform fake grain, a fabricated photograph of a real place or event.",
     "v2": "Conceptual editorial illustration with tactile hand-made craft: cut paper with visible cut edges and paper fibre, spare woodcut printmaking, or a materially believable still life. One dominant subject performing one story-specific action; bold silhouette and broad light/dark shapes; a quiet pocket of negative space around the focal point. The subject and its action fill about two thirds of the frame and stay inside the central 80%, so a 16:9 or 3:2 crop keeps them. Colour: warm ivory paper, charcoal and one selective burnt-amber accent, on the field colour the brief names (ink green, mineral blue, oxblood, charcoal or warm paper). Coherent perspective, joins, attachments and contact shadows. Must read clearly at 160x90 pixels. Objects only: no human figures, silhouettes, hands or faces. Any tiles, blocks, drums or containers are plain and unmarked: no symbols, trefoils, glyphs, stencils, icons or letters on them. The image is artwork only, never a page layout: no masthead, headline, title, caption, text, letters, numbers, labels, logos, watermarks, signage, charts or arrows. NOT: dollar signs, bulls or bears, generic finance wallpaper, glossy 3D or toy render, plastic sheen, lens flare, HDR glow, uniform fake grain, a fabricated photograph of a real place or event."
@@ -622,23 +622,24 @@
     {
       "slug": "nxt-nextdc-insiders-buy-a375k-to-counter-83-short-position",
       "stock_code": "NXT",
-      "caption": "Illustration: Five amber server blades slide into a tall dark rack.",
-      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/nxt-nextdc-insiders-buy-a375k-to-counter-83-short-position-hero-f3dfb1a01f24.webp",
+      "caption": "Illustration: Five amber server blades are pushed into a tall dark rack at different depths.",
+      "hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/nxt-nextdc-insiders-buy-a375k-to-counter-83-short-position-hero-e483828db3f7.webp",
       "previous_hero_url": "https://storage.googleapis.com/shorted-company-logos-prod/takes/nxt-nextdc-insiders-buy-a375k-to-counter-83-short-position-hero.png",
       "previous_caption": "Illustration: Five amber structural supports bracing a dark data tower on a slope.",
-      "swapped": false,
-      "review_outcome": "rejected by the publication review (quality flagged, regeneration asked for); the take keeps its previous header",
-      "review_cohesion": 8.5,
+      "swapped": true,
+      "review_outcome": "passed the publication review",
+      "review_cohesion": 9,
       "model": "openai/gpt-image-2.5-sunburst",
       "style": "v2",
-      "prompt": "Five slim burnt-amber server blades are partly inserted into a tall dark charcoal server rack standing on an oxblood field, each blade sliding into its own slot, caught mid-insertion. Compositional hook: the five bright horizontal blades entering the large dark rack. Cut paper and card construction with clean edges. Objects only, no human figures. Caveat: five directors buying against a short position about double the sector average; no brand, no screens, no tangled cables, no people.",
+      "prompt": "A tall dark charcoal server rack seen straight on, built from layered cut card, stands on an oxblood field. Five slim burnt-amber cut-paper blades are pushed partway into five of its slots at different depths, their front edges sticking out of the dark rack. Flat, front-facing elevation, like a paper collage pinned to a board: visible cut edges, paper fibre and soft contact shadows where each blade overlaps the rack. Compositional hook: the five small bright blades against the one big dark rack. Matte paper only, not a product render. Caveat: five directors buying against a short position about double the sector average. No brand, no screens, no cables, no lights, no people.",
       "brandbrain": {
-        "project_id": "flow_session_4cd72c24cf80",
-        "run_id": "62ac0adf2cc45104c59b88908b9cf1b0",
-        "image_id": "/api/canvas/sessions/flow_session_4cd72c24cf80/runs/62ac0adf2cc45104c59b88908b9cf1b0/artifacts/artifact-a50c18c8e03d71668e3f599a7ab2007a121b53a5eb37ce740605f09fd8eddf98"
+        "project_id": "flow_session_cc2550ca00c9",
+        "run_id": "bcf36248a2680cf9530d23b0f3903b3d",
+        "image_id": "/api/canvas/sessions/flow_session_cc2550ca00c9/runs/bcf36248a2680cf9530d23b0f3903b3d/artifacts/artifact-a9cbb42f4d98786f3424f28c24898e29863192bb39d9403958eceb90b4021e7b"
       },
       "cost_usd": 0.04116,
-      "brief_name": "NXT"
+      "brief_name": "NXT",
+      "retried": "2026-11-09 11:25 UTC, through the BrandBrain Claude Code plugin"
     },
     {
       "slug": "tlx-telix-shorts-retreat-as-behrenbruch-leads-a1m-board-buy",
@@ -889,6 +890,17 @@
       },
       "cost_usd": 0.04116,
       "rejected_because": "the amber bloom reads as fire or an explosion"
+    },
+    {
+      "attempt": "NXT-r-sunburst",
+      "model": "openai/gpt-image-2.5-sunburst",
+      "brandbrain": {
+        "project_id": "flow_session_4cd72c24cf80",
+        "run_id": "62ac0adf2cc45104c59b88908b9cf1b0",
+        "image_id": "/api/canvas/sessions/flow_session_4cd72c24cf80/runs/62ac0adf2cc45104c59b88908b9cf1b0/artifacts/artifact-a50c18c8e03d71668e3f599a7ab2007a121b53a5eb37ce740605f09fd8eddf98"
+      },
+      "cost_usd": 0.04116,
+      "rejected_because": "failed the publication review (quality flagged, cohesion 8.5): identical floating blades read as a glossy product render"
     }
   ]
 }
