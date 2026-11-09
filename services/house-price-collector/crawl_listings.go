@@ -379,7 +379,7 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) int {
 		} else if reaEvents+domEvents > 0 {
 			// New price-drop/relist events landed + MVs refreshed → bust the web
 			// tier's long-TTL housing caches now. Best-effort, never fails the run.
-			pingRevalidate("listings")
+			pingCrawlRevalidate("listings")
 		}
 		status, detail := "ok", ""
 		if refreshErr != nil {
