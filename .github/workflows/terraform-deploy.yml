@@ -392,7 +392,9 @@ jobs:
 
       - name: Terraform Init
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
-        run: terraform init
+        # Retries a provider download that fails on the network (GitHub serves the
+        # Cloudflare provider; its 2026-11-09 504s failed deploy after deploy).
+        run: ../../../scripts/ci/terraform-init-retry.sh
 
       - name: Ensure secrets exist in Secret Manager
         if: github.event_name != 'pull_request'
@@ -655,7 +657,9 @@ jobs:
 
       - name: Terraform Init
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
-        run: terraform init
+        # Retries a provider download that fails on the network (GitHub serves the
+        # Cloudflare provider; its 2026-11-09 504s failed deploy after deploy).
+        run: ../../../scripts/ci/terraform-init-retry.sh
 
       - name: Ensure all secrets exist in Secret Manager
         env:
