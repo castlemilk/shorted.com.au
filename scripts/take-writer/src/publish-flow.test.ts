@@ -48,6 +48,24 @@ describe("publication after required vision review", () => {
     expect(mocks.generate).not.toHaveBeenCalled();
     expect(mocks.spawn).not.toHaveBeenCalled();
   });
+  it("--hero-only generates only the header image when the hero is missing, then reviews it", async () => {
+    mocks.pg.query.mockImplementation(async (sql: string) => ({ rows: sql.startsWith("SELECT") ? [{ ...draft, hero_image_url: null, og_image_url: null }] : [{ published_at: "2026-11-09T00:00:00Z" }] }));
+    await publishTake({ slug: draft.slug, heroOnly: true });
+    expect(mocks.generate).toHaveBeenCalledWith({ slug: draft.slug, heroOnly: true });
+    expect(mocks.generate.mock.invocationCallOrder[0]).toBeLessThan(mocks.validate.mock.invocationCallOrder[0]!);
+    expect(mocks.validate).toHaveBeenCalledWith(draft.slug, { rounds: 1, requirePass: true });
+  });
+  it("--hero-only keeps an existing real hero (empty layout plan) and pays for no images on a retry", async () => {
+    mocks.pg.query.mockImplementation(async (sql: string) => ({ rows: sql.startsWith("SELECT") ? [{ ...draft, og_image_url: "https://storage.googleapis.com/x/takes/slug-og.png" }] : [{ published_at: "2026-11-09T00:00:00Z" }] }));
+    await publishTake({ slug: draft.slug, heroOnly: true });
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.validate).toHaveBeenCalledOnce();
+  });
+  it("refuses --no-images together with --hero-only before any paid operation", async () => {
+    await expect(publishTake({ slug: draft.slug, noImages: true, heroOnly: true })).rejects.toThrow(/mutually exclusive/);
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.validate).not.toHaveBeenCalled();
+  });
   it("does not repeat inference or publication for an already-published take", async () => {
     mocks.pg.query.mockResolvedValue({ rows: [{ ...draft, published_at: "2026-10-03T00:00:00Z" }] });
     await publishTake({ slug: draft.slug, noImages: true });

@@ -774,7 +774,7 @@ export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
   }
 }
 
-export async function regenerateImages(opts: { slug: string; inlineCount?: number }): Promise<void> {
+export async function regenerateImages(opts: { slug: string; inlineCount?: number; heroOnly?: boolean }): Promise<void> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");
   const key = process.env.OPENAI_API_KEY;
@@ -805,7 +805,9 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
     const take = { slug: row.slug, headline: row.headline } as unknown as NarrativeTake;
     const count = opts.inlineCount ?? 2;
 
-    console.error(`[regen-images] ${row.stock_code} "${row.headline}" — og + art-directed hero/layout (inline only as fallback)…`);
+    console.error(opts.heroOnly
+      ? `[regen-images] ${row.stock_code} "${row.headline}" — og + art-directed hero only (--hero-only)…`
+      : `[regen-images] ${row.stock_code} "${row.headline}" — og + art-directed hero/layout (inline only as fallback)…`);
     // Abstract brand art → OG / social card only.
     const og = await generateBrandOg(openai, storage, candidate, take);
 
@@ -825,7 +827,10 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
     let layoutImages: LayoutImage[] = [];
     let artCost = 0;
     try {
-      const plan = await designImagePlan(ai, artCtx, 4); // 1 hero + 3 inline
+      // 1 hero + 3 inline; --hero-only plans and keeps the hero alone
+      // (normalisePlanRoles puts the hero first).
+      const planned = await designImagePlan(ai, artCtx, opts.heroOnly ? 1 : 4);
+      const plan = opts.heroOnly ? planned.slice(0, 1) : planned;
       console.error(`[regen-images] art-director planned ${plan.length} image(s): ${plan.map((p) => `${p.role}:${p.style}/${p.ratio}`).join(", ") || "(none)"}`);
       const gen = await generateHeroAndLayout(openai, storage, opts.slug, plan);
       heroUrl = gen.heroUrl; heroCaption = gen.heroCaption;
@@ -844,7 +849,9 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
     // when layout_images is non-empty).
     let inlineImages: InlineImageRow[] = [];
     let inlineCost = 0;
-    if (layoutImages.length > 0) {
+    if (opts.heroOnly) {
+      console.error(`[regen-images] --hero-only — no layout or legacy inline images`);
+    } else if (layoutImages.length > 0) {
       console.error(`[regen-images] layout plan ok — skipping legacy inline images`);
     } else {
       const inl = await generateInlineImages(openai, storage, ai, candidate, take, row.body_md, count);

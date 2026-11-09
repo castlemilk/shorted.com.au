@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { needsImages } from "./publish.js";
+import { needsHero, needsImages } from "./publish.js";
 
 const OG = "https://storage.googleapis.com/x/takes/slug-og.png";
 const HERO = "https://storage.googleapis.com/x/takes/slug-hero.png";
@@ -24,5 +24,22 @@ describe("needsImages", () => {
 
   it("false when hero exists, layout is non-empty, and og_image_url is null", () => {
     expect(needsImages({ hero_image_url: HERO, og_image_url: null, layout_images: [{}] })).toBe(false);
+  });
+});
+
+describe("needsHero (publish --hero-only)", () => {
+  it("true when the hero is missing", () => {
+    expect(needsHero({ hero_image_url: null, og_image_url: OG })).toBe(true);
+  });
+
+  it("true when the hero is just the brand OG fallback", () => {
+    expect(needsHero({ hero_image_url: OG, og_image_url: OG })).toBe(true);
+  });
+
+  it("false for a real hero, whatever the layout plan holds", () => {
+    expect(needsHero({ hero_image_url: HERO, og_image_url: OG })).toBe(false);
+    expect(needsHero({ hero_image_url: HERO, og_image_url: null })).toBe(false);
+    // The same row needs images under the full rule, because its layout plan is empty.
+    expect(needsImages({ hero_image_url: HERO, og_image_url: OG, layout_images: [] })).toBe(true);
   });
 });

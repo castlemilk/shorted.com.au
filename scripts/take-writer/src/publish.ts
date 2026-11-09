@@ -31,10 +31,20 @@ export interface ImageStateRow {
 }
 
 export function needsImages(row: ImageStateRow): boolean {
-  if (!row.hero_image_url) return true;
+  if (needsHero(row)) return true;
   if (!row.layout_images || row.layout_images.length === 0) return true;
-  if (row.og_image_url && row.hero_image_url === row.og_image_url) return true;
   return false;
+}
+
+/**
+ * The hero-only rule (`publish --hero-only`): only a missing hero, or a hero
+ * that is just the brand OG fallback, needs generating. An empty layout plan is
+ * the point of the mode, so a retry after a failed review does not pay for a
+ * new hero.
+ */
+export function needsHero(row: Pick<ImageStateRow, "hero_image_url" | "og_image_url">): boolean {
+  if (!row.hero_image_url) return true;
+  return Boolean(row.og_image_url && row.hero_image_url === row.og_image_url);
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +177,8 @@ async function printDraftDetail(pg: PgClient, slug: string): Promise<void> {
 export interface PublishOptions {
   slug: string;
   noImages?: boolean;
+  /** Generate (when missing) and review only the header image; no layout images. */
+  heroOnly?: boolean;
   noValidate?: boolean;
   tweet?: boolean;
 }
@@ -239,12 +251,15 @@ export async function publishTake(opts: PublishOptions): Promise<void> {
   }
 
   // 2. Images (default ON; regenerate when missing/empty/og-fallback hero).
+  if (opts.noImages && opts.heroOnly) throw new Error("--no-images and --hero-only are mutually exclusive");
   if (opts.noImages) {
     console.log("[publish] --no-images — skipping image generation");
-  } else if (needsImages(row)) {
-    console.log("[publish] images missing or hero is the brand OG fallback — generating…");
+  } else if (opts.heroOnly ? needsHero(row) : needsImages(row)) {
+    console.log(opts.heroOnly
+      ? "[publish] --hero-only: hero missing or the brand OG fallback — generating the header image…"
+      : "[publish] images missing or hero is the brand OG fallback — generating…");
     try {
-      await regenerateImages({ slug });
+      await regenerateImages({ slug, heroOnly: opts.heroOnly });
     } catch (err) {
       // Keep the article as a draft when its required images cannot be produced.
       throw new Error(
