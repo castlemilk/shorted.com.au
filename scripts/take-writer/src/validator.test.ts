@@ -293,3 +293,23 @@ describe("required publication vision review", () => {
     expect(mocks.pg.connect).not.toHaveBeenCalled();
   });
 });
+
+describe("candidate hero (set-hero)", () => {
+  const candidate = { url: "https://storage.googleapis.com/bucket/takes/reviewed-slug-hero-0123456789ab.webp", caption: "Illustration: An amber zip pull slides down." };
+
+  it("judges the candidate in place of the stored hero and writes nothing", async () => {
+    fetchMock.mockImplementation(async () => new Response(WEBP, { headers: { "content-type": "image/webp" } }));
+    await validateArticle("reviewed-slug", { rounds: 1, requirePass: true, hero: candidate });
+    const fetched = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(fetched).toContain(candidate.url);
+    expect(fetched).not.toContain(row().hero_image_url);
+    const parts = mocks.generateContent.mock.calls[0]![0];
+    expect(parts.some((p: { inlineData?: { mimeType: string } }) => p.inlineData?.mimeType === "image/webp")).toBe(true);
+    expect(JSON.stringify(parts)).toContain(candidate.caption);
+    expect(mocks.pg.query.mock.calls.some(([sql]) => /UPDATE/i.test(String(sql)))).toBe(false);
+  });
+  it("refuses a candidate outside the publication review before connecting", async () => {
+    await expect(validateArticle("reviewed-slug", { hero: candidate })).rejects.toThrow(/publication review/);
+    expect(mocks.pg.connect).not.toHaveBeenCalled();
+  });
+});

@@ -64,6 +64,10 @@ interface Args {
   // results-watch
   sinceDays?: number;
   limit?: number;
+  // set-hero
+  image?: string;
+  caption?: string;
+  credit?: string;
   // import-mdx
   file?: string;
   dir?: string;
@@ -125,6 +129,9 @@ function parseArgs(argv: string[]): Args {
     } else if (arg.startsWith("--tier=")) args.tier = arg.split("=")[1];
     else if (arg.startsWith("--angle=")) args.angle = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--slug=")) args.slug = arg.split("=")[1];
+    else if (arg.startsWith("--image=")) args.image = arg.split("=").slice(1).join("=");
+    else if (arg.startsWith("--caption=")) args.caption = arg.split("=").slice(1).join("=");
+    else if (arg.startsWith("--credit=")) args.credit = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--inline=")) {
       const v = arg.split("=")[1];
       if (v) args.inline = parseInt(v, 10);
@@ -156,6 +163,9 @@ Commands:
   list-drafts     List unpublished drafts; --slug=SLUG prints one draft's full body + citations
   publish         Publish a draft: images → required vision review → set published_at → tweet (--slug=SLUG [--no-images | --hero-only] [--tweet])
                   --hero-only: generate (if missing) and review only the header image, no layout images
+  set-hero        Replace a take's header image with artwork made elsewhere (e.g. BrandBrain): content-addressed upload →
+                  required vision review of the candidate → guarded swap → revalidate
+                  (--slug=SLUG --image=PATH --caption="Illustration: …" [--credit="…"] [--dry-run])
   narrative Multi-section journalism-engine Take for one --stock=CODE
 
 run flags:
@@ -421,6 +431,17 @@ async function main(): Promise<void> {
         dir: args.dir,
         noImages: args.noImages,
         noValidate: args.noValidate,
+      });
+      break;
+    }
+    case "set-hero": {
+      const { setHero } = await import("./set-hero.js");
+      await setHero({
+        slug: args.slug ?? "",
+        imagePath: args.image ?? "",
+        caption: args.caption ?? "",
+        credit: args.credit,
+        dryRun: args.dryRun,
       });
       break;
     }
