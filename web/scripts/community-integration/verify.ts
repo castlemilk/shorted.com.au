@@ -12,6 +12,7 @@ import {
   expect,
   type Browser,
   type BrowserContext,
+  type Page,
 } from "@playwright/test";
 import { getApps, deleteApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
@@ -95,6 +96,16 @@ async function check(name: string, action: () => Promise<void>) {
   await action();
   report.cases.push(name);
   console.log(`PASS ${driver}: ${name}`);
+}
+
+async function expectOneVisibleText(page: Page, text: string) {
+  // Next can briefly retain a second copy in its hidden streamed boundary after
+  // reload. Require one visible result; two visible replies still fail.
+  const visible = page
+    .getByText(text, { exact: true })
+    .filter({ visible: true });
+  await expect(visible).toHaveCount(1);
+  await expect(visible).toBeVisible();
 }
 
 type Target = "thread" | "comment" | "pulse" | "reply";
@@ -502,12 +513,12 @@ try {
           (comment) => comment.id === commentId && comment.body === reply,
         ),
       );
-      await expect(page.getByText(reply, { exact: true })).toBeVisible();
+      await expectOneVisibleText(page, reply);
       await page.reload();
-      await expect(page.getByText(reply, { exact: true })).toBeVisible();
+      await expectOneVisibleText(page, reply);
       await page.goto(`${baseUrl}/shorts/CBA/community`);
       await page.goto(`${baseUrl}/shorts/CBA/community/${threadId}`);
-      await expect(page.getByText(reply, { exact: true })).toBeVisible();
+      await expectOneVisibleText(page, reply);
     },
   );
 
@@ -515,9 +526,9 @@ try {
     "fresh signed-out reader sees saved reply and all API/SSR authors use public DTOs",
     async () => {
       await readerPage.goto(`${baseUrl}/shorts/CBA/community/${threadId}`);
-      await expect(readerPage.getByText(reply, { exact: true })).toBeVisible();
+      await expectOneVisibleText(readerPage, reply);
       await readerPage.reload();
-      await expect(readerPage.getByText(reply, { exact: true })).toBeVisible();
+      await expectOneVisibleText(readerPage, reply);
       for (const route of [
         "threads",
         `threads/${active.thread.id}`,
@@ -541,12 +552,8 @@ try {
         ),
         "Legacy authors must use the generic public label in the SSR payload",
       );
-      await expect(
-        readerPage.getByText(active.thread.title, { exact: true }),
-      ).toBeVisible();
-      await expect(
-        readerPage.getByText(active.comment.body, { exact: true }),
-      ).toBeVisible();
+      await expectOneVisibleText(readerPage, active.thread.title);
+      await expectOneVisibleText(readerPage, active.comment.body);
     },
   );
 
@@ -633,7 +640,7 @@ try {
         await setStatus("thread", threadId, "active");
       }
       await readerPage.goto(`${baseUrl}/shorts/CBA/community/${threadId}`);
-      await expect(readerPage.getByText(reply, { exact: true })).toBeVisible();
+      await expectOneVisibleText(readerPage, reply);
       await readerPage.screenshot({
         path: path.join(output, `${driver}-saved-reply.png`),
         fullPage: true,

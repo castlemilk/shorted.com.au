@@ -93,3 +93,28 @@ Its `postgres-reader-trace.zip` includes response
 result for trace call `call@1105`. This is partial production evidence, not a full
 driver or both-store pass. Firestore was again not reached, and the original
 development finding remains unresolved.
+
+## Both adapters reached: Postgres complete, Firestore partial
+
+On head `c9aa30f012ab7ec4f20104290ef981898b3de6a2`, native run
+[ed0127cc-b4c3-4ebd-8e4a-d2536451dd34](https://app.cuttlefish.sh/runs/ed0127cc-b4c3-4ebd-8e4a-d2536451dd34),
+attempt `04bbabc9-24e3-4a85-a6f5-952affb5a03f`, completed the production build
+and **all ten Postgres cases**. Its Postgres receipt has `status: passed`, covering
+real reads/writes, API/SSR privacy, independent-reader reload/direct navigation,
+held previews, hidden replies and changed-parent visibility. The whole run still
+failed at `2026-11-10T11:13:13.052683Z`.
+
+Firestore recorded five passing cases: actual parent/child visibility, child
+transitions, summary removal, missing/unknown legacy statuses and production auth.
+Its sixth case saved one reply and confirmed one returned datastore document, then
+the reload's text locator matched two DOM elements. The retained
+`firestore-writer-trace.zip` snapshot `after@call@337` shows one normal paragraph
+and one inside Next's hidden streaming container `div[hidden]#S:0`. This is not
+evidence of two stored or visible replies. The positive UI assertion now requires
+exactly one visible match, without filtering any privacy or hidden-content checks.
+
+Artifact `022498e8-f1d6-4d9e-9730-6eba660f11ee` has SHA-256
+`39725445945bcc5880c11093aef43b22f920e671654a81d06d2293a8a8d8e6d7`.
+The next native execution must finish Firestore's UI reload/direct-navigation,
+public DTO/SSR, held-preview, hidden-reply and changed-parent cases. This record
+does not establish a both-store pass or resolve the original development finding.
