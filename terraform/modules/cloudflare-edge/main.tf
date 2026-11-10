@@ -1339,15 +1339,19 @@ resource "cloudflare_dns_record" "dmarc" {
 # =============================================================================
 # DNSSEC — zone signing
 # =============================================================================
-# Creating this resource makes Cloudflare sign the zone. DNSSEC is not actually
-# enforced until the DS record (dnssec_ds_record output) is published at the
-# .com.au registrar — a manual step. Signing alone changes nothing for
-# resolvers, so this is safe to apply ahead of the registrar update.
+# This resource declares no desired DNSSEC status. Preserve the observed status
+# during unrelated application releases: provider v5.26.0 otherwise plans an
+# omitted status as null after refresh. Explicit status management and registrar
+# DS changes need a separate decision.
 
 resource "cloudflare_zone_dnssec" "shorted" {
   count = var.manage_dnssec ? 1 : 0
 
   zone_id = var.cloudflare_zone_id
+
+  lifecycle {
+    ignore_changes = [status]
+  }
 }
 
 resource "cloudflare_zone_setting" "security_always_use_https" {
