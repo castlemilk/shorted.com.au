@@ -17,8 +17,6 @@ jobs:
     name: Community real stores and browser
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 20
-    env:
-      FIRESTORE_EMULATOR_JAR: ${{ runner.temp }}/cloud-firestore-emulator-v1.19.8.jar
     defaults:
       run:
         working-directory: web
@@ -43,10 +41,13 @@ jobs:
         # URL/hash from firebase-tools v14.22.0 downloadableEmulatorInfo.json.
         # Verification is repeated inside the harness before executing the JAR.
         run: |
+          set -euo pipefail
+          emulator_jar="$(mktemp "${RUNNER_TEMP:-/tmp}/shorted-firestore-XXXXXX.jar")"
+          printf 'FIRESTORE_EMULATOR_JAR=%s\n' "$emulator_jar" >> "$GITHUB_ENV"
           curl --fail --location --retry 2 --max-time 120 \
             https://storage.googleapis.com/firebase-preview-drop/emulator/cloud-firestore-emulator-v1.19.8.jar \
-            --output "$FIRESTORE_EMULATOR_JAR"
-          echo "9d43599ed6151199e8d604dc87fac51218e49e5f3a48519b1ae560bbe5e3382d  $FIRESTORE_EMULATOR_JAR" | sha256sum --check
+            --output "$emulator_jar"
+          echo "9d43599ed6151199e8d604dc87fac51218e49e5f3a48519b1ae560bbe5e3382d  $emulator_jar" | sha256sum --check
       - name: Real adapters and authenticated browser journey
         id: integration
         run: node scripts/community-integration/run.mjs
