@@ -533,8 +533,19 @@ try {
       const html = await readerPage.content();
       assert(!html.includes("private-fixture"));
       assert(!html.includes("private-name@example.test"));
+      // Author labels are serialized in public DTOs; the current thread/reply
+      // components do not display them. Verify that boundary and actual content.
+      assert(
+        html.includes(
+          String.raw`\"author\":{\"displayName\":\"Community member\"}`,
+        ),
+        "Legacy authors must use the generic public label in the SSR payload",
+      );
       await expect(
-        readerPage.getByText("Community member", { exact: true }).first(),
+        readerPage.getByText(active.thread.title, { exact: true }),
+      ).toBeVisible();
+      await expect(
+        readerPage.getByText(active.comment.body, { exact: true }),
       ).toBeVisible();
     },
   );

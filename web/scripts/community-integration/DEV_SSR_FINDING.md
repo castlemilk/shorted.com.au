@@ -68,3 +68,28 @@ session while retaining the exact HTML assertions for `private-fixture` and
 `private-name@example.test`. Application auth gates, visibility rules and DTO
 boundaries are unchanged. Development servers connected to sensitive records
 remain outside the verified safe configuration until this finding is addressed.
+
+## Separate production follow-up: partial evidence
+
+Head `8f4e1e4a4d6963cd9daf8cd8cbf52c1897099ae0` ran the ordinary production
+build successfully in about 7 minutes 38 seconds, then recorded six Postgres cases
+as passed, including real production-session positive/negative/non-admin checks
+and UI save/reload/direct navigation. Native run
+[449ec522-711c-4e6f-85bf-d6f319903f0d](https://app.cuttlefish.sh/runs/449ec522-711c-4e6f-85bf-d6f319903f0d),
+attempt `d366a42e-7b9b-438a-9f0d-87a8f32c95bb`, still **failed**.
+
+Both unchanged raw-HTML privacy assertions passed before the failure. The retained
+reader HTML contains zero occurrences of the private fixture ID/email markers and
+two safe `author.displayName` DTOs. The next assertion incorrectly expected the
+generic label to be visible: neither the current thread nor reply component
+renders author labels. The screenshot and HTML do show the legacy thread title
+and reply. The follow-up corrects that positive assertion to the serialized safe
+author DTO and visible title/reply, without changing the private-field checks.
+
+Evidence artifact `4c899996-f5ea-44da-a915-d35748c294d4` has SHA-256
+`e06b31a51f5ec50991e55d62d7a899e84836e537955d8ef203d751c051dd5fbb`.
+Its `postgres-reader-trace.zip` includes response
+`resources/0c484975dee287966aef3491b9bec0591144e052.html` and the `page.content`
+result for trace call `call@1105`. This is partial production evidence, not a full
+driver or both-store pass. Firestore was again not reached, and the original
+development finding remains unresolved.

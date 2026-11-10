@@ -435,7 +435,7 @@ try {
     [path.join(webRoot, "node_modules/next/dist/bin/next"), "build"],
     "production-build",
     env,
-    480_000,
+    720_000,
   );
   report.productionBuild = "passed";
   for (const driver of ["postgres", "firestore"]) {

@@ -20,7 +20,7 @@ the official Firestore emulator with project `demo-shorted-community-test`. A
 second disposable `redis:7-alpine` container supplies password-protected rate
 limiting, preserving the application's production fail-closed policy. All services
 bind to loopback. It never accepts an existing database URL or cloud project.
-Service startup, the ordinary production build (eight minutes), each driver
+Service startup, the ordinary production build (twelve minutes), each driver
 journey (five minutes) and the CI job (thirty minutes) have bounded timeouts.
 Missing Docker, emulator, Redis, production-build success, auth-route readiness
 or Chromium fails the check; none can report a skipped green run.
