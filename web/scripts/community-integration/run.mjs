@@ -8,9 +8,11 @@ import {
   existsSync,
   readFileSync,
 } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { stockFixture } from "./fixtures.mjs";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(directory, "../..");
@@ -21,6 +23,9 @@ const emulatorSha256 =
   "9d43599ed6151199e8d604dc87fac51218e49e5f3a48519b1ae560bbe5e3382d";
 const children = new Set();
 let container;
+let redisContainer;
+let temporary;
+const stockServer = stockFixture();
 let cleaning;
 const cleanupErrors = [];
 
@@ -143,12 +148,23 @@ async function cleanup() {
         /* already exited */
       }
     }
-    if (container) {
+    for (const ownedContainer of [container, redisContainer].filter(Boolean)) {
       try {
-        docker(["rm", "--force", "--volumes", container], 15_000);
+        docker(["rm", "--force", "--volumes", ownedContainer], 15_000);
       } catch (error) {
         cleanupErrors.push(error.message);
         console.error("Disposable container cleanup failed:", error.message);
+      }
+    }
+    if (stockServer.listening) {
+      stockServer.closeAllConnections();
+      await new Promise((resolve) => stockServer.close(resolve));
+    }
+    if (temporary) {
+      try {
+        await rm(temporary, { recursive: true, force: true });
+      } catch (error) {
+        cleanupErrors.push(error.message);
       }
     }
   })();
@@ -175,6 +191,9 @@ const report = {
     }).trim(),
   ),
   status: "failed",
+  runtimeMode: "production",
+  authentication:
+    "synthetic encrypted local session; Credentials provider disabled",
   drivers: [],
 };
 try {
@@ -183,6 +202,8 @@ try {
     ".env.local",
     ".env.development",
     ".env.development.local",
+    ".env.production",
+    ".env.production.local",
   ]) {
     assert(
       !existsSync(path.join(webRoot, name)),
@@ -263,6 +284,60 @@ try {
     await pool.end();
   }
 
+  redisContainer = `shorted-community-redis-${randomUUID()}`;
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      `redis_container_name=${redisContainer}\n`,
+    );
+  }
+  const redisPassword = randomUUID();
+  docker([
+    "run",
+    "--detach",
+    "--rm",
+    "--name",
+    redisContainer,
+    "--label",
+    "shorted.test=community-integration",
+    "--publish",
+    "127.0.0.1::6379",
+    "--tmpfs",
+    "/data:rw,size=64m",
+    "redis:7-alpine",
+    "redis-server",
+    "--save",
+    "",
+    "--appendonly",
+    "no",
+    "--requirepass",
+    redisPassword,
+  ]);
+  const redisMapping = docker(["port", redisContainer, "6379/tcp"]);
+  assert.match(redisMapping, /^127\.0\.0\.1:\d+$/);
+  const redisUrl = `redis://:${redisPassword}@${redisMapping}/0`;
+  const { default: Redis } = await import("ioredis");
+  const redis = new Redis(redisUrl, {
+    connectTimeout: 1000,
+    maxRetriesPerRequest: 0,
+    enableOfflineQueue: false,
+  });
+  redis.on("error", () => undefined);
+  try {
+    const deadline = Date.now() + 45_000;
+    while (true) {
+      try {
+        assert.equal(await redis.ping(), "PONG");
+        break;
+      } catch (error) {
+        if (Date.now() > deadline) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    }
+  } finally {
+    redis.disconnect();
+  }
+
   const firestorePort = await freePort();
   const emulator = start(
     "java",
@@ -289,37 +364,93 @@ try {
     privateKeyEncoding: { type: "pkcs8", format: "pem" },
     publicKeyEncoding: { type: "spki", format: "pem" },
   });
-
+  temporary = await mkdtemp(path.join(tmpdir(), "shorted-community-tls-"));
+  const keyPath = path.join(temporary, "key.pem");
+  const certPath = path.join(temporary, "cert.pem");
+  execFileSync(
+    "openssl",
+    [
+      "req",
+      "-x509",
+      "-newkey",
+      "rsa:2048",
+      "-nodes",
+      "-keyout",
+      keyPath,
+      "-out",
+      certPath,
+      "-days",
+      "1",
+      "-subj",
+      "/CN=localhost",
+      "-addext",
+      "subjectAltName=IP:127.0.0.1,DNS:localhost",
+    ],
+    { env: localEnv, timeout: 10_000, stdio: "ignore" },
+  );
+  await new Promise((resolve, reject) => {
+    stockServer.once("error", reject);
+    stockServer.listen(0, "127.0.0.1", resolve);
+  });
+  const stockOrigin = `http://127.0.0.1:${stockServer.address().port}`;
+  const env = {
+    ...localEnv,
+    NODE_ENV: "production",
+    COMMUNITY_STORE_DRIVER: "postgres",
+    COMMUNITY_TEST_DATABASE_URL: databaseUrl,
+    DATABASE_URL: databaseUrl,
+    REDIS_URL: redisUrl,
+    FIRESTORE_EMULATOR_HOST: `127.0.0.1:${firestorePort}`,
+    AUTH_FIREBASE_PROJECT_ID: projectId,
+    AUTH_FIREBASE_CLIENT_EMAIL:
+      "synthetic@demo-shorted-community-test.iam.gserviceaccount.com",
+    AUTH_FIREBASE_PRIVATE_KEY: privateKey,
+    COMMUNITY_TEST_RESULTS: results,
+    COMMUNITY_TEST_STOCK_ORIGIN: stockOrigin,
+    COMMUNITY_TEST_TLS_KEY: keyPath,
+    COMMUNITY_TEST_TLS_CERT: certPath,
+    SKIP_ENV_VALIDATION: "1",
+    NEXT_TELEMETRY_DISABLED: "1",
+    ALLOW_E2E_AUTH: "false",
+    NEXTAUTH_SECRET: randomUUID(),
+    NEXT_FONT_GOOGLE_MOCKED_RESPONSES: path.join(directory, "font-fixture.cjs"),
+    NODE_OPTIONS: `--require=${path.join(directory, "local-network-only.cjs")}`,
+  };
+  for (const key of [
+    "SHORTS_SERVICE_ENDPOINT",
+    "SHORTS_API_URL",
+    "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT",
+    "SHORTED_EDGE_API_URL",
+    "SHORTS_EDGE_API_URL",
+    "NEXT_PUBLIC_EDGE_API_URL",
+    "MARKET_DATA_API_URL",
+    "NEXT_PUBLIC_MARKET_DATA_API_URL",
+  ])
+    env[key] = stockOrigin;
+  console.log(
+    "Building the actual Next application in production mode with loopback-only fixtures",
+  );
+  await runChild(
+    [path.join(webRoot, "node_modules/next/dist/bin/next"), "build"],
+    "production-build",
+    env,
+    480_000,
+  );
+  report.productionBuild = "passed";
   for (const driver of ["postgres", "firestore"]) {
-    console.log(`Running real ${driver} community adapter and browser journey`);
-    const env = {
-      ...localEnv,
-      NODE_ENV: "development",
+    console.log(
+      `Running real ${driver} community adapter and production browser journey`,
+    );
+    const driverEnv = {
+      ...env,
       COMMUNITY_STORE_DRIVER: driver,
-      COMMUNITY_TEST_DATABASE_URL: databaseUrl,
       DATABASE_URL: driver === "postgres" ? databaseUrl : "",
-      FIRESTORE_EMULATOR_HOST: `127.0.0.1:${firestorePort}`,
-      AUTH_FIREBASE_PROJECT_ID: projectId,
-      AUTH_FIREBASE_CLIENT_EMAIL:
-        "synthetic@demo-shorted-community-test.iam.gserviceaccount.com",
-      AUTH_FIREBASE_PRIVATE_KEY: privateKey,
-      COMMUNITY_TEST_RESULTS: results,
-      SKIP_ENV_VALIDATION: "1",
-      NEXT_TELEMETRY_DISABLED: "1",
-      ALLOW_E2E_AUTH: "true",
-      E2E_TEST_EMAIL: "community-integration@example.test",
-      E2E_TEST_PASSWORD: randomUUID(),
-      NEXTAUTH_SECRET: randomUUID(),
-      NEXT_FONT_GOOGLE_MOCKED_RESPONSES: path.join(
-        directory,
-        "font-fixture.cjs",
-      ),
-      NODE_OPTIONS: `--require=${path.join(directory, "local-network-only.cjs")}`,
     };
     await runChild(
       ["--import", "tsx", path.join(directory, "verify.ts")],
       driver,
-      env,
+      driverEnv,
     );
     report.drivers.push(driver);
   }

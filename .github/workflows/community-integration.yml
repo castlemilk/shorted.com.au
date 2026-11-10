@@ -16,7 +16,7 @@ jobs:
   community-integration:
     name: Community real stores and browser
     runs-on: [self-hosted, cuttlefish, linux]
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: web
@@ -33,8 +33,8 @@ jobs:
           java-version: "21"
       - name: Install web dependencies
         run: npm ci --legacy-peer-deps
-      - name: Verify test network isolation
-        run: node --test scripts/community-integration/isolation.test.mjs
+      - name: Verify isolation, local TLS and production auth fixture
+        run: node --test scripts/community-integration/*.test.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Download pinned official Firestore emulator
@@ -48,7 +48,7 @@ jobs:
             https://storage.googleapis.com/firebase-preview-drop/emulator/cloud-firestore-emulator-v1.19.8.jar \
             --output "$emulator_jar"
           echo "9d43599ed6151199e8d604dc87fac51218e49e5f3a48519b1ae560bbe5e3382d  $emulator_jar" | sha256sum --check
-      - name: Real adapters and authenticated browser journey
+      - name: Production build, real adapters and authenticated browser journey
         id: integration
         run: node scripts/community-integration/run.mjs
       - name: Remove the owned test database if interrupted
@@ -61,6 +61,17 @@ jobs:
           export DOCKER_HOST="${DOCKER_HOST:-unix:///var/run/docker.sock}"
           if timeout 10s docker container inspect "$COMMUNITY_TEST_CONTAINER" >/dev/null 2>&1; then
             timeout 20s docker rm --force --volumes "$COMMUNITY_TEST_CONTAINER"
+          fi
+      - name: Remove the owned test Redis if interrupted
+        if: always() && steps.integration.outputs.redis_container_name != ''
+        env:
+          COMMUNITY_TEST_REDIS_CONTAINER: ${{ steps.integration.outputs.redis_container_name }}
+        run: |
+          set -euo pipefail
+          [[ "$COMMUNITY_TEST_REDIS_CONTAINER" =~ ^shorted-community-redis-[0-9a-f-]{36}$ ]]
+          export DOCKER_HOST="${DOCKER_HOST:-unix:///var/run/docker.sock}"
+          if timeout 10s docker container inspect "$COMMUNITY_TEST_REDIS_CONTAINER" >/dev/null 2>&1; then
+            timeout 20s docker rm --force --volumes "$COMMUNITY_TEST_REDIS_CONTAINER"
           fi
       - name: Retain integration evidence
         if: always()

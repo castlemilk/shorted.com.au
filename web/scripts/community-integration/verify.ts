@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -23,6 +24,8 @@ import type {
   CommunityPulseItem,
   CommunityThread,
 } from "../../src/@/types/community";
+import { loopbackTlsProxy } from "./fixtures.mjs";
+import { syntheticSessionCookie } from "./production-session.mjs";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(directory, "../..");
@@ -39,7 +42,15 @@ assert.equal(
   process.env.AUTH_FIREBASE_PROJECT_ID,
   "demo-shorted-community-test",
 );
-assert.equal(process.env.NODE_ENV, "development");
+assert.equal(process.env.NODE_ENV, "production");
+assert.equal(process.env.ALLOW_E2E_AUTH, "false");
+const redisUrl = new URL(process.env.REDIS_URL ?? "");
+assert.equal(redisUrl.protocol, "redis:");
+assert.equal(redisUrl.hostname, "127.0.0.1");
+assert(redisUrl.password);
+const stockOrigin = new URL(process.env.COMMUNITY_TEST_STOCK_ORIGIN ?? "");
+assert.equal(stockOrigin.protocol, "http:");
+assert.equal(stockOrigin.hostname, "127.0.0.1");
 assert(
   !process.env.VERCEL_ENV,
   "Integration must not run against a deployed app",
@@ -62,12 +73,20 @@ const author = {
 };
 const report: {
   driver: string;
+  runtimeMode: string;
   cases: string[];
   status: string;
   error?: string;
   blockedBrowserHosts: string[];
-} = { driver, cases: [], status: "failed", blockedBrowserHosts: [] };
+} = {
+  driver,
+  runtimeMode: "production",
+  cases: [],
+  status: "failed",
+  blockedBrowserHosts: [],
+};
 let app: ChildProcess | undefined;
+let proxy: ReturnType<typeof loopbackTlsProxy> | undefined;
 let browser: Browser | undefined;
 let appLog: ReturnType<typeof createWriteStream> | undefined;
 const contexts: Array<{ context: BrowserContext; name: string }> = [];
@@ -138,51 +157,6 @@ function publicAuthors(value: unknown) {
   assert(!JSON.stringify(value).includes("private-name@example.test"));
 }
 
-// Only stock chrome is a fixture. Auth, community HTTP routes, SSR, adapters,
-// queries and storage below are the real application implementation.
-const stockServer = createServer((request, response) => {
-  const url = new URL(request.url ?? "/", "http://127.0.0.1");
-  response.setHeader("Content-Type", "application/json");
-  if (url.pathname === "/edge/v1/stock/CBA") {
-    response.end(
-      JSON.stringify({
-        productCode: "CBA",
-        name: "Synthetic Community Test Company",
-        industry: "Test fixture",
-        percentageShorted: 1.23,
-        totalProductInIssue: 1000000,
-        reportedShortPositions: 12300,
-      }),
-    );
-  } else if (url.pathname === "/edge/v1/stock/CBA/details") {
-    response.end(
-      JSON.stringify({
-        productCode: "CBA",
-        companyName: "Synthetic Community Test Company",
-        industry: "Test fixture",
-        gcsUrl: "",
-        logoIconGcsUrl: "",
-        enrichmentStatus: "",
-      }),
-    );
-  } else if (url.pathname.endsWith("/GetStockData")) {
-    response.end(
-      JSON.stringify({
-        productCode: "CBA",
-        points: [{ timestamp: "2026-11-03T00:00:00Z", shortPosition: 1.23 }],
-      }),
-    );
-  } else {
-    response.statusCode = 404;
-    response.end(
-      JSON.stringify({
-        code: "not_found",
-        message: "No synthetic fixture for this stock service read",
-      }),
-    );
-  }
-});
-
 async function localPort() {
   const server = createServer();
   await new Promise<void>((resolve, reject) => {
@@ -216,6 +190,8 @@ async function contextFor(baseURL: string, name: string) {
   const context = await browser!.newContext({
     baseURL,
     serviceWorkers: "block",
+    // Only these contexts trust the ephemeral loopback TLS certificate.
+    ignoreHTTPSErrors: true,
   });
   context.setDefaultTimeout(30_000);
   await context.route("**/*", async (route) => {
@@ -399,34 +375,27 @@ try {
     );
   }
 
-  await new Promise<void>((resolve, reject) => {
-    stockServer.once("error", reject);
-    stockServer.listen(0, "127.0.0.1", resolve);
-  });
-  const address = stockServer.address();
-  assert(address && typeof address !== "string");
-  const stockOrigin = `http://127.0.0.1:${address.port}`;
   const port = await localPort();
-  const baseUrl = `http://127.0.0.1:${port}`;
+  const appOrigin = `http://127.0.0.1:${port}`;
+  proxy = loopbackTlsProxy({
+    target: appOrigin,
+    keyPath: process.env.COMMUNITY_TEST_TLS_KEY!,
+    certPath: process.env.COMMUNITY_TEST_TLS_CERT!,
+  });
+  await new Promise<void>((resolve, reject) => {
+    proxy!.once("error", reject);
+    proxy!.listen(0, "127.0.0.1", resolve);
+  });
+  const address = proxy.address();
+  assert(address && typeof address !== "string");
+  const baseUrl = `https://127.0.0.1:${address.port}`;
   const env: NodeJS.ProcessEnv = { ...process.env, NEXTAUTH_URL: baseUrl };
-  for (const key of [
-    "SHORTS_SERVICE_ENDPOINT",
-    "SHORTS_API_URL",
-    "NEXT_PUBLIC_API_URL",
-    "NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT",
-    "SHORTED_EDGE_API_URL",
-    "SHORTS_EDGE_API_URL",
-    "NEXT_PUBLIC_EDGE_API_URL",
-    "MARKET_DATA_API_URL",
-    "NEXT_PUBLIC_MARKET_DATA_API_URL",
-  ])
-    env[key] = stockOrigin;
   appLog = createWriteStream(path.join(output, `${driver}-next.log`));
   app = spawn(
     process.execPath,
     [
       path.join(webRoot, "node_modules/next/dist/bin/next"),
-      "dev",
+      "start",
       "--hostname",
       "127.0.0.1",
       "--port",
@@ -436,7 +405,7 @@ try {
   );
   app.stdout!.pipe(appLog);
   app.stderr!.pipe(appLog);
-  await waitForApp(baseUrl);
+  await waitForApp(appOrigin);
   // Direct Playwright API intentionally avoids the repository's documented
   // Node 24 + Playwright 1.52 CLI test-discovery hang.
   browser = await chromium.launch({ headless: true });
@@ -454,32 +423,31 @@ try {
   };
 
   await check(
-    "real synthetic credentials route authenticates only the writer context",
+    "real production auth reads only the writer's synthetic encrypted session and rejects a wrong secret",
     async () => {
-      const csrf = await writer.request.get("/api/auth/csrf");
-      const { csrfToken } = await csrf.json();
-      assert(csrfToken);
-      const response = await writer.request.post(
-        "/api/auth/callback/credentials",
-        {
-          form: {
-            csrfToken,
-            email: process.env.E2E_TEST_EMAIL!,
-            password: process.env.E2E_TEST_PASSWORD!,
-            callbackUrl: `${baseUrl}/shorts/CBA/community`,
-          },
-          headers: { "X-Auth-Return-Redirect": "1" },
-        },
-      );
-      assert(response.ok());
+      await writer.addCookies([
+        await syntheticSessionCookie(process.env.NEXTAUTH_SECRET!, driver),
+      ]);
       const session = await (
         await writer.request.get("/api/auth/session")
       ).json();
-      assert.equal(session.user?.id, "e2e-test-user");
+      assert.equal(session.user?.id, `synthetic-community-${driver}`);
+      assert.equal(
+        session.user?.email,
+        `community-integration-${driver}@example.test`,
+      );
+      assert.equal(session.user?.isAdmin, false);
+      assert.equal(session.user?.emailVerified, true);
       const anonymous = await (
         await reader.request.get("/api/auth/session")
       ).json();
       assert(!anonymous?.user);
+      const wrongCookie = await syntheticSessionCookie(randomUUID(), driver);
+      const rejected = await reader.request.get("/api/auth/session", {
+        headers: { cookie: `${wrongCookie.name}=${wrongCookie.value}` },
+      });
+      assert.equal(rejected.status(), 200);
+      assert(!(await rejected.json())?.user);
     },
   );
 
@@ -694,8 +662,10 @@ try {
     if (app.exitCode === null) app.kill("SIGKILL");
   }
   appLog?.end();
-  stockServer.closeAllConnections();
-  await new Promise<void>((resolve) => stockServer.close(() => resolve()));
+  if (proxy?.listening) {
+    proxy.closeAllConnections();
+    await new Promise<void>((resolve) => proxy!.close(() => resolve()));
+  }
   await pool.end();
   await Promise.all(getApps().map(deleteApp));
   report.blockedBrowserHosts = [...new Set(report.blockedBrowserHosts)].sort();
