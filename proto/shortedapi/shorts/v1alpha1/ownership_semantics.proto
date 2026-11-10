@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package shorts.v1alpha1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+
+// Internal interchange contract for source-grounded ownership observations.
+// These messages are deliberately not attached to a public response or RPC.
+// They do not widen legacy SubstantialNotice or SubstantialHolding semantics,
+// enable the new PDF readers, or make an observation eligible for publication.
+// Validation and append-only persistence live in services/pkg/ownershipsemantics.
+message OwnershipSemanticInput {
+  // shorted.ownership.disclosure.v1; unknown versions require another reader.
+  string contract_version = 1;
+  OwnershipSemanticSource source = 2;
+  // One-based notice position within a source, including composite notices.
+  int32 disclosure_slot = 3;
+  string extractor_version = 4;
+  string extractor_config_sha256 = 5;
+  string jurisdiction = 6;
+  string document_format = 7;
+  string legal_regime = 8;
+  // initial, change, ceasing, or unknown. Do not infer it from a percentage.
+  string declared_reason = 9;
+  // YYYY-MM-DD source release date, independent of a known publication time.
+  string announced_on = 10;
+  // RFC3339 timestamp only when observed. Never pad announced_on with midnight.
+  string published_at = 11;
+  string notice_date = 12;
+  string effective_change_date = 13;
+  string previous_notice_date = 14;
+  // Supplied extraction metadata, not an authorised human-review decision.
+  string review_state = 15;
+  repeated string review_reasons = 16;
+  string extraction_completeness = 17;
+  // Must be false in this contract, even for reviewed/complete observations.
+  bool publication_eligible = 18;
+  repeated OwnershipSemanticMeasurement measurements = 19;
+  repeated OwnershipSemanticMovement disclosed_movements = 20;
+  repeated OwnershipSemanticSecurityClass security_classes = 21;
+  repeated OwnershipSemanticInterest interests = 22;
+  repeated OwnershipSemanticAnnexure annexures = 23;
+  repeated OwnershipSemanticEvidence context_evidence = 24;
+  // A new extraction of the same source bytes and disclosure slot.
+  string supersedes_revision_id = 25;
+  // A correction filed in a different disclosure, backed by source evidence.
+  string supersedes_disclosure_id = 26;
+  repeated OwnershipSemanticEvidence correction_evidence = 27;
+}
+
+message OwnershipSemanticSource {
+  string url = 1;
+  // SHA256 of the captured source bytes, never a hash of the URL.
+  string sha256 = 2;
+  // New stored revisions require captured.
+  string hash_status = 3;
+}
+
+message OwnershipSemanticEvidence {
+  string source_url = 1;
+  // One-based; zero means no page was captured.
+  int32 page = 2;
+  string section = 3;
+  string row = 4;
+  string text_span = 5;
+  // Same URL may inherit the input source hash. A different source (such as
+  // an external annexure) requires its own captured SHA256.
+  string source_sha256 = 6;
+}
+
+// Each numeric or textual observation has its own status and source evidence.
+// Missing/unknown/unreadable/inapplicable are distinct from not_extracted:
+// a legacy database NULL does not prove that the source omitted a value.
+message OwnershipSemanticValue {
+  // reported, unknown, missing, unreadable, not_applicable, or not_extracted.
+  string status = 1;
+  // Exact decimal/integer strings for numbers. Only reported has a value;
+  // reported "0" remains distinct from every nonreported state.
+  string value = 2;
+  repeated OwnershipSemanticEvidence evidence = 3;
+}
+
+message OwnershipSemanticMeasurement {
+  // Body-level A-G label; never a security-class total. B remains voting power.
+  // Preserve A as reported; do not calculate A=B+C or net G from other measures.
+  string measure = 1;
+  // previous or present. A disclosed movement is a separate message.
+  string period = 2;
+  OwnershipSemanticValue percent = 3;
+  OwnershipSemanticValue votes = 4;
+  OwnershipSemanticValue denominator_votes = 5;
+}
+
+message OwnershipSemanticMovement {
+  string measure = 1;
+  // Signed percentage points explicitly reported by the source.
+  OwnershipSemanticValue disclosed_movement_pp = 2;
+}
+
+message OwnershipSemanticSecurityClass {
+  // Extraction-local source label, not a global security identity.
+  string class_id = 1;
+  string period = 2;
+  OwnershipSemanticValue name = 3;
+  OwnershipSemanticValue issued_securities = 4;
+  OwnershipSemanticValue held_securities = 5;
+  OwnershipSemanticValue votes_per_security = 6;
+  OwnershipSemanticValue reported_class_percent = 7;
+  // Required when the class percentage is reported: its actual stated basis.
+  string class_percent_basis = 8;
+}
+
+message OwnershipSemanticInterest {
+  string row_id = 1;
+  string period = 2;
+  string kind = 3;
+  OwnershipSemanticValue holder = 4;
+  OwnershipSemanticValue registered_holder = 5;
+  OwnershipSemanticValue person_entitled = 6;
+  string class_id = 7;
+  OwnershipSemanticValue quantity = 8;
+  OwnershipSemanticValue votes = 9;
+  // Multiple legal bases do not create multiple parcels or duplicated rows.
+  repeated string legal_bases = 10;
+  string agreement_details = 11;
+  repeated OwnershipSemanticEvidence evidence = 12;
+}
+
+message OwnershipSemanticAnnexure {
+  string id = 1;
+  bool referenced = 2;
+  bool obtained = 3;
+  bool parsed = 4;
+  repeated OwnershipSemanticEvidence evidence = 5;
+}
+
+// A stored revision, not a public or current-holding representation. The IDs
+// and payload hash are deterministic; a replay retains its first recorded_at.
+message OwnershipSemanticRevision {
+  string disclosure_id = 1;
+  string revision_id = 2;
+  string payload_sha256 = 3;
+  string recorded_at = 4;
+  OwnershipSemanticInput input = 5;
+}

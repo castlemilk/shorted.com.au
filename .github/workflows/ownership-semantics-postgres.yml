@@ -1,0 +1,59 @@
+# A PR-only real database check for the unpublished ownership contract.
+# It has no application credentials, release steps or manual-dispatch entry.
+name: Ownership semantics PostgreSQL
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/ownership-semantics-postgres.yml"
+      - "scripts/test-ownership-semantics-postgres.sh"
+      - "scripts/tests/ownership-semantics-postgres-runner.test.mjs"
+      - "services/pkg/ownershipsemantics/**"
+      - "services/migrations/**"
+      - "services/go.mod"
+      - "services/go.sum"
+      - "proto/shortedapi/shorts/v1alpha1/ownership*.proto"
+      - "services/gen/proto/go/shorts/v1alpha1/ownership*.pb.go"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ownership-semantics-postgres-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  semantic-sidecar-postgres:
+    name: Semantic revision persistence (real PostgreSQL)
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      # Cuttlefish requires the full setup-go tag; its cache-save path is not
+      # used on these self-hosted runners. See go-quality.yml.
+      - uses: actions/setup-go@v6.5.0
+        with:
+          go-version: "1.27"
+          cache: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Check runner failure and cleanup behaviour
+        run: node --test scripts/tests/ownership-semantics-postgres-runner.test.mjs
+      - name: Test semantic revisions against throwaway PostgreSQL
+        id: postgres
+        run: bash scripts/test-ownership-semantics-postgres.sh
+      - name: Remove the owned test database if interrupted
+        if: always() && steps.postgres.outputs.container_name != ''
+        env:
+          OWNERSHIP_TEST_CONTAINER: ${{ steps.postgres.outputs.container_name }}
+        run: |
+          set -euo pipefail
+          if timeout 10s docker container inspect "$OWNERSHIP_TEST_CONTAINER" >/dev/null 2>&1; then
+            timeout 20s docker rm --force --volumes "$OWNERSHIP_TEST_CONTAINER"
+          fi
