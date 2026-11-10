@@ -72,7 +72,7 @@ The contributor model also needs review of its actual presentation, incentives a
 
 Test a bounded saved-list monitoring and evidence-output workflow at A$19/month after users have used it on at least two separate pilot weeks. Record original founders, eligible people, people shown the offer, payments, refunds/cancellations and second-period continuation separately.
 
-The proposed management gate is four paid continuations from at least ten eligible offers, followed by at least three people still using the workflow and paying into the second period. It is a decision aid for this pilot, not a statistically validated conversion target. Fewer than ten eligible offers is insufficient evidence.
+The proposed management gate is four first-period payments, not refunded or charged back at the review cutoff, from at least ten eligible offers. At least three of those people must pay for a second period and perform a meaningful research action in its first 14 days. It is a decision aid for this pilot, not a statistically validated conversion target. Fewer than ten eligible offers is insufficient evidence.
 
 Use a contribution model that accounts for payment fees, variable data/model/delivery costs and support/checking time. Track shared hosting and research separately. The pilot's 8–12 human hours each week is an explicit learning investment; a few subscriptions cannot demonstrate sustainable economics.
 
