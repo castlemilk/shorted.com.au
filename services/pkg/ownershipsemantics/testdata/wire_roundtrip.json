@@ -1,0 +1,452 @@
+{
+  "contract_version": "shorted.ownership.disclosure.v1",
+  "source": {
+    "url": "https://example.invalid/ownership/wire_source.txt",
+    "sha256": "37dfee0076e6c255c00a623e77d7a4272de25c39c2b6c32b70f74a5198cef214",
+    "hash_status": "captured"
+  },
+  "disclosure_slot": 2,
+  "extractor_version": "synthetic-wire-v1",
+  "extractor_config_sha256": "f9a70c5276b717a42be429516369a17f636065590b34158b91587935b8398999",
+  "jurisdiction": "au",
+  "document_format": "au_shn_2026",
+  "legal_regime": "au_enhanced_2026_12_04",
+  "declared_reason": "initial",
+  "announced_on": "2026-12-08",
+  "published_at": "",
+  "notice_date": "2026-12-07",
+  "effective_change_date": "2026-12-06",
+  "previous_notice_date": "2026-12-01",
+  "review_state": "needs_review",
+  "review_reasons": [
+    "synthetic_protocol_fixture"
+  ],
+  "extraction_completeness": "complete",
+  "publication_eligible": false,
+  "measurements": [
+    {
+      "measure": "A",
+      "period": "present",
+      "percent": {
+        "status": "reported",
+        "value": "5.500000000000000001",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "votes": {
+        "status": "not_extracted"
+      },
+      "denominator_votes": {
+        "status": "not_extracted"
+      }
+    },
+    {
+      "measure": "B",
+      "period": "present",
+      "percent": {
+        "status": "reported",
+        "value": "2.000000000000000001",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "votes": {
+        "status": "reported",
+        "value": "9007199254740993",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "denominator_votes": {
+        "status": "reported",
+        "value": "450359962737049650",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      }
+    },
+    {
+      "measure": "C",
+      "period": "present",
+      "percent": {
+        "status": "reported",
+        "value": "3.50",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "votes": {
+        "status": "not_extracted"
+      },
+      "denominator_votes": {
+        "status": "not_extracted"
+      }
+    },
+    {
+      "measure": "D",
+      "period": "present",
+      "percent": {
+        "status": "reported",
+        "value": "0.0000",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "votes": {
+        "status": "not_extracted"
+      },
+      "denominator_votes": {
+        "status": "not_extracted"
+      }
+    },
+    {
+      "measure": "E",
+      "period": "present",
+      "percent": {
+        "status": "unknown",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "votes": {
+        "status": "not_extracted"
+      },
+      "denominator_votes": {
+        "status": "not_extracted"
+      }
+    },
+    {
+      "measure": "F",
+      "period": "present",
+      "percent": {
+        "status": "reported",
+        "value": "3.50",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "votes": {
+        "status": "not_extracted"
+      },
+      "denominator_votes": {
+        "status": "not_extracted"
+      }
+    },
+    {
+      "measure": "G",
+      "period": "present",
+      "percent": {
+        "status": "reported",
+        "value": "2.25",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "votes": {
+        "status": "not_extracted"
+      },
+      "denominator_votes": {
+        "status": "not_extracted"
+      }
+    },
+    {
+      "measure": "B",
+      "period": "previous",
+      "percent": {
+        "status": "reported",
+        "value": "3.2500",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "votes": {
+        "status": "unreadable",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "denominator_votes": {
+        "status": "missing",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      }
+    }
+  ],
+  "disclosed_movements": [
+    {
+      "measure": "B",
+      "disclosed_movement_pp": {
+        "status": "reported",
+        "value": "-1.249999999999999999",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      }
+    }
+  ],
+  "security_classes": [
+    {
+      "class_id": "SYNTH_ORD",
+      "period": "present",
+      "name": {
+        "status": "reported",
+        "value": "Ordinary",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "issued_securities": {
+        "status": "reported",
+        "value": "450359962737049650",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "held_securities": {
+        "status": "reported",
+        "value": "9007199254740993",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "votes_per_security": {
+        "status": "reported",
+        "value": "1",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "reported_class_percent": {
+        "status": "reported",
+        "value": "2.000000000000000001",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "class_percent_basis": "class voting rights"
+    }
+  ],
+  "interests": [
+    {
+      "row_id": "ROW_1",
+      "period": "present",
+      "kind": "relevant_interest",
+      "holder": {
+        "status": "reported",
+        "value": "SYNTH HOLDER",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "registered_holder": {
+        "status": "unknown",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "person_entitled": {
+        "status": "not_extracted"
+      },
+      "class_id": "SYNTH_ORD",
+      "quantity": {
+        "status": "reported",
+        "value": "9007199254740993",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "votes": {
+        "status": "reported",
+        "value": "9007199254740993",
+        "evidence": [
+          {
+            "source_url": "https://example.invalid/ownership/wire_source.txt",
+            "page": 1,
+            "section": "Synthetic observation table",
+            "row": "1",
+            "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+          }
+        ]
+      },
+      "legal_bases": [
+        "608(1)(a)",
+        "608(3)(b)"
+      ],
+      "agreement_details": "Synthetic agreement retained without aggregation",
+      "evidence": [
+        {
+          "source_url": "https://example.invalid/ownership/wire_annexure.txt",
+          "page": 1,
+          "section": "Agreement details",
+          "text_span": "SYNTHETIC ANNEXURE A - NOT A FILING\nAgreement details retained without parcel aggregation.",
+          "source_sha256": "205e3535803120de4e1ead3e17c8282a0f07fccf20de13d5aa450dbf355bd542"
+        }
+      ]
+    }
+  ],
+  "annexures": [
+    {
+      "id": "ANNEX_A",
+      "referenced": true,
+      "obtained": true,
+      "parsed": true,
+      "evidence": [
+        {
+          "source_url": "https://example.invalid/ownership/wire_annexure.txt",
+          "page": 1,
+          "section": "Agreement details",
+          "text_span": "SYNTHETIC ANNEXURE A - NOT A FILING\nAgreement details retained without parcel aggregation.",
+          "source_sha256": "205e3535803120de4e1ead3e17c8282a0f07fccf20de13d5aa450dbf355bd542"
+        }
+      ]
+    }
+  ],
+  "context_evidence": [
+    {
+      "source_url": "https://example.invalid/ownership/wire_source.txt",
+      "page": 1,
+      "section": "Synthetic observation table",
+      "row": "1",
+      "text_span": "SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING"
+    }
+  ],
+  "supersedes_revision_id": "1111111111111111111111111111111111111111111111111111111111111111",
+  "supersedes_disclosure_id": "2222222222222222222222222222222222222222222222222222222222222222",
+  "correction_evidence": [
+    {
+      "source_url": "https://example.invalid/ownership/wire_source.txt",
+      "page": 1,
+      "section": "Synthetic observation table",
+      "row": "1",
+      "text_span": "Correction text: this synthetic source corrects a different synthetic disclosure."
+    }
+  ]
+}

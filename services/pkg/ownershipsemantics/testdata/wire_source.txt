@@ -1,0 +1,9 @@
+SYNTHETIC OWNERSHIP WIRE FIXTURE - NOT A FILING
+Initial notice dated 2026-12-07; announced 2026-12-08.
+Present A 5.500000000000000001; B 2.000000000000000001; C 3.50; D 0.0000; E unknown; F 3.50; G 2.25.
+Previous B 3.2500. Disclosed movement B -1.249999999999999999 percentage points.
+Present B votes 9007199254740993; denominator 450359962737049650.
+Ordinary securities: issued 450359962737049650; held 9007199254740993; votes per security 1; class percent 2.000000000000000001 of class voting rights.
+SYNTH HOLDER has one relevant-interest parcel with legal bases 608(1)(a) and 608(3)(b). Registered holder is unknown. Person entitled is not extracted.
+Annexure A contains an explicitly synthetic agreement description.
+Correction text: this synthetic source corrects a different synthetic disclosure.

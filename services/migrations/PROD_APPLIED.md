@@ -101,12 +101,12 @@ here satisfies the guard without claiming the migration is applied, and every
 run of the guard names these migrations as not on prod. A row needs the
 `task db:prod:apply FILE=… CONFIRM=prod` command and a way to verify the apply.
 Once it is applied, move the row up (do not copy it) and fill in Verified.
-The guard runs in the Repository Hygiene workflow, which is `disabled_manually`
-on GitHub as of 2026-10-22, and Cuttlefish CI does not run it; until that
-changes, run `node --test scripts/tests/migration-drift.test.mjs` by hand.
+Run `node --test scripts/tests/migration-drift.test.mjs` locally before
+publishing migration changes. Repository Hygiene also checks this ledger;
+its native Cuttlefish run for PR #975 enforced it on 2026-11-10.
 
-The API reads them only through 42P01 fallbacks, so merging the code first is
-safe for every reader. It is not the whole order: 000139's views have a
+The API reads 000139's views through 42P01 fallbacks, so its code can merge
+before that DDL is applied. It is not the whole order: 000139's views have a
 writer, house-price-collector, and an older collector never refreshes them.
 Apply 000139 only once both collector deployments carry this change (its
 "Before applying" cell), or the suburb pages keep the apply date's prices.
@@ -118,4 +118,5 @@ above:
 | Migration | Before applying | Command | How to verify, then move the row up |
 |---|---|---|---|
 | `000139_suburb_reference_mvs` | Both collectors call `refresh_suburb_reference_views()`, since nothing else refreshes these views. Each must run a commit for which `git grep -q refresh_suburb_reference_views <commit> -- services/house-price-collector/store.go` succeeds: the Cloud Run job `house-price-collector` (official ingest, the 5th), whose image tag in `gcloud run jobs describe house-price-collector --region australia-southeast2` names the commit (`main-<sha8>`, `manual-<sha>`; `latest` does not count), and the rig binary (`vg-nsw` on the 8th, a hand-run `vg-vic`), whose revision `services/house-price-collector/deploy/stage-rig.sh --check` prints (`unknown` does not count). If either still runs an older binary after the apply, run `task db:prod:refresh WHICH=suburbs CONFIRM=prod` after each of its loads until it is redeployed. | `task db:prod:apply FILE=services/migrations/000139_suburb_reference_mvs.up.sql CONFIRM=prod` (one transaction, about 3 s) | `SELECT count(*) FROM mv_suburb_latest_price` (about 3,795), `mv_housing_state_baselines` (8), `mv_suburb_similarity_features` (about 15,345); `to_regprocedure('refresh_suburb_reference_views()')` non-null; then `task db:prod:refresh WHICH=suburbs CONFIRM=prod` exits 0. After the next official or Valuer-General load, its log has `refreshed the suburb reference views`, and the views read as refreshed after that load: housing-freshness's `SUBURB_VIEW_STALENESS`, or by hand while that workflow stays disabled, the read-only query in `docs/feature/housing/operations.md` ("MV refresh") |
+| `000161_ownership_semantic_revisions` | **Not applied; release hold #970 remains.** Review stacked PRs #974/#975 and the real PostgreSQL integration evidence before a separately authorized apply. This unpublished sidecar has no public reader or attached ingestion writer; a missing table returns `ErrSchemaUnavailable` to its explicit internal callers. The deployment allowlist is unchanged. If later automated staging is approved, place 000161 before the existing 000138 Data API lockdown; 000161 also closes its own table/function grants atomically. New-format parsing and publication remain gated by #971. | `task db:prod:apply FILE=services/migrations/000161_ownership_semantic_revisions.up.sql CONFIRM=prod` (documented future operator step only; not run by this change) | Read-only checks after the authorized apply: `to_regclass('public.ownership_disclosure_revisions')` and `to_regprocedure('public.ownership_disclosure_revisions_immutable()')` are non-null; `pg_class` has `relrowsecurity=true`, `relforcerowsecurity=false`, and `pg_policies` has no policy for the table. Inspect `pg_constraint` for the false-publication check and identity/lineage constraints, `pg_trigger` for `ownership_disclosure_revisions_no_mutation`, and table/function ACLs for no PUBLIC/anon/authenticated grants while retaining existing service-role access. Record the actual query results and apply date here before moving the row; CI or a draft PR does not establish production application. |
 
