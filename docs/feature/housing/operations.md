@@ -489,8 +489,9 @@ fallback: get the secret with `gcloud secrets versions access latest
 --secret=REVALIDATION_SECRET --project rosy-clover-477102-t5`, then send the
 full route list from [Takedown](#takedown) step 3. `flush=housing` busts the
 whole `cache:housing:` prefix. The collector's own call after a run that wrote
-data sends only `path=/price-drops,/housing&flush=housing`
-([pipeline.md](pipeline.md)), so it does not reach the 24h routes.
+data sends only `path=/price-drops&flush=housing` ([pipeline.md](pipeline.md)), so it does
+not reach the 24h routes. Never add `/housing` to it: on Vercel a plain path expires its
+whole subtree, every state and suburb page included (architecture.md §10.3).
 
 ## Takedown
 
@@ -588,7 +589,7 @@ policy as the monthly schedule. Names are prefixed `house-price-collector-`.
 |---|---|---|---|
 | `enqueue-delta` | `-mode server-enqueue -selection delta` | daily 10:00 | Posts demand-sized suburbs to BrandBrain's queue, with a Google ID token from this job's SA. Writes one `crawl_dispatch` row per target BrandBrain returns, created or already pending. |
 | `enqueue-full` | `-mode server-enqueue -selection full` | 1st and 15th, 08:00 | As above, for the whole catalog. |
-| `crawl-finalize` | `-mode crawl-finalize` | every 30 min | Sal links, the housing MV refresh and one cache bust, **only** when the ingest has written since the cursor. A lease row keeps overlapping runs single-flight: a held lease exits 0. The MV refresh fails if any view is reported `Skipping`, which holds the cursor and skips the bust. The cursor sits 10 minutes behind the run start, so a slow push that commits late is still picked up. On a finalizing run it also prunes ingest receipts and terminal dispatch rows older than 14 days. |
+| `crawl-finalize` | `-mode crawl-finalize` | every 30 min | Sal links, the housing MV refresh and one crawl-scoped cache bust (`/price-drops`, `/housing`, the housing KV; never the `housing` tag, see pipeline.md "Revalidation ping"), **only** when the ingest has written since the cursor. A lease row keeps overlapping runs single-flight: a held lease exits 0. The MV refresh fails if any view is reported `Skipping`, which holds the cursor and skips the bust. The cursor sits 10 minutes behind the run start, so a slow push that commits late is still picked up. On a finalizing run it also prunes ingest receipts and terminal dispatch rows older than 14 days. |
 | `freshness` | `-mode freshness` | daily 18:00 | The read-only freshness check. Exit 6 is the alarm, as before. Cloud Run retries a non-zero exit twice. See "Alerting" for the gap this leaves. |
 | `property-resolve` | `-mode server-property-resolve`, `CRAWL_DRY_RUN=false`, `CRAWL_PROPERTY_RESOLVE_MAX=700` | daily 21:20 | Banks profile URLs from REA's public autocomplete. No browser. A blocked run (exit 3) is logged as a WARN and exits 0, as the rig wrapper treats it. The chunk is 700 so the run fits the job's 1800 s timeout (about 1300 s at the default pacing). |
 

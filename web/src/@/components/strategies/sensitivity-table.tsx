@@ -1,16 +1,14 @@
 import type { SensitivityView } from "@/lib/strategies/map-backtest";
-import { sensitivityFigures } from "@/lib/strategies/backtest-tables";
+import { costsCopy, isWipedOut, sensitivityFigures } from "@/lib/strategies/backtest-tables";
 import { NOT_AVAILABLE } from "@/lib/strategies/format";
 
 export interface SensitivityTableProps {
   rows: readonly SensitivityView[];
   /** Whether the base run beats XJT over its full window; null when not stated. */
   baseBeatsXjt: boolean | null;
+  /** The run's own recipe lines: the costs note is read from its brokerage and spread tiers. */
+  recipe?: { brokerage: string; spread: string } | null;
 }
-
-/** The costs line, verbatim from 1.8 item 6. */
-export const COSTS_COPY =
-  "Costs: 10 bps brokerage (min A$10) + 5-50 bps spread by liquidity, per side. The flat 10 + 5 bps alternative is labelled \"the mockup's flat costs flatter small-cap breakouts\".";
 
 /** The reading of a row that holds: whether the base run beats XJT (never "Holds"). */
 export function holdReading(baseBeatsXjt: boolean | null): string {
@@ -24,7 +22,7 @@ export function holdReading(baseBeatsXjt: boolean | null): string {
  * A run that does not take a change says why in the row; a fragile result carries
  * its chip ("Fragile to costs") in words, never in red or green.
  */
-export function SensitivityTable({ rows, baseBeatsXjt }: SensitivityTableProps) {
+export function SensitivityTable({ rows, baseBeatsXjt, recipe }: SensitivityTableProps) {
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">No sensitivity runs are stored for this run.</p>;
   }
@@ -57,6 +55,8 @@ export function SensitivityTable({ rows, baseBeatsXjt }: SensitivityTableProps) 
                 <td className="py-2 text-xs">
                   {!row.applies ? (
                     <span className="text-muted-foreground">{row.reason || "Not applicable to this recipe"}</span>
+                  ) : isWipedOut(row) ? (
+                    <span className="text-muted-foreground">Wiped out</span>
                   ) : row.fragile && row.fragileChip ? (
                     <span className="inline-flex rounded-sm border border-foreground/40 px-1.5 py-0.5 font-medium">
                       {row.fragileChip}
@@ -72,7 +72,7 @@ export function SensitivityTable({ rows, baseBeatsXjt }: SensitivityTableProps) 
           })}
         </tbody>
       </table>
-      <p className="mt-2 text-xs text-muted-foreground">{COSTS_COPY}</p>
+      <p className="mt-2 text-xs text-muted-foreground">{costsCopy(recipe)}</p>
     </div>
   );
 }

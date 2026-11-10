@@ -2,8 +2,9 @@
 //
 // `validate-article --slug=X`:
 //  1. Screenshot the rendered live page with Playwright (headless, full-page).
-//  2. Judge with Gemini vision: full-page screenshot + the hero PNG + each
-//     layout image PNG + the article text → structured cohesion verdict +
+//  2. Judge with Gemini vision: full-page screenshot + the hero + each layout
+//     image (PNG, or a reviewed WebP/JPEG cover, sent under its own type) +
+//     the article text → structured cohesion verdict +
 //     a hero verdict + per-image verdicts. The hero is judged as a masthead
 //     lead image (concrete, editorial, clearly illustrative).
 //  3. Auto-fix loop: re-generate any image flagged `regenerate` with the
@@ -81,12 +82,37 @@ async function screenshotArticle(slug: string): Promise<Buffer | null> {
   }
 }
 
-async function fetchPng(url: string, required = false): Promise<Buffer> {
+/**
+ * The image formats a review sends to the vision model. Generated takes are
+ * PNG; a reviewed content/news cover is exported as WebP (the editorial art
+ * workflow), and Gemini reads all three.
+ */
+export type ReviewImageType = "image/png" | "image/webp" | "image/jpeg";
+export interface ReviewImage { buf: Buffer; mimeType: ReviewImageType }
+const REVIEW_IMAGE_TYPES: readonly string[] = ["image/png", "image/webp", "image/jpeg"];
+
+/** The format an image's own bytes declare, or null for anything else. */
+export function sniffImageType(buf: Buffer): ReviewImageType | null {
+  if (buf.length >= 24 && buf.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") {
+    // A PNG with a zero-width or zero-height IHDR is not an image.
+    return buf.readUInt32BE(16) === 0 || buf.readUInt32BE(20) === 0 ? null : "image/png";
+  }
+  if (buf.length >= 16 && buf.toString("latin1", 0, 4) === "RIFF" && buf.toString("latin1", 8, 12) === "WEBP"
+    && ["VP8 ", "VP8L", "VP8X"].includes(buf.toString("latin1", 12, 16))) return "image/webp";
+  if (buf.length >= 4 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  return null;
+}
+
+async function fetchImage(url: string, required = false): Promise<ReviewImage> {
   if (required && new URL(url).protocol !== "https:") throw new Error("publication images require an absolute HTTPS URL");
   const r = await fetch(url, required ? { signal: AbortSignal.timeout(PUBLICATION_VISION_LIMITS.imageTimeoutMs) } : undefined);
-  if (!required) return Buffer.from(await r.arrayBuffer());
-  if (!r.ok || !/^image\/png(?:;|$)/i.test(r.headers.get("content-type") ?? "")) {
-    throw new Error("publication image fetch did not return a successful PNG response");
+  if (!required) {
+    const buf = Buffer.from(await r.arrayBuffer());
+    return { buf, mimeType: sniffImageType(buf) ?? "image/png" };
+  }
+  const declared = (r.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
+  if (!r.ok || !REVIEW_IMAGE_TYPES.includes(declared)) {
+    throw new Error("publication image fetch did not return a successful PNG, WebP or JPEG response");
   }
   const chunks: Uint8Array[] = [];
   let bytes = 0;
@@ -96,11 +122,13 @@ async function fetchPng(url: string, required = false): Promise<Buffer> {
     if (bytes > PUBLICATION_VISION_LIMITS.maxImageBytes) throw new Error("publication image exceeds the byte limit");
     chunks.push(chunk);
   }
-  const png = Buffer.concat(chunks);
-  if (png.length < 24 || png.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" || png.readUInt32BE(16) === 0 || png.readUInt32BE(20) === 0) {
-    throw new Error("publication image is not a valid PNG header");
+  const buf = Buffer.concat(chunks);
+  // The bytes must be the format the response declares: a mislabelled file is
+  // refused rather than sent to the model under the wrong type.
+  if (sniffImageType(buf) !== declared) {
+    throw new Error(`publication image is not a valid ${declared.slice("image/".length).toUpperCase()} file`);
   }
-  return png;
+  return { buf, mimeType: declared as ReviewImageType };
 }
 
 interface ImageVerdict {
@@ -223,8 +251,8 @@ async function judge(
   bodyMd: string,
   layoutImages: LayoutImage[],
   screenshot: Buffer | null,
-  imageBufs: Buffer[],
-  hero: { buf: Buffer; caption: string | null } | null,
+  imageBufs: ReviewImage[],
+  hero: (ReviewImage & { caption: string | null }) | null,
   requirePass = false,
 ): Promise<CohesionVerdict> {
   const model = ai.getGenerativeModel({
@@ -262,8 +290,8 @@ async function judge(
       tail;
   const parts: Array<Record<string, unknown>> = [{ text: promptText }];
   if (screenshot) parts.push({ inlineData: { mimeType: "image/png", data: screenshot.toString("base64") } });
-  if (hero) parts.push({ inlineData: { mimeType: "image/png", data: hero.buf.toString("base64") } });
-  for (const b of imageBufs) parts.push({ inlineData: { mimeType: "image/png", data: b.toString("base64") } });
+  if (hero) parts.push({ inlineData: { mimeType: hero.mimeType, data: hero.buf.toString("base64") } });
+  for (const b of imageBufs) parts.push({ inlineData: { mimeType: b.mimeType, data: b.buf.toString("base64") } });
   const input = parts as unknown as Parameters<ReturnType<GoogleGenerativeAI["getGenerativeModel"]>["generateContent"]>[0];
   if (requirePass) {
     const { totalTokens } = await model.countTokens(input);
@@ -313,10 +341,21 @@ async function judge(
   return JSON.parse(resp.response.text()) as CohesionVerdict;
 }
 
-export async function validateArticle(slug: string, opts: { rounds?: number; requirePass?: boolean } = {}): Promise<void> {
+/** A header image that is not yet on the take: judged in place of the stored hero. */
+export interface CandidateHero { url: string; caption: string | null }
+
+export async function validateArticle(
+  slug: string,
+  opts: { rounds?: number; requirePass?: boolean; hero?: CandidateHero } = {},
+): Promise<void> {
   const requirePass = opts.requirePass === true;
   if (requirePass && opts.rounds !== undefined && opts.rounds !== PUBLICATION_VISION_LIMITS.rounds) {
     throw new Error("publication vision requires exactly one round");
+  }
+  // A candidate is judged by the publication review only: that mode makes no
+  // writes, so the stored hero is never replaced by a regenerated one here.
+  if (opts.hero && !requirePass) {
+    throw new Error("a candidate hero is judged only by the publication review (requirePass)");
   }
   const maxRounds = requirePass ? PUBLICATION_VISION_LIMITS.rounds : opts.rounds ?? 2;
   const dbUrl = process.env.DATABASE_URL;
@@ -339,8 +378,8 @@ export async function validateArticle(slug: string, opts: { rounds?: number; req
     const row = rows[0];
     if (!row) throw new Error(`no take ${slug}`);
     const layout: LayoutImage[] = row.layout_images ?? [];
-    let heroUrl = row.hero_image_url;
-    let heroCaption = row.hero_caption;
+    let heroUrl = opts.hero ? opts.hero.url : row.hero_image_url;
+    let heroCaption = opts.hero ? opts.hero.caption : row.hero_caption;
     if (requirePass && !heroUrl) throw new Error("publication requires an existing hero image");
     if (!layout.length && !heroUrl) {
       console.log("[validate] no hero_image_url or layout_images on this take");
@@ -352,12 +391,12 @@ export async function validateArticle(slug: string, opts: { rounds?: number; req
     console.error(`[validate] screenshotting ${slug}…`);
     const shot = requirePass ? null : await screenshotArticle(slug);
     console.error("[validate] mode: " + (shot ? "screenshot+per-image" : "per-image only"));
-    const imageBufs = await Promise.all(layout.map((li) => fetchPng(li.url, requirePass)));
-    let heroBuf: Buffer | null = heroUrl ? (requirePass ? await fetchPng(heroUrl, true) : await fetchPng(heroUrl).catch(() => null)) : null;
+    const imageBufs = await Promise.all(layout.map((li) => fetchImage(li.url, requirePass)));
+    let heroBuf: ReviewImage | null = heroUrl ? (requirePass ? await fetchImage(heroUrl, true) : await fetchImage(heroUrl).catch(() => null)) : null;
 
     for (let round = 1; round <= maxRounds; round++) {
       console.error(`[validate] round ${round}: judging (model ${requirePass ? PUBLICATION_VISION_LIMITS.model : JUDGE_MODEL()})…`);
-      const v = await judge(ai, headline, bodyMd, layout, shot, imageBufs, heroBuf ? { buf: heroBuf, caption: heroCaption } : null, requirePass);
+      const v = await judge(ai, headline, bodyMd, layout, shot, imageBufs, heroBuf ? { ...heroBuf, caption: heroCaption } : null, requirePass);
       if (requirePass) {
         console.log(`[validate] publication verdict accepted=${JSON.stringify({
           cohesionScore: v.cohesionScore, heroApproved: true, layoutImageCount: v.images.length,
@@ -404,7 +443,7 @@ export async function validateArticle(slug: string, opts: { rounds?: number; req
           [heroUrl, heroCaption, slug],
         );
         // Cache-bust so the re-judge sees the NEW hero.
-        heroBuf = await fetchPng(`${heroUrl}?t=${round}`);
+        heroBuf = await fetchImage(`${heroUrl}?t=${round}`);
       }
       for (const iv of toFix) {
         const old = layout[iv.index]!;
@@ -413,7 +452,7 @@ export async function validateArticle(slug: string, opts: { rounds?: number; req
         const regenerated = await generateOneLayoutImage(openai, storage, slug, iv.index, spec);
         layout[iv.index] = regenerated;
         // Cache-bust the buffer fetch so the re-judge sees the NEW image.
-        imageBufs[iv.index] = await fetchPng(regenerated.url + `?t=${round}`);
+        imageBufs[iv.index] = await fetchImage(regenerated.url + `?t=${round}`);
       }
       if (toFix.length) {
         await pg.query(`UPDATE editorial_takes SET layout_images=$1::jsonb, updated_at=NOW() WHERE slug=$2`, [JSON.stringify(layout), slug]);

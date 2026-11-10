@@ -4,8 +4,9 @@ A Claude workflow watches the market and posts what moved, by how much, when it
 saw it and why, with a token an administrator creates in the admin console. Shorted stores each move, serves it through the public API and
 draws it on three surfaces: the `/market-moves` feed, a strip on the homepage,
 and a card on the Overview tab of every stock the move names. A move is live as
-soon as the post returns, and every surface labels it as written by an AI
-workflow.
+soon as the post returns. The `/market-moves` page says the moves are written by
+an AI workflow; the cards themselves name no author (removed at the owner's
+request, 2026-11-09).
 
 | Piece | Where |
 |---|---|

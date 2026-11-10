@@ -61,12 +61,15 @@ type index struct {
 	in       *Inputs
 	cal      *calendar.Calendar
 	reports  *features.Reports
-	asic     map[string][]features.ASICRow // per code, date ascending
+	asic     map[string][]int32 // per code, indices into in.ASIC, date ascending
 	suspects map[string][]features.CASuspect
 }
 
-// newIndex builds the shared state of one run under version s.
-func newIndex(in *Inputs, s spec.Spec) *index {
+// CalendarFor is the calendar of version s over the rows in in: the index bar
+// dates and the ASIC report dates, under the version's publication lag. It is
+// the calendar every run's index uses, exported so a caller that needs only the
+// calendar does not build the whole index.
+func CalendarFor(in *Inputs, s spec.Spec) *calendar.Calendar {
 	xjoDates := make([]civil.Date, len(in.XJO))
 	for i, b := range in.XJO {
 		xjoDates[i] = b.Date
@@ -80,21 +83,26 @@ func newIndex(in *Inputs, s spec.Spec) *index {
 		asicDates = append(asicDates, d)
 	}
 	sort.Slice(asicDates, func(i, j int) bool { return asicDates[i].Before(asicDates[j]) })
+	return calendar.New(xjoDates, asicDates, s.Data.PublicationLagSessions)
+}
 
+// newIndex builds the shared state of one run under version s.
+func newIndex(in *Inputs, s spec.Spec) *index {
 	idx := &index{
 		s:        s,
 		in:       in,
-		cal:      calendar.New(xjoDates, asicDates, s.Data.PublicationLagSessions),
+		cal:      CalendarFor(in, s),
 		reports:  features.NewReports(in.ASIC, in.Ingests),
-		asic:     map[string][]features.ASICRow{},
+		asic:     map[string][]int32{},
 		suspects: map[string][]features.CASuspect{},
 	}
-	for _, r := range in.ASIC {
-		idx.asic[r.Code] = append(idx.asic[r.Code], r)
+	for i := range in.ASIC {
+		idx.asic[in.ASIC[i].Code] = append(idx.asic[in.ASIC[i].Code], int32(i))
 	}
-	for code, rows := range idx.asic {
-		sort.SliceStable(rows, func(i, j int) bool { return rows[i].ReportDate.Before(rows[j].ReportDate) })
-		idx.asic[code] = rows
+	for _, idxs := range idx.asic {
+		sort.SliceStable(idxs, func(a, b int) bool {
+			return in.ASIC[idxs[a]].ReportDate.Before(in.ASIC[idxs[b]].ReportDate)
+		})
 	}
 	// The corporate-action suspects are needed by the CA guard and by the
 	// short reading's basis check. An unparseable ca_upjump_from is the empty
@@ -102,7 +110,7 @@ func newIndex(in *Inputs, s spec.Spec) *index {
 	if s.Universe.CAGuard || s.Data.ShortSource == "latest_complete_published" {
 		upjump, _ := civil.ParseDate(s.Data.CAUpjumpFrom)
 		for _, code := range in.Codes {
-			idx.suspects[code] = features.CASuspects(in.Bars[code], idx.asic[code], idx.cal, upjump)
+			idx.suspects[code] = features.CASuspects(in.Bars[code], rowsAt(in.ASIC, idx.asic[code]), idx.cal, upjump)
 		}
 	}
 	return idx
@@ -188,7 +196,7 @@ func candidateAt(code string, t civil.Date, idx *index) (engine.Candidate, *Inel
 		return inel(ReasonShortHistory)
 	}
 
-	product, shares, _ := newestASIC(idx.asic[code], t)
+	product, shares, _ := newestASIC(idx.in.ASIC, idx.asic[code], t)
 	company := in.Names[code]
 	if s.Universe.Instruments == "ordinary" {
 		if r := instrument.IneligibleReason(code, product, company, shares, in.ETPSet, true); r != "" {
@@ -287,12 +295,12 @@ func priced(bars []features.Bar, from, to civil.Date) int {
 // newestASIC returns the product name and shares on issue of the newest ASIC
 // row dated on or before t: point-in-time, so a backtest never reads a later
 // classification. ok is false when the code has no row yet.
-func newestASIC(rows []features.ASICRow, t civil.Date) (product string, shares float64, ok bool) {
-	i := sort.Search(len(rows), func(i int) bool { return rows[i].ReportDate.After(t) })
+func newestASIC(rows []features.ASICRow, idxs []int32, t civil.Date) (product string, shares float64, ok bool) {
+	i := sort.Search(len(idxs), func(i int) bool { return rows[idxs[i]].ReportDate.After(t) })
 	if i == 0 {
 		return "", 0, false
 	}
-	r := rows[i-1]
+	r := rows[idxs[i-1]]
 	return r.Product, r.Issued, true
 }
 
@@ -392,4 +400,14 @@ func timePtr(d *civil.Date) *time.Time {
 	}
 	t := time.Date(d.Year, d.Month, d.Day, 0, 0, 0, 0, time.UTC)
 	return &t
+}
+
+// rowsAt copies the rows at the indices, in order. The copy is for a caller that
+// takes a slice of rows and is done with it before the next code.
+func rowsAt(rows []features.ASICRow, idxs []int32) []features.ASICRow {
+	out := make([]features.ASICRow, len(idxs))
+	for k, i := range idxs {
+		out[k] = rows[i]
+	}
+	return out
 }

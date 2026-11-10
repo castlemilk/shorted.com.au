@@ -44,7 +44,7 @@ func dateOf(t time.Time) civil.Date { return civil.DateOf(t) }
 // rows are as stored: no close filter (features apply validPrice themselves).
 // A NULL open, high, low, close or adjusted close is NaN; a NULL volume is 0.
 func Bars(ctx context.Context, db DB, code string, from, to civil.Date) ([]features.Bar, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `
@@ -94,7 +94,7 @@ func Bars(ctx context.Context, db DB, code string, from, to civil.Date) ([]featu
 // that gate: readiness rule (e) holds it while a weekend-dated bar is in its
 // window (services/jobs/README.md, "Strategy daily snapshot").
 func IndexBars(ctx context.Context, db DB, indexCode string, from, to civil.Date) ([]features.IndexBar, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `
@@ -129,7 +129,7 @@ func IndexBars(ctx context.Context, db DB, indexCode string, from, to civil.Date
 // has no code to attach to. A NULL position or share count is NaN; a NULL
 // percentage stays nil.
 func ASICRows(ctx context.Context, db DB, from, to civil.Date) ([]features.ASICRow, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `
@@ -168,7 +168,7 @@ func ASICRows(ctx context.Context, db DB, from, to civil.Date) ([]features.ASICR
 // how many codes ASIC's file listed and how many reached shorts. A NULL
 // file_rows is nil, which the completeness rule reads as not recorded.
 func ReportIngests(ctx context.Context, db DB, from, to civil.Date) ([]features.ReportIngest, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `
@@ -210,7 +210,7 @@ func ReportIngests(ctx context.Context, db DB, from, to civil.Date) ([]features.
 // ETPSet is the exchange-traded fund and listed-investment-company codes
 // (ownership_funds), the universe's exclusion list. Upper case.
 func ETPSet(ctx context.Context, db DB) (map[string]bool, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `
@@ -242,7 +242,7 @@ func ETPSet(ctx context.Context, db DB) (map[string]bool, error) {
 // CompanyNames maps each stock code to its company-metadata name, for the
 // ordinary-share rule. Codes with an empty name are left out.
 func CompanyNames(ctx context.Context, db DB) (map[string]string, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `
@@ -279,7 +279,7 @@ func CompanyNames(ctx context.Context, db DB) (map[string]string, error) {
 // order (type, then amount), so an identical read always returns identical
 // rows in identical order. A consumer sums the rows of one ex-date.
 func Dividends(ctx context.Context, db DB, from civil.Date) (map[string][]features.Dividend, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `
@@ -317,7 +317,7 @@ func Dividends(ctx context.Context, db DB, from civil.Date) (map[string][]featur
 // observation has no point: the first month of the series is the one after
 // its first observation. No observation means no points.
 func CashRate(ctx context.Context, db DB, to civil.Date) ([]features.RatePoint, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `

@@ -473,7 +473,7 @@
       "asicReportThrough": "2026-11-02",
       "benchmark": "XJT",
       "buildRevision": "fixture",
-      "engineVersion": "1.1.1",
+      "engineVersion": "1.1.2",
       "finishedAt": "2026-11-06T03:00:00Z",
       "fundamentals": "strict",
       "inSampleUntil": "2026-09-30",
@@ -490,7 +490,7 @@
       "runId": "201",
       "runKey": "key-201",
       "version": {
-        "engineVersion": "1.1.1",
+        "engineVersion": "1.1.2",
         "featureSet": "fs1",
         "kind": "canonical",
         "label": "v1",
@@ -502,7 +502,7 @@
       "windowStart": "2019-05-01"
     },
     "liveVersion": {
-      "engineVersion": "1.1.1",
+      "engineVersion": "1.1.2",
       "featureSet": "fs1",
       "kind": "canonical",
       "label": "v1",

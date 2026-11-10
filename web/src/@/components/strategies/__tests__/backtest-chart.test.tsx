@@ -101,8 +101,8 @@ describe("the growth, drawdown and coverage chart", () => {
     const html = renderToStaticMarkup(<BacktestChart {...props} series={series} />);
     expect(html).toContain("data-recorded-band");
     expect(html).toContain("Recorded since 2 Oct 2026");
-    expect(html).toContain('data-engine-mark="1.1.1"');
-    expect(html).toContain("engine 1.1.1 from 20 Oct");
+    expect(html).toContain('data-engine-mark="1.1.2"');
+    expect(html).toContain("engine 1.1.2 from 20 Oct");
     expect(html).toContain("Rules frozen 1 Oct 2026");
   });
 

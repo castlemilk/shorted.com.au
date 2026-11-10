@@ -363,13 +363,12 @@ func derefOr(v *float64) float64 {
 
 // barOn is the code's priced bar dated t, nil when it has none. An unpriced row
 // (a NULL or non-positive close) is no bar for execution: it marks nothing and
-// fills nothing, as a missing row does. The copy keeps the session rows
-// independent of the inputs.
+// fills nothing, as a missing row does. The result points into bars, which
+// nothing writes: the session rows only read the bar.
 func barOn(bars []features.Bar, t civil.Date) *features.Bar {
 	i := sort.Search(len(bars), func(i int) bool { return !bars[i].Date.Before(t) })
 	if i < len(bars) && bars[i].Date == t && features.Priced(bars[i].Close) {
-		b := bars[i]
-		return &b
+		return &bars[i]
 	}
 	return nil
 }

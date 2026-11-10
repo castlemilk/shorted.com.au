@@ -10,6 +10,7 @@ import { withRetryAndNotFound } from "./withRetry";
 import {
   STOCK_PAGE_CACHE_SECONDS,
   normalizeStockPageCacheCode,
+  stockCodeCacheTag,
   stockPageCacheTags,
   toNextDataCacheValue,
 } from "./stockPageCache";
@@ -17,6 +18,8 @@ import {
 async function fetchStockDetails(productCode: string): Promise<StockDetails> {
   const edgeResponse = await fetchEdgeReadJson<StockDetails>(
     `/edge/v1/stock/${encodeURIComponent(productCode)}/details`,
+    {},
+    [stockCodeCacheTag(productCode)],
   );
   if (edgeResponse) return edgeResponse;
 

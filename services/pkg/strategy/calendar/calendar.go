@@ -65,6 +65,14 @@ type Calendar struct {
 	newestIndex civil.Date // newest index bar date
 	lag         int        // publication lag in sessions
 	mismatches  Mismatches
+
+	// The session answers over [lo, hi] are precomputed once in New, as a prefix
+	// count, so the hot reads are integer arithmetic instead of civil-date work.
+	// ranged is false only for an empty calendar, which keeps the slow path.
+	ranged bool
+	loNum  int64 // day number of lo, the earliest index or ASIC date
+	hiNum  int64 // day number of hi, the later of lastReport and newestIndex
+	cum    []int // cum[i] counts the sessions among the days loNum .. loNum+i-1
 }
 
 // New builds the calendar from the index bar dates (XJO), the ASIC report dates
@@ -108,7 +116,48 @@ func New(indexDates, asicReportDates []civil.Date, lagSessions int) *Calendar {
 			}
 		}
 	}
+	c.buildRange()
 	return c
+}
+
+// buildRange precomputes the session answers over [lo, hi]. Every day in the
+// range is answered by isSessionSlow, so inside the range the prefix counts are
+// exact by construction. lo is the earliest index or ASIC date and hi the later
+// of the newest ASIC report and the newest index bar: the switch in isSessionSlow
+// reads only those maps up to hi, so no answer past hi is precomputed.
+func (c *Calendar) buildRange() {
+	if !c.hasReport && !c.hasIndex {
+		return
+	}
+	var lo civil.Date
+	first := true
+	consider := func(d civil.Date) {
+		if first || d.Before(lo) {
+			lo, first = d, false
+		}
+	}
+	for d := range c.index {
+		consider(d)
+	}
+	for d := range c.asic {
+		consider(d)
+	}
+	hi := lo
+	if c.hasReport {
+		hi = c.lastReport
+	}
+	if c.hasIndex && (!c.hasReport || c.newestIndex.After(hi)) {
+		hi = c.newestIndex
+	}
+	c.loNum, c.hiNum = dayNum(lo), dayNum(hi)
+	c.cum = make([]int, c.hiNum-c.loNum+2)
+	for i := int64(0); i <= c.hiNum-c.loNum; i++ {
+		c.cum[i+1] = c.cum[i]
+		if c.isSessionSlow(civilFromDays(c.loNum + i)) {
+			c.cum[i+1]++
+		}
+	}
+	c.ranged = true
 }
 
 // Mismatches reports the disagreements found when the calendar was built.
@@ -116,6 +165,23 @@ func (c *Calendar) Mismatches() Mismatches { return c.mismatches }
 
 // IsSession reports whether d is a trading session of this calendar.
 func (c *Calendar) IsSession(d civil.Date) bool {
+	return c.isSessionNum(dayNum(d))
+}
+
+// isSessionNum is IsSession for a day number.
+func (c *Calendar) isSessionNum(n int64) bool {
+	if c.ranged && n >= c.loNum && n <= c.hiNum {
+		i := n - c.loNum
+		return c.cum[i+1] != c.cum[i]
+	}
+	return c.isSessionSlow(civilFromDays(n))
+}
+
+// isSessionSlow is the session rule itself. Up to the newest ASIC report a
+// session is a date in both the index and the ASIC data; past it, and up to the
+// newest index bar, it is an index bar on a trading day; past both, the holiday
+// table alone decides. It is the reference for the precomputed answers.
+func (c *Calendar) isSessionSlow(d civil.Date) bool {
 	switch {
 	case c.hasReport && !d.After(c.lastReport):
 		return c.index[d] && c.asic[d]
@@ -134,14 +200,14 @@ func (c *Calendar) PublishedOn(reportDate civil.Date) (published civil.Date, ok 
 	if c.lag == 0 {
 		return reportDate, true
 	}
-	d := reportDate
+	n := dayNum(reportDate)
 	sessions := 0
-	for n := 0; n < maxLagDays; n++ {
-		d = d.AddDays(1)
-		if c.IsSession(d) {
+	for k := 0; k < maxLagDays; k++ {
+		n++
+		if c.isSessionNum(n) {
 			sessions++
 			if sessions == c.lag {
-				return d, true
+				return civilFromDays(n), true
 			}
 		}
 	}
@@ -158,14 +224,84 @@ func (c *Calendar) Usable(reportDate, decisionDate civil.Date) bool {
 // SessionsBetween counts the sessions s with from < s <= to. It is the age of
 // a report at a decision date: zero on the report's own date, one on the next
 // session, and so on. A to on or before from counts zero.
+//
+// Inside [lo, hi] the count is the difference of two prefix counts. Before lo it
+// is zero: in a non-empty calendar no day before lo is a session, because the
+// first branch of isSessionSlow needs the day in both index and asic (and lo is
+// the earliest date of either), and the other two branches need the day in the
+// index. Past hi the days are answered one by one by isSessionSlow.
 func (c *Calendar) SessionsBetween(from, to civil.Date) int {
+	if !to.After(from) {
+		return 0
+	}
+	a, b := dayNum(from)+1, dayNum(to)
+	if !c.ranged {
+		n := 0
+		for dd := a; dd <= b; dd++ {
+			if c.isSessionSlow(civilFromDays(dd)) {
+				n++
+			}
+		}
+		return n
+	}
 	n := 0
-	for d := from.AddDays(1); !d.After(to); d = d.AddDays(1) {
-		if c.IsSession(d) {
+	if x, y := max(a, c.loNum), min(b, c.hiNum); x <= y {
+		n += c.cum[y-c.loNum+1] - c.cum[x-c.loNum]
+	}
+	for dd := max(a, c.hiNum+1); dd <= b; dd++ {
+		if c.isSessionSlow(civilFromDays(dd)) {
 			n++
 		}
 	}
 	return n
+}
+
+// dayNum is the number of days from 1970-01-01 to d (negative before it). It is
+// the days-from-civil algorithm in integer arithmetic: unlike time.Time or
+// civil.Date.AddDays it allocates nothing, which the backtest's session reads
+// need.
+func dayNum(d civil.Date) int64 {
+	y := int64(d.Year)
+	m := int64(d.Month)
+	if m <= 2 {
+		y--
+	}
+	var era int64
+	if y >= 0 {
+		era = y / 400
+	} else {
+		era = (y - 399) / 400
+	}
+	yoe := y - era*400
+	mp := (m + 9) % 12
+	doy := (153*mp+2)/5 + int64(d.Day) - 1
+	doe := yoe*365 + yoe/4 - yoe/100 + doy
+	return era*146097 + doe - 719468
+}
+
+// civilFromDays is the inverse of dayNum.
+func civilFromDays(z int64) civil.Date {
+	z += 719468
+	var era int64
+	if z >= 0 {
+		era = z / 146097
+	} else {
+		era = (z - 146096) / 146097
+	}
+	doe := z - era*146097
+	yoe := (doe - doe/1460 + doe/36524 - doe/146096) / 365
+	y := yoe + era*400
+	doy := doe - (365*yoe + yoe/4 - yoe/100)
+	mp := (5*doy + 2) / 153
+	day := doy - (153*mp+2)/5 + 1
+	m := mp + 3
+	if mp >= 10 {
+		m = mp - 9
+	}
+	if m <= 2 {
+		y++
+	}
+	return civil.Date{Year: int(y), Month: time.Month(m), Day: int(day)}
 }
 
 func tradingDay(d civil.Date) bool {

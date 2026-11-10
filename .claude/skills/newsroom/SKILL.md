@@ -82,7 +82,8 @@ Entrypoint is `npx tsx src/index.ts <command>` (NOT `run.ts`).
 |---|---|---|
 | `newsroom-preview --stock=CODE [--tier=deep_dive] [--angle="..."]` | Investigate ONE stock, print dossier + headline/standfirst/byline + body (with format) + sources + hold decision. **No DB write, no images** — safe against prod. | Token cost only. Preview byline always "— Markets" (industry not fetched). |
 | `newsroom-daily [--auto-publish] [--with-images] [--no-images] [--pool=N] [--top=N]` | Full run: editor → investigate → write → insert. `--top` overrides max takes. Images default ON when `--auto-publish` (unless `--no-images`), OFF for drafts. | Per article with images: OG $0.075 + hero $0.25 + 3 layout $0.24 ≈ $0.57. Held drafts still get images if enabled. |
-| `regen-images --slug=SLUG [--inline=N]` | Regenerate images for an existing take: brand OG (`-og.png`) + art-directed topical hero (high quality, `-hero.png`) + 3 layout images. Legacy inline images generated ONLY when the art-director plan fails (frontend ignores `inline_images` when `layout_images` is non-empty). Hero falls back to the OG image if the topical render fails. | ~$0.55–0.75 |
+| `regen-images --slug=SLUG [--inline=N] [--hero-only]` | Regenerate images for an existing take: brand OG (`-og.png`) + art-directed topical hero (high quality, `-hero.png`) + 3 layout images. Legacy inline images generated ONLY when the art-director plan fails (frontend ignores `inline_images` when `layout_images` is non-empty). Hero falls back to the OG image if the topical render fails. | ~$0.55–0.75 |
+| `set-hero --slug=SLUG --image=PATH --caption="Illustration: …" [--credit="…"] [--dry-run]` | Put artwork made outside the newsroom (e.g. a BrandBrain generation) on a take as its header. Checks the file (PNG/WebP/JPEG, ≤ 8 MiB, landscape, ≥ 1200 px wide), uploads it as `takes/<slug>-hero-<sha12>.<ext>` (content-addressed, immutable cache, so no stale header at the URL), runs the publication vision review on the candidate, and only then swaps `hero_image_url`/`hero_caption`/`hero_credit`, guarded on the old hero; revalidates a published take. A failed review changes nothing. Leaves `og_image_url` (the social card backdrop) alone. | review only (~$0.01); the art is paid where it was made |
 | `validate-article --slug=SLUG [--rounds=N]` | Screenshot the live page (Playwright, optional — degrades to per-image judging if chromium missing or `VALIDATOR_SCREENSHOT=0`), Gemini-vision judges cohesion + the hero (as a masthead lead image) + every layout image, then auto-regenerates anything flagged and re-judges. Default 2 rounds. | ~$0.08–0.33 per regenerated image |
 | `publish-content --slug=SLUG [--no-images] [--no-validate]` | Import ONE `content/news` article by frontmatter slug, then run the `publish` chain. The entrypoint of the prod `shorted-news-publish` Cloud Run job, which `POST /api/admin/news/publish` (or `CONFIRM=prod task news:publish:remote SLUG=…`) runs with no local credentials — see `SERVERLESS.md`. | ~$0.32 with images |
 | `newsroom [--auto-publish] [--with-images] [--top=N]` | Legacy agenda→narrative loop (no investigator/ledger; brand image doubles as hero). | Prefer `newsroom-daily`. |
@@ -124,6 +125,7 @@ npx tsx src/index.ts publish-content --slug=SLUG
 ### Daily operating flow (draft → review → publish → tweet)
 
 1. **Cron drafts** the takes each weekday morning (text only — no images, cheap, reviewable):
+   > **Not installed as of 2026-11-09:** no crontab entry exists and the path below (`~/projects/shorted/…`) does not; the last draft was written on 10 September 2026. The 97-draft backlog it left was cut to the newest per stock, dated and published that day (`scripts/data-fixes/2026-11-09-newsroom-backlog.sql`). Re-install from `~/projects/shorted.com.au/scripts/take-writer/bin/newsroom-cron.sh` before relying on this flow.
    ```
    30 7 * * 1-5  /Users/benebsworth/projects/shorted/scripts/take-writer/bin/newsroom-cron.sh >> $HOME/Library/Logs/shorted-newsroom.log 2>&1
    ```
@@ -134,11 +136,35 @@ npx tsx src/index.ts publish-content --slug=SLUG
    - **Manual runs collide with the morning cron.** Running `newsroom-daily` by hand on a weekday the cron already ran produces a *second* same-day draft set for the same volatile stocks. Check `list-drafts` first; if today's cron set already exists, review/publish it rather than generating another.
    - **Dedup before publishing.** The dedup guard stops *new* pileup, but a backlog can still hold older stale drafts per stock. For a stock with multiple drafts, keep the freshest (or best-cited) and delete the rest first — otherwise the queue carries near-duplicates and the guard keeps that stock suppressed. No built-in prune command yet; delete by slug via psql: `DELETE FROM editorial_takes WHERE published_at IS NULL AND slug IN (...)` (preview with a `SELECT` first; never touch a row whose `published_at` is set).
 3. **Publish**: `npx tsx src/index.ts publish --slug=SLUG --tweet` — chains:
+   - `--hero-only` (2026-11): generates (when missing) and reviews only the header image, no layout images. Use it for a draft that should look like the reviewed content/news articles, and for a backlog: the publication review is one round, and with three AI layout images it flags a different one each run. The retry keeps an existing hero, so it pays for nothing new.
    - images: `regenerateImages` iff hero missing / layout empty / hero is the brand-OG fallback (skip with `--no-images`); aborts (article stays draft) if image generation fails — needs OPENAI_API_KEY + legacy ADC; validation failures only warn.
    - validate: `validate-article` 1 round, per-image mode (`VALIDATOR_SCREENSHOT=0` — draft page isn't live); judge failures warn but never block (skip with `--no-validate`)
    - flips `published_at = COALESCE(published_at, NOW())`
    - `--tweet`: spawns `scripts/twitter` `process-publish-queue --live --slug=SLUG` (queue only tweets published+untweeted takes, so re-runs can't double-tweet; a failed tweet prints the manual retry command).
 4. Article is live at `/news/SLUG` (ISR ≤10 min) and posted to @shorted___.
+
+### Replacing headers with BrandBrain art (2026-11)
+
+On 2026-11-09 the 36 headers the pipeline made that morning (gpt-image-2, mostly
+clamps and wedges) were remade through the BrandBrain MCP with OpenAI
+`gpt-image-2.5-flare` (16:9, high, $0.0412 each, paid by the core workspace's own
+OpenAI key `credits`, never BrandBrain's), then swapped in with `set-hero`.
+Prompts, models, BrandBrain image ids, costs and the previous URLs are in
+`output/news-heroes/2026-11-09-brandbrain.json`.
+
+- **Brief each image from the article** (subject / action / hook / field / treatment /
+  caveat, as in `shorted-editorial-art`) and give stories with the same storyline
+  (directors buying against shorts) different industry subjects.
+- **Do not name the publication in the prompt.** "Shorted newsroom header image" was
+  drawn as a "The Shorted Newsroom" masthead with a headline. Ask for plain,
+  unmarked tiles: unqualified "position tiles" came back printed with game
+  symbols. A forbidden symbol can still appear (a radiation trefoil on a drum), so
+  look at every image, at full size and at 160 × 90, before `set-hero`.
+- BrandBrain states the price before it runs and refuses a call above
+  `max_cost_usd`. Tell the owner the cap and get agreement before paid calls.
+  Pass `pay_with` with the key id from `list_provider_keys` so a call never falls
+  back to BrandBrain's key. Download the original from `download_url` (valid one
+  hour, follows a redirect) and keep it; the WebP goes straight to `set-hero`.
 
 Model env knobs: `EDITOR_MODEL`, `INVESTIGATOR_MODEL_TAKE`/`_DEEPDIVE`, `WRITER_MODEL`/`_DEEPDIVE`, `ART_DIRECTOR_MODEL`, `VALIDATOR_MODEL`, `INLINE_BRIEF_MODEL` — all default `gemini-3.5-flash`. `MAX_TURNS_TAKE`=6, `MAX_TURNS_DEEPDIVE`=14, `MAX_TAKES_PER_DAY`=10, `MAX_DEEPDIVES_PER_DAY`=2. The DB `model` column records the real writer model via `resolveWriterModel(tier)` (the single source of truth in `narrative.ts`) — no longer a divergent `newsroom.ts` fallback.
 

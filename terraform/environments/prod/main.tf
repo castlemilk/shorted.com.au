@@ -195,6 +195,15 @@ resource "google_storage_bucket_iam_member" "financial_reports_writer" {
   member = "serviceAccount:${module.report_extractor.service_account_email}"
 }
 
+# The crawler Single Redirect was created by hand on 2026-11-08 with the
+# global key: the deploy token can update a zone ruleset by id but gets 403
+# "request is not authorized" creating one (POST /zones/:id/rulesets), which
+# failed the 2026-11-07 apply. Imported so Terraform owns it from here.
+import {
+  to = module.edge.cloudflare_ruleset.crawler_redirects[0]
+  id = "zones/41b338d2d75853d7bedb9a93f1e824f1/becd3d6304bf49e3b17799d753902a04"
+}
+
 # Import existing Artifact Registry repository into Terraform state
 import {
   to = google_artifact_registry_repository.shorted
@@ -1896,13 +1905,6 @@ module "edge" {
   javascript_detections_enabled = false
   markdown_for_agents           = "on"
 
-  # The crawler Single Redirect (http_request_dynamic_redirect phase) needs
-  # "Zone > Single Redirect: Edit" on the deploy token, which it lacks: the
-  # 2026-11-07 apply got 403 "request is not authorized" creating the ruleset,
-  # failing terraform-apply and so every deploy behind it. Off until the token
-  # carries that permission; robots.txt still steers these crawlers, and the
-  # AI crawler rate limit (an existing ruleset) applied.
-  crawler_redirect_enabled = false
 
   # DNS hardening — SPF (Google Workspace) + DMARC (p=quarantine, pct=100) + DNSSEC
   # signing. DNSSEC is not enforced until the DS record (edge_dnssec_ds_record

@@ -61,6 +61,14 @@
       "thumbnail": "web/public/assets/blog/asx-stocks-under-fire-october-2026/thumbnail-editorial-v1.webp"
     },
     {
+      "slug": "asx-strategy-backtests",
+      "asset": "web/public/assets/blog/asx-strategy-backtests/cover-editorial-v1.webp",
+      "alt": "A burnt-amber wax phonograph cylinder on a steel mandrel against deep green, finely grooved along two thirds of its length and smooth beyond, with a steel reproducer arm resting its needle exactly where the grooves end.",
+      "prompt": "output/article-covers/asx-strategy-backtests.md",
+      "original": "output/article-covers/asx-strategy-backtests.png",
+      "thumbnail": "web/public/assets/blog/asx-strategy-backtests/thumbnail-editorial-v1.webp"
+    },
+    {
       "slug": "australian-house-prices-2026-state-by-state",
       "asset": "web/public/assets/blog/australian-house-prices-2026-state-by-state/cover-editorial-v2.webp",
       "alt": "An ivory weatherboard house rises on an amber scissor lift beside a brick bungalow on a lowered platform against mineral blue.",
@@ -157,6 +165,14 @@
       "thumbnail": "web/public/assets/blog/most-shorted-asx-stocks/thumbnail-editorial-v2.webp"
     },
     {
+      "slug": "short-interest-vs-short-volume-asx",
+      "asset": "web/public/assets/blog/short-interest-vs-short-volume-asx/cover-editorial-v1.webp",
+      "alt": "Blank ivory and amber cards pass through a charcoal frame beside a separate stack of cards on blue.",
+      "prompt": "output/article-covers/short-interest-vs-short-volume-asx.md",
+      "original": "output/article-covers/short-interest-vs-short-volume-asx.png",
+      "thumbnail": "web/public/assets/blog/short-interest-vs-short-volume-asx/thumbnail-editorial-v1.webp"
+    },
+    {
       "slug": "short-selling-vs-long-investing",
       "asset": "web/public/assets/blog/short-selling-vs-long-investing/cover-editorial-v2.webp",
       "alt": "A straight ivory path reaches a share tile in an ownership pocket while a longer amber ribbon loops back to a lending clip.",
@@ -243,6 +259,22 @@
       "prompt": "output/article-covers/where-asking-prices-are-being-cut-australia-2026-v2.md",
       "original": "output/article-covers/where-asking-prices-are-being-cut-australia-2026-v2.png",
       "thumbnail": "web/public/assets/blog/where-asking-prices-are-being-cut-australia-2026/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "why-asx-short-interest-data-differs",
+      "asset": "web/public/assets/blog/why-asx-short-interest-data-differs/cover-editorial-v1.webp",
+      "alt": "A curled ivory record sheet reveals a second perforated sheet and an amber tab on a dark green surface.",
+      "prompt": "output/article-covers/why-asx-short-interest-data-differs.md",
+      "original": "output/article-covers/why-asx-short-interest-data-differs.png",
+      "thumbnail": "web/public/assets/blog/why-asx-short-interest-data-differs/thumbnail-editorial-v1.webp"
+    },
+    {
+      "slug": "why-short-interest-falls-without-covering",
+      "asset": "web/public/assets/blog/why-short-interest-falls-without-covering/cover-editorial-v1.webp",
+      "alt": "An ivory folded-paper circle opens outward around an amber disc on a charcoal surface.",
+      "prompt": "output/article-covers/why-short-interest-falls-without-covering.md",
+      "original": "output/article-covers/why-short-interest-falls-without-covering.png",
+      "thumbnail": "web/public/assets/blog/why-short-interest-falls-without-covering/thumbnail-editorial-v1.webp"
     }
   ],
   "thumbnailWidth": 800,

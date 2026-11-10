@@ -17,6 +17,9 @@ vi.mock("@google-cloud/storage", () => ({ Storage: vi.fn(() => ({})) }));
 vi.mock("./art-director.js", () => ({ generatePlanHero: mocks.generateHero, generateOneLayoutImage: mocks.generateLayout }));
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aP1sAAAAASUVORK5CYII=", "base64");
+// 1×1 lossless WebP (RIFF … WEBP VP8L) and the start of a JFIF JPEG.
+const WEBP = Buffer.from("UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==", "base64");
+const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
 const goodImage = { fits: true, captionAccurate: true, qualityOk: true, issue: "", regenerate: false, newBrief: "", newCaption: "" };
 const goodVerdict = () => ({ cohesionScore: 8, layoutNotes: "Per-image review", verdict: "Cohesive", hero: { ...goodImage }, images: [] });
 const row = () => ({ headline: "Reviewed headline", body_md: "Reviewed text", layout_images: [], hero_image_url: "https://shorted.com.au/cover.png", hero_caption: null });
@@ -254,10 +257,24 @@ describe("required publication vision review", () => {
   });
 
   it.each([
+    ["PNG", PNG, "image/png"],
+    ["WebP", WEBP, "image/webp"],
+    ["JPEG", JPEG, "image/jpeg; charset=binary"],
+  ])("judges a reviewed %s cover under its own type", async (_name, bytes, contentType) => {
+    fetchMock.mockImplementation(async () => new Response(bytes, { headers: { "content-type": contentType } }));
+    await validate();
+    const input = mocks.generateContent.mock.calls[0]![0];
+    expect(input[1].inlineData).toEqual({ mimeType: contentType.split(";")[0], data: bytes.toString("base64") });
+  });
+
+  it.each([
     ["HTTP error", () => new Response("not found", { status: 404 })],
     ["HTML response", () => new Response("html", { headers: { "content-type": "text/html" } })],
     ["invalid PNG", () => new Response("invalid", { headers: { "content-type": "image/png" } })],
     ["oversize PNG", () => new Response(Buffer.alloc(PUBLICATION_VISION_LIMITS.maxImageBytes + 1), { headers: { "content-type": "image/png" } })],
+    ["PNG labelled WebP", () => new Response(PNG, { headers: { "content-type": "image/webp" } })],
+    ["WebP labelled PNG", () => new Response(WEBP, { headers: { "content-type": "image/png" } })],
+    ["GIF", () => new Response(Buffer.from("R0lGODlhAQABAAAAACw=", "base64"), { headers: { "content-type": "image/gif" } })],
   ])("rejects a cover %s before any API call", async (_name, response) => {
     fetchMock.mockImplementation(async () => response());
     await expect(validate()).rejects.toThrow();
@@ -273,6 +290,26 @@ describe("required publication vision review", () => {
 
   it("rejects multiple publication rounds before connecting to the database", async () => {
     await expect(validateArticle("reviewed-slug", { requirePass: true, rounds: 2 })).rejects.toThrow(/exactly one round/);
+    expect(mocks.pg.connect).not.toHaveBeenCalled();
+  });
+});
+
+describe("candidate hero (set-hero)", () => {
+  const candidate = { url: "https://storage.googleapis.com/bucket/takes/reviewed-slug-hero-0123456789ab.webp", caption: "Illustration: An amber zip pull slides down." };
+
+  it("judges the candidate in place of the stored hero and writes nothing", async () => {
+    fetchMock.mockImplementation(async () => new Response(WEBP, { headers: { "content-type": "image/webp" } }));
+    await validateArticle("reviewed-slug", { rounds: 1, requirePass: true, hero: candidate });
+    const fetched = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(fetched).toContain(candidate.url);
+    expect(fetched).not.toContain(row().hero_image_url);
+    const parts = mocks.generateContent.mock.calls[0]![0];
+    expect(parts.some((p: { inlineData?: { mimeType: string } }) => p.inlineData?.mimeType === "image/webp")).toBe(true);
+    expect(JSON.stringify(parts)).toContain(candidate.caption);
+    expect(mocks.pg.query.mock.calls.some(([sql]) => /UPDATE/i.test(String(sql)))).toBe(false);
+  });
+  it("refuses a candidate outside the publication review before connecting", async () => {
+    await expect(validateArticle("reviewed-slug", { hero: candidate })).rejects.toThrow(/publication review/);
     expect(mocks.pg.connect).not.toHaveBeenCalled();
   });
 });

@@ -6,7 +6,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { SHORTS_API_URL, serverFetchOutsideNextCache } from "../config";
 import { fetchEdgeReadJson } from "../edgeRead";
-import { toNextDataCacheValue } from "../stockPageCache";
+import { SHORTS_DATA_CACHE_TAG, toNextDataCacheValue } from "../stockPageCache";
 import { withRetry, withRetryAndNotFound } from "../withRetry";
 
 export function isValidMarketDate(date: string): boolean {
@@ -66,7 +66,7 @@ function getCachedMarketByDate(
       return response ? toNextDataCacheValue(response) as unknown as GetMarketByDateResponse : null;
     },
     ["market-by-date", date, String(limit), String(offset)],
-    { revalidate: 86400, tags: ["shorts-data", `market-date:${date}`] },
+    { revalidate: 86400, tags: [SHORTS_DATA_CACHE_TAG, `market-date:${date}`] },
   )();
 }
 
@@ -107,7 +107,7 @@ function getCachedAvailableDates(
       return toNextDataCacheValue(response) as GetAvailableDatesResponse;
     },
     ["market-available-dates", String(limit), before],
-    { revalidate: 3600, tags: ["shorts-data", "market-index"] },
+    { revalidate: 3600, tags: [SHORTS_DATA_CACHE_TAG, "market-index"] },
   )();
 }
 

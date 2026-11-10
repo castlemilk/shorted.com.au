@@ -61,8 +61,14 @@ export const getStateSuburbIndex = (stateCode: string): Promise<SuburbLike[]> =>
     // suburb directory ranks by it). A new key rather than a silent shape change,
     // so a cached v1 entry cannot be served for 24h without the field.
     ["housing-state-suburb-index", "v2", stateCode],
-    // Matches the suburb route's own 24h ISR window, and joins the `housing`
-    // tag so /api/revalidate?flush=housing drops it with everything else.
+    // Matches the suburb route's own 24h ISR window. The `housing` tag is
+    // sent (`/api/revalidate?tag=housing`) only by the collector's official
+    // data refresh, refresh() in services/house-price-collector. Every state
+    // and suburb page reads this entry, so one tag expiry rebuilds all of them.
+    // Crawl writes send no tag: none of these fields comes from the crawl.
+    // Keep it that way if a field is added here. A crawl-derived field would
+    // need its own narrow scope, never the crawl pinging this tag (it pinged it
+    // ~20 times a day before 2026-11-09).
     // No per-state tag: nothing revalidates at state granularity, so it would be
     // metadata nobody reads.
     { revalidate: 86400, tags: ["housing"] },

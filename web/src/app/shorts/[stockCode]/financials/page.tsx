@@ -24,7 +24,9 @@ import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 import { DividendHistory } from "~/@/components/company/dividend-history-loader";
 import { CompanyTaxCard } from "~/@/components/company/company-tax-card-loader";
 
-export const revalidate = 3600;
+// A day: fundamentals change when the picks job writes them, and it expires
+// them by tag (fundamentals); the layout's reads are the sync's (layout.tsx).
+export const revalidate = 86400;
 export const dynamicParams = true;
 export function generateStaticParams(): Array<{ stockCode: string }> {
   return [];

@@ -1,0 +1,114 @@
+---
+title: "ASX Short Interest vs Short-Sale Volume"
+excerpt: "ASIC short interest and ASX short-sale volume measure different things. A worked example explains the percentages and how to use each when tracking stocks."
+standfirst: "A stock can have 20% of its daily trading volume reported as short sales and only 5.5% of its shares reported short. Both figures can be correct. Their denominators explain why."
+coverImage: "/assets/blog/short-interest-vs-short-volume-asx/cover-editorial-v1.webp"
+thumbnailImage: "/assets/blog/short-interest-vs-short-volume-asx/thumbnail-editorial-v1.webp"
+coverAlt: "Blank ivory and amber cards pass through a charcoal frame beside a separate stack of cards on blue."
+date: "2026-11-07"
+category: guides
+tags: ["short interest", "short-sale volume", "ASIC short positions", "ASX short selling"]
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben-ebsworth.jpg"
+ogImage:
+  url: "/assets/blog/short-interest-vs-short-volume-asx/cover-editorial-v1.webp"
+---
+
+# ASX Short Interest vs Short-Sale Volume
+
+A forum post says a company is “20% shorted”. Its Shorted page shows 5.5%. Before treating either figure as an error, check what each percentage divides by.
+
+**Short interest** describes outstanding reported short positions relative to shares on issue. **Daily short-sale volume** describes transactions during a session; a short-volume percentage commonly compares those transactions with that session's total trading volume. Confusing them turns a busy trading day into an exaggerated claim about the company's outstanding short positions.
+
+## What ASX and ASIC publish
+
+ASX publishes aggregated gross short-sale information. ASIC publishes aggregated net short-position information. [ASX explains this distinction directly in its reporting FAQ](https://www.asx.com.au/about/contact-asx/report-misconduct/reporting-misconduct-to-asx-faqs).
+
+“Gross” means the short-sale total does not subtract purchases that close short positions. “Net position” concerns the position a reporting person holds under the reporting rules. ASIC aggregates those reported positions. It is not a market-wide subtraction of every investor's long holdings from every short holding.
+
+<GraphTable title="Two measures, two denominators" corner="ASIC and ASX reporting">
+
+| Measure | What it describes | Denominator when expressed as a percentage |
+| --- | --- | --- |
+| Reported short interest | Outstanding reported short quantity at a particular date | Shares or relevant products on issue |
+| Daily short-sale volume | Shares reported sold short during a trading session | Total traded shares for the same session and market coverage |
+
+</GraphTable>
+
+The date also needs checking. ASIC publishes its aggregate report on a T+4 basis, four reporting days after the position date. [ASIC's reporting explanation](https://www.asic.gov.au/regulatory-resources/markets/short-selling/short-selling-reporting-short-position-reporting) describes that delay. A newer transaction report and the latest available position report may describe different sessions.
+
+## A worked example: 20% short volume, 5.5% short interest
+
+Consider a fictional company with 200 million shares on issue. Its reported short quantity starts the day at 10 million shares.
+
+During the session, traders open 4 million shares of new shorts and buy back 3 million shares to close existing shorts. The simplified position calculation is:
+
+```text
+Opening short quantity         10 million
+New shorts                     +4 million
+Shorts closed                  −3 million
+Closing short quantity         11 million
+```
+
+For this example, assume all 4 million short sales occur on one venue, whose total session volume is 20 million shares. Each percentage now has its own calculation:
+
+<GraphStat
+  title="Same session, different denominators"
+  corner="Hypothetical example"
+  items='[
+    {"value":"5.5%","label":"Issued shares reported short at session end","hint":"11 million short shares ÷ 200 million issued shares × 100"},
+    {"value":"20%","label":"Venue trading volume reported as short sales","hint":"4 million short sales ÷ 20 million shares traded × 100"}
+  ]'
+/>
+
+Outstanding short quantity increases by only 1 million shares. Neither the 4 million gross short sales nor the 20% volume ratio measures that net increase.
+
+<Callout type="note" title="The assumptions behind the example">
+
+The hypothetical example uses complete observations for the same reporting population, with all relevant openings and closures captured, unchanged shares on issue, and no corporate actions or reporting changes. It illustrates the arithmetic; it is not a method for reconstructing ASIC positions from a single exchange's transaction file.
+
+</Callout>
+
+## Why adding daily short sales gives the wrong answer
+
+Suppose the next session records another 4 million short sales, while traders close 4 million existing shorts. The aggregate position remains 11 million. Adding the two sessions' gross short sales produces 8 million, which describes transaction activity over those sessions rather than the position remaining open.
+
+A position can also be opened and closed within one session. That creates short-sale activity without an outstanding short at the measurement time. Conversely, a position opened earlier can remain outstanding through a day with few new short sales.
+
+This is why a spreadsheet that accumulates daily gross short sales will usually diverge from a position series. It lacks the offsetting activity needed to follow what remains open. Mixing exchanges, dates or reporting populations introduces further differences that subtraction cannot repair.
+
+## A high short-volume percentage needs its denominator
+
+The volume percentage can rise even when the number of shares short sold falls.
+
+| Hypothetical session | Gross short sales | Total volume | Short-sales share of volume |
+| --- | --- | --- | --- |
+| Session A | 4 million | 20 million | 20% |
+| Session B | 3 million | 10 million | 30% |
+
+Session B has a higher ratio and fewer short sales. Total trading activity fell faster than short-sale activity. A headline describing “a jump from 20% to 30%” leaves that distinction out.
+
+Always retain both quantities beside the percentage. Confirm that the total-volume denominator covers the same venue or venues, security and session as the short-sale numerator. A percentage assembled from incompatible coverage has no consistent interpretation.
+
+## What the figures cannot tell you
+
+Neither aggregate reveals who placed a trade, their entry price or why they hold the position. A high volume ratio does not establish that short sellers caused a price fall. A rising price alongside short sales does not establish that a squeeze is underway.
+
+Securities borrowing can serve hedging and arbitrage as well as directional short selling. [ASX describes these different uses](https://www.asx.com.au/participants/participants-resource/securities-lending-disclosure). Treating the entire short book as one bearish opinion assigns a motive the data does not contain.
+
+Data quality matters too. ASIC warns that it cannot verify every submitted position or whether every seller has reported, and that technical problems can affect daily comparisons. [See ASIC's report caveats](https://www.asic.gov.au/short-position-reports).
+
+## Tracking positions on Shorted
+
+Start with [the most shorted ASX stocks](/top) to compare reported short-interest percentages, then inspect a company's history. Record the position date beside the percentage. Use [Shorted's methodology](/methodology) to check the calculation and its limits.
+
+If another provider shows a different number, first establish whether it is a position or a transaction measure. Our guide to [why ASX short-interest figures differ](/blog/why-asx-short-interest-data-differs) covers the remaining checks.
+
+For a falling short-interest percentage, compare the underlying quantity and issued share count before describing it as covering. [A percentage can fall without short sellers buying back shares](/blog/why-short-interest-falls-without-covering).
+
+[Days to cover](/blog/days-to-cover-asx) adds a third calculation: reported short quantity divided by average daily trading volume. Its output is expressed in days, rather than either percentage discussed here. Check the averaging window before comparing providers.
+
+When saving a chart or citing a figure, write the measure into the sentence: “5.5% of issued shares reported short as at the position date”, or “20% of the venue's trading volume reported as short sales during the session”. The label should survive when the chart is shared without its surrounding page.
+
+*Sources checked 7 November 2026. All numerical examples are hypothetical. This article provides general education, not a recommendation to trade a security.*

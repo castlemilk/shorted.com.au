@@ -161,21 +161,18 @@ describe("MarketMoveCard", () => {
     expect(html).toContain("whitespace-pre-line");
   });
 
-  it("states the observation time, the revision, the AI disclosure and that it is not advice", () => {
+  it("states the observation time, the revision and that it is not advice, and names no author", () => {
     const { container, rerender } = render(<MarketMoveCard move={view()} />);
     const time = container.querySelector("time");
     expect(time?.getAttribute("dateTime")).toBe("2026-11-07T03:05:00Z");
     expect(time?.textContent).toBe("Observed 2:05 pm AEDT, Sat 7 Nov");
-    expect(container.textContent).toContain(
-      "Written by an AI market-moves workflow (claude-opus-5-5)",
-    );
+    expect(container.textContent).not.toContain("Written by");
+    expect(container.textContent).not.toContain("claude-opus-5-5");
     expect(container.textContent).toContain("Not financial advice");
     expect(container.textContent).not.toContain("Updated");
     rerender(<MarketMoveCard move={view({ revision: 2, model: null })} />);
     expect(container.textContent).toContain("Updated");
-    expect(container.textContent).toContain(
-      "Written by an AI market-moves workflow ·",
-    );
+    expect(container.textContent).not.toContain("Written by");
   });
 
   it("links a compact card's headline to the move on the feed and drops its sources", () => {

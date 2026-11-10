@@ -248,7 +248,7 @@ function PublishedBacktest({
 
             <section aria-labelledby="sensitivity-heading" className="space-y-3">
               <h2 id="sensitivity-heading" className={sectionTitle}>Sensitivity runs</h2>
-              <SensitivityTable rows={run.sensitivity} baseBeatsXjt={baseBeatsXjt(run)} />
+              <SensitivityTable rows={run.sensitivity} baseBeatsXjt={baseBeatsXjt(run)} recipe={recipe} />
             </section>
 
             {run.replayAgreement ? (

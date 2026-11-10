@@ -21,7 +21,13 @@ import { EventTimeline } from "~/@/components/company/event-timeline-loader";
 // On-demand ISR: the empty generateStaticParams is what makes the segment
 // statically optimisable; without it revalidate is inert and the page renders
 // on every request.
-export const revalidate = 600;
+//
+// An hour, and the news read below holds its answer for the same hour. News
+// arrives every four hours (`shorted news`, 0 */4 * * *). This was 600 s over a
+// news read the data cache held for a DAY, so the tab regenerated up to 144
+// times a day around a feed that changed at most once.
+export const revalidate = 3600;
+const NEWS_CACHE_SECONDS = 3600;
 export const dynamicParams = true;
 export function generateStaticParams(): Array<{ stockCode: string }> {
   return [];
@@ -157,7 +163,7 @@ export default async function StockNewsPage({ params }: PageProps) {
   if (!/^[A-Z0-9]{1,4}$/.test(code)) notFound();
 
   const [response, stock] = await Promise.all([
-    getStockNews(code, 60),
+    getStockNews(code, 60, NEWS_CACHE_SECONDS),
     getStockOrNotFound(code).catch(() => undefined),
   ]);
   // getStockNews resolves undefined once its retries are spent: a FAILED read,

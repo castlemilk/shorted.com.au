@@ -30,44 +30,42 @@ type bar struct {
 	vol                  *int64
 }
 
+// chartJSON is an ASX chart for BHP, the listing most tests read.
 func chartJSON(bars ...bar) []byte {
-	var doc yahooChartResponse
-	doc.Chart.Result = make([]struct {
-		Timestamp  []int64 `json:"timestamp"`
-		Indicators struct {
-			Quote []struct {
-				Open   []*float64 `json:"open"`
-				High   []*float64 `json:"high"`
-				Low    []*float64 `json:"low"`
-				Close  []*float64 `json:"close"`
-				Volume []*int64   `json:"volume"`
-			} `json:"quote"`
-			AdjClose []struct {
-				AdjClose []*float64 `json:"adjclose"`
-			} `json:"adjclose"`
-		} `json:"indicators"`
-	}, 1)
-	res := &doc.Chart.Result[0]
-	res.Indicators.Quote = make([]struct {
-		Open   []*float64 `json:"open"`
-		High   []*float64 `json:"high"`
-		Low    []*float64 `json:"low"`
-		Close  []*float64 `json:"close"`
-		Volume []*int64   `json:"volume"`
-	}, 1)
-	res.Indicators.AdjClose = make([]struct {
-		AdjClose []*float64 `json:"adjclose"`
-	}, 1)
-	q := &res.Indicators.Quote[0]
-	for _, b := range bars {
-		res.Timestamp = append(res.Timestamp, b.ts.Unix())
-		q.Open = append(q.Open, b.open)
-		q.High = append(q.High, b.high)
-		q.Low = append(q.Low, b.low)
-		q.Close = append(q.Close, b.cls)
-		q.Volume = append(q.Volume, b.vol)
-		res.Indicators.AdjClose[0].AdjClose = append(res.Indicators.AdjClose[0].AdjClose, b.adj)
+	return chartJSONOn("BHP", "AUD", "ASX", bars...)
+}
+
+// chartJSONOn is a chart whose meta names the listing it was answered for.
+func chartJSONOn(symbol, currency, exchange string, bars ...bar) []byte {
+	ts := []int64{}
+	var opens, highs, lows, closes, adjs, vols []any
+	pf := func(p *float64) any {
+		if p == nil {
+			return nil
+		}
+		return *p
 	}
+	for _, b := range bars {
+		ts = append(ts, b.ts.Unix())
+		opens, highs, lows = append(opens, pf(b.open)), append(highs, pf(b.high)), append(lows, pf(b.low))
+		closes, adjs = append(closes, pf(b.cls)), append(adjs, pf(b.adj))
+		var v any
+		if b.vol != nil {
+			v = *b.vol
+		}
+		vols = append(vols, v)
+	}
+	doc := map[string]any{"chart": map[string]any{
+		"error": nil,
+		"result": []any{map[string]any{
+			"meta":      map[string]any{"symbol": symbol, "currency": currency, "exchangeName": exchange},
+			"timestamp": ts,
+			"indicators": map[string]any{
+				"quote":    []any{map[string]any{"open": opens, "high": highs, "low": lows, "close": closes, "volume": vols}},
+				"adjclose": []any{map[string]any{"adjclose": adjs}},
+			},
+		}},
+	}}
 	body, err := json.Marshal(doc)
 	if err != nil {
 		panic(err)
@@ -119,7 +117,7 @@ func TestParseYahooChartDatesAEDTSessionsCorrectly(t *testing.T) {
 func TestParseYahooChartSkipsNullBarsRatherThanStoringZero(t *testing.T) {
 	t.Parallel()
 	ts := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
-	body := chartJSON(
+	body := chartJSONOn("XYZ", "AUD", "ASX",
 		full(ts, 10),
 		bar{ts: ts.AddDate(0, 0, 1)}, // a session with no trade data: every field null
 		bar{ts: ts.AddDate(0, 0, 2), cls: new(float64(12))},
@@ -151,6 +149,49 @@ func TestParseYahooChartErrors(t *testing.T) {
 	_, err = parseYahooChart([]byte(`not json`), "BHP")
 	require.Error(t, err)
 	assert.False(t, IsNoDataError(err))
+}
+
+// flat is a session priced at p on every field.
+func flat(ts time.Time, p float64) bar {
+	return bar{ts: ts, open: new(p), high: new(p), low: new(p), cls: new(p), adj: new(p), vol: new(int64(1000))}
+}
+
+func TestParseYahooChartRefusesAnotherListing(t *testing.T) {
+	t.Parallel()
+	// The SLM bar for 24 Dec 2025 in the database: SLM Corp on NASDAQ (USD, ~$27),
+	// under the ASX code SLM (~$0.04). A chart for another listing stores nothing.
+	body := chartJSONOn("SLM", "USD", "NMS", flat(time.Date(2025, 12, 23, 23, 0, 0, 0, time.UTC), 27.66))
+	recs, err := parseYahooChart(body, "SLM")
+	assert.True(t, IsNoDataError(err), "a foreign listing is an answer about the ASX code, not a price: %v", err)
+	assert.Empty(t, recs, "nothing from another listing may be stored")
+}
+
+func TestParseYahooChartRefusesAnotherCodeOnTheASX(t *testing.T) {
+	t.Parallel()
+	body := chartJSONOn("AMD", "AUD", "ASX", flat(time.Date(2025, 12, 23, 23, 0, 0, 0, time.UTC), 0.02))
+	recs, err := parseYahooChart(body, "SLM")
+	assert.True(t, IsNoDataError(err), "a chart for another ASX code is not this code's price: %v", err)
+	assert.Empty(t, recs)
+}
+
+func TestParseYahooChartRefusesAnUnidentifiedChart(t *testing.T) {
+	t.Parallel()
+	// No meta at all: nothing says which security this is.
+	body := []byte(`{"chart":{"error":null,"result":[{"timestamp":[1766530800],"indicators":{"quote":[{"close":[0.04]}]}}]}}`)
+	recs, err := parseYahooChart(body, "SLM")
+	require.Error(t, err)
+	assert.False(t, IsNoDataError(err), "an unidentified chart is a failure, not a strike against the stock")
+	assert.Empty(t, recs)
+}
+
+func TestParseYahooChartStoresTheASXListing(t *testing.T) {
+	t.Parallel()
+	body := chartJSONOn("SLM", "AUD", "ASX", flat(time.Date(2025, 12, 22, 23, 0, 0, 0, time.UTC), 0.05))
+	recs, err := parseYahooChart(body, "SLM")
+	require.NoError(t, err)
+	require.Len(t, recs, 1)
+	assert.Equal(t, "SLM", recs[0].StockCode)
+	assert.Equal(t, 0.05, recs[0].Close)
 }
 
 // stubFetcher serves chart documents by the request window.
@@ -249,13 +290,13 @@ func TestFetchHistoricalDataChunksNewestFirstAndStopsWhenEmpty(t *testing.T) {
 		from := unixParam(t, q, "period1").AddDate(0, 0, 2)
 		to := unixParam(t, q, "period2").AddDate(0, 0, -2)
 		if to.Before(day(listed)) {
-			return chartJSON(), nil // before the listing: no sessions
+			return chartJSONOn("NEW", "AUD", "ASX"), nil // before the listing: no sessions
 		}
 		if from.Before(day(listed)) {
 			from = day(listed)
 		}
 		// One bar at the start and one at the end of the chunk (AEST opens).
-		return chartJSON(full(from, 1), full(to, 2)), nil
+		return chartJSONOn("NEW", "AUD", "ASX", full(from, 1), full(to, 2)), nil
 	}}
 	p := &YahooFinanceDirectProvider{fetch: stub, interval: 20 * time.Millisecond}
 

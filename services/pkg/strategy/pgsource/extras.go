@@ -321,7 +321,7 @@ func sanitiseQuality(q *engine.Quality) {
 // ListExtras reads the extras of every stock with a growth or
 // quality row, keyed by stock code. nil (and no error) when 000132 is absent.
 func ListExtras(ctx context.Context, db DB) (map[string]*FundamentalsExtras, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	out, err := func() (map[string]*FundamentalsExtras, error) {
@@ -401,7 +401,7 @@ func MergeExtras(cands []engine.Candidate, extras map[string]*FundamentalsExtras
 // valuation inputs, the latest close and the industry. nil (and no error)
 // when 000132 is absent.
 func GetExtras(ctx context.Context, db DB, code string) (*FundamentalsExtras, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	e, err := scanExtras(db.QueryRow(ctx, ExtrasSingleQuery, code))

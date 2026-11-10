@@ -3,11 +3,15 @@ package main
 import (
 	"bytes"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -27,8 +31,9 @@ func revalidateResponse(status int, body string) *http.Response {
 	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
 }
 
-// TestPingRevalidateSendsExpectedQuery asserts the secret is carried in a
-// header (never the logged URL) alongside the housing cache-bust query.
+// TestPingRevalidateSendsExpectedQuery asserts the official refresh's cache bust
+// carries the secret in a header (never the logged URL), the crawl's paths and
+// flush, and the housing tag.
 func TestPingRevalidateSendsExpectedQuery(t *testing.T) {
 	var got *http.Request
 	useRevalidateTransport(t, func(r *http.Request) (*http.Response, error) {
@@ -68,6 +73,103 @@ func TestPingRevalidateSendsExpectedQuery(t *testing.T) {
 	}
 }
 
+// captureRevalidate runs ping against a recording transport and returns the one
+// request it sent.
+func captureRevalidate(t *testing.T, ping func()) *http.Request {
+	t.Helper()
+	var got []*http.Request
+	useRevalidateTransport(t, func(r *http.Request) (*http.Response, error) {
+		got = append(got, r)
+		return revalidateResponse(http.StatusOK, `{"revalidated":true}`), nil
+	})
+	t.Setenv("REVALIDATION_URL", "https://revalidate.invalid/api/revalidate")
+	t.Setenv("REVALIDATION_SECRET", "s3cr3t")
+	ping()
+	if len(got) != 1 {
+		t.Fatalf("sent %d revalidation request(s), want 1", len(got))
+	}
+	return got[0]
+}
+
+// assertCrawlScope checks a crawl write's cache bust: /price-drops and the
+// housing KV family, the secret in a header, and neither the tag nor the
+// /housing path. Each one alone expires every state and suburb page: the tag
+// through the state index, and the path because Vercel expires a plain path's
+// whole subtree (measured 2026-11-09). Before this scope was split out, the
+// 30-minute crawl-finalize sent both about 20 times a day.
+func assertCrawlScope(t *testing.T, r *http.Request) {
+	t.Helper()
+	q := r.URL.Query()
+	if r.Method != http.MethodPost {
+		t.Errorf("method = %s, want POST", r.Method)
+	}
+	if r.Header.Get("X-Revalidate-Secret") != "s3cr3t" {
+		t.Errorf("X-Revalidate-Secret = %q, want s3cr3t", r.Header.Get("X-Revalidate-Secret"))
+	}
+	if _, ok := q["secret"]; ok {
+		t.Errorf("secret must not ride in query string, got %q", q.Get("secret"))
+	}
+	if q.Get("path") != "/price-drops" {
+		t.Errorf("path = %q, want /price-drops alone (a crawl ping must not name /housing)", q.Get("path"))
+	}
+	if q.Get("flush") != "housing" {
+		t.Errorf("flush = %q, want housing", q.Get("flush"))
+	}
+	if tags, ok := q["tag"]; ok {
+		t.Errorf("a crawl write's cache bust sent tag=%q; it must send no tag", tags)
+	}
+}
+
+func TestPingCrawlRevalidateSendsNoTag(t *testing.T) {
+	assertCrawlScope(t, captureRevalidate(t, func() { pingCrawlRevalidate("test") }))
+}
+
+// crawl-finalize is what runs every 30 minutes, so its production wiring is the
+// one that matters most. A refactor that hands it pingRevalidate again would
+// pass every finalize ordering test.
+func TestCrawlFinalizeSendsTheCrawlScope(t *testing.T) {
+	ops := productionFinalizeOps(nil)
+	assertCrawlScope(t, captureRevalidate(t, func() { ops.revalidate("crawl-finalize") }))
+}
+
+// The housing tag is sent from exactly one place: refresh(), the official data
+// refresh. Every other path in this package that writes housing data is a crawl
+// write and must use pingCrawlRevalidate. A function value passed rather than
+// called (finalizeOps.revalidate) is a reference too, so both are counted.
+func TestOnlyRefreshSendsTheHousingTag(t *testing.T) {
+	names, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fset := token.NewFileSet()
+	var refs []string
+	for _, name := range names {
+		if strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil || fn.Name.Name == "pingRevalidate" {
+				continue
+			}
+			ast.Inspect(fn.Body, func(n ast.Node) bool {
+				if id, ok := n.(*ast.Ident); ok && id.Name == "pingRevalidate" {
+					refs = append(refs, fn.Name.Name+" ("+fset.Position(id.Pos()).String()+")")
+				}
+				return true
+			})
+		}
+	}
+	if len(refs) != 1 || !strings.HasPrefix(refs[0], "refresh ") {
+		t.Fatalf("pingRevalidate (the housing tag) is referenced from %v; want refresh() alone. "+
+			"A crawl write uses pingCrawlRevalidate.", refs)
+	}
+}
+
 // TestPingRevalidateSkipsWhenUnset asserts the ping is a no-op (no HTTP request)
 // when either env var is empty — so an unconfigured collector never errors.
 func TestPingRevalidateSkipsWhenUnset(t *testing.T) {
@@ -92,7 +194,7 @@ func TestPingRevalidateSkipsWhenUnset(t *testing.T) {
 			t.Setenv("REVALIDATION_SECRET", tc.secret)
 
 			pingRevalidate("test")
-
+			pingCrawlRevalidate("test")
 		})
 	}
 	if hits != 0 {
@@ -120,8 +222,10 @@ func TestPingRevalidateToleratesNon2xx(t *testing.T) {
 // run-housing-agent.sh, a hand run) the round still pings itself.
 func TestRevalidateAfterCrawlWriteDefersToTheDrain(t *testing.T) {
 	hits := 0
+	var last *http.Request
 	useRevalidateTransport(t, func(r *http.Request) (*http.Response, error) {
 		hits++
+		last = r
 		return revalidateResponse(http.StatusOK, `{"revalidated":true}`), nil
 	})
 	t.Setenv("REVALIDATION_URL", "https://revalidate.invalid/api/revalidate")
@@ -145,6 +249,7 @@ func TestRevalidateAfterCrawlWriteDefersToTheDrain(t *testing.T) {
 	if hits != 1 {
 		t.Fatalf("a round outside the drain sent %d revalidation request(s), want 1", hits)
 	}
+	assertCrawlScope(t, last)
 }
 
 // The drain finds a round's deferred ping only by grepping its output, sets the

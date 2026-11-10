@@ -10,8 +10,8 @@ import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 // The list is client-fetched (volatile, session-aware), so the page is a
 // static shell: no stock read of its own (the layout already validated the
 // code against the API) and noindex (the thread pages beneath carry the
-// crawlable text).
-export const revalidate = 3600;
+// crawlable text). A day: the shell holds only the layout's reads.
+export const revalidate = 86400;
 export const dynamicParams = true;
 export function generateStaticParams(): Array<{ stockCode: string }> {
   return [];

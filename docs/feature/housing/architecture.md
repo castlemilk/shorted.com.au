@@ -660,36 +660,64 @@ publishable surface; per-listing rows deep-link OUT to the live portal page.
 
 ### 10.3 Crawl-aligned caching (pay-per-crawl, not pay-per-visitor)
 
-The corpus changes ~once/day (when a crawl batch lands), so freshness is EVENT-driven with
-TTLs only as self-healing ceilings:
+Freshness is EVENT-driven with TTLs only as self-healing ceilings, and a ping expires only
+what its data feeds. There are two scopes (`services/house-price-collector/revalidate.go`):
 
 ```
-crawl batch (rig -mode agent / -mode listings / official refresh)
+crawl write (crawl-finalize every 30 min, rig -mode agent / -mode listings / the drain)
   └─ refreshHousingMV()  — SQL refresh of all housing MVs
-      └─ pingRevalidate() — services/house-price-collector/revalidate.go
-          POST $REVALIDATION_URL?path=/price-drops,/housing&flush=housing&tag=housing
+      └─ pingCrawlRevalidate()
+          POST $REVALIDATION_URL?path=/price-drops&flush=housing
           X-Revalidate-Secret: $REVALIDATION_SECRET
           (detached 45s ctx; warn-only; NO-OP when env unset)
-              ├─ revalidatePath(/price-drops, /housing)   — busts the ISR route cache
-              ├─ revalidateTag(housing) — the state-suburb index (unstable_cache), and
-              │    with it every state and suburb page that read it
+              ├─ revalidatePath(/price-drops)   — busts the ISR route cache
               └─ flush=housing → deleteCachedByPrefix(cache:housing:*)  — busts KV
                      (flush= takes a comma list; `shorts` and `housing` families exist)
+
+official data refresh (refresh(): the monthly run, -mode vg-nsw / vg-vic, crime, -mode refresh)
+  └─ pingRevalidate() — the crawl's flush, path=/price-drops,/housing, plus &tag=housing
+              └─ revalidateTag(housing) — the state-suburb index, the capital-city prices
+                   and the rankings (unstable_cache), and with the index every state and
+                   suburb page that read it (~15,000 pages)
 next visitor → ISR regen → server actions live-fetch → repopulate KV → HIT for everyone
 
 rig drain (hc_drain_until_empty, deploy/housing-crawl-common.sh: up to
            CRAWL_DRAIN_MAX_ROUNDS=30 `-mode agent` rounds)
   ├─ each round runs with CRAWL_REVALIDATE_DEFER=1: refreshHousingMV(), then logs
-  │    "deferred to the drain" (revalidateAfterCrawlWrite) instead of pingRevalidate()
+  │    "deferred to the drain" (revalidateAfterCrawlWrite) instead of pinging
   ├─ a ping owed for CRAWL_REVALIDATE_INTERVAL_SEC (3600) mid-drain
-  │    └─ -mode revalidate → pingRevalidate()
+  │    └─ -mode revalidate → pingCrawlRevalidate()
   └─ the drain ends, whatever its exit code (which it keeps), with a ping owed
-       └─ -mode revalidate → pingRevalidate()   — the drain's one cache bust
+       └─ -mode revalidate → pingCrawlRevalidate()   — the drain's one cache bust
 ```
 
-**Once per drain, not once per round.** One ping purges `/price-drops`, `/housing` and every
-state and suburb page (they share the `housing` tag) and flushes the whole `cache:housing:`
-prefix, and on Next 14 the first request after a purge renders while the visitor waits. When
+**A crawl ping never sends the `housing` tag.** None of the reads that carry the tag contains
+crawl data. The state index's fields are sold-price median, growth, income, amenity score and
+population. The capitals and rankings are sold prices. The crawl's data reaches a suburb page
+as the profile's `listing_stats`, through an untagged read, so the page picks up new listing
+stats on its own 24h ISR window. Before 2026-11-09 one ping function served both scopes.
+Once the server-side crawl went live (2026-10-31), `crawl-finalize` sent the tag whenever the
+fleet's ingest had written, about 20 times a day. Each one rebuilt every state and suburb
+page. On 2026-11-08 `REVALIDATED delete_tag` was the largest cause of housing re-renders,
+300–470 a half hour against about 30 for the stock pages. `TestOnlyRefreshSendsTheHousingTag`
+pins `refresh()` as the tag's one sender.
+
+**A crawl ping never names `/housing` either.** On Vercel, a plain `revalidatePath(p)`
+expires every page under `p`, not only `p` ([caching-architecture.md](../../caching-architecture.md),
+"Path revalidation on Vercel"). The first tagless crawl pings (#941, 2026-11-09 05:00 and
+05:30) still sent `path=/price-drops,/housing`. After the 05:30 ping, the only one in that
+window, 12 of the 13 `/housing/*` pages cached before it came back `REVALIDATED delete_tag`,
+while stock, economy and ownership pages kept their entries. The hub renders official data
+only, so the crawl scope sends `path=/price-drops` alone. `assertCrawlScope` fails on
+`/housing`.
+
+An operator ingest that changes a state-index field and does not call `refresh()` (`-mode
+census`, `amenities`, `seifa`) shows on suburb pages within the index's 24h window. To show
+it at once, run `-mode refresh`, which sends the tag.
+
+**Once per drain, not once per round.** One ping purges `/price-drops` and `/housing` and
+flushes the whole `cache:housing:` prefix (before 2026-11-09 it also expired every state and
+suburb page), and the first request after a purge renders while the visitor waits. When
 every round pinged, nearly every visit during a drain was that first request (2026-10-21:
 `/price-drops`, two GETs 20 minutes apart, both 44s at Age 0, most of it the address seed's
 retries, since bounded to one 2s attempt). A single `-mode agent` run outside the drain still

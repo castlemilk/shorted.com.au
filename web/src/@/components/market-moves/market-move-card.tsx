@@ -8,7 +8,6 @@ import {
   DIRECTION_WORD,
   MOVE_STRIPE,
   MOVE_TONE,
-  aiDisclosure,
   formatMoveChange,
   formatMovePrice,
   formatObservedAt,
@@ -21,8 +20,9 @@ import {
  * no client JS, no Connect, only the plain MarketMoveView.
  *
  * Plain text throughout (the API stores text, never HTML or markdown); the
- * summary keeps the poster's line breaks. Every move says it was written by an
- * AI workflow and is not advice, and carries its own observation time.
+ * summary keeps the poster's line breaks. Every move says it is not advice and
+ * carries its own observation time. The card names no author: the /market-moves
+ * page says the moves are AI-written.
  */
 export interface MarketMoveCardProps {
   move: MarketMoveView;
@@ -258,7 +258,6 @@ export function MarketMoveCard({
       <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
         <time dateTime={move.observedAt}>{observed}</time>
         {move.revision > 1 ? <span> · Updated</span> : null}
-        <span> · {aiDisclosure(move.model)}</span>
         <span> · Not financial advice</span>
       </p>
     </article>

@@ -977,7 +977,8 @@ They are in place so the chart and table code is reviewed once.
 
 `/shorts/[stockCode]` is a shared server `layout.tsx` (breadcrumbs, then
 `StockHeader`, then the sticky `StockTabNav`) with seven ISR pages beneath it
-(3600 s; `/news` 600 s): `/` (Overview digest), `/short-interest`,
+(layout, Short interest, Financials and Community 86400 s; Overview, Strategy,
+Company and News 3600 s, held there by what they read): `/` (Overview digest), `/short-interest`,
 `/strategy`, `/financials`, `/company`, `/news` and `/community`. The thread
 pages at `community/[threadId]` render under the same layout but stay
 per-request. The tab list lives ONCE in
@@ -1252,9 +1253,24 @@ follows the same rules. `ChatSidebar` and both environment banners read
   unmapped value. No client-side reader exists any more. Under `next start` the
   redirect's `Location` keeps the stale `?tab=`, so the e2e test compares its
   pathname.
-- **The sync's `/shorts/[stockCode]` path is revalidated with type `layout`**
-  (`/api/revalidate`), which expires every tab for every code in one call. An
+- **The sync expires only the stocks it wrote.** It sends its change set
+  (codes + report dates) in the `/api/revalidate` body; the route expires
+  `stock:<CODE>` per written stock, `shorts-latest` (newest-snapshot reads), and
+  each written date's `/market/<date>` and covering reports
+  (`app/api/revalidate/shorts-change.ts`). Every per-stock read carries
+  `stock:<CODE>` through `stockPageCacheTags`; every newest-snapshot read carries
+  `shorts-latest` through `shortsLatestCacheTags`; a bare `shorts-data` tag fails
+  `shorts-tag-scopes.test.ts`. `tag=shorts-data` (or `flush=shorts` with no
+  change set) is still the BROAD bust: every tab of every code, as the deploy
+  sweep and an initial load or a large repair send it. A route's window is the
+  shortest its segments and reads declare, so a read with a short window (the
+  Overview's related stocks were 1800 s) quietly shortens the whole tab. An
   expired page regenerates only when it is next visited.
+- **On Vercel, a plain path expires its whole subtree.** `revalidatePath("/housing")`
+  expired every state and suburb page, and `/` expired the whole site on every
+  sync and news publish (measured 2026-11-09). `/api/revalidate` sends `/` as
+  page-typed. Every other caller must send a leaf path or a tag, never a parent
+  (`docs/caching-architecture.md`, "Path revalidation on Vercel").
 - **A chart is no longer one DOM node across the tabs.** Each chart tab mounts
   its own, so a return to one within 30 minutes (the chart queries'
   `DAILY_STALE`, and the client's `gcTime`) re-renders from the TanStack cache
@@ -2361,7 +2377,7 @@ Full record: **`docs/feature/market-moves/README.md`** (the posting contract, th
 workflow recipe, every landmine). A Claude workflow posts what moved, by how much,
 when it saw it and why; shorted stores it in `market_moves` (migration 000160,
 allowlisted) and draws it on `/market-moves`, a homepage strip and the stock
-Overview card, live at once and labelled AI-written. Two doors to one core
+Overview card, live at once (the feed page says they are AI-written; the cards name no author). Two doors to one core
 (`market_moves.go`): `POST /v1/market-moves` (+ `/retract`) with a token an admin
 creates at `/admin/market-moves` (`smm_...`, shown once, stored as its SHA-256 in
 `market_moves_tokens`, revoked there within 30 s), and the admin MCP tools
@@ -3312,7 +3328,8 @@ SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
 printf '%s' "$SECRET" | cuttle secrets set CLOUDFLARE_SSR_BYPASS_SECRET --project shorted
 printf '%s' "$SECRET" | gh secret set CLOUDFLARE_SSR_BYPASS_SECRET --repo castlemilk/shorted.com.au
 printf '%s' "$SECRET" | vercel env add SHORTED_SSR_BYPASS_SECRET production
-# then re-run terraform-deploy (or: cd terraform/environments/prod &&
+# then dispatch terraform-deploy, which always rebuilds the web (a push that
+# changes no web input does not); or: cd terraform/environments/prod &&
 # TF_VAR_rate_limit_ssr_bypass_secret="$SECRET" terraform apply)
 ```
 Rotation order: set the new value in Terraform/Cloudflare first, then Vercel —
@@ -3354,8 +3371,20 @@ make install-hooks    # Sets up pre-push hook
 
 Every push to `main` deploys through `terraform-deploy.yml`, which Cuttlefish
 runs (the workflow is disabled on GitHub, so `workflow_dispatch` there fails).
-Its `deploy-vercel-prod` job builds and promotes the whole of `main` on every
-push; there is no path filter. The workflow's concurrency group is
+Its `deploy-vercel-prod` job builds and promotes the whole of `main`, but
+only when something the web build reads changed since the commit production
+serves (`isWebInput` in `scripts/vercel-release.mjs`: `web/` outside its tests,
+`proto/`, `vercel.json`, the deploy workflow and its release scripts). A push
+that changes none of them leaves the web as it is (`web-current=true`; the
+release smoke still runs), because every new deployment starts from an empty
+ISR cache: on 2026-11-06 only 2 of 11 production deployments changed the web,
+and the stock pages' hit ratio was 1-14% after each against 38% six hours into
+one. So `/api/version` reports the last web-relevant commit, not `main`'s head.
+A dispatch or a published release always deploys the web, and so does a re-run
+whose runner reports `GITHUB_RUN_ATTEMPT` above 1 (unverified on Cuttlefish). To
+redeploy the same code, after rotating a build-time secret say, dispatch
+(`cuttle gha dispatch`, below). The
+workflow's concurrency group is
 `deploy-refs/heads/main` with `cancel-in-progress: false`, so a push that lands
 while a deploy is running is QUEUED, as on GitHub: its dispatch exists but has
 no runs until the running deploy finishes, so `cuttlefish_runs_list` shows

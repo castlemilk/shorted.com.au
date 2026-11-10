@@ -15,8 +15,11 @@ const SHELL_MARKER = 'data-isr-shell="empty"';
 const CONCURRENCY = 8;
 
 // Builds deliberately skip live data and prerender empty shells. A deployment
-// explicitly invalidates and primes them. The hourly repair only invalidates
-// confirmed shells, leaving healthy ISR entries to their own TTL/data events.
+// explicitly invalidates and primes them. The scheduled repair (every six
+// hours, web/vercel.json) only invalidates confirmed shells, leaving healthy ISR
+// entries to their own TTL/data events. It is a backstop for a failed prime:
+// every shell page caps a runtime empty render at 60 s (bailOnEmptyRender,
+// pinned by isr-shell-pages.test.ts).
 export async function GET(request: NextRequest) {
   if (!isCacheWarmAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

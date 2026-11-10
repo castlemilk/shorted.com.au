@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import isrPages from "../isr-pages.json";
@@ -308,3 +308,27 @@ describe("the workspace pages in the sweep and the shell re-prime", () => {
     expect(isrShellPages).toContain(page);
   });
 });
+
+// A shell page's empty render is user-visible. bailOnEmptyRender caps one
+// rendered at RUNTIME (a failed or empty read) at 60 s, so it heals on the next
+// visit by itself. That leaves only the build's deliberately empty prerender,
+// which the deploy re-primes (/api/static-pages/warm-cache?mode=deploy, then
+// mode=repair). The scheduled sweep (web/vercel.json) is the backstop for a
+// failed re-prime, and it runs every six hours, not every hour, only because
+// every page here carries the guard.
+describe("every shell page heals a runtime empty render by itself", () => {
+  const pageFile = (path: string) =>
+    join(
+      __dirname,
+      "../../app",
+      path.replace(/^\/housing\/[a-z]+\/council$/, "/housing/[state]/council"),
+      "page.tsx",
+    );
+
+  it.each(isrShellPages as string[])("%s calls bailOnEmptyRender", (path) => {
+    const file = pageFile(path);
+    expect(existsSync(file)).toBe(true);
+    expect(readFileSync(file, "utf8")).toMatch(/await bailOnEmptyRender\(\)/);
+  });
+});
+

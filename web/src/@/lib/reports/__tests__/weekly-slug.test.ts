@@ -1,4 +1,5 @@
 import {
+  isoWeekDbSlug,
   weekDbSlugToPathSlug,
   weeklyReportPath,
   resolveWeeklySlugParam,
@@ -43,5 +44,22 @@ describe("weekly-slug", () => {
     expect(
       resolveWeeklySlugParam("10-most-shorted-asx-stocks-week-99-2026"),
     ).toBeNull();
+  });
+
+  it("names the ISO-8601 week a date falls in, as Go's time.ISOWeek does", () => {
+    expect(isoWeekDbSlug("2026-11-03")).toBe("2026-W45");
+    // A Thursday on 1 January opens week 1 of its own year.
+    expect(isoWeekDbSlug("2026-01-01")).toBe("2026-W01");
+    // A Friday on 1 January belongs to the previous year's last week.
+    expect(isoWeekDbSlug("2027-01-01")).toBe("2026-W53");
+    // A Monday on 30 December can open the next year's week 1.
+    expect(isoWeekDbSlug("2024-12-30")).toBe("2025-W01");
+    expect(isoWeekDbSlug("2026-12-31")).toBe("2026-W53");
+  });
+
+  it("refuses anything that is not a real calendar date", () => {
+    for (const bad of ["2026-02-30", "2026-13-01", "20261103", "2026-11-3", "", "2026-11-03T00:00:00Z"]) {
+      expect(isoWeekDbSlug(bad)).toBeNull();
+    }
   });
 });

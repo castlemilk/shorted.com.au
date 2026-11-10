@@ -84,7 +84,7 @@ describe("getStockStrategyFit", () => {
     const [, key, opts] = cacheCalls.find(([, k]) => k[0] === "stock-strategy-fit")!;
     expect(key).toEqual(["stock-strategy-fit", "BHP", "v4"]);
     expect(opts.revalidate).toBe(3600);
-    expect(opts.tags).toEqual(["strategy-picks", "shorts-data", "stock-page:strategy-fit:bhp"]);
+    expect(opts.tags).toEqual(["strategy-picks", "shorts-data", "stock:BHP", "stock-page:strategy-fit:bhp"]);
 
     // A 4 s abort on the call.
     const [request, callOptions] = mockGetStockStrategyFit.mock.calls[0] as [

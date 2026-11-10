@@ -33,12 +33,22 @@ const (
 )
 
 // reportSet resolves R*(t): the newest complete ASIC report published by t, as
-// the short reading does. It holds each report's rows by code.
+// the short reading does. It is built once per run and shared by the coverage
+// and the reference. It holds no copy of the ASIC rows: every row it names is an
+// index into mkt.ASIC.
 type reportSet struct {
-	cal     *calendar.Calendar
-	reports *features.Reports
-	dates   []civil.Date // report dates, ascending
-	rows    map[civil.Date]map[string]features.ASICRow
+	pin  *pipeline.Inputs
+	mkt  Market
+	cal  *calendar.Calendar
+	comp features.ReportCompleteness
+	// dates are the report dates, ascending.
+	dates []civil.Date
+	// rows holds, per report date, one index into mkt.ASIC per code: the last row
+	// the code has on that date, as the rows are given.
+	rows map[civil.Date][]int32
+	// byCode holds each code's indices into mkt.ASIC ordered by report date; ties
+	// keep input order (a stable sort).
+	byCode map[string][]int32
 }
 
 // newReportSet indexes the run's ASIC rows under the calendar of version s.
@@ -47,20 +57,40 @@ func newReportSet(in Inputs, s spec.Spec) (*reportSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	idx := pipeline.NewIndex(pin, s)
 	rs := &reportSet{
-		cal:     idx.Calendar(),
-		reports: features.NewReports(mkt.ASIC, mkt.Ingests),
-		rows:    map[civil.Date]map[string]features.ASICRow{},
+		pin:    pin,
+		mkt:    mkt,
+		cal:    pipeline.CalendarFor(pin, s),
+		comp:   features.NewReportCompleteness(mkt.ASIC, mkt.Ingests),
+		rows:   map[civil.Date][]int32{},
+		byCode: map[string][]int32{},
 	}
-	for _, row := range mkt.ASIC {
-		if rs.rows[row.ReportDate] == nil {
-			rs.rows[row.ReportDate] = map[string]features.ASICRow{}
-			rs.dates = append(rs.dates, row.ReportDate)
+	byDate := map[civil.Date][]int32{}
+	for i := range mkt.ASIC {
+		row := &mkt.ASIC[i]
+		byDate[row.ReportDate] = append(byDate[row.ReportDate], int32(i))
+		rs.byCode[row.Code] = append(rs.byCode[row.Code], int32(i))
+	}
+	for d, idxs := range byDate {
+		last := make(map[string]int32, len(idxs))
+		for _, i := range idxs {
+			last[mkt.ASIC[i].Code] = i
 		}
-		rs.rows[row.ReportDate][row.Code] = row
+		kept := make([]int32, 0, len(last))
+		for _, i := range last {
+			kept = append(kept, i)
+		}
+		sort.Slice(kept, func(a, b int) bool { return kept[a] < kept[b] })
+		rs.rows[d] = kept
+		rs.dates = append(rs.dates, d)
 	}
 	sort.Slice(rs.dates, func(i, j int) bool { return rs.dates[i].Before(rs.dates[j]) })
+	for code, idxs := range rs.byCode {
+		sort.SliceStable(idxs, func(a, b int) bool {
+			return mkt.ASIC[idxs[a]].ReportDate.Before(mkt.ASIC[idxs[b]].ReportDate)
+		})
+		rs.byCode[code] = idxs
+	}
 	return rs, nil
 }
 
@@ -69,38 +99,40 @@ func (rs *reportSet) at(t civil.Date) (civil.Date, bool) {
 	i := sort.Search(len(rs.dates), func(i int) bool { return rs.dates[i].After(t) })
 	for i--; i >= 0; i-- {
 		d := rs.dates[i]
-		if rs.cal.Usable(d, t) && rs.reports.Complete(d) {
+		if rs.cal.Usable(d, t) && rs.comp.Complete(d) {
 			return d, true
 		}
 	}
 	return civil.Date{}, false
 }
 
-// ordinaryRows are the rows of R*(t) whose codes are ordinary shares, the
-// universe's own rule for a reported name.
-func (rs *reportSet) ordinaryRows(in Inputs, t civil.Date) map[string]features.ASICRow {
+// ordinaryRows are the indices (into mkt.ASIC) of the rows of R*(t) whose codes
+// are ordinary shares, the universe's own rule for a reported name.
+func (rs *reportSet) ordinaryRows(t civil.Date) []int32 {
 	d, ok := rs.at(t)
 	if !ok {
 		return nil
 	}
-	mkt := in.Market()
-	out := map[string]features.ASICRow{}
-	for code, row := range rs.rows[d] {
-		if instrument.IneligibleReason(code, row.Product, mkt.Names[code], row.Issued, mkt.ETPs, true) != "" {
+	mkt := rs.mkt
+	var out []int32
+	for _, i := range rs.rows[d] {
+		row := &mkt.ASIC[i]
+		if instrument.IneligibleReason(row.Code, row.Product, mkt.Names[row.Code], row.Issued, mkt.ETPs, true) != "" {
 			continue
 		}
-		out[code] = row
+		out = append(out, i)
 	}
 	return out
 }
 
-// qualifying are the ordinary rows of R*(t) with a finite percentage at or above
-// min.
-func qualifying(rows map[string]features.ASICRow, min float64) []string {
+// qualifying are the codes of the rows (indices into mkt.ASIC) with a finite
+// percentage at or above min, sorted.
+func (rs *reportSet) qualifying(rows []int32, min float64) []string {
 	var out []string
-	for code, row := range rows {
+	for _, i := range rows {
+		row := &rs.mkt.ASIC[i]
 		if row.Percent != nil && finite(*row.Percent) && *row.Percent >= min {
-			out = append(out, code)
+			out = append(out, row.Code)
 		}
 	}
 	sort.Strings(out)
@@ -143,22 +175,24 @@ func MeasureCoverage(in Inputs, s spec.Spec, sessions []civil.Date, minPct float
 	if err != nil {
 		return Coverage{}, err
 	}
-	pin, _, err := pipelineInputs(in)
-	if err != nil {
-		return Coverage{}, err
-	}
+	return measureCoverage(rs, sessions, minPct), nil
+}
+
+// measureCoverage is MeasureCoverage over a report set built for the run.
+func measureCoverage(rs *reportSet, sessions []civil.Date, minPct float64) Coverage {
 	q := newPeriods(MeasureQualifying)
 	a := newPeriods(MeasureAllReported)
 	for _, t := range sessions {
-		rows := rs.ordinaryRows(in, t)
-		for _, code := range qualifying(rows, minPct) {
-			q.add(t, 1, barOn(pin.Bars[code], t) != nil)
+		rows := rs.ordinaryRows(t)
+		for _, code := range rs.qualifying(rows, minPct) {
+			q.add(t, 1, barOn(rs.pin.Bars[code], t) != nil)
 		}
-		for code := range rows {
-			a.add(t, 1, barOn(pin.Bars[code], t) != nil)
+		for _, i := range rows {
+			code := rs.mkt.ASIC[i].Code
+			a.add(t, 1, barOn(rs.pin.Bars[code], t) != nil)
 		}
 	}
-	return Coverage{Qualifying: q.finish(), AllReported: a.finish()}, nil
+	return Coverage{Qualifying: q.finish(), AllReported: a.finish()}
 }
 
 // periods accumulates name-days by year, month and the whole window.

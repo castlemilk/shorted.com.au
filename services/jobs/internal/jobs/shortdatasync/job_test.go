@@ -3,10 +3,13 @@ package shortdatasync
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
@@ -98,25 +101,53 @@ func TestParseConfigRejectsBadInput(t *testing.T) {
 	}
 }
 
-// TestRevalidateRequestContract pins the exact cache-bust the Python sends.
-// Dropping a path or the flush silently strands an ISR surface on stale data
-// for up to 24h.
+// TestRevalidateRequestContract pins the BROAD cache-bust, the Python's exact
+// request, which a run sends when it cannot name what it wrote. Dropping a path
+// or the flush silently strands an ISR surface on stale data for up to 24h.
 func TestRevalidateRequestContract(t *testing.T) {
-	req := revalidateRequest()
-	if req.Tag != "shorts-data,scan-results" {
-		t.Fatalf("tag = %q", req.Tag)
+	broad := &changeSet{}
+	broad.add(utcDay(2026, time.November, 3), rowsFor("BHP"))
+	broad.markBroad()
+	for name, changes := range map[string]*changeSet{"no change set": nil, "an initial load": broad} {
+		req := revalidateRequest(changes)
+		if req.Tag != "shorts-data,scan-results" {
+			t.Fatalf("%s: tag = %q", name, req.Tag)
+		}
+		if req.Flush != "shorts" {
+			t.Fatalf("%s: flush = %q", name, req.Flush)
+		}
+		if req.Body != nil {
+			t.Fatalf("%s: the broad request carries no body, got %+v", name, req.Body)
+		}
+		want := []string{"/", "/top", "/news", "/screener", "/industry", "/shorts/[stockCode]", "/statistics", "/scans"}
+		if !slices.Equal(req.Paths, want) {
+			t.Fatalf("%s: paths = %v", name, req.Paths)
+		}
+	}
+}
+
+// TestNarrowRevalidateRequestContract pins the NARROW cache-bust: never the
+// broad tag, never the whole stock segment, the same newest-snapshot paths and
+// flush, and the change set as the body.
+func TestNarrowRevalidateRequestContract(t *testing.T) {
+	changes := &changeSet{}
+	changes.add(utcDay(2026, time.November, 3), rowsFor("CBA", "BHP"))
+	req := revalidateRequest(changes)
+	if req.Tag != "scan-results" {
+		t.Fatalf("tag = %q: a narrow request must not send shorts-data", req.Tag)
 	}
 	if req.Flush != "shorts" {
 		t.Fatalf("flush = %q", req.Flush)
 	}
-	want := []string{"/", "/top", "/news", "/screener", "/industry", "/shorts/[stockCode]", "/statistics", "/scans"}
-	if len(req.Paths) != len(want) {
+	if !slices.Equal(req.Paths, []string{"/", "/top", "/news", "/screener", "/industry", "/statistics", "/scans"}) {
 		t.Fatalf("paths = %v", req.Paths)
 	}
-	for i, p := range want {
-		if req.Paths[i] != p {
-			t.Fatalf("paths[%d] = %q, want %q", i, req.Paths[i], p)
-		}
+	body, ok := req.Body.(shortsChangeBody)
+	if !ok {
+		t.Fatalf("body = %#v", req.Body)
+	}
+	if !slices.Equal(body.Shorts.Codes, []string{"BHP", "CBA"}) || !slices.Equal(body.Shorts.Dates, []string{"2026-11-03"}) {
+		t.Fatalf("change set = %+v", body.Shorts)
 	}
 }
 
@@ -142,7 +173,7 @@ func TestRevalidatePingWireFormat(t *testing.T) {
 
 	t.Setenv("REVALIDATION_URL", srv.URL+"/api/revalidate")
 	t.Setenv("REVALIDATION_SECRET", "s3cr3t")
-	platform.PingRevalidate(revalidateRequest())
+	platform.PingRevalidate(revalidateRequest(nil))
 
 	if gotMethod != http.MethodPost || gotPath != "/api/revalidate" {
 		t.Fatalf("%s %s", gotMethod, gotPath)
@@ -173,3 +204,33 @@ func TestUnsupportedEnvIsEnumerated(t *testing.T) {
 		}
 	}
 }
+
+// TestNarrowRevalidatePingWireFormat proves the narrow request on the wire: the
+// change set travels as the JSON body the web route reads
+// (web/src/app/api/revalidate/shorts-change.ts), the secret as a header.
+func TestNarrowRevalidatePingWireFormat(t *testing.T) {
+	var gotTag, gotType, gotSecret string
+	var gotBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotTag = r.URL.Query().Get("tag")
+		gotType = r.Header.Get("Content-Type")
+		gotSecret = r.Header.Get("X-Revalidate-Secret")
+		gotBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	t.Setenv("REVALIDATION_URL", srv.URL+"/api/revalidate")
+	t.Setenv("REVALIDATION_SECRET", "s3cr3t")
+	changes := &changeSet{}
+	changes.add(utcDay(2026, time.November, 3), rowsFor("BHP", "CBA"))
+	platform.PingRevalidate(revalidateRequest(changes))
+
+	if gotTag != "scan-results" || gotSecret != "s3cr3t" || gotType != "application/json" {
+		t.Fatalf("tag=%q secret=%q content-type=%q", gotTag, gotSecret, gotType)
+	}
+	if want := `{"shorts":{"codes":["BHP","CBA"],"dates":["2026-11-03"]}}`; string(gotBody) != want {
+		t.Fatalf("body = %s, want %s", gotBody, want)
+	}
+}
+

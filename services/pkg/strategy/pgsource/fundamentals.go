@@ -18,7 +18,7 @@ import (
 // upper-case code. The select list is GrowthColumns, the same as the
 // single-stock read. A missing view is an empty map.
 func ListGrowth(ctx context.Context, db DB) (map[string]*engine.Growth, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `SELECT g.stock_code::text,`+GrowthColumns+`

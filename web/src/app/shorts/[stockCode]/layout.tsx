@@ -13,7 +13,13 @@ import { STOCK_CODE_PATTERN } from "./stock-page-shared";
 // unstable_cache (getStock, the daily series, the header logo's company
 // details) — no searchParams, cookies or headers, or the whole segment goes
 // dynamic.
-export const revalidate = 3600;
+//
+// A day, the window of everything the layout reads: the sync expires a
+// stock's pages through its stock:<CODE> tag when it writes that stock, so a
+// shorter window only regenerates pages whose data has not changed. Next uses
+// the shortest window a route's segments and reads declare, so a tab that
+// reads fresher data (news, the strategy fit) keeps its own shorter one.
+export const revalidate = 86400;
 
 interface LayoutProps {
   children: React.ReactNode;

@@ -352,6 +352,110 @@ export function promotionDecision(liveSha, releaseSha, comparison) {
   return comparison.status === "ahead" ? "skip" : "promote";
 }
 
+// What a production web build reads, or what changes how the deploy job builds
+// it. A push that changes none of these since the commit production serves
+// would rebuild the same app, and every new deployment starts from an empty ISR
+// cache: on 2026-11-06/07 the stock pages' hit ratio was 1-14% in the minutes
+// after each of 11 deploys (only 2 of which changed the web) and 38% six hours
+// into one. So such a push leaves the web where it is.
+const WEB_INPUT_PREFIXES = ["web/", "proto/"];
+const WEB_INPUT_FILES = new Set([
+  "vercel.json",
+  "scripts/vercel-release.mjs",
+  "scripts/verify-build-node.mjs",
+  "scripts/verify-vercel-function-limits.mjs",
+]);
+// The build's environment and steps live in this job of the deploy workflow.
+// The workflow changes often for other jobs (25 of the 27 edits between
+// 2026-11-03 and 11-07 left this job alone), so the file counts only when this
+// job's own text changed (deployJobText).
+export const DEPLOY_WORKFLOW = ".github/workflows/terraform-deploy.yml";
+const DEPLOY_JOB = "deploy-vercel-prod";
+
+// The deploy-vercel-prod job's block of the workflow source, or undefined when
+// it cannot be found (which counts as changed).
+export function deployJobText(workflow) {
+  if (typeof workflow !== "string") return undefined;
+  const start = workflow.indexOf(`\n  ${DEPLOY_JOB}:\n`);
+  if (start === -1) return undefined;
+  const rest = workflow.slice(start + 1);
+  const next = rest.slice(DEPLOY_JOB.length + 4).search(/^ {2}[\w-]+:\s*$/m);
+  return next === -1 ? rest : rest.slice(0, next + DEPLOY_JOB.length + 4);
+}
+// Under web/: files no build reads (tests, the browser suites, the Jest setup,
+// the notes beside package.json). Anything else under web/ counts.
+const WEB_TEST_ONLY = [
+  /(^|\/)__tests__\//,
+  /(^|\/)__mocks__\//,
+  /\.(test|spec)\.[cm]?[jt]sx?$/,
+  /\.stories\.[jt]sx?$/,
+  /^web\/e2e\//,
+  /^web\/tests\//,
+  /^web\/src\/test\//,
+  /^web\/playwright[\w.-]*\.config\.ts$/,
+  /^web\/vitest\.config\.ts$/,
+  /^web\/[^/]+\.md$/,
+];
+
+export function isWebInput(path) {
+  if (WEB_INPUT_FILES.has(path)) return true;
+  if (!WEB_INPUT_PREFIXES.some((prefix) => path.startsWith(prefix))) return false;
+  return !WEB_TEST_ONLY.some((pattern) => pattern.test(path));
+}
+
+// GitHub's compare lists at most 300 changed files.
+export const COMPARE_FILE_LIMIT = 300;
+
+// Decides whether a release that production does not already descend from
+// needs a new web deployment, from `comparison` (GitHub compare, base =
+// production's commit, head = this release).
+//  - A dispatch, a published release, a re-run, or any event other than a push
+//    always deploys: each is someone asking for one (a rotated build secret, a
+//    retry).
+//  - So does a production with no full commit, a release that is not strictly
+//    ahead of production's commit, and a comparison too large to list.
+//  - A push of the commit production already serves does not deploy.
+//  - Otherwise a push deploys only when a web input changed. The deploy
+//    workflow counts when `deployJobChanged` is not false: its deploy job's
+//    text differs between the two commits, or could not be compared.
+export function webReleaseDecision({ event, runAttempt, liveSha, releaseSha, comparison, deployJobChanged }) {
+  if (event !== "push")
+    return { deploy: true, reason: `a ${event || "manual"} run always deploys the web` };
+  if (Number(runAttempt) > 1)
+    return { deploy: true, reason: `attempt ${runAttempt} is a re-run, which always deploys the web` };
+  if (!isFullSha(liveSha))
+    return { deploy: true, reason: "production reports no full commit" };
+  if (liveSha === releaseSha)
+    return { deploy: false, reason: `production already serves ${releaseSha}` };
+  if (!comparison)
+    throw new Error("A comparison is required for a different live commit.");
+  if (comparison.status !== "ahead")
+    return { deploy: true, reason: `this release is ${comparison.status ?? "unrelated to"} production's commit, not strictly ahead of it` };
+  const files = comparison.files;
+  if (!Array.isArray(files) || files.length >= COMPARE_FILE_LIMIT)
+    return { deploy: true, reason: "the comparison is too large to list every changed file" };
+  const changed = [
+    ...new Set(
+      files
+        .flatMap((file) => [file?.filename, file?.previous_filename])
+        .filter(
+          (path) =>
+            typeof path === "string" &&
+            (isWebInput(path) || (path === DEPLOY_WORKFLOW && deployJobChanged !== false)),
+        ),
+    ),
+  ];
+  if (changed.length > 0) {
+    const shown = changed.slice(0, 5).join(", ");
+    const more = changed.length > 5 ? ` and ${changed.length - 5} more` : "";
+    return { deploy: true, reason: `web inputs changed: ${shown}${more}` };
+  }
+  return {
+    deploy: false,
+    reason: `no web input changed since production's ${liveSha.slice(0, 9)} (${files.length} file(s) changed elsewhere)`,
+  };
+}
+
 // Polls the alias until it points at this upload. `vercel promote` can exit 0
 // without moving the alias (no promotion in progress, a skipped promotion, or
 // a rolling release at its first stage), so the alias is the only proof.
@@ -421,15 +525,15 @@ async function checkPromotion({ gate }) {
     "Cache-Control": "no-cache",
   });
   const liveSha = runtime.gitCommitFull;
+  const headers = { Accept: "application/vnd.github+json" };
+  if (process.env.GH_TOKEN)
+    headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
   let comparison;
   if (!isFullSha(liveSha)) {
     console.log(
       `::warning::Production (${live.id}) reports no full commit identity (${liveSha ?? "missing"}); promoting without a descendant check.`,
     );
   } else if (liveSha !== sha) {
-    const headers = { Accept: "application/vnd.github+json" };
-    if (process.env.GH_TOKEN)
-      headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
     comparison = await jsonRead(
       `https://api.github.com/repos/${repository}/compare/${sha}...${liveSha}`,
       headers,
@@ -446,15 +550,73 @@ async function checkPromotion({ gate }) {
     }
     return;
   }
+  if (decision === "skip") {
+    if (process.env.GITHUB_OUTPUT)
+      appendFileSync(process.env.GITHUB_OUTPUT, "promote=false\n");
+    console.log(
+      `Production already serves a newer descendant (${liveSha}) of ${sha}; skipping promotion. This is not a failure.`,
+    );
+    return;
+  }
+
+  // Production does not descend from this release. Does the web need it?
+  const event = process.env.RELEASE_EVENT ?? "";
+  // The runner sets GITHUB_RUN_ATTEMPT; a runner that does not reads as a
+  // first attempt, so a re-run there is judged like a push.
+  const runAttempt = process.env.GITHUB_RUN_ATTEMPT ?? "1";
+  // Listing what changed only decides whether to SKIP a deployment, and
+  // deploying is always safe, so a failed read deploys rather than failing the
+  // job (the descendant check above still fails closed).
+  let web;
+  try {
+    let webComparison;
+    let deployJobChanged;
+    if (event === "push" && Number(runAttempt) <= 1 && isFullSha(liveSha) && liveSha !== sha) {
+      webComparison = await jsonRead(
+        `https://api.github.com/repos/${repository}/compare/${liveSha}...${sha}`,
+        headers,
+      );
+      const listsWorkflow = (webComparison.files ?? []).some(
+        (file) => file?.filename === DEPLOY_WORKFLOW || file?.previous_filename === DEPLOY_WORKFLOW,
+      );
+      if (listsWorkflow) {
+        const live = await jsonRead(
+          `https://api.github.com/repos/${repository}/contents/${DEPLOY_WORKFLOW}?ref=${liveSha}`,
+          headers,
+        );
+        const liveJob = deployJobText(
+          live.encoding === "base64" ? Buffer.from(live.content ?? "", "base64").toString("utf8") : undefined,
+        );
+        const releaseJob = deployJobText(readFileSync(DEPLOY_WORKFLOW, "utf8"));
+        deployJobChanged = liveJob === undefined || releaseJob === undefined || liveJob !== releaseJob;
+      }
+    }
+    web = webReleaseDecision({
+      event,
+      runAttempt,
+      liveSha,
+      releaseSha: sha,
+      comparison: webComparison,
+      deployJobChanged,
+    });
+  } catch (error) {
+    console.log(`::warning::Could not list what changed since production's commit (${error.message}); deploying the web.`);
+    web = { deploy: true, reason: "the changed files could not be listed" };
+  }
   if (process.env.GITHUB_OUTPUT)
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `promote=${decision === "promote"}\n`,
+      web.deploy ? "promote=true\n" : "promote=false\nweb-current=true\n",
+    );
+  if (!web.deploy && process.env.GITHUB_STEP_SUMMARY)
+    appendFileSync(
+      process.env.GITHUB_STEP_SUMMARY,
+      `## Web release not needed\n\nProduction keeps serving ${liveSha}: ${web.reason}. The web build, upload and promotion were skipped; the release smoke still runs. Dispatch terraform-deploy to force a web release.\n`,
     );
   console.log(
-    decision === "promote"
-      ? `Production serves ${liveSha ?? "no full commit"}; promoting ${sha}.`
-      : `Production already serves a newer descendant (${liveSha}) of ${sha}; skipping promotion. This is not a failure.`,
+    web.deploy
+      ? `Production serves ${liveSha ?? "no full commit"}; promoting ${sha} (${web.reason}).`
+      : `Production's web build is current for ${sha}: ${web.reason}. Not rebuilding the web. This is not a failure.`,
   );
 }
 

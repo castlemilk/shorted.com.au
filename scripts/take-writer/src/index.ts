@@ -50,6 +50,8 @@ interface Args {
   // newsroom
   withImages?: boolean;
   noImages?: boolean;
+  // publish / regen-images: the header image alone, no layout or inline images
+  heroOnly?: boolean;
   // publish
   noValidate?: boolean;
   tweet?: boolean;
@@ -62,6 +64,10 @@ interface Args {
   // results-watch
   sinceDays?: number;
   limit?: number;
+  // set-hero
+  image?: string;
+  caption?: string;
+  credit?: string;
   // import-mdx
   file?: string;
   dir?: string;
@@ -114,6 +120,8 @@ function parseArgs(argv: string[]): Args {
       args.withImages = true;
     } else if (arg === "--no-images") {
       args.noImages = true;
+    } else if (arg === "--hero-only") {
+      args.heroOnly = true;
     } else if (arg === "--no-validate") {
       args.noValidate = true;
     } else if (arg === "--tweet") {
@@ -121,6 +129,9 @@ function parseArgs(argv: string[]): Args {
     } else if (arg.startsWith("--tier=")) args.tier = arg.split("=")[1];
     else if (arg.startsWith("--angle=")) args.angle = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--slug=")) args.slug = arg.split("=")[1];
+    else if (arg.startsWith("--image=")) args.image = arg.split("=").slice(1).join("=");
+    else if (arg.startsWith("--caption=")) args.caption = arg.split("=").slice(1).join("=");
+    else if (arg.startsWith("--credit=")) args.credit = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--inline=")) {
       const v = arg.split("=")[1];
       if (v) args.inline = parseInt(v, 10);
@@ -144,13 +155,17 @@ Commands:
   newsroom        Loop: agenda → top-N narratives → insert as drafts/publish
   newsroom-daily  Investigative daily run: editor -> agentic investigation -> tiered writer
   newsroom-preview Investigate ONE --stock=CODE and print the report (no DB write, no images)
-  regen-images    Generate a hero + inline images for an existing take (--slug=SLUG [--inline=2])
+  regen-images    Generate a hero + inline images for an existing take (--slug=SLUG [--inline=2] [--hero-only])
   validate-article Screenshot + Gemini-vision cohesion check with auto-fix loop (--slug=SLUG [--rounds=2])
   results-watch   List companies that just filed results, ranked by short interest (--since-days=N [--limit=N])
   import-mdx      Upsert a hand-written MDX article as a DRAFT (--file=... | --dir=... [--dry-run])
   publish-content Import ONE content/news article by slug and publish it after required vision review (--slug=SLUG [--dir=...] [--no-images]) — the Cloud Run entrypoint
   list-drafts     List unpublished drafts; --slug=SLUG prints one draft's full body + citations
-  publish         Publish a draft: images → required vision review → set published_at → tweet (--slug=SLUG [--no-images] [--tweet])
+  publish         Publish a draft: images → required vision review → set published_at → tweet (--slug=SLUG [--no-images | --hero-only] [--tweet])
+                  --hero-only: generate (if missing) and review only the header image, no layout images
+  set-hero        Replace a take's header image with artwork made elsewhere (e.g. BrandBrain): content-addressed upload →
+                  required vision review of the candidate → guarded swap → revalidate
+                  (--slug=SLUG --image=PATH --caption="Illustration: …" [--credit="…"] [--dry-run])
   narrative Multi-section journalism-engine Take for one --stock=CODE
 
 run flags:
@@ -386,7 +401,7 @@ async function main(): Promise<void> {
     }
     case "regen-images": {
       if (!args.slug && !args.stockCode) throw new Error("--slug=SLUG required for regen-images");
-      await regenerateImages({ slug: args.slug ?? "", inlineCount: args.inline });
+      await regenerateImages({ slug: args.slug ?? "", inlineCount: args.inline, heroOnly: args.heroOnly });
       break;
     }
     case "validate-article": {
@@ -419,6 +434,17 @@ async function main(): Promise<void> {
       });
       break;
     }
+    case "set-hero": {
+      const { setHero } = await import("./set-hero.js");
+      await setHero({
+        slug: args.slug ?? "",
+        imagePath: args.image ?? "",
+        caption: args.caption ?? "",
+        credit: args.credit,
+        dryRun: args.dryRun,
+      });
+      break;
+    }
     case "list-drafts": {
       await listDrafts({ slug: args.slug });
       break;
@@ -428,6 +454,7 @@ async function main(): Promise<void> {
       await publishTake({
         slug: args.slug,
         noImages: args.noImages,
+        heroOnly: args.heroOnly,
         noValidate: args.noValidate,
         tweet: args.tweet,
       });

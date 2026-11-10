@@ -25,8 +25,12 @@ import {
   assertDeployment,
   assertRuntime,
   jsonRead,
+  COMPARE_FILE_LIMIT,
+  deployJobText,
+  isWebInput,
   promotionDecision,
   runtimeUrl,
+  webReleaseDecision,
   runtimeWindowMs,
   verifyRuntime,
   waitForAlias,
@@ -742,3 +746,249 @@ test("the portal provenance job installs root test dependencies before any test 
   const guards = steps.find((s) => s.name === "Production release guard contracts");
   assert.match(guards.run, /scripts\/tests\/vercel-release\.test\.mjs/);
 });
+
+// ---------------------------------------------------------------------------
+// A push that changes no web input leaves the web where it is: a new
+// deployment would rebuild the same app and start from an empty ISR cache.
+// ---------------------------------------------------------------------------
+test("web inputs are the web app, its protos and the release tooling", () => {
+  for (const path of [
+    "web/src/app/page.tsx",
+    "web/_blogs/post.mdx",
+    "web/public/robots.txt",
+    "web/package-lock.json",
+    "web/next.config.mjs",
+    "web/scripts/bump-version.sh",
+    "web/src/server/private-docs/private-api.md",
+    "proto/shorts/v1alpha1/stock.proto",
+    "vercel.json",
+    "scripts/vercel-release.mjs",
+  ])
+    assert.equal(isWebInput(path), true, path);
+  for (const path of [
+    "services/shorts/internal/store/shorts/postgres.go",
+    "services/edge-worker/worker.js",
+    "terraform/environments/prod/main.tf",
+    "docs/caching-architecture.md",
+    "CLAUDE.md",
+    ".github/workflows/go-quality.yml",
+    // Counted only when its deploy-vercel-prod job changed (deployJobText).
+    ".github/workflows/terraform-deploy.yml",
+    "web/src/app/__tests__/page.test.tsx",
+    "web/src/app/actions/getStock.test.ts",
+    "web/src/app/actions/client/__mocks__/getTooltipData.ts",
+    "web/e2e/release-smoke-ci.mjs",
+    "web/tests/visual/home.spec.ts",
+    "web/src/test/setup.ts",
+    "web/playwright.config.ts",
+    "web/TESTING_GUIDE.md",
+  ])
+    assert.equal(isWebInput(path), false, path);
+});
+
+test("web release decision: only a first-attempt push with no web change stays put", () => {
+  const ahead = (...filenames) => ({ status: "ahead", files: filenames.map((filename) => ({ filename })) });
+  const push = { event: "push", runAttempt: "1", liveSha: other, releaseSha: sha };
+  assert.equal(webReleaseDecision({ ...push, comparison: ahead("services/jobs/main.go", "docs/x.md") }).deploy, false);
+  assert.equal(webReleaseDecision({ ...push, comparison: ahead("services/jobs/main.go", "web/src/app/page.tsx") }).deploy, true);
+  assert.match(
+    webReleaseDecision({ ...push, comparison: ahead("web/src/app/page.tsx") }).reason,
+    /web inputs changed: web\/src\/app\/page\.tsx/,
+  );
+  // A rename out of web/ still changed the web.
+  assert.equal(
+    webReleaseDecision({ ...push, comparison: { status: "ahead", files: [{ filename: "docs/old.tsx", previous_filename: "web/src/old.tsx" }] } }).deploy,
+    true,
+  );
+  // Too large to list, not strictly ahead, or no files at all: deploy.
+  const many = Array.from({ length: COMPARE_FILE_LIMIT }, (_, i) => ({ filename: `services/f${i}.go` }));
+  assert.equal(webReleaseDecision({ ...push, comparison: { status: "ahead", files: many } }).deploy, true);
+  assert.equal(webReleaseDecision({ ...push, comparison: { status: "diverged", files: [] } }).deploy, true);
+  assert.equal(webReleaseDecision({ ...push, comparison: { status: "ahead" } }).deploy, true);
+  // Someone asked for a release: always deploy.
+  for (const event of ["workflow_dispatch", "release", "", undefined])
+    assert.equal(webReleaseDecision({ ...push, event, comparison: ahead("services/x.go") }).deploy, true, String(event));
+  assert.equal(webReleaseDecision({ ...push, runAttempt: "2", comparison: ahead("services/x.go") }).deploy, true);
+  // Production already serves this commit, or reports no full commit.
+  assert.equal(webReleaseDecision({ ...push, liveSha: sha }).deploy, false);
+  assert.equal(webReleaseDecision({ ...push, liveSha: "local" }).deploy, true);
+  assert.throws(() => webReleaseDecision({ ...push, comparison: undefined }), /comparison is required/);
+  // The deploy workflow counts only when its deploy job changed, or when that
+  // could not be compared.
+  const workflow = ahead(".github/workflows/terraform-deploy.yml", "services/x.go");
+  assert.equal(webReleaseDecision({ ...push, comparison: workflow, deployJobChanged: false }).deploy, false);
+  assert.equal(webReleaseDecision({ ...push, comparison: workflow, deployJobChanged: true }).deploy, true);
+  assert.equal(webReleaseDecision({ ...push, comparison: workflow }).deploy, true);
+});
+
+test("the deploy job's text is its block of the workflow, up to the next job", () => {
+  const workflow = [
+    "jobs:",
+    "  build:",
+    "    runs-on: x",
+    "  deploy-vercel-prod:",
+    "    needs: [build]",
+    "    steps:",
+    "      - name: Build",
+    "  # A comment above the next job",
+    "  next-job:",
+    "    runs-on: y",
+    "",
+  ].join("\n");
+  const block = deployJobText(workflow);
+  assert.ok(block.startsWith("  deploy-vercel-prod:\n"));
+  assert.match(block, /- name: Build/);
+  assert.doesNotMatch(block, /next-job|build:\n|runs-on: x/);
+  assert.equal(deployJobText(workflow.replace("runs-on: y", "runs-on: z")), block, "another job's edit leaves it alone");
+  assert.notEqual(deployJobText(workflow.replace("- name: Build", "- name: Build it")), block);
+  assert.equal(deployJobText("jobs:\n  other:\n"), undefined);
+  assert.equal(deployJobText(undefined), undefined);
+  // The real workflow has the job.
+  assert.match(deployJobText(workflowSource), /^ {2}deploy-vercel-prod:\n/);
+});
+
+const webCompareRoute = (body) => ({ match: `/compare/${other}...`, ...json(body) });
+
+test("check-promotion leaves the web alone on a push that changed no web input", (t) => {
+  const [dir, sha] = checkout(t);
+  const output = join(dir, "github-output");
+  const summary = join(dir, "step-summary");
+  const fetchFile = routedFetch(dir, [
+    aliasRoute(), deploymentRoute(), runtimeRoute(other),
+    webCompareRoute({ status: "ahead", files: [{ filename: "services/jobs/internal/jobs/alerts/job.go" }] }),
+    compareRoute("behind"),
+  ]);
+  const result = runCli(dir, "check-promotion", checkEnv(sha, runnerEnv(dir, {
+    GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: summary, RELEASE_EVENT: "push", GITHUB_RUN_ATTEMPT: "1",
+  })), [fetchFile]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(output, "utf8"), "promote=false\nweb-current=true\n");
+  assert.match(result.stdout, /no web input changed/);
+  assert.match(readFileSync(summary, "utf8"), /Web release not needed/);
+  const compares = requests(dir).filter((r) => r.url.includes("/compare/")).map((r) => new URL(r.url).pathname);
+  assert.deepEqual(compares, [
+    `/repos/castlemilk/shorted.com.au/compare/${sha}...${other}`,
+    `/repos/castlemilk/shorted.com.au/compare/${other}...${sha}`,
+  ], "the descendant check, then production...release for the changed files");
+});
+
+test("check-promotion deploys a push that changed a web input", (t) => {
+  const [dir, sha] = checkout(t);
+  const output = join(dir, "github-output");
+  const fetchFile = routedFetch(dir, [
+    aliasRoute(), deploymentRoute(), runtimeRoute(other),
+    webCompareRoute({ status: "ahead", files: [{ filename: "web/src/app/layout.tsx" }] }),
+    compareRoute("behind"),
+  ]);
+  const result = runCli(dir, "check-promotion", checkEnv(sha, runnerEnv(dir, {
+    GITHUB_OUTPUT: output, RELEASE_EVENT: "push", GITHUB_RUN_ATTEMPT: "1",
+  })), [fetchFile]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(output, "utf8"), "promote=true\n");
+  assert.match(result.stdout, /web inputs changed: web\/src\/app\/layout\.tsx/);
+});
+
+test("check-promotion deploys a dispatch or a re-run without listing files", (t) => {
+  for (const extra of [{ RELEASE_EVENT: "workflow_dispatch", GITHUB_RUN_ATTEMPT: "1" }, { RELEASE_EVENT: "push", GITHUB_RUN_ATTEMPT: "2" }]) {
+    const [dir, sha] = checkout(t);
+    const output = join(dir, "github-output");
+    const fetchFile = routedFetch(dir, [aliasRoute(), deploymentRoute(), runtimeRoute(other), compareRoute("behind")]);
+    const result = runCli(dir, "check-promotion", checkEnv(sha, runnerEnv(dir, { GITHUB_OUTPUT: output, ...extra })), [fetchFile]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(readFileSync(output, "utf8"), "promote=true\n", JSON.stringify(extra));
+    assert.equal(requests(dir).filter((r) => r.url.includes("/compare/")).length, 1, "only the descendant check");
+  }
+});
+
+test("check-promotion leaves the web alone on a push of the commit production serves", (t) => {
+  const [dir, sha] = checkout(t);
+  const output = join(dir, "github-output");
+  const fetchFile = routedFetch(dir, [aliasRoute(), deploymentRoute(), runtimeRoute(sha)]);
+  const result = runCli(dir, "check-promotion", checkEnv(sha, runnerEnv(dir, {
+    GITHUB_OUTPUT: output, RELEASE_EVENT: "push", GITHUB_RUN_ATTEMPT: "1",
+  })), [fetchFile]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(output, "utf8"), "promote=false\nweb-current=true\n");
+  assert.ok(!requests(dir).some((r) => r.url.includes("api.github.com")), "nothing to compare");
+});
+
+test("check-promotion deploys, with a warning, when the changed files cannot be read", (t) => {
+  // Listing the files only decides whether to SKIP; deploying is always safe.
+  const [dir, sha] = checkout(t);
+  const output = join(dir, "github-output");
+  const fetchFile = routedFetch(dir, [
+    aliasRoute(), deploymentRoute(), runtimeRoute(other),
+    { match: `/compare/${other}...`, status: 500, body: "{}" },
+    compareRoute("behind"),
+  ]);
+  const result = runCli(dir, "check-promotion", checkEnv(sha, runnerEnv(dir, {
+    GITHUB_OUTPUT: output, RELEASE_EVENT: "push", GITHUB_RUN_ATTEMPT: "1",
+  })), [fetchFile]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(output, "utf8"), "promote=true\n");
+  assert.match(result.stdout, /::warning::Could not list what changed/);
+});
+
+function withWorkflow(dir, text) {
+  mkdirSync(join(dir, ".github/workflows"), { recursive: true });
+  writeFileSync(join(dir, ".github/workflows/terraform-deploy.yml"), text);
+}
+const contentsRoute = (text) => ({
+  match: "/contents/.github/workflows/terraform-deploy.yml",
+  ...json({ encoding: "base64", content: Buffer.from(text).toString("base64") }),
+});
+
+test("check-promotion skips a push whose workflow edit left the deploy job alone", (t) => {
+  const [dir, sha] = checkout(t);
+  const output = join(dir, "github-output");
+  const live = "jobs:\n  deploy-vercel-prod:\n    steps: []\n  other:\n    runs-on: a\n";
+  withWorkflow(dir, live.replace("runs-on: a", "runs-on: b"));
+  const fetchFile = routedFetch(dir, [
+    aliasRoute(), deploymentRoute(), runtimeRoute(other), contentsRoute(live),
+    webCompareRoute({ status: "ahead", files: [{ filename: ".github/workflows/terraform-deploy.yml" }] }),
+    compareRoute("behind"),
+  ]);
+  const result = runCli(dir, "check-promotion", checkEnv(sha, runnerEnv(dir, {
+    GITHUB_OUTPUT: output, RELEASE_EVENT: "push", GITHUB_RUN_ATTEMPT: "1",
+  })), [fetchFile]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(output, "utf8"), "promote=false\nweb-current=true\n");
+  const contents = requests(dir).find((r) => r.url.includes("/contents/"));
+  assert.equal(new URL(contents.url).searchParams.get("ref"), other, "production's copy of the workflow");
+});
+
+test("check-promotion deploys a push that edited the deploy job", (t) => {
+  const [dir, sha] = checkout(t);
+  const output = join(dir, "github-output");
+  const live = "jobs:\n  deploy-vercel-prod:\n    steps: []\n  other:\n    runs-on: a\n";
+  withWorkflow(dir, live.replace("steps: []", "steps: [x]"));
+  const fetchFile = routedFetch(dir, [
+    aliasRoute(), deploymentRoute(), runtimeRoute(other), contentsRoute(live),
+    webCompareRoute({ status: "ahead", files: [{ filename: ".github/workflows/terraform-deploy.yml" }] }),
+    compareRoute("behind"),
+  ]);
+  const result = runCli(dir, "check-promotion", checkEnv(sha, runnerEnv(dir, {
+    GITHUB_OUTPUT: output, RELEASE_EVENT: "push", GITHUB_RUN_ATTEMPT: "1",
+  })), [fetchFile]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(output, "utf8"), "promote=true\n");
+  assert.match(result.stdout, /web inputs changed: \.github\/workflows\/terraform-deploy\.yml/);
+});
+
+test("the decision step hears the event and attempt, and a current web is still smoked", () => {
+  const decide = step("Decide whether production needs this release");
+  assert.match(decide, /RELEASE_EVENT: \$\{\{ github\.event_name \}\}/);
+  assert.doesNotMatch(decide, /github\.run_attempt/, "the runner's GITHUB_RUN_ATTEMPT, not an expression");
+  assert.match(step("Install web dependencies for the smoke"), /web-current == 'true'/);
+  for (const name of ["Install production smoke browser", "Verify promoted production release"]) {
+    const body = step(name);
+    assert.match(body, /promoted == 'true'/, name);
+    assert.match(body, /web-current == 'true'/, name);
+  }
+  // Everything that builds, uploads, promotes or invalidates keys on promote.
+  for (const name of ["Build and upload production deployment", "Promote Vercel deployment to production"])
+    assert.match(step(name), /steps\.release-check\.outputs\.promote == 'true'/, name);
+  for (const name of ["Revalidate ISR pages post-promote", "Prime static pages after promotion"])
+    assert.match(step(name), /steps\.vercel-promote\.outputs\.promoted == 'true'/, name);
+});
+

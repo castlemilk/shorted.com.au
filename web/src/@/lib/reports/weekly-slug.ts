@@ -20,6 +20,28 @@ export function weekDbSlugToPathSlug(dbSlug: string): string | null {
   return `10-most-shorted-asx-stocks-week-${parseInt(m[2], 10)}-${m[1]}`;
 }
 
+/**
+ * The DB slug of the ISO-8601 week a YYYY-MM-DD date falls in ("2026-W45"),
+ * the scheme the report generator names weeks by (Go's time.ISOWeek). Null for
+ * anything that is not a real calendar date.
+ */
+export function isoWeekDbSlug(isoDate: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  if (!m?.[1] || !m[2] || !m[3]) return null;
+  const day = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  if (Number.isNaN(day.getTime()) || day.toISOString().slice(0, 10) !== isoDate) {
+    return null;
+  }
+  // The ISO week is the one holding this week's Thursday, and so is its year.
+  const weekday = day.getUTCDay() || 7;
+  const thursday = new Date(day.getTime() + (4 - weekday) * 86_400_000);
+  const year = thursday.getUTCFullYear();
+  const week = Math.ceil(
+    ((thursday.getTime() - Date.UTC(year, 0, 1)) / 86_400_000 + 1) / 7,
+  );
+  return `${year}-W${String(week).padStart(2, "0")}`;
+}
+
 /** Canonical page path for a DB slug: "/reports/weekly/10-most-shorted-…". */
 export function weeklyReportPath(dbSlug: string): string {
   const pathSlug = weekDbSlugToPathSlug(dbSlug);

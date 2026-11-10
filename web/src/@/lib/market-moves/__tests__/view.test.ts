@@ -7,7 +7,6 @@ import {
 } from "../view";
 import {
   MINUS,
-  aiDisclosure,
   formatMarketDate,
   formatMoveChange,
   formatMovePrice,
@@ -216,12 +215,5 @@ describe("format", () => {
 
   it("names a market date in words", () => {
     expect(formatMarketDate("2026-11-07")).toBe("Saturday 7 November 2026");
-  });
-
-  it("discloses the AI workflow, naming the model when given", () => {
-    expect(aiDisclosure(null)).toBe("Written by an AI market-moves workflow");
-    expect(aiDisclosure("claude-opus-5-5")).toBe(
-      "Written by an AI market-moves workflow (claude-opus-5-5)",
-    );
   });
 });

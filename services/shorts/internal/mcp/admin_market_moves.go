@@ -127,7 +127,7 @@ func postMarketMoveTool() AdminTool {
 			Name:  t.Name,
 			Title: "Post a market move",
 			Description: "Publish one market move to https://shorted.com.au/market-moves, the homepage strip and the stock pages it names. " +
-				"LIVE at once, labelled as written by an AI workflow. A move is a stock, an index, a sector or the whole market " +
+				"LIVE at once; the /market-moves page says the moves are AI-written. A move is a stock, an index, a sector or the whole market " +
 				"moving, with its figure, the time you observed it and why it moved. Re-post the same move_key to revise it in place " +
 				"(for example the closing figure). Every field at fault is reported at once; fix them all and post again. " +
 				"Retract a mistaken move with retract_market_move.",

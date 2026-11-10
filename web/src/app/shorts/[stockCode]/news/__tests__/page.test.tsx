@@ -77,12 +77,18 @@ describe("/shorts/[stockCode]/news", () => {
     (stockTabLabel as jest.Mock).mockClear();
   });
 
-  it("is on-demand ISR, on the news page's own ten-minute clock", () => {
+  it("is on-demand ISR, on the news page's own hourly clock", () => {
     // Without the empty generateStaticParams the segment renders on every
-    // request and revalidate is inert.
-    expect(revalidate).toBe(600);
+    // request and revalidate is inert. An hour, over a news read held for the
+    // same hour (news arrives every four hours).
+    expect(revalidate).toBe(3600);
     expect(dynamicParams).toBe(true);
     expect(generateStaticParams()).toEqual([]);
+  });
+
+  it("reads the news for the page's own hour, not the day-long default", async () => {
+    await Page(params("bhp"));
+    expect(mockGetStockNews).toHaveBeenCalledWith("BHP", 60, 3600);
   });
 
   it("renders under the stock layout without a dashboard shell, a breadcrumb trail or a back link of its own", async () => {

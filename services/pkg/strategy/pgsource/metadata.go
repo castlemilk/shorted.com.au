@@ -25,7 +25,7 @@ type CompanyMeta struct {
 // A missing table is an empty map. The market cap is guarded in SQL, so one
 // malformed key_metrics value costs its own market cap and nothing else.
 func Metadata(ctx context.Context, db DB) (map[string]CompanyMeta, error) {
-	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
+	ctx, cancel := queryContext(ctx)
 	defer cancel()
 
 	rows, err := db.Query(ctx, `

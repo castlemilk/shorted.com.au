@@ -15,6 +15,7 @@
 /// check — if the monitor is registered. These tests make both mistakes
 /// unmergeable.
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -214,4 +215,38 @@ test("every scheduler monitor names a Cloud Scheduler trigger Terraform defines"
   const names = [...block[1].matchAll(/^\s{4}scheduler:\s*([a-z0-9-]+)/gm)].map((m) => m[1]);
   assert.ok(names.length >= 2);
   for (const n of names) assert.match(tf, new RegExp(`name\\s+=\\s+"${n}"`), `scheduler "${n}" not found in Terraform`);
+});
+
+test("only the strategies backtest pins its pod to the core-large node pool", () => {
+  // 2026-11-07: a ~2.5 GiB run on a 4 GB `core` node took it NotReady for 17
+  // minutes. The backtest pins itself to core-large; no other job may pin a node.
+  const backtest = chartJobBlock("shorted-strategies-backtest");
+  assert.match(
+    backtest,
+    /^ {4}nodeSelector:\s*\{\s*"?vke\.vultr\.com\/node-pool"?:\s*core-large\s*\}\s*$/m,
+    "shorted-strategies-backtest must set nodeSelector vke.vultr.com/node-pool: core-large",
+  );
+  for (const name of chartJobs()) {
+    if (name === "shorted-strategies-backtest") continue;
+    assert.doesNotMatch(chartJobBlock(name), /^ {4}nodeSelector:/m, `CronJob "${name}" must not set nodeSelector`);
+  }
+});
+
+test("helm renders the backtest nodeSelector onto its pod spec and no other CronJob", (t) => {
+  const helm = spawnSync("helm", ["template", "x", join(repoRoot, "deploy/kubernetes/jobs/chart")], {
+    encoding: "utf8",
+  });
+  if (helm.error?.code === "ENOENT") t.skip("helm is not installed");
+  else assert.equal(helm.status, 0, helm.stderr);
+  const docs = helm.stdout.split(/^---$/m).filter((d) => /^kind: CronJob$/m.test(d));
+  assert.ok(docs.length >= 21, `expected the CronJobs to render, found ${docs.length}`);
+  const pinned = [];
+  for (const doc of docs) {
+    const name = doc.match(/^ {2}name: (\S+)$/m)[1];
+    // Pod-spec level is ten spaces deep in the rendered template.
+    if (/^ {10}nodeSelector:/m.test(doc)) pinned.push(name);
+  }
+  assert.deepEqual(pinned, ["shorted-strategies-backtest"]);
+  const backtest = docs.find((d) => /^ {2}name: shorted-strategies-backtest$/m.test(d));
+  assert.match(backtest, /^ {10}nodeSelector:\n {12}vke\.vultr\.com\/node-pool: core-large$/m);
 });

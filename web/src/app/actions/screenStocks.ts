@@ -5,6 +5,7 @@ import { type ScreenStocksResponse, type ScreenerFilters, type ScreenerSortField
 import { cache } from "react";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { withRetryAndNotFound } from "./withRetry";
+import { shortsLatestCacheTags } from "./stockPageCache";
 
 // Matches the /stocks ISR window (`export const revalidate = 3600`), the only
 // route that renders this action from a SERVER component (CompanyDirectory).
@@ -29,7 +30,7 @@ const isrScreenerFetch: typeof fetch = (input, init) =>
     ...init,
     next: {
       revalidate: SCREENER_ISR_REVALIDATE_SECONDS,
-      tags: ["shorts-data"],
+      tags: shortsLatestCacheTags(),
     },
   } as RequestInit);
 
