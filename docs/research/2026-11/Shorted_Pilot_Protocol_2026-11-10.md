@@ -32,7 +32,7 @@ Day 0 is the recorded start after these conditions pass. It is not the first eng
 | Weeks 1–2, Days 0–13 | Onboarding and first real tasks; activation gate at the end of Day 13 |
 | Weeks 3–4, Days 14–27 | Improve the same workflow; investigate missing replies and confusing evidence; retain the same circles |
 | Weeks 5–6, Days 28–41 | Measure repeated meaningful use, non-staff contribution and operational effort |
-| After Week 6 | Allow every eligible final question its full 48-hour response window, then freeze the social-pilot dataset |
+| After Week 6 | Allow every eligible final question its full 48-hour response window, then complete usefulness review within a further 48 hours and freeze the social-pilot dataset |
 | Continuation month 1 | Show the defined paid offer to eligible users; record payments, output use, support and cancellation |
 | Second paid period | Record renewal and continued workflow use before declaring the commercial gate passed |
 
@@ -63,14 +63,14 @@ A meaningful research action is a persisted question, substantive reply, source-
 
 A useful reply addresses the question, supplies an explanation or usable source, gets material dates/units right, distinguishes evidence from interpretation and makes remaining uncertainty clear. A source URL or a favourable trading opinion does not itself satisfy the rubric.
 
-Record whether usefulness was acknowledged by the asker, another reader or a reviewer. For the 48-hour metric, the reply's publication time is the response deadline; later acknowledgement/audit may classify it as useful. Keep the acknowledgement time separately. Review all eligible questions at this small scale and record disagreements rather than allowing a reaction count to decide quality.
+Record whether usefulness was acknowledged by the asker, another reader or a reviewer. For the 48-hour metric, the reply's publication time is the response deadline; acknowledgement/audit within the fixed review window may classify it as useful. Keep the acknowledgement time separately. Finish classification within 48 hours after the final response window closes, record the freeze timestamp and query version, and put later acknowledgements or reversals into an explicitly corrected report version. Review all eligible questions at this small scale and record disagreements rather than allowing a reaction count to decide quality.
 
 # Preserved community gates
 
 | Gate | Exact calculation |
 | --- | --- |
 | At least 18/24 activate in weeks 1–2 | Follow a relevant company/circle and perform one meaningful research action by Day 13 |
-| At least 70% of at least 20 genuine member questions receive useful answers within 48 hours | Question is from a non-staff member, within scope and has a full observation window; useful response is published within 48 hours. Show staff, paid contributor and unpaid-peer results separately |
+| At least 70% of at least 20 genuine member questions receive useful answers within 48 hours | Question arises from a non-staff founder's own research task, is uncommissioned, within scope and has a full observation window; useful response is published within 48 hours. Show staff, paid contributor and unpaid-peer results separately |
 | At least two regular non-staff contributors per circle | Primary-circle member contributes substantively in both weeks 5 and 6; cross-circle help is reported separately |
 | At least six distinct non-staff contributors in each of the final two weeks | Deduplicated across the cohort in each week; disclose paid vs unpaid composition |
 | At least 12/24 return meaningfully in both weeks 5 and 6 | Intersection of the weekly participant sets; two different groups of 12 do not pass |
@@ -81,7 +81,7 @@ Record whether usefulness was acknowledged by the asker, another reader or a rev
 
 Keep the original 24 in the primary activation/retention denominator. Withdrawals, late arrivals and incomplete onboarding remain visible. If a deletion requirement prevents complete measurement, report the affected count and status without retaining prohibited identity data; do not silently improve the denominator.
 
-Exclude questions only for predeclared reasons such as spam, exact duplicates or moderator removal, retaining an exclusion reason. Difficult unanswered questions stay in the denominator. If fewer than 20 genuine questions qualify, the response gate is insufficient evidence.
+Host-authored or commissioned seed questions do not satisfy the minimum 20-question demand gate, regardless of employment label. Predeclare the treatment of any unconditional research-participation honoraria; payment must not be contingent on question creation. Report commissioned questions separately. Exclude questions only for predeclared reasons such as spam, exact duplicates or moderator removal, retaining an exclusion reason. Difficult unanswered questions stay in the denominator. If fewer than 20 genuine questions qualify, the response gate is insufficient evidence.
 
 Use four result states: pass, fail, insufficient evidence and invalid measurement. Invalid instrumentation is repaired before a result is interpreted. For insufficient evidence, extend the same bounded experiment or narrow it; do not announce an expansion success.
 
@@ -100,7 +100,7 @@ The proposed event envelope contains event_id, schema_version, occurred_at_utc, 
 | Usefulness | response_acknowledged, acknowledgement_revoked, response_reviewed |
 | Operations | report_submitted, moderation_action_recorded, host_time_logged |
 | Delivery and value | brief_reviewed, packet_created, packet_reused_for_task |
-| Commercial | continuation_offer_shown, continuation_payment_succeeded, continuation_cancelled, continuation_refunded, continuation_renewed |
+| Commercial | continuation_offer_shown, continuation_payment_succeeded, continuation_cancelled, continuation_refunded, continuation_charged_back, continuation_renewed |
 
 Persist successful mutation events transactionally or through an idempotent outbox, not from an optimistic button click. Separate attempted actions from completed actions. Use an immutable event ID and maintain historical role/compensation classification.
 
@@ -138,7 +138,7 @@ Do not split 24 founders into a price A/B test. Keep the earlier A$19–29 inves
 
 ## Commercial gate
 
-The proposed first gate is at least four paid continuations from ten or more eligible people actually offered the product, followed by at least three still using it and paying into the second period. Count actual successful payment, not a checkout visit or stated intent. Fewer than ten offers is insufficient evidence; refunds and cancellations remain in the record.
+The proposed first gate is at least four successful first-period payments from ten or more eligible people actually offered the product, with no refund or chargeback on those counted payments at the review cutoff. At least three of those participants must make a successful second-period payment and complete a meaningful research action in its first 14 days. Freeze the commercial review date before offers, allowing every counted participant that full observation window. Count actual payment, not a checkout visit or stated intent. Fewer than ten offers is insufficient evidence; refunds, chargebacks and cancellations remain in the record and unsuccessful participants stay in the offered denominator. Later reversals produce a revised result.
 
 Report original cohort, eligible, offered, paid, refunded/cancelled and renewed counts. Also report how many offers were not made and why. Record payment provider errors separately from product rejection.
 
