@@ -1,4 +1,4 @@
-import { revalidateTag, unstable_cache } from "next/cache";
+import { revalidateTag, unstable_noStore as noStore } from "next/cache";
 import {
   getCommunityThread,
   listCommunityComments,
@@ -7,10 +7,10 @@ import {
   listCommunityThreads,
 } from "./community-repository";
 
-export const COMMUNITY_PUBLIC_READ_CACHE_SECONDS = 60;
-export const COMMUNITY_PUBLIC_READ_STALE_SECONDS = 300;
-export const COMMUNITY_PUBLIC_READ_CACHE_CONTROL =
-  `public, s-maxage=${COMMUNITY_PUBLIC_READ_CACHE_SECONDS}, stale-while-revalidate=${COMMUNITY_PUBLIC_READ_STALE_SECONDS}`;
+// Moderation can change outside this application. Never replay a formerly
+// public record from the Data Cache or a CDN until all status mutations have
+// a guaranteed invalidation path. Keep the loader names for existing callers.
+export const COMMUNITY_PUBLIC_READ_CACHE_CONTROL = "no-store";
 
 function normalizeStockCode(stockCode: string) {
   return stockCode.toUpperCase();
@@ -47,78 +47,43 @@ export function communityPulseRepliesCacheTag(
 }
 
 export function getCachedCommunityThreads(stockCode: string) {
-  const normalizedStockCode = normalizeStockCode(stockCode);
-
-  return unstable_cache(
-    () => listCommunityThreads(normalizedStockCode),
-    ["community-threads", normalizedStockCode],
-    {
-      revalidate: COMMUNITY_PUBLIC_READ_CACHE_SECONDS,
-      tags: [communityThreadsCacheTag(normalizedStockCode)],
-    },
-  )();
+  noStore();
+  return listCommunityThreads(normalizeStockCode(stockCode));
 }
 
 export function getCachedCommunityPulseItems(stockCode: string) {
-  const normalizedStockCode = normalizeStockCode(stockCode);
-
-  return unstable_cache(
-    () => listCommunityPulseItems(normalizedStockCode),
-    ["community-pulse", normalizedStockCode],
-    {
-      revalidate: COMMUNITY_PUBLIC_READ_CACHE_SECONDS,
-      tags: [communityPulseCacheTag(normalizedStockCode)],
-    },
-  )();
+  noStore();
+  return listCommunityPulseItems(normalizeStockCode(stockCode));
 }
 
 export function getCachedCommunityThread(stockCode: string, threadId: string) {
-  const normalizedStockCode = normalizeStockCode(stockCode);
-  const normalizedThreadId = normalizeId(threadId);
-
-  return unstable_cache(
-    () => getCommunityThread(normalizedStockCode, normalizedThreadId),
-    ["community-thread", normalizedStockCode, normalizedThreadId],
-    {
-      revalidate: COMMUNITY_PUBLIC_READ_CACHE_SECONDS,
-      tags: [communityThreadCacheTag(normalizedStockCode, normalizedThreadId)],
-    },
-  )();
+  noStore();
+  return getCommunityThread(
+    normalizeStockCode(stockCode),
+    normalizeId(threadId),
+  );
 }
 
-export function getCachedCommunityComments(stockCode: string, threadId: string) {
-  const normalizedStockCode = normalizeStockCode(stockCode);
-  const normalizedThreadId = normalizeId(threadId);
-
-  return unstable_cache(
-    () => listCommunityComments(normalizedStockCode, normalizedThreadId),
-    ["community-thread-comments", normalizedStockCode, normalizedThreadId],
-    {
-      revalidate: COMMUNITY_PUBLIC_READ_CACHE_SECONDS,
-      tags: [
-        communityThreadCommentsCacheTag(normalizedStockCode, normalizedThreadId),
-      ],
-    },
-  )();
+export function getCachedCommunityComments(
+  stockCode: string,
+  threadId: string,
+) {
+  noStore();
+  return listCommunityComments(
+    normalizeStockCode(stockCode),
+    normalizeId(threadId),
+  );
 }
 
 export function getCachedCommunityPulseReplies(
   stockCode: string,
   pulseId: string,
 ) {
-  const normalizedStockCode = normalizeStockCode(stockCode);
-  const normalizedPulseId = normalizeId(pulseId);
-
-  return unstable_cache(
-    () => listCommunityPulseReplies(normalizedStockCode, normalizedPulseId),
-    ["community-pulse-replies", normalizedStockCode, normalizedPulseId],
-    {
-      revalidate: COMMUNITY_PUBLIC_READ_CACHE_SECONDS,
-      tags: [
-        communityPulseRepliesCacheTag(normalizedStockCode, normalizedPulseId),
-      ],
-    },
-  )();
+  noStore();
+  return listCommunityPulseReplies(
+    normalizeStockCode(stockCode),
+    normalizeId(pulseId),
+  );
 }
 
 export function revalidateCommunityCacheTags(tags: string[]) {

@@ -5,20 +5,17 @@ import {
 } from "./postgres-community";
 import { type CommunityStore } from "./community-store";
 
-let warnedMissingPostgresConfig = false;
-
 export function getCommunityStore(): CommunityStore {
   if (process.env.COMMUNITY_STORE_DRIVER?.toLowerCase() === "postgres") {
     if (isPostgresCommunityConfigured()) {
       return postgresCommunityStore;
     }
 
-    if (!warnedMissingPostgresConfig) {
-      warnedMissingPostgresConfig = true;
-      console.warn(
-        "COMMUNITY_STORE_DRIVER=postgres requested but DATABASE_URL/POSTGRES_URL is not set; falling back to Firestore community store",
-      );
-    }
+    // Silently switching stores can read old content or split new writes
+    // between databases during a deployment/configuration error.
+    throw new Error(
+      "COMMUNITY_STORE_DRIVER=postgres requires DATABASE_URL or POSTGRES_URL; refusing to use another community store",
+    );
   }
 
   return firestoreCommunityStore;

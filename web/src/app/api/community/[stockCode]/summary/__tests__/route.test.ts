@@ -3,7 +3,6 @@ import { GET } from "../route";
 import { getCachedStockCommunitySummary } from "~/@/lib/community/community-summary-cache";
 
 jest.mock("~/@/lib/community/community-summary-cache", () => ({
-  COMMUNITY_SUMMARY_CACHE_SECONDS: 300,
   getCachedStockCommunitySummary: jest.fn(),
 }));
 
@@ -52,7 +51,7 @@ describe("/api/community/[stockCode]/summary", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toContain("s-maxage=60");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(data.stockCode).toBe("CBA");
     expect(data.summary.threadCount).toBe(0);
     expect(data.summary.pulseCount).toBe(0);

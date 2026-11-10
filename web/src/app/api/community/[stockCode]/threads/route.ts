@@ -1,3 +1,7 @@
+import {
+  communityAuthorSnapshot,
+  toPublicCommunityThread,
+} from "~/@/lib/community/public-content";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { rateLimit } from "~/@/lib/rate-limit";
@@ -44,7 +48,7 @@ export async function GET(
     return NextResponse.json(
       {
         stockCode,
-        threads,
+        threads: threads.map(toPublicCommunityThread),
       },
       {
         headers: {
@@ -123,14 +127,12 @@ export async function POST(
   }
 
   try {
-    const body = (await request.json().catch(() => null)) as
-      | {
-          type?: string;
-          title?: string;
-          body?: string;
-          sources?: Array<{ label?: string; url?: string }>;
-        }
-      | null;
+    const body = (await request.json().catch(() => null)) as {
+      type?: string;
+      title?: string;
+      body?: string;
+      sources?: Array<{ label?: string; url?: string }>;
+    } | null;
 
     const type = body?.type ?? "";
     const title = body?.title?.trim() ?? "";
@@ -155,25 +157,20 @@ export async function POST(
     const moderation = moderateCommunityText(`${title} ${content}`);
     const thread = await createCommunityThread({
       stockCode,
-      type: type as
-        | "bull"
-        | "bear"
-        | "catalyst"
-        | "question"
-        | "news_reaction",
+      type: type as "bull" | "bear" | "catalyst" | "question" | "news_reaction",
       title,
       body: content,
       status: moderation.status,
       sources,
-      author: {
-        userId: session.user.id,
-        displayName: session.user.name ?? session.user.email ?? "Anonymous",
-      },
+      author: communityAuthorSnapshot(session.user),
     });
 
     revalidateCommunityCacheTags([communityThreadsCacheTag(stockCode)]);
 
-    return NextResponse.json({ stockCode, thread }, { status: 201 });
+    return NextResponse.json(
+      { stockCode, thread: toPublicCommunityThread(thread) },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("Failed to create community thread", error);
     return NextResponse.json(

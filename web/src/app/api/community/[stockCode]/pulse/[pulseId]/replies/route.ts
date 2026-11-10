@@ -1,3 +1,7 @@
+import {
+  communityAuthorSnapshot,
+  toPublicCommunityComment,
+} from "~/@/lib/community/public-content";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { rateLimit } from "~/@/lib/rate-limit";
@@ -21,9 +25,7 @@ const STOCK_CODE_PATTERN = /^[A-Z0-9]{1,4}$/;
 
 export async function GET(
   _request: NextRequest,
-  {
-    params,
-  }: { params: Promise<{ stockCode: string; pulseId: string }> },
+  { params }: { params: Promise<{ stockCode: string; pulseId: string }> },
 ) {
   const { stockCode: rawStockCode, pulseId } = await params;
   const stockCode = rawStockCode.toUpperCase();
@@ -39,7 +41,7 @@ export async function GET(
       {
         stockCode,
         pulseId,
-        replies,
+        replies: replies.map(toPublicCommunityComment),
       },
       {
         headers: {
@@ -79,9 +81,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  {
-    params,
-  }: { params: Promise<{ stockCode: string; pulseId: string }> },
+  { params }: { params: Promise<{ stockCode: string; pulseId: string }> },
 ) {
   const { stockCode: rawStockCode, pulseId } = await params;
   const stockCode = rawStockCode.toUpperCase();
@@ -121,9 +121,9 @@ export async function POST(
   }
 
   try {
-    const body = (await request.json().catch(() => null)) as
-      | { body?: string }
-      | null;
+    const body = (await request.json().catch(() => null)) as {
+      body?: string;
+    } | null;
     const content = body?.body?.trim() ?? "";
 
     if (!content) {
@@ -139,17 +139,17 @@ export async function POST(
       pulseId,
       body: content,
       status: moderation.status,
-      author: {
-        userId: session.user.id,
-        displayName: session.user.name ?? session.user.email ?? "Anonymous",
-      },
+      author: communityAuthorSnapshot(session.user),
     });
 
     revalidateCommunityCacheTags([
       communityPulseRepliesCacheTag(stockCode, pulseId),
     ]);
 
-    return NextResponse.json({ stockCode, pulseId, reply }, { status: 201 });
+    return NextResponse.json(
+      { stockCode, pulseId, reply: toPublicCommunityComment(reply) },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("Failed to create pulse reply", error);
     return NextResponse.json(

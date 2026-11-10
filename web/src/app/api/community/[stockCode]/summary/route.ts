@@ -1,9 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import {
-  COMMUNITY_SUMMARY_CACHE_SECONDS,
-  getCachedStockCommunitySummary,
-} from "~/@/lib/community/community-summary-cache";
+import { getCachedStockCommunitySummary } from "~/@/lib/community/community-summary-cache";
+import { COMMUNITY_PUBLIC_READ_CACHE_CONTROL } from "~/@/lib/community/community-activity-cache";
 import {
   COMMUNITY_PUBLIC_READ_FALLBACK_CACHE_CONTROL,
   emptyCommunitySummary,
@@ -34,7 +32,7 @@ export async function GET(
       },
       {
         headers: {
-          "Cache-Control": `public, s-maxage=${COMMUNITY_SUMMARY_CACHE_SECONDS}, stale-while-revalidate=600`,
+          "Cache-Control": COMMUNITY_PUBLIC_READ_CACHE_CONTROL,
         },
       },
     );

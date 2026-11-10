@@ -41,6 +41,13 @@ test.describe("Stock community authenticated flows", () => {
     await page.getByRole("button", { name: /post comment/i }).click();
     await expect(page.getByText(commentBody)).toBeVisible({ timeout: 15000 });
 
+    const threadUrl = page.url();
+    await page.reload();
+    await expect(page.getByText(commentBody)).toBeVisible({ timeout: 15000 });
+    await page.goto(`/shorts/${stockCode}/community`);
+    await page.goto(threadUrl);
+    await expect(page.getByText(commentBody)).toBeVisible({ timeout: 15000 });
+
     await page.goto(`/shorts/${stockCode}/community`);
     await page.getByRole("button", { name: /drop a pulse/i }).click();
     await page.getByLabel(/pulse update/i).fill(pulseBody);

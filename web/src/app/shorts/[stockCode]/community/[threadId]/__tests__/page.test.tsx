@@ -3,20 +3,23 @@ import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 
 const mockGetThread = jest.fn();
+const mockGetComments = jest.fn();
 const mockUnavailable = jest.fn();
 const mockWarn = jest.fn();
 jest.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
 jest.mock("~/@/lib/community/community-activity-cache", () => ({
   getCachedCommunityThread: (...a: unknown[]) => mockGetThread(...a),
+  getCachedCommunityComments: (...a: unknown[]) => mockGetComments(...a),
 }));
 jest.mock("~/@/lib/community/public-read-fallback", () => ({
   isFirestoreReadUnavailable: (...a: unknown[]) => mockUnavailable(...a),
   warnCommunityReadFallback: (...a: unknown[]) => mockWarn(...a),
 }));
 jest.mock("~/@/components/company/community/community-thread-detail", () => ({
-  CommunityThreadDetail: ({ thread }: { thread: { id: string; title: string } }) => (
+  CommunityThreadDetail: ({ thread, comments }: { thread: { id: string; title: string }; comments: { id: string; body: string }[] }) => (
     <article data-testid="thread-detail" data-thread-id={thread.id}>
       {thread.title}
+      {comments.map((comment) => <p key={comment.id}>{comment.body}</p>)}
     </article>
   ),
 }));
@@ -39,6 +42,8 @@ describe("/shorts/[stockCode]/community/[threadId]", () => {
   beforeEach(() => {
     mockGetThread.mockReset();
     mockGetThread.mockResolvedValue(thread);
+    mockGetComments.mockReset();
+    mockGetComments.mockResolvedValue([]);
     mockUnavailable.mockReset();
     mockUnavailable.mockReturnValue(false);
     mockWarn.mockReset();
@@ -61,6 +66,21 @@ describe("/shorts/[stockCode]/community/[threadId]", () => {
   it("404s a thread that does not exist", async () => {
     mockGetThread.mockResolvedValue(null);
     await expect(Page(params("bhp", "missing"))).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(mockGetComments).not.toHaveBeenCalled();
+  });
+
+  it("includes saved replies on a direct visit and a subsequent full page load", async () => {
+    mockGetComments.mockResolvedValue([
+      { id: "saved-reply", body: "Persisted evidence from the annual report." },
+    ]);
+
+    const firstVisit = render(await Page(params("bhp")));
+    expect(screen.getByText("Persisted evidence from the annual report.")).toBeInTheDocument();
+    firstVisit.unmount();
+
+    render(await Page(params("bhp")));
+    expect(screen.getByText("Persisted evidence from the annual report.")).toBeInTheDocument();
+    expect(mockGetComments).toHaveBeenCalledWith("BHP", "t1");
   });
 
   it("404s, and says why, when the community store is unreachable", async () => {

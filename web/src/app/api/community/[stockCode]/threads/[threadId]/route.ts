@@ -1,3 +1,4 @@
+import { toPublicCommunityThread } from "~/@/lib/community/public-content";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
@@ -14,9 +15,7 @@ const STOCK_CODE_PATTERN = /^[A-Z0-9]{1,4}$/;
 
 export async function GET(
   _request: NextRequest,
-  {
-    params,
-  }: { params: Promise<{ stockCode: string; threadId: string }> },
+  { params }: { params: Promise<{ stockCode: string; threadId: string }> },
 ) {
   const { stockCode: rawStockCode, threadId } = await params;
   const stockCode = rawStockCode.toUpperCase();
@@ -31,14 +30,17 @@ export async function GET(
     if (!thread) {
       return NextResponse.json(
         { error: "Thread not found" },
-        { status: 404 },
+        {
+          status: 404,
+          headers: { "Cache-Control": COMMUNITY_PUBLIC_READ_CACHE_CONTROL },
+        },
       );
     }
 
     return NextResponse.json(
       {
         stockCode,
-        thread,
+        thread: toPublicCommunityThread(thread),
       },
       {
         headers: {

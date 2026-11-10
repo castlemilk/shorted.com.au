@@ -4,11 +4,11 @@ import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "~/@/components/ui/button";
 import { Textarea } from "~/@/components/ui/textarea";
-import { type CommunityPulseItem } from "~/@/types/community";
+import { type PublicCommunityPulseItem } from "~/@/types/community";
 
 interface CommunityPulseFormProps {
   stockCode: string;
-  onCreated: (pulseItem: CommunityPulseItem) => void;
+  onCreated: (pulseItem: PublicCommunityPulseItem) => void;
 }
 
 export function CommunityPulseForm({
@@ -37,7 +37,9 @@ export function CommunityPulseForm({
         throw new Error("Failed to create pulse item");
       }
 
-      const data = (await response.json()) as { pulse: CommunityPulseItem };
+      const data = (await response.json()) as {
+        pulse: PublicCommunityPulseItem;
+      };
       onCreated(data.pulse);
       setBody("");
       setIsOpen(false);

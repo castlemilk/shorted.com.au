@@ -1,5 +1,5 @@
 import { Clock3, MessageCircle } from "lucide-react";
-import { type CommunityPulseItem } from "~/@/types/community";
+import { type PublicCommunityPulseItem } from "~/@/types/community";
 import { Badge } from "~/@/components/ui/badge";
 import {
   Card,
@@ -11,7 +11,7 @@ import { CommunityFeedbackActions } from "./community-feedback-actions";
 import { CommunityEmptyState } from "./community-empty-state";
 
 interface CommunityPulseRailProps {
-  pulse: CommunityPulseItem[];
+  pulse: PublicCommunityPulseItem[];
 }
 
 function formatPulseTime(value: Date): string {
@@ -40,7 +40,10 @@ export function CommunityPulseRail({ pulse }: CommunityPulseRailProps) {
       ) : (
         <div className="space-y-3">
           {pulse.map((item) => (
-            <Card key={item.id} className="border-border/70 bg-card/90 shadow-sm">
+            <Card
+              key={item.id}
+              className="border-border/70 bg-card/90 shadow-sm"
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">

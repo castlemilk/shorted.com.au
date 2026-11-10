@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { Button } from "~/@/components/ui/button";
 import { Input } from "~/@/components/ui/input";
 import { Textarea } from "~/@/components/ui/textarea";
-import { type CommunityThread } from "~/@/types/community";
+import { type PublicCommunityThread } from "~/@/types/community";
 
 interface CommunityThreadFormProps {
   stockCode: string;
-  onCreated: (thread: CommunityThread) => void;
+  onCreated: (thread: PublicCommunityThread) => void;
 }
 
 export function CommunityThreadForm({
@@ -20,7 +20,7 @@ export function CommunityThreadForm({
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [type, setType] = useState<CommunityThread["type"]>("bull");
+  const [type, setType] = useState<PublicCommunityThread["type"]>("bull");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -44,7 +44,7 @@ export function CommunityThreadForm({
         throw new Error("Failed to create thread");
       }
 
-      const data = (await response.json()) as { thread: CommunityThread };
+      const data = (await response.json()) as { thread: PublicCommunityThread };
       onCreated(data.thread);
       setTitle("");
       setBody("");
@@ -77,7 +77,7 @@ export function CommunityThreadForm({
           id="community-thread-type"
           value={type}
           onChange={(event) =>
-            setType(event.target.value as CommunityThread["type"])
+            setType(event.target.value as PublicCommunityThread["type"])
           }
           className="h-10 rounded-md border border-input bg-background px-3 text-sm"
         >

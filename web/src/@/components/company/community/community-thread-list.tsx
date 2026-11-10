@@ -1,10 +1,10 @@
-import { type CommunityThread } from "~/@/types/community";
+import { type PublicCommunityThread } from "~/@/types/community";
 import { CommunityThreadCard } from "./community-thread-card";
 import { CommunityEmptyState } from "./community-empty-state";
 
 interface CommunityThreadListProps {
   stockCode: string;
-  threads: CommunityThread[];
+  threads: PublicCommunityThread[];
 }
 
 export function CommunityThreadList({
@@ -18,7 +18,8 @@ export function CommunityThreadList({
           Research Threads
         </h2>
         <p className="text-sm leading-6 text-muted-foreground">
-          Bull, bear, catalyst, and news-reaction posts tied directly to {stockCode}.
+          Bull, bear, catalyst, and news-reaction posts tied directly to{" "}
+          {stockCode}.
         </p>
       </div>
 

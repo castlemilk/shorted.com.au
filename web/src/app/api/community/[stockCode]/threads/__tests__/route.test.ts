@@ -13,7 +13,7 @@ jest.mock("~/@/lib/community/community-repository", () => ({
 
 jest.mock("~/@/lib/community/community-activity-cache", () => ({
   COMMUNITY_PUBLIC_READ_CACHE_CONTROL:
-    "public, s-maxage=60, stale-while-revalidate=300",
+    "no-store",
   communityThreadsCacheTag: jest.fn(
     (stockCode: string) => `community-threads:${stockCode.toUpperCase()}`,
   ),
@@ -57,7 +57,7 @@ describe("/api/community/[stockCode]/threads", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toContain("s-maxage=60");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(data.stockCode).toBe("CBA");
     expect(data.threads).toHaveLength(1);
     expect(data.threads[0]?.id).toBe("thread-1");
@@ -81,7 +81,7 @@ describe("/api/community/[stockCode]/threads", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toContain("s-maxage=60");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(data.stockCode).toBe("CBA");
     expect(data.threads).toEqual([]);
     expect(warn).toHaveBeenCalledWith(
