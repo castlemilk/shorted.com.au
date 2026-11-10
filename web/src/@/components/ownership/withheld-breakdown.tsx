@@ -2,7 +2,7 @@ import { OUTCOME_COPY, WITHHOLDING_OUTCOMES } from "~/@/lib/ownership/kinds";
 
 // Server-safe: no "use client", no Connect import.
 //
-// The six withholding outcomes, each with its count. Two documents are not
+// The withholding outcomes, each with its count. Two documents are not
 // withheld at all (a document that is not a holding form, and one not yet
 // downloaded), so they are named apart in a sentence and never listed as
 // withheld notices.

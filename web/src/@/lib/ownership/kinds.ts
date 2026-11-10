@@ -339,7 +339,7 @@ export function isPooledFile(f: { sourceKind: string; institutionSlug: string })
 }
 
 /**
- * Why a document was withheld. The first six are withholding outcomes: a
+ * Why a document was withheld. The listed outcomes are withholding outcomes: a
  * substantial holding notice whose figure we could not read unambiguously, so
  * the register shows nothing for it. The last two are not withheld at all: a
  * document that is not a holding form, or one not downloaded yet. They are
@@ -352,6 +352,7 @@ export const WITHHOLDING_OUTCOMES: readonly string[] = [
   "ambiguous_target",
   "no_holder",
   "inconsistent_votes",
+  "unsupported_format",
 ];
 
 /** What each outcome says on the page. An outcome not listed here prints its raw name. */
@@ -362,6 +363,7 @@ export const OUTCOME_COPY: Readonly<Record<string, string>> = {
   ambiguous_target: "company not identified",
   no_holder: "holder not named",
   inconsistent_votes: "votes do not fit the share count",
+  unsupported_format: "new notice format not yet supported",
   not_a_notice: "not a substantial holding form",
   fetch_error: "not yet downloaded (retried)",
 };

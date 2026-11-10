@@ -104,6 +104,9 @@ const (
 	// outcomeImplausible: a figure was read but contradicts the form (a 603
 	// under 5%).
 	outcomeImplausible Outcome = "implausible"
+	// outcomeUnsupportedFormat preserves an identified reform notice for review
+	// without interpreting its new measures through the legacy voting model.
+	outcomeUnsupportedFormat Outcome = "unsupported_format"
 	// outcomeNoHolder is declared with the pass's outcomes (notices.go). The
 	// parser returns it too, for a placeholder section 1 name.
 )
@@ -254,7 +257,7 @@ func formFromHeadline(headline string) Form {
 // IsSubstantialHoldingHeadline reports whether an ASX headline is one of the
 // three substantial holding notice titles.
 func IsSubstantialHoldingHeadline(headline string) bool {
-	return formFromHeadline(headline) != ""
+	return formFromHeadline(headline) != "" || strings.Contains(strings.ToLower(headline), "substantial holding notice")
 }
 
 // Section 1 ends at the first label after the name.
@@ -811,6 +814,11 @@ const minNoticeText = 200
 // parseSubstantialNotice reads one notice's text. headline is ASX's title,
 // used only when the document's own form title is not in its text layer.
 func parseSubstantialNotice(text, headline string) (Notice, Outcome, string) {
+	// Refusal-only guard: no parser-version bump or broad re-download. A later
+	// full-format implementation must explicitly reprocess unsupported_format.
+	if format := unsupportedNoticeFormat(text); format != "" {
+		return Notice{}, outcomeUnsupportedFormat, "identified " + format + "; source reference retained for review; legacy voting extraction withheld"
+	}
 	s := normalizeNoticeText(text)
 	if len(s) < minNoticeText {
 		return Notice{}, outcomeNoText, "no text layer (" + strconv.Itoa(len(s)) + " chars)"

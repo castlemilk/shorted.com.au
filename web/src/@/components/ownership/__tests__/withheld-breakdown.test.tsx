@@ -4,7 +4,16 @@ import { WithheldBreakdown, type WithheldCount } from "../withheld-breakdown";
 const labels = (container: HTMLElement) => Array.from(container.querySelectorAll("dt")).map((dt) => dt.textContent);
 
 describe("WithheldBreakdown", () => {
-  it("labels the six withholding outcomes with their copy, a zero included, and the two documents not withheld apart", () => {
+  it("counts a reform format as withheld without implying a zero holding or a non-notice", () => {
+    const { container } = render(
+      <WithheldBreakdown outcomes={[{ outcome: "unsupported_format", count: 3 }]} />,
+    );
+    expect(screen.getByText("new notice format not yet supported").nextElementSibling).toHaveTextContent("3");
+    expect(screen.queryByText("unsupported_format")).toBeNull();
+    expect(container.querySelector("p")).toBeNull();
+  });
+
+  it("labels withholding outcomes with their copy, a zero included, and the two documents not withheld apart", () => {
     const outcomes: WithheldCount[] = [
       { outcome: "no_text", count: 4 },
       { outcome: "ambiguous_target", count: 2 },
@@ -19,6 +28,7 @@ describe("WithheldBreakdown", () => {
       "company not identified",
       "holder not named",
       "votes do not fit the share count",
+      "new notice format not yet supported",
     ]);
     expect(screen.getByText("no text layer (a scan)").nextElementSibling).toHaveTextContent("4");
     expect(screen.getByText("holder not named").nextElementSibling).toHaveTextContent("0");
@@ -29,7 +39,7 @@ describe("WithheldBreakdown", () => {
     ).toBeInTheDocument();
   });
 
-  it("prints its raw name for an outcome it has no copy for, after the six", () => {
+  it("prints its raw name for an outcome it has no copy for, after known outcomes", () => {
     const { container } = render(
       <WithheldBreakdown outcomes={[{ outcome: "mystery_reason", count: 2 }, { outcome: "no_holder", count: 5 }]} />,
     );
@@ -67,7 +77,7 @@ describe("WithheldBreakdown", () => {
       "fetch_error",
     ].map((outcome, index) => ({ outcome, count: index + 1 }));
     const { container } = render(<WithheldBreakdown outcomes={outcomes} />);
-    expect(container.querySelectorAll("dt")).toHaveLength(6);
+    expect(container.querySelectorAll("dt")).toHaveLength(7);
 
     const rows: Array<[label: string, count: string]> = [
       ["no text layer (a scan)", "1"],
@@ -113,7 +123,7 @@ describe("WithheldBreakdown: unavailable is set aside", () => {
       <WithheldBreakdown outcomes={[{ outcome: "no_text", count: 2 }, { outcome: "unavailable", count: 5 }]} />,
     );
     expect(labels(container)).not.toContain("unavailable");
-    expect(labels(container)).toHaveLength(6);
+    expect(labels(container)).toHaveLength(7);
     expect(screen.getByText("A further 5 are not available from ASX; they are not withheld notices.")).toBeInTheDocument();
   });
 
