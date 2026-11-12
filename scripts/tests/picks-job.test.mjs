@@ -39,11 +39,16 @@ test("the override grant is run.developer on THIS job only, and the job stays in
   assert.match(grant, /role\s+=\s+"roles\/run\.developer"/);
   assert.match(grant, /module\.shorts_api\.service_account_email/);
 
-  // Exactly four jobs carry the override role: validation, publish, picks and the
-  // alerts replay (scripts/tests/alerts-replay-job.test.mjs). A fifth needs its own
-  // server-side argv builder.
+  // Exactly five jobs carry the override role: validation, publish, picks,
+  // alerts replay and the housing crawl smoke. Each has a server-side argv
+  // builder; a further grant needs its own builder and a reviewed test update.
   const developerGrants = prodMain.match(/role\s+=\s+"roles\/run\.developer"/g) ?? [];
-  assert.equal(developerGrants.length, 4, "a fifth run.developer grant needs its own server-side argv builder");
+  assert.equal(developerGrants.length, 5, "another run.developer grant needs its own server-side argv builder");
+
+  const crawlGrant = block("resource", 'google_cloud_run_v2_job_iam_member" "shorts_api_crawl_smoke');
+  assert.match(crawlGrant, /name\s+=\s+module\.house_price_collector\.job_name/);
+  assert.match(crawlGrant, /role\s+=\s+"roles\/run\.developer"/);
+  assert.match(crawlGrant, /module\.shorts_api\.service_account_email/);
 
   const runnable = prodMain.slice(prodMain.indexOf("admin_runnable_jobs = {"));
   const runnableMap = runnable.slice(0, runnable.indexOf("\n  }\n"));
