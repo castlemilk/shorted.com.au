@@ -117,3 +117,13 @@ test('test and job gates remain enforced, with no unguarded apply',()=>{
  for(const job of ['terraform-plan','run-tests','housing-contract-tests'])assert.ok(workflow.includes(`needs.${job}.result == 'success'`));
  assert.ok(workflow.includes('run: node --test scripts/tests/terraform-deploy-workflow.test.mjs scripts/tests/dnssec-saved-plan.test.mjs'));
 });
+test('PR plans are checked before their result is published',()=>{
+ const plan=workflow.split('  terraform-plan:\n')[1].split('\n  terraform-apply:')[0];
+ const check=plan.indexOf('      - name: Verify PR plan preserves DNSSEC');
+ assert.ok(check > plan.indexOf('      - name: Terraform Plan'));
+ assert.ok(check < plan.indexOf('      - name: Save plan output'));
+ const step=plan.slice(check,plan.indexOf('      - name: Save plan output'));
+ assert.match(step,/if: github\.event_name == 'pull_request'/);
+ assert.match(step,/set -euo pipefail/);
+ assert.match(step,/terraform show -json tfplan \| python3 "\$GITHUB_WORKSPACE\/scripts\/ci\/check-dnssec-plan\.py"/);
+});

@@ -539,6 +539,13 @@ jobs:
         # advisory-only for months and silently swallowed a missing-variable
         # error on every PR (fixed by defaulting dev cloudflare_zone_id).
 
+      - name: Verify PR plan preserves DNSSEC
+        if: github.event_name == 'pull_request'
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: |
+          set -euo pipefail
+          terraform show -json tfplan | python3 "$GITHUB_WORKSPACE/scripts/ci/check-dnssec-plan.py"
+
       - name: Save plan output
         if: github.event_name == 'pull_request'
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
