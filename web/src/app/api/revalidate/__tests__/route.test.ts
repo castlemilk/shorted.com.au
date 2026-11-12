@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { resolve } from "node:path";
 import type { NextRequest } from "next/server";
 
 import { POST } from "../route";
@@ -80,6 +82,26 @@ describe("POST /api/revalidate", () => {
     expect(response.status).toBe(200);
     expect(revalidatePathMock).toHaveBeenCalledWith("/price-drops");
     expect(deleteCachedByPrefixMock).toHaveBeenCalledWith("cache:housing:");
+  });
+
+  it("runs the actual post-promote sweep without expiring housing profiles", async () => {
+    const root = resolve(process.cwd(), "..");
+    const paths = execFileSync(process.execPath, ["scripts/post-promote-isr-paths.mjs"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const url = `http://localhost/api/revalidate?path=${encodeURIComponent(paths)}&flush=shorts,housing`;
+    const response = await POST(request(url, "test-revalidation-secret"));
+
+    expect(response.status).toBe(200);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/housing/[state]", "page");
+    const calls = revalidatePathMock.mock.calls.map(([path]) => path);
+    expect(calls).not.toEqual(expect.arrayContaining([
+      "/housing", ...["act", "nsw", "nt", "qld", "sa", "tas", "vic", "wa"].map((state) => `/housing/${state}`),
+      "/housing/[state]/[suburb]", "/housing/[state]/council/[slug]",
+    ]));
+    expect(revalidateTagMock).not.toHaveBeenCalledWith("housing");
   });
 
   it("temporarily accepts the legacy query-string secret", async () => {

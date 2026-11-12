@@ -766,11 +766,11 @@ tasks:
       names — an unknown one is ignored and STILL returns 200. Read `flushedKeys`
       back from the response to confirm anything actually happened.
 
-      The state indexes, /housing/[state]/[suburb], /housing/[state]/council/[slug],
-      /industry/[slug], /news/[slug] and the editorial indexes are in
-      web/src/config/isr-pages.json, so the workflow sweeps them post-promote;
-      reach for this task when a sweep failed (continue-on-error) or you
-      need a targeted path outside that list.
+      The workflow uses scripts/post-promote-isr-paths.mjs: it page-scopes the
+      state indexes and excludes the suburb and council profile patterns.
+      Reach for this task when a sweep failed or an explicit wider refresh is
+      needed. Its default /housing path expires the entire housing subtree;
+      supply PATHS deliberately when that is not intended.
     requires: {vars: [CONFIRM]}
     preconditions:
       - sh: '[ "{{.CONFIRM}}" = "prod" ]'
