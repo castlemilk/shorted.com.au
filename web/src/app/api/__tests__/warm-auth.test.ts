@@ -50,6 +50,7 @@ const ROUTES: Array<[string, WarmGet]> = [
   ["about", aboutRoute.GET],
   ["homepage", homepageRoute.GET],
   ["pages", pagesRoute.GET],
+  ["pages invalidation", pagesRoute.POST],
   ["static-pages", staticPagesRoute.GET],
   ["warm-pages", warmPagesRoute.GET],
 ];
@@ -60,7 +61,7 @@ function request(search = "", headers: Record<string, string> = {}): NextRequest
 }
 
 function page() {
-  return { ok: true, status: 200, headers: new Headers(), text: async () => "<main>Ready</main>" };
+  return { ok: true, status: 200, headers: new Headers(), text: async () => "<main>Ready</main>", json: async () => ({ invalidated: true }) };
 }
 
 describe.each(ROUTES)("%s warm authentication", (_name, warm) => {
