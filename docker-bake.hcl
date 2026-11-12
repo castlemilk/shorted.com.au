@@ -78,6 +78,10 @@ group "node" {
   targets = ["take-writer"]
 }
 
+group "node-images" {
+  targets = ["take-writer"]
+}
+
 # Shared settings for every Go target. `github_token` is read from the
 # STEALTH_PAT environment variable when set (CI); absent, the Dockerfile falls
 # back to the `stealth` build context, and absent that, the public proxy.

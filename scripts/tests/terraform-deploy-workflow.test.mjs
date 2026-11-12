@@ -227,10 +227,10 @@ test("release batches cover every image exactly once", () => {
   }
   const script = step("build-images", "Build and push all images").run;
   const batches = /for batch in ([^;]+); do/.exec(script)?.[1].trim().split(/\s+/);
-  assert.deepEqual(batches, ["go-core", "go-browser", "enrichment-processor", "python", "node"]);
+  assert.deepEqual(batches, ["go-core", "go-browser", "enrichment-processor", "python", "node-images"]);
   const actual = [
     ...members("go-core"), ...members("go-browser"), "enrichment-processor",
-    ...members("python"), ...members("node"),
+    ...members("python"), ...members("node-images"),
   ];
   const expected = [...members("go"), ...members("python"), ...members("node")];
   assert.equal(new Set(actual).size, actual.length, "an image is built twice");
@@ -267,7 +267,7 @@ ${step("build-images", "Build and push all images").run}`;
 test("a transient push failure retries only its batch", () => {
   const result = runBakeBatches("go-browser", true);
   assert.equal(result.status, 0);
-  assert.deepEqual(result.calls, ["go-core", "go-browser", "go-browser", "enrichment-processor", "python", "node"]);
+  assert.deepEqual(result.calls, ["go-core", "go-browser", "go-browser", "enrichment-processor", "python", "node-images"]);
 });
 
 test("a failed batch stops the release after three attempts", () => {

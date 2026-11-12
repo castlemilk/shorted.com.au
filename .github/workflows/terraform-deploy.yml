@@ -252,7 +252,7 @@ jobs:
         run: |
           # Retry only the failed batch; the named builder retains completed
           # layers across batches and transient registry failures.
-          for batch in go-core go-browser enrichment-processor python node; do
+          for batch in go-core go-browser enrichment-processor python node-images; do
             built=false
             for attempt in 1 2 3; do
               if docker buildx bake --file docker-bake.hcl --builder shorted-builder --push --progress plain "$batch"; then
