@@ -81,7 +81,7 @@ else:sys.exit(2)
 `,{mode:0o755});
   try {
     const script=mutateRun(run.replace(/\$\{\{[^}]*\}\}/g,'fixture'));
-    const result=spawnSync('/bin/bash',['--noprofile','--norc','-c',script],{encoding:'utf8',env:{HOME:dir,BASH_ENV:'/dev/null',ENV:'/dev/null',PATH:`${bin}:${process.env.PATH}`,GITHUB_WORKSPACE:root,MODE:mode,CALLS:log,FIXTURE:input}});
+    const result=spawnSync('/bin/bash',['--noprofile','--norc','-c',script],{encoding:'utf8',env:{BASH_ENV:'/dev/null',ENV:'/dev/null',PATH:`${bin}:${process.env.PATH}`,GITHUB_WORKSPACE:root,MODE:mode,CALLS:log,FIXTURE:input}});
     let calls=[];try{calls=readFileSync(log,'utf8').trim().split('\n').map(JSON.parse);}catch{}
     const plans=calls.filter(x=>x[0]=='plan');for(const p of plans)assert.equal(spawnSync('test',['-e',p.find(x=>x.startsWith('-out=')).slice(5)]).status,1,'temporary plan removed');
     return {...result,calls};
