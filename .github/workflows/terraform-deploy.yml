@@ -238,13 +238,11 @@ jobs:
           name: shorted-builder
           cleanup: false
 
-      # ONE bake publishes every image (docker-bake.hcl). The ten Go images
-      # share a single builder stage in services/images.Dockerfile, so the
-      # shared module compiles once instead of once per image; the Python and
-      # Node images build alongside in the same BuildKit session. This replaced
-      # a 12-way docker matrix plus two ko jobs that serialized for over an
-      # hour on one runner and failed the whole release when any one slot
-      # stalled (2026-10-07). Image names and tags are unchanged.
+      # One job publishes every image using the same named BuildKit builder.
+      # Its Go builder and cache are shared across batches. Keep the browser and
+      # enrichment images separate from the other builds: running everything at
+      # once approached the runner's 16 GiB VM limit and lost the job result twice.
+      # Image names, tags and all release gates remain unchanged.
       - name: Build and push all images
         env:
           REGISTRY: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted
@@ -252,19 +250,25 @@ jobs:
           PLATFORM: linux/amd64
           STEALTH_PAT: ${{ secrets.STEALTH_PAT }}
         run: |
-          # The bake builds every image in one BuildKit session, so a retry
-          # costs only the layers that did not push: a push to Artifact Registry
-          # once died on "failed to authorize: DeadlineExceeded" after the
-          # whole build had succeeded (2026-11-05, main-6d684029).
-          for attempt in 1 2 3; do
-            if docker buildx bake --file docker-bake.hcl --builder shorted-builder --push --progress plain; then
-              exit 0
+          # Retry only the failed batch; the named builder retains completed
+          # layers across batches and transient registry failures.
+          for batch in go-core go-browser enrichment-processor python node-images; do
+            built=false
+            for attempt in 1 2 3; do
+              if docker buildx bake --file docker-bake.hcl --builder shorted-builder --push --progress plain "$batch"; then
+                built=true
+                break
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                echo "::warning::bake $batch attempt $attempt failed; retrying in $((attempt * 30))s"
+                sleep $((attempt * 30))
+              fi
+            done
+            if [ "$built" != true ]; then
+              echo "::error::bake $batch failed on every attempt"
+              exit 1
             fi
-            echo "::warning::bake attempt $attempt failed; retrying in $((attempt * 30))s"
-            sleep $((attempt * 30))
           done
-          echo "::error::bake failed on every attempt"
-          exit 1
 
   # Same images, second home: rigs pull task images from the Cuttlefish
   # registry with their control-plane token, so nothing on a rig needs a cloud

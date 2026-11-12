@@ -51,11 +51,34 @@ group "go" {
   ]
 }
 
+# The production runner has a 16 GiB limit. Keep the shared Go builder and
+# named BuildKit cache, but build the memory-heavy browser and ML images in
+# separate batches rather than alongside every other image.
+group "go-core" {
+  targets = [
+    "shorted-jobs",
+    "shorts",
+    "chat-service",
+    "house-price-collector",
+    "market-data-sync",
+    "market-data",
+    "weekly-report-generator",
+  ]
+}
+
+group "go-browser" {
+  targets = ["shorted-jobs-browser", "asx-discovery"]
+}
+
 group "python" {
   targets = ["stock-price-ingestion", "signals-collector", "report-extractor"]
 }
 
 group "node" {
+  targets = ["take-writer"]
+}
+
+group "node-images" {
   targets = ["take-writer"]
 }
 

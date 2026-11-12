@@ -198,11 +198,9 @@ test("non-production environments still run the normal ordered migration chain",
   assert.match(run, /\s+up\s*$/);
 });
 
-// Images are published by ONE bake (docker-bake.hcl) so the shared Go module
-// compiles once. The old shape — a 12-way docker matrix plus two ko jobs —
-// serialized for over an hour on a single runner and failed the whole release
-// whenever one slot stalled (2026-10-07). Guard the shape, not the count.
-test("every image is published by the single bake job, and the deploy gates on it", () => {
+// One job and one named builder keep the Go cache shared. Batches keep the
+// memory-heavy ML and browser stages from competing with the rest of the bake.
+test("every image is published by the shared bake job, and the deploy gates on it", () => {
   assert.ok(workflow.jobs["build-images"], "build-images job missing");
   assert.equal(workflow.jobs["build-docker-images"], undefined, "the per-image docker matrix must stay gone");
   assert.equal(workflow.jobs["build-ko-images"], undefined, "the ko jobs must stay gone");
@@ -216,6 +214,66 @@ test("every image is published by the single bake job, and the deploy gates on i
     assert.ok(workflow.jobs[job].needs.includes("build-images"), `${job} must wait for build-images`);
   }
   assert.match(String(workflow.jobs["terraform-plan"].if).replace(/\s+/g, " "), /needs\.build-images\.result == 'success' \|\| needs\.build-images\.result == 'skipped'/);
+});
+
+test("release batches cover every image exactly once", () => {
+  const bake = readFileSync(new URL("../../docker-bake.hcl", import.meta.url), "utf8");
+  function members(name) {
+    const block = bake.match(new RegExp(`group "${name}" \\{([\\s\\S]*?)\\n\\}`));
+    assert.ok(block, `missing ${name} group`);
+    const targets = /targets\s*=\s*\[([^\]]*)\]/.exec(block[1]);
+    assert.ok(targets, `missing ${name} targets`);
+    return [...targets[1].matchAll(/"([a-z-]+)"/g)].map((m) => m[1]);
+  }
+  const script = step("build-images", "Build and push all images").run;
+  const batches = /for batch in ([^;]+); do/.exec(script)?.[1].trim().split(/\s+/);
+  assert.deepEqual(batches, ["go-core", "go-browser", "enrichment-processor", "python", "node-images"]);
+  const actual = [
+    ...members("go-core"), ...members("go-browser"), "enrichment-processor",
+    ...members("python"), ...members("node-images"),
+  ];
+  const expected = [...members("go"), ...members("python"), ...members("node")];
+  assert.equal(new Set(actual).size, actual.length, "an image is built twice");
+  assert.deepEqual(actual.sort(), expected.sort());
+});
+
+function runBakeBatches(failBatch, transient = false) {
+  const dir = mkdtempSync(join(tmpdir(), "shorted-bake-test-"));
+  const calls = join(dir, "calls");
+  const failed = join(dir, "failed");
+  const script = `
+docker() {
+  local batch="\${!#}"
+  printf '%s\\n' "$batch" >> "$CALLS"
+  if [ "$batch" = "$FAIL_BATCH" ] && { [ "$TRANSIENT" != 1 ] || [ ! -f "$FAILED" ]; }; then
+    : > "$FAILED"
+    return 1
+  fi
+}
+sleep() { :; }
+${step("build-images", "Build and push all images").run}`;
+  try {
+    const result = spawnSync("bash", ["--noprofile", "--norc", "-c", script], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { PATH: process.env.PATH, BASH_ENV: "/dev/null", ENV: "/dev/null", CALLS: calls, FAILED: failed, FAIL_BATCH: failBatch, TRANSIENT: transient ? "1" : "0" },
+    });
+    return { status: result.status, calls: readFileSync(calls, "utf8").trim().split("\n") };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("a transient push failure retries only its batch", () => {
+  const result = runBakeBatches("go-browser", true);
+  assert.equal(result.status, 0);
+  assert.deepEqual(result.calls, ["go-core", "go-browser", "go-browser", "enrichment-processor", "python", "node-images"]);
+});
+
+test("a failed batch stops the release after three attempts", () => {
+  const result = runBakeBatches("enrichment-processor");
+  assert.notEqual(result.status, 0);
+  assert.deepEqual(result.calls, ["go-core", "go-browser", "enrichment-processor", "enrichment-processor", "enrichment-processor"]);
 });
 
 test("the bake publishes every image Terraform consumes, under the names it expects", () => {
