@@ -40,12 +40,19 @@ test("the wrapper reruns only the failed packages, without the test cache, and f
   assert.match(sh, /^exit 1$/m);
 });
 
-test("the bake push and the terraform apply each retry a transient failure", () => {
+test("the bake push retries a transient failure", () => {
   const bake = step(".github/workflows/terraform-deploy.yml", "build-images", "Build and push all images");
   assert.match(bake.run, /for attempt in 1 2 3; do/);
   assert.match(bake.run, /docker buildx bake --file docker-bake\.hcl --builder shorted-builder --push --progress plain/);
+});
+
+// A failed Terraform apply may already have changed resources. Unlike an image
+// push, it must not be retried automatically or replaced with an uninspected plan.
+// dnssec-saved-plan.test.mjs also executes failure and tampering negative controls.
+test("Terraform applies the inspected saved plan once without automatic retry", () => {
   const apply = step(".github/workflows/terraform-deploy.yml", "terraform-apply", "Terraform Apply");
-  assert.match(apply.run, /apply\(\) \{/);
-  assert.match(apply.run, /if apply; then exit 0; fi/);
-  assert.equal(apply.run.split("\n").filter((l) => l.trim() === "apply").length, 1, "one retry, not a loop");
+  assert.match(apply.run, /python3 "\$GITHUB_WORKSPACE\/scripts\/ci\/check-dnssec-plan\.py"/);
+  const calls = apply.run.split("\n").filter((line) => /^\s*terraform apply\b/.test(line));
+  assert.deepEqual(calls.map((line) => line.trim()), ['terraform apply -input=false "$plan_dir/release.tfplan"']);
+  assert.doesNotMatch(apply.run, /apply\(\)|if apply|sleep 60|-auto-approve/);
 });

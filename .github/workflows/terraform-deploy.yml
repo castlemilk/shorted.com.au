@@ -539,6 +539,13 @@ jobs:
         # advisory-only for months and silently swallowed a missing-variable
         # error on every PR (fixed by defaulting dev cloudflare_zone_id).
 
+      - name: Verify PR plan preserves DNSSEC
+        if: github.event_name == 'pull_request'
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: |
+          set -euo pipefail
+          terraform show -json tfplan | python3 "$GITHUB_WORKSPACE/scripts/ci/check-dnssec-plan.py"
+
       - name: Save plan output
         if: github.event_name == 'pull_request'
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
@@ -1235,13 +1242,15 @@ jobs:
           TF_VAR_rate_limit_testing_bypass_secret: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
           TF_VAR_rate_limit_ssr_bypass_secret: ${{ secrets.CLOUDFLARE_SSR_BYPASS_SECRET }}
         run: |
-          # Two attempts: an apply that fails on a transient provider error
-          # (Cloudflare answered 503 to a GET of the worker script mid-apply,
-          # 2026-11-06, main-499a9197) re-plans from the state the first attempt
-          # left and converges. Nothing here is a saved plan, so the second
-          # attempt is a fresh plan and apply of the same inputs.
-          apply() {
-          terraform apply \
+          { set +x; } 2>/dev/null
+          set -euo pipefail
+          command -v python3 >/dev/null
+          umask 077
+          plan_dir=$(mktemp -d)
+          trap 'rm -rf -- "$plan_dir"' EXIT
+          # Save a fresh, refreshed plan using the same release inputs. Neither
+          # the plan nor its JSON/logs may be uploaded or printed.
+          if ! terraform plan -input=false -out="$plan_dir/release.tfplan" \
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="chat_service_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/chat-service:${{ needs.determine-environment.outputs.image-tag }}" \
@@ -1257,12 +1266,27 @@ jobs:
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="take_writer_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/take-writer:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
-            -auto-approve
+            >"$plan_dir/plan.log" 2>&1; then
+            echo "::error::Release planning failed; apply blocked. Reproduce privately for diagnostics."
+            exit 1
+          fi
+          plan_digest() {
+            python3 -c 'import hashlib, sys; h = hashlib.sha256(); f = open(sys.argv[1], "rb"); [h.update(chunk) for chunk in iter(lambda: f.read(1048576), b"")]; print(h.hexdigest())' "$plan_dir/release.tfplan" 2>/dev/null
           }
-          if apply; then exit 0; fi
-          echo "::warning::terraform apply failed; re-planning and applying once more in 60s"
-          sleep 60
-          apply
+          plan_sha=$(plan_digest)
+          if ! terraform show -json "$plan_dir/release.tfplan" 2>"$plan_dir/show.log" |
+            python3 "$GITHUB_WORKSPACE/scripts/ci/check-dnssec-plan.py"; then
+            echo "::error::DNSSEC saved-plan gate failed; apply blocked."
+            exit 1
+          fi
+          checked_sha=$(plan_digest)
+          if [ "$plan_sha" != "$checked_sha" ]; then
+            echo "::error::Saved plan changed during inspection; apply blocked."
+            exit 1
+          fi
+          # No automatic retry after a partial apply. Investigate before rerunning
+          # the job, which must create and guard another fresh plan.
+          terraform apply -input=false "$plan_dir/release.tfplan"
 
       - name: Get Terraform Outputs
         id: outputs
@@ -2177,7 +2201,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Run terraform-deploy workflow pins
-        run: node --test scripts/tests/terraform-deploy-workflow.test.mjs
+        run: node --test scripts/tests/terraform-deploy-workflow.test.mjs scripts/tests/dnssec-saved-plan.test.mjs
 
       # The integration suites (test-integration-ci) run in go-quality.yml's
       # `extended` job: they are slow and non-gating. Everything above gates a deploy.

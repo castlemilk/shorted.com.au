@@ -81,14 +81,21 @@ reaches the home page alone (its derived tag is `_N_T_/page`). The home page's d
 `shorts-latest` and report tags, which the sync already expires.
 
 Rules for any caller:
-- To refresh one page, send its exact leaf path, or better a tag its reads carry. Never send a
+- To refresh one page, use its page-typed route or a tag its reads carry. Never send an untyped
   parent path to refresh the parent: `/housing` is every housing page, and `/news` is every
-  article.
+  article. A dynamic page needs its route pattern, not a concrete URL with `"page"`: for
+  example `/housing/[state]/council` targets the state council indexes without their profiles.
 - A pattern with brackets is page- or layout-typed already (`/shorts/[stockCode]` as a layout,
   others as a page) and behaves as documented.
 - To tell a tag expiry from a path expiry, compare `cacheReason` brackets against
   `/api/revalidate` timestamps. Pings to `shorted.com.au` come from Cloud Run and VKE; pings
   to the Vercel origin host come from the rigs and `take-writer`.
+
+The daily page warmer invalidates only `/` as a page and then fetches the homepage in a second
+request. The deployment shell warmer also page-types each route, including the shared council
+index pattern; it must not expire the housing, market, economy or ownership subtrees when it
+repairs a parent shell. Invalidation and the read that primes it must remain separate requests:
+Next commits `revalidatePath` after the handler returns.
 
 ## GetTopShorts payload
 

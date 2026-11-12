@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import isrShellPages from "~/config/isr-shell-pages.json";
 import { isCacheWarmAuthorized } from "~/@/lib/cache-warm-auth";
+import { isrShellPageRoute } from "~/@/lib/isr-shell-page-route";
 
 export const maxDuration = 150;
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const SHELL_MARKER = 'data-isr-shell="empty"';
-// Eight at a time: the shell list (23 pages today) reads in three batches, 8, 8 and 7.
+// Eight at a time: the shell list (24 pages today) reads in three batches of eight.
 // The price-drops page's 60 s allowance makes the worst case 60 + 30 + 30 = 120 s,
 // under this handler's 150 s maxDuration and the 145 s its release callers allow.
 const CONCURRENCY = 8;
@@ -44,7 +45,11 @@ export async function GET(request: NextRequest) {
   // priming must be separate HTTP requests; a self-fetch here cannot observe
   // an invalidation queued by this request.
   if (mode === "deploy") {
-    for (const path of isrShellPages) revalidatePath(path);
+    // Untyped parent paths such as /housing expire their descendants on Vercel.
+    // Page-typed route patterns refresh only the shell pages being primed.
+    for (const path of new Set(isrShellPages.map(isrShellPageRoute))) {
+      revalidatePath(path, "page");
+    }
     return NextResponse.json({
       success: false,
       invalidated: true,
@@ -81,7 +86,7 @@ export async function GET(request: NextRequest) {
       try {
         const shell = await readPage(path);
         if (shell) {
-          revalidatePath(path);
+          revalidatePath(isrShellPageRoute(path), "page");
           action = "repair-pending";
         }
         results[path] = {

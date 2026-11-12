@@ -4,7 +4,9 @@ import { GET } from "../route";
 
 const invalidate = jest.fn();
 jest.mock("next/cache", () => ({ revalidatePath: (...args: unknown[]) => invalidate(...args) }));
-jest.mock("~/config/isr-shell-pages.json", () => ["/market", "/price-drops"]);
+jest.mock("~/config/isr-shell-pages.json", () => [
+  "/market", "/price-drops", "/housing", "/housing/nsw/council", "/housing/vic/council",
+]);
 
 function request(query = "", headers = new Headers()): NextRequest {
   return { nextUrl: new URL(`http://localhost/api/static-pages/warm-cache${query}`), headers } as NextRequest;
@@ -36,7 +38,7 @@ describe("static page warming", () => {
     const response = await GET(request());
     expect(response.status).toBe(200);
     expect(invalidate).not.toHaveBeenCalled();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect((await response.json()).results["/market"].action).toBe("checked");
   });
 
@@ -53,15 +55,20 @@ describe("static page warming", () => {
     expect(body.success).toBe(false);
     expect(body.pending).toBe(true);
     expect(body.results["/market"].action).toBe("repair-pending");
-    expect(invalidate.mock.calls).toEqual([["/market"]]);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(invalidate.mock.calls).toEqual([["/market", "page"]]);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect((await GET(request())).status).toBe(200);
   });
 
   it("invalidates build shells in a separate request before priming", async () => {
     const response = await GET(request("?mode=deploy"));
     expect(response.status).toBe(200);
-    expect(invalidate.mock.calls).toEqual([["/market"], ["/price-drops"]]);
+    expect(invalidate.mock.calls).toEqual([
+      ["/market", "page"],
+      ["/price-drops", "page"],
+      ["/housing", "page"],
+      ["/housing/[state]/council", "page"],
+    ]);
     expect(fetchMock).not.toHaveBeenCalled();
     const body = await response.json();
     expect(body.invalidated).toBe(true);
@@ -78,7 +85,18 @@ describe("static page warming", () => {
     expect(body.results["/market"].action).toBe("repair-pending");
     expect(body.pending).toBe(true);
     expect(body.results["/price-drops"].error).toBe("HTTP 503");
-    expect(invalidate.mock.calls).toEqual([["/market"]]);
+    expect(invalidate.mock.calls).toEqual([["/market", "page"]]);
+  });
+
+  it("repairs a council index without expiring council profiles", async () => {
+    fetchMock.mockImplementation(async (url: string) => html(
+      url.endsWith("/housing/nsw/council")
+        ? '<span hidden data-isr-shell="empty"></span>' : "Ready",
+    ));
+    const response = await GET(request());
+    expect(response.status).toBe(202);
+    expect(invalidate.mock.calls).toEqual([["/housing/[state]/council", "page"]]);
+    expect((await response.json()).results["/housing/nsw/council"].action).toBe("repair-pending");
   });
 
   it("does not repair legitimate dated or withheld empty answers", async () => {
