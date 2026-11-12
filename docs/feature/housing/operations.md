@@ -472,22 +472,20 @@ secret — unset, alerting degrades to a notification nobody is guaranteed to se
 
 ## Revalidation and the post-deploy sweep
 
-A promote resets every ISR page to its build-time placeholder. The sweep is
-automated (`terraform-deploy.yml`, post-promote, `continue-on-error`): it POSTs
-`web/src/config/isr-pages.json` as the `path` list with `flush=shorts,housing`
-and a **browser UA** (a curl UA is edge-blocked). `post-deploy-smoke.yml` then
-re-primes via `/api/static-pages/warm-cache` — the first five entries,
-`/market`, `/housing`, `/economy`, `/compare`, `/price-drops`.
+A promote can leave build-time shells in data-backed indexes. The automated
+post-promote sweep (`terraform-deploy.yml`, `continue-on-error`) selects paths
+with `scripts/post-promote-isr-paths.mjs` and POSTs them with
+`flush=shorts,housing` and a **browser UA** (a curl UA is edge-blocked). The
+shell warmer separately invalidates and primes the selected static indexes.
 
-**The eight state indexes, `/housing/[state]/[suburb]` and
-`/housing/[state]/council/[slug]` are in `isr-pages.json` (2026-09-25), alongside
-the eight council index pages**, so the post-promote sweep covers them; a `path`
-containing `[` revalidates the whole dynamic route. They are still not in the
-re-prime set, and all of them are `revalidate = 86400`, so if the sweep step
-fails (it is `continue-on-error`) they self-heal only on that 24h TTL. Manual
-fallback: get the secret with `gcloud secrets versions access latest
---secret=REVALIDATION_SECRET --project rosy-clover-477102-t5`, then send the
-full route list from [Takedown](#takedown) step 3. `flush=housing` busts the
+The sweep refreshes the eight state indexes through the page-scoped
+`/housing/[state]` route. It excludes the suburb and council profile patterns,
+which remain in `isr-pages.json` for explicit operational use. Both profile
+routes generate on demand and have a 24-hour ISR interval; the collector's
+data-change revalidation still applies. An untyped `/housing/<state>` would
+also expire its descendants on Vercel, so do not substitute the concrete state
+URLs in the sweep. For an exceptional takedown use the explicit full route
+list in [Takedown](#takedown) step 3. `flush=housing` busts the
 whole `cache:housing:` prefix. The collector's own call after a run that wrote
 data sends only `path=/price-drops&flush=housing` ([pipeline.md](pipeline.md)), so it does
 not reach the 24h routes. Never add `/housing` to it: on Vercel a plain path expires its

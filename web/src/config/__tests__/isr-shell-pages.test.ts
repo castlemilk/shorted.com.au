@@ -182,13 +182,9 @@ describe("council index pages in the ISR sweep and shell re-prime", () => {
   });
 });
 
-// The state indexes build with an empty suburb directory (the directory read
-// skips at build), the suburb, council and industry pages read live data, and
-// the editorial indexes list rows published between deploys. Until 2026-09-25
-// none of them were in the sweep, so every promote handed them out as
-// build-time placeholders for up to their 24h TTL unless someone ran
-// `task deploy:revalidate` by hand with the right path list. A path containing
-// `[` revalidates the whole dynamic route (see api/revalidate/route.ts).
+// Keep the full operational inventory, including the profile routes needed for
+// an explicit takedown. The automatic post-promote selector excludes profiles
+// and page-scopes state indexes; those profiles generate on demand.
 describe("state, suburb, industry and editorial routes in the ISR sweep inventory", () => {
   it("covers the eight state indexes and the dynamic routes", () => {
     const all = new Set(isrPages as string[]);

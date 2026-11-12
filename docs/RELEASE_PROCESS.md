@@ -63,11 +63,11 @@ script leaves to the operator's shell, found the hard way:
    --project shorted-com-au`, before anything else: `--yes` on an unlinked
    directory would create a project named after the directory.
 
-Then run the post-promote sweep the workflow used to run (the ISR paths from
-`web/src/config/isr-pages.json` minus `isr-shell-pages.json` through
+Then run the post-promote sweep using the paths printed by
+`node scripts/post-promote-isr-paths.mjs` through
 `/api/revalidate`, with `REVALIDATION_SECRET` in the `X-Revalidate-Secret`
-header, then `/api/static-pages/warm-cache?mode=deploy` and `mode=repair`),
-because promotion resets every ISR page to its build-time shell. The warm calls
+header. Then call `/api/static-pages/warm-cache?mode=deploy` and `mode=repair`
+to refresh build-time shells without expiring every housing profile. The warm calls
 take the secret as a bearer, and the warm routes refuse a secret in the query
 string. The workflow sends the testing user agent and bypass header on these
 calls too, so the example does:

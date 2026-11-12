@@ -97,6 +97,11 @@ index pattern; it must not expire the housing, market, economy or ownership subt
 repairs a parent shell. Invalidation and the read that primes it must remain separate requests:
 Next commits `revalidatePath` after the handler returns.
 
+The separate post-promote sweep uses `scripts/post-promote-isr-paths.mjs` to exclude the
+suburb and council profile patterns and map the eight concrete state index URLs to the
+page-typed `/housing/[state]` route. The full inventory remains available for an explicit
+operational takedown. Profiles still refresh on their own ISR interval and data-change events.
+
 ## GetTopShorts payload
 
 The top-shorts list sparklines no longer ship full daily resolution — the

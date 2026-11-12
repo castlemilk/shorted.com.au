@@ -14,6 +14,8 @@ describe("page-scoped ISR shell invalidation", () => {
   it.each([
     ["/", "/page", "/", "/housing/[state]/[suburb]/page", "/housing/nsw/bondi"],
     ["/housing", "/housing/page", "/housing", "/housing/[state]/[suburb]/page", "/housing/nsw/bondi"],
+    ["/housing/[state]", "/housing/[state]/page", "/housing/nsw", "/housing/[state]/[suburb]/page", "/housing/nsw/bondi"],
+    ["/housing/[state]", "/housing/[state]/page", "/housing/nsw", "/housing/[state]/council/[slug]/page", "/housing/nsw/council/albury"],
     ["/housing/[state]/council", "/housing/[state]/council/page", "/housing/nsw/council", "/housing/[state]/council/[slug]/page", "/housing/nsw/council/albury"],
   ])("targets %s but not its child pages", async (route, page, pathname, childPage, childPathname) => {
     const targetTag = `_N_T_${route}${route.endsWith("/") ? "" : "/"}page`;
