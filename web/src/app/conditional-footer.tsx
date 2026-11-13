@@ -4,7 +4,7 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import SiteFooter from "~/@/components/ui/site-footer";
 
-export function ConditionalFooter() {
+export function ConditionalFooter({ copyrightYear }: { copyrightYear: number }) {
   const pathname = usePathname();
 
   // Roadmap and embed routes should take the full space below the nav bar.
@@ -17,5 +17,5 @@ export function ConditionalFooter() {
   )
     return null;
 
-  return <SiteFooter />;
+  return <SiteFooter copyrightYear={copyrightYear} />;
 }
