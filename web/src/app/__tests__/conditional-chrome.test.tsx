@@ -26,7 +26,9 @@ jest.mock("~/@/components/ui/site-header", () => ({
 
 jest.mock("~/@/components/ui/site-footer", () => ({
   __esModule: true,
-  default: () => <footer data-testid="site-footer">footer</footer>,
+  default: ({ copyrightYear }: { copyrightYear: number }) => (
+    <footer data-testid="site-footer">{copyrightYear}</footer>
+  ),
 }));
 
 import { ConditionalHeader } from "../conditional-header";
@@ -36,7 +38,7 @@ import { EnvironmentBanner } from "~/@/components/ui/environment-banner";
 function chromeOn(pathname: string) {
   mockPathname.value = pathname;
   const header = render(<ConditionalHeader />);
-  const footer = render(<ConditionalFooter />);
+  const footer = render(<ConditionalFooter copyrightYear={2026} />);
   const result = {
     header: !!header.queryByTestId("site-header"),
     footer: !!footer.queryByTestId("site-footer"),
@@ -52,6 +54,12 @@ function chromeOn(pathname: string) {
 // bare. It is also a layout dependency: the success screen uses min-h-screen,
 // which is only correct while nothing else contributes height.
 describe("site chrome on the OAuth flow", () => {
+  it("passes the server-rendered copyright year to the visible footer", () => {
+    mockPathname.value = "/";
+    const footer = render(<ConditionalFooter copyrightYear={2026} />);
+    expect(footer.getByTestId("site-footer")).toHaveTextContent("2026");
+  });
+
   it("is absent on the consent route", () => {
     expect(chromeOn("/oauth/authorize")).toEqual({
       header: false,

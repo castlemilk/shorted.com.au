@@ -281,7 +281,8 @@ export default function RootLayout({
               <PastDueBanner />
               <ConditionalHeader />
               {children}
-              <ConditionalFooter />
+              {/* Snapshot the year with the HTML so hydration does not depend on the visitor's clock. */}
+              <ConditionalFooter copyrightYear={new Date().getFullYear()} />
               <ThemeSwitcher />
               <Toaster />
               <WebVitalsReporter />
