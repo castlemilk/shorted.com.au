@@ -4,14 +4,15 @@ import { serializeJsonLd } from "~/@/lib/seo/json-ld";
 // This is a public site identifier, not a Flaggr API credential. The pinned
 // script and its SRI hash come from https://cdn.flaggr.dev/manifest.json.
 const FLAGGR_SITE_ID = "site_869df5560db33f777d73f0f9";
-const FLAGGR_SCRIPT = "https://cdn.flaggr.dev/a-0.1.10.js";
+const FLAGGR_SCRIPT = "https://cdn.flaggr.dev/a-0.1.11.js";
 const FLAGGR_INTEGRITY =
-  "sha384-dV83vmVumSE44iklJMarN8vFcEXjp1j5pu6ONnIm6wI1rfz00RxjS82bBRPUhzrQ";
+  "sha384-DEhTV0Cu1DFoo3I77UdD/JWTUk4e2P5vG5OTxFUtVDBZYD3ZWwu6LBo4Tt3KdaL4";
 const FLAGGR_CONFIG = serializeJsonLd({
   hosts: PRODUCTION_ANALYTICS_HOSTS,
   integrity: FLAGGR_INTEGRITY,
   script: FLAGGR_SCRIPT,
   siteId: FLAGGR_SITE_ID,
+  releaseVersion: process.env.NEXT_PUBLIC_RELEASE_COMMIT,
 });
 
 // Runs in the head before hydration, so early browser errors can be observed.
@@ -34,7 +35,7 @@ export const flaggrAnalyticsBootstrap = `(() => {
       params.forEach(function(value, key) {
         if (value === "" && key.charAt(0) === " ") emptyFragments++;
       });
-      if (emptyFragments >= 3 && (params.get("sel") || "").indexOf("connection:") === 0) return;
+      if (emptyFragments >= 3) return;
     }
     var script = document.createElement("script");
     script.id = "flaggr-analytics";
@@ -44,6 +45,9 @@ export const flaggrAnalyticsBootstrap = `(() => {
     script.src = config.script;
     script.setAttribute("data-site-id", config.siteId);
     script.setAttribute("data-track-errors", "true");
+    if (config.releaseVersion && config.releaseVersion !== "local") {
+      script.setAttribute("data-release-version", config.releaseVersion);
+    }
     document.head.appendChild(script);
   } catch (_) {
     // Telemetry must never prevent the application from rendering.

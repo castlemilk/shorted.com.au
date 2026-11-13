@@ -7,6 +7,7 @@ function runBootstrap(
   userAgent = "Mozilla/5.0",
   webdriver = false,
   page: { pathname?: string; search?: string; width?: number; height?: number } = {},
+  bootstrap = flaggrAnalyticsBootstrap,
 ) {
   const scripts: Array<HTMLScriptElement> = [];
   const document = {
@@ -30,7 +31,7 @@ function runBootstrap(
     navigator: { doNotTrack, userAgent, webdriver },
     document,
   };
-  runInNewContext(flaggrAnalyticsBootstrap, context);
+  runInNewContext(bootstrap, context);
   return { scripts, context };
 }
 
@@ -39,8 +40,8 @@ describe("Flaggr browser analytics", () => {
     const { scripts, context } = runBootstrap(hostname);
     expect(scripts).toHaveLength(1);
     const script = scripts[0]!;
-    expect(script.src).toBe("https://cdn.flaggr.dev/a-0.1.10.js");
-    expect(script.integrity).toBe("sha384-dV83vmVumSE44iklJMarN8vFcEXjp1j5pu6ONnIm6wI1rfz00RxjS82bBRPUhzrQ");
+    expect(script.src).toBe("https://cdn.flaggr.dev/a-0.1.11.js");
+    expect(script.integrity).toBe("sha384-DEhTV0Cu1DFoo3I77UdD/JWTUk4e2P5vG5OTxFUtVDBZYD3ZWwu6LBo4Tt3KdaL4");
     expect(script.crossOrigin).toBe("anonymous");
     expect(script.async).toBe(true);
     expect(script.getAttribute("data-site-id")).toBe("site_869df5560db33f777d73f0f9");
@@ -53,6 +54,22 @@ describe("Flaggr browser analytics", () => {
 
   it.each(["localhost", "preview.shorted.com.au", "shorted.com.au.example.com"])("does not load on %s", (hostname) => {
     expect(runBootstrap(hostname).scripts).toHaveLength(0);
+  });
+
+  it("attaches the release commit to collected events", () => {
+    const previous = process.env.NEXT_PUBLIC_RELEASE_COMMIT;
+    const commit = "0123456789abcdef0123456789abcdef01234567";
+    process.env.NEXT_PUBLIC_RELEASE_COMMIT = commit;
+    try {
+      jest.isolateModules(() => {
+        const { flaggrAnalyticsBootstrap: bootstrap } = require("../flaggr-analytics") as typeof import("../flaggr-analytics");
+        const { scripts } = runBootstrap("shorted.com.au", "0", "Mozilla/5.0", false, {}, bootstrap);
+        expect(scripts[0]!.getAttribute("data-release-version")).toBe(commit);
+      });
+    } finally {
+      if (previous === undefined) delete process.env.NEXT_PUBLIC_RELEASE_COMMIT;
+      else process.env.NEXT_PUBLIC_RELEASE_COMMIT = previous;
+    }
   });
 
   it("honours Do Not Track before loading the collector", () => {
@@ -81,6 +98,9 @@ describe("Flaggr browser analytics", () => {
       height: 1366,
     };
     expect(runBootstrap("shorted.com.au", "0", "Mozilla/5.0", false, page).scripts).toHaveLength(0);
+    expect(runBootstrap("shorted.com.au", "0", "Mozilla/5.0", false, {
+      ...page, search: "?+Components=&+Development=&+Services=&sector=Banks",
+    }).scripts).toHaveLength(0);
   });
 
   it("keeps ordinary browsers and valid ownership links in the analytics", () => {
@@ -88,7 +108,6 @@ describe("Flaggr browser analytics", () => {
     const square = { width: 1366, height: 1366 };
     const visits = [
       { ...square, pathname: "/ownership/connections", search: "?sector=Food%2C+Beverage+%26+Tobacco&sel=connection:index_manager%3EMedia" },
-      { ...square, pathname: "/ownership/connections", search: "?+Components=&+Development=&+Services=&sector=Banks" },
       { ...square, pathname: "/ownership/connections", search: "?+Components=&+Development=&sel=connection:index_manager%3EMedia" },
       { pathname: "/ownership/connections", search: malformed, width: 1366, height: 768 },
       { ...square, pathname: "/top", search: malformed },
