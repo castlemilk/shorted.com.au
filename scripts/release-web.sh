@@ -54,6 +54,7 @@ require_command npx
 require_command vercel
 
 export_release_env
+export NEXT_DEPLOYMENT_ID="$(node "$ROOT_DIR/scripts/vercel-deployment-identity.mjs" new)"
 
 stage "firebase-client-preflight"
 (
@@ -110,6 +111,7 @@ fi
   cd "$ROOT_DIR"
   vercel build "${VERCEL_BUILD_ARGS[@]}"
   node scripts/verify-vercel-function-limits.mjs .vercel/output
+  node scripts/vercel-deployment-identity.mjs bind .vercel/output web/.next
 )
 
 stage "deploy-preview"

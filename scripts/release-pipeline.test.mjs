@@ -48,6 +48,25 @@ test("local web release script enforces build, preview deploy, smoke, and explic
   assert.ok(smokeIndex < promoteIndex, "smoke must run before promotion");
 });
 
+test("both prebuilt release paths generate and verify the deployment identity before upload", () => {
+  const workflow = read(".github/workflows/terraform-deploy.yml");
+  const production = workflow.slice(workflow.indexOf("- name: Build and upload production deployment"));
+  const local = read("scripts/release-web.sh");
+  for (const [name, script, build, upload] of [
+    ["CI", production, "vercel@54.10.2 vercel build", "vercel deploy --prebuilt"],
+    ["local", local, "vercel build", "vercel deploy"],
+  ]) {
+    const generate = script.indexOf("scripts/vercel-deployment-identity.mjs\" new");
+    const ciGenerate = script.indexOf("scripts/vercel-deployment-identity.mjs new");
+    const generatedAt = generate >= 0 ? generate : ciGenerate;
+    const buildAt = script.indexOf(build, generatedAt);
+    const verifyAt = script.indexOf("scripts/vercel-deployment-identity.mjs bind", buildAt);
+    const uploadAt = script.indexOf(upload, verifyAt);
+    assert.ok(generatedAt >= 0 && generatedAt < buildAt && buildAt < verifyAt && verifyAt < uploadAt, name);
+  }
+  assert.match(read("web/next.config.mjs"), /deploymentId:\s*process\.env\.NEXT_DEPLOYMENT_ID/);
+});
+
 test("CI has no PR preview workflow or dangling preview-job dependency", () => {
   assert.equal(existsSync(new URL("../.github/workflows/release-preview-smoke.yml", import.meta.url)), false);
   for (const file of readdirSync(new URL("../.github/workflows", import.meta.url))) {

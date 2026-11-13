@@ -94,6 +94,9 @@ const firebaseAuthHelperOrigin = `https://${
 const config = {
   output: "standalone", // Enable standalone mode for Docker
   poweredByHeader: false,
+  // Prebuilt Vercel releases must carry the same ID in the framework and
+  // Build Output API so a browser stays on the deployment that served it.
+  deploymentId: process.env.NEXT_DEPLOYMENT_ID || undefined,
   // Bake the build identity into the artifact: runtime env changes cannot make
   // an old build report a newer release. These values are public metadata.
   env: buildIdentityValues,

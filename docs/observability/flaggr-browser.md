@@ -7,9 +7,13 @@ the pinned Flaggr analytics script on `shorted.com.au` and
 send to this site. The bootstrap and Flaggr's script honour the browser's
 `navigator.doNotTrack` setting. The bootstrap also skips WebDriver-controlled
 browsers and user agents containing `Shorted-E2E` or `GoogleOther`, so release
-smoke tests and the observed GoogleOther crawler do not distort reports. These
-are analytics filters, not security controls; other automated traffic can still
-appear in the reports.
+smoke tests and the observed GoogleOther crawler do not distort reports. It
+also skips the observed ownership-connections crawler signature: a 1366 × 1366
+viewport, a connection selection, and at least three empty, space-prefixed
+query fragments. Valid links and other viewports still count. This narrow
+heuristic can also exclude a visitor with that exact malformed URL and viewport;
+it does not change old events. These are analytics filters, not security
+controls; other automated traffic can still appear in the reports.
 
 Flaggr collects page views, Core Web Vitals and uncaught JavaScript errors and
 unhandled promise rejections. It follows client-side navigation. Click and

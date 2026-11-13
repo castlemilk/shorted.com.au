@@ -1807,6 +1807,9 @@ jobs:
           npm --prefix web run firebase:preflight
           npm --prefix web run stripe:preflight
 
+          # This ID is baked into both Next's assets and Vercel's prebuilt
+          # output. A fresh build (including a retry) must use a fresh ID.
+          export NEXT_DEPLOYMENT_ID="$(node scripts/vercel-deployment-identity.mjs new)"
           npx -p vercel@54.10.2 vercel build \
             --yes \
             --target production \
@@ -1814,6 +1817,7 @@ jobs:
             --non-interactive
 
           node scripts/verify-vercel-function-limits.mjs .vercel/output
+          node scripts/vercel-deployment-identity.mjs bind .vercel/output web/.next
 
           # One upload attempt. An interrupted response may already have created
           # a deployment: reconcile it before attempting another upload.
