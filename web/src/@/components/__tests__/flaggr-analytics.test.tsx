@@ -101,6 +101,9 @@ describe("Flaggr browser analytics", () => {
     expect(runBootstrap("shorted.com.au", "0", "Mozilla/5.0", false, {
       ...page, search: "?+Components=&+Development=&+Services=&sector=Banks",
     }).scripts).toHaveLength(0);
+    expect(runBootstrap("shorted.com.au", "0", "Mozilla/5.0", false, {
+      ...page, search: "?+Components=&sector=Materials&sel=connection:index_manager%3EMaterials",
+    }).scripts).toHaveLength(0);
   });
 
   it("keeps ordinary browsers and valid ownership links in the analytics", () => {
@@ -108,7 +111,7 @@ describe("Flaggr browser analytics", () => {
     const square = { width: 1366, height: 1366 };
     const visits = [
       { ...square, pathname: "/ownership/connections", search: "?sector=Food%2C+Beverage+%26+Tobacco&sel=connection:index_manager%3EMedia" },
-      { ...square, pathname: "/ownership/connections", search: "?+Components=&+Development=&sel=connection:index_manager%3EMedia" },
+      { ...square, pathname: "/ownership/connections", search: "?sector=Banks&sel=connection:index_manager%3EMedia" },
       { pathname: "/ownership/connections", search: malformed, width: 1366, height: 768 },
       { ...square, pathname: "/top", search: malformed },
     ];

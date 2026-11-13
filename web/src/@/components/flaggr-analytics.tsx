@@ -25,7 +25,7 @@ export const flaggrAnalyticsBootstrap = `(() => {
         navigator.userAgent.includes("Shorted-E2E") ||
         navigator.userAgent.includes("GoogleOther") ||
         document.getElementById("flaggr-analytics")) return;
-    // A crawler repeatedly visits this route with a square viewport and many
+    // A crawler repeatedly visits this route with a square viewport and
     // empty, space-prefixed fragments from broken connection URLs. Keep the
     // filter narrow: valid links, normal viewports and other routes still count.
     if (/^\\/ownership\\/connections\\/?$/.test(window.location.pathname) &&
@@ -35,7 +35,7 @@ export const flaggrAnalyticsBootstrap = `(() => {
       params.forEach(function(value, key) {
         if (value === "" && key.charAt(0) === " ") emptyFragments++;
       });
-      if (emptyFragments >= 3) return;
+      if (emptyFragments >= 1) return;
     }
     var script = document.createElement("script");
     script.id = "flaggr-analytics";
