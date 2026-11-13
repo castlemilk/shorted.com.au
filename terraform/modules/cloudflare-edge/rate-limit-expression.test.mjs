@@ -303,14 +303,13 @@ test("Cloudflare caches stock detail HTML before the broad HTML bypass", () => {
   assert.doesNotMatch(stockRule, /\/api\//);
 });
 
-test("daily short data sync invalidates the shared stock data cache tag", () => {
-  // Cloudflare caches these HTML surfaces at the edge, so the sync's cache-bust
-  // is the only thing that stops a stale page surviving a data update. Guard
-  // the exact tag / path list / flush family the job sends.
+test("daily short data sync preserves the broad cache invalidation fallback", () => {
+  // The job sends this broad request when it cannot name the changes, or when
+  // a targeted request fails. Guard its tag / path list / flush family.
   const revalidateFn = shortDataSyncJobGo.match(
-    /func revalidateRequest\(\)[\s\S]*?\n\}/,
+    /func revalidateRequest\(changes \*changeSet\)[\s\S]*?\n\}/,
   )?.[0];
-  assert.ok(revalidateFn, "revalidateRequest() should be present in job.go");
+  assert.ok(revalidateFn, "revalidateRequest should be present in job.go");
 
   assert.match(revalidateFn, /Tag:\s+"shorts-data,scan-results"/);
   assert.match(revalidateFn, /Flush:\s+"shorts"/);
