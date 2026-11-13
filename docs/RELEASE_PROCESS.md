@@ -10,6 +10,14 @@ CI uses one production path in `terraform-deploy.yml`:
 4. Promote that exact deployment with `vercel promote` and revalidate ISR pages.
 5. Verify the live site with the existing Post-Deploy Smoke Test workflow.
 
+Each prebuilt production build gets a new `NEXT_DEPLOYMENT_ID`. Next 15.5
+includes it in the browser assets and server configuration but omits it from
+the routes manifest, so `scripts/vercel-deployment-identity.mjs` verifies the
+Next build and binds the same ID into Vercel's Build Output API configuration
+before upload. Vercel Skew Protection must also stay enabled on the
+`document-analyser/shorted-com-au` project. Check the live asset URLs for
+`?dpl=` after release; do not reuse an ID for a new build.
+
 PRs do not deploy Vercel previews or run preview browser smoke. The Perf Budget
 workflow retains its production build and blocking bundle-size comparison; it
 no longer installs Chromium, starts a server or runs Lighthouse. The Lighthouse
