@@ -200,7 +200,7 @@ describe("ownership kinds", () => {
     expect(KIND_INFO.active_manager.swatch).not.toMatch(/FFA94D/i);
   });
 
-  it("names every outcome, and withholds only the six that are withheld", () => {
+  it("names every outcome, including unsupported formats as withheld", () => {
     expect(Object.keys(OUTCOME_COPY).sort()).toEqual(
       [
         "ambiguous_target",
@@ -211,6 +211,7 @@ describe("ownership kinds", () => {
         "no_text",
         "no_voting_power",
         "not_a_notice",
+        "unsupported_format",
       ].sort(),
     );
     expect(WITHHOLDING_OUTCOMES).toEqual([
@@ -220,6 +221,7 @@ describe("ownership kinds", () => {
       "ambiguous_target",
       "no_holder",
       "inconsistent_votes",
+      "unsupported_format",
     ]);
     expect(WITHHOLDING_OUTCOMES).not.toContain("not_a_notice");
     expect(WITHHOLDING_OUTCOMES).not.toContain("fetch_error");

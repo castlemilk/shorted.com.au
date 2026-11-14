@@ -23,7 +23,8 @@ const substantialHeadlineSQL = `a.headline ILIKE '%substantial%'
     OR a.headline ILIKE '%change in substantial holding%'
     OR a.headline ILIKE '%ceasing to be a substantial holder%'
     OR a.headline ILIKE '%change of interests of substantial%'
-    OR a.headline ILIKE '%initial substantial holder%')`
+    OR a.headline ILIKE '%initial substantial holder%'
+    OR a.headline ILIKE '%substantial holding notice%')`
 
 // liveCodesSQL is the codes ASIC's short position report carries now: a code
 // with a row in the last 30 days. A live code is one ASX still lists in

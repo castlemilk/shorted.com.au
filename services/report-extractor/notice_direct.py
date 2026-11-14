@@ -59,6 +59,7 @@ import requests
 import direct_extract as dx
 import director_direct as dd
 import entity_match as em
+from notice_format import unsupported_notice_format
 from dataclasses import replace
 
 log = logging.getLogger("notice_direct")
@@ -673,6 +674,8 @@ def validate_notice(answer: dict, text: str, *, headline: str, announced_on: str
                     shares_on_issue: float, scan: bool, model: str = "",
                     company_name: str = "") -> tuple[Optional[Notice], str]:
     """One reader's answer, checked in code. Returns (notice, "") or (None, reason)."""
+    if unsupported_notice_format(text):
+        return None, "unsupported_format"
     if not isinstance(answer, dict) or not answer:
         return None, "malformed"
     if answer.get("is_substantial_holder_notice") is False:
@@ -921,6 +924,8 @@ class NoticeExtractor:
     def extract(self, ctx: ReadContext) -> tuple[Optional[Notice], str]:
         """(notice, outcome). outcome: agree | majority | disputed | not_a_notice | invalid_<reason>.
         Raises dx.ModelCallError when a reader cannot answer: the notice is then not an attempt."""
+        if unsupported_notice_format(ctx.text):
+            return None, self._count("unsupported_format")
         if not self.checker:
             raise ValueError("notice_direct needs a checker model: EXTRACTOR_CHECKER_MODEL is empty")
         if ctx.scan:
@@ -1145,7 +1150,17 @@ def note_model_error(cur, url: str, outcome: str, reason: str) -> None:
 
 
 def record_withheld(cur, url: str, outcome: str, reason: str) -> None:
-    """A withheld second read: the parser's outcome stays, the detail says a model read it."""
+    """Record a deterministic format hold, or preserve an ordinary model-read refusal."""
+    if reason == "unsupported_format":
+        # The deterministic format guard made no model call. Record an explicit
+        # reprocessing queue, retaining the source URL and prior parser outcome.
+        # Do not overwrite a result another worker completed after selection.
+        cur.execute("""UPDATE substantial_holder_notice_attempts
+                       SET outcome = 'unsupported_format', read_by = 'parser',
+                           detail = %s, attempted_at = now()
+                       WHERE announcement_url = %s AND read_by = 'parser' AND outcome = %s""",
+                    (f"format_guard: unsupported_format (prior parser outcome: {outcome})", url, outcome))
+        return
     cur.execute("""UPDATE substantial_holder_notice_attempts
                    SET read_by = 'model', detail = %s, attempted_at = now()
                    WHERE announcement_url = %s AND read_by = 'parser'""",

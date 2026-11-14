@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "fixture_kind": "synthetic_format_guard_cases",
+  "warning": "Synthetic parser safety examples, not real filings or full semantic extraction goldens. Labels are sourced; parties and numbers are fictional.",
+  "sources": [
+    "https://www.asic.gov.au/regulatory-resources/forms/forms-folder/substantial-holding-notice",
+    "https://download.asic.gov.au/media/gt4phfce/substantial-holding-notice-20260730.docx",
+    "https://download.asic.gov.au/media/l3wjdjam/transitional-form-603-published-30-july-2026.pdf",
+    "https://download.asic.gov.au/media/o4jnxgav/transitional-form-604-published-30-july-2026.pdf",
+    "https://download.asic.gov.au/media/t4bd4ys1/transitional-form-605-published-30-july-2026.pdf"
+  ],
+  "cases": [
+    {
+      "id": "shn_initial",
+      "text": "Substantial Holding Notice\nCorporations Act 2001 Section 671BB\n1. Details of the Chapter 6C body\nExample Research Limited\n2. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\n3. Reason for notice\nInitial\n4. Previous and present holding percentage in the Chapter 6C body\nHolding percentage (A)(6): 5.70%\nVoting power (B)(7): 4.20%\n6. Previous and present derivative-based percentages\nDerivative-based holding percentage (8) (C) = (D) + (E) + (F): 2.10%\nSynthetic example only, not an actual filing. Values are not legal-trigger advice.\n",
+      "headline": "Becoming a substantial holder",
+      "expected_format": "shn",
+      "expected_outcome": "unsupported_format"
+    },
+    {
+      "id": "shn_change",
+      "text": "Substantial Holding Notice\nCorporations Act 2001 Section 671BB\n1. Details of the Chapter 6C body\nExample Research Limited\n2. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\n3. Reason for notice\nChange\n4. Previous and present holding percentage in the Chapter 6C body\nHolding percentage (A)(6): 5.70%\nVoting power (B)(7): 4.20%\n6. Previous and present derivative-based percentages\nDerivative-based holding percentage (8) (C) = (D) + (E) + (F): 2.10%\nSynthetic example only, not an actual filing. Values are not legal-trigger advice.\n",
+      "headline": "Change in substantial holding",
+      "expected_format": "shn",
+      "expected_outcome": "unsupported_format"
+    },
+    {
+      "id": "shn_ceasing",
+      "text": "Substantial Holding Notice\nCorporations Act 2001 Section 671BB\n1. Details of the Chapter 6C body\nExample Research Limited\n2. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\n3. Reason for notice\nCeasing\n4. Previous and present holding percentage in the Chapter 6C body\nHolding percentage (A)(6): 5.70%\nVoting power (B)(7): 4.20%\n6. Previous and present derivative-based percentages\nDerivative-based holding percentage (8) (C) = (D) + (E) + (F): 2.10%\nSynthetic example only, not an actual filing. Values are not legal-trigger advice.\n",
+      "headline": "Ceasing to be a substantial holder",
+      "expected_format": "shn",
+      "expected_outcome": "unsupported_format"
+    },
+    {
+      "id": "transitional_603",
+      "text": "Note: Use this form to disclose a substantial holding between 4 December 2026 and 3 June 2027.\nTransitional Form 603\nSection 671BB, Corporations Act 2001\nNotice of initial substantial holder\n Name/Scheme: Example Research Limited ACN 000 000 001\n1. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\nThe holder became a substantial holder on 4 December 2026\n2. Details of voting power\nOrdinary shares 5,800,000 5.80%\n3. Details of relevant interests\nOn-market purchase of ordinary shares. Synthetic example only, not a filing.\n",
+      "headline": "Becoming a substantial holder",
+      "expected_format": "transitional_603",
+      "expected_outcome": "unsupported_format"
+    },
+    {
+      "id": "transitional_604",
+      "text": "Note: Use this form to disclose a substantial holding between 4 December 2026 and 3 June 2027.\nTransitional Form 604\nSection 671BB, Corporations Act 2001\nNotice of change of interests of substantial holder\n Name/Scheme: Example Research Limited ACN 000 000 001\n1. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\nThere was a change in the interests of the substantial holder on 4 December 2026\n2. Previous and present voting power\nPrevious notice 5,200,000 5.20% Present notice 5,800,000 5.80%\n3. Changes in relevant interests\nOn-market purchase of ordinary shares. Synthetic example only, not a filing.\n",
+      "headline": "Change in substantial holding",
+      "expected_format": "transitional_604",
+      "expected_outcome": "unsupported_format"
+    },
+    {
+      "id": "transitional_605",
+      "text": "Note: Use this form to disclose a substantial holding between 4 December 2026 and 3 June 2027.\nTransitional Form 605\nSection 671BB, Corporations Act 2001\nNotice of ceasing to be a substantial holder\n Name/Scheme: Example Research Limited ACN 000 000 001\n1. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\nThe holder ceased to be a substantial holder on 4 December 2026\n2. Changes in relevant interests\nOn-market purchase of ordinary shares. Synthetic example only, not a filing.\n",
+      "headline": "Ceasing to be a substantial holder",
+      "expected_format": "transitional_605",
+      "expected_outcome": "unsupported_format"
+    },
+    {
+      "id": "wrapped_transitional_604",
+      "text": "Note: Use this form to disclose a substantial holding between 4 December 2026 and 3 June 2027.\nTransitional\nForm\n604\nSection 671BB, Corporations Act 2001\nNotice of change of interests of substantial holder\n Name/Scheme: Example Research Limited ACN 000 000 001\n1. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\nThere was a change in the interests of the substantial holder on 4 December 2026\n2. Previous and present voting power\nPrevious notice 5,200,000 5.20% Present notice 5,800,000 5.80%\n3. Changes in relevant interests\nOn-market purchase of ordinary shares. Synthetic example only, not a filing.\n",
+      "headline": "Change in substantial holding",
+      "expected_format": "transitional_604",
+      "expected_outcome": "unsupported_format"
+    },
+    {
+      "id": "legacy_604",
+      "text": "Form 604\nCorporations Act 2001 Section 671B\nNotice of change of interests of substantial holder\nTo Company Name/Scheme: Example Research Limited ACN 000 000 001\n1. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\nThere was a change in the interests of the substantial holder on 4 December 2026\n2. Previous and present voting power\nPrevious notice 5,200,000 5.20% Present notice 5,800,000 5.80%\n3. Changes in relevant interests\nOn-market purchase of ordinary shares. Synthetic example only, not a filing.\n",
+      "headline": "Change in substantial holding",
+      "expected_format": "",
+      "expected_outcome": "parsed"
+    },
+    {
+      "id": "legacy_mentions_reform",
+      "text": "Form 604\nCorporations Act 2001 Section 671B\nNotice of change of interests of substantial holder\nTo Company Name/Scheme: Example Research Limited ACN 000 000 001\n1. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\nThere was a change in the interests of the substantial holder on 4 December 2026\n2. Previous and present voting power\nPrevious notice 5,200,000 5.20% Present notice 5,800,000 5.80%\n3. Changes in relevant interests\nOn-market purchase of ordinary shares. Synthetic example only, not a filing.\n\nAnnexure: From 4 December 2026 a new Substantial Holding Notice is available under section 671BB. It includes deemed economic interests. Transitional Form 604 is one option.\n",
+      "headline": "Change in substantial holding",
+      "expected_format": "",
+      "expected_outcome": "parsed"
+    },
+    {
+      "id": "mixed_legacy_and_shn_packet",
+      "text": "Form 604\nCorporations Act 2001 Section 671B\nNotice of change of interests of substantial holder\nTo Company Name/Scheme: Example Research Limited ACN 000 000 001\n1. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\nThere was a change in the interests of the substantial holder on 4 December 2026\n2. Previous and present voting power\nPrevious notice 5,200,000 5.20% Present notice 5,800,000 5.80%\n3. Changes in relevant interests\nOn-market purchase of ordinary shares. Synthetic example only, not a filing.\n\nAnnexure: example of a future form; this is not the current notice.\nSubstantial Holding Notice\nCorporations Act 2001 Section 671BB\n1. Details of the Chapter 6C body\nExample Research Limited\n2. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\n3. Reason for notice\nInitial\n4. Previous and present holding percentage in the Chapter 6C body\nHolding percentage (A)(6): 5.70%\nVoting power (B)(7): 4.20%\n6. Previous and present derivative-based percentages\nDerivative-based holding percentage (8) (C) = (D) + (E) + (F): 2.10%\nSynthetic example only, not an actual filing. Values are not legal-trigger advice.\n",
+      "headline": "Change in substantial holding",
+      "expected_format": "shn",
+      "expected_outcome": "unsupported_format",
+      "note": "A full new-form template in a mixed packet is conservatively held; this reader cannot prove which notice is operative."
+    },
+    {
+      "id": "reform_press_release",
+      "text": "ASIC describes upcoming reforms in this synthetic press release. The new Substantial Holding Notice and Transitional Form 603 will take effect from 4 December 2026. The law includes section 671BB, deemed economic interests and offsetting short positions. This explanatory release does not disclose a holding.",
+      "headline": "Substantial holding reforms explained",
+      "expected_format": "",
+      "expected_outcome": "no_voting_power",
+      "note": "The legacy parser sees a form mention and withholds for missing figures; this guard does not change that unrelated existing outcome."
+    },
+    {
+      "id": "short_scan_text",
+      "text": "For personal use only",
+      "headline": "Substantial Holding Notice",
+      "expected_format": "",
+      "expected_outcome": "no_text"
+    },
+    {
+      "id": "shn_with_legacy_cover_reference",
+      "text": "Please find our new notice enclosed. The earlier Form 604 is superseded.\nSubstantial Holding Notice\nCorporations Act 2001 Section 671BB\n1. Details of the Chapter 6C body\nExample Research Limited\n2. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\n3. Reason for notice\nChange\n4. Previous and present holding percentage in the Chapter 6C body\nHolding percentage (A)(6): 5.70%\nVoting power (B)(7): 4.20%\n6. Previous and present derivative-based percentages\nDerivative-based holding percentage (8) (C) = (D) + (E) + (F): 2.10%\nSynthetic example only, not an actual filing. Values are not legal-trigger advice.\n",
+      "headline": "Change in substantial holding",
+      "expected_format": "shn",
+      "expected_outcome": "unsupported_format"
+    },
+    {
+      "id": "wrapped_shn",
+      "text": "Substantial\nHolding\nNotice\nCorporations Act 2001 Section 671BB\n1. Details of the Chapter 6C body\nExample Research Limited\n2. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\n3. Reason for notice\nChange\n4. Previous and present holding percentage in the Chapter 6C body\nHolding percentage (A)(6): 5.70%\nVoting power (B)(7): 4.20%\n6. Previous and present derivative-based percentages\nDerivative-based holding percentage (8) (C) = (D) + (E) + (F): 2.10%\nSynthetic example only, not an actual filing. Values are not legal-trigger advice.\n",
+      "headline": "Change in substantial holding",
+      "expected_format": "shn",
+      "expected_outcome": "unsupported_format"
+    },
+    {
+      "id": "shn_nonbreaking_spaces",
+      "text": "Substantial\u00a0Holding\u00a0Notice\nCorporations\u00a0Act\u00a02001\u00a0Section\u00a0671BB\n1.\u00a0Details\u00a0of\u00a0substantial\u00a0holder\nName:\u00a0Example\u00a0Investments\u00a0Pty\u00a0Ltd\u00a0ACN\u00a0000\u00a0000\u00a0002\n2.\u00a0Details\u00a0of\u00a0the\u00a0Chapter\u00a06C\u00a0body\nExample\u00a0Research\u00a0Limited\n3.\u00a0Reason\u00a0for\u00a0notice\nChange\n4.\u00a0Previous\u00a0and\u00a0present\u00a0holding\u00a0percentage\u00a0in\u00a0the\u00a0Chapter\u00a06C\u00a0body\nHolding\u00a0percentage\u00a0(A)(6):\u00a05.70%\nVoting\u00a0power\u00a0(B)(7):\u00a04.20%\n6.\u00a0Previous\u00a0and\u00a0present\u00a0derivative-based\u00a0percentages\nDerivative-based\u00a0holding\u00a0percentage\u00a0(8)\u00a0(C)\u00a0=\u00a0(D)\u00a0+\u00a0(E)\u00a0+\u00a0(F):\u00a02.10%\nSynthetic\u00a0example\u00a0only,\u00a0not\u00a0an\u00a0actual\u00a0filing.\u00a0Values\u00a0are\u00a0not\u00a0legal-trigger\u00a0advice.\n",
+      "headline": "Change in substantial holding",
+      "expected_format": "shn",
+      "expected_outcome": "unsupported_format"
+    },
+    {
+      "id": "transitional_nonbreaking_spaces",
+      "text": "Note:\u00a0Use\u00a0this\u00a0form\u00a0to\u00a0disclose\u00a0a\u00a0substantial\u00a0holding\u00a0between\u00a04\u00a0December\u00a02026\u00a0and\u00a03\u00a0June\u00a02027.\nTransitional\u00a0Form\u00a0604\nSection\u00a0671BB,\u00a0Corporations\u00a0Act\u00a02001\nNotice\u00a0of\u00a0change\u00a0of\u00a0interests\u00a0of\u00a0substantial\u00a0holder\n\u00a0Name/Scheme:\u00a0Example\u00a0Research\u00a0Limited\u00a0ACN\u00a0000\u00a0000\u00a0001\n1.\u00a0Details\u00a0of\u00a0substantial\u00a0holder\nName:\u00a0Example\u00a0Investments\u00a0Pty\u00a0Ltd\u00a0ACN\u00a0000\u00a0000\u00a0002\nThere\u00a0was\u00a0a\u00a0change\u00a0in\u00a0the\u00a0interests\u00a0of\u00a0the\u00a0substantial\u00a0holder\u00a0on\u00a04\u00a0December\u00a02026\n2.\u00a0Previous\u00a0and\u00a0present\u00a0voting\u00a0power\nPrevious\u00a0notice\u00a05,200,000\u00a05.20%\u00a0Present\u00a0notice\u00a05,800,000\u00a05.80%\n3.\u00a0Changes\u00a0in\u00a0relevant\u00a0interests\nOn-market\u00a0purchase\u00a0of\u00a0ordinary\u00a0shares.\u00a0Synthetic\u00a0example\u00a0only,\u00a0not\u00a0a\u00a0filing.\n",
+      "headline": "Change in substantial holding",
+      "expected_format": "transitional_604",
+      "expected_outcome": "unsupported_format"
+    },
+    {
+      "id": "transitional_title_in_sentence",
+      "text": "Transitional Form 604 will become available in December.\nSection 671BB, Corporations Act 2001\nThis explanatory announcement describes a future form and discloses no current holdings. This explanatory announcement describes a future form and discloses no current holdings. This explanatory announcement describes a future form and discloses no current holdings. ",
+      "headline": "Substantial holding reforms explained",
+      "expected_format": "",
+      "expected_outcome": "no_voting_power"
+    },
+    {
+      "id": "shn_after_form_feed",
+      "text": "Synthetic cover letter\fSubstantial Holding Notice\nCorporations Act 2001 Section 671BB\n1. Details of the Chapter 6C body\nExample Research Limited\n2. Details of substantial holder\nName: Example Investments Pty Ltd ACN 000 000 002\n3. Reason for notice\nChange\n4. Previous and present holding percentage in the Chapter 6C body\nHolding percentage (A)(6): 5.70%\nVoting power (B)(7): 4.20%\n6. Previous and present derivative-based percentages\nDerivative-based holding percentage (8) (C) = (D) + (E) + (F): 2.10%\nSynthetic example only, not an actual filing. Values are not legal-trigger advice.\n",
+      "headline": "Change in substantial holding",
+      "expected_format": "shn",
+      "expected_outcome": "unsupported_format"
+    }
+  ]
+}
