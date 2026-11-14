@@ -1,13 +1,11 @@
-import { type CommunityComment } from "~/@/types/community";
+import { type PublicCommunityComment } from "~/@/types/community";
 import { CommunityEmptyState } from "./community-empty-state";
 
 interface CommunityCommentListProps {
-  comments: CommunityComment[];
+  comments: PublicCommunityComment[];
 }
 
-export function CommunityCommentList({
-  comments,
-}: CommunityCommentListProps) {
+export function CommunityCommentList({ comments }: CommunityCommentListProps) {
   if (comments.length === 0) {
     return (
       <CommunityEmptyState

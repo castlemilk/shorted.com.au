@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useSession } from "next-auth/react";
 import { CommunityThreadDetail } from "../community-thread-detail";
+import { type CommunityComment, type CommunityThread } from "~/@/types/community";
 
 // next/link with the prefetch prop surfaced as data-prefetch so a test can read
 // it (it never reaches the DOM otherwise), as the stock tab bar's tests do.
@@ -244,4 +245,71 @@ describe("CommunityThreadDetail sources", () => {
       expect(container.querySelector(`a[href="${url}"]`)).toBeNull();
     },
   );
+});
+
+describe("CommunityThreadDetail refreshed replies", () => {
+  const now = new Date("2026-11-10T00:00:00Z");
+  const thread: CommunityThread = {
+    id: "thread-1", stockCode: "BHP", type: "question", title: "Saved research",
+    body: "Research body", score: 0, commentCount: 1, sourceCount: 0,
+    highSignal: false, createdAt: now, updatedAt: now, lastActivityAt: now,
+  };
+  const comment = (id: string, status: CommunityComment["status"] = "active"): CommunityComment => ({
+    id, stockCode: "BHP", threadId: "thread-1", body: id,
+    score: 0, replyCount: 0, createdAt: now, updatedAt: now, status,
+  });
+
+  beforeEach(() => {
+    (useSession as jest.Mock).mockReturnValue({ data: { user: { id: "author-1" } }, status: "authenticated" });
+    global.fetch = jest.fn();
+  });
+
+  it("replaces persisted replies with fresh server data after a refresh", () => {
+    const { rerender } = render(<CommunityThreadDetail thread={thread} comments={[comment("Previously public reply")]} />);
+    expect(screen.getByText("Previously public reply")).toBeInTheDocument();
+
+    rerender(<CommunityThreadDetail thread={thread} comments={[comment("New saved reply")]} />);
+    expect(screen.queryByText("Previously public reply")).not.toBeInTheDocument();
+    expect(screen.getByText("New saved reply")).toBeInTheDocument();
+  });
+
+  it("preserves the author's local held-reply preview across a refresh, then clears it on sign-out", async () => {
+    const user = userEvent.setup();
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true, json: async () => ({ comment: comment("Locally held reply", "needs_review") }),
+    });
+    const { rerender } = render(<CommunityThreadDetail thread={thread} comments={[]} />);
+    await user.type(screen.getByLabelText(/comment body/i), "Locally held reply");
+    await user.click(screen.getByRole("button", { name: /post comment/i }));
+    expect(await screen.findByText("Locally held reply")).toBeInTheDocument();
+
+    rerender(<CommunityThreadDetail thread={thread} comments={[comment("Another saved reply")]} />);
+    expect(screen.getByText("Locally held reply")).toBeInTheDocument();
+    expect(screen.getByText("Another saved reply")).toBeInTheDocument();
+
+    (useSession as jest.Mock).mockReturnValue({ data: null, status: "unauthenticated" });
+    rerender(<CommunityThreadDetail thread={thread} comments={[comment("Another saved reply")]} />);
+    expect(screen.queryByText("Locally held reply")).not.toBeInTheDocument();
+  });
+
+  it.each([null, "other-author"])("withholds a delayed held POST response after the viewer changes to %s", async (nextViewer) => {
+    const user = userEvent.setup();
+    let finishPost!: (value: unknown) => void;
+    (global.fetch as jest.Mock).mockReturnValue(new Promise((resolve) => { finishPost = resolve; }));
+    const comments: CommunityComment[] = [];
+    const { rerender } = render(<CommunityThreadDetail thread={thread} comments={comments} />);
+    await user.type(screen.getByLabelText(/comment body/i), "Delayed private reply");
+    await user.click(screen.getByRole("button", { name: /post comment/i }));
+
+    (useSession as jest.Mock).mockReturnValue({
+      data: nextViewer ? { user: { id: nextViewer } } : null,
+      status: nextViewer ? "authenticated" : "unauthenticated",
+    });
+    rerender(<CommunityThreadDetail thread={thread} comments={comments} />);
+    await act(async () => { finishPost({
+      ok: true, json: async () => ({ comment: comment("Delayed private reply", "needs_review") }),
+    }); });
+
+    expect(screen.queryByText("Delayed private reply")).not.toBeInTheDocument();
+  });
 });

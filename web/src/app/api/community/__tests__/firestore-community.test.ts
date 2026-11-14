@@ -33,6 +33,7 @@ function createCollectionHarness() {
   const summaryGet = jest.fn();
   const threadListGet = jest.fn();
   const threadDetailGet = jest.fn();
+  const pulseDetailGet = jest.fn();
   const commentListGet = jest.fn();
   const pulseListGet = jest.fn();
   const pulseReplyListGet = jest.fn();
@@ -94,6 +95,7 @@ function createCollectionHarness() {
   const pulseCollection = {
     where: jest.fn(() => pulseQuery),
     doc: jest.fn(() => ({
+      get: pulseDetailGet,
       collection: jest.fn((name: string) => {
         if (name === "replies") {
           return { where: jest.fn(() => pulseRepliesQuery) };
@@ -125,6 +127,7 @@ function createCollectionHarness() {
     summaryGet,
     threadListGet,
     threadDetailGet,
+    pulseDetailGet,
     threadsQuery,
     commentListGet,
     commentsQuery,
@@ -140,32 +143,31 @@ describe("firestore-community repository", () => {
     jest.clearAllMocks();
   });
 
-  it("reads the stock community summary document", async () => {
-    const { summaryGet } = createCollectionHarness();
-    summaryGet.mockResolvedValue(
-      createDocSnapshot("BHP", {
-        headline: "Most active thread right now",
-        subheadline: "6 threads and 14 pulse updates live now",
-        ctaLabel: "Open community",
-        threadCount: 6,
-        pulseCount: 14,
-      }),
-    );
+  it("rebuilds summary text from current public content instead of a stale materialised title", async () => {
+    const { summaryGet, threadListGet, pulseListGet } = createCollectionHarness();
+    summaryGet.mockResolvedValue(createDocSnapshot("BHP", {
+      headline: "Removed private title", threadCount: 6, pulseCount: 14,
+      topThread: { id: "removed", title: "Removed private title" },
+    }));
+    threadListGet.mockResolvedValue({ docs: [createDocSnapshot("active", {
+      stockCode: "BHP", title: "Current public question", status: "active",
+    })] });
+    pulseListGet.mockResolvedValue({ docs: [] });
 
     const summary = await getStockCommunitySummary("BHP");
 
-    expect(summary?.headline).toBe("Most active thread right now");
-    expect(summary?.pulseCount).toBe(14);
+    expect(summary.headline).toBe("Current public question");
+    expect(summary.topThread?.id).toBe("active");
+    expect(JSON.stringify(summary)).not.toContain("Removed private title");
+    expect(summary.threadCount).toBe(1);
+    expect(summary.pulseCount).toBe(0);
   });
 
-  it("returns an empty summary without fanning out to thread and pulse queries when the summary document is missing", async () => {
-    const { summaryGet, threadListGet, pulseListGet } =
-      createCollectionHarness();
-    summaryGet.mockResolvedValue({
-      id: "BHP",
-      exists: false,
-      data: () => undefined,
-    });
+  it("returns an empty summary when there is no current public content", async () => {
+    const { summaryGet, threadListGet, pulseListGet } = createCollectionHarness();
+    summaryGet.mockResolvedValue(createDocSnapshot("BHP", {
+      headline: "Removed private title", threadCount: 1, pulseCount: 0,
+    }));
     threadListGet.mockResolvedValue({ docs: [] });
     pulseListGet.mockResolvedValue({ docs: [] });
 
@@ -173,39 +175,22 @@ describe("firestore-community repository", () => {
 
     expect(summary.threadCount).toBe(0);
     expect(summary.pulseCount).toBe(0);
-    expect(threadListGet).not.toHaveBeenCalled();
-    expect(pulseListGet).not.toHaveBeenCalled();
+    expect(summary.topThread).toBeUndefined();
+    expect(summary.headline).not.toContain("Removed private title");
   });
 
-  it("records Firestore cost attributes when reading a stock community summary", async () => {
+  it("records bounded Firestore query cost when rebuilding a summary", async () => {
     const logSpy = jest.spyOn(console, "log").mockImplementation(() => undefined);
-    const { summaryGet } = createCollectionHarness();
-    summaryGet.mockResolvedValue(
-      createDocSnapshot("BHP", {
-        headline: "Most active thread right now",
-        threadCount: 6,
-        pulseCount: 14,
-      }),
-    );
+    const { threadListGet, pulseListGet, threadsQuery, pulseQuery } = createCollectionHarness();
+    threadListGet.mockResolvedValue({ docs: [] });
+    pulseListGet.mockResolvedValue({ docs: [] });
 
     await getStockCommunitySummary("BHP");
 
-    expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('"type":"firestore_operation"'),
-    );
-    expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('"feature":"community"'),
-    );
-    expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('"collection":"stock_communities"'),
-    );
-    expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('"operation":"doc_get"'),
-    );
-    expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('"documents_read":1'),
-    );
-
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"firestore_operation"'));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('"collection":"stock_communities/threads"'));
+    expect(threadsQuery.limit).toHaveBeenCalledWith(25);
+    expect(pulseQuery.limit).toHaveBeenCalledWith(25);
     logSpy.mockRestore();
   });
 
@@ -276,6 +261,38 @@ describe("firestore-community repository", () => {
     expect(thread?.title).toBe("Friday delivery numbers matter");
   });
 
+  it.each(["needs_review", "hidden", "deleted", undefined])(
+    "withholds a %s thread from direct public reads",
+    async (status) => {
+      const { threadDetailGet } = createCollectionHarness();
+      threadDetailGet.mockResolvedValue(createDocSnapshot("thread-1", {
+        stockCode: "BHP", title: "Private evidence", status,
+      }));
+
+      expect(await getCommunityThread("BHP", "thread-1")).toBeNull();
+    },
+  );
+
+  it.each(["needs_review", "hidden", "deleted", undefined])(
+    "withholds active children when their parent is %s",
+    async (status) => {
+      const { threadDetailGet, pulseDetailGet, commentListGet, pulseReplyListGet } = createCollectionHarness();
+      const parent = createDocSnapshot("parent-1", { stockCode: "BHP", status });
+      threadDetailGet.mockResolvedValue(parent);
+      pulseDetailGet.mockResolvedValue(parent);
+      const activeReply = createDocSnapshot("reply-1", {
+        stockCode: "BHP", threadId: "parent-1", body: "Private parent context", status: "active",
+      });
+      commentListGet.mockResolvedValue({ docs: [activeReply] });
+      pulseReplyListGet.mockResolvedValue({ docs: [activeReply] });
+
+      expect(await listCommunityComments("BHP", "parent-1")).toEqual([]);
+      expect(await listCommunityPulseReplies("BHP", "parent-1")).toEqual([]);
+      expect(commentListGet).not.toHaveBeenCalled();
+      expect(pulseReplyListGet).not.toHaveBeenCalled();
+    },
+  );
+
   it("reads pulse items with recency-first ordering", async () => {
     const { pulseListGet, pulseQuery } = createCollectionHarness();
     pulseListGet.mockResolvedValue({
@@ -315,7 +332,11 @@ describe("firestore-community repository", () => {
       commentsQuery,
       pulseReplyListGet,
       pulseRepliesQuery,
+      threadDetailGet,
+      pulseDetailGet,
     } = createCollectionHarness();
+    threadDetailGet.mockResolvedValue(createDocSnapshot("thread-1", { status: "active" }));
+    pulseDetailGet.mockResolvedValue(createDocSnapshot("pulse-1", { status: "active" }));
     const commentDoc = createDocSnapshot("comment-1", {
       stockCode: "BHP",
       threadId: "thread-1",

@@ -1,6 +1,13 @@
+import {
+  toPublicCommunityComment,
+  toPublicCommunityThread,
+} from "~/@/lib/community/public-content";
 import { notFound } from "next/navigation";
 import { CommunityThreadDetail } from "~/@/components/company/community/community-thread-detail";
-import { getCachedCommunityThread } from "~/@/lib/community/community-activity-cache";
+import {
+  getCachedCommunityComments,
+  getCachedCommunityThread,
+} from "~/@/lib/community/community-activity-cache";
 import {
   isFirestoreReadUnavailable,
   warnCommunityReadFallback,
@@ -21,8 +28,13 @@ export default async function CommunityThreadPage({ params }: PageProps) {
   }
 
   let thread;
+  let comments;
   try {
     thread = await getCachedCommunityThread(stockCode, threadId);
+    if (!thread) {
+      notFound();
+    }
+    comments = await getCachedCommunityComments(stockCode, threadId);
   } catch (error) {
     if (isFirestoreReadUnavailable(error)) {
       warnCommunityReadFallback({
@@ -36,11 +48,12 @@ export default async function CommunityThreadPage({ params }: PageProps) {
     throw error;
   }
 
-  if (!thread) {
-    notFound();
-  }
-
   // The stock layout renders the dashboard shell and the breadcrumbs
   // (Stocks > CODE > Community on this path).
-  return <CommunityThreadDetail thread={thread} comments={[]} />;
+  return (
+    <CommunityThreadDetail
+      thread={toPublicCommunityThread(thread)}
+      comments={comments.map(toPublicCommunityComment)}
+    />
+  );
 }

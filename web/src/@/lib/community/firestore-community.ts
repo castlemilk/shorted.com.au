@@ -115,33 +115,8 @@ function toDate(value: FirestoreValue): Date {
   return new Date(0);
 }
 
-function mapSummary(
-  data: Record<string, unknown>,
-): CommunityOverviewSummary {
-  const topThreadData =
-    data.topThread && typeof data.topThread === "object"
-      ? (data.topThread as Record<string, unknown>)
-      : undefined;
-
-  return {
-    headline: String(data.headline ?? "Open community"),
-    subheadline: String(data.subheadline ?? ""),
-    ctaLabel: String(data.ctaLabel ?? "Open community"),
-    threadCount: Number(data.threadCount ?? 0),
-    pulseCount: Number(data.pulseCount ?? 0),
-    topThread: topThreadData
-      ? {
-          id: String(topThreadData.id ?? ""),
-          title: String(topThreadData.title ?? ""),
-          commentCount: Number(topThreadData.commentCount ?? 0),
-          sourceCount: Number(topThreadData.sourceCount ?? 0),
-          lastActivityAt: toDate(topThreadData.lastActivityAt as FirestoreValue),
-        }
-      : undefined,
-    latestActivityAt: data.latestActivityAt
-      ? toDate(data.latestActivityAt as FirestoreValue)
-      : undefined,
-  };
+function isPublicSnapshot(snapshot: FirestoreDocSnapshot) {
+  return snapshot.exists && snapshot.data()?.status === "active";
 }
 
 function mapThread(snapshot: FirestoreDocSnapshot): CommunityThread {
@@ -278,21 +253,17 @@ function mapComment(snapshot: FirestoreDocSnapshot): CommunityComment {
 export async function getStockCommunitySummary(
   stockCode: string,
 ): Promise<CommunityOverviewSummary> {
-  const summaryDoc = await withFirestoreCost(
-    {
-      feature: "community",
-      collection: "stock_communities",
-      operation: "doc_get",
-      documentsRead: 1,
-    },
-    async () => (await communityDoc(stockCode).get()) as FirestoreDocSnapshot,
-  );
-
-  if (summaryDoc.exists) {
-    return mapSummary(summaryDoc.data() ?? {});
-  }
-
-  return buildCommunitySummary({ stockCode, threads: [], pulse: [] });
+  // A materialised summary can keep a removed thread's title. Until status
+  // changes have a guaranteed invalidation path, rebuild from public reads.
+  const [threads, pulse] = await Promise.all([
+    listCommunityThreads(stockCode),
+    listCommunityPulseItems(stockCode),
+  ]);
+  return buildCommunitySummary({
+    stockCode: stockCode.toUpperCase(),
+    threads,
+    pulse,
+  });
 }
 
 export async function listCommunityThreads(
@@ -314,7 +285,9 @@ export async function listCommunityThreads(
         .get()) as FirestoreQuerySnapshot,
   );
 
-  return rankResearchThreads(snapshot.docs.map(mapThread));
+  return rankResearchThreads(
+    snapshot.docs.filter(isPublicSnapshot).map(mapThread),
+  );
 }
 
 export async function getCommunityThread(
@@ -335,7 +308,7 @@ export async function getCommunityThread(
         .get()) as FirestoreDocSnapshot,
   );
 
-  return snapshot.exists ? mapThread(snapshot) : null;
+  return isPublicSnapshot(snapshot) ? mapThread(snapshot) : null;
 }
 
 export async function listCommunityPulseItems(
@@ -357,13 +330,19 @@ export async function listCommunityPulseItems(
         .get()) as FirestoreQuerySnapshot,
   );
 
-  return rankPulseItems(snapshot.docs.map(mapPulseItem));
+  return rankPulseItems(
+    snapshot.docs.filter(isPublicSnapshot).map(mapPulseItem),
+  );
 }
 
 export async function listCommunityComments(
   stockCode: string,
   threadId: string,
 ): Promise<CommunityComment[]> {
+  if (!(await getCommunityThread(stockCode, threadId))) {
+    return [];
+  }
+
   const snapshot = await withFirestoreCost(
     {
       feature: "community",
@@ -383,6 +362,7 @@ export async function listCommunityComments(
   );
 
   return snapshot.docs
+    .filter(isPublicSnapshot)
     .map(mapComment)
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 }
@@ -391,6 +371,23 @@ export async function listCommunityPulseReplies(
   stockCode: string,
   pulseId: string,
 ): Promise<CommunityComment[]> {
+  const parent = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "stock_communities/pulse",
+      operation: "doc_get",
+      documentsRead: 1,
+    },
+    async () =>
+      (await communityDoc(stockCode)
+        .collection("pulse")
+        .doc(pulseId)
+        .get()) as FirestoreDocSnapshot,
+  );
+  if (!isPublicSnapshot(parent)) {
+    return [];
+  }
+
   const snapshot = await withFirestoreCost(
     {
       feature: "community",
@@ -410,6 +407,7 @@ export async function listCommunityPulseReplies(
   );
 
   return snapshot.docs
+    .filter(isPublicSnapshot)
     .map(mapComment)
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 }
@@ -600,7 +598,10 @@ export async function createCommunityVote({
       documentsWritten: 1,
     },
     async () =>
-      adminDb.collection("community_votes").doc(voteId).set(record, { merge: true }),
+      adminDb
+        .collection("community_votes")
+        .doc(voteId)
+        .set(record, { merge: true }),
   );
 
   return {

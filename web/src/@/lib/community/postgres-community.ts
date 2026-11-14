@@ -230,6 +230,7 @@ export function createPostgresCommunityStore(
           FROM community_threads
           WHERE stock_code = $1
             AND id = $2
+            AND status = 'active'
           LIMIT 1
         `,
         [normalizeStockCode(stockCode), threadId],
@@ -274,6 +275,12 @@ export function createPostgresCommunityStore(
           WHERE stock_code = $1
             AND thread_id = $2
             AND status = 'active'
+            AND EXISTS (
+              SELECT 1 FROM community_threads AS parent
+              WHERE parent.id = community_comments.thread_id
+                AND parent.stock_code = community_comments.stock_code
+                AND parent.status = 'active'
+            )
           ORDER BY created_at ASC, id ASC
           LIMIT $3
         `,
@@ -300,6 +307,12 @@ export function createPostgresCommunityStore(
           WHERE stock_code = $1
             AND pulse_id = $2
             AND status = 'active'
+            AND EXISTS (
+              SELECT 1 FROM community_pulse AS parent
+              WHERE parent.id = community_pulse_replies.pulse_id
+                AND parent.stock_code = community_pulse_replies.stock_code
+                AND parent.status = 'active'
+            )
           ORDER BY created_at ASC, id ASC
           LIMIT $3
         `,

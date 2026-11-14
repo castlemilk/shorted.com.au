@@ -13,7 +13,7 @@ jest.mock("~/@/lib/community/community-repository", () => ({
 
 jest.mock("~/@/lib/community/community-activity-cache", () => ({
   COMMUNITY_PUBLIC_READ_CACHE_CONTROL:
-    "public, s-maxage=60, stale-while-revalidate=300",
+    "no-store",
   communityPulseCacheTag: jest.fn(
     (stockCode: string) => `community-pulse:${stockCode.toUpperCase()}`,
   ),
@@ -52,7 +52,7 @@ describe("/api/community/[stockCode]/pulse", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toContain("s-maxage=60");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(data.stockCode).toBe("CBA");
     expect(data.pulse).toHaveLength(1);
     expect(data.pulse[0]?.id).toBe("pulse-1");
@@ -76,7 +76,7 @@ describe("/api/community/[stockCode]/pulse", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toContain("s-maxage=60");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(data.stockCode).toBe("CBA");
     expect(data.pulse).toEqual([]);
     expect(warn).toHaveBeenCalledWith(

@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { type CommunityComment, type CommunityThread } from "~/@/types/community";
+import {
+  type PublicCommunityComment,
+  type PublicCommunityThread,
+} from "~/@/types/community";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import { Button } from "~/@/components/ui/button";
@@ -19,8 +22,32 @@ import { CommunityCommentList } from "./community-comment-list";
 import { CommunityFeedbackActions } from "./community-feedback-actions";
 
 interface CommunityThreadDetailProps {
-  thread: CommunityThread;
-  comments: CommunityComment[];
+  thread: PublicCommunityThread;
+  comments: PublicCommunityComment[];
+}
+
+interface LocalComment {
+  comment: PublicCommunityComment;
+  viewerId: string;
+  persistedComments: PublicCommunityComment[];
+}
+
+function isVisibleLocalComment(
+  local: LocalComment,
+  comments: PublicCommunityComment[],
+  viewerId: string | undefined,
+  threadId: string,
+  stockCode: string,
+) {
+  return (
+    local.viewerId === viewerId &&
+    local.comment.threadId === threadId &&
+    local.comment.stockCode === stockCode &&
+    !comments.some((comment) => comment.id === local.comment.id) &&
+    (local.comment.status === "needs_review" ||
+      (local.comment.status === "active" &&
+        local.persistedComments === comments))
+  );
 }
 
 export function CommunityThreadDetail({
@@ -28,7 +55,40 @@ export function CommunityThreadDetail({
   comments,
 }: CommunityThreadDetailProps) {
   const { data: session } = useSession();
-  const [commentItems, setCommentItems] = useState(comments);
+  const viewerId = session?.user?.id;
+  const [localComments, setLocalComments] = useState<LocalComment[]>([]);
+  // Server data always wins on refresh. Local POST responses are scoped at
+  // render time so a delayed response from a previous viewer cannot appear
+  // after sign-out/account switching, even before an effect has run.
+  const commentItems = [
+    ...comments,
+    ...localComments
+      .filter((local) =>
+        isVisibleLocalComment(
+          local,
+          comments,
+          viewerId,
+          thread.id,
+          thread.stockCode,
+        ),
+      )
+      .map(({ comment }) => comment),
+  ];
+
+  useEffect(() => {
+    setLocalComments((current) => {
+      const retained = current.filter((local) =>
+        isVisibleLocalComment(
+          local,
+          comments,
+          viewerId,
+          thread.id,
+          thread.stockCode,
+        ),
+      );
+      return retained.length === current.length ? current : retained;
+    });
+  }, [comments, thread.id, thread.stockCode, viewerId]);
 
   return (
     <div className="space-y-6">
@@ -101,7 +161,9 @@ export function CommunityThreadDetail({
 
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold text-foreground">Comments</h2>
+              <h2 className="text-xl font-semibold text-foreground">
+                Comments
+              </h2>
               <span className="text-sm text-muted-foreground">
                 {commentItems.length} replies
               </span>
@@ -110,9 +172,15 @@ export function CommunityThreadDetail({
               <CommunityCommentForm
                 stockCode={thread.stockCode}
                 threadId={thread.id}
-                onCreated={(comment) =>
-                  setCommentItems((current) => [...current, comment])
-                }
+                onCreated={(comment) => {
+                  if (!viewerId) return;
+                  setLocalComments((current) => [
+                    ...current.filter(
+                      (local) => local.comment.id !== comment.id,
+                    ),
+                    { comment, viewerId, persistedComments: comments },
+                  ]);
+                }}
               />
             ) : (
               <Link

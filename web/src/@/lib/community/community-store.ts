@@ -83,6 +83,10 @@ export interface CommunityReport {
 }
 
 export interface CommunityStore {
+  // Reads enforce public visibility but return internal records: callers must
+  // project public DTOs before API/SSR serialization. Only explicitly active
+  // content is returned, and children require an active parent in the same
+  // stock. Preview reads, if added, need a separate authenticated contract.
   getStockCommunitySummary(
     stockCode: string,
   ): Promise<CommunityOverviewSummary>;

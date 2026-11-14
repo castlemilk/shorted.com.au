@@ -2,7 +2,7 @@ import { type CommunityOverviewSummary } from "~/@/types/community";
 import { buildCommunitySummary } from "~/@/lib/community/summary";
 
 export const COMMUNITY_PUBLIC_READ_FALLBACK_CACHE_CONTROL =
-  "public, s-maxage=60, stale-while-revalidate=300";
+  "no-store";
 
 export function emptyCommunitySummary(
   stockCode: string,

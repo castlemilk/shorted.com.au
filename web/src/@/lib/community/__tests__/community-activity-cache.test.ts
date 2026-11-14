@@ -1,11 +1,6 @@
-import { revalidateTag, unstable_cache } from "next/cache";
+import { revalidateTag, unstable_noStore } from "next/cache";
 import {
-  COMMUNITY_PUBLIC_READ_CACHE_SECONDS,
-  communityPulseCacheTag,
-  communityPulseRepliesCacheTag,
-  communityThreadCacheTag,
-  communityThreadCommentsCacheTag,
-  communityThreadsCacheTag,
+  COMMUNITY_PUBLIC_READ_CACHE_CONTROL,
   getCachedCommunityComments,
   getCachedCommunityPulseItems,
   getCachedCommunityPulseReplies,
@@ -21,11 +16,17 @@ import {
   listCommunityThreads,
 } from "../community-repository";
 
+const mockDataCache = new Map<string, unknown>();
 jest.mock("next/cache", () => ({
   revalidateTag: jest.fn(),
-  unstable_cache: jest.fn((loader) => loader),
+  unstable_noStore: jest.fn(),
+  unstable_cache: jest.fn((loader, key) => async () => {
+    const cacheKey = JSON.stringify(key);
+    if (!mockDataCache.has(cacheKey))
+      mockDataCache.set(cacheKey, await loader());
+    return mockDataCache.get(cacheKey);
+  }),
 }));
-
 jest.mock("../community-repository", () => ({
   getCommunityThread: jest.fn(),
   listCommunityComments: jest.fn(),
@@ -34,55 +35,72 @@ jest.mock("../community-repository", () => ({
   listCommunityThreads: jest.fn(),
 }));
 
-describe("community activity cache", () => {
+describe("community public read freshness", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDataCache.clear();
   });
 
-  it("wraps community thread lists in a tagged public data cache", async () => {
-    (listCommunityThreads as jest.Mock).mockResolvedValue([]);
+  it.each([
+    {
+      name: "threads",
+      read: () => getCachedCommunityThreads("bhp"),
+      source: listCommunityThreads,
+      visible: [{ id: "thread-1", status: "active" }],
+      removed: [],
+    },
+    {
+      name: "pulse",
+      read: () => getCachedCommunityPulseItems("bhp"),
+      source: listCommunityPulseItems,
+      visible: [{ id: "pulse-1", status: "active" }],
+      removed: [],
+    },
+    {
+      name: "thread detail",
+      read: () => getCachedCommunityThread("bhp", " thread-1 "),
+      source: getCommunityThread,
+      visible: { id: "thread-1", status: "active" },
+      removed: null,
+    },
+    {
+      name: "comments",
+      read: () => getCachedCommunityComments("bhp", " thread-1 "),
+      source: listCommunityComments,
+      visible: [{ id: "comment-1", status: "active" }],
+      removed: [],
+    },
+    {
+      name: "pulse replies",
+      read: () => getCachedCommunityPulseReplies("bhp", " pulse-1 "),
+      source: listCommunityPulseReplies,
+      visible: [{ id: "reply-1", status: "active" }],
+      removed: [],
+    },
+  ])(
+    "does not replay cached $name after moderation removes it",
+    async ({ read, source, visible, removed }) => {
+      (source as jest.Mock).mockResolvedValue(visible);
+      expect(await read()).toEqual(visible);
+      (source as jest.Mock).mockResolvedValue(removed);
+      expect(await read()).toEqual(removed);
+      expect(unstable_noStore).toHaveBeenCalled();
+      expect((source as jest.Mock).mock.calls[0]?.[0]).toBe("BHP");
+      if ((source as jest.Mock).mock.calls[0]?.length > 1) {
+        expect((source as jest.Mock).mock.calls[0]?.[1]).not.toMatch(/^\s|\s$/);
+      }
+    },
+  );
 
-    await getCachedCommunityThreads("bhp");
-
-    expect(listCommunityThreads).toHaveBeenCalledWith("BHP");
-    expect(communityThreadsCacheTag("bhp")).toBe("community-threads:BHP");
-    expect(unstable_cache).toHaveBeenCalledWith(
-      expect.any(Function),
-      ["community-threads", "BHP"],
-      {
-        revalidate: COMMUNITY_PUBLIC_READ_CACHE_SECONDS,
-        tags: ["community-threads:BHP"],
-      },
-    );
+  it("forbids CDN/browser reuse of moderated public content", () => {
+    expect(COMMUNITY_PUBLIC_READ_CACHE_CONTROL).toBe("no-store");
   });
 
-  it("wraps pulse lists, thread details, comments, and replies with scoped tags", async () => {
-    (listCommunityPulseItems as jest.Mock).mockResolvedValue([]);
-    (getCommunityThread as jest.Mock).mockResolvedValue(null);
-    (listCommunityComments as jest.Mock).mockResolvedValue([]);
-    (listCommunityPulseReplies as jest.Mock).mockResolvedValue([]);
-
-    await getCachedCommunityPulseItems("bhp");
-    await getCachedCommunityThread("bhp", "thread-1");
-    await getCachedCommunityComments("bhp", "thread-1");
-    await getCachedCommunityPulseReplies("bhp", "pulse-1");
-
-    expect(communityPulseCacheTag("bhp")).toBe("community-pulse:BHP");
-    expect(communityThreadCacheTag("bhp", "thread-1")).toBe(
-      "community-thread:BHP:thread-1",
-    );
-    expect(communityThreadCommentsCacheTag("bhp", "thread-1")).toBe(
-      "community-thread-comments:BHP:thread-1",
-    );
-    expect(communityPulseRepliesCacheTag("bhp", "pulse-1")).toBe(
-      "community-pulse-replies:BHP:pulse-1",
-    );
-    expect(unstable_cache).toHaveBeenCalledTimes(4);
-  });
-
-  it("revalidates requested community cache tags", () => {
-    revalidateCommunityCacheTags(["community-threads:BHP", "community-pulse:BHP"]);
-
+  it("keeps explicit tag invalidation available to mutation callers", () => {
+    revalidateCommunityCacheTags([
+      "community-threads:BHP",
+      "community-pulse:BHP",
+    ]);
     expect(revalidateTag).toHaveBeenCalledWith("community-threads:BHP");
     expect(revalidateTag).toHaveBeenCalledWith("community-pulse:BHP");
   });

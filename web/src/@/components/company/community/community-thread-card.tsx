@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, Files, MessageSquare } from "lucide-react";
-import { type CommunityThread } from "~/@/types/community";
+import { type PublicCommunityThread } from "~/@/types/community";
 import { Badge } from "~/@/components/ui/badge";
 import {
   Card,
@@ -11,7 +11,7 @@ import {
 import { CommunityFeedbackActions } from "./community-feedback-actions";
 
 interface CommunityThreadCardProps {
-  thread: CommunityThread;
+  thread: PublicCommunityThread;
 }
 
 export function CommunityThreadCard({ thread }: CommunityThreadCardProps) {
@@ -27,7 +27,10 @@ export function CommunityThreadCard({ thread }: CommunityThreadCardProps) {
             {thread.type.replace("_", " ")}
           </Badge>
           {thread.highSignal ? (
-            <Badge variant="secondary" className="bg-amber-100 text-amber-950 dark:bg-amber-900/40 dark:text-amber-100">
+            <Badge
+              variant="secondary"
+              className="bg-amber-100 text-amber-950 dark:bg-amber-900/40 dark:text-amber-100"
+            >
               High signal
             </Badge>
           ) : null}
@@ -49,7 +52,9 @@ export function CommunityThreadCard({ thread }: CommunityThreadCardProps) {
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
         <div className="flex flex-wrap items-center gap-4">
-          <span className="font-medium text-foreground">{thread.score} score</span>
+          <span className="font-medium text-foreground">
+            {thread.score} score
+          </span>
           <span className="inline-flex items-center gap-1.5">
             <MessageSquare className="h-4 w-4" />
             {thread.commentCount} comments

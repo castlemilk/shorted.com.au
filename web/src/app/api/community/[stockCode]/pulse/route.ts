@@ -1,3 +1,7 @@
+import {
+  communityAuthorSnapshot,
+  toPublicCommunityPulseItem,
+} from "~/@/lib/community/public-content";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { rateLimit } from "~/@/lib/rate-limit";
@@ -36,7 +40,7 @@ export async function GET(
     return NextResponse.json(
       {
         stockCode,
-        pulse,
+        pulse: pulse.map(toPublicCommunityPulseItem),
       },
       {
         headers: {
@@ -115,9 +119,9 @@ export async function POST(
   }
 
   try {
-    const body = (await request.json().catch(() => null)) as
-      | { body?: string }
-      | null;
+    const body = (await request.json().catch(() => null)) as {
+      body?: string;
+    } | null;
     const content = body?.body?.trim() ?? "";
 
     if (!content) {
@@ -132,15 +136,15 @@ export async function POST(
       stockCode,
       body: content,
       status: moderation.status,
-      author: {
-        userId: session.user.id,
-        displayName: session.user.name ?? session.user.email ?? "Anonymous",
-      },
+      author: communityAuthorSnapshot(session.user),
     });
 
     revalidateCommunityCacheTags([communityPulseCacheTag(stockCode)]);
 
-    return NextResponse.json({ stockCode, pulse: pulseItem }, { status: 201 });
+    return NextResponse.json(
+      { stockCode, pulse: toPublicCommunityPulseItem(pulseItem) },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("Failed to create pulse item", error);
     return NextResponse.json(

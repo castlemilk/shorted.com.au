@@ -1,45 +1,42 @@
-import { unstable_cache } from "next/cache";
-import {
-  COMMUNITY_SUMMARY_CACHE_SECONDS,
-  communitySummaryCacheTag,
-  getCachedStockCommunitySummary,
-} from "../community-summary-cache";
+import { unstable_noStore } from "next/cache";
+import { getCachedStockCommunitySummary } from "../community-summary-cache";
 import { getStockCommunitySummary } from "../community-repository";
 
+const mockDataCache = new Map<string, unknown>();
 jest.mock("next/cache", () => ({
-  unstable_cache: jest.fn((loader) => loader),
+  unstable_noStore: jest.fn(),
+  unstable_cache: jest.fn((loader, key) => async () => {
+    const cacheKey = JSON.stringify(key);
+    if (!mockDataCache.has(cacheKey))
+      mockDataCache.set(cacheKey, await loader());
+    return mockDataCache.get(cacheKey);
+  }),
 }));
-
 jest.mock("../community-repository", () => ({
   getStockCommunitySummary: jest.fn(),
 }));
 
-describe("community summary cache", () => {
+describe("community summary freshness", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDataCache.clear();
   });
 
-  it("wraps stock community summaries in a short tagged data cache", async () => {
+  it("does not replay a title from a thread removed after an earlier summary read", async () => {
     (getStockCommunitySummary as jest.Mock).mockResolvedValue({
-      headline: "Open community",
-      subheadline: "",
-      ctaLabel: "Open community",
-      threadCount: 0,
-      pulseCount: 0,
+      headline: "Previously public title",
+    });
+    expect((await getCachedStockCommunitySummary("bhp")).headline).toBe(
+      "Previously public title",
+    );
+    (getStockCommunitySummary as jest.Mock).mockResolvedValue({
+      headline: "Be the first to discuss BHP",
     });
 
-    const summary = await getCachedStockCommunitySummary("bhp");
-
-    expect(summary.threadCount).toBe(0);
-    expect(getStockCommunitySummary).toHaveBeenCalledWith("BHP");
-    expect(communitySummaryCacheTag("bhp")).toBe("community-summary:BHP");
-    expect(unstable_cache).toHaveBeenCalledWith(
-      expect.any(Function),
-      ["community-summary", "BHP"],
-      {
-        revalidate: COMMUNITY_SUMMARY_CACHE_SECONDS,
-        tags: ["community-summary:BHP"],
-      },
+    expect((await getCachedStockCommunitySummary("bhp")).headline).toBe(
+      "Be the first to discuss BHP",
     );
+    expect(unstable_noStore).toHaveBeenCalled();
+    expect(getStockCommunitySummary).toHaveBeenCalledWith("BHP");
   });
 });

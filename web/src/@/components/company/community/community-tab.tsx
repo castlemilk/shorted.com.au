@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
-  type CommunityPulseItem,
-  type CommunityThread,
+  type PublicCommunityPulseItem,
+  type PublicCommunityThread,
 } from "~/@/types/community";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { CommunityPulseForm } from "./community-pulse-form";
@@ -15,11 +15,13 @@ import { CommunityThreadList } from "./community-thread-list";
 
 interface CommunityTabProps {
   stockCode: string;
-  threads?: CommunityThread[];
-  pulse?: CommunityPulseItem[];
+  threads?: PublicCommunityThread[];
+  pulse?: PublicCommunityPulseItem[];
 }
 
-function parseCommunityDate(value: CommunityThread["createdAt"] | string) {
+function parseCommunityDate(
+  value: PublicCommunityThread["createdAt"] | string,
+) {
   if (value instanceof Date) {
     return value;
   }
@@ -28,7 +30,7 @@ function parseCommunityDate(value: CommunityThread["createdAt"] | string) {
   return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed;
 }
 
-function normalizeThread(thread: CommunityThread): CommunityThread {
+function normalizeThread(thread: PublicCommunityThread): PublicCommunityThread {
   return {
     ...thread,
     createdAt: parseCommunityDate(thread.createdAt),
@@ -37,7 +39,9 @@ function normalizeThread(thread: CommunityThread): CommunityThread {
   };
 }
 
-function normalizePulseItem(item: CommunityPulseItem): CommunityPulseItem {
+function normalizePulseItem(
+  item: PublicCommunityPulseItem,
+): PublicCommunityPulseItem {
   return {
     ...item,
     createdAt: parseCommunityDate(item.createdAt),
@@ -45,7 +49,10 @@ function normalizePulseItem(item: CommunityPulseItem): CommunityPulseItem {
   };
 }
 
-async function fetchCommunityJson<T>(url: string, signal: AbortSignal): Promise<T> {
+async function fetchCommunityJson<T>(
+  url: string,
+  signal: AbortSignal,
+): Promise<T> {
   const response = await fetch(url, { signal });
   if (!response.ok) {
     throw new Error(`Community request failed with ${response.status}`);
@@ -54,18 +61,14 @@ async function fetchCommunityJson<T>(url: string, signal: AbortSignal): Promise<
   return response.json() as Promise<T>;
 }
 
-export function CommunityTab({
-  stockCode,
-  threads,
-  pulse,
-}: CommunityTabProps) {
+export function CommunityTab({ stockCode, threads, pulse }: CommunityTabProps) {
   const { data: session } = useSession();
   const shouldFetchThreads = threads === undefined;
   const shouldFetchPulse = pulse === undefined;
-  const [threadItems, setThreadItems] = useState<CommunityThread[]>(
+  const [threadItems, setThreadItems] = useState<PublicCommunityThread[]>(
     () => threads ?? [],
   );
-  const [pulseItems, setPulseItems] = useState<CommunityPulseItem[]>(
+  const [pulseItems, setPulseItems] = useState<PublicCommunityPulseItem[]>(
     () => pulse ?? [],
   );
   const [isLoading, setIsLoading] = useState(
@@ -88,13 +91,13 @@ export function CommunityTab({
       try {
         const [threadsPayload, pulsePayload] = await Promise.all([
           shouldFetchThreads
-            ? fetchCommunityJson<{ threads?: CommunityThread[] }>(
+            ? fetchCommunityJson<{ threads?: PublicCommunityThread[] }>(
                 `/api/community/${stockCode}/threads`,
                 controller.signal,
               )
             : Promise.resolve({ threads }),
           shouldFetchPulse
-            ? fetchCommunityJson<{ pulse?: CommunityPulseItem[] }>(
+            ? fetchCommunityJson<{ pulse?: PublicCommunityPulseItem[] }>(
                 `/api/community/${stockCode}/pulse`,
                 controller.signal,
               )
@@ -129,13 +132,7 @@ export function CommunityTab({
       cancelled = true;
       controller.abort();
     };
-  }, [
-    pulse,
-    shouldFetchPulse,
-    shouldFetchThreads,
-    stockCode,
-    threads,
-  ]);
+  }, [pulse, shouldFetchPulse, shouldFetchThreads, stockCode, threads]);
 
   return (
     <div className="space-y-6">

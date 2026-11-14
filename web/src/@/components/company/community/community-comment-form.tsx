@@ -4,12 +4,12 @@ import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "~/@/components/ui/button";
 import { Textarea } from "~/@/components/ui/textarea";
-import { type CommunityComment } from "~/@/types/community";
+import { type PublicCommunityComment } from "~/@/types/community";
 
 interface CommunityCommentFormProps {
   stockCode: string;
   threadId: string;
-  onCreated: (comment: CommunityComment) => void;
+  onCreated: (comment: PublicCommunityComment) => void;
 }
 
 export function CommunityCommentForm({
@@ -41,7 +41,9 @@ export function CommunityCommentForm({
         throw new Error("Failed to create comment");
       }
 
-      const data = (await response.json()) as { comment: CommunityComment };
+      const data = (await response.json()) as {
+        comment: PublicCommunityComment;
+      };
       onCreated(data.comment);
       setBody("");
       startTransition(() => router.refresh());

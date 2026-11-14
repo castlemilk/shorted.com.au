@@ -8,6 +8,7 @@ export type CommunityThreadType =
 export type CommunityStatus = "active" | "hidden" | "deleted" | "needs_review";
 
 export interface CommunityAuthorSnapshot {
+  /** Internal ownership identity. Never serialize this snapshot to public clients. */
   userId: string;
   displayName: string;
   handle?: string;
@@ -62,6 +63,23 @@ export interface CommunityPulseItem {
   status?: CommunityStatus;
   author?: CommunityAuthorSnapshot;
 }
+
+/** Intentionally excludes authentication IDs and provider profile fields. */
+export interface PublicCommunityAuthor {
+  displayName: string;
+}
+
+export type PublicCommunityThread = Omit<CommunityThread, "author"> & {
+  author?: PublicCommunityAuthor;
+};
+
+export type PublicCommunityComment = Omit<CommunityComment, "author"> & {
+  author?: PublicCommunityAuthor;
+};
+
+export type PublicCommunityPulseItem = Omit<CommunityPulseItem, "author"> & {
+  author?: PublicCommunityAuthor;
+};
 
 export interface CommunityModerationResult {
   normalizedText: string;
