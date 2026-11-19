@@ -56,7 +56,7 @@ export async function investorShareCard(
     // Show rank and percentage only when a single printed account supports them.
     if (first && ranks.every((r) => r.source === first.source)) {
       eyebrow = "ASX shareholder register";
-      footer = `${first.code} · ${displayRecordDate(first.date)} · annual report p. ${first.page}`;
+      footer = `${first.code} · ${first.dateBasis ? "FY ended " : ""}${displayRecordDate(first.date)} · annual report p. ${first.page}`;
       stats =
         ranks.length === 1
           ? [
@@ -71,6 +71,19 @@ export async function investorShareCard(
               {
                 label: "printed ranks",
                 value: ranks.map((r) => r.rank).join(", "),
+              },
+            ];
+    } else if (person.filings[0]?.notice) {
+      const { code, notice } = person.filings[0];
+      eyebrow = "ASX substantial holder notice";
+      footer = `${code} · Form ${notice.form} · filed ${displayRecordDate(notice.date)}`;
+      stats =
+        notice.form === "605"
+          ? [{ label: "filing status", value: "Ceased" }]
+          : [
+              {
+                label: "voting power at filing",
+                value: investorPct(notice.pct),
               },
             ];
     } else {

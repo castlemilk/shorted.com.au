@@ -11,6 +11,16 @@ export interface InvestorPortrait {
 
 export const portraits: Readonly<Record<string, InvestorPortrait | undefined>> =
   {
+    "mike-cannon-brookes": {
+      image: "/images/investors/mike-cannon-brookes.webp",
+      year: 2018,
+      credit: "Atlassian",
+      creditUrl: "https://www.atlassian.com/",
+      source:
+        "https://commons.wikimedia.org/wiki/File:Mike_Cannon-Brookes_Australian_businessman.jpg",
+      license: "CC0 1.0",
+      licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
+    },
     "gina-rinehart": {
       image: "/images/investors/gina-rinehart.webp",
       year: 2015,
@@ -47,6 +57,26 @@ function onHarveyBoard(name: string) {
 export const publisherPortraits: Readonly<
   Record<string, { publisher: string; url: string } | undefined>
 > = {
+  "russel-pillemer": {
+    publisher: "Pengana Capital Group",
+    url: "https://pengana.com/about-pengana/board-members/#:~:text=Russel%20Pillemer",
+  },
+  "sam-hupert": {
+    publisher: "Pro Medicus",
+    url: "https://www.promed.com.au/about/board/#:~:text=Dr%20Sam%20Aaron%20Hupert",
+  },
+  "anthony-hall": {
+    publisher: "Pro Medicus",
+    url: "https://www.promed.com.au/about/board/#:~:text=Anthony%20Barry%20Hall",
+  },
+  "fiona-brown": {
+    publisher: "Dicker Data",
+    url: "https://www.dickerdata.com.au/investor/board-of-directors#:~:text=Fiona%20Brown",
+  },
+  "vladimir-mitnovetski": {
+    publisher: "Dicker Data",
+    url: "https://www.dickerdata.com.au/investor/board-of-directors#:~:text=Vladimir%20Mitnovetski",
+  },
   "geoff-wilson": {
     publisher: "Wilson Asset Management",
     url: "https://wilsonassetmanagement.com.au/about-us/geoff-wilson-ao/",

@@ -33,7 +33,10 @@ export function AnnualRankSummary({ rows }: { rows: AnnualRow[] }) {
               <p className="text-sm font-medium">{entries[0]!.company}</p>
               <p className="text-xs leading-relaxed text-muted-foreground">
                 {ranks.length === 1 ? "Rank" : "Ranks"}{" "}
-                {rankList.format(ranks.map(String))} of 20 registered accounts
+                {rankList.format(ranks.map(String))} of 20{" "}
+                {entries[0]!.dateBasis
+                  ? "entries in the report"
+                  : "registered accounts"}
               </p>
             </div>
             <div
@@ -85,7 +88,7 @@ export function AnnualRanks({
             Share of issuer
           </th>
           <th scope="col" className="py-2 pl-4 font-medium">
-            Register date / source
+            Date / source
           </th>
         </tr>
       </thead>
@@ -109,7 +112,7 @@ export function AnnualRanks({
               ·{" "}
               <a
                 href={`${linkProfiles ? investorHref(row.profile) : ""}#${rankAnchor(row)}`}
-                aria-label={`Rank ${row.rank} · ${row.code} register dated ${row.date}`}
+                aria-label={`Rank ${row.rank} · ${row.code} ${row.dateBasis ? "financial year ended" : "register dated"} ${row.date}`}
                 className="inline-flex min-h-6 items-center text-primary underline underline-offset-4 hover:decoration-2"
               >
                 #{row.rank}
@@ -161,6 +164,7 @@ export function AnnualRanks({
             </td>
             <td className="text-xs max-md:col-span-2 max-md:row-start-3 md:pl-4">
               <time className="text-muted-foreground" dateTime={row.date}>
+                {row.dateBasis && "FY ended "}
                 {row.date}
               </time>{" "}
               <span aria-hidden="true" className="md:hidden">
@@ -168,7 +172,7 @@ export function AnnualRanks({
               </span>
               <a
                 href={row.source}
-                aria-label={`Annual report · p. ${row.page}, ${row.code} shareholder register dated ${row.date}`}
+                aria-label={`Annual report · p. ${row.page}, ${row.code} ${row.dateBasis ? "financial year ended" : "shareholder register dated"} ${row.date}`}
                 className="inline-flex min-h-10 items-center text-primary underline underline-offset-4 hover:decoration-2 md:flex"
               >
                 Annual report · p. {row.page}

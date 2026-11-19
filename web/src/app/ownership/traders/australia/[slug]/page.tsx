@@ -150,7 +150,7 @@ export default async function AustralianInvestorPage({ params }: Props) {
                           {filing.code}
                           {company && ` · ${company}`}
                         </Link>
-                        <p className="my-0.5 break-words text-xs text-muted-foreground">
+                        <p className="my-0.5 text-pretty break-words text-xs text-muted-foreground">
                           {current?.name ?? filing.filedName}
                         </p>
                         {filing.source !== current?.source && (
@@ -158,9 +158,10 @@ export default async function AustralianInvestorPage({ params }: Props) {
                             href={filing.source}
                             className={`inline-flex min-h-6 items-center text-xs ${link}`}
                           >
-                            {filing.basis === "annual"
-                              ? "Annual register naming this shareholder"
-                              : "Filing establishing this link"}
+                            {filing.sourceLabel ??
+                              (filing.basis === "annual"
+                                ? "Annual register naming this shareholder"
+                                : "Filing establishing this link")}
                           </a>
                         )}
                       </div>
@@ -265,12 +266,27 @@ export default async function AustralianInvestorPage({ params }: Props) {
                 className="min-w-0 scroll-mt-32 space-y-3"
               >
                 <h2 className={sectionTitle}>Annual shareholder ranks</h2>
+                {annualOnly &&
+                  record &&
+                  person.filings.some((f) => f.sourceLabel) && (
+                    <p className="max-w-3xl text-sm text-muted-foreground">
+                      {person.description}
+                    </p>
+                  )}
                 <AnnualRankSummary rows={ranks} />
                 <AnnualRanks rows={ranks} />
                 {annualOnly && (
                   <ul className="space-y-1 text-xs leading-relaxed text-muted-foreground">
                     {registers.map(({ filing, asOf, historyLimited }) => (
                       <li key={filing.code}>
+                        {filing.sourceLabel && (
+                          <>
+                            <a href={filing.source} className={link}>
+                              {filing.sourceLabel}
+                            </a>
+                            {" · "}
+                          </>
+                        )}
                         <Link
                           href={registerHref(filing.code)}
                           className={link}

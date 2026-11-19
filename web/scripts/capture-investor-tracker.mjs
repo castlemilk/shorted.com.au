@@ -218,6 +218,38 @@ try {
   await page.setViewportSize(mobile);
   await shoot("investor-directory-mobile.png");
   await page.setViewportSize(desktop);
+  await people.getByRole("searchbox").fill("Galipea");
+  await people
+    .getByRole("link", { name: "Mike Cannon-Brookes", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { level: 1, name: "Mike Cannon-Brookes" })
+    .waitFor();
+  await verifyPortrait("Mike Cannon-Brookes");
+  await region("Public accounts")
+    .getByRole("link", { name: /LinkedIn/ })
+    .first()
+    .waitFor();
+  await page.getByText("9.41%", { exact: true }).first().waitFor();
+  await shoot("mike-cannon-brookes-desktop.png");
+  await page.setViewportSize(mobile);
+  await shoot("mike-cannon-brookes-mobile.png");
+  await go(hub + "?view=ranks&q=DDR");
+  const dickerRanks = region("Annual shareholder ranks");
+  await dickerRanks
+    .getByRole("link", { name: "BTR No 2 Pty Ltd", exact: true })
+    .click();
+  await page.getByRole("heading", { level: 1, name: "Fiona Brown" }).waitFor();
+  await page
+    .getByText("Ranks 1, 3, 7 and 8 of 20 registered accounts")
+    .waitFor();
+  await page
+    .getByRole("link", { name: /Dicker Data directors’ interests/ })
+    .waitFor();
+  await page.setViewportSize(desktop);
+  await shoot("fiona-brown-desktop.png");
+  await go(hub);
+  await people.getByRole("heading", { name: /investor profiles/ }).waitFor();
   // Select public filers in an empty browser using the normal product controls.
   for (const name of [
     "Gina Rinehart",

@@ -11,11 +11,20 @@
     "https://paradice.com/team/": {
       "status": "responded"
     },
+    "https://pengana.com/about-pengana/board-members/": {
+      "status": "responded"
+    },
     "https://reports.adviserinfo.sec.gov/reports/ADV/160017/PDF/160017.pdf": {
       "status": "restricted"
     },
     "https://substack.com/@michaeljburry": {
       "status": "responded"
+    },
+    "https://wandb.ai/site/resources/podcast/episodes/what-a-42b-software-co-really-spends-on-ai-tools/": {
+      "status": "responded",
+      "links": [
+        "https://www.linkedin.com/in/mcannonbrookes/"
+      ]
     },
     "https://wilsonassetmanagement.com.au/about-us/geoff-wilson-ao/": {
       "status": "responded",
@@ -34,6 +43,13 @@
         "https://www.youtube.com/@Bg2Pod",
         "https://x.com/altcap",
         "https://x.com/bg2pod"
+      ]
+    },
+    "https://www.dickerdata.com.au/investor/board-of-directors": {
+      "status": "responded",
+      "links": [
+        "https://www.linkedin.com/in/fiona-b-2a39a5b4/",
+        "https://www.linkedin.com/in/vladimir-mitnovetski-2bb20bb/"
       ]
     },
     "https://www.facebook.com/WilsonAssetMgmt": {
@@ -75,7 +91,16 @@
     "https://www.linkedin.com/in/bradgerstner/": {
       "status": "restricted"
     },
+    "https://www.linkedin.com/in/fiona-b-2a39a5b4/": {
+      "status": "restricted"
+    },
     "https://www.linkedin.com/in/geoff-wilson-6bb15a362/": {
+      "status": "restricted"
+    },
+    "https://www.linkedin.com/in/mcannonbrookes/": {
+      "status": "restricted"
+    },
+    "https://www.linkedin.com/in/vladimir-mitnovetski-2bb20bb/": {
       "status": "restricted"
     },
     "https://www.linkedin.com/posts/helen-dalley-800809202_managedfunds-financialmarkets-investing-activity-7475707660286287873-2EKB": {
@@ -92,11 +117,20 @@
         "https://www.linkedin.com/company/maas-group-pty-limited/"
       ]
     },
+    "https://www.promed.com.au/about/board/": {
+      "status": "responded"
+    },
     "https://www.reuters.com/sustainability/sustainable-finance-reporting/michael-burry-big-short-fame-deregisters-scion-asset-management-2025-11-13/": {
       "status": "restricted"
     },
     "https://www.scionasset.com/": {
       "status": "responded"
+    },
+    "https://www.ted.com/speakers/mike_cannon_brookes": {
+      "status": "responded",
+      "links": [
+        "https://x.com/mcannonbrookes"
+      ]
     },
     "https://www.wisetechglobal.com/investors/our-board-of-directors/": {
       "status": "responded",
@@ -129,6 +163,9 @@
       "status": "restricted"
     },
     "https://x.com/bg2pod": {
+      "status": "restricted"
+    },
+    "https://x.com/mcannonbrookes": {
       "status": "restricted"
     },
     "https://x.com/michaeljburry": {

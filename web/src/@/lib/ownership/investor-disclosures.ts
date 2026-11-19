@@ -5,6 +5,7 @@ import type {
 } from "~/gen/shorts/v1alpha1/ownership_pb";
 import { safeExternalHref } from "~/@/lib/safe-external-href";
 import {
+  announcementUrl,
   filedNameKey,
   filingNames,
   investorForFiling,
@@ -35,6 +36,20 @@ function reviewedFor(n: FilingKey) {
     : undefined;
 }
 
+function verifiedFiling(n: FilingKey) {
+  const person = investorForFiling(n.stockCode, n.holderName);
+  return person?.filings.find((f) => {
+    const notice = f.notice;
+    return (
+      f.code === n.stockCode &&
+      notice !== undefined &&
+      notice.form === n.form &&
+      (n.announcementUrl === f.source ||
+        n.announcementUrl === announcementUrl(notice.announcementId))
+    );
+  });
+}
+
 export function currentFilerRow(
   h: GetStockOwnershipResponse["holders"][number],
 ) {
@@ -49,7 +64,10 @@ export function currentFilerRow(
       : h.hasVotes
         ? h.votes.toLocaleString("en-AU")
         : undefined,
-    source: r?.source ?? safeExternalHref(h.announcementUrl),
+    source:
+      r?.source ??
+      verifiedFiling(h)?.source ??
+      safeExternalHref(h.announcementUrl),
   };
 }
 
@@ -72,6 +90,7 @@ type Notice = Pick<
 
 export function disclosureRow(n: Notice) {
   const r = reviewedFor(n);
+  const filing = verifiedFiling(n);
   const ceased =
     r?.ceased ??
     (n.form === "605" || n.event === "ceased" || n.ceased === true);
@@ -93,11 +112,46 @@ export function disclosureRow(n: Notice) {
     ceased,
     pct: ceased ? null : (r?.pct ?? (n.hasPresent ? n.presentPct : null)),
     previous: r?.previousPct ?? (n.hasPrevious ? n.previousPct : null),
-    source: r?.source ?? safeExternalHref(n.announcementUrl) ?? null,
+    source:
+      r?.source ??
+      filing?.source ??
+      safeExternalHref(n.announcementUrl) ??
+      null,
+    ...(filing?.notice && {
+      announcement: announcementUrl(filing.notice.announcementId),
+    }),
     profile: investorForFiling(n.stockCode, n.holderName)?.slug ?? null,
   };
 }
 export type DisclosureRow = ReturnType<typeof disclosureRow>;
+
+/** A dated, checked form remains part of the record after it leaves the live window. */
+export function archivedDisclosure(
+  filing: FilingIdentity,
+): DisclosureRow | undefined {
+  const notice = filing.notice;
+  if (!notice) return;
+  return {
+    code: filing.code,
+    company: notice.company,
+    name: filing.filedName,
+    form: notice.form,
+    date: notice.date,
+    effective: "",
+    event:
+      notice.form === "605"
+        ? "ceased"
+        : notice.form === "603"
+          ? "became"
+          : "changed",
+    ceased: notice.form === "605",
+    pct: notice.pct,
+    previous: null,
+    source: filing.source,
+    announcement: announcementUrl(notice.announcementId),
+    profile: investorForFiling(filing.code, filing.filedName)?.slug ?? null,
+  };
+}
 
 export const DISCOVERY_WINDOW = 90;
 export const DISCOVERY_PAGE_SIZE = 100;
@@ -174,14 +228,19 @@ export function readFilingIdentity(
   const names = new Set(filingNames(filing).map(filedNameKey));
   const matches = (r: { stockCode: string; holderName: string }) =>
     r.stockCode === filing.code && names.has(filedNameKey(r.holderName));
+  const company = data?.summary?.companyName?.trim();
   const interest = data?.holders?.find(matches);
-  const history = data?.history ?? [];
+  const available = data?.history ?? [];
+  const history = available.filter(matches).map(disclosureRow);
+  const archived = archivedDisclosure(filing);
+  if (archived && !history.some((r) => r.source === archived.source))
+    history.push(archived);
   return {
     filing,
-    company: data?.summary?.companyName ?? "",
+    company: company?.length ? company : (filing.notice?.company ?? ""),
     asOf: data?.asOf ?? "",
     current: interest ? currentFilerRow(interest) : null,
-    history: history.filter(matches).map(disclosureRow),
-    historyLimited: (data?.historyTotal ?? 0) > history.length,
+    history,
+    historyLimited: (data?.historyTotal ?? 0) > available.length,
   };
 }

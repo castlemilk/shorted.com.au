@@ -35,6 +35,49 @@ function harveyBoard(role: string, year: string): ProfessionalRecord {
 
 // A named share register alone does not establish a job or directorship.
 const appointments: Readonly<Record<string, ProfessionalRecord | undefined>> = {
+  "mike-cannon-brookes": {
+    role: "Co-founder and chief executive officer",
+    organization: "Atlassian",
+    milestone: { label: "Co-founded Atlassian", date: "2002" },
+    source:
+      "https://investors.atlassian.com/governance/management-team---board-of-directors/default.aspx",
+    sourceLabel: "Atlassian board",
+  },
+  "russel-pillemer": {
+    role: "Co-founder and chief executive officer",
+    organization: "Pengana Capital Group",
+    milestone: { label: "Co-founded Pengana", date: "2003" },
+    source: "https://pengana.com/about-pengana/board-members/",
+    sourceLabel: "Pengana board",
+  },
+  "sam-hupert": {
+    role: "Co-founder, managing director and CEO",
+    organization: "Pro Medicus",
+    milestone: { label: "Co-founded Pro Medicus", date: "1983" },
+    source: "https://www.promed.com.au/about/board/",
+    sourceLabel: "Pro Medicus board",
+  },
+  "anthony-hall": {
+    role: "Co-founder and technology director",
+    organization: "Pro Medicus",
+    milestone: { label: "Co-founded Pro Medicus", date: "1983" },
+    source: "https://www.promed.com.au/about/board/",
+    sourceLabel: "Pro Medicus board",
+  },
+  "fiona-brown": {
+    role: "Co-founder, executive chair and managing director",
+    organization: "Dicker Data",
+    milestone: { label: "Co-founded Dicker Data", date: "1978" },
+    source: "https://www.dickerdata.com.au/investor/board-of-directors",
+    sourceLabel: "Dicker Data board",
+  },
+  "vladimir-mitnovetski": {
+    role: "Executive director and chief operating officer",
+    organization: "Dicker Data",
+    milestone: { label: "Joined Dicker Data", date: "2010" },
+    source: "https://www.dickerdata.com.au/investor/board-of-directors",
+    sourceLabel: "Dicker Data board",
+  },
   "gina-rinehart": {
     role: "Executive chairman",
     organization: "Hancock Prospecting",
@@ -128,7 +171,10 @@ function descriptionFor(person: Investor): string {
   const ranks = ranksForInvestor(person.slug);
   if (ranks.length === 1 && person.filings.every((f) => f.basis === "annual")) {
     const rank = ranks[0]!;
-    return `${lead}${rank.company} lists ${person.name} at rank ${rank.rank} (${investorPct(rank.pct)}) in its ${displayRecordDate(rank.date)} shareholder register.`;
+    const period = rank.dateBasis
+      ? `annual report for the year ended ${displayRecordDate(rank.date)}`
+      : `${displayRecordDate(rank.date)} shareholder register`;
+    return `${lead}${rank.company} lists ${person.name} at rank ${rank.rank} (${investorPct(rank.pct)}) in its ${period}.`;
   }
   return lead + person.description;
 }

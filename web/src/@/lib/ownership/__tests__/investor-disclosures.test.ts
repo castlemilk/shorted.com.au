@@ -17,6 +17,7 @@ import {
   readFilingIdentity,
 } from "../investor-disclosures";
 import { filerHref } from "../named-filer";
+import { filingId } from "../investor-activity";
 
 const filedName = "Mrs Georgina Hope Rinehart, Hancock Prospecting Pty Ltd";
 const other =
@@ -86,7 +87,9 @@ it("tracks an annual-register name when that full name files at the same issuer"
 });
 
 it("preserves the issuer rank, repeated accounts and joint identity", () => {
-  expect(new Set(AUSTRALIAN_INVESTORS.map((p) => p.slug)).size).toBe(15);
+  expect(new Set(AUSTRALIAN_INVESTORS.map((p) => p.slug)).size).toBe(
+    AUSTRALIAN_INVESTORS.length,
+  );
   for (const r of RANKED_HOLDERS)
     expect(investorBySlug(r.profile)).toBeDefined();
   expect(
@@ -102,6 +105,75 @@ it("preserves the issuer rank, repeated accounts and joint identity", () => {
   expect(filerHref("MGH", "A&B / C + Sons")).toBe(
     "/ownership/traders/asx/MGH/holders?name=A%26B+%2F+C+%2B+Sons",
   );
+});
+
+it("keeps a checked filing as dated history without reviving a ceased or superseded interest", () => {
+  const filing = investorBySlug("tolga-kumova")!.filings[0]!;
+  const archived = readFilingIdentity(filing);
+  expect(archived.current).toBeNull();
+  expect(archived.history).toMatchObject([
+    { form: "605", pct: null, ceased: true, code: "TOR" },
+  ]);
+  const repeated = create(SubstantialNoticeSchema, {
+    stockCode: filing.code,
+    holderName: filing.filedName,
+    form: "605",
+    announcedOn: filing.notice!.date,
+    announcementUrl:
+      "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=" +
+      filing.notice!.announcementId,
+  });
+  const changed = create(SubstantialNoticeSchema, {
+    stockCode: filing.code,
+    holderName: filing.filedName,
+    form: "603",
+    announcedOn: "2027-01-08",
+    announcementUrl: "https://www.asx.com.au/new",
+    presentPct: 5.3,
+    hasPresent: true,
+  });
+  const result = readFilingIdentity(
+    filing,
+    create(GetStockOwnershipResponseSchema, {
+      asOf: "2027-01-08",
+      history: [changed, repeated],
+      historyTotal: 2,
+    }),
+  );
+  expect(result.history.map((r) => r.source)).toEqual([
+    changed.announcementUrl,
+    filing.source,
+  ]);
+  expect(result.historyLimited).toBe(false);
+  const saved = {
+    ...archived.history[0]!,
+    announcement: undefined,
+    source: repeated.announcementUrl,
+  };
+  expect(filingId(archived.history[0]!)).toBe(filingId(saved));
+  expect(investorForFiling("FLX", filing.filedName)).toBeUndefined();
+});
+
+it("keeps individual and joint Pro Medicus entries separate and preserves its printed rank", () => {
+  const joint = investorForFiling(
+    "PME",
+    "Mr Michael Wu & Ms Lynne Fan-Lin Wu Chen",
+  )!;
+  expect(joint.jointNames).toEqual(["Michael Wu", "Lynne Fan-Lin Wu Chen"]);
+  expect(investorForFiling("PME", "Michael Wu")?.slug).toBe("pme-michael-wu");
+  expect(ranksForInvestor("anthony-hall")[0]).toMatchObject({
+    rank: 1,
+    pct: 23.14,
+    dateBasis: "financial-year-end",
+  });
+  expect(ranksForInvestor("sam-hupert")[0]).toMatchObject({
+    rank: 2,
+    pct: 23.16,
+  });
+  expect(ranksForInvestor("fiona-brown").map((r) => r.rank)).toEqual([
+    1, 3, 7, 8,
+  ]);
+  expect(ranksForInvestor("graham-turner").map((r) => r.rank)).toEqual([4, 8]);
 });
 
 it("reads the whole window, discards superseded notices across pages and preserves separate names on a shared PDF", async () => {

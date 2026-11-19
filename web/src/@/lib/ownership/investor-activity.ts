@@ -55,7 +55,8 @@ export function filingId(row: DisclosureRow) {
     row.code,
     filedNameKey(row.name),
     row.date,
-    row.source ?? [row.form, row.effective, row.event, row.previous, row.pct],
+    row.announcement ??
+      row.source ?? [row.form, row.effective, row.event, row.previous, row.pct],
   ]);
 }
 

@@ -27,7 +27,7 @@ const readRegisters = jest.mocked(loadInvestorRegisters);
 const followKey = "shorted:ownership:followed-asx-investors:v1";
 const readKey = "shorted:ownership:read-asx-notices:v1";
 const route = "/ownership/traders/australia";
-const rawName = "MR JOSHUA GORDON";
+const rawName = "MR TEST FILER";
 let selected = "";
 jest.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams({ name: selected }),
@@ -104,7 +104,7 @@ it("follows a new as-filed name and keeps the issuer link after its notice leave
   await screen.findByText(/1 of 1 issuer register loaded/);
   expect(screen.getByRole("link", { name: rawName })).toHaveAttribute(
     "href",
-    "/ownership/traders/asx/RLC/holders?name=MR+JOSHUA+GORDON",
+    "/ownership/traders/asx/RLC/holders?name=MR+TEST+FILER",
   );
 });
 
@@ -115,7 +115,7 @@ it("searches market names and dated register ranks, with original sources and sc
   expect(screen.queryByText("Nominees Pty Ltd")).toBeNull();
   expect(screen.getByRole("link", { name: rawName })).toHaveAttribute(
     "href",
-    "/ownership/traders/asx/RLC/holders?name=MR+JOSHUA+GORDON",
+    "/ownership/traders/asx/RLC/holders?name=MR+TEST+FILER",
   );
   expect(screen.getByRole("link", { name: "Form 603" })).toHaveAttribute(
     "href",
@@ -133,6 +133,43 @@ it("searches market names and dated register ranks, with original sources and sc
   expect(table.getByText("2,602,606")).toBeVisible();
 });
 
+it("finds dated notices by issuer outside the feed and prefers a newer release", () => {
+  const { rerender } = render(
+    <AustralianInvestorDirectory feed={{ ...feed, rows: [] }} />,
+  );
+  const search = screen.getByRole("searchbox");
+  fireEvent.change(search, { target: { value: "AGL Energy" } });
+  expect(
+    screen.getByRole("link", { name: "Mike Cannon-Brookes" }),
+  ).toBeVisible();
+  expect(screen.getByText(/9.41%/)).toBeVisible();
+  expect(screen.getByText("2026-08-24")).toBeVisible();
+  rerender(
+    <AustralianInvestorDirectory
+      feed={{
+        ...feed,
+        rows: [
+          {
+            ...row,
+            code: "AGL",
+            company: "AGL Energy",
+            name: "Michael Alexander Cannon-Brookes, Galipea Partnership",
+            form: "604",
+            profile: "mike-cannon-brookes",
+            pct: 10.2,
+            date: "2027-03-01",
+          },
+        ],
+      }}
+    />,
+  );
+  expect(screen.getByText(/10.2%/)).toBeVisible();
+  expect(screen.queryByText(/9.41%/)).toBeNull();
+  fireEvent.change(search, { target: { value: "Torque Metals" } });
+  expect(screen.getByText("Ceased to be substantial")).toBeVisible();
+  expect(screen.queryByText("0%")).toBeNull();
+});
+
 it("keeps filings outages distinct from a successful search with no matches", () => {
   render(
     <AustralianInvestorDirectory
@@ -148,14 +185,13 @@ it("keeps filings outages distinct from a successful search with no matches", ()
 
 it("retains shareable filters, restores a view on back and preserves unrelated URL parameters", () => {
   const url =
-    route +
-    "?campaign=asx&view=filings&q=Gordon&event=became&titled=1#activity";
+    route + "?campaign=asx&view=filings&q=Filer&event=became&titled=1#activity";
   window.history.replaceState(null, "", url);
   const first = render(<AustralianInvestorDirectory feed={feed} />);
   expect(
     screen.getByRole("button", { name: "Recent filings" }),
   ).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByRole("searchbox")).toHaveValue("Gordon");
+  expect(screen.getByRole("searchbox")).toHaveValue("Filer");
   expect(
     screen.getByRole("checkbox", { name: /personal title/ }),
   ).toBeChecked();
@@ -179,7 +215,7 @@ it("retains shareable filters, restores a view on back and preserves unrelated U
     window.history.replaceState(null, "", filteredUrl);
     window.dispatchEvent(new PopStateEvent("popstate"));
   });
-  expect(screen.getByRole("searchbox")).toHaveValue("Gordon");
+  expect(screen.getByRole("searchbox")).toHaveValue("Filer");
   expect(screen.getByRole("combobox", { name: "Order by" })).toHaveValue(
     "power",
   );
@@ -348,19 +384,16 @@ it("orders individual registered accounts by the percentage of issued shares and
   const table = within(
     screen.getByRole("table", { name: /Registered accounts/ }),
   );
-  expect(table.getAllByRole("row")[4]).toHaveTextContent(
-    "Ms. Samantha Maree Harvey",
-  );
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "Pro Medicus" },
+  });
+  const firstEntry = () => table.getAllByRole("row")[1];
+  expect(firstEntry()).toHaveTextContent("Mr A Hall");
   fireEvent.change(screen.getByRole("combobox", { name: "Order by" }), {
     target: { value: "stake" },
   });
-  expect(table.getAllByRole("row")[1]).toHaveTextContent("Mr. Gerald Harvey");
-  expect(table.getAllByRole("row")[2]).toHaveTextContent(
-    "RealWise Holdings Pty Limited",
-  );
-  expect(table.getAllByRole("row")[4]).toHaveTextContent(
-    "MRS EMMA MARGARET MAAS",
-  );
+  expect(firstEntry()).toHaveTextContent("Dr S Hupert");
+  expect(firstEntry()).toHaveTextContent("FY ended 2026-06-30");
   expect(window.location.search).toContain("sort=stake");
   expect(parseTrackerQuery(window.location.search).largestStake).toBe(true);
 });

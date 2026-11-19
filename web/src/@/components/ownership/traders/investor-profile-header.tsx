@@ -173,10 +173,12 @@ export function InvestorPhotoCredit({ slug }: { slug: string }) {
           Original photograph
         </a>
         {" · "}
-        <a href={photo.licenseUrl} className={link}>
-          {photo.license}
-        </a>
-        {" · Cropped"}
+        <span className="inline-block">
+          <a href={photo.licenseUrl} className={link}>
+            {photo.license}
+          </a>
+          {" · Cropped"}
+        </span>
       </p>
     </footer>
   );

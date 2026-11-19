@@ -45,6 +45,10 @@ const wiseTechBoard: AccountSource = {
   title: "WiseTech Global board page",
   url: "https://www.wisetechglobal.com/investors/our-board-of-directors/",
 };
+const dickerBoard: AccountSource = {
+  title: "Dicker Data board biography",
+  url: "https://www.dickerdata.com.au/investor/board-of-directors",
+};
 const maasSite: AccountSource = {
   title: "Maas Group Holdings website",
   url: "https://www.maasgroup.com.au/",
@@ -55,6 +59,48 @@ const maasSite: AccountSource = {
 export const publicAccounts: Readonly<
   Record<string, TraderAccounts | undefined>
 > = {
+  "mike-cannon-brookes": {
+    reviewedOn: "2026-11-19",
+    personal: [
+      {
+        platform: "LinkedIn",
+        url: "https://www.linkedin.com/in/mcannonbrookes/",
+        source: {
+          title: "Gradient Dissent interview with Mike Cannon-Brookes",
+          url: "https://wandb.ai/site/resources/podcast/episodes/what-a-42b-software-co-really-spends-on-ai-tools/",
+        },
+      },
+      {
+        platform: "X",
+        url: "https://x.com/mcannonbrookes",
+        handle: "@mcannonbrookes",
+        source: {
+          title: "TED speaker biography",
+          url: "https://www.ted.com/speakers/mike_cannon_brookes",
+        },
+      },
+    ],
+  },
+  "fiona-brown": {
+    reviewedOn: "2026-11-19",
+    personal: [
+      {
+        platform: "LinkedIn",
+        url: "https://www.linkedin.com/in/fiona-b-2a39a5b4/",
+        source: dickerBoard,
+      },
+    ],
+  },
+  "vladimir-mitnovetski": {
+    reviewedOn: "2026-11-19",
+    personal: [
+      {
+        platform: "LinkedIn",
+        url: "https://www.linkedin.com/in/vladimir-mitnovetski-2bb20bb/",
+        source: dickerBoard,
+      },
+    ],
+  },
   "gina-rinehart": {
     reviewedOn: "2026-11-19",
     personal: [

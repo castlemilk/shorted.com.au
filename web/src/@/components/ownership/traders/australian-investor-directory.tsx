@@ -24,6 +24,7 @@ import {
   type FilingOrder,
 } from "~/@/lib/ownership/investor-activity";
 import {
+  archivedDisclosure,
   DISCOVERY_WINDOW,
   type Discovery,
   type DisclosureRow,
@@ -67,11 +68,19 @@ const profiles = AUSTRALIAN_INVESTORS.map((p) => {
     person: p,
     codes,
     rank: ranks[0],
+    archive: p.filings
+      .map(archivedDisclosure)
+      .filter((n): n is DisclosureRow => n !== undefined)
+      .sort((a, b) => b.date.localeCompare(a.date))[0],
     search: [
       p.name,
       ...(p.alternateName ? [p.alternateName] : []),
       ...codes,
-      ...p.filings.map((f) => f.filedName),
+      ...p.filings.flatMap((f) => [
+        f.filedName,
+        f.notice?.company,
+        ...(f.aliases ?? []),
+      ]),
       ...ranks.flatMap((r) => [r.name, r.company]),
     ].join(" "),
   };
@@ -100,19 +109,51 @@ function People({
     if (row.profile && !latest.has(row.profile)) latest.set(row.profile, row);
     if (row.company) companies.set(row.code, row.company);
   }
-  const matches = profiles.filter((p) =>
-    matchesWords(
-      [p.search, ...p.codes.map((code) => companies.get(code))].join(" "),
-      query,
-    ),
-  );
+  const matches = profiles
+    .filter((p) =>
+      matchesWords(
+        [p.search, ...p.codes.map((code) => companies.get(code))].join(" "),
+        query,
+      ),
+    )
+    .map((profile) => {
+      const live = latest.get(profile.person.slug);
+      const notice =
+        !live || (profile.archive && profile.archive.date > live.date)
+          ? profile.archive
+          : live;
+      const rank = profile.rank;
+      const date =
+        notice && (!rank || notice.date >= rank.date)
+          ? notice.date
+          : rank?.date;
+      return {
+        ...profile,
+        notice: notice?.date === date ? notice : undefined,
+        date,
+      };
+    })
+    .sort(
+      (a, b) =>
+        (b.date ?? "").localeCompare(a.date ?? "") ||
+        a.person.name.localeCompare(b.person.name, "en-AU"),
+    );
+  const issuerCount = new Set(matches.flatMap((p) => p.codes)).size;
   return (
     <section aria-label="Investor profiles" className="space-y-3">
       <header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2">
-        <h2 className={sectionTitle}>
-          {matches.length} investor{" "}
-          {matches.length === 1 ? "profile" : "profiles"}
-        </h2>
+        <div>
+          <h2 className={sectionTitle}>
+            {matches.length} investor{" "}
+            {matches.length === 1 ? "profile" : "profiles"}
+          </h2>
+          {issuerCount > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {issuerCount} ASX {issuerCount === 1 ? "issuer" : "issuers"} ·
+              Latest disclosure first
+            </p>
+          )}
+        </div>
         {search}
       </header>
       {matches.length ? (
@@ -126,15 +167,19 @@ function People({
             <span>Issuer / source</span>
           </div>
           <ul className="divide-y border-b max-md:border-t">
-            {matches.map(({ person, codes, rank }) => {
-              const notice = latest.get(person.slug);
-              const filedName = notice?.name ?? rank?.name;
-              const code = notice?.code ?? rank?.code;
-              const date = notice?.date ?? rank?.date;
-              const source = notice ? notice.source : rank?.source;
+            {matches.map(({ person, codes, rank, notice, date }) => {
+              const reference = person.filings[0];
+              const filedName =
+                notice?.name ?? rank?.name ?? reference?.filedName;
+              const code = notice?.code ?? rank?.code ?? reference?.code;
+              const source = notice
+                ? notice.source
+                : (rank?.source ?? reference?.source);
               const document = notice
                 ? `Form ${notice.form}`
-                : "Annual register";
+                : rank
+                  ? "Annual register"
+                  : "ASX filing";
               const interest = notice
                 ? notice.ceased
                   ? "Ceased to be substantial"
@@ -161,7 +206,7 @@ function People({
                         /^(?:mr|mrs|ms)\.? +/,
                         "",
                       ) !== filedNameKey(person.name) && (
-                        <p className="mt-1 break-words text-xs text-muted-foreground">
+                        <p className="mt-1 text-pretty break-words text-xs text-muted-foreground">
                           {filedName}
                         </p>
                       )}
@@ -180,18 +225,24 @@ function People({
                         <span className="font-medium">{code}</span>
                         {" · "}
                         {source ? (
-                          <a href={source} className={link}>
+                          <a
+                            href={source}
+                            className="text-primary underline underline-offset-4 hover:decoration-2"
+                          >
                             {document}
                           </a>
                         ) : (
                           document
                         )}{" "}
-                        <time
-                          dateTime={date}
-                          className="text-muted-foreground md:mt-1 md:block"
-                        >
-                          {date}
-                        </time>
+                        {date && (
+                          <time
+                            dateTime={date}
+                            className="text-muted-foreground md:mt-1 md:block"
+                          >
+                            {!notice && rank?.dateBasis && "FY ended "}
+                            {date}
+                          </time>
+                        )}
                       </>
                     )}
                   </div>
@@ -203,9 +254,8 @@ function People({
             })}
           </ul>
           <p className="mt-3 max-w-3xl text-xs text-muted-foreground">
-            Each profile shows its latest matched notice in the{" "}
-            {DISCOVERY_WINDOW}-day feed or a named account from an annual
-            register.
+            Voting power includes the associates named in a notice. Annual ranks
+            show the entry as the issuer printed it.
           </p>
         </div>
       ) : (
@@ -268,7 +318,7 @@ export function AustralianInvestorDirectory({ feed }: { feed: Discovery }) {
         value={f.query}
         onChange={(e) => updateTrackerQuery({ query: e.target.value })}
         placeholder="Search names or ASX codes"
-        className={`${control} w-full pl-9`}
+        className={`${control} w-full pl-9 placeholder:text-muted-foreground`}
       />
     </label>
   );
@@ -475,9 +525,9 @@ export function AustralianInvestorDirectory({ feed }: { feed: Discovery }) {
         >
           <h2 className={sectionTitle}>Annual shareholder ranks</h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            Selected named accounts from {REGISTER_SNAPSHOTS.length} issuers’
-            top-20 registers. Each rank belongs to one registered account on the
-            date shown.
+            Named entries from {REGISTER_SNAPSHOTS.length} issuers’ top-20
+            shareholder lists. Each issuer sets its own ranks and may group
+            several accounts in one entry.
           </p>
           {ranks.length ? (
             <AnnualRanks rows={ranks} linkProfiles />
