@@ -72,12 +72,18 @@ function Positions({
         </caption>
         <TableHeader>
           <TableRow>
-            <TableHead>Security</TableHead>
-            <TableHead className="text-right">Quantity</TableHead>
+            <TableHead scope="col">Security</TableHead>
+            <TableHead scope="col" className="text-right">
+              Quantity
+            </TableHead>
             {previous && (
-              <TableHead className="text-right">Change in quantity</TableHead>
+              <TableHead scope="col" className="text-right">
+                Change in quantity
+              </TableHead>
             )}
-            <TableHead className="text-right">Value (US$)</TableHead>
+            <TableHead scope="col" className="text-right">
+              Value (US$)
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

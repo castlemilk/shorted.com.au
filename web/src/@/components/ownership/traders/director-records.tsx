@@ -106,13 +106,19 @@ function RecordTable({
           </caption>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Director</TableHead>
-              <TableHead>Change</TableHead>
-              <TableHead className="text-right">Units</TableHead>
-              <TableHead className="text-right">Price (A$)</TableHead>
-              <TableHead className="text-right">Value (A$)</TableHead>
-              <TableHead>Source</TableHead>
+              <TableHead scope="col">Date</TableHead>
+              <TableHead scope="col">Director</TableHead>
+              <TableHead scope="col">Change</TableHead>
+              <TableHead scope="col" className="text-right">
+                Units
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                Price (A$)
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                Value (A$)
+              </TableHead>
+              <TableHead scope="col">Source</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

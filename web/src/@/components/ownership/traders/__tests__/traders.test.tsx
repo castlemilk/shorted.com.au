@@ -61,6 +61,10 @@ it("matches a director only within the issuer read, preserving punctuation and d
   );
   expect(screen.getByRole("heading", { name: "A. O'Neil" })).toBeVisible();
   expect(screen.getAllByRole("row")).toHaveLength(2);
+  expect(screen.getByRole("columnheader", { name: "Units" })).toHaveAttribute(
+    "scope",
+    "col",
+  );
   expect(screen.getByRole("link", { name: /Source filing/ })).toHaveAttribute(
     "href",
     base.source,
