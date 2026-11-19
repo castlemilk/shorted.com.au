@@ -1,3 +1,4 @@
+import { GRAPH_PATH } from "~/@/lib/ownership/graph-links";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
@@ -40,6 +41,7 @@ export default async function OwnershipConnectionsPage() {
           <header className="space-y-1.5">
             <h1 className={pageTitle}>Follow the ownership connections</h1>
             <p className={lede}>Disclosed interests by holder type and sector</p>
+            <Link href={GRAPH_PATH} prefetch={false} className="inline-flex min-h-10 items-center text-sm text-primary underline underline-offset-4">Explore the company and investor graph →</Link>
           </header>
           <OwnershipFlows initial={flows} loadFlows={loadOwnershipFlows} basePath="/ownership/connections" variant="full" />
           <p className="text-sm">

@@ -12,6 +12,8 @@ import { StockOwnershipView } from "~/@/components/ownership/stock-ownership-vie
 import { StockEvidencePanelClient } from "~/@/components/company/stock-evidence-panel-client";
 import { StockStateExposure } from "~/@/components/economy/stock-state-exposure";
 import { cleanCompanyName } from "~/@/lib/company-name";
+import { graphHref } from "~/@/lib/ownership/graph-links";
+import { TRACKED_ISSUERS } from "~/@/lib/ownership/australian-investors";
 import { registerHref } from "~/@/lib/ownership/kinds";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabTitle } from "~/@/lib/seo/stock-tab-title";
@@ -140,6 +142,7 @@ export default async function CompanyPage({ params }: PageProps) {
             directors section is named with an aria-label, not a second
             visible heading. */}
         <EnrichedCompanySection stockCode={code} companyName={companyName} />
+        {(hasOwnership || noticesOnRecord || TRACKED_ISSUERS.includes(code)) && <Link href={graphHref("company",code)} prefetch={false} className="inline-flex min-h-10 w-fit items-center text-sm font-medium text-primary underline underline-offset-4">Explore {code} ownership graph →</Link>}
         <section aria-label="Directors and insiders">
           {directorTrades ? (
             <DirectorTradesView

@@ -357,9 +357,9 @@ test("the CI workflow and the npm script run it after the bundle budget", () => 
 
 // The insights explorer is retired (spec 14.10): its route is a redirect handler, not a page, so the
 // static list (which needs a revalidate per page) no longer names it, and nothing under it is left
-// for the gate to check. The list has the nine static pages.
-test("the retired insights route is not a static ownership page, and the list has nine", () => {
+// for the gate to check. The trader directory is a static workspace page.
+test("the retired insights route is not a static ownership page, and the trader directory is listed", () => {
   assert.equal(OWNERSHIP_STATIC_ROUTES.includes("/ownership/insights"), false);
-  assert.equal(OWNERSHIP_STATIC_ROUTES.length, 9);
+  assert.ok(OWNERSHIP_STATIC_ROUTES.includes("/ownership/traders"));
   assert.equal(existsSync(new URL("../../web/src/app/ownership/insights/page.tsx", import.meta.url)), false);
 });

@@ -164,10 +164,10 @@ const SiteFooter = () => {
 
   return (
     <footer className="relative z-10 border-t border-border/40 bg-background">
-      <div className="container px-4 md:px-6 py-12 md:py-16">
-        <div className="grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))] md:gap-x-10 lg:gap-x-14">
+      <div className="container px-4 md:px-6 py-12 md:py-16 [container:footer-links/inline-size]">
+        <div className="grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))] md:gap-x-10 lg:gap-x-14 [@container_footer-links_(max-width:16rem)]:grid-cols-1">
           {/* Brand column */}
-          <div className="col-span-2 md:col-span-1">
+          <div className="col-span-full md:col-span-1">
             <Link
               href="/"
               className="mb-4 inline-flex items-center gap-2 transition-opacity hover:opacity-80"
@@ -233,7 +233,7 @@ const SiteFooter = () => {
             , {siteConfig.founder.jobTitle.toLowerCase()}.
           </p>
           <ul
-            className="flex items-center gap-2"
+            className="flex flex-wrap items-center gap-2"
             aria-label={`${siteConfig.founder.name} on the web`}
           >
             <SocialLink
@@ -275,7 +275,7 @@ const SiteFooter = () => {
             </a>{" "}
             with T+4 trading day delay. Not financial advice.
           </p>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Badge
               variant="secondary"
               className="cursor-help font-normal"

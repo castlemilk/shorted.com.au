@@ -113,7 +113,7 @@ export function SubstantialHoldingsTable({
   caption: string;
 }) {
   return (
-    <Table>
+    <Table className="max-sm:text-xs max-sm:[&_td]:px-1 max-sm:[&_td]:py-3 max-sm:[&_th]:px-1">
       <caption className="sr-only">{caption}</caption>
       <TableHeader>
         <TableRow>
@@ -122,8 +122,8 @@ export function SubstantialHoldingsTable({
           <TableHead className="text-right">Change</TableHead>
           <TableHead>As at</TableHead>
           <TableHead className="hidden md:table-cell">Notice</TableHead>
-          <TableHead>
-            <span className="sr-only">Document</span>
+          <TableHead className="text-right">
+            <span className="sm:sr-only">Source</span>
           </TableHead>
         </TableRow>
       </TableHeader>
@@ -137,10 +137,10 @@ export function SubstantialHoldingsTable({
               ) : null}
             </TableCell>
             <TableCell className="text-right tabular-nums">{p.votingPower}</TableCell>
-            <TableCell className="text-right tabular-nums">{p.change}</TableCell>
+            <TableCell className="whitespace-nowrap text-right tabular-nums">{p.change}</TableCell>
             <TableCell className="whitespace-nowrap tabular-nums">{p.asAt}</TableCell>
             <TableCell className="hidden md:table-cell">{p.form}</TableCell>
-            <TableCell>
+            <TableCell className="text-right">
               <AsxLink url={p.url} label={`${holder}'s ${p.code} notice on ASX`} />
             </TableCell>
           </TableRow>
@@ -210,32 +210,32 @@ export function NoticeRowsTable({
   const { shown, bounded, expanded, toggle } = useShown(rows, limit);
   return (
     <>
-      <Table>
+      <Table role="table">
         <caption className="sr-only">{caption}</caption>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Released</TableHead>
-            {showStock ? <TableHead>Stock</TableHead> : null}
-            {showHolder ? <TableHead>Holder</TableHead> : null}
-            <TableHead>Notice</TableHead>
-            <TableHead className="text-right">Voting power</TableHead>
-            <TableHead className="text-right">Change</TableHead>
-            <TableHead>
+        <TableHeader role="rowgroup">
+          <TableRow role="row">
+            <TableHead scope="col" role="columnheader">Released</TableHead>
+            {showStock ? <TableHead scope="col" role="columnheader">Stock</TableHead> : null}
+            {showHolder ? <TableHead scope="col" role="columnheader">Holder</TableHead> : null}
+            <TableHead scope="col" role="columnheader">Notice</TableHead>
+            <TableHead scope="col" role="columnheader" className="text-right">Voting power</TableHead>
+            <TableHead scope="col" role="columnheader" className="text-right">Change</TableHead>
+            <TableHead scope="col" role="columnheader">
               <span className="sr-only">Document</span>
             </TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody id={bodyId}>
+        <TableBody role="rowgroup" id={bodyId}>
           {shown.map((n) => (
-            <TableRow key={n.url}>
-              <TableCell className="whitespace-nowrap tabular-nums">{n.released}</TableCell>
+            <TableRow role="row" key={n.url}>
+              <TableCell role="cell" data-field="released" className="whitespace-nowrap tabular-nums">{n.released}</TableCell>
               {showStock ? (
-                <TableCell>
+                <TableCell role="cell" data-field="stock">
                   <StockLink code={n.code} />
                 </TableCell>
               ) : null}
               {showHolder ? (
-                <TableCell className="max-w-64">
+                <TableCell role="cell" data-field="holder" className="max-w-64">
                   {n.holder?.href ? (
                     <Link href={n.holder.href} prefetch={false} className="text-primary underline-offset-4 hover:underline">
                       {n.holder.name}
@@ -245,13 +245,13 @@ export function NoticeRowsTable({
                   )}
                 </TableCell>
               ) : null}
-              <TableCell className="whitespace-nowrap">
+              <TableCell role="cell" data-field="form" className="whitespace-nowrap">
                 {n.form}
                 {n.readBy === "model" ? <ModelReadMark /> : null}
               </TableCell>
-              <TableCell className="text-right tabular-nums">{n.votingPower}</TableCell>
-              <TableCell className="text-right tabular-nums">{n.change}</TableCell>
-              <TableCell>
+              <TableCell role="cell" data-field="power" data-label="Voting power" className="text-right tabular-nums">{n.votingPower}</TableCell>
+              <TableCell role="cell" data-field="change" data-label="Change" className="text-right tabular-nums">{n.change}</TableCell>
+              <TableCell role="cell" data-field="source">
                 <AsxLink url={n.url} label={`Notice for ${n.code}, released ${n.released}, on ASX`} />
               </TableCell>
             </TableRow>

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ISR gate for the stock segment, the ownership pages and the strategy profile:
-// the three dynamic ownership routes, the nine static ones, the strategy profile
+// the dynamic ownership routes, the static ones, the strategy profile
 // route and the strategies hub.
 //
 // Every route under /shorts/[stockCode] must be on-demand ISR: generated on
@@ -26,17 +26,17 @@
 // component imported from outside the segment is beyond both and needs a
 // request-level check.
 //
-// The ownership section has three dynamic routes, the institution page
-// /ownership/[slug], the register /ownership/stocks/[code] and the fund page
-// /ownership/funds/[fund] (OWNERSHIP_ROUTES below), under the same rule. Their reads are caught from
+// The ownership section has dynamic routes for the institution page
+// /ownership/[slug], the register /ownership/stocks/[code] , funds and trader profiles
+// (OWNERSHIP_ROUTES below), under the same rule. Their reads are caught from
 // source, in a file under app/ownership, by
 //   web/src/app/ownership/__tests__/isr-source-safety.test.ts
 // A read in a module imported from outside that folder is beyond both, as for
 // the stock segment, and needs a request-level check.
 //
-// The nine static ownership pages, the hub /ownership, the notice feed
-// /ownership/notices, the register list /ownership/stocks and the six workspace
-// pages (map, connections, activity, funds, holders, changes; OWNERSHIP_STATIC_ROUTES
+// The static ownership pages, the hub /ownership, the notice feed
+// /ownership/notices, the register list /ownership/stocks and the workspace
+// pages (map, connections, activity, funds, holders, traders, changes; OWNERSHIP_STATIC_ROUTES
 // below), have no dynamic segment, so none is in
 // dynamicRoutes. Next writes an ISR page of that kind under `routes`, with its
 // revalidate in initialRevalidateSeconds: a number for an ISR page, false for
@@ -65,14 +65,16 @@ export const STOCK_ROUTES = [
   "/shorts/[stockCode]/community",
 ];
 
-// The three dynamic routes of the ownership section, the institution page, the
-// register and the fund page. All export generateStaticParams with dynamicParams
+// The dynamic institution, register, fund and trader routes. All export generateStaticParams with dynamicParams
 // on, so a slug, code or fund Next cannot prerender renders on its first request
 // and is cached for its revalidate, as the stock tabs are.
-export const OWNERSHIP_ROUTES = ["/ownership/[slug]", "/ownership/stocks/[code]", "/ownership/funds/[fund]"];
+export const OWNERSHIP_ROUTES = [
+  "/ownership/[slug]", "/ownership/stocks/[code]", "/ownership/funds/[fund]",
+  "/ownership/traders/[slug]", "/ownership/traders/asx/[code]", "/ownership/traders/australia/[slug]", "/ownership/traders/asx/[code]/holders",
+];
 
-// The nine static ownership pages: the hub, the notice feed, the register list and
-// the six workspace pages. Each exports a revalidate and takes no dynamic segment, so
+// The static ownership pages: the hub, the notice feed, the register list and
+// the workspace pages. Each exports a revalidate and takes no dynamic segment, so
 // each is listed under `routes` (see the header).
 export const OWNERSHIP_STATIC_ROUTES = [
   "/ownership",
@@ -83,6 +85,7 @@ export const OWNERSHIP_STATIC_ROUTES = [
   "/ownership/activity",
   "/ownership/funds",
   "/ownership/holders",
+  "/ownership/traders", "/ownership/traders/australia",
   "/ownership/changes",
 ];
 
@@ -166,7 +169,7 @@ function main(argv) {
     console.error("route-kinds: these ownership routes are NOT ISR (absent from prerender-manifest dynamicRoutes):");
     for (const r of missingOwnership) console.error(`  ${r}`);
     console.error(
-      "A page under /ownership/[slug], /ownership/stocks/[code] or /ownership/funds/[fund] has lost its generateStaticParams export, or sets " +
+      "A dynamic ownership page has lost its generateStaticParams export, or sets " +
         'revalidate = 0 or dynamic = "force-dynamic".',
     );
     console.error(

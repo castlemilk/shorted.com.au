@@ -38,6 +38,7 @@ describe("DirectorTradesView", () => {
       "$518,520",
       "",
     ]);
+    expect(within(cells[1]!).getByRole("link", { name: "Jane Citizen" })).toHaveAttribute("href", "/ownership/traders/asx/BHP?director=jane+citizen");
     const link = within(cells[6]!).getByRole("link");
     expect(link).toHaveAttribute("href", "https://announcements.example/t1.pdf");
     expect(link).toHaveAttribute("target", "_blank");

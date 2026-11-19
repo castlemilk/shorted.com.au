@@ -138,7 +138,7 @@ describe("kindShortLabel (spec B6)", () => {
 
 describe("ownership kinds", () => {
   it("never lets an institution take a path the ownership section owns", () => {
-    expect(RESERVED_SLUGS).toEqual(["stocks", "notices", "insights"]);
+    expect(RESERVED_SLUGS).toEqual(["stocks", "notices", "insights", "traders"]);
     expect(isInstitutionSlug("stocks")).toBe(false);
     expect(isInstitutionSlug("notices")).toBe(false);
     expect(isInstitutionSlug("vanguard")).toBe(true);

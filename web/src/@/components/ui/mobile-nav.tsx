@@ -47,9 +47,9 @@ export function MobileNav({ items }: MobileNavProps) {
             the header's own padding, clear of the logo link. */}
         <Button
           variant="ghost"
-          className="hit-target-touch mr-2 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 lg:hidden"
+          className="hit-target-touch mr-2 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 lg:hidden [@container_site-bar_(max-width:11rem)]:mr-[4px] [@container_site-bar_(max-width:11rem)]:w-[44px]"
         >
-          <Menu className="h-6 w-6" />
+          <Menu className="h-6 w-6 [@container_site-bar_(max-width:11rem)]:size-[32px]" />
           <span className="sr-only">Toggle Menu</span>
         </Button>
       </SheetTrigger>

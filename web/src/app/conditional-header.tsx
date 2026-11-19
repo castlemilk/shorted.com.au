@@ -11,5 +11,17 @@ export function ConditionalHeader() {
   // lives in @/lib/chromeless-routes, shared with every banner.
   if (isChromelessRoute(pathname)) return null;
 
-  return <SiteHeader />;
+  return (
+    <>
+      {pathname?.startsWith("/ownership/traders/") && (
+        <a
+          href="#investor-filings"
+          className="hidden sr-only [body:has(#investor-filings)_&]:block focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:border focus:bg-background focus:px-4 focus:py-2 focus:text-primary focus:outline focus:outline-2 focus:outline-ring"
+        >
+          Skip to filings
+        </a>
+      )}
+      <SiteHeader />
+    </>
+  );
 }

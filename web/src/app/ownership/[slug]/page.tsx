@@ -1,3 +1,5 @@
+import { tradersForHolder, traderHref } from "~/@/lib/ownership/traders";
+import { graphHref } from "~/@/lib/ownership/graph-links";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -226,6 +228,12 @@ export default async function InstitutionPage({ params }: PageProps) {
               </>
             ) : null}
           </p>
+          <Link href={graphHref("institution",inst.slug)} prefetch={false} className="inline-flex min-h-10 items-center text-sm text-primary underline underline-offset-4">Explore ownership graph →</Link>
+          {tradersForHolder(inst.slug).map((person) => (
+            <Link key={person.slug} href={traderHref(person)} prefetch={false} className="inline-block text-sm text-primary underline-offset-4 hover:underline">
+              {person.name} · trader profile →
+            </Link>
+          ))}
         </header>
 
         <section aria-label="Summary">

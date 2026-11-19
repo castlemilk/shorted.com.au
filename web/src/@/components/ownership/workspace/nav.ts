@@ -1,13 +1,13 @@
 /**
  * The workspace's sub-navigation (spec 14.1): one group, "Ownership", and its
- * seven pages in the order the wireframes give. A pure module, so the active
+ * pages in the order the wireframes give. A pure module, so the active
  * tab and the link set are tested without a DOM.
  */
 
 import { cleanSelection, parseSelection, type SelectionKind } from "./selection";
 import type { WorkspaceTab } from "~/@/components/workspace/workspace-sub-nav";
 
-export type OwnershipTabId = "overview" | "map" | "connections" | "activity" | "funds" | "holders" | "changes";
+export type OwnershipTabId = "overview" | "map" | "connections" | "activity" | "funds" | "holders" | "traders" | "changes";
 
 /** One tab of the workspace's sub-navigation, as the shared bar takes it. */
 export type OwnershipTab = WorkspaceTab<OwnershipTabId>;
@@ -21,6 +21,7 @@ export const OWNERSHIP_TABS: readonly WorkspaceTab<OwnershipTabId>[] = [
   { id: "activity", label: "Activity", href: "/ownership/activity" },
   { id: "funds", label: "Funds", href: "/ownership/funds" },
   { id: "holders", label: "Holders", href: "/ownership/holders" },
+  { id: "traders", label: "Traders", href: "/ownership/traders" },
   { id: "changes", label: "Changes", href: "/ownership/changes" },
 ];
 
@@ -53,6 +54,7 @@ const SHOWABLE_SELECTIONS: Readonly<Record<OwnershipTab["id"], readonly Selectio
   activity: ["cell"],
   funds: ["fund", "holding"],
   holders: [],
+  traders: [],
   changes: ["holding"],
 };
 

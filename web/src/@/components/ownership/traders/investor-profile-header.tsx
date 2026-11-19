@@ -1,0 +1,232 @@
+import type { ReactNode } from "react";
+import { PortraitImage } from "./investor-thumbnail";
+import Link from "next/link";
+import { ArrowDown, ArrowLeft, ArrowUpRight } from "lucide-react";
+import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
+import { pageTitle } from "~/@/lib/typography";
+import {
+  publisherPortraits,
+  profilePictures,
+} from "~/server/traders/portraits";
+import { publicAccounts } from "~/server/traders/public-accounts";
+import { accountPlatforms } from "./account-platforms";
+import {
+  displayRecordDate,
+  type ProfessionalRecord,
+} from "~/server/traders/profile-metadata";
+
+const actionLink =
+  "inline-flex min-h-11 items-center gap-1.5 rounded-sm text-sm text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+
+export function InvestorProfileHeader({
+  person,
+  crumbs,
+  description,
+  record,
+  children,
+}: {
+  person: { slug: string; name: string };
+  crumbs: { label: string; href: string }[];
+  description: string;
+  record?: ProfessionalRecord;
+  children?: ReactNode;
+}) {
+  const parent = crumbs.at(-2)!;
+  const pictures = profilePictures(person.slug, person.name);
+  const publisher = publisherPortraits[person.slug];
+  const accounts = publicAccounts[person.slug];
+  return (
+    <>
+      <div>
+        <Breadcrumbs
+          items={crumbs}
+          prefetch={false}
+          className="max-sm:hidden"
+        />
+        <nav aria-label="Parent section" className="sm:hidden">
+          <Link
+            href={parent.href}
+            prefetch={false}
+            className="inline-flex min-h-9 items-center gap-2 text-sm text-muted-foreground hover:text-primary"
+          >
+            <ArrowLeft aria-hidden="true" className="size-4" /> {parent.label}
+          </Link>
+        </nav>
+      </div>
+      <header className="min-w-0 border-b pb-3 [container:investor-header/inline-size] sm:pb-5 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-center lg:gap-x-7">
+        <div
+          className={
+            pictures.length
+              ? "grid min-w-0 flex-1 items-start gap-x-3 sm:grid-rows-[auto_1fr] sm:gap-x-6 [@container_investor-header_(max-width:13rem)]:grid-cols-1 " +
+                (pictures.length > 1
+                  ? "grid-cols-[7.5rem_minmax(0,1fr)] sm:grid-cols-[12rem_minmax(0,1fr)]"
+                  : "grid-cols-[4.5rem_minmax(0,1fr)] sm:grid-cols-[7rem_minmax(0,1fr)]")
+              : "min-w-0 flex-1"
+          }
+        >
+          {pictures.length > 0 && (
+            <div className="flex w-full gap-1 sm:row-span-2">
+              {pictures.map((picture) => (
+                <figure key={picture.image} className="min-w-0 flex-1">
+                  <a
+                    href={picture.local ? "#portrait-credit" : picture.source}
+                    aria-label={
+                      picture.local
+                        ? "Photo credit for " + picture.subject
+                        : "Publisher portrait of " +
+                          picture.subject +
+                          " at " +
+                          picture.credit
+                    }
+                    className="group block rounded-xl text-xs text-muted-foreground underline-offset-4 hover:text-primary"
+                  >
+                    <PortraitImage
+                      picture={picture}
+                      alt={"Portrait of " + picture.subject}
+                      width={112}
+                      height={140}
+                      priority
+                      className="aspect-[4/5] w-full rounded-xl border border-border object-cover object-[center_32%]"
+                    />
+                    <span className="mt-1 inline-block min-h-6 group-hover:underline">
+                      {pictures.length > 1 ? (
+                        picture.subject.split(" ")[0]
+                      ) : picture.local ? (
+                        <>
+                          <span className="hidden sm:inline">Photo credit</span>
+                          <span className="sm:hidden">Credit</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="hidden sm:inline">
+                            {picture.credit}
+                          </span>
+                          <span className="sm:hidden">Photo source</span>
+                        </>
+                      )}
+                    </span>
+                  </a>
+                </figure>
+              ))}
+            </div>
+          )}
+          <div
+            className={
+              pictures.length > 1 ? "contents min-w-0 sm:block" : "min-w-0"
+            }
+          >
+            <h1 className={`${pageTitle} [overflow-wrap:anywhere] lg:text-5xl`}>
+              {person.name}
+            </h1>
+            <p
+              className={
+                "mt-1 max-w-[64ch] text-balance text-sm leading-relaxed text-muted-foreground sm:text-base " +
+                (pictures.length > 1 ? "max-sm:col-span-full" : "")
+              }
+            >
+              {record ? `${record.role} · ${record.organization}` : description}
+            </p>
+          </div>
+          {(accounts ?? publisher ?? children) && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 max-sm:col-span-full sm:mt-3 sm:gap-x-5">
+              {children}
+              {accounts?.personal.map((account) => {
+                const { label, Icon } = accountPlatforms[account.platform];
+                return (
+                  <a
+                    key={account.url}
+                    href={account.url}
+                    aria-label={`${label} for ${person.name}${account.handle ? ` · ${account.handle}` : ""}`}
+                    className={actionLink}
+                  >
+                    <Icon aria-hidden="true" className="size-4 shrink-0" />
+                    {label}
+                  </a>
+                );
+              })}
+              {accounts && (
+                <a
+                  href="#public-accounts"
+                  aria-label="Accounts and sources"
+                  className={actionLink}
+                >
+                  Accounts <ArrowDown aria-hidden="true" className="size-3.5" />
+                </a>
+              )}
+              {publisher && !pictures.length && (
+                <a
+                  href={publisher.url}
+                  aria-label={`Publisher portrait of ${person.name} at ${publisher.publisher}`}
+                  className={actionLink}
+                >
+                  Publisher portrait{" "}
+                  <ArrowUpRight aria-hidden="true" className="size-3.5" />
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+        {record && (
+          <a
+            href={record.source}
+            className="group mt-1 inline-flex min-h-7 max-w-full flex-wrap items-baseline gap-x-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring lg:mt-0 lg:flex lg:flex-col lg:items-start lg:border-l lg:pl-5"
+          >
+            <span className="text-xs text-muted-foreground">
+              {record.milestone.label}
+            </span>{" "}
+            <time
+              dateTime={record.milestone.date}
+              className="font-medium tabular-nums text-foreground lg:my-1 lg:text-3xl"
+            >
+              {displayRecordDate(record.milestone.date)}
+            </time>{" "}
+            <span className="inline-flex items-center gap-1 text-xs text-primary underline-offset-4 group-hover:underline">
+              <span className="max-lg:sr-only">{record.sourceLabel}</span>
+              <ArrowUpRight aria-hidden="true" className="size-3.5" />
+            </span>
+          </a>
+        )}
+      </header>
+    </>
+  );
+}
+
+export function InvestorPhotoCredit({ slug }: { slug: string }) {
+  const credits = profilePictures(slug).flatMap((p) =>
+    p.local ? [p.local] : [],
+  );
+  if (!credits.length) return null;
+  const link = "text-primary underline underline-offset-4";
+  return (
+    <footer
+      id="portrait-credit"
+      tabIndex={-1}
+      className="scroll-mt-32 space-y-1 border-t pt-3 text-xs leading-relaxed text-muted-foreground"
+    >
+      {credits.map((photo) => (
+        <div key={photo.source} className="space-y-1">
+          <p className="font-medium text-foreground">
+            Photograph · {photo.year}
+          </p>
+          <p>
+            <a href={photo.creditUrl} className={link}>
+              {photo.credit}
+            </a>
+          </p>
+          <p>
+            <a href={photo.source} className={link}>
+              Original photograph
+            </a>
+            {" · "}
+            <span className="inline-block">
+              <a href={photo.licenseUrl} className={link}>
+                {photo.license}
+              </a>
+              {" · Cropped"}
+            </span>
+          </p>
+        </div>
+      ))}
+    </footer>
+  );
+}

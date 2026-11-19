@@ -131,6 +131,9 @@ export default async function InsiderTradingHubPage() {
       </section>
 
       <Breadcrumbs items={breadcrumbItems} />
+      <Link href="/ownership/traders" prefetch={false} className="mt-4 inline-block text-sm text-primary underline-offset-4 hover:underline">
+        Browse trader profiles →
+      </Link>
 
       {stocks.length === 0 ? (
         <p className="mt-6 rounded-lg border bg-muted/30 p-8 text-center text-sm text-muted-foreground">

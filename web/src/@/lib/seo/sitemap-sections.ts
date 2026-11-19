@@ -47,6 +47,8 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { siteConfig } from "~/@/config/site";
 import { getAllPosts } from "~/@/lib/api";
+import { AUSTRALIAN_INVESTORS, AUSTRALIAN_INVESTORS_PATH, investorHref } from "~/@/lib/ownership/australian-investors";
+import { TRADERS, TRADERS_PATH, traderHref } from "~/@/lib/ownership/traders";
 import { fundHref } from "~/@/lib/ownership/kinds";
 import {
   BLOG_CATEGORY_SLUGS,
@@ -1106,7 +1108,9 @@ export async function buildOwnershipSitemap(): Promise<SitemapEntry[]> {
   const hub: SitemapEntry = { url: `${baseUrl}/ownership` };
   // The explorer and workspace pages are static, so they are listed whatever the reads do.
   const explorer: SitemapEntry[] = STATIC_OWNERSHIP_PAGES.map((path) => ({ url: `${baseUrl}${path}` }));
-  if (skipForBuild()) return [hub, ...explorer];
+  // The trader directory and its source-specific profiles have independent filing dates.
+  const traders = [TRADERS_PATH, ...TRADERS.map(traderHref), AUSTRALIAN_INVESTORS_PATH, ...AUSTRALIAN_INVESTORS.map((p) => investorHref(p.slug))].map((path) => ({ url: `${baseUrl}${path}` }));
+  if (skipForBuild()) return [hub, ...explorer, ...traders];
 
   try {
     const { getOwnershipOverview, listInstitutions } = await import("~/app/actions/getOwnership");
@@ -1127,12 +1131,13 @@ export async function buildOwnershipSitemap(): Promise<SitemapEntry[]> {
     return [
       { ...hub, lastModified: asOf },
       ...explorer.map((entry) => ({ ...entry, lastModified: asOf })),
+      ...traders,
       ...institutions,
       ...registers,
       ...funds,
     ];
   } catch (error) {
     console.error("Failed to fetch ownership institutions for sitemap:", error);
-    return [hub, ...explorer];
+    return [hub, ...explorer, ...traders];
   }
 }

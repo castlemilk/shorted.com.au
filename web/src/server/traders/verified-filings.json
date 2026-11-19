@@ -1,0 +1,598 @@
+{
+  "0001541617": [
+    {
+      "filing": {
+        "form": "13F-HR",
+        "period": "2026-09-30",
+        "filed": "2026-11-16",
+        "accession": "0001541617-26-000010"
+      },
+      "manager": "Altimeter Capital Management, LP",
+      "positions": [
+        {
+          "issuer": "AMAZON COM INC",
+          "securityClass": "COM",
+          "cusip": "023135106",
+          "option": "",
+          "unit": "SH",
+          "quantity": 2452360,
+          "usd": 611005494
+        },
+        {
+          "issuer": "ARM HOLDINGS PLC",
+          "securityClass": "SPONSORED ADS",
+          "cusip": "042068205",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1597249,
+          "usd": 462659145
+        },
+        {
+          "issuer": "CEREBRAS SYSTEMS INC",
+          "securityClass": "COM CL A",
+          "cusip": "15675D103",
+          "option": "",
+          "unit": "SH",
+          "quantity": 5953504,
+          "usd": 1010646202
+        },
+        {
+          "issuer": "COREWEAVE INC",
+          "securityClass": "COM CL A",
+          "cusip": "21873S108",
+          "option": "",
+          "unit": "SH",
+          "quantity": 4776662,
+          "usd": 416142793
+        },
+        {
+          "issuer": "GRAB HOLDINGS LIMITED",
+          "securityClass": "W EXP 12/1/202",
+          "cusip": "G4124C117",
+          "option": "",
+          "unit": "SH",
+          "quantity": 3502000,
+          "usd": 94554
+        },
+        {
+          "issuer": "ROBINHOOD MKTS INC",
+          "securityClass": "COM CL A",
+          "cusip": "770700102",
+          "option": "",
+          "unit": "SH",
+          "quantity": 899691,
+          "usd": 101215238
+        },
+        {
+          "issuer": "META PLATFORMS INC",
+          "securityClass": "CL A",
+          "cusip": "30303M102",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1698703,
+          "usd": 1231865441
+        },
+        {
+          "issuer": "MICROSOFT CORP",
+          "securityClass": "COM",
+          "cusip": "594918104",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1183632,
+          "usd": 607084853
+        },
+        {
+          "issuer": "MICRON TECHNOLOGY INC",
+          "securityClass": "COM",
+          "cusip": "595112103",
+          "option": "",
+          "unit": "SH",
+          "quantity": 260140,
+          "usd": 277077715
+        },
+        {
+          "issuer": "NVIDIA CORPORATION",
+          "securityClass": "COM",
+          "cusip": "67066G104",
+          "option": "",
+          "unit": "SH",
+          "quantity": 10006069,
+          "usd": 2285186039
+        },
+        {
+          "issuer": "VANECK ETF TRUST",
+          "securityClass": "SEMICONDUCTR ETF",
+          "cusip": "92189F676",
+          "option": "PUT",
+          "unit": "SH",
+          "quantity": 840000,
+          "usd": 511560000
+        },
+        {
+          "issuer": "SANDISK CORP",
+          "securityClass": "COM",
+          "cusip": "80004C200",
+          "option": "",
+          "unit": "SH",
+          "quantity": 25170,
+          "usd": 43793031
+        },
+        {
+          "issuer": "SNOWFLAKE INC",
+          "securityClass": "COM SHS",
+          "cusip": "833445109",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1926250,
+          "usd": 654077450
+        },
+        {
+          "issuer": "SPACE EXPLORATION TECHN CORP",
+          "securityClass": "CLASS A COM STK",
+          "cusip": "84615Q103",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1056138,
+          "usd": 159328979
+        },
+        {
+          "issuer": "TESLA INC",
+          "securityClass": "COM",
+          "cusip": "88160R101",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1915440,
+          "usd": 679617266
+        },
+        {
+          "issuer": "TAIWAN SEMICONDUCTOR MFG LTD",
+          "securityClass": "SPONSORED ADS",
+          "cusip": "874039100",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1433525,
+          "usd": 653959770
+        },
+        {
+          "issuer": "UBER TECHNOLOGIES INC",
+          "securityClass": "COM",
+          "cusip": "90353T100",
+          "option": "",
+          "unit": "SH",
+          "quantity": 8807790,
+          "usd": 603421693
+        }
+      ],
+      "totalUsd": 10309080051,
+      "confidentialOmitted": false
+    },
+    {
+      "filing": {
+        "form": "13F-HR",
+        "period": "2026-06-30",
+        "filed": "2026-08-14",
+        "accession": "0001541617-26-000008"
+      },
+      "manager": "Altimeter Capital Management, LP",
+      "positions": [
+        {
+          "issuer": "APPLIED MATLS INC",
+          "securityClass": "COM",
+          "cusip": "038222105",
+          "option": "",
+          "unit": "SH",
+          "quantity": 261950,
+          "usd": 189389850
+        },
+        {
+          "issuer": "AMAZON COM INC",
+          "securityClass": "COM",
+          "cusip": "023135106",
+          "option": "",
+          "unit": "SH",
+          "quantity": 2425351,
+          "usd": 578058158
+        },
+        {
+          "issuer": "ARM HOLDINGS PLC",
+          "securityClass": "SPONSORED ADS",
+          "cusip": "042068205",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1641972,
+          "usd": 582194012
+        },
+        {
+          "issuer": "CEREBRAS SYSTEMS INC",
+          "securityClass": "COM CL A",
+          "cusip": "15675d103",
+          "option": "",
+          "unit": "SH",
+          "quantity": 7225037,
+          "usd": 1596733177
+        },
+        {
+          "issuer": "COREWEAVE INC",
+          "securityClass": "COM CL A",
+          "cusip": "21873S108",
+          "option": "",
+          "unit": "SH",
+          "quantity": 6073695,
+          "usd": 604575601
+        },
+        {
+          "issuer": "ALPHABET INC",
+          "securityClass": "CAP STK CL A",
+          "cusip": "02079K305",
+          "option": "",
+          "unit": "SH",
+          "quantity": 175180,
+          "usd": 62604076
+        },
+        {
+          "issuer": "GRAB HOLDINGS LIMITED",
+          "securityClass": "W EXP 12/1/202",
+          "cusip": "G4124C117",
+          "option": "",
+          "unit": "SH",
+          "quantity": 3502000,
+          "usd": 150586
+        },
+        {
+          "issuer": "ROBINHOOD MKTS INC",
+          "securityClass": "COM CL A",
+          "cusip": "770700102",
+          "option": "",
+          "unit": "SH",
+          "quantity": 899691,
+          "usd": 90221013
+        },
+        {
+          "issuer": "KLA CORP",
+          "securityClass": "COM NEW",
+          "cusip": "482480100",
+          "option": "",
+          "unit": "SH",
+          "quantity": 578230,
+          "usd": 174457773
+        },
+        {
+          "issuer": "LAM RESEARCH CORP",
+          "securityClass": "COM NEW",
+          "cusip": "512807306",
+          "option": "",
+          "unit": "SH",
+          "quantity": 394080,
+          "usd": 170766686
+        },
+        {
+          "issuer": "META PLATFORMS INC",
+          "securityClass": "CL A",
+          "cusip": "30303M102",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1354990,
+          "usd": 763252318
+        },
+        {
+          "issuer": "MICROSOFT CORP",
+          "securityClass": "COM",
+          "cusip": "594918104",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1268082,
+          "usd": 473019948
+        },
+        {
+          "issuer": "MICRON TECHNOLOGY INC",
+          "securityClass": "COM",
+          "cusip": "595112103",
+          "option": "",
+          "unit": "SH",
+          "quantity": 209520,
+          "usd": 241846841
+        },
+        {
+          "issuer": "QUALCOMM INC",
+          "securityClass": "COM",
+          "cusip": "747525103",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1882490,
+          "usd": 347865327
+        },
+        {
+          "issuer": "NVIDIA CORPORATION",
+          "securityClass": "COM",
+          "cusip": "67066G104",
+          "option": "",
+          "unit": "SH",
+          "quantity": 9413589,
+          "usd": 1883565023
+        },
+        {
+          "issuer": "SNOWFLAKE INC",
+          "securityClass": "COM SHS",
+          "cusip": "833445109",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1926250,
+          "usd": 490230625
+        },
+        {
+          "issuer": "SYNOPSYS INC",
+          "securityClass": "COM",
+          "cusip": "871607107",
+          "option": "",
+          "unit": "SH",
+          "quantity": 140343,
+          "usd": 62602803
+        },
+        {
+          "issuer": "SPACE EXPLORATION TECHN CORP",
+          "securityClass": "CLASS A COM STK",
+          "cusip": "84615Q103",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1776485,
+          "usd": 303530227
+        },
+        {
+          "issuer": "TAIWAN SEMICONDUCTOR MFG LTD",
+          "securityClass": "SPONSORED ADS",
+          "cusip": "874039100",
+          "option": "",
+          "unit": "SH",
+          "quantity": 1429355,
+          "usd": 682617068
+        },
+        {
+          "issuer": "UBER TECHNOLOGIES INC",
+          "securityClass": "COM",
+          "cusip": "90353T100",
+          "option": "",
+          "unit": "SH",
+          "quantity": 7372440,
+          "usd": 531995271
+        }
+      ],
+      "totalUsd": 9829676383,
+      "confidentialOmitted": false
+    }
+  ],
+  "0001649339": [
+    {
+      "filing": {
+        "form": "13F-HR",
+        "period": "2025-09-30",
+        "filed": "2025-11-03",
+        "accession": "0001649339-25-000007"
+      },
+      "manager": "Scion Asset Management, LLC",
+      "positions": [
+        {
+          "issuer": "BRUKER CORP",
+          "securityClass": "6.375 PREF SER A",
+          "cusip": "116794207",
+          "option": "",
+          "unit": "SH",
+          "quantity": 48334,
+          "usd": 13137181
+        },
+        {
+          "issuer": "HALLIBURTON CO",
+          "securityClass": "COM",
+          "cusip": "406216101",
+          "option": "CALL",
+          "unit": "SH",
+          "quantity": 2500000,
+          "usd": 61500000
+        },
+        {
+          "issuer": "LULULEMON ATHLETICA INC",
+          "securityClass": "COM",
+          "cusip": "550021109",
+          "option": "",
+          "unit": "SH",
+          "quantity": 100000,
+          "usd": 17793000
+        },
+        {
+          "issuer": "MOLINA HEALTHCARE INC",
+          "securityClass": "COM",
+          "cusip": "60855R100",
+          "option": "",
+          "unit": "SH",
+          "quantity": 125000,
+          "usd": 23920000
+        },
+        {
+          "issuer": "NVIDIA CORPORATION",
+          "securityClass": "COM",
+          "cusip": "67066G104",
+          "option": "PUT",
+          "unit": "SH",
+          "quantity": 1000000,
+          "usd": 186580000
+        },
+        {
+          "issuer": "PALANTIR TECHNOLOGIES INC",
+          "securityClass": "CL A",
+          "cusip": "69608A108",
+          "option": "PUT",
+          "unit": "SH",
+          "quantity": 5000000,
+          "usd": 912100000
+        },
+        {
+          "issuer": "PFIZER INC",
+          "securityClass": "COM",
+          "cusip": "717081103",
+          "option": "CALL",
+          "unit": "SH",
+          "quantity": 6000000,
+          "usd": 152880000
+        },
+        {
+          "issuer": "SLM CORP",
+          "securityClass": "COM",
+          "cusip": "78442P106",
+          "option": "",
+          "unit": "SH",
+          "quantity": 480054,
+          "usd": 13287895
+        }
+      ],
+      "totalUsd": 1381198076,
+      "confidentialOmitted": null
+    },
+    {
+      "filing": {
+        "form": "13F-HR",
+        "period": "2025-06-30",
+        "filed": "2025-08-14",
+        "accession": "0001879202-25-000038"
+      },
+      "manager": "Scion Asset Management, LLC",
+      "positions": [
+        {
+          "issuer": "ALIBABA GROUP HLDG LTD",
+          "securityClass": "SPONSORED ADS",
+          "cusip": "01609W102",
+          "option": "CALL",
+          "unit": "SH",
+          "quantity": 250000,
+          "usd": 28352500
+        },
+        {
+          "issuer": "ASML HOLDING N V",
+          "securityClass": "N Y REGISTRY SHS",
+          "cusip": "N07059210",
+          "option": "CALL",
+          "unit": "SH",
+          "quantity": 25000,
+          "usd": 20034750
+        },
+        {
+          "issuer": "BRUKER CORP",
+          "securityClass": "COM",
+          "cusip": "116794108",
+          "option": "",
+          "unit": "SH",
+          "quantity": 250000,
+          "usd": 10300000
+        },
+        {
+          "issuer": "JD.COM INC",
+          "securityClass": "SPON ADS CL A",
+          "cusip": "47215P106",
+          "option": "CALL",
+          "unit": "SH",
+          "quantity": 1000000,
+          "usd": 32640000
+        },
+        {
+          "issuer": "LAUDER ESTEE COS INC",
+          "securityClass": "CL A",
+          "cusip": "518439104",
+          "option": "CALL",
+          "unit": "SH",
+          "quantity": 500000,
+          "usd": 40400000
+        },
+        {
+          "issuer": "LAUDER ESTEE COS INC",
+          "securityClass": "CL A",
+          "cusip": "518439104",
+          "option": "",
+          "unit": "SH",
+          "quantity": 150000,
+          "usd": 12120000
+        },
+        {
+          "issuer": "LULULEMON ATHLETICA INC",
+          "securityClass": "COM",
+          "cusip": "550021109",
+          "option": "",
+          "unit": "SH",
+          "quantity": 50000,
+          "usd": 11879000
+        },
+        {
+          "issuer": "LULULEMON ATHLETICA INC",
+          "securityClass": "COM",
+          "cusip": "550021109",
+          "option": "CALL",
+          "unit": "SH",
+          "quantity": 400000,
+          "usd": 95032000
+        },
+        {
+          "issuer": "MERCADOLIBRE INC",
+          "securityClass": "COM",
+          "cusip": "58733R102",
+          "option": "",
+          "unit": "SH",
+          "quantity": 3000,
+          "usd": 7840890
+        },
+        {
+          "issuer": "META PLATFORMS INC",
+          "securityClass": "CL A",
+          "cusip": "30303M102",
+          "option": "CALL",
+          "unit": "SH",
+          "quantity": 100000,
+          "usd": 73809000
+        },
+        {
+          "issuer": "REGENERON PHARMACEUTICALS",
+          "securityClass": "COM",
+          "cusip": "75886F107",
+          "option": "",
+          "unit": "SH",
+          "quantity": 15000,
+          "usd": 7875000
+        },
+        {
+          "issuer": "REGENERON PHARMACEUTICALS",
+          "securityClass": "COM",
+          "cusip": "75886F107",
+          "option": "CALL",
+          "unit": "SH",
+          "quantity": 200000,
+          "usd": 105000000
+        },
+        {
+          "issuer": "UNITEDHEALTH GROUP INC",
+          "securityClass": "COM",
+          "cusip": "91324P102",
+          "option": "",
+          "unit": "SH",
+          "quantity": 20000,
+          "usd": 6239400
+        },
+        {
+          "issuer": "UNITEDHEALTH GROUP INC",
+          "securityClass": "COM",
+          "cusip": "91324P102",
+          "option": "CALL",
+          "unit": "SH",
+          "quantity": 350000,
+          "usd": 109189500
+        },
+        {
+          "issuer": "V F CORP",
+          "securityClass": "COM",
+          "cusip": "918204108",
+          "option": "CALL",
+          "unit": "SH",
+          "quantity": 1500000,
+          "usd": 17625000
+        }
+      ],
+      "totalUsd": 578337040,
+      "confidentialOmitted": null
+    }
+  ]
+}

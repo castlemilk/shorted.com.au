@@ -1,3 +1,7 @@
+import { filerPath } from "~/@/lib/ownership/named-filer";
+import { investorHref, issuerInvestors } from "~/@/lib/ownership/australian-investors";
+import { ASX_CODE, directorHref, tradersForHolder, traderHref } from "~/@/lib/ownership/traders";
+import { graphHref } from "~/@/lib/ownership/graph-links";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -169,6 +173,9 @@ function StockLinks({ code }: { code: string }) {
           Company tab →
         </Link>
       </li>
+      {ASX_CODE.test(code) && <li>
+        <Link href={directorHref(code)} prefetch={false} className={link}>Director disclosures →</Link>
+      </li>}
       <li>
         <Link href={stockTabHref(code, "short-interest")} prefetch={false} className={link}>
           Short interest →
@@ -237,6 +244,8 @@ export default async function RegisterPage({ params }: PageProps) {
     windowDays: NOTICE_WINDOW_ALL,
     stockCode: code,
   }).toString()}`;
+  const namedInvestors = issuerInvestors(code);
+  const linkedManagers = [...new Set(data.holders.flatMap((holder) => tradersForHolder(holder.institutionSlug)))];
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Dataset",
@@ -266,6 +275,19 @@ export default async function RegisterPage({ params }: PageProps) {
               we could read, what that notice states, and how each holding stepped from notice to notice. Index fund
               files and super fund option disclosures sit beside the notices, never added to them.
             </p>
+            <Link href={graphHref("company",code)} prefetch={false} className="inline-flex min-h-10 items-center text-sm font-medium text-primary underline underline-offset-4">Explore {code} ownership graph →</Link>
+            {linkedManagers.length > 0 && <ul aria-label="People associated with disclosed holders" className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+              {linkedManagers.map((person) => <li key={person.slug}>
+                <Link href={traderHref(person)} prefetch={false} className="text-primary underline-offset-4 hover:underline">
+                  {person.name} · {person.firm} →
+                </Link>
+              </li>)}
+            </ul>}
+            {(data.holders.length > 0 || data.history.length > 0) && <Link href={filerPath(code)} prefetch={false} className="inline-block text-sm text-primary hover:underline">Follow a filer in {code} →</Link>}
+            {namedInvestors.length > 0 && <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+              <span className="text-muted-foreground">Named investor profiles</span>
+              {namedInvestors.map((p) => <Link key={p.slug} href={investorHref(p.slug)} prefetch={false} className="text-primary hover:underline">{p.name}</Link>)}
+            </div>}
             <OwnershipPlate items={plateItems(data, indexFiles, superSpan)} />
             {summary.hasShortPct && STOCK_CODE_PATTERN.test(code) ? <StockLinks code={code} /> : null}
           </header>

@@ -65,14 +65,14 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
   return (
     // gap-2 below sm: the header must fit hamburger + logo + sign-in +
     // theme toggle inside a 320px viewport
-    <div className="flex w-full min-w-0 items-center gap-2 sm:gap-3 lg:gap-5">
+    <div className="flex w-full min-w-0 items-center gap-2 sm:gap-3 lg:gap-5 [@container_site-bar_(max-width:16rem)]:gap-0">
       <MobileNav items={items} />
       <Link
         href="/"
         className="flex items-center space-x-2 shrink-0 transition-opacity hover:opacity-80"
       >
-        <Icons.logo className="h-6 w-6" />
-        <span className="inline-block font-bold tracking-tight text-lg">
+        <Icons.logo className="h-6 w-6 [@container_site-bar_(max-width:11rem)]:size-[32px]" />
+        <span className="inline-block font-bold tracking-tight text-lg [@container_site-bar_(max-width:16rem)]:sr-only">
           {siteConfig.name}
         </span>
       </Link>

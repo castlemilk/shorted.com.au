@@ -33,6 +33,7 @@ describe("ownership workspace layout", () => {
       "/ownership/activity",
       "/ownership/funds",
       "/ownership/holders",
+      "/ownership/traders",
       "/ownership/changes",
     ]);
     expect(screen.getByRole("link", { name: "Funds" })).toHaveAttribute("aria-current", "page");

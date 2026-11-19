@@ -1102,6 +1102,9 @@ jobs:
             # writer answers 503.
             run_psql_session -f /migrations/000160_market_moves.up.sql
 
+            # Apply the two PDF-reviewed MHC voting tables and retain them on re-ingestion.
+            run_psql_session -f /migrations/000161_reviewed_holder_votes.up.sql
+
             # 000138 closes the Supabase Data API (PostgREST) on schema public.
             # It revokes everything PUBLIC, anon and authenticated hold on the
             # tables, views, materialized views, sequences and functions there,
