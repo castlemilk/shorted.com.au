@@ -7,7 +7,6 @@ import {
 import { registerHref } from "~/@/lib/ownership/kinds";
 
 type AnnualRow = (typeof RANKED_HOLDERS)[number];
-const printedRanks = Array.from({ length: 20 }, (_, i) => i + 1);
 const rankList = new Intl.ListFormat("en-AU", { type: "conjunction" });
 const rankAnchor = (r: AnnualRow) =>
   `rank-${r.code.toLowerCase()}-${r.date}-${r.rank}`;
@@ -24,6 +23,9 @@ export function AnnualRankSummary({ rows }: { rows: AnnualRow[] }) {
     <div className="space-y-2">
       {Array.from(reports, ([key, entries]) => {
         const ranks = entries.map((r) => r.rank).sort((a, b) => a - b);
+        const report = entries[0]!;
+        const size = report.orderedListSize ?? 20;
+        const positionLabel = report.orderedListSize ? "Position" : "Rank";
         return (
           <div
             key={key}
@@ -32,18 +34,22 @@ export function AnnualRankSummary({ rows }: { rows: AnnualRow[] }) {
             <div className="min-w-0">
               <p className="text-sm font-medium">{entries[0]!.company}</p>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                {ranks.length === 1 ? "Rank" : "Ranks"}{" "}
-                {rankList.format(ranks.map(String))} of 20{" "}
-                {entries[0]!.dateBasis
-                  ? "entries in the report"
-                  : "registered accounts"}
+                {positionLabel}
+                {ranks.length > 1 ? "s" : ""}{" "}
+                {rankList.format(ranks.map(String))} of {size}{" "}
+                {report.orderedListSize
+                  ? "listed accounts"
+                  : report.dateBasis
+                    ? "entries in the report"
+                    : "registered accounts"}
               </p>
             </div>
             <div
               aria-hidden="true"
-              className="grid w-36 max-w-full grid-cols-[repeat(20,minmax(0,1fr))] items-end gap-[2px]"
+              className="grid w-36 max-w-full items-end gap-[2px]"
+              style={{ gridTemplateColumns: `repeat(${size}, minmax(0,1fr))` }}
             >
-              {printedRanks.map((rank) => (
+              {Array.from({ length: size }, (_, i) => i + 1).map((rank) => (
                 <span
                   key={rank}
                   className={
@@ -112,7 +118,7 @@ export function AnnualRanks({
               ·{" "}
               <a
                 href={`${linkProfiles ? investorHref(row.profile) : ""}#${rankAnchor(row)}`}
-                aria-label={`Rank ${row.rank} · ${row.code} ${row.dateBasis ? "financial year ended" : "register dated"} ${row.date}`}
+                aria-label={`${row.orderedListSize ? "Position" : "Rank"} ${row.rank} · ${row.code} ${row.dateBasis ? "financial year ended" : "register dated"} ${row.date}`}
                 className="inline-flex min-h-6 items-center text-primary underline underline-offset-4 hover:decoration-2"
               >
                 #{row.rank}

@@ -1,5 +1,6 @@
 "use client";
 
+import { TRACKED_ISSUERS } from "~/@/lib/ownership/australian-investors";
 import { useSyncExternalStore } from "react";
 import {
   filingEvents,
@@ -12,6 +13,7 @@ export type TrackerView = (typeof views)[number];
 export type TrackerQuery = {
   view: TrackerView;
   query: string;
+  issuer: string;
   event: FilingEvent | "";
   order: FilingOrder;
   largestStake: boolean;
@@ -22,6 +24,7 @@ export type TrackerQuery = {
 export const defaultView: TrackerQuery = {
   view: "investors",
   query: "",
+  issuer: "",
   event: "",
   order: "latest",
   largestStake: false,
@@ -36,8 +39,11 @@ export function parseTrackerQuery(search: string): TrackerQuery {
   const withFilings = view === "filings" || view === "following";
   const order = p.get("sort");
   const page = Number(p.get("page"));
+  const issuer = p.get("issuer")?.toUpperCase() ?? "";
   return {
     view,
+    issuer:
+      view === "investors" && TRACKED_ISSUERS.includes(issuer) ? issuer : "",
     query: (p.get("q") ?? "").slice(0, 200),
     event: withFilings
       ? (filingEvents.find((v) => v === p.get("event")) ?? "")
@@ -77,6 +83,7 @@ export function updateTrackerQuery(
   const values = {
     view: next.view === "investors" ? "" : next.view,
     q: next.query,
+    issuer: next.issuer,
     event: next.event,
     sort: next.largestStake
       ? "stake"

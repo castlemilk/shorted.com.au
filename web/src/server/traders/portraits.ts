@@ -11,6 +11,16 @@ export interface InvestorPortrait {
 
 export const portraits: Readonly<Record<string, InvestorPortrait | undefined>> =
   {
+    "ruslan-kogan": {
+      image: "/images/investors/ruslan-kogan.webp",
+      year: 2010,
+      credit: "Kogan Technologies",
+      creditUrl: "https://www.flickr.com/photos/kogantech/4753161831/",
+      source:
+        "https://commons.wikimedia.org/wiki/File:Ruslan_Kogan_Founder_and_CEO_Kogan_Technologies.jpg",
+      license: "CC BY 2.0",
+      licenseUrl: "https://creativecommons.org/licenses/by/2.0/",
+    },
     "mike-cannon-brookes": {
       image: "/images/investors/mike-cannon-brookes.webp",
       year: 2018,
@@ -57,6 +67,14 @@ function onHarveyBoard(name: string) {
 export const publisherPortraits: Readonly<
   Record<string, { publisher: string; url: string } | undefined>
 > = {
+  "ryan-stokes": {
+    publisher: "SGH",
+    url: "https://sghl.com.au/who-we-are/executive-management#:~:text=Ryan%20Stokes",
+  },
+  "kees-weel": {
+    publisher: "PWR",
+    url: "https://www.pwr.com.au/meet-the-team/kees-weel/",
+  },
   "russel-pillemer": {
     publisher: "Pengana Capital Group",
     url: "https://pengana.com/about-pengana/board-members/#:~:text=Russel%20Pillemer",

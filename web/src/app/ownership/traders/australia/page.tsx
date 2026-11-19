@@ -13,7 +13,7 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: "Australian investor tracker",
   description:
-    "Find people named in ASX substantial holding notices and annual top-20 registers. Follow their disclosed interests by issuer.",
+    "Find people named in ASX notices, annual top-20 registers and substantial shareholder lists. Follow their disclosed interests by issuer.",
   alternates: {
     canonical: `https://shorted.com.au${AUSTRALIAN_INVESTORS_PATH}`,
   },
@@ -37,8 +37,7 @@ export default async function AustralianInvestorsPage() {
           <div>
             <h1 className={pageTitle}>Australian investor tracker</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              ASX substantial holding notices and annual top-20 shareholder
-              registers.
+              Shareholders named in ASX notices and company annual reports.
             </p>
           </div>
           {feed.asOf && (

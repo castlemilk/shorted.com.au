@@ -1,3 +1,7 @@
+import {
+  annualFilingProfiles,
+  annualRegisters,
+} from "./australian-annual-profiles";
 import { noticeProfiles } from "./australian-notice-profiles";
 
 /** An ASX issuer and a filing together establish an identity. A surname, fund
@@ -10,6 +14,12 @@ export type FilingIdentity = {
   source: string;
   basis?: "annual";
   sourceLabel?: string;
+  annualInterest?: {
+    company: string;
+    date: string;
+    page: number;
+    amount: { shares: number; pct?: number } | { pct: number; shares?: number };
+  };
   notice?: {
     company: string;
     date: string;
@@ -104,6 +114,7 @@ const filingProfiles: AustralianInvestor[] = [
     ],
   },
   ...noticeProfiles,
+  ...annualFilingProfiles,
   {
     slug: "sam-hupert",
     name: "Sam Hupert",
@@ -186,19 +197,22 @@ export type RankedHolder = {
   jointNames?: readonly [string, string];
 };
 
-type RegisterSnapshot = {
+export type RegisterSnapshot = {
   code: string;
   company: string;
   date: string;
   dateBasis?: "financial-year-end";
   page: number;
   source: string;
+  /** For lists without a printed rank, rank is the one-based row position. */
+  orderedListSize?: number;
   holders: RankedHolder[];
 };
 
 // Each row is a transcribed registered account at its printed rank. Repeated
 // names, joint names, and controlled-company entries are deliberately retained.
 export const REGISTER_SNAPSHOTS: RegisterSnapshot[] = [
+  ...annualRegisters,
   {
     code: "HVN",
     company: "Harvey Norman Holdings",
@@ -538,7 +552,7 @@ export const RANKED_HOLDERS = REGISTER_SNAPSHOTS.flatMap(
 const profiles = new Map(filingProfiles.map((person) => [person.slug, person]));
 for (const holder of RANKED_HOLDERS) {
   if (!profiles.has(holder.profile)) {
-    const withoutTitle = holder.name.replace(/^(?:mr|mrs|ms)\.? +/i, "");
+    const withoutTitle = holder.name.replace(/^(?:mr|mrs|ms|dr)\.? +/i, "");
     profiles.set(holder.profile, {
       slug: holder.profile,
       name: holder.profileName ?? withoutTitle,
@@ -565,6 +579,19 @@ export const investorHref = (slug: string) =>
 export const investorBySlug = (slug: string) => profiles.get(slug);
 export const ranksForInvestor = (slug: string) =>
   RANKED_HOLDERS.filter((r) => r.profile === slug);
+export const annualInterestsForInvestor = (person: AustralianInvestor) =>
+  person.filings.flatMap((filing) =>
+    filing.annualInterest
+      ? [
+          {
+            ...filing.annualInterest,
+            code: filing.code,
+            holder: filing.filedName,
+            source: filing.source,
+          },
+        ]
+      : [],
+  );
 export const investorCodes = (p: AustralianInvestor) =>
   [
     ...new Set([
@@ -572,6 +599,10 @@ export const investorCodes = (p: AustralianInvestor) =>
       ...ranksForInvestor(p.slug).map((r) => r.code),
     ]),
   ].sort();
+
+export const TRACKED_ISSUERS = Array.from(
+  new Set(AUSTRALIAN_INVESTORS.flatMap(investorCodes)),
+).sort();
 
 export const filedNameKey = (name: string) =>
   name.normalize("NFC").trim().replace(/\s+/gu, " ").toLowerCase();

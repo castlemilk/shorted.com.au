@@ -17,6 +17,9 @@
     "https://reports.adviserinfo.sec.gov/reports/ADV/160017/PDF/160017.pdf": {
       "status": "restricted"
     },
+    "https://sghl.com.au/who-we-are/executive-management": {
+      "status": "responded"
+    },
     "https://substack.com/@michaeljburry": {
       "status": "responded"
     },
@@ -73,6 +76,16 @@
     "https://www.instagram.com/maasgroupholdings/": {
       "status": "restricted"
     },
+    "https://www.instagram.com/ruslankogan/": {
+      "status": "restricted"
+    },
+    "https://www.kogan.com/au/ruslan-kogan/": {
+      "status": "responded",
+      "links": [
+        "https://www.instagram.com/ruslankogan/",
+        "https://x.com/ruslankogan"
+      ]
+    },
     "https://www.linkedin.com/company/13728/": {
       "status": "restricted"
     },
@@ -100,6 +113,9 @@
     "https://www.linkedin.com/in/mcannonbrookes/": {
       "status": "restricted"
     },
+    "https://www.linkedin.com/in/ruslankogan/": {
+      "status": "restricted"
+    },
     "https://www.linkedin.com/in/vladimir-mitnovetski-2bb20bb/": {
       "status": "restricted"
     },
@@ -120,10 +136,16 @@
     "https://www.promed.com.au/about/board/": {
       "status": "responded"
     },
+    "https://www.pwr.com.au/meet-the-team/kees-weel/": {
+      "status": "responded"
+    },
     "https://www.reuters.com/sustainability/sustainable-finance-reporting/michael-burry-big-short-fame-deregisters-scion-asset-management-2025-11-13/": {
       "status": "restricted"
     },
     "https://www.scionasset.com/": {
+      "status": "responded"
+    },
+    "https://www.smartcompany.com.au/people-human-resources/powerful-australian-chief-executives-founders-linkedin-revealed/": {
       "status": "responded"
     },
     "https://www.ted.com/speakers/mike_cannon_brookes": {
@@ -169,6 +191,9 @@
       "status": "restricted"
     },
     "https://x.com/michaeljburry": {
+      "status": "restricted"
+    },
+    "https://x.com/ruslankogan": {
       "status": "restricted"
     }
   }

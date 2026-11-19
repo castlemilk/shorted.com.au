@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { OgCard, OG_SIZE, getOgLogo } from "~/@/lib/og/card";
 import {
+  annualInterestsForInvestor,
   investorCodes,
   investorPct,
   ranksForInvestor,
@@ -54,13 +55,32 @@ export async function investorShareCard(
     const ranks = ranksForInvestor(person.slug);
     const first = ranks[0];
     // Show rank and percentage only when a single printed account supports them.
-    if (first && ranks.every((r) => r.source === first.source)) {
+    const interest = annualInterestsForInvestor(person)[0];
+    if (interest && (!first || interest.date >= first.date)) {
+      eyebrow = "Reported substantial interest";
+      footer = `${interest.code} · ${displayRecordDate(interest.date)} · annual report p. ${interest.page}`;
+      if (interest.amount.shares !== undefined)
+        stats.push({
+          label: "ordinary shares reported",
+          value: interest.amount.shares.toLocaleString("en-AU"),
+        });
+      if (interest.amount.pct !== undefined)
+        stats.push({
+          label: "reported interest",
+          value: investorPct(interest.amount.pct),
+        });
+    } else if (first && ranks.every((r) => r.source === first.source)) {
       eyebrow = "ASX shareholder register";
       footer = `${first.code} · ${first.dateBasis ? "FY ended " : ""}${displayRecordDate(first.date)} · annual report p. ${first.page}`;
       stats =
         ranks.length === 1
           ? [
-              { label: "printed rank", value: `#${first.rank} of 20` },
+              {
+                label: first.orderedListSize
+                  ? "register position"
+                  : "printed rank",
+                value: `#${first.rank} of ${first.orderedListSize ?? 20}`,
+              },
               {
                 label: `share of ${first.code}`,
                 value: investorPct(first.pct),
@@ -69,7 +89,9 @@ export async function investorShareCard(
           : [
               { label: "registered accounts", value: String(ranks.length) },
               {
-                label: "printed ranks",
+                label: first.orderedListSize
+                  ? "register positions"
+                  : "printed ranks",
                 value: ranks.map((r) => r.rank).join(", "),
               },
             ];

@@ -35,6 +35,45 @@ function harveyBoard(role: string, year: string): ProfessionalRecord {
 
 // A named share register alone does not establish a job or directorship.
 const appointments: Readonly<Record<string, ProfessionalRecord | undefined>> = {
+  "ruslan-kogan": {
+    role: "Founder and chief executive officer",
+    organization: "Kogan.com",
+    milestone: { label: "Founded Kogan.com", date: "2006" },
+    source: "https://www.kogan.com/au/ruslan-kogan/",
+    sourceLabel: "Kogan.com biography",
+  },
+  "david-shafer": {
+    role: "Chief financial officer, chief operating officer and executive director",
+    organization: "Kogan.com",
+    milestone: { label: "Joined full time", date: "2010" },
+    source:
+      "https://www.marketindex.com.au/data-api/api/v1/announcements/XASX%3AKGN%3A3A702754/pdf/inline/2026-kogan-com-ltd-annual-report#page=28",
+    sourceLabel: "Kogan.com directors’ report",
+  },
+  "kees-weel": {
+    role: "Founder and non-executive chairman",
+    organization: "PWR",
+    milestone: { label: "Founded PWR", date: "1997" },
+    source:
+      "https://www.marketindex.com.au/data-api/api/v1/announcements/XASX%3APWH%3A2A1690824/pdf/inline/annual-report-to-shareholders#page=53",
+    sourceLabel: "PWR annual report",
+  },
+  "ryan-stokes": {
+    role: "Managing director and chief executive officer",
+    organization: "SGH",
+    milestone: { label: "Joined the SGH board", date: "2010" },
+    source:
+      "https://announcements.asx.com.au/asxpdf/20260811/pdf/072m7w5dr14xl3.pdf#page=37",
+    sourceLabel: "SGH directors’ report",
+  },
+  "michael-heine": {
+    role: "Founder and non-executive director",
+    organization: "Netwealth Group",
+    milestone: { label: "Founded Netwealth", date: "1999" },
+    source:
+      "https://cdn.financialreports.eu/financialreports/media/filings/65460/2026/RNS/65460_rns_2026-08-25_1b386da0-71a9-4a1e-bfb5-907c3758cbfc.pdf#page=33",
+    sourceLabel: "Netwealth directors’ report",
+  },
   "mike-cannon-brookes": {
     role: "Co-founder and chief executive officer",
     organization: "Atlassian",
@@ -169,12 +208,17 @@ function descriptionFor(person: Investor): string {
   const record = professionalRecord(person);
   const lead = record ? `${record.role} at ${record.organization}. ` : "";
   const ranks = ranksForInvestor(person.slug);
-  if (ranks.length === 1 && person.filings.every((f) => f.basis === "annual")) {
+  if (
+    ranks.length === 1 &&
+    person.filings.every(
+      (f) => f.basis === "annual" && !f.annualInterest && !f.sourceLabel,
+    )
+  ) {
     const rank = ranks[0]!;
     const period = rank.dateBasis
       ? `annual report for the year ended ${displayRecordDate(rank.date)}`
       : `${displayRecordDate(rank.date)} shareholder register`;
-    return `${lead}${rank.company} lists ${person.name} at rank ${rank.rank} (${investorPct(rank.pct)}) in its ${period}.`;
+    return `${lead}${rank.company} lists ${rank.profileName ?? rank.name} at rank ${rank.rank} (${investorPct(rank.pct)}) in its ${period}.`;
   }
   return lead + person.description;
 }

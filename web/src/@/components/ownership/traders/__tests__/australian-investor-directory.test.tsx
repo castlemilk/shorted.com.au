@@ -426,3 +426,44 @@ it("recovers from a storage failure and can undo an individual read", async () =
   expect(toggle).toHaveAttribute("aria-pressed", "false");
   jest.restoreAllMocks();
 });
+
+it("keeps a shared issuer view on the selected issuer’s disclosure for a multi-issuer investor", () => {
+  window.history.replaceState(null, "", route + "?issuer=bm1&campaign=tracker");
+  render(
+    <AustralianInvestorDirectory
+      feed={{
+        ...feed,
+        rows: [
+          {
+            ...row,
+            code: "WCN",
+            profile: "gina-rinehart",
+            pct: 13.04,
+            date: "2026-11-06",
+          },
+          {
+            ...row,
+            code: "BM1",
+            profile: "gina-rinehart",
+            pct: 6.8,
+            date: "2026-10-20",
+          },
+        ],
+      }}
+    />,
+  );
+  const selector = screen.getByRole("combobox", { name: "ASX issuer" });
+  expect(selector).toHaveValue("BM1");
+  expect(screen.getByText("6.8% voting power")).toBeVisible();
+  expect(screen.queryByText(/13.04%/)).toBeNull();
+  expect(screen.getByRole("heading", { name: /Investors in/ })).toBeVisible();
+  fireEvent.change(selector, { target: { value: "NWL" } });
+  expect(window.location.search).toBe("?issuer=NWL&campaign=tracker");
+  expect(screen.getByText("100,040,000 shares reported")).toBeVisible();
+  expect(screen.getByText(/3 investor profiles ·/)).toBeVisible();
+  expect(screen.queryByText(/voting power/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+  expect(window.location.search).toBe("?campaign=tracker");
+  expect(parseTrackerQuery("?issuer=ZZZ").issuer).toBe("");
+  expect(parseTrackerQuery("?view=filings&issuer=KGN").issuer).toBe("");
+});

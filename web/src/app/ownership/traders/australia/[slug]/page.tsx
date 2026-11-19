@@ -6,6 +6,7 @@ import {
   AnnualRanks,
   AnnualRankSummary,
 } from "~/@/components/ownership/traders/annual-ranks";
+import { AnnualInterests } from "~/@/components/ownership/traders/annual-interests";
 import { JsonLd } from "~/@/components/seo/json-ld";
 import { FilingHistory } from "~/@/components/ownership/traders/filing-history";
 import { FollowInvestor } from "~/@/components/ownership/traders/investor-follow";
@@ -16,7 +17,10 @@ import {
 } from "~/@/components/ownership/traders/investor-profile-header";
 import {
   AUSTRALIAN_INVESTORS_PATH,
+  annualInterestsForInvestor,
   investorBySlug,
+  investorCodes,
+  issuerInvestors,
   investorHref,
   investorPct,
   ranksForInvestor,
@@ -69,11 +73,15 @@ export default async function AustralianInvestorPage({ params }: Props) {
         (b.source ?? "").localeCompare(a.source ?? ""),
     );
   const ranks = ranksForInvestor(person.slug);
+  const annualInterests = annualInterestsForInvestor(person);
   const annualOnly =
-    ranks.length > 0 &&
+    (ranks.length > 0 || annualInterests.length > 0) &&
     registers.every(
       (r) => r.filing.basis === "annual" && !r.current && !r.history.length,
     );
+  const related = investorCodes(person)
+    .map((code) => ({ code, count: issuerInvestors(code).length }))
+    .filter((r) => r.count > 1);
   const accounts = publicAccounts[person.slug];
   const record = professionalRecord(person);
   return (
@@ -114,6 +122,12 @@ export default async function AustralianInvestorPage({ params }: Props) {
             aria-label="Investor filings"
             className="min-w-0 scroll-mt-32 space-y-6"
           >
+            {annualInterests.length > 0 && (
+              <AnnualInterests
+                entries={annualInterests}
+                description={record ? person.description : undefined}
+              />
+            )}
             {registers.length > 0 && !annualOnly && (
               <section
                 id="voting-interests"
@@ -268,6 +282,7 @@ export default async function AustralianInvestorPage({ params }: Props) {
                 <h2 className={sectionTitle}>Annual shareholder ranks</h2>
                 {annualOnly &&
                   record &&
+                  !annualInterests.length &&
                   person.filings.some((f) => f.sourceLabel) && (
                     <p className="max-w-3xl text-sm text-muted-foreground">
                       {person.description}
@@ -343,6 +358,23 @@ export default async function AustralianInvestorPage({ params }: Props) {
                   </p>
                 )}
               </section>
+            )}
+            {related.length > 0 && (
+              <nav
+                aria-label="Other investors at these issuers"
+                className="flex flex-wrap gap-x-5 text-sm"
+              >
+                {related.map(({ code, count }) => (
+                  <Link
+                    key={code}
+                    href={`${AUSTRALIAN_INVESTORS_PATH}?issuer=${code}`}
+                    prefetch={false}
+                    className={`inline-flex min-h-11 items-center ${link}`}
+                  >
+                    All {count} {code} investor profiles
+                  </Link>
+                ))}
+              </nav>
             )}
           </div>
           {accounts && (

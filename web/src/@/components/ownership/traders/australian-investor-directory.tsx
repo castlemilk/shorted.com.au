@@ -14,6 +14,7 @@ import {
   ranksForInvestor,
   RANKED_HOLDERS,
   REGISTER_SNAPSHOTS,
+  TRACKED_ISSUERS,
 } from "~/@/lib/ownership/australian-investors";
 import {
   filingEvents,
@@ -30,6 +31,7 @@ import {
   type DisclosureRow,
 } from "~/@/lib/ownership/investor-disclosures";
 import { noticeEventLabel } from "~/@/lib/ownership/events";
+import { formatIsoDate } from "~/@/lib/strategies/format";
 import { sectionTitle } from "~/@/lib/typography";
 import { AnnualRanks } from "./annual-ranks";
 import { FollowInvestor, useFollowedInvestors } from "./investor-follow";
@@ -59,31 +61,101 @@ const views: { value: TrackerView; label: string }[] = [
   { value: "ranks", label: "Annual ranks" },
   { value: "following", label: "Following" },
 ];
-const profiles = AUSTRALIAN_INVESTORS.map((p) => {
-  const codes = investorCodes(p);
-  const ranks = ranksForInvestor(p.slug).sort(
-    (a, b) => b.date.localeCompare(a.date) || a.rank - b.rank,
-  );
+type DirectoryEntry = {
+  code: string;
+  date: string;
+  name: string;
+  source: string | null;
+  document: string;
+  interest: string;
+  basis: "notice" | "substantial" | "rank";
+  rank?: number;
+  extraAccounts?: number;
+  yearEnd?: boolean;
+};
+
+function noticeEntry(row: DisclosureRow): DirectoryEntry {
   return {
-    person: p,
-    codes,
-    rank: ranks[0],
-    archive: p.filings
-      .map(archivedDisclosure)
-      .filter((n): n is DisclosureRow => n !== undefined)
-      .sort((a, b) => b.date.localeCompare(a.date))[0],
-    search: [
-      p.name,
-      ...(p.alternateName ? [p.alternateName] : []),
-      ...codes,
-      ...p.filings.flatMap((f) => [
-        f.filedName,
-        f.notice?.company,
-        ...(f.aliases ?? []),
-      ]),
-      ...ranks.flatMap((r) => [r.name, r.company]),
-    ].join(" "),
+    code: row.code,
+    date: row.date,
+    name: row.name,
+    source: row.source,
+    document: `Form ${row.form}`,
+    basis: "notice",
+    interest: row.ceased
+      ? "Ceased to be substantial"
+      : row.pct === null
+        ? "Voting power unstated"
+        : `${investorPct(row.pct)}\nvoting power`,
   };
+}
+
+const entryOrder = { notice: 0, substantial: 1, rank: 2 };
+function newestFirst(a: DirectoryEntry, b: DirectoryEntry) {
+  return (
+    b.date.localeCompare(a.date) ||
+    entryOrder[a.basis] - entryOrder[b.basis] ||
+    (a.rank ?? 0) - (b.rank ?? 0)
+  );
+}
+
+const companyNames = new Map<string, string>();
+const profiles = AUSTRALIAN_INVESTORS.map((person) => {
+  const codes = investorCodes(person);
+  const ranks = ranksForInvestor(person.slug);
+  const entries: DirectoryEntry[] = ranks.map((r) => {
+    companyNames.set(r.code, r.company);
+    return {
+      code: r.code,
+      date: r.date,
+      name: r.name,
+      source: r.source,
+      document: "Annual register",
+      basis: "rank",
+      rank: r.rank,
+      extraAccounts: ranks.filter(
+        (other) =>
+          other.code === r.code &&
+          other.date === r.date &&
+          other.rank !== r.rank,
+      ).length,
+      interest: `#${r.rank} · ${investorPct(r.pct)}\nof issued shares`,
+      yearEnd: !!r.dateBasis,
+    };
+  });
+  for (const filing of person.filings) {
+    const archived = archivedDisclosure(filing);
+    if (archived) {
+      companyNames.set(filing.code, archived.company);
+      entries.push(noticeEntry(archived));
+    }
+    const interest = filing.annualInterest;
+    if (interest) {
+      companyNames.set(filing.code, interest.company);
+      const amount = interest.amount;
+      entries.push({
+        code: filing.code,
+        date: interest.date,
+        name: filing.filedName,
+        source: filing.source,
+        document: "Annual report",
+        basis: "substantial",
+        interest:
+          amount.pct !== undefined
+            ? `${investorPct(amount.pct)}\nreported interest`
+            : `${amount.shares!.toLocaleString("en-AU")}\nshares reported`,
+      });
+    }
+  }
+  const search = [
+    person.name,
+    person.alternateName,
+    ...(person.jointNames ?? []),
+    ...codes,
+    ...person.filings.flatMap((f) => [f.filedName, ...(f.aliases ?? [])]),
+    ...ranks.map((r) => r.name),
+  ].join(" ");
+  return { person, codes, entries, search };
 });
 const ranksByIssuer = [...RANKED_HOLDERS].sort(
   (a, b) => a.rank - b.rank || a.code.localeCompare(b.code),
@@ -97,64 +169,118 @@ const directoryGrid =
 function People({
   feed,
   query,
+  issuer,
   search,
+  clear,
 }: {
   feed: Discovery;
   query: string;
+  issuer: string;
   search: ReactNode;
+  clear: ReactNode;
 }) {
-  const latest = new Map<string, DisclosureRow>();
-  const companies = new Map<string, string>();
+  const searchedCode = query.trim().toUpperCase();
+  const scopedCode =
+    issuer || (TRACKED_ISSUERS.includes(searchedCode) ? searchedCode : "");
+  const companies = new Map(companyNames);
+  const live = new Map<string, DirectoryEntry[]>();
   for (const row of feed.rows) {
-    if (row.profile && !latest.has(row.profile)) latest.set(row.profile, row);
-    if (row.company) companies.set(row.code, row.company);
+    if (row.profile && (!scopedCode || scopedCode === row.code)) {
+      const entries = live.get(row.profile) ?? [];
+      entries.push(noticeEntry(row));
+      live.set(row.profile, entries);
+    }
+    if (row.company && !companies.has(row.code))
+      companies.set(row.code, row.company);
   }
   const matches = profiles
-    .filter((p) =>
-      matchesWords(
-        [p.search, ...p.codes.map((code) => companies.get(code))].join(" "),
-        query,
-      ),
+    .filter(
+      (p) =>
+        (!scopedCode || p.codes.includes(scopedCode)) &&
+        matchesWords(
+          [p.search, ...p.codes.map((code) => companies.get(code))].join(" "),
+          query,
+        ),
     )
-    .map((profile) => {
-      const live = latest.get(profile.person.slug);
-      const notice =
-        !live || (profile.archive && profile.archive.date > live.date)
-          ? profile.archive
-          : live;
-      const rank = profile.rank;
-      const date =
-        notice && (!rank || notice.date >= rank.date)
-          ? notice.date
-          : rank?.date;
-      return {
-        ...profile,
-        notice: notice?.date === date ? notice : undefined,
-        date,
-      };
+    .map((p) => {
+      const entries = [
+        ...(live.get(p.person.slug) ?? []),
+        ...p.entries.filter((e) => !scopedCode || scopedCode === e.code),
+      ];
+      const entry = entries.sort(newestFirst)[0];
+      return { ...p, entry };
     })
     .sort(
       (a, b) =>
-        (b.date ?? "").localeCompare(a.date ?? "") ||
+        (b.entry?.date ?? "").localeCompare(a.entry?.date ?? "") ||
+        (scopedCode && a.entry && b.entry
+          ? newestFirst(a.entry, b.entry)
+          : 0) ||
         a.person.name.localeCompare(b.person.name, "en-AU"),
     );
   const issuerCount = new Set(matches.flatMap((p) => p.codes)).size;
+  const first = matches[0]?.entry;
+  const registerDate =
+    scopedCode &&
+    first?.basis === "rank" &&
+    !first.yearEnd &&
+    matches.every(
+      ({ entry }) => entry?.basis === "rank" && entry.date === first.date,
+    )
+      ? first.date
+      : undefined;
+  const profileCount = `${matches.length} investor ${matches.length === 1 ? "profile" : "profiles"}`;
   return (
     <section aria-label="Investor profiles" className="space-y-3">
       <header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2">
         <div>
           <h2 className={sectionTitle}>
-            {matches.length} investor{" "}
-            {matches.length === 1 ? "profile" : "profiles"}
+            {scopedCode
+              ? `Investors in ${companies.get(scopedCode) ?? scopedCode}`
+              : profileCount}
           </h2>
-          {issuerCount > 0 && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {issuerCount} ASX {issuerCount === 1 ? "issuer" : "issuers"} ·
-              Latest disclosure first
+          {(issuerCount > 0 || scopedCode) && (
+            <p className="mt-1 text-pretty text-xs text-muted-foreground">
+              {scopedCode
+                ? profileCount
+                : `${issuerCount} ASX ${issuerCount === 1 ? "issuer" : "issuers"}`}
+              {" · "}
+              {registerDate ? (
+                <>
+                  Register at{" "}
+                  <time dateTime={registerDate} className="whitespace-nowrap">
+                    {formatIsoDate(registerDate)}
+                  </time>
+                </>
+              ) : (
+                "Latest disclosure first"
+              )}
             </p>
           )}
         </div>
-        {search}
+        <div className="grid w-full min-w-0 gap-2 sm:w-auto sm:grid-flow-col sm:items-center">
+          <div className="min-w-0 sm:w-64">{search}</div>
+          <div className="flex min-w-0 items-center gap-3">
+            <select
+              aria-label="ASX issuer"
+              value={issuer}
+              className={`${control} min-w-0 flex-1 sm:w-52`}
+              onChange={(event) =>
+                updateTrackerQuery({ issuer: event.target.value }, true)
+              }
+            >
+              <option value="">All ASX issuers</option>
+              {TRACKED_ISSUERS.map((code) => (
+                <option key={code} value={code}>
+                  {companies.has(code) && companies.get(code) !== code
+                    ? `${code} · ${companies.get(code)}`
+                    : code}
+                </option>
+              ))}
+            </select>
+            {clear}
+          </div>
+        </div>
       </header>
       {matches.length ? (
         <div>
@@ -167,27 +293,16 @@ function People({
             <span>Issuer / source</span>
           </div>
           <ul className="divide-y border-b max-md:border-t">
-            {matches.map(({ person, codes, rank, notice, date }) => {
-              const reference = person.filings[0];
-              const filedName =
-                notice?.name ?? rank?.name ?? reference?.filedName;
-              const code = notice?.code ?? rank?.code ?? reference?.code;
-              const source = notice
-                ? notice.source
-                : (rank?.source ?? reference?.source);
-              const document = notice
-                ? `Form ${notice.form}`
-                : rank
-                  ? "Annual register"
-                  : "ASX filing";
-              const interest = notice
-                ? notice.ceased
-                  ? "Ceased to be substantial"
-                  : notice.pct === null
-                    ? "Voting power unstated"
-                    : `${investorPct(notice.pct)}\nvoting power`
-                : rank &&
-                  `#${rank.rank} · ${investorPct(rank.pct)}\nof issued shares`;
+            {matches.map(({ person, codes, entry }) => {
+              const reference = person.filings.find(
+                (f) => !scopedCode || f.code === scopedCode,
+              );
+              const filedName = entry?.name ?? reference?.filedName;
+              const code = entry?.code ?? reference?.code;
+              const source = entry ? entry.source : reference?.source;
+              const document = entry?.document ?? "ASX filing";
+              const date = entry?.date;
+              const interest = entry?.interest;
               return (
                 <li
                   key={person.slug}
@@ -203,13 +318,23 @@ function People({
                     </Link>
                     {filedName &&
                       filedNameKey(filedName).replace(
-                        /^(?:mr|mrs|ms)\.? +/,
+                        /^(?:mr|mrs|ms|dr)\.? +/,
                         "",
                       ) !== filedNameKey(person.name) && (
-                        <p className="mt-1 text-pretty break-words text-xs text-muted-foreground">
+                        <p className="mt-1 line-clamp-2 break-words text-xs text-muted-foreground">
                           {filedName}
                         </p>
                       )}
+                    {entry?.extraAccounts ? (
+                      <Link
+                        href={investorHref(person.slug) + "#annual-register"}
+                        prefetch={false}
+                        className="inline-flex min-h-6 items-center text-xs text-primary underline underline-offset-4 hover:decoration-2"
+                      >
+                        {entry.extraAccounts} more registered{" "}
+                        {entry.extraAccounts === 1 ? "account" : "accounts"}
+                      </Link>
+                    ) : null}
                     {codes.length > 1 && (
                       <p className="mt-1 text-xs text-muted-foreground">
                         {codes.join(" · ")}
@@ -239,7 +364,7 @@ function People({
                             dateTime={date}
                             className="text-muted-foreground md:mt-1 md:block"
                           >
-                            {!notice && rank?.dateBasis && "FY ended "}
+                            {entry?.yearEnd && "FY ended "}
                             {date}
                           </time>
                         )}
@@ -253,15 +378,13 @@ function People({
               );
             })}
           </ul>
-          <p className="mt-3 max-w-3xl text-xs text-muted-foreground">
-            Voting power includes the associates named in a notice. Annual ranks
-            show the entry as the issuer printed it.
+          <p className="mt-3 max-w-3xl text-pretty text-xs text-muted-foreground">
+            Voting power includes named associates. Annual figures come from the
+            issuer’s register and substantial-holder list.
           </p>
         </div>
       ) : (
-        <p>
-          No investor profiles match. Search Recent filings for other names.
-        </p>
+        <p>No investor profiles match these filters.</p>
       )}
     </section>
   );
@@ -284,6 +407,7 @@ export function AustralianInvestorDirectory({ feed }: { feed: Discovery }) {
   const limit = f.page * PAGE_SIZE;
   const filtered =
     f.query ||
+    f.issuer ||
     f.event ||
     f.order !== "latest" ||
     f.unread ||
@@ -300,7 +424,9 @@ export function AustralianInvestorDirectory({ feed }: { feed: Discovery }) {
     <button
       type="button"
       className={`min-h-10 shrink-0 text-xs ${link}`}
-      onClick={() => updateTrackerQuery({ ...defaultView, view: f.view })}
+      onClick={() =>
+        updateTrackerQuery({ ...defaultView, view: f.view }, !!f.issuer)
+      }
     >
       Clear filters
     </button>
@@ -317,7 +443,7 @@ export function AustralianInvestorDirectory({ feed }: { feed: Discovery }) {
         maxLength={200}
         value={f.query}
         onChange={(e) => updateTrackerQuery({ query: e.target.value })}
-        placeholder="Search names or ASX codes"
+        placeholder={f.issuer ? "Search investor names" : "Name or ASX code"}
         className={`${control} w-full pl-9 placeholder:text-muted-foreground`}
       />
     </label>
@@ -460,12 +586,9 @@ export function AustralianInvestorDirectory({ feed }: { feed: Discovery }) {
         <People
           feed={feed}
           query={f.query}
-          search={
-            <div className="flex w-full items-center gap-3 sm:w-80">
-              {searchBox}
-              {clear}
-            </div>
-          }
+          issuer={f.issuer}
+          search={searchBox}
+          clear={clear}
         />
       )}
       {f.view === "following" && (
@@ -525,9 +648,9 @@ export function AustralianInvestorDirectory({ feed }: { feed: Discovery }) {
         >
           <h2 className={sectionTitle}>Annual shareholder ranks</h2>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            Named entries from {REGISTER_SNAPSHOTS.length} issuers’ top-20
-            shareholder lists. Each issuer sets its own ranks and may group
-            several accounts in one entry.
+            Named entries from {REGISTER_SNAPSHOTS.length} issuers’ largest
+            shareholder lists, in the order published. Some entries group
+            several accounts.
           </p>
           {ranks.length ? (
             <AnnualRanks rows={ranks} linkProfiles />

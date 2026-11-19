@@ -298,3 +298,54 @@ it("uses two visually reviewed forms when the upstream extraction lost decimal d
     ).toBe(80);
   }
 });
+
+it("uses the most recent matched holder alias and keeps annual interests in their original units", () => {
+  const filing = investorBySlug("nicholas-heine")!.filings[0]!;
+  const data = create(GetStockOwnershipResponseSchema, {
+    holders: [
+      {
+        stockCode: "NWL",
+        holderName: "NICHOLAS HEINE",
+        announcedOn: "2024-11-25",
+        votingPowerPct: 46.37,
+      },
+      {
+        stockCode: "NWL",
+        holderName: "Nicholas St. Clair Max Heine",
+        announcedOn: "2025-09-24",
+        votingPowerPct: 40.79,
+      },
+    ],
+  });
+  expect(readFilingIdentity(filing, data).current).toMatchObject({
+    date: "2025-09-24",
+    pct: 40.79,
+  });
+  expect(filing.annualInterest?.amount).toEqual({ shares: 100086750 });
+  expect(
+    investorBySlug("chris-ellison")!.filings[0]!.annualInterest?.amount,
+  ).toEqual({ pct: 10.54 });
+  expect(investorForFiling("NWL", "Heine Brothers Pty Ltd")).toBeUndefined();
+  expect(investorBySlug("andrew-and-nicola-forrest")!.jointNames).toHaveLength(
+    2,
+  );
+});
+
+it("preserves positions in Kogan’s unnumbered 21-account list and keeps its tied entries separate", () => {
+  const first = ranksForInvestor("ruslan-kogan")[0]!;
+  expect(first).toMatchObject({
+    rank: 1,
+    orderedListSize: 21,
+    shares: 15515701,
+  });
+  expect(ranksForInvestor("david-shafer").map((r) => r.rank)).toEqual([5, 13]);
+  const doctor = investorForFiling("KGN", "Philippa Jacqueline Taplin")!;
+  expect(ranksForInvestor(doctor.slug)[0]).toMatchObject({
+    rank: 17,
+    shares: 260000,
+  });
+  expect(ranksForInvestor("kgn-owen-francis-eaton-taplin")[0]).toMatchObject({
+    rank: 18,
+    shares: 260000,
+  });
+});

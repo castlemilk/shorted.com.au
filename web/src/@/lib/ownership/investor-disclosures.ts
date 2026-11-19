@@ -229,7 +229,9 @@ export function readFilingIdentity(
   const matches = (r: { stockCode: string; holderName: string }) =>
     r.stockCode === filing.code && names.has(filedNameKey(r.holderName));
   const company = data?.summary?.companyName?.trim();
-  const interest = data?.holders?.find(matches);
+  const interest = data?.holders
+    ?.filter(matches)
+    .sort((a, b) => b.announcedOn.localeCompare(a.announcedOn))[0];
   const available = data?.history ?? [];
   const history = available.filter(matches).map(disclosureRow);
   const archived = archivedDisclosure(filing);

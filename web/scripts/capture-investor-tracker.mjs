@@ -218,6 +218,49 @@ try {
   await page.setViewportSize(mobile);
   await shoot("investor-directory-mobile.png");
   await page.setViewportSize(desktop);
+  const issuerPicker = people.getByRole("combobox", { name: "ASX issuer" });
+  await issuerPicker.selectOption("KGN");
+  await people
+    .getByRole("heading", { name: "Investors in Kogan.com" })
+    .waitFor();
+  assert.equal(new URL(page.url()).searchParams.get("issuer"), "KGN");
+  await people
+    .getByRole("link", { name: "1 more registered account" })
+    .waitFor();
+  await shoot("kogan-issuer-desktop.png");
+  await page.setViewportSize(mobile);
+  await shoot("kogan-issuer-mobile.png");
+  await people.getByRole("link", { name: "Ruslan Kogan", exact: true }).click();
+  await verifyPortrait("Ruslan Kogan");
+  await page.getByText("Position 1 of 21 listed accounts").waitFor();
+  const koganAccounts = region("Public accounts");
+  assert.equal(
+    await koganAccounts
+      .getByRole("link", { name: /LinkedIn/ })
+      .first()
+      .getAttribute("href"),
+    "https://www.linkedin.com/in/ruslankogan/",
+  );
+
+  await koganAccounts
+    .getByRole("link", { name: /Instagram/ })
+    .first()
+    .waitFor();
+  await verifyAccountRows(koganAccounts);
+  await page.getByRole("cell", { name: /15,515,701/ }).waitFor();
+  await shoot("ruslan-kogan-mobile.png");
+  await shoot("ruslan-kogan-accounts-mobile.png", koganAccounts);
+  await page.setViewportSize(desktop);
+  await shoot("ruslan-kogan-desktop.png");
+  await go(hub + "/andrew-and-nicola-forrest");
+  const combined = region("Substantial interests in annual reports");
+  await combined.getByText("1,131,365,000").waitFor();
+  await combined.getByText("36.74%").waitFor();
+  await shoot("forrest-group-desktop.png");
+  await page.setViewportSize(mobile);
+  await shoot("forrest-group-mobile.png");
+  await page.setViewportSize(desktop);
+  await go(hub);
   await people.getByRole("searchbox").fill("Galipea");
   await people
     .getByRole("link", { name: "Mike Cannon-Brookes", exact: true })

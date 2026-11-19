@@ -25,6 +25,10 @@ export interface TraderAccounts {
   coHosted?: { name: string; accounts: readonly PublicAccount[] };
 }
 
+const koganBio: AccountSource = {
+  title: "Kogan.com’s founder biography",
+  url: "https://www.kogan.com/au/ruslan-kogan/",
+};
 const milken: AccountSource = {
   title: "Milken Institute speaker profile",
   url: "https://milkeninstitute.org/events/global-conference-2026/speakers/brad-gerstner",
@@ -59,6 +63,31 @@ const maasSite: AccountSource = {
 export const publicAccounts: Readonly<
   Record<string, TraderAccounts | undefined>
 > = {
+  "ruslan-kogan": {
+    reviewedOn: "2026-11-19",
+    personal: [
+      {
+        platform: "LinkedIn",
+        url: "https://www.linkedin.com/in/ruslankogan/",
+        source: {
+          title: "SmartCompany on Kogan’s LinkedIn profile",
+          url: "https://www.smartcompany.com.au/people-human-resources/powerful-australian-chief-executives-founders-linkedin-revealed/",
+        },
+      },
+      {
+        platform: "X",
+        url: "https://x.com/ruslankogan",
+        handle: "@ruslankogan",
+        source: koganBio,
+      },
+      {
+        platform: "Instagram",
+        url: "https://www.instagram.com/ruslankogan/",
+        handle: "@ruslankogan",
+        source: koganBio,
+      },
+    ],
+  },
   "mike-cannon-brookes": {
     reviewedOn: "2026-11-19",
     personal: [
