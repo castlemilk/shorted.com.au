@@ -82,6 +82,17 @@ it("retains an absent director selection and explains the coverage window", () =
   expect(screen.queryByRole("table")).toBeNull();
 });
 
+it("links a director to public accounts only for the recorded issuer and name", () => {
+  const rows = [{ ...base, director: "Geoff Wilson" }];
+  query = "director=geoff+wilson";
+  const { rerender } = render(<DirectorRecords code="WAM" rows={rows} />);
+  expect(
+    screen.getByRole("link", { name: /Geoff Wilson’s public accounts/ }),
+  ).toHaveAttribute("href", "/ownership/traders/geoff-wilson#public-accounts");
+  rerender(<DirectorRecords code="BHP" rows={rows} />);
+  expect(screen.queryByRole("link", { name: /public accounts/i })).toBeNull();
+});
+
 it("keeps company associations explicit and omits the headline reader's placeholders", () => {
   expect(
     tradersForHolder("wilson-asset-management").map((t) => t.name),

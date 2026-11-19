@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Table,
@@ -10,7 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "~/@/components/ui/table";
-import { directorHref, directorKey } from "~/@/lib/ownership/traders";
+import {
+  directorHref,
+  directorKey,
+  traderHref,
+  TRADERS,
+} from "~/@/lib/ownership/traders";
 
 export interface DirectorRecord {
   id: string;
@@ -39,6 +45,12 @@ function RecordTable({
     ? rows.filter((row) => directorKey(row.director) === selected)
     : rows;
   const director = names.get(selected);
+  const trader =
+    director &&
+    TRADERS.find(
+      (p) =>
+        p.director?.code === code && directorKey(p.director.name) === selected,
+    );
   const counts = new Map<string, number>();
   if (director) {
     for (const row of visible)
@@ -78,6 +90,15 @@ function RecordTable({
           className="space-y-3 rounded-md border bg-card p-4"
         >
           <h2 className="font-serif text-2xl font-semibold">{director}</h2>
+          {trader && (
+            <Link
+              href={`${traderHref(trader)}#public-accounts`}
+              prefetch={false}
+              className="inline-block text-sm text-primary underline-offset-4 hover:underline"
+            >
+              {trader.name}’s public accounts →
+            </Link>
+          )}
           <dl className="flex flex-wrap gap-x-8 gap-y-3 text-sm">
             <div>
               <dt className="text-xs text-muted-foreground">

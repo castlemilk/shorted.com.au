@@ -6,6 +6,7 @@ import { ExternalLinkSymbol } from "~/@/components/ownership/external-link-glyph
 import { NoticeTable } from "~/@/components/ownership/notice-table";
 import { SubstantialHoldingsTable } from "~/@/components/ownership/ownership-tables";
 import { SecPositions } from "~/@/components/ownership/traders/sec-positions";
+import { TraderPublicAccounts } from "~/@/components/ownership/traders/trader-public-accounts";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import {
   defaultNoticeQuery,
@@ -179,6 +180,7 @@ export default async function TraderPage({ params }: Props) {
                 </p>
               </div>
             )}
+            <TraderPublicAccounts trader={person} />
           </aside>
           <div className="min-w-0 lg:col-start-1 lg:row-start-1">
             {reporting.market === "US" && sec ? (
