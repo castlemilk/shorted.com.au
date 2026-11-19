@@ -310,7 +310,7 @@ jobs:
       # v6.5.0, not v6: see go-quality.yml.
       - uses: actions/setup-go@v6.5.0
         with:
-          go-version-file: services/go.mod
+          go-version: "1.27.4"
           cache: false
 
       # `services` depends on the private github.com/skunkworq/stealth module.
